@@ -71,7 +71,7 @@ const jiraItem = "workflow-jira https://jira.example.com"
 
 // storerFor is the macOS store for a user logged in as jacob, running
 // security through a recordingRunner that answers with err.
-func storerFor(runs *[]ran, err error) func(service, secret string) error {
+func storerFor(runs *[]ran, err error) func(ctx context.Context, service, secret string) error {
 	return keychain.Storer("darwin", recordingRunner(runs, err), loggedInAs("jacob"), userIs(""))
 }
 
@@ -107,7 +107,7 @@ func TestStorerSavesUnderTheServiceNamedUpdatably(t *testing.T) {
 	store := storerFor(&runs, nil)
 
 	// Act
-	err := store(jiraItem, "s3cret")
+	err := store(t.Context(), jiraItem, "s3cret")
 	// Assert
 	if err != nil {
 		t.Errorf("store = %v, want the secret kept", err)
@@ -132,7 +132,7 @@ func TestStorerKeepsTheSecretOutOfTheArguments(t *testing.T) {
 	store := storerFor(&runs, nil)
 
 	// Act
-	err := store(jiraItem, "s3cret")
+	err := store(t.Context(), jiraItem, "s3cret")
 
 	// Assert
 	if err != nil || len(runs) != 1 {
@@ -173,7 +173,7 @@ func TestStorerQuotesTheSecretForSecurity(t *testing.T) {
 			store := storerFor(&runs, nil)
 
 			// Act
-			err := store(jiraItem, secret.plain)
+			err := store(t.Context(), jiraItem, secret.plain)
 
 			// Assert
 			want := `add-generic-password -U -a "jacob" -s "` + jiraItem + `" -w ` + secret.quoted + "\n"
@@ -203,7 +203,7 @@ func TestStorerRefusesASecretThatCannotBeOneLine(t *testing.T) {
 			store := storerFor(&runs, nil)
 
 			// Act
-			err := store(jiraItem, secret)
+			err := store(t.Context(), jiraItem, secret)
 
 			// Assert
 			if !errors.Is(err, keychain.ErrSecretNotOneLine) {
@@ -226,7 +226,7 @@ func TestStorerReportsARefusedStore(t *testing.T) {
 	store := storerFor(&runs, errKeychainLocked)
 
 	// Act
-	err := store(jiraItem, "s3cret")
+	err := store(t.Context(), jiraItem, "s3cret")
 
 	// Assert
 	if !errors.Is(err, keychain.ErrNotKept) {
@@ -246,7 +246,7 @@ func TestStorerTellsARefusedStoreWithoutWhatSecurityPrinted(t *testing.T) {
 	store := storerFor(&runs, printed)
 
 	// Act
-	err := store(jiraItem, "s3cret")
+	err := store(t.Context(), jiraItem, "s3cret")
 
 	// Assert
 	if !errors.Is(err, keychain.ErrNotKept) || strings.Contains(err.Error(), "s3cret") {
@@ -274,7 +274,7 @@ func TestStorerBoundsSecurityByTheDefaultRunTimeout(t *testing.T) {
 	before := time.Now()
 
 	// Act
-	err := store(jiraItem, "s3cret")
+	err := store(t.Context(), jiraItem, "s3cret")
 	after := time.Now()
 
 	// Assert
@@ -313,7 +313,7 @@ func TestStorerNamesTheAccountAfterTheUser(t *testing.T) {
 			store := keychain.Storer("darwin", recordingRunner(&runs, nil), tt.lookup, userIs(tt.user))
 
 			// Act
-			err := store(jiraItem, "s3cret")
+			err := store(t.Context(), jiraItem, "s3cret")
 
 			// Assert
 			want := "add-generic-password -U -a " + tt.account + ` -s "` + jiraItem + `" -w "s3cret"` + "\n"
@@ -345,7 +345,7 @@ func TestStorerRefusesWithoutAnAccountName(t *testing.T) {
 			store := keychain.Storer("darwin", recordingRunner(&runs, nil), tt.lookup, userIs(""))
 
 			// Act
-			err := store(jiraItem, "s3cret")
+			err := store(t.Context(), jiraItem, "s3cret")
 
 			// Assert
 			for _, cause := range tt.causes {

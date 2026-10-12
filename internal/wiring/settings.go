@@ -34,7 +34,9 @@ func (e Environment) settingsDeps(files config.Files, controls Controls) seams.S
 // redirect-refusing client, outlined in log unless it is nil, and the token
 // kept in the keychain item for its address through storeSecret, nil where
 // none is wired, each under the context it is asked under.
-func SetupDeps(where setup.Where, log *RequestLog, storeSecret func(service, secret string) error) seams.Setup {
+func SetupDeps(
+	where setup.Where, log *RequestLog, storeSecret func(ctx context.Context, service, secret string) error,
+) seams.Setup {
 	guide := setup.Guide{
 		//nolint:bodyclose // Wrap only relays the response; the Jira client reads and closes its body.
 		Where: where, Doer: log.Wrap("jira", httpx.Client(config.DefaultRequestTimeout).Do), StoreSecret: storeSecret,

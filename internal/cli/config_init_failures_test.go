@@ -4,11 +4,14 @@
 package cli_test
 
 import (
+	"bytes"
+	"context"
 	"errors"
 	"io"
 	"io/fs"
 	"net/http"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -16,6 +19,8 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/keychain"
+	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
 // noConfigWritten fails the test when a configuration file was written in dir.
@@ -169,7 +174,7 @@ func TestGuidedInitStopsWhenNothingAnswersTheKeychainOffer(t *testing.T) {
 	prompt := cli.Prompt{
 		Line:   answersThenEnds(workingJira(t)),
 		Secret: answersThenEnds(guidedToken),
-		StoreSecret: func(string, string) error {
+		StoreSecret: func(context.Context, string, string) error {
 			stored.Store(true)
 
 			return nil
@@ -187,6 +192,42 @@ func TestGuidedInitStopsWhenNothingAnswersTheKeychainOffer(t *testing.T) {
 
 	wantExit(t, err, 2)
 	noConfigWritten(t, dir)
+}
+
+// A Ctrl+C while security keeps the token stops it, as it stops every
+// program a command runs, rather than leaving it to its own bound.
+func TestGuidedInitStopsTheKeychainWriteWhenTheCommandIsCanceled(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	command, interrupt := context.WithCancel(t.Context())
+	defer interrupt()
+
+	var ranUnder error
+
+	security := func(ctx context.Context, _ proc.Command, _ []byte) ([]byte, error) {
+		interrupt()
+
+		ranUnder = ctx.Err()
+
+		return nil, context.Cause(ctx)
+	}
+	fred := func() (*user.User, error) { return &user.User{Username: "fred"}, nil }
+	prompt := scripted([]string{workingJira(t), "y"}, []string{guidedToken})
+	prompt.StoreSecret = keychain.Storer("darwin", security, fred, os.Getenv)
+	root := cli.NewRootCmdOver(prompt, nil, nil, environmentFor(t, place{dir: t.TempDir(), home: t.TempDir()}))
+	root.SetArgs(strings.Fields("config init --global"))
+	root.SetOut(&bytes.Buffer{})
+	root.SetErr(&bytes.Buffer{})
+
+	// Act
+	err := root.ExecuteContext(command)
+
+	// Assert
+	if !errors.Is(ranUnder, context.Canceled) || err == nil {
+		t.Errorf("config init = %v, with security run under a context ended by %v; want security run under "+
+			"the command's context, ended by the interrupt, and the setup refused", err, ranUnder)
+	}
 }
 
 func TestConfigInitRefusesALinkWhereTheFileWouldGo(t *testing.T) {

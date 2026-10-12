@@ -149,20 +149,21 @@ func (i Item) security(ctx context.Context, args []string, input []byte) ([]byte
 }
 
 // Storer keeps a secret under the service named, in the keychain on goos,
-// through run, bounded as Item.Store is. It is nil where storing is not wired
-// for goos, so a caller keeps the secret elsewhere there. Storing is wired for
-// macOS, through the built-in `security`.
+// through run, under the context it is asked under and bounded as Item.Store
+// is. It is nil where storing is not wired for goos, so a caller keeps the
+// secret elsewhere there. Storing is wired for macOS, through the built-in
+// `security`.
 func Storer(
 	goos string, run Runner, currentUser UserLookup, getenv func(string) string,
-) func(service, secret string) error {
+) func(ctx context.Context, service, secret string) error {
 	if !Wired(goos) {
 		return nil
 	}
 
-	return func(service, secret string) error {
+	return func(ctx context.Context, service, secret string) error {
 		item := Item{service: service, run: run, currentUser: currentUser, getenv: getenv}
 
-		return item.Store(context.Background(), secret)
+		return item.Store(ctx, secret)
 	}
 }
 

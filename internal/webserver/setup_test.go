@@ -63,11 +63,12 @@ func (r *firstRun) jira(request *http.Request) (*http.Response, error) {
 func (r *firstRun) deps(t *testing.T) webserver.Deps {
 	t.Helper()
 
-	guide := setup.Guide{Where: r.where, Doer: jira.Doer(r.jira), StoreSecret: func(_, secret string) error {
+	keep := func(_ context.Context, _, secret string) error {
 		r.stored = secret
 
 		return nil
-	}}
+	}
+	guide := setup.Guide{Where: r.where, Doer: jira.Doer(r.jira), StoreSecret: keep}
 
 	deps := webserver.Deps{
 		Repositories: seams.Repositories{Here: seams.Place{Dir: r.where.WorkDir}, Home: r.where.HomeDir},
