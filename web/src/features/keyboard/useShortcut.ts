@@ -2,7 +2,7 @@ import { useEffect, useRef, type RefObject } from 'react'
 import { create } from 'zustand'
 import { useShallow } from 'zustand/shallow'
 import { sections, type Section } from '@/shell/uiStore.ts'
-import { jumpAction, paneSections } from './boundActions.ts'
+import { jumpAction } from './boundActions.ts'
 import { ariaShortcuts } from './keyNames.ts'
 import { keysOf, useKeysStore } from './keysApi.ts'
 
@@ -67,7 +67,8 @@ export function useShortcutProps<T extends HTMLElement>(
 }
 
 // usePaneShortcuts is each section's aria-keyshortcuts in the rail: the
-// terminal's pane numbers that open it, while single-key shortcuts are on.
+// terminal's pane numbers that open it, as the server says each pane is shown,
+// while single-key shortcuts are on.
 export function usePaneShortcuts(): Partial<Record<Section, string>> {
   return useKeysStore(
     useShallow((state) => {
@@ -76,7 +77,7 @@ export function usePaneShortcuts(): Partial<Record<Section, string>> {
       return Object.fromEntries(
         sections.map((section) => [
           section,
-          ariaShortcuts(numbers.filter((_, index) => paneSections[index] === section)),
+          ariaShortcuts(numbers.filter((_, index) => state.paneSections[index] === section)),
         ]),
       )
     }),

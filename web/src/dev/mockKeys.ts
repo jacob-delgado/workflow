@@ -1,9 +1,10 @@
 import type { KeyAction, KeyList } from '@/api/generated/types.gen.ts'
 
-// The key list a server serves with no ui.keys, as tui.KeyActions lists it,
-// and single-key shortcuts on — trimmed to the actions this page binds, the
-// only ones it reads — so the mockup's ? sheet, palette and keys work with no
-// backend. With no ui.keys, each action's default key is the one it shows.
+// The key list a server serves with no ui.keys, as tui.KeyActions and
+// tui.PaneSections list it, and single-key shortcuts on — trimmed to the
+// actions this page binds, the only ones it reads — so the mockup's ? sheet,
+// palette and keys work with no backend. With no ui.keys, each action's
+// default key is the one it shows.
 const listed: Omit<KeyAction, 'default'>[] = [
   {
     action: 'jump-to-pane',
@@ -130,4 +131,15 @@ const listed: Omit<KeyAction, 'default'>[] = [
 export const mockKeys: KeyList = {
   single_key_shortcuts: true,
   actions: listed.map((action) => ({ ...action, default: action.shown })),
+  pane_sections: [
+    'issues',
+    'branch',
+    'branch',
+    'review',
+    'messaging',
+    'reviews',
+    'tasks',
+    'summary',
+    'repositories',
+  ],
 }

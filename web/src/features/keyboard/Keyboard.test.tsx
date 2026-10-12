@@ -1,7 +1,13 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from '@/App.tsx'
-import type { IssueDetail, KeyAction, KeyList, Snapshot } from '@/api/generated/types.gen.ts'
+import type {
+  IssueDetail,
+  KeyAction,
+  KeyList,
+  PaneSection,
+  Snapshot,
+} from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { mockConfig } from '@/dev/mockConfig.ts'
 import { useUiStore } from '@/shell/uiStore.ts'
@@ -19,6 +25,20 @@ function action(name: string, help: string, group: string, ...keys: string[]): K
 }
 
 const panes = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
+
+// shownIn is the section each pane is shown in, as the server lists them: the
+// Commits pane, the third, in Branch.
+const shownIn: PaneSection[] = [
+  'issues',
+  'branch',
+  'branch',
+  'review',
+  'messaging',
+  'reviews',
+  'tasks',
+  'summary',
+  'repositories',
+]
 
 // keysWith is the server's key list, with ui.keys' overrides applied as the
 // terminal applies them, and the shortcut setting given.
@@ -39,6 +59,7 @@ function keysWith(shortcuts: boolean, overrides: Record<string, string> = {}): K
 
   return {
     single_key_shortcuts: shortcuts,
+    pane_sections: shownIn,
     actions: listed.map((each) => {
       const moved = overrides[each.action]
 
@@ -429,6 +450,25 @@ test('the rail names the pane numbers that open each section', async () => {
   expect(
     within(rail).getByRole('button', { name: 'Settings' }).hasAttribute('aria-keyshortcuts'),
   ).toBe(false)
+})
+
+test('the pane numbers open the sections the server says the panes are shown in', async () => {
+  // Arrange
+  // A server that showed the Review pane in the Branch section too.
+  const user = userEvent.setup()
+  const reviewInBranch = shownIn.map((section) => (section === 'review' ? 'branch' : section))
+  openOn(withIssue, { ...keysWith(true), pane_sections: reviewInBranch })
+  await keysRead('c')
+
+  // Act
+  await user.keyboard('4')
+
+  // Assert
+  expect(await screen.findByRole('heading', { level: 1, name: 'Branch' })).toBeTruthy()
+  const rail = screen.getByRole('navigation', { name: 'Sections' })
+  expect(
+    within(rail).getByRole('button', { name: 'Branch' }).getAttribute('aria-keyshortcuts'),
+  ).toBe('2 3 4')
 })
 
 test('Down and Up step through the matches, round from the last to the first', async () => {

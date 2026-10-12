@@ -381,6 +381,42 @@ func (e OwnerTagState) Valid() bool {
 	}
 }
 
+// Defines values for PaneSection.
+const (
+	PaneSectionBranch       PaneSection = "branch"
+	PaneSectionIssues       PaneSection = "issues"
+	PaneSectionMessaging    PaneSection = "messaging"
+	PaneSectionRepositories PaneSection = "repositories"
+	PaneSectionReview       PaneSection = "review"
+	PaneSectionReviews      PaneSection = "reviews"
+	PaneSectionSummary      PaneSection = "summary"
+	PaneSectionTasks        PaneSection = "tasks"
+)
+
+// Valid indicates whether the value is a known member of the PaneSection enum.
+func (e PaneSection) Valid() bool {
+	switch e {
+	case PaneSectionBranch:
+		return true
+	case PaneSectionIssues:
+		return true
+	case PaneSectionMessaging:
+		return true
+	case PaneSectionRepositories:
+		return true
+	case PaneSectionReview:
+		return true
+	case PaneSectionReviews:
+		return true
+	case PaneSectionSummary:
+		return true
+	case PaneSectionTasks:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PostLengthUnit.
 const (
 	PostLengthUnitBytes      PostLengthUnit = "bytes"
@@ -1673,6 +1709,9 @@ type KeyAction struct {
 type KeyList struct {
 	Actions []KeyAction `json:"actions"`
 
+	// PaneSections The page's section each of the terminal's panes is shown in, in the panes' order, which is the order of jump-to-pane's keys: the Commits pane, the third, is part of the Branch section, so two pane numbers open it. Empty where the server lists no keys.
+	PaneSections []PaneSection `json:"pane_sections"`
+
 	// SingleKeyShortcuts Whether a single key pressed outside a text field acts (ui.web_shortcuts).
 	SingleKeyShortcuts bool `json:"single_key_shortcuts"`
 }
@@ -1901,6 +1940,9 @@ type OwnerTagKind string
 
 // OwnerTagState defines model for OwnerTag.State.
 type OwnerTagState string
+
+// PaneSection A section of the page that shows one or more of the terminal's panes.
+type PaneSection string
 
 // PanelProblems Why each panel whose read failed was not read, so a failed read is shown as a failure rather than as the panel's empty state; absent when every panel read. A failed panel still carries its empty answer — or, for the review, the answer the forge last gave for the branch at its head — beside its problem. A service that is not set up — no credential, no forge the origin names — carries a problem whose code is not_set_up, with how to set it up, to be shown as guidance rather than as a failure; no repository is no problem. Each detail is the curated one an error answer carries, never a host, a path or a credential.
 type PanelProblems struct {

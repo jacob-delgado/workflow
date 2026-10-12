@@ -84,7 +84,7 @@ func WebDeps(deps tui.Deps) webserver.Deps {
 	return webserver.Deps{
 		Jira: deps.Jira, Git: deps.Git, Forge: deps.Forge, Messaging: deps.Messaging, Hooks: deps.Hooks,
 		Store: deps.Store, Tasks: deps.Tasks, Repositories: deps.Repositories, Settings: deps.Settings,
-		Clock: deps.Clock, CheckKeys: tui.CheckKeys, KeyActions: tui.KeyActions,
+		Clock: deps.Clock, CheckKeys: tui.CheckKeys, KeyActions: tui.KeyActions, PaneSections: tui.PaneSections,
 	}
 }
 

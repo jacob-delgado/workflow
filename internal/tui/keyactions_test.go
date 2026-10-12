@@ -7,6 +7,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
@@ -112,5 +113,29 @@ func TestKeyActionsLeavesOutALineTheHelpDoesNotDraw(t *testing.T) {
 	// Assert
 	if slices.ContainsFunc(listed, func(action seams.KeyAction) bool { return action.Action == "cycle-type-right" }) {
 		t.Error("KeyActions lists cycle-type-right, which rides cycle-type-left's line in the help")
+	}
+}
+
+// The web page opens, on a pane number, the section PaneSections names for
+// that pane, so each pane number names one, and one the API has.
+func TestEveryPaneNumberOpensASectionThePageHas(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	numbers := paneNumbers(t)
+
+	// Act
+	sections := tui.PaneSections()
+
+	// Assert
+	if len(sections) != len(numbers) {
+		t.Errorf("PaneSections lists %d sections, want one for each of the %d pane numbers", len(sections),
+			len(numbers))
+	}
+
+	for index, section := range sections {
+		if !api.PaneSection(section).Valid() {
+			t.Errorf("pane %d is shown in %q, which is no section the API names", index+1, section)
+		}
 	}
 }

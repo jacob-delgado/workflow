@@ -1098,6 +1098,20 @@ export const zUiConfig = z.object({
 });
 
 /**
+ * A section of the page that shows one or more of the terminal's panes.
+ */
+export const zPaneSection = z.enum([
+    'issues',
+    'branch',
+    'review',
+    'messaging',
+    'reviews',
+    'tasks',
+    'summary',
+    'repositories'
+]);
+
+/**
  * One action the terminal interface binds, as its help lists it.
  */
 export const zKeyAction = z.object({
@@ -1111,7 +1125,8 @@ export const zKeyAction = z.object({
 
 export const zKeyList = z.object({
     single_key_shortcuts: z.boolean(),
-    actions: z.array(zKeyAction)
+    actions: z.array(zKeyAction),
+    pane_sections: z.array(zPaneSection)
 });
 
 export const zTimingConfig = z.object({
