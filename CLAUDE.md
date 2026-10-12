@@ -517,6 +517,8 @@ error check is one the gate can tell by its name: a name ending in `err` or
 `Err`, perhaps with a capitalized or numbered rest (`err`, `readErr`,
 `closeErr`, `err2`, `errParse`, but not `errorHandler`), or a call of a method
 so named (`ctx.Err()`), reached through fields and calls, compared with `nil`.
+So is an `errors.Is` or `!errors.Is` of such a name right after
+`<name> != nil &&`, which only an error reaches; its error arm is its true one.
 Any condition the gate does not read as an error check, seen one way, stays the
 worklist. The exception list is `scripts/gobco-allowlist.txt`, one line per arm
 a kept trade-off in `TECH_DEBT.md` keeps, naming it

@@ -369,20 +369,31 @@ conditions="$(
 # check whose error arm was never seen. An error check compares with nil a
 # name ending in err or Err, perhaps with a capitalized or numbered rest
 # (err2, errParse, closeErr), or a call of a method so named (ctx.Err()),
-# either reached through fields and calls. Each is named by its file, line
-# and function. A line of the allowlist keeps one such arm for the trade-off
-# it names, on the systems it names ("any", or GOOS values joined by commas):
+# either reached through fields and calls; its error arm is the one the
+# error takes. So is an errors.Is or !errors.Is of such a name that follows
+# "<name> != nil &&", on its line or the one before, since only an error
+# reaches it: its error arm is the one the check's body takes. gobco reports
+# the call without its !, so that arm is the call's true one, or its false
+# one where a ! comes before it. Columns count bytes, as Go's do, so the awk
+# reads in the C locale. Each arm is named by its file, line and function. A
+# line of the allowlist keeps one such arm for the trade-off it names, on the
+# systems it names ("any", or GOOS values joined by commas):
 #
 #   <file> <function> <TRADE-n> <systems> <condition>
 #
 # and a line whose arm is no longer unseen fails too, so the list only shrinks
 # as tests arrive. A run over named packages misses only lines for files it
 # did not measure.
-awk -F'\t' -v allowlist="${allowlist_file}" -v whole="${whole_module}" -v goos="$(go env GOOS)" '
+LC_ALL=C awk -F'\t' -v allowlist="${allowlist_file}" -v whole="${whole_module}" -v goos="$(go env GOOS)" '
+  # enclosing is the function file holds at line, leaving that line and the
+  # one before it in line_text and previous_text.
   function enclosing(file, line,    text, number, name) {
     name = "(no function)"
+    line_text = previous_text = ""
     while (number < line && (getline text < file) > 0) {
       number++
+      previous_text = line_text
+      line_text = text
       if (text ~ /^func /) name = function_name(text)
       else if (text ~ /^(var|const|type|import)[ (]/) name = "(no function)"
     }
@@ -404,6 +415,27 @@ awk -F'\t' -v allowlist="${allowlist_file}" -v whole="${whole_module}" -v goos="
   function name_of(text) {
     match(text, /^[A-Za-z_][A-Za-z0-9_]*/)
     return substr(text, 1, RLENGTH)
+  }
+  # errors_is_arm is the error'"'"'s arm of code, at column of line in file, when
+  # it is an errors.Is of an error check that follows "<it> != nil &&":
+  # "true", or "false" where a ! before it turns it round; and "" for any
+  # other condition.
+  function errors_is_arm(file, line, column, code,    name, before, arm, after) {
+    if (!match(code, /^errors[.]Is[(][^,]*,/)) return ""
+    name = substr(code, 11, RLENGTH - 11)
+    if (name !~ (error_check "$")) return ""
+    enclosing(file, line)
+    before = substr(line_text, 1, column - 1)
+    arm = "true"
+    if (before ~ /![ \t]*$/) {
+      arm = "false"
+      sub(/![ \t]*$/, "", before)
+    }
+    if (before ~ /^[ \t]*$/) before = previous_text " "
+    sub(/[ \t]+$/, " ", before)
+    after = name " != nil && "
+    if (length(before) < length(after) || substr(before, length(before) - length(after) + 1) != after) return ""
+    return arm
   }
   function applies(systems,    each, count, i) {
     if (systems == "any") return 1
@@ -438,11 +470,13 @@ awk -F'\t' -v allowlist="${allowlist_file}" -v whole="${whole_module}" -v goos="
     path = $1
     sub(/:[0-9]+:[0-9]+$/, "", path)
     measured[path] = 1
+    split($1, position, ":")
     if ($3 == 0 && $4 == 0) why = "was never evaluated"
     else if ($2 ~ (error_check " != nil$") && $3 == 0) why = "was never seen true, the error'"'"'s arm"
     else if ($2 ~ (error_check " == nil$") && $4 == 0) why = "was never seen false, the error'"'"'s arm"
+    else if (($3 == 0 || $4 == 0) && (errors_arm = errors_is_arm(path, position[2] + 0, position[3] + 0, $2)) != "" &&
+      (errors_arm == "true" ? $3 : $4) == 0) why = "was never seen " errors_arm ", the error'"'"'s arm"
     else next
-    split($1, position, ":")
     function_at = enclosing(path, position[2] + 0)
     arm = path SUBSEP function_at SUBSEP $2
     unseen[arm]++

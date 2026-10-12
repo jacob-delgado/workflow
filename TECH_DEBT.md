@@ -303,10 +303,11 @@ the version into a file the open just made or read (checked in
 **Decided.** 2026-09-26, in #146; narrowed to these two calls in the pre-1.0
 paydown, which made one call of each other pair.
 
-**Cost.** Four error arms no test runs: `stamp`'s own check, and
-`remakeDatabase`'s check of `removeDatabase`, plus the two in `openCurrent`
-that pass them on, so what each says when the race is lost is read rather
-than checked.
+**Cost.** Five error arms no test runs: `removeDatabase`'s own, a removal
+that fails for any reason but the file being gone already; `stamp`'s own
+check; `remakeDatabase`'s check of `removeDatabase`; and the two in
+`openCurrent` that pass them on. What each says when the race is lost is read
+rather than checked.
 
 **Reopen when.** One of these failures is reported, or a change to the calls
 lets a test fail the second without the first.
@@ -349,19 +350,20 @@ runs.
 
 ### TRADE-19 A condition the gate does not fail stays the report's worklist
 
-`task cover:branch` fails on a condition no test evaluated and on an error
-check whose error arm no test reached, unless `scripts/gobco-allowlist.txt`
-keeps the arm for an entry here. An error check is one it can tell by its
-name: a name ending in `err` or `Err`, perhaps with a capitalized or numbered
-rest (`err`, `readErr`, `closeErr`, `err2`, `errParse`, but not
-`errorHandler`), or a call of a method so named (`ctx.Err()`), reached through
-fields and calls, compared with `nil`. Every other condition seen only one
-way, a boolean, a comparison, an `errors.Is` or an `ok`, is listed by the
-report, by file, line and how many times it was seen each way, on every run,
-and fails nothing. They stay out of this file and out of the allowlist:
-CLAUDE.md reads that list as "a worklist of missing test cases, not a
-percentage to chase", so a test for one is written when the code around it
-next changes, and `BRANCH_COVERAGE_MIN` and the package floors in
+`task cover:branch` fails on a condition no test evaluated and on an error check
+whose error arm no test reached, unless `scripts/gobco-allowlist.txt` keeps the
+arm for an entry here. An error check is one it can tell by its name: a name
+ending in `err` or `Err`, perhaps with a capitalized or numbered rest (`err`,
+`readErr`, `closeErr`, `err2`, `errParse`, but not `errorHandler`), or a call of
+a method so named (`ctx.Err()`), reached through fields and calls, compared with
+`nil`; and an `errors.Is` or `!errors.Is` of such a name right after
+`<name> != nil &&`, whose error arm is its true one. Every other condition seen
+only one way, a boolean, a comparison, any other `errors.Is` or an `ok`, is
+listed by the report, by file, line and how many times it was seen each way, on
+every run, and fails nothing. They stay out of this file and out of the
+allowlist: CLAUDE.md reads that list as "a worklist of missing test cases, not a
+percentage to chase", so a test for one is written when the code around it next
+changes, and `BRANCH_COVERAGE_MIN` and the package floors in
 `scripts/gobco-floors.txt` keep the share from falling. How many there are is
 the report's to say, not this entry's.
 
