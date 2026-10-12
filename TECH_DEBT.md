@@ -50,9 +50,11 @@ pointer also names the symbol it means.
 5. **The register re-judged, entry by entry.** Each trade-off was kept, with
    its three paragraphs rewritten to what is true at `b9ab000`, or found worth
    paying down, or found with its reopen trigger fired. Each one paid down or
-   fired has an entry below whose title starts "Pay down TRADE-n"; the
-   register entry stays as it was until that entry is paid, and is deleted
-   then.
+   fired was given an entry whose title started "Pay down TRADE-n", and its
+   register entry stayed as it was until that entry was paid. The register
+   entry was then deleted, or, where the pay-down left part of the trade
+   standing, rewritten to that part, as TRADE-16, TRADE-18, TRADE-19,
+   TRADE-21 and TRADE-28 were; the register's opening says how each went.
 
 ## How to read an entry
 
