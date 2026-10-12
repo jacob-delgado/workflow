@@ -145,6 +145,13 @@ func behaviorOf(target pane) behavior {
 	}[target]()
 }
 
+// helpGroup is the help group the pane's own keys are filed in: one for each
+// pane, after moving around and in the panes' order, which the help names by
+// the pane's title.
+func (p pane) helpGroup() int {
+	return groupMoving + 1 + int(p)
+}
+
 // keyContext is the keys live on the pane: the moving and everywhere keys
 // every pane takes, and the actions its handler answers. It is named for the
 // pane in a conflict CheckKeys reports, the messaging pane for no particular
