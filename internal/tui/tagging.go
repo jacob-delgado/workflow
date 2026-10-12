@@ -308,18 +308,33 @@ func (s tagSection) groupLines(marks glyphs) []string {
 	return lines
 }
 
-// summary names everyone the post tags, or nobody.
+// chosen is the tags with the groups checked as the section has them.
+func (s tagSection) chosen() loop.Tags {
+	tags := loop.Tags{Owners: s.tags.Owners, Groups: make([]loop.GroupTag, 0, len(s.tags.Groups))}
+
+	for _, group := range s.tags.Groups {
+		group.Checked = slices.Contains(s.checked, group.Slack.ID)
+		tags.Groups = append(tags.Groups, group)
+	}
+
+	return tags
+}
+
+// summary names everyone the post tags, or nobody, from the tags as the post
+// sends them.
 func (s tagSection) summary() string {
 	var names []string
 
-	for _, owner := range s.tags.Owners {
+	tags, _ := s.chosen().Proposed()
+
+	for _, owner := range tags.Owners {
 		if !owner.Team && owner.State == loop.OwnerLinked {
 			names = append(names, "@"+slackName(owner.Slack, false))
 		}
 	}
 
-	for _, group := range s.tags.Groups {
-		if slices.Contains(s.checked, group.Slack.ID) {
+	for _, group := range tags.Groups {
+		if group.Checked {
 			names = append(names, slackName(group.Slack, true))
 		}
 	}
@@ -351,17 +366,14 @@ type postTags struct {
 
 // postTags is whom the post tags: no one but for a ready-for-review
 // announcement, which alone offers tags. A token lacking a scope tags no one,
-// nor does one whose workspace Slack would not name, and so does a tag Slack
-// could not read: tagging never holds a post back.
+// nor does one whose workspace Slack would not name: tagging never holds a
+// post back. The tags are those summary names, as the post sends them.
 func (s tagSection) postTags() postTags {
 	if !s.tagsAnyone() {
 		return postTags{}
 	}
 
-	mentions, err := s.tags.Mentions(s.checked)
-	if err != nil {
-		return postTags{}
-	}
+	_, mentions := s.chosen().Proposed()
 
 	return postTags{mentions: mentions, offersGroups: len(s.tags.Groups) > 0, workspace: s.workspace}
 }
