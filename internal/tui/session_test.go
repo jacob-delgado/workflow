@@ -258,3 +258,47 @@ func TestAHooksReadTheInterfaceBeganStopsWhenItsSessionEnds(t *testing.T) {
 		t.Errorf("the read's context ended with %v, want it canceled with the session", err)
 	}
 }
+
+// A write the interface sent goes on to its end when the session ends, as it
+// does when the interface quits or switches directory: git stopped mid-stage
+// can leave its index locked, and every other write half made.
+func TestAStageInFlightGoesOnWhenTheSessionEnds(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	entered, released, ended := make(chan struct{}, 1), make(chan struct{}), make(chan error, 1)
+	staging := newWorld()
+	staging.changes = workTree()
+	deps := staging.deps()
+	deps.Git.Stage = func(ctx context.Context, _ gitrepo.Change) error {
+		entered <- struct{}{}
+
+		<-released
+
+		ended <- ctx.Err()
+
+		return nil
+	}
+	session, end := context.WithCancel(t.Context())
+	model := sized(t, tui.New(staging.cfg, nil, deps).WithContext(session), 120, 40)
+	model = typing(t, drain(t, model, model.Init()), "3", "j")
+	_, stage := pressed(t, model, keySpace)
+
+	go stage()
+
+	<-entered
+
+	// Act
+	end()
+	close(released)
+
+	// Assert
+	select {
+	case err := <-ended:
+		if err != nil {
+			t.Errorf("the stage's context ended with %v once the session did, want it to go on to its end", err)
+		}
+	case <-time.After(quitPatience):
+		t.Fatal("the stage never returned")
+	}
+}

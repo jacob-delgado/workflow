@@ -221,9 +221,9 @@ without agreement on direction.
 - **Every seam method that does I/O takes `ctx context.Context` first.** A
   surface passes the context of whatever asked — a web read its request's, the
   command line `cmd.Context()`, the terminal its session's — and detaches there
-  what must outlive its asker (a web write, a shared read, a post's record). The
-  wiring never closes over a context. `internal/seams`' test holds the rule and
-  names the exceptions.
+  what must outlive its asker (a web write, a shared read, a terminal write, a
+  post's record). The wiring never closes over a context. `internal/seams`'
+  test holds the rule and names the exceptions.
 
 - **Database (`internal/store`) — normalized, STRICT, and never trusted.** The
   on-disk store is SQLite through `modernc.org/sqlite` (pure Go, so `CGO_ENABLED=0`
