@@ -211,14 +211,15 @@ func (m Model) WithoutColor() Model {
 // flight. A write it sent outlasts the program, but not the context: canceling
 // it stops every write still under way too, even once Run has returned, so a
 // caller cancels it only to end the program's lifetime, never to tidy up after
-// a quit.
-// The alternate screen and mouse mode are set declaratively in View, as v2
-// asks.
+// a quit. The program takes no signal itself, so Bubble Tea's handler cannot
+// block handing it a quit the context already gave: a caller ends it on SIGINT
+// or SIGTERM through the context, and ctrl+c reaches it as a key. The
+// alternate screen and mouse mode are set declaratively in View, as v2 asks.
 func Run(ctx context.Context, model Model, in io.Reader, out io.Writer) (Next, error) {
 	session, end := context.WithCancel(ctx)
 	defer end()
 
-	options := append(keysFrom(in), tea.WithOutput(out), tea.WithContext(ctx))
+	options := append(keysFrom(in), tea.WithOutput(out), tea.WithContext(ctx), tea.WithoutSignalHandler())
 	options = append(options, model.programOptions...)
 
 	ended, err := tea.NewProgram(model.WithLifetime(ctx).WithContext(session), options...).Run()
