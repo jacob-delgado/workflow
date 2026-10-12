@@ -343,17 +343,20 @@ runs.
 ### TRADE-19 A condition the gate does not fail stays the report's worklist
 
 `task cover:branch` fails on a condition no test evaluated and on an error
-check whose error arm no test reached, an error check being one it can tell
-by its name (`err`, `closeErr`, `err2`, `errParse` or `ctx.Err()` compared
-with `nil`), unless `scripts/gobco-allowlist.txt` keeps the arm for an entry
-here. Every other condition seen only one way, a boolean, a comparison, an
-`errors.Is` or an `ok`, is listed by the report, by file, line and how many
-times it was seen each way, on every run, and fails nothing. They stay out of
-this file and out of the allowlist: CLAUDE.md reads that list as "a worklist
-of missing test cases, not a percentage to chase", so a test for one is
-written when the code around it next changes, and `BRANCH_COVERAGE_MIN` and
-the package floors in `scripts/gobco-floors.txt` keep the share from falling.
-How many there are is the report's to say, not this entry's.
+check whose error arm no test reached, unless `scripts/gobco-allowlist.txt`
+keeps the arm for an entry here. An error check is one it can tell by its
+name: a name ending in `err` or `Err`, perhaps with a capitalized or numbered
+rest (`err`, `readErr`, `closeErr`, `err2`, `errParse`, but not
+`errorHandler`), or a call of a method so named (`ctx.Err()`), reached through
+fields and calls, compared with `nil`. Every other condition seen only one
+way, a boolean, a comparison, an `errors.Is` or an `ok`, is listed by the
+report, by file, line and how many times it was seen each way, on every run,
+and fails nothing. They stay out of this file and out of the allowlist:
+CLAUDE.md reads that list as "a worklist of missing test cases, not a
+percentage to chase", so a test for one is written when the code around it
+next changes, and `BRANCH_COVERAGE_MIN` and the package floors in
+`scripts/gobco-floors.txt` keep the share from falling. How many there are is
+the report's to say, not this entry's.
 
 **Decided.** 2026-09-26, in #146, which gave every condition that never ran
 and every `err != nil` seen one way a test or an entry above, and left the
