@@ -236,17 +236,20 @@ and hands it `tui.CheckKeys` and `tui.KeyActions` as functions.
 
 ### TRADE-13 Encoding the program's own types is taken not to fail
 
-**Decided.** Every `json.Marshal`, `MarshalIndent` or `Unmarshal` on a value
-the program builds keeps its `err != nil` arm, though none can be true: the
-values hold only strings, integers, booleans, slices and maps of the same, or
-values just decoded from JSON, and a `config.Config`'s JSON always fits
-`api.Config`. Each site carries a `Trade-off TRADE-13:` comment, and `rg
-'TRADE-13' internal` lists them (16 at `b9ab000`, in config, forge, jira,
-messaging, slackauth, tui and webserver); lines are not listed here because
-they drift. Decided 2026-09-26 in #146, and kept on 2026-10-07 in the pre-1.0
-audit.
+**Decided.** Every `json.Marshal`, `MarshalIndent` or `Unmarshal` on a value the
+program builds keeps its `err != nil` arm, though none can be true: the values
+hold only strings, integers, booleans, slices and maps of the same, or values
+just decoded from JSON, and a `config.Config`'s JSON always fits `api.Config`.
+Each site carries a `Trade-off TRADE-13:` comment, and
+`rg 'Trade-off TRADE-13' internal` lists them: 15 comments, in config, forge,
+jira, messaging, slackauth, tui and webserver, keeping the 17 arms
+`scripts/gobco-allowlist.txt` keeps under this entry, since one comment on
+`seed` (`internal/tui/settingsvalues.go`) and one on `configDTO`
+(`internal/webserver/config.go`) each keep two; lines are not listed here
+because they drift. Decided 2026-09-26 in #146, and kept on 2026-10-07 in the
+pre-1.0 audit.
 
-**Cost.** About sixteen error arms no test runs. Because forge's
+**Cost.** Seventeen error arms no test runs. Because forge's
 `Client.newRequest`, jira's `Client.newJSONRequest`, messaging's
 `Client.postJSON` and `config.encodeValue` accept `any`, a caller passing a
 float, a channel or a failing marshaler would put an arm in play with no test
