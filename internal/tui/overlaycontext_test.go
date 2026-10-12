@@ -91,18 +91,18 @@ type overlayState struct {
 	steps []string
 }
 
-// from is the state a session reaches by steps.
-func from(start func(t *testing.T, moved map[string]tea.KeyPressMsg) tui.Model, steps ...string) overlayState {
+// stateFrom is the state a session reaches by steps.
+func stateFrom(start func(t *testing.T, moved map[string]tea.KeyPressMsg) tui.Model, steps ...string) overlayState {
 	return overlayState{start: start, steps: steps}
 }
 
-// at is the state a world's session reaches by steps.
-func at(made func() *world, steps ...string) overlayState {
-	return from(in(made), steps...)
+// stateAt is the state a world's session reaches by steps.
+func stateAt(made func() *world, steps ...string) overlayState {
+	return stateFrom(sessionIn(made), steps...)
 }
 
-// in starts a session in the world a function makes, as live does.
-func in(made func() *world) func(t *testing.T, moved map[string]tea.KeyPressMsg) tui.Model {
+// sessionIn starts a session in the world a function makes, as live does.
+func sessionIn(made func() *world) func(t *testing.T, moved map[string]tea.KeyPressMsg) tui.Model {
 	return func(t *testing.T, moved map[string]tea.KeyPressMsg) tui.Model {
 		t.Helper()
 
@@ -209,6 +209,10 @@ func TestAnOverlayAnswersExactlyTheActionsItsKeyContextLists(t *testing.T) {
 			probes := probeStates(t, states)
 
 			// Assert
+			if len(probes) == 0 {
+				t.Fatalf("no state of %s is probed", name)
+			}
+
 			for index, probe := range probes {
 				if probe.context.Name != name {
 					t.Errorf("state %d opens the overlay in %q, want %q", index, probe.context.Name, name)
@@ -232,7 +236,8 @@ func TestAnOverlayAnswersExactlyTheActionsItsKeyContextLists(t *testing.T) {
 }
 
 // The probe is only as good as its table: an overlay whose key context no
-// state opens would go unchecked.
+// state opens would go unchecked, and a state named for no overlay's context
+// would check nothing. Contexts are told apart by name, so no two share one.
 func TestEveryOverlayKeyContextIsProbed(t *testing.T) {
 	t.Parallel()
 
@@ -243,9 +248,30 @@ func TestEveryOverlayKeyContextIsProbed(t *testing.T) {
 	contexts := tui.OverlayKeyContexts()
 
 	// Assert
+	names := make([]string, 0, len(contexts))
 	for _, context := range contexts {
-		if len(states[context.Name]) == 0 {
-			t.Errorf("no state opens an overlay in %s", context.Name)
+		names = append(names, context.Name)
+	}
+
+	if len(names) == 0 {
+		t.Fatal("OverlayKeyContexts lists no overlay")
+	}
+
+	slices.Sort(names)
+
+	if distinct := slices.Compact(slices.Clone(names)); len(distinct) != len(names) {
+		t.Errorf("two overlays' key contexts share a name: %q", names)
+	}
+
+	for _, name := range names {
+		if len(states[name]) == 0 {
+			t.Errorf("no state opens an overlay in %s", name)
+		}
+	}
+
+	for name := range states {
+		if !slices.Contains(names, name) {
+			t.Errorf("a state opens %s, which names no overlay's key context", name)
 		}
 	}
 }
