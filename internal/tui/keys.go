@@ -63,7 +63,7 @@ type keyMap struct {
 	// Summary.
 	earlier, later, today, calendar, copySummary, postSummary key.Binding
 	// Repositories.
-	favoriteDir, goToDir, settings, localData key.Binding
+	switchDir, favoriteDir, goToDir, settings, localData key.Binding
 
 	// Reviews.
 	sortReviews, filterReviews key.Binding

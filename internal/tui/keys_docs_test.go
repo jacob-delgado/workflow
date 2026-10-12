@@ -316,6 +316,7 @@ calendar            Pick a day
 copy-summary        Copy the summary as Markdown
 post-summary        Post the summary
 
+switch-directory    Switch to the selected directory
 favorite-directory  Add the selected directory to your favorites
 go-to-directory     Type a directory to switch to
 settings            Settings:

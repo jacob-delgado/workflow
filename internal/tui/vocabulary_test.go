@@ -74,7 +74,7 @@ func TestEveryLastLookAsksAQuestion(t *testing.T) {
 		"the undo":   {repo: withTasks, keys: []string{tasksPane, "u"}, title: "Undo in Taskwarrior"},
 		"the sync":   {repo: withSyncedTasks, keys: []string{tasksPane, "S"}, title: "Sync Taskwarrior"},
 		"the forget": {repo: onlyBen, keys: []string{"5", "P", "d"}, title: "Forget a person"},
-		"the switch": {repo: reposWorld, keys: []string{reposKey, "j", keyEnter}, title: "Switch directory"},
+		"the switch": {repo: reposWorld, keys: []string{reposKey, "j", switchDirKey}, title: "Switch directory"},
 	}
 
 	for name, tt := range cases {

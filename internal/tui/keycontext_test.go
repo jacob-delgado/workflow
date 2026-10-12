@@ -78,11 +78,13 @@ func withSlackDirectory() *world {
 	return repo
 }
 
-// paneState is a pane in a state: the digit that jumps to it, the world that
-// puts it in that state, and the actions it answers there that the probe
-// relies on it to reach, apart by spaces.
+// paneState is a pane in a state: the digit that jumps to it, the keys then
+// pressed to move its cursor, the world that puts it in that state, and the
+// actions it answers there that the probe relies on it to reach, the keys and
+// the actions each apart by spaces.
 type paneState struct {
 	digit   string
+	moves   string
 	world   func() *world
 	answers string
 }
@@ -125,7 +127,11 @@ func paneStates() map[string]paneState {
 			digit: "8", world: everythingAtOnce, answers: "earlier later today calendar copy-summary post-summary refresh",
 		},
 		"Repositories, everything at once": {
-			digit: "9", world: everythingAtOnce, answers: "favorite-directory go-to-directory settings local-data refresh",
+			digit: "9", world: everythingAtOnce,
+			answers: "switch-directory favorite-directory go-to-directory settings local-data refresh",
+		},
+		"Repositories, on a favorite": {
+			digit: "9", moves: "j", world: reposWorld, answers: "switch-directory favorite-directory refresh",
 		},
 	}
 }
@@ -139,13 +145,15 @@ type probed struct {
 }
 
 // probeAt moves action onto the probe key in the state's world, jumps to its
-// pane, and reads its footer and a press of the probe key.
+// pane, moves its cursor, and reads its footer and a press of the probe key.
 func probeAt(t *testing.T, state paneState, action string) probed {
 	t.Helper()
 
+	reaching := append([]string{state.digit}, strings.Fields(state.moves)...)
+
 	moved := state.world()
 	moved.cfg.UI.Keys = map[string]string{action: probeKey}
-	focused := typing(t, moved.live(t, probeWidth, probeHeight), state.digit)
+	focused := typing(t, moved.live(t, probeWidth, probeHeight), reaching...)
 
 	unanswered, _ := focused.Update(unbound())
 	pressed, cmd := focused.Update(probe())
