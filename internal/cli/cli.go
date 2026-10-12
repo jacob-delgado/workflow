@@ -112,11 +112,12 @@ SECURITY
 // SIGINT and SIGTERM cancel the context every command runs under, which flows to
 // each HTTP request and subprocess: a hung `doctor --online` or a slow git
 // command stops on the first Ctrl+C rather than needing a second, harder signal.
-// The interface puts the terminal in raw mode, where Ctrl+C arrives as a key
-// rather than a signal, so this does not fight Bubble Tea's own handling. Once
-// the last interface has quit, workflow waits, up to timing.request_timeout,
-// for the writes it left in flight; a Ctrl+C then, which the restored terminal
-// sends as SIGINT, or SIGTERM ends those writes and exits at once.
+// The interface handles no signal itself: it puts the terminal in raw mode,
+// where Ctrl+C arrives as a key, which quits it, and a signal ends it through
+// this context, as it ends every other command. Once the last interface has
+// quit, workflow waits, up to timing.request_timeout, for the writes it left
+// in flight; a Ctrl+C then, which the restored terminal sends as SIGINT, or
+// SIGTERM ends those writes and exits at once.
 func Execute(args []string, stdout, stderr io.Writer, prompt Prompt, env Environment) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	// stop cancels ctx as well as the signals' diversion, once the last
