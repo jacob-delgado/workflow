@@ -359,9 +359,16 @@ ratchets="$(
 )" || failed=1
 
 # Every condition's position, code and counts, a line each, its code on one
-# line, for the check of the arms no test reached.
+# line, sorted by file, line and column, for the check of the arms no test
+# reached, which reads each file once, from the top, as its conditions come.
 conditions="$(
-  jq -r '.[] | [(.Start // ""), ((.Code // "") | gsub("\\s+"; " ")), (.TrueCount // 0), (.FalseCount // 0)]
+  jq -rs '
+    def place: (.Start // "") as $start
+      | ($start | capture("^(?<file>.*):(?<line>[0-9]+):(?<column>[0-9]+)$"))
+        // {file: $start, line: "0", column: "0"}
+      | [.file, (.line | tonumber), (.column | tonumber)];
+    add | sort_by(place) | .[]
+    | [(.Start // ""), ((.Code // "") | gsub("\\s+"; " ")), (.TrueCount // 0), (.FalseCount // 0)]
     | map(tostring) | join("\t")' "${out_dir}"/*.json
 )"
 
@@ -375,30 +382,43 @@ conditions="$(
 # reaches it: its error arm is the one the check's body takes. gobco reports
 # the call without its !, so that arm is the call's true one, or its false
 # one where a ! comes before it. Columns count bytes, as Go's do, so the awk
-# reads in the C locale. Each arm is named by its file, line and function. A
-# line of the allowlist keeps one such arm for the trade-off it names, on the
-# systems it names ("any", or GOOS values joined by commas):
+# reads in the C locale.
 #
-#   <file> <function> <TRADE-n> <systems> <condition>
+# Each arm is named by its file, line and function, and by its number among
+# the conditions its function holds that read the same, counted from the
+# top: the first "err != nil" in a function is 1, the next 2. A line of the
+# allowlist keeps one arm for the trade-off it names, on the systems it names
+# ("any", or GOOS values joined by commas), by that number rather than its
+# line, which drifts:
 #
-# and a line whose arm is no longer unseen fails too, so the list only shrinks
-# as tests arrive. A run over named packages misses only lines for files it
-# did not measure.
+#   <file> <function> <TRADE-n> <systems> <number> <condition>
+#
+# So a kept arm a test comes to reach cannot be traded for a new one no test
+# reaches that reads the same in the same function: the new one has a number
+# of its own. A condition added above a kept arm that reads the same moves the
+# arm's number on, and the gate fails until the line follows it. A line whose
+# arm is no longer unseen fails too, so the list only shrinks as tests arrive.
+# A run over named packages misses only lines for files it did not measure.
 LC_ALL=C awk -F'\t' -v allowlist="${allowlist_file}" -v whole="${whole_module}" -v goos="$(go env GOOS)" '
-  # enclosing is the function file holds at line, leaving that line and the
-  # one before it in line_text and previous_text.
-  function enclosing(file, line,    text, number, name) {
-    name = "(no function)"
-    line_text = previous_text = ""
-    while (number < line && (getline text < file) > 0) {
-      number++
+  # enclosing is the function file holds at line, read on from where the call
+  # before left it, since the conditions come in order. It leaves that line
+  # and the one before it in line_text and previous_text.
+  function enclosing(file, line,    text) {
+    if (file != open_file) {
+      if (open_file != "") close(open_file)
+      open_file = file
+      read_to = 0
+      current = "(no function)"
+      line_text = previous_text = ""
+    }
+    while (read_to < line && (getline text < file) > 0) {
+      read_to++
       previous_text = line_text
       line_text = text
-      if (text ~ /^func /) name = function_name(text)
-      else if (text ~ /^(var|const|type|import)[ (]/) name = "(no function)"
+      if (text ~ /^func /) current = function_name(text)
+      else if (text ~ /^(var|const|type|import)[ (]/) current = "(no function)"
     }
-    close(file)
-    return name
+    return current
   }
   function function_name(text,    receiver, at) {
     sub(/^func /, "", text)
@@ -416,15 +436,14 @@ LC_ALL=C awk -F'\t' -v allowlist="${allowlist_file}" -v whole="${whole_module}" 
     match(text, /^[A-Za-z_][A-Za-z0-9_]*/)
     return substr(text, 1, RLENGTH)
   }
-  # errors_is_arm is the error'"'"'s arm of code, at column of line in file, when
-  # it is an errors.Is of an error check that follows "<it> != nil &&":
-  # "true", or "false" where a ! before it turns it round; and "" for any
-  # other condition.
-  function errors_is_arm(file, line, column, code,    name, before, arm, after) {
+  # errors_is_arm is the error'"'"'s arm of code, at column of the line enclosing
+  # read last, when it is an errors.Is of an error check that follows "<it>
+  # != nil &&": "true", or "false" where a ! before it turns it round; and ""
+  # for any other condition.
+  function errors_is_arm(column, code,    name, before, arm, after) {
     if (!match(code, /^errors[.]Is[(][^,]*,/)) return ""
     name = substr(code, 11, RLENGTH - 11)
     if (name !~ (error_check "$")) return ""
-    enclosing(file, line)
     before = substr(line_text, 1, column - 1)
     arm = "true"
     if (before ~ /![ \t]*$/) {
@@ -450,44 +469,53 @@ LC_ALL=C awk -F'\t' -v allowlist="${allowlist_file}" -v whole="${whole_module}" 
       if (line ~ /^[ \t]*(#|$)/) continue
       fields = split(line, field, /[ \t]+/)
       if (field[1] == "") { for (i = 1; i < fields; i++) field[i] = field[i + 1]; fields-- }
-      if (fields < 5 || field[3] !~ /^TRADE-[1-9][0-9]*$/ || field[4] !~ /^(any|[a-z0-9]+(,[a-z0-9]+)*)$/) {
-        printf "%s:%d: want <file> <function> <TRADE-n> <systems> <condition>\n", allowlist, number > "/dev/stderr"
+      if (fields < 6 || field[3] !~ /^TRADE-[1-9][0-9]*$/ || field[4] !~ /^(any|[a-z0-9]+(,[a-z0-9]+)*)$/ ||
+        field[5] !~ /^[1-9][0-9]*$/) {
+        printf "%s:%d: want <file> <function> <TRADE-n> <systems> <number> <condition>\n", allowlist, number > "/dev/stderr"
         bad = 1
         continue
       }
       if (!applies(field[4])) continue
-      condition = field[5]
-      for (i = 6; i <= fields; i++) condition = condition " " field[i]
-      kept++
-      key[kept] = field[1] SUBSEP field[2] SUBSEP condition
-      file[kept] = field[1]
-      text[kept] = field[1] " " field[2] " " field[3] " " field[4] " " condition
-      at[kept] = number
-      allowed[key[kept]]++
+      condition = field[6]
+      for (i = 7; i <= fields; i++) condition = condition " " field[i]
+      arm = field[1] SUBSEP field[2] SUBSEP field[5] SUBSEP condition
+      if (arm in allowed) {
+        printf "%s:%d: keeps the arm line %d keeps already\n", allowlist, number, allowed[arm] > "/dev/stderr"
+        bad = 1
+        continue
+      }
+      allowed[arm] = number
+      file[arm] = field[1]
+      text[arm] = field[1] " " field[2] " " field[3] " " field[4] " " field[5] " " condition
     }
+    allowlist_lines = number
   }
   {
     path = $1
     sub(/:[0-9]+:[0-9]+$/, "", path)
     measured[path] = 1
     split($1, position, ":")
+    function_at = enclosing(path, position[2] + 0)
+    nth = ++written[path SUBSEP function_at SUBSEP $2]
     if ($3 == 0 && $4 == 0) why = "was never evaluated"
     else if ($2 ~ (error_check " != nil$") && $3 == 0) why = "was never seen true, the error'"'"'s arm"
     else if ($2 ~ (error_check " == nil$") && $4 == 0) why = "was never seen false, the error'"'"'s arm"
-    else if (($3 == 0 || $4 == 0) && (errors_arm = errors_is_arm(path, position[2] + 0, position[3] + 0, $2)) != "" &&
+    else if (($3 == 0 || $4 == 0) && (errors_arm = errors_is_arm(position[3] + 0, $2)) != "" &&
       (errors_arm == "true" ? $3 : $4) == 0) why = "was never seen " errors_arm ", the error'"'"'s arm"
     else next
-    function_at = enclosing(path, position[2] + 0)
-    arm = path SUBSEP function_at SUBSEP $2
-    unseen[arm]++
-    if (unseen[arm] <= allowed[arm]) next
-    missed[++misses] = sprintf("  %s in %s: \"%s\" %s", $1, function_at, $2, why)
+    arm = path SUBSEP function_at SUBSEP nth SUBSEP $2
+    unseen[arm] = 1
+    if (arm in allowed) next
+    missed[++misses] = sprintf("  %s in %s: \"%s\", number %d there, %s", $1, function_at, $2, nth, why)
   }
   END {
-    for (i = 1; i <= kept; i++) {
-      if (!whole && !(file[i] in measured)) continue
-      if (left[key[i]]++ < unseen[key[i]]) continue
-      printf "%s:%d: no unseen arm is left for \"%s\"; remove the line\n", allowlist, at[i], text[i] > "/dev/stderr"
+    for (arm in allowed) {
+      if (arm in unseen || (!whole && !(file[arm] in measured))) continue
+      stale[allowed[arm]] = text[arm]
+    }
+    for (i = 1; i <= allowlist_lines; i++) {
+      if (!(i in stale)) continue
+      printf "%s:%d: no unseen arm is left for \"%s\"; remove the line\n", allowlist, i, stale[i] > "/dev/stderr"
       bad = 1
     }
     if (misses > 0) {

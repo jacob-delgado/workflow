@@ -12,12 +12,14 @@
 # The arms no test reached: a condition never evaluated, and an error check's
 # error arm never seen, an errors.Is right after one among them, fail the run,
 # naming the file, line and function, a method by its type's name whatever type
-# parameters it takes, unless a line of the allowlist keeps that arm for a
-# trade-off; a line keeps one arm, on the systems it names; a line whose arm a
-# test now reaches, or that is not shaped as one, fails too; and a boolean seen
-# one way is only listed. Each package the floors file names answers to its own
-# floor beside the module's, a floor without a reason above it fails, and so
-# does a floors file that is not there.
+# parameters it takes, and the arm's number among its function's conditions
+# that read the same, unless a line of the allowlist keeps that arm, by that
+# number, for a trade-off; a line keeps one arm, on the systems it names, and
+# no other line may keep it too; a line whose arm a test now reaches, or that
+# is not shaped as one, fails too; and a boolean seen one way is only listed.
+# Each package the floors file names answers to its own floor beside the
+# module's, a floor without a reason above it fails, and so do a floor for a
+# package that holds no condition and a floors file that is not there.
 #
 # The stand-in gobco says which package or file it measured, writes
 # GOBCO_STUB_STATS to the file after -stats, or nothing when that is empty,
@@ -235,10 +237,10 @@ allowlist() {
 # An error check whose error arm no test reached fails the run, by file, line
 # and function, as does one spelled the other way round.
 expect fail "an error arm no test reached" "${error_arm_unseen}" "" \
-  "${fixture}:5:5 in reader.read: \"err != nil\" was never seen true, the error's arm" \
+  "${fixture}:5:5 in reader.read: \"err != nil\", number 1 there, was never seen true, the error's arm" \
   --package "${buildinfo}" 50
 expect fail "an error arm spelled == nil that no test reached" "${error_arm_unseen}" "" \
-  "${fixture}:13:17 in ready: \"err == nil\" was never seen false, the error's arm" \
+  "${fixture}:13:17 in ready: \"err == nil\", number 1 there, was never seen false, the error's arm" \
   --package "${buildinfo}" 50
 
 # An error check is any name ending in err or Err, with a capitalized or
@@ -246,30 +248,30 @@ expect fail "an error arm spelled == nil that no test reached" "${error_arm_unse
 # calls; a name that only begins with err is no error, so its != nil never
 # seen true is a boolean seen one way, listed but passing.
 expect fail "an error arm of an Err method that no test reached" "[$(condition 17:5 'ctx.Err() != nil' 0 2)]" "" \
-  "${fixture}:17:5 in watcher.wait: \"ctx.Err() != nil\" was never seen true, the error's arm" \
+  "${fixture}:17:5 in watcher.wait: \"ctx.Err() != nil\", number 1 there, was never seen true, the error's arm" \
   --package "${buildinfo}" 50
 expect fail "an error arm reached through a call that no test reached" \
   "[$(condition 21:5 'context.Background().Err() != nil' 0 2)]" "" \
-  "${fixture}:21:5 in watcher.wait: \"context.Background().Err() != nil\" was never seen true" \
+  "${fixture}:21:5 in watcher.wait: \"context.Background().Err() != nil\", number 1 there, was never seen true" \
   --package "${buildinfo}" 50
 expect fail "an error arm of a name with a rest that no test reached" "[$(condition 25:42 'errParse != nil' 0 2)]" "" \
-  "${fixture}:25:42 in watcher.wait: \"errParse != nil\" was never seen true, the error's arm" \
+  "${fixture}:25:42 in watcher.wait: \"errParse != nil\", number 1 there, was never seen true, the error's arm" \
   --package "${buildinfo}" 50
 expect fail "an error arm in a method of a type with type parameters" "[$(condition 33:25 'err != nil' 0 2)]" "" \
-  "${fixture}:33:25 in cache.get: \"err != nil\" was never seen true, the error's arm" \
+  "${fixture}:33:25 in cache.get: \"err != nil\", number 1 there, was never seen true, the error's arm" \
   --package "${buildinfo}" 50
 # gobco reports a !errors.Is as the call alone, so its error arm is the
 # call's false one.
 expect fail "a !errors.Is right after an error check, its error arm unseen" \
   "[$(condition 41:44 'errors.Is(err, fs.ErrNotExist)' 3 0)]" "" \
-  "${fixture}:41:44 in remove: \"errors.Is(err, fs.ErrNotExist)\" was never seen false, the error's arm" \
+  "${fixture}:41:44 in remove: \"errors.Is(err, fs.ErrNotExist)\", number 1 there, was never seen false, the error's arm" \
   --package "${buildinfo}" 50
 expect pass "a !errors.Is right after an error check, its error arm seen" \
   "[$(condition 41:44 'errors.Is(err, fs.ErrNotExist)' 0 3)]" "" \
   "Condition coverage 50.0% (floor 50%)." --package "${buildinfo}" 50
 expect fail "an errors.Is on the line after an error check, its error arm unseen" \
   "[$(condition 46:3 'errors.Is(err, fs.ErrPermission)' 0 2)]" "" \
-  "${fixture}:46:3 in remove: \"errors.Is(err, fs.ErrPermission)\" was never seen true, the error's arm" \
+  "${fixture}:46:3 in remove: \"errors.Is(err, fs.ErrPermission)\", number 1 there, was never seen true, the error's arm" \
   --package "${buildinfo}" 50
 expect pass "an errors.Is after no error check" "[$(condition 50:31 'errors.Is(lastErr, fs.ErrExist)' 0 2)]" "" \
   "Condition coverage 50.0% (floor 50%)." --package "${buildinfo}" 50
@@ -278,40 +280,60 @@ expect pass "a name that only begins with err" "[$(condition 29:18 'w.errorHandl
 
 # So does a condition no test evaluated at all.
 expect fail "a condition never evaluated" "${never_evaluated}" "" \
-  "${fixture}:13:9 in ready: \"open\" was never evaluated" --package "${buildinfo}" 50
+  "${fixture}:13:9 in ready: \"open\", number 1 there, was never evaluated" --package "${buildinfo}" 50
 
 # A boolean seen one way is the worklist's, not the gate's.
 expect pass "a boolean seen one way" "${boolean_one_way}" "" \
   "Condition coverage 50.0% (floor 50%)." --package "${buildinfo}" 50
 
-# A line of the allowlist keeps one arm, of the function and condition it
-# names, for the trade-off it names.
-kept="$(allowlist kept "${fixture} reader.read TRADE-1 any err != nil" \
-  "${fixture} ready TRADE-2 any err == nil")"
+# A line of the allowlist keeps one arm, of the function, number and
+# condition it names, for the trade-off it names.
+kept="$(allowlist kept "${fixture} reader.read TRADE-1 any 1 err != nil" \
+  "${fixture} ready TRADE-2 any 1 err == nil")"
 GOBCO_ALLOWLIST="${kept}" expect pass "arms the allowlist keeps" "${error_arm_unseen}" "" \
   "Condition coverage" --package "${buildinfo}" 50
 
-one="$(allowlist one "${fixture} reader.read TRADE-1 any err != nil")"
+one="$(allowlist one "${fixture} reader.read TRADE-1 any 1 err != nil")"
 GOBCO_ALLOWLIST="${one}" expect fail "a second arm the one line does not keep" "${twice_unseen}" "" \
-  "${fixture}:9:9 in reader.read: \"err != nil\" was never seen true" --package "${buildinfo}" 50
+  "${fixture}:9:9 in reader.read: \"err != nil\", number 2 there, was never seen true" --package "${buildinfo}" 50
+
+# A line keeps its arm by its number among the conditions of its function
+# that read the same, so a kept arm a test comes to reach is not traded for a
+# new one no test reaches that reads the same: the new one has a number of
+# its own, and the line keeps nothing.
+traded="[$(condition 5:5 'err != nil' 1 3),$(condition 9:9 'err != nil' 0 1)]"
+GOBCO_ALLOWLIST="${one}" expect fail "a kept arm reached, and a new one that reads the same" "${traded}" "" \
+  "${fixture}:9:9 in reader.read: \"err != nil\", number 2 there, was never seen true" --package "${buildinfo}" 50
+GOBCO_ALLOWLIST="${one}" expect fail "a kept arm reached, its line left" "${traded}" "" \
+  "${one}:2: no unseen arm is left for \"${fixture} reader.read TRADE-1 any 1 err != nil\"" \
+  --package "${buildinfo}" 50
+
+# A line names its arm's number, and only one line keeps an arm.
+unnumbered="$(allowlist unnumbered "${fixture} reader.read TRADE-1 any err != nil")"
+GOBCO_ALLOWLIST="${unnumbered}" expect fail "an allowlist line without its arm's number" "${error_arm_unseen}" "" \
+  "${unnumbered}:2: want <file> <function> <TRADE-n> <systems> <number> <condition>" --package "${buildinfo}" 50
+twice="$(allowlist twice "${fixture} reader.read TRADE-1 any 1 err != nil" \
+  "${fixture} reader.read TRADE-1 any 1 err != nil")"
+GOBCO_ALLOWLIST="${twice}" expect fail "two lines keeping one arm" "${error_arm_unseen}" "" \
+  "${twice}:3: keeps the arm line 2 keeps already" --package "${buildinfo}" 50
 
 # A line whose arm a test now reaches keeps nothing, and goes.
 GOBCO_ALLOWLIST="${kept}" expect fail "a line whose arm a test now reaches" "${seen_both_ways}" "" \
-  "${kept}:2: no unseen arm is left for \"${fixture} reader.read TRADE-1 any err != nil\"" \
+  "${kept}:2: no unseen arm is left for \"${fixture} reader.read TRADE-1 any 1 err != nil\"" \
   --package "${buildinfo}" 50
 
 # A line names the systems it holds on; elsewhere it neither keeps its arm nor
 # is missed.
-elsewhere="$(allowlist elsewhere "${fixture} reader.read TRADE-1 plan9 err != nil")"
+elsewhere="$(allowlist elsewhere "${fixture} reader.read TRADE-1 plan9 1 err != nil")"
 GOBCO_ALLOWLIST="${elsewhere}" expect fail "a line for another system" "${error_arm_unseen}" "" \
-  "${fixture}:5:5 in reader.read: \"err != nil\" was never seen true" --package "${buildinfo}" 50
+  "${fixture}:5:5 in reader.read: \"err != nil\", number 1 there, was never seen true" --package "${buildinfo}" 50
 GOBCO_ALLOWLIST="${elsewhere}" expect pass "a line for another system, its arm seen" "${seen_both_ways}" "" \
   "Condition coverage" --package "${buildinfo}" 50
 
 # A line that does not name a trade-off is no line at all.
-unnamed="$(allowlist unnamed "${fixture} reader.read any err != nil")"
+unnamed="$(allowlist unnamed "${fixture} reader.read any 1 err != nil")"
 GOBCO_ALLOWLIST="${unnamed}" expect fail "an allowlist line naming no trade-off" "${seen_both_ways}" "" \
-  "${unnamed}:2: want <file> <function> <TRADE-n> <systems> <condition>" --package "${buildinfo}" 50
+  "${unnamed}:2: want <file> <function> <TRADE-n> <systems> <number> <condition>" --package "${buildinfo}" 50
 
 # floors writes a floors file holding the given lines, and names it.
 #   floors <name> [line...]
