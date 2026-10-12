@@ -383,11 +383,17 @@ error check under a name the gate does not read, or one held in a variable
 first, is read as a boolean. The allowlist names a kept arm by its number among
 its function's conditions that read the same rather than by its line, so a
 condition added above it that reads the same moves the number on, and the gate
-fails until the line is changed to follow it.
+fails until the line is changed to follow it, but for one change it cannot
+see: when a test comes to reach a kept arm in the same change that adds an
+untested condition reading the same above it in that function, the new arm
+takes the kept one's number, the line keeps it, and the gate passes. Without
+source lines the gate cannot tell the two apart, and
+`scripts/gobco-report_test.sh` pins that case as one that passes.
 
 **Reopen when.** The measured figure comes within one point of
-`BRANCH_COVERAGE_MIN`, or a defect ships through a condition the report listed
-as seen only one way.
+`BRANCH_COVERAGE_MIN`, a defect ships through a condition the report listed
+as seen only one way, or a kept arm is found traded for a new one as the cost
+above describes.
 
 ### TRADE-21 The place rules are written twice
 
