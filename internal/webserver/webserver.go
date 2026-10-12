@@ -229,15 +229,16 @@ var _ api.StrictServerInterface = (*server)(nil)
 // file at first.Config.Path as startingPoint reads it, not from that
 // configuration alone, which the process read a moment before. It fails when
 // the embedded spec cannot be loaded or routed, which is a build defect, or
-// when that file cannot be read.
-func Handler(first World, assets fs.FS, session Session) (http.Handler, error) {
+// when that file cannot be read. ctx is the server's lifetime: a read ends
+// when its page goes, but a write goes on to its end and ends only with ctx.
+func Handler(ctx context.Context, first World, assets fs.FS, session Session) (http.Handler, error) {
 	// Trade-off TRADE-14: the embedded spec loads in every build a test runs.
 	spec, err := loadContract(session)
 	if err != nil {
 		return nil, err
 	}
 
-	held, err := newWorlds(first)
+	held, err := newWorlds(ctx, first)
 	if err != nil {
 		return nil, err
 	}

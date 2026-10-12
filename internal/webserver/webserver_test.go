@@ -149,7 +149,7 @@ func serveWorld(t *testing.T, world webserver.World, assets fs.FS) http.Handler 
 
 	session := webserver.NewSession()
 
-	handler, err := webserver.Handler(world, assets, session)
+	handler, err := webserver.Handler(t.Context(), world, assets, session)
 	if err != nil {
 		t.Fatalf("building the handler: %v", err)
 	}

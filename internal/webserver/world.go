@@ -4,6 +4,7 @@
 package webserver
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -41,6 +42,10 @@ type World struct {
 // shared, so a switch, which holds it alone, is refused while one runs rather
 // than leaving it unknown.
 type worlds struct {
+	// lifetime is the server's own: it ends when the server stops, and every
+	// write's context ends with it rather than with the write's page.
+	lifetime context.Context //nolint:containedctx // the server's lifetime, which a write outlasts its page to end with
+
 	gate sync.RWMutex
 
 	mu      sync.RWMutex
@@ -52,9 +57,9 @@ type worlds struct {
 	setups sync.Mutex
 }
 
-// newWorlds serves first.
-func newWorlds(first World) (*worlds, error) {
-	held := &worlds{}
+// newWorlds serves first, for as long as lifetime lasts.
+func newWorlds(lifetime context.Context, first World) (*worlds, error) {
+	held := &worlds{lifetime: lifetime}
 
 	_, err := held.install(first)
 	if err != nil {
@@ -65,9 +70,17 @@ func newWorlds(first World) (*worlds, error) {
 }
 
 // serve hands a request the contract admitted to the server for the
-// directory worked in. A write but a switch holds the gate a switch waits on,
-// and a write is refused when the page that sent it names another directory.
+// directory worked in. A write runs under a context that outlasts its page,
+// and a write but a switch holds the gate a switch waits on; a write is
+// refused when the page that sent it names another directory.
 func (w *worlds) serve(writer http.ResponseWriter, request *http.Request, switches bool) {
+	if !isSafeMethod(request.Method) {
+		var release context.CancelFunc
+
+		request, release = w.outlivingItsPage(request)
+		defer release()
+	}
+
 	if !isSafeMethod(request.Method) && !switches {
 		w.gate.RLock()
 		defer w.gate.RUnlock()
@@ -82,6 +95,27 @@ func (w *worlds) serve(writer http.ResponseWriter, request *http.Request, switch
 	}
 
 	handler.ServeHTTP(writer, request)
+}
+
+// outlivingItsPage is request under a context that goes on when its page
+// leaves and ends when the server stops, and the function that releases it
+// once the write is answered.
+func (w *worlds) outlivingItsPage(request *http.Request) (*http.Request, context.CancelFunc) {
+	// Trade-off TRADE-37: a write outlasts its page, and ends only with the
+	// server.
+	ctx, cancel := context.WithCancel(context.WithoutCancel(request.Context()))
+	stop := w.atEnd(cancel)
+
+	return request.WithContext(ctx), func() {
+		stop()
+		cancel()
+	}
+}
+
+// atEnd runs end, on the context package's own goroutine, once the server's
+// lifetime ends, unless the function it returns is called first.
+func (w *worlds) atEnd(end func()) func() bool {
+	return context.AfterFunc(w.lifetime, end)
 }
 
 // install builds the server for world and serves it from now on, retiring the

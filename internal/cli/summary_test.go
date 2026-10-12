@@ -151,8 +151,9 @@ func webActivity(t *testing.T, repo, query string) api.Activity {
 
 	session := webserver.NewSession()
 
-	handler, err := webserver.Handler(webserver.World{Deps: ran.deps, Config: ran.cfg, Info: ran.info}, fstest.MapFS{},
-		session)
+	world := webserver.World{Deps: ran.deps, Config: ran.cfg, Info: ran.info}
+
+	handler, err := webserver.Handler(t.Context(), world, fstest.MapFS{}, session)
 	if err != nil {
 		t.Fatalf("webserver.Handler: %v", err)
 	}
