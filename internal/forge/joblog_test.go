@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -336,8 +337,11 @@ func TestJobLogKeepsTheStoragesAddressOutOfItsUnreachableError(t *testing.T) {
 
 	// Arrange
 	// The storage's address is signed, so it is as much a credential as the
-	// token is.
-	unreachable := func(*http.Request) (*http.Response, error) { return nil, errBrokeOff }
+	// token is. The transport fails as http.Client.Do does, naming the
+	// address it could not reach.
+	unreachable := func(request *http.Request) (*http.Response, error) {
+		return nil, &url.Error{Op: "Get", URL: request.URL.String(), Err: errBrokeOff}
+	}
 	client, _ := storageBehind("https://storage.example.com/log?signature=signed-for-this-job", unreachable)
 
 	// Act
