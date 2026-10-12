@@ -288,8 +288,9 @@ func TestTaskKeysAreListedInTheHelpAndConflictFree(t *testing.T) {
 		t.Errorf("? lists\n%s\nwant\n%s", got, want)
 	}
 
-	// On the Tasks pane its own keys are live beside the ones that work
-	// everywhere, so no key may be shown for two of them.
+	// On the Tasks pane its own keys are live beside the moving keys, the
+	// keys every pane takes and the ones panes and overlays share, so no key
+	// may be shown for two of them.
 	var shown []string
 
 	for _, name := range []string{movingGroup, tasksTitle, everyPaneGroup, panesAndOverlaysGroup} {
