@@ -10,8 +10,8 @@
 # is named in NO_TESTS; and one that is not is refused by name.
 #
 # The arms no test reached: a condition never evaluated, and an error check's
-# error arm never seen, fail the run, naming the file, line and function,
-# unless a line of the allowlist keeps that arm for a trade-off; a line keeps
+# error arm never seen, fail the run, naming the file, line and function, a
+# method by its type's name whatever type parameters it takes, unless a line of the allowlist keeps that arm for a trade-off; a line keeps
 # one arm, on the systems it names; a line whose arm a test now reaches, or
 # that is not shaped as one, fails too; and a boolean seen one way is only
 # listed. Each package the floors file names answers to its own floor beside
@@ -175,6 +175,14 @@ func (w *watcher) wait(ctx context.Context) error {
 
 	return w.handle(w.errorHandler != nil)
 }
+
+func (c *cache[K, V]) get(key K) error {
+	if err := c.read(key); err != nil {
+		return err
+	}
+
+	return nil
+}
 GO
 
 # condition writes the statistics of one condition at a line and column of
@@ -222,6 +230,9 @@ expect fail "an error arm reached through a call that no test reached" \
   --package "${buildinfo}" 50
 expect fail "an error arm of a name with a rest that no test reached" "[$(condition 25:42 'errParse != nil' 0 2)]" "" \
   "${fixture}:25:42 in watcher.wait: \"errParse != nil\" was never seen true, the error's arm" \
+  --package "${buildinfo}" 50
+expect fail "an error arm in a method of a type with type parameters" "[$(condition 33:25 'err != nil' 0 2)]" "" \
+  "${fixture}:33:25 in cache.get: \"err != nil\" was never seen true, the error's arm" \
   --package "${buildinfo}" 50
 expect pass "a name that only begins with err" "[$(condition 29:18 'w.errorHandler != nil' 0 2)]" "" \
   "Condition coverage 50.0% (floor 50%)." --package "${buildinfo}" 50
