@@ -121,19 +121,7 @@ func (w *worlds) outlivingItsPage(request *http.Request) (*http.Request, context
 // lifetime, so detaching one from its page alone, never from the server, is
 // what lets Serve's drain end on a stop rather than wait out its grace.
 func (w *worlds) outliving(ctx context.Context) (context.Context, context.CancelFunc) {
-	outlives, cancel := context.WithCancel(context.WithoutCancel(ctx))
-	stop := w.atEnd(cancel)
-
-	return outlives, func() {
-		stop()
-		cancel()
-	}
-}
-
-// atEnd runs end, on the context package's own goroutine, once the server's
-// lifetime ends, unless the function it returns is called first.
-func (w *worlds) atEnd(end func()) func() bool {
-	return context.AfterFunc(w.lifetime, end)
+	return lifetime.Until(ctx, w.lifetime)
 }
 
 // install builds the server for world and serves it from now on, retiring the

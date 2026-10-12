@@ -280,12 +280,10 @@ func endingWith(program context.Context) outliving {
 
 	return func(ctx context.Context, name string) (context.Context, context.CancelFunc) {
 		landed := inFlight.Begin(name)
-		outlives, cancel := context.WithCancel(context.WithoutCancel(ctx))
-		stop := context.AfterFunc(program, cancel)
+		outlives, release := lifetime.Until(ctx, program)
 
 		return outlives, func() {
-			stop()
-			cancel()
+			release()
 			landed()
 		}
 	}
