@@ -61,3 +61,6 @@ internal/store/store.go stamp TRADE-16 any err != nil
 # TRADE-18: only Linux's tests write to /dev/full, so a run on macOS never
 # sees the request log fail to be written.
 internal/cli/scriptable.go closeRequestLog TRADE-18 darwin err != nil
+
+# TRADE-36: the stat of a configuration file just opened is taken not to fail.
+internal/config/layers.go readTrusted TRADE-36 any err == nil
