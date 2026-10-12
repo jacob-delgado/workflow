@@ -21,9 +21,11 @@
 # this list only shrinks as tests arrive. Source lines are not named here:
 # they drift, and the gate matches on file, function, number and condition.
 # The number keeps a kept arm that a test comes to reach from being traded for
-# a new one no test reaches that reads the same; a condition added above a
-# kept arm that reads the same moves its number on, and the gate fails until
-# the line follows it.
+# a new one no test reaches that reads the same, added below it. A condition
+# that reads the same added above a kept arm moves its number on, and the gate
+# fails until the line follows it, but for one case: when a test comes to
+# reach the kept arm in the same change, the new arm takes its number and the
+# line keeps it, unseen. TRADE-19 keeps that limit.
 
 # TRADE-13: encoding the program's own types is taken not to fail, nor
 # decoding JSON the program just encoded or decoded; and, in the web server, a
