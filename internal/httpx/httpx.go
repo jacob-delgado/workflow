@@ -110,16 +110,23 @@ func retryAfter(value string) (time.Duration, bool) {
 type Doer func(*http.Request) (*http.Response, error)
 
 // Client is the transport a credential may travel over, each request bounded
-// by timeout: whole, or part by part for a Streaming one.
+// by timeout: whole, or part by part for a Streaming one. It sends through
+// Go's default transport; see ClientOver.
+func Client(timeout time.Duration) *http.Client {
+	return ClientOver(http.DefaultTransport, timeout)
+}
+
+// ClientOver is Client sending through next, for a caller that sends some
+// other way, as a test does, keeping all Client holds a request to.
 //
 // It refuses redirects, and that is the point rather than a convenience: Go's
 // default client forwards the Authorization header to any redirect target
 // sharing a HOSTNAME, ignoring both the port and the scheme. A service behind a
 // misconfigured proxy that redirects HTTPS to HTTP on the same host would hand
 // the token to the plaintext hop with nothing in the code looking wrong.
-func Client(timeout time.Duration) *http.Client {
+func ClientOver(next http.RoundTripper, timeout time.Duration) *http.Client {
 	return &http.Client{
-		Transport: deadlines{next: http.DefaultTransport, timeout: timeout},
+		Transport: deadlines{next: next, timeout: timeout},
 		CheckRedirect: func(next *http.Request, _ []*http.Request) error {
 			if showsRedirect(next.Context()) {
 				return http.ErrUseLastResponse

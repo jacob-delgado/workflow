@@ -5,7 +5,6 @@ package httpx_test
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
@@ -178,23 +177,12 @@ func TestAnAnswerThatCannotBeClosedSaysSo(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// The client sends through Go's default transport, which hands a scheme
-	// registered on it to the transport registered for it: a scheme of this
-	// run's own, since one registers only once in a process.
-	transport, ok := http.DefaultTransport.(*http.Transport)
-	if !ok {
-		t.Fatalf("http.DefaultTransport is a %T, not the *http.Transport a scheme registers on", http.DefaultTransport)
-	}
-
-	scheme := "unclosable" + strings.ToLower(rand.Text())
-	transport.RegisterProtocol(scheme, unclosableAnswers{})
-
-	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, scheme+"://answer/", nil)
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, "https://answer.example.com/", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	response, err := httpx.Client(clientTimeout).Do(request)
+	response, err := httpx.ClientOver(unclosableAnswers{}, clientTimeout).Do(request)
 	if err != nil {
 		t.Fatalf("asking: %v", err)
 	}
