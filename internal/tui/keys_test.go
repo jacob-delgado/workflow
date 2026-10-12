@@ -167,6 +167,37 @@ func TestCheckKeysRefusesAKeyTwoPanesTheWebShowsTogetherShare(t *testing.T) {
 	}
 }
 
+// An action whose press opens a last look must not share a key with apply,
+// which confirms the look: pressed twice, the key would ask and then confirm,
+// and enter twice on Local data would remove everything.
+func TestCheckKeysRefusesAnActionThatAsksFirstOnTheKeyThatConfirmsIt(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]map[string]string{
+		"remove-everything onto apply's key": {"remove-everything": keyEnter},
+		"remove-cache onto apply's key":      {"remove-cache": keyEnter},
+		"apply onto remove-everything's key": {applyAction: "C"},
+	}
+
+	for name, rebound := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			err := tui.CheckKeys(rebound)
+
+			// Assert
+			if !errors.Is(err, config.ErrKeyConfirmsItself) {
+				t.Fatalf("CheckKeys(%v) = %v, want ErrKeyConfirmsItself", rebound, err)
+			}
+
+			if got := err.Error(); !strings.Contains(got, "remove-") {
+				t.Errorf("CheckKeys error %q does not name the action that asks first", got)
+			}
+		})
+	}
+}
+
 func TestCheckKeysCatchesConflictsOnCrossPaneKeys(t *testing.T) {
 	t.Parallel()
 

@@ -131,11 +131,13 @@ func stepping(t *testing.T, model tui.Model, moved map[string]tea.KeyPressMsg, s
 }
 
 // overlayProbe is what the probe finds of an open overlay: the key context
-// it says it is in, and every action a press of answers, asking for
-// something or leaving a screen other than a press nothing answers leaves.
+// it says it is in, every action a press of answers, asking for something or
+// leaving a screen other than a press nothing answers leaves, and every action
+// but apply whose press opens a last look in its place.
 type overlayProbe struct {
 	context  tui.ListedKeyContext
 	answered []string
+	asks     []string
 }
 
 // probeOverlay opens the state's overlay and presses every moved key on it.
@@ -145,15 +147,30 @@ func probeOverlay(t *testing.T, state overlayState) overlayProbe {
 	moved := movedKeys(t)
 	model, context := openedQuiet(t, state, moved)
 	unanswered, _ := model.Update(noKey())
-	found := overlayProbe{context: context, answered: nil}
+	found := overlayProbe{context: context, answered: nil, asks: nil}
 
 	for action, press := range moved {
 		if answers(model, press, unanswered) {
 			found.answered = append(found.answered, action)
 		}
+
+		if action != applyAction && opensALastLook(t, model, press, context) {
+			found.asks = append(found.asks, action)
+		}
 	}
 
 	return found
+}
+
+// opensALastLook reports that a press leaves a last look open where another
+// overlay was.
+func opensALastLook(t *testing.T, model tui.Model, press tea.KeyPressMsg, from tui.ListedKeyContext) bool {
+	t.Helper()
+
+	pressed, _ := model.Update(press)
+	opened, _ := concrete(t, pressed).OverlayKeyContext()
+
+	return from.Name != lastLookContext && opened.Name == lastLookContext
 }
 
 // openedQuiet is the state's overlay opened with every action moved, and the
