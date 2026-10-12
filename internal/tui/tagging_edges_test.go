@@ -113,20 +113,25 @@ func TestLinkingAnotherOwnerKeepsTheGroupsAsChosen(t *testing.T) {
 	}
 }
 
-func TestAGroupSlackCannotTagPostsUntagged(t *testing.T) {
+func TestAGroupSlackCannotTagIsNotOfferedAndTheRestAreTagged(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	odd := onlyBen()
-	odd.slack.repoGroups = []loop.SlackTarget{{ID: "not-a-group", Label: "odd"}}
+	// The repository's groups hold one whose ID is no group's, chosen last
+	// time: no post could tag it.
+	odd := taggingWorld()
+	odd.slack.repoGroups = append(odd.slack.repoGroups, loop.SlackTarget{ID: "not-a-group", Label: "odd"})
 	odd.slack.last, odd.slack.lastChosen = []string{"not-a-group"}, true
+	preview := typing(t, odd.live(t, 140, 40), "5", "p")
 
 	// Act
-	typing(t, odd.live(t, 140, 40), "5", "p", keyEnter)
+	typing(t, preview, keyEnter)
 
 	// Assert
-	if got := postedText(t, odd); strings.Contains(got, "cc ") {
-		t.Errorf("posted %q, want it untagged", got)
+	refuseScreen(t, preview.View().Content, "@odd")
+
+	if got := postedText(t, odd); !strings.HasSuffix(got, "\ncc "+tagCarla+" "+tagPod) {
+		t.Errorf("posted %q, want Carla and the pod tagged, and the group no post could tag left out", got)
 	}
 }
 
