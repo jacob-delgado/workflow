@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -27,7 +28,7 @@ func reviewOn(link, body string) webserver.Deps {
 	deps.Git.Branch = func() (gitrepo.Branch, error) {
 		return gitrepo.Branch{Name: unnamedBranch, IssueLink: link}, nil
 	}
-	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{Number: 9, Title: "Speed up search", Body: body}, true, nil
 	}
 	deps.Jira.BrowseURL = func(key jira.Key) string { return "https://tracker.example/" + string(key) }
@@ -81,7 +82,7 @@ func TestTheReviewSaysWhyAFailedCheckFailed(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) {
+	deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
 		return forge.CI{State: forge.CIFailed, Checks: []forge.Check{{
 			ID: "501", Name: "unit-race", Stage: "test", Reason: "script failure", State: forge.CIFailed,
 			LogAvailable: true,
@@ -119,12 +120,12 @@ func deref[T any](value *T) T {
 // keeps, recording each log read.
 func failingDeps(read *[]string) webserver.Deps {
 	deps := filledDeps()
-	deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) {
+	deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
 		return forge.CI{State: forge.CIFailed, Checks: []forge.Check{
 			{ID: "501", Name: "unit-race", State: forge.CIFailed, LogAvailable: true},
 		}}, nil
 	}
-	deps.Forge.JobLog = func(check forge.Check) (forge.JobLog, error) {
+	deps.Forge.JobLog = func(_ context.Context, check forge.Check) (forge.JobLog, error) {
 		*read = append(*read, check.ID)
 
 		return forge.JobLog{Text: "--- FAIL: TestRetry", Truncated: true}, nil
@@ -170,7 +171,7 @@ func TestACheckLogWhoseForgeCannotBeReachedIsNotANotFound(t *testing.T) {
 	var read []string
 
 	deps := failingDeps(&read)
-	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{}, false, fmt.Errorf("finding the pull request: %w", forge.ErrUnreachable)
 	}
 
@@ -200,7 +201,7 @@ func TestACheckLogTheForgeCouldNotHandOverIsAnUpstreamFault(t *testing.T) {
 			var read []string
 
 			deps := failingDeps(&read)
-			deps.Forge.JobLog = func(forge.Check) (forge.JobLog, error) { return forge.JobLog{}, cause }
+			deps.Forge.JobLog = func(context.Context, forge.Check) (forge.JobLog, error) { return forge.JobLog{}, cause }
 
 			// Act
 			answer := get(t, serve(t, deps, config.Default()), "/api/review/checks/501/log")
@@ -219,8 +220,8 @@ func TestACheckLogTheForgeHasNoneOfIsUnprocessable(t *testing.T) {
 	cases := map[string]func(deps *webserver.Deps){
 		"the check keeps no log": func(deps *webserver.Deps) {
 			listed := deps.Forge.CheckStatus
-			deps.Forge.CheckStatus = func(pull forge.PullRequest, head string) (forge.CI, error) {
-				ci, err := listed(pull, head)
+			deps.Forge.CheckStatus = func(ctx context.Context, pull forge.PullRequest, head string) (forge.CI, error) {
+				ci, err := listed(ctx, pull, head)
 				for index := range ci.Checks {
 					ci.Checks[index].LogAvailable = false
 				}
@@ -263,7 +264,7 @@ func TestACheckLogWhoseBranchOrCICannotBeReadIsNotANotFound(t *testing.T) {
 			deps.Git.Branch = func() (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
 		}},
 		"the CI": {want: http.StatusBadGateway, change: func(deps *webserver.Deps) {
-			deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) {
+			deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
 				return forge.CI{}, fmt.Errorf("reading the checks: %w", forge.ErrUnreachable)
 			}
 		}},

@@ -62,7 +62,7 @@ func (w *world) withActivity(deps tui.Deps) tui.Deps {
 
 		return done.jira, done.jiraErr
 	}
-	deps.Forge.Activity = func(start, _ time.Time) (forge.Activity, error) {
+	deps.Forge.Activity = func(_ context.Context, start, _ time.Time) (forge.Activity, error) {
 		w.record(summaryRead("forge", start))
 
 		return done.forge, nil

@@ -62,7 +62,7 @@ func TestAnUnreachableForgeIsNotNothingToAnnounce(t *testing.T) {
 
 				return nil
 			}
-			deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+			deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 				return forge.PullRequest{}, false, fmt.Errorf("%w: https://%s", forge.ErrUnreachable, host)
 			}
 
@@ -106,7 +106,7 @@ func TestAFailedBranchReadIsNotNothingToOpen(t *testing.T) {
 
 				return fakeOutput(nil, nil), nil
 			}
-			deps.Forge.CreatePullRequest = func(forge.NewPullRequest) (forge.PullRequest, error) {
+			deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.PullRequest, error) {
 				wrote++
 
 				return forge.PullRequest{}, nil

@@ -133,41 +133,45 @@ type Git struct {
 
 // Forge is what a surface asks of GitHub or GitLab.
 type Forge struct {
-	FindPullRequest   func(branch string) (forge.PullRequest, bool, error)
-	CreatePullRequest func(request forge.NewPullRequest) (forge.PullRequest, error)
-	EditPullRequest   func(pull forge.PullRequest, edit forge.PullRequestEdit) (forge.PullRequest, error)
+	FindPullRequest   func(ctx context.Context, branch string) (forge.PullRequest, bool, error)
+	CreatePullRequest func(ctx context.Context, request forge.NewPullRequest) (forge.PullRequest, error)
+	EditPullRequest   func(
+		ctx context.Context, pull forge.PullRequest, edit forge.PullRequestEdit,
+	) (forge.PullRequest, error)
 	// RewriteDescription changes a pull request's description as rewrite says,
 	// from the description as the forge holds it rather than as it is shown,
 	// and reports whether rewrite changed it: linking a branch adds the issue's
 	// line this way, so nothing else of the author's text changes. Nil when
 	// there is no forge.
-	RewriteDescription func(pull forge.PullRequest, rewrite func(body string) (string, bool)) (bool, error)
-	CheckStatus        func(pull forge.PullRequest, head string) (forge.CI, error)
+	RewriteDescription func(
+		ctx context.Context, pull forge.PullRequest, rewrite func(body string) (string, bool),
+	) (bool, error)
+	CheckStatus func(ctx context.Context, pull forge.PullRequest, head string) (forge.CI, error)
 	// Rerun re-runs the failed CI on a pull request and reports whether anything
 	// was re-run. It needs a write scope the read path does not, so it can be
 	// refused where CheckStatus was not. Nil when there is no forge.
-	Rerun func(pull forge.PullRequest, head string) (bool, error)
+	Rerun func(ctx context.Context, pull forge.PullRequest, head string) (bool, error)
 	// JobLog reads the end of a failed check's log, for one the forge keeps a
 	// log for. Nil when there is no forge.
-	JobLog func(check forge.Check) (forge.JobLog, error)
+	JobLog func(ctx context.Context, check forge.Check) (forge.JobLog, error)
 	// Merge merges a pull request by a method the repository permits, and
 	// MergeMethods lists those methods. Merge needs a write scope the read path
 	// does not. Both nil when there is no forge.
-	Merge        func(pull forge.PullRequest, method forge.MergeMethod) error
-	MergeMethods func() ([]forge.MergeMethod, error)
+	Merge        func(ctx context.Context, pull forge.PullRequest, method forge.MergeMethod) error
+	MergeMethods func(ctx context.Context) ([]forge.MergeMethod, error)
 	// ReviewRequests lists the pull requests on the forge that ask for your
 	// review, across whichever repositories requested you.
-	ReviewRequests func() ([]forge.ReviewRequest, error)
+	ReviewRequests func(ctx context.Context) ([]forge.ReviewRequest, error)
 	Templates      func() []forge.Template
 	// Author is who the forge credential belongs to, to say who opened a pull
 	// request.
-	Author func() (string, error)
+	Author func(ctx context.Context) (string, error)
 	// IsGroup reports whether a bare CODEOWNERS name, @acme, is a top-level
 	// GitLab group rather than a user, so it is tagged as a team. On GitHub,
 	// whose teams are spelled org/team, and with no forge, it asks nothing and
 	// answers that the name is a person. Which forge it is follows the
 	// settings in effect at each call.
-	IsGroup func(name string) (bool, error)
+	IsGroup func(ctx context.Context, name string) (bool, error)
 	// Kind is the forge the remote points at under the settings workflow
 	// started with, so a surface can call a change a "pull request" or a
 	// "merge request". A surface that saves forge settings while it runs
@@ -175,7 +179,7 @@ type Forge struct {
 	Kind forge.Kind
 	// Activity is what you did on the forge from start up to end, in any
 	// repository, for the Summary.
-	Activity func(start, end time.Time) (forge.Activity, error)
+	Activity func(ctx context.Context, start, end time.Time) (forge.Activity, error)
 }
 
 // Messaging is what a surface asks of the messaging service.

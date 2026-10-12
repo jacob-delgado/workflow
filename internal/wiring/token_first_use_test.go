@@ -125,7 +125,7 @@ func TestTheJiraTokenCommandRunsOnlyOnceJiraIsFirstAsked(t *testing.T) {
 	}
 
 	// Act: list the review requests, which reach the forge alone
-	_, reviewErr := deps.Forge.ReviewRequests()
+	_, reviewErr := deps.Forge.ReviewRequests(t.Context())
 
 	// Assert: it has still not run
 	if runs := tokens.runs(); reviewErr != nil || runs != 0 {

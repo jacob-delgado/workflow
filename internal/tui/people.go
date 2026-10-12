@@ -119,7 +119,7 @@ func (s branchState) readPeople(ctx context.Context, deps Deps, opened int) tea.
 
 			return err
 		})
-		found, ownersErr := loop.OwnersOf(owners, base)
+		found, ownersErr := loop.OwnersOf(ctx, owners, base)
 
 		return peopleListed{opened: opened, people: peopleFrom(decided, found), err: errors.Join(linksErr, ownersErr)}
 	}

@@ -36,7 +36,7 @@ func TestForgeSettingsSavedWhileRunningReachTheNextCall(t *testing.T) {
 
 	// Act
 	kind := controls.UseForgeSettings(throughCLIOnPremises())
-	_, _, err := deps.Forge.FindPullRequest("feat/x")
+	_, _, err := deps.Forge.FindPullRequest(t.Context(), "feat/x")
 
 	// Assert
 	if kind != forge.KindGitHub || err != nil {
@@ -50,7 +50,7 @@ func TestForgeSettingsSavedWhileRunningReplaceTheConnectionMade(t *testing.T) {
 	where := wiring.Workspace{Root: t.TempDir(), Remote: onPremisesRemote}
 	deps, controls := processEnvironment().Deps(t.Context(), config.Config{Forge: throughCLIOnPremises()}, where, nil)
 
-	_, _, err := deps.Forge.FindPullRequest("feat/x")
+	_, _, err := deps.Forge.FindPullRequest(t.Context(), "feat/x")
 	if err != nil {
 		t.Fatalf("the first call = %v, want it answered through gh", err)
 	}
@@ -58,7 +58,7 @@ func TestForgeSettingsSavedWhileRunningReplaceTheConnectionMade(t *testing.T) {
 	// Act
 	controls.UseForgeSettings(config.Forge{})
 
-	_, _, err = deps.Forge.FindPullRequest("feat/x")
+	_, _, err = deps.Forge.FindPullRequest(t.Context(), "feat/x")
 
 	// Assert
 	if !errors.Is(err, forge.ErrUnknownForge) {

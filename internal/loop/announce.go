@@ -45,11 +45,11 @@ const NotRememberedWarning = "Posted, but not remembered: it may be offered agai
 // or CheckCI only makes the announcement say less.
 type AnnounceSeams struct {
 	Branch    func() (gitrepo.Branch, error)
-	FindPull  func(branch string) (forge.PullRequest, bool, error)
-	Author    func() (string, error)
+	FindPull  func(ctx context.Context, branch string) (forge.PullRequest, bool, error)
+	Author    func(ctx context.Context) (string, error)
 	Issue     func(ctx context.Context, issueKey jira.Key) (jira.IssueDetail, error)
 	BrowseURL func(jira.Key) string
-	CheckCI   func(pull forge.PullRequest, head string) (forge.CI, error)
+	CheckCI   func(ctx context.Context, pull forge.PullRequest, head string) (forge.CI, error)
 }
 
 // AnnounceMoment is the moment a pull request is at: merged, its CI red, or —
@@ -76,7 +76,7 @@ func AnnounceMoment(pull forge.PullRequest, ci forge.CI) messaging.Moment {
 func ComposeAnnouncement(
 	ctx context.Context, seams AnnounceSeams, cfg config.Messaging, project string, kind forge.Kind,
 ) (messaging.Announcement, forge.PullRequest, error) {
-	branch, pull, err := pullToAnnounce(seams)
+	branch, pull, err := pullToAnnounce(ctx, seams)
 	if err != nil {
 		return messaging.Announcement{}, forge.PullRequest{}, err
 	}
@@ -85,12 +85,12 @@ func ComposeAnnouncement(
 	issueKey := jira.Key(key.Key)
 
 	return Announcement(AnnouncementFacts{
-		Author:       authorName(seams.Author),
+		Author:       authorName(ctx, seams.Author),
 		Pull:         pull,
 		IssueKey:     issueKey,
 		IssueSummary: issueSummary(ctx, seams.Issue, issueKey),
 		IssueURL:     issueURL(seams.BrowseURL, issueKey),
-		Moment:       momentOf(seams.CheckCI, pull, branch.Head),
+		Moment:       momentOf(ctx, seams.CheckCI, pull, branch.Head),
 	}, cfg, kind), pull, nil
 }
 
@@ -127,7 +127,7 @@ func Announcement(facts AnnouncementFacts, cfg config.Messaging, kind forge.Kind
 
 // pullToAnnounce reads the checked-out branch and the pull request found for it,
 // open or merged: one closed without merging is none to announce.
-func pullToAnnounce(seams AnnounceSeams) (gitrepo.Branch, forge.PullRequest, error) {
+func pullToAnnounce(ctx context.Context, seams AnnounceSeams) (gitrepo.Branch, forge.PullRequest, error) {
 	if seams.Branch == nil || seams.FindPull == nil {
 		return gitrepo.Branch{}, forge.PullRequest{}, ErrNoPullRequest
 	}
@@ -137,7 +137,7 @@ func pullToAnnounce(seams AnnounceSeams) (gitrepo.Branch, forge.PullRequest, err
 		return gitrepo.Branch{}, forge.PullRequest{}, fmt.Errorf("reading the branch: %w", err)
 	}
 
-	pull, found, err := seams.FindPull(branch.Name)
+	pull, found, err := seams.FindPull(ctx, branch.Name)
 	if err != nil {
 		return gitrepo.Branch{}, forge.PullRequest{}, fmt.Errorf("reading the pull request: %w", err)
 	}
@@ -163,13 +163,14 @@ func followed(pull forge.PullRequest, found bool) bool {
 // asked about for nothing. A CI that cannot be read leaves the moment at ready
 // rather than failing the announcement.
 func momentOf(
-	check func(forge.PullRequest, string) (forge.CI, error), pull forge.PullRequest, head string,
+	ctx context.Context, check func(context.Context, forge.PullRequest, string) (forge.CI, error),
+	pull forge.PullRequest, head string,
 ) messaging.Moment {
 	if pull.State == forge.StateMerged || check == nil {
 		return AnnounceMoment(pull, forge.CI{})
 	}
 
-	ci, err := check(pull, head)
+	ci, err := check(ctx, pull, head)
 	if err != nil {
 		return AnnounceMoment(pull, forge.CI{})
 	}
@@ -179,12 +180,12 @@ func momentOf(
 
 // authorName is who the forge credential belongs to, or empty when the forge
 // will not say — the announcement reads without it.
-func authorName(read func() (string, error)) string {
+func authorName(ctx context.Context, read func(context.Context) (string, error)) string {
 	if read == nil {
 		return ""
 	}
 
-	name, err := read()
+	name, err := read(ctx)
 	if err != nil {
 		return ""
 	}

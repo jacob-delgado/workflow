@@ -25,8 +25,8 @@ import (
 type statusSeams struct {
 	Branch      func() (gitrepo.Branch, error)
 	Changes     func() ([]gitrepo.Change, error)
-	FindPull    func(branch string) (forge.PullRequest, bool, error)
-	CheckStatus func(pull forge.PullRequest, head string) (forge.CI, error)
+	FindPull    func(ctx context.Context, branch string) (forge.PullRequest, bool, error)
+	CheckStatus func(ctx context.Context, pull forge.PullRequest, head string) (forge.CI, error)
 	Issue       func(ctx context.Context, issueKey jira.Key) (jira.IssueDetail, error)
 	// Memory is what the store remembers of the announcements made here.
 	Memory loop.AnnounceMemory

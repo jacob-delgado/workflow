@@ -94,7 +94,7 @@ func (w *forgeWorld) deps() webserver.Deps {
 
 		return branch, err
 	}
-	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		w.mu.Lock()
 		defer w.mu.Unlock()
 
@@ -102,7 +102,7 @@ func (w *forgeWorld) deps() webserver.Deps {
 
 		return forge.PullRequest{Number: w.pull, URL: url, Title: "Redact tokens", State: w.state}, !w.gone, w.pullErr
 	}
-	deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) {
+	deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
 		w.mu.Lock()
 		defer w.mu.Unlock()
 

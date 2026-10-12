@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -26,7 +27,7 @@ const reviewsPath = "/api/reviews"
 // fails with err.
 func queueDeps(requests []forge.ReviewRequest, err error) webserver.Deps {
 	deps := filledDeps()
-	deps.Forge.ReviewRequests = func() ([]forge.ReviewRequest, error) { return requests, err }
+	deps.Forge.ReviewRequests = func(context.Context) ([]forge.ReviewRequest, error) { return requests, err }
 
 	return deps
 }
@@ -162,12 +163,12 @@ func TestListReviewsSaysThereIsNoForgeToAsk(t *testing.T) {
 
 	// No forge to ask is an answer about where the server runs, not a missing
 	// resource: the queue is not available, and empty, rather than a 404.
-	cases := map[string]func() ([]forge.ReviewRequest, error){
+	cases := map[string]func(context.Context) ([]forge.ReviewRequest, error){
 		noForgeSeam: nil,
-		"outside a repository": func() ([]forge.ReviewRequest, error) {
+		"outside a repository": func(context.Context) ([]forge.ReviewRequest, error) {
 			return nil, fmt.Errorf("reading origin: %w", forge.ErrNotARemote)
 		},
-		"an origin on no forge it can read": func() ([]forge.ReviewRequest, error) {
+		"an origin on no forge it can read": func(context.Context) ([]forge.ReviewRequest, error) {
 			return nil, fmt.Errorf("%s — set forge.kind and forge.host: %w", forgeHost, forge.ErrUnknownForge)
 		},
 	}

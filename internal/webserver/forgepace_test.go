@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 	"time"
@@ -27,15 +28,15 @@ type forgeCounts struct {
 // counted is deps with its forge seams counting each read into counts.
 func counted(deps webserver.Deps, counts *forgeCounts) webserver.Deps {
 	find, check := deps.Forge.FindPullRequest, deps.Forge.CheckStatus
-	deps.Forge.FindPullRequest = func(branch string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(ctx context.Context, branch string) (forge.PullRequest, bool, error) {
 		counts.finds++
 
-		return find(branch)
+		return find(ctx, branch)
 	}
-	deps.Forge.CheckStatus = func(pull forge.PullRequest, head string) (forge.CI, error) {
+	deps.Forge.CheckStatus = func(ctx context.Context, pull forge.PullRequest, head string) (forge.CI, error) {
 		counts.checks++
 
-		return check(pull, head)
+		return check(ctx, pull, head)
 	}
 
 	return deps
@@ -171,13 +172,13 @@ func TestStreamKeepsTheLastForgeAnswerWhenARefreshFails(t *testing.T) {
 	asked := 0
 	deps := filledDeps()
 	find := deps.Forge.FindPullRequest
-	deps.Forge.FindPullRequest = func(branch string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(ctx context.Context, branch string) (forge.PullRequest, bool, error) {
 		asked++
 		if asked > 1 {
 			return forge.PullRequest{}, false, errSeam
 		}
 
-		return find(branch)
+		return find(ctx, branch)
 	}
 
 	// Act
@@ -209,13 +210,13 @@ func TestStreamKeepsTheLastCIWhenItsReadFails(t *testing.T) {
 	checked := 0
 	deps := filledDeps()
 	check := deps.Forge.CheckStatus
-	deps.Forge.CheckStatus = func(pull forge.PullRequest, head string) (forge.CI, error) {
+	deps.Forge.CheckStatus = func(ctx context.Context, pull forge.PullRequest, head string) (forge.CI, error) {
 		checked++
 		if checked > 1 {
 			return forge.CI{}, errSeam
 		}
 
-		return check(pull, head)
+		return check(ctx, pull, head)
 	}
 
 	// Act
@@ -264,22 +265,22 @@ func TestStreamDropsTheLastCIForAPullItWasNotReadFor(t *testing.T) {
 			finds := 0
 			deps := filledDeps()
 			find, check := deps.Forge.FindPullRequest, deps.Forge.CheckStatus
-			deps.Forge.FindPullRequest = func(branch string) (forge.PullRequest, bool, error) {
+			deps.Forge.FindPullRequest = func(ctx context.Context, branch string) (forge.PullRequest, bool, error) {
 				finds++
 				if finds > 1 {
 					return tt.later, true, nil
 				}
 
-				pull, _, err := find(branch)
+				pull, _, err := find(ctx, branch)
 
 				return pull, tt.firstFound, err
 			}
-			deps.Forge.CheckStatus = func(pull forge.PullRequest, head string) (forge.CI, error) {
+			deps.Forge.CheckStatus = func(ctx context.Context, pull forge.PullRequest, head string) (forge.CI, error) {
 				if finds > 1 {
 					return forge.CI{}, errSeam
 				}
 
-				return check(pull, head)
+				return check(ctx, pull, head)
 			}
 
 			// Act
@@ -306,13 +307,13 @@ func TestStreamDropsTheLastCIForANewHead(t *testing.T) {
 	deps.Git.Branch = branchesInTurn(gitrepo.Branch{Name: testBranchName, Head: "abc1"},
 		gitrepo.Branch{Name: testBranchName, Head: "abc2"})
 	check := deps.Forge.CheckStatus
-	deps.Forge.CheckStatus = func(pull forge.PullRequest, head string) (forge.CI, error) {
+	deps.Forge.CheckStatus = func(ctx context.Context, pull forge.PullRequest, head string) (forge.CI, error) {
 		checks++
 		if checks > 1 {
 			return forge.CI{}, errSeam
 		}
 
-		return check(pull, head)
+		return check(ctx, pull, head)
 	}
 
 	// Act
@@ -330,7 +331,7 @@ func TestStreamWaitsOutTheIntervalAfterAFailedForgeRead(t *testing.T) {
 	// Arrange
 	asked := 0
 	deps := filledDeps()
-	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		asked++
 
 		return forge.PullRequest{}, false, errSeam
@@ -363,12 +364,12 @@ func TestStreamDropsTheLastForgeAnswerForAnotherBranch(t *testing.T) {
 	deps := filledDeps()
 	deps.Git.Branch = branchesInTurn(first, gitrepo.Branch{Name: otherBranchName, Head: testCommitHash})
 	find := deps.Forge.FindPullRequest
-	deps.Forge.FindPullRequest = func(branch string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(ctx context.Context, branch string) (forge.PullRequest, bool, error) {
 		if branch != first.Name {
 			return forge.PullRequest{}, false, errSeam
 		}
 
-		return find(branch)
+		return find(ctx, branch)
 	}
 
 	// Act
@@ -391,12 +392,12 @@ func TestStreamAsksTheForgeAgainOnceAPullIsOpenedHere(t *testing.T) {
 	opened := false
 	deps := openableDeps()
 	create := deps.Forge.CreatePullRequest
-	deps.Forge.CreatePullRequest = func(request forge.NewPullRequest) (forge.PullRequest, error) {
+	deps.Forge.CreatePullRequest = func(ctx context.Context, request forge.NewPullRequest) (forge.PullRequest, error) {
 		opened = true
 
-		return create(request)
+		return create(ctx, request)
 	}
-	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{Number: 7, URL: prURL, Title: "opened"}, opened, nil
 	}
 	deps.Clock = paceStart

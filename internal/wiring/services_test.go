@@ -58,18 +58,18 @@ func TestTheForgeSeamsExplainAForgeThatCannotBeReached(t *testing.T) {
 			// Act
 			// One behavior seen through each seam: every one of them connects to
 			// the forge first, and must say why it could not.
-			_, _, findErr := seams.FindPullRequest("x")
-			_, createErr := seams.CreatePullRequest(forge.NewPullRequest{})
-			_, editErr := seams.EditPullRequest(forge.PullRequest{}, forge.PullRequestEdit{})
-			_, rewriteErr := seams.RewriteDescription(forge.PullRequest{}, func(body string) (string, bool) {
+			_, _, findErr := seams.FindPullRequest(t.Context(), "x")
+			_, createErr := seams.CreatePullRequest(t.Context(), forge.NewPullRequest{})
+			_, editErr := seams.EditPullRequest(t.Context(), forge.PullRequest{}, forge.PullRequestEdit{})
+			_, rewriteErr := seams.RewriteDescription(t.Context(), forge.PullRequest{}, func(body string) (string, bool) {
 				return body, true
 			})
-			_, checkErr := seams.CheckStatus(forge.PullRequest{}, "abc")
-			_, rerunErr := seams.Rerun(forge.PullRequest{}, "abc")
-			mergeErr := seams.Merge(forge.PullRequest{}, forge.MergeSquash)
-			_, methodsErr := seams.MergeMethods()
-			_, reviewErr := seams.ReviewRequests()
-			_, authorErr := seams.Author()
+			_, checkErr := seams.CheckStatus(t.Context(), forge.PullRequest{}, "abc")
+			_, rerunErr := seams.Rerun(t.Context(), forge.PullRequest{}, "abc")
+			mergeErr := seams.Merge(t.Context(), forge.PullRequest{}, forge.MergeSquash)
+			_, methodsErr := seams.MergeMethods(t.Context())
+			_, reviewErr := seams.ReviewRequests(t.Context())
+			_, authorErr := seams.Author(t.Context())
 
 			// Assert
 			for seam, err := range map[string]error{
@@ -101,7 +101,7 @@ func TestTheForgeSeamsOfferGitHubsOwnVariableOnlyToGitHubsOwnHosts(t *testing.T)
 	seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: unnamedHost}, nil).Forge
 
 	// Act
-	_, _, err := seams.FindPullRequest("x")
+	_, _, err := seams.FindPullRequest(t.Context(), "x")
 
 	// Assert
 	if !errors.Is(err, forge.ErrNoToken) {

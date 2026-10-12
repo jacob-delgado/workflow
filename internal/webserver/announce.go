@@ -36,7 +36,7 @@ func (s *server) GetAnnouncement(
 	preview := announcementDTO(announcement.Text(), s.channelOr(channel))
 	preview.Tagging = s.tagging(ctx, announcement.Moment, channel)
 
-	if s.canWaitForCI(announcement.Moment, pull) {
+	if s.canWaitForCI(ctx, announcement.Moment, pull) {
 		preview.CanWaitForCi = new(true)
 	}
 
@@ -218,7 +218,7 @@ func (s *server) announcement(ctx context.Context) (messaging.Announcement, forg
 // messaging panel shows, so a preview and its post name the same author even
 // when the forge cannot say by the time of the post. It is nil, as the loop
 // takes for no author, when no forge is configured.
-func (s *server) authorSeam() func() (string, error) {
+func (s *server) authorSeam() func(context.Context) (string, error) {
 	if s.deps.Forge.Author == nil {
 		return nil
 	}
@@ -358,7 +358,7 @@ func (s *server) proposedTags(ctx context.Context, moment messaging.Moment, work
 		last, chosen = s.deps.Store.LastGroups(ctx, workspace)
 	}
 
-	return loop.ProposeTags(s.branchOwners(), links, repoGroups, last, chosen, moment), true
+	return loop.ProposeTags(s.branchOwners(ctx), links, repoGroups, last, chosen, moment), true
 }
 
 // scopeToLink is a scope the Slack token lacks to read whom an unlinked owner

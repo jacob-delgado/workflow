@@ -189,7 +189,7 @@ func newSlowForge() *slowForge {
 
 // wire binds deps' pull request read to the forge.
 func (f *slowForge) wire(deps webserver.Deps) webserver.Deps {
-	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		f.mu.Lock()
 		found := f.pull
 		f.mu.Unlock()
@@ -266,7 +266,7 @@ func TestASlowForgeReadHoldsUpNoOtherStream(t *testing.T) {
 // failingAuthor binds deps' author read to read, on a forge that cannot say
 // who the author is, counting each ask in asked.
 func failingAuthor(deps webserver.Deps, read *slowRead, asked *atomic.Int32) webserver.Deps {
-	deps.Forge.Author = func() (string, error) {
+	deps.Forge.Author = func(context.Context) (string, error) {
 		asked.Add(1)
 		read.call()
 
@@ -374,7 +374,7 @@ func TestAPullRequestOpenedDuringAForgeReadShowsOnTheNextFrame(t *testing.T) {
 	// finds none; opening it here tells the cache the forge says more now.
 	slow := newSlowForge()
 	deps := slow.wire(openableDeps())
-	deps.Forge.CreatePullRequest = func(forge.NewPullRequest) (forge.PullRequest, error) {
+	deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.PullRequest, error) {
 		slow.openThePull()
 
 		return forge.PullRequest{Number: 42, URL: pull42, Title: pullTitle}, nil

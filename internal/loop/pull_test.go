@@ -45,7 +45,7 @@ func openable(name string) gitrepo.Branch {
 func pullSeams() loop.PullSeams {
 	return loop.PullSeams{
 		Branch:    func() (gitrepo.Branch, error) { return openable(branchName), nil },
-		FindPull:  func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil },
+		FindPull:  func(context.Context, string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil },
 		Templates: func() []forge.Template { return nil },
 		Issue: func(context.Context, jira.Key) (jira.IssueDetail, error) {
 			return jira.IssueDetail{Issue: jira.Issue{Key: issueKey, Summary: summary}}, nil
@@ -64,7 +64,7 @@ func TestComposePullRefusesAnOpenPull(t *testing.T) {
 
 	// Arrange
 	seams := pullSeams()
-	seams.FindPull = func(string) (forge.PullRequest, bool, error) {
+	seams.FindPull = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{Number: 9, URL: "https://github.com/o/r/pull/9"}, true, nil
 	}
 
@@ -152,17 +152,17 @@ func TestComposePullComposesPastWhatDoesNotBlock(t *testing.T) {
 	// Only an open pull request stands in the way: a merged or closed one leaves
 	// the branch free for a fresh one, and a forge that cannot answer leaves the
 	// open to report the forge's own error.
-	cases := map[string]func(string) (forge.PullRequest, bool, error){
-		"no pull request": func(string) (forge.PullRequest, bool, error) {
+	cases := map[string]func(context.Context, string) (forge.PullRequest, bool, error){
+		"no pull request": func(context.Context, string) (forge.PullRequest, bool, error) {
 			return forge.PullRequest{}, false, nil
 		},
-		"a merged pull request": func(string) (forge.PullRequest, bool, error) {
+		"a merged pull request": func(context.Context, string) (forge.PullRequest, bool, error) {
 			return forge.PullRequest{Number: 3, State: forge.StateMerged}, true, nil
 		},
-		"a closed pull request": func(string) (forge.PullRequest, bool, error) {
+		"a closed pull request": func(context.Context, string) (forge.PullRequest, bool, error) {
 			return forge.PullRequest{Number: 3, State: forge.StateClosed}, true, nil
 		},
-		"a forge that cannot be read": func(string) (forge.PullRequest, bool, error) {
+		"a forge that cannot be read": func(context.Context, string) (forge.PullRequest, bool, error) {
 			return forge.PullRequest{}, false, errSeam
 		},
 	}

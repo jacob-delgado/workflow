@@ -53,7 +53,7 @@ func (msg branchLoaded) apply(m Model) (Model, tea.Cmd) {
 
 	m, detail := m.resumeIssue().loadDetail()
 
-	find := m.branch.findPull(m.deps)
+	find := m.branch.findPull(m.session, m.deps)
 	if find == nil {
 		// No pull request is looked for, so a Review refresh waits on nothing more.
 		m.review.loading = false
@@ -61,7 +61,7 @@ func (msg branchLoaded) apply(m Model) (Model, tea.Cmd) {
 
 	// Your forge name is asked for here, not only once a pull request is
 	// found, because assigning a forge issue starts from it on any branch.
-	return m, tea.Batch(detail, find, m.messaging.loadAuthor(m.deps))
+	return m, tea.Batch(detail, find, m.messaging.loadAuthor(m.session, m.deps))
 }
 
 // loadBranch is the command that reads the branch.

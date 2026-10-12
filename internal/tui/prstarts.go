@@ -131,7 +131,7 @@ func (read titleIssueRead) apply(m Model) (Model, tea.Cmd) {
 // composer's base, to propose them as its reviewers. The read diffs and reads
 // git, and asks the forge who the author is, so it does not hold the composer
 // back.
-func readReviewers(deps Deps, composer prComposer) tea.Cmd {
+func readReviewers(ctx context.Context, deps Deps, composer prComposer) tea.Cmd {
 	owners := loop.OwnerSeams{
 		ChangedPaths: deps.Git.ChangedPaths, CodeOwnersAt: deps.Git.CodeOwnersAt, Author: deps.Forge.Author,
 	}
@@ -142,7 +142,7 @@ func readReviewers(deps Deps, composer prComposer) tea.Cmd {
 	opened, base := composer.opened, composer.base.Value()
 
 	return func() tea.Msg {
-		return reviewersRead{opened: opened, proposed: loop.ProposedReviewers(owners, base)}
+		return reviewersRead{opened: opened, proposed: loop.ProposedReviewers(ctx, owners, base)}
 	}
 }
 

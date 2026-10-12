@@ -42,7 +42,7 @@ func activityDeps(starts *[]time.Time) webserver.Deps {
 			Authored: time.Date(2026, 9, 15, 9, 30, 0, 0, time.UTC),
 		}}}}
 	}
-	deps.Forge.Activity = func(time.Time, time.Time) (forge.Activity, error) {
+	deps.Forge.Activity = func(context.Context, time.Time, time.Time) (forge.Activity, error) {
 		return forge.Activity{}, fmt.Errorf("%w: https://git.internal.example", forge.ErrUnreachable)
 	}
 	deps.Jira.Activity = nil
@@ -251,7 +251,7 @@ func TestASourceThatCannotBeReadSaysWhatToDo(t *testing.T) {
 		"a remote naming no forge repository": {
 			source: api.ActivitySourceNameForge,
 			fail: func(deps *webserver.Deps) {
-				deps.Forge.Activity = func(time.Time, time.Time) (forge.Activity, error) {
+				deps.Forge.Activity = func(context.Context, time.Time, time.Time) (forge.Activity, error) {
 					return forge.Activity{}, fmt.Errorf("%w: https://git.internal.example/", forge.ErrNotARemote)
 				}
 			},
@@ -260,7 +260,7 @@ func TestASourceThatCannotBeReadSaysWhatToDo(t *testing.T) {
 		"a forge that cannot be told": {
 			source: api.ActivitySourceNameForge,
 			fail: func(deps *webserver.Deps) {
-				deps.Forge.Activity = func(time.Time, time.Time) (forge.Activity, error) {
+				deps.Forge.Activity = func(context.Context, time.Time, time.Time) (forge.Activity, error) {
 					return forge.Activity{}, fmt.Errorf("%w: git.internal.example", forge.ErrUnknownForge)
 				}
 			},

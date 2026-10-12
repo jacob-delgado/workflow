@@ -141,7 +141,7 @@ func TestGetAnnouncementTagsNoOneUnlessReadyForReview(t *testing.T) {
 	// Arrange
 	deps := filledDeps()
 	newFakeKept().wire(&deps)
-	deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) {
+	deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
 		return forge.CI{State: forge.CIFailed}, nil
 	}
 	handler := serve(t, deps, slackUserConfig())

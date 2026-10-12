@@ -40,7 +40,7 @@ type pullRead struct {
 
 // readPull reads the branch and its pull request afresh, and its CI when asked
 // and there is a seam to read it with.
-func (s *server) readPull(withCI bool) (pullRead, error) {
+func (s *server) readPull(ctx context.Context, withCI bool) (pullRead, error) {
 	if s.deps.Git.Branch == nil || s.deps.Forge.FindPullRequest == nil {
 		return pullRead{}, nil
 	}
@@ -50,14 +50,14 @@ func (s *server) readPull(withCI bool) (pullRead, error) {
 		return pullRead{}, err
 	}
 
-	pull, found, err := s.deps.Forge.FindPullRequest(branch.Name)
+	pull, found, err := s.deps.Forge.FindPullRequest(ctx, branch.Name)
 	if err != nil {
 		return pullRead{}, err
 	}
 
 	read := pullRead{branch: branch, pull: pull, found: found}
 	if withCI && found && s.deps.Forge.CheckStatus != nil {
-		read.ci, err = s.deps.Forge.CheckStatus(pull, branch.Head)
+		read.ci, err = s.deps.Forge.CheckStatus(ctx, pull, branch.Head)
 	}
 
 	return read, err
@@ -87,8 +87,8 @@ func (s *server) refusal(err error) api.Problem {
 }
 
 // branchOpenPull is the branch's open pull request, read afresh, or errNoOpenPull.
-func (s *server) branchOpenPull() (forge.PullRequest, error) {
-	read, err := s.readPull(false)
+func (s *server) branchOpenPull(ctx context.Context) (forge.PullRequest, error) {
+	read, err := s.readPull(ctx, false)
 	if err != nil {
 		return forge.PullRequest{}, err
 	}
@@ -103,9 +103,9 @@ func (s *server) branchOpenPull() (forge.PullRequest, error) {
 // GetPullRequestText reads the branch's open pull request's title and
 // description afresh, for the editor the terminal's e opens.
 func (s *server) GetPullRequestText(
-	context.Context, api.GetPullRequestTextRequestObject,
+	ctx context.Context, _ api.GetPullRequestTextRequestObject,
 ) (api.GetPullRequestTextResponseObject, error) {
-	pull, err := s.branchOpenPull()
+	pull, err := s.branchOpenPull(ctx)
 	if err != nil {
 		return problemAnswer[api.GetPullRequestTextdefaultApplicationProblemPlusJSONResponse](s.refusal(err)), nil
 	}
@@ -116,9 +116,9 @@ func (s *server) GetPullRequestText(
 // EditPullRequest saves a new title and description on the branch's open pull
 // request, as the terminal's editor does.
 func (s *server) EditPullRequest(
-	_ context.Context, request api.EditPullRequestRequestObject,
+	ctx context.Context, request api.EditPullRequestRequestObject,
 ) (api.EditPullRequestResponseObject, error) {
-	edited, err := s.editPull(forge.PullRequestEdit{Title: request.Body.Title, Body: request.Body.Body})
+	edited, err := s.editPull(ctx, forge.PullRequestEdit{Title: request.Body.Title, Body: request.Body.Body})
 	if err != nil {
 		return problemAnswer[api.EditPullRequestdefaultApplicationProblemPlusJSONResponse](s.refusal(err)), nil
 	}
@@ -127,7 +127,7 @@ func (s *server) EditPullRequest(
 }
 
 // editPull checks the edit and makes it on the branch's open pull request.
-func (s *server) editPull(edit forge.PullRequestEdit) (forge.PullRequest, error) {
+func (s *server) editPull(ctx context.Context, edit forge.PullRequestEdit) (forge.PullRequest, error) {
 	if s.deps.Forge.EditPullRequest == nil {
 		return forge.PullRequest{}, errReviewWriteUnavailable
 	}
@@ -136,12 +136,12 @@ func (s *server) editPull(edit forge.PullRequestEdit) (forge.PullRequest, error)
 		return forge.PullRequest{}, errTitleRequired
 	}
 
-	pull, err := s.branchOpenPull()
+	pull, err := s.branchOpenPull(ctx)
 	if err != nil {
 		return forge.PullRequest{}, err
 	}
 
-	edited, err := s.deps.Forge.EditPullRequest(pull, edit)
+	edited, err := s.deps.Forge.EditPullRequest(ctx, pull, edit)
 	if err != nil {
 		return forge.PullRequest{}, err
 	}
@@ -157,12 +157,12 @@ var errMethodNotPermitted = errors.New("the repository does not permit merging b
 
 // mergeablePull is the branch's pull request, read afresh with its CI, when it
 // can be merged by loop.CanMerge — the terminal's own rule — or errNotMergeable.
-func (s *server) mergeablePull() (forge.PullRequest, error) {
+func (s *server) mergeablePull(ctx context.Context) (forge.PullRequest, error) {
 	if s.deps.Forge.Merge == nil || s.deps.Forge.MergeMethods == nil {
 		return forge.PullRequest{}, errReviewWriteUnavailable
 	}
 
-	read, err := s.readPull(true)
+	read, err := s.readPull(ctx, true)
 	if err != nil {
 		return forge.PullRequest{}, err
 	}
@@ -176,8 +176,8 @@ func (s *server) mergeablePull() (forge.PullRequest, error) {
 
 // permittedMethods is the merge methods the repository permits, or
 // errNoMergeMethod when it permits none.
-func (s *server) permittedMethods() ([]forge.MergeMethod, error) {
-	methods, err := s.deps.Forge.MergeMethods()
+func (s *server) permittedMethods(ctx context.Context) ([]forge.MergeMethod, error) {
+	methods, err := s.deps.Forge.MergeMethods(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -192,13 +192,13 @@ func (s *server) permittedMethods() ([]forge.MergeMethod, error) {
 // GetMergeMethods is the merge's preview: the pull request it would merge and
 // the methods the repository permits, once it can be merged.
 func (s *server) GetMergeMethods(
-	context.Context, api.GetMergeMethodsRequestObject,
+	ctx context.Context, _ api.GetMergeMethodsRequestObject,
 ) (api.GetMergeMethodsResponseObject, error) {
-	pull, err := s.mergeablePull()
+	pull, err := s.mergeablePull(ctx)
 
 	var methods []forge.MergeMethod
 	if err == nil {
-		methods, err = s.permittedMethods()
+		methods, err = s.permittedMethods(ctx)
 	}
 
 	if err != nil {
@@ -216,9 +216,9 @@ func (s *server) GetMergeMethods(
 // MergePullRequest merges the branch's pull request by the method asked, once
 // it can still be merged and the repository permits that method.
 func (s *server) MergePullRequest(
-	_ context.Context, request api.MergePullRequestRequestObject,
+	ctx context.Context, request api.MergePullRequestRequestObject,
 ) (api.MergePullRequestResponseObject, error) {
-	pull, err := s.merge(forge.MergeMethod(request.Body.Method))
+	pull, err := s.merge(ctx, forge.MergeMethod(request.Body.Method))
 	if err != nil {
 		return problemAnswer[api.MergePullRequestdefaultApplicationProblemPlusJSONResponse](s.refusal(err)), nil
 	}
@@ -227,13 +227,13 @@ func (s *server) MergePullRequest(
 }
 
 // merge merges the branch's pull request by method, and answers it merged.
-func (s *server) merge(method forge.MergeMethod) (forge.PullRequest, error) {
-	pull, err := s.mergeablePull()
+func (s *server) merge(ctx context.Context, method forge.MergeMethod) (forge.PullRequest, error) {
+	pull, err := s.mergeablePull(ctx)
 	if err != nil {
 		return forge.PullRequest{}, err
 	}
 
-	methods, err := s.permittedMethods()
+	methods, err := s.permittedMethods(ctx)
 	if err != nil {
 		return forge.PullRequest{}, err
 	}
@@ -242,7 +242,7 @@ func (s *server) merge(method forge.MergeMethod) (forge.PullRequest, error) {
 		return forge.PullRequest{}, errMethodNotPermitted
 	}
 
-	err = s.deps.Forge.Merge(pull, method)
+	err = s.deps.Forge.Merge(ctx, pull, method)
 	if err != nil {
 		return forge.PullRequest{}, err
 	}
@@ -257,8 +257,10 @@ func (s *server) merge(method forge.MergeMethod) (forge.PullRequest, error) {
 // FinishBranch finishes a merged branch as the terminal's F does: switch to
 // the base, catch it up, delete the branch. git's own words on a refusal stay
 // off the wire, since a pull names origin; Unexpected hears them.
-func (s *server) FinishBranch(context.Context, api.FinishBranchRequestObject) (api.FinishBranchResponseObject, error) {
-	branch, err := s.finish()
+func (s *server) FinishBranch(
+	ctx context.Context, _ api.FinishBranchRequestObject,
+) (api.FinishBranchResponseObject, error) {
+	branch, err := s.finish(ctx)
 	if err != nil {
 		return problemAnswer[api.FinishBranchdefaultApplicationProblemPlusJSONResponse](s.refusal(err)), nil
 	}
@@ -271,12 +273,12 @@ var errFinishRefused = errors.New("git refused the finish")
 
 // finish runs the finish once loop.CanFinish allows it, and answers the
 // branch now checked out.
-func (s *server) finish() (gitrepo.Branch, error) {
+func (s *server) finish(ctx context.Context) (gitrepo.Branch, error) {
 	if s.deps.Git.Finish == nil {
 		return gitrepo.Branch{}, errReviewWriteUnavailable
 	}
 
-	read, err := s.readPull(false)
+	read, err := s.readPull(ctx, false)
 	if err != nil {
 		return gitrepo.Branch{}, err
 	}
@@ -304,8 +306,10 @@ func (s *server) finish() (gitrepo.Branch, error) {
 
 // RerunChecks asks the forge to re-run the failed CI of the branch's open pull
 // request, read afresh, and says whether anything was re-run.
-func (s *server) RerunChecks(context.Context, api.RerunChecksRequestObject) (api.RerunChecksResponseObject, error) {
-	reran, err := s.rerun()
+func (s *server) RerunChecks(
+	ctx context.Context, _ api.RerunChecksRequestObject,
+) (api.RerunChecksResponseObject, error) {
+	reran, err := s.rerun(ctx)
 	if err != nil {
 		return problemAnswer[api.RerunChecksdefaultApplicationProblemPlusJSONResponse](s.refusal(err)), nil
 	}
@@ -314,12 +318,12 @@ func (s *server) RerunChecks(context.Context, api.RerunChecksRequestObject) (api
 }
 
 // rerun re-runs the failed CI once loop.CanRerun allows it.
-func (s *server) rerun() (bool, error) {
+func (s *server) rerun(ctx context.Context) (bool, error) {
 	if s.deps.Forge.Rerun == nil {
 		return false, errReviewWriteUnavailable
 	}
 
-	read, err := s.readPull(true)
+	read, err := s.readPull(ctx, true)
 	if err != nil {
 		return false, err
 	}
@@ -328,7 +332,7 @@ func (s *server) rerun() (bool, error) {
 		return false, errNothingToRerun
 	}
 
-	reran, err := s.deps.Forge.Rerun(read.pull, read.branch.Head)
+	reran, err := s.deps.Forge.Rerun(ctx, read.pull, read.branch.Head)
 	if err != nil {
 		return false, err
 	}

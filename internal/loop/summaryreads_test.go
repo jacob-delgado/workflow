@@ -29,7 +29,7 @@ func everySource(start time.Time) loop.ActivitySeams {
 		Jira: func(context.Context, time.Time, time.Time) (jira.Activity, error) {
 			return jira.Activity{Events: []jira.Event{{At: start, Kind: jira.EventCreated, Key: "PROJ-1"}}}, nil
 		},
-		Forge: func(time.Time, time.Time) (forge.Activity, error) {
+		Forge: func(context.Context, time.Time, time.Time) (forge.Activity, error) {
 			return forge.Activity{Events: []forge.Event{{At: start, Kind: forge.EventOpened, Number: 7, Repository: "o/r"}}}, nil
 		},
 		ForgeKind: forge.KindGitLab,

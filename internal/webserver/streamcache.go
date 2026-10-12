@@ -63,8 +63,12 @@ type turn[V any] struct {
 // sharedRead is a read every stream shares, made outside its cache's lock:
 // what serve answers, or, when serve hands back a read under way, what serve
 // answers once that read lands, or, when serve gives the go-ahead, what read
-// makes of it, given the drops counted as it began.
-func sharedRead[V any](serve func() turn[V], read func(dropped int) (V, error)) (V, error) {
+// makes of it, given the drops counted as it began. A frame waiting on a read
+// under way stops waiting, with ctx's error, once ctx ends: the read goes on
+// for the others.
+func sharedRead[V any](
+	ctx context.Context, serve func() turn[V], read func(dropped int) (V, error),
+) (V, error) {
 	for {
 		next := serve()
 
@@ -72,7 +76,13 @@ func sharedRead[V any](serve func() turn[V], read func(dropped int) (V, error)) 
 		case next.answered:
 			return next.value, next.failed
 		case next.landing != nil:
-			<-next.landing
+			select {
+			case <-next.landing:
+			case <-ctx.Done():
+				var none V
+
+				return none, fmt.Errorf("waiting on a shared read: %w", ctx.Err())
+			}
 		default:
 			return read(next.dropped)
 		}
@@ -81,14 +91,17 @@ func sharedRead[V any](serve func() turn[V], read func(dropped int) (V, error)) 
 
 // forgeReview is what the forge cache holds of the branch, read again when the
 // cache holds none for the branch at its head, or once the forge interval has
-// passed since the last read, with why the last read failed, if it did.
-func (s *server) forgeReview(branch gitrepo.Branch) (forgeRead, error) {
+// passed since the last read, with why the last read failed, if it did. Every
+// stream shares the read, so it runs to its end even if the page whose frame,
+// under ctx, began it leaves: one canceled then would be held as failed for
+// every page until the interval passed.
+func (s *server) forgeReview(ctx context.Context, branch gitrepo.Branch) (forgeRead, error) {
 	key := forgeKey{branch: branch.Name, head: branch.Head}
 
-	return sharedRead(
+	return sharedRead(ctx,
 		func() turn[forgeRead] { return s.forgeAnswer.serve(key, s.now(), s.forgeInterval()) },
 		func(dropped int) (forgeRead, error) {
-			read, err := s.readForge(branch)
+			read, err := s.readForge(context.WithoutCancel(ctx), branch)
 
 			return s.forgeAnswer.land(key, dropped, s.now(), read, err)
 		},
@@ -206,7 +219,7 @@ type heldPage struct {
 // frame, under ctx, began it leaves: one canceled then would be held as failed
 // for every page until the interval passed.
 func (s *server) frameIssues(ctx context.Context, jql string) (jira.SearchResult, error) {
-	return sharedRead(
+	return sharedRead(ctx,
 		func() turn[jira.SearchResult] { return s.issuesHeld.serve(jql, s.now(), s.forgeInterval()) },
 		func(dropped int) (jira.SearchResult, error) {
 			result, err := s.deps.Jira.Search(context.WithoutCancel(ctx), jql, 0)
@@ -330,7 +343,7 @@ func (s *server) yourIssues(ctx context.Context, keys []jira.Key) map[jira.Key]b
 
 	asked := slices.Compact(slices.Sorted(slices.Values(keys)))
 
-	yours, _ := sharedRead(
+	yours, _ := sharedRead(ctx,
 		func() turn[map[jira.Key]bool] { return s.assigned.serve(asked, s.now()) },
 		func(int) (map[jira.Key]bool, error) {
 			mine, err := loop.AssignedKeys(context.WithoutCancel(ctx), s.deps.Jira.SearchLenient, asked)
@@ -404,11 +417,14 @@ type authorCache struct {
 
 // cachedAuthor is who a post would come from: the forge's kept answer once it
 // has given one, or why it could not say while that is held, else a fresh ask.
-func (s *server) cachedAuthor() (string, error) {
-	return sharedRead(
+// Every stream shares the ask, so it runs to its end even if the page whose
+// frame, under ctx, began it leaves: one canceled then would be held as failed
+// for every page until the interval passed.
+func (s *server) cachedAuthor(ctx context.Context) (string, error) {
+	return sharedRead(ctx,
 		func() turn[string] { return s.author.serve(s.now(), s.forgeInterval()) },
 		func(int) (string, error) {
-			name, err := s.deps.Forge.Author()
+			name, err := s.deps.Forge.Author(context.WithoutCancel(ctx))
 			if err != nil {
 				return s.author.land(s.now(), "", fmt.Errorf("reading the author: %w", err))
 			}

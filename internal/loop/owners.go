@@ -4,6 +4,7 @@
 package loop
 
 import (
+	"context"
 	"fmt"
 	"slices"
 	"strings"
@@ -20,15 +21,15 @@ import (
 type OwnerSeams struct {
 	ChangedPaths func(base string) ([]string, error)
 	CodeOwnersAt func(base string) (codeowners.File, bool, error)
-	Author       func() (string, error)
-	IsGroup      func(name string) (bool, error)
+	Author       func(ctx context.Context) (string, error)
+	IsGroup      func(ctx context.Context, name string) (bool, error)
 }
 
 // OwnersOf is who owns the paths the branch changes since base, as CODEOWNERS
 // on base names them, without the author: nobody is asked to review their own
 // pull request. With no CODEOWNERS on base, or no way to read one, it is
-// nobody.
-func OwnersOf(seams OwnerSeams, base string) (codeowners.Owners, error) {
+// nobody. The forge is asked under ctx.
+func OwnersOf(ctx context.Context, seams OwnerSeams, base string) (codeowners.Owners, error) {
 	if seams.ChangedPaths == nil || seams.CodeOwnersAt == nil {
 		return codeowners.Owners{}, nil
 	}
@@ -47,20 +48,23 @@ func OwnersOf(seams OwnerSeams, base string) (codeowners.Owners, error) {
 		return codeowners.Owners{}, nil
 	}
 
-	owners, err := withoutAuthor(file.OwnersOf(paths), seams.Author)
+	owners, err := withoutAuthor(ctx, file.OwnersOf(paths), seams.Author)
 	if err != nil {
 		return codeowners.Owners{}, err
 	}
 
-	return groupsAmongTeams(owners, seams.IsGroup), nil
+	return groupsAmongTeams(ctx, owners, seams.IsGroup), nil
 }
 
 // groupsAmongTeams moves each bare name the forge knows as a group from the
 // people to the teams: CODEOWNERS spells a top-level GitLab group @acme, as it
 // spells a user, and a group links to a Slack user group, not to a person. It
 // is best effort: a name the forge cannot be asked about stays a person, as
-// it is spelled, so one failed lookup costs no other owner.
-func groupsAmongTeams(owners codeowners.Owners, isGroup func(name string) (bool, error)) codeowners.Owners {
+// it is spelled, so one failed lookup costs no other owner. The forge is asked
+// under ctx.
+func groupsAmongTeams(
+	ctx context.Context, owners codeowners.Owners, isGroup func(ctx context.Context, name string) (bool, error),
+) codeowners.Owners {
 	if isGroup == nil {
 		return owners
 	}
@@ -68,7 +72,7 @@ func groupsAmongTeams(owners codeowners.Owners, isGroup func(name string) (bool,
 	people := make([]string, 0, len(owners.Users))
 
 	for _, name := range owners.Users {
-		group, err := isGroup(name)
+		group, err := isGroup(ctx, name)
 		if err == nil && group {
 			owners.Teams = append(owners.Teams, name)
 		} else {
@@ -82,13 +86,15 @@ func groupsAmongTeams(owners codeowners.Owners, isGroup func(name string) (bool,
 }
 
 // withoutAuthor leaves the author out of owners' people, compared without
-// case as the forges compare handles.
-func withoutAuthor(owners codeowners.Owners, author func() (string, error)) (codeowners.Owners, error) {
+// case as the forges compare handles, asking the forge who that is under ctx.
+func withoutAuthor(
+	ctx context.Context, owners codeowners.Owners, author func(ctx context.Context) (string, error),
+) (codeowners.Owners, error) {
 	if author == nil || len(owners.Users) == 0 {
 		return owners, nil
 	}
 
-	name, err := author()
+	name, err := author(ctx)
 	if err != nil {
 		return codeowners.Owners{}, fmt.Errorf("reading who the author is: %w", err)
 	}
@@ -102,9 +108,10 @@ func withoutAuthor(owners codeowners.Owners, author func() (string, error)) (cod
 // pull request proposes: people, then teams as org/team. It is a proposal, so
 // a failure to read the owners proposes nobody rather than holding the pull
 // request back. A GitLab group stays group/subgroup here: the forge expands it
-// to its members when the merge request is opened.
-func ProposedReviewers(seams OwnerSeams, base string) []string {
-	owners, err := OwnersOf(seams, base)
+// to its members when the merge request is opened. The forge is asked under
+// ctx.
+func ProposedReviewers(ctx context.Context, seams OwnerSeams, base string) []string {
+	owners, err := OwnersOf(ctx, seams, base)
 	if err != nil {
 		return nil
 	}

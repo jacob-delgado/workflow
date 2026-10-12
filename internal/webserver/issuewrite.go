@@ -43,7 +43,7 @@ func (s *server) LinkPullRequest(
 
 	issueKey := jira.Key(request.Key)
 
-	pull, err := s.branchPull(issueKey)
+	pull, err := s.branchPull(ctx, issueKey)
 	if err != nil {
 		return s.linkRefusal(err, issueKey), nil
 	}
@@ -58,7 +58,7 @@ func (s *server) LinkPullRequest(
 
 // branchPull is the pull request the forge has for the checked-out branch, when
 // that branch names issueKey.
-func (s *server) branchPull(issueKey jira.Key) (forge.PullRequest, error) {
+func (s *server) branchPull(ctx context.Context, issueKey jira.Key) (forge.PullRequest, error) {
 	branch, err := s.deps.Git.Branch()
 	if err != nil {
 		return forge.PullRequest{}, fmt.Errorf("reading the branch: %w", err)
@@ -69,7 +69,7 @@ func (s *server) branchPull(issueKey jira.Key) (forge.PullRequest, error) {
 		return forge.PullRequest{}, errNotTheBranchIssue
 	}
 
-	pull, found, err := s.deps.Forge.FindPullRequest(branch.Name)
+	pull, found, err := s.deps.Forge.FindPullRequest(ctx, branch.Name)
 	if err != nil {
 		return forge.PullRequest{}, fmt.Errorf("finding the branch's pull request: %w", err)
 	}

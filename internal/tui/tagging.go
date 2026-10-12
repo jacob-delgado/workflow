@@ -96,7 +96,7 @@ func (s branchState) readTags(ctx context.Context, deps Deps, opened int) tea.Cm
 	store, base, readWorkspace := deps.Store, s.branch.BaseName(), deps.Messaging.Workspace
 
 	return func() tea.Msg {
-		found, ownersErr := loop.OwnersOf(owners, base)
+		found, ownersErr := loop.OwnersOf(ctx, owners, base)
 
 		workspace, err := loop.TagWorkspace(ctx, readWorkspace)
 		if err != nil {

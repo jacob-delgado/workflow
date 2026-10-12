@@ -5,6 +5,7 @@ package webserver_test
 
 import (
 	"cmp"
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -35,7 +36,7 @@ func linkingDeps(record *linking, detached bool) webserver.Deps {
 	deps.Git.Branch = func() (gitrepo.Branch, error) {
 		return gitrepo.Branch{Name: unnamedBranch, Detached: detached}, nil
 	}
-	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{Number: 9, Title: "Speed up search", Body: "Speeds it up.\n"}, true, nil
 	}
 	deps.Git.LinkIssue = func(branch, issueKey string) error {
@@ -48,12 +49,16 @@ func linkingDeps(record *linking, detached bool) webserver.Deps {
 
 		return nil
 	}
-	deps.Forge.EditPullRequest = func(pull forge.PullRequest, edit forge.PullRequestEdit) (forge.PullRequest, error) {
+	deps.Forge.EditPullRequest = func(
+		_ context.Context, pull forge.PullRequest, edit forge.PullRequestEdit,
+	) (forge.PullRequest, error) {
 		record.editedWhole = append(record.editedWhole, edit.Body)
 
 		return pull, nil
 	}
-	deps.Forge.RewriteDescription = func(pull forge.PullRequest, rewrite func(string) (string, bool)) (bool, error) {
+	deps.Forge.RewriteDescription = func(
+		_ context.Context, pull forge.PullRequest, rewrite func(string) (string, bool),
+	) (bool, error) {
 		body, changed := rewrite(cmp.Or(record.held, pull.Body))
 		if changed {
 			record.edited = append(record.edited, body)
@@ -226,7 +231,7 @@ func TestLinkingWhenThePullRequestCannotBeFoundLeavesTheBranchUnlinked(t *testin
 	// Arrange
 	record := &linking{}
 	deps := linkingDeps(record, false)
-	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{}, false, fmt.Errorf("finding the pull request: %w", forge.ErrUnreachable)
 	}
 
@@ -322,7 +327,7 @@ func TestAPullRequestThatCannotBeEditedLeavesTheBranchUnlinked(t *testing.T) {
 	// Arrange
 	record := &linking{}
 	deps := linkingDeps(record, false)
-	deps.Forge.RewriteDescription = func(forge.PullRequest, func(string) (string, bool)) (bool, error) {
+	deps.Forge.RewriteDescription = func(context.Context, forge.PullRequest, func(string) (string, bool)) (bool, error) {
 		return false, fmt.Errorf("editing #9: %w", forge.ErrUnreachable)
 	}
 

@@ -70,9 +70,10 @@ func TestWhatYouDidOnTheForgeIsReadThroughItsCLI(t *testing.T) {
 	ghStub := installForgeCLI(t, "gh", forgeReplies{search: `{"total_count":0,"items":[]}`})
 	cfg, where := githubCLIWorkspace(t)
 	forgeSeams := wired(t, cfg, where, nil).Forge
+	start, end := summaryDay()
 
 	// Act
-	_, err := forgeSeams.Activity(summaryDay())
+	_, err := forgeSeams.Activity(t.Context(), start, end)
 
 	// Assert
 	if err != nil || !slices.ContainsFunc(ghStub.args(), func(arg string) bool {

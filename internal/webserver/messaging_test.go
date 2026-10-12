@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -68,7 +69,7 @@ func TestGetMessagingHasNoAuthorWhenTheForgeCannotSay(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Forge.Author = func() (string, error) { return "", errSeam }
+	deps.Forge.Author = func(context.Context) (string, error) { return "", errSeam }
 
 	// Act
 	destination := decode[api.MessagingDestination](t, get(t, serve(t, deps, config.Default()), "/api/messaging"))
@@ -86,7 +87,7 @@ func TestSnapshotHasNoAuthorWhenTheForgeCannotSay(t *testing.T) {
 	// The failing read still names someone, so only the error can empty the
 	// author.
 	deps := filledDeps()
-	deps.Forge.Author = func() (string, error) { return testAuthor, errSeam }
+	deps.Forge.Author = func(context.Context) (string, error) { return testAuthor, errSeam }
 
 	// Act
 	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())

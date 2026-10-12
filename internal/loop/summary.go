@@ -247,12 +247,14 @@ func eventTitle(event jira.Event) string {
 	return event.Summary
 }
 
-// ForgeRead is what you did on the forge from start up to end, each pull or
-// merge request named by its repository and number as kind writes it.
+// ForgeRead is what you did on the forge from start up to end, asked under
+// ctx, each pull or merge request named by its repository and number as kind
+// writes it.
 func ForgeRead(
-	read func(start, end time.Time) (forge.Activity, error), kind forge.Kind, start, end time.Time,
+	ctx context.Context, read func(ctx context.Context, start, end time.Time) (forge.Activity, error),
+	kind forge.Kind, start, end time.Time,
 ) activity.Read {
-	done, err := read(start, end)
+	done, err := read(ctx, start, end)
 	if err != nil {
 		return unanswered(activity.Read{Source: activity.SourceForge}, err)
 	}
@@ -282,7 +284,7 @@ type ActivitySeams struct {
 	Touched   func(ctx context.Context, since time.Time) ([]taskwarrior.Task, error)
 	Jira      func(ctx context.Context, start, end time.Time) (jira.Activity, error)
 	BrowseURL func(jira.Key) string
-	Forge     func(start, end time.Time) (forge.Activity, error)
+	Forge     func(ctx context.Context, start, end time.Time) (forge.Activity, error)
 	ForgeKind forge.Kind
 }
 
@@ -319,8 +321,8 @@ func SummaryReads(seams ActivitySeams, start, end time.Time) []SourceRead {
 	}
 
 	if seams.Forge != nil {
-		reads = append(reads, SourceRead{activity.SourceForge, func(context.Context) activity.Read {
-			return ForgeRead(seams.Forge, seams.ForgeKind, start, end)
+		reads = append(reads, SourceRead{activity.SourceForge, func(ctx context.Context) activity.Read {
+			return ForgeRead(ctx, seams.Forge, seams.ForgeKind, start, end)
 		}})
 	}
 

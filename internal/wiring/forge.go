@@ -40,14 +40,12 @@ type forgeSetup struct {
 }
 
 // forgeDeps is what a surface asks of GitHub or GitLab, each seam reaching
-// the forge through connect. Kind is the forge under the settings workflow
-// started with; the group seams ask which forge it is under the settings in
-// effect at each call, as connect does.
-func forgeDeps(
-	ctx context.Context, setup forgeSetup, connect func(context.Context) (forgeConnection, error),
-) seams.Forge {
+// the forge through connect under the context it is asked under. Kind is the
+// forge under the settings workflow started with; the group seams ask which
+// forge it is under the settings in effect at each call, as connect does.
+func forgeDeps(setup forgeSetup, connect func(context.Context) (forgeConnection, error)) seams.Forge {
 	return seams.Forge{
-		FindPullRequest: func(branch string) (forge.PullRequest, bool, error) {
+		FindPullRequest: func(ctx context.Context, branch string) (forge.PullRequest, bool, error) {
 			connection, err := connect(ctx)
 			if err != nil {
 				return forge.PullRequest{}, false, err
@@ -55,53 +53,55 @@ func forgeDeps(
 
 			return connection.client.FindPullRequest(ctx, connection.repo, branch)
 		},
-		CreatePullRequest: func(request forge.NewPullRequest) (forge.PullRequest, error) {
+		CreatePullRequest: func(ctx context.Context, request forge.NewPullRequest) (forge.PullRequest, error) {
 			return ask(ctx, connect, func(on forgeConnection) (forge.PullRequest, error) {
 				return on.client.CreatePullRequest(ctx, on.repo, request)
 			})
 		},
-		Activity: func(start, end time.Time) (forge.Activity, error) {
+		Activity: func(ctx context.Context, start, end time.Time) (forge.Activity, error) {
 			return ask(ctx, connect, func(on forgeConnection) (forge.Activity, error) {
 				return on.client.Activity(ctx, on.repo.Kind, start, end)
 			})
 		},
-		EditPullRequest: func(pull forge.PullRequest, edit forge.PullRequestEdit) (forge.PullRequest, error) {
+		EditPullRequest: func(
+			ctx context.Context, pull forge.PullRequest, edit forge.PullRequestEdit,
+		) (forge.PullRequest, error) {
 			return ask(ctx, connect, func(on forgeConnection) (forge.PullRequest, error) {
 				return on.client.EditPullRequest(ctx, on.repo, pull, edit)
 			})
 		},
-		RewriteDescription: rewriteSeam(ctx, connect),
-		CheckStatus: func(pull forge.PullRequest, head string) (forge.CI, error) {
+		RewriteDescription: rewriteSeam(connect),
+		CheckStatus: func(ctx context.Context, pull forge.PullRequest, head string) (forge.CI, error) {
 			return ask(ctx, connect, func(on forgeConnection) (forge.CI, error) {
 				return on.client.CheckStatus(ctx, on.repo, pull, head)
 			})
 		},
-		JobLog: func(check forge.Check) (forge.JobLog, error) {
+		JobLog: func(ctx context.Context, check forge.Check) (forge.JobLog, error) {
 			return ask(ctx, connect, func(on forgeConnection) (forge.JobLog, error) {
 				return on.client.JobLog(ctx, on.repo, check)
 			})
 		},
-		Rerun: func(pull forge.PullRequest, head string) (bool, error) {
+		Rerun: func(ctx context.Context, pull forge.PullRequest, head string) (bool, error) {
 			return ask(ctx, connect, func(on forgeConnection) (bool, error) {
 				return on.client.RerunChecks(ctx, on.repo, pull, head)
 			})
 		},
-		Merge: func(pull forge.PullRequest, method forge.MergeMethod) error {
+		Merge: func(ctx context.Context, pull forge.PullRequest, method forge.MergeMethod) error {
 			return tell(ctx, connect, func(on forgeConnection) error { return on.client.Merge(ctx, on.repo, pull, method) })
 		},
-		MergeMethods: func() ([]forge.MergeMethod, error) {
+		MergeMethods: func(ctx context.Context) ([]forge.MergeMethod, error) {
 			return ask(ctx, connect, func(on forgeConnection) ([]forge.MergeMethod, error) {
 				return on.client.MergeMethods(ctx, on.repo)
 			})
 		},
-		ReviewRequests: func() ([]forge.ReviewRequest, error) {
+		ReviewRequests: func(ctx context.Context) ([]forge.ReviewRequest, error) {
 			return ask(ctx, connect, func(on forgeConnection) ([]forge.ReviewRequest, error) {
 				return on.client.ReviewRequests(ctx, on.repo.Kind)
 			})
 		},
 		Templates: func() []forge.Template { return templatesFor(setup.settings(), setup.where) },
-		Author:    func() (string, error) { return ask(ctx, connect, authorName(ctx)) },
-		IsGroup:   isGroupSeam(ctx, setup.onGitLab, connect),
+		Author:    func(ctx context.Context) (string, error) { return ask(ctx, connect, authorName(ctx)) },
+		IsGroup:   isGroupSeam(setup.onGitLab, connect),
 		Kind:      ForgeKind(setup.settings(), setup.where.Remote),
 	}
 }
@@ -123,9 +123,9 @@ func (s forgeSetup) repo() (forge.Repo, error) {
 // within its length: it asks the client to rewrite the description as the
 // forge holds it.
 func rewriteSeam(
-	ctx context.Context, connect func(context.Context) (forgeConnection, error),
-) func(forge.PullRequest, func(string) (string, bool)) (bool, error) {
-	return func(pull forge.PullRequest, rewrite func(string) (string, bool)) (bool, error) {
+	connect func(context.Context) (forgeConnection, error),
+) func(context.Context, forge.PullRequest, func(string) (string, bool)) (bool, error) {
+	return func(ctx context.Context, pull forge.PullRequest, rewrite func(string) (string, bool)) (bool, error) {
 		return ask(ctx, connect, func(on forgeConnection) (bool, error) {
 			return on.client.RewriteDescription(ctx, on.repo, pull, rewrite)
 		})
@@ -151,11 +151,11 @@ func authorName(ctx context.Context) func(forgeConnection) (string, error) {
 // asked is always the one the remote is on, whose host the workspace fixes,
 // so an answer is kept by the name alone.
 func isGroupSeam(
-	ctx context.Context, onGitLab func() bool, connect func(context.Context) (forgeConnection, error),
-) func(string) (bool, error) {
+	onGitLab func() bool, connect func(context.Context) (forgeConnection, error),
+) func(context.Context, string) (bool, error) {
 	known := groupsKnown{mutex: &sync.Mutex{}, answers: map[string]bool{}}
 
-	return func(name string) (bool, error) {
+	return func(ctx context.Context, name string) (bool, error) {
 		if !onGitLab() {
 			return false, nil
 		}

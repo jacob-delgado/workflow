@@ -97,7 +97,7 @@ func TestStreamAsksTheForgeWhoTheAuthorIsOnce(t *testing.T) {
 	// Arrange
 	asked := 0
 	deps := filledDeps()
-	deps.Forge.Author = func() (string, error) {
+	deps.Forge.Author = func(context.Context) (string, error) {
 		asked++
 
 		return testAuthor, nil
@@ -126,7 +126,7 @@ func TestStreamHoldsAFailedAuthorReadForTheForgeInterval(t *testing.T) {
 	// Arrange
 	asked := 0
 	deps := filledDeps()
-	deps.Forge.Author = func() (string, error) {
+	deps.Forge.Author = func(context.Context) (string, error) {
 		asked++
 
 		return "", errSeam
@@ -150,7 +150,7 @@ func TestStreamAsksForTheAuthorAgainAnIntervalAfterAFailedRead(t *testing.T) {
 	// once the forge interval has passed, and the answer is kept from then on.
 	asked := 0
 	deps := filledDeps()
-	deps.Forge.Author = func() (string, error) {
+	deps.Forge.Author = func(context.Context) (string, error) {
 		asked++
 		if asked == 1 {
 			return "", errSeam
@@ -230,10 +230,10 @@ func TestStreamFrameDescribesOneBranch(t *testing.T) {
 
 	askedAbout := ""
 	findPull := deps.Forge.FindPullRequest
-	deps.Forge.FindPullRequest = func(branch string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(ctx context.Context, branch string) (forge.PullRequest, bool, error) {
 		askedAbout = branch
 
-		return findPull(branch)
+		return findPull(ctx, branch)
 	}
 
 	cfg := config.Default()

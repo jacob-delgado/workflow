@@ -111,7 +111,7 @@ func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 
 	var reviewers tea.Cmd
 	if !proposed.reviewersSettled {
-		reviewers = readReviewers(m.deps, proposed)
+		reviewers = readReviewers(m.session, m.deps, proposed)
 	}
 
 	starts := readPullRequestStarts(m.deps, proposed.opened)

@@ -441,8 +441,8 @@ func TestTheForgeSeamRetriesAfterAFailedConnection(t *testing.T) {
 		wiring.Workspace{Root: dir, Remote: githubRemote}, nil).Forge
 
 	// Act
-	_, _, first := forgeSeam.FindPullRequest(featureBranch)
-	_, _, second := forgeSeam.FindPullRequest(featureBranch)
+	_, _, first := forgeSeam.FindPullRequest(t.Context(), featureBranch)
+	_, _, second := forgeSeam.FindPullRequest(t.Context(), featureBranch)
 
 	// Assert
 	if first == nil || second == nil {

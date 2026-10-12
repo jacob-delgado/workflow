@@ -76,7 +76,9 @@ func TestAnnounceRefusesAnAnnouncementThatChangedSinceItsPreview(t *testing.T) {
 	posts := 0
 
 	deps := filledDeps()
-	deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) { return forge.CI{State: ciState}, nil }
+	deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
+		return forge.CI{State: ciState}, nil
+	}
 	deps.Messaging.Post = func(context.Context, string, string) error {
 		posts++
 
@@ -140,7 +142,7 @@ func TestAnnouncePostsThePreviewWhenTheAuthorReadFailsAfterIt(t *testing.T) {
 
 	asked := 0
 	deps := filledDeps()
-	deps.Forge.Author = func() (string, error) {
+	deps.Forge.Author = func(context.Context) (string, error) {
 		asked++
 		if asked > 1 {
 			return "", errSeam
@@ -236,7 +238,7 @@ func TestGetAnnouncementMarksAMergedPull(t *testing.T) {
 	// Arrange
 	// The branch's pull request has merged, so the announcement marks the merge.
 	deps := filledDeps()
-	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{Number: 42, URL: "https://x/42", Title: "redact", State: forge.StateMerged}, true, nil
 	}
 
@@ -255,7 +257,7 @@ func TestGetAnnouncementMarksRedCI(t *testing.T) {
 	// Arrange
 	// The open pull request's CI has failed, so the announcement marks that.
 	deps := filledDeps()
-	deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) {
+	deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
 		return forge.CI{State: forge.CIFailed}, nil
 	}
 
@@ -275,7 +277,7 @@ func TestGetAnnouncementFallsBackToReadyWhenCICannotBeRead(t *testing.T) {
 	// The CI read fails, so the open pull request's announcement stays "ready for
 	// review" rather than marking a red CI on a result it could not read.
 	deps := filledDeps()
-	deps.Forge.CheckStatus = func(forge.PullRequest, string) (forge.CI, error) {
+	deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
 		return forge.CI{State: forge.CIFailed}, errSeam
 	}
 
@@ -437,7 +439,9 @@ func TestGetAnnouncementIsAConflictWithoutAPullRequest(t *testing.T) {
 
 	// Arrange
 	deps := filledDeps()
-	deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil }
+	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
+		return forge.PullRequest{}, false, nil
+	}
 
 	// Act
 	recorder := get(t, serve(t, deps, config.Default()), "/api/announcement")
@@ -455,7 +459,9 @@ func TestAnnouncingIsAConflictWithoutAPullRequest(t *testing.T) {
 	// finds none or there is no forge to ask.
 	cases := map[string]func(webserver.Deps) webserver.Deps{
 		"no pull request found": func(deps webserver.Deps) webserver.Deps {
-			deps.Forge.FindPullRequest = func(string) (forge.PullRequest, bool, error) { return forge.PullRequest{}, false, nil }
+			deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
+				return forge.PullRequest{}, false, nil
+			}
 
 			return deps
 		},

@@ -218,10 +218,10 @@ func (m Model) rerunChecks(pull forge.PullRequest, head string) (Model, tea.Cmd)
 		return m.closeOverlay().noticed("dry run: would re-run the failed checks"), nil
 	}
 
-	rerun := m.deps.Forge.Rerun
+	ctx, rerun := m.session, m.deps.Forge.Rerun
 
 	return m, func() tea.Msg {
-		reran, err := rerun(pull, head)
+		reran, err := rerun(ctx, pull, head)
 
 		return rerunRequested{reran: reran, err: err}
 	}
@@ -308,10 +308,10 @@ func (c checkList) readLog(m Model) (Model, tea.Cmd) {
 
 	c.err, c.outcome = nil, "reading the log"+m.marks.ellipsis
 	m.overlay = c
-	read := m.deps.Forge.JobLog
+	ctx, read := m.session, m.deps.Forge.JobLog
 
 	return m, func() tea.Msg {
-		log, err := read(check)
+		log, err := read(ctx, check)
 
 		return logRead{check: check, log: log, err: err}
 	}

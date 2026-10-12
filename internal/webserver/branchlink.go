@@ -26,7 +26,7 @@ var (
 // outside workflow, and with update_pull adds the line naming the issue to
 // the open pull request's description, unless it names the issue already.
 func (s *server) LinkBranchIssue(
-	_ context.Context, request api.LinkBranchIssueRequestObject,
+	ctx context.Context, request api.LinkBranchIssueRequestObject,
 ) (api.LinkBranchIssueResponseObject, error) {
 	ref, known := convention.RefOf(strings.TrimSpace(request.Body.Key))
 	if !known || s.deps.Git.LinkIssue == nil {
@@ -40,7 +40,7 @@ func (s *server) LinkBranchIssue(
 	}
 
 	if err == nil {
-		err = s.linkIssue(branch.Name, ref, request.Body.UpdatePull)
+		err = s.linkIssue(ctx, branch.Name, ref, request.Body.UpdatePull)
 	}
 
 	if err != nil {
@@ -78,7 +78,7 @@ func (s *server) UnlinkBranchIssue(
 // PreviewBranchIssue is what linking the checked-out branch to an issue would
 // write in its open pull request's description.
 func (s *server) PreviewBranchIssue(
-	_ context.Context, request api.PreviewBranchIssueRequestObject,
+	ctx context.Context, request api.PreviewBranchIssueRequestObject,
 ) (api.PreviewBranchIssueResponseObject, error) {
 	ref, known := convention.RefOf(strings.TrimSpace(request.Params.Key))
 	if !known {
@@ -88,7 +88,7 @@ func (s *server) PreviewBranchIssue(
 
 	preview := api.BranchIssuePreview{Key: ref.Key}
 
-	pull, open, err := s.openPull()
+	pull, open, err := s.openPull(ctx)
 	if err != nil {
 		return problemAnswer[api.PreviewBranchIssuedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
@@ -134,9 +134,9 @@ func (s *server) linkableBranch() (gitrepo.Branch, error) {
 // goes first so a forge that refuses it leaves the branch as it was; a link
 // git then cannot keep is answered as such, and asking again is safe, since
 // the description names the issue by then.
-func (s *server) linkIssue(branch string, ref convention.IssueRef, updatePull bool) error {
+func (s *server) linkIssue(ctx context.Context, branch string, ref convention.IssueRef, updatePull bool) error {
 	if updatePull {
-		err := s.namePullIssue(ref)
+		err := s.namePullIssue(ctx, ref)
 		if err != nil {
 			return err
 		}
@@ -150,18 +150,18 @@ func (s *server) linkIssue(branch string, ref convention.IssueRef, updatePull bo
 // line is added to the description as the forge holds it, not to the one
 // shown, whose controls and marks are neutralized, so nothing else of it
 // changes.
-func (s *server) namePullIssue(ref convention.IssueRef) error {
+func (s *server) namePullIssue(ctx context.Context, ref convention.IssueRef) error {
 	if s.deps.Forge.RewriteDescription == nil {
 		return nil
 	}
 
-	pull, open, err := s.openPull()
+	pull, open, err := s.openPull(ctx)
 	if err != nil || !open {
 		return err
 	}
 
 	issueURL := s.browseURL(jira.Key(ref.Key))
-	_, err = s.deps.Forge.RewriteDescription(pull, func(body string) (string, bool) {
+	_, err = s.deps.Forge.RewriteDescription(ctx, pull, func(body string) (string, bool) {
 		return convention.WithIssueLine(body, ref.Key, issueURL)
 	})
 
@@ -171,7 +171,7 @@ func (s *server) namePullIssue(ref convention.IssueRef) error {
 // openPull is the pull request open from the checked-out branch, and whether
 // there is one: none when HEAD is on no branch or there is no forge to ask.
 // A branch git could not read is that failure, not the absence of one.
-func (s *server) openPull() (forge.PullRequest, bool, error) {
+func (s *server) openPull(ctx context.Context) (forge.PullRequest, bool, error) {
 	if s.deps.Forge.FindPullRequest == nil {
 		return forge.PullRequest{}, false, nil
 	}
@@ -185,7 +185,7 @@ func (s *server) openPull() (forge.PullRequest, bool, error) {
 		return forge.PullRequest{}, false, err
 	}
 
-	pull, found, err := s.deps.Forge.FindPullRequest(branch.Name)
+	pull, found, err := s.deps.Forge.FindPullRequest(ctx, branch.Name)
 	if err != nil {
 		return forge.PullRequest{}, false, err
 	}

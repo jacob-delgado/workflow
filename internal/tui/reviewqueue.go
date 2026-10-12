@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"context"
 	"slices"
 	"strconv"
 	"strings"
@@ -64,14 +65,14 @@ func (s reviewQueueState) listed(previous forge.ReviewRequest, rows int) reviewQ
 }
 
 // loadReviewQueue is the command that reads the review queue from the forge.
-func loadReviewQueue(deps Deps) tea.Cmd {
+func loadReviewQueue(ctx context.Context, deps Deps) tea.Cmd {
 	list := deps.Forge.ReviewRequests
 	if list == nil {
 		return nil
 	}
 
 	return func() tea.Msg {
-		requests, err := list()
+		requests, err := list(ctx)
 
 		return reviewsLoaded{requests: requests, err: err}
 	}
@@ -408,7 +409,7 @@ func reviewQueueBehavior() behavior {
 		},
 		// refresh reads the review queue again.
 		refresh: func(m Model) (Model, tea.Cmd) {
-			read := loadReviewQueue(m.deps)
+			read := loadReviewQueue(m.session, m.deps)
 			m.reviewQueue.loading = read != nil
 
 			return m, read

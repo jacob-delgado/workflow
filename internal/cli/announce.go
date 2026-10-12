@@ -399,7 +399,7 @@ func (t announceTagging) identity(ctx context.Context, out output, moment messag
 func (t announceTagging) propose(
 	ctx context.Context, base string, moment messaging.Moment, workspace string,
 ) loop.Tags {
-	owners, _ := loop.OwnersOf(t.Owners, base)
+	owners, _ := loop.OwnersOf(ctx, t.Owners, base)
 	links, _ := t.OwnerLinks(ctx, workspace)
 
 	var (
