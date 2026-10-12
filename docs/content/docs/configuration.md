@@ -749,8 +749,8 @@ The actions you can rebind, grouped by where they work, are:
   `sort-tasks`.
 - **Summary:** `earlier`, `later`, `today`, `calendar`, `copy-summary`,
   `post-summary`.
-- **Repositories:** `favorite-directory`, `go-to-directory`, `settings`,
-  `local-data`.
+- **Repositories:** `switch-directory`, `favorite-directory`,
+  `go-to-directory`, `settings`, `local-data`.
 - **In a composer or preview:** `edit`, `edit-body`, `next-template`,
   `toggle-draft`, `toggle-breaking`, `verbatim`, `next-field`,
   `previous-field`, `cycle-type-left`, `cycle-type-right`, `toggle-option`,
@@ -787,8 +787,9 @@ confirms — cannot share a key with `apply`, or that key pressed twice would
 ask and then confirm: on `enter`, `remove-everything` would empty Local data
 at a double press. So `push`, `rebase`, `discard-change`, `rerun-checks`,
 `mark-done`, `undo-task`, `sync-tasks`, `forget-owner`, `remove-entry`,
-`remove-cache` and `remove-everything` are refused on `apply`'s key, and
-`apply` on any of theirs.
+`remove-cache`, `remove-everything` and `switch-directory` are refused on
+`apply`'s key, and `apply` on any of theirs. For the same reason `enter` on
+a Repositories row switches nothing: `switch-directory` does.
 
 The keys an overlay answers while one of its text fields has the cursor —
 `worktree`, `toggle-breaking`, `toggle-draft`, `next-template`, `edit-body`,

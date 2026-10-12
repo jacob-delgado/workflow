@@ -381,7 +381,7 @@ func worktreeState(worktree gitrepo.Worktree) string {
 
 // repositoriesKeys is what the pane offers.
 func (m Model) repositoriesKeys() []key.Binding {
-	keys := []key.Binding{m.keys.up, m.keys.down, relabel(m.keys.confirm, verbSwitch), m.keys.favoriteDir, m.keys.goToDir}
+	keys := []key.Binding{m.keys.up, m.keys.down, m.keys.switchDir, m.keys.favoriteDir, m.keys.goToDir}
 	switch {
 	case m.offersSetup():
 		keys = append(keys, relabel(m.keys.settings, "set up"))
@@ -404,8 +404,10 @@ func (s repositoriesState) movedBy(delta int, here seams.Place) repositoriesStat
 	return s
 }
 
-// handleRepositoriesKey moves the cursor, marks or forgets a favorite, or
-// opens what the pane offers.
+// handleRepositoriesKey moves the cursor, switches to the row it is on, marks
+// or forgets a favorite, or opens what the pane offers. Apply switches nothing:
+// it confirms the switch's last look, so a double press would ask and then
+// switch.
 func (m Model) handleRepositoriesKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.up, m.keys.down):
@@ -414,7 +416,7 @@ func (m Model) handleRepositoriesKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, nil
 	case key.Matches(msg, m.keys.favoriteDir):
 		return m.toggleFavorite(m.repositories.selectedRow(m.deps.Repositories.Here))
-	case key.Matches(msg, m.keys.confirm):
+	case key.Matches(msg, m.keys.switchDir):
 		return m.switchToSelected()
 	case key.Matches(msg, m.keys.refresh):
 		return m.refreshRepositories()
@@ -496,6 +498,8 @@ func repositoriesBehavior() behavior {
 		refresh: Model.refreshRepositories,
 		loading: func(m Model) bool { return m.repositories.loading },
 		scroll:  func(m *Model) *int { return &m.repositories.scroll }, listInDetail: true,
-		answers: []string{"favorite-directory", "go-to-directory", "settings", "local-data", actionRefresh},
+		answers: []string{
+			actionSwitchDirectory, "favorite-directory", "go-to-directory", "settings", "local-data", actionRefresh,
+		},
 	}
 }

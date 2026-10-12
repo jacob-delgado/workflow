@@ -73,7 +73,7 @@ func CheckKeys(overrides map[string]string) error {
 func askingActions() []string {
 	return []string{
 		actionPush, actionRebase, "discard-change", actionRerunChecks, actionMarkDone, actionUndoTask, actionSyncTasks,
-		"forget-owner", "remove-entry", "remove-cache", "remove-everything",
+		"forget-owner", "remove-entry", "remove-cache", "remove-everything", actionSwitchDirectory,
 	}
 }
 
