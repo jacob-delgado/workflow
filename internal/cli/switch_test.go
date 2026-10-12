@@ -141,18 +141,29 @@ func TestASwitchThatCannotBeMadeStaysWhereItWasAndSaysWhy(t *testing.T) {
 // errMoveRefused is the operating system refusing to move the process.
 var errMoveRefused = errors.New("chdir: permission denied")
 
+// runRootUnmoving is runRootSwitching in a process the operating system will
+// not move to another directory.
+func runRootUnmoving(t *testing.T, where place, nexts []tui.Next, args ...string) *rootRun {
+	t.Helper()
+
+	ran := rootRun{nexts: nexts, env: environmentFor(t, where)}
+	ran.env.Chdir = func(string) error { return errMoveRefused }
+
+	ran.stdout, ran.stderr, ran.err = executeRootIn(t, ran.env, ran.runInterface, ran.serveWebAt, args...)
+
+	return &ran
+}
+
 func TestASwitchTheProcessCannotMoveForStaysWhereItWasAndSaysWhy(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// The directory is there and its configuration loads, but the process
-	// cannot be moved into it.
 	start, other := twoDirectories(t)
-	ran := rootRun{nexts: []tui.Next{{Dir: other}}, env: environmentFor(t, place{dir: start, home: t.TempDir()})}
-	ran.env.Chdir = func(string) error { return errMoveRefused }
 
 	// Act
-	ran.stdout, ran.stderr, ran.err = executeRootIn(t, ran.env, ran.runInterface, ran.serveWebAt)
+	// The directory is there and its configuration loads, but the process
+	// cannot be moved into it.
+	ran := runRootUnmoving(t, place{dir: start, home: t.TempDir()}, []tui.Next{{Dir: other}})
 
 	// Assert
 	if ran.err != nil || ran.interfaces != 2 {
@@ -165,6 +176,10 @@ func TestASwitchTheProcessCannotMoveForStaysWhereItWasAndSaysWhy(t *testing.T) {
 
 	if !strings.Contains(shown(ran.model), "could not switch to") {
 		t.Errorf("the reopened interface does not say why:\n%s", shown(ran.model))
+	}
+
+	if here := ran.workingDir(); here != start {
+		t.Errorf("working directory = %q, want it left in %s", here, start)
 	}
 }
 
@@ -233,19 +248,6 @@ func TestTheWebServerCannotReachADirectoryWhoseConfigurationCannotBeRead(t *test
 	if here := ran.workingDir(); !errors.Is(err, webserver.ErrConfigurationUnreadable) || here != start {
 		t.Errorf("Reach = %v, now in %q; want ErrConfigurationUnreadable, still in %s", err, here, start)
 	}
-}
-
-// runRootUnmoving is runRootSwitching in a process the operating system will
-// not move to another directory.
-func runRootUnmoving(t *testing.T, where place, nexts []tui.Next, args ...string) *rootRun {
-	t.Helper()
-
-	ran := rootRun{nexts: nexts, env: environmentFor(t, where)}
-	ran.env.Chdir = func(string) error { return errMoveRefused }
-
-	ran.stdout, ran.stderr, ran.err = executeRootIn(t, ran.env, ran.runInterface, ran.serveWebAt, args...)
-
-	return &ran
 }
 
 func TestTheWebServerCannotReachADirectoryNotThere(t *testing.T) {
