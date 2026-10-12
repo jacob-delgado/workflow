@@ -311,15 +311,20 @@ test('the first frame after a done the answer could not describe offers nothing 
   fakeApi({ [`${trackingPath}/done`]: undescribedDone })
   renderWithClient(<IssueTasks issueKey={issueKey} />)
   await user.click(screen.getByRole('button', { name: 'Mark done… task 12' }))
-  await user.click(screen.getByRole('button', { name: 'Mark done' }))
-  await screen.findByText(/^Marked task 12 done/)
 
-  // Act
+  // Act: mark the task done
+  await user.click(screen.getByRole('button', { name: 'Mark done' }))
+
+  // Assert: the answer could not describe the task, and nothing is offered on it
+  await screen.findByText(/^Marked task 12 done/)
+  expect(within(screen.getByRole('listitem')).queryAllByRole('button')).toEqual([])
+
+  // Act: a frame that still has the task to do lands
   act(() => {
     streamTasks({ linked: [tracking] }, Date.now() + 1)
   })
 
-  // Assert
+  // Assert: nothing is offered on it still
   expect(within(screen.getByRole('listitem')).queryAllByRole('button')).toEqual([])
 })
 
