@@ -740,7 +740,7 @@ or stopping the server can.
 `Model.WithContext` (`internal/tui/tui.go`), which `tui.Run` ends when the
 program does: quitting, or switching directory (TRADE-34), stops what the
 program left in flight. Leaving a view cancels nothing: a late answer is
-dropped by its read's count or view, as before, and cancelling per view would
+dropped by its read's count or view, as before, and canceling per view would
 mean a cancel handle on every view's state. Decided 2026-10-09 by the
 maintainer in the pre-1.0 paydown, when each seam came to take its asker's
 context.
