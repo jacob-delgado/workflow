@@ -32,12 +32,20 @@ var (
 	// readline key such as ctrl+w. The overlay answers the key first, so the
 	// field would lose that edit.
 	ErrTextFieldKey = errors.New("ui.keys moves an overlay's key onto one its text field edits with")
+	// ErrKeyConfirmsItself reports an action that asks first — its press opens
+	// a last look, which apply confirms — sharing a key with apply, so the key
+	// pressed twice would ask and then confirm, as enter twice on Local data
+	// would remove everything.
+	ErrKeyConfirmsItself = errors.New("ui.keys puts an action that asks first on the key that confirms it")
 )
 
 // KeyRefusals are every refusal of a ui.keys map, so a caller sorting errors
 // by kind counts a new one without a second edit.
 func KeyRefusals() []error {
-	return []error{ErrUnknownKeyAction, ErrKeyConflict, ErrKeyNotRebindable, ErrInterruptEdits, ErrTextFieldKey}
+	return []error{
+		ErrUnknownKeyAction, ErrKeyConflict, ErrKeyNotRebindable, ErrInterruptEdits, ErrTextFieldKey,
+		ErrKeyConfirmsItself,
+	}
 }
 
 // colorNever is the ui.color that turns the system hues off.
