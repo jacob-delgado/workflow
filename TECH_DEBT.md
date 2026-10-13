@@ -785,4 +785,5 @@ the directory left, and its outcome is not shown; the switch refuses only while
 an announcement or a change to a task is in flight.
 
 **Reopen when.** Such reads are found to crowd a rate limit, or a write is
-found left half made, or still running, after workflow exits.
+reported in practice left half made after workflow exits (a stale index lock, a
+push whose tracking ref was not updated).
