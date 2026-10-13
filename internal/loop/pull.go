@@ -69,10 +69,11 @@ type PullOptions struct {
 }
 
 // ComposePull proposes the pull request for the checked-out branch — a title and
-// body from its commits, its issue and the repository's first template, the
-// base it would merge into, and the code owners of its changes as reviewers —
-// and returns the branch it read. It refuses with
-// ErrNothingToOpen when there is nothing to propose, and with a
+// body from its commits, its issue and the repository's template opts names, or
+// its first, the base it would merge into, and the code owners of its changes
+// as reviewers — and returns the branch it read. It refuses with
+// ErrNothingToOpen when there is nothing to propose, with ErrNoSuchTemplate
+// when the repository has no template of the name opts gives, and with a
 // PullAlreadyOpenError when an open pull request already stands for the branch.
 // A merged or closed one does not stand in the way, and neither does a forge
 // that cannot say: the open is where that forge's own answer lands.
@@ -173,9 +174,9 @@ type DraftInput struct {
 }
 
 // Draft proposes a pull request's title, then its body, from what a surface
-// already holds. ComposePull reads the input through seams and the
-// repository's first template; a surface that holds it already, as the
-// terminal's composer does, passes it here.
+// already holds. ComposePull reads the input through seams and the template
+// its options name; a surface that holds it already, as the terminal's
+// composer does, passes it here.
 func Draft(input DraftInput) (string, string) {
 	key := string(input.IssueKey)
 
