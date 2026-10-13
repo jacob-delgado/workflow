@@ -966,21 +966,24 @@ have them. See [Configuration]({{< relref "/docs/configuration" >}}).
   it, or `git add -p`, alongside.
 - **A quit waits for your writes; a signal does not.** Quitting, or switching to
   another directory, stops every read in flight, such as a list loading or a
-  pane reading the forge, and none of the writes you sent: a commit, a push, a
-  post, a comment, a status change, a settings save. Quitting the last interface
-  then waits for those writes to land, saying `finishing 2 writes…`, and exits
-  once they have; it gives up after `timing.request_timeout`, naming each write
-  it gave up on, which may be cut short as workflow exits. A switch does not
-  wait: its writes go on in the directory left, and the quit waits for them. A
-  page you open in the browser is not a write: a quit neither stops its opening
-  nor waits for it. A signal (SIGTERM, or the SIGINT a second `ctrl+c` sends
-  while workflow is finishing) stops reads and writes alike, and workflow exits
-  at once. Work that would carry on regardless, such as Settings renewing a
-  Slack user token on macOS, is cut short by that exit: a signal after Slack has
-  taken the renewal and before the keychain keeps the new token can lose the
-  token, since Slack retires the old one as it answers; `workflow slack login`
-  then sets it up again. An announcement waiting for CI is not yet a write: it
-  is not sent if you quit first.
+  pane reading the forge, but a read of the Slack directory, which others may be
+  waiting on, and a renewal of your Slack user token that a read began: those go
+  on past a switch and end when workflow exits. A quit or a switch stops none of
+  the writes you sent: a commit, a push, a post, a comment, a status change, a
+  settings save. Quitting the last interface then waits for those writes to
+  land, saying `finishing 2 writes…`, and exits once they have; it gives up
+  after `timing.request_timeout`, naming each write it gave up on, which may be
+  cut short as workflow exits. A switch does not wait: its writes go on in the
+  directory left, and the quit waits for them. A page you open in the browser is
+  not a write: a quit neither stops its opening nor waits for it. A signal
+  (SIGTERM, or the SIGINT a second `ctrl+c` sends while workflow is finishing)
+  stops reads and writes alike, and workflow exits at once. Work that would
+  carry on regardless, such as Settings renewing a Slack user token on macOS, is
+  cut short by that exit: a signal after Slack has taken the renewal and before
+  the keychain keeps the new token can lose the token, since Slack retires the
+  old one as it answers; `workflow slack login` then sets it up again. An
+  announcement waiting for CI is not yet a write: it is not sent if you quit
+  first.
 - **`w` needs checks to wait for.** Where the pull request has no CI at all,
   the preview does not offer it and pressing it does nothing, and an
   announcement already waiting keeps waiting if CI stops reporting any

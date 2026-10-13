@@ -646,8 +646,13 @@ or stopping the server can.
 **Decided.** The terminal asks every system under one session context, set by
 `Model.WithContext` (`internal/tui/tui.go`), which `tui.Run` ends when the
 program does. Quitting (`q`, or `ctrl+c` from anywhere) or switching directory
-(TRADE-34) therefore stops every read the program left in flight, and no write:
-`New` hands each write seam the session's values but not its end (`outlasting`,
+(TRADE-34) therefore stops every read the program left in flight but a shared
+read of the Slack directory (TRADE-26), and no write. That read, like the
+renewal of a Slack user token a read begins, detaches from its asker through
+`lifetime.Detached` to the command's context, so it goes on past a switch and
+ends only when the command does: once workflow exits after the quit, or when a
+signal ends the command. The writes stay out of the session's end: `New` hands
+each write seam the session's values but not its end (`outlasting`,
 `internal/tui/deps.go`), and `Model.WithLifetime`, which `tui.Run` applies with
 the context it is given, ends the writes with that context instead, and counts
 each in flight, under a name that says what it does, in the `lifetime.InFlight`
