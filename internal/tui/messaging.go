@@ -5,8 +5,6 @@ package tui
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"slices"
 	"strings"
 
@@ -14,18 +12,10 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/config"
-	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/progress"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
-)
-
-// Refusals of an announcement that never went: one given up on is a failure,
-// told with the service it was for.
-var (
-	errAnnouncementDropped = errors.New("dropped the announcement")
-	errCIFailedUnannounced = errors.New("CI failed, so nothing was announced")
 )
 
 // messagingState is what has been announced, and how far the messaging
@@ -49,53 +39,6 @@ type messagingState struct {
 	// loading is a refresh begun and not yet answered.
 	loading bool
 }
-
-// droppedTimeFormat stamps a dropped post with the time it was given up on.
-const droppedTimeFormat = "15:04"
-
-// queuedPost is a message waiting for one pull request's CI to pass. It names
-// the pull request it was written for, because the one on screen can change
-// while it waits, and a message is only ever sent for the one its writer saw.
-type queuedPost struct {
-	pull int
-	post outgoingAnnouncement
-}
-
-// waiting reports a post that has not been sent or given up on.
-func (q queuedPost) waiting() bool {
-	return q.post.text != ""
-}
-
-// quitGuard asks before quitting while a post is waiting for CI, which quitting
-// would silently lose.
-type quitGuard struct{}
-
-var _ overlay = quitGuard{}
-
-// view says what quitting would cost.
-func (quitGuard) view(_ renderKit, width, _ int) (string, string) {
-	return "Quit", wrap("An announcement is waiting for CI and will be lost.", width)
-}
-
-// footer offers quitting anyway or staying.
-func (quitGuard) footer(keys keyMap) []key.Binding {
-	return []key.Binding{relabel(keys.confirm, "quit"), relabel(keys.closeOverlay, escStay)}
-}
-
-// handleKey answers a key while the guard is shown.
-func (quitGuard) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	switch {
-	case key.Matches(msg, m.keys.confirm):
-		return m, tea.Quit
-	case key.Matches(msg, m.keys.closeOverlay):
-		return m.closeOverlay(), nil
-	default:
-		return m, nil
-	}
-}
-
-// which names the quit guard.
-func (quitGuard) which() overlayKind { return overlayQuitGuard }
 
 // loadAuthor is the command that asks the forge whose credential it holds:
 // you, as the announcement and a forge issue's assignee name you.
@@ -157,7 +100,7 @@ func (s messagingState) standing(kit renderKit, review reviewState) string {
 	case s.announced(review):
 		return kit.marks.done + " announced"
 	case s.pending.waiting():
-		return kit.marks.inFlight + " announces when CI passes"
+		return kit.marks.inFlight + " announces when CI passes" + s.pending.waitingOn(kit)
 	case s.dropped != "":
 		return kit.failedGlyph() + " not announced: " + s.dropped
 	default:
@@ -262,6 +205,10 @@ func (m Model) messagingKeys() []key.Binding {
 		keys = append(keys, m.keys.peopleAndGroups)
 	}
 
+	if m.messaging.pending.waiting() {
+		keys = append(keys, m.keys.stopWaiting)
+	}
+
 	return append(keys, m.keys.refresh)
 }
 
@@ -274,6 +221,8 @@ func (m Model) handleMessagingKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.openPeople()
 	case key.Matches(msg, m.keys.compose) && m.canPost():
 		return m.previewAnnouncement()
+	case key.Matches(msg, m.keys.stopWaiting) && m.messaging.pending.waiting():
+		return m.stopWaiting()
 	default:
 		return m, nil
 	}
@@ -289,7 +238,7 @@ func (m Model) previewAnnouncement() (Model, tea.Cmd) {
 	preview, readTags := m.withTagging(messagingPreview{
 		text: m.announcement(moment), fallback: m.cfg.Messaging.Target(),
 		channel: channel, channels: channels, moment: moment, service: m.cfg.Messaging.Service(),
-		noCI: m.review.checked && m.review.ci.State == forge.CINone, opened: opened,
+		ci: m.review.lastRead(), opened: opened,
 	})
 	m.overlay = preview
 
@@ -306,89 +255,6 @@ func defaultChannel(cfg config.Config) string {
 	}
 
 	return channels[0]
-}
-
-// withoutQueuedPost gives up on a post waiting for CI, saying so, because the
-// pull request it was written for is no longer the one on screen.
-func (m Model) withoutQueuedPost() Model {
-	if !m.messaging.pending.waiting() {
-		return m
-	}
-
-	dropped := m.messaging.pending.pull
-	m.messaging.pending = queuedPost{}
-
-	return m.noticedFailure(fmt.Errorf("%w to %s waiting for %s%d, which is no longer this branch's %s",
-		errAnnouncementDropped, m.cfg.Messaging.Service(), m.vocab.sigil, dropped, m.vocab.noun))
-}
-
-// withoutStrandedPost gives up on the post waiting for CI, saying why, once
-// the branch's pull request, as found, is no longer the one it was written
-// for: another, none, one closed without merging, or the same one merged
-// first, whose CI is never read again.
-func (m Model) withoutStrandedPost(pull forge.PullRequest, found bool) Model {
-	if !m.messaging.pending.waiting() {
-		return m
-	}
-
-	number := m.messaging.pending.pull
-
-	err := loop.StillArmed(number, pull, found)
-	if errors.Is(err, loop.ErrMergedFirst) {
-		m.messaging.pending = queuedPost{}
-		m.messaging.dropped = fmt.Sprintf("%s%d merged before its CI passed", m.vocab.sigil, number)
-
-		return m.noticedFailure(fmt.Errorf("%w to %s: %s", errAnnouncementDropped, m.cfg.Messaging.Service(),
-			m.messaging.dropped))
-	}
-
-	if err != nil {
-		return m.withoutQueuedPost()
-	}
-
-	return m
-}
-
-// postIfGreen posts the message waiting for CI once CI passes, and gives up on
-// it, saying so, if CI fails or the pull request is another one.
-func (m Model) postIfGreen() (Model, tea.Cmd) {
-	if !m.messaging.pending.waiting() {
-		return m, nil
-	}
-
-	if m.messaging.pending.pull != m.review.pull.Number {
-		return m.withoutQueuedPost(), nil
-	}
-
-	// A map, not a switch, so there is no last-case arm gobco can never see;
-	// exhaustive keeps it complete.
-	settle := map[forge.CIState]func() (Model, tea.Cmd){
-		forge.CIPassed:  m.postQueued,
-		forge.CIFailed:  m.dropQueued,
-		forge.CINone:    m.keepQueued,
-		forge.CIRunning: m.keepQueued,
-	}[m.review.ci.State]
-
-	return settle()
-}
-
-// postQueued sends the post that waited for CI.
-func (m Model) postQueued() (Model, tea.Cmd) {
-	return m.sendHeld(m.messaging.pending.post)
-}
-
-// dropQueued gives up on the post that waited for CI, which failed, and says
-// so.
-func (m Model) dropQueued() (Model, tea.Cmd) {
-	m.messaging.pending = queuedPost{}
-	m.messaging.dropped = "CI failed at " + m.deps.now().Format(droppedTimeFormat)
-
-	return m.noticedFailure(fmt.Errorf("%w to %s", errCIFailedUnannounced, m.cfg.Messaging.Service())), nil
-}
-
-// keepQueued leaves the post waiting while CI has not finished.
-func (m Model) keepQueued() (Model, tea.Cmd) {
-	return m, nil
 }
 
 // messagingBehavior is the messaging pane's behavior.
@@ -409,6 +275,6 @@ func messagingBehavior() behavior {
 		},
 		loading: func(m Model) bool { return m.messaging.loading },
 		scroll:  func(m *Model) *int { return &m.messaging.scroll }, readsBranch: true,
-		answers: []string{"post", "people-and-groups", actionRefresh},
+		answers: []string{"post", "people-and-groups", "stop-waiting", actionRefresh},
 	}
 }

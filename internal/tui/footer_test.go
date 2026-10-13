@@ -7,9 +7,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
-
-	"github.com/jacob-delgado/workflow/internal/forge"
 )
 
 // escCloses is the footer's esc where what was written is kept, and quitHint
@@ -106,12 +103,10 @@ func TestWDoesNothingWhereTheAnnouncementPreviewDoesNotOfferIt(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// The pull request reports no CI at all, so the preview offers no wait for it.
-	unchecked := newWorld()
-	unchecked.ciInterval = time.Millisecond
-	unchecked.ci = []forge.CI{{State: forge.CINone}}
-	preview := typing(t, unchecked.live(t, 120, 40), "5", "p")
-	checks := len(unchecked.asked("ci"))
+	// The pull request merged, so the preview offers no wait for its CI.
+	merged := mergedBranch()
+	preview := typing(t, merged.live(t, 120, 40), "5", "p")
+	checks := len(merged.asked("ci"))
 
 	// Act
 	view := typing(t, preview, "w").View().Content
@@ -120,7 +115,7 @@ func TestWDoesNothingWhereTheAnnouncementPreviewDoesNotOfferIt(t *testing.T) {
 	requireScreen(t, footerLine(view), "enter announce now")
 	refuseScreen(t, view, "will announce", "when CI passes")
 
-	if after := len(unchecked.asked("ci")); after != checks {
+	if after := len(merged.asked("ci")); after != checks {
 		t.Errorf("checked CI %d more times after w, want none past the %d before", after-checks, checks)
 	}
 }

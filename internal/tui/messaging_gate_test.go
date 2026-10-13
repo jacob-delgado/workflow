@@ -32,7 +32,7 @@ func TestAnnouncingNowIsRefusedWhileACheckFailed(t *testing.T) {
 		t.Errorf("posted %q, want nothing posted while a check failed", posts)
 	}
 
-	requireScreen(t, view, "a check failed")
+	requireScreen(t, view, "A check failed on the pull request, so nothing was announced.")
 }
 
 func TestAPostTheGateRefusesKeepsThePreviewOpenWithWhy(t *testing.T) {

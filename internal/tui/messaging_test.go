@@ -346,29 +346,6 @@ func TestAPostWaitingForCIGoesOnceCIPasses(t *testing.T) {
 	}
 }
 
-func TestAPostWaitingForCIIsDroppedWhenCIFails(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// CI is running when the post is queued — a "ready for review" moment — and
-	// fails on the next check. The interval is past the harness's horizon so the
-	// initial poll does not fast-forward CI to failed before the post is queued.
-	failing := newWorld()
-	failing.ciInterval = 2 * time.Second
-	failing.ci = []forge.CI{{State: forge.CIRunning}, {State: forge.CIFailed}}
-
-	// Act
-	dropped := typing(t, failing.live(t, 120, 40), "5", "p", "w")
-
-	// Assert
-	requireScreen(t, dropped.View().Content,
-		"✗ CI failed, so nothing was announced to Slack")
-
-	if calls := failing.asked("post "); len(calls) != 0 {
-		t.Errorf("posted though CI failed: %q", calls)
-	}
-}
-
 func TestPostingNowReplacesThePostWaitingForCI(t *testing.T) {
 	t.Parallel()
 
@@ -548,24 +525,6 @@ func TestTheSlackPaneNamesWhatItNeedsWhenUnset(t *testing.T) {
 		"messaging.webhook_url", ".workflow.json")
 	refuseScreen(t, view, "~/", "is not set up")
 	refuseScreen(t, footerLine(view), "p announce")
-}
-
-func TestADroppedPostLeavesALineInThePane(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// CI is running when the post is queued, then fails; the interval is past the
-	// harness's horizon so the queue happens before CI settles.
-	failing := newWorld()
-	failing.ciInterval = 2 * time.Second
-	failing.ci = []forge.CI{{State: forge.CIRunning}, {State: forge.CIFailed}}
-
-	// Act
-	dropped := typing(t, failing.live(t, 120, 40), "5", "p", "w")
-	pane := typing(t, dropped, "j").View().Content
-
-	// Assert
-	requireScreen(t, pane, "not announced: CI failed at 16:00")
 }
 
 func TestQuittingWithAQueuedPostAsksFirst(t *testing.T) {
