@@ -5,9 +5,9 @@ something goes wrong. Like [FEATURES.md](FEATURES.md), this is a brainstorm,
 not a plan: nothing here is agreed or scheduled.
 
 It is written for two readers: a contributor deciding what to improve, and a
-later Claude Code session asked to "pick up UX-62". Each entry says what
-happens today, what could happen instead, where the change would land, and
-how to tell when it is done. The numbering continues from the entries that
+later Claude Code session asked to "pick up" an entry by its ID. Each entry
+says what happens today, what could happen instead, where the change would
+land, and how to tell when it is done. The numbering continues from the entries that
 have since shipped, so an ID is never reused.
 
 Checked against commit `e5156e3` on 2026-10-06: the
@@ -152,20 +152,20 @@ them.
 | Amend; fix up | not for scripts | `A`; `f` | Amend last commit; Fix up a commit |
 | Run pre-commit; set up lefthook | not for scripts | `h`; `g` | Run pre-commit; Set up lefthook |
 | **Review** | | | |
-| Open a pull request | `pr [--json]` | `n` | Open a pull request |
+| Open a pull request | `pr [--title --body --draft --base --reviewer --json]` | `n` | Open a pull request |
 | Link it on the issue, move the issue | `pr` asks both | offered after `n` | Link it on KEY, Move KEY to STATUS |
-| Choose its template | `pr` takes the first (UX-62) | `ctrl+t` in the composer | Template |
+| Choose its template | `pr --template NAME` | `ctrl+t` in the composer | Template |
 | Edit it | not for scripts | `e` | Edit pull request |
 | Read the checks and a job's log | `status` shows CI | `c`, then `l` | the CI checks, Show log |
 | Re-run CI; merge; finish | not for scripts; `finish` | `R`; `M`; `F` | Re-run failed checks; Merge; Finish the branch |
-| Where the work stands | `status [DIR…] --json` | the top row | the work story, the header |
+| Where the work stands | `status [DIR…] [--json or --plain]` | the top row | the work story, the header |
 | **Messaging** | | | |
-| Announce | `announce` | `p` | Announce to SERVICE |
+| Announce | `announce [--channel]` | `p` | Announce to SERVICE |
 | Announce when CI passes | — (FEAT-65) | `w` in the preview | Announce when CI passes |
 | Edit the announcement first | not for scripts | `e` in the preview | Edit, in the preview |
 | Know it was announced | `announce` says so, and asks again | "● announced" on the Messaging rail | the section says so |
 | People and groups | not for scripts | `P` | Settings: People, Groups |
-| Post the summary | `summary --post [--yes]` | Summary pane: `p`, after a preview | Summary: Post…, after a preview |
+| Post the summary | `summary --post [--yes --channel]` | Summary pane: `p`, after a preview | Summary: Post…, after a preview |
 | **Reviews** | | | |
 | List what waits on your review | `reviews --json --sort` | Reviews pane: `O`, `f` | Reviews: Sort, Filter |
 | **Tasks** | | | |
@@ -187,7 +187,7 @@ them.
 | Check the setup | `doctor [--online]` | a failure names `workflow doctor` | a failure names `workflow doctor` |
 | Remove the local data | `db-clean` | Local data: `L` on the Repositories pane | Settings: Local data, Remove |
 | Every key or command | `--help` | `?` | `?`, and ⌘K or Ctrl+K (outside a Mac's text field) to find an action by name |
-| Hold back every write | `--dry-run` | `--dry-run` | `--web --dry-run` |
+| Hold back every write | `--dry-run` (`-n`) | `--dry-run` | `--web --dry-run` |
 
 ## The promises the interface makes
 
@@ -216,32 +216,7 @@ whose key handler returns on it; and the `builder.bind(` and
 
 ## The command line
 
-What is open here is the flags the scriptable commands lack.
-
-### UX-62 Flags the scriptable commands are missing
-
-Impact: low · Effort: medium
-
-**Today.** No command declares a single shorthand — there is no `VarP(`
-call in `internal/cli` — so `-n`, `-y`, `-j` do not exist; `status` emits
-`●◐✗○` (`State.Glyph`, `internal/progress/progress.go:33`) with ASCII
-selectable only through `ui.ascii` in the file, no `--plain`; `pr`
-declares only `--yes` and `--json` (`newPRCmd`, `internal/cli/pr.go:81`,
-the flags at `:113` and `:115`), so no draft, base, reviewer, title or
-body flag; `announce` has no `--channel` (the channel comes from
-`messaging.channel` alone); `pr` names no template, so it takes the
-repository's first (`chosenTemplate`, `internal/loop/pull.go:193`, given
-the empty name `pr`'s `loop.PullOptions` leaves, `internal/cli/pr.go:141`),
-where the interface cycles them (`ctrl+t`,
-`internal/tui/keys.go:263`) and the web's pull request form offers a
-Template select (`TemplateChoice`,
-`web/src/features/review/OpenPullRequest.tsx:241`).
-
-**Instead.** Shorthands for the three common flags; `--plain` on `status`;
-`--draft`, `--base`, `--reviewer`, `--channel`, `--template` where the seam
-already carries the value.
-
-**Done when.** Each flag has a test that it reaches the seam.
+Nothing is open here at the moment.
 
 ## The terminal interface
 
