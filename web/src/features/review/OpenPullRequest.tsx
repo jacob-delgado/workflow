@@ -1,5 +1,11 @@
-import { useEffect, useState } from 'react'
-import { useForm, useWatch, type UseFormRegister } from 'react-hook-form'
+import { useEffect, useRef, useState } from 'react'
+import {
+  useForm,
+  useWatch,
+  type UseFormGetValues,
+  type UseFormRegister,
+  type UseFormSetValue,
+} from 'react-hook-form'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import { useForgeWords } from '@/api/health.ts'
 import type {
@@ -96,10 +102,25 @@ interface PullRequestFields {
   labels: string
 }
 
+// Proposed is what the form last proposed for the fields a draft fills, so a
+// draft read again replaces only those still standing as proposed.
+interface Proposed {
+  title: string
+  body: string
+  reviewers: string
+}
+
+// proposedBy is what a draft proposes for the fields it fills.
+function proposedBy(draft: PullRequestDraft): Proposed {
+  return { title: draft.title, body: draft.body, reviewers: draft.reviewers.join(', ') }
+}
+
 // PullRequestForm is the composed pull request, editable, opening on its title,
 // its reviewers pre-filled with the code owners the draft proposes, with a
-// confirm that opens it and a cancel. Its buttons are held while the open is in
-// flight, so a second click cannot open a second pull request.
+// confirm that opens it and a cancel. Leaving the base field naming another
+// branch drafts it again past that base, replacing only what is not yet
+// edited. Its buttons are held while the open is in flight, so a second click
+// cannot open a second pull request.
 function PullRequestForm({
   draft,
   opening,
@@ -114,17 +135,18 @@ function PullRequestForm({
   onSubmit: (request: OpenPullRequestRequest) => void
 }) {
   const { noun } = useForgeWords()
-  const { register, handleSubmit, setFocus, setValue, control } = useForm<PullRequestFields>({
-    defaultValues: {
-      title: draft.title,
-      base: draft.base,
-      body: draft.body,
-      draft: draft.draft,
-      reviewers: draft.reviewers.join(', '),
-      assignees: '',
-      labels: '',
-    },
-  })
+  const { register, handleSubmit, setFocus, setValue, getValues, control } =
+    useForm<PullRequestFields>({
+      defaultValues: {
+        ...proposedBy(draft),
+        base: draft.base,
+        draft: draft.draft,
+        assignees: '',
+        labels: '',
+      },
+    })
+  const [template, setTemplate] = useState(draft.template)
+  const redraft = useRedraft(draft, template, getValues, setValue)
 
   // The form appears only because it was asked for, so focus goes with the
   // person asking to its first field.
@@ -145,14 +167,17 @@ function PullRequestForm({
       }}
       className="flex flex-col gap-group rounded-lg border border-border p-4"
     >
-      <ProposalFields register={register} />
+      <ProposalFields register={register} onBaseLeft={redraft.ontoBase} />
+
+      {redraft.error === '' ? null : <Failure>{redraft.error}</Failure>}
 
       <TemplateChoice
-        draft={draft}
-        body={body}
-        onBody={(body) => {
-          setValue('body', body)
-        }}
+        templates={draft.templates}
+        chosen={template}
+        base={redraft.onto}
+        edited={body !== redraft.proposed.body}
+        onChoose={setTemplate}
+        onBody={redraft.templated}
       />
 
       {draft.needs_push ? (
@@ -175,6 +200,68 @@ function PullRequestForm({
   )
 }
 
+// useRedraft drafts the form again past the base its field names once that
+// field is left naming another branch, filling only the fields still holding
+// what was proposed before; a template chosen fills the description the same
+// way. It answers what was last proposed, the base it was read past, and why
+// a base could not be read.
+function useRedraft(
+  draft: PullRequestDraft,
+  template: string,
+  getValues: UseFormGetValues<PullRequestFields>,
+  setValue: UseFormSetValue<PullRequestFields>,
+) {
+  const [proposed, setProposed] = useState(() => proposedBy(draft))
+  // latest is what was last proposed as an answer lands, which a read begun
+  // before a template was chosen must compare against, not what it saw.
+  const latest = useRef(proposed)
+  const [onto, setOnto] = useState(draft.base)
+  const [error, setError] = useState('')
+
+  const propose = (next: Proposed) => {
+    latest.current = next
+    setProposed(next)
+  }
+
+  const fill = (next: Proposed) => {
+    const now = getValues()
+    for (const field of ['title', 'body', 'reviewers'] as const) {
+      if (now[field] === latest.current[field]) {
+        setValue(field, next[field])
+      }
+    }
+    propose(next)
+  }
+
+  const ontoBase = () => {
+    const base = getValues('base').trim()
+    setError('')
+    if (base === '' || base === onto) {
+      return
+    }
+    previewPullRequest(template === '' ? undefined : template, base).then(
+      (composed) => {
+        if (getValues('base').trim() === base) {
+          fill(proposedBy(composed))
+          setOnto(base)
+        }
+      },
+      (caught: unknown) => {
+        setError(
+          apiErrorMessage(caught, `The commits past ${base} could not be read; the draft is kept.`),
+        )
+      },
+    )
+  }
+
+  const templated = (body: string) => {
+    setValue('body', body)
+    propose({ ...latest.current, body })
+  }
+
+  return { proposed, onto, error, ontoBase, templated }
+}
+
 // proposal is the request the form's fields make, each comma-separated list
 // read into its trimmed entries.
 function proposal(fields: PullRequestFields): OpenPullRequestRequest {
@@ -192,7 +279,13 @@ function proposal(fields: PullRequestFields): OpenPullRequestRequest {
 // ProposalFields are what a pull request opens with, each editable: its title
 // and base, the people and labels it asks for, its description, and whether
 // it opens as a draft.
-function ProposalFields({ register }: { register: UseFormRegister<PullRequestFields> }) {
+function ProposalFields({
+  register,
+  onBaseLeft,
+}: {
+  register: UseFormRegister<PullRequestFields>
+  onBaseLeft: () => void
+}) {
   return (
     <>
       <label className={labelClass}>
@@ -202,7 +295,7 @@ function ProposalFields({ register }: { register: UseFormRegister<PullRequestFie
 
       <label className={labelClass}>
         Base branch
-        <Input {...register('base')} required />
+        <Input {...register('base', { onBlur: onBaseLeft })} required />
       </label>
 
       <label className={labelClass}>
@@ -237,22 +330,26 @@ const labelClass = 'flex flex-col gap-tight text-sm text-muted-foreground'
 
 // TemplateChoice starts the description from another of the repository's
 // templates, as the terminal's ctrl+t does, while there are several and the
-// description is not yet edited — a template never overwrites an edit.
+// description is not yet edited — a template never overwrites an edit. The
+// template is read past the base the form drafts onto.
 function TemplateChoice({
-  draft,
-  body,
+  templates,
+  chosen,
+  base,
+  edited,
+  onChoose,
   onBody,
 }: {
-  draft: PullRequestDraft
-  body: string
+  templates: string[]
+  chosen: string
+  base: string
+  edited: boolean
+  onChoose: (template: string) => void
   onBody: (body: string) => void
 }) {
-  const [chosen, setChosen] = useState(draft.template)
-  const [applied, setApplied] = useState(draft.body)
   const [error, setError] = useState('')
-  const edited = body !== applied
 
-  if (draft.templates.length < 2) {
+  if (templates.length < 2) {
     return null
   }
 
@@ -266,11 +363,10 @@ function TemplateChoice({
           aria-describedby={edited ? 'template-kept' : undefined}
           onChange={(event) => {
             const name = event.target.value
-            setChosen(name)
+            onChoose(name)
             setError('')
-            previewPullRequest(name).then(
+            previewPullRequest(name, base).then(
               (composed) => {
-                setApplied(composed.body)
                 onBody(composed.body)
               },
               (caught: unknown) => {
@@ -281,7 +377,7 @@ function TemplateChoice({
             )
           }}
         >
-          {draft.templates.map((name) => (
+          {templates.map((name) => (
             <option key={name} value={name}>
               {name}
             </option>

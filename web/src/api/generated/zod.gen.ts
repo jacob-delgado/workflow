@@ -1699,7 +1699,8 @@ export const zCommitBody = zCommitRequest;
 export const zCommitResponse = zBranch;
 
 export const zGetPullRequestDraftQuery = z.object({
-    template: z.string().optional()
+    template: z.string().optional(),
+    base: z.string().optional()
 });
 
 /**

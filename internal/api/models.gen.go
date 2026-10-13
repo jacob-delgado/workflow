@@ -2915,6 +2915,9 @@ type ForgetPersonParams struct {
 type GetPullRequestDraftParams struct {
 	// Template The template to start the body from, by name; the repository's first when omitted.
 	Template *string `form:"template,omitempty" json:"template,omitempty"`
+
+	// Base The branch to merge into, by name, as the form's base field names it; the base the branch left when omitted.
+	Base *string `form:"base,omitempty" json:"base,omitempty"`
 }
 
 // RemoveFavoriteParams defines parameters for RemoveFavorite.
