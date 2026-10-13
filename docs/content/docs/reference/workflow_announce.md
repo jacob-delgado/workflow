@@ -27,6 +27,11 @@ request already announced at the moment it is at is said to be, and asked about
 again rather than repeated — with --yes, it is left as it is. --channel announces
 in another channel than messaging.channel, which only a Slack user token can.
 
+Nothing is announced while a check has failed on the pull request. With
+--when-green, announce waits in the foreground for its CI to pass, through a
+failed run, then announces it; ctrl+c stops waiting without announcing, and a
+pull request that reports no check for ten minutes is given up on.
+
 ```
 workflow announce [flags]
 ```
@@ -34,8 +39,9 @@ workflow announce [flags]
 ### Examples
 
 ```
-  workflow --dry-run announce   # the announcement, and where it would go
-  workflow announce --yes       # announce it, unattended
+  workflow --dry-run announce            # the announcement, and where it would go
+  workflow announce --yes                # announce it, unattended
+  workflow announce --when-green --yes   # announce it once CI passes, unattended
 ```
 
 ### Options
@@ -43,6 +49,7 @@ workflow announce [flags]
 ```
       --channel CHANNEL   announce in CHANNEL instead of messaging.channel; a Slack user token only
   -h, --help              help for announce
+      --when-green        wait in the foreground for the pull request's CI to pass, then announce it
   -y, --yes               go ahead without the confirmation
 ```
 

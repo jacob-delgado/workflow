@@ -11,12 +11,14 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
@@ -37,8 +39,10 @@ type announceSeams struct {
 	// Deliver is what the announcement goes out through: the post, and the
 	// CI read its gate makes first.
 	Deliver loop.DeliverSeams
-	Kind    forge.Kind
-	Project string
+	// Interval is how often a wait for CI to pass reads it.
+	Interval time.Duration
+	Kind     forge.Kind
+	Project  string
 	// Messaging is where the announcement goes and how it is rendered: the
 	// channel, the service — whose name the prompt and notices use — and the
 	// team's template.
@@ -51,11 +55,18 @@ type announceSeams struct {
 	Tagging announceTagging
 }
 
+// announceFlags are announce's flags: --yes and --dry-run, the channel to
+// announce in instead of messaging.channel, and whether to wait for the pull
+// request's CI to pass before announcing it.
+type announceFlags struct {
+	write     writeOptions
+	channel   string
+	whenGreen bool
+}
+
 // newAnnounceCmd builds `workflow announce`.
 func newAnnounceCmd(prompt Prompt) *cobra.Command {
-	var opts writeOptions
-
-	var channel string
+	var flags announceFlags
 
 	cmd := &cobra.Command{
 		Use:   "announce",
@@ -72,27 +83,35 @@ func newAnnounceCmd(prompt Prompt) *cobra.Command {
 			"What it announces is remembered, with what the interface announces: a pull\n" +
 			"request already announced at the moment it is at is said to be, and asked about\n" +
 			"again rather than repeated — with --yes, it is left as it is. --channel announces\n" +
-			"in another channel than messaging.channel, which only a Slack user token can.",
+			"in another channel than messaging.channel, which only a Slack user token can.\n\n" +
+			"Nothing is announced while a check has failed on the pull request. With\n" +
+			"--when-green, announce waits in the foreground for its CI to pass, through a\n" +
+			"failed run, then announces it; ctrl+c stops waiting without announcing, and a\n" +
+			"pull request that reports no check for ten minutes is given up on.",
 		Example: examples(
-			`workflow --dry-run announce   # the announcement, and where it would go`,
-			`workflow announce --yes       # announce it, unattended`,
+			`workflow --dry-run announce            # the announcement, and where it would go`,
+			`workflow announce --yes                # announce it, unattended`,
+			`workflow announce --when-green --yes   # announce it once CI passes, unattended`,
 		),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runAnnounceCommand(cmd, prompt, opts, channel)
+			return runAnnounceCommand(cmd, prompt, flags)
 		},
 	}
 
-	opts.addFlags(cmd, confirmationHelp)
-	cmd.Flags().StringVar(&channel, "channel", "",
+	flags.write.addFlags(cmd, confirmationHelp)
+	cmd.Flags().StringVar(&flags.channel, "channel", "",
 		"announce in `CHANNEL` instead of messaging.channel; a Slack user token only")
+	cmd.Flags().BoolVar(&flags.whenGreen, "when-green", false,
+		"wait in the foreground for the pull request's CI to pass, then announce it")
 
 	return cmd
 }
 
 // runAnnounceCommand wires the real repository, forge, Jira and messaging
-// service to the announce flow, posting in channel when one is given.
-func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions, channel string) error {
+// service to the announce flow, posting in the channel flags give when one is
+// given.
+func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, flags announceFlags) error {
 	conn, err := connect(cmd)
 	if err != nil {
 		return err
@@ -101,12 +120,12 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions, ch
 
 	seams := announceSeamsOf(conn, prompt)
 
-	seams.Messaging, err = postingIn(seams.Messaging, channel)
+	seams.Messaging, err = postingIn(seams.Messaging, flags.channel)
 	if err != nil {
 		return err
 	}
 
-	return runAnnounce(cmd.Context(), outputOf(cmd), seams, opts)
+	return runAnnounce(cmd.Context(), outputOf(cmd), seams, flags)
 }
 
 // announceSeamsOf wires conn's repository, forge, Jira, store and messaging
@@ -124,6 +143,7 @@ func announceSeamsOf(conn connection, prompt Prompt) announceSeams {
 			BrowseURL: deps.Jira.BrowseURL,
 		},
 		Deliver:   loop.DeliverSeams{Post: nil, CheckCI: deps.Forge.CheckStatus},
+		Interval:  cmp.Or(cfg.CIInterval(), config.DefaultCIInterval),
 		Kind:      deps.Forge.Kind,
 		Project:   cfg.Jira.Project,
 		Messaging: cfg.Messaging,
@@ -164,9 +184,12 @@ func taggingFor(settings config.Messaging, deps tui.Deps) announceTagging {
 }
 
 // runAnnounce composes the announcement for the branch's pull request, previews
-// it, and announces it once confirmed, remembering it so a later run does not
-// repeat it unasked. Slack is asked under ctx.
-func runAnnounce(ctx context.Context, out output, seams announceSeams, opts writeOptions) error {
+// it, and announces it once confirmed — at once, or, with --when-green, once
+// its CI passes — remembering it so a later run does not repeat it unasked.
+// Slack is asked under ctx.
+func runAnnounce(ctx context.Context, out output, seams announceSeams, flags announceFlags) error {
+	opts := flags.write
+
 	composed, err := composeFor(ctx, seams)
 	if err != nil {
 		return err
@@ -179,7 +202,7 @@ func runAnnounce(ctx context.Context, out output, seams announceSeams, opts writ
 		return nil
 	}
 
-	err = clearToAnnounce(ctx, seams.Deliver.CheckCI, composed, pull)
+	err = readyToAnnounce(ctx, seams.Deliver.CheckCI, composed, pull, flags.whenGreen)
 	if err != nil {
 		return err
 	}
@@ -187,13 +210,39 @@ func runAnnounce(ctx context.Context, out output, seams announceSeams, opts writ
 	pending := previewAnnouncement(ctx, out, seams, composed)
 
 	say := announcePrompt(seams.Messaging.Service(), seams.Messaging.Target(), again, opts)
+	if flags.whenGreen {
+		say = onceGreen(say, pull)
+	}
 
 	proceed, err := opts.proceed(out.notes, seams.Confirm, say)
 	if err != nil || !proceed {
 		return unattendedAgain(err, again)
 	}
 
+	if flags.whenGreen {
+		return deliverWhenGreen(ctx, out.notes, seams, pending, pull)
+	}
+
 	return deliverAnnouncement(ctx, out.notes, seams, pending)
+}
+
+// readyToAnnounce refuses composed's pull request, named pull, that cannot be
+// announced as asked: now, while a check has failed on it or its CI cannot be
+// read; or once CI passes, when it is not ready for review, having merged.
+func readyToAnnounce(
+	ctx context.Context, check func(context.Context, forge.PullRequest, string) (forge.CI, error),
+	composed loop.Composed, pull string, whenGreen bool,
+) error {
+	if !whenGreen {
+		return clearToAnnounce(ctx, check, composed, pull)
+	}
+
+	if composed.Announcement.Moment != messaging.MomentReady {
+		return forgeWordedError{errOnlyReadyWaits, pull + " has merged, so there is no CI to wait for; " +
+			"announce it with workflow announce"}
+	}
+
+	return nil
 }
 
 // composeFor composes the announcement seams can post, refusing where nothing
@@ -234,7 +283,7 @@ func clearToAnnounce(
 	switch {
 	case errors.Is(err, loop.ErrCIFailed):
 		return forgeWordedError{loop.ErrCIFailed, "a check failed on " + pull + failedChecks(ci) +
-			", so it was not announced; announce it once a run passes"}
+			", so it was not announced; workflow announce --when-green announces it once a run passes"}
 	case err != nil:
 		return fmt.Errorf("%s was not announced: %w", pull, err)
 	default:

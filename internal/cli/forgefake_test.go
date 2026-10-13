@@ -15,8 +15,16 @@ import (
 // ghResponses are the canned bodies a fake gh returns per route; an empty field
 // falls back to a benign default (no pull, no CI).
 type ghResponses struct {
-	pulls       string // GET .../pulls?...              — a JSON array
-	status      string // GET .../commits/{sha}/status
+	pulls  string // GET .../pulls?...              — a JSON array
+	status string // GET .../commits/{sha}/status
+	// statusSequence and pullsSequence, when set, answer the status reads and
+	// the pull request lists in turn, the last one repeated, in place of
+	// status and pulls.
+	statusSequence []string
+	pullsSequence  []string
+	// statusGate, when set, is a directory: each status read touches its read
+	// file, and answers running until its release file is there, then passed.
+	statusGate  string
 	checks      string // GET .../commits/{sha}/check-runs
 	search      string // GET .../search/issues?...      — a {"items":[...]} object
 	userError   bool   // when set, GET .../user answers unreadably, so Whoami fails
@@ -25,6 +33,12 @@ type ghResponses struct {
 	apiHangs    bool   // when set, `gh api` answers nothing for ghHang, as behind a stalled gateway
 	sentLog     string // when set, each request carrying a body appends its endpoint and body here
 }
+
+// The routes a fake gh answers from a sequence as well as from one body.
+const (
+	statusRoute = "status"
+	pullsRoute  = "pulls"
+)
 
 // ghHang is how long a fake gh whose api hangs takes to give up on its own:
 // long enough that a test waiting it out cannot be mistaken for one that did
@@ -86,18 +100,28 @@ func fakeGh(t *testing.T, responses ghResponses) {
 	}
 
 	bodies := map[string]string{
-		"pulls":   orDefault(responses.pulls, "[]"),
-		"create":  create,
-		"pull":    `{"mergeable":true}`,
-		"reviews": `[]`,
-		"status":  orDefault(responses.status, `{"total_count":0,"statuses":[]}`),
-		"checks":  orDefault(responses.checks, `{"total_count":0,"check_runs":[]}`),
-		"search":  orDefault(responses.search, `{"items":[]}`),
-		"user":    user,
-		"default": `{}`,
+		pullsRoute:  orDefault(responses.pulls, "[]"),
+		"create":    create,
+		"pull":      `{"mergeable":true}`,
+		"reviews":   `[]`,
+		statusRoute: orDefault(responses.status, `{"total_count":0,"statuses":[]}`),
+		"checks":    orDefault(responses.checks, `{"total_count":0,"check_runs":[]}`),
+		"search":    orDefault(responses.search, `{"items":[]}`),
+		"user":      user,
+		"default":   `{}`,
 	}
 	for name, body := range bodies {
 		writeExecutable(t, filepath.Join(dir, "resp-"+name), body, 0o644)
+	}
+
+	writeExecutable(t, filepath.Join(dir, "resp-status-running"), runningStatus(), 0o644)
+	writeExecutable(t, filepath.Join(dir, "resp-status-passed"), passingStatus(), 0o644)
+
+	sequences := map[string][]string{statusRoute: responses.statusSequence, pullsRoute: responses.pullsSequence}
+	for route, sequence := range sequences {
+		for index, body := range sequence {
+			writeExecutable(t, filepath.Join(dir, "resp-"+route+"-"+strconv.Itoa(index)), body, 0o644)
+		}
 	}
 
 	// A signed-out gh fails `gh auth token` the way the real one does, while its
@@ -133,10 +157,44 @@ func fakeGh(t *testing.T, responses ghResponses) {
 		"  *\"/user\"*) f=user ;;\n" +
 		"  *) f=default ;;\n" +
 		"esac\n" +
+		gated(responses.statusGate) +
+		sequenced(dir, statusRoute, len(responses.statusSequence)) +
+		sequenced(dir, pullsRoute, len(responses.pullsSequence)) +
 		"printf 'HTTP/1.1 200 OK\\r\\nContent-Type: application/json\\r\\n\\r\\n'\n" +
 		"cat \"" + dir + "/resp-$f\"\n"
 
 	writeExecutable(t, filepath.Join(programsOf(t), "gh"), script, 0o755)
+}
+
+// gated is the fake gh's step that answers the status reads by gate's
+// release file, touching its read file; nothing when there is no gate.
+func gated(gate string) string {
+	if gate == "" {
+		return ""
+	}
+
+	return "if [ \"$f\" = " + statusRoute + " ]; then\n" +
+		"  touch \"" + gate + "/read\"\n" +
+		"  if [ -f \"" + gate + "/release\" ]; then f=status-passed; else f=status-running; fi\n" +
+		"fi\n"
+}
+
+// sequenced is the fake gh's step that answers the reads of route from its
+// sequence, each read the next, the last of count repeated; nothing when
+// there is none.
+func sequenced(dir, route string, count int) string {
+	if count == 0 {
+		return ""
+	}
+
+	last, reads := strconv.Itoa(count-1), dir+"/"+route+"-reads"
+
+	return "if [ \"$f\" = " + route + " ]; then\n" +
+		"  n=$(cat \"" + reads + "\" 2>/dev/null || echo 0)\n" +
+		"  if [ \"$n\" -gt " + last + " ]; then n=" + last + "; fi\n" +
+		"  echo $((n + 1)) > \"" + reads + "\"\n" +
+		"  f=" + route + "-$n\n" +
+		"fi\n"
 }
 
 // gitlabMergeRequest is the merge request a fake glab opens.

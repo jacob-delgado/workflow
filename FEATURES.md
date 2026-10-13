@@ -347,14 +347,13 @@ Impact: medium · Effort: large
 - Reopens: one process, which ends when the interface closes. The store can
   keep the queued post now, but nothing runs to send it once the interface is
   gone.
-- Why: "post when CI passes" is dropped if you quit first, which the usage
-  guide lists as a limit. CI takes longer than most people keep a terminal
-  open.
-- A version that fits: a `--when-green` flag on `workflow announce`
-  (`internal/cli/announce.go`) that waits in the foreground, where a shell
-  can background it.
-- Touches: `internal/cli/announce.go` (a command that stays resident),
-  `internal/store` (the queued post).
+- Why: an announcement armed in the terminal, or held by `--web` — one armed
+  as its pull request opened among them — is lost, unposted, if it closes
+  before CI passes, which the usage guide lists as a limit. CI takes longer
+  than most people keep a terminal open. `workflow announce --when-green` and
+  `workflow pr --announce` wait in the foreground, where a shell can
+  background them, but only for as long as that shell runs.
+- Touches: a resident process, and `internal/store` (the queued post).
 - Done when: a post queued before quitting is sent when CI passes.
 
 ### FEAT-72 Notifications after the interface closes
