@@ -522,3 +522,25 @@ func failWith(deps *webserver.Deps, err error) {
 		return jira.Worklog{}, err
 	}
 }
+
+func TestAStatusChangeToAStatusUnderNoCategoryIsOffered(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Jira files a status no one sorted into a category under No Category,
+	// whose key is "undefined": a name the contract does not carry, which the
+	// page would refuse.
+	deps := formDeps(&issueWrites{})
+	deps.Jira.Transitions = func(context.Context, jira.Key) ([]jira.Transition, error) {
+		return []jira.Transition{{ID: "7", Name: uncategorized, ToStatus: uncategorized, ToStatusCategory: "undefined"}}, nil
+	}
+
+	// Act
+	recorder := get(t, serve(t, deps, config.Default()), statusChangesPath)
+
+	// Assert
+	changes := decode[[]api.StatusChange](t, recorder)
+	if len(changes) != 1 || changes[0].ToStatusCategory != api.StatusCategoryNew {
+		t.Errorf("changes = %+v, want the change to Triage, not yet started", changes)
+	}
+}

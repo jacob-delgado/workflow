@@ -16,10 +16,24 @@ func Issue(issue jira.Issue) api.Issue {
 		Tracker:        TrackerOf(issue.Key),
 		Summary:        issue.Summary,
 		Status:         issue.Status,
-		StatusCategory: api.StatusCategory(issue.StatusCategory),
+		StatusCategory: StatusCategory(issue.StatusCategory),
 		Type:           issue.Type,
 		Priority:       optional(issue.Priority),
 	}
+}
+
+// StatusCategory is a status's category in the API's shape. The contract
+// names Jira's three categories; any other — Jira's No Category, keyed
+// "undefined", which a status no one sorted into a category is filed under,
+// or a row read back from a store someone changed — is carried as not yet
+// started, which is what such a status is to the loop: not done. Carried as
+// it came, it would make the page refuse the whole frame it is in.
+func StatusCategory(category jira.StatusCategory) api.StatusCategory {
+	if category == jira.CategoryIndeterminate || category == jira.CategoryDone {
+		return api.StatusCategory(category)
+	}
+
+	return api.StatusCategoryNew
 }
 
 // TrackerOf is where the issue a key names lives, by the key's shape: a
@@ -69,7 +83,7 @@ func IssueDetail(detail jira.IssueDetail, link string) api.IssueDetail {
 		Tracker:        TrackerOf(detail.Issue.Key),
 		Summary:        detail.Issue.Summary,
 		Status:         detail.Issue.Status,
-		StatusCategory: api.StatusCategory(detail.Issue.StatusCategory),
+		StatusCategory: StatusCategory(detail.Issue.StatusCategory),
 		Type:           detail.Issue.Type,
 		Priority:       optional(detail.Issue.Priority),
 		Reporter:       detail.Reporter,
