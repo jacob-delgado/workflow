@@ -55,7 +55,7 @@ export function IssueRows({ issues, facts, rowRefs, outcome }: IssueRowsProps) {
     <ul
       ref={pane}
       aria-label="Issues"
-      className="flex max-h-80 min-h-0 flex-col gap-tight overflow-y-auto rounded-lg border border-border p-1 lg:max-h-none lg:rounded-none lg:border-0"
+      className="flex max-h-80 min-h-0 flex-col gap-tight overflow-y-auto rounded-lg border border-border bg-list p-1 lg:max-h-none lg:border-0"
     >
       {issues.map((issue) => (
         <IssueRow

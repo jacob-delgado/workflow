@@ -326,7 +326,7 @@ function Listing({ groups, issues, teller, now, narrowed }: ListingProps) {
     <div className="flex flex-col gap-block lg:min-h-0 lg:flex-1 lg:flex-row">
       <div
         className={cn(
-          'relative flex max-h-80 min-h-0 flex-col gap-group overflow-y-auto rounded-lg border border-border p-1 lg:max-h-none lg:w-80 lg:shrink-0 lg:rounded-none lg:border-0 xl:w-112',
+          'relative flex max-h-80 min-h-0 flex-col gap-group overflow-y-auto rounded-lg border border-border bg-list p-1 lg:max-h-none lg:w-80 lg:shrink-0 lg:border-0 xl:w-112',
           contentMeasure,
         )}
       >
