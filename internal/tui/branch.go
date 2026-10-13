@@ -54,7 +54,7 @@ func (msg branchLoaded) apply(m Model) (Model, tea.Cmd) {
 
 	m, detail := m.resumeIssue().loadDetail()
 
-	find := m.branch.findPull(m.session, m.deps)
+	find := m.branch.findPull(m.session, m.deps, m.reviewsBegun)
 	if find == nil {
 		// No pull request is looked for, so a Review refresh waits on nothing more.
 		m.review.loading = false

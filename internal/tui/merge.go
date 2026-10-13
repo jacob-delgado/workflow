@@ -98,7 +98,7 @@ func (msg mergeRequested) apply(m Model) (Model, tea.Cmd) {
 		merged.followUp = merged.offerMarkDone(issueKey)
 	}
 
-	return merged, merged.branch.findPull(merged.session, merged.deps)
+	return merged, merged.branch.findPull(merged.session, merged.deps, merged.reviewsBegun)
 }
 
 // failed is the preview kept open with the reason the merge was refused.

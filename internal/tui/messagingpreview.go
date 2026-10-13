@@ -300,6 +300,10 @@ func (m Model) sending(out outgoingAnnouncement, elsewhere loop.AnnounceMemory, 
 			return posted
 		}
 
+		if tag := held.unasked; tag != nil {
+			delivery.Mentions = tag(ctx)
+		}
+
 		posted.err = loop.Deliver(ctx, seams, memory, delivery)
 
 		return posted

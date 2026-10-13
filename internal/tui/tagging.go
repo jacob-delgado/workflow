@@ -92,22 +92,31 @@ func (m Model) withTagging(preview messagingPreview) (messagingPreview, tea.Cmd)
 // the Slack workspace the token is for, read under ctx, for the preview opened
 // as opened.
 func (s branchState) readTags(ctx context.Context, deps Deps, opened int) tea.Cmd {
-	owners := taggedOwnerSeams(deps)
-	store, base, readWorkspace := deps.Store, s.branch.BaseName(), deps.Messaging.Workspace
+	base := s.branch.BaseName()
 
 	return func() tea.Msg {
-		found, ownersErr := loop.OwnersOf(ctx, owners, base)
+		read := readTagProposal(ctx, deps, base)
+		read.opened = opened
 
-		workspace, err := loop.TagWorkspace(ctx, readWorkspace)
-		if err != nil {
-			return tagsRead{opened: opened, proposal: tagProposal{owners: found}, err: ownersErr, workspaceErr: err}
-		}
-
-		proposal, keptErr := readProposal(ctx, store, workspace)
-		proposal.owners = found
-
-		return tagsRead{opened: opened, proposal: proposal, err: errors.Join(ownersErr, keptErr), workspace: workspace}
+		return read
 	}
+}
+
+// readTagProposal reads whom an announcement proposes to tag: the owners of
+// the branch's changes against base, and what the store kept about them in
+// the Slack workspace the token is for, read under ctx.
+func readTagProposal(ctx context.Context, deps Deps, base string) tagsRead {
+	found, ownersErr := loop.OwnersOf(ctx, taggedOwnerSeams(deps), base)
+
+	workspace, err := loop.TagWorkspace(ctx, deps.Messaging.Workspace)
+	if err != nil {
+		return tagsRead{proposal: tagProposal{owners: found}, err: ownersErr, workspaceErr: err}
+	}
+
+	proposal, keptErr := readProposal(ctx, deps.Store, workspace)
+	proposal.owners = found
+
+	return tagsRead{proposal: proposal, err: errors.Join(ownersErr, keptErr), workspace: workspace}
 }
 
 // taggedOwnerSeams are what the owners a post tags are read through: the

@@ -4,6 +4,8 @@
 package tui
 
 import (
+	"cmp"
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -11,8 +13,11 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
 // errAnnouncementDropped is an announcement that waited for CI and was given
@@ -23,12 +28,14 @@ var errAnnouncementDropped = errors.New("dropped the announcement")
 // the pull request it was written for, because the one on screen can change
 // while it waits, and a message is only ever sent for the one its writer saw.
 // watch is how long its CI has reported no check, and standing how it stood
-// on the last read.
+// on the last read. unasked, set for one armed as its pull request opened,
+// reads whom it tags as it goes, since no preview asked.
 type queuedPost struct {
 	pull     int
 	post     outgoingAnnouncement
 	watch    loop.CIWatch
 	standing loop.Armed
+	unasked  func(ctx context.Context) messaging.Mentions
 }
 
 // waiting reports a post that has not been sent or given up on.
@@ -62,6 +69,88 @@ func (m Model) queued(out outgoingAnnouncement) queuedPost {
 	}
 
 	return held
+}
+
+// armOnOpen arms the announcement of pull, just opened, to post once its CI
+// passes, as a preview's w would, and answers what the opened notice adds of
+// it: where it goes, or why a draft is not announced. Nothing is armed, and
+// nothing said, with messaging.auto_announce off, nowhere to post, or for one
+// announced already. A dry run opens nothing, so it arms nothing either.
+func (m Model) armOnOpen(pull forge.PullRequest) (Model, string) {
+	armable := m.cfg.Messaging.AutoAnnounce && m.cfg.Messaging.Mode() != config.MessagingNone &&
+		m.deps.Messaging.Post != nil && !m.messaging.announced(m.review)
+	if !armable {
+		return m, ""
+	}
+
+	if pull.Draft {
+		return m, m.marks.separator + "a draft is not announced; announce it once it is ready"
+	}
+
+	channel := defaultChannel(m.cfg)
+	where := sanitize.Line(cmp.Or(channel, m.cfg.Messaging.Target()))
+	out := outgoingAnnouncement{
+		channel: channel, to: where, text: m.announcement(messaging.MomentReady),
+		moment: messaging.MomentReady, tags: postTags{}, opened: 0,
+	}
+
+	m.messaging.pending, m.messaging.send.err, m.messaging.dropped = m.queued(out), nil, ""
+	m.messaging.pending.unasked = m.unaskedTags(pull, channel)
+
+	return m, m.marks.separator + "announces to " + where + " once CI passes"
+}
+
+// unaskedTags is whom the announcement of pull, armed as it opened to post to
+// channel, tags, asked of no one, as workflow announce --yes proposes: the
+// linked owners of the changes against the base pull merges into, where the
+// forge says, and the groups that start checked, read under ctx as it goes. A
+// read that fails tags fewer, no workspace tags no one, and the token's scopes
+// limit it as they limit a preview's. It is nil without a Slack user token and
+// its directory, which alone tag anyone.
+func (m Model) unaskedTags(pull forge.PullRequest, channel string) func(ctx context.Context) messaging.Mentions {
+	if m.cfg.Messaging.Mode() != config.MessagingUser || m.deps.Messaging.ChannelMembers == nil {
+		return nil
+	}
+
+	deps, base := m.deps, cmp.Or(pull.Base, m.branch.branch.BaseName())
+
+	return func(ctx context.Context) messaging.Mentions {
+		read := readTagProposal(ctx, deps, base)
+		if read.workspaceErr != nil {
+			return messaging.Mentions{}
+		}
+
+		tags, tagging := scopedTags(ctx, deps, channel, read.proposal.tags())
+		if !tagging {
+			return messaging.Mentions{}
+		}
+
+		_, mentions := tags.Proposed()
+
+		return mentions
+	}
+}
+
+// scopedTags is tags as the Slack token's scopes let them go, learned from
+// the directory, read under ctx, as a preview learns them: no one without the
+// scope reading channel's members needs, and no group without the one the
+// user groups need. It reports false when it tags no one.
+func scopedTags(ctx context.Context, deps Deps, channel string, tags loop.Tags) (loop.Tags, bool) {
+	_, err := deps.Messaging.ChannelMembers(ctx, channel)
+	if (directory{err: err}).missingScope() != "" {
+		return loop.Tags{}, false
+	}
+
+	var groupsErr error
+	if read := deps.Messaging.UserGroups; read != nil {
+		_, groupsErr = read(ctx)
+	}
+
+	if (directory{err: groupsErr}).missingScope() != "" {
+		tags.Groups = nil
+	}
+
+	return tags, true
 }
 
 // quitGuard asks before quitting while a post is waiting for CI, which quitting
