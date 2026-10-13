@@ -1,11 +1,19 @@
 import type { Control } from 'react-hook-form'
 import type { SettingsValues } from '../formValues.ts'
 import { EntryList } from './EntryList.tsx'
-import { Fieldset, SecretField, SelectField, TextField, type Register } from './Field.tsx'
+import {
+  CheckboxField,
+  Fieldset,
+  SecretField,
+  SelectField,
+  TextField,
+  type Register,
+} from './Field.tsx'
 
 // MessagingFieldset is where announcements go: the service, its credential —
-// a Slack user token or a webhook, one or the other — the channel, and the
-// announcement's template. The user token's secrets are kept where workflow
+// a Slack user token or a webhook, one or the other — the channel, the
+// announcement's template, and whether a pull request opened here is announced
+// once its CI passes. The user token's secrets are kept where workflow
 // keeps them: the macOS keychain, unless the file already holds them.
 export function MessagingFieldset({
   register,
@@ -73,6 +81,11 @@ export function MessagingFieldset({
         name="messaging.announcement"
         label="Announcement"
         hint="Slack only: the review message, from {author}, {noun}, {title}, {url}, {key}, {summary} and {issue_url}. Empty keeps the built-in message."
+      />
+      <CheckboxField
+        register={register}
+        name="messaging.auto_announce"
+        label="Announce a pull request opened here once its CI passes"
       />
     </Fieldset>
   )

@@ -144,6 +144,11 @@ type Messaging struct {
 	// any non-Slack kind, uses the built-in message. Substituted values are
 	// always escaped.
 	Announcement string `json:"announcement"`
+	// AutoAnnounce arms the announcement of a pull request the terminal or
+	// --web opens, to post once its CI passes. On by default; false arms
+	// nothing, as a repository with no CI may want, while asking to announce
+	// once CI passes still waits.
+	AutoAnnounce bool `json:"auto_announce"`
 }
 
 // Forge describes the Git forge credential — which workflow usually does not
@@ -213,7 +218,7 @@ func Default() Config {
 	return Config{
 		Version:   CurrentVersion,
 		Jira:      Jira{BaseURL: "", Token: "", User: "", MarkdownComments: true},
-		Messaging: Messaging{ClientID: "", WebhookURL: "", Channel: ""},
+		Messaging: Messaging{ClientID: "", WebhookURL: "", Channel: "", AutoAnnounce: true},
 		Forge:     Forge{Kind: "", Host: "", Token: ""},
 		UI:        UI{Mouse: true, ASCII: false},
 		Path:      "",
@@ -231,10 +236,11 @@ func Template() Config {
 			MarkdownComments: true,
 		},
 		Messaging: Messaging{
-			Kind:       KindSlack,
-			ClientID:   "",
-			WebhookURL: "",
-			Channel:    "#dev-workflow",
+			Kind:         KindSlack,
+			ClientID:     "",
+			WebhookURL:   "",
+			Channel:      "#dev-workflow",
+			AutoAnnounce: true,
 		},
 		Forge: Forge{Kind: "", Host: "", Token: ""},
 		UI:    UI{Mouse: true, ASCII: false},

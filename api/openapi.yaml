@@ -5369,6 +5369,12 @@ components:
           items: {type: string}
           nullable: true
         announcement: {type: string}
+        auto_announce:
+          type: boolean
+          description: >-
+            Arm the announcement of a pull request the terminal or --web opens,
+            to post once its CI passes. On by default; false arms nothing,
+            while asking to announce once CI passes still waits.
       additionalProperties: false
 
     ForgeConfig:

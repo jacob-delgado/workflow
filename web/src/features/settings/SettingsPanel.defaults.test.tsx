@@ -1,4 +1,5 @@
 import { screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import type { Config } from '@/api/generated/types.gen.ts'
 import { mockConfig } from '@/dev/mockConfig.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
@@ -51,4 +52,33 @@ test('a service written as slack is shown as the default it means', async () => 
   expect(
     within(service).getByRole('option', { name: 'Slack (default)', selected: true }),
   ).toBeTruthy()
+})
+
+test('announcing a pull request opened here once its CI passes is on, and saves off', async () => {
+  // Arrange
+  const saved: Config[] = []
+  fakeApi({
+    '/api/config': async (_at: URL, asked: Request) => {
+      if (asked.method === 'PUT') {
+        saved.push((await asked.clone().json()) as Config)
+      }
+
+      return Response.json(saved.at(-1) ?? mockConfig, { headers: { ETag: '"read-1"' } })
+    },
+  })
+  const user = userEvent.setup()
+  renderWithClient(<SettingsPanel />)
+  const armed = await screen.findByRole('checkbox', {
+    name: 'Announce a pull request opened here once its CI passes',
+  })
+  const wasOn = (armed as HTMLInputElement).checked
+  await user.click(armed)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+  // Assert
+  await screen.findByText(/saved/i)
+  expect(wasOn).toBe(true)
+  expect(saved.at(-1)?.messaging.auto_announce).toBe(false)
 })

@@ -27,7 +27,7 @@ func everySettingSet() config.Config {
 	cfg.Messaging = config.Messaging{
 		Kind: config.KindTeams, ClientID: "every-client", ClientSecret: "secret-every-3333",
 		RefreshToken: "xoxe-1-every-4444", WebhookURL: "https://hooks.every.example/5555", Channel: "#every",
-		Channels: []string{"#more-every"}, Announcement: "every {title}",
+		Channels: []string{"#more-every"}, Announcement: "every {title}", AutoAnnounce: true,
 	}
 	cfg.Forge = config.Forge{Kind: "gitlab", Host: "git.every.example", Token: "forge-every-6666", CLI: true}
 	cfg.Commit = config.Commit{
@@ -85,6 +85,7 @@ func TestEverySettingReadsTheValueItsPathHolds(t *testing.T) {
 		{"Channel", "#every"},
 		{"Channels", "#more-every"},
 		{"Announcement", "every {title}"},
+		{toggledOn, "Announce a pull request opened here once its CI passes"},
 		{"Kind", "GitLab"},
 		{"Host", "git.every.example"},
 		{"Token", "****6666"},

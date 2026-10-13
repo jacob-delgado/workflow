@@ -1103,7 +1103,8 @@ export const zMessagingConfig = z.object({
     webhook_url: z.string().nullable(),
     channel: z.string().optional(),
     channels: z.array(z.string()).nullish(),
-    announcement: z.string().optional()
+    announcement: z.string().optional(),
+    auto_announce: z.boolean().optional()
 });
 
 export const zForgeConfig = z.object({

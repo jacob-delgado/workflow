@@ -27,6 +27,7 @@ export const mockConfig: Config = {
     channel: '#dev-workflow',
     channels: ['#dev-workflow', '#releases'],
     announcement: '{author} opened <{url}|{title}> for {key}: {summary}',
+    auto_announce: true,
   },
   forge: {
     kind: 'github',
