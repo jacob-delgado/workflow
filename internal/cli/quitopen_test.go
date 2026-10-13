@@ -32,7 +32,10 @@ type heldOpener struct {
 }
 
 // newHeldOpener is an opener nothing has asked yet, released when the test
-// ends at the latest.
+// ends at the latest. A test that runs workflow over it releases it again
+// once running has registered its own cleanup, which waits for workflow to
+// return, so a failure while workflow waits for the opener ends the test at
+// once.
 func newHeldOpener(t *testing.T) *heldOpener {
 	t.Helper()
 
@@ -120,7 +123,7 @@ func TestAQuitDoesNotWaitForAPageOpeningInTheBrowser(t *testing.T) {
 	// Act
 	returned := running(t.Context(), t, root)
 
-	t.Cleanup(opener.letReturn) // before running's own, which waits for workflow to return
+	t.Cleanup(opener.letReturn)
 
 	// Assert
 	err := returnedWith(t, returned)
