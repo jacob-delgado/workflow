@@ -1,6 +1,6 @@
 import { renderHook, waitFor } from '@testing-library/react'
 import { vi } from 'vitest'
-import { FakeEventSource } from '@/test/fakeEventSource.ts'
+import { FakeEventSource } from '@/test/setup/fakeEventSource.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
 import { useSessionStore } from './session.ts'
 import { useEventStream, useLiveSnapshot, useSnapshotStore } from './snapshot.ts'
