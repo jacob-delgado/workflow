@@ -26,9 +26,6 @@
   --primary: #8b93f8;
   --primary-foreground: #0b0d12;
 
-  --secondary: #1e222c;
-  --secondary-foreground: #e7e9ee;
-
   --muted: #1e222c;
   --muted-foreground: #9aa3b2;
 
@@ -36,7 +33,6 @@
   --accent-foreground: #e7e9ee;
 
   --destructive: #f2726e;
-  --destructive-foreground: #0b0d12;
 
   /* --border is a decorative rule; --input is a field's only boundary, so it
      holds 3:1 on the page and on a card (WCAG 1.4.11), held by
@@ -53,9 +49,7 @@
 
   /* Domain status, the pipeline's signal lights. */
   --success: #56d68a;
-  --success-foreground: #0b0d12;
   --warning: #f2b338;
-  --warning-foreground: #0b0d12;
 
   /* Identity: one hue for each system the loop crosses — the terminal spine's
      blue, yellow, green and magenta (internal/tui/spine.go) — and one for your
@@ -89,9 +83,6 @@
   --primary: #4f56c9;
   --primary-foreground: #ffffff;
 
-  --secondary: #eceef3;
-  --secondary-foreground: #1b1f27;
-
   --muted: #eceef3;
   --muted-foreground: #565e6c;
 
@@ -99,7 +90,6 @@
   --accent-foreground: #1b1f27;
 
   --destructive: #c5352f;
-  --destructive-foreground: #ffffff;
 
   --border: #d7dbe3;
   --input: #8a8e95;
@@ -111,9 +101,7 @@
   /* Dark enough that a status light clears 4.5:1 as text — an outcome line, a
      warning — on the pale page and on a card, not only as a state's mark. */
   --success: #0f6a3f;
-  --success-foreground: #ffffff;
   --warning: #7a4a00;
-  --warning-foreground: #ffffff;
 
   /* The same four systems, and your own tasks, by daylight: darker, for 4.5:1
      on the pale page. */
@@ -137,23 +125,18 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-disabled: var(--disabled);
   --color-disabled-foreground: var(--disabled-foreground);
   --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
   --color-jira: var(--jira);
   --color-git: var(--git);
   --color-forge: var(--forge);
