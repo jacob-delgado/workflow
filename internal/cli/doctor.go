@@ -104,7 +104,7 @@ func newDoctorCmd(prompt Prompt) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&online, "online", false, "ask Jira, the forge and Slack if each credential works (not a webhook)")
-	cmd.Flags().BoolVar(&asJSON, "json", false, "print the report as JSON")
+	addJSONFlag(cmd, &asJSON, "print the report as JSON")
 
 	return cmd
 }

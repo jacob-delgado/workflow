@@ -62,7 +62,7 @@ func newReviewsCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&opts.asJSON, "json", false, "print the reviews as JSON")
+	addJSONFlag(cmd, &opts.asJSON, "print the reviews as JSON")
 	cmd.Flags().StringVar(&opts.sort, "sort", "oldest", "the order to list them in: oldest, newest or repo")
 
 	return cmd

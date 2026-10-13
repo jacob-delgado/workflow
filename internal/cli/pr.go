@@ -110,7 +110,7 @@ func newPRCmd(prompt Prompt) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&asJSON, "json", false, "print what was opened, and the offers that followed, as JSON")
+	addJSONFlag(cmd, &asJSON, "print what was opened, and the offers that followed, as JSON")
 
 	opts.addFlags(cmd, "go ahead without asking: push the branch when it needs it, open the pull request, "+
 		"link it on the issue and move the issue to the review status")
