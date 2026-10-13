@@ -92,22 +92,21 @@ oversight; `workflow` picks issues up, it does not open them.
 
 Impact: medium · Effort: medium
 
-- Why: the base, the fetch and the pull request's repository are read from
-  `origin` everywhere (`DefaultRemote`, `internal/gitrepo/branch.go:34`;
-  the forge's repository from `remote get-url`,
-  `internal/gitrepo/gitrepo.go:162`). Only the
-  push looks further, and only at `remote.pushDefault`
-  (`Repository.PushRemote`, `internal/gitrepo/branch.go:409`), never at
-  `branch.<name>.pushRemote`. With a fork, the base should come from
-  `upstream` and the push should go to `origin`, and an open-source
-  contributor cannot use the tool at all.
-- Touches: the files above; `internal/forge/pulls.go` (a head on another
-  repository).
-- Constraints: read git's own answers first (`branch.<name>.pushRemote`
-  beside the `remote.pushDefault` already read) before adding a setting.
-- Done when: in a clone with `origin` and `upstream`, the base is
-  `upstream/main`, the push goes to the fork, and the pull request opens
-  against upstream.
+- Why: git now reads a fork's clone right — the base, the fetch, the finish
+  and the push follow the base and push remotes (`BaseRemote` and
+  `PushRemote`, `internal/gitrepo/remotes.go`) — but the forge is still
+  reached at `origin` (`Repo.Remote`, `internal/gitrepo/gitrepo.go:56`, read
+  by `connectForge`, `internal/wiring/forge.go:375`), and a pull request's
+  head is a bare branch (`NewPullRequest.Head`, `internal/forge/pulls.go:103`).
+  In a fork's clone the pull request opens on the fork, into the fork.
+- Touches: `internal/wiring` (the forge at the base remote, the head from the
+  push remote); `internal/forge` (GitHub's `owner:branch` head, GitLab's merge
+  request posted to the fork with `target_project_id`, and its pipeline read
+  where it ran); the Repositories pane, the web's place and `workflow doctor`,
+  to show the base beside origin.
+- Constraints: what workflow keeps stays keyed by `origin`.
+- Done when: in a clone with `origin` and `upstream`, the pull request opens
+  against upstream from the fork, and is found there again.
 
 ## Commits
 
