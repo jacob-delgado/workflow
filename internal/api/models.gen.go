@@ -1162,7 +1162,7 @@ type Branch struct {
 	IssueLinkTracker *IssueTracker `json:"issue_link_tracker,omitempty"`
 	Name             string        `json:"name"`
 
-	// PushRemote The remote a push of the branch goes to: remote.pushDefault when the repository sets one, origin otherwise.
+	// PushRemote The remote a push of the branch goes to, as git decides it: branch.<name>.pushRemote, else remote.pushDefault, else the remote the branch tracks (branch.<name>.remote), else origin.
 	PushRemote string `json:"push_remote"`
 
 	// Upstream The tracking branch; empty if never pushed.

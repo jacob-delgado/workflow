@@ -81,3 +81,24 @@ func TestABranchNeverPushedNamesTheRemoteItsPushGoesTo(t *testing.T) {
 		t.Errorf("ReadBranch = %+v, %v; want no upstream and push remote %q", branch, err, forkRemote)
 	}
 }
+
+// A branch's own branch.<name>.pushRemote sends its push, and so its upstream,
+// to that remote, whatever the repository's default.
+func TestABranchIsPushedToItsOwnPushRemote(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	replies := with(featureBranch(), map[string]reply{
+		featurePushRemote: {out: []byte(forkRemote + "\n")},
+		readUpstream:      {out: []byte(forkRemote + "/fix/PROJ-412-token-redaction\n")},
+		countAhead:        {out: []byte("0\t0\n")},
+	})
+
+	// Act
+	branch, err := gitrepo.At(fakeRunner(t, replies), workDir).ReadBranch(t.Context())
+
+	// Assert
+	if err != nil || branch.PushRemote != forkRemote || !branch.Pushed() {
+		t.Errorf("ReadBranch = %+v, %v; want it pushed to %q", branch, err, forkRemote)
+	}
+}
