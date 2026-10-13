@@ -30,8 +30,8 @@ weight: 10
   the two apart, and `workflow doctor` names the Taskwarrior it found, or why
   none is usable.
 
-`workflow doctor` reports which of these it finds, `gh` and `glab` both
-whichever forge the repository is on, and `workflow doctor --online` warns
+`workflow doctor` reports which of these it finds (`gh` and `glab` both,
+whichever forge the repository is on), and `workflow doctor --online` warns
 when a GitLab token can read but not write.
 
 ## With Go
