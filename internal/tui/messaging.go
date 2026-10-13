@@ -347,7 +347,7 @@ func (m Model) postIfGreen() (Model, tea.Cmd) {
 
 // postQueued sends the post that waited for CI.
 func (m Model) postQueued() (Model, tea.Cmd) {
-	return m.sendToMessaging(m.messaging.pending.post)
+	return m.sendHeld(m.messaging.pending.post)
 }
 
 // dropQueued gives up on the post that waited for CI, which failed, and says
