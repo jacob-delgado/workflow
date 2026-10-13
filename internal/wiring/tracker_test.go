@@ -96,7 +96,7 @@ func trackersOver(t *testing.T, baseURL string) seams.Jira {
 	cfg.Forge = config.Forge{CLI: true, Kind: githubKind, Host: hostGitHub}
 	cfg.Issues.Forge = true
 
-	return wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: remoteGitHub}, nil).Jira
+	return wired(t, cfg, onOrigin(t.TempDir(), remoteGitHub), nil).Jira
 }
 
 // unavailableJira is a Jira that answers every request with trouble of its

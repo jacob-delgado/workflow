@@ -82,7 +82,7 @@ as a failure in its section, with the reason, rather than as an empty one:
 the Issues list does not say no issue matches, the Branch section does not
 say the directory is no repository, and the Review section does not offer to
 open a pull request, while Jira, git or the forge cannot be read. A service
-that is not set up — no Jira or forge token, an origin that names no forge —
+that is not set up — no Jira or forge token, a base remote that names no forge —
 is no failure: the section says, in the muted color beside the not-started
 mark, that it is not set up and how to set it up, in place of what it would
 have shown. When the store holds the view's issues from an earlier read —
@@ -510,7 +510,7 @@ and its title. A period of several days or months is headed by month and by
 day. A source that could not be read says why above it — naming the
 repository, when one of several could not be read — in words that never
 name a host, and one that had more than it gave says so. A source that is
-not set up — no token, no forge the origin names, no Taskwarrior installed,
+not set up — no token, no forge the base remote names, no Taskwarrior installed,
 no git `user.email` — is left out, and says so as guidance with how to set
 it up rather than as a failure. **Copy as Markdown**
 puts the summary on the clipboard. **Post…**, beside it once messaging is set
@@ -757,9 +757,9 @@ read that failed in the review's `ci_error`. The stream's first message may
 be a `seed` event instead of a `snapshot`: the view's issues as the store
 last kept them, sent before anything is asked of the network; a script that
 reads `snapshot` events alone can ignore it. A service that is not set up —
-a Jira or forge token missing, an origin that names no forge — is a problem
-whose `code` is `not_set_up`, its detail saying how to set it up, so a
-script tells it from a refusal; `/api/activity` marks such a source's
+a Jira or forge token missing, a base remote that names no forge — is a
+problem whose `code` is `not_set_up`, its detail saying how to set it up, so
+a script tells it from a refusal; `/api/activity` marks such a source's
 `state` `not_set_up`, apart from `failed`. The
 tasks read answers `available: false` and why, never a problem, when there is
 no Taskwarrior to ask; a Taskwarrior that is there but fails the read answers

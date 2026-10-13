@@ -13,7 +13,6 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/config"
-	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 func TestTemplatesAreReadFromTheRepository(t *testing.T) {
@@ -46,7 +45,7 @@ func TestTemplatesAreReadFromTheRepository(t *testing.T) {
 			cfg := config.Default()
 			cfg.Forge.Kind = tt.kind
 
-			seams := wired(t, cfg, wiring.Workspace{Root: root, Remote: tt.remote}, nil).Forge
+			seams := wired(t, cfg, onOrigin(root, tt.remote), nil).Forge
 
 			// Act
 			found := seams.Templates()
@@ -115,7 +114,7 @@ func TestTemplatesAreReadOnlyFromInsideTheRepository(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			seams := wired(t, config.Default(), wiring.Workspace{Root: root, Remote: tt.remote}, nil).Forge
+			seams := wired(t, config.Default(), onOrigin(root, tt.remote), nil).Forge
 
 			// Act
 			found := seams.Templates()
@@ -147,7 +146,7 @@ func TestNoTemplatesAreReadFromARepositoryNoLongerThere(t *testing.T) {
 	// The session's repository was removed while it ran, so there is no
 	// directory left to read a template from.
 	root := filepath.Join(t.TempDir(), "removed")
-	seams := wired(t, config.Default(), wiring.Workspace{Root: root, Remote: githubRemote}, nil).Forge
+	seams := wired(t, config.Default(), onOrigin(root, githubRemote), nil).Forge
 
 	// Act
 	found := seams.Templates()

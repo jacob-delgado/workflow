@@ -34,7 +34,7 @@ func forgeTracker(t *testing.T) seams.Jira {
 	t.Helper()
 
 	cfg := config.Config{Forge: config.Forge{CLI: true, Kind: githubKind, Host: hostGitHub}}
-	where := wiring.Workspace{Root: t.TempDir(), Remote: remoteGitHub}
+	where := onOrigin(t.TempDir(), remoteGitHub)
 
 	return wired(t, cfg, where, nil).Jira
 }
@@ -264,7 +264,7 @@ func TestTheTrackerPicksJiraWhenConfiguredAndTheForgeOtherwise(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			where := wiring.Workspace{Root: t.TempDir(), Remote: githubRemote}
+			where := onOrigin(t.TempDir(), githubRemote)
 
 			// Act
 			tracker := wired(t, tt.cfg, where, nil).Jira
@@ -377,7 +377,7 @@ func TestTheForgeTrackerLinksNoPageWhereOriginNamesNoForge(t *testing.T) {
 
 	// Arrange
 	cfg := config.Config{Forge: config.Forge{CLI: true, Kind: githubKind, Host: hostGitHub}}
-	tracker := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
+	tracker := wired(t, cfg, onOrigin(t.TempDir(), ""), nil).Jira
 
 	// Act
 	link := tracker.BrowseURL("42")

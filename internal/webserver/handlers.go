@@ -322,8 +322,8 @@ func (s *server) ListReviews(
 }
 
 // noForgeToAsk reports a review read that found no forge to ask: no remote —
-// outside a repository, or with no origin — or an origin on a host that is not
-// a forge workflow can read.
+// outside a repository, or with no base remote — or a base remote on a host
+// that is not a forge workflow can read.
 func noForgeToAsk(err error) bool {
 	return errors.Is(err, forge.ErrNotARemote) || errors.Is(err, forge.ErrUnknownForge)
 }

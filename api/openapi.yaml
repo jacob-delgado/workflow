@@ -995,8 +995,8 @@ paths:
       responses:
         "200":
           description: >-
-            The queue. With no forge to ask — outside a repository, or with an
-            origin on no forge workflow can read — available is false and the
+            The queue. With no forge to ask — outside a repository, or with a
+            base remote on no forge workflow can read — available is false and the
             queue is empty: an answer about where the server runs, not a
             missing resource, so never a 404.
           content:
@@ -2985,7 +2985,7 @@ components:
           type: string
           description: >-
             A stable, machine-readable reason. not_set_up is a service with
-            nothing set up to ask — no credential, no forge the origin names,
+            nothing set up to ask — no credential, no forge the base remote names,
             no Taskwarrior installed, no git user.email — whose detail says how
             to set it up; unprocessable is a request or a setting that cannot
             be used as it is; rate_limited is an upstream asking to be asked
@@ -3820,7 +3820,8 @@ components:
           enum: [github, gitlab, unknown]
           description: >-
             Which forge the repository is on under the settings in effect:
-            forge.kind when it names one, else the one origin's host names;
+            forge.kind when it names one, else the one the base remote's host
+            names (upstream's in a fork's clone, else origin's);
             unknown when neither says, as outside a repository or on a
             self-hosted forge the settings do not name. What the page decides
             by, where forge_noun and forge_sigil are only words to show.
@@ -4004,7 +4005,7 @@ components:
         when every panel read. A failed panel still carries its empty answer
         — or, for the review, the answer the forge last gave for the branch
         at its head — beside its problem. A service that is not set up — no
-        credential, no forge the origin names — carries a problem whose code
+        credential, no forge the base remote names — carries a problem whose code
         is not_set_up, with how to set it up, to be shown as guidance rather
         than as a failure; no repository is no problem. Each detail is the curated one an error answer carries, never a host,
         a path or a credential.
@@ -4375,7 +4376,7 @@ components:
           type: boolean
           description: >-
             Whether there is a forge to ask. False outside a repository, and
-            when origin is on no forge workflow can read — not GitHub or
+            when the base remote is on no forge workflow can read — not GitHub or
             GitLab, or a self-hosted one forge.kind and forge.host do not name
             — and requests is then empty.
         requests:
@@ -5638,7 +5639,7 @@ components:
       type: string
       description: >-
         How the source answered: read; not_set_up, when there was nothing set
-        up to ask — no credential, no forge the origin names, no Taskwarrior
+        up to ask — no credential, no forge the base remote names, no Taskwarrior
         installed, no git user.email — so it was left out; or failed, when a
         source that is set up was asked and could not be read.
       enum: [read, not_set_up, failed]

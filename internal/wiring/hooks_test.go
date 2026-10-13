@@ -15,7 +15,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/proc"
-	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 // preCommit is the hook the lefthook tests generate and run, and idleScript a
@@ -43,7 +42,7 @@ func TestTheHookSeamsReadWriteAndRunLefthook(t *testing.T) {
 	root := repository(t)
 	write(t, filepath.Join(root, ".git", "hooks", preCommit), "#!/bin/sh\necho checked\n", 0o700)
 
-	seams := wired(t, config.Default(), wiring.Workspace{Root: root, Remote: ""}, nil).Hooks
+	seams := wired(t, config.Default(), onOrigin(root, ""), nil).Hooks
 
 	// Act: read the hooks git runs
 	found, configured := seams.Existing(t.Context())
@@ -92,7 +91,7 @@ func TestTheHookSeamsOfferNothingOutsideARepository(t *testing.T) {
 	requireLefthook(t)
 	isolateGit(t)
 
-	seams := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Hooks
+	seams := wired(t, config.Default(), onOrigin(t.TempDir(), ""), nil).Hooks
 
 	// Act
 	found, configured := seams.Existing(t.Context())
@@ -111,7 +110,7 @@ func TestTheHookSeamsNeverOverwriteAConfiguration(t *testing.T) {
 	root := repository(t)
 	write(t, filepath.Join(root, "lefthook.yml"), "# mine\n", 0o600)
 
-	seams := wired(t, config.Default(), wiring.Workspace{Root: root, Remote: ""}, nil).Hooks
+	seams := wired(t, config.Default(), onOrigin(root, ""), nil).Hooks
 
 	// Act
 	err := seams.Write(t.Context(), hooks.Verbatim([]hooks.GitHook{{Name: preCommit, Script: idleScript}}))
@@ -131,7 +130,7 @@ func TestWithoutLefthookNoHookActionIsOffered(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 
 	// Act
-	seams := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Hooks
+	seams := wired(t, config.Default(), onOrigin(t.TempDir(), ""), nil).Hooks
 
 	// Assert
 	if seams.Run != nil || seams.Existing != nil || seams.Write != nil {
@@ -148,7 +147,7 @@ func TestAFailedLefthookInstallSaysWhatLefthookSaid(t *testing.T) {
 
 	t.Setenv("PATH", bin)
 
-	seams := wired(t, config.Default(), wiring.Workspace{Root: root, Remote: ""}, nil).Hooks
+	seams := wired(t, config.Default(), onOrigin(root, ""), nil).Hooks
 
 	// Act
 	err := seams.Write(t.Context(), hooks.Verbatim([]hooks.GitHook{{Name: preCommit, Script: idleScript}}))
@@ -170,7 +169,7 @@ func TestALefthookGoneBeforeTheWriteSaysItCouldNotBeInstalled(t *testing.T) {
 
 	t.Setenv("PATH", bin)
 
-	seams := wired(t, config.Default(), wiring.Workspace{Root: root, Remote: ""}, nil).Hooks
+	seams := wired(t, config.Default(), onOrigin(root, ""), nil).Hooks
 
 	err := os.Remove(filepath.Join(bin, "lefthook"))
 	if err != nil {

@@ -45,19 +45,8 @@ type forgeSetup struct {
 // forge it is under the settings in effect at each call, as connect does.
 func forgeDeps(setup forgeSetup, connect func(context.Context) (forgeConnection, error)) seams.Forge {
 	return seams.Forge{
-		FindPullRequest: func(ctx context.Context, branch string) (forge.PullRequest, bool, error) {
-			connection, err := connect(ctx)
-			if err != nil {
-				return forge.PullRequest{}, false, err
-			}
-
-			return connection.client.FindPullRequest(ctx, connection.repo, forge.Head{Branch: branch})
-		},
-		CreatePullRequest: func(ctx context.Context, request forge.NewPullRequest) (forge.PullRequest, error) {
-			return ask(ctx, connect, func(on forgeConnection) (forge.PullRequest, error) {
-				return on.client.CreatePullRequest(ctx, on.repo, request)
-			})
-		},
+		FindPullRequest:   findSeam(setup, connect),
+		CreatePullRequest: createSeam(setup, connect),
 		Activity: func(ctx context.Context, start, end time.Time) (forge.Activity, error) {
 			return ask(ctx, connect, func(on forgeConnection) (forge.Activity, error) {
 				return on.client.Activity(ctx, on.repo.Kind, start, end)
@@ -102,7 +91,7 @@ func forgeDeps(setup forgeSetup, connect func(context.Context) (forgeConnection,
 		Templates: func() []forge.Template { return templatesFor(setup.settings(), setup.where) },
 		Author:    func(ctx context.Context) (string, error) { return ask(ctx, connect, authorName(ctx)) },
 		IsGroup:   isGroupSeam(setup.onGitLab, connect),
-		Kind:      ForgeKind(setup.settings(), setup.where.Remote),
+		Kind:      ForgeKind(setup.settings(), setup.where.Base.URL),
 	}
 }
 
@@ -116,7 +105,47 @@ func (s forgeSetup) onGitLab() bool {
 // repo is the forge repository the remote points at under the settings in
 // effect now, read without a network call.
 func (s forgeSetup) repo() (forge.Repo, error) {
-	return resolveRepo(s.settings(), s.where.Remote)
+	return resolveRepo(s.settings(), s.where.Base.URL)
+}
+
+// findSeam is the find-a-pull-request seam: the branch's pull request, from
+// where its push remote put it, on the forge the base remote names.
+func findSeam(
+	setup forgeSetup, connect func(context.Context) (forgeConnection, error),
+) func(context.Context, string) (forge.PullRequest, bool, error) {
+	return func(ctx context.Context, branch string) (forge.PullRequest, bool, error) {
+		connection, err := connect(ctx)
+		if err != nil {
+			return forge.PullRequest{}, false, err
+		}
+
+		head, err := setup.env.headOf(ctx, setup.where, branch)
+		if err != nil {
+			return forge.PullRequest{}, false, err
+		}
+
+		return connection.client.FindPullRequest(ctx, connection.repo, head)
+	}
+}
+
+// createSeam is the open-a-pull-request seam: the request's branch is opened
+// from where its push remote put it, into the repository the base remote names.
+func createSeam(
+	setup forgeSetup, connect func(context.Context) (forgeConnection, error),
+) func(context.Context, forge.NewPullRequest) (forge.PullRequest, error) {
+	return func(ctx context.Context, request forge.NewPullRequest) (forge.PullRequest, error) {
+		return ask(ctx, connect, func(connection forgeConnection) (forge.PullRequest, error) {
+			head, err := setup.env.headOf(ctx, setup.where, request.Head.Branch)
+			if err != nil {
+				return forge.PullRequest{}, err
+			}
+
+			opened := request
+			opened.Head = head
+
+			return connection.client.CreatePullRequest(ctx, connection.repo, opened)
+		})
+	}
 }
 
 // rewriteSeam is the rewrite-a-description seam, split out to keep forgeDeps
@@ -328,7 +357,7 @@ func useForgeSettings(live *liveForge, where Workspace) func(config.Forge) forge
 	return func(settings config.Forge) forge.Kind {
 		live.replace(settings)
 
-		return ForgeKind(settings, where.Remote)
+		return ForgeKind(settings, where.Base.URL)
 	}
 }
 
@@ -370,12 +399,12 @@ func connectedWith[T any](
 	}
 }
 
-// connectForge finds the forge the workspace's origin points at and the token
-// for it, the same way doctor --online does.
+// connectForge finds the forge the workspace's base remote points at and the
+// token for it, the same way doctor --online does.
 func connectForge(ctx context.Context, setup forgeSetup, settings config.Forge) (forgeConnection, error) {
-	repo, err := resolveRepo(settings, setup.where.Remote)
+	repo, err := resolveRepo(settings, setup.where.Base.URL)
 	if err != nil {
-		return forgeConnection{}, fmt.Errorf("reading origin: %w", err)
+		return forgeConnection{}, fmt.Errorf("reading the base remote: %w", err)
 	}
 
 	base, err := repo.APIBase()
@@ -446,7 +475,7 @@ func (e Environment) ReachForge(
 // templatesFor reads the repository's pull request templates, where its forge
 // looks for them.
 func templatesFor(settings config.Forge, where Workspace) []forge.Template {
-	repo, err := resolveRepo(settings, where.Remote)
+	repo, err := resolveRepo(settings, where.Base.URL)
 	if err != nil {
 		return nil
 	}

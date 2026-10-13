@@ -84,7 +84,7 @@ func everySeamFailure() map[string]spoken {
 			"Jira did not answer in time. Check the VPN, then try again.",
 		},
 		"forge kind needs host": {
-			fmt.Errorf("reading origin: %w", forge.ErrKindNeedsHost), "forge.kind needs forge.host",
+			fmt.Errorf("reading the base remote: %w", forge.ErrKindNeedsHost), "forge.kind needs forge.host",
 			"`forge.kind` is set without `forge.host`. Add the host it describes.",
 		},
 		"forge unauthorized": {
@@ -193,11 +193,12 @@ func everyNotSetUpCause() map[string]spoken {
 			"no forge token",
 		),
 		"forge not a remote": {
-			fmt.Errorf("reading origin: %w", forge.ErrNotARemote), "origin is not GitHub or GitLab",
-			"origin does not name a repository on a forge; point it at the repository",
+			fmt.Errorf("reading the base remote: %w", forge.ErrNotARemote), "the remote is not GitHub or GitLab",
+			"the base remote (upstream in a fork's clone, else origin), or a branch's push remote, " +
+				"does not name a repository on a forge; point it at the repository",
 		},
 		"forge unknown": {
-			fmt.Errorf("reading origin: %w", forge.ErrUnknownForge), "origin is not GitHub or GitLab",
+			fmt.Errorf("reading the base remote: %w", forge.ErrUnknownForge), "the remote is not GitHub or GitLab",
 			"cannot tell which forge this repository is on; set forge.kind and forge.host",
 		},
 		"no git identity": {

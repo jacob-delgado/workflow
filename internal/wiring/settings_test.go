@@ -14,7 +14,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/store"
 	"github.com/jacob-delgado/workflow/internal/tui"
-	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 // madeCache makes the store's cache in dir, by remembering a scope there.
@@ -31,7 +30,7 @@ func TestLocalDataListsTheStoresFiles(t *testing.T) {
 	// Arrange
 	dir := isolatedStoreDir(t)
 	madeCache(t, dir)
-	deps := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+	deps := wired(t, config.Default(), onOrigin(t.TempDir(), ""), nil)
 
 	// Act
 	listed, files, err := deps.Settings.LocalData(t.Context())
@@ -46,7 +45,7 @@ func TestRemoveLocalDataRemovesTheCache(t *testing.T) {
 	// Arrange
 	dir := isolatedStoreDir(t)
 	madeCache(t, dir)
-	deps := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+	deps := wired(t, config.Default(), onOrigin(t.TempDir(), ""), nil)
 
 	// Act
 	err := deps.Settings.RemoveLocalData(store.CleanCache)
@@ -62,7 +61,7 @@ func TestLocalDataWithNoStoreDirectoryIsAnError(t *testing.T) {
 	// Arrange
 	t.Setenv("HOME", "")
 	t.Setenv("XDG_STATE_HOME", "")
-	deps := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+	deps := wired(t, config.Default(), onOrigin(t.TempDir(), ""), nil)
 
 	// Act
 	_, _, err := deps.Settings.LocalData(t.Context())
@@ -77,7 +76,7 @@ func TestRemoveLocalDataWithNoStoreDirectoryIsAnError(t *testing.T) {
 	// Arrange
 	t.Setenv("HOME", "")
 	t.Setenv("XDG_STATE_HOME", "")
-	deps := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+	deps := wired(t, config.Default(), onOrigin(t.TempDir(), ""), nil)
 
 	// Act
 	err := deps.Settings.RemoveLocalData(store.CleanCache)
@@ -99,7 +98,7 @@ func TestLocalDataThatCannotBeReadIsAnError(t *testing.T) {
 	}
 
 	t.Setenv("XDG_STATE_HOME", notADir)
-	deps := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+	deps := wired(t, config.Default(), onOrigin(t.TempDir(), ""), nil)
 
 	// Act
 	_, files, err := deps.Settings.LocalData(t.Context())
@@ -119,7 +118,7 @@ func TestRemoveLocalDataRefusesWhatIsNotTheStoresOwnFile(t *testing.T) {
 		t.Fatalf("making a directory where the cache belongs: %v", err)
 	}
 
-	deps := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+	deps := wired(t, config.Default(), onOrigin(t.TempDir(), ""), nil)
 
 	// Act
 	err = deps.Settings.RemoveLocalData(store.CleanCache)
@@ -151,7 +150,7 @@ func settingsFile(t *testing.T) (string, tui.Deps) {
 		t.Fatalf("reading the configuration: %v", err)
 	}
 
-	return path, wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+	return path, wired(t, cfg, onOrigin(t.TempDir(), ""), nil)
 }
 
 func TestSettingsReadNeverHandsTheInterfaceACredential(t *testing.T) {

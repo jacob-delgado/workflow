@@ -5,6 +5,7 @@ package wiring
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -20,10 +21,16 @@ import (
 )
 
 // Workspace is where the interface runs: the repository's root, or the directory
-// it was started in when there is no repository, and origin's URL.
+// it was started in when there is no repository, origin's URL, and the base
+// remote.
 type Workspace struct {
-	Root   string
+	Root string
+	// Remote is origin's URL, what the store keys the repository by, so a
+	// fork's clone keeps what it kept under its own fork.
 	Remote string
+	// Base is the base remote, where the forge's pull requests, CI and issues
+	// are read: upstream in a fork's clone, origin otherwise.
+	Base gitrepo.Remote
 	// Dir is the directory the session was started in, Root or one within it,
 	// with every link resolved.
 	Dir string
@@ -44,10 +51,31 @@ func (e Environment) Locate(ctx context.Context, dir string) Workspace {
 
 	repo, err := gitrepo.At(e.git, dir).Describe(ctx)
 	if err != nil {
-		return Workspace{Root: dir, Remote: "", Dir: dir, Repository: false}
+		return Workspace{Root: dir, Remote: "", Base: gitrepo.Remote{}, Dir: dir, Repository: false}
 	}
 
-	return Workspace{Root: repo.Root, Remote: repo.Origin, Dir: dir, Repository: true}
+	return Workspace{Root: repo.Root, Remote: repo.Origin, Base: repo.Base, Dir: dir, Repository: true}
+}
+
+// headOf is where branch's pull request is opened from: the branch alone when
+// it is pushed to the base remote, else the branch on the fork its push remote
+// names. Only the fork's path is read from that remote: the forge is the
+// base's, so a host alias the remote's URL uses for SSH still finds it. A push
+// remote whose URL names no repository is refused, naming the remote.
+func (e Environment) headOf(ctx context.Context, where Workspace, branch string) (forge.Head, error) {
+	repo := gitrepo.At(e.git, where.Root)
+
+	pushRemote := repo.PushRemote(ctx, branch)
+	if pushRemote == where.Base.Name {
+		return forge.Head{Branch: branch, Fork: ""}, nil
+	}
+
+	fork, err := forge.ParseRemote(repo.RemoteURL(ctx, pushRemote))
+	if err != nil {
+		return forge.Head{}, fmt.Errorf("reading %s, where %s is pushed: %w", pushRemote, branch, err)
+	}
+
+	return forge.Head{Branch: branch, Fork: fork.Path}, nil
 }
 
 // Name names the repository as a person reads it: its forge path, which

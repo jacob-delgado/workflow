@@ -76,8 +76,9 @@ func newSummaryCmd(prompt Prompt) *cobra.Command {
 			"user token, --channel posts it in another channel than messaging.channel.\n" +
 			"Nothing is kept: each run reads the sources again. A source that cannot be read\n" +
 			"is named in the summary, and the command exits non-zero once it has printed the\n" +
-			"rest. A source that is not set up — no token, no forge the origin names, no\n" +
-			"Taskwarrior — is left out, with a note on standard error saying how to set it up.",
+			"rest. A source that is not set up — no token, no forge the base remote names,\n" +
+			"no Taskwarrior — is left out, with a note on standard error saying how to set it\n" +
+			"up.",
 		Example: examples(
 			`workflow summary --json | jq -r .text   # what you did on the previous working day`,
 			`workflow summary --post --yes          # post it to your team, unattended`,

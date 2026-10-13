@@ -86,8 +86,8 @@ type serviceRead struct {
 
 // serviceNotes says why each service that did not answer did not, in its
 // name: first each that refused, in its own words, which may not drive the
-// terminal; then each that is not set up — no credential, no forge the origin
-// names — with how to set it up, in the words the web gives it, once however
+// terminal; then each that is not set up — no credential, no forge the base
+// remote names — with how to set it up, in the words the web gives it, once however
 // many reads met it. A tracker that says the branch's issue does not exist
 // has answered, and is left out.
 func serviceNotes(reads []serviceRead) []string {

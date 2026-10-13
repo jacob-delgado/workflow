@@ -17,6 +17,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
@@ -45,7 +46,7 @@ func githubCLIWorkspace(t *testing.T) (config.Config, wiring.Workspace) {
 
 	cfg := config.Config{Forge: config.Forge{CLI: true, Kind: githubKind, Host: hostGitHub}}
 
-	return cfg, wiring.Workspace{Root: t.TempDir(), Remote: remoteGitHub}
+	return cfg, onOrigin(t.TempDir(), remoteGitHub)
 }
 
 // forgeReplies are the canned bodies the fake returns per route; an empty field
@@ -200,4 +201,19 @@ func containsAll(args []string, values ...string) bool {
 	}
 
 	return true
+}
+
+// onOrigin is a workspace at root whose origin is remote, as Locate reads a
+// clone that is no fork: origin is the base remote too.
+func onOrigin(root, remote string) wiring.Workspace {
+	return wiring.Workspace{
+		Root: root, Remote: remote, Base: gitrepo.Remote{Name: gitrepo.DefaultRemote, URL: remote},
+	}
+}
+
+// withRepository is where, marked as a repository's root.
+func withRepository(where wiring.Workspace) wiring.Workspace {
+	where.Repository = true
+
+	return where
 }

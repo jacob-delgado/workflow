@@ -11,8 +11,12 @@ import (
 	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
-// mainBranch is the branch every repository here starts on.
-const mainBranch = "main"
+// mainBranch is the branch every repository here starts on, and
+// upstreamRemote the remote a fork's clone names for its parent.
+const (
+	mainBranch     = "main"
+	upstreamRemote = "upstream"
+)
 
 // bareRemote is a new bare repository cloned from root and added to it as
 // remote name, fetched, so the remote's branches are known to root.
@@ -70,7 +74,7 @@ func forkClone(t *testing.T) (seams.Git, string) {
 	repo, root, _ := gitSeams(t)
 	bareRemote(t, root, "origin")
 	git(t, root, "branch", "--quiet", "--set-upstream-to=origin/main", "main")
-	bareRemote(t, root, "upstream")
+	bareRemote(t, root, upstreamRemote)
 
 	write(t, filepath.Join(root, "UPSTREAM.md"), "upstream moved\n", 0o600)
 	git(t, root, "add", "UPSTREAM.md")
@@ -99,7 +103,7 @@ func TestTheGitSeamsReadAForkCloneAgainstUpstream(t *testing.T) {
 	branch, err := repo.Branch(t.Context())
 
 	// Assert
-	if err != nil || branch.Base != "upstream/main" || branch.BaseRemote != "upstream" {
+	if err != nil || branch.Base != "upstream/main" || branch.BaseRemote != upstreamRemote {
 		t.Fatalf("Branch = %+v, %v; want upstream/main read on upstream", branch, err)
 	}
 

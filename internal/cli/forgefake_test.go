@@ -271,16 +271,18 @@ func pretendPushed(t *testing.T, repo string) {
 	git(t, repo, "branch", "--set-upstream-to=origin/"+branch, branch)
 }
 
-// localPushRemote gives repo a bare push remote through remote.pushDefault, so a
-// real push in a black-box test lands in a repository on disk rather than
-// reaching for the GitHub origin the forge is resolved from. It returns the bare
+// localPushRemote gives repo a push remote through remote.pushDefault that
+// names the forge repository origin does, so the pull request's head is read as
+// on the base, while its pushurl sends a real push in a black-box test to a
+// bare repository on disk rather than to GitHub. It returns the bare
 // repository's path.
 func localPushRemote(t *testing.T, repo string) string {
 	t.Helper()
 
 	bare := t.TempDir()
 	git(t, bare, "init", "--bare", "--quiet")
-	git(t, repo, "remote", "add", "push-target", bare)
+	git(t, repo, "remote", "add", "push-target", "https://github.com/owner/repo.git")
+	git(t, repo, "config", "remote.push-target.pushurl", bare)
 	git(t, repo, "config", "remote.pushDefault", "push-target")
 
 	return bare
