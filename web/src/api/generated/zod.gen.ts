@@ -916,15 +916,6 @@ export const zMergeOffer = z.object({
     methods: z.array(zMergeMethod)
 });
 
-/**
- * A pull request that was just opened, with a warning when it opened but its reviewers, assignees or labels could not all be added, and what can be offered next.
- */
-export const zOpenedPullRequest = z.object({
-    pull: zPullRequest,
-    warning: z.string().optional(),
-    follow_ups: z.array(zFollowUp)
-});
-
 export const zJobLog = z.object({
     text: z.string(),
     truncated: z.boolean()
@@ -963,6 +954,7 @@ export const zQueuedAnnouncement = z.object({
     pull: z.int(),
     reason: z.string().optional(),
     ci: zCiState.optional(),
+    automatic: z.boolean().optional(),
     warning: z.string().optional()
 });
 
@@ -982,6 +974,17 @@ export const zReviewQueue = z.object({
     available: z.boolean(),
     requests: z.array(zReviewRequest),
     facet_order: z.array(zReviewFacet)
+});
+
+/**
+ * A pull request that was just opened, with a warning when it opened but its reviewers, assignees or labels could not all be added, and what can be offered next.
+ */
+export const zOpenedPullRequest = z.object({
+    pull: zPullRequest,
+    warning: z.string().optional(),
+    follow_ups: z.array(zFollowUp),
+    announcement: zQueuedAnnouncement.optional(),
+    not_armed: z.string().optional()
 });
 
 export const zCheck = z.object({

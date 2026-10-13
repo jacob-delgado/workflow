@@ -149,10 +149,16 @@ func (s *server) branchOwners(ctx context.Context) codeowners.Owners {
 		return codeowners.Owners{}
 	}
 
+	return s.ownersAgainst(ctx, branch.Base)
+}
+
+// ownersAgainst is who owns the changes since base, a bare name the forge
+// knows as a group among the teams, or nobody when they cannot be read.
+func (s *server) ownersAgainst(ctx context.Context, base string) codeowners.Owners {
 	seams := s.ownerSeams()
 	seams.IsGroup = s.deps.Forge.IsGroup
 
-	owners, err := loop.OwnersOf(ctx, seams, branch.Base)
+	owners, err := loop.OwnersOf(ctx, seams, base)
 	if err != nil {
 		return codeowners.Owners{}
 	}
