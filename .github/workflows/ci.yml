@@ -76,22 +76,16 @@ jobs:
       - uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
         with:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
-          install_args: go task jq node lefthook go:github.com/rillig/gobco
-      # Both floors come from the same Taskfile variables the local gate reads,
-      # so CI and a developer's machine cannot disagree about them. The run's
-      # events are kept for the test summary's counts.
+          install_args: go task jq node lefthook
+      # The statement floor comes from the same Taskfile variable the local
+      # gate reads, so CI and a developer's machine cannot disagree about it.
+      # The run's events are kept for the test summary's counts.
       - run: task test:cover GO_TEST_JSON=tmp/go-events.json
-      # Condition coverage. gobco reads every package with tests, a package of
-      # build-tagged twins a file at a time, and scripts/gobco-report.sh fails
-      # on any it cannot read rather than drop it from the report.
-      - run: task cover:branch
       # Consumed by the summary and coverage-baseline jobs below.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage
-          path: |
-            coverage.out
-            tmp/gobco/
+          path: coverage.out
           retention-days: 7
       # Uploaded whether the tests passed or not, so the summary shows a failure
       # as a count rather than leaving the row blank.
@@ -100,6 +94,38 @@ jobs:
         with:
           name: report-go-unit
           path: tmp/go-events.json
+          retention-days: 7
+
+  # Condition coverage, in a job of its own so that it runs beside Test rather
+  # than after it: gobco runs every package's tests again, and as a step of
+  # Test it added its whole run to the time every change waits for.
+  branch-coverage:
+    name: Branch coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # lefthook for the wiring tests that run it, which skip without it and
+      # leave the arms they reach unseen; jq for scripts/gobco-report.sh.
+      - uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
+        with:
+          version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
+          install_args: go task jq lefthook go:github.com/rillig/gobco
+      # Condition coverage. gobco reads every package with tests, a package of
+      # build-tagged twins a file at a time, and scripts/gobco-report.sh fails
+      # on any it cannot read rather than drop it from the report. Its floor
+      # comes from the same Taskfile variable the local gate reads.
+      - run: task cover:branch
+      # Consumed by the summary and coverage-baseline jobs below. An upload of
+      # one directory holds its contents at the artifact's root, so each of
+      # them downloads it into tmp/gobco, where scripts/coverage-summary.sh
+      # reads it.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: branch-coverage
+          path: tmp/gobco/
           retention-days: 7
 
   # The web frontend, gated by the same tasks `task check` runs, so a web lint
@@ -229,11 +255,12 @@ jobs:
   # Advisory, not a gate: one table of every suite's counts and the coverage,
   # with its change against main's last baseline, written to the run summary
   # and handed to the coverage comment. It runs no suite: it reads what the
-  # Test, Web and E2E jobs uploaded, whether they passed or not, so a failed
-  # suite shows as its counts and one that never reported as dashes.
+  # Test, Branch coverage, Web and E2E jobs uploaded, whether they passed or
+  # not, so a failed suite shows as its counts and one that never reported as
+  # dashes.
   summary:
     name: Test summary
-    needs: [test, web, e2e, e2e-server]
+    needs: [test, branch-coverage, web, e2e, e2e-server]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -258,6 +285,11 @@ jobs:
         continue-on-error: true
         with:
           name: coverage
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: branch-coverage
+          path: tmp/gobco
       # On a pull request the exact-SHA key never hits, so the prefix
       # restore-key resolves to the most recent baseline cached from main.
       - name: Restore main's baseline
@@ -333,7 +365,7 @@ jobs:
   # to main only; the PR job restores whatever this last wrote.
   coverage-baseline:
     name: Coverage baseline
-    needs: [test]
+    needs: [test, branch-coverage]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -348,6 +380,10 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: coverage
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: branch-coverage
+          path: tmp/gobco
       - name: Compute the summary
         run: scripts/coverage-summary.sh coverage.out tmp/gobco > coverage-baseline.json
       - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -356,9 +392,9 @@ jobs:
           path: coverage-baseline.json
 
   # Post the summary's report on the PR itself. Informational: the floors in the
-  # test job are what fail a build, and this job is deliberately not something
-  # to gate on. It checks nothing out and installs nothing: it posts the
-  # markdown the summary job rendered.
+  # Test and Branch coverage jobs are what fail a build, and this job is
+  # deliberately not something to gate on. It checks nothing out and installs
+  # nothing: it posts the markdown the summary job rendered.
   coverage-comment:
     name: Coverage comment
     # Not for a run a newer push cancelled: that run's partial counts would
@@ -462,7 +498,7 @@ jobs:
   # of mistake: add a job here, add it to `needs`, and protection keeps working.
   ci-gate:
     name: ci-gate
-    needs: [lint, test, web, e2e, e2e-server, cross, scan, commit-lint]
+    needs: [lint, test, branch-coverage, web, e2e, e2e-server, cross, scan, commit-lint]
     # always(), so the gate reports a verdict even when a dependency fails —
     # without it the gate would be skipped, and a skipped required check never
     # goes green.
@@ -492,7 +528,7 @@ jobs:
 
   # Deliberately NOT in the gate: Test summary, Coverage comment and Coverage
   # baseline. All three are reporting, not gating — Test summary reports what
-  # the Test, Web and E2E jobs uploaded, and the coverage FLOORS live inside the
-  # Test job, so a coverage regression already fails there. The
-  # baseline job is also skipped on pull requests by design, and a gate should
-  # not have to special-case that.
+  # the Test, Branch coverage, Web and E2E jobs uploaded, and the coverage
+  # FLOORS live inside the Test and Branch coverage jobs, so a coverage
+  # regression already fails there. The baseline job is also skipped on pull
+  # requests by design, and a gate should not have to special-case that.
