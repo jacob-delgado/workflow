@@ -20,7 +20,7 @@ func TestExistingHooksAreTheOnesGitWouldRun(t *testing.T) {
 		commitMsg:                executable(complexCommitMsg),
 		"pre-push.sample":        executable("#!/bin/sh\n"),
 		prePush:                  {Data: []byte("#!/bin/sh\nexit 1\n"), Mode: 0o644},
-		"post-checkout":          executable("#!/bin/sh\n# lefthook_version: 2\ncall_lefthook run post-checkout\n"),
+		postCheckout:             executable("#!/bin/sh\n# lefthook_version: 2\ncall_lefthook run post-checkout\n"),
 		"prepare-commit-msg.old": executable("#!/bin/sh\n"),
 		"notes.txt":              executable("not a hook"),
 	}
@@ -55,7 +55,7 @@ func TestExistingHooksTellLefthooksShimFromAHookThatMentionsIt(t *testing.T) {
 	mentions := "#!/bin/sh\nset -e\n# moved here from lefthook\nmake lint\n"
 	dir := fstest.MapFS{
 		preCommit: executable(mentions),
-		"post-checkout": executable("#!/bin/sh\n\nif [ \"$LEFTHOOK\" = \"0\" ]; then\n  exit 0\nfi\n\n" +
+		postCheckout: executable("#!/bin/sh\n\nif [ \"$LEFTHOOK\" = \"0\" ]; then\n  exit 0\nfi\n\n" +
 			"call_lefthook()\n{\n  lefthook \"$@\"\n}\n\ncall_lefthook run \"post-checkout\" \"$@\"\n"),
 		"post-merge": executable("#!/bin/sh\n# lefthook_version: 2\nlefthook run post-merge\n"),
 	}

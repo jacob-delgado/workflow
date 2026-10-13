@@ -29,6 +29,38 @@ func gitHookNames() []string {
 	}
 }
 
+// handedByGit is what git hands each hook it gives arguments or standard
+// input, as githooks(5) documents them: a run by hand has none of it to hand
+// on, so only git can run these. Every other hook, and a hook git does not
+// know, a run by hand stands in for.
+//
+// Trade-off TRADE-39: pre-push is left out, so it is run by hand without the
+// remote and the refs git hands it; lefthook reads what a push would carry
+// from @{push} itself.
+func handedByGit() map[string]string {
+	return map[string]string{
+		"applypatch-msg":        "the file holding the proposed commit message",
+		"prepare-commit-msg":    "the file holding the commit message, and where the message came from",
+		"commit-msg":            "the file holding the commit message",
+		"pre-rebase":            "the upstream and the branch being rebased",
+		"post-checkout":         "the commits checked out from and to, and whether a branch was",
+		"post-merge":            "whether the merge was a squash",
+		"pre-receive":           "the refs being pushed, on standard input",
+		"update":                "the ref being updated, with its old and new object",
+		"proc-receive":          "the commands to handle, through a protocol on standard input",
+		"post-receive":          "the refs pushed, on standard input",
+		"post-update":           "the refs updated",
+		"reference-transaction": "the transaction's state, and its refs on standard input",
+		"push-to-checkout":      "the commit the pushed branch now points at",
+		"post-rewrite":          "the command that rewrote, and the commits it rewrote on standard input",
+		"sendemail-validate":    "the patch about to be sent",
+		"fsmonitor-watchman":    "the version of its interface, and the token to ask for changes since",
+		"p4-changelist":         "the file holding the changelist text",
+		"p4-prepare-changelist": "the file holding the changelist text",
+		"post-index-change":     "whether the work tree and the index entries changed",
+	}
+}
+
 // ExistingHooks finds the hooks git would run from a hooks directory, in git's
 // order: files named for a hook, runnable as one, that are not lefthook's own
 // shim. Whether a file is runnable is decided by goos, since Windows has no
