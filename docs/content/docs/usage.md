@@ -819,6 +819,31 @@ issues, an announcement waiting for CI — would be lost, so the switch's last
 look names it too; and while an announcement or a change to a task is being sent,
 the switch waits for it.
 
+## Working from a fork
+
+A fork's clone has two remotes: `origin`, the fork you push to, and the
+repository it was forked from, which pull requests merge into. workflow asks
+git which is which rather than keeping a setting of its own.
+
+- **The base remote** is the remote gh marked as the base
+  (`remote.<name>.gh-resolved` set to `base`, which `gh repo set-default`
+  writes), else a remote named `upstream`, else `origin`.
+- **The push remote** of a branch is `branch.<name>.pushRemote`, else
+  `remote.pushDefault`, else the remote it tracks (`branch.<name>.remote`, as
+  `git push -u fork` records), else `origin` — the order git itself pushes by.
+
+What follows the base remote: the base a new branch starts from
+(`upstream/main` in a fork's clone), the fetch Start work makes first, the
+commits counted as the branch's own and the base a rebase replays onto, the
+CODEOWNERS the reviewers are proposed from, the pull a finish catches the base
+up with, and which remote's copy switching to a branch both remotes hold
+creates here. What follows the push remote: the push, whether the branch reads
+as pushed, and the `push to` line the Branch pane shows when it is not the
+base remote.
+
+With neither `upstream` nor gh's mark, the base remote is `origin`, and
+everything reads as it does in a clone that is no fork.
+
 ## Setting up
 
 With no `.workflow.json` to read, the Issues pane says so and `enter` sets one
