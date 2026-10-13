@@ -11,5 +11,4 @@
 #
 # Remove a line once its version is a week old; it has done its job.
 
-go 1.27.2 CVE-2026-97032
 solid-js 1.9.16 GHSA-p6vx-979v-rg4c
