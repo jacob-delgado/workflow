@@ -134,3 +134,15 @@ test('one waiting for checks says a repository with no CI is announced by hand',
     ),
   ).toBeTruthy()
 })
+
+test('an armed announcement says it was armed as the pull request opened', () => {
+  // Arrange
+  previewing('running')
+  withPull({ state: 'waiting', channel: '#dev', pull: 42, ci: 'running', automatic: true })
+
+  // Act
+  render(<MessagingPanel />)
+
+  // Assert
+  expect(screen.getByText('Armed when #42 opened.', { exact: false })).toBeTruthy()
+})

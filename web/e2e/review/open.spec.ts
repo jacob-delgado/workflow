@@ -93,6 +93,7 @@ for (const theme of themes) {
               { action: 'link', issue_key: 'PROJ-1' },
               { action: 'transition', issue_key: 'PROJ-1', status: 'In Review' },
             ],
+            announcement: { state: 'waiting', channel: '#dev', pull: 7, automatic: true },
           },
         }),
       )
@@ -104,6 +105,7 @@ for (const theme of themes) {
       // Act
       await page.getByRole('button', { name: 'Link it on PROJ-1' }).click()
       await expect(page.getByText('Linked #7 on PROJ-1.')).toBeVisible()
+      await expect(page.getByText(/^Announces to #dev once CI passes;/)).toBeVisible()
 
       // Assert
       await expectReachableAndClean(page, { reaches: ['Move PROJ-1 to In Review'] })

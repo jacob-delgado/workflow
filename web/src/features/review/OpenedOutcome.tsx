@@ -12,8 +12,9 @@ import { Failure } from '@/lib/Status.tsx'
 // then to move that issue to the review status. The panel keeps it mounted
 // above the pull request while its branch stays checked out, so the snapshot
 // that brings the new pull request back does not take the offers, or what they
-// said, away.
-export function OpenedOutcome({ opened }: { opened: OpenedPullRequest }) {
+// said, away. It says, too, that the announcement was armed to post once CI
+// passes, to the channel or the service named, or why a draft was not.
+export function OpenedOutcome({ opened, service }: { opened: OpenedPullRequest; service: string }) {
   const { noun, sigil } = useForgeWords()
   const pull = `${sigil}${String(opened.pull.number)}`
 
@@ -24,11 +25,42 @@ export function OpenedOutcome({ opened }: { opened: OpenedPullRequest }) {
           {opened.warning}
         </p>
       )}
+      <ArmedLine opened={opened} service={service} />
       {opened.follow_ups.map((offer) => (
         <FollowUpOffer key={offer.action} offer={offer} pull={pull} noun={noun} />
       ))}
     </div>
   )
+}
+
+// ArmedLine says the opened pull request's announcement was armed, where it
+// goes and how to drop it, or why none was: a draft is not announced.
+function ArmedLine({ opened, service }: { opened: OpenedPullRequest; service: string }) {
+  const armed = opened.announcement
+  if (armed !== undefined) {
+    const where = armed.channel === '' ? service : armed.channel
+
+    return (
+      <p role="status" className="text-sm">
+        Announces to {where} once CI passes; Stop waiting under {service} drops it.
+      </p>
+    )
+  }
+
+  if (opened.not_armed === undefined || opened.not_armed === '') {
+    return null
+  }
+
+  return (
+    <p role="status" className="text-sm text-muted-foreground">
+      {sentence(opened.not_armed)}
+    </p>
+  )
+}
+
+// sentence is a reason the server words in lower case, as a sentence.
+function sentence(reason: string): string {
+  return reason.charAt(0).toUpperCase() + reason.slice(1) + '.'
 }
 
 interface OfferWords {

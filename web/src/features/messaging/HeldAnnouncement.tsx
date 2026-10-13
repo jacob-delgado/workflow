@@ -28,7 +28,7 @@ export function HeldAnnouncement({ held, service, onSaid }: HeldAnnouncementProp
   switch (held.state) {
     case 'waiting':
       return (
-        <Waiting said={waitingOn(held, `${sigil}${String(held.pull)}`, where)} onSaid={onSaid} />
+        <Waiting said={armedSaying(held, `${sigil}${String(held.pull)}`, where)} onSaid={onSaid} />
       )
     case 'announcing':
       return <p className="text-sm text-muted-foreground">Announcing to {where}…</p>
@@ -41,6 +41,14 @@ export function HeldAnnouncement({ held, service, onSaid }: HeldAnnouncementProp
     case 'dropped':
       return <Failure>Not announced: {held.reason ?? 'it was dropped'}.</Failure>
   }
+}
+
+// armedSaying is what a held announcement waiting says: that it was armed as
+// its pull request opened, when it was, then what it waits on.
+function armedSaying(held: QueuedAnnouncement, pull: string, where: string): string {
+  const waits = waitingOn(held, pull, where)
+
+  return held.automatic === true ? `Armed when ${pull} opened. ${waits}` : waits
 }
 
 // waitingOn says what the held announcement of pull, to where, waits on, by
