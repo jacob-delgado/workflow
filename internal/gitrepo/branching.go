@@ -61,7 +61,7 @@ func (r Repository) LocalBranches(ctx context.Context) ([]string, error) {
 // prefix is dropped ("origin/main" becomes "main") to match the name a base
 // carries, a remote's symbolic HEAD pointer is left out (git abbreviates it to
 // the bare remote name, "origin", which has no branch part), and a branch on
-// more than one remote is listed once.
+// more than one remote is listed once — Checkout takes the base remote's.
 func (r Repository) RemoteBranches(ctx context.Context) ([]string, error) {
 	out, err := r.run(ctx, gitProgram, "-C", r.dir,
 		"for-each-ref", "--format=%(refname:short)", "--sort=-committerdate", "refs/remotes")
@@ -93,11 +93,17 @@ func (r Repository) RemoteBranches(ctx context.Context) ([]string, error) {
 // Checkout switches to a branch. It carries nothing across: the interface
 // refuses a dirty tree before calling this, leaving stashing to the person.
 //
+// A name only the remotes hold is created here from the base remote's branch
+// when more than one remote holds it — a fork's clone has upstream's branches
+// and the fork's copies of them — which git would otherwise refuse as matching
+// several remote-tracking branches.
+//
 // The name can come straight from the web request body, so "--" ends git's
 // option parsing: a name beginning with a dash is then read as a ref, never as
 // an option such as --orphan.
 func (r Repository) Checkout(ctx context.Context, name string) error {
-	_, err := r.run(ctx, gitProgram, "-C", r.dir, "switch", "--", name)
+	_, err := r.run(ctx, gitProgram, "-C", r.dir, "-c", "checkout.defaultRemote="+r.BaseRemote(ctx),
+		"switch", "--", name)
 	if err != nil {
 		return fmt.Errorf("switching to %s: %w", name, err)
 	}

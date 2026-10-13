@@ -331,7 +331,8 @@ a switch from the Repositories pane does, and `esc` stays where you are.
 `s` on the Branch pane, **Switch branch**, switches to the branch of another
 issue. It lists the
 branches that name an issue assigned to you and not done: the local ones, then
-those only the remote has, marked `(remote)`, which switching to creates here.
+those only the remote has, marked `(remote)`, which switching to creates here —
+from the base remote when both it and another remote hold it.
 A branch whose issue is finished, or reassigned — to QA, say — leaves the list,
 even one you have locally. When the tracker cannot be asked which issues are
 yours, the list holds every branch that names an issue, under a line saying
