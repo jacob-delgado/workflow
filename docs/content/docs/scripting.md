@@ -8,7 +8,7 @@ weight: 22
 The steps of the loop that a script or a shell prompt wants also run as
 commands, without the interface: `status`, `reviews`, `repositories`,
 `summary`, `issues`, `issue`, `branch`, `pr`, `finish`, `announce`, `comment`,
-`transition` and `assign`, beside `doctor`, `config`, `slack login` and
+`transition`, `assign` and `worklog`, beside `doctor`, `config`, `slack login` and
 `db-clean`. This page is what a script
 can rely on from them — the exit status, which stream carries what, the JSON shapes, and the
 flags that make a write safe to run unattended. Every command and flag is
@@ -33,6 +33,7 @@ workflow summary --post --yes          # post it to your team, unattended
 git log -1 --format=%B | workflow comment PROJ-7 --yes   # the text on stdin, never quoted
 workflow transition PROJ-7 "In Review" --yes   # move it, unattended
 workflow assign PROJ-7 bo --yes        # hand it to bo
+workflow worklog PROJ-7 2h --comment "pairing" --yes   # log the time spent on it
 workflow --log requests.log doctor --online   # a bug report's evidence
 ```
 
@@ -45,8 +46,8 @@ the message, which is prose and may change.
 | --- | --- | --- |
 | 0 | Success. | |
 | 1 | Any other failure. | Standard output that could not be written — a pipe whose reader has gone, a full disk — whatever else the command found; an issue that is not in the tracker, a `pr --template` the repository has no template of, named with the templates it has, a push that was rejected, a `branch --fetch` whose fetch failed, a `finish` whose git step failed, git missing, a repository whose branch cannot be read; a `db-clean` that finds a symlink or a directory where a database file belongs. |
-| 2 | Usage: the command was called wrongly. | An unknown flag, command or subcommand; a wrong number of arguments; a `summary --from` or `--to` that is not a date written `YYYY-MM-DD`, or a period that runs backwards or is longer than a year and a day; `summary --json --post`, or `--yes` or `--channel` without `--post`; an `announce` or `summary` `--channel` where messaging posts through a webhook; `status --plain` with `--json`; a `pr --base` git would refuse as a branch's name, or `pr --body` with `--template`; `reviews --sort` with an order it does not know; an `issues --view` naming no view `jira.views` configures; `--port` without `--web`, or outside 1 to 65535; a confirmation, or the guided `config init`, with no terminal to answer it; a `slack login` answer left blank; a `comment` with nothing but white space on standard input; an `assign` whose username is blank. |
-| 3 | Configuration: fix the file, a credential or a login. | No `.workflow.json` for `doctor`, `config show` or `slack login`; a file that does not parse; a required field left empty, or set unusably; a file other users can read; a `ui.keys` map the interface refuses to start on; no messaging configured for `announce` or `summary --post`; a `slack login` where Slack posts through a webhook, or `messaging.kind` names another service, or whose credentials Slack refuses to refresh; no repository remote for `reviews` to find the forge from, or one on a host other than `github.com`, a `ghe.com` tenant, `gitlab.com` or the `forge.host` a `forge.kind` of `github` or `gitlab` describes; a credential that is missing — a Jira token, or a forge token from the file, the environment or `gh auth login` — or one a service rejected, a Jira 403 that says what the token may not do among them. |
+| 2 | Usage: the command was called wrongly. | An unknown flag, command or subcommand; a wrong number of arguments; a `summary --from` or `--to` that is not a date written `YYYY-MM-DD`, or a period that runs backwards or is longer than a year and a day; `summary --json --post`, or `--yes` or `--channel` without `--post`; an `announce` or `summary` `--channel` where messaging posts through a webhook; `status --plain` with `--json`; a `pr --base` git would refuse as a branch's name, or `pr --body` with `--template`; `reviews --sort` with an order it does not know; an `issues --view` naming no view `jira.views` configures; `--port` without `--web`, or outside 1 to 65535; a confirmation, or the guided `config init`, with no terminal to answer it; a `slack login` answer left blank; a `comment` with nothing but white space on standard input; an `assign` whose username is blank; a `worklog` with a blank duration, or on a forge issue, which keeps no worklog. |
+| 3 | Configuration: fix the file, a credential or a login. | No `.workflow.json` for `doctor`, `config show` or `slack login`; a file that does not parse; a required field left empty, or set unusably; a file other users can read; a `ui.keys` map the interface refuses to start on; no messaging configured for `announce` or `summary --post`; a `worklog` with no Jira configured, where the forge's issues are the tracker; a `slack login` where Slack posts through a webhook, or `messaging.kind` names another service, or whose credentials Slack refuses to refresh; no repository remote for `reviews` to find the forge from, or one on a host other than `github.com`, a `ghe.com` tenant, `gitlab.com` or the `forge.host` a `forge.kind` of `github` or `gitlab` describes; a credential that is missing — a Jira token, or a forge token from the file, the environment or `gh auth login` — or one a service rejected, a Jira 403 that says what the token may not do among them. |
 | 4 | A refused precondition: the command would not go ahead because of what it found. | A pull request already open; no commits to open one for; no pull request to announce; a `finish` on a branch that has not merged, has no base to return to, holds commits that neither merged nor are on its upstream, or is not a branch of its own; a branch or configuration file that already exists; a directory that is not a git repository; a `db-clean` that could not remove a database file, as one another program holds open can be on Windows; a `summary --post` too long for the messaging service; a `transition` to a status the tracker does not offer from where the issue stands, which names those it does, or one whose move asks for fields, which names them. |
 | 5 | Unreachable: a service did not answer, or asked you to wait. | Jira, the forge or the messaging service could not be reached — Slack among them when `slack login` refreshes — began an answer it did not finish in time, or answered with a redirect — a sign-in gateway in front of it, say — which is refused so the credential goes nowhere else; rate limiting. |
 | 130 | Interrupted by Ctrl+C. | |
@@ -125,6 +126,7 @@ holds it.
 | `comment` | `Comment on KEY:` and the comment as the tracker will store it | the dry-run line, "Not posted.", "Commented on KEY." |
 | `transition` | `Move KEY to STATUS (MOVE)`, the move the tracker offers | the dry-run line, "Left KEY as it is.", "Moved KEY to STATUS." |
 | `assign` | `Assign KEY to USERNAME` | the dry-run line, "Not assigned.", "Assigned KEY to USERNAME." |
+| `worklog` | `Log DURATION on KEY`, and the `--comment` note indented beneath it | the dry-run line, "Not logged.", "Logged DURATION on KEY." in Jira's own words for the time |
 | `slack login` | | the dry-run line, "Logged in to Slack as …" |
 | `db-clean` | the store's directory and each database file in it | the warning before `--all` removes `kept.db`, the dry-run line, "Nothing to remove.", "Nothing removed.", "Removed …" |
 | `workflow --web` | | the address it serves on; with no configuration file, the ways to set one up (Settings, `workflow config init`); why the configuration did not load cleanly, and the cause of each failure it answers as `internal`, credentials masked |
@@ -351,7 +353,7 @@ nothing is checked.
 
 ## Writing without a person: `--yes` and `--dry-run`
 
-`branch`, `pr`, `finish`, `announce`, `comment`, `transition`, `assign`,
+`branch`, `pr`, `finish`, `announce`, `comment`, `transition`, `assign`, `worklog`,
 `summary --post` and `db-clean` print a preview and ask before they write. Two
 flags change that, each spelled the same short way on every command that takes it:
 
