@@ -19,8 +19,8 @@ var ErrOptionLikeRef = errors.New("a ref cannot start with a dash")
 
 // ChangedPaths lists the paths the checked-out branch changes since it left
 // base: `git diff base...HEAD`, renames read as a delete and an add so both
-// paths are listed. base is a branch name, read as origin's copy when origin
-// has one, since that is what a pull request merges into. The paths are for
+// paths are listed. base is a branch name, read as the base remote's copy
+// when it has one, since that is what a pull request merges into. The paths are for
 // matching, not for showing, so one that would draw differently — a joined
 // emoji, a tab — is kept; only one holding a control character other than a
 // tab, which no one names a file with to own it, is left out.
@@ -51,15 +51,15 @@ func isControlNotTab(character rune) bool {
 	return character != '\t' && unicode.IsControl(character)
 }
 
-// baseRef is the ref a base branch is read at: origin's copy of it when one
-// has been fetched, and the name as given otherwise.
+// baseRef is the ref a base branch is read at: the base remote's copy of it
+// when one has been fetched, and the name as given otherwise.
 func (r Repository) baseRef(ctx context.Context, base string) (string, error) {
 	err := notAnOption(base)
 	if err != nil {
 		return "", err
 	}
 
-	remote := remoteBranch(base)
+	remote := remoteBranch(r.BaseRemote(ctx), base)
 	if optional(ctx, r.run, "-C", r.dir, "rev-parse", "--verify", "--quiet", "refs/remotes/"+remote) != "" {
 		return remote, nil
 	}

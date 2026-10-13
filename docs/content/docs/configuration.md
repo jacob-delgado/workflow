@@ -599,9 +599,10 @@ nobody.
   GitLab `CODEOWNERS`, `docs/CODEOWNERS`, then `.gitlab/CODEOWNERS`, with
   GitLab's sections, default owners and `!` exclusions. On GitLab the lines
   before the first header are the section named `codeowners`, and a later
-  `[codeowners]` header adds to them. The base is read as
-  `origin`'s copy when one has been fetched, so a stale `origin/<base>` gives
-  stale owners — `git fetch` brings them up to date.
+  `[codeowners]` header adds to them. The base is read as the base remote's
+  copy when one has been fetched (`origin`'s, or `upstream`'s in a fork's
+  clone), so a stale `origin/<base>` gives stale owners — `git fetch` brings
+  them up to date.
 - **Which patterns.** Each forge's patterns read as that forge reads them. On
   GitLab a pattern matches a whole path: `docs/` and `/docs/` cover
   everything under a `docs` directory, while `docs` and `/docs` name only a
