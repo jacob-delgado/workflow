@@ -48,6 +48,32 @@ func TestEveryWriteCountsInFlightUnderItsName(t *testing.T) {
 	}
 }
 
+// Opening a page changes nothing workflow or a forge holds, and an opener may
+// run the browser until it closes, so a quit does not wait for it.
+func TestOpeningAPageCountsInFlightNowhere(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	flow := pageOpening()
+	start := flow.start(t)
+	held := newHold(t)
+	asked := holdWrite(t, held, &start.deps, openURLPath)
+	inFlight := lifetime.NewInFlight(0)
+	program := lifetime.Counting(t.Context(), inFlight)
+	model := sized(t, tui.New(start.cfg, start.loadErr, start.deps).WithLifetime(program), 140, 50)
+
+	// Act
+	holding(t, held, drainPast(t, held, model, model.Init()), flow.keys...)
+
+	// Assert
+	held.requireReached(t)
+	<-asked
+
+	if got := inFlight.Names(); len(got) != 0 {
+		t.Errorf("opening a page in the browser counts in flight as %q, want it counted nowhere", got)
+	}
+}
+
 func TestAStreamedWriteCountsInFlightUntilItsProgramExits(t *testing.T) {
 	t.Parallel()
 

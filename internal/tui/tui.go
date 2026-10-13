@@ -132,7 +132,8 @@ func New(cfg config.Config, loadErr error, deps Deps) Model {
 	vocab := forgeVocab(deps.Forge.Kind)
 
 	model := Model{
-		cfg: cfg, loadErr: loadErr, deps: outlasting(detached, deps, vocab.noun), given: deps, session: context.Background(),
+		cfg: cfg, loadErr: loadErr, given: deps, session: context.Background(),
+		deps:   outlasting(detached, detached, deps, vocab.noun),
 		keys:   newKeyMap(marks, vocab.noun, cfg.Messaging.Service(), cfg.UI.Keys),
 		styles: newStyles(true), marks: marks, vocab: vocab,
 		width: defaultWidth, height: defaultHeight,
@@ -175,7 +176,7 @@ func (m Model) WithContext(ctx context.Context) Model {
 func (m Model) WithLifetime(ctx context.Context) Model {
 	// Trade-off TRADE-38: a quit or a switch stops reads alone; the end of the
 	// program's lifetime stops writes too.
-	m.deps = outlasting(endingWith(ctx), m.given, m.vocab.noun)
+	m.deps = outlasting(endingWith(ctx), uncountedEndingWith(ctx), m.given, m.vocab.noun)
 
 	return m
 }

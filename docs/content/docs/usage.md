@@ -972,7 +972,8 @@ have them. See [Configuration]({{< relref "/docs/configuration" >}}).
   and exits once they have; it gives up after `timing.request_timeout`, naming
   each write it gave up on, which may be cut short as workflow exits. A switch
   does not wait: its writes go on in the directory left, and the quit waits for
-  them. A signal (SIGTERM, or the SIGINT a second `ctrl+c` sends while workflow
+  them. A page you open in the browser is not a write: a quit neither stops its
+  opening nor waits for it. A signal (SIGTERM, or the SIGINT a second `ctrl+c` sends while workflow
   is finishing) stops reads and writes alike, and workflow exits at once. An
   announcement waiting for CI is not yet a write: it is not sent if you quit
   first.
