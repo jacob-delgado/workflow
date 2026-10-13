@@ -376,12 +376,12 @@ web's form allow:
   form's Template do. A name the repository has no template of exits 1,
   naming the templates it has; beside `--body`, which leaves a template
   nothing to start, it exits 2.
-- **`--base BRANCH`** merges it into another branch, and asks that branch's
-  code owners to review rather than those of the base the branch left. The
-  title and body are still composed from the branch's commits since the base
-  it left, as the composer and the form compose them when their base is
-  edited. A name git would refuse for a branch exits 2 before anything is
-  read.
+- **`--base BRANCH`** merges it into another branch. The title and body are
+  still composed from the branch's commits since the base it left, as the
+  composer and the form compose them when their base is edited. The reviewers
+  are not: it asks the code owners of `BRANCH`, where an edited base in the
+  composer or the form keeps the code owners of the base the branch left. A
+  name git would refuse for a branch exits 2 before anything is read.
 - **`--reviewer NAME`** asks `NAME` to review in place of the code owners;
   `org/team` asks a team. Repeat it, or separate names with commas.
 - **`--draft`** opens it as a draft: the preview marks the branches `(draft)`,
