@@ -69,12 +69,18 @@ type prComposer struct {
 	// proposedFrom is what the title and body were proposed from, which a
 	// template chosen later, or the issue read later, proposes from again.
 	proposedFrom loop.DraftInput
-	body         string
-	draft        bool
-	edited       bool
+	// draftedOnto is the base proposedFrom's commits were read past: the
+	// branch's own at first, and each base chosen in the field after it.
+	draftedOnto string
+	body        string
+	draft       bool
+	edited      bool
 	// reviewersSettled reports reviewers typed, or filled from the owners,
-	// which a read of the owners then leaves alone.
-	reviewersSettled bool
+	// which a read of the owners then leaves alone. reviewersProposed is what
+	// the owners filled, so a base chosen later reads them again only while
+	// they still stand untyped over.
+	reviewersSettled  bool
+	reviewersProposed string
 	// opened is the count of overlays opened when this one opened, so the
 	// owners read for it land in it alone.
 	opened int
@@ -135,7 +141,8 @@ func (m Model) proposePullRequest(branch gitrepo.Branch, issueKey jira.Key, summ
 		title:     newInput(title),
 		base:      newInput(branch.BaseName()),
 		reviewers: newInput(""), assignees: newInput(""), labels: newInput(""),
-		focus: prFieldTitle, head: branch.Name, proposedFrom: proposedFrom, vocab: m.vocab,
+		focus: prFieldTitle, head: branch.Name, proposedFrom: proposedFrom, draftedOnto: branch.BaseName(),
+		vocab: m.vocab,
 	}
 	composer.base.Blur()
 	composer.reviewers.Blur()
@@ -246,12 +253,26 @@ func (c prComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.toggleDraft):
 		c.draft = !c.draft
 	case key.Matches(msg, m.keys.nextField, m.keys.prevField):
-		c = onFieldNav(c, around(c.focus, prFields), m.keys, msg)
+		return c.navigated(m, msg)
 	default:
 		c = c.typed(msg)
 	}
 
 	m.overlay = c
+
+	return m, nil
+}
+
+// navigated moves focus between the fields, and drafts again onto the base
+// when focus leaves it naming another.
+func (c prComposer) navigated(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	left := c.focus == prFieldBase
+	c = onFieldNav(c, around(c.focus, prFields), m.keys, msg)
+	m.overlay = c
+
+	if left && c.focus != prFieldBase {
+		return m, readBranchOnto(m.session, m.deps, c)
+	}
 
 	return m, nil
 }
