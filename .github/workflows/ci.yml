@@ -71,12 +71,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # lefthook for the wiring tests that run it, jq and node for the gate
-      # scripts' own tests.
+      # lefthook for the wiring tests that run it, jq for go-test-json.sh.
       - uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
         with:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
-          install_args: go task jq node lefthook
+          install_args: go task jq lefthook
       - name: Find the Go version and build cache
         id: go
         run: |
@@ -132,6 +131,24 @@ jobs:
           name: report-go-unit
           path: tmp/go-events.json
           retention-days: 7
+
+  # The gate scripts' own tests, every scripts/*_test.sh and
+  # scripts/release/*_test.sh, in a job of their own so that they run beside
+  # Test rather than after its Go race run, which they used to wait on. go,
+  # task, jq and node are every tool a suite runs; each stubs the rest.
+  scripts:
+    name: Script tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
+        with:
+          version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
+          install_args: go task jq node
+      - run: task test:scripts
 
   # Condition coverage, in a job of its own so that it runs beside Test rather
   # than after it: gobco runs every package's tests again, and as a step of
@@ -542,7 +559,7 @@ jobs:
   # of mistake: add a job here, add it to `needs`, and protection keeps working.
   ci-gate:
     name: ci-gate
-    needs: [lint, test, branch-coverage, web, e2e, e2e-server, cross, scan, commit-lint]
+    needs: [lint, test, scripts, branch-coverage, web, e2e, e2e-server, cross, scan, commit-lint]
     # always(), so the gate reports a verdict even when a dependency fails —
     # without it the gate would be skipped, and a skipped required check never
     # goes green.

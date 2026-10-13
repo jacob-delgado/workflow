@@ -300,7 +300,7 @@ tasks:
       - scripts/hook-environment_test.sh
 
   test:cover:
-    desc: Run the tests and enforce the coverage floor
+    desc: Run the Go tests and enforce the coverage floor
     cmds:
       # The same scrub as `test`, for the same reason. CI passes GO_TEST_JSON to
       # keep the run's events for the pull request comment's test counts;
@@ -310,7 +310,6 @@ tasks:
         {{if .GO_TEST_JSON}}scripts/go-test-json.sh {{.GO_TEST_JSON}}{{else}}go test{{end}}
         -race -timeout {{.GO_TEST_TIMEOUT}} -coverprofile=coverage.out -covermode=atomic {{.GO_PKGS}}
       - scripts/coverage-gate.sh coverage.out {{.COVERAGE_MIN}}
-      - task: test:scripts
 
   fuzz:
     desc: Run each fuzz target briefly (advisory, never a gate)
@@ -626,6 +625,7 @@ tasks:
       - task: web:gen:check
       - task: web:dist:check
       - task: test:cover
+      - task: test:scripts
       - task: web:test
       - task: cover:branch
       - task: vuln

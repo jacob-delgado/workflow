@@ -61,7 +61,8 @@ task check         # the full gate — run this before opening a pull request
 | `task web:lint` | The web frontend's eslint (accessibility at strict), `tsc`, prettier, knip, and its import boundaries |
 | `task web:gen:check` | The generated TypeScript client still matches `api/openapi.yaml` |
 | `task web:dist:check` | The committed web bundle in `internal/web/dist` is what `task web:build` makes of `web/src` |
-| `task test:cover` | Tests with the race detector, above the statement coverage floor |
+| `task test:cover` | The Go tests with the race detector, above the statement coverage floor |
+| `task test:scripts` | The gate scripts' own tests, every `scripts/*_test.sh` and `scripts/release/*_test.sh` |
 | `task web:test` | The web frontend's unit tests, above their own coverage floor |
 | `task cover:branch` | Condition coverage via gobco: was each condition seen both ways |
 | `task vuln` | `govulncheck` against the dependency graph |
