@@ -370,6 +370,10 @@ type Hooks struct {
 	Existing func(ctx context.Context) ([]hooks.GitHook, bool)
 	// Write creates a generated configuration and installs lefthook's hooks.
 	Write func(ctx context.Context, generated hooks.Generated) error
+	// Configured is the hooks lefthook's merged configuration defines, those
+	// a run by hand can stand in for apart from those only git runs, read
+	// each time it is asked; none where no lefthook is configured.
+	Configured func(ctx context.Context) (hooks.Configured, error)
 }
 
 // Tasks is what a surface asks of Taskwarrior. Every function is nil when no
