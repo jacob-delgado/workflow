@@ -271,7 +271,9 @@ func TestTransitionRefusesAFormTransition(t *testing.T) {
 
 	deps := writableDeps(new([]linkCall), &moves)
 	deps.Jira.Transitions = func(context.Context, jira.Key) ([]jira.Transition, error) {
-		return []jira.Transition{{ID: "21", ToStatus: reviewStatus, Fields: []jira.Field{{ID: "resolution"}}}}, nil
+		return []jira.Transition{{
+			ID: "21", ToStatus: reviewStatus, Fields: []jira.Field{{ID: "resolution", Name: "Resolution"}},
+		}}, nil
 	}
 
 	// Act
@@ -281,6 +283,10 @@ func TestTransitionRefusesAFormTransition(t *testing.T) {
 	failure := decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusConflict || failure.Code != api.ProblemCodeConflict || len(moves) != 0 {
 		t.Errorf("status/code = %d/%s, moves = %+v; want 409/conflict and nothing moved", recorder.Code, failure.Code, moves)
+	}
+
+	if !strings.Contains(failure.Detail, "Resolution") {
+		t.Errorf("detail = %q, want it to name the field the move asks for", failure.Detail)
 	}
 }
 
@@ -301,6 +307,10 @@ func TestTransitionRefusesAMoveJiraDoesNotOffer(t *testing.T) {
 	// Assert
 	if recorder.Code != http.StatusConflict || len(moves) != 0 {
 		t.Errorf("status = %d, moves = %+v; want 409 and nothing moved", recorder.Code, moves)
+	}
+
+	if failure := decode[api.Problem](t, recorder); !strings.Contains(failure.Detail, "Done") {
+		t.Errorf("detail = %q, want it to name the status Jira does offer", failure.Detail)
 	}
 }
 
