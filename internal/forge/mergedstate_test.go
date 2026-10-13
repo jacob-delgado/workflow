@@ -35,7 +35,7 @@ func TestFindPullRequestReportsAMergedBranch(t *testing.T) {
 			client, _ := recordingForge(t, routing(map[string]string{tt.findPath: tt.body}))
 
 			// Act
-			pull, found, err := client.FindPullRequest(t.Context(), tt.repo, featureBranch)
+			pull, found, err := client.FindPullRequest(t.Context(), tt.repo, forge.Head{Branch: featureBranch})
 
 			// Assert
 			if err != nil || !found || pull.State != forge.StateMerged {
@@ -74,7 +74,7 @@ func TestFindPullRequestReadsTheCommitItsBranchIsAt(t *testing.T) {
 			client, _ := recordingForge(t, routing(map[string]string{tt.findPath: tt.body}))
 
 			// Act
-			pull, found, err := client.FindPullRequest(t.Context(), tt.repo, featureBranch)
+			pull, found, err := client.FindPullRequest(t.Context(), tt.repo, forge.Head{Branch: featureBranch})
 
 			// Assert
 			if err != nil || !found || pull.HeadCommit != head {
@@ -122,7 +122,7 @@ func TestFindPullRequestPrefersAnOpenPullOverAMerged(t *testing.T) {
 	}))
 
 	// Act
-	pull, found, err := client.FindPullRequest(t.Context(), githubRepo(), featureBranch)
+	pull, found, err := client.FindPullRequest(t.Context(), githubRepo(), forge.Head{Branch: featureBranch})
 
 	// Assert
 	if err != nil || !found || pull.Number != 42 || pull.State != forge.StateOpen {
@@ -141,7 +141,7 @@ func TestFindPullRequestIgnoresAClosedButUnmergedPull(t *testing.T) {
 	}))
 
 	// Act
-	_, found, err := client.FindPullRequest(t.Context(), githubRepo(), featureBranch)
+	_, found, err := client.FindPullRequest(t.Context(), githubRepo(), forge.Head{Branch: featureBranch})
 
 	// Assert
 	if err != nil || found {

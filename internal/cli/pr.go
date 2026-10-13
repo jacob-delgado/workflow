@@ -229,7 +229,7 @@ func openedReport(request forge.NewPullRequest, pull forge.PullRequest) prReport
 	return prReport{
 		Pull: pullReport{
 			Number: pull.Number, URL: pull.URL, Title: cmp.Or(pull.Title, request.Title),
-			Draft: request.Draft, Head: request.Head, Base: request.Base, Body: request.Body,
+			Draft: request.Draft, Head: request.Head.Branch, Base: request.Base, Body: request.Body,
 		},
 		FollowUps: []followUpReport{},
 		ready:     true,

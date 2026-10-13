@@ -19,7 +19,7 @@ func (c prComposer) request() forge.NewPullRequest {
 	users, teams := loop.SplitReviewers(splitList(c.reviewers.Value()))
 
 	return forge.NewPullRequest{
-		Title: strings.TrimSpace(c.title.Value()), Body: c.body, Head: c.head,
+		Title: strings.TrimSpace(c.title.Value()), Body: c.body, Head: forge.Head{Branch: c.head},
 		Base: strings.TrimSpace(c.base.Value()), Draft: c.draft,
 		Reviewers: users, TeamReviewers: teams,
 		Assignees: splitList(c.assignees.Value()),
@@ -76,7 +76,7 @@ func (c prComposer) open(m Model) (Model, tea.Cmd) {
 // the offers the open goes on to make: offers, not writes, as the live path
 // makes them.
 func (c prComposer) dryRunNotice(request forge.NewPullRequest, pushed bool, offers []string) string {
-	open := "open \"" + request.Title + "\" from " + request.Head + " into " + request.Base
+	open := "open \"" + request.Title + "\" from " + request.Head.Branch + " into " + request.Base
 	if len(offers) > 0 {
 		open += ", then offer " + strings.Join(offers, " and ")
 	}
@@ -85,7 +85,7 @@ func (c prComposer) dryRunNotice(request forge.NewPullRequest, pushed bool, offe
 		return "dry run: would " + open
 	}
 
-	return "dry run: would push " + request.Head + ", then " + open
+	return "dry run: would push " + request.Head.Branch + ", then " + open
 }
 
 // create asks the forge to open the pull request.

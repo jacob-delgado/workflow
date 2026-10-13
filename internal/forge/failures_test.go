@@ -261,7 +261,7 @@ func TestReviewersTurnedDownInTroubleAreAskedForOneByOne(t *testing.T) {
 
 	// Act
 	_, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
-		Title: prTitle, Head: featureBranch, Base: baseBranch, Reviewers: []string{userAna, userBen},
+		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch, Reviewers: []string{userAna, userBen},
 	})
 
 	// Assert

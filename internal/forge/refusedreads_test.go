@@ -63,7 +63,7 @@ func TestFindPullRequestReportsAListingTheForgeRefuses(t *testing.T) {
 			client, _ := recordingForge(t, conversation(nil, map[string]bool{tt.path: true}))
 
 			// Act
-			_, found, err := client.FindPullRequest(t.Context(), tt.repo, featureBranch)
+			_, found, err := client.FindPullRequest(t.Context(), tt.repo, forge.Head{Branch: featureBranch})
 
 			// Assert
 			if !errors.Is(err, forge.ErrRefused) || found {

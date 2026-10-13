@@ -223,7 +223,7 @@ func pullFromRequest(body api.OpenPullRequestRequest, branch gitrepo.Branch) (fo
 	return forge.NewPullRequest{
 		Title:         title,
 		Body:          orZero(body.Body),
-		Head:          branch.Name,
+		Head:          forge.Head{Branch: branch.Name},
 		Base:          base,
 		Draft:         orZero(body.Draft),
 		Reviewers:     users,
@@ -255,7 +255,7 @@ func draftDTO(draft forge.NewPullRequest, branch gitrepo.Branch) api.PullRequest
 		Title:     draft.Title,
 		Body:      draft.Body,
 		Base:      draft.Base,
-		Head:      draft.Head,
+		Head:      draft.Head.Branch,
 		Draft:     draft.Draft,
 		NeedsPush: !branch.Pushed(),
 		Templates: []string{}, Template: "",

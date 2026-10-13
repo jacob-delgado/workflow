@@ -100,12 +100,22 @@ func (p PullRequest) IsOpen() bool {
 	return p.State == StateOpen
 }
 
+// Head is where a pull request's work is: its branch, and the fork that branch
+// was pushed to.
+type Head struct {
+	Branch string
+	// Fork is the path, on the forge of the repository the pull request
+	// merges into, of the repository Branch was pushed to, as
+	// contributor/repo; empty when it was pushed to that repository itself.
+	Fork string
+}
+
 // NewPullRequest is a pull request to open.
 type NewPullRequest struct {
 	Title string
 	Body  string
-	// Head is the branch with the work; Base is the branch it merges into.
-	Head  string
+	// Head is where the work is; Base is the branch it merges into.
+	Head  Head
 	Base  string
 	Draft bool
 	// Reviewers and Assignees are usernames; Labels are label names. Each forge
@@ -183,7 +193,7 @@ type PullRequestEdit struct {
 // forges agree on what a pull request is and on almost nothing about how to ask
 // for one.
 type dialect struct {
-	find       func(ctx context.Context, c Client, repo Repo, branch string) (PullRequest, bool, error)
+	find       func(ctx context.Context, c Client, repo Repo, head Head) (PullRequest, bool, error)
 	create     func(ctx context.Context, c Client, repo Repo, request NewPullRequest) (PullRequest, error)
 	update     func(ctx context.Context, c Client, repo Repo, pull PullRequest, edit PullRequestEdit) (PullRequest, error)
 	rewrite    func(ctx context.Context, c Client, repo Repo, number int, by func(string) (string, bool)) (bool, error)
@@ -264,17 +274,17 @@ func pickPull[T stated](pulls []T) (T, bool) {
 	return merged, foundMerged
 }
 
-// FindPullRequest finds the branch's pull request: an open one, or the merged
+// FindPullRequest finds the pull request from head: an open one, or the merged
 // one that means the branch is finished. A pull closed without merging is passed
 // over. The returned PullRequest carries its State, so a caller that wants only
 // an open one checks IsOpen rather than trusting found alone.
-func (c Client) FindPullRequest(ctx context.Context, repo Repo, branch string) (PullRequest, bool, error) {
+func (c Client) FindPullRequest(ctx context.Context, repo Repo, head Head) (PullRequest, bool, error) {
 	speaks, err := dialectFor(repo.Kind)
 	if err != nil {
 		return PullRequest{}, false, err
 	}
 
-	return speaks.find(ctx, c, repo, branch)
+	return speaks.find(ctx, c, repo, head)
 }
 
 // CreatePullRequest opens a pull request.

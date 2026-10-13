@@ -91,7 +91,7 @@ func TestFindPullRequestAsksEachForgeForTheBranch(t *testing.T) {
 			client, seen := recordingForge(t, routing(tt.routes))
 
 			// Act
-			found, ok, err := client.FindPullRequest(t.Context(), tt.repo, featureBranch)
+			found, ok, err := client.FindPullRequest(t.Context(), tt.repo, forge.Head{Branch: featureBranch})
 
 			// Assert
 			if err != nil || !ok || found != tt.want {
@@ -123,7 +123,7 @@ func TestFindPullRequestWithNoneOpen(t *testing.T) {
 			client, _ := recordingForge(t, answering(http.StatusOK, `[]`))
 
 			// Act
-			_, ok, err := client.FindPullRequest(t.Context(), repo, featureBranch)
+			_, ok, err := client.FindPullRequest(t.Context(), repo, forge.Head{Branch: featureBranch})
 
 			// Assert
 			if err != nil || ok {
@@ -142,7 +142,7 @@ func TestCreatePullRequestOnGitHub(t *testing.T) {
 
 	// Act
 	created, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
-		Title: prTitle, Body: "## Why\n\nBecause.", Head: featureBranch, Base: baseBranch, Draft: true,
+		Title: prTitle, Body: "## Why\n\nBecause.", Head: forge.Head{Branch: featureBranch}, Base: baseBranch, Draft: true,
 	})
 
 	// Assert
@@ -175,7 +175,7 @@ func TestCreateMergeRequestOnGitLab(t *testing.T) {
 
 	// Act
 	created, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
-		Title: prTitle, Body: "Because.", Head: featureBranch, Base: baseBranch, Draft: true,
+		Title: prTitle, Body: "Because.", Head: forge.Head{Branch: featureBranch}, Base: baseBranch, Draft: true,
 	})
 
 	// Assert
@@ -245,7 +245,7 @@ func TestARefusedPullRequestSaysWhy(t *testing.T) {
 
 			// Act
 			_, err := client.CreatePullRequest(t.Context(), tt.repo, forge.NewPullRequest{
-				Title: prTitle, Body: "", Head: featureBranch, Base: baseBranch, Draft: false,
+				Title: prTitle, Body: "", Head: forge.Head{Branch: featureBranch}, Base: baseBranch, Draft: false,
 			})
 
 			// Assert
@@ -268,7 +268,7 @@ func TestFindPullRequestNeedsAForgeThatIsKnown(t *testing.T) {
 	client, seen := recordingForge(t, answering(http.StatusOK, `[]`))
 
 	// Act
-	_, _, err := client.FindPullRequest(t.Context(), unknownForge(), featureBranch)
+	_, _, err := client.FindPullRequest(t.Context(), unknownForge(), forge.Head{Branch: featureBranch})
 
 	// Assert
 	if !errors.Is(err, forge.ErrUnknownForge) || len(*seen) != 0 {
@@ -315,7 +315,7 @@ func TestARepositoryTheTokenCannotSeeSaysSo(t *testing.T) {
 	client, _ := recordingForge(t, answering(http.StatusNotFound, `{"message":"Not Found"}`))
 
 	// Act
-	_, _, err := client.FindPullRequest(t.Context(), githubRepo(), featureBranch)
+	_, _, err := client.FindPullRequest(t.Context(), githubRepo(), forge.Head{Branch: featureBranch})
 
 	// Assert
 	if !errors.Is(err, forge.ErrNoRepository) || errors.Is(err, forge.ErrNoAPI) {
