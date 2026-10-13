@@ -150,7 +150,7 @@ them.
 | Read a file's diff | not for scripts | the selected file's diff | Show diff |
 | Commit | not for scripts | `c` | Commit staged changes |
 | Amend; fix up | not for scripts | `A`; `f` | Amend last commit; Fix up a commit |
-| Run pre-commit; set up lefthook | not for scripts | `h`; `g` | Run pre-commit; Set up lefthook |
+| Run a hook; set up lefthook | not for scripts | `h`; `g` | Run a hook; Set up lefthook |
 | **Review** | | | |
 | Open a pull request | `pr [--title --body --draft --base --reviewer --json]` | `n` | Open a pull request |
 | Link it on the issue, move the issue | `pr` asks both | offered after `n` | Link it on KEY, Move KEY to STATUS |

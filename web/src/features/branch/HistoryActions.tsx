@@ -1,11 +1,20 @@
 import { useState } from 'react'
-import type { Branch, Change, Commit } from '@/api/generated/types.gen.ts'
-import { useShortcut, useShortcutProps } from '@/features/keyboard/useShortcut.ts'
+import type {
+  Branch,
+  Change,
+  Commit,
+  ConfiguredHooks,
+  GitOnlyHook,
+} from '@/api/generated/types.gen.ts'
+import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback } from '@/lib/focus.ts'
-import { shortHash } from '@/lib/utils.ts'
+import { Failure, Reading } from '@/lib/Status.tsx'
+import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { cn, shortHash } from '@/lib/utils.ts'
 import { WriteForm } from '@/lib/WriteForm.tsx'
 import type { GitRunner } from './GitRun.tsx'
+import { readHooks } from './gitRunApi.ts'
 
 // baseName is the base branch without its remote, main for origin/main.
 function baseName(base: string): string {
@@ -93,10 +102,10 @@ export function RebaseAction({ branch, runner }: { branch: Branch; runner: GitRu
 type Asked = 'none' | 'amend' | 'fixup'
 
 // HistoryActions are the Commits section's runs, as the terminal's Commits
-// pane offers them: Run pre-commit on what is staged (h), which changes
-// nothing that leaves the machine and so runs at once; and, while something
-// is staged and a commit is not yet pushed, Amend last commit (A) and Fix up
-// a commit (f), each after a last look at the commit it rewrites.
+// pane offers them: Run a hook (h), which runs the hook chosen at once, since
+// it changes nothing that leaves the machine; and, while something is staged
+// and a commit is not yet pushed, Amend last commit (A) and Fix up a commit
+// (f), each after a last look at the commit it rewrites.
 export function HistoryActions({
   branch,
   changes,
@@ -112,7 +121,6 @@ export function HistoryActions({
   const [fixupButton, fixupBack] = useFocusHandback<HTMLButtonElement>()
   const fixupKeys = useShortcut('fixup', fixupButton)
   const commits = foldable(branch, changes)
-  const preCommit = useShortcutProps<HTMLButtonElement>('run-hook')
   const last = commits.at(-1)
   const cancel = () => {
     if (asked === 'amend') {
@@ -140,16 +148,7 @@ export function HistoryActions({
 
   return (
     <div role="group" aria-label="Commit runs" className="flex flex-wrap gap-item">
-      <Button
-        {...preCommit}
-        variant="secondary"
-        held={runner.going}
-        onClick={() => {
-          runner.start({ kind: 'hook', hook: 'pre-commit' })
-        }}
-      >
-        Run pre-commit
-      </Button>
+      <HookAction runner={runner} />
       {last === undefined ? null : (
         <>
           <Button
@@ -252,5 +251,137 @@ function FixupLook({ commits, runner, onCancel, onSent }: LookProps & { commits:
         ))}
       </fieldset>
     </WriteForm>
+  )
+}
+
+// HookAction runs one of the hooks lefthook configures, as the terminal's h
+// does: Run a hook reads them each time it is asked, and the one chosen runs
+// at once, as git would run it, without committing or pushing.
+function HookAction({ runner }: { runner: GitRunner }) {
+  const [opener, handBack] = useFocusHandback<HTMLButtonElement>()
+  const hookKeys = useShortcut('run-hook', opener)
+  const read = useAsyncAction(readHooks, {
+    fallback: 'The hooks could not be read. Try again, or run one with h in the terminal.',
+  })
+  const putAway = () => {
+    handBack()
+    read.reset()
+  }
+  const hooks = read.state === 'done' ? read.result : undefined
+
+  // The chooser is a box of its own, so it takes the row's whole width.
+  return (
+    <div className={cn('flex flex-col gap-tight', hooks !== undefined && 'basis-full')}>
+      {hooks === undefined ? (
+        <Button
+          variant="secondary"
+          ref={opener}
+          aria-keyshortcuts={hookKeys}
+          held={runner.going || read.state === 'running'}
+          onClick={() => {
+            void read.run()
+          }}
+          className="self-start"
+        >
+          Run a hook
+        </Button>
+      ) : (
+        <HookLook
+          hooks={hooks}
+          onCancel={putAway}
+          onRun={(hook) => {
+            putAway()
+            runner.start({ kind: 'hook', hook })
+          }}
+        />
+      )}
+      {read.state === 'running' ? <Reading>Reading the hooks…</Reading> : null}
+      {read.state === 'error' ? <Failure>{read.error}</Failure> : null}
+    </div>
+  )
+}
+
+// firstChoice is the hook the chooser starts on: pre-commit when it can run,
+// as h then enter runs it in the terminal, else the first that can, else none.
+function firstChoice(runnable: string[]): string {
+  return runnable.includes('pre-commit') ? 'pre-commit' : (runnable[0] ?? '')
+}
+
+interface HookLookProps {
+  hooks: ConfiguredHooks
+  onCancel: () => void
+  onRun: (hook: string) => void
+}
+
+// HookLook chooses the hook to run among those a run by hand can stand in
+// for, and lists those only git runs, with what git hands each, which cannot
+// be chosen. A radio group is one Tab stop, and the arrow keys move within it.
+function HookLook({ hooks, onCancel, onRun }: HookLookProps) {
+  const [chosen, setChosen] = useState(firstChoice(hooks.runnable))
+
+  return (
+    <WriteForm
+      label="Run a hook"
+      act="Run"
+      busy={null}
+      error=""
+      disabled={chosen === ''}
+      onSend={() => {
+        onRun(chosen)
+      }}
+      onCancel={onCancel}
+    >
+      {hooks.runnable.length === 0 ? (
+        <p className="text-sm">
+          {hooks.git_only.length === 0
+            ? 'lefthook configures no hook here.'
+            : "None of lefthook's hooks here can be run by hand."}
+        </p>
+      ) : (
+        <fieldset className="flex flex-col gap-tight">
+          <legend className="mb-tight text-sm">
+            Run which hook, as git would, without committing or pushing?
+          </legend>
+          {hooks.runnable.map((hook) => (
+            <label key={hook} className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="hook"
+                value={hook}
+                checked={chosen === hook}
+                onChange={() => {
+                  setChosen(hook)
+                }}
+                className="size-4"
+              />
+              <span className="font-mono">{hook}</span>
+            </label>
+          ))}
+        </fieldset>
+      )}
+      <GitOnlyHooks hooks={hooks.git_only} />
+    </WriteForm>
+  )
+}
+
+// GitOnlyHooks lists the hooks only git runs, each with what git hands it
+// that a run by hand would not, set back in color; nothing when there are
+// none.
+function GitOnlyHooks({ hooks }: { hooks: GitOnlyHook[] }) {
+  if (hooks.length === 0) {
+    return null
+  }
+
+  return (
+    <div className="flex flex-col gap-tight text-sm text-muted-foreground">
+      <p>Only git runs these:</p>
+      <ul aria-label="Hooks only git runs" className="flex flex-col gap-tight">
+        {hooks.map((hook) => (
+          <li key={hook.name}>
+            <span className="font-mono">{hook.name}</span>: {hook.reason}
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
