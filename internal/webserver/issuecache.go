@@ -5,6 +5,7 @@ package webserver
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -42,7 +43,9 @@ type heldPage struct {
 // cache, searched again once it is older than the forge's interval. Every
 // stream shares the search, so it runs to its end even if the page whose
 // frame, under ctx, began it leaves: one canceled then would be held as failed
-// for every page until the interval passed. It ends when the server stops.
+// for every page until the interval passed. It ends when the server stops. A
+// search that answered keeps its page in the store for the next session, once
+// it is held, so no other stream waits on the store's write.
 func (s *server) frameIssues(ctx context.Context, jql string) (jira.SearchResult, error) {
 	return sharedRead(ctx,
 		func() turn[jira.SearchResult] { return s.issuesHeld.serve(jql, s.now(), s.forgeInterval()) },
@@ -53,9 +56,30 @@ func (s *server) frameIssues(ctx context.Context, jql string) (jira.SearchResult
 			result, err := s.deps.Jira.Search(shared, jql, 0)
 			s.issuesHeld.land(jql, dropped, heldPage{result: result, failed: err, readAt: s.now()})
 
+			if err == nil {
+				s.keepFirstPage(shared, jql, result.Issues)
+			}
+
 			return result, err
 		},
 	)
+}
+
+// keepFirstPage keeps a view's first page of issues in the store, by the
+// terminal's rule: first pages only, and nothing for a search that failed, so
+// either surface opens on the list the other last saw. A dry run keeps
+// nothing. A store that could not keep the list is noted, since the list is
+// shown all the same. It runs under the shared search's context, so it
+// outlives the page that searched and ends with the server.
+func (s *server) keepFirstPage(ctx context.Context, jql string, issues []jira.Issue) {
+	if s.deps.Store.CacheIssues == nil || s.info.DryRun {
+		return
+	}
+
+	err := s.deps.Store.CacheIssues(ctx, jql, issues)
+	if err != nil {
+		s.unexpected(fmt.Errorf("keeping the issue list for the next session: %w", err))
+	}
 }
 
 // serve answers the page held for jql while it is fresh, and while a search
