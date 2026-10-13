@@ -51,7 +51,7 @@ func TestAFailedRunFindsItsPlacesOffTheUpdateLoop(t *testing.T) {
 	// Finding a place a tool printed relative to its package can walk the whole
 	// checkout, which must not freeze the interface while it happens.
 	failing := failingLint()
-	running, next := pressed(t, typing(t, failing.live(t, 120, 40), "3"), "h")
+	running, next := pressed(t, typing(t, failing.live(t, 120, 40), "3", "h"), keyEnter)
 
 	// The start, then each line of output, arrives as a message of its own.
 	for range len(failing.commitLines) + 1 {
@@ -90,7 +90,7 @@ func TestAFailedRunDropsThePlacesOfARunNoLongerShown(t *testing.T) {
 	// A walk of the checkout can outlast the run: the user retries before its
 	// places arrive, and the new run must not show the old run's places.
 	failing := failingLint()
-	running, next := pressed(t, typing(t, failing.live(t, 120, 40), "3"), "h")
+	running, next := pressed(t, typing(t, failing.live(t, 120, 40), "3", "h"), keyEnter)
 
 	for range len(failing.commitLines) + 1 {
 		running, next = finish(t, running, next)
@@ -121,7 +121,7 @@ func TestAFailedRunOffersAPlacePrintedBeforeTheTailItKeeps(t *testing.T) {
 	)
 
 	// Act
-	failed := typing(t, failing.live(t, 120, 40), "3", "h")
+	failed := typing(t, failing.live(t, 120, 40), "3", "h", keyEnter)
 
 	// Assert
 	requireScreen(t, failed.View().Content, "the pre-commit hook failed", "a.go:1 first")
@@ -135,7 +135,7 @@ func TestAFailedPreCommitRunLeadsWithTheHook(t *testing.T) {
 	hooked.commitErr = gitExited(1)
 
 	// Act
-	view := typing(t, hooked.live(t, 120, 40), "3", "h").View().Content
+	view := typing(t, hooked.live(t, 120, 40), "3", "h", keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, "┏━ pre-commit", "✗ the pre-commit hook failed")

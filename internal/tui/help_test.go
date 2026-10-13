@@ -85,7 +85,7 @@ func placedBindings() []helpGroup {
 			"commit            c          commit",
 			"amend             A          amend",
 			"fixup             f          fix up",
-			"run-pre-commit    h          run pre-commit",
+			"run-hook          h          run a hook",
 			"set-up-lefthook   g          set up lefthook"),
 		placed("Review",
 			"open-pull-request n          open pull request",

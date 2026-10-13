@@ -102,7 +102,7 @@ func paneStates() map[string]paneState {
 		},
 		"Branch, unpushed": {digit: "2", world: unpushedWorld, answers: "push refresh"},
 		"Commits, everything at once": {
-			digit: "3", world: everythingAtOnce, answers: "stage unstage-all discard-change commit run-pre-commit refresh",
+			digit: "3", world: everythingAtOnce, answers: "stage unstage-all discard-change commit run-hook refresh",
 		},
 		"Commits, unpushed with changes to stage and hooks outside lefthook": {
 			digit: "3", world: foldingWithHooks, answers: "stage-all amend fixup set-up-lefthook refresh",

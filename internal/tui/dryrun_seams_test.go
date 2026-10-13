@@ -24,7 +24,7 @@ func readOnly(w *world) tui.Deps {
 	deps.Forge.CreatePullRequest, deps.Forge.EditPullRequest, deps.Forge.Rerun, deps.Forge.Merge = nil, nil, nil, nil
 	deps.Forge.RewriteDescription = nil
 	deps.Messaging.Post = nil
-	deps.Hooks = seams.Hooks{Run: nil, Existing: deps.Hooks.Existing, Write: nil}
+	deps.Hooks = seams.Hooks{Run: nil, Existing: deps.Hooks.Existing, Write: nil, Configured: deps.Hooks.Configured}
 	deps.Tasks = seams.Tasks{}
 
 	return deps

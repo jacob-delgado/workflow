@@ -25,8 +25,8 @@ var errLongReason = errors.New(
 // have a body that could push a failure below the fold.
 func twoHooks() []hooks.GitHook {
 	return []hooks.GitHook{
-		{Name: "commit-msg", Script: "#!/bin/sh\nmake test\n"},
-		{Name: "pre-push", Script: "#!/bin/sh\nmake lint\n"},
+		{Name: commitMsgHook, Script: "#!/bin/sh\nmake test\n"},
+		{Name: prePushHook, Script: "#!/bin/sh\nmake lint\n"},
 	}
 }
 

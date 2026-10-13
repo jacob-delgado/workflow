@@ -60,7 +60,7 @@ func TestOutsideARepositoryEachRepoPaneSaysSoAndOffersNoRepoKeys(t *testing.T) {
 		unwanted string
 	}{
 		"Branch":  {pane: "2", unwanted: "b new branch"},
-		"Commits": {pane: "3", unwanted: "h run pre-commit"},
+		"Commits": {pane: "3", unwanted: "h run a hook"},
 		"Review":  {pane: "4", unwanted: "n open pull request"},
 	}
 
@@ -92,7 +92,7 @@ func TestOutsideARepositoryARepoKeyTheFooterLeavesOutDoesNothing(t *testing.T) {
 		unwanted string
 	}{
 		"switching branch on Branch":   {keys: []string{"2", "s"}, unwanted: "Switch to another task's branch"},
-		"running the hooks on Commits": {keys: []string{"3", "h"}, unwanted: "┏━ pre-commit"},
+		"running the hooks on Commits": {keys: []string{"3", "h"}, unwanted: "┏━ Run a hook"},
 	}
 
 	for name, tt := range cases {

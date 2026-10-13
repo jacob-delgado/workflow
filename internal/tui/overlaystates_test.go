@@ -96,16 +96,16 @@ func fieldfulStatus() *world {
 	return moving
 }
 
-// hookRunning is the pre-commit hook running and not yet done: its start is
-// answered, and its output never comes.
+// hookRunning is the pre-commit hook, chosen in the hook picker, running and
+// not yet done: its start is answered, and its output never comes.
 func hookRunning(t *testing.T, moved map[string]tea.KeyPressMsg) tui.Model {
 	t.Helper()
 
 	repo := newWorld()
 	repo.runBlocks = true
 	repo.cfg.UI.Keys = keysOf(moved)
-	commits := stepping(t, repo.live(t, overlayWidth, overlayHeight), moved, "3")
-	starting, start := commits.Update(moved["run-pre-commit"])
+	picking := stepping(t, repo.live(t, overlayWidth, overlayHeight), moved, "3", "run-hook")
+	starting, start := picking.Update(moved[applyAction])
 	running, _ := finish(t, concrete(t, starting), start)
 
 	return running
@@ -173,6 +173,9 @@ func overlayStates() map[string][]overlayState {
 			stateAt(newWorld, "toggle-help"),
 			stateAt(newWorld, "toggle-help", downAction, "scroll-down")),
 		named("the lefthook offer", stateAt(foldingWithHooks, "3", "set-up-lefthook")),
+		named("the hook picker",
+			stateAt(newWorld, "3", "run-hook"),
+			stateAt(newWorld, "3", "run-hook", downAction)),
 		named("the Jira link offer", stateAt(unlistedIssue, "4", "open-pull-request", applyAction)),
 		named("the assign or log-work form", stateAt(newWorld, "1", "assign")),
 		named("a job's log",

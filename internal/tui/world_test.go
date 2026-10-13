@@ -189,6 +189,10 @@ type world struct {
 	writeErr    error
 	// installErr is lefthook failing to install once lefthook.yml is written.
 	installErr error
+	// lefthookHooks is the hooks lefthook's configuration defines, and
+	// lefthookErr lefthook failing to say.
+	lefthookHooks hooks.Configured
+	lefthookErr   error
 	// learnedScope is the commit scope the store reports as last used here; empty
 	// means nothing was recorded.
 	learnedScope string
@@ -301,8 +305,20 @@ func newWorld() *world {
 		ci:        []forge.CI{{State: forge.CIPassed, Total: 1, Done: 1, Failed: 0}},
 		author:    "jacob",
 		jobLog:    forge.JobLog{Text: "--- FAIL: TestRetry\n    retry_test.go:41: got 4", Truncated: true},
+		lefthookHooks: hooks.Configured{
+			Runnable: []string{preCommitHook, prePushHook},
+			GitOnly:  []hooks.GitOnly{{Name: commitMsgHook, Reason: commitMsgReason}},
+		},
 	}
 }
+
+// The hooks the fake lefthook configures, and why only git runs commit-msg.
+const (
+	preCommitHook   = "pre-commit"
+	prePushHook     = "pre-push"
+	commitMsgHook   = "commit-msg"
+	commitMsgReason = "git hands it the file holding the commit message"
+)
 
 // record notes a call.
 func (w *world) record(call string) {
@@ -517,6 +533,15 @@ func (w *world) hookDeps() seams.Hooks {
 			w.configured = true
 
 			return w.installErr
+		},
+		Configured: func(context.Context) (hooks.Configured, error) {
+			w.record("configured")
+
+			if w.lefthookErr != nil {
+				return hooks.Configured{}, w.lefthookErr
+			}
+
+			return w.lefthookHooks, nil
 		},
 	}
 }

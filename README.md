@@ -179,7 +179,7 @@ only the keys that do something right now.
 | `tab` / `1`–`9` | anywhere | Move between panes |
 | `t` / `c` / `b` | Issues | Change status, comment, branch for the issue |
 | `space` / `a` / `c` | Commits | Stage a file, stage all, commit |
-| `h` | Commits | Run the pre-commit hook |
+| `h` | Commits | Run a hook lefthook configures |
 | `P` | Branch | Push |
 | `n` | Review | Open the pull or merge request |
 | `p` | messaging | Preview the announcement; announce now or once CI passes |
