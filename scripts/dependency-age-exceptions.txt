@@ -10,5 +10,3 @@
 #     <name> <version> <advisory>
 #
 # Remove a line once its version is a week old; it has done its job.
-
-solid-js 1.9.16 GHSA-p6vx-979v-rg4c
