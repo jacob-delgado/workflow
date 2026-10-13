@@ -571,7 +571,7 @@ under the title until the next, and the checklist goes back to what is kept.
 An announcement waits for the pull request it was written for, and no other.
 Switch to another branch while it waits, or replace the pull request, and it is
 dropped, saying so, rather than sent for something you never previewed. A pull
-request is announced once at each moment — ready for review, CI red, merged —
+request is announced once at each moment — ready for review, then merged —
 and the messaging pane and the top row say whether the one on screen has been.
 One closed without merging is none the loop follows: both read it as not
 announced, whatever was announced of it before, and the messaging pane, like

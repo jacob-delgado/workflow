@@ -107,7 +107,7 @@ concept that needs a new word adds a row.
 | Checking out a git branch | **Switch branch** … **Switching…** … **Switched to NAME** |
 | Changing the directory workflow works in | **Switch** … **Switched to** |
 | The review queue | **Reviews**, headed "Waiting on your review" |
-| The ready, merged or CI-red message | **Announce** … **Announced to** |
+| The ready or merged message | **Announce** … **Announced to** |
 | The Summary, sent to the team | **Post** … **Posted to** |
 | Narrowing by typing | **Search** (`/` in the terminal) |
 | Narrowing by a checklist | **Filter** (`f` in the terminal) |

@@ -87,8 +87,8 @@ it (the command line exits 4 there; the event stream shows the branch, changes
 and review empty instead), a working tree with uncommitted changes, a branch
 that already exists, nothing staged to commit, no pull request to announce or
 to link, no branch checked out (a detached `HEAD`) to link to an issue or to
-unlink from one, an announcement that changed since the page previewed it (CI
-turned red, the pull request merged — nothing is posted; preview it again), an
+unlink from one, an announcement that changed since the page previewed it (the pull request
+merged — nothing is posted; preview it again), an
 announcement whose linked code owners are not the people its preview showed
 tagged (a link changed in Settings or a terminal since — nothing is posted;
 preview it again), an

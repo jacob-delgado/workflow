@@ -226,10 +226,10 @@ func TestStatusLineReadsTheAnnouncementAtTheCurrentMoment(t *testing.T) {
 		remembered messaging.Moment
 		mark       string
 	}{
-		"ready, announced ready":       {status: runningStatus(), remembered: messaging.MomentReady, mark: "● Slack"},
-		"ready, announced only merged": {status: runningStatus(), remembered: messaging.MomentMerged, mark: "○ Slack"},
-		"CI red, announced CI red":     {status: failingStatus(), remembered: messaging.MomentCIRed, mark: "● Slack"},
-		"CI red, announced only ready": {status: failingStatus(), remembered: messaging.MomentReady, mark: "○ Slack"},
+		"ready, announced ready":        {status: runningStatus(), remembered: messaging.MomentReady, mark: "● Slack"},
+		"ready, announced only merged":  {status: runningStatus(), remembered: messaging.MomentMerged, mark: "○ Slack"},
+		"CI red, announced ready":       {status: failingStatus(), remembered: messaging.MomentReady, mark: "● Slack"},
+		"CI red, announced only merged": {status: failingStatus(), remembered: messaging.MomentMerged, mark: "○ Slack"},
 	}
 
 	for name, tt := range cases {

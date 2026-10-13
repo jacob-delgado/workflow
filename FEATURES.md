@@ -112,8 +112,8 @@ Impact: low · Effort: small
 
 Impact: medium · Effort: medium
 
-- Why: A pull request is announced up to three times — ready, CI red,
-  merged — as three top-level posts, and readers lose the story. The
+- Why: A pull request is announced up to twice — ready, then merged — as
+  two top-level posts, and readers lose the story. The
   interface once could not thread because there was nowhere to keep a
   message timestamp; the on-disk store (`internal/store`, on by default) now
   keeps what was announced per pull request and moment
@@ -126,14 +126,12 @@ Impact: medium · Effort: medium
   preview says so; `Post` in `internal/messaging/post.go` decodes no `ts`
   from chat.postMessage's `verdict` and returns only an error, so it must
   return the timestamp), the post seam that carries it to the record on
-  every surface (`loop.Deliver`'s `post` and `Announced`,
-  `internal/loop/announce.go:217`, which the interface's
-  `seams.Messaging.Post`, `internal/seams/seams.go:177`,
-  `announceSeams.Post` in `internal/cli/announce.go` and the web server's
-  `Deps.Post`, through `server.Announce`
-  (`internal/webserver/announce.go:78`), all post through), and the *Each
-  announcement is its own message* limit in
-  `docs/content/docs/usage.md:928`.
+  every surface (`loop.DeliverSeams.Post` and `loop.Delivery`, in
+  `internal/loop/announce.go`, which the interface's
+  `seams.Messaging.Post`, `announceSeams.Deliver` in
+  `internal/cli/announce.go` and the web server's `Deps.Post`, through
+  `server.Announce`, all post through), and the *Each announcement is its
+  own message* limit in `docs/content/docs/usage.md`.
 - Done when: the second announcement of a pull request is posted as a reply
   to the first when a user token is configured; with a webhook it posts
   top-level and the preview says why; the store still holds no token.
@@ -331,7 +329,7 @@ Impact: medium · Effort: medium
   read nothing.
 - Reopens: reading a chat service's recent history — still a non-goal, since
   workflow posts but does not read a channel.
-- Why: "CI failed" and "merged" belong under the announcement, not beside it.
+- Why: "merged" belongs under the announcement, not beside it.
   Threading needs the first message's timestamp; FEAT-81 would keep it in
   the store, and this entry is the other way to find it.
 - The version fenced here: with a user token, find the earlier message by

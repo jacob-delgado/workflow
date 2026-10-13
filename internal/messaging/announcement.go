@@ -19,8 +19,6 @@ const (
 	MomentReady Moment = iota
 	// MomentMerged is that the change has merged.
 	MomentMerged
-	// MomentCIRed is that the change's CI has gone red.
-	MomentCIRed
 )
 
 // Announcement is the message telling a channel where a change stands.
@@ -34,8 +32,8 @@ type Announcement struct {
 	// Noun is what the forge calls the change — "pull request" or "merge
 	// request". Empty defaults to "pull request".
 	Noun string
-	// Moment is what the message marks: ready for review, merged, or CI red. The
-	// zero value is ready for review.
+	// Moment is what the message marks: ready for review, or merged. The zero
+	// value is ready for review.
 	Moment Moment
 	// Kind is the service the message is rendered for: it decides the link markup
 	// — Slack's <url|text>, Markdown's [text](url), or a bare URL — and the
@@ -170,8 +168,6 @@ func (a Announcement) lead(renderer markup, link string) string {
 		}
 
 		return "A " + a.noun() + " merged: " + link
-	case MomentCIRed:
-		return "CI is red on the " + a.noun() + ": " + link
 	case MomentReady:
 	}
 

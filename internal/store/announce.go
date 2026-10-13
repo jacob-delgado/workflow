@@ -10,7 +10,7 @@ import (
 )
 
 // Announce is one announcement made in a repository: which pull request, and the
-// moment it marked — opened, its CI red, or merged. The moment is an opaque int
+// moment it marked — opened, or merged. The moment is an opaque int
 // the interface assigns, so the store need not know the interface's vocabulary.
 type Announce struct {
 	Pull   int

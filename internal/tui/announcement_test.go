@@ -33,7 +33,7 @@ func loopAnnouncement(t *testing.T, w *world) string {
 	deps := w.deps()
 	seams := loop.AnnounceSeams{
 		Branch: deps.Git.Branch, FindPull: deps.Forge.FindPullRequest, Author: deps.Forge.Author,
-		Issue: deps.Jira.Issue, BrowseURL: deps.Jira.BrowseURL, CheckCI: deps.Forge.CheckStatus,
+		Issue: deps.Jira.Issue, BrowseURL: deps.Jira.BrowseURL,
 	}
 
 	composed, err := loop.ComposeAnnouncement(t.Context(), seams, w.cfg.Messaging, w.cfg.Jira.Project, w.forgeKind)
@@ -87,10 +87,12 @@ func TestTheAnnouncementPreviewedIsTheOneLoopComposes(t *testing.T) {
 		ci        forge.CIState
 		messaging config.Messaging
 	}{
-		"ready for review":       {ci: forge.CIPassed, messaging: completeConfig().Messaging},
-		"merged, on GitLab":      {kind: forge.KindGitLab, state: forge.StateMerged, messaging: completeConfig().Messaging},
-		"its CI red, for Teams":  {ci: forge.CIFailed, messaging: teamsMessaging()},
-		"in the team's template": {ci: forge.CIPassed, messaging: teamTemplated()},
+		"ready for review": {ci: forge.CIPassed, messaging: completeConfig().Messaging},
+		"merged, on GitLab": {
+			kind: forge.KindGitLab, state: forge.StateMerged, messaging: completeConfig().Messaging,
+		},
+		"a check failed, for Teams": {ci: forge.CIFailed, messaging: teamsMessaging()},
+		"in the team's template":    {ci: forge.CIPassed, messaging: teamTemplated()},
 	}
 
 	for name, tt := range cases {

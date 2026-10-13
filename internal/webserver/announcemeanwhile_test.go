@@ -47,17 +47,15 @@ func askToWait(t *testing.T, handler http.Handler) *httptest.ResponseRecorder {
 	return postAnnounce(t, handler, map[string]string{channelField: slackChannel, whenField: whenCIPasses})
 }
 
-func TestAnAnnouncementWhoseCIFailsAsItIsAskedToWaitIsAConflict(t *testing.T) {
+func TestAnAnnouncementWhoseCIFailedAsItIsAskedToWaitIsAConflict(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// The CI runs as the announcement is composed, ready for review, and has
-	// failed by the time the hold is decided.
+	// The CI has failed by the time the hold is decided.
 	world := newForgeWorld()
 	deps := world.deps()
-	state := inTurn(forge.CIRunning, forge.CIFailed)
 	deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
-		return forge.CI{State: state(), Total: 1}, nil
+		return forge.CI{State: forge.CIFailed, Total: 1}, nil
 	}
 
 	// Act

@@ -26,7 +26,7 @@ export async function previewAnnouncement(channel = ''): Promise<Announcement> {
 // it went to, for the panel to say where, and the server's warning when the
 // store could not remember it, so a later session may offer it again. The
 // server posts that text or nothing: an announcement that reads differently by
-// the time of the post (CI turned red, the pull request merged) is refused, to
+// the time of the post (the pull request merged) is refused, to
 // be previewed again. A refusal — that, no pull request, a failed post — throws
 // the API error, whose message is safe to show. Given mentions — the people the
 // preview showed tagged and the user groups checked, for an announcement that

@@ -220,11 +220,11 @@ func TestSnapshotReadsNoStoreUnderADryRun(t *testing.T) {
 	}
 }
 
-func TestAnnouncedMomentFollowsTheCI(t *testing.T) {
+func TestAPullRequestAnnouncedReadyStaysAnnouncedWhileACheckFails(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	memory := &announceMemory{held: []loop.Announced{{Pull: 42, Moment: messaging.MomentCIRed}}}
+	memory := &announceMemory{held: []loop.Announced{readyAt42()}}
 	deps := memory.wire(filledDeps())
 	deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
 		return forge.CI{State: forge.CIFailed, Total: 1, Done: 1, Failed: 1}, nil
@@ -235,7 +235,7 @@ func TestAnnouncedMomentFollowsTheCI(t *testing.T) {
 
 	// Assert
 	if !snap.Review.Announced {
-		t.Error("a pull request announced with its CI red, still red, does not read as announced")
+		t.Error("a pull request announced as ready, whose check has failed since, does not read as announced")
 	}
 }
 
