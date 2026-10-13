@@ -117,15 +117,22 @@ SECURITY
 // this context, as it ends every other command. Once the last interface has
 // quit, workflow waits, up to timing.request_timeout, for the writes it left
 // in flight; a Ctrl+C then, which the restored terminal sends as SIGINT, or
-// SIGTERM ends those writes and exits at once.
+// SIGTERM ends those writes' contexts and exits at once, waiting for none.
 //
-// A little work runs to its end instead, bounded, since stopping it halfway
-// would lose what it was for: Settings' refresh of a Slack user token's
-// secrets and their keeping in the keychain (wiring.PlaceSlackCredentials),
-// as Slack spends the old pair when it answers, within timing.request_timeout
-// and security's 30 seconds; and a post's record (loop.Deliver) and the
-// store's open, local SQLite writes that wait at most five seconds for its
-// lock. The editor the interface hands the terminal to runs under no context:
+// A little work detaches from its asker's context, bounded, since stopping it
+// halfway would lose what it was for: Settings' refresh of a Slack user
+// token's secrets and their keeping in the keychain
+// (wiring.PlaceSlackCredentials), as Slack spends the old pair when it
+// answers, within timing.request_timeout and security's 30 seconds; and a
+// post's record (loop.Deliver) and the store's open, local SQLite writes that
+// wait at most five seconds for its lock. It runs to its end only where
+// something waits for it, as a command's own call does, and as --web's drain
+// does for a request it serves, within its five-second grace. In the terminal
+// a quit waits for it as part of a write, up to timing.request_timeout, while
+// a signal exits at once under it, and ends a post's record there as it ends
+// every write the interface sends (TRADE-38 says what that can cost).
+//
+// The editor the interface hands the terminal to runs under no context:
 // it is yours until you leave it, and a signal while it is open ends workflow
 // once you do.
 func Execute(args []string, stdout, stderr io.Writer, prompt Prompt, env Environment) error {
