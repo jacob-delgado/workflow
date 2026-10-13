@@ -263,8 +263,9 @@ goes to the server-fixed path, never one a request supplies.
 
 The store is what lets the tool feel like it remembers you. `workflow.db` is
 the cache: the scope you last committed under here, which pull requests you have
-already announced, and the last issue list it saw (so the first pane paints
-instantly, before the live search returns). `kept.db`, beside it, holds what the
+already announced, and the last issue list it saw (so the terminal's first
+pane and the web's Issues section paint at once, before the live search
+returns). `kept.db`, beside it, holds what the
 user decided and cannot be seen again: whom a forge owner is on Slack, a
 repository's groups, the favorite directories. Both are SQLite databases
 (`modernc.org/sqlite`, pure Go) under the OS-native data directory:

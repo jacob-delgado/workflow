@@ -4,6 +4,7 @@ import type {
   Issue,
   IssuesPage,
   Problem,
+  Seed,
   Snapshot,
 } from '../../src/api/generated/types.gen.ts'
 
@@ -88,6 +89,18 @@ export async function streams(page: Page, snapshot: Snapshot): Promise<void> {
       contentType: 'text/event-stream',
       body: `event: snapshot\ndata: ${JSON.stringify(snapshot)}\n\n`,
     }),
+  )
+}
+
+// seeds answers the event stream with the view's kept issues, as the server
+// sends them ahead of its first snapshot, then the snapshot when one is given.
+export async function seeds(page: Page, seed: Seed, snapshot?: Snapshot): Promise<void> {
+  const first = `id: 1\nevent: seed\ndata: ${JSON.stringify(seed)}\n\n`
+  const then =
+    snapshot === undefined ? '' : `id: 2\nevent: snapshot\ndata: ${JSON.stringify(snapshot)}\n\n`
+
+  await page.route('**/api/events**', (route) =>
+    route.fulfill({ contentType: 'text/event-stream', body: first + then }),
   )
 }
 

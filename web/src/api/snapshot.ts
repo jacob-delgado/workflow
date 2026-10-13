@@ -1,8 +1,8 @@
 import { useEffect, useEffectEvent, useState } from 'react'
 import { create } from 'zustand'
 import { getHealth } from './generated/sdk.gen.ts'
-import { zSnapshot } from './generated/zod.gen.ts'
-import type { Snapshot } from './generated/types.gen.ts'
+import { zSeed, zSnapshot } from './generated/zod.gen.ts'
+import type { IssuesPage, Snapshot } from './generated/types.gen.ts'
 import { useSessionStore } from './session.ts'
 
 // StreamStatus is how current the snapshot is: connecting before the first
@@ -21,8 +21,19 @@ const unreadable = "the server's last update did not match what this page reads;
 // reaches the server there now.
 const givenUp = 'workflow stopped sending this page updates; reload the page'
 
+// SeededIssues is a view's issues as the store last kept them, which the
+// stream sends ahead of its first snapshot: the view they were sent for, by
+// name, or null for the server's default, and the page.
+interface SeededIssues {
+  view: string | null
+  page: IssuesPage
+}
+
 interface SnapshotState {
   snapshot: Snapshot | null
+  // The view's kept issues the stream sent before its first snapshot, until a
+  // snapshot takes their place; null when none was sent, or once one has.
+  seed: SeededIssues | null
   // The issue view the snapshot was read for, by name, or null for the
   // server's default. While it differs from the chosen view a switch is under
   // way, and the snapshot's issues are still the last view's.
@@ -41,6 +52,7 @@ interface SnapshotState {
 // useEventStream is the only writer.
 export const useSnapshotStore = create<SnapshotState>(() => ({
   snapshot: null,
+  seed: null,
   view: null,
   status: 'connecting',
   reason: '',
@@ -98,11 +110,15 @@ export function useEventStream(view: string | null, onViewRefused: () => void): 
   const viewRefused = useEffectEvent(onViewRefused)
 
   useEffect(() => {
-    useSnapshotStore.setState({ status: 'connecting', reason: '' })
+    useSnapshotStore.setState({ status: 'connecting', reason: '', seed: null })
     const source = new EventSource(eventsURL(view))
 
     source.addEventListener('open', () => {
       useSnapshotStore.setState({ status: 'live', reason: '' })
+    })
+
+    source.addEventListener('seed', (event) => {
+      onSeed(view, event as MessageEvent<string>)
     })
 
     source.addEventListener('snapshot', (event) => {
@@ -126,13 +142,27 @@ function onSnapshot(view: string | null, event: MessageEvent<string>): void {
   if (parsed.success) {
     useSnapshotStore.setState({
       snapshot: parsed.data,
+      seed: null,
       view,
       status: 'live',
       reason: '',
       receivedAt: Date.now(),
     })
   } else {
-    useSnapshotStore.setState({ status: 'stale', reason: unreadable })
+    useSnapshotStore.setState({ status: 'stale', reason: unreadable, seed: null })
+  }
+}
+
+// onSeed keeps the view's kept issues the stream sent ahead of its first
+// snapshot. A seed is not an update, so the stream's state and when the last
+// snapshot landed stay as they were; one the page cannot read marks the
+// stream stale, as a snapshot it cannot read does.
+function onSeed(view: string | null, event: MessageEvent<string>): void {
+  const parsed = zSeed.safeParse(parseJSON(event.data))
+  if (parsed.success) {
+    useSnapshotStore.setState({ seed: { view, page: parsed.data.issues } })
+  } else {
+    useSnapshotStore.setState({ status: 'stale', reason: unreadable, seed: null })
   }
 }
 
@@ -154,7 +184,7 @@ function onError(source: EventSource, view: string | null, viewRefused: () => vo
   // itself (client.ts).
   if (source.readyState === EventSource.CLOSED) {
     void getHealth()
-    useSnapshotStore.setState({ status: 'closed', reason: givenUp })
+    useSnapshotStore.setState({ status: 'closed', reason: givenUp, seed: null })
 
     return
   }

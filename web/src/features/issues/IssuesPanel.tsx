@@ -1,12 +1,5 @@
-import type { ReactElement } from 'react'
-import type {
-  Issue,
-  IssuesPage,
-  Problem,
-  TaskBranch,
-  TasksSummary,
-} from '@/api/generated/types.gen.ts'
-import { useLiveSnapshot, useSnapshotStore } from '@/api/snapshot.ts'
+import type { ReactElement, ReactNode } from 'react'
+import type { Issue, Problem } from '@/api/generated/types.gen.ts'
 import { EmptyState } from '@/lib/EmptyState.tsx'
 import { FilterChips } from '@/lib/FilterChips.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
@@ -18,28 +11,19 @@ import { marksOf, placeChoices, samePlace, togglePlace, type Place } from './iss
 import { StatusMark } from './IssueStatus.tsx'
 import { IssueListControls } from './list/IssueListControls.tsx'
 import { filterOutcome, narrowed, useNarrowing } from './list/issueNarrowing.ts'
+import { useListedIssues, type ListedIssues } from './list/listedIssues.ts'
 import { MoreIssues, useIssuePaging, type IssuePaging } from './list/IssuePaging.tsx'
 import { groupBranchesByKey, IssueRows, rowMarksOf, type RowFacts } from './list/IssueRows.tsx'
 
 export function IssuesPanel() {
-  const snapshot = useLiveSnapshot()
+  const view = useUiStore((state) => state.view)
 
-  return (
-    <IssueBrowser
-      streamed={snapshot.issues}
-      unread={snapshot.problems?.issues ?? null}
-      branches={snapshot.branches}
-      tasks={snapshot.tasks}
-    />
-  )
+  return <IssueBrowser view={view} listed={useListedIssues(view)} />
 }
 
 interface IssueBrowserProps {
-  streamed: IssuesPage
-  // Why the view's first page could not be read, or null when it was.
-  unread: Problem | null
-  branches: TaskBranch[]
-  tasks: TasksSummary
+  view: string | null
+  listed: ListedIssues
 }
 
 // IssueBrowser is the issue list beside the selected issue's detail. The list is
@@ -48,10 +32,13 @@ interface IssueBrowserProps {
 // issue the filter hides or the stream drops stays open. Until the chosen
 // view's first frame lands, the stream's page is the last view's, so none of
 // it is listed under the new name. A check-out from the list says where it
-// went above the list, which outlives the row's button.
-function IssueBrowser({ streamed, unread, branches, tasks }: IssueBrowserProps) {
-  const view = useUiStore((state) => state.view)
-  const switching = useSnapshotStore((state) => state.view) !== view
+// went above the list, which outlives the row's button. Before the view's
+// first frame lands, the list is the one the store kept for the view, said
+// to be read again, with no more to load until Jira answers: the kept list's
+// total is only what was kept.
+function IssueBrowser({ view, listed }: IssueBrowserProps) {
+  const { page: streamed, unread, branches, tasks } = listed
+  const switching = listed.from === 'switching'
   const { filter, places, narrow } = useNarrowing(view)
   const paging = useIssuePaging(view, streamed, switching)
   const outcome = useOutcome()
@@ -88,6 +75,9 @@ function IssueBrowser({ streamed, unread, branches, tasks }: IssueBrowserProps) 
           {streamed.unavailable.length > 0 ? `Not read: ${streamed.unavailable.join(', ')}.` : ''}
         </p>
         <OutcomeLine said={outcome.said} />
+        {listed.from === 'seed' ? (
+          <Reading>Reading Jira… these are the issues it listed last time.</Reading>
+        ) : null}
       </div>
       {switching ? (
         <Reading>Reading the {view ?? 'default'} view…</Reading>
@@ -98,6 +88,7 @@ function IssueBrowser({ streamed, unread, branches, tasks }: IssueBrowserProps) 
           facts={facts}
           unread={unread}
           outcome={outcome}
+          more={listed.from === 'stream' ? <MoreIssues paging={paging} /> : null}
         />
       )}
     </div>
@@ -133,6 +124,9 @@ interface ListAndDetailProps {
   facts: RowFacts
   unread: Problem | null
   outcome: Teller
+  // more is the loading of more beneath the list, or nothing while the list
+  // is not yet Jira's answer.
+  more: ReactNode
 }
 
 // ListAndDetail is the view's list, with its loading of more, beside the
@@ -145,7 +139,7 @@ interface ListAndDetailProps {
 // opens each issue at its top, as a section opens, and is positioned, as the
 // content around it is, so the text it keeps for a screen reader scrolls and
 // clips with it rather than growing the content.
-function ListAndDetail({ paging, shown, facts, unread, outcome }: ListAndDetailProps) {
+function ListAndDetail({ paging, shown, facts, unread, outcome, more }: ListAndDetailProps) {
   const selected = useUiStore((state) => state.selectedIssue?.key ?? null)
 
   if (unread !== null) {
@@ -173,7 +167,7 @@ function ListAndDetail({ paging, shown, facts, unread, outcome }: ListAndDetailP
         {shown.length === 0 ? null : (
           <IssueRows issues={shown} facts={facts} rowRefs={paging.rows} outcome={outcome} />
         )}
-        <MoreIssues paging={paging} />
+        {more}
       </div>
       <div
         key={selected ?? ''}
