@@ -130,11 +130,11 @@ them.
 | Capability | Command line | Terminal | Web |
 | --- | --- | --- | --- |
 | **Issue** | | | |
-| List, search and filter issues | — (FEAT-78) | Issues pane: `/`, `f`, `v`, `ctrl+n` | Issues: View, Search, Filter, Load more |
-| Read an issue and its comments | — (FEAT-78) | the detail | the detail |
+| List, search and filter issues | `issues [--view NAME] [--json]`; search and filter not for scripts | Issues pane: `/`, `f`, `v`, `ctrl+n` | Issues: View, Search, Filter, Load more |
+| Read an issue and its comments | `issue KEY [--json]` | the detail | the detail |
 | Comment | `comment KEY`, the text on stdin | `c`, a composer with vim modes | the comment composer, Markdown |
-| Change its status | moves to `jira.review_status` inside `pr` | `t` | Change status, with the transition's fields |
-| Assign; log work | — (FEAT-78) | `a`; `w` | Assign; Log work |
+| Change its status | `transition KEY STATUS`, a move asking no fields; `pr` offers `jira.review_status` | `t` | Change status, with the transition's fields |
+| Assign; log work | `assign KEY USERNAME`; `worklog KEY DURATION` | `a`; `w` | Assign; Log work |
 | Track it in Taskwarrior | not for scripts | `T` | Track in Taskwarrior |
 | **Branch** | | | |
 | Start work | `branch KEY [--fetch]` | `b` | Start work |
