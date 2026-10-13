@@ -1,7 +1,7 @@
 import { renderHook } from '@testing-library/react'
 import { vi } from 'vitest'
 import frames from '@/test/snapshot-frames.sse?raw'
-import { FakeEventSource } from '@/test/fakeEventSource.ts'
+import { FakeEventSource } from '@/test/setup/fakeEventSource.ts'
 import { zSnapshot } from './generated/zod.gen.ts'
 import { useEventStream, useSnapshotStore } from './snapshot.ts'
 

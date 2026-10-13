@@ -2,15 +2,15 @@ import { cleanup } from '@testing-library/react'
 import { afterEach, beforeEach, vi } from 'vitest'
 import './api/client.ts'
 import { sessionStorageKey } from './api/session.ts'
-import { FakeEventSource } from './test/fakeEventSource.ts'
-import { installMatchMedia, resetMatchMedia } from './test/matchMedia.ts'
-import { resetStores } from './test/stores.ts'
+import { FakeEventSource } from './test/setup/fakeEventSource.ts'
+import { installMatchMedia, resetMatchMedia } from './test/setup/matchMedia.ts'
+import { resetStores } from './test/setup/stores.ts'
 import { themeStorageKey } from './shell/themeKey.ts'
 
 // Every zustand store the app makes is recorded as it is made, so each one is
 // put back as it was made after every test, a store added later included.
 vi.mock('zustand', async (importOriginal) => {
-  const { recordingZustand } = await import('./test/stores.ts')
+  const { recordingZustand } = await import('./test/setup/stores.ts')
 
   return recordingZustand(await importOriginal())
 })

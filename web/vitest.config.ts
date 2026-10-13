@@ -18,7 +18,7 @@ export default mergeConfig(
             // cost over a minute of the run.
             pool: 'vmThreads',
             globals: true,
-            setupFiles: ['./src/test-setup.ts', './src/test/dropFocusOnDisable.ts'],
+            setupFiles: ['./src/test-setup.ts', './src/test/setup/dropFocusOnDisable.ts'],
             include: ['src/**/*.test.{ts,tsx}'],
             // Vitest blanks every stylesheet unless told otherwise; the token
             // test reads index.css as text (`?raw`) to check the theme's
