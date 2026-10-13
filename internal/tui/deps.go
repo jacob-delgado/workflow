@@ -145,13 +145,15 @@ func (d Deps) after(wait time.Duration, fire func(time.Time) tea.Msg) tea.Cmd {
 // outlasting is deps with every write asked under a context outlive makes
 // from its caller's, which goes on when the caller's ends: each seam that
 // changes something outside the terminal (what a dry run holds back, the
-// store's records and a fetch), and the opening of a page in the browser. The
-// session ends when the program quits or switches directory, which stops every
-// read it left in flight; a write cut off there could be left half made, git's
-// index locked by an add stopped midway, so it goes on, as a web write
-// outlasts its page, until outlive ends it. A nil seam, one unavailable here,
-// stays nil.
-func outlasting(outlive outliving, deps Deps, noun string) Deps {
+// store's records and a fetch). The session ends when the program quits or
+// switches directory, which stops every read it left in flight; a write cut
+// off there could be left half made, git's index locked by an add stopped
+// midway, so it goes on, as a web write outlasts its page, until outlive ends
+// it. The opening of a page in the browser goes on past the session too,
+// under a context open makes, so a quit does not stop an opener midway, but
+// it changes nothing workflow or a forge holds, and nothing waits for it. A
+// nil seam, one unavailable here, stays nil.
+func outlasting(outlive, open outliving, deps Deps, noun string) Deps {
 	// Trade-off TRADE-38: the session's end stops reads alone; a write goes on,
 	// past a quit, until the program's lifetime ends.
 	deps.Jira = outlastingJira(outlive, deps.Jira, noun)
@@ -163,7 +165,7 @@ func outlasting(outlive outliving, deps Deps, noun string) Deps {
 	deps.Messaging.Post = outlasting2(outlive, "posting a message", deps.Messaging.Post)
 	deps.Hooks.Run = outlastingRun1(outlive, "running the hooks", deps.Hooks.Run)
 	deps.Hooks.Write = outlasting1(outlive, "setting up lefthook", deps.Hooks.Write)
-	deps.OpenURL = outlasting1(outlive, "opening a page in the browser", deps.OpenURL)
+	deps.OpenURL = outlasting1(open, "opening a page in the browser", deps.OpenURL)
 
 	return deps
 }
@@ -287,6 +289,15 @@ func endingWith(program context.Context) outliving {
 			release()
 			landed()
 		}
+	}
+}
+
+// uncountedEndingWith is a context ending when program does, for work counted
+// nowhere, which the command line does not wait for: an opener may run the
+// browser in the foreground until the browser closes.
+func uncountedEndingWith(program context.Context) outliving {
+	return func(ctx context.Context, _ string) (context.Context, context.CancelFunc) {
+		return lifetime.Until(ctx, program)
 	}
 }
 
