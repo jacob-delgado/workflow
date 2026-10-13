@@ -77,8 +77,9 @@ func reviewDeps(writes *reviewWrites) webserver.Deps {
 
 		return nil
 	}
-	deps.Git.Finish = func(_ context.Context, branch, base string) error {
-		writes.finishes = append(writes.finishes, branch+" onto "+base)
+	deps.Git.Finish = func(_ context.Context, finishing gitrepo.Finishing) error {
+		writes.finishes = append(writes.finishes,
+			finishing.Branch+" onto "+finishing.Base+" from "+finishing.Remote)
 
 		return nil
 	}
@@ -336,8 +337,10 @@ func TestFinishFinishesAMergedBranch(t *testing.T) {
 	recorder := send(t, serve(t, merged(reviewDeps(writes)), config.Default()), http.MethodPost, finishAt, "")
 
 	// Assert
-	if recorder.Code != http.StatusOK || !slices.Equal(writes.finishes, []string{testBranchName + " onto main"}) {
-		t.Errorf("status %d, finishes %v; want %s finished onto main", recorder.Code, writes.finishes, testBranchName)
+	want := []string{testBranchName + " onto main from origin"}
+	if recorder.Code != http.StatusOK || !slices.Equal(writes.finishes, want) {
+		t.Errorf("status %d, finishes %v; want %s finished onto main from origin", recorder.Code, writes.finishes,
+			testBranchName)
 	}
 }
 
@@ -346,7 +349,7 @@ func TestAFinishGitRefusesKeepsItsWordsOff(t *testing.T) {
 
 	// Arrange
 	deps := merged(reviewDeps(&reviewWrites{}))
-	deps.Git.Finish = func(context.Context, string, string) error {
+	deps.Git.Finish = func(context.Context, gitrepo.Finishing) error {
 		return fmt.Errorf("git pull from https://%s/acme.git: %w", forgeHost, errSeam)
 	}
 

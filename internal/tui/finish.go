@@ -49,8 +49,10 @@ func (m Model) finishOffer() []string {
 		return []string{"", "The branch cannot be finished yet: " + refusal.Error() + "."}
 	}
 
+	finishing := m.branch.branch.Finishing()
+
 	return []string{"", m.keys.finish.Help().Key + " finishes the branch: switch to " +
-		m.branch.branch.BaseName() + ", pull, delete it."}
+		finishing.Base + ", pull it from " + finishing.Remote + ", delete it."}
 }
 
 // canFinish reports a merged branch that can be finished: the repository can
@@ -72,10 +74,7 @@ func (m Model) startFinish() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.overlay = finishPreview{
-		vocab: m.vocab, pull: m.review.pull,
-		branch: m.branch.branch.Name, base: m.branch.branch.BaseName(),
-	}
+	m.overlay = finishPreview{vocab: m.vocab, pull: m.review.pull, finishing: m.branch.branch.Finishing()}
 
 	return m, nil
 }
@@ -83,25 +82,25 @@ func (m Model) startFinish() (Model, tea.Cmd) {
 // finishPreview previews finishing a merged branch: the three git commands it
 // runs, sent only once confirmed.
 type finishPreview struct {
-	vocab  reviewVocab
-	pull   forge.PullRequest
-	branch string
-	base   string
-	send   sendState
+	vocab     reviewVocab
+	pull      forge.PullRequest
+	finishing gitrepo.Finishing
+	send      sendState
 }
 
 var _ failable[finishPreview] = finishPreview{}
 
 // commands are the three git commands a finish runs, as gitrepo runs them.
 func (p finishPreview) commands() []string {
-	return gitrepo.FinishCommands(p.base, p.branch)
+	return p.finishing.Commands()
 }
 
 // view draws the merged pull request and the commands that finish its branch,
 // the finish's outcome pinned under the title.
 func (p finishPreview) view(kit renderKit, width, _ int) (string, string) {
 	lines := kit.pinnedOutcome(p.send, "finishing", width)
-	lines = append(lines, p.vocab.sigil+strconv.Itoa(p.pull.Number)+" merged; finish "+p.branch+" by running:", "")
+	lines = append(lines,
+		p.vocab.sigil+strconv.Itoa(p.pull.Number)+" merged; finish "+p.finishing.Branch+" by running:", "")
 
 	for _, command := range p.commands() {
 		lines = append(lines, "  "+command)
@@ -141,16 +140,16 @@ func (finishPreview) which() overlayKind { return overlayFinishPreview }
 // confirm runs the finish, or, in a dry run, says what it would do.
 func (p finishPreview) confirm(m Model) (Model, tea.Cmd) {
 	if m.dryRun {
-		return m.closeOverlay().noticed("dry run: would finish " + p.branch +
-			" (switch to " + p.base + ", pull, delete it)"), nil
+		return m.closeOverlay().noticed("dry run: would finish " + p.finishing.Branch +
+			" (switch to " + p.finishing.Base + ", pull it from " + p.finishing.Remote + ", delete it)"), nil
 	}
 
 	p.send = starting()
 	m.overlay = p
-	ctx, branch, base, finish := m.session, p.branch, p.base, m.deps.Git.Finish
+	ctx, finishing, finish := m.session, p.finishing, m.deps.Git.Finish
 
 	return m, func() tea.Msg {
-		return finished{branch: branch, err: finish(ctx, branch, base)}
+		return finished{branch: finishing.Branch, err: finish(ctx, finishing)}
 	}
 }
 

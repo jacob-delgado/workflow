@@ -195,7 +195,7 @@ func outlastingGit(outlive outliving, git seams.Git) seams.Git {
 	git.Amend = outlastingRun0(outlive, "amending the last commit", git.Amend)
 	git.Fixup = outlastingRun1(outlive, "making a fixup commit", git.Fixup)
 	git.Rebase = outlastingRun1(outlive, "rebasing", git.Rebase)
-	git.Finish = outlasting2(outlive, "finishing the branch", git.Finish)
+	git.Finish = outlasting1(outlive, "finishing the branch", git.Finish)
 	git.LinkIssue = outlasting2(outlive, "linking the branch to an issue", git.LinkIssue)
 	git.UnlinkIssue = outlasting1(outlive, "unlinking the branch from its issue", git.UnlinkIssue)
 

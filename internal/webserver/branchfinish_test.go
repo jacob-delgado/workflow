@@ -24,8 +24,18 @@ func TestTheBranchCarriesTheCommandsAFinishRuns(t *testing.T) {
 		want   []string
 	}{
 		"a branch with a base": {
-			branch: gitrepo.Branch{Name: yourLocalBranch, Base: "origin/main"},
-			want:   gitrepo.FinishCommands("main", yourLocalBranch),
+			branch: gitrepo.Branch{Name: yourLocalBranch, Base: "origin/main", BaseRemote: gitrepo.DefaultRemote},
+			want:   gitrepo.Finishing{Branch: yourLocalBranch, Base: prBase, Remote: gitrepo.DefaultRemote}.Commands(),
+		},
+		// A fork's clone pulls its base from upstream, whatever its main
+		// tracks.
+		"a fork's clone": {
+			branch: gitrepo.Branch{Name: yourLocalBranch, Base: "upstream/main", BaseRemote: "upstream"},
+			want: []string{
+				"git -c checkout.defaultRemote=upstream switch -- main",
+				"git pull --ff-only -- upstream main",
+				"git branch -D -- " + yourLocalBranch,
+			},
 		},
 		"a branch with no base": {branch: gitrepo.Branch{Name: yourLocalBranch}, want: nil},
 		"a detached head":       {branch: gitrepo.Branch{Detached: true, Base: "origin/main"}, want: nil},

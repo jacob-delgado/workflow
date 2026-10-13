@@ -115,11 +115,11 @@ func TestPullCommandFastForwardsWithoutPrompts(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	pull := gitrepo.PullCommand(workDir)
+	pull := gitrepo.PullCommand(workDir, upstreamName, "main")
 
 	// Assert
 	if pull.Dir != workDir || pull.Name != gitProgram ||
-		!slices.Equal(pull.Args, []string{"pull", "--ff-only"}) {
+		!slices.Equal(pull.Args, []string{"pull", "--ff-only", "--", upstreamName, localMain}) {
 		t.Errorf("PullCommand = %+v", pull)
 	}
 

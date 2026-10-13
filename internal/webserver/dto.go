@@ -73,7 +73,7 @@ func finishCommands(branch gitrepo.Branch) *[]string {
 		return nil
 	}
 
-	commands := gitrepo.FinishCommands(branch.BaseName(), branch.Name)
+	commands := branch.Finishing().Commands()
 
 	return &commands
 }

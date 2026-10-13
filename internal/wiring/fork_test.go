@@ -11,6 +11,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
+// mainBranch is the branch every repository here starts on.
+const mainBranch = "main"
+
 // bareRemote is a new bare repository cloned from root and added to it as
 // remote name, fetched, so the remote's branches are known to root.
 func bareRemote(t *testing.T, root, name string) string {
@@ -185,6 +188,39 @@ func TestTheGitSeamsFetchTheBaseRemote(t *testing.T) {
 	}
 }
 
+// A fork's clone's main tracks the fork, whose main is not what the branch
+// merged into: the finish catches main up from upstream instead.
+func TestTheGitSeamsFinishAForkCloneFromUpstream(t *testing.T) {
+	// Arrange
+	repo, root := forkClone(t)
+	upstreamMain := git(t, root, "rev-parse", "refs/remotes/upstream/main")
+
+	err := repo.CreateBranch(t.Context(), featureBranch, "upstream/main")
+	if err != nil {
+		t.Fatalf("CreateBranch: %v", err)
+	}
+
+	branch, err := repo.Branch(t.Context())
+	if err != nil {
+		t.Fatalf("Branch: %v", err)
+	}
+
+	// Act
+	err = repo.Finish(t.Context(), branch.Finishing())
+	// Assert
+	if err != nil {
+		t.Fatalf("Finish(%+v): %v", branch.Finishing(), err)
+	}
+
+	if got := git(t, root, "rev-parse", "main"); got != upstreamMain {
+		t.Errorf("main is at %s after the finish, want upstream's %s", got, upstreamMain)
+	}
+
+	if left := git(t, root, "branch", "--list", featureBranch); left != "" {
+		t.Errorf("the finished branch is still there: %q", left)
+	}
+}
+
 // git push -u fork records the fork as the remote the branch tracks, and a
 // plain git push goes there after; so does workflow's.
 func TestABranchPushedWithUpstreamToAForkPushesThereAfter(t *testing.T) {
@@ -206,5 +242,36 @@ func TestABranchPushedWithUpstreamToAForkPushesThereAfter(t *testing.T) {
 	// Assert
 	if err != nil || branch.PushRemote != "fork" || !branch.Pushed() {
 		t.Errorf("Branch = %+v, %v; want it pushed, and pushing, to fork", branch, err)
+	}
+}
+
+// With no local main, switching to it creates it from a remote's copy; both
+// remotes of a fork's clone hold one, so the finish says which.
+func TestTheGitSeamsFinishAForkCloneWithNoLocalBase(t *testing.T) {
+	// Arrange
+	repo, root := forkClone(t)
+	upstreamMain := git(t, root, "rev-parse", "refs/remotes/upstream/main")
+
+	err := repo.CreateBranch(t.Context(), featureBranch, "upstream/main")
+	if err != nil {
+		t.Fatalf("CreateBranch: %v", err)
+	}
+
+	git(t, root, "branch", "--quiet", "-D", mainBranch)
+
+	branch, err := repo.Branch(t.Context())
+	if err != nil {
+		t.Fatalf("Branch: %v", err)
+	}
+
+	// Act
+	err = repo.Finish(t.Context(), branch.Finishing())
+	// Assert
+	if err != nil {
+		t.Fatalf("Finish(%+v): %v", branch.Finishing(), err)
+	}
+
+	if got := git(t, root, "rev-parse", mainBranch); got != upstreamMain {
+		t.Errorf("main is at %s after the finish, want upstream's %s", got, upstreamMain)
 	}
 }

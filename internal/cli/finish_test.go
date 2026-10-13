@@ -6,6 +6,7 @@ package cli_test
 import (
 	"errors"
 	"io"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -59,29 +60,29 @@ func mergedFinishRepo(t *testing.T) string {
 	return finishRepo(t, mergedAtHead)
 }
 
-// baseTracked gives main an upstream in a bare repository on disk, so the
-// finish's pull --ff-only catches main up without reaching for the GitHub
-// origin. The remote is not origin, so the base is still the local main.
-func baseTracked(t *testing.T, repo string) {
+// originOnDisk moves origin to a bare repository on disk holding main, at a
+// file:// address on github.com: git reads such an address by its path alone,
+// so the finish's pull catches main up from disk, while the forge is still
+// found at github.com.
+func originOnDisk(t *testing.T, repo string) {
 	t.Helper()
 
 	bare := t.TempDir()
 	git(t, bare, "init", "--bare", "--quiet")
-	git(t, repo, "remote", "add", "base-upstream", bare)
-	git(t, repo, "push", "--quiet", "base-upstream", "main")
-	git(t, repo, "fetch", "--quiet", "base-upstream")
-	git(t, repo, "branch", "--quiet", "--set-upstream-to=base-upstream/main", "main")
+	git(t, repo, "remote", "set-url", "origin", "file://github.com"+filepath.ToSlash(bare))
+	git(t, repo, "push", "--quiet", "origin", "main")
+	git(t, repo, "fetch", "--quiet", "origin")
 }
 
-// divergedBase is baseTracked with main and its upstream each holding a
+// divergedBase is originOnDisk with main and origin's main each holding a
 // commit the other lacks, so pull --ff-only refuses to catch main up.
 func divergedBase(t *testing.T, repo string) {
 	t.Helper()
 
-	baseTracked(t, repo)
+	originOnDisk(t, repo)
 	git(t, repo, "switch", "--quiet", "main")
-	commit(t, repo, "upstream only")
-	git(t, repo, "push", "--quiet", "base-upstream", "main")
+	commit(t, repo, "origin only")
+	git(t, repo, "push", "--quiet", "origin", "main")
 	git(t, repo, "reset", "--quiet", "--hard", "HEAD~1")
 	commit(t, repo, "local only")
 	git(t, repo, "switch", "--quiet", finishedBranch)
@@ -137,8 +138,8 @@ func TestFinishDryRunPrintsTheThreeCommandsAndRunsNone(t *testing.T) {
 
 	for _, want := range []string{
 		"Finish " + finishedBranch + ": #7 merged",
-		"  git switch -- main",
-		"  git pull --ff-only",
+		"  git -c checkout.defaultRemote=origin switch -- main",
+		"  git pull --ff-only -- origin main",
 		"  git branch -D -- " + finishedBranch,
 	} {
 		if !strings.Contains(printed.stdout, want) {
@@ -146,7 +147,7 @@ func TestFinishDryRunPrintsTheThreeCommandsAndRunsNone(t *testing.T) {
 		}
 	}
 
-	dryRun := "dry run: would finish " + finishedBranch + " (switch to main, pull, delete it)"
+	dryRun := "dry run: would finish " + finishedBranch + " (switch to main, pull it from origin, delete it)"
 	if !strings.Contains(printed.stderr, dryRun) {
 		t.Errorf("stderr = %q, want %q", printed.stderr, dryRun)
 	}
@@ -161,7 +162,7 @@ func TestFinishYesDeletesTheMergedBranch(t *testing.T) {
 
 	// Arrange
 	repo := mergedFinishRepo(t)
-	baseTracked(t, repo)
+	originOnDisk(t, repo)
 
 	// Act
 	printed, err := runStreams(t, repo, unusedPrompt(t), "finish", "--yes")
@@ -188,7 +189,6 @@ func TestFinishAsksBeforeRunning(t *testing.T) {
 
 	// Arrange
 	repo := mergedFinishRepo(t)
-	baseTracked(t, repo)
 
 	var asked []string
 
@@ -199,7 +199,7 @@ func TestFinishAsksBeforeRunning(t *testing.T) {
 		t.Fatalf("finish declined: %v (%+v)", err, printed)
 	}
 
-	want := "Finish " + finishedBranch + ": switch to main, pull, and delete it? [y/N]: "
+	want := "Finish " + finishedBranch + ": switch to main, pull it from origin, and delete it? [y/N]: "
 	if len(asked) != 1 || asked[0] != want {
 		t.Errorf("asked %q, want only %q", asked, want)
 	}
