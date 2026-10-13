@@ -282,3 +282,54 @@ func TestRedactedMasksAMessagingWebhookAndToken(t *testing.T) {
 		t.Errorf("Redacted mutated the receiver: %q", cfg.Messaging.WebhookURL)
 	}
 }
+
+func TestAutoAnnounceIsOnByDefault(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]config.Config{
+		"before any file is read":   config.Default(),
+		"in the file config writes": config.Template(),
+	}
+
+	for name, cfg := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if !cfg.Messaging.AutoAnnounce {
+				t.Error("Messaging.AutoAnnounce = false, want true")
+			}
+		})
+	}
+}
+
+func TestAFileTurnsAutoAnnounceOff(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		body string
+		want bool
+	}{
+		"left out":     {body: `{"messaging": {"channel": "#dev"}}`, want: true},
+		"turned off":   {body: `{"messaging": {"auto_announce": false}}`, want: false},
+		"turned on":    {body: `{"messaging": {"auto_announce": true}}`, want: true},
+		"no messaging": {body: `{}`, want: true},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			cfg, err := config.Parse(strings.NewReader(tt.body))
+			// Assert
+			if err != nil {
+				t.Fatalf("Parse: %v", err)
+			}
+
+			if cfg.Messaging.AutoAnnounce != tt.want {
+				t.Errorf("AutoAnnounce = %v, want %v", cfg.Messaging.AutoAnnounce, tt.want)
+			}
+		})
+	}
+}

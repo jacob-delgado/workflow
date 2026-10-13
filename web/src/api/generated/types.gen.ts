@@ -1931,6 +1931,10 @@ export type MessagingConfig = {
     channel?: string;
     channels?: Array<string> | null;
     announcement?: string;
+    /**
+     * Arm the announcement of a pull request the terminal or --web opens, to post once its CI passes. On by default; false arms nothing, while asking to announce once CI passes still waits.
+     */
+    auto_announce?: boolean;
 };
 
 export type ForgeConfig = {

@@ -1847,8 +1847,11 @@ type MergeRequest struct {
 // MessagingConfig defines model for MessagingConfig.
 type MessagingConfig struct {
 	// AccessToken The user token's current access token (xoxe.xoxp-…), when this file keeps it. workflow replaces it on every refresh. Masked on read; empty or masked on write keeps the stored value. It goes when the client secret or the refresh token is removed.
-	AccessToken  *string   `json:"access_token,omitempty"`
-	Announcement *string   `json:"announcement,omitempty"`
+	AccessToken  *string `json:"access_token,omitempty"`
+	Announcement *string `json:"announcement,omitempty"`
+
+	// AutoAnnounce Arm the announcement of a pull request the terminal or --web opens, to post once its CI passes. On by default; false arms nothing, while asking to announce once CI passes still waits.
+	AutoAnnounce *bool     `json:"auto_announce,omitempty"`
 	Channel      *string   `json:"channel,omitempty"`
 	Channels     *[]string `json:"channels,omitempty"`
 

@@ -24,9 +24,9 @@ const (
 	tokenRow          = 1
 	keychainRow       = 2
 	projectRow        = 4
-	subjectLimitRow   = 24
-	branchTemplateRow = 26
-	storeDisabledRow  = 31
+	subjectLimitRow   = 25
+	branchTemplateRow = 27
+	storeDisabledRow  = 32
 )
 
 // editedProject is the Jira project a test types in place of the one read.
@@ -231,7 +231,7 @@ const (
 	baseURLRow       = 0
 	markdownRow      = 8
 	messagingKindRow = 10
-	commitTypesRow   = 23
+	commitTypesRow   = 24
 )
 
 // errSettingsUnreadable is a configuration file that cannot be read.

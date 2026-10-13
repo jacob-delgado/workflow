@@ -147,6 +147,7 @@ them on stderr, so there is never a question about which were read.
 | `messaging.channel` | with a Slack user token | Channel to post in, e.g. `#dev-workflow`. You must be in it. A webhook carries its own. `workflow announce --channel` and `workflow summary --post --channel` post one message elsewhere instead. |
 | `messaging.channels` | no | Further channels a user-token announcement can go to, for a change that concerns another team, e.g. `["#platform"]`. The announcement preview offers them after `messaging.channel`, which is always a choice; you must be in each. A webhook carries its own channel and offers none. |
 | `messaging.announcement` | no | Slack template for the review message, from `{author}`, `{noun}`, `{title}`, `{url}`, `{key}`, `{summary}`, `{issue_url}`. Empty, or any non-Slack kind, uses the built-in message. |
+| `messaging.auto_announce` | no | Arm the announcement of a pull request the terminal or `--web` opens, to post once its CI passes. On by default; `false` arms nothing when the terminal or `--web` opens a pull request, as a repository with no CI may want. `w`, Announce when CI passes, `--when-green` and `pr --announce` still wait when asked. |
 | `forge.kind` | on-prem only | `github` or `gitlab`, for a host whose name says neither. Anything else is refused when the file loads. |
 | `forge.host` | with `forge.kind` | The host `forge.kind` and `forge.token` are for, e.g. `git.example.com`. |
 | `forge.token` | **no** | GitHub or GitLab token. Usually leave it empty — see below. |
