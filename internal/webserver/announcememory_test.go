@@ -344,11 +344,15 @@ func TestTheNextHoldSaysNothingOfTheLastOnesWarning(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
-		ci   forge.CIState
-		want api.QueuedAnnouncementState
+		change func(*forgeWorld)
+		want   api.QueuedAnnouncementState
 	}{
-		"waiting for its CI":        {ci: forge.CIRunning, want: api.QueuedAnnouncementStateWaiting},
-		"dropped once its CI fails": {ci: forge.CIFailed, want: api.QueuedAnnouncementStateDropped},
+		"waiting for its CI": {
+			change: func(w *forgeWorld) { w.ci = forge.CIRunning }, want: api.QueuedAnnouncementStateWaiting,
+		},
+		"dropped once it merges first": {
+			change: func(w *forgeWorld) { w.state = forge.StateMerged }, want: api.QueuedAnnouncementStateDropped,
+		},
 	}
 
 	for name, tt := range cases {
@@ -367,7 +371,7 @@ func TestTheNextHoldSaysNothingOfTheLastOnesWarning(t *testing.T) {
 			heldAnnouncement(t, handler)
 			world.turn(func(w *forgeWorld) { w.pull, w.ci = 43, forge.CIRunning })
 			announceWhenGreen(t, handler, nil)
-			world.turn(func(w *forgeWorld) { w.ci = tt.ci })
+			world.turn(tt.change)
 
 			// Act
 			held := heldAnnouncement(t, handler)

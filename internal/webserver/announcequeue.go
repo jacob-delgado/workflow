@@ -4,6 +4,7 @@
 package webserver
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"strconv"
@@ -13,12 +14,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 )
-
-// failedAtFormat stamps an announcement dropped for a failed CI with the time
-// it was given up on, as the terminal does.
-const failedAtFormat = "15:04"
 
 var (
 	// errNothingHeld is a drop asked for with no announcement waiting for CI.
@@ -56,6 +54,11 @@ type heldAnnouncement struct {
 	// check is the timer of the next read of the CI for the announcement
 	// waiting now; nil when none waits.
 	check *time.Timer
+	// watch is how long its CI has reported no check, and ci how it stood on
+	// the last read, when ciRead says one answered.
+	watch  loop.CIWatch
+	ci     forge.CIState
+	ciRead bool
 }
 
 // heldState is how the held announcement stands.
@@ -76,70 +79,57 @@ const (
 )
 
 // announceWhenGreen holds a ready-for-review announcement until its pull
-// request's CI passes, answering 202 with it waiting; posts it at once when CI
-// has passed already; and refuses one that is not ready for review, or whose
-// pull request reports no CI to wait for. One posted at once is posted under
-// ctx.
+// request's CI passes, answering 202 with it waiting — while CI runs, reports
+// no check yet, has a check failed, which it waits out for a fix, or cannot be
+// read; posts it at once when CI has passed already; and refuses one that is
+// not ready for review. One posted at once is posted under ctx.
 func (s *server) announceWhenGreen(ctx context.Context, post announcePost) api.AnnounceResponseObject {
 	if post.delivery.Moment != messaging.MomentReady {
 		return api.Announce409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
-			"only a ready-for-review announcement waits for CI; this one announces a merge, "+
-				"so announce it now"))
+			"only a ready-for-review announcement waits for CI; this one announces a merge, so announce it now"))
 	}
 
-	branch, ci, err := s.ciNow(ctx, post.delivery.Pull)
-	if err != nil {
-		return s.announceFault(err)
-	}
-
-	switch ci.State {
-	case forge.CIPassed:
+	branch, ci, read := s.readCI(ctx, post.delivery.Pull)
+	if read && ci.State == forge.CIPassed {
 		return s.announceNow(ctx, post)
-	case forge.CIRunning:
-		return s.holdAnswer(post, branch)
-	case forge.CINone, forge.CIFailed:
 	}
 
-	return api.Announce409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
-		s.pullName(post.delivery.Pull.Number)+" has no running CI to wait for; announce it now"))
+	return s.holdAnswer(post, cmp.Or(branch.Name, post.branch), ciReading{ci: ci, read: read})
 }
 
-// canWaitForCI reports whether an announcement at moment for pull can be held
-// for its CI: it is ready for review and its CI is running now. A CI that
-// cannot be read cannot be waited on.
-func (s *server) canWaitForCI(ctx context.Context, moment messaging.Moment, pull forge.PullRequest) bool {
-	if moment != messaging.MomentReady {
-		return false
-	}
-
-	_, ci, err := s.ciNow(ctx, pull)
-
-	return err == nil && ci.State == forge.CIRunning
+// canWaitForCI reports whether an announcement at moment can be held for its
+// pull request's CI, read as ci when read: it is ready for review and its CI
+// has not passed.
+func canWaitForCI(moment messaging.Moment, ci forge.CI, read bool) bool {
+	return moment == messaging.MomentReady && (!read || ci.State != forge.CIPassed)
 }
 
-// ciNow is the checked-out branch and where the CI of its pull request stands
+// readCI is the checked-out branch and where the CI of its pull request stands
 // now, read fresh rather than from the stream's held answer: a hold decided on
-// an answer an interval old could wait for a CI that has finished. No CI
-// seam reads as no CI.
-func (s *server) ciNow(ctx context.Context, pull forge.PullRequest) (gitrepo.Branch, forge.CI, error) {
+// an answer an interval old could wait for a CI that has finished. It reports
+// false when the branch or the CI could not be read, or there is no way to
+// read CI.
+func (s *server) readCI(ctx context.Context, pull forge.PullRequest) (gitrepo.Branch, forge.CI, bool) {
 	branch, err := s.readBranch(ctx)
-	if err != nil {
-		return gitrepo.Branch{}, forge.CI{}, err
-	}
-
-	if s.deps.Forge.CheckStatus == nil {
-		return branch, forge.CI{}, nil
+	if err != nil || s.deps.Forge.CheckStatus == nil {
+		return branch, forge.CI{}, false
 	}
 
 	ci, err := s.deps.Forge.CheckStatus(ctx, pull, branch.Head)
 
-	return branch, ci, err
+	return branch, ci, err == nil
 }
 
-// holdAnswer holds post, answering 202 with it waiting, or 409 while the
-// one held before it is being posted.
-func (s *server) holdAnswer(post announcePost, branch gitrepo.Branch) api.AnnounceResponseObject {
-	queued, err := s.hold(post, branch)
+// ciReading is a read of a pull request's CI, and whether it answered.
+type ciReading struct {
+	ci   forge.CI
+	read bool
+}
+
+// holdAnswer holds post, written for branch and its CI as read, answering
+// 202 with it waiting, or 409 while the one held before it is being posted.
+func (s *server) holdAnswer(post announcePost, branch string, reading ciReading) api.AnnounceResponseObject {
+	queued, err := s.hold(post, branch, reading)
 	if err != nil {
 		return api.Announce409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict, err.Error()))
 	}
@@ -147,10 +137,11 @@ func (s *server) holdAnswer(post announcePost, branch gitrepo.Branch) api.Announ
 	return api.Announce202JSONResponse(queued)
 }
 
-// hold keeps post until its pull request's CI passes, replacing any held
-// before it, and sets the first of its reads of the CI; it refuses while the
-// one before is being posted.
-func (s *server) hold(post announcePost, branch gitrepo.Branch) (api.QueuedAnnouncement, error) {
+// hold keeps post, written for branch, until its pull request's CI passes,
+// replacing any held before it, its patience with no check counted from now
+// and its CI as read, and sets the first of its reads of the CI; it refuses
+// while the one before is being posted.
+func (s *server) hold(post announcePost, branch string, reading ciReading) (api.QueuedAnnouncement, error) {
 	s.held.mu.Lock()
 	defer s.held.mu.Unlock()
 
@@ -158,7 +149,13 @@ func (s *server) hold(post announcePost, branch gitrepo.Branch) (api.QueuedAnnou
 		return api.QueuedAnnouncement{}, errHeldAnnouncing
 	}
 
-	s.held.replace(post, branch.Name, heldWaiting)
+	s.held.replace(post, branch, heldWaiting)
+	s.held.watch = loop.WatchFrom(s.now())
+
+	if reading.read {
+		s.held.watched(reading.ci, s.now())
+	}
+
 	s.held.check = s.checkHeldAfter(s.held.round)
 
 	return s.held.queued(), nil
@@ -192,6 +189,8 @@ func (s *server) checkHeld(round int) {
 	defer s.held.mu.Unlock()
 
 	if s.held.round == round && s.held.state == heldWaiting {
+		// A gate that refused it may have set a read already: one goes.
+		s.held.stopWatching()
 		s.held.check = s.checkHeldAfter(round)
 	}
 }
@@ -212,10 +211,11 @@ func (s *server) settleOnRead(ctx context.Context) {
 }
 
 // settleHeld settles the held announcement against what the forge read of
-// branch: posts it once its CI has passed, drops it with the reason once its
-// CI has failed or its pull request is no longer the branch's open one, and
-// otherwise keeps it waiting. Only one caller can take it to post, and nothing
-// replaces or drops it while it posts, so it is never posted twice.
+// branch, by verdictOn: posts it, drops it with the reason, or keeps it
+// waiting. One it posts goes as the pull request and the head that read
+// passed on, which a fix pushed since it was held has moved, so the gate
+// reads the CI that let it go. Only one caller can take it to post, and
+// nothing replaces or drops it while it posts, so it is never posted twice.
 func (s *server) settleHeld(branch gitrepo.Branch, read forgeRead) {
 	s.held.mu.Lock()
 
@@ -234,6 +234,7 @@ func (s *server) settleHeld(branch gitrepo.Branch, read forgeRead) {
 		s.held.settle(heldDropped, reason)
 		s.held.mu.Unlock()
 	case heldPost:
+		s.held.post.delivery.Pull, s.held.post.delivery.Head = read.pull, branch.Head
 		post := s.held.post
 		s.held.settle(heldAnnouncing, "")
 		s.held.mu.Unlock()
@@ -253,30 +254,51 @@ const (
 )
 
 // verdictOn is what becomes of the held announcement given what the forge
-// read of branch, and the reason when it is dropped. The caller holds the
-// lock.
+// read of branch, and the reason when it is dropped: posted once its CI has
+// passed, kept waiting through a failed run for a fix, and dropped once its
+// pull request is no longer the branch's open one, or no check was reported
+// within loop.NoCIPatience. The caller holds the lock.
 func (s *server) verdictOn(branch gitrepo.Branch, read forgeRead) (string, heldVerdict) {
 	number := s.held.post.delivery.Pull.Number
 
+	err := loop.StillArmed(number, read.pull, read.found)
+	if branch.Name != s.held.branch {
+		err = loop.ErrPullChanged
+	}
+
 	switch {
-	case branch.Name != s.held.branch || !read.found || read.pull.Number != number:
-		return s.pullName(number) + " is no longer this branch's " + s.noun(), heldDrop
-	case read.pull.State == forge.StateMerged:
+	case errors.Is(err, loop.ErrMergedFirst):
 		return s.pullName(number) + " merged before its CI passed", heldDrop
+	case err != nil:
+		return s.pullName(number) + " is no longer this branch's " + s.noun(), heldDrop
 	case !read.ciRead:
 		return "", heldKeep
-	case read.ci.State == forge.CIPassed:
-		return "", heldPost
-	case read.ci.State == forge.CIFailed:
-		return "CI failed at " + s.now().Format(failedAtFormat), heldDrop
-	default:
-		return "", heldKeep
 	}
+
+	return s.verdictOnCI(number, s.held.watched(read.ci, s.now()))
+}
+
+// verdictOnCI is what becomes of the held announcement for pull request
+// number, standing as armed on a read of its CI. The caller holds the lock.
+func (s *server) verdictOnCI(number int, armed loop.Armed) (string, heldVerdict) {
+	switch armed {
+	case loop.ArmedDue:
+		return "", heldPost
+	case loop.ArmedNoCI:
+		patience := strconv.Itoa(int(loop.NoCIPatience.Minutes())) + "m"
+
+		return "no checks reported on " + s.pullName(number) + " within " + patience + "; announce it by hand", heldDrop
+	case loop.ArmedWaiting, loop.ArmedAwaitingChecks, loop.ArmedAwaitingFix:
+	}
+
+	return "", heldKeep
 }
 
 // postHeld posts the announcement taken to post, and records how it went,
 // with the warning when the store could not remember it: a moment announced
-// meanwhile, from a page or a terminal, drops it unposted. It posts under the
+// meanwhile, from a page or a terminal, drops it unposted, and one the gate
+// refused — a check failed since the read that let it go, or the CI could not
+// be read — goes back to waiting. It posts under the
 // server's lifetime, whether a frame or the timer took it to post: no page
 // asked for it, and it goes once, so none leaving may stop it halfway.
 func (s *server) postHeld(post announcePost) {
@@ -288,6 +310,9 @@ func (s *server) postHeld(post announcePost) {
 	switch {
 	case errors.Is(err, errAnnouncedAlready):
 		s.held.settle(heldDropped, s.announcedBefore(post.delivery.Pull.Number).Detail)
+	case errors.Is(err, loop.ErrCIFailed) || errors.Is(err, loop.ErrCIUnread):
+		s.held.waitAgain(err)
+		s.held.check = s.checkHeldAfter(s.held.round)
 	case err != nil:
 		s.held.settle(heldDropped, s.fault(err).Detail)
 	default:
@@ -296,22 +321,54 @@ func (s *server) postHeld(post announcePost) {
 	}
 }
 
+// droppedHold is the announcement dropHeld took from waiting, to put back
+// should what replaced it not go: whether one waited, and as it stood.
+type droppedHold struct {
+	waiting bool
+	post    announcePost
+	branch  string
+	watch   loop.CIWatch
+	ci      forge.CIState
+	ciRead  bool
+	round   int
+}
+
 // dropHeld drops the announcement waiting for CI, unposted, and forgets what
-// was said of the last one, reporting whether one was waiting; it refuses
-// while one is being posted, which goes on and is reported as it ends.
-func (s *server) dropHeld() (bool, error) {
+// was said of the last one, answering it as it stood; it refuses while one is
+// being posted, which goes on and is reported as it ends.
+func (s *server) dropHeld() (droppedHold, error) {
 	s.held.mu.Lock()
 	defer s.held.mu.Unlock()
 
 	if s.held.state == heldAnnouncing {
-		return false, errHeldAnnouncing
+		return droppedHold{}, errHeldAnnouncing
 	}
 
-	waiting := s.held.state == heldWaiting
+	dropped := droppedHold{
+		waiting: s.held.state == heldWaiting, post: s.held.post, branch: s.held.branch, watch: s.held.watch,
+		ci: s.held.ci, ciRead: s.held.ciRead,
+	}
 
 	s.held.replace(announcePost{}, "", heldNone)
+	dropped.round = s.held.round
 
-	return waiting, nil
+	return dropped, nil
+}
+
+// restoreHeld puts back the announcement dropped waiting, as it stood, the
+// post made in its place having been refused by the gate, unless another
+// was held or dropped since.
+func (s *server) restoreHeld(dropped droppedHold) {
+	s.held.mu.Lock()
+	defer s.held.mu.Unlock()
+
+	if !dropped.waiting || s.held.round != dropped.round {
+		return
+	}
+
+	s.held.replace(dropped.post, dropped.branch, heldWaiting)
+	s.held.watch, s.held.ci, s.held.ciRead = dropped.watch, dropped.ci, dropped.ciRead
+	s.held.check = s.checkHeldAfter(s.held.round)
 }
 
 // heldStatus is how the held announcement stands, for a frame: nil when none
@@ -333,8 +390,8 @@ func (s *server) heldStatus() *api.QueuedAnnouncement {
 func (s *server) CancelQueuedAnnouncement(
 	_ context.Context, _ api.CancelQueuedAnnouncementRequestObject,
 ) (api.CancelQueuedAnnouncementResponseObject, error) {
-	waiting, err := s.dropHeld()
-	if err == nil && !waiting {
+	dropped, err := s.dropHeld()
+	if err == nil && !dropped.waiting {
 		err = errNothingHeld
 	}
 
@@ -353,6 +410,29 @@ func (h *heldAnnouncement) replace(post announcePost, branch string, state heldS
 	h.stopWatching()
 	h.round++
 	h.post, h.branch, h.state, h.reason, h.warning = post, branch, state, "", ""
+	h.ci, h.ciRead = forge.CINone, false
+}
+
+// watched is how the held announcement stands on ci, read at readAt, noting
+// the read. The caller holds the lock.
+func (h *heldAnnouncement) watched(ci forge.CI, readAt time.Time) loop.Armed {
+	var armed loop.Armed
+
+	h.watch, armed = h.watch.Read(ci, readAt)
+	h.ci, h.ciRead = ci.State, true
+
+	return armed
+}
+
+// waitAgain puts the announcement taken to post back to waiting, the gate
+// having refused it with err: a failed check is its CI as last read. The
+// caller holds the lock.
+func (h *heldAnnouncement) waitAgain(err error) {
+	h.state = heldWaiting
+
+	if errors.Is(err, loop.ErrCIFailed) {
+		h.ci, h.ciRead = forge.CIFailed, true
+	}
 }
 
 // settle moves the held announcement to state, with the reason when it was
@@ -365,10 +445,16 @@ func (h *heldAnnouncement) settle(state heldState, reason string) {
 // queued is how the held announcement stands, on the wire. The caller holds
 // the lock.
 func (h *heldAnnouncement) queued() api.QueuedAnnouncement {
-	return api.QueuedAnnouncement{
+	queued := api.QueuedAnnouncement{
 		State: queuedState(h.state), Channel: h.post.delivery.Channel, Pull: h.post.delivery.Pull.Number,
 		Reason: optional(h.reason), Warning: optional(h.warning),
 	}
+
+	if h.ciRead {
+		queued.Ci = new(ciState(h.ci))
+	}
+
+	return queued
 }
 
 // stopWatching stops the next read of the CI for the announcement waiting,

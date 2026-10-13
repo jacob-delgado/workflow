@@ -653,9 +653,13 @@ export type Announcement = {
     channel: string;
     tagging?: AnnouncementTagging;
     /**
-     * Whether a preview's announcement can be held until the pull request's CI passes: it is ready for review and its CI is still running. Left out where it cannot, and on a post.
+     * Whether a preview's announcement can be held until the pull request's CI passes: it is ready for review and its CI has not passed — running, no checks reported yet, or a check failed, which the hold waits out for a fix. Left out where it cannot, and on a post.
      */
     can_wait_for_ci?: boolean;
+    /**
+     * How the pull request's CI stands as the preview was composed; a failed check means announcing now is refused. Left out when the CI could not be read, and on a post.
+     */
+    ci?: CiState;
     /**
      * Set only on a post that went out but that the store could not remember, so a later session may offer it again; the post is not a failure. Left out on a preview.
      */
@@ -699,9 +703,13 @@ export type QueuedAnnouncement = {
      */
     pull: number;
     /**
-     * Why a dropped announcement was not posted: the CI failed, the branch's pull request is another one, or the post failed.
+     * Why a dropped announcement was not posted: no check was reported on the pull request within ten minutes, so it is announced by hand; the branch's pull request is another one, or merged before its CI passed; or the post failed. A failed check does not drop it: it waits on, for a run that passes.
      */
     reason?: string;
+    /**
+     * How the pull request's CI stood on the last read while it waits; failed means it waits on a fix, none that no check is reported yet. Left out until the CI is read.
+     */
+    ci?: CiState;
     /**
      * Set only on one announced that the store could not remember, so a later session may offer it again.
      */
@@ -3933,7 +3941,7 @@ export type AnnounceData = {
 
 export type AnnounceErrors = {
     /**
-     * There is no pull request to announce, the server is not running in a git repository, or the announcement changed since the given text was previewed, or whom it tags did since the mentions' users were; or it was already announced at this moment; or, to post when CI passes, it is not ready for review or its pull request reports no CI; or, code ci_failed, a check failed on the pull request, so it was not announced.
+     * There is no pull request to announce, the server is not running in a git repository, or the announcement changed since the given text was previewed, or whom it tags did since the mentions' users were; or it was already announced at this moment; or, to post when CI passes, it is not ready for review; or, code ci_failed, a check failed on the pull request, so it was not announced now.
      */
     409: Problem;
     /**
