@@ -17,9 +17,12 @@
 # the GitHub release for every other mise tool.
 #
 # A version listed in scripts/dependency-age-exceptions.txt with the advisory
-# it fixes passes at any age: a known-vulnerability fix overrides the wait. A
-# version whose publish date cannot be learned fails, since a check that could
-# not look must not pass.
+# it fixes passes at any age: a known-vulnerability fix overrides the wait. So
+# does one listed with a maintainer's dated waiver, waived-YYYY-MM-DD: the
+# maintainer may take a version before its week, by name. A waiver dated on no
+# real day fails, as an exception naming neither does. A version whose publish
+# date cannot be learned fails, since a check that could not look must not
+# pass.
 #
 # Exits 0 when every new version is old enough, 1 when one is not or cannot be
 # dated, and 2 when git cannot compare with <base-ref>.
@@ -193,27 +196,44 @@ published() {
   esac
 }
 
-# advisory prints the advisory the exceptions file lists a version under, or
-# nothing.
-#   advisory <name> <version>
-advisory() {
+# listed_exception prints what the exceptions file lists a version under, an
+# advisory or a waiver, "none" for a line that names neither, or nothing when
+# no line lists it.
+#   listed_exception <name> <version>
+listed_exception() {
   if [[ -f "${exceptions}" ]]; then
     awk -v name="$1" -v version="$2" '$1 == name && $2 == version { print ($3 == "" ? "none" : $3); exit }' \
       "${exceptions}"
   fi
 }
 
+# excused prints why an exception lets a version skip the wait: the advisory it
+# fixes, or the day the maintainer waived it. It prints nothing for anything
+# else, a waiver dated on no real day among them: a day the calendar lacks,
+# such as February 30, does not read back as itself.
+#   excused <exception>
+excused() {
+  if [[ "$1" =~ ^(CVE-[0-9]{4}-[0-9]{4,}|GHSA(-[0-9a-z]{4}){3})$ ]]; then
+    echo "fixes $1"
+  elif [[ "$1" =~ ^waived-([0-9]{4}-[0-9]{2}-[0-9]{2})$ ]]; then
+    jq -rn --arg day "${BASH_REMATCH[1]}" '($day + "T00:00:00Z") as $time
+      | if ($time | fromdateiso8601 | todate) == $time then "waived on \($day) by the maintainer" else empty end' \
+      2>/dev/null || true
+  fi
+}
+
 # check holds one new version to the age gate.
 #   check <ecosystem> <name> <version>
 check() {
-  local name="$2" version="$3" fix when epoch
-  fix="$(advisory "${name}" "${version}")"
-  if [[ "${fix}" =~ ^(CVE-[0-9]{4}-[0-9]{4,}|GHSA(-[0-9a-z]{4}){3})$ ]]; then
-    echo "ok    ${name} ${version}: fixes ${fix}, so it is taken at any age"
+  local name="$2" version="$3" exception reason when epoch
+  exception="$(listed_exception "${name}" "${version}")"
+  reason="$(excused "${exception}")"
+  if [[ -n "${reason}" ]]; then
+    echo "ok    ${name} ${version}: ${reason}, so it is taken at any age"
     return
   fi
-  if [[ -n "${fix}" ]]; then
-    echo "FAIL  ${name} ${version}: its exception names no advisory (want a CVE or GHSA id)" >&2
+  if [[ -n "${exception}" ]]; then
+    echo "FAIL  ${name} ${version}: its exception names no advisory or dated waiver (want a CVE or GHSA id, or waived-YYYY-MM-DD)" >&2
     failed=1
     return
   fi
@@ -224,7 +244,7 @@ check() {
     echo "FAIL  cannot tell when ${name} ${version} was published; a version that cannot be dated is not adopted" >&2
     failed=1
   elif ((now - epoch < min_seconds)); then
-    echo "FAIL  ${name} ${version} was published $(((now - epoch) / 86400)) day(s) ago, on ${when%%T*}: wait until it is 7 days old, or list it in ${exceptions} with the advisory it fixes" >&2
+    echo "FAIL  ${name} ${version} was published $(((now - epoch) / 86400)) day(s) ago, on ${when%%T*}: wait until it is 7 days old, or list it in ${exceptions} with the advisory it fixes or the maintainer's dated waiver" >&2
     failed=1
   else
     echo "ok    ${name} ${version}: published ${when%%T*}"

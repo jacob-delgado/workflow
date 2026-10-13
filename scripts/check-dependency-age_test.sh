@@ -3,9 +3,11 @@
 # Tests for check-dependency-age.sh: a version a change adds to go.mod,
 # web/yarn.lock or mise.toml passes once it was published at least seven days
 # before, and fails, by name, when it is younger, unless the exceptions file
-# lists it with the advisory it fixes. A version whose publish date cannot be
-# learned fails, versions the change leaves alone are not looked up, and a base
-# git cannot resolve is refused with a status of its own.
+# lists it with the advisory it fixes or a maintainer's dated waiver. An
+# exception naming neither, or a waiver whose date is no real day, fails. A
+# version whose publish date cannot be learned fails, versions the change
+# leaves alone are not looked up, and a base git cannot resolve is refused with
+# a status of its own.
 #
 # A stand-in curl answers each registry URL from a fixture file named for it,
 # and fails as curl -f does for any other, so no case reaches the network.
@@ -111,6 +113,19 @@ young_go_without_advisory() {
   except example.com/young v1.3.0
 }
 
+# young_go_waived requires the young module and lists it as waived.
+young_go_waived() {
+  require_go example.com/young v1.3.0
+  except example.com/young v1.3.0 waived-2026-10-07
+}
+
+# young_go_waived_on_no_day lists the young module as waived on a date no
+# calendar holds.
+young_go_waived_on_no_day() {
+  require_go example.com/young v1.3.0
+  except example.com/young v1.3.0 waived-2026-02-30
+}
+
 # mise_tools pins mise tools of several kinds, all a week old.
 mise_tools() {
   pin_tool node 24.22.0
@@ -140,6 +155,12 @@ expect_output pass "a young Go module listed with its advisory" "GHSA-abcd-1234-
 
 go_no_advisory="$(repo go-no-advisory young_go_without_advisory)"
 expect_output fail "an exception that names no advisory" "names no advisory" age "${go_no_advisory}"
+
+go_waived="$(repo go-waived young_go_waived)"
+expect_output pass "a young Go module the maintainer waived" "waived on 2026-10-07" age "${go_waived}"
+
+go_waived_on_no_day="$(repo go-waived-on-no-day young_go_waived_on_no_day)"
+expect_output fail "a waiver dated on no real day" "names no advisory" age "${go_waived_on_no_day}"
 
 npm_old="$(repo npm-old resolve_npm @scope/widget 2.0.0)"
 expect_exit pass "a scoped npm package a week old" age "${npm_old}"
