@@ -1,4 +1,4 @@
-import { cn, keyedByText, plural } from './utils.ts'
+import { cn, keyedByText, plural, shortHash } from './utils.ts'
 
 test.each([
   ['gap-item', 'gap-section', 'gap-section'],
@@ -17,6 +17,11 @@ test.each([
 ])('counts %i %s in words: %s', (count, noun, said) => {
   // Act & Assert
   expect(plural(count, noun)).toBe(said)
+})
+
+test('shortHash keeps the first seven characters, as git abbreviates', () => {
+  // Act & Assert
+  expect(shortHash('a1b2c3d4e5f6')).toBe('a1b2c3d')
 })
 
 test('repeated text is keyed apart by how often it came before', () => {

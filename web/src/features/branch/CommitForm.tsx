@@ -6,7 +6,7 @@ import { Button } from '@/lib/Button.tsx'
 import { Input, Select, TextArea } from '@/lib/Field.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
-import { cn } from '@/lib/utils.ts'
+import { cn, shortHash } from '@/lib/utils.ts'
 import { commitChanges } from './commitApi.ts'
 import { Failure } from '@/lib/Status.tsx'
 
@@ -264,7 +264,7 @@ function headline(branch: Branch, fields: CommitFields): string {
   const subject =
     newest !== undefined && branch.head.startsWith(newest.hash) ? newest.subject : header(fields)
 
-  return `${branch.head.slice(0, 7)} ${subject}`
+  return `${shortHash(branch.head)} ${subject}`
 }
 
 // header is the Conventional Commit header the fields make, as the server
