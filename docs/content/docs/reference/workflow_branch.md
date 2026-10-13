@@ -16,10 +16,11 @@ the issue's type and summary — then create it off the current branch's base an
 switch to it, which moves the working tree onto the new branch. A preview is
 printed and confirmed before anything is created.
 
---fetch fetches origin first, so the branch starts from what origin holds now;
-a fetch that fails creates nothing. --worktree creates the branch in a new
-worktree beside the repository instead, leaving this checkout where it is, and
-prints the worktree's directory alone on the last line.
+--fetch fetches the base remote first — upstream in a fork's clone, else
+origin — so the branch starts from what it holds now; a fetch that fails
+creates nothing. --worktree creates the branch in a new worktree beside the
+repository instead, leaving this checkout where it is, and prints the
+worktree's directory alone on the last line.
 
 ```
 workflow branch <issue> [flags]
@@ -34,7 +35,7 @@ workflow branch <issue> [flags]
 ### Options
 
 ```
-      --fetch      fetch origin first, so the branch starts from what origin holds now
+      --fetch      fetch the base remote first (upstream in a fork's clone, else origin), to start from what it holds now
   -h, --help       help for branch
       --worktree   create the branch in a new worktree beside the repository, and print its directory
   -y, --yes        go ahead without the confirmation

@@ -64,7 +64,7 @@ func (s *server) createBranchFailure(err error, key string) api.CreateBranchResp
 func (s *server) startRefusal(err error, key string) api.Problem {
 	switch {
 	case errors.Is(err, loop.ErrFetchFailed):
-		return problem(api.ProblemCodeFetchFailed, "origin could not be fetched, so nothing was made for "+key+
+		return problem(api.ProblemCodeFetchFailed, "the base remote could not be fetched, so nothing was made for "+key+
 			"; start work from what you have, or run git fetch in a terminal to see why")
 	case errors.Is(err, errCreateRefused):
 		return problem(api.ProblemCodeUnprocessable, "git would not create the branch for "+key+
@@ -127,7 +127,7 @@ func (s *server) branchExists(ctx context.Context, name string) (bool, error) {
 }
 
 // currentBranchBase is the base a new branch starts from — the checked-out
-// branch's base (origin's default), or empty to branch from HEAD.
+// branch's base (the base remote's default), or empty to branch from HEAD.
 func (s *server) currentBranchBase(ctx context.Context) string {
 	branch, err := s.deps.Git.Branch(ctx)
 	if err != nil {
@@ -137,8 +137,8 @@ func (s *server) currentBranchBase(ctx context.Context) string {
 	return branch.Base
 }
 
-// fetchFor is the fetch a start of work makes first: origin's, unless the
-// request asks to branch from what you have, or there is no fetch seam.
+// fetchFor is the fetch a start of work makes first: the base remote's, unless
+// the request asks to branch from what you have, or there is no fetch seam.
 func (s *server) fetchFor(asked *bool) func(context.Context) error {
 	if asked != nil && !*asked {
 		return nil

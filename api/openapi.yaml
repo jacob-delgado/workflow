@@ -1645,7 +1645,8 @@ paths:
       summary: Create and switch to a branch for an issue — start work on it.
       description: >-
         Names a branch for the issue by the branch-name convention (from the
-        issue's type and summary), fetches origin unless asked not to, and
+        issue's type and summary), fetches the base remote (upstream in a
+        fork's clone, else origin) unless asked not to, and
         creates it off the base branch, switching the working tree to it. This is how a not-started issue is picked up. It
         is refused with 409 when a branch for the issue already exists — check
         that one out instead — and when the server is not running in a git
@@ -1685,8 +1686,8 @@ paths:
       operationId: createWorktree
       summary: Create a branch for an issue in a new worktree — start work on it there.
       description: >-
-        Names a branch for the issue as createBranch does, fetches origin as
-        it does, and creates it off the base branch in a new git worktree beside the repository, leaving
+        Names a branch for the issue as createBranch does, fetches the base
+        remote as it does, and creates it off the base branch in a new git worktree beside the repository, leaving
         the server's own checkout and directory as they are; switching to the
         worktree is PUT /api/repositories/here. It is refused with 409 when a
         branch for the issue already exists, and when the server is not
@@ -3452,8 +3453,9 @@ components:
           type: boolean
           default: true
           description: >-
-            Whether to fetch origin first, so the branch starts from what
-            origin holds now, as the terminal's branch creator and workflow
+            Whether to fetch the base remote first — upstream in a fork's
+            clone, else origin — so the branch starts from what it holds now,
+            as the terminal's branch creator and workflow
             branch --fetch do. A fetch that fails creates nothing and is a
             502 with code fetch_failed; asking again with fetch false
             branches from what you have, the terminal's way out. With no
@@ -3484,8 +3486,9 @@ components:
           type: boolean
           default: true
           description: >-
-            Whether to fetch origin first, so the branch starts from what
-            origin holds now, as the terminal's branch creator and workflow
+            Whether to fetch the base remote first — upstream in a fork's
+            clone, else origin — so the branch starts from what it holds now,
+            as the terminal's branch creator and workflow
             branch --fetch do. A fetch that fails creates nothing and is a
             502 with code fetch_failed; asking again with fetch false
             branches from what you have, the terminal's way out. With no

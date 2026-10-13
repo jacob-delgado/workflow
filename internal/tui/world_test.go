@@ -292,7 +292,7 @@ func newWorld() *world {
 		},
 		branch: gitrepo.Branch{
 			Name: featureName, Head: "abc123", Base: baseRef,
-			Upstream: "origin/" + featureName, PushRemote: gitrepo.DefaultRemote,
+			Upstream: "origin/" + featureName, PushRemote: gitrepo.DefaultRemote, BaseRemote: gitrepo.DefaultRemote,
 			Commits: []gitrepo.Commit{{Hash: "1a2b3c4", Subject: pullTitle}},
 		},
 		changes:   []gitrepo.Change{{Path: redactPath, Staged: 'M', Unstaged: ' '}},

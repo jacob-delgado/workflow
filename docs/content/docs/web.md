@@ -172,8 +172,8 @@ checked-out branch alone, so for an issue on another branch only the issue
 and the branch read done, and for an issue with no branch yet the issue reads
 in flight, picked as the terminal's top row reads an issue selected, and
 nothing after it begun. From the
-story, **Start work** fetches origin, so the branch starts from what origin
-holds now, then creates and checks out a branch named for the issue, and
+story, **Start work** fetches the base remote — upstream in a fork's clone, else
+origin — so the branch starts from what it holds now, then creates and checks out a branch named for the issue, and
 **Switch branch** switches to one it already has. **Start work in a new
 worktree** creates the branch in a new git worktree beside the repository
 instead, leaving the checkout here as it is, then says where and offers
@@ -181,7 +181,7 @@ instead, leaving the checkout here as it is, then says where and offers
 check out twice, offers **Switch to its worktree** in place of the checkout.
 Either asks "Switch to DIR?" first, as every switch in Repositories does, and
 switches only on **Switch** there; one held by a worktree whose directory is gone says that `git worktree prune`
-frees it. When the fetch fails — the network, origin's address, your
+frees it. When the fetch fails — the network, the remote's address, your
 credential — nothing is made, the reason is said, and **Branch from what you
 have** starts the branch from the base as it was last fetched, as the
 terminal's branch creator offers. Once Taskwarrior has

@@ -358,16 +358,18 @@ func isHex(text string) bool {
 	return true
 }
 
-// FetchCommand updates the remote-tracking refs from origin, so a branch starts
-// from what origin holds now rather than from whenever the user last fetched.
+// FetchCommand updates the remote-tracking refs from remote, the base remote,
+// so a branch starts from what it holds now rather than from whenever the user
+// last fetched.
 //
 // Prompts are off, as they are for a push: a fetch can need a credential, and
-// nobody can answer for one from inside the interface.
-func FetchCommand(dir string) proc.Command {
+// nobody can answer for one from inside the interface. "--" ends git's
+// options, so the remote's name is never read as one.
+func FetchCommand(dir, remote string) proc.Command {
 	return proc.Command{
 		Dir:  dir,
 		Name: gitProgram,
-		Args: []string{"fetch", DefaultRemote},
+		Args: []string{"fetch", "--", remote},
 		Env:  []string{noTerminalPrompt},
 	}
 }

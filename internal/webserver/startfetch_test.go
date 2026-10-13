@@ -101,7 +101,7 @@ func TestStartWorkThatCannotFetchCreatesNothingAndSaysSo(t *testing.T) {
 			recorder := send(t, handler, http.MethodPost, path, `{"issue_key":"`+startIssue+`"}`)
 
 			// Assert
-			failure := assertProblem(t, recorder, http.StatusBadGateway, "fetch")
+			failure := assertProblem(t, recorder, http.StatusBadGateway, "the base remote could not be fetched")
 			if failure.Code != api.ProblemCodeFetchFailed {
 				t.Errorf("code = %q, want %q, which the page offers to branch from what you have on",
 					failure.Code, api.ProblemCodeFetchFailed)
