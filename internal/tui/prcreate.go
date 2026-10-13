@@ -159,6 +159,11 @@ type prDraft struct {
 	reviewers, assignees, labels    string
 	template                        int
 	draft, edited, reviewersSettled bool
+	// draftedOnto, subjects and reviewersProposed are what the composer
+	// proposed from, so a draft reopened onto a base chosen in it proposes
+	// from that base still.
+	draftedOnto, reviewersProposed string
+	subjects                       []string
 }
 
 // snapshot is the composer's editable state, to reopen on.
@@ -167,6 +172,7 @@ func (c prComposer) snapshot() prDraft {
 		branch: c.head, title: c.title.Value(), base: c.base.Value(), body: c.body,
 		reviewers: c.reviewers.Value(), assignees: c.assignees.Value(), labels: c.labels.Value(),
 		template: c.template, draft: c.draft, edited: c.edited, reviewersSettled: c.reviewersSettled,
+		draftedOnto: c.draftedOnto, reviewersProposed: c.reviewersProposed, subjects: c.proposedFrom.Subjects,
 	}
 }
 
@@ -179,6 +185,8 @@ func (c prComposer) restore(draft prDraft) prComposer {
 	c.labels.SetValue(draft.labels)
 	c.body, c.template, c.draft, c.edited = draft.body, draft.template, draft.draft, draft.edited
 	c.reviewersSettled = draft.reviewersSettled
+	c.draftedOnto, c.reviewersProposed = draft.draftedOnto, draft.reviewersProposed
+	c.proposedFrom.Subjects = draft.subjects
 
 	return c
 }

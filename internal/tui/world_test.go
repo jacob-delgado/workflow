@@ -102,6 +102,7 @@ type world struct {
 	unavailable []string
 
 	branch            gitrepo.Branch
+	branchesOnto      map[string]gitrepo.Branch
 	branches          []string
 	branchesErr       error
 	diff              []string

@@ -22,6 +22,16 @@ func (w *world) gitDeps() seams.Git {
 
 			return w.branch, nil
 		},
+		BranchOnto: func(_ context.Context, base string) (gitrepo.Branch, error) {
+			w.record("branch-onto " + base)
+
+			onto, held := w.branchesOnto[base]
+			if !held {
+				return gitrepo.Branch{}, gitrepo.ErrNoSuchBase
+			}
+
+			return onto, nil
+		},
 		Changes: func(context.Context) ([]gitrepo.Change, error) {
 			w.record("changes")
 

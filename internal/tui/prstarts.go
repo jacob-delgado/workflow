@@ -139,17 +139,18 @@ func readReviewers(ctx context.Context, deps Deps, composer prComposer) tea.Cmd 
 		return nil
 	}
 
-	opened, base := composer.opened, composer.base.Value()
+	opened, base := composer.opened, composer.draftedOnto
 
 	return func() tea.Msg {
-		return reviewersRead{opened: opened, proposed: loop.ProposedReviewers(ctx, owners, base)}
+		return reviewersRead{opened: opened, base: base, proposed: loop.ProposedReviewers(ctx, owners, base)}
 	}
 }
 
-// reviewersRead is who the code owners propose as the pull request's reviewers,
-// read after its composer opened.
+// reviewersRead is who the code owners of the changes past base propose as
+// the pull request's reviewers, read after its composer opened.
 type reviewersRead struct {
 	opened   int
+	base     string
 	proposed []string
 }
 
@@ -157,14 +158,17 @@ var _ applier = reviewersRead{}
 
 // apply fills the composer's reviewers with the owners, unless the composer
 // they were read for has closed — even if another has opened since — or is
-// being sent, or reviewers were typed in the meantime.
+// being sent, or drafts onto another base by now, or reviewers were typed in
+// the meantime.
 func (read reviewersRead) apply(m Model) (Model, tea.Cmd) {
 	composer, open := m.overlay.(prComposer)
-	if !open || composer.opened != read.opened || composer.send.sending || composer.reviewersSettled {
+	if !open || composer.opened != read.opened || composer.send.sending || composer.reviewersSettled ||
+		composer.draftedOnto != read.base {
 		return m, nil
 	}
 
-	composer.reviewers.SetValue(strings.Join(read.proposed, ", "))
+	composer.reviewersProposed = strings.Join(read.proposed, ", ")
+	composer.reviewers.SetValue(composer.reviewersProposed)
 	composer.reviewersSettled = true
 	m.overlay = composer
 
