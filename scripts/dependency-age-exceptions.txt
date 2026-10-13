@@ -89,3 +89,8 @@ update-browserslist-db 1.3.4 waived-2026-10-13
 vite 8.3.4 waived-2026-10-13
 vitest 5.0.4 waived-2026-10-13
 zod 4.6.7 waived-2026-10-13
+lefthook 2.2.1 waived-2026-10-13
+typos 1.51.1 waived-2026-10-13
+go:golang.org/x/vuln/cmd/govulncheck 1.9.0 waived-2026-10-13
+go:golang.org/x/tools/cmd/deadcode 0.52.0 waived-2026-10-13
+mise 2026.10.8 waived-2026-10-13
