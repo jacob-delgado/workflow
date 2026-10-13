@@ -18,9 +18,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
-// preCommitHook is the hook a pre_commit run runs, as the terminal's h does.
-const preCommitHook = "pre-commit"
-
 // runTail is how many of a run's last lines the event stream carries: enough
 // to see where it is, from a page opened while it runs.
 const runTail = 200
@@ -36,6 +33,8 @@ var (
 		"and have a commit not yet pushed to fold them into")
 	errNotFoldable = errors.New("that commit cannot be fixed up: only a commit not yet pushed can, " +
 		"as the branch lists it")
+	errHookNotRunnable = errors.New("that hook is not one lefthook runs by hand here; " +
+		"GET /api/hooks lists those it does")
 )
 
 // runSlot is the one git run going, if any: POST /api/runs claims it before it
@@ -128,28 +127,42 @@ func writeRunRefusal(w http.ResponseWriter, err error) {
 // a commit not yet pushed. They are read under ctx.
 func (s *server) planRun(ctx context.Context, asked api.RunRequest) (plannedRun, error) {
 	planners := map[api.RunKind]func(context.Context, api.RunRequest) (plannedRun, error){
-		api.RunKindPreCommit: s.planPreCommit,
-		api.RunKindRebase:    s.planRebase,
-		api.RunKindAmend:     s.planAmend,
-		api.RunKindFixup:     s.planFixup,
+		api.RunKindHook:   s.planHook,
+		api.RunKindRebase: s.planRebase,
+		api.RunKindAmend:  s.planAmend,
+		api.RunKindFixup:  s.planFixup,
 	}
 
 	// The contract admits only these kinds, so every request names one.
 	return planners[asked.Kind](ctx, asked)
 }
 
-// planPreCommit runs the pre-commit hook on what is staged.
-func (s *server) planPreCommit(context.Context, api.RunRequest) (plannedRun, error) {
-	if s.deps.Hooks.Run == nil {
+// planHook runs the hook asked for, as the terminal's h does, once lefthook's
+// configuration, read under ctx, lists it as one a run by hand can run: no
+// name lefthook did not list reaches its command line.
+func (s *server) planHook(ctx context.Context, asked api.RunRequest) (plannedRun, error) {
+	if s.deps.Hooks.Run == nil || s.deps.Hooks.Configured == nil {
 		return plannedRun{}, errRunUnavailable
+	}
+
+	configured, err := s.deps.Hooks.Configured(ctx)
+	if err != nil {
+		s.unexpected(err)
+
+		return plannedRun{}, errHooksUnreadable
+	}
+
+	hook := orZero(asked.Hook)
+	if !slices.Contains(configured.Runnable, hook) {
+		return plannedRun{}, errHookNotRunnable
 	}
 
 	run := s.deps.Hooks.Run
 
 	return plannedRun{
-		kind: api.RunKindPreCommit, title: preCommitHook,
-		start:     func(ctx context.Context) (proc.Output, error) { return run(ctx, preCommitHook) },
-		succeeded: "The pre-commit hook passed.", refused: "The pre-commit hook failed.",
+		kind: api.RunKindHook, title: hook,
+		start:     func(ctx context.Context) (proc.Output, error) { return run(ctx, hook) },
+		succeeded: "The " + hook + " hook passed.", refused: "The " + hook + " hook failed.",
 	}, nil
 }
 

@@ -547,25 +547,27 @@ paths:
   /api/runs:
     post:
       operationId: startRun
-      summary: Run pre-commit, rebase onto the base, amend or fix up, streaming its output.
+      summary: Run a hook, rebase onto the base, amend or fix up, streaming its output.
       description: >-
         Starts one of the git runs the terminal streams in its run overlay,
-        and streams its output as it is written: pre_commit runs the
-        pre-commit hook on what is staged, without committing (the
-        terminal's h); rebase replays the branch onto its base (u); amend
-        folds the staged changes into the last commit not yet pushed (A);
-        fixup records a fixup! of the commit named, one not yet pushed (f).
-        The server reads the branch and the changes itself, so a rebase
-        goes onto the base git names, and only a commit not yet pushed is
-        ever rewritten. The answer is newline-delimited JSON, one RunEvent a
-        line: the run as it starts, then each line of output as the program
-        writes it, then the run as it ended. The run goes on to its end if
-        the page goes away, and the event stream's run carries it meanwhile.
-        One run goes at a time, and it holds the index, so a stage or a
-        commit asked for meanwhile waits for it. A conflict leaves a rebase
-        midway, for a terminal to finish. Refused before anything runs, as
-        a problem: 409 when a run is going already, or there is nothing to
-        rebase, amend or fix up; 422 when the run is not available here, the
+        and streams its output as it is written: hook runs the hook named,
+        one GET /api/hooks lists as runnable by hand, as git would, without
+        committing or pushing (the terminal's h); rebase replays the branch
+        onto its base (u); amend folds the staged changes into the last
+        commit not yet pushed (A); fixup records a fixup! of the commit
+        named, one not yet pushed (f). The server reads the branch and the
+        changes itself, so a rebase goes onto the base git names, and only a
+        commit not yet pushed is ever rewritten. The answer is
+        newline-delimited JSON, one RunEvent a line: the run as it starts,
+        then each line of output as the program writes it, then the run as
+        it ended. The run goes on to its end if the page goes away, and the
+        event stream's run carries it meanwhile. One run goes at a time, and
+        it holds the index, so a stage or a commit asked for meanwhile waits
+        for it. A conflict leaves a rebase midway, for a terminal to finish.
+        Refused before anything runs, as a problem: 409 when a run is going
+        already, or there is nothing to rebase, amend or fix up; 422 when
+        the run is not available here, the hook named is not one lefthook
+        runs by hand here, lefthook's configuration cannot be read, the
         commit named cannot be fixed up, or the program could not start.
       tags: [repository]
       requestBody:
@@ -590,8 +592,40 @@ paths:
               schema: {$ref: "#/components/schemas/Problem"}
         "422":
           description: >-
-            The run is not available, the commit cannot be fixed up, or the
-            program could not start.
+            The run is not available, the hook is not one lefthook runs by
+            hand or its configuration cannot be read, the commit cannot be
+            fixed up, or the program could not start.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        default: {$ref: "#/components/responses/Problem"}
+
+  /api/hooks:
+    get:
+      operationId: listHooks
+      summary: The hooks lefthook configures, split by whether a run by hand can run them.
+      description: >-
+        The hooks lefthook's configuration defines, merged as a run of
+        lefthook reads it (its local override and its remotes included),
+        read each time it is asked: those a run by hand can stand in for,
+        which POST /api/runs runs with kind hook, as the terminal's h
+        offers them, git's own first in the order git documents them and
+        then the configuration's own names; and those only git runs, since
+        git hands each arguments or standard input a run by hand would not,
+        with what git hands it. Both lists are empty where no lefthook is
+        configured. A read; nothing is run.
+      tags: [repository]
+      responses:
+        "200":
+          description: The hooks lefthook configures.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfiguredHooks"
+        "422":
+          description: >-
+            lefthook is not installed, or its configuration cannot be read;
+            lefthook dump in a terminal says why.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -3344,6 +3378,42 @@ components:
           description: How many lines its script holds.
       additionalProperties: false
 
+    ConfiguredHooks:
+      type: object
+      description: >-
+        The hooks lefthook configures: those a run by hand can run, and
+        those only git runs. A name is the configuration's own, as lefthook
+        takes it back.
+      required: [runnable, git_only]
+      properties:
+        runnable:
+          type: array
+          description: >-
+            The hooks a run by hand can stand in for, git's own first in the
+            order git documents them, then the configuration's own, sorted.
+          items:
+            type: string
+            example: pre-push
+        git_only:
+          type: array
+          description: The hooks only git runs, in the order git documents them.
+          items: {$ref: "#/components/schemas/GitOnlyHook"}
+      additionalProperties: false
+
+    GitOnlyHook:
+      type: object
+      description: A hook only git runs, and why.
+      required: [name, reason]
+      properties:
+        name:
+          type: string
+          example: commit-msg
+        reason:
+          type: string
+          description: What git hands it that a run by hand would not.
+          example: git hands it the file holding the commit message
+      additionalProperties: false
+
     HookSetupRequest:
       type: object
       properties:
@@ -3366,10 +3436,18 @@ components:
 
     RunRequest:
       type: object
-      description: Which run to start, and for a fixup the commit it fixes up.
+      description: >-
+        Which run to start, for a hook the hook it runs, and for a fixup the
+        commit it fixes up.
       required: [kind]
       properties:
         kind: {$ref: "#/components/schemas/RunKind"}
+        hook:
+          type: string
+          description: >-
+            For hook, the hook to run, one GET /api/hooks lists as runnable,
+            named exactly as it lists it. Ignored otherwise.
+          example: pre-push
         commit:
           type: string
           description: >-
@@ -3380,9 +3458,10 @@ components:
     RunKind:
       type: string
       description: >-
-        A git run: the pre-commit hook on what is staged, a rebase onto the
-        base, an amend of the last commit, or a fixup! of an earlier one.
-      enum: [pre_commit, rebase, amend, fixup]
+        A git run: a hook lefthook runs by hand, as GET /api/hooks lists it,
+        a rebase onto the base, an amend of the last commit, or a fixup! of
+        an earlier one.
+      enum: [hook, rebase, amend, fixup]
 
     Run:
       type: object
@@ -3394,7 +3473,9 @@ components:
         kind: {$ref: "#/components/schemas/RunKind"}
         title:
           type: string
-          description: What is running, as the terminal titles it, such as git rebase.
+          description: >-
+            What is running, as the terminal titles it, such as pre-push or
+            git rebase.
         state:
           type: string
           enum: [in_progress, succeeded, refused, stopped]

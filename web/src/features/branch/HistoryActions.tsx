@@ -144,7 +144,7 @@ export function HistoryActions({
         variant="secondary"
         held={runner.going}
         onClick={() => {
-          runner.start({ kind: 'pre_commit' })
+          runner.start({ kind: 'hook', hook: 'pre-commit' })
         }}
       >
         Run pre-commit

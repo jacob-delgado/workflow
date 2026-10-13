@@ -146,6 +146,12 @@ a ref the remote rejected, a hook's refusal — is in it, with the remote's URL
 or `user@host:path` address taken out (a bare host git prints — a remote
 written `host:path`, or the host a connection error names — can remain); one
 that could not start says to push from a terminal to see why.
+A hook run answers it for a hook `GET /api/hooks` does not list as one a run
+by hand can run — one only git runs, one lefthook does not configure, or none
+named — and both answer it when lefthook is not installed or its
+configuration cannot be read; lefthook's own words stay off the wire, since
+they name the repository, so the detail says to run `lefthook dump` in a
+terminal to see them.
 A Jira token that Jira did not accept, a `jira.base_url` that is not a usable
 address, and one with no Jira API behind it are answered here too, pointing at
 `workflow doctor` rather than naming the address. So are a forge token that the

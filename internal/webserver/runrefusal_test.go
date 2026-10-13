@@ -15,6 +15,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
@@ -159,6 +160,9 @@ func TestEveryRunIsUnavailableWithoutItsSeam(t *testing.T) {
 		"an amend":          {body: amendRun, unset: func(deps *webserver.Deps) { deps.Git.Amend = nil }},
 		"a fixup":           {body: `{"kind":"fixup"}`, unset: func(deps *webserver.Deps) { deps.Git.Fixup = nil }},
 		"an amend, no tree": {body: amendRun, unset: func(deps *webserver.Deps) { deps.Git.Changes = nil }},
+		"a hook, no list": {
+			body: preCommitRun, unset: func(deps *webserver.Deps) { deps.Hooks.Configured = nil },
+		},
 	}
 
 	for name, tt := range cases {
@@ -231,5 +235,56 @@ func TestARunIsHeldBackUnderADryRun(t *testing.T) {
 	// Assert
 	if recorder.Code != http.StatusForbidden || len(calls.asked()) != 0 {
 		t.Errorf("status = %d after %v, want 403 and nothing run", recorder.Code, calls.asked())
+	}
+}
+
+func TestAHookRunIsRefusedForAHookNotRunByHand(t *testing.T) {
+	t.Parallel()
+
+	for name, body := range map[string]string{
+		"a hook only git runs":         `{"kind":"hook","hook":"commit-msg"}`,
+		"a hook lefthook does not run": `{"kind":"hook","hook":"deploy"}`,
+		"no hook named":                `{"kind":"hook"}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			calls := &runCalls{}
+
+			// Act
+			recorder := startRun(t, serve(t, runDeps(calls, passing), config.Default()), body)
+
+			// Assert
+			assertProblem(t, recorder, http.StatusUnprocessableEntity, "not one lefthook runs by hand")
+
+			if len(calls.asked()) != 0 {
+				t.Errorf("calls = %v, want nothing run", calls.asked())
+			}
+		})
+	}
+}
+
+func TestAHookRunWhoseConfigurationCannotBeReadIsRefused(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	calls := &runCalls{}
+	deps := runDeps(calls, passing)
+	deps.Hooks.Configured = func(context.Context) (hooks.Configured, error) {
+		return hooks.Configured{}, errUnreadableHere
+	}
+
+	// Act
+	recorder := startRun(t, serve(t, deps, config.Default()), preCommitRun)
+
+	// Assert
+	failure := assertProblem(t, recorder, http.StatusUnprocessableEntity, "could not be read")
+	if strings.Contains(failure.Detail, repoPath) {
+		t.Errorf("detail = %q, want lefthook's words, which name the repository, kept off the wire", failure.Detail)
+	}
+
+	if len(calls.asked()) != 0 {
+		t.Errorf("calls = %v, want nothing run", calls.asked())
 	}
 }

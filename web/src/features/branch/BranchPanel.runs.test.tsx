@@ -9,7 +9,7 @@ import { startRun, stopRun } from './gitRunApi.ts'
 
 // titles are what the server titles each run.
 const titles: Record<Run['kind'], string> = {
-  pre_commit: 'pre-commit',
+  hook: 'pre-commit',
   rebase: 'git rebase',
   amend: 'git commit --amend',
   fixup: 'git commit --fixup',
@@ -88,7 +88,10 @@ test('runs pre-commit at once and streams what it writes', async () => {
   await user.click(screen.getByRole('button', { name: 'Run pre-commit' }))
 
   // Assert
-  expect(mockStartRun).toHaveBeenLastCalledWith({ kind: 'pre_commit' }, expect.any(Function))
+  expect(mockStartRun).toHaveBeenLastCalledWith(
+    { kind: 'hook', hook: 'pre-commit' },
+    expect.any(Function),
+  )
   const output = await screen.findByRole('region', { name: 'Output of pre-commit' })
   expect(output.textContent).toContain('lint ok')
   expect(screen.getByText('The pre-commit hook passed.')).toBeTruthy()

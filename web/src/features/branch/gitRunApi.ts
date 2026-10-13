@@ -13,7 +13,7 @@ import type {
 } from '@/api/generated/types.gen.ts'
 import { zRunEvent } from '@/api/generated/zod.gen.ts'
 
-// startRun starts a git run — pre-commit, a rebase, an amend or a fixup — and
+// startRun starts a git run — a hook, a rebase, an amend or a fixup — and
 // hands each event it streams to onEvent as it lands: the run as it starts,
 // each line of output, the run as it ended, which it answers. A refusal before
 // anything ran throws the API error, whose message is safe to show; an event
