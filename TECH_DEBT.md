@@ -12,12 +12,12 @@ ideas; this file holds the debts.
 
 This is the pre-1.0 audit edition, and it is paid. A full read of every
 surface at commit `b9ab000` on 2026-10-07 found 167 entries, DEBT-162 to
-DEBT-328. The pre-1.0 paydown paid each one and deleted it from this file,
-in #197, #207, #208, #209, #220, #221, #227, #229, #237, #238 and #241, and
-ended, before 1.0, with the pull request that adds this paragraph. What
-remains is [the trade-off register](#the-trade-off-register): the costs
-chosen on purpose, and what would reopen each. The next audit numbers its
-entries from DEBT-329, as an ID is never reused: the 2026-09-24 edition's
+DEBT-328. The pre-1.0 paydown paid and deleted each one from this file over its
+pull requests, #197, #207, #208, #209, #220, #221, #227, #229, #237, #238
+and #241, and ended, before 1.0, with the pull request that adds this
+paragraph. What remains is [the trade-off register](#the-trade-off-register):
+the costs chosen on purpose, and what would reopen each. The next audit numbers
+its entries from DEBT-329, as an ID is never reused: the 2026-09-24 edition's
 entries, DEBT-64, DEBT-65, DEBT-71 and DEBT-75 to DEBT-161, were paid down
 in #141, #144, #145 and #146.
 
