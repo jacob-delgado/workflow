@@ -15,10 +15,15 @@ import (
 // The two commands a finish runs through the Runner, and the pull it hands to
 // its caller, named so the tests read as the sequence.
 const (
-	finishSwitch = "git -C /work switch -- main"
+	finishSwitch = "git -C /work -c checkout.defaultRemote=upstream switch -- main"
 	finishPull   = "the caller's pull"
 	finishDelete = "git -C /work branch -D -- feat/token"
 )
+
+// tokenFinishing is feat/token finished onto main, pulled from upstream.
+func tokenFinishing() gitrepo.Finishing {
+	return gitrepo.Finishing{Branch: "feat/token", Base: localMain, Remote: upstreamName}
+}
 
 // errStepFailed is a finish step git refused.
 var errStepFailed = errors.New("exit status 1")
@@ -46,7 +51,7 @@ func TestFinishBranchSwitchesPullsAndDeletes(t *testing.T) {
 	repo := gitrepo.At(run, workDir)
 
 	// Act
-	err := repo.FinishBranch(t.Context(), "feat/token", "main", recordedPull(ran, nil))
+	err := repo.FinishBranch(t.Context(), tokenFinishing(), recordedPull(ran, nil))
 	// Assert
 	if err != nil {
 		t.Fatalf("FinishBranch returned %v", err)
@@ -69,14 +74,14 @@ func TestFinishBranchStopsAtTheStepThatFails(t *testing.T) {
 		"the switch": {
 			replies: map[string]reply{finishSwitch: {err: errStepFailed}},
 			pullErr: nil,
-			named:   "git switch -- main",
+			named:   "git -c checkout.defaultRemote=upstream switch -- main",
 			want:    []string{finishSwitch},
 		},
 		// The pull cannot fast-forward, so the branch must not be deleted.
 		"the pull": {
 			replies: map[string]reply{finishSwitch: {}},
 			pullErr: errStepFailed,
-			named:   "git pull --ff-only",
+			named:   "git pull --ff-only -- upstream main",
 			want:    []string{finishSwitch, finishPull},
 		},
 		"the delete": {
@@ -96,7 +101,7 @@ func TestFinishBranchStopsAtTheStepThatFails(t *testing.T) {
 			repo := gitrepo.At(run, workDir)
 
 			// Act
-			err := repo.FinishBranch(t.Context(), "feat/token", "main", recordedPull(ran, tt.pullErr))
+			err := repo.FinishBranch(t.Context(), tokenFinishing(), recordedPull(ran, tt.pullErr))
 
 			// Assert
 			if !errors.Is(err, errStepFailed) || !strings.Contains(err.Error(), tt.named) {
@@ -110,7 +115,7 @@ func TestFinishBranchStopsAtTheStepThatFails(t *testing.T) {
 	}
 }
 
-func TestFinishCommandsAreTheCommandsAFinishRuns(t *testing.T) {
+func TestFinishingCommandsAreTheCommandsAFinishRuns(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -118,23 +123,22 @@ func TestFinishCommandsAreTheCommandsAFinishRuns(t *testing.T) {
 	// must be the commands the finish runs, word for word.
 	run, ran := recordingRunner(t, map[string]reply{finishSwitch: {}, finishDelete: {}})
 
-	err := gitrepo.At(run, workDir).FinishBranch(t.Context(), "feat/token", "main", recordedPull(ran, nil))
+	err := gitrepo.At(run, workDir).FinishBranch(t.Context(), tokenFinishing(), recordedPull(ran, nil))
 	if err != nil {
 		t.Fatalf("FinishBranch returned %v", err)
 	}
 
 	// Act
-	commands := gitrepo.FinishCommands("main", "feat/token")
+	commands := tokenFinishing().Commands()
 
 	// Assert
 	want := []string{
 		strings.Replace(finishSwitch, "-C /work ", "", 1),
-		strings.Join(gitrepo.PullCommand(workDir).Args, " "),
+		"git " + strings.Join(gitrepo.PullCommand(workDir, upstreamName, "main").Args, " "),
 		strings.Replace(finishDelete, "-C /work ", "", 1),
 	}
-	want[1] = "git " + want[1]
 
-	if !slices.Equal(commands, want) {
-		t.Errorf("FinishCommands = %q, want %q, as FinishBranch ran them", commands, want)
+	if !slices.Equal(commands, want) || want[1] != "git pull --ff-only -- upstream main" {
+		t.Errorf("Commands = %q, want %q, as FinishBranch ran them", commands, want)
 	}
 }

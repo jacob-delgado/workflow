@@ -156,7 +156,8 @@ func TestTheFinishPreviewShowsTheThreeCommands(t *testing.T) {
 	preview := typing(t, model, "4", "F").View().Content
 
 	// Assert
-	requireScreen(t, preview, gitrepo.FinishCommands("main", featureName)...)
+	requireScreen(t, preview,
+		gitrepo.Finishing{Branch: featureName, Base: baseName, Remote: gitrepo.DefaultRemote}.Commands()...)
 }
 
 func TestFinishIsNotOfferedOnAnOpenPull(t *testing.T) {
