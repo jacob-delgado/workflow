@@ -579,6 +579,13 @@ export const zIssuesPage = z.object({
     start_at: z.int()
 });
 
+/**
+ * The view's issues as the store last kept them, carried by a "seed" event sent first, at most once, ahead of any snapshot: only when the store holds a list for the view, there is a tracker to ask again, and the server is not under --dry-run. It is read from disk before anything is asked of the network; nothing else of the snapshot is known until the first one lands, which takes its place.
+ */
+export const zSeed = z.object({
+    issues: zIssuesPage
+});
+
 export const zComment = z.object({
     author: z.string(),
     body: z.string(),
@@ -1819,9 +1826,12 @@ export const zStreamEventsQuery = z.object({
 });
 
 /**
- * The event stream; each message's data is a Snapshot.
+ * The event stream: at most one "seed" message, first, whose data is a Seed, then "snapshot" messages, whose data is a Snapshot. Each message's id numbers it in the order sent.
  */
-export const zStreamEventsResponse = zSnapshot;
+export const zStreamEventsResponse = z.union([
+    zSnapshot,
+    zSeed
+]);
 
 /**
  * Where the server works and your favorites.

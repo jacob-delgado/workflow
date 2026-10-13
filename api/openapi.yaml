@@ -2531,10 +2531,15 @@ paths:
   /api/events:
     get:
       operationId: streamEvents
-      summary: A stream of state snapshots, pushed on connect and then every few seconds.
+      summary: >-
+        A stream of state snapshots, pushed on connect and then every few
+        seconds, after the view's kept issues when the store holds them.
       description: >-
-        A Server-Sent Events stream (text/event-stream). Each message is a
-        "snapshot" event whose data is a Snapshot: the current issues, branch,
+        A Server-Sent Events stream (text/event-stream). When the store holds
+        the view's issues from an earlier read, the first message is a "seed"
+        event whose data is a Seed, read from disk before anything is asked
+        of the network, so the list paints while the live search runs. Every
+        other message is a "snapshot" event whose data is a Snapshot: the current issues, branch,
         changes, review, messaging destination, the issues in flight, the
         scope a new commit opens on, and a summary of your Taskwarrior tasks.
         The first is pushed on connect and another every few seconds after,
@@ -2576,11 +2581,16 @@ paths:
           schema: {type: string}
       responses:
         "200":
-          description: The event stream; each message's data is a Snapshot.
+          description: >-
+            The event stream: at most one "seed" message, first, whose data is
+            a Seed, then "snapshot" messages, whose data is a Snapshot. Each
+            message's id numbers it in the order sent.
           content:
             text/event-stream:
               schema:
-                $ref: "#/components/schemas/Snapshot"
+                oneOf:
+                  - $ref: "#/components/schemas/Snapshot"
+                  - $ref: "#/components/schemas/Seed"
         "404":
           description: >-
             No configured view carries that name. Refused before the stream
@@ -3922,6 +3932,25 @@ components:
         tasks: {$ref: "#/components/schemas/TasksSummary"}
         problems:
           $ref: "#/components/schemas/PanelProblems"
+      additionalProperties: false
+
+    Seed:
+      type: object
+      description: >-
+        The view's issues as the store last kept them, carried by a "seed"
+        event sent first, at most once, ahead of any snapshot: only when the
+        store holds a list for the view, there is a tracker to ask again, and
+        the server is not under --dry-run. It is read from disk before
+        anything is asked of the network; nothing else of the snapshot is
+        known until the first one lands, which takes its place.
+      required: [issues]
+      properties:
+        issues:
+          allOf: [{$ref: "#/components/schemas/IssuesPage"}]
+          description: >-
+            The view's first page as last kept: Jira's issues only, in Jira's
+            order. total counts only those, start_at is 0 and unavailable is
+            empty; a view kept with no issues is an empty page.
       additionalProperties: false
 
     Stage:

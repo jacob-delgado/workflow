@@ -5,11 +5,17 @@ package webserver_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
+	"reflect"
 	"slices"
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/webserver"
@@ -203,4 +209,223 @@ func TestAKeptIssueListOutlivesThePageThatSearchedIt(t *testing.T) {
 	if len(got) == 0 || got[0].ctxErr != nil {
 		t.Errorf("kept %+v, want the first page kept under a context still live", got)
 	}
+}
+
+// keptKey is the issue the store holds for a view in the seed tests.
+const keptKey = "PROJ-31"
+
+// keptIssue is the one issue the store holds for a view in the seed tests.
+func keptIssue() jira.Issue {
+	return jira.Issue{
+		Key: keptKey, Summary: "Kept from last time", Status: "To Do", StatusCategory: jira.CategoryNew, Type: "Task",
+	}
+}
+
+// keptFor is a store's CachedIssues holding issues for every view, recording
+// the JQL of each view it is asked for.
+func keptFor(issues []jira.Issue, asked *[]string) func(context.Context, string) ([]jira.Issue, bool) {
+	return func(_ context.Context, jql string) ([]jira.Issue, bool) {
+		*asked = append(*asked, jql)
+
+		return issues, true
+	}
+}
+
+// seedOf decodes the seed a message carries, failing t when it is not one.
+func seedOf(t *testing.T, sent message) api.Seed {
+	t.Helper()
+
+	var seed api.Seed
+
+	err := json.Unmarshal([]byte(sent.data), &seed)
+	if sent.event != seedMessage || err != nil {
+		t.Fatalf("message %+v is not a seed: %v", sent, err)
+	}
+
+	return seed
+}
+
+func TestStreamSendsTheKeptIssuesBeforeAskingJira(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var (
+		asked        []string
+		whenSearched string
+	)
+
+	recorder := httptest.NewRecorder()
+	deps := filledDeps()
+	deps.Store.CachedIssues = keptFor([]jira.Issue{keptIssue()}, &asked)
+	search := deps.Jira.Search
+	deps.Jira.Search = func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error) {
+		whenSearched = recorder.Body.String()
+
+		return search(ctx, jql, startAt)
+	}
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	request := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/events", nil)
+	request.Host = loopbackHost
+
+	// Act
+	serve(t, deps, config.Default()).ServeHTTP(recorder, request)
+
+	// Assert
+	before := messages(whenSearched)
+	if len(before) != 1 {
+		t.Fatalf("Jira was asked after %d messages (%q), want after the seed alone", len(before), whenSearched)
+	}
+
+	want := api.IssuesPage{
+		Issues: []api.Issue{{
+			Key: keptKey, Tracker: api.IssueTrackerJira, Summary: "Kept from last time", Status: "To Do",
+			StatusCategory: api.StatusCategoryNew, Type: "Task",
+		}},
+		Total: 1, StartAt: 0, Unavailable: []string{},
+	}
+	if got := seedOf(t, before[0]).Issues; !reflect.DeepEqual(got, want) {
+		t.Errorf("seed = %+v, want %+v", got, want)
+	}
+
+	sent := messages(recorder.Body.String())
+	if len(sent) != 2 || sent[0].id != "1" || sent[1].event != snapshotMessage || sent[1].id != "2" {
+		t.Errorf("messages = %+v, want the seed as 1, then a snapshot as 2", sent)
+	}
+}
+
+func TestStreamSeedsANamedViewFromItsOwnKeptList(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var asked []string
+
+	deps := filledDeps()
+	deps.Store.CachedIssues = keptFor([]jira.Issue{keptIssue()}, &asked)
+
+	// Act
+	streamOnce(t, serve(t, deps, bugsView()), "/api/events?view="+testBugView)
+
+	// Assert
+	if want := []string{jira.ScopedToMe(testBugJQL)}; !slices.Equal(asked, want) {
+		t.Errorf("the store was asked for %q, want %q", asked, want)
+	}
+}
+
+func TestStreamSeedsAViewKeptEmpty(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var asked []string
+
+	deps := filledDeps()
+	deps.Store.CachedIssues = keptFor([]jira.Issue{}, &asked)
+
+	// Act
+	sent := messages(streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
+
+	// Assert
+	if seed := seedOf(t, sent[0]); len(seed.Issues.Issues) != 0 || seed.Issues.Total != 0 {
+		t.Errorf("seed = %+v, want an empty page", seed)
+	}
+}
+
+func TestStreamSendsNoSeed(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		unwire   func(*webserver.Deps)
+		info     webserver.Info
+		asksNone bool
+	}{
+		"with nothing kept for the view": {
+			unwire: func(deps *webserver.Deps) {
+				deps.Store.CachedIssues = func(context.Context, string) ([]jira.Issue, bool) { return nil, false }
+			},
+		},
+		"with no store to read": {unwire: func(deps *webserver.Deps) { deps.Store.CachedIssues = nil }},
+		"with no tracker to ask again": {
+			unwire: func(deps *webserver.Deps) { deps.Jira.Search = nil }, asksNone: true,
+		},
+		"under --dry-run": {unwire: func(*webserver.Deps) {}, info: webserver.Info{DryRun: true}, asksNone: true},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			var asked []string
+
+			deps := filledDeps()
+			deps.Store.CachedIssues = keptFor([]jira.Issue{keptIssue()}, &asked)
+			tt.unwire(&deps)
+
+			// Act
+			sent := messages(streamOnce(t, serveWith(t, deps, config.Default(), tt.info), "/api/events").Body.String())
+
+			// Assert
+			if len(sent) == 0 || sent[0].event != snapshotMessage || sent[0].id != "1" {
+				t.Errorf("messages = %+v, want a snapshot first, as 1", sent)
+			}
+
+			if tt.asksNone && len(asked) != 0 {
+				t.Errorf("the store was asked for %q, want it not asked", asked)
+			}
+		})
+	}
+}
+
+func TestASeedCarriesAStatusUnderNoCategoryAsNotStarted(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A row read back from disk is not trusted to fit the contract: carried as
+	// it was kept, the page would refuse the whole seed.
+	var asked []string
+
+	odd := keptIssue()
+	odd.StatusCategory = noCategory
+
+	deps := filledDeps()
+	deps.Store.CachedIssues = keptFor([]jira.Issue{odd}, &asked)
+
+	// Act
+	sent := messages(streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
+
+	// Assert
+	seed := seedOf(t, sent[0])
+	if len(seed.Issues.Issues) != 1 || seed.Issues.Issues[0].StatusCategory != api.StatusCategoryNew {
+		t.Errorf("seed = %+v, want the kept row carried as not yet started", seed)
+	}
+}
+
+func TestTheSeedsReadOfTheStoreStopsWhenItsPageLeaves(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	held, deps := newHeldUntilEnded(), filledDeps()
+	deps.Store.CachedIssues = func(ctx context.Context, _ string) ([]jira.Issue, bool) {
+		return nil, held.wait(ctx) == nil
+	}
+	stream := openStream(t, serve(t, deps, config.Default()), "/api/events")
+
+	select {
+	case <-held.entered:
+	case <-time.After(endsWithin):
+		t.Fatal("the stream never read the store for a seed")
+	}
+
+	// Act
+	stream.cancel()
+
+	// Assert
+	err := held.endedWith(t)
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("the store's read ended with %v, want it canceled once its page left", err)
+	}
+
+	<-stream.done
 }

@@ -911,6 +911,16 @@ export type Snapshot = {
 };
 
 /**
+ * The view's issues as the store last kept them, carried by a "seed" event sent first, at most once, ahead of any snapshot: only when the store holds a list for the view, there is a tracker to ask again, and the server is not under --dry-run. It is read from disk before anything is asked of the network; nothing else of the snapshot is known until the first one lands, which takes its place.
+ */
+export type Seed = {
+    /**
+     * The view's first page as last kept: Jira's issues only, in Jira's order. total counts only those, start_at is 0 and unavailable is empty; a view kept with no issues is an empty page.
+     */
+    issues: IssuesPage;
+};
+
+/**
  * One stage of the loop for an issue's work: the checked-out branch's (Snapshot.stages), another branch's as the server knows it without checking it out (TaskBranch.stages), or an issue's not yet branched for (Snapshot.unstarted_stages).
  */
 export type Stage = {
@@ -4546,9 +4556,9 @@ export type StreamEventsError = StreamEventsErrors[keyof StreamEventsErrors];
 
 export type StreamEventsResponses = {
     /**
-     * The event stream; each message's data is a Snapshot.
+     * The event stream: at most one "seed" message, first, whose data is a Seed, then "snapshot" messages, whose data is a Snapshot. Each message's id numbers it in the order sent.
      */
-    200: Snapshot;
+    200: Snapshot | Seed;
 };
 
 export type StreamEventsResponse = StreamEventsResponses[keyof StreamEventsResponses];

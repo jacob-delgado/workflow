@@ -2,7 +2,7 @@ import { renderHook } from '@testing-library/react'
 import { vi } from 'vitest'
 import frames from '@/test/snapshot-frames.sse?raw'
 import { FakeEventSource } from '@/test/setup/fakeEventSource.ts'
-import { zSnapshot } from './generated/zod.gen.ts'
+import { zSeed, zSnapshot } from './generated/zod.gen.ts'
 import { useEventStream, useSnapshotStore } from './snapshot.ts'
 
 // The frames the server's stream writes, held byte for byte by
@@ -10,28 +10,52 @@ import { useEventStream, useSnapshotStore } from './snapshot.ts'
 // them with -update. A snapshot the server changes without the client being
 // regenerated fails here, rather than in a browser that drops the frame.
 
-// payloads is each snapshot event's data, as EventSource hands it to a
-// listener: the stream's events are separated by a blank line.
-function payloads(stream: string): string[] {
-  return stream
-    .split('\n\n')
-    .map((event) => event.split('\n').find((line) => line.startsWith('data: ')))
-    .filter((line) => line !== undefined)
-    .map((line) => line.slice('data: '.length))
+// A message the stream writes: its event and its data, as EventSource hands
+// them to a listener.
+interface Message {
+  event: string
+  data: string
 }
 
-const workspaces = ['a filled workspace', 'an empty workspace']
-const served = payloads(frames).map((data, index) => [
-  workspaces[index] ?? `frame ${String(index)}`,
-  data,
-])
+// messages is each message the stream wrote, in order: the stream's messages
+// are separated by a blank line.
+function messages(stream: string): Message[] {
+  return stream
+    .split('\n\n')
+    .map((block) => {
+      const lines = block.split('\n')
+      const field = (name: string) =>
+        lines.find((line) => line.startsWith(`${name}: `))?.slice(`${name}: `.length)
 
-test('the server wrote a frame for each workspace', () => {
+      return { event: field('event'), data: field('data') }
+    })
+    .filter((read): read is Message => read.event !== undefined && read.data !== undefined)
+}
+
+const written = messages(frames)
+const seeds = written.filter((message) => message.event === 'seed').map((message) => message.data)
+const workspaces = ['a filled workspace', 'an empty workspace']
+const served = written
+  .filter((message) => message.event === 'snapshot')
+  .map((message, index) => [workspaces[index] ?? `frame ${String(index)}`, message.data])
+
+test('the server wrote a seed, then a frame for each workspace', () => {
   // Act
-  const written = payloads(frames)
+  const events = written.map((message) => message.event)
 
   // Assert
-  expect(written).toHaveLength(workspaces.length)
+  expect(events).toStrictEqual(['seed', 'snapshot', 'snapshot'])
+})
+
+test.each(seeds)("the client's schema keeps every key of the seed", (data) => {
+  // Arrange
+  const raw: unknown = JSON.parse(data)
+
+  // Act
+  const parsed = zSeed.parse(raw)
+
+  // Assert
+  expect(parsed).toStrictEqual(raw)
 })
 
 test.each(served)('the stream shows the frame the server writes for %s, and is live', (_, data) => {

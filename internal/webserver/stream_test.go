@@ -36,6 +36,49 @@ const regenerateFrames = "regenerate it with: " +
 //nolint:gochecknoglobals // go test's -update flag has to be registered before the tests run
 var updateGolden = flag.Bool("update", false, "rewrite the golden files from what the code writes")
 
+// snapshotMessage and seedMessage name the stream's two kinds of message.
+const (
+	snapshotMessage = "snapshot"
+	seedMessage     = "seed"
+)
+
+// message is one event-stream message: its id, its event and its data.
+type message struct {
+	id    string
+	event string
+	data  string
+}
+
+// messages splits an event-stream body into its messages, in the order sent:
+// each is separated from the next by a blank line.
+func messages(body string) []message {
+	var sent []message
+
+	for block := range strings.SplitSeq(body, "\n\n") {
+		var read message
+
+		for line := range strings.SplitSeq(block, "\n") {
+			if id, ok := strings.CutPrefix(line, "id: "); ok {
+				read.id = id
+			}
+
+			if event, ok := strings.CutPrefix(line, "event: "); ok {
+				read.event = event
+			}
+
+			if data, ok := strings.CutPrefix(line, "data: "); ok {
+				read.data = data
+			}
+		}
+
+		if read.event != "" {
+			sent = append(sent, read)
+		}
+	}
+
+	return sent
+}
+
 // snapshots decodes every snapshot event's data from an event-stream body, in
 // the order the stream pushed them.
 func snapshots(t *testing.T, body string) []api.Snapshot {
@@ -43,17 +86,16 @@ func snapshots(t *testing.T, body string) []api.Snapshot {
 
 	var pushed []api.Snapshot
 
-	for line := range strings.SplitSeq(body, "\n") {
-		payload, ok := strings.CutPrefix(line, "data: ")
-		if !ok {
+	for _, sent := range messages(body) {
+		if sent.event != snapshotMessage {
 			continue
 		}
 
 		var snap api.Snapshot
 
-		err := json.Unmarshal([]byte(payload), &snap)
+		err := json.Unmarshal([]byte(sent.data), &snap)
 		if err != nil {
-			t.Fatalf("decoding the snapshot from %q: %v", payload, err)
+			t.Fatalf("decoding the snapshot from %q: %v", sent.data, err)
 		}
 
 		pushed = append(pushed, snap)
@@ -457,7 +499,8 @@ func TestStreamFrameMatchesTheClientGolden(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// A workspace with every part of the snapshot filled — issues, the branch
+	// A workspace with every part of the snapshot filled, its view's issues
+	// kept from last time — issues, the branch
 	// and its commit, a change, the pull request and its CI, the issues in
 	// flight, one only the remote has, a learned scope, the started task and
 	// the linked ones — and one with nothing wired at all.
@@ -467,6 +510,9 @@ func TestStreamFrameMatchesTheClientGolden(t *testing.T) {
 		return []string{testBranchName, "feat/PROJ-7-flag"}, nil
 	}
 	filled.Store.LastScope = func(context.Context) (string, bool) { return "api", true }
+	filled.Store.CachedIssues = func(context.Context, string) ([]jira.Issue, bool) {
+		return []jira.Issue{keptIssue()}, true
+	}
 	filled.Tasks = fakeTaskwarrior().seams()
 
 	cfg := config.Default()
@@ -496,9 +542,12 @@ func TestStreamFrameMatchesTheClientGolden(t *testing.T) {
 	}
 }
 
-// uncategorized is a status Jira files under No Category, keyed "undefined":
-// one no one sorted into a category.
-const uncategorized = "Triage"
+// uncategorized is a status Jira files under No Category, whose key is
+// noCategory: one no one sorted into a category.
+const (
+	uncategorized                     = "Triage"
+	noCategory    jira.StatusCategory = "undefined"
+)
 
 func TestAFrameCarriesAnIssueWhoseStatusIsUnderNoCategory(t *testing.T) {
 	t.Parallel()
@@ -507,7 +556,7 @@ func TestAFrameCarriesAnIssueWhoseStatusIsUnderNoCategory(t *testing.T) {
 	deps := filledDeps()
 	deps.Jira.Search = func(context.Context, string, int) (jira.SearchResult, error) {
 		return jira.SearchResult{
-			Issues: []jira.Issue{{Key: testKey, Summary: testSummary, Status: uncategorized, StatusCategory: "undefined"}},
+			Issues: []jira.Issue{{Key: testKey, Summary: testSummary, Status: uncategorized, StatusCategory: noCategory}},
 			Total:  1,
 		}, nil
 	}
