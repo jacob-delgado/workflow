@@ -53,6 +53,10 @@ type Check struct {
 	// LogAvailable is a check whose log the forge serves: a GitHub Actions run
 	// or a GitLab job.
 	LogAvailable bool
+	// Project is the id of the fork a GitLab job's pipeline ran in, where its
+	// log is read; empty for a job of the merge request's own project, and on
+	// GitHub.
+	Project string
 }
 
 // CI is how CI stands, and how far through it is where the forge says.
