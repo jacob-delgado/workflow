@@ -41,6 +41,12 @@ function PlaceFacts({ place }: { place: Place }) {
       ) : null}
       <dt className="text-muted-foreground">Origin</dt>
       <CodeValue value={place.origin} />
+      {place.base === undefined ? null : (
+        <>
+          <dt className="text-muted-foreground">Base</dt>
+          <CodeValue value={place.base} />
+        </>
+      )}
       <dt className="text-muted-foreground">Configuration</dt>
       <dd>
         {place.config.length === 0 ? (

@@ -33,6 +33,10 @@ export type Place = {
      */
     origin: string;
     /**
+     * The host and path of the repository pull requests merge into, when that is not origin's, as in a fork's clone; absent otherwise.
+     */
+    base?: string;
+    /**
      * The configuration files that apply, each written from your home, the repository's first; empty when the defaults apply.
      */
     config: Array<string>;

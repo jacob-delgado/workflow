@@ -212,8 +212,9 @@ repository, its CI, draft or ready, and who asks — each with its `label`.
 `workflow repositories --json` prints the object `GET /api/repositories`
 answers (see [Scripting the API]({{< relref "/docs/web#scripting-the-api" >}})):
 `here`, where it runs (`dir`, `shown` — the path written from your home —
-`root`, `root_shown`, `within`, `origin` and `config`, the configuration
-files that apply); `worktrees`, the repository's working trees, the main one
+`root`, `root_shown`, `within`, `origin`, `base` — the host and path pull
+requests merge into, present only in a fork's clone — and `config`, the
+configuration files that apply); `worktrees`, the repository's working trees, the main one
 first (`dir`, `shown`, `branch`, `head`, `state` — `here`, `worktree` or
 `missing` — and `locked`), empty outside a repository; `worktrees_error`, why
 they could not be read, or empty; `favorites` (`dir`, `shown`, `state` —
@@ -316,8 +317,9 @@ Under `--dry-run` it prints the pull request it would open, with `number`
 opened — declined, refused or failed — prints nothing.
 
 `workflow doctor --json` prints the report as an object: `version`; `repository`
-(`inside_work_tree`, `root`, `branch`, `detached`, `remote`, `forge`, or, outside
-a work tree, `problem`: that git is not on `PATH`, that the directory is in no
+(`inside_work_tree`, `root`, `branch`, `detached`, `remote`, `forge` — the
+base remote's forge — and, in a fork's clone only, `base_remote` and `base`, its
+name and address; or, outside a work tree, `problem`: that git is not on `PATH`, that the directory is in no
 work tree, or that the working directory cannot be read);
 `tooling`, one entry per program (`name`, `found`, `required`, `effect`, and
 `detail` where finding it took more than a look at `PATH`: the Taskwarrior

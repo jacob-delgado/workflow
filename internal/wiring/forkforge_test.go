@@ -179,6 +179,30 @@ func TestAForkCloneKeepsItsStoreUnderOrigin(t *testing.T) {
 	}
 }
 
+func TestHereNamesAForksBase(t *testing.T) {
+	// Arrange
+	where, _ := forkWorkspace(t)
+	where.Repository = true
+
+	// Act
+	here := wired(t, config.Default(), where, nil).Repositories.Here
+
+	// Assert
+	if here.Remote.Path != "contributor/repo" || here.Base.Path != "owner/repo" {
+		t.Errorf("Here = %+v; want origin contributor/repo and the base owner/repo", here)
+	}
+}
+
+func TestHereNamesNoBaseOutsideAFork(t *testing.T) {
+	// Act
+	here := wired(t, config.Default(), onOrigin(t.TempDir(), remoteGitHub), nil).Repositories.Here
+
+	// Assert
+	if here.Base != (forge.Repo{}) {
+		t.Errorf("Here.Base = %+v, want none where the base remote is origin", here.Base)
+	}
+}
+
 func TestAPullRequestFromAPushRemoteNamingNoForgeIsNotOpened(t *testing.T) {
 	// Arrange
 	fake, where := forkForge(t,
