@@ -87,8 +87,9 @@ func renderStatusJSON(out io.Writer, facts statusFacts) error {
 	})
 }
 
-// repoStatus is one repository's status in the array `status DIR...` prints.
-type repoStatus struct {
+// directoryReport is one directory's status, or why it has none, in the array
+// `status DIR...` prints.
+type directoryReport struct {
 	Repository string        `json:"repository"`
 	Dir        string        `json:"dir"`
 	Issue      string        `json:"issue,omitempty"`
@@ -99,13 +100,13 @@ type repoStatus struct {
 }
 
 // statusesJSON prints the status of each directory as a JSON array, one object
-// per repository, so a directory that cannot be read is a row with an error
-// rather than a gap in the array.
+// per directory given, so a directory that cannot be read is a row with an
+// error rather than a gap in the array.
 func statusesJSON(out io.Writer, statuses []directoryStatus) error {
-	reports := make([]repoStatus, 0, len(statuses))
+	reports := make([]directoryReport, 0, len(statuses))
 
 	for _, status := range statuses {
-		report := repoStatus{Repository: status.label, Dir: status.dir}
+		report := directoryReport{Repository: status.label, Dir: status.dir}
 
 		if status.err != nil {
 			report.Error = unreadReason(status.err)
