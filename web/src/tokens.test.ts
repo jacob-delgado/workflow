@@ -100,6 +100,36 @@ function color(tokens: Map<string, string>, name: string): string {
   return value
 }
 
+// selectionTokens are the tokens the page's ::selection rule draws selected
+// text in and on, or a name no theme declares when either is not a token.
+function selectionTokens(): { ground: string; text: string } {
+  const start = css.indexOf('::selection {')
+  const block = css.slice(start, css.indexOf('}', start))
+
+  return {
+    ground: /background-color:\s*var\((--[a-z-]+)\);/.exec(block)?.[1] ?? 'a mix, not a token',
+    text: /[\s;{]color:\s*var\((--[a-z-]+)\);/.exec(block)?.[1] ?? 'a mix, not a token',
+  }
+}
+
+// Selected text is drawn on a solid ground of its own, so it reads the same
+// on every surface it is selected on, whatever that surface's fill; a primary
+// fill, which is that ground, swaps the two.
+test.each(themes)(
+  'selected text holds 4.5:1 on its selection ground in the %s theme',
+  (_, selector) => {
+    // Arrange
+    const tokens = tokensOf(selector)
+    const { ground, text } = selectionTokens()
+
+    // Act
+    const ratio = contrast(color(tokens, text), color(tokens, ground))
+
+    // Assert
+    expect(ratio).toBeGreaterThanOrEqual(4.5)
+  },
+)
+
 test.each(themes)(
   "a disabled control's text holds 4.5:1 on its fill in the %s theme",
   (_, selector) => {
@@ -175,6 +205,20 @@ describe.each(themes)('in the %s theme', (_, selector) => {
 
       // Assert
       expect(ratio).toBeGreaterThanOrEqual(4.5)
+    },
+  )
+
+  test.each(grounds)(
+    "a pressed filter chip's --tonal-foreground edge holds 3:1 on %s",
+    (beside) => {
+      // Arrange
+      const tokens = tokensOf(selector)
+
+      // Act
+      const ratio = contrast(color(tokens, '--tonal-foreground'), color(tokens, beside))
+
+      // Assert
+      expect(ratio).toBeGreaterThanOrEqual(3)
     },
   )
 

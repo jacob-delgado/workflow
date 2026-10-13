@@ -157,7 +157,8 @@ interface DayCellProps {
 // DayCell is one day: selected when it is in the period, reached by Tab when
 // it is the day in focus, and picked by a click or a key, with Shift for a
 // range. A picked day is filled in the ring's color, so its ring stands off by
-// a page-colored gap; any other is tinted by how much was done on it.
+// a page-colored gap, and its number, selected, swaps the selection's colors,
+// whose ground is that fill; any other is tinted by how much was done on it.
 function DayCell({ day, done, inPeriod, focusable, cells, onPick, onKey }: DayCellProps) {
   const step = activityStep(done)
 
@@ -181,7 +182,7 @@ function DayCell({ day, done, inPeriod, focusable, cells, onPick, onKey }: DayCe
       className={cn(
         'relative flex h-8 cursor-pointer items-center justify-center rounded-md tabular-nums focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
         inPeriod
-          ? 'bg-primary text-primary-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background'
+          ? 'bg-primary text-primary-foreground selection:bg-primary-foreground selection:text-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background'
           : // A shaded day keeps its shade under the pointer, so hovering never
             // hides how much was done on it.
             cn('text-foreground', step === undefined ? 'hover:bg-accent' : stepFills[step]),

@@ -270,11 +270,14 @@
     accent-color: var(--primary);
   }
 
-  /* Selected text in the full foreground on a faint accent wash, so muted or
-     colored text stays readable while it is selected. */
+  /* Selected text on a solid ground of the control accent, in its own
+     foreground, so it holds 4.5:1 on whatever it is selected on: a wash over
+     the surface beneath would take a mid-tone fill — a calendar day, a tonal
+     button — below the floor. A primary fill, which is this ground, swaps the
+     two (selection: in Button and MonthGrid). */
   ::selection {
-    background-color: color-mix(in srgb, var(--primary) 25%, transparent);
-    color: var(--foreground);
+    background-color: var(--primary);
+    color: var(--primary-foreground);
   }
 }
 
