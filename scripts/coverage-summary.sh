@@ -33,15 +33,24 @@ fi
 # Condition coverage over every gobco stats file present: arms observed / arms
 # present, the same arithmetic gobco-report.sh prints per package. Its key stays
 # "branch": the PR comment compares it against the baseline stored from main.
-branch="$(
-  jq -s -r '
-    (map(length) | add // 0) as $conditions
-    | ($conditions * 2) as $arms
-    | ([.[][] | (if .TrueCount > 0 then 1 else 0 end)
-               + (if .FalseCount > 0 then 1 else 0 end)] | add // 0) as $hit
-    | if $arms == 0 then "null" else (100 * $hit / $arms | . * 10 | round / 10 | tostring) end
-  ' "${stats_dir}"/*.json 2>/dev/null || echo "null"
-)"
+# No stats at all is no figure rather than a failure, since Test can pass while
+# Branch coverage fails and uploads nothing; the statement figure still stands.
+shopt -s nullglob
+stats_files=("${stats_dir}"/*.json)
+shopt -u nullglob
+
+branch=null
+if ((${#stats_files[@]} > 0)); then
+  branch="$(
+    jq -s -r '
+      (map(length) | add // 0) as $conditions
+      | ($conditions * 2) as $arms
+      | ([.[][] | (if .TrueCount > 0 then 1 else 0 end)
+                 + (if .FalseCount > 0 then 1 else 0 end)] | add // 0) as $hit
+      | if $arms == 0 then "null" else (100 * $hit / $arms | . * 10 | round / 10 | tostring) end
+    ' "${stats_files[@]}"
+  )"
+fi
 
 jq -n --argjson statements "${statements}" --argjson branch "${branch}" \
   '{statements: $statements, branch: $branch}'

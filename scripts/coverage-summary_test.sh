@@ -2,7 +2,8 @@
 #
 # Tests for coverage-summary.sh: it collapses a coverage profile and the gobco
 # stats into one JSON summary, taking the statement number from the gate so the
-# two sides of a PR comparison agree, and fails when an input it needs is absent.
+# two sides of a PR comparison agree, reports no condition figure when there
+# are no stats, and fails when an argument it needs is absent.
 #
 # Usage:
 #   scripts/coverage-summary_test.sh
@@ -64,6 +65,35 @@ if out="$(cd "${module}" && "${summary}" "${profile}" "${stats}")"; then
 else
   fail_case "summary on valid inputs" "exited non-zero"
 fi
+
+# expect_no_conditions runs the summary with a stats directory that holds no
+# stats and wants the statement figure beside a null branch figure: Test can
+# pass while Branch coverage fails and uploads nothing, and the report must
+# still show what Test measured.
+#   expect_no_conditions <name> <stats-dir>
+expect_no_conditions() {
+  local out
+  count_case
+  if out="$(cd "${module}" && "${summary}" "${profile}" "$2")"; then
+    if ! jq -e 'keys == ["branch", "statements"] and .statements == 50 and .branch == null' \
+      <<<"${out}" >/dev/null 2>&1; then
+      fail_case "$1" "want statements 50 and branch null, got ${out}"
+    fi
+  else
+    fail_case "$1" "exited non-zero"
+  fi
+}
+
+mkdir -p "${workdir}/empty-stats"
+expect_no_conditions "stats directory missing" "${workdir}/missing-stats"
+expect_no_conditions "stats directory empty" "${workdir}/empty-stats"
+
+# A stats file that is not JSON fails rather than reading as no figure:
+# gobco-report.sh read every file before Branch coverage uploaded it.
+broken="${workdir}/broken-stats"
+mkdir -p "${broken}"
+printf 'not json\n' >"${broken}/pkg.json"
+expect_fail "stats file not JSON" "${profile}" "${broken}"
 
 # A missing stats directory argument fails rather than summarizing half.
 expect_fail "no stats directory argument" "${profile}"
