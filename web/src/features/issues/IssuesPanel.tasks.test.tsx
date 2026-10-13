@@ -124,6 +124,22 @@ test("marks each issue's task by shape, beside the words for it", () => {
   expect(rows[3]?.textContent).not.toMatch(/tracked|task active|task done/)
 })
 
+test("the filter marks each task place as the rows mark the issue's tasks", () => {
+  // Arrange
+  taskMarkRows(true)
+
+  // Act
+  renderWithClient(<IssuesPanel />)
+
+  // Assert
+  const filter = screen.getByRole('group', { name: 'Filter' })
+  expect(
+    ['task active 1', 'tracked 1', 'task done 1'].map((name) =>
+      markShape(within(filter).getByRole('button', { name })),
+    ),
+  ).toEqual([drawnMark('in-flight'), drawnMark('not-started'), drawnMark('done')])
+})
+
 test.each([
   [
     'waits until a later date',

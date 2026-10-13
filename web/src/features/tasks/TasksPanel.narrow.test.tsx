@@ -3,8 +3,9 @@ import userEvent from '@testing-library/user-event'
 import type { TaskFacet } from '@/api/generated/types.gen.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { describedTask, makeTaskList, taskFacet } from '@/test/fixtures.ts'
+import { drawnMark, markShape } from '@/test/marks.tsx'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
-import { firstInEveryOrder, ranked, secondInEveryOrder } from '@/test/tasks.ts'
+import { firstInEveryOrder, ranked, secondInEveryOrder, startedTokenLeak } from '@/test/tasks.ts'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { TasksPanel } from './TasksPanel.tsx'
 
@@ -139,6 +140,28 @@ test('typing a filter narrows the list and says how many match', async () => {
   // The count is of the tasks the list shows unnarrowed, so the waiting one is
   // not among them.
   expect(screen.getByText('1 of 2 tasks matches, most urgent first.')).toBeTruthy()
+})
+
+test("marks each state's chip as the rows mark its tasks, and no other value's", async () => {
+  // Arrange
+  const started = startedTokenLeak('2026-09-28T09:00:00Z')
+  fakeApi({
+    '/api/tasks': makeTaskList(
+      [ranked(started, firstInEveryOrder), ranked(cert, secondInEveryOrder)],
+      { facet_order: [taskFacet.started, ...offered] },
+    ),
+  })
+
+  // Act
+  renderWithClient(<TasksPanel />)
+
+  // Assert
+  const narrow = await screen.findByRole('group', { name: 'Filter' })
+  expect(
+    ['started 1', 'pending 1', 'priority H 1'].map((name) =>
+      markShape(within(narrow).getByRole('button', { name })),
+    ),
+  ).toEqual([drawnMark('in-flight'), drawnMark('not-started'), ''])
 })
 
 test('a narrow chip narrows the list to the value it names', async () => {

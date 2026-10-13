@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, type ReactElement } from 'react'
 import type { Task } from '@/api/generated/types.gen.ts'
 import { useShortcut, useShortcutProps } from '@/features/keyboard/useShortcut.ts'
 import { FilterChips } from '@/lib/FilterChips.tsx'
@@ -9,6 +9,7 @@ import {
   toggleTaskFacet,
   type TaskFacet,
 } from './taskFacets.ts'
+import { TaskMark } from './TaskList.tsx'
 import { taskOrderWords, type TaskOrder } from './taskOrder.ts'
 
 interface TaskListControlsProps {
@@ -83,6 +84,7 @@ export function TaskListControls({
         isPicked={(facet) => isTaskFacetPicked(picked, facet)}
         nameOf={(facet) => facet.label}
         keyOf={(facet) => `${facet.kind}:${facet.value}`}
+        markOf={(facet) => stateMark(facet, tasks)}
         onToggle={(facet) => {
           onPick((current) => toggleTaskFacet(current, facet))
         }}
@@ -90,4 +92,14 @@ export function TaskListControls({
       />
     </div>
   )
+}
+
+// stateMark is the mark the rows draw for a state, as the first task in it
+// draws it. The rows mark nothing else a task holds, so no other value has one,
+// nor a state no task is in.
+function stateMark(facet: TaskFacet, tasks: Task[]): ReactElement | undefined {
+  const inState =
+    facet.kind === 'state' ? tasks.find((task) => task.state === facet.value) : undefined
+
+  return inState === undefined ? undefined : <TaskMark task={inState} />
 }

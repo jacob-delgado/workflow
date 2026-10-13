@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from 'react'
+import { useEffect, useRef, type ReactElement, type RefObject } from 'react'
 import type { Issue, TaskBranch, TasksSummary } from '@/api/generated/types.gen.ts'
 import { checkoutBranch } from '@/features/issues/checkoutApi.ts'
 import { IssueStatus } from '@/features/issues/IssueStatus.tsx'
@@ -90,9 +90,6 @@ function IssueRow({ issue, facts, rowRefs, selected, outcome }: IssueRowProps) {
   const issueBranches = facts.branchesByKey.get(issue.key) ?? []
   const newest = issueBranches[0]
   const onHead = issueBranches.some((branch) => branch.current)
-  const taskMark = facts.tasks.available
-    ? issueTaskMark(linkedTo(facts.tasks.linked, issue.key))
-    : undefined
 
   return (
     <li
@@ -122,7 +119,7 @@ function IssueRow({ issue, facts, rowRefs, selected, outcome }: IssueRowProps) {
         <span className="flex flex-wrap items-center gap-item">
           <span className="text-xs text-muted-foreground tabular-nums">{shownKey(issue)}</span>
           <IssueStatus category={issue.status_category} label={issue.status} />
-          <RowMarks inFlight={newest !== undefined} taskMark={taskMark} />
+          <RowMarks marks={rowMarksOf(issue, facts)} />
         </span>
         <span className="text-sm">{issue.summary}</span>
       </button>
@@ -133,36 +130,54 @@ function IssueRow({ issue, facts, rowRefs, selected, outcome }: IssueRowProps) {
   )
 }
 
-// RowMarks are what a row marks at its end: the issue in flight, when a branch
-// names it, and how its tasks stand, when Taskwarrior can be asked and a task
-// is linked to it — each by its mark, beside the words for it. They sit
-// together, so where the row is too narrow for them they move to a line of
-// their own as one.
-function RowMarks({
-  inFlight,
-  taskMark,
-}: {
-  inFlight: boolean
-  taskMark: ReturnType<typeof issueTaskMark>
-}) {
-  if (!inFlight && taskMark === undefined) {
+// RowMark is one of the marks a row draws at its end: the words for it, and
+// the mark drawn before them.
+export interface RowMark {
+  words: string
+  mark: ReactElement
+}
+
+// rowMarksOf is what an issue's row marks at its end: the issue in flight, when
+// a branch names it, and how its tasks stand, when Taskwarrior can be asked and
+// a task is linked to it.
+export function rowMarksOf(issue: Issue, facts: RowFacts): RowMark[] {
+  const marks: RowMark[] = []
+  if (facts.branchesByKey.has(issue.key)) {
+    marks.push({
+      words: 'in flight',
+      mark: <StateMark state="in-flight" className="size-3 text-git" />,
+    })
+  }
+
+  const taskMark = facts.tasks.available
+    ? issueTaskMark(linkedTo(facts.tasks.linked, issue.key))
+    : undefined
+  if (taskMark !== undefined) {
+    marks.push({
+      words: taskMark.words,
+      mark: <StateMark state={taskMark.state} className="size-3 text-taskwarrior" />,
+    })
+  }
+
+  return marks
+}
+
+// RowMarks are a row's marks, each beside the words for it. They sit together,
+// so where the row is too narrow for them they move to a line of their own as
+// one.
+function RowMarks({ marks }: { marks: RowMark[] }) {
+  if (marks.length === 0) {
     return null
   }
 
   return (
     <span className="ml-auto flex items-center gap-item text-xs whitespace-nowrap text-muted-foreground">
-      {inFlight ? (
-        <span className="flex items-center gap-1">
-          <StateMark state="in-flight" className="size-3 text-git" />
-          <span>in flight</span>
+      {marks.map(({ words, mark }) => (
+        <span key={words} className="flex items-center gap-1">
+          {mark}
+          <span>{words}</span>
         </span>
-      ) : null}
-      {taskMark === undefined ? null : (
-        <span className="flex items-center gap-1">
-          <StateMark state={taskMark.state} className="size-3 text-taskwarrior" />
-          <span>{taskMark.words}</span>
-        </span>
-      )}
+      ))}
     </span>
   )
 }

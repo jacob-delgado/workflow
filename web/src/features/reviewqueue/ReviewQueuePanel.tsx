@@ -1,4 +1,4 @@
-import { useRef, type ReactNode, type RefObject } from 'react'
+import { useRef, type ReactElement, type ReactNode, type RefObject } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import type { ReviewRequest } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
@@ -138,6 +138,7 @@ function Queue({
           isPicked={(facet) => isPicked(picked, facet)}
           nameOf={(facet) => facet.label}
           keyOf={(facet) => `${facet.kind}:${facet.value}`}
+          markOf={(facet) => facetMark(facet, requests)}
           afterLast={sort}
           onToggle={(facet) => {
             pick((now) => toggleFacet(now, facet))
@@ -157,6 +158,27 @@ function Queue({
       )}
     </div>
   )
+}
+
+// facetMark is the mark the rows draw for a value, as the first request
+// holding it draws it: how its CI stands, and that it is a draft. The rows mark
+// nothing else a request holds, so no other value has one, nor a value no
+// request holds.
+function facetMark(facet: Facet, requests: ReviewRequest[]): ReactElement | undefined {
+  const holder = requests.find((request) => isPicked(request.facets, facet))
+  if (holder === undefined) {
+    return undefined
+  }
+
+  switch (facet.kind) {
+    case 'ci':
+      return <StateMark state={ciMark[holder.ci]} />
+    case 'draft':
+      return holder.draft ? <StateMark state="not-started" /> : undefined
+    case 'repository':
+    case 'author':
+      return undefined
+  }
 }
 
 // emptyQueue is the empty queue in the forge's own noun, the sentence the
