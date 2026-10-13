@@ -449,6 +449,15 @@ reason under the ones you can run, and cannot be chosen.
 `enter` pushes the branch first if it is not pushed — pre-push hooks stream just
 as commit hooks do — and opens the pull request only if the push succeeded.
 
+With messaging set up, opening a pull request also arms its announcement: it
+waits for CI to pass, as `w` in the announcement preview does, then posts to
+the default channel, tagging those `workflow announce --yes` would propose —
+the linked code owners of its changes against the base it opens into, and the
+groups that start checked — as far as the Slack token's scopes let a preview
+tag them. The notice says so, and the messaging pane shows it waiting; `x`
+there stops it, and `messaging.auto_announce: false` turns arming off. A draft
+is never armed: the notice says to announce it once it is ready.
+
 Reviewers, and on GitLab assignees, are added best effort. A reviewer the forge
 will not take — a name GitLab does not know, or someone GitHub cannot ask — or
 an assignee GitLab does not know does not stop the pull request: it opens with
@@ -490,7 +499,8 @@ announcement waiting for CI waits through a failed run: the messaging pane says
 *a check failed; waiting on a fix*, and it goes once a later run passes. While no
 check is reported it says *no checks reported yet*, and after ten minutes with
 none, counted from the last read that saw one, it gives up, saying to announce it
-by hand. `x` on the messaging pane stops waiting, and nothing is announced.
+by hand. `x` on the messaging pane stops waiting, and nothing is announced. One
+armed as `n` opened its pull request waits the same way.
 Announcing now replaces one that is waiting, so the channel never reads it twice.
 
 Nothing is announced while a check has failed on the pull request. The

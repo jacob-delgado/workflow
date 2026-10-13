@@ -58,8 +58,9 @@ func forgeVocab(kind forge.Kind) reviewVocab {
 	return reviewVocab{noun: kind.Noun(), sigil: kind.Sigil()}
 }
 
-// findPull is the command that looks for the branch's open pull request.
-func (s branchState) findPull(ctx context.Context, deps Deps) tea.Cmd {
+// findPull is the command that looks for the branch's open pull request,
+// for the review begun as review.
+func (s branchState) findPull(ctx context.Context, deps Deps, review int) tea.Cmd {
 	find, branch := deps.Forge.FindPullRequest, s.branch.Name
 	if find == nil || !s.onFeatureBranch() {
 		return nil
@@ -68,13 +69,15 @@ func (s branchState) findPull(ctx context.Context, deps Deps) tea.Cmd {
 	return func() tea.Msg {
 		pull, found, err := find(ctx, branch)
 
-		return pullFound{branch: branch, pull: pull, found: found, err: err}
+		return pullFound{branch: branch, review: review, pull: pull, found: found, err: err}
 	}
 }
 
-// pullFound carries what the forge said about the branch's pull request.
+// pullFound carries what the forge said about the branch's pull request, for
+// the review begun as review.
 type pullFound struct {
 	branch string
+	review int
 	pull   forge.PullRequest
 	found  bool
 	err    error
@@ -84,9 +87,12 @@ var _ applier = pullFound{}
 
 // apply records the pull request, unless the branch has changed since, and
 // checks its CI and who opened it. A find that fails keeps the pull request
-// already found, beside the failure.
+// already found, beside the failure. A find begun before another review
+// replaced the one it was asked in says nothing of it: one that read the
+// forge before a pull request opened here would otherwise blank the review
+// and drop the announcement armed as it opened.
 func (msg pullFound) apply(m Model) (Model, tea.Cmd) {
-	if msg.branch != m.branch.branch.Name {
+	if msg.branch != m.branch.branch.Name || msg.review != m.reviewsBegun {
 		return m, nil
 	}
 

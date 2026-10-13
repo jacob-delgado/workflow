@@ -123,9 +123,11 @@ func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
 		notice += "; could not add every reviewer, assignee or label: " + briefly(refusal)
 	}
 
-	m = m.noticed(notice)
 	m = m.beginReview(reviewState{pull: msg.pull, found: true, loaded: true})
 	m.prDraft = prDraft{}
+
+	m, armed := m.armOnOpen(msg.pull)
+	m = m.noticed(notice + armed)
 
 	cmds := tea.Batch(m.checkCI(), m.messaging.loadAuthor(m.session, m.deps))
 

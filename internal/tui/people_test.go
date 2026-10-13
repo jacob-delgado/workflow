@@ -233,13 +233,13 @@ func TestGroupsSaysWhatTheTokenLacks(t *testing.T) {
 
 	// Arrange
 	scopeless := taggingWorld()
-	scopeless.slack.groupsErr = &messaging.MissingScopeError{Needed: "usergroups:read"}
+	scopeless.slack.groupsErr = &messaging.MissingScopeError{Needed: groupsScope}
 
 	// Act
 	view := typing(t, openPeople(t, scopeless), keyTab).View().Content
 
 	// Assert
-	requireScreen(t, view, "usergroups:read")
+	requireScreen(t, view, groupsScope)
 }
 
 func TestPeopleSaysWhenNobodyWasDecided(t *testing.T) {
