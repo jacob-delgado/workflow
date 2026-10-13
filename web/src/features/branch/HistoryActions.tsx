@@ -3,6 +3,7 @@ import type { Branch, Change, Commit } from '@/api/generated/types.gen.ts'
 import { useShortcut, useShortcutProps } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback } from '@/lib/focus.ts'
+import { shortHash } from '@/lib/utils.ts'
 import { WriteForm } from '@/lib/WriteForm.tsx'
 import type { GitRunner } from './GitRun.tsx'
 
@@ -201,7 +202,7 @@ function AmendLook({ last, runner, onCancel, onSent }: LookProps & { last: Commi
       onCancel={onCancel}
     >
       <p className="text-sm">
-        Fold the staged changes into <span className="font-mono">{last.hash.slice(0, 7)}</span>{' '}
+        Fold the staged changes into <span className="font-mono">{shortHash(last.hash)}</span>{' '}
         {last.subject}, keeping its message? It is not pushed yet, so only this machine&apos;s
         history changes.
       </p>
@@ -245,7 +246,7 @@ function FixupLook({ commits, runner, onCancel, onSent }: LookProps & { commits:
               }}
               className="size-4"
             />
-            <span className="font-mono text-muted-foreground">{commit.hash.slice(0, 7)}</span>{' '}
+            <span className="font-mono text-muted-foreground">{shortHash(commit.hash)}</span>{' '}
             {commit.subject}
           </label>
         ))}
