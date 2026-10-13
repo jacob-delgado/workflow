@@ -100,6 +100,12 @@ function BranchSummary({ branch, runner }: { branch: Branch; runner: GitRunner }
         <CodeValue value={branch.base} />
         <dt className="text-muted-foreground">Upstream</dt>
         <CodeValue value={branch.upstream} />
+        {branch.push_remote === branch.base_remote ? null : (
+          <>
+            <dt className="text-muted-foreground">Push to</dt>
+            <CodeValue value={branch.push_remote} />
+          </>
+        )}
         <dt className="text-muted-foreground">Tracking</dt>
         <dd>
           {published

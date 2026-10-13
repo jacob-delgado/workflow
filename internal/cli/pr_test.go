@@ -37,11 +37,17 @@ func TestPRQuestionNamesThePush(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
-		published bool
-		want      string
+		published  bool
+		pushRemote string
+		want       string
 	}{
-		"a branch not yet pushed": {want: "Push fix/PROJ-2-thing and open the pull request?"},
+		"a branch not yet pushed": {want: "Push fix/PROJ-2-thing to origin and open the pull request?"},
 		"a branch already pushed": {published: true, want: "Open the pull request?"},
+		// A fork's clone may push the branch somewhere of its own; the
+		// question says where.
+		"a branch pushed to a remote of its own": {
+			pushRemote: "fork", want: "Push fix/PROJ-2-thing to fork and open the pull request?",
+		},
 	}
 
 	for name, tt := range cases {
@@ -54,6 +60,10 @@ func TestPRQuestionNamesThePush(t *testing.T) {
 
 			if tt.published {
 				pretendPushed(t, repo)
+			}
+
+			if tt.pushRemote != "" {
+				git(t, repo, "config", "branch.fix/PROJ-2-thing.pushRemote", tt.pushRemote)
 			}
 
 			writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
@@ -124,7 +134,7 @@ func TestPRDryRunPreviewsWithoutOpening(t *testing.T) {
 		t.Errorf("preview does not show the body composed from the template:\n%s", printed.stdout)
 	}
 
-	if !strings.Contains(printed.stderr, "dry run: would push fix/PROJ-2-thing and open") {
+	if !strings.Contains(printed.stderr, "dry run: would push fix/PROJ-2-thing to origin and open") {
 		t.Errorf("dry run does not describe the push and open it would do:\n%s", printed.stderr)
 	}
 }

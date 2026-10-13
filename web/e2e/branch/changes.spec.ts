@@ -16,6 +16,7 @@ const workingTreeSnapshot = snapshotWith({
     head: 'abc1234',
     upstream: 'origin/fix/PROJ-1',
     push_remote: 'origin',
+    base_remote: 'origin',
     base: 'origin/main',
   }),
   changes: {

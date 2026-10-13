@@ -169,6 +169,11 @@ func (s branchState) detail(view branchView, width int) string {
 		label.Render("commits   ") + strconv.Itoa(len(s.branch.Commits)) + " not on the base",
 	}
 
+	// A fork's clone pushes somewhere other than where it merges: say where.
+	if s.branch.PushRemote != s.branch.BaseRemote {
+		lines = append(lines, label.Render("push to   ")+s.branch.PushRemote)
+	}
+
 	if branchKey, named := loop.IssueOf(s.branch, view.project); named {
 		issue, listed := view.issues.find(jira.Key(branchKey.Key))
 		lines = append(lines, label.Render("issue     ")+branchKey.Key+" "+issue.Summary+unlisted(kit.styles, listed))

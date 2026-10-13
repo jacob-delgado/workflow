@@ -1139,9 +1139,12 @@ type AssignedIssue struct {
 type Branch struct {
 	Ahead int `json:"ahead"`
 
-	// Base The base branch, such as origin/main.
-	Base   string `json:"base"`
-	Behind int    `json:"behind"`
+	// Base The base branch, such as origin/main, or upstream/main in a fork's clone.
+	Base string `json:"base"`
+
+	// BaseRemote The remote the base is read from: the one gh marked as the base, else upstream, else origin. Start work fetches it, and a finish pulls the base from it.
+	BaseRemote string `json:"base_remote"`
+	Behind     int    `json:"behind"`
 
 	// Commits The commits on this branch since its base.
 	Commits []Commit `json:"commits"`

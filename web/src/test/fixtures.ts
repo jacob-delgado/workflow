@@ -23,6 +23,7 @@ export function makeBranch(overrides: Partial<Branch> = {}): Branch {
     head: 'abc1234',
     upstream: 'origin/fix/PROJ-1',
     push_remote: 'origin',
+    base_remote: 'origin',
     ahead: 2,
     behind: 0,
     base: 'origin/main',

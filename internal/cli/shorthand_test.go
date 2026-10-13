@@ -65,7 +65,7 @@ func TestDashNHoldsBackAWrite(t *testing.T) {
 	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "-n")
 
 	// Assert
-	if err != nil || !strings.Contains(printed.stderr, "dry run: would push fix/PROJ-2-thing and open") {
+	if err != nil || !strings.Contains(printed.stderr, "dry run: would push fix/PROJ-2-thing to origin and open") {
 		t.Errorf("pr -n = %v, printed %+v; want the push and open held back", err, printed)
 	}
 }
