@@ -597,7 +597,10 @@ than observable, public behavior.
   `docs/go.mod`, `web/yarn.lock` or `mise.toml` must be a week old.
   **Known-CVE fixes override the cooldown — always.** List such a version in
   `scripts/dependency-age-exceptions.txt` with its advisory. The gate guards
-  against *unknown* compromised releases, not *published* security fixes.
+  against *unknown* compromised releases, not *published* security fixes. The
+  maintainer, and only the maintainer, may also waive a version by name: list
+  it there with a dated waiver, `waived-YYYY-MM-DD`, the day they waived it.
+  Either way, each line goes once its version is a week old.
   Dependabot's cooldown deliberately exempts `actions/*` and `github/*`: they
   are GitHub's own first-party actions, and this age-gate rule is what governs
   them by hand.
