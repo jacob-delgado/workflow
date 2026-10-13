@@ -114,7 +114,7 @@ func (s *server) TransitionIssue(
 
 	move, err := loop.FindReviewTransition(ctx, s.deps.Jira.Transitions, issueKey, status)
 	if err != nil {
-		return s.transitionRefusal(err, issueKey, status), nil
+		return s.transitionRefusal(err), nil
 	}
 
 	err = s.deps.Jira.Transition(ctx, issueKey, move, nil)
@@ -128,20 +128,19 @@ func (s *server) TransitionIssue(
 }
 
 // transitionRefusal answers a move to the review status that was not made, in
-// words that say what to do; a tracker that could not be read is the curated
-// fault, which never carries the tracker's address.
-func (s *server) transitionRefusal(err error, issueKey jira.Key, status string) api.TransitionIssueResponseObject {
+// words that say what to do: the statuses Jira offers instead, or the fields
+// the move asks for; a tracker that could not be read is the curated fault,
+// which never carries the tracker's address.
+func (s *server) transitionRefusal(err error) api.TransitionIssueResponseObject {
 	switch {
 	case errors.Is(err, loop.ErrNoReviewStatus):
 		return api.TransitionIssue422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
 			"no review status is configured; set jira.review_status to move an issue there"))
 	case errors.Is(err, loop.ErrNeedsFields):
 		return api.TransitionIssue409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
-			"Jira wants fields filled to move "+string(issueKey)+" to "+status+
-				"; change its status from the issue, whose form asks for them"))
+			err.Error()+"; change its status from the issue, whose form asks for them"))
 	case errors.Is(err, loop.ErrNoTransition):
-		return api.TransitionIssue409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
-			"Jira offers no move of "+string(issueKey)+" to "+status+" from where it stands"))
+		return api.TransitionIssue409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict, err.Error()))
 	default:
 		return problemAnswer[api.TransitionIssuedefaultApplicationProblemPlusJSONResponse](s.fault(err))
 	}

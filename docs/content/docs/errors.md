@@ -93,8 +93,9 @@ announcement whose linked code owners are not the people its preview showed
 tagged (a link changed in Settings or a terminal since — nothing is posted;
 preview it again), an
 issue the checked-out branch does not name, a move to the review status that Jira
-does not offer or wants fields filled for (the terminal interface's status
-picker asks for them), or a configuration file that changed since Settings read
+does not offer (the detail names the statuses it does) or wants fields filled
+for (the detail names them; the terminal interface's status picker asks for
+them), or a configuration file that changed since Settings read
 it — edited on disk, or saved from another tab — which a save refuses rather
 than overwrite, short of an edit landing between the save's check and its write
 ([Web]({{< relref "/docs/web" >}}) names that window). Taskwarrior answers it
