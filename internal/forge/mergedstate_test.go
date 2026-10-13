@@ -45,6 +45,45 @@ func TestFindPullRequestReportsAMergedBranch(t *testing.T) {
 	}
 }
 
+func TestFindPullRequestReadsTheCommitItsBranchIsAt(t *testing.T) {
+	t.Parallel()
+
+	const head = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+
+	cases := map[string]struct {
+		repo     forge.Repo
+		findPath string
+		body     string
+	}{
+		github: {
+			repo: githubRepo(), findPath: githubPullsPath,
+			body: `[{"number":42,"html_url":"u","title":"t","state":"closed","merged_at":"2026-01-01T00:00:00Z",` +
+				`"head":{"ref":"feat","sha":"` + head + `"}}]`,
+		},
+		gitlab: {
+			repo: gitlabRepo(), findPath: gitlabMergesPath,
+			body: `[{"iid":8,"web_url":"u","title":"t","state":"merged","sha":"` + head + `"}]`,
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			client, _ := recordingForge(t, routing(map[string]string{tt.findPath: tt.body}))
+
+			// Act
+			pull, found, err := client.FindPullRequest(t.Context(), tt.repo, featureBranch)
+
+			// Assert
+			if err != nil || !found || pull.HeadCommit != head {
+				t.Errorf("FindPullRequest = %+v, %v, %v, want its branch at %s", pull, found, err, head)
+			}
+		})
+	}
+}
+
 func TestIsOpenReportsOnlyTheOpenState(t *testing.T) {
 	t.Parallel()
 

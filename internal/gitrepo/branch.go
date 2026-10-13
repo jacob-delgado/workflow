@@ -119,13 +119,13 @@ func (b Branch) Unpushed() []Commit {
 	return b.Commits[max(0, len(b.Commits)-b.Ahead):]
 }
 
-// HasUnpushedWork reports commits on this branch that origin is known not to
-// hold: the branch has an upstream and is ahead of it. It is what guards a force
-// delete — a merged branch normally has none, but one committed to since it was
-// pushed does, and those commits would be lost. With no upstream to compare
-// against nothing is known to be unpushed, so it reports false.
-func (b Branch) HasUnpushedWork() bool {
-	return b.Upstream != "" && b.Ahead > 0
+// UpstreamHoldsAll reports an upstream that holds every commit on this branch:
+// it has one and is not ahead of it. It is one of the two things that make a
+// force delete safe. With no upstream — never pushed under its own name, or
+// one the forge deleted after a merge and a prune then dropped — nothing is
+// known to hold the commits, so it reports false.
+func (b Branch) UpstreamHoldsAll() bool {
+	return b.Upstream != "" && b.Ahead == 0
 }
 
 // BaseName is the base branch without its remote prefix — "main" for

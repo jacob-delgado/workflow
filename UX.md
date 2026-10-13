@@ -283,10 +283,10 @@ stashing (`errDirtyTree`, `internal/tui/switchtask.go:25`), and quit is
 guarded while an announcement waits (`quitGuard`,
 `internal/tui/messaging.go:67`). But a posted comment, an applied
 transition, a merge and the `git branch -D` in finish
-(`finishPreview.commands`, `internal/tui/finish.go:76`) have no undo, and
+(`finishPreview.commands`, `internal/tui/finish.go:75`) have no undo, and
 the interface never says which acts are reversible: the finish preview
 lists the three commands and says nothing of what `-D` costs
-(`finishPreview.view`, `internal/tui/finish.go:82`), and a comment's notice
+(`finishPreview.view`, `internal/tui/finish.go:81`), and a comment's notice
 is "commented on KEY" (`commentPosted.apply`,
 `internal/tui/comment.go:144`).
 

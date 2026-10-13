@@ -22,7 +22,8 @@ var (
 	errNotMergeable           = errors.New("it cannot be merged yet: it must be open, ready for review, " +
 		"free of conflicts, approved with no changes asked for, and its CI passed")
 	errNotFinishable = errors.New("this branch cannot be finished: its pull request must have merged, " +
-		"with a base to return to and no commit origin lacks, which deleting the branch would lose")
+		"with a base to return to, and every commit on it must be the commit that merged or on its upstream, " +
+		"since deleting the branch would lose the rest")
 	errNothingToRerun = errors.New("there is nothing to re-run: only failed CI on an open pull request is")
 	errNoMergeMethod  = errors.New("the repository permits no merge method")
 	errTitleRequired  = errors.New("a title is required")
@@ -271,8 +272,8 @@ func (s *server) FinishBranch(
 // errFinishRefused is git declining a step of the finish.
 var errFinishRefused = errors.New("git refused the finish")
 
-// finish runs the finish once loop.CanFinish allows it, and answers the
-// branch now checked out.
+// finish runs the finish once loop.RefuseFinish finds nothing in the way,
+// and answers the branch now checked out.
 func (s *server) finish(ctx context.Context) (gitrepo.Branch, error) {
 	if s.deps.Git.Finish == nil {
 		return gitrepo.Branch{}, errReviewWriteUnavailable
@@ -283,7 +284,7 @@ func (s *server) finish(ctx context.Context) (gitrepo.Branch, error) {
 		return gitrepo.Branch{}, err
 	}
 
-	if !read.found || !loop.CanFinish(read.pull, read.branch) {
+	if loop.RefuseFinish(read.pull, read.found, read.branch) != nil {
 		return gitrepo.Branch{}, errNotFinishable
 	}
 

@@ -874,10 +874,11 @@ paths:
         Runs the three git commands the terminal's F previews — git switch to
         the base, git pull --ff-only, git branch -D the branch — once the
         branch's pull request has merged, the branch is checked out with a
-        base to return to, and it holds no commit origin lacks, which the
-        delete would lose. Refused with 409 when it cannot be finished, and
-        422 when finishing is not available or git refuses, whose own words
-        stay off the wire since they name origin.
+        base to return to, and the delete would lose nothing: the branch is
+        at the commit its pull request merged, or its upstream holds every
+        commit on it. Refused with 409 when it cannot be finished, and 422
+        when finishing is not available or git refuses, whose own words stay
+        off the wire since they name origin.
       tags: [review]
       responses:
         "200":

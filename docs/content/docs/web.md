@@ -291,7 +291,8 @@ merges by the one chosen, as `M` does; **Re-run failed checks**, while its CI
 has failed, restarts the failed jobs, as `R` does, and says when a failure had
 no job to restart; and once it has merged, **Finish the branch** shows the
 three git commands it runs — switch to the base, pull, delete the branch — as
-`F` does, when the branch holds no commit origin lacks. The server reads the
+`F` does, when deleting the branch loses nothing: it is at the commit that
+merged, or its upstream holds every commit on it. The server reads the
 pull request and its CI again before each, so nothing goes on what the page
 showed a moment ago. A token without the scope a write needs is told in the
 forge's own words, naming the scope.

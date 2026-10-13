@@ -73,12 +73,53 @@ func CanMerge(pull forge.PullRequest, checks forge.CI) bool {
 		checks.State == forge.CIPassed
 }
 
-// CanFinish reports a merged pull request's branch that can be finished: it is
-// checked out with a base to return to, and holds no commit origin lacks,
-// which the force delete would lose.
-func CanFinish(pull forge.PullRequest, branch gitrepo.Branch) bool {
-	return pull.State == forge.StateMerged && OnFeatureBranch(branch) && branch.Base != "" &&
-		!branch.HasUnpushedWork()
+// Why a merged branch cannot be finished, each worded to follow "cannot
+// finish BRANCH: " in any forge's words.
+var (
+	// ErrNotOnFeatureBranch refuses finishing the base itself or a detached
+	// HEAD: there is no branch of its own to delete.
+	ErrNotOnFeatureBranch = errors.New("no branch of its own is checked out")
+	// ErrNotMerged refuses finishing a branch whose pull request has not
+	// merged: none was found, it is still open, or it closed without merging.
+	ErrNotMerged = errors.New("it has not merged")
+	// ErrNoBase refuses finishing a branch whose base was not found, so there
+	// is nowhere to switch to.
+	ErrNoBase = errors.New("there is no base branch to return to")
+	// ErrUnpushedWork refuses finishing a branch whose commits nothing else is
+	// known to hold, which the force delete would lose: it is not at the
+	// commit that merged, and it has no upstream or is ahead of the one it has.
+	ErrUnpushedWork = errors.New(
+		"it holds commits that neither merged nor are on its upstream, which deleting it would lose; push them first")
+)
+
+// RefuseFinish says why a branch cannot be finished, or nil when it can: it is
+// checked out as a branch of its own, its pull request — found says whether
+// there is one — has merged, it has a base to return to, and the force delete
+// would lose nothing (see keptElsewhere).
+func RefuseFinish(pull forge.PullRequest, found bool, branch gitrepo.Branch) error {
+	switch {
+	case !OnFeatureBranch(branch):
+		return ErrNotOnFeatureBranch
+	case !found || pull.State != forge.StateMerged:
+		return ErrNotMerged
+	case branch.Base == "":
+		return ErrNoBase
+	case !keptElsewhere(pull, branch):
+		return ErrUnpushedWork
+	default:
+		return nil
+	}
+}
+
+// keptElsewhere reports a merged branch whose every commit something else
+// holds, so deleting it loses none: it is at the commit its pull request
+// merged, which the forge keeps, or its upstream holds them all. With no
+// upstream, a branch behind what merged is not told apart from one ahead of
+// it — telling them apart takes git — so it reports false for both.
+func keptElsewhere(pull forge.PullRequest, branch gitrepo.Branch) bool {
+	atWhatMerged := pull.HeadCommit != "" && branch.Head == pull.HeadCommit
+
+	return atWhatMerged || branch.UpstreamHoldsAll()
 }
 
 // CanRerun reports failed CI on an open pull request. A merged one is left

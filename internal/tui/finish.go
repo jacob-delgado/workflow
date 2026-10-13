@@ -38,11 +38,10 @@ func (m Model) mergedDetail(pull forge.PullRequest) string {
 	return strings.Join(lines, "\n")
 }
 
-// canFinish reports a merged branch that can be finished: its pull request
-// merged, we are on the feature branch with a base to return to, the repository
-// can finish it, and no unpushed commits would be lost to the force delete.
+// canFinish reports a merged branch that can be finished: the repository can
+// finish it, and loop.RefuseFinish finds nothing in the way.
 func (s reviewState) canFinish(deps Deps, branch branchState) bool {
-	return s.found && deps.Git.Finish != nil && branch.onFeatureBranch() && loop.CanFinish(s.pull, branch.branch)
+	return s.found && deps.Git.Finish != nil && loop.RefuseFinish(s.pull, s.found, branch.branch) == nil
 }
 
 // startFinish opens the finish preview: the three git commands that switch to

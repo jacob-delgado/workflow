@@ -4,6 +4,7 @@
 package loop_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -25,10 +26,17 @@ func passedCI() forge.CI {
 // originMain is the base the feature branches here start from.
 const originMain = "origin/main"
 
+// mergedHead is the commit a feature branch here is at, and the one its pull
+// request merged; committedSince is one made on it after.
+const (
+	mergedHead     = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+	committedSince = "c0ffee0c0ffee0c0ffee0c0ffee0c0ffee0c0ffe"
+)
+
 // featureBranch is a feature branch off origin/main with one commit, pushed.
 func featureBranch() gitrepo.Branch {
 	return gitrepo.Branch{
-		Name: "feat/x", Base: originMain, Upstream: "origin/feat/x", PushRemote: "origin",
+		Name: "feat/x", Head: mergedHead, Base: originMain, Upstream: "origin/feat/x", PushRemote: "origin",
 		Commits: []gitrepo.Commit{{Hash: "aaa1111", Subject: "feat: x"}},
 	}
 }
@@ -90,27 +98,55 @@ func same(pull forge.PullRequest) forge.PullRequest {
 	return pull
 }
 
-func TestCanFinishOnlyAMergedBranchWithNothingUnpushed(t *testing.T) {
+func TestRefuseFinishSaysWhyABranchCannotBeFinished(t *testing.T) {
 	t.Parallel()
 
-	merged := forge.PullRequest{Number: 7, State: forge.StateMerged}
+	merged := forge.PullRequest{Number: 7, State: forge.StateMerged, HeadCommit: mergedHead}
+	closed := forge.PullRequest{Number: 7, State: forge.StateClosed}
+	unpublished := featureBranch()
+	unpublished.Upstream = ""
+	// The forge deleted the branch after the merge and a prune dropped its
+	// upstream; a commit made since is on no remote at all.
+	upstreamGone := unpublished
+	upstreamGone.Head = committedSince
 	ahead := featureBranch()
-	ahead.Ahead = 1
+	ahead.Head, ahead.Ahead = committedSince, 1
+	// A branch tracking the base is ahead of it by every commit a squash
+	// merge rewrote, yet at the very commit that merged.
+	tracksTheBase := featureBranch()
+	tracksTheBase.Upstream, tracksTheBase.Ahead = originMain, 1
+	silent := merged
+	silent.HeadCommit = ""
 	onBase := featureBranch()
 	onBase.Name = targetBase
+	detached := featureBranch()
+	detached.Name = ""
 	noBase := featureBranch()
 	noBase.Base = ""
 
 	cases := map[string]struct {
 		pull   forge.PullRequest
+		found  bool
 		branch gitrepo.Branch
-		want   bool
+		want   error
 	}{
-		"merged and pushed":          {pull: merged, branch: featureBranch(), want: true},
-		"still open":                 {pull: mergeablePull(), branch: featureBranch(), want: false},
-		"a commit not pushed":        {pull: merged, branch: ahead, want: false},
-		"on the base branch already": {pull: merged, branch: onBase, want: false},
-		"no base to return to":       {pull: merged, branch: noBase, want: false},
+		"merged and pushed":           {pull: merged, found: true, branch: featureBranch(), want: nil},
+		"at what merged, no upstream": {pull: merged, found: true, branch: unpublished, want: nil},
+		"at what merged, ahead":       {pull: merged, found: true, branch: tracksTheBase, want: nil},
+		"pushed, the forge silent":    {pull: silent, found: true, branch: featureBranch(), want: nil},
+		"still open":                  {pull: mergeablePull(), found: true, branch: featureBranch(), want: loop.ErrNotMerged},
+		"none found":                  {pull: forge.PullRequest{}, branch: featureBranch(), want: loop.ErrNotMerged},
+		"closed without merging":      {pull: closed, found: true, branch: featureBranch(), want: loop.ErrNotMerged},
+		"a commit not pushed":         {pull: merged, found: true, branch: ahead, want: loop.ErrUnpushedWork},
+		"upstream gone, committed since": {
+			pull: merged, found: true, branch: upstreamGone, want: loop.ErrUnpushedWork,
+		},
+		"no upstream, the forge silent": {
+			pull: silent, found: true, branch: unpublished, want: loop.ErrUnpushedWork,
+		},
+		"on the base branch already": {pull: merged, found: true, branch: onBase, want: loop.ErrNotOnFeatureBranch},
+		"a detached HEAD":            {pull: merged, found: true, branch: detached, want: loop.ErrNotOnFeatureBranch},
+		"no base to return to":       {pull: merged, found: true, branch: noBase, want: loop.ErrNoBase},
 	}
 
 	for name, tt := range cases {
@@ -118,11 +154,11 @@ func TestCanFinishOnlyAMergedBranchWithNothingUnpushed(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			got := loop.CanFinish(tt.pull, tt.branch)
+			got := loop.RefuseFinish(tt.pull, tt.found, tt.branch)
 
 			// Assert
-			if got != tt.want {
-				t.Errorf("CanFinish = %t, want %t", got, tt.want)
+			if !errors.Is(got, tt.want) {
+				t.Errorf("RefuseFinish = %v, want %v", got, tt.want)
 			}
 		})
 	}
