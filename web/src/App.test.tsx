@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import App from './App.tsx'
 import { fakeApi } from './test/fakeApi.ts'
-import { FakeEventSource } from './test/fakeEventSource.ts'
+import { FakeEventSource } from './test/setup/fakeEventSource.ts'
 import {
   makeHealth,
   makeReviewRequest,
