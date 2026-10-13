@@ -47,7 +47,7 @@ func (e Environment) Locate(ctx context.Context, dir string) Workspace {
 		return Workspace{Root: dir, Remote: "", Dir: dir, Repository: false}
 	}
 
-	return Workspace{Root: repo.Root, Remote: repo.Remote, Dir: dir, Repository: true}
+	return Workspace{Root: repo.Root, Remote: repo.Origin, Dir: dir, Repository: true}
 }
 
 // Name names the repository as a person reads it: its forge path, which
