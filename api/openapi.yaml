@@ -2104,7 +2104,10 @@ paths:
       summary: Open a pull request for the current branch, pushing it first if needed.
       description: >-
         Opens a pull request from the checked-out branch with the given title,
-        body, base, and draft flag. The branch is always the checked-out one, not
+        body, base, and draft flag. With messaging set up and
+        messaging.auto_announce on, its announcement is armed as it opens, to
+        post once its CI passes, as POST /api/announce with when ci_passes
+        holds one; a draft is not armed, and the answer says why. The branch is always the checked-out one, not
         the caller's to choose; when it is not yet published, it is pushed first,
         as opening a pull request from an unpushed branch cannot work. Refused
         with 409 when there is nothing to open (see GET /api/pull-request/draft)
@@ -3728,6 +3731,11 @@ components:
             How the pull request's CI stood on the last read while it waits;
             failed means it waits on a fix, none that no check is reported
             yet. Left out until the CI is read.
+        automatic:
+          type: boolean
+          description: >-
+            Set true only on one armed as its pull request opened here, rather
+            than asked for with when ci_passes.
         warning:
           type: string
           description: >-
@@ -4871,6 +4879,19 @@ components:
             the order the terminal offers them — the link, then the move. Empty
             when the branch names no Jira issue, or neither applies.
           items: {$ref: "#/components/schemas/FollowUp"}
+        announcement:
+          allOf: [{$ref: "#/components/schemas/QueuedAnnouncement"}]
+          description: >-
+            The announcement armed to post once the pull request's CI passes,
+            when messaging is set up and messaging.auto_announce is on; the
+            frame's queued_announcement goes on saying how it stands, and
+            DELETE /api/announce/queued drops it unposted. Left out when none
+            was armed.
+        not_armed:
+          type: string
+          description: >-
+            Why no announcement was armed where one would have been: a draft
+            is not announced until it is ready. Left out otherwise.
       additionalProperties: false
 
     FollowUp:
