@@ -92,10 +92,12 @@ func newPRCmd(prompt Prompt) *cobra.Command {
 			"branches, and the whole body — is confirmed first.\n\n" +
 			"The code owners of the paths the branch changes, as CODEOWNERS on the base names\n" +
 			"them, are asked to review it; the preview lists them.\n\n" +
-			"--base merges it into another branch, whose code owners are asked instead;\n" +
-			"--reviewer asks the people and teams it names in place of the code owners; and\n" +
-			"--draft opens it as a draft. The title and body are still composed from the\n" +
-			"branch's commits since the base it left.\n\n" +
+			"--title and --body stand in for the title and description composed, and\n" +
+			"--template names the repository's template the description starts from;\n" +
+			"--reviewer asks the people and teams it names in place of the code owners;\n" +
+			"--draft opens it as a draft; and --base merges it into another branch, whose\n" +
+			"code owners are asked instead, though what is composed still comes from the\n" +
+			"commits since the base the branch left.\n\n" +
 			"Once it is open, it offers — as the interface does — to link it on the branch's\n" +
 			"issue, then to move the issue to the review status (jira.review_status). With\n" +
 			"messaging set up, it ends by naming the next step, workflow announce, on stderr.\n\n" +
@@ -151,6 +153,7 @@ func runPRCommand(cmd *cobra.Command, prompt Prompt, opts prOptions) error {
 		Options: loop.PullOptions{
 			Project:     cfg.Jira.Project,
 			TitleSource: convention.TitleSource(cfg.PullRequest.TitleSource),
+			Template:    opts.chosen.chosenTemplate(),
 			Base:        opts.chosen.chosenBase(),
 		},
 		Push:           deps.Git.Push,

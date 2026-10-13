@@ -191,3 +191,96 @@ func TestPRPreviewsTheReviewersItIsGivenAsNoCodeOwners(t *testing.T) {
 		t.Errorf("pr --reviewer bea = %v, printed %q; want bea previewed, not as a code owner", err, printed.stdout)
 	}
 }
+
+// templatedRepo is ownedRepo with the pull request templates named, each a
+// heading of its own name, as GitHub reads them from
+// .github/PULL_REQUEST_TEMPLATE.
+func templatedRepo(t *testing.T, names ...string) string {
+	t.Helper()
+
+	repo := ownedRepo(t)
+	for _, name := range names {
+		writeRepoFile(t, repo, ".github/PULL_REQUEST_TEMPLATE/"+name+".md", "## The "+name+" template\n")
+	}
+
+	return repo
+}
+
+func TestPRTitlesAndDescribesItAsTold(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := ownedRepo(t)
+
+	// Act
+	sent := openedWith(t, repo, "--yes", "--title", "fix: guard the api twice", "--body", "Guarded.")
+
+	// Assert
+	if !strings.Contains(sent, `"title":"fix: guard the api twice"`) || !strings.Contains(sent, `"body":"Guarded."`) {
+		t.Errorf("gh was sent %s, want the title and body given", sent)
+	}
+}
+
+func TestPRStartsFromTheTemplateItIsGiven(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := templatedRepo(t, "bug", "feature")
+
+	// Act
+	sent := openedWith(t, repo, "--yes", "--template", "feature")
+
+	// Assert
+	if !strings.Contains(sent, "## The feature template") || strings.Contains(sent, "## The bug template") {
+		t.Errorf("gh was sent %s, want the description started from the feature template alone", sent)
+	}
+}
+
+func TestPRNamesTheTemplatesItHasWhenAskedForOneItLacks(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		templates []string
+		want      string
+	}{
+		"a repository with two":  {templates: []string{"bug", "feature"}, want: "it has bug, feature"},
+		"a repository with none": {want: "it has none"},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			fakeGh(t, ghResponses{})
+			repo := templatedRepo(t, tt.templates...)
+
+			// Act
+			_, err := runStreams(t, repo, unusedPrompt(t), "pr", "--dry-run", "--template", "docs")
+
+			// Assert
+			if said := fmt.Sprint(err); !strings.Contains(said, `"docs"`) || !strings.Contains(said, tt.want) {
+				t.Errorf("pr --template docs = %v, want the name refused and %q said", err, tt.want)
+			}
+
+			wantExit(t, err, 1)
+		})
+	}
+}
+
+func TestPRRefusesABodyBesideATemplate(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := templatedRepo(t, "bug")
+
+	// Act
+	_, err := runStreams(t, repo, unusedPrompt(t), "pr", "--dry-run", "--body", "Guarded.", "--template", "bug")
+
+	// Assert
+	if said := fmt.Sprint(err); !strings.Contains(said, "--body") || !strings.Contains(said, "--template") {
+		t.Errorf("pr --body --template = %v, want it refused, naming both flags", err)
+	}
+
+	wantExit(t, err, 2)
+}
