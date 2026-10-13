@@ -77,10 +77,47 @@ jobs:
         with:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
           install_args: go task jq node lefthook
+      - name: Find the Go version and build cache
+        id: go
+        run: |
+          echo "version=$(go env GOVERSION)" >>"${GITHUB_OUTPUT}"
+          echo "cache=$(go env GOCACHE)" >>"${GITHUB_OUTPUT}"
+      # The packages main last compiled, the standard library and every
+      # dependency under -race among them, which took the run a minute and a
+      # half before its first test. One entry per Go version and go.sum, so a
+      # Dependabot bump makes the next one and nothing else churns against the
+      # repository's 10 GB of cache; a change to go.sum restores the last entry
+      # of the same Go and recompiles only what moved. Every run restores, a
+      # fork's pull request included, and only a push to main saves (below).
+      # release.yml, the release-please gate and pages.yml restore nothing and
+      # build cold.
+      - name: Restore main's Go build cache
+        id: gocache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          key: go-build-test-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.version }}-${{ hashFiles('go.sum') }}
+          restore-keys: |
+            go-build-test-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.version }}-
+          path: ${{ steps.go.outputs.cache }}
       # The statement floor comes from the same Taskfile variable the local
       # gate reads, so CI and a developer's machine cannot disagree about it.
-      # The run's events are kept for the test summary's counts.
+      # The run's events are kept for the test summary's counts. -count=1
+      # because the cache is there for compiled packages, never for a test's
+      # pass: every test runs on every change. (internal/tui's pass could not
+      # be reused anyway: go test keys a test's result on the modification
+      # times of the files it opens, and a checkout sets them anew.)
       - run: task test:cover GO_TEST_JSON=tmp/go-events.json
+        env:
+          GOFLAGS: -count=1
+      # Saved from a push to main alone, so what any run restores was compiled
+      # from reviewed code: a pull request, a fork's included, only reads. Not
+      # when main's entry was restored whole, since a key is written once.
+      - name: Save the Go build cache
+        if: github.event_name == 'push' && steps.gocache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          key: ${{ steps.gocache.outputs.cache-primary-key }}
+          path: ${{ steps.go.outputs.cache }}
       # Consumed by the summary and coverage-baseline jobs below.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
