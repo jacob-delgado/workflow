@@ -13,7 +13,7 @@ import (
 // configFiles are the files lefthook looks for under each of names, as its
 // loader does: the name with every extension it parses.
 func configFiles(names ...string) []string {
-	extensions := []string{".yml", ".yaml", ".json", ".toml"}
+	extensions := []string{".yml", ".yaml", ".json", ".jsonc", ".toml"}
 	files := make([]string, 0, len(names)*len(extensions))
 
 	for _, name := range names {
