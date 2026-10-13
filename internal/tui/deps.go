@@ -11,6 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/lifetime"
 	"github.com/jacob-delgado/workflow/internal/proc"
@@ -67,6 +68,9 @@ type Deps struct {
 	// which writes it through the terminal's own OSC 52 sequence — no program, and
 	// it works over SSH. Nil where the interface cannot reach the terminal.
 	Copy func(text string) tea.Cmd
+	// announceCI is the forge's CI read an announcement's gate makes as it
+	// posts: part of the write, so it outlasts the session as the post does.
+	announceCI func(ctx context.Context, pull forge.PullRequest, head string) (forge.CI, error)
 }
 
 // EditorDeps hands text and files to the user's editor, which takes the
@@ -163,6 +167,7 @@ func outlasting(outlive, open outliving, deps Deps, noun string) Deps {
 	deps.Tasks = outlastingTasks(outlive, deps.Tasks)
 	deps.Settings = outlastingSettings(outlive, deps.Settings)
 	deps.Messaging.Post = outlasting2(outlive, "posting a message", deps.Messaging.Post)
+	deps.announceCI = outlastingAnswer2(outlive, "reading CI before announcing", deps.Forge.CheckStatus)
 	deps.Hooks.Run = outlastingRun1(outlive, "running the hooks", deps.Hooks.Run)
 	deps.Hooks.Write = outlasting1(outlive, "setting up lefthook", deps.Hooks.Write)
 	deps.OpenURL = outlasting1(open, "opening a page in the browser", deps.OpenURL)

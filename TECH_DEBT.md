@@ -741,3 +741,23 @@ when run by hand, so it can pass or fail where a real push would not.
 **Reopen when.** A repository's `pre-push` job is found reading git's arguments
 or refs, or lefthook gains a way to run `pre-push` for a named remote without
 pushing.
+
+### TRADE-40 Every announcement reads its CI again as it goes
+
+**Decided.** `loop.Deliver` (`internal/loop/announce.go`) reads the pull
+request's CI through `ClearToAnnounce` before it posts, whatever a surface read
+before it: the command line just before it asks, the terminal from its last
+poll, the web from its preview or a frame an interval old. A failed check
+refuses the post, and a CI that cannot be read refuses it too, since nothing
+failing cannot be confirmed. Every path that announces (`workflow announce`,
+the terminal's preview, the web's Announce now, a post held for CI) goes
+through it, so none can let a failed check through on a stale reading. Decided
+2026-10-13 by the maintainer, gating every announcement on "nothing failed".
+
+**Cost.** One more forge request per announcement, two where a held post's
+verdict read the CI just before; and a check that fails between the two reads
+sends a held post back to waiting rather than out. A forge that cannot be
+reached for that one read keeps an announcement from going that the reading a
+moment before would have let through.
+
+**Reopen when.** A forge's rate limit is found spent on these reads.

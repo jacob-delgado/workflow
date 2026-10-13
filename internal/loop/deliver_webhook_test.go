@@ -29,10 +29,10 @@ func TestDeliverRecordsADiscordPostAnsweredNoContent(t *testing.T) {
 	var sent deliveries
 
 	// Act
-	err := loop.Deliver(t.Context(), client.Post, sent.memory(), merged())
+	err := loop.Deliver(t.Context(), passing(client.Post), sent.memory(), merged())
 
 	// Assert
-	if err != nil || !slices.Equal(sent.recorded, []loop.Announced{merged().Made}) {
+	if err != nil || !slices.Equal(sent.recorded, []loop.Announced{merged().Made()}) {
 		t.Errorf("Deliver = %v, recorded %+v; want the post delivered and recorded", err, sent.recorded)
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/codeowners"
+	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 )
@@ -397,7 +398,8 @@ func tagged(t *testing.T) loop.Delivery {
 	}
 
 	return loop.Delivery{
-		Channel: devChannel, Text: "ready", Made: loop.Announced{Pull: 9, Moment: messaging.MomentReady}, Mentions: mentions,
+		Channel: devChannel, Text: readyText, Pull: forge.PullRequest{Number: 9}, Moment: messaging.MomentReady,
+		Mentions: mentions,
 	}
 }
 
@@ -418,7 +420,7 @@ func TestDeliverPostsTheMentionsAndRecordsTheGroupsChosen(t *testing.T) {
 	}
 
 	// Act
-	err := loop.Deliver(t.Context(), sent.post(nil), memory, tagged(t))
+	err := loop.Deliver(t.Context(), passing(sent.post(nil)), memory, tagged(t))
 
 	// Assert
 	if err != nil || !slices.Equal(sent.posted, []string{devChannel + " ready\ncc <@U0ANA> <!subteam^S0CP>"}) {
@@ -447,7 +449,7 @@ func TestAFailedPostRecordsNoGroups(t *testing.T) {
 	}
 
 	// Act
-	err := loop.Deliver(t.Context(), sent.post(errSeam), memory, tagged(t))
+	err := loop.Deliver(t.Context(), passing(sent.post(errSeam)), memory, tagged(t))
 
 	// Assert
 	if !errors.Is(err, errSeam) || recorded {

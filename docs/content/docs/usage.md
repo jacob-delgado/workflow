@@ -488,6 +488,13 @@ once CI passes; with a Slack user token and more than one channel to choose from
 announcement waiting for CI is dropped, saying so, if CI fails. Announcing now
 replaces one that is waiting, so the channel never reads it twice.
 
+Nothing is announced while a check has failed on the pull request. The
+announcement reads its CI again as it goes, whatever the pane last read, and a
+failed check keeps it from going, ready or merged alike: the preview stays open
+saying why. A CI that cannot be read keeps it from going too, since nothing
+failing cannot be confirmed. `workflow announce` and the `--web` page hold to
+the same rule.
+
 #### Tag the code owners
 
 With a Slack user token, the ready-for-review announcement also tags people:

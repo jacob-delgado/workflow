@@ -353,6 +353,11 @@ adds *Posted, but not remembered: it may be offered again.*, as a held one
 does once it goes, and as the terminal and `workflow announce` say it; the
 server's log says why, which those two print after the sentence.
 
+Nothing is announced while a check has failed on the pull request. The server
+reads its CI again as it posts, whatever the preview showed, and a failed
+check keeps it from going, ready or merged alike, with a `ci_failed` problem
+the section shows; a CI the server cannot read keeps it from going too.
+
 **Edit**, in the preview, turns the message into a box to change it in, as
 the terminal's `e` opens it in your editor; **Announce now** then sends the
 text as edited. An edit still goes only while the announcement it began from
