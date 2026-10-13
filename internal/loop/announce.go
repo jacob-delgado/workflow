@@ -67,20 +67,44 @@ func AnnounceMoment(pull forge.PullRequest, ci forge.CI) messaging.Moment {
 	}
 }
 
+// Composed is an announcement composed for the checked-out branch's pull
+// request, the pull request it announces, and the branch it was read from,
+// whose head is the commit the pull request's CI is read at.
+type Composed struct {
+	Announcement messaging.Announcement
+	Pull         forge.PullRequest
+	Branch       gitrepo.Branch
+}
+
 // ComposeAnnouncement builds the announcement for the checked-out branch's pull
 // request — its title and link, the branch's issue, who opened it and the moment
-// it is at — rendered for the configured service and template, and returns the
-// pull request it announces, reading under ctx. It refuses with ErrNoPullRequest
-// when there is none, and says which read failed when the branch or the pull
-// request cannot be read.
+// it is at — rendered for the configured service and template, with the pull
+// request it announces and the branch it read, reading under ctx. It refuses
+// with ErrNoPullRequest when there is none, and says which read failed when the
+// branch or the pull request cannot be read.
 func ComposeAnnouncement(
 	ctx context.Context, seams AnnounceSeams, cfg config.Messaging, project string, kind forge.Kind,
-) (messaging.Announcement, forge.PullRequest, error) {
+) (Composed, error) {
 	branch, pull, err := pullToAnnounce(ctx, seams)
 	if err != nil {
-		return messaging.Announcement{}, forge.PullRequest{}, err
+		return Composed{}, err
 	}
 
+	return Composed{
+		Announcement: ComposeAnnouncementOf(ctx, seams, branch, pull, cfg, project, kind),
+		Pull:         pull,
+		Branch:       branch,
+	}, nil
+}
+
+// ComposeAnnouncementOf builds the announcement of pull, opened from branch,
+// as ComposeAnnouncement does, without asking the forge to find it: for a pull
+// request just opened, which a fresh lookup might not find yet. It reads the
+// author and the issue under ctx, and says less where they cannot be read.
+func ComposeAnnouncementOf(
+	ctx context.Context, seams AnnounceSeams, branch gitrepo.Branch, pull forge.PullRequest,
+	cfg config.Messaging, project string, kind forge.Kind,
+) messaging.Announcement {
 	key, _, _ := BranchIssue(IssueSource{Branch: branch.Name, Link: branch.IssueLink, Pull: &pull, Project: project})
 	issueKey := jira.Key(key.Key)
 
@@ -91,7 +115,7 @@ func ComposeAnnouncement(
 		IssueSummary: issueSummary(ctx, seams.Issue, issueKey),
 		IssueURL:     issueURL(seams.BrowseURL, issueKey),
 		Moment:       momentOf(ctx, seams.CheckCI, pull, branch.Head),
-	}, cfg, kind), pull, nil
+	}, cfg, kind)
 }
 
 // AnnouncementFacts are what an announcement tells: who opened the pull

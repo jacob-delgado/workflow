@@ -57,7 +57,9 @@ func announceConfig() config.Messaging {
 func compose(t *testing.T, seams loop.AnnounceSeams) (messaging.Announcement, forge.PullRequest, error) {
 	t.Helper()
 
-	return loop.ComposeAnnouncement(t.Context(), seams, announceConfig(), project, forge.KindGitLab)
+	composed, err := loop.ComposeAnnouncement(t.Context(), seams, announceConfig(), project, forge.KindGitLab)
+
+	return composed.Announcement, composed.Pull, err
 }
 
 func TestAnnounceMomentReadsMergedBeforeCI(t *testing.T) {
