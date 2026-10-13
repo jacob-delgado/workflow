@@ -170,7 +170,7 @@ function facetMark(facet: Facet, requests: ReviewRequest[]): ReactElement | unde
     case 'ci':
       return <StateMark state={ciMark[holder.ci]} />
     case 'draft':
-      return holder.draft ? <StateMark state="not-started" /> : undefined
+      return holder.draft ? <DraftMark /> : undefined
     case 'repository':
     case 'author':
       return undefined
@@ -344,10 +344,16 @@ function RequestRow({ request, readAt }: RequestRowProps) {
 function DraftTag({ label }: { label: string }) {
   return (
     <span className="inline-flex items-baseline gap-tight text-foreground">
-      <StateMark state="not-started" className="self-center" />
+      <DraftMark className="self-center" />
       {capitalized(label)}
     </span>
   )
+}
+
+// DraftMark is the mark a draft draws: not started, on its row and on the
+// draft chip alike, from this one place.
+function DraftMark({ className }: { className?: string }) {
+  return <StateMark state="not-started" className={className} />
 }
 
 // waited is how long before the queue was read a request was opened, in the

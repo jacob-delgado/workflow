@@ -164,6 +164,35 @@ test("marks each state's chip as the rows mark its tasks, and no other value's",
   ).toEqual([drawnMark('in-flight'), drawnMark('not-started'), ''])
 })
 
+test("draws no mark on a state's chip whose tasks the rows mark differently", async () => {
+  // Arrange
+  // started is held, as the server words a started task whose wait is still
+  // ahead, so its row draws it in flight beside the held one not started.
+  const started = describedTask(
+    { ...held, uuid: 'e', id: 5, description: 'Chase the vendor', start: '2026-09-28T09:00:00Z' },
+    {
+      state: 'waiting',
+      facets: [waiting, noPriority, noProject, noIssue, noTag],
+      searchable: ['chase the vendor', '', '', '#5'],
+    },
+  )
+  fakeApi({
+    '/api/tasks': makeTaskList(
+      [ranked(started, firstInEveryOrder), ranked(held, secondInEveryOrder)],
+      {
+        facet_order: offered,
+      },
+    ),
+  })
+
+  // Act
+  renderWithClient(<TasksPanel />)
+
+  // Assert
+  const narrow = await screen.findByRole('group', { name: 'Filter' })
+  expect(markShape(within(narrow).getByRole('button', { name: 'waiting 2' }))).toBe('')
+})
+
 test('a narrow chip narrows the list to the value it names', async () => {
   // Arrange
   renderPanel()
