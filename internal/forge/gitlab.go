@@ -40,7 +40,23 @@ type gitlabMerge struct {
 		ID     int64  `json:"id"`
 		Status string `json:"status"`
 		URL    string `json:"web_url"`
+		// ProjectID is the project the pipeline ran in: a fork's, for a
+		// merge request from one.
+		ProjectID int64 `json:"project_id"`
 	} `json:"head_pipeline"`
+}
+
+// pipelineAt is the merge request's head pipeline as its jobs are read: at
+// repo's project, naming no project, when it ran there or GitLab names no
+// project for it; at the fork's project, by its id, when it ran in a fork.
+func (g gitlabMerge) pipelineAt(repo Repo) pipelineJobs {
+	pipeline := pipelineJobs{id: g.HeadPipeline.ID, path: gitlabProjectPath(repo), project: ""}
+	if g.HeadPipeline.ProjectID != 0 && g.HeadPipeline.ProjectID != g.TargetProjectID {
+		pipeline.project = strconv.FormatInt(g.HeadPipeline.ProjectID, 10)
+		pipeline.path = "/projects/" + pipeline.project
+	}
+
+	return pipeline
 }
 
 // pullRequest flattens a GitLab merge request. Approvals are filled in
@@ -378,7 +394,7 @@ func gitlabStatus(ctx context.Context, client Client, repo Repo, pull PullReques
 	checks := []Check{{Name: "pipeline", State: state, URL: merge.HeadPipeline.URL}}
 
 	if merge.HeadPipeline.Status == "failed" && merge.HeadPipeline.ID != 0 {
-		checks = gitlabFailedJobs(ctx, client, repo, merge.HeadPipeline.ID, checks)
+		checks = gitlabFailedJobs(ctx, client, repo, merge.pipelineAt(repo), checks)
 	}
 
 	return CI{State: state, Total: 0, Done: 0, Failed: 0, Checks: checks}, nil
@@ -397,7 +413,7 @@ func gitlabRerun(ctx context.Context, client Client, repo Repo, pull PullRequest
 		return false, nil
 	}
 
-	retry := fmt.Sprintf("%s/pipelines/%d/retry", gitlabProjectPath(repo), merge.HeadPipeline.ID)
+	retry := fmt.Sprintf("%s/pipelines/%d/retry", merge.pipelineAt(repo).path, merge.HeadPipeline.ID)
 
 	err = send(ctx, client, http.MethodPost, retry, nil)
 

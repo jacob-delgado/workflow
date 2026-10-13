@@ -63,13 +63,23 @@ type gitlabJob struct {
 // pipeline fails in practice, so the one page is all of them.
 const failedJobsPage = "100"
 
+// pipelineJobs is a pipeline whose jobs are read: its id, the project path it
+// is addressed at, and the id of the fork it ran in, empty for the merge
+// request's own project.
+type pipelineJobs struct {
+	id            int64
+	path, project string
+}
+
 // gitlabFailedJobs is a failed pipeline's failed jobs as its checks, each with
 // its stage and why it failed, so the interface can say what broke rather than
 // only that the pipeline did. A read that fails, or finds none, keeps
 // fallback: the pipeline as the one check, still failed, still opening its
 // page.
-func gitlabFailedJobs(ctx context.Context, client Client, repo Repo, pipeline int64, fallback []Check) []Check {
-	path := gitlabProjectPath(repo) + "/pipelines/" + strconv.FormatInt(pipeline, 10) +
+func gitlabFailedJobs(
+	ctx context.Context, client Client, repo Repo, pipeline pipelineJobs, fallback []Check,
+) []Check {
+	path := pipeline.path + "/pipelines/" + strconv.FormatInt(pipeline.id, 10) +
 		"/jobs?scope[]=failed&per_page=" + failedJobsPage
 
 	jobs, err := repoCall[[]gitlabJob](ctx, client, repo, http.MethodGet, path, nil)
@@ -82,6 +92,7 @@ func gitlabFailedJobs(ctx context.Context, client Client, repo Repo, pipeline in
 		checks = append(checks, Check{
 			ID: strconv.FormatInt(job.ID, 10), Name: job.Name, Stage: job.Stage, State: CIFailed, URL: job.WebURL,
 			Reason: sanitize.Line(strings.ReplaceAll(job.FailureReason, "_", " ")), LogAvailable: true,
+			Project: pipeline.project,
 		})
 	}
 
@@ -101,7 +112,7 @@ func (c Client) JobLog(ctx context.Context, repo Repo, check Check) (JobLog, err
 		return JobLog{}, ErrNoToken
 	}
 
-	path, err := jobLogPath(repo, check.ID)
+	path, err := jobLogPath(repo, check)
 	if err != nil {
 		return JobLog{}, err
 	}
@@ -116,12 +127,17 @@ func (c Client) JobLog(ctx context.Context, repo Repo, check Check) (JobLog, err
 }
 
 // jobLogPath is where the forge serves a job's log.
-func jobLogPath(repo Repo, id string) (string, error) {
+func jobLogPath(repo Repo, check Check) (string, error) {
 	switch repo.Kind {
 	case KindGitHub:
-		return githubRepoPath(repo) + "/actions/jobs/" + url.PathEscape(id) + "/logs", nil
+		return githubRepoPath(repo) + "/actions/jobs/" + url.PathEscape(check.ID) + "/logs", nil
 	case KindGitLab:
-		return gitlabProjectPath(repo) + "/jobs/" + url.PathEscape(id) + "/trace", nil
+		project := gitlabProjectPath(repo)
+		if check.Project != "" {
+			project = "/projects/" + url.PathEscape(check.Project)
+		}
+
+		return project + "/jobs/" + url.PathEscape(check.ID) + "/trace", nil
 	case KindUnknown:
 		return "", ErrUnknownForge
 	}
