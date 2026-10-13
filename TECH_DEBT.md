@@ -733,7 +733,7 @@ branch's merge base before the first push, so a run by hand checks what the
 next push carries; `pre-push` is where a repository's slow checks live, which
 the only other way to try is to push; and inventing git's arguments would set
 off Git LFS's upload, which lefthook skips when it is given none. Decided
-2026-10-13 by the maintainer, for FEAT-24.
+2026-10-13 by the maintainer, when `h` came to run any hook.
 
 **Cost.** A `pre-push` job that reads `{1}`, `{2}` or `use_stdin` sees nothing
 when run by hand, so it can pass or fail where a real push would not.
