@@ -44,6 +44,13 @@ func mergedPull(title string) string {
 		title + `","state":"closed","merged_at":"2026-01-01T00:00:00Z"}]`
 }
 
+// mergedPullAt is mergedPull with its branch at head on the forge, the commit
+// the merge took, as GitHub reports it.
+func mergedPullAt(title, head string) string {
+	return `[{"number":7,"html_url":"https://github.com/owner/repo/pull/7","title":"` +
+		title + `","state":"closed","merged_at":"2026-01-01T00:00:00Z","head":{"sha":"` + head + `"}}]`
+}
+
 // closedPull is a forge pull request array with one pull request closed
 // without merging: its merged_at is null.
 func closedPull(title string) string {
