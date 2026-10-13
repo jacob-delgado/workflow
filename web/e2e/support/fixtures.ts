@@ -22,6 +22,7 @@ const emptyBranch = {
   head: '',
   upstream: '',
   push_remote: '',
+  base_remote: '',
   ahead: 0,
   behind: 0,
   base: '',

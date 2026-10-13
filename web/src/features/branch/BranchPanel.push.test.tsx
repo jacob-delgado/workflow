@@ -14,6 +14,7 @@ test('offers a push for a branch level with an upstream off the remote its push 
       branch: makeBranch({
         upstream: 'origin/fix/PROJ-1',
         push_remote: 'fork',
+        base_remote: 'origin',
         ahead: 0,
         commits: [{ hash: 'c0ffee1', subject: 'fix: redact tokens', unpushed: false }],
       }),
@@ -112,4 +113,42 @@ test('offers no push on the base branch itself, however far ahead it is', () => 
 
   // Assert
   expect(screen.queryByRole('button', { name: 'Push branch' })).toBeNull()
+})
+
+// forkBranch is a fork's clone's branch: its base is upstream's, its push
+// goes to pushRemote.
+function forkBranch(pushRemote: string) {
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      branch: makeBranch({
+        base: 'upstream/main',
+        base_remote: 'upstream',
+        push_remote: pushRemote,
+      }),
+    }),
+  })
+}
+
+test("names the push remote when it is not the base's", () => {
+  // Arrange
+  forkBranch('origin')
+
+  // Act
+  render(<BranchPanel />)
+
+  // Assert
+  const term = screen.getAllByRole('term').find((shown) => shown.textContent === 'Push to')
+  expect(term?.nextElementSibling?.textContent).toBe('origin')
+})
+
+test("names no push remote when it is the base's", () => {
+  // Arrange
+  forkBranch('upstream')
+
+  // Act
+  render(<BranchPanel />)
+
+  // Assert
+  expect(screen.getAllByRole('term').map((shown) => shown.textContent)).not.toContain('Push to')
 })

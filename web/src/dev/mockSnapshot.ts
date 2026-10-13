@@ -103,6 +103,7 @@ export const mockSnapshot: Snapshot = {
     head: 'a1b2c3d',
     upstream: 'origin/fix/PROJ-412-redact-tokens',
     push_remote: 'origin',
+    base_remote: 'origin',
     ahead: 3,
     behind: 1,
     base: 'origin/main',

@@ -13,6 +13,7 @@ const branch = branchWith({
   head: 'abc1234',
   upstream: 'origin/spike/search-speed',
   push_remote: 'origin',
+  base_remote: 'origin',
   base: 'origin/main',
 })
 

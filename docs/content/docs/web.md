@@ -234,7 +234,8 @@ are a thread's older comments once the newer ones add up to that many.
 ### Branch
 
 The checked-out branch, its base, its upstream and how far it is ahead or
-behind, and the commits on it. **Push branch** publishes it, after a
+behind, and the commits on it; **Push to** names the remote a push goes to when
+that is not the base remote, as in a fork's clone. **Push branch** publishes it, after a
 confirmation naming the branch and the remote it goes to; it is not offered
 on the base branch itself. **Link an issue** ties a branch begun outside workflow, whose
 name names no issue, to one: a Jira key or a forge number such as `#42`. When

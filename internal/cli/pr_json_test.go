@@ -129,7 +129,7 @@ func TestPRAsJSONDryRunPrintsTheDraft(t *testing.T) {
 		t.Errorf("pull body = %q, want the body composed from the template", report.Pull.Body)
 	}
 
-	if !strings.Contains(printed.stderr, "dry run: would push fix/PROJ-2-thing and open") {
+	if !strings.Contains(printed.stderr, "dry run: would push fix/PROJ-2-thing to origin and open") {
 		t.Errorf("the dry-run line is not on stderr:\n%s", printed.stderr)
 	}
 }

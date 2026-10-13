@@ -467,22 +467,22 @@ func offerReviewStatus(
 }
 
 // openQuestion asks to open the pull request, named by the forge's noun, and
-// names the push that comes first when the branch is not yet on its remote, so
-// a yes is never taken for more than was asked.
+// names the push that comes first, and where it goes, when the branch is not
+// yet on its push remote, so a yes is never taken for more than was asked.
 func openQuestion(branch gitrepo.Branch, noun string) string {
 	if branch.Pushed() {
 		return "Open the " + noun + "?"
 	}
 
-	return "Push " + branch.Name + " and open the " + noun + "?"
+	return "Push " + branch.Name + " to " + branch.PushRemote + " and open the " + noun + "?"
 }
 
-// pushClause names the push a not-yet-pushed branch needs first, for the dry-run
-// line, or nothing when the branch is already up.
+// pushClause names the push a not-yet-pushed branch needs first, and its
+// remote, for the dry-run line, or nothing when the branch is already up.
 func pushClause(branch gitrepo.Branch) string {
 	if branch.Pushed() {
 		return ""
 	}
 
-	return "push " + branch.Name + " and "
+	return "push " + branch.Name + " to " + branch.PushRemote + " and "
 }
