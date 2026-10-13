@@ -221,8 +221,12 @@ jobs:
         run: corepack enable
       - name: Install dependencies
         run: yarn install --immutable
+      # Only the headless shell: neither Playwright config names a channel,
+      # so every spec drives chromium-headless-shell, and the full Chrome for
+      # Testing it also downloaded went unused. --with-deps stays: its system
+      # packages bring the fonts the layout and axe specs measure against.
       - name: Install the Playwright browser
-        run: yarn playwright install --with-deps chromium
+        run: yarn playwright install --with-deps --only-shell chromium
       - run: yarn test:e2e
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
@@ -270,8 +274,9 @@ jobs:
         run: corepack enable
       - name: Install dependencies
         run: yarn install --immutable
+      # The headless shell alone, as in E2E.
       - name: Install the Playwright browser
-        run: yarn playwright install --with-deps chromium
+        run: yarn playwright install --with-deps --only-shell chromium
       - name: Build the binary with the web app embedded
         run: task build
         working-directory: .
