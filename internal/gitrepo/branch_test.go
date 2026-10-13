@@ -243,21 +243,26 @@ func TestABranchIsPushedOnlyWhenItsOwnUpstreamHasEverything(t *testing.T) {
 	}
 }
 
-func TestHasUnpushedWork(t *testing.T) {
+func TestUpstreamHoldsAll(t *testing.T) {
 	t.Parallel()
+
+	const upstream = "origin/feat"
 
 	cases := map[string]struct {
 		branch gitrepo.Branch
 		want   bool
 	}{
 		"ahead of an upstream": {
-			branch: gitrepo.Branch{Upstream: "origin/feat", Ahead: 1}, want: true,
+			branch: gitrepo.Branch{Upstream: upstream, Ahead: 1}, want: false,
 		},
 		"level with an upstream": {
-			branch: gitrepo.Branch{Upstream: "origin/feat", Ahead: 0}, want: false,
+			branch: gitrepo.Branch{Upstream: upstream, Ahead: 0}, want: true,
 		},
-		"no upstream to compare against": {
-			branch: gitrepo.Branch{Upstream: "", Ahead: 3}, want: false,
+		"behind an upstream": {
+			branch: gitrepo.Branch{Upstream: upstream, Behind: 2}, want: true,
+		},
+		"no upstream to hold them": {
+			branch: gitrepo.Branch{Upstream: "", Ahead: 0}, want: false,
 		},
 	}
 
@@ -266,8 +271,8 @@ func TestHasUnpushedWork(t *testing.T) {
 			t.Parallel()
 
 			// Act & Assert
-			if got := tt.branch.HasUnpushedWork(); got != tt.want {
-				t.Errorf("HasUnpushedWork() = %v, want %v", got, tt.want)
+			if got := tt.branch.UpstreamHoldsAll(); got != tt.want {
+				t.Errorf("UpstreamHoldsAll() = %v, want %v", got, tt.want)
 			}
 		})
 	}

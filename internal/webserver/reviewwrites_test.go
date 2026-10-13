@@ -91,10 +91,11 @@ func reviewDeps(writes *reviewWrites) webserver.Deps {
 	return deps
 }
 
-// merged makes deps' pull request one that has merged.
+// merged makes deps' pull request one that has merged, at the commit the
+// branch is at.
 func merged(deps webserver.Deps) webserver.Deps {
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
-		return forge.PullRequest{Number: 42, Title: pullTitle, State: forge.StateMerged}, true, nil
+		return forge.PullRequest{Number: 42, Title: pullTitle, State: forge.StateMerged, HeadCommit: filledHead}, true, nil
 	}
 
 	return deps

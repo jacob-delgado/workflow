@@ -34,8 +34,10 @@ function canMerge(pull: PullRequest, ci: Ci | null): boolean {
   )
 }
 
-// canFinish is loop.CanFinish: merged, on a branch of its own with a base to
-// return to, holding no commit origin lacks.
+// canFinish is as much of loop.RefuseFinish's check as the page can make:
+// merged, on a branch of its own with a base to return to, not ahead of its
+// upstream. The server makes the whole check, which also needs the commit the
+// pull request merged, before it finishes anything.
 function canFinish(pull: PullRequest, branch: Branch): boolean {
   return (
     pull.state === 'merged' &&

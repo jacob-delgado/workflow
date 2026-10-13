@@ -77,6 +77,11 @@ type PullRequest struct {
 	// State is whether it is open, merged or closed, so a merged branch can be
 	// finished. A find reads it; the zero value is open.
 	State PullState
+	// HeadCommit is the commit its branch is at on the forge — for a merged
+	// one, the last the merge took — so a finish can tell a branch at what
+	// merged from one holding more. A find reads it; it is empty where the
+	// forge did not say.
+	HeadCommit string
 	// Approvals is how many reviewers have approved; ChangesRequested is whether
 	// any reviewer is still asking for changes; Mergeable is whether it can merge.
 	// These are best effort — a forge that will not say leaves them at zero and

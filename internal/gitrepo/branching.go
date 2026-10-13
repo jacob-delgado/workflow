@@ -117,9 +117,10 @@ func (r Repository) Checkout(ctx context.Context, name string) error {
 // The delete is a force delete (-D) on purpose: a squash or rebase merge leaves
 // the branch's own commits unreachable from base, so the safe -d would refuse a
 // branch the forge has already merged. Its caller is what makes this safe: it
-// offers the finish only for a merged branch with no unpushed commits (see
-// Branch.HasUnpushedWork), so the commits -D discards are the ones origin and
-// the merge already hold.
+// offers the finish only for a merged branch that is at the commit its pull
+// request merged or whose upstream holds every commit on it (see
+// Branch.UpstreamHoldsAll), so the commits -D discards are ones the forge or
+// the upstream already holds.
 func (r Repository) FinishBranch(ctx context.Context, branch, base string, pull func() error) error {
 	steps := finishSteps(base, branch)
 

@@ -29,6 +29,7 @@ type gitlabMerge struct {
 	State        string `json:"state"`
 	TargetBranch string `json:"target_branch"`
 	MergeStatus  string `json:"merge_status"`
+	SHA          string `json:"sha"`
 	HeadPipeline *struct {
 		ID     int64  `json:"id"`
 		Status string `json:"status"`
@@ -41,7 +42,7 @@ type gitlabMerge struct {
 func (g gitlabMerge) pullRequest() PullRequest {
 	return PullRequest{
 		Number: g.IID, URL: g.URL, Title: g.Title, Body: g.Description, Draft: g.Draft, Base: g.TargetBranch,
-		Mergeable: gitlabMergeable(g.MergeStatus), State: g.state(),
+		Mergeable: gitlabMergeable(g.MergeStatus), State: g.state(), HeadCommit: g.SHA,
 	}
 }
 

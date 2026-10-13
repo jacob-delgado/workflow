@@ -26,6 +26,9 @@ type githubPull struct {
 	Base     struct {
 		Ref string `json:"ref"`
 	} `json:"base"`
+	Head struct {
+		SHA string `json:"sha"`
+	} `json:"head"`
 }
 
 // pullRequest flattens a GitHub pull request. Review state is filled in
@@ -33,6 +36,7 @@ type githubPull struct {
 func (g githubPull) pullRequest() PullRequest {
 	return PullRequest{
 		Number: g.Number, URL: g.URL, Title: g.Title, Body: g.Body, Draft: g.Draft, Base: g.Base.Ref, State: g.state(),
+		HeadCommit: g.Head.SHA,
 	}
 }
 
