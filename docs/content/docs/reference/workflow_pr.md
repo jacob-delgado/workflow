@@ -27,7 +27,11 @@ the title and description from the commits past it and asking its code owners.
 
 Once it is open, it offers — as the interface does — to link it on the branch's
 issue, then to move the issue to the review status (jira.review_status). With
-messaging set up, it ends by naming the next step, workflow announce, on stderr.
+messaging set up, it ends by naming the next step, workflow announce, on stderr;
+with --announce, it previews the announcement on stderr instead and waits in the
+foreground for the pull request's CI to pass, then announces it, as
+workflow announce --when-green does. A draft is not announced, so --announce
+refuses --draft.
 
 --json prints what was opened, and each offer and whether it was taken, as one
 JSON object on stdout — under --dry-run, the pull request it would open — and
@@ -44,11 +48,13 @@ workflow pr [flags]
   workflow pr --yes                         # push, open, link and move, without asking
   workflow pr --yes --json | jq .pull.url   # the same, and the address it opened
   workflow pr --draft --base release        # a draft into release, asking its code owners
+  workflow pr --yes --announce              # open it, then announce it once CI passes
 ```
 
 ### Options
 
 ```
+      --announce        once it is open, wait for its CI to pass, then announce it
       --base BRANCH     merge into BRANCH instead of the base the branch left; its code owners are asked to review
       --body TEXT       the whole description, TEXT, in place of the one composed from the template and the commits
       --draft           open it as a draft

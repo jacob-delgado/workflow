@@ -152,7 +152,7 @@ them.
 | Amend; fix up | not for scripts | `A`; `f` | Amend last commit; Fix up a commit |
 | Run a hook; set up lefthook | not for scripts | `h`; `g` | Run a hook; Set up lefthook |
 | **Review** | | | |
-| Open a pull request | `pr [--title --body --draft --base --reviewer --json]` | `n` | Open a pull request |
+| Open a pull request | `pr [--title --body --draft --base --reviewer --announce --json]` | `n` | Open a pull request |
 | Link it on the issue, move the issue | `pr` asks both | offered after `n` | Link it on KEY, Move KEY to STATUS |
 | Choose its template | `pr --template NAME` | `ctrl+t` in the composer | Template |
 | Edit it | not for scripts | `e` | Edit pull request |
@@ -161,7 +161,7 @@ them.
 | Where the work stands | `status [DIR…] [--json or --plain]` | the top row | the work story, the header |
 | **Messaging** | | | |
 | Announce | `announce [--channel]` | `p` | Announce to SERVICE |
-| Announce when CI passes | `announce --when-green` | `w` in the preview; armed as `n` opens one | Announce when CI passes |
+| Announce when CI passes | `announce --when-green`, `pr --announce` | `w` in the preview; armed as `n` opens one | Announce when CI passes |
 | Stop waiting for CI | `ctrl+c` while it waits | `x` on the messaging pane | Stop waiting |
 | Edit the announcement first | not for scripts | `e` in the preview | Edit, in the preview |
 | Know it was announced | `announce` says so, and asks again | "● announced" on the Messaging rail | the section says so |

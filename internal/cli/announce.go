@@ -220,7 +220,7 @@ func runAnnounce(ctx context.Context, out output, seams announceSeams, flags ann
 	}
 
 	if flags.whenGreen {
-		return deliverWhenGreen(ctx, out.notes, seams, pending, pull)
+		return deliverWhenGreen(ctx, out.notes, seams, pending, pull, pullFoundBefore)
 	}
 
 	return deliverAnnouncement(ctx, out.notes, seams, pending)
@@ -245,13 +245,19 @@ func readyToAnnounce(
 	return nil
 }
 
+// messagingNotConfigured refuses to announce with no messaging transport set
+// up, saying how to set one up.
+func messagingNotConfigured() error {
+	return fmt.Errorf("%w: set messaging.kind and messaging.webhook_url in %s — or, "+
+		"for Slack, run workflow slack login — then check them with workflow doctor",
+		errMessagingNotConfigured, config.FileName)
+}
+
 // composeFor composes the announcement seams can post, refusing where nothing
 // can post it or the branch has no pull request to announce.
 func composeFor(ctx context.Context, seams announceSeams) (loop.Composed, error) {
 	if seams.Deliver.Post == nil {
-		return loop.Composed{}, fmt.Errorf("%w: set messaging.kind and messaging.webhook_url in %s — or, "+
-			"for Slack, run workflow slack login — then check them with workflow doctor",
-			errMessagingNotConfigured, config.FileName)
+		return loop.Composed{}, messagingNotConfigured()
 	}
 
 	composed, err := loop.ComposeAnnouncement(ctx, seams.Compose, seams.Messaging, seams.Project, seams.Kind)
