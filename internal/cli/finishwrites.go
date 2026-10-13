@@ -31,11 +31,17 @@ var errWritesUnfinished = errors.New("gave up on writes still in flight")
 // finishing: the process would otherwise exit under them. It gives up after
 // timeout, naming each write still in flight, and stops at once when cmd's
 // context ends, as a second Ctrl+C or a signal ends it, which ends every
-// write's context too.
+// write's context too. A signal that ended the interface itself, before any
+// wait, begins none.
 func finishWrites(cmd *cobra.Command, writes *lifetime.InFlight, timeout time.Duration) error {
 	pending := len(writes.Names())
 	if pending == 0 {
 		return nil
+	}
+
+	interrupted := cmd.Context().Err()
+	if interrupted != nil {
+		return fmt.Errorf("interrupted with %s in flight: %w", writesCounted(pending), interrupted)
 	}
 
 	fmt.Fprintf(cmd.ErrOrStderr(), "finishing %s…\n", writesCounted(pending))
@@ -47,7 +53,7 @@ func finishWrites(cmd *cobra.Command, writes *lifetime.InFlight, timeout time.Du
 
 	// A signal is checked first: the writes it ends land at once, and are not
 	// what the wait was for.
-	interrupted := cmd.Context().Err()
+	interrupted = cmd.Context().Err()
 
 	switch {
 	case interrupted != nil:

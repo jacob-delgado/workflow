@@ -341,6 +341,36 @@ func TestASignalWhileWaitingExitsUnderAWriteThatIgnoresIt(t *testing.T) {
 	}
 }
 
+// A signal while the interface is open ends it with every write it sent, so
+// no wait begins, and workflow does not say it is finishing them.
+func TestASignalWhileTheInterfaceIsOpenBeginsNoWait(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	cache, said := newHeldCache(t), &lockedBuffer{}
+	keys, _ := io.Pipe()
+
+	t.Cleanup(func() { _ = keys.Close() })
+
+	command, signaled := context.WithCancelCause(t.Context())
+	root := quittingRoot(t, interfaceCaching(cache.writeIgnoringItsContext, keys), "1m", said)
+	returned := running(command, t, root)
+
+	t.Cleanup(cache.letLand) // before running's own, which waits for workflow to return
+
+	cache.awaitBegun(t)
+
+	// Act
+	signaled(errSignaled)
+
+	// Assert
+	err := returnedWith(t, returned)
+	if cli.ExitStatus(err) != 130 || strings.Contains(said.String(), "finishing") {
+		t.Errorf("workflow = %v (status %d), said %q; want it interrupted, status 130, finishing nothing",
+			err, cli.ExitStatus(err), said.String())
+	}
+}
+
 func TestAQuitWithNoWriteInFlightExitsAtOnce(t *testing.T) {
 	t.Parallel()
 
