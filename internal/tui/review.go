@@ -98,6 +98,10 @@ func (msg pullFound) apply(m Model) (Model, tea.Cmd) {
 		return m.checkingCI(nil)
 	}
 
+	if msg.err == nil {
+		m = m.withoutStrandedPost(msg.pull, msg.found)
+	}
+
 	if m.review.found && msg.found && msg.pull.Number == m.review.pull.Number {
 		// The same pull request, found again: keep its CI and any poll already
 		// running, so a refresh does not blank the display or start a second

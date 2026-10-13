@@ -322,6 +322,33 @@ func (m Model) withoutQueuedPost() Model {
 		errAnnouncementDropped, m.cfg.Messaging.Service(), m.vocab.sigil, dropped, m.vocab.noun))
 }
 
+// withoutStrandedPost gives up on the post waiting for CI, saying why, once
+// the branch's pull request, as found, is no longer the one it was written
+// for: another, none, one closed without merging, or the same one merged
+// first, whose CI is never read again.
+func (m Model) withoutStrandedPost(pull forge.PullRequest, found bool) Model {
+	if !m.messaging.pending.waiting() {
+		return m
+	}
+
+	number := m.messaging.pending.pull
+
+	err := loop.StillArmed(number, pull, found)
+	if errors.Is(err, loop.ErrMergedFirst) {
+		m.messaging.pending = queuedPost{}
+		m.messaging.dropped = fmt.Sprintf("%s%d merged before its CI passed", m.vocab.sigil, number)
+
+		return m.noticedFailure(fmt.Errorf("%w to %s: %s", errAnnouncementDropped, m.cfg.Messaging.Service(),
+			m.messaging.dropped))
+	}
+
+	if err != nil {
+		return m.withoutQueuedPost()
+	}
+
+	return m
+}
+
 // postIfGreen posts the message waiting for CI once CI passes, and gives up on
 // it, saying so, if CI fails or the pull request is another one.
 func (m Model) postIfGreen() (Model, tea.Cmd) {
