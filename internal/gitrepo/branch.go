@@ -182,23 +182,32 @@ func (r Repository) ReadBranch(ctx context.Context) (Branch, error) {
 		branch.Behind, branch.Ahead = counts(git("rev-list", "--left-right", "--count", "@{upstream}...HEAD"))
 	}
 
-	if branch.Base != "" && branch.Head != "" {
-		// git applies --max-count before --reverse, so capping in the command
-		// would keep the newest commits and lose the branch's first — the one
-		// the pull request titles itself with. Reverse the whole range, then cap
-		// the oldest-first result here.
-		commits := parseLog(git("log", "-z", "--reverse", logFormat, branch.Base+"..HEAD"))
+	return withCommits(git, branch), nil
+}
 
-		branch.Truncated = len(commits) > commitLimit
-		if branch.Truncated {
-			commits = commits[:commitLimit]
-		}
-
-		branch.Commits = commits
-		branch.BaseUpdated = parseTime(git("log", "-1", "--format=%cI", branch.Base))
+// withCommits is branch with the commits it holds past its base, and when that
+// base last moved. A branch with no base or no commit yet has no range to read
+// and comes back as it was.
+func withCommits(git func(...string) string, branch Branch) Branch {
+	if branch.Base == "" || branch.Head == "" {
+		return branch
 	}
 
-	return branch, nil
+	// git applies --max-count before --reverse, so capping in the command would
+	// keep the newest commits and lose the branch's first — the one the pull
+	// request titles itself with. Reverse the whole range, then cap the
+	// oldest-first result here.
+	commits := parseLog(git("log", "-z", "--reverse", logFormat, branch.Base+"..HEAD"))
+
+	branch.Truncated = len(commits) > commitLimit
+	if branch.Truncated {
+		commits = commits[:commitLimit]
+	}
+
+	branch.Commits = commits
+	branch.BaseUpdated = parseTime(git("log", "-1", "--format=%cI", branch.Base))
+
+	return branch
 }
 
 // parseTime reads an RFC 3339 timestamp, returning the zero time for anything
