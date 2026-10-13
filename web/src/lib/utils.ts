@@ -48,6 +48,12 @@ export function plural(count: number, noun: string): string {
   return `${String(count)} ${count === 1 ? noun : `${noun}s`}`
 }
 
+// shortHash is a commit's hash as git abbreviates it, to its first seven
+// characters.
+export function shortHash(hash: string): string {
+  return hash.slice(0, 7)
+}
+
 // Keyed is a list item and the key React knows it by.
 export interface Keyed<T> {
   key: string

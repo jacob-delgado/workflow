@@ -9,7 +9,7 @@ import { CodeValue } from '@/lib/Meta.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { Failure, ReadFailure } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
-import { cn, contentMeasure, definitionList } from '@/lib/utils.ts'
+import { cn, contentMeasure, definitionList, shortHash } from '@/lib/utils.ts'
 import { EmptyState } from '@/lib/EmptyState.tsx'
 import { LastLook } from '@/lib/LastLook.tsx'
 import { RunOutput, useGitRun, type GitRunner } from './GitRun.tsx'
@@ -73,7 +73,7 @@ export function BranchPanel() {
 // push, link or rebase, so it says where one is to be had instead.
 function BranchSummary({ branch, runner }: { branch: Branch; runner: GitRunner }) {
   const outcome = useOutcome()
-  const heading = branch.name === '' ? `Detached HEAD at ${branch.head.slice(0, 7)}` : branch.name
+  const heading = branch.name === '' ? `Detached HEAD at ${shortHash(branch.head)}` : branch.name
   // There is something to push on a branch of its own (not a detached HEAD, not
   // the base) that has no upstream on the remote its push goes to, or that is
   // ahead of the one it has: nothingToPush, the other way round. Commit count is
@@ -160,7 +160,7 @@ function Commits({
         <ul className="flex flex-col gap-item">
           {commits.map((commit) => (
             <li key={commit.hash} className="flex gap-item text-sm">
-              <code className="text-muted-foreground">{commit.hash.slice(0, 7)}</code>
+              <code className="text-muted-foreground">{shortHash(commit.hash)}</code>
               <span>{commit.subject}</span>
             </li>
           ))}
