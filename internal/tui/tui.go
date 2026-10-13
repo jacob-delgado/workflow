@@ -19,6 +19,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
 )
 
@@ -92,9 +93,8 @@ type Model struct {
 	// The next key press clears it.
 	notice notice
 
-	// views are the named issue lists the Issues pane moves between, and
-	// viewIndex is the one it shows now.
-	views     []issueView
+	// views are the Issues pane's lists, and viewIndex the one it shows now.
+	views     []jira.View
 	viewIndex int
 
 	issues      issueList
@@ -137,7 +137,7 @@ func New(cfg config.Config, loadErr error, deps Deps) Model {
 		styles: newStyles(true), marks: marks, vocab: vocab, session: context.Background(),
 		width: defaultWidth, height: defaultHeight,
 		focus: paneIssues, mouse: cfg.UI.Mouse,
-		views: issueViews(cfg.Jira.Views), viewIndex: 0,
+		views: jira.Views(cfg.Jira.Views), viewIndex: 0,
 	}
 	// Init always searches, so a list seeded from the cache is in flight.
 	model.issues = model.seededIssues()

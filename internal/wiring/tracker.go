@@ -32,7 +32,7 @@ const forgeIssuesLabel = "the forge's issues"
 // Trade-off TRADE-24: the first view and whether the forge joins in are read
 // here, once; a Settings save that changes either applies after a restart.
 func combinedTracker(settings config.Jira, jiraSide, forgeSide seams.Jira) seams.Jira {
-	first := firstView(settings)
+	first := jira.Views(settings.Views)[0].JQL
 	listed := &forgeRows{}
 	asked := &forgeRows{}
 
@@ -71,16 +71,6 @@ func combinedTracker(settings config.Jira, jiraSide, forgeSide seams.Jira) seams
 		},
 		Activity: jiraSide.Activity,
 	}
-}
-
-// firstView is the JQL of the list the Issues pane opens on: the first view
-// configured, or the issues assigned to you when there is none.
-func firstView(settings config.Jira) string {
-	if len(settings.Views) == 0 {
-		return jira.AssignedToMe
-	}
-
-	return jira.ScopedToMe(settings.Views[0].JQL)
 }
 
 // isForgeKey reports a key shaped like a forge issue number.

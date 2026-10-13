@@ -79,7 +79,7 @@ func (s *server) ListIssues(
 		view = *request.Params.View
 	}
 
-	jql, ok := resolveJQL(s.config(), view)
+	listed, ok := jira.ViewNamed(s.config().Jira.Views, view)
 	if !ok {
 		return api.ListIssues404ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeNotFound, unknownView(view))), nil
 	}
@@ -88,7 +88,7 @@ func (s *server) ListIssues(
 		return api.ListIssues200JSONResponse(issuesPageDTO(jira.SearchResult{}, startAt)), nil
 	}
 
-	result, err := s.deps.Jira.Search(ctx, jql, startAt)
+	result, err := s.deps.Jira.Search(ctx, listed.JQL, startAt)
 	if err != nil {
 		return problemAnswer[api.ListIssuesdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
@@ -356,38 +356,17 @@ func (s *server) readAuthor(ctx context.Context) string {
 	return name
 }
 
-// viewsDTO is the views a configuration offers, each narrowed to your issues
-// unless its JQL already names the assignee, as the terminal narrows them, or
-// the one built-in list — open issues assigned to you — when it names none.
+// viewsDTO is the views a configuration offers, as jira.Views derives them
+// for every surface.
 func viewsDTO(cfg config.Config) []api.JiraView {
-	if len(cfg.Jira.Views) == 0 {
-		return []api.JiraView{{Name: "Assigned to me", Jql: jira.AssignedToMe}}
-	}
+	views := jira.Views(cfg.Jira.Views)
 
-	out := make([]api.JiraView, 0, len(cfg.Jira.Views))
-	for _, view := range cfg.Jira.Views {
-		out = append(out, api.JiraView{Name: view.Name, Jql: jira.ScopedToMe(view.JQL)})
+	out := make([]api.JiraView, 0, len(views))
+	for _, view := range views {
+		out = append(out, api.JiraView{Name: view.Name, Jql: view.JQL})
 	}
 
 	return out
-}
-
-// resolveJQL is the JQL for the named view, or the first view's when the name is
-// empty. It reports false for a name no view carries, so a typo is refused
-// rather than quietly answered with the default view's issues.
-func resolveJQL(cfg config.Config, name string) (string, bool) {
-	views := viewsDTO(cfg)
-	if name == "" {
-		return views[0].Jql, true
-	}
-
-	for _, view := range views {
-		if view.Name == name {
-			return view.Jql, true
-		}
-	}
-
-	return "", false
 }
 
 // unknownView is the detail for a view name the configuration does not carry.

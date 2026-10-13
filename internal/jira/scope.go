@@ -7,11 +7,59 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+
+	"github.com/jacob-delgado/workflow/internal/config"
 )
 
 // orderByClause matches an ORDER BY whatever its case and the whitespace around
 // it, at the very start of a query too.
 var orderByClause = regexp.MustCompile(`(?i)(?:^|\s)order\s+by\s`)
+
+// DefaultViewName titles the one built-in view a configuration naming none
+// gets: the open issues assigned to you.
+const DefaultViewName = "Assigned to me"
+
+// View is a named issue list and the JQL that fills it, as every surface
+// lists it.
+type View struct {
+	Name string
+	JQL  string
+}
+
+// Views are the views a configuration offers, each scoped to your issues
+// unless its query names the assignee, or the one built-in view when it names
+// none, so there is always a first. The JQL is the scoped query, which is what
+// is searched and what the issue cache is keyed by.
+func Views(configured []config.JiraView) []View {
+	if len(configured) == 0 {
+		return []View{{Name: DefaultViewName, JQL: AssignedToMe}}
+	}
+
+	views := make([]View, 0, len(configured))
+	for _, view := range configured {
+		views = append(views, View{Name: view.Name, JQL: ScopedToMe(view.JQL)})
+	}
+
+	return views
+}
+
+// ViewNamed is the view of that exact name, or the first view when the name is
+// empty. It reports false for a name no view carries, so a typo is refused
+// rather than quietly answered with another view's issues.
+func ViewNamed(configured []config.JiraView, name string) (View, bool) {
+	views := Views(configured)
+	if name == "" {
+		return views[0], true
+	}
+
+	for _, view := range views {
+		if view.Name == name {
+			return view, true
+		}
+	}
+
+	return View{}, false
+}
 
 // ScopedToMe narrows a view's JQL to the issues assigned to whoever the
 // credential belongs to, unless the query already speaks of the assignee — a
