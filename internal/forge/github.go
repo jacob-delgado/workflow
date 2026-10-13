@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -26,8 +27,13 @@ type githubPull struct {
 	Base     struct {
 		Ref string `json:"ref"`
 	} `json:"base"`
+	// Head.Repo is the repository the head branch is on, nil once that
+	// repository is deleted; Head.SHA is the commit the branch is at.
 	Head struct {
-		SHA string `json:"sha"`
+		SHA  string `json:"sha"`
+		Repo *struct {
+			FullName string `json:"full_name"`
+		} `json:"repo"`
 	} `json:"head"`
 }
 
@@ -57,8 +63,48 @@ type githubNewPull struct {
 	Title string `json:"title"`
 	Body  string `json:"body"`
 	Head  string `json:"head"`
-	Base  string `json:"base"`
-	Draft bool   `json:"draft"`
+	// HeadRepo names the fork the head is on, which GitHub needs only when
+	// the fork and the base share an owner, so the owner cannot tell them
+	// apart.
+	HeadRepo string `json:"head_repo,omitempty"`
+	Base     string `json:"base"`
+	Draft    bool   `json:"draft"`
+}
+
+// githubOwner is the owner of a repository's path, example of example/repo.
+func githubOwner(path string) string {
+	owner, _, _ := strings.Cut(path, "/")
+
+	return owner
+}
+
+// githubHeadOf is how GitHub names head when opening a pull request into repo:
+// the bare branch when it is on repo, else owner:branch, and the fork's path
+// as head_repo too when its owner is repo's own.
+func githubHeadOf(repo Repo, head Head) (string, string) {
+	if !head.forkOf(repo) {
+		return head.Branch, ""
+	}
+
+	owner := githubOwner(head.Fork)
+	if strings.EqualFold(owner, githubOwner(repo.Path)) {
+		return owner + ":" + head.Branch, head.Fork
+	}
+
+	return owner + ":" + head.Branch, ""
+}
+
+// headedFrom reports whether a pull request's head is head's. An owner can
+// hold more than one fork of repo — and repo itself — so owner:branch alone
+// can match another's: a fork's pull is the one whose head is on that fork,
+// and a head on repo is none whose head GitHub says is on another. A pull
+// GitHub names no head repository for — its fork deleted — is no fork's.
+func (g githubPull) headedFrom(repo Repo, head Head) bool {
+	if head.forkOf(repo) {
+		return g.Head.Repo != nil && strings.EqualFold(g.Head.Repo.FullName, head.Fork)
+	}
+
+	return g.Head.Repo == nil || strings.EqualFold(g.Head.Repo.FullName, repo.Path)
 }
 
 // githubRepoPath is where a repository lives in GitHub's API.
@@ -114,13 +160,19 @@ func githubRewrite(
 // githubFind finds the open pull request from a branch. GitHub filters by head
 // as owner:branch; the branch alone matches nothing.
 func githubFind(ctx context.Context, client Client, repo Repo, head Head) (PullRequest, bool, error) {
-	owner, _, _ := strings.Cut(repo.Path, "/")
+	owner := githubOwner(repo.Path)
+	if head.forkOf(repo) {
+		owner = githubOwner(head.Fork)
+	}
+
 	query := url.Values{"head": {owner + ":" + head.Branch}, queryState: {queryAll}}.Encode()
 
 	pulls, err := repoCall[[]githubPull](ctx, client, repo, http.MethodGet, githubRepoPath(repo)+"/pulls?"+query, nil)
 	if err != nil {
 		return PullRequest{}, false, err
 	}
+
+	pulls = slices.DeleteFunc(pulls, func(pull githubPull) bool { return !pull.headedFrom(repo, head) })
 
 	chosen, ok := pickPull(pulls)
 	if !ok {
@@ -303,8 +355,10 @@ func tallyReviews(reviews []githubReview) (int, bool) {
 // once the pull exists, so their failure is returned alongside the opened pull
 // rather than losing it.
 func githubCreate(ctx context.Context, client Client, repo Repo, request NewPullRequest) (PullRequest, error) {
+	headLabel, headRepo := githubHeadOf(repo, request.Head)
 	payload := githubNewPull{
-		Title: request.Title, Body: request.Body, Head: request.Head.Branch, Base: request.Base, Draft: request.Draft,
+		Title: request.Title, Body: request.Body, Head: headLabel, HeadRepo: headRepo,
+		Base: request.Base, Draft: request.Draft,
 	}
 
 	created, err := repoCall[githubPull](ctx, client, repo, http.MethodPost, githubRepoPath(repo)+"/pulls", payload)
