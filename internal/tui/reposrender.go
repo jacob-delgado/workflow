@@ -98,7 +98,8 @@ func (s repositoriesState) detail(view repositoriesView, width int) string {
 }
 
 // workingIn is a place in full: the directory, the repository it is in and
-// the path within, origin, and the configuration that applies.
+// the path within, origin — and beside it the base, in a fork's clone — and
+// the configuration that applies.
 func (v repositoriesView) workingIn(place seams.Place) []string {
 	field := func(name, value string) string { return v.kit.styles.label.Render(padded(name, labelWidth)) + value }
 	lines := []string{v.kit.styles.strong.Render("Working in"), field("directory", shownFrom(v.home, place.Dir))}
@@ -109,7 +110,12 @@ func (v repositoriesView) workingIn(place seams.Place) []string {
 		lines = append(lines, field("repository", shownFrom(v.home, place.Root)), field("within", within(place)))
 	}
 
-	return append(lines, field("origin", origin(place)), field("configuration", shownFiles(v.home, place.Config)))
+	lines = append(lines, field("origin", origin(place)))
+	if place.Base.Host != "" {
+		lines = append(lines, field("base", sanitize.Line(place.Base.Host+"/"+place.Base.Path)))
+	}
+
+	return append(lines, field("configuration", shownFiles(v.home, place.Config)))
 }
 
 // labelWidth is how wide the Working in block's names are drawn, the longest

@@ -145,6 +145,11 @@ func placeDTO(place seams.Place, home string) api.Place {
 		Dir: place.Dir, Shown: workdirs.Shown(place.Dir, home), Origin: originOf(place), Config: shownConfig,
 	}
 
+	if place.Base.Host != "" {
+		base := place.Base.Host + "/" + place.Base.Path
+		dto.Base = &base
+	}
+
 	if place.Root != "" {
 		dto.Root, dto.RootShown = place.Root, workdirs.Shown(place.Root, home)
 

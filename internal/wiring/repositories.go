@@ -175,7 +175,22 @@ func placeOf(where Workspace, files config.Files) seams.Place {
 
 	remote, _ := parsedRemote(where)
 
-	return seams.Place{Dir: where.Dir, Root: root, Remote: remote, Config: files}
+	return seams.Place{Dir: where.Dir, Root: root, Remote: remote, Base: forkBase(where), Config: files}
+}
+
+// forkBase is the base remote's host and path when it is not origin, and zero
+// when it is, or names no repository.
+func forkBase(where Workspace) forge.Repo {
+	if where.Base.Name == gitrepo.DefaultRemote {
+		return forge.Repo{}
+	}
+
+	base, err := forge.ParseRemote(where.Base.URL)
+	if err != nil {
+		return forge.Repo{}
+	}
+
+	return base
 }
 
 // readsAtOnce is how many repositories the Summary reads side by side: enough

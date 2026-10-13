@@ -772,8 +772,8 @@ only while the task is still going.
 
 The Repositories pane (`9`) is where workflow works, relative to what it
 changes: the directory it was started in, the repository that directory is
-in and the path within it, origin's host and path, and the configuration
-files that apply there — the repository's over your home's — each written
+in and the path within it, origin's host and path — and, in a fork's clone,
+the base's beside it — and the configuration files that apply there — the repository's over your home's — each written
 from your home, as `~/src/api`. Outside a repository it says so, and the
 panes that need one say what they have no data for.
 

@@ -1986,6 +1986,9 @@ type PersonLink struct {
 
 // Place A directory the server works in, as it is now. Each path is also written from your home, as ~/src/api, for showing.
 type Place struct {
+	// Base The host and path of the repository pull requests merge into, when that is not origin's, as in a fork's clone; absent otherwise.
+	Base *string `json:"base,omitempty"`
+
 	// Config The configuration files that apply, each written from your home, the repository's first; empty when the defaults apply.
 	Config []string `json:"config"`
 
