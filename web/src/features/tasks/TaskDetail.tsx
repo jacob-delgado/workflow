@@ -14,6 +14,7 @@ import { useUiStore } from '@/shell/uiStore.ts'
 import { useDoneSinceListed, useTaskWrites } from './tasksApi.ts'
 import { TaskLineForm } from './TaskLineForm.tsx'
 import { dueWords, elapsedWords, isActive, taskName, taskNumber } from './taskWords.ts'
+import { Failure } from '@/lib/Status.tsx'
 
 const partHeading = 'text-base font-semibold'
 
@@ -306,12 +307,7 @@ export function Verb({
   const running = write.state === 'running'
   const refusal =
     write.state === 'error' ? (
-      <p
-        role="alert"
-        className="order-last basis-full text-sm whitespace-pre-line text-destructive"
-      >
-        {write.error}
-      </p>
+      <Failure className="order-last basis-full">{write.error}</Failure>
     ) : null
 
   if (ask !== undefined && asking) {

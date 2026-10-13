@@ -10,6 +10,7 @@ import { StateMark } from '@/lib/StateMark.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn } from '@/lib/utils.ts'
 import { useUiStore } from '@/shell/uiStore.ts'
+import { Failure } from '@/lib/Status.tsx'
 
 // RowFacts are what the rows mark beside each issue: its local branches, and
 // how its tasks stand.
@@ -249,11 +250,7 @@ function RowCheckout({ branch, issueKey, outcome }: RowCheckoutProps) {
       >
         {state === 'running' ? 'Switching…' : 'Switch branch'}
       </Button>
-      {state === 'error' ? (
-        <p role="alert" className="text-xs text-destructive">
-          {error}
-        </p>
-      ) : null}
+      {state === 'error' ? <Failure className="text-xs">{error}</Failure> : null}
     </div>
   )
 }

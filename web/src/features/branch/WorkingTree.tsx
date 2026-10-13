@@ -186,11 +186,7 @@ function ChangeRow({ change, discards }: { change: Change; discards: Teller }) {
         />
       ) : null}
       <OutcomeLine said={outcome.said} />
-      {state === 'error' ? (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      ) : null}
+      {state === 'error' ? <Failure>{error}</Failure> : null}
       <ChangeDiff path={change.path} />
     </li>
   )
@@ -351,11 +347,7 @@ function StageAll({ anythingToStage }: { anythingToStage: boolean }) {
         {state === 'running' ? 'Staging…' : 'Stage all'}
       </Button>
       <OutcomeLine said={outcome.said} />
-      {state === 'error' ? (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      ) : null}
+      {state === 'error' ? <Failure>{error}</Failure> : null}
     </div>
   )
 }
@@ -387,11 +379,7 @@ function UnstageAll({ anythingStaged }: { anythingStaged: boolean }) {
         {state === 'running' ? 'Unstaging…' : 'Unstage all'}
       </Button>
       <OutcomeLine said={outcome.said} />
-      {state === 'error' ? (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      ) : null}
+      {state === 'error' ? <Failure>{error}</Failure> : null}
     </div>
   )
 }

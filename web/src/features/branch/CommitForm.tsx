@@ -8,6 +8,7 @@ import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn } from '@/lib/utils.ts'
 import { commitChanges } from './commitApi.ts'
+import { Failure } from '@/lib/Status.tsx'
 
 interface CommitFields {
   type: string
@@ -113,11 +114,7 @@ export function CommitForm({ canCommit, waiting, suggestedScope, convention }: C
         </Button>
         {waiting === undefined ? null : <p className="text-sm text-muted-foreground">{waiting}</p>}
         <OutcomeLine said={outcome.said} />
-        {commit.state === 'error' ? (
-          <p role="alert" className="text-sm whitespace-pre-line text-destructive">
-            {commit.error}
-          </p>
-        ) : null}
+        {commit.state === 'error' ? <Failure>{commit.error}</Failure> : null}
       </div>
     </form>
   )

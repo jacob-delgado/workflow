@@ -7,6 +7,7 @@ import type { Teller } from '@/lib/Outcome.tsx'
 import { useFocusHandback } from '@/lib/focus.ts'
 import { type AsyncState, useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { startWorkInWorktree } from './startWorkApi.ts'
+import { Failure } from '@/lib/Status.tsx'
 
 interface StartInWorktreeProps {
   issueKey: string
@@ -61,9 +62,7 @@ export function StartRefusal({ start }: { start: StartAttempt }) {
 
   return (
     <div className="flex flex-col gap-tight">
-      <p role="alert" className="text-sm text-destructive">
-        {start.error}
-      </p>
+      <Failure>{start.error}</Failure>
       {start.code === 'fetch_failed' ? (
         <Button
           variant="secondary"

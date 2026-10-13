@@ -10,7 +10,7 @@ import { useLiveSnapshot, useSnapshotStore } from '@/api/snapshot.ts'
 import { EmptyState } from '@/lib/EmptyState.tsx'
 import { FilterChips } from '@/lib/FilterChips.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
-import { Reading, ReadFailure } from '@/lib/Status.tsx'
+import { failureGround, Reading, ReadFailure } from '@/lib/Status.tsx'
 import { cn, contentMeasure } from '@/lib/utils.ts'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { IssueDetailPanel } from './IssueDetailPanel.tsx'
@@ -84,7 +84,7 @@ function IssueBrowser({ streamed, unread, branches, tasks }: IssueBrowserProps) 
         <p role="status" className="text-sm text-muted-foreground">
           {filterOutcome(filter !== '' || places.length > 0, shown.length, loaded.length)}
         </p>
-        <p role="status" className="text-sm text-destructive empty:sr-only">
+        <p role="status" className={cn(failureGround, 'empty:sr-only')}>
           {streamed.unavailable.length > 0 ? `Not read: ${streamed.unavailable.join(', ')}.` : ''}
         </p>
         <OutcomeLine said={outcome.said} />

@@ -4,6 +4,7 @@ import type { Issue, IssuesPage } from '@/api/generated/types.gen.ts'
 import { useMoreIssues } from '@/features/issues/issueApi.ts'
 import { useShortcutProps } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
+import { Failure } from '@/lib/Status.tsx'
 
 // IssuePaging is the view's issues loaded so far, and how to load more.
 export type IssuePaging = ReturnType<typeof useIssuePaging>
@@ -94,12 +95,12 @@ export function MoreIssues({ paging }: { paging: IssuePaging }) {
         ) : null}
       </div>
       {more.isError ? (
-        <p role="alert" className="px-3 text-sm text-destructive">
+        <Failure>
           {apiErrorMessage(
             more.error,
             'More issues could not be loaded. Press Load more to try again.',
           )}
-        </p>
+        </Failure>
       ) : null}
     </>
   )

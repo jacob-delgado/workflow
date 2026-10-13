@@ -7,7 +7,7 @@ import type {
 } from '@/api/generated/types.gen.ts'
 import { useHealthStore } from '@/api/health.ts'
 import { Button } from '@/lib/Button.tsx'
-import { Reading, Unread } from '@/lib/Status.tsx'
+import { Failure, Reading, Unread } from '@/lib/Status.tsx'
 import { OutcomeLine, type Teller, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { LastLook } from '@/lib/LastLook.tsx'
@@ -216,11 +216,7 @@ function RemoveSteps({ files, consequences, tell }: RemoveStepsProps) {
         allOpener={allOpener}
         onOpen={setConfirming}
       />
-      {removal.state === 'error' ? (
-        <p role="alert" className="text-sm text-destructive">
-          {removal.error}
-        </p>
-      ) : null}
+      {removal.state === 'error' ? <Failure>{removal.error}</Failure> : null}
     </>
   )
 }

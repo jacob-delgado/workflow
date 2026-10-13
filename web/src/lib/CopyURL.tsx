@@ -1,6 +1,7 @@
 import { Button } from './Button.tsx'
 import type { Teller } from './Outcome.tsx'
 import { useAsyncAction } from './useAsyncAction.ts'
+import { Failure } from './Status.tsx'
 
 // copyAddress puts an address on the clipboard.
 function copyAddress(url: string): Promise<void> {
@@ -35,11 +36,7 @@ export function CopyURL({ url, mark, teller }: CopyURLProps) {
       >
         Copy URL <span className="sr-only">to {mark}</span>
       </Button>
-      {copy.state === 'error' ? (
-        <p role="alert" className="basis-full text-destructive">
-          {copy.error}
-        </p>
-      ) : null}
+      {copy.state === 'error' ? <Failure className="basis-full">{copy.error}</Failure> : null}
     </>
   )
 }

@@ -44,6 +44,11 @@ export function useOutcome() {
   }
 }
 
+// resultGround draws what a write did in the success color, on that color's
+// notice ground: OutcomeLine's look, for a result said by a line of its own.
+export const resultGround =
+  'rounded-md border border-success/40 bg-success-surface px-3 py-2 text-sm text-success'
+
 // OutcomeLine is the live line useOutcome says into. It is always mounted, empty
 // until there is something to say, so a screen reader hears each message as it
 // changes. When the control that had focus as the write was said can no longer
@@ -86,10 +91,7 @@ export function OutcomeLine({ said, className }: { said: Said | null; className?
       ref={line}
       role="status"
       tabIndex={-1}
-      className={cn(
-        'rounded-md border border-success/40 bg-success-surface px-3 py-2 text-sm text-success empty:sr-only',
-        className,
-      )}
+      className={cn(resultGround, 'empty:sr-only', className)}
     >
       {said?.text ?? ''}
     </p>

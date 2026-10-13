@@ -16,6 +16,7 @@ import type { SettingsValues } from '../formValues.ts'
 import type { Removal } from '../removal.ts'
 import { CredentialRemoval } from './CredentialRemoval.tsx'
 import type { Register } from './Field.tsx'
+import { Failure } from '@/lib/Status.tsx'
 
 // A list the form edits row by row.
 type ListName = ArrayPath<SettingsValues>
@@ -202,9 +203,9 @@ function RowRefusal({ id, refusal }: { id: string; refusal: string | undefined }
   }
 
   return (
-    <p id={id} role="alert" className="order-last basis-full text-sm text-destructive">
+    <Failure id={id} className="order-last basis-full">
       {refusal}
-    </p>
+    </Failure>
   )
 }
 

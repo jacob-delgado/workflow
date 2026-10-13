@@ -4,18 +4,32 @@ import { StateMark } from './StateMark.tsx'
 import { Button } from './Button.tsx'
 import { cn } from './utils.ts'
 
+// failureGround draws a failure in the one color kept for it, on that color's
+// notice ground so the eye finds it: Failure's look, for a line that says a
+// failure without being an alert.
+export const failureGround =
+  'rounded-md border border-destructive/40 bg-destructive-surface px-3 py-2 text-sm text-destructive'
+
+interface FailureProps {
+  children: ReactNode
+  // id names the failure for the field it describes (aria-describedby).
+  id?: string
+  className?: string
+}
+
 // Failure says what failed, beside what failed: an alert, so a screen reader
-// hears it as it lands, in the one color kept for failure, on that color's
-// notice ground so the eye finds it too. With nothing to say it draws nothing,
-// though it stays in place to be heard. A caller that can fail the same way
-// twice keys it by how many times it has, since an alert that keeps its words
-// is not spoken again.
-export function Failure({ children, className }: { children: ReactNode; className?: string }) {
+// hears it as it lands, drawn on the failure's ground. With nothing to say it
+// draws nothing, though it stays in place to be heard. A caller that can fail
+// the same way twice keys it by how many times it has, since an alert that
+// keeps its words is not spoken again.
+export function Failure({ children, id, className }: FailureProps) {
   return (
     <p
+      id={id}
       role="alert"
       className={cn(
-        'flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive-surface px-3 py-2 text-sm whitespace-pre-line text-destructive empty:sr-only',
+        'flex items-start gap-2 whitespace-pre-line empty:sr-only',
+        failureGround,
         className,
       )}
     >

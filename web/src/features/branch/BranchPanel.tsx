@@ -7,7 +7,7 @@ import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback } from '@/lib/focus.ts'
 import { CodeValue } from '@/lib/Meta.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
-import { ReadFailure } from '@/lib/Status.tsx'
+import { Failure, ReadFailure } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn, contentMeasure, definitionList } from '@/lib/utils.ts'
 import { EmptyState } from '@/lib/EmptyState.tsx'
@@ -218,11 +218,7 @@ function PushButton({ branch, outcome }: { branch: Branch; outcome: Teller }) {
           {push.state === 'running' ? 'Pushing…' : 'Push branch'}
         </Button>
       )}
-      {push.state === 'error' && !confirming ? (
-        <p role="alert" className="text-sm whitespace-pre-line text-destructive">
-          {push.error}
-        </p>
-      ) : null}
+      {push.state === 'error' && !confirming ? <Failure>{push.error}</Failure> : null}
     </div>
   )
 }

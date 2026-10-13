@@ -1,11 +1,11 @@
-import type { Issue } from '../../src/api/generated/types.gen.ts'
+import type { Issue, TaskBranch } from '../../src/api/generated/types.gen.ts'
 import { height, openCockpit, pinTheme, themes, widths } from '../support/cockpit.ts'
-import { expect, issuesOf, snapshotWith, streams, test } from '../support/fixtures.ts'
-import { expectReachableAndClean } from '../support/reachable.ts'
+import { expect, issuesOf, problem, snapshotWith, streams, test } from '../support/fixtures.ts'
+import { axeViolations, expectReachableAndClean } from '../support/reachable.ts'
 
-// The issue list: its controls and an open issue's detail beside it, a later
-// page of the view loaded into it, and its rows, each summary on one line and
-// every row at one right edge.
+// The issue list: its controls and an open issue's detail beside it, a refused
+// switch to an issue's branch, a later page of the view loaded into it, and its
+// rows, each summary on one line and every row at one right edge.
 
 // redactTokens is the issue the list opens, in progress.
 const redactTokens = {
@@ -86,6 +86,46 @@ for (const theme of themes) {
       await expectReachableAndClean(page, { reaches: ['View'] })
     })
   }
+}
+
+// redactTokensBranch is the open issue's branch, not checked out, so its row
+// offers Switch branch.
+const redactTokensBranch: TaskBranch = {
+  name: 'fix/PROJ-1-redact-tokens',
+  issue_key: 'PROJ-1',
+  current: false,
+  stages: [],
+}
+
+for (const theme of themes) {
+  test(`a refused Switch branch reads clean on the selected row in the ${theme} theme`, async ({
+    page,
+  }) => {
+    // Arrange
+    await pinTheme(page, theme)
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await streams(
+      page,
+      snapshotWith({ issues: issuesOf([redactTokens]), branches: [redactTokensBranch] }),
+    )
+    await page.route('**/api/issues/PROJ-1', (route) => route.fulfill({ json: issueDetail }))
+    await page.route('**/api/checkout', (route) =>
+      route.fulfill(
+        problem('conflict', 'the working tree has changes; commit or stash them first'),
+      ),
+    )
+    await page.goto('/')
+    await page.getByRole('button', { name: /redact tokens/i }).click()
+
+    // Act
+    await page.getByRole('button', { name: 'Switch branch for PROJ-1' }).click()
+
+    // Assert
+    await expect(
+      page.getByRole('alert').filter({ hasText: /working tree has changes/ }),
+    ).toBeVisible()
+    expect(await axeViolations(page), 'axe').toBe('')
+  })
 }
 
 const issuesTotal = 12

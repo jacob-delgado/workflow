@@ -10,6 +10,7 @@ import { LastLook } from '@/lib/LastLook.tsx'
 import { ChannelSelect, PreviewText } from '@/features/messaging/AnnouncePreview.tsx'
 import { postSummary } from './summaryApi.ts'
 import { useShortcut } from '@/features/keyboard/useShortcut.ts'
+import { failureGround } from '@/lib/Status.tsx'
 
 // webhookChannel is where a post goes that names no channel: a webhook's own.
 const webhookChannel = 'the channel its webhook is bound to'
@@ -142,7 +143,7 @@ function PostLengthLine({ length, edited }: { length: PostLength; edited: boolea
 
   if (length.count > length.limit) {
     return (
-      <p className="text-sm text-destructive">
+      <p className={failureGround}>
         Too long for {length.service}: {writtenCount(length.count)} of {limit}. Pick a shorter
         period, or edit it down.
       </p>

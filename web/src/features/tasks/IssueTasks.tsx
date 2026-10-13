@@ -22,6 +22,7 @@ import {
   taskName,
   taskNumber,
 } from './taskWords.ts'
+import { Failure } from '@/lib/Status.tsx'
 
 // IssueTasks is the Tasks card of an issue's detail: each task linked to the
 // issue, with its mark and how it stands, and — for one still to do — the
@@ -208,11 +209,7 @@ function TrackIssue({ issueKey, unlinked, teller }: TrackIssueProps) {
         >
           {track.state === 'running' ? 'Tracking…' : 'Track in Taskwarrior'}
         </Button>
-        {track.state === 'error' ? (
-          <p role="alert" className="basis-full text-sm whitespace-pre-line text-destructive">
-            {track.error}
-          </p>
-        ) : null}
+        {track.state === 'error' ? <Failure className="basis-full">{track.error}</Failure> : null}
       </div>
     </>
   )

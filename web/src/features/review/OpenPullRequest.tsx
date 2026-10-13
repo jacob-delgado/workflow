@@ -81,11 +81,7 @@ export function OpenPullRequest({
       >
         {compose.state === 'running' ? 'Preparing…' : `Open a ${noun}`}
       </Button>
-      {compose.state === 'error' ? (
-        <p role="alert" className="text-sm whitespace-pre-line text-destructive">
-          {compose.error}
-        </p>
-      ) : null}
+      {compose.state === 'error' ? <Failure>{compose.error}</Failure> : null}
     </div>
   )
 }
@@ -174,11 +170,7 @@ function PullRequestForm({
         </Button>
       </div>
 
-      {error === '' ? null : (
-        <p role="alert" className="text-sm whitespace-pre-line text-destructive">
-          {error}
-        </p>
-      )}
+      {error === '' ? null : <Failure>{error}</Failure>}
     </form>
   )
 }
