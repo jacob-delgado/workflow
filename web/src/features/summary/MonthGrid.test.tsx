@@ -71,3 +71,30 @@ test('a shift-click picks the range too', async () => {
   // Assert
   expect(picked).toHaveBeenLastCalledWith({ from: '2026-09-15', to: '2026-09-18' })
 })
+
+test('a day is named with how much was done on it, and one with nothing by its date alone', () => {
+  // Arrange
+  const amounts = new Map([
+    ['2026-09-15', 1],
+    ['2026-09-16', 3],
+  ])
+
+  // Act
+  render(
+    <MonthGrid
+      year={2026}
+      month={9}
+      period={{ from: '2026-09-15', to: '2026-09-15' }}
+      amounts={amounts}
+      onPick={vi.fn()}
+    />,
+  )
+
+  // Assert
+  const picked = screen.getByRole('gridcell', { name: 'Tuesday, September 15, 2026, 1 thing done' })
+  expect(picked.getAttribute('aria-selected')).toBe('true')
+  expect(
+    screen.getByRole('gridcell', { name: 'Wednesday, September 16, 2026, 3 things done' }),
+  ).toBeTruthy()
+  expect(screen.getByRole('gridcell', { name: 'Monday, September 14, 2026' })).toBeTruthy()
+})

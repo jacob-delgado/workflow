@@ -12,6 +12,7 @@ import {
   type Period,
 } from './civilDate.ts'
 import { MonthGrid } from './MonthGrid.tsx'
+import { useDayAmounts } from './summaryApi.ts'
 
 const monthNames = [
   'January',
@@ -39,10 +40,13 @@ interface PeriodPickerProps {
 
 // PeriodCalendar picks the period the Summary shows from a month's calendar —
 // a day, a range, the month or its year — the month and year chosen above it.
+// Each day of the month shown says how much was done on it, once that month
+// is read.
 export function PeriodCalendar({ period, today, onPick }: PeriodPickerProps) {
   const [view, setView] = useState<[number, number]>(() => yearMonth(period.to))
   const [year, month] = view
   const shownDay = civilDay(civilNoon(year, month, 1))
+  const amounts = useDayAmounts(monthOf(shownDay))
 
   return (
     <section aria-label="Calendar" className="flex flex-col gap-group">
@@ -58,6 +62,7 @@ export function PeriodCalendar({ period, today, onPick }: PeriodPickerProps) {
         year={year}
         month={month}
         period={period}
+        amounts={amounts}
         onPick={onPick}
         onView={(nextYear, nextMonth) => {
           setView([nextYear, nextMonth])

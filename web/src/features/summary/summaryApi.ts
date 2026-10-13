@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { postActivity } from '@/api/generated'
 import { getActivityOptions } from '@/api/generated/@tanstack/react-query.gen.ts'
-import type { ActivityPost } from '@/api/generated/types.gen.ts'
-import type { Period } from './civilDate.ts'
+import type { ActivityPost, ActivityYear } from '@/api/generated/types.gen.ts'
+import type { CivilDate, Period } from './civilDate.ts'
 
 // useActivity reads back what you did over period, or the previous working day
 // the server picks when period is null. What was done changes as you work, so
@@ -14,6 +14,24 @@ export function useActivity(period: Period | null) {
     staleTime: 0,
     retry: false,
   })
+}
+
+// useDayAmounts is how many things were done on each day of period that saw
+// any, by date, once the server has answered for it. While it reads, or once
+// it is refused, there are none to say: the period's own read says why.
+export function useDayAmounts(period: Period): ReadonlyMap<CivilDate, number> | undefined {
+  const read = useActivity(period)
+
+  return read.isSuccess ? dayAmounts(read.data.years) : undefined
+}
+
+// dayAmounts is how many things were done on each day the years hold.
+function dayAmounts(years: ActivityYear[]): Map<CivilDate, number> {
+  const days = years.flatMap((year) => year.months.flatMap((month) => month.days))
+
+  return new Map(
+    days.map((day) => [day.date, day.hours.reduce((sum, hour) => sum + hour.items.length, 0)]),
+  )
 }
 
 // postSummary posts text — the summary of the days from and to, as the server
