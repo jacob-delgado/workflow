@@ -228,9 +228,12 @@ without agreement on direction.
   directory's shared read and a token's refresh end with the lifetime their
   context carries, the server's or the command's (`internal/lifetime`); and a
   post's record (`loop.Deliver`), the store's open, and the Slack secrets
-  Settings refreshes and keeps (`wiring.PlaceSlackCredentials`) run to their
-  end. The wiring never keeps a context past the call that handed it one.
-  `internal/seams`' test holds the rule and names the exceptions.
+  Settings refreshes and keeps (`wiring.PlaceSlackCredentials`) detach from
+  their asker, finishing only where something waits for them (a command's own
+  call, `--web`'s five-second drain), while a signal in the terminal exits
+  under them (TRADE-38). The wiring never keeps a context past the call that
+  handed it one. `internal/seams`' test holds the rule and names the
+  exceptions.
 
 - **Database (`internal/store`) — normalized, STRICT, and never trusted.** The
   on-disk store is SQLite through `modernc.org/sqlite` (pure Go, so `CGO_ENABLED=0`
