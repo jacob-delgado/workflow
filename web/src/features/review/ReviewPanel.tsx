@@ -144,7 +144,7 @@ function PullRequestSummary({
           <RowValue mark={stateMark[pull.state]}>{stateLabel(pull)}</RowValue>
           {pull.state === 'open' ? <ReviewRows pull={pull} /> : null}
         </dl>
-        <PullActions pull={pull} ci={ci} branch={branch} />
+        <PullActions pull={pull} ci={ci} branch={branch} finishRefusal={review.finish_refusal} />
       </section>
 
       {ciUnread === null ? null : <ReadFailure unread="CI could not be read" problem={ciUnread} />}

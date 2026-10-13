@@ -292,10 +292,11 @@ has failed, restarts the failed jobs, as `R` does, and says when a failure had
 no job to restart; and once it has merged, **Finish the branch** shows the
 three git commands it runs — switch to the base, pull, delete the branch — as
 `F` does, when deleting the branch loses nothing: it is at the commit that
-merged, or its upstream holds every commit on it. The server reads the
-pull request and its CI again before each, so nothing goes on what the page
-showed a moment ago. A token without the scope a write needs is told in the
-forge's own words, naming the scope.
+merged, or its upstream holds every commit on it. When something is in the
+way, the section says what in its place, as the terminal does. The server
+reads the pull request and its CI again before each, so nothing goes on what
+the page showed a moment ago. A token without the scope a write needs is told
+in the forge's own words, naming the scope.
 
 With no pull request for the branch, **Open a pull request**
 composes one as `workflow pr` would and shows it as a form: the title, the

@@ -1175,6 +1175,10 @@ export type Review = {
      */
     issue?: LinkedIssue | null;
     /**
+     * Why the merged pull request's branch cannot be finished, in the words that follow "cannot finish BRANCH: " — it holds commits that neither merged nor are on its upstream, there is no base to return to, or it is not a branch of its own — the same check a finish makes before it runs. Absent when the pull request has not merged, and when its branch can be finished.
+     */
+    finish_refusal?: string;
+    /**
      * Whether the pull request was already announced at the moment it is at now — ready for review, its CI red, merged — from the browser, the terminal or workflow announce, as the store remembers. Always false for one closed without merging, which the loop no longer follows, whatever was announced of it before: it is none to announce, as the announce stage reads it, until one is open again. The store is read at most once every timing.ci_interval, and never under --dry-run, when this is always false.
      */
     announced: boolean;

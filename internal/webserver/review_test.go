@@ -6,6 +6,7 @@ package webserver_test
 import (
 	"context"
 	"net/http"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
 func TestGetReviewReturnsThePullAndCI(t *testing.T) {
@@ -347,5 +349,49 @@ func TestSnapshotReviewIsNotFoundWithoutAForge(t *testing.T) {
 
 	if snap.Review.Found || snap.Review.Pull != nil {
 		t.Errorf("review = %+v, want none found without a forge", snap.Review)
+	}
+}
+
+func TestGetReviewSaysWhyAMergedBranchCannotBeFinished(t *testing.T) {
+	t.Parallel()
+
+	committedSince := func(deps webserver.Deps) webserver.Deps {
+		deps = merged(deps)
+		deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
+			return gitrepo.Branch{Name: testBranchName, Base: testBase, Head: "def456"}, nil
+		}
+
+		return deps
+	}
+
+	cases := map[string]struct {
+		shape func(webserver.Deps) webserver.Deps
+		want  string
+	}{
+		"merged at the commit the branch is at": {shape: merged, want: ""},
+		"merged, then committed to":             {shape: committedSince, want: "neither merged nor are on its upstream"},
+		"still open":                            {shape: func(deps webserver.Deps) webserver.Deps { return deps }, want: ""},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			deps := tt.shape(filledDeps())
+
+			// Act
+			review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
+
+			// Assert
+			refusal := ""
+			if review.FinishRefusal != nil {
+				refusal = *review.FinishRefusal
+			}
+
+			if (tt.want == "") != (refusal == "") || !strings.Contains(refusal, tt.want) {
+				t.Errorf("finish refusal = %q, want %q", refusal, tt.want)
+			}
+		})
 	}
 }
