@@ -306,6 +306,8 @@ jobs:
           scripts/test-counts.sh vitest tmp/reports/web-unit.json "Web unit" > tmp/test-counts/web-unit.json
           scripts/test-counts.sh playwright tmp/reports/e2e.json "E2E" > tmp/test-counts/e2e.json
           scripts/test-counts.sh playwright tmp/reports/e2e-server.json "E2E (server)" > tmp/test-counts/e2e-server.json
+      # Test and Branch coverage pass or fail apart, so tmp/gobco can be absent
+      # beside coverage.out: the summary then reads the conditions as null.
       - name: Compute the coverage summary
         run: |
           if [ -f coverage.out ]; then
