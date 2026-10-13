@@ -711,6 +711,10 @@ export type QueuedAnnouncement = {
      */
     ci?: CiState;
     /**
+     * Set true only on one armed as its pull request opened here, rather than asked for with when ci_passes.
+     */
+    automatic?: boolean;
+    /**
      * Set only on one announced that the store could not remember, so a later session may offer it again.
      */
     warning?: string;
@@ -1529,6 +1533,14 @@ export type OpenedPullRequest = {
      * What the browser can offer now that the pull request is open, in the order the terminal offers them — the link, then the move. Empty when the branch names no Jira issue, or neither applies.
      */
     follow_ups: Array<FollowUp>;
+    /**
+     * The announcement armed to post once the pull request's CI passes, when messaging is set up and messaging.auto_announce is on; the frame's queued_announcement goes on saying how it stands, and DELETE /api/announce/queued drops it unposted. Left out when none was armed.
+     */
+    announcement?: QueuedAnnouncement;
+    /**
+     * Why no announcement was armed where one would have been: a draft is not announced until it is ready. Left out otherwise.
+     */
+    not_armed?: string;
 };
 
 /**

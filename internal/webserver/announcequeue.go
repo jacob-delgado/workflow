@@ -454,6 +454,10 @@ func (h *heldAnnouncement) queued() api.QueuedAnnouncement {
 		queued.Ci = new(ciState(h.ci))
 	}
 
+	if h.post.automatic {
+		queued.Automatic = new(true)
+	}
+
 	return queued
 }
 

@@ -1940,9 +1940,15 @@ type OpenPullRequestRequest struct {
 
 // OpenedPullRequest A pull request that was just opened, with a warning when it opened but its reviewers, assignees or labels could not all be added, and what can be offered next.
 type OpenedPullRequest struct {
+	// Announcement The announcement armed to post once the pull request's CI passes, when messaging is set up and messaging.auto_announce is on; the frame's queued_announcement goes on saying how it stands, and DELETE /api/announce/queued drops it unposted. Left out when none was armed.
+	Announcement *QueuedAnnouncement `json:"announcement,omitempty"`
+
 	// FollowUps What the browser can offer now that the pull request is open, in the order the terminal offers them — the link, then the move. Empty when the branch names no Jira issue, or neither applies.
-	FollowUps []FollowUp  `json:"follow_ups"`
-	Pull      PullRequest `json:"pull"`
+	FollowUps []FollowUp `json:"follow_ups"`
+
+	// NotArmed Why no announcement was armed where one would have been: a draft is not announced until it is ready. Left out otherwise.
+	NotArmed *string     `json:"not_armed,omitempty"`
+	Pull     PullRequest `json:"pull"`
 
 	// Warning Set only when the pull opened but adding its reviewers, assignees or labels did not fully succeed, so a partial success is not reported as a failure.
 	Warning *string `json:"warning,omitempty"`
@@ -2152,6 +2158,9 @@ type PullRequestText struct {
 
 // QueuedAnnouncement An announcement held until a pull request's CI passes, and how it stands: waiting for the CI, being posted, posted, or dropped unposted with the reason.
 type QueuedAnnouncement struct {
+	// Automatic Set true only on one armed as its pull request opened here, rather than asked for with when ci_passes.
+	Automatic *bool `json:"automatic,omitempty"`
+
 	// Channel The channel it posts to, or empty for a webhook's own channel.
 	Channel string `json:"channel"`
 

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/codeowners"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 )
@@ -60,11 +61,13 @@ var (
 
 // announcePost is an announcement ready to go: the delivery, which names the
 // pull request it announces and the moment it marks, what posting it
-// remembers, and the branch it was composed on.
+// remembers, the branch it was composed on, and whether it was armed as its
+// pull request opened rather than asked for.
 type announcePost struct {
-	delivery loop.Delivery
-	memory   loop.AnnounceMemory
-	branch   string
+	delivery  loop.Delivery
+	memory    loop.AnnounceMemory
+	branch    string
+	automatic bool
 }
 
 // Announce posts the composed announcement to the configured service — to the
@@ -300,7 +303,7 @@ func (s *server) tagging(ctx context.Context, moment messaging.Moment, channel s
 		return untagged(err)
 	}
 
-	tags, available := s.proposedTags(ctx, moment, workspace)
+	tags, available := s.proposedTags(ctx, moment, workspace, s.branchOwners)
 
 	scope, err := s.scopeToLink(ctx, tags.Owners, channel)
 	if err != nil {
@@ -356,11 +359,14 @@ func workspaceRefusal(err error) string {
 }
 
 // proposedTags is whom an announcement at moment proposes to tag from what
-// is kept in workspace, and whether it tags anyone at all: only one ready for
-// review does, and only with the store that keeps who is whom. The tags are a
-// proposal, so a kept read that fails proposes fewer rather than holding the
-// announcement back. What is kept is read under ctx.
-func (s *server) proposedTags(ctx context.Context, moment messaging.Moment, workspace string) (loop.Tags, bool) {
+// is kept in workspace, the owners those owners reads, and whether it tags
+// anyone at all: only one ready for review does, and only with the store that
+// keeps who is whom. The tags are a proposal, so a kept read that fails
+// proposes fewer rather than holding the announcement back. What is kept is
+// read under ctx.
+func (s *server) proposedTags(
+	ctx context.Context, moment messaging.Moment, workspace string, owners func(context.Context) codeowners.Owners,
+) (loop.Tags, bool) {
 	if moment != messaging.MomentReady || s.deps.Store.OwnerLinks == nil || s.deps.Store.RepoGroups == nil {
 		return loop.Tags{}, false
 	}
@@ -377,7 +383,7 @@ func (s *server) proposedTags(ctx context.Context, moment messaging.Moment, work
 		last, chosen = s.deps.Store.LastGroups(ctx, workspace)
 	}
 
-	return loop.ProposeTags(s.branchOwners(ctx), links, repoGroups, last, chosen, moment), true
+	return loop.ProposeTags(owners(ctx), links, repoGroups, last, chosen, moment), true
 }
 
 // scopeToLink is a scope the Slack token lacks to read whom an unlinked owner
@@ -458,7 +464,7 @@ func (s *server) tagsAsPreviewed(
 		return loop.Tags{}, "", errNoTags
 	}
 
-	tags, available := s.proposedTags(ctx, moment, workspace)
+	tags, available := s.proposedTags(ctx, moment, workspace, s.branchOwners)
 	if !available {
 		return loop.Tags{}, "", errNoTags
 	}
