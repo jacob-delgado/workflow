@@ -36,7 +36,7 @@ func newRepositoriesCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&asJSON, "json", false, "print where workflow works as JSON")
+	addJSONFlag(cmd, &asJSON, "print where workflow works as JSON")
 
 	return cmd
 }

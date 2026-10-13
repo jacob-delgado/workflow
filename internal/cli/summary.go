@@ -81,7 +81,7 @@ func newSummaryCmd(prompt Prompt) *cobra.Command {
 
 	cmd.Flags().StringVar(&opts.from, "from", "", "the first day, written YYYY-MM-DD")
 	cmd.Flags().StringVar(&opts.to, "to", "", "the last day, written YYYY-MM-DD")
-	cmd.Flags().BoolVar(&opts.asJSON, "json", false, "print the summary as JSON")
+	addJSONFlag(cmd, &opts.asJSON, "print the summary as JSON")
 	cmd.Flags().BoolVar(&opts.post, "post", false, "post the summary to your team's chat, after a preview")
 	opts.write.addFlags(cmd, "post without the confirmation")
 

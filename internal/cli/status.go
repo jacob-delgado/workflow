@@ -72,7 +72,7 @@ func newStatusCmd(prompt Prompt) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&asJSON, "json", false, "print the status as JSON")
+	addJSONFlag(cmd, &asJSON, "print the status as JSON")
 
 	return cmd
 }
