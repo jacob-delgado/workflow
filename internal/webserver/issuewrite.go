@@ -135,11 +135,11 @@ func (s *server) transitionRefusal(err error, issueKey jira.Key, status string) 
 	case errors.Is(err, loop.ErrNoReviewStatus):
 		return api.TransitionIssue422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
 			"no review status is configured; set jira.review_status to move an issue there"))
-	case errors.Is(err, loop.ErrReviewNeedsFields):
+	case errors.Is(err, loop.ErrNeedsFields):
 		return api.TransitionIssue409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
 			"Jira wants fields filled to move "+string(issueKey)+" to "+status+
 				"; change its status from the issue, whose form asks for them"))
-	case errors.Is(err, loop.ErrNoReviewTransition):
+	case errors.Is(err, loop.ErrNoTransition):
 		return api.TransitionIssue409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
 			"Jira offers no move of "+string(issueKey)+" to "+status+" from where it stands"))
 	default:

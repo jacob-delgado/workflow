@@ -131,9 +131,12 @@ internal/cli 28 cohesive
 # way the terminal, the web and the command line ask them, so each turns each
 # source's answer into the same lines, and setup.go, the words every surface
 # tells a service never set up in, which the Summary's reads use but do not
-# own. One responsibility — say what the loop means, over the seams' answers —
-# spelled concern-per-file.
-internal/loop 14
+# own, and transition.go, an issue's move to a status found by its name — the
+# review status pr and the interfaces offer once a pull request is open, and
+# any status workflow transition names — out of pull.go once it was no longer
+# the pull request's alone. One responsibility — say what the loop means, over
+# the seams' answers — spelled concern-per-file.
+internal/loop 15
 
 # internal/wiring — connects every surface's seams to the real clients: one
 # file per service it reaches (Jira, the forge and its CLI, Taskwarrior,

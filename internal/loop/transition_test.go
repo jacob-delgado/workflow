@@ -6,14 +6,21 @@ package loop_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
-// reviewStatus is the status an issue moves to once its pull request is open.
-const reviewStatus = "In Review"
+// reviewStatus is the status an issue moves to once its pull request is open,
+// inProgress one it moves to on its way there, and resolutionField a field a
+// move to done asks for.
+const (
+	reviewStatus    = "In Review"
+	inProgress      = "In Progress"
+	resolutionField = "resolution"
+)
 
 // offering answers with the moves Jira offers, as a Transitions seam.
 func offering(moves ...jira.Transition) func(context.Context, jira.Key) ([]jira.Transition, error) {
@@ -25,7 +32,7 @@ func TestReviewTransitionFindsTheMoveToTheReviewStatus(t *testing.T) {
 
 	// Arrange
 	transitions := offering(
-		jira.Transition{ID: "11", ToStatus: "In Progress"},
+		jira.Transition{ID: "11", ToStatus: inProgress},
 		jira.Transition{ID: "21", ToStatus: "in review"},
 	)
 
@@ -41,7 +48,7 @@ func TestReviewTransitionFindsTheMoveToTheReviewStatus(t *testing.T) {
 func TestReviewTransitionOffersNothingItCannotApply(t *testing.T) {
 	t.Parallel()
 
-	needsFields := jira.Transition{ID: "21", ToStatus: reviewStatus, Fields: []jira.Field{{ID: "resolution"}}}
+	needsFields := jira.Transition{ID: "21", ToStatus: reviewStatus, Fields: []jira.Field{{ID: resolutionField}}}
 
 	cases := map[string]struct {
 		transitions func(context.Context, jira.Key) ([]jira.Transition, error)
@@ -102,7 +109,7 @@ func TestReviewTransitionAsksNothingWithoutAReviewStatus(t *testing.T) {
 func TestFindReviewTransitionSaysWhyThereIsNoMove(t *testing.T) {
 	t.Parallel()
 
-	needsFields := jira.Transition{ID: "21", ToStatus: reviewStatus, Fields: []jira.Field{{ID: "resolution"}}}
+	needsFields := jira.Transition{ID: "21", ToStatus: reviewStatus, Fields: []jira.Field{{ID: resolutionField}}}
 
 	cases := map[string]struct {
 		transitions func(context.Context, jira.Key) ([]jira.Transition, error)
@@ -115,19 +122,19 @@ func TestFindReviewTransitionSaysWhyThereIsNoMove(t *testing.T) {
 		},
 		"a branch that names no issue": {
 			transitions: offering(jira.Transition{ToStatus: reviewStatus}), status: reviewStatus,
-			want: loop.ErrNoReviewTransition,
+			want: loop.ErrNoTransition,
 		},
-		"no way to read the transitions": {key: issueKey, status: reviewStatus, want: loop.ErrNoReviewTransition},
+		"no way to read the transitions": {key: issueKey, status: reviewStatus, want: loop.ErrNoTransition},
 		"a read that fails": {
 			transitions: func(context.Context, jira.Key) ([]jira.Transition, error) { return nil, errSeam },
 			key:         issueKey, status: reviewStatus, want: errSeam,
 		},
 		"a status Jira does not offer": {
 			transitions: offering(jira.Transition{ToStatus: "Done"}), key: issueKey, status: reviewStatus,
-			want: loop.ErrNoReviewTransition,
+			want: loop.ErrNoTransition,
 		},
 		"a move that needs fields": {
-			transitions: offering(needsFields), key: issueKey, status: reviewStatus, want: loop.ErrReviewNeedsFields,
+			transitions: offering(needsFields), key: issueKey, status: reviewStatus, want: loop.ErrNeedsFields,
 		},
 	}
 
@@ -158,5 +165,102 @@ func TestFindReviewTransitionFindsTheFieldlessMove(t *testing.T) {
 	// Assert
 	if err != nil || target.ID != "21" {
 		t.Errorf("FindReviewTransition = %+v, %v; want transition 21", target, err)
+	}
+}
+
+func TestTransitionToFindsTheMoveToTheStatus(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	transitions := offering(
+		jira.Transition{ID: "11", ToStatus: inProgress},
+		jira.Transition{ID: "31", ToStatus: doneStatus},
+	)
+
+	// Act
+	target, err := loop.TransitionTo(t.Context(), transitions, issueKey, doneStatus)
+
+	// Assert
+	if err != nil || target.ID != "31" {
+		t.Errorf("TransitionTo = %+v, %v; want transition 31", target, err)
+	}
+}
+
+func TestTransitionToMatchesTheStatusWhateverItsCase(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	transitions := offering(jira.Transition{ID: "21", ToStatus: "In Review"})
+
+	// Act
+	target, err := loop.TransitionTo(t.Context(), transitions, issueKey, "in REVIEW")
+
+	// Assert
+	if err != nil || target.ID != "21" {
+		t.Errorf("TransitionTo = %+v, %v; want transition 21", target, err)
+	}
+}
+
+func TestTransitionToNamesTheFieldsTheMoveAsksFor(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	transitions := offering(jira.Transition{
+		ID: "31", Name: "Close", ToStatus: doneStatus,
+		Fields: []jira.Field{{ID: resolutionField, Name: "Resolution"}, {ID: "fixVersions", Name: "Fix Version/s"}},
+	})
+
+	// Act
+	_, err := loop.TransitionTo(t.Context(), transitions, issueKey, doneStatus)
+
+	// Assert
+	refused, isRefusal := errors.AsType[loop.NeedsFieldsError](err)
+	if !isRefusal || !errors.Is(err, loop.ErrNeedsFields) {
+		t.Fatalf("TransitionTo error = %v, want a NeedsFieldsError", err)
+	}
+
+	for _, field := range []string{"Resolution", "Fix Version/s", string(issueKey), doneStatus} {
+		if !strings.Contains(refused.Error(), field) {
+			t.Errorf("error %q does not name %q", refused.Error(), field)
+		}
+	}
+}
+
+func TestTransitionToNamesTheStatusesOffered(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	transitions := offering(
+		jira.Transition{ID: "11", ToStatus: inProgress},
+		jira.Transition{ID: "31", ToStatus: doneStatus},
+	)
+
+	// Act
+	_, err := loop.TransitionTo(t.Context(), transitions, issueKey, "Blocked")
+
+	// Assert
+	if !errors.Is(err, loop.ErrNoTransition) {
+		t.Fatalf("TransitionTo error = %v, want ErrNoTransition", err)
+	}
+
+	for _, status := range []string{inProgress, doneStatus, "Blocked", string(issueKey)} {
+		if !strings.Contains(err.Error(), status) {
+			t.Errorf("error %q does not name %q", err.Error(), status)
+		}
+	}
+}
+
+func TestTransitionToSaysWhyTheMovesCouldNotBeRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	transitions := func(context.Context, jira.Key) ([]jira.Transition, error) { return nil, errSeam }
+
+	// Act
+	_, err := loop.TransitionTo(t.Context(), transitions, issueKey, doneStatus)
+
+	// Assert
+	if !errors.Is(err, errSeam) || !strings.Contains(err.Error(), "reading the transitions of "+string(issueKey)) {
+		t.Errorf("TransitionTo error = %v, want the read's failure, saying what was read", err)
 	}
 }
