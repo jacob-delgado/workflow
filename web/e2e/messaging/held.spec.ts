@@ -138,4 +138,24 @@ for (const theme of themes) {
     ).toBeVisible()
     await expectReachableAndClean(page, { reaches: ['Stop waiting'] })
   })
+
+  test(`a held announcement waiting on a fix is clean in the ${theme} theme`, async ({ page }) => {
+    // Arrange
+    await pinTheme(page, theme)
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.setViewportSize({ width: widths[0], height })
+    await answersAnnouncement(page, { state: 'waiting', channel: '#dev', pull: 7, ci: 'failed' })
+    await page.goto('/')
+
+    // Act
+    await openSection(page, 'Slack')
+
+    // Assert
+    await expect(
+      page.getByText(
+        'A check failed on #7; waiting on a fix, then announcing to #dev once CI passes.',
+      ),
+    ).toBeVisible()
+    await expectReachableAndClean(page, { reaches: ['Stop waiting'] })
+  })
 }

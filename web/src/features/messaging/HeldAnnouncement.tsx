@@ -28,10 +28,7 @@ export function HeldAnnouncement({ held, service, onSaid }: HeldAnnouncementProp
   switch (held.state) {
     case 'waiting':
       return (
-        <Waiting
-          said={`Waiting for CI on ${sigil}${String(held.pull)} to pass, then announcing to ${where}.`}
-          onSaid={onSaid}
-        />
+        <Waiting said={waitingOn(held, `${sigil}${String(held.pull)}`, where)} onSaid={onSaid} />
       )
     case 'announcing':
       return <p className="text-sm text-muted-foreground">Announcing to {where}…</p>
@@ -43,6 +40,25 @@ export function HeldAnnouncement({ held, service, onSaid }: HeldAnnouncementProp
       )
     case 'dropped':
       return <Failure>Not announced: {held.reason ?? 'it was dropped'}.</Failure>
+  }
+}
+
+// waitingOn says what the held announcement of pull, to where, waits on, by
+// its CI as last read: a fix for a check that failed, checks to be reported —
+// a repository with no CI is announced by hand — or the CI to pass.
+function waitingOn(held: QueuedAnnouncement, pull: string, where: string): string {
+  switch (held.ci) {
+    case 'failed':
+      return `A check failed on ${pull}; waiting on a fix, then announcing to ${where} once CI passes.`
+    case 'none':
+      return (
+        `Waiting for checks to be reported on ${pull}, then announcing to ${where} once CI passes. ` +
+        'A repository with no CI is announced by hand.'
+      )
+    case 'running':
+    case 'passed':
+    case undefined:
+      return `Waiting for CI on ${pull} to pass, then announcing to ${where}.`
   }
 }
 
