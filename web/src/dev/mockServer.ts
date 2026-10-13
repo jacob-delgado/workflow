@@ -31,7 +31,7 @@ import { mockConfig } from './mockConfig.ts'
 import { mockIssueDetail, mockStatusChanges, mockViews } from './mockIssues.ts'
 import { mockKeys } from './mockKeys.ts'
 import { mockLocalData, mockRemoveLocalData } from './mockLocalData.ts'
-import { mockDirectories, mockRepositories } from './mockRepositories.ts'
+import { mockDirectories, mockHooks, mockRepositories } from './mockRepositories.ts'
 import { mockCheckLog, mockPullDraft, mockPullText, mockReviewQueue } from './mockReviews.ts'
 import {
   MockRefusal,
@@ -351,8 +351,9 @@ function committed(message: { type: string; subject: string }): Branch {
 // passes, and the lefthook offer is for an old pre-commit hook.
 function runRoutes(): Routes {
   return {
-    'POST /api/runs': ({ body }) => streamedRun(zRunRequest.parse(body).kind),
+    'POST /api/runs': ({ body }) => streamedRun(zRunRequest.parse(body)),
     'DELETE /api/runs/current': nothing,
+    'GET /api/hooks': () => mockHooks(),
     'GET /api/hooks/setup': () => ({
       offered: true,
       hooks: [{ name: 'pre-commit', lines: 3 }],
@@ -365,13 +366,14 @@ function runRoutes(): Routes {
   }
 }
 
-// streamedRun is a run of kind as the server streams one, an event a line:
-// the run as it starts, each line of its output, and the run as it passed.
-function streamedRun(kind: RunRequest['kind']): Response {
+// streamedRun is the run asked for as the server streams one, an event a
+// line: the run as it starts, each line of its output, and the run as it
+// passed. A hook is titled by its name, as the server titles it.
+function streamedRun({ kind, hook }: RunRequest): Response {
   const lines = ['lefthook v1.11.0  hook: pre-commit', '✔️ golangci-lint (2.31 seconds)']
   const run: Run = {
     kind,
-    title: kind === 'pre_commit' ? 'pre-commit' : `git ${kind}`,
+    title: kind === 'hook' ? (hook ?? '') : `git ${kind}`,
     state: 'in_progress',
     outcome: '',
     lines: [],

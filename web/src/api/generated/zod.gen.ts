@@ -275,6 +275,22 @@ export const zHookSetup = z.object({
     scripts: z.int()
 });
 
+/**
+ * A hook only git runs, and why.
+ */
+export const zGitOnlyHook = z.object({
+    name: z.string(),
+    reason: z.string()
+});
+
+/**
+ * The hooks lefthook configures: those a run by hand can run, and those only git runs. A name is the configuration's own, as lefthook takes it back.
+ */
+export const zConfiguredHooks = z.object({
+    runnable: z.array(z.string()),
+    git_only: z.array(zGitOnlyHook)
+});
+
 export const zHookSetupRequest = z.object({
     verbatim: z.boolean().optional().default(false)
 });
@@ -284,20 +300,21 @@ export const zHookSetupWritten = z.object({
 });
 
 /**
- * A git run: the pre-commit hook on what is staged, a rebase onto the base, an amend of the last commit, or a fixup! of an earlier one.
+ * A git run: a hook lefthook runs by hand, as GET /api/hooks lists it, a rebase onto the base, an amend of the last commit, or a fixup! of an earlier one.
  */
 export const zRunKind = z.enum([
-    'pre_commit',
+    'hook',
     'rebase',
     'amend',
     'fixup'
 ]);
 
 /**
- * Which run to start, and for a fixup the commit it fixes up.
+ * Which run to start, for a hook the hook it runs, and for a fixup the commit it fixes up.
  */
 export const zRunRequest = z.object({
     kind: zRunKind,
+    hook: z.string().optional(),
     commit: z.string().optional()
 });
 
@@ -1446,6 +1463,11 @@ export const zStartRunBody = zRunRequest;
  * The run's events, one JSON object a line.
  */
 export const zStartRunResponse = zRunEvent;
+
+/**
+ * The hooks lefthook configures.
+ */
+export const zListHooksResponse = zConfiguredHooks;
 
 /**
  * What would be set up, if anything.

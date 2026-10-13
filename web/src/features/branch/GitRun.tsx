@@ -5,13 +5,19 @@ import { Button } from '@/lib/Button.tsx'
 import { Failure } from '@/lib/Status.tsx'
 import { startRun, stopRun } from './gitRunApi.ts'
 
-// runTitle is how the terminal titles each run, for the moment before the
-// server's own word lands.
-const runTitle: Record<RunRequest['kind'], string> = {
-  pre_commit: 'pre-commit',
-  rebase: 'git rebase',
-  amend: 'git commit --amend',
-  fixup: 'git commit --fixup',
+// runTitle is how the terminal titles a run, for the moment before the
+// server's own word lands: a hook by its name, any other by its git command.
+function runTitle(request: RunRequest): string {
+  switch (request.kind) {
+    case 'hook':
+      return request.hook ?? 'a hook'
+    case 'rebase':
+      return 'git rebase'
+    case 'amend':
+      return 'git commit --amend'
+    case 'fixup':
+      return 'git commit --fixup'
+  }
 }
 
 // GitRunner is the Branch section's one git run: the run this page started,
@@ -44,7 +50,7 @@ export function useGitRun(streamed: Run | undefined): GitRunner {
     setRefusal('')
     setRun({
       kind: request.kind,
-      title: runTitle[request.kind],
+      title: runTitle(request),
       state: 'in_progress',
       outcome: '',
       lines: [],
@@ -54,7 +60,7 @@ export function useGitRun(streamed: Run | undefined): GitRunner {
       setRefusal(
         apiErrorMessage(
           caught,
-          `${runTitle[request.kind]} did not run. Try again, or run it from a terminal.`,
+          `${runTitle(request)} did not run. Try again, or run it from a terminal.`,
         ),
       )
     })

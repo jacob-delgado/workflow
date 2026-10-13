@@ -84,6 +84,9 @@ type ServerInterface interface {
 	// GetHealth Server and build information.
 	// (GET /api/health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
+	// ListHooks The hooks lefthook configures, split by whether a run by hand can run them.
+	// (GET /api/hooks)
+	ListHooks(w http.ResponseWriter, r *http.Request)
 	// GetHookSetup The lefthook configuration offered for hooks lefthook does not manage.
 	// (GET /api/hooks/setup)
 	GetHookSetup(w http.ResponseWriter, r *http.Request)
@@ -685,6 +688,20 @@ func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetHealth(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListHooks operation middleware
+func (siw *ServerInterfaceWrapper) ListHooks(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListHooks(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1864,6 +1881,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/branch", wrapper.GetBranch)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/changes", wrapper.ListChanges)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/changes/diff", wrapper.GetChangeDiff)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/hooks", wrapper.ListHooks)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/hooks/setup", wrapper.GetHookSetup)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/hooks/setup", wrapper.SetUpHooks)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/runs/current", wrapper.StopRun)
@@ -3348,6 +3366,62 @@ type GetHealthdefaultApplicationProblemPlusJSONResponse struct {
 }
 
 func (response GetHealthdefaultApplicationProblemPlusJSONResponse) VisitGetHealthResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListHooksRequestObject struct {
+}
+
+type ListHooksResponseObject interface {
+	VisitListHooksResponse(w http.ResponseWriter) error
+}
+
+type ListHooks200JSONResponse ConfiguredHooks
+
+func (response ListHooks200JSONResponse) VisitListHooksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListHooks422ApplicationProblemPlusJSONResponse Problem
+
+func (response ListHooks422ApplicationProblemPlusJSONResponse) VisitListHooksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListHooksdefaultApplicationProblemPlusJSONResponse struct {
+	Body       Problem
+	Headers    ProblemResponseHeaders
+	StatusCode int
+}
+
+func (response ListHooksdefaultApplicationProblemPlusJSONResponse) VisitListHooksResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -6697,6 +6771,9 @@ type StrictServerInterface interface {
 	// GetHealth Server and build information.
 	// (GET /api/health)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
+	// ListHooks The hooks lefthook configures, split by whether a run by hand can run them.
+	// (GET /api/hooks)
+	ListHooks(ctx context.Context, request ListHooksRequestObject) (ListHooksResponseObject, error)
 	// GetHookSetup The lefthook configuration offered for hooks lefthook does not manage.
 	// (GET /api/hooks/setup)
 	GetHookSetup(ctx context.Context, request GetHookSetupRequestObject) (GetHookSetupResponseObject, error)
@@ -7490,6 +7567,30 @@ func (sh *strictHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetHealthResponseObject); ok {
 		if err := validResponse.VisitGetHealthResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListHooks operation middleware
+func (sh *strictHandler) ListHooks(w http.ResponseWriter, r *http.Request) {
+	var request ListHooksRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListHooks(ctx, request.(ListHooksRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListHooks")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListHooksResponseObject); ok {
+		if err := validResponse.VisitListHooksResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

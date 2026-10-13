@@ -1,4 +1,5 @@
 import type {
+  ConfiguredHooks,
   DirectoryListing,
   Favorite,
   Repositories,
@@ -111,5 +112,15 @@ export function mockDirectories(path: string): DirectoryListing {
     parent: path === '/' ? '' : parent,
     entries: entries.map((entry) => ({ ...entry, path: `${path}/${entry.name}` })),
     truncated: false,
+  }
+}
+
+// mockHooks are the hooks the lefthook of the repository the mockup works in
+// configures: pre-commit, pre-push and one of its own a run by hand can run,
+// and commit-msg, which only git runs.
+export function mockHooks(): ConfiguredHooks {
+  return {
+    runnable: ['pre-commit', 'pre-push', 'lint-all'],
+    git_only: [{ name: 'commit-msg', reason: 'git hands it the file holding the commit message' }],
   }
 }

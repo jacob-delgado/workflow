@@ -605,10 +605,10 @@ func (e RunState) Valid() bool {
 
 // Defines values for RunKind.
 const (
-	RunKindAmend     RunKind = "amend"
-	RunKindFixup     RunKind = "fixup"
-	RunKindPreCommit RunKind = "pre_commit"
-	RunKindRebase    RunKind = "rebase"
+	RunKindAmend  RunKind = "amend"
+	RunKindFixup  RunKind = "fixup"
+	RunKindHook   RunKind = "hook"
+	RunKindRebase RunKind = "rebase"
 )
 
 // Valid indicates whether the value is a known member of the RunKind enum.
@@ -618,7 +618,7 @@ func (e RunKind) Valid() bool {
 		return true
 	case RunKindFixup:
 		return true
-	case RunKindPreCommit:
+	case RunKindHook:
 		return true
 	case RunKindRebase:
 		return true
@@ -1352,6 +1352,15 @@ type Config struct {
 	Version     string            `json:"version"`
 }
 
+// ConfiguredHooks The hooks lefthook configures: those a run by hand can run, and those only git runs. A name is the configuration's own, as lefthook takes it back.
+type ConfiguredHooks struct {
+	// GitOnly The hooks only git runs, in the order git documents them.
+	GitOnly []GitOnlyHook `json:"git_only"`
+
+	// Runnable The hooks a run by hand can stand in for, git's own first in the order git documents them, then the configuration's own, sorted.
+	Runnable []string `json:"runnable"`
+}
+
 // CreateBranchRequest The issue to start work on by creating its branch.
 type CreateBranchRequest struct {
 	// Fetch Whether to fetch the base remote first — upstream in a fork's clone, else origin — so the branch starts from what it holds now, as the terminal's branch creator and workflow branch --fetch do. A fetch that fails creates nothing and is a 502 with code fetch_failed; asking again with fetch false branches from what you have, the terminal's way out. With no base to refresh nothing is fetched either way.
@@ -1504,6 +1513,17 @@ type ForgeConfig struct {
 
 // ForgeConfigKind Empty for auto-detect, else github or gitlab.
 type ForgeConfigKind string
+
+// GitOnlyHook A hook only git runs, and why.
+type GitOnlyHook struct {
+	// Name Example: commit-msg
+	Name string `json:"name"`
+
+	// Reason What git hands it that a run by hand would not.
+	//
+	// Example: git hands it the file holding the commit message
+	Reason string `json:"reason"`
+}
 
 // GroupTag A user group an announcement offers to tag.
 type GroupTag struct {
@@ -2262,7 +2282,7 @@ type ReviewRequest struct {
 
 // Run A git run and how it stands: running, or how it ended, with what it wrote.
 type Run struct {
-	// Kind A git run: the pre-commit hook on what is staged, a rebase onto the base, an amend of the last commit, or a fixup! of an earlier one.
+	// Kind A git run: a hook lefthook runs by hand, as GET /api/hooks lists it, a rebase onto the base, an amend of the last commit, or a fixup! of an earlier one.
 	Kind RunKind `json:"kind"`
 
 	// Lines What the program wrote, standard output and standard error in the order written, with terminal controls taken out. A run the event stream carries holds its last 200 lines.
@@ -2274,7 +2294,7 @@ type Run struct {
 	// State How the run stands: in progress, succeeded, refused — the program ended with a failure, a hook that failed or a rebase stopped at a conflict — or stopped by DELETE /api/runs/current.
 	State RunState `json:"state"`
 
-	// Title What is running, as the terminal titles it, such as git rebase.
+	// Title What is running, as the terminal titles it, such as pre-push or git rebase.
 	Title string `json:"title"`
 }
 
@@ -2290,15 +2310,20 @@ type RunEvent struct {
 	Run *Run `json:"run,omitempty"`
 }
 
-// RunKind A git run: the pre-commit hook on what is staged, a rebase onto the base, an amend of the last commit, or a fixup! of an earlier one.
+// RunKind A git run: a hook lefthook runs by hand, as GET /api/hooks lists it, a rebase onto the base, an amend of the last commit, or a fixup! of an earlier one.
 type RunKind string
 
-// RunRequest Which run to start, and for a fixup the commit it fixes up.
+// RunRequest Which run to start, for a hook the hook it runs, and for a fixup the commit it fixes up.
 type RunRequest struct {
 	// Commit For fixup, the hash of the commit to record a fixup! of, as the branch lists it; it must be one not yet pushed. Ignored otherwise.
 	Commit *string `json:"commit,omitempty"`
 
-	// Kind A git run: the pre-commit hook on what is staged, a rebase onto the base, an amend of the last commit, or a fixup! of an earlier one.
+	// Hook For hook, the hook to run, one GET /api/hooks lists as runnable, named exactly as it lists it. Ignored otherwise.
+	//
+	// Example: pre-push
+	Hook *string `json:"hook,omitempty"`
+
+	// Kind A git run: a hook lefthook runs by hand, as GET /api/hooks lists it, a rebase onto the base, an amend of the last commit, or a fixup! of an earlier one.
 	Kind RunKind `json:"kind"`
 }
 

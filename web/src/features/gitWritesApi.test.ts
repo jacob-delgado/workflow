@@ -18,7 +18,7 @@ import { makeBranch } from '@/test/fixtures.ts'
 // and what it answers.
 
 const ended: Run = {
-  kind: 'pre_commit',
+  kind: 'hook',
   title: 'pre-commit',
   state: 'succeeded',
   outcome: 'The pre-commit hook passed.',
@@ -67,7 +67,9 @@ test('a run hands each event over as it lands and answers how it ended', async (
   const events: RunEvent[] = []
 
   // Act
-  const answered = await startRun({ kind: 'pre_commit' }, (event) => events.push(event))
+  const answered = await startRun({ kind: 'hook', hook: 'pre-commit' }, (event) =>
+    events.push(event),
+  )
 
   // Assert
   expect(answered).toEqual(ended)

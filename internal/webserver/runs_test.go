@@ -17,6 +17,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
@@ -24,9 +25,11 @@ import (
 // filledHead is the head commit of filledDeps' branch, its one commit.
 const filledHead = "abc123"
 
-// The bodies that ask for each run but a fixup, which names a commit.
+// The bodies that ask for each run but a fixup, which names a commit: a hook
+// run of pre-commit, and of pre-push.
 const (
-	preCommitRun = `{"kind":"pre_commit"}`
+	preCommitRun = `{"kind":"hook","hook":"pre-commit"}`
+	prePushRun   = `{"kind":"hook","hook":"pre-push"}`
 	rebaseRun    = `{"kind":"rebase"}`
 	amendRun     = `{"kind":"amend"}`
 )
@@ -78,13 +81,32 @@ func (c *runCalls) asked() []string {
 	return slices.Clone(c.calls)
 }
 
+// The hooks the tests' lefthook configures: pre-commit and pre-push, which a
+// run by hand can run, and commit-msg, which only git runs, and why.
+const (
+	preCommitHook   = "pre-commit"
+	prePushHook     = "pre-push"
+	commitMsgHook   = "commit-msg"
+	commitMsgReason = "git hands it the file holding the commit message"
+)
+
+// configuredHooks is the tests' lefthook configuration.
+func configuredHooks() hooks.Configured {
+	return hooks.Configured{
+		Runnable: []string{preCommitHook, prePushHook},
+		GitOnly:  []hooks.GitOnly{{Name: commitMsgHook, Reason: commitMsgReason}},
+	}
+}
+
 // runDeps is filledDeps — a staged change, and one commit not yet pushed on
-// fix/PROJ-412 off origin/main — with every run's seam answering output.
+// fix/PROJ-412 off origin/main — with every run's seam answering output, and
+// lefthook configuring configuredHooks.
 func runDeps(calls *runCalls, output func() proc.Output) webserver.Deps {
 	deps := filledDeps()
 	deps.Hooks.Run = func(_ context.Context, hook string) (proc.Output, error) {
 		return calls.record("hook "+hook, output())
 	}
+	deps.Hooks.Configured = func(context.Context) (hooks.Configured, error) { return configuredHooks(), nil }
 	deps.Git.Rebase = func(_ context.Context, base string) (proc.Output, error) {
 		return calls.record("rebase "+base, output())
 	}
@@ -170,6 +192,26 @@ func TestPreCommitStreamsItsOutputAsItRuns(t *testing.T) {
 
 	if !slices.Equal(calls.asked(), []string{"hook pre-commit"}) {
 		t.Errorf("calls = %v, want the pre-commit hook run", calls.asked())
+	}
+}
+
+func TestAHookRunRunsTheHookAskedFor(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	calls := &runCalls{}
+	handler := serve(t, runDeps(calls, passing), config.Default())
+
+	// Act
+	ended := lastRun(t, runEvents(t, startRun(t, handler, prePushRun)))
+
+	// Assert
+	if ended.Kind != api.RunKindHook || ended.Title != prePushHook || ended.Outcome != "The pre-push hook passed." {
+		t.Errorf("the run = %+v, want pre-push run as a hook, and passed", ended)
+	}
+
+	if !slices.Equal(calls.asked(), []string{"hook pre-push"}) {
+		t.Errorf("calls = %v, want the pre-push hook run", calls.asked())
 	}
 }
 

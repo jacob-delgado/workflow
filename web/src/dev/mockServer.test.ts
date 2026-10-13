@@ -25,6 +25,7 @@ import {
   getRepositories,
   getSlackGroups,
   getSlackMembers,
+  listHooks,
   listReviews,
   listStatusChanges,
   listTasks,
@@ -153,6 +154,7 @@ test.each<[string, () => Promise<{ response: Response }>]>([
   ["a check's log", () => getCheckLog({ path: { id: '7' }, throwOnError: true })],
   ['a diff', () => getChangeDiff({ query: { path: 'internal/a.go' }, throwOnError: true })],
   ['the lefthook offer', () => getHookSetup({ throwOnError: true })],
+  ['the hooks lefthook configures', () => listHooks({ throwOnError: true })],
   ["a link's preview", () => previewBranchIssue({ query: { key: '#7' }, throwOnError: true })],
 ])("the mockup reads %s in the contract's shape", async (_, read) => {
   // Arrange
@@ -281,7 +283,7 @@ test('the mockup streams a run that passes, line by line', async () => {
   const lines: string[] = []
 
   // Act
-  const ended = await startRun({ kind: 'pre_commit' }, (event) => {
+  const ended = await startRun({ kind: 'hook', hook: 'pre-commit' }, (event) => {
     if (event.line !== undefined) {
       lines.push(event.line)
     }
@@ -290,6 +292,17 @@ test('the mockup streams a run that passes, line by line', async () => {
   // Assert
   expect(ended.state).toBe('succeeded')
   expect(lines).toHaveLength(2)
+})
+
+test('the mockup titles a hook run by the hook it runs', async () => {
+  // Arrange
+  await installed()
+
+  // Act
+  const ended = await startRun({ kind: 'hook', hook: 'pre-push' }, () => undefined)
+
+  // Assert
+  expect(ended.title).toBe('pre-push')
 })
 
 test('a link the mockup refuses says why, as the server words it', async () => {

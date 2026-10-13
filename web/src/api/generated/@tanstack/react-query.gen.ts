@@ -3,8 +3,8 @@
 import { queryOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { getActivity, getAnnouncement, getBranch, getChangeDiff, getCheckLog, getConfig, getDirectories, getHealth, getHookSetup, getIssue, getKeys, getLocalData, getMergeMethods, getMessaging, getPeople, getPullRequestDraft, getPullRequestText, getRepoGroups, getRepositories, getReview, getSetup, getSlackGroups, getSlackMembers, listChanges, listIssues, listReviews, listStatusChanges, listTasks, listViews, type Options, previewBranchIssue } from '../sdk.gen';
-import type { GetActivityData, GetActivityError, GetActivityResponse, GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetChangeDiffData, GetChangeDiffError, GetChangeDiffResponse, GetCheckLogData, GetCheckLogError, GetCheckLogResponse, GetConfigData, GetConfigError, GetConfigResponse, GetDirectoriesData, GetDirectoriesError, GetDirectoriesResponse, GetHealthData, GetHealthError, GetHealthResponse, GetHookSetupData, GetHookSetupError, GetHookSetupResponse, GetIssueData, GetIssueError, GetIssueResponse, GetKeysData, GetKeysError, GetKeysResponse, GetLocalDataData, GetLocalDataError, GetLocalDataResponse, GetMergeMethodsData, GetMergeMethodsError, GetMergeMethodsResponse, GetMessagingData, GetMessagingError, GetMessagingResponse, GetPeopleData, GetPeopleError, GetPeopleResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetPullRequestTextData, GetPullRequestTextError, GetPullRequestTextResponse, GetRepoGroupsData, GetRepoGroupsError, GetRepoGroupsResponse, GetRepositoriesData, GetRepositoriesError, GetRepositoriesResponse, GetReviewData, GetReviewError, GetReviewResponse, GetSetupData, GetSetupError, GetSetupResponse, GetSlackGroupsData, GetSlackGroupsError, GetSlackGroupsResponse, GetSlackMembersData, GetSlackMembersError, GetSlackMembersResponse, ListChangesData, ListChangesError, ListChangesResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListReviewsData, ListReviewsError, ListReviewsResponse, ListStatusChangesData, ListStatusChangesError, ListStatusChangesResponse, ListTasksData, ListTasksError, ListTasksResponse, ListViewsData, ListViewsError, ListViewsResponse, PreviewBranchIssueData, PreviewBranchIssueError, PreviewBranchIssueResponse } from '../types.gen';
+import { getActivity, getAnnouncement, getBranch, getChangeDiff, getCheckLog, getConfig, getDirectories, getHealth, getHookSetup, getIssue, getKeys, getLocalData, getMergeMethods, getMessaging, getPeople, getPullRequestDraft, getPullRequestText, getRepoGroups, getRepositories, getReview, getSetup, getSlackGroups, getSlackMembers, listChanges, listHooks, listIssues, listReviews, listStatusChanges, listTasks, listViews, type Options, previewBranchIssue } from '../sdk.gen';
+import type { GetActivityData, GetActivityError, GetActivityResponse, GetAnnouncementData, GetAnnouncementError, GetAnnouncementResponse, GetBranchData, GetBranchError, GetBranchResponse, GetChangeDiffData, GetChangeDiffError, GetChangeDiffResponse, GetCheckLogData, GetCheckLogError, GetCheckLogResponse, GetConfigData, GetConfigError, GetConfigResponse, GetDirectoriesData, GetDirectoriesError, GetDirectoriesResponse, GetHealthData, GetHealthError, GetHealthResponse, GetHookSetupData, GetHookSetupError, GetHookSetupResponse, GetIssueData, GetIssueError, GetIssueResponse, GetKeysData, GetKeysError, GetKeysResponse, GetLocalDataData, GetLocalDataError, GetLocalDataResponse, GetMergeMethodsData, GetMergeMethodsError, GetMergeMethodsResponse, GetMessagingData, GetMessagingError, GetMessagingResponse, GetPeopleData, GetPeopleError, GetPeopleResponse, GetPullRequestDraftData, GetPullRequestDraftError, GetPullRequestDraftResponse, GetPullRequestTextData, GetPullRequestTextError, GetPullRequestTextResponse, GetRepoGroupsData, GetRepoGroupsError, GetRepoGroupsResponse, GetRepositoriesData, GetRepositoriesError, GetRepositoriesResponse, GetReviewData, GetReviewError, GetReviewResponse, GetSetupData, GetSetupError, GetSetupResponse, GetSlackGroupsData, GetSlackGroupsError, GetSlackGroupsResponse, GetSlackMembersData, GetSlackMembersError, GetSlackMembersResponse, ListChangesData, ListChangesError, ListChangesResponse, ListHooksData, ListHooksError, ListHooksResponse, ListIssuesData, ListIssuesError, ListIssuesResponse, ListReviewsData, ListReviewsError, ListReviewsResponse, ListStatusChangesData, ListStatusChangesError, ListStatusChangesResponse, ListTasksData, ListTasksError, ListTasksResponse, ListViewsData, ListViewsError, ListViewsResponse, PreviewBranchIssueData, PreviewBranchIssueError, PreviewBranchIssueResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -185,6 +185,26 @@ export const getChangeDiffOptions = (options: Options<GetChangeDiffData>) => que
         return data;
     },
     queryKey: getChangeDiffQueryKey(options)
+});
+
+export const listHooksQueryKey = (options?: Options<ListHooksData>) => createQueryKey('listHooks', options);
+
+/**
+ * The hooks lefthook configures, split by whether a run by hand can run them.
+ *
+ * The hooks lefthook's configuration defines, merged as a run of lefthook reads it (its local override and its remotes included), read each time it is asked: those a run by hand can stand in for, which POST /api/runs runs with kind hook, as the terminal's h offers them, git's own first in the order git documents them and then the configuration's own names; and those only git runs, since git hands each arguments or standard input a run by hand would not, with what git hands it. Both lists are empty where no lefthook is configured. A read; nothing is run.
+ */
+export const listHooksOptions = (options?: Options<ListHooksData>) => queryOptions<ListHooksResponse, ListHooksError, ListHooksResponse, ReturnType<typeof listHooksQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listHooks({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listHooksQueryKey(options)
 });
 
 export const getHookSetupQueryKey = (options?: Options<GetHookSetupData>) => createQueryKey('getHookSetup', options);

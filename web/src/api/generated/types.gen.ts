@@ -456,6 +456,31 @@ export type UnmanagedHook = {
     lines: number;
 };
 
+/**
+ * The hooks lefthook configures: those a run by hand can run, and those only git runs. A name is the configuration's own, as lefthook takes it back.
+ */
+export type ConfiguredHooks = {
+    /**
+     * The hooks a run by hand can stand in for, git's own first in the order git documents them, then the configuration's own, sorted.
+     */
+    runnable: Array<string>;
+    /**
+     * The hooks only git runs, in the order git documents them.
+     */
+    git_only: Array<GitOnlyHook>;
+};
+
+/**
+ * A hook only git runs, and why.
+ */
+export type GitOnlyHook = {
+    name: string;
+    /**
+     * What git hands it that a run by hand would not.
+     */
+    reason: string;
+};
+
 export type HookSetupRequest = {
     /**
      * Keep every hook whole as a script rather than turning plain commands into lefthook jobs.
@@ -471,10 +496,14 @@ export type HookSetupWritten = {
 };
 
 /**
- * Which run to start, and for a fixup the commit it fixes up.
+ * Which run to start, for a hook the hook it runs, and for a fixup the commit it fixes up.
  */
 export type RunRequest = {
     kind: RunKind;
+    /**
+     * For hook, the hook to run, one GET /api/hooks lists as runnable, named exactly as it lists it. Ignored otherwise.
+     */
+    hook?: string;
     /**
      * For fixup, the hash of the commit to record a fixup! of, as the branch lists it; it must be one not yet pushed. Ignored otherwise.
      */
@@ -482,9 +511,9 @@ export type RunRequest = {
 };
 
 /**
- * A git run: the pre-commit hook on what is staged, a rebase onto the base, an amend of the last commit, or a fixup! of an earlier one.
+ * A git run: a hook lefthook runs by hand, as GET /api/hooks lists it, a rebase onto the base, an amend of the last commit, or a fixup! of an earlier one.
  */
-export type RunKind = 'pre_commit' | 'rebase' | 'amend' | 'fixup';
+export type RunKind = 'hook' | 'rebase' | 'amend' | 'fixup';
 
 /**
  * A git run and how it stands: running, or how it ended, with what it wrote.
@@ -492,7 +521,7 @@ export type RunKind = 'pre_commit' | 'rebase' | 'amend' | 'fixup';
 export type Run = {
     kind: RunKind;
     /**
-     * What is running, as the terminal titles it, such as git rebase.
+     * What is running, as the terminal titles it, such as pre-push or git rebase.
      */
     title: string;
     /**
@@ -2735,7 +2764,7 @@ export type StartRunErrors = {
      */
     409: Problem;
     /**
-     * The run is not available, the commit cannot be fixed up, or the program could not start.
+     * The run is not available, the hook is not one lefthook runs by hand or its configuration cannot be read, the commit cannot be fixed up, or the program could not start.
      */
     422: Problem;
     /**
@@ -2754,6 +2783,35 @@ export type StartRunResponses = {
 };
 
 export type StartRunResponse = StartRunResponses[keyof StartRunResponses];
+
+export type ListHooksData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/hooks';
+};
+
+export type ListHooksErrors = {
+    /**
+     * lefthook is not installed, or its configuration cannot be read; lefthook dump in a terminal says why.
+     */
+    422: Problem;
+    /**
+     * An RFC 9457 problem details object describing the failure.
+     */
+    default: Problem;
+};
+
+export type ListHooksError = ListHooksErrors[keyof ListHooksErrors];
+
+export type ListHooksResponses = {
+    /**
+     * The hooks lefthook configures.
+     */
+    200: ConfiguredHooks;
+};
+
+export type ListHooksResponse = ListHooksResponses[keyof ListHooksResponses];
 
 export type GetHookSetupData = {
     body?: never;

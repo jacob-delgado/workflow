@@ -13,12 +13,49 @@ import (
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
-// Why lefthook was not set up.
+// Why lefthook was not set up, or its hooks not listed.
 var (
 	errHookSetupUnavailable = errors.New("setting up lefthook is not available here")
 	errNothingToSetUp       = errors.New("there is nothing to set up: lefthook is configured, " +
 		"or the hooks directory holds no hook it does not manage")
+	errHooksUnavailable = errors.New("lefthook's hooks cannot be listed here: lefthook is not installed")
+	errHooksUnreadable  = errors.New("lefthook's configuration could not be read; " +
+		"run lefthook dump in a terminal to see why")
 )
+
+// ListHooks is the hooks lefthook configures, read each time it is asked, as
+// the terminal's h reads them: those a run by hand can stand in for, and those
+// only git runs. lefthook's own words on a configuration it cannot read name
+// the repository, so they go to Unexpected rather than onto the wire.
+func (s *server) ListHooks(ctx context.Context, _ api.ListHooksRequestObject) (api.ListHooksResponseObject, error) {
+	if s.deps.Hooks.Configured == nil {
+		return api.ListHooks422ApplicationProblemPlusJSONResponse(
+			problem(api.ProblemCodeUnprocessable, errHooksUnavailable.Error())), nil
+	}
+
+	configured, err := s.deps.Hooks.Configured(ctx)
+	if err != nil {
+		s.unexpected(err)
+
+		return api.ListHooks422ApplicationProblemPlusJSONResponse(
+			problem(api.ProblemCodeUnprocessable, errHooksUnreadable.Error())), nil
+	}
+
+	return api.ListHooks200JSONResponse(configuredDTO(configured)), nil
+}
+
+// configuredDTO maps the hooks lefthook configures onto the wire, an empty
+// list as [] rather than null. A name goes out as lefthook gave it, unlike
+// unmanagedDTO's: the page shows it as text React escapes, and sends it back
+// to run, so it must match lefthook's exactly.
+func configuredDTO(configured hooks.Configured) api.ConfiguredHooks {
+	gitOnly := make([]api.GitOnlyHook, 0, len(configured.GitOnly))
+	for _, hook := range configured.GitOnly {
+		gitOnly = append(gitOnly, api.GitOnlyHook{Name: hook.Name, Reason: hook.Reason})
+	}
+
+	return api.ConfiguredHooks{Runnable: append([]string{}, configured.Runnable...), GitOnly: gitOnly}
+}
 
 // GetHookSetup is the lefthook configuration offered for the hooks lefthook
 // does not manage, as the terminal's g offers it, or nothing offered once

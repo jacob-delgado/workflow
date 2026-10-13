@@ -5,8 +5,10 @@ package webserver_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
@@ -16,13 +18,30 @@ import (
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
-// hookSetupAt is where the lefthook offer is read and taken.
-const hookSetupAt = "/api/hooks/setup"
+// hookSetupAt is where the lefthook offer is read and taken, and hooksAt
+// where the hooks lefthook configures are listed.
+const (
+	hookSetupAt = "/api/hooks/setup"
+	hooksAt     = "/api/hooks"
+)
+
+// errUnreadableHere is lefthook unable to read the configuration, in words
+// that name the repository.
+var errUnreadableHere = errors.New("reading lefthook's configuration: lefthook: exit status 1: " +
+	"couldn't load config: open " + repoPath + "/lefthook.yml: permission denied")
+
+// listedDeps is filledDeps with lefthook configuring what list answers.
+func listedDeps(list func(context.Context) (hooks.Configured, error)) webserver.Deps {
+	deps := filledDeps()
+	deps.Hooks.Configured = list
+
+	return deps
+}
 
 // oldHooks is a repository's own pre-commit hook, which lefthook does not
 // manage: two plain commands.
 func oldHooks() []hooks.GitHook {
-	return []hooks.GitHook{{Name: "pre-commit", Script: "#!/bin/sh\ngo vet ./...\ngo test ./...\n"}}
+	return []hooks.GitHook{{Name: preCommitHook, Script: "#!/bin/sh\ngo vet ./...\ngo test ./...\n"}}
 }
 
 // hookDeps is filledDeps with the hooks directory holding found, configured
@@ -50,7 +69,7 @@ func TestHookSetupOffersTheConfigurationThatRunsTheOldHooks(t *testing.T) {
 
 	// Assert
 	setup := decode[api.HookSetup](t, recorder)
-	if !setup.Offered || len(setup.Hooks) != 1 || setup.Hooks[0].Name != "pre-commit" || setup.Hooks[0].Lines != 3 {
+	if !setup.Offered || len(setup.Hooks) != 1 || setup.Hooks[0].Name != preCommitHook || setup.Hooks[0].Lines != 3 {
 		t.Fatalf("setup = %+v, want the pre-commit hook of three lines offered", setup)
 	}
 
@@ -204,4 +223,81 @@ func TestSettingUpHooksWithNoWayToWriteIsNotAvailable(t *testing.T) {
 
 	// Assert
 	assertProblem(t, recorder, http.StatusUnprocessableEntity, "not available")
+}
+
+func TestListHooksSplitsThemByWhetherARunByHandStandsInForGits(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	handler := serve(t, listedDeps(func(context.Context) (hooks.Configured, error) {
+		return configuredHooks(), nil
+	}), config.Default())
+
+	// Act
+	listed := decode[api.ConfiguredHooks](t, get(t, handler, hooksAt))
+
+	// Assert
+	if !slices.Equal(listed.Runnable, []string{preCommitHook, prePushHook}) {
+		t.Errorf("runnable = %q, want pre-commit and pre-push", listed.Runnable)
+	}
+
+	want := []api.GitOnlyHook{{Name: commitMsgHook, Reason: commitMsgReason}}
+	if !slices.Equal(listed.GitOnly, want) {
+		t.Errorf("git_only = %+v, want %+v", listed.GitOnly, want)
+	}
+}
+
+func TestListHooksAnswersEmptyListsWhereNoLefthookIsConfigured(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	handler := serve(t, listedDeps(func(context.Context) (hooks.Configured, error) {
+		return hooks.Configured{}, nil
+	}), config.Default())
+
+	// Act
+	recorder := get(t, handler, hooksAt)
+
+	// Assert
+	body := recorder.Body.String()
+	if recorder.Code != http.StatusOK || !strings.Contains(body, `"runnable":[]`) ||
+		!strings.Contains(body, `"git_only":[]`) {
+		t.Errorf("%d %s, want both lists empty, not null", recorder.Code, body)
+	}
+}
+
+func TestListHooksWithoutLefthookIsNotAvailable(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	handler := serve(t, listedDeps(nil), config.Default())
+
+	// Act
+	recorder := get(t, handler, hooksAt)
+
+	// Assert
+	assertProblem(t, recorder, http.StatusUnprocessableEntity, "lefthook is not installed")
+}
+
+func TestListHooksThatCannotReadTheConfigurationKeepsLefthooksWordsOff(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps, heard := hearing(listedDeps(func(context.Context) (hooks.Configured, error) {
+		return hooks.Configured{}, errUnreadableHere
+	}))
+	handler := serve(t, deps, config.Default())
+
+	// Act
+	recorder := get(t, handler, hooksAt)
+
+	// Assert
+	failure := assertProblem(t, recorder, http.StatusUnprocessableEntity, "could not be read")
+	if strings.Contains(failure.Detail, repoPath) {
+		t.Errorf("detail = %q, want lefthook's words, which name the repository, kept off the wire", failure.Detail)
+	}
+
+	if len(*heard) != 1 || !errors.Is((*heard)[0], errUnreadableHere) {
+		t.Errorf("Unexpected heard %v, want lefthook's refusal", *heard)
+	}
 }
