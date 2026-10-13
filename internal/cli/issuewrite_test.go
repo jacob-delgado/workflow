@@ -158,3 +158,94 @@ func TestTransitionSaysWhyTheMovesCouldNotBeRead(t *testing.T) {
 		t.Errorf("transition with the moves unread = %v, applied %d", err, asked.applied())
 	}
 }
+
+func TestAssignSetsTheAssignee(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir, asked := trackerDir(t, trackerAnswers{})
+
+	// Act
+	printed, err := runStreams(t, dir, unusedPrompt(t), "assign", trackedIssue, "bo", "--yes")
+	// Assert
+	if err != nil {
+		t.Fatalf("assign --yes: %v (%+v)", err, printed)
+	}
+
+	assigned := asked.of(writeAssign)
+	if len(assigned) != 1 || !strings.Contains(assigned[0].body, `"name":"bo"`) {
+		t.Errorf("assignments = %+v, want PROJ-7 assigned to bo once", assigned)
+	}
+
+	if !strings.Contains(printed.stdout, "Assign PROJ-7 to bo") ||
+		!strings.Contains(printed.stderr, "Assigned PROJ-7 to bo.") {
+		t.Errorf("assign previewed or reported wrongly:\nstdout:\n%s\nstderr:\n%s", printed.stdout, printed.stderr)
+	}
+}
+
+func TestAssignRefusesABlankUsername(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir, asked := trackerDir(t, trackerAnswers{})
+
+	// Act
+	_, err := runStreams(t, dir, unusedPrompt(t), "assign", trackedIssue, "  ", "--yes")
+
+	// Assert
+	wantExit(t, err, 2)
+
+	if got := asked.of(writeAssign); len(got) != 0 {
+		t.Errorf("a blank username was sent: %+v", got)
+	}
+}
+
+func TestAssignAsksBeforeAssigning(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir, asked := trackerDir(t, trackerAnswers{})
+
+	var questions []string
+
+	// Act
+	printed, err := runStreams(t, dir, answering("n", &questions), "assign", trackedIssue, "bo")
+
+	// Assert
+	if err != nil || len(questions) != 1 || !strings.HasPrefix(questions[0], "Assign PROJ-7 to bo?") ||
+		!strings.Contains(printed.stderr, "Not assigned.") || len(asked.of(writeAssign)) != 0 {
+		t.Errorf("assign = %v, asked %q, said %q; want one question, declined, nothing assigned",
+			err, questions, printed.stderr)
+	}
+}
+
+func TestAssignSaysWhatJiraRefused(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir, _ := trackerDir(t, trackerAnswers{writeCode: http.StatusBadRequest})
+
+	// Act
+	_, err := runStreams(t, dir, unusedPrompt(t), "assign", trackedIssue, "bo", "--yes")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "assigning PROJ-7 to bo") {
+		t.Errorf("assign Jira refused = %v, want the assignment named", err)
+	}
+}
+
+func TestAssignDryRunAssignsNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir, asked := trackerDir(t, trackerAnswers{})
+
+	// Act
+	printed, err := runStreams(t, dir, unusedPrompt(t), "assign", trackedIssue, "bo", "--dry-run")
+
+	// Assert
+	if err != nil || !strings.Contains(printed.stderr, "dry run: would assign PROJ-7 to bo") ||
+		len(asked.of(writeAssign)) != 0 {
+		t.Errorf("assign --dry-run = %v, said %q, assigned %+v", err, printed.stderr, asked.of(writeAssign))
+	}
+}

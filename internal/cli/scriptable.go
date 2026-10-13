@@ -425,7 +425,9 @@ func isAny(err error, targets ...error) bool {
 // package-level variable, which gochecknoglobals forbids.
 func exitFamilies() []exitFamily {
 	return []exitFamily{
-		{status: exitUsage, members: []error{errUsage, errNoTerminal, errLoginBlank, errCommentBlank}},
+		{status: exitUsage, members: []error{
+			errUsage, errNoTerminal, errLoginBlank, errCommentBlank, errAssigneeBlank,
+		}},
 		{status: exitConfiguration, members: configurationErrors()},
 		{status: exitRefused, members: refusalErrors()},
 		{status: exitUnreachable, members: unreachableErrors()},

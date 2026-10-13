@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -123,5 +124,81 @@ func runTransition(
 			return nil
 		},
 		done: "Moved " + key + " to " + target + ".",
+	}.run(ctx, out, opts, seams.Confirm)
+}
+
+// errAssigneeBlank refuses an assignment that names no one.
+var errAssigneeBlank = errors.New("an assignee needs a username")
+
+// assignSeams are what `workflow assign` does, so a test can answer without a
+// tracker.
+type assignSeams struct {
+	Assign  func(ctx context.Context, issueKey jira.Key, assignee string) error
+	Confirm func(question string) (bool, error)
+}
+
+// newAssignCmd builds `workflow assign <issue> <username>`.
+func newAssignCmd(prompt Prompt) *cobra.Command {
+	var opts writeOptions
+
+	cmd := &cobra.Command{
+		Use:   "assign <issue> <username>",
+		Short: "Assign an issue to someone, in Jira or on the forge",
+		Long: "Assign an issue to the person a username names: their Jira username for a\n" +
+			"Jira issue, their forge login for a forge issue. The assignment is printed and\n" +
+			"confirmed before it is made. A blank username is refused before anything is\n" +
+			"asked.",
+		Example: examples(
+			`workflow assign PROJ-7 bo --yes   # unattended`,
+		),
+		Args: cobra.ExactArgs(2), //nolint:mnd // the issue and the username
+		RunE: func(cmd *cobra.Command, args []string) error {
+			assignee := strings.TrimSpace(args[1])
+			if assignee == "" {
+				return errAssigneeBlank
+			}
+
+			conn, err := connect(cmd)
+			if err != nil {
+				return err
+			}
+			defer conn.closeLog()
+
+			seams := assignSeams{
+				Assign:  conn.deps.Jira.Assign,
+				Confirm: func(question string) (bool, error) { return confirm(prompt, question) },
+			}
+
+			return runAssign(cmd.Context(), outputOf(cmd), seams, jira.Key(args[0]), assignee, opts)
+		},
+	}
+
+	opts.addFlags(cmd, confirmationHelp)
+
+	return cmd
+}
+
+// runAssign previews the assignment, and makes it once confirmed.
+func runAssign(
+	ctx context.Context, out output, seams assignSeams, issueKey jira.Key, assignee string, opts writeOptions,
+) error {
+	key, who := string(issueKey), assignee
+
+	return issueWrite{
+		preview: "Assign " + key + " to " + who,
+		say: writePrompt{
+			question: "Assign " + key + " to " + who + "?",
+			dryRun:   "dry run: would assign " + key + " to " + who,
+			declined: "Not assigned.",
+		},
+		write: func(ctx context.Context) error {
+			err := seams.Assign(ctx, issueKey, assignee)
+			if err != nil {
+				return fmt.Errorf("assigning %s to %s: %w", key, who, err)
+			}
+
+			return nil
+		},
+		done: "Assigned " + key + " to " + who + ".",
 	}.run(ctx, out, opts, seams.Confirm)
 }
