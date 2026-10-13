@@ -88,26 +88,6 @@ oversight; `workflow` picks issues up, it does not open them.
 
 ## Branch
 
-### FEAT-15 Work with a fork
-
-Impact: medium · Effort: medium
-
-- Why: git now reads a fork's clone right — the base, the fetch, the finish
-  and the push follow the base and push remotes (`BaseRemote` and
-  `PushRemote`, `internal/gitrepo/remotes.go`) — but the forge is still
-  reached at `origin` (`Repo.Remote`, `internal/gitrepo/gitrepo.go:56`, read
-  by `connectForge`, `internal/wiring/forge.go:375`), and a pull request's
-  head is a bare branch (`NewPullRequest.Head`, `internal/forge/pulls.go:103`).
-  In a fork's clone the pull request opens on the fork, into the fork.
-- Touches: `internal/wiring` (the forge at the base remote, the head from the
-  push remote); `internal/forge` (GitHub's `owner:branch` head, GitLab's merge
-  request posted to the fork with `target_project_id`, and its pipeline read
-  where it ran); the Repositories pane, the web's place and `workflow doctor`,
-  to show the base beside origin.
-- Constraints: what workflow keeps stays keyed by `origin`.
-- Done when: in a clone with `origin` and `upstream`, the pull request opens
-  against upstream from the fork, and is found there again.
-
 ## Commits
 
 ### FEAT-24 Run any hook, not only pre-commit
