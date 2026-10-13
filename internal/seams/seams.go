@@ -336,6 +336,9 @@ type Place struct {
 	// Remote is origin's host and path, or zero when origin is missing or
 	// names no repository on a forge.
 	Remote forge.Repo
+	// Base is the base remote's host and path when the base remote is not
+	// origin, as in a fork's clone, and zero otherwise.
+	Base   forge.Repo
 	Config config.Files
 }
 

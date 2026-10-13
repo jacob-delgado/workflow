@@ -12,6 +12,7 @@ export const zPlace = z.object({
     root_shown: z.string(),
     within: z.string(),
     origin: z.string(),
+    base: z.string().optional(),
     config: z.array(z.string())
 });
 

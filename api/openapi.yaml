@@ -2846,6 +2846,11 @@ components:
         origin:
           type: string
           description: Origin's host and path, as github.com/acme/api, or empty when there is none.
+        base:
+          type: string
+          description: >-
+            The host and path of the repository pull requests merge into, when
+            that is not origin's, as in a fork's clone; absent otherwise.
         config:
           type: array
           description: >-

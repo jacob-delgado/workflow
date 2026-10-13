@@ -268,3 +268,35 @@ func TestADirectoryThatCannotBeWrittenFromItsRootIsWithinNothing(t *testing.T) {
 		t.Errorf("Here.Within = %q, want nothing where no path leads from the root", answer.Here.Within)
 	}
 }
+
+func TestAPlaceNamesTheBaseWhereItIsNotOrigin(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		base forge.Repo
+		want string
+	}{
+		"a fork's clone": {
+			base: forge.Repo{Host: "github.com", Path: "upstream/workflow"}, want: "github.com/upstream/workflow",
+		},
+		"no fork": {base: forge.Repo{}, want: ""},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			view := workingIn(nil)
+			view.Repositories.Here.Base = tt.base
+
+			// Act
+			answer, _ := view.Report(t.Context(), worded)
+
+			// Assert
+			if got := answer.Here.Base; (got == nil) != (tt.want == "") || (got != nil && *got != tt.want) {
+				t.Errorf("Here.Base = %v, want %q", got, tt.want)
+			}
+		})
+	}
+}

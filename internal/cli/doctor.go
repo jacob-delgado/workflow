@@ -178,8 +178,12 @@ type repositoryFacts struct {
 	Branch         string `json:"branch,omitempty"`
 	Detached       bool   `json:"detached"`
 	Remote         string `json:"remote,omitempty"`
-	Forge          string `json:"forge,omitempty"`
-	Problem        string `json:"problem,omitempty"`
+	// BaseRemote and Base name the base remote and its masked address when it
+	// is not origin, as in a fork's clone, and are left out otherwise.
+	BaseRemote string `json:"base_remote,omitempty"`
+	Base       string `json:"base,omitempty"`
+	Forge      string `json:"forge,omitempty"`
+	Problem    string `json:"problem,omitempty"`
 }
 
 // repositoryFactsFor gathers the git facts of the directory run was run from,
@@ -197,10 +201,16 @@ func repositoryFactsFor(ctx context.Context, run doctorRun) (repositoryFacts, st
 		return repositoryFacts{Problem: noRepositoryReason(run.dir, err)}, ""
 	}
 
-	return repositoryFacts{
+	facts := repositoryFacts{
 		InsideWorkTree: true, Root: repo.Root, Branch: repo.Branch, Detached: repo.Detached,
 		Remote: config.DisplayURL(repo.Origin), Forge: forgeLabel(repo.Base.URL),
-	}, repo.Base.URL
+	}
+
+	if repo.Base.Name != gitrepo.DefaultRemote {
+		facts.BaseRemote, facts.Base = repo.Base.Name, config.DisplayURL(repo.Base.URL)
+	}
+
+	return facts, repo.Base.URL
 }
 
 // noRepositoryReason says why dir has no repository to report: git is not
@@ -225,6 +235,11 @@ func reportRepository(out io.Writer, facts repositoryFacts) {
 	field(out, "Repository", facts.Root)
 	field(out, "Branch", branchLabel(facts))
 	field(out, "Remote", facts.Remote)
+
+	if facts.BaseRemote != "" {
+		field(out, "Base remote", facts.BaseRemote+" ("+facts.Base+")")
+	}
+
 	field(out, "Forge", facts.Forge)
 }
 

@@ -87,3 +87,28 @@ func TestABranchPushedToItsBaseRemoteNamesNoPush(t *testing.T) {
 	// Assert
 	refuseScreen(t, view, "push to")
 }
+
+func TestWorkingInNamesTheBaseOfAForksClone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	working := reposWorld()
+	working.dirs.here.Base = working.dirs.here.Remote
+	working.dirs.here.Base.Path = "upstream/api"
+
+	// Act
+	view := typing(t, working.live(t, 120, 40), reposKey).View().Content
+
+	// Assert
+	requireScreen(t, view, "base", "github.com/upstream/api")
+}
+
+func TestWorkingInNamesNoBaseOutsideAFork(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := typing(t, reposWorld().live(t, 120, 40), reposKey).View().Content
+
+	// Assert
+	refuseScreen(t, view, "base          ")
+}

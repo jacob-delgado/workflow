@@ -535,8 +535,9 @@ calendar shows. A period runs up to a year and a day.
 ### Repositories
 
 Where the server works, relative to what it changes: the repository it is in,
-then the path within it, muted, as `~/src/api/cmd`; origin's host and path;
-and the configuration files that apply there, the repository's over your
+then the path within it, muted, as `~/src/api/cmd`; origin's host and path,
+and **Base**, the repository pull requests merge into, beside it in a fork's
+clone; and the configuration files that apply there, the repository's over your
 home's. The header carries the same place, briefly, as `api/cmd`, and opens
 this section.
 
