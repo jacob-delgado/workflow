@@ -108,24 +108,20 @@ func runComment(
 	stored := seams.Markup(issueKey).Stored(text)
 	key := string(issueKey)
 
-	fmt.Fprintln(out.artifact, "Comment on "+key+":")
-	fmt.Fprintln(out.artifact, stored)
+	return issueWrite{
+		preview: "Comment on " + key + ":\n" + stored,
+		say: writePrompt{
+			question: "Post this comment on " + key + "?",
+			dryRun:   "dry run: would comment on " + key,
+			declined: "Not posted.",
+		},
+		write: func(ctx context.Context) (string, error) {
+			_, err := seams.Comment(ctx, issueKey, stored)
+			if err != nil {
+				return "", fmt.Errorf("commenting on %s: %w", key, err)
+			}
 
-	proceed, err := opts.proceed(out.notes, seams.Confirm, writePrompt{
-		question: "Post this comment on " + key + "?",
-		dryRun:   "dry run: would comment on " + key,
-		declined: "Not posted.",
-	})
-	if err != nil || !proceed {
-		return err
-	}
-
-	_, err = seams.Comment(ctx, issueKey, stored)
-	if err != nil {
-		return fmt.Errorf("commenting on %s: %w", key, err)
-	}
-
-	fmt.Fprintln(out.notes, "Commented on "+key+".")
-
-	return nil
+			return "Commented on " + key + ".", nil
+		},
+	}.run(ctx, out, opts, seams.Confirm)
 }
