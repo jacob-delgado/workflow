@@ -42,16 +42,35 @@ type statusSeams struct {
 	Tracker string
 }
 
+// errPlainBesideJSON refuses --plain beside --json, which prints no line for
+// it to draw.
+var errPlainBesideJSON = errors.New("--plain draws the line's marks and --json prints no line: " +
+	"use one or the other")
+
+// statusOptions are status's flags: the JSON, and the line's marks drawn in
+// ASCII.
+type statusOptions struct {
+	asJSON bool
+	plain  bool
+}
+
+// ascii reports whether a line is drawn in ASCII: when --plain asks for it, or
+// the configuration the line was read under does.
+func (o statusOptions) ascii(configured bool) bool {
+	return o.plain || configured
+}
+
 // newStatusCmd builds `workflow status [directory...]`.
 func newStatusCmd(prompt Prompt) *cobra.Command {
-	var asJSON bool
+	var opts statusOptions
 
 	cmd := &cobra.Command{
 		Use:   "status [directory...]",
 		Short: "Print the current work's issue, stage and CI on one line",
 		Long: "Print, on one line, the issue the branch is for, how far along the loop\n" +
 			"the work has got, and how CI stands — the same progress the interface's\n" +
-			"top row shows, for a shell prompt or a status bar. --json prints it as data.\n" +
+			"top row shows, for a shell prompt or a status bar. --json prints it as data;\n" +
+			"--plain draws its marks in ASCII, as ui.ascii does, for this run alone.\n" +
 			"A service that refuses to answer leaves its stage as though there were nothing\n" +
 			"to say — CI none — and is named on standard error, one line each; so is one that\n" +
 			"is not set up, such as a forge with no token, with how to set it up.\n\n" +
@@ -68,31 +87,37 @@ func newStatusCmd(prompt Prompt) *cobra.Command {
 		),
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runStatusCommand(cmd, prompt, asJSON, args)
+			return runStatusCommand(cmd, prompt, opts, args)
 		},
 	}
 
-	addJSONFlag(cmd, &asJSON, "print the status as JSON")
+	addJSONFlag(cmd, &opts.asJSON, "print the status as JSON")
+	cmd.Flags().BoolVar(&opts.plain, "plain", false,
+		"draw the line's marks in ASCII, as ui.ascii does, whatever the configuration says")
 
 	return cmd
 }
 
 // runStatusCommand prints the status of the current repository, or of each
 // named directory, noting on a terminal which directory it is reading.
-func runStatusCommand(cmd *cobra.Command, prompt Prompt, asJSON bool, dirs []string) error {
+func runStatusCommand(cmd *cobra.Command, prompt Prompt, opts statusOptions, dirs []string) error {
+	if opts.plain && opts.asJSON {
+		return fmt.Errorf("%w: %w", errUsage, errPlainBesideJSON)
+	}
+
 	if len(dirs) == 0 {
-		return statusHere(cmd, asJSON)
+		return statusHere(cmd, opts)
 	}
 
 	note := newProgressNote(cmd.ErrOrStderr(), prompt.IsTerminal)
 	defer note.clear()
 
-	return statusAcross(cmd, note, dirs, asJSON)
+	return statusAcross(cmd, note, dirs, opts)
 }
 
 // statusHere prints the status of the current directory: a bare line, and a
 // directory that is no repository is an error.
-func statusHere(cmd *cobra.Command, asJSON bool) error {
+func statusHere(cmd *cobra.Command, opts statusOptions) error {
 	// A missing configuration is not fatal: the repository stages still read,
 	// and the service stages simply stay not-started.
 	conn, err := connect(cmd)
@@ -101,13 +126,13 @@ func statusHere(cmd *cobra.Command, asJSON bool) error {
 	}
 	defer conn.closeLog()
 
-	return runStatus(cmd.Context(), outputOf(cmd), seamsFor(conn), conn.cfg.UI.ASCII, asJSON)
+	return runStatus(cmd.Context(), outputOf(cmd), seamsFor(conn), opts.ascii(conn.cfg.UI.ASCII), opts.asJSON)
 }
 
 // statusAcross prints one labeled status per named directory. A directory that
 // cannot be read is noted in its row rather than stopping the rest, and then
 // fails the command, as bare status fails outside a repository.
-func statusAcross(cmd *cobra.Command, note *progressNote, dirs []string, asJSON bool) error {
+func statusAcross(cmd *cobra.Command, note *progressNote, dirs []string, opts statusOptions) error {
 	requestLog, closeLog, err := requestLogFor(cmd)
 	if err != nil {
 		return err
@@ -117,10 +142,10 @@ func statusAcross(cmd *cobra.Command, note *progressNote, dirs []string, asJSON 
 	out := note.around(outputOf(cmd))
 	statuses := statusesOf(cmd, note, dirs, requestLog)
 
-	if asJSON {
+	if opts.asJSON {
 		err = statusesJSON(out.artifact, statuses)
 	} else {
-		statusLines(out.artifact, statuses)
+		statusLines(out.artifact, statuses, opts)
 	}
 
 	for _, status := range statuses {

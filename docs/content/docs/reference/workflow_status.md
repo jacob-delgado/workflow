@@ -13,7 +13,8 @@ Print the current work's issue, stage and CI on one line
 
 Print, on one line, the issue the branch is for, how far along the loop
 the work has got, and how CI stands — the same progress the interface's
-top row shows, for a shell prompt or a status bar. --json prints it as data.
+top row shows, for a shell prompt or a status bar. --json prints it as data;
+--plain draws its marks in ASCII, as ui.ascii does, for this run alone.
 A service that refuses to answer leaves its stage as though there were nothing
 to say — CI none — and is named on standard error, one line each; so is one that
 is not set up, such as a forge with no token, with how to set it up.
@@ -40,8 +41,9 @@ workflow status [directory...] [flags]
 ### Options
 
 ```
-  -h, --help   help for status
-  -j, --json   print the status as JSON
+  -h, --help    help for status
+  -j, --json    print the status as JSON
+      --plain   draw the line's marks in ASCII, as ui.ascii does, whatever the configuration says
 ```
 
 ### Options inherited from parent commands
