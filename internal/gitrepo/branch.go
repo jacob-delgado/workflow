@@ -122,6 +122,18 @@ func (b Branch) UpstreamHoldsAll() bool {
 	return b.Upstream != "" && b.Ahead == 0
 }
 
+// Finishing is what finishing the branch acts on: the branch, the base it
+// returns to by its bare name, and the remote that base is pulled from.
+type Finishing struct {
+	Branch, Base, Remote string
+}
+
+// Finishing is how this branch finishes: onto its base, pulled from the base
+// remote.
+func (b Branch) Finishing() Finishing {
+	return Finishing{Branch: b.Name, Base: b.BaseName(), Remote: b.BaseRemote}
+}
+
 // BaseName is the base branch without its remote prefix — "main" for
 // "origin/main" — which is the name to show and to rebase onto. A base with no
 // remote (a local "main") is returned as it is.
@@ -374,17 +386,19 @@ func FetchCommand(dir, remote string) proc.Command {
 	}
 }
 
-// PullCommand fast-forwards the checked-out branch from its upstream, and
+// PullCommand fast-forwards the checked-out branch from branch on remote, and
 // refuses rather than merge when it cannot: the pull a finish runs once it has
-// switched to the base.
+// switched to the base, from the base remote — a fork's clone's main tracks
+// the fork, whose main is not what the branch merged into.
 //
 // Prompts are off, as they are for a fetch: a pull can need a credential, and
-// nobody can answer for one from inside the interface.
-func PullCommand(dir string) proc.Command {
+// nobody can answer for one from inside the interface. "--" ends git's
+// options, so neither name is ever read as one.
+func PullCommand(dir, remote, branch string) proc.Command {
 	return proc.Command{
 		Dir:  dir,
 		Name: gitProgram,
-		Args: []string{"pull", "--ff-only"},
+		Args: []string{"pull", "--ff-only", "--", remote, branch},
 		Env:  []string{noTerminalPrompt},
 	}
 }

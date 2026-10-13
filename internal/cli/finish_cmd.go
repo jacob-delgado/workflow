@@ -22,7 +22,7 @@ import (
 type finishSeams struct {
 	Branch   func(ctx context.Context) (gitrepo.Branch, error)
 	FindPull func(ctx context.Context, branch string) (forge.PullRequest, bool, error)
-	Finish   func(ctx context.Context, branch, base string) error
+	Finish   func(ctx context.Context, finishing gitrepo.Finishing) error
 	// Kind is the forge, whose own words — a merge request, marked "!" on
 	// GitLab — the preview and a failed read use.
 	Kind    forge.Kind
@@ -30,11 +30,11 @@ type finishSeams struct {
 }
 
 // finishPlan is a finish that can go: the merged branch it deletes, the base
-// it returns to, and the pull request that merged it.
+// it returns to and the remote it pulls that base from, and the pull request
+// that merged it.
 type finishPlan struct {
-	branch string
-	base   string
-	pull   forge.PullRequest
+	finishing gitrepo.Finishing
+	pull      forge.PullRequest
 }
 
 // newFinishCmd builds `workflow finish`.
@@ -45,10 +45,10 @@ func newFinishCmd(prompt Prompt) *cobra.Command {
 		Use:   "finish",
 		Short: "Finish a merged branch: switch to its base, catch the base up, and delete the branch",
 		Long: "Finish the checked-out branch once its pull or merge request has merged: switch\n" +
-			"to its base, fast-forward the base with git pull --ff-only, and delete the\n" +
-			"branch — the three git commands the interface's F runs. They are printed and\n" +
-			"confirmed before any runs, and a step git refuses stops the rest, keeping the\n" +
-			"branch.\n\n" +
+			"to its base, fast-forward the base from the base remote — upstream in a fork's\n" +
+			"clone, else origin — with git pull --ff-only, and delete the branch: the three\n" +
+			"git commands the interface's F runs. They are printed and confirmed before any\n" +
+			"runs, and a step git refuses stops the rest, keeping the branch.\n\n" +
 			"A branch that cannot be finished is refused with the reason, and exits 4: its\n" +
 			"pull or merge request has not merged, it is the base itself or a detached\n" +
 			"HEAD, there is no base to return to, or it holds commits that neither merged\n" +
@@ -100,22 +100,25 @@ func runFinish(ctx context.Context, out output, seams finishSeams, opts writeOpt
 
 	plan.preview(out.artifact, seams.Kind)
 
+	finishing := plan.finishing
+	steps := "switch to " + finishing.Base + ", pull it from " + finishing.Remote
+
 	proceed, err := opts.proceed(out.notes, seams.Confirm, writePrompt{
-		question: "Finish " + plan.branch + ": switch to " + plan.base + ", pull, and delete it?",
-		dryRun:   "dry run: would finish " + plan.branch + " (switch to " + plan.base + ", pull, delete it)",
+		question: "Finish " + finishing.Branch + ": " + steps + ", and delete it?",
+		dryRun:   "dry run: would finish " + finishing.Branch + " (" + steps + ", delete it)",
 		declined: "Not finished.",
 	})
 	if err != nil || !proceed {
 		return err
 	}
 
-	err = seams.Finish(ctx, plan.branch, plan.base)
+	err = seams.Finish(ctx, finishing)
 	if err != nil {
-		return fmt.Errorf("finishing %s: %w", plan.branch, err)
+		return fmt.Errorf("finishing %s: %w", finishing.Branch, err)
 	}
 
-	fmt.Fprintln(out.notes, "Finished "+plan.branch+": switched to "+plan.base+", caught it up and deleted "+
-		plan.branch+".")
+	fmt.Fprintln(out.notes, "Finished "+finishing.Branch+": switched to "+finishing.Base+", caught it up and deleted "+
+		finishing.Branch+".")
 
 	return nil
 }
@@ -146,15 +149,15 @@ func planFinish(ctx context.Context, seams finishSeams) (finishPlan, error) {
 		return finishPlan{}, fmt.Errorf("cannot finish %s: %w", cmp.Or(branch.Name, "a detached HEAD"), refused)
 	}
 
-	return finishPlan{branch: branch.Name, base: branch.BaseName(), pull: pull}, nil
+	return finishPlan{finishing: branch.Finishing(), pull: pull}, nil
 }
 
 // preview prints the merged pull request, in the forge's own mark, and the
 // three git commands that finish its branch, as gitrepo runs them.
 func (p finishPlan) preview(artifact io.Writer, kind forge.Kind) {
-	fmt.Fprintln(artifact, "Finish "+p.branch+": "+kind.Sigil()+strconv.Itoa(p.pull.Number)+" merged")
+	fmt.Fprintln(artifact, "Finish "+p.finishing.Branch+": "+kind.Sigil()+strconv.Itoa(p.pull.Number)+" merged")
 
-	for _, command := range gitrepo.FinishCommands(p.base, p.branch) {
+	for _, command := range p.finishing.Commands() {
 		fmt.Fprintln(artifact, "  "+command)
 	}
 }

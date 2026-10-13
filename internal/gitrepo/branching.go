@@ -105,11 +105,11 @@ func (r Repository) Checkout(ctx context.Context, name string) error {
 	return nil
 }
 
-// FinishBranch finishes a merged branch: switch to base, fast-forward it through
-// pull, and delete the branch. It is for after the branch's pull request has
-// merged, so the local repository catches up and the branch is cleaned away. A
-// step that fails stops the rest, so a base that did not catch up keeps the
-// branch.
+// FinishBranch finishes a merged branch: switch to its base, fast-forward it
+// from the base remote through pull, and delete the branch. It is for after the
+// branch's pull request has merged, so the local repository catches up and the
+// branch is cleaned away. A step that fails stops the rest, so a base that did
+// not catch up keeps the branch.
 //
 // The pull is the caller's to run — PullCommand is the command — because it
 // reaches the network, and so streams without the Runner's quick-read bound.
@@ -121,8 +121,8 @@ func (r Repository) Checkout(ctx context.Context, name string) error {
 // request merged or whose upstream holds every commit on it (see
 // Branch.UpstreamHoldsAll), so the commits -D discards are ones the forge or
 // the upstream already holds.
-func (r Repository) FinishBranch(ctx context.Context, branch, base string, pull func() error) error {
-	steps := finishSteps(base, branch)
+func (r Repository) FinishBranch(ctx context.Context, finishing Finishing, pull func() error) error {
+	steps := finishing.steps()
 
 	err := r.finishStep(ctx, steps.toBase)
 	if err != nil {
@@ -137,27 +137,30 @@ func (r Repository) FinishBranch(ctx context.Context, branch, base string, pull 
 	return r.finishStep(ctx, steps.drop)
 }
 
-// finishing is the git arguments of each command a finish runs, in order.
-type finishing struct {
+// finishSteps is the git arguments of each command a finish runs, in order.
+type finishSteps struct {
 	toBase, pull, drop []string
 }
 
-// finishSteps are the commands that finish branch onto base: switch to base,
-// fast-forward it, and force-delete branch. Each puts "--" before its name,
-// since the base comes from what origin says its default branch is.
-func finishSteps(base, branch string) finishing {
-	return finishing{
-		toBase: []string{"switch", "--", base},
-		pull:   PullCommand("").Args,
-		drop:   []string{"branch", "-D", "--", branch},
+// steps are the commands that finish the branch onto its base: switch to the
+// base, fast-forward it from the base remote, and force-delete the branch.
+// Each puts "--" before its names, since the base comes from what a remote
+// says its default branch is. The switch names the base remote too, so a base
+// with no local branch is made from that remote's copy even where another
+// remote — a fork — holds one of the same name.
+func (f Finishing) steps() finishSteps {
+	return finishSteps{
+		toBase: []string{"-c", "checkout.defaultRemote=" + f.Remote, "switch", "--", f.Base},
+		pull:   PullCommand("", f.Remote, f.Base).Args,
+		drop:   []string{"branch", "-D", "--", f.Branch},
 	}
 }
 
-// FinishCommands are the commands FinishBranch runs to finish branch onto
-// base, in order, written as a person would type them: what a preview shows
-// before the force delete in them is confirmed.
-func FinishCommands(base, branch string) []string {
-	steps := finishSteps(base, branch)
+// Commands are the commands FinishBranch runs to finish the branch, in order,
+// written as a person would type them: what a preview shows before the force
+// delete in them is confirmed.
+func (f Finishing) Commands() []string {
+	steps := f.steps()
 
 	return []string{shownCommand(steps.toBase), shownCommand(steps.pull), shownCommand(steps.drop)}
 }

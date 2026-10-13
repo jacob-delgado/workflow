@@ -251,9 +251,9 @@ func (e Environment) gitDeps(root string, kind func() forge.Kind) seams.Git {
 		Rebase: func(ctx context.Context, base string) (proc.Output, error) {
 			return e.start(ctx, gitrepo.RebaseCommand(root, base))
 		},
-		Finish: func(ctx context.Context, branch, base string) error {
-			return repo.FinishBranch(ctx, branch, base, func() error {
-				return e.streamToEnd(ctx, gitrepo.PullCommand(root))
+		Finish: func(ctx context.Context, finishing gitrepo.Finishing) error {
+			return repo.FinishBranch(ctx, finishing, func() error {
+				return e.streamToEnd(ctx, gitrepo.PullCommand(root, finishing.Remote, finishing.Base))
 			})
 		},
 		IssueLinks:  repo.IssueLinks,

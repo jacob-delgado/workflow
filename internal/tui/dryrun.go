@@ -150,7 +150,7 @@ func heldBackGit(deps seams.Git) seams.Git {
 	}
 
 	if deps.Finish != nil {
-		deps.Finish = func(context.Context, string, string) error { return errDryRun }
+		deps.Finish = func(context.Context, gitrepo.Finishing) error { return errDryRun }
 	}
 
 	if deps.LinkIssue != nil {

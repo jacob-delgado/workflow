@@ -243,3 +243,24 @@ func TestCodeOwnersAtReadsTheDialectsFileAtTheBaseRemote(t *testing.T) {
 		t.Errorf("CodeOwnersAt = %+v, %v, %v; want upstream/main's rules", owners, found, err)
 	}
 }
+
+func TestABranchFinishesOntoItsBaseFromTheBaseRemote(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	replies := with(featureBranch(), map[string]reply{
+		readRemotes: forkClone(),
+		"git -C /work symbolic-ref --quiet --short refs/remotes/upstream/HEAD": {out: []byte("upstream/main\n")},
+		logCommits + "upstream/main..HEAD":                                     {},
+		baseAge + "upstream/main":                                              {},
+	})
+
+	// Act
+	branch, err := gitrepo.At(fakeRunner(t, replies), workDir).ReadBranch(t.Context())
+
+	// Assert
+	want := gitrepo.Finishing{Branch: "fix/PROJ-412-token-redaction", Base: localMain, Remote: upstreamName}
+	if err != nil || branch.Finishing() != want {
+		t.Errorf("Finishing = %+v, %v; want %+v", branch.Finishing(), err, want)
+	}
+}

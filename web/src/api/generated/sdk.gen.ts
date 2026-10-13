@@ -326,7 +326,7 @@ export const mergePullRequest = <ThrowOnError extends boolean = false>(options: 
 /**
  * Finish a merged branch — switch to the base, catch it up, delete the branch.
  *
- * Runs the three git commands the terminal's F previews — git switch to the base, git pull --ff-only, git branch -D the branch — once the branch's pull request has merged, the branch is checked out with a base to return to, and the delete would lose nothing: the branch is at the commit its pull request merged, or its upstream holds every commit on it. Refused with 409 when it cannot be finished, and 422 when finishing is not available or git refuses, whose own words stay off the wire since they name origin.
+ * Runs the three git commands the terminal's F previews — git switch to the base, git pull --ff-only of the base from the base remote (upstream in a fork's clone, else origin), git branch -D the branch — once the branch's pull request has merged, the branch is checked out with a base to return to, and the delete would lose nothing: the branch is at the commit its pull request merged, or its upstream holds every commit on it. Refused with 409 when it cannot be finished, and 422 when finishing is not available or git refuses, whose own words stay off the wire since they name origin.
  */
 export const finishBranch = <ThrowOnError extends boolean = false>(options?: Options<FinishBranchData, ThrowOnError>): RequestResult<FinishBranchResponses, FinishBranchErrors, ThrowOnError> => (options?.client ?? client).post<FinishBranchResponses, FinishBranchErrors, ThrowOnError>({
     responseValidator: async (data) => await zFinishBranchResponse.parseAsync(data),

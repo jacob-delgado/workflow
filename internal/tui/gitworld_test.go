@@ -117,8 +117,8 @@ func (w *world) gitDeps() seams.Git {
 
 			return nil
 		},
-		Finish: func(_ context.Context, branch, base string) error {
-			w.record("finish " + branch + " onto " + base)
+		Finish: func(_ context.Context, finishing gitrepo.Finishing) error {
+			w.record("finish " + finishing.Branch + " onto " + finishing.Base + " from " + finishing.Remote)
 
 			return w.finishErr
 		},

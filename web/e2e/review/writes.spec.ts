@@ -29,8 +29,8 @@ function withPull(pull: PullRequest, ci: 'passed' | 'failed'): Snapshot {
       base: 'origin/main',
       commits: [{ hash: 'b2b2b2b2', subject: 'fix: redact tokens', unpushed: false }],
       finish_commands: [
-        'git switch -- main',
-        'git pull --ff-only',
+        'git -c checkout.defaultRemote=origin switch -- main',
+        'git pull --ff-only -- origin main',
         'git branch -D -- fix/PROJ-1-redact',
       ],
     }),

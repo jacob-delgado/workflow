@@ -125,9 +125,10 @@ type Git struct {
 	// leaves the repository mid-rebase for the shell. Nil when there is no
 	// repository.
 	Rebase func(ctx context.Context, base string) (proc.Output, error)
-	// Finish finishes a merged branch: switch to base, fast-forward it, delete
-	// the branch. Nil when there is no repository.
-	Finish func(ctx context.Context, branch, base string) error
+	// Finish finishes a merged branch as finishing says: switch to its base,
+	// fast-forward it from the base remote, delete the branch. Nil when there
+	// is no repository.
+	Finish func(ctx context.Context, finishing gitrepo.Finishing) error
 	// IssueLinks is every branch linked to an issue by hand, by branch name;
 	// LinkIssue links a branch to an issue, and UnlinkIssue forgets its link.
 	// Nil when there is no repository.

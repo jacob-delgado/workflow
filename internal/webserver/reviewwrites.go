@@ -286,12 +286,12 @@ func (s *server) finish(ctx context.Context) (gitrepo.Branch, error) {
 		return gitrepo.Branch{}, fmt.Errorf("%w: %w", errNotFinishable, refused)
 	}
 
-	base := read.branch.BaseName()
-
 	s.indexWrites.Lock()
 	defer s.indexWrites.Unlock()
 
-	err = s.deps.Git.Finish(ctx, read.branch.Name, base)
+	finishing := read.branch.Finishing()
+
+	err = s.deps.Git.Finish(ctx, finishing)
 	if err != nil {
 		s.unexpected(err)
 
@@ -300,7 +300,7 @@ func (s *server) finish(ctx context.Context) (gitrepo.Branch, error) {
 
 	s.forgeAnswer.drop()
 
-	return s.branchAfter(ctx, gitrepo.Branch{Name: base}), nil
+	return s.branchAfter(ctx, gitrepo.Branch{Name: finishing.Base}), nil
 }
 
 // RerunChecks asks the forge to re-run the failed CI of the branch's open pull

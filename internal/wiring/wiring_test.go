@@ -340,7 +340,7 @@ func TestTheGitSeamsFinishAMergedBranch(t *testing.T) {
 	}
 
 	// Act
-	err = repo.Finish(t.Context(), featureBranch, "main")
+	err = repo.Finish(t.Context(), gitrepo.Finishing{Branch: featureBranch, Base: mainBranch, Remote: "origin"})
 	// Assert
 	if err != nil {
 		t.Fatalf("Finish: %v", err)
@@ -365,12 +365,13 @@ func TestAFinishWhosePullGitRefusesKeepsTheBranchAndGitsReason(t *testing.T) {
 	}
 
 	// Act
-	err = repo.Finish(t.Context(), featureBranch, "main")
+	err = repo.Finish(t.Context(), gitrepo.Finishing{Branch: featureBranch, Base: mainBranch, Remote: "origin"})
 
 	// Assert
-	// main tracks nothing, so git refuses the pull. Only a run streamed
-	// through proc.Start answers to ErrExitStatus; its output is the reason.
-	if !errors.Is(err, proc.ErrExitStatus) || !strings.Contains(err.Error(), "no tracking information") {
+	// There is no origin to pull from, so git refuses the pull. Only a run
+	// streamed through proc.Start answers to ErrExitStatus; its output is the
+	// reason.
+	if !errors.Is(err, proc.ErrExitStatus) || !strings.Contains(err.Error(), "does not appear to be a git repository") {
 		t.Errorf("Finish = %v, want the pull's failure status and git's reason", err)
 	}
 
