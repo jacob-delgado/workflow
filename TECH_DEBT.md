@@ -761,3 +761,20 @@ reached for that one read keeps an announcement from going that the reading a
 moment before would have let through.
 
 **Reopen when.** A forge's rate limit is found spent on these reads.
+
+### TRADE-41 An armed announcement gives up on a pull request that reports no check for ten minutes
+
+**Decided.** `loop.NoCIPatience` (`internal/loop/armed.go`) bounds how long
+an announcement armed to go once CI passes waits for a pull request that
+reports no check: ten minutes, counted from the last read that reported one,
+or from arming. It then gives up, saying to announce it by hand, the same in
+the terminal, on the web and under `workflow announce --when-green`. A
+repository with no CI would otherwise have its pull request read every
+`timing.ci_interval` for as long as the terminal or the server runs. Decided
+2026-10-13 by the maintainer, with the automatic post.
+
+**Cost.** A CI that registers its first check later than ten minutes after
+the last one reported, or after arming, loses its automatic post; it is
+announced by hand.
+
+**Reopen when.** A CI is met that reports its first check later than that.
