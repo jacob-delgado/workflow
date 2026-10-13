@@ -365,3 +365,39 @@ test('a server restarted under --dry-run holds the offer back and says so', asyn
   expect(await screen.findByText(/held back by --dry-run/i)).toBeTruthy()
   expect(writesTo(requests)).not.toContain('POST /api/issues/PROJ-412/link')
 })
+
+test('the outcome says the announcement is armed', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  const armed: OpenedPullRequest = {
+    pull,
+    follow_ups: [],
+    announcement: { state: 'waiting', channel: '#dev', pull: 7, automatic: true },
+  }
+  serveTheOpen([], { '/api/pull-request': armed })
+
+  // Act
+  await openThePullRequest(user)
+
+  // Assert
+  expect(
+    screen.getByText('Announces to #dev once CI passes; Stop waiting under Slack drops it.'),
+  ).toBeTruthy()
+})
+
+test('the outcome says a draft is not announced', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  const draft: OpenedPullRequest = {
+    pull: { ...pull, draft: true },
+    follow_ups: [],
+    not_armed: 'a draft is not announced; announce it once it is ready',
+  }
+  serveTheOpen([], { '/api/pull-request': draft })
+
+  // Act
+  await openThePullRequest(user)
+
+  // Assert
+  expect(screen.getByText('A draft is not announced; announce it once it is ready.')).toBeTruthy()
+})

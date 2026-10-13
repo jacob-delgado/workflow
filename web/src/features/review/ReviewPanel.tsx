@@ -50,6 +50,7 @@ export function ReviewPanel() {
       key={snapshot.branch.name}
       review={snapshot.review}
       branch={snapshot.branch}
+      service={snapshot.messaging.service}
       unread={snapshot.problems?.review ?? null}
     />
   )
@@ -58,6 +59,8 @@ export function ReviewPanel() {
 interface BranchReviewProps {
   review: Review
   branch: Branch
+  // service names the messaging service an armed announcement posts to.
+  service: string
   // Why the forge could not be read for the branch, or null when it was.
   unread: Problem | null
 }
@@ -66,7 +69,7 @@ interface BranchReviewProps {
 // one, beneath what the last open answered. A forge that could not be read
 // says so, above the pull request it last answered with, or in place of the
 // offer: a forge that cannot say is not one with no pull request to show.
-function BranchReview({ review, branch, unread }: BranchReviewProps) {
+function BranchReview({ review, branch, service, unread }: BranchReviewProps) {
   // What the open answered, and the line that says so, held here — above the
   // switch between offering to open and showing the pull request — so the
   // snapshot that brings the new pull request back leaves the outcome and its
@@ -82,7 +85,9 @@ function BranchReview({ review, branch, unread }: BranchReviewProps) {
     <div className={cn('flex flex-col gap-section', contentMeasure)}>
       {/* The line sits close above the offers it introduces. */}
       <OutcomeLine said={outcome.said} className={opened === null ? undefined : '-mb-block'} />
-      {opened === null ? null : <OpenedOutcome key={opened.pull.url} opened={opened} />}
+      {opened === null ? null : (
+        <OpenedOutcome key={opened.pull.url} opened={opened} service={service} />
+      )}
       {unread === null ? null : (
         <ReadFailure
           unread={

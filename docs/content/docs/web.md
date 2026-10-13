@@ -332,6 +332,18 @@ issue to the review status your configuration names, when that move needs no
 fields filled in. A pull request opened in the terminal or with `workflow pr`
 gets neither offer here.
 
+With messaging set up, the page also arms the pull request's announcement as
+it opens: a line says *Announces to #dev once CI passes; Stop waiting under
+Slack drops it.*, and the messaging section shows it waiting, as one held with
+**Announce when CI passes** does — through a failed run, and up to ten minutes
+with no check reported. It tags those `workflow announce --yes` would
+propose, the linked code owners of its changes against the base it opens into
+and the groups that start checked, and, as a post from the preview does, whom
+it can when the Slack token lacks a scope. A draft is never armed,
+and the line says to announce it once it is ready; `messaging.auto_announce:
+false` arms nothing. The open's answer carries the armed announcement as
+`announcement` (its `automatic` set), or why none was as `not_armed`.
+
 ### The messaging service
 
 Named for the service your configuration uses — Slack, Teams, Discord or
