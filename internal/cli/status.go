@@ -194,7 +194,7 @@ func placed(cmd *cobra.Command, dirs []string) []directoryStatus {
 		leads[index] = filepath.Clean(cmp.Or(found, dir))
 	}
 
-	for index, label := range repoLabels(leads, configHome(cmd)) {
+	for index, label := range directoryLabels(leads, configHome(cmd)) {
 		statuses[index].label = label
 	}
 
@@ -238,9 +238,10 @@ func trackerName(conn connection) string {
 	return forgeName(conn.deps.Forge.Kind)
 }
 
-// repoLabels names each directory in the output by its base name or, where
-// another of dirs has a base name the same, by its path, written from home.
-func repoLabels(dirs []string, home string) []string {
+// directoryLabels names each directory in the output by its base name or,
+// where another of dirs has a base name the same, by its path, written from
+// home.
+func directoryLabels(dirs []string, home string) []string {
 	named := make(map[string]int, len(dirs))
 	for _, dir := range dirs {
 		named[filepath.Base(dir)]++
