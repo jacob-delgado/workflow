@@ -71,7 +71,7 @@ func gather(ctx context.Context, seams statusSeams, branch gitrepo.Branch) statu
 		PullRequest:        review.state,
 		CI:                 review.ci,
 		ChangesRequested:   review.pull.ChangesRequested,
-		Announced:          seams.Memory.HoldsNow(ctx, review.pull, review.found, forge.CI{State: review.ci}),
+		Announced:          seams.Memory.HoldsNow(ctx, review.pull, review.found),
 	}, seams.Service)
 
 	return facts

@@ -216,7 +216,6 @@ func (s *server) announcement(ctx context.Context) (loop.Composed, error) {
 		Author:    s.authorSeam(),
 		Issue:     s.deps.Jira.Issue,
 		BrowseURL: s.deps.Jira.BrowseURL,
-		CheckCI:   s.deps.Forge.CheckStatus,
 	}, cfg.Messaging, cfg.Jira.Project, s.forgeKindNow())
 }
 

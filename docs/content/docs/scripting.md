@@ -164,8 +164,8 @@ merged; a merged one has no CI left to read, so `ci` is then `none`. The last
 stage is named for the messaging service `messaging.kind` configures —
 `Slack`, `Teams`, `Discord` or `Webhook` — so read the stages by position
 rather than by that name. That stage reads `done` once the branch's pull
-request was announced at the moment it is at now — ready for review, CI red,
-or merged — by `announce` or the interface, as the store remembers it; with
+request was announced at the moment it is at now — ready for review, or
+merged — by `announce` or the interface, as the store remembers it; with
 `store.disabled` it never does, nor for a pull request closed without merging,
 which the loop no longer follows.
 `issue` and `summary` are left out when the branch names no issue.

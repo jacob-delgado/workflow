@@ -137,12 +137,6 @@ func TestAnnouncementText(t *testing.T) {
 			},
 			want: "A pull request merged: <https://x/pull/42|t>",
 		},
-		"CI is red on the change": {
-			announcement: messaging.Announcement{
-				Moment: messaging.MomentCIRed, PullRequestURL: "https://x/pull/9", PullRequestTitle: "flaky",
-			},
-			want: "CI is red on the pull request: <https://x/pull/9|flaky>",
-		},
 	}
 
 	for name, tt := range cases {
@@ -185,7 +179,7 @@ func TestEveryMomentEscapesWhatSlackWouldReadAsMarkup(t *testing.T) {
 	// Every moment builds its link and lead the same way, so the escaping that
 	// stops a hostile title injecting Slack markup must hold for all of them.
 	for name, moment := range map[string]messaging.Moment{
-		"ready": messaging.MomentReady, "merged": messaging.MomentMerged, "ci red": messaging.MomentCIRed,
+		"ready": messaging.MomentReady, "merged": messaging.MomentMerged,
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
