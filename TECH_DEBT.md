@@ -801,11 +801,17 @@ with the process, and a program a write runs (git, Taskwarrior, lefthook, `gh`,
 when the broken pipe ends it: SIGPIPE does on Unix, while on Windows the write
 fails instead, which git exits on, and a program that ignores the failure, as
 `gh` or `glab` may, finishes. A signal during the wait does not wait for the
-programs it stops either. A write the interface chains on another's outcome once
-that outcome reaches it (a commit's scope, remembered once the commit is shown)
-is never begun after a quit. A write a pane sent just before a switch goes on in
-the directory left, and its outcome is not shown; the switch refuses only while
-an announcement or a change to a task is in flight.
+programs it stops either, nor for the work `Execute`'s comment names as going on
+past its asker's context: a signal that exits while Settings is refreshing a
+Slack user token on macOS, after Slack has answered and before the keychain
+keeps the new pair, can lose the only pair that works, since Slack spends the
+old one as it answers, and so can a wait given up on there, when the keychain
+takes longer than the wait has left; `workflow slack login` then sets the token
+up again. A write the interface chains on another's outcome once that outcome
+reaches it (a commit's scope, remembered once the commit is shown) is never
+begun after a quit. A write a pane sent just before a switch goes on in the
+directory left, and its outcome is not shown; the switch refuses only while an
+announcement or a change to a task is in flight.
 
 **Reopen when.** Such reads are found to crowd a rate limit, or a write is
 reported in practice left half made after workflow exits (a stale index lock, a
