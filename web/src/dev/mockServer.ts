@@ -26,7 +26,7 @@ import {
   zWorklogRequest,
 } from '@/api/generated/zod.gen.ts'
 import { mockActivity } from './mockActivity.ts'
-import { mockAnnouncement } from './mockAnnouncement.ts'
+import { mockAnnouncement, mockArmedOn } from './mockAnnouncement.ts'
 import { mockConfig } from './mockConfig.ts'
 import { mockIssueDetail, mockStatusChanges, mockViews } from './mockIssues.ts'
 import { mockKeys } from './mockKeys.ts'
@@ -407,6 +407,7 @@ function reviewRoutes(): Routes {
           { action: 'link', issue_key: 'PROJ-412' },
           { action: 'transition', issue_key: 'PROJ-412', status: 'In Review' },
         ],
+        ...mockArmedOn(42, draft),
       }
     },
     'GET /api/pull-request': () => mockPullText,

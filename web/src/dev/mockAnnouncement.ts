@@ -1,4 +1,4 @@
-import type { Announcement } from '@/api/generated/types.gen.ts'
+import type { Announcement, OpenedPullRequest } from '@/api/generated/types.gen.ts'
 import { mockConfig } from './mockConfig.ts'
 import { mockSnapshot } from './mockSnapshot.ts'
 
@@ -28,4 +28,22 @@ export const mockAnnouncement: Announcement = {
   ci: mockSnapshot.review.ci?.state,
   // The mock pull request's CI has not passed, so the preview offers to wait.
   can_wait_for_ci: mockSnapshot.review.ci?.state !== 'passed',
+}
+
+// mockArmedOn is what opening pull request number says of its announcement:
+// armed to post once CI passes, or, for a draft, why it is not.
+export function mockArmedOn(
+  number: number,
+  draft: boolean,
+): Pick<OpenedPullRequest, 'announcement' | 'not_armed'> {
+  return draft
+    ? { not_armed: 'a draft is not announced; announce it once it is ready' }
+    : {
+        announcement: {
+          state: 'waiting',
+          channel: mockSnapshot.messaging.channel,
+          pull: number,
+          automatic: true,
+        },
+      }
 }
