@@ -44,26 +44,26 @@ type heldCache struct {
 	release  chan struct{}
 	landed   chan error
 	entering sync.Once
+	letGo    sync.Once
 }
 
 // newHeldCache is a cache write nothing has begun yet, released when the test
-// ends at the latest.
+// ends at the latest. A test that runs workflow over it releases it again
+// once running has registered its own cleanup, which waits for workflow to
+// return, so a failure while workflow waits for the write ends the test at
+// once rather than when the wait gives up.
 func newHeldCache(t *testing.T) *heldCache {
 	t.Helper()
 
 	held := &heldCache{entered: make(chan struct{}), release: make(chan struct{}), landed: make(chan error, 1)}
-	t.Cleanup(sync.OnceFunc(held.letLand))
+	t.Cleanup(held.letLand)
 
 	return held
 }
 
-// letLand releases the write.
+// letLand releases the write; releasing it again does nothing.
 func (h *heldCache) letLand() {
-	select {
-	case <-h.release:
-	default:
-		close(h.release)
-	}
+	h.letGo.Do(func() { close(h.release) })
 }
 
 // write is the cache write's body.
@@ -224,6 +224,9 @@ func TestAQuitWaitsForAWriteInFlightToLand(t *testing.T) {
 	t.Cleanup(func() { _ = keys.Close() })
 
 	returned := running(t.Context(), t, quittingRoot(t, interfaceCaching(cache.write, keys), "1m", said))
+
+	t.Cleanup(cache.letLand)
+
 	cache.awaitBegun(t)
 
 	// Act: quit with the cache write in flight
@@ -260,6 +263,9 @@ func TestAQuitGivesUpOnAWriteThatDoesNotLandInTime(t *testing.T) {
 	t.Cleanup(func() { _ = keys.Close() })
 
 	returned := running(t.Context(), t, quittingRoot(t, interfaceCaching(cache.write, keys), "200ms", said))
+
+	t.Cleanup(cache.letLand)
+
 	cache.awaitBegun(t)
 
 	// Act
@@ -287,6 +293,9 @@ func TestASignalWhileWaitingForWritesExitsAtOnce(t *testing.T) {
 
 	command, signaled := context.WithCancelCause(t.Context())
 	returned := running(command, t, quittingRoot(t, interfaceCaching(cache.write, keys), "1m", said))
+
+	t.Cleanup(cache.letLand)
+
 	cache.awaitBegun(t)
 	quit(typing)
 	awaitSaid(t, said, "finishing 1 write…")
@@ -321,6 +330,9 @@ func TestASignalWhileWaitingExitsUnderAWriteThatIgnoresIt(t *testing.T) {
 	command, signaled := context.WithCancelCause(t.Context())
 	root := quittingRoot(t, interfaceCaching(cache.writeIgnoringItsContext, keys), "1m", said)
 	returned := running(command, t, root)
+
+	t.Cleanup(cache.letLand)
+
 	cache.awaitBegun(t)
 	quit(typing)
 	awaitSaid(t, said, "finishing 1 write…")
@@ -356,7 +368,7 @@ func TestASignalWhileTheInterfaceIsOpenBeginsNoWait(t *testing.T) {
 	root := quittingRoot(t, interfaceCaching(cache.writeIgnoringItsContext, keys), "1m", said)
 	returned := running(command, t, root)
 
-	t.Cleanup(cache.letLand) // before running's own, which waits for workflow to return
+	t.Cleanup(cache.letLand)
 
 	cache.awaitBegun(t)
 
@@ -441,6 +453,9 @@ func TestAQuitWaitsForTheWritesSentBeforeASwitch(t *testing.T) {
 
 	// Act: switch with a write in flight, then quit with another
 	returned := running(t.Context(), t, root)
+
+	t.Cleanup(left.letLand)
+	t.Cleanup(stayed.letLand)
 
 	// Assert: the quit waits for both
 	awaitSaid(t, said, "finishing 2 writes…")
