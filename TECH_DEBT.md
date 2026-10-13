@@ -2,70 +2,31 @@
 
 What this repository owes itself: defects that are waiting for the right
 input, shortcuts that will make the next change harder, gates with blind
-spots, and docs that have drifted from the code. It is a record, not a plan.
+spots, and docs that have drifted from the code. It also holds [the trade-off
+register](#the-trade-off-register): the costs chosen on purpose, and what
+would reopen each. It is a record, not a plan.
 
 Two readers are in mind: a contributor looking for something worth fixing, and
-a later Claude Code session asked to pick up an entry by its ID. Each entry
-says what is wrong, where, what it costs, one way to fix it, and how to tell
-when it is fixed. [FEATURES.md](FEATURES.md) and [UX.md](UX.md) hold the
-ideas; this file holds the debts.
+a later Claude Code session asked to pick up an entry by its ID.
+[FEATURES.md](FEATURES.md) and [UX.md](UX.md) hold the ideas; this file holds
+the debts.
 
-This is the pre-1.0 audit edition, and it is paid. A full read of every
-surface at commit `b9ab000` on 2026-10-07 found 167 entries, DEBT-162 to
-DEBT-328. The pre-1.0 paydown paid and deleted each one from this file over its
-pull requests, #197, #207, #208, #209, #220, #221, #227, #229, #237, #238
-and #241, and ended, before 1.0, with the pull request that adds this
-paragraph. What remains is [the trade-off register](#the-trade-off-register):
-the costs chosen on purpose, and what would reopen each. The next audit numbers
-its entries from DEBT-329, as an ID is never reused: the 2026-09-24 edition's
-entries, DEBT-64, DEBT-65, DEBT-71 and DEBT-75 to DEBT-161, were paid down
-in #141, #144, #145 and #146.
+## How to write an entry
 
-## How this was produced
-
-1. **Every area read in full, by independent readers.** The command line
-   (`internal/cli`, `cmd/`), the terminal interface (`internal/tui`), the web
-   (`web/src`, `web/e2e`, `internal/webserver`, `api/openapi.yaml`), every
-   other package under `internal/`, the gate scripts, the CI workflows and the
-   docs were each read whole, with each unit's tests beside it. The standard
-   was the one the project sets itself in [CLAUDE.md](CLAUDE.md), Effective Go
-   and Google's Go style guide, the clig.dev guidelines, current React and
-   TypeScript practice, and WCAG 2.1 AA for the web. A test whose Assert would
-   pass whatever its Act did counts as a finding.
-2. **Measurement, once, at `b9ab000`.** File lengths from
-   `scripts/check-file-length.sh --list`; package budgets from
-   `scripts/check-package-size.sh --list`; condition coverage from `task
-   cover:branch` (gobco, 91.4% against a floor of 91%, with its per-condition
-   worklist); unreachable code from `deadcode`; and the inventory of every
-   `//nolint` and `eslint-disable` in the tree. An entry that cites a number
-   cites the tool it came from, and its confidence reads *measured*.
-3. **Every finding handed to a skeptic.** Each finding went to one independent
-   reader whose task was to refute it; a medium or high one went to two, with
-   a third to break a tie. A finding was dropped unless it survived, and a
-   severity or a citation the skeptics corrected was written as corrected.
-   Findings that described one problem were then merged, keeping the richest
-   location and fix, and a problem found in several areas became one entry,
-   in a section of its own for the problems across the surfaces.
-4. **Every finding matched against the register.** A finding that only
-   restated a trade-off whose reopen trigger had not fired was dropped.
-5. **The register re-judged, entry by entry.** Each trade-off was kept, with
-   its three paragraphs rewritten to what is true at `b9ab000`, or found worth
-   paying down, or found with its reopen trigger fired. Each one paid down or
-   fired was given an entry whose title started "Pay down TRADE-n", and its
-   register entry stayed as it was until that entry was paid. The register
-   entry was then deleted, or, where the pay-down left part of the trade
-   standing, rewritten to that part, as TRADE-16, TRADE-18, TRADE-19,
-   TRADE-21 and TRADE-28 were; the register's opening says how each went.
-
-## How to read an entry
+An entry is a `### DEBT-n <title>` section above the register, under the next
+unused DEBT ID, DEBT-329 onward: an ID is never reused. One line under the
+title rates it, as `Severity: low · Confidence: read · Size: S`, ending in
+`· Breaking` when that applies, and four paragraphs follow: **Where.** names
+the functions and files rather than lines, which drift; **Today.** says what is
+wrong and what it costs; **Fix.** gives one way to fix it; and **Done when.**
+says how to tell it is fixed.
 
 - **Severity** is high (a wrong result a user could act on, or a blocked
   release), medium (a real defect with a narrower trigger, or a shortcut that
-  several future changes will trip over) or low (friction and tidiness). This
-  edition found nothing high.
+  several future changes will trip over) or low (friction and tidiness).
 - **Confidence** is *reproduced* (an experiment or a live run showed it),
-  *measured* (a tool reported it) or *read* (independent readings of the code
-  agree). This edition is read and measured.
+  *measured* (a tool reported it, and the entry names the tool) or *read*
+  (independent readings of the code agree).
 - **Size** is S (an hour or two), M (a day) or L (several days, or a change
   across packages that CLAUDE.md asks to outline first).
 - **Breaking** marks an entry whose fix changes a contract a user or a script
@@ -76,73 +37,19 @@ An entry is accidental debt unless it is in [the trade-off
 register](#the-trade-off-register), which lists the choices made on purpose,
 what each costs, and what would reopen it.
 
-## Security-relevant findings
-
-They are not in this file. [SECURITY.md](SECURITY.md) asks that a security
-problem stay private until a fix has shipped, and this audit follows the same
-rule. This pass found 35, and each was fixed and handled privately with the
-maintainer; nothing in this file says what they were. The entries below
-contain nothing that helps anyone misuse a credential, a terminal, a file on
-disk, the loopback server or a release.
-
 ## The trade-off register
 
 These were chosen on purpose. They are not debt; they are listed because each
-one costs something a reader should know about. Each entry carries an ID that
-is never reused, when it was decided, what it costs, and the event that would
-reopen it, and the code it keeps carries a `Trade-off TRADE-n:` comment naming
-it. An audit or a review drops a finding that restates an entry here unless
-that entry's reopen trigger has fired. `scripts/check-tradeoffs.sh`, in `task
-lint`, fails an entry missing its ID or one of its three fields, and a site
-comment naming an ID the register does not hold.
-
-The pre-1.0 audit re-judged every entry on 2026-10-07, and the pre-1.0
-paydown settled each:
-
-- **Kept.** TRADE-3, TRADE-4, TRADE-5, TRADE-8, TRADE-9, TRADE-11, TRADE-13,
-  TRADE-14, TRADE-24, TRADE-25, TRADE-26 and TRADE-30 to TRADE-34 were kept
-  and rewritten to what is true at `b9ab000`. TRADE-14 was then widened to the
-  web app the binary embeds, when the condition coverage gate came to fail an
-  arm no test reaches.
-- **Paid down, and gone.** TRADE-10, TRADE-23 and TRADE-29, the rules the web
-  wrote a second time, were paid down when the server took them over. TRADE-6
-  was paid down when the composers, the calendar and the pane switch came to
-  move around one field ring, and TRADE-12 when the terminal interface came to
-  take its input from the caller, so a test drives it. TRADE-1 was paid down
-  when the packages written a file per concern came to answer to a cohesive
-  ceiling rather than to zero headroom; TRADE-2 when every test file past 700
-  lines was split and the gate came to refuse one; TRADE-7, which the audit
-  kept, when two more packages of build-tagged twins fired its trigger and the
-  condition report came to read every package; TRADE-15 when the store came to
-  open its driver without a lookup that can fail; TRADE-17 when the keychain
-  placement of the Slack credentials came to take its platform and runner from
-  its caller, so a test reaches it; TRADE-20 when `Assets` came to panic on a
-  build defect rather than return an error, a panic TRADE-14 now keeps; and
-  TRADE-22 when the Slack refresh lock came to be one the operating system
-  holds. Their entries are gone.
-- **Paid down in part, and stays.** TRADE-16 was paid down to the two calls it
-  now names, and TRADE-21 and TRADE-28 to two copies held to one shared case
-  file. TRADE-18 was paid down to one condition, when every command came to
-  take its working directory from its caller, then widened to a second, when
-  the interface came to read keys from the terminal past a piped input.
-  TRADE-19 was narrowed to the conditions the report lists without failing,
-  when the gate came to fail an arm no test reached (DEBT-239).
-- **Added.** The paydown added TRADE-35 to TRADE-38, each decided by the
-  maintainer as it went: code only another system runs is never run in CI
-  (TRADE-35), the stat of a file just opened is taken not to fail (TRADE-36),
-  a web write outlasts its page (TRADE-37), and the terminal stops its reads
-  on quit, not on leaving a view (TRADE-38).
-
-In the pre-1.0 paydown every entry that stays was checked against the code
-again: each names the functions and files it keeps rather than lines, which
-drift, and the register is in ID order.
-
-TRADE-27, a top-level GitLab group linking to Slack like a person, was closed
-in #166: a bare CODEOWNERS name is now asked of GitLab when tags are composed,
-and a group links to a Slack user group. A bare name decided as a person
-before GitLab was asked, as every one was, is asked about again as a team once
-GitLab knows it as a group; one GitLab cannot be asked about stays what it was
-decided as. Its ID is not reused.
+one costs something a reader should know about. Each entry is a
+`### TRADE-n <title>` section, under an ID that is never reused, with three
+paragraphs: **Decided.** (when, and why), **Cost.** and **Reopen when.** (the
+event that would reopen it). The code it keeps carries a `Trade-off TRADE-n:`
+comment naming it. An entry names the functions and files it keeps rather than
+lines, which drift, and the register is in ID order. An audit or a review
+drops a finding that restates an entry here unless that entry's reopen trigger
+has fired. `scripts/check-tradeoffs.sh`, in `task lint`, fails an entry
+missing its ID or one of its three fields, and a site comment or a
+`scripts/gobco-allowlist.txt` line naming an ID the register does not hold.
 
 ### TRADE-3 The web is read-only under `--dry-run`
 
@@ -152,8 +59,7 @@ runs. The browser reads `dry_run` from `getHealth`, shows a banner, and holds
 each write in `web/src/api/client.ts` before it is sent, so the 403 is only
 the backstop. One gate over every write is what guarantees nothing is written;
 simulating each write would mean a second, per-endpoint narration beside the
-terminal's. Recorded on 2026-09-24 in the audit (#140), and kept on 2026-10-07
-in the pre-1.0 audit.
+terminal's. Recorded 2026-09-24, in #140.
 
 **Cost.** A web write under dry run is refused, not simulated, so the page
 cannot show what the write would have done the way the terminal's narration
@@ -175,9 +81,7 @@ still ahead has passed (`useTasks`). The stream's connection state (`reconnectin
 the file's revision and refuses a changed file with 409; a change landing
 between that check and the write is not caught (`SaveLayers`,
 `internal/config/layers.go`), which is accepted for one user's local file.
-Recorded on 2026-09-24 in the audit (#140), kept on 2026-10-07 in the pre-1.0
-audit, and given the Tasks list's interval when the server took over its rules
-(DEBT-328).
+Recorded 2026-09-24, in #140.
 
 **Cost.** A connection that stays open but stops sending frames looks live,
 and leaves stale data with no refetch to fall back on.
@@ -193,8 +97,7 @@ hue (Jira, git, forge, messaging), inside `spineView.stages` in
 `internal/tui/spine.go`. The hue only repeats what the text says: the stage's
 name, or its initial when compact, names the system, and the glyph's shape
 carries its state. The hues are part of UX.md's visual system, which the web's
-tokens share. Recorded on 2026-09-24 in the audit (#140), and kept on
-2026-10-07 in the pre-1.0 audit.
+tokens share. Recorded 2026-09-24, in #140.
 
 **Cost.** A monochrome or color-blind reader loses one redundant channel
 telling the systems apart.
@@ -208,8 +111,7 @@ names the spine's hue.
 in `web/vitest.config.ts` held at floor(measured) − 2. v8 counts a branch
 covered once its code range has run, and no Vitest provider reports both
 outcomes of each condition, so the web cannot have gobco's per-condition
-floor. Recorded on 2026-09-24 in the audit (#140), and kept on 2026-10-07 in
-the pre-1.0 audit.
+floor. Recorded 2026-09-24, in #140.
 
 **Cost.** An `a && b` only ever seen with `b` true still passes the web's
 branch floor.
@@ -227,8 +129,7 @@ credential in a remote reaches the page. A bare host name git prints, in
 `Could not resolve host`, `connect to host` or `To host:path`, is kept: it is
 the user's own remote and what they need to act on. The detail is answered
 only to the page that pushed, on the loopback-bound, same-origin-guarded
-server. Decided 2026-09-26 in #145, and kept on 2026-10-07 in the pre-1.0
-audit.
+server. Decided 2026-09-26, in #145.
 
 **Cost.** The user's own remote host name can appear in a push's problem detail.
 
@@ -244,9 +145,7 @@ package `seams` declares, to `webserver.Deps` whole. Three of its fields speak
 Bubble Tea: `Editor` (`EditorDeps`, whose functions take and return Bubble Tea
 messages and commands because `internal/editor` hands the terminal over
 through `tea.ExecProcess`), `After` and `Copy`. So the bundle is the
-terminal's type rather than one in package `seams`. Decided 2026-09-25 in #144
-(DEBT-71), kept on 2026-10-07 in the pre-1.0 audit, and rewritten when the web
-server came to take the seam groups whole in the pre-1.0 paydown.
+terminal's type rather than one in package `seams`. Decided 2026-09-25, in #144.
 
 **Cost.** The wiring's output is named for one surface, and the web reaches
 its seams through the terminal's struct; a second surface that wants the
@@ -271,8 +170,7 @@ jira, messaging, slackauth, tui and webserver, keeping the 17 arms
 `scripts/gobco-allowlist.txt` keeps under this entry, since one comment on
 `seed` (`internal/tui/settingsvalues.go`) and one on `configDTO`
 (`internal/webserver/config.go`) each keep two; lines are not listed here
-because they drift. Decided 2026-09-26 in #146, and kept on 2026-10-07 in the
-pre-1.0 audit.
+because they drift. Decided 2026-09-26, in #146.
 
 **Cost.** Seventeen error arms no test runs. Because forge's
 `Client.newRequest`, jira's `Client.newJSONRequest`, messaging's
@@ -281,8 +179,8 @@ float, a channel or a failing marshaler would put an arm in play with no test
 behind it. The configuration's own encoders, `encodeValue`, `indented` and
 `decodeBuilt` (`internal/config`), panic on such a failure, as
 `regexp.MustCompile` does on a pattern that cannot compile, rather than hand
-their callers an error nothing could cause, so a failure there would now stop
-the program instead of being reported.
+their callers an error nothing could cause, so a failure there would stop the
+program rather than be reported.
 
 **Reopen when.** A type encoded at one of these sites gains a float, a
 function, a channel, an interface-typed field or a `MarshalJSON` of its own;
@@ -299,10 +197,9 @@ for an embedded `api/openapi.yaml` that fails to load, validate or route, and
 are compiled in (`api/embed.go`, and the `//go:embed all:dist` beside
 `Assets`), so only a build-time defect trips them, and that defect fails every
 web server test first; a seam to feed a broken spec or app would only re-test
-kin-openapi and `io/fs`. Decided 2026-09-26 in #146, kept on 2026-10-07 in the
-pre-1.0 audit, and widened to the embedded web app by the maintainer on
-2026-10-09 in the pre-1.0 paydown, when the condition coverage gate came to
-fail an arm no test reaches.
+kin-openapi and `io/fs`. Decided 2026-09-26, in #146, for the contract, and by
+the maintainer on 2026-10-09 for the web app, as the condition coverage gate
+fails an arm no test reaches.
 
 **Cost.** Six arms no test runs; the start-up message for a broken contract,
 and the panic for an app that cannot be rooted, are read, not checked.
@@ -321,8 +218,7 @@ open without a seam. Opening the store at this build's schema version:
 the version into a file the open just made or read (checked in
 `openCurrent`).
 
-**Decided.** 2026-09-26, in #146; narrowed to these two calls in the pre-1.0
-paydown, which made one call of each other pair.
+**Decided.** 2026-09-26, in #146.
 
 **Cost.** Five error arms no test runs: `removeDatabase`'s own, a removal
 that fails for any reason but the file being gone already; `stamp`'s own
@@ -353,12 +249,8 @@ child process that has no terminal at all, as a test run from a developer's
 shell does not, and gobco counts only the test process, so every report
 lists the terminal check as never false.
 
-**Decided.** 2026-09-26, in #146; narrowed to `closeRequestLog` alone in the
-pre-1.0 paydown, when every command came to read its working directory from
-the environment its caller hands it, so a test reaches the six `os.Getwd`
-arms this entry also kept on every system; and widened to `keysFrom` in the
-same paydown, when the interface came to read keys from the terminal when its
-input is a file that is none (DEBT-197).
+**Decided.** 2026-09-26, in #146, for `closeRequestLog`, and 2026-10-09 for
+`keysFrom`.
 
 **Cost.** `task cover:branch` on macOS reads one arm fewer than CI does, and
 every report lists `keysFrom`'s terminal check as never false, though a test
@@ -400,11 +292,8 @@ two: gobco's counters are plain increments, which a package's parallel tests
 can lose (`scripts/gobco-report.sh` says so), and two runs of the same
 `internal/config` code, this one and CI's, saw 500 and 501 of its 520 arms.
 
-**Decided.** 2026-09-26, in #146, which gave every condition that never ran and
-every `err != nil` seen one way a test or an entry above, and left the rest to
-the report; narrowed in the pre-1.0 paydown (DEBT-239) to the conditions the
-gate does not fail, once it came to fail the others, and again when it came to
-read an `errors.Is` right after an error check as one.
+**Decided.** 2026-09-26, in #146: a condition seen one way that the gate does
+not fail is left to the report.
 
 **Cost.** A change that breaks one of the worklist's unseen arms fails no test,
 and the floors notice only when enough of them add up to move a share; an
@@ -438,8 +327,7 @@ unread.
 **Decided.** 2026-09-30, when both surfaces gained the place filter: the
 marks are read from data each surface already has, the branches and the
 linked tasks, and moving the rule to the server would mean sending each
-issue's marks in the snapshot for a filter that runs in the browser. Kept in
-the pre-1.0 paydown, which held both copies to one shared case file.
+issue's marks in the snapshot for a filter that runs in the browser.
 
 **Cost.** A change to what a place means is made twice, against one shared
 case file that fails whichever copy disagrees with it; a rule the file holds
@@ -459,7 +347,7 @@ save. Making these two live would mean always building the combined tracker
 and threading another control through every tracker seam, while the rest of
 Jira's settings would still wait for a restart. The forge-row count that
 offsets later pages is one per tracker, shared by every tab paging that view.
-Decided 2026-10-01 in #164, and kept on 2026-10-07 in the pre-1.0 audit.
+Decided 2026-10-01, in #164.
 
 **Cost.** A Settings save that turns `issues.forge` on or off, or changes the
 first view, applies only after `workflow --web` restarts; both Settings
@@ -478,8 +366,7 @@ again: owner links, repository groups and favorite directories
 migrations, because before 1.0 workflow is installed fresh. A file at another
 version is never discarded: it reads as empty and refuses writes with
 `ErrKeptSchemaDiffers`, which names `workflow db-clean --all`. Decided
-2026-10-01 in #165, held through the bump to version 2 in #176, and kept on
-2026-10-07 in the pre-1.0 audit.
+2026-10-01, in #165.
 
 **Cost.** Each change to a kept table leaves files from earlier builds unread:
 tagging and favorites go blank until the user runs `workflow db-clean --all`
@@ -501,8 +388,7 @@ A shared read runs to its end even if the one who began it leaves, and ends
 with the command it runs in (`lifetime.Detached`): when the web server stops,
 when a signal ends the command, or when workflow exits after the terminal's
 last quit. A session started by switching directory (TRADE-34) reads afresh.
-Decided 2026-10-01 in #165 and #166, and kept on 2026-10-07 in the pre-1.0
-audit.
+Decided 2026-10-01, in #165 and #166.
 
 **Cost.** A workspace under the cap holds every user's name in memory for the
 session and pays up to 20 pages on its first read. One over the cap pays those
@@ -529,8 +415,7 @@ each decodes it strictly.
 on every keystroke, and asking the server for each one would be a write
 under the dry-run guard's rule (it refuses every non-GET) or a GET carrying
 the whole comment in its URL. Converting in the browser shows exactly what
-will be sent with no request at all. Kept in the pre-1.0 paydown, which held
-both copies to one shared case file.
+will be sent with no request at all.
 
 **Cost.** A change to how a Markdown construct converts is made twice,
 against one shared case file that fails whichever copy disagrees with it; a
@@ -555,8 +440,8 @@ a pull request and an announcement are; ctrl+o still hands the draft to
 a full-screen editor would hide, and the box needs no editor configured.
 Normal mode knows only moving and entering insert mode (`h`, `l`, `j`, `k`,
 `i`, `a`, `A`, `o`), so a key that types is never taken for a command.
-Decided 2026-10-05 in #173, and kept on 2026-10-07 in the pre-1.0 audit:
-building a fuller editor would cost more than the comments it serves.
+Decided 2026-10-05, in #173: building a fuller editor would cost more than
+the comments it serves.
 
 **Cost.** The box is a worse editor than the user's own: no operators, no
 undo, no search, so vim's `dd` or `u` does nothing. Text that comes back from
@@ -580,9 +465,8 @@ are written by anyone who can comment, and several markup patterns (a link's
 label, a bare link, Markdown's links and underscores) rescan from every opener
 that never closes, so a long run of them is quadratic and stalls the page.
 Bounding the input keeps every pattern as it is; a linear scanner for each
-would be a parser of its own to keep. Decided 2026-10-05 in #174, and kept on
-2026-10-07 in the pre-1.0 audit: the bound is a few lines and binds only on
-text no one reads formatted.
+would be a parser of its own to keep. Decided 2026-10-05, in #174: the bound
+is a few lines and binds only on text no one reads formatted.
 
 **Cost.** A real comment past either bound, such as a pasted log, loses its
 formatting and its links are text; on a long, busy thread the older comments
@@ -602,9 +486,8 @@ announcement is (`loop.PostSummary`). Every source already keeps what it
 knows, with its own times, and a journal of workflow's own would see only what
 was done through workflow, missing a commit made in a shell or an issue moved
 in Jira's own page. Reading back keeps the store free of a second copy that
-could disagree with the first. Decided 2026-10-05 in #175, and kept on
-2026-10-07 in the pre-1.0 audit: a journal is a feature with its own schema,
-not a fix.
+could disagree with the first. Decided 2026-10-05, in #175: a journal is a
+feature with its own schema, not a fix.
 
 **Cost.** A period is as slow to show as its slowest source, and a source that
 is down shows nothing for it. What a source does not keep (a Jira comment on
@@ -626,10 +509,9 @@ file, `internal/activity/testdata/civil_dates.json`. The web's calendar moves on
 key (`MonthGrid`'s arrows, Page Up and Page Down, Home and End), so it cannot
 wait on a request for arithmetic. The server still decides the default period
 and reads every period, so only the moves are twinned, never which days were
-worked. Decided 2026-10-05 in #175, and kept on 2026-10-07 in the pre-1.0
-audit: nearly all of it is the Gregorian calendar, whose rules do not change,
-and the one rule of workflow's own, that a whole month or year steps as one,
-is a few lines.
+worked. Decided 2026-10-05, in #175: nearly all of it is the Gregorian
+calendar, whose rules do not change, and the one rule of workflow's own, that
+a whole month or year steps as one, is a few lines.
 
 **Cost.** A change to how a period steps is made twice, against one shared
 case file that fails whichever copy disagrees with it; a mistake in one copy's
@@ -653,8 +535,8 @@ its forge, the configuration that applies, the store's keys) is bound to a
 directory when the interface is built, and rebinding them in a running
 program would mean every pane and overlay noticing its world change under it;
 starting again gets the answer starting there would, by the same code.
-Decided 2026-10-05 in #176, and kept on 2026-10-07 in the pre-1.0 audit:
-rebinding live would be a second construction path to keep in step.
+Decided 2026-10-05, in #176: rebinding live would be a second construction
+path to keep in step.
 
 **Cost.** A switch reads every pane again and drops what belonged to the
 repository left (a commit message, a pull request or a forge issue's comment
@@ -673,9 +555,8 @@ found left changed by one in practice.
 target in `Taskfile.yml`, `darwin/arm64` and `windows/amd64` among them, so
 the code only a macOS or a Windows binary holds is compiled on every change,
 but no job runs it, and code only those systems' tests build is not compiled
-at all. Decided 2026-10-09 by the maintainer in the pre-1.0 paydown (#237):
-CI stays on Linux, and the cost is recorded here; widened in the same paydown
-from the code only Windows runs to the code only macOS runs as well.
+at all. Decided 2026-10-09 by the maintainer, in #237: CI stays on Linux, and
+the cost of the code only Windows or macOS runs is recorded here.
 
 **Cost.** Five files are Windows-only, one is macOS-only, and four functions
 have a branch or a value only Windows takes, each marked with this entry's ID:
@@ -734,8 +615,8 @@ by path would look the file up again, and a file swapped in between would be
 checked in place of the one read. A stat of a descriptor the process holds
 open fails only for a fault no test can cause without a seam to fake the file,
 so its error arm keeps no test; it stays, so such a failure is reported rather
-than read past. Decided 2026-10-09 by the maintainer in the pre-1.0 paydown,
-when the condition coverage gate came to fail an arm no test reaches.
+than read past. Decided 2026-10-09 by the maintainer, as the condition
+coverage gate fails an arm no test reaches.
 
 **Cost.** One arm no test runs: what a configuration file whose stat fails
 says is read, not checked.
@@ -751,9 +632,9 @@ request's (`worlds.outlivingItsPage`) that ends only when the server's
 lifetime, the context `Handler` is given, does. A read stops when its page
 goes; a write, a commit, a push, a post or a task started, goes on to its end,
 so a page closed or reloaded mid-write never cuts one off halfway. It is what
-`docs/content/docs/web.md` already promised a run: it goes on to its end if
-the page is closed. Decided 2026-10-09 by the maintainer in the pre-1.0
-paydown, when each seam came to take its asker's context.
+`docs/content/docs/web.md` promises a run: it goes on to its end if the page
+is closed. Decided 2026-10-09 by the maintainer, with each seam taking its
+asker's context.
 
 **Cost.** Closing a tab cannot call off a slow write; only Stop, for a run,
 or stopping the server can.
@@ -788,14 +669,11 @@ it gave up on, and exits with status 1. A second `ctrl+c`, which the terminal
 the interface left sends as SIGINT, or SIGTERM ends every write's context and
 exits at once, with status 130. A switch does not wait: a write sent before one
 goes on in the directory left, and the quit waits for it too. Leaving a view
-cancels nothing: a late answer is dropped by its read's count or view, as
-before, and canceling per view would mean a cancel handle on every view's state.
-Decided 2026-10-09 by the maintainer in the pre-1.0 paydown, when each seam came
-to take its asker's context, for reads. On 2026-10-12, in review, writes were
-kept out of it, and the maintainer chose that a quit waits for them, bounded,
-rather than exit under them as it had: before, a write done in workflow's own
-process ended with the process, and a program a write ran was cut by a broken
-pipe at its next output.
+cancels nothing: a late answer is dropped by its read's count or view, and
+canceling per view would mean a cancel handle on every view's state. Decided
+2026-10-09 by the maintainer for reads, with each seam taking its asker's
+context, and on 2026-10-12, in review, for writes: they stay out of the
+session's end, and a quit waits for them, bounded.
 
 **Cost.** A read for a view the user has left still spends its request to the
 tracker, the forge or Taskwarrior. Quitting cannot call off a slow write: it
