@@ -20,7 +20,7 @@ func ReviewRequests(requests []forge.ReviewRequest) []api.ReviewRequest {
 		queue = append(queue, api.ReviewRequest{
 			Number: request.Number, URL: request.URL, Title: request.Title, Author: request.Author,
 			Repository: request.Repository, Draft: request.Draft, Ci: api.CIState(request.CI.Word()),
-			OpenedAt: openedAt(request.OpenedAt), Facets: ReviewFacets(request.Facets()),
+			OpenedAt: optionalTime(request.OpenedAt), Facets: ReviewFacets(request.Facets()),
 		})
 	}
 
@@ -44,9 +44,10 @@ func ReviewFacets(facets []forge.ReviewFacet) []api.ReviewFacet {
 	return out
 }
 
-// openedAt is when a request was opened, or nil where the forge did not say:
-// the wire leaves such a time out, never sending the zero time.
-func openedAt(moment time.Time) *time.Time {
+// optionalTime is moment, or nil for the zero time, which a read gives where
+// the forge or the tracker did not say: the wire leaves such a time out, never
+// sending the zero time.
+func optionalTime(moment time.Time) *time.Time {
 	if moment.IsZero() {
 		return nil
 	}
