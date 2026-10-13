@@ -426,7 +426,8 @@ func isAny(err error, targets ...error) bool {
 func exitFamilies() []exitFamily {
 	return []exitFamily{
 		{status: exitUsage, members: []error{
-			errUsage, errNoTerminal, errLoginBlank, errCommentBlank, errAssigneeBlank,
+			errUsage, errNoTerminal, errLoginBlank, errCommentBlank, errAssigneeBlank, errDurationBlank,
+			errWorklogOnForge,
 		}},
 		{status: exitConfiguration, members: configurationErrors()},
 		{status: exitRefused, members: refusalErrors()},
@@ -438,11 +439,11 @@ func exitFamilies() []exitFamily {
 // incomplete — a credential or an address not set, or set unusably — shared,
 // holding a credential a service would not accept, or a ui.keys map the
 // interface refuses, a Slack login the messaging section cannot take or whose
-// credentials Slack will not refresh, and a repository with no remote to name
-// the forge, or one on a host neither it nor forge.kind names: what the user
-// fixes in the file, the environment, a login or the repository's origin. A
-// command meeting a credential that is not there exits as doctor does, reading
-// the same file.
+// credentials Slack will not refresh, a worklog with no Jira to log it in, and
+// a repository with no remote to name the forge, or one on a host neither it
+// nor forge.kind names: what the user fixes in the file, the environment, a
+// login or the repository's origin. A command meeting a credential that is not
+// there exits as doctor does, reading the same file.
 func configurationErrors() []error {
 	return append([]error{
 		config.ErrNotFound, config.ErrInvalid,
@@ -451,7 +452,7 @@ func configurationErrors() []error {
 		messaging.ErrNoCredential, messaging.ErrInsecureWebhook,
 		jira.ErrUnauthorized, jira.ErrForbidden, forge.ErrUnauthorized, messaging.ErrRejected,
 		errCredentialRejected, errCredentialMissing, errIncomplete, errInvalid, errShared,
-		errMessagingNotConfigured, errLoginNeedsConfig, errLoginOverWebhook, errLoginNotSlack,
+		errMessagingNotConfigured, errLoginNeedsConfig, errLoginOverWebhook, errLoginNotSlack, errWorklogNeedsJira,
 		slackauth.ErrRefreshRefused, slackauth.ErrNotAUserToken,
 	}, config.KeyRefusals()...)
 }

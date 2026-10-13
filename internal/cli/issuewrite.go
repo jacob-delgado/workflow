@@ -4,6 +4,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -11,18 +12,19 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/report"
 )
 
 // issueWrite is a change to an issue a command makes: the preview it prints,
-// what it says around the confirmation, the write itself, and what it says
-// once the write is made.
+// what it says around the confirmation, and the write itself, which answers
+// what to say once it is made.
 type issueWrite struct {
 	preview string
 	say     writePrompt
-	write   func(ctx context.Context) error
-	done    string
+	write   func(ctx context.Context) (string, error)
 }
 
 // run previews the write, and makes it once confirmed, saying so.
@@ -34,12 +36,12 @@ func (w issueWrite) run(ctx context.Context, out output, opts writeOptions, conf
 		return err
 	}
 
-	err = w.write(ctx)
+	done, err := w.write(ctx)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintln(out.notes, w.done)
+	fmt.Fprintln(out.notes, done)
 
 	return nil
 }
@@ -115,15 +117,14 @@ func runTransition(
 			dryRun:   "dry run: would move " + key + " to " + target,
 			declined: "Left " + key + " as it is.",
 		},
-		write: func(ctx context.Context) error {
+		write: func(ctx context.Context) (string, error) {
 			err := seams.Transition(ctx, issueKey, move, nil)
 			if err != nil {
-				return fmt.Errorf("moving %s to %s: %w", key, target, err)
+				return "", fmt.Errorf("moving %s to %s: %w", key, target, err)
 			}
 
-			return nil
+			return "Moved " + key + " to " + target + ".", nil
 		},
-		done: "Moved " + key + " to " + target + ".",
 	}.run(ctx, out, opts, seams.Confirm)
 }
 
@@ -191,14 +192,131 @@ func runAssign(
 			dryRun:   "dry run: would assign " + key + " to " + who,
 			declined: "Not assigned.",
 		},
-		write: func(ctx context.Context) error {
+		write: func(ctx context.Context) (string, error) {
 			err := seams.Assign(ctx, issueKey, assignee)
 			if err != nil {
-				return fmt.Errorf("assigning %s to %s: %w", key, who, err)
+				return "", fmt.Errorf("assigning %s to %s: %w", key, who, err)
 			}
 
-			return nil
+			return "Assigned " + key + " to " + who + ".", nil
 		},
-		done: "Assigned " + key + " to " + who + ".",
+	}.run(ctx, out, opts, seams.Confirm)
+}
+
+// Why work cannot be logged.
+var (
+	// errDurationBlank refuses a worklog that says nothing of how long.
+	errDurationBlank = errors.New("logging work needs a duration, such as 2h or 30m")
+	// errWorklogOnForge refuses a worklog on a forge issue, which keeps none.
+	errWorklogOnForge = errors.New("a forge issue keeps no worklog; log work on a Jira issue")
+	// errWorklogNeedsJira refuses a worklog where the forge's issues are the
+	// whole tracker.
+	errWorklogNeedsJira = errors.New("logging work needs Jira; set jira.base_url")
+)
+
+// worklogSeams are what `workflow worklog` does, so a test can answer without
+// a tracker.
+type worklogSeams struct {
+	AddWorklog func(ctx context.Context, issueKey jira.Key, timeSpent, comment string) (jira.Worklog, error)
+	Confirm    func(question string) (bool, error)
+}
+
+// worklogEntry is the work a worklog records: on which issue, how long, and
+// the note beside it.
+type worklogEntry struct {
+	issueKey jira.Key
+	spent    string
+	note     string
+}
+
+// newWorklogCmd builds `workflow worklog <issue> <duration>`.
+func newWorklogCmd(prompt Prompt) *cobra.Command {
+	var (
+		opts writeOptions
+		note string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "worklog <issue> <duration>",
+		Short: "Log work on a Jira issue",
+		Long: "Log work on a Jira issue: how long, in Jira's own form (2h, 30m, 1d 4h), with\n" +
+			"--comment's note beside it. The worklog is printed and confirmed before it is\n" +
+			"logged. A forge issue keeps no worklog, so its number is refused, as is a blank\n" +
+			"duration, before anything is asked.",
+		Example: examples(
+			`workflow worklog PROJ-7 2h --comment "pairing on the fix" --yes`,
+		),
+		Args: cobra.ExactArgs(2), //nolint:mnd // the issue and the duration
+		RunE: func(cmd *cobra.Command, args []string) error {
+			entry := worklogEntry{issueKey: jira.Key(args[0]), spent: strings.TrimSpace(args[1]), note: note}
+
+			err := entry.check()
+			if err != nil {
+				return err
+			}
+
+			conn, err := connect(cmd)
+			if err != nil {
+				return err
+			}
+			defer conn.closeLog()
+
+			seams := worklogSeams{
+				AddWorklog: conn.deps.Jira.AddWorklog,
+				Confirm:    func(question string) (bool, error) { return confirm(prompt, question) },
+			}
+
+			return runWorklog(cmd.Context(), outputOf(cmd), seams, entry, opts)
+		},
+	}
+
+	opts.addFlags(cmd, confirmationHelp)
+	cmd.Flags().StringVar(&note, "comment", "", "a note to log beside the time")
+
+	return cmd
+}
+
+// check refuses, from the arguments alone, a worklog no tracker could take: a
+// forge issue's, or one with no duration.
+func (e worklogEntry) check() error {
+	if report.TrackerOf(e.issueKey) == api.IssueTrackerForge {
+		return errWorklogOnForge
+	}
+
+	if e.spent == "" {
+		return errDurationBlank
+	}
+
+	return nil
+}
+
+// runWorklog previews the worklog, and logs it once confirmed.
+func runWorklog(ctx context.Context, out output, seams worklogSeams, entry worklogEntry, opts writeOptions) error {
+	if seams.AddWorklog == nil {
+		return errWorklogNeedsJira
+	}
+
+	key := string(entry.issueKey)
+
+	preview := "Log " + entry.spent + " on " + key
+	if entry.note != "" {
+		preview += "\n  " + entry.note
+	}
+
+	return issueWrite{
+		preview: preview,
+		say: writePrompt{
+			question: "Log " + entry.spent + " on " + key + "?",
+			dryRun:   "dry run: would log " + entry.spent + " on " + key,
+			declined: "Not logged.",
+		},
+		write: func(ctx context.Context) (string, error) {
+			logged, err := seams.AddWorklog(ctx, entry.issueKey, entry.spent, entry.note)
+			if err != nil {
+				return "", fmt.Errorf("logging %s on %s: %w", entry.spent, key, err)
+			}
+
+			return "Logged " + cmp.Or(logged.TimeSpent, entry.spent) + " on " + key + ".", nil
+		},
 	}.run(ctx, out, opts, seams.Confirm)
 }

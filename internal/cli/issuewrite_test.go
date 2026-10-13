@@ -249,3 +249,109 @@ func TestAssignDryRunAssignsNothing(t *testing.T) {
 		t.Errorf("assign --dry-run = %v, said %q, assigned %+v", err, printed.stderr, asked.of(writeAssign))
 	}
 }
+
+func TestWorklogLogsTheDurationWithItsNote(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir, asked := trackerDir(t, trackerAnswers{})
+
+	// Act
+	printed, err := runStreams(t, dir, unusedPrompt(t),
+		"worklog", trackedIssue, "2h", "--comment", "pairing", "--yes")
+	// Assert
+	if err != nil {
+		t.Fatalf("worklog --yes: %v (%+v)", err, printed)
+	}
+
+	logged := asked.of(writeWorklog)
+	if len(logged) != 1 || !strings.Contains(logged[0].body, `"timeSpent":"2h"`) ||
+		!strings.Contains(logged[0].body, `"comment":"pairing"`) {
+		t.Errorf("worklogs = %+v, want 2h with its note, once", logged)
+	}
+
+	if !strings.Contains(printed.stdout, "Log 2h on PROJ-7\n  pairing") ||
+		!strings.Contains(printed.stderr, "Logged 2h on PROJ-7.") {
+		t.Errorf("worklog previewed or reported wrongly:\nstdout:\n%s\nstderr:\n%s", printed.stdout, printed.stderr)
+	}
+}
+
+func TestWorklogRefusesWhatCannotBeLogged(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		issueKey string
+		spent    string
+	}{
+		"a forge issue":    {issueKey: "42", spent: "1h"},
+		"a blank duration": {issueKey: trackedIssue, spent: " "},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			dir, asked := trackerDir(t, trackerAnswers{})
+
+			// Act
+			_, err := runStreams(t, dir, unusedPrompt(t), "worklog", tt.issueKey, tt.spent, "--yes")
+
+			// Assert
+			wantExit(t, err, 2)
+
+			if got := asked.of(writeWorklog); len(got) != 0 {
+				t.Errorf("work was logged: %+v", got)
+			}
+		})
+	}
+}
+
+func TestWorklogWithoutJiraSaysToSetItUp(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := t.TempDir()
+	writeFile(t, dir, `{}`)
+
+	// Act
+	_, err := runStreams(t, dir, unusedPrompt(t), "worklog", trackedIssue, "1h", "--yes")
+
+	// Assert
+	wantExit(t, err, 3)
+
+	if err == nil || !strings.Contains(err.Error(), "jira.base_url") {
+		t.Errorf("worklog with no Jira = %v, want it to say to set jira.base_url", err)
+	}
+}
+
+func TestWorklogSaysWhatJiraRefused(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir, _ := trackerDir(t, trackerAnswers{writeCode: http.StatusBadRequest})
+
+	// Act
+	_, err := runStreams(t, dir, unusedPrompt(t), "worklog", trackedIssue, "2h", "--yes")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "logging 2h on PROJ-7") {
+		t.Errorf("worklog Jira refused = %v, want the log named", err)
+	}
+}
+
+func TestWorklogDryRunLogsNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir, asked := trackerDir(t, trackerAnswers{})
+
+	// Act
+	printed, err := runStreams(t, dir, unusedPrompt(t), "worklog", trackedIssue, "2h", "--dry-run")
+
+	// Assert
+	if err != nil || !strings.Contains(printed.stderr, "dry run: would log 2h on PROJ-7") ||
+		len(asked.of(writeWorklog)) != 0 {
+		t.Errorf("worklog --dry-run = %v, said %q, logged %+v", err, printed.stderr, asked.of(writeWorklog))
+	}
+}
