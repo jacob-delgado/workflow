@@ -429,7 +429,7 @@ func instanceKey(baseURL string) string {
 // is not installed, so its actions are not offered.
 func (e Environment) hookDeps(root string) seams.Hooks {
 	if !e.Available("lefthook") {
-		return seams.Hooks{Run: nil, Existing: nil, Write: nil}
+		return seams.Hooks{Run: nil, Existing: nil, Write: nil, Configured: nil}
 	}
 
 	return seams.Hooks{
@@ -451,6 +451,9 @@ func (e Environment) hookDeps(root string) seams.Hooks {
 			}
 
 			return e.installLefthook(ctx, root)
+		},
+		Configured: func(ctx context.Context) (hooks.Configured, error) {
+			return hooks.ReadConfigured(ctx, root, e.runCommand)
 		},
 	}
 }
