@@ -182,7 +182,7 @@ func TestAFindThatSucceedsClearsTheFailedFindBeforeIt(t *testing.T) {
 	requireScreen(t, recovered.View().Content, "#42 "+pullTitle)
 }
 
-func TestAFailedCheckStopsThePollAQueuedPostWaitsOn(t *testing.T) {
+func TestAWaitingPostKeepsReadingCIAfterAReadFails(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -203,8 +203,8 @@ func TestAFailedCheckStopsThePollAQueuedPostWaitsOn(t *testing.T) {
 		t.Errorf("the poll due asked about CI %d times, want once", asked)
 	}
 
-	if polls := timer.waiting(); polls != 0 {
-		t.Errorf("%d polls are scheduled after a failed check, want none until the next refresh", polls)
+	if polls := timer.waiting(); polls != 1 {
+		t.Errorf("%d polls are scheduled after a failed check, want the next one, since a post waits", polls)
 	}
 
 	if posts := repo.asked("post "); len(posts) != 0 {
