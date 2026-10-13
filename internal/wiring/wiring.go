@@ -455,10 +455,10 @@ func (e Environment) hookDeps(root string) seams.Hooks {
 	}
 }
 
-// installLefthook runs lefthook install in the repository — its root, not
-// wherever the process happens to be, which for a test is this repository.
+// installLefthook runs lefthook install in the repository's root, which for a
+// test is not this repository.
 func (e Environment) installLefthook(ctx context.Context, root string) error {
-	output, err := e.start(ctx, proc.Command{Dir: root, Name: "lefthook", Args: []string{"install"}, Env: nil})
+	output, err := e.start(ctx, hooks.InstallCommand(root))
 	if err != nil {
 		return fmt.Errorf("installing lefthook: %w", err)
 	}
