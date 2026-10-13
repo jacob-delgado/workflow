@@ -773,7 +773,10 @@ context, until the command is done. When the last interface quits, workflow
 waits for the writes still in flight before it exits (`finishWrites`,
 `internal/cli/finishwrites.go`): it says on stderr how many it is finishing, and
 exits once none has been in flight for a tenth of a second, so a write that
-follows another (a post's record after the post) is waited for too. A streamed
+follows another (a post's record after the post) is waited for too. Every quit
+settles so, even one that lands with nothing in flight: between those two
+writes, or after the interface has started a write's command and before that
+write has begun, where a quit would otherwise exit under the write. A streamed
 write (a commit, a push, an amend, a fixup, a rebase, a hook) counts until its
 program exits, and no longer: once a quit or a switch leaves its output unread,
 the rest is read and dropped (`releasedOnExit`), so the program never blocks on
