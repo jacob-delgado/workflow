@@ -70,6 +70,20 @@
   --success: #62c08a;
   --warning: #d6a64a;
 
+  /* A notice's ground in its state's color — a failure, a result, a mode
+     such as dry-run — solid, so the state's color holds 4.5:1 as text on it
+     (web/src/tokens.test.ts). */
+  --destructive-surface: #3a2a2f;
+  --success-surface: #233a2f;
+  --warning-surface: #3a3324;
+
+  /* How much was done on a day of the Summary's calendar, in three steps of
+     the control accent — low, mid, high — the day's number holding 4.5:1 on
+     each. */
+  --activity-low: #2d3350;
+  --activity-mid: #38406a;
+  --activity-high: #454f86;
+
   /* Identity: one hue for each system the loop crosses — the terminal spine's
      blue, yellow, green and magenta (internal/tui/spine.go) — and one for your
      own tasks, saying whose a thing is, never how it stands. Each sits at
@@ -130,6 +144,14 @@
   --success: #156339;
   --warning: #734600;
 
+  --destructive-surface: #fae6e5;
+  --success-surface: #dff1e6;
+  --warning-surface: #f9ecd5;
+
+  --activity-low: #e2e5fa;
+  --activity-mid: #cfd4f5;
+  --activity-high: #bcc3ef;
+
   /* The same four systems, and your own tasks, by daylight: darker, for 4.5:1
      on the page. */
   --jira: #0d628f;
@@ -169,6 +191,12 @@
   --color-disabled-foreground: var(--disabled-foreground);
   --color-success: var(--success);
   --color-warning: var(--warning);
+  --color-destructive-surface: var(--destructive-surface);
+  --color-success-surface: var(--success-surface);
+  --color-warning-surface: var(--warning-surface);
+  --color-activity-low: var(--activity-low);
+  --color-activity-mid: var(--activity-mid);
+  --color-activity-high: var(--activity-high);
   --color-jira: var(--jira);
   --color-git: var(--git);
   --color-forge: var(--forge);
