@@ -211,6 +211,16 @@
   body {
     background-color: var(--background);
     color: var(--foreground);
+    /* Checkboxes and radios in the control accent rather than the browser's
+       own blue; it inherits, so one declaration reaches every one. */
+    accent-color: var(--primary);
+  }
+
+  /* Selected text in the full foreground on a faint accent wash, so muted or
+     colored text stays readable while it is selected. */
+  ::selection {
+    background-color: color-mix(in srgb, var(--primary) 25%, transparent);
+    color: var(--foreground);
   }
 }
 
