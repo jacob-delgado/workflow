@@ -32,15 +32,19 @@ export type MonthRead =
   { state: 'waiting' } | { state: 'refused' } | { state: 'read'; done: MonthDone }
 
 // useMonthRead reads what was done over month, for the calendar to say of each
-// day. It shares the period's read when the period is the month, but keeps
-// its own freshness, so paging the calendar back to a month it showed moments
-// ago reads it no sooner than a section opened again would (freshFor).
+// day. It is a read of its own, tagged for the calendar, never the period's
+// even when the period is the month, so the calendar reading a month again can
+// never set the period's read waiting or refused beneath it. It keeps its own
+// freshness, so paging back to a month shown moments ago reads it no sooner
+// than a section opened again would (freshFor).
 //
 // Trade-off TRADE-32: every month the calendar shows is read back from every
 // source, on top of the period's own read.
 export function useMonthRead(month: Period, today: CivilDate): MonthRead {
+  const options = getActivityOptions({ query: { from: month.from, to: month.to } })
   const read = useQuery({
-    ...getActivityOptions({ query: { from: month.from, to: month.to } }),
+    ...options,
+    queryKey: [{ ...options.queryKey[0], tags: ['calendar'] }],
     staleTime: freshFor,
     retry: false,
     enabled: month.from <= today,

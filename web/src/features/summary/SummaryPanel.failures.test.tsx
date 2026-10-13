@@ -166,3 +166,36 @@ test('a source that is not set up says how to set it up, as guidance rather than
   expect(markShape(guidance?.parentElement ?? document.body)).toBe(drawnMark('not-started'))
   expect(screen.queryByRole('alert')).toBeNull()
 })
+
+test('the calendar reading its month again never reads the period again beneath it', async () => {
+  // Arrange
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-09-16T12:00:00Z'))
+  let refusing = false
+  fakeApi({
+    '/api/activity': (url: URL) => {
+      const from = url.searchParams.get('from') ?? '2026-09-15'
+      const to = url.searchParams.get('to') ?? from
+
+      return refusing
+        ? Response.json({ detail: 'the request failed' }, { status: 502 })
+        : { ...quietDay(), from, to }
+    },
+  })
+  const user = userEvent.setup()
+  renderWithClient(<SummaryPanel />)
+  await user.click(await screen.findByRole('button', { name: 'Whole month' }))
+  await screen.findByRole('heading', { level: 2, name: /September 1, 2026 to/ })
+  const month = screen.getByRole('combobox', { name: 'Month' })
+  await user.selectOptions(month, 'August')
+  vi.setSystemTime(new Date('2026-09-16T12:01:00Z'))
+  refusing = true
+
+  // Act
+  await user.selectOptions(month, 'September')
+
+  // Assert
+  expect(await screen.findByText(/could not be read, so no day in it/)).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
+  vi.useRealTimers()
+})
