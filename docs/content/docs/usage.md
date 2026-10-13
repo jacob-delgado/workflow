@@ -967,8 +967,8 @@ have them. See [Configuration]({{< relref "/docs/configuration" >}}).
 - **A quit waits for your writes; a signal does not.** Quitting, or switching to
   another directory, stops every read in flight, such as a list loading or a
   pane reading the forge, but a read of the Slack directory, which others may be
-  waiting on, and a renewal of your Slack user token that a read began: those go
-  on past a switch and end when workflow exits. A quit or a switch stops none of
+  waiting on, and a renewal of your Slack user token that a read began: those
+  run to their end, or until workflow exits. A quit or a switch stops none of
   the writes you sent: a commit, a push, a post, a comment, a status change, a
   settings save. Quitting the last interface then waits for those writes to
   land, saying `finishing 2 writes…`, and exits once they have; it gives up

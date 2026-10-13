@@ -13,13 +13,14 @@ the debts.
 
 ## How to write an entry
 
-An entry is a `### DEBT-n <title>` section above the register, under the next
-unused DEBT ID, DEBT-329 onward: an ID is never reused. One line under the
-title rates it, as `Severity: low · Confidence: read · Size: S`, ending in
-`· Breaking` when that applies, and four paragraphs follow: **Where.** names
-the functions and files rather than lines, which drift; **Today.** says what is
-wrong and what it costs; **Fix.** gives one way to fix it; and **Done when.**
-says how to tell it is fixed.
+An entry is a `### DEBT-n <title>` section under a `##` heading for its area,
+above the register, with the next unused DEBT ID, DEBT-329 onward: an ID is
+never reused. One line under the title rates it, as
+`Severity: low · Confidence: read · Size: S`, ending in `· Breaking` when that
+applies, and four paragraphs follow: **Where.** names the functions and files
+rather than lines, which drift; **Today.** says what is wrong and what it
+costs; **Fix.** gives one way to fix it; and **Done when.** says how to tell it
+is fixed.
 
 - **Severity** is high (a wrong result a user could act on, or a blocked
   release), medium (a real defect with a narrower trigger, or a shortcut that
@@ -33,16 +34,17 @@ says how to tell it is fixed.
   depends on: a `--json` shape, the web API, or an exit status.
 - **Done when** is observable, so a test or a command can assert it.
 
-An entry is accidental debt unless it is in [the trade-off
-register](#the-trade-off-register), which lists the choices made on purpose,
-what each costs, and what would reopen it.
+A DEBT entry is accidental debt. A cost chosen on purpose goes in [the
+trade-off register](#the-trade-off-register) instead, which lists what each
+costs and what would reopen it. A security problem goes in neither: report it
+as [SECURITY.md](SECURITY.md) asks.
 
 ## The trade-off register
 
 These were chosen on purpose. They are not debt; they are listed because each
 one costs something a reader should know about. Each entry is a
 `### TRADE-n <title>` section, under an ID that is never reused, with three
-paragraphs: **Decided.** (when, and why), **Cost.** and **Reopen when.** (the
+labeled paragraphs: **Decided.** (when, and why), **Cost.** and **Reopen when.** (the
 event that would reopen it). The code it keeps carries a `Trade-off TRADE-n:`
 comment naming it. An entry names the functions and files it keeps rather than
 lines, which drift, and the register is in ID order. An audit or a review
@@ -76,12 +78,13 @@ state into `useSnapshotStore`, so a cached read needs no refetch of its own; a
 read the stream does not carry sets its own `staleTime` beside it (`freshFor`,
 0, or `directoryHold`), and the one that changes with no event to say so, the
 Tasks list, sets a `refetchInterval` that reads it again once the earliest wait
-still ahead has passed (`useTasks`). The stream's connection state (`reconnecting`,
-`stale`) is shown, so a dropped stream is visible. A configuration save checks
-the file's revision and refuses a changed file with 409; a change landing
-between that check and the write is not caught (`SaveLayers`,
-`internal/config/layers.go`), which is accepted for one user's local file.
-Recorded 2026-09-24, in #140.
+still ahead has passed (`useTasks`). The stream's connection state
+(`reconnecting`, `stale`) is shown, so a dropped stream is visible. A
+configuration save checks the file's revision and refuses a changed file with
+409; a change landing between that check and the write is not caught
+(`SaveLayers`, `internal/config/layers.go`), which is accepted for one user's
+local file. Recorded 2026-09-24, in #140, and 2026-10-08, in #227, for the
+Tasks list's interval.
 
 **Cost.** A connection that stays open but stops sending frames looks live,
 and leaves stale data with no refetch to fall back on.
@@ -249,8 +252,8 @@ child process that has no terminal at all, as a test run from a developer's
 shell does not, and gobco counts only the test process, so every report
 lists the terminal check as never false.
 
-**Decided.** 2026-09-26, in #146, for `closeRequestLog`, and 2026-10-09 for
-`keysFrom`.
+**Decided.** 2026-09-26, in #146, for `closeRequestLog`, and 2026-10-09, in
+#237, for `keysFrom`.
 
 **Cost.** `task cover:branch` on macOS reads one arm fewer than CI does, and
 every report lists `keysFrom`'s terminal check as never false, though a test
@@ -292,8 +295,9 @@ two: gobco's counters are plain increments, which a package's parallel tests
 can lose (`scripts/gobco-report.sh` says so), and two runs of the same
 `internal/config` code, this one and CI's, saw 500 and 501 of its 520 arms.
 
-**Decided.** 2026-09-26, in #146: a condition seen one way that the gate does
-not fail is left to the report.
+**Decided.** 2026-09-26, in #146, and 2026-10-12, in #238, for which
+conditions the gate fails: a condition seen one way that the gate does not
+fail is left to the report.
 
 **Cost.** A change that breaks one of the worklist's unseen arms fails no test,
 and the floors notice only when enough of them add up to move a share; an
@@ -411,24 +415,22 @@ and the web's comment Preview draws the same conversion from its own copy
 cases from one file, `internal/jira/testdata/wiki_from_markdown.json`, and
 each decodes it strictly.
 
-**Decided.** 2026-10-01, when the web gained commenting: Preview redraws
-on every keystroke, and asking the server for each one would be a write
-under the dry-run guard's rule (it refuses every non-GET) or a GET carrying
-the whole comment in its URL. Converting in the browser shows exactly what
-will be sent with no request at all.
+**Decided.** 2026-10-01, when the web gained commenting: Preview redraws on
+every keystroke, and asking the server for each one would be a write under the
+dry-run guard's rule (it refuses every non-GET) or a GET carrying the whole
+comment in its URL. Converting in the browser shows exactly what will be sent
+with no request at all. And 2026-10-05, in #174, for a forge issue's thread and
+Preview, which the web's copy also draws, converting their Markdown to wiki
+markup for `WikiText`: that reuses the drawing every Jira comment already has
+rather than adding a Markdown renderer.
 
-**Cost.** A change to how a Markdown construct converts is made twice,
-against one shared case file that fails whichever copy disagrees with it; a
-construct the file holds no case for can still convert differently.
+**Cost.** A change to how a Markdown construct converts is made twice, against
+one shared case file that fails whichever copy disagrees with it; a construct
+the file holds no case for can still convert differently. In a forge issue's
+thread, Markdown the conversion does not know, such as a table, shows as text.
 
 **Reopen when.** The server comes to render comments itself, or the two
 copies are found to disagree on a construct the file does not hold.
-
-**Revisited.** 2026-10-05, in #174: the web's copy now also draws a forge
-issue's thread and Preview, converting its Markdown to wiki markup for
-`WikiText` to draw. That reuses the drawing every Jira comment already has
-rather than adding a Markdown renderer, at the cost of Markdown the
-conversion does not know, such as a table, showing as text.
 
 ### TRADE-30 A comment is written in a box drawn inside the interface
 
@@ -647,39 +649,41 @@ or stopping the server can.
 **Decided.** The terminal asks every system under one session context, set by
 `Model.WithContext` (`internal/tui/tui.go`), which `tui.Run` ends when the
 program does. Quitting (`q`, or `ctrl+c` from anywhere) or switching directory
-(TRADE-34) therefore stops every read the program left in flight but a shared
-read of the Slack directory (TRADE-26), and no write. That read, like the
-renewal of a Slack user token a read begins, detaches from its asker through
-`lifetime.Detached` to the command's context, so it goes on past a switch and
-ends only when the command does: once workflow exits after the quit, or when a
-signal ends the command. The writes stay out of the session's end: `New` hands
-each write seam the session's values but not its end (`outlasting`,
-`internal/tui/deps.go`), and `Model.WithLifetime`, which `tui.Run` applies with
-the context it is given, ends the writes with that context instead, and counts
-each in flight, under a name that says what it does, in the `lifetime.InFlight`
-that context carries. The command line gives it `whileOpen`'s
-(`internal/cli/cli.go`), which ends when SIGINT or SIGTERM cancels the command's
-context, until the command is done. When the last interface quits, workflow
-waits for the writes still in flight before it exits (`finishWrites`,
-`internal/cli/finishwrites.go`): it says on stderr how many it is finishing, and
-exits once none has been in flight for a tenth of a second, so a write that
-follows another (a post's record after the post) is waited for too. Every quit
-settles so, even one that lands with nothing in flight: between those two
-writes, or after the interface has started a write's command and before that
-write has begun, where a quit would otherwise exit under the write. A streamed
-write (a commit, a push, an amend, a fixup, a rebase, a hook) counts until its
-program exits, and no longer: once a quit or a switch leaves its output unread,
-the rest is read and dropped (`releasedOnExit`), so the program never blocks on
-a full pipe. The wait gives up after `timing.request_timeout`, naming each write
-it gave up on, and exits with status 1. A second `ctrl+c`, which the terminal
-the interface left sends as SIGINT, or SIGTERM ends every write's context and
-exits at once, with status 130. A switch does not wait: a write sent before one
-goes on in the directory left, and the quit waits for it too. Leaving a view
-cancels nothing: a late answer is dropped by its read's count or view, and
-canceling per view would mean a cancel handle on every view's state. Decided
-2026-10-09 by the maintainer for reads, with each seam taking its asker's
-context, and on 2026-10-12, in review, for writes: they stay out of the
-session's end, and a quit waits for them, bounded.
+(TRADE-34) therefore stops every read the program left in flight, and no write,
+but three pieces of work a read can begin: a shared read of the Slack directory
+(TRADE-26) and the renewal of a Slack user token, which detach from their asker
+through `lifetime.Detached` to the command's context, and the store's making
+and stamping of its file (`internal/store`), which runs detached so a stamp
+fails only as TRADE-16 says. Each runs to its own end, cut short no later than
+the command's: once workflow exits after the quit, or when a signal ends the
+command. The writes stay out of the session's end: `New` hands each write seam
+the session's values but not its end (`outlasting`, `internal/tui/deps.go`),
+and `Model.WithLifetime`, which `tui.Run` applies with the context it is given,
+ends the writes with that context instead, and counts each in flight, under a
+name that says what it does, in the `lifetime.InFlight` that context carries.
+The command line gives it `whileOpen`'s (`internal/cli/cli.go`), which ends
+when SIGINT or SIGTERM cancels the command's context, until the command is
+done. When the last interface quits, workflow waits for the writes still in
+flight before it exits (`finishWrites`, `internal/cli/finishwrites.go`): it
+says on stderr how many it is finishing, and exits once none has been in flight
+for a tenth of a second, so a write that follows another (a post's record after
+the post) is waited for too. Every quit settles so, even one that lands with
+nothing in flight: between those two writes, or after the interface has started
+a write's command and before that write has begun, where a quit would otherwise
+exit under the write. A streamed write (a commit, a push, an amend, a fixup, a
+rebase, a hook) counts until its program exits, and no longer: once a quit or a
+switch leaves its output unread, the rest is read and dropped
+(`releasedOnExit`), so the program never blocks on a full pipe. The wait gives
+up after `timing.request_timeout`, naming each write it gave up on, and exits
+with status 1. A second `ctrl+c`, which the terminal the interface left sends
+as SIGINT, or SIGTERM ends every write's context and exits at once, with status
+130. A switch does not wait: a write sent before one goes on in the directory
+left, and the quit waits for it too. Leaving a view cancels nothing: a late
+answer is dropped by its read's count or view, and canceling per view would
+mean a cancel handle on every view's state. Decided 2026-10-09 by the
+maintainer for reads, with each seam taking its asker's context, and on
+2026-10-12, in review, for writes: they stay out of the session's end, and a
+quit waits for them, bounded.
 
 **Cost.** A read for a view the user has left still spends its request to the
 tracker, the forge or Taskwarrior. Quitting cannot call off a slow write: it
