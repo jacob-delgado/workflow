@@ -292,17 +292,31 @@ func writeFlows() map[string]writeFlow {
 			start: fromFirstRun, keys: append(throughEveryQuestion(), keyEnter),
 			name: "writing the configuration file",
 		},
-		"OpenURL": {
-			start: fromWorld(checkedCI), keys: []string{"4", "c", keyEnter},
-			name: "opening a page in the browser",
-		},
 	}
+}
+
+// openURLPath is the seam that opens a page in the browser, which outlasts its
+// session as a write does, and counts in flight nowhere.
+const openURLPath = "OpenURL"
+
+// pageOpening is the flow that opens a check's page in the browser.
+func pageOpening() writeFlow {
+	return writeFlow{start: fromWorld(checkedCI), keys: []string{"4", "c", keyEnter}, name: ""}
+}
+
+// outlastingFlows are the flows whose seam outlasts its session: every
+// write's, and opening a page's.
+func outlastingFlows() map[string]writeFlow {
+	flows := writeFlows()
+	flows[openURLPath] = pageOpening()
+
+	return flows
 }
 
 func TestEveryWriteOutlastsItsSessionAndEndsWithItsProgram(t *testing.T) {
 	t.Parallel()
 
-	for path, flow := range writeFlows() {
+	for path, flow := range outlastingFlows() {
 		t.Run(path, func(t *testing.T) {
 			t.Parallel()
 
