@@ -92,12 +92,18 @@ internal/forge 18
 # and each message answers through the Model it is handed and hands back. So
 # the package cannot be split without carrying Model, and everything that takes
 # it, across a package boundary Go does not allow; CLAUDE.md names it as the
-# package that must not be split to chase a number. 80 is the ceiling set at 64
-# files when the kind came in; splitting the long files by concern (DEBT-190,
-# DEBT-191) brought it to 78, so the next pane or overlay or two reach it, and
-# reaching it is where the package's shape is looked at again. layout/ and
-# frame/ are already the pure leaves that could leave.
-internal/tui 80 cohesive
+# package that must not be split to chase a number. The ceiling came in at 80
+# over 64 files; splitting the long files by concern (DEBT-190, DEBT-191), the
+# panes' key bindings out of keys.go and the Repositories pane's drawing out of
+# repositories.go brought it there, each a file past the 500-line target cut
+# by concern, none a new reason to change. Reaching 80 was looked at as the
+# ceiling asks: layout/ and frame/ have left already, and the eight files that
+# name no Model (dryrun.go, errorwords.go, glyphs.go, issues.go, panekeys.go,
+# settingsfields.go, settingsvalues.go, setupsteps.go) each work on the
+# package's own state, which a split would export for this one caller. So 96,
+# the same sixteen files of room the ceiling came in with; reaching it is
+# where the shape is looked at again.
+internal/tui 96 cohesive
 
 # internal/webserver — the loopback REST surface, spelled one file per
 # operation (or per pair of writes that share their checks) beside the shared
