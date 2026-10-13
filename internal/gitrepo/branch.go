@@ -137,6 +137,16 @@ func (b Branch) BaseName() string {
 // branch at all is an error: no commits, no upstream and no base are ordinary
 // states for a repository to be in, and each is left empty.
 func (r Repository) ReadBranch(ctx context.Context) (Branch, error) {
+	return r.readBranch(ctx, func(git func(...string) string, remote string) (string, error) {
+		return base(git, remote), nil
+	})
+}
+
+// readBranch reads where the checked-out branch stands against the base
+// baseOn finds on the base remote.
+func (r Repository) readBranch(
+	ctx context.Context, baseOn func(git func(...string) string, remote string) (string, error),
+) (Branch, error) {
 	name, err := r.run(ctx, gitProgram, "-C", r.dir, "branch", "--show-current")
 	if err != nil {
 		return Branch{}, readFailure(ctx, r.run, r.dir, "reading the current branch of "+r.dir, err)
@@ -148,6 +158,11 @@ func (r Repository) ReadBranch(ctx context.Context) (Branch, error) {
 
 	baseRemote := r.BaseRemote(ctx)
 
+	based, err := baseOn(git, baseRemote)
+	if err != nil {
+		return Branch{}, err
+	}
+
 	branch := Branch{
 		Name:       text(name),
 		Detached:   text(name) == "",
@@ -157,7 +172,7 @@ func (r Repository) ReadBranch(ctx context.Context) (Branch, error) {
 		BaseRemote: baseRemote,
 		Ahead:      0,
 		Behind:     0,
-		Base:       base(git, baseRemote),
+		Base:       based,
 		Commits:    nil,
 	}
 

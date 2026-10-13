@@ -219,6 +219,7 @@ func (e Environment) gitDeps(root string, kind func() forge.Kind) seams.Git {
 
 	return seams.Git{
 		Branch:         repo.ReadBranch,
+		BranchOnto:     repo.ReadBranchOnto,
 		Changes:        repo.Status,
 		Diff:           repo.Diff,
 		Stage:          repo.Stage,

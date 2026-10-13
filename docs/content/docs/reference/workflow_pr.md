@@ -22,9 +22,8 @@ them, are asked to review it; the preview lists them.
 --title and --body stand in for the title and description composed, and
 --template names the repository's template the description starts from;
 --reviewer asks the people and teams it names in place of the code owners;
---draft opens it as a draft; and --base merges it into another branch, whose
-code owners are asked instead, though what is composed still comes from the
-commits since the base the branch left.
+--draft opens it as a draft; and --base merges it into another branch, drafting
+the title and description from the commits past it and asking its code owners.
 
 Once it is open, it offers — as the interface does — to link it on the branch's
 issue, then to move the issue to the review status (jira.review_status). With

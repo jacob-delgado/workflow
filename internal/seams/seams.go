@@ -69,8 +69,12 @@ type Jira struct {
 
 // Git is what a surface asks of the repository.
 type Git struct {
-	Branch  func(ctx context.Context) (gitrepo.Branch, error)
-	Changes func(ctx context.Context) ([]gitrepo.Change, error)
+	Branch func(ctx context.Context) (gitrepo.Branch, error)
+	// BranchOnto reads the branch as Branch does, but against base, a branch a
+	// pull request is to merge into, so its commits are those past base. Nil
+	// when there is no repository.
+	BranchOnto func(ctx context.Context, base string) (gitrepo.Branch, error)
+	Changes    func(ctx context.Context) ([]gitrepo.Change, error)
 	// CommitsBetween is the commits you wrote from start up to end, for the
 	// Summary: in the repository workflow is in and in every favorite that is
 	// a repository, each read once.

@@ -171,12 +171,13 @@ func (s *server) composePullRequest(
 	cfg := s.config()
 
 	draft, branch, err := loop.ComposePull(ctx, loop.PullSeams{
-		Branch:    s.deps.Git.Branch,
-		FindPull:  s.deps.Forge.FindPullRequest,
-		Templates: s.deps.Forge.Templates,
-		Issue:     s.deps.Jira.Issue,
-		BrowseURL: s.deps.Jira.BrowseURL,
-		Owners:    s.ownerSeams(),
+		Branch:     s.deps.Git.Branch,
+		BranchOnto: s.deps.Git.BranchOnto,
+		FindPull:   s.deps.Forge.FindPullRequest,
+		Templates:  s.deps.Forge.Templates,
+		Issue:      s.deps.Jira.Issue,
+		BrowseURL:  s.deps.Jira.BrowseURL,
+		Owners:     s.ownerSeams(),
 	}, loop.PullOptions{
 		Project:     cfg.Jira.Project,
 		TitleSource: convention.TitleSource(cfg.PullRequest.TitleSource),
