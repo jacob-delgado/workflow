@@ -9,6 +9,7 @@ import {
   type CivilDate,
   type Period,
 } from './civilDate.ts'
+import type { MonthDone } from './summaryApi.ts'
 
 const weekdays = [
   ['Mo', 'Monday'],
@@ -37,9 +38,9 @@ interface MonthGridProps {
   year: number
   month: number
   period: Period
-  // amounts are how many things were done on each day that saw any, once the
-  // month is read; a day they leave out is drawn and named plainly.
-  amounts?: ReadonlyMap<CivilDate, number>
+  // done is how many things were done on each day that saw any, once the
+  // month is read; a day it leaves out is drawn and named plainly.
+  done?: MonthDone
   onPick: (period: Period) => void
   // onView hears a key move focus into another month, so the selects above
   // the grid follow it.
@@ -49,15 +50,16 @@ interface MonthGridProps {
 // MonthGrid is a month of days, a week to a row starting on Monday, in which
 // one day at a time is reached by Tab and the arrows move between them. Enter
 // or a click picks a day, and with Shift picks the days from the period's first
-// to it. The days of the period shown are selected; each other day is tinted
-// by how much was done on it against the month's busiest, and every day's name
-// says it in words.
-export function MonthGrid({ year, month, period, amounts, onPick, onView }: MonthGridProps) {
+// to it. The days of the period shown are selected; every day is marked by how
+// much was done on it against the month's busiest — in dots, and on a day not
+// picked in a tint too — and every day's name says it in words.
+export function MonthGrid({ year, month, period, done, onPick, onView }: MonthGridProps) {
   const [focused, setFocused] = useState<CivilDate>(() => inMonth(period.to, year, month))
   const moved = useRef(false)
   const cells = useRef(new Map<CivilDate, HTMLDivElement>())
   const shown = inMonth(focused, year, month)
-  const busiest = Math.max(0, ...(amounts?.values() ?? []))
+  const busiest = Math.max(0, ...(done?.amounts.values() ?? []))
+  const whole = done?.whole ?? true
 
   useEffect(() => {
     if (moved.current) {
@@ -119,7 +121,7 @@ export function MonthGrid({ year, month, period, amounts, onPick, onView }: Mont
               <DayCell
                 key={day}
                 day={day}
-                done={{ amount: amounts?.get(day) ?? 0, busiest }}
+                done={{ amount: done?.amounts.get(day) ?? 0, busiest, whole }}
                 inPeriod={day >= period.from && day <= period.to}
                 focusable={day === shown}
                 cells={cells}
@@ -134,10 +136,12 @@ export function MonthGrid({ year, month, period, amounts, onPick, onView }: Mont
   )
 }
 
-// Done is how many things were done on a day, and on the month's busiest.
+// Done is how many things were done on a day, and on the month's busiest, and
+// whether every source said all of it.
 interface Done {
   amount: number
   busiest: number
+  whole: boolean
 }
 
 interface DayCellProps {
@@ -155,6 +159,8 @@ interface DayCellProps {
 // range. A picked day is filled in the ring's color, so its ring stands off by
 // a page-colored gap; any other is tinted by how much was done on it.
 function DayCell({ day, done, inPeriod, focusable, cells, onPick, onKey }: DayCellProps) {
+  const step = activityStep(done)
+
   return (
     <div
       ref={(cell) => {
@@ -165,7 +171,7 @@ function DayCell({ day, done, inPeriod, focusable, cells, onPick, onKey }: DayCe
         }
       }}
       role="gridcell"
-      aria-label={dayName(day, done.amount)}
+      aria-label={dayName(day, done)}
       aria-selected={inPeriod}
       tabIndex={focusable ? 0 : -1}
       onClick={(event) => {
@@ -173,37 +179,83 @@ function DayCell({ day, done, inPeriod, focusable, cells, onPick, onKey }: DayCe
       }}
       onKeyDown={onKey}
       className={cn(
-        'flex h-8 cursor-pointer items-center justify-center rounded-md tabular-nums focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+        'relative flex h-8 cursor-pointer items-center justify-center rounded-md tabular-nums focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
         inPeriod
           ? 'bg-primary text-primary-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background'
           : // A shaded day keeps its shade under the pointer, so hovering never
             // hides how much was done on it.
-            cn('text-foreground', activityFill(done) ?? 'hover:bg-accent'),
+            cn('text-foreground', step === undefined ? 'hover:bg-accent' : stepFills[step]),
       )}
     >
       {Number(day.slice(8))}
+      <StepDots step={step} />
     </div>
   )
 }
 
 // dayName is a day as its cell is named: the day, and how much was done on it
-// when anything was.
-function dayName(day: CivilDate, amount: number): string {
-  return amount === 0 ? headingDay(day) : `${headingDay(day)}, ${plural(amount, 'thing')} done`
+// when anything was — at least that much, when a source could not say all of
+// the month.
+function dayName(day: CivilDate, { amount, whole }: Done): string {
+  if (amount === 0) {
+    return headingDay(day)
+  }
+
+  return `${headingDay(day)}, ${whole ? '' : 'at least '}${plural(amount, 'thing')} done`
 }
 
-// activityFill tints a day by its share of the month's busiest: none for a
-// day with nothing done, then up to a third, up to two thirds, or more.
-function activityFill({ amount, busiest }: Done): string | undefined {
+// Step is a day's share of the month's busiest, in thirds: up to a third, up
+// to two, or more.
+type Step = 1 | 2 | 3
+
+// The tint of each step, from the activity ramp in index.css.
+const stepFills: Record<Step, string> = {
+  1: 'bg-activity-low',
+  2: 'bg-activity-mid',
+  3: 'bg-activity-high',
+}
+
+// Where each step's dots sit across the 16-unit row, centered under the number.
+const dotCenters: Record<Step, number[]> = {
+  1: [8],
+  2: [5, 11],
+  3: [2, 8, 14],
+}
+
+// activityStep is a day's step of the ramp, or none for a day with nothing
+// done.
+function activityStep({ amount, busiest }: Done): Step | undefined {
   if (amount === 0) {
     return undefined
   }
 
   if (amount * 3 <= busiest) {
-    return 'bg-activity-low'
+    return 1
   }
 
-  return amount * 3 <= busiest * 2 ? 'bg-activity-mid' : 'bg-activity-high'
+  return amount * 3 <= busiest * 2 ? 2 : 3
+}
+
+// StepDots draw a day's step as that many dots under its number, in the day's
+// own text color: the tints sit too close to the page and to each other to be
+// told apart by shade alone, and a dot's count reads without its color. The
+// count is said in the day's name, so the dots are hidden from assistive tech.
+function StepDots({ step }: { step: Step | undefined }) {
+  if (step === undefined) {
+    return null
+  }
+
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 16 4"
+      className="absolute bottom-1 left-1/2 h-1 w-4 -translate-x-1/2 fill-current"
+    >
+      {dotCenters[step].map((center) => (
+        <circle key={center} cx={center} cy={2} r={2} />
+      ))}
+    </svg>
+  )
 }
 
 // inMonth is date when it falls in the month shown, or that month's day of

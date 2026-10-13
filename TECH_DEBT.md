@@ -489,17 +489,26 @@ knows, with its own times, and a journal of workflow's own would see only what
 was done through workflow, missing a commit made in a shell or an issue moved
 in Jira's own page. Reading back keeps the store free of a second copy that
 could disagree with the first. Decided 2026-10-05, in #175: a journal is a
-feature with its own schema, not a fix.
+feature with its own schema, not a fix. The web's calendar reads back each
+month it shows the same way, to say how much was done on each day of it
+(`web/src/features/summary/summaryApi.ts`), and is shown again within 30
+seconds without a second read; a month that starts after today is not read.
 
 **Cost.** A period is as slow to show as its slowest source, and a source that
 is down shows nothing for it. What a source does not keep (a Jira comment on
 an issue touched no other way, a GitLab event's repository, when a stopped
 Taskwarrior task was started) the Summary cannot show. Nothing remembers a
-Summary was posted, so the same one can be posted twice.
+Summary was posted, so the same one can be posted twice. The web's calendar
+spends a read of every source on each month it shows, on top of the period's
+own read: on GitHub, three searches of the 30 a minute allows, and on Jira
+up to two pages. A source that caps what it reads may not read a busy month
+whole, and then its days say "at least" so much was done, under a line saying
+why.
 
 **Reopen when.** A source the Summary needs keeps no history to read back,
-reading a long period back proves too slow to be useful, or a repeated post is
-reported.
+reading a long period back proves too slow to be useful, a repeated post is
+reported, or paging the calendar is seen to spend a forge's or Jira's rate
+limit.
 
 ### TRADE-33 The calendar's dates are written twice
 

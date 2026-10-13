@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { postActivity } from '@/api/generated'
 import { getActivityOptions } from '@/api/generated/@tanstack/react-query.gen.ts'
-import type { ActivityPost, ActivityYear } from '@/api/generated/types.gen.ts'
+import type { Activity, ActivityPost } from '@/api/generated/types.gen.ts'
+import { freshFor } from '@/queryClient.ts'
 import type { CivilDate, Period } from './civilDate.ts'
 
 // useActivity reads back what you did over period, or the previous working day
@@ -16,22 +17,53 @@ export function useActivity(period: Period | null) {
   })
 }
 
-// useDayAmounts is how many things were done on each day of period that saw
-// any, by date, once the server has answered for it. While it reads, or once
-// it is refused, there are none to say: the period's own read says why.
-export function useDayAmounts(period: Period): ReadonlyMap<CivilDate, number> | undefined {
-  const read = useActivity(period)
-
-  return read.isSuccess ? dayAmounts(read.data.years) : undefined
+// MonthDone is what a month's read says was done: how many things on each day
+// that saw any, and whether every source could say all of it. A source that
+// failed, or had more than the month shows, may leave a day short.
+export interface MonthDone {
+  amounts: ReadonlyMap<CivilDate, number>
+  whole: boolean
 }
 
-// dayAmounts is how many things were done on each day the years hold.
-function dayAmounts(years: ActivityYear[]): Map<CivilDate, number> {
-  const days = years.flatMap((year) => year.months.flatMap((month) => month.days))
+// MonthRead is the calendar's read of the month it shows: waiting on the
+// server — or never asked, for a month that starts after today, in which
+// nothing was done yet — refused, or read.
+export type MonthRead =
+  { state: 'waiting' } | { state: 'refused' } | { state: 'read'; done: MonthDone }
 
-  return new Map(
-    days.map((day) => [day.date, day.hours.reduce((sum, hour) => sum + hour.items.length, 0)]),
-  )
+// useMonthRead reads what was done over month, for the calendar to say of each
+// day. It shares the period's read when the period is the month, but keeps
+// its own freshness, so paging the calendar back to a month it showed moments
+// ago reads it no sooner than a section opened again would (freshFor).
+//
+// Trade-off TRADE-32: every month the calendar shows is read back from every
+// source, on top of the period's own read.
+export function useMonthRead(month: Period, today: CivilDate): MonthRead {
+  const read = useQuery({
+    ...getActivityOptions({ query: { from: month.from, to: month.to } }),
+    staleTime: freshFor,
+    retry: false,
+    enabled: month.from <= today,
+  })
+
+  if (read.isError) {
+    return { state: 'refused' }
+  }
+
+  return read.isSuccess ? { state: 'read', done: monthDone(read.data) } : { state: 'waiting' }
+}
+
+// monthDone is how many things were done on each day an answer holds, and
+// whether every source said all of it.
+function monthDone(answer: Activity): MonthDone {
+  const days = answer.years.flatMap((year) => year.months.flatMap((month) => month.days))
+
+  return {
+    amounts: new Map(
+      days.map((day) => [day.date, day.hours.reduce((sum, hour) => sum + hour.items.length, 0)]),
+    ),
+    whole: answer.sources.every((source) => source.state !== 'failed' && !source.truncated),
+  }
 }
 
 // postSummary posts text — the summary of the days from and to, as the server

@@ -151,7 +151,7 @@ describe.each(themes)('in the %s theme', (_, selector) => {
   )
 
   test.each(['--activity-low', '--activity-mid', '--activity-high'])(
-    "a calendar day's number holds 4.5:1 on %s",
+    "a calendar day's number, and the dots under it, hold 4.5:1 on %s",
     (level) => {
       // Arrange
       const tokens = tokensOf(selector)

@@ -105,7 +105,10 @@ test('the day reads as a timeline, an hour to a line, each source named', async 
 
 test('the calendar names each day of its month with how much was done on it', async () => {
   // Arrange
-  const asked = servingActivity((from, to) => tuesday(from ?? '2026-09-15', to ?? '2026-09-15'))
+  const asked = servingActivity((from, to) => ({
+    ...tuesday(from ?? '2026-09-15', to ?? '2026-09-15'),
+    sources: [{ source: 'git', name: 'Git', state: 'read', truncated: false, detail: '' }],
+  }))
 
   // Act
   renderWithClient(<SummaryPanel />)
