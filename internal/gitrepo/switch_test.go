@@ -182,11 +182,18 @@ func TestListingBranchesOutsideARepositoryReportsSo(t *testing.T) {
 	}
 }
 
+// switchOnOrigin is a switch that takes a branch only remotes hold from
+// origin, the base remote of a repository that is no fork's clone.
+const switchOnOrigin = "git -C /work -c checkout.defaultRemote=origin switch -- "
+
 func TestCheckoutSwitchesToTheBranch(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	replies := map[string]reply{"git -C /work switch -- fix/PROJ-412-token": {out: []byte("")}}
+	replies := map[string]reply{
+		readRemotes:                           {err: errNoRef},
+		switchOnOrigin + "fix/PROJ-412-token": {out: []byte("")},
+	}
 
 	// Act
 	err := gitrepo.At(fakeRunner(t, replies), workDir).Checkout(t.Context(), "fix/PROJ-412-token")
@@ -200,7 +207,7 @@ func TestCheckoutReportsAFailureToSwitch(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	replies := map[string]reply{"git -C /work switch -- gone": {err: errNoBranch}}
+	replies := map[string]reply{readRemotes: {err: errNoRef}, switchOnOrigin + "gone": {err: errNoBranch}}
 
 	// Act
 	err := gitrepo.At(fakeRunner(t, replies), workDir).Checkout(t.Context(), "gone")
@@ -217,12 +224,32 @@ func TestCheckoutGuardsAnOptionLikeBranchName(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	replies := map[string]reply{"git -C /work switch -- --orphan": {out: []byte("")}}
+	replies := map[string]reply{readRemotes: {err: errNoRef}, switchOnOrigin + "--orphan": {out: []byte("")}}
 
 	// Act
 	err := gitrepo.At(fakeRunner(t, replies), workDir).Checkout(t.Context(), "--orphan")
 	// Assert
 	if err != nil {
 		t.Errorf("Checkout returned %v, want the name passed as a ref after --", err)
+	}
+}
+
+// RemoteBranches lists a branch both remotes hold once, so switching to it by
+// name must say which remote's to take, or git refuses it as ambiguous.
+func TestCheckoutTakesTheBaseRemotesBranchWhenTwoHoldIt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	run, ran := recordingRunner(t, map[string]reply{
+		readRemotes: forkClone(),
+		"git -C /work -c checkout.defaultRemote=upstream switch -- release": {},
+	})
+
+	// Act
+	err := gitrepo.At(run, workDir).Checkout(t.Context(), "release")
+
+	// Assert
+	if err != nil || len(*ran) != 2 {
+		t.Errorf("Checkout = %v after %q, want release taken from upstream", err, *ran)
 	}
 }

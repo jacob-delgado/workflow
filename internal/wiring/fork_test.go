@@ -221,6 +221,25 @@ func TestTheGitSeamsFinishAForkCloneFromUpstream(t *testing.T) {
 	}
 }
 
+func TestTheGitSeamsSwitchToABranchBothRemotesHold(t *testing.T) {
+	// Arrange
+	repo, root := forkClone(t)
+	git(t, root, "push", "--quiet", "origin", "main:release")
+	git(t, root, "push", "--quiet", "upstream", "main:release")
+	git(t, root, "fetch", "--quiet", "--all")
+
+	// Act
+	err := repo.Checkout(t.Context(), "release")
+	// Assert
+	if err != nil {
+		t.Fatalf("Checkout(release) with both remotes holding it: %v", err)
+	}
+
+	if tracked := git(t, root, "rev-parse", "--abbrev-ref", "release@{upstream}"); tracked != "upstream/release" {
+		t.Errorf("release tracks %q, want upstream/release", tracked)
+	}
+}
+
 // git push -u fork records the fork as the remote the branch tracks, and a
 // plain git push goes there after; so does workflow's.
 func TestABranchPushedWithUpstreamToAForkPushesThereAfter(t *testing.T) {
@@ -229,7 +248,7 @@ func TestABranchPushedWithUpstreamToAForkPushesThereAfter(t *testing.T) {
 	bareRemote(t, root, "origin")
 	bareRemote(t, root, "fork")
 
-	err := repo.CreateBranch(t.Context(), featureBranch, "main")
+	err := repo.CreateBranch(t.Context(), featureBranch, mainBranch)
 	if err != nil {
 		t.Fatalf("CreateBranch: %v", err)
 	}
