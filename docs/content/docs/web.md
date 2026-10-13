@@ -315,7 +315,11 @@ a draft. When the repository has several pull request templates, **Template**
 chooses the one the description starts from, as the terminal's `ctrl+t`
 does, until the description is edited. The reviewers start as the code owners of the paths the branch
 changes, as the base's CODEOWNERS names them, leaving you out; a team is
-written `org/team` and is requested as a team. **Open pull request** pushes the branch first when it is not
+written `org/team` and is requested as a team. Name another **Base branch**
+and leave the field, and the branch is read again past it: the title, the
+description and the reviewers you have not changed are proposed again from the
+commits that pull request would merge, and a base no branch answers to keeps the
+draft and says so. **Open pull request** pushes the branch first when it is not
 published, then opens it. If the forge would not add every reviewer, assignee
 or label, a warning says so.
 

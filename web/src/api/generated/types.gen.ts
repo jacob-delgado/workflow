@@ -3998,13 +3998,17 @@ export type GetPullRequestDraftData = {
          * The template to start the body from, by name; the repository's first when omitted.
          */
         template?: string;
+        /**
+         * The branch to merge into, by name, as the form's base field names it; the base the branch left when omitted.
+         */
+        base?: string;
     };
     url: '/api/pull-request/draft';
 };
 
 export type GetPullRequestDraftErrors = {
     /**
-     * The repository has no template of that name.
+     * The repository has no template, or no branch to merge into, of that name.
      */
     404: Problem;
     /**

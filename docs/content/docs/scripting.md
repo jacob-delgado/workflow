@@ -423,9 +423,10 @@ web's form allow:
   nothing to start, it exits 2.
 - **`--base BRANCH`** merges it into another branch, and drafts it against
   `BRANCH`: the title and body come from the branch's commits past `BRANCH`,
-  and `BRANCH`'s code owners are asked to review. `BRANCH` is read on the base
-  remote when it holds one, else as a local branch. A name git would refuse
-  for a branch exits 2 before anything is read; a name no branch has exits 1.
+  and `BRANCH`'s code owners are asked to review, as the composer and the form
+  draft again when their base is edited. `BRANCH` is read on the base remote
+  when it holds one, else as a local branch. A name git would refuse for a
+  branch exits 2 before anything is read; a name no branch has exits 1.
 - **`--reviewer NAME`** asks `NAME` to review in place of the code owners;
   `org/team` asks a team. Repeat it, or separate names with commas.
 - **`--draft`** opens it as a draft: the preview marks the branches `(draft)`,
