@@ -439,6 +439,7 @@ func subcommands(prompt Prompt) []*cobra.Command {
 		newConfigCmd(prompt), newDoctorCmd(prompt), newStatusCmd(prompt), newSummaryCmd(prompt), newReviewsCmd(),
 		newRepositoriesCmd(), newIssuesCmd(), newIssueCmd(),
 		newBranchCmd(prompt), newPRCmd(prompt), newFinishCmd(prompt), newAnnounceCmd(prompt), newCommentCmd(prompt),
+		newTransitionCmd(prompt),
 		newSlackCmd(prompt), newDBCleanCmd(prompt),
 	}
 }
