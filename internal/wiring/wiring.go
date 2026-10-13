@@ -243,7 +243,7 @@ func (e Environment) gitDeps(root string, kind func() forge.Kind) seams.Git {
 			return e.start(ctx, gitrepo.FixupCommand(root, hash))
 		},
 		Push: func(ctx context.Context, branch string) (proc.Output, error) {
-			return e.start(ctx, gitrepo.PushCommand(root, repo.PushRemote(ctx), branch))
+			return e.start(ctx, gitrepo.PushCommand(root, repo.PushRemote(ctx, branch), branch))
 		},
 		Rebase: func(ctx context.Context, base string) (proc.Output, error) {
 			return e.start(ctx, gitrepo.RebaseCommand(root, base))

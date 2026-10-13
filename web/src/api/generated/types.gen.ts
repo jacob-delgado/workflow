@@ -1114,7 +1114,7 @@ export type Branch = {
      */
     upstream: string;
     /**
-     * The remote a push of the branch goes to: remote.pushDefault when the repository sets one, origin otherwise.
+     * The remote a push of the branch goes to, as git decides it: branch.<name>.pushRemote, else remote.pushDefault, else the remote the branch tracks (branch.<name>.remote), else origin.
      */
     push_remote: string;
     ahead: number;

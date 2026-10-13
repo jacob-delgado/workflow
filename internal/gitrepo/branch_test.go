@@ -30,6 +30,8 @@ func featureBranch() map[string]reply {
 		readUpstream:                  {out: []byte("origin/fix/PROJ-412-token-redaction\n")},
 		countAhead:                    {out: []byte("1\t2\n")},
 		readPushDefault:               {err: errNoRef},
+		featurePushRemote:             {err: errNoRef},
+		featureRemote:                 {err: errNoRef},
 		originsHead:                   {out: []byte("origin/main\n")},
 		// Real log output under -z: a NUL after the hash, and one after each
 		// subject where git would otherwise put a newline.
@@ -41,8 +43,13 @@ func featureBranch() map[string]reply {
 	}
 }
 
-// featureLink reads the issue featureBranch was linked to by hand.
-const featureLink = "git -C /work config --get branch.fix/PROJ-412-token-redaction.workflow-issue"
+// featureLink reads the issue featureBranch was linked to by hand, and
+// featurePushRemote the push remote it names for itself.
+const (
+	featureLink       = "git -C /work config --get branch.fix/PROJ-412-token-redaction.workflow-issue"
+	featurePushRemote = "git -C /work config --get branch.fix/PROJ-412-token-redaction.pushRemote"
+	featureRemote     = "git -C /work config --get branch.fix/PROJ-412-token-redaction.remote"
+)
 
 func TestReadBranchCarriesTheIssueItWasLinkedTo(t *testing.T) {
 	t.Parallel()
@@ -339,6 +346,8 @@ func emptyRepository() map[string]reply {
 		readPushDefault:               {err: errNoRef},
 		originsHead:                   {out: []byte("origin/main\n")},
 		"git -C /work config --get branch.main.workflow-issue": {err: errNoRef},
+		"git -C /work config --get branch.main.pushRemote":     {err: errNoRef},
+		"git -C /work config --get branch.main.remote":         {err: errNoRef},
 	}
 }
 
