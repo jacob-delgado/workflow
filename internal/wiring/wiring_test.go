@@ -173,7 +173,7 @@ func gitSeams(t *testing.T) (seams.Git, string, string) {
 
 	root := repository(t)
 
-	return wired(t, config.Default(), wiring.Workspace{Root: root, Remote: ""}, nil).Git, root, drafts
+	return wired(t, config.Default(), onOrigin(root, ""), nil).Git, root, drafts
 }
 
 func TestTheGitSeamsStartABranchFromMain(t *testing.T) {
@@ -188,7 +188,7 @@ func TestTheGitSeamsStartABranchFromMain(t *testing.T) {
 
 	// Assert
 	branch, err := repo.Branch(t.Context())
-	if err != nil || branch.Name != featureBranch || branch.Base != "main" {
+	if err != nil || branch.Name != featureBranch || branch.Base != mainBranch {
 		t.Errorf("Branch = %+v, %v; want %s checked out, from main", branch, err, featureBranch)
 	}
 }
@@ -396,7 +396,7 @@ func TestACommitThatCannotWriteItsMessageSaysWhy(t *testing.T) {
 	// Arrange
 	t.Setenv("TMPDIR", filepath.Join(t.TempDir(), "missing"))
 
-	repo := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Git
+	repo := wired(t, config.Default(), onOrigin(t.TempDir(), ""), nil).Git
 
 	// Act
 	_, err := repo.Commit(t.Context(), "feat: x\n")
@@ -413,7 +413,7 @@ func TestACommitGitCannotRunLeavesNoMessageBehind(t *testing.T) {
 	t.Setenv("TMPDIR", drafts)
 	t.Setenv("PATH", t.TempDir())
 
-	repo := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Git
+	repo := wired(t, config.Default(), onOrigin(t.TempDir(), ""), nil).Git
 
 	// Act
 	_, err := repo.Commit(t.Context(), "feat: x\n")
@@ -433,7 +433,7 @@ func TestAFetchGitCannotRunSaysGitWasNotFound(t *testing.T) {
 	// Arrange
 	t.Setenv("PATH", t.TempDir())
 
-	repo := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Git
+	repo := wired(t, config.Default(), onOrigin(t.TempDir(), ""), nil).Git
 
 	// Act
 	err := repo.Fetch(t.Context())
@@ -457,7 +457,7 @@ func TestTheForgeSeamRetriesAfterAFailedConnection(t *testing.T) {
 
 	forgeSeam := wired(t,
 		config.Config{Forge: config.Forge{Kind: githubKind}},
-		wiring.Workspace{Root: dir, Remote: githubRemote}, nil).Forge
+		onOrigin(dir, githubRemote), nil).Forge
 
 	// Act
 	_, _, first := forgeSeam.FindPullRequest(t.Context(), featureBranch)

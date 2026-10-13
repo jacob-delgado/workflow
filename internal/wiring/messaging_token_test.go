@@ -59,7 +59,7 @@ func TestAUserTokenNotSetUpIsReportedBeforeAnythingIsSent(t *testing.T) {
 
 	// Arrange
 	cfg := halfLoggedIn(t)
-	seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Messaging
+	seams := wired(t, cfg, onOrigin(t.TempDir(), ""), nil).Messaging
 
 	// Act
 	err := seams.Post(t.Context(), "", "hi")
@@ -75,7 +75,7 @@ func TestMessagingSettingsSavedWhileRunningReachTheNextPost(t *testing.T) {
 
 	// Arrange
 	cfg := halfLoggedIn(t)
-	deps, controls := processEnvironment().Deps(cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+	deps, controls := processEnvironment().Deps(cfg, onOrigin(t.TempDir(), ""), nil)
 
 	// Act
 	controls.UseMessagingSettings(config.Messaging{Kind: config.KindSlack, WebhookURL: "http://hooks.example.com/x"})

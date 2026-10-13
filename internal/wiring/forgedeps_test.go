@@ -18,7 +18,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/seams"
-	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 // Every seam gets past its connect guard and returns the forge's answer, which
@@ -224,7 +223,7 @@ func TestTheTrackerAndForgeSeamsLookUpTheForgeTokenOnce(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "")
 
 	cfg := config.Config{Forge: config.Forge{Kind: githubKind, Host: closedForge}}
-	where := wiring.Workspace{Root: t.TempDir(), Remote: "https://" + closedForge + "/owner/repo.git"}
+	where := onOrigin(t.TempDir(), "https://"+closedForge+"/owner/repo.git")
 	deps := wired(t, cfg, where, nil)
 
 	// Act

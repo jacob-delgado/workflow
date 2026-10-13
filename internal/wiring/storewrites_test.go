@@ -42,7 +42,7 @@ func brokenStore(t *testing.T) wiring.Workspace {
 		t.Fatalf("putting a file where the store goes: %v", err)
 	}
 
-	return wiring.Workspace{Root: t.TempDir(), Remote: ""}
+	return onOrigin(t.TempDir(), "")
 }
 
 func TestEveryStoreWriteReportsAStoreThatCannotKeepIt(t *testing.T) {
@@ -78,7 +78,7 @@ func TestAnAnnouncementOfAMomentNoBuildKnowsIsNotReadBack(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("XDG_STATE_HOME", "")
 
-	deps := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Store
+	deps := wired(t, config.Default(), onOrigin(t.TempDir(), ""), nil).Store
 	known := loop.Announced{Pull: 7, Moment: messaging.MomentMerged}
 
 	for _, made := range []loop.Announced{known, {Pull: 7, Moment: messaging.Moment(9)}} {

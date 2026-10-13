@@ -15,8 +15,8 @@ import (
 
 // NotSetUp reports an error that says a service was never set up to ask, as
 // against one that was asked and refused: Jira or the forge has no
-// credential, origin names no forge workflow reads, no Taskwarrior is
-// installed or it has never run, or git has no user.email. Every surface tells
+// credential, the base remote names no forge workflow reads, no Taskwarrior
+// is installed or it has never run, or git has no user.email. Every surface tells
 // it as guidance — what to set up — rather than as a failure.
 func NotSetUp(err error) bool {
 	_, notSetUp := SetUpAdvice(err)
@@ -55,7 +55,8 @@ func setUpCauses() []setUpCause {
 			"jira.token_command or jira.token_env gives one — workflow doctor --online tests it"},
 		{forge.ErrNoToken, "no forge token was found; for GitHub set $GITHUB_TOKEN or sign in with gh, for GitLab " +
 			"set $GITLAB_TOKEN, or set forge.token; workflow doctor names where it looks for this repository"},
-		{forge.ErrNotARemote, "origin does not name a repository on a forge; point it at the repository"},
+		{forge.ErrNotARemote, "the base remote (upstream in a fork's clone, else origin), or a branch's push " +
+			"remote, does not name a repository on a forge; point it at the repository"},
 		{forge.ErrUnknownForge, "cannot tell which forge this repository is on; set forge.kind and forge.host"},
 		{gitrepo.ErrNoIdentity, "git has no user.email to tell your commits by; set it with git config user.email"},
 		{taskwarrior.ErrNotInstalled, "Taskwarrior is not installed, or no task program is on PATH. Install " +

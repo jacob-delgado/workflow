@@ -66,7 +66,7 @@ func TestOpenURLOpensOnlyWebAddresses(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			// Arrange
 			record := recordingOpeners(t)
-			open := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).OpenURL
+			open := wired(t, config.Default(), onOrigin(t.TempDir(), ""), nil).OpenURL
 
 			// Act
 			err := open(t.Context(), tt.raw)
@@ -93,7 +93,7 @@ func TestOpenURLReportsAnOpenerThatFails(t *testing.T) {
 
 	installOpeners(t, t.TempDir(), "#!/bin/sh\necho 'no browser here' >&2\nexit 1\n")
 
-	open := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).OpenURL
+	open := wired(t, config.Default(), onOrigin(t.TempDir(), ""), nil).OpenURL
 
 	// Act
 	err := open(t.Context(), checkURL)

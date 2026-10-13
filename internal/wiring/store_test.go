@@ -122,7 +122,7 @@ func TestADryRunReadsWhatALiveSessionAnnounced(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("XDG_STATE_HOME", "")
 
-	where := wiring.Workspace{Root: t.TempDir(), Remote: "https://github.com/org/repo.git"}
+	where := onOrigin(t.TempDir(), "https://github.com/org/repo.git")
 	merged := loop.Announced{Pull: 7, Moment: messaging.MomentMerged}
 
 	err := wired(t, config.Default(), where, nil).Store.RecordAnnounce(t.Context(), merged)
@@ -149,7 +149,7 @@ func TestAnOriginNamingNoRepositoryKeysTheStoreByTheWorkingTree(t *testing.T) {
 	const token = "ghp_SECRETTOKEN123"
 
 	root := t.TempDir()
-	noRepository := wiring.Workspace{Root: root, Remote: "https://alice:" + token + "@github.com/repo.git"}
+	noRepository := onOrigin(root, "https://alice:"+token+"@github.com/repo.git")
 	merged := loop.Announced{Pull: 7, Moment: messaging.MomentMerged}
 
 	err := wired(t, config.Default(), noRepository, nil).Store.RecordAnnounce(t.Context(), merged)
@@ -160,7 +160,7 @@ func TestAnOriginNamingNoRepositoryKeysTheStoreByTheWorkingTree(t *testing.T) {
 	// Act
 	process := processEnvironment()
 
-	posts := process.ReadOnlyStore(config.Default(), wiring.Workspace{Root: root, Remote: ""}).Announced(t.Context())
+	posts := process.ReadOnlyStore(config.Default(), onOrigin(root, "")).Announced(t.Context())
 
 	// Assert
 	if len(posts) != 1 || posts[0] != merged {

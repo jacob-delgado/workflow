@@ -21,7 +21,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/seams"
-	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 // recordedToken is what the stand-in token command prints.
@@ -181,7 +180,7 @@ func TestAJiraTokenSourceThatGivesNoTokenIsReportedAsNoCredential(t *testing.T) 
 			cfg := config.Default()
 			cfg.Jira = tt.settings
 			cfg.Jira.BaseURL = jiraStandIn.url
-			tracker := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
+			tracker := wired(t, cfg, onOrigin(t.TempDir(), ""), nil).Jira
 
 			// Act
 			_, err := tracker.Search(t.Context(), "assignee = currentUser()", 0)
@@ -248,7 +247,7 @@ func TestEveryJiraSeamReportsATokenCommandThatFails(t *testing.T) {
 			jiraStandIn := newStandInJira(t)
 			cfg := config.Default()
 			cfg.Jira = config.Jira{BaseURL: jiraStandIn.url, TokenCommand: failingCommand}
-			tracker := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
+			tracker := wired(t, cfg, onOrigin(t.TempDir(), ""), nil).Jira
 
 			// Act
 			err := act(tracker)
@@ -272,7 +271,7 @@ func TestAForgeIssueNumberNeverRunsTheJiraTokenCommand(t *testing.T) {
 	tokens := newTokenCommand(t)
 	cfg := config.Default()
 	cfg.Jira = config.Jira{BaseURL: newStandInJira(t).url, TokenCommand: tokens.command}
-	tracker := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
+	tracker := wired(t, cfg, onOrigin(t.TempDir(), ""), nil).Jira
 
 	// Act
 	_, err := tracker.Issue(t.Context(), "42")
@@ -294,7 +293,7 @@ func TestLinkingAJiraIssueNeverRunsItsTokenCommand(t *testing.T) {
 	tokens := newTokenCommand(t)
 	cfg := config.Default()
 	cfg.Jira = config.Jira{BaseURL: jiraAddress, TokenCommand: tokens.command}
-	tracker := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Jira
+	tracker := wired(t, cfg, onOrigin(t.TempDir(), ""), nil).Jira
 
 	// Act
 	link := tracker.BrowseURL("OPS-1")
@@ -317,7 +316,7 @@ func TestResolvingAheadRunsTheJiraTokenCommandOnceForEveryLaterSearch(t *testing
 	jiraStandIn := newStandInJira(t)
 	cfg := config.Default()
 	cfg.Jira = config.Jira{BaseURL: jiraStandIn.url, TokenCommand: tokens.command}
-	deps, controls := processEnvironment().Deps(cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+	deps, controls := processEnvironment().Deps(cfg, onOrigin(t.TempDir(), ""), nil)
 
 	// Act: resolve ahead
 	controls.ResolveAhead(t.Context())
@@ -352,7 +351,7 @@ func TestResolvingAheadRetriesAFailedJiraTokenCommandOnFirstUse(t *testing.T) {
 	tokens := newFailingTokenCommand(t)
 	cfg := config.Default()
 	cfg.Jira = config.Jira{BaseURL: newStandInJira(t).url, TokenCommand: tokens.command}
-	deps, controls := processEnvironment().Deps(cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+	deps, controls := processEnvironment().Deps(cfg, onOrigin(t.TempDir(), ""), nil)
 	controls.ResolveAhead(t.Context())
 
 	// Act
@@ -377,7 +376,7 @@ func TestResolvingAheadLeavesTheTokenCommandOfAJiraNotInUseUnrun(t *testing.T) {
 	tokens := newTokenCommand(t)
 	cfg := config.Default()
 	cfg.Jira = config.Jira{TokenCommand: tokens.command}
-	_, controls := processEnvironment().Deps(cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+	_, controls := processEnvironment().Deps(cfg, onOrigin(t.TempDir(), ""), nil)
 
 	// Act
 	controls.ResolveAhead(t.Context())

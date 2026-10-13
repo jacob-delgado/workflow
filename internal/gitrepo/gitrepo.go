@@ -54,6 +54,15 @@ type Repo struct {
 	Detached bool
 	// Origin is origin's URL, or empty when the repository has no origin.
 	Origin string
+	// Base is the base remote: where pull requests merge into, as BaseRemote
+	// reads it — origin itself outside a fork's clone.
+	Base Remote
+}
+
+// Remote is a git remote by name and URL; the URL is empty when git holds
+// none for that name.
+type Remote struct {
+	Name, URL string
 }
 
 // readFailure names a git read that failed: outside a work tree it is
@@ -137,12 +146,19 @@ func (r Repository) Describe(ctx context.Context) (Repo, error) {
 	}
 
 	name := text(branch)
+	origin := remoteURL(ctx, r.run, r.dir, DefaultRemote)
+
+	base, baseURL := r.BaseRemote(ctx), origin
+	if base != DefaultRemote {
+		baseURL = remoteURL(ctx, r.run, r.dir, base)
+	}
 
 	return Repo{
 		Root:     text(root),
 		Branch:   name,
 		Detached: name == "",
-		Origin:   remoteURL(ctx, r.run, r.dir, DefaultRemote),
+		Origin:   origin,
+		Base:     Remote{Name: base, URL: baseURL},
 	}, nil
 }
 
@@ -155,6 +171,12 @@ func (r Repository) SharedDir(ctx context.Context) (string, error) {
 	}
 
 	return text(out), nil
+}
+
+// RemoteURL is the URL of the remote named name, or empty when the repository
+// has no such remote.
+func (r Repository) RemoteURL(ctx context.Context, name string) string {
+	return remoteURL(ctx, r.run, r.dir, name)
 }
 
 // remoteURL reads the URL of the remote named name. A repository without that

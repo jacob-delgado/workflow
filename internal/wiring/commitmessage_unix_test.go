@@ -25,7 +25,6 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/rlimit"
-	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 // fileSizeLimit is the size no file the process writes may pass while the test
@@ -40,7 +39,7 @@ func TestACommitWhoseMessageCannotBeWrittenWholeLeavesNothingBehind(t *testing.T
 	t.Setenv("TMPDIR", drafts)
 	t.Setenv("PATH", t.TempDir())
 
-	repo := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Git
+	repo := wired(t, config.Default(), onOrigin(t.TempDir(), ""), nil).Git
 
 	message := "feat: x\n\n" + strings.Repeat("#", fileSizeLimit+1) + "\n"
 	lift := rlimit.Lower(t, syscall.RLIMIT_FSIZE, fileSizeLimit)

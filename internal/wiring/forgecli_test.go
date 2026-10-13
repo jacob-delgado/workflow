@@ -19,7 +19,6 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
-	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 func TestTheForgeCLIReadsThroughGHWithTheFullURL(t *testing.T) {
@@ -74,7 +73,7 @@ func TestTheForgeCLITrimsTheBaseForGitLab(t *testing.T) {
 	// Arrange
 	glab := installForgeCLI(t, "glab", forgeReplies{})
 	cfg := config.Config{Forge: config.Forge{CLI: true}}
-	where := wiring.Workspace{Root: t.TempDir(), Remote: remoteGitLab}
+	where := onOrigin(t.TempDir(), remoteGitLab)
 
 	seams := wired(t, cfg, where, nil).Forge
 
@@ -139,7 +138,7 @@ func TestTheForgeFallsBackToHTTPWhenTheCLIToolIsMissing(t *testing.T) {
 	t.Setenv("PATH", t.TempDir()) // no gh here
 
 	cfg := config.Config{Forge: config.Forge{CLI: true, Kind: githubKind, Host: hostGitHub}}
-	where := wiring.Workspace{Root: t.TempDir(), Remote: remoteGitHub}
+	where := onOrigin(t.TempDir(), remoteGitHub)
 
 	seams := wired(t, cfg, where, nil).Forge
 

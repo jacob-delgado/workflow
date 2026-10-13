@@ -14,7 +14,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/slackauth"
-	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 func TestTheDirectorySeamsAreBoundForASlackUserToken(t *testing.T) {
@@ -24,7 +23,7 @@ func TestTheDirectorySeamsAreBoundForASlackUserToken(t *testing.T) {
 	cfg := halfLoggedIn(t)
 
 	// Act
-	seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Messaging
+	seams := wired(t, cfg, onOrigin(t.TempDir(), ""), nil).Messaging
 
 	// Assert
 	if seams.ChannelMembers == nil || seams.UserGroups == nil || seams.RefreshDirectory == nil {
@@ -39,7 +38,7 @@ func TestAWebhookBindsADirectoryThatHasNoCredential(t *testing.T) {
 	// Settings may switch to a Slack user token while workflow runs, so the
 	// seams are there; until then they answer ErrNoCredential.
 	cfg := config.Config{Messaging: config.Messaging{Kind: config.KindSlack, WebhookURL: "https://hooks.example.com/x"}}
-	seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Messaging
+	seams := wired(t, cfg, onOrigin(t.TempDir(), ""), nil).Messaging
 
 	// Act
 	if seams.UserGroups == nil {
@@ -63,7 +62,7 @@ func TestSettingsSwitchedToASlackUserTokenReadTheDirectory(t *testing.T) {
 	cfg := halfLoggedIn(t)
 	userToken := cfg.Messaging
 	cfg.Messaging = config.Messaging{Kind: config.KindSlack, WebhookURL: "https://hooks.example.com/x"}
-	deps, controls := processEnvironment().Deps(cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+	deps, controls := processEnvironment().Deps(cfg, onOrigin(t.TempDir(), ""), nil)
 
 	controls.UseMessagingSettings(userToken)
 
@@ -82,7 +81,7 @@ func TestSettingsSwitchedAwayFromSlackStopReadingTheDirectory(t *testing.T) {
 	// Arrange
 	process := processEnvironment()
 
-	deps, controls := process.Deps(halfLoggedIn(t), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+	deps, controls := process.Deps(halfLoggedIn(t), onOrigin(t.TempDir(), ""), nil)
 
 	controls.UseMessagingSettings(config.Messaging{Kind: config.KindTeams, WebhookURL: "https://teams.example.com/x"})
 

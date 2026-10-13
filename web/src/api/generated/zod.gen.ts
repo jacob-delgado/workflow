@@ -528,7 +528,7 @@ export const zStage = z.object({
 });
 
 /**
- * Why each panel whose read failed was not read, so a failed read is shown as a failure rather than as the panel's empty state; absent when every panel read. A failed panel still carries its empty answer — or, for the review, the answer the forge last gave for the branch at its head — beside its problem. A service that is not set up — no credential, no forge the origin names — carries a problem whose code is not_set_up, with how to set it up, to be shown as guidance rather than as a failure; no repository is no problem. Each detail is the curated one an error answer carries, never a host, a path or a credential.
+ * Why each panel whose read failed was not read, so a failed read is shown as a failure rather than as the panel's empty state; absent when every panel read. A failed panel still carries its empty answer — or, for the review, the answer the forge last gave for the branch at its head — beside its problem. A service that is not set up — no credential, no forge the base remote names — carries a problem whose code is not_set_up, with how to set it up, to be shown as guidance rather than as a failure; no repository is no problem. Each detail is the curated one an error answer carries, never a host, a path or a credential.
  */
 export const zPanelProblems = z.object({
     issues: zProblem.optional(),
@@ -1289,7 +1289,7 @@ export const zActivityYear = z.object({
 });
 
 /**
- * How the source answered: read; not_set_up, when there was nothing set up to ask — no credential, no forge the origin names, no Taskwarrior installed, no git user.email — so it was left out; or failed, when a source that is set up was asked and could not be read.
+ * How the source answered: read; not_set_up, when there was nothing set up to ask — no credential, no forge the base remote names, no Taskwarrior installed, no git user.email — so it was left out; or failed, when a source that is set up was asked and could not be read.
  */
 export const zActivitySourceState = z.enum([
     'read',
@@ -1521,7 +1521,7 @@ export const zGetCheckLogResponse = zJobLog;
 export const zGetReviewResponse = zReview;
 
 /**
- * The queue. With no forge to ask — outside a repository, or with an origin on no forge workflow can read — available is false and the queue is empty: an answer about where the server runs, not a missing resource, so never a 404.
+ * The queue. With no forge to ask — outside a repository, or with a base remote on no forge workflow can read — available is false and the queue is empty: an answer about where the server runs, not a missing resource, so never a 404.
  */
 export const zListReviewsResponse = zReviewQueue;
 

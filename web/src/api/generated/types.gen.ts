@@ -179,7 +179,7 @@ export type Problem = {
      */
     detail: string;
     /**
-     * A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the origin names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is; rate_limited is an upstream asking to be asked again later, unreachable one that could not be reached at all; unauthorized is a request that presented no session, or another run's.
+     * A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the base remote names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is; rate_limited is an upstream asking to be asked again later, unreachable one that could not be reached at all; unauthorized is a request that presented no session, or another run's.
      */
     code: 'bad_request' | 'unauthorized' | 'not_found' | 'method_not_allowed' | 'conflict' | 'unprocessable' | 'not_set_up' | 'too_long' | 'precondition_required' | 'unreachable' | 'rate_limited' | 'fetch_failed' | 'check_failed' | 'internal';
     /**
@@ -843,7 +843,7 @@ export type Health = {
      */
     dry_run: boolean;
     /**
-     * Which forge the repository is on under the settings in effect: forge.kind when it names one, else the one origin's host names; unknown when neither says, as outside a repository or on a self-hosted forge the settings do not name. What the page decides by, where forge_noun and forge_sigil are only words to show.
+     * Which forge the repository is on under the settings in effect: forge.kind when it names one, else the one the base remote's host names (upstream's in a fork's clone, else origin's); unknown when neither says, as outside a repository or on a self-hosted forge the settings do not name. What the page decides by, where forge_noun and forge_sigil are only words to show.
      */
     forge_kind: 'github' | 'gitlab' | 'unknown';
     /**
@@ -939,7 +939,7 @@ export type Stage = {
 };
 
 /**
- * Why each panel whose read failed was not read, so a failed read is shown as a failure rather than as the panel's empty state; absent when every panel read. A failed panel still carries its empty answer — or, for the review, the answer the forge last gave for the branch at its head — beside its problem. A service that is not set up — no credential, no forge the origin names — carries a problem whose code is not_set_up, with how to set it up, to be shown as guidance rather than as a failure; no repository is no problem. Each detail is the curated one an error answer carries, never a host, a path or a credential.
+ * Why each panel whose read failed was not read, so a failed read is shown as a failure rather than as the panel's empty state; absent when every panel read. A failed panel still carries its empty answer — or, for the review, the answer the forge last gave for the branch at its head — beside its problem. A service that is not set up — no credential, no forge the base remote names — carries a problem whose code is not_set_up, with how to set it up, to be shown as guidance rather than as a failure; no repository is no problem. Each detail is the curated one an error answer carries, never a host, a path or a credential.
  */
 export type PanelProblems = {
     /**
@@ -1216,7 +1216,7 @@ export type LinkedIssue = {
 
 export type ReviewQueue = {
     /**
-     * Whether there is a forge to ask. False outside a repository, and when origin is on no forge workflow can read — not GitHub or GitLab, or a self-hosted one forge.kind and forge.host do not name — and requests is then empty.
+     * Whether there is a forge to ask. False outside a repository, and when the base remote is on no forge workflow can read — not GitHub or GitLab, or a self-hosted one forge.kind and forge.host do not name — and requests is then empty.
      */
     available: boolean;
     /**
@@ -2229,7 +2229,7 @@ export type ActivityItem = {
 export type ActivitySourceName = 'git' | 'tasks' | 'jira' | 'forge';
 
 /**
- * How the source answered: read; not_set_up, when there was nothing set up to ask — no credential, no forge the origin names, no Taskwarrior installed, no git user.email — so it was left out; or failed, when a source that is set up was asked and could not be read.
+ * How the source answered: read; not_set_up, when there was nothing set up to ask — no credential, no forge the base remote names, no Taskwarrior installed, no git user.email — so it was left out; or failed, when a source that is set up was asked and could not be read.
  */
 export type ActivitySourceState = 'read' | 'not_set_up' | 'failed';
 
@@ -3154,7 +3154,7 @@ export type ListReviewsError = ListReviewsErrors[keyof ListReviewsErrors];
 
 export type ListReviewsResponses = {
     /**
-     * The queue. With no forge to ask — outside a repository, or with an origin on no forge workflow can read — available is false and the queue is empty: an answer about where the server runs, not a missing resource, so never a 404.
+     * The queue. With no forge to ask — outside a repository, or with a base remote on no forge workflow can read — available is false and the queue is empty: an answer about where the server runs, not a missing resource, so never a 404.
      */
     200: ReviewQueue;
 };

@@ -16,7 +16,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
-	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 // fakeTaskwarrior is a task program that answers as Taskwarrior version would,
@@ -62,7 +61,7 @@ func wiredTasks(t *testing.T, cfg config.Config, path string) seams.Tasks {
 	t.Helper()
 	t.Setenv("PATH", path)
 
-	return wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Tasks
+	return wired(t, cfg, onOrigin(t.TempDir(), ""), nil).Tasks
 }
 
 // askedWith reports a recorded call ending with command that also carries

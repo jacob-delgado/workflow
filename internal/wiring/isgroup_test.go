@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/config"
-	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 // onceAGroupScript is a stand-in glab that knows no user named acme and
@@ -35,7 +34,7 @@ func TestAGroupStaysAGroupWhenALaterLookupFails(t *testing.T) {
 	write(t, filepath.Join(glab.dir, "glab"), onceAGroupScript(glab.dir), 0o755)
 
 	cfg := config.Config{Forge: config.Forge{CLI: true}}
-	where := wiring.Workspace{Root: t.TempDir(), Remote: remoteGitLab}
+	where := onOrigin(t.TempDir(), remoteGitLab)
 	isGroup := wired(t, cfg, where, nil).Forge.IsGroup
 	_, _ = isGroup(t.Context(), "acme")
 
@@ -56,7 +55,7 @@ func TestIsGroupAsksGitLabOnceSettingsSavedWhileRunningSwitchToIt(t *testing.T) 
 	glab := installForgeCLI(t, "glab", forgeReplies{})
 	write(t, filepath.Join(glab.dir, "glab"), onceAGroupScript(glab.dir), 0o755)
 
-	where := wiring.Workspace{Root: t.TempDir(), Remote: onPremisesRemote}
+	where := onOrigin(t.TempDir(), onPremisesRemote)
 	deps, controls := processEnvironment().Deps(config.Config{Forge: throughCLIOnPremises()}, where, nil)
 
 	controls.UseForgeSettings(config.Forge{CLI: true, Kind: "gitlab", Host: onPremisesHost})
@@ -116,7 +115,7 @@ func TestALookupThatFailedIsAskedAgain(t *testing.T) {
 	write(t, filepath.Join(glab.dir, "glab"), failingOnceScript(glab.dir), 0o755)
 
 	cfg := config.Config{Forge: config.Forge{CLI: true}}
-	where := wiring.Workspace{Root: t.TempDir(), Remote: remoteGitLab}
+	where := onOrigin(t.TempDir(), remoteGitLab)
 	isGroup := wired(t, cfg, where, nil).Forge.IsGroup
 
 	_, err := isGroup(t.Context(), "acme")
@@ -137,7 +136,7 @@ func TestIsGroupWithNoRemoteToReadTakesEveryBareNameForAPersonWithoutAsking(t *t
 	// Arrange
 	glab := installForgeCLI(t, "glab", forgeReplies{})
 	cfg := config.Config{Forge: config.Forge{CLI: true, Kind: "gitlab"}}
-	forgeSeams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Forge
+	forgeSeams := wired(t, cfg, onOrigin(t.TempDir(), ""), nil).Forge
 
 	// Act
 	group, err := forgeSeams.IsGroup(t.Context(), "acme")
