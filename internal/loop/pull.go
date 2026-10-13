@@ -4,6 +4,7 @@
 package loop
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -66,6 +67,12 @@ type PullOptions struct {
 	// Template is the template the body starts from, by name, as the
 	// terminal's ctrl+t chooses one; empty starts from the first.
 	Template string
+	// Base is the branch it merges into, as a surface chose it, by the name
+	// the forge knows; the code owners asked to review are read against it.
+	// Empty is the base the branch was read to have left. The title and body
+	// are drafted from the branch's commits as it was read, whichever base
+	// is chosen.
+	Base string
 }
 
 // ComposePull proposes the pull request for the checked-out branch — a title and
@@ -152,7 +159,7 @@ func draft(
 		TitleSource:  opts.TitleSource,
 	})
 
-	base := branch.BaseName()
+	base := cmp.Or(opts.Base, branch.BaseName())
 	users, teams := SplitReviewers(ProposedReviewers(ctx, seams.Owners, base))
 
 	return forge.NewPullRequest{

@@ -13,11 +13,13 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
-// The base the pull request targets, and a team and a person owning the API.
+// The base the pull request targets, a team and a person owning the API, and
+// a path in it.
 const (
 	targetBase = "main"
 	ownerTeam  = "acme/control-plane"
 	ownerUser  = "ana"
+	apiPath    = "api/pull.go"
 )
 
 // errForgeDown is a forge that could not be asked.
@@ -32,7 +34,7 @@ const ownersFile = "/api/ @ana @acme/control-plane\n/docs/ @Me @bo\n"
 func ownerSeams() loop.OwnerSeams {
 	return loop.OwnerSeams{
 		ChangedPaths: func(context.Context, string) ([]string, error) {
-			return []string{"api/pull.go", "docs/usage.md"}, nil
+			return []string{apiPath, "docs/usage.md"}, nil
 		},
 		CodeOwnersAt: func(context.Context, string) (codeowners.File, bool, error) {
 			return codeowners.Parse(ownersFile, codeowners.GitHub), true, nil
@@ -228,7 +230,7 @@ func TestComposePullProposesTheCodeOwnersAsReviewers(t *testing.T) {
 	seams.Owners.ChangedPaths = func(_ context.Context, base string) ([]string, error) {
 		read = base
 
-		return []string{"api/pull.go"}, nil
+		return []string{apiPath}, nil
 	}
 
 	// Act
@@ -243,6 +245,41 @@ func TestComposePullProposesTheCodeOwnersAsReviewers(t *testing.T) {
 		read != targetBase {
 		t.Errorf("ComposePull proposed %q and teams %q against %q, want ana and %s against %s",
 			draft.Reviewers, proposedTeams, read, ownerTeam, targetBase)
+	}
+}
+
+func TestComposePullProposesTheCodeOwnersOfTheBaseChosen(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The branch was read to have left main; a surface chose release-1.2.
+	const chosen = "release-1.2"
+
+	var changedSince, ownersAt string
+
+	seams := pullSeams()
+	seams.Owners = ownerSeams()
+	seams.Owners.ChangedPaths = func(_ context.Context, base string) ([]string, error) {
+		changedSince = base
+
+		return []string{apiPath}, nil
+	}
+	seams.Owners.CodeOwnersAt = func(_ context.Context, base string) (codeowners.File, bool, error) {
+		ownersAt = base
+
+		return codeowners.Parse(ownersFile, codeowners.GitHub), true, nil
+	}
+
+	opts := options()
+	opts.Base = chosen
+
+	// Act
+	draft, _, err := loop.ComposePull(t.Context(), seams, opts)
+
+	// Assert
+	if err != nil || draft.Base != chosen || changedSince != chosen || ownersAt != chosen {
+		t.Errorf("ComposePull = %v, into %q, owners read since %q at %q; want all three %s",
+			err, draft.Base, changedSince, ownersAt, chosen)
 	}
 }
 
