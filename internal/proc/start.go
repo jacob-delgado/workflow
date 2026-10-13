@@ -56,9 +56,10 @@ type Output struct {
 	// Lines delivers each line of standard output and standard error in the
 	// order the program wrote them, and closes when the program has exited.
 	Lines <-chan string
-	// Wait reports how the program exited. It blocks until then, so call it
-	// once Lines has closed, or to wait out a program nobody is reading. Calling
-	// it again returns the same result rather than blocking.
+	// Wait reports how the program exited. It blocks until then, and until its
+	// output has been read to the end or ctx has ended, so call it once Lines
+	// has closed. Calling it again returns the same result rather than
+	// blocking.
 	Wait func() error
 	// Stop kills this run — the whole process group — without disturbing the
 	// context the caller passed, so one hung or unwanted run can be ended on its
@@ -84,9 +85,11 @@ func (o Output) Drain() ([]string, error) {
 // someone should see it as it happens: a hook, a push.
 //
 // Standard output and standard error share one pipe, so a failure appears
-// between the lines it followed rather than all at the end. Canceling ctx kills
-// the program, and the output is drained whether or not anyone is reading, so a
-// reader that goes away never leaves the program blocked on a full pipe.
+// between the lines it followed rather than all at the end. While ctx runs, each
+// line waits for its reader, so a reader that goes away and leaves ctx running
+// reads Lines to the end, or the program blocks once the lines waiting fill the
+// pipe. Canceling ctx kills the program and drains the rest of its output
+// unread, so a reader that goes away with ctx never leaves it blocked.
 func Start(ctx context.Context, program Command) (Output, error) {
 	// A run gets its own cancelable context, a child of the caller's, so Stop can
 	// end this run alone while the caller's context — and every other run under
