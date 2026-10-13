@@ -19,10 +19,12 @@ branches, and the whole body — is confirmed first.
 The code owners of the paths the branch changes, as CODEOWNERS on the base names
 them, are asked to review it; the preview lists them.
 
---base merges it into another branch, whose code owners are asked instead;
---reviewer asks the people and teams it names in place of the code owners; and
---draft opens it as a draft. The title and body are still composed from the
-branch's commits since the base it left.
+--title and --body stand in for the title and description composed, and
+--template names the repository's template the description starts from;
+--reviewer asks the people and teams it names in place of the code owners;
+--draft opens it as a draft; and --base merges it into another branch, whose
+code owners are asked instead, though what is composed still comes from the
+commits since the base the branch left.
 
 Once it is open, it offers — as the interface does — to link it on the branch's
 issue, then to move the issue to the review status (jira.review_status). With
@@ -49,10 +51,13 @@ workflow pr [flags]
 
 ```
       --base BRANCH     merge into BRANCH instead of the base the branch left; its code owners are asked to review
+      --body TEXT       the whole description, TEXT, in place of the one composed from the template and the commits
       --draft           open it as a draft
   -h, --help            help for pr
   -j, --json            print what was opened, and the offers that followed, as JSON
       --reviewer NAME   ask NAME to review instead of the code owners, org/team asking a team; repeat it, or separate names with commas
+      --template NAME   start the description from the repository's template NAME instead of its first
+      --title TEXT      the title, TEXT, in place of the one composed
   -y, --yes             go ahead without asking: push the branch when it needs it, open the pull request, link it on the issue and move the issue to the review status
 ```
 
