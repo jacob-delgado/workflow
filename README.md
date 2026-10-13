@@ -181,7 +181,7 @@ only the keys that do something right now.
 | `space` / `a` / `c` | Commits | Stage a file, stage all, commit |
 | `h` | Commits | Run a hook lefthook configures |
 | `P` | Branch | Push |
-| `n` | Review | Open the pull or merge request |
+| `n` | Review | Open the pull or merge request, announced once its CI passes |
 | `p` | messaging | Preview the announcement; announce now or once CI passes |
 | `?` | anywhere | Every key |
 

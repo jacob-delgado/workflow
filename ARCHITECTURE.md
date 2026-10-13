@@ -147,9 +147,11 @@ per surface. The terminal already holds the facts an announcement and a pull
 request's proposal are made from, so it hands them to the value-level
 `loop.Announcement` and `loop.Draft` rather than have `loop` read them again
 through seams; the command line and the web keep `loop.ComposeAnnouncement` and
-`loop.ComposePull`, which read them through seams and delegate to those two. The
-terminal posts an announcement and remembers it through `loop.Deliver`, as the
-command line does; the web does not yet remember what it announced.
+`loop.ComposePull`, which read them through seams and delegate to those two. Every
+surface posts an announcement through `loop.Deliver`, which reads the pull
+request's CI as it posts and refuses one a check has failed on, then
+remembers what it posted; and every surface that waits for CI to pass —
+the terminal, the web and `--when-green` — waits by `loop.CIWatch`.
 
 Each surface hands `loop` the seams it holds and words the answer in its own
 terms: a refusal comes back as a `loop.Err…` sentinel, and the command line,
