@@ -1,4 +1,4 @@
-import { useRef, type RefObject } from 'react'
+import { useRef, type ReactElement, type RefObject } from 'react'
 import { cn } from '@/lib/utils.ts'
 
 // FilterChoice is a value a list can be narrowed to, with how many of the
@@ -15,6 +15,10 @@ interface FilterChipsProps<V> {
   isPicked: (value: V) => boolean
   nameOf: (value: V) => string
   keyOf: (value: V) => string
+  // markOf is the mark a value's chip draws before its name — the one the
+  // list's rows draw for it — or undefined for none. It is hidden from
+  // assistive tech, so the chip is named by its name and count alone.
+  markOf?: (value: V) => ReactElement | undefined
   onToggle: (value: V) => void
   // afterLast takes focus when the group's last button goes, and the group with
   // it; without one, focus stays on the group.
@@ -22,15 +26,18 @@ interface FilterChipsProps<V> {
 }
 
 // FilterChips narrows a list, as the terminal's checklists do: a button per
-// value the list holds, each with how many hold it, pressed while it narrows
-// the list. The name and count are one text, so a chip never reads as a row's
-// mark it shares a word with.
+// value the list holds, each with how many hold it, after the mark its rows
+// draw for it where they draw one, pressed — in the tonal wash, edged in its
+// text color so the pressed state holds 3:1 against the page — while it
+// narrows the list. The name and count are one text, so a chip never reads as
+// a row's mark it shares a word with.
 export function FilterChips<V>({
   label,
   choices,
   isPicked,
   nameOf,
   keyOf,
+  markOf,
   onToggle,
   afterLast,
 }: FilterChipsProps<V>) {
@@ -53,6 +60,7 @@ export function FilterChips<V>({
       </span>
       {choices.map((choice) => {
         const pressed = isPicked(choice.value)
+        const mark = markOf?.(choice.value)
 
         return (
           <button
@@ -70,10 +78,17 @@ export function FilterChips<V>({
               onToggle(choice.value)
             }}
             className={cn(
-              'rounded-md border px-2 py-0.5 text-foreground hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-              pressed ? 'border-foreground bg-accent font-medium' : 'border-input',
+              'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none motion-safe:transition-colors',
+              pressed
+                ? 'border-tonal-foreground bg-tonal font-medium text-tonal-foreground hover:bg-tonal-hover'
+                : 'border-input text-foreground hover:bg-accent',
             )}
           >
+            {mark === undefined ? null : (
+              <span aria-hidden="true" className="flex shrink-0">
+                {mark}
+              </span>
+            )}
             {`${nameOf(choice.value)} ${String(choice.count)}`}
           </button>
         )

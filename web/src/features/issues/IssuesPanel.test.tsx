@@ -447,6 +447,21 @@ test('a forge issue is listed by its number, as the forge writes it', () => {
   expect(screen.getByRole('button', { name: /typo in the readme/i }).textContent).toContain('#57')
 })
 
+test('the filter offers forge issues without a mark, as their rows draw none', () => {
+  // Arrange
+  streamIssues([{ ...setupDocs, key: '57', tracker: 'forge', summary: 'Typo in the README' }])
+
+  // Act
+  renderWithClient(<IssuesPanel />)
+
+  // Assert
+  const filter = screen.getByRole('group', { name: 'Filter' })
+  expect(markShape(within(filter).getByRole('button', { name: 'forge issue 1' }))).toBe('')
+  expect(markShape(within(filter).getByRole('button', { name: 'To Do 1' }))).toBe(
+    drawnMark('not-started'),
+  )
+})
+
 // Twin of TestTheIssuesListSaysWhenTheForgeCouldNotBeRead.
 test("the list says which tracker's issues could not be read", () => {
   // Arrange

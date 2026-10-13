@@ -16,8 +16,14 @@ const mark: Record<StatusCategory, MarkState> = {
 export function IssueStatus({ category, label }: { category: StatusCategory; label: string }) {
   return (
     <span className="flex items-center gap-1 text-xs whitespace-nowrap text-muted-foreground">
-      <StateMark state={mark[category]} className="size-3" />
+      <StatusMark category={category} />
       {label}
     </span>
   )
+}
+
+// StatusMark is the mark of a status category, as an issue's status draws it
+// before its name.
+export function StatusMark({ category }: { category: StatusCategory }) {
+  return <StateMark state={mark[category]} className="size-3" />
 }

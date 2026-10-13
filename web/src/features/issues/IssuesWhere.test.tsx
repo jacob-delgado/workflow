@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { describedTask, makeSnapshot, makeTaskBranch, taskFacet } from '@/test/fixtures.ts'
+import { drawnMark, markShape } from '@/test/marks.tsx'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { IssuesPanel } from './IssuesPanel.tsx'
 
@@ -113,6 +114,27 @@ test('offers each place the loaded issues are in, with its count', () => {
       .getAllByRole('button')
       .map((button) => button.textContent),
   ).toEqual(['Intake 1', 'Fixing 1', 'In development 1', 'in flight 1', 'task active 1'])
+})
+
+test('marks each place as the rows mark it: a status by its category, a mark by its own', () => {
+  // Arrange
+  renderPanel()
+
+  // Act
+  const group = screen.getByRole('group', { name: 'Filter' })
+
+  // Assert
+  expect(
+    within(group)
+      .getAllByRole('button')
+      .map((button) => [button.textContent, markShape(button)]),
+  ).toEqual([
+    ['Intake 1', drawnMark('not-started')],
+    ['Fixing 1', drawnMark('in-flight')],
+    ['In development 1', drawnMark('in-flight')],
+    ['in flight 1', drawnMark('in-flight')],
+    ['task active 1', drawnMark('in-flight')],
+  ])
 })
 
 test('pressing a status narrows the list to it', async () => {

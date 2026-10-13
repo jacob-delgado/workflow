@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import type { ReviewFacet, ReviewQueue, ReviewRequest } from '@/api/generated/types.gen.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { describedReviewRequest } from '@/test/fixtures.ts'
+import { drawnMark, markShape } from '@/test/marks.tsx'
 import { appQueryClient, renderWithClient } from '@/test/renderWithClient.tsx'
 import { ReviewQueuePanel } from './ReviewQueuePanel.tsx'
 
@@ -147,6 +148,33 @@ test('offers each value the queue holds, with its count, none pressed', async ()
   expect(buttons.every((button) => button.getAttribute('aria-pressed') === 'false')).toBe(true)
 })
 
+test('marks how CI stands and a draft as the rows mark them, and no other value', async () => {
+  // Arrange
+  fakeApi({ [reviewsPath]: queue })
+
+  // Act
+  renderWithClient(<ReviewQueuePanel />)
+
+  // Assert
+  const filter = await screen.findByRole('group', { name: 'Filter' })
+  expect(
+    within(filter)
+      .getAllByRole('button')
+      .map((button) => [button.textContent, markShape(button)]),
+  ).toEqual([
+    ['no repository 1', ''],
+    ['example/other 1', ''],
+    ['example/repo 2', ''],
+    ['CI failed 1', drawnMark('failed')],
+    ['CI passed 1', drawnMark('done')],
+    ['CI running 1', drawnMark('in-flight')],
+    ['CI none 1', drawnMark('unknown')],
+    ['draft 1', drawnMark('not-started')],
+    ['ready 3', ''],
+    ['by kwan 2', ''],
+    ['by mira 2', ''],
+  ])
+})
 test('offers the values in the order the server offers them', async () => {
   // Arrange
   fakeApi({ [reviewsPath]: { ...queue, facet_order: facetsWorldOrder.toReversed() } })

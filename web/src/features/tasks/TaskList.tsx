@@ -171,7 +171,7 @@ function TaskRow({ task, current, now, order, onSelect }: TaskRowProps) {
     >
       <span className="flex items-start gap-item">
         <span className="flex h-5 shrink-0 items-center">
-          <StateMark state={markOf(task)} className="text-taskwarrior" />
+          <TaskMark task={task} />
         </span>
         <span className="sr-only">{task.state}</span>
         {number === '' ? null : (
@@ -184,6 +184,12 @@ function TaskRow({ task, current, now, order, onSelect }: TaskRowProps) {
       <Meta className="text-xs text-muted-foreground">{rowTail(task, now, order)}</Meta>
     </button>
   )
+}
+
+// TaskMark is how far a task has got, by its mark in Taskwarrior's hue, as
+// its row draws it.
+export function TaskMark({ task }: { task: Task }) {
+  return <StateMark state={markOf(task)} className="text-taskwarrior" />
 }
 
 // rowTail is what a row says after the task: the issue it is for, when it is

@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react'
 import type {
   Issue,
   IssuesPage,
@@ -13,11 +14,12 @@ import { Reading, ReadFailure } from '@/lib/Status.tsx'
 import { cn, contentMeasure } from '@/lib/utils.ts'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { IssueDetailPanel } from './IssueDetailPanel.tsx'
-import { marksOf, placeChoices, samePlace, togglePlace } from './issuePlaces.ts'
+import { marksOf, placeChoices, samePlace, togglePlace, type Place } from './issuePlaces.ts'
+import { StatusMark } from './IssueStatus.tsx'
 import { IssueListControls } from './list/IssueListControls.tsx'
 import { filterOutcome, narrowed, useNarrowing } from './list/issueNarrowing.ts'
 import { MoreIssues, useIssuePaging, type IssuePaging } from './list/IssuePaging.tsx'
-import { groupBranchesByKey, IssueRows, type RowFacts } from './list/IssueRows.tsx'
+import { groupBranchesByKey, IssueRows, rowMarksOf, type RowFacts } from './list/IssueRows.tsx'
 
 export function IssuesPanel() {
   const snapshot = useLiveSnapshot()
@@ -57,6 +59,7 @@ function IssueBrowser({ streamed, unread, branches, tasks }: IssueBrowserProps) 
   const marksFor = (issue: Issue) => marksOf(issue, facts.branchesByKey, tasks)
   const { loaded } = paging
   const shown = narrowed(loaded, { filter, places }, marksFor)
+  const drawn = placeMarks(loaded, facts)
 
   return (
     <div className="flex flex-col gap-group lg:min-h-0 lg:flex-1">
@@ -72,7 +75,8 @@ function IssueBrowser({ streamed, unread, branches, tasks }: IssueBrowserProps) 
           choices={placeChoices(loaded, marksFor, places)}
           isPicked={(place) => places.some((picked) => samePlace(picked, place))}
           nameOf={(place) => place.name}
-          keyOf={(place) => `${place.kind}:${place.name}`}
+          keyOf={placeKey}
+          markOf={(place) => drawn.get(placeKey(place))}
           onToggle={(place) => {
             narrow({ places: togglePlace(places, place) })
           }}
@@ -98,6 +102,29 @@ function IssueBrowser({ streamed, unread, branches, tasks }: IssueBrowserProps) 
       )}
     </div>
   )
+}
+
+// placeKey tells a place apart from every other: its kind and its name.
+function placeKey(place: Place): string {
+  return `${place.kind}:${place.name}`
+}
+
+// placeMarks is the mark the rows draw for each place a loaded issue is in, by
+// the place's key: a status by its category's mark, and a row's mark by its
+// words. A place no loaded issue is in, and a mark no row draws, has none.
+function placeMarks(loaded: Issue[], facts: RowFacts): Map<string, ReactElement> {
+  const drawn = new Map<string, ReactElement>()
+  for (const issue of loaded) {
+    drawn.set(
+      placeKey({ kind: 'status', name: issue.status }),
+      <StatusMark category={issue.status_category} />,
+    )
+    for (const { words, mark } of rowMarksOf(issue, facts)) {
+      drawn.set(placeKey({ kind: 'mark', name: words }), mark)
+    }
+  }
+
+  return drawn
 }
 
 interface ListAndDetailProps {
