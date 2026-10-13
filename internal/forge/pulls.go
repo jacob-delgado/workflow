@@ -110,6 +110,13 @@ type Head struct {
 	Fork string
 }
 
+// forkOf reports whether the head was pushed to a fork of base rather than to
+// base itself. Paths are compared without regard to case, as both forges
+// resolve them.
+func (h Head) forkOf(base Repo) bool {
+	return h.Fork != "" && !strings.EqualFold(h.Fork, base.Path)
+}
+
 // NewPullRequest is a pull request to open.
 type NewPullRequest struct {
 	Title string
