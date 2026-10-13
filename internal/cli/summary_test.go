@@ -29,6 +29,9 @@ const (
 	asJSON     = "--json"
 )
 
+// summaryCommand is the command these tests run.
+const summaryCommand = "summary"
+
 // datedCommit makes a commit in dir authored at when, as the identity the
 // repository is configured with.
 func datedCommit(t *testing.T, dir, message, when string) {
@@ -203,8 +206,9 @@ func TestSummaryRefusesFlagsThatDoNotGoTogether(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string][]string{
-		"--json with --post": {"summary", asJSON, "--post"},
-		"--yes without it":   {"summary", "--yes"},
+		"--json with --post":   {summaryCommand, asJSON, "--post"},
+		"--yes without it":     {summaryCommand, "--yes"},
+		"--channel without it": {summaryCommand, "--channel", "#x"},
 	}
 
 	for name, args := range cases {

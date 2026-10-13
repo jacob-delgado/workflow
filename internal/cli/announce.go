@@ -72,6 +72,8 @@ type announceTagging struct {
 func newAnnounceCmd(prompt Prompt) *cobra.Command {
 	var opts writeOptions
 
+	var channel string
+
 	cmd := &cobra.Command{
 		Use:   "announce",
 		Short: "Announce the branch's pull or merge request to your team's chat",
@@ -86,25 +88,28 @@ func newAnnounceCmd(prompt Prompt) *cobra.Command {
 			"without the scopes tagging needs posts untagged, naming the scope to add.\n\n" +
 			"What it announces is remembered, with what the interface announces: a pull\n" +
 			"request already announced at the moment it is at is said to be, and asked about\n" +
-			"again rather than repeated — with --yes, it is left as it is.",
+			"again rather than repeated — with --yes, it is left as it is. --channel announces\n" +
+			"in another channel than messaging.channel, which only a Slack user token can.",
 		Example: examples(
 			`workflow --dry-run announce   # the announcement, and where it would go`,
 			`workflow announce --yes       # announce it, unattended`,
 		),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runAnnounceCommand(cmd, prompt, opts)
+			return runAnnounceCommand(cmd, prompt, opts, channel)
 		},
 	}
 
 	opts.addFlags(cmd, confirmationHelp)
+	cmd.Flags().StringVar(&channel, "channel", "",
+		"announce in `CHANNEL` instead of messaging.channel; a Slack user token only")
 
 	return cmd
 }
 
 // runAnnounceCommand wires the real repository, forge, Jira and messaging
-// service to the announce flow.
-func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) error {
+// service to the announce flow, posting in channel when one is given.
+func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions, channel string) error {
 	conn, err := connect(cmd)
 	if err != nil {
 		return err
@@ -112,6 +117,12 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) er
 	defer conn.closeLog()
 
 	cfg, deps := conn.cfg, conn.deps
+
+	settings, err := postingIn(cfg.Messaging, channel)
+	if err != nil {
+		return err
+	}
+
 	seams := announceSeams{
 		Compose: loop.AnnounceSeams{
 			Branch:    deps.Git.Branch,
@@ -123,7 +134,7 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) er
 		},
 		Kind:      deps.Forge.Kind,
 		Project:   cfg.Jira.Project,
-		Messaging: cfg.Messaging,
+		Messaging: settings,
 		Memory:    loop.AnnounceMemory{Recorded: deps.Store.Announced, Record: deps.Store.RecordAnnounce},
 		Confirm:   func(question string) (bool, error) { return confirm(prompt, question) },
 		Tagging:   taggingFor(cfg.Messaging, deps),
