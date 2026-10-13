@@ -35,6 +35,13 @@
   --accent: #363c47;
   --accent-foreground: #c9d1dc;
 
+  /* A control beside the section's main act: a quiet wash of the control
+     accent, solid so its words hold their contrast on any ground. */
+  --tonal: #333a5c;
+  --tonal-hover: #3c446b;
+  --tonal-foreground: #c5cbff;
+  --tonal-border: #56609e;
+
   /* A list beside the thing it selects — the issues, the tasks — on a surface
      of its own, so the column you pick from reads apart from the view it opens.
      By night it sits a step below the page, where the selected row's lift
@@ -102,6 +109,11 @@
   --accent: #d9dfe7;
   --accent-foreground: #24292f;
 
+  --tonal: #e0e4fb;
+  --tonal-hover: #d3d8f7;
+  --tonal-foreground: #38419f;
+  --tonal-border: #a9b1e6;
+
   --list: #f7f9fb;
 
   --destructive: #b3302b;
@@ -145,6 +157,10 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-list: var(--list);
+  --color-tonal: var(--tonal);
+  --color-tonal-hover: var(--tonal-hover);
+  --color-tonal-foreground: var(--tonal-foreground);
+  --color-tonal-border: var(--tonal-border);
   --color-destructive: var(--destructive);
   --color-border: var(--border);
   --color-input: var(--input);

@@ -118,6 +118,20 @@ test.each(themes)(
 )
 
 describe.each(themes)('in the %s theme', (_, selector) => {
+  test.each(['--tonal', '--tonal-hover'])(
+    "a secondary button's words hold 4.5:1 on its %s fill",
+    (fill) => {
+      // Arrange
+      const tokens = tokensOf(selector)
+
+      // Act
+      const ratio = contrast(color(tokens, '--tonal-foreground'), color(tokens, fill))
+
+      // Assert
+      expect(ratio).toBeGreaterThanOrEqual(4.5)
+    },
+  )
+
   test.each(grounds)("a field's --input boundary holds 3:1 on %s", (ground) => {
     // Arrange
     const tokens = tokensOf(selector)

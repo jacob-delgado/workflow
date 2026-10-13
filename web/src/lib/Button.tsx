@@ -2,15 +2,16 @@ import type { ComponentProps, MouseEvent } from 'react'
 import { cn } from './utils.ts'
 
 // How each kind of button is drawn: primary for a section's one outward act —
-// the commit, the push, the announcement — and secondary for every control
-// beside one. Either shows it is off by color, whether the disabled attribute
+// the commit, the push, the announcement — in the solid control accent, and
+// secondary for every control beside one, in a tonal wash of that accent so it
+// still reads as a button at a glance. Either shows it is off by color, whether the disabled attribute
 // or aria-disabled turns it off. The primary's focus ring is the color of its
 // fill, so a page-colored gap sets the ring apart from it.
 const variants = {
   primary:
     'bg-primary font-medium focus-visible:ring-offset-2 focus-visible:ring-offset-background text-primary-foreground hover:bg-primary/90 disabled:bg-disabled disabled:text-disabled-foreground aria-disabled:bg-disabled aria-disabled:text-disabled-foreground',
   secondary:
-    'border border-input text-foreground hover:bg-accent disabled:bg-disabled disabled:text-disabled-foreground aria-disabled:bg-disabled aria-disabled:text-disabled-foreground',
+    'border border-tonal-border bg-tonal text-tonal-foreground hover:bg-tonal-hover disabled:bg-disabled disabled:text-disabled-foreground aria-disabled:bg-disabled aria-disabled:text-disabled-foreground',
 }
 
 // How large a button is drawn: md for a section's acts, and sm for an act
