@@ -28,8 +28,9 @@ interface FilterChipsProps<V> {
 // FilterChips narrows a list, as the terminal's checklists do: a button per
 // value the list holds, each with how many hold it, after the mark its rows
 // draw for it where they draw one, pressed — in the tonal wash, edged in its
-// text color so the pressed state holds 3:1 against the page — while it
-// narrows the list. The name and count are one text, so a chip never reads as
+// text color, which holds 3:1 against the page, and twice as thick as an
+// unpressed chip's edge, so pressed reads by weight as well as by color —
+// while it narrows the list. The name and count are one text, so a chip never reads as
 // a row's mark it shares a word with.
 export function FilterChips<V>({
   label,
@@ -80,7 +81,9 @@ export function FilterChips<V>({
             className={cn(
               'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none motion-safe:transition-colors',
               pressed
-                ? 'border-tonal-foreground bg-tonal font-medium text-tonal-foreground hover:bg-tonal-hover'
+                ? // The thicker edge takes its width from the padding, so a
+                  // chip keeps its size as it is pressed.
+                  'border-2 border-tonal-foreground bg-tonal px-1.75 py-px font-medium text-tonal-foreground hover:bg-tonal-hover'
                 : 'border-input text-foreground hover:bg-accent',
             )}
           >
