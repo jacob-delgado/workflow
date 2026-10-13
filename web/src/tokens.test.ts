@@ -133,6 +133,23 @@ describe.each(themes)('in the %s theme', (_, selector) => {
     expect(ratio).toBeGreaterThanOrEqual(4.5)
   })
 
+  // A row of the issue or task list fills with --accent while it is hovered
+  // or selected, and its marks stay drawn on it; what a row says in words
+  // about a refusal sits on its notice ground instead.
+  test.each(['--success', '--warning', '--destructive'])(
+    '%s holds 3:1 as a mark on a hovered or selected row, --accent',
+    (state) => {
+      // Arrange
+      const tokens = tokensOf(selector)
+
+      // Act
+      const ratio = contrast(color(tokens, state), color(tokens, '--accent'))
+
+      // Assert
+      expect(ratio).toBeGreaterThanOrEqual(3)
+    },
+  )
+
   test.each(['--activity-low', '--activity-mid', '--activity-high'])(
     "a calendar day's number holds 4.5:1 on %s",
     (level) => {

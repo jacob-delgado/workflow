@@ -11,7 +11,7 @@ import { FilterChips } from '@/lib/FilterChips.tsx'
 import { Meta } from '@/lib/Meta.tsx'
 import { NewTabLink } from '@/lib/NewTabLink.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
-import { Reading } from '@/lib/Status.tsx'
+import { Failure, Reading } from '@/lib/Status.tsx'
 import { capitalized, cn, contentMeasure, plural } from '@/lib/utils.ts'
 import { EmptyState } from '@/lib/EmptyState.tsx'
 import { ciMark, StateMark } from '@/lib/StateMark.tsx'
@@ -120,11 +120,7 @@ function Queue({
               ? ''
               : queueSummary(requests.length, shown.length, noun, order)}
           </p>
-          {failure === null ? null : (
-            <p role="alert" className="text-sm text-destructive">
-              {failure}
-            </p>
-          )}
+          {failure === null ? null : <Failure>{failure}</Failure>}
         </div>
         <Button variant="secondary" held={reading} onClick={onReadAgain} className="shrink-0">
           {readAgainLabel(failed, reading)}

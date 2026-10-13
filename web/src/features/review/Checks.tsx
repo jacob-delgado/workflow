@@ -8,6 +8,7 @@ import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn } from '@/lib/utils.ts'
 import { ciMark, StateMark } from '@/lib/StateMark.tsx'
 import { readCheckLog } from './checkLogApi.ts'
+import { Failure } from '@/lib/Status.tsx'
 
 // CiChecks is how the pull request's CI stands, headed by how many checks are
 // done when the forge counts them and by the state alone when it does not — a
@@ -95,7 +96,7 @@ function CheckLog({ id, name }: { id: string; name: string }) {
   }
 
   return (
-    <span className="flex flex-col gap-1 pl-6">
+    <div className="flex flex-col gap-1 pl-6">
       <Button
         variant="secondary"
         className="self-start"
@@ -109,12 +110,8 @@ function CheckLog({ id, name }: { id: string; name: string }) {
       >
         {read.state === 'running' ? 'Reading the log…' : 'Show log'}
       </Button>
-      {read.state === 'error' ? (
-        <span role="alert" className="text-destructive">
-          {read.error}
-        </span>
-      ) : null}
-    </span>
+      {read.state === 'error' ? <Failure>{read.error}</Failure> : null}
+    </div>
   )
 }
 

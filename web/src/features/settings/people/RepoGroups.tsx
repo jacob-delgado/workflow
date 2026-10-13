@@ -4,7 +4,7 @@ import type { RepoGroups as Groups, SlackTarget } from '@/api/generated/types.ge
 import { useSlackGroups } from '@/features/messaging/slackApi.ts'
 import { Button } from '@/lib/Button.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
-import { Reading, Unread } from '@/lib/Status.tsx'
+import { Failure, Reading, Unread } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { useRepoGroups, useSaveRepoGroups } from './peopleApi.ts'
 
@@ -92,11 +92,7 @@ function GroupChoice({ saved, dryRun }: { saved: Groups; dryRun: boolean }) {
       >
         {save.state === 'running' ? 'Saving…' : 'Save groups'}
       </Button>
-      {save.state === 'error' ? (
-        <p role="alert" className="text-destructive">
-          {save.error}
-        </p>
-      ) : null}
+      {save.state === 'error' ? <Failure>{save.error}</Failure> : null}
       <OutcomeLine said={outcome.said} />
     </div>
   )

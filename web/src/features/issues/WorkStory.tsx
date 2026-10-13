@@ -19,6 +19,7 @@ import {
   WorktreeMadeOffer,
 } from './StartInWorktree.tsx'
 import { startWork } from './startWorkApi.ts'
+import { Failure } from '@/lib/Status.tsx'
 
 type SnapshotStage = Snapshot['stages'][number]
 type Step = SnapshotStage['step']
@@ -448,11 +449,7 @@ function CheckoutButton({ branch, outcome }: { branch: string; outcome: Teller }
       >
         {state === 'running' ? 'Switching…' : 'Switch branch'}
       </Button>
-      {state === 'error' ? (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      ) : null}
+      {state === 'error' ? <Failure>{error}</Failure> : null}
     </div>
   )
 }

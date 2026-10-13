@@ -5,6 +5,7 @@ import { Button } from '@/lib/Button.tsx'
 import { Input } from '@/lib/Field.tsx'
 import type { Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { Failure } from '@/lib/Status.tsx'
 
 interface TaskLineFormProps {
   // shortcut is the terminal's action that puts the focus in the line.
@@ -80,11 +81,7 @@ export function TaskLineForm({
       <Button variant="secondary" type="submit" held={write.state === 'running'}>
         {write.state === 'running' ? busy : verb}
       </Button>
-      {refusal === '' ? null : (
-        <p role="alert" className="basis-full text-sm whitespace-pre-line text-destructive">
-          {refusal}
-        </p>
-      )}
+      {refusal === '' ? null : <Failure className="basis-full">{refusal}</Failure>}
     </form>
   )
 }

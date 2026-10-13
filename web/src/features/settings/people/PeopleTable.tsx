@@ -10,7 +10,7 @@ import type {
 import { useSlackGroups, useSlackMembers } from '@/features/messaging/slackApi.ts'
 import { Button } from '@/lib/Button.tsx'
 import { Select } from '@/lib/Field.tsx'
-import { Reading, Unread } from '@/lib/Status.tsx'
+import { Failure, Reading, Unread } from '@/lib/Status.tsx'
 import { OutcomeLine, type Teller, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { LastLook } from '@/lib/LastLook.tsx'
@@ -109,11 +109,7 @@ function OwnerRows({ people, dryRun }: { people: People; dryRun: boolean }) {
           ))}
         </tbody>
       </table>
-      {link.state === 'error' ? (
-        <p role="alert" className="text-destructive">
-          {link.error}
-        </p>
-      ) : null}
+      {link.state === 'error' ? <Failure>{link.error}</Failure> : null}
       {confirming === null ? null : (
         <ForgetConfirm
           owner={confirming}

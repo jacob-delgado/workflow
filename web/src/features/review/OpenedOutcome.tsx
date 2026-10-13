@@ -4,6 +4,7 @@ import { Button } from '@/lib/Button.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { linkOnIssue, moveToReview } from './followUpApi.ts'
+import { Failure } from '@/lib/Status.tsx'
 
 // OpenedOutcome follows the line saying the pull request opened: the warning
 // when its reviewers, assignees or labels could not all be added, and what the
@@ -92,11 +93,7 @@ function FollowUpOffer({ offer, pull, noun }: { offer: FollowUp; pull: string; n
         </Button>
       )}
       <OutcomeLine said={outcome.said} />
-      {state === 'error' ? (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      ) : null}
+      {state === 'error' ? <Failure>{error}</Failure> : null}
     </div>
   )
 }

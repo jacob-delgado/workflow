@@ -7,7 +7,7 @@ import { useConfigRead } from '@/features/settings/configApi.ts'
 import { Button } from '@/lib/Button.tsx'
 import { FieldFrame } from '@/lib/Field.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
-import { Reading } from '@/lib/Status.tsx'
+import { Failure, Reading } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn, plural } from '@/lib/utils.ts'
 import { usePostComment } from './commentApi.ts'
@@ -196,11 +196,7 @@ function WritePanel({
 function ComposerRefusal({ blank, error }: { blank: boolean; error: string }) {
   const reason = blank ? 'Write a comment first.' : error
 
-  return reason === '' ? null : (
-    <p role="alert" className="text-sm text-destructive">
-      {reason}
-    </p>
-  )
+  return reason === '' ? null : <Failure>{reason}</Failure>
 }
 
 type Ids = ReturnType<typeof useComposerIds>

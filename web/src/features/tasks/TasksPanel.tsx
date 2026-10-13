@@ -4,7 +4,7 @@ import type { Issue, TaskList as Tasks } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { Button } from '@/lib/Button.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
-import { Reading } from '@/lib/Status.tsx'
+import { Failure, Reading } from '@/lib/Status.tsx'
 import { cn, contentMeasure, plural } from '@/lib/utils.ts'
 import { EmptyState } from '@/lib/EmptyState.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
@@ -204,11 +204,7 @@ function Controls({
           {`Taskwarrior's context ${list.context} narrows the list.`}
         </p>
       )}
-      {failure === null ? null : (
-        <p role="alert" className="text-sm whitespace-pre-line text-destructive">
-          {failure}
-        </p>
-      )}
+      {failure === null ? null : <Failure>{failure}</Failure>}
       <div className="flex flex-wrap items-center gap-item">
         <Button variant="secondary" held={reading} onClick={onReadAgain}>
           {readAgainLabel(failed, reading)}

@@ -4,7 +4,7 @@ import { apiErrorMessage, problemCode } from '@/api/apiError.ts'
 import type { Config, SetupResult } from '@/api/generated/types.gen.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusOnMount } from '@/lib/focus.ts'
-import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
+import { OutcomeLine, resultGround, useOutcome } from '@/lib/Outcome.tsx'
 import { Failure, Reading, Unread } from '@/lib/Status.tsx'
 import { type AsyncState, useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn, contentMeasure } from '@/lib/utils.ts'
@@ -104,7 +104,7 @@ function SetUpSaid({ result }: { result: SetupResult }) {
   }
 
   return (
-    <p ref={said} role="status" tabIndex={-1} className="text-sm text-success">
+    <p ref={said} role="status" tabIndex={-1} className={resultGround}>
       {parts.join(' ')}
     </p>
   )
@@ -274,11 +274,11 @@ interface ReloadAction {
 function ChangedSinceRead({ reload }: { reload: ReloadAction }) {
   return (
     <div className="flex flex-col items-start gap-item">
-      <p role="alert" className="text-sm text-destructive">
+      <Failure>
         The configuration file changed after Settings read it — edited on disk, or saved from
         another tab — so nothing was saved. Reload reads it again in place of your edits here; then
         make your change again.
-      </p>
+      </Failure>
       <Button
         variant="secondary"
         held={reload.state === 'running'}
@@ -288,11 +288,7 @@ function ChangedSinceRead({ reload }: { reload: ReloadAction }) {
       >
         {reload.state === 'running' ? 'Reloading…' : 'Reload'}
       </Button>
-      {reload.state === 'error' ? (
-        <p role="alert" className="text-sm text-destructive">
-          {reload.error}
-        </p>
-      ) : null}
+      {reload.state === 'error' ? <Failure>{reload.error}</Failure> : null}
     </div>
   )
 }

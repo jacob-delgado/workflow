@@ -14,6 +14,7 @@ import { AnnouncePreview } from './AnnouncePreview.tsx'
 import { HeldAnnouncement } from './HeldAnnouncement.tsx'
 import { mentionsOf, pickFrom, type TagPick } from './tagPick.ts'
 import { withWarning } from './withWarning.ts'
+import { Failure } from '@/lib/Status.tsx'
 
 export function MessagingPanel() {
   const snapshot = useLiveSnapshot()
@@ -181,11 +182,7 @@ function AnnounceControls({
       >
         {draft.preview.state === 'running' ? 'Preparing…' : `Announce to ${service}`}
       </Button>
-      {failure === '' ? null : (
-        <p role="alert" className="text-sm text-destructive">
-          {failure}
-        </p>
-      )}
+      {failure === '' ? null : <Failure>{failure}</Failure>}
     </div>
   )
 }

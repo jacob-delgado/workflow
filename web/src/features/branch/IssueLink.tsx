@@ -9,6 +9,7 @@ import { useFocusHandback, useFocusOnMount } from '@/lib/focus.ts'
 import type { Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { linkIssue, previewLink, unlinkIssue } from './branchIssueApi.ts'
+import { Failure } from '@/lib/Status.tsx'
 
 // IssueLink ties the branch to an issue by hand, for work begun outside
 // workflow on a branch whose name names none: it names the issue a linked
@@ -259,11 +260,7 @@ function Refusal({ message }: { message: string }) {
     return null
   }
 
-  return (
-    <p role="alert" className="text-sm whitespace-pre-line text-destructive">
-      {message}
-    </p>
-  )
+  return <Failure>{message}</Failure>
 }
 
 // refusalOf is why the preview or the link was refused, when either was.

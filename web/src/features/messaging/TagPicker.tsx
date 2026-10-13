@@ -14,6 +14,7 @@ import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { savePerson, useSlackGroups, useSlackMembers } from './slackApi.ts'
 import { linkedPeople, type TagPick, withGroup, withPeople } from './tagPick.ts'
+import { Failure } from '@/lib/Status.tsx'
 
 interface TagPickerProps {
   tagging: AnnouncementTagging
@@ -61,11 +62,7 @@ export function TagPicker({ tagging, pick, channel, posting, onPick, onLinking }
           onLink={(asked) => void link.run(asked)}
         />
       ) : null}
-      {link.state === 'error' ? (
-        <p role="alert" className="text-sm text-destructive">
-          {link.error}
-        </p>
-      ) : null}
+      {link.state === 'error' ? <Failure>{link.error}</Failure> : null}
       <OutcomeLine said={outcome.said} />
       {pick.groups.length > 0 ? (
         <GroupChecks
