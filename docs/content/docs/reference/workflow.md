@@ -108,6 +108,7 @@ workflow [flags]
 ### SEE ALSO
 
 * [workflow announce](../workflow_announce/)	 - Announce the branch's pull or merge request to your team's chat
+* [workflow assign](../workflow_assign/)	 - Assign an issue to someone, in Jira or on the forge
 * [workflow branch](../workflow_branch/)	 - Start work on an issue: create its branch, named by the convention, and switch to it
 * [workflow comment](../workflow_comment/)	 - Comment on an issue, in Jira or on the forge, with the text on standard input
 * [workflow completion](../workflow_completion/)	 - Generate the autocompletion script for the specified shell
