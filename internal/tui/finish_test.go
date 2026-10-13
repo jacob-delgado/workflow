@@ -39,6 +39,23 @@ func TestTheReviewPaneShowsAMergedBranch(t *testing.T) {
 	requireScreen(t, view, "● merged", "F finishes the branch")
 }
 
+func TestAMergedBranchSaysWhyItCannotBeFinished(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A commit was made on the merged branch after it was pushed, so F is left
+	// out, and the pane says why rather than leaving it out without a word.
+	merged := mergedBranch()
+	merged.branch.Ahead = 1
+
+	// Act
+	view := typing(t, merged.live(t, 120, 40), "4").View().Content
+
+	// Assert
+	requireScreen(t, view, "● merged", "cannot be finished", "holds commits that neither merged")
+	refuseScreen(t, view, "F finishes the branch")
+}
+
 func TestAMergedBranchDoesNotSitOnCheckingCI(t *testing.T) {
 	t.Parallel()
 

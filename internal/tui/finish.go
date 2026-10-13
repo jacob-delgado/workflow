@@ -16,7 +16,8 @@ import (
 )
 
 // mergedDetail describes a merged pull request: that it merged, how to finish
-// its branch, and that a new one can still be opened from it.
+// its branch or why it cannot be, and that a new one can still be opened from
+// it.
 func (m Model) mergedDetail(pull forge.PullRequest) string {
 	lines := []string{
 		m.styles.strong.Render(m.vocab.sigil+strconv.Itoa(pull.Number)) + " " + pull.Title,
@@ -25,10 +26,7 @@ func (m Model) mergedDetail(pull forge.PullRequest) string {
 		m.marks.done + " merged",
 	}
 
-	if m.review.canFinish(m.deps, m.branch) {
-		lines = append(lines, "", m.keys.finish.Help().Key+" finishes the branch: switch to "+
-			m.branch.branch.BaseName()+", pull, delete it.")
-	}
+	lines = append(lines, m.finishOffer()...)
 
 	if m.review.canOpenPull(m.deps, m.branch) {
 		lines = append(lines, "", m.keys.newPullRequest.Help().Key+" opens a new "+m.vocab.noun+
@@ -38,10 +36,33 @@ func (m Model) mergedDetail(pull forge.PullRequest) string {
 	return strings.Join(lines, "\n")
 }
 
+// finishOffer is what the merged detail says about finishing the branch: F
+// and what it runs when it can be finished, plainly why not when something is
+// in the way, and nothing where the repository can finish no branch at all.
+func (m Model) finishOffer() []string {
+	if m.deps.Git.Finish == nil {
+		return nil
+	}
+
+	refusal := m.review.finishRefusal(m.branch)
+	if refusal != nil {
+		return []string{"", "The branch cannot be finished yet: " + refusal.Error() + "."}
+	}
+
+	return []string{"", m.keys.finish.Help().Key + " finishes the branch: switch to " +
+		m.branch.branch.BaseName() + ", pull, delete it."}
+}
+
 // canFinish reports a merged branch that can be finished: the repository can
-// finish it, and loop.RefuseFinish finds nothing in the way.
+// finish it, and nothing is in its way.
 func (s reviewState) canFinish(deps Deps, branch branchState) bool {
-	return s.found && deps.Git.Finish != nil && loop.RefuseFinish(s.pull, s.found, branch.branch) == nil
+	return s.found && deps.Git.Finish != nil && s.finishRefusal(branch) == nil
+}
+
+// finishRefusal is what loop.RefuseFinish finds in the way of finishing the
+// branch, or nil when nothing is.
+func (s reviewState) finishRefusal(branch branchState) error {
+	return loop.RefuseFinish(s.pull, s.found, branch.branch)
 }
 
 // startFinish opens the finish preview: the three git commands that switch to
