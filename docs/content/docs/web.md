@@ -261,19 +261,21 @@ hooks. A hook that refuses the commit says why. **Show diff** under a changed
 file reads its diff against HEAD, staged and unstaged together, and **Hide
 diff** puts it away.
 
-Under the commits, **Run pre-commit** runs the pre-commit hook on what is
-staged without committing, as the terminal's `h` does, at once: it changes
-nothing that leaves the machine. While something is staged and a commit is
-not yet pushed, **Amend last commit** folds the staged changes into the last
-one, keeping its message, and **Fix up a commit** records a `fixup!` of the
-one chosen among those not yet pushed — the terminal's `A` and `f` — each
-after a last look at the commit it rewrites. A rebase, a run of pre-commit, an
-amend and a fixup each show their output as it is written, with **Stop**,
-which stops the program and all it started, then how it ended, with
-**Close**. One goes at a time, and it holds the index, so a stage or a commit
-asked for meanwhile waits for it. It goes on to its end if the page is
-closed, and a page opened meanwhile shows it running with its last lines. A
-conflict stops a rebase midway, for a terminal to finish.
+Under the commits, **Run a hook** reads the hooks lefthook configures and
+offers the ones a run by hand can stand in for, as the terminal's `h` does,
+with `pre-commit` chosen first; it lists the rest, the hooks only git runs,
+with what git hands each. **Run** runs the one chosen at once, as git would,
+without committing or pushing: it changes nothing that leaves the machine.
+While something is staged and a commit is not yet pushed, **Amend last
+commit** folds the staged changes into the last one, keeping its message, and
+**Fix up a commit** records a `fixup!` of the one chosen among those not yet
+pushed — the terminal's `A` and `f` — each after a last look at the commit it
+rewrites. A rebase, a hook, an amend and a fixup each show their output as it
+is written, with **Stop**, which stops the program and all it started, then
+how it ended, with **Close**. One goes at a time, and it holds the index, so a
+stage or a commit asked for meanwhile waits for it. It goes on to its end if
+the page is closed, and a page opened meanwhile shows it running with its last
+lines. A conflict stops a rebase midway, for a terminal to finish.
 
 When the repository's `.git/hooks` holds hooks lefthook does not manage, and
 it configures no lefthook, **Set up lefthook** shows the hooks and the

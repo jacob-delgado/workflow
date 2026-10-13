@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test'
-import type { HookSetup, RunEvent } from '../../src/api/generated/types.gen.ts'
+import type { ConfiguredHooks, HookSetup, RunEvent } from '../../src/api/generated/types.gen.ts'
 import { height, openSection, pinTheme, themes, widths } from '../support/cockpit.ts'
 import { branchWith, expect, snapshotWith, streams, test } from '../support/fixtures.ts'
 import { expectReachableAndClean } from '../support/reachable.ts'
@@ -36,6 +36,11 @@ const offer: HookSetup = {
   scripts: 0,
 }
 
+const configured: ConfiguredHooks = {
+  runnable: ['pre-commit', 'pre-push'],
+  git_only: [{ name: 'commit-msg', reason: 'git hands it the file holding the commit message' }],
+}
+
 // ndjson is a run's stream: it starts, writes two lines and passes.
 function ndjson(kind: string, title: string, outcome: string): string {
   const events: RunEvent[] = [
@@ -56,8 +61,9 @@ function ndjson(kind: string, title: string, outcome: string): string {
   return events.map((event) => JSON.stringify(event)).join('\n') + '\n'
 }
 
-// opensBranch serves the branch, its runs, its diff and the lefthook offer,
-// and opens the Branch section. It answers each run asked for.
+// opensBranch serves the branch, its runs, its diff, the hooks lefthook
+// configures and the lefthook offer, and opens the Branch section. It answers
+// each run asked for.
 async function opensBranch(page: Page): Promise<unknown[]> {
   const asked: unknown[] = []
   await streams(page, snapshot)
@@ -79,6 +85,7 @@ async function opensBranch(page: Page): Promise<unknown[]> {
       json: { path: 'log.go', lines: ['--- a/log.go', '+++ b/log.go', '-old', '+new'] },
     }),
   )
+  await page.route('**/api/hooks', (route) => route.fulfill({ json: configured }))
   await page.route('**/api/hooks/setup', (route) => route.fulfill({ json: offer }))
   await page.goto('/')
   await openSection(page, 'Branch')
@@ -86,19 +93,22 @@ async function opensBranch(page: Page): Promise<unknown[]> {
   return asked
 }
 
-test('pre-commit runs at once and shows what it writes', async ({ page }) => {
+test('a hook runs once chosen, and shows what it writes', async ({ page }) => {
   // Arrange
   const asked = await opensBranch(page)
+  await page.getByRole('button', { name: 'Run a hook' }).click()
+  const chooser = page.getByRole('form', { name: 'Run a hook' })
+  await chooser.getByRole('radio', { name: 'pre-push' }).check()
 
   // Act
-  await page.getByRole('button', { name: 'Run pre-commit' }).click()
+  await chooser.getByRole('button', { name: 'Run' }).click()
 
   // Assert
-  await expect(page.getByRole('region', { name: 'Output of pre-commit' })).toContainText(
+  await expect(page.getByRole('region', { name: 'Output of pre-push' })).toContainText(
     'go vet ./... passed',
   )
   await expect(page.getByText('It went through.')).toBeVisible()
-  expect(asked).toEqual([{ kind: 'hook', hook: 'pre-commit' }])
+  expect(asked).toEqual([{ kind: 'hook', hook: 'pre-push' }])
 })
 
 test('a rebase waits on its last look', async ({ page }) => {
@@ -145,9 +155,21 @@ const steps: { name: string; opens: (page: Page) => Promise<void>; passedBy?: st
     passedBy: ['a1a1a1a fix: redact tokens'],
   },
   {
+    name: 'the hook chooser',
+    opens: async (page) => {
+      await page.getByRole('button', { name: 'Run a hook' }).click()
+      await expect(page.getByRole('form', { name: 'Run a hook' })).toBeVisible()
+    },
+    passedBy: ['pre-push'],
+  },
+  {
     name: 'a run’s output',
     opens: async (page) => {
-      await page.getByRole('button', { name: 'Run pre-commit' }).click()
+      await page.getByRole('button', { name: 'Run a hook' }).click()
+      await page
+        .getByRole('form', { name: 'Run a hook' })
+        .getByRole('button', { name: 'Run' })
+        .click()
       await expect(page.getByRole('button', { name: 'Close' })).toBeVisible()
     },
   },

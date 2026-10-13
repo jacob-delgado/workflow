@@ -1,10 +1,12 @@
 import {
   getHookSetup,
+  listHooks,
   setUpHooks,
   startRun as postRun,
   stopRun as deleteRun,
 } from '@/api/generated'
 import type {
+  ConfiguredHooks,
   HookSetup,
   HookSetupWritten,
   Run,
@@ -87,6 +89,14 @@ function parsed(line: string): RunEvent | null {
 // none is going — throws the API error.
 export async function stopRun(): Promise<void> {
   await deleteRun({ throwOnError: true })
+}
+
+// readHooks reads the hooks lefthook configures: those a run by hand can run,
+// and those only git runs. A refusal throws the API error.
+export async function readHooks(): Promise<ConfiguredHooks> {
+  const result = await listHooks({ throwOnError: true })
+
+  return result.data
 }
 
 // readHookSetup reads the lefthook configuration offered for the hooks
