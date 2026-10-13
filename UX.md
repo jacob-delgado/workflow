@@ -369,7 +369,7 @@ weight is the one rule the screen loses at its commonest size: at 80 by
 focused pane carry the focus instead.
 
 The web now speaks it too. The five systems' hues are tokens in both
-themes (`web/src/index.css:60`), held at least 30° of OKLCH hue from the
+themes (`web/src/index.css:87`), held at least 30° of OKLCH hue from the
 status lights, the periwinkle control accent and each other, and at 4.5:1
 as text, by `web/src/tokens.test.ts`; that separation moves two off the
 terminal's families — the forge is teal, clear of the success light's
@@ -378,7 +378,7 @@ rail icon, each section's heading, the work story's stages and an issue's
 local branch — and never how it stands. Every state is drawn by its shape
 through one `StateMark` (`web/src/shell/StateMark.tsx:36`), hidden from
 assistive tech beside its words. Type, space and corners each have one
-scale (`web/src/index.css:164`), headings are set in sentence case — the
+scale (`web/src/index.css:207`), headings are set in sentence case — the
 web lint refuses an `uppercase` class (`web/eslint.config.js:38`) — and
 monospace is for code alone. Periwinkle stays the one control accent, and
 the middle dot the separator. Each part of that is drawn in one place in
