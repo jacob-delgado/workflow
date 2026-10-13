@@ -25,12 +25,29 @@ import (
 var errBodyBesideTemplate = errors.New("--body is the whole description and --template the one it starts " +
 	"from: use one or the other")
 
+// errAnnounceBesideDraft refuses --announce beside --draft: a draft is not
+// announced, so there is no announcement to wait for.
+var errAnnounceBesideDraft = errors.New("--announce announces a pull request ready for review and --draft " +
+	"opens one that is not: use one or the other")
+
 // prOptions are pr's flags: what to open in place of what is composed, the
-// JSON, and the dry run and --yes every scriptable write shares.
+// JSON, whether to announce it once its CI passes, and the dry run and --yes
+// every scriptable write shares.
 type prOptions struct {
-	chosen pullChoices
-	asJSON bool
-	write  writeOptions
+	chosen   pullChoices
+	asJSON   bool
+	announce bool
+	write    writeOptions
+}
+
+// check refuses the flags that cannot go together: those pullChoices.check
+// refuses, and --announce beside --draft.
+func (o *prOptions) check() error {
+	if o.announce && o.chosen.draft {
+		return fmt.Errorf("%w: %w", errUsage, errAnnounceBesideDraft)
+	}
+
+	return o.chosen.check()
 }
 
 // pullChoices are what pr is told to open in place of what it composes, as

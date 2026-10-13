@@ -99,7 +99,11 @@ func newPRCmd(prompt Prompt) *cobra.Command {
 			"the title and description from the commits past it and asking its code owners.\n\n" +
 			"Once it is open, it offers — as the interface does — to link it on the branch's\n" +
 			"issue, then to move the issue to the review status (jira.review_status). With\n" +
-			"messaging set up, it ends by naming the next step, workflow announce, on stderr.\n\n" +
+			"messaging set up, it ends by naming the next step, workflow announce, on stderr;\n" +
+			"with --announce, it previews the announcement on stderr instead and waits in the\n" +
+			"foreground for the pull request's CI to pass, then announces it, as\n" +
+			"workflow announce --when-green does. A draft is not announced, so --announce\n" +
+			"refuses --draft.\n\n" +
 			"--json prints what was opened, and each offer and whether it was taken, as one\n" +
 			"JSON object on stdout — under --dry-run, the pull request it would open — and\n" +
 			"says everything else, the preview included, on stderr.",
@@ -108,6 +112,7 @@ func newPRCmd(prompt Prompt) *cobra.Command {
 			`workflow pr --yes                         # push, open, link and move, without asking`,
 			`workflow pr --yes --json | jq .pull.url   # the same, and the address it opened`,
 			`workflow pr --draft --base release        # a draft into release, asking its code owners`,
+			`workflow pr --yes --announce              # open it, then announce it once CI passes`,
 		),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -117,6 +122,8 @@ func newPRCmd(prompt Prompt) *cobra.Command {
 
 	opts.chosen.declare(cmd)
 	addJSONFlag(cmd, &opts.asJSON, "print what was opened, and the offers that followed, as JSON")
+	cmd.Flags().BoolVar(&opts.announce, "announce", false,
+		"once it is open, wait for its CI to pass, then announce it")
 
 	opts.write.addFlags(cmd, "go ahead without asking: push the branch when it needs it, open the pull request, "+
 		"link it on the issue and move the issue to the review status")
@@ -124,9 +131,11 @@ func newPRCmd(prompt Prompt) *cobra.Command {
 	return cmd
 }
 
-// runPRCommand wires the real repository and forge to the pull-request flow.
+// runPRCommand wires the real repository and forge to the pull-request flow,
+// and, with --announce, the messaging service to the announcement that
+// follows it.
 func runPRCommand(cmd *cobra.Command, prompt Prompt, opts prOptions) error {
-	err := opts.chosen.check()
+	err := opts.check()
 	if err != nil {
 		return err
 	}
@@ -136,6 +145,10 @@ func runPRCommand(cmd *cobra.Command, prompt Prompt, opts prOptions) error {
 		return err
 	}
 	defer conn.closeLog()
+
+	if opts.announce && conn.cfg.Messaging.Mode() == config.MessagingNone {
+		return messagingNotConfigured()
+	}
 
 	cfg, deps := conn.cfg, conn.deps
 	seams := prSeams{
@@ -164,24 +177,32 @@ func runPRCommand(cmd *cobra.Command, prompt Prompt, opts prOptions) error {
 		ReviewStatus:   cfg.Jira.ReviewStatus,
 		Kind:           deps.Forge.Kind,
 		Confirm:        func(question string) (bool, error) { return confirm(prompt, question) },
-		MessagingSetUp: cfg.Messaging.Mode() != config.MessagingNone,
+		MessagingSetUp: cfg.Messaging.Mode() != config.MessagingNone && !opts.announce,
 		Chosen:         opts.chosen,
 	}
 
-	out := outputOf(cmd)
-	if !opts.asJSON {
-		_, err = runPR(cmd.Context(), out, seams, opts.write)
-
+	report, err := reportPR(cmd.Context(), outputOf(cmd), seams, opts)
+	if err != nil || !opts.announce {
 		return err
 	}
 
+	return announceOpened(cmd.Context(), outputOf(cmd).notes, announceSeamsOf(conn, prompt), report, opts.write)
+}
+
+// reportPR runs the pull-request flow and, with --json, prints its report on
+// stdout, saying everything else on stderr beside it.
+func reportPR(ctx context.Context, out output, seams prSeams, opts prOptions) (prReport, error) {
+	if !opts.asJSON {
+		return runPR(ctx, out, seams, opts.write)
+	}
+
 	// The report is the artifact, so everything else is said beside it.
-	report, err := runPR(cmd.Context(), output{artifact: out.notes, notes: out.notes}, seams, opts.write)
+	report, err := runPR(ctx, output{artifact: out.notes, notes: out.notes}, seams, opts.write)
 	if report.ready {
 		err = errors.Join(err, encodeJSON(out.artifact, report))
 	}
 
-	return err
+	return report, err
 }
 
 // prReport is what `workflow pr --json` prints: the web's OpenedPullRequest
@@ -195,6 +216,10 @@ type prReport struct {
 	Warning   string           `json:"warning,omitempty"`
 	FollowUps []followUpReport `json:"follow_ups"`
 	ready     bool
+	// opened is the pull request as the forge opened it, and branch the branch
+	// it was opened from, for what follows.
+	opened forge.PullRequest
+	branch gitrepo.Branch
 }
 
 // pullReport is a pull request as `pr --json` prints it: under a dry run, with
@@ -233,6 +258,7 @@ func openedReport(request forge.NewPullRequest, pull forge.PullRequest) prReport
 		},
 		FollowUps: []followUpReport{},
 		ready:     true,
+		opened:    pull,
 	}
 }
 
@@ -316,6 +342,7 @@ func openPull(
 	fmt.Fprintln(out.artifact, "Opened "+seams.Kind.Sigil()+strconv.Itoa(pull.Number)+" "+pull.URL)
 
 	report := openedReport(request, pull)
+	report.branch = branch
 
 	if err != nil {
 		// The pull request is open; who could not be added is a warning, as
@@ -328,7 +355,7 @@ func openPull(
 
 	report, err = followUp(ctx, out.notes, seams, openedPull{issueKey: issueKey, pull: pull}, opts, report)
 	if err == nil && seams.MessagingSetUp {
-		fmt.Fprintln(out.notes, "Announce it with workflow announce.")
+		fmt.Fprintln(out.notes, "Announce it with workflow announce, or once CI passes with workflow announce --when-green.")
 	}
 
 	return report, err
