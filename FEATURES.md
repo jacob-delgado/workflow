@@ -90,17 +90,6 @@ oversight; `workflow` picks issues up, it does not open them.
 
 ## Commits
 
-### FEAT-24 Run any hook, not only pre-commit
-
-Impact: low · Effort: small
-
-- Why: `h` runs `pre-commit`. The slow checks usually live in `pre-push`, and
-  the only way to try them is to push.
-- Touches: `internal/tui/commits.go` (`runPreCommit`),
-  `internal/wiring/wiring.go`.
-- Done when: the hooks lefthook configures can be chosen and run from the
-  pane.
-
 ### FEAT-26 Add co-authors and a sign-off
 
 Impact: low · Effort: small
