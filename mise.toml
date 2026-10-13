@@ -42,11 +42,11 @@ task = "3.54.0"
 # Gates. golangci-lint is exact-pinned twice over: the version decides what
 # the lint gate flags, so a bump is a deliberate commit that carries its fixes.
 golangci-lint = "2.14.0"
-lefthook = "2.1.16"
+lefthook = "2.2.1"
 shellcheck = "0.11.0"
 shfmt = "3.14.1"
 yamllint = "1.38.0"
-typos = "1.50.3"
+typos = "1.51.1"
 actionlint = "1.7.12"
 hadolint = "2.15.1"      # build/Dockerfile lint
 taplo = "0.10.0"         # TOML lint + format
@@ -80,7 +80,7 @@ air = "1.67.4"
 
 # Go-source tools, built with the pinned Go above. A prebuilt binary compiled
 # against an older Go can reject a project targeting a newer one.
-"go:golang.org/x/vuln/cmd/govulncheck" = "1.8.0"
+"go:golang.org/x/vuln/cmd/govulncheck" = "1.9.0"
 # Condition coverage. Exact-pinned twice over: gobco's version changes
 # the number it reports, and that number is a gate here (BRANCH_COVERAGE_MIN in
 # Taskfile.yml), so a bump must be a deliberate commit that carries its fixes.
@@ -93,4 +93,4 @@ air = "1.67.4"
 # internal package that nothing imports — measured, not assumed. Advisory
 # (`task deadcode`), never a gate: a helper reached only by tests is dead to
 # this tool but not to the project.
-"go:golang.org/x/tools/cmd/deadcode" = "0.50.0"
+"go:golang.org/x/tools/cmd/deadcode" = "0.52.0"
