@@ -6,7 +6,8 @@ package cli_test
 // Quitting the last interface waits for the writes it left in flight, so the
 // process does not exit under them: it says how many it is finishing, gives up
 // after timing.request_timeout naming what it gave up on, and exits at once on
-// a signal, which ends every write's context.
+// a signal, which ends every write's context, without waiting for a write that
+// goes on past its own.
 
 import (
 	"bytes"
@@ -81,6 +82,12 @@ func (h *heldCache) write(ctx context.Context, _ string, _ []jira.Issue) error {
 	}
 }
 
+// writeIgnoringItsContext is the cache write's body held until it is released
+// whatever becomes of its context, as a write detached from it is.
+func (h *heldCache) writeIgnoringItsContext(ctx context.Context, repo string, issues []jira.Issue) error {
+	return h.write(context.WithoutCancel(ctx), repo, issues)
+}
+
 // awaitBegun waits for the write to begin, failing the test once patience runs
 // out.
 func (h *heldCache) awaitBegun(t *testing.T) {
@@ -135,17 +142,17 @@ func (b *lockedBuffer) String() string {
 }
 
 // interfaceCaching is an interface whose issue list's first page is cached
-// through cache, if it is not nil, read keys from keys, run under the context
-// the command hands it.
-func interfaceCaching(cache *heldCache, keys io.Reader) cli.RunInterface {
+// through cacheIssues, if it is not nil, read keys from keys, run under the
+// context the command hands it.
+func interfaceCaching(cacheIssues func(context.Context, string, []jira.Issue) error, keys io.Reader) cli.RunInterface {
 	return func(ctx context.Context, _ tui.Model, _ io.Reader, _ io.Writer) (tui.Next, error) {
 		deps := tui.Deps{Jira: seams.Jira{
 			Search: func(context.Context, string, int) (jira.SearchResult, error) {
 				return jira.SearchResult{Issues: []jira.Issue{{Key: "PROJ-1", Summary: "Fix the login"}}, Total: 1}, nil
 			},
 		}}
-		if cache != nil {
-			deps.Store.CacheIssues = cache.write
+		if cacheIssues != nil {
+			deps.Store.CacheIssues = cacheIssues
 		}
 
 		return tui.Run(ctx, tui.New(config.Default(), nil, deps), keys, io.Discard)
@@ -216,7 +223,7 @@ func TestAQuitWaitsForAWriteInFlightToLand(t *testing.T) {
 
 	t.Cleanup(func() { _ = keys.Close() })
 
-	returned := running(t.Context(), t, quittingRoot(t, interfaceCaching(cache, keys), "1m", said))
+	returned := running(t.Context(), t, quittingRoot(t, interfaceCaching(cache.write, keys), "1m", said))
 	cache.awaitBegun(t)
 
 	// Act: quit with the cache write in flight
@@ -252,7 +259,7 @@ func TestAQuitGivesUpOnAWriteThatDoesNotLandInTime(t *testing.T) {
 
 	t.Cleanup(func() { _ = keys.Close() })
 
-	returned := running(t.Context(), t, quittingRoot(t, interfaceCaching(cache, keys), "200ms", said))
+	returned := running(t.Context(), t, quittingRoot(t, interfaceCaching(cache.write, keys), "200ms", said))
 	cache.awaitBegun(t)
 
 	// Act
@@ -279,7 +286,7 @@ func TestASignalWhileWaitingForWritesExitsAtOnce(t *testing.T) {
 	t.Cleanup(func() { _ = keys.Close() })
 
 	command, signaled := context.WithCancelCause(t.Context())
-	returned := running(command, t, quittingRoot(t, interfaceCaching(cache, keys), "1m", said))
+	returned := running(command, t, quittingRoot(t, interfaceCaching(cache.write, keys), "1m", said))
 	cache.awaitBegun(t)
 	quit(typing)
 	awaitSaid(t, said, "finishing 1 write…")
@@ -296,6 +303,41 @@ func TestASignalWhileWaitingForWritesExitsAtOnce(t *testing.T) {
 	landed := cache.landedWith(t)
 	if !errors.Is(landed, context.Canceled) {
 		t.Errorf("the cache write ended with %v, want the signal to have ended it", landed)
+	}
+}
+
+// A signal ends the wait itself, not only the writes it waits for: a write
+// that goes on past its context, as a Slack token's refresh or the store's
+// open does, is left to the exit.
+func TestASignalWhileWaitingExitsUnderAWriteThatIgnoresIt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	cache, said := newHeldCache(t), &lockedBuffer{}
+	keys, typing := io.Pipe()
+
+	t.Cleanup(func() { _ = keys.Close() })
+
+	command, signaled := context.WithCancelCause(t.Context())
+	root := quittingRoot(t, interfaceCaching(cache.writeIgnoringItsContext, keys), "1m", said)
+	returned := running(command, t, root)
+	cache.awaitBegun(t)
+	quit(typing)
+	awaitSaid(t, said, "finishing 1 write…")
+
+	// Act
+	signaled(errSignaled)
+
+	// Assert
+	err := returnedWith(t, returned)
+	if !errors.Is(err, context.Canceled) || cli.ExitStatus(err) != 130 {
+		t.Errorf("workflow = %v (status %d), want it interrupted, status 130", err, cli.ExitStatus(err))
+	}
+
+	select {
+	case landed := <-cache.landed:
+		t.Errorf("the cache write ended with %v before workflow returned, want workflow to exit under it", landed)
+	default:
 	}
 }
 
@@ -337,7 +379,7 @@ func quittingOnceBegun(t *testing.T, cache *heldCache) cli.RunInterface {
 		}
 	}()
 
-	return interfaceCaching(cache, keys)
+	return interfaceCaching(cache.write, keys)
 }
 
 // A switch does not wait for the writes the interface it leaves sent; the
