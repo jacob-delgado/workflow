@@ -670,7 +670,8 @@ without editing the file.
 `ui.ascii` swaps the box-drawing borders and the status glyphs for plain ASCII,
 for a terminal or font that draws them as boxes of question marks. There is no
 reliable way to detect that from inside a program, so it is a setting rather
-than a guess.
+than a guess. `workflow status --plain` draws its line's glyphs in ASCII
+for one run, whatever the file says.
 
 `ui.color` set to `never` turns off the system hues — the blue, yellow, green
 and magenta of the spine, the cyan of the started task at its end, and the red

@@ -13,8 +13,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/progress"
 )
 
-// statusLines prints each directory's labeled line, or why it has none.
-func statusLines(out io.Writer, statuses []directoryStatus) {
+// statusLines prints each directory's labeled line, drawn as opts asks, or why
+// it has none.
+func statusLines(out io.Writer, statuses []directoryStatus, opts statusOptions) {
 	for _, status := range statuses {
 		fmt.Fprintf(out, "%s  ", status.label)
 
@@ -24,7 +25,7 @@ func statusLines(out io.Writer, statuses []directoryStatus) {
 			continue
 		}
 
-		renderStatusLine(out, status.facts, status.ascii)
+		renderStatusLine(out, status.facts, opts.ascii(status.ascii))
 	}
 }
 
