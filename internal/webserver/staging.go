@@ -184,9 +184,7 @@ func (s *server) stagingProblem(err error, direction stagingDirection, target st
 		return problem(api.ProblemCodeUnprocessable,
 			"git would not "+verb+" "+target.words()+"; "+verb+" from a terminal to see git's reason")
 	default:
-		failure := s.fault(err)
-
-		return failure
+		return s.fault(err)
 	}
 }
 
