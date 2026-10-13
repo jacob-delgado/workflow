@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
+import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { PeriodCalendar, PeriodSteps } from './PeriodPicker.tsx'
 import type { Period } from './civilDate.ts'
 
@@ -19,9 +20,10 @@ function showSteps(period: Period) {
 }
 
 // showCalendar draws the calendar on Tuesday, and keeps each period picked.
+// No server answers its read of the month, so no day says what was done.
 function showCalendar() {
   const onPick = vi.fn()
-  render(<PeriodCalendar period={tuesday} today={today} onPick={onPick} />)
+  renderWithClient(<PeriodCalendar period={tuesday} today={today} onPick={onPick} />)
 
   return onPick
 }

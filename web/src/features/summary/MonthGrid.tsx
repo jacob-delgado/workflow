@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
 import { headingDay, monthHeading } from '@/lib/dates.ts'
-import { cn } from '@/lib/utils.ts'
+import { cn, plural } from '@/lib/utils.ts'
 import {
   addDays,
   addMonths,
@@ -37,6 +37,9 @@ interface MonthGridProps {
   year: number
   month: number
   period: Period
+  // amounts are how many things were done on each day that saw any, once the
+  // month is read; a day they leave out is drawn and named plainly.
+  amounts?: ReadonlyMap<CivilDate, number>
   onPick: (period: Period) => void
   // onView hears a key move focus into another month, so the selects above
   // the grid follow it.
@@ -46,12 +49,15 @@ interface MonthGridProps {
 // MonthGrid is a month of days, a week to a row starting on Monday, in which
 // one day at a time is reached by Tab and the arrows move between them. Enter
 // or a click picks a day, and with Shift picks the days from the period's first
-// to it. The days of the period shown are selected.
-export function MonthGrid({ year, month, period, onPick, onView }: MonthGridProps) {
+// to it. The days of the period shown are selected; each other day is tinted
+// by how much was done on it against the month's busiest, and every day's name
+// says it in words.
+export function MonthGrid({ year, month, period, amounts, onPick, onView }: MonthGridProps) {
   const [focused, setFocused] = useState<CivilDate>(() => inMonth(period.to, year, month))
   const moved = useRef(false)
   const cells = useRef(new Map<CivilDate, HTMLDivElement>())
   const shown = inMonth(focused, year, month)
+  const busiest = Math.max(0, ...(amounts?.values() ?? []))
 
   useEffect(() => {
     if (moved.current) {
@@ -113,6 +119,7 @@ export function MonthGrid({ year, month, period, onPick, onView }: MonthGridProp
               <DayCell
                 key={day}
                 day={day}
+                done={{ amount: amounts?.get(day) ?? 0, busiest }}
                 inPeriod={day >= period.from && day <= period.to}
                 focusable={day === shown}
                 cells={cells}
@@ -127,8 +134,15 @@ export function MonthGrid({ year, month, period, onPick, onView }: MonthGridProp
   )
 }
 
+// Done is how many things were done on a day, and on the month's busiest.
+interface Done {
+  amount: number
+  busiest: number
+}
+
 interface DayCellProps {
   day: CivilDate
+  done: Done
   inPeriod: boolean
   focusable: boolean
   cells: RefObject<Map<CivilDate, HTMLDivElement>>
@@ -139,8 +153,8 @@ interface DayCellProps {
 // DayCell is one day: selected when it is in the period, reached by Tab when
 // it is the day in focus, and picked by a click or a key, with Shift for a
 // range. A picked day is filled in the ring's color, so its ring stands off by
-// a page-colored gap.
-function DayCell({ day, inPeriod, focusable, cells, onPick, onKey }: DayCellProps) {
+// a page-colored gap; any other is tinted by how much was done on it.
+function DayCell({ day, done, inPeriod, focusable, cells, onPick, onKey }: DayCellProps) {
   return (
     <div
       ref={(cell) => {
@@ -151,7 +165,7 @@ function DayCell({ day, inPeriod, focusable, cells, onPick, onKey }: DayCellProp
         }
       }}
       role="gridcell"
-      aria-label={headingDay(day)}
+      aria-label={dayName(day, done.amount)}
       aria-selected={inPeriod}
       tabIndex={focusable ? 0 : -1}
       onClick={(event) => {
@@ -162,12 +176,34 @@ function DayCell({ day, inPeriod, focusable, cells, onPick, onKey }: DayCellProp
         'flex h-8 cursor-pointer items-center justify-center rounded-md tabular-nums focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
         inPeriod
           ? 'bg-primary text-primary-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background'
-          : 'text-foreground hover:bg-accent',
+          : // A shaded day keeps its shade under the pointer, so hovering never
+            // hides how much was done on it.
+            cn('text-foreground', activityFill(done) ?? 'hover:bg-accent'),
       )}
     >
       {Number(day.slice(8))}
     </div>
   )
+}
+
+// dayName is a day as its cell is named: the day, and how much was done on it
+// when anything was.
+function dayName(day: CivilDate, amount: number): string {
+  return amount === 0 ? headingDay(day) : `${headingDay(day)}, ${plural(amount, 'thing')} done`
+}
+
+// activityFill tints a day by its share of the month's busiest: none for a
+// day with nothing done, then up to a third, up to two thirds, or more.
+function activityFill({ amount, busiest }: Done): string | undefined {
+  if (amount === 0) {
+    return undefined
+  }
+
+  if (amount * 3 <= busiest) {
+    return 'bg-activity-low'
+  }
+
+  return amount * 3 <= busiest * 2 ? 'bg-activity-mid' : 'bg-activity-high'
 }
 
 // inMonth is date when it falls in the month shown, or that month's day of

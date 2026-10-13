@@ -1,4 +1,11 @@
-import { zAnnouncementTagging, zPeople, zSlackDirectory } from '@/api/generated/zod.gen.ts'
+import type { ActivityDay } from '@/api/generated/types.gen.ts'
+import {
+  zActivity,
+  zAnnouncementTagging,
+  zPeople,
+  zSlackDirectory,
+} from '@/api/generated/zod.gen.ts'
+import { mockActivity } from './mockActivity.ts'
 import { mockAnnouncement } from './mockAnnouncement.ts'
 import { mockConfig } from './mockConfig.ts'
 import { mockIssueDetail } from './mockIssues.ts'
@@ -88,4 +95,29 @@ test('the mock Slack takes the shapes the server sends', () => {
     undefined,
     undefined,
   ])
+})
+
+// amountOf is how many things were done on a day.
+function amountOf(day: ActivityDay): number {
+  return day.hours.reduce((sum, hour) => sum + hour.items.length, 0)
+}
+
+test('the mock month spreads what was done over its weekdays up to today, busy and quiet', () => {
+  // Act
+  const month = mockActivity({ from: '2026-09-01', to: '2026-09-30' })
+
+  // Assert
+  expect(zActivity.safeParse(month).error?.message).toBeUndefined()
+  const days = month.years.flatMap((year) => year.months.flatMap((each) => each.days))
+  expect(new Set(days.map(amountOf)).size).toBeGreaterThanOrEqual(3)
+  expect(days.filter((day) => day.date > month.today)).toEqual([])
+  expect(days.filter((day) => ['Saturday', 'Sunday'].includes(day.weekday))).toEqual([])
+})
+
+test('a mock day is named for the weekday its date falls on', () => {
+  // Act
+  const monday = mockActivity({ from: '2026-09-14', to: '2026-09-14' })
+
+  // Assert
+  expect(monday.years[0]?.months[0]?.days[0]?.weekday).toBe('Monday')
 })

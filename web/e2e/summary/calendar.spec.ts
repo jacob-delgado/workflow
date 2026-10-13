@@ -22,6 +22,11 @@ async function opensSummary(page: Page): Promise<string[]> {
   await page.goto('/')
   await openSection(page, 'Summary')
   await expect(page.getByRole('list', { name: /Tuesday, September 15, 2026/ })).toBeVisible()
+  // The month's own read, which names each day with how much was done, says
+  // nothing while it runs; wait for it so a walk sees the calendar it draws.
+  await expect(
+    page.getByRole('gridcell', { name: 'Tuesday, September 15, 2026, 4 things done' }),
+  ).toBeVisible()
 
   return asked
 }
@@ -130,7 +135,7 @@ for (const theme of themes) {
           'PROJ-412 (opens in a new tab)',
           'Year',
           'Month',
-          'Tuesday, September 15, 2026',
+          'Tuesday, September 15, 2026, 4 things done',
           'Whole month',
           'Whole year',
         ],

@@ -103,6 +103,21 @@ test('the day reads as a timeline, an hour to a line, each source named', async 
   expect(issue.getAttribute('href')).toBe('https://jira.example.com/browse/PROJ-412')
 })
 
+test('the calendar names each day of its month with how much was done on it', async () => {
+  // Arrange
+  const asked = servingActivity((from, to) => tuesday(from ?? '2026-09-15', to ?? '2026-09-15'))
+
+  // Act
+  renderWithClient(<SummaryPanel />)
+
+  // Assert
+  expect(
+    await screen.findByRole('gridcell', { name: 'Tuesday, September 15, 2026, 2 things done' }),
+  ).toBeTruthy()
+  expect(screen.getByRole('gridcell', { name: 'Monday, September 14, 2026' })).toBeTruthy()
+  expect(asked).toContain('?from=2026-09-01&to=2026-09-30')
+})
+
 test('a source that could not be read says so, in the server’s words', async () => {
   // Arrange
   servingActivity(() => tuesday())
