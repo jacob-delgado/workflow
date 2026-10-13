@@ -20,6 +20,7 @@ import {
 } from './StartInWorktree.tsx'
 import { startWork } from './startWorkApi.ts'
 import { Failure } from '@/lib/Status.tsx'
+import { StreamWait } from '@/shell/StreamStatus.tsx'
 
 type SnapshotStage = Snapshot['stages'][number]
 type Step = SnapshotStage['step']
@@ -346,7 +347,7 @@ export function WorkStory({ issueKey }: { issueKey: string }) {
   const outcome = useOutcome()
 
   if (!snapshot) {
-    return null
+    return <StreamWait />
   }
 
   const branch = snapshot.branches.find((entry) => entry.issue_key === issueKey)

@@ -86,3 +86,22 @@ test.each(served)("the client's schema keeps every key of the frame for %s", (_,
   // Assert
   expect(parsed).toStrictEqual(raw)
 })
+
+test.each(seeds)(
+  'the stream keeps the seed the server writes, ahead of its first snapshot',
+  (data) => {
+    // Arrange
+    renderHook(() => {
+      useEventStream(null, vi.fn())
+    })
+
+    // Act
+    FakeEventSource.latest().emit('seed', data)
+
+    // Assert
+    const parsed: unknown = JSON.parse(data)
+    expect(useSnapshotStore.getState().seed?.page).toStrictEqual(
+      (parsed as { issues: unknown }).issues,
+    )
+  },
+)

@@ -100,3 +100,43 @@ test('a section waiting on a stream that dropped says what the header says', () 
   expect(screen.getByText('Reconnecting to workflow…')).toBeTruthy()
   expect(screen.queryByText('Connecting to workflow…')).toBeNull()
 })
+
+test('the Issues section opens on the seed while the others wait for the first update', () => {
+  // Arrange
+  useSnapshotStore.setState({
+    status: 'connecting',
+    snapshot: null,
+    seed: {
+      view: null,
+      page: {
+        issues: [
+          {
+            key: 'PROJ-1',
+            tracker: 'jira',
+            summary: 'Kept from last time',
+            status: 'To Do',
+            status_category: 'new',
+            type: 'Task',
+          },
+        ],
+        total: 1,
+        start_at: 0,
+        unavailable: [],
+      },
+    },
+  })
+
+  // Act
+  renderWithClient(
+    <>
+      <SectionPanel section="issues" />
+      <SectionPanel section="branch" />
+      <SectionPanel section="review" />
+      <SectionPanel section="messaging" />
+    </>,
+  )
+
+  // Assert
+  expect(screen.getByText('Kept from last time')).toBeTruthy()
+  expect(screen.getAllByText('Connecting to workflow…')).toHaveLength(3)
+})

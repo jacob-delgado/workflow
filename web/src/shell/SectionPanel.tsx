@@ -32,14 +32,21 @@ const panels: Record<Section, ComponentType> = {
 // own, so none of them waits on it.
 const readsOnItsOwn = new Set<Section>(['settings', 'reviews', 'tasks', 'summary', 'repositories'])
 
+// opensOnTheSeed are the sections that open on the issues the stream sends
+// ahead of its first snapshot: Issues lists them while the rest wait.
+const opensOnTheSeed = new Set<Section>(['issues'])
+
 // Routes the active section to its panel. Every section that reads the stream
-// waits on its first snapshot; until it lands they share one line, worded by
-// the stream's state as the header words it, rather than each saying it in its
+// waits on its first snapshot, but for one that opens on the seed once the
+// stream has sent one; until it lands they share one line, worded by the
+// stream's state as the header words it, rather than each saying it in its
 // own words.
 export function SectionPanel({ section }: { section: Section }) {
   const connected = useSnapshotStore((state) => state.snapshot !== null)
+  const seeded = useSnapshotStore((state) => state.seed !== null)
+  const opens = connected || (seeded && opensOnTheSeed.has(section))
 
-  if (!connected && !readsOnItsOwn.has(section)) {
+  if (!opens && !readsOnItsOwn.has(section)) {
     return <StreamWait />
   }
 

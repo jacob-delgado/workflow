@@ -85,7 +85,11 @@ open a pull request, while Jira, git or the forge cannot be read. A service
 that is not set up — no Jira or forge token, an origin that names no forge —
 is no failure: the section says, in the muted color beside the not-started
 mark, that it is not set up and how to set it up, in place of what it would
-have shown. The stream's state is beside the theme, and a section waiting on
+have shown. When the store holds the view's issues from an earlier read —
+the terminal's or this page's — the server sends them first, read from disk
+before anything is asked of the network, so Issues lists them at once while
+every other section waits for the first update; `--dry-run` neither reads nor
+keeps them. The stream's state is beside the theme, and a section waiting on
 its first update says the same word:
 
 - **Connecting** — the page has not had its first update yet.
@@ -144,7 +148,11 @@ those naming an issue assigned to you and not done, so a branch whose issue
 was finished or reassigned no longer marks it; while the tracker cannot be
 asked, its last answer stands, and a branch it has not answered for yet counts
 until it does. Once Taskwarrior has answered, a row also marks how its issue's
-tasks stand: *tracked*, *task active* or *task done*.
+tasks stand: *tracked*, *task active* or *task done*. Until the first update,
+the list is the one last kept for the view, saying *Reading Jira… these are
+the issues it listed last time.*, with no row marks and no **Load more** until
+Jira answers; a switch of view does the same for the view switched to, its
+rows marked from the last update.
 
 The selected issue's detail shows its type, priority, reporter and assignee, a
 link to open it in Jira, its description and its comments, and its **work
