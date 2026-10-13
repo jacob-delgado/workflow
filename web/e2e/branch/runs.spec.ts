@@ -4,7 +4,7 @@ import { height, openSection, pinTheme, themes, widths } from '../support/cockpi
 import { branchWith, expect, snapshotWith, streams, test } from '../support/fixtures.ts'
 import { expectReachableAndClean } from '../support/reachable.ts'
 
-// The Branch section's git runs — pre-commit, a rebase, an amend, a fixup —
+// The Branch section's git runs — a hook, a rebase, an amend, a fixup —
 // streamed as they go, each that rewrites history behind a last look; a
 // changed file's diff; and setting up lefthook.
 
@@ -62,14 +62,14 @@ async function opensBranch(page: Page): Promise<unknown[]> {
   const asked: unknown[] = []
   await streams(page, snapshot)
   await page.route('**/api/runs', (route) => {
-    const request = route.request().postDataJSON() as { kind: string }
+    const request = route.request().postDataJSON() as { kind: string; hook?: string }
     asked.push(request)
 
     return route.fulfill({
       contentType: 'application/x-ndjson',
       body: ndjson(
         request.kind,
-        request.kind === 'pre_commit' ? 'pre-commit' : 'git rebase',
+        request.kind === 'hook' ? (request.hook ?? '') : 'git rebase',
         'It went through.',
       ),
     })
@@ -98,7 +98,7 @@ test('pre-commit runs at once and shows what it writes', async ({ page }) => {
     'go vet ./... passed',
   )
   await expect(page.getByText('It went through.')).toBeVisible()
-  expect(asked).toEqual([{ kind: 'pre_commit' }])
+  expect(asked).toEqual([{ kind: 'hook', hook: 'pre-commit' }])
 })
 
 test('a rebase waits on its last look', async ({ page }) => {

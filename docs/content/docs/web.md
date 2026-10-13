@@ -774,15 +774,18 @@ write, and a task Taskwarrior changed nothing on answers `409`. A `done` of a
 task linked to an issue also answers that task as it stands done, in `done`,
 since the list no longer holds it.
 
-`POST /api/runs` with `{"kind": "pre_commit"}` — or `rebase`, `amend`, or
-`fixup` with the `commit` to fix up — answers newline-delimited JSON as the
-run goes: the run as it starts, a `line` for each line its program writes,
-and the run as it ended, with its `state` and `outcome`. `DELETE
-/api/runs/current` stops it.
+`GET /api/hooks` lists the hooks lefthook configures: in `runnable`, those a
+run by hand can stand in for, and in `git_only`, those only git runs, each
+with the `reason`. `POST /api/runs` with `{"kind": "hook", "hook":
+"pre-push"}` runs one `runnable` names — or `rebase`, `amend`, or `fixup`
+with the `commit` to fix up — and answers newline-delimited JSON as the run
+goes: the run as it starts, a `line` for each line its program writes, and
+the run as it ended, with its `state` and `outcome`. A hook `runnable` does
+not name is refused with a `422`. `DELETE /api/runs/current` stops it.
 
 ```sh
 curl -sN -H "Authorization: Bearer $session" -H 'Content-Type: application/json' \
-  -d '{"kind":"pre_commit"}' \
+  -d '{"kind":"hook","hook":"pre-push"}' \
   http://127.0.0.1:13579/api/runs
 ```
 
