@@ -2186,6 +2186,9 @@ type Review struct {
 	// CiError Why the open pull request's CI could not be read; absent when it was, or was not asked about. The detail is curated, never a host or a credential.
 	CiError *Problem `json:"ci_error,omitempty"`
 
+	// FinishRefusal Why the merged pull request's branch cannot be finished, in the words that follow "cannot finish BRANCH: " — it holds commits that neither merged nor are on its upstream, there is no base to return to, or it is not a branch of its own — the same check a finish makes before it runs. Absent when the pull request has not merged, and when its branch can be finished.
+	FinishRefusal *string `json:"finish_refusal,omitempty"`
+
 	// Found Whether a pull request was found for the branch.
 	Found bool `json:"found"`
 

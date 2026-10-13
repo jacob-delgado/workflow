@@ -194,9 +194,11 @@ func TestReviewWritesAreRefusedWhenThereIsNothingToWriteTo(t *testing.T) {
 			http.MethodPost, mergeAt, bySquash, unapproved, "cannot be merged",
 		},
 		"offering to merge an unapproved one": {http.MethodGet, mergeAt, "", unapproved, "cannot be merged"},
-		"finishing an open one":               {http.MethodPost, finishAt, "", nil, "cannot be finished"},
-		"finishing with a commit unpushed":    {http.MethodPost, finishAt, "", ahead, "cannot be finished"},
-		"re-running green CI":                 {http.MethodPost, rerunAt, "", nil, "nothing to re-run"},
+		"finishing an open one":               {http.MethodPost, finishAt, "", nil, "has not merged"},
+		"finishing with a commit unpushed": {
+			http.MethodPost, finishAt, "", ahead, "holds commits that neither merged nor are on its upstream",
+		},
+		"re-running green CI": {http.MethodPost, rerunAt, "", nil, "nothing to re-run"},
 		"re-running a merged one's CI": {
 			http.MethodPost, rerunAt, "", func(d webserver.Deps) webserver.Deps { return failedCI(merged(d)) },
 			"nothing to re-run",

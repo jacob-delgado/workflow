@@ -14,6 +14,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
 // config returns a copy of the configuration in effect, taken under the read
@@ -257,8 +258,8 @@ func (s *server) readForge(ctx context.Context, branch gitrepo.Branch) (forgeRea
 }
 
 // reviewDTO maps what the forge said of branch onto the wire: the pull
-// request with the issue it is for, its CI when it was read, and the problem
-// of a CI read that failed.
+// request with the issue it is for, its CI when it was read, the problem of a
+// CI read that failed, and why a merged one's branch cannot be finished.
 func (s *server) reviewDTO(branch gitrepo.Branch, read forgeRead) api.Review {
 	result := api.Review{Found: read.found}
 	if !read.found {
@@ -267,6 +268,7 @@ func (s *server) reviewDTO(branch gitrepo.Branch, read forgeRead) api.Review {
 
 	pull := pullDTO(read.pull)
 	result.Pull, result.Issue, result.CiError = &pull, s.linkedIssue(branch, read.pull), panelProblem(read.ciErr)
+	result.FinishRefusal = finishRefusal(read.pull, branch)
 
 	if read.ciRead {
 		ci := ciDTO(read.ci)
@@ -274,6 +276,24 @@ func (s *server) reviewDTO(branch gitrepo.Branch, read forgeRead) api.Review {
 	}
 
 	return result
+}
+
+// finishRefusal is why a merged pull request's branch cannot be finished, in
+// loop.RefuseFinish's words, or nil when it can be or the pull request has
+// not merged, where there is nothing to finish yet.
+func finishRefusal(pull forge.PullRequest, branch gitrepo.Branch) *string {
+	if pull.State != forge.StateMerged {
+		return nil
+	}
+
+	refused := loop.RefuseFinish(pull, true, branch)
+	if refused == nil {
+		return nil
+	}
+
+	reason := refused.Error()
+
+	return &reason
 }
 
 // ListReviews returns the pull requests on the forge that ask for your review,

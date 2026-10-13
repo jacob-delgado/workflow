@@ -50,13 +50,14 @@ function ciOf(state: Ci['state']): Ci {
 // the finish's last look shows as they are.
 const finishCommands = ['the switch to main', 'the catch-up', 'the force delete of fix/PROJ-1']
 
-// streamPull streams the branch's pull request and its CI.
-function streamPull(pull: PullRequest, ci?: Ci) {
+// streamPull streams the branch's pull request and its CI, and why a merged
+// one's branch cannot be finished when the server says it cannot.
+function streamPull(pull: PullRequest, ci?: Ci, finishRefusal?: string) {
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
       branch: makeBranch({ name: 'fix/PROJ-1', ahead: 0, finish_commands: finishCommands }),
-      review: { found: true, announced: false, pull, ci },
+      review: { found: true, announced: false, pull, ci, finish_refusal: finishRefusal },
     }),
   })
 }
@@ -132,6 +133,26 @@ test('finishes a merged branch after a look at the commands it runs', async () =
   // Assert: the branch is finished
   expect(vi.mocked(finishBranch)).toHaveBeenCalled()
   expect(await screen.findByText('Finished fix/PROJ-1; now on main.')).toBeTruthy()
+})
+
+test('says why a merged branch cannot be finished, offering no finish', () => {
+  // Arrange
+  streamPull(
+    { ...ready, state: 'merged' },
+    undefined,
+    'it holds commits that neither merged nor are on its upstream, which deleting it would lose; push them first',
+  )
+
+  // Act
+  render(<ReviewPanel />)
+
+  // Assert
+  expect(
+    screen.getByText(
+      'The branch cannot be finished yet: it holds commits that neither merged nor are on its upstream, which deleting it would lose; push them first.',
+    ),
+  ).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Finish the branch' })).toBeNull()
 })
 
 test('re-runs failed CI after a last look', async () => {

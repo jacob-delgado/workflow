@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import { useForgeWords } from '@/api/health.ts'
 import type { Branch, Ci, MergeMethod, PullRequest } from '@/api/generated/types.gen.ts'
-import { onFeatureBranch } from '@/features/branch/HistoryActions.tsx'
 import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { Input, TextArea } from '@/lib/Field.tsx'
@@ -34,17 +33,11 @@ function canMerge(pull: PullRequest, ci: Ci | null): boolean {
   )
 }
 
-// canFinish is as much of loop.RefuseFinish's check as the page can make:
-// merged, on a branch of its own with a base to return to, not ahead of its
-// upstream. The server makes the whole check, which also needs the commit the
-// pull request merged, before it finishes anything.
-function canFinish(pull: PullRequest, branch: Branch): boolean {
-  return (
-    pull.state === 'merged' &&
-    onFeatureBranch(branch) &&
-    branch.base !== '' &&
-    !(branch.upstream !== '' && branch.ahead > 0)
-  )
+// canFinish is a merged pull request whose branch nothing is in the way of
+// finishing. The server makes loop.RefuseFinish's check, which needs what the
+// forge merged, and sends why when something is in the way.
+function canFinish(pull: PullRequest, finishRefusal: string | undefined): boolean {
+  return pull.state === 'merged' && finishRefusal === undefined
 }
 
 // PullActions are the writes on the branch's pull request the terminal's
@@ -52,14 +45,17 @@ function canFinish(pull: PullRequest, branch: Branch): boolean {
 // and re-run its failed CI (R), each offered only when it can go, and each
 // sent from a form that is its last look. One form is open at a time; closing
 // it hands focus back to its button, and what a sent one did is said below.
+// A merged branch that cannot be finished says why, as the terminal does.
 export function PullActions({
   pull,
   ci,
   branch,
+  finishRefusal,
 }: {
   pull: PullRequest
   ci: Ci | null
   branch: Branch
+  finishRefusal: string | undefined
 }) {
   const [opened, setOpened] = useState<Opened>('none')
   const outcome = useOutcome()
@@ -89,7 +85,7 @@ export function PullActions({
   const offers: { opens: Exclude<Opened, 'none'>; label: string; can: boolean }[] = [
     { opens: 'edit', label: `Edit ${noun}`, can: pull.state === 'open' },
     { opens: 'merge', label: 'Merge', can: canMerge(pull, ci) },
-    { opens: 'finish', label: 'Finish the branch', can: canFinish(pull, branch) },
+    { opens: 'finish', label: 'Finish the branch', can: canFinish(pull, finishRefusal) },
     {
       opens: 'rerun',
       label: 'Re-run failed checks',
@@ -105,6 +101,7 @@ export function PullActions({
 
   return (
     <div className="flex flex-col gap-item">
+      <FinishRefusal reason={finishRefusal} />
       {opened === 'none' ? (
         <div role="group" aria-label={`Change ${name}`} className="flex flex-wrap gap-item">
           {offers
@@ -129,6 +126,18 @@ export function PullActions({
       )}
       <OutcomeLine said={outcome.said} />
     </div>
+  )
+}
+
+// FinishRefusal says why a merged branch cannot be finished, where the offer
+// to finish it would be, as the terminal's Review pane does.
+function FinishRefusal({ reason }: { reason: string | undefined }) {
+  if (reason === undefined) {
+    return null
+  }
+
+  return (
+    <p className="text-sm text-muted-foreground">The branch cannot be finished yet: {reason}.</p>
   )
 }
 

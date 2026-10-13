@@ -111,11 +111,14 @@ there).
 A git run (`POST /api/runs`) answers it while another run goes, and when
 there is nothing to rebase, amend or fix up; editing, merging, finishing and
 re-running answer it when the branch's pull request is not at the point each
-needs — open, ready to merge, merged, or with failed CI — read afresh; and an
-announcement answers it for a moment already announced, from here, the
-terminal or `workflow announce`. Setting up a first configuration file answers
-it where one already applies, or is already at the path chosen: it is never
-written over, so edit it in Settings.
+needs — open, ready to merge, merged, or with failed CI — read afresh, and a
+finish says what was in the way: the branch has not merged, it is not a
+branch of its own, there is no base to return to, or it holds commits that
+neither merged nor are on its upstream; and an announcement answers it for a
+moment already announced, from here, the terminal or `workflow announce`.
+Setting up a first configuration file answers it where one already applies,
+or is already at the path chosen: it is never written over, so edit it in
+Settings.
 
 ## Unprocessable
 

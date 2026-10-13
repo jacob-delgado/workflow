@@ -979,6 +979,7 @@ export const zReview = z.object({
     ci: zCi.nullish(),
     ci_error: zProblem.nullish(),
     issue: zLinkedIssue.nullish(),
+    finish_refusal: z.string().optional(),
     announced: z.boolean()
 });
 
