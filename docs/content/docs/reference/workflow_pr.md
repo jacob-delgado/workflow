@@ -43,14 +43,14 @@ workflow pr [flags]
 
 ```
   -h, --help   help for pr
-      --json   print what was opened, and the offers that followed, as JSON
-      --yes    go ahead without asking: push the branch when it needs it, open the pull request, link it on the issue and move the issue to the review status
+  -j, --json   print what was opened, and the offers that followed, as JSON
+  -y, --yes    go ahead without asking: push the branch when it needs it, open the pull request, link it on the issue and move the issue to the review status
 ```
 
 ### Options inherited from parent commands
 
 ```
-      --dry-run    hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, and say what it would have done
+  -n, --dry-run    hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, and say what it would have done
       --log FILE   append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
 ```
 

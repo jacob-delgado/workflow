@@ -41,16 +41,16 @@ workflow summary [flags]
 ```
       --from string   the first day, written YYYY-MM-DD
   -h, --help          help for summary
-      --json          print the summary as JSON
+  -j, --json          print the summary as JSON
       --post          post the summary to your team's chat, after a preview
       --to string     the last day, written YYYY-MM-DD
-      --yes           post without the confirmation
+  -y, --yes           post without the confirmation
 ```
 
 ### Options inherited from parent commands
 
 ```
-      --dry-run    hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, and say what it would have done
+  -n, --dry-run    hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, and say what it would have done
       --log FILE   append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
 ```
 

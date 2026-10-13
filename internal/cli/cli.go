@@ -236,7 +236,7 @@ type rootFlags struct {
 // command, so a script passes them before the command's name or after it, and
 // each command reads them back by name; --web and --port on the root alone.
 func (f *rootFlags) declare(root *cobra.Command) {
-	root.PersistentFlags().BoolVar(&f.dryRun, dryRunFlag, false,
+	root.PersistentFlags().BoolVarP(&f.dryRun, dryRunFlag, dryRunShorthand, false,
 		"hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, "+
 			"and say what it would have done")
 	root.PersistentFlags().String(logFlag, "",

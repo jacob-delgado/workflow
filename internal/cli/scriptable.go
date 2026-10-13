@@ -101,11 +101,11 @@ type writeOptions struct {
 // confirmationHelp is --yes's help on a write that asks one question.
 const confirmationHelp = "go ahead without the confirmation"
 
-// addFlags declares --yes on a scriptable write command, with help that says
-// what it answers, and has it read the root's --dry-run — one flag every
-// command inherits — before it runs.
+// addFlags declares --yes, or -y, on a scriptable write command, with help
+// that says what it answers, and has it read the root's --dry-run — one flag
+// every command inherits — before it runs.
 func (o *writeOptions) addFlags(cmd *cobra.Command, yesHelp string) {
-	cmd.Flags().BoolVar(&o.yes, "yes", false, yesHelp)
+	cmd.Flags().BoolVarP(&o.yes, "yes", yesShorthand, false, yesHelp)
 	cmd.PreRun = func(cmd *cobra.Command, _ []string) { o.dryRun = dryRunRequested(cmd) }
 }
 

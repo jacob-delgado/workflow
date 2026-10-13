@@ -18,7 +18,7 @@ workflow status --json                 # where the work stands, as data
 workflow reviews --json                # what waits on your review, oldest first
 workflow repositories --json | jq -r '.worktrees[].dir'   # this repository's worktrees
 cd "$(workflow branch PROJ-7 --fetch --worktree --yes | tail -n 1)"   # start fresh, beside this checkout
-workflow --dry-run pr                  # what pr would push and open
+workflow pr -n                         # what pr would push and open
 workflow pr --yes                      # push, open, link and move, without asking
 workflow pr --yes --json | jq .pull.url   # the same, and the address it opened
 workflow finish --dry-run              # the three git commands that finish a merged branch
@@ -123,8 +123,8 @@ reviews and nothing else.
 
 ## JSON
 
-`--json` is on the reads: `status`, `reviews`, `repositories`, `summary`
-and `doctor`; and on `pr`, for what it opened. `config show` prints JSON always. None of them carries a credential: `config show` masks
+`--json`, or `-j`, is on the reads: `status`, `reviews`, `repositories`,
+`summary` and `doctor`; and on `pr`, for what it opened. `config show` prints JSON always. None of them carries a credential: `config show` masks
 each to its last four characters, and the others never print one.
 
 `workflow status --json` prints one object:
@@ -309,11 +309,13 @@ nothing is checked.
 ## Writing without a person: `--yes` and `--dry-run`
 
 `branch`, `pr`, `finish`, `announce`, `comment`, `summary --post` and
-`db-clean` print a preview and ask before they write. Two flags change that:
+`db-clean` print a preview and ask before they write. Two flags change that,
+each spelled the same short way on every command that takes it:
 
-- **`--yes`** goes ahead without asking. On `pr` it answers every question:
-  the push, the open, and the offers that follow it — to link the pull request
-  on the branch's issue and to move the issue to the review status. A link
+- **`--yes`** (`-y`) goes ahead without asking. On `pr` it answers every
+  question: the push, the open, and the offers that follow it — to link the
+  pull request on the branch's issue and to move the issue to the review
+  status. A link
   that fails is said on stderr, the move is still made, and the command exits
   non-zero. On `announce` it never repeats an announcement: when the store
   says this pull request was already announced at the moment it is at, it
@@ -323,15 +325,16 @@ nothing is checked.
   only `--post`'s question, so it is refused without `--post`. A summary is
   posted even when a source could not be read — the text says which — and
   the command still exits non-zero for it.
-- **`--dry-run`** prints the preview and what the command would do, and
-  writes nothing, the store included: `announce` still reads what an earlier
+- **`--dry-run`** (`-n`) prints the preview and what the command would do,
+  and writes nothing, the store included: `announce` still reads what an earlier
   session announced, when there is a store on disk, but never creates it or
   changes what it holds (SQLite may leave its two companion files, `-wal` and
   `-shm`, beside it until the next session). What `pr` would do is a line for
   the push and the open, then one for each offer the open would lead to —
   `dry run: would link it on KEY` and `dry run: would move KEY to STATUS`.
   It is one flag for every command, given before the command's name or after
-  it: `workflow --dry-run pr` and `workflow pr --dry-run` are the same.
+  it: `workflow --dry-run pr`, `workflow pr --dry-run` and `workflow pr -n`
+  are the same.
   `config init --dry-run` runs its checks and prints the file it would write,
   masked, without writing it or storing anything in the keychain. Bare
   `workflow --dry-run` is the interface with every write held back.
