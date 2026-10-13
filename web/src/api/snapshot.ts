@@ -106,48 +106,60 @@ export function useEventStream(view: string | null, onViewRefused: () => void): 
     })
 
     source.addEventListener('snapshot', (event) => {
-      const parsed = zSnapshot.safeParse(parseJSON((event as MessageEvent<string>).data))
-      if (parsed.success) {
-        useSnapshotStore.setState({
-          snapshot: parsed.data,
-          view,
-          status: 'live',
-          reason: '',
-          receivedAt: Date.now(),
-        })
-      } else {
-        useSnapshotStore.setState({ status: 'stale', reason: unreadable })
-      }
+      onSnapshot(view, event as MessageEvent<string>)
     })
 
     source.addEventListener('error', () => {
-      // A closed source is one the browser will not retry: the server answered
-      // with something other than a stream, as it does (404) for a view a
-      // restart dropped from the configuration.
-      if (view !== null && source.readyState === EventSource.CLOSED) {
-        viewRefused()
-
-        return
-      }
-
-      // The default stream has no view to fall back from: a closed one stays
-      // closed until the page is loaded again. EventSource says nothing of why
-      // it was refused; a read of the health does, and a refused session marks
-      // itself (client.ts).
-      if (source.readyState === EventSource.CLOSED) {
-        void getHealth()
-        useSnapshotStore.setState({ status: 'closed', reason: givenUp })
-
-        return
-      }
-
-      useSnapshotStore.setState({ status: 'reconnecting', reason: '' })
+      onError(source, view, viewRefused)
     })
 
     return () => {
       source.close()
     }
   }, [view])
+}
+
+// onSnapshot keeps a snapshot the stream pushed for view, or drops one the
+// page cannot read and marks the stream stale with why.
+function onSnapshot(view: string | null, event: MessageEvent<string>): void {
+  const parsed = zSnapshot.safeParse(parseJSON(event.data))
+  if (parsed.success) {
+    useSnapshotStore.setState({
+      snapshot: parsed.data,
+      view,
+      status: 'live',
+      reason: '',
+      receivedAt: Date.now(),
+    })
+  } else {
+    useSnapshotStore.setState({ status: 'stale', reason: unreadable })
+  }
+}
+
+// onError says how the stream for view stands once its connection failed:
+// refused, given up, or reconnecting.
+function onError(source: EventSource, view: string | null, viewRefused: () => void): void {
+  // A closed source is one the browser will not retry: the server answered
+  // with something other than a stream, as it does (404) for a view a
+  // restart dropped from the configuration.
+  if (view !== null && source.readyState === EventSource.CLOSED) {
+    viewRefused()
+
+    return
+  }
+
+  // The default stream has no view to fall back from: a closed one stays
+  // closed until the page is loaded again. EventSource says nothing of why
+  // it was refused; a read of the health does, and a refused session marks
+  // itself (client.ts).
+  if (source.readyState === EventSource.CLOSED) {
+    void getHealth()
+    useSnapshotStore.setState({ status: 'closed', reason: givenUp })
+
+    return
+  }
+
+  useSnapshotStore.setState({ status: 'reconnecting', reason: '' })
 }
 
 // parseJSON reads a frame's JSON, or undefined for a frame that is not JSON —
