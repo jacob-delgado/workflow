@@ -458,7 +458,8 @@ func configurationErrors() []error {
 // found: an open pull request, nothing to open, a dirty tree, a branch or file
 // already there, a branch that cannot be finished, a directory that is no
 // repository, a store file another program holds open, a summary too long for
-// the messaging service.
+// the messaging service, a move to a status the tracker does not offer or one
+// that asks for fields.
 func refusalErrors() []error {
 	return []error{
 		loop.ErrPullAlreadyOpen, loop.ErrNothingToOpen, loop.ErrNoPullRequest,
@@ -466,7 +467,7 @@ func refusalErrors() []error {
 		loop.ErrNotOnFeatureBranch, loop.ErrNotMerged, loop.ErrNoBase, loop.ErrUnpushedWork,
 		errPullAlreadyOpen, errNoCommitsToOpen, errNoPullRequest,
 		errBranchExists, setup.ErrExists, gitrepo.ErrNotARepository, store.ErrNotCleaned,
-		messaging.ErrTooLong,
+		messaging.ErrTooLong, loop.ErrNoTransition, loop.ErrNeedsFields,
 	}
 }
 

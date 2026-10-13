@@ -123,4 +123,5 @@ workflow [flags]
 * [workflow slack](../workflow_slack/)	 - Set up posting to Slack with a rotating user token
 * [workflow status](../workflow_status/)	 - Print the current work's issue, stage and CI on one line
 * [workflow summary](../workflow_summary/)	 - Say what you did over a period — commits, tasks, issues and reviews — and post it
+* [workflow transition](../workflow_transition/)	 - Move an issue to a status, in Jira or on the forge
 
