@@ -11,8 +11,9 @@ coverage.html
 # node_modules and stray Vite output are generated. The real build lands in
 # internal/web/dist, which is committed: `go install` fetches committed files
 # alone and cannot build the frontend, so every build embeds that copy (see
-# internal/web).
-web/node_modules/
+# internal/web). node_modules has no trailing slash: a slash matches only a
+# directory, and a worktree may link node_modules to a shared install.
+web/node_modules
 web/dist/
 web/coverage/
 web/test-results/
