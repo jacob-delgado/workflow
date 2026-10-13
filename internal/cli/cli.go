@@ -128,9 +128,14 @@ SECURITY
 // wait at most five seconds for its lock. It runs to its end only where
 // something waits for it, as a command's own call does, and as --web's drain
 // does for a request it serves, within its five-second grace. In the terminal
-// a quit waits for it as part of a write, up to timing.request_timeout, while
-// a signal exits at once under it, and ends a post's record there as it ends
-// every write the interface sends (TRADE-38 says what that can cost).
+// a quit waits, up to timing.request_timeout, for the refresh, which runs
+// inside the settings save it is part of, for a post's record, itself a
+// counted write, and for the store's open when a write to the store begins
+// it, as part of that write; it does not wait for an open a read of the store
+// begins (the announcements, the cached issue list, the last scope), as it
+// waits for no read. A signal exits at once under all of it, and ends a post's
+// record there as it ends every write the interface sends (TRADE-38 says what
+// that can cost).
 //
 // The editor the interface hands the terminal to runs under no context:
 // it is yours until you leave it, and a signal while it is open ends workflow
