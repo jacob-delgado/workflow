@@ -30,8 +30,8 @@ interface FilterChipsProps<V> {
 // draw for it where they draw one, pressed — in the tonal wash, edged in its
 // text color, which holds 3:1 against the page, and twice as thick as an
 // unpressed chip's edge, so pressed reads by weight as well as by color —
-// while it narrows the list. The name and count are one text, so a chip never reads as
-// a row's mark it shares a word with.
+// while it narrows the list. The name and count are one text, so a chip never
+// reads as a row's mark it shares a word with.
 export function FilterChips<V>({
   label,
   choices,
