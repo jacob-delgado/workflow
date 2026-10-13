@@ -199,7 +199,7 @@ func (m Model) commitsOffers() []offer {
 	}
 
 	return slices.Concat(m.stagingOffers(), m.committingOffers(), []offer{
-		{binding: m.keys.runHooks, can: m.deps.Hooks.Run != nil, act: m.runPreCommit},
+		{binding: m.keys.runHook, can: m.deps.Hooks.Run != nil, act: m.runPreCommit},
 		{binding: m.keys.hookConfig, can: len(m.hookgen.hooks) > 0, act: m.openHookgen},
 		{binding: m.keys.refresh, can: true, act: func() (Model, tea.Cmd) { return m.refreshPane(paneCommits) }},
 	})

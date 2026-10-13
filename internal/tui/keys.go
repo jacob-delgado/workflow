@@ -47,8 +47,8 @@ type keyMap struct {
 	newBranch, switchBranch, linkIssue, rebase, push key.Binding
 
 	// Commits.
-	stage, stageAll, unstageAll, discard       key.Binding
-	commit, amend, fixup, runHooks, hookConfig key.Binding
+	stage, stageAll, unstageAll, discard      key.Binding
+	commit, amend, fixup, runHook, hookConfig key.Binding
 
 	// Review.
 	newPullRequest, checks, rerun, merge, finish key.Binding

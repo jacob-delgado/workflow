@@ -58,7 +58,7 @@ func commitKeys(builder *helpBuilder, into *keyMap) {
 	into.commit = builder.bind(group, "commit", "commit", "c")
 	into.amend = builder.bind(group, "amend", "amend", "A")
 	into.fixup = builder.bind(group, "fixup", "fix up", "f")
-	into.runHooks = builder.bind(group, "run-pre-commit", "run pre-commit", "h")
+	into.runHook = builder.bind(group, "run-pre-commit", "run pre-commit", "h")
 	into.hookConfig = builder.bind(group, "set-up-lefthook", "set up lefthook", "g")
 }
 
