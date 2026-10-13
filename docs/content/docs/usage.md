@@ -414,6 +414,12 @@ would, so stage something first.
 - `ctrl+o` edits the description in your editor, `ctrl+r` marks it a draft,
   and `tab` moves through the base branch, the reviewers, the assignees and the
   labels.
+- **The base branch** starts as the one the branch left. Change it and `tab`
+  away, and the branch is read again past the base you named: the title while
+  you have not typed over it, the description while you have not edited it,
+  and the reviewers while you have not typed them are proposed again from the
+  commits that pull request would merge. A base no remote and no local branch
+  holds keeps the draft as it was.
 - **The reviewers** start as the code owners of the paths the branch changes,
   as the base branch's CODEOWNERS names them — people first, then teams as
   `org/team` — leaving you out. They are read after the composer opens, so it
