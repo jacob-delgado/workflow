@@ -41,8 +41,8 @@ func splitList(text string) []string {
 	return entries
 }
 
-// open opens the pull request — pushing the branch first when origin does not
-// have every commit, and opening only if the push succeeded.
+// open opens the pull request — pushing the branch first when its push remote
+// does not have every commit, and opening only if the push succeeded.
 func (c prComposer) open(m Model) (Model, tea.Cmd) {
 	request := c.request()
 
@@ -72,8 +72,9 @@ func (c prComposer) open(m Model) (Model, tea.Cmd) {
 }
 
 // dryRunNotice says what opening the pull request would do, including the push
-// that enter does first when origin does not have every commit, and the offers
-// the open goes on to make: offers, not writes, as the live path makes them.
+// that enter does first when its push remote does not have every commit, and
+// the offers the open goes on to make: offers, not writes, as the live path
+// makes them.
 func (c prComposer) dryRunNotice(request forge.NewPullRequest, pushed bool, offers []string) string {
 	open := "open \"" + request.Title + "\" from " + request.Head + " into " + request.Base
 	if len(offers) > 0 {

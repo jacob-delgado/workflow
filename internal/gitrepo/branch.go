@@ -28,16 +28,6 @@ const (
 	headRef    = "HEAD"
 )
 
-// DefaultRemote is the remote this package fetches from and reads base branches
-// against, written once here rather than spelled out at each use. A push can go
-// elsewhere: PushRemote consults remote.pushDefault and falls back to this.
-const DefaultRemote = "origin"
-
-// remoteBranch is a branch on DefaultRemote, "origin/main".
-func remoteBranch(name string) string {
-	return DefaultRemote + "/" + name
-}
-
 // noTerminalPrompt turns off git's credential prompts: nobody can answer one
 // from inside the interface, so a command that needs a credential must fail
 // rather than wait for input that is never coming.
@@ -157,7 +147,7 @@ func (r Repository) ReadBranch(ctx context.Context) (Branch, error) {
 		Detached:   text(name) == "",
 		Head:       git("rev-parse", "HEAD"),
 		Upstream:   git("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"),
-		PushRemote: r.PushRemote(ctx),
+		PushRemote: "",
 		Ahead:      0,
 		Behind:     0,
 		Base:       base(git),
@@ -173,6 +163,8 @@ func (r Repository) ReadBranch(ctx context.Context) (Branch, error) {
 	if err != nil {
 		return Branch{}, err
 	}
+
+	branch.PushRemote = r.PushRemote(ctx, branch.Name)
 
 	if !branch.Detached {
 		branch.IssueLink = r.IssueLink(ctx, branch.Name)
@@ -432,16 +424,4 @@ func (r Repository) HooksDir(ctx context.Context) (string, error) {
 	}
 
 	return path, nil
-}
-
-// PushRemote is the remote a push goes to: remote.pushDefault when the
-// repository sets one — a fork pushes to its own remote, not origin — or
-// DefaultRemote otherwise. git exits non-zero when the key is unset, which
-// optional reads as the empty string, so an unset default falls back cleanly.
-func (r Repository) PushRemote(ctx context.Context) string {
-	if remote := optional(ctx, r.run, "-C", r.dir, "config", "--get", "remote.pushDefault"); remote != "" {
-		return remote
-	}
-
-	return DefaultRemote
 }

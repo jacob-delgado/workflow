@@ -94,28 +94,6 @@ func TestPushCommandRunsInTheRepositoryWithoutPrompts(t *testing.T) {
 	}
 }
 
-func TestPushRemoteHonorsPushDefaultAndFallsBackToOrigin(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	set := fakeRunner(t, map[string]reply{readPushDefault: {out: []byte("upstream\n")}})
-	// git exits non-zero when the key is unset.
-	unset := fakeRunner(t, map[string]reply{readPushDefault: {err: errNoRef}})
-
-	// Act
-	configured := gitrepo.At(set, workDir).PushRemote(t.Context())
-	fallback := gitrepo.At(unset, workDir).PushRemote(t.Context())
-
-	// Assert
-	if configured != "upstream" {
-		t.Errorf("PushRemote with remote.pushDefault set = %q, want upstream", configured)
-	}
-
-	if fallback != "origin" {
-		t.Errorf("PushRemote with no default = %q, want origin", fallback)
-	}
-}
-
 func TestFetchCommandUpdatesOriginWithoutPrompts(t *testing.T) {
 	t.Parallel()
 
