@@ -158,7 +158,8 @@ func newIssueCmd() *cobra.Command {
 			`workflow issue PROJ-7`,
 			`workflow issue PROJ-7 --json | jq -r .status   # where it stands`,
 		),
-		Args: cobra.ExactArgs(1),
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeAssignedIssues,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			conn, err := connect(cmd)
 			if err != nil {
@@ -267,10 +268,15 @@ func commentHeading(comment jira.Comment) string {
 	return author + " · " + comment.Created.Format(time.DateOnly)
 }
 
-// completeAssignedIssues completes an issue argument with the keys of the issues
-// assigned to you, for `workflow branch <tab>`. A tracker that cannot be reached
-// offers nothing rather than an error.
-func completeAssignedIssues(cmd *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+// completeAssignedIssues completes an issue command's key with the keys of the
+// issues assigned to you, for `workflow branch <tab>` and every command that
+// names an issue first. Past the key it offers nothing and asks nothing, and a
+// tracker that cannot be reached offers nothing rather than an error.
+func completeAssignedIssues(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) > 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
 	dir, err := workingDir(cmd)
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp

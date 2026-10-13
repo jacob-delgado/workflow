@@ -70,7 +70,8 @@ func newTransitionCmd(prompt Prompt) *cobra.Command {
 		Example: examples(
 			`workflow transition PROJ-7 "In Review" --yes   # unattended`,
 		),
-		Args: cobra.ExactArgs(2), //nolint:mnd // the issue and the status
+		Args:              cobra.ExactArgs(2), //nolint:mnd // the issue and the status
+		ValidArgsFunction: completeAssignedIssues,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			conn, err := connect(cmd)
 			if err != nil {
@@ -152,7 +153,8 @@ func newAssignCmd(prompt Prompt) *cobra.Command {
 		Example: examples(
 			`workflow assign PROJ-7 bo --yes   # unattended`,
 		),
-		Args: cobra.ExactArgs(2), //nolint:mnd // the issue and the username
+		Args:              cobra.ExactArgs(2), //nolint:mnd // the issue and the username
+		ValidArgsFunction: completeAssignedIssues,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			assignee := strings.TrimSpace(args[1])
 			if assignee == "" {
@@ -246,7 +248,8 @@ func newWorklogCmd(prompt Prompt) *cobra.Command {
 		Example: examples(
 			`workflow worklog PROJ-7 2h --comment "pairing on the fix" --yes`,
 		),
-		Args: cobra.ExactArgs(2), //nolint:mnd // the issue and the duration
+		Args:              cobra.ExactArgs(2), //nolint:mnd // the issue and the duration
+		ValidArgsFunction: completeAssignedIssues,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			entry := worklogEntry{issueKey: jira.Key(args[0]), spent: strings.TrimSpace(args[1]), note: note}
 

@@ -118,8 +118,9 @@ up, asking the same questions.
 
 `workflow completion <shell>` prints a completion script for `bash`, `zsh`,
 `fish` or `powershell`. Source it from your shell's startup, and `<tab>`
-completes subcommands and flags — and `workflow branch <tab>` completes the keys
-of the issues assigned to you.
+completes subcommands and flags — and `workflow branch <tab>`, and every other
+command that names an issue first (`issue`, `transition`, `assign`, `worklog`
+and `comment`), completes the keys of the issues assigned to you.
 
 ```sh
 # bash — for this shell now, or add to ~/.bashrc

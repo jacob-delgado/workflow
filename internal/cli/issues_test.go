@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -312,5 +313,47 @@ func TestIssueNotInTheTrackerExitsAsAFailure(t *testing.T) {
 
 	if err == nil || !strings.Contains(err.Error(), "reading issue PROJ-9") {
 		t.Errorf("issue PROJ-9 = %v, want the failed read named", err)
+	}
+}
+
+func TestIssueCommandsCompleteTheirKey(t *testing.T) {
+	t.Parallel()
+
+	for command := range strings.FieldsSeq("branch comment issue transition assign worklog") {
+		t.Run(command, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			server := jiraServer(t, http.StatusOK, searchFixture("PROJ-7", "PROJ-8"), new(atomic.Bool))
+			dir := t.TempDir()
+			writeConfigFor(t, dir, server.URL)
+
+			// Act
+			offered, err := run(t, dir, "__complete", command, "")
+
+			// Assert
+			if err != nil || !strings.Contains(offered, "PROJ-7") || !strings.Contains(offered, "PROJ-8") {
+				t.Errorf("__complete %s = %v, offered:\n%s\nwant the assigned issues", command, err, offered)
+			}
+		})
+	}
+}
+
+func TestIssueCommandsCompleteNothingPastTheKey(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	reached := new(atomic.Bool)
+	server := jiraServer(t, http.StatusOK, searchFixture("PROJ-7", "PROJ-8"), reached)
+	dir := t.TempDir()
+	writeConfigFor(t, dir, server.URL)
+
+	// Act
+	offered, err := run(t, dir, "__complete", "transition", "PROJ-7", "")
+
+	// Assert
+	if err != nil || strings.Contains(offered, "PROJ-8") || reached.Load() {
+		t.Errorf("__complete transition PROJ-7 = %v, offered:\n%s\nwant no key offered for the status, Jira not asked",
+			err, offered)
 	}
 }
