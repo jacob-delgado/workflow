@@ -19,7 +19,9 @@ import (
 // writesSettle is how long no write may have been in flight before the
 // writes a quit waits for are taken to have landed: a write that follows
 // another in one step, as a post's record follows the post, begins just as
-// the first lands.
+// the first lands, and a write a command sends begins just after the command
+// starts. Every quit settles once, so a quit that lands in such a gap, with
+// nothing counted, still waits for the write that begins after it.
 const writesSettle = 100 * time.Millisecond
 
 // errWritesUnfinished is a quit that gave up waiting for the writes the
@@ -35,34 +37,51 @@ var errWritesUnfinished = errors.New("gave up on writes still in flight")
 // wait, begins none.
 func finishWrites(cmd *cobra.Command, writes *lifetime.InFlight, timeout time.Duration) error {
 	pending := len(writes.Names())
-	if pending == 0 {
-		return nil
-	}
 
 	interrupted := cmd.Context().Err()
 	if interrupted != nil {
-		return fmt.Errorf("interrupted with %s in flight: %w", writesCounted(pending), interrupted)
+		return interruptedWith(pending, interrupted)
 	}
 
-	fmt.Fprintf(cmd.ErrOrStderr(), "finishing %s…\n", writesCounted(pending))
+	if pending > 0 {
+		fmt.Fprintf(cmd.ErrOrStderr(), "finishing %s…\n", writesCounted(pending))
+	}
 
-	waiting, cancel := context.WithTimeoutCause(cmd.Context(), timeout, errWritesUnfinished)
+	return settleWrites(cmd.Context(), writes, pending, timeout)
+}
+
+// settleWrites waits under ctx, up to timeout, for writes to settle once
+// pending had been announced as in flight, none at all when pending is zero.
+func settleWrites(ctx context.Context, writes *lifetime.InFlight, pending int, timeout time.Duration) error {
+	waiting, cancel := context.WithTimeoutCause(ctx, timeout, errWritesUnfinished)
 	defer cancel()
 
 	unfinished, err := writes.Settled(waiting)
 
 	// A signal is checked first: the writes it ends land at once, and are not
 	// what the wait was for.
-	interrupted = cmd.Context().Err()
+	interrupted := ctx.Err()
 
 	switch {
-	case interrupted != nil:
+	case interrupted != nil && pending > 0:
 		return fmt.Errorf("interrupted while finishing %s: %w", writesCounted(pending), interrupted)
+	case interrupted != nil:
+		return interruptedWith(len(unfinished), interrupted)
 	case err == nil:
 		return nil
 	default:
 		return fmt.Errorf("%w after %s: %s", errWritesUnfinished, timeout, strings.Join(unfinished, ", "))
 	}
+}
+
+// interruptedWith is a signal's interruption with count writes in flight, no
+// wait for them announced, or nothing when none is.
+func interruptedWith(count int, interrupted error) error {
+	if count == 0 {
+		return nil
+	}
+
+	return fmt.Errorf("interrupted with %s in flight: %w", writesCounted(count), interrupted)
 }
 
 // writesCounted is count writes, in words: "1 write", "2 writes".
