@@ -157,8 +157,10 @@ which the loop no longer follows.
 
 `workflow status --json DIR…` prints an array, one object per directory in
 the order given, each with `dir`, the directory as it was given, and a
-`repository` label: its base name, or its path written from your home where
-two directories given share a base name. A directory that cannot be read has an `error`
+`repository` label: the name of the directory it leads to — `.` is named
+for the directory the command runs in, `..` for the one above — or, where
+two directories given lead to directories of one name, each one's path
+written from your home. A directory that cannot be read has an `error`
 instead of the stages — `"not a git repository"`, or why its repository
 could not be read — and the command then exits non-zero after printing the
 whole array.

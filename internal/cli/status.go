@@ -4,6 +4,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -145,9 +146,10 @@ func unreadDirectories(statuses []directoryStatus) error {
 
 // directoryStatus is one named directory's status, or why it has none.
 type directoryStatus struct {
-	// dir is the directory as it was given, and label what names it in the
-	// output.
+	// dir is the directory as it was given, found where it leads from the
+	// working directory, and label what names it in the output.
 	dir   string
+	found string
 	label string
 	facts statusFacts
 	ascii bool
@@ -160,24 +162,40 @@ type directoryStatus struct {
 func statusesOf(
 	cmd *cobra.Command, note *progressNote, dirs []string, requestLog *wiring.RequestLog,
 ) []directoryStatus {
-	labels := repoLabels(dirs, configHome(cmd))
-	statuses := make([]directoryStatus, 0, len(dirs))
+	statuses := placed(cmd, dirs)
 
-	for index, dir := range dirs {
-		note.show("Reading", labels[index])
+	for index, status := range statuses {
+		note.show("Reading", status.label)
 
-		status := directoryStatus{dir: dir, label: labels[index]}
-
-		found, err := fromWorkingDir(cmd, dir)
-		if err != nil {
-			status.err = err
-		} else {
-			conn := connectAt(cmd.Context(), cmd, found, requestLog)
-			status.facts, status.err = statusOf(cmd.Context(), conn)
-			status.ascii = conn.cfg.UI.ASCII
+		if status.err != nil {
+			continue
 		}
 
-		statuses = append(statuses, status)
+		conn := connectAt(cmd.Context(), cmd, status.found, requestLog)
+		statuses[index].facts, statuses[index].err = statusOf(cmd.Context(), conn)
+		statuses[index].ascii = conn.cfg.UI.ASCII
+	}
+
+	return statuses
+}
+
+// placed finds where each directory given leads from the working directory,
+// or keeps why it cannot, and labels each by where it leads, so that "." is
+// named for the working directory rather than for the dot.
+func placed(cmd *cobra.Command, dirs []string) []directoryStatus {
+	statuses := make([]directoryStatus, len(dirs))
+	leads := make([]string, len(dirs))
+
+	for index, dir := range dirs {
+		found, err := fromWorkingDir(cmd, dir)
+		statuses[index] = directoryStatus{dir: dir, found: found, err: err}
+		// An unnamed working directory leaves nothing found: the lead is then
+		// the directory as given.
+		leads[index] = filepath.Clean(cmp.Or(found, dir))
+	}
+
+	for index, label := range repoLabels(leads, configHome(cmd)) {
+		statuses[index].label = label
 	}
 
 	return statuses
@@ -220,9 +238,8 @@ func trackerName(conn connection) string {
 	return forgeName(conn.deps.Forge.Kind)
 }
 
-// repoLabels names each directory in the output: by its base name, or, where
-// that would not say which repository it is — "." or a base name another of
-// dirs shares — by its path, written from home.
+// repoLabels names each directory in the output by its base name or, where
+// another of dirs has a base name the same, by its path, written from home.
 func repoLabels(dirs []string, home string) []string {
 	named := make(map[string]int, len(dirs))
 	for _, dir := range dirs {
@@ -233,7 +250,7 @@ func repoLabels(dirs []string, home string) []string {
 
 	for index, dir := range dirs {
 		base := filepath.Base(dir)
-		if base == "." || named[base] > 1 {
+		if named[base] > 1 {
 			labels[index] = workdirs.Shown(dir, home)
 
 			continue
