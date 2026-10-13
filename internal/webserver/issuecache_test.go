@@ -429,3 +429,42 @@ func TestTheSeedsReadOfTheStoreStopsWhenItsPageLeaves(t *testing.T) {
 
 	<-stream.done
 }
+
+func TestAStreamWhoseSeedCannotBeWrittenAsksJiraNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The context never cancels, so only the failed seed can end the stream,
+	// before any snapshot is read.
+	var asked, searched []string
+
+	deps := filledDeps()
+	deps.Store.CachedIssues = keptFor([]jira.Issue{keptIssue()}, &asked)
+	deps.Jira.Search = func(_ context.Context, jql string, _ int) (jira.SearchResult, error) {
+		searched = append(searched, jql)
+
+		return jira.SearchResult{}, nil
+	}
+
+	request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/events", nil)
+	request.Host = loopbackHost
+	done := make(chan struct{})
+
+	// Act
+	go func() {
+		serve(t, deps, config.Default()).ServeHTTP(&failingFlushWriter{}, request)
+		close(done)
+	}()
+
+	// Assert
+	select {
+	case <-done:
+	case <-time.After(endsWithin):
+		t.Fatal("the stream did not stop after its seed could not be written")
+	}
+
+	if len(asked) != 1 || len(searched) != 0 {
+		t.Errorf("the store was asked %q and Jira searched %q; want the seed read, and Jira never asked", asked,
+			searched)
+	}
+}
