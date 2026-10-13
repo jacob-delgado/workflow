@@ -75,14 +75,13 @@ type prSeams struct {
 	// MessagingSetUp ends an open with the step that follows it, announcing,
 	// which only a configured messaging service can take.
 	MessagingSetUp bool
+	// Chosen is what the open was told to make in place of what is composed.
+	Chosen pullChoices
 }
 
 // newPRCmd builds `workflow pr`.
 func newPRCmd(prompt Prompt) *cobra.Command {
-	var (
-		opts   writeOptions
-		asJSON bool
-	)
+	var opts prOptions
 
 	cmd := &cobra.Command{
 		Use:   "pr",
@@ -93,6 +92,10 @@ func newPRCmd(prompt Prompt) *cobra.Command {
 			"branches, and the whole body — is confirmed first.\n\n" +
 			"The code owners of the paths the branch changes, as CODEOWNERS on the base names\n" +
 			"them, are asked to review it; the preview lists them.\n\n" +
+			"--base merges it into another branch, whose code owners are asked instead;\n" +
+			"--reviewer asks the people and teams it names in place of the code owners; and\n" +
+			"--draft opens it as a draft. The title and body are still composed from the\n" +
+			"branch's commits since the base it left.\n\n" +
 			"Once it is open, it offers — as the interface does — to link it on the branch's\n" +
 			"issue, then to move the issue to the review status (jira.review_status). With\n" +
 			"messaging set up, it ends by naming the next step, workflow announce, on stderr.\n\n" +
@@ -103,23 +106,30 @@ func newPRCmd(prompt Prompt) *cobra.Command {
 			`workflow --dry-run pr                     # what pr would push and open`,
 			`workflow pr --yes                         # push, open, link and move, without asking`,
 			`workflow pr --yes --json | jq .pull.url   # the same, and the address it opened`,
+			`workflow pr --draft --base release        # a draft into release, asking its code owners`,
 		),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runPRCommand(cmd, prompt, opts, asJSON)
+			return runPRCommand(cmd, prompt, opts)
 		},
 	}
 
-	addJSONFlag(cmd, &asJSON, "print what was opened, and the offers that followed, as JSON")
+	opts.chosen.declare(cmd)
+	addJSONFlag(cmd, &opts.asJSON, "print what was opened, and the offers that followed, as JSON")
 
-	opts.addFlags(cmd, "go ahead without asking: push the branch when it needs it, open the pull request, "+
+	opts.write.addFlags(cmd, "go ahead without asking: push the branch when it needs it, open the pull request, "+
 		"link it on the issue and move the issue to the review status")
 
 	return cmd
 }
 
 // runPRCommand wires the real repository and forge to the pull-request flow.
-func runPRCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions, asJSON bool) error {
+func runPRCommand(cmd *cobra.Command, prompt Prompt, opts prOptions) error {
+	err := opts.chosen.check()
+	if err != nil {
+		return err
+	}
+
 	conn, err := connect(cmd)
 	if err != nil {
 		return err
@@ -141,6 +151,7 @@ func runPRCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions, asJSON b
 		Options: loop.PullOptions{
 			Project:     cfg.Jira.Project,
 			TitleSource: convention.TitleSource(cfg.PullRequest.TitleSource),
+			Base:        opts.chosen.chosenBase(),
 		},
 		Push:           deps.Git.Push,
 		CreatePull:     deps.Forge.CreatePullRequest,
@@ -151,17 +162,18 @@ func runPRCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions, asJSON b
 		Kind:           deps.Forge.Kind,
 		Confirm:        func(question string) (bool, error) { return confirm(prompt, question) },
 		MessagingSetUp: cfg.Messaging.Mode() != config.MessagingNone,
+		Chosen:         opts.chosen,
 	}
 
 	out := outputOf(cmd)
-	if !asJSON {
-		_, err = runPR(cmd.Context(), out, seams, opts)
+	if !opts.asJSON {
+		_, err = runPR(cmd.Context(), out, seams, opts.write)
 
 		return err
 	}
 
 	// The report is the artifact, so everything else is said beside it.
-	report, err := runPR(cmd.Context(), output{artifact: out.notes, notes: out.notes}, seams, opts)
+	report, err := runPR(cmd.Context(), output{artifact: out.notes, notes: out.notes}, seams, opts.write)
 	if report.ready {
 		err = errors.Join(err, encodeJSON(out.artifact, report))
 	}
@@ -228,17 +240,17 @@ func openedReport(request forge.NewPullRequest, pull forge.PullRequest) prReport
 // of those steps, the offers included, and reports the pull request it would
 // open.
 func runPR(ctx context.Context, out output, seams prSeams, opts writeOptions) (prReport, error) {
-	request, branch, err := loop.ComposePull(ctx, seams.Compose, seams.Options)
+	request, branch, err := composed(ctx, seams)
 	if err != nil {
-		return prReport{}, composeRefusal(err, seams.Kind)
+		return prReport{}, err
 	}
 
-	previewPull(out.artifact, request, branch)
+	previewPull(out.artifact, request, branch, seams.Chosen)
 
 	issueKey, _ := loop.JiraIssue(branch, seams.Options.Project)
 
 	proceed, err := opts.proceed(out.notes, seams.Confirm, writePrompt{
-		question: openQuestion(branch, seams.Kind.Noun()),
+		question: openQuestion(branch, draftNoun(request, seams.Kind)),
 		dryRun:   "dry run: would " + pushClause(branch) + "open " + request.Title,
 		declined: "Not opened.",
 	})
@@ -262,14 +274,21 @@ func runPR(ctx context.Context, out output, seams prSeams, opts writeOptions) (p
 }
 
 // previewPull prints the pull request about to be opened: its title, the
-// branches it joins, the code owners it asks to review, and, after a blank
-// line, its whole body, so the question is asked about what was shown.
-func previewPull(artifact io.Writer, request forge.NewPullRequest, branch gitrepo.Branch) {
+// branches it joins and whether it is a draft, whom it asks to review — the
+// code owners unless chosen named others — and, after a blank line, its whole
+// body, so the question is asked about what was shown.
+func previewPull(artifact io.Writer, request forge.NewPullRequest, branch gitrepo.Branch, chosen pullChoices) {
 	fmt.Fprintln(artifact, "Open "+request.Title)
-	fmt.Fprintln(artifact, "  "+branch.Name+" → "+request.Base)
+
+	branches := "  " + branch.Name + " → " + request.Base
+	if request.Draft {
+		branches += " (draft)"
+	}
+
+	fmt.Fprintln(artifact, branches)
 
 	if reviewers := slices.Concat(request.Reviewers, request.TeamReviewers); len(reviewers) > 0 {
-		fmt.Fprintln(artifact, "  reviewers "+strings.Join(reviewers, ", ")+" (code owners)")
+		fmt.Fprintln(artifact, "  reviewers "+strings.Join(reviewers, ", ")+chosen.reviewersNote())
 	}
 
 	fmt.Fprintln(artifact)

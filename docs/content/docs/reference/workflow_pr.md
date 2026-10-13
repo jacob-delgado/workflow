@@ -19,6 +19,11 @@ branches, and the whole body — is confirmed first.
 The code owners of the paths the branch changes, as CODEOWNERS on the base names
 them, are asked to review it; the preview lists them.
 
+--base merges it into another branch, whose code owners are asked instead;
+--reviewer asks the people and teams it names in place of the code owners; and
+--draft opens it as a draft. The title and body are still composed from the
+branch's commits since the base it left.
+
 Once it is open, it offers — as the interface does — to link it on the branch's
 issue, then to move the issue to the review status (jira.review_status). With
 messaging set up, it ends by naming the next step, workflow announce, on stderr.
@@ -37,14 +42,18 @@ workflow pr [flags]
   workflow --dry-run pr                     # what pr would push and open
   workflow pr --yes                         # push, open, link and move, without asking
   workflow pr --yes --json | jq .pull.url   # the same, and the address it opened
+  workflow pr --draft --base release        # a draft into release, asking its code owners
 ```
 
 ### Options
 
 ```
-  -h, --help   help for pr
-  -j, --json   print what was opened, and the offers that followed, as JSON
-  -y, --yes    go ahead without asking: push the branch when it needs it, open the pull request, link it on the issue and move the issue to the review status
+      --base BRANCH     merge into BRANCH instead of the base the branch left; its code owners are asked to review
+      --draft           open it as a draft
+  -h, --help            help for pr
+  -j, --json            print what was opened, and the offers that followed, as JSON
+      --reviewer NAME   ask NAME to review instead of the code owners, org/team asking a team; repeat it, or separate names with commas
+  -y, --yes             go ahead without asking: push the branch when it needs it, open the pull request, link it on the issue and move the issue to the review status
 ```
 
 ### Options inherited from parent commands
