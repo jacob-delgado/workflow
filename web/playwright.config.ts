@@ -19,6 +19,11 @@ export default defineConfig({
   testDir: 'e2e',
   testIgnore: 'server/**',
   fullyParallel: true,
+  // Every core on CI, where nothing else runs beside the two preview servers,
+  // and they only serve static files. Playwright's default, half the cores,
+  // kept a four-core runner at two workers through the run's longest phase. A
+  // developer's machine keeps the default.
+  workers: isCI ? '100%' : undefined,
   forbidOnly: isCI,
   retries: 0,
   // list for the console; the HTML report (with retained traces) is uploaded as
