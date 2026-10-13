@@ -500,7 +500,9 @@ announcement waiting for CI waits through a failed run: the messaging pane says
 check is reported it says *no checks reported yet*, and after ten minutes with
 none, counted from the last read that saw one, it gives up, saying to announce it
 by hand. `x` on the messaging pane stops waiting, and nothing is announced. One
-armed as `n` opened its pull request waits the same way.
+armed as `n` opened its pull request waits the same way, and so does
+`workflow announce --when-green` from a shell, in the foreground until CI
+passes or `ctrl+c`.
 Announcing now replaces one that is waiting, so the channel never reads it twice.
 
 Nothing is announced while a check has failed on the pull request. The

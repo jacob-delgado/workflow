@@ -4,6 +4,8 @@
 package cli_test
 
 import (
+	"context"
+	"fmt"
 	"io"
 	"runtime"
 	"strings"
@@ -22,6 +24,18 @@ func announcedEarlier(t *testing.T, moment messaging.Moment) string {
 	t.Helper()
 
 	home := t.TempDir()
+
+	err := recordAnnounced(t.Context(), home, moment)
+	if err != nil {
+		t.Fatalf("seeding the store: %v", err)
+	}
+
+	return home
+}
+
+// recordAnnounced records, in the store under home, the fake forge's pull
+// request 7 announced at moment.
+func recordAnnounced(ctx context.Context, home string, moment messaging.Moment) error {
 	env := isolatedEnvironment(place{home: home})
 
 	dir, err := store.Dir(runtime.GOOS, home, func(name string) (string, bool) {
@@ -30,16 +44,11 @@ func announcedEarlier(t *testing.T, moment messaging.Moment) string {
 		return value, ok
 	})
 	if err != nil {
-		t.Fatalf("finding the store under %s: %v", home, err)
+		return fmt.Errorf("finding the store under %s: %w", home, err)
 	}
 
-	err = store.New(dir, false).RecordAnnounce(t.Context(), "github.com/owner/repo",
+	return store.New(dir, false).RecordAnnounce(ctx, "github.com/owner/repo",
 		store.Announce{Pull: 7, Moment: int(moment)}, time.Now())
-	if err != nil {
-		t.Fatalf("seeding the store: %v", err)
-	}
-
-	return home
 }
 
 // alreadyAnnounced is what announce says of a pull request an earlier session

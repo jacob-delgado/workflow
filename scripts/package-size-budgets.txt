@@ -124,11 +124,11 @@ internal/webserver 40 cohesive
 # 20 files and was reached with issues.go; looked at then as it asks, each file
 # is a command, a family of them, a section of one or what every command shares
 # (the scriptable contract, the shared flags, the prompt, the connection), none
-# a second reason to change, so 29 took issuewrite.go, and 30 takes
-# announce_tags.go, the tags an announcement proposes, a section of announce's
-# that pr comes to share. Reaching it is where the tree's shape is looked at
-# again.
-internal/cli 30 cohesive
+# a second reason to change, so 29 took issuewrite.go, 30 announce_tags.go,
+# the tags an announcement proposes, and 31 takes announcewait.go, the wait for
+# CI to pass that announce --when-green makes: sections of announce's that pr
+# comes to share. Reaching it is where the tree's shape is looked at again.
+internal/cli 31 cohesive
 
 # internal/loop — the loop composed once for the command line, the terminal
 # and the web: which issue a branch names, the pull request draft, the
