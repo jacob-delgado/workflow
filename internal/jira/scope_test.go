@@ -6,10 +6,12 @@ package jira_test
 import (
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
@@ -168,5 +170,103 @@ func TestSearchStillValidatesTheQuery(t *testing.T) {
 	// Assert
 	if got, _ := query.Load().(string); got == "" || strings.Contains(got, "validateQuery") {
 		t.Errorf("query = %q, want a search that leaves validation on", got)
+	}
+}
+
+// The views the view tests configure: a sprint board, scoped to you, and a
+// triage list, which names the assignee and so stays as it is.
+const (
+	sprintView      = "Sprint"
+	sprintJQL       = "sprint in openSprints()"
+	scopedSprintJQL = "(sprint in openSprints()) AND assignee = currentUser()"
+	triageView      = "Triage"
+	triageJQL       = "assignee is EMPTY"
+)
+
+func TestViewsWithNoneConfiguredAreTheIssuesAssignedToYou(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	got := jira.Views(nil)
+
+	// Assert
+	want := []jira.View{{Name: jira.DefaultViewName, JQL: jira.AssignedToMe}}
+	if !slices.Equal(got, want) {
+		t.Errorf("Views(nil) = %+v, want %+v", got, want)
+	}
+}
+
+func TestViewsAreScopedToYouUnlessTheyNameTheAssignee(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	configured := []config.JiraView{
+		{Name: sprintView, JQL: sprintJQL},
+		{Name: triageView, JQL: triageJQL},
+	}
+
+	// Act
+	got := jira.Views(configured)
+
+	// Assert
+	want := []jira.View{
+		{Name: sprintView, JQL: scopedSprintJQL},
+		{Name: triageView, JQL: triageJQL},
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("Views = %+v, want %+v", got, want)
+	}
+}
+
+func TestViewNamedIsTheFirstForNoName(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	configured := []config.JiraView{
+		{Name: sprintView, JQL: sprintJQL},
+		{Name: triageView, JQL: triageJQL},
+	}
+
+	// Act
+	got, known := jira.ViewNamed(configured, "")
+
+	// Assert
+	want := jira.View{Name: sprintView, JQL: scopedSprintJQL}
+	if !known || got != want {
+		t.Errorf("ViewNamed(\"\") = %+v, %t, want %+v, true", got, known, want)
+	}
+}
+
+func TestViewNamedFindsTheViewOfThatName(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	configured := []config.JiraView{
+		{Name: sprintView, JQL: sprintJQL},
+		{Name: triageView, JQL: triageJQL},
+	}
+
+	// Act
+	got, known := jira.ViewNamed(configured, triageView)
+
+	// Assert
+	want := jira.View{Name: triageView, JQL: triageJQL}
+	if !known || got != want {
+		t.Errorf("ViewNamed(Triage) = %+v, %t, want %+v, true", got, known, want)
+	}
+}
+
+func TestViewNamedRefusesANameNoViewCarries(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	configured := []config.JiraView{{Name: sprintView, JQL: sprintJQL}}
+
+	// Act
+	_, known := jira.ViewNamed(configured, "sprint")
+
+	// Assert
+	if known {
+		t.Error("ViewNamed(sprint) found a view, want a name matched exactly, whatever its case")
 	}
 }

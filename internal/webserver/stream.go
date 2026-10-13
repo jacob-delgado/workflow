@@ -42,7 +42,7 @@ func (s *server) streamEvents(w http.ResponseWriter, request *http.Request) {
 	// An unknown view is refused before the upgrade: once the event-stream
 	// headers are out, the only answer left is a stream of the wrong view.
 	view := request.URL.Query().Get("view")
-	if _, known := resolveJQL(s.config(), view); !known {
+	if _, known := jira.ViewNamed(s.config().Jira.Views, view); !known {
 		writeProblem(w, api.ProblemCodeNotFound, unknownView(view))
 
 		return
@@ -389,12 +389,12 @@ func issueKeys(names []string, links map[string]string, project string) []jira.K
 // fails — with its error — or a configuration save has removed the view since
 // the stream opened. The search is made under ctx.
 func (s *server) snapshotIssues(ctx context.Context, view string) (api.IssuesPage, error) {
-	jql, known := resolveJQL(s.config(), view)
+	listed, known := jira.ViewNamed(s.config().Jira.Views, view)
 	if s.deps.Jira.Search == nil || !known {
 		return issuesPageDTO(jira.SearchResult{}, 0), nil
 	}
 
-	result, err := s.frameIssues(ctx, jql)
+	result, err := s.frameIssues(ctx, listed.JQL)
 	if err != nil {
 		return issuesPageDTO(jira.SearchResult{}, 0), err
 	}

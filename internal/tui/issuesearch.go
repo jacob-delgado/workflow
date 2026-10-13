@@ -39,7 +39,7 @@ func (m Model) searchPage(startAt int) tea.Cmd {
 		return nil
 	}
 
-	ctx, jql := m.session, m.activeView().jql
+	ctx, jql := m.session, m.activeView().JQL
 
 	return func() tea.Msg {
 		found, err := search(ctx, jql, startAt)
@@ -90,7 +90,7 @@ var _ applier = issuesLoaded{}
 func (msg issuesLoaded) apply(m Model) (Model, tea.Cmd) {
 	cache := cacheIssues(m.session, m.deps, msg)
 
-	if msg.jql != m.activeView().jql {
+	if msg.jql != m.activeView().JQL {
 		return m, cache
 	}
 
@@ -130,7 +130,7 @@ func (m Model) seededIssues() issueList {
 		return issueList{}
 	}
 
-	return seeded(m.deps.Store.CachedIssues(m.session, m.activeView().jql))
+	return seeded(m.deps.Store.CachedIssues(m.session, m.activeView().JQL))
 }
 
 // seeded is an issue list settled on what the cache held, or an empty one when
@@ -147,7 +147,7 @@ func seeded(cached []jira.Issue, held bool) issueList {
 // the update loop, so a view switched to shows its last list while its search
 // is out.
 func (m Model) readCachedIssues() tea.Cmd {
-	ctx, read, jql := m.session, m.deps.Store.CachedIssues, m.activeView().jql
+	ctx, read, jql := m.session, m.deps.Store.CachedIssues, m.activeView().JQL
 	if read == nil {
 		return nil
 	}
@@ -171,7 +171,7 @@ var _ applier = cachedIssuesRead{}
 // and its search has not answered; an answer, or a list the cache did not hold,
 // leaves the pane as it is.
 func (read cachedIssuesRead) apply(m Model) (Model, tea.Cmd) {
-	if read.jql != m.activeView().jql || m.issues.settled || !read.list.settled {
+	if read.jql != m.activeView().JQL || m.issues.settled || !read.list.settled {
 		return m, nil
 	}
 
