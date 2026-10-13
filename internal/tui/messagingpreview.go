@@ -245,6 +245,20 @@ func (p messagingPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
 // one would otherwise follow it once CI passed, and the channel would read it
 // twice.
 func (m Model) sendToMessaging(out outgoingAnnouncement) (Model, tea.Cmd) {
+	return m.sending(out, loop.AnnounceMemory{Recorded: nil, Record: nil, RecordGroups: nil})
+}
+
+// sendHeld posts the announcement that waited for CI, unless the store, read
+// again as it goes, says another session announced the same moment
+// meanwhile: the session's own list was read at its start.
+func (m Model) sendHeld(out outgoingAnnouncement) (Model, tea.Cmd) {
+	return m.sending(out, loop.AnnounceMemory{Recorded: m.deps.Store.Announced, Record: nil, RecordGroups: nil})
+}
+
+// sending posts out, as sendToMessaging says, once elsewhere, the store's
+// record of other sessions' announcements, holds no announcement of its
+// moment.
+func (m Model) sending(out outgoingAnnouncement, elsewhere loop.AnnounceMemory) (Model, tea.Cmd) {
 	ctx, memory := m.session, loop.AnnounceMemory{Record: m.deps.Store.RecordAnnounce}
 	seams := loop.DeliverSeams{Post: m.deps.Messaging.Post, CheckCI: m.deps.announceCI}
 
@@ -259,9 +273,16 @@ func (m Model) sendToMessaging(out outgoingAnnouncement) (Model, tea.Cmd) {
 	m.messaging.send, m.messaging.pending, m.messaging.dropped = starting(), queuedPost{}, ""
 
 	return m, func() tea.Msg {
-		err := loop.Deliver(ctx, seams, memory, delivery)
+		posted := messagingPosted{made: delivery.Made(), to: out.to, opened: out.opened, err: nil, elsewhere: false}
+		if elsewhere.Holds(ctx, posted.made) {
+			posted.elsewhere = true
 
-		return messagingPosted{made: delivery.Made(), to: out.to, opened: out.opened, err: err}
+			return posted
+		}
+
+		posted.err = loop.Deliver(ctx, seams, memory, delivery)
+
+		return posted
 	}
 }
 
@@ -287,6 +308,9 @@ type messagingPosted struct {
 	to     string
 	opened int
 	err    error
+	// elsewhere is that it was not posted, another session having announced
+	// the same moment while it waited.
+	elsewhere bool
 }
 
 var _ applier = messagingPosted{}
@@ -307,6 +331,10 @@ func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	m.messaging.posted, m.messaging.send = append(slices.Clone(m.messaging.posted), msg.made), sendState{}
+
+	if msg.elsewhere {
+		return m.noticed(m.marks.done + " already announced from another session; not posted again"), nil
+	}
 
 	if open {
 		m = m.closeOverlay()
