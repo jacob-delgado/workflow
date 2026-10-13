@@ -35,6 +35,7 @@ func TestChangedPathsListsWhatTheBranchChangesAgainstOriginsBase(t *testing.T) {
 	// A path holding an escape sequence is no file anyone means to own, so it
 	// is left out.
 	repo := gitrepo.At(fakeRunner(t, map[string]reply{
+		readRemotes:      {err: errNoRef},
 		verifyOriginMain: {out: []byte("0123abcd\n")},
 		diffOriginMain:   {out: []byte("internal/a.go\x00docs/my file.md\x00evil\x1b[2J.go\x00")},
 	}), workDir)
@@ -58,6 +59,7 @@ func TestChangedPathsKeepsAPathThatDrawsDifferentlyButHoldsNoControl(t *testing.
 	joined := "docs/\U0001F469\u200d\U0001F4BB.md"
 	tabbed := "src/a\tb.go"
 	repo := gitrepo.At(fakeRunner(t, map[string]reply{
+		readRemotes:      {err: errNoRef},
 		verifyOriginMain: {out: []byte("0123abcd\n")},
 		diffOriginMain:   {out: []byte(joined + "\x00" + tabbed + "\x00")},
 	}), workDir)
@@ -76,6 +78,7 @@ func TestChangedPathsUsesTheLocalBaseWhenOriginHasNone(t *testing.T) {
 
 	// Arrange
 	run, ran := recordingRunner(t, map[string]reply{
+		readRemotes:      {err: errNoRef},
 		verifyOriginMain: {err: errNotIgnored},
 		"git -C /work diff --name-only -z --no-renames main...HEAD": {out: []byte("a.go\x00")},
 	})
@@ -84,7 +87,7 @@ func TestChangedPathsUsesTheLocalBaseWhenOriginHasNone(t *testing.T) {
 	paths, err := gitrepo.At(run, workDir).ChangedPaths(t.Context(), "main")
 
 	// Assert
-	if err != nil || !slices.Equal(paths, []string{goFile}) || len(*ran) != 2 {
+	if err != nil || !slices.Equal(paths, []string{goFile}) || len(*ran) != 3 {
 		t.Errorf("ChangedPaths = %q, %v after %q, want a.go against the local main", paths, err, *ran)
 	}
 }
@@ -109,6 +112,7 @@ func TestChangedPathsSaysWhyTheDiffFailed(t *testing.T) {
 
 	// Arrange
 	repo := gitrepo.At(fakeRunner(t, map[string]reply{
+		readRemotes:      {err: errNoRef},
 		verifyOriginMain: {out: []byte("0123abcd\n")},
 		diffOriginMain:   {err: errNoSuchRef},
 		showToplevel:     {out: []byte("/work\n")},

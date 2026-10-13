@@ -57,10 +57,14 @@ type Branch struct {
 	Upstream string
 	// PushRemote is the remote a push of it goes to.
 	PushRemote string
+	// BaseRemote is the remote the base is read from: fetched before work
+	// starts, and pulled from when the branch is finished.
+	BaseRemote string
 	// Ahead and Behind count commits against the upstream.
 	Ahead, Behind int
-	// Base is the branch this one would merge into — origin's default branch
-	// wherever that can be found.
+	// Base is the branch this one would merge into — the base remote's
+	// default branch wherever that can be found, origin/main or, in a fork's
+	// clone, upstream/main.
 	Base string
 	// BaseUpdated is when the base last moved, so the interface can say how
 	// stale the branch it started from is. Zero when it cannot be read.
@@ -142,15 +146,18 @@ func (r Repository) ReadBranch(ctx context.Context) (Branch, error) {
 		return optional(ctx, r.run, append([]string{"-C", r.dir}, args...)...)
 	}
 
+	baseRemote := r.BaseRemote(ctx)
+
 	branch := Branch{
 		Name:       text(name),
 		Detached:   text(name) == "",
 		Head:       git("rev-parse", "HEAD"),
 		Upstream:   git("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"),
 		PushRemote: "",
+		BaseRemote: baseRemote,
 		Ahead:      0,
 		Behind:     0,
-		Base:       base(git),
+		Base:       base(git, baseRemote),
 		Commits:    nil,
 	}
 
@@ -258,16 +265,16 @@ func optional(ctx context.Context, run Runner, args ...string) string {
 	return text(out)
 }
 
-// base finds the branch work merges into: what origin says its default is, or
-// failing that the conventional names, remote first.
-func base(git func(...string) string) string {
-	if origin := git("symbolic-ref", "--quiet", "--short", "refs/remotes/"+DefaultRemote+"/HEAD"); origin != "" {
-		return origin
+// base finds the branch work merges into on remote: what the remote says its
+// default is, or failing that the conventional names, remote first.
+func base(git func(...string) string, remote string) string {
+	if head := git("symbolic-ref", "--quiet", "--short", "refs/remotes/"+remote+"/HEAD"); head != "" {
+		return head
 	}
 
 	candidates := []struct{ ref, name string }{
-		{ref: "refs/remotes/" + remoteBranch("main"), name: remoteBranch("main")},
-		{ref: "refs/remotes/" + remoteBranch("master"), name: remoteBranch("master")},
+		{ref: "refs/remotes/" + remoteBranch(remote, "main"), name: remoteBranch(remote, "main")},
+		{ref: "refs/remotes/" + remoteBranch(remote, "master"), name: remoteBranch(remote, "master")},
 		{ref: "refs/heads/main", name: "main"},
 		{ref: "refs/heads/master", name: "master"},
 	}

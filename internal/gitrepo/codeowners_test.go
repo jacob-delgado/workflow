@@ -19,6 +19,7 @@ func TestCodeOwnersAtReadsTheDialectsFileAtOriginsBase(t *testing.T) {
 	// Arrange
 	// GitLab looks at the root first, then docs/, then .gitlab/.
 	repo := gitrepo.At(fakeRunner(t, map[string]reply{
+		readRemotes:      {err: errNoRef},
 		verifyOriginMain: {out: []byte("0123abcd\n")},
 		verifyOriginRef:  {out: []byte("0123abcd\n")},
 		"git -C /work show origin/main:CODEOWNERS":         {err: errNotIgnored},
@@ -42,6 +43,7 @@ func TestCodeOwnersAtFindsNoFile(t *testing.T) {
 	// Arrange
 	missing := reply{err: errNotIgnored}
 	repo := gitrepo.At(fakeRunner(t, map[string]reply{
+		readRemotes:      {err: errNoRef},
 		verifyOriginMain: missing,
 		"git -C /work rev-parse --verify --quiet main^{commit}": {out: []byte("0123abcd\n")},
 		"git -C /work show main:.github/CODEOWNERS":             missing,
@@ -63,6 +65,7 @@ func TestCodeOwnersAtReportsAReadThatTimedOut(t *testing.T) {
 
 	// Arrange
 	repo := gitrepo.At(fakeRunner(t, map[string]reply{
+		readRemotes:      {err: errNoRef},
 		verifyOriginMain: {out: []byte("0123abcd\n")},
 		verifyOriginRef:  {out: []byte("0123abcd\n")},
 		"git -C /work show origin/main:.github/CODEOWNERS": {err: proc.ErrTimedOut},

@@ -32,6 +32,7 @@ func featureBranch() map[string]reply {
 		readPushDefault:               {err: errNoRef},
 		featurePushRemote:             {err: errNoRef},
 		featureRemote:                 {err: errNoRef},
+		readRemotes:                   {err: errNoRef},
 		originsHead:                   {out: []byte("origin/main\n")},
 		// Real log output under -z: a NUL after the hash, and one after each
 		// subject where git would otherwise put a newline.
@@ -122,6 +123,7 @@ func TestReadBranchReadsWhereTheBranchStands(t *testing.T) {
 		Upstream:    "origin/fix/PROJ-412-token-redaction",
 		Ahead:       2,
 		Behind:      1,
+		BaseRemote:  gitrepo.DefaultRemote,
 		Base:        originMain,
 		BaseUpdated: baseUpdatedTime(t),
 		Commits:     featureCommits(),
@@ -204,7 +206,8 @@ func equalBranches(got, want gitrepo.Branch) bool {
 
 	return got.Name == want.Name && got.Detached == want.Detached && got.Head == want.Head &&
 		got.Upstream == want.Upstream && got.Ahead == want.Ahead && got.Behind == want.Behind &&
-		got.Base == want.Base && got.BaseUpdated.Equal(want.BaseUpdated) && slices.Equal(commits, want.Commits)
+		got.Base == want.Base && got.BaseRemote == want.BaseRemote && got.BaseUpdated.Equal(want.BaseUpdated) &&
+		slices.Equal(commits, want.Commits)
 }
 
 func TestABranchIsPushedOnlyWhenItsOwnUpstreamHasEverything(t *testing.T) {
@@ -285,18 +288,23 @@ func TestUpstreamHoldsAll(t *testing.T) {
 	}
 }
 
-func TestTheBaseFallsBackWhenOriginNamesNoDefault(t *testing.T) {
+func TestTheBaseFallsBackWhenTheBaseRemoteNamesNoDefault(t *testing.T) {
 	t.Parallel()
 
+	const origin = gitrepo.DefaultRemote
+
 	cases := map[string]struct {
-		present []string
-		want    string
+		remote, present, want string
 	}{
-		"origin/main exists":   {present: []string{"refs/remotes/origin/main"}, want: originMain},
-		"origin/master exists": {present: []string{"refs/remotes/origin/master"}, want: "origin/master"},
-		"only a local main":    {present: []string{"refs/heads/main"}, want: localMain},
-		"only a local master":  {present: []string{"refs/heads/master"}, want: "master"},
-		"nothing to call base": {present: nil, want: ""},
+		"origin/main exists":   {remote: origin, present: "refs/remotes/origin/main", want: originMain},
+		"origin/master exists": {remote: origin, present: "refs/remotes/origin/master", want: "origin/master"},
+		"upstream/main exists": {remote: upstreamName, present: "refs/remotes/upstream/main", want: "upstream/main"},
+		"upstream/master exists": {
+			remote: upstreamName, present: "refs/remotes/upstream/master", want: "upstream/master",
+		},
+		"only a local main":    {remote: upstreamName, present: "refs/heads/main", want: localMain},
+		"only a local master":  {remote: origin, present: "refs/heads/master", want: "master"},
+		"nothing to call base": {remote: origin, present: "", want: ""},
 	}
 
 	for name, tt := range cases {
@@ -305,13 +313,15 @@ func TestTheBaseFallsBackWhenOriginNamesNoDefault(t *testing.T) {
 
 			// Arrange
 			replies := featureBranch()
-			replies[originsHead] = reply{err: errNoRef}
+			replies[readRemotes] = remoteConfig("remote."+tt.remote+".url", "https://example.com/repo.git")
+			replies["git -C /work symbolic-ref --quiet --short refs/remotes/"+tt.remote+"/HEAD"] = reply{err: errNoRef}
 
 			for _, ref := range []string{
-				"refs/remotes/origin/main", "refs/remotes/origin/master", "refs/heads/main", "refs/heads/master",
+				"refs/remotes/" + tt.remote + "/main", "refs/remotes/" + tt.remote + "/master",
+				"refs/heads/main", "refs/heads/master",
 			} {
 				answer := reply{err: errNoRef}
-				if slices.Contains(tt.present, ref) {
+				if ref == tt.present {
 					answer = reply{out: []byte("abc\n")}
 				}
 
@@ -329,8 +339,8 @@ func TestTheBaseFallsBackWhenOriginNamesNoDefault(t *testing.T) {
 			branch, err := gitrepo.At(fakeRunner(t, replies), workDir).ReadBranch(t.Context())
 
 			// Assert
-			if err != nil || branch.Base != tt.want {
-				t.Errorf("Base = %q, %v, want %q", branch.Base, err, tt.want)
+			if err != nil || branch.Base != tt.want || branch.BaseRemote != tt.remote {
+				t.Errorf("Base = %q on %q, %v, want %q on %q", branch.Base, branch.BaseRemote, err, tt.want, tt.remote)
 			}
 		})
 	}
@@ -344,6 +354,7 @@ func emptyRepository() map[string]reply {
 		"git -C /work rev-parse HEAD": {err: errDetachedRead},
 		readUpstream:                  {err: errNoUpstream},
 		readPushDefault:               {err: errNoRef},
+		readRemotes:                   {err: errNoRef},
 		originsHead:                   {out: []byte("origin/main\n")},
 		"git -C /work config --get branch.main.workflow-issue": {err: errNoRef},
 		"git -C /work config --get branch.main.pushRemote":     {err: errNoRef},
