@@ -265,7 +265,7 @@ func TestATokenThatCannotReadUserGroupsStillTagsLinkedPeople(t *testing.T) {
 
 	// Arrange
 	groupless := taggingWorld()
-	groupless.slack.groupsErr = &messaging.MissingScopeError{Needed: "usergroups:read"}
+	groupless.slack.groupsErr = &messaging.MissingScopeError{Needed: groupsScope}
 
 	// Act: open the preview
 	preview := typing(t, groupless.live(t, 140, 40), "5", "p")

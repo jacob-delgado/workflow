@@ -73,12 +73,12 @@ func waitingOn(t *testing.T, states ...forge.CIState) (*world, tui.Model) {
 	return repo, typing(t, repo.live(t, 140, 40), "5", "p", "w")
 }
 
-// answersNow makes the world's CI answer state from its next read on.
-func answersNow(repo *world, state forge.CIState) {
+// passesNow makes the world's CI pass from its next read on.
+func passesNow(repo *world) {
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
 
-	repo.ci = []forge.CI{{State: state, Total: 1, Done: 1}}
+	repo.ci = []forge.CI{{State: forge.CIPassed, Total: 1, Done: 1}}
 }
 
 func TestAWaitingPostWaitsOnAFixAndGoesOnceARunPasses(t *testing.T) {
@@ -98,7 +98,7 @@ func TestAWaitingPostWaitsOnAFixAndGoesOnceARunPasses(t *testing.T) {
 	}
 
 	// Act: a fix's run passes, and CI is read again
-	answersNow(repo, forge.CIPassed)
+	passesNow(repo)
 	typing(t, failed, "r")
 
 	// Assert: it goes, once
@@ -195,7 +195,7 @@ func TestStopWaitingDropsTheWaitingPostUnposted(t *testing.T) {
 	// Assert
 	requireScreen(t, stopped.View().Content, "stopped waiting; nothing was announced", "○ nothing announced")
 
-	answersNow(repo, forge.CIPassed)
+	passesNow(repo)
 	typing(t, stopped, "r")
 
 	if calls := repo.asked("post "); len(calls) != 0 {

@@ -45,6 +45,9 @@ var errOtherWorkspace = errors.New("asked in another Slack workspace")
 // worldWorkspace is the Slack workspace the world's token is for.
 const worldWorkspace = "T0WORLD"
 
+// groupsScope is the Slack scope reading the user groups needs.
+const groupsScope = "usergroups:read"
+
 // slackWorld is the Slack directory and the kept associations, faked. A world
 // without one has no directory seams and no kept store, as a webhook or a
 // dry run has none.
