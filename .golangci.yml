@@ -171,6 +171,7 @@ linters:
             - github.com/jacob-delgado/workflow/internal/activity
             - github.com/jacob-delgado/workflow/internal/api
             - github.com/jacob-delgado/workflow/internal/config
+            - github.com/jacob-delgado/workflow/internal/convention
             - github.com/jacob-delgado/workflow/internal/forge
             - github.com/jacob-delgado/workflow/internal/gitrepo
             - github.com/jacob-delgado/workflow/internal/httpx

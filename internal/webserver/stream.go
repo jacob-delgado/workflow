@@ -19,6 +19,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/progress"
+	"github.com/jacob-delgado/workflow/internal/report"
 )
 
 // defaultStreamInterval is how often the event stream re-pushes a snapshot when
@@ -391,15 +392,15 @@ func issueKeys(names []string, links map[string]string, project string) []jira.K
 func (s *server) snapshotIssues(ctx context.Context, view string) (api.IssuesPage, error) {
 	listed, known := jira.ViewNamed(s.config().Jira.Views, view)
 	if s.deps.Jira.Search == nil || !known {
-		return issuesPageDTO(jira.SearchResult{}, 0), nil
+		return report.IssuesPage(jira.SearchResult{}, 0), nil
 	}
 
 	result, err := s.frameIssues(ctx, listed.JQL)
 	if err != nil {
-		return issuesPageDTO(jira.SearchResult{}, 0), err
+		return report.IssuesPage(jira.SearchResult{}, 0), err
 	}
 
-	return issuesPageDTO(result, 0), nil
+	return report.IssuesPage(result, 0), nil
 }
 
 // snapshotChanges is the working tree's changes, or none outside a repository or

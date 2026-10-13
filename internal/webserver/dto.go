@@ -9,7 +9,6 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
-	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -38,75 +37,6 @@ func optionalTime(moment time.Time) *time.Time {
 	}
 
 	return &moment
-}
-
-// issueDTO maps a tracker issue onto its wire shape.
-func issueDTO(issue jira.Issue) api.Issue {
-	return api.Issue{
-		Key:            string(issue.Key),
-		Tracker:        trackerOf(issue.Key),
-		Summary:        issue.Summary,
-		Status:         issue.Status,
-		StatusCategory: api.StatusCategory(issue.StatusCategory),
-		Type:           issue.Type,
-		Priority:       optional(issue.Priority),
-	}
-}
-
-// trackerOf is where the issue a key names lives, by the key's shape: a
-// number is the forge's, anything else Jira's.
-func trackerOf(issueKey jira.Key) api.IssueTracker {
-	ref, known := convention.RefOf(string(issueKey))
-	if known && ref.Tracker == convention.TrackerForge {
-		return api.IssueTrackerForge
-	}
-
-	return api.IssueTrackerJira
-}
-
-// issuesPageDTO maps a page of search results, keeping the caller's start index.
-func issuesPageDTO(result jira.SearchResult, startAt int) api.IssuesPage {
-	issues := make([]api.Issue, 0, len(result.Issues))
-	for _, issue := range result.Issues {
-		issues = append(issues, issueDTO(issue))
-	}
-
-	unavailable := result.Unavailable
-	if unavailable == nil {
-		unavailable = []string{}
-	}
-
-	return api.IssuesPage{Issues: issues, Total: result.Total, StartAt: startAt, Unavailable: unavailable}
-}
-
-// commentDTO maps a comment on an issue.
-func commentDTO(comment jira.Comment) api.Comment {
-	return api.Comment{Author: comment.Author, Body: comment.Body, Created: optionalTime(comment.Created)}
-}
-
-// issueDetailDTO maps an issue read in full, with its comments oldest first and
-// link, the issue's page in the tracker ("" when there is none to give).
-func issueDetailDTO(detail jira.IssueDetail, link string) api.IssueDetail {
-	comments := make([]api.Comment, 0, len(detail.Comments))
-	for _, comment := range detail.Comments {
-		comments = append(comments, commentDTO(comment))
-	}
-
-	return api.IssueDetail{
-		Key:            string(detail.Issue.Key),
-		Tracker:        trackerOf(detail.Issue.Key),
-		Summary:        detail.Issue.Summary,
-		Status:         detail.Issue.Status,
-		StatusCategory: api.StatusCategory(detail.Issue.StatusCategory),
-		Type:           detail.Issue.Type,
-		Priority:       optional(detail.Issue.Priority),
-		Reporter:       detail.Reporter,
-		Assignee:       optional(detail.Assignee),
-		Description:    detail.Description,
-		Comments:       comments,
-		CommentTotal:   detail.CommentTotal,
-		URL:            link,
-	}
 }
 
 // branchDTO maps the current branch and its commits.
@@ -155,7 +85,7 @@ func linkTracker(link string) *api.IssueTracker {
 		return nil
 	}
 
-	tracker := trackerOf(jira.Key(link))
+	tracker := report.TrackerOf(jira.Key(link))
 
 	return &tracker
 }
@@ -384,7 +314,8 @@ func (s *server) linkedIssue(branch gitrepo.Branch, pull forge.PullRequest) *api
 	}
 
 	return &api.LinkedIssue{
-		Key: ref.Key, Tracker: trackerOf(jira.Key(ref.Key)), URL: s.browseURL(jira.Key(ref.Key)), Origin: origins[origin],
+		Key: ref.Key, Tracker: report.TrackerOf(jira.Key(ref.Key)), URL: s.browseURL(jira.Key(ref.Key)),
+		Origin: origins[origin],
 	}
 }
 

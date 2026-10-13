@@ -15,6 +15,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/report"
 )
 
 // config returns a copy of the configuration in effect, taken under the read
@@ -85,7 +86,7 @@ func (s *server) ListIssues(
 	}
 
 	if s.deps.Jira.Search == nil {
-		return api.ListIssues200JSONResponse(issuesPageDTO(jira.SearchResult{}, startAt)), nil
+		return api.ListIssues200JSONResponse(report.IssuesPage(jira.SearchResult{}, startAt)), nil
 	}
 
 	result, err := s.deps.Jira.Search(ctx, listed.JQL, startAt)
@@ -93,7 +94,7 @@ func (s *server) ListIssues(
 		return problemAnswer[api.ListIssuesdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
-	return api.ListIssues200JSONResponse(issuesPageDTO(result, startAt)), nil
+	return api.ListIssues200JSONResponse(report.IssuesPage(result, startAt)), nil
 }
 
 // GetIssue returns one issue in full.
@@ -113,7 +114,7 @@ func (s *server) GetIssue(ctx context.Context, request api.GetIssueRequestObject
 		return problemAnswer[api.GetIssuedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
-	return api.GetIssue200JSONResponse(issueDetailDTO(detail, s.browseURL(detail.Issue.Key))), nil
+	return api.GetIssue200JSONResponse(report.IssueDetail(detail, s.browseURL(detail.Issue.Key))), nil
 }
 
 // browseURL is the issue's page in the tracker, or "" when no tracker link is

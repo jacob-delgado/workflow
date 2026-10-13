@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/report"
 )
 
 // Why the checked-out branch's pull request cannot be linked on an issue.
@@ -168,7 +169,7 @@ func (s *server) AddComment(
 		return s.commentFailure(err), nil
 	}
 
-	return api.AddComment200JSONResponse(commentDTO(posted)), nil
+	return api.AddComment200JSONResponse(report.Comment(posted)), nil
 }
 
 // commentFailure answers a comment that was not posted. One the forge turned
@@ -412,7 +413,7 @@ func (s *server) LogWork(ctx context.Context, request api.LogWorkRequestObject) 
 	switch {
 	case s.deps.Jira.AddWorklog == nil:
 		return worklogRefusal("logging work is not available; configure Jira to log work"), nil
-	case trackerOf(issueKey) == api.IssueTrackerForge:
+	case report.TrackerOf(issueKey) == api.IssueTrackerForge:
 		return worklogRefusal("a forge issue keeps no worklog; log work on a Jira issue"), nil
 	case spent == "":
 		return worklogRefusal("logging work needs a duration, such as 2h or 30m"), nil
