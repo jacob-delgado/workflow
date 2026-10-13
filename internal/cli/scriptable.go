@@ -442,7 +442,8 @@ func refusalErrors() []error {
 		loop.ErrNotOnFeatureBranch, loop.ErrNotMerged, loop.ErrNoBase, loop.ErrUnpushedWork,
 		errPullAlreadyOpen, errNoCommitsToOpen, errNoPullRequest,
 		errBranchExists, setup.ErrExists, gitrepo.ErrNotARepository, store.ErrNotCleaned,
-		messaging.ErrTooLong, loop.ErrNoTransition, loop.ErrNeedsFields, loop.ErrCIFailed,
+		messaging.ErrTooLong, loop.ErrNoTransition, loop.ErrNeedsFields,
+		loop.ErrCIFailed, loop.ErrNoCI, loop.ErrPullChanged, loop.ErrMergedFirst, errOnlyReadyWaits,
 	}
 }
 

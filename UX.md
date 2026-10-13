@@ -161,8 +161,8 @@ them.
 | Where the work stands | `status [DIR…] [--json or --plain]` | the top row | the work story, the header |
 | **Messaging** | | | |
 | Announce | `announce [--channel]` | `p` | Announce to SERVICE |
-| Announce when CI passes | — (FEAT-65) | `w` in the preview; armed as `n` opens one | Announce when CI passes |
-| Stop waiting for CI | — | `x` on the messaging pane | Stop waiting |
+| Announce when CI passes | `announce --when-green` | `w` in the preview; armed as `n` opens one | Announce when CI passes |
+| Stop waiting for CI | `ctrl+c` while it waits | `x` on the messaging pane | Stop waiting |
 | Edit the announcement first | not for scripts | `e` in the preview | Edit, in the preview |
 | Know it was announced | `announce` says so, and asks again | "● announced" on the Messaging rail | the section says so |
 | People and groups | not for scripts | `P` | Settings: People, Groups |

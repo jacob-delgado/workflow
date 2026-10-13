@@ -35,6 +35,30 @@ func TestAnnouncePostsInTheChannelItIsGiven(t *testing.T) {
 	}
 }
 
+func TestAnnounceWhenGreenPostsInTheChannelItIsGiven(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// CI runs at the first read and has passed by the next, read every 10ms.
+	fakeGh(t, ghResponses{pulls: openPull("Add login"), statusSequence: []string{runningStatus(), passingStatus()}})
+	slack := fakeSlack(t, nil)
+	repo := ownedRepo(t)
+	writeFile(t, repo, strings.TrimSuffix(slackLoggedInConfig(), "}")+`,"timing":{"ci_interval":"10ms"}}`)
+
+	// Act
+	printed, err := runStreams(t, repo, unusedPrompt(t), "announce", "--when-green", "--yes", "--channel", "#release")
+	// Assert
+	if err != nil {
+		t.Fatalf("announce --when-green --channel: %v (%+v)", err, printed)
+	}
+
+	posted := slack.channel(t)
+	if posted != "#release" || !strings.Contains(printed.stderr, "then announcing to #release") {
+		t.Errorf("announce --when-green --channel '#release' posted in %q, said %q; want it to wait on, "+
+			"then announce in, #release in place of #dev", posted, printed.stderr)
+	}
+}
+
 func TestAnnounceRefusesAChannelAWebhookCannotHonor(t *testing.T) {
 	t.Parallel()
 
