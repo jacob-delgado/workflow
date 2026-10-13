@@ -205,6 +205,10 @@ func messagingSettings() []setting {
 			hint: "Slack only: the review message, from {author}, {noun}, {title}, {url}, {key}, {summary} " +
 				"and {issue_url}. Empty keeps the built-in message.",
 		},
+		{
+			section: section, label: "Announce a pull request opened here once its CI passes",
+			path: "messaging.auto_announce", kind: settingToggle,
+		},
 	}
 }
 
