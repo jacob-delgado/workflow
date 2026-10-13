@@ -9,47 +9,52 @@
 :root {
   color-scheme: dark;
 
-  /* A dispatch desk after hours: a warm graphite console, off-white readout,
-     and status lights (green shipped, amber running, red failed) as the color
-     language the domain already needs — CI, mergeability, the work pipeline. */
-  --background: #0f1115;
-  --foreground: #e7e9ee;
+  /* A dimmed room, not a dark one: a gray-blue page with the glare taken out,
+     soft text that never reaches white, and surfaces that lift in small, even
+     steps — page, card, muted, then the hover and active fill — so depth reads
+     from the surfaces themselves, without heavy rules. Color is kept for what
+     already carries meaning: the control accent, the status lights, and whose
+     a thing is. */
+  --background: #23272f;
+  --foreground: #c9d1dc;
 
-  --card: #161922;
-  --card-foreground: #e7e9ee;
+  --card: #2b303a;
+  --card-foreground: #c9d1dc;
 
-  --popover: #161922;
-  --popover-foreground: #e7e9ee;
+  --popover: #2b303a;
+  --popover-foreground: #c9d1dc;
 
   /* Periwinkle: interactive — the one control accent — and deliberately clear
      of the green/amber/red the status lights own and of the systems' hues. */
-  --primary: #8b93f8;
-  --primary-foreground: #0b0d12;
+  --primary: #8f9bff;
+  --primary-foreground: #1a1e26;
 
-  --muted: #1e222c;
-  --muted-foreground: #9aa3b2;
+  --muted: #30363f;
+  --muted-foreground: #a0aab8;
 
-  --accent: #232834;
-  --accent-foreground: #e7e9ee;
+  --accent: #363c47;
+  --accent-foreground: #c9d1dc;
 
-  --destructive: #f2726e;
+  --destructive: #f27a74;
 
   /* --border is a decorative rule; --input is a field's only boundary, so it
      holds 3:1 on the page and on a card (WCAG 1.4.11), held by
      web/src/tokens.test.ts. */
-  --border: #272d39;
-  --input: #606774;
-  --ring: #8b93f8;
+  --border: #414855;
+  --input: #7b8492;
+  --ring: #8f9bff;
 
   /* A control that is off: a flat, quiet fill with readable text (at least
      4.5:1 in both themes, held by web/src/tokens.test.ts) — never dimmed with
      opacity, which takes the text below the contrast floor. */
-  --disabled: #262a33;
-  --disabled-foreground: #9aa3b2;
+  --disabled: #30363f;
+  --disabled-foreground: #a0aab8;
 
-  /* Domain status, the pipeline's signal lights. */
-  --success: #56d68a;
-  --warning: #f2b338;
+  /* Domain status, the pipeline's signal lights (green shipped, amber
+     running, red failed), softened to sit on the dimmed page without
+     glowing. */
+  --success: #62c08a;
+  --warning: #d6a64a;
 
   /* Identity: one hue for each system the loop crosses — the terminal spine's
      blue, yellow, green and magenta (internal/tui/spine.go) — and one for your
@@ -57,59 +62,60 @@
      least 30° of OKLCH hue from the status lights, periwinkle and each other,
      so none reads as a state or a control, and holds 4.5:1 as text;
      web/src/tokens.test.ts keeps both. */
-  --jira: #62bbf5;
-  --git: #b0b55b;
-  --forge: #49c7c0;
-  --messaging: #e88fcb;
-  --taskwarrior: #cb97f4;
+  --jira: #6db8f0;
+  --git: #b0bd6a;
+  --forge: #5cc6bd;
+  --messaging: #e797c4;
+  --taskwarrior: #c9a0ee;
 }
 
-/* The same desk by daylight: a cool off-white console, dark ink, and the same
-   status-light language shifted to hues that hold ≥ 4.5:1 against white — the
-   accessibility gate (the axe scan) checks both themes, so these are chosen for
-   contrast, not just to invert the dark set. */
+/* The same room by daylight, the dimmed theme's twin rather than its
+   inversion: a cool gray-blue page and cards a shade off white, so nothing
+   glares; dark ink; and the same hues deepened until each holds ≥ 4.5:1 as
+   text — the accessibility gate (the axe scan) checks both themes, so these
+   are chosen for contrast, not just to mirror the dark set. */
 :root[data-theme='light'] {
   color-scheme: light;
 
-  --background: #f6f7f9;
-  --foreground: #1b1f27;
+  --background: #eef1f5;
+  --foreground: #24292f;
 
-  --card: #ffffff;
-  --card-foreground: #1b1f27;
+  --card: #f7f9fb;
+  --card-foreground: #24292f;
 
-  --popover: #ffffff;
-  --popover-foreground: #1b1f27;
+  --popover: #f7f9fb;
+  --popover-foreground: #24292f;
 
-  --primary: #4f56c9;
+  --primary: #4651bd;
   --primary-foreground: #ffffff;
 
-  --muted: #eceef3;
-  --muted-foreground: #565e6c;
+  --muted: #e4e8ee;
+  --muted-foreground: #535c68;
 
-  --accent: #e6e9f1;
-  --accent-foreground: #1b1f27;
+  --accent: #d9dfe7;
+  --accent-foreground: #24292f;
 
-  --destructive: #c5352f;
+  --destructive: #b3302b;
 
-  --border: #d7dbe3;
-  --input: #8a8e95;
-  --ring: #4f56c9;
+  --border: #c9d1db;
+  --input: #7a8491;
+  --ring: #4651bd;
 
-  --disabled: #e2e5eb;
-  --disabled-foreground: #565e6c;
+  --disabled: #e4e8ee;
+  --disabled-foreground: #535c68;
 
   /* Dark enough that a status light clears 4.5:1 as text — an outcome line, a
-     warning — on the pale page and on a card, not only as a state's mark. */
-  --success: #0f6a3f;
-  --warning: #7a4a00;
+     warning — on the page and on a card, not only as a state's mark. */
+  --success: #156339;
+  --warning: #734600;
 
   /* The same four systems, and your own tasks, by daylight: darker, for 4.5:1
-     on the pale page. */
-  --jira: #0e6a9b;
-  --git: #656818;
-  --forge: #0c6c68;
-  --messaging: #953d7c;
-  --taskwarrior: #7536a2;
+     on the page. */
+  --jira: #0d628f;
+  --git: #5c5f14;
+  --forge: #0b6560;
+  --messaging: #8a3672;
+  --taskwarrior: #6c3296;
 }
 
 /* Map the tokens to Tailwind's color scale, so `bg-background`,
