@@ -24,6 +24,18 @@ func TestRunCommandRunsOneHookWithoutATerminal(t *testing.T) {
 	}
 }
 
+func TestInstallCommandInstallsInTheRepositoryRoot(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	command := hooks.InstallCommand("/work")
+
+	// Assert
+	if command.Dir != "/work" || command.Name != "lefthook" || !slices.Equal(command.Args, []string{"install"}) {
+		t.Errorf("InstallCommand = %+v", command)
+	}
+}
+
 func TestHasConfigRecognizesEveryNameLefthookReads(t *testing.T) {
 	t.Parallel()
 

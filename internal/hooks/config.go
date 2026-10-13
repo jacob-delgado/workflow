@@ -34,3 +34,9 @@ func HasConfig(repo fs.FS) bool {
 func RunCommand(dir, hook string) proc.Command {
 	return proc.Command{Dir: dir, Name: "lefthook", Args: []string{"run", hook, "--no-tty"}, Env: nil}
 }
+
+// InstallCommand installs lefthook's hooks in a repository: its root, not
+// wherever the process happens to be.
+func InstallCommand(dir string) proc.Command {
+	return proc.Command{Dir: dir, Name: "lefthook", Args: []string{"install"}, Env: nil}
+}
