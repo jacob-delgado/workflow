@@ -63,15 +63,17 @@ type slackAnswer struct {
 }
 
 // slackFake is a Slack Web API on this machine, which every Slack request of
-// the test's commands is sent to; it keeps the text of every post.
+// the test's commands is sent to; it keeps the text of every post, and the
+// channel each was posted in.
 type slackFake struct {
 	lock    sync.Mutex
 	answers map[string]slackAnswer
 	// first answers the first request on a path in place of answers.
-	first   map[string]slackAnswer
-	granted string
-	asked   map[string]int
-	posted  []string
+	first    map[string]slackAnswer
+	granted  string
+	asked    map[string]int
+	posted   []string
+	channels []string
 }
 
 // fakeSlack serves Slack's answers for the token slackLoggedInConfig keeps —
@@ -102,8 +104,8 @@ func fakeSlack(t *testing.T, changed map[string]slackAnswer) *slackFake {
 	return slack
 }
 
-// answer keeps a post's text and answers from the path's answer, or with
-// Slack's unknown_method.
+// answer keeps a post's text and channel and answers from the path's answer,
+// or with Slack's unknown_method.
 func (s *slackFake) answer(writer http.ResponseWriter, request *http.Request) {
 	s.lock.Lock()
 	s.asked[request.URL.Path]++
@@ -121,7 +123,8 @@ func (s *slackFake) answer(writer http.ResponseWriter, request *http.Request) {
 
 	if request.URL.Path == slackPostMessage {
 		var message struct {
-			Text string `json:"text"`
+			Channel string `json:"channel"`
+			Text    string `json:"text"`
 		}
 
 		body, _ := io.ReadAll(request.Body)
@@ -129,6 +132,7 @@ func (s *slackFake) answer(writer http.ResponseWriter, request *http.Request) {
 
 		s.lock.Lock()
 		s.posted = append(s.posted, message.Text)
+		s.channels = append(s.channels, message.Channel)
 		s.lock.Unlock()
 	}
 
@@ -179,6 +183,21 @@ func (s *slackFake) post(t *testing.T) string {
 	}
 
 	return s.posted[0]
+}
+
+// channel is the channel of the one post the fake was sent, failing the test
+// unless there was exactly one.
+func (s *slackFake) channel(t *testing.T) string {
+	t.Helper()
+
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	if len(s.channels) != 1 {
+		t.Fatalf("Slack was sent %d posts (in %q), want one", len(s.channels), s.channels)
+	}
+
+	return s.channels[0]
 }
 
 // untagged reports a post that tags no one on Slack.

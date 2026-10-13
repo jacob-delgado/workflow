@@ -19,11 +19,12 @@ API's Activity shape instead. --from and --to name the first and last day, writt
 YYYY-MM-DD; one alone is that day, and neither is the previous working day.
 
 --post previews it and posts it to the configured Slack, Teams, Discord or webhook
-once you confirm, its headings written as the service shows them. Nothing is
-kept: each run reads the sources again. A source that cannot be read is named in
-the summary, and the command exits non-zero once it has printed the rest. A source
-that is not set up — no token, no forge the origin names, no Taskwarrior — is left
-out, with a note on standard error saying how to set it up.
+once you confirm, its headings written as the service shows them; with a Slack
+user token, --channel posts it in another channel than messaging.channel.
+Nothing is kept: each run reads the sources again. A source that cannot be read
+is named in the summary, and the command exits non-zero once it has printed the
+rest. A source that is not set up — no token, no forge the origin names, no
+Taskwarrior — is left out, with a note on standard error saying how to set it up.
 
 ```
 workflow summary [flags]
@@ -39,12 +40,13 @@ workflow summary [flags]
 ### Options
 
 ```
-      --from string   the first day, written YYYY-MM-DD
-  -h, --help          help for summary
-  -j, --json          print the summary as JSON
-      --post          post the summary to your team's chat, after a preview
-      --to string     the last day, written YYYY-MM-DD
-  -y, --yes           post without the confirmation
+      --channel CHANNEL   with --post, post in CHANNEL instead of messaging.channel; a Slack user token only
+      --from string       the first day, written YYYY-MM-DD
+  -h, --help              help for summary
+  -j, --json              print the summary as JSON
+      --post              post the summary to your team's chat, after a preview
+      --to string         the last day, written YYYY-MM-DD
+  -y, --yes               post without the confirmation
 ```
 
 ### Options inherited from parent commands

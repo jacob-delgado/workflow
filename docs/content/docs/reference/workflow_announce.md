@@ -24,7 +24,8 @@ without the scopes tagging needs posts untagged, naming the scope to add.
 
 What it announces is remembered, with what the interface announces: a pull
 request already announced at the moment it is at is said to be, and asked about
-again rather than repeated — with --yes, it is left as it is.
+again rather than repeated — with --yes, it is left as it is. --channel announces
+in another channel than messaging.channel, which only a Slack user token can.
 
 ```
 workflow announce [flags]
@@ -40,8 +41,9 @@ workflow announce [flags]
 ### Options
 
 ```
-  -h, --help   help for announce
-  -y, --yes    go ahead without the confirmation
+      --channel CHANNEL   announce in CHANNEL instead of messaging.channel; a Slack user token only
+  -h, --help              help for announce
+  -y, --yes               go ahead without the confirmation
 ```
 
 ### Options inherited from parent commands

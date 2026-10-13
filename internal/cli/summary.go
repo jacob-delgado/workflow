@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -21,10 +22,10 @@ import (
 )
 
 // errFlagsApart refuses flags summary does not take together: --json is the
-// summary for a script, which posts nothing, and --yes answers only --post's
-// question.
-var errFlagsApart = errors.New("--json prints the summary and --yes answers --post's question: " +
-	"use --json without --post, and --yes only with --post")
+// summary for a script, which posts nothing, and --yes and --channel are only
+// for a post: --yes answers its question, and --channel says where it goes.
+var errFlagsApart = errors.New("--json prints the summary, and --yes and --channel are --post's: " +
+	"use --json without --post, and --yes or --channel only with it")
 
 // summarySeams are what `workflow summary` reads and posts through, so a test
 // can answer without a repository, a tracker or a messaging service.
@@ -40,14 +41,21 @@ type summarySeams struct {
 	Note *progressNote
 }
 
-// summaryOptions are summary's flags: the period, the JSON, the post, and the
-// dry run and --yes every scriptable write shares.
+// summaryOptions are summary's flags: the period, the JSON, the post and the
+// channel it goes to, and the dry run and --yes every scriptable write shares.
 type summaryOptions struct {
-	from   string
-	to     string
-	asJSON bool
-	post   bool
-	write  writeOptions
+	from    string
+	to      string
+	asJSON  bool
+	post    bool
+	channel string
+	write   writeOptions
+}
+
+// apart reports flags given together that summary does not take together:
+// --json with --post, or --yes or --channel without it.
+func (o summaryOptions) apart() bool {
+	return o.asJSON && o.post || !o.post && (o.write.yes || strings.TrimSpace(o.channel) != "")
 }
 
 // newSummaryCmd builds `workflow summary`.
@@ -64,11 +72,12 @@ func newSummaryCmd(prompt Prompt) *cobra.Command {
 			"API's Activity shape instead. --from and --to name the first and last day, written\n" +
 			"YYYY-MM-DD; one alone is that day, and neither is the previous working day.\n\n" +
 			"--post previews it and posts it to the configured Slack, Teams, Discord or webhook\n" +
-			"once you confirm, its headings written as the service shows them. Nothing is\n" +
-			"kept: each run reads the sources again. A source that cannot be read is named in\n" +
-			"the summary, and the command exits non-zero once it has printed the rest. A source\n" +
-			"that is not set up — no token, no forge the origin names, no Taskwarrior — is left\n" +
-			"out, with a note on standard error saying how to set it up.",
+			"once you confirm, its headings written as the service shows them; with a Slack\n" +
+			"user token, --channel posts it in another channel than messaging.channel.\n" +
+			"Nothing is kept: each run reads the sources again. A source that cannot be read\n" +
+			"is named in the summary, and the command exits non-zero once it has printed the\n" +
+			"rest. A source that is not set up — no token, no forge the origin names, no\n" +
+			"Taskwarrior — is left out, with a note on standard error saying how to set it up.",
 		Example: examples(
 			`workflow summary --json | jq -r .text   # what you did on the previous working day`,
 			`workflow summary --post --yes          # post it to your team, unattended`,
@@ -83,6 +92,8 @@ func newSummaryCmd(prompt Prompt) *cobra.Command {
 	cmd.Flags().StringVar(&opts.to, "to", "", "the last day, written YYYY-MM-DD")
 	addJSONFlag(cmd, &opts.asJSON, "print the summary as JSON")
 	cmd.Flags().BoolVar(&opts.post, "post", false, "post the summary to your team's chat, after a preview")
+	cmd.Flags().StringVar(&opts.channel, "channel", "",
+		"with --post, post in `CHANNEL` instead of messaging.channel; a Slack user token only")
 	opts.write.addFlags(cmd, "post without the confirmation")
 
 	return cmd
@@ -90,7 +101,7 @@ func newSummaryCmd(prompt Prompt) *cobra.Command {
 
 // runSummaryCommand wires the real sources and messaging service to summary.
 func runSummaryCommand(cmd *cobra.Command, prompt Prompt, opts summaryOptions) error {
-	if opts.asJSON && opts.post || opts.write.yes && !opts.post {
+	if opts.apart() {
 		return fmt.Errorf("%w: %w", errUsage, errFlagsApart)
 	}
 
@@ -99,6 +110,11 @@ func runSummaryCommand(cmd *cobra.Command, prompt Prompt, opts summaryOptions) e
 		return err
 	}
 	defer conn.closeLog()
+
+	settings, err := postingIn(conn.cfg.Messaging, opts.channel)
+	if err != nil {
+		return err
+	}
 
 	note := newProgressNote(cmd.ErrOrStderr(), prompt.IsTerminal)
 	defer note.clear()
@@ -111,7 +127,7 @@ func runSummaryCommand(cmd *cobra.Command, prompt Prompt, opts summaryOptions) e
 			Forge: deps.Forge.Activity, ForgeKind: deps.Forge.Kind,
 		},
 		Now:       time.Now,
-		Messaging: cfg.Messaging,
+		Messaging: settings,
 		Confirm:   func(question string) (bool, error) { return confirm(prompt, question) },
 		Note:      note,
 	}
@@ -216,7 +232,7 @@ func postSummary(ctx context.Context, out output, seams summarySeams, text strin
 		return err
 	}
 
-	err = loop.PostSummary(ctx, seams.Post, seams.Messaging.Kind, "", text)
+	err = loop.PostSummary(ctx, seams.Post, seams.Messaging.Kind, seams.Messaging.Channel, text)
 	if err != nil {
 		return fmt.Errorf("posting to %s: %w", service, err)
 	}
