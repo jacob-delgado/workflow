@@ -28,8 +28,9 @@ const minimumHueSeparation = 30
 // hue held apart by angle must have at least this much of it.
 const minimumChroma = 0.07
 
-// The grounds a field sits on: the page, and a card on it.
-const grounds = ['--background', '--card'] as const
+// The grounds a field or a hue sits on: the page, a card on it, and the list
+// beside a view.
+const grounds = ['--background', '--card', '--list'] as const
 
 // tokensOf reads the custom properties the first rule for selector declares.
 function tokensOf(selector: string): Map<string, string> {
@@ -128,13 +129,13 @@ describe.each(themes)('in the %s theme', (_, selector) => {
     expect(ratio).toBeGreaterThanOrEqual(3)
   })
 
-  test.each(identities)('%s reads as text on the page and on a card', (identity) => {
+  test.each(identities)('%s reads as text on the page, a card and the list', (identity) => {
     // Arrange
     const tokens = tokensOf(selector)
     const hue = color(tokens, identity)
 
     // Act
-    const ratios = ['--background', '--card'].map((ground) => contrast(hue, color(tokens, ground)))
+    const ratios = grounds.map((ground) => contrast(hue, color(tokens, ground)))
 
     // Assert
     expect(Math.min(...ratios)).toBeGreaterThanOrEqual(4.5)

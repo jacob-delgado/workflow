@@ -35,6 +35,13 @@
   --accent: #363c47;
   --accent-foreground: #c9d1dc;
 
+  /* A list beside the thing it selects — the issues, the tasks — on a surface
+     of its own, so the column you pick from reads apart from the view it opens.
+     By night it sits a step below the page, where the selected row's lift
+     stands out most; by daylight it is the near-white panel instead, for the
+     same reason. */
+  --list: #1d2128;
+
   --destructive: #f27a74;
 
   /* --border is a decorative rule; --input is a field's only boundary, so it
@@ -95,6 +102,8 @@
   --accent: #d9dfe7;
   --accent-foreground: #24292f;
 
+  --list: #f7f9fb;
+
   --destructive: #b3302b;
 
   --border: #c9d1db;
@@ -135,6 +144,7 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-list: var(--list);
   --color-destructive: var(--destructive);
   --color-border: var(--border);
   --color-input: var(--input);
