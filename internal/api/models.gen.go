@@ -1087,11 +1087,14 @@ type AnnounceRequestWhen string
 
 // Announcement A composed announcement and where it would post.
 type Announcement struct {
-	// CanWaitForCi Whether a preview's announcement can be held until the pull request's CI passes: it is ready for review and its CI is still running. Left out where it cannot, and on a post.
+	// CanWaitForCi Whether a preview's announcement can be held until the pull request's CI passes: it is ready for review and its CI has not passed — running, no checks reported yet, or a check failed, which the hold waits out for a fix. Left out where it cannot, and on a post.
 	CanWaitForCi *bool `json:"can_wait_for_ci,omitempty"`
 
 	// Channel The channel it posts to, or empty for a webhook's own channel.
 	Channel string `json:"channel"`
+
+	// Ci How the pull request's CI stands as the preview was composed; a failed check means announcing now is refused. Left out when the CI could not be read, and on a post.
+	Ci *CIState `json:"ci,omitempty"`
 
 	// Tagging Whom a ready-for-review announcement proposes to tag on Slack: the code owners of the branch's changes, and the user groups it offers.
 	Tagging *AnnouncementTagging `json:"tagging,omitempty"`
@@ -2149,10 +2152,13 @@ type QueuedAnnouncement struct {
 	// Channel The channel it posts to, or empty for a webhook's own channel.
 	Channel string `json:"channel"`
 
+	// Ci How the pull request's CI stood on the last read while it waits; failed means it waits on a fix, none that no check is reported yet. Left out until the CI is read.
+	Ci *CIState `json:"ci,omitempty"`
+
 	// Pull The number of the pull request whose CI it waits on.
 	Pull int `json:"pull"`
 
-	// Reason Why a dropped announcement was not posted: the CI failed, the branch's pull request is another one, or the post failed.
+	// Reason Why a dropped announcement was not posted: no check was reported on the pull request within ten minutes, so it is announced by hand; the branch's pull request is another one, or merged before its CI passed; or the post failed. A failed check does not drop it: it waits on, for a run that passes.
 	Reason *string                 `json:"reason,omitempty"`
 	State  QueuedAnnouncementState `json:"state"`
 

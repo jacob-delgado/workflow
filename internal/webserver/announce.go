@@ -36,7 +36,12 @@ func (s *server) GetAnnouncement(
 	preview := announcementDTO(composed.Announcement.Text(), s.channelOr(channel))
 	preview.Tagging = s.tagging(ctx, moment, channel)
 
-	if s.canWaitForCI(ctx, moment, composed.Pull) {
+	_, ci, read := s.readCI(ctx, composed.Pull)
+	if read {
+		preview.Ci = new(ciState(ci.State))
+	}
+
+	if canWaitForCI(moment, ci, read) {
 		preview.CanWaitForCi = new(true)
 	}
 
@@ -54,11 +59,12 @@ var (
 )
 
 // announcePost is an announcement ready to go: the delivery, which names the
-// pull request it announces and the moment it marks, and what posting it
-// remembers.
+// pull request it announces and the moment it marks, what posting it
+// remembers, and the branch it was composed on.
 type announcePost struct {
 	delivery loop.Delivery
 	memory   loop.AnnounceMemory
+	branch   string
 }
 
 // Announce posts the composed announcement to the configured service — to the
@@ -126,7 +132,10 @@ func (s *server) postFor(ctx context.Context, body api.AnnounceRequest) (announc
 
 	memory.Recorded, memory.Record = s.recordedAnnouncements, s.recordAnnouncement
 
-	return announcePost{delivery: composed.Delivery(s.channelOr(body.Channel), text, mentions), memory: memory}, nil
+	return announcePost{
+		delivery: composed.Delivery(s.channelOr(body.Channel), text, mentions), memory: memory,
+		branch: composed.Branch.Name,
+	}, nil
 }
 
 // postedText is the text a post sends: the edit, when the request carries
@@ -167,16 +176,21 @@ func (s *server) postMentions(
 
 // announceNow posts the announcement at once, dropping any held for CI, which
 // would otherwise follow it once CI passed, and the channel would read it
-// twice. It is a 409 while the held one is being posted, and when the
-// announcement was made meanwhile; one posted that the store could not
-// remember is answered as posted, with the warning. It is posted under ctx.
+// twice; one the gate refuses puts the held one back to wait. It is a 409
+// while the held one is being posted, and when the announcement was made
+// meanwhile; one posted that the store could not remember is answered as
+// posted, with the warning. It is posted under ctx.
 func (s *server) announceNow(ctx context.Context, post announcePost) api.AnnounceResponseObject {
-	_, err := s.dropHeld()
+	dropped, err := s.dropHeld()
 	if err != nil {
 		return api.Announce409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict, err.Error()))
 	}
 
 	warning, err := s.deliver(ctx, post)
+	if errors.Is(err, loop.ErrCIFailed) || errors.Is(err, loop.ErrCIUnread) {
+		s.restoreHeld(dropped)
+	}
+
 	if errors.Is(err, errAnnouncedAlready) {
 		return api.Announce409ApplicationProblemPlusJSONResponse(s.announcedBefore(post.delivery.Pull.Number))
 	}

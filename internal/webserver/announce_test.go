@@ -260,7 +260,7 @@ func TestGetAnnouncementComposesTheSameWhateverCISays(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]func(context.Context, forge.PullRequest, string) (forge.CI, error){
-		"a check failed": func(context.Context, forge.PullRequest, string) (forge.CI, error) {
+		"a failed check": func(context.Context, forge.PullRequest, string) (forge.CI, error) {
 			return forge.CI{State: forge.CIFailed}, nil
 		},
 		"CI cannot be read": func(context.Context, forge.PullRequest, string) (forge.CI, error) {

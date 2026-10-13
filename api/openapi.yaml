@@ -1824,11 +1824,14 @@ paths:
         the given text did, so an edit never goes out over a moment that has
         passed; blank edited text is a 422. Given when ci_passes, as the
         terminal's w, a ready-for-review announcement whose pull request's CI
-        is still running is held by the server and answered 202; it is posted
-        once the forge reports the CI passed, and dropped, with the reason,
-        when the CI fails or the branch's pull request is another one. One
-        whose CI has passed already is posted at once (200), and one with no
-        CI to wait for, or not ready for review, is a 409. The server holds a
+        has not passed — running, no checks reported yet, a check failed, or
+        CI that could not be read — is held by the server and answered 202;
+        it is posted once the forge reports the CI passed, waits on through a
+        failed run for a fix, and is dropped, with the reason, when no check
+        is reported within ten minutes of the last read that saw one, or the
+        branch's pull request is another one or merged first. One whose CI
+        has passed already is posted at once (200), and one not ready for
+        review is a 409. The server holds a
         waiting announcement in memory and reads the CI for it on its own, on
         timing.ci_interval, whether a page is open or not: it is lost, unposted,
         if the server stops or switches directory first. Announcing now drops
@@ -1873,9 +1876,8 @@ paths:
             a git repository, or the announcement changed since the given text
             was previewed, or whom it tags did since the mentions' users were;
             or it was already announced at this moment; or, to post when CI
-            passes, it is not ready for review or its pull
-            request reports no CI; or, code ci_failed, a check failed on the
-            pull request, so it was not announced.
+            passes, it is not ready for review; or, code ci_failed, a check
+            failed on the pull request, so it was not announced now.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -2617,7 +2619,8 @@ paths:
         Taskwarrior that finds none is not made again for a minute. An
         announcement held until CI passes (POST /api/announce with when
         ci_passes) is settled on each frame from the review it carries —
-        posted once the CI has passed, dropped once it has failed — and the
+        posted once the CI has passed, kept waiting through a failed run, and
+        dropped once no check is reported within ten minutes — and the
         frame's queued_announcement says how it stands.
       tags: [events]
       # A browser's EventSource opens the stream with no header of its own, so
@@ -3641,8 +3644,16 @@ components:
           type: boolean
           description: >-
             Whether a preview's announcement can be held until the pull
-            request's CI passes: it is ready for review and its CI is still
-            running. Left out where it cannot, and on a post.
+            request's CI passes: it is ready for review and its CI has not
+            passed — running, no checks reported yet, or a check failed,
+            which the hold waits out for a fix. Left out where it cannot, and
+            on a post.
+        ci:
+          allOf: [{$ref: "#/components/schemas/CIState"}]
+          description: >-
+            How the pull request's CI stands as the preview was composed; a
+            failed check means announcing now is refused. Left out when the
+            CI could not be read, and on a post.
         warning:
           type: string
           description: >-
@@ -3706,8 +3717,17 @@ components:
         reason:
           type: string
           description: >-
-            Why a dropped announcement was not posted: the CI failed, the
-            branch's pull request is another one, or the post failed.
+            Why a dropped announcement was not posted: no check was reported
+            on the pull request within ten minutes, so it is announced by
+            hand; the branch's pull request is another one, or merged before
+            its CI passed; or the post failed. A failed check does not drop
+            it: it waits on, for a run that passes.
+        ci:
+          allOf: [{$ref: "#/components/schemas/CIState"}]
+          description: >-
+            How the pull request's CI stood on the last read while it waits;
+            failed means it waits on a fix, none that no check is reported
+            yet. Left out until the CI is read.
         warning:
           type: string
           description: >-

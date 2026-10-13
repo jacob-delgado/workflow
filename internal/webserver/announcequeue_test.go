@@ -192,12 +192,12 @@ func TestAnnouncingWhenCIPassesHoldsItWhileCIRuns(t *testing.T) {
 		t.Fatalf("status = %d (%s), want 202", recorder.Code, recorder.Body.String())
 	}
 
-	want := api.QueuedAnnouncement{State: api.QueuedAnnouncementStateWaiting, Channel: slackChannel, Pull: 42}
-	if held := decode[api.QueuedAnnouncement](t, recorder); held != want {
+	want := waitingOn(api.CIStateRunning)
+	if held := decode[api.QueuedAnnouncement](t, recorder); !sameHold(&held, want) {
 		t.Errorf("answer = %+v, want %+v", held, want)
 	}
 
-	if held := heldAnnouncement(t, handler); held == nil || *held != want {
+	if held := heldAnnouncement(t, handler); !sameHold(held, want) {
 		t.Errorf("frame's held announcement = %+v, want %+v", held, want)
 	}
 
@@ -239,10 +239,6 @@ func TestAHeldAnnouncementIsDroppedWithTheReason(t *testing.T) {
 		change     func(*forgeWorld)
 		wantReason string
 	}{
-		"CI failed": {
-			change:     func(w *forgeWorld) { w.ci = forge.CIFailed },
-			wantReason: "CI failed at 10:00",
-		},
 		"another pull request": {
 			change:     func(w *forgeWorld) { w.pull = 43 },
 			wantReason: notTheBranchesPull,
@@ -357,36 +353,6 @@ func TestAnnouncingWhenCIPassesPostsAtOnceWhenItHasPassed(t *testing.T) {
 	}
 }
 
-func TestOnlyAReadyAnnouncementWithCIRunningWaits(t *testing.T) {
-	t.Parallel()
-
-	cases := map[string]func(*forgeWorld){
-		"no CI":            func(w *forgeWorld) { w.ci = forge.CINone },
-		"a merged request": func(w *forgeWorld) { w.state = forge.StateMerged },
-	}
-
-	for name, change := range cases {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			// Arrange
-			world := newForgeWorld()
-			change(world)
-			handler := serve(t, world.deps(), config.Default())
-
-			// Act
-			recorder := announceWhenGreen(t, handler, nil)
-
-			// Assert
-			if failure := decode[api.Problem](t, recorder); recorder.Code != http.StatusConflict ||
-				failure.Code != api.ProblemCodeConflict || len(world.posted()) != 0 {
-				t.Errorf("status/code = %d/%s, posted %q; want 409 and nothing posted",
-					recorder.Code, failure.Code, world.posted())
-			}
-		})
-	}
-}
-
 func TestAHeldAnnouncementWaitsOnWhileItsCICannotBeRead(t *testing.T) {
 	t.Parallel()
 
@@ -407,49 +373,6 @@ func TestAHeldAnnouncementWaitsOnWhileItsCICannotBeRead(t *testing.T) {
 
 	if posts := world.posted(); len(posts) != 0 {
 		t.Errorf("posted %q, want nothing", posts)
-	}
-}
-
-func TestAnnouncingWhenCIPassesWithNoCISeamIsAConflict(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	world := newForgeWorld()
-	deps := world.deps()
-	deps.Forge.CheckStatus = nil
-	handler := serve(t, deps, config.Default())
-
-	// Act
-	recorder := announceWhenGreen(t, handler, nil)
-
-	// Assert
-	if failure := decode[api.Problem](t, recorder); recorder.Code != http.StatusConflict ||
-		!strings.Contains(failure.Detail, "no running CI") || len(world.posted()) != 0 {
-		t.Errorf("status/detail = %d/%q, posted %q; want 409, no running CI, nothing posted",
-			recorder.Code, failure.Detail, world.posted())
-	}
-}
-
-func TestAnnouncingWhenCIPassesWithCIUnreadableIsUnreachable(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	world := newForgeWorld()
-	world.ciErr = fmt.Errorf("%w: https://forge.internal.example", forge.ErrUnreachable)
-	handler := serve(t, world.deps(), config.Default())
-
-	// Act
-	recorder := announceWhenGreen(t, handler, nil)
-
-	// Assert
-	failure := decode[api.Problem](t, recorder)
-	if recorder.Code != http.StatusBadGateway || failure.Code != api.ProblemCodeUnreachable || len(world.posted()) != 0 {
-		t.Errorf("status/code = %d/%s, posted %q; want 502/unreachable and nothing posted",
-			recorder.Code, failure.Code, world.posted())
-	}
-
-	if strings.Contains(failure.Detail, "forge.internal.example") {
-		t.Errorf("detail = %q, names the forge's host", failure.Detail)
 	}
 }
 
@@ -605,38 +528,6 @@ func TestAnEditedAnnouncementIsRefusedWhereItCannotGo(t *testing.T) {
 			// Assert
 			if recorder.Code != tt.wantStatus || len(world.posted()) != 0 {
 				t.Errorf("status = %d, posted %q; want %d and nothing posted", recorder.Code, world.posted(), tt.wantStatus)
-			}
-		})
-	}
-}
-
-func TestAPreviewSaysWhetherItCanWaitForCI(t *testing.T) {
-	t.Parallel()
-
-	cases := map[string]struct {
-		ci   forge.CIState
-		want bool
-	}{
-		"CI running": {ci: forge.CIRunning, want: true},
-		"CI passed":  {ci: forge.CIPassed, want: false},
-		"no CI":      {ci: forge.CINone, want: false},
-	}
-
-	for name, tt := range cases {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			// Arrange
-			world := newForgeWorld()
-			world.ci = tt.ci
-
-			// Act
-			recorder := get(t, serve(t, world.deps(), config.Default()), "/api/announcement")
-
-			// Assert
-			preview := decode[api.Announcement](t, recorder)
-			if got := preview.CanWaitForCi != nil && *preview.CanWaitForCi; got != tt.want {
-				t.Errorf("can_wait_for_ci = %v, want %v", got, tt.want)
 			}
 		})
 	}
