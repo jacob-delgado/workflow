@@ -7,6 +7,7 @@ import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback } from '@/lib/focus.ts'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { type AsyncState, useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { problemCode } from '@/api/apiError.ts'
 import { cn, contentMeasure, definitionList } from '@/lib/utils.ts'
 import { EmptyState } from '@/lib/EmptyState.tsx'
 import { announce, announceWhenCIPasses, previewAnnouncement } from './announceApi.ts'
@@ -109,6 +110,7 @@ function AnnounceSection({
       ) : null}
       {pull !== null && !review.announced ? (
         <AnnounceControls
+          pullName={`${sigil}${String(pull.number)}`}
           service={messaging.service}
           channels={messaging.channels}
           defaultChannel={messaging.channel}
@@ -127,6 +129,8 @@ function AnnounceSection({
 }
 
 interface AnnounceControlsProps {
+  // pullName is the pull request announced, by its sigil and number.
+  pullName: string
   service: string
   channels: string[]
   defaultChannel: string
@@ -144,6 +148,7 @@ interface AnnounceControlsProps {
 // step aside, and what became of it is said through onAnnounced. Focus goes to
 // the preview as it opens, and back to the button when it closes unposted.
 function AnnounceControls({
+  pullName,
   service,
   channels,
   defaultChannel,
@@ -152,16 +157,22 @@ function AnnounceControls({
   const draft = useDraft(defaultChannel, channels)
   const [opener, handBack] = useFocusHandback<HTMLButtonElement>()
   const postKeys = useShortcut('post', opener)
-  const post = useAnnouncePost(draft.channel, service, onAnnounced)
+  // A check failed between the preview and the post: preview it again, which
+  // offers to announce it once CI passes, and says why.
+  const post = useAnnouncePost(draft.channel, service, onAnnounced, () => {
+    void draft.preview.run()
+  })
   const hold = useAnnounceHold(draft.channel, service, onAnnounced)
 
   if (post.state === 'done' || hold.state === 'done') {
     return null
   }
 
-  const refused = post.state === 'error' || hold.state === 'error'
+  const refused = refusedSend(post, hold)
   if (draft.preview.state === 'done' && !refused) {
-    return <PreviewStep draft={draft} post={post} hold={hold} onBack={handBack} />
+    return (
+      <PreviewStep draft={draft} post={post} hold={hold} pullName={pullName} onBack={handBack} />
+    )
   }
 
   const failure = draft.preview.state === 'error' ? draft.preview.error : post.error || hold.error
@@ -239,11 +250,13 @@ function PreviewStep({
   draft,
   post,
   hold,
+  pullName,
   onBack,
 }: {
   draft: Draft
   post: Send
   hold: Send
+  pullName: string
   onBack: () => void
 }) {
   const shown = draft.preview.result?.text ?? ''
@@ -267,6 +280,7 @@ function PreviewStep({
       sending={sendingOf(post.state, hold.state)}
       linking={draft.linking}
       canWait={draft.preview.result?.can_wait_for_ci === true}
+      ciFailedOn={draft.preview.result?.ci === 'failed' ? pullName : undefined}
       onEdit={draft.setEdited}
       onChannel={draft.setChannel}
       onPick={draft.setPick}
@@ -283,6 +297,16 @@ function PreviewStep({
       }}
     />
   )
+}
+
+// refusedSend reports a send the server refused, which goes back to the button
+// with why — but for a post refused because a check failed, which is previewed
+// again to offer the wait.
+function refusedSend(
+  post: { state: AsyncState; code: string },
+  hold: { state: AsyncState },
+): boolean {
+  return (post.state === 'error' && post.code !== 'ci_failed') || hold.state === 'error'
 }
 
 // editOf is the edit to send: none when the text was not edited, or was
@@ -305,16 +329,33 @@ function sendingOf(post: AsyncState, hold: AsyncState): 'post' | 'hold' | null {
 // when the store could not remember it. Only an announcement that tags asks
 // for mentions, and only an edited one carries its edit, so one that does
 // neither posts as it always has.
-function useAnnouncePost(channel: string, service: string, onAnnounced: (said: string) => void) {
-  return useAsyncAction(
-    (previewed: string, mentions?: AnnounceMentions, edited?: string) => {
-      if (edited !== undefined) {
-        return announce(channel, previewed, mentions, edited)
-      }
+function useAnnouncePost(
+  channel: string,
+  service: string,
+  onAnnounced: (said: string) => void,
+  onCIFailed: () => void,
+) {
+  const send = (previewed: string, mentions?: AnnounceMentions, edited?: string) => {
+    if (edited !== undefined) {
+      return announce(channel, previewed, mentions, edited)
+    }
 
-      return mentions === undefined
-        ? announce(channel, previewed)
-        : announce(channel, previewed, mentions)
+    return mentions === undefined
+      ? announce(channel, previewed)
+      : announce(channel, previewed, mentions)
+  }
+
+  return useAsyncAction(
+    async (previewed: string, mentions?: AnnounceMentions, edited?: string) => {
+      try {
+        return await send(previewed, mentions, edited)
+      } catch (caught) {
+        if (problemCode(caught) === 'ci_failed') {
+          onCIFailed()
+        }
+
+        throw caught
+      }
     },
     {
       fallback: 'Nothing was announced. Try again, or run workflow announce from a terminal.',

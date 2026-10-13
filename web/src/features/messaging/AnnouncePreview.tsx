@@ -17,6 +17,9 @@ interface AnnouncePreviewProps {
   sending: 'post' | 'hold' | null
   linking: boolean
   canWait: boolean
+  // ciFailedOn names the pull request a check failed on, when one did as the
+  // preview was composed: it is not announced now, only once CI passes.
+  ciFailedOn: string | undefined
   onEdit: (text: string) => void
   onChannel: (channel: string) => void
   onPick: Dispatch<SetStateAction<TagPick>>
@@ -31,7 +34,8 @@ interface AnnouncePreviewProps {
 // it will go to and, for an announcement that tags, whom it tags, with a
 // confirm — named apart from the button that opened the preview, since only
 // this one sends — and a cancel. One that can wait for CI also offers to be
-// held until the CI passes. The sends wait while an owner's link is being
+// held until the CI passes; one a check failed on offers only that, and says
+// why. The sends wait while an owner's link is being
 // saved, so the post tags whom the preview ends up showing. It takes focus as
 // it opens, so what is about to be sent is what a screen reader reads next.
 export function AnnouncePreview(props: AnnouncePreviewProps) {
@@ -69,6 +73,12 @@ export function AnnouncePreview(props: AnnouncePreviewProps) {
           onLinking={onLinking}
         />
       ) : null}
+      {props.ciFailedOn === undefined ? null : (
+        <p role="status" className="text-sm">
+          A check failed on {props.ciFailedOn}, so it is not announced now. Announce when CI passes
+          waits for a fix.
+        </p>
+      )}
       <PreviewActions {...props} />
     </div>
   )
@@ -158,12 +168,14 @@ export function PreviewText({
   )
 }
 
-// PreviewActions are the preview's Cancel and its sends: Announce now and,
-// for an announcement that can wait for CI, Announce when CI passes.
+// PreviewActions are the preview's Cancel and its sends: Announce now, unless
+// a check failed, and, for an announcement that can wait for CI, Announce when
+// CI passes.
 function PreviewActions({
   sending,
   linking,
   canWait,
+  ciFailedOn,
   onCancel,
   onPost,
   onHold,
@@ -180,9 +192,11 @@ function PreviewActions({
           {sending === 'hold' ? 'Announcing when CI passes…' : 'Announce when CI passes'}
         </Button>
       ) : null}
-      <Button variant="primary" held={busy || linking} onClick={onPost}>
-        {sending === 'post' ? 'Announcing…' : 'Announce now'}
-      </Button>
+      {ciFailedOn === undefined ? (
+        <Button variant="primary" held={busy || linking} onClick={onPost}>
+          {sending === 'post' ? 'Announcing…' : 'Announce now'}
+        </Button>
+      ) : null}
     </div>
   )
 }

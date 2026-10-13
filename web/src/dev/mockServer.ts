@@ -433,7 +433,7 @@ function messagingRoutes(): Routes {
       const { channel, edited_text: edited, when } = zAnnounceRequest.parse(body)
       if (when === 'ci_passes') {
         return Response.json(
-          { state: 'waiting', channel, pull: mockPull().number },
+          { state: 'waiting', channel, pull: mockPull().number, ci: mockAnnouncement.ci },
           { status: 202 },
         )
       }
