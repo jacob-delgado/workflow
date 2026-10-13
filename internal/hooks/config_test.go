@@ -41,7 +41,8 @@ func TestHasConfigRecognizesEveryNameLefthookReads(t *testing.T) {
 
 	for _, name := range []string{
 		"lefthook.yml", ".lefthook.yml", "lefthook.yaml", ".lefthook.yaml", "lefthook.toml", ".lefthook.toml",
-		"lefthook.json", ".lefthook.json", ".config/lefthook.yml",
+		"lefthook.json", ".lefthook.json", "lefthook.jsonc", ".lefthook.jsonc", ".config/lefthook.yml",
+		".config/lefthook.jsonc",
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
