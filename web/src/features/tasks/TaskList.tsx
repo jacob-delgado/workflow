@@ -161,9 +161,12 @@ function TaskRow({ task, current, now, order, onSelect }: TaskRowProps) {
       aria-current={current ? true : undefined}
       onClick={onSelect}
       className={cn(
-        'flex w-full flex-col gap-tight rounded-md border border-transparent px-3 py-2 text-left motion-safe:transition-colors',
+        'relative flex w-full flex-col gap-tight rounded-md border border-transparent px-3 py-2 text-left motion-safe:transition-colors',
         'hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-        current && 'border-border bg-accent',
+        // The task in view: the hover fill, its border, and a bar of the
+        // control accent down its leading edge.
+        current &&
+          'border-border bg-accent before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-full before:bg-primary',
       )}
     >
       <span className="flex items-start gap-item">
