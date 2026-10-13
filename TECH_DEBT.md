@@ -765,8 +765,8 @@ Decided 2026-10-09 by the maintainer in the pre-1.0 paydown, when each seam came
 to take its asker's context, for reads. On 2026-10-12, in review, writes were
 kept out of it, and the maintainer chose that a quit waits for them, bounded,
 rather than exit under them as it had: before, a write done in workflow's own
-process ended with the process, and a program a write ran was cut by SIGPIPE at
-its next output.
+process ended with the process, and a program a write ran was cut by a broken
+pipe at its next output.
 
 **Cost.** A read for a view the user has left still spends its request to the
 tracker, the forge or Taskwarrior. Quitting cannot call off a slow write: it
@@ -775,10 +775,12 @@ on and workflow exits under it: a write in workflow's own process (a post, a
 Jira or forge change over HTTP, a settings save, a record in the store) ends
 with the process, and a program a write runs (git, Taskwarrior, lefthook, `gh`,
 `glab`) runs on until it next writes to the output workflow no longer reads,
-when SIGPIPE ends it. A signal during the wait does not wait for the programs it
-stops either. A write the interface chains on another's outcome once that
-outcome reaches it (a commit's scope, remembered once the commit is shown) is
-never begun after a quit. A write a pane sent just before a switch goes on in
+when the broken pipe ends it: SIGPIPE does on Unix, while on Windows the write
+fails instead, which git exits on, and a program that ignores the failure, as
+`gh` or `glab` may, finishes. A signal during the wait does not wait for the
+programs it stops either. A write the interface chains on another's outcome once
+that outcome reaches it (a commit's scope, remembered once the commit is shown)
+is never begun after a quit. A write a pane sent just before a switch goes on in
 the directory left, and its outcome is not shown; the switch refuses only while
 an announcement or a change to a task is in flight.
 
