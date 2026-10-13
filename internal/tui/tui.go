@@ -132,10 +132,9 @@ func New(cfg config.Config, loadErr error, deps Deps) Model {
 	vocab := forgeVocab(deps.Forge.Kind)
 
 	model := Model{
-		cfg: cfg, loadErr: loadErr, given: deps, session: context.Background(),
-		deps:   outlasting(detached, detached, deps, vocab.noun),
+		cfg: cfg, loadErr: loadErr, deps: outlasting(detached, detached, deps, vocab.noun), given: deps,
 		keys:   newKeyMap(marks, vocab.noun, cfg.Messaging.Service(), cfg.UI.Keys),
-		styles: newStyles(true), marks: marks, vocab: vocab,
+		styles: newStyles(true), marks: marks, vocab: vocab, session: context.Background(),
 		width: defaultWidth, height: defaultHeight,
 		focus: paneIssues, mouse: cfg.UI.Mouse,
 		views: issueViews(cfg.Jira.Views), viewIndex: 0,
