@@ -21,8 +21,10 @@ type branchCreator struct {
 	issue    jira.Issue
 	forIssue bool
 	base     string
-	baseAge  string
-	send     sendState
+	// remote is the base remote, which a start fetches before branching.
+	remote  string
+	baseAge string
+	send    sendState
 	// skipFetch is set once a fetch has failed and the user chose to branch from
 	// what is already there, so the retry does not fetch again.
 	skipFetch bool
@@ -55,7 +57,7 @@ func (m Model) openBranchCreator() (Model, tea.Cmd) {
 
 	m.overlay = branchCreator{
 		input: newInput(name), issue: issue, forIssue: forIssue,
-		base: m.branch.branch.Base, baseAge: m.branch.baseAge(m.deps.now()),
+		base: m.branch.branch.Base, remote: m.branch.branch.BaseRemote, baseAge: m.branch.baseAge(m.deps.now()),
 		canWorktree: m.deps.Git.CreateWorktree != nil, applyKey: m.keys.confirm.Help().Key,
 	}
 
@@ -227,7 +229,7 @@ func (c branchCreator) dryRunNotice(name string) string {
 	}
 
 	if c.willFetchBase() {
-		made = "fetch origin, then " + made
+		made = "fetch " + c.remote + ", then " + made
 	}
 
 	return "dry run: would " + made

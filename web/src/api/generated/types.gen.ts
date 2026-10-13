@@ -539,7 +539,7 @@ export type CreateWorktreeRequest = {
      */
     issue_key: string;
     /**
-     * Whether to fetch origin first, so the branch starts from what origin holds now, as the terminal's branch creator and workflow branch --fetch do. A fetch that fails creates nothing and is a 502 with code fetch_failed; asking again with fetch false branches from what you have, the terminal's way out. With no base to refresh nothing is fetched either way.
+     * Whether to fetch the base remote first — upstream in a fork's clone, else origin — so the branch starts from what it holds now, as the terminal's branch creator and workflow branch --fetch do. A fetch that fails creates nothing and is a 502 with code fetch_failed; asking again with fetch false branches from what you have, the terminal's way out. With no base to refresh nothing is fetched either way.
      */
     fetch?: boolean;
 };
@@ -571,7 +571,7 @@ export type CreateBranchRequest = {
      */
     issue_key: string;
     /**
-     * Whether to fetch origin first, so the branch starts from what origin holds now, as the terminal's branch creator and workflow branch --fetch do. A fetch that fails creates nothing and is a 502 with code fetch_failed; asking again with fetch false branches from what you have, the terminal's way out. With no base to refresh nothing is fetched either way.
+     * Whether to fetch the base remote first — upstream in a fork's clone, else origin — so the branch starts from what it holds now, as the terminal's branch creator and workflow branch --fetch do. A fetch that fails creates nothing and is a 502 with code fetch_failed; asking again with fetch false branches from what you have, the terminal's way out. With no base to refresh nothing is fetched either way.
      */
     fetch?: boolean;
 };

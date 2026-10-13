@@ -235,7 +235,9 @@ func (e Environment) gitDeps(root string, kind func() forge.Kind) seams.Git {
 		},
 		RecentSubjects: repo.RecentSubjects,
 		CreateWorktree: repo.WorktreeAdd,
-		Fetch:          func(ctx context.Context) error { return e.streamToEnd(ctx, gitrepo.FetchCommand(root)) },
+		Fetch: func(ctx context.Context) error {
+			return e.streamToEnd(ctx, gitrepo.FetchCommand(root, repo.BaseRemote(ctx)))
+		},
 		Commit: func(ctx context.Context, message string) (proc.Output, error) {
 			return e.commitWith(ctx, root, message)
 		},

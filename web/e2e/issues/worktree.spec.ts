@@ -109,7 +109,10 @@ test('a fetch that fails offers to branch from what you have', async ({ page }) 
     asked.push(route.request().postDataJSON())
     if (asked.length === 1) {
       return route.fulfill(
-        problem('fetch_failed', 'origin could not be fetched, so nothing was made for PROJ-7'),
+        problem(
+          'fetch_failed',
+          'the base remote could not be fetched, so nothing was made for PROJ-7',
+        ),
       )
     }
 

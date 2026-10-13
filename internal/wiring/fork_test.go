@@ -155,6 +155,36 @@ func TestTheGitSeamsReadABranchOntoTheBaseChosen(t *testing.T) {
 	}
 }
 
+func TestTheGitSeamsFetchTheBaseRemote(t *testing.T) {
+	// Arrange
+	repo, root := forkClone(t)
+	originBefore := git(t, root, "rev-parse", "refs/remotes/origin/main")
+	upstreamBefore := git(t, root, "rev-parse", "refs/remotes/upstream/main")
+
+	write(t, filepath.Join(root, "LATER.md"), "later\n", 0o600)
+	git(t, root, "add", "LATER.md")
+	git(t, root, "commit", "--quiet", "-m", "chore: later")
+	git(t, root, "push", "--quiet", "--force", "upstream", "HEAD:main")
+	git(t, root, "push", "--quiet", "origin", "HEAD:main")
+	git(t, root, "update-ref", "refs/remotes/upstream/main", upstreamBefore)
+	git(t, root, "update-ref", "refs/remotes/origin/main", originBefore)
+
+	// Act
+	err := repo.Fetch(t.Context())
+	// Assert
+	if err != nil {
+		t.Fatalf("Fetch: %v", err)
+	}
+
+	if git(t, root, "rev-parse", "refs/remotes/upstream/main") == upstreamBefore {
+		t.Error("upstream's main did not move, though upstream is the base remote")
+	}
+
+	if git(t, root, "rev-parse", "refs/remotes/origin/main") != originBefore {
+		t.Error("origin's main moved, though only the base remote is fetched")
+	}
+}
+
 // git push -u fork records the fork as the remote the branch tracks, and a
 // plain git push goes there after; so does workflow's.
 func TestABranchPushedWithUpstreamToAForkPushesThereAfter(t *testing.T) {

@@ -245,12 +245,12 @@ carries the wait in seconds, as `retry_after` in the body and as the
 
 ## Fetch failed
 
-Status 502. Start work fetches origin first, so the new branch starts from
-what origin holds now, and the fetch failed: the network, origin's address or
-your credential for it. Nothing was made. The page offers to branch from what
-you have, which asks again without the fetch (`"fetch": false`); `git fetch`
-in a terminal shows git's own reason, which the detail leaves out because it
-names origin.
+Status 502. Start work fetches the base remote first — upstream in a fork's
+clone, else origin — so the new branch starts from what it holds now, and the
+fetch failed: the network, the remote's address or your credential for it.
+Nothing was made. The page offers to branch from what you have, which asks
+again without the fetch (`"fetch": false`); `git fetch` in a terminal shows
+git's own reason, which the detail leaves out because it names the remote.
 
 ## Check failed
 

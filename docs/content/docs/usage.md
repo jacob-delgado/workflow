@@ -318,10 +318,10 @@ list says the forge's are missing.
 `b`, **Start work on** the issue, proposes a name from the selected issue: `fix/` for a bug and `feat/` for
 anything else, then the key and the summary, as in
 `fix/PROJ-412-token-redaction`. Edit it freely; a name git would refuse says so
-as you type. The branch starts from origin's default branch, which the overlay
-names with how long ago it last moved, as in
-`from origin/main, fetched 3d ago`. `enter` fetches from origin first, so the
-branch starts from what origin holds now; if the fetch fails, the overlay says
+as you type. The branch starts from the base remote's default branch — origin's,
+or upstream's in a fork's clone — which the overlay names with how long ago it last moved, as in
+`from origin/main, fetched 3d ago`. `enter` fetches the base remote first, so
+the branch starts from what it holds now; if the fetch fails, the overlay says
 why, and `enter` again branches from what you already have. The branch is not
 set to track its base, so it reads as unpushed until it is. `ctrl+g` creates it
 in a new git worktree beside the repository instead of switching to it, and

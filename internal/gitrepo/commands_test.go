@@ -94,15 +94,15 @@ func TestPushCommandRunsInTheRepositoryWithoutPrompts(t *testing.T) {
 	}
 }
 
-func TestFetchCommandUpdatesOriginWithoutPrompts(t *testing.T) {
+func TestFetchCommandUpdatesTheBaseRemoteWithoutPrompts(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	fetch := gitrepo.FetchCommand(workDir)
+	fetch := gitrepo.FetchCommand(workDir, upstreamName)
 
 	// Assert
 	if fetch.Dir != workDir || fetch.Name != gitProgram ||
-		!slices.Equal(fetch.Args, []string{"fetch", gitrepo.DefaultRemote}) {
+		!slices.Equal(fetch.Args, []string{"fetch", "--", upstreamName}) {
 		t.Errorf("FetchCommand = %+v", fetch)
 	}
 
