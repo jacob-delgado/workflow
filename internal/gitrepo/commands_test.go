@@ -79,11 +79,11 @@ func TestPushCommandRunsInTheRepositoryWithoutPrompts(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	push := gitrepo.PushCommand(workDir, "upstream", "fix/PROJ-1-x")
+	push := gitrepo.PushCommand(workDir, upstreamName, "fix/PROJ-1-x")
 
 	// Assert
 	if push.Dir != workDir || push.Name != gitProgram ||
-		!slices.Equal(push.Args, []string{"push", "--set-upstream", "--", "upstream", "fix/PROJ-1-x"}) {
+		!slices.Equal(push.Args, []string{"push", "--set-upstream", "--", upstreamName, "fix/PROJ-1-x"}) {
 		t.Errorf("PushCommand = %+v", push)
 	}
 
@@ -102,7 +102,7 @@ func TestFetchCommandUpdatesOriginWithoutPrompts(t *testing.T) {
 
 	// Assert
 	if fetch.Dir != workDir || fetch.Name != gitProgram ||
-		!slices.Equal(fetch.Args, []string{"fetch", "origin"}) {
+		!slices.Equal(fetch.Args, []string{"fetch", gitrepo.DefaultRemote}) {
 		t.Errorf("FetchCommand = %+v", fetch)
 	}
 
