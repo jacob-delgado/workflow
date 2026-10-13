@@ -75,8 +75,9 @@ that needs one of them reopened goes in the
 - **A chat service is posted to, never read.** `workflow` does not read a
   channel's history, so it asks for no scope that would let it.
 - **One process, which ends when the interface closes.** Nothing runs once
-  it is gone, which the usage guide lists as a limit: *Nothing outlives the
-  session* (`docs/content/docs/usage.md:918`).
+  it is gone, which the usage guide lists as a limit: *A quit waits for your
+  writes; a signal does not* (`docs/content/docs/usage.md`), where an
+  announcement waiting for CI is lost on quit.
 
 ## Issues
 

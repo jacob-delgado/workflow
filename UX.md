@@ -198,7 +198,7 @@ is the shortest summary of how far the screen keeps them, re-counted at
 
 | The promise | Where it is made | Kept? |
 | --- | --- | --- |
-| "`?` lists every key" | `docs/content/docs/usage.md:89` | **Yes, by construction, and a test enumerates every placement.** Help is generated from the bindings (`helpBuilder.place`, `internal/tui/keys.go:164`, rendered in two columns split where they balance, `balancedSplit`, `internal/tui/help.go:150`): 101 placements — 91 `builder.bind` and 10 `builder.bindShown` calls — in 12 groups (`groupMoving` to `groupPanesAndOverlays`, `internal/tui/keys.go:99`), on 100 lines, since `cycle-type-right` has no help of its own and rides `cycle-type-left`'s line (`internal/tui/keys.go:345`). `TestHelpListsEveryPlacedBinding` (`internal/tui/help_test.go:292`) reads `?` back and holds it to a table of every placement. |
+| "`?` lists every key" | `docs/content/docs/usage.md:89` | **Yes, by construction, and a test enumerates every placement.** Help is generated from the bindings (`helpBuilder.place`, `internal/tui/keys.go:164`, rendered in two columns split where they balance, `balancedSplit`, `internal/tui/help.go:150`): 104 placements — 94 `builder.bind` and 10 `builder.bindShown` calls — in 12 groups (`groupMoving` to `groupPanesAndOverlays`, `internal/tui/keys.go:99`), on 103 lines, since `cycle-type-right` has no help of its own and rides `cycle-type-left`'s line (`internal/tui/keys.go:345`). `TestHelpListsEveryPlacedBinding` (`internal/tui/help_test.go:292`) reads `?` back and holds it to a table of every placement. |
 | "the one way the interface says something broke" | `wording`, `internal/tui/failure.go:51` | **Yes: every site that renders an error's text.** Each is told through `errorSentence` (`internal/tui/failure.go:90`) and drawn by one of eight helpers — those that draw a mark choose it, and its style, through `voice` (`internal/tui/failure.go:430`), the footer's two failure notices through `markOf` (`:418`), which asks the same `loop.NotSetUp`: `failureBlock` at 20 sites, `pinnedOutcome` 16, `failureLine` 24, `failureSummary` 9, `unreadRow` 3, `noticedFailure` 13, `noticedFailureLedBy` 3 and `noticedGuidance` 5 (plain, since red means something broke). They are also the one way the terminal says something was never set up: as guidance, with `○` and no red, in `loop.SetUpAdvice`'s words (`setUp`, `internal/tui/failure.go:145`), as principle 4 asks. |
 | "Nothing outward facing is sent without" a last look | `commentPreview`, `internal/tui/comment.go:54` | **Yes, under principle 2.** Every write that leaves the machine or cannot be taken back waits on a preview or a confirmation, most through `lastLook` (`internal/tui/overlay.go:229`): every write to Jira, the forge and the messaging service, every push, Taskwarrior's sync, mark done and undo, forgetting a person and every directory switch. The reversible local toggles principle 2 names act at once. |
 | "a refused change must never go unseen" | `statusPicker`, `internal/tui/picker.go:321` | **Yes: 19 of 19.** Every overlay that sends a request refuses every key while it is in flight and keeps a refusal where it happened until `esc`: `branchCreator`, `branchLinker`, `branchPicker`, `commentPreview`, `finishPreview`, `hookgenOffer`, `issueLinker`, `issueWrite`, `lastLook`, `mergePicker`, `messagingPreview`, `peopleOverlay`, `prComposer`, `prEditor`, `settingsForm`, `setupForm` (`internal/tui/setupform.go:391`, while it writes or checks), `statusPicker` (with its field form), `summaryPost` and `taskLine`. |
@@ -257,7 +257,7 @@ Impact: low · Effort: large
 `internal/tui/prcomposer.go:351`), a dirty tree blocks a switch instead of
 stashing (`errDirtyTree`, `internal/tui/switchtask.go:25`), and quit is
 guarded while an announcement waits (`quitGuard`,
-`internal/tui/messaging.go:67`). But a posted comment, an applied
+`internal/tui/messagingheld.go`). But a posted comment, an applied
 transition, a merge and the `git branch -D` in finish
 (`finishPreview.commands`, `internal/tui/finish.go:96`) have no undo, and
 the interface never says which acts are reversible: the finish preview
@@ -293,7 +293,8 @@ The shapes now mark more than a status, and stay on one axis while they
 do: `○` not begun, `◐` under way or partway, `●` done, `✗` broke. `◐`
 means both "partly staged" on the Commits pane (`Model.stageGlyph`,
 `internal/tui/commits.go:170`) and "announces when CI passes" on the
-Messaging pane (`Model.messagingState`, `internal/tui/messaging.go:142`);
+Messaging pane (`messagingState.standing`, beside `queuedPost.waitingOn` in
+`internal/tui/messagingheld.go`);
 that is not a conflict, since each is the halfway point of its own
 progression and words stand beside it. The rule a new use must keep: a
 state glyph says how far something has got, never anything else. A
