@@ -198,8 +198,8 @@ func repositoryFactsFor(ctx context.Context, run doctorRun) (repositoryFacts, st
 
 	return repositoryFacts{
 		InsideWorkTree: true, Root: repo.Root, Branch: repo.Branch, Detached: repo.Detached,
-		Remote: config.DisplayURL(repo.Remote), Forge: forgeLabel(repo.Remote),
-	}, repo.Remote
+		Remote: config.DisplayURL(repo.Origin), Forge: forgeLabel(repo.Origin),
+	}, repo.Origin
 }
 
 // noRepositoryReason says why dir has no repository to report: git is not
