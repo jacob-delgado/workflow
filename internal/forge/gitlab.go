@@ -148,6 +148,28 @@ type gitlabNewMerge struct {
 	ReviewerIDs  []int64 `json:"reviewer_ids,omitempty"`
 	AssigneeIDs  []int64 `json:"assignee_ids,omitempty"`
 	Labels       string  `json:"labels,omitempty"`
+	// TargetProjectID is the project a fork's merge request merges into,
+	// posted to the fork; left out for one opened on the project itself.
+	TargetProjectID int64 `json:"target_project_id,omitempty"`
+}
+
+// gitlabProject is a project as GitLab sends one, for its numeric id.
+type gitlabProject struct {
+	ID int64 `json:"id"`
+}
+
+// gitlabProjectID is the numeric id of repo's project, which is how GitLab
+// names a merge request's source and target projects. A project the token
+// cannot see is ErrNoRepository naming it.
+func gitlabProjectID(ctx context.Context, client Client, repo Repo) (int64, error) {
+	project, err := repoCall[gitlabProject](ctx, client, repo, http.MethodGet, gitlabProjectPath(repo), nil)
+
+	return project.ID, err
+}
+
+// forkRepo is the fork head is on, on repo's forge.
+func (h Head) forkRepo(repo Repo) Repo {
+	return Repo{Kind: repo.Kind, Host: repo.Host, Path: h.Fork}
 }
 
 // gitlabProjectPath is where a project lives in GitLab's API: its whole path as
@@ -173,11 +195,10 @@ func gitlabFind(ctx context.Context, client Client, repo Repo, head Head) (PullR
 		return PullRequest{}, false, err
 	}
 
-	// A fork's branch can share the name: only a merge request from the base
-	// itself is the head's.
-	merges = slices.DeleteFunc(merges, func(merge gitlabMerge) bool {
-		return merge.SourceProjectID != merge.TargetProjectID
-	})
+	merges, err = fromHead(ctx, client, repo, head, merges)
+	if err != nil {
+		return PullRequest{}, false, err
+	}
 
 	chosen, ok := pickPull(merges)
 	if !ok {
@@ -192,6 +213,27 @@ func gitlabFind(ctx context.Context, client Client, repo Repo, head Head) (PullR
 	}
 
 	return pull, true, nil
+}
+
+// fromHead keeps the merge requests whose branch is on head's project. A
+// fork's branch can share the name of one on the base: on the base, only a
+// merge request whose source is its target is the head's; on a fork, only one
+// whose source is that fork.
+func fromHead(
+	ctx context.Context, client Client, repo Repo, head Head, merges []gitlabMerge,
+) ([]gitlabMerge, error) {
+	if !head.forkOf(repo) {
+		return slices.DeleteFunc(merges, func(merge gitlabMerge) bool {
+			return merge.SourceProjectID != merge.TargetProjectID
+		}), nil
+	}
+
+	fork, err := gitlabProjectID(ctx, client, head.forkRepo(repo))
+	if err != nil {
+		return nil, err
+	}
+
+	return slices.DeleteFunc(merges, func(merge gitlabMerge) bool { return merge.SourceProjectID != fork }), nil
 }
 
 // stateOpened is GitLab's name for the open state.
@@ -267,22 +309,44 @@ func gitlabReviews(ctx context.Context, client Client) ([]ReviewRequest, error) 
 // reason, is left off the merge request opened and returned beside it as
 // ErrSomePeopleNotAdded.
 func gitlabCreate(ctx context.Context, client Client, repo Repo, request NewPullRequest) (PullRequest, error) {
+	source, target, err := gitlabOpenedOn(ctx, client, repo, request.Head)
+	if err != nil {
+		return PullRequest{}, err
+	}
+
 	reviewers := gitlabResolveReviewers(ctx, client, request)
 	assigneeIDs := gitlabResolveAssignees(ctx, client, request.Assignees, &reviewers.missedPeople)
 
 	payload := gitlabNewMerge{
 		Title: gitlabTitle(request), Description: request.Body, SourceBranch: request.Head.Branch,
-		TargetBranch: request.Base,
-		ReviewerIDs:  reviewers.ids, AssigneeIDs: assigneeIDs, Labels: strings.Join(request.Labels, ","),
+		TargetBranch: request.Base, TargetProjectID: target,
+		ReviewerIDs: reviewers.ids, AssigneeIDs: assigneeIDs, Labels: strings.Join(request.Labels, ","),
 	}
 
-	created, err := repoCall[gitlabMerge](ctx, client, repo, http.MethodPost,
-		gitlabProjectPath(repo)+"/merge_requests", payload)
+	created, err := repoCall[gitlabMerge](ctx, client, source, http.MethodPost,
+		gitlabProjectPath(source)+"/merge_requests", payload)
 	if err != nil {
 		return PullRequest{}, err
 	}
 
 	return created.pullRequest(), reviewers.err()
+}
+
+// gitlabOpenedOn is the project a merge request from head is posted to, and
+// the id of the one it merges into when that is another: GitLab opens a
+// fork's merge request on the fork, naming repo as its target. A head on repo
+// itself is posted to repo, with no target to name.
+func gitlabOpenedOn(ctx context.Context, client Client, repo Repo, head Head) (Repo, int64, error) {
+	if !head.forkOf(repo) {
+		return repo, 0, nil
+	}
+
+	target, err := gitlabProjectID(ctx, client, repo)
+	if err != nil {
+		return Repo{}, 0, err
+	}
+
+	return head.forkRepo(repo), target, nil
 }
 
 // gitlabTitle is the merge request's title, marked a draft by its prefix when
