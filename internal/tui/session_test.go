@@ -18,6 +18,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 	"github.com/jacob-delgado/workflow/internal/tui"
@@ -98,6 +99,17 @@ func (h *heldRead) hooks() seams.Hooks {
 			return nil, false
 		},
 		Write: func(context.Context, hooks.Generated) error { return nil },
+	}
+}
+
+// hookList is lefthook with its read of the hooks it configures held: a
+// lefthook that can run one, so h opens the picker that reads them.
+func (h *heldRead) hookList() seams.Hooks {
+	return seams.Hooks{
+		Run: func(context.Context, string) (proc.Output, error) { return proc.Output{}, nil },
+		Configured: func(ctx context.Context) (hooks.Configured, error) {
+			return hooks.Configured{}, h.wait(ctx)
+		},
 	}
 }
 
@@ -398,5 +410,29 @@ func TestAWriteInFlightGoesOnWhenTheInterfaceQuits(t *testing.T) {
 	err := write.Err()
 	if err != nil {
 		t.Errorf("the write's context ended with %v once the interface quit, want it to go on", err)
+	}
+}
+
+func TestAHookListReadTheInterfaceBeganStopsWhenItsSessionEnds(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	held := newHeldRead()
+	session, end := context.WithCancel(t.Context())
+	model := tui.New(config.Config{}, nil, tui.Deps{Hooks: held.hookList()}).WithContext(session)
+	commits, _ := pressed(t, model, "3")
+	_, read := pressed(t, commits, "h")
+
+	go runEach(read)
+
+	<-held.entered
+
+	// Act
+	end()
+
+	// Assert
+	err := held.endedWith(t)
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("the read's context ended with %v, want it canceled with the session", err)
 	}
 }

@@ -239,7 +239,7 @@ func WebBoundActions() []string {
 	return []string{
 		actionJumpToPane, "change-status", "comment", "assign", "log-work", "search-issues", "switch-view",
 		"load-more", actionOpenLink, "track-issue", "link-issue", actionRebase, actionPush, "stage-all",
-		"unstage-all", "commit", "amend", "fixup", "run-pre-commit", "set-up-lefthook", "open-pull-request",
+		"unstage-all", "commit", "amend", "fixup", "run-hook", "set-up-lefthook", "open-pull-request",
 		actionRerunChecks, "merge", "finish-branch", "post", "sort-reviews", "start-stop", actionMarkDone, "add-task",
 		"annotate-task", "modify-task", actionUndoTask, actionSyncTasks, "search-tasks", "sort-tasks", "earlier", "later",
 		"today", "copy-summary", "post-summary", "favorite-directory", "go-to-directory", "toggle-help",
@@ -280,6 +280,7 @@ const (
 	overlayFixupPicker
 	overlayHelp
 	overlayHookgenOffer
+	overlayHookPicker
 	overlayIssueLinker
 	overlayIssueWrite
 	overlayJobLog
@@ -329,6 +330,7 @@ func overlayKeyContexts() map[overlayKind]keyContext {
 		overlayFixupPicker:   listAnswering("the fixup picker", "apply", "close"),
 		overlayHelp:          listAnswering("the help", "scroll-up", "scroll-down", "toggle-help", "quit", "close"),
 		overlayHookgenOffer:  answering("the lefthook offer", "verbatim", "apply", "close"),
+		overlayHookPicker:    listAnswering("the hook picker", "apply", "close"),
 		overlayIssueLinker:   answering("the Jira link offer", "apply", "close"),
 		overlayIssueWrite:    answering("the assign or log-work form", "apply", "close"),
 		overlayJobLog:        listAnswering("a job's log", "scroll-up", "scroll-down", "close"),

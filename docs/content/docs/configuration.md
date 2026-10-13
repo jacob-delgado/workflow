@@ -740,7 +740,7 @@ The actions you can rebind, grouped by where they work, are:
   `open-link`, `copy-link`, `refresh`, `track-issue`.
 - **Branch:** `new-branch`, `switch-branch`, `link-issue`, `rebase`, `push`.
 - **Commits:** `stage`, `stage-all`, `unstage-all`, `discard-change`,
-  `commit`, `amend`, `fixup`, `run-pre-commit`, `set-up-lefthook`.
+  `commit`, `amend`, `fixup`, `run-hook`, `set-up-lefthook`.
 - **Review:** `open-pull-request`, `checks`, `rerun-checks`, `merge`,
   `finish-branch`.
 - **Your messaging service** (named for it, Slack by default): `post`,
@@ -778,6 +778,10 @@ The actions you can rebind, grouped by where they work, are:
 
 A key is named as its terminal name: a letter (`C`), or a combination such as
 `ctrl+e` or `shift+tab`.
+
+`run-hook` was named `run-pre-commit` when it ran nothing but `pre-commit`; a
+map that still names `run-pre-commit` is refused as an action that does not
+exist, so rename it.
 
 `interrupt` quits from anywhere, even while you type into a search or a
 comment, so it must stay on a key that neither types nor edits text, such as

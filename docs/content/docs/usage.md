@@ -161,7 +161,7 @@ lists, by where it works.
 | | `c` | Commit what is staged |
 | | `A` | Amend the last unpushed commit with what is staged, after a preview |
 | | `f` | Record what is staged as a `fixup!` of an unpushed commit you pick |
-| | `h` | Run the pre-commit hook now |
+| | `h` | Run a hook lefthook configures — `pre-commit`, `pre-push` or one of its own — without committing or pushing |
 | | `g` | Set up lefthook for hooks it does not manage |
 | | `r` | Read the repository again |
 | 4 Review | `n` | Open a pull or merge request |
@@ -402,9 +402,17 @@ a package, says so and opens nothing. What
 you composed is kept, so nothing needs retyping. `esc` leaves the run and reads
 the repository again.
 
-`h` in the Commits pane runs the pre-commit hook on its own, without
-committing. lefthook skips a pre-commit job when nothing is staged, as a commit
-would, so stage something first.
+`h` in the Commits pane lists the hooks of lefthook's configuration, merged
+as lefthook reads it (`lefthook-local.yml` included), and runs the one you
+choose as git would, without committing or pushing. `pre-commit` comes first,
+so `h` then `enter` runs it. lefthook skips a pre-commit job when nothing is
+staged, as a commit would, so stage something first. `pre-push` checks the
+commits not yet pushed, against `@{push}` or, before the first push, the
+default branch, and skips every job when nothing is unpushed. Run by hand,
+`pre-push` gets neither the remote nor the refs a push would hand it, and Git
+LFS's upload does not run. A hook git hands what it checks — `commit-msg` its
+message, `post-checkout` the commits it moved between — is listed with that
+reason under the ones you can run, and cannot be chosen.
 
 ### Open the pull request
 

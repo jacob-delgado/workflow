@@ -226,7 +226,7 @@ func writeFlows() map[string]writeFlow {
 			start: fromWorld(newWorld), keys: []string{"5", "p", keyEnter},
 			name: "posting a message",
 		},
-		"Hooks.Run": {start: fromWorld(newWorld), keys: []string{"3", "h"}, name: "running the hooks"},
+		"Hooks.Run": {start: fromWorld(newWorld), keys: []string{"3", "h", keyEnter}, name: "running the hooks"},
 		"Hooks.Write": {
 			start: fromWorld(foldingWithHooks), keys: []string{"3", "g", keyEnter},
 			name: "setting up lefthook",

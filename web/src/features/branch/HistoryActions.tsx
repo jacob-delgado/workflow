@@ -111,7 +111,7 @@ export function HistoryActions({
   const [fixupButton, fixupBack] = useFocusHandback<HTMLButtonElement>()
   const fixupKeys = useShortcut('fixup', fixupButton)
   const commits = foldable(branch, changes)
-  const preCommit = useShortcutProps<HTMLButtonElement>('run-pre-commit')
+  const preCommit = useShortcutProps<HTMLButtonElement>('run-hook')
   const last = commits.at(-1)
   const cancel = () => {
     if (asked === 'amend') {

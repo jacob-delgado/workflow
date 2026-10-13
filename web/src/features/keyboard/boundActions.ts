@@ -28,7 +28,7 @@ export const boundActions: ReadonlySet<string> = new Set([
   'commit',
   'amend',
   'fixup',
-  'run-pre-commit',
+  'run-hook',
   'set-up-lefthook',
   'open-pull-request',
   'rerun-checks',

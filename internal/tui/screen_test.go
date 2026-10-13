@@ -50,6 +50,9 @@ func TestASCIIModeDrawsInASCII(t *testing.T) {
 			want: []string{"# Issue - # Branch", "#= 1 Issues", "> * PROJ-412", "Bug - In Progress", " | ? keys | q quit ..."},
 		},
 		"the help": {height: 60, keys: []string{"?"}, want: []string{"up/k", "down/j"}},
+		"the hook picker": {
+			height: 40, keys: []string{"3", "h"}, want: []string{"> pre-commit", "commit-msg - " + commitMsgReason},
+		},
 	}
 
 	for name, tt := range cases {

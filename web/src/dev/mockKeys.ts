@@ -61,13 +61,7 @@ const listed: Omit<KeyAction, 'default'>[] = [
   { action: 'commit', help: 'commit', group: 'Commits', shown: 'c', keys: ['c'] },
   { action: 'amend', help: 'amend', group: 'Commits', shown: 'A', keys: ['A'] },
   { action: 'fixup', help: 'fix up', group: 'Commits', shown: 'f', keys: ['f'] },
-  {
-    action: 'run-pre-commit',
-    help: 'run pre-commit',
-    group: 'Commits',
-    shown: 'h',
-    keys: ['h'],
-  },
+  { action: 'run-hook', help: 'run a hook', group: 'Commits', shown: 'h', keys: ['h'] },
   {
     action: 'set-up-lefthook',
     help: 'set up lefthook',
