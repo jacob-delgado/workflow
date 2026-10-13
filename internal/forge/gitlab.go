@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -30,7 +31,12 @@ type gitlabMerge struct {
 	TargetBranch string `json:"target_branch"`
 	MergeStatus  string `json:"merge_status"`
 	SHA          string `json:"sha"`
-	HeadPipeline *struct {
+	// SourceProjectID is the project the merge request's branch is on, and
+	// TargetProjectID the one it merges into: equal, GitLab documents, unless
+	// it comes from a fork.
+	SourceProjectID int64 `json:"source_project_id"`
+	TargetProjectID int64 `json:"target_project_id"`
+	HeadPipeline    *struct {
 		ID     int64  `json:"id"`
 		Status string `json:"status"`
 		URL    string `json:"web_url"`
@@ -166,6 +172,12 @@ func gitlabFind(ctx context.Context, client Client, repo Repo, head Head) (PullR
 	if err != nil {
 		return PullRequest{}, false, err
 	}
+
+	// A fork's branch can share the name: only a merge request from the base
+	// itself is the head's.
+	merges = slices.DeleteFunc(merges, func(merge gitlabMerge) bool {
+		return merge.SourceProjectID != merge.TargetProjectID
+	})
 
 	chosen, ok := pickPull(merges)
 	if !ok {
