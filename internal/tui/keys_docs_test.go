@@ -294,6 +294,7 @@ merge               Merge a green
 finish-branch       Finish a merged branch
 post                Preview the announcement
 people-and-groups   People and groups
+stop-waiting        Stop waiting
 
 sort-reviews        Sort them oldest first
 filter-reviews      Filter them by repository

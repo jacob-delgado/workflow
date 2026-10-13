@@ -174,6 +174,7 @@ lists, by where it works.
 | | `r` | Look for the pull request and its CI again |
 | 5, your service | `p` | Preview the announcement of the pull request |
 | | `P` | People and groups: whom each code owner is on Slack, and the user groups the repository tags; with a Slack user token and a store |
+| | `x` | Stop waiting: drop the announcement waiting for CI to pass, unposted |
 | | `r` | Read what was announced, and the pull request and its CI, again |
 | 6 Reviews | `o` / `y` | Open the selected request in the browser, or copy its URL |
 | | `O` | Sort them oldest first, newest first, or by repository |
@@ -485,13 +486,18 @@ jacob opened a pull request: <https://github.com/…/pull/42|fix(config): redact
 `e` edits it in your editor, `enter` announces it now, and `w` announces it
 once CI passes; with a Slack user token and more than one channel to choose from
 (`messaging.channels` names the others), `←`/`→` change the channel. An
-announcement waiting for CI is dropped, saying so, if CI fails. Announcing now
-replaces one that is waiting, so the channel never reads it twice.
+announcement waiting for CI waits through a failed run: the messaging pane says
+*a check failed; waiting on a fix*, and it goes once a later run passes. While no
+check is reported it says *no checks reported yet*, and after ten minutes with
+none, counted from the last read that saw one, it gives up, saying to announce it
+by hand. `x` on the messaging pane stops waiting, and nothing is announced.
+Announcing now replaces one that is waiting, so the channel never reads it twice.
 
 Nothing is announced while a check has failed on the pull request. The
 announcement reads its CI again as it goes, whatever the pane last read, and a
 failed check keeps it from going, ready or merged alike: the preview stays open
-saying why. A CI that cannot be read keeps it from going too, since nothing
+saying why. While the last read found a check failed, the preview offers only
+`w`, which waits for a fix. A CI that cannot be read keeps it from going too, since nothing
 failing cannot be confirmed. `workflow announce` and the `--web` page hold to
 the same rule.
 
@@ -1060,10 +1066,11 @@ have them. See [Configuration]({{< relref "/docs/configuration" >}}).
   old one as it answers; `workflow slack login` then sets it up again. An
   announcement waiting for CI is not yet a write: it is not sent if you quit
   first.
-- **`w` needs checks to wait for.** Where the pull request has no CI at all,
-  the preview does not offer it and pressing it does nothing, and an
-  announcement already waiting keeps waiting if CI stops reporting any
-  checks; announce with `enter` instead.
+- **An announcement waits only for CI that reports.** One waiting for a pull
+  request that reports no check gives up after ten minutes, counted from the
+  last read that saw one; announce a repository with no CI by hand. On GitHub,
+  CI is read at the branch's head here, so a fix pushed from another clone is
+  seen once this branch moves to it.
 - **A branch is worked on under the name it shows.** git allows characters in a
   branch's name that cannot be drawn as they are, such as one with no width or
   one that reverses the text after it. A branch, upstream or base named with

@@ -81,6 +81,7 @@ func messagingKeys(builder *helpBuilder, into *keyMap, messagingService string) 
 
 	into.compose = builder.bind(group, "post", "announce to "+messagingService, "p")
 	into.peopleAndGroups = builder.bind(group, "people-and-groups", "people and groups", "P")
+	into.stopWaiting = builder.bind(group, "stop-waiting", "stop waiting", "x")
 }
 
 // reviewQueueKeys are the Reviews pane's bindings.

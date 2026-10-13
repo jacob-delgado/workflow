@@ -744,7 +744,7 @@ The actions you can rebind, grouped by where they work, are:
 - **Review:** `open-pull-request`, `checks`, `rerun-checks`, `merge`,
   `finish-branch`.
 - **Your messaging service** (named for it, Slack by default): `post`,
-  `people-and-groups`.
+  `people-and-groups`, `stop-waiting`.
 - **Reviews:** `sort-reviews`, `filter-reviews`.
 - **Tasks:** `start-stop`, `mark-done`, `add-task`, `annotate-task`,
   `modify-task`, `undo-task`, `sync-tasks`, `search-tasks`, `filter-tasks`,
