@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.9.1](https://github.com/jacob-delgado/workflow/compare/v0.9.0...v0.9.1) (2026-10-13)
+
+
+### Features
+
+* **web:** draw secondary buttons in a tonal wash of the accent ([9593ca0](https://github.com/jacob-delgado/workflow/commit/9593ca0a406dc0b8a29e5b480abff89c3ef91677))
+* **web:** give each filter chip the mark its rows draw ([6111719](https://github.com/jacob-delgado/workflow/commit/611171933e4f7c121245c2a7b5158aa276f9846a))
+* **web:** mark the selected issue or task with an accent edge ([17706a7](https://github.com/jacob-delgado/workflow/commit/17706a7c789b4a3f5d97de6d5d7d08981d8e11a8))
+* **web:** put notices on a ground of their state's color ([5865971](https://github.com/jacob-delgado/workflow/commit/58659718b223f3ff7b3ed92066acc00cdb2067d6))
+* **web:** set the issue and task lists apart from their view ([ab5f6c0](https://github.com/jacob-delgado/workflow/commit/ab5f6c041217be3d2ad25b63f73945a8ae9b67b4))
+* **web:** shade each Summary calendar day by how much was done ([94da4d2](https://github.com/jacob-delgado/workflow/commit/94da4d24448930df45eddc9a45b4aa1e92bf1990))
+* **web:** soften both themes to a dimmed dark and a soft light ([02c0830](https://github.com/jacob-delgado/workflow/commit/02c083087251bfbd6daef5c08d856021924f393d))
+* **web:** theme native checkboxes and the text selection ([14bb0c0](https://github.com/jacob-delgado/workflow/commit/14bb0c01f54065e52fd5b7ffb60154056b3ccd2f))
+
+
+### Bug Fixes
+
+* **web:** draw a chip's mark only where its rows all draw that mark ([def6cea](https://github.com/jacob-delgado/workflow/commit/def6cea1483ed2487b140bb215c50e3a89081849))
+* **web:** draw every failure and result line on its notice ground ([e29854b](https://github.com/jacob-delgado/workflow/commit/e29854badb8ed165b83da442498eee7d708f88a0))
+* **web:** hedge a partly read calendar month and dot each day's step ([5334a33](https://github.com/jacob-delgado/workflow/commit/5334a33a8b06aa5c2b4d4c4f948759d06ff659ed))
+* **web:** keep selected text, pressed chips and off buttons legible ([d9193b0](https://github.com/jacob-delgado/workflow/commit/d9193b04b3be97c4effffe4b939860ab6445e831))
+* **web:** read the calendar's month apart from the period's read ([eea488e](https://github.com/jacob-delgado/workflow/commit/eea488ecf654dcdce0d3815e08ee794f742eb38b))
+
+
+### Refactors
+
+* **web:** drop the color tokens nothing uses ([bbde5eb](https://github.com/jacob-delgado/workflow/commit/bbde5ebf97c4d4314e6666200f786f6d454d290c))
+
+
+### Documentation
+
+* **ux:** point at where index.css now declares the hues and scales ([562758b](https://github.com/jacob-delgado/workflow/commit/562758bb2685b2ae3d4441aaf1e29e2e65bd2f7d))
+
 ## [0.9.0](https://github.com/jacob-delgado/workflow/compare/v0.8.0...v0.9.0) (2026-10-13)
 
 
