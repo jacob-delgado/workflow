@@ -841,6 +841,26 @@ creates here. What follows the push remote: the push, whether the branch reads
 as pushed, and the `push to` line the Branch pane shows when it is not the
 base remote.
 
+The forge is reached at the base remote too. The pull or merge request opens
+on the base remote's repository from the branch on the push remote's fork —
+on GitHub with an `owner:branch` head (and `head_repo` for a fork in the base's
+own organization), on GitLab as a merge request posted to the fork into its
+parent — and is found there again. Its CI, reviews and merge are read there,
+and a GitLab pipeline that ran in the fork has its failed jobs, its retry and
+its logs read in the fork. Issues and pull request templates come from the base
+too. A push remote whose address names no repository on a forge — a local
+mirror, say — is refused, naming it, rather than guessed at.
+
+Merging and re-running checks stay offered, though a contributor seldom has
+the rights to either on the base: the forge's refusal says so, naming the
+scope it wanted. A first-time contributor's GitHub Actions run may wait for a
+maintainer's approval, and reads as none or running until then.
+
+What workflow keeps stays keyed by `origin` — the last scope, announcements,
+the issue cache, whom a forge owner is on Slack, favorites — so it is shared
+with every other clone of your fork. The Repositories pane, the web's Working
+in and `workflow doctor` name the base beside origin.
+
 With neither `upstream` nor gh's mark, the base remote is `origin`, and
 everything reads as it does in a clone that is no fork.
 
