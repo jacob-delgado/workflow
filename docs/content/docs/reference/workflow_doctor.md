@@ -36,14 +36,14 @@ workflow doctor [flags]
 
 ```
   -h, --help     help for doctor
-      --json     print the report as JSON
+  -j, --json     print the report as JSON
       --online   ask Jira, the forge and Slack if each credential works (not a webhook)
 ```
 
 ### Options inherited from parent commands
 
 ```
-      --dry-run    hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, and say what it would have done
+  -n, --dry-run    hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, and say what it would have done
       --log FILE   append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
 ```
 

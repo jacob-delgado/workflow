@@ -39,13 +39,13 @@ workflow finish [flags]
 
 ```
   -h, --help   help for finish
-      --yes    go ahead without the confirmation
+  -y, --yes    go ahead without the confirmation
 ```
 
 ### Options inherited from parent commands
 
 ```
-      --dry-run    hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, and say what it would have done
+  -n, --dry-run    hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, and say what it would have done
       --log FILE   append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
 ```
 
