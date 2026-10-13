@@ -303,3 +303,81 @@ func gitlabCommentOnIssue(
 
 	return posted.comment(), nil
 }
+
+// gitlabIssue is an issue as GitLab sends it, from the listing or a single read.
+type gitlabIssue struct {
+	IID         int    `json:"iid"`
+	URL         string `json:"web_url"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	State       string `json:"state"`
+	Author      struct {
+		Username string `json:"username"`
+	} `json:"author"`
+	UserNotesCount int `json:"user_notes_count"`
+}
+
+func (g gitlabIssue) issue() Issue {
+	return Issue{Number: g.IID, URL: g.URL, Title: g.Title}
+}
+
+func (g gitlabIssue) detail() IssueDetail {
+	return IssueDetail{
+		Issue: g.issue(), Body: g.Description, Author: g.Author.Username, Closed: g.State == wireClosed,
+		CommentCount: g.UserNotesCount,
+	}
+}
+
+// gitlabIssues lists the open issues in the project assigned to the token owner.
+// GitLab filters by assignee username, not a "me" token, so who the token
+// belongs to is asked first.
+func gitlabIssues(ctx context.Context, client Client, repo Repo) ([]Issue, error) {
+	viewer, err := client.Whoami(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	query := url.Values{queryState: {stateOpened}, "assignee_username": {viewer.Name()}}
+	path := gitlabProjectPath(repo) + issuesSegment + "?"
+
+	listed, _, err := readPages(func(page int) ([]gitlabIssue, int, error) {
+		one, err := repoCall[[]gitlabIssue](ctx, client, repo, http.MethodGet, path+pageQuery(query, page), nil)
+
+		return one, uncounted, err
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	issues := make([]Issue, 0, len(listed))
+	for _, one := range listed {
+		issues = append(issues, one.issue())
+	}
+
+	return issues, nil
+}
+
+// gitlabReadIssue reads one issue's body and author.
+func gitlabReadIssue(ctx context.Context, client Client, repo Repo, number int) (IssueDetail, error) {
+	read, err := repoCall[gitlabIssue](ctx, client, repo, http.MethodGet,
+		gitlabProjectPath(repo)+issuesSegment+"/"+strconv.Itoa(number), nil)
+	if err != nil {
+		return IssueDetail{}, err
+	}
+
+	return read.detail(), nil
+}
+
+// gitlabIssueState is the PUT body that closes an issue. GitLab closes by an
+// event verb, not by a state.
+type gitlabIssueState struct {
+	StateEvent string `json:"state_event"`
+}
+
+// gitlabCloseIssue closes an issue.
+func gitlabCloseIssue(ctx context.Context, client Client, repo Repo, number int) error {
+	_, err := repoCall[gitlabIssue](ctx, client, repo, http.MethodPut,
+		gitlabProjectPath(repo)+issuesSegment+"/"+strconv.Itoa(number), gitlabIssueState{StateEvent: "close"})
+
+	return err
+}
