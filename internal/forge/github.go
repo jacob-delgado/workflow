@@ -113,9 +113,9 @@ func githubRewrite(
 
 // githubFind finds the open pull request from a branch. GitHub filters by head
 // as owner:branch; the branch alone matches nothing.
-func githubFind(ctx context.Context, client Client, repo Repo, branch string) (PullRequest, bool, error) {
+func githubFind(ctx context.Context, client Client, repo Repo, head Head) (PullRequest, bool, error) {
 	owner, _, _ := strings.Cut(repo.Path, "/")
-	query := url.Values{"head": {owner + ":" + branch}, queryState: {queryAll}}.Encode()
+	query := url.Values{"head": {owner + ":" + head.Branch}, queryState: {queryAll}}.Encode()
 
 	pulls, err := repoCall[[]githubPull](ctx, client, repo, http.MethodGet, githubRepoPath(repo)+"/pulls?"+query, nil)
 	if err != nil {
@@ -304,7 +304,7 @@ func tallyReviews(reviews []githubReview) (int, bool) {
 // rather than losing it.
 func githubCreate(ctx context.Context, client Client, repo Repo, request NewPullRequest) (PullRequest, error) {
 	payload := githubNewPull{
-		Title: request.Title, Body: request.Body, Head: request.Head, Base: request.Base, Draft: request.Draft,
+		Title: request.Title, Body: request.Body, Head: request.Head.Branch, Base: request.Base, Draft: request.Draft,
 	}
 
 	created, err := repoCall[githubPull](ctx, client, repo, http.MethodPost, githubRepoPath(repo)+"/pulls", payload)

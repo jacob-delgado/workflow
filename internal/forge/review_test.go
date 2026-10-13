@@ -29,7 +29,7 @@ func TestFindPullRequestReadsReviewState(t *testing.T) {
 	client, _ := recordingForge(t, routing(routes))
 
 	// Act
-	found, _, err := client.FindPullRequest(t.Context(), githubRepo(), featureBranch)
+	found, _, err := client.FindPullRequest(t.Context(), githubRepo(), forge.Head{Branch: featureBranch})
 
 	// Assert
 	if err != nil || found.Approvals != 1 || !found.ChangesRequested || found.Mergeable != forge.MergeConflicts {
@@ -71,7 +71,7 @@ func TestFindPullRequestToleratesUnreadableReviewState(t *testing.T) {
 			client, _ := recordingForge(t, routing(tt.routes))
 
 			// Act
-			found, ok, err := client.FindPullRequest(t.Context(), githubRepo(), featureBranch)
+			found, ok, err := client.FindPullRequest(t.Context(), githubRepo(), forge.Head{Branch: featureBranch})
 
 			// Assert
 			if err != nil || !ok || found.Approvals != 0 || found.ChangesRequested || found.Mergeable != tt.mergeable {

@@ -43,7 +43,7 @@ func TestCreatePullRequestOnGitHubAddsReviewersAssigneesAndLabels(t *testing.T) 
 
 	// Act
 	created, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
-		Title: prTitle, Head: featureBranch, Base: baseBranch,
+		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch,
 		Reviewers: []string{userAna, userBen}, Assignees: []string{userCass}, Labels: []string{labelBug, labelReview},
 	})
 
@@ -78,7 +78,7 @@ func TestCreatePullRequestOnGitHubAsksForNoOneWhenNoneAreNamed(t *testing.T) {
 
 	// Act
 	_, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
-		Title: prTitle, Head: featureBranch, Base: baseBranch,
+		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch,
 	})
 	// Assert
 	// With nobody named, only the pull is opened — no empty reviewer request.
@@ -103,7 +103,7 @@ func TestCreatePullRequestOnGitHubKeepsThePullWhenReviewersAreRefused(t *testing
 
 	// Act
 	created, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
-		Title: prTitle, Head: featureBranch, Base: baseBranch, Reviewers: []string{userAna},
+		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch, Reviewers: []string{userAna},
 	})
 
 	// Assert
@@ -130,7 +130,7 @@ func TestCreateMergeRequestOnGitLabSetsReviewersAssigneesAndLabels(t *testing.T)
 
 	// Act
 	created, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
-		Title: prTitle, Head: featureBranch, Base: baseBranch,
+		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch,
 		Reviewers: []string{userAna}, Assignees: []string{userCass}, Labels: []string{labelBug, labelReview},
 	})
 
@@ -168,7 +168,7 @@ func TestCreatePullRequestOnGitHubStopsAtAssigneesTheForgeRefuses(t *testing.T) 
 
 	// Act
 	created, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
-		Title: prTitle, Head: featureBranch, Base: baseBranch,
+		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch,
 		Reviewers: []string{userAna}, Assignees: []string{userCass}, Labels: []string{labelBug},
 	})
 
@@ -196,7 +196,7 @@ func TestCreatePullRequestOnGitHubReportsLabelsTheForgeRefuses(t *testing.T) {
 
 	// Act
 	created, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
-		Title: prTitle, Head: featureBranch, Base: baseBranch,
+		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch,
 		Reviewers: []string{userAna}, Assignees: []string{userCass}, Labels: []string{labelBug},
 	})
 
@@ -218,7 +218,7 @@ func TestCreatePullRequestOnGitHubRequestsTeamsBySlugAlongsideUsers(t *testing.T
 
 	// Act
 	_, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
-		Title: prTitle, Head: featureBranch, Base: baseBranch,
+		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch,
 		Reviewers: []string{userAna}, TeamReviewers: []string{"example/control-plane"},
 	})
 	// Assert
@@ -243,7 +243,7 @@ func TestCreatePullRequestOnGitHubNeverRequestsATeamOfAnotherOrganization(t *tes
 
 	// Act
 	created, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
-		Title: prTitle, Head: featureBranch, Base: baseBranch,
+		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch,
 		TeamReviewers: []string{"other-org/reviewers", "Example/api"},
 	})
 
@@ -267,7 +267,7 @@ func TestCreatePullRequestOnGitHubGivesTeamsLeftOffForOneReasonThatReasonOnce(t 
 
 	// Act
 	_, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
-		Title: prTitle, Head: featureBranch, Base: baseBranch,
+		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch,
 		TeamReviewers: []string{"other-org/reviewers", "third-org/api"},
 	})
 
@@ -287,7 +287,7 @@ func TestCreatePullRequestOnGitHubRequestsOnlyTeamsWhenNoUserIsNamed(t *testing.
 
 	// Act
 	_, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
-		Title: prTitle, Head: featureBranch, Base: baseBranch, TeamReviewers: []string{"example/api"},
+		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch, TeamReviewers: []string{"example/api"},
 	})
 
 	// Assert

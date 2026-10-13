@@ -179,7 +179,7 @@ func TestComposePullComposesPastWhatDoesNotBlock(t *testing.T) {
 			request, branch, err := loop.ComposePull(t.Context(), seams, options())
 
 			// Assert
-			if err != nil || request.Head != branchName || branch.Name != branchName {
+			if err != nil || request.Head.Branch != branchName || branch.Name != branchName {
 				t.Errorf("ComposePull = %+v, %q, %v; want a draft for %q", request, branch.Name, err, branchName)
 			}
 		})
@@ -196,7 +196,7 @@ func TestComposePullDraftsFromTheBranchAndItsIssue(t *testing.T) {
 		t.Fatalf("ComposePull returned %v, want nil", err)
 	}
 
-	if request.Title != subject || request.Head != branchName || request.Base != targetBase || request.Draft {
+	if request.Title != subject || request.Head.Branch != branchName || request.Base != targetBase || request.Draft {
 		t.Errorf("draft = %+v, want the commit's title, the branch into main, not a draft", request)
 	}
 

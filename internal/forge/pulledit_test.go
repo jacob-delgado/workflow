@@ -122,7 +122,7 @@ func TestFindPullRequestReadsTheBody(t *testing.T) {
 	}))
 
 	// Act
-	pull, found, err := client.FindPullRequest(t.Context(), githubRepo(), featureBranch)
+	pull, found, err := client.FindPullRequest(t.Context(), githubRepo(), forge.Head{Branch: featureBranch})
 
 	// Assert
 	if err != nil || !found || pull.Body != "the description" {
@@ -156,7 +156,7 @@ func TestFindPullRequestReadsTheBaseItMergesInto(t *testing.T) {
 			client, _ := recordingForge(t, routing(map[string]string{test.path: test.answer}))
 
 			// Act
-			pull, found, err := client.FindPullRequest(t.Context(), test.repo, featureBranch)
+			pull, found, err := client.FindPullRequest(t.Context(), test.repo, forge.Head{Branch: featureBranch})
 
 			// Assert
 			if err != nil || !found || pull.Base != "release/1.0" {
