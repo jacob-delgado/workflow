@@ -86,7 +86,10 @@ export function OutcomeLine({ said, className }: { said: Said | null; className?
       ref={line}
       role="status"
       tabIndex={-1}
-      className={cn('text-sm text-success empty:sr-only', className)}
+      className={cn(
+        'rounded-md border border-success/40 bg-success-surface px-3 py-2 text-sm text-success empty:sr-only',
+        className,
+      )}
     >
       {said?.text ?? ''}
     </p>

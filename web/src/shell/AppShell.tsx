@@ -75,9 +75,9 @@ export function AppShell() {
       {health?.dry_run ? (
         <p
           role="status"
-          className="flex items-center gap-2 border-b border-border bg-muted px-4 py-2 text-sm"
+          className="flex items-center gap-2 border-b border-warning/40 bg-warning-surface px-4 py-2 text-sm"
         >
-          <Lock aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+          <Lock aria-hidden className="size-4 shrink-0 text-warning" />
           <span>
             Read-only: started with <code className="font-mono">--dry-run</code>; every write is
             held back.
@@ -113,9 +113,9 @@ function SessionRefused() {
   return (
     <p
       role="alert"
-      className="flex items-center gap-2 border-b border-border bg-muted px-4 py-2 text-sm"
+      className="flex items-center gap-2 border-b border-destructive/40 bg-destructive-surface px-4 py-2 text-sm"
     >
-      <KeyRound aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+      <KeyRound aria-hidden className="size-4 shrink-0 text-destructive" />
       <span>
         workflow refused this page: it holds no session of the running server. Open the address{' '}
         <code className="font-mono">workflow --web</code> printed as it started; each run prints a

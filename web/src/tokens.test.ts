@@ -118,6 +118,35 @@ test.each(themes)(
 )
 
 describe.each(themes)('in the %s theme', (_, selector) => {
+  test.each([
+    ['--destructive', '--destructive-surface'],
+    ['--success', '--success-surface'],
+    ['--warning', '--warning-surface'],
+  ])('%s holds 4.5:1 as text on its notice ground, %s', (state, surface) => {
+    // Arrange
+    const tokens = tokensOf(selector)
+
+    // Act
+    const ratio = contrast(color(tokens, state), color(tokens, surface))
+
+    // Assert
+    expect(ratio).toBeGreaterThanOrEqual(4.5)
+  })
+
+  test.each(['--activity-low', '--activity-mid', '--activity-high'])(
+    "a calendar day's number holds 4.5:1 on %s",
+    (level) => {
+      // Arrange
+      const tokens = tokensOf(selector)
+
+      // Act
+      const ratio = contrast(color(tokens, '--foreground'), color(tokens, level))
+
+      // Assert
+      expect(ratio).toBeGreaterThanOrEqual(4.5)
+    },
+  )
+
   test.each(['--tonal', '--tonal-hover'])(
     "a secondary button's words hold 4.5:1 on its %s fill",
     (fill) => {

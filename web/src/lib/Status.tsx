@@ -5,12 +5,20 @@ import { Button } from './Button.tsx'
 import { cn } from './utils.ts'
 
 // Failure says what failed, beside what failed: an alert, so a screen reader
-// hears it as it lands, in the one color kept for failure. A caller that can
-// fail the same way twice keys it by how many times it has, since an alert
-// that keeps its words is not spoken again.
+// hears it as it lands, in the one color kept for failure, on that color's
+// notice ground so the eye finds it too. With nothing to say it draws nothing,
+// though it stays in place to be heard. A caller that can fail the same way
+// twice keys it by how many times it has, since an alert that keeps its words
+// is not spoken again.
 export function Failure({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <p role="alert" className={cn('text-sm whitespace-pre-line text-destructive', className)}>
+    <p
+      role="alert"
+      className={cn(
+        'flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive-surface px-3 py-2 text-sm whitespace-pre-line text-destructive empty:sr-only',
+        className,
+      )}
+    >
       {children}
     </p>
   )
@@ -37,10 +45,10 @@ export function ReadFailure({ unread, notSetUp, problem }: ReadFailureProps) {
   }
 
   return (
-    <div className="flex items-start gap-2">
-      <StateMark state="failed" className="mt-0.5" />
-      <Failure>{`${unread}: ${problem.detail}`}</Failure>
-    </div>
+    <Failure>
+      <StateMark state="failed" className="mt-0.5 shrink-0" />
+      <span>{`${unread}: ${problem.detail}`}</span>
+    </Failure>
   )
 }
 
