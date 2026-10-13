@@ -12,6 +12,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
@@ -78,6 +79,15 @@ func withSlackDirectory() *world {
 	return repo
 }
 
+// runningCI is a pull request whose CI is running, so an announcement can be
+// left to wait for it.
+func runningCI() *world {
+	repo := newWorld()
+	repo.ci = []forge.CI{{State: forge.CIRunning}}
+
+	return repo
+}
+
 // paneState is a pane in a state: the digit that jumps to it, the keys then
 // pressed to move its cursor, the world that puts it in that state, and the
 // actions it answers there that the probe relies on it to reach, the keys and
@@ -117,6 +127,9 @@ func paneStates() map[string]paneState {
 		"messaging, with the Slack directory": {
 			digit: "5", world: withSlackDirectory, answers: "people-and-groups refresh",
 		},
+		"messaging, with a post waiting for CI": {
+			digit: "5", moves: "p w", world: runningCI, answers: "post stop-waiting refresh",
+		},
 		"Reviews, everything at once": {
 			digit: "6", world: everythingAtOnce, answers: "sort-reviews filter-reviews open-link copy-link refresh",
 		},
@@ -149,7 +162,7 @@ type probed struct {
 func probeAt(t *testing.T, state paneState, action string) probed {
 	t.Helper()
 
-	reaching := append([]string{state.digit}, strings.Fields(state.moves)...)
+	reaching := append([]string{state.digit}, movesWith(state.moves, action)...)
 
 	moved := state.world()
 	moved.cfg.UI.Keys = map[string]string{action: probeKey}
@@ -164,6 +177,27 @@ func probeAt(t *testing.T, state paneState, action string) probed {
 		answered: cmd != nil || plain(pressed.View().Content) != plain(unanswered.View().Content),
 		asks:     opened.Name == lastLookContext,
 	}
+}
+
+// movesWith is moves, each key pressed as it is with action moved onto the
+// probe key: the probe key in place of action's own, so the state is reached
+// the same way whichever action is probed.
+func movesWith(moves, action string) []string {
+	keys := strings.Fields(moves)
+
+	for _, bound := range tui.KeyActions("pull request", "Slack", nil) {
+		if bound.Action != action {
+			continue
+		}
+
+		for index, pressed := range keys {
+			if pressed == bound.Default {
+				keys[index] = probeKey
+			}
+		}
+	}
+
+	return keys
 }
 
 // sweep is every probed action a pane in a state offers in its footer, every

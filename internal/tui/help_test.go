@@ -95,7 +95,8 @@ func placedBindings() []helpGroup {
 			"finish-branch     F          finish branch"),
 		placed("Slack",
 			"post              p          announce to Slack",
-			"people-and-groups P          people and groups"),
+			"people-and-groups P          people and groups",
+			"stop-waiting      x          stop waiting"),
 		placed("Reviews",
 			"sort-reviews      O          sort",
 			"filter-reviews    f          filter",
@@ -218,7 +219,7 @@ func openHelp(t *testing.T, overrides map[string]string) string {
 		helpKey = "?"
 	}
 
-	return plain(press(t, sized(t, tui.New(cfg, nil, tui.Deps{}), 160, 74), helpKey).View().Content)
+	return plain(press(t, sized(t, tui.New(cfg, nil, tui.Deps{}), 160, 75), helpKey).View().Content)
 }
 
 // runeColumn is the column, in runes, where text starts on line.
@@ -333,7 +334,7 @@ func TestHelpListsEveryPlacedBinding(t *testing.T) {
 
 // helpPageCount is how many screens helpPages reads: enough, a half page apart,
 // to reach the end of the help on the shortest terminal a test opens it on.
-const helpPageCount = 9
+const helpPageCount = 10
 
 // helpPages opens the help and pages down through it, one screen after
 // another, so a terminal too short for the whole list still shows every line.
@@ -458,8 +459,8 @@ func TestTheWholeHelpFitsATallTerminal(t *testing.T) {
 	// Act
 	// At 120 columns the whole help, the Tasks and Reviews keys and the
 	// tagging keys, the Summary's and the Repositories' and unlink among it,
-	// each pane's keys under a heading of its own, needs 73 rows.
-	view := typing(t, newWorld().live(t, 120, 74), "?").View().Content
+	// each pane's keys under a heading of its own, needs 74 rows.
+	view := typing(t, newWorld().live(t, 120, 75), "?").View().Content
 
 	// Assert
 	requireScreen(t, view, panesAndOverlaysGroup)
@@ -470,7 +471,7 @@ func TestAHelpThatFitsThePaneOffersNoScrollKeys(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	view := typing(t, newWorld().live(t, 160, 74), "?").View().Content
+	view := typing(t, newWorld().live(t, 160, 75), "?").View().Content
 
 	// Assert
 	refuseScreen(t, view, "more below")

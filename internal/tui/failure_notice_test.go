@@ -52,14 +52,6 @@ func TestARefusalNoticeWearsTheFailureStyle(t *testing.T) {
 			keys: []string{"4", "R", keyEnter},
 			want: "re-run failed: the forge rejected the request",
 		},
-		"a queued post whose CI failed": {
-			// Past the harness's horizon, so the post is queued before CI settles.
-			prepare: func(w *world) {
-				w.ciInterval, w.ci = 2*time.Second, []forge.CI{{State: forge.CIRunning}, {State: forge.CIFailed}}
-			},
-			keys: []string{"5", "p", "w"},
-			want: "CI failed, so nothing was announced to Slack",
-		},
 		"a queued post the service would not take once CI passed": {
 			prepare: func(w *world) {
 				w.ciInterval = time.Millisecond

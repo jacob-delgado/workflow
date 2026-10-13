@@ -64,7 +64,7 @@ func (msg ciChecked) apply(m Model) (Model, tea.Cmd) {
 
 	ring := ciFinishNotice(m.cfg, m.deps, was, msg.ci.State)
 
-	m, post := m.postIfGreen()
+	m, post := m.settleHeld()
 
 	return m.keepPolling(tea.Batch(post, ring))
 }
@@ -135,7 +135,9 @@ type ciPoll struct {
 var _ applier = ciPoll{}
 
 // apply asks again, unless it belongs to a review that has since been replaced,
-// in which case it does nothing and its chain ends here.
+// in which case it does nothing and its chain ends here. While a post waits
+// for CI, it reads the branch again first, so the pull request and the head
+// its CI is read at are current.
 func (msg ciPoll) apply(m Model) (Model, tea.Cmd) {
 	if msg.review != m.reviewsBegun {
 		return m, nil
@@ -143,7 +145,28 @@ func (msg ciPoll) apply(m Model) (Model, tea.Cmd) {
 
 	m.review.polling = false
 
+	if m.messaging.pending.waiting() {
+		return m, m.rereadForHeld()
+	}
+
 	return m, m.checkCI()
+}
+
+// ciRead is how the pull request's CI stood on the last read that answered,
+// and whether one had.
+type ciRead struct {
+	state forge.CIState
+	read  bool
+}
+
+// lastRead is how CI stood on the last read, when that read answered.
+func (s reviewState) lastRead() ciRead {
+	return ciRead{state: s.ci.State, read: s.checked && s.ciErr == nil}
+}
+
+// failed reports a read that found a check failed.
+func (r ciRead) failed() bool {
+	return r.read && r.state == forge.CIFailed
 }
 
 // ciGlyph is how the branch's CI stands, by shape.

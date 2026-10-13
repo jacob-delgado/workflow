@@ -45,8 +45,10 @@ type messagingPreview struct {
 	moment messaging.Moment
 	// service names the messaging service, for the preview title.
 	service string
-	noCI    bool
-	send    sendState
+	// ci is how the pull request's CI stood on the last read that answered
+	// when the preview opened, and whether there was one.
+	ci   ciRead
+	send sendState
 	// tagging is whom a ready-for-review announcement tags; the zero value
 	// tags no one.
 	tagging tagSection
@@ -108,6 +110,12 @@ var (
 func (p messagingPreview) view(kit renderKit, width, _ int) (string, string) {
 	lines := kit.pinnedOutcome(p.send, "announcing", width)
 	lines = append(lines, wrap(p.text, width), "", "to  "+p.destination())
+
+	if p.ci.failed() {
+		lines = append(lines, "", wrap(kit.failedGlyph()+" A check failed, so it is not announced now; "+
+			"announcing once CI passes waits for a fix.", width))
+	}
+
 	lines = append(lines, p.tagging.lines(kit, width)...)
 
 	return "Announce to " + p.service, strings.Join(lines, "\n")
@@ -120,7 +128,11 @@ func (p messagingPreview) footer(keys keyMap) []key.Binding {
 		return []key.Binding{keys.interrupt}
 	}
 
-	buttons := []key.Binding{relabel(keys.confirm, "announce now")}
+	var buttons []key.Binding
+	if !p.ci.failed() {
+		buttons = append(buttons, relabel(keys.confirm, "announce now"))
+	}
+
 	if p.waitsForCI() {
 		buttons = append(buttons, relabel(keys.postWhenGreen, "when CI passes"))
 	}
@@ -188,6 +200,10 @@ func (p messagingPreview) post(m Model) (Model, tea.Cmd) {
 		return m.noticedGuidance(refusal), nil
 	}
 
+	if p.ci.failed() {
+		return m.noticedGuidance(loop.ErrCIFailed), nil
+	}
+
 	if strings.TrimSpace(p.text) == "" {
 		return m.closeOverlay().noticedGuidance(loop.ErrEmptyAnnouncement), nil
 	}
@@ -203,11 +219,12 @@ func (p messagingPreview) post(m Model) (Model, tea.Cmd) {
 }
 
 // waitsForCI reports whether this post can wait for CI to pass. Only a "ready
-// for review" announcement can: a merge has already happened, and a
-// pull request that reports no CI has none to wait for. Nor can it while whom
-// it tags is still being read, since it would wait tagging no one.
+// for review" announcement can, a merge having already happened — whatever
+// its CI: running, no check reported yet, or a check failed, which the wait
+// sees fixed; one passed already goes at once. Nor can it while whom it tags
+// is still being read, since it would wait tagging no one.
 func (p messagingPreview) waitsForCI() bool {
-	return p.moment == messaging.MomentReady && !p.noCI && !p.tagging.reading
+	return p.moment == messaging.MomentReady && !p.tagging.reading
 }
 
 // postWhenGreen posts once CI passes: now, if it already has. Where the post
@@ -232,9 +249,7 @@ func (p messagingPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
 	}
 
 	m = m.closeOverlay().noticed(m.marks.inFlight + " will announce to " + p.destination() + " once CI passes")
-	m.messaging.pending, m.messaging.send.err, m.messaging.dropped = queuedPost{
-		pull: m.review.pull.Number, post: p.outgoing(),
-	}, nil, ""
+	m.messaging.pending, m.messaging.send.err, m.messaging.dropped = m.queued(p.outgoing()), nil, ""
 
 	return m.keepPolling(m.checkCI())
 }
@@ -245,20 +260,23 @@ func (p messagingPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
 // one would otherwise follow it once CI passed, and the channel would read it
 // twice.
 func (m Model) sendToMessaging(out outgoingAnnouncement) (Model, tea.Cmd) {
-	return m.sending(out, loop.AnnounceMemory{Recorded: nil, Record: nil, RecordGroups: nil})
+	return m.sending(out, loop.AnnounceMemory{Recorded: nil, Record: nil, RecordGroups: nil}, m.messaging.pending)
 }
 
 // sendHeld posts the announcement that waited for CI, unless the store, read
 // again as it goes, says another session announced the same moment
-// meanwhile: the session's own list was read at its start.
-func (m Model) sendHeld(out outgoingAnnouncement) (Model, tea.Cmd) {
-	return m.sending(out, loop.AnnounceMemory{Recorded: m.deps.Store.Announced, Record: nil, RecordGroups: nil})
+// meanwhile: the session's own list was read at its start. One the gate
+// refuses goes back to waiting.
+func (m Model) sendHeld(held queuedPost) (Model, tea.Cmd) {
+	return m.sending(held.post, loop.AnnounceMemory{Recorded: m.deps.Store.Announced, Record: nil, RecordGroups: nil},
+		held)
 }
 
 // sending posts out, as sendToMessaging says, once elsewhere, the store's
 // record of other sessions' announcements, holds no announcement of its
-// moment.
-func (m Model) sending(out outgoingAnnouncement, elsewhere loop.AnnounceMemory) (Model, tea.Cmd) {
+// moment. held is the post that was waiting for CI, if one was — the one it
+// sends, or the one it replaces — to wait again should the gate refuse it.
+func (m Model) sending(out outgoingAnnouncement, elsewhere loop.AnnounceMemory, held queuedPost) (Model, tea.Cmd) {
 	ctx, memory := m.session, loop.AnnounceMemory{Record: m.deps.Store.RecordAnnounce}
 	seams := loop.DeliverSeams{Post: m.deps.Messaging.Post, CheckCI: m.deps.announceCI}
 
@@ -273,7 +291,9 @@ func (m Model) sending(out outgoingAnnouncement, elsewhere loop.AnnounceMemory) 
 	m.messaging.send, m.messaging.pending, m.messaging.dropped = starting(), queuedPost{}, ""
 
 	return m, func() tea.Msg {
-		posted := messagingPosted{made: delivery.Made(), to: out.to, opened: out.opened, err: nil, elsewhere: false}
+		posted := messagingPosted{
+			made: delivery.Made(), to: out.to, opened: out.opened, err: nil, elsewhere: false, held: held,
+		}
 		if elsewhere.Holds(ctx, posted.made) {
 			posted.elsewhere = true
 
@@ -311,6 +331,9 @@ type messagingPosted struct {
 	// elsewhere is that it was not posted, another session having announced
 	// the same moment while it waited.
 	elsewhere bool
+	// held is the post waiting for CI it sent, if it was one, to wait again
+	// when the gate refused it.
+	held queuedPost
 }
 
 var _ applier = messagingPosted{}
@@ -320,6 +343,15 @@ var _ applier = messagingPosted{}
 // written in a preview long closed, so it leaves one opened since as it is.
 func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
 	preview, open := beneath[messagingPreview](m, msg.opened)
+
+	if refusedByGate(msg.err) && msg.held.waiting() {
+		m = m.waitingAgain(msg.held, msg.err)
+		if !open {
+			return m.heldBack(msg.err)
+		}
+
+		return m.withBeneath(preview.failed(msg.err)).noticedFailure(msg.err).keepPolling(nil)
+	}
 
 	if _, notKept := loop.NotRememberedReason(msg.err); msg.err != nil && !notKept {
 		m.messaging.send = m.messaging.send.failed(msg.err)

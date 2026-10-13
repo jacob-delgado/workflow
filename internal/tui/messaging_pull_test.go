@@ -6,7 +6,6 @@ package tui_test
 import (
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
@@ -182,24 +181,6 @@ func TestAPostWaitingForCIDoesNotOutliveABranchSwitch(t *testing.T) {
 	if calls := away.asked("post "); len(calls) != 0 {
 		t.Errorf("posted %q on coming back to the branch", calls)
 	}
-}
-
-func TestAnAnnouncementCIFailedNamesTheServiceItWasFor(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// The interval is past the harness's horizon, so the announcement is queued
-	// before CI fails.
-	failing := newWorld()
-	failing.cfg.Messaging = teamsMessaging()
-	failing.ciInterval = 2 * time.Second
-	failing.ci = []forge.CI{{State: forge.CIRunning}, {State: forge.CIFailed}}
-
-	// Act
-	dropped := typing(t, failing.live(t, 120, 40), "5", "p", "w")
-
-	// Assert
-	requireScreen(t, dropped.View().Content, "✗ CI failed, so nothing was announced to Teams")
 }
 
 func TestAnAnnouncementDroppedForAnotherPullRequestNamesTheServiceItWasFor(t *testing.T) {

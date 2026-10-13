@@ -54,7 +54,7 @@ type keyMap struct {
 	newPullRequest, checks, rerun, merge, finish key.Binding
 
 	// Messaging.
-	compose, peopleAndGroups key.Binding
+	compose, peopleAndGroups, stopWaiting key.Binding
 
 	// Tasks.
 	startStop, markDone, addTask, annotateTask, modifyTask, undoTask, syncTasks key.Binding
