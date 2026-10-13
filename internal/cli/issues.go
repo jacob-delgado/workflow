@@ -266,3 +266,31 @@ func commentHeading(comment jira.Comment) string {
 
 	return author + " · " + comment.Created.Format(time.DateOnly)
 }
+
+// completeAssignedIssues completes an issue argument with the keys of the issues
+// assigned to you, for `workflow branch <tab>`. A tracker that cannot be reached
+// offers nothing rather than an error.
+func completeAssignedIssues(cmd *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	dir, err := workingDir(cmd)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	// Completion runs on every <tab>, so it records nothing in a request log.
+	conn := connectAt(cmd.Context(), cmd, dir, nil)
+
+	result, err := conn.deps.Jira.Search(cmd.Context(), jira.AssignedToMe, 0)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	var keys []string
+
+	for _, issue := range result.Issues {
+		if key := string(issue.Key); strings.HasPrefix(key, toComplete) {
+			keys = append(keys, key)
+		}
+	}
+
+	return keys, cobra.ShellCompDirectiveNoFileComp
+}
