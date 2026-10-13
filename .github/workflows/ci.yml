@@ -255,9 +255,9 @@ jobs:
   # Advisory, not a gate: one table of every suite's counts and the coverage,
   # with its change against main's last baseline, written to the run summary
   # and handed to the coverage comment. It runs no suite: it reads what the
-  # Test, Branch coverage, Web and E2E jobs uploaded, whether they passed or
-  # not, so a failed suite shows as its counts and one that never reported as
-  # dashes.
+  # Test, Branch coverage, Web, E2E and E2E (server) jobs uploaded, whether
+  # they passed or not, so a failed suite shows as its counts and one that
+  # never reported as dashes.
   summary:
     name: Test summary
     needs: [test, branch-coverage, web, e2e, e2e-server]
@@ -530,7 +530,8 @@ jobs:
 
   # Deliberately NOT in the gate: Test summary, Coverage comment and Coverage
   # baseline. All three are reporting, not gating — Test summary reports what
-  # the Test, Branch coverage, Web and E2E jobs uploaded, and the coverage
-  # FLOORS live inside the Test and Branch coverage jobs, so a coverage
-  # regression already fails there. The baseline job is also skipped on pull
-  # requests by design, and a gate should not have to special-case that.
+  # the Test, Branch coverage, Web, E2E and E2E (server) jobs uploaded, and
+  # the coverage FLOORS live inside the Test and Branch coverage jobs, so a
+  # coverage regression already fails there. The baseline job is also skipped
+  # on pull requests by design, and a gate should not have to special-case
+  # that.
