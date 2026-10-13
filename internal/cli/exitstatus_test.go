@@ -358,6 +358,8 @@ func TestEveryCommandRefusesAConfigurationItCannotRead(t *testing.T) {
 		strings.Fields("reviews"),
 		strings.Fields("summary"),
 		strings.Fields("branch PROJ-1"),
+		strings.Fields("issues"),
+		strings.Fields("issue PROJ-1"),
 		strings.Fields("pr --dry-run"),
 		strings.Fields("finish --dry-run"),
 		strings.Fields("announce --dry-run"),
