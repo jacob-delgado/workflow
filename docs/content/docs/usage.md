@@ -446,9 +446,9 @@ merges by the one you choose; once it has merged, `F` previews the three git
 commands that finish the branch — switch to the base, catch it up, delete the
 branch — and runs them on `enter`. The delete is a force delete, so `F` is
 offered only when it loses nothing — the branch is at the commit that merged,
-or its upstream holds every commit on it. `n` stays on offer after a merge, as
-`workflow pr` allows, so commits made on the branch since can go up in a new
-pull request.
+or its upstream holds every commit on it — and the pane says why not
+otherwise. `n` stays on offer after a merge, as `workflow pr` allows, so
+commits made on the branch since can go up in a new pull request.
 
 ### Announce it
 
