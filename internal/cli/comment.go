@@ -46,7 +46,8 @@ func newCommentCmd(prompt Prompt) *cobra.Command {
 		Example: examples(
 			`git log -1 --format=%B | workflow comment PROJ-7 --yes   # the text on stdin, never quoted`,
 		),
-		Args: cobra.ExactArgs(1),
+		Args:              cobra.ExactArgs(1),
+		ValidArgsFunction: completeAssignedIssues,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommentCommand(cmd, prompt, args[0], opts)
 		},
