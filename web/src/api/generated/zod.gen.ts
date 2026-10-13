@@ -107,6 +107,7 @@ export const zProblem = z.object({
         'rate_limited',
         'fetch_failed',
         'check_failed',
+        'ci_failed',
         'internal'
     ]),
     retry_after: z.int().gte(1).optional()

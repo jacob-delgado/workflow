@@ -31,6 +31,13 @@ var (
 	// ErrEmptyAnnouncement refuses an announcement edited down to nothing:
 	// guidance, not a failure.
 	ErrEmptyAnnouncement = errors.New("nothing to announce: the message was empty")
+	// ErrCIFailed refuses an announcement of a pull request a check failed
+	// on: what it announces is not ready for anyone to look at.
+	ErrCIFailed = errors.New("a check failed on the pull request")
+	// ErrCIUnread refuses an announcement whose pull request's CI could not
+	// be read, so nothing failing on it could not be confirmed. It wraps the
+	// read's own error.
+	ErrCIUnread = errors.New("the pull request's CI could not be read")
 )
 
 // NotRememberedWarning is what every surface says of an announcement that
@@ -258,50 +265,120 @@ func (m AnnounceMemory) HoldsNow(ctx context.Context, pull forge.PullRequest, fo
 }
 
 // Delivery is an announcement on its way out: the channel it goes to — empty
-// for the service's own — its text, the announcement it makes, and whom it
-// tags. The zero Mentions tags no one.
+// for the service's own — its text, the pull request it announces and the
+// head commit its CI is read at, the moment it marks, and whom it tags. The
+// zero Mentions tags no one.
 type Delivery struct {
 	Channel  string
 	Text     string
-	Made     Announced
+	Pull     forge.PullRequest
+	Head     string
+	Moment   messaging.Moment
 	Mentions messaging.Mentions
 }
 
+// Made is the announcement the delivery makes: its pull request at its
+// moment.
+func (d Delivery) Made() Announced {
+	return Announced{Pull: d.Pull.Number, Moment: d.Moment}
+}
+
+// Made is the announcement posting the composed one makes: its pull request
+// at its moment.
+func (c Composed) Made() Announced {
+	return Announced{Pull: c.Pull.Number, Moment: c.Announcement.Moment}
+}
+
+// Delivery is the composed announcement on its way out as text, to channel,
+// tagging mentions.
+func (c Composed) Delivery(channel, text string, mentions messaging.Mentions) Delivery {
+	return Delivery{
+		Channel: channel, Text: text, Pull: c.Pull, Head: c.Branch.Head, Moment: c.Announcement.Moment,
+		Mentions: mentions,
+	}
+}
+
+// DeliverSeams are what a delivery goes out through: the post, and the read
+// of the CI the gate makes before it. A nil Post cannot announce; a nil
+// CheckCI cannot confirm that nothing failed, so it refuses too.
+type DeliverSeams struct {
+	Post    func(ctx context.Context, channel, text string) error
+	CheckCI func(ctx context.Context, pull forge.PullRequest, head string) (forge.CI, error)
+}
+
 // Deliver posts the delivery under ctx, its tags on a line after the text,
-// and, once it has gone out, records what it made, so a later session knows
-// not to make it again, and the groups it tagged, whether or not ctx has ended
-// since. A post that fails records nothing; the error is the post's own, for
-// the caller to word. A post that went out but was not remembered is
-// ErrNotRemembered, carrying why, which NotRememberedReason reads: the post
-// was made, and the caller says so with NotRememberedWarning.
-func Deliver(
-	ctx context.Context, post func(ctx context.Context, channel, text string) error, memory AnnounceMemory,
-	delivery Delivery,
-) error {
-	if post == nil {
+// once ClearToAnnounce finds nothing failed on its pull request, and, once it
+// has gone out, records what it made, so a later session knows not to make it
+// again, and the groups it tagged, whether or not ctx has ended since. A
+// refusal or a post that fails records nothing; the error is the gate's or
+// the post's own, for the caller to word. A post that went out but was not
+// remembered is ErrNotRemembered, carrying why, which NotRememberedReason
+// reads: the post was made, and the caller says so with NotRememberedWarning.
+func Deliver(ctx context.Context, seams DeliverSeams, memory AnnounceMemory, delivery Delivery) error {
+	if seams.Post == nil {
 		return ErrAnnounceUnavailable
 	}
 
-	err := post(ctx, delivery.Channel, delivery.textWithTags())
+	// Trade-off TRADE-40: the gate reads the CI again as it posts, whatever a
+	// surface read before, so a reading an interval old cannot let a failed
+	// check through.
+	_, err := ClearToAnnounce(ctx, seams.CheckCI, delivery.Pull, delivery.Head)
 	if err != nil {
 		return err
 	}
 
-	// The post has gone out, so what it made is remembered even if its asker
-	// has left meanwhile: one not remembered is offered, and posted, again.
-	kept := context.WithoutCancel(ctx)
-
-	if memory.RecordGroups != nil {
-		// The post has gone out, which is what the caller asked for: a choice
-		// not remembered is only offered unchecked next time.
-		_ = memory.RecordGroups(kept, delivery.groupIDs())
+	err = seams.Post(ctx, delivery.Channel, delivery.textWithTags())
+	if err != nil {
+		return err
 	}
 
+	remember(ctx, memory, delivery)
+
+	return recordMade(ctx, memory, delivery.Made())
+}
+
+// ClearToAnnounce reads pull's CI at head under ctx and answers it when
+// nothing has failed on it: none reported, running or passed. A failed check
+// is ErrCIFailed; a CI that cannot be read, or no way to read it, is
+// ErrCIUnread, wrapping the read's error, since nothing failing cannot be
+// confirmed.
+func ClearToAnnounce(
+	ctx context.Context, check func(context.Context, forge.PullRequest, string) (forge.CI, error),
+	pull forge.PullRequest, head string,
+) (forge.CI, error) {
+	if check == nil {
+		return forge.CI{}, ErrCIUnread
+	}
+
+	reported, err := check(ctx, pull, head)
+	if err != nil {
+		return forge.CI{}, fmt.Errorf("%w: %w", ErrCIUnread, err)
+	}
+
+	if reported.State == forge.CIFailed {
+		return reported, ErrCIFailed
+	}
+
+	return reported, nil
+}
+
+// remember records the groups the delivery tagged, once it has gone out.
+// The post is what the caller asked for: a choice not remembered is only
+// offered unchecked next time, so its failure is not the caller's.
+func remember(ctx context.Context, memory AnnounceMemory, delivery Delivery) {
+	if memory.RecordGroups != nil {
+		_ = memory.RecordGroups(context.WithoutCancel(ctx), delivery.groupIDs())
+	}
+}
+
+// recordMade remembers made, which has gone out, even if its asker has left
+// meanwhile: one not remembered is offered, and posted, again.
+func recordMade(ctx context.Context, memory AnnounceMemory, made Announced) error {
 	if memory.Record == nil {
 		return nil
 	}
 
-	err = memory.Record(kept, delivery.Made)
+	err := memory.Record(context.WithoutCancel(ctx), made)
 	if err != nil {
 		return notRememberedError{why: err}
 	}

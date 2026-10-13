@@ -125,6 +125,7 @@ const meanings: Record<Problem['code'], { status: number; title: string }> = {
   rate_limited: { status: 503, title: 'Rate limited' },
   fetch_failed: { status: 502, title: 'Fetch failed' },
   check_failed: { status: 422, title: 'Check failed' },
+  ci_failed: { status: 409, title: 'CI failed' },
   internal: { status: 500, title: 'Internal error' },
 }
 

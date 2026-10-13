@@ -119,11 +119,13 @@ func (s *server) deliver(ctx context.Context, post announcePost) (string, error)
 	s.delivering.Lock()
 	defer s.delivering.Unlock()
 
-	if s.announcedAlready(ctx, post.delivery.Made) {
+	if s.announcedAlready(ctx, post.delivery.Made()) {
 		return "", errAnnouncedAlready
 	}
 
-	return s.delivered(loop.Deliver(ctx, s.deps.Messaging.Post, post.memory, post.delivery))
+	seams := loop.DeliverSeams{Post: s.deps.Messaging.Post, CheckCI: s.deps.Forge.CheckStatus}
+
+	return s.delivered(loop.Deliver(ctx, seams, post.memory, post.delivery))
 }
 
 // announcedBefore refuses to announce pull at a moment it was announced at

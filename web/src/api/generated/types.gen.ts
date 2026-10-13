@@ -183,9 +183,9 @@ export type Problem = {
      */
     detail: string;
     /**
-     * A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the base remote names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is; rate_limited is an upstream asking to be asked again later, unreachable one that could not be reached at all; unauthorized is a request that presented no session, or another run's.
+     * A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the base remote names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is; rate_limited is an upstream asking to be asked again later, unreachable one that could not be reached at all; unauthorized is a request that presented no session, or another run's; ci_failed is an announcement refused because a check failed on its pull request.
      */
-    code: 'bad_request' | 'unauthorized' | 'not_found' | 'method_not_allowed' | 'conflict' | 'unprocessable' | 'not_set_up' | 'too_long' | 'precondition_required' | 'unreachable' | 'rate_limited' | 'fetch_failed' | 'check_failed' | 'internal';
+    code: 'bad_request' | 'unauthorized' | 'not_found' | 'method_not_allowed' | 'conflict' | 'unprocessable' | 'not_set_up' | 'too_long' | 'precondition_required' | 'unreachable' | 'rate_limited' | 'fetch_failed' | 'check_failed' | 'ci_failed' | 'internal';
     /**
      * For rate_limited, how many seconds the upstream asked to wait, when it said; the answer's Retry-After header says the same.
      */
@@ -3933,7 +3933,7 @@ export type AnnounceData = {
 
 export type AnnounceErrors = {
     /**
-     * There is no pull request to announce, the server is not running in a git repository, or the announcement changed since the given text was previewed, or whom it tags did since the mentions' users were; or it was already announced at this moment; or, to post when CI passes, it is not ready for review or its pull request reports no CI.
+     * There is no pull request to announce, the server is not running in a git repository, or the announcement changed since the given text was previewed, or whom it tags did since the mentions' users were; or it was already announced at this moment; or, to post when CI passes, it is not ready for review or its pull request reports no CI; or, code ci_failed, a check failed on the pull request, so it was not announced.
      */
     409: Problem;
     /**

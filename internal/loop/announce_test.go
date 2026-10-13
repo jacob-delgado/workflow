@@ -424,7 +424,9 @@ func (d *deliveries) memory() loop.AnnounceMemory {
 
 // merged is the delivery these tests send: the pull request's merge, to #dev.
 func merged() loop.Delivery {
-	return loop.Delivery{Channel: "#dev", Text: "merged", Made: loop.Announced{Pull: 9, Moment: messaging.MomentMerged}}
+	return loop.Delivery{
+		Channel: devChannel, Text: "merged", Pull: forge.PullRequest{Number: 9}, Moment: messaging.MomentMerged,
+	}
 }
 
 func TestDeliverRecordsTheAnnouncementOnceItIsPosted(t *testing.T) {
@@ -434,11 +436,11 @@ func TestDeliverRecordsTheAnnouncementOnceItIsPosted(t *testing.T) {
 	var sent deliveries
 
 	// Act
-	err := loop.Deliver(t.Context(), sent.post(nil), sent.memory(), merged())
+	err := loop.Deliver(t.Context(), passing(sent.post(nil)), sent.memory(), merged())
 
 	// Assert
 	if err != nil || !slices.Equal(sent.posted, []string{"#dev merged"}) ||
-		!slices.Equal(sent.recorded, []loop.Announced{merged().Made}) {
+		!slices.Equal(sent.recorded, []loop.Announced{merged().Made()}) {
 		t.Errorf("Deliver = %v, posted %q, recorded %+v; want one post, then its record", err, sent.posted, sent.recorded)
 	}
 }
@@ -470,7 +472,7 @@ func TestDeliverRecordsNothingItCouldNotPost(t *testing.T) {
 			var sent deliveries
 
 			// Act
-			err := loop.Deliver(t.Context(), tt.post(&sent), sent.memory(), merged())
+			err := loop.Deliver(t.Context(), passing(tt.post(&sent)), sent.memory(), merged())
 
 			// Assert
 			if !errors.Is(err, tt.want) || len(sent.recorded) != 0 {
@@ -487,7 +489,7 @@ func TestDeliverPostsWithNothingToRememberItIn(t *testing.T) {
 	var sent deliveries
 
 	// Act
-	err := loop.Deliver(t.Context(), sent.post(nil), loop.AnnounceMemory{}, merged())
+	err := loop.Deliver(t.Context(), passing(sent.post(nil)), loop.AnnounceMemory{}, merged())
 
 	// Assert
 	if err != nil || len(sent.posted) != 1 {
@@ -504,7 +506,7 @@ func TestDeliverPostedButNotRememberedSaysSo(t *testing.T) {
 	forgetting := loop.AnnounceMemory{Record: func(context.Context, loop.Announced) error { return errSeam }}
 
 	// Act
-	err := loop.Deliver(t.Context(), sent.post(nil), forgetting, merged())
+	err := loop.Deliver(t.Context(), passing(sent.post(nil)), forgetting, merged())
 
 	// Assert
 	if !errors.Is(err, loop.ErrNotRemembered) || !errors.Is(err, errSeam) || len(sent.posted) != 1 {

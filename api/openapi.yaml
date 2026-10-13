@@ -1841,7 +1841,12 @@ paths:
         session may offer it again, as a held one's frame says too. The check
         and the post are one step, so of two asks at once one posts and the
         other is that 409; and while a held announcement is being posted,
-        announcing now or holding another is a 409 too.
+        announcing now or holding another is a 409 too. Nothing is posted
+        while a check has failed on the pull request: the server reads its CI
+        again as it posts, ready or merged alike, and a failed check is a 409
+        with code ci_failed; a CI it cannot read posts nothing either, and is
+        answered as a read that failed (a forge that cannot be reached is a
+        502).
       tags: [messaging]
       requestBody:
         required: true
@@ -1869,7 +1874,8 @@ paths:
             was previewed, or whom it tags did since the mentions' users were;
             or it was already announced at this moment; or, to post when CI
             passes, it is not ready for review or its pull
-            request reports no CI.
+            request reports no CI; or, code ci_failed, a check failed on the
+            pull request, so it was not announced.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -3030,8 +3036,9 @@ components:
             be used as it is; rate_limited is an upstream asking to be asked
             again later, unreachable one that could not be reached at all;
             unauthorized is a request that presented no session, or another
-            run's.
-          enum: [bad_request, unauthorized, not_found, method_not_allowed, conflict, unprocessable, not_set_up, too_long, precondition_required, unreachable, rate_limited, fetch_failed, check_failed, internal]
+            run's; ci_failed is an announcement refused because a check failed
+            on its pull request.
+          enum: [bad_request, unauthorized, not_found, method_not_allowed, conflict, unprocessable, not_set_up, too_long, precondition_required, unreachable, rate_limited, fetch_failed, check_failed, ci_failed, internal]
         retry_after:
           type: integer
           minimum: 1

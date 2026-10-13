@@ -7,6 +7,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 )
@@ -41,11 +42,11 @@ func TestAPostThatWentOutIsRememberedThoughItsAskerLeft(t *testing.T) {
 		},
 	}
 	delivery := loop.Delivery{
-		Channel: devChannel, Text: "ready", Made: loop.Announced{Pull: 9, Moment: messaging.MomentReady},
+		Channel: devChannel, Text: readyText, Pull: forge.PullRequest{Number: 9}, Moment: messaging.MomentReady,
 	}
 
 	// Act
-	err := loop.Deliver(ctx, post, memory, delivery)
+	err := loop.Deliver(ctx, passing(post), memory, delivery)
 	// Assert
 	if err != nil {
 		t.Fatalf("Deliver = %v, want the post delivered", err)
