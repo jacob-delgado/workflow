@@ -131,6 +131,48 @@ func TestPRAsksTheCodeOwnersOfTheBaseItIsGiven(t *testing.T) {
 	}
 }
 
+// A branch cut from release, opened into release, is drafted from its own
+// commit alone, not from release's too, which main never had.
+func TestPRDraftsFromTheCommitsPastTheBaseItIsGiven(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	fakeGh(t, ghResponses{})
+	repo := releaseRepo(t)
+	git(t, repo, "checkout", "-q", "-b", "fix/PROJ-3-release", "release")
+	writeRepoFile(t, repo, "api/release.go", "package api\n")
+	git(t, repo, "add", ".")
+	commit(t, repo, "fix: guard the release")
+	pretendPushed(t, repo)
+
+	// Act
+	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--dry-run", "--base", "release")
+
+	// Assert
+	if err != nil || !strings.Contains(printed.stdout, "fix: guard the release") ||
+		strings.Contains(printed.stdout, "hand the API to bea") {
+		t.Errorf("pr --base release = %v, printed %q; want only the commit past release drafted", err, printed.stdout)
+	}
+}
+
+func TestPRSaysWhenTheBaseItIsGivenIsNoBranch(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	fakeGh(t, ghResponses{})
+	repo := ownedRepo(t)
+
+	// Act
+	_, err := runStreams(t, repo, unusedPrompt(t), "pr", "--dry-run", "--base", "nonesuch")
+
+	// Assert
+	if !strings.Contains(fmt.Sprint(err), "nonesuch") {
+		t.Errorf("pr --base nonesuch = %v, want it refused, naming nonesuch", err)
+	}
+
+	wantExit(t, err, 1)
+}
+
 func TestPRRefusesABaseGitWouldNotName(t *testing.T) {
 	t.Parallel()
 

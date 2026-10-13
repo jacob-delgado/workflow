@@ -95,9 +95,8 @@ func newPRCmd(prompt Prompt) *cobra.Command {
 			"--title and --body stand in for the title and description composed, and\n" +
 			"--template names the repository's template the description starts from;\n" +
 			"--reviewer asks the people and teams it names in place of the code owners;\n" +
-			"--draft opens it as a draft; and --base merges it into another branch, whose\n" +
-			"code owners are asked instead, though what is composed still comes from the\n" +
-			"commits since the base the branch left.\n\n" +
+			"--draft opens it as a draft; and --base merges it into another branch, drafting\n" +
+			"the title and description from the commits past it and asking its code owners.\n\n" +
 			"Once it is open, it offers — as the interface does — to link it on the branch's\n" +
 			"issue, then to move the issue to the review status (jira.review_status). With\n" +
 			"messaging set up, it ends by naming the next step, workflow announce, on stderr.\n\n" +
@@ -141,11 +140,12 @@ func runPRCommand(cmd *cobra.Command, prompt Prompt, opts prOptions) error {
 	cfg, deps := conn.cfg, conn.deps
 	seams := prSeams{
 		Compose: loop.PullSeams{
-			Branch:    deps.Git.Branch,
-			FindPull:  deps.Forge.FindPullRequest,
-			Templates: deps.Forge.Templates,
-			Issue:     deps.Jira.Issue,
-			BrowseURL: deps.Jira.BrowseURL,
+			Branch:     deps.Git.Branch,
+			BranchOnto: deps.Git.BranchOnto,
+			FindPull:   deps.Forge.FindPullRequest,
+			Templates:  deps.Forge.Templates,
+			Issue:      deps.Jira.Issue,
+			BrowseURL:  deps.Jira.BrowseURL,
 			Owners: loop.OwnerSeams{
 				ChangedPaths: deps.Git.ChangedPaths, CodeOwnersAt: deps.Git.CodeOwnersAt, Author: deps.Forge.Author,
 			},
