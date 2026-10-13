@@ -35,8 +35,9 @@ vars:
   # The --web dispatch has since gained a public surface (cli.NewRootCmdOver) and
   # its tests are back, in internal/cli/root_test.go.
   #
-  # It rose 94→96 when the pre-1.0 paydown ended: the module then read 98.4%,
-  # and the floor is floor(measured) - 2.
+  # It rose 94→96 when the pre-1.0 paydown ended: the module then read 98.4%
+  # as the dev user locally, and 98.1% in CI on 1bdb36a4, and both give
+  # floor(measured) - 2 = 96.
   COVERAGE_MIN: 96
   # The condition coverage floor, enforced over every package with tests —
   # scripts/gobco-report.sh reads a package of build-tagged twins a file at a
