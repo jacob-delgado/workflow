@@ -18,7 +18,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/store"
-	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 // anaOwner is the forge owner the tests link to the Slack user Ana.
@@ -62,7 +61,7 @@ func isolatedStoreDir(t *testing.T) string {
 func TestAnOwnerLinkIsKeyedByTheForgeHostAlone(t *testing.T) {
 	// Arrange
 	dir := isolatedStoreDir(t)
-	deps := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: credentialedRemote}, nil)
+	deps := wired(t, config.Default(), onOrigin(t.TempDir(), credentialedRemote), nil)
 
 	// Act
 	err := deps.Store.LinkOwner(t.Context(), workspace, anaLinked())
@@ -84,9 +83,9 @@ func TestAnOwnerLinkIsKeyedByTheForgeHostAlone(t *testing.T) {
 func TestAnOwnerLinkIsSharedByEveryRepositoryOnTheHost(t *testing.T) {
 	// Arrange
 	isolatedStoreDir(t)
-	first := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: credentialedRemote}, nil)
+	first := wired(t, config.Default(), onOrigin(t.TempDir(), credentialedRemote), nil)
 	second := wired(t, config.Default(),
-		wiring.Workspace{Root: t.TempDir(), Remote: "git@GitHub.com:other/repo.git"}, nil)
+		onOrigin(t.TempDir(), "git@GitHub.com:other/repo.git"), nil)
 
 	err := first.Store.LinkOwner(t.Context(), workspace, anaLinked())
 	if err != nil {
@@ -106,7 +105,7 @@ func TestAnOwnerLinkIsSharedByEveryRepositoryOnTheHost(t *testing.T) {
 func TestAForgottenOwnerIsUndecidedThroughTheSeams(t *testing.T) {
 	// Arrange
 	isolatedStoreDir(t)
-	deps := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: credentialedRemote}, nil)
+	deps := wired(t, config.Default(), onOrigin(t.TempDir(), credentialedRemote), nil)
 
 	notOnSlack := loop.OwnerLink{Owner: "dan", Team: false, OnSlack: false, Slack: loop.SlackTarget{}}
 
@@ -130,7 +129,7 @@ func TestAForgottenOwnerIsUndecidedThroughTheSeams(t *testing.T) {
 func TestALinkOfTheWrongShapeIsRefusedThroughTheSeams(t *testing.T) {
 	// Arrange
 	isolatedStoreDir(t)
-	deps := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: credentialedRemote}, nil)
+	deps := wired(t, config.Default(), onOrigin(t.TempDir(), credentialedRemote), nil)
 	link := loop.OwnerLink{Owner: anaOwner, Team: false, OnSlack: true, Slack: podGroup()}
 
 	// Act
@@ -145,7 +144,7 @@ func TestALinkOfTheWrongShapeIsRefusedThroughTheSeams(t *testing.T) {
 func TestTheGroupsOfARepositoryAreKeyedByTheRepository(t *testing.T) {
 	// Arrange
 	dir := isolatedStoreDir(t)
-	deps := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: credentialedRemote}, nil)
+	deps := wired(t, config.Default(), onOrigin(t.TempDir(), credentialedRemote), nil)
 
 	// Act
 	err := deps.Store.SetRepoGroups(t.Context(), workspace, []loop.SlackTarget{podGroup()})
@@ -167,7 +166,7 @@ func TestTheGroupsOfARepositoryAreKeyedByTheRepository(t *testing.T) {
 func TestTheLastChoiceOfGroupsRoundTripsThroughTheSeams(t *testing.T) {
 	// Arrange
 	isolatedStoreDir(t)
-	deps := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: credentialedRemote}, nil)
+	deps := wired(t, config.Default(), onOrigin(t.TempDir(), credentialedRemote), nil)
 
 	err := deps.Store.SetRepoGroups(t.Context(), workspace, []loop.SlackTarget{podGroup()})
 	if err != nil {
@@ -196,7 +195,7 @@ func TestADisabledStoreOffersNoKeptAssociations(t *testing.T) {
 	cfg.Store.Disabled = true
 
 	// Act
-	deps := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: credentialedRemote}, nil)
+	deps := wired(t, cfg, onOrigin(t.TempDir(), credentialedRemote), nil)
 
 	// Assert
 	kept := deps.Store
@@ -211,7 +210,7 @@ func TestNoForgeHostOffersNoOwnerLinks(t *testing.T) {
 	isolatedStoreDir(t)
 
 	// Act
-	deps := wired(t, config.Default(), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil)
+	deps := wired(t, config.Default(), onOrigin(t.TempDir(), ""), nil)
 
 	// Assert
 	kept := deps.Store
@@ -228,7 +227,7 @@ func TestADryRunNeverMakesTheKeptFile(t *testing.T) {
 	// Arrange
 	dir := isolatedStoreDir(t)
 	readOnly := processEnvironment().ReadOnlyStore(config.Default(),
-		wiring.Workspace{Root: t.TempDir(), Remote: credentialedRemote})
+		onOrigin(t.TempDir(), credentialedRemote))
 
 	// Act
 	linkErr := readOnly.LinkOwner(t.Context(), workspace, anaLinked())

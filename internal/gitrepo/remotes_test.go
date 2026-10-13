@@ -264,3 +264,22 @@ func TestABranchFinishesOntoItsBaseFromTheBaseRemote(t *testing.T) {
 		t.Errorf("Finishing = %+v, %v; want %+v", branch.Finishing(), err, want)
 	}
 }
+
+func TestDescribeReadsTheBaseRemoteOfAForksClone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	replies := with(onABranch(), map[string]reply{
+		readRemotes:                            forkClone(),
+		"git -C /work remote get-url upstream": {out: []byte("git@github.com:owner/repo.git\n")},
+	})
+
+	// Act
+	repo, err := gitrepo.At(fakeRunner(t, replies), workDir).Describe(t.Context())
+
+	// Assert
+	want := gitrepo.Remote{Name: upstreamName, URL: "git@github.com:owner/repo.git"}
+	if err != nil || repo.Base != want || repo.Origin != originURL {
+		t.Errorf("Describe = %+v, %v; want origin kept and the base %+v", repo, err, want)
+	}
+}

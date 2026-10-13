@@ -166,7 +166,7 @@ func TestListReviewsSaysThereIsNoForgeToAsk(t *testing.T) {
 	cases := map[string]func(context.Context) ([]forge.ReviewRequest, error){
 		noForgeSeam: nil,
 		"outside a repository": func(context.Context) ([]forge.ReviewRequest, error) {
-			return nil, fmt.Errorf("reading origin: %w", forge.ErrNotARemote)
+			return nil, fmt.Errorf("reading the base remote: %w", forge.ErrNotARemote)
 		},
 		"an origin on no forge it can read": func(context.Context) ([]forge.ReviewRequest, error) {
 			return nil, fmt.Errorf("%s — set forge.kind and forge.host: %w", forgeHost, forge.ErrUnknownForge)

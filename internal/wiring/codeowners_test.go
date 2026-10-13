@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/config"
-	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 func TestCodeOwnersAreLookedForWhereTheRemotesForgeLooks(t *testing.T) {
@@ -42,7 +41,7 @@ func TestCodeOwnersAreLookedForWhereTheRemotesForgeLooks(t *testing.T) {
 			git(t, root, "add", ".gitlab/CODEOWNERS")
 			git(t, root, "commit", "--quiet", "-m", "chore: name the owners")
 
-			gitSeams := wired(t, config.Default(), wiring.Workspace{Root: root, Remote: tt.remote, Repository: true}, nil).Git
+			gitSeams := wired(t, config.Default(), withRepository(onOrigin(root, tt.remote)), nil).Git
 
 			// Act
 			file, found, err := gitSeams.CodeOwnersAt(t.Context(), "main")

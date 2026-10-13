@@ -20,8 +20,12 @@ const (
 	showToplevel      = "git -C /work rev-parse --show-toplevel"
 )
 
-// workDir is the directory every fixture below describes.
-const workDir = "/work"
+// workDir is the directory every fixture below describes, and originURL the
+// address its origin answers with.
+const (
+	workDir   = "/work"
+	originURL = "git@github.com:example/repo.git"
+)
 
 // Sentinels for the fake runner. Declared here rather than built at the point of
 // failure because err113 forbids the latter, in tests as well as production.
@@ -91,7 +95,8 @@ func onABranch() map[string]reply {
 	return map[string]reply{
 		showToplevel:                         {out: []byte("/work\n")},
 		showCurrentBranch:                    {out: []byte("feat/token-redaction\n")},
-		"git -C /work remote get-url origin": {out: []byte("git@github.com:example/repo.git\n")},
+		"git -C /work remote get-url origin": {out: []byte(originURL + "\n")},
+		readRemotes:                          {err: errNoRef},
 	}
 }
 
@@ -99,7 +104,8 @@ func TestDescribeReadsTheRepository(t *testing.T) {
 	t.Parallel()
 
 	onBranch := gitrepo.Repo{
-		Root: workDir, Branch: "feat/token-redaction", Origin: "git@github.com:example/repo.git", Detached: false,
+		Root: workDir, Branch: "feat/token-redaction", Origin: originURL, Detached: false,
+		Base: gitrepo.Remote{Name: gitrepo.DefaultRemote, URL: originURL},
 	}
 
 	cases := map[string]struct {
@@ -112,12 +118,17 @@ func TestDescribeReadsTheRepository(t *testing.T) {
 		// to know, because there is no branch to base work on.
 		"a detached head": {
 			replies: with(onABranch(), map[string]reply{showCurrentBranch: {out: []byte("\n")}}),
-			want:    gitrepo.Repo{Root: workDir, Branch: "", Origin: onBranch.Origin, Detached: true},
+			want: gitrepo.Repo{
+				Root: workDir, Branch: "", Origin: onBranch.Origin, Detached: true, Base: onBranch.Base,
+			},
 		},
 		// A repository without a remote still works.
 		"no origin": {
 			replies: with(onABranch(), map[string]reply{"git -C /work remote get-url origin": {err: errNoSuchRemote}}),
-			want:    gitrepo.Repo{Root: workDir, Branch: onBranch.Branch, Origin: "", Detached: false},
+			want: gitrepo.Repo{
+				Root: workDir, Branch: onBranch.Branch, Origin: "", Detached: false,
+				Base: gitrepo.Remote{Name: gitrepo.DefaultRemote, URL: ""},
+			},
 		},
 	}
 

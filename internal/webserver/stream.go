@@ -304,7 +304,7 @@ func panelProblems(problems api.PanelProblems) *api.PanelProblems {
 // panelProblem is the curated problem a panel shows for the error its read
 // failed with, or nil when it read, or when there was nothing to ask: no
 // repository. A service that is not set up — no credential, no forge the
-// origin names — is a problem whose code says so, which the page shows as
+// base remote names — is a problem whose code says so, which the page shows as
 // how to set it up rather than as a failure. It goes through faultProblem,
 // as an answer's error does, so its detail never carries a host or a
 // credential.

@@ -94,7 +94,7 @@ func (e Environment) Deps(cfg config.Config, where Workspace, log *RequestLog) (
 
 	deps := tui.Deps{
 		Jira:         trackerDeps(cfg, jiraClient, setup, connect),
-		Git:          e.gitDeps(where.Root, func() forge.Kind { return ForgeKind(settings.current(), where.Remote) }),
+		Git:          e.gitDeps(where.Root, func() forge.Kind { return ForgeKind(settings.current(), where.Base.URL) }),
 		Forge:        forgeDeps(setup, connect),
 		Messaging:    messagingDeps(messagingSet, slack),
 		Hooks:        e.hookDeps(where.Root),

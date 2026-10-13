@@ -36,7 +36,8 @@ func TestSummaryLeavesOutASourceThatIsNotSetUp(t *testing.T) {
 	}
 
 	for _, want := range []string{
-		"The forge is not set up, so it was left out: origin does not name a repository on a forge",
+		"The forge is not set up, so it was left out: the base remote (upstream in a fork's clone, " +
+			"else origin), or a branch's push remote, does not name a repository on a forge",
 		"Taskwarrior is not set up, so it was left out: Taskwarrior is not installed",
 	} {
 		if !strings.Contains(printed.stderr, want) {

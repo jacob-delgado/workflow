@@ -183,7 +183,8 @@ type repositoryFacts struct {
 }
 
 // repositoryFactsFor gathers the git facts of the directory run was run from,
-// returning the raw remote alongside so the other sections can parse it — the
+// returning the base remote's raw URL alongside — the forge, its tracker and
+// its credential are the base's — so the other sections can parse it; the
 // facts carry only the masked form, since a remote can carry a credential just
 // as a base URL can.
 func repositoryFactsFor(ctx context.Context, run doctorRun) (repositoryFacts, string) {
@@ -198,8 +199,8 @@ func repositoryFactsFor(ctx context.Context, run doctorRun) (repositoryFacts, st
 
 	return repositoryFacts{
 		InsideWorkTree: true, Root: repo.Root, Branch: repo.Branch, Detached: repo.Detached,
-		Remote: config.DisplayURL(repo.Origin), Forge: forgeLabel(repo.Origin),
-	}, repo.Origin
+		Remote: config.DisplayURL(repo.Origin), Forge: forgeLabel(repo.Base.URL),
+	}, repo.Base.URL
 }
 
 // noRepositoryReason says why dir has no repository to report: git is not

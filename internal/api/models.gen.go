@@ -1036,7 +1036,7 @@ type ActivitySource struct {
 	// Source A place work leaves a trace.
 	Source ActivitySourceName `json:"source"`
 
-	// State How the source answered: read; not_set_up, when there was nothing set up to ask — no credential, no forge the origin names, no Taskwarrior installed, no git user.email — so it was left out; or failed, when a source that is set up was asked and could not be read.
+	// State How the source answered: read; not_set_up, when there was nothing set up to ask — no credential, no forge the base remote names, no Taskwarrior installed, no git user.email — so it was left out; or failed, when a source that is set up was asked and could not be read.
 	State ActivitySourceState `json:"state"`
 
 	// Truncated The source had more than it gave.
@@ -1046,7 +1046,7 @@ type ActivitySource struct {
 // ActivitySourceName A place work leaves a trace.
 type ActivitySourceName string
 
-// ActivitySourceState How the source answered: read; not_set_up, when there was nothing set up to ask — no credential, no forge the origin names, no Taskwarrior installed, no git user.email — so it was left out; or failed, when a source that is set up was asked and could not be read.
+// ActivitySourceState How the source answered: read; not_set_up, when there was nothing set up to ask — no credential, no forge the base remote names, no Taskwarrior installed, no git user.email — so it was left out; or failed, when a source that is set up was asked and could not be read.
 type ActivitySourceState string
 
 // ActivityYear defines model for ActivityYear.
@@ -1522,7 +1522,7 @@ type Health struct {
 	// DryRun Whether writes are held back (the --dry-run flag).
 	DryRun bool `json:"dry_run"`
 
-	// ForgeKind Which forge the repository is on under the settings in effect: forge.kind when it names one, else the one origin's host names; unknown when neither says, as outside a repository or on a self-hosted forge the settings do not name. What the page decides by, where forge_noun and forge_sigil are only words to show.
+	// ForgeKind Which forge the repository is on under the settings in effect: forge.kind when it names one, else the one the base remote's host names (upstream's in a fork's clone, else origin's); unknown when neither says, as outside a repository or on a self-hosted forge the settings do not name. What the page decides by, where forge_noun and forge_sigil are only words to show.
 	//
 	// Example: gitlab
 	ForgeKind HealthForgeKind `json:"forge_kind"`
@@ -1541,7 +1541,7 @@ type Health struct {
 	Version string `json:"version"`
 }
 
-// HealthForgeKind Which forge the repository is on under the settings in effect: forge.kind when it names one, else the one origin's host names; unknown when neither says, as outside a repository or on a self-hosted forge the settings do not name. What the page decides by, where forge_noun and forge_sigil are only words to show.
+// HealthForgeKind Which forge the repository is on under the settings in effect: forge.kind when it names one, else the one the base remote's host names (upstream's in a fork's clone, else origin's); unknown when neither says, as outside a repository or on a self-hosted forge the settings do not name. What the page decides by, where forge_noun and forge_sigil are only words to show.
 //
 // Example: gitlab
 type HealthForgeKind string
@@ -1947,7 +1947,7 @@ type OwnerTagState string
 // PaneSection A section of the page that shows one or more of the terminal's panes.
 type PaneSection string
 
-// PanelProblems Why each panel whose read failed was not read, so a failed read is shown as a failure rather than as the panel's empty state; absent when every panel read. A failed panel still carries its empty answer — or, for the review, the answer the forge last gave for the branch at its head — beside its problem. A service that is not set up — no credential, no forge the origin names — carries a problem whose code is not_set_up, with how to set it up, to be shown as guidance rather than as a failure; no repository is no problem. Each detail is the curated one an error answer carries, never a host, a path or a credential.
+// PanelProblems Why each panel whose read failed was not read, so a failed read is shown as a failure rather than as the panel's empty state; absent when every panel read. A failed panel still carries its empty answer — or, for the review, the answer the forge last gave for the branch at its head — beside its problem. A service that is not set up — no credential, no forge the base remote names — carries a problem whose code is not_set_up, with how to set it up, to be shown as guidance rather than as a failure; no repository is no problem. Each detail is the curated one an error answer carries, never a host, a path or a credential.
 type PanelProblems struct {
 	// Branch Why the checked-out branch could not be read.
 	Branch *Problem `json:"branch,omitempty"`
@@ -2028,7 +2028,7 @@ type PostLengthUnit string
 
 // Problem An RFC 9457 problem details object. The detail is safe to show and never carries a secret; code is a stable, machine-readable reason.
 type Problem struct {
-	// Code A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the origin names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is; rate_limited is an upstream asking to be asked again later, unreachable one that could not be reached at all; unauthorized is a request that presented no session, or another run's.
+	// Code A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the base remote names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is; rate_limited is an upstream asking to be asked again later, unreachable one that could not be reached at all; unauthorized is a request that presented no session, or another run's.
 	Code ProblemCode `json:"code"`
 
 	// Detail A human-readable explanation specific to this occurrence.
@@ -2049,7 +2049,7 @@ type Problem struct {
 	Type string `json:"type"`
 }
 
-// ProblemCode A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the origin names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is; rate_limited is an upstream asking to be asked again later, unreachable one that could not be reached at all; unauthorized is a request that presented no session, or another run's.
+// ProblemCode A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the base remote names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is; rate_limited is an upstream asking to be asked again later, unreachable one that could not be reached at all; unauthorized is a request that presented no session, or another run's.
 type ProblemCode string
 
 // PullRequest defines model for PullRequest.
@@ -2223,7 +2223,7 @@ type ReviewFacetKind string
 
 // ReviewQueue defines model for ReviewQueue.
 type ReviewQueue struct {
-	// Available Whether there is a forge to ask. False outside a repository, and when origin is on no forge workflow can read — not GitHub or GitLab, or a self-hosted one forge.kind and forge.host do not name — and requests is then empty.
+	// Available Whether there is a forge to ask. False outside a repository, and when the base remote is on no forge workflow can read — not GitHub or GitLab, or a self-hosted one forge.kind and forge.host do not name — and requests is then empty.
 	Available bool `json:"available"`
 
 	// FacetOrder Every value the queue's filter offers, in the order it lists them, as the terminal's filter lists them: the repositories the requests are in, by name; every CI state and draft then ready, in a fixed order; then who asks, by name. A name is ordered by its code points. A value no request holds is offered only while it is picked.
@@ -2416,7 +2416,7 @@ type Snapshot struct {
 	Issues         IssuesPage           `json:"issues"`
 	Messaging      MessagingDestination `json:"messaging"`
 
-	// Problems Why each panel whose read failed was not read, so a failed read is shown as a failure rather than as the panel's empty state; absent when every panel read. A failed panel still carries its empty answer — or, for the review, the answer the forge last gave for the branch at its head — beside its problem. A service that is not set up — no credential, no forge the origin names — carries a problem whose code is not_set_up, with how to set it up, to be shown as guidance rather than as a failure; no repository is no problem. Each detail is the curated one an error answer carries, never a host, a path or a credential.
+	// Problems Why each panel whose read failed was not read, so a failed read is shown as a failure rather than as the panel's empty state; absent when every panel read. A failed panel still carries its empty answer — or, for the review, the answer the forge last gave for the branch at its head — beside its problem. A service that is not set up — no credential, no forge the base remote names — carries a problem whose code is not_set_up, with how to set it up, to be shown as guidance rather than as a failure; no repository is no problem. Each detail is the curated one an error answer carries, never a host, a path or a credential.
 	Problems *PanelProblems `json:"problems,omitempty"`
 
 	// QueuedAnnouncement An announcement held until a pull request's CI passes, and how it stands: waiting for the CI, being posted, posted, or dropped unposted with the reason.

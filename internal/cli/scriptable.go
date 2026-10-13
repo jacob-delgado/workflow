@@ -414,8 +414,8 @@ func exitFamilies() []exitFamily {
 // credentials Slack will not refresh, a worklog with no Jira to log it in, and
 // a repository with no remote to name the forge, or one on a host neither it
 // nor forge.kind names: what the user fixes in the file, the environment, a
-// login or the repository's origin. A command meeting a credential that is not
-// there exits as doctor does, reading the same file.
+// login or the repository's remotes. A command meeting a credential that is
+// not there exits as doctor does, reading the same file.
 func configurationErrors() []error {
 	return append([]error{
 		config.ErrNotFound, config.ErrInvalid,

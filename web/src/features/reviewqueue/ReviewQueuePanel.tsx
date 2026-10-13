@@ -371,8 +371,8 @@ function NoForgeToAsk() {
   return (
     <EmptyState>
       <span>
-        No forge to ask: reviews come from the GitHub or GitLab this repository&apos;s origin is on.
-        Start <code className="font-mono">workflow --web</code> in a repository on one; for a
+        No forge to ask: reviews come from the GitHub or GitLab this repository&apos;s base remote
+        is on. Start <code className="font-mono">workflow --web</code> in a repository on one; for a
         self-hosted forge, set <code className="font-mono">forge.kind</code> and{' '}
         <code className="font-mono">forge.host</code>.
       </span>

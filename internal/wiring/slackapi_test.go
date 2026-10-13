@@ -96,7 +96,7 @@ func TestASlackAddressOnThisMachineIsAskedInsteadOfSlack(t *testing.T) {
 
 			port := slack.start(t)
 			t.Setenv(wiring.SlackAPIVariable, "http://"+net.JoinHostPort(host, port))
-			seams := wired(t, loggedIn(t), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Messaging
+			seams := wired(t, loggedIn(t), onOrigin(t.TempDir(), ""), nil).Messaging
 
 			// Act
 			err := seams.Post(t.Context(), "", "hi")
@@ -131,7 +131,7 @@ func TestAPostFromARepositoryFindsTheUserTokenTheHomeFileKeeps(t *testing.T) {
 		t.Fatalf("loading the layers: %v", err)
 	}
 
-	seams := wired(t, cfg, wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Messaging
+	seams := wired(t, cfg, onOrigin(t.TempDir(), ""), nil).Messaging
 
 	// Act
 	err = seams.Post(t.Context(), "", "hi")
@@ -158,7 +158,7 @@ func TestASlackAddressInClearTextOffThisMachineSendsNothing(t *testing.T) {
 			var slack slackSeen
 
 			t.Setenv(wiring.SlackAPIVariable, address(slack.start(t)))
-			seams := wired(t, loggedIn(t), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Messaging
+			seams := wired(t, loggedIn(t), onOrigin(t.TempDir(), ""), nil).Messaging
 
 			// Act
 			err := seams.Post(t.Context(), "", "hi")
@@ -191,7 +191,7 @@ func TestAnHTTPSSlackAddressAnywhereIsAsked(t *testing.T) {
 	server.StartTLS()
 	t.Cleanup(server.Close)
 	t.Setenv(wiring.SlackAPIVariable, server.URL)
-	seams := wired(t, loggedIn(t), wiring.Workspace{Root: t.TempDir(), Remote: ""}, nil).Messaging
+	seams := wired(t, loggedIn(t), onOrigin(t.TempDir(), ""), nil).Messaging
 
 	// Act
 	err := seams.Post(t.Context(), "", "hi")

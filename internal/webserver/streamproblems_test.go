@@ -97,9 +97,9 @@ func TestStreamSaysAForgeThatIsNotSetUpIsNotSetUp(t *testing.T) {
 		cause error
 		want  string
 	}{
-		"an origin on no forge workflow reads": {cause: forge.ErrNotARemote, want: "origin does not name"},
-		"a forge workflow cannot tell":         {cause: forge.ErrUnknownForge, want: "forge.kind"},
-		"no forge token":                       {cause: forge.ErrNoToken, want: "$GITHUB_TOKEN"},
+		"a base remote on no forge workflow reads": {cause: forge.ErrNotARemote, want: "does not name a repository"},
+		"a forge workflow cannot tell":             {cause: forge.ErrUnknownForge, want: "forge.kind"},
+		"no forge token":                           {cause: forge.ErrNoToken, want: "$GITHUB_TOKEN"},
 	}
 
 	for name, tt := range cases {

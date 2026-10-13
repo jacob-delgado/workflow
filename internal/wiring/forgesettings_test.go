@@ -14,7 +14,6 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
-	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
 const (
@@ -31,7 +30,7 @@ func throughCLIOnPremises() config.Forge {
 func TestForgeSettingsSavedWhileRunningReachTheNextCall(t *testing.T) {
 	// Arrange
 	installForgeCLI(t, "gh", forgeReplies{})
-	where := wiring.Workspace{Root: t.TempDir(), Remote: onPremisesRemote}
+	where := onOrigin(t.TempDir(), onPremisesRemote)
 	deps, controls := processEnvironment().Deps(config.Config{}, where, nil)
 
 	// Act
@@ -47,7 +46,7 @@ func TestForgeSettingsSavedWhileRunningReachTheNextCall(t *testing.T) {
 func TestForgeSettingsSavedWhileRunningReplaceTheConnectionMade(t *testing.T) {
 	// Arrange
 	installForgeCLI(t, "gh", forgeReplies{})
-	where := wiring.Workspace{Root: t.TempDir(), Remote: onPremisesRemote}
+	where := onOrigin(t.TempDir(), onPremisesRemote)
 	deps, controls := processEnvironment().Deps(config.Config{Forge: throughCLIOnPremises()}, where, nil)
 
 	_, _, err := deps.Forge.FindPullRequest(t.Context(), "feat/x")

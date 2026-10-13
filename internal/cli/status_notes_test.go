@@ -106,7 +106,8 @@ func TestStatusSaysTheForgeIsNotSetUpWhenOriginNamesNone(t *testing.T) {
 	printed, err := runStreams(t, repo, unusedPrompt(t), "status")
 
 	// Assert
-	want := "The forge is not set up: origin does not name a repository on a forge; point it at the repository\n"
+	want := "The forge is not set up: the base remote (upstream in a fork's clone, else origin), " +
+		"or a branch's push remote, does not name a repository on a forge; point it at the repository\n"
 	if err != nil || printed.stderr != want {
 		t.Errorf("status = %v, stderr %q, want only %q", err, printed.stderr, want)
 	}

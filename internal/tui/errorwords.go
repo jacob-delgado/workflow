@@ -177,7 +177,7 @@ func jiraErrors() []knownError {
 
 // forgeErrors are GitHub's and GitLab's, and the transport's both share.
 func forgeErrors() []knownError {
-	notOnAForge := "origin is not GitHub or GitLab"
+	notOnAForge := "the remote is not GitHub or GitLab"
 
 	return []knownError{
 		// Not the advice the web shares: only the resolver knows the forge and

@@ -77,7 +77,7 @@ that is not signed in reads as a forge that could not be reached: 5, not 3.
 | Exit status | Web problem code |
 | --- | --- |
 | 2 usage | `bad_request` (400); `method_not_allowed` (405), for a method the path does not answer; `precondition_required` (428), for a configuration save that names no revision to write over (no `If-Match`) |
-| 3 configuration | `not_set_up` (422), for a service with nothing set up to ask: a Jira token not configured, a forge token not found, an origin that names no forge or one workflow cannot tell, no Taskwarrior installed or never run, no git `user.email`; `unprocessable` (422), for a missing messaging service, an invalid configuration body or `ui.keys` map, a configuration file on disk that no longer reads as valid, a Jira token not accepted, or refused with a 403 that says what it may not do, a `jira.base_url` that is not a usable address, a forge token not accepted, and a `forge.kind` set without its `forge.host` |
+| 3 configuration | `not_set_up` (422), for a service with nothing set up to ask: a Jira token not configured, a forge token not found, a base remote that names no forge or one workflow cannot tell, no Taskwarrior installed or never run, no git `user.email`; `unprocessable` (422), for a missing messaging service, an invalid configuration body or `ui.keys` map, a configuration file on disk that no longer reads as valid, a Jira token not accepted, or refused with a 403 that says what it may not do, a `jira.base_url` that is not a usable address, a forge token not accepted, and a `forge.kind` set without its `forge.host` |
 | 4 refused precondition | `conflict` (409), a local database file that could not be removed among them; `too_long` (422), for a Summary longer than the messaging service takes in one message, as `summary --post` refuses one |
 | 5 unreachable | `unreachable` (502), for a service that could not be reached or answered with a redirect; `rate_limited` (503), for one that asked to wait, with `Retry-After` when it said how long |
 | 1 failure | `internal` (500); the web also answers `not_found` (404) for a missing issue or pull request template, `unprocessable` (422) for any other change Jira refused, a `jira.base_url` with no Jira API behind it, a forge address with no forge API behind it, or a request the forge refused for the token's permissions, or a clean of the local data that found something other than the store's own files, `unreachable` (502) for a status the forge does not document, and `fetch_failed` (502) for a fetch of the base remote that failed before starting work, as `branch --fetch` can — all of which the command line counts as a plain failure |
@@ -110,7 +110,7 @@ holds it.
 
 | Command | stdout | stderr |
 | --- | --- | --- |
-| `status` | the line, or one row per directory, or the JSON | each service that refused to answer — `Jira could not be read: …`, `GitHub could not be read: …` — then each that is not set up, with how to set it up, in the words the web's `not_set_up` problem gives — `GitHub is not set up: no forge token was found; …`, `The forge is not set up: origin does not name a repository on a forge; …` — each labeled with its directory when several are named; neither changes the exit status |
+| `status` | the line, or one row per directory, or the JSON | each service that refused to answer — `Jira could not be read: …`, `GitHub could not be read: …` — then each that is not set up, with how to set it up, in the words the web's `not_set_up` problem gives — `GitHub is not set up: no forge token was found; …`, `The forge is not set up: the base remote (upstream in a fork's clone, else origin), or a branch's push remote, does not name a repository on a forge; …` — each labeled with its directory when several are named; neither changes the exit status |
 | `reviews` | one line per review, its number marked `#` (`!` on GitLab), or the JSON | "No pull requests are waiting on your review." ("merge requests" on GitLab) |
 | `repositories` | a line for where it works, then one per worktree and one per favorite, or the JSON | why the worktrees could not be read |
 | `doctor` | the report, or the JSON, and with no configuration file how to create one: the report is what a bug report pastes, so its guidance stays in it | |
@@ -265,7 +265,7 @@ Summary pane and in the web's Summary section: `from`, `to` and `today`
 (`YYYY-MM-DD`); `sources`, each source asked (`source` — `git`, `tasks`,
 `jira` or `forge` — `name`, `state`, `truncated` and `detail`). `state` is
 `read`; `not_set_up`, for a source with nothing set up to ask — no Jira or
-forge token, no forge the origin names, no Taskwarrior installed, no git
+forge token, no forge the base remote names, no Taskwarrior installed, no git
 `user.email` — which is left out, its `detail` saying how to set it up; or
 `failed`, for a source that is set up and could not be read, its `detail`
 saying why. A `detail` never names a host; `years`, the items nested by `months`, `days` and

@@ -196,8 +196,9 @@ to a webhook in Settings after the preview lands here — and posts nothing.
 Status 422. The service the request needs is not set up, so nothing was asked
 of it: a Jira token that is not configured, or that its command or variable did
 not give; no forge token found (`$GITHUB_TOKEN`, a `gh` sign-in, `$GITLAB_TOKEN`
-or `forge.token`); an origin that names no repository on a forge, or a forge
-workflow cannot tell (set `forge.kind` and `forge.host`); no Taskwarrior
+or `forge.token`); a base remote (upstream in a fork's clone, else origin) or a
+branch's push remote that names no repository on a forge, or a forge workflow
+cannot tell (set `forge.kind` and `forge.host`); no Taskwarrior
 installed, a task program that is not Taskwarrior (go-task, most likely), or
 one never run; or no git `user.email` to tell your commits by. The detail says
 how to set it up. It is guidance rather than a failure: the event stream
