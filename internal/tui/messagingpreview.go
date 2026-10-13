@@ -245,17 +245,23 @@ func (p messagingPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
 // one would otherwise follow it once CI passed, and the channel would read it
 // twice.
 func (m Model) sendToMessaging(out outgoingAnnouncement) (Model, tea.Cmd) {
-	ctx, post, memory := m.session, m.deps.Messaging.Post, loop.AnnounceMemory{Record: m.deps.Store.RecordAnnounce}
+	ctx, memory := m.session, loop.AnnounceMemory{Record: m.deps.Store.RecordAnnounce}
+	seams := loop.DeliverSeams{Post: m.deps.Messaging.Post, CheckCI: m.deps.announceCI}
+
 	if record := m.deps.Store.RecordGroups; out.tags.offersGroups && record != nil {
 		memory.RecordGroups = func(ctx context.Context, ids []string) error { return record(ctx, out.tags.workspace, ids) }
 	}
 
-	made := loop.Announced{Pull: m.review.pull.Number, Moment: out.moment}
-	delivery := loop.Delivery{Channel: out.channel, Text: out.text, Made: made, Mentions: out.tags.mentions}
+	delivery := loop.Delivery{
+		Channel: out.channel, Text: out.text, Pull: m.review.pull, Head: m.branch.branch.Head, Moment: out.moment,
+		Mentions: out.tags.mentions,
+	}
 	m.messaging.send, m.messaging.pending, m.messaging.dropped = starting(), queuedPost{}, ""
 
 	return m, func() tea.Msg {
-		return messagingPosted{made: made, to: out.to, opened: out.opened, err: loop.Deliver(ctx, post, memory, delivery)}
+		err := loop.Deliver(ctx, seams, memory, delivery)
+
+		return messagingPosted{made: delivery.Made(), to: out.to, opened: out.opened, err: err}
 	}
 }
 

@@ -81,13 +81,13 @@ const (
 // pull request reports no CI to wait for. One posted at once is posted under
 // ctx.
 func (s *server) announceWhenGreen(ctx context.Context, post announcePost) api.AnnounceResponseObject {
-	if post.moment != messaging.MomentReady {
+	if post.delivery.Moment != messaging.MomentReady {
 		return api.Announce409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
 			"only a ready-for-review announcement waits for CI; this one announces a merge or a failed CI, "+
 				"so announce it now"))
 	}
 
-	branch, ci, err := s.ciNow(ctx, post.pull)
+	branch, ci, err := s.ciNow(ctx, post.delivery.Pull)
 	if err != nil {
 		return s.announceFault(err)
 	}
@@ -101,7 +101,7 @@ func (s *server) announceWhenGreen(ctx context.Context, post announcePost) api.A
 	}
 
 	return api.Announce409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
-		s.pullName(post.pull.Number)+" has no running CI to wait for; announce it now"))
+		s.pullName(post.delivery.Pull.Number)+" has no running CI to wait for; announce it now"))
 }
 
 // canWaitForCI reports whether an announcement at moment for pull can be held
@@ -256,7 +256,7 @@ const (
 // read of branch, and the reason when it is dropped. The caller holds the
 // lock.
 func (s *server) verdictOn(branch gitrepo.Branch, read forgeRead) (string, heldVerdict) {
-	number := s.held.post.pull.Number
+	number := s.held.post.delivery.Pull.Number
 
 	switch {
 	case branch.Name != s.held.branch || !read.found || read.pull.Number != number:
@@ -287,7 +287,7 @@ func (s *server) postHeld(post announcePost) {
 
 	switch {
 	case errors.Is(err, errAnnouncedAlready):
-		s.held.settle(heldDropped, s.announcedBefore(post.pull.Number).Detail)
+		s.held.settle(heldDropped, s.announcedBefore(post.delivery.Pull.Number).Detail)
 	case err != nil:
 		s.held.settle(heldDropped, s.fault(err).Detail)
 	default:
@@ -366,7 +366,7 @@ func (h *heldAnnouncement) settle(state heldState, reason string) {
 // the lock.
 func (h *heldAnnouncement) queued() api.QueuedAnnouncement {
 	return api.QueuedAnnouncement{
-		State: queuedState(h.state), Channel: h.post.delivery.Channel, Pull: h.post.pull.Number,
+		State: queuedState(h.state), Channel: h.post.delivery.Channel, Pull: h.post.delivery.Pull.Number,
 		Reason: optional(h.reason), Warning: optional(h.warning),
 	}
 }

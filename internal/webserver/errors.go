@@ -55,6 +55,7 @@ func codeMeaning(code api.ProblemCode) (int, string) {
 		api.ProblemCodeRateLimited:          {status: http.StatusServiceUnavailable, title: "Rate limited"},
 		api.ProblemCodeFetchFailed:          {status: http.StatusBadGateway, title: "Fetch failed"},
 		api.ProblemCodeCheckFailed:          {status: http.StatusUnprocessableEntity, title: "Check failed"},
+		api.ProblemCodeCiFailed:             {status: http.StatusConflict, title: "CI failed"},
 		api.ProblemCodeInternal:             {status: http.StatusInternalServerError, title: "Internal error"},
 	}[code]
 

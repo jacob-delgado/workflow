@@ -246,6 +246,13 @@ func messagingErrors() []knownError {
 			brief: "could not reach messaging",
 			full:  "The messaging service did not answer. Check the network, then try the announcement again.",
 		}},
+		{loop.ErrCIFailed, wording{
+			brief: "a check failed",
+			full: "A check failed on the pull request, so nothing was announced. " +
+				"Announcing once CI passes waits for a fix.",
+		}},
+		// Its own words carry why the CI could not be read, beneath the brief.
+		{loop.ErrCIUnread, wording{brief: "CI unread", full: "", whole: false}},
 	}
 }
 

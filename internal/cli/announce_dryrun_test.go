@@ -87,27 +87,6 @@ func TestAnnounceDryRunComposesTheMergedMoment(t *testing.T) {
 	}
 }
 
-func TestAnnounceDryRunComposesTheCIRedMoment(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// An open pull request whose CI has failed is announced as CI red.
-	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: failingStatus()})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, forgeCLIConfig)
-
-	// Act
-	output, err := run(t, repo, "announce", "--dry-run")
-	// Assert
-	if err != nil {
-		t.Fatalf("announce --dry-run: %v (%s)", err, output)
-	}
-
-	if !strings.Contains(output, "CI is red") {
-		t.Errorf("preview does not mark the CI-red moment:\n%s", output)
-	}
-}
-
 func TestAnnounceDryRunNamesTheConfiguredChannel(t *testing.T) {
 	t.Parallel()
 

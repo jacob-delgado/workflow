@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/api"
-	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 )
@@ -54,11 +53,10 @@ var (
 	errChangedSincePreview = errors.New("the announcement changed since it was previewed; preview it again")
 )
 
-// announcePost is an announcement ready to go: what it marks, the pull
-// request it announces, the delivery and what posting it remembers.
+// announcePost is an announcement ready to go: the delivery, which names the
+// pull request it announces and the moment it marks, and what posting it
+// remembers.
 type announcePost struct {
-	moment   messaging.Moment
-	pull     forge.PullRequest
 	delivery loop.Delivery
 	memory   loop.AnnounceMemory
 }
@@ -104,7 +102,7 @@ func (s *server) postFor(ctx context.Context, body api.AnnounceRequest) (announc
 		return announcePost{}, s.announceFault(err)
 	}
 
-	announcement, pull := composed.Announcement, composed.Pull
+	announcement := composed.Announcement
 
 	text, err := postedText(body, announcement)
 	if errors.Is(err, errChangedSincePreview) {
@@ -116,9 +114,9 @@ func (s *server) postFor(ctx context.Context, body api.AnnounceRequest) (announc
 		return announcePost{}, announceUnprocessable(err.Error())
 	}
 
-	made := loop.Announced{Pull: pull.Number, Moment: announcement.Moment}
-	if s.announcedAlready(ctx, made) {
-		return announcePost{}, api.Announce409ApplicationProblemPlusJSONResponse(s.announcedBefore(pull.Number))
+	if s.announcedAlready(ctx, composed.Made()) {
+		return announcePost{}, api.Announce409ApplicationProblemPlusJSONResponse(
+			s.announcedBefore(composed.Pull.Number))
 	}
 
 	mentions, memory, refusal := s.postMentions(ctx, body.Mentions, announcement.Moment)
@@ -128,12 +126,7 @@ func (s *server) postFor(ctx context.Context, body api.AnnounceRequest) (announc
 
 	memory.Recorded, memory.Record = s.recordedAnnouncements, s.recordAnnouncement
 
-	return announcePost{
-		moment: announcement.Moment, pull: pull, memory: memory,
-		delivery: loop.Delivery{
-			Channel: s.channelOr(body.Channel), Text: text, Made: made, Mentions: mentions,
-		},
-	}, nil
+	return announcePost{delivery: composed.Delivery(s.channelOr(body.Channel), text, mentions), memory: memory}, nil
 }
 
 // postedText is the text a post sends: the edit, when the request carries
@@ -185,7 +178,11 @@ func (s *server) announceNow(ctx context.Context, post announcePost) api.Announc
 
 	warning, err := s.deliver(ctx, post)
 	if errors.Is(err, errAnnouncedAlready) {
-		return api.Announce409ApplicationProblemPlusJSONResponse(s.announcedBefore(post.pull.Number))
+		return api.Announce409ApplicationProblemPlusJSONResponse(s.announcedBefore(post.delivery.Pull.Number))
+	}
+
+	if errors.Is(err, loop.ErrCIFailed) {
+		return api.Announce409ApplicationProblemPlusJSONResponse(s.ciFailed(post.delivery.Pull.Number))
 	}
 
 	if err != nil {
@@ -196,6 +193,12 @@ func (s *server) announceNow(ctx context.Context, post announcePost) api.Announc
 	posted.Warning = optional(warning)
 
 	return api.Announce200JSONResponse(posted)
+}
+
+// ciFailed refuses to announce pull now, since a check failed on it.
+func (s *server) ciFailed(pull int) api.Problem {
+	return problem(api.ProblemCodeCiFailed, "a check failed on "+s.pullName(pull)+
+		", so nothing was announced; announce it when CI passes to wait for a fix")
 }
 
 // announcement is the announcement for the checked-out branch's pull request,

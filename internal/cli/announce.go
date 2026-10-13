@@ -35,7 +35,9 @@ var errMessagingNotConfigured = errors.New("no messaging transport is configured
 type announceSeams struct {
 	// Compose is what the announcement is composed from.
 	Compose loop.AnnounceSeams
-	Post    func(ctx context.Context, channel, text string) error
+	// Deliver is what the announcement goes out through: the post, and the
+	// CI read its gate makes first.
+	Deliver loop.DeliverSeams
 	Kind    forge.Kind
 	Project string
 	// Messaging is where the announcement goes and how it is rendered: the
@@ -131,6 +133,7 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions, ch
 			BrowseURL: deps.Jira.BrowseURL,
 			CheckCI:   deps.Forge.CheckStatus,
 		},
+		Deliver:   loop.DeliverSeams{Post: nil, CheckCI: deps.Forge.CheckStatus},
 		Kind:      deps.Forge.Kind,
 		Project:   cfg.Jira.Project,
 		Messaging: settings,
@@ -140,7 +143,7 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions, ch
 	}
 
 	if cfg.Messaging.Mode() != config.MessagingNone {
-		seams.Post = deps.Messaging.Post
+		seams.Deliver.Post = deps.Messaging.Post
 	}
 
 	return runAnnounce(cmd.Context(), outputOf(cmd), seams, opts)
@@ -179,9 +182,16 @@ func runAnnounce(ctx context.Context, out output, seams announceSeams, opts writ
 		return err
 	}
 
-	again := seams.Memory.Holds(ctx, made(composed))
-	if again && !offerAgain(out.notes, seams.Kind.Sigil()+strconv.Itoa(composed.Pull.Number), opts) {
+	pull := seams.Kind.Sigil() + strconv.Itoa(composed.Pull.Number)
+
+	again := seams.Memory.Holds(ctx, composed.Made())
+	if again && !offerAgain(out.notes, pull, opts) {
 		return nil
+	}
+
+	err = clearToAnnounce(ctx, seams.Deliver.CheckCI, composed, pull)
+	if err != nil {
+		return err
 	}
 
 	pending := previewAnnouncement(ctx, out, seams, composed)
@@ -199,7 +209,7 @@ func runAnnounce(ctx context.Context, out output, seams announceSeams, opts writ
 // composeFor composes the announcement seams can post, refusing where nothing
 // can post it or the branch has no pull request to announce.
 func composeFor(ctx context.Context, seams announceSeams) (loop.Composed, error) {
-	if seams.Post == nil {
+	if seams.Deliver.Post == nil {
 		return loop.Composed{}, fmt.Errorf("%w: set messaging.kind and messaging.webhook_url in %s — or, "+
 			"for Slack, run workflow slack login — then check them with workflow doctor",
 			errMessagingNotConfigured, config.FileName)
@@ -214,16 +224,50 @@ func composeFor(ctx context.Context, seams announceSeams) (loop.Composed, error)
 	return composed, err
 }
 
-// made is what announcing composed makes: the pull request at its moment.
-func made(composed loop.Composed) loop.Announced {
-	return loop.Announced{Pull: composed.Pull.Number, Moment: composed.Announcement.Moment}
-}
-
 // ownersBase is the branch the owners of composed's changes are read against:
 // the one the pull request merges into, as the forge says, or the base the
 // branch was read to have left where the forge did not say.
 func ownersBase(composed loop.Composed) string {
 	return cmp.Or(composed.Pull.Base, composed.Branch.Base)
+}
+
+// clearToAnnounce refuses, before anything is previewed or asked, to announce
+// composed's pull request, named pull, while a check has failed on it, naming
+// the checks that failed, or when its CI cannot be read to confirm that none
+// has. The forge is asked under ctx.
+func clearToAnnounce(
+	ctx context.Context, check func(context.Context, forge.PullRequest, string) (forge.CI, error),
+	composed loop.Composed, pull string,
+) error {
+	ci, err := loop.ClearToAnnounce(ctx, check, composed.Pull, composed.Branch.Head)
+
+	switch {
+	case errors.Is(err, loop.ErrCIFailed):
+		return forgeWordedError{loop.ErrCIFailed, "a check failed on " + pull + failedChecks(ci) +
+			", so it was not announced; announce it once a run passes"}
+	case err != nil:
+		return fmt.Errorf("%s was not announced: %w", pull, err)
+	default:
+		return nil
+	}
+}
+
+// failedChecks names the checks that failed in ci, in brackets after a space,
+// or nothing where the forge named none, as GitLab's pipeline does not.
+func failedChecks(ci forge.CI) string {
+	var names []string
+
+	for _, check := range ci.Checks {
+		if check.State == forge.CIFailed {
+			names = append(names, sanitize.Line(check.Name))
+		}
+	}
+
+	if len(names) == 0 {
+		return ""
+	}
+
+	return " (" + strings.Join(names, ", ") + ")"
 }
 
 // pendingAnnouncement is an announcement previewed and not yet sent: what
@@ -245,7 +289,7 @@ func previewAnnouncement(
 	mentions, memory := tagAnnouncement(ctx, out, seams, composed.Announcement.Moment, ownersBase(composed))
 
 	return pendingAnnouncement{
-		delivery: loop.Delivery{Channel: seams.Messaging.Channel, Text: text, Made: made(composed), Mentions: mentions},
+		delivery: composed.Delivery(seams.Messaging.Channel, text, mentions),
 		memory:   memory,
 	}
 }
@@ -254,7 +298,7 @@ func previewAnnouncement(
 // one posted that the store could not remember, the warning every surface
 // says, then why.
 func deliverAnnouncement(ctx context.Context, notes io.Writer, seams announceSeams, pending pendingAnnouncement) error {
-	err := loop.Deliver(ctx, seams.Post, pending.memory, pending.delivery)
+	err := loop.Deliver(ctx, seams.Deliver, pending.memory, pending.delivery)
 
 	why, notKept := loop.NotRememberedReason(err)
 	if err != nil && !notKept {

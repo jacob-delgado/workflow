@@ -439,6 +439,7 @@ func (e PostLengthUnit) Valid() bool {
 const (
 	ProblemCodeBadRequest           ProblemCode = "bad_request"
 	ProblemCodeCheckFailed          ProblemCode = "check_failed"
+	ProblemCodeCiFailed             ProblemCode = "ci_failed"
 	ProblemCodeConflict             ProblemCode = "conflict"
 	ProblemCodeFetchFailed          ProblemCode = "fetch_failed"
 	ProblemCodeInternal             ProblemCode = "internal"
@@ -459,6 +460,8 @@ func (e ProblemCode) Valid() bool {
 	case ProblemCodeBadRequest:
 		return true
 	case ProblemCodeCheckFailed:
+		return true
+	case ProblemCodeCiFailed:
 		return true
 	case ProblemCodeConflict:
 		return true
@@ -2051,7 +2054,7 @@ type PostLengthUnit string
 
 // Problem An RFC 9457 problem details object. The detail is safe to show and never carries a secret; code is a stable, machine-readable reason.
 type Problem struct {
-	// Code A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the base remote names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is; rate_limited is an upstream asking to be asked again later, unreachable one that could not be reached at all; unauthorized is a request that presented no session, or another run's.
+	// Code A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the base remote names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is; rate_limited is an upstream asking to be asked again later, unreachable one that could not be reached at all; unauthorized is a request that presented no session, or another run's; ci_failed is an announcement refused because a check failed on its pull request.
 	Code ProblemCode `json:"code"`
 
 	// Detail A human-readable explanation specific to this occurrence.
@@ -2072,7 +2075,7 @@ type Problem struct {
 	Type string `json:"type"`
 }
 
-// ProblemCode A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the base remote names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is; rate_limited is an upstream asking to be asked again later, unreachable one that could not be reached at all; unauthorized is a request that presented no session, or another run's.
+// ProblemCode A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the base remote names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is; rate_limited is an upstream asking to be asked again later, unreachable one that could not be reached at all; unauthorized is a request that presented no session, or another run's; ci_failed is an announcement refused because a check failed on its pull request.
 type ProblemCode string
 
 // PullRequest defines model for PullRequest.

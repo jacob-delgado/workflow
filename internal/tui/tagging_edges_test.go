@@ -211,31 +211,6 @@ func TestAWorkspaceWithoutUserGroupsSaysNothingOfIt(t *testing.T) {
 	refuseScreen(t, view, "no user groups")
 }
 
-func TestTagsReadForAnEarlierPreviewTagNothingInARedOne(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// the ready-for-review preview closes before its tags are read, and CI
-	// fails before the next one opens
-	tagging := taggingWorld()
-	opened, reads := openedPreview(t, tagging)
-	closed := typing(t, opened, keyEsc)
-
-	tagging.mu.Lock()
-	tagging.ci = []forge.CI{{State: forge.CIFailed, Total: 1, Done: 1, Failed: 1}}
-	tagging.mu.Unlock()
-
-	red := typing(t, closed, "4", "r", "5", "p")
-
-	// Act
-	typing(t, drain(t, red, reads[0]), keyEnter)
-
-	// Assert
-	if got := postedText(t, tagging); strings.Contains(got, "cc ") {
-		t.Errorf("posted %q, want a red CI's announcement untagged", got)
-	}
-}
-
 func TestTagsReadForAnEarlierPreviewLeaveALaterOnesAlone(t *testing.T) {
 	t.Parallel()
 
