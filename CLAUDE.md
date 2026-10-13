@@ -61,8 +61,8 @@ internal/hooks/       lefthook: output, config, and generating lefthook.yml
 internal/convention/  branch names, Conventional Commits, pull request text
 internal/editor/      handing text and files to $EDITOR
 internal/proc/        running programs; the one place exec lives
-internal/lifetime/    work that outlasts its asker: the end it still ends with, and what a quit waits for
 internal/proc/pgroup/ canceling a streamed child's whole process group (Unix)
+internal/lifetime/    work that outlasts its asker: the end it still ends with, and what a quit waits for
 internal/rlimit/      lowering a resource limit around one test call (tests only)
 internal/ptytest/     a pseudo-terminal for a test to type at (tests only)
 internal/gittest/     keeping tests off the repository a hook's git environment names (tests only)
@@ -230,7 +230,8 @@ without agreement on direction.
   post's record (`loop.Deliver`), the store's open, and the Slack secrets
   Settings refreshes and keeps (`wiring.PlaceSlackCredentials`) detach from
   their asker, finishing only where something waits for them (a command's own
-  call, `--web`'s five-second drain), while a signal in the terminal exits
+  call, `--web`'s five-second drain, a terminal quit's wait when one is a
+  counted write or runs inside one), while a signal in the terminal exits
   under them (TRADE-38). The wiring never keeps a context past the call that
   handed it one. `internal/seams`' test holds the rule and names the
   exceptions.
