@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -63,13 +64,13 @@ type contract struct {
 	methods []string
 }
 
-// loadContract loads the embedded spec and routes its paths, admitting a
-// request only where it presents session as the spec's security schemes say.
-// Like a spec that does not load, one whose paths cannot be routed is a build
-// defect, returned for Handler to surface at startup.
+// loadContract loads the embedded spec and routes its paths, admitting no
+// request until admitting names the session to ask for. Like a spec that does
+// not load, one whose paths cannot be routed is a build defect, returned for
+// Handler to surface at startup.
 //
 // Trade-off TRADE-14: no test runs on a broken spec, so neither error arm runs.
-func loadContract(session Session) (contract, error) {
+func loadContract() (contract, error) {
 	doc, err := loadSpec()
 	if err != nil {
 		return contract{}, err
@@ -82,11 +83,24 @@ func loadContract(session Session) (contract, error) {
 		return contract{}, fmt.Errorf("routing the embedded OpenAPI spec: %w", err)
 	}
 
-	return contract{
-		router:  router,
-		options: openapi3filter.Options{AuthenticationFunc: session.admits},
-		methods: contractMethods(doc.Paths),
-	}, nil
+	return contract{router: router, methods: contractMethods(doc.Paths)}, nil
+}
+
+// routedContract is loadContract's answer, loaded once for the process. The
+// spec is embedded, so every load reads the same document to the same
+// contract, and nothing changes one once it is routed; but parsing it is
+// most of what building a Handler costs, and the race detector multiplies
+// that for every server a test builds.
+//
+//nolint:gochecknoglobals // the embedded spec parsed once: a constant Go cannot spell as one, as regexp.MustCompile is
+var routedContract = sync.OnceValues(loadContract)
+
+// admitting is c admitting a request only where it presents session as the
+// spec's security schemes say.
+func (c contract) admitting(session Session) contract {
+	c.options = openapi3filter.Options{AuthenticationFunc: session.admits}
+
+	return c
 }
 
 // operationServer serves a request the contract admitted, told whether the
