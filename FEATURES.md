@@ -86,21 +86,6 @@ differs by both — is a form the browser already does well, and rebuilding it
 here earns little over the one place it belongs. Out of scope by decision, not
 oversight; `workflow` picks issues up, it does not open them.
 
-### FEAT-85 The web paints from the cached issue list
-
-Impact: low · Effort: small
-
-- Why: The interface opens on the view's cached issues, shown at once while
-  Jira is asked again (`seededIssues`, `internal/tui/issues.go:60`, over
-  `Store.CachedIssues`, `internal/store/cache.go:30`). The web's stream reads
-  Jira before it sends its first frame (`snapshotIssues`,
-  `internal/webserver/stream.go:408`), so every section says *Connecting to
-  workflow…* until Jira answers.
-- Touches: `internal/webserver` (the stream's first frame, from a
-  cached-issues seam on `Deps`), `internal/store`.
-- Done when: with a cached view, the web lists its issues before Jira
-  answers.
-
 ## Branch
 
 ### FEAT-15 Work with a fork
