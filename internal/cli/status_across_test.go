@@ -11,19 +11,66 @@ import (
 	"testing"
 )
 
-func TestStatusAcrossLabelsTheCurrentDirectory(t *testing.T) {
+func TestStatusAcrossLabelsARelativeDirectoryByWhereItLeads(t *testing.T) {
 	t.Parallel()
 
-	// Act
-	// "." names the working directory, which is no repository here.
-	printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), "status", ".")
-
-	// Assert
-	if !strings.HasPrefix(printed.stdout, ".  ") || !strings.Contains(printed.stdout, "not a git repository") {
-		t.Errorf("expected a labeled line for the current directory:\n%s", printed.stdout)
+	cases := map[string]struct {
+		dir  string
+		want string
+	}{
+		"the working directory": {dir: ".", want: "api"},
+		"its parent":            {dir: "..", want: "work"},
+		"itself, from above":    {dir: "../api/", want: "api"},
 	}
 
-	wantExit(t, err, 4)
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			// None of these is a repository, so each line says so after its label.
+			working := filepath.Join(t.TempDir(), "work", "api")
+			makeDirectory(t, working)
+
+			// Act
+			printed, err := runStreams(t, working, unusedPrompt(t), "status", tt.dir)
+
+			// Assert
+			if !strings.HasPrefix(printed.stdout, tt.want+"  ") ||
+				!strings.Contains(printed.stdout, "not a git repository") {
+				t.Errorf("status %s from %s printed:\n%s\nwant its line labeled %q",
+					tt.dir, working, printed.stdout, tt.want)
+			}
+
+			wantExit(t, err, 4)
+		})
+	}
+}
+
+func TestStatusAcrossAsJSONLabelsTheCurrentRepositoryByItsName(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := featureRepo(t)
+
+	// Act
+	printed, err := runStreams(t, repo, unusedPrompt(t), "status", "--json", ".")
+
+	// Assert
+	var reports []struct {
+		Repository string `json:"repository"`
+		Dir        string `json:"dir"`
+		Issue      string `json:"issue"`
+	}
+
+	decodeErr := json.Unmarshal([]byte(printed.stdout), &reports)
+	if decodeErr != nil || len(reports) != 1 || reports[0].Repository != filepath.Base(repo) ||
+		reports[0].Dir != "." || reports[0].Issue != "PROJ-2" {
+		t.Errorf("status --json . = %+v (%v), want the repository named %q, its directory as given",
+			reports, decodeErr, filepath.Base(repo))
+	}
+
+	wantExit(t, err, 0)
 }
 
 func TestStatusAcrossReportsEachRepository(t *testing.T) {
@@ -138,13 +185,20 @@ func twoOfOneName(t *testing.T) (string, string) {
 	first, second := filepath.Join(parent, "work", "api"), filepath.Join(parent, "oss", "api")
 
 	for _, dir := range []string{first, second} {
-		err := os.MkdirAll(dir, 0o700)
-		if err != nil {
-			t.Fatalf("making %s: %v", dir, err)
-		}
+		makeDirectory(t, dir)
 	}
 
 	return first, second
+}
+
+// makeDirectory makes dir and every directory above it that is missing.
+func makeDirectory(t *testing.T, dir string) {
+	t.Helper()
+
+	err := os.MkdirAll(dir, 0o700)
+	if err != nil {
+		t.Fatalf("making %s: %v", dir, err)
+	}
 }
 
 func TestStatusAcrossLabelsDirectoriesOfOneNameApart(t *testing.T) {
@@ -183,5 +237,23 @@ func TestStatusAcrossAsJSONNamesEachDirectory(t *testing.T) {
 	if err != nil || len(reports) != 2 || reports[0].Dir != first || reports[1].Dir != second ||
 		reports[0].Repository == reports[1].Repository {
 		t.Errorf("status --json = %+v (%v), want each entry labeled apart and naming its directory", reports, err)
+	}
+}
+
+func TestStatusAcrossLabelsRelativeDirectoriesOfOneNameByTheirPathsFromHome(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	first, _ := twoOfOneName(t)
+	parent := filepath.Dir(filepath.Dir(first))
+
+	// Act
+	printed, _ := runStreamsAt(t, place{dir: parent, home: parent}, unusedPrompt(t), "status", "work/api", "oss/api")
+
+	// Assert
+	lines := strings.Split(strings.TrimSpace(printed.stdout), "\n")
+	if len(lines) != 2 || !strings.HasPrefix(lines[0], "~/work/api  ") || !strings.HasPrefix(lines[1], "~/oss/api  ") {
+		t.Errorf("status work/api oss/api from home printed:\n%s\nwant each line labeled with its path from home",
+			printed.stdout)
 	}
 }
