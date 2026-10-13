@@ -28,7 +28,7 @@
 # internal/config reads, validates and saves .workflow.json, the file that
 # names every credential and which file may lend them, and refuses one
 # someone else could have written.
-internal/config 92
+internal/config 94
 
 # internal/httpx is the transport every client shares, refusing a redirect
 # that would carry a token to another host and bounding what an answer may
@@ -45,4 +45,4 @@ internal/slackauth 97
 
 # internal/store is the on-disk SQLite store: what it reads back from disk is
 # never trusted, and kept.db holds what the user decided and cannot see again.
-internal/store 89
+internal/store 90
