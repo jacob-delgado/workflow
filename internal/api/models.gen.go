@@ -1351,7 +1351,7 @@ type Config struct {
 
 // CreateBranchRequest The issue to start work on by creating its branch.
 type CreateBranchRequest struct {
-	// Fetch Whether to fetch origin first, so the branch starts from what origin holds now, as the terminal's branch creator and workflow branch --fetch do. A fetch that fails creates nothing and is a 502 with code fetch_failed; asking again with fetch false branches from what you have, the terminal's way out. With no base to refresh nothing is fetched either way.
+	// Fetch Whether to fetch the base remote first — upstream in a fork's clone, else origin — so the branch starts from what it holds now, as the terminal's branch creator and workflow branch --fetch do. A fetch that fails creates nothing and is a 502 with code fetch_failed; asking again with fetch false branches from what you have, the terminal's way out. With no base to refresh nothing is fetched either way.
 	Fetch *bool `json:"fetch,omitempty"`
 
 	// IssueKey The issue to name and create a branch for.
@@ -1362,7 +1362,7 @@ type CreateBranchRequest struct {
 
 // CreateWorktreeRequest The issue to start work on in a new worktree.
 type CreateWorktreeRequest struct {
-	// Fetch Whether to fetch origin first, so the branch starts from what origin holds now, as the terminal's branch creator and workflow branch --fetch do. A fetch that fails creates nothing and is a 502 with code fetch_failed; asking again with fetch false branches from what you have, the terminal's way out. With no base to refresh nothing is fetched either way.
+	// Fetch Whether to fetch the base remote first — upstream in a fork's clone, else origin — so the branch starts from what it holds now, as the terminal's branch creator and workflow branch --fetch do. A fetch that fails creates nothing and is a 502 with code fetch_failed; asking again with fetch false branches from what you have, the terminal's way out. With no base to refresh nothing is fetched either way.
 	Fetch *bool `json:"fetch,omitempty"`
 
 	// IssueKey The issue to name and create a branch for.

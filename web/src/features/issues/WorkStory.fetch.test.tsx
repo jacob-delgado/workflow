@@ -20,7 +20,7 @@ vi.mock('@/features/repositories/repositoriesApi.ts', () => ({ useSwitchTo: () =
 // fetchFailed is the server's refusal of a start of work whose fetch failed.
 const fetchFailed = {
   code: 'fetch_failed',
-  detail: 'origin could not be fetched, so nothing was made for PROJ-999',
+  detail: 'the base remote could not be fetched, so nothing was made for PROJ-999',
 }
 
 beforeEach(() => {

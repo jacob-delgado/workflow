@@ -106,13 +106,37 @@ func TestBranchFetchThatFailsCreatesNothing(t *testing.T) {
 
 	// Assert
 	// The way out is the terminal's "branch from what you have".
-	if err == nil || !strings.Contains(err.Error(), "origin could not be fetched") ||
+	if err == nil || !strings.Contains(err.Error(), "the base remote could not be fetched") ||
 		!strings.Contains(err.Error(), "without --fetch") {
 		t.Errorf("branch --fetch with origin gone = %v, want the fetch named and the way to branch without it", err)
 	}
 
 	if got := currentBranch(t, repo); got != before {
 		t.Errorf("a failed fetch left the repository on %q, want %q", got, before)
+	}
+}
+
+// In a fork's clone the base is upstream's, so upstream is what a start
+// fetches, and what it names.
+func TestBranchFetchNamesTheBaseRemoteOfAFork(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	repo, _ := repoWithOrigin(t, server.URL)
+	upstream := t.TempDir()
+	git(t, upstream, "init", "--bare", "--quiet")
+	git(t, repo, "remote", "add", "upstream", upstream)
+	git(t, repo, "push", "--quiet", "upstream", "HEAD:refs/heads/main")
+	git(t, repo, "fetch", "--quiet", "upstream")
+
+	// Act
+	printed, err := runStreams(t, repo, unusedPrompt(t), "branch", "PROJ-7", "--fetch", "--dry-run")
+
+	// Assert
+	const plan = "fetch upstream, then create fix/PROJ-7-login from upstream/main and switch to it"
+	if err != nil || !strings.Contains(printed.stdout, "Start work on PROJ-7: "+plan) {
+		t.Errorf("branch --fetch in a fork's clone = %v:\n%s\nwant the plan %q", err, printed.stdout, plan)
 	}
 }
 

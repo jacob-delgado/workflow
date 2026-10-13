@@ -28,7 +28,8 @@ type branchSeams struct {
 	Branches     func(ctx context.Context) ([]string, error)
 	CreateBranch func(ctx context.Context, name, start string) error
 	// CreateWorktree creates the branch in a new worktree beside the
-	// repository instead, and says where; Fetch refreshes origin's refs first.
+	// repository instead, and says where; Fetch refreshes the base remote's
+	// refs first.
 	CreateWorktree func(ctx context.Context, name, start string) (string, error)
 	Fetch          func(ctx context.Context) error
 	Branch         func(ctx context.Context) (gitrepo.Branch, error)
@@ -36,8 +37,8 @@ type branchSeams struct {
 	Confirm        func(question string) (bool, error)
 }
 
-// startOptions are how `workflow branch` starts the work: after fetching
-// origin, so the branch starts from what origin holds now, and in a new
+// startOptions are how `workflow branch` starts the work: after fetching the
+// base remote, so the branch starts from what it holds now, and in a new
 // worktree rather than the checkout it runs in.
 type startOptions struct {
 	fetch    bool
@@ -45,11 +46,12 @@ type startOptions struct {
 }
 
 // startPlan is the branch a start of work makes: its issue, its name, the
-// base it starts from, and how.
+// base it starts from and the remote that base is read on, and how.
 type startPlan struct {
 	key      string
 	name     string
 	base     string
+	remote   string
 	fetch    bool
 	worktree bool
 }
@@ -68,10 +70,11 @@ func newBranchCmd(prompt Prompt) *cobra.Command {
 			"the issue's type and summary — then create it off the current branch's base and\n" +
 			"switch to it, which moves the working tree onto the new branch. A preview is\n" +
 			"printed and confirmed before anything is created.\n\n" +
-			"--fetch fetches origin first, so the branch starts from what origin holds now;\n" +
-			"a fetch that fails creates nothing. --worktree creates the branch in a new\n" +
-			"worktree beside the repository instead, leaving this checkout where it is, and\n" +
-			"prints the worktree's directory alone on the last line.",
+			"--fetch fetches the base remote first — upstream in a fork's clone, else\n" +
+			"origin — so the branch starts from what it holds now; a fetch that fails\n" +
+			"creates nothing. --worktree creates the branch in a new worktree beside the\n" +
+			"repository instead, leaving this checkout where it is, and prints the\n" +
+			"worktree's directory alone on the last line.",
 		Example: examples(
 			`cd "$(workflow branch PROJ-7 --fetch --worktree --yes | tail -n 1)"   # start fresh, beside this checkout`,
 		),
@@ -84,7 +87,7 @@ func newBranchCmd(prompt Prompt) *cobra.Command {
 
 	opts.addFlags(cmd, confirmationHelp)
 	cmd.Flags().BoolVar(&start.fetch, "fetch", false,
-		"fetch origin first, so the branch starts from what origin holds now")
+		"fetch the base remote first (upstream in a fork's clone, else origin), to start from what it holds now")
 	cmd.Flags().BoolVar(&start.worktree, "worktree", false,
 		"create the branch in a new worktree beside the repository, and print its directory")
 
@@ -114,9 +117,9 @@ func runBranchCommand(cmd *cobra.Command, prompt Prompt, issueKey string, opts w
 }
 
 // runBranch names a branch for the issue, previews it, and creates it off the
-// current branch's base once confirmed — after fetching origin, or in a new
-// worktree, as start asks. A branch that already exists is refused rather than
-// recreated.
+// current branch's base once confirmed — after fetching the base remote, or
+// in a new worktree, as start asks. A branch that already exists is refused
+// rather than recreated.
 func runBranch(
 	ctx context.Context, out output, seams branchSeams, issueKey string, opts writeOptions, start startOptions,
 ) error {
@@ -159,11 +162,11 @@ func planStart(ctx context.Context, seams branchSeams, issueKey string, start st
 		return startPlan{}, fmt.Errorf("%w: %s; switch to it with `git switch %s`", errBranchExists, name, name)
 	}
 
-	base := currentBase(ctx, seams.Branch)
+	current := currentBranch(ctx, seams.Branch)
 
 	return startPlan{
-		key: string(detail.Issue.Key), name: name, base: base,
-		fetch: start.fetch && base != "", worktree: start.worktree,
+		key: string(detail.Issue.Key), name: name, base: current.Base, remote: current.BaseRemote,
+		fetch: start.fetch && current.Base != "", worktree: start.worktree,
 	}, nil
 }
 
@@ -177,7 +180,7 @@ func (p startPlan) describe() string {
 	}
 
 	if p.fetch {
-		return "fetch origin, then " + made
+		return "fetch " + p.remote + ", then " + made
 	}
 
 	return made
@@ -191,7 +194,7 @@ func (p startPlan) question() string {
 	}
 
 	if p.fetch {
-		return "fetch origin, then " + made
+		return "fetch " + p.remote + ", then " + made
 	}
 
 	return made
@@ -244,15 +247,16 @@ func branchNamed(ctx context.Context, seams branchSeams, name string) (bool, err
 	return slices.Contains(names, name), nil
 }
 
-// currentBase is the base a new branch starts from — the checked-out branch's
-// base (origin's default), or empty to branch from HEAD when it cannot be read.
-func currentBase(ctx context.Context, branch func(context.Context) (gitrepo.Branch, error)) string {
+// currentBranch is the checked-out branch, whose base a new branch starts from
+// — the base remote's default — or the zero Branch, with no base, to branch
+// from HEAD when it cannot be read.
+func currentBranch(ctx context.Context, branch func(context.Context) (gitrepo.Branch, error)) gitrepo.Branch {
 	current, err := branch(ctx)
 	if err != nil {
-		return ""
+		return gitrepo.Branch{}
 	}
 
-	return current.Base
+	return current
 }
 
 // baseLabel names the base a branch starts from, or "HEAD" when there is none.

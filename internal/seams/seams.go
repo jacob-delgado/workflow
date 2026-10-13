@@ -109,8 +109,9 @@ type Git struct {
 	// returns where it put it, so a task can be started without disturbing the
 	// current checkout. Nil when there is no repository.
 	CreateWorktree func(ctx context.Context, name, start string) (string, error)
-	// Fetch updates origin's tracking refs, so a new branch starts from what
-	// origin holds now. Nil when there is no repository.
+	// Fetch updates the base remote's tracking refs — upstream's in a fork's
+	// clone, else origin's — so a new branch starts from what it holds now.
+	// Nil when there is no repository.
 	Fetch func(ctx context.Context) error
 	// Commit and Push stream their output, because hooks run inside both.
 	Commit func(ctx context.Context, message string) (proc.Output, error)
