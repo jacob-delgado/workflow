@@ -5,9 +5,9 @@ scheduled or even agreed: it is a wide net, written down so that ideas are
 argued over in one place instead of rediscovered.
 
 Two readers are in mind. A contributor looking for something worth building,
-and a later Claude Code session asked to "pick up FEAT-83". Each entry
-therefore says why it matters, which files it would touch, and how to tell
-when it is done.
+and a later Claude Code session asked to "pick up" an entry by its ID. Each
+entry therefore says why it matters, which files it would touch, and how to
+tell when it is done.
 
 Checked against commit `f05ae9f` on 2026-09-24. Its entries were read at
 that commit; every pointer was checked again against the symbol it names
@@ -153,24 +153,6 @@ Impact: medium · Effort: medium
 - Done when: in a clone with `origin` and `upstream`, the base is
   `upstream/main`, the push goes to the fork, and the pull request opens
   against upstream.
-
-### FEAT-83 `workflow finish`
-
-Impact: low · Effort: small
-
-- Why: Finishing a merged branch is three git commands in a fixed order —
-  switch to the base, `pull --ff-only`, `branch -D` — that the interface
-  composes and previews (`internal/tui/finish.go:48`, the commands at
-  `:76`), and the web's Finish the branch sends from a last look of its
-  own. On the command line that is three commands to remember and get
-  right, with no preview and no check that the branch really merged.
-- Touches: `internal/cli` (a `finish` command over `Git.Finish`, previewed
-  like `branch` and `pr`, with `--dry-run`/`--yes`), gated by the check both
-  interfaces already share (`loop.CanFinish`,
-  `internal/loop/guards.go:79`).
-- Done when: `workflow finish --dry-run` prints the three commands and runs
-  none; `--yes` runs them and says the branch is gone; a branch that has not
-  merged is refused with the reason.
 
 ## Commits
 

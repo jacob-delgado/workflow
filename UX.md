@@ -157,7 +157,7 @@ them.
 | Choose its template | `pr` takes the first (UX-62) | `ctrl+t` in the composer | Template |
 | Edit it | not for scripts | `e` | Edit pull request |
 | Read the checks and a job's log | `status` shows CI | `c`, then `l` | the CI checks, Show log |
-| Re-run CI; merge; finish | not for scripts; finish — (FEAT-83) | `R`; `M`; `F` | Re-run failed checks; Merge; Finish the branch |
+| Re-run CI; merge; finish | not for scripts; `finish` | `R`; `M`; `F` | Re-run failed checks; Merge; Finish the branch |
 | Where the work stands | `status [DIR…] --json` | the top row | the work story, the header |
 | **Messaging** | | | |
 | Announce | `announce` | `p` | Announce to SERVICE |
