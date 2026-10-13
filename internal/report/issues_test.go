@@ -138,3 +138,40 @@ func TestACommentKeepsItsAuthorBodyAndTime(t *testing.T) {
 		t.Errorf("Comment = %+v, want bo's done at %v", got, posted)
 	}
 }
+
+func TestAStatusJiraFilesUnderNoCategoryIsCarriedAsNotStarted(t *testing.T) {
+	t.Parallel()
+
+	cases := map[jira.StatusCategory]api.StatusCategory{
+		jira.CategoryNew:           api.StatusCategoryNew,
+		jira.CategoryIndeterminate: api.StatusCategoryIndeterminate,
+		jira.CategoryDone:          api.StatusCategoryDone,
+		// Jira's No Category, which a status no one sorted into a category is
+		// filed under; the contract names three categories, and the page
+		// refuses a frame carrying any other.
+		"undefined": api.StatusCategoryNew,
+		"":          api.StatusCategoryNew,
+	}
+
+	for category, want := range cases {
+		t.Run(string(category), func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			issue := jira.Issue{Key: issueKey, Summary: issueSummary, Status: "Triage", StatusCategory: category}
+
+			// Act
+			page := report.IssuesPage(jira.SearchResult{Issues: []jira.Issue{issue}, Total: 1}, 0)
+			detail := report.IssueDetail(jira.IssueDetail{Issue: issue}, "")
+
+			// Assert
+			if got := page.Issues[0].StatusCategory; got != want {
+				t.Errorf("the listed issue's category = %q, want %q", got, want)
+			}
+
+			if got := detail.StatusCategory; got != want {
+				t.Errorf("the issue read in full's category = %q, want %q", got, want)
+			}
+		})
+	}
+}

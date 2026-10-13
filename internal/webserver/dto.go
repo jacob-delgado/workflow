@@ -340,7 +340,7 @@ func statusChangesDTO(moves []jira.Transition) []api.StatusChange {
 
 		changes = append(changes, api.StatusChange{
 			ID: move.ID, Name: move.Name, ToStatus: move.ToStatus,
-			ToStatusCategory: api.StatusCategory(move.ToStatusCategory), Fields: fields,
+			ToStatusCategory: report.StatusCategory(move.ToStatusCategory), Fields: fields,
 		})
 	}
 

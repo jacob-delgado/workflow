@@ -495,3 +495,28 @@ func TestStreamFrameMatchesTheClientGolden(t *testing.T) {
 			path, regenerateFrames, frames, want)
 	}
 }
+
+// uncategorized is a status Jira files under No Category, keyed "undefined":
+// one no one sorted into a category.
+const uncategorized = "Triage"
+
+func TestAFrameCarriesAnIssueWhoseStatusIsUnderNoCategory(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps := filledDeps()
+	deps.Jira.Search = func(context.Context, string, int) (jira.SearchResult, error) {
+		return jira.SearchResult{
+			Issues: []jira.Issue{{Key: testKey, Summary: testSummary, Status: uncategorized, StatusCategory: "undefined"}},
+			Total:  1,
+		}, nil
+	}
+
+	// Act
+	frame := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
+
+	// Assert
+	if len(frame.Issues.Issues) != 1 || frame.Issues.Issues[0].StatusCategory != api.StatusCategoryNew {
+		t.Errorf("frame issues = %+v, want the issue carried as not yet started", frame.Issues.Issues)
+	}
+}
