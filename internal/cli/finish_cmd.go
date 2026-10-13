@@ -1,0 +1,160 @@
+// Copyright 2026 Jacob Delgado
+// SPDX-License-Identifier: Apache-2.0
+
+package cli
+
+import (
+	"cmp"
+	"context"
+	"fmt"
+	"io"
+	"strconv"
+
+	"github.com/spf13/cobra"
+
+	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/loop"
+)
+
+// finishSeams are what `workflow finish` reads and does, so a test can answer
+// without a repository or a forge.
+type finishSeams struct {
+	Branch   func(ctx context.Context) (gitrepo.Branch, error)
+	FindPull func(ctx context.Context, branch string) (forge.PullRequest, bool, error)
+	Finish   func(ctx context.Context, branch, base string) error
+	// Kind is the forge, whose own words — a merge request, marked "!" on
+	// GitLab — the preview and a failed read use.
+	Kind    forge.Kind
+	Confirm func(question string) (bool, error)
+}
+
+// finishPlan is a finish that can go: the merged branch it deletes, the base
+// it returns to, and the pull request that merged it.
+type finishPlan struct {
+	branch string
+	base   string
+	pull   forge.PullRequest
+}
+
+// newFinishCmd builds `workflow finish`.
+func newFinishCmd(prompt Prompt) *cobra.Command {
+	var opts writeOptions
+
+	cmd := &cobra.Command{
+		Use:   "finish",
+		Short: "Finish a merged branch: switch to its base, catch the base up, and delete the branch",
+		Long: "Finish the checked-out branch once its pull or merge request has merged: switch\n" +
+			"to its base, fast-forward the base with git pull --ff-only, and delete the\n" +
+			"branch — the three git commands the interface's F runs. They are printed and\n" +
+			"confirmed before any runs, and a step git refuses stops the rest, keeping the\n" +
+			"branch.\n\n" +
+			"A branch that cannot be finished is refused with the reason, and exits 4: its\n" +
+			"pull or merge request has not merged, it is the base itself or a detached\n" +
+			"HEAD, there is no base to return to, or it holds commits that neither merged\n" +
+			"nor are on its upstream, which deleting it would lose. The delete is a force\n" +
+			"delete, so it goes ahead only for a branch at the very commit that merged, or\n" +
+			"one whose upstream holds every commit on it.",
+		Example: examples(
+			"workflow finish --dry-run   # the three git commands, none run",
+			"workflow finish --yes       # finish a merged branch, unattended",
+		),
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runFinishCommand(cmd, prompt, opts)
+		},
+	}
+
+	opts.addFlags(cmd, confirmationHelp)
+
+	return cmd
+}
+
+// runFinishCommand wires the real repository and forge to the finish.
+func runFinishCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) error {
+	conn, err := connect(cmd)
+	if err != nil {
+		return err
+	}
+	defer conn.closeLog()
+
+	seams := finishSeams{
+		Branch:   conn.deps.Git.Branch,
+		FindPull: conn.deps.Forge.FindPullRequest,
+		Finish:   conn.deps.Git.Finish,
+		Kind:     conn.deps.Forge.Kind,
+		Confirm:  func(question string) (bool, error) { return confirm(prompt, question) },
+	}
+
+	return runFinish(cmd.Context(), outputOf(cmd), seams, opts)
+}
+
+// runFinish previews the three git commands that finish the merged branch and
+// runs them once confirmed. A branch that cannot be finished is refused with
+// the reason before anything is asked.
+func runFinish(ctx context.Context, out output, seams finishSeams, opts writeOptions) error {
+	plan, err := planFinish(ctx, seams)
+	if err != nil {
+		return err
+	}
+
+	plan.preview(out.artifact, seams.Kind)
+
+	proceed, err := opts.proceed(out.notes, seams.Confirm, writePrompt{
+		question: "Finish " + plan.branch + ": switch to " + plan.base + ", pull, and delete it?",
+		dryRun:   "dry run: would finish " + plan.branch + " (switch to " + plan.base + ", pull, delete it)",
+		declined: "Not finished.",
+	})
+	if err != nil || !proceed {
+		return err
+	}
+
+	err = seams.Finish(ctx, plan.branch, plan.base)
+	if err != nil {
+		return fmt.Errorf("finishing %s: %w", plan.branch, err)
+	}
+
+	fmt.Fprintln(out.notes, "Finished "+plan.branch+": switched to "+plan.base+", caught it up and deleted "+
+		plan.branch+".")
+
+	return nil
+}
+
+// planFinish reads the branch and, for a branch of its own, its pull request,
+// and refuses a finish loop.RefuseFinish finds something in the way of. The
+// base or a detached HEAD is refused before the forge is asked anything.
+func planFinish(ctx context.Context, seams finishSeams) (finishPlan, error) {
+	branch, err := seams.Branch(ctx)
+	if err != nil {
+		return finishPlan{}, fmt.Errorf("reading the branch: %w", err)
+	}
+
+	var (
+		pull  forge.PullRequest
+		found bool
+	)
+
+	if loop.OnFeatureBranch(branch) {
+		pull, found, err = seams.FindPull(ctx, branch.Name)
+		if err != nil {
+			return finishPlan{}, fmt.Errorf("reading the %s of %s: %w", seams.Kind.Noun(), branch.Name, err)
+		}
+	}
+
+	refused := loop.RefuseFinish(pull, found, branch)
+	if refused != nil {
+		return finishPlan{}, fmt.Errorf("cannot finish %s: %w", cmp.Or(branch.Name, "a detached HEAD"), refused)
+	}
+
+	return finishPlan{branch: branch.Name, base: branch.BaseName(), pull: pull}, nil
+}
+
+// preview prints the merged pull request, in the forge's own mark, and the
+// three git commands that finish its branch, as gitrepo runs them.
+func (p finishPlan) preview(artifact io.Writer, kind forge.Kind) {
+	fmt.Fprintln(artifact, "Finish "+p.branch+": "+kind.Sigil()+strconv.Itoa(p.pull.Number)+" merged")
+
+	for _, command := range gitrepo.FinishCommands(p.base, p.branch) {
+		fmt.Fprintln(artifact, "  "+command)
+	}
+}

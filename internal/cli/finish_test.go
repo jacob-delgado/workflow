@@ -1,0 +1,367 @@
+// Copyright 2026 Jacob Delgado
+// SPDX-License-Identifier: Apache-2.0
+
+package cli_test
+
+import (
+	"errors"
+	"io"
+	"strings"
+	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/loop"
+)
+
+// The feature branch the finish tests merge and finish, and the base it
+// returns to.
+const (
+	finishedBranch = "fix/PROJ-2-thing"
+	finishBase     = "main"
+)
+
+// finishRepo is a repository on finishedBranch, one commit ahead of main, with
+// a GitHub origin whose pull request for it fakeGh answers with pulls, handed
+// the commit the branch is at.
+func finishRepo(t *testing.T, pulls func(head string) string) string {
+	t.Helper()
+
+	repo := githubRepo(t, finishedBranch)
+	fakeGh(t, ghResponses{pulls: pulls(headOf(t, repo))})
+	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+
+	return repo
+}
+
+// headOf is the commit repo has checked out.
+func headOf(t *testing.T, repo string) string {
+	t.Helper()
+
+	return strings.TrimSpace(gitOutput(t, repo, "rev-parse", "HEAD"))
+}
+
+// mergedAtHead is the branch's pull request merged at head, the commit the
+// branch is at: nothing on it is anywhere but what merged.
+func mergedAtHead(head string) string {
+	return mergedPullAt("work", head)
+}
+
+// listing is a pull request listing that is pulls whatever the branch is at.
+func listing(pulls string) func(string) string {
+	return func(string) string { return pulls }
+}
+
+// mergedFinishRepo is finishRepo with the branch's pull request merged at the
+// commit the branch is at.
+func mergedFinishRepo(t *testing.T) string {
+	t.Helper()
+
+	return finishRepo(t, mergedAtHead)
+}
+
+// baseTracked gives main an upstream in a bare repository on disk, so the
+// finish's pull --ff-only catches main up without reaching for the GitHub
+// origin. The remote is not origin, so the base is still the local main.
+func baseTracked(t *testing.T, repo string) {
+	t.Helper()
+
+	bare := t.TempDir()
+	git(t, bare, "init", "--bare", "--quiet")
+	git(t, repo, "remote", "add", "base-upstream", bare)
+	git(t, repo, "push", "--quiet", "base-upstream", "main")
+	git(t, repo, "fetch", "--quiet", "base-upstream")
+	git(t, repo, "branch", "--quiet", "--set-upstream-to=base-upstream/main", "main")
+}
+
+// divergedBase is baseTracked with main and its upstream each holding a
+// commit the other lacks, so pull --ff-only refuses to catch main up.
+func divergedBase(t *testing.T, repo string) {
+	t.Helper()
+
+	baseTracked(t, repo)
+	git(t, repo, "switch", "--quiet", "main")
+	commit(t, repo, "upstream only")
+	git(t, repo, "push", "--quiet", "base-upstream", "main")
+	git(t, repo, "reset", "--quiet", "--hard", "HEAD~1")
+	commit(t, repo, "local only")
+	git(t, repo, "switch", "--quiet", finishedBranch)
+}
+
+// committedSincePushed has the branch pushed, then committed to again, so
+// its upstream lacks a commit a delete would lose.
+func committedSincePushed(t *testing.T, repo string) {
+	t.Helper()
+
+	pretendPushed(t, repo)
+	commit(t, repo, "after the merge")
+}
+
+// committedSinceMerged has the branch committed to after what merged, with no
+// upstream — never pushed under its own name, or one the forge deleted after
+// the merge and a prune dropped — so the commit is on no remote at all.
+func committedSinceMerged(t *testing.T, repo string) {
+	t.Helper()
+
+	commit(t, repo, "after the merge")
+}
+
+// baseRenamed renames main to a name no base is looked for by, so the
+// branch has no base to return to.
+func baseRenamed(t *testing.T, repo string) {
+	t.Helper()
+
+	git(t, repo, "branch", "--move", "main", "trunk")
+}
+
+// requireBranchKept fails the test unless repo still holds finishedBranch.
+func requireBranchKept(t *testing.T, repo string) {
+	t.Helper()
+
+	if listed := gitOutput(t, repo, "branch", "--list", finishedBranch); strings.TrimSpace(listed) == "" {
+		t.Errorf("%s was deleted, want it kept", finishedBranch)
+	}
+}
+
+func TestFinishDryRunPrintsTheThreeCommandsAndRunsNone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := mergedFinishRepo(t)
+
+	// Act
+	printed, err := runStreams(t, repo, unusedPrompt(t), "finish", "--dry-run")
+	// Assert
+	if err != nil {
+		t.Fatalf("finish --dry-run: %v (%+v)", err, printed)
+	}
+
+	for _, want := range []string{
+		"Finish " + finishedBranch + ": #7 merged",
+		"  git switch -- main",
+		"  git pull --ff-only",
+		"  git branch -D -- " + finishedBranch,
+	} {
+		if !strings.Contains(printed.stdout, want) {
+			t.Errorf("stdout = %q, want %q", printed.stdout, want)
+		}
+	}
+
+	dryRun := "dry run: would finish " + finishedBranch + " (switch to main, pull, delete it)"
+	if !strings.Contains(printed.stderr, dryRun) {
+		t.Errorf("stderr = %q, want %q", printed.stderr, dryRun)
+	}
+
+	if current := currentBranch(t, repo); current != finishedBranch {
+		t.Errorf("checked out %s, want %s left checked out", current, finishedBranch)
+	}
+}
+
+func TestFinishYesDeletesTheMergedBranch(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := mergedFinishRepo(t)
+	baseTracked(t, repo)
+
+	// Act
+	printed, err := runStreams(t, repo, unusedPrompt(t), "finish", "--yes")
+	// Assert
+	if err != nil {
+		t.Fatalf("finish --yes: %v (%+v)", err, printed)
+	}
+
+	if current := currentBranch(t, repo); current != finishBase {
+		t.Errorf("checked out %s, want %s", current, finishBase)
+	}
+
+	if listed := gitOutput(t, repo, "branch", "--list", finishedBranch); strings.TrimSpace(listed) != "" {
+		t.Errorf("branches = %q, want %s deleted", listed, finishedBranch)
+	}
+
+	if want := "deleted " + finishedBranch; !strings.Contains(printed.stderr, want) {
+		t.Errorf("stderr = %q, want it to say %q", printed.stderr, want)
+	}
+}
+
+func TestFinishAsksBeforeRunning(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := mergedFinishRepo(t)
+	baseTracked(t, repo)
+
+	var asked []string
+
+	// Act
+	printed, err := runStreams(t, repo, answering("n", &asked), "finish")
+	// Assert
+	if err != nil {
+		t.Fatalf("finish declined: %v (%+v)", err, printed)
+	}
+
+	want := "Finish " + finishedBranch + ": switch to main, pull, and delete it? [y/N]: "
+	if len(asked) != 1 || asked[0] != want {
+		t.Errorf("asked %q, want only %q", asked, want)
+	}
+
+	if !strings.Contains(printed.stderr, "Not finished.") {
+		t.Errorf("stderr = %q, want it to say it was not finished", printed.stderr)
+	}
+
+	requireBranchKept(t, repo)
+}
+
+func TestFinishWithoutATerminalSaysToPassYes(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := mergedFinishRepo(t)
+	noTerminal := cli.Prompt{Line: func(string) (string, error) { return "", io.EOF }}
+
+	// Act
+	_, err := runStreams(t, repo, noTerminal, "finish")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "--yes") {
+		t.Errorf("finish with no terminal = %v, want it to say to pass --yes", err)
+	}
+
+	wantExit(t, err, 2)
+	requireBranchKept(t, repo)
+}
+
+func TestFinishRefusesWhatCannotBeFinished(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		pulls  func(head string) string
+		shape  func(t *testing.T, repo string)
+		reason error
+	}{
+		"an open pull request": {pulls: listing(openPull("work")), reason: loop.ErrNotMerged},
+		"one closed unmerged":  {pulls: listing(closedPull("work")), reason: loop.ErrNotMerged},
+		"a commit not pushed":  {pulls: mergedAtHead, reason: loop.ErrUnpushedWork, shape: committedSincePushed},
+		"a commit since the merge, no upstream": {
+			pulls: mergedAtHead, reason: loop.ErrUnpushedWork, shape: committedSinceMerged,
+		},
+		"merged at a commit the forge did not name": {
+			pulls: listing(mergedPull("work")), reason: loop.ErrUnpushedWork,
+		},
+		"no base to return to": {pulls: mergedAtHead, reason: loop.ErrNoBase, shape: baseRenamed},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			repo := finishRepo(t, tt.pulls)
+			if tt.shape != nil {
+				tt.shape(t, repo)
+			}
+
+			// Act
+			_, err := runStreams(t, repo, unusedPrompt(t), "finish", "--yes")
+
+			// Assert
+			if !errors.Is(err, tt.reason) || !strings.Contains(err.Error(), "cannot finish "+finishedBranch+": ") {
+				t.Errorf("finish = %v, want %v, naming the branch", err, tt.reason)
+			}
+
+			wantExit(t, err, 4)
+			requireBranchKept(t, repo)
+		})
+	}
+}
+
+func TestFinishOnTheBaseAsksNoForge(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// No origin, so a forge asked would fail as configuration, exit 3: exit 4
+	// is the refusal made before the forge is asked.
+	repo := prRepo(t, finishedBranch)
+	git(t, repo, "switch", "--quiet", "main")
+
+	// Act
+	_, err := runStreams(t, repo, unusedPrompt(t), "finish", "--yes")
+
+	// Assert
+	if !errors.Is(err, loop.ErrNotOnFeatureBranch) || !strings.Contains(err.Error(), "cannot finish main") {
+		t.Errorf("finish on main = %v, want it refused as no branch of its own", err)
+	}
+
+	wantExit(t, err, 4)
+}
+
+func TestFinishOutsideARepositoryRefuses(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	_, err := runStreams(t, t.TempDir(), unusedPrompt(t), "finish", "--yes")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "reading the branch") {
+		t.Errorf("finish outside a repository = %v, want the branch read refused", err)
+	}
+
+	wantExit(t, err, 4)
+}
+
+func TestFinishSaysWhyThePullRequestCouldNotBeRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A feature branch with no origin: the forge has no repository to read.
+	repo := prRepo(t, finishedBranch)
+	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+
+	// Act
+	_, err := runStreams(t, repo, unusedPrompt(t), "finish", "--yes")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "reading the pull request of "+finishedBranch) {
+		t.Errorf("finish with no origin = %v, want the pull request's read to fail", err)
+	}
+
+	wantExit(t, err, 3)
+	requireBranchKept(t, repo)
+}
+
+func TestFinishKeepsGitsWordsWhenAStepFails(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := mergedFinishRepo(t)
+	divergedBase(t, repo)
+
+	// Act
+	_, err := runStreams(t, repo, unusedPrompt(t), "finish", "--yes")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "finishing "+finishedBranch+": git pull --ff-only") ||
+		!strings.Contains(err.Error(), "fast-forward") {
+		t.Errorf("finish onto a diverged main = %v, want git's own words for the pull", err)
+	}
+
+	wantExit(t, err, 1)
+	requireBranchKept(t, repo)
+}
+
+func TestFinishNamesAMergeRequestInGitLabsWords(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := gitlabRepo(t, finishedBranch)
+	fakeGlabListing(t, `[{"iid":7,"web_url":"`+gitlabMergeRequest+`","title":"work","state":"merged",`+
+		`"sha":"`+headOf(t, repo)+`"}]`)
+
+	// Act
+	printed, err := runStreams(t, repo, unusedPrompt(t), "finish", "--dry-run")
+	// Assert
+	if err != nil {
+		t.Fatalf("finish --dry-run on GitLab: %v (%+v)", err, printed)
+	}
+
+	requireGitLabWords(t, printed.stdout, "Finish "+finishedBranch+": !7 merged")
+}

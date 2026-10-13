@@ -456,12 +456,14 @@ func configurationErrors() []error {
 
 // refusalErrors are a command that would not go ahead because of the state it
 // found: an open pull request, nothing to open, a dirty tree, a branch or file
-// already there, a directory that is no repository, a store file another
-// program holds open, a summary too long for the messaging service.
+// already there, a branch that cannot be finished, a directory that is no
+// repository, a store file another program holds open, a summary too long for
+// the messaging service.
 func refusalErrors() []error {
 	return []error{
 		loop.ErrPullAlreadyOpen, loop.ErrNothingToOpen, loop.ErrNoPullRequest,
 		loop.ErrDirtyTree, loop.ErrNothingStaged,
+		loop.ErrNotOnFeatureBranch, loop.ErrNotMerged, loop.ErrNoBase, loop.ErrUnpushedWork,
 		errPullAlreadyOpen, errNoCommitsToOpen, errNoPullRequest,
 		errBranchExists, setup.ErrExists, gitrepo.ErrNotARepository, store.ErrNotCleaned,
 		messaging.ErrTooLong,

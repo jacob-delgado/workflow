@@ -69,6 +69,10 @@ func TestExitStatusDistinguishesFailureKinds(t *testing.T) {
 		"a dirty tree":                {err: loop.ErrDirtyTree, want: 4},
 		"nothing staged":              {err: loop.ErrNothingStaged, want: 4},
 		"not a repository":            {err: gitrepo.ErrNotARepository, want: 4},
+		"no branch of its own":        {err: loop.ErrNotOnFeatureBranch, want: 4},
+		"not merged":                  {err: loop.ErrNotMerged, want: 4},
+		"no base to return to":        {err: loop.ErrNoBase, want: 4},
+		"commits not pushed":          {err: loop.ErrUnpushedWork, want: 4},
 		"jira unreachable":            {err: jira.ErrUnreachable, want: 5},
 		"the forge unreachable":       {err: forge.ErrUnreachable, want: 5},
 		"messaging unreachable":       {err: messaging.ErrUnreachable, want: 5},
@@ -355,6 +359,7 @@ func TestEveryCommandRefusesAConfigurationItCannotRead(t *testing.T) {
 		strings.Fields("summary"),
 		strings.Fields("branch PROJ-1"),
 		strings.Fields("pr --dry-run"),
+		strings.Fields("finish --dry-run"),
 		strings.Fields("announce --dry-run"),
 	}
 
