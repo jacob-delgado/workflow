@@ -17,6 +17,47 @@ import (
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
+// announceOpened previews the announcement of the pull request report says
+// was opened, on notes, and waits for its CI to pass to announce it, as
+// workflow announce --when-green does: --announce was the consent, so it asks
+// nothing. A dry run says it would, and a pull request not opened announces
+// nothing.
+func announceOpened(
+	ctx context.Context, notes io.Writer, seams announceSeams, report prReport, opts writeOptions,
+) error {
+	if opts.dryRun {
+		fmt.Fprintln(notes, "dry run: would announce it to "+seams.Messaging.Target()+" once its CI passes")
+
+		return nil
+	}
+
+	if !report.opened.Opened() {
+		return nil
+	}
+
+	composed := loop.Composed{
+		Announcement: loop.ComposeAnnouncementOf(
+			ctx, seams.Compose, report.branch, report.opened, seams.Messaging, seams.Project, seams.Kind,
+		),
+		Pull: report.opened, Branch: report.branch,
+	}
+	pending := previewAnnouncement(ctx, output{artifact: notes, notes: notes}, seams, composed)
+
+	return deliverWhenGreen(ctx, notes, seams, pending, seams.Kind.Sigil()+strconv.Itoa(report.opened.Number),
+		pullOpenedNow)
+}
+
+// pullAge is how lately the pull request a wait for CI announces was opened.
+type pullAge int
+
+const (
+	// pullFoundBefore was found on the forge before the wait began, which
+	// lists it.
+	pullFoundBefore pullAge = iota
+	// pullOpenedNow was opened a moment ago, which the forge may not list yet.
+	pullOpenedNow
+)
+
 // errOnlyReadyWaits refuses to wait for the CI of a pull request that is not
 // ready for review: one merged has no CI left to wait for.
 var errOnlyReadyWaits = errors.New("only a ready-for-review announcement waits for CI")
@@ -39,12 +80,15 @@ func onceGreen(prompt writePrompt, pull string) writePrompt {
 // another session announced it meanwhile. A post the gate refuses, a check
 // having failed since the read that let it go, waits again, an interval on.
 // It gives up on a pull request that reports no check, is no longer the
-// branch's, or merged first; ctrl+c stops it, announcing nothing.
+// branch's, or merged first; one opened a moment ago, as age says, is waited
+// for until the forge lists it. ctrl+c stops it, announcing nothing.
 func deliverWhenGreen(
 	ctx context.Context, notes io.Writer, seams announceSeams, pending pendingAnnouncement, pull string,
+	age pullAge,
 ) error {
 	heard := &waitLines{notes: notes, pull: pull, target: seams.Messaging.Target()}
 	await := seams.awaitSeams(heard.hear)
+	await.Opened = age == pullOpenedNow
 
 	for {
 		green, err := loop.AwaitGreen(ctx, await, pending.delivery.Pull.Number)

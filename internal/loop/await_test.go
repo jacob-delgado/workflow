@@ -37,6 +37,10 @@ type awaiting struct {
 	branchErrs []error
 	pullErrs   []error
 	tries      int
+	// missing, in turn, the last repeated, is whether each find does not see
+	// the pull request; finds counts them.
+	missing []bool
+	finds   int
 }
 
 // pick is the round's answer of answers, the last repeated.
@@ -59,6 +63,12 @@ func (a *awaiting) seams() loop.AwaitSeams {
 		},
 		FindPull: func(context.Context, string) (forge.PullRequest, bool, error) {
 			err := pick(a.pullErrs, a.tries-1)
+
+			a.finds++
+			if pick(a.missing, a.finds-1) {
+				return forge.PullRequest{}, false, err
+			}
+
 			if len(a.pulls) == 0 {
 				return openPull(), true, err
 			}
@@ -341,5 +351,57 @@ func TestAwaitGreenEndsWithItsContextDuringItsDelay(t *testing.T) {
 	// Assert
 	if !errors.Is(err, context.Canceled) || world.rounds != 0 {
 		t.Errorf("AwaitGreen = %v after %d reads, want context.Canceled and no read", err, world.rounds)
+	}
+}
+
+func TestAwaitGreenWaitsForAPullRequestJustOpenedToBeListed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The forge lists the pull request just opened only from its second find.
+	world := &awaiting{cis: states(forge.CIPassed), missing: []bool{true, false}, now: armedAt()}
+	seams := world.seams()
+	seams.Opened = true
+
+	// Act
+	green, err := loop.AwaitGreen(t.Context(), seams, 9)
+
+	// Assert
+	if err != nil || green.Pull.Number != 9 || len(world.heard) == 0 ||
+		!errors.Is(world.heard[0].Err, loop.ErrNotListedYet) {
+		t.Errorf("AwaitGreen = #%d, %v, heard %+v; want #9, after a read that did not list it yet",
+			green.Pull.Number, err, world.heard)
+	}
+}
+
+func TestAwaitGreenEndsWhenAPullRequestJustOpenedIsGoneOnceListed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	world := &awaiting{cis: states(forge.CIRunning), missing: []bool{false, true}, now: armedAt()}
+	seams := world.seams()
+	seams.Opened = true
+
+	// Act
+	_, err := loop.AwaitGreen(t.Context(), seams, 9)
+
+	// Assert
+	if !errors.Is(err, loop.ErrPullChanged) {
+		t.Errorf("AwaitGreen = %v, want ErrPullChanged once a find that saw it no longer does", err)
+	}
+}
+
+func TestAwaitGreenEndsWhenAPullRequestFoundBeforeIsNotFound(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	world := &awaiting{cis: states(forge.CIRunning), missing: []bool{true}, now: armedAt()}
+
+	// Act
+	_, err := loop.AwaitGreen(t.Context(), world.seams(), 9)
+
+	// Assert
+	if !errors.Is(err, loop.ErrPullChanged) || world.finds != 1 {
+		t.Errorf("AwaitGreen = %v after %d finds, want ErrPullChanged on the first", err, world.finds)
 	}
 }

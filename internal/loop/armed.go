@@ -31,6 +31,9 @@ var (
 	// ErrMergedFirst gives up on an armed announcement whose pull request
 	// merged before its CI passed.
 	ErrMergedFirst = errors.New("the pull request merged before its CI passed")
+	// ErrNotListedYet is a find that does not see a pull request just opened,
+	// which a forge may list only a moment later: a read to make again.
+	ErrNotListedYet = errors.New("the forge does not list the pull request yet")
 )
 
 // Armed is how an announcement armed to go once CI passes stands on a read of
@@ -102,7 +105,10 @@ func StillArmed(number int, pull forge.PullRequest, found bool) error {
 // AwaitSeams are what AwaitGreen reads and waits through. Pause waits wait
 // under ctx, answering ctx's error once it ends; Now tells the time patience
 // is counted by. Heard, which may be nil, is told of each read. Delay, when
-// set, is waited before the first read, as for a wait taken up again.
+// set, is waited before the first read, as for a wait taken up again. Opened
+// is set for a pull request opened a moment ago, which the forge may not list
+// yet: until a find has seen it, one that does not is heard as a read that
+// failed, ErrNotListedYet, and read again.
 type AwaitSeams struct {
 	Branch   func(ctx context.Context) (gitrepo.Branch, error)
 	FindPull func(ctx context.Context, branch string) (forge.PullRequest, bool, error)
@@ -111,6 +117,7 @@ type AwaitSeams struct {
 	Now      func() time.Time
 	Interval time.Duration
 	Delay    time.Duration
+	Opened   bool
 	Heard    func(Heard)
 }
 
@@ -136,7 +143,7 @@ type Green struct {
 // fails is told through Heard and waited past. It starts no goroutine: Pause
 // is the caller's wait.
 func AwaitGreen(ctx context.Context, seams AwaitSeams, number int) (Green, error) {
-	watch := WatchFrom(seams.Now())
+	state := awaitState{watch: WatchFrom(seams.Now()), listed: !seams.Opened}
 
 	for wait := seams.Delay; ; wait = seams.Interval {
 		if wait > 0 {
@@ -146,7 +153,7 @@ func AwaitGreen(ctx context.Context, seams AwaitSeams, number int) (Green, error
 			}
 		}
 
-		green, armed, err := seams.round(ctx, number, &watch)
+		green, armed, err := seams.round(ctx, number, &state)
 		if err != nil {
 			return Green{}, err
 		}
@@ -157,12 +164,19 @@ func AwaitGreen(ctx context.Context, seams AwaitSeams, number int) (Green, error
 	}
 }
 
+// awaitState is how a wait for CI to pass stands between its reads: its
+// patience with no check, and whether a find has listed the pull request.
+type awaitState struct {
+	watch  CIWatch
+	listed bool
+}
+
 // round reads the branch, its pull request and its CI once, and says how the
 // armed announcement stands on them. A read that fails is heard and answers
 // ArmedWaiting, to be read again; a pull request no longer armed, and no
 // check reported within patience, end the wait.
-func (s AwaitSeams) round(ctx context.Context, number int, watch *CIWatch) (Green, Armed, error) {
-	green, err := s.readPull(ctx, number)
+func (s AwaitSeams) round(ctx context.Context, number int, state *awaitState) (Green, Armed, error) {
+	green, err := s.readPull(ctx, number, &state.listed)
 	if errors.Is(err, ErrPullChanged) || errors.Is(err, ErrMergedFirst) {
 		return Green{}, ArmedWaiting, err
 	}
@@ -172,7 +186,7 @@ func (s AwaitSeams) round(ctx context.Context, number int, watch *CIWatch) (Gree
 
 		ci, err = s.CheckCI(ctx, green.Pull, green.Head)
 		if err == nil {
-			return s.settle(green, ci, watch)
+			return s.settle(green, ci, &state.watch)
 		}
 	}
 
@@ -186,8 +200,10 @@ func (s AwaitSeams) round(ctx context.Context, number int, watch *CIWatch) (Gree
 }
 
 // readPull reads the branch afresh, for its head, and its pull request,
-// answering ErrPullChanged or ErrMergedFirst when it is no longer number.
-func (s AwaitSeams) readPull(ctx context.Context, number int) (Green, error) {
+// answering ErrPullChanged or ErrMergedFirst when it is no longer number, and
+// ErrNotListedYet for one not found that no find has listed yet, noting in
+// listed a find that has.
+func (s AwaitSeams) readPull(ctx context.Context, number int, listed *bool) (Green, error) {
 	branch, err := s.Branch(ctx)
 	if err != nil {
 		return Green{}, fmt.Errorf("reading the branch: %w", err)
@@ -197,6 +213,12 @@ func (s AwaitSeams) readPull(ctx context.Context, number int) (Green, error) {
 	if err != nil {
 		return Green{}, fmt.Errorf("reading the pull request: %w", err)
 	}
+
+	if !found && !*listed {
+		return Green{}, ErrNotListedYet
+	}
+
+	*listed = true
 
 	err = StillArmed(number, pull, found)
 	if err != nil {
