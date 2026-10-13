@@ -51,7 +51,7 @@ jobs:
       # download, and a restored tool cache is state carried in from an
       # earlier run. Provisioning from scratch costs a minute and keeps the
       # cache out of what goes into a release.
-      - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
+      - uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
         with:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
           cache: false
@@ -76,7 +76,7 @@ jobs:
       # went into the binaries and check them against advisories. Attached to the
       # release and attested alongside the binaries by the release job.
       - name: Generate an SBOM
-        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           path: .
           format: spdx-json
