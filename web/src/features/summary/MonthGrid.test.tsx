@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
+import { markShape } from '@/test/marks.tsx'
 import { MonthGrid } from './MonthGrid.tsx'
 
 // showGrid draws September 2026 with Tuesday the 15th picked, and keeps
@@ -85,7 +86,7 @@ test('a day is named with how much was done on it, and one with nothing by its d
       year={2026}
       month={9}
       period={{ from: '2026-09-15', to: '2026-09-15' }}
-      amounts={amounts}
+      done={{ amounts, whole: true }}
       onPick={vi.fn()}
     />,
   )
@@ -97,4 +98,41 @@ test('a day is named with how much was done on it, and one with nothing by its d
     screen.getByRole('gridcell', { name: 'Wednesday, September 16, 2026, 3 things done' }),
   ).toBeTruthy()
   expect(screen.getByRole('gridcell', { name: 'Monday, September 14, 2026' })).toBeTruthy()
+})
+
+// dotsOn is how many dots a day's cell draws under its number.
+function dotsOn(name: string): number {
+  const shape = markShape(screen.getByRole('gridcell', { name }))
+
+  return shape === '' ? 0 : shape.split(' | ').length
+}
+
+test("a day's dots step with its share of the month's busiest, and a day with nothing has none", () => {
+  // Arrange
+  const amounts = new Map([
+    ['2026-09-14', 1],
+    ['2026-09-15', 2],
+    ['2026-09-16', 3],
+  ])
+
+  // Act
+  render(
+    <MonthGrid
+      year={2026}
+      month={9}
+      period={{ from: '2026-09-01', to: '2026-09-01' }}
+      done={{ amounts, whole: true }}
+      onPick={vi.fn()}
+    />,
+  )
+
+  // Assert
+  expect(
+    [
+      'Monday, September 14, 2026, 1 thing done',
+      'Tuesday, September 15, 2026, 2 things done',
+      'Wednesday, September 16, 2026, 3 things done',
+      'Thursday, September 17, 2026',
+    ].map(dotsOn),
+  ).toEqual([1, 2, 3, 0])
 })

@@ -1,7 +1,7 @@
 import { useId, useState } from 'react'
 import { useShortcutProps } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
-import { civilDay, civilNoon } from '@/lib/dates.ts'
+import { civilDay, civilNoon, monthHeading } from '@/lib/dates.ts'
 import { Select } from '@/lib/Field.tsx'
 import {
   monthOf,
@@ -12,7 +12,7 @@ import {
   type Period,
 } from './civilDate.ts'
 import { MonthGrid } from './MonthGrid.tsx'
-import { useDayAmounts } from './summaryApi.ts'
+import { useMonthRead, type MonthRead } from './summaryApi.ts'
 
 const monthNames = [
   'January',
@@ -41,12 +41,12 @@ interface PeriodPickerProps {
 // PeriodCalendar picks the period the Summary shows from a month's calendar —
 // a day, a range, the month or its year — the month and year chosen above it.
 // Each day of the month shown says how much was done on it, once that month
-// is read.
+// is read, and a line under the days says when they may say less.
 export function PeriodCalendar({ period, today, onPick }: PeriodPickerProps) {
   const [view, setView] = useState<[number, number]>(() => yearMonth(period.to))
   const [year, month] = view
   const shownDay = civilDay(civilNoon(year, month, 1))
-  const amounts = useDayAmounts(monthOf(shownDay))
+  const read = useMonthRead(monthOf(shownDay), today)
 
   return (
     <section aria-label="Calendar" className="flex flex-col gap-group">
@@ -62,12 +62,13 @@ export function PeriodCalendar({ period, today, onPick }: PeriodPickerProps) {
         year={year}
         month={month}
         period={period}
-        amounts={amounts}
+        done={read.state === 'read' ? read.done : undefined}
         onPick={onPick}
         onView={(nextYear, nextMonth) => {
           setView([nextYear, nextMonth])
         }}
       />
+      <MonthNote read={read} month={monthHeading(year, month)} />
       <div className="flex flex-wrap gap-item">
         <Button
           variant="secondary"
@@ -91,6 +92,36 @@ export function PeriodCalendar({ period, today, onPick }: PeriodPickerProps) {
         chosen.
       </p>
     </section>
+  )
+}
+
+// MonthNote says when the days of the month shown may say less than was done
+// on them: its read was refused, or a source could not say all of it. A read
+// that is whole, or still to come, needs no word.
+function MonthNote({ read, month }: { read: MonthRead; month: string }) {
+  if (read.state === 'refused') {
+    return (
+      <MutedNote>{`${month} could not be read, so no day in it says what was done.`}</MutedNote>
+    )
+  }
+
+  if (read.state === 'read' && !read.done.whole) {
+    return (
+      <MutedNote>
+        {`Not every source could be read in full for ${month}, so a day may say less than was done on it.`}
+      </MutedNote>
+    )
+  }
+
+  return null
+}
+
+// MutedNote is a note beside the calendar, as quiet as its hint.
+function MutedNote({ children }: { children: string }) {
+  return (
+    <p role="note" className="text-xs text-muted-foreground">
+      {children}
+    </p>
   )
 }
 
