@@ -532,7 +532,7 @@ func TestAStatusChangeToAStatusUnderNoCategoryIsOffered(t *testing.T) {
 	// page would refuse.
 	deps := formDeps(&issueWrites{})
 	deps.Jira.Transitions = func(context.Context, jira.Key) ([]jira.Transition, error) {
-		return []jira.Transition{{ID: "7", Name: uncategorized, ToStatus: uncategorized, ToStatusCategory: "undefined"}}, nil
+		return []jira.Transition{{ID: "7", Name: uncategorized, ToStatus: uncategorized, ToStatusCategory: noCategory}}, nil
 	}
 
 	// Act

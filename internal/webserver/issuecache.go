@@ -9,7 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/report"
 )
 
 // issuesCache is the first page of each view's issues as the tracker last
@@ -80,6 +82,25 @@ func (s *server) keepFirstPage(ctx context.Context, jql string, issues []jira.Is
 	if err != nil {
 		s.unexpected(fmt.Errorf("keeping the issue list for the next session: %w", err))
 	}
+}
+
+// viewSeed is the view's issues as the store last kept them, and whether
+// there are any to send: there are none without a tracker to ask again, a
+// store to read, outside a dry run, or a list kept for jql. The read is the
+// page's own, made under its ctx. The rows go through the same mapper as a
+// live page, which carries a category the contract does not name as one it
+// does: a row read back from disk is not trusted to fit.
+func (s *server) viewSeed(ctx context.Context, jql string) (api.Seed, bool) {
+	if s.deps.Jira.Search == nil || s.deps.Store.CachedIssues == nil || s.info.DryRun {
+		return api.Seed{}, false
+	}
+
+	kept, held := s.deps.Store.CachedIssues(ctx, jql)
+	if !held {
+		return api.Seed{}, false
+	}
+
+	return api.Seed{Issues: report.IssuesPage(jira.SearchResult{Issues: kept, Total: len(kept)}, 0)}, true
 }
 
 // serve answers the page held for jql while it is fresh, and while a search

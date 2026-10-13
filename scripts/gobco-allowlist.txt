@@ -46,7 +46,7 @@ internal/webserver/config.go server.writeOver TRADE-13 any 4 err != nil
 internal/webserver/config.go configDTO TRADE-13 any 1 err != nil
 internal/webserver/config.go configDTO TRADE-13 any 2 err != nil
 internal/webserver/config.go fromDTO TRADE-13 any 1 err != nil
-internal/webserver/stream.go writeSnapshot TRADE-13 any 1 err != nil
+internal/webserver/stream.go sendEvent TRADE-13 any 1 err != nil
 
 # TRADE-14: what the binary embeds, the OpenAPI contract and the web app, is
 # taken to load.

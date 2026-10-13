@@ -740,7 +740,10 @@ every write is. When git or the forge fails, the branch, changes and review
 reads answer a problem, so a script can
 tell a failure from nothing to show; the event stream carries the same
 problem beside the panel it emptied, in the snapshot's `problems`, and a CI
-read that failed in the review's `ci_error`. A service that is not set up —
+read that failed in the review's `ci_error`. The stream's first message may
+be a `seed` event instead of a `snapshot`: the view's issues as the store
+last kept them, sent before anything is asked of the network; a script that
+reads `snapshot` events alone can ignore it. A service that is not set up —
 a Jira or forge token missing, an origin that names no forge — is a problem
 whose `code` is `not_set_up`, its detail saying how to set it up, so a
 script tells it from a refusal; `/api/activity` marks such a source's

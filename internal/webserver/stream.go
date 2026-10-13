@@ -30,7 +30,8 @@ const defaultStreamInterval = 5 * time.Second
 
 // streamEvents serves the Server-Sent Events stream for the view the request
 // names: it refuses a server that cannot stream and a view the configuration
-// does not offer, sets the event-stream headers, and pushes the snapshots.
+// does not offer, sets the event-stream headers, sends the view's kept issues
+// when the store holds them, and pushes the snapshots.
 func (s *server) streamEvents(w http.ResponseWriter, request *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -42,7 +43,9 @@ func (s *server) streamEvents(w http.ResponseWriter, request *http.Request) {
 	// An unknown view is refused before the upgrade: once the event-stream
 	// headers are out, the only answer left is a stream of the wrong view.
 	view := request.URL.Query().Get("view")
-	if _, known := jira.ViewNamed(s.config().Jira.Views, view); !known {
+
+	listed, known := jira.ViewNamed(s.config().Jira.Views, view)
+	if !known {
 		writeProblem(w, api.ProblemCodeNotFound, unknownView(view))
 
 		return
@@ -52,30 +55,31 @@ func (s *server) streamEvents(w http.ResponseWriter, request *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	s.pushSnapshots(w, flusher, request, view)
+	out := &eventStream{w: w, flusher: flusher}
+	if !s.seedFirst(request.Context(), out, listed.JQL) {
+		return
+	}
+
+	s.pushSnapshots(request, out, view)
 }
 
 // pushSnapshots pushes a snapshot on connect, then another every interval,
 // until the client disconnects and its request context is canceled, a write
 // fails, or the directory is switched. The loop runs on the connection's own
 // goroutine, which the HTTP server provides, so this starts none of its own.
-func (s *server) pushSnapshots(w http.ResponseWriter, flusher http.Flusher, request *http.Request, view string) {
+func (s *server) pushSnapshots(request *http.Request, out *eventStream, view string) {
 	interval := s.info.streamInterval()
 
-	for eventID := 1; ; eventID++ {
-		if !writeSnapshot(w, flusher, eventID, s.snapshot(request.Context(), view)) {
-			return
-		}
-
+	for sendEvent(out, snapshotEvent, s.snapshot(request.Context(), view)) {
 		select {
 		case <-request.Context().Done():
 			return
 		case <-s.retired:
 			// The directory was switched: the page reconnects in a second,
 			// to the server for the directory switched to.
-			_, _ = fmt.Fprint(w, "retry: 1000\n\n")
+			_, _ = fmt.Fprint(out.w, "retry: 1000\n\n")
 
-			flusher.Flush()
+			out.flusher.Flush()
 
 			return
 		case <-time.After(interval):
@@ -83,24 +87,59 @@ func (s *server) pushSnapshots(w http.ResponseWriter, flusher http.Flusher, requ
 	}
 }
 
-// writeSnapshot writes one event-stream message carrying the snapshot and flushes
-// it. It reports whether the write reached the client; a failed write means the
-// connection is gone and the stream should stop.
-func writeSnapshot(w http.ResponseWriter, flusher http.Flusher, eventID int, snap api.Snapshot) bool {
-	// Trade-off TRADE-13: a snapshot always encodes.
-	data, err := json.Marshal(snap)
+// streamEvent names a message's kind on the event stream.
+type streamEvent string
+
+// The stream's kinds of message: the view's kept issues, sent first when
+// there are any, and the snapshots.
+const (
+	seedEvent     streamEvent = "seed"
+	snapshotEvent streamEvent = "snapshot"
+)
+
+// eventStream is where a stream writes its messages, and how many it has
+// sent, which numbers the next.
+type eventStream struct {
+	w       http.ResponseWriter
+	flusher http.Flusher
+	sent    int
+}
+
+// streamPayload is what a stream's message carries.
+type streamPayload interface {
+	api.Seed | api.Snapshot
+}
+
+// sendEvent writes one event-stream message of event carrying payload,
+// numbered after the last sent, and flushes it. It reports whether the write
+// reached the client; a failed write means the connection is gone and the
+// stream should stop.
+func sendEvent[P streamPayload](out *eventStream, event streamEvent, payload P) bool {
+	// Trade-off TRADE-13: a stream's message always encodes.
+	data, err := json.Marshal(payload)
 	if err != nil {
 		return false
 	}
 
-	_, err = fmt.Fprintf(w, "id: %d\nevent: snapshot\ndata: %s\n\n", eventID, data)
+	out.sent++
+
+	_, err = fmt.Fprintf(out.w, "id: %d\nevent: %s\ndata: %s\n\n", out.sent, event, data)
 	if err != nil {
 		return false
 	}
 
-	flusher.Flush()
+	out.flusher.Flush()
 
 	return true
+}
+
+// seedFirst sends the view's kept issues ahead of the first snapshot when the
+// store holds them, reporting whether the stream should go on: false only
+// for a seed that could not be written.
+func (s *server) seedFirst(ctx context.Context, out *eventStream, jql string) bool {
+	seed, kept := s.viewSeed(ctx, jql)
+
+	return !kept || sendEvent(out, seedEvent, seed)
 }
 
 // snapshot assembles the full read state the stream carries. A seam that is not
