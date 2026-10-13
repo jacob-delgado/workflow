@@ -14,9 +14,10 @@ import (
 
 // Hook names the tests share.
 const (
-	preCommit = "pre-commit"
-	commitMsg = "commit-msg"
-	prePush   = "pre-push"
+	preCommit    = "pre-commit"
+	commitMsg    = "commit-msg"
+	prePush      = "pre-push"
+	postCheckout = "post-checkout"
 )
 
 // lefthookRun is real lefthook 2.1 output with no terminal, once the colors are

@@ -719,3 +719,25 @@ an announcement or a change to a task is in flight.
 **Reopen when.** Such reads are found to crowd a rate limit, or a write is
 reported in practice left half made after workflow exits (a stale index lock, a
 push whose tracking ref was not updated).
+
+### TRADE-39 pre-push runs by hand without what git hands it
+
+**Decided.** A run of a hook by hand (the terminal's `h`, the web's **Run a
+hook**, `POST /api/runs` with kind `hook`) offers `pre-push` although git hands
+it the remote's name and URL as arguments and the refs it pushes on standard
+input, which a run by hand has none of. `handedByGit`
+(`internal/hooks/githooks.go`) lists every other hook git hands arguments or
+standard input as one only git runs, and leaves `pre-push` out. lefthook works
+out what a push would carry from `@{push}` itself, falling back to the default
+branch's merge base before the first push, so a run by hand checks what the
+next push carries; `pre-push` is where a repository's slow checks live, which
+the only other way to try is to push; and inventing git's arguments would set
+off Git LFS's upload, which lefthook skips when it is given none. Decided
+2026-10-13 by the maintainer, for FEAT-24.
+
+**Cost.** A `pre-push` job that reads `{1}`, `{2}` or `use_stdin` sees nothing
+when run by hand, so it can pass or fail where a real push would not.
+
+**Reopen when.** A repository's `pre-push` job is found reading git's arguments
+or refs, or lefthook gains a way to run `pre-push` for a named remote without
+pushing.
