@@ -28,10 +28,9 @@ import (
 // The forge is asked on a slower cadence of its own: see forgeCache.
 const defaultStreamInterval = 5 * time.Second
 
-// streamEvents serves the Server-Sent Events stream: a snapshot on connect, then
-// another every interval, until the client disconnects and its request context is
-// canceled. The loop runs on the connection's own goroutine, which the HTTP
-// server provides, so this starts none of its own.
+// streamEvents serves the Server-Sent Events stream for the view the request
+// names: it refuses a server that cannot stream and a view the configuration
+// does not offer, sets the event-stream headers, and pushes the snapshots.
 func (s *server) streamEvents(w http.ResponseWriter, request *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -53,6 +52,14 @@ func (s *server) streamEvents(w http.ResponseWriter, request *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
+	s.pushSnapshots(w, flusher, request, view)
+}
+
+// pushSnapshots pushes a snapshot on connect, then another every interval,
+// until the client disconnects and its request context is canceled, a write
+// fails, or the directory is switched. The loop runs on the connection's own
+// goroutine, which the HTTP server provides, so this starts none of its own.
+func (s *server) pushSnapshots(w http.ResponseWriter, flusher http.Flusher, request *http.Request, view string) {
 	interval := s.info.streamInterval()
 
 	for eventID := 1; ; eventID++ {
