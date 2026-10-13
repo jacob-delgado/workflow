@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/lifetime"
 )
@@ -16,6 +17,11 @@ var errStopped = errors.New("the server stopped")
 
 // valueKey keys the value a detached context keeps.
 type valueKey struct{}
+
+// endingPatience is how long a context that must go on is watched for an
+// end: one canceled through context.AfterFunc ends in a goroutine of its
+// own, so a read right after the cancel can come too early to see it.
+const endingPatience = 250 * time.Millisecond
 
 func TestADetachedContextGoesOnWhenItsAskerLeaves(t *testing.T) {
 	t.Parallel()
@@ -29,9 +35,10 @@ func TestADetachedContextGoesOnWhenItsAskerLeaves(t *testing.T) {
 	leave()
 
 	// Assert
-	err := detached.Err()
-	if err != nil {
-		t.Errorf("the detached context ended with %v once its asker left, want it to go on", err)
+	select {
+	case <-detached.Done():
+		t.Errorf("the detached context ended with %v once its asker left, want it to go on", context.Cause(detached))
+	case <-time.After(endingPatience):
 	}
 }
 
@@ -67,9 +74,11 @@ func TestADetachedContextWithNoLifetimeNeverEnds(t *testing.T) {
 	leave()
 
 	// Assert
-	err := detached.Err()
-	if err != nil {
-		t.Errorf("the detached context ended with %v, want it to go on with no lifetime to end with", err)
+	select {
+	case <-detached.Done():
+		t.Errorf("the detached context ended with %v, want it to go on with no lifetime to end with",
+			context.Cause(detached))
+	case <-time.After(endingPatience):
 	}
 }
 
