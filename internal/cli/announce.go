@@ -20,6 +20,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
+	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
 // errNoPullRequest refuses announcing a branch that has no pull request. It is
@@ -125,23 +126,7 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) er
 		Messaging: cfg.Messaging,
 		Memory:    loop.AnnounceMemory{Recorded: deps.Store.Announced, Record: deps.Store.RecordAnnounce},
 		Confirm:   func(question string) (bool, error) { return confirm(prompt, question) },
-		Tagging: announceTagging{
-			Owners: loop.OwnerSeams{
-				ChangedPaths: deps.Git.ChangedPaths, CodeOwnersAt: deps.Git.CodeOwnersAt, Author: deps.Forge.Author,
-				IsGroup: deps.Forge.IsGroup,
-			},
-			OwnerLinks:   deps.Store.OwnerLinks,
-			RepoGroups:   deps.Store.RepoGroups,
-			LastGroups:   deps.Store.LastGroups,
-			RecordGroups: deps.Store.RecordGroups,
-		},
-	}
-
-	// The directory seams are bound whatever the settings; only a Slack user
-	// token can read the directory, so only it tags anyone.
-	if cfg.Messaging.Mode() == config.MessagingUser {
-		seams.Tagging.Workspace = deps.Messaging.Workspace
-		seams.Tagging.Grant = deps.Messaging.Grant
+		Tagging:   taggingFor(cfg.Messaging, deps),
 	}
 
 	if cfg.Messaging.Mode() != config.MessagingNone {
@@ -149,6 +134,30 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) er
 	}
 
 	return runAnnounce(cmd.Context(), outputOf(cmd), seams, opts)
+}
+
+// taggingFor is what an announcement posted under settings reads its tags
+// through, from the repository, forge, store and Slack deps wires.
+func taggingFor(settings config.Messaging, deps tui.Deps) announceTagging {
+	tagging := announceTagging{
+		Owners: loop.OwnerSeams{
+			ChangedPaths: deps.Git.ChangedPaths, CodeOwnersAt: deps.Git.CodeOwnersAt, Author: deps.Forge.Author,
+			IsGroup: deps.Forge.IsGroup,
+		},
+		OwnerLinks:   deps.Store.OwnerLinks,
+		RepoGroups:   deps.Store.RepoGroups,
+		LastGroups:   deps.Store.LastGroups,
+		RecordGroups: deps.Store.RecordGroups,
+	}
+
+	// The directory seams are bound whatever the settings; only a Slack user
+	// token can read the directory, so only it tags anyone.
+	if settings.Mode() == config.MessagingUser {
+		tagging.Workspace = deps.Messaging.Workspace
+		tagging.Grant = deps.Messaging.Grant
+	}
+
+	return tagging
 }
 
 // runAnnounce composes the announcement for the branch's pull request, previews
