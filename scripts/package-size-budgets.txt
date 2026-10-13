@@ -117,16 +117,18 @@ internal/webserver 40 cohesive
 
 # internal/cli — the Cobra command tree, spelled one file per command, or per
 # family of commands over one seam that share their checks, as the issue writes
-# do (or per section of a command that outgrew one, as doctor's, status's and
-# pr's did). One responsibility (turn a command line into a wiring seam call and
-# printed output) that grows when the tool gains a command, which the docs
-# reference records, so it answers to a ceiling. It came in at 28 over 20 files
-# and was reached with issues.go; looked at then as it asks, each file is a
-# command, a family of them, a section of one or what every command shares (the
-# scriptable contract, the shared flags, the prompt, the connection), none a
-# second reason to change, so 29 takes issuewrite.go. Reaching it is where the
-# tree's shape is looked at again.
-internal/cli 29 cohesive
+# do (or per section of a command that outgrew one, as doctor's, status's, pr's
+# and announce's did). One responsibility (turn a command line into a wiring
+# seam call and printed output) that grows when the tool gains a command, which
+# the docs reference records, so it answers to a ceiling. It came in at 28 over
+# 20 files and was reached with issues.go; looked at then as it asks, each file
+# is a command, a family of them, a section of one or what every command shares
+# (the scriptable contract, the shared flags, the prompt, the connection), none
+# a second reason to change, so 29 took issuewrite.go, and 30 takes
+# announce_tags.go, the tags an announcement proposes, a section of announce's
+# that pr comes to share. Reaching it is where the tree's shape is looked at
+# again.
+internal/cli 30 cohesive
 
 # internal/loop — the loop composed once for the command line, the terminal
 # and the web: which issue a branch names, the pull request draft, the
