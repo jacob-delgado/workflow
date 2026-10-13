@@ -47,29 +47,7 @@ func askToWait(t *testing.T, handler http.Handler) *httptest.ResponseRecorder {
 	return postAnnounce(t, handler, map[string]string{channelField: slackChannel, whenField: whenCIPasses})
 }
 
-func TestAnAnnouncementWhoseCIFailedAsItIsAskedToWaitIsAConflict(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// The CI has failed by the time the hold is decided.
-	world := newForgeWorld()
-	deps := world.deps()
-	deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
-		return forge.CI{State: forge.CIFailed, Total: 1}, nil
-	}
-
-	// Act
-	recorder := askToWait(t, serve(t, deps, config.Default()))
-
-	// Assert
-	assertProblem(t, recorder, http.StatusConflict, "no running CI to wait for")
-
-	if posts := world.posted(); len(posts) != 0 {
-		t.Errorf("posted %q, want nothing", posts)
-	}
-}
-
-func TestAnAnnouncementWhoseBranchCannotBeReadAsItIsAskedToWaitIsAFault(t *testing.T) {
+func TestAnAnnouncementWhoseBranchCannotBeReadAsItIsAskedToWaitIsHeld(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -87,15 +65,17 @@ func TestAnAnnouncementWhoseBranchCannotBeReadAsItIsAskedToWaitIsAFault(t *testi
 		return checkedOut(ctx)
 	}
 	handler := serve(t, deps, config.Default())
+	cancelHeld(t, handler)
 
 	// Act
 	recorder := askToWait(t, handler)
 
 	// Assert
-	assertProblem(t, recorder, http.StatusInternalServerError, tryAgain)
-
-	if held := heldAnnouncement(t, handler); held != nil {
-		t.Errorf("held announcement = %+v, want none", held)
+	// Its CI could not be read, so nothing failing could not be confirmed:
+	// it waits for a read that says CI passed.
+	held := decode[api.QueuedAnnouncement](t, recorder)
+	if recorder.Code != http.StatusAccepted || held.State != api.QueuedAnnouncementStateWaiting || held.Ci != nil {
+		t.Errorf("status = %d, held %+v; want 202 and it waiting, its CI unread", recorder.Code, held)
 	}
 }
 

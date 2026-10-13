@@ -398,17 +398,6 @@ export const zTrackIssueRequest = z.object({
 });
 
 /**
- * A composed announcement and where it would post.
- */
-export const zAnnouncement = z.object({
-    text: z.string(),
-    channel: z.string(),
-    tagging: zAnnouncementTagging.optional(),
-    can_wait_for_ci: z.boolean().optional(),
-    warning: z.string().optional()
-});
-
-/**
  * Where to post the announcement, the text its preview showed, the text to post in its place when it was edited, and when to post it.
  */
 export const zAnnounceRequest = z.object({
@@ -417,22 +406,6 @@ export const zAnnounceRequest = z.object({
     edited_text: z.string().max(40000).optional(),
     when: z.enum(['now', 'ci_passes']).optional(),
     mentions: zAnnounceMentions.optional()
-});
-
-/**
- * An announcement held until a pull request's CI passes, and how it stands: waiting for the CI, being posted, posted, or dropped unposted with the reason.
- */
-export const zQueuedAnnouncement = z.object({
-    state: z.enum([
-        'waiting',
-        'announcing',
-        'announced',
-        'dropped'
-    ]),
-    channel: z.string(),
-    pull: z.int(),
-    reason: z.string().optional(),
-    warning: z.string().optional()
 });
 
 /**
@@ -963,6 +936,35 @@ export const zCiState = z.enum([
     'passed',
     'failed'
 ]);
+
+/**
+ * A composed announcement and where it would post.
+ */
+export const zAnnouncement = z.object({
+    text: z.string(),
+    channel: z.string(),
+    tagging: zAnnouncementTagging.optional(),
+    can_wait_for_ci: z.boolean().optional(),
+    ci: zCiState.optional(),
+    warning: z.string().optional()
+});
+
+/**
+ * An announcement held until a pull request's CI passes, and how it stands: waiting for the CI, being posted, posted, or dropped unposted with the reason.
+ */
+export const zQueuedAnnouncement = z.object({
+    state: z.enum([
+        'waiting',
+        'announcing',
+        'announced',
+        'dropped'
+    ]),
+    channel: z.string(),
+    pull: z.int(),
+    reason: z.string().optional(),
+    ci: zCiState.optional(),
+    warning: z.string().optional()
+});
 
 export const zReviewRequest = z.object({
     number: z.int(),
