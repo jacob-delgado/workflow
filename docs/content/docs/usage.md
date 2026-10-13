@@ -363,6 +363,12 @@ Which issue a branch is for is read, in order, from that link, from the
 branch's name, and from its pull request's title or description, so a pull
 request opened elsewhere that names its issue is followed too.
 
+The Branch pane shows the branch, its base, its upstream and its commits. When
+a push of it goes somewhere other than the base remote — a fork's clone pushes
+to origin while its base is upstream's — a `push to` line names that remote,
+and `workflow pr` names it in its question too, as in
+`Push fix/PROJ-7-login to origin and open the pull request?`.
+
 ### Stage and commit
 
 The Commits pane lists changed files, one per row. Staging is by whole file.

@@ -25,6 +25,7 @@ const snapshot = snapshotWith({
     head: 'abc1234',
     upstream: 'origin/fix/PROJ-7-redact',
     push_remote: 'origin',
+    base_remote: 'origin',
     base: 'origin/main',
   }),
   review: { found: true, announced: false, pull },

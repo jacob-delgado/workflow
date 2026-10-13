@@ -1117,10 +1117,14 @@ export type Branch = {
      * The remote a push of the branch goes to, as git decides it: branch.<name>.pushRemote, else remote.pushDefault, else the remote the branch tracks (branch.<name>.remote), else origin.
      */
     push_remote: string;
+    /**
+     * The remote the base is read from: the one gh marked as the base, else upstream, else origin. Start work fetches it, and a finish pulls the base from it.
+     */
+    base_remote: string;
     ahead: number;
     behind: number;
     /**
-     * The base branch, such as origin/main.
+     * The base branch, such as origin/main, or upstream/main in a fork's clone.
      */
     base: string;
     /**

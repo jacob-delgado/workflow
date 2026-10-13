@@ -13,6 +13,7 @@ const snapshot = snapshotWith({
     name: 'fix/PROJ-1-redact',
     head: 'b2b2b2b',
     push_remote: 'origin',
+    base_remote: 'origin',
     ahead: 2,
     base: 'origin/main',
     commits: [

@@ -8,12 +8,18 @@ import (
 	"testing"
 )
 
+// forkBase is a fork's clone's base, read on its base remote, upstream.
+const (
+	forkBase       = "upstream/main"
+	forkBaseRemote = "upstream"
+)
+
 func TestADryRunStartInAForksCloneFetchesUpstream(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	dry := newWorld()
-	dry.branch.Base, dry.branch.BaseRemote = "upstream/main", "upstream"
+	dry.branch.Base, dry.branch.BaseRemote = forkBase, forkBaseRemote
 	model := sized(t, dryInterface(dry), 120, 40)
 	model = drain(t, model, model.Init())
 
@@ -28,7 +34,7 @@ func TestADryRunStartInAForksCloneFetchesUpstream(t *testing.T) {
 // forkMerged is a merged branch in a fork's clone, whose base is upstream's.
 func forkMerged() *world {
 	merged := mergedBranch()
-	merged.branch.Base, merged.branch.BaseRemote = "upstream/main", "upstream"
+	merged.branch.Base, merged.branch.BaseRemote = forkBase, forkBaseRemote
 
 	return merged
 }
@@ -56,4 +62,28 @@ func TestAForksFinishIsAskedOfUpstream(t *testing.T) {
 	if calls := merged.asked("finish "); len(calls) != 1 || !strings.HasSuffix(calls[0], "onto main from upstream") {
 		t.Errorf("finish calls = %q, want one onto main from upstream", calls)
 	}
+}
+
+func TestAForksBranchSaysWhereItsPushGoes(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	fork := newWorld()
+	fork.branch.Base, fork.branch.BaseRemote = forkBase, forkBaseRemote
+
+	// Act
+	view := typing(t, fork.live(t, 120, 40), "2").View().Content
+
+	// Assert
+	requireScreen(t, view, "push to   origin")
+}
+
+func TestABranchPushedToItsBaseRemoteNamesNoPush(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := typing(t, newWorld().live(t, 120, 40), "2").View().Content
+
+	// Assert
+	refuseScreen(t, view, "push to")
 }

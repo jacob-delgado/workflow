@@ -4192,7 +4192,7 @@ components:
 
     Branch:
       type: object
-      required: [name, detached, head, upstream, push_remote, ahead, behind, base, commits, issue_link]
+      required: [name, detached, head, upstream, push_remote, base_remote, ahead, behind, base, commits, issue_link]
       properties:
         name: {type: string}
         issue_link:
@@ -4232,11 +4232,17 @@ components:
             The remote a push of the branch goes to, as git decides it:
             branch.<name>.pushRemote, else remote.pushDefault, else the remote
             the branch tracks (branch.<name>.remote), else origin.
+        base_remote:
+          type: string
+          description: >-
+            The remote the base is read from: the one gh marked as the base,
+            else upstream, else origin. Start work fetches it, and a finish
+            pulls the base from it.
         ahead: {type: integer}
         behind: {type: integer}
         base:
           type: string
-          description: The base branch, such as origin/main.
+          description: The base branch, such as origin/main, or upstream/main in a fork's clone.
         commits:
           type: array
           description: The commits on this branch since its base.

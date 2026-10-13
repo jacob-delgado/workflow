@@ -99,6 +99,26 @@ func TestPRAsksToOpenTheDraft(t *testing.T) {
 	}
 }
 
+func TestPRAsksToPushAndOpenTheDraft(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	fakeGh(t, ghResponses{})
+	repo := ownedRepo(t)
+	commit(t, repo, "fix: not yet pushed")
+
+	var asked []string
+
+	// Act
+	_, err := runStreams(t, repo, answering("n", &asked), "pr", "--draft")
+
+	// Assert
+	want := "Push fix/PROJ-2-thing to origin and open the draft pull request?"
+	if err != nil || len(asked) != 1 || !strings.HasPrefix(asked[0], want) {
+		t.Errorf("pr --draft = %v, asked %q; want %q", err, asked, want)
+	}
+}
+
 func TestPROpensIntoTheBaseItIsGiven(t *testing.T) {
 	t.Parallel()
 

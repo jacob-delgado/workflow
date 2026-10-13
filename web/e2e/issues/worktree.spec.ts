@@ -33,6 +33,7 @@ const snapshot = snapshotWith({
     head: '300a7be',
     upstream: 'origin/main',
     push_remote: 'origin',
+    base_remote: 'origin',
     base: 'origin/main',
   }),
 })

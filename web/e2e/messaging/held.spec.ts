@@ -39,6 +39,7 @@ function snapshotHolding(held?: QueuedAnnouncement): Snapshot {
       head: 'abc1234',
       upstream: 'origin/fix/PROJ-7-redact',
       push_remote: 'origin',
+      base_remote: 'origin',
       base: 'origin/main',
     }),
     review: {

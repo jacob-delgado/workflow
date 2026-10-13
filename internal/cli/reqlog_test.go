@@ -182,7 +182,7 @@ func TestDryRunIsAPersistentFlag(t *testing.T) {
 	output, err := run(t, repo, "--dry-run", "pr")
 
 	// Assert
-	if err != nil || !strings.Contains(output, "dry run: would push fix/PROJ-2-thing and open") {
+	if err != nil || !strings.Contains(output, "dry run: would push fix/PROJ-2-thing to origin and open") {
 		t.Errorf("workflow --dry-run pr = %v, want the dry run previewed:\n%s", err, output)
 	}
 }

@@ -26,6 +26,7 @@ function withPull(pull: PullRequest, ci: 'passed' | 'failed'): Snapshot {
       head: 'b2b2b2b',
       upstream: 'origin/fix/PROJ-1-redact',
       push_remote: 'origin',
+      base_remote: 'origin',
       base: 'origin/main',
       commits: [{ hash: 'b2b2b2b2', subject: 'fix: redact tokens', unpushed: false }],
       finish_commands: [
