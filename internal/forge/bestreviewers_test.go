@@ -63,7 +63,7 @@ func TestCreatePullRequestOnGitHubAddsEveryReviewerItCanWhenOneIsTurnedDown(t *t
 
 	// Act
 	created, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
-		Title: prTitle, Head: featureBranch, Base: baseBranch,
+		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch,
 		Reviewers: []string{userAna, userGhost}, TeamReviewers: []string{"example/api", teamNobody},
 		Labels: []string{labelBug},
 	})
@@ -110,7 +110,7 @@ func TestCreatePullRequestOnGitHubDoesNotRetryReviewersTheTokenMayNotRequest(t *
 
 	// Act
 	_, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
-		Title: prTitle, Head: featureBranch, Base: baseBranch, Reviewers: []string{userAna, userBen},
+		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch, Reviewers: []string{userAna, userBen},
 	})
 
 	// Assert
@@ -198,7 +198,7 @@ func TestCreateMergeRequestOnGitLabOpensWithThePeopleItKnows(t *testing.T) {
 			// Arrange
 			client, seen := recordingForge(t, test.answer)
 			request := test.request
-			request.Title, request.Head, request.Base = prTitle, featureBranch, baseBranch
+			request.Title, request.Head, request.Base = prTitle, forge.Head{Branch: featureBranch}, baseBranch
 
 			// Act
 			created, err := client.CreatePullRequest(t.Context(), gitlabRepo(), request)

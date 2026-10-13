@@ -51,7 +51,7 @@ func forgeDeps(setup forgeSetup, connect func(context.Context) (forgeConnection,
 				return forge.PullRequest{}, false, err
 			}
 
-			return connection.client.FindPullRequest(ctx, connection.repo, branch)
+			return connection.client.FindPullRequest(ctx, connection.repo, forge.Head{Branch: branch})
 		},
 		CreatePullRequest: func(ctx context.Context, request forge.NewPullRequest) (forge.PullRequest, error) {
 			return ask(ctx, connect, func(on forgeConnection) (forge.PullRequest, error) {

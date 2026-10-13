@@ -158,8 +158,8 @@ func gitlabMergePath(repo Repo, number int) string {
 
 // gitlabFind finds the branch's merge request: an open one, or the merged one
 // that means the branch is finished.
-func gitlabFind(ctx context.Context, client Client, repo Repo, branch string) (PullRequest, bool, error) {
-	query := url.Values{"source_branch": {branch}, queryState: {queryAll}}.Encode()
+func gitlabFind(ctx context.Context, client Client, repo Repo, head Head) (PullRequest, bool, error) {
+	query := url.Values{"source_branch": {head.Branch}, queryState: {queryAll}}.Encode()
 
 	merges, err := repoCall[[]gitlabMerge](ctx, client, repo, http.MethodGet,
 		gitlabProjectPath(repo)+"/merge_requests?"+query, nil)
@@ -259,8 +259,9 @@ func gitlabCreate(ctx context.Context, client Client, repo Repo, request NewPull
 	assigneeIDs := gitlabResolveAssignees(ctx, client, request.Assignees, &reviewers.missedPeople)
 
 	payload := gitlabNewMerge{
-		Title: gitlabTitle(request), Description: request.Body, SourceBranch: request.Head, TargetBranch: request.Base,
-		ReviewerIDs: reviewers.ids, AssigneeIDs: assigneeIDs, Labels: strings.Join(request.Labels, ","),
+		Title: gitlabTitle(request), Description: request.Body, SourceBranch: request.Head.Branch,
+		TargetBranch: request.Base,
+		ReviewerIDs:  reviewers.ids, AssigneeIDs: assigneeIDs, Labels: strings.Join(request.Labels, ","),
 	}
 
 	created, err := repoCall[gitlabMerge](ctx, client, repo, http.MethodPost,

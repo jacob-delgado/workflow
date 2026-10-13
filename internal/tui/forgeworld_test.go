@@ -72,7 +72,7 @@ func (w *world) forgeCalls() seams.Forge {
 			return w.pull, w.pullFound, w.pullErr
 		},
 		CreatePullRequest: func(_ context.Context, request forge.NewPullRequest) (forge.PullRequest, error) {
-			call := "open " + request.Title + " " + request.Head + ">" + request.Base + " draft=" +
+			call := "open " + request.Title + " " + request.Head.Branch + ">" + request.Base + " draft=" +
 				map[bool]string{false: "no", true: "yes"}[request.Draft]
 			if people := requestPeople(request); people != "" {
 				call += " " + people

@@ -178,7 +178,8 @@ func draft(
 	users, teams := SplitReviewers(ProposedReviewers(ctx, seams.Owners, base))
 
 	return forge.NewPullRequest{
-		Title: title, Body: body, Head: branch.Name, Base: base, Reviewers: users, TeamReviewers: teams,
+		Title: title, Body: body, Head: forge.Head{Branch: branch.Name}, Base: base,
+		Reviewers: users, TeamReviewers: teams,
 	}
 }
 

@@ -6,6 +6,8 @@ package forge_test
 import (
 	"strconv"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/forge"
 )
 
 // reviewBy is one review on a GitHub pull request: a stance, or a comment,
@@ -59,7 +61,7 @@ func TestFindPullRequestReadsEveryPageOfReviews(t *testing.T) {
 			})
 
 			// Act
-			found, _, err := client.FindPullRequest(t.Context(), githubRepo(), featureBranch)
+			found, _, err := client.FindPullRequest(t.Context(), githubRepo(), forge.Head{Branch: featureBranch})
 
 			// Assert
 			if err != nil || found.Approvals != tt.approvals {

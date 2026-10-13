@@ -364,7 +364,7 @@ func TestOpenPullRequestPushesThenOpens(t *testing.T) {
 		t.Errorf("calls = %v, want the branch pushed before the pull request is opened", calls)
 	}
 
-	if request.Head != testBranchName || request.Base != prBase || request.Title != prTitle {
+	if request.Head.Branch != testBranchName || request.Base != prBase || request.Title != prTitle {
 		t.Errorf("opened %+v, want head %q, base %q, and the given title", request, testBranchName, prBase)
 	}
 

@@ -56,7 +56,7 @@ func TestCreateMergeRequestOnGitLabAsksATeamFromEveryPageOfItsMembers(t *testing
 
 	// Act
 	_, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
-		Title: prTitle, Head: featureBranch, Base: baseBranch, TeamReviewers: []string{groupControlPlane},
+		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch, TeamReviewers: []string{groupControlPlane},
 	})
 
 	// Assert
@@ -86,7 +86,7 @@ func TestCreateMergeRequestOnGitLabLeavesOutTeamMembersWhoCannotApprove(t *testi
 
 	// Act
 	_, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
-		Title: prTitle, Head: featureBranch, Base: baseBranch, TeamReviewers: []string{groupControlPlane},
+		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch, TeamReviewers: []string{groupControlPlane},
 	})
 
 	// Assert
@@ -110,7 +110,7 @@ func TestCreateMergeRequestOnGitLabLeavesOutMembersWhoseMembershipIsNotActive(t 
 
 	// Act
 	_, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
-		Title: prTitle, Head: featureBranch, Base: baseBranch, TeamReviewers: []string{groupControlPlane},
+		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch, TeamReviewers: []string{groupControlPlane},
 	})
 
 	// Assert
@@ -136,7 +136,7 @@ func TestCreateMergeRequestOnGitLabAsksATeamsActiveMembersToReview(t *testing.T)
 
 	// Act
 	created, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
-		Title: prTitle, Head: featureBranch, Base: baseBranch,
+		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch,
 		Reviewers: []string{userAna}, TeamReviewers: []string{groupControlPlane},
 	})
 
@@ -174,7 +174,7 @@ func TestCreateMergeRequestOnGitLabLeavesTheAuthorOutOfATeam(t *testing.T) {
 
 	// Act
 	_, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
-		Title: prTitle, Head: featureBranch, Base: baseBranch, TeamReviewers: []string{groupControlPlane},
+		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch, TeamReviewers: []string{groupControlPlane},
 	})
 
 	// Assert
@@ -196,7 +196,7 @@ func TestCreateMergeRequestOnGitLabExpandsATopLevelGroupNamedAsAUser(t *testing.
 
 	// Act
 	_, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
-		Title: prTitle, Head: featureBranch, Base: baseBranch, Reviewers: []string{"platform"},
+		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch, Reviewers: []string{"platform"},
 	})
 
 	// Assert
@@ -215,7 +215,7 @@ func TestCreateMergeRequestOnGitLabOpensWithoutATeamItCannotRead(t *testing.T) {
 
 	// Act
 	created, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
-		Title: prTitle, Head: featureBranch, Base: baseBranch,
+		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch,
 		Reviewers: []string{userAna}, TeamReviewers: []string{groupControlPlane},
 	})
 
@@ -248,7 +248,7 @@ func TestCreateMergeRequestOnGitLabKeepsWhyAGroupNamedAsAUserWasNotRead(t *testi
 
 	// Act
 	_, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
-		Title: prTitle, Head: featureBranch, Base: baseBranch, Reviewers: []string{"platform"},
+		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch, Reviewers: []string{"platform"},
 	})
 
 	// Assert
