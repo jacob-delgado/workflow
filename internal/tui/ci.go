@@ -89,12 +89,15 @@ func ciFinishNotice(cfg config.Config, deps Deps, was, now forge.CIState) tea.Cm
 }
 
 // keepPolling schedules the next check while CI runs or a post waits, unless one
-// is already scheduled or the last check failed. A failed check would only fail
-// again at the same rate, so it stops until the next refresh rather than asking
-// for as long as the program runs.
+// is already scheduled. A failed check only stops it while no post waits: it
+// would fail again at the same rate, so it stops until the next refresh rather
+// than asking for as long as the program runs; but a post waiting for CI is
+// what the user asked for, so a read that failed is read past.
 func (m Model) keepPolling(then tea.Cmd) (Model, tea.Cmd) {
 	waiting := m.review.ci.State == forge.CIRunning || m.messaging.pending.waiting()
-	if !waiting || m.review.ciErr != nil || m.review.polling {
+	givenUp := m.review.ciErr != nil && !m.messaging.pending.waiting()
+
+	if !waiting || givenUp || m.review.polling {
 		return m, then
 	}
 
