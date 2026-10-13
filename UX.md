@@ -216,8 +216,7 @@ whose key handler returns on it; and the `builder.bind(` and
 
 ## The command line
 
-What is open here is the flags the scriptable commands lack and the JSON
-a script cannot join or time.
+What is open here is the flags the scriptable commands lack.
 
 ### UX-62 Flags the scriptable commands are missing
 
@@ -225,55 +224,24 @@ Impact: low · Effort: medium
 
 **Today.** No command declares a single shorthand — there is no `VarP(`
 call in `internal/cli` — so `-n`, `-y`, `-j` do not exist; `status` emits
-`●◐✗○` (`statusGlyph`, `internal/cli/status.go:522`) with ASCII selectable
-only through `ui.ascii` in the file, no `--plain`; `pr` declares only
-`--yes` and `--json` (`newPRCmd`, `internal/cli/pr.go:58`, the flags at
-`:84` and `:86`), so no draft, base, reviewer, title or body flag;
-`announce` has no `--channel` (the channel comes from `messaging.channel`
-alone); `pr` names no template, so it takes the repository's first
-(`chosenTemplate`, `internal/loop/pull.go:185`, given an empty name at
-`:191`), where the interface cycles them (`ctrl+t`,
-`internal/tui/keys.go:337`) and the web's pull request form offers a
+`●◐✗○` (`State.Glyph`, `internal/progress/progress.go:33`) with ASCII
+selectable only through `ui.ascii` in the file, no `--plain`; `pr`
+declares only `--yes` and `--json` (`newPRCmd`, `internal/cli/pr.go:81`,
+the flags at `:113` and `:115`), so no draft, base, reviewer, title or
+body flag; `announce` has no `--channel` (the channel comes from
+`messaging.channel` alone); `pr` names no template, so it takes the
+repository's first (`chosenTemplate`, `internal/loop/pull.go:193`, given
+the empty name `pr`'s `loop.PullOptions` leaves, `internal/cli/pr.go:141`),
+where the interface cycles them (`ctrl+t`,
+`internal/tui/keys.go:263`) and the web's pull request form offers a
 Template select (`TemplateChoice`,
-`web/src/features/review/OpenPullRequest.tsx:249`).
+`web/src/features/review/OpenPullRequest.tsx:241`).
 
 **Instead.** Shorthands for the three common flags; `--plain` on `status`;
 `--draft`, `--base`, `--reviewer`, `--channel`, `--template` where the seam
 already carries the value.
 
 **Done when.** Each flag has a test that it reaches the seam.
-
-### UX-92 The scriptable output lacks a unique label and a timestamp
-
-Impact: low · Effort: small
-
-**Today.** A script reading the JSON has no stable key to join on and no
-time to compare. (`pr --json` has shipped, printing what was opened and
-the offers that followed.) UX-62 keeps the missing flags.
-
-- `internal/cli/status.go:229` (`repoLabel`): the label is the base name,
-  and "." is returned as itself (`:231`), so `status .` labels the row "."
-  (`TestStatusAcrossLabelsTheCurrentDirectory`,
-  `internal/cli/status_test.go:96`, pins that prefix) and `status ~/a/api
-  ~/b/api` gives two rows the same `repository`, the only key
-  `docs/content/docs/scripting.md:147` (under "JSON") offers.
-- `internal/cli/reviews.go:151` (`reviewReport.Age`): a string, filled by
-  `renderReviewsJSON` (`:156`) through `humanizeAge` (`:130`), which
-  rounds 25 h and 47 h alike to "1d"; `ReviewRequest.OpenedAt`
-  (`internal/forge/pulls.go:194`) holds the time and never reaches the
-  JSON. `docs/content/docs/scripting.md:163` documents `"age": "3d"` as
-  the shape, so `jq 'map(select(.age > "2d"))'` compares strings.
-
-**Instead.** Label a `status` row by the cleaned absolute path's base
-name, falling back to the full path when two arguments would share a
-label, and carry the given path in a second `path` field; add `opened_at`
-(RFC3339 UTC, from `OpenedAt`) beside `age` and document it.
-
-**Done when.** `status .` in a repository labels the row by the
-directory's name and `status a/api b/api --json` yields two distinct
-`repository` values; `TestReviewsAsJSONReportsEachOldestFirstWithItsAge`
-(`internal/cli/reviews_test.go:163`) also parses `opened_at` back into the
-time it seeded.
 
 ## The terminal interface
 
