@@ -26,8 +26,8 @@ var errInstallFailed = errors.New("installing lefthook: exit status 1")
 // legacyHooks is a repository's hooks from before lefthook: one plain, one not.
 func legacyHooks() []hooks.GitHook {
 	return []hooks.GitHook{
-		{Name: "pre-commit", Script: "#!/bin/sh\nset -e\ngofmt -l .\ngo vet ./...\n"},
-		{Name: "commit-msg", Script: "#!/usr/bin/env bash\ngrep -q '^feat' \"$1\"\n"},
+		{Name: preCommitHook, Script: "#!/bin/sh\nset -e\ngofmt -l .\ngo vet ./...\n"},
+		{Name: commitMsgHook, Script: "#!/usr/bin/env bash\ngrep -q '^feat' \"$1\"\n"},
 	}
 }
 

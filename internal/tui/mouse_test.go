@@ -130,6 +130,9 @@ func overlaysTheWheelMoves() map[string]wheeledOverlay {
 		"the fixup picker": {
 			world: twoUnpushedWorld, height: 40, open: []string{"3", "f"}, down: "▸ aaa1111", up: "▸ bbb2222",
 		},
+		"the hook picker": {
+			world: newWorld, height: 40, open: []string{"3", "h"}, down: "▸ pre-push", up: "▸ pre-commit",
+		},
 		"the merge preview": {
 			world: mergeableTwoWays, height: 40, open: []string{"4", "M"},
 			down: "▸ squash and merge", up: "▸ merge commit",

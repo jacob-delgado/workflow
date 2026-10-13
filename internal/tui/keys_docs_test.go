@@ -284,7 +284,7 @@ discard-change      Discard the selected
 commit              Commit what is staged
 amend               Amend the last unpushed commit
 fixup               Record what is staged as a
-run-pre-commit      Run the pre-commit hook
+run-hook            Run a hook
 set-up-lefthook     Set up lefthook
 
 open-pull-request   Open a pull or merge request

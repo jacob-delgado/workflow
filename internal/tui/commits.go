@@ -15,12 +15,8 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
-	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
-
-// preCommit is the hook h runs.
-const preCommit = "pre-commit"
 
 // changeList is the work tree's changed files, as far as they have loaded, and
 // how far the Commits pane's detail is scrolled.
@@ -190,8 +186,9 @@ func stageGlyph(marks glyphs, change gitrepo.Change) string {
 
 // commitsOffers are the Commits pane's keys, as far as the changes and the
 // seams allow: moving changes into and out of the index and dropping one,
-// turning the staged ones into a commit, an amend or a fixup, running the
-// hooks, offering lefthook for the repository's own, and reading it all again.
+// turning the staged ones into a commit, an amend or a fixup, running one of
+// lefthook's hooks, offering lefthook for the repository's own, and reading it
+// all again.
 // Outside a repository there is nothing to act on, and none is offered.
 func (m Model) commitsOffers() []offer {
 	if m.branch.outsideRepository() {
@@ -199,7 +196,7 @@ func (m Model) commitsOffers() []offer {
 	}
 
 	return slices.Concat(m.stagingOffers(), m.committingOffers(), []offer{
-		{binding: m.keys.runHook, can: m.deps.Hooks.Run != nil, act: m.runPreCommit},
+		{binding: m.keys.runHook, can: m.deps.Hooks.Run != nil && m.deps.Hooks.Configured != nil, act: m.openHookPicker},
 		{binding: m.keys.hookConfig, can: len(m.hookgen.hooks) > 0, act: m.openHookgen},
 		{binding: m.keys.refresh, can: true, act: func() (Model, tea.Cmd) { return m.refreshPane(paneCommits) }},
 	})
@@ -332,22 +329,6 @@ func (msg staged) apply(m Model) (Model, tea.Cmd) {
 	return m, loadChanges(m.session, m.deps)
 }
 
-// runPreCommit runs the pre-commit hook on what is staged, without committing.
-func (m Model) runPreCommit() (Model, tea.Cmd) {
-	if m.dryRun {
-		return m.noticed("dry run: would run the " + preCommit + " hook"), nil
-	}
-
-	ctx, run := m.session, m.deps.Hooks.Run
-
-	return m.startRun(preCommitRun(), func() (proc.Output, error) { return run(ctx, preCommit) }, nil)
-}
-
-// preCommitRun is a run of the pre-commit hook alone, which a check can fail.
-func preCommitRun() runKind {
-	return runKind{title: preCommit, refusal: "the " + preCommit + " hook failed"}
-}
-
 // commitsBehavior is the Commits pane's behavior.
 func commitsBehavior() behavior {
 	return behavior{
@@ -366,7 +347,7 @@ func commitsBehavior() behavior {
 		loading: func(m Model) bool { return m.changes.loading },
 		scroll:  func(m *Model) *int { return &m.changes.scroll }, listInDetail: true, readsBranch: true,
 		answers: []string{
-			"stage", "stage-all", "unstage-all", "discard-change", "commit", "amend", "fixup", "run-pre-commit",
+			"stage", "stage-all", "unstage-all", "discard-change", "commit", "amend", "fixup", "run-hook",
 			"set-up-lefthook", actionRefresh,
 		},
 	}

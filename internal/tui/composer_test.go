@@ -450,37 +450,6 @@ func TestARunningCommitOffersOnlyQuitting(t *testing.T) {
 	refuseScreen(t, footerLine(running.View().Content), keyEsc, "r run again")
 }
 
-func TestHRunsThePreCommitHookWithoutCommitting(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	hooked := newWorld()
-	hooked.commitLines = []string{lintJobStarts, "summary: (done in 1.0 seconds)", "✔️ lint (1.0 seconds)"}
-	model := hooked.live(t, 120, 40)
-
-	// Act: run the hook
-	passed := typing(t, model, "3", "h")
-
-	// Assert: it ran, alone, and says how it went
-	requireScreen(t, passed.View().Content, "┏━ pre-commit", "● done", "● lint", "r run again")
-
-	if calls := hooked.asked("hook"); len(calls) != 1 || calls[0] != "hook pre-commit" {
-		t.Errorf("hook calls = %q", calls)
-	}
-
-	if calls := hooked.asked("commit"); len(calls) != 0 {
-		t.Errorf("running the hook committed: %q", calls)
-	}
-
-	// Act: close the run
-	closed := typing(t, passed, keyEsc).View().Content
-
-	// Assert: the keyboard is back on the Commits pane, whose heavy border is on
-	// the detail where the cursor is.
-	refuseScreen(t, closed, "┏━ pre-commit")
-	requireScreen(t, closed, focused("Commits"))
-}
-
 func TestADryRunCommitsNothing(t *testing.T) {
 	t.Parallel()
 
@@ -489,7 +458,7 @@ func TestADryRunCommitsNothing(t *testing.T) {
 		want string
 	}{
 		"committing":       {keys: commitKeys("x"), want: "dry run: would commit fix: x"},
-		"running the hook": {keys: []string{"3", "h"}, want: "dry run: would run the pre-commit hook"},
+		"running the hook": {keys: []string{"3", "h", keyEnter}, want: "dry run: would run the pre-commit hook"},
 	}
 
 	for name, tt := range cases {
