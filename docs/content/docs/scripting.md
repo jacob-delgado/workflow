@@ -45,7 +45,7 @@ the message, which is prose and may change.
 | Status | Meaning | For example |
 | --- | --- | --- |
 | 0 | Success. | |
-| 1 | Any other failure. | Standard output that could not be written — a pipe whose reader has gone, a full disk — whatever else the command found; an issue that is not in the tracker, a `pr --template` the repository has no template of, named with the templates it has, a push that was rejected, a `branch --fetch` whose fetch failed, a `finish` whose git step failed, git missing, a repository whose branch cannot be read; a `db-clean` that finds a symlink or a directory where a database file belongs. |
+| 1 | Any other failure. | Standard output that could not be written — a pipe whose reader has gone, a full disk — whatever else the command found; an issue that is not in the tracker, a `pr --template` the repository has no template of, named with the templates it has, a `pr --base` no branch has, a push that was rejected, a `branch --fetch` whose fetch failed, a `finish` whose git step failed, git missing, a repository whose branch cannot be read; a `db-clean` that finds a symlink or a directory where a database file belongs. |
 | 2 | Usage: the command was called wrongly. | An unknown flag, command or subcommand; a wrong number of arguments; a `summary --from` or `--to` that is not a date written `YYYY-MM-DD`, or a period that runs backwards or is longer than a year and a day; `summary --json --post`, or `--yes` or `--channel` without `--post`; an `announce` or `summary` `--channel` where messaging posts through a webhook; `status --plain` with `--json`; a `pr --base` git would refuse as a branch's name, or `pr --body` with `--template`; `reviews --sort` with an order it does not know; an `issues --view` naming no view `jira.views` configures; `--port` without `--web`, or outside 1 to 65535; a confirmation, or the guided `config init`, with no terminal to answer it; a `slack login` answer left blank; a `comment` with nothing but white space on standard input; a `transition` whose status is blank; an `assign` whose username is blank; a `worklog` with a blank duration, or on a forge issue, which keeps no worklog. |
 | 3 | Configuration: fix the file, a credential or a login. | No `.workflow.json` for `doctor`, `config show` or `slack login`; a file that does not parse; a required field left empty, or set unusably; a file other users can read; a `ui.keys` map the interface refuses to start on; no messaging configured for `announce` or `summary --post`; a `worklog` with no Jira configured, where the forge's issues are the tracker; a `slack login` where Slack posts through a webhook, or `messaging.kind` names another service, or whose credentials Slack refuses to refresh; no repository remote for `reviews` to find the forge from, or one on a host other than `github.com`, a `ghe.com` tenant, `gitlab.com` or the `forge.host` a `forge.kind` of `github` or `gitlab` describes; a credential that is missing — a Jira token, or a forge token from the file, the environment or `gh auth login` — or one a service rejected, a Jira 403 that says what the token may not do among them. |
 | 4 | A refused precondition: the command would not go ahead because of what it found. | A pull request already open; no commits to open one for; no pull request to announce; a `finish` on a branch that has not merged, has no base to return to, holds commits that neither merged nor are on its upstream, or is not a branch of its own; a branch or configuration file that already exists; a directory that is not a git repository; a `db-clean` that could not remove a database file, as one another program holds open can be on Windows; a `summary --post` too long for the messaging service; a `transition` to a status the tracker does not offer from where the issue stands, which names those it does, or one whose move asks for fields, which names them. |
@@ -421,12 +421,11 @@ web's form allow:
   form's Template do. A name the repository has no template of exits 1,
   naming the templates it has; beside `--body`, which leaves a template
   nothing to start, it exits 2.
-- **`--base BRANCH`** merges it into another branch. The title and body are
-  still composed from the branch's commits since the base it left, as the
-  composer and the form compose them when their base is edited. The reviewers
-  are not: it asks the code owners of `BRANCH`, where an edited base in the
-  composer or the form keeps the code owners of the base the branch left. A
-  name git would refuse for a branch exits 2 before anything is read.
+- **`--base BRANCH`** merges it into another branch, and drafts it against
+  `BRANCH`: the title and body come from the branch's commits past `BRANCH`,
+  and `BRANCH`'s code owners are asked to review. `BRANCH` is read on the base
+  remote when it holds one, else as a local branch. A name git would refuse
+  for a branch exits 2 before anything is read; a name no branch has exits 1.
 - **`--reviewer NAME`** asks `NAME` to review in place of the code owners;
   `org/team` asks a team. Repeat it, or separate names with commas.
 - **`--draft`** opens it as a draft: the preview marks the branches `(draft)`,

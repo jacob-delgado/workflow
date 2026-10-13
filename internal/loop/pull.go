@@ -48,14 +48,16 @@ func (PullAlreadyOpenError) Unwrap() error {
 // PullSeams are what composing a pull request reads. A nil Branch or FindPull
 // means there is nothing to open; a nil Templates, Issue or BrowseURL only
 // leaves that part out of the proposal, as Owners left zero leaves out the
-// reviewers.
+// reviewers. BranchOnto reads the branch against a base a surface chose, and
+// is asked only when one was; nil then means there is nothing to open.
 type PullSeams struct {
-	Branch    func(ctx context.Context) (gitrepo.Branch, error)
-	FindPull  func(ctx context.Context, branch string) (forge.PullRequest, bool, error)
-	Templates func() []forge.Template
-	Issue     func(ctx context.Context, issueKey jira.Key) (jira.IssueDetail, error)
-	BrowseURL func(jira.Key) string
-	Owners    OwnerSeams
+	Branch     func(ctx context.Context) (gitrepo.Branch, error)
+	BranchOnto func(ctx context.Context, base string) (gitrepo.Branch, error)
+	FindPull   func(ctx context.Context, branch string) (forge.PullRequest, bool, error)
+	Templates  func() []forge.Template
+	Issue      func(ctx context.Context, issueKey jira.Key) (jira.IssueDetail, error)
+	BrowseURL  func(jira.Key) string
+	Owners     OwnerSeams
 }
 
 // PullOptions are the configuration a pull request is composed under: the
@@ -67,11 +69,10 @@ type PullOptions struct {
 	// Template is the template the body starts from, by name, as the
 	// terminal's ctrl+t chooses one; empty starts from the first.
 	Template string
-	// Base is the branch it merges into, as a surface chose it, by the name
-	// the forge knows; the code owners asked to review are read against it.
-	// Empty is the base the branch was read to have left. The title and body
-	// are drafted from the branch's commits as it was read, whichever base
-	// is chosen.
+	// Base is the branch the pull request merges into as a surface chose it,
+	// by the name the forge knows; empty is the base the branch was read to
+	// have left. The title, the body and the code owners are all read against
+	// it.
 	Base string
 }
 
@@ -87,7 +88,7 @@ type PullOptions struct {
 func ComposePull(
 	ctx context.Context, seams PullSeams, opts PullOptions,
 ) (forge.NewPullRequest, gitrepo.Branch, error) {
-	branch, err := branchToOpen(ctx, seams.Branch)
+	branch, err := branchToOpen(ctx, branchReader(seams, opts.Base))
 	if err != nil {
 		return forge.NewPullRequest{}, gitrepo.Branch{}, err
 	}
@@ -103,6 +104,20 @@ func ComposePull(
 	}
 
 	return draft(ctx, seams, opts, branch, template), branch, nil
+}
+
+// branchReader reads the branch against base when a surface chose one, and
+// against the base it was read to have left when none was chosen.
+func branchReader(seams PullSeams, base string) func(context.Context) (gitrepo.Branch, error) {
+	if base == "" {
+		return seams.Branch
+	}
+
+	if seams.BranchOnto == nil {
+		return nil
+	}
+
+	return func(ctx context.Context) (gitrepo.Branch, error) { return seams.BranchOnto(ctx, base) }
 }
 
 // branchToOpen reads the checked-out branch, refusing one that could not carry a

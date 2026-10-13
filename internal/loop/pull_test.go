@@ -417,3 +417,118 @@ func TestSubjectsListsEachCommitOldestFirst(t *testing.T) {
 		t.Errorf("Subjects = %q, want first then second", got)
 	}
 }
+
+// chosenBase is a base a surface chose in place of the branch's own.
+const chosenBase = "release"
+
+// A base a surface chose drafts from the commits past it, not past the base
+// the branch was read to have left, and asks that base's code owners.
+func TestComposePullDraftsFromTheCommitsPastTheBaseChosen(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	const releaseSubject = "fix: only past release"
+
+	var owned, onto string
+
+	seams := pullSeams()
+	seams.BranchOnto = func(_ context.Context, base string) (gitrepo.Branch, error) {
+		onto = base
+		branch := openable(branchName)
+		branch.Base, branch.Commits = "origin/"+base, []gitrepo.Commit{{Hash: headCommit, Subject: releaseSubject}}
+
+		return branch, nil
+	}
+	seams.Owners = ownerSeams()
+	seams.Owners.ChangedPaths = func(_ context.Context, base string) ([]string, error) {
+		owned = base
+
+		return nil, nil
+	}
+
+	opts := options()
+	opts.Base = chosenBase
+
+	// Act
+	draft, _, err := loop.ComposePull(t.Context(), seams, opts)
+
+	// Assert
+	if err != nil || draft.Base != chosenBase || draft.Title != releaseSubject ||
+		onto != chosenBase || owned != chosenBase {
+		t.Errorf("ComposePull = %+v, %v read onto %q, owners of %q; want release's own commit and owners",
+			draft, err, onto, owned)
+	}
+}
+
+func TestComposePullSaysWhenTheBaseChosenIsNoBranch(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	seams := pullSeams()
+	seams.BranchOnto = func(context.Context, string) (gitrepo.Branch, error) {
+		return gitrepo.Branch{}, gitrepo.ErrNoSuchBase
+	}
+
+	opts := options()
+	opts.Base = "nonesuch"
+
+	// Act
+	_, _, err := loop.ComposePull(t.Context(), seams, opts)
+
+	// Assert
+	if !errors.Is(err, gitrepo.ErrNoSuchBase) {
+		t.Errorf("ComposePull = %v, want %v", err, gitrepo.ErrNoSuchBase)
+	}
+}
+
+func TestComposePullHasNothingToOpenOntoABaseItCannotRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	opts := options()
+	opts.Base = chosenBase
+
+	// Act
+	_, _, err := loop.ComposePull(t.Context(), pullSeams(), opts)
+
+	// Assert
+	if !errors.Is(err, loop.ErrNothingToOpen) {
+		t.Errorf("ComposePull with no way to read onto a base = %v, want %v", err, loop.ErrNothingToOpen)
+	}
+}
+
+// A base chosen by its full name is the base the pull request merges into,
+// slashes and all, though the branch read onto it names it as git does.
+func TestComposePullKeepsTheWholeNameOfALocalBaseChosen(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	const slashed = "release/1.0"
+
+	var owned string
+
+	seams := pullSeams()
+	seams.BranchOnto = func(_ context.Context, base string) (gitrepo.Branch, error) {
+		branch := openable(branchName)
+		branch.Base = base
+
+		return branch, nil
+	}
+	seams.Owners = ownerSeams()
+	seams.Owners.ChangedPaths = func(_ context.Context, base string) ([]string, error) {
+		owned = base
+
+		return nil, nil
+	}
+
+	opts := options()
+	opts.Base = slashed
+
+	// Act
+	draft, _, err := loop.ComposePull(t.Context(), seams, opts)
+
+	// Assert
+	if err != nil || draft.Base != slashed || owned != slashed {
+		t.Errorf("ComposePull = %+v, %v, owners of %q; want %s kept whole", draft, err, owned, slashed)
+	}
+}

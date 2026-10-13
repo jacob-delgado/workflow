@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/codeowners"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
@@ -258,6 +259,12 @@ func TestComposePullProposesTheCodeOwnersOfTheBaseChosen(t *testing.T) {
 	var changedSince, ownersAt string
 
 	seams := pullSeams()
+	seams.BranchOnto = func(_ context.Context, base string) (gitrepo.Branch, error) {
+		branch := openable(branchName)
+		branch.Base = "origin/" + base
+
+		return branch, nil
+	}
 	seams.Owners = ownerSeams()
 	seams.Owners.ChangedPaths = func(_ context.Context, base string) ([]string, error) {
 		changedSince = base

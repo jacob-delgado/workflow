@@ -121,6 +121,40 @@ func TestAGhBaseOutranksUpstream(t *testing.T) {
 	}
 }
 
+func TestTheGitSeamsReadABranchOntoTheBaseChosen(t *testing.T) {
+	// Arrange
+	repo, root, _ := gitSeams(t)
+	bareRemote(t, root, "origin")
+
+	err := repo.CreateBranch(t.Context(), "release", "main")
+	if err != nil {
+		t.Fatalf("CreateBranch: %v", err)
+	}
+
+	write(t, filepath.Join(root, "RELEASE.md"), "release only\n", 0o600)
+	git(t, root, "add", "RELEASE.md")
+	git(t, root, "commit", "--quiet", "-m", "chore: release only")
+	git(t, root, "push", "--quiet", "origin", "release")
+
+	err = repo.CreateBranch(t.Context(), featureBranch, "origin/release")
+	if err != nil {
+		t.Fatalf("CreateBranch: %v", err)
+	}
+
+	write(t, filepath.Join(root, "FIX.md"), "the fix\n", 0o600)
+	git(t, root, "add", "FIX.md")
+	git(t, root, "commit", "--quiet", "-m", "fix: the fix")
+
+	// Act
+	branch, err := repo.BranchOnto(t.Context(), "release")
+
+	// Assert
+	if err != nil || branch.Base != "origin/release" || len(branch.Commits) != 1 ||
+		branch.Commits[0].Subject != "fix: the fix" {
+		t.Errorf("BranchOnto(release) = %+v, %v; want only the fix past origin/release", branch, err)
+	}
+}
+
 // git push -u fork records the fork as the remote the branch tracks, and a
 // plain git push goes there after; so does workflow's.
 func TestABranchPushedWithUpstreamToAForkPushesThereAfter(t *testing.T) {
