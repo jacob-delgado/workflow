@@ -7,7 +7,7 @@ weight: 22
 
 The steps of the loop that a script or a shell prompt wants also run as
 commands, without the interface: `status`, `reviews`, `repositories`,
-`summary`, `branch`, `pr`, `finish`, `announce` and `comment`, beside `doctor`, `config`, `slack login` and
+`summary`, `issues`, `issue`, `branch`, `pr`, `finish`, `announce` and `comment`, beside `doctor`, `config`, `slack login` and
 `db-clean`. This page is what a script
 can rely on from them — the exit status, which stream carries what, the JSON shapes, and the
 flags that make a write safe to run unattended. Every command and flag is
@@ -17,6 +17,8 @@ listed in the [command reference]({{< relref "/docs/reference" >}}).
 workflow status --json                 # where the work stands, as data
 workflow reviews --json                # what waits on your review, oldest first
 workflow repositories --json | jq -r '.worktrees[].dir'   # this repository's worktrees
+workflow issues --view Sprint          # a view's issues, one a line
+workflow issue PROJ-7 --json           # one issue in full, as data
 cd "$(workflow branch PROJ-7 --fetch --worktree --yes | tail -n 1)"   # start fresh, beside this checkout
 workflow pr -n                         # what pr would push and open
 workflow pr --yes                      # push, open, link and move, without asking
@@ -40,7 +42,7 @@ the message, which is prose and may change.
 | --- | --- | --- |
 | 0 | Success. | |
 | 1 | Any other failure. | Standard output that could not be written — a pipe whose reader has gone, a full disk — whatever else the command found; an issue that is not in the tracker, a `pr --template` the repository has no template of, named with the templates it has, a push that was rejected, a `branch --fetch` whose fetch failed, a `finish` whose git step failed, git missing, a repository whose branch cannot be read; a `db-clean` that finds a symlink or a directory where a database file belongs. |
-| 2 | Usage: the command was called wrongly. | An unknown flag, command or subcommand; a wrong number of arguments; a `summary --from` or `--to` that is not a date written `YYYY-MM-DD`, or a period that runs backwards or is longer than a year and a day; `summary --json --post`, or `--yes` or `--channel` without `--post`; an `announce` or `summary` `--channel` where messaging posts through a webhook; `status --plain` with `--json`; a `pr --base` git would refuse as a branch's name, or `pr --body` with `--template`; `reviews --sort` with an order it does not know; `--port` without `--web`, or outside 1 to 65535; a confirmation, or the guided `config init`, with no terminal to answer it; a `slack login` answer left blank; a `comment` with nothing but white space on standard input. |
+| 2 | Usage: the command was called wrongly. | An unknown flag, command or subcommand; a wrong number of arguments; a `summary --from` or `--to` that is not a date written `YYYY-MM-DD`, or a period that runs backwards or is longer than a year and a day; `summary --json --post`, or `--yes` or `--channel` without `--post`; an `announce` or `summary` `--channel` where messaging posts through a webhook; `status --plain` with `--json`; a `pr --base` git would refuse as a branch's name, or `pr --body` with `--template`; `reviews --sort` with an order it does not know; an `issues --view` naming no view `jira.views` configures; `--port` without `--web`, or outside 1 to 65535; a confirmation, or the guided `config init`, with no terminal to answer it; a `slack login` answer left blank; a `comment` with nothing but white space on standard input. |
 | 3 | Configuration: fix the file, a credential or a login. | No `.workflow.json` for `doctor`, `config show` or `slack login`; a file that does not parse; a required field left empty, or set unusably; a file other users can read; a `ui.keys` map the interface refuses to start on; no messaging configured for `announce` or `summary --post`; a `slack login` where Slack posts through a webhook, or `messaging.kind` names another service, or whose credentials Slack refuses to refresh; no repository remote for `reviews` to find the forge from, or one on a host other than `github.com`, a `ghe.com` tenant, `gitlab.com` or the `forge.host` a `forge.kind` of `github` or `gitlab` describes; a credential that is missing — a Jira token, or a forge token from the file, the environment or `gh auth login` — or one a service rejected, a Jira 403 that says what the token may not do among them. |
 | 4 | A refused precondition: the command would not go ahead because of what it found. | A pull request already open; no commits to open one for; no pull request to announce; a `finish` on a branch that has not merged, has no base to return to, holds commits that neither merged nor are on its upstream, or is not a branch of its own; a branch or configuration file that already exists; a directory that is not a git repository; a `db-clean` that could not remove a database file, as one another program holds open can be on Windows; a `summary --post` too long for the messaging service. |
 | 5 | Unreachable: a service did not answer, or asked you to wait. | Jira, the forge or the messaging service could not be reached — Slack among them when `slack login` refreshes — began an answer it did not finish in time, or answered with a redirect — a sign-in gateway in front of it, say — which is refused so the credential goes nowhere else; rate limiting. |
@@ -111,6 +113,8 @@ holds it.
 | `config show` | the configuration as JSON, credentials masked | the file it came from (`# PATH`); how to create one when there is none |
 | `config init` | with `--dry-run`, the file it would write, as JSON, masked | progress, the checks, "Wrote …", what to do next, a warning when the file is not ignored by git |
 | `summary` | the summary as Markdown, or the JSON | with `--post`, `to …`, where it goes and how long the summary is against what the service takes; the dry-run line, "Not posted.", "Posted to …", each source left out as not set up — `Taskwarrior is not set up, so it was left out: …`, with how to set it up — and each source that could not be read |
+| `issues` | one line per issue — its key (a forge issue's bare number), its summary and its status in parentheses — or the JSON | "No issues in VIEW.", "Listed the first N of TOTAL issues in VIEW." for a view longer than its first page, and "Not read: …" for each tracker that could not be read, which does not change the exit status |
+| `issue` | the issue in full — key and summary, type · status · priority, who reported it and who it is assigned to, its link, its description, and each comment's author · date with its body indented — or the JSON | |
 | `branch` | `Start work on KEY: create NAME from BASE and switch to it`, then `Created NAME`; with `--fetch` the plan opens `fetch origin, then`; with `--worktree` it ends `in a new worktree beside the repository`, and the worktree's directory follows alone on the last line | the dry-run line, "Not created.", and with `--worktree` "Created NAME in a new worktree." |
 | `pr` | `Open TITLE`, `BRANCH → BASE` — marked `(draft)` for a draft — and the reviewers asked, `(code owners)` unless `--reviewer` named them, a blank line, and the whole body; then `Opened #N URL` (`!N` on GitLab); with `--json`, the JSON alone | the dry-run lines, "Not opened.", the offers to link it on the issue and to move the issue to the review status, and their outcomes; with messaging set up, "Announce it with workflow announce." once it is open; with `--json`, the preview and the `Opened` line too |
 | `finish` | `Finish BRANCH: #N merged` (`!N` on GitLab), then the three git commands it runs, each indented | the dry-run line, "Not finished.", "Finished BRANCH: switched to BASE, caught it up and deleted BRANCH." |
@@ -125,8 +129,8 @@ reviews and nothing else.
 
 ## JSON
 
-`--json`, or `-j`, is on the reads: `status`, `reviews`, `repositories`,
-`summary` and `doctor`; and on `pr`, for what it opened. `config show` prints JSON always. None of them carries a credential: `config show` masks
+`--json`, or `-j`, is on the reads: `status`, `reviews`, `repositories`, `summary`,
+`issues`, `issue` and `doctor`; and on `pr`, for what it opened. `config show` prints JSON always. None of them carries a credential: `config show` masks
 each to its last four characters, and the others never print one.
 
 `workflow status --json` prints one object:
@@ -213,6 +217,38 @@ non-zero after printing.
 
 ```sh
 workflow repositories --json | jq -r '.worktrees[0].dir'
+```
+
+`workflow issues --json` prints the page `GET /api/issues` answers for the
+same view (see [Scripting the API]({{< relref "/docs/web#scripting-the-api" >}})):
+`issues`, each with `key`, `tracker` — `jira`, or `forge` for the forge's
+issues, whose key is the bare number — `summary`, `status`,
+`status_category` (`new`, `indeterminate` or `done`), `type` and, when
+there is one, `priority`; `total`, how many the view holds; `start_at`,
+always `0`; and `unavailable`, each tracker that could not be read. It is
+the view's first page of 50: a longer view's `total` says how many more
+there are.
+
+```json
+{
+  "issues": [
+    {"key": "PROJ-7", "tracker": "jira", "summary": "Fix login", "status": "In Progress",
+     "status_category": "indeterminate", "type": "Bug", "priority": "High"}
+  ],
+  "start_at": 0,
+  "total": 1,
+  "unavailable": []
+}
+```
+
+`workflow issue KEY --json` prints the issue `GET /api/issues/{key}`
+answers: the fields above, then `reporter`, `assignee` (left out when it is
+unassigned), `description`, `comments` (`author`, `body` and, when the
+tracker gave one, `created`, oldest first), `comment_total` and `url`, the
+issue's page in its tracker.
+
+```sh
+workflow issue PROJ-7 --json | jq -r '.comments[-1].body'
 ```
 
 `workflow summary --json` prints the object `GET /api/activity` answers

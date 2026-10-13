@@ -115,6 +115,8 @@ workflow [flags]
 * [workflow db-clean](../workflow_db-clean/)	 - Remove workflow's local data, the databases it keeps between sessions
 * [workflow doctor](../workflow_doctor/)	 - Report the repository, tooling, and configuration in effect
 * [workflow finish](../workflow_finish/)	 - Finish a merged branch: switch to its base, catch the base up, and delete the branch
+* [workflow issue](../workflow_issue/)	 - Print an issue in full, in Jira or on the forge
+* [workflow issues](../workflow_issues/)	 - List a view's issues, as the Issues pane lists them
 * [workflow pr](../workflow_pr/)	 - Open a pull or merge request for the current branch
 * [workflow repositories](../workflow_repositories/)	 - List where workflow works: this directory, its repository's worktrees and your favorites
 * [workflow reviews](../workflow_reviews/)	 - List the pull or merge requests that are waiting on your review
