@@ -339,10 +339,10 @@ Webhook. It shows where announcements go and who they are from. **Announce to**
 the service composes the announcement of the branch's pull request and shows
 it, with the channel to send it to where there is a choice; **Announce now**
 sends it. Nothing is sent before that second press, and what is sent is the
-text shown: when the announcement changed in between — CI turned red, the pull
-request merged — nothing is sent, the page says so, and **Announce to** shows
+text shown: when the announcement changed in between — the pull request
+merged, say — nothing is sent, the page says so, and **Announce to** shows
 the new one. Once a pull request was announced at the moment it is at now —
-ready for review, its CI red, merged — from here, the terminal or `workflow
+ready for review, or merged — from here, the terminal or `workflow
 announce`, the section says so in place of the offer, as the terminal offers
 no announcement it has made; each announcement made here is remembered for
 the terminal and `workflow announce` too. A pull request closed without
@@ -361,7 +361,7 @@ the section shows; a CI the server cannot read keeps it from going too.
 **Edit**, in the preview, turns the message into a box to change it in, as
 the terminal's `e` opens it in your editor; **Announce now** then sends the
 text as edited. An edit still goes only while the announcement it began from
-is the one composed now: when CI turned red or the pull request merged since,
+is the one composed now: when the pull request merged since,
 nothing is sent, as for an unedited one. An edit emptied of text is refused.
 
 While the pull request's CI is still running, a ready-for-review

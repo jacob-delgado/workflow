@@ -20,14 +20,12 @@ import (
 var errNotInChannel = errors.New("the credential was not accepted: not_in_channel")
 
 // announcement is what the world's pull request is announced as, and
-// mergedAnnouncement and redCIAnnouncement are the same pull at its other
-// moments: the issue line is shared, only the lead sentence changes.
+// mergedAnnouncement is the same pull once merged: the issue line is shared,
+// only the lead sentence changes.
 const (
 	announcement = "jacob opened a pull request: <" + pullURL + "|" + pullTitle + ">\n" +
 		"<https://jira.example.com/browse/PROJ-412|PROJ-412> " + issueSummary
 	mergedAnnouncement = "jacob merged a pull request: <" + pullURL + "|" + pullTitle + ">\n" +
-		"<https://jira.example.com/browse/PROJ-412|PROJ-412> " + issueSummary
-	redCIAnnouncement = "CI is red on the pull request: <" + pullURL + "|" + pullTitle + ">\n" +
 		"<https://jira.example.com/browse/PROJ-412|PROJ-412> " + issueSummary
 )
 
@@ -56,20 +54,19 @@ func TestTheSlackPaneAnnouncesAMerge(t *testing.T) {
 	}
 }
 
-func TestTheSlackPaneAnnouncesRedCI(t *testing.T) {
+func TestARedCIPreviewsTheReadyAnnouncement(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	failing := newWorld()
 	failing.ci = []forge.CI{{State: forge.CIFailed, Total: 1, Done: 1, Failed: 1}}
-	model := failing.live(t, 120, 40)
+	model := failing.live(t, 240, 40)
 
 	// Act
 	preview := typing(t, model, "5", "p")
 
 	// Assert
-	requireScreen(t, preview.View().Content, "CI is red on the pull request", "enter announce now")
-	refuseScreen(t, footerLine(preview.View().Content), "when CI passes")
+	requireTextRows(t, preview.View().Content, announcement)
 }
 
 func TestAMergeIsAnnouncedOnlyOnce(t *testing.T) {

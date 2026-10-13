@@ -197,7 +197,7 @@ func TestProposeTagsOffersNoRepositoryGroupWhoseIDIsNotAGroups(t *testing.T) {
 func TestOnlyTheReadyForReviewAnnouncementTagsAnyone(t *testing.T) {
 	t.Parallel()
 
-	moments := map[string]messaging.Moment{"merged": messaging.MomentMerged, "CI red": messaging.MomentCIRed}
+	moments := map[string]messaging.Moment{"merged": messaging.MomentMerged}
 
 	for name, moment := range moments {
 		t.Run(name, func(t *testing.T) {

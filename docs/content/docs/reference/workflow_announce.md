@@ -12,7 +12,7 @@ Announce the branch's pull or merge request to your team's chat
 ### Synopsis
 
 Announce what the messaging pane would — the branch's pull request, its
-issue, and where it stands (ready for review, merged, or CI red) — to the
+issue, and where it stands (ready for review, or merged) — to the
 configured Slack, Teams, Discord or webhook. A preview is printed and
 confirmed before anything is announced.
 

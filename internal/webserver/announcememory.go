@@ -107,7 +107,7 @@ func (s *server) announcedAlready(ctx context.Context, made loop.Announced) bool
 // follow, so the review and the announce stage agree. What was announced is
 // read under ctx.
 func (s *server) reviewAnnounced(ctx context.Context, read forgeRead) bool {
-	return loop.AnnounceMemory{Recorded: s.recordedAnnouncements}.HoldsNow(ctx, read.pull, read.found, read.ci)
+	return loop.AnnounceMemory{Recorded: s.recordedAnnouncements}.HoldsNow(ctx, read.pull, read.found)
 }
 
 // deliver posts post, and records what it made, unless that was made already,

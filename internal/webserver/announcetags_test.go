@@ -141,8 +141,12 @@ func TestGetAnnouncementTagsNoOneUnlessReadyForReview(t *testing.T) {
 	// Arrange
 	deps := filledDeps()
 	newFakeKept().wire(&deps)
-	deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
-		return forge.CI{State: forge.CIFailed}, nil
+	findPull := deps.Forge.FindPullRequest
+	deps.Forge.FindPullRequest = func(ctx context.Context, branch string) (forge.PullRequest, bool, error) {
+		pull, found, err := findPull(ctx, branch)
+		pull.State = forge.StateMerged
+
+		return pull, found, err
 	}
 	handler := serve(t, deps, slackUserConfig())
 
@@ -152,7 +156,7 @@ func TestGetAnnouncementTagsNoOneUnlessReadyForReview(t *testing.T) {
 	// Assert
 	got := decode[api.Announcement](t, recorder).Tagging
 	if got == nil || got.Available || len(got.Owners) != 0 {
-		t.Errorf("tagging = %+v, want it unavailable with no owners for red CI", got)
+		t.Errorf("tagging = %+v, want it unavailable with no owners for a merge", got)
 	}
 }
 

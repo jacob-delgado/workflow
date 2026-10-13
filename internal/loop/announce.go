@@ -48,30 +48,25 @@ var (
 const NotRememberedWarning = "Posted, but not remembered: it may be offered again."
 
 // AnnounceSeams are what composing an announcement reads. A nil Branch or
-// FindPull means there is nothing to announce; a nil Author, Issue, BrowseURL
-// or CheckCI only makes the announcement say less.
+// FindPull means there is nothing to announce; a nil Author, Issue or
+// BrowseURL only makes the announcement say less.
 type AnnounceSeams struct {
 	Branch    func(ctx context.Context) (gitrepo.Branch, error)
 	FindPull  func(ctx context.Context, branch string) (forge.PullRequest, bool, error)
 	Author    func(ctx context.Context) (string, error)
 	Issue     func(ctx context.Context, issueKey jira.Key) (jira.IssueDetail, error)
 	BrowseURL func(jira.Key) string
-	CheckCI   func(ctx context.Context, pull forge.PullRequest, head string) (forge.CI, error)
 }
 
-// AnnounceMoment is the moment a pull request is at: merged, its CI red, or —
-// the common case — open and ready for review. ci is what its CI last said; the
-// zero CI, which reports none, reads as ready, so a caller that could not read
-// CI passes it.
-func AnnounceMoment(pull forge.PullRequest, ci forge.CI) messaging.Moment {
-	switch {
-	case pull.State == forge.StateMerged:
+// AnnounceMoment is the moment a pull request is at: merged, or — the common
+// case — open and ready for review. Its CI decides whether it may be
+// announced (see ClearToAnnounce), never what is said of it.
+func AnnounceMoment(pull forge.PullRequest) messaging.Moment {
+	if pull.State == forge.StateMerged {
 		return messaging.MomentMerged
-	case ci.State == forge.CIFailed:
-		return messaging.MomentCIRed
-	default:
-		return messaging.MomentReady
 	}
+
+	return messaging.MomentReady
 }
 
 // Composed is an announcement composed for the checked-out branch's pull
@@ -121,7 +116,7 @@ func ComposeAnnouncementOf(
 		IssueKey:     issueKey,
 		IssueSummary: issueSummary(ctx, seams.Issue, issueKey),
 		IssueURL:     issueURL(seams.BrowseURL, issueKey),
-		Moment:       momentOf(ctx, seams.CheckCI, pull, branch.Head),
+		Moment:       AnnounceMoment(pull),
 	}, cfg, kind)
 }
 
@@ -189,26 +184,6 @@ func followed(pull forge.PullRequest, found bool) bool {
 	return found && progress.PullStateOf(pull.State) != progress.NoPullRequest
 }
 
-// momentOf is the pull request's moment, reading its CI only when the moment
-// could turn on it — never for a merged pull request, which the forge would be
-// asked about for nothing. A CI that cannot be read leaves the moment at ready
-// rather than failing the announcement.
-func momentOf(
-	ctx context.Context, check func(context.Context, forge.PullRequest, string) (forge.CI, error),
-	pull forge.PullRequest, head string,
-) messaging.Moment {
-	if pull.State == forge.StateMerged || check == nil {
-		return AnnounceMoment(pull, forge.CI{})
-	}
-
-	ci, err := check(ctx, pull, head)
-	if err != nil {
-		return AnnounceMoment(pull, forge.CI{})
-	}
-
-	return AnnounceMoment(pull, ci)
-}
-
 // authorName is who the forge credential belongs to, or empty when the forge
 // will not say — the announcement reads without it.
 func authorName(ctx context.Context, read func(context.Context) (string, error)) string {
@@ -226,7 +201,7 @@ func authorName(ctx context.Context, read func(context.Context) (string, error))
 
 // Announced is one announcement made: a pull request, and the moment it marked.
 // A pull request is announced once at each of its moments — ready for review,
-// its CI red, merged — so the pair is what a later session is told was made.
+// then merged — so the pair is what a later session is told was made.
 type Announced struct {
 	Pull   int
 	Moment messaging.Moment
@@ -257,11 +232,11 @@ func (m AnnounceMemory) Holds(ctx context.Context, made Announced) bool {
 }
 
 // HoldsNow reports that a find answered a pull request the loop follows, and
-// that it was announced at the moment it is at now, by its CI: the one rule
-// every surface reads the announce stage, and whether to say the pull request
-// was announced, by. What was announced is read under ctx.
-func (m AnnounceMemory) HoldsNow(ctx context.Context, pull forge.PullRequest, found bool, ci forge.CI) bool {
-	return followed(pull, found) && m.Holds(ctx, Announced{Pull: pull.Number, Moment: AnnounceMoment(pull, ci)})
+// that it was announced at the moment it is at now: the one rule every surface
+// reads the announce stage, and whether to say the pull request was announced,
+// by. What was announced is read under ctx.
+func (m AnnounceMemory) HoldsNow(ctx context.Context, pull forge.PullRequest, found bool) bool {
+	return followed(pull, found) && m.Holds(ctx, Announced{Pull: pull.Number, Moment: AnnounceMoment(pull)})
 }
 
 // Delivery is an announcement on its way out: the channel it goes to — empty

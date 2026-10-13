@@ -406,7 +406,7 @@ func knownMoment(stored int) (messaging.Moment, bool) {
 	moment := messaging.Moment(stored)
 
 	switch moment {
-	case messaging.MomentReady, messaging.MomentMerged, messaging.MomentCIRed:
+	case messaging.MomentReady, messaging.MomentMerged:
 		return moment, true
 	}
 

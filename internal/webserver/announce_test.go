@@ -70,14 +70,19 @@ func TestAnnounceRefusesAnAnnouncementThatChangedSinceItsPreview(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// CI passes when the page previews the announcement and has failed by the
-	// time it posts, so the announcement composed now is not the one shown.
-	ciState := forge.CIPassed
+	// The pull request is open when the page previews the announcement and has
+	// merged by the time it posts, so the announcement composed now is not the
+	// one shown.
+	state := forge.StateOpen
 	posts := 0
 
 	deps := filledDeps()
-	deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
-		return forge.CI{State: ciState}, nil
+	findPull := deps.Forge.FindPullRequest
+	deps.Forge.FindPullRequest = func(ctx context.Context, branch string) (forge.PullRequest, bool, error) {
+		pull, found, err := findPull(ctx, branch)
+		pull.State = state
+
+		return pull, found, err
 	}
 	deps.Messaging.Post = func(context.Context, string, string) error {
 		posts++
@@ -87,7 +92,7 @@ func TestAnnounceRefusesAnAnnouncementThatChangedSinceItsPreview(t *testing.T) {
 
 	handler := serve(t, deps, config.Default())
 	previewed := previewAnnouncement(t, handler)
-	ciState = forge.CIFailed
+	state = forge.StateMerged
 
 	// Act
 	recorder := announcePreviewed(t, handler, "#dev", previewed)
@@ -251,43 +256,34 @@ func TestGetAnnouncementMarksAMergedPull(t *testing.T) {
 	}
 }
 
-func TestGetAnnouncementMarksRedCI(t *testing.T) {
+func TestGetAnnouncementComposesTheSameWhateverCISays(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	// The open pull request's CI has failed, so the announcement marks that.
-	deps := filledDeps()
-	deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
-		return forge.CI{State: forge.CIFailed}, nil
+	cases := map[string]func(context.Context, forge.PullRequest, string) (forge.CI, error){
+		"a check failed": func(context.Context, forge.PullRequest, string) (forge.CI, error) {
+			return forge.CI{State: forge.CIFailed}, nil
+		},
+		"CI cannot be read": func(context.Context, forge.PullRequest, string) (forge.CI, error) {
+			return forge.CI{}, errSeam
+		},
 	}
 
-	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/announcement")
+	for name, check := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// Assert
-	if text := decode[api.Announcement](t, recorder).Text; !strings.Contains(text, "CI is red on the pull request") {
-		t.Errorf("preview = %q, want a red-CI announcement", text)
-	}
-}
+			// Arrange
+			deps := filledDeps()
+			deps.Forge.CheckStatus = check
 
-func TestGetAnnouncementFallsBackToReadyWhenCICannotBeRead(t *testing.T) {
-	t.Parallel()
+			// Act
+			recorder := get(t, serve(t, deps, config.Default()), "/api/announcement")
 
-	// Arrange
-	// The CI read fails, so the open pull request's announcement stays "ready for
-	// review" rather than marking a red CI on a result it could not read.
-	deps := filledDeps()
-	deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
-		return forge.CI{State: forge.CIFailed}, errSeam
-	}
-
-	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/announcement")
-
-	// Assert
-	text := decode[api.Announcement](t, recorder).Text
-	if strings.Contains(text, "CI is red") || !strings.Contains(text, "opened a pull request") {
-		t.Errorf("preview = %q, want a ready announcement when CI cannot be read", text)
+			// Assert
+			if text := decode[api.Announcement](t, recorder).Text; !strings.Contains(text, "opened a pull request") {
+				t.Errorf("preview = %q, want the ready announcement whatever its CI says", text)
+			}
+		})
 	}
 }
 

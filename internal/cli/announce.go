@@ -79,7 +79,7 @@ func newAnnounceCmd(prompt Prompt) *cobra.Command {
 		Use:   "announce",
 		Short: "Announce the branch's pull or merge request to your team's chat",
 		Long: "Announce what the messaging pane would — the branch's pull request, its\n" +
-			"issue, and where it stands (ready for review, merged, or CI red) — to the\n" +
+			"issue, and where it stands (ready for review, or merged) — to the\n" +
 			"configured Slack, Teams, Discord or webhook. A preview is printed and\n" +
 			"confirmed before anything is announced.\n\n" +
 			"With a Slack user token, a ready-for-review announcement tags the code owners\n" +
@@ -131,7 +131,6 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions, ch
 			Author:    deps.Forge.Author,
 			Issue:     deps.Jira.Issue,
 			BrowseURL: deps.Jira.BrowseURL,
-			CheckCI:   deps.Forge.CheckStatus,
 		},
 		Deliver:   loop.DeliverSeams{Post: nil, CheckCI: deps.Forge.CheckStatus},
 		Kind:      deps.Forge.Kind,

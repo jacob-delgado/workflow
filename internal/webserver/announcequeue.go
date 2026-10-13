@@ -83,7 +83,7 @@ const (
 func (s *server) announceWhenGreen(ctx context.Context, post announcePost) api.AnnounceResponseObject {
 	if post.delivery.Moment != messaging.MomentReady {
 		return api.Announce409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
-			"only a ready-for-review announcement waits for CI; this one announces a merge or a failed CI, "+
+			"only a ready-for-review announcement waits for CI; this one announces a merge, "+
 				"so announce it now"))
 	}
 

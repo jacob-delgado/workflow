@@ -181,7 +181,7 @@ func (m Model) messagingDetail(width int) string {
 	}
 
 	lines := []string{
-		m.announcement(loop.AnnounceMoment(m.review.pull, m.review.ci)),
+		m.announcement(loop.AnnounceMoment(m.review.pull)),
 		"",
 		m.styles.label.Render("to     ") + sanitize.Line(m.cfg.Messaging.Target()),
 		m.styles.label.Render("CI     ") + m.review.ciSummary(m.kit()),
@@ -203,7 +203,7 @@ func (m Model) messagingDetail(width int) string {
 func (s messagingState) announced(review reviewState) bool {
 	posted := loop.AnnounceMemory{Recorded: func(context.Context) []loop.Announced { return s.posted }}
 
-	return posted.HoldsNow(context.Background(), review.pull, review.found, review.ci)
+	return posted.HoldsNow(context.Background(), review.pull, review.found)
 }
 
 // loadAnnounces reads what was announced in an earlier session from the store, so
@@ -283,7 +283,7 @@ func (m Model) handleMessagingKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // request's current moment, and starts reading whom it tags.
 func (m Model) previewAnnouncement() (Model, tea.Cmd) {
 	channels, channel := m.cfg.Messaging.ChannelChoices(), defaultChannel(m.cfg)
-	moment := loop.AnnounceMoment(m.review.pull, m.review.ci)
+	moment := loop.AnnounceMoment(m.review.pull)
 	m, opened := m.opening()
 
 	preview, readTags := m.withTagging(messagingPreview{

@@ -42,9 +42,6 @@ func announceSeams() loop.AnnounceSeams {
 			return jira.IssueDetail{Issue: jira.Issue{Key: issueKey, Summary: summary}}, nil
 		},
 		BrowseURL: func(key jira.Key) string { return "https://jira.example.com/browse/" + string(key) },
-		CheckCI: func(context.Context, forge.PullRequest, string) (forge.CI, error) {
-			return forge.CI{State: forge.CIPassed}, nil
-		},
 	}
 }
 
@@ -62,21 +59,15 @@ func compose(t *testing.T, seams loop.AnnounceSeams) (messaging.Announcement, fo
 	return composed.Announcement, composed.Pull, err
 }
 
-func TestAnnounceMomentReadsMergedBeforeCI(t *testing.T) {
+func TestAnnounceMomentReadsOnlyThePullRequest(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
 		pull forge.PullRequest
-		ci   forge.CI
 		want messaging.Moment
 	}{
-		"a merged pull, whatever its CI": {
-			pull: forge.PullRequest{State: forge.StateMerged}, ci: forge.CI{State: forge.CIFailed},
-			want: messaging.MomentMerged,
-		},
-		"an open pull whose CI failed": {ci: forge.CI{State: forge.CIFailed}, want: messaging.MomentCIRed},
-		"an open pull whose CI passed": {ci: forge.CI{State: forge.CIPassed}, want: messaging.MomentReady},
-		"an open pull with no CI read": {want: messaging.MomentReady},
+		"an open pull request":  {pull: openPull(), want: messaging.MomentReady},
+		"a merged pull request": {pull: forge.PullRequest{Number: 9, State: forge.StateMerged}, want: messaging.MomentMerged},
 	}
 
 	for name, tt := range cases {
@@ -84,7 +75,7 @@ func TestAnnounceMomentReadsMergedBeforeCI(t *testing.T) {
 			t.Parallel()
 
 			// Act & Assert
-			if got := loop.AnnounceMoment(tt.pull, tt.ci); got != tt.want {
+			if got := loop.AnnounceMoment(tt.pull); got != tt.want {
 				t.Errorf("AnnounceMoment = %v, want %v", got, tt.want)
 			}
 		})
@@ -199,85 +190,6 @@ func TestComposeAnnouncementReportsWhatCannotBeRead(t *testing.T) {
 	}
 }
 
-func TestComposeAnnouncementNeverReadsCIForAMergedPull(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	checked := false
-
-	seams := announceSeams()
-	seams.FindPull = func(context.Context, string) (forge.PullRequest, bool, error) {
-		merged := openPull()
-		merged.State = forge.StateMerged
-
-		return merged, true, nil
-	}
-	seams.CheckCI = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
-		checked = true
-
-		return forge.CI{State: forge.CIFailed}, nil
-	}
-
-	// Act
-	announcement, _, err := compose(t, seams)
-
-	// Assert
-	if err != nil || announcement.Moment != messaging.MomentMerged || checked {
-		t.Errorf("moment = %v (%v), CI read = %t; want merged without reading CI", announcement.Moment, err, checked)
-	}
-}
-
-func TestComposeAnnouncementMarksRedCI(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	var askedHead string
-
-	seams := announceSeams()
-	seams.CheckCI = func(_ context.Context, _ forge.PullRequest, head string) (forge.CI, error) {
-		askedHead = head
-
-		return forge.CI{State: forge.CIFailed}, nil
-	}
-
-	// Act
-	announcement, _, err := compose(t, seams)
-
-	// Assert
-	if err != nil || announcement.Moment != messaging.MomentCIRed || askedHead != headCommit {
-		t.Errorf("moment = %v (%v), head %q; want CI red, read at the branch's head", announcement.Moment, err, askedHead)
-	}
-}
-
-func TestComposeAnnouncementTakesAnUnreadableCIAsReady(t *testing.T) {
-	t.Parallel()
-
-	cases := map[string]func(context.Context, forge.PullRequest, string) (forge.CI, error){
-		"no way to read CI": nil,
-		"a CI read that fails": func(context.Context, forge.PullRequest, string) (forge.CI, error) {
-			return forge.CI{State: forge.CIFailed}, errSeam
-		},
-	}
-
-	for name, check := range cases {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			// Arrange
-			seams := announceSeams()
-			seams.CheckCI = check
-
-			// Act
-			announcement, _, err := compose(t, seams)
-
-			// Assert
-			if err != nil || announcement.Moment != messaging.MomentReady {
-				t.Errorf("moment = %v (%v), want ready", announcement.Moment, err)
-			}
-		})
-	}
-}
-
 func TestComposeAnnouncementReadsWithoutWhatItCannotSay(t *testing.T) {
 	t.Parallel()
 
@@ -375,12 +287,11 @@ func TestAnnounceMemoryHoldsNowOnlyAPullRequestTheLoopFollows(t *testing.T) {
 	cases := map[string]struct {
 		pull  forge.PullRequest
 		found bool
-		ci    forge.CI
 		want  bool
 	}{
 		"an open pull request announced as ready": {pull: openPull(), found: true, want: true},
-		"an open pull request whose CI turned red since": {
-			pull: openPull(), found: true, ci: forge.CI{State: forge.CIFailed},
+		"an open pull request merged since": {
+			pull: forge.PullRequest{Number: 9, State: forge.StateMerged}, found: true,
 		},
 		"a pull request closed without merging, announced before": {pull: closed, found: true},
 		"no pull request found":                                   {pull: openPull()},
@@ -391,8 +302,8 @@ func TestAnnounceMemoryHoldsNowOnlyAPullRequestTheLoopFollows(t *testing.T) {
 			t.Parallel()
 
 			// Act & Assert
-			if got := remembering(ready).HoldsNow(t.Context(), tt.pull, tt.found, tt.ci); got != tt.want {
-				t.Errorf("HoldsNow(%+v, %t, %+v) = %t, want %t", tt.pull, tt.found, tt.ci, got, tt.want)
+			if got := remembering(ready).HoldsNow(t.Context(), tt.pull, tt.found); got != tt.want {
+				t.Errorf("HoldsNow(%+v, %t) = %t, want %t", tt.pull, tt.found, got, tt.want)
 			}
 		})
 	}
