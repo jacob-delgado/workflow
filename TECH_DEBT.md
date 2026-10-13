@@ -555,8 +555,9 @@ found left changed by one in practice.
 target in `Taskfile.yml`, `darwin/arm64` and `windows/amd64` among them, so
 the code only a macOS or a Windows binary holds is compiled on every change,
 but no job runs it, and code only those systems' tests build is not compiled
-at all. Decided 2026-10-09 by the maintainer, in #237: CI stays on Linux, and
-the cost of the code only Windows or macOS runs is recorded here.
+at all. Decided 2026-10-09 by the maintainer, in #237, for the code only
+Windows runs, and 2026-10-12, in #241, for the code only macOS runs: CI stays
+on Linux, and the cost is recorded here.
 
 **Cost.** Five files are Windows-only, one is macOS-only, and four functions
 have a branch or a value only Windows takes, each marked with this entry's ID:
