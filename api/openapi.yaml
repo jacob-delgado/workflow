@@ -1955,13 +1955,23 @@ paths:
           required: false
           schema: {type: string}
           description: The template to start the body from, by name; the repository's first when omitted.
+        - name: base
+          in: query
+          required: false
+          schema: {type: string}
+          description: >-
+            The branch to merge into, by name, as the form's base field names
+            it; the base the branch left when omitted.
       description: >-
         Composes a pull request for the checked-out branch — a title and body
         from its commits, the issue, and the repository's template, with the base
         it would merge into — without opening it, so the browser can edit it
         before confirming. Given a template, by name, the body starts from it
         rather than the first, as the terminal's ctrl+t chooses one; an
-        unknown name is a 404. Answered 409 when there is nothing to open: the tree
+        unknown name is a 404. Given a base, the branch is read past it, so the
+        title, the body and the code owners are those of the commits that pull
+        request would merge; a base neither the base remote nor the repository
+        holds a branch of is a 404. Answered 409 when there is nothing to open: the tree
         is not on a branch, the branch has no commits, or a pull request is
         already open for it; and when the server is not running in a git
         repository.
@@ -1974,7 +1984,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/PullRequestDraft"
         "404":
-          description: The repository has no template of that name.
+          description: The repository has no template, or no branch to merge into, of that name.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}

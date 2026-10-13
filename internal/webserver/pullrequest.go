@@ -25,10 +25,15 @@ func (s *server) GetPullRequestDraft(
 ) (api.GetPullRequestDraftResponseObject, error) {
 	template := orZero(request.Params.Template)
 
-	draft, branch, err := s.composePullRequest(ctx, template)
+	draft, branch, err := s.composePullRequest(ctx, template, orZero(request.Params.Base))
 	if errors.Is(err, loop.ErrNoSuchTemplate) {
 		return api.GetPullRequestDraft404ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeNotFound,
 			"the repository has no pull request template of that name")), nil
+	}
+
+	if errors.Is(err, gitrepo.ErrNoSuchBase) || errors.Is(err, gitrepo.ErrOptionLikeRef) {
+		return api.GetPullRequestDraft404ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeNotFound,
+			gitrepo.ErrNoSuchBase.Error())), nil
 	}
 
 	if err != nil {
@@ -73,7 +78,7 @@ func (s *server) OpenPullRequest(
 		return openUnprocessable("opening a " + s.noun() + " is not available"), nil
 	}
 
-	_, branch, err := s.composePullRequest(ctx, "")
+	_, branch, err := s.composePullRequest(ctx, "", "")
 	if err != nil {
 		return s.openRefusal(err), nil
 	}
@@ -160,13 +165,13 @@ func (s *server) canOpenPull() bool {
 
 // composePullRequest builds the pull request to propose for the checked-out
 // branch from its commits, the branch's issue, the repository's template, and
-// the code owners of its changes.
+// the code owners of its changes, read past base when one is given.
 // It fails with the loop's refusal when there is nothing to open — the tree is
 // not on a branch, the branch has no commits, or a pull request is already open
 // for it — and with the read's own error when the branch cannot be read. The
 // tracker is asked under ctx.
 func (s *server) composePullRequest(
-	ctx context.Context, template string,
+	ctx context.Context, template, base string,
 ) (forge.NewPullRequest, gitrepo.Branch, error) {
 	cfg := s.config()
 
@@ -182,6 +187,7 @@ func (s *server) composePullRequest(
 		Project:     cfg.Jira.Project,
 		TitleSource: convention.TitleSource(cfg.PullRequest.TitleSource),
 		Template:    template,
+		Base:        strings.TrimSpace(base),
 	})
 
 	return draft, branch, err

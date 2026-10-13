@@ -7,9 +7,16 @@ import type {
 
 // previewPullRequest composes the pull request that would be opened for the
 // branch, for the form to start from — its body from the template named, or
-// the repository's first.
-export async function previewPullRequest(template?: string): Promise<PullRequestDraft> {
-  const query = template === undefined ? {} : { template }
+// the repository's first, and its commits those past the base named, or past
+// the base the branch left.
+export async function previewPullRequest(
+  template?: string,
+  base?: string,
+): Promise<PullRequestDraft> {
+  const query = {
+    ...(template === undefined ? {} : { template }),
+    ...(base === undefined ? {} : { base }),
+  }
   const result = await getPullRequestDraft({ query, throwOnError: true })
 
   return result.data

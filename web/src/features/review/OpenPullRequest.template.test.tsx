@@ -47,7 +47,7 @@ test('starts the description from the template chosen, as ctrl+t does', async ()
   await user.selectOptions(within(form).getByRole('combobox', { name: 'Template' }), 'bugfix')
 
   // Assert
-  expect(mockPreview).toHaveBeenLastCalledWith('bugfix')
+  expect(mockPreview).toHaveBeenLastCalledWith('bugfix', 'main')
   await vi.waitFor(() => {
     expect(within(form).getByRole('textbox', { name: 'Description' })).toHaveProperty(
       'value',
