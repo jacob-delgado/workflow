@@ -218,11 +218,12 @@ func sharedSectionContexts() []keyContext {
 func shownTogether(panes []pane) keyContext {
 	titles := make([]string, 0, len(panes))
 	together := keyContext{name: "", groups: nil, actions: nil}
+	webBound := WebBoundActions()
 
 	for _, each := range panes {
 		titles = append(titles, each.title("messaging"))
 		together.actions = append(together.actions, slices.DeleteFunc(each.keyContext().listed().Actions,
-			func(action string) bool { return !slices.Contains(WebBoundActions(), action) })...)
+			func(action string) bool { return !slices.Contains(webBound, action) })...)
 	}
 
 	together.name = "the " + strings.Join(titles, " and ") + " panes, which the web page shows together"
