@@ -9,6 +9,7 @@ import { readHookSetup, writeHookSetup } from './gitRunApi.ts'
 vi.mock('./gitRunApi.ts', () => ({
   startRun: vi.fn(),
   stopRun: vi.fn(),
+  readHooks: vi.fn(() => Promise.resolve({ runnable: [], git_only: [] })),
   readHookSetup: vi.fn(() =>
     Promise.resolve({
       offered: true,

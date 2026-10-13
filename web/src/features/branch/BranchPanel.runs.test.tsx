@@ -1,5 +1,5 @@
 import { act, render, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import userEvent, { type UserEvent } from '@testing-library/user-event'
 import { vi } from 'vitest'
 import type { Run, RunEvent, RunRequest, Snapshot } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
@@ -36,6 +36,7 @@ vi.mock('./gitRunApi.ts', () => ({
     return Promise.resolve(ended(request, 'succeeded', 'The pre-commit hook passed.', ['lint ok']))
   }),
   stopRun: vi.fn(() => Promise.resolve()),
+  readHooks: vi.fn(() => Promise.resolve({ runnable: ['pre-commit', 'pre-push'], git_only: [] })),
   readHookSetup: vi.fn(() =>
     Promise.resolve({ offered: false, hooks: [], config: '', scripts: 0 }),
   ),
@@ -78,14 +79,21 @@ function foldable(overrides: Partial<Snapshot> = {}) {
   })
 }
 
-test('runs pre-commit at once and streams what it writes', async () => {
+// runPreCommit runs pre-commit, which Run a hook chooses first.
+async function runPreCommit(user: UserEvent) {
+  await user.click(screen.getByRole('button', { name: 'Run a hook' }))
+  const chooser = await screen.findByRole('form', { name: 'Run a hook' })
+  await user.click(within(chooser).getByRole('button', { name: 'Run' }))
+}
+
+test('runs pre-commit once chosen and streams what it writes', async () => {
   // Arrange
   foldable()
   const user = userEvent.setup()
   render(<BranchPanel />)
 
   // Act
-  await user.click(screen.getByRole('button', { name: 'Run pre-commit' }))
+  await runPreCommit(user)
 
   // Assert
   expect(mockStartRun).toHaveBeenLastCalledWith(
@@ -177,7 +185,7 @@ test('says why a run was refused, beside its output', async () => {
   render(<BranchPanel />)
 
   // Act
-  await user.click(screen.getByRole('button', { name: 'Run pre-commit' }))
+  await runPreCommit(user)
 
   // Assert
   expect((await screen.findByRole('alert')).textContent).toContain('The pre-commit hook failed.')
@@ -201,7 +209,7 @@ test('stops the run going, from the stream, when asked', async () => {
   expect(mockStopRun).toHaveBeenCalled()
 })
 
-test('says why a run was refused before it ran, with focus still on Run pre-commit', async () => {
+test('says why a run was refused before it ran, with focus back on Run a hook', async () => {
   // Arrange
   mockStartRun.mockRejectedValueOnce({ code: 'conflict', detail: 'a run is already going' })
   foldable()
@@ -209,14 +217,14 @@ test('says why a run was refused before it ran, with focus still on Run pre-comm
   render(<BranchPanel />)
 
   // Act
-  await user.click(screen.getByRole('button', { name: 'Run pre-commit' }))
+  await runPreCommit(user)
 
   // Assert
   expect((await screen.findByRole('alert')).textContent).toContain('a run is already going')
-  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Run pre-commit' }))
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Run a hook' }))
 })
 
-test.each(['Rebase onto main', 'Run pre-commit', 'Amend last commit', 'Fix up a commit'])(
+test.each(['Rebase onto main', 'Run a hook', 'Amend last commit', 'Fix up a commit'])(
   '%s is held, keeping its focus, while a run goes',
   async (name) => {
     // Arrange
@@ -261,7 +269,7 @@ test('puts an ended run away on Close', async () => {
   foldable()
   const user = userEvent.setup()
   render(<BranchPanel />)
-  await user.click(screen.getByRole('button', { name: 'Run pre-commit' }))
+  await runPreCommit(user)
   await screen.findByRole('region', { name: 'Output of pre-commit' })
 
   // Act
@@ -275,6 +283,7 @@ test.each([
   ['Rebase onto main', 'Rebase fix/PROJ-1 onto main'],
   ['Amend last commit', 'Amend fix: second'],
   ['Fix up a commit', 'Fix up a commit'],
+  ['Run a hook', 'Run a hook'],
 ])('backing out of %s sends nothing and hands focus back', async (opener, look) => {
   // Arrange
   foldable()
@@ -284,7 +293,7 @@ test.each([
 
   // Act
   await user.click(
-    within(screen.getByRole('form', { name: look })).getByRole('button', { name: 'Cancel' }),
+    within(await screen.findByRole('form', { name: look })).getByRole('button', { name: 'Cancel' }),
   )
 
   // Assert
