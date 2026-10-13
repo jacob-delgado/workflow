@@ -24,7 +24,7 @@
 # (`version:` on jdx/mise-action) and the devcontainer pins the one it downloads,
 # with its checksums. scripts/check-mise-version.sh (`task lint`) fails unless
 # every one of those equals this floor, so a bump here moves them all at once.
-min_version = "2026.9.3"
+min_version = "2026.10.8"
 
 [env]
 # Pin the toolchain so `go build`/`go test` use the Go below rather than

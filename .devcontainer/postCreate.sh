@@ -18,7 +18,7 @@ export PATH="${HOME}/.local/bin:${PATH}"
 # than fetched beside the download: a checksum file from the same release page
 # proves the download was not truncated, not that it was not replaced. The
 # version follows the same week-long age gate as every pin in mise.toml.
-readonly mise_version="2026.9.3"
+readonly mise_version="2026.10.8"
 
 # install_mise downloads the pinned release for this architecture and installs
 # it only if it matches the SHA-256 published in that release's SHASUMS256.txt.
@@ -27,11 +27,11 @@ install_mise() {
   case "$(uname -m)" in
     x86_64 | amd64)
       arch="x64"
-      expected="72de46e58238e3ae860e449adb9a35f4aba53679621c214dec03d68955fa4de8"
+      expected="e908ea27810ae358c9a9a7d897ea10197bdc38d39839243e1b36acc31cbef868"
       ;;
     aarch64 | arm64)
       arch="arm64"
-      expected="d1918155164a7e4ae4ae306e259b186065c0cfc1b993a954d6e033af0fa4fc5a"
+      expected="88aea77e41c2a3c45a9cbd64df9516ba887017442846213b3de178acbd3c9a46"
       ;;
     *)
       echo "no pinned mise for $(uname -m)" >&2
