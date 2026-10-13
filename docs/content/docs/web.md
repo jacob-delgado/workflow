@@ -356,7 +356,10 @@ server's log says why, which those two print after the sentence.
 Nothing is announced while a check has failed on the pull request. The server
 reads its CI again as it posts, whatever the preview showed, and a failed
 check keeps it from going, ready or merged alike, with a `ci_failed` problem
-the section shows; a CI the server cannot read keeps it from going too.
+the section shows; a CI the server cannot read keeps it from going too. A
+preview whose CI has a failed check offers only **Announce when CI passes**,
+and says why; a post refused for a check that failed after the preview opened
+previews it again, offering the wait.
 
 **Edit**, in the preview, turns the message into a box to change it in, as
 the terminal's `e` opens it in your editor; **Announce now** then sends the
@@ -364,14 +367,18 @@ text as edited. An edit still goes only while the announcement it began from
 is the one composed now: when the pull request merged since,
 nothing is sent, as for an unedited one. An edit emptied of text is refused.
 
-While the pull request's CI is still running, a ready-for-review
-announcement's preview also offers **Announce when CI passes**, the terminal's
-`w`: the server holds the announcement — edited or not, with its tags — and
-the section says *Waiting for CI on #42 to pass, then announcing to #dev.*,
-with **Stop waiting** to drop it unposted. It is posted once the forge reports
-the CI passed, and the section then says it was announced; when the CI fails,
-or the branch's pull request is another one or merged first, it is dropped
-and the section says why in red. **Announce now** drops a held announcement,
+Until the pull request's CI passes, a ready-for-review announcement's preview
+also offers **Announce when CI passes**, the terminal's `w`: the server holds
+the announcement — edited or not, with its tags — and the section says
+*Waiting for CI on #42 to pass, then announcing to #dev.*, with **Stop
+waiting** to drop it unposted. It is posted once the forge reports the CI
+passed, and the section then says it was announced. A failed run does not
+drop it: the section says a check failed and it waits on a fix, and it goes
+once a later run passes. While no check is reported the section says it waits
+for checks; after ten minutes with none, counted from the last read that saw
+one, it is dropped, saying to announce it by hand — a repository with no CI is
+announced by hand. When the branch's pull request is another one, or merged
+first, it is dropped and the section says why in red. **Announce now** drops a held announcement,
 so the channel never reads it twice. The server, not the page, holds it: it
 reads the CI for it every `timing.ci_interval` (twenty seconds unless set)
 whether a page is open or not, and settles it on each frame a page shows. It
