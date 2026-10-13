@@ -497,9 +497,11 @@ up to `messaging.UserListPages`, 20 pages, about 4,000 people) and labels
 members from it; past that cap it labels the channel's members one by one
 through `users.info` (Tier 4). Every read is shared by everyone asking at
 once, held for ten minutes or until a refresh, and never awaited under a lock.
-A shared read runs to its end even if the one who began it leaves. A session
-started by switching directory (TRADE-34) reads afresh. Decided
-2026-10-01 in #165 and #166, and kept on 2026-10-07 in the pre-1.0 audit.
+A shared read runs to its end even if the one who began it leaves, and is cut
+short only when the web server stops or a signal ends the command it runs in
+(`lifetime.Detached`). A session started by switching directory (TRADE-34)
+reads afresh. Decided 2026-10-01 in #165 and #166, and kept on 2026-10-07 in
+the pre-1.0 audit.
 
 **Cost.** A workspace under the cap holds every user's name in memory for the
 session and pays up to 20 pages on its first read. One over the cap pays those
@@ -806,15 +808,15 @@ fails instead, which git exits on, and a program that ignores the failure, as
 `gh` or `glab` may, finishes. A signal during the wait does not wait for the
 programs it stops either, nor for the work `Execute`'s comment names as going on
 past its asker's context: a signal that exits while Settings is refreshing a
-Slack user token on macOS, after Slack has answered and before the keychain
-keeps the new pair, can lose the only pair that works, since Slack spends the
-old one as it answers, and so can a wait given up on there, when the keychain
-takes longer than the wait has left; `workflow slack login` then sets the token
-up again. A write the interface chains on another's outcome once that outcome
-reaches it (a commit's scope, remembered once the commit is shown) is never
-begun after a quit. A write a pane sent just before a switch goes on in the
-directory left, and its outcome is not shown; the switch refuses only while an
-announcement or a change to a task is in flight.
+Slack user token on macOS, once Slack has taken the refresh and before the
+keychain keeps the new pair, can lose the only pair that works, since Slack
+spends the old one as it answers, and so can a wait given up on there, when the
+keychain takes longer than the wait has left; `workflow slack login` then sets
+the token up again. A write the interface chains on another's outcome once that
+outcome reaches it (a commit's scope, remembered once the commit is shown) is
+never begun after a quit. A write a pane sent just before a switch goes on in
+the directory left, and its outcome is not shown; the switch refuses only while
+an announcement or a change to a task is in flight.
 
 **Reopen when.** Such reads are found to crowd a rate limit, or a write is
 reported in practice left half made after workflow exits (a stale index lock, a
