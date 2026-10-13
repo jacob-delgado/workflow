@@ -99,7 +99,7 @@ func TestDescribeReadsTheRepository(t *testing.T) {
 	t.Parallel()
 
 	onBranch := gitrepo.Repo{
-		Root: workDir, Branch: "feat/token-redaction", Remote: "git@github.com:example/repo.git", Detached: false,
+		Root: workDir, Branch: "feat/token-redaction", Origin: "git@github.com:example/repo.git", Detached: false,
 	}
 
 	cases := map[string]struct {
@@ -112,12 +112,12 @@ func TestDescribeReadsTheRepository(t *testing.T) {
 		// to know, because there is no branch to base work on.
 		"a detached head": {
 			replies: with(onABranch(), map[string]reply{showCurrentBranch: {out: []byte("\n")}}),
-			want:    gitrepo.Repo{Root: workDir, Branch: "", Remote: onBranch.Remote, Detached: true},
+			want:    gitrepo.Repo{Root: workDir, Branch: "", Origin: onBranch.Origin, Detached: true},
 		},
 		// A repository without a remote still works.
 		"no origin": {
 			replies: with(onABranch(), map[string]reply{"git -C /work remote get-url origin": {err: errNoSuchRemote}}),
-			want:    gitrepo.Repo{Root: workDir, Branch: onBranch.Branch, Remote: "", Detached: false},
+			want:    gitrepo.Repo{Root: workDir, Branch: onBranch.Branch, Origin: "", Detached: false},
 		},
 	}
 

@@ -52,8 +52,8 @@ type Repo struct {
 	// Detached reports a HEAD that is not on a branch. It is not an error — the
 	// repository still reads — but it is why a caller cannot branch from here.
 	Detached bool
-	// Remote is origin's URL, or empty when the repository has no origin.
-	Remote string
+	// Origin is origin's URL, or empty when the repository has no origin.
+	Origin string
 }
 
 // readFailure names a git read that failed: outside a work tree it is
@@ -142,7 +142,7 @@ func (r Repository) Describe(ctx context.Context) (Repo, error) {
 		Root:     text(root),
 		Branch:   name,
 		Detached: name == "",
-		Remote:   originURL(ctx, r.run, r.dir),
+		Origin:   remoteURL(ctx, r.run, r.dir, DefaultRemote),
 	}, nil
 }
 
@@ -157,11 +157,11 @@ func (r Repository) SharedDir(ctx context.Context) (string, error) {
 	return text(out), nil
 }
 
-// originURL reads origin's URL. A repository without an origin is unusual but
-// not broken — everything except opening a pull request still works — so the
-// failure reads as "no remote" rather than becoming Describe's error.
-func originURL(ctx context.Context, run Runner, dir string) string {
-	out, err := run(ctx, gitProgram, "-C", dir, "remote", "get-url", DefaultRemote)
+// remoteURL reads the URL of the remote named name. A repository without that
+// remote is unusual but not broken — everything except opening a pull request
+// still works — so the failure reads as "no remote" rather than as an error.
+func remoteURL(ctx context.Context, run Runner, dir, name string) string {
+	out, err := run(ctx, gitProgram, "-C", dir, "remote", "get-url", name)
 	if err != nil {
 		return ""
 	}
