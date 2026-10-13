@@ -16,7 +16,6 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
-	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
@@ -180,8 +179,8 @@ func runAnnounce(ctx context.Context, out output, seams announceSeams, opts writ
 		return err
 	}
 
-	again := seams.Memory.Holds(ctx, composed.made())
-	if again && !offerAgain(out.notes, seams.Kind.Sigil()+strconv.Itoa(composed.pull.Number), opts) {
+	again := seams.Memory.Holds(ctx, made(composed))
+	if again && !offerAgain(out.notes, seams.Kind.Sigil()+strconv.Itoa(composed.Pull.Number), opts) {
 		return nil
 	}
 
@@ -197,43 +196,34 @@ func runAnnounce(ctx context.Context, out output, seams announceSeams, opts writ
 	return deliverAnnouncement(ctx, out.notes, seams, pending)
 }
 
-// composedAnnouncement is the announcement composed for the branch's pull
-// request, that pull request, and the branch its owners are read against: the
-// one the pull request merges into, as the forge says, or the base the branch
-// was read to have left where the forge did not say.
-type composedAnnouncement struct {
-	announcement messaging.Announcement
-	pull         forge.PullRequest
-	base         string
-}
-
-// made is what announcing it makes: the pull request at its moment.
-func (c composedAnnouncement) made() loop.Announced {
-	return loop.Announced{Pull: c.pull.Number, Moment: c.announcement.Moment}
-}
-
 // composeFor composes the announcement seams can post, refusing where nothing
 // can post it or the branch has no pull request to announce.
-func composeFor(ctx context.Context, seams announceSeams) (composedAnnouncement, error) {
+func composeFor(ctx context.Context, seams announceSeams) (loop.Composed, error) {
 	if seams.Post == nil {
-		return composedAnnouncement{}, fmt.Errorf("%w: set messaging.kind and messaging.webhook_url in %s — or, "+
+		return loop.Composed{}, fmt.Errorf("%w: set messaging.kind and messaging.webhook_url in %s — or, "+
 			"for Slack, run workflow slack login — then check them with workflow doctor",
 			errMessagingNotConfigured, config.FileName)
 	}
 
-	// The branch is read once, and composing is handed that read, its failure
-	// with it, so the base the tags read is the branch the announcement names.
-	compose := seams.Compose
-	branch, readErr := compose.Branch(ctx)
-	compose.Branch = func(context.Context) (gitrepo.Branch, error) { return branch, readErr }
-
-	announcement, pull, err := loop.ComposeAnnouncement(ctx, compose, seams.Messaging, seams.Project, seams.Kind)
+	composed, err := loop.ComposeAnnouncement(ctx, seams.Compose, seams.Messaging, seams.Project, seams.Kind)
 	if errors.Is(err, loop.ErrNoPullRequest) {
-		return composedAnnouncement{}, forgeWordedError{errNoPullRequest, "there is no " + seams.Kind.Noun() +
+		return loop.Composed{}, forgeWordedError{errNoPullRequest, "there is no " + seams.Kind.Noun() +
 			" on this branch to announce; open one with `workflow pr`"}
 	}
 
-	return composedAnnouncement{announcement: announcement, pull: pull, base: cmp.Or(pull.Base, branch.Base)}, err
+	return composed, err
+}
+
+// made is what announcing composed makes: the pull request at its moment.
+func made(composed loop.Composed) loop.Announced {
+	return loop.Announced{Pull: composed.Pull.Number, Moment: composed.Announcement.Moment}
+}
+
+// ownersBase is the branch the owners of composed's changes are read against:
+// the one the pull request merges into, as the forge says, or the base the
+// branch was read to have left where the forge did not say.
+func ownersBase(composed loop.Composed) string {
+	return cmp.Or(composed.Pull.Base, composed.Branch.Base)
 }
 
 // pendingAnnouncement is an announcement previewed and not yet sent: what
@@ -246,16 +236,16 @@ type pendingAnnouncement struct {
 // previewAnnouncement prints the announcement and where it would go, then
 // whom it tags, read under ctx, and holds it ready to deliver.
 func previewAnnouncement(
-	ctx context.Context, out output, seams announceSeams, composed composedAnnouncement,
+	ctx context.Context, out output, seams announceSeams, composed loop.Composed,
 ) pendingAnnouncement {
-	text := composed.announcement.Text()
+	text := composed.Announcement.Text()
 	fmt.Fprintln(out.artifact, text)
 	fmt.Fprintln(out.artifact, "to "+seams.Messaging.Target())
 
-	mentions, memory := tagAnnouncement(ctx, out, seams, composed.announcement.Moment, composed.base)
+	mentions, memory := tagAnnouncement(ctx, out, seams, composed.Announcement.Moment, ownersBase(composed))
 
 	return pendingAnnouncement{
-		delivery: loop.Delivery{Channel: seams.Messaging.Channel, Text: text, Made: composed.made(), Mentions: mentions},
+		delivery: loop.Delivery{Channel: seams.Messaging.Channel, Text: text, Made: made(composed), Mentions: mentions},
 		memory:   memory,
 	}
 }

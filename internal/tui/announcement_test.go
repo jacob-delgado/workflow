@@ -36,12 +36,12 @@ func loopAnnouncement(t *testing.T, w *world) string {
 		Issue: deps.Jira.Issue, BrowseURL: deps.Jira.BrowseURL, CheckCI: deps.Forge.CheckStatus,
 	}
 
-	announcement, _, err := loop.ComposeAnnouncement(t.Context(), seams, w.cfg.Messaging, w.cfg.Jira.Project, w.forgeKind)
+	composed, err := loop.ComposeAnnouncement(t.Context(), seams, w.cfg.Messaging, w.cfg.Jira.Project, w.forgeKind)
 	if err != nil {
 		t.Fatalf("loop composed no announcement: %v", err)
 	}
 
-	return announcement.Text()
+	return composed.Announcement.Text()
 }
 
 // requireTextRows fails the test unless consecutive rows of the screen each end

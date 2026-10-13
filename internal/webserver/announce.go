@@ -23,7 +23,7 @@ import (
 func (s *server) GetAnnouncement(
 	ctx context.Context, request api.GetAnnouncementRequestObject,
 ) (api.GetAnnouncementResponseObject, error) {
-	announcement, pull, err := s.announcement(ctx)
+	composed, err := s.announcement(ctx)
 	if errors.Is(err, loop.ErrNoPullRequest) {
 		return api.GetAnnouncement409ApplicationProblemPlusJSONResponse(s.nothingToAnnounce()), nil
 	}
@@ -32,11 +32,12 @@ func (s *server) GetAnnouncement(
 		return problemAnswer[api.GetAnnouncementdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
+	moment := composed.Announcement.Moment
 	channel := orZero(request.Params.Channel)
-	preview := announcementDTO(announcement.Text(), s.channelOr(channel))
-	preview.Tagging = s.tagging(ctx, announcement.Moment, channel)
+	preview := announcementDTO(composed.Announcement.Text(), s.channelOr(channel))
+	preview.Tagging = s.tagging(ctx, moment, channel)
 
-	if s.canWaitForCI(ctx, announcement.Moment, pull) {
+	if s.canWaitForCI(ctx, moment, composed.Pull) {
 		preview.CanWaitForCi = new(true)
 	}
 
@@ -94,7 +95,7 @@ func (s *server) Announce(ctx context.Context, request api.AnnounceRequestObject
 // text it was edited to, if it was — or the answer refusing it. Slack is
 // asked under ctx.
 func (s *server) postFor(ctx context.Context, body api.AnnounceRequest) (announcePost, api.AnnounceResponseObject) {
-	announcement, pull, err := s.announcement(ctx)
+	composed, err := s.announcement(ctx)
 	if errors.Is(err, loop.ErrNoPullRequest) {
 		return announcePost{}, api.Announce409ApplicationProblemPlusJSONResponse(s.nothingToAnnounce())
 	}
@@ -102,6 +103,8 @@ func (s *server) postFor(ctx context.Context, body api.AnnounceRequest) (announc
 	if err != nil {
 		return announcePost{}, s.announceFault(err)
 	}
+
+	announcement, pull := composed.Announcement, composed.Pull
 
 	text, err := postedText(body, announcement)
 	if errors.Is(err, errChangedSincePreview) {
@@ -197,11 +200,11 @@ func (s *server) announceNow(ctx context.Context, post announcePost) api.Announc
 
 // announcement is the announcement for the checked-out branch's pull request,
 // composed from the pull request, the branch's issue, and the configured
-// template, and the pull request it announces. It fails with
-// loop.ErrNoPullRequest when there is no pull request to announce, and with
-// the read's own error when the branch or the pull request cannot be read.
-// The tracker is asked under ctx.
-func (s *server) announcement(ctx context.Context) (messaging.Announcement, forge.PullRequest, error) {
+// template, with the pull request it announces and the branch it read. It
+// fails with loop.ErrNoPullRequest when there is no pull request to announce,
+// and with the read's own error when the branch or the pull request cannot be
+// read. The tracker is asked under ctx.
+func (s *server) announcement(ctx context.Context) (loop.Composed, error) {
 	cfg := s.config()
 
 	return loop.ComposeAnnouncement(ctx, loop.AnnounceSeams{
