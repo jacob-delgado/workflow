@@ -86,36 +86,6 @@ differs by both — is a form the browser already does well, and rebuilding it
 here earns little over the one place it belongs. Out of scope by decision, not
 oversight; `workflow` picks issues up, it does not open them.
 
-### FEAT-78 Issues from the command line
-
-Impact: medium · Effort: medium
-
-- Why: The interface can list a view, read an issue in full, transition it
-  with its fields, comment, assign and log work. The command line reads Jira
-  only in passing — `workflow branch <key>` reads the issue to name the
-  branch (`runBranch`, `internal/cli/branch.go:116`), `status` prints the
-  branch issue's summary (`gather`, `internal/cli/status.go:290`),
-  `summary` reads what you did to Jira issues in a period (`runSummary`,
-  `internal/cli/summary.go:117`) and `workflow branch <tab>` completes
-  assigned keys (`completeAssignedIssues`, `internal/cli/scriptable.go:177`)
-  — and writes to it only through `workflow comment` (`newCommentCmd`,
-  `internal/cli/comment.go:33`) and as `workflow pr`'s side effects,
-  a link and a transition (`followUp`, `internal/cli/pr.go:291`). No
-  command lists a view, prints an issue in full, or moves, assigns or logs
-  work on one. A script that wants "the issues in my view" or "move PROJ-1
-  to In Review" has nothing to call.
-- Touches: `internal/cli` (new `issues`, `issue`, `transition`, `assign`
-  and `worklog` commands over the seams already on `tui.Deps` —
-  `Jira.Search`, `Issue`, `Transitions`, `Transition`, `Assign`,
-  `AddWorklog` — beside `comment`, which shipped), the shared composition
-  layer (`internal/loop`)
-  so the transition lookup is the one the other surfaces use,
-  `docs/content/docs/reference` (regenerated).
-- Done when: `workflow issues --json` prints the default view; `workflow
-  issue PROJ-1 --json` prints its detail; `workflow transition PROJ-1 "In
-  Review" --yes` applies a fields-less move and refuses one that needs
-  fields, naming them.
-
 ### FEAT-85 The web paints from the cached issue list
 
 Impact: low · Effort: small
