@@ -252,8 +252,8 @@ child process that has no terminal at all, as a test run from a developer's
 shell does not, and gobco counts only the test process, so every report
 lists the terminal check as never false.
 
-**Decided.** 2026-09-26, in #146, for `closeRequestLog`, and 2026-10-09, in
-#237, for `keysFrom`.
+**Decided.** 2026-09-26, in #146, for `closeRequestLog`, and in #237, on
+2026-10-09, for `keysFrom`.
 
 **Cost.** `task cover:branch` on macOS reads one arm fewer than CI does, and
 every report lists `keysFrom`'s terminal check as never false, though a test
