@@ -340,7 +340,12 @@ without agreement on direction.
     declare it once as a package-level `var name = regexp.MustCompile(…)`, named
     for what it matches, rather than compiling it in a helper on every call.
     Only a pattern built from run-time input keeps a builder, called outside any
-    loop.
+    loop. A value derived once from immutable embedded data is the same kind of
+    constant Go cannot spell as one, and takes a `//nolint:gochecknoglobals`
+    with that reason: the web server's parsed OpenAPI contract
+    (`routedContract`, `internal/webserver/validator.go`) is a package-level
+    `sync.OnceValues`, since every parse of the embedded spec gives the same
+    contract and parsing it for each `Handler` cost the race suite minutes.
   - **L — Liskov substitution.** An implementation honors the contract its
     callers rely on; a fake that cuts corners is a broken fake, not a shortcut.
   - **I — Interface segregation.** Depend only on what you use. Declare small

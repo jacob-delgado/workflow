@@ -233,7 +233,7 @@ var _ api.StrictServerInterface = (*server)(nil)
 // when its page goes, but a write goes on to its end and ends only with ctx.
 func Handler(ctx context.Context, first World, assets fs.FS, session Session) (http.Handler, error) {
 	// Trade-off TRADE-14: the embedded spec loads in every build a test runs.
-	spec, err := loadContract(session)
+	spec, err := routedContract()
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +249,7 @@ func Handler(ctx context.Context, first World, assets fs.FS, session Session) (h
 	// since its paths are not in the spec, so only the /api subtree passes
 	// through the validator.
 	root := http.NewServeMux()
-	root.Handle("/api/", spec.admit(held.serve))
+	root.Handle("/api/", spec.admitting(session).admit(held.serve))
 	root.Handle("/", spaHandler(assets))
 
 	return withPolicyHeaders(guardLoopback(refuseWritesInDryRun(first.Info.DryRun, root))), nil
