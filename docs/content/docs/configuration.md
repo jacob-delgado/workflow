@@ -1035,8 +1035,9 @@ workflow keeps a little state on disk so it can pick up where you left off — t
 commit scope you last used in a repository, in the interface or with `--web`
 (which reads it once), which pull requests you have
 announced — in the interface or with `workflow announce`, and at which moment,
-so neither announces the same one twice unasked — and the last issue list it
-saw, so the interface opens on it while the live one loads. It also keeps what
+so neither announces the same one twice unasked — and the last issue list
+each view showed, in the interface or with `--web`, so either opens on it
+while the live one loads. It also keeps what
 you decided and could not be seen again: whom each code owner is on Slack, or
 that they are not, the Slack user groups each repository offers, and the
 directories you marked as favorites in the Repositories pane. It lives

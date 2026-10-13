@@ -23,8 +23,9 @@ info:
     task), and lets the whole configuration file be read and written. It
     reuses the same domain seams the TUI and the CLI use. Between requests it
     keeps the configuration in effect and the revision of the file it was
-    read at; the commit scope it learns, which it records in the store the
-    terminal interface reads; who the forge says a post would come from; the
+    read at; the commit scope it learns, and the first page of each view's
+    issues, which it keeps in the store the terminal interface reads; who
+    the forge says a post would come from; the
     forge's last answer about the branch's pull request and its CI, which
     every event stream shares until the forge is read again (streamEvents
     says when); which of the branches' issues the tracker last said are
@@ -2543,7 +2544,9 @@ paths:
         frame reads git and Taskwarrior afresh. The issues are the tracker's
         answer for the view, searched at most once every timing.ci_interval
         for every stream together, and again after a status change or an
-        assignment made here. The review is the forge's answer, read at most
+        assignment made here. Each search's first page is kept in the store
+        for the next page and session, as the terminal keeps it, never under
+        --dry-run. The review is the forge's answer, read at most
         once every timing.ci_interval (twenty seconds unless set) for every
         stream together, and again at once for another branch or head commit,
         or after a pull request is opened here. Neither read holds up a frame

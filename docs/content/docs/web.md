@@ -68,7 +68,9 @@ branches and worktrees, the commit scope — and Taskwarrior, all on this
 machine. What it asks over the network is shared by every tab: the issue
 search is made at most once every `timing.ci_interval` (twenty seconds unless
 set) for each view, and again on the next push after a status change or an
-assignment made here; which of the branches' issues are yours, once a minute;
+assignment made here, and each search's first page is kept in the store for
+the next session, as the terminal keeps it (never under `--dry-run`); which
+of the branches' issues are yours, once a minute;
 the forge — the pull request, its reviews and its CI — at most once every
 `timing.ci_interval`, and at once when another branch is checked out, its
 head commit moves, or the page opens a pull request; and who the forge says
