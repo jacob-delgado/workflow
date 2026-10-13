@@ -45,6 +45,12 @@ interface IssueRowsProps {
   outcome: Teller
 }
 
+// selectedEdge draws the row in view: the hover fill, its border, and a bar of
+// the control accent down its leading edge, so where you are reads at a glance
+// on either list ground.
+const selectedEdge =
+  'border-border bg-accent before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-full before:bg-primary'
+
 // IssueRows is the list of issues, each row selecting its issue, marking it in
 // flight and how its tasks stand, and offering its branch to switch to.
 export function IssueRows({ issues, facts, rowRefs, outcome }: IssueRowsProps) {
@@ -91,8 +97,8 @@ function IssueRow({ issue, facts, rowRefs, selected, outcome }: IssueRowProps) {
   return (
     <li
       className={cn(
-        'flex flex-col rounded-md border border-transparent hover:bg-accent motion-safe:transition-colors',
-        selected && 'border-border bg-accent',
+        'relative flex flex-col rounded-md border border-transparent hover:bg-accent motion-safe:transition-colors',
+        selected && selectedEdge,
       )}
     >
       {/* Not a Button: a row of the list that selects its issue, drawn as the row. */}
