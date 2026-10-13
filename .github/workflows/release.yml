@@ -87,7 +87,7 @@ jobs:
       # The binaries and the SBOM, exactly as verified above, are what the
       # release job checksums, attests and publishes.
       - name: Hand dist/ to the release job
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dist
           path: dist/
@@ -136,7 +136,7 @@ jobs:
         # Kept over a `gh release` script step: this uploads the binaries,
         # their checksums and the provenance in ONE publish call, which is
         # what the header above explains GitHub requires.
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3 # zizmor: ignore[superfluous-actions]
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3 # zizmor: ignore[superfluous-actions]
         with:
           # A tag carrying a hyphen (v0.1.0-rc1) is a prerelease.
           prerelease: ${{ contains(github.ref_name, '-') }}

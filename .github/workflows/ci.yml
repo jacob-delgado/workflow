@@ -86,7 +86,7 @@ jobs:
       # on any it cannot read rather than drop it from the report.
       - run: task cover:branch
       # Consumed by the summary and coverage-baseline jobs below.
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage
           path: |
@@ -95,7 +95,7 @@ jobs:
           retention-days: 7
       # Uploaded whether the tests passed or not, so the summary shows a failure
       # as a count rather than leaving the row blank.
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: report-go-unit
@@ -125,7 +125,7 @@ jobs:
       - run: task web:gen:check
       - run: task web:lint
       - run: task web:test -- --reporter=default --reporter=json --outputFile.json=reports/web-unit.json
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: report-web-unit
@@ -161,13 +161,13 @@ jobs:
       - name: Install the Playwright browser
         run: yarn playwright install --with-deps chromium
       - run: yarn test:e2e
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: report-e2e
           path: web/reports/e2e.json
           retention-days: 7
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
           name: playwright-report
@@ -175,7 +175,7 @@ jobs:
           retention-days: 7
       # Every populated section, in both themes, at three widths — uploaded
       # pass or fail, so a visual change can be read by eye on the pull request.
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: screens
@@ -213,13 +213,13 @@ jobs:
         run: task build
         working-directory: .
       - run: yarn test:e2e:server
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: report-e2e-server
           path: web/reports/e2e-server.json
           retention-days: 7
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
           name: playwright-report-server
@@ -261,7 +261,7 @@ jobs:
       # On a pull request the exact-SHA key never hits, so the prefix
       # restore-key resolves to the most recent baseline cached from main.
       - name: Restore main's baseline
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           key: coverage-baseline-${{ github.sha }}
           restore-keys: |
@@ -283,7 +283,7 @@ jobs:
         run: |
           node scripts/pr-comment.mjs pr-coverage.json coverage-baseline.json tmp/test-counts > ci-report.md
           cat ci-report.md >>"${GITHUB_STEP_SUMMARY}"
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ci-report
           path: ci-report.md
@@ -350,7 +350,7 @@ jobs:
           name: coverage
       - name: Compute the summary
         run: scripts/coverage-summary.sh coverage.out tmp/gobco > coverage-baseline.json
-      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           key: coverage-baseline-${{ github.sha }}
           path: coverage-baseline.json
