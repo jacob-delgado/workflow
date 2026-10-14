@@ -382,14 +382,9 @@ func (p statusPicker) choose(m Model) (Model, tea.Cmd) {
 		width, rows := p.formSize(m)
 		p.form, start = newFieldForm(chosen, m.kit(), m.keys, width, rows)
 		m.overlay = p
+		form := p.form.form
 
-		if m.accessibleForms {
-			form := p.form.form
-
-			return m, m.deps.ask(form, func(err error) tea.Msg { return fieldsFilled{form: form, err: err} })
-		}
-
-		return m, start
+		return m, m.startForm(form, start, func(err error) tea.Msg { return fieldsFilled{form: form, err: err} })
 	}
 
 	return p.apply(m, chosen, nil)

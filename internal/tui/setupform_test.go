@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -43,10 +44,19 @@ type firstRun struct {
 	where  setup.Where
 	stored string
 	status int
+	// held, when set, keeps the check with Jira from answering once armed.
+	held *hold
+	// checked is the Authorization each check with Jira sent, in order.
+	checked   []string
+	checkedMu sync.Mutex
 }
 
 // jira is a Jira that answers who the token is with the run's status.
 func (r *firstRun) jira(request *http.Request) (*http.Response, error) {
+	r.checkedMu.Lock()
+	r.checked = append(r.checked, request.Header.Get("Authorization"))
+	r.checkedMu.Unlock()
+
 	return &http.Response{
 		StatusCode: r.status, Header: http.Header{"Content-Type": {"application/json"}},
 		Body:    io.NopCloser(strings.NewReader(`{"displayName":"Fred F. User","name":"fred"}`)),
@@ -78,7 +88,13 @@ func (r *firstRun) deps(t *testing.T) tui.Deps {
 	guide := setup.Guide{Where: r.where, Doer: jira.Doer(r.jira), StoreSecret: r.keep}
 	deps.Settings.Setup = seams.Setup{
 		Offer: guide.Offer,
-		Check: guide.Check,
+		Check: func(ctx context.Context, settings config.Jira) (string, error) {
+			if r.held != nil {
+				r.held.wait()
+			}
+
+			return guide.Check(ctx, settings)
+		},
 		Write: guide.Write,
 	}
 
@@ -112,9 +128,7 @@ func (r *firstRun) keyed(t *testing.T, keys map[string]string) tui.Model {
 
 // jiraTyped is the keys that type Jira's address and token, up to the check.
 func jiraTyped() []string {
-	keys := append(letters(firstRunJira), keyEnter)
-
-	return append(append(keys, letters(firstRunToken)...), keyEnter)
+	return []string{pasted(firstRunJira), keyEnter, pasted(firstRunToken), keyEnter}
 }
 
 // toTheToken is the keys that open the form, keep the repository, and type
@@ -131,7 +145,7 @@ func toTheTokenAtHome() []string {
 // webhookTyped is the keys that type the webhook, up to the last look before
 // the write.
 func webhookTyped() []string {
-	return append(letters(firstRunWebhook), keyEnter)
+	return []string{pasted(firstRunWebhook), keyEnter}
 }
 
 // throughEveryQuestion is toTheToken, the keychain kept as offered, then the
@@ -189,7 +203,7 @@ func TestSetUpWritesTheFileWithTheTokenInTheKeychainAndReopens(t *testing.T) {
 
 	// Arrange
 	run := newFirstRun(t, http.StatusOK)
-	answered := typing(t, run.model(t, false), throughEveryQuestionAtHome("up")...)
+	answered := typing(t, run.model(t, false), throughEveryQuestionAtHome(keyHome)...)
 
 	// Act
 	written, cmd := pressed(t, answered, keyEnter)
@@ -398,7 +412,7 @@ func TestSetUpsLastLookNamesEveryAnswerButTheCredentials(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	asked := typing(t, newFirstRun(t, http.StatusOK).model(t, false), throughEveryQuestionAtHome("up")...)
+	asked := typing(t, newFirstRun(t, http.StatusOK).model(t, false), throughEveryQuestionAtHome(keyHome)...)
 
 	// Assert
 	view := asked.View().Content
@@ -414,13 +428,17 @@ func TestSetUpSaysTheCheckRunsWhileJiraIsAsked(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
+	run := newFirstRun(t, http.StatusOK)
+	run.held = newHold(t)
 	keys := toTheToken()
-	typed := typing(t, newFirstRun(t, http.StatusOK).model(t, false), keys[:len(keys)-1]...)
+	typed := typing(t, run.model(t, false), keys[:len(keys)-1]...)
+	run.held.armed.Store(true)
 
 	// Act
-	asking, _ := pressed(t, typed, keyEnter)
+	asking := holding(t, run.held, typed, keyEnter)
 
 	// Assert
+	run.held.requireReached(t)
 	requireScreen(t, asking.View().Content, "checking the token with Jira")
 }
 
@@ -445,6 +463,32 @@ func TestSetUpTypesTheTokenAgainWhenAsked(t *testing.T) {
 
 	// Assert
 	requireScreen(t, again.View().Content, askedToken)
+}
+
+func TestSetUpChecksOnlyTheTokenTypedAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	const retyped = "retyped-token-1717"
+
+	run := newFirstRun(t, http.StatusUnauthorized)
+	refused := typing(t, run.model(t, false), toTheToken()...)
+
+	// Act
+	typing(t, refused, keyEnter, pasted(retyped), keyEnter)
+
+	// Assert
+	run.checkedMu.Lock()
+	defer run.checkedMu.Unlock()
+
+	if len(run.checked) != 2 {
+		t.Fatalf("Jira was asked %d times, want once for each token typed", len(run.checked))
+	}
+
+	if run.checked[1] != "Bearer "+retyped {
+		t.Errorf("the second check sent %d characters of token, want only the %d typed again",
+			len(strings.TrimPrefix(run.checked[1], "Bearer ")), len(retyped))
+	}
 }
 
 func TestSetUpKeepsAFailedCheckWhenAsked(t *testing.T) {
@@ -556,9 +600,9 @@ func TestSetUpNeverOffersToKeepAnAddressThatIsNotOne(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	keys := []string{keyEnter, keyEnter}
-	keys = append(append(keys, letters("https://fred:hunter2@jira.example.com")...), keyEnter)
-	keys = append(append(keys, letters(firstRunToken)...), keyEnter)
+	keys := []string{
+		keyEnter, keyEnter, pasted("https://fred:hunter2@jira.example.com"), keyEnter, pasted(firstRunToken), keyEnter,
+	}
 
 	// Act
 	asked := typing(t, newFirstRun(t, http.StatusOK).model(t, false), keys...)
@@ -573,9 +617,9 @@ func TestSetUpTypesTheAddressAgainWhenItIsNotOne(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	keys := []string{keyEnter, keyEnter}
-	keys = append(append(keys, letters("jira.example.com")...), keyEnter)
-	keys = append(append(keys, letters(firstRunToken)...), keyEnter, keyEnter)
+	keys := []string{
+		keyEnter, keyEnter, pasted("jira.example.com"), keyEnter, pasted(firstRunToken), keyEnter, keyEnter,
+	}
 
 	// Act
 	again := typing(t, newFirstRun(t, http.StatusOK).model(t, false), keys...)
