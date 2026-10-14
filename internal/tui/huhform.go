@@ -7,7 +7,6 @@ import (
 	"slices"
 	"strings"
 
-	"charm.land/bubbles/v2/cursor"
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
@@ -115,15 +114,8 @@ func formKeys(form *huh.Form) []key.Binding {
 	return slices.DeleteFunc(form.KeyBinds(), func(binding key.Binding) bool { return !binding.Enabled() })
 }
 
-// relayToForm hands msg to form, all but a cursor's blink: an embedded field
-// never blinks, so no timer runs for the life of the form.
+// relayToForm hands msg to form, and passes on what it asks for.
 func relayToForm(form *huh.Form, msg tea.Msg) tea.Cmd {
-	// Trade-off TRADE-46: Huh offers no way to stop a field's cursor blinking,
-	// so its blink is dropped here, after the real wait each one costs.
-	if _, blink := msg.(cursor.BlinkMsg); blink {
-		return nil
-	}
-
 	_, cmd := form.Update(msg)
 
 	return cmd
