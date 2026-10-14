@@ -13,6 +13,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/cli/console"
 )
 
+// statusUsage is the exit status of a mistake in how a command was called.
+const statusUsage = 2
+
 // errRefused is a failure a command reports.
 var errRefused = errors.New("the Jira token was refused (401); run workflow doctor --online")
 
@@ -78,7 +81,7 @@ func TestWarningsAndErrorsCarryTheirTags(t *testing.T) {
 		},
 		{
 			name: "an error",
-			says: func(notes console.Notes) { notes.Fail(errRefused) },
+			says: func(notes console.Notes) { notes.Fail(errRefused, statusConfiguration) },
 			want: "ERROR the Jira token was refused (401); run workflow doctor --online\n",
 		},
 	}
@@ -102,7 +105,7 @@ func TestAnErrorOfSeveralLinesKeepsThemAfterItsTag(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	printed := saying(nil, func(notes console.Notes) { notes.Fail(mistyped{}) })
+	printed := saying(nil, func(notes console.Notes) { notes.Fail(mistyped{}, statusUsage) })
 
 	// Assert
 	if printed != "ERROR unknown command \"launch\" for \"workflow\"\n\nRun 'workflow --help' for usage.\n" {
@@ -117,7 +120,7 @@ func TestForcedColorDrawsTheTagsInTheirHues(t *testing.T) {
 	printed := saying(forcedColor(), func(notes console.Notes) {
 		notes.Note("Created the branch.")
 		notes.Warn("Posting untagged.")
-		notes.Fail(errRefused)
+		notes.Fail(errRefused, statusConfiguration)
 	})
 
 	// Assert
@@ -145,7 +148,7 @@ func TestNoColorTurnsTheHuesOff(t *testing.T) {
 	// Act
 	printed := saying(forcedButOff, func(notes console.Notes) {
 		notes.Warn("Posting untagged.")
-		notes.Fail(errRefused)
+		notes.Fail(errRefused, statusConfiguration)
 	})
 
 	// Assert

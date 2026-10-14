@@ -97,12 +97,15 @@ workflow [flags]
 ### Options
 
 ```
-  -n, --dry-run    hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, and say what it would have done
-  -h, --help       help for workflow
-      --log FILE   append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
-      --port int   the port --web serves on, from 1 to 65535 (default 13579)
-  -v, --version    version for workflow
-      --web        serve the web interface on http://127.0.0.1 instead of opening the terminal interface
+  -n, --dry-run             hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, and say what it would have done
+  -h, --help                help for workflow
+      --log FILE            append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
+      --log-format FORMAT   say what goes to stderr as FORMAT: text, or json or logfmt, an entry a line stamped with its time (default text)
+      --port int            the port --web serves on, from 1 to 65535 (default 13579)
+  -q, --quiet               say only warnings, errors and questions on stderr, leaving every note out
+      --verbose             also say each request's outline on stderr, as a debug line (not while the terminal interface draws)
+  -v, --version             version for workflow
+      --web                 serve the web interface on http://127.0.0.1 instead of opening the terminal interface
 ```
 
 ### SEE ALSO

@@ -49,10 +49,10 @@ func (o output) aside() output {
 	return output{artifact: o.notes.Writer(), notes: o.notes}
 }
 
-// notesOf is what the command cmd runs says on its stderr, colored as the
-// variables of the environment it runs in allow.
+// notesOf is what the command cmd runs says on its stderr, as the root's
+// flags ask, colored as the variables of the environment it runs in allow.
 func notesOf(cmd *cobra.Command) console.Notes {
-	return console.New(cmd.ErrOrStderr(), console.Options{Getenv: environmentOf(cmd).Process.Getenv})
+	return console.New(cmd.ErrOrStderr(), voiceOf(cmd.Root(), environmentOf(cmd).Process.Getenv))
 }
 
 // errOutputUnwritten reports an artifact that could not be written to stdout —
@@ -139,14 +139,17 @@ func dryRunRequested(cmd *cobra.Command) bool {
 // logFlag names the root's flag that turns on the request log.
 const logFlag = "log"
 
-// requestLogFor opens the request log --log names, or none when it names no
-// file, warning on the command's stderr at close when it was not fully
-// written. The root declares --log for every command, so it is always there
-// to read.
+// requestLogFor opens the request log --log names and, under --verbose, says
+// each outline as a debug line too, or keeps none when neither asks for one,
+// warning on the command's stderr at close when the file was not fully
+// written. The root declares both flags for every command, so they are
+// always there to read.
 func requestLogFor(cmd *cobra.Command) (*wiring.RequestLog, func(), error) {
 	path, _ := cmd.Flags().GetString(logFlag)
+	logging := requestLogging{notes: notesOf(cmd), echo: echoesRequests(cmd)}
+
 	if path == "" {
-		return openRequestLog(path, notesOf(cmd))
+		return logging.open(path)
 	}
 
 	found, err := fromWorkingDir(cmd, path)
@@ -154,19 +157,38 @@ func requestLogFor(cmd *cobra.Command) (*wiring.RequestLog, func(), error) {
 		return nil, func() {}, fmt.Errorf("opening the request log: %w", err)
 	}
 
-	return openRequestLog(found, notesOf(cmd))
+	return logging.open(found)
+}
+
+// echoesRequests reports whether --verbose asks cmd to say each request's
+// outline as a debug line: never while bare workflow opens the terminal
+// interface, which draws on the terminal stderr shares.
+func echoesRequests(cmd *cobra.Command) bool {
+	web, _ := cmd.Flags().GetBool(webFlag)
+	drawsInterface := !cmd.HasParent() && !web
+
+	return voiceOf(cmd.Root(), nil).Verbosity == console.Verbose && !drawsInterface
+}
+
+// requestLogging is how a command's request log is kept: notes warns when its
+// file was not fully written, and, when echo is set, says each outline as a
+// debug line.
+type requestLogging struct {
+	notes console.Notes
+	echo  bool
 }
 
 // logFileMode is the permission a request log is created with. Like the
 // configuration, it is the user's own file and nobody else's to read.
 const logFileMode os.FileMode = 0o600
 
-// openRequestLog opens the request-outline log named by path. An empty path
-// means no logging: the log is nil and the returned close is a no-op, so the
-// caller wires and closes it the same way either way.
-func openRequestLog(path string, notes console.Notes) (*wiring.RequestLog, func(), error) {
+// open opens the request-outline log named by path, echoed as logging asks.
+// An empty path means no file: echoed, the log writes to the debug lines
+// alone, and otherwise it is nil; either way the returned close is a no-op,
+// so the caller wires and closes it the same way.
+func (logging requestLogging) open(path string) (*wiring.RequestLog, func(), error) {
 	if path == "" {
-		return nil, func() {}, nil
+		return logging.unfiled(), func() {}, nil
 	}
 
 	//nolint:gosec // the path is the user's own --log argument, by design.
@@ -175,9 +197,24 @@ func openRequestLog(path string, notes console.Notes) (*wiring.RequestLog, func(
 		return nil, func() {}, fmt.Errorf("opening the request log: %w", err)
 	}
 
-	requestLog := wiring.NewRequestLog(file, nil)
+	var out io.Writer = file
+	if logging.echo {
+		out = io.MultiWriter(file, logging.notes.DebugWriter())
+	}
 
-	return requestLog, func() { closeRequestLog(requestLog, file, notes) }, nil
+	requestLog := wiring.NewRequestLog(out, nil)
+
+	return requestLog, func() { closeRequestLog(requestLog, file, logging.notes) }, nil
+}
+
+// unfiled is the request log kept with no file: the debug lines alone when
+// echoed, and none otherwise.
+func (logging requestLogging) unfiled() *wiring.RequestLog {
+	if !logging.echo {
+		return nil
+	}
+
+	return wiring.NewRequestLog(logging.notes.DebugWriter(), nil)
 }
 
 // closeRequestLog closes the log's file and, when an outline was lost or the
