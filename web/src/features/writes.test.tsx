@@ -13,6 +13,7 @@ import { SettingsPanel } from '@/features/settings/SettingsPanel.tsx'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { makeBranch, makeSnapshot, makeTaskBranch } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
+import { anEdit } from '@/test/settings.ts'
 
 // Every write the web makes, each from the control a person would use, against
 // a server that accepts it: what it did is said in a live status line, which is
@@ -269,6 +270,8 @@ const writes: Write[] = [
     routes: { '/api/config': mockConfig },
     act: async (user) => {
       await screen.findByLabelText('Base URL')
+      // Save holds until a setting changes.
+      await anEdit()
       await user.click(screen.getByRole('button', { name: 'Save changes' }))
     },
     said: 'Saved.',

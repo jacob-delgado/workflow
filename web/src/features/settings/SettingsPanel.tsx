@@ -1,12 +1,11 @@
-import { type ReactNode, useEffect, useState } from 'react'
+import { type ReactNode, useEffect, useId, useState } from 'react'
 import { type UseFormReset, useForm } from 'react-hook-form'
 import { apiErrorMessage, problemCode } from '@/api/apiError.ts'
 import type { Config, SetupResult } from '@/api/generated/types.gen.ts'
-import { Button } from '@/lib/Button.tsx'
 import { useFocusOnMount } from '@/lib/focus.ts'
-import { OutcomeLine, resultGround, useOutcome } from '@/lib/Outcome.tsx'
-import { Failure, Reading, Unread } from '@/lib/Status.tsx'
-import { type AsyncState, useAsyncAction } from '@/lib/useAsyncAction.ts'
+import { resultGround, useOutcome } from '@/lib/Outcome.tsx'
+import { Reading, Unread } from '@/lib/Status.tsx'
+import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn, contentMeasure } from '@/lib/utils.ts'
 import { sectionHeadingId } from '@/shell/sections.ts'
 import {
@@ -21,6 +20,7 @@ import { PeopleAndGroups } from './people/PeopleAndGroups.tsx'
 import { configOf, formValues, type SettingsValues } from './formValues.ts'
 import { type Removal, RemovalsContext, stored, without } from './removal.ts'
 import { firstSection, SettingsSections } from './SettingsSections.tsx'
+import { changedSettings, SaveBar } from './SaveBar.tsx'
 import { SetupArea } from './SetupForm.tsx'
 
 // SettingsPanel is the configuration form a section at a time, with the areas
@@ -137,6 +137,7 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
   // button away. The field is focused once the form has drawn it.
   const [focusRequests, setFocusRequests] = useState(takesFocus ? 1 : 0)
   const [section, setSection] = useState(firstSection)
+  const formId = useId()
   const reloadConfig = useReloadConfig()
   const outcome = useOutcome()
   const save = useAsyncAction(
@@ -179,20 +180,27 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
           storedToken: formState.defaultValues?.jira?.token ?? null,
         }}
         form={{
+          id: formId,
           'aria-labelledby': sectionHeadingId,
           onSubmit: (event) => {
             void onSubmit(event)
           },
         }}
-      >
-        {/* A refusal ChangedSinceRead explains is not said a second time. */}
-        <SaveControls
-          saving={save.state === 'running'}
-          said={outcome.said}
-          error={file.changed || save.state !== 'error' ? '' : save.error}
-        />
-        {file.changed ? <ChangedSinceRead reload={reload} /> : null}
-      </SettingsSections>
+        bar={
+          <SaveBar
+            form={formId}
+            unsaved={changedSettings(formState.dirtyFields)}
+            saving={save.state === 'running'}
+            said={outcome.said}
+            error={save.state === 'error' ? save.error : ''}
+            reload={file.changed ? reload : null}
+            onDiscard={() => {
+              reset()
+              save.reset()
+            }}
+          />
+        }
+      />
     </RemovalsContext>
   )
 }
@@ -241,58 +249,4 @@ function useFormFile(read: ConfigRead, reset: UseFormReset<SettingsValues>) {
       remove: (removal: Removal) => write(without(seeded, removal), { keepEdits: true }),
     },
   }
-}
-
-interface SaveControlsProps {
-  saving: boolean
-  said: Parameters<typeof OutcomeLine>[0]['said']
-  error: string
-}
-
-// SaveControls is the Save button and what the last save said: that it saved,
-// on the form's outcome line, or why it did not, as a failure — unless the file
-// changed since the form read it, which ChangedSinceRead says instead.
-function SaveControls({ saving, said, error }: SaveControlsProps) {
-  return (
-    <div className="flex flex-col items-start gap-item">
-      <div className="flex items-center gap-item">
-        <Button variant="primary" type="submit" held={saving}>
-          {saving ? 'Saving…' : 'Save changes'}
-        </Button>
-        <OutcomeLine said={said} />
-      </div>
-      {error === '' ? null : <Failure>{error}</Failure>}
-    </div>
-  )
-}
-
-// ReloadAction is the one-shot read Reload runs.
-interface ReloadAction {
-  state: AsyncState
-  error: string
-  run: () => Promise<void>
-}
-
-// ChangedSinceRead says a save was refused because the file changed since the
-// form read it, what Reload will do to the edits, and offers it.
-function ChangedSinceRead({ reload }: { reload: ReloadAction }) {
-  return (
-    <div className="flex flex-col items-start gap-item">
-      <Failure>
-        The configuration file changed after Settings read it — edited on disk, or saved from
-        another tab — so nothing was saved. Reload reads it again in place of your edits here; then
-        make your change again.
-      </Failure>
-      <Button
-        variant="secondary"
-        held={reload.state === 'running'}
-        onClick={() => {
-          void reload.run()
-        }}
-      >
-        {reload.state === 'running' ? 'Reloading…' : 'Reload'}
-      </Button>
-      {reload.state === 'error' ? <Failure>{reload.error}</Failure> : null}
-    </div>
-  )
 }

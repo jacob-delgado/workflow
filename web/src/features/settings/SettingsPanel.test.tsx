@@ -7,7 +7,7 @@ import { mockConfig } from '@/dev/mockConfig.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { gitLabWords, makeHealth } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
-import { inSection } from '@/test/settings.ts'
+import { anEdit, inSection } from '@/test/settings.ts'
 import { AppShell } from '@/shell/AppShell.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { SettingsPanel } from './SettingsPanel.tsx'
@@ -298,6 +298,7 @@ test('confirms when the configuration is saved', async () => {
   const user = userEvent.setup()
   renderWithClient(<SettingsPanel />)
   await screen.findByLabelText('Base URL')
+  await anEdit()
 
   // Act
   await user.click(screen.getByRole('button', { name: /save changes/i }))
@@ -313,6 +314,7 @@ test('a clicked Save keeps the focus it was clicked with once it has saved', asy
   renderWithClient(<SettingsPanel />)
   await screen.findByLabelText('Base URL')
   const save = screen.getByRole('button', { name: 'Save changes' })
+  await anEdit()
 
   // Act
   await user.click(save)
@@ -327,6 +329,9 @@ test('a Save clicked by a pointer that gives it no focus hands focus to what it 
   servesSettings()
   renderWithClient(<SettingsPanel />)
   await screen.findByLabelText('Base URL')
+  await anEdit()
+  // A pointer that gives Save no focus leaves it where it was: on the page.
+  ;(document.activeElement as HTMLElement).blur()
 
   // Act
   fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
@@ -431,6 +436,7 @@ test('says why a save was refused', async () => {
   const user = userEvent.setup()
   renderWithClient(<SettingsPanel />)
   await screen.findByLabelText('Base URL')
+  await anEdit()
 
   // Act
   await user.click(screen.getByRole('button', { name: /save changes/i }))
@@ -464,6 +470,7 @@ test('locks the save while it is in flight', async () => {
   const user = userEvent.setup()
   renderWithClient(<SettingsPanel />)
   await screen.findByLabelText('Base URL')
+  await anEdit()
 
   // Act
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
