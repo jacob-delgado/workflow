@@ -618,13 +618,11 @@ than observable, public behavior.
 - **Do not bypass a hook to land work.** `LEFTHOOK=0` and `LEFTHOOK_EXCLUDE` exist
   for genuine emergencies. A failing hook is the hook working; fix the cause.
 
-- **Documentation lives in `docs/` and some of it is generated.** The site is
-  Hugo (`task docs:serve` to preview, `task docs:build` to build — the same
-  command CI publishes with, so there is one build path rather than two that
-  drift). Prose pages are hand-written; everything under
-  `docs/content/docs/reference/` is generated from the Cobra command tree by
-  `task docs:gen` and must never be hand-edited. `task docs:check` fails when the
-  two disagree, which is what stops a new flag from shipping undocumented.
+- **The command reference is generated.** Everything under
+  `docs/content/docs/reference/` but `_index.md` comes from the Cobra tree:
+  a command or flag change runs `task docs:gen` in the same commit, and
+  `task docs:check` fails when the two disagree. The site's other rules are
+  in `docs/CLAUDE.md`.
 
 - **Kept trade-offs live in `TECH_DEBT.md`'s register.** A cost chosen on
   purpose is an entry there, `### TRADE-n <title>`, with **Decided.**,
