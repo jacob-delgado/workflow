@@ -5,7 +5,7 @@
 # CI run instead of one per dependency. Majors are deliberately left out of the
 # groups: a breaking bump should arrive as its own pull request, with its own CI
 # evidence, and be reviewable on its own merits. One web package also arrives
-# alone, and one web major is held back, for the reasons its npm entry gives.
+# alone, and two web majors are held back, for the reasons its npm entry gives.
 #
 # COOLDOWN APPLIES ONLY TO SCHEDULED VERSION UPDATES. Dependabot *security*
 # updates — the ones raised from a published advisory against something already
@@ -57,6 +57,14 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "@eslint/js"
         update-types: ["version-update:semver-major"]
+      # TypeScript stays on 6 until a planned migration to 7, the compiler
+      # rewritten in Go: typescript-eslint, which parses every TypeScript file
+      # the web lint reads, declares TypeScript below 6.1, and a change of
+      # compiler is taken on purpose, with its own changes beside it, rather
+      # than as a pull request of Dependabot's (#138 was one). This lifts with
+      # that migration.
+      - dependency-name: "typescript"
+        versions: ["7.x"]
 
   # The actions used by CI, all of which are SHA-pinned with a version comment;
   # Dependabot updates both together. Official GitHub actions are a trusted
