@@ -329,9 +329,9 @@ read:
 ## The store schema
 
 Both files' schemas are **Third Normal Form**, every table is **`STRICT`**, and
-they are the worked example of the database rules in `CLAUDE.md`. The diagram
-below is `workflow.db`'s shape; read its authoritative column list in
-`internal/store/store.go`. `kept.db`'s tables are `keptSchema` in
+they are the worked example of the database rules in `internal/store/CLAUDE.md`.
+The diagram below is `workflow.db`'s shape; read its authoritative column list
+in `internal/store/store.go`. `kept.db`'s tables are `keptSchema` in
 `internal/store/kept.go`, which joins `ownersSchema`, `groupsSchema` and
 `favoritesSchema` from `owners.go`, `groups.go` and `favorites.go`.
 
@@ -378,7 +378,7 @@ erDiagram
   view that returned *no* issues be recorded as "cached but empty", distinct from
   "never cached" — and one ordered `cached_issue` child per issue.
 
-Three rules from `CLAUDE.md` are visible in the schema:
+Three rules from `internal/store/CLAUDE.md` are visible in the schema:
 
 - **`STRICT` tables** enforce each column's declared type at write time, so
   garbage cannot land through SQLite's default coercion.
@@ -471,8 +471,9 @@ exist only to hold a line:
 
 ## Where to look next
 
-- `CLAUDE.md` — the rules for changing this code, including the full database
-  standards and the package-size and file-length budgets.
+- `CLAUDE.md` — the rules for changing this code, including the package-size
+  and file-length budgets; `internal/store/CLAUDE.md` holds the full database
+  standards.
 - `api/openapi.yaml` — the REST contract; the Go server and TS client are
   generated from it. `task gen:verify` fails when the Go code drifts from it
   and `task web:gen:check` when the TypeScript client does; CI runs both.
