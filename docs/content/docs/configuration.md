@@ -189,8 +189,8 @@ them on stderr, so there is never a question about which were read.
 | `commit.refs_trailer` | no | The label of the trailer that names the issue in a commit body, e.g. `Closes`. Defaults to `Refs`. It is a single word with no colon; anything else is refused when the file loads. |
 | `pull_request.title_source` | no | Where a proposed pull request's title comes from: `commit` (the default) takes the branch's oldest commit subject, `issue` the issue's key and summary. Any other value is refused when the file loads. See [Pull requests](#pull-requests). |
 | `store.disabled` | no | Keep nothing on disk between sessions: neither the conveniences nor what you decided — whom each code owner is on Slack, the groups each repository tags, your favorite directories. Defaults to `false`; the store never holds a secret. See [What is kept between sessions](#what-is-kept-between-sessions). |
-| `taskwarrior.program` | no | The Taskwarrior program to run, and the only one tried: an absolute path, such as `/opt/homebrew/bin/task`, or a name looked up on `PATH`; a relative path is refused when the file loads. Empty (the default) tries every `task` in an absolute `PATH` directory, in order, and keeps the first that is Taskwarrior 3.5.0 or newer; a Taskwarrior that has never been run, whose taskrc has a malformed line, or that cannot start ends the search there. A value with a line break or a NUL in it is refused when the file loads. Your home file's alone; see [Where it looks](#where-it-looks-and-what-wins). A change applies when workflow next starts. See [Taskwarrior](#taskwarrior). |
-| `taskwarrior.disabled` | no | Turn the Taskwarrior integration off even where Taskwarrior is installed. Defaults to `false`. A change applies when workflow next starts. |
+| `taskwarrior.program` | no | The Taskwarrior program to run, and the only one tried: an absolute path, such as `/opt/homebrew/bin/task`, or a name looked up on `PATH`; a relative path is refused when the file loads. Empty (the default) tries every `task` in an absolute `PATH` directory, in order, and keeps the first that is Taskwarrior 3.5.0 or newer; a Taskwarrior that has never been run, whose taskrc has a malformed line, or that cannot start ends the search there. A value with a line break or a NUL in it is refused when the file loads. Your home file's alone; see [Where it looks](#where-it-looks-and-what-wins). A change applies when workflow next starts or switches directory. See [Taskwarrior](#taskwarrior). |
+| `taskwarrior.disabled` | no | Turn the Taskwarrior integration off even where Taskwarrior is installed. Defaults to `false`. A change applies when workflow next starts or switches directory. |
 
 Unknown keys are an error rather than being ignored. A misspelled key that
 loaded silently would look exactly like a credential you never set.
@@ -992,12 +992,12 @@ since it would name a different program in each directory workflow starts in. `t
 even where Taskwarrior is installed: the Tasks pane says so, and no mark, block
 or offer appears.
 
-workflow finds Taskwarrior once, as it starts, so a change to
-`taskwarrior.program` or `taskwarrior.disabled` applies when workflow next
-starts. One saved from the web's Settings waits too: until the restart, the
-Tasks section says to restart workflow to apply it — never a reason that holds
-only for the settings workflow started with — and the rest of the page shows
-no task.
+workflow finds Taskwarrior once for the directory it works in, as it starts or
+switches there, so a change to `taskwarrior.program` or `taskwarrior.disabled`
+applies when workflow next starts or switches directory. One saved from the
+web's Settings waits too: until then, the Tasks section says to restart workflow
+to apply it — never a reason that holds only for the settings workflow started
+with — and the rest of the page shows no task.
 
 `workflow doctor` names the Taskwarrior it found, or why none is usable:
 

@@ -238,7 +238,7 @@ test('offers turning the store off and rides it back through a save', async () =
   expect((reopened as HTMLInputElement).checked).toBe(true)
 })
 
-test('the Taskwarrior fieldset says its changes apply when workflow restarts', async () => {
+test('the Taskwarrior fieldset says its changes wait for a restart or a directory switch', async () => {
   // Arrange
   servesSettings()
 
@@ -250,7 +250,7 @@ test('the Taskwarrior fieldset says its changes apply when workflow restarts', a
   expect(
     await screen.findByRole('group', {
       name: 'Taskwarrior',
-      description: 'A change here applies when workflow restarts.',
+      description: 'A change here waits for a restart or a directory switch.',
     }),
   ).toBeTruthy()
 })
