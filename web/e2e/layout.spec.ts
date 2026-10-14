@@ -95,7 +95,7 @@ for (const name of sectionNames.filter((section) => section !== 'Branch')) {
 
 for (const theme of themes) {
   for (const width of widths) {
-    for (const { step, section, opener, group, adds } of confirmSteps) {
+    for (const { step, section, opener, role = 'group', group, adds } of confirmSteps) {
       test(
         `the ${step} fits ${String(width)} px in the ${theme} theme, reachable and clean`,
         { tag: '@populated' },
@@ -106,10 +106,13 @@ for (const theme of themes) {
 
           // Act
           await page.getByRole('button', { name: opener }).click()
-          await expect(page.getByRole('group', { name: group })).toBeVisible()
+          await expect(page.getByRole(role, { name: group })).toBeVisible()
 
           // Assert
-          await expectReachableAndClean(page, { reaches: adds })
+          await expectReachableAndClean(page, {
+            reaches: adds,
+            within: role === 'dialog' ? page.getByRole('dialog', { name: group }) : undefined,
+          })
         },
       )
     }
