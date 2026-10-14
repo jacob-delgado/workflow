@@ -891,4 +891,3 @@ typed whole.
 
 **Reopen when.** Someone needs to scroll past the first 200 rather than type,
 or a listing's cap is raised enough that typing to narrow stops being quick.
-
