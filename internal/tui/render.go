@@ -141,16 +141,7 @@ func (m Model) detailContent(shape layout.Layout) (string, string, frame.Style) 
 	rows, width := m.detailRows(), m.detailWidth()
 
 	if m.overlay != nil {
-		title, body := m.overlay.view(m.kit(), width, rows)
-
-		// Most overlays act, and wear the heavy focus border; one that only
-		// reports, like the key list, marks itself for the light one.
-		border := m.marks.border.Heavy()
-		if _, reports := m.overlay.(lightBordered); reports {
-			border = m.marks.border
-		}
-
-		return title, body, border
+		return m.overlayContent(width, rows)
 	}
 
 	behavior := behaviorOf(m.focus)
@@ -176,6 +167,21 @@ func (m Model) detailContent(shape layout.Layout) (string, string, frame.Style) 
 	}
 
 	return title, scrolled(behavior.detail(m, width), *behavior.scroll(&m), rows), border
+}
+
+// overlayContent is the open overlay's title and body in width columns and
+// rows rows, and the border it wears: most overlays act, and wear the heavy
+// focus border; one that only reports, like the key list, marks itself for
+// the light one.
+func (m Model) overlayContent(width, rows int) (string, string, frame.Style) {
+	title, body := m.overlay.view(m.kit(), width, rows)
+
+	border := m.marks.border.Heavy()
+	if _, reports := m.overlay.(lightBordered); reports {
+		border = m.marks.border
+	}
+
+	return title, body, border
 }
 
 // paneTitle is a pane's title with what narrows it — the issue view, the
