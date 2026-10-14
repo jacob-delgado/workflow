@@ -12,10 +12,11 @@
 // Each schema is Third Normal Form and every table is STRICT: repeating
 // groups — the cached issue list — are a parent row and one child row each, no
 // derived value is stored, and each column's type is enforced at write time.
-// Timestamps are RFC3339 UTC text, foreign keys cascade, and a write that
-// replaces a group runs in one transaction. Callers sanitize text on the way
-// in and treat what they read back as untrusted, since a file on disk can be
-// tampered.
+// Timestamps are RFC3339 UTC text, a child's foreign key cascades from the row
+// that owns it and restricts toward a Slack user or group others share, and a
+// write that replaces a group runs in one transaction. Callers sanitize text
+// on the way in and treat what they read back as untrusted, since a file on
+// disk can be tampered.
 //
 // A store is a value, and a disabled one no-ops every method, so a caller need
 // not special-case the privacy opt-out. Each operation opens its own short-lived
