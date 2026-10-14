@@ -5,12 +5,14 @@ package tui_test
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/tui"
@@ -18,7 +20,7 @@ import (
 
 // stepper is a timer that keeps every wait the interface asks for rather than
 // letting a drain fire it, so a test moves the interface on one frame at a
-// time.
+// time. Like a drain, it drops a wait due past horizon, which never fires.
 type stepper struct {
 	mu    sync.Mutex
 	waits []scheduled
@@ -26,6 +28,10 @@ type stepper struct {
 
 // after keeps the wait for step.
 func (s *stepper) after(wait time.Duration, fire func(time.Time) tea.Msg) tea.Cmd {
+	if wait > horizon {
+		return nil
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -140,5 +146,115 @@ func TestNothingTicksWhileNothingMoves(t *testing.T) {
 	// Assert
 	if asked := timer.asked.Load() - before; asked != 0 {
 		t.Errorf("asked for %d waits with nothing moving, want none", asked)
+	}
+}
+
+// settleFrames fires every frame the interface goes on asking for, until it
+// asks for none, and fails the test if it never stops.
+func (s *stepper) settleFrames(t *testing.T, model tui.Model) tui.Model {
+	t.Helper()
+
+	const most = 100
+
+	for range most {
+		s.mu.Lock()
+		left := len(s.waits)
+		s.mu.Unlock()
+
+		if left == 0 {
+			return model
+		}
+
+		model = s.step(t, model)
+	}
+
+	t.Fatalf("still asking for frames after %d", most)
+
+	return model
+}
+
+// reviewRule is the rule after the Review stage, plain.
+func reviewRule(view string) string {
+	_, after, _ := strings.Cut(ansi.Strip(spineLine(view)), " Review ")
+	rule, _, _ := strings.Cut(after, " ")
+
+	return rule
+}
+
+// passingDuringTheSession is a world whose CI is running when the session
+// opens and has passed by the time Review is refreshed, on the timer frames.
+// It polls CI past the horizon, so only the refresh asks again.
+func passingDuringTheSession(t *testing.T, repo *world, frames *stepper) tui.Model {
+	t.Helper()
+
+	repo.ciInterval = 2 * time.Second
+	repo.ci = []forge.CI{
+		{State: forge.CIRunning, Total: 4, Done: 0},
+		{State: forge.CIPassed, Total: 4, Done: 4},
+	}
+	deps := repo.deps()
+	deps.After = frames.after
+	model := sized(t, tui.New(repo.cfg, nil, deps), 120, 40)
+	model = frames.settleFrames(t, drain(t, model, model.Init()))
+
+	return typing(t, model, "4", "r")
+}
+
+func TestACompletingStagesRuleFillsOverFrames(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	frames := &stepper{}
+	passed := passingDuringTheSession(t, moving(), frames)
+
+	// Act: one frame on
+	stepped := frames.step(t, passed)
+
+	// Assert: part filled
+	rule := reviewRule(stepped.View().Content)
+	if !strings.Contains(rule, filledRule) || !strings.Contains(rule, openRule) {
+		t.Errorf("Review's rule after one frame = %q, want it part filled", rule)
+	}
+
+	// Act: every frame it asks for
+	settled := frames.settleFrames(t, stepped)
+
+	// Assert: filled
+	if rule := reviewRule(settled.View().Content); strings.Contains(rule, openRule) {
+		t.Errorf("Review's rule once settled = %q, want it filled", rule)
+	}
+}
+
+func TestReducedMotionFillsACompletingStagesRuleAtOnce(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	frames := &stepper{}
+
+	// Act
+	passed := passingDuringTheSession(t, newWorld(), frames)
+
+	// Assert
+	if rule := reviewRule(passed.View().Content); strings.Contains(rule, openRule) || rule == "" {
+		t.Errorf("Review's rule = %q, want it filled at once", rule)
+	}
+}
+
+func TestTheTrackDrawsItsFirstScreenFilledWithoutMoving(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	frames := &stepper{}
+	repo := moving()
+	deps := repo.deps()
+	deps.After = frames.after
+	model := sized(t, tui.New(repo.cfg, nil, deps), 120, 40)
+
+	// Act
+	opened := drain(t, model, model.Init())
+
+	// Assert
+	if rule := reviewRule(opened.View().Content); strings.Contains(rule, openRule) {
+		t.Errorf("Review's rule on the first screen = %q, want it already filled", rule)
 	}
 }
