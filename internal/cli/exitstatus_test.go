@@ -335,7 +335,7 @@ func TestBareConfigPrintsItsHelp(t *testing.T) {
 	// Assert
 	wantExit(t, err, 0)
 
-	for _, want := range []string{"Available Commands", "init", "show"} {
+	for _, want := range []string{"COMMANDS", "init", "show"} {
 		if !strings.Contains(printed.stdout, want) {
 			t.Errorf("workflow config printed %q, want its help naming %q", printed.stdout, want)
 		}

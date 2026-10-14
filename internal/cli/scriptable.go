@@ -95,12 +95,56 @@ func (o *checkedOutput) failed(err error) error {
 	return errors.Join(o.err, err)
 }
 
+// stream is the checked stdout as a command writes it: over a file, the
+// terminal it may be, so fang can tell whether to color its help.
+func (o *checkedOutput) stream() io.Writer {
+	file, isFile := o.out.(*os.File)
+	if !isFile {
+		return o
+	}
+
+	return checkedFile{checkedOutput: o, file: file}
+}
+
+// unchecked is the stream the check is over.
+func (o *checkedOutput) unchecked() io.Writer {
+	return o.out
+}
+
+// checkedFile is the checked stdout over a file: its writes checked, and the
+// rest of it the file's, so it reads as the terminal the file may be.
+type checkedFile struct {
+	*checkedOutput
+
+	file *os.File
+}
+
+var _ interface {
+	io.ReadWriteCloser
+	Fd() uintptr
+} = checkedFile{}
+
+// Read reads the file.
+func (f checkedFile) Read(p []byte) (int, error) {
+	return f.file.Read(p) //nolint:wrapcheck // the file's own error, passed through as the file gave it
+}
+
+// Close closes the file.
+func (f checkedFile) Close() error {
+	return f.file.Close() //nolint:wrapcheck // the file's own error, passed through as the file gave it
+}
+
+// Fd is the file's descriptor, what tells a terminal.
+func (f checkedFile) Fd() uintptr {
+	return f.file.Fd()
+}
+
 // terminalOut is the stdout cmd writes to as the stream it was handed, without
 // the check over it: the interface draws on it itself, and Bubble Tea knows a
 // terminal only as the file it is.
 func terminalOut(cmd *cobra.Command) io.Writer {
-	if checked, ok := cmd.OutOrStdout().(*checkedOutput); ok {
-		return checked.out
+	if checked, ok := cmd.OutOrStdout().(interface{ unchecked() io.Writer }); ok {
+		return checked.unchecked()
 	}
 
 	return cmd.OutOrStdout()
