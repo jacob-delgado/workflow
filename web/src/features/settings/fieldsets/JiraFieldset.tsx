@@ -16,6 +16,14 @@ import {
 const tokenHint =
   'A personal access token. One typed here is kept in your keychain for this address on macOS, or in the file elsewhere.'
 
+// appliesHint says when a saved change takes effect. Trade-off TRADE-24: the
+// Jira client, with the token it finds, and the combined tracker, with the
+// first view's JQL it keeps, are wired once for a directory, so a change to
+// them waits for the next wiring; the rest is read from the configuration at
+// each use.
+const appliesHint =
+  "These wait for a restart or a directory switch: the address, token and where it is read from, user, headers, and whether this repository's issues are listed and which view they lead. The rest apply at once."
+
 // hostOf is the host of Jira's address, or the words for it while the
 // address is not one.
 function hostOf(baseURL: string): string {
@@ -78,7 +86,7 @@ export function JiraFieldset({ register, control }: JiraFieldsetProps) {
   const headers = useWatch({ control, name: 'jira.headers' })
 
   return (
-    <Fieldset legend="Jira">
+    <Fieldset legend="Jira" hint={appliesHint}>
       <TextField register={register} name="jira.base_url" label="Base URL" type="url" />
       <JiraToken register={register} control={control} />
       <TextField
