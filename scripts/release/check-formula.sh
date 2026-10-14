@@ -22,9 +22,14 @@
 # directly: brew untap can refuse a tap that is not trusted. Nothing else is
 # removed.
 #
-# Exits 0 when the audit passes; 1 when it fails, when brew is not on PATH, or
-# when the tap cannot be made; and 2 for a usage error. Run by ci.yml's
-# Cross-compile job on the formula it writes for every change.
+# It says which Homebrew audits before the audit runs, since CI's is whatever
+# the runner image ships (TRADE-42 in TECH_DEBT.md), so a failure names the
+# version that judged it.
+#
+# Exits 0 when the audit passes; 1 when it fails, when brew is not on PATH or
+# cannot say its version, or when the tap cannot be made; and 2 for a usage
+# error. Run by ci.yml's Cross-compile job on the formula it writes for every
+# change.
 set -euo pipefail
 
 readonly script="scripts/release/check-formula.sh"
@@ -88,6 +93,11 @@ main() {
   trap 'rm -rf "${tap_dir}"' EXIT
   cp "${formula}" "${tap_dir}/Formula/workflow.rb"
 
+  local version
+  if ! version="$(brew --version)"; then
+    fail "brew could not say its version, so ${formula} is not audited."
+  fi
+  echo "Auditing ${formula} with ${version%%$'\n'*}"
   if ! brew audit --strict --formula "${tap}/workflow"; then
     fail "If brew named a problem in the formula above, Homebrew most likely changed a rule, and scripts/release/package-manifests.sh needs updating to keep it."
   fi
