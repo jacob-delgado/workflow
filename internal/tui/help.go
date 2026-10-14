@@ -9,6 +9,8 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+
+	"github.com/jacob-delgado/workflow/internal/tui/layout"
 )
 
 // lightBordered marks an overlay drawn with the light border rather than the
@@ -32,6 +34,7 @@ type helpOverlay struct {
 
 var (
 	_ overlay       = helpOverlay{}
+	_ floating      = helpOverlay{}
 	_ lightBordered = helpOverlay{}
 	_ scrollable    = helpOverlay{}
 	_ steppable     = helpOverlay{}
@@ -50,6 +53,17 @@ func (h helpOverlay) view(kit renderKit, width, rows int) (string, string) {
 	shown := strings.Split(scrolled(content, h.scroll, max(1, rows-1)), "\n")
 
 	return helpTitle, strings.Join(append(shown, kit.marks.ellipsis+" more below"), "\n")
+}
+
+// wants is the key list's own size: wide enough for its two columns where
+// they fit, and tall enough for every key.
+func (h helpOverlay) wants(_ renderKit, most layout.Size) layout.Size {
+	content := h.fitting(most.Width)
+
+	return layout.Size{
+		Width:  lipgloss.Width(content) + dialogFrameColumns,
+		Height: h.lines(most.Width) + dialogFrameRows,
+	}
 }
 
 // fitting is the key list in two columns where the pane holds them, and in one

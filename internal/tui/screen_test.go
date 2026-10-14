@@ -261,7 +261,7 @@ func TestTheHelpListsEveryGroupAndScrolls(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	model := newWorld().live(t, 120, 20)
+	model := newWorld().live(t, 120, 22)
 
 	// Act: open the help on a short terminal
 	short := typing(t, model, "?")
