@@ -5,6 +5,7 @@ import {
   openCockpit,
   openFirstRun,
   openSection,
+  openSettings,
   openStepSection,
   sectionNames,
   themes,
@@ -159,6 +160,9 @@ for (const { width, named } of railCases) {
   )
 }
 
+// The last setting of Messaging, the longest section of Settings.
+const lastOfMessaging = 'Announce a pull request opened here once its CI passes'
+
 // The header holds still while a section scrolls beneath it: the page itself
 // never scrolls, the content does.
 for (const width of widths) {
@@ -167,17 +171,18 @@ for (const width of widths) {
     { tag: '@populated' },
     async ({ page }) => {
       // Arrange
-      // The settings run longer than the window, so Save starts out of view.
+      // Messaging, the longest of the settings, runs longer than the window,
+      // so its last setting starts out of view.
       await page.setViewportSize({ width, height })
       await page.goto('/')
-      await openSection(page, 'Settings')
-      const save = page.getByRole('button', { name: 'Save changes' })
+      await openSettings(page, 'Messaging')
+      const last = page.getByRole('checkbox', { name: lastOfMessaging })
 
       // Act
-      await save.focus()
+      await last.focus()
 
       // Assert
-      await expect(save).toBeInViewport()
+      await expect(last).toBeInViewport()
       await expect(page.getByRole('button', { name: /change theme/i })).toBeInViewport()
     },
   )
@@ -244,11 +249,11 @@ for (const width of widths) {
     { tag: '@populated' },
     async ({ page }) => {
       // Arrange
-      // Focusing Save scrolls the settings to their end.
+      // Focusing Messaging's last setting scrolls the settings to their end.
       await page.setViewportSize({ width, height })
       await page.goto('/')
-      await openSection(page, 'Settings')
-      await page.getByRole('button', { name: 'Save changes' }).focus()
+      await openSettings(page, 'Messaging')
+      await page.getByRole('checkbox', { name: lastOfMessaging }).focus()
 
       // Act
       await openSection(page, 'Branch')
