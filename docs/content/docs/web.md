@@ -590,12 +590,23 @@ list, outside a repository, the list is left out.
 **Favorites** are the directories you keep, each with what is there now — a
 repository and its origin, a directory in no repository, or one not there any
 more. **Add to favorites** keeps where the server works, **Remove** forgets
-one, and **Switch** offers to switch to it. **Open another directory** browses
-for one: type a path — from where the server works, or from your home after
-`~` — and **Show** lists the directories in it; open one by its name, **Up**
-goes to the one above, and **Switch here** offers to switch to the one shown.
+one, and **Switch** offers to switch to it.
 
-A switch is asked once more, then made: the server wires the directory as it
+**Go to a directory…** (`g`, as in the terminal) opens a dialog for any other.
+Its field lists the worktrees and favorites first, then the directories where
+the server works; type a path — from where the server works, from your home
+after `~`, or from `/` — and it lists the directories in the one before the
+last slash, narrowed as you type a name after it: those starting with it
+first, then those holding its letters in order, the letters matched in bold,
+and each repository marked. The arrow keys choose, `Enter` goes into a
+directory or asks to switch to the place chosen, `Backspace` after a slash
+goes up, and the path above the field goes up further. **Switch to** the
+directory listed asks too. A directory of more than a thousand is listed
+again for the name typed; the list draws at most two hundred, and says how
+many more match.
+
+A switch is asked once more in the dialog, with **Back** to the list, then
+made: the server wires the directory as it
 wired the first, and every section is read again for it. A directory whose
 configuration did not load, or binds keys workflow refuses, is refused rather
 than served on the defaults. The section you are
