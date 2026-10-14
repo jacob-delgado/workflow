@@ -83,7 +83,9 @@ func TestCheckKeysRefusesAKeyATextFieldEditsWithWhereOneHasTheFocus(t *testing.T
 		"breaking onto the down arrow":           {"toggle-breaking": keyDown},
 		"the next template onto the up arrow":    {"next-template": keyUp},
 		"previous field onto back a word":        {"previous-field": "ctrl+left"},
-		"next field onto delete a word forward":  {"next-field": "alt+d"},
+		"next field onto delete a word forward":  {nextFieldAction: "alt+d"},
+		// A form field types a letter, so next-field on one would take it.
+		"next field onto a letter": {nextFieldAction: "n"},
 	}
 
 	for name, rebound := range cases {

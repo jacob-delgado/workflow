@@ -16,6 +16,7 @@ import (
 // does not repeat the same literal.
 const (
 	refreshAction       = "refresh"
+	nextFieldAction     = "next-field"
 	mergeAction         = "merge"
 	openLinkAction      = "open-link"
 	addTaskAction       = "add-task"
