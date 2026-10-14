@@ -140,7 +140,7 @@ func New(cfg config.Config, loadErr error, deps Deps) Model {
 		width: defaultWidth, height: defaultHeight,
 		focus: paneIssues, mouse: cfg.UI.Mouse,
 		views: jira.Views(cfg.Jira.Views), viewIndex: 0,
-		motion: newMotion(marks.turn, cfg.UI.ReducedMotion()),
+		motion: newMotion(marks.turn, deps.now(), cfg.UI.ReducedMotion()),
 	}
 	// Init always searches, so a list seeded from the cache is in flight.
 	model.issues = model.seededIssues()
@@ -236,14 +236,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case tea.KeyPressMsg:
+		m.motion = m.motion.looked()
 		handled, cmd := m.handleKey(msg)
 
 		return handled.settled(cmd)
 	case tea.PasteMsg:
+		m.motion = m.motion.looked()
 		handled, cmd := m.pasted(msg)
 
 		return handled.settled(cmd)
 	case tea.MouseMsg:
+		m.motion = m.motion.looked()
 		handled, cmd := m.handleMouse(msg)
 
 		return handled.nextFrame(cmd)
