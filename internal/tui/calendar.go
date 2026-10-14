@@ -140,26 +140,43 @@ func (c calendar) monthColumn(kit renderKit) []string {
 	return lines
 }
 
+// blankDay is a place in the Day column outside the cursor's month, as wide
+// as a day drawn there.
+const blankDay = "    "
+
 // dayColumn lists the cursor's month as weeks, Monday first, the days of a
 // marked range in bold.
 func (c calendar) dayColumn(kit renderKit) []string {
 	month := activity.MonthOf(c.cursor)
-	lines := []string{"Day", " " + strings.ReplaceAll(weekdays, " ", "  ")}
-	week := strings.Repeat("    ", (int(month.From.Weekday())+daysInWeek-1)%daysInWeek)
+	weeks := month.Weeks()
+	heading := []string{"Day", " " + strings.ReplaceAll(weekdays, " ", "  ")}
+	lines := append(make([]string, 0, len(heading)+len(weeks)), heading...)
 
-	for date := month.From; !month.To.Before(date); date = date.AddDays(1) {
-		day := c.shown(kit, twoDigit(date.Day()), columnDay, date == c.cursor)
-		if c.inRange(date) {
-			day = kit.styles.strong.Render(day)
+	for _, week := range weeks {
+		var row strings.Builder
+		for _, date := range week {
+			row.WriteString(c.dayPlace(kit, month, date))
 		}
 
-		week += day
-		if date.Weekday() == time.Sunday || date == month.To {
-			lines, week = append(lines, strings.TrimRight(week, " ")), ""
-		}
+		lines = append(lines, strings.TrimRight(row.String(), " "))
 	}
 
 	return lines
+}
+
+// dayPlace is how the Day column draws date: blank outside month, and in
+// bold inside a marked range.
+func (c calendar) dayPlace(kit renderKit, month activity.Period, date activity.Date) string {
+	if !month.Holds(date) {
+		return blankDay
+	}
+
+	day := c.shown(kit, twoDigit(date.Day()), columnDay, date == c.cursor)
+	if c.inRange(date) {
+		return kit.styles.strong.Render(day)
+	}
+
+	return day
 }
 
 // inRange reports date between the marked day and the cursor's, both in.
@@ -173,7 +190,7 @@ func (c calendar) inRange(date activity.Date) bool {
 		from, to = to, from
 	}
 
-	return !date.Before(from) && !to.Before(date)
+	return activity.Period{From: from, To: to}.Holds(date)
 }
 
 // twoDigit is a day or month number written with two digits.

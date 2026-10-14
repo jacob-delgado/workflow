@@ -564,9 +564,12 @@ limit.
 last day, a whole month or year, a month as weeks from Monday, and a period
 stepped by its own length) are worked out in `internal/activity/period.go` and
 again in `web/src/features/summary/civilDate.ts`, both answering to one case
-file, `internal/activity/testdata/civil_dates.json`. The web's calendar moves on every
-key (`MonthGrid`'s arrows, Page Up and Page Down, Home and End), so it cannot
-wait on a request for arithmetic. The server still decides the default period
+file, `internal/activity/testdata/civil_dates.json`. The month as weeks is the
+layout both calendars draw: `Period.Weeks`, which the terminal's Day column
+draws (`calendar.dayColumn`, `internal/tui/calendar.go`), and `monthWeeks`,
+which the web's `MonthGrid` does, each held to the file's weeks cases. The
+web's calendar moves on every key (`MonthGrid`'s arrows, Page Up and Page
+Down, Home and End), so it cannot wait on a request for arithmetic. The server still decides the default period
 and reads every period, so only the moves are twinned, never which days were
 worked. Decided 2026-10-05, in #175: nearly all of it is the Gregorian
 calendar, whose rules do not change, and the one rule of workflow's own, that
