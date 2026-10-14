@@ -97,20 +97,14 @@ interface SettingsSectionsProps {
   fields: Fields
   // form is the configuration form's own attributes.
   form: ComponentProps<'form'>
-  // children are drawn in the form, below its sections.
-  children: ReactNode
+  // bar is drawn below whichever section is shown.
+  bar: ReactNode
 }
 
 // SettingsSections is Settings a section at a time, chosen from the list
 // beside it: the configuration's sections, which save together, then People
 // and groups and Local data, which save on their own as they change.
-export function SettingsSections({
-  section,
-  onSection,
-  fields,
-  form,
-  children,
-}: SettingsSectionsProps) {
+export function SettingsSections({ section, onSection, fields, form, bar }: SettingsSectionsProps) {
   return (
     <Tabs value={section} onValueChange={onSection}>
       <TabList label="Settings sections">
@@ -131,7 +125,6 @@ export function SettingsSections({
               {fieldsets(fields)}
             </TabPanel>
           ))}
-          {children}
         </form>
         <TabPanel value="people">
           <PeopleAndGroups />
@@ -139,6 +132,7 @@ export function SettingsSections({
         <TabPanel value="local-data">
           <LocalData />
         </TabPanel>
+        {bar}
       </div>
     </Tabs>
   )

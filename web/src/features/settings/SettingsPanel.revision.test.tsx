@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { mockConfig } from '@/dev/mockConfig.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { appQueryClient, renderWithClient } from '@/test/renderWithClient.tsx'
+import { anEdit } from '@/test/settings.ts'
 import { SettingsPanel } from './SettingsPanel.tsx'
 
 // revisionedApi answers a read with the configuration at the revision "read-1",
@@ -37,6 +38,7 @@ test('a save is made over the revision its read returned', async () => {
   const user = userEvent.setup()
   renderWithClient(<SettingsPanel />)
   await screen.findByLabelText('Base URL')
+  await anEdit()
 
   // Act
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
@@ -52,8 +54,10 @@ test('the next save is made over the revision the last one wrote', async () => {
   const user = userEvent.setup()
   renderWithClient(<SettingsPanel />)
   await screen.findByLabelText('Base URL')
+  await anEdit()
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
   await screen.findByText('Saved.')
+  await anEdit()
 
   // Act
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
@@ -101,7 +105,9 @@ async function saveRefusedAsChanged(...afterwards: Response[]) {
   const requests = configAnswers(configAt('read-1'), changedOnDisk(), ...afterwards)
   const user = userEvent.setup()
   renderWithClient(<SettingsPanel />)
-  await user.click(await screen.findByRole('button', { name: 'Save changes' }))
+  await screen.findByLabelText('Base URL')
+  await anEdit()
+  await user.click(screen.getByRole('button', { name: 'Save changes' }))
   const reload = await screen.findByRole('button', { name: 'Reload' })
 
   return { requests, user, reload }
@@ -125,6 +131,7 @@ test('a save refused because the file changed says so and offers Reload', async 
   const user = userEvent.setup()
   renderWithClient(<SettingsPanel />)
   await screen.findByLabelText('Base URL')
+  await anEdit()
 
   // Act
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
@@ -176,6 +183,7 @@ test('a save after Reload is made over the revision Reload read', async () => {
   await waitFor(async () => {
     expect((await baseURL()).value).toBe(editedURL)
   })
+  await anEdit()
 
   // Act
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
@@ -226,6 +234,7 @@ test.each([
   const user = userEvent.setup()
   renderWithClient(<SettingsPanel />)
   await screen.findByLabelText('Base URL')
+  await anEdit()
 
   // Act
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
