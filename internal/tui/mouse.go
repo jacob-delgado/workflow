@@ -38,17 +38,20 @@ func (m Model) handleMouse(msg tea.MouseMsg) (Model, tea.Cmd) {
 
 // click focuses the rail pane under the pointer, picks the row clicked in a pane
 // that already has focus, and picks a row in the detail. An open overlay holds on
-// to the keyboard, so a click only ever picks within it.
+// to the keyboard, so a click only ever picks within it: within its dialog, when
+// it floats, and anywhere outside that does nothing.
 func (m Model) click(shape layout.Layout, column, row int) (Model, tea.Cmd) {
 	line := row - shape.Detail.Y - 1
 
 	if m.overlay != nil {
+		area := m.overlayArea(shape)
 		chooser, picks := m.overlay.(clickable)
-		if !picks || !shape.Detail.Contains(column, row) {
+
+		if !picks || !area.Contains(column, row) {
 			return m, nil
 		}
 
-		return chooser.click(m, line)
+		return chooser.click(m, row-area.Y-1)
 	}
 
 	index, inRail := shape.RailAt(column, row)
@@ -67,6 +70,16 @@ func (m Model) click(shape layout.Layout, column, row int) (Model, tea.Cmd) {
 	default:
 		return m, nil
 	}
+}
+
+// overlayArea is where the open overlay is drawn: its dialog when it floats,
+// the detail pane otherwise.
+func (m Model) overlayArea(shape layout.Layout) layout.Box {
+	if box, floats := m.dialogBox(); floats {
+		return box
+	}
+
+	return shape.Detail
 }
 
 // pick hands a clicked line to the focused pane, if it has a list.
@@ -94,10 +107,10 @@ func (m Model) detailLineAt(row int) (int, bool) {
 // wheel scrolls: an open overlay's list, or the detail pane.
 func (m Model) wheel(shape layout.Layout, column, row, step int) (Model, tea.Cmd) {
 	switch {
-	case !shape.Detail.Contains(column, row):
-		return m, nil
-	case m.overlay != nil:
+	case m.overlay != nil && m.overlayArea(shape).Contains(column, row):
 		return m.wheelOverlay(step)
+	case m.overlay != nil || !shape.Detail.Contains(column, row):
+		return m, nil
 	default:
 		return m.scrollDetail(step * wheelLines), nil
 	}

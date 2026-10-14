@@ -219,7 +219,7 @@ func openHelp(t *testing.T, overrides map[string]string) string {
 		helpKey = "?"
 	}
 
-	return plain(press(t, sized(t, tui.New(cfg, nil, tui.Deps{}), 160, 75), helpKey).View().Content)
+	return plain(press(t, sized(t, tui.New(cfg, nil, tui.Deps{}), 160, 77), helpKey).View().Content)
 }
 
 // runeColumn is the column, in runes, where text starts on line.
@@ -254,7 +254,7 @@ func helpListing(t *testing.T, view string) []helpGroup {
 		}
 
 		columns[0] = readHelpCell(columns[0], string(runes[left:right]))
-		columns[1] = readHelpCell(columns[1], strings.TrimRight(string(runes[right:]), " │"))
+		columns[1] = readHelpCell(columns[1], untilBorder(runes[right:]))
 	}
 
 	return append(columns[0], columns[1]...)
@@ -370,12 +370,25 @@ func cutHelpLines(t *testing.T, view string) []string {
 
 	for _, line := range lines[top : len(lines)-1] {
 		runes := []rune(line)
-		if len(runes) > left && strings.HasSuffix(strings.TrimRight(string(runes[left:]), " │"), "…") {
+		if len(runes) <= left || runes[left-2] != '│' {
+			break
+		}
+
+		if strings.HasSuffix(untilBorder(runes[left:]), "…") {
 			cut = append(cut, line)
 		}
 	}
 
 	return cut
+}
+
+// untilBorder is a row of the Keys dialog from a column inside it up to its
+// right border, trailing spaces dropped, so the faint panes behind it are not
+// read.
+func untilBorder(runes []rune) string {
+	inside, _, _ := strings.Cut(string(runes), "│")
+
+	return strings.TrimRight(inside, " ")
 }
 
 func TestOnAnEightyColumnTerminalTheHelpNamesEveryKeyWhole(t *testing.T) {
@@ -459,8 +472,9 @@ func TestTheWholeHelpFitsATallTerminal(t *testing.T) {
 	// Act
 	// At 120 columns the whole help, the Tasks and Reviews keys and the
 	// tagging keys, the Summary's and the Repositories' and unlink among it,
-	// each pane's keys under a heading of its own, needs 74 rows.
-	view := typing(t, newWorld().live(t, 120, 75), "?").View().Content
+	// each pane's keys under a heading of its own, needs 74 rows, and the
+	// dialog leaves two of the body's rows showing behind it.
+	view := typing(t, newWorld().live(t, 120, 77), "?").View().Content
 
 	// Assert
 	requireScreen(t, view, panesAndOverlaysGroup)
@@ -471,7 +485,7 @@ func TestAHelpThatFitsThePaneOffersNoScrollKeys(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	view := typing(t, newWorld().live(t, 160, 75), "?").View().Content
+	view := typing(t, newWorld().live(t, 160, 77), "?").View().Content
 
 	// Assert
 	refuseScreen(t, view, "more below")
