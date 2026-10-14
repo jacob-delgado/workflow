@@ -184,7 +184,7 @@ func (m Model) detailContent(shape layout.Layout) (string, string, frame.Style) 
 func (m Model) paneTitle(p pane, title string) string {
 	title += m.viewSuffix(p) + m.tasks.suffix(m.kit(), p)
 	if behaviorOf(p).loading(m) {
-		return title + " " + m.marks.inFlight
+		return title + " " + m.motion.turning()
 	}
 
 	return title

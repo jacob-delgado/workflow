@@ -41,9 +41,13 @@ type renderKit struct {
 	styles styles
 }
 
-// kit is the glyphs and styles the interface draws with.
+// kit is the glyphs and styles the interface draws with, the in-flight mark
+// of a read turned to its frame.
 func (m Model) kit() renderKit {
-	return renderKit{styles: m.styles, marks: m.marks}
+	marks := m.marks
+	marks.turning = m.motion.turning()
+
+	return renderKit{styles: m.styles, marks: marks}
 }
 
 // clickable is an overlay whose rows can be chosen with the mouse. line is the

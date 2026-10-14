@@ -56,10 +56,14 @@ func firstRunKeys(jiraURL string) []tea.KeyPressMsg {
 	return append(keys, enter(), enter(), enter())
 }
 
-// drive presses keys in turn, running whatever each starts as Bubble Tea
-// would, and returns the interface they leave.
+// drive starts the interface and presses keys in turn, running whatever each
+// starts as Bubble Tea would, and returns the interface they leave. Like Bubble
+// Tea it runs Init first, so the first screen's reads answer before a key is
+// pressed rather than staying out for good.
 func drive(t *testing.T, model tui.Model, keys ...tea.KeyPressMsg) tui.Model {
 	t.Helper()
+
+	model = settle(t, model, model.Init())
 
 	for _, key := range keys {
 		updated, cmd := model.Update(key)

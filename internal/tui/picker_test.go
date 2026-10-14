@@ -76,7 +76,7 @@ func (f *fakeJira) deps(search func(startAt int) (jira.SearchResult, error)) tui
 func jiraScreen(t *testing.T, deps tui.Deps) tui.Model {
 	t.Helper()
 
-	return started(t, sized(t, tui.New(completeConfig(), nil, deps), 120, 40))
+	return started(t, sized(t, tui.New(stillConfig(), nil, deps), 120, 40))
 }
 
 // pressed sends one key and returns the command it produced, which a test runs
@@ -289,7 +289,7 @@ func TestTDoesNothingWithoutAnIssueToMove(t *testing.T) {
 	cases := map[string]tui.Model{
 		"nothing assigned": jiraScreen(t, fake.deps(assigned())),
 		"search failed":    jiraScreen(t, fake.deps(failing(jira.ErrUnauthorized))),
-		"still loading":    sized(t, tui.New(completeConfig(), nil, fake.deps(twoIssues())), 120, 40),
+		"still loading":    sized(t, tui.New(stillConfig(), nil, fake.deps(twoIssues())), 120, 40),
 		"another pane":     press(t, jiraScreen(t, fake.deps(twoIssues())), "2"),
 	}
 
