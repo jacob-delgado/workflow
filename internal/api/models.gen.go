@@ -2842,7 +2842,9 @@ type TrackIssueRequest struct {
 
 // UIConfig defines model for UIConfig.
 type UIConfig struct {
-	ASCII *bool `json:"ascii,omitempty"`
+	// Accessible Whether the terminal's forms ask as plain prompts, one question at a time, rather than drawn over the screen.
+	Accessible *bool `json:"accessible,omitempty"`
+	ASCII      *bool `json:"ascii,omitempty"`
 
 	// Color Empty for auto, or "never".
 	Color *UIConfigColor `json:"color,omitempty"`

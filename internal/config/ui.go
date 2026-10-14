@@ -74,6 +74,12 @@ type UI struct {
 	// mark, fills a stage's rule as it completes and springs the CI bar;
 	// "reduce" draws every state still, for anyone motion distracts or harms.
 	Motion string `json:"motion"`
+	// Accessible hands each multi-field form in the terminal the whole
+	// terminal as a series of plain prompts, one question at a time, which a
+	// screen reader reads as it would any command's, instead of drawing it
+	// over the screen. The ACCESSIBLE environment variable, set to anything,
+	// does the same.
+	Accessible bool `json:"accessible"`
 	// Notify rings the terminal, and sends a desktop notification where the
 	// terminal relays one, when CI finishes — and the --web page says so in its
 	// header — so a developer who stepped away is told rather than having to
@@ -106,6 +112,13 @@ type UI struct {
 // reverse stay. An empty NO_COLOR keeps them, as no-color.org asks.
 func (u UI) DrawColor(noColorEnv string) bool {
 	return noColorEnv == "" && u.Color != colorNever
+}
+
+// AccessibleForms reports whether the terminal's forms ask as plain prompts:
+// ui.accessible on, or ACCESSIBLE, whose value is accessibleEnv, set to
+// anything at all.
+func (u UI) AccessibleForms(accessibleEnv string) bool {
+	return u.Accessible || accessibleEnv != ""
 }
 
 // ReducedMotion reports whether the interface draws every state still.

@@ -28,6 +28,10 @@ func resolveIssue() jira.Transition {
 	}
 }
 
+// resolvedNilToken is the move resolveIssue sends answered won't fix, its
+// root cause nil token.
+const resolvedNilToken = "transition PROJ-412 5 resolution=2 customfield_10200=nil token"
+
 // fieldfulMove is a transition whose screen asks for a user, a date and a
 // list of fix versions — one kind of each the form now fills.
 func fieldfulMove() jira.Transition {
@@ -185,9 +189,8 @@ func TestATransitionNeedingFieldsAsksForEachInTurn(t *testing.T) {
 	requireScreen(t, done.View().Content,
 		"● PROJ-412 is now Done")
 
-	want := "transition PROJ-412 5 resolution=2 customfield_10200=nil token"
-	if calls := resolving.asked("transition PROJ"); len(calls) != 1 || calls[0] != want {
-		t.Errorf("transition calls = %q, want %q", calls, want)
+	if calls := resolving.asked("transition PROJ"); len(calls) != 1 || calls[0] != resolvedNilToken {
+		t.Errorf("transition calls = %q, want %q", calls, resolvedNilToken)
 	}
 }
 

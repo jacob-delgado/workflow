@@ -920,3 +920,21 @@ Huh's.
 **Reopen when.** Huh lets an input's cursor be static, or a form needs what
 only `huh.Input` offers.
 
+### TRADE-47 An accessible form takes the whole terminal while it asks
+
+**Decided.** With `ui.accessible` on, or the `ACCESSIBLE` environment variable
+set, the terminal does not draw a multi-field form over the screen: it hands
+the terminal to Huh's accessible prompts, through `tea.Exec` the way the
+editor takes it (`promptedForm` in `internal/tui/huhform.go`), and they ask
+one plain question at a time, which a screen reader reads as it would any
+command's output. The interface comes back once the prompts are answered.
+Decided 2026-10-14 by the maintainer, with Huh.
+
+**Cost.** While the prompts ask, the panes, the spine and the footer are gone:
+nothing else on screen can be looked at or done until the form is answered or
+its prompts end, and prompts that end early leave the change unsent, said
+under the picker when the interface returns.
+
+**Reopen when.** The interface gains a screen-reader mode of its own (UX-154),
+or a user of the prompts asks to see the screen while answering.
+
