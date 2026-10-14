@@ -45,10 +45,10 @@ type Listing struct {
 	Truncated bool
 }
 
-// List is the directories in dir whose names start with prefix — all of
-// them for "" — a directory linked to among them, sorted by name whatever
-// its case, the first ListLimit kept. A hidden one is left out unless prefix
-// starts with a dot: it is reached by typing its name.
+// List is the directories in dir whose names start with prefix in any case —
+// all of them for "" — a directory linked to among them, sorted by name
+// whatever its case, the first ListLimit kept. A hidden one is left out unless
+// prefix starts with a dot: it is reached by typing its name.
 func List(dir, prefix string) (Listing, error) {
 	err := Check(dir)
 	if err != nil {
@@ -85,10 +85,12 @@ func List(dir, prefix string) (Listing, error) {
 	return listing, nil
 }
 
-// offered reports a name a listing for prefix offers: one starting with it,
-// and not hidden unless prefix starts with the dot.
+// offered reports a name a listing for prefix offers: one starting with it
+// in any case, as Matching ranks names, and not hidden unless prefix starts
+// with the dot.
 func offered(name, prefix string) bool {
-	return strings.HasPrefix(name, prefix) && (!strings.HasPrefix(name, ".") || strings.HasPrefix(prefix, "."))
+	return strings.HasPrefix(strings.ToLower(name), strings.ToLower(prefix)) &&
+		(!strings.HasPrefix(name, ".") || strings.HasPrefix(prefix, "."))
 }
 
 // directoryEntry reports an entry of dir a directory or a link to one. Only a

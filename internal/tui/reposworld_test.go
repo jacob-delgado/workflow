@@ -104,7 +104,7 @@ func (w *world) withRepositories(deps tui.Deps) tui.Deps {
 			listing := workdirs.Listing{}
 
 			for _, name := range names {
-				if strings.HasPrefix(name, prefix) {
+				if strings.HasPrefix(strings.ToLower(name), strings.ToLower(prefix)) {
 					listing.Entries = append(listing.Entries, workdirs.Entry{Name: name})
 				}
 			}

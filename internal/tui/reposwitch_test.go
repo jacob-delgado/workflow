@@ -298,6 +298,23 @@ func TestTabTypesWhatSeveralShareWithoutSplittingALetter(t *testing.T) {
 	refuseScreen(t, completed.View().Content, "�")
 }
 
+func TestTabKeepsWhatWasTypedWhenTheNamesDifferInCase(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A prefix is matched in any case, so what Notes and notebooks share as
+	// written is less than the two letters typed.
+	working := reposWorld()
+	working.dirs.listings = map[string][]string{anaHome: {"Notes", "notebooks"}}
+	typed := goingTo(t, working, "~/no")
+
+	// Act
+	completed, _ := pressedAndAnswered(t, typed, keyTab)
+
+	// Assert
+	requireScreen(t, completed.View().Content, "> ~/no ", "Notes", "notebooks")
+}
+
 func TestEscLeavesWhileAPathIsBeingLookedAt(t *testing.T) {
 	t.Parallel()
 
