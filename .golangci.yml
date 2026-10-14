@@ -317,6 +317,10 @@ linters:
       # handed an Environment of its own and runs in parallel.
       - path: internal/cli/interrupt_test\.go$
         linters: [paralleltest]
+      # This CLI test sets TERM on its own process, which fang reads to color
+      # the help, and t.Setenv panics in a parallel test, so it runs alone.
+      - path: internal/cli/help_terminal_test\.go$
+        linters: [paralleltest]
       # This interface test raises SIGTERM on its own process, which every run
       # beside it would hear too, so it runs alone.
       - path: internal/tui/sigterm_unix_test\.go$

@@ -8,11 +8,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"image/color"
 	"io"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"charm.land/fang/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
@@ -162,24 +165,40 @@ type invocation struct {
 	getenv         func(name string) string
 }
 
-// execute runs root as run asks under ctx, and says the error it ended with,
-// if any, once.
+// execute runs root as run asks under ctx, its help, usage and version said
+// through fang, and says the error it ended with, if any, once. A run that
+// succeeded but whose output went nowhere ends with that.
+//
+// Trade-off TRADE-44: fang capitalizes its titles and each flag's first word,
+// and links mango and roff though the man page is off.
 func execute(ctx context.Context, root *cobra.Command, run invocation) error {
-	err := executeTree(ctx, root, run)
-	if err != nil {
-		console.New(run.stderr, voiceOf(root, run.getenv)).Fail(err, ExitStatus(err))
+	checked := prepare(root, run)
+
+	var said error
+
+	fail := func(err error) {
+		said = checked.failed(interrupted(ctx, err))
+		console.New(run.stderr, voiceOf(root, run.getenv)).Fail(said, ExitStatus(said))
 	}
 
-	return err
+	err := fang.Execute(ctx, root, fang.WithVersion(buildinfo.Current()), fang.WithoutManpage(),
+		fang.WithColorSchemeFunc(ansiScheme), fang.WithErrorHandler(func(_ io.Writer, _ fang.Styles, err error) {
+			fail(err)
+		}))
+	if err == nil && checked.err != nil {
+		fail(nil)
+	}
+
+	return said
 }
 
-// executeTree runs root as run asks under ctx, and returns the error it ended
-// with.
-func executeTree(ctx context.Context, root *cobra.Command, run invocation) error {
+// prepare readies root to run as run asks, writing its artifact to stdout
+// through the check it returns.
+func prepare(root *cobra.Command, run invocation) *checkedOutput {
 	checked := &checkedOutput{out: run.stdout}
 
 	root.SetArgs(run.args)
-	root.SetOut(checked)
+	root.SetOut(checked.stream())
 	root.SetErr(run.stderr)
 	// cobra adds its help and completion commands only as the tree runs, after
 	// any walk could meet them. Adding them here lets markMisuse reach them too,
@@ -189,19 +208,33 @@ func executeTree(ctx context.Context, root *cobra.Command, run invocation) error
 	root.InitDefaultCompletionCmd()
 	markMisuse(root)
 
-	err := checked.failed(root.ExecuteContext(ctx))
-	if err == nil {
-		return nil
+	return checked
+}
+
+// interrupted is err with ctx's error put back once ctx has ended. A git or
+// gh child stopped by the interrupt fails with its own exit status, and a
+// failed git read is then reported as no repository at all; neither carries
+// ctx's error, so it is put back for ExitStatus to find.
+func interrupted(ctx context.Context, err error) error {
+	if err == nil || ctx.Err() == nil {
+		return err
 	}
 
-	// A git or gh child stopped by the interrupt fails with its own exit
-	// status, and a failed git read is then reported as no repository at all;
-	// neither carries ctx's error, so put it back for ExitStatus to find.
-	if ctx.Err() != nil {
-		return fmt.Errorf("%w: %w", ctx.Err(), err)
-	}
+	return fmt.Errorf("%w: %w", ctx.Err(), err)
+}
 
-	return err
+// ansiScheme is the help's colors, from the terminal's own sixteen: its text
+// in the terminal's default color, and descriptions, comments and flag
+// defaults in its dim gray. Nothing else is colored, since none of it is
+// identity or state; the errors are the notes', in red.
+func ansiScheme(lipgloss.LightDarkFunc) fang.ColorScheme {
+	plain, dim := lipgloss.NoColor{}, lipgloss.BrightBlack
+
+	return fang.ColorScheme{
+		Base: plain, Title: plain, Description: dim, Codeblock: plain, Program: plain, DimmedArgument: plain,
+		Comment: dim, Flag: plain, FlagDefault: dim, Command: plain, QuotedString: plain, Argument: plain,
+		Help: plain, Dash: plain, ErrorHeader: [2]color.Color{lipgloss.Red, plain}, ErrorDetails: lipgloss.Red,
+	}
 }
 
 // RunInterface starts the interface and blocks until the user quits, or asks

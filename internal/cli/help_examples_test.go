@@ -26,7 +26,7 @@ func TestEveryCommandLeadsItsHelpWithExamples(t *testing.T) {
 				t.Fatalf("%s --help: %v", path, err)
 			}
 
-			_, examples, found := strings.Cut(output, "Examples:")
+			_, examples, found := strings.Cut(output, "EXAMPLES")
 			if !found || !strings.Contains(examples, path) {
 				t.Errorf("%s --help has no example of itself:\n%s", path, output)
 			}

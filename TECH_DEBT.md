@@ -820,6 +820,35 @@ script by hand where Homebrew is installed, or leaves it to CI.
 than rarely, or a pinned `Homebrew/actions/setup-homebrew` becomes worth
 approving as a new action.
 
+### TRADE-44 Fang shapes the help, capitals and all
+
+**Decided.** `execute` (`internal/cli/cli.go`) runs the command tree through
+`fang.Execute` (`charm.land/fang/v2`), which draws the help, the usage and
+the version, in the terminal's own colors from `ansiScheme`. Fang sends its
+titles through `strings.ToUpper` and capitalizes the first word of each
+flag's and command's help, and neither can be turned off; and it links
+`muesli/mango-cobra` and `muesli/roff` for a `man` command that
+`fang.WithoutManpage()` leaves out. Decided 2026-10-14 by the maintainer,
+with the CLI's look, accepting both.
+
+**Cost.** The help reads "USAGE", "FLAGS" and "Hold back every write…",
+where the flag help in the code and the reference generated from the same
+tree (`docs/content/docs/reference/`) read in lower case; and a flag's
+placeholder, such as `FILE`, shows in the help between backticks rather than
+after the flag. Fang pads the help's lines to its width with spaces, and
+reads the color profile, the terminal's width and its background from the
+process itself (`os.Environ`, `os.Stdout`, `os.Stdin`) rather than from the
+`Environment` every command is handed: the help's color answers to the
+shell's `TERM` and `NO_COLOR`, as colorprofile reads them, and not to a
+test's, so the test that the help is colored on a terminal sets `TERM` on
+its process and runs alone. On a terminal, a help or an error first asks the
+terminal for its background, waiting up to two seconds for an answer. mango
+and roff are compiled into a binary that never builds a man page.
+
+**Reopen when.** Fang lets its titles and first words keep their case, a man
+page is wanted, or a terminal that does not answer the background query is
+found slowing an error.
+
 ### TRADE-45 The track keeps five stages, with CI as the fill of Review's rule
 
 **Decided.** The loop track draws the five stages `progress.Stages` derives —

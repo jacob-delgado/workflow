@@ -64,12 +64,15 @@ func TestConfigInitSummaryClaimsOnlyWhatItAsks(t *testing.T) {
 func TestTheLogFlagNamesItsFile(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
+	root := cli.NewRootCmd(cli.Prompt{})
+
 	// Act
-	output, err := run(t, t.TempDir(), "--help")
+	reference := root.PersistentFlags().FlagUsages()
 
 	// Assert
-	if err != nil || !strings.Contains(output, "--request-log FILE") || strings.Contains(output, "--request-log string") {
-		t.Errorf("--help = %v, want --request-log's placeholder named FILE:\n%s", err, output)
+	if !strings.Contains(reference, "--request-log FILE") || strings.Contains(reference, "--request-log string") {
+		t.Errorf("the reference's flags read:\n%s\nwant --request-log's placeholder named FILE", reference)
 	}
 }
 
