@@ -105,41 +105,57 @@ checksum_of() {
   printf '%s\n' "${sum}"
 }
 
+# version_stanza prints the version line a prerelease's formula needs, after
+# the newline that sets it off, and nothing for a release. Homebrew scans a
+# release's version from its url, so `brew audit --strict` refuses naming it
+# again, but reads a prerelease's url as version 64, from the arch.
+#   version_stanza <tag>
+version_stanza() {
+  if [[ "$1" == *-* ]]; then
+    printf '\n  version "%s"' "${1#v}"
+  fi
+}
+
 # write_formula writes the Homebrew formula: the release binary for macOS on
 # Apple Silicon and for Linux on x86-64, each refused by name on any other
 # machine through its arch requirement, rather than failing on a missing url.
+# The url is chosen with OS.mac?, since Homebrew's FormulaAudit/ComponentsOrder
+# allows no url in an on_macos or on_linux block, and its
+# FormulaAudit/OnSystemConditionals leaves OS.mac? to a tap for this.
 # A bare binary is staged without its executable bit, so it gets one before
-# Homebrew runs it to write the shell completions.
+# Homebrew runs it to write the completions for its default shells, bash, zsh
+# and fish.
 #   write_formula <file> <tag> <repository> <macOS checksum> <Linux checksum>
 write_formula() {
-  local download="https://github.com/$3/releases/download/$2"
+  local download="https://github.com/$3/releases/download/$2" version
+  version="$(version_stanza "$2")"
   cat >"$1" <<FORMULA
 # Written by ${script} in $3
 # for each release; an edit here is lost at the next one.
 class Workflow < Formula
   desc "${description}"
   homepage "https://github.com/$3"
-  version "${2#v}"
+  if OS.mac?
+    url "${download}/${macos_binary}"
+    sha256 "$4"
+  else
+    url "${download}/${linux_binary}"
+    sha256 "$5"
+  end${version}
   license "Apache-2.0"
 
   on_macos do
-    url "${download}/${macos_binary}"
-    sha256 "$4"
-
     depends_on arch: :arm64
   end
 
   on_linux do
-    url "${download}/${linux_binary}"
-    sha256 "$5"
-
     depends_on arch: :x86_64
   end
 
   def install
     bin.install Dir["workflow_*"].first => "workflow"
     chmod 0755, bin/"workflow"
-    generate_completions_from_executable(bin/"workflow", "completion", shells: [:bash, :zsh, :fish])
+    generate_completions_from_executable(bin/"workflow", "completion")
   end
 
   test do
