@@ -16,6 +16,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/jacob-delgado/workflow/internal/cli/console"
+	"github.com/jacob-delgado/workflow/internal/config"
 )
 
 // errNoTerminal reports a question asked with nothing to answer it: stdin was
@@ -115,20 +116,28 @@ func SecretReader(input *os.File, prompts io.Writer) func(prompt string) (string
 	}
 }
 
-// waiting runs wait, a slow command's reads, keeping its live line on stderr
-// while it does when stderr is a terminal a person watches, and keeping none
-// in a pipe or a log, where only what it says prints. Its notes are said
-// above the line, and its artifact goes to stdout, unless stdout is the
-// terminal too.
-func waiting(cmd *cobra.Command, prompt Prompt, wait func(out output, live console.Wait) error) error {
+// waiting runs wait, a slow command's reads, keeping its live line on stderr,
+// drawn as look asks, while it does when stderr is a terminal a person
+// watches, and keeping none in a pipe or a log, where only what it says
+// prints. Its notes are said above the line, and its artifact goes to stdout,
+// unless stdout is the terminal too.
+func waiting(
+	cmd *cobra.Command, prompt Prompt, look console.Look, wait func(out output, live console.Wait) error,
+) error {
 	notes := notesOf(cmd)
 	if !watched(prompt, cmd.ErrOrStderr()) {
 		return notes.Unwatched(func(live console.Wait) error { return wait(outputOf(cmd), live) })
 	}
 
-	return notes.Watched(func(live console.Wait) error {
+	return notes.Watched(look, func(live console.Wait) error {
 		return wait(output{artifact: artifactBeside(cmd, prompt, live), notes: live.Notes()}, live)
 	})
+}
+
+// liveLook is how a live line is drawn under ui: in ASCII when ui.ascii asks,
+// and its mark still when ui.motion reduces motion.
+func liveLook(ui config.UI) console.Look {
+	return console.Look{ASCII: ui.ASCII, Still: ui.ReducedMotion()}
 }
 
 // artifactBeside is where cmd writes its artifact while live keeps its line:

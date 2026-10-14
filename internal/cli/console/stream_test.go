@@ -45,7 +45,7 @@ func TestWhatIsWrittenToTheStreamDuringAWaitPrintsAboveItsLine(t *testing.T) {
 		notes := console.New(stream, console.Options{})
 
 		// Act
-		err := notes.Watched(func(wait console.Wait) error {
+		err := notes.Watched(console.Look{}, func(wait console.Wait) error {
 			wait.Doing("Checking Jira")
 			terminal.shows(t, "Checking Jira")
 

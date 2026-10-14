@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/cli/console"
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -43,10 +44,11 @@ type statusSeams struct {
 	Tracker string
 }
 
-// errPlainBesideJSON refuses --plain beside --json, which prints no line for
-// it to draw.
-var errPlainBesideJSON = errors.New("--plain draws the line's marks and --json prints no line: " +
-	"use one or the other")
+// errPlainBesideJSON refuses --plain beside --json, which prints no status line
+// for it to draw. The live line a JSON run of named directories keeps is drawn
+// as ui.ascii asks, so the refusal names it.
+var errPlainBesideJSON = errors.New("--plain draws the status line's marks and --json prints no status line: " +
+	"use one or the other; ui.ascii draws a JSON run's live line in ASCII")
 
 // statusOptions are status's flags: the JSON, and the line's marks drawn in
 // ASCII.
@@ -61,6 +63,15 @@ func (o statusOptions) ascii(configured bool) bool {
 	return o.plain || configured
 }
 
+// look is how the live line is drawn while status reads named directories:
+// as ui asks, and in ASCII when --plain does.
+func (o statusOptions) look(ui config.UI) console.Look {
+	look := liveLook(ui)
+	look.ASCII = o.ascii(ui.ASCII)
+
+	return look
+}
+
 // newStatusCmd builds `workflow status [directory...]`.
 func newStatusCmd(prompt Prompt) *cobra.Command {
 	var opts statusOptions
@@ -71,7 +82,8 @@ func newStatusCmd(prompt Prompt) *cobra.Command {
 		Long: "Print, on one line, the issue the branch is for, how far along the loop\n" +
 			"the work has got, and how CI stands — the same progress the interface's\n" +
 			"top row shows, for a shell prompt or a status bar. --json prints it as data;\n" +
-			"--plain draws its marks in ASCII, as ui.ascii does, for this run alone.\n" +
+			"--plain draws its marks, and the live line it keeps on a terminal while it\n" +
+			"reads named directories, in ASCII, as ui.ascii does, for this run alone.\n" +
 			"A service that refuses to answer leaves its stage as though there were nothing\n" +
 			"to say — CI none — and is named on standard error, one line each; so is one that\n" +
 			"is not set up, such as a forge with no token, with how to set it up.\n\n" +
@@ -94,7 +106,7 @@ func newStatusCmd(prompt Prompt) *cobra.Command {
 
 	addJSONFlag(cmd, &opts.asJSON, "print the status as JSON")
 	cmd.Flags().BoolVar(&opts.plain, "plain", false,
-		"draw the line's marks in ASCII, as ui.ascii does, whatever the configuration says")
+		"draw the line's marks, and the live line's, in ASCII, as ui.ascii does, whatever the configuration says")
 
 	return cmd
 }
@@ -139,9 +151,14 @@ func statusAcross(cmd *cobra.Command, prompt Prompt, dirs []string, opts statusO
 	}
 	defer closeLog()
 
+	// The live line is the command's own, drawn as the configuration where it
+	// runs asks. One that cannot be read draws it as the defaults do: each
+	// directory reads, and reports, its own.
+	here, _ := loadFromEnvironment(cmd)
+
 	var statuses []directoryStatus
 
-	watchErr := waiting(cmd, prompt, func(_ output, live console.Wait) error {
+	watchErr := waiting(cmd, prompt, opts.look(here.UI), func(_ output, live console.Wait) error {
 		statuses = statusesOf(cmd, live, dirs, requestLog)
 
 		return nil

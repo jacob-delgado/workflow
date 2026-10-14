@@ -117,7 +117,7 @@ func runDoctorCommand(cmd *cobra.Command, prompt Prompt, online, asJSON bool) er
 		return notesOf(cmd).Unwatched(func(live console.Wait) error { return report(outputOf(cmd), live) })
 	}
 
-	return waiting(cmd, prompt, report)
+	return waiting(cmd, prompt, liveLook(run.cfg.UI), report)
 }
 
 // doctorRun is what one doctor run reports on: the directory it was run from,

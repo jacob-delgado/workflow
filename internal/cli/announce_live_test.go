@@ -129,3 +129,51 @@ func TestAnnounceWhenGreenKeepsALiveLineOfCIsProgressOnATerminal(t *testing.T) {
 		t.Errorf("showing %q, want the live line erased once CI passed", shown)
 	}
 }
+
+func TestAnnounceWhenGreenDrawsItsLiveLineInASCIIUnderUIASCII(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var (
+		posts  atomic.Int32
+		stdout bytes.Buffer
+	)
+
+	gate := t.TempDir()
+	fakeGh(t, ghResponses{pulls: openPull("Add login"), statusGate: gate})
+	repo := githubRepo(t, "fix/PROJ-2-thing")
+	writeFile(t, repo, waitingConfig(webhook(t, &posts)))
+	home := t.TempDir()
+	writeFile(t, home, `{"ui": {"ascii": true}}`)
+
+	terminal := newShownSoFar()
+	released := make(chan struct{})
+
+	go func() {
+		defer close(released)
+
+		releaseOnceShown(t, terminal, gate, "- 0 of 1")
+	}()
+
+	prompt := unusedPrompt(t)
+	prompt.IsTerminal = func(stream io.Writer) bool { return stream == terminal }
+
+	// Act
+	err := cli.Execute(strings.Fields("announce --when-green --yes"), &stdout, terminal, prompt,
+		environmentFor(t, place{dir: repo, home: home}))
+
+	// Assert
+	<-released
+
+	shown := ansi.Strip(terminal.String())
+	if err != nil || posts.Load() != 1 || !strings.Contains(shown, "* CI on #7") {
+		t.Errorf("announce --when-green = %v after %d posts, showing %q; want a live line of CI on #7 in ASCII",
+			err, posts.Load(), shown)
+	}
+
+	for _, never := range unicodeLine() {
+		if strings.Contains(shown, never) {
+			t.Errorf("showing %q, want no %q", shown, never)
+		}
+	}
+}
