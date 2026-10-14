@@ -158,8 +158,10 @@ func (s *server) UpdateConfig(
 func (s *server) writeOver(ctx context.Context, posted api.Config, over basis) api.UpdateConfigResponseObject {
 	incoming, err := fromDTO(posted)
 	if err != nil {
-		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(
-			problem(api.ProblemCodeUnprocessable, invalidReason(err)))
+		refusal := problem(api.ProblemCodeUnprocessable, invalidReason(err))
+		refusal.Fields = refusedSettings(err)
+
+		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(refusal)
 	}
 
 	err = s.keymapRefusal(incoming.UI.Keys)
@@ -220,6 +222,19 @@ func invalidReason(err error) string {
 	reason := strings.TrimPrefix(err.Error(), config.ErrInvalid.Error()+": ")
 
 	return "the configuration is not valid: " + strings.ReplaceAll(reason, "\n", "; ")
+}
+
+// refusedSettings is each setting err refuses, in validation's own words,
+// none of which is a credential.
+func refusedSettings(err error) *[]api.RefusedSetting {
+	fields := config.FieldErrors(err)
+
+	settings := make([]api.RefusedSetting, 0, len(fields))
+	for _, field := range fields {
+		settings = append(settings, api.RefusedSetting{Key: field.Key, Detail: field.Error()})
+	}
+
+	return &settings
 }
 
 // keymapRefusal is why the terminal interface would refuse keys, so a save
