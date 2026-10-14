@@ -10,19 +10,19 @@ says what happens today, what could happen instead, where the change would
 land, and how to tell when it is done. The numbering continues from the entries that
 have since shipped, so an ID is never reused.
 
-Checked against commit `e5156e3` on 2026-10-06: the
-`claude/wizardly-babbage-lptyxi-ux2` branch, where the Summary's post on
-every surface, the web's answer to the terminal's keys and both
-interfaces' first-run setup shipped on top of the `docs/ux-refresh`
-edition at `cac1adf`. This edition also tracked the fixes made on the
-branch since: a setup that refuses a link and keeps no address that is
-not one, a Summary refused when too long for its service, escaped titles,
-one setup at a time, the web's keys held during a confirm and kept off a
-Mac's Control+K, and the terminal telling what was never set up as
-guidance rather than as a failure; an entry they closed is gone, and one
-they narrowed says only what is left. Every pointer was read again at that
-commit. Line numbers drift, so every pointer also names the symbol it
-means.
+Checked against commit `38cfba25` on 2026-10-14, main after the UX
+refresh: every pointer was found again there and its line moved to where
+its symbol now stands, the promises' counts were taken again by the recipe
+under their table, and what stays open across the surfaces was listed
+afresh. The entries and the rest of the prose were last audited in full at
+`e5156e3` on 2026-10-06, the `claude/wizardly-babbage-lptyxi-ux2` branch
+where the Summary's post on every surface, the web's answer to the
+terminal's keys and both interfaces' first-run setup shipped; the commits
+since then edited the sections they changed as they landed, the refresh's
+among them (the track, the visual system, the dialogs, the directory
+picker and Settings). An entry they closed is gone, and one they narrowed
+says only what is left. Line numbers drift, so every pointer also names the
+symbol it means.
 
 ## How this was produced
 
@@ -80,12 +80,12 @@ breaks one names it.
    open, `y` copy), and no binding takes a key a text field uses to edit
    while that field has the focus.
 4. **A failure is never drawn as empty or as rest.** The terminal says it in
-   the failure voice (`errorSentence`, `internal/tui/failure.go:90`); the
+   the failure voice (`errorSentence`, `internal/tui/errorwords.go:67`); the
    web says it in a `role="alert"` line beside what failed. A service that
    is not set up is not a failure: every surface says what is missing and
    how to set it up, beside the not-started mark, as guidance rather than
    an alarm (`loop.NotSetUp` decides which is which, once, and
-   `loop.SetUpAdvice` words it, `internal/loop/summary.go:76`, `:87`).
+   `loop.SetUpAdvice` words it, `internal/loop/setup.go:21`, `:32`).
 5. **Shape carries state, not color.** A glyph's shape, a word or a weight
    tells the state; a hue only repeats it.
 6. **The terminal and the web are equals.** Each can do what the other
@@ -194,26 +194,27 @@ them.
 
 The terminal states its own rules, in its docs and in its code. This table
 is the shortest summary of how far the screen keeps them, re-counted at
-`e5156e3`.
+`38cfba25`.
 
 | The promise | Where it is made | Kept? |
 | --- | --- | --- |
-| "`?` lists every key" | `docs/content/docs/usage.md:89` | **Yes, by construction, and a test enumerates every placement.** Help is generated from the bindings (`helpBuilder.place`, `internal/tui/keys.go:164`, rendered in two columns split where they balance, `balancedSplit`, `internal/tui/help.go:150`): 104 placements — 94 `builder.bind` and 10 `builder.bindShown` calls — in 12 groups (`groupMoving` to `groupPanesAndOverlays`, `internal/tui/keys.go:99`), on 103 lines, since `cycle-type-right` has no help of its own and rides `cycle-type-left`'s line (`internal/tui/keys.go:345`). `TestHelpListsEveryPlacedBinding` (`internal/tui/help_test.go:292`) reads `?` back and holds it to a table of every placement. |
-| "the one way the interface says something broke" | `wording`, `internal/tui/failure.go:51` | **Yes: every site that renders an error's text.** Each is told through `errorSentence` (`internal/tui/failure.go:90`) and drawn by one of eight helpers — those that draw a mark choose it, and its style, through `voice` (`internal/tui/failure.go:430`), the footer's two failure notices through `markOf` (`:418`), which asks the same `loop.NotSetUp`: `failureBlock` at 20 sites, `pinnedOutcome` 16, `failureLine` 24, `failureSummary` 9, `unreadRow` 3, `noticedFailure` 13, `noticedFailureLedBy` 3 and `noticedGuidance` 5 (plain, since red means something broke). They are also the one way the terminal says something was never set up: as guidance, with `○` and no red, in `loop.SetUpAdvice`'s words (`setUp`, `internal/tui/failure.go:145`), as principle 4 asks. |
-| "Nothing outward facing is sent without" a last look | `commentPreview`, `internal/tui/comment.go:54` | **Yes, under principle 2.** Every write that leaves the machine or cannot be taken back waits on a preview or a confirmation, most through `lastLook` (`internal/tui/overlay.go:229`): every write to Jira, the forge and the messaging service, every push, Taskwarrior's sync, mark done and undo, forgetting a person and every directory switch. The reversible local toggles principle 2 names act at once. |
-| "a refused change must never go unseen" | `statusPicker`, `internal/tui/picker.go:321` | **Yes: 19 of 19.** Every overlay that sends a request refuses every key while it is in flight and keeps a refusal where it happened until `esc`: `branchCreator`, `branchLinker`, `branchPicker`, `commentPreview`, `finishPreview`, `hookgenOffer`, `issueLinker`, `issueWrite`, `lastLook`, `mergePicker`, `messagingPreview`, `peopleOverlay`, `prComposer`, `prEditor`, `settingsForm`, `setupForm` (`internal/tui/setupform.go:391`, while it writes or checks), `statusPicker` (with its field form), `summaryPost` and `taskLine`. |
-| "Each pane fails on its own" | `docs/content/docs/usage.md:97` | **Yes.** `Init` (`internal/tui/tui.go:207`) batches eight loads, and the Summary and Repositories panes read on first focus (Init reads Repositories too when it starts focused there, `internal/tui/tui.go:217`); each pane holds and renders its own load's error, the Summary per source, and says of a service never set up how to set it up. |
-| State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:16` | **Yes.** `unicodeGlyphs` and `asciiGlyphs` differ in shape (`internal/tui/glyphs.go:33`, `:45`); `NO_COLOR` keeps bold and faint. Two residues: the progress spine's five system hues are color-only, mitigated by each system's name or initial, and `◐` means both "partly staged" and "announces when CI passes" (see the visual system). |
+| "`?` lists every key" | `docs/content/docs/usage.md:109` | **Yes, by construction, and a test enumerates every placement.** Help is generated from the bindings (`helpBuilder.place`, `internal/tui/keys.go:174`, rendered in two columns split where they balance, `balancedSplit`, `internal/tui/help.go:166`): 104 placements — 94 `builder.bind` and 10 `builder.bindShown` calls — in 15 groups (`groupMoving` to `groupPanesAndOverlays`, `internal/tui/keys.go:108`), on 103 lines, since `cycle-type-right` has no help of its own and rides `cycle-type-left`'s line (`internal/tui/keys.go:271`). `TestHelpListsEveryPlacedBinding` (`internal/tui/help_test.go:309`) reads `?` back and holds it to a table of every placement. |
+| "the one way the interface says something broke" | `wording`, `internal/tui/errorwords.go:28` | **Yes: every site that renders an error's text.** Each is told through `errorSentence` (`internal/tui/errorwords.go:67`) and drawn by one of nine helpers — those that draw a mark choose it, and its style, through `voice` (`internal/tui/failure.go:79`), the footer's two failure notices through `markOf` (`:67`), which asks the same `loop.NotSetUp`: `failureBlock` at 22 sites, `pinnedOutcome` 18, `pinnedProblem` 2, `failureLine` 19, `failureSummary` 9, `unreadRow` 3, `noticedFailure` 15, `noticedFailureLedBy` 3 and `noticedGuidance` 7 (plain, since red means something broke). They are also the one way the terminal says something was never set up: as guidance, with `○` and no red, in `loop.SetUpAdvice`'s words (`setUp`, `internal/tui/errorwords.go:129`), as principle 4 asks. |
+| "Nothing outward facing is sent without" a last look | `commentPreview`, `internal/tui/comment.go:53` | **Yes, under principle 2.** Every write that leaves the machine or cannot be taken back waits on a preview or a confirmation, most through `lastLook` (`internal/tui/overlay.go:220`): every write to Jira, the forge and the messaging service, every push, Taskwarrior's sync, mark done and undo, forgetting a person and every directory switch. The reversible local toggles principle 2 names act at once. |
+| "a refused change must never go unseen" | `statusPicker`, `internal/tui/picker.go:328` | **Yes: 19 of 19.** Every overlay that sends a request refuses every key while it is in flight and keeps a refusal where it happened until `esc`: `branchCreator`, `branchLinker`, `branchPicker`, `commentPreview`, `finishPreview`, `hookgenOffer`, `issueLinker`, `issueWrite`, `lastLook`, `mergePicker`, `messagingPreview`, `peopleOverlay`, `prComposer`, `prEditor`, `settingsForm`, `setupForm` (`internal/tui/setupform.go:264`, while it writes or checks), `statusPicker` (with its field form), `summaryPost` and `taskLine`. |
+| "Each pane fails on its own" | `docs/content/docs/usage.md:117` | **Yes.** `Init` (`internal/tui/tui.go:214`) batches eight loads, and the Summary and Repositories panes read on first focus (Init reads Repositories too when it starts focused there, `internal/tui/tui.go:224`); each pane holds and renders its own load's error, the Summary per source, and says of a service never set up how to set it up. |
+| State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:19` | **Yes.** `unicodeGlyphs` and `asciiGlyphs` differ in shape (`internal/tui/glyphs.go:48`, `:65`); `NO_COLOR` keeps bold and faint. Two residues: the progress spine's five system hues are color-only, mitigated by each system's name or initial, and `◐` means both "partly staged" and "announces when CI passes" (see the visual system). |
 
 To re-count rather than trust these numbers: `grep -o '\bfailureBlock('
 internal/tui/*.go`, tests excluded, and the same for each helper, less
 what `failure.go` itself holds — each helper's definition, the `Model`
 wrappers and the calls one helper makes into another there
-(`pinnedOutcome`'s `failureBlock`, `noticedFailure`'s
-`noticedFailureLedBy`); `grep -n 'send\.sending\|sending\.sending'
+(`pinnedOutcome`'s and `pinnedProblem`'s `failureBlock`,
+`noticedFailure`'s `noticedFailureLedBy`); `grep -n 'send\.sending\|sending\.sending'
 internal/tui/*.go` for the overlays that guard a send, keeping the types
 whose key handler returns on it; and the `builder.bind(` and
-`builder.bindShown(` calls in `internal/tui/keys.go` for the help.
+`builder.bindShown(` calls in `internal/tui/keys.go` and
+`internal/tui/panekeys.go` for the help.
 
 ## The command line
 
@@ -229,9 +230,9 @@ delay, and undo.
 Impact: low · Effort: medium
 
 **Today.** `NO_COLOR` and `ui.color: never` keep bold and faint
-(`UI.DrawColor`, `internal/config/ui.go:61`; `Model.WithoutColor`,
+(`UI.DrawColor`, `internal/config/ui.go:113`; `Model.WithoutColor`,
 `internal/tui/options.go:54`); `ui.ascii` swaps glyphs and borders
-(`asciiGlyphs`, `internal/tui/glyphs.go:45`); escapes in server text are
+(`asciiGlyphs`, `internal/tui/glyphs.go:65`); escapes in server text are
 neutralized. But there is no screen-reader mode; the alternate screen is
 unconditional (`Model.View`, `internal/tui/render.go:38`, `view.AltScreen
 = true`), so nothing the interface prints survives quitting; `ui.color`
@@ -242,8 +243,8 @@ and nothing offers a plain mode that prints a line at a time
 instead; the command line is the only other way in.
 
 **Instead.** `ui.alt_screen: false` for inline rendering; `ui.color:
-always`, which `Config.validateUI` (`internal/config/ui.go:69`) and the
-`UIConfig.color` enum (`api/openapi.yaml:4796`) refuse until they list it;
+always`, which `Config.validateUI` (`internal/config/ui.go:134`) and the
+`UIConfig.color` enum (`api/openapi.yaml:5461`) refuse until they list it;
 `ui.detail_delay` in milliseconds.
 
 **Done when.** Each setting is read and honored by a screen test.
@@ -253,18 +254,18 @@ always`, which `Config.validateUI` (`internal/config/ui.go:69`) and the
 Impact: low · Effort: large
 
 **Today.** Drafts survive `esc` (the commit, `commitComposer.handleKey`,
-`internal/tui/composer.go:257`; the pull request, `prComposer.handleKey`,
-`internal/tui/prcomposer.go:351`), a dirty tree blocks a switch instead of
-stashing (`errDirtyTree`, `internal/tui/switchtask.go:25`), and quit is
+`internal/tui/composer.go:241`; the pull request, `prComposer.handleKey`,
+`internal/tui/prcomposer.go:294`), a dirty tree blocks a switch instead of
+stashing (`loop.ErrDirtyTree`, `internal/loop/guards.go:18`), and quit is
 guarded while an announcement waits (`quitGuard`,
 `internal/tui/messagingheld.go`). But a posted comment, an applied
 transition, a merge and the `git branch -D` in finish
-(`finishPreview.commands`, `internal/tui/finish.go:96`) have no undo, and
+(`finishPreview.commands`, `internal/tui/finish.go:94`) have no undo, and
 the interface never says which acts are reversible: the finish preview
 lists the three commands and says nothing of what `-D` costs
-(`finishPreview.view`, `internal/tui/finish.go:102`), and a comment's notice
+(`finishPreview.view`, `internal/tui/finish.go:100`), and a comment's notice
 is "commented on KEY" (`commentPosted.apply`,
-`internal/tui/comment.go:144`).
+`internal/tui/comment.go:140`).
 
 **Instead.** Short of undo: the finish preview says "deletes NAME; the
 commits stay reachable from BASE"; a comment's success notice carries the
@@ -281,34 +282,34 @@ Nothing is open here at the moment.
 
 What is there is a real system, and a good one for a terminal: five
 systems' hues — Jira blue, git yellow, the forge green, chat magenta and
-Taskwarrior cyan (`newStyles`, `internal/tui/glyphs.go:114`; Taskwarrior's
-marks the active task at the spine's end, `internal/tui/spine.go:122`) —
+Taskwarrior cyan (`newStyles`, `internal/tui/glyphs.go:148`; Taskwarrior's
+marks the active task at the spine's end, `internal/tui/spine.go:276`) —
 and red for failure alone, all taken from the terminal's own palette as
-ANSI indices (`internal/tui/glyphs.go:100`) so the user's theme decides
+ANSI indices (`internal/tui/glyphs.go:134`) so the user's theme decides
 the shades; shape for state (`○ ◐ ● ✗`, or `o * # x` in ASCII,
-`internal/tui/glyphs.go:35`, `:47`); border weight for focus. None of that
+`State.Glyph`, `internal/progress/progress.go:33`); border weight for focus. None of that
 should change.
 
 The shapes now mark more than a status, and stay on one axis while they
 do: `○` not begun, `◐` under way or partway, `●` done, `✗` broke. `◐`
-means both "partly staged" on the Commits pane (`Model.stageGlyph`,
-`internal/tui/commits.go:170`) and "announces when CI passes" on the
+means both "partly staged" on the Commits pane (`stageGlyph`,
+`internal/tui/commits.go:174`) and "announces when CI passes" on the
 Messaging pane (`messagingState.standing`, beside `queuedPost.waitingOn` in
 `internal/tui/messagingheld.go`);
 that is not a conflict, since each is the halfway point of its own
 progression and words stand beside it. The rule a new use must keep: a
 state glyph says how far something has got, never anything else. A
 checkbox therefore has its own shapes, `[x]` and `[ ]` in both glyph
-sets (`glyphs.checkbox`, `internal/tui/glyphs.go`). Three marks are not states
+sets (`checkbox`, `internal/tui/glyphs.go`). Three marks are not states
 and take shapes of their own: `★` (`^` in ASCII) for a favorite
 directory, `‹›` (`<>` in ASCII) for the value under a cursor — the
-calendar's and the commit type's (`internal/tui/calendar.go:117`,
-`internal/tui/composer.go:216`) — and `[]` for the value another calendar
-column stands on (`internal/tui/calendar.go:119`). The diff is the one documented exception to
+calendar's and the commit type's (`internal/tui/calendar.go:115`,
+`internal/tui/composer.go:203`) — and `[]` for the value another calendar
+column stands on (`internal/tui/calendar.go:117`). The diff is the one documented exception to
 the hue rule: an added line is drawn in the forge's green and a removed
-one in red (`Model.markDiffLine`, `internal/tui/diff.go:111`, `:113`;
-`styles`, `internal/tui/glyphs.go:90`), where the `+` and `-` git leaves
-in place carry the meaning by shape (`internal/tui/diff.go:68`). Border
+one in red (`markDiffLine`, `internal/tui/diff.go:111`, `:113`;
+`styles`, `internal/tui/glyphs.go:121`), where the `+` and `-` git leaves
+in place carry the meaning by shape (`internal/tui/diff.go:70`). Border
 weight is the one rule the screen loses at its commonest size: at 80 by
 24 the detail draws borderless, and the rail's heavy rules around the
 focused pane carry the focus instead.
@@ -330,7 +331,7 @@ frames through `Deps.After`, only while something moves, never while the
 first screen fills in, and never under `ui.motion: reduce`.
 
 The web now speaks it too. The five systems' hues are tokens in both
-themes (`web/src/index.css:87`), held at least 30° of OKLCH hue from the
+themes (`web/src/index.css:113`), held at least 30° of OKLCH hue from the
 status lights, the periwinkle control accent and each other, and at 4.5:1
 as text, by `web/src/tokens.test.ts`; that separation moves two off the
 terminal's families — the forge is teal, clear of the success light's
@@ -345,7 +346,7 @@ Review rule by CI's share of checks; the fill is a transform under
 through one `StateMark` (`web/src/lib/StateMark.tsx`), hidden from
 assistive tech beside its words. Type, space and corners each have one
 scale (`web/src/index.css`), headings are set in sentence case — the
-web lint refuses an `uppercase` class (`web/eslint.config.js:38`) — and
+web lint refuses an `uppercase` class (`web/eslint.config.js:41`) — and
 the face is Recursive, latin alone (TRADE-48): proportional, `MONO` 0, for
 prose, and `MONO` 1, every letter one width, for code alone. The dialogs —
 the command palette and the `?` sheet — are Base UI's Dialog and
@@ -370,7 +371,7 @@ sits over its detail, and at every width it scrolls in its own pane, over a
 line saying how many it holds. The header holds still while the content
 scrolls beneath it, and a word wider than the content breaks rather than
 scroll it sideways. `web/e2e/layout.spec.ts` holds every section to 640,
-1024 and 1440 px in both themes (`web/e2e/layout.spec.ts:19`): nothing
+1024 and 1440 px in both themes (`web/e2e/layout.spec.ts:22`): nothing
 scrolls sideways, nor the page down, Tab reaches every control, each in
 view as it takes focus, and axe finds nothing. It holds the steps a click
 opens to the same widths — the pull request form, the push and discard
@@ -379,10 +380,29 @@ remove confirmations, a refused write and the first run's setup.
 
 ## Across the surfaces
 
-Nothing is open here at the moment. What each surface can do is the
-table at the head of this file, and the names the three surfaces share are
-the Vocabulary table's beside it; a sentence one surface words differently
-from another, or that assumes GitHub or the terminal, is an entry here.
+No entry is open here. What each surface can do is the table at the head
+of this file, and the names the three surfaces share are the Vocabulary
+table's beside it; a sentence one surface words differently from another,
+or that assumes GitHub or the terminal, is an entry here.
+
+Three differences between the terminal and the web stay open by decision,
+each recorded where it is kept:
+
+- **A dry run.** Under `--dry-run` the terminal narrates each write it
+  holds back; the web refuses every write before it is sent and cannot
+  show what one would have done (TRADE-3).
+- **A Jira setting saved.** The terminal's Settings reopens the interface
+  with the file saved when no announcement or task change is in flight and
+  nothing would be lost; otherwise it asks first, and staying keeps the
+  save for when workflow next opens. With no directory to reopen in, it
+  says the save waits for the next start. On the web a change to Jira's
+  address, token, views or `issues.forge` applies once `workflow --web`
+  starts again or switches directory (TRADE-24).
+- **A task change at the loop's moments.** The terminal offers to start
+  the issue's task when its branch is made or checked out, note the pull
+  request on it, and complete it on a merge or a move to done; the web
+  leaves each to the Tasks card's and the Tasks section's buttons, pressed
+  when you choose (web.md's "What stays in the terminal").
 
 The rule the last looks follow was chosen by the maintainer: **confirm
 what leaves the machine or cannot be undone; a reversible local toggle
@@ -410,7 +430,7 @@ reader needs more than that. The interface redraws one full screen of
 boxes each frame (`view.AltScreen = true`, `internal/tui/render.go:38`),
 so a reader re-reads the rail, the borders and the footer at every
 change, and the one line that says what just happened — the notice
-(`Model.noticed`, `internal/tui/overlay.go:181`) — sits among them.
+(`Model.noticed`, `internal/tui/overlay.go:172`) — sits among them.
 Forms are the one part already read well: with `ui.accessible` or
 `ACCESSIBLE`, a status change's fields are asked as Huh's plain prompts,
 one question at a time (`promptedForm`, `internal/tui/huhform.go`), but
@@ -444,7 +464,7 @@ of its own.
 ## Ideas that would reopen a settled decision
 
 None this edition. The nine-pane rail (`paneCount`,
-`internal/tui/panes.go:36`), once written up as five in FEATURES.md, six
+`internal/tui/panes.go:38`), once written up as five in FEATURES.md, six
 before the Tasks pane joined it, seven before the Summary and eight
 before Repositories, *is* the decision as built. UX-154's lines mode
 draws the same nine panes one at a time, on request, rather than
