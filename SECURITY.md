@@ -63,7 +63,8 @@ In scope:
 - The `workflow --web` surface: the local server it binds to `127.0.0.1` (the
   REST API `api/openapi.yaml` describes, and its event stream), and the
   browser app in `web/` that the release binary embeds and serves.
-- The published release binaries and their checksums and attestations.
+- The published release binaries and their checksums and attestations, and
+  the Homebrew formula written from them.
 - Credential handling in particular — anything that writes a Jira, forge or
   messaging credential (a token, or a webhook URL, which is itself the
   credential) somewhere it should not go, logs one, or prints one unmasked, is
