@@ -57,3 +57,12 @@ func (m Model) WithoutColor() Model {
 
 	return m
 }
+
+// WithAccessibleForms is the interface asking each multi-field form's
+// questions as plain prompts that take the whole terminal, one at a time, for
+// a screen reader, rather than drawing the form over the screen.
+func (m Model) WithAccessibleForms() Model {
+	m.accessibleForms = true
+
+	return m
+}

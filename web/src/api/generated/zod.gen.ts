@@ -1126,6 +1126,7 @@ export const zUiConfig = z.object({
     ascii: z.boolean().optional(),
     color: z.enum(['', 'never']).optional(),
     motion: z.enum(['', 'reduce']).optional(),
+    accessible: z.boolean().optional(),
     notify: z.boolean().optional(),
     comments_shown: z.int().gte(0).optional(),
     keys: z.record(z.string(), z.string()).nullish(),

@@ -150,12 +150,13 @@ test("the terminal's drawing is saved as chosen", async () => {
   await userEvent.click(screen.getByRole('checkbox', { name: 'Draw in plain ASCII' }))
   await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Color' }), 'Never')
   await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Motion' }), 'Reduced')
+  await userEvent.click(screen.getByRole('checkbox', { name: 'Ask forms as plain prompts' }))
 
   // Act
   const sent = await saved(requests)
 
   // Assert
-  expect(sent.ui).toMatchObject({ ascii: true, color: 'never', motion: 'reduce' })
+  expect(sent.ui).toMatchObject({ ascii: true, color: 'never', motion: 'reduce', accessible: true })
 })
 
 test('a key typed for an action is saved in ui.keys, and an empty one is left out', async () => {

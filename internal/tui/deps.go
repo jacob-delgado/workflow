@@ -39,7 +39,10 @@ type Deps struct {
 	Messaging seams.Messaging
 	Hooks     seams.Hooks
 	Editor    EditorDeps
-	Store     seams.Store
+	// Forms asks a form's questions as plain prompts, when the interface is
+	// told to; see FormDeps.
+	Forms FormDeps
+	Store seams.Store
 	// Tasks is nil-fielded when no task program is found or the integration is
 	// disabled; see seams.Tasks.
 	Tasks        seams.Tasks

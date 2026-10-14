@@ -47,8 +47,12 @@ type fieldAnswer struct {
 	options []string
 }
 
-// fieldsFilled is the form's last field filled in: the transition can go.
-type fieldsFilled struct{ form *huh.Form }
+// fieldsFilled is the form's last field filled in, the transition can go; or,
+// asked as prompts, the error that stopped them.
+type fieldsFilled struct {
+	form *huh.Form
+	err  error
+}
 
 var _ applier = fieldsFilled{}
 
@@ -76,22 +80,24 @@ func newFieldForm(move jira.Transition, kit renderKit, keys keyMap, width, rows 
 // huhField is the Huh field that fills in one of a transition's fields into
 // answer, refusing what Jira's own field checks refuse: text typed for a text,
 // user or date field, several options for a list, and one option for any
-// other kind a form can fill.
+// other kind a form can fill. Each check is of the answer Huh hands it, which
+// a plain prompt checks before it keeps it in answer.
 //
 //nolint:ireturn // a Huh group holds any of its field kinds behind huh.Field
 func huhField(field jira.Field, title string, answer *fieldAnswer) huh.Field {
 	switch {
 	case textual(field.Kind):
 		return newQuietInput(title, placeholder(field.Kind), &answer.text).
-			checkedBy(func(string) error { return answer.checked(field) })
+			checkedBy(func(text string) error { return (&fieldAnswer{text: text}).checked(field) })
 	case field.Kind == jira.FieldOptionList:
 		// Its height is named: left to itself, Huh counts its options' rows and
 		// takes the title out of them, drawing one option too few.
 		return huh.NewMultiSelect[string]().Title(title).Options(huhOptions(field)...).Value(&answer.options).
-			Height(len(field.Options) + 1).Validate(func([]string) error { return answer.checked(field) })
+			Height(len(field.Options) + 1).
+			Validate(func(options []string) error { return (&fieldAnswer{options: options}).checked(field) })
 	default:
 		return huh.NewSelect[string]().Title(title).Options(huhOptions(field)...).Value(&answer.option).
-			Validate(func(string) error { return answer.checked(field) })
+			Validate(func(option string) error { return (&fieldAnswer{option: option}).checked(field) })
 	}
 }
 
@@ -242,10 +248,34 @@ func (msg fieldsFilled) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
+	problem := msg.err
+	if problem == nil {
+		problem = picker.form.problem()
+	}
+
+	if problem != nil {
+		m.overlay = picker.failed(problem)
+
+		return m, nil
+	}
+
 	move, values := picker.form.transition, picker.form.values()
 	picker.form = fieldForm{}
 
 	return picker.apply(m, move, values)
+}
+
+// problem is the first field whose answer cannot be accepted, nil once
+// every one can: prompts that ended early leave some unanswered.
+func (f fieldForm) problem() error {
+	for index, field := range f.transition.Fields {
+		err := f.answers[index].checked(field)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // values are what was entered for every field, in the shape each kind needs.

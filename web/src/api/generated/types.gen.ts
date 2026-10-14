@@ -1973,6 +1973,10 @@ export type UiConfig = {
      * Empty for the terminal's motion (a turning in-flight mark, a stage's rule filling), or "reduce" to draw every state still.
      */
     motion?: '' | 'reduce';
+    /**
+     * Whether the terminal's forms ask as plain prompts, one question at a time, rather than drawn over the screen.
+     */
+    accessible?: boolean;
     notify?: boolean;
     /**
      * How many comments the detail shows; 0 means the built-in default.

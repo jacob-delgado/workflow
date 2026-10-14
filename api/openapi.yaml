@@ -5431,6 +5431,11 @@ components:
             Empty for the terminal's motion (a turning in-flight mark, a
             stage's rule filling), or "reduce" to draw every state still.
           enum: ["", reduce]
+        accessible:
+          type: boolean
+          description: >-
+            Whether the terminal's forms ask as plain prompts, one question at
+            a time, rather than drawn over the screen.
         notify: {type: boolean}
         comments_shown:
           type: integer
