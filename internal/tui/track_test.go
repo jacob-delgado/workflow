@@ -74,38 +74,48 @@ func TestStagesStillToComeAreFaintAndOpen(t *testing.T) {
 	}
 }
 
-func TestTheTrackFitsAnEightyColumnTerminal(t *testing.T) {
+func TestTheTrackGivesWayAsRoomRunsOut(t *testing.T) {
 	t.Parallel()
 
-	// Act
-	spine := spineLine(newWorld().live(t, 80, 24).View().Content)
-
-	// Assert
-	if width := ansi.StringWidth(spine); width > 80 {
-		t.Errorf("the track is %d columns wide on an 80-column terminal:\n%s", width, ansi.Strip(spine))
+	cases := map[string]struct {
+		cols, rows int
+		ascii      bool
+		want       string
+	}{
+		"an eighty-column terminal names every stage": {
+			cols: 80, rows: 24,
+			want: "● Issue ━ ● Branch ━ ● Commits ━ ● Review ━ ○ Slack",
+		},
+		"a terminal under sixty columns names the stages by initial": {
+			cols: 59, rows: 40,
+			want: " I● ━ B● ━ C● ━ R● ━ S○",
+		},
+		"an ASCII terminal draws the rules in plain characters": {
+			cols: 120, rows: 40, ascii: true,
+			want: "# Issue = # Branch = # Commits = # Review = o Slack",
+		},
 	}
 
-	requireScreen(t, track(spine), "● Issue ━ ● Branch ━ ● Commits ━ ● Review ━ ○ Slack")
-}
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-func TestANarrowTerminalNamesTheStagesByInitial(t *testing.T) {
-	t.Parallel()
+			// Act
+			model := newWorld().live(t, tt.cols, tt.rows)
+			if tt.ascii {
+				model = asciiInterface(t, newWorld(), tt.cols, tt.rows)
+			}
 
-	// Act
-	view := newWorld().live(t, 59, 40).View().Content
+			view := model.View().Content
 
-	// Assert
-	requireScreen(t, track(view), " I● ━ B● ━ C● ━ R● ━ S○")
-}
+			// Assert
+			if width := ansi.StringWidth(spineLine(view)); width > tt.cols {
+				t.Errorf("the track is %d columns wide on a %d-column terminal:\n%s", width, tt.cols, ansi.Strip(spineLine(view)))
+			}
 
-func TestTheTrackDrawsItsRulesInASCII(t *testing.T) {
-	t.Parallel()
-
-	// Act
-	view := asciiInterface(t, newWorld(), 120, 40).View().Content
-
-	// Assert
-	requireScreen(t, track(view), "# Issue = # Branch = # Commits = # Review = o Slack")
+			requireScreen(t, track(view), tt.want)
+		})
+	}
 }
 
 func TestReviewsRuleFillsAsItsChecksFinish(t *testing.T) {
