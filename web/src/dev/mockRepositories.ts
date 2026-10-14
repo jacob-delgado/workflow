@@ -101,9 +101,10 @@ const subdirectories: Record<string, { name: string; repository: boolean }[]> = 
   '/home/ana/src/api': [{ name: 'cmd', repository: false }],
 }
 
-// mockDirectories lists a directory of the mockup's, as the server would.
-export function mockDirectories(path: string): DirectoryListing {
-  const entries = subdirectories[path] ?? []
+// mockDirectories lists a directory of the mockup's, as the server would:
+// those whose names start with prefix, all of them for ''.
+export function mockDirectories(path: string, prefix = ''): DirectoryListing {
+  const entries = (subdirectories[path] ?? []).filter((entry) => entry.name.startsWith(prefix))
   const parent = path.slice(0, Math.max(path.lastIndexOf('/'), 1))
 
   return {
