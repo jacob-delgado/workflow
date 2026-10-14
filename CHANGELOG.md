@@ -1,5 +1,153 @@
 # Changelog
 
+## [0.10.0](https://github.com/jacob-delgado/workflow/compare/v0.9.1...v0.10.0) (2026-10-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* **loop:** `workflow announce --yes` exits 4 on a pull request a check failed on, where it used to post; POST /api/announce answers 409 with code ci_failed there; loop.Deliver takes DeliverSeams and a Delivery carrying the pull request in place of Made.
+* **api:** POST /api/runs no longer takes kind pre_commit; send {"kind":"hook","hook":"pre-commit"}. GET /api/hooks lists the hooks it takes.
+* **tui:** the ui.keys action run-pre-commit is renamed run-hook. A map that still names run-pre-commit is refused at start as an unknown action (exit status 3); rename it. h now opens a list of lefthook's hooks; enter runs pre-commit, as h alone did.
+
+### Features
+
+* **api:** run any hook lefthook runs by hand through /api/runs ([8c7adad](https://github.com/jacob-delgado/workflow/commit/8c7adad3cd4b7dbf512f5cec49a42487e97887a4))
+* **api:** send a view's kept issues before the first snapshot ([9338fd3](https://github.com/jacob-delgado/workflow/commit/9338fd3497410997c75581006455e379566130de))
+* **cli:** announce and post the summary in the channel asked ([87d5630](https://github.com/jacob-delgado/workflow/commit/87d563053b59b164936ccff1df23f7555f184dc8))
+* **cli:** assign an issue with workflow assign ([99f594c](https://github.com/jacob-delgado/workflow/commit/99f594c9cfcc9a6d6fd1730ccecb43b2cf02b476))
+* **cli:** complete the issue key of every issue command ([461f526](https://github.com/jacob-delgado/workflow/commit/461f526c307e5cc5a767382621f3ead8c882c78f))
+* **cli:** draw status's marks in ASCII with --plain ([7b5796b](https://github.com/jacob-delgado/workflow/commit/7b5796b1d95b83a1192830f181a31e10ecefbaa3))
+* **cli:** finish a merged branch with workflow finish ([91cfb1c](https://github.com/jacob-delgado/workflow/commit/91cfb1c38b86da8818e5436969ac3683022ce5de))
+* **cli:** list a view's issues and read one with issues and issue ([7927a9c](https://github.com/jacob-delgado/workflow/commit/7927a9c58460bcdc15805c09e90b0c8865bbb9d9))
+* **cli:** log work on a Jira issue with workflow worklog ([92aced6](https://github.com/jacob-delgado/workflow/commit/92aced64cd5e656ea681afaf5e24e30d787e227d))
+* **cli:** move an issue to a status with workflow transition ([a9060fa](https://github.com/jacob-delgado/workflow/commit/a9060fa89e2bb51d24ca425d5e7d8affc80b80fb))
+* **cli:** open a draft, into a chosen base, asking chosen reviewers ([3d119c4](https://github.com/jacob-delgado/workflow/commit/3d119c499c89c27ba8eca0ba49b52d868b3283e1))
+* **cli:** open and then announce once CI passes with pr --announce ([3ed69e3](https://github.com/jacob-delgado/workflow/commit/3ed69e33f6cd0d826c53d2418f8d525e6519efb9))
+* **cli:** spell --dry-run, --yes and --json as -n, -y and -j ([648390c](https://github.com/jacob-delgado/workflow/commit/648390c9e73db5384be60c4362d9d4b2ea516c82))
+* **cli:** title, describe and template a pull request from flags ([9eeb89c](https://github.com/jacob-delgado/workflow/commit/9eeb89c237504e47740778ee40176b9c3d92114d))
+* **cli:** wait for CI to pass with announce --when-green ([001fcce](https://github.com/jacob-delgado/workflow/commit/001fcce7638c42b3df35144f6894b6f03d3d34f8))
+* **config:** turn automatic announcing off with messaging.auto_announce ([d0f412b](https://github.com/jacob-delgado/workflow/commit/d0f412bcdb21b724375fe11c8fc46f163a68c745))
+* fetch the base remote before starting work ([78f7ba1](https://github.com/jacob-delgado/workflow/commit/78f7ba117e35a2164d7284ac26242159dff5a29a))
+* **forge:** find and open a GitHub pull request from a fork ([ab30013](https://github.com/jacob-delgado/workflow/commit/ab3001399ac05f5c6039ab156cddf3b2c1e8a70b))
+* **forge:** find and open a GitLab merge request from a fork ([cec7469](https://github.com/jacob-delgado/workflow/commit/cec7469cdfd6ea29696ea84f0379c601f4dddfaf))
+* **gitrepo:** push a branch where its own pushRemote says ([2509ca0](https://github.com/jacob-delgado/workflow/commit/2509ca0c1c025e3cc2fd012f436048ce311443bb))
+* **gitrepo:** read the base on the remote gh marked, else upstream ([64b8752](https://github.com/jacob-delgado/workflow/commit/64b875245f0c583a2b449a39974c376005ca206d))
+* **hooks:** read which configured hooks a run by hand can run ([1b01e71](https://github.com/jacob-delgado/workflow/commit/1b01e713d099473bbdb59142c7acf0488f1d374e))
+* **loop:** announce a pull request at two moments, ready and merged ([684e32a](https://github.com/jacob-delgado/workflow/commit/684e32ac4c983efcda916db1c151fe5c8b5e0d15))
+* **loop:** compose a pull request into the base a surface chose ([b239d5b](https://github.com/jacob-delgado/workflow/commit/b239d5ba0370f16dd30db7cbb0e63fafccddbeb0))
+* **loop:** draft a pull request from the commits past the base chosen ([d5ab1fa](https://github.com/jacob-delgado/workflow/commit/d5ab1facef1dbeddf050cc6a0f541aaa2d71e8d2))
+* **loop:** refuse to announce a pull request a check failed on ([7f4d6fd](https://github.com/jacob-delgado/workflow/commit/7f4d6fdbb160dd4e2d0714917b650481312bc152))
+* **loop:** watch an armed announcement's CI until it passes ([9d230ac](https://github.com/jacob-delgado/workflow/commit/9d230ac45678ba18505bfc49adac59bd23d5a76c))
+* **release:** point a Homebrew tap at each release ([4d34cba](https://github.com/jacob-delgado/workflow/commit/4d34cba94e1cab30f9e36fc13f5204f628989a47))
+* say where a push goes when it is not the base remote ([a6d8a6e](https://github.com/jacob-delgado/workflow/commit/a6d8a6e820d33adb50db0fdc9c774a1b5e850194))
+* show the base repository beside origin where they differ ([6ac5103](https://github.com/jacob-delgado/workflow/commit/6ac5103fe45a267a7ae8628afb101a9b314c05e1))
+* **tui:** arm a pull request's announcement as it opens ([ac185d3](https://github.com/jacob-delgado/workflow/commit/ac185d3004b7ff80fdf5b849dd9f1b9367887134))
+* **tui:** choose which of lefthook's hooks h runs ([e72b5a4](https://github.com/jacob-delgado/workflow/commit/e72b5a497acaee190b483d804b19a42244445cc1))
+* **tui:** draft the pull request again onto the base typed in ([3ecdd5c](https://github.com/jacob-delgado/workflow/commit/3ecdd5c2349d4af7399be749a14ddb5153ccefd6))
+* **tui:** hold a waiting announcement through a failed run ([cd67dfd](https://github.com/jacob-delgado/workflow/commit/cd67dfd04a9a3c9c174de22b17ccb10a5ab298ca))
+* **tui:** say why a merged branch cannot be finished ([2215e58](https://github.com/jacob-delgado/workflow/commit/2215e58155bcf1df3fc820c87ac9efd5b605f5b5))
+* **web:** choose the hook Run a hook runs ([94f5f6d](https://github.com/jacob-delgado/workflow/commit/94f5f6d1f24a9cd536a02386b0e3c8fd42cff73d))
+* **web:** draft the pull request again past the base chosen ([0568cce](https://github.com/jacob-delgado/workflow/commit/0568cce2e6c35631a7e9cb89e82ea8dbdff49968))
+* **web:** list the view's kept issues before the first update ([d1e483f](https://github.com/jacob-delgado/workflow/commit/d1e483f41217738109933dee558a12de7c22fd3c))
+* **web:** name the fields a move to the review status asks for ([468de0f](https://github.com/jacob-delgado/workflow/commit/468de0f9ddc039c0bbc6d48e0718d661d4d0f5f7))
+* **web:** say the opened pull request's announcement is armed ([0dc53c6](https://github.com/jacob-delgado/workflow/commit/0dc53c67c5c4a4065790c27cacde36eeaa8efbc4))
+* **web:** say what a held announcement waits on ([979a9bf](https://github.com/jacob-delgado/workflow/commit/979a9bf304a452ba43014608f3acb3faf9b5eeb4))
+* **web:** say why a merged branch cannot be finished ([fca69ab](https://github.com/jacob-delgado/workflow/commit/fca69ab6ff92be2aee6e9b93a6052bb59ec5249d))
+* **webserver:** arm the announcement of a pull request the page opens ([5927657](https://github.com/jacob-delgado/workflow/commit/5927657ecd01c8fe67d25a42ba49ad7581fba5fc))
+* **webserver:** hold an announcement through a failed run ([9d63950](https://github.com/jacob-delgado/workflow/commit/9d6395015f46b22e79d74813e6a97d15d61ea142))
+* **webserver:** keep each view's first page for the next session ([3292a8f](https://github.com/jacob-delgado/workflow/commit/3292a8f9565fb2cf34f277086cf0498cbfb51d68))
+* **wiring:** list lefthook's configured hooks through the seams ([9de4ea7](https://github.com/jacob-delgado/workflow/commit/9de4ea7923cd788a448f2b46c9b317c513a0dd7a))
+* **wiring:** reach the forge at the base and open from the push remote ([8d67a7c](https://github.com/jacob-delgado/workflow/commit/8d67a7c13ae56d949a550d1e3f2a223dfe14bc06))
+
+
+### Bug Fixes
+
+* catch a finished branch's base up from the base remote ([b623763](https://github.com/jacob-delgado/workflow/commit/b62376339bc9c5f6c0cc9d386163b1e9ab3c2dd8))
+* **cli:** label status . by the directory it names ([1dd6f05](https://github.com/jacob-delgado/workflow/commit/1dd6f0581efe3cbb4d44e92d3f61d5a8776b79be))
+* **cli:** link the key the tracker answered with in workflow issue ([128cac8](https://github.com/jacob-delgado/workflow/commit/128cac8df64988d99b0ffad7d43643f52150718a))
+* **cli:** trim transition's status and refuse a blank one as usage ([fcc70b5](https://github.com/jacob-delgado/workflow/commit/fcc70b57f24d39714eb445e704dada422e674e9e))
+* **forge:** pass over a fork's merge request from a same-named branch ([7383e0a](https://github.com/jacob-delgado/workflow/commit/7383e0a7bd27275262424cb41b96aa0789858c74))
+* **forge:** read a GitLab pipeline's jobs, retry and log where it ran ([5cda270](https://github.com/jacob-delgado/workflow/commit/5cda270d40403d82e3ada250c16bdf07ae24d00f))
+* **gitrepo:** switch to a branch two remotes hold by way of the base ([861b839](https://github.com/jacob-delgado/workflow/commit/861b8390d0356ce2699e8f43cf199acf20c40b5c))
+* **hooks:** see a lefthook.jsonc as the configuration it is ([2d92cda](https://github.com/jacob-delgado/workflow/commit/2d92cdae135f94151acb8f2871059c74ffe48b90))
+* **loop:** refuse a finish that would lose commits, and say why ([fba9e40](https://github.com/jacob-delgado/workflow/commit/fba9e40159b2ed32706c5a376acf4dd844e6c276))
+* **release:** write a formula brew style and brew audit --strict pass ([58fc93f](https://github.com/jacob-delgado/workflow/commit/58fc93f7ffc0b13832ebde633f67eb1da2f755ec))
+* **report:** carry a status under Jira's No Category as not yet started ([82d3f7f](https://github.com/jacob-delgado/workflow/commit/82d3f7f272c03915ef864b287e9c9027bf287280))
+* say to re-run a merge's failed checks rather than wait for CI ([0a08891](https://github.com/jacob-delgado/workflow/commit/0a0889172db5a1d22f07402e2e4cd364e0741509))
+* **tui:** drop a waiting post whose pull request merged first ([0a2a7c7](https://github.com/jacob-delgado/workflow/commit/0a2a7c7088f4d2e5ab317709c5be66b12000b137))
+* **tui:** keep reading CI for a waiting post after a read fails ([db7adbf](https://github.com/jacob-delgado/workflow/commit/db7adbfbd1367dbb44a6a9317db6e9d84bd5967e))
+* **tui:** re-read the store before a held post goes ([654f56b](https://github.com/jacob-delgado/workflow/commit/654f56b8a4b2de46fed096d2f8e29d3b201dff96))
+
+
+### Refactors
+
+* **cli:** build announce's seams once for announce and pr ([b60d86e](https://github.com/jacob-delgado/workflow/commit/b60d86ef7f40119c01a72c831278919d002c2d82))
+* **cli:** declare every --json flag through one helper ([bbe4d7b](https://github.com/jacob-delgado/workflow/commit/bbe4d7b8d142e2ae2424f53ddd69754fb4108170))
+* **cli:** keep pr's offers after opening in a file of their own ([0ab0f41](https://github.com/jacob-delgado/workflow/commit/0ab0f41ae91dcc558ad398e0f4ed858fc3cdd56a))
+* **cli:** keep the issue-key completion beside the issue commands ([8231f43](https://github.com/jacob-delgado/workflow/commit/8231f43db1321e6de7963e38d3de52f3da9676d4))
+* **cli:** name status's labels and JSON rows for directories ([8f0d0ee](https://github.com/jacob-delgado/workflow/commit/8f0d0ee3d625d16aea4e488c29898d20c303e157))
+* **cli:** post a comment through the shared issue write ([20e1446](https://github.com/jacob-delgado/workflow/commit/20e1446ffdb62ade6258e23f6683907a19beecff))
+* **cli:** wire announce's tagging seams apart from the command ([f7ff0c7](https://github.com/jacob-delgado/workflow/commit/f7ff0c796aadbea790f1eb4713a5c41a01faa3ae))
+* derive the issue views once, in internal/jira ([6272350](https://github.com/jacob-delgado/workflow/commit/6272350a5dfd32e298d3a5226106340b8884d5b3))
+* **forge:** keep GitLab's issue reads beside its issue writes ([15e1622](https://github.com/jacob-delgado/workflow/commit/15e1622b2c9e7c80f2117511e3c188a07b5ab378))
+* **forge:** name a pull request's head by its branch and its fork ([deb4a7a](https://github.com/jacob-delgado/workflow/commit/deb4a7a9f55d83d8f25913326be490c29d51d317))
+* **gitrepo:** call origin's address Origin ([a39e315](https://github.com/jacob-delgado/workflow/commit/a39e3152590a766572c5d47e3c2500cd00f3d823))
+* **gitrepo:** read a branch's commits in a function of their own ([4e27429](https://github.com/jacob-delgado/workflow/commit/4e274290e5b7edfc377984fcbc5102a215b90c56))
+* **hooks:** move the hooks git runs out of the generator ([2f0f52d](https://github.com/jacob-delgado/workflow/commit/2f0f52dabe8da150c7835206c3687bddf4f7a1cd))
+* **hooks:** spell lefthook install beside lefthook run ([55b7bca](https://github.com/jacob-delgado/workflow/commit/55b7bcaacab2d37c73d3ac8e93c7c313d5b915d2))
+* **hooks:** spell lefthook's file names as its loader does ([b317e09](https://github.com/jacob-delgado/workflow/commit/b317e09b334e9a71384eefbeff5c49ceb3f846a2))
+* **loop:** answer the branch an announcement was composed on ([b0e0b99](https://github.com/jacob-delgado/workflow/commit/b0e0b99f682c77633bd10d5bcb78eedba0464e6b))
+* **loop:** find the move to any status by name ([24e8da0](https://github.com/jacob-delgado/workflow/commit/24e8da0312af92a80232c30a5a25546666b257f8))
+* map issues onto the API's shapes in internal/report ([ec3ec75](https://github.com/jacob-delgado/workflow/commit/ec3ec75da3020e49906f7d5b4e013dbe0ad912a1))
+* **tui:** name the Commits pane's hook binding runHook ([63a8430](https://github.com/jacob-delgado/workflow/commit/63a8430dc73ed74691badfb2b4c4c65d0136a658))
+* **web:** give each of the stream's listeners a function of its own ([99f0490](https://github.com/jacob-delgado/workflow/commit/99f0490103b8b3de820adb1259aa3f52b44be719))
+* **web:** name the seven-character short hash once ([fa9332f](https://github.com/jacob-delgado/workflow/commit/fa9332f668dd32e219df11638a3a73b0b166b610))
+* **webserver:** keep a view's issue cache in a file of its own ([8551fdd](https://github.com/jacob-delgado/workflow/commit/8551fdd7105866c5d9aa7cf1ab9f103bc94478de))
+* **webserver:** name hooksetup.go for the hooks it serves ([8343f5a](https://github.com/jacob-delgado/workflow/commit/8343f5a37b1c01795fd81dedab9938cc2d9b6e6c))
+* **webserver:** push the stream's snapshots from their own loop ([6f450c7](https://github.com/jacob-delgado/workflow/commit/6f450c76406a9dad68fbce572cd6cebf3f863f3a))
+
+
+### Documentation
+
+* **cli:** say pr --base asks owners an edited base would not ([2ccbe9b](https://github.com/jacob-delgado/workflow/commit/2ccbe9b6e2f0d07dae913513da9a7eb6f01b7cd8))
+* **contributing:** say CI audits the formula each change would publish ([7984e38](https://github.com/jacob-delgado/workflow/commit/7984e38d5b17d911da636ea8bf2565fa5d008a62))
+* describe a fork's pull requests; FEAT-15 is done ([2443c63](https://github.com/jacob-delgado/workflow/commit/2443c631c9ba390a2f5dd131b379a5a9e502f24a))
+* describe working from a fork's clone, and narrow FEAT-15 ([1086ad3](https://github.com/jacob-delgado/workflow/commit/1086ad334252bb098a67b13beb9903c453032427))
+* drop FEAT-78 from FEATURES.md now that its commands shipped ([c01c1ee](https://github.com/jacob-delgado/workflow/commit/c01c1ee657ae89c833d7ca98338cf074f8a4a166))
+* drop FEAT-83 from FEATURES.md now that finish has shipped ([5e27562](https://github.com/jacob-delgado/workflow/commit/5e275628d774a4622ffcc659b88c02e301e27d63))
+* drop FEAT-85 now that the web paints from the cache ([fed162b](https://github.com/jacob-delgado/workflow/commit/fed162be061c5c3729df4d6116c7c3d466874a27))
+* **features:** retire FEAT-24 now that any hook can be run ([6a65940](https://github.com/jacob-delgado/workflow/commit/6a65940857cede317c0166a9c267c9b8f3568561))
+* **install:** install with Homebrew ([6b2d87f](https://github.com/jacob-delgado/workflow/commit/6b2d87f09267e0674de3f9b4396eca5aea2788be))
+* **install:** set off the tools doctor reports for either forge ([5e9c67e](https://github.com/jacob-delgado/workflow/commit/5e9c67eb8e504d127adc36b13734eb983ab9da2d))
+* **loop:** say which template ComposePull starts from ([44fe66b](https://github.com/jacob-delgado/workflow/commit/44fe66bc250955b183d872ade70e74c51e323e36))
+* say every surface gates and remembers its announcements ([49dde7f](https://github.com/jacob-delgado/workflow/commit/49dde7f62892ecfb001707c941f2a7cac39082d4))
+* say the first page of issues holds the forge's issues too ([2f6b65d](https://github.com/jacob-delgado/workflow/commit/2f6b65db436bbb8b7794697497bd78feaff73cc2))
+* **ux:** drop UX-62, now that the scriptable commands take its flags ([9ee3d7a](https://github.com/jacob-delgado/workflow/commit/9ee3d7abf25bf7d38cd00919d3596b0407bae281))
+* **ux:** drop UX-92, now that a script can join and time the JSON ([ead8bc3](https://github.com/jacob-delgado/workflow/commit/ead8bc3d4441d81f586ef3312616bf61f7b7e77b))
+
+
+### Build & Packaging
+
+* **release:** audit the Homebrew formula in a throwaway tap ([7cd64bf](https://github.com/jacob-delgado/workflow/commit/7cd64bf7aac9f5a07fda7adca93a9028601b9449))
+* **release:** commit the formula to the Homebrew tap ([3d4e964](https://github.com/jacob-delgado/workflow/commit/3d4e9645aa89547df558346b500263d61d510feb))
+* **release:** write a Homebrew formula for each release ([6b935cf](https://github.com/jacob-delgado/workflow/commit/6b935cf293f50b1c4357d1a9cea833ca53dec5d8))
+
+
+### CI
+
+* audit the Homebrew formula from every change's binaries ([68e28d0](https://github.com/jacob-delgado/workflow/commit/68e28d02bb7edd4314cba3d6ebcf486203678451))
+* install only the headless shell the end-to-end runs drive ([583ad7a](https://github.com/jacob-delgado/workflow/commit/583ad7a44d05d061d1fed6012cdb5deef2de787a))
+* reuse main's Go build cache in the Test job ([3d48e66](https://github.com/jacob-delgado/workflow/commit/3d48e6658606bd4c4beed625db5568ef06f632e9))
+* run the script tests in a job of their own, beside Test ([7118d6d](https://github.com/jacob-delgado/workflow/commit/7118d6d384dac3e00644c469426c6cd0076e69c6))
+* write the Homebrew formula from every change's binaries ([075f40d](https://github.com/jacob-delgado/workflow/commit/075f40d642c8f74785a9b08909d9046190f54eab))
+
+
+### Tests
+
+* **cli:** keep the tests of status across directories apart ([6f4a41d](https://github.com/jacob-delgado/workflow/commit/6f4a41d4b6195c64e87fcc6eee72cc56333315ee))
+* **e2e:** run the end-to-end specs on every core of a CI runner ([e830d1c](https://github.com/jacob-delgado/workflow/commit/e830d1c41934ae671291b4d6d4291fb9b4a606a5))
+* **webserver:** hold that a seed not written stops the stream ([960911f](https://github.com/jacob-delgado/workflow/commit/960911f2489c2d102529fb78c44ce6c4b45884ab))
+
 ## [0.9.1](https://github.com/jacob-delgado/workflow/compare/v0.9.0...v0.9.1) (2026-10-13)
 
 

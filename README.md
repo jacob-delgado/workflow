@@ -34,7 +34,7 @@ With Go:
 <!-- x-release-please-start-version -->
 
 ```sh
-go install github.com/jacob-delgado/workflow/cmd/workflow@v0.9.1
+go install github.com/jacob-delgado/workflow/cmd/workflow@v0.10.0
 ```
 
 <!-- x-release-please-end -->
