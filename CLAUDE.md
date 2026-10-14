@@ -1,9 +1,9 @@
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with
-code in this repository. Most of it applies in every session; the rules for
-the web app apply only in `web/`, and the store's, the web server's and the
-terminal interface's are in a `CLAUDE.md` beside their code.
+code in this repository. Most of it applies in every session; the store's,
+the web server's, the terminal interface's and the web app's own rules are in
+a `CLAUDE.md` beside their code.
 
 ## What this project is
 
@@ -262,23 +262,9 @@ without agreement on direction.
   `shfmt -i 2 -ci -bn` formatting, shellcheck-clean against the repo's
   `.shellcheckrc` (every optional check on).
 
-- **Accessibility is enforced, not aspirational (the `--web` app).**
-  `eslint-plugin-jsx-a11y` runs at **strict** in the web lint (`web/eslint.config.js`,
-  in `corepack yarn lint` / `task check`), and a runtime **axe** scan
-  (`web/e2e/a11y.spec.ts`, in `task e2e`) fails on any WCAG 2.1 A/AA violation —
-  across every section **and both themes**, because a light theme is only real
-  once its contrast holds. `web/e2e/layout.spec.ts` stands guard beside it: every
-  section at a narrow, a middling and a wide window, in both themes, must not
-  scroll sideways, must not scroll the page, and must keep every control Tab
-  reaches in view. Keep them green: give every control an accessible name
-  (an icon-only button carries an `aria-label`), keep the skip link and the
-  `:focus-visible` ring, and de-emphasize with color rather than `opacity` (which
-  dims text below the contrast floor). The web tests are black-box — assert on
-  role, accessible name and `aria-current`, never on classes, inline styles or
-  `data-*` hooks. Base UI parts come only through `web/src/lib/baseui`, whose
-  `CSPProvider` keeps them from writing the `<style>` the CSP refuses. Only
-  ScrollArea and Select write one, and neither is used (TRADE-50): a choice from
-  a fixed list is a native `<select>`.
+- **The `--web` app's rules** — accessibility in both themes, black-box tests
+  on role and name, server text rendered only as text — are in
+  `web/CLAUDE.md`.
 
 ### Design principles
 
@@ -594,17 +580,6 @@ than observable, public behavior.
   both stay generated from it; a change there usually reaches `web/` and
   `docs/` too. Its errors are RFC 9457 problem details, whose rules are in
   `internal/webserver/CLAUDE.md`.
-
-- **The web server does not sanitize on the way out**, though the store's rule
-  above asks the seam that renders stored text to: the web's rendering seam is
-  React, which escapes every text node, and `web/eslint.config.js` bans
-  `dangerouslySetInnerHTML` and `innerHTML`, so server text reaches the page only
-  as inert text — rendering server text as HTML, or handing it to a sink React
-  does not escape, ends that exemption and brings the sanitize pass to that seam.
-  A URL attribute is such a sink: a URL from the server reaches an `href` only
-  through `NewTabLink` (`web/src/lib/NewTabLink.tsx`), which allows http and
-  https alone, and the web lint fails any other `<a href={…}>`; any other
-  attribute sink ends the exemption.
 
 - **Use `tmp/` under the repo root for ad-hoc scratch files** — never `/tmp/…` or
   any path outside the repo. PR-body drafts, intermediate output, log dumps:
