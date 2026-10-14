@@ -86,6 +86,14 @@ export const zDirectoryListing = z.object({
 });
 
 /**
+ * A setting a configuration save refused, and why.
+ */
+export const zRefusedSetting = z.object({
+    key: z.string(),
+    detail: z.string()
+});
+
+/**
  * An RFC 9457 problem details object. The detail is safe to show and never carries a secret; code is a stable, machine-readable reason.
  */
 export const zProblem = z.object({
@@ -110,7 +118,8 @@ export const zProblem = z.object({
         'ci_failed',
         'internal'
     ]),
-    retry_after: z.int().gte(1).optional()
+    retry_after: z.int().gte(1).optional(),
+    fields: z.array(zRefusedSetting).optional()
 });
 
 export const zBranchIssueRequest = z.object({

@@ -2072,6 +2072,9 @@ type Problem struct {
 	// Detail A human-readable explanation specific to this occurrence.
 	Detail string `json:"detail"`
 
+	// Fields For a configuration save refused as not valid, each setting the validation refused, in the order it validates them, the detail joining the same reasons; absent from any other problem.
+	Fields *[]RefusedSetting `json:"fields,omitempty"`
+
 	// RetryAfter For rate_limited, how many seconds the upstream asked to wait, when it said; the answer's Retry-After header says the same.
 	RetryAfter *int `json:"retry_after,omitempty"`
 
@@ -2182,6 +2185,17 @@ type QueuedAnnouncement struct {
 
 // QueuedAnnouncementState defines model for QueuedAnnouncement.State.
 type QueuedAnnouncementState string
+
+// RefusedSetting A setting a configuration save refused, and why.
+type RefusedSetting struct {
+	// Detail Why it was refused, safe to show: it quotes the value refused unless that is a credential or carries one, as a Jira address with a login does.
+	Detail string `json:"detail"`
+
+	// Key The setting's dotted key, as the configuration file spells it.
+	//
+	// Example: branch.slug_limit
+	Key string `json:"key"`
+}
 
 // RepoGroups The Slack user groups a repository's announcements may tag.
 type RepoGroups struct {

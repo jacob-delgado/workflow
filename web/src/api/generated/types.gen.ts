@@ -190,6 +190,24 @@ export type Problem = {
      * For rate_limited, how many seconds the upstream asked to wait, when it said; the answer's Retry-After header says the same.
      */
     retry_after?: number;
+    /**
+     * For a configuration save refused as not valid, each setting the validation refused, in the order it validates them, the detail joining the same reasons; absent from any other problem.
+     */
+    fields?: Array<RefusedSetting>;
+};
+
+/**
+ * A setting a configuration save refused, and why.
+ */
+export type RefusedSetting = {
+    /**
+     * The setting's dotted key, as the configuration file spells it.
+     */
+    key: string;
+    /**
+     * Why it was refused, safe to show: it quotes the value refused unless that is a credential or carries one, as a Jira address with a login does.
+     */
+    detail: string;
 };
 
 export type BranchIssueRequest = {
