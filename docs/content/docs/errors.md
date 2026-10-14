@@ -34,6 +34,11 @@ responses are not problem details.)
 - **`retry_after`** — only on a [Rate limited](#rate-limited) problem, and only
   when the upstream said: how many seconds it asked to wait. The answer's
   `Retry-After` header says the same.
+- **`fields`** — only on an [Unprocessable](#unprocessable) configuration save
+  refused as not valid: each setting the validation refused, as a `key` (its
+  dotted name in the file, such as `branch.slug_limit`) and a `detail` (why),
+  so a form can mark the setting itself. The `detail` beside them joins the
+  same reasons on one line.
 
 The codes below are the whole set.
 
@@ -127,7 +132,8 @@ Status 422. The request was understood but cannot be carried out as asked — an
 invalid configuration body (a `ui.keys` map the terminal interface would
 refuse to start on among them, or one that changes `jira.token_command`,
 `jira.token_env` or `taskwarrior.program`, which change only in the file
-itself), a configuration file on disk that no longer reads
+itself; one the validation refuses names each setting it refused in
+`fields`, never with a credential's value), a configuration file on disk that no longer reads
 as valid (the configuration in effect stands), a request for an issue when no
 tracker is configured, no `jira.review_status` to move an issue to, a change
 Jira refused, a comment with no text or with no tracker to post it to, a
