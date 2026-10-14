@@ -1,10 +1,11 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import type { UserEvent } from '@testing-library/user-event'
 import App from '@/App.tsx'
 import type { IssueDetail, KeyAction, KeyList, Snapshot } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { mockConfig } from '@/dev/mockConfig.ts'
 import { mockKeys } from '@/dev/mockKeys.ts'
+import { mockDirectories, mockRepositories } from '@/dev/mockRepositories.ts'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { fakeApi } from './fakeApi.ts'
 import { makeSnapshot } from './fixtures.ts'
@@ -132,4 +133,29 @@ export async function openPalette(user: UserEvent): Promise<void> {
   await waitFor(() => {
     expect(document.activeElement).toBe(screen.getByRole('combobox', { name: 'Action' }))
   })
+}
+
+// openDirectoryDialog draws Repositories on the mockup's keys, single keys
+// on, opens the directory dialog and puts the focus on its Cancel, where a
+// key pressed types no letter of a path; and returns every request the page
+// sends.
+export async function openDirectoryDialog(user: UserEvent): Promise<Request[]> {
+  const requests = fakeApi({
+    '/api/keys': mockKeys,
+    '/api/config': mockConfig,
+    '/api/repositories': mockRepositories(),
+    '/api/directories': (url: URL) => mockDirectories(url.searchParams.get('path') ?? '.'),
+  })
+  useSnapshotStore.setState({ status: 'live', snapshot: withIssue })
+  useUiStore.setState({ section: 'repositories' })
+  renderWithClient(<App />)
+  const go = await screen.findByRole('button', { name: 'Go to a directory…' })
+  await waitFor(() => {
+    expect(go.getAttribute('aria-keyshortcuts')).toBe('g')
+  })
+  await user.click(go)
+  const dialog = await screen.findByRole('dialog', { name: 'Go to a directory' })
+  within(dialog).getByRole('button', { name: 'Cancel' }).focus()
+
+  return requests
 }

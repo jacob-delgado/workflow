@@ -47,7 +47,7 @@ test('Switch says Switching… while the switch is out', async () => {
   const user = userEvent.setup()
   renderWithClient(<RepositoriesPanel />)
   await user.click(await screen.findByRole('button', { name: 'Switch to ~/src/web' }))
-  const question = screen.getByRole('region', { name: 'Switch to ~/src/web?' })
+  const question = await screen.findByRole('group', { name: 'Switch to ~/src/web?' })
 
   // Act
   await user.click(within(question).getByRole('button', { name: 'Switch' }))

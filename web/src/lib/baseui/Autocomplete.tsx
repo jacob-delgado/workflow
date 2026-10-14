@@ -1,4 +1,4 @@
-import type { ReactNode, RefObject } from 'react'
+import type { KeyboardEvent, ReactNode, RefObject } from 'react'
 import { Autocomplete as Base } from '@base-ui/react/autocomplete'
 import { cn } from '@/lib/utils.ts'
 
@@ -25,11 +25,18 @@ interface AutocompleteProps<Item> {
   itemKey: (item: Item) => string
   itemText: (item: Item) => string
   renderItem: (item: Item) => ReactNode
+  // onHighlight hears the item highlighted, as the highlight moves.
+  onHighlight?: (item: Item | undefined) => void
   onChoose: (item: Item) => void
   // empty is what is said while nothing matches.
   empty: ReactNode
   // leading is drawn before the field, inside its row: an icon.
   leading?: ReactNode
+  // onKeyDown hears a key in the field before the list does, to answer one the
+  // list leaves alone; one it prevents the default of goes no further.
+  onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void
+  // mono sets what is typed in the code face: a path.
+  mono?: boolean
 }
 
 // Autocomplete is a field over a list it always shows: typing narrows the
@@ -47,9 +54,12 @@ export function Autocomplete<Item>({
   itemKey,
   itemText,
   renderItem,
+  onHighlight,
   onChoose,
   empty,
   leading,
+  onKeyDown,
+  mono = false,
 }: AutocompleteProps<Item>) {
   return (
     <Base.Root
@@ -66,6 +76,7 @@ export function Autocomplete<Item>({
       }}
       autoHighlight="always"
       keepHighlight
+      onItemHighlighted={onHighlight}
     >
       <div className="flex items-center gap-3 border-b border-border px-4">
         {leading}
@@ -74,7 +85,16 @@ export function Autocomplete<Item>({
           aria-label={label}
           placeholder={placeholder}
           spellCheck={false}
-          className="min-w-0 flex-1 bg-transparent py-3.5 text-lg placeholder:text-muted-foreground focus-visible:outline-none"
+          onKeyDown={(event) => {
+            onKeyDown?.(event)
+            if (event.defaultPrevented) {
+              event.preventBaseUIHandler()
+            }
+          }}
+          className={cn(
+            'min-w-0 flex-1 bg-transparent py-3.5 text-lg placeholder:text-muted-foreground focus-visible:outline-none',
+            mono && 'font-mono',
+          )}
         />
       </div>
       <Base.List
@@ -82,33 +102,54 @@ export function Autocomplete<Item>({
         className="max-h-[min(24rem,60dvh)] overflow-y-auto py-1.5 empty:hidden"
       >
         {(group: AutocompleteGroup<Item>) => (
-          <Base.Group key={group.name} items={group.items} className="py-1">
-            <Base.GroupLabel className="px-4 pt-1 pb-0.5 text-xs text-muted-foreground">
-              {group.name}
-            </Base.GroupLabel>
-            <Base.Collection>
-              {(item: Item) => (
-                <Base.Item
-                  key={itemKey(item)}
-                  value={item}
-                  onClick={() => {
-                    onChoose(item)
-                  }}
-                  className={cn(
-                    'group relative flex cursor-pointer items-center justify-between gap-group px-4 py-1.5 text-sm',
-                    'hover:bg-accent/60 data-highlighted:bg-accent',
-                  )}
-                >
-                  {renderItem(item)}
-                </Base.Item>
-              )}
-            </Base.Collection>
-          </Base.Group>
+          <Group
+            key={group.name}
+            group={group}
+            itemKey={itemKey}
+            renderItem={renderItem}
+            onChoose={onChoose}
+          />
         )}
       </Base.List>
       <Base.Empty className="text-sm text-muted-foreground empty:hidden">
         <p className="px-4 py-3">{empty}</p>
       </Base.Empty>
     </Base.Root>
+  )
+}
+
+interface GroupProps<Item> {
+  group: AutocompleteGroup<Item>
+  itemKey: (item: Item) => string
+  renderItem: (item: Item) => ReactNode
+  onChoose: (item: Item) => void
+}
+
+// Group is one group of the list under its name: each item a press or Enter
+// chooses, the one highlighted marked by its ground.
+function Group<Item>({ group, itemKey, renderItem, onChoose }: GroupProps<Item>) {
+  return (
+    <Base.Group items={group.items} className="py-1">
+      <Base.GroupLabel className="px-4 pt-1 pb-0.5 text-xs text-muted-foreground">
+        {group.name}
+      </Base.GroupLabel>
+      <Base.Collection>
+        {(item: Item) => (
+          <Base.Item
+            key={itemKey(item)}
+            value={item}
+            onClick={() => {
+              onChoose(item)
+            }}
+            className={cn(
+              'group relative flex cursor-pointer items-center justify-between gap-group px-4 py-1.5 text-sm',
+              'hover:bg-accent/60 data-highlighted:bg-accent',
+            )}
+          >
+            {renderItem(item)}
+          </Base.Item>
+        )}
+      </Base.Collection>
+    </Base.Group>
   )
 }

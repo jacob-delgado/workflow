@@ -1,21 +1,41 @@
-import type { ComponentProps, ReactNode, RefObject } from 'react'
+import { useEffect, type ComponentProps, type ReactNode, type RefObject } from 'react'
 import { Dialog as Base } from '@base-ui/react/dialog'
+import { create } from 'zustand'
 import { cn } from '@/lib/utils.ts'
+
+// How many dialogs are open now, each modal.
+const useOpenDialogs = create<{ open: number }>(() => ({ open: 0 }))
+
+// dialogOpen reports a dialog open now: the page behind it is inert, so no
+// key the page binds may act there.
+export function dialogOpen(): boolean {
+  return useOpenDialogs.getState().open > 0
+}
 
 interface DialogProps {
   // label names the dialog outright; without it, its DialogTitle does.
   label?: string
-  // initialFocus is the control focus goes to as the dialog opens.
-  initialFocus: RefObject<HTMLElement | null>
+  // initialFocus is the control focus goes to as the dialog opens, or false
+  // for what the dialog opens on to take the focus itself.
+  initialFocus: RefObject<HTMLElement | null> | false
   onClose: () => void
   className?: string
   children: ReactNode
 }
 
 // Dialog is a modal dialog, open while it is mounted: the page behind it is
-// inert and dimmed, so Tab stays inside it; Escape, or a press outside it,
-// closes it; and focus goes back to where it was when it opened.
+// inert and dimmed, so Tab stays inside it and no key the page binds reaches
+// it; Escape, or a press outside it, closes it; and focus goes back to where
+// it was when it opened.
 export function Dialog({ label, initialFocus, onClose, className, children }: DialogProps) {
+  useEffect(() => {
+    useOpenDialogs.setState(({ open }) => ({ open: open + 1 }))
+
+    return () => {
+      useOpenDialogs.setState(({ open }) => ({ open: open - 1 }))
+    }
+  }, [])
+
   return (
     <Base.Root
       open

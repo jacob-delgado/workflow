@@ -965,7 +965,9 @@ variable file covering more scripts at a size near this one.
 directories, and the terminal's directory picker draws at most 200 of the
 ones matching what was typed (`rowsShownMost`, `internal/tui/dirrows.go`),
 then says how many more match and to keep typing; the web's directory dialog
-holds to the same cap. No virtualized list, and no library for one, was
+(`web/src/features/repositories/DirectoryDialog.tsx`) holds to the same cap.
+A listing cut short at the thousand is asked for again with the name typed.
+No virtualized list, and no library for one such as TanStack Virtual, was
 adopted. Decided 2026-10-14 by the maintainer, with the picker.
 
 **Cost.** In a directory of more than 200 that match, the rest cannot be

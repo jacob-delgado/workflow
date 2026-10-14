@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { flushSync } from 'react-dom'
 import type { KeyAction } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import { dialogOpen } from '@/lib/baseui/Dialog.tsx'
 import { shortcutsHeld } from '@/lib/LastLook.tsx'
 import { sectionLabel, sectionMeta } from '@/shell/sections.ts'
 import { sections, useUiStore, type Section } from '@/shell/uiStore.ts'
@@ -92,9 +93,10 @@ function paletteEntries(section: Section, service: string | undefined): PaletteE
 
 // KeyboardLayer is the page's keyboard beyond Tab: ? opens the sheet of keys,
 // Control+K or Command+K the palette, and — while single-key shortcuts are on
-// — a key the terminal binds does here what it does there. No single key acts
-// while a field, a select or the comment composer has the focus, while the
-// sheet or the palette is open, or while a confirm or a preview is.
+// — a key the terminal binds does here what it does there. No key acts while
+// a dialog is open — the sheet, the palette or any other — and no single key
+// while a field, a select or the comment composer has the focus, or while a
+// confirm or a preview is drawn.
 export function KeyboardLayer() {
   useReadKeys()
   const [open, setOpen] = useState<Open>(null)
@@ -104,12 +106,8 @@ export function KeyboardLayer() {
   const helpKey = useKeysStore((state) => helpKeyOf(state.actions))
 
   useEffect(() => {
-    if (open !== null) {
-      return undefined
-    }
-
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) {
+      if (event.defaultPrevented || dialogOpen()) {
         return
       }
 
@@ -138,7 +136,7 @@ export function KeyboardLayer() {
     return () => {
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [open, helpKey])
+  }, [helpKey])
 
   const close = () => {
     setOpen(null)

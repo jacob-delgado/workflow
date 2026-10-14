@@ -14,6 +14,7 @@ import {
   openOn,
   commentBox,
   keysRead,
+  openDirectoryDialog,
 } from '@/test/keyboard.tsx'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 
@@ -95,6 +96,41 @@ test('no single key reaches a control behind an open confirm', async () => {
   // Assert
   expect(requests.some((request) => new URL(request.url).pathname === '/api/stage')).toBe(false)
   expect(screen.queryByText('Staged every change.')).toBeNull()
+})
+
+test('no single key reaches a control behind an open dialog', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  const requests = await openDirectoryDialog(user)
+
+  // Act
+  await user.keyboard('f')
+
+  // Assert
+  expect(screen.queryByText(/to favorites\.$/)).toBeNull()
+  expect(
+    requests.some((request) => new URL(request.url).pathname === '/api/repositories/favorites'),
+  ).toBe(false)
+})
+
+test('a single key reaches the page again once its dialog is closed', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  const requests = await openDirectoryDialog(user)
+  await user.click(screen.getByRole('button', { name: 'Cancel' }))
+  await waitFor(() => {
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  // Act
+  await user.keyboard('f')
+
+  // Assert
+  await waitFor(() => {
+    expect(
+      requests.some((request) => new URL(request.url).pathname === '/api/repositories/favorites'),
+    ).toBe(true)
+  })
 })
 
 test('a pane number opens its section', async () => {

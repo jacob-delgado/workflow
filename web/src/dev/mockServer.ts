@@ -238,10 +238,7 @@ function allRoutes(): Routes {
     },
     'GET /api/repositories': () => mockRepositories(),
     'GET /api/directories': ({ url }) =>
-      mockDirectories(
-        url.searchParams.get('path') ?? '/home/ana/src/api/cmd',
-        url.searchParams.get('prefix') ?? '',
-      ),
+      mockDirectories(url.searchParams.get('path') ?? '.', url.searchParams.get('prefix') ?? ''),
     'GET /api/reviews': () => mockReviewQueue(),
   }
 }

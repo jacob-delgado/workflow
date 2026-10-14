@@ -165,7 +165,7 @@ test('a switch is asked once more, then made', async () => {
   await user.click(await screen.findByRole('button', { name: 'Switch to ~/src/web' }))
 
   // Act
-  const question = screen.getByRole('region', { name: 'Switch to ~/src/web?' })
+  const question = await screen.findByRole('group', { name: 'Switch to ~/src/web?' })
   await user.click(within(question).getByRole('button', { name: 'Switch' }))
 
   // Assert
@@ -174,7 +174,7 @@ test('a switch is asked once more, then made', async () => {
   expect(await write?.json()).toEqual({ dir: '/home/ana/src/web' })
 })
 
-test('a switch canceled is not made', async () => {
+test('a switch backed out of is not made', async () => {
   // Arrange
   const asked = serving()
   const user = userEvent.setup()
@@ -182,59 +182,11 @@ test('a switch canceled is not made', async () => {
   await user.click(await screen.findByRole('button', { name: 'Switch to ~/src/web' }))
 
   // Act
-  await user.click(screen.getByRole('button', { name: 'Cancel' }))
+  await user.click(await screen.findByRole('button', { name: 'Back' }))
 
   // Assert
-  expect(screen.queryByRole('region', { name: 'Switch to ~/src/web?' })).toBeNull()
+  expect(screen.queryByRole('group', { name: 'Switch to ~/src/web?' })).toBeNull()
   expect(asked.some((request) => request.method === 'PUT')).toBe(false)
-})
-
-test('the picker goes up, and opens a directory by its name', async () => {
-  // Arrange
-  serving()
-  const user = userEvent.setup()
-  renderWithClient(<RepositoriesPanel />)
-  await user.click(await screen.findByRole('button', { name: 'Up' }))
-  await screen.findByRole('list', { name: 'Directories in ~/src/api' })
-  await user.click(screen.getByRole('button', { name: 'Up' }))
-
-  // Act
-  await user.click(await screen.findByRole('button', { name: 'Open api' }))
-
-  // Assert
-  expect(await screen.findByRole('list', { name: 'Directories in ~/src/api' })).toBeTruthy()
-})
-
-test('a typed path is shown, and its directories listed', async () => {
-  // Arrange
-  serving()
-  const user = userEvent.setup()
-  renderWithClient(<RepositoriesPanel />)
-
-  // Act
-  await user.type(await screen.findByRole('textbox', { name: 'Directory' }), '/home/ana/src')
-  await user.click(screen.getByRole('button', { name: 'Show' }))
-
-  // Assert
-  const listed = await screen.findByRole('list', { name: 'Directories in ~/src' })
-  expect(within(listed).getByRole('button', { name: 'Open web' })).toBeTruthy()
-  expect(within(listed).getAllByText('Repository')).toHaveLength(2)
-})
-
-test('a switch asked from the picker takes the focus to its question', async () => {
-  // Arrange
-  // The picker is at the foot of the section, the question at its head.
-  serving()
-  const user = userEvent.setup()
-  renderWithClient(<RepositoriesPanel />)
-
-  // Act
-  await user.click(await screen.findByRole('button', { name: 'Switch here' }))
-
-  // Assert
-  expect(document.activeElement).toBe(
-    screen.getByRole('heading', { name: 'Switch to ~/src/api/cmd?' }),
-  )
 })
 
 test('removing where you work forgets the favorite by the name it was kept under', async () => {
@@ -270,7 +222,7 @@ test('a switch made here tells the page where it works at once', async () => {
 
   // Act
   await user.click(
-    within(screen.getByRole('region', { name: 'Switch to ~/src/web?' })).getByRole('button', {
+    within(await screen.findByRole('group', { name: 'Switch to ~/src/web?' })).getByRole('button', {
       name: 'Switch',
     }),
   )
