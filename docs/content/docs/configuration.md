@@ -710,9 +710,10 @@ A setting left out of the file keeps its default.
 ### Accessible forms
 
 `ui.accessible`, off unless you turn it on, changes how the terminal asks a
-form's questions — the fields a status change needs, for now. Drawn over the
-screen, a form redraws its field, options and cursor at once, which a screen
-reader reads poorly. With it on, or with the `ACCESSIBLE` environment variable
+form's questions — the fields a status change needs, the first run's
+questions, a section of Settings, and where a pull request goes and what it
+says. Drawn over the screen, a form redraws its field, options and cursor at
+once, which a screen reader reads poorly. With it on, or with the `ACCESSIBLE` environment variable
 set to anything, the form takes the whole terminal instead, as `$EDITOR`
 does, and asks one plain question at a time; the interface comes back once
 it has its answers. A form whose prompts end before every answer is in sends

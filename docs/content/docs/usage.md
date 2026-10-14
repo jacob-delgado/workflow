@@ -228,20 +228,20 @@ lists, by where it works.
 | | `L` | Local data: the store's files, and removing them after a last look |
 | | `r` | Read the favorites again |
 | A composer or preview | `tab` / `shift+tab` | Next field, previous field |
-| | `←` / `→` | Change the commit's type; in the announcement preview, change the channel; in the calendar's Day column, move a day |
+| | `←` / `→` | Change the commit's type; in the announcement preview, change the channel; in the calendar's Day column, move a day; in Settings, move the selected choice on or back; in a form, turn a yes or no |
 | | `ctrl+o` | Write the commit's body, the pull request's description, or a comment, in your editor |
 | | `ctrl+x` | Mark the commit a breaking change |
 | | `ctrl+t` | Use the repository's next pull request template |
 | | `ctrl+r` | Open the pull request as a draft, or not |
 | | `e` | Edit an announcement in your editor before it is sent |
-| | `space` | Pick an option in a field that takes several |
+| | `space` | Pick an option in a field that takes several; in Settings, turn the selected setting on or off |
 | | `v` | Keep every existing hook whole as a script, in the lefthook offer |
 | | `ctrl+g` | In the branch creator, create the branch in a new git worktree rather than switching to it |
 | | `l` | In the checks list, show the end of a failed check's log, where a GitHub Actions run or a GitLab job keeps one |
 | | `w` | In the announcement preview, announce once CI passes |
 | | `u` | In the link form, on a branch already linked, unlink its issue |
 | | `c` / `C` | In Local data, remove the cache, or everything, after a last look |
-| | `ctrl+s` | In Settings, save every edit together |
+| | `ctrl+s` | In Settings, save every edit together; in a form open over Settings, keep what it holds |
 | | `D` | In Settings, remove the selected view, prefix or moved key; on a stored credential or header, remove it from the file after a last look |
 | | `j`/`k` or `↓`/`↑` | In the announcement preview, move between the code owners and groups it can tag |
 | | `space` | In the announcement preview, tag the selected group, or untag it |
@@ -269,6 +269,26 @@ action live on a pane onto a pane number, or that gives two actions live in
 one place — a pane, an open overlay, or the Branch and Commits panes, which
 the `--web` page shows together, for two actions the page binds — the same
 key, stops workflow from starting, and `workflow doctor` names it.
+
+### Forms
+
+A form — the fields a status change needs, the first run's questions, a
+section of Settings, the pull request composer — asks its questions in
+fields drawn one under another, the one with the keyboard barred down its
+left. `enter` or `tab` goes on to the next field and `shift+tab` back to the
+one before; `enter` on the last field applies the form. The pull request
+composer is the exception: there only `tab` goes on to the next field, and
+`enter` from any field goes on to its second form, or from the second opens
+the pull request, as [Open the pull request](#open-the-pull-request) says. A
+choice moves with `↑` and `↓`, `space` picks one of several, and `←`, `→` or
+`space` turns a yes or no. A credential is masked as it is typed, a star a
+character. A value the form cannot take is said under its field, in red, and
+the form stays on it. The bottom row names what the field with the keyboard
+answers, with `esc` always last to go on a narrow screen, and every one of
+these keys follows `ui.keys`. With
+[`ui.accessible`]({{< relref "/docs/configuration#accessible-forms" >}}) on, or
+`ACCESSIBLE` set, a form instead takes the whole terminal and asks each
+question as a plain prompt, then hands the screen back.
 
 ## The loop
 
@@ -445,32 +465,41 @@ reason under the ones you can run, and cannot be chosen.
 
 ### Open the pull request
 
-`n` in the Review pane opens the composer:
+`n` in the Review pane opens the composer. It first reads what the pull
+request starts from — the templates, the remote branches, the issue for the
+title and the code owners for the reviewers — its mark turning while it does,
+so nothing it reads changes a field under the cursor. Then it asks in two
+forms: where the pull request goes, the base branch and, where the
+repository has more than one, the template; and, after `enter`, what it says:
+the title, whether it is a draft, the reviewers, the assignees and the
+labels. `enter` on any field of the second opens it, and `shift+tab` on its
+title goes back to the first.
 
 - **The title** is, by default, the branch's oldest commit subject, which on a
   branch of Conventional Commits already reads as one. Set
   `pull_request.title_source` to `issue` to start from the issue's key and
   summary instead.
 - **The description** is the repository's pull request template, found where
-  GitHub or GitLab looks for it. `ctrl+t` moves between several. With no
+  GitHub or GitLab looks for it, shown below the form. The first form chooses
+  between several, the description following the choice as it moves, and
+  `ctrl+t` moves on to the next from either; once you have edited the
+  description, neither offers another template, so none replaces it. With no
   template it lists the branch's commits. Either way it links the branch's
   issue.
-- `ctrl+o` edits the description in your editor, `ctrl+r` marks it a draft,
-  and `tab` moves through the base branch, the reviewers, the assignees and the
-  labels.
-- **The base branch** starts as the one the branch left. Change it and `tab`
-  away, and the branch is read again past the base you named: the title while
-  you have not typed over it, the description while you have not edited it,
-  and the reviewers while you have not typed them are proposed again from the
+- `ctrl+o` edits the description in your editor — the form keeps no editor of
+  its own — and `ctrl+r` marks it a draft, or not, from either form.
+- **The base branch** starts as the one the branch left, and `tab` completes
+  it to a remote branch. Change it and go on, and the branch is read again
+  past the base you named before the second form asks: the title while you
+  have not typed over it, the description while you have not edited it, and
+  the reviewers while you have not typed them are proposed again from the
   commits that pull request would merge. A base no remote and no local branch
   holds keeps the draft as it was.
 - **The reviewers** start as the code owners of the paths the branch changes,
   as the base branch's CODEOWNERS names them — people first, then teams as
-  `org/team` — leaving you out. They are read after the composer opens, so it
-  never waits on them; they fill the field only while you have not typed in
-  it. A draft you closed and reopen keeps the reviewers it had, or, closed
-  before the owners answered and its reviewers never typed, reads them
-  again. Edit them as any
+  `org/team` — leaving you out. A draft you closed and reopen keeps the
+  reviewers it had, or, closed before the owners answered and its reviewers
+  never typed, reads them again. Edit them as any
   field; see [CODEOWNERS]({{< relref "/docs/configuration#codeowners-proposes-the-reviewers" >}})
   for which file is read and how.
 
@@ -943,21 +972,23 @@ everything reads as it does in a clone that is no fork.
 
 With no `.workflow.json` to read, the Issues pane says so and `enter` sets one
 up there, as `S` on the Repositories pane does; `workflow config init` asks the
-same questions at a prompt. The form asks them one at a time: where the file
-goes — the repository, so it applies across it, or your home directory, so it
-applies everywhere — then Jira's address and your personal access token, which
-is typed without showing it and checked with Jira while the form says so. A
-check that does not pass names why and offers to type the token again, keep
-both anyway, or leave Jira out; an address that is not an https address, or
+same questions at a prompt. It asks them in a dialog over the screen, one at a
+time, in [forms](#forms): where the file goes — the repository, so it applies
+across it, or your home directory, so it applies everywhere — then Jira's
+address and your personal access token, which is masked as it is typed and
+checked with Jira while the dialog's mark turns. A check that does not pass
+names why and offers to type the token again, keep both anyway, or leave Jira
+out; an address that is not an https address, or
 http to this machine, or that carries a username and password, is never kept,
 so it offers to type the address again or leave Jira out. With the OS
 keychain wired (macOS), it then asks where to keep the token: in the keychain
 item for Jira's address, so the file holds only `"keychain": true`, which
 reads it back from there, or in the file, which only you can read. It asks
 for either file, since an item is only ever read for its own address. Last comes
-a Slack incoming webhook, saved unchecked, or left blank to post with your Slack
-user token after `workflow slack login`. A blank address or webhook skips that
-question, and `esc` goes back one.
+a Slack incoming webhook, masked too, saved unchecked, or left blank to post
+with your Slack user token after `workflow slack login`. A blank address or
+webhook skips that question, and `esc` goes back one, as `shift+tab` does on
+the last look.
 
 `enter` on the last look writes the file and reopens workflow in the same
 directory with it, on the Issues pane, as a save in Settings does; a file in a
@@ -971,15 +1002,20 @@ it would have written.
 Settings edits, in the same eleven parts — Jira, messaging, the forge,
 commits, branches, pull requests, the store, Taskwarrior, timing, the terminal
 and the keyboard — a row per setting, with what the selected one does below. A
-credential is shown masked, as `****9999`, and typing a new one shows nothing
-of it. `enter` edits a row — a credential's field starts empty, and left empty
-keeps the stored one — turns a setting on or off, or moves a choice on, as `←`
-and `→` do; `ctrl+s` saves every edit together.
+credential is shown masked, as `****9999`, and typing a new one shows only a
+mask. `enter` on a row opens its part's settings together in a
+[form](#forms), on the setting the row stands for — a credential's field
+starts empty, and left empty keeps the stored one — and only what you change
+in it becomes an edit. `ctrl+s` keeps the form from any field, as `enter` on
+its last does, and `esc` leaves it keeping nothing. `space` turns a setting on
+or off on its row, and `←` and `→` move a choice there; `ctrl+s` on the rows
+saves every edit together.
 
 Jira's views and headers and the branch prefixes are a row each, after them
-a row that adds one: `enter` there asks the new one's name, then its value (a
-view's JQL, a header's value, which is never shown, a type's prefix). `enter`
-on one edits its value, and `D` removes it with the next save. The channels
+a row that adds one: `enter` there asks the new one's name and its value
+together (a view's JQL, a header's value, which is masked, a type's prefix),
+refusing a name already listed when you go on from it. `enter` on one edits
+its value, and `D` removes it with the next save. The channels
 are typed comma-separated, as the commit types are. The keyboard part lists
 every action the interface binds, each with the key it is moved to, or the
 default it keeps; `enter` types a key, and `D` puts its default back.
