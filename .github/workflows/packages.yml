@@ -1,0 +1,95 @@
+name: Packages
+
+# Points the Homebrew tap at a release. It downloads the release's
+# SHA256SUMS, writes the formula from it with
+# scripts/release/package-manifests.sh, and commits it with
+# scripts/release/publish-packages.sh to jacob-delgado/homebrew-tap as
+# Formula/workflow.rb, for `brew install jacob-delgado/tap/workflow`. Windows
+# has no package: it installs the release's binary, as install.md says.
+#
+# release.yml dispatches this on main with the tag once a release is out. A
+# dispatch rather than a trigger on the release event, for the reason pages.yml
+# gives: an event raised by GITHUB_TOKEN starts no workflow. A workflow of its
+# own, too, so it can run alone: Actions → Packages → Run workflow, with a tag,
+# fills the tap for a release already out or repairs it after a failed run,
+# without releasing again. Only the latest release is published, so a run for
+# an older tag or a prerelease changes nothing.
+#
+# ONE-TIME REPO SETUP:
+#   1. Create the public repository jacob-delgado/homebrew-tap, with a README
+#      so its main exists. The homebrew- prefix is what lets
+#      `brew tap jacob-delgado/tap` find it.
+#   2. Create a fine-grained personal access token: resource owner
+#      jacob-delgado, only that repository, repository permission Contents read
+#      and write and nothing more. Note when it expires.
+#   3. Settings → Environments → New environment "packages", deployment
+#      branches limited to main, with the token as its secret PACKAGES_TOKEN.
+#      The environment is what keeps the token from every other branch's runs.
+# Without the secret a run warns and changes nothing. Once the token expires a
+# run fails when it writes: replace the secret, then run this for the latest
+# tag.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release to point the tap at, such as v1.4.0
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# One run at a time, never cut off midway. Two releases close together publish
+# in turn, and the latest-release check refuses the older one, so the tap never
+# moves back.
+concurrency:
+  group: packages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Update the Homebrew tap
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Holds PACKAGES_TOKEN, and lets only main's runs read it.
+    environment: packages
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The checksums people verify their downloads against, from the release
+      # itself.
+      - name: Download the release's checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: >-
+          gh release download "${TAG}" --repo "${GITHUB_REPOSITORY}"
+          --pattern SHA256SUMS --dir "${RUNNER_TEMP}/release"
+
+      - name: Write the Homebrew formula
+        env:
+          TAG: ${{ inputs.tag }}
+        run: >-
+          scripts/release/package-manifests.sh "${TAG}" "${RUNNER_TEMP}/release/SHA256SUMS"
+          "${GITHUB_REPOSITORY}" "${RUNNER_TEMP}/packages"
+
+      # What the run commits, kept to be read afterwards.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: packages
+          path: ${{ runner.temp }}/packages/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Commit it to the tap
+        env:
+          GH_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
+          TAG: ${{ inputs.tag }}
+        run: >-
+          scripts/release/publish-packages.sh "${TAG}" "${GITHUB_REPOSITORY}" "${RUNNER_TEMP}/packages"
+          "${GITHUB_REPOSITORY_OWNER}/homebrew-tap"
