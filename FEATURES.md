@@ -191,20 +191,20 @@ Impact: medium · Effort: large
   this package at all.
 - Constraints: The log is kept in memory, for one process, and nowhere
   else. `workflow.db` holds conveniences a session can see again and
-  `kept.db` what the user decided (CLAUDE.md, *Two files*); a list of one
-  session's writes is neither, and keeping it would be a cache of what
-  Jira's history, git's reflog and Taskwarrior's undo file already hold —
-  TRADE-32's reasoning. An undo also only makes sense close to the act: a
-  move undone tomorrow, after someone else has moved the issue, is a new
-  move, not an undo. So the interface's log ends with the interface, and
-  the web server's with the server, as "one process" settles. The record
-  holds no text a user typed — a comment's body, a commit message —
-  only what it was done to and the link, and no credential, since
-  everything recorded is a credential-free identifier; the test that a
-  token cannot reach a record ships with it. `internal/tui` (62 of 62)
-  and `web/src/shell` (12 of 12) are at their file budgets
-  (`scripts/package-size-budgets.txt`), so the overlay and the drawer
-  each come with a budget bump and its reason, or a home elsewhere.
+  `kept.db` what the user decided (`internal/store/CLAUDE.md`, *Two
+  files*); a list of one session's writes is neither, and keeping it would
+  be a cache of what Jira's history, git's reflog and Taskwarrior's undo
+  file already hold — TRADE-32's reasoning. An undo also only makes sense
+  close to the act: a move undone tomorrow, after someone else has moved
+  the issue, is a new move, not an undo. So the interface's log ends with
+  the interface, and the web server's with the server, as "one process"
+  settles. The record holds no text a user typed — a comment's body, a
+  commit message — only what it was done to and the link, and no
+  credential, since everything recorded is a credential-free identifier;
+  the test that a token cannot reach a record ships with it. `internal/tui`
+  (62 of 62) and `web/src/shell` (12 of 12) are at their file budgets
+  (`scripts/package-size-budgets.txt`), so the overlay and the drawer each
+  come with a budget bump and its reason, or a home elsewhere.
 - Done when: after a screen test stages a file, comments and moves an
   issue, the overlay lists the three newest first with their links; `u`
   on the comment, after its last look, calls the fake Jira's delete with

@@ -2,8 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with
 code in this repository. Most of it applies in every session; the rules for
-the store, the web app, the terminal interface and the web server's errors
-apply only in those directories.
+the web app, the terminal interface and the web server's errors apply only in
+those directories, and the store's are in `internal/store/CLAUDE.md`.
 
 ## What this project is
 
@@ -248,70 +248,10 @@ without agreement on direction.
   handed it one. `internal/seams`' test holds the rule and names the
   exceptions.
 
-- **Database (`internal/store`) — normalized, STRICT, and never trusted.** The
-  on-disk store is SQLite through `modernc.org/sqlite` (pure Go, so `CGO_ENABLED=0`
-  holds). Its schema is the exemplar of these rules; **read the tables in the
-  code, never a restatement here**, since a prose copy drifts: `workflow.db`'s
-  are in `internal/store/store.go`, and `kept.db`'s in `owners.go`, `groups.go`
-  and `favorites.go`, joined by `keptSchema` in `kept.go`.
-  - **Third Normal Form — no exceptions the schema doesn't document.** A repeating
-    group is a **child table**, never a JSON blob or a delimited column (a list in
-    one cell fails 1NF, and so 3NF): the cached issue list is a parent `issue_cache`
-    row and one `cached_issue` child per issue, not a serialized array. Store **no
-    derived value** — compute it at read. The one denormalization the schema keeps
-    (`status_category` beside `status`) is justified in the `CachedIssue` doc
-    comment (`internal/store/cache.go`): the mapping is Jira's, external and not
-    ours to derive, in a disposable cache. Any other denormalization needs the
-    same written justification or it is a bug.
-  - **Every table is `STRICT`.** A column's declared type is enforced at write
-    time, which is the point — so declare real types (`INTEGER`/`TEXT`/`REAL`/
-    `BLOB`/`ANY`) and never lean on SQLite's default type-coercion.
-  - **Timestamps are RFC3339 UTC `TEXT` in an `_at` column** (`timestamp(now)` in
-    `store.go`), **never** `DATETIME`, `CURRENT_TIMESTAMP`, or a bare epoch int —
-    STRICT has no date type, and a caller-passed `now time.Time` keeps the clock a
-    seam. Columns are `snake_case`.
-  - **Referential integrity is on and enforced.** The writing DSN sets
-    `_pragma=foreign_keys(1)` (SQLite enforces `ON DELETE CASCADE`/`RESTRICT` only
-    per-connection, only when on), and every child names its `FOREIGN KEY`: `ON
-    DELETE CASCADE` toward the parent that owns it, and `ON DELETE RESTRICT`
-    toward the shared `slack_entity` (from `owner_slack` and `repo_group`), so a
-    Slack user or group still linked cannot be deleted from under a decision. A
-    repeating group is **replaced in one transaction** (upsert parent, delete
-    children, insert) so a re-cache never leaves a half-updated view.
-  - **Parameterized queries only** — every value is a `?` placeholder bound through
-    `database/sql`; SQL is never built by string concatenation, no matter how
-    "internal" the value looks. The one exception is a `PRAGMA`, which binds no
-    placeholder: it may be built from this package's own constant, never from a
-    value read from anywhere.
-  - **Trust nothing read back from disk.** A file on disk is tamperable and outside
-    our process, so **do not trust stored data**: sanitize user/forge/tracker text
-    on the way in (defense in depth) *and* again on the way out through
-    `internal/sanitize` at the seam that renders it, and validate shape on read
-    rather than assuming the writer was us. The store itself **never holds a
-    secret** and is keyed only by credential-free identifiers (a forge host/path,
-    or the repository's root path when the remote is missing or unparsable; a
-    hash of a base URL; a view's JQL) — the test that proves a credential can't
-    reach it ships with any change to its keys.
-  - **Two files, one schema version each, no migrations.**
-    `workflow.db` holds only conveniences a session can see again (the last
-    scope, announcements, the issue cache). Its schema has one version:
-    `schemaVersion` in `internal/store/store.go` is stamped as `PRAGMA
-    user_version` by the live `open` that makes the file, before its first
-    table; a file whose version differs and holds tables is deleted with its
-    `-wal` and `-shm` companions and made again. `kept.db`, beside it, holds
-    what the user decided and cannot be seen again (whom a forge owner is on
-    Slack, a repository's groups, the directories marked as favorites). Its
-    schema also has one version, `keptSchemaVersion` in
-    `internal/store/kept.go`, made and stamped in one `BEGIN IMMEDIATE`
-    transaction that re-reads it; a file at another version is **never
-    discarded**: it reads as empty and refuses writes
-    (`ErrKeptSchemaDiffers`, naming `workflow db-clean --all`). Neither file
-    has **migrations**, since workflow is only installed fresh: change the
-    `CREATE TABLE`, bump the version, and move on (see *YAGNI*). A bump of
-    `schemaVersion` never touches `kept.db`. A `--dry-run` store's read-only
-    open reads `workflow.db` as it is and a `kept.db` at another version as
-    empty, never stamps or changes either file, and never makes one that is
-    missing.
+- **The store (`internal/store`) never holds a secret, and is never
+  trusted.** It is keyed only by credential-free identifiers, and the text in
+  it is sanitized on the way in and again at the seam that renders it. Its
+  schema, key and version rules are in `internal/store/CLAUDE.md`.
 
 - **License headers**: every `.go` file begins with the two SPDX lines from
   CONTRIBUTING.md. `scripts/check-license-headers.sh` gates this in lefthook,
