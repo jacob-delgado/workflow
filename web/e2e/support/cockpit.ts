@@ -32,9 +32,16 @@ export function sectionsWith(messaging: string): string[] {
 export const sectionNames = sectionsWith('Slack')
 
 // confirmSteps are the steps a click opens on the populated build before a
-// write goes out: each a group named for what it asks, and the controls it
-// adds, which Tab must reach.
-export const confirmSteps = [
+// write goes out: each a group named for what it asks — or a dialog, which Tab
+// stays inside — and the controls it adds, which Tab must reach.
+export const confirmSteps: {
+  step: string
+  section: string
+  opener: string
+  role?: 'group' | 'dialog'
+  group: string | RegExp
+  adds: string[]
+}[] = [
   {
     step: 'push confirmation',
     section: 'Branch',
@@ -84,6 +91,21 @@ export const confirmSteps = [
     opener: 'Remove the Jira token…',
     group: 'Remove the Jira token from the file?',
     adds: ['Cancel', 'Remove'],
+  },
+  {
+    step: 'directory dialog',
+    section: 'Repositories',
+    opener: 'Go to a directory…',
+    role: 'dialog',
+    group: 'Go to a directory',
+    adds: [
+      'Up to ~',
+      'Up to ~/src',
+      'Up to ~/src/api',
+      'Directory',
+      'Cancel',
+      'Switch to ~/src/api/cmd',
+    ],
   },
   {
     step: 'remove confirmation in Local data',

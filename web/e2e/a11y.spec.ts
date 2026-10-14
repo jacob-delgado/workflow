@@ -114,7 +114,7 @@ for (const theme of themes) {
 }
 
 for (const theme of themes) {
-  for (const { step, section, opener, group } of confirmSteps) {
+  for (const { step, section, opener, role = 'group', group } of confirmSteps) {
     test(
       `no accessibility violations in the ${step} in the ${theme} theme`,
       { tag: '@populated' },
@@ -126,7 +126,7 @@ for (const theme of themes) {
 
         // Act
         await page.getByRole('button', { name: opener }).click()
-        await expect(page.getByRole('group', { name: group })).toBeVisible()
+        await expect(page.getByRole(role, { name: group })).toBeVisible()
 
         // Assert
         expect(await axeViolations(page), `${theme} / populated ${step}`).toBe('')
