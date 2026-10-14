@@ -94,6 +94,16 @@ what a script can rely on from them: exit codes, which stream carries what,
   and the bottom row as they were, the bottom row naming the dialog's keys. A
   click inside one picks its row; a click outside it does nothing. Below 60
   columns a dialog is a sheet over the whole body instead.
+- **Forms** ask a question at a time: the first run's, opened with `enter` on
+  the screen that says no file applies, or `S` there, and the fields a status
+  change needs. A list moves with `↑` and `↓` and wraps from either end;
+  `enter` or `tab` goes on, `shift+tab` back a question, and `enter` on the
+  last answers the form. `esc` steps back too, and from a form's first
+  question to the form before, what you answered kept; at the very first it
+  cancels. A token or a webhook is typed without showing it. The bottom row
+  names the keys the question answers, `ui.keys` moves them as it moves every
+  other, and with `ui.accessible` each form takes the terminal as plain
+  prompts instead.
 - **The bottom row** shows what the focused pane can do right now; it changes
   with the pane and with what that pane has loaded. On a narrow terminal the
   keys that do not fit are dropped whole and an ellipsis says so: the keys

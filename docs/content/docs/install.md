@@ -134,7 +134,8 @@ Set it up, answering the prompts, with `workflow config init` (`--template`
 writes a blank file to edit) — [Configuration]({{< relref "/docs/configuration" >}})
 explains where to get the tokens — and run `workflow` to open the TUI. Or run
 `workflow`, or `workflow --web`, with no file at all: each offers to set one
-up, asking the same questions.
+up, asking the same questions — the terminal in forms, a question at a time,
+checking the token with Jira before it goes on.
 [Using workflow]({{< relref "/docs/usage" >}}) walks through it.
 
 ## Shell completion

@@ -696,7 +696,7 @@ at once where it has got; the states read the same either way.
 ### Accessible forms
 
 `ui.accessible`, off unless you turn it on, changes how the terminal asks a
-form's questions — the fields a status change needs, for now. Drawn over the
+form's questions — the first run's and the fields a status change needs. Drawn over the
 screen, a form redraws its field, options and cursor at once, which a screen
 reader reads poorly. With it on, or with the `ACCESSIBLE` environment variable
 set to anything, the form takes the whole terminal instead, as `$EDITOR`
