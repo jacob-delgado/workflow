@@ -14,13 +14,10 @@ import type { SettingsValues } from './formValues.ts'
 import { LocalData } from './people/LocalData.tsx'
 import { PeopleAndGroups } from './people/PeopleAndGroups.tsx'
 
-// Fields is what every fieldset is handed: the form's register and control,
-// and the Jira token as read, masked, which says where the token in effect
-// comes from.
+// Fields is what every fieldset is handed: the form's register and control.
 interface Fields {
   register: Register
   control: Control<SettingsValues>
-  storedToken: string | null
 }
 
 // A section of the configuration, which saves with the rest of the file.

@@ -46,12 +46,14 @@ export function MessagingFieldset({
         register={register}
         name="messaging.client_secret"
         label="Client secret"
+        elsewhere={{ from: 'macOS keychain' }}
         hint="Slack user token: your app's client secret; leave as-is to keep the stored one."
       />
       <SecretField
         register={register}
         name="messaging.refresh_token"
         label="Refresh token"
+        elsewhere={{ from: 'macOS keychain' }}
         hint="Slack user token: a refresh token (xoxe-1-…); workflow refreshes it and keeps each new one."
       />
       <SecretField
