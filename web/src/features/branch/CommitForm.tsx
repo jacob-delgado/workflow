@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useId, useRef } from 'react'
-import { useForm, useWatch, type Control, type UseFormRegister } from 'react-hook-form'
+import {
+  useForm,
+  useFormState,
+  useWatch,
+  type Control,
+  type UseFormRegister,
+} from 'react-hook-form'
 import type { Branch } from '@/api/generated/types.gen.ts'
 import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
@@ -90,6 +96,7 @@ export function CommitForm({ canCommit, waiting, suggestedScope, convention }: C
   return (
     <form
       aria-label="Commit staged changes"
+      noValidate
       onSubmit={(event) => {
         void onSubmit(event)
       }}
@@ -137,6 +144,12 @@ function nextMessage(used: CommitFields, types: string[], suggested: string): Co
   }
 }
 
+// typedSubject refuses a commit with no subject, beside the subject, before
+// it is sent.
+function typedSubject(subject: string): true | string {
+  return subject.trim() === '' ? 'Type a subject first.' : true
+}
+
 interface MessageFieldsProps {
   register: UseFormRegister<CommitFields>
   control: Control<CommitFields>
@@ -159,6 +172,9 @@ function MessageFields({
 }: MessageFieldsProps) {
   const typeField = register('type')
   const countId = useId()
+  const subjectRefusalId = `${countId}-refusal`
+  const { errors } = useFormState({ control, name: 'subject' })
+  const subjectRefusal = errors.subject?.message
   const typeSelect = useRef<HTMLSelectElement>(null)
   const shortcut = useShortcut('commit', typeSelect, 'focus')
 
@@ -192,13 +208,17 @@ function MessageFields({
         <label className={labelClass}>
           Subject
           <Input
-            {...register('subject')}
+            {...register('subject', { validate: typedSubject })}
             required
             aria-describedby={countId}
+            error={subjectRefusal === undefined ? undefined : subjectRefusalId}
             placeholder="What the change does, in the imperative"
           />
         </label>
         <HeaderCount id={countId} control={control} limit={subjectLimit} />
+        {subjectRefusal === undefined ? null : (
+          <Failure id={subjectRefusalId}>{subjectRefusal}</Failure>
+        )}
       </div>
 
       <label className={labelClass}>

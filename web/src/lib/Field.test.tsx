@@ -79,3 +79,53 @@ test('a held text area takes no typing', async () => {
   // Assert
   expect(changed).not.toHaveBeenCalled()
 })
+
+test.each([
+  {
+    kind: 'a text field',
+    role: 'textbox',
+    field: <Input aria-label="Field" aria-describedby="hint" error="why" />,
+  },
+  {
+    kind: 'a choice',
+    role: 'combobox',
+    field: (
+      <Select aria-label="Field" aria-describedby="hint" error="why">
+        <option>One</option>
+      </Select>
+    ),
+  },
+  {
+    kind: 'a text area',
+    role: 'textbox',
+    field: <TextArea aria-label="Field" aria-describedby="hint" error="why" />,
+  },
+])('$kind refused is invalid and described by why, after its hint', ({ role, field }) => {
+  // Arrange
+  render(
+    <>
+      {field}
+      <p id="hint">The hint.</p>
+      <p id="why">Refused.</p>
+    </>,
+  )
+
+  // Act
+  const drawn = screen.getByRole(role, { name: 'Field' })
+
+  // Assert
+  expect(drawn.getAttribute('aria-invalid')).toBe('true')
+  expect(drawn.getAttribute('aria-describedby')).toBe('hint why')
+})
+
+test('a field not refused is not marked invalid', () => {
+  // Arrange
+  render(<Input aria-label="Field" aria-describedby="hint" />)
+
+  // Act
+  const drawn = screen.getByRole('textbox', { name: 'Field' })
+
+  // Assert
+  expect(drawn.hasAttribute('aria-invalid')).toBe(false)
+  expect(drawn.getAttribute('aria-describedby')).toBe('hint')
+})

@@ -4,30 +4,35 @@ import { useFocusOnMount } from './focus.ts'
 import { Failure } from './Status.tsx'
 
 // LabeledInput is a field with its label above it and, given one, a hint
-// below, the hint read as the field's description.
+// below, the hint read as the field's description; and, while the field is
+// refused, why, below the hint, for the field's error.
 export function LabeledInput({
   label,
   hint,
+  error,
   children,
 }: {
   label: string
   hint?: string
-  children: (id: string, hintId: string | undefined) => ReactNode
+  error?: string
+  children: (id: string, hintId: string | undefined, errorId: string | undefined) => ReactNode
 }) {
   const id = useId()
   const hintId = hint === undefined ? undefined : `${id}-hint`
+  const errorId = error === undefined ? undefined : `${id}-error`
 
   return (
     <div className="flex flex-col gap-tight">
       <label htmlFor={id} className="text-sm font-medium">
         {label}
       </label>
-      {children(id, hintId)}
+      {children(id, hintId, errorId)}
       {hint === undefined ? null : (
         <p id={hintId} className="text-xs text-muted-foreground">
           {hint}
         </p>
       )}
+      {error === undefined ? null : <Failure id={errorId}>{error}</Failure>}
     </div>
   )
 }
