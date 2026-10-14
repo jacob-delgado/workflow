@@ -117,12 +117,27 @@ func huhFieldStyles(kit renderKit, selector string) huh.FieldStyles {
 func huhKeys(keys keyMap) *huh.KeyMap {
 	next := key.NewBinding(key.WithKeys(slices.Concat(keys.confirm.Keys(), keys.nextField.Keys())...),
 		key.WithHelp(keys.confirm.Help().Key, "next"))
-	prev, submit := keys.prevField, relabel(keys.confirm, "apply")
-	off := key.NewBinding(key.WithDisabled())
+
+	return formKeyMap(keys, next, relabel(keys.confirm, "apply"), key.NewBinding(key.WithDisabled()))
+}
+
+// prFormKeys is Huh's key map for a form whose apply the overlay answers
+// itself, as the pull request composer's is: next-field goes on, taking the
+// completion a field suggests as it goes, and nothing submits.
+func prFormKeys(keys keyMap) *huh.KeyMap {
+	return formKeyMap(keys, relabel(keys.nextField, "next field"), key.NewBinding(key.WithDisabled()), keys.nextField)
+}
+
+// formKeyMap is Huh's key map with next going on, submit submitting from the
+// last field, and accept taking a suggested completion. Huh's text area hands
+// nothing to its own editor: a body goes to $EDITOR through the editor seam.
+func formKeyMap(keys keyMap, next, submit, accept key.Binding) *huh.KeyMap {
+	prev, off := keys.prevField, key.NewBinding(key.WithDisabled())
 
 	keymap := huh.NewDefaultKeyMap()
 	keymap.Quit = off
-	keymap.Input = huh.InputKeyMap{AcceptSuggestion: off, Next: next, Prev: prev, Submit: submit}
+	keymap.Text.Editor = off
+	keymap.Input = huh.InputKeyMap{AcceptSuggestion: accept, Next: next, Prev: prev, Submit: submit}
 	keymap.Select = huh.SelectKeyMap{
 		Next: next, Prev: prev, Submit: submit, Up: keys.up, Down: keys.down, GotoTop: keys.first, GotoBottom: keys.last,
 		HalfPageUp: off, HalfPageDown: off, Left: off, Right: off, Filter: off, SetFilter: off, ClearFilter: off,
@@ -145,11 +160,11 @@ func huhKeys(keys keyMap) *huh.KeyMap {
 // answer: a blank row and the reason.
 const refusalRows = 2
 
-// newHuhForm is a form of groups drawn and keyed as the interface is, its help
-// left to the footer, started, and fitted to width columns and rows rows; and
-// the command that goes on starting it.
-func newHuhForm(kit renderKit, keys keyMap, width, rows int, groups ...*huh.Group) (*huh.Form, tea.Cmd) {
-	form := huh.NewForm(groups...).WithTheme(huhTheme(kit)).WithKeyMap(huhKeys(keys)).WithShowHelp(false)
+// newHuhForm is a form of groups drawn as the interface is and keyed by
+// keymap, its help left to the footer, started, and fitted to width columns
+// and rows rows; and the command that goes on starting it.
+func newHuhForm(kit renderKit, keymap *huh.KeyMap, width, rows int, groups ...*huh.Group) (*huh.Form, tea.Cmd) {
+	form := huh.NewForm(groups...).WithTheme(huhTheme(kit)).WithKeyMap(keymap).WithShowHelp(false)
 	start := form.Init()
 
 	return form, tea.Batch(start, fitForm(form, width, rows))

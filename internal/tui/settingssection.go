@@ -70,7 +70,7 @@ func (f settingsForm) startEditing(m Model) (Model, tea.Cmd) {
 	// Its start asks for a size it is already given and for titles drawn
 	// from functions none of its fields has: it has no use for either.
 	width, rows := editSize(m)
-	form, _ := newHuhForm(m.kit(), m.keys, width, rows, groups...)
+	form, _ := newHuhForm(m.kit(), huhKeys(m.keys), width, rows, groups...)
 
 	for range f.at(field) {
 		form.NextField()

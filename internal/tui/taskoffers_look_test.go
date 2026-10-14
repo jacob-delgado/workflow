@@ -38,7 +38,7 @@ func TestApplyingTheReviewStatusStillOffersToNoteThePullRequest(t *testing.T) {
 	repo.pullFound = false
 	repo.cfg.Jira.ReviewStatus = statusInReview
 	repo.moves = reviewTransitions()
-	picking := typing(t, repo.live(t, 200, 40), "4", "n", keyEnter, keyEnter)
+	picking := typing(t, repo.live(t, 200, 40), "4", "n", keyEnter, keyEnter, keyEnter)
 
 	// Act
 	view := typing(t, picking, keyEnter).View().Content

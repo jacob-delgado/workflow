@@ -71,7 +71,7 @@ func newFieldForm(move jira.Transition, kit renderKit, keys keyMap, width, rows 
 		groups[index] = huh.NewGroup(last)
 	}
 
-	form, start := newHuhForm(kit, keys, width, rows, groups...)
+	form, start := newHuhForm(kit, huhKeys(keys), width, rows, groups...)
 
 	return fieldForm{transition: move, form: form, answers: answers, last: last}, start
 }

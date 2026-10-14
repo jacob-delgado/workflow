@@ -33,7 +33,7 @@ func TestLinkingAPullRequestThenOffersTheReviewStatus(t *testing.T) {
 	linking := withoutPull()
 	linking.cfg.Jira.ReviewStatus = statusInReview
 	linking.moves = reviewTransitions()
-	opened := typing(t, linking.live(t, 120, 40), "4", "n", keyEnter)
+	opened := typing(t, linking.live(t, 120, 40), "4", "n", keyEnter, keyEnter)
 
 	// Act
 	linked := typing(t, opened, keyEnter)
@@ -53,7 +53,7 @@ func TestTheReviewStatusOfferNamesAnIssueTheListDoesNotHoldByItsKey(t *testing.T
 	unlisted.cfg.Jira.ReviewStatus = statusInReview
 	unlisted.moves = reviewTransitions()
 	unlisted.issues = unlisted.issues[1:]
-	opened := typing(t, unlisted.live(t, 120, 40), "4", "n", keyEnter)
+	opened := typing(t, unlisted.live(t, 120, 40), "4", "n", keyEnter, keyEnter)
 
 	// Act
 	linked := typing(t, opened, keyEnter)
@@ -70,7 +70,7 @@ func TestSkippingTheLinkStillOffersTheReviewStatus(t *testing.T) {
 	linking := withoutPull()
 	linking.cfg.Jira.ReviewStatus = statusInReview
 	linking.moves = reviewTransitions()
-	opened := typing(t, linking.live(t, 120, 40), "4", "n", keyEnter)
+	opened := typing(t, linking.live(t, 120, 40), "4", "n", keyEnter, keyEnter)
 
 	// Act
 	skipped := typing(t, opened, keyEsc)
@@ -91,7 +91,7 @@ func TestWithoutAJiraLinkOpeningAPullRequestOffersTheReviewStatus(t *testing.T) 
 	deps := linking.deps()
 	deps.Jira.LinkPullRequest = nil
 	model := sized(t, tui.New(linking.cfg, nil, deps), 120, 40)
-	composing := typing(t, drain(t, model, model.Init()), "4", "n")
+	composing := typing(t, drain(t, model, model.Init()), "4", "n", keyEnter)
 
 	// Act
 	opened := typing(t, composing, keyEnter)
@@ -110,7 +110,7 @@ func TestNoReviewOfferWhenJiraDoesNotHaveTheStatus(t *testing.T) {
 	linking := withoutPull()
 	linking.cfg.Jira.ReviewStatus = statusInReview
 	linking.moves = []jira.Transition{transition("31", "Done", "Done", "done")}
-	opened := typing(t, linking.live(t, 120, 40), "4", "n", keyEnter)
+	opened := typing(t, linking.live(t, 120, 40), "4", "n", keyEnter, keyEnter)
 
 	// Act
 	skipped := typing(t, opened, keyEsc)
@@ -130,7 +130,7 @@ func TestAFailedListingKeepsTheReviewStatusOfferOpen(t *testing.T) {
 		return nil, fmt.Errorf("listing: %w", jira.ErrUnreachable)
 	}
 	model := sized(t, tui.New(linking.cfg, nil, deps), 120, 40)
-	opened := typing(t, drain(t, model, model.Init()), "4", "n", keyEnter)
+	opened := typing(t, drain(t, model, model.Init()), "4", "n", keyEnter, keyEnter)
 
 	// Act
 	linked := typing(t, opened, keyEnter)
@@ -146,7 +146,7 @@ func TestOpeningAPullRequestOffersToLinkItOnTheIssue(t *testing.T) {
 	linking := withoutPull()
 
 	// Act: open the pull request
-	opened := typing(t, linking.live(t, 120, 40), "4", "n", keyEnter)
+	opened := typing(t, linking.live(t, 120, 40), "4", "n", keyEnter, keyEnter)
 
 	// Assert: the confirmation to link it on the issue is shown
 	requireScreen(t, opened.View().Content, "Link on PROJ-412", "Add this pull request's link to PROJ-412?", "#42")
@@ -175,7 +175,7 @@ func TestAForgeIssueNumberIsOfferedNoJiraLinkOrMove(t *testing.T) {
 	forgeNumber.moves = reviewTransitions()
 
 	// Act
-	view := typing(t, forgeNumber.live(t, 120, 40), "4", "n", keyEnter).View().Content
+	view := typing(t, forgeNumber.live(t, 120, 40), "4", "n", keyEnter, keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, "opened #42")
@@ -187,7 +187,7 @@ func TestSkippingTheLinkAddsNothing(t *testing.T) {
 
 	// Arrange
 	linking := withoutPull()
-	opened := typing(t, linking.live(t, 120, 40), "4", "n", keyEnter)
+	opened := typing(t, linking.live(t, 120, 40), "4", "n", keyEnter, keyEnter)
 
 	// Act
 	skipped := typing(t, opened, keyEsc)
@@ -206,7 +206,7 @@ func TestAFailedLinkKeepsTheConfirmationOpen(t *testing.T) {
 	// Arrange
 	linking := withoutPull()
 	linking.linkErr = errLinkFailed
-	opened := typing(t, linking.live(t, 120, 40), "4", "n", keyEnter)
+	opened := typing(t, linking.live(t, 120, 40), "4", "n", keyEnter, keyEnter)
 
 	// Act
 	failed := typing(t, opened, keyEnter)
@@ -225,7 +225,7 @@ func TestADryRunSaysItWouldOfferToLinkThePullRequest(t *testing.T) {
 	model = drain(t, model, model.Init())
 
 	// Act
-	view := typing(t, model, "4", "n", keyEnter).View().Content
+	view := typing(t, model, "4", "n", keyEnter, keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, "into main, then offer to link it on "+issueKey)
@@ -247,7 +247,7 @@ func TestADryRunOffersNoJiraLinkForAForgeIssueNumber(t *testing.T) {
 	model = drain(t, model, model.Init())
 
 	// Act
-	view := typing(t, model, "4", "n", keyEnter).View().Content
+	view := typing(t, model, "4", "n", keyEnter, keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, "dry run: would")

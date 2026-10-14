@@ -15,6 +15,10 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 )
 
+// prLabelWidth is the columns a pull request field's marker, label, prompt and
+// the cursor after the text take.
+const prLabelWidth = 12
+
 // prEditor edits an open pull request's title and description. Unlike the
 // composer, it changes an existing pull request rather than opening one, so it
 // carries neither the branch fields nor the push a new pull request needs.

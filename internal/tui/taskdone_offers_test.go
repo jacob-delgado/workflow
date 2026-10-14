@@ -49,7 +49,7 @@ func TestNoMomentOffersAChangeOfATaskJustMarkedDone(t *testing.T) {
 		"opening a pull request, once task 12 is marked done": {
 			moment: moment{
 				arrange: func(repo *world) { repo.pullFound = false },
-				keys:    []string{"4", "n", keyEnter, keyEsc}, reached: "open ",
+				keys:    []string{"4", "n", keyEnter, keyEnter, keyEsc}, reached: "open ",
 			},
 		},
 		"switching to PROJ-388's branch, once task 3 is marked done": {

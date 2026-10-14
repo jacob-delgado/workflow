@@ -180,7 +180,7 @@ func (f setupForm) keychainOffered() bool {
 // the command that starts it: drawn in the dialog or, with accessible forms
 // on, handed to the prompts.
 func (f setupForm) asking(m Model, stage setupStage, at int, groups ...*huh.Group) (Model, tea.Cmd) {
-	form, start := newHuhForm(m.kit(), m.keys, m.dialogColumns(setupWidth), m.detailRows(), groups...)
+	form, start := newHuhForm(m.kit(), huhKeys(m.keys), m.dialogColumns(setupWidth), m.detailRows(), groups...)
 	f.stage, f.form, f.first, f.send = stage, form, form.GetFocusedField(), sendState{}
 
 	for range at {

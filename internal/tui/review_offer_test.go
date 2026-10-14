@@ -73,7 +73,7 @@ func TestNIsOfferedWhileNoPullRequestIsOpen(t *testing.T) {
 			requireScreen(t, footerLine(view), "n open pull request")
 
 			// Act: open one
-			typing(t, review, "n", keyEnter)
+			typing(t, review, "n", keyEnter, keyEnter)
 
 			// Assert: the forge was asked to open it
 			if calls := offering.asked("open "); len(calls) != 1 {

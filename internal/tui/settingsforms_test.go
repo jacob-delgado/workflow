@@ -97,7 +97,7 @@ func TestKeepingASectionRefusesACountThatIsNotOne(t *testing.T) {
 
 	// Act
 	view := typing(t, newWorld().live(t, 120, 40),
-		append(toRow(subjectLimitRow), keyEnter, "ctrl+u", pasted("x"), saveKey)...).View().Content
+		append(toRow(subjectLimitRow), keyEnter, keyClearLine, pasted("x"), saveKey)...).View().Content
 
 	// Assert
 	requireScreen(t, view, "a count is a whole number", "> x")

@@ -5,19 +5,16 @@ package tui_test
 
 import (
 	"errors"
-	"slices"
 	"testing"
 )
 
 // errListRemotes stands in for a git failure to list the remotes.
 var errListRemotes = errors.New("git could not list the remotes")
 
-// baseKeys opens the composer, moves to the base field, clears the default
-// "main", types prefix, then presses tab.
+// baseKeys opens the composer on its base field, clears the default "main",
+// types prefix, then presses tab.
 func baseKeys(prefix string) []string {
-	keys := append([]string{"4", "n", keyTab}, slices.Repeat([]string{keyBackspace}, len("main"))...)
-
-	return append(append(keys, letters(prefix)...), keyTab)
+	return []string{"4", "n", keyClearLine, pasted(prefix), keyTab}
 }
 
 func TestTheBaseFieldCompletesToAMatchingRemoteBranch(t *testing.T) {
@@ -29,30 +26,26 @@ func TestTheBaseFieldCompletesToAMatchingRemoteBranch(t *testing.T) {
 	model := opening.live(t, 120, 40)
 
 	// Act
-	view := typing(t, model, baseKeys("dev")...).View().Content
+	view := typing(t, model, append(baseKeys("dev"), keyEnter)...).View().Content
 
 	// Assert
-	requireScreen(t, view, "base      > develop")
+	requireScreen(t, view, "→ develop")
 }
 
-func TestTabNavigatesPastTheBaseWhenNothingCompletes(t *testing.T) {
+func TestTabMovesPastTheBaseWhenNothingCompletes(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// No remote branches, so the tab in baseKeys has nothing to complete and must
-	// move on: a letter typed after it lands in the title, not the base.
-	opening := withoutPull()
-	model := opening.live(t, 120, 40)
-
-	keys := append(baseKeys("dev"), letters("Z")...)
+	// No remote branches, so the tab in baseKeys has nothing to complete and
+	// moves on to the template: a letter typed after it does not land in the
+	// base.
+	keys := append(baseKeys("dev"), "Z")
 
 	// Act
-	view := typing(t, model, keys...).View().Content
+	view := typing(t, twoTemplates().live(t, 120, 40), keys...).View().Content
 
 	// Assert
-	// The base is left as typed and the trailing letter did not land in it, so
-	// tab moved focus on rather than being swallowed by the field.
-	requireScreen(t, view, "base      > dev")
+	requireScreen(t, view, "> dev")
 	refuseScreen(t, view, "devZ")
 }
 
@@ -69,7 +62,7 @@ func TestTheComposerOpensWithoutARemoteBranchSeam(t *testing.T) {
 	view := typing(t, opening.live(t, 120, 40), "4", "n").View().Content
 
 	// Assert
-	requireScreen(t, view, "base      > "+baseName)
+	requireScreen(t, view, "> "+baseName)
 }
 
 func TestAFailedRemoteBranchListingStillOpensTheComposer(t *testing.T) {
@@ -83,5 +76,5 @@ func TestAFailedRemoteBranchListingStillOpensTheComposer(t *testing.T) {
 	view := typing(t, opening.live(t, 120, 40), "4", "n").View().Content
 
 	// Assert
-	requireScreen(t, view, "base      > "+baseName)
+	requireScreen(t, view, "> "+baseName)
 }

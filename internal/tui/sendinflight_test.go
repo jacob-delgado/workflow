@@ -94,7 +94,7 @@ func TestAFormTakesNoSecondSendWhileItsWriteIsOut(t *testing.T) {
 			sent: "worklog ", doing: "sending…", unwanted: "> 2hx",
 		},
 		"linking the pull request on the issue": {
-			world: withoutPull, wrap: heldPullRequestLink, keys: []string{"4", "n", keyEnter, keyEnter},
+			world: withoutPull, wrap: heldPullRequestLink, keys: []string{"4", "n", keyEnter, keyEnter, keyEnter},
 			sent: "link ", doing: "linking…", unwanted: "● linked",
 		},
 		"linking the branch": {

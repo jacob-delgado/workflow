@@ -99,7 +99,7 @@ func loopMoments() map[string]moment {
 		},
 		"opening a pull request": {
 			arrange: func(repo *world) { repo.pullFound = false },
-			keys:    []string{"4", "n", keyEnter, keyEsc}, reached: "open ",
+			keys:    []string{"4", "n", keyEnter, keyEnter, keyEsc}, reached: "open ",
 		},
 		"merging": {arrange: readyToMerge, keys: []string{"4", "M", keyEnter}, reached: "merge 42"},
 		"moving the issue to done": {
@@ -230,7 +230,7 @@ func TestOpeningAPullRequestOffersToAnnotateTheTask(t *testing.T) {
 	model := repo.live(t, 200, 40)
 
 	// Act: open the pull request
-	linking := typing(t, model, "4", "n", keyEnter)
+	linking := typing(t, model, "4", "n", keyEnter, keyEnter)
 
 	// Assert: the issue linker has the keys, and the offer waits behind it
 	requireScreen(t, linking.View().Content, "Link on "+issueKey)

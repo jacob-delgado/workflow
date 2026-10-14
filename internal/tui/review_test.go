@@ -61,7 +61,7 @@ func TestWithoutAForgeTokenNothingIsOfferedOrPushed(t *testing.T) {
 	noToken.pullErr = forge.ErrNoToken
 
 	// Act
-	after := typing(t, noToken.live(t, 120, 40), "4", "n", keyEnter)
+	after := typing(t, noToken.live(t, 120, 40), "4", "n", keyEnter, keyEnter)
 
 	// Assert
 	refuseScreen(t, footerLine(after.View().Content), "open pull request")
@@ -212,16 +212,17 @@ func TestNOpensAComposerStartedFromTheBranch(t *testing.T) {
 
 	// Assert: it starts from the branch, the first template and the issue
 	requireScreen(t, composer.View().Content,
-		"┏━ Open pull request", "title     > "+pullTitle, "base      > main",
-		"head      "+featureName, "template PULL_REQUEST_TEMPLATE (1 of 2)", "[ ] draft", "## What this changes",
+		"┏━ Open pull request", "Base", "> main", featureName+" → main",
+		"template PULL_REQUEST_TEMPLATE (1 of 2)", "## What this changes",
 		"Jira: [PROJ-412](https://jira.example.com/browse/PROJ-412)")
+	refuseScreen(t, composer.View().Content, " · draft")
 
 	// Act: take the other template, as a draft
 	changed := typing(t, composer, "ctrl+t", "ctrl+r")
 
 	// Assert: both show
 	requireScreen(t, changed.View().Content,
-		"template bugfix (2 of 2)", "## Bug", "[x] draft")
+		"template bugfix (2 of 2)", "## Bug", " · draft")
 
 	// Act: write the body in the editor
 	edited := typing(t, changed, keyCtrlO)
@@ -230,8 +231,8 @@ func TestNOpensAComposerStartedFromTheBranch(t *testing.T) {
 	requireScreen(t, edited.View().Content,
 		"Rewritten.")
 
-	// Act: open it
-	opened := typing(t, edited, keyEnter)
+	// Act: go on to the title, and open it
+	opened := typing(t, edited, keyEnter, keyEnter)
 
 	// Assert: the forge was asked for exactly that
 	requireScreen(t, opened.View().Content,
@@ -252,18 +253,18 @@ func TestAFailedPushKeepsThePullRequestDraft(t *testing.T) {
 	failing.pushErr = errPushDenied
 
 	// Act: edit the title, then open — which pushes first, and the push fails
-	pushed := typing(t, failing.live(t, 120, 40), "4", "n", "!", keyEnter)
+	pushed := typing(t, failing.live(t, 120, 40), "4", "n", keyEnter, "!", keyEnter)
 
 	// Assert: the push failed, its run in front of the composer
 	requireScreen(t, pushed.View().Content,
 		"┏━ git push", "✗ the push was refused")
 
 	// Act: leave the failed run and reopen the composer
-	reopened := typing(t, pushed, keyEsc, "n")
+	reopened := typing(t, pushed, keyEsc, "n", keyEnter)
 
 	// Assert: it reopens with the edited title still there, and esc says it closes
 	requireScreen(t, reopened.View().Content,
-		"┏━ Open pull request", "title     > "+pullTitle+"!")
+		"┏━ Open pull request", "> "+pullTitle+"!")
 	requireScreen(t, footerLine(reopened.View().Content), escCloses)
 
 	// Act: close it again
@@ -281,15 +282,14 @@ func TestTheComposerTitleAndBaseCanBeEdited(t *testing.T) {
 	opening.edited = "Body."
 	model := opening.live(t, 120, 40)
 
-	keys := append([]string{"4", "n", keyCtrlO}, letters("!")...)
-	keys = append(append(keys, keyTab, keyBackspace, keyBackspace, keyBackspace, keyBackspace), letters("develop")...)
+	keys := []string{"4", "n", keyCtrlO, keyClearLine, pasted("develop"), keyEnter, "!"}
 
-	// Act: change the title and the base
+	// Act: change the base and the title
 	composed := typing(t, model, keys...)
 
 	// Assert: both show changed
 	requireScreen(t, composed.View().Content,
-		"title     > "+pullTitle+"!", "base      > develop", "no template in this repository")
+		"> "+pullTitle+"!", featureName+" → develop", "no template in this repository")
 
 	// Act: open it
 	typing(t, composed, keyEnter)
@@ -304,15 +304,13 @@ func TestTheComposerTitleAndBaseCanBeEdited(t *testing.T) {
 func TestAPullRequestNeedsATitleAndABase(t *testing.T) {
 	t.Parallel()
 
-	erase := slices.Repeat([]string{keyBackspace}, 60)
-
 	cases := map[string]struct {
 		keys []string
 		want string
 	}{
-		"no title": {keys: append(slices.Clone(erase), keyEnter), want: "✗ a title is required"},
+		"no title": {keys: []string{keyEnter, keyClearLine, keyEnter}, want: "✗ a title is required"},
 		"no base": {
-			keys: append(append([]string{keyTab}, erase...), keyEnter),
+			keys: []string{keyClearLine, keyEnter, keyEnter},
 			want: "✗ a base branch to merge into is required",
 		},
 	}
@@ -346,7 +344,7 @@ func TestAnUnpushedBranchIsPushedBeforeThePullRequestOpens(t *testing.T) {
 	unpushed.branch.Upstream = ""
 
 	// Act
-	opened := typing(t, unpushed.live(t, 120, 40), "4", "n", keyEnter)
+	opened := typing(t, unpushed.live(t, 120, 40), "4", "n", keyEnter, keyEnter)
 
 	// Assert
 	requireScreen(t, opened.View().Content,
@@ -370,7 +368,7 @@ func TestAFailedPushOpensNoPullRequest(t *testing.T) {
 	failing.pushErr = errPushDenied
 
 	// Act
-	failed := typing(t, failing.live(t, 120, 40), "4", "n", keyEnter)
+	failed := typing(t, failing.live(t, 120, 40), "4", "n", keyEnter, keyEnter)
 
 	// Assert
 	requireScreen(t, failed.View().Content,
@@ -390,7 +388,7 @@ func TestARefusedPullRequestKeepsTheComposerOpen(t *testing.T) {
 	model := refusing.live(t, 120, 40)
 
 	// Act: open one the forge refuses
-	refused := typing(t, model, "4", "n", keyEnter)
+	refused := typing(t, model, "4", "n", keyEnter, keyEnter)
 
 	// Assert: the composer stays open with the forge's reason
 	requireScreen(t, refused.View().Content,
@@ -415,7 +413,7 @@ func TestADryRunOpensNothing(t *testing.T) {
 	model = drain(t, model, model.Init())
 
 	// Act
-	view := typing(t, model, "4", "n", keyEnter).View().Content
+	view := typing(t, model, "4", "n", keyEnter, keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, "dry run: would open \""+pullTitle+"\" from "+featureName+" into main, then offer "+

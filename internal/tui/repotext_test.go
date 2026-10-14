@@ -73,7 +73,8 @@ func TestNamesARepositoryWritesReachTheTerminalAsText(t *testing.T) {
 		"the commit composed":     {repo: fromAHostileRepository, keys: []string{"3", "c"}, shows: "  fix: "},
 		"the key list":            {repo: fromAHostileRepository, keys: []string{"?"}, shows: reboundRefreshKey},
 		"the follow-ups a dry run names": {
-			repo: hostileWithoutAPull, dry: true, keys: []string{"4", "n", keyEnter}, shows: "to move PROJ-412 to In Review",
+			repo: hostileWithoutAPull, dry: true, keys: []string{"4", "n", keyEnter, keyEnter},
+			shows: "to move PROJ-412 to In Review",
 		},
 	}
 
