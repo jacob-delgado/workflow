@@ -39,6 +39,19 @@ test('the Jira token says where one typed is kept', async () => {
   )
 })
 
+test('the Jira section says which of its settings wait for a restart or a directory switch', async () => {
+  // Arrange
+  readsAs(mockConfig)
+
+  // Act
+  const jira = await screen.findByRole('group', { name: 'Jira' })
+
+  // Assert
+  expect(description(jira)).toBe(
+    "These wait for a restart or a directory switch: the address, token and where it is read from, user, headers, and whether this repository's issues are listed and which view they lead. The rest apply at once.",
+  )
+})
+
 test('the Announcement hint names its placeholders, Slack only, and the empty default', async () => {
   // Arrange
   readsAs(mockConfig)
