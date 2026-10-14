@@ -32,8 +32,9 @@ type stage struct {
 
 // spineView is what the spine draws: the glyphs and styles, whether the
 // session holds its writes back, where you work, how far the work has got,
-// what the messaging service is called, CI's share of checks finished, the
-// active task and the clock it has run by.
+// what the messaging service is called, CI's share of checks finished, how
+// far each rule is drawn filled on its way there, the active task and the
+// clock it has run by.
 type spineView struct {
 	kit     renderKit
 	dryRun  bool
@@ -41,6 +42,7 @@ type spineView struct {
 	work    progress.Work
 	service string
 	checked float64
+	shown   []float64
 	task    taskwarrior.Task
 	active  bool
 	now     time.Time
@@ -52,8 +54,8 @@ func (m Model) spineView() spineView {
 
 	return spineView{
 		kit: m.kit(), dryRun: m.dryRun, place: placeLabel(m.deps), work: m.work(),
-		service: m.cfg.Messaging.Service(), checked: checksFinished(m.review.ci), task: task, active: active,
-		now: m.deps.now(),
+		service: m.cfg.Messaging.Service(), checked: checksFinished(m.review.ci), shown: m.motion.shown(),
+		task: task, active: active, now: m.deps.now(),
 	}
 }
 
@@ -343,9 +345,24 @@ func (v spineView) stages() []stage {
 			name: each.Name, state: each.State, glyph: glyphFor(v.kit.marks, each.State), hue: hues[each.System],
 			fill: v.fillOf(each),
 		}
+		if index < len(v.shown) {
+			stages[index].fill = v.shown[index]
+		}
 	}
 
 	return stages
+}
+
+// targets are how far each stage's rule is filled once it comes to rest.
+func (v spineView) targets() []float64 {
+	derived := progress.Stages(v.work, v.service)
+	fills := make([]float64, len(derived))
+
+	for index, each := range derived {
+		fills[index] = v.fillOf(each)
+	}
+
+	return fills
 }
 
 // fillOf is how much of the rule after a stage is filled: all of it once
