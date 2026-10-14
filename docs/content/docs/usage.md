@@ -223,7 +223,7 @@ lists, by where it works.
 | | `r` | Read the period again |
 | 9 Repositories | `s` | Switch to the selected directory, after a last look |
 | | `f` | Add the selected directory to your favorites, or remove it |
-| | `g` | Type a directory to switch to; `tab` completes it |
+| | `g` | Browse for a directory to switch to, in a picker that narrows as you type |
 | | `S` | Settings: read and change the configuration the web's Settings edits; with no file, set one up |
 | | `L` | Local data: the store's files, and removing them after a last look |
 | | `r` | Read the favorites again |
@@ -856,19 +856,32 @@ not read at startup. Under `--dry-run` the pane lists them and says what `f`
 would have done; with `store.disabled` there are none to keep.
 
 `s` switches to the worktree or directory the cursor is on — not to a
-worktree whose directory is gone — and `g` to one you type:
-from where you work, as `../web`, or from your home after a `~`, as
-`~/src/web`. In the prompt every key types, `j` and `q` included; `tab`
-completes the path from the directories there, a hidden one once you type its
-dot, typing what several share and
-naming them, and `enter` goes once the path is checked to be a directory that
-is there. Every switch, from either key, first asks "Switch to DIR?" and does
-nothing until `enter`; `esc` stays. `enter` on a row switches nothing, so a
-double press cannot ask and then switch at once; after a typed path it does
-go on, so a fast double `enter` there checks the path and switches. A switch
-ends the interface and opens it again in that directory,
-wired to it as if workflow had been started there: its repository, its forge,
-the configuration files that apply there and the store's keys all follow. A
+worktree whose directory is gone — and `g` opens a picker to browse for one.
+Its field takes a path from where you work, as `../web`, or from your home
+after a `~`, as `~/src/web`, and lists the directories where it points,
+narrowed as you type: those whose names start with what you typed first, then
+those holding its letters in order, the letters matched in bold and a
+repository marked in yellow; a hidden one once you type its dot. Opened empty,
+it lists the other worktrees and the favorites first, leaving out those whose
+directory is gone. In the field every key types, `j` and `q` included: `↑` and
+`↓` move the highlight, `home` and `end` move in the text, `→` at its end goes
+into the highlighted directory, `backspace` there goes up a level once nothing
+follows the last `/`, and `enter` goes into a directory, or toward switching
+to a worktree, a favorite or "↳ switch here": where the field points, or the
+path typed whole while no directory listed matches the name it ends in. Once a
+name follows the path, the directories matching it come before "↳ switch
+here", so `enter` takes the first of them. `tab` hands the keys to the list,
+where `j` and `k` move, `←` and `→` go up and in, `s` switches to the
+highlighted row, a listed directory included, and a letter goes back to the
+field and is typed.
+A directory of more than a thousand is listed again narrowed by the name you
+type; past 200 that match, the rest are counted, and typing more narrows them.
+Every switch, from either key, first asks "Switch to DIR?" and does nothing
+until `enter`; `esc` stays, or from the picker goes back to it. `enter` on a
+row switches nothing, so a double press cannot ask and then switch at once. A
+switch ends the interface and opens it again in that directory, wired to it as
+if workflow had been started there: its repository, its forge, the
+configuration files that apply there and the store's keys all follow. A
 directory not there, or a configuration whose `ui.keys` the interface would
 refuse, leaves it where it was, saying why.
 
