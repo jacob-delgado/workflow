@@ -374,6 +374,8 @@ func (v spineView) targets() []float64 {
 // done, CI's share of checks finished while Review is in flight, and none
 // otherwise.
 func (v spineView) fillOf(each progress.Stage) float64 {
+	// Trade-off TRADE-45: CI is no stage of its own; its progress fills the
+	// rule after Review.
 	switch {
 	case each.State == progress.Done:
 		return 1

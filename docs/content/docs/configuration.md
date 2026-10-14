@@ -155,6 +155,7 @@ them on stderr, so there is never a question about which were read.
 | `ui.mouse` | no | Capture the mouse, so a click focuses a pane or selects a row. Defaults to `true`. |
 | `ui.ascii` | no | Draw borders and glyphs in plain ASCII. Defaults to `false`. |
 | `ui.color` | no | `never` turns off the system hues; bold, faint and the cursor stay. Empty (the default) draws them; any other value is refused when the file loads. `NO_COLOR`, set to a non-empty value, also turns them off. |
+| `ui.motion` | no | `reduce` draws every state still: the in-flight mark does not turn, and a stage's rule and the CI bar stand where they have got rather than filling. Empty (the default) moves them; any other value is refused when the file loads. |
 | `ui.notify` | no | Ring the terminal (and raise a desktop notification where it relays one) when CI finishes; under `--web`, say so in the page's header. Defaults to `false`. |
 | `ui.comments_shown` | no | How many of an issue's most recent comments the detail pane draws. Defaults to 5, which `0` also keeps; a negative count is refused when the file loads. |
 | `ui.keys` | no | Rebind keys: a map from an action to the single key that triggers it, e.g. `{"commit": "C"}`. The help then shows the new key. See [Rebinding keys](#rebinding-keys) for the actions. |
@@ -682,6 +683,14 @@ carry the same meaning without color.
 Setting the `NO_COLOR` environment variable to a non-empty value does the same;
 set but empty, as [no-color.org](https://no-color.org) asks, it does not. The
 glyphs already say by shape what the colors say by hue, so nothing is lost.
+
+`ui.motion` set to `reduce` keeps the terminal still. Otherwise a few things
+move, and only while they change: the in-flight mark beside a pane's title
+turns while its read is out, a stage's rule on the top row fills over about a
+third of a second when the stage completes, and the Review pane's bar of CI's
+checks springs toward the share finished. Nothing moves while the first
+screen fills in from what the services answer. Under `reduce` each is drawn
+at once where it has got; the states read the same either way.
 
 `ui.notify`, off unless you turn it on, rings the terminal when CI finishes —
 passes or fails — so you can open a pull request, switch to something else, and
