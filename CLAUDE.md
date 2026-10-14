@@ -257,10 +257,8 @@ without agreement on direction.
   CONTRIBUTING.md. `scripts/check-license-headers.sh` gates this in lefthook,
   `task lint` and CI.
 
-- **Shell scripts**: follow the
-  [Google Shell Style Guide](https://google.github.io/styleguide/shellguide.html).
-  `shfmt -i 2 -ci -bn` formatting, shellcheck-clean against the repo's
-  `.shellcheckrc` (every optional check on).
+- **Shell** follows the style `scripts/CLAUDE.md` sets, wherever it lives,
+  and every script there has a sibling test.
 
 - **The `--web` app's rules** — accessibility in both themes, black-box tests
   on role and name, server text rendered only as text — are in
