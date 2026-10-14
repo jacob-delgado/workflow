@@ -12,9 +12,12 @@ export default defineConfig({
   //
   // The page is one chunk on purpose: workflow serves it from memory over
   // 127.0.0.1, where its size costs no download worth splitting for, and
-  // loading each section apart would only add a wait to its first visit. The
-  // warning stays, set a little above the chunk's size, so a jump in what the
-  // page carries is still printed and looked into; it last rose for Base UI's
+  // loading each section apart would only add a wait to its first visit. Its
+  // limit is set a little above the chunk's size, and the build fails past
+  // it: once Vite has written the app, `yarn build` runs
+  // scripts/check-bundle-size.sh, which reads the limit from here, the one
+  // place it is set. So a jump in what the page carries stops the build to be
+  // looked into; trim the page before raising it. It last rose for Base UI's
   // Dialog and Autocomplete in place of hand-rolled ARIA.
   build: {
     outDir: '../internal/web/dist',
