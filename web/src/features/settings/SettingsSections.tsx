@@ -27,6 +27,8 @@ interface Fields {
 interface ConfigSection {
   id: string
   title: string
+  // holds are the configuration's own sections whose settings it shows.
+  holds: string[]
   fieldsets: (fields: Fields) => ReactNode
 }
 
@@ -34,11 +36,22 @@ interface ConfigSection {
 // offers them, each with the fieldsets its panel holds. A new setting joins
 // the fieldset of the section it belongs to.
 const configSections: ConfigSection[] = [
-  { id: 'jira', title: 'Jira', fieldsets: (fields) => <JiraFieldset {...fields} /> },
-  { id: 'messaging', title: 'Messaging', fieldsets: (fields) => <MessagingFieldset {...fields} /> },
+  {
+    id: 'jira',
+    title: 'Jira',
+    holds: ['jira', 'issues'],
+    fieldsets: (fields) => <JiraFieldset {...fields} />,
+  },
+  {
+    id: 'messaging',
+    title: 'Messaging',
+    holds: ['messaging'],
+    fieldsets: (fields) => <MessagingFieldset {...fields} />,
+  },
   {
     id: 'forge',
     title: 'Forge and pull requests',
+    holds: ['forge', 'pull_request'],
     fieldsets: ({ register }) => (
       <>
         <ForgeFieldset register={register} />
@@ -49,6 +62,7 @@ const configSections: ConfigSection[] = [
   {
     id: 'commits',
     title: 'Commits and branches',
+    holds: ['commit', 'branch'],
     fieldsets: (fields) => (
       <>
         <CommitFieldset register={fields.register} />
@@ -59,11 +73,13 @@ const configSections: ConfigSection[] = [
   {
     id: 'taskwarrior',
     title: 'Taskwarrior',
+    holds: ['taskwarrior'],
     fieldsets: ({ register }) => <TaskwarriorFieldset register={register} />,
   },
   {
     id: 'terminal',
     title: 'Terminal and keys',
+    holds: ['ui'],
     fieldsets: ({ register }) => (
       <>
         <TerminalFieldset register={register} />
@@ -74,6 +90,7 @@ const configSections: ConfigSection[] = [
   {
     id: 'advanced',
     title: 'Advanced',
+    holds: ['timing', 'store'],
     fieldsets: ({ register }) => (
       <>
         <TimingFieldset register={register} />
@@ -85,6 +102,14 @@ const configSections: ConfigSection[] = [
 
 // firstSection is the section Settings opens on.
 export const firstSection = 'jira'
+
+// sectionOf is the section a setting is shown in, by its path in the form,
+// or undefined for a setting no section shows.
+export function sectionOf(path: string): Pick<ConfigSection, 'id' | 'title'> | undefined {
+  const [top = ''] = path.split('.')
+
+  return configSections.find((section) => section.holds.includes(top))
+}
 
 // The rule above the sections that save on their own, in the column the
 // list stands in on a wide window.

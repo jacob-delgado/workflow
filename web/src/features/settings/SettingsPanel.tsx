@@ -1,7 +1,14 @@
 import { type ReactNode, useEffect, useId, useState } from 'react'
-import { type UseFormReset, useForm } from 'react-hook-form'
+import {
+  FormProvider,
+  type Path,
+  type UseFormReset,
+  type UseFormSetError,
+  type UseFormSetFocus,
+  useForm,
+} from 'react-hook-form'
 import { apiErrorMessage, problemCode } from '@/api/apiError.ts'
-import type { Config, SetupResult } from '@/api/generated/types.gen.ts'
+import type { Config, RefusedSetting, SetupResult } from '@/api/generated/types.gen.ts'
 import { useFocusOnMount } from '@/lib/focus.ts'
 import { resultGround, useOutcome } from '@/lib/Outcome.tsx'
 import { Reading, Unread } from '@/lib/Status.tsx'
@@ -11,6 +18,7 @@ import { sectionHeadingId } from '@/shell/sections.ts'
 import {
   changedSinceRead,
   type ConfigRead,
+  refusedSettings,
   useConfigRead,
   useReloadConfig,
   useSaveConfig,
@@ -19,7 +27,8 @@ import { LocalData } from './people/LocalData.tsx'
 import { PeopleAndGroups } from './people/PeopleAndGroups.tsx'
 import { configOf, formValues, type SettingsValues } from './formValues.ts'
 import { type Removal, RemovalsContext, stored, without } from './removal.ts'
-import { firstSection, SettingsSections } from './SettingsSections.tsx'
+import { firstSection, sectionOf, SettingsSections } from './SettingsSections.tsx'
+import { refusedPaths } from './settingsRules.ts'
 import { changedSettings, SaveBar } from './SaveBar.tsx'
 import { SetupArea } from './SetupForm.tsx'
 
@@ -123,25 +132,138 @@ function SetUpSaid({ result }: { result: SetupResult }) {
 // ConfigForm edits the configuration a section at a time. It takes focus, on
 // Jira's first field, only when it replaces a control that had it — a Try
 // again, or a Reload — and otherwise leaves focus where the section change put
-// it.
+// it. A save refused before it is sent, or by the server, marks each setting
+// refused beside itself; Show opens the first one's section and focuses it.
 function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolean }) {
   // The whole config seeds the form, so every key no fieldset registers — the
   // token commands, the Slack access token and its expiry — rides back
   // unchanged on save rather than being dropped.
-  const { register, handleSubmit, reset, setFocus, control, formState } = useForm<SettingsValues>({
+  const form = useForm<SettingsValues>({
     defaultValues: formValues(read.config),
+    shouldFocusError: false,
   })
+  const { register, handleSubmit, reset, control, formState } = form
   const file = useFormFile(read, reset)
-  // How many times the form's first field has been asked to take focus: once
-  // when the form replaces a Try again, and after each Reload, which takes its own
-  // button away. The field is focused once the form has drawn it.
-  const [focusRequests, setFocusRequests] = useState(takesFocus ? 1 : 0)
-  const [section, setSection] = useState(firstSection)
+  const view = useSectionView(form.setFocus, takesFocus)
   const formId = useId()
-  const reloadConfig = useReloadConfig()
   const outcome = useOutcome()
+  const save = useSave(file, form.setError, outcome)
+  // Reload swaps the edits for the file as it is now and clears the refusal,
+  // taking the Reload button away, so the focus it had goes to the form.
+  const reloadConfig = useReloadConfig()
+  const reload = useAsyncAction(
+    async () => {
+      file.seed(await reloadConfig(), { keepEdits: false })
+      file.setChanged(false)
+      save.reset()
+      view.show('jira.base_url')
+    },
+    { fallback: 'The configuration could not be read. Try Reload again.' },
+  )
+  const refused = refusedPaths(formState.errors)
+  const onSubmit = handleSubmit(
+    (values) => save.run(values),
+    (errors) => {
+      view.show(refusedPaths(errors)[0] ?? 'jira.base_url')
+    },
+  )
+
+  return (
+    <RemovalsContext value={file.removals}>
+      <FormProvider {...form}>
+        <SettingsSections
+          section={view.section}
+          onSection={view.setSection}
+          fields={{
+            register,
+            control,
+            storedToken: formState.defaultValues?.jira?.token ?? null,
+          }}
+          form={{
+            id: formId,
+            noValidate: true,
+            'aria-labelledby': sectionHeadingId,
+            onSubmit: (event) => {
+              void onSubmit(event)
+            },
+          }}
+          bar={
+            <SaveBar
+              form={formId}
+              unsaved={changedSettings(formState.dirtyFields)}
+              toFix={toFix(refused)}
+              saving={save.state === 'running'}
+              said={outcome.said}
+              error={save.state === 'error' && !save.marked ? save.error : ''}
+              reload={file.changed ? reload : null}
+              onShow={() => {
+                view.show(refused[0] ?? 'jira.base_url')
+              }}
+              onDiscard={() => {
+                reset()
+                save.reset()
+              }}
+            />
+          }
+        />
+      </FormProvider>
+    </RemovalsContext>
+  )
+}
+
+// toFix is how many settings are refused, and the titles of the sections
+// they are in, in the order they were refused.
+function toFix(refused: string[]) {
+  const sections = refused.map((path) => sectionOf(path)?.title ?? '')
+
+  return { count: refused.length, sections: [...new Set(sections)].filter((title) => title !== '') }
+}
+
+// useSectionView is the section shown, and show, which opens the section a
+// setting is in and gives that setting the focus once it is drawn: Jira's
+// first field, at once, when the form takes the focus as it opens.
+function useSectionView(setFocus: UseFormSetFocus<SettingsValues>, takesFocus: boolean) {
+  const [section, setSection] = useState(firstSection)
+  // The setting last asked to take the focus, and how many times one has been,
+  // so asking for the same setting again focuses it again.
+  const [focusing, setFocusing] = useState({ path: 'jira.base_url', asked: takesFocus ? 1 : 0 })
+
+  useEffect(() => {
+    if (focusing.asked > 0) {
+      setFocus(focusing.path as Path<SettingsValues>)
+    }
+  }, [focusing, setFocus])
+
+  return {
+    section,
+    setSection,
+    show: (path: string) => {
+      setSection(sectionOf(path)?.id ?? firstSection)
+      setFocusing(({ asked }) => ({ path, asked: asked + 1 }))
+    },
+  }
+}
+
+// useSave is Save: it writes the form's values over the file, and marks each
+// setting a refusal names beside itself. marked says every setting the last
+// refusal named was marked, so its reason need not be said again below the
+// bar.
+function useSave(
+  file: ReturnType<typeof useFormFile>,
+  setError: UseFormSetError<SettingsValues>,
+  outcome: ReturnType<typeof useOutcome>,
+) {
+  const [marked, setMarked] = useState(false)
   const save = useAsyncAction(
-    (values: SettingsValues) => file.write(configOf(values), { keepEdits: false }),
+    async (values: SettingsValues) => {
+      setMarked(false)
+      try {
+        await file.write(configOf(values), { keepEdits: false })
+      } catch (caught) {
+        setMarked(markRefused(refusedSettings(caught), setError))
+        throw caught
+      }
+    },
     {
       fallback: 'The configuration was not saved. Try again — your edits are still in the form.',
       done: () => 'Saved.',
@@ -149,60 +271,29 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
       onDone: outcome.say,
     },
   )
-  // Reload swaps the edits for the file as it is now and clears the refusal,
-  // taking the Reload button away, so the focus it had goes to the form.
-  const reload = useAsyncAction(
-    async () => {
-      file.seed(await reloadConfig(), { keepEdits: false })
-      file.setChanged(false)
-      save.reset()
-      setSection(firstSection)
-      setFocusRequests((requests) => requests + 1)
-    },
-    { fallback: 'The configuration could not be read. Try Reload again.' },
-  )
-  const onSubmit = handleSubmit((values) => save.run(values))
 
-  useEffect(() => {
-    if (focusRequests > 0) {
-      setFocus('jira.base_url')
-    }
-  }, [focusRequests, setFocus])
+  return { ...save, marked }
+}
 
-  return (
-    <RemovalsContext value={file.removals}>
-      <SettingsSections
-        section={section}
-        onSection={setSection}
-        fields={{
-          register,
-          control,
-          storedToken: formState.defaultValues?.jira?.token ?? null,
-        }}
-        form={{
-          id: formId,
-          'aria-labelledby': sectionHeadingId,
-          onSubmit: (event) => {
-            void onSubmit(event)
-          },
-        }}
-        bar={
-          <SaveBar
-            form={formId}
-            unsaved={changedSettings(formState.dirtyFields)}
-            saving={save.state === 'running'}
-            said={outcome.said}
-            error={save.state === 'error' ? save.error : ''}
-            reload={file.changed ? reload : null}
-            onDiscard={() => {
-              reset()
-              save.reset()
-            }}
-          />
-        }
-      />
-    </RemovalsContext>
+// The lists the form edits a row at a time, which a refusal marks as a whole.
+const lists = new Set(['jira.views', 'jira.headers', 'branch.prefixes', 'messaging.channels'])
+
+// markRefused marks each refused setting a section shows beside itself, and
+// reports whether there were any and every one was marked. A setting is shown
+// when it is a list, or a field whose control, which takes its path as its id,
+// is drawn; one no section shows, such as the access token's expiry, is left
+// to the refusal's own reason.
+function markRefused(settings: RefusedSetting[], setError: UseFormSetError<SettingsValues>) {
+  const shown = settings.filter(
+    ({ key }) =>
+      sectionOf(key) !== undefined && (lists.has(key) || document.getElementById(key) !== null),
   )
+  for (const { key, detail } of shown) {
+    const path = lists.has(key) ? `${key}.root` : key
+    setError(path as Path<SettingsValues>, { type: 'server', message: detail })
+  }
+
+  return settings.length > 0 && shown.length === settings.length
 }
 
 // Seeding is how a read or a write is taken up: in place of the form's edits,

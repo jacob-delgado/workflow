@@ -859,3 +859,26 @@ where the spec opens that part.
 
 **Reopen when.** A choice needs more than a native `<select>` can draw, or the
 server gains a per-request nonce that the page could hand to `CSPProvider`.
+
+### TRADE-51 Settings checks a few settings the server checks again
+
+**Decided.** The `--web` Settings refuses a few settings beside themselves
+before a save is sent (`web/src/features/settings/settingsRules.ts`): a Jira
+address that is not http or https, carries a login, or would send the token
+over http off this machine; a branch template without `{key}`; a timing that
+is not a positive Go duration; an issue trailer of more than one word or with
+a colon; and a count below zero. Each says again what `internal/config`
+refuses at load. The server stays the authority: a save it refuses as not
+valid names each setting in the problem's `fields`, and Settings marks those
+the same way. Decided 2026-10-14 by the maintainer, in the UX refresh's
+Settings pull request.
+
+**Cost.** Two copies of these checks, in Go and in TypeScript, which can
+drift: a rule loosened on the server alone is still refused in Settings until
+its twin follows, and one tightened there is caught only by the server's
+refusal after the save is sent. The client's words for a refusal are its own,
+not the server's.
+
+**Reopen when.** A client rule refuses a value the server accepts, or the
+server can be asked to check a configuration without saving it, which would
+let Settings ask rather than copy.

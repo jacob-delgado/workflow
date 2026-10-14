@@ -100,10 +100,14 @@ export function EntryList<N extends ListName>({
   const add = useRef<HTMLButtonElement>(null)
   const hintId = useId()
   const Entry = entry.charAt(0).toUpperCase() + entry.slice(1)
+  // A refusal of the list as a whole, as a save the server refused names it.
+  const listRefusal = get(errors, `${name}.root.message`) as string | undefined
+  const listRefusalId = `${hintId}-refusal`
+  const describers = [hint ? hintId : '', listRefusal === undefined ? '' : listRefusalId]
 
   return (
     <fieldset
-      aria-describedby={hint ? hintId : undefined}
+      aria-describedby={describers.filter((id) => id !== '').join(' ') || undefined}
       className="flex min-w-0 flex-col gap-tight"
     >
       <legend className="text-sm text-muted-foreground">{legend}</legend>
@@ -112,6 +116,7 @@ export function EntryList<N extends ListName>({
           {hint}
         </p>
       ) : null}
+      {listRefusal === undefined ? null : <Failure id={listRefusalId}>{listRefusal}</Failure>}
       {fields.map((row, index) => {
         // The name is the row's first field, and the one a refusal is about.
         const namePath = `${name}.${String(index)}.${columns[0]?.field ?? ''}`
