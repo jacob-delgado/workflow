@@ -53,10 +53,27 @@ function useRefusal(name: Name): string | undefined {
   return get(errors, `${name}.message`) as string | undefined
 }
 
-// refusedProps are what a field's control says of its hint and its refusal:
-// described by both, and invalid while it is refused.
-function refusedProps(name: Name, hint: string | undefined, refusal: string | undefined) {
-  const describers = [hint ? hintId(name) : '', refusal === undefined ? '' : refusalId(name)]
+// keptId is the id of what says where a credential is kept.
+function keptId(name: Name): string {
+  return `${name}-kept`
+}
+
+// Described is what a field's control is described by: where its credential
+// is kept, its hint and why it is refused, each while it has one.
+interface Described {
+  kept?: string
+  hint?: string
+  refusal?: string
+}
+
+// describedProps are what a field's control says of what describes it, and
+// that it is invalid while it is refused.
+function describedProps(name: Name, { kept, hint, refusal }: Described) {
+  const describers = [
+    kept === undefined ? '' : keptId(name),
+    hint ? hintId(name) : '',
+    refusal === undefined ? '' : refusalId(name),
+  ]
   const describedBy = describers.filter((id) => id !== '').join(' ')
 
   return {
@@ -93,22 +110,26 @@ export function Fieldset({ legend, hint, children }: FieldsetProps) {
   )
 }
 
-interface FieldProps {
+interface FieldProps extends Described {
   name: Name
   label: string
-  hint?: string
-  refusal?: string
   children: ReactNode
 }
 
-// Field is a control under its label, with the hint that describes it below,
-// and below that why it is refused, while it is.
-function Field({ name, label, hint, refusal, children }: FieldProps) {
+// Field is a control under its label — and, for a credential, where it is
+// kept — with the hint that describes it below, and below that why it is
+// refused, while it is.
+function Field({ name, label, kept, hint, refusal, children }: FieldProps) {
   return (
     <div className="flex flex-col gap-tight">
       <label htmlFor={name} className="text-sm text-muted-foreground">
         {label}
       </label>
+      {kept === undefined ? null : (
+        <p id={keptId(name)} className="text-sm">
+          {kept}
+        </p>
+      )}
       {children}
       {hint ? (
         <p id={hintId(name)} className="text-xs text-muted-foreground">
@@ -152,7 +173,7 @@ export function TextField({
         type={type}
         min={type === 'number' ? 0 : undefined}
         readOnly={readOnly}
-        {...refusedProps(name, hint, refusal)}
+        {...describedProps(name, { hint, refusal })}
         {...register(name, {
           setValueAs: type === 'number' ? readCount : readAs,
           validate: ruleFor(name),
@@ -162,27 +183,84 @@ export function TextField({
   )
 }
 
+// Kept is where a credential the file holds none of is read from instead:
+// the keychain item for an address, a variable, or a command; the macOS
+// keychain, perhaps, for a Slack user token's secrets, which workflow keeps
+// there; the environment or the forge's CLI, perhaps, for the forge token,
+// which the page cannot see; or nowhere.
+export type Kept =
+  | { from: 'keychain'; host: string }
+  | { from: 'variable'; name: string }
+  | { from: 'command' }
+  | { from: 'macOS keychain' }
+  | { from: 'forge sources' }
+  | { from: 'nowhere' }
+
+// keptWords say where a credential is read from, when the file holds none.
+function keptWords(kept: Kept): string {
+  switch (kept.from) {
+    case 'keychain':
+      return `Kept in your keychain, for ${kept.host}`
+    case 'variable':
+      return `Read from $${kept.name}`
+    case 'command':
+      return 'Printed by a command you set'
+    case 'macOS keychain':
+      return 'Not in the file; on macOS, your keychain may keep it'
+    case 'forge sources':
+      return "Not in the file; read from the environment or the forge's CLI, when either has one"
+    case 'nowhere':
+      return 'Not set'
+  }
+}
+
+// useKeptWords say where a credential is kept: in the file, where the file
+// holds it, or elsewhere — or, once one is typed, that the save keeps it in
+// place of the stored one.
+function useKeptWords(name: CredentialPath, label: string, elsewhere: Kept): string {
+  const { holds } = useRemovals()
+  const { dirtyFields } = useFormState<SettingsValues>({ name })
+  const stored = holds({ credential: name })
+  if (get(dirtyFields, name) === true) {
+    const noun = label.charAt(0).toLowerCase() + label.slice(1)
+
+    return stored ? `Replaces the stored ${noun} when you save` : 'Kept when you save'
+  }
+
+  return stored ? 'Stored in the file' : keptWords(elsewhere)
+}
+
 interface SecretFieldProps {
   register: Register
   name: CredentialPath
   label: string
   hint: string
+  // elsewhere is where the credential is read from when the file holds none.
+  elsewhere?: Kept
 }
 
-// SecretField is a credential: typed into a field that never shows it, and,
-// beside it while the file holds one, Remove…, which takes it out of the file.
-export function SecretField({ register, name, label, hint }: SecretFieldProps) {
+// SecretField is a credential: where it is kept, then the field it is typed
+// into, which never shows it, and, beside it while the file holds one,
+// Remove…, which takes it out of the file.
+export function SecretField({
+  register,
+  name,
+  label,
+  hint,
+  elsewhere = { from: 'nowhere' },
+}: SecretFieldProps) {
   const outcome = useOutcome()
   const refusal = useRefusal(name)
+  const kept = useKeptWords(name, label, elsewhere)
 
   return (
-    <Field name={name} label={label} hint={hint} refusal={refusal}>
+    <Field name={name} label={label} kept={kept} hint={hint} refusal={refusal}>
       <div className="flex flex-wrap items-center gap-item">
         <Input
           id={name}
           type="password"
           className="min-w-0 flex-1"
-          {...refusedProps(name, hint, refusal)}
+          {...describedProps(name, { kept, hint, refusal })}
           {...register(name)}
         />
         <CredentialRemoval removal={{ credential: name }} tell={outcome} />
@@ -207,7 +285,7 @@ export function SelectField({ register, name, label, hint, choices }: SelectFiel
 
   return (
     <Field name={name} label={label} hint={hint} refusal={refusal}>
-      <Select id={name} {...refusedProps(name, hint, refusal)} {...register(name)}>
+      <Select id={name} {...describedProps(name, { hint, refusal })} {...register(name)}>
         {choices.map(([value, words]) => (
           <option key={value} value={value}>
             {words}

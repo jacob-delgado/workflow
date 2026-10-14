@@ -191,11 +191,7 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
         <SettingsSections
           section={view.section}
           onSection={view.setSection}
-          fields={{
-            register,
-            control,
-            storedToken: formState.defaultValues?.jira?.token ?? null,
-          }}
+          fields={{ register, control }}
           form={{
             id: formId,
             noValidate: true,

@@ -8,6 +8,11 @@ import {
   type Register,
 } from './Field.tsx'
 
+// tokenHint says when a forge token kept in the file is the one used: the
+// environment and the forge's CLI come first.
+const tokenHint =
+  "A personal access token. One kept in the file is read only when neither the environment nor the forge's CLI has one."
+
 // ForgeFieldset is which forge the pull requests live on and how to reach it:
 // its kind, its host, and a token or the forge's own command line.
 export function ForgeFieldset({ register }: { register: Register }) {
@@ -28,7 +33,8 @@ export function ForgeFieldset({ register }: { register: Register }) {
         register={register}
         name="forge.token"
         label="Token"
-        hint="Leave as-is to keep the stored token."
+        hint={tokenHint}
+        elsewhere={{ from: 'forge sources' }}
       />
       <CheckboxField
         register={register}

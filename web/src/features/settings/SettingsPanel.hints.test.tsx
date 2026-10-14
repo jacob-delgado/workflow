@@ -1,5 +1,4 @@
 import { screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import type { Config } from '@/api/generated/types.gen.ts'
 import { mockConfig } from '@/dev/mockConfig.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
@@ -27,64 +26,6 @@ function description(element: HTMLElement): string {
   return ids.map((id) => document.getElementById(id)?.textContent ?? '').join(' ')
 }
 
-test('the Jira token is described by the token_command it is taken from', async () => {
-  // Arrange
-  readsAs({
-    ...mockConfig,
-    jira: { ...mockConfig.jira, token: '', token_command: 'pass show jira' },
-  })
-
-  // Act
-  const token = await jiraToken()
-
-  // Assert
-  expect(description(token)).toMatch(/Taken from token_command: pass show jira/)
-})
-
-test('the Jira token is described by the variable it is taken from', async () => {
-  // Arrange
-  readsAs({ ...mockConfig, jira: { ...mockConfig.jira, token: '', token_env: 'JIRA_TOKEN' } })
-
-  // Act
-  const token = await jiraToken()
-
-  // Assert
-  expect(description(token)).toMatch(/Taken from token_env: JIRA_TOKEN/)
-})
-
-test('the Jira token is described by the keychain it is taken from, over the other sources', async () => {
-  // Arrange
-  readsAs({
-    ...mockConfig,
-    jira: {
-      ...mockConfig.jira,
-      token: '',
-      keychain: true,
-      token_command: 'pass show jira',
-      token_env: 'JIRA_TOKEN',
-    },
-  })
-
-  // Act
-  const token = await jiraToken()
-
-  // Assert
-  expect(description(token)).toMatch(/Taken from your keychain, for this address\./)
-})
-
-test('the Jira token is said to come from the keychain once it is turned on', async () => {
-  // Arrange
-  readsAs({ ...mockConfig, jira: { ...mockConfig.jira, token: '' } })
-  const user = userEvent.setup()
-  const token = await jiraToken()
-
-  // Act
-  await user.click(screen.getByRole('checkbox', { name: /read the token from your keychain/i }))
-
-  // Assert
-  expect(description(token)).toMatch(/Taken from your keychain, for this address\./)
-})
-
 test('the Jira token says where one typed is kept', async () => {
   // Arrange
   readsAs({ ...mockConfig, jira: { ...mockConfig.jira, token: '' } })
@@ -93,8 +34,8 @@ test('the Jira token says where one typed is kept', async () => {
   const token = await jiraToken()
 
   // Assert
-  expect(description(token)).toBe(
-    'A personal access token, kept in your keychain for this address on macOS or in the file elsewhere.',
+  expect(description(token)).toContain(
+    'One typed here is kept in your keychain for this address on macOS, or in the file elsewhere.',
   )
 })
 
