@@ -418,10 +418,11 @@ func TestTheSpineShowsTheActiveTaskAndItsElapsedTime(t *testing.T) {
 
 	fixTokenRedaction := issueKey + ": " + issueSummary
 
-	// The stages take 52 columns; the room after them, less a column of space,
-	// is what the tail has. Its description gets what the glyph, the separator
-	// and the time leave, cut with the ellipsis, and at least eight columns of
-	// it or none at all — or all of a shorter one.
+	// The named stages and their shortest rules take 60 columns; the room after
+	// them, less a column of space, is what the tail has. Its description gets
+	// what the glyph, the separator and the time leave, cut with the ellipsis,
+	// and at least eight columns of it or none at all — or all of a shorter one.
+	// Short of that the description gives way, and the rules take the room.
 	cases := map[string]struct {
 		width, height int
 		started       time.Duration
@@ -434,16 +435,16 @@ func TestTheSpineShowsTheActiveTaskAndItsElapsedTime(t *testing.T) {
 		"hours":   {width: 120, height: 40, started: 72 * time.Minute, want: "◐ " + fixTokenRedaction + " · 1h12m"},
 		"days":    {width: 120, height: 40, started: 51 * time.Hour, want: fixTokenRedaction + " · 2d 3h"},
 		"eighty columns cut the description": {
-			width: 80, height: 24, started: 72 * time.Minute, want: "◐ " + issueKey + ": Fix to… · 1h12m",
+			width: 80, height: 24, started: 72 * time.Minute, want: "◐ " + issueKey + "… · 1h12m",
 		},
 		"room for eight columns of description": {
-			width: 71, height: 24, started: 72 * time.Minute, want: "◐ PROJ-41… · 1h12m",
+			width: 79, height: 24, started: 72 * time.Minute, want: "◐ PROJ-41… · 1h12m",
 		},
 		"room for fewer than eight": {
-			width: 70, height: 24, started: 72 * time.Minute, want: "◐ 1h12m", refuse: []string{"PROJ-41"},
+			width: 78, height: 24, started: 72 * time.Minute, want: "◐ 1h12m", refuse: []string{"PROJ-41"},
 		},
 		"room for all of a short description": {
-			width: 70, height: 24, started: 72 * time.Minute, description: "Deploy", want: "◐ Deploy · 1h12m",
+			width: 78, height: 24, started: 72 * time.Minute, description: "Deploy", want: "◐ Deploy · 1h12m",
 		},
 		// A compact spine has room for how long, not what.
 		"a compact spine": {
@@ -486,7 +487,9 @@ func TestTheSpineDrawsNoTaskItWouldHaveToCut(t *testing.T) {
 		width, height int
 		stages        string
 	}{
-		"a full spine":    {width: 58, height: 24, stages: "○ Slack"},
+		// Below even one column a rule, the stages keep a space between them
+		// and the task gives way.
+		"a narrow spine":  {width: 22, height: 40, stages: "S○"},
 		"a compact spine": {width: 22, height: 20, stages: "S○"},
 	}
 

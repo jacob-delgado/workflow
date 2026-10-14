@@ -19,9 +19,12 @@ import (
 type glyphs struct {
 	notStarted, inFlight, done, failed, unknown string
 	selected, unselected                        string
-	arrow, separator, rule                      string
-	ellipsis, ahead, behind                     string
-	chosenOpen, chosenClose                     string
+	arrow, separator                            string
+	// trackFilled and trackOpen draw the loop track's rules: filled after a
+	// stage that is done, open after one still to come.
+	trackFilled, trackOpen  string
+	ellipsis, ahead, behind string
+	chosenOpen, chosenClose string
 	// favorite marks a directory kept as a favorite.
 	favorite string
 	// helpSeparator separates keys in the footer; upKey, downKey, leftKey,
@@ -36,7 +39,7 @@ func unicodeGlyphs() glyphs {
 		notStarted: progress.NotStarted.Glyph(false), inFlight: progress.InFlight.Glyph(false),
 		done: progress.Done.Glyph(false), failed: progress.Failed.Glyph(false), unknown: "·",
 		selected: "▸ ", unselected: "  ",
-		arrow: " → ", separator: " · ", rule: " ─ ",
+		arrow: " → ", separator: " · ", trackFilled: "━", trackOpen: "─",
 		ellipsis: "…", ahead: "↑", behind: "↓", chosenOpen: "‹", chosenClose: "›", favorite: "★",
 		helpSeparator: " • ", upKey: "↑", downKey: "↓", leftKey: "←", rightKey: "→", sideways: "←/→",
 		border: frame.Light,
@@ -49,7 +52,7 @@ func asciiGlyphs() glyphs {
 		notStarted: progress.NotStarted.Glyph(true), inFlight: progress.InFlight.Glyph(true),
 		done: progress.Done.Glyph(true), failed: progress.Failed.Glyph(true), unknown: ".",
 		selected: "> ", unselected: "  ",
-		arrow: " -> ", separator: " - ", rule: " - ",
+		arrow: " -> ", separator: " - ", trackFilled: "=", trackOpen: "-",
 		ellipsis: "...", ahead: "+", behind: "-", chosenOpen: "<", chosenClose: ">", favorite: "^",
 		helpSeparator: " | ", upKey: "up", downKey: "down", leftKey: "left", rightKey: "right", sideways: "left/right",
 		border: frame.LightASCII,

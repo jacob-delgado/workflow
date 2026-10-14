@@ -83,7 +83,7 @@ func TestTheSpineReadsTheReviewOfAMergedBranchAsDone(t *testing.T) {
 
 	// Assert
 	requireScreen(t, view, "● merged")
-	requireScreen(t, spineLine(view), "● Commits ─ ● Review ─")
+	requireScreen(t, track(view), "● Commits ━ ● Review ━")
 }
 
 func TestFinishIsNotOfferedWithUnpushedCommits(t *testing.T) {

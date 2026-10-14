@@ -110,11 +110,8 @@ func (r *rootRun) spine() string {
 	return strings.SplitN(ansi.Strip(r.model.View().Content), "\n", 2)[0]
 }
 
-// huesDrawn are the system hues — the red, green, yellow, blue and magenta
-// foregrounds — in the interface the root command opened.
-func (r *rootRun) huesDrawn() []string {
-	view := r.model.View().Content
-
+// huesIn is every system hue, or failure's red, a screen draws.
+func huesIn(view string) []string {
 	var drawn []string
 
 	for _, hue := range []string{"\x1b[31m", "\x1b[32m", "\x1b[33m", "\x1b[34m", "\x1b[35m"} {
@@ -302,6 +299,28 @@ func TestTheInterfaceOpensTheStoreToSeedItsIssueList(t *testing.T) {
 	}
 }
 
+// onAFeatureBranch is a repository checked out on a branch of its own, whose
+// stage the top row draws done, in git's hue, once the interface has read it.
+func onAFeatureBranch(t *testing.T) string {
+	t.Helper()
+
+	repo := t.TempDir()
+	gitInit(t, repo)
+	git(t, repo, "-c", "user.email=t@example.com", "-c", "user.name=Tester", "commit", "--allow-empty", "-m", "init")
+	git(t, repo, "checkout", "--quiet", "-b", "feat/PROJ-1-color")
+
+	return repo
+}
+
+// readHues is the hues the interface a run opened draws once its first reads
+// have answered: a stage still to come is drawn faint, so a hue shows only
+// where something has been read.
+func (r *rootRun) readHues(t *testing.T) []string {
+	t.Helper()
+
+	return huesIn(settle(t, r.model, r.model.Init()).View().Content)
+}
+
 func TestColorTurnedOffOpensTheInterfaceWithoutHues(t *testing.T) {
 	t.Parallel()
 
@@ -318,7 +337,7 @@ func TestColorTurnedOffOpensTheInterfaceWithoutHues(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			dir := t.TempDir()
+			dir := onAFeatureBranch(t)
 			writeFile(t, dir, tt.configuration)
 			setVariable(t, "NO_COLOR", tt.noColor)
 
@@ -330,7 +349,7 @@ func TestColorTurnedOffOpensTheInterfaceWithoutHues(t *testing.T) {
 				t.Fatalf("workflow = %v, opened %d interfaces; want the interface", ran.err, ran.interfaces)
 			}
 
-			if hues := ran.huesDrawn(); len(hues) != 0 {
+			if hues := ran.readHues(t); len(hues) != 0 {
 				t.Errorf("the interface opened with color off draws the hues %q, want none", hues)
 			}
 		})
@@ -346,14 +365,14 @@ func TestColorLeftOnOpensTheInterfaceWithItsHues(t *testing.T) {
 	setVariable(t, "NO_COLOR", "")
 
 	// Act
-	ran := runRoot(t, t.TempDir())
+	ran := runRoot(t, onAFeatureBranch(t))
 
 	// Assert
 	if ran.err != nil || ran.interfaces != 1 {
 		t.Fatalf("workflow = %v, opened %d interfaces; want the interface", ran.err, ran.interfaces)
 	}
 
-	if hues := ran.huesDrawn(); len(hues) == 0 {
+	if hues := ran.readHues(t); len(hues) == 0 {
 		t.Errorf("the interface opened with color on draws no hue:\n%q", ran.model.View().Content)
 	}
 }
