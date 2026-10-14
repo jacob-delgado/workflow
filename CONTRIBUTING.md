@@ -259,6 +259,10 @@ commit messages above, so a well-formed commit is also a changelog entry:
    attached, and then republishes the documentation site and dispatches
    `.github/workflows/packages.yml`, which points the Homebrew tap at the
    release. That workflow can also be run alone, for a release already out.
+   CI's Cross-compile job runs `brew audit --strict`, which includes brew's
+   style cops, on the formula each change would publish; a failure there
+   usually means Homebrew changed a rule, and
+   `scripts/release/package-manifests.sh` needs updating.
 
 **Before 1.0, the minor digit is reserved for breaking changes.** Both `feat`
 and `fix` bump the patch; only a breaking change — marked with `!`, as in
