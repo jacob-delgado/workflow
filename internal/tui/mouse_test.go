@@ -143,8 +143,10 @@ func overlaysTheWheelMoves() map[string]wheeledOverlay {
 		"a failed run's places": {
 			world: failingLint, height: 40, open: commitKeys("x"), down: "▸ b.go:2 second", up: "▸ a.go:1 first",
 		},
+		// The keys float as a dialog, which leaves two of the body's rows
+		// showing behind it.
 		"the help": {
-			world: newWorld, height: 20, open: []string{"?"}, down: "load more", up: movingGroup,
+			world: newWorld, height: 22, open: []string{"?"}, down: "load more", up: movingGroup,
 		},
 	}
 }
