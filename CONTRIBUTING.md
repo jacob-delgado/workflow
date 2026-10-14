@@ -191,7 +191,9 @@ specification, enforced by a `commit-msg` git hook and re-checked in CI:
 
 Types are `feat`, `fix`, `docs`, `test`, `refactor`, `perf`, `build`, `ci`,
 `chore`, `revert`, and `style`. Keep the subject to at most 72 characters, in
-the imperative, with no trailing period, and use the body to explain *why*:
+the imperative, with no trailing period, and use the body to explain *why*,
+wrapped at 72 characters (a URL, an indented or fenced block and the trailers
+may run long), as here:
 
 ```text
 feat(jira): add command to transition an issue
@@ -202,6 +204,9 @@ just gathered.
 
 Refs #42
 ```
+
+Make each commit one logical change: `main` merges by rebase, so every commit
+lands as written.
 
 Mark a breaking change with a `!` after the type or scope (`feat!: ...`). A
 `BREAKING CHANGE:` footer can describe it, but only alongside the `!`.
