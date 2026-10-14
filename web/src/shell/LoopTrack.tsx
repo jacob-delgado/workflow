@@ -72,6 +72,9 @@ function StageItem({ stage, ci }: { stage: Stage; ci: Ci | undefined }) {
 
 // hueOf is what a stage is drawn in: its system's hue once it is under way, red
 // where it failed, and the faint ink while it is not begun.
+//
+// Trade-off TRADE-5: the hue tells the systems apart by color alone; the
+// stage's name is what names it, and one not begun has no hue to lose.
 function hueOf(stage: Stage): string {
   switch (stage.state) {
     case 'not_started':

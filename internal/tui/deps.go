@@ -30,8 +30,8 @@ import (
 // a test need only supply what it exercises. An action is only offered once the
 // model has what it acts on.
 //
-// The groups every surface shares are declared in package seams. Editor is
-// declared here, because it speaks Bubble Tea's messages and commands.
+// The groups every surface shares are declared in package seams. Editor, Forms,
+// After and Copy speak Bubble Tea, so the bundle is declared here (TRADE-11).
 type Deps struct {
 	Jira      seams.Jira
 	Git       seams.Git
