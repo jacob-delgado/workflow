@@ -20,6 +20,7 @@ function fieldClass(size: Size, className: string | undefined): string {
     'focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
     'disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground',
     'aria-disabled:cursor-not-allowed aria-disabled:bg-disabled aria-disabled:text-disabled-foreground',
+    'aria-invalid:border-destructive',
     sizes[size],
     className,
   )
@@ -47,40 +48,95 @@ function heldProps<T extends Element>({ held = false, onChange }: Held<T>) {
   }
 }
 
-type InputProps = Omit<ComponentProps<'input'>, 'size'> & Held<HTMLInputElement> & { size?: Size }
+// Refused is a field its form refuses: error is the id of what says why,
+// which describes the field after whatever else does — its hint — and marks
+// it invalid, drawn with an edge in the refusal's color.
+interface Refused {
+  error?: string
+  'aria-describedby'?: string
+}
+
+// refusedProps are the attributes a refused field takes, or a field not
+// refused keeps.
+function refusedProps({ error, 'aria-describedby': describedBy }: Refused) {
+  const describers = [describedBy, error].filter((id) => id !== undefined && id !== '')
+
+  return {
+    'aria-invalid': error === undefined ? undefined : true,
+    'aria-describedby': describers.length === 0 ? undefined : describers.join(' '),
+  }
+}
+
+type InputProps = Omit<ComponentProps<'input'>, 'size'> &
+  Held<HTMLInputElement> &
+  Refused & { size?: Size }
 
 // Input is a one-line text field, or a checkbox; className places it in its
 // layout.
-export function Input({ size = 'md', className, held, onChange, ...props }: InputProps) {
+export function Input({
+  size = 'md',
+  className,
+  held,
+  onChange,
+  error,
+  'aria-describedby': describedBy,
+  ...props
+}: InputProps) {
   return (
     <input
       className={fieldClass(size, className)}
       readOnly={held}
       {...heldProps({ held, onChange })}
+      {...refusedProps({ error, 'aria-describedby': describedBy })}
       {...props}
     />
   )
 }
 
 type SelectProps = Omit<ComponentProps<'select'>, 'size'> &
-  Held<HTMLSelectElement> & { size?: Size }
+  Held<HTMLSelectElement> &
+  Refused & { size?: Size }
 
 // Select is a choice of one from a list, drawn as a field.
-export function Select({ size = 'md', className, held, onChange, ...props }: SelectProps) {
+export function Select({
+  size = 'md',
+  className,
+  held,
+  onChange,
+  error,
+  'aria-describedby': describedBy,
+  ...props
+}: SelectProps) {
   return (
-    <select className={fieldClass(size, className)} {...heldProps({ held, onChange })} {...props} />
+    <select
+      className={fieldClass(size, className)}
+      {...heldProps({ held, onChange })}
+      {...refusedProps({ error, 'aria-describedby': describedBy })}
+      {...props}
+    />
   )
 }
 
-type TextAreaProps = ComponentProps<'textarea'> & Held<HTMLTextAreaElement> & { size?: Size }
+type TextAreaProps = ComponentProps<'textarea'> &
+  Held<HTMLTextAreaElement> &
+  Refused & { size?: Size }
 
 // TextArea is a field of several lines.
-export function TextArea({ size = 'md', className, held, onChange, ...props }: TextAreaProps) {
+export function TextArea({
+  size = 'md',
+  className,
+  held,
+  onChange,
+  error,
+  'aria-describedby': describedBy,
+  ...props
+}: TextAreaProps) {
   return (
     <textarea
       className={fieldClass(size, className)}
       readOnly={held}
       {...heldProps({ held, onChange })}
+      {...refusedProps({ error, 'aria-describedby': describedBy })}
       {...props}
     />
   )

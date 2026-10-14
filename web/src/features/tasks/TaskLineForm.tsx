@@ -39,6 +39,7 @@ export function TaskLineForm({
   teller,
 }: TaskLineFormProps) {
   const field = useId()
+  const refusalId = `${field}-refusal`
   const input = useShortcutProps<HTMLInputElement>(shortcut, 'focus')
   const [line, setLine] = useState('')
   const [empty, setEmpty] = useState(false)
@@ -76,12 +77,17 @@ export function TaskLineForm({
           setLine(event.target.value)
           setEmpty(false)
         }}
+        error={refusal === '' ? undefined : refusalId}
         className="min-w-40 flex-1"
       />
       <Button variant="secondary" type="submit" held={write.state === 'running'}>
         {write.state === 'running' ? busy : verb}
       </Button>
-      {refusal === '' ? null : <Failure className="basis-full">{refusal}</Failure>}
+      {refusal === '' ? null : (
+        <Failure id={refusalId} className="basis-full">
+          {refusal}
+        </Failure>
+      )}
     </form>
   )
 }

@@ -74,6 +74,17 @@ async function choose(changeID: string) {
   )
 }
 
+// filledForResolved fills every field the change to Resolved needs.
+async function filledForResolved() {
+  const fields = form('Change the status of PROJ-1')
+  await userEvent.type(within(fields).getByRole('textbox', { name: 'Due date' }), '2026-10-09')
+  await userEvent.click(within(fields).getByRole('checkbox', { name: '1.5.0' }))
+  await userEvent.selectOptions(
+    within(fields).getByRole('combobox', { name: 'Resolution' }),
+    "Won't Fix",
+  )
+}
+
 // form is the form an action opened.
 function form(name: string): HTMLElement {
   return screen.getByRole('form', { name })
@@ -101,13 +112,7 @@ test('a status change with fields shows its form and sends what is filled', asyn
   renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
   await open('Change status')
   await choose('21')
-  const fields = form('Change the status of PROJ-1')
-  await userEvent.type(within(fields).getByRole('textbox', { name: 'Due date' }), '2026-10-09')
-  await userEvent.click(within(fields).getByRole('checkbox', { name: '1.5.0' }))
-  await userEvent.selectOptions(
-    within(fields).getByRole('combobox', { name: 'Resolution' }),
-    "Won't Fix",
-  )
+  await filledForResolved()
 
   // Act
   await userEvent.click(screen.getByRole('button', { name: 'Change to Resolved' }))
@@ -128,6 +133,28 @@ test('a status change with fields shows its form and sends what is filled', asyn
       },
     ])
   })
+})
+
+test('a status change sent with a field it needs left empty is refused beside it', async () => {
+  // Arrange
+  const sent = trackerTakingWrites()
+  renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
+  await open('Change status')
+  await choose('21')
+  const fields = form('Change the status of PROJ-1')
+  await userEvent.type(within(fields).getByRole('textbox', { name: 'Due date' }), '2026-10-09')
+  await userEvent.click(within(fields).getByRole('checkbox', { name: '1.5.0' }))
+
+  // Act
+  await userEvent.click(screen.getByRole('button', { name: 'Change to Resolved' }))
+
+  // Assert
+  const resolution = screen.getByRole('combobox', {
+    name: 'Resolution',
+    description: 'Resolution needs a value.',
+  })
+  expect(resolution.getAttribute('aria-invalid')).toBe('true')
+  expect(sent).toEqual([])
 })
 
 test('a date field says the shape it takes, as the terminal and the refusal do', async () => {
@@ -176,7 +203,7 @@ test('a refused status change keeps the form and the focus, beside why', async (
             {
               title: 'Unprocessable',
               status: 422,
-              detail: 'Due date needs a value',
+              detail: 'Due date is not a date the tracker takes',
               code: 'unprocessable',
             },
             { status: 422 },
@@ -185,12 +212,15 @@ test('a refused status change keeps the form and the focus, beside why', async (
   renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
   await open('Change status')
   await choose('21')
+  await filledForResolved()
 
   // Act
   await userEvent.click(screen.getByRole('button', { name: 'Change to Resolved' }))
 
   // Assert
-  expect((await screen.findByRole('alert')).textContent).toBe('Due date needs a value')
+  expect((await screen.findByRole('alert')).textContent).toBe(
+    'Due date is not a date the tracker takes',
+  )
   expect(form('Change the status of PROJ-1')).toBeTruthy()
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Change to Resolved' }))
 })

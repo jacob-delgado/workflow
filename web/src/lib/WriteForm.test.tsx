@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { vi } from 'vitest'
 import { Input } from './Field.tsx'
-import { WriteForm } from './WriteForm.tsx'
+import { LabeledInput, WriteForm } from './WriteForm.tsx'
 
 function LogWork({ onSend }: { onSend: () => void }) {
   const [sending, setSending] = useState(false)
@@ -77,4 +77,22 @@ test('the send keeps its focus while the form sends, and sends once', async () =
   // Assert
   expect(sent).toHaveBeenCalledOnce()
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Logging…' }))
+})
+
+test('a labeled field refused says why below its hint, and is described by both', () => {
+  // Arrange
+  render(
+    <LabeledInput label="Due date" hint="A date." error="Fill in Due date first.">
+      {(id, hint, refusal) => <Input id={id} aria-describedby={hint} error={refusal} />}
+    </LabeledInput>,
+  )
+
+  // Act
+  const field = screen.getByRole('textbox', {
+    name: 'Due date',
+    description: 'A date. Fill in Due date first.',
+  })
+
+  // Assert
+  expect(field.getAttribute('aria-invalid')).toBe('true')
 })

@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import type { FieldEntry, StatusChange, StatusChangeField } from '@/api/generated/types.gen.ts'
 import { Input, Select } from '@/lib/Field.tsx'
 import type { Teller } from '@/lib/Outcome.tsx'
-import { Reading, Unread } from '@/lib/Status.tsx'
+import { Failure, Reading, Unread } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { useIssueWrites, useStatusChanges } from './issueWritesApi.ts'
 import { LabeledInput, WriteForm } from '@/lib/WriteForm.tsx'
@@ -23,11 +23,14 @@ type Filled = Record<string, string | string[]>
 // field form do: it lists the changes the tracker offers from where the issue
 // stands, and once one is chosen, the fields that change needs. A change
 // needing a field only Jira's own screen can fill says so and is not offered
-// to send. What is sent is checked by the server, whose refusal stays beside
-// the form.
+// to send, and a needed field left empty is refused beside itself before it
+// is. What is sent is checked by the server, whose refusal stays beside the
+// form.
 export function StatusChangeForm({ issueKey, shown, teller, onCancel }: StatusChangeFormProps) {
   const [chosen, setChosen] = useState<StatusChange | null>(null)
   const [filled, setFilled] = useState<Filled>({})
+  // The fields the last send found empty, refused until they are filled.
+  const [unfilled, setUnfilled] = useState<string[]>([])
   const writes = useIssueWrites(issueKey)
   const change = useAsyncAction(writes.changeStatus, {
     fallback: `The status of ${shown} could not be changed. Try again, or change it in its tracker.`,
@@ -45,7 +48,9 @@ export function StatusChangeForm({ issueKey, shown, teller, onCancel }: StatusCh
       error={change.state === 'error' ? change.error : ''}
       disabled={chosen === null || blocked !== undefined}
       onSend={() => {
-        if (chosen !== null) {
+        const empty = chosen === null ? [] : emptyOf(chosen, filled)
+        setUnfilled(empty)
+        if (chosen !== null && empty.length === 0) {
           void change.run(chosen, entriesOf(chosen, filled))
         }
       }}
@@ -58,6 +63,7 @@ export function StatusChangeForm({ issueKey, shown, teller, onCancel }: StatusCh
         onChoose={(next) => {
           setChosen(next)
           setFilled({})
+          setUnfilled([])
           change.reset()
         }}
       />
@@ -65,8 +71,10 @@ export function StatusChangeForm({ issueKey, shown, teller, onCancel }: StatusCh
         <ChosenFields
           chosen={chosen}
           filled={filled}
+          unfilled={unfilled}
           onFill={(fieldID, value) => {
             setFilled((before) => ({ ...before, [fieldID]: value }))
+            setUnfilled((before) => before.filter((id) => id !== fieldID))
           }}
         />
       )}
@@ -122,10 +130,12 @@ function OfferedChanges({
 function ChosenFields({
   chosen,
   filled,
+  unfilled,
   onFill,
 }: {
   chosen: StatusChange
   filled: Filled
+  unfilled: string[]
   onFill: (fieldID: string, value: string | string[]) => void
 }) {
   const blocked = onlyJira(chosen)
@@ -143,6 +153,7 @@ function ChosenFields({
       key={field.id}
       field={field}
       value={filled[field.id]}
+      refusal={unfilled.includes(field.id) ? `${field.name} needs a value.` : undefined}
       onChange={(value) => {
         onFill(field.id, value)
       }}
@@ -201,49 +212,32 @@ function describe(change: StatusChange): string {
   return named + needs
 }
 
-// FieldInput fills one field a change needs: a choice of one of its values, a
-// box per value for a list, a date, or typed text or a username.
-function FieldInput({
-  field,
-  value,
-  onChange,
-}: {
+interface FieldInputProps {
   field: StatusChangeField
   value: string | string[] | undefined
+  // refusal is why the field is refused, while it is.
+  refusal: string | undefined
   onChange: (value: string | string[]) => void
-}) {
-  if (field.kind === 'option_list') {
-    const checked = Array.isArray(value) ? value : []
+}
 
-    return (
-      <fieldset className="flex flex-col gap-tight">
-        <legend className="mb-tight text-sm font-medium">{field.name}</legend>
-        {field.options.map((option) => (
-          <label key={option.id} className="flex items-center gap-item text-sm">
-            <input
-              type="checkbox"
-              checked={checked.includes(option.id)}
-              onChange={() => {
-                onChange(toggled(checked, option.id))
-              }}
-              className="focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-            />
-            {option.name}
-          </label>
-        ))}
-      </fieldset>
-    )
+// FieldInput fills one field a change needs: a choice of one of its values, a
+// box per value for a list, a date, or typed text or a username; each says
+// beside itself why it is refused, while it is.
+function FieldInput({ field, value, refusal, onChange }: FieldInputProps) {
+  if (field.kind === 'option_list') {
+    return <OptionListInput field={field} value={value} refusal={refusal} onChange={onChange} />
   }
 
   const text = typeof value === 'string' ? value : ''
 
   return (
-    <LabeledInput label={field.name} hint={hints[field.kind]}>
-      {(id, hint) =>
+    <LabeledInput label={field.name} hint={hints[field.kind]} error={refusal}>
+      {(id, hint, error) =>
         field.kind === 'option' ? (
           <Select
             id={id}
             value={text}
+            error={error}
             onChange={(event) => {
               onChange(event.target.value)
             }}
@@ -259,6 +253,7 @@ function FieldInput({
           <Input
             id={id}
             aria-describedby={hint}
+            error={error}
             autoComplete="off"
             value={text}
             onChange={(event) => {
@@ -268,6 +263,36 @@ function FieldInput({
         )
       }
     </LabeledInput>
+  )
+}
+
+// OptionListInput fills a field that takes any number of its values, a box
+// per value.
+function OptionListInput({ field, value, refusal, onChange }: FieldInputProps) {
+  const refusalId = useId()
+  const checked = Array.isArray(value) ? value : []
+
+  return (
+    <fieldset
+      aria-describedby={refusal === undefined ? undefined : refusalId}
+      className="flex flex-col gap-tight"
+    >
+      <legend className="mb-tight text-sm font-medium">{field.name}</legend>
+      {field.options.map((option) => (
+        <label key={option.id} className="flex items-center gap-item text-sm">
+          <input
+            type="checkbox"
+            checked={checked.includes(option.id)}
+            onChange={() => {
+              onChange(toggled(checked, option.id))
+            }}
+            className="focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          />
+          {option.name}
+        </label>
+      ))}
+      {refusal === undefined ? null : <Failure id={refusalId}>{refusal}</Failure>}
+    </fieldset>
   )
 }
 
@@ -287,9 +312,16 @@ function onlyJira(change: StatusChange): StatusChangeField | undefined {
   return change.fields.find((field) => field.kind === 'only_jira')
 }
 
+// emptyOf is the ids of the fields a change needs that are left empty.
+function emptyOf(change: StatusChange, filled: Filled): string[] {
+  return change.fields
+    .filter((field) => String(filled[field.id] ?? '').trim() === '')
+    .map((field) => field.id)
+}
+
 // entriesOf is what is sent for each field change needs, in its order: the
 // options checked for a list, the option chosen for an option field, and the
-// text otherwise. A field left empty is sent empty, for the server to name.
+// text otherwise.
 function entriesOf(change: StatusChange, filled: Filled): FieldEntry[] {
   return change.fields.map((field) => {
     const value = filled[field.id]
