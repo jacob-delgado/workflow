@@ -3,6 +3,7 @@ import {
   height,
   openFirstRun,
   openSection,
+  openStepSection,
   pinTheme,
   sectionNames,
   sectionsWith,
@@ -114,7 +115,7 @@ for (const theme of themes) {
 }
 
 for (const theme of themes) {
-  for (const { step, section, opener, group } of confirmSteps) {
+  for (const { step, opener, group, ...at } of confirmSteps) {
     test(
       `no accessibility violations in the ${step} in the ${theme} theme`,
       { tag: '@populated' },
@@ -122,7 +123,7 @@ for (const theme of themes) {
         // Arrange
         await pinTheme(page, theme)
         await page.goto('/')
-        await openSection(page, section)
+        await openStepSection(page, at)
 
         // Act
         await page.getByRole('button', { name: opener }).click()
