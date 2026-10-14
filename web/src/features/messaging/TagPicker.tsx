@@ -9,7 +9,7 @@ import type {
 } from '@/api/generated/types.gen.ts'
 import { useHealthStore } from '@/api/health.ts'
 import { Button } from '@/lib/Button.tsx'
-import { Select } from '@/lib/Field.tsx'
+import { Combobox } from '@/lib/baseui/Combobox.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { savePerson, useSlackGroups, useSlackMembers } from './slackApi.ts'
@@ -196,10 +196,10 @@ interface OwnerOnSlackProps {
 }
 
 // OwnerOnSlack is whom an owner is on Slack; for one not linked yet, a choice
-// of the channel's members — a team's, of the user groups — saved as it is
-// made — a member with the channel they were picked from, which the server
-// checks them against — and a button for one not on Slack. Under --dry-run
-// nothing is saved, so it says so instead.
+// of the channel's members, narrowed by typing — a team's, of the user
+// groups — saved as it is made — a member with the channel they were picked
+// from, which the server checks them against — and a button for one not on
+// Slack. Under --dry-run nothing is saved, so it says so instead.
 function OwnerOnSlack({ owner, choices, channel, busy, onLink }: OwnerOnSlackProps) {
   const dryRun = useHealthStore((state) => state.health?.dry_run === true)
 
@@ -221,34 +221,25 @@ function OwnerOnSlack({ owner, choices, channel, busy, onLink }: OwnerOnSlackPro
 
   return (
     <>
-      <label className="flex min-w-0 items-center">
-        <span className="sr-only">
-          {owner.kind === 'team' ? 'Slack group for' : 'Slack user for'} {owner.owner}
-        </span>
-        <Select
-          size="sm"
-          className="max-w-full"
-          value=""
-          disabled={choices.length === 0}
-          held={busy}
-          onChange={(event) => {
-            const pickedFrom = owner.kind === 'user' && channel !== '' ? { channel } : {}
-            onLink({
-              owner: owner.owner,
-              slack_id: event.target.value,
-              not_on_slack: false,
-              ...pickedFrom,
-            })
-          }}
-        >
-          <option value="">Not linked yet</option>
-          {choices.map((choice) => (
-            <option key={choice.id} value={choice.id}>
-              {choice.label}
-            </option>
-          ))}
-        </Select>
-      </label>
+      <Combobox
+        label={`${owner.kind === 'team' ? 'Slack group for' : 'Slack user for'} ${owner.owner}`}
+        placeholder="Not linked yet"
+        items={choices}
+        itemKey={(choice) => choice.id}
+        itemText={(choice) => choice.label}
+        empty={owner.kind === 'team' ? 'No group matches.' : 'No member matches.'}
+        disabled={choices.length === 0}
+        held={busy}
+        onChoose={(choice) => {
+          const pickedFrom = owner.kind === 'user' && channel !== '' ? { channel } : {}
+          onLink({
+            owner: owner.owner,
+            slack_id: choice.id,
+            not_on_slack: false,
+            ...pickedFrom,
+          })
+        }}
+      />
       <Button
         variant="secondary"
         held={busy}
