@@ -24,19 +24,19 @@
 # message separate commits. release-please also breaks lines at a bare carriage
 # return, so this does too.
 #
-# The body is wrapped at 72 characters, as CLAUDE.md asks, since every commit
-# lands on main as written. Only prose is held to it: a line holding a URL, a
-# line of an indented or fenced block, and the trailers of a last paragraph
-# made only of trailers cannot wrap, and are left as they are. So is a body
-# whose trailers carry Dependabot's sign-off: the bot writes that body, no
-# setting rewraps it, and its module paths run long.
+# The body is wrapped at 72 characters, as CONTRIBUTING.md asks, since every
+# commit lands on main as written. Only prose is held to it: a line holding a
+# URL, a line of an indented or fenced block, and the trailers of a last
+# paragraph made only of trailers cannot wrap, and are left as they are. So is
+# a body whose trailers carry Dependabot's sign-off: the bot writes that body,
+# no setting rewraps it, and its module paths run long.
 set -euo pipefail
 
 readonly subject_pattern='^(feat|fix|chore|docs|refactor|test|perf|build|ci|revert|style)(\([a-z0-9_-]+\))?!?: .+'
 readonly breaking_subject_pattern='^[a-z]+(\([a-z0-9_-]+\))?!: '
 
-# CLAUDE.md: the subject is at most 72 characters and does not end with a period,
-# and the body is wrapped at 72.
+# CONTRIBUTING.md: the subject is at most 72 characters and does not end with a
+# period, and the body is wrapped at 72.
 readonly subject_limit=72
 readonly body_limit=72
 readonly dependabot_trailer='Signed-off-by: dependabot[bot] <support@github.com>'
@@ -120,7 +120,7 @@ if ((${#subject} > subject_limit)); then
 fi
 
 if [[ "${subject}" == *. ]]; then
-  refuse "The subject ends with a period, which CLAUDE.md forbids: ${subject}"
+  refuse "The subject ends with a period, which CONTRIBUTING.md forbids: ${subject}"
 fi
 
 overlong="$(overlong_prose "${body}")"

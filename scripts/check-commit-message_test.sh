@@ -29,13 +29,17 @@ expect fail "no type" "add issue transition command"
 expect fail "an unknown type" "feature: add issue transition command"
 expect fail "an empty message" ""
 
-# CLAUDE.md: subject ≤ 72 characters, no trailing period.
+# CONTRIBUTING.md: subject ≤ 72 characters, no trailing period.
 expect fail "a subject over 72 characters" "feat: $(printf 'x%.0s' {1..70})"
 expect pass "a subject at exactly 72 characters" "feat: $(printf 'x%.0s' {1..66})"
 expect fail "a subject ending in a period" "fix: redact the token."
+# A refusal names the page the rule it holds is written on.
+printf '%s\n' "fix: redact the token." >"${workdir}/period"
+expect_output fail "a period's refusal names where the rule is written" \
+  "which CONTRIBUTING.md forbids" "${check}" "${workdir}/period"
 
-# CLAUDE.md: the body is wrapped at 72. Prose past it is refused; a URL, the
-# trailers, and an indented or fenced block cannot wrap and are left alone.
+# CONTRIBUTING.md: the body is wrapped at 72. Prose past it is refused; a URL,
+# the trailers, and an indented or fenced block cannot wrap and are left alone.
 # Characters are counted, not bytes, so an em dash is one.
 prose90="$(printf 'word %.0s' {1..18})"
 prose72="$(printf 'x%.0s' {1..72})"
