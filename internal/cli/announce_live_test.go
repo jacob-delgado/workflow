@@ -20,20 +20,33 @@ import (
 )
 
 // shownSoFar is a stand-in terminal for a run whose live line is drawn from
-// goroutines of its own: what has been written to it so far.
+// goroutines of its own: what has been written to it so far, and a word each
+// time more is.
 type shownSoFar struct {
 	mu      sync.Mutex
 	written strings.Builder
+	more    chan struct{}
 }
 
 var _ io.Writer = (*shownSoFar)(nil)
 
-// Write keeps p.
-func (s *shownSoFar) Write(p []byte) (int, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+// newShownSoFar is a stand-in terminal nothing has been written to yet.
+func newShownSoFar() *shownSoFar {
+	return &shownSoFar{more: make(chan struct{}, 1)}
+}
 
-	return s.written.Write(p) //nolint:wrapcheck // a builder's write never fails
+// Write keeps what was written, and says more was.
+func (s *shownSoFar) Write(written []byte) (int, error) {
+	s.mu.Lock()
+	s.written.Write(written)
+	s.mu.Unlock()
+
+	select {
+	case s.more <- struct{}{}:
+	default:
+	}
+
+	return len(written), nil
 }
 
 // String is everything written so far.
@@ -44,19 +57,27 @@ func (s *shownSoFar) String() string {
 	return s.written.String()
 }
 
+// awaits waits for the write that has the terminal show text, or for a wait's
+// patience to run out.
+func (s *shownSoFar) awaits(text string) {
+	patience := time.After(answerPatience)
+
+	for !strings.Contains(ansi.Strip(s.String()), text) {
+		select {
+		case <-s.more:
+		case <-patience:
+			return
+		}
+	}
+}
+
 // releaseOnceShown lets gate's CI pass once terminal shows text, or once a
 // wait has had its patience, so the command never hangs on a test that
 // fails.
 func releaseOnceShown(t *testing.T, terminal *shownSoFar, gate, text string) {
 	t.Helper()
 
-	for deadline := time.Now().Add(answerPatience); time.Now().Before(deadline); {
-		if strings.Contains(ansi.Strip(terminal.String()), text) {
-			break
-		}
-
-		time.Sleep(10 * time.Millisecond)
-	}
+	terminal.awaits(text)
 
 	err := os.WriteFile(filepath.Join(gate, "release"), nil, 0o600)
 	if err != nil {
@@ -78,7 +99,7 @@ func TestAnnounceWhenGreenKeepsALiveLineOfCIsProgressOnATerminal(t *testing.T) {
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	writeFile(t, repo, waitingConfig(webhook(t, &posts)))
 
-	terminal := new(shownSoFar)
+	terminal := newShownSoFar()
 	released := make(chan struct{})
 
 	go func() {
