@@ -196,7 +196,7 @@ func TestAChoiceComesBackRoundToTheDefaultItSavesEmpty(t *testing.T) {
 	repo.settings.PullRequest.TitleSource = string(convention.TitleFromIssue)
 
 	// Act
-	typing(t, repo.live(t, 120, 40), append(toRow(titleSourceRow), keyEnter, saveKey)...)
+	typing(t, repo.live(t, 120, 40), append(toRow(titleSourceRow), keyRight, saveKey)...)
 
 	// Assert
 	if got := repo.settings.PullRequest.TitleSource; got != "" {

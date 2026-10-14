@@ -33,6 +33,8 @@ type glyphs struct {
 	chosenOpen, chosenClose string
 	// favorite marks a directory kept as a favorite.
 	favorite string
+	// focusBar runs down the left of the form field that has the keyboard.
+	focusBar string
 	// helpSeparator separates keys in the footer; upKey, downKey, leftKey,
 	// rightKey and sideways name the arrow keys in it.
 	helpSeparator, upKey, downKey, leftKey, rightKey, sideways string
@@ -49,6 +51,7 @@ func unicodeGlyphs() glyphs {
 		selected: "▸ ", unselected: "  ",
 		arrow: " → ", separator: " · ", trackFilled: "━", trackOpen: "─",
 		ellipsis: "…", ahead: "↑", behind: "↓", chosenOpen: "‹", chosenClose: "›", favorite: "★",
+		focusBar:      "┃",
 		helpSeparator: " • ", upKey: "↑", downKey: "↓", leftKey: "←", rightKey: "→", sideways: "←/→",
 		border: frame.Light,
 	}
@@ -64,6 +67,7 @@ func asciiGlyphs() glyphs {
 		selected: "> ", unselected: "  ",
 		arrow: " -> ", separator: " - ", trackFilled: "=", trackOpen: "-",
 		ellipsis: "...", ahead: "+", behind: "-", chosenOpen: "<", chosenClose: ">", favorite: "^",
+		focusBar:      "|",
 		helpSeparator: " | ", upKey: "up", downKey: "down", leftKey: "left", rightKey: "right", sideways: "left/right",
 		border: frame.LightASCII,
 	}

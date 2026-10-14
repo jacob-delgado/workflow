@@ -65,13 +65,17 @@ type relaying interface {
 
 // huhTheme is Huh drawn the way the rest of the interface is: in the
 // terminal's own palette, through kit's styles, with this session's glyphs
-// for the cursor, the checkboxes and a refusal.
+// for the cursor, the checkboxes and a refusal, and the field that has the
+// keyboard barred down its left.
 func huhTheme(kit renderKit) huh.ThemeFunc {
 	return huh.ThemeFunc(func(bool) *huh.Styles {
 		theme := huh.ThemeBase(false)
 		theme.FieldSeparator = lipgloss.NewStyle().SetString("\n")
 		theme.Focused = huhFieldStyles(kit, kit.marks.selected)
+		theme.Focused.Base = lipgloss.NewStyle().PaddingLeft(1).
+			Border(lipgloss.Border{Left: kit.marks.focusBar}, false, false, false, true)
 		theme.Blurred = huhFieldStyles(kit, kit.marks.unselected)
+		theme.Blurred.Base = theme.Focused.Base.Border(lipgloss.Border{Left: " "}, false, false, false, true)
 		theme.Help.ShortKey, theme.Help.ShortDesc = kit.styles.label, kit.styles.label
 		theme.Help.ShortSeparator = kit.styles.label
 
@@ -96,8 +100,8 @@ func huhFieldStyles(kit renderKit, selector string) huh.FieldStyles {
 	styles.UnselectedPrefix = plain.SetString(checkbox(false))
 	styles.TextInput.Prompt = plain
 	styles.TextInput.Placeholder = kit.styles.label
-	styles.FocusedButton = kit.styles.strong.Reverse(true)
-	styles.BlurredButton = plain
+	styles.FocusedButton = kit.styles.strong.Reverse(true).Padding(0, 1)
+	styles.BlurredButton = plain.Padding(0, 1)
 
 	return styles
 }
@@ -106,8 +110,10 @@ func huhFieldStyles(kit renderKit, selector string) huh.FieldStyles {
 // inside a form as it does everywhere else: next-field, and apply on any
 // field but the last, go on to the next; previous-field goes back; apply on
 // the last field submits; up, down, first, last and toggle-option move and
-// pick. Huh's own quit is off, since interrupt and close are answered before
-// a form sees a key, and so are its filters, which would take a typed /.
+// pick, and toggle-option or either cycle key turns a yes or no. Huh's own
+// quit is off, since interrupt and close are answered before a form sees a
+// key, and so are its filters, which would take a typed /, and a yes or no's
+// letters, which would take a typed y or n.
 func huhKeys(keys keyMap) *huh.KeyMap {
 	next := key.NewBinding(key.WithKeys(slices.Concat(keys.confirm.Keys(), keys.nextField.Keys())...),
 		key.WithHelp(keys.confirm.Help().Key, "next"))
@@ -120,6 +126,11 @@ func huhKeys(keys keyMap) *huh.KeyMap {
 	keymap.Select = huh.SelectKeyMap{
 		Next: next, Prev: prev, Submit: submit, Up: keys.up, Down: keys.down, GotoTop: keys.first, GotoBottom: keys.last,
 		HalfPageUp: off, HalfPageDown: off, Left: off, Right: off, Filter: off, SetFilter: off, ClearFilter: off,
+	}
+	keymap.Confirm = huh.ConfirmKeyMap{
+		Next: next, Prev: prev, Submit: submit, Accept: off, Reject: off,
+		Toggle: key.NewBinding(key.WithKeys(slices.Concat(keys.toggleOption.Keys(), keys.cycleLeft.Keys(),
+			keys.cycleRight.Keys())...), key.WithHelp(keys.toggleOption.Help().Key, "turn on or off")),
 	}
 	keymap.MultiSelect = huh.MultiSelectKeyMap{
 		Next: next, Prev: prev, Submit: submit, Up: keys.up, Down: keys.down, GotoTop: keys.first,

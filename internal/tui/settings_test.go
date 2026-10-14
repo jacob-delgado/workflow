@@ -40,11 +40,10 @@ func toRow(row int) []string {
 	return append([]string{reposKey, settingsKey}, slices.Repeat([]string{"j"}, row)...)
 }
 
-// edited opens Settings and edits row to text, unsaved.
+// edited opens Settings, opens row's form on it, types text over its value
+// and keeps the form, unsaved.
 func edited(row int, text string) []string {
-	keys := append(toRow(row), keyEnter, "ctrl+u")
-
-	return append(append(keys, letters(text)...), keyEnter)
+	return append(toRow(row), keyEnter, "ctrl+u", pasted(text), saveKey)
 }
 
 // editing opens Settings, edits row to text and saves.
@@ -146,14 +145,14 @@ func TestACountMustBeAWholeNumber(t *testing.T) {
 	requireScreen(t, view, "a whole number")
 }
 
-func TestEnterOnASettingThatIsOnOrOffTurnsIt(t *testing.T) {
+func TestSpaceOnASettingThatIsOnOrOffTurnsIt(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	repo := newWorld()
 
 	// Act
-	typing(t, repo.live(t, 120, 40), append(toRow(storeDisabledRow), keyEnter, saveKey)...)
+	typing(t, repo.live(t, 120, 40), append(toRow(storeDisabledRow), keySpace, saveKey)...)
 
 	// Assert
 	if !repo.settings.Store.Disabled {
@@ -217,7 +216,7 @@ func TestEscWithEditsDiscardsThem(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	keys := append(toRow(projectRow), keyEnter, "ctrl+u", "O", keyEnter)
+	keys := append(toRow(projectRow), keyEnter, "ctrl+u", "O", saveKey)
 
 	// Act
 	view := typing(t, newWorld().live(t, 120, 40), keys...).View().Content
@@ -307,7 +306,7 @@ func TestAChoiceMovesOnAndBack(t *testing.T) {
 		keys []string
 		want config.MessagingKind
 	}{
-		{"by enter", []string{keyEnter}, config.KindTeams},
+		{"in its section's form", []string{keyEnter, downAction, saveKey}, config.KindTeams},
 		{"forward", []string{keyRight}, config.KindTeams},
 		{"back", []string{keyLeft}, config.KindWebhook},
 	}
@@ -452,7 +451,7 @@ func TestAPasteTypesIntoTheFieldBeingEdited(t *testing.T) {
 	model := typing(t, repo.live(t, 120, 40), append(toRow(projectRow), keyEnter, "ctrl+u")...)
 
 	// Act
-	typing(t, pasting(t, model, editedProject), keyEnter, saveKey)
+	typing(t, pasting(t, model, editedProject), saveKey, saveKey)
 
 	// Assert
 	if repo.settings.Jira.Project != editedProject {
@@ -502,8 +501,8 @@ func TestTheFooterNamesWhatEnterDoesToEachKindOfSetting(t *testing.T) {
 		row  int
 		want string
 	}{
-		{"on or off", markdownRow, "enter turn on or off"},
-		{"a choice", messagingKindRow, "enter change"},
+		{"on or off", markdownRow, "space turn on or off"},
+		{"a choice", messagingKindRow, "←/→ change"},
 		{"a list", commitTypesRow, "enter edit"},
 		{"a count", subjectLimitRow, "enter edit"},
 		{"a row that adds an entry", addViewRow, "enter add"},
@@ -558,7 +557,7 @@ func TestAChoiceMovesOnFromOneItOffers(t *testing.T) {
 	repo := newWorld()
 
 	// Act
-	typing(t, repo.live(t, 120, 40), append(toRow(messagingKindRow), keyEnter, keyEnter, saveKey)...)
+	typing(t, repo.live(t, 120, 40), append(toRow(messagingKindRow), keyRight, keyRight, saveKey)...)
 
 	// Assert
 	if got := repo.settings.Messaging.Kind; got != config.KindDiscord {
@@ -570,8 +569,8 @@ func TestATypedListAndCountShowAsKept(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	keys := append(toRow(commitTypesRow), keyEnter, "ctrl+u")
-	keys = append(append(keys, letters("feat,fix")...), keyEnter, "j", keyEnter, "ctrl+u", "5", "0", keyEnter)
+	keys := append(toRow(commitTypesRow), keyEnter, "ctrl+u", pasted("feat,fix"), keyEnter, "ctrl+u", pasted("50"),
+		saveKey)
 
 	// Act
 	view := typing(t, newWorld().live(t, 120, 40), keys...).View().Content
