@@ -177,7 +177,7 @@ them.
 | Copy it as Markdown | `summary` (to stdout) | `Y` | Copy as Markdown |
 | **Repositories** | | | |
 | Where workflow works, and what configures it | `doctor`, `config show` | Repositories pane, the top row's place | Repositories, the header's place |
-| Switch the directory | not for scripts | `enter`, `g` | Switch, Switch here |
+| Switch the directory | not for scripts | `enter`, `g` | Switch; Go to a directory… (`g`), then Switch to … |
 | Favorites | listed by `repositories` | `f` | Add to favorites, Remove |
 | List the worktrees | `repositories [--json]` | the Repositories pane | Worktrees |
 | **Settings and local data** | | | |
