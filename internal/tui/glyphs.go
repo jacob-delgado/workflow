@@ -48,7 +48,7 @@ type glyphs struct {
 func unicodeGlyphs() glyphs {
 	return glyphs{
 		notStarted: progress.NotStarted.Glyph(false), inFlight: progress.InFlight.Glyph(false),
-		turn:    spinner.Spinner{Frames: []string{"◐", "◓", "◑", "◒"}, FPS: time.Second / framesPerSecond},
+		turn:    spinner.Spinner{Frames: progress.Turn(false), FPS: time.Second / framesPerSecond},
 		turning: progress.InFlight.Glyph(false),
 		done:    progress.Done.Glyph(false), failed: progress.Failed.Glyph(false), unknown: "·",
 		selected: "▸ ", unselected: "  ",
@@ -65,7 +65,7 @@ func unicodeGlyphs() glyphs {
 func asciiGlyphs() glyphs {
 	return glyphs{
 		notStarted: progress.NotStarted.Glyph(true), inFlight: progress.InFlight.Glyph(true),
-		turn:    spinner.Spinner{Frames: []string{progress.InFlight.Glyph(true)}, FPS: time.Second / framesPerSecond},
+		turn:    spinner.Spinner{Frames: progress.Turn(true), FPS: time.Second / framesPerSecond},
 		turning: progress.InFlight.Glyph(true),
 		done:    progress.Done.Glyph(true), failed: progress.Failed.Glyph(true), unknown: ".",
 		selected: "> ", unselected: "  ",

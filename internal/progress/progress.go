@@ -45,6 +45,18 @@ func (s State) Glyph(ascii bool) string {
 	return marks.unicode
 }
 
+// Turn is the frames the in-flight mark turns through while work is out — the
+// terminal's panes and the command line's live line alike — from InFlight's
+// own glyph, a quarter turn a frame; with ascii, which has no shape that
+// turns, it is the stand-in alone, held still.
+func Turn(ascii bool) []string {
+	if ascii {
+		return []string{InFlight.Glyph(true)}
+	}
+
+	return []string{InFlight.Glyph(false), "◓", "◑", "◒"}
+}
+
 // System is where a stage's work happens, which the terminal's spine colors it
 // by.
 type System int

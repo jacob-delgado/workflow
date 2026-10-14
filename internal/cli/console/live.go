@@ -9,11 +9,13 @@ import (
 	"strconv"
 	"time"
 
-	"charm.land/bubbles/v2/progress"
+	progressbar "charm.land/bubbles/v2/progress"
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/jacob-delgado/workflow/internal/progress"
 )
 
 // Wait is what a wait a person may be watching tells its live line — what it
@@ -136,7 +138,7 @@ type liveOver struct{}
 type liveModel struct {
 	wait        tea.Cmd
 	mark        spinner.Model
-	bar         progress.Model
+	bar         progressbar.Model
 	doing       string
 	done, total int
 	width       int
@@ -146,11 +148,11 @@ var _ tea.Model = liveModel{}
 
 // newLiveModel is the live line of wait, before it has anything to say.
 func newLiveModel(wait tea.Cmd) liveModel {
-	bar := progress.New(progress.WithWidth(liveBarWidth), progress.WithoutPercentage(),
-		progress.WithFillCharacters('━', '─'), progress.WithColors(lipgloss.NoColor{}))
+	bar := progressbar.New(progressbar.WithWidth(liveBarWidth), progressbar.WithoutPercentage(),
+		progressbar.WithFillCharacters('━', '─'), progressbar.WithColors(lipgloss.NoColor{}))
 	bar.EmptyColor = lipgloss.NoColor{}
 
-	turning := spinner.Spinner{Frames: []string{"◐", "◓", "◑", "◒"}, FPS: time.Second / liveFramesPerSecond}
+	turning := spinner.Spinner{Frames: progress.Turn(false), FPS: time.Second / liveFramesPerSecond}
 
 	return liveModel{wait: wait, mark: spinner.New(spinner.WithSpinner(turning)), bar: bar, width: liveWidth}
 }

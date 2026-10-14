@@ -4,6 +4,7 @@
 package progress_test
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/progress"
@@ -34,6 +35,34 @@ func TestEachStateHasOneMarkAndOneASCIIStandIn(t *testing.T) {
 			// Assert
 			if mark != tt.mark || inASCII != tt.inASCII {
 				t.Errorf("Glyph = %q, and %q in ASCII; want %q and %q", mark, inASCII, tt.mark, tt.inASCII)
+			}
+		})
+	}
+}
+
+func TestTheInFlightMarkTurnsFromItsOwnGlyph(t *testing.T) {
+	t.Parallel()
+
+	// The terminal's panes and the command line's live line turn the same
+	// mark; ASCII has no shape that turns, so its stand-in holds still.
+	cases := map[string]struct {
+		ascii bool
+		want  []string
+	}{
+		"in Unicode": {ascii: false, want: []string{"◐", "◓", "◑", "◒"}},
+		"in ASCII":   {ascii: true, want: []string{"*"}},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			frames := progress.Turn(tt.ascii)
+
+			// Assert
+			if !slices.Equal(frames, tt.want) || frames[0] != progress.InFlight.Glyph(tt.ascii) {
+				t.Errorf("Turn(%v) = %q, want %q, from the in-flight glyph", tt.ascii, frames, tt.want)
 			}
 		})
 	}
