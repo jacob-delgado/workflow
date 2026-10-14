@@ -76,7 +76,7 @@ test('a refused switch is an alert in its question', async () => {
   const user = userEvent.setup()
   renderWithClient(<RepositoriesPanel />)
   await user.click(await screen.findByRole('button', { name: 'Switch to ~/src/web' }))
-  const question = screen.getByRole('region', { name: 'Switch to ~/src/web?' })
+  const question = await screen.findByRole('group', { name: 'Switch to ~/src/web?' })
 
   // Act
   await user.click(within(question).getByRole('button', { name: 'Switch' }))
@@ -85,15 +85,4 @@ test('a refused switch is an alert in its question', async () => {
   expect((await within(question).findByRole('alert')).textContent).toBe(
     '/api/repositories/here refused',
   )
-})
-
-test('a directory that cannot be listed is an alert', async () => {
-  // Arrange
-  servingBut('/api/directories')
-
-  // Act
-  renderWithClient(<RepositoriesPanel />)
-
-  // Assert
-  expect((await screen.findByRole('alert')).textContent).toBe('/api/directories refused')
 })

@@ -7,16 +7,17 @@ import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { Failure, Reading, Unread } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn, contentMeasure } from '@/lib/utils.ts'
-import { ConfirmSwitch, type Destination } from './ConfirmSwitch.tsx'
-import { DirectoryPicker } from './DirectoryPicker.tsx'
+import type { Destination } from './ConfirmSwitch.tsx'
+import { DirectoryDialog } from './DirectoryDialog.tsx'
 import { FavoritesList } from './FavoritesList.tsx'
 import { useFavorite, useRepositories, useSwitchTo } from './repositoriesApi.ts'
 import { WorkingIn } from './WorkingIn.tsx'
 import { WorktreesList } from './WorktreesList.tsx'
 
 // RepositoriesPanel is where the server works, relative to what it changes;
-// the repository's worktrees; your favorite directories; and a picker to open another, each switch asked
-// once more before it is made, since every section is read again after it.
+// the repository's worktrees; your favorite directories; and a dialog to go to
+// another, each switch asked once more in it before it is made, since every
+// section is read again after it.
 export function RepositoriesPanel() {
   const read = useRepositories()
   const outcome = useOutcome()
@@ -47,7 +48,9 @@ function Read({
   repositories: Repositories
   outcome: ReturnType<typeof useOutcome>
 }) {
-  const [destination, setDestination] = useState<Destination | null>(null)
+  // going is the directory dialog while it is open, and the switch it opens on
+  // asking, where one was asked for from a worktree or a favorite.
+  const [going, setGoing] = useState<{ asking: Destination | null } | null>(null)
   const favorite = useFavorite()
   const switchTo = useSwitchTo()
   const toggle = useAsyncAction(
@@ -64,37 +67,34 @@ function Read({
   // The favorite that is where the server works, by the name it was kept
   // under, which may reach it through a link: the name to forget.
   const hereKept = repositories.favorites.find((each) => each.state === 'here')
-  const favoriteKeys = useShortcutProps<HTMLButtonElement>('favorite-directory')
 
   return (
     <div className={cn('flex flex-col gap-section', contentMeasure)}>
       <div className="flex flex-col gap-item">
         <WorkingIn place={here} />
-        {repositories.favorites_kept ? (
-          <div>
-            <Button
-              {...favoriteKeys}
-              variant="secondary"
-              onClick={() => {
-                void (hereKept === undefined
-                  ? toggle.run(here.dir, here.shown, true)
-                  : toggle.run(hereKept.dir, hereKept.shown, false))
-              }}
-            >
-              {hereKept === undefined ? 'Add to favorites' : 'Remove from favorites'}
-            </Button>
-          </div>
-        ) : null}
+        <HereActions
+          kept={repositories.favorites_kept}
+          hereKept={hereKept !== undefined}
+          onGo={() => {
+            setGoing({ asking: null })
+          }}
+          onFavorite={() => {
+            void (hereKept === undefined
+              ? toggle.run(here.dir, here.shown, true)
+              : toggle.run(hereKept.dir, hereKept.shown, false))
+          }}
+        />
         <OutcomeLine said={outcome.said} />
         {toggle.state === 'error' ? <Failure>{toggle.error}</Failure> : null}
       </div>
-      {destination === null ? null : (
-        <ConfirmSwitch
-          destination={destination}
+      {going === null ? null : (
+        <DirectoryDialog
+          repositories={repositories}
+          asking={going.asking}
           switchTo={switchTo}
           teller={outcome}
-          onCancel={() => {
-            setDestination(null)
+          onClose={() => {
+            setGoing(null)
           }}
         />
       )}
@@ -102,24 +102,48 @@ function Read({
         worktrees={repositories.worktrees}
         error={repositories.worktrees_error}
         onSwitch={(chosen) => {
-          setDestination({ dir: chosen.dir, shown: chosen.shown })
+          setGoing({ asking: { dir: chosen.dir, shown: chosen.shown } })
         }}
       />
       <FavoritesList
         favorites={repositories.favorites}
         kept={repositories.favorites_kept}
         onSwitch={(chosen) => {
-          setDestination({ dir: chosen.dir, shown: chosen.shown })
+          setGoing({ asking: { dir: chosen.dir, shown: chosen.shown } })
         }}
         onForget={(chosen) => {
           void toggle.run(chosen.dir, chosen.shown, false)
         }}
       />
-      <DirectoryPicker
-        onChoose={(dir, shown) => {
-          setDestination({ dir, shown })
-        }}
-      />
+    </div>
+  )
+}
+
+interface HereActionsProps {
+  // kept is whether the server keeps favorites, and hereKept whether where it
+  // works is one.
+  kept: boolean
+  hereKept: boolean
+  onGo: () => void
+  onFavorite: () => void
+}
+
+// HereActions are what can be done from where the server works: go to another
+// directory, and keep this one as a favorite or forget it.
+function HereActions({ kept, hereKept, onGo, onFavorite }: HereActionsProps) {
+  const favoriteKeys = useShortcutProps<HTMLButtonElement>('favorite-directory')
+  const goKeys = useShortcutProps<HTMLButtonElement>('go-to-directory')
+
+  return (
+    <div className="flex flex-wrap gap-item">
+      <Button {...goKeys} variant="secondary" onClick={onGo}>
+        Go to a directory…
+      </Button>
+      {kept ? (
+        <Button {...favoriteKeys} variant="secondary" onClick={onFavorite}>
+          {hereKept ? 'Remove from favorites' : 'Add to favorites'}
+        </Button>
+      ) : null}
     </div>
   )
 }

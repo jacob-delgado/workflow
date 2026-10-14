@@ -29,10 +29,14 @@ export function useRepositories() {
 }
 
 // readDirectories lists the directories in path, or where the server works
-// when path is empty.
-async function readDirectories(path: string, signal?: AbortSignal): Promise<DirectoryListing> {
+// when path is empty, those whose names start with prefix where one is given.
+async function readDirectories(
+  path: string,
+  prefix: string,
+  signal?: AbortSignal,
+): Promise<DirectoryListing> {
   const { data } = await getDirectories({
-    query: path === '' ? {} : { path },
+    query: { ...(path === '' ? {} : { path }), ...(prefix === '' ? {} : { prefix }) },
     signal,
     throwOnError: true,
   })
@@ -40,11 +44,14 @@ async function readDirectories(path: string, signal?: AbortSignal): Promise<Dire
   return data
 }
 
-// useDirectories lists the directories in path, kept while it is browsed.
-export function useDirectories(path: string) {
+// useDirectories lists the directories in path, kept while it is browsed;
+// with a prefix, only those whose names start with it, read only while
+// narrowing is asked for.
+export function useDirectories(path: string, prefix = '', narrowing = true) {
   return useQuery({
-    queryKey: ['directories', path],
-    queryFn: ({ signal }) => readDirectories(path, signal),
+    queryKey: ['directories', path, prefix],
+    queryFn: ({ signal }) => readDirectories(path, prefix, signal),
+    enabled: narrowing,
     retry: false,
   })
 }

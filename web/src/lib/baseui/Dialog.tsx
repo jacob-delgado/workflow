@@ -5,8 +5,9 @@ import { cn } from '@/lib/utils.ts'
 interface DialogProps {
   // label names the dialog outright; without it, its DialogTitle does.
   label?: string
-  // initialFocus is the control focus goes to as the dialog opens.
-  initialFocus: RefObject<HTMLElement | null>
+  // initialFocus is the control focus goes to as the dialog opens, or false
+  // for what the dialog opens on to take the focus itself.
+  initialFocus: RefObject<HTMLElement | null> | false
   onClose: () => void
   className?: string
   children: ReactNode

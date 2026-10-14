@@ -101,9 +101,30 @@ const subdirectories: Record<string, { name: string; repository: boolean }[]> = 
   '/home/ana/src/api': [{ name: 'cmd', repository: false }],
 }
 
+// worksIn is where the mockup works, which a relative path starts from.
+const worksIn = '/home/ana/src/api/cmd'
+
+// resolved is a path as the server reads it: from your home after ~, from
+// where the mockup works when relative, its . and .. walked and no slash at
+// its end.
+function resolved(typed: string): string {
+  const fromHome = typed.startsWith('~') ? `${home}${typed.slice(1)}` : typed
+  const absolute = fromHome.startsWith('/') ? fromHome : `${worksIn}/${fromHome}`
+  const parts = absolute.split('/').reduce<string[]>((walked, part) => {
+    if (part === '..') {
+      return walked.slice(0, -1)
+    }
+
+    return part === '' || part === '.' ? walked : [...walked, part]
+  }, [])
+
+  return `/${parts.join('/')}`
+}
+
 // mockDirectories lists a directory of the mockup's, as the server would:
 // those whose names start with prefix, all of them for ''.
-export function mockDirectories(path: string, prefix = ''): DirectoryListing {
+export function mockDirectories(typed: string, prefix = ''): DirectoryListing {
+  const path = resolved(typed)
   const entries = (subdirectories[path] ?? []).filter((entry) => entry.name.startsWith(prefix))
   const parent = path.slice(0, Math.max(path.lastIndexOf('/'), 1))
 

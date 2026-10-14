@@ -46,6 +46,9 @@ type LastLookProps = Named & {
   children?: ReactNode
   // act is the act's own word on its button, and acting the word while it runs.
   act: string
+  // cancel is the word on the button that asks nothing: Cancel, unless it goes
+  // back to a step before.
+  cancel?: string
   acting?: string
   // write is the write a last look makes in place; one that hands it back to
   // what opened it, which writes and shows its refusal, passes none.
@@ -65,7 +68,17 @@ type LastLookProps = Named & {
 // both buttons are held: the act keeps the focus it was pressed with, and
 // Cancel cannot call back a write that has left.
 export function LastLook(props: LastLookProps) {
-  const { cost, children, act, acting = act, write, className, onAct, onCancel } = props
+  const {
+    cost,
+    children,
+    act,
+    acting = act,
+    cancel = 'Cancel',
+    write,
+    className,
+    onAct,
+    onCancel,
+  } = props
   const running = write?.state === 'running'
   useHoldShortcuts()
 
@@ -76,7 +89,7 @@ export function LastLook(props: LastLookProps) {
       {write?.state === 'error' ? <Failure>{write.error}</Failure> : null}
       <div className="flex flex-wrap items-center gap-item">
         <Button variant="secondary" held={running} onClick={onCancel}>
-          Cancel
+          {cancel}
         </Button>
         <Button variant="primary" held={running} onClick={onAct}>
           {running ? acting : act}

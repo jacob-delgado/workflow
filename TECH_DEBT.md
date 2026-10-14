@@ -859,3 +859,23 @@ where the spec opens that part.
 
 **Reopen when.** A choice needs more than a native `<select>` can draw, or the
 server gains a per-request nonce that the page could hand to `CSPProvider`.
+
+### TRADE-49 The directory picker draws at most two hundred matches
+
+**Decided.** The directory picker, the terminal's and the web's directory
+dialog (`web/src/features/repositories/DirectoryDialog.tsx`), draws at most
+200 matching directories and then says how many more match, "41 more match;
+keep typing to narrow", rather than drawing every row or windowing a long
+list with a virtualizing library. The server already stops a listing at 1000,
+and a listing cut short is asked for again with the name typed as a prefix.
+Decided 2026-10-14 by the maintainer, in the UX refresh's directory picker
+pull request, over adopting TanStack Virtual.
+
+**Cost.** In a directory of more than 200 subdirectories, those past the
+first 200 matches are out of reach by the arrow keys until enough of a name
+is typed to narrow the list below the cap; scrolling to them is not an
+option. The count says so, but a reader who browses rather than types meets a
+list that ends early.
+
+**Reopen when.** Someone needs to browse a directory of hundreds of
+subdirectories without typing, or the cap shows up as a complaint.
