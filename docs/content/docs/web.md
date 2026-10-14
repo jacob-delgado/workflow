@@ -484,9 +484,9 @@ since that changes where a task stands with nothing written, rather than from
 the stream. It needs Taskwarrior 3.5.0 or newer, found as
 [Configuration]({{< relref "/docs/configuration#taskwarrior" >}}) describes;
 without one it says why — and, where the `task` on `PATH` is another program,
-go-task most likely, that Settings can name Taskwarrior's with
-`taskwarrior.program`, which applies once workflow restarts or switches
-directory.
+go-task most likely, that `taskwarrior.program` in the configuration file can
+name Taskwarrior's, which applies once workflow restarts or switches directory.
+Settings shows the program but does not change it.
 
 The line at the top adds a task from what you would type after `task add`, in
 Taskwarrior's own grammar — `project:web`, `due:friday` or `+review` among the
