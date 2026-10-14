@@ -89,7 +89,7 @@ export function SaveBar(props: SaveBarProps) {
       role="region"
       aria-label="Save"
       data-save-bar
-      className="sticky bottom-0 flex flex-col items-start gap-item border-t border-border bg-background py-3"
+      className="sticky -bottom-block flex flex-col items-start gap-item border-t border-border bg-background pt-3 pb-block"
     >
       <div className="flex w-full flex-wrap items-center gap-item">
         <p className="mr-auto text-sm text-muted-foreground">{standing(props)}</p>
