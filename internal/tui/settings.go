@@ -11,7 +11,6 @@ import (
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/messaging"
@@ -64,7 +63,14 @@ type settingsForm struct {
 	// edit is the form open over the rows, nil while none is.
 	edit    *settingsEdit
 	problem error
-	send    sendState
+	// refusals are why settings were refused, each said under its row until
+	// that setting is edited or a save is sent. A save's refused write
+	// replaces every mark before; a save Settings' own check holds back
+	// replaces only the check's earlier marks, and the writes' stay; a
+	// refused removal adds its marks to every mark before, its reason in place
+	// of one already on a setting it names.
+	refusals settingRefusals
+	send     sendState
 	// said is what the last removal did, until the next key.
 	said string
 }
@@ -197,11 +203,13 @@ func (f settingsForm) footLines(kit renderKit, width int) []string {
 }
 
 // rows draws the settings in as many lines as fit, each section headed,
-// scrolled so the selected one stays in sight.
+// scrolled so the selected one stays in sight, and with it as much as fits of
+// why a write or Settings' own check refused it.
 func (f settingsForm) rows(kit renderKit, width, space int) []string {
+	// top and bottom are the selected setting's first line and its last.
 	var (
-		lines    []string
-		selected int
+		lines       []string
+		top, bottom int
 	)
 
 	for index, field := range f.fields {
@@ -209,14 +217,17 @@ func (f settingsForm) rows(kit renderKit, width, space int) []string {
 			lines = append(lines, kit.styles.strong.Render(field.section))
 		}
 
+		drawn := f.rowLines(kit, index, width)
 		if index == f.selected {
-			selected = len(lines)
+			top, bottom = len(lines), len(lines)+len(drawn)-1
 		}
 
-		lines = append(lines, ansi.Truncate(f.row(kit, field, index == f.selected), width, kit.marks.ellipsis))
+		lines = append(lines, drawn...)
 	}
 
-	first, last := window(selected, len(lines), space)
+	// However little room is left, the selected setting's own row is drawn.
+	shown := max(1, space)
+	first, last := window(min(bottom, top+shown-1), len(lines), shown)
 
 	return lines[first:last]
 }
@@ -247,11 +258,13 @@ func (f settingsForm) current() setting {
 	return f.fields[f.selected]
 }
 
-// failed pins a refused save in the form, so it is read before anything else.
+// failed marks each setting a save's refused write names on its row, and pins
+// what is left of the refusal in the form, so it is read before anything else.
 func (f settingsForm) failed(err error) settingsForm {
-	f.send = f.send.failed(err)
+	marked, unmarked := f.markedByWrite(err)
+	marked.send = marked.send.failed(unmarked)
 
-	return f
+	return marked
 }
 
 // pasted types a paste into the field being edited, as typing it would.
@@ -378,12 +391,16 @@ func (f settingsForm) changeKey(keys keyMap, msg tea.KeyPressMsg) settingsForm {
 }
 
 // save checks the edited configuration as the web's save is checked, then
-// writes it over the read, or under a dry run says it would have.
+// writes it over the read, or under a dry run says it would have. A check
+// that refuses settings marks each on its row, leaving what the writes
+// refused; a save sent takes every mark away, for the file's write to judge
+// afresh.
 func (f settingsForm) save(m Model) (Model, tea.Cmd) {
 	cfg, err := f.checked()
 	if err != nil {
-		f.problem = err
-		m.overlay = f
+		marked, unmarked := f.markedByCheck(err)
+		marked.problem = unmarked
+		m.overlay = marked
 
 		return m, nil
 	}
@@ -392,7 +409,7 @@ func (f settingsForm) save(m Model) (Model, tea.Cmd) {
 		return m.closeOverlay().noticed("dry run: would save " + shownDir(m.deps, f.path)), nil
 	}
 
-	f.problem, f.send = nil, starting()
+	f.problem, f.refusals, f.send = nil, settingRefusals{}, starting()
 	m.overlay = f
 	ctx, write, over, path := m.session, m.deps.Settings.Save, f.over, f.path
 

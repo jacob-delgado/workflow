@@ -131,7 +131,7 @@ func TestAnInvalidSettingIsRefusedBeforeItIsSaved(t *testing.T) {
 		t.Errorf("saved %d times, want an invalid configuration refused", len(saves))
 	}
 
-	requireScreen(t, view, "not valid")
+	requireScreen(t, view, "must contain {key}")
 }
 
 func TestACountMustBeAWholeNumber(t *testing.T) {
@@ -441,6 +441,16 @@ func TestUpMovesBackAndEscClosesSettings(t *testing.T) {
 
 	// Assert
 	refuseScreen(t, view, "Saves to")
+}
+
+func TestAScreenTooShortForTheRowsStillDrawsTheSelectedOne(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := typing(t, newWorld().live(t, 80, 7), toRow(projectRow)...).View().Content
+
+	// Assert
+	requireScreen(t, view, "▸ Project")
 }
 
 func TestAPasteTypesIntoTheFieldBeingEdited(t *testing.T) {

@@ -219,7 +219,7 @@ func TestARefusedSaveNeverShowsATypedCredential(t *testing.T) {
 	view := typing(t, newWorld().live(t, 120, 40), append(keys, saveKey)...).View().Content
 
 	// Assert
-	requireScreen(t, view, "not valid")
+	requireScreen(t, view, "not a duration")
 	refuseScreen(t, view, typedSecret, settingsToken)
 }
 
