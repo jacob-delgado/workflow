@@ -53,6 +53,9 @@ type announceSeams struct {
 	Confirm func(question string) (bool, error)
 	// Tagging is whom a ready-for-review announcement tags on Slack.
 	Tagging announceTagging
+	// Watch runs a wait for CI to pass, keeping a live line of its progress
+	// while a person watches the terminal.
+	Watch func(wait func(console.Wait) error) error
 }
 
 // announceFlags are announce's flags: --yes and --dry-run, the channel to
@@ -118,7 +121,7 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, flags announceFlags) 
 	}
 	defer conn.closeLog()
 
-	seams := announceSeamsOf(conn, prompt)
+	seams := announceSeamsOf(cmd, conn, prompt)
 
 	seams.Messaging, err = postingIn(seams.Messaging, flags.channel)
 	if err != nil {
@@ -129,10 +132,10 @@ func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, flags announceFlags) 
 }
 
 // announceSeamsOf wires conn's repository, forge, Jira, store and messaging
-// service to what announcing reads and does, asking prompt to confirm. It
-// posts to the configured channel; a command that posts elsewhere says so
-// itself.
-func announceSeamsOf(conn connection, prompt Prompt) announceSeams {
+// service to what announcing reads and does, asking prompt to confirm and
+// keeping cmd's live line while it waits for CI. It posts to the configured
+// channel; a command that posts elsewhere says so itself.
+func announceSeamsOf(cmd *cobra.Command, conn connection, prompt Prompt) announceSeams {
 	cfg, deps := conn.cfg, conn.deps
 	seams := announceSeams{
 		Compose: loop.AnnounceSeams{
@@ -150,6 +153,9 @@ func announceSeamsOf(conn connection, prompt Prompt) announceSeams {
 		Memory:    loop.AnnounceMemory{Recorded: deps.Store.Announced, Record: deps.Store.RecordAnnounce},
 		Confirm:   func(question string) (bool, error) { return confirm(prompt, question) },
 		Tagging:   taggingFor(cfg.Messaging, deps),
+		Watch: func(wait func(console.Wait) error) error {
+			return waiting(cmd, prompt, func(_ output, live console.Wait) error { return wait(live) })
+		},
 	}
 
 	if cfg.Messaging.Mode() != config.MessagingNone {
@@ -220,7 +226,7 @@ func runAnnounce(ctx context.Context, out output, seams announceSeams, flags ann
 	}
 
 	if flags.whenGreen {
-		return deliverWhenGreen(ctx, out.notes, seams, pending, pull, pullFoundBefore)
+		return deliverWhenGreen(ctx, seams, pending, pull, pullFoundBefore)
 	}
 
 	return deliverAnnouncement(ctx, out.notes, seams, pending)

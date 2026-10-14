@@ -186,7 +186,7 @@ func runPRCommand(cmd *cobra.Command, prompt Prompt, opts prOptions) error {
 		return err
 	}
 
-	return announceOpened(cmd.Context(), outputOf(cmd).notes, announceSeamsOf(conn, prompt), report, opts.write)
+	return announceOpened(cmd.Context(), outputOf(cmd).notes, announceSeamsOf(cmd, conn, prompt), report, opts.write)
 }
 
 // reportPR runs the pull-request flow and, with --json, prints its report on

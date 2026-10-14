@@ -5,11 +5,13 @@ package cli_test
 
 // A run interrupted mid-subprocess exits as interrupted. The interrupt is a
 // real one, raised on this process, which every run beside it would hear too,
-// so this file's test runs alone, as .golangci.yml's paralleltest exclusion for
-// it says.
+// so this file's tests run alone, as .golangci.yml's paralleltest exclusion
+// for it says.
 
 import (
 	"path/filepath"
+	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -26,4 +28,24 @@ func TestAnInterruptedGitCommandExitsAsInterrupted(t *testing.T) {
 
 	// Assert
 	wantExit(t, err, 130)
+}
+
+func TestAWaitForCIStoppedByCtrlCSaysNothingWasAnnounced(t *testing.T) {
+	// Arrange
+	var posts atomic.Int32
+
+	fakeGh(t, ghResponses{pulls: openPull("Add login"), interruptsStatus: true})
+	repo := githubRepo(t, "fix/PROJ-2-thing")
+	writeFile(t, repo, waitingConfig(webhook(t, &posts)))
+
+	// Act
+	printed, err := runStreams(t, repo, atTerminal(t), "announce", "--when-green", "--yes")
+
+	// Assert
+	wantExit(t, err, 130)
+
+	if !strings.Contains(printed.stderr, "Stopped waiting; nothing was announced.") || posts.Load() != 0 {
+		t.Errorf("announce --when-green stopped, posting %d, said %q; want nothing announced, and that said",
+			posts.Load(), printed.stderr)
+	}
 }

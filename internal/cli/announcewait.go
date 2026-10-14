@@ -43,8 +43,7 @@ func announceOpened(
 	}
 	pending := previewAnnouncement(ctx, output{artifact: notes.Writer(), notes: notes}, seams, composed)
 
-	return deliverWhenGreen(ctx, notes, seams, pending, seams.Kind.Sigil()+strconv.Itoa(report.opened.Number),
-		pullOpenedNow)
+	return deliverWhenGreen(ctx, seams, pending, seams.Kind.Sigil()+strconv.Itoa(report.opened.Number), pullOpenedNow)
 }
 
 // pullAge is how lately the pull request a wait for CI announces was opened.
@@ -76,19 +75,33 @@ func onceGreen(prompt writePrompt, pull string) writePrompt {
 
 // deliverWhenGreen waits in the foreground, under ctx, for the CI of pending's
 // pull request, named pull, to pass — through a failed run, saying what it
-// waits on as it changes — and then delivers it, unless the store says
-// another session announced it meanwhile. A post the gate refuses, a check
-// having failed since the read that let it go, waits again, an interval on.
-// It gives up on a pull request that reports no check, is no longer the
-// branch's, or merged first; one opened a moment ago, as age says, is waited
-// for until the forge lists it. ctrl+c stops it, announcing nothing.
+// waits on as it changes, above a live line of how many of its checks have
+// finished while a person watches the terminal — and then delivers it,
+// unless the store says another session announced it meanwhile. A post the
+// gate refuses, a check having failed since the read that let it go, waits
+// again, an interval on. It gives up on a pull request that reports no check,
+// is no longer the branch's, or merged first; one opened a moment ago, as age
+// says, is waited for until the forge lists it. ctrl+c stops it, announcing
+// nothing.
 func deliverWhenGreen(
-	ctx context.Context, notes console.Notes, seams announceSeams, pending pendingAnnouncement, pull string,
+	ctx context.Context, seams announceSeams, pending pendingAnnouncement, pull string, age pullAge,
+) error {
+	return seams.Watch(func(live console.Wait) error {
+		return awaitThenDeliver(ctx, live, seams, pending, pull, age)
+	})
+}
+
+// awaitThenDeliver is deliverWhenGreen's wait, telling live what it waits on.
+func awaitThenDeliver(
+	ctx context.Context, live console.Wait, seams announceSeams, pending pendingAnnouncement, pull string,
 	age pullAge,
 ) error {
-	heard := &waitLines{notes: notes, pull: pull, target: seams.Messaging.Target()}
+	notes := live.Notes()
+	heard := &waitLines{live: live, pull: pull, target: seams.Messaging.Target()}
 	await := seams.awaitSeams(heard.hear)
 	await.Opened = age == pullOpenedNow
+
+	live.Doing("CI on " + pull)
 
 	for {
 		green, err := loop.AwaitGreen(ctx, await, pending.delivery.Pull.Number)
@@ -157,23 +170,27 @@ func gaveUp(notes console.Notes, err error, pull string) error {
 	}
 }
 
-// waitLines tells what a wait for the CI of pull to pass waits on, to notes,
-// a line each time it changes.
+// waitLines tells what a wait for the CI of pull to pass waits on: in its
+// notes, a line each time it changes, and on its live line, how many of the
+// checks have finished.
 type waitLines struct {
-	notes        console.Notes
+	live         console.Wait
 	pull, target string
 	last         string
 }
 
-// hear tells of a read, when what it says differs from the last.
+// hear tells of a read: how many of the checks it found finished, and, when
+// what it says differs from the last, what it says.
 func (w *waitLines) hear(heard loop.Heard) {
+	w.live.Counted(heard.CI.Done, heard.CI.Total)
+
 	line := w.line(heard)
 	if line == "" || line == w.last {
 		return
 	}
 
 	w.last = line
-	w.notes.Note(line)
+	w.live.Notes().Note(line)
 }
 
 // line is what a read says of the wait, or "" when it says nothing new.
