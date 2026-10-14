@@ -1,6 +1,15 @@
 import { type ReactNode, useEffect, useState } from 'react'
-import { type Control, type UseFormRegister, type UseFormReset, useForm } from 'react-hook-form'
-import { apiErrorMessage, problemCode } from '@/api/apiError.ts'
+import {
+  type Control,
+  FormProvider,
+  type Path,
+  type UseFormRegister,
+  type UseFormReset,
+  type UseFormReturn,
+  type UseFormSetFocus,
+  useForm,
+} from 'react-hook-form'
+import { apiErrorMessage, problemCode, problemFields } from '@/api/apiError.ts'
 import type { Config, SetupResult } from '@/api/generated/types.gen.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusOnMount } from '@/lib/focus.ts'
@@ -28,7 +37,8 @@ import { PeopleAndGroups } from './people/PeopleAndGroups.tsx'
 import { changedKeys, configOf, formValues, type SettingsValues } from './formValues.ts'
 import { type Removal, RemovalsContext, stored, without } from './removal.ts'
 import { SaveBar } from './SaveBar.tsx'
-import { ConfigPanel, SettingsSections, unsavedBySection } from './SettingsSections.tsx'
+import { bySection, ConfigPanel, sectionOfKey, SettingsSections } from './SettingsSections.tsx'
+import { refusedKeys } from './settingsRules.ts'
 import { SetupArea } from './SetupForm.tsx'
 
 // SettingsPanel is the configuration, a section at a time beside the list of
@@ -129,27 +139,30 @@ function SetUpSaid({ result }: { result: SetupResult }) {
   )
 }
 
-// ConfigForm edits the configuration, one fieldset per section it can edit. It
-// takes focus, on its first field, only when it replaces a control that had
-// it — a Try again, or a Reload — and otherwise leaves focus where the section
-// change put it.
+// ConfigForm edits the configuration, a section at a time. It takes focus, on
+// its first field, only when it replaces a control that had it — a Try again,
+// or a Reload — and otherwise leaves focus where the section change put it. A
+// save the page's rules or the server refuse opens the section of the first
+// setting refused, focused on it.
 function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolean }) {
   // The whole config seeds the form, so every key no fieldset registers — the
   // token commands, the Slack access token and its expiry — rides back
   // unchanged on save rather than being dropped.
-  const { register, handleSubmit, reset, setFocus, control, formState, watch } =
-    useForm<SettingsValues>({ defaultValues: formValues(read.config) })
+  const form = useForm<SettingsValues>({ defaultValues: formValues(read.config) })
+  const { register, handleSubmit, reset, control, formState, watch } = form
   const file = useFormFile(read, reset)
   const changed = changedKeys(configOf(watch()), configOf(formValues(file.seeded)))
-  // How many times the form's first field has been asked to take focus: once
-  // when the form replaces a Try again, and after each Reload, which takes its own
-  // button away. The field is focused once the form has drawn it.
-  const [focusRequests, setFocusRequests] = useState(takesFocus ? 1 : 0)
+  const [shown, setShown] = useState('jira')
+  const focus = useFocusOn(form.setFocus, takesFocus ? 'jira.base_url' : undefined)
+  const refusals = useRefusals(form, (key) => {
+    setShown(sectionOfKey(key)?.id ?? shown)
+    focus(key)
+  })
   const reloadConfig = useReloadConfig()
   const outcome = useOutcome()
-  const [shown, setShown] = useState('jira')
   const save = useAsyncAction(
-    (values: SettingsValues) => file.write(configOf(values), { keepEdits: false }),
+    (values: SettingsValues) =>
+      file.write(configOf(values), { keepEdits: false }).catch(refusals.takeServers),
     {
       fallback: 'The configuration was not saved. Try again — your edits are still in the form.',
       done: () => 'Saved.',
@@ -165,51 +178,106 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
       file.setChanged(false)
       save.reset()
       setShown('jira')
-      setFocusRequests((requests) => requests + 1)
+      focus('jira.base_url')
     },
     { fallback: 'The configuration could not be read. Try Reload again.' },
   )
-  const onSubmit = handleSubmit((values) => save.run(values))
-
-  useEffect(() => {
-    if (focusRequests > 0) {
-      setFocus('jira.base_url')
-    }
-  }, [focusRequests, setFocus])
+  const onSubmit = handleSubmit((values) => save.run(values), refusals.show)
 
   return (
-    <RemovalsContext value={file.removals}>
-      <SettingsSections shown={shown} onShow={setShown} unsaved={unsavedBySection(changed)}>
-        <form
-          aria-labelledby={sectionHeadingId}
-          onSubmit={(event) => {
-            void onSubmit(event)
-          }}
-          className="flex flex-col gap-section"
+    <FormProvider {...form}>
+      <RemovalsContext value={file.removals}>
+        <SettingsSections
+          shown={shown}
+          onShow={setShown}
+          unsaved={bySection(changed)}
+          refused={bySection(refusals.keys)}
         >
-          <ConfigPanels
-            register={register}
-            control={control}
-            storedToken={formState.defaultValues?.jira?.token ?? null}
-          />
-
-          {/* A refusal ChangedSinceRead explains is not said a second time. */}
-          <SaveBar
-            unsaved={changed.length}
-            saving={save.state === 'running'}
-            said={outcome.said}
-            error={file.changed || save.state !== 'error' ? '' : save.error}
-            onDiscard={() => {
-              outcome.clear()
-              file.discard()
+          <form
+            aria-labelledby={sectionHeadingId}
+            onSubmit={(event) => {
+              void onSubmit(event)
             }}
+            className="flex flex-col gap-section"
           >
-            {file.changed ? <ChangedSinceRead reload={reload} /> : null}
-          </SaveBar>
-        </form>
-      </SettingsSections>
-    </RemovalsContext>
+            <ConfigPanels
+              register={register}
+              control={control}
+              storedToken={formState.defaultValues?.jira?.token ?? null}
+            />
+
+            {/* A refusal ChangedSinceRead explains, or the fields refused say, is not
+                said a second time. */}
+            <SaveBar
+              unsaved={changed.length}
+              refused={refusals.keys}
+              saving={save.state === 'running'}
+              said={outcome.said}
+              error={
+                file.changed || save.state !== 'error' || refusals.keys.length > 0 ? '' : save.error
+              }
+              onDiscard={() => {
+                outcome.clear()
+                file.discard()
+              }}
+              onShow={refusals.show}
+            >
+              {file.changed ? <ChangedSinceRead reload={reload} /> : null}
+            </SaveBar>
+          </form>
+        </SettingsSections>
+      </RemovalsContext>
+    </FormProvider>
   )
+}
+
+// useFocusOn hands the focus to a field of the form once the form has drawn
+// it, each time it is asked: to the first given as the form opens, where one
+// is.
+function useFocusOn(
+  setFocus: UseFormSetFocus<SettingsValues>,
+  first: Path<SettingsValues> | undefined,
+): (key: string) => void {
+  const [asked, setAsked] = useState<{ key: string; times: number } | null>(
+    first === undefined ? null : { key: first, times: 1 },
+  )
+
+  useEffect(() => {
+    if (asked !== null) {
+      setFocus(asked.key as Path<SettingsValues>)
+    }
+  }, [asked, setFocus])
+
+  return (key) => {
+    setAsked((last) => ({ key, times: (last?.times ?? 0) + 1 }))
+  }
+}
+
+// useRefusals is the settings the form marks refused, by the page's rules or
+// by the server's refusal of a save: their keys, taking the server's on, and
+// showing the first.
+function useRefusals(form: UseFormReturn<SettingsValues>, showKey: (key: string) => void) {
+  const keys = refusedKeys(form.formState.errors)
+
+  return {
+    keys,
+    show: () => {
+      const [first] = refusedKeys(form.formState.errors)
+      if (first !== undefined) {
+        showKey(first)
+      }
+    },
+    takeServers: (caught: unknown): never => {
+      const fields = problemFields(caught)
+      for (const field of fields) {
+        form.setError(field.key as Path<SettingsValues>, { type: 'server', message: field.detail })
+      }
+      if (fields[0] !== undefined) {
+        showKey(fields[0].key)
+      }
+      throw caught
+    },
+  }
 }
 
 interface ConfigPanelsProps {

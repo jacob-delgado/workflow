@@ -23,13 +23,21 @@ const configSections: ConfigSection[] = [
   { id: 'advanced', name: 'Advanced', keys: ['timing', 'store'] },
 ]
 
-// unsavedBySection is how many of the settings changed, by their dotted
-// keys, each section holds, by its id.
-export function unsavedBySection(changed: string[]): Record<string, number> {
+// sectionOfKey is the section a setting's dotted key is in, or undefined for
+// one no section shows.
+export function sectionOfKey(key: string): ConfigSection | undefined {
+  const top = key.split('.')[0] ?? ''
+
+  return configSections.find((section) => section.keys.includes(top))
+}
+
+// bySection is how many of the settings named by their dotted keys each
+// section holds, by its id.
+export function bySection(keys: string[]): Record<string, number> {
   return Object.fromEntries(
     configSections.map((section) => [
       section.id,
-      changed.filter((key) => section.keys.includes(key.split('.')[0] ?? '')).length,
+      keys.filter((key) => sectionOfKey(key) === section).length,
     ]),
   )
 }
@@ -37,8 +45,10 @@ export function unsavedBySection(changed: string[]): Record<string, number> {
 interface SettingsSectionsProps {
   shown: string
   onShow: (id: string) => void
-  // unsaved is how many unsaved changes each section holds, by its id.
+  // unsaved is how many unsaved changes each section holds, and refused how
+  // many settings in it are to fix, by its id.
   unsaved: Record<string, number>
+  refused: Record<string, number>
   // children are the configuration's panels, in the form that saves them.
   children: ReactNode
 }
@@ -46,7 +56,13 @@ interface SettingsSectionsProps {
 // SettingsSections shows Settings a section at a time beside the list of
 // them: the configuration's sections, which save together, then People and
 // groups and Local data, which save as they change.
-export function SettingsSections({ shown, onShow, unsaved, children }: SettingsSectionsProps) {
+export function SettingsSections({
+  shown,
+  onShow,
+  unsaved,
+  refused,
+  children,
+}: SettingsSectionsProps) {
   return (
     <Tabs
       value={shown}
@@ -59,15 +75,11 @@ export function SettingsSections({ shown, onShow, unsaved, children }: SettingsS
       >
         {configSections.map((section) => (
           <Tab key={section.id} value={section.id}>
-            <span>
-              {section.name}
-              <Unsaved count={unsaved[section.id] ?? 0} />
-            </span>
-            {(unsaved[section.id] ?? 0) === 0 ? null : (
-              <span aria-hidden className="text-xs text-primary tabular-nums">
-                {unsaved[section.id]}
-              </span>
-            )}
+            <SectionName
+              name={section.name}
+              unsaved={unsaved[section.id] ?? 0}
+              refused={refused[section.id] ?? 0}
+            />
           </Tab>
         ))}
         <span aria-hidden className="mx-3 hidden border-t border-border lg:my-1 lg:block" />
@@ -96,8 +108,37 @@ export function ConfigPanel({ id, children }: { id: string; children: ReactNode 
   )
 }
 
-// Unsaved says, after a section's name, how many unsaved changes it holds,
-// for a screen reader: the count drawn beside the name is hidden from it.
-function Unsaved({ count }: { count: number }) {
-  return count === 0 ? null : <span className="sr-only">, {count} unsaved</span>
+interface SectionNameProps {
+  name: string
+  unsaved: number
+  refused: number
+}
+
+// SectionName is a section as the list names it: how many settings in it are
+// to fix, in the failure color, or else how many are unsaved, each said to a
+// screen reader after the name.
+function SectionName({ name, unsaved, refused }: SectionNameProps) {
+  const words = [
+    refused === 0 ? '' : `${String(refused)} to fix`,
+    unsaved === 0 ? '' : `${String(unsaved)} unsaved`,
+  ].filter((word) => word !== '')
+
+  return (
+    <>
+      <span>
+        {name}
+        {words.length === 0 ? null : <span className="sr-only">, {words.join(', ')}</span>}
+      </span>
+      {refused === 0 ? null : (
+        <span aria-hidden className="shrink-0 text-xs text-destructive tabular-nums">
+          {refused} to fix
+        </span>
+      )}
+      {refused !== 0 || unsaved === 0 ? null : (
+        <span aria-hidden className="text-xs text-primary tabular-nums">
+          {unsaved}
+        </span>
+      )}
+    </>
+  )
 }

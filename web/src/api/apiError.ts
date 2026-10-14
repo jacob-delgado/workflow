@@ -48,3 +48,29 @@ export function problemCode(caught: unknown): string {
 
   return 'code' in caught && typeof caught.code === 'string' ? caught.code : ''
 }
+
+// RefusedField is a setting a save of the configuration refused, by its dotted
+// key, and why.
+interface RefusedField {
+  key: string
+  detail: string
+}
+
+// problemFields is each setting a problem details object names as refused —
+// a configuration save the validation refused — or none for anything else
+// thrown.
+export function problemFields(caught: unknown): RefusedField[] {
+  if (typeof caught !== 'object' || caught === null || !('fields' in caught)) {
+    return []
+  }
+
+  return Array.isArray(caught.fields)
+    ? caught.fields.filter(
+        (field): field is RefusedField =>
+          typeof field === 'object' &&
+          field !== null &&
+          typeof (field as RefusedField).key === 'string' &&
+          typeof (field as RefusedField).detail === 'string',
+      )
+    : []
+}
