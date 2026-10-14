@@ -10,6 +10,7 @@ import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { AppShell } from '@/shell/AppShell.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { SettingsPanel } from './SettingsPanel.tsx'
+import { showSection } from '@/test/settings.ts'
 
 // servesSettings answers Settings' reads as a server keeps them: the mockup's
 // configuration to start and, after a save, what was saved, at the revision
@@ -74,6 +75,7 @@ test('loads the configured messaging service into the Service select', async () 
   // Arrange
   servesSettings()
   renderWithClient(<SettingsPanel />)
+  await showSection('Messaging')
 
   // Act
   const service = await screen.findByLabelText('Service')
@@ -101,21 +103,32 @@ test('surfaces the commit-convention fields', async () => {
   expect(screen.getByLabelText('Issue trailer')).toBeTruthy()
 })
 
-test('surfaces the branch and pull-request fields', async () => {
+test('surfaces the pull request title source among the forge fields', async () => {
   // Arrange
   servesSettings()
   renderWithClient(<SettingsPanel />)
 
   // Act
-  const titleSource = await screen.findByLabelText('Title source')
+  await showSection('Forge and pull requests')
 
   // Assert
-  expect(screen.getByLabelText('Slug limit')).toBeTruthy()
-  expect(titleSource).toBeTruthy()
+  expect(screen.getByRole('combobox', { name: 'Title source' })).toBeTruthy()
   expect(screen.getByRole('option', { name: /the issue it names/i })).toBeTruthy()
 })
 
-test("the hints name the forge's own noun: a merge request on GitLab", async () => {
+test('surfaces the slug limit among the branch fields', async () => {
+  // Arrange
+  servesSettings()
+  renderWithClient(<SettingsPanel />)
+
+  // Act
+  await showSection('Commits and branches')
+
+  // Assert
+  expect(screen.getByRole('spinbutton', { name: 'Slug limit' })).toBeTruthy()
+})
+
+test("the Jira hints name the forge's own noun: a merge request on GitLab", async () => {
   // Arrange
   servesSettings()
   useHealthStore.setState({ health: makeHealth(gitLabWords) })
@@ -124,12 +137,23 @@ test("the hints name the forge's own noun: a merge request on GitLab", async () 
   renderWithClient(<SettingsPanel />)
 
   // Assert
-  await screen.findByRole('textbox', { name: 'Review status' })
   const reviewHint =
     'The status an issue moves to once its merge request is open, e.g. "In Review". Empty makes no offer.'
   expect(
-    screen.getByRole('textbox', { name: 'Review status', description: reviewHint }),
+    await screen.findByRole('textbox', { name: 'Review status', description: reviewHint }),
   ).toBeTruthy()
+})
+
+test("the pull request hints name the forge's own noun: a merge request on GitLab", async () => {
+  // Arrange
+  servesSettings()
+  useHealthStore.setState({ health: makeHealth(gitLabWords) })
+  renderWithClient(<SettingsPanel />)
+
+  // Act
+  await showSection('Forge and pull requests')
+
+  // Assert
   expect(
     screen.getByRole('combobox', {
       name: 'Title source',
@@ -148,6 +172,7 @@ test('editing the commit types saves them as a trimmed list', async () => {
       <SettingsPanel />
     </QueryClientProvider>,
   )
+  await showSection('Commits and branches')
   const types = await screen.findByLabelText('Types')
   await user.type(types, 'hotfix, chore')
 
@@ -177,6 +202,7 @@ test('an emptied subject limit saves as 0, which keeps the default', async () =>
       <SettingsPanel />
     </QueryClientProvider>,
   )
+  await showSection('Commits and branches')
   const limit = await screen.findByLabelText('Subject limit')
   await user.type(limit, '50')
   await user.clear(limit)
@@ -203,12 +229,13 @@ test('offers turning the store off and rides it back through a save', async () =
   const user = userEvent.setup()
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
-  // Act: open Settings
+  // Act: open Settings at its advanced section
   const view = render(
     <QueryClientProvider client={client}>
       <SettingsPanel />
     </QueryClientProvider>,
   )
+  await showSection('Advanced')
 
   // Assert: the store is on, and turning it off is offered
   const toggle = await screen.findByRole('checkbox', { name: /nothing on disk/i })
@@ -224,6 +251,7 @@ test('offers turning the store off and rides it back through a save', async () =
       <SettingsPanel />
     </QueryClientProvider>,
   )
+  await showSection('Advanced')
 
   // Assert: it comes back off
   const reopened = await screen.findByRole('checkbox', { name: /nothing on disk/i })
@@ -233,9 +261,10 @@ test('offers turning the store off and rides it back through a save', async () =
 test('the Taskwarrior fieldset says its changes apply when workflow restarts', async () => {
   // Arrange
   servesSettings()
+  renderWithClient(<SettingsPanel />)
 
   // Act
-  renderWithClient(<SettingsPanel />)
+  await showSection('Taskwarrior')
 
   // Assert
   expect(
@@ -256,6 +285,7 @@ test("the Taskwarrior fieldset's switch rides back through a save, and its progr
       <SettingsPanel />
     </QueryClientProvider>,
   )
+  await showSection('Taskwarrior')
   const program = await screen.findByRole('textbox', {
     name: 'Task program',
     description:
@@ -273,6 +303,8 @@ test("the Taskwarrior fieldset's switch rides back through a save, and its progr
       <SettingsPanel />
     </QueryClientProvider>,
   )
+
+  await showSection('Taskwarrior')
 
   // Assert
   const reopened = await screen.findByRole('textbox', { name: 'Task program' })
@@ -554,32 +586,28 @@ test("the switch that lists this repository's forge issues rides back through a 
   expect((reopened as HTMLInputElement).checked).toBe(true)
 })
 
-test('shows the local data under its own heading below the configuration', async () => {
+test('shows the local data in its own section', async () => {
   // Arrange
   servesSettings()
-
-  // Act
   renderWithClient(<SettingsPanel />)
 
+  // Act
+  await showSection('Local data')
+
   // Assert
-  const heading = await screen.findByRole('heading', { level: 2, name: 'Local data' })
-  const save = await screen.findByRole('button', { name: 'Save changes' })
-  expect(save.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(await screen.findByRole('heading', { level: 2, name: 'Local data' })).toBeTruthy()
   expect(await screen.findByRole('table', { name: 'Local data files' })).toBeTruthy()
 })
 
-test('shows people and groups between the configuration and the local data', async () => {
+test('shows people and groups in its own section', async () => {
   // Arrange
   servesSettings()
-
-  // Act
   renderWithClient(<SettingsPanel />)
 
+  // Act
+  await showSection('People and groups')
+
   // Assert
-  const people = await screen.findByRole('heading', { level: 2, name: 'People and groups' })
-  const local = await screen.findByRole('heading', { level: 2, name: 'Local data' })
-  const save = await screen.findByRole('button', { name: 'Save changes' })
-  expect(save.compareDocumentPosition(people) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  expect(people.compareDocumentPosition(local) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(await screen.findByRole('heading', { level: 2, name: 'People and groups' })).toBeTruthy()
   expect(await screen.findByRole('table', { name: 'Code owners on Slack' })).toBeTruthy()
 })

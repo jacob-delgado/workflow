@@ -5,6 +5,7 @@ import { mockConfig } from '@/dev/mockConfig.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { SettingsPanel } from './SettingsPanel.tsx'
+import { showSection } from '@/test/settings.ts'
 
 // withHeader is the mock configuration with a Jira header stored.
 const withHeader: Config = {
@@ -62,6 +63,7 @@ test('removing the Jira token asks first, then saves it as null', async () => {
 test('the question says a removal cannot be undone', async () => {
   // Arrange
   await opened()
+  await showSection('Forge and pull requests')
 
   // Act
   await userEvent.click(screen.getByRole('button', { name: 'Remove the forge token…' }))
@@ -90,11 +92,11 @@ test('a credential with nothing stored offers no removal', async () => {
 
   // Act
   const removals = screen
-    .queryAllByRole('button', { name: /^Remove the/ })
+    .queryAllByRole('button', { name: /^Remove the/, hidden: true })
     .map((button) => button.textContent)
 
   // Assert
-  expect(screen.queryByRole('button', { name: 'Remove the webhook URL…' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Remove the webhook URL…', hidden: true })).toBeNull()
   expect(removals).toHaveLength(2)
 })
 

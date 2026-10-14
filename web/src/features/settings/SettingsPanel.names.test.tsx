@@ -5,6 +5,7 @@ import { mockConfig } from '@/dev/mockConfig.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { SettingsPanel } from './SettingsPanel.tsx'
+import { showSection } from '@/test/settings.ts'
 
 // opened opens Settings over config, answering a save with what it was sent,
 // and returns the requests the page made.
@@ -76,6 +77,7 @@ test('two new headers of one name are refused, rather than one silently dropped'
 test('a prefix for an issue type already listed in another case is refused at its type', async () => {
   // Arrange
   const requests = await opened(mockConfig)
+  await showSection('Commits and branches')
   await typedRow('Add a prefix', 'Prefix 1', { 'Issue type': 'Bug', Prefix: 'fix' })
   await typedRow('Add a prefix', 'Prefix 2', { 'Issue type': ' bug', Prefix: 'bugfix' })
 

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { type UseFormReset, useForm } from 'react-hook-form'
+import { type ReactNode, useEffect, useState } from 'react'
+import { type Control, type UseFormRegister, type UseFormReset, useForm } from 'react-hook-form'
 import { apiErrorMessage, problemCode } from '@/api/apiError.ts'
 import type { Config, SetupResult } from '@/api/generated/types.gen.ts'
 import { Button } from '@/lib/Button.tsx'
@@ -27,14 +27,24 @@ import { LocalData } from './people/LocalData.tsx'
 import { PeopleAndGroups } from './people/PeopleAndGroups.tsx'
 import { configOf, formValues, type SettingsValues } from './formValues.ts'
 import { type Removal, RemovalsContext, stored, without } from './removal.ts'
+import { ConfigPanel, SettingsSections } from './SettingsSections.tsx'
 import { SetupArea } from './SetupForm.tsx'
 
-// SettingsPanel is the configuration form, and below it the areas that save on
-// their own rather than with the file: people and groups, and the local data.
+// SettingsPanel is the configuration, a section at a time beside the list of
+// them, with the areas that save on their own rather than with the file —
+// people and groups, and the local data — at the list's foot. Until the file
+// is read, it is why it is not, or the setup that writes a first one, above
+// those two areas.
 export function SettingsPanel() {
+  return <ConfigArea />
+}
+
+// Unformed is Settings without the configuration form: what stands in for it,
+// above the areas that save on their own.
+function Unformed({ children }: { children: ReactNode }) {
   return (
     <div className={cn('flex flex-col gap-section', contentMeasure)}>
-      <ConfigArea />
+      {children}
       <PeopleAndGroups />
       <LocalData />
     </div>
@@ -52,34 +62,44 @@ function ConfigArea() {
   const [setUp, setSetUp] = useState<SetupResult | null>(null)
 
   if (query.isError && problemCode(query.error) === 'not_found') {
-    return <SetupArea onWritten={setSetUp} />
+    return (
+      <Unformed>
+        <SetupArea onWritten={setSetUp} />
+      </Unformed>
+    )
   }
 
   // Settings opens on a fresh read rather than on the cached one: a form seeded
   // from a read the file has moved on from would only learn so on its save.
   if (query.isPending || (query.isFetching && !query.isFetchedAfterMount)) {
-    return <Reading>Reading the configuration…</Reading>
+    return (
+      <Unformed>
+        <Reading>Reading the configuration…</Reading>
+      </Unformed>
+    )
   }
 
   if (query.isError) {
     return (
-      <Unread
-        reason={apiErrorMessage(query.error, 'The configuration could not be read.')}
-        refusals={query.errorUpdateCount}
-        retrying={query.isFetching}
-        onRetry={() => {
-          setRetried(true)
-          void query.refetch()
-        }}
-      />
+      <Unformed>
+        <Unread
+          reason={apiErrorMessage(query.error, 'The configuration could not be read.')}
+          refusals={query.errorUpdateCount}
+          retrying={query.isFetching}
+          onRetry={() => {
+            setRetried(true)
+            void query.refetch()
+          }}
+        />
+      </Unformed>
     )
   }
 
   return (
-    <>
+    <div className="flex flex-col gap-section">
       {setUp === null ? null : <SetUpSaid result={setUp} />}
       <ConfigForm read={query.data} takesFocus={retried} />
-    </>
+    </div>
   )
 }
 
@@ -126,6 +146,7 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
   const [focusRequests, setFocusRequests] = useState(takesFocus ? 1 : 0)
   const reloadConfig = useReloadConfig()
   const outcome = useOutcome()
+  const [shown, setShown] = useState('jira')
   const save = useAsyncAction(
     (values: SettingsValues) => file.write(configOf(values), { keepEdits: false }),
     {
@@ -142,6 +163,7 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
       file.seed(await reloadConfig(), { keepEdits: false })
       file.setChanged(false)
       save.reset()
+      setShown('jira')
       setFocusRequests((requests) => requests + 1)
     },
     { fallback: 'The configuration could not be read. Try Reload again.' },
@@ -156,38 +178,69 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
 
   return (
     <RemovalsContext value={file.removals}>
-      <form
-        aria-labelledby={sectionHeadingId}
-        onSubmit={(event) => {
-          void onSubmit(event)
-        }}
-        className="flex flex-col gap-section"
-      >
-        <JiraFieldset
-          register={register}
-          control={control}
-          storedToken={formState.defaultValues?.jira?.token ?? null}
-        />
+      <SettingsSections shown={shown} onShow={setShown}>
+        <form
+          aria-labelledby={sectionHeadingId}
+          onSubmit={(event) => {
+            void onSubmit(event)
+          }}
+          className="flex flex-col gap-section"
+        >
+          <ConfigPanels
+            register={register}
+            control={control}
+            storedToken={formState.defaultValues?.jira?.token ?? null}
+          />
+
+          {/* A refusal ChangedSinceRead explains is not said a second time. */}
+          <SaveControls
+            saving={save.state === 'running'}
+            said={outcome.said}
+            error={file.changed || save.state !== 'error' ? '' : save.error}
+          />
+          {file.changed ? <ChangedSinceRead reload={reload} /> : null}
+        </form>
+      </SettingsSections>
+    </RemovalsContext>
+  )
+}
+
+interface ConfigPanelsProps {
+  register: UseFormRegister<SettingsValues>
+  control: Control<SettingsValues>
+  storedToken: string | null
+}
+
+// ConfigPanels are the configuration's sections, each its fieldsets.
+function ConfigPanels({ register, control, storedToken }: ConfigPanelsProps) {
+  return (
+    <>
+      <ConfigPanel id="jira">
+        <JiraFieldset register={register} control={control} storedToken={storedToken} />
+      </ConfigPanel>
+      <ConfigPanel id="messaging">
         <MessagingFieldset register={register} control={control} />
+      </ConfigPanel>
+      <ConfigPanel id="forge">
         <ForgeFieldset register={register} />
+        <PullRequestFieldset register={register} />
+      </ConfigPanel>
+      <ConfigPanel id="commits">
         <CommitFieldset register={register} />
         <BranchFieldset register={register} control={control} />
-        <PullRequestFieldset register={register} />
-        <StoreFieldset register={register} />
+      </ConfigPanel>
+      <ConfigPanel id="taskwarrior">
         <TaskwarriorFieldset register={register} />
-        <TimingFieldset register={register} />
+      </ConfigPanel>
+      <ConfigPanel id="terminal">
         <TerminalFieldset register={register} />
         <KeyboardFieldset register={register} />
-
-        {/* A refusal ChangedSinceRead explains is not said a second time. */}
-        <SaveControls
-          saving={save.state === 'running'}
-          said={outcome.said}
-          error={file.changed || save.state !== 'error' ? '' : save.error}
-        />
-        {file.changed ? <ChangedSinceRead reload={reload} /> : null}
-      </form>
-    </RemovalsContext>
+      </ConfigPanel>
+      <ConfigPanel id="advanced">
+        <TimingFieldset register={register} />
+        <StoreFieldset register={register} />
+      </ConfigPanel>
+    </>
   )
 }
 

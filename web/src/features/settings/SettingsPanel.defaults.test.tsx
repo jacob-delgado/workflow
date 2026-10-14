@@ -5,6 +5,7 @@ import { mockConfig } from '@/dev/mockConfig.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { SettingsPanel } from './SettingsPanel.tsx'
+import { showSection } from '@/test/settings.ts'
 
 // readsAs opens Settings over config, as the configuration a read finds.
 function readsAs(config: Config): void {
@@ -15,6 +16,7 @@ function readsAs(config: Config): void {
 test("an empty title source is shown as the branch's oldest commit, the default", async () => {
   // Arrange
   readsAs({ ...mockConfig, pull_request: { title_source: '' } })
+  await showSection('Forge and pull requests')
 
   // Act
   const titleSource = await screen.findByRole('combobox', { name: 'Title source' })
@@ -31,6 +33,7 @@ test("an empty title source is shown as the branch's oldest commit, the default"
 test('an empty messaging service is shown as Slack, the default', async () => {
   // Arrange
   readsAs({ ...mockConfig, messaging: { ...mockConfig.messaging, kind: '' } })
+  await showSection('Messaging')
 
   // Act
   const service = await screen.findByRole('combobox', { name: 'Service' })
@@ -44,6 +47,7 @@ test('an empty messaging service is shown as Slack, the default', async () => {
 test('a service written as slack is shown as the default it means', async () => {
   // Arrange
   readsAs({ ...mockConfig, messaging: { ...mockConfig.messaging, kind: 'slack' } })
+  await showSection('Messaging')
 
   // Act
   const service = await screen.findByRole('combobox', { name: 'Service' })
@@ -68,6 +72,7 @@ test('announcing a pull request opened here once its CI passes is on, and saves 
   })
   const user = userEvent.setup()
   renderWithClient(<SettingsPanel />)
+  await showSection('Messaging')
   const armed = await screen.findByRole('checkbox', {
     name: 'Announce a pull request opened here once its CI passes',
   })

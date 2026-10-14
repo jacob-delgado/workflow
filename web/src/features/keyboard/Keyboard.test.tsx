@@ -129,6 +129,7 @@ test('turning single-key shortcuts on in Settings makes c work at once', async (
   useSnapshotStore.setState({ status: 'live', snapshot: withIssue })
   useUiStore.setState({ section: 'settings', selectedIssue: issue })
   renderWithClient(<App />)
+  await user.click(await screen.findByRole('tab', { name: 'Terminal and keys' }))
   await user.click(await screen.findByRole('checkbox', { name: 'Single-key shortcuts' }))
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
   await screen.findByText('Saved.')
