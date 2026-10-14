@@ -1,7 +1,9 @@
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with
-code in this repository. It holds **only what's relevant in every session**.
+code in this repository. Most of it applies in every session; the rules for
+the store, the web app, the terminal interface and the web server's errors
+apply only in those directories.
 
 ## What this project is
 
@@ -19,7 +21,8 @@ is a terminal UI — the Charm stack (Bubble Tea, Bubbles, Lip Gloss) with Cobra
 for the command tree. An opt-in `workflow --web` serves a React + TypeScript
 frontend, embedded in the same binary, over a local REST API bound to
 `127.0.0.1`, described by `api/openapi.yaml`; it drives the same domain seams
-(`internal/wiring`) the TUI and CLI already do — a surface, not a second
+(declared in `internal/seams`, connected to the real clients in
+`internal/wiring`) the TUI and CLI already do — a surface, not a second
 implementation. The web frontend lives in `web/`.
 
 Layout:
@@ -91,15 +94,15 @@ holds.
 | Command | Does |
 | --- | --- |
 | `task --list` | every task, with descriptions |
-| `task build` | build `bin/workflow` |
+| `task build` | build `bin/workflow`, after `web:build` rewrites the tracked bundle in `internal/web/dist` |
 | `task run` | run from source; `task run -- doctor --online` passes arguments |
 | `task test` | tests with the race detector |
 | `task test:cover` | tests plus the coverage floor |
 | `task lint` | every `lint:*` task (each linter and repository check) plus `docs:check` and `gen:verify`; `task --list` names each |
 | `task fmt` | format everything in place |
 | `task cloc` | count the source lines, and the Go test ratio (advisory) |
-| `task check` | **the full gate** — lint, tests + coverage, govulncheck, gitleaks; plus the web's lint, client-drift check and unit tests |
-| `task e2e` | the web's Playwright suites, which `task check` leaves out: run it too for a change under `web/` or `internal/webserver` |
+| `task check` | **the full gate** — lint, the web's lint and client-drift check, the committed bundle against `web/src` (`web:dist:check`), the Go tests + coverage, the gate scripts' tests (`test:scripts`), the web's unit tests, condition coverage (`cover:branch`), govulncheck and gitleaks; CONTRIBUTING.md's gate table says what each enforces |
+| `task e2e` | the web's Playwright suites, which `task check` leaves out: run it too for a change under `web/` or `internal/webserver`; it runs `task build` first, so it rewrites `internal/web/dist` too |
 | `task container:check` | the same gate inside the build container |
 
 The toolchain is pinned in `mise.toml`. After cloning: `mise trust && mise
@@ -129,9 +132,9 @@ without agreement on direction.
 - **Interface compliance — assert it at compile time.** Every concrete type
   meant to satisfy an interface carries a static assertion next to its
   definition, so a drifting method set breaks the build at the type rather than
-  at some distant call site: `var _ tea.Model = (*Model)(nil)`. Use the form
-  matching the receiver — `(*T)(nil)` for pointer receivers, `T{}` for value
-  receivers.
+  at some distant call site: `var _ api.StrictServerInterface = (*server)(nil)`.
+  Use the form matching the receiver — `(*T)(nil)` for pointer receivers, `T{}`
+  for value receivers.
 
 - **One receiver kind per type.** `recvcheck` fails a type whose methods mix value
   and pointer receivers, so choose when the type is introduced and hold to it: a
@@ -239,17 +242,19 @@ without agreement on direction.
 
 - **Database (`internal/store`) — normalized, STRICT, and never trusted.** The
   on-disk store is SQLite through `modernc.org/sqlite` (pure Go, so `CGO_ENABLED=0`
-  holds). Its schema is the exemplar of these rules; **read the tables in
-  `internal/store/store.go`, never a restatement here**, since a prose copy drifts.
+  holds). Its schema is the exemplar of these rules; **read the tables in the
+  code, never a restatement here**, since a prose copy drifts: `workflow.db`'s
+  are in `internal/store/store.go`, and `kept.db`'s in `owners.go`, `groups.go`
+  and `favorites.go`, joined by `keptSchema` in `kept.go`.
   - **Third Normal Form — no exceptions the schema doesn't document.** A repeating
     group is a **child table**, never a JSON blob or a delimited column (a list in
     one cell fails 1NF, and so 3NF): the cached issue list is a parent `issue_cache`
     row and one `cached_issue` child per issue, not a serialized array. Store **no
     derived value** — compute it at read. The one denormalization the schema keeps
-    (`status_category` beside `status`) carries a comment saying why it is not a
-    transitive-dependency violation to extract: the mapping is Jira's, external and
-    non-derivable, in a disposable cache. Any other denormalization needs the same
-    written justification or it is a bug.
+    (`status_category` beside `status`) is justified in the `CachedIssue` doc
+    comment (`internal/store/cache.go`): the mapping is Jira's, external and not
+    ours to derive, in a disposable cache. Any other denormalization needs the
+    same written justification or it is a bug.
   - **Every table is `STRICT`.** A column's declared type is enforced at write
     time, which is the point — so declare real types (`INTEGER`/`TEXT`/`REAL`/
     `BLOB`/`ANY`) and never lean on SQLite's default type-coercion.
@@ -259,9 +264,12 @@ without agreement on direction.
     seam. Columns are `snake_case`.
   - **Referential integrity is on and enforced.** The writing DSN sets
     `_pragma=foreign_keys(1)` (SQLite enforces `ON DELETE CASCADE`/`RESTRICT` only
-    per-connection, only when on), every child names its `FOREIGN KEY … ON DELETE
-    CASCADE`, and a repeating group is **replaced in one transaction** (upsert
-    parent, delete children, insert) so a re-cache never leaves a half-updated view.
+    per-connection, only when on), and every child names its `FOREIGN KEY`: `ON
+    DELETE CASCADE` toward the parent that owns it, and `ON DELETE RESTRICT`
+    toward the shared `slack_entity` (from `owner_slack` and `repo_group`), so a
+    Slack user or group still linked cannot be deleted from under a decision. A
+    repeating group is **replaced in one transaction** (upsert parent, delete
+    children, insert) so a re-cache never leaves a half-updated view.
   - **Parameterized queries only** — every value is a `?` placeholder bound through
     `database/sql`; SQL is never built by string concatenation, no matter how
     "internal" the value looks. The one exception is a `PRAGMA`, which binds no
@@ -308,7 +316,7 @@ without agreement on direction.
 
 - **Accessibility is enforced, not aspirational (the `--web` app).**
   `eslint-plugin-jsx-a11y` runs at **strict** in the web lint (`web/eslint.config.js`,
-  in `yarn lint` / `task check`), and a runtime **axe** scan
+  in `corepack yarn lint` / `task check`), and a runtime **axe** scan
   (`web/e2e/a11y.spec.ts`, in `task e2e`) fails on any WCAG 2.1 A/AA violation —
   across every section **and both themes**, because a light theme is only real
   once its contrast holds. `web/e2e/layout.spec.ts` stands guard beside it: every
@@ -319,9 +327,10 @@ without agreement on direction.
   `:focus-visible` ring, and de-emphasize with color rather than `opacity` (which
   dims text below the contrast floor). The web tests are black-box — assert on
   role, accessible name and `aria-current`, never on classes, inline styles or
-  `data-*` hooks. Base UI parts come only through `web/src/lib/baseui`; its
-  ScrollArea and Select write a `<style>` the CSP refuses, which the app's
-  `CSPProvider` turns off.
+  `data-*` hooks. Base UI parts come only through `web/src/lib/baseui`, whose
+  `CSPProvider` keeps them from writing the `<style>` the CSP refuses. Only
+  ScrollArea and Select write one, and neither is used (TRADE-50): a choice from
+  a fixed list is a native `<select>`.
   The TUI needs no theme of its own: it draws in ANSI palette
   indices, so the terminal's own theme — light or dark — already decides the
   shades. Its motion — the in-flight mark turning, a stage's rule filling, a
@@ -523,9 +532,9 @@ helper, asserts nothing and is useless. `cmd/testshape` fails a body whose
 markers are missing, malformed or out of order, or whose Assert reaches no
 failure; it runs in `task lint`, on commit, and in CI. The web's unit tests and
 e2e specs answer to the same rule through its TypeScript twin,
-`web/eslint-rules/arrange-act-assert.js`, in `yarn lint`. It is a floor: it
-cannot tell a meaningful assertion from one that passes whatever the Act did, so
-ask of every Assert whether it would fail if the Act did nothing.
+`web/eslint-rules/arrange-act-assert.js`, in `corepack yarn lint`. It is a
+floor: it cannot tell a meaningful assertion from one that passes whatever the
+Act did, so ask of every Assert whether it would fail if the Act did nothing.
 
 **Tables when cases differ in data, not behavior.** When adding tests, prefer a
 table-driven test for cases that differ only in their inputs and expectations,
@@ -577,7 +586,13 @@ needs a new test, but changing observable behavior does.
 
 **Before declaring any task done**, run `task check`; for a change under `web/`
 or `internal/webserver` also run `task e2e`, since `task check` leaves the
-Playwright suites out. Never present work as complete while the build is red or
+Playwright suites out. Run the gate as a user, not as root: root reads any
+file, so the tests that make one unreadable skip under it, and `task
+cover:branch` can fail where it passes as a user (`scripts/gobco-report.sh`
+warns when it starts as root). In a session whose `id -u` is 0, run it as
+another user that owns a checkout (the dev container's `vscode`), or, where
+there is none, take CI's Branch coverage job, which runs as a user, as its
+verdict and say so. Never present work as complete while the build is red or
 tests are failing — say what's broken and why instead.
 
 ### What to avoid
@@ -609,6 +624,8 @@ than observable, public behavior.
   against *unknown* compromised releases, not *published* security fixes. The
   maintainer, and only the maintainer, may also waive a version by name: list
   it there with a dated waiver, `waived-YYYY-MM-DD`, the day they waived it.
+  An npm version takes a second line as well, in `web/.yarnrc.yml`'s
+  `npmPreapprovedPackages`, since yarn's own age gate refuses it at install.
   Either way, each line goes once its version is a week old.
   Dependabot's cooldown deliberately exempts `actions/*` and `github/*`: they
   are GitHub's own first-party actions, and this age-gate rule is what governs
@@ -621,10 +638,12 @@ than observable, public behavior.
   (`scripts/check-go-version.sh`); mise's own version, which mise cannot pin,
   on every workflow's `jdx/mise-action` step and in
   `.devcontainer/postCreate.sh` (`scripts/check-mise-version.sh`, held to
-  `min_version`); and the container's Go patch, which the base image's digest
+  `min_version`); the container's Go patch, which the base image's digest
   decides and the Dockerfile's check after `FROM` refuses to build unless it is
-  `mise.toml`'s. A floating `latest` changes what the gate accepts without
-  anyone deciding to.
+  `mise.toml`'s; and the SHA-256 lines of each tool the image downloads, in
+  `build/tool-checksums.txt` (`scripts/check-tool-checksums.sh`, `task
+  lint:checksums`), which a bump of that tool replaces. A floating `latest`
+  changes what the gate accepts without anyone deciding to.
 
 - **Never log or print a secret.** Any credential — a `config.Secret` field:
   the tokens, the webhook URL and every `jira.headers` value — is masked by
@@ -637,13 +656,16 @@ than observable, public behavior.
   handlers return is an `application/problem+json` object — `type`, `title`,
   `status`, `detail`, and a stable machine `code` from the spec's enum — built
   through the `problem`/`fault`/`writeProblem` helpers in
-  `internal/webserver/errors.go`, never an ad-hoc envelope. (The loopback,
-  same-origin and dry-run guards refuse *before* a handler runs and answer in
-  plain text; that boundary stays.) **`fault` classifies** a seam's error (a
-  missing resource → `not_found` 404, an unreachable upstream →
-  `unreachable` 502) rather than flattening it to a generic 500; a new class
-  of failure gets a new class, not a bare 500: one every surface tells alike
-  in `internal/report/classes.go`, one only the server tells in
+  `internal/webserver/errors.go`, never an ad-hoc envelope. (Some refusals come
+  *before* a handler runs. The loopback, same-origin and dry-run guards, and
+  the app fallback's refusal of a method but GET and HEAD (`static.go`), answer
+  in plain text; that boundary stays. The session check and the contract
+  validator answer as problem details, through `writeProblem`.) **`fault`
+  classifies** a seam's error (a missing resource → `not_found` 404, an
+  unreachable upstream → `unreachable` 502) rather than flattening it to a
+  generic 500; a new class of failure gets a new class, not a bare 500: one
+  every surface tells alike in `internal/report/classes.go`, one only the
+  server tells in
   `internal/webserver/faults.go`. The **`detail` never leaks a secret or an
   internal host** — tokens are redacted before an error forms, and an
   unreachable upstream is genericized through `fault` precisely because its
@@ -652,8 +674,8 @@ than observable, public behavior.
   omits its host is part of the change). The `type` URI points at a section of
   `docs/content/docs/errors.md`, so add the code there when you add one to the
   enum. The OpenAPI spec is the source: change `api/openapi.yaml`, then
-  `task gen` (Go) and `yarn gen` (the web client) so both stay generated
-  from it.
+  `task gen` (Go) and `corepack yarn gen` in `web/` (the web client) so both
+  stay generated from it.
 
 - **The web server does not sanitize on the way out**, though the store's rule
   above asks the seam that renders stored text to: the web's rendering seam is
