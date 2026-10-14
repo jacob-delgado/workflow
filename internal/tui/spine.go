@@ -209,19 +209,24 @@ func (v spineView) label(step stage, named bool) string {
 // ruleAfter is the rule after a stage: filled in its hue as far as the stage
 // has got, open and faint for the rest.
 func (v spineView) ruleAfter(step stage, length int) string {
-	marks := v.kit.marks
-	filled := int(step.fill*float64(length) + half)
+	return v.kit.bar(step.fill, length, step.hue)
+}
 
-	rule := strings.Repeat(marks.trackFilled, filled)
+// bar is share of length columns filled in hue, the rest open and faint, so
+// how far reads by shape as well as by color.
+func (k renderKit) bar(share float64, length int, hue lipgloss.Style) string {
+	filled := min(length, max(0, int(share*float64(length)+half)))
+
+	bar := strings.Repeat(k.marks.trackFilled, filled)
 	if filled > 0 {
-		rule = step.hue.Render(rule)
+		bar = hue.Render(bar)
 	}
 
 	if filled < length {
-		rule += v.kit.styles.label.Render(strings.Repeat(marks.trackOpen, length-filled))
+		bar += k.styles.label.Render(strings.Repeat(k.marks.trackOpen, length-filled))
 	}
 
-	return rule
+	return bar
 }
 
 // half rounds a share of a rule to the nearest column.
