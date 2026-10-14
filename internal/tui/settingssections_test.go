@@ -168,7 +168,7 @@ func TestDrawingInASCIIIsTurnedOnInSettings(t *testing.T) {
 	repo := newWorld()
 
 	// Act
-	typing(t, repo.live(t, 120, 40), append(toRow(asciiRow), keyEnter, saveKey)...)
+	typing(t, repo.live(t, 120, 40), append(toRow(asciiRow), keySpace, saveKey)...)
 
 	// Assert
 	if !repo.settings.UI.ASCII {
@@ -213,10 +213,10 @@ func TestARefusedSaveNeverShowsATypedCredential(t *testing.T) {
 
 	// Arrange
 	keys := append(edited(tokenRow, typedSecret), slices.Repeat([]string{"j"}, requestTimeoutRow-tokenRow)...)
-	keys = append(append(keys, keyEnter), letters("soon")...)
+	keys = append(keys, keyEnter, pasted("soon"), saveKey)
 
 	// Act
-	view := typing(t, newWorld().live(t, 120, 40), append(keys, keyEnter, saveKey)...).View().Content
+	view := typing(t, newWorld().live(t, 120, 40), append(keys, saveKey)...).View().Content
 
 	// Assert
 	requireScreen(t, view, "not valid")

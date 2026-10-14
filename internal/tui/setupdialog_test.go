@@ -16,6 +16,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
+// escBacks is a footer's esc where it goes back a step.
+const escBacks = "esc back"
+
 // errPromptsStopped is the prompts ending before every question was asked,
 // as a terminal closed mid-form ends them.
 var errPromptsStopped = errors.New("the prompts stopped")
@@ -116,8 +119,8 @@ func TestSetUpKeepsEscInANarrowFooter(t *testing.T) {
 		want string
 	}{
 		"on the first question": {keys: []string{keyEnter}, want: "esc cancel"},
-		"on a later one":        {keys: []string{keyEnter, keyEnter}, want: "esc back"},
-		"on the last look":      {keys: throughEveryQuestion(), want: "esc back"},
+		"on a later one":        {keys: []string{keyEnter, keyEnter}, want: escBacks},
+		"on the last look":      {keys: throughEveryQuestion(), want: escBacks},
 	}
 
 	for name, each := range cases {
