@@ -353,6 +353,11 @@ func terminalSettings() []setting {
 			hint:    "Never keeps bold, faint and the reverse-video cursor, which mean the same without color. " + nextOpen,
 			choices: []option{{"", "When the terminal allows (default)"}, {"never", "Never"}},
 		},
+		{
+			section: section, label: "Motion", path: "ui.motion", kind: settingChoice,
+			hint:    "Reduced draws every state still: no mark turns and no rule fills. " + nextOpen,
+			choices: []option{{"", "Moving where something changes (default)"}, {config.MotionReduce, "Reduced"}},
+		},
 		{section: section, label: "Ring the terminal when CI finishes", path: "ui.notify", kind: settingToggle},
 		{
 			section: section, label: "Comments shown", path: "ui.comments_shown", kind: settingCount,

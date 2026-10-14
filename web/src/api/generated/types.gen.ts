@@ -1969,6 +1969,10 @@ export type UiConfig = {
      * Empty for auto, or "never".
      */
     color?: '' | 'never';
+    /**
+     * Empty for the terminal's motion (a turning in-flight mark, a stage's rule filling), or "reduce" to draw every state still.
+     */
+    motion?: '' | 'reduce';
     notify?: boolean;
     /**
      * How many comments the detail shows; 0 means the built-in default.

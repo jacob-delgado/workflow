@@ -22,7 +22,7 @@ const (
 	addPrefixRow      = branchTemplateRow + 2
 	requestTimeoutRow = storeDisabledRow + 3
 	asciiRow          = storeDisabledRow + 5
-	keysRow           = storeDisabledRow + 11
+	keysRow           = storeDisabledRow + 12
 )
 
 // removeKey removes the entry the cursor is on.

@@ -56,6 +56,12 @@ func TestUISettingsKeepTheirDefaultsUnlessAValidFileSetsThem(t *testing.T) {
 		"a negative comments_shown": {contents: `{"ui": {"comments_shown": -1}}`, want: defaults, wantErr: config.ErrInvalid},
 		// Only "never" turns the hues off, so a misspelling of it would draw them.
 		"a misspelled color": {contents: `{"ui": {"color": "nevr"}}`, want: defaults, wantErr: config.ErrInvalid},
+		"motion set to reduce": {
+			contents: `{"ui": {"motion": "reduce"}}`,
+			want:     config.UI{Mouse: true, ASCII: false, Motion: "reduce"},
+		},
+		// Only "reduce" stills the interface, so a misspelling of it would move.
+		"a misspelled motion": {contents: `{"ui": {"motion": "reduced"}}`, want: defaults, wantErr: config.ErrInvalid},
 	}
 
 	for name, tt := range cases {

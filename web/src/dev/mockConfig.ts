@@ -39,6 +39,7 @@ export const mockConfig: Config = {
     mouse: true,
     ascii: false,
     color: '',
+    motion: '',
     notify: true,
     comments_shown: 5,
     web_shortcuts: true,
