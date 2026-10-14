@@ -1,13 +1,14 @@
 import { CheckboxField, Fieldset, TextField, type Register } from './Field.tsx'
 
 // TaskwarriorFieldset is which task program is Taskwarrior, and whether the
-// integration is on at all. workflow finds Taskwarrior once, as it starts, so a
-// change saved here waits for the next start. The program is shown but not
-// changed here: workflow runs it as you, so the server keeps it as the file
-// holds it, and refuses a save that changes it.
+// integration is on at all. workflow finds Taskwarrior once for a directory,
+// as it starts or switches there, so a change saved here waits for the next
+// start or switch. The program is shown but not changed here: workflow runs it
+// as you, so the server keeps it as the file holds it, and refuses a save that
+// changes it.
 export function TaskwarriorFieldset({ register }: { register: Register }) {
   return (
-    <Fieldset legend="Taskwarrior" hint="A change here applies when workflow restarts.">
+    <Fieldset legend="Taskwarrior" hint="A change here waits for a restart or a directory switch.">
       <TextField
         register={register}
         name="taskwarrior.program"
