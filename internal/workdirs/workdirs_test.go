@@ -265,8 +265,8 @@ func TestAListingOfThoseStartingWithAPrefixReachesPastTheLimit(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// Tab completes from the directories that start as typed, so a name past
-	// the first thousand is still found.
+	// Tab completes from the directories that start with what was typed, in
+	// any case, so a name past the first thousand is still found.
 	dirs := make([]string, 0, workdirs.ListLimit+4)
 	for index := range workdirs.ListLimit + 1 {
 		dirs = append(dirs, "d"+strconv.Itoa(index))
@@ -278,8 +278,39 @@ func TestAListingOfThoseStartingWithAPrefixReachesPastTheLimit(t *testing.T) {
 	listing, err := workdirs.List(root, "z")
 
 	// Assert
-	if want := []string{"zebra"}; err != nil || !slices.Equal(names(listing), want) || listing.Truncated {
-		t.Errorf("List = %v (more: %v), %v; want %v alone", names(listing), listing.Truncated, err, want)
+	if want := []string{"zebra", "Zulu"}; err != nil || !slices.Equal(names(listing), want) || listing.Truncated {
+		t.Errorf("List = %v (more: %v), %v; want %v, not cut short", names(listing), listing.Truncated, err, want)
+	}
+}
+
+func TestAPrefixNarrowsAListingInAnyCase(t *testing.T) {
+	t.Parallel()
+
+	// A name is matched in any case, so narrowing by a prefix keeps every
+	// name a match would rank first.
+	root := tree(t, []string{"Workflow", "wombat", "two-words", ".World"}, nil)
+	startingWo := []string{"wombat", "Workflow"}
+	cases := map[string]struct {
+		prefix string
+		want   []string
+	}{
+		"as the names are written": {prefix: "wo", want: startingWo},
+		"in capitals":              {prefix: "WO", want: startingWo},
+		"a hidden one's dot":       {prefix: ".w", want: []string{".World"}},
+	}
+
+	for name, narrowing := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			listing, err := workdirs.List(root, narrowing.prefix)
+
+			// Assert
+			if err != nil || !slices.Equal(names(listing), narrowing.want) {
+				t.Errorf("List(%q) = %v, %v; want %v", narrowing.prefix, names(listing), err, narrowing.want)
+			}
+		})
 	}
 }
 

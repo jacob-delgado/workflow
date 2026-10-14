@@ -353,7 +353,8 @@ type Repositories struct {
 	// path to a directory that is there with workdirs' sentinels.
 	Look func(ctx context.Context, dir string) (Place, error)
 	// Subdirectories is the directories in one whose names start with a
-	// prefix, all of them for "".
+	// prefix in any case, all of them for "", a hidden one only once the
+	// prefix starts with its dot.
 	Subdirectories func(dir, prefix string) (workdirs.Listing, error)
 	// Worktrees is the working trees of the repository this session works
 	// in, the main one first, read each time it is asked. Nil outside a

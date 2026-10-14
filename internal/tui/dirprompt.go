@@ -208,7 +208,7 @@ func (msg dirCompleted) apply(m Model) (Model, tea.Cmd) {
 	case 1:
 		prompt.input.SetValue(msg.head + msg.names[0] + "/")
 	default:
-		prompt.input.SetValue(msg.head + sharedPrefix(msg.names))
+		prompt.input.SetValue(msg.head + completedName(msg.names, msg.partial))
 		prompt.choices = msg.names
 	}
 
@@ -245,6 +245,19 @@ func (p dirPrompt) complete(m Model) (Model, tea.Cmd) {
 
 		return dirCompleted{typed: p.input.Value(), head: head, partial: partial, names: names, err: err}
 	}
+}
+
+// completedName is what several names complete partial to: what they share,
+// or partial itself when they share less as written, since a name starts
+// with partial in any case: Notes and notebooks share nothing, but both
+// start with no.
+func completedName(names []string, partial string) string {
+	shared := sharedPrefix(names)
+	if utf8.RuneCountInString(shared) < utf8.RuneCountInString(partial) {
+		return partial
+	}
+
+	return shared
 }
 
 // sharedPrefix is what every name starts with, whole letters only: v1é and
