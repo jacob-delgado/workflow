@@ -258,11 +258,14 @@ commit messages above, so a well-formed commit is also a changelog entry:
    [a release carries](https://jacob-delgado.github.io/workflow/docs/install/#from-a-release)
    attached, and then republishes the documentation site and dispatches
    `.github/workflows/packages.yml`, which points the Homebrew tap at the
-   release. That workflow can also be run alone, for a release already out.
-   CI's Cross-compile job runs `brew audit --strict`, which includes brew's
-   style cops, on the formula each change would publish; a failure there
-   usually means Homebrew changed a rule, and
-   `scripts/release/package-manifests.sh` needs updating.
+   release. That workflow can also be run alone, for a release already out;
+   either way it writes the formula with the generator on main at the time,
+   and changes the tap only for the latest release. CI publishes nothing: its
+   Cross-compile job writes, as v0.0.0, the formula a release of each change
+   would get, and runs `brew audit --strict`, style cops included, on it in
+   developer mode. A failure there usually means Homebrew changed a rule or
+   deprecated a call, and `scripts/release/package-manifests.sh` needs
+   updating.
 
 **Before 1.0, the minor digit is reserved for breaking changes.** Both `feat`
 and `fix` bump the patch; only a breaking change — marked with `!`, as in
