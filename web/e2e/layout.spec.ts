@@ -5,6 +5,7 @@ import {
   openCockpit,
   openFirstRun,
   openSection,
+  openStepSection,
   sectionNames,
   themes,
   widths,
@@ -95,14 +96,14 @@ for (const name of sectionNames.filter((section) => section !== 'Branch')) {
 
 for (const theme of themes) {
   for (const width of widths) {
-    for (const { step, section, opener, role = 'group', group, adds } of confirmSteps) {
+    for (const { step, opener, role = 'group', group, adds, ...at } of confirmSteps) {
       test(
         `the ${step} fits ${String(width)} px in the ${theme} theme, reachable and clean`,
         { tag: '@populated' },
         async ({ page }) => {
           // Arrange
           await openCockpit(page, { width, height }, theme)
-          await openSection(page, section)
+          await openStepSection(page, at)
 
           // Act
           await page.getByRole('button', { name: opener }).click()

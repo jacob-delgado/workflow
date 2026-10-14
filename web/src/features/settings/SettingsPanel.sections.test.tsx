@@ -5,6 +5,7 @@ import { mockConfig } from '@/dev/mockConfig.ts'
 import { useKeysStore } from '@/features/keyboard/keysApi.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
+import { inSection } from '@/test/settings.ts'
 import { SettingsPanel } from './SettingsPanel.tsx'
 
 // opened opens Settings over config, answering a save with what it was sent,
@@ -78,6 +79,7 @@ test('a view removed in Settings is left out of the save', async () => {
 test('a channel added in Settings is saved among the channels', async () => {
   // Arrange
   const requests = await opened()
+  await inSection('Messaging')
   await userEvent.click(screen.getByRole('button', { name: 'Add a channel' }))
   await userEvent.type(row('Channel 3').getByRole('textbox', { name: 'Channel' }), '#ops')
 
@@ -91,6 +93,7 @@ test('a channel added in Settings is saved among the channels', async () => {
 test('a branch prefix added in Settings is saved as a type and its prefix', async () => {
   // Arrange
   const requests = await opened()
+  await inSection('Commits and branches')
   await userEvent.click(screen.getByRole('button', { name: 'Add a prefix' }))
   await userEvent.type(row('Prefix 1').getByRole('textbox', { name: 'Issue type' }), 'Bug')
   await userEvent.type(row('Prefix 1').getByRole('textbox', { name: 'Prefix' }), 'bugfix')
@@ -133,6 +136,7 @@ test("a stored header's masked value goes back as it was read, so it is kept", a
 test('the timing is saved as typed', async () => {
   // Arrange
   const requests = await opened()
+  await inSection('Advanced')
   const timeout = screen.getByRole('textbox', { name: 'Request timeout' })
   await userEvent.clear(timeout)
   await userEvent.type(timeout, '45s')
@@ -147,6 +151,7 @@ test('the timing is saved as typed', async () => {
 test("the terminal's drawing is saved as chosen", async () => {
   // Arrange
   const requests = await opened()
+  await inSection('Terminal and keys')
   await userEvent.click(screen.getByRole('checkbox', { name: 'Draw in plain ASCII' }))
   await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Color' }), 'Never')
   await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Motion' }), 'Reduced')
@@ -175,6 +180,7 @@ test('a key typed for an action is saved in ui.keys, and an empty one is left ou
     ],
   })
   const requests = await opened()
+  await inSection('Terminal and keys')
   await userEvent.click(screen.getByText('Rebind keys'))
   await userEvent.type(screen.getByRole('textbox', { name: 'Key for comment' }), 'C')
 
@@ -202,6 +208,7 @@ test('each key names the default it keeps when left empty', async () => {
 
   // Act
   await opened()
+  await inSection('Terminal and keys')
   await userEvent.click(screen.getByText('Rebind keys'))
 
   // Assert

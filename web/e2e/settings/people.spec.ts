@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import type { OwnerTag, PersonLink, SlackTarget } from '../../src/api/generated/types.gen.ts'
-import { height, openCockpit, openSection } from '../support/cockpit.ts'
+import { height, openCockpit, openSection, openSettings } from '../support/cockpit.ts'
 import { expect, test } from '../support/fixtures.ts'
 
 // Settings' People and groups area: whom each code owner is on Slack, chosen
@@ -123,7 +123,7 @@ test('saves the repository’s groups together', async ({ page }) => {
 test('the mockup links an owner and saves its groups', { tag: '@populated' }, async ({ page }) => {
   // Arrange
   await openCockpit(page, { width: 1440, height }, 'dark')
-  await openSection(page, 'Settings')
+  await openSettings(page, 'People and groups')
   await page.getByRole('combobox', { name: 'Slack for ben' }).selectOption({ label: 'Ben Ito' })
   await expect(page.getByText('Saved: ben is Ben Ito.')).toBeVisible()
   await page.getByRole('checkbox', { name: '@web-guild' }).check()

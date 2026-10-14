@@ -17,6 +17,7 @@ import {
   openDirectoryDialog,
 } from '@/test/keyboard.tsx'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
+import { inSection } from '@/test/settings.ts'
 
 // The page's keyboard beyond Tab, as a user meets it: where single-key
 // shortcuts are on, a key does what the terminal's does, and a pane number
@@ -165,6 +166,7 @@ test('turning single-key shortcuts on in Settings makes c work at once', async (
   useSnapshotStore.setState({ status: 'live', snapshot: withIssue })
   useUiStore.setState({ section: 'settings', selectedIssue: issue })
   renderWithClient(<App />)
+  await inSection('Terminal and keys')
   await user.click(await screen.findByRole('checkbox', { name: 'Single-key shortcuts' }))
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
   await screen.findByText('Saved.')

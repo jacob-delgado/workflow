@@ -33,10 +33,12 @@ export const sectionNames = sectionsWith('Slack')
 
 // confirmSteps are the steps a click opens on the populated build before a
 // write goes out: each a group named for what it asks — or a dialog, which Tab
-// stays inside — and the controls it adds, which Tab must reach.
+// stays inside — and the controls it adds, which Tab must reach. A step in a
+// Settings section other than the one it opens on names its tab.
 export const confirmSteps: {
   step: string
   section: string
+  tab?: string
   opener: string
   role?: 'group' | 'dialog'
   group: string | RegExp
@@ -81,6 +83,7 @@ export const confirmSteps: {
   {
     step: 'forget confirmation in People and groups',
     section: 'Settings',
+    tab: 'People and groups',
     opener: 'Forget carla…',
     group: 'Forget carla?',
     adds: ['Cancel', 'Forget'],
@@ -111,6 +114,7 @@ export const confirmSteps: {
   {
     step: 'remove confirmation in Local data',
     section: 'Settings',
+    tab: 'Local data',
     opener: 'Remove cache…',
     group: 'Remove workflow.db?',
     adds: ['Cancel', 'Remove'],
@@ -215,6 +219,29 @@ export async function openSection(page: Page, name: string): Promise<void> {
     .click()
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible()
   await expect(readings(page)).toHaveCount(0)
+}
+
+// openStepSection opens the section a confirm step's opener is in, and the
+// Settings tab it is under, if it names one.
+export async function openStepSection(
+  page: Page,
+  { section, tab }: { section: string; tab?: string },
+): Promise<void> {
+  await openSection(page, section)
+  if (tab !== undefined) {
+    await openSettingsTab(page, tab)
+  }
+}
+
+// openSettings opens Settings at the section named.
+export async function openSettings(page: Page, section: string): Promise<void> {
+  await openSection(page, 'Settings')
+  await openSettingsTab(page, section)
+}
+
+// openSettingsTab moves Settings, already open, to the section named.
+export async function openSettingsTab(page: Page, section: string): Promise<void> {
+  await page.getByRole('tab', { name: section, exact: true }).click()
 }
 
 // openAnnouncementPreview opens the page, its Slack section and the

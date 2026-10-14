@@ -1,6 +1,14 @@
 import type { Page } from '@playwright/test'
 import type { LocalData } from '../../src/api/generated/types.gen.ts'
-import { height, openCockpit, openSection, themes, widths } from '../support/cockpit.ts'
+import {
+  height,
+  openCockpit,
+  openSection,
+  openSettings,
+  openSettingsTab,
+  themes,
+  widths,
+} from '../support/cockpit.ts'
 import { expectReachableAndClean } from '../support/reachable.ts'
 import { expect, test } from '../support/fixtures.ts'
 
@@ -113,7 +121,7 @@ for (const theme of themes) {
       async ({ page }) => {
         // Arrange
         await openCockpit(page, { width, height }, theme)
-        await openSection(page, 'Settings')
+        await openSettings(page, 'Local data')
         await expect(page.getByRole('table', { name: 'Local data files' })).toBeVisible()
 
         // Act
@@ -133,8 +141,9 @@ test(
   async ({ page }) => {
     // Arrange
     await openCockpit(page, { width: 1440, height }, 'dark')
-    await openSection(page, 'Settings')
+    await openSettings(page, 'People and groups')
     await expect(page.getByRole('button', { name: 'Forget dan…' })).toBeVisible()
+    await openSettingsTab(page, 'Local data')
     await page.getByRole('button', { name: 'Remove everything…' }).click()
 
     // Act
@@ -144,6 +153,7 @@ test(
     // The people and groups went with the kept file.
     await expect(page.getByText('Removed workflow.db and kept.db.')).toBeVisible()
     await expect(page.getByText(/no local data/i)).toBeVisible()
+    await openSettingsTab(page, 'People and groups')
     await expect(page.getByRole('button', { name: 'Forget dan…' })).toBeHidden()
     await expect(page.getByRole('checkbox', { name: '@api-reviewers' })).not.toBeChecked()
   },

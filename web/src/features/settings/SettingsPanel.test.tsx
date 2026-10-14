@@ -7,6 +7,7 @@ import { mockConfig } from '@/dev/mockConfig.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { gitLabWords, makeHealth } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
+import { inSection } from '@/test/settings.ts'
 import { AppShell } from '@/shell/AppShell.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { SettingsPanel } from './SettingsPanel.tsx'
@@ -74,6 +75,7 @@ test('loads the configured messaging service into the Service select', async () 
   // Arrange
   servesSettings()
   renderWithClient(<SettingsPanel />)
+  await inSection('Messaging')
 
   // Act
   const service = await screen.findByLabelText('Service')
@@ -105,6 +107,7 @@ test('surfaces the branch and pull-request fields', async () => {
   // Arrange
   servesSettings()
   renderWithClient(<SettingsPanel />)
+  await inSection('Forge and pull requests')
 
   // Act
   const titleSource = await screen.findByLabelText('Title source')
@@ -130,6 +133,7 @@ test("the hints name the forge's own noun: a merge request on GitLab", async () 
   expect(
     screen.getByRole('textbox', { name: 'Review status', description: reviewHint }),
   ).toBeTruthy()
+  await inSection('Forge and pull requests')
   expect(
     screen.getByRole('combobox', {
       name: 'Title source',
@@ -148,6 +152,7 @@ test('editing the commit types saves them as a trimmed list', async () => {
       <SettingsPanel />
     </QueryClientProvider>,
   )
+  await inSection('Commits and branches')
   const types = await screen.findByLabelText('Types')
   await user.type(types, 'hotfix, chore')
 
@@ -177,6 +182,7 @@ test('an emptied subject limit saves as 0, which keeps the default', async () =>
       <SettingsPanel />
     </QueryClientProvider>,
   )
+  await inSection('Commits and branches')
   const limit = await screen.findByLabelText('Subject limit')
   await user.type(limit, '50')
   await user.clear(limit)
@@ -209,6 +215,7 @@ test('offers turning the store off and rides it back through a save', async () =
       <SettingsPanel />
     </QueryClientProvider>,
   )
+  await inSection('Advanced')
 
   // Assert: the store is on, and turning it off is offered
   const toggle = await screen.findByRole('checkbox', { name: /nothing on disk/i })
@@ -226,6 +233,7 @@ test('offers turning the store off and rides it back through a save', async () =
   )
 
   // Assert: it comes back off
+  await inSection('Advanced')
   const reopened = await screen.findByRole('checkbox', { name: /nothing on disk/i })
   expect((reopened as HTMLInputElement).checked).toBe(true)
 })
@@ -236,6 +244,7 @@ test('the Taskwarrior fieldset says its changes apply when workflow restarts', a
 
   // Act
   renderWithClient(<SettingsPanel />)
+  await inSection('Taskwarrior')
 
   // Assert
   expect(
@@ -256,6 +265,7 @@ test("the Taskwarrior fieldset's switch rides back through a save, and its progr
       <SettingsPanel />
     </QueryClientProvider>,
   )
+  await inSection('Taskwarrior')
   const program = await screen.findByRole('textbox', {
     name: 'Task program',
     description:
@@ -275,6 +285,7 @@ test("the Taskwarrior fieldset's switch rides back through a save, and its progr
   )
 
   // Assert
+  await inSection('Taskwarrior')
   const reopened = await screen.findByRole('textbox', { name: 'Task program' })
   expect((reopened as HTMLInputElement).value).toBe('')
   const off = screen.getByRole('checkbox', { name: /turn off the taskwarrior integration/i })
@@ -554,32 +565,17 @@ test("the switch that lists this repository's forge issues rides back through a 
   expect((reopened as HTMLInputElement).checked).toBe(true)
 })
 
-test('shows the local data under its own heading below the configuration', async () => {
+test.each([
+  ['People and groups', 'Code owners on Slack'],
+  ['Local data', 'Local data files'],
+])('%s is a section of its own, beside the configuration', async (section, table) => {
   // Arrange
   servesSettings()
-
-  // Act
   renderWithClient(<SettingsPanel />)
 
-  // Assert
-  const heading = await screen.findByRole('heading', { level: 2, name: 'Local data' })
-  const save = await screen.findByRole('button', { name: 'Save changes' })
-  expect(save.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  expect(await screen.findByRole('table', { name: 'Local data files' })).toBeTruthy()
-})
-
-test('shows people and groups between the configuration and the local data', async () => {
-  // Arrange
-  servesSettings()
-
   // Act
-  renderWithClient(<SettingsPanel />)
+  await inSection(section)
 
   // Assert
-  const people = await screen.findByRole('heading', { level: 2, name: 'People and groups' })
-  const local = await screen.findByRole('heading', { level: 2, name: 'Local data' })
-  const save = await screen.findByRole('button', { name: 'Save changes' })
-  expect(save.compareDocumentPosition(people) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  expect(people.compareDocumentPosition(local) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-  expect(await screen.findByRole('table', { name: 'Code owners on Slack' })).toBeTruthy()
+  expect(await screen.findByRole('table', { name: table })).toBeTruthy()
 })
