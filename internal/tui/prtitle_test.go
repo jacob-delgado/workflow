@@ -13,8 +13,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
-// titleField is how the composer's title field starts on screen.
-const titleField = "title     > "
+// titleField is how the composer's title field starts on screen, once it
+// asks what the pull request says.
+const titleField = "> "
 
 // issuelessBranch is a branch whose name names no issue.
 const issuelessBranch = "fix-token-redaction"
@@ -52,10 +53,10 @@ func TestTheComposerTakesItsTitleFromTheConfiguredSource(t *testing.T) {
 	opening.cfg.PullRequest.TitleSource = "issue"
 
 	// Act
-	view := typing(t, opening.live(t, 120, 40), "4", "n").View().Content
+	view := typing(t, opening.live(t, 120, 40), "4", "n", keyEnter).View().Content
 
 	// Assert
-	requireScreen(t, view, issueKey+": "+issueSummary)
+	requireScreen(t, view, titleField+issueKey+": "+issueSummary)
 }
 
 func TestTheComposerReadsAnUnlistedIssueForItsTitle(t *testing.T) {
@@ -65,7 +66,7 @@ func TestTheComposerReadsAnUnlistedIssueForItsTitle(t *testing.T) {
 	opening := unlistedIssue()
 
 	// Act
-	view := typing(t, opening.live(t, 120, 40), "4", "n").View().Content
+	view := typing(t, opening.live(t, 120, 40), "4", "n", keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, titleField+issueKey+": "+issueSummary)
@@ -80,7 +81,7 @@ func TestAFailedIssueReadKeepsTheCommitTitle(t *testing.T) {
 	opening.detailErr = errNotVisible
 
 	// Act
-	view := typing(t, opening.live(t, 120, 40), "4", "n").View().Content
+	view := typing(t, opening.live(t, 120, 40), "4", "n", keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, titleField+pullTitle)
@@ -129,40 +130,41 @@ func TestTheComposerOpensWithoutAnIssueSeam(t *testing.T) {
 	started := drain(t, model, model.Init())
 
 	// Act
-	view := typing(t, started, "4", "n").View().Content
+	view := typing(t, started, "4", "n", keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, titleField+pullTitle)
 }
 
-func TestATitleTypedBeforeTheIssueAnswersIsKept(t *testing.T) {
+func TestAKeyBeforeTheIssueAnswersTypesNothing(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	opened, read := openedBeforeTheIssueAnswers(t, unlistedIssue())
-	typed := typing(t, opened, "Z")
+	typed := typing(t, opened, "Z", keyEnter)
 
 	// Act
-	view := drain(t, typed, read).View().Content
+	view := typing(t, drain(t, typed, read), keyEnter).View().Content
 
 	// Assert
-	requireScreen(t, view, titleField+pullTitle+"Z")
+	requireScreen(t, view, titleField+issueKey+": "+issueSummary)
+	refuseScreen(t, view, "Z")
 }
 
-func TestATitleBeingSentIsNotReplacedByTheIssue(t *testing.T) {
+func TestEnterBeforeTheIssueAnswersOpensNothing(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// Enter sends the proposed title; the pull request it opens is left
-	// unanswered, so the composer is still sending when the issue answers.
-	opened, read := openedBeforeTheIssueAnswers(t, unlistedIssue())
-	sending, _ := opened.Update(keyMsg(keyEnter))
+	opening := unlistedIssue()
+	opened, _ := openedBeforeTheIssueAnswers(t, opening)
 
 	// Act
-	view := drain(t, concrete(t, sending), read).View().Content
+	typing(t, opened, keyEnter, keyEnter)
 
 	// Assert
-	requireScreen(t, view, titleField+pullTitle)
+	if calls := opening.asked("open "); len(calls) != 0 {
+		t.Errorf("opened %q before the issue answered, want nothing", calls)
+	}
 }
 
 func TestAnIssueAnsweringAfterTheComposerClosedOpensNothing(t *testing.T) {
@@ -193,7 +195,7 @@ func TestAnIssueAnsweringForAnotherBranchLeavesItsTitle(t *testing.T) {
 	reopened := typing(t, closed, "r", "n")
 
 	// Act
-	view := drain(t, reopened, read).View().Content
+	view := typing(t, drain(t, reopened, read), keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, titleField+pullTitle)
@@ -209,7 +211,7 @@ func TestAKeptDraftTakesTheIssueTitleOnReopening(t *testing.T) {
 	closed := typing(t, opened, keyEsc)
 
 	// Act
-	view := typing(t, closed, "n").View().Content
+	view := typing(t, closed, "n", keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, titleField+issueKey+": "+issueSummary)

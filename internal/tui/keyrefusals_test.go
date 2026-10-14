@@ -71,17 +71,17 @@ func TestCheckKeysRefusesAKeyATextFieldEditsWithWhereOneHasTheFocus(t *testing.T
 	// the key, so on a key the field edits with it would take that edit away.
 	cases := map[string]map[string]string{
 		"worktree onto delete a word":            {worktreeAction: "ctrl+w"},
-		"breaking onto back a character":         {"toggle-breaking": "ctrl+b"},
+		"breaking onto back a character":         {breakingAction: "ctrl+b"},
 		"draft onto the line's start":            {toggleDraftAction: "ctrl+a"},
 		"the next template onto next suggestion": {"next-template": "ctrl+n"},
 		"edit body onto previous suggestion":     {editBodyAction: "ctrl+p"},
 		"worktree onto a letter":                 {worktreeAction: "s"},
 		"worktree onto the left arrow":           {worktreeAction: keyLeft},
-		"draft onto the right arrow":             {toggleDraftAction: keyRight},
-		"draft onto home":                        {toggleDraftAction: keyHome},
-		"edit body onto end":                     {editBodyAction: keyEnd},
-		"breaking onto the down arrow":           {"toggle-breaking": keyDown},
-		"the next template onto the up arrow":    {"next-template": keyUp},
+		"worktree onto the right arrow":          {worktreeAction: keyRight},
+		"breaking onto home":                     {breakingAction: keyHome},
+		"worktree onto end":                      {worktreeAction: keyEnd},
+		"breaking onto the down arrow":           {breakingAction: keyDown},
+		"breaking onto the up arrow":             {breakingAction: keyUp},
 		"previous field onto back a word":        {"previous-field": "ctrl+left"},
 		"next field onto delete a word forward":  {nextFieldAction: "alt+d"},
 		// A form field types a letter, so next-field on one would take it.

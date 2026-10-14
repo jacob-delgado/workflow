@@ -59,7 +59,7 @@ func TestAnOfferChangesTheIssuesTaskNotTheStartedOne(t *testing.T) {
 		},
 		"noting a pull request on it": {
 			arrange: func(repo *world) { repo.pullFound = false },
-			keys:    []string{"4", "n", keyEnter, keyEsc}, want: "task annotate " + activeTaskUUID + " #42 " + pullURL,
+			keys:    []string{"4", "n", keyEnter, keyEnter, keyEsc}, want: "task annotate " + activeTaskUUID + " #42 " + pullURL,
 		},
 	}
 
@@ -147,7 +147,7 @@ func TestAnIssueWhoseKeyIsNotOneWordIsNotTrackedWhenWorkStarts(t *testing.T) {
 	repo.issues[2].Key = untrackedIssue + " rc.hooks=on"
 	repo.moves = startTransitions()
 	stopTheStartedTask(repo)
-	named := typing(t, repo.live(t, 200, 40), append(append(selectTheUntrackedIssue(), "b", "ctrl+u"),
+	named := typing(t, repo.live(t, 200, 40), append(append(selectTheUntrackedIssue(), "b", keyClearLine),
 		letters("spike")...)...)
 
 	// Act

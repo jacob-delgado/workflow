@@ -45,7 +45,7 @@ func taggingOpeningWorld() *world {
 func opens(t *testing.T, repo *world) tui.Model {
 	t.Helper()
 
-	opened := typing(t, repo.live(t, 160, 40), "4", "n", keyEnter, keyEsc, keyEsc, "5")
+	opened := typing(t, repo.live(t, 160, 40), "4", "n", keyEnter, keyEnter, keyEsc, keyEsc, "5")
 
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
@@ -88,7 +88,7 @@ func TestTheOpenedNoticeSaysTheAnnouncementIsArmed(t *testing.T) {
 	repo := openingWorld()
 
 	// Act
-	opened := typing(t, repo.live(t, 200, 40), "4", "n", keyEnter).View().Content
+	opened := typing(t, repo.live(t, 200, 40), "4", "n", keyEnter, keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, opened, "announces to "+slackChannel+" once CI passes")
@@ -116,7 +116,7 @@ func TestOpeningArmsNothingWithoutMessaging(t *testing.T) {
 	repo.cfg.Messaging = config.Messaging{AutoAnnounce: true}
 
 	// Act
-	opened := typing(t, repo.live(t, 160, 40), "4", "n", keyEnter).View().Content
+	opened := typing(t, repo.live(t, 160, 40), "4", "n", keyEnter, keyEnter).View().Content
 
 	// Assert
 	refuseScreen(t, opened, "once CI passes")
@@ -130,7 +130,7 @@ func TestOpeningADraftArmsNothing(t *testing.T) {
 	repo.pull.Draft = true
 
 	// Act
-	opened := typing(t, repo.live(t, 200, 40), "4", "n", keyEnter).View().Content
+	opened := typing(t, repo.live(t, 200, 40), "4", "n", keyEnter, keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, opened, "a draft is not announced; announce it once it is ready")

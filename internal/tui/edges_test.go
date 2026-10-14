@@ -47,7 +47,7 @@ func TestNothingInterruptsAWriteBeingSent(t *testing.T) {
 		sending string
 	}{
 		"a branch":           {repo: newWorld, keys: []string{"b"}, sending: "creating…"},
-		"a pull request":     {repo: withoutPull, keys: []string{"4", "n"}, sending: "opening…"},
+		"a pull request":     {repo: withoutPull, keys: []string{"4", "n", keyEnter}, sending: "opening…"},
 		"an announcement":    {repo: newWorld, keys: []string{"5", "p"}, sending: "announcing…"},
 		"a configuration":    {repo: withHooks, keys: []string{"3", "g"}, sending: "writing…"},
 		"a re-run of checks": {repo: failedChecks, keys: []string{"4", "R"}, sending: "re-running…"},
@@ -239,10 +239,10 @@ func TestThePullRequestComposerWorksWithoutTemplatesOrAnEditor(t *testing.T) {
 	model = drain(t, model, model.Init())
 
 	// Act
-	composer := typing(t, model, "4", "n", "ctrl+o", "ctrl+t", keyTab, keyTab)
+	composer := typing(t, model, "4", "n", "ctrl+o", "ctrl+t", keyEnter, keyTab, keyTab)
 
 	// Assert
-	requireScreen(t, composer.View().Content, "no template in this repository", "▸ reviewers >")
+	requireScreen(t, composer.View().Content, "no template in this repository", "┃ Reviewers")
 }
 
 func TestTheReviewPaneSaysItIsLookingForAPullRequest(t *testing.T) {

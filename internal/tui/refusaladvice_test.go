@@ -30,7 +30,7 @@ func TestARefusedMergeRequestIsToldInGitLabsWordsOnce(t *testing.T) {
 	advice, _ := forge.Advice(opening.openErr)
 
 	// Act
-	view := typing(t, opening.live(t, 400, 40), "4", "n", keyEnter).View().Content
+	view := typing(t, opening.live(t, 400, 40), "4", "n", keyEnter, keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, "✗ "+advice)
@@ -48,7 +48,7 @@ func TestARefusalWrappedInItsStepStillNamesTheStep(t *testing.T) {
 	opening.openErr = fmt.Errorf("opening the merge request: %w", gitlabScopeRefusal())
 
 	// Act
-	view := typing(t, opening.live(t, 400, 40), "4", "n", keyEnter).View().Content
+	view := typing(t, opening.live(t, 400, 40), "4", "n", keyEnter, keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, "GitLab refused this", "opening the merge request")

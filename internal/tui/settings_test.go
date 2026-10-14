@@ -43,7 +43,7 @@ func toRow(row int) []string {
 // edited opens Settings, opens row's form on it, types text over its value
 // and keeps the form, unsaved.
 func edited(row int, text string) []string {
-	return append(toRow(row), keyEnter, "ctrl+u", pasted(text), saveKey)
+	return append(toRow(row), keyEnter, keyClearLine, pasted(text), saveKey)
 }
 
 // editing opens Settings, edits row to text and saves.
@@ -139,7 +139,7 @@ func TestACountMustBeAWholeNumber(t *testing.T) {
 
 	// Act
 	view := typing(t, newWorld().live(t, 120, 40),
-		append(toRow(subjectLimitRow), keyEnter, "ctrl+u", "x", keyEnter)...).View().Content
+		append(toRow(subjectLimitRow), keyEnter, keyClearLine, "x", keyEnter)...).View().Content
 
 	// Assert
 	requireScreen(t, view, "a whole number")
@@ -216,7 +216,7 @@ func TestEscWithEditsDiscardsThem(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	keys := append(toRow(projectRow), keyEnter, "ctrl+u", "O", saveKey)
+	keys := append(toRow(projectRow), keyEnter, keyClearLine, "O", saveKey)
 
 	// Act
 	view := typing(t, newWorld().live(t, 120, 40), keys...).View().Content
@@ -410,7 +410,7 @@ func TestACountBelowZeroIsRefused(t *testing.T) {
 
 	// Act
 	view := typing(t, newWorld().live(t, 120, 40),
-		append(toRow(subjectLimitRow), keyEnter, "ctrl+u", "-", "1", keyEnter)...).View().Content
+		append(toRow(subjectLimitRow), keyEnter, keyClearLine, "-", "1", keyEnter)...).View().Content
 
 	// Assert
 	requireScreen(t, view, "a whole number")
@@ -422,7 +422,7 @@ func TestEscBacksOutOfAFieldAndKeepsTheValue(t *testing.T) {
 	// Arrange
 	repo := newWorld()
 
-	keys := append(toRow(projectRow), keyEnter, "ctrl+u", "O", keyEsc, saveKey)
+	keys := append(toRow(projectRow), keyEnter, keyClearLine, "O", keyEsc, saveKey)
 
 	// Act
 	typing(t, repo.live(t, 120, 40), keys...)
@@ -448,7 +448,7 @@ func TestAPasteTypesIntoTheFieldBeingEdited(t *testing.T) {
 
 	// Arrange
 	repo := newWorld()
-	model := typing(t, repo.live(t, 120, 40), append(toRow(projectRow), keyEnter, "ctrl+u")...)
+	model := typing(t, repo.live(t, 120, 40), append(toRow(projectRow), keyEnter, keyClearLine)...)
 
 	// Act
 	typing(t, pasting(t, model, editedProject), saveKey, saveKey)
@@ -569,7 +569,7 @@ func TestATypedListAndCountShowAsKept(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	keys := append(toRow(commitTypesRow), keyEnter, "ctrl+u", pasted("feat,fix"), keyEnter, "ctrl+u", pasted("50"),
+	keys := append(toRow(commitTypesRow), keyEnter, keyClearLine, pasted("feat,fix"), keyEnter, keyClearLine, pasted("50"),
 		saveKey)
 
 	// Act

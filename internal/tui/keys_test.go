@@ -28,7 +28,11 @@ const (
 	postWhenGreenAction = "post-when-green"
 	toggleDraftAction   = "toggle-draft"
 	editBodyAction      = "edit-body"
+	breakingAction      = "toggle-breaking"
 )
+
+// composerContext is the pull request composer's key context, by its name.
+const composerContext = "the pull request composer"
 
 // reboundRefreshKey is the key a test's ui.keys binds refresh to.
 const reboundRefreshKey = "ctrl+r"
@@ -234,6 +238,7 @@ func TestCheckKeysRefusesAnOverlayKeyOnAnotherKeyTheSameOverlayAnswers(t *testin
 	}{
 		{"worktree onto apply", map[string]string{worktreeAction: "enter"}, applyAction, "the branch creator"},
 		{"post-when-green onto edit", map[string]string{postWhenGreenAction: "e"}, editAction, "the announcement preview"},
+		{"up onto the draft", map[string]string{upAction: "ctrl+r"}, toggleDraftAction, composerContext},
 	}
 
 	for _, testCase := range cases {

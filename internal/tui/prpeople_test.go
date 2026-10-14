@@ -6,9 +6,9 @@ package tui_test
 import (
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -23,12 +23,11 @@ func TestTheComposerOpensWithReviewersAssigneesAndLabels(t *testing.T) {
 	opening := withoutPull()
 	model := opening.live(t, 120, 40)
 
-	// Two tabs reach the reviewers field, then each field is filled in turn.
-	keys := slices.Concat(
-		[]string{"4", "n", keyTab, keyTab}, letters("ana, ben"),
-		[]string{keyTab}, letters("cass"),
-		[]string{keyTab}, letters("bug"), []string{keyEnter},
-	)
+	// Past where it goes, two tabs reach the reviewers field, then each field
+	// is filled in turn.
+	keys := []string{
+		"4", "n", keyEnter, keyTab, keyTab, pasted("ana, ben"), keyTab, pasted("cass"), keyTab, pasted("bug"), keyEnter,
+	}
 
 	// Act
 	typing(t, model, keys...)
@@ -40,8 +39,9 @@ func TestTheComposerOpensWithReviewersAssigneesAndLabels(t *testing.T) {
 	}
 }
 
-// reviewersField is how the composer's reviewers field starts on screen.
-const reviewersField = "reviewers > "
+// reviewersField is how the composer's reviewers field starts on screen, once
+// it asks what the pull request says.
+const reviewersField = "> "
 
 // ownedBy is the world before a pull request is opened, every path of its
 // base owned by owners.
@@ -52,13 +52,13 @@ func ownedBy(owners ...string) *world {
 	return w
 }
 
-// openedBeforeTheOwnersAnswer opens the composer on the world and returns it
-// with the read of the code owners not yet answered, so a test can act first
-// and deliver the answer after.
-func openedBeforeTheOwnersAnswer(t *testing.T, w *world) (tui.Model, tea.Cmd) {
+// openedBeforeTheOwnersAnswer opens the composer on the interface and returns
+// it with the read of the code owners not yet answered, so a test can act
+// first and deliver the answer after.
+func openedBeforeTheOwnersAnswer(t *testing.T, live tui.Model) (tui.Model, tea.Cmd) {
 	t.Helper()
 
-	opened, read := typing(t, w.live(t, 120, 40), "4").Update(keyMsg("n"))
+	opened, read := typing(t, live, "4").Update(keyMsg("n"))
 
 	return concrete(t, opened), read
 }
@@ -71,7 +71,7 @@ func TestTheComposerPreFillsTheCodeOwnersAsReviewers(t *testing.T) {
 	model := opening.live(t, 120, 40)
 
 	// Act
-	composer := typing(t, model, "4", "n")
+	composer := typing(t, model, "4", "n", keyEnter)
 
 	// Assert
 	requireScreen(t, composer.View().Content, reviewersField+"ana, ben, acme/control-plane")
@@ -89,7 +89,7 @@ func TestThePreFilledReviewersAreRequestedPeopleAndTeams(t *testing.T) {
 	model := opening.live(t, 120, 40)
 
 	// Act
-	typing(t, model, "4", "n", keyEnter)
+	typing(t, model, "4", "n", keyEnter, keyEnter)
 
 	// Assert
 	calls := opening.asked("open ")
@@ -107,7 +107,7 @@ func TestTheComposerDoesNotProposeTheAuthorAsAReviewer(t *testing.T) {
 	model := opening.live(t, 120, 40)
 
 	// Act
-	typing(t, model, "4", "n", keyEnter)
+	typing(t, model, "4", "n", keyEnter, keyEnter)
 
 	// Assert
 	if calls := opening.asked("open "); len(calls) != 1 || !strings.Contains(calls[0], "draft=no reviewers=ana\n") {
@@ -140,7 +140,7 @@ func TestAComposerWhoseOwnersCannotBeReadProposesNoReviewers(t *testing.T) {
 			model := opening.live(t, 120, 40)
 
 			// Act
-			typing(t, model, "4", "n", keyEnter)
+			typing(t, model, "4", "n", keyEnter, keyEnter)
 
 			// Assert
 			if calls := opening.asked("open "); len(calls) != 1 || strings.Contains(calls[0], "reviewers=") {
@@ -150,71 +150,68 @@ func TestAComposerWhoseOwnersCannotBeReadProposesNoReviewers(t *testing.T) {
 	}
 }
 
-func TestReviewersTypedBeforeTheOwnersAnswerAreKept(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	opened, read := openedBeforeTheOwnersAnswer(t, ownedBy("ana"))
-	typed := typing(t, opened, keyTab, keyTab, "z")
-
-	// Act
-	view := drain(t, typed, read).View().Content
-
-	// Assert
-	requireScreen(t, view, reviewersField+"z")
-	refuseScreen(t, view, "ana")
-}
-
-func TestReviewersBeingSentAreNotReplacedByTheOwners(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// Enter sends no reviewers; the pull request it opens is left unanswered,
-	// so the composer is still sending when the owners answer.
-	opened, read := openedBeforeTheOwnersAnswer(t, ownedBy("ana"))
-	sending, _ := opened.Update(keyMsg(keyEnter))
-
-	// Act
-	view := drain(t, concrete(t, sending), read).View().Content
-
-	// Assert
-	requireScreen(t, view, reviewersField)
-	refuseScreen(t, view, "ana")
-}
-
 func TestOwnersAnsweringAfterTheComposerClosedOpenNothing(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	opened, read := openedBeforeTheOwnersAnswer(t, ownedBy("ana"))
+	opened, read := openedBeforeTheOwnersAnswer(t, ownedBy("ana").live(t, 120, 40))
 	closed := typing(t, opened, keyEsc)
 
 	// Act
 	view := drain(t, closed, read).View().Content
 
 	// Assert
-	refuseScreen(t, view, reviewersField)
+	refuseScreen(t, view, "┏━ Open pull request")
 }
 
-func TestOwnersAnsweringForAnotherBranchLeaveItsReviewers(t *testing.T) {
+func TestOwnersAnsweringAnEarlierComposerLeaveTheReopenedOneReading(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// Before the owners answer, the composer is closed and the branch is
-	// switched in a shell to one whose base no CODEOWNERS covers.
-	opening := ownedBy("ana")
-	opened, read := openedBeforeTheOwnersAnswer(t, opening)
-	closed := typing(t, opened, keyEsc)
-	opening.branch.Name = issuelessBranch
-	opening.codeOwners = nil
-	reopened := typing(t, closed, "r", "n")
+	// The first composer's reads have answered, though not yet been handed
+	// over, by the time it is closed and another opens, its own owners held.
+	held := newHold(t)
+	first, read := openedBeforeTheOwnersAnswer(t, heldLive(t, held, ownedBy("ana"), heldOwners))
+	earlier := answersOf(t, first, read)
+	closed := typing(t, first, keyEsc)
+
+	held.armed.Store(true)
+	reopened := holding(t, held, closed, "n")
 
 	// Act
-	view := drain(t, reopened, read).View().Content
+	answered := reopened
+	for _, msg := range earlier {
+		next, follow := held.update(t, answered, msg)
+		answered = drainPast(t, held, next, follow)
+	}
 
 	// Assert
-	requireScreen(t, view, reviewersField)
-	refuseScreen(t, view, "ana")
+	held.requireReached(t)
+	requireScreen(t, answered.View().Content, "reading what the pull request starts from")
+	refuseScreen(t, answered.View().Content, "ana")
+}
+
+// answersOf runs cmd and every command it leads to, keeping the messages they
+// answer with rather than handing them to model, so a test can hand them to
+// it later.
+func answersOf(t *testing.T, model tui.Model, cmd tea.Cmd) []tea.Msg {
+	t.Helper()
+
+	deadline := time.NewTimer(failsafe)
+	defer deadline.Stop()
+
+	var answers []tea.Msg
+
+	settle(t, model, cmd, driver{
+		run: func(next tea.Cmd) (tea.Msg, bool) { return await(t, next, deadline.C), true },
+		deliver: func(model tui.Model, msg tea.Msg) (tui.Model, tea.Cmd) {
+			answers = append(answers, msg)
+
+			return model, nil
+		},
+	})
+
+	return answers
 }
 
 func TestAKeptDraftsReviewersWinOverTheOwners(t *testing.T) {
@@ -225,10 +222,10 @@ func TestAKeptDraftsReviewersWinOverTheOwners(t *testing.T) {
 	// keeps the draft with no reviewers.
 	opening := ownedBy("ana")
 	model := opening.live(t, 120, 40)
-	erased := typing(t, model, "4", "n", keyTab, keyTab, keyBackspace, keyBackspace, keyBackspace, keyEsc)
+	erased := typing(t, model, "4", "n", keyEnter, keyTab, keyTab, keyClearLine, keyEsc)
 
 	// Act
-	typing(t, erased, "n", keyEnter)
+	typing(t, erased, "n", keyEnter, keyEnter)
 
 	// Assert
 	if calls := opening.asked("open "); len(calls) != 1 || strings.Contains(calls[0], "reviewers=") {
@@ -245,10 +242,10 @@ func TestAPullThatOpensButCannotAddReviewersIsNotLost(t *testing.T) {
 	opening.reviewerErr = fmt.Errorf("%w (ana): %w", forge.ErrSomePeopleNotAdded, forge.ErrNoUser)
 	model := opening.live(t, 200, 40)
 
-	keys := append([]string{"4", "n", keyTab, keyTab}, letters("ana")...)
+	keys := []string{"4", "n", keyEnter, keyTab, keyTab, pasted("ana"), keyEnter}
 
 	// Act
-	opened := typing(t, model, append(keys, keyEnter)...)
+	opened := typing(t, model, keys...)
 
 	// Assert
 	requireScreen(t, opened.View().Content, "opened #42",
@@ -256,60 +253,29 @@ func TestAPullThatOpensButCannotAddReviewersIsNotLost(t *testing.T) {
 	refuseScreen(t, opened.View().Content, "┏━ Open pull request")
 }
 
-func TestShiftTabStepsBackwardThroughTheComposer(t *testing.T) {
+func TestShiftTabOnTheTitleGoesBackToWhereThePullRequestGoes(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	opening := withoutPull()
-	model := opening.live(t, 120, 40)
+	saying := typing(t, withoutPull().live(t, 120, 40), "4", "n", keyEnter)
 
 	// Act
-	composer := typing(t, model, "4", "n", keyShiftTab)
+	composer := typing(t, saying, keyShiftTab)
 
 	// Assert
-	requireScreen(t, composer.View().Content, "▸ labels")
-}
-
-func TestOwnersAnsweringAnEarlierComposerLeaveARestoredDraftAlone(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// a reviewer is typed and taken back before the owners answer, and the
-	// composer is closed and opened again on its draft
-	opened, read := openedBeforeTheOwnersAnswer(t, ownedBy("ana"))
-	reopened := typing(t, opened, keyTab, keyTab, "z", keyBackspace, keyEsc, "n")
-
-	// Act
-	view := drain(t, reopened, read).View().Content
-
-	// Assert
-	requireScreen(t, view, reviewersField)
-	refuseScreen(t, view, "ana")
+	requireScreen(t, composer.View().Content, "Base", "> main")
+	refuseScreen(t, composer.View().Content, "Reviewers")
 }
 
 func TestADraftClosedBeforeTheOwnersAnsweredIsFilledOnReopening(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	opened, read := openedBeforeTheOwnersAnswer(t, ownedBy("ana"))
+	opened, read := openedBeforeTheOwnersAnswer(t, ownedBy("ana").live(t, 120, 40))
 	closed := drain(t, typing(t, opened, "x", keyEsc), read)
 
 	// Act
-	view := typing(t, closed, "n").View().Content
-
-	// Assert
-	requireScreen(t, view, reviewersField+"ana")
-}
-
-func TestMovingThroughTheReviewersLeavesThemToTheOwners(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	opened, read := openedBeforeTheOwnersAnswer(t, ownedBy("ana"))
-	moved := typing(t, opened, keyTab, keyTab, "end")
-
-	// Act
-	view := drain(t, moved, read).View().Content
+	view := typing(t, closed, "n", keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, reviewersField+"ana")

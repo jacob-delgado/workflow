@@ -56,7 +56,7 @@ func TestLinkingTakesAKeyTypedInPlaceOfTheSelection(t *testing.T) {
 	repo := onOffConventionBranch(false)
 
 	// Act
-	typing(t, repo.live(t, 120, 40), "2", "i", "ctrl+u", "#", "5", "7", keyEnter)
+	typing(t, repo.live(t, 120, 40), "2", "i", keyClearLine, "#", "5", "7", keyEnter)
 
 	// Assert
 	if linked := repo.asked("link-issue"); len(linked) != 1 || linked[0] != "link-issue my-thing 57" {

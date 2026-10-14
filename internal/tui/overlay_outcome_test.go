@@ -47,7 +47,7 @@ func TestAnOverlayShowsAFailureFully(t *testing.T) {
 		},
 		"pull request composer": {
 			prepare: func(w *world) { w.pullFound, w.openErr = false, errLongReason },
-			keys:    []string{"4", "n", keyEnter},
+			keys:    []string{"4", "n", keyEnter, keyEnter},
 		},
 		"messaging preview": {
 			prepare: func(w *world) { w.postErr = errLongReason },
@@ -67,7 +67,7 @@ func TestAnOverlayShowsAFailureFully(t *testing.T) {
 		},
 		"issue linker": {
 			prepare: func(w *world) { w.pullFound, w.linkErr = false, errLongReason },
-			keys:    []string{"4", "n", keyEnter, keyEnter},
+			keys:    []string{"4", "n", keyEnter, keyEnter, keyEnter},
 		},
 		"pull request editor": {
 			prepare: func(w *world) { w.editPullErr = errLongReason },

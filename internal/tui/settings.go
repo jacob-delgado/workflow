@@ -291,7 +291,7 @@ func (f settingsForm) footer(keys keyMap) []key.Binding {
 	case f.send.sending:
 		return []key.Binding{keys.interrupt}
 	case f.edit != nil:
-		return append(formKeys(f.edit.form), relabel(keys.saveSettings, "keep"), relabel(keys.closeOverlay, escBack))
+		return append(formKeys(f.edit.form), relabel(keys.saveSettings, settingsKeep), relabel(keys.closeOverlay, escBack))
 	case f.reading:
 		return []key.Binding{relabel(keys.closeOverlay, escClose)}
 	case f.readErr != nil:
