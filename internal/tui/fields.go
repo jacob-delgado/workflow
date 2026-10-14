@@ -84,8 +84,8 @@ func newFieldForm(move jira.Transition, kit renderKit, keys keyMap, width, rows 
 func huhField(field jira.Field, title string, answer *fieldAnswer) huh.Field {
 	switch {
 	case textual(field.Kind):
-		return huh.NewInput().Title(title).Prompt("> ").Placeholder(placeholder(field.Kind)).Value(&answer.text).
-			Validate(func(string) error { return answer.checked(field) })
+		return newQuietInput(title, "", placeholder(field.Kind), &answer.text).
+			checkedBy(func(string) error { return answer.checked(field) })
 	case field.Kind == jira.FieldOptionList:
 		// Its height is named: left to itself, Huh counts its options' rows and
 		// takes the title out of them, drawing one option too few.

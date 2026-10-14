@@ -838,25 +838,26 @@ rule stays open until the pipeline passes.
 **Reopen when.** A user asks to see the pull request and its CI as separate
 steps, or GitLab's checks are read one by one.
 
-### TRADE-46 A form's fields never blink, and the tests wait out each blink
+### TRADE-46 A form's text fields are a Huh field of our own
 
 **Decided.** The terminal's multi-field forms are Huh forms embedded in an
-overlay, and Huh builds each text field's input with a blinking cursor it
-offers no way to turn off. Every focus and every cursor move returns a command
-that waits about 530 ms of real time before its blink arrives; `relayToForm`
-in `internal/tui/huhform.go` drops that blink rather than handing it on, so no
-timer runs for the life of a form and an embedded field never blinks, as the
-interface's own inputs never have. Decided 2026-10-14 by the maintainer, with
-Huh.
+overlay, with Huh's own groups, selects and accessible prompts, but each field
+that takes typed text is `quietInput` (`internal/tui/quietinput.go`), a
+`huh.Field` of our own over a text input whose cursor never blinks. Huh's
+`Input` blinks and offers no way not to: each focus and each key schedules a
+blink that waits about half a second of real time. A running program pays
+nothing for that, since each blink cancels the one before, but a test that
+settles after every key pays it in full: with Huh's inputs the first run's
+tests went from about 8 seconds to 3 and a half minutes. Decided 2026-10-14,
+with Huh, after measuring that cost.
 
-**Cost.** The wait still happens: a running program pays nothing, since each
-new blink cancels the one before it, but a test that settles after every key
-pays the full wait per key typed into a Huh field. Adopting Huh for the status
-change's fields took the terminal's test suite from about 20 to about 40
-seconds.
+**Cost.** `quietInput` does for one line what `huh.Input` does — its title,
+hint, prompt, mask, check, keys and width — so a fix or a feature Huh adds to
+its input (suggestions, a character limit) is not ours until it is added
+here. Its accessible prompt is Huh's own input, so that one stays Huh's.
 
-**Reopen when.** Huh lets a field's cursor be static, or the suite's time
-grows enough that a form's tests need a timer they can step.
+**Reopen when.** Huh lets an input's cursor be static, or a form needs what
+only `huh.Input` offers.
 
 ### TRADE-47 An accessible form takes the whole terminal while it asks
 
