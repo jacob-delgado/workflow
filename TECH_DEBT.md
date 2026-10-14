@@ -875,4 +875,3 @@ under the picker when the interface returns.
 
 **Reopen when.** The interface gains a screen-reader mode of its own (UX-154),
 or a user of the prompts asks to see the screen while answering.
-

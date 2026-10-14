@@ -156,6 +156,7 @@ them on stderr, so there is never a question about which were read.
 | `ui.ascii` | no | Draw borders and glyphs in plain ASCII. Defaults to `false`. |
 | `ui.color` | no | `never` turns off the system hues; bold, faint and the cursor stay. Empty (the default) draws them; any other value is refused when the file loads. `NO_COLOR`, set to a non-empty value, also turns them off. |
 | `ui.motion` | no | `reduce` draws every state still: the in-flight mark does not turn, and a stage's rule and the CI bar stand where they have got rather than filling. Empty (the default) moves them; any other value is refused when the file loads. |
+| `ui.accessible` | no | Ask a form's questions as plain prompts that take the whole terminal, one at a time, for a screen reader, instead of drawing the form over the screen. Defaults to `false`; the `ACCESSIBLE` environment variable, set to anything, does the same. |
 | `ui.notify` | no | Ring the terminal (and raise a desktop notification where it relays one) when CI finishes; under `--web`, say so in the page's header. Defaults to `false`. |
 | `ui.comments_shown` | no | How many of an issue's most recent comments the detail pane draws. Defaults to 5, which `0` also keeps; a negative count is refused when the file loads. |
 | `ui.keys` | no | Rebind keys: a map from an action to the single key that triggers it, e.g. `{"commit": "C"}`. The help then shows the new key. See [Rebinding keys](#rebinding-keys) for the actions. |
@@ -691,6 +692,17 @@ third of a second when the stage completes, and the Review pane's bar of CI's
 checks springs toward the share finished. Nothing moves while the first
 screen fills in from what the services answer. Under `reduce` each is drawn
 at once where it has got; the states read the same either way.
+
+### Accessible forms
+
+`ui.accessible`, off unless you turn it on, changes how the terminal asks a
+form's questions — the fields a status change needs, for now. Drawn over the
+screen, a form redraws its field, options and cursor at once, which a screen
+reader reads poorly. With it on, or with the `ACCESSIBLE` environment variable
+set to anything, the form takes the whole terminal instead, as `$EDITOR`
+does, and asks one plain question at a time; the interface comes back once
+it has its answers. A form whose prompts end before every answer is in sends
+nothing and says why.
 
 `ui.notify`, off unless you turn it on, rings the terminal when CI finishes —
 passes or fails — so you can open a pull request, switch to something else, and

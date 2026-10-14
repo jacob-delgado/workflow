@@ -88,6 +88,12 @@ what a script can rely on from them: exit codes, which stream carries what,
   you keep as favorites.
 - **The detail pane** on the right shows the focused pane in full. Pickers,
   composers and previews open here too, and take the keyboard until they close.
+- **Dialogs** float over the screen for the list of keys (`?`), every last look
+  before an act that leaves the machine, and the checklists that narrow a
+  list: centered in the upper third, the panes faint behind them, the top row
+  and the bottom row as they were, the bottom row naming the dialog's keys. A
+  click inside one picks its row; a click outside it does nothing. Below 60
+  columns a dialog is a sheet over the whole body instead.
 - **The bottom row** shows what the focused pane can do right now; it changes
   with the pane and with what that pane has loaded. On a narrow terminal the
   keys that do not fit are dropped whole and an ellipsis says so: the keys
@@ -281,10 +287,17 @@ view drops them, as it drops the search.
 
 **Change status** (`t`) lists the transitions Jira's workflow offers from the
 issue's status. A transition that needs fields filled in says which. Choosing
-it asks for them, one at a time: a field with a fixed set of values gets a
-picker, and one that takes several of them a picker where `space` selects as
-many as you need, at least one; a text, user or date field gets an input, a
-user by username and a date written `YYYY-MM-DD`. A field of
+it asks for them in a form, one at a time: a field with a fixed set of values
+gets a picker, and one that takes several of them a picker where `space`
+selects as many as you need, at least one; a text, user or date field gets an
+input, a user by username and a date written `YYYY-MM-DD`. `enter` or `tab`
+goes on to the next field, `shift+tab` back to the one before, `enter` on the
+last one applies the change, and `esc` steps back to the transitions; each
+follows `ui.keys` as it does everywhere else. A value Jira's field check
+refuses is said under the field, in red, and nothing is sent. With
+[`ui.accessible`]({{< relref "/docs/configuration#accessible-forms" >}}) on, or `ACCESSIBLE` set,
+the form instead takes the whole terminal and asks each question as a plain
+prompt, then hands the screen back. A field of
 any other kind, such as a cascading select, is named with a pointer to Jira's
 own screen, because guessing at it would send something you did not choose.
 

@@ -323,6 +323,9 @@ without agreement on direction.
   shades. Its motion — the in-flight mark turning, a stage's rule filling, a
   bar springing — runs on frames through `Deps.After`, never `tea.Tick`, and
   only while something moves; `ui.motion: reduce` draws every state still.
+  An overlay that floats is drawn over the screen through Lip Gloss layers;
+  Update still gives every key to `m.overlay`, the dialog on top, and relays
+  everything else to a Huh form inside it.
 
 ### Design principles
 

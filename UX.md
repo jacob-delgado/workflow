@@ -399,6 +399,10 @@ boxes each frame (`view.AltScreen = true`, `internal/tui/render.go:38`),
 so a reader re-reads the rail, the borders and the footer at every
 change, and the one line that says what just happened — the notice
 (`Model.noticed`, `internal/tui/overlay.go:181`) — sits among them.
+Forms are the one part already read well: with `ui.accessible` or
+`ACCESSIBLE`, a status change's fields are asked as Huh's plain prompts,
+one question at a time (`promptedForm`, `internal/tui/huhform.go`), but
+the screen around them is unchanged.
 
 **Instead.** `ui.screen: lines` (and `--plain` for one run): no
 alternate screen, no rail, no boxes; the interface prints, and each
