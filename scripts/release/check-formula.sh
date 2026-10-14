@@ -71,7 +71,7 @@ make_tap() {
   fi
   if ! made="$(brew tap-new --no-git "${tap}" 2>&1)"; then
     printf '%s\n' "${made}" >&2
-    fail "brew could not make the tap ${tap} to audit the formula in; anything it left in ${dir} stays."
+    fail "brew tap-new failed for ${tap}, so nothing is audited; anything it made in ${dir} stays."
   fi
   printf '%s\n' "${dir}"
 }

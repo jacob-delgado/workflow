@@ -253,6 +253,8 @@ done
 
 expect_output 1 "a tap brew cannot make fails, auditing nothing" "Invalid tap name" \
   check "${formula}" BREW_STUB_TAP_NEW_FAILS=1
+expect_said "a tap brew cannot make says tap-new failed, not that nothing was made" \
+  "brew tap-new failed for workflow-check/"
 expect_no_calls "a tap brew cannot make fails, auditing nothing" --repository tap-new
 
 readonly no_brew="${workdir}/no-brew"
