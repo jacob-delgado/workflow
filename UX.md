@@ -319,13 +319,22 @@ status lights, the periwinkle control accent and each other, and at 4.5:1
 as text, by `web/src/tokens.test.ts`; that separation moves two off the
 terminal's families — the forge is teal, clear of the success light's
 green, and Taskwarrior violet. They mark whose a thing is — the active
-rail icon, each section's heading, the work story's stages and an issue's
-local branch — and never how it stands. Every state is drawn by its shape
-through one `StateMark` (`web/src/shell/StateMark.tsx:36`), hidden from
+rail icon, each section's heading, the work story's stages, the loop's
+track under the header (`web/src/shell/LoopTrack.tsx`) and an issue's
+local branch — and never how it stands. The track is the terminal's spine
+drawn for the page: five stages, each a mark and a name over a rule on the
+`--track` token that fills in its system's hue as the stage gets done, the
+Review rule by CI's share of checks; the fill is a transform under
+`motion-safe`, the page's one moving part. Every state is drawn by its shape
+through one `StateMark` (`web/src/lib/StateMark.tsx`), hidden from
 assistive tech beside its words. Type, space and corners each have one
-scale (`web/src/index.css:207`), headings are set in sentence case — the
+scale (`web/src/index.css`), headings are set in sentence case — the
 web lint refuses an `uppercase` class (`web/eslint.config.js:38`) — and
-monospace is for code alone. Periwinkle stays the one control accent, and
+the face is Recursive, latin alone (TRADE-48): proportional, `MONO` 0, for
+prose, and `MONO` 1, every letter one width, for code alone. The dialogs —
+the command palette and the `?` sheet — are Base UI's Dialog and
+Autocomplete, drawn through `web/src/lib/baseui`, over a backdrop of the
+page's own ground. Periwinkle stays the one control accent, and
 the middle dot the separator. Each part of that is drawn in one place in
 `web/src/lib`: a field (`Field.tsx`) and a button (`Button.tsx`) in one
 padding and size scale, each held with `aria-disabled` while its request
