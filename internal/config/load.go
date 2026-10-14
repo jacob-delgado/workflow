@@ -127,6 +127,52 @@ func Parse(r io.Reader) (Config, error) {
 	return cfg, nil
 }
 
+// FieldError is a validation's refusal of one setting, which it names by its
+// dotted key as the file spells it: jira.base_url, branch.slug_limit.
+type FieldError struct {
+	Key string
+	Err error
+}
+
+var _ error = FieldError{}
+
+// Error is the refusal, which already says which setting it refuses and why.
+func (e FieldError) Error() string {
+	return e.Err.Error()
+}
+
+// Unwrap is the refusal, so errors.Is still finds its kind.
+func (e FieldError) Unwrap() error {
+	return e.Err
+}
+
+// FieldErrors is each setting err refuses, in the order Parse validates
+// them, through any wrapping; none for an error that refuses no one setting,
+// such as a key the configuration does not have.
+func FieldErrors(err error) []FieldError {
+	//nolint:errorlint // each error in the tree is looked at itself: errors.As would find only the first refusal
+	switch refusal := err.(type) {
+	case FieldError:
+		return []FieldError{refusal}
+	case interface{ Unwrap() []error }:
+		var fields []FieldError
+		for _, joined := range refusal.Unwrap() {
+			fields = append(fields, FieldErrors(joined)...)
+		}
+
+		return fields
+	case interface{ Unwrap() error }:
+		return FieldErrors(refusal.Unwrap())
+	default:
+		return nil
+	}
+}
+
+// refusing is err as a refusal of the setting key.
+func refusing(key string, err error) FieldError {
+	return FieldError{Key: key, Err: err}
+}
+
 // decode reads contents over the defaults, refusing a key the configuration
 // does not have.
 func decode(contents []byte) (Config, error) {

@@ -38,7 +38,7 @@ func (c Config) validateTaskwarrior() error {
 
 	relative := program != "" && !filepath.IsAbs(program) && filepath.Base(program) != program
 	if relative || strings.ContainsAny(program, "\n\r\x00") {
-		return fmt.Errorf("%w: %q", ErrInvalidTaskwarriorProgram, program)
+		return refusing("taskwarrior.program", fmt.Errorf("%w: %q", ErrInvalidTaskwarriorProgram, program))
 	}
 
 	return nil
