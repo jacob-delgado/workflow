@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/charmbracelet/x/ansi"
@@ -24,6 +25,10 @@ var errWaitFailed = errors.New("the forge did not answer")
 func liveMarks() []string {
 	return []string{"◐", "◓", "◑", "◒"}
 }
+
+// frame is how long the live line's program takes to draw what it was told:
+// its renderer draws sixty frames a second.
+const frame = time.Second / 60
 
 // standIn is a stand-in terminal: what the live line's program, drawing
 // from goroutines of its own, has written to it so far.
@@ -50,33 +55,51 @@ func (s *standIn) String() string {
 	return s.written.String()
 }
 
-// shows waits until the terminal shows text, failing the test when it has not
-// within a few seconds: the program draws a frame at a time.
+// shows lets the live line's program draw a frame of what it was told, and
+// fails the test unless the terminal then shows text. It runs in a bubble,
+// whose fake clock moves only once every goroutine in it waits, so the frame
+// is drawn when the test lets it rather than when a real clock does.
 func (s *standIn) shows(t *testing.T, text string) {
 	t.Helper()
 
-	for range 500 {
-		if strings.Contains(ansi.Strip(s.String()), text) {
-			return
-		}
+	time.Sleep(frame)
+	synctest.Wait()
 
-		time.Sleep(10 * time.Millisecond)
+	if !strings.Contains(ansi.Strip(s.String()), text) {
+		t.Errorf("the terminal did not show %q: %q", text, s.String())
 	}
+}
 
-	t.Errorf("the terminal never showed %q: %q", text, s.String())
+// outlastTurn has the bubble t runs in outlast the mark's next turn, which is
+// still on its timer as the program ends: once t is done, a second on the
+// fake clock lets it fire, so the bubble ends with nothing in it left waiting.
+func outlastTurn(t *testing.T) {
+	t.Helper()
+
+	t.Cleanup(func() { time.Sleep(time.Second) })
 }
 
 // watching is what a wait watched on a stand-in terminal printed, and what it
-// returned.
+// returned, run in a bubble so the line's frames come on its fake clock.
 func watching(t *testing.T, wait func(*standIn, console.Wait) error) (string, error) {
 	t.Helper()
 
-	terminal := new(standIn)
+	var (
+		printed string
+		err     error
+	)
 
-	notes := console.New(terminal, console.Options{})
-	err := notes.Watched(func(watched console.Wait) error { return wait(terminal, watched) })
+	synctest.Test(t, func(t *testing.T) {
+		outlastTurn(t)
 
-	return terminal.String(), err
+		terminal := new(standIn)
+
+		notes := console.New(terminal, console.Options{})
+		err = notes.Watched(func(watched console.Wait) error { return wait(terminal, watched) })
+		printed = terminal.String()
+	})
+
+	return printed, err
 }
 
 // marked reports whether printed shows the live line's mark.

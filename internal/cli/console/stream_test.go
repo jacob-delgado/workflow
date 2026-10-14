@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"testing/synctest"
 
 	"github.com/charmbracelet/x/ansi"
 
@@ -35,28 +36,32 @@ func TestAStreamWritesStraightThroughWhileNoLineIsKept(t *testing.T) {
 func TestWhatIsWrittenToTheStreamDuringAWaitPrintsAboveItsLine(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	terminal := new(standIn)
-	stream := console.NewStream(terminal)
-	notes := console.New(stream, console.Options{})
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		outlastTurn(t)
 
-	// Act
-	err := notes.Watched(func(wait console.Wait) error {
-		wait.Doing("Checking Jira")
-		terminal.shows(t, "Checking Jira")
+		terminal := new(standIn)
+		stream := console.NewStream(terminal)
+		notes := console.New(stream, console.Options{})
 
-		_, _ = io.WriteString(stream, "jira GET /rest/api/2/myself 200 184ms\n")
+		// Act
+		err := notes.Watched(func(wait console.Wait) error {
+			wait.Doing("Checking Jira")
+			terminal.shows(t, "Checking Jira")
 
-		terminal.shows(t, "184ms")
+			_, _ = io.WriteString(stream, "jira GET /rest/api/2/myself 200 184ms\n")
 
-		return nil
+			terminal.shows(t, "184ms")
+
+			return nil
+		})
+
+		// Assert
+		shown := terminal.String()
+		if err != nil || !strings.Contains(shown, ansi.InsertLine(1)) || !strings.Contains(shown, "184ms") {
+			t.Errorf("watched = %v, the terminal was sent %q; want the line inserted above the live line", err, shown)
+		}
 	})
-
-	// Assert
-	shown := terminal.String()
-	if err != nil || !strings.Contains(shown, ansi.InsertLine(1)) || !strings.Contains(shown, "184ms") {
-		t.Errorf("watched = %v, the terminal was sent %q; want the line inserted above the live line", err, shown)
-	}
 }
 
 func TestUnderlyingIsTheStreamAStreamWritesThrough(t *testing.T) {
