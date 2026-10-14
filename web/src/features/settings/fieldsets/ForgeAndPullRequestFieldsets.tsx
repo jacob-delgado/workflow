@@ -1,3 +1,4 @@
+import { useForgeWords } from '@/api/health.ts'
 import {
   CheckboxField,
   Fieldset,
@@ -33,6 +34,26 @@ export function ForgeFieldset({ register }: { register: Register }) {
         register={register}
         name="forge.cli"
         label="Use the forge CLI for authentication"
+      />
+    </Fieldset>
+  )
+}
+
+// PullRequestFieldset is where a pull request's title comes from.
+export function PullRequestFieldset({ register }: { register: Register }) {
+  const { noun } = useForgeWords()
+
+  return (
+    <Fieldset legend="Pull request">
+      <SelectField
+        register={register}
+        name="pull_request.title_source"
+        label="Title source"
+        hint={`Where a ${noun}'s title comes from.`}
+        choices={[
+          ['', "The branch's oldest commit (default)"],
+          ['issue', 'The issue it names'],
+        ]}
       />
     </Fieldset>
   )

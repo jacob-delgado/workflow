@@ -14,8 +14,7 @@ import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
 import { cn } from '@/lib/utils.ts'
 import type { SettingsValues } from '../formValues.ts'
 import type { Removal } from '../removal.ts'
-import { CredentialRemoval } from './CredentialRemoval.tsx'
-import type { Register } from './Field.tsx'
+import { CredentialRemoval, type Register } from './Field.tsx'
 import { Failure } from '@/lib/Status.tsx'
 
 // A list the form edits row by row.
