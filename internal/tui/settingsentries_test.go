@@ -108,6 +108,7 @@ func TestANewHeaderTheFormCannotTakeIsRefused(t *testing.T) {
 		want  string
 	}{
 		{"with no name", []string{keyEnter}, "an entry needs a name"},
+		{"kept with no name", []string{saveKey}, "an entry needs a name"},
 		{"named as a stored one", append(letters(storedHeader), keyEnter), entryTaken},
 		{
 			"named as a stored one in another case", append(letters(strings.ToLower(storedHeader)), keyEnter),
@@ -302,8 +303,8 @@ func TestAViewIsTakenOnlyByOneNamedTheSame(t *testing.T) {
 		typed          string
 		want, unwanted string
 	}{
-		"named as the listed one": {typed: "Board", want: entryTaken, unwanted: "Board > "},
-		"named in another case":   {typed: "board", want: "board > ", unwanted: entryTaken},
+		"named as the listed one": {typed: "Board", want: entryTaken, unwanted: "(edited)"},
+		"named in another case":   {typed: "board", want: "> board", unwanted: entryTaken},
 	}
 
 	for name, test := range tests {
@@ -317,7 +318,7 @@ func TestAViewIsTakenOnlyByOneNamedTheSame(t *testing.T) {
 			adding := typing(t, repo.live(t, 120, 40), append(toRow(addViewRow+1), keyEnter)...)
 
 			// Act
-			view := typing(t, adding, append(letters(test.typed), keyEnter)...).View().Content
+			view := typing(t, adding, pasted(test.typed), keyEnter).View().Content
 
 			// Assert
 			requireScreen(t, view, test.want)

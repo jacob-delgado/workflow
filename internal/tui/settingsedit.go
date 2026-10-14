@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"charm.land/bubbles/v2/key"
-	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/sanitize"
@@ -221,23 +220,30 @@ func (f settingsForm) keptEntry(field setting, typed string) settingsForm {
 	return f.withEntries(field, entries)
 }
 
-// named is the form with the name of a new entry kept, asking for its value
-// next, or with why it cannot be.
-func (f settingsForm) named(field setting, typed string) settingsForm {
+// nameProblem is why a new entry cannot be named typed: left empty, or
+// named as one listed; nil once it can.
+func (f settingsForm) nameProblem(field setting, typed string) error {
 	name := strings.TrimSpace(typed)
 	listed := field.list.entries(f.value(field.path))
 
 	switch {
 	case name == "":
-		f.problem = errEntryUnnamed
+		return errEntryUnnamed
 	case slices.ContainsFunc(listed, func(each entry) bool { return field.list.sameName(each.name, name) }):
-		f.problem = errEntryTaken
+		return errEntryTaken
 	default:
-		f.adding, f.input = name, field.list.input("")
-		f.input.Prompt = sanitize.Line(name) + " > "
+		return nil
+	}
+}
+
+// valueProblem is why a new entry cannot have the value typed: it is left
+// empty.
+func valueProblem(typed string) error {
+	if strings.TrimSpace(typed) == "" {
+		return errEntryEmpty
 	}
 
-	return f
+	return nil
 }
 
 // sameName reports that two names are one entry's.
@@ -249,24 +255,26 @@ func (c collection) sameName(listed, typed string) bool {
 	return c.matchedBy(listed) == c.matchedBy(typed)
 }
 
-// added is the form with a new entry, named before, of the value typed, or
-// with why it cannot be.
-func (f settingsForm) added(field setting, typed string) settingsForm {
+// added is the form with a new entry of the name and value typed, or with
+// why it cannot be. A credential's value is kept as typed, spaces and all.
+func (f settingsForm) added(field setting, name, typed string) (settingsForm, error) {
+	err := f.nameProblem(field, name)
+	if err == nil {
+		err = valueProblem(typed)
+	}
+
+	if err != nil {
+		return f, err
+	}
+
 	value := strings.TrimSpace(typed)
 	if field.list.secret {
 		value = typed
 	}
 
-	if value == "" {
-		f.problem = errEntryEmpty
+	entries := append(field.list.entries(f.value(field.path)), entry{name: strings.TrimSpace(name), value: value})
 
-		return f
-	}
-
-	entries := append(field.list.entries(f.value(field.path)), entry{name: f.adding, value: value})
-	f.editing, f.adding = false, ""
-
-	return f.withEntries(field, entries)
+	return f.withEntries(field, entries), nil
 }
 
 // removedEntry is the form without the entry the cursor is on: an edit like
@@ -277,19 +285,6 @@ func (f settingsForm) removedEntry(field setting) settingsForm {
 	})
 
 	return f.withEntries(field, entries)
-}
-
-// input is the field an entry's value is typed into: a credential's echoing
-// nothing, so what is typed never reaches the screen.
-func (c collection) input(text string) textinput.Model {
-	input := newInput(text)
-	input.Placeholder = c.valueWord
-
-	if c.secret {
-		input.EchoMode = textinput.EchoNone
-	}
-
-	return input
 }
 
 // isEdited reports that a setting was changed since the read: an entry when
@@ -334,9 +329,9 @@ func keysOf(actions []seams.KeyAction) collection {
 	return collection{title: "Key", noun: "key", nameWord: "action", valueWord: "key", actions: actions}
 }
 
-// toggled turns a setting that is on or off, on enter or space.
+// toggled turns a setting that is on or off in place, on space.
 func (f settingsForm) toggled(keys keyMap, msg tea.KeyPressMsg, field setting) settingsForm {
-	if !key.Matches(msg, keys.confirm, keys.toggleOption) {
+	if !key.Matches(msg, keys.toggleOption) {
 		return f
 	}
 
@@ -346,55 +341,16 @@ func (f settingsForm) toggled(keys keyMap, msg tea.KeyPressMsg, field setting) s
 	return f.with(field.path, !on).laidOut()
 }
 
-// chosen moves a choice on, on enter or →, or back, on ←.
+// chosen moves a choice on in place, on →, or back, on ←.
 func (f settingsForm) chosen(keys keyMap, msg tea.KeyPressMsg, field setting) settingsForm {
 	switch {
-	case key.Matches(msg, keys.confirm, keys.cycleRight):
+	case key.Matches(msg, keys.cycleRight):
 		return f.with(field.path, field.cycled(f.text(field), 1))
 	case key.Matches(msg, keys.cycleLeft):
 		return f.with(field.path, field.cycled(f.text(field), -1))
 	default:
 		return f
 	}
-}
-
-// startEditing opens a setting's field on enter.
-func (f settingsForm) startEditing(keys keyMap, msg tea.KeyPressMsg, field setting) settingsForm {
-	if !key.Matches(msg, keys.confirm) {
-		return f
-	}
-
-	f.editing, f.input, f.adding = true, f.typingInput(field), ""
-
-	return f
-}
-
-// typingInput is the field a setting is typed into: a collection entry's
-// own; a credential's empty and echoing nothing, so what is typed for it
-// never reaches the screen; the adding row's with its noun as a placeholder;
-// and any other kind's holding its value as shown. Only a setting typed into
-// asks: changeKey toggles a toggle and moves a choice.
-func (f settingsForm) typingInput(field setting) textinput.Model {
-	if field.kind == settingEntry {
-		value := f.entryValue(field)
-		if field.list.secret {
-			value = ""
-		}
-
-		return field.list.input(value)
-	}
-
-	input := newInput(f.editedText(field))
-
-	if field.kind == settingSecret {
-		input.EchoMode = textinput.EchoNone
-	}
-
-	if field.kind == settingAdd {
-		input.Placeholder = field.list.nameWord
-	}
-
-	return input
 }
 
 // text is a setting's value as text.
@@ -408,55 +364,6 @@ func (f settingsForm) text(field setting) string {
 func (f settingsForm) with(path string, value any) settingsForm {
 	f.edits = maps.Clone(f.edits)
 	f.edits[path] = value
-
-	return f
-}
-
-// editKey answers a key while a setting's field is being edited: enter keeps
-// what was typed, esc backs out, and every other key types.
-func (f settingsForm) editKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	switch {
-	case key.Matches(msg, m.keys.closeOverlay):
-		f.editing, f.adding, f.problem = false, "", nil
-	case key.Matches(msg, m.keys.confirm):
-		f = f.kept()
-	default:
-		f.input, _ = f.input.Update(msg)
-		f.problem = nil
-	}
-
-	m.overlay = f
-
-	return m, nil
-}
-
-// kept is the form with what was typed kept as the setting's value, or with
-// why it cannot be.
-func (f settingsForm) kept() settingsForm {
-	field := f.current()
-
-	switch {
-	case field.kind == settingEntry:
-		f.editing = false
-
-		return f.keptEntry(field, f.input.Value())
-	case field.kind == settingAdd && f.adding == "":
-		return f.named(field, f.input.Value())
-	case field.kind == settingAdd:
-		return f.added(field, f.input.Value())
-	}
-
-	value, changes, err := typedValue(field, f.input.Value())
-	if err != nil {
-		f.problem = err
-
-		return f
-	}
-
-	f.editing = false
-	if changes {
-		f = f.with(field.path, value)
-	}
 
 	return f
 }

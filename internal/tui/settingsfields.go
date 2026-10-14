@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 
+	"charm.land/bubbles/v2/key"
+
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
@@ -386,19 +388,26 @@ func keyboardSettings(actions []seams.KeyAction) []setting {
 		"A key two actions would share where both work is refused when you save.", nil)...)
 }
 
-// verb is what enter does to a setting.
+// verb is what enter does to a setting: opens a form to edit it, or, on the
+// row that adds an entry, to add one.
 func (s setting) verb() string {
-	verb := "edit"
-
-	switch s.kind {
-	case settingToggle:
-		verb = "turn on or off"
-	case settingChoice:
-		verb = "change"
-	case settingAdd:
-		verb = "add"
-	case settingText, settingURL, settingSecret, settingCount, settingList, settingEntry:
+	if s.kind == settingAdd {
+		return "add"
 	}
 
-	return verb
+	return "edit"
+}
+
+// quickKeys are the keys that change a setting in place, without a form: a
+// toggle's space, and a choice's arrows.
+func (s setting) quickKeys(keys keyMap) []key.Binding {
+	if s.kind == settingToggle {
+		return []key.Binding{relabel(keys.toggleOption, "turn on or off")}
+	}
+
+	if s.kind == settingChoice {
+		return []key.Binding{relabel(keys.cycleLeft, "change")}
+	}
+
+	return nil
 }

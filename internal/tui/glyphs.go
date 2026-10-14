@@ -36,6 +36,8 @@ type glyphs struct {
 	// prompt leads the directory picker's field, and switchHere its row that
 	// switches to where the field points.
 	prompt, switchHere string
+	// focusBar runs down the left of the form field that has the keyboard.
+	focusBar string
 	// helpSeparator separates keys in the footer; upKey, downKey, leftKey,
 	// rightKey and sideways name the arrow keys in it.
 	helpSeparator, upKey, downKey, leftKey, rightKey, sideways string
@@ -53,6 +55,7 @@ func unicodeGlyphs() glyphs {
 		arrow: " → ", separator: " · ", trackFilled: "━", trackOpen: "─",
 		ellipsis: "…", ahead: "↑", behind: "↓", chosenOpen: "‹", chosenClose: "›", favorite: "★",
 		prompt: "› ", switchHere: "↳ ",
+		focusBar:      "┃",
 		helpSeparator: " • ", upKey: "↑", downKey: "↓", leftKey: "←", rightKey: "→", sideways: "←/→",
 		border: frame.Light,
 	}
@@ -69,6 +72,7 @@ func asciiGlyphs() glyphs {
 		arrow: " -> ", separator: " - ", trackFilled: "=", trackOpen: "-",
 		ellipsis: "...", ahead: "+", behind: "-", chosenOpen: "<", chosenClose: ">", favorite: "^",
 		prompt: "> ", switchHere: "-> ",
+		focusBar:      "|",
 		helpSeparator: " | ", upKey: "up", downKey: "down", leftKey: "left", rightKey: "right", sideways: "left/right",
 		border: frame.LightASCII,
 	}

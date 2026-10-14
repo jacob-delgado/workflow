@@ -128,8 +128,10 @@ func (f settingsForm) shown(field setting) string {
 	value := f.value(field.path)
 	text, _ := value.(string)
 
+	// The row that adds an entry holds no value of its own, so it shows the
+	// empty text it reads as.
 	switch field.kind {
-	case settingText, settingToggle:
+	case settingText, settingToggle, settingAdd:
 		return sanitize.Line(text)
 	case settingSecret:
 		if _, typed := f.edits[field.path]; typed {
@@ -149,8 +151,6 @@ func (f settingsForm) shown(field setting) string {
 		return field.words(text)
 	case settingEntry:
 		return f.shownEntry(field)
-	case settingAdd:
-		return ""
 	}
 
 	return sanitize.Line(text)

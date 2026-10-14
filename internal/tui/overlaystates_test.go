@@ -208,7 +208,7 @@ func overlayStates() map[string][]overlayState {
 			stateAt(newWorld, settingsAt(tokenRow)...),
 			stateAt(newWorld, settingsAt(markdownRow)...),
 			stateAt(newWorld, settingsAt(messagingKindRow)...),
-			stateAt(newWorld, settingsAt(tokenRow, applyAction)...),
+			formState(newWorld, settingsAt(markdownRow, applyAction)...),
 			stateAt(unreadableSettings, reposKey, "settings")),
 		named("the setup form",
 			formStateFrom(withNoFile, applyAction),

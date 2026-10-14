@@ -6,10 +6,10 @@ package tui
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
-	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
@@ -38,9 +38,10 @@ const settingsTitle = "Settings"
 const settingsAbout = "A save reopens workflow here, so it applies at once."
 
 // settingsForm is Settings: the configuration the web's Settings edits, a row
-// per setting under its section, each credential masked. enter edits a row,
-// and a save writes every edit together over the read, as the web's does, so
-// a file changed since is refused rather than written over.
+// per setting under its section, each credential masked. enter opens a Huh
+// form for a row — its section's settings together, an entry's value, or a
+// new entry — and a save writes every edit together over the read, as the
+// web's does, so a file changed since is refused rather than written over.
 type settingsForm struct {
 	// noun is the forge's word for a pull request, and actions the keys the
 	// interface binds, which the fields are laid out with.
@@ -60,11 +61,8 @@ type settingsForm struct {
 	// edits are the values changed since the read, by setting path.
 	edits    map[string]any
 	selected int
-	editing  bool
-	// adding is the name of an entry being added, kept while its value is
-	// asked; empty while its name is.
-	adding  string
-	input   textinput.Model
+	// edit is the form open over the rows, nil while none is.
+	edit    *settingsEdit
 	problem error
 	send    sendState
 	// said is what the last removal did, until the next key.
@@ -74,6 +72,7 @@ type settingsForm struct {
 var (
 	_ failable[settingsForm] = settingsForm{}
 	_ pasteable              = settingsForm{}
+	_ relaying               = settingsForm{}
 )
 
 // canEditSettings reports that the configuration files can be read.
@@ -146,7 +145,7 @@ func (f settingsForm) value(path string) any {
 // view draws the settings under their sections, the selected one's hint, and
 // how a save is going.
 func (f settingsForm) view(kit renderKit, width, rows int) (string, string) {
-	head := splitLines(wrap("Saves to "+f.shownPath+". "+settingsAbout, width), "")
+	head := f.head(width)
 
 	switch {
 	case f.reading:
@@ -156,9 +155,19 @@ func (f settingsForm) view(kit renderKit, width, rows int) (string, string) {
 	}
 
 	foot := splitLines(f.footLines(kit, width)...)
+	if f.edit != nil {
+		return settingsTitle, strings.Join(slices.Concat(head, []string{"", f.edit.form.View()}, foot), "\n")
+	}
+
 	list := f.rows(kit, width, rows-len(head)-len(foot))
 
 	return settingsTitle, strings.Join(append(append(head, list...), foot...), "\n")
+}
+
+// head is what Settings says above its rows, or a form open over them: where
+// it saves, and a blank line.
+func (f settingsForm) head(width int) []string {
+	return splitLines(wrap("Saves to "+f.shownPath+". "+settingsAbout, width), "")
 }
 
 // splitLines is text broken at each line break, so what it is drawn in can be
@@ -167,19 +176,13 @@ func splitLines(texts ...string) []string {
 	return strings.Split(strings.Join(texts, "\n"), "\n")
 }
 
-// footLines are the selected setting's hint, its field while it is edited,
-// and the outcome of the last key.
+// footLines are the selected setting's hint, which a form open over the
+// rows gives its fields instead, and the outcome of the last key.
 func (f settingsForm) footLines(kit renderKit, width int) []string {
 	lines := []string{""}
 
-	if hint := f.current().hint; hint != "" {
+	if hint := f.current().hint; hint != "" && f.edit == nil {
 		lines = append(lines, wrap(hint, width))
-	}
-
-	if f.editing {
-		input := f.input
-		input.SetWidth(max(1, width-len(input.Prompt)-1))
-		lines = append(lines, "", input.View())
 	}
 
 	if f.problem != nil {
@@ -253,32 +256,50 @@ func (f settingsForm) failed(err error) settingsForm {
 
 // pasted types a paste into the field being edited, as typing it would.
 func (f settingsForm) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
-	if !f.editing || f.send.sending {
+	if f.send.sending {
 		return m, nil
 	}
 
-	f.input, _ = f.input.Update(paste)
-	m.overlay = f
-
-	return m, nil
+	return f.relay(m, paste)
 }
 
-// footer offers what the form can do now: keep or back out of a field being
-// edited; otherwise move, change the selected setting, save, reload after a
-// refusal, and close.
+// resized fits the form open over the rows, while one is, to the pane at the
+// screen's new size.
+func (f settingsForm) resized(m Model) (Model, tea.Cmd) {
+	if f.edit == nil {
+		return m, nil
+	}
+
+	return m, f.fitEdit(m)
+}
+
+// relay hands a message to the form open over the rows, while one is, and
+// fits it again to the rows a refusal it now says leaves it.
+func (f settingsForm) relay(m Model, msg tea.Msg) (Model, tea.Cmd) {
+	if f.edit == nil {
+		return m, nil
+	}
+
+	return m, tea.Batch(relayToForm(f.edit.form, msg), f.fitEdit(m))
+}
+
+// footer offers what Settings can do now: what the open form's field
+// answers, keeping what it holds, and backing out of it; otherwise move,
+// change the selected setting, save, reload after a refusal, and close.
 func (f settingsForm) footer(keys keyMap) []key.Binding {
 	switch {
 	case f.send.sending:
 		return []key.Binding{keys.interrupt}
-	case f.editing:
-		return []key.Binding{relabel(keys.confirm, "keep"), relabel(keys.closeOverlay, escBack)}
+	case f.edit != nil:
+		return append(formKeys(f.edit.form), relabel(keys.saveSettings, "keep"), relabel(keys.closeOverlay, escBack))
 	case f.reading:
 		return []key.Binding{relabel(keys.closeOverlay, escClose)}
 	case f.readErr != nil:
 		return []key.Binding{relabel(keys.refresh, "try again"), relabel(keys.closeOverlay, escClose)}
 	}
 
-	offered := []key.Binding{keys.up, keys.down, relabel(keys.confirm, f.current().verb())}
+	offered := append([]key.Binding{keys.up, keys.down, relabel(keys.confirm, f.current().verb())},
+		f.current().quickKeys(keys)...)
 	if f.removable(f.current()) {
 		offered = append(offered, keys.removeEntry)
 	}
@@ -301,7 +322,7 @@ func (f settingsForm) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case f.send.sending:
 		return m, nil
-	case f.editing:
+	case f.edit != nil:
 		return f.editKey(m, msg)
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
@@ -309,13 +330,23 @@ func (f settingsForm) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m.openSettings()
 	case f.reading || f.readErr != nil:
 		return m, nil
-	case key.Matches(msg, m.keys.saveSettings, m.keys.removeEntry):
-		f.problem, f.send, f.said = nil, sendState{}, ""
-
-		return f.written(m, msg)
 	}
 
 	f.problem, f.send, f.said = nil, sendState{}, ""
+
+	return f.acted(m, msg)
+}
+
+// acted answers a key on the rows: save or remove write, enter opens the
+// selected row's form, and any other key moves or changes in place.
+func (f settingsForm) acted(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, m.keys.saveSettings, m.keys.removeEntry):
+		return f.written(m, msg)
+	case key.Matches(msg, m.keys.confirm):
+		return f.startEditing(m)
+	}
+
 	m.overlay = f.changeKey(m.keys, msg)
 
 	return m, nil
@@ -324,7 +355,8 @@ func (f settingsForm) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // which names Settings.
 func (settingsForm) which() overlayKind { return overlaySettings }
 
-// changeKey moves through the settings or changes the selected one.
+// changeKey moves through the settings, or changes the selected one where
+// a key does so in place: a toggle turned, or a choice moved on.
 func (f settingsForm) changeKey(keys keyMap, msg tea.KeyPressMsg) settingsForm {
 	if key.Matches(msg, keys.cursorKeys()...) {
 		f.selected = max(0, min(f.selected+keys.stepOf(msg), len(f.fields)-1))
@@ -334,13 +366,12 @@ func (f settingsForm) changeKey(keys keyMap, msg tea.KeyPressMsg) settingsForm {
 
 	field := f.current()
 
-	switch field.kind {
-	case settingToggle:
+	if field.kind == settingToggle {
 		return f.toggled(keys, msg, field)
-	case settingChoice:
+	}
+
+	if field.kind == settingChoice {
 		return f.chosen(keys, msg, field)
-	case settingText, settingURL, settingSecret, settingCount, settingList, settingEntry, settingAdd:
-		return f.startEditing(keys, msg, field)
 	}
 
 	return f
