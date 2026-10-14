@@ -319,7 +319,7 @@ post-summary        Post the summary
 
 switch-directory    Switch to the selected directory
 favorite-directory  Add the selected directory to your favorites
-go-to-directory     Type a directory to switch to
+go-to-directory     Browse for a directory to switch to
 settings            Settings:
 local-data          Local data:
 
