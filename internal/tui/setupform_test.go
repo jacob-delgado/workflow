@@ -43,10 +43,16 @@ type firstRun struct {
 	where  setup.Where
 	stored string
 	status int
+	// held keeps Jira from answering once armed, when it is set.
+	held *hold
 }
 
 // jira is a Jira that answers who the token is with the run's status.
 func (r *firstRun) jira(request *http.Request) (*http.Response, error) {
+	if r.held != nil {
+		r.held.wait()
+	}
+
 	return &http.Response{
 		StatusCode: r.status, Header: http.Header{"Content-Type": {"application/json"}},
 		Body:    io.NopCloser(strings.NewReader(`{"displayName":"Fred F. User","name":"fred"}`)),
@@ -189,7 +195,7 @@ func TestSetUpWritesTheFileWithTheTokenInTheKeychainAndReopens(t *testing.T) {
 
 	// Arrange
 	run := newFirstRun(t, http.StatusOK)
-	answered := typing(t, run.model(t, false), throughEveryQuestionAtHome("up")...)
+	answered := typing(t, run.model(t, false), throughEveryQuestionAtHome(keyHome)...)
 
 	// Act
 	written, cmd := pressed(t, answered, keyEnter)
@@ -398,7 +404,7 @@ func TestSetUpsLastLookNamesEveryAnswerButTheCredentials(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	asked := typing(t, newFirstRun(t, http.StatusOK).model(t, false), throughEveryQuestionAtHome("up")...)
+	asked := typing(t, newFirstRun(t, http.StatusOK).model(t, false), throughEveryQuestionAtHome(keyHome)...)
 
 	// Assert
 	view := asked.View().Content
@@ -414,13 +420,17 @@ func TestSetUpSaysTheCheckRunsWhileJiraIsAsked(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
+	run := newFirstRun(t, http.StatusOK)
+	run.held = newHold(t)
 	keys := toTheToken()
-	typed := typing(t, newFirstRun(t, http.StatusOK).model(t, false), keys[:len(keys)-1]...)
+	typed := typing(t, run.model(t, false), keys[:len(keys)-1]...)
+	run.held.armed.Store(true)
 
 	// Act
-	asking, _ := pressed(t, typed, keyEnter)
+	asking := holding(t, run.held, typed, keyEnter)
 
 	// Assert
+	run.held.requireReached(t)
 	requireScreen(t, asking.View().Content, "checking the token with Jira")
 }
 
@@ -582,4 +592,35 @@ func TestSetUpTypesTheAddressAgainWhenItIsNotOne(t *testing.T) {
 
 	// Assert
 	requireScreen(t, again.View().Content, "Jira's address, such as")
+}
+
+func TestSetUpShowsNoFrameWithTheTokenInIt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	keys := append([]string{keyEnter, keyEnter}, append(letters(firstRunJira), keyEnter)...)
+	model := typing(t, newFirstRun(t, http.StatusOK).model(t, false), keys...)
+
+	// Act & Assert
+	for count, letter := range letters(firstRunToken) {
+		model = typing(t, model, letter)
+		if typed := firstRunToken[:count+1]; len(typed) > 3 && strings.Contains(plain(model.View().Content), typed) {
+			t.Fatalf("a frame shows %q of the token as it is typed:\n%s", typed, plain(model.View().Content))
+		}
+	}
+}
+
+func TestSetUpsFooterKeepsEscAtEightyColumns(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	run := newFirstRun(t, http.StatusOK)
+	model := sized(t, tui.New(config.Default(), config.ErrNotFound, run.deps(t)), 80, 24)
+	model = drain(t, model, model.Init())
+
+	// Act
+	asked := typing(t, model, keyEnter, keyEnter)
+
+	// Assert
+	requireScreen(t, footerLine(asked.View().Content), "esc back")
 }

@@ -169,8 +169,18 @@ func (motionTick) apply(m Model) (Model, tea.Cmd) {
 	return m.nextFrame(nil)
 }
 
-// reading reports whether any pane's read is out.
+// waiter is an overlay that can be waiting on an answer it says it waits
+// for, turning the in-flight mark as a pane's read does.
+type waiter interface {
+	waiting() bool
+}
+
+// reading reports whether any pane's read is out, or the open overlay waits.
 func (m Model) reading() bool {
+	if overlay, waits := m.overlay.(waiter); waits && overlay.waiting() {
+		return true
+	}
+
 	for each := range pane(paneCount) {
 		if behaviorOf(each).loading(m) {
 			return true

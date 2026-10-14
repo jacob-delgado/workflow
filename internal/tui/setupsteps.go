@@ -4,14 +4,14 @@
 package tui
 
 import (
-	"charm.land/bubbles/v2/textinput"
+	"fmt"
 
-	"github.com/jacob-delgado/workflow/internal/config"
+	"charm.land/huh/v2"
+
 	"github.com/jacob-delgado/workflow/internal/setup"
 )
 
-// setupStep is a question the first run's form asks, in the order it asks
-// them: config init's questions, one at a time.
+// setupStep is a question the first run asks: config init's questions.
 type setupStep int
 
 const (
@@ -21,7 +21,22 @@ const (
 	stepCheckFailed
 	stepKeychain
 	stepWebhook
-	stepWrite
+)
+
+// setupKind is which of the first run's forms is asking: Jira's, with the
+// place the file goes; the token or the address again; what to do about a
+// check that did not pass; the keychain and the webhook; the webhook alone;
+// or the last look before the write, which is no form.
+type setupKind int
+
+const (
+	askingJira setupKind = iota
+	askingToken
+	askingAddress
+	askingAfterFailure
+	askingRest
+	askingWebhook
+	askingWrite
 )
 
 // failedChoice is a choice offered after a check that did not pass.
@@ -44,21 +59,6 @@ func (c failedChoice) label() string {
 		failedKeep:        "Keep them anyway",
 		failedLeaveOut:    "Leave Jira out",
 	}[c]
-}
-
-// The keychain's choices, in order.
-const (
-	keychainChosen = iota
-	keychainDeclined
-)
-
-// question is what the form asks now.
-func (f setupForm) question() string {
-	if f.step == stepWrite {
-		return "Write " + f.shown[f.place] + "?"
-	}
-
-	return setupQuestions()[f.step].ask
 }
 
 // setupQuestion is a question's words, and the hint under its field.
@@ -89,8 +89,119 @@ func setupQuestions() map[setupStep]setupQuestion {
 			hint: "Typed without showing it, and saved unchecked: a webhook cannot be checked without " +
 				"posting. Blank posts with your Slack user token; run `workflow slack login` for it.",
 		},
-		stepWrite: {ask: "", hint: ""},
 	}
+}
+
+// setupBound is what the first run's fields write into as they are answered.
+// Each form binds the same one, so an answer typed in one form is there when
+// another asks it again.
+type setupBound struct {
+	place                   int
+	address, token, webhook string
+	failed                  failedChoice
+	keychain                bool
+}
+
+// setupGroups are the groups a form of the kind asks, and the first field it
+// shows: a group whose question does not apply now is hidden. The last look
+// before the write is no form, and has none.
+//
+//nolint:ireturn // a form's first field is any of Huh's field kinds
+func (f setupForm) setupGroups(kind setupKind) ([]*huh.Group, huh.Field) {
+	place, address, token := f.placeField(), f.addressField(), f.tokenField()
+	keychain, webhook, failed := f.keychainField(), f.webhookField(), f.failedField()
+	noToken := func() bool { return trimmed(f.bound.address) == "" }
+	noKeychain := func() bool { return !f.keychainOffered() || trimmed(f.bound.address) == "" }
+
+	groups := map[setupKind][]*huh.Group{
+		askingJira:         {huh.NewGroup(place), huh.NewGroup(address), huh.NewGroup(token).WithHideFunc(noToken)},
+		askingToken:        {huh.NewGroup(token)},
+		askingAddress:      {huh.NewGroup(address), huh.NewGroup(token).WithHideFunc(noToken)},
+		askingAfterFailure: {huh.NewGroup(failed)},
+		askingRest:         {huh.NewGroup(keychain).WithHideFunc(noKeychain), huh.NewGroup(webhook)},
+		askingWebhook:      {huh.NewGroup(webhook)},
+		askingWrite:        nil,
+	}
+	firsts := map[setupKind]huh.Field{
+		askingJira: place, askingToken: token, askingAddress: address, askingAfterFailure: failed,
+		askingRest: keychain, askingWebhook: webhook, askingWrite: nil,
+	}
+
+	if kind == askingRest && noKeychain() {
+		return groups[kind], webhook
+	}
+
+	return groups[kind], firsts[kind]
+}
+
+// placeField asks where the file goes, each place with what sees it.
+func (f setupForm) placeField() *huh.Select[int] {
+	width := 0
+	for _, shown := range f.shown {
+		width = max(width, len(shown))
+	}
+
+	options := make([]huh.Option[int], 0, len(f.offer.Places))
+	for index, place := range f.offer.Places {
+		options = append(options, huh.NewOption(fmt.Sprintf("%-*s  %s", width, f.shown[index], placeSeenBy(place.Place)),
+			index))
+	}
+
+	question := setupQuestions()[stepPlace]
+
+	return huh.NewSelect[int]().Title(question.ask).Description(question.hint).Options(options...).
+		Value(&f.bound.place)
+}
+
+// addressField asks Jira's address.
+func (f setupForm) addressField() *quietInput {
+	question := setupQuestions()[stepJiraURL]
+
+	return newQuietInput(question.ask, question.hint, "", &f.bound.address)
+}
+
+// tokenField asks Jira's token, showing none of it.
+func (f setupForm) tokenField() *quietInput {
+	question := setupQuestions()[stepJiraToken]
+
+	return newQuietInput(question.ask, question.hint, "", &f.bound.token).secret()
+}
+
+// failedField asks what to do about a check that did not pass.
+func (f setupForm) failedField() *huh.Select[failedChoice] {
+	choices := f.failedChoices()
+
+	options := make([]huh.Option[failedChoice], 0, len(choices))
+	for _, choice := range choices {
+		options = append(options, huh.NewOption(choice.label(), choice))
+	}
+
+	return huh.NewSelect[failedChoice]().Title(setupQuestions()[stepCheckFailed].ask).Options(options...).
+		Value(&f.bound.failed)
+}
+
+// keychainField asks where the token is kept.
+func (f setupForm) keychainField() *huh.Select[bool] {
+	return huh.NewSelect[bool]().Title(setupQuestions()[stepKeychain].ask).Options(
+		huh.NewOption("In your keychain, out of the file", true),
+		huh.NewOption("In the file, which only you can read", false),
+	).Value(&f.bound.keychain)
+}
+
+// webhookField asks the messaging webhook, showing none of it.
+func (f setupForm) webhookField() *quietInput {
+	question := setupQuestions()[stepWebhook]
+
+	return newQuietInput(question.ask, question.hint, "", &f.bound.webhook).secret()
+}
+
+// placeSeenBy is what sees a file put in place.
+func placeSeenBy(place setup.Place) string {
+	if place == setup.Home {
+		return "your home directory"
+	}
+
+	return "this repository"
 }
 
 // failedChoices are what a check that did not pass offers, in order: an
@@ -103,142 +214,26 @@ func (f setupForm) failedChoices() []failedChoice {
 	return []failedChoice{failedTypeAgain, failedKeep, failedLeaveOut}
 }
 
-// previous is the question asked before this one.
-func (f setupForm) previous() setupStep {
-	switch f.step {
-	case stepPlace, stepJiraURL:
-		return stepPlace
-	case stepJiraToken:
-		return stepJiraURL
-	case stepCheckFailed, stepKeychain:
-		return stepJiraToken
-	case stepWebhook:
-		return f.beforeWebhook()
-	case stepWrite:
-		return stepWebhook
-	}
-
-	return stepPlace
-}
-
-// beforeWebhook is the question asked before the webhook's: the keychain's,
-// Jira's token, or Jira's address when it was left out.
-func (f setupForm) beforeWebhook() setupStep {
-	switch {
-	case f.answers.Jira.BaseURL == "":
-		return stepJiraURL
-	case f.keychainOffered():
-		return stepKeychain
-	default:
-		return stepJiraToken
-	}
-}
-
-// afterJiraURL is the question asked once Jira's address is answered: its
-// token, or, with Jira left out, the webhook.
-func (f setupForm) afterJiraURL() setupStep {
-	if f.answers.Jira.BaseURL == "" {
-		return stepWebhook
-	}
-
-	return stepJiraToken
-}
-
-// afterJira is the question asked once Jira's address and token are kept.
-func (f setupForm) afterJira() setupStep {
-	if f.keychainOffered() {
-		return stepKeychain
-	}
-
-	return stepWebhook
-}
-
 // keychainOffered reports a keychain that can keep the token for the file
 // chosen, in the item for Jira's address, which any file may read.
 func (f setupForm) keychainOffered() bool {
-	return f.offer.Places[f.place].Keychain
+	return f.offer.Places[f.bound.place].Keychain
 }
 
-// at is the form asking step: a field to type into, empty for a credential
-// and echoing nothing, or a list with the cursor on the answer given.
-func (f setupForm) at(step setupStep) setupForm {
-	f.step, f.choice, f.send = step, 0, sendState{}
-
-	switch step {
-	case stepPlace:
-		f.choice = f.place
-	case stepJiraURL:
-		f.input = newInput(f.answers.Jira.BaseURL)
-	case stepJiraToken, stepWebhook:
-		f.input = newInput("")
-		f.input.EchoMode = textinput.EchoNone
-	case stepKeychain:
-		if !f.keychain {
-			f.choice = keychainDeclined
-		}
-	case stepCheckFailed, stepWrite:
+// backTo is the form esc goes back to from the first field of one of the
+// kind, other than Jira's own, which esc cancels: the webhook from the last
+// look; Jira's form from the address typed again; the address from the token
+// typed again, and wherever Jira was left out; and the token otherwise, from
+// the keychain or the check's choices.
+func (f setupForm) backTo(kind setupKind) setupKind {
+	switch {
+	case kind == askingWrite:
+		return askingWebhook
+	case kind == askingAddress:
+		return askingJira
+	case kind == askingToken || trimmed(f.bound.address) == "":
+		return askingAddress
+	default:
+		return askingToken
 	}
-
-	return f
-}
-
-// choiceCount is how many rows the list asked now has: the choices after a
-// failed check, the keychain's two, or, for any other list, the places the
-// file can go. Only a list asks; see isChoice.
-func (f setupForm) choiceCount() int {
-	const keychainChoices = 2
-
-	if f.step == stepCheckFailed {
-		return len(f.failedChoices())
-	}
-
-	if f.step == stepKeychain {
-		return keychainChoices
-	}
-
-	return len(f.offer.Places)
-}
-
-// chosen is the form with the row the cursor is on as the answer, on the
-// question that answer leads to. Only a list asks, see isChoice, so any other
-// step is left as it is.
-func (f setupForm) chosen() setupForm {
-	if f.step == stepPlace {
-		// The keychain is offered first wherever it can keep the token: it
-		// keeps the token out of the file.
-		f.place = f.choice
-		f.keychain = f.keychainOffered()
-
-		return f.at(stepJiraURL)
-	}
-
-	if f.step == stepKeychain {
-		f.keychain = f.choice == keychainChosen
-
-		return f.at(stepWebhook)
-	}
-
-	if f.step == stepCheckFailed {
-		return f.afterFailedCheck()
-	}
-
-	return f
-}
-
-// afterFailedCheck types the token or the address again, keeps Jira's
-// answers unchecked, or leaves Jira out, as chosen.
-func (f setupForm) afterFailedCheck() setupForm {
-	switch f.failedChoices()[f.choice] {
-	case failedTypeAgain:
-		return f.at(stepJiraToken)
-	case failedTypeAddress:
-		return f.at(stepJiraURL)
-	case failedKeep:
-		return f.at(f.afterJira())
-	case failedLeaveOut:
-	}
-
-	f.answers.Jira = config.Jira{}
-
-	return f.at(stepWebhook)
 }

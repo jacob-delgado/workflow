@@ -102,7 +102,11 @@ func stateFrom(start func(t *testing.T, moved map[string]tea.KeyPressMsg) tui.Mo
 // formState is the state a world's session reaches by steps into a Huh form,
 // opened afresh for every press probed.
 func formState(made func() *world, steps ...string) overlayState {
-	state := stateAt(made, steps...)
+	return afresh(stateAt(made, steps...))
+}
+
+// afresh is state opened again for every press probed, as a Huh form's is.
+func afresh(state overlayState) overlayState {
 	state.afresh = true
 
 	return state

@@ -227,3 +227,11 @@ func (q *quietInput) accessible() *huh.Input {
 	return huh.NewInput().Title(q.title).Description(q.description).Placeholder(q.placeholder).
 		EchoMode(huh.EchoMode(q.echo)).Value(q.value).Validate(q.validate)
 }
+
+// secret is the field showing a mask in place of what is typed.
+func (q *quietInput) secret() *quietInput {
+	q.echo = textinput.EchoPassword
+	q.input.EchoMode = textinput.EchoPassword
+
+	return q
+}

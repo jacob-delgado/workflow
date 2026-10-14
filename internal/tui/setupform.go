@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"charm.land/bubbles/v2/key"
-	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/setup"
@@ -20,31 +20,37 @@ import (
 // setupTitle heads the first run's form.
 const setupTitle = "Set up workflow"
 
-// setupForm is the first run's form: where the file goes, Jira's address and
-// token, checked against Jira as the form waits, the keychain offered for the
-// token, and a messaging webhook — then the file written, and workflow
-// reopened with it.
+// setupForm is the first run: where the file goes and Jira's address and
+// token in one Huh form, checked against Jira as it waits, what to do about a
+// check that did not pass, the keychain offered for the token and a messaging
+// webhook in the next, then a last look before the file is written and
+// workflow reopened with it.
 type setupForm struct {
 	offer setup.Offer
 	shown []string
-	step  setupStep
-	// choice is the row the cursor is on in a step that is a list.
-	choice  int
-	place   int
-	input   textinput.Model
-	answers setup.Answers
-	// who is whom the token authenticates as, once the check passed; checking
-	// marks the check under way, and checkErr is why it did not pass.
+	// kind is the form asking now, form the Huh form it is and first the
+	// first field it shows, where esc steps back a form rather than a field;
+	// bound is what every form's fields write into.
+	kind  setupKind
+	form  *huh.Form
+	first huh.Field
+	bound *setupBound
+	// answers are what was answered, as the write takes them; keychain is
+	// the token kept there, who whom it authenticates as once the check
+	// passed, checking the check under way, and checkErr why it did not pass.
+	answers  setup.Answers
+	keychain bool
 	who      string
 	checking bool
 	checkErr error
-	keychain bool
 	send     sendState
 }
 
 var (
 	_ failable[setupForm] = setupForm{}
 	_ pasteable           = setupForm{}
+	_ relaying            = setupForm{}
+	_ waiter              = setupForm{}
 )
 
 // offersSetup reports a session with no configuration file that can set one
@@ -69,12 +75,120 @@ func (m Model) openSetup() (Model, tea.Cmd) {
 		shown = append(shown, shownDir(m.deps, place.Path))
 	}
 
-	m.overlay = setupForm{offer: offer, shown: shown, step: stepPlace}
+	form := setupForm{offer: offer, shown: shown, bound: &setupBound{}}
 
-	return m, nil
+	return form.asking(m, askingJira)
 }
 
-// view draws the answers given so far, the question asked now, and how the
+// asking is the first run on to the form of the kind, the answers given so
+// far in its fields, started; or, with accessible forms asked for, handed the
+// terminal to ask it.
+func (f setupForm) asking(m Model, kind setupKind) (Model, tea.Cmd) {
+	f.kind, f.form, f.first, f.send = kind, nil, nil, sendState{}
+	if kind == askingWrite {
+		m.overlay = f
+
+		return m, nil
+	}
+
+	groups, first := f.setupGroups(kind)
+	form, start := newHuhForm(m.kit(), m.keys, m.detailWidth(), m.detailRows(), groups...)
+	form.SubmitCmd = func() tea.Msg { return setupAsked{form: form} }
+	f.form, f.first = form, first
+	m.overlay = f
+
+	if m.accessibleForms {
+		return m, m.deps.ask(form, func(err error) tea.Msg { return setupAsked{form: form, err: err} })
+	}
+
+	return m, start
+}
+
+// setupAsked is a form of the first run answered, or, asked as prompts, the
+// error that stopped them.
+type setupAsked struct {
+	form *huh.Form
+	err  error
+}
+
+var _ applier = setupAsked{}
+
+// apply takes the answers of the form that was asking, and goes on: from the
+// check's choices, from the keychain and the webhook, or, from any other, one
+// of the forms asking Jira's address and token.
+func (msg setupAsked) apply(m Model) (Model, tea.Cmd) {
+	form, open := m.overlay.(setupForm)
+	if !open || form.form != msg.form {
+		return m, nil
+	}
+
+	if msg.err != nil {
+		return m.closeOverlay().noticed("set up stopped: " + inFull(msg.err)), nil
+	}
+
+	if form.kind == askingAfterFailure {
+		return form.afterFailedCheck(m)
+	}
+
+	if form.kind == askingRest || form.kind == askingWebhook {
+		return form.afterRest(m)
+	}
+
+	return form.afterJira(m)
+}
+
+// afterJira keeps the place and Jira's answers, then checks the token, or,
+// with Jira left out, asks the rest.
+func (f setupForm) afterJira(m Model) (Model, tea.Cmd) {
+	if f.kind == askingJira {
+		// The keychain is offered first wherever it can keep the token: it
+		// keeps the token out of the file.
+		f.bound.keychain = f.keychainOffered()
+	}
+
+	f.answers.Jira, f.who, f.checkErr = config.Jira{BaseURL: trimmed(f.bound.address)}, "", nil
+	if f.answers.Jira.BaseURL == "" {
+		return f.asking(m, askingRest)
+	}
+
+	f.answers.Jira.Token = config.Secret(trimmed(f.bound.token))
+
+	return f.check(m)
+}
+
+// afterFailedCheck types the token or the address again, keeps Jira's
+// answers unchecked, or leaves Jira out, as chosen.
+func (f setupForm) afterFailedCheck(m Model) (Model, tea.Cmd) {
+	switch f.bound.failed {
+	case failedTypeAgain:
+		f.bound.token = ""
+
+		return f.asking(m, askingToken)
+	case failedTypeAddress:
+		return f.asking(m, askingAddress)
+	case failedLeaveOut:
+		f.answers.Jira, f.bound.address = config.Jira{}, ""
+	case failedKeep:
+	}
+
+	return f.asking(m, askingRest)
+}
+
+// afterRest keeps where the token goes and the webhook, then takes a last
+// look before the write.
+func (f setupForm) afterRest(m Model) (Model, tea.Cmd) {
+	f.keychain = f.bound.keychain && f.keychainOffered() && f.answers.Jira.BaseURL != ""
+	f.answers.Webhook = config.Secret(trimmed(f.bound.webhook))
+
+	return f.asking(m, askingWrite)
+}
+
+// trimmed is an answer without the spaces around it.
+func trimmed(answer string) string {
+	return strings.TrimSpace(answer)
+}
+
+// view draws the answers given so far, the form asking now, and how the
 // check or the write is going.
 func (f setupForm) view(kit renderKit, width, _ int) (string, string) {
 	answered := f.answered(kit)
@@ -85,35 +199,49 @@ func (f setupForm) view(kit renderKit, width, _ int) (string, string) {
 	lines := slices.Concat(
 		[]string{"No " + config.FileName + " applies here. Leave a question blank to skip it.", ""},
 		answered,
-		[]string{kit.styles.strong.Render(f.question())},
-		f.asking(kit, width),
+		f.asked(kit),
 		f.outcome(kit, width),
 	)
 
 	return setupTitle, wrap(strings.Join(lines, "\n"), width)
 }
 
+// asked is the form asking now, or the last look before the write, with why
+// the check did not pass above the choices it offers.
+func (f setupForm) asked(kit renderKit) []string {
+	switch {
+	case f.kind == askingWrite:
+		return []string{
+			kit.styles.strong.Render("Write " + f.shown[f.bound.place] + "?"),
+			kit.styles.label.Render("Then workflow reopens here with it."),
+		}
+	case f.checking:
+		return nil
+	case f.kind == askingAfterFailure:
+		return []string{kit.failureLine(f.checkErr), "", f.form.View()}
+	default:
+		return []string{f.form.View()}
+	}
+}
+
 // answered is a row for each question already answered.
 func (f setupForm) answered(kit renderKit) []string {
-	var rows []string
-
-	if f.step > stepPlace {
-		rows = append(rows, answeredRow(kit, "File", f.shown[f.place]))
+	rows := []string{answeredRow(kit, "File", f.shown[f.bound.place])}
+	if f.kind == askingJira && !f.checking {
+		return nil
 	}
 
-	if f.step > stepJiraURL {
-		rows = append(rows, answeredRow(kit, "Jira", orSkipped(f.answers.Jira.BaseURL)))
-	}
+	rows = append(rows, answeredRow(kit, "Jira", orSkipped(f.answers.Jira.BaseURL)))
 
-	if f.who != "" && f.step > stepJiraToken {
+	if f.who != "" {
 		rows = append(rows, answeredRow(kit, "", kit.marks.done+" authenticates as "+f.who))
 	}
 
-	if f.step > stepKeychain && f.answers.Jira.BaseURL != "" && f.keychainOffered() {
+	if f.kind == askingWrite && f.answers.Jira.BaseURL != "" && f.keychainOffered() {
 		rows = append(rows, answeredRow(kit, "Token", f.tokenKept()))
 	}
 
-	if f.step > stepWebhook {
+	if f.kind == askingWrite {
 		rows = append(rows, answeredRow(kit, "Slack", orSkipped(f.webhookShown())))
 	}
 
@@ -153,77 +281,10 @@ func orSkipped(answer string) string {
 	return answer
 }
 
-// asking is the field or the choices for the question asked now, and its hint.
-func (f setupForm) asking(kit renderKit, width int) []string {
-	switch f.step {
-	case stepPlace:
-		return append(f.choices(kit, f.placeChoices(kit)), kit.styles.label.Render(setupQuestions()[f.step].hint))
-	case stepCheckFailed:
-		return append([]string{kit.failureLine(f.checkErr), ""}, f.choices(kit, f.failedRows())...)
-	case stepKeychain:
-		return f.choices(kit, []string{"In your keychain, out of the file", "In the file, which only you can read"})
-	case stepWrite:
-		return []string{kit.styles.label.Render("Then workflow reopens here with it.")}
-	case stepJiraURL, stepJiraToken, stepWebhook:
-		input := f.input
-		input.SetWidth(max(1, width-len(input.Prompt)-1))
-
-		return []string{input.View(), kit.styles.label.Render(setupQuestions()[f.step].hint)}
-	}
-
-	return nil
-}
-
-// failedRows are the failed check's choices as rows.
-func (f setupForm) failedRows() []string {
-	choices := f.failedChoices()
-
-	rows := make([]string, 0, len(choices))
-	for _, choice := range choices {
-		rows = append(rows, choice.label())
-	}
-
-	return rows
-}
-
-// placeChoices are the places the file may go, each with what sees it.
-func (f setupForm) placeChoices(kit renderKit) []string {
-	width := 0
-	for _, shown := range f.shown {
-		width = max(width, len(shown))
-	}
-
-	rows := make([]string, 0, len(f.offer.Places))
-	for index, place := range f.offer.Places {
-		rows = append(rows, fmt.Sprintf("%-*s", width, f.shown[index])+kit.styles.label.Render("  "+placeSeenBy(place.Place)))
-	}
-
-	return rows
-}
-
-// placeSeenBy is what sees a file put in place.
-func placeSeenBy(place setup.Place) string {
-	if place == setup.Home {
-		return "your home directory"
-	}
-
-	return "this repository"
-}
-
-// choices are rows to choose from, the cursor's marked.
-func (f setupForm) choices(kit renderKit, rows []string) []string {
-	lines := make([]string, 0, len(rows))
-	for index, row := range rows {
-		lines = append(lines, kit.marks.marker(index == f.choice)+row)
-	}
-
-	return lines
-}
-
 // outcome is how the check or the write is going.
 func (f setupForm) outcome(kit renderKit, width int) []string {
 	if f.checking {
-		return []string{"", "checking the token with Jira" + kit.marks.ellipsis}
+		return []string{kit.marks.turning + " checking the token with Jira" + kit.marks.ellipsis}
 	}
 
 	if outcome := kit.pinnedOutcome(f.send, "writing", width); outcome != nil {
@@ -233,32 +294,35 @@ func (f setupForm) outcome(kit renderKit, width int) []string {
 	return nil
 }
 
-// footer offers what the question asked now takes.
+// waiting reports the check under way, which the in-flight mark turns for.
+func (f setupForm) waiting() bool {
+	return f.checking
+}
+
+// footer offers what the form asking now answers, and esc.
 func (f setupForm) footer(keys keyMap) []key.Binding {
 	switch {
 	case f.send.sending || f.checking:
 		return []key.Binding{keys.interrupt}
-	case f.step == stepWrite:
+	case f.kind == askingWrite:
 		return []key.Binding{relabel(keys.confirm, "write"), relabel(keys.closeOverlay, escBack)}
-	case f.isChoice():
-		return []key.Binding{keys.up, keys.down, relabel(keys.confirm, "choose"), f.leave(keys)}
+	default:
+		return append(formKeys(f.form), f.leave(keys))
 	}
-
-	return []key.Binding{relabel(keys.confirm, "next"), f.leave(keys)}
 }
 
-// leave is esc: back to the question before, or cancel at the first.
+// leave is esc: back a question, or cancel at the first.
 func (f setupForm) leave(keys keyMap) key.Binding {
-	if f.step == stepPlace {
+	if f.kind == askingJira && f.atFirst() {
 		return relabel(keys.closeOverlay, escCancel)
 	}
 
 	return relabel(keys.closeOverlay, escBack)
 }
 
-// isChoice reports a question answered by choosing a row.
-func (f setupForm) isChoice() bool {
-	return f.step == stepPlace || f.step == stepCheckFailed || f.step == stepKeychain
+// atFirst reports the form on the first field it shows.
+func (f setupForm) atFirst() bool {
+	return f.form != nil && f.form.GetFocusedField() == f.first
 }
 
 // failed pins a refused write in the form, so it is read before anything
@@ -269,102 +333,51 @@ func (f setupForm) failed(err error) setupForm {
 	return f
 }
 
-// pasted types a paste into the field asked for now, as typing it would.
+// pasted types a paste into the field asking now, as typing it would.
 func (f setupForm) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
-	if f.isChoice() || f.step == stepWrite || f.checking || f.send.sending {
+	return f.relay(m, paste)
+}
+
+// relay hands a message to the form asking now, while one is and nothing is
+// under way.
+func (f setupForm) relay(m Model, msg tea.Msg) (Model, tea.Cmd) {
+	if f.form == nil || f.checking || f.send.sending {
 		return m, nil
 	}
 
-	f.input, _ = f.input.Update(paste)
-	m.overlay = f
-
-	return m, nil
+	return m, relayToForm(f.form, msg)
 }
 
-// handleKey answers a key while the form has the keyboard: esc goes back,
-// a list's keys choose, enter answers, and every other key types.
+// handleKey answers a key while the form has the keyboard: esc goes back a
+// field, or a form at a form's first, enter on the last look writes, and
+// every other key is the form's.
 func (f setupForm) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case f.send.sending || f.checking:
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return f.back(m)
-	case f.isChoice():
-		return f.chooseKey(m, msg)
-	case key.Matches(msg, m.keys.confirm):
-		return f.answer(m)
-	case f.step == stepWrite:
-		return m, nil
+	case f.kind == askingWrite && key.Matches(msg, m.keys.confirm):
+		return f.write(m)
+	default:
+		return f.relay(m, msg)
 	}
-
-	f.input, _ = f.input.Update(msg)
-	m.overlay = f
-
-	return m, nil
 }
 
 // which names the setup form.
 func (setupForm) which() overlayKind { return overlaySetupForm }
 
-// back goes to the question before, or cancels the form at the first.
+// back goes to the field before, the form before at a form's first, or
+// cancels the first run at its first question.
 func (f setupForm) back(m Model) (Model, tea.Cmd) {
-	if f.step == stepPlace {
-		return m.closeOverlay(), nil
-	}
-
-	m.overlay = f.at(f.previous())
-
-	return m, nil
-}
-
-// chooseKey moves through a list, or chooses the row the cursor is on.
-func (f setupForm) chooseKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case key.Matches(msg, m.keys.cursorKeys()...):
-		f.choice = max(0, min(f.choice+m.keys.stepOf(msg), f.choiceCount()-1))
-	case key.Matches(msg, m.keys.confirm):
-		m.overlay = f.chosen()
-
-		return m, nil
+	case f.kind != askingWrite && !f.atFirst():
+		return m, f.form.PrevField()
+	case f.kind == askingJira:
+		return m.closeOverlay(), nil
+	default:
+		return f.asking(m, f.backTo(f.kind))
 	}
-
-	m.overlay = f
-
-	return m, nil
-}
-
-// answer takes what was typed as the answer to the question asked now, or
-// writes the file once every question is answered. Only a question answered
-// by typing asks: handleKey hands a list's keys to chooseKey, so any other
-// step is left as it is.
-func (f setupForm) answer(m Model) (Model, tea.Cmd) {
-	typed := strings.TrimSpace(f.input.Value())
-
-	if f.step == stepJiraURL {
-		f.answers.Jira, f.who = config.Jira{BaseURL: typed}, ""
-		m.overlay = f.at(f.afterJiraURL())
-
-		return m, nil
-	}
-
-	if f.step == stepJiraToken {
-		f.answers.Jira.Token = config.Secret(typed)
-
-		return f.check(m)
-	}
-
-	if f.step == stepWebhook {
-		f.answers.Webhook = config.Secret(typed)
-		m.overlay = f.at(stepWrite)
-
-		return m, nil
-	}
-
-	if f.step == stepWrite {
-		return f.write(m)
-	}
-
-	return m, nil
 }
 
 // check asks Jira who the token is, off the update loop, saying so as it
@@ -389,7 +402,7 @@ type setupChecked struct {
 
 var _ applier = setupChecked{}
 
-// apply moves the form on past the token, or to what to do about a check
+// apply asks the rest once the token is checked, or what to do about a check
 // that did not pass.
 func (msg setupChecked) apply(m Model) (Model, tea.Cmd) {
 	form, open := m.overlay.(setupForm)
@@ -400,28 +413,27 @@ func (msg setupChecked) apply(m Model) (Model, tea.Cmd) {
 	form.checking = false
 	if msg.err != nil {
 		form.checkErr = msg.err
-		m.overlay = form.at(stepCheckFailed)
+		form.bound.failed = form.failedChoices()[0]
 
-		return m, nil
+		return form.asking(m, askingAfterFailure)
 	}
 
 	form.who = msg.who
-	m.overlay = form.at(form.afterJira())
 
-	return m, nil
+	return form.asking(m, askingRest)
 }
 
 // write writes the file, off the update loop, or under a dry run says it
 // would have.
 func (f setupForm) write(m Model) (Model, tea.Cmd) {
 	if m.dryRun {
-		return m.closeOverlay().noticed("dry run: would write " + f.shown[f.place]), nil
+		return m.closeOverlay().noticed("dry run: would write " + f.shown[f.bound.place]), nil
 	}
 
 	f.send = starting()
 	m.overlay = f
 	ctx, write := m.session, m.deps.Settings.Setup.Write
-	request := setup.Request{Place: f.offer.Places[f.place].Place, Answers: f.answers, Keychain: f.keychain}
+	request := setup.Request{Place: f.offer.Places[f.bound.place].Place, Answers: f.answers, Keychain: f.keychain}
 
 	return m, func() tea.Msg {
 		written, err := write(ctx, request)
