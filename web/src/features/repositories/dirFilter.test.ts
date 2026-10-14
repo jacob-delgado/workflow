@@ -1,10 +1,43 @@
+import { z } from 'zod'
 import type { DirectoryEntry } from '@/api/generated/types.gen.ts'
+import { twinCases } from '@/test/twinCases.ts'
 import { aboveTyped, matching, splitTyped, trailOf } from './dirFilter.ts'
+
+// The cases internal/workdirs answers to as well.
+const corpus = twinCases(
+  'testdata/twins/directory_match.json',
+  z.strictObject({
+    about: z.string(),
+    cases: z.array(
+      z.strictObject({
+        name: z.string(),
+        listed: z.array(z.string()),
+        typed: z.string(),
+        want: z.array(
+          z.strictObject({ name: z.string(), letters: z.array(z.number()), prefix: z.boolean() }),
+        ),
+      }),
+    ),
+  }),
+)
 
 // entry is a directory in /src by its name.
 function entry(name: string): DirectoryEntry {
   return { name, path: `/src/${name}`, repository: false }
 }
+
+test.each(corpus.cases)('$name', ({ listed, typed, want }) => {
+  // Arrange
+  const entries = listed.map(entry)
+
+  // Act
+  const matches = matching(entries, typed)
+
+  // Assert
+  expect(
+    matches.map(({ entry: { name }, letters, prefix }) => ({ name, letters, prefix })),
+  ).toEqual(want)
+})
 
 test.each([
   ['', '', ''],
@@ -19,32 +52,6 @@ test.each([
 ])('%j lists %j and narrows it by %j', (typed, parent, segment) => {
   // Act & Assert
   expect(splitTyped(typed)).toEqual({ parent, segment })
-})
-
-test('names starting with what was typed come first, then those holding its letters in order', () => {
-  // Arrange
-  const entries = ['api-docs', 'web', 'workday', 'snowboard', 'workflow'].map(entry)
-
-  // Act
-  const matches = matching(entries, 'WO')
-
-  // Assert
-  expect(matches.map((match) => [match.entry.name, match.letters])).toEqual([
-    ['workday', [0, 1]],
-    ['workflow', [0, 1]],
-    ['snowboard', [3, 5]],
-  ])
-})
-
-test('every name matches nothing typed, as listed', () => {
-  // Arrange
-  const entries = ['web', 'api'].map(entry)
-
-  // Act
-  const matches = matching(entries, '')
-
-  // Assert
-  expect(matches.map((match) => match.entry.name)).toEqual(['web', 'api'])
 })
 
 test.each([
@@ -75,17 +82,4 @@ test.each([
 ])('%j, before it is listed, has above it %j', (typed, above) => {
   // Act & Assert
   expect(aboveTyped(typed)).toBe(above)
-})
-
-test('a letter is matched where it stands in the name, whatever lowercasing makes of it', () => {
-  // Arrange
-  // İ lowercases to two letters, i and a combining dot, which must not push z
-  // one place on.
-  const entries = [entry('İzmir')]
-
-  // Act
-  const matches = matching(entries, 'Z')
-
-  // Assert
-  expect(matches.map((match) => match.letters)).toEqual([[1]])
 })

@@ -1,0 +1,64 @@
+{
+  "about": "The directory matcher's cases, read by internal/workdirs and by web/src/features/repositories/dirFilter.test.ts alike, so a change to either copy alone fails its own tests. Each lists directories by name, in order, and says what typing typed matches: each name kept, in the order the picker ranks it, the place of each letter matched among the name's letters counted from zero, and whether the name starts with what was typed.",
+  "cases": [
+    {
+      "name": "names starting with what was typed come first, then those holding its letters in order, each as listed",
+      "listed": ["lib", "two-words", "workflow", "notes", "Workday-notes"],
+      "typed": "wo",
+      "want": [
+        { "name": "workflow", "letters": [0, 1], "prefix": true },
+        { "name": "Workday-notes", "letters": [0, 1], "prefix": true },
+        { "name": "two-words", "letters": [1, 2], "prefix": false }
+      ]
+    },
+    {
+      "name": "each letter matched is the first after the last that serves, in any case",
+      "listed": ["api-docs", "web", "workday", "snowboard", "workflow"],
+      "typed": "WO",
+      "want": [
+        { "name": "workday", "letters": [0, 1], "prefix": true },
+        { "name": "workflow", "letters": [0, 1], "prefix": true },
+        { "name": "snowboard", "letters": [3, 5], "prefix": false }
+      ]
+    },
+    {
+      "name": "a letter's place is counted in letters, an accented one among them",
+      "listed": ["café-two"],
+      "typed": "ÉW",
+      "want": [{ "name": "café-two", "letters": [3, 6], "prefix": false }]
+    },
+    {
+      "name": "a letter outside the basic plane counts as one",
+      "listed": ["🙂web"],
+      "typed": "w",
+      "want": [{ "name": "🙂web", "letters": [1], "prefix": false }]
+    },
+    {
+      "name": "every name matches nothing typed, as listed",
+      "listed": ["web", "zoo"],
+      "typed": "",
+      "want": [
+        { "name": "web", "letters": [], "prefix": true },
+        { "name": "zoo", "letters": [], "prefix": true }
+      ]
+    },
+    {
+      "name": "a capital İ is found by typing the i it lowercases to",
+      "listed": ["İstanbul", "ankara"],
+      "typed": "i",
+      "want": [{ "name": "İstanbul", "letters": [0], "prefix": true }]
+    },
+    {
+      "name": "a capital İ typed finds a plain i",
+      "listed": ["izmir", "bursa"],
+      "typed": "İ",
+      "want": [{ "name": "izmir", "letters": [0], "prefix": true }]
+    },
+    {
+      "name": "a letter after İ is matched where it stands in the name",
+      "listed": ["İzmir"],
+      "typed": "Z",
+      "want": [{ "name": "İzmir", "letters": [1], "prefix": false }]
+    }
+  ]
+}
