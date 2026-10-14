@@ -361,11 +361,16 @@ tracker seam, while Jira's client settings would still wait for the next
 wiring. The forge-row count that offsets later pages is one per tracker,
 shared by every tab paging that view. Decided 2026-10-01, in #164.
 
-**Cost.** A Settings save that turns `issues.forge` on or off, or changes the
-first view, applies only after `workflow --web` restarts; both Settings
-surfaces and the configuration reference should say so, and do not yet for
-`issues.forge`. Two tabs paging the first view while the forge's open issues
-change can skip or repeat one Jira row on a later page.
+**Cost.** A save from the web's Settings that turns `issues.forge` on or
+off waits for `workflow --web` to restart or switch directory, as one that
+changes Jira's address, user, headers, token or where the token is read from
+does, and until then the forge's issues stay with the first view's JQL as it
+was: editing that JQL drops them from the first view, and putting another
+view first leaves them leading the view that was first. The web's Jira
+section, `configuration.md` and `web.md` say so. The terminal's Settings
+reopens workflow to apply a save, asking first while a write is in flight or
+reopening would lose something. Two tabs paging the first view while the
+forge's open issues change can skip or repeat one Jira row on a later page.
 
 **Reopen when.** Jira's client settings become live on save, or someone is
 seen toggling `issues.forge` from Settings and expecting it to apply at once.

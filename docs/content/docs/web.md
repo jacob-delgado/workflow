@@ -669,10 +669,18 @@ the client secret or the refresh token takes the access token made from them
 too. A change to the forge part — its token, host, kind or CLI — applies at
 once: the next call to the forge uses it, and the page names the forge it points
 at, with no restart. A change to the messaging part applies to the next
-announcement. Slack's user token is three fields — Client ID, Client secret and
-Refresh token; on macOS a save refreshes the token with them and keeps the
-secrets in the keychain rather than the file, and where the file already keeps
-them it keeps what you type (see
+announcement. A change to Jira's address, its token or where the token is read
+from (**Read the token from your keychain**, or `jira.token_env` or
+`jira.token_command` in the file), its user or headers, or to whether this
+repository's issues are listed, waits until workflow restarts or switches
+directory, as the part says: only then is Jira wired again. So does which view
+those issues lead: they stay with the JQL the first view had, so editing that
+JQL drops them from the first view, and putting another view first leaves them
+leading the view that was first. The rest of the Jira part — its project, review
+status, views and Markdown comments — applies at once. Slack's user token is
+three fields — Client ID, Client secret and Refresh token; on macOS a save
+refreshes the token with them and keeps the secrets in the keychain rather than
+the file, and where the file already keeps them it keeps what you type (see
 [Configuration]({{< relref "/docs/configuration" >}})). The access token and its
 expiry have no field: workflow writes them. On macOS a Jira token you type goes
 to the keychain item for the Jira address, never into a file, and **Read the

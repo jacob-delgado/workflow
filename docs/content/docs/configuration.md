@@ -120,6 +120,22 @@ file, starts from the home file's settings — a question left blank keeps the
 home file's answer — and `--template` writes an empty layer rather than blanks
 that would hide them. `--global` writes the home file.
 
+The terminal's Settings reopens workflow to apply a save. While a write is in
+flight, or when reopening would lose something, such as a commit message being
+written, it asks first, naming anything that would be lost, and staying keeps
+the save for when workflow next opens. With no directory to reopen in, the save
+waits for the next start.
+
+The web's Settings applies a change to Jira's project, review status, views and
+Markdown comments at once. The rest of Jira's settings are read once, when
+`workflow --web` wires the directory it works in, as it starts or switches
+there, so a change to them waits for a restart or a directory switch: the
+address; the token and where it is read from, `jira.keychain` or, set in the
+file alone, `jira.token_env` or `jira.token_command`; the user; the headers;
+and `issues.forge`. So does which view the forge's issues lead: they stay with
+the JQL the first view had, so editing that JQL drops them from the first view,
+and putting another view first leaves them leading the view that was first.
+
 `workflow doctor` names every file in effect, and `workflow config show` names
 them on stderr, so there is never a question about which were read.
 
@@ -139,7 +155,7 @@ them on stderr, so there is never a question about which were read.
 | `jira.project` | no | The Jira project key, e.g. `PROJ`. When set, only a branch naming a key in that project is read as an issue, so a name like `fix/UTF-8-decoding` is not mistaken for one. Empty (the default) falls back to a looser guard that rejects common technical tokens (`UTF`, `SHA`, `CVE`) by shape alone. |
 | `jira.markdown_comments` | no | Write comments in Markdown and have them posted as Jira's wiki markup. On by default; `false` posts a comment unchanged, for one already written in wiki markup. A comment on a forge issue is always posted as written, since the forge renders Markdown itself. |
 | `jira.review_status` | no | The status an issue moves to once its pull request is open, e.g. `In Review`. Opening a pull request offers the move to this status by name. Empty (the default) makes no offer. |
-| `issues.forge` | no | List the issues assigned to you on this repository's own GitHub or GitLab project beside Jira's, at the head of the first issue list. Set it in the repository's file, over your home file's default. With no `jira.base_url` the forge's issues are the whole list whatever it says. Defaults to `false`. |
+| `issues.forge` | no | List the issues assigned to you on this repository's own GitHub or GitLab project beside Jira's, at the head of the first issue list. Set it in the repository's file, over your home file's default. With no `jira.base_url` the forge's issues are the whole list whatever it says. Defaults to `false`. Saved from the web's Settings, a change waits for `workflow --web` to restart or switch directory, as a change to the first view does for these issues; see [Where it looks](#where-it-looks-and-what-wins). |
 | `messaging.kind` | no | Service to post to: `slack` (the default when empty), `teams`, `discord`, or a plain `webhook`, spelled in lowercase; any other value is refused when the file loads. It decides the message body and link markup. |
 | `messaging.client_id` | for a Slack user token | Your Slack app's client ID, which its rotating user token is refreshed with. Not a secret; `workflow slack login` writes it. Slack only, and never together with `messaging.webhook_url`. |
 | `messaging.client_secret`, `messaging.refresh_token`, `messaging.access_token`, `messaging.expires_at` | written by workflow | The user token's rotating credentials, when this file keeps them — on Linux and Windows, or on macOS once they are here — rather than the keychain. workflow rewrites the last three on every refresh. All but `expires_at` are **credentials**. |
