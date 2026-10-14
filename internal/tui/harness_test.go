@@ -8,6 +8,7 @@ package tui_test
 // world_test.go.
 
 import (
+	"reflect"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -177,6 +178,12 @@ func settle(t *testing.T, model tui.Model, cmd tea.Cmd, drive driver) tui.Model 
 			continue
 		}
 
+		if sequenced, isSequence := sequence(msg); isSequence {
+			pending = append(sequenced, pending...)
+
+			continue
+		}
+
 		switch msg := msg.(type) {
 		case tea.BatchMsg:
 			pending = append(pending, msg...)
@@ -189,6 +196,28 @@ func settle(t *testing.T, model tui.Model, cmd tea.Cmd, drive driver) tui.Model 
 			pending = append(pending, follow)
 		}
 	}
+}
+
+// sequence is the commands a tea.Sequence message runs one after another,
+// and whether msg is one. Bubble Tea keeps that message's type unexported, so
+// it is told by its shape: a list of commands that is not a batch. They run
+// ahead of anything already pending, in their order.
+func sequence(msg tea.Msg) ([]tea.Cmd, bool) {
+	if _, batch := msg.(tea.BatchMsg); batch {
+		return nil, false
+	}
+
+	value := reflect.ValueOf(msg)
+	if value.Kind() != reflect.Slice || value.Type().Elem() != reflect.TypeFor[tea.Cmd]() {
+		return nil, false
+	}
+
+	cmds := make([]tea.Cmd, value.Len())
+	for index := range cmds {
+		cmds[index], _ = reflect.TypeAssert[tea.Cmd](value.Index(index))
+	}
+
+	return cmds, true
 }
 
 // await runs a command and returns its message, failing the test if the drain's
