@@ -47,8 +47,12 @@ type fieldAnswer struct {
 	options []string
 }
 
-// fieldsFilled is the form's last field filled in: the transition can go.
-type fieldsFilled struct{ form *huh.Form }
+// fieldsFilled is the form's last field filled in, the transition can go; or,
+// asked as prompts, the error that stopped them.
+type fieldsFilled struct {
+	form *huh.Form
+	err  error
+}
 
 // newFieldForm starts filling in a transition's fields, drawn with kit, keyed
 // by keys and sized to width columns and rows rows.
@@ -222,10 +226,34 @@ func (msg fieldsFilled) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
+	problem := msg.err
+	if problem == nil {
+		problem = picker.form.problem()
+	}
+
+	if problem != nil {
+		m.overlay = picker.failed(problem)
+
+		return m, nil
+	}
+
 	move, values := picker.form.transition, picker.form.values()
 	picker.form = fieldForm{}
 
 	return picker.apply(m, move, values)
+}
+
+// problem is the first field whose answer cannot be accepted, nil once
+// every one can: prompts that ended early leave some unanswered.
+func (f fieldForm) problem() error {
+	for index, field := range f.transition.Fields {
+		err := f.answers[index].checked(field)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // values are what was entered for every field, in the shape each kind needs.

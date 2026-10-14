@@ -358,6 +358,11 @@ func terminalSettings() []setting {
 			hint:    "Reduced draws every state still: no mark turns and no rule fills. " + nextOpen,
 			choices: []option{{"", "Moving where something changes (default)"}, {config.MotionReduce, "Reduced"}},
 		},
+		{
+			section: section, label: "Ask forms as plain prompts", path: "ui.accessible", kind: settingToggle,
+			hint: "Each form takes the whole terminal, one question at a time, as a screen reader reads best. " +
+				nextOpen,
+		},
 		{section: section, label: "Ring the terminal when CI finishes", path: "ui.notify", kind: settingToggle},
 		{
 			section: section, label: "Comments shown", path: "ui.comments_shown", kind: settingCount,

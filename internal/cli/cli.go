@@ -280,8 +280,10 @@ type interfaceInput struct {
 	resolveAhead func(ctx context.Context)
 	dryRun       bool
 	noColorEnv   string
-	in           io.Reader
-	out          io.Writer
+	// accessibleEnv is ACCESSIBLE, which asks the forms as plain prompts.
+	accessibleEnv string
+	in            io.Reader
+	out           io.Writer
 	// arrive is what the model is told before it runs: nothing for the first
 	// interface, and where a switch went, or why it could not, after one.
 	arrive func(tui.Model) tui.Model
@@ -291,7 +293,8 @@ type interfaceInput struct {
 func inputFor(cmd *cobra.Command, conn connection, dryRun bool) interfaceInput {
 	return interfaceInput{
 		cfg: conn.cfg, loadErr: conn.loadErr, deps: conn.deps, resolveAhead: conn.controls.ResolveAhead,
-		dryRun: dryRun, noColorEnv: environmentOf(cmd).Process.Getenv("NO_COLOR"), in: cmd.InOrStdin(),
+		dryRun: dryRun, noColorEnv: environmentOf(cmd).Process.Getenv("NO_COLOR"),
+		accessibleEnv: environmentOf(cmd).Process.Getenv("ACCESSIBLE"), in: cmd.InOrStdin(),
 		out:    terminalOut(cmd),
 		arrive: func(model tui.Model) tui.Model { return model },
 	}
@@ -425,6 +428,10 @@ func openInterface(ctx context.Context, run RunInterface, input interfaceInput) 
 
 	if !input.cfg.UI.DrawColor(input.noColorEnv) {
 		model = model.WithoutColor()
+	}
+
+	if input.cfg.UI.AccessibleForms(input.accessibleEnv) {
+		model = model.WithAccessibleForms()
 	}
 
 	input.resolveAhead(ctx)

@@ -53,6 +53,7 @@ export function TerminalFieldset({ register }: { register: Register }) {
           ['reduce', 'Reduced'],
         ]}
       />
+      <CheckboxField register={register} name="ui.accessible" label="Ask forms as plain prompts" />
       <CheckboxField
         register={register}
         name="ui.notify"

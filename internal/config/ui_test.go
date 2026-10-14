@@ -56,6 +56,10 @@ func TestUISettingsKeepTheirDefaultsUnlessAValidFileSetsThem(t *testing.T) {
 		"a negative comments_shown": {contents: `{"ui": {"comments_shown": -1}}`, want: defaults, wantErr: config.ErrInvalid},
 		// Only "never" turns the hues off, so a misspelling of it would draw them.
 		"a misspelled color": {contents: `{"ui": {"color": "nevr"}}`, want: defaults, wantErr: config.ErrInvalid},
+		"accessible forms turned on": {
+			contents: `{"ui": {"accessible": true}}`,
+			want:     config.UI{Mouse: true, ASCII: false, Accessible: true},
+		},
 		"motion set to reduce": {
 			contents: `{"ui": {"motion": "reduce"}}`,
 			want:     config.UI{Mouse: true, ASCII: false, Motion: "reduce"},
@@ -102,6 +106,31 @@ func TestColorIsOffUnderNoColorOrTheSetting(t *testing.T) {
 			// Act & Assert
 			if got := tt.ui.DrawColor(tt.noColor); got != tt.want {
 				t.Errorf("DrawColor(%q) with %+v = %v, want %v", tt.noColor, tt.ui, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFormsAreAccessibleUnderTheSettingOrAccessible(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		ui         config.UI
+		accessible string
+		want       bool
+	}{
+		"default embeds them":  {ui: config.UI{}, accessible: "", want: false},
+		"ACCESSIBLE set":       {ui: config.UI{}, accessible: "1", want: true},
+		"ui.accessible turned": {ui: config.UI{Accessible: true}, accessible: "", want: true},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := tt.ui.AccessibleForms(tt.accessible); got != tt.want {
+				t.Errorf("AccessibleForms(%q) with %+v = %v, want %v", tt.accessible, tt.ui, got, tt.want)
 			}
 		})
 	}

@@ -40,6 +40,7 @@ export const mockConfig: Config = {
     ascii: false,
     color: '',
     motion: '',
+    accessible: false,
     notify: true,
     comments_shown: 5,
     web_shortcuts: true,

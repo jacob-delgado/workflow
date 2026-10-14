@@ -53,6 +53,9 @@ type Model struct {
 	focus         pane
 	mouse         bool
 	dryRun        bool
+	// accessibleForms asks a form's questions as plain prompts instead of
+	// drawing it.
+	accessibleForms bool
 	// runs counts the programs started, so the output of one run is never
 	// shown in another.
 	runs int
