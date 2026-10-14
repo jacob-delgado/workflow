@@ -28,6 +28,8 @@ unset $(compgen -e HOMEBREW_)
 #   tap-new --no-git <user>/<repo> by making that directory and its Formula
 #   directory, refusing a tap already there, or failing when
 #   BREW_STUB_TAP_NEW_FAILS is set;
+#   --version with two lines, as brew does, or by failing when
+#   BREW_STUB_VERSION_FAILS is set;
 #   audit by keeping the formula its last argument names, <user>/<repo>/<name>,
 #   in BREW_STUB_AUDITED, and failing, saying BREW_STUB_AUDIT_SAYS, when that
 #   is set.
@@ -48,6 +50,13 @@ case "$1" in
       exit 1
     fi
     printf '%s\n' "${BREW_STUB_REPOSITORY-$(tap_dir "$2")}"
+    ;;
+  --version)
+    if [[ -n "${BREW_STUB_VERSION_FAILS:-}" ]]; then
+      echo "Error: Homebrew is broken" >&2
+      exit 1
+    fi
+    printf 'Homebrew 9.9.9\nHomebrew/homebrew-core (git revision 0abc; last commit 2026-10-14)\n'
     ;;
   tap-new)
     dir="$(tap_dir "$3")"
@@ -186,7 +195,7 @@ count_case
 if [[ "${audit}" != "audit --strict --formula ${tap}/workflow" ]]; then
   fail_case "the audit is strict and names the formula in full" "${audit}"
 fi
-expect_no_calls "the audit is the only check run" --repository tap-new audit
+expect_no_calls "the audit is the only check run" --repository tap-new --version audit
 
 for variable in HOMEBREW_NO_AUTO_UPDATE HOMEBREW_NO_ANALYTICS HOMEBREW_NO_ENV_HINTS HOMEBREW_DEVELOPER; do
   count_case
@@ -198,6 +207,18 @@ count_case
 if [[ ! -s "${brew_env}" ]] || grep -q -F -e "HOMEBREW_NO_INSTALL_FROM_API=" "${brew_env}"; then
   fail_case "brew runs with HOMEBREW_NO_INSTALL_FROM_API unset" "$(<"${brew_env}")"
 fi
+
+expect_output pass "the Homebrew that audits is named" "with Homebrew 9.9.9" check "${formula}"
+count_case
+if [[ "$(<"${case_output}")" == *"git revision"* ]]; then
+  fail_case "the Homebrew that audits is named in one line" "it said all of brew --version:"
+  show_output
+fi
+
+expect_output 1 "a brew that cannot say its version fails, saying so" "could not say its version" \
+  check "${formula}" BREW_STUB_VERSION_FAILS=1
+expect_no_calls "a brew that cannot say its version audits nothing" --repository tap-new --version
+expect_only_other_tap_left "the tap made for a brew that cannot say its version is removed"
 
 expect_exit pass "two runs make two taps" check "${formula}"
 first="$(made_tap)"
