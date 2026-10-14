@@ -109,13 +109,20 @@ func lastLookBody(t *testing.T, view, title string) string {
 
 	lines := strings.Split(view, "\n")
 	for index, line := range lines {
-		if !strings.Contains(line, title) {
+		before, _, found := strings.Cut(line, "━ "+title)
+		if !found {
 			continue
 		}
 
+		// The look's own left edge, under its corner: the rail behind it has
+		// rules of its own.
+		edge := len([]rune(before)) - 1
+
 		for _, below := range lines[index+1:] {
-			_, detail, _ := strings.Cut(below, "┃")
-			if words := strings.Trim(detail, " ┃"); words != "" {
+			inside := string([]rune(below)[edge+1:])
+			detail, _, _ := strings.Cut(inside, "┃")
+
+			if words := strings.TrimSpace(detail); words != "" {
 				return words
 			}
 		}

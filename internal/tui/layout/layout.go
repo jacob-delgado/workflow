@@ -26,10 +26,10 @@ const (
 	// side; below that a 24-column rail beside a 50-column detail serves neither.
 	collapseBelow = 80
 
-	// borderlessBelow is the width under which even the detail's border goes:
-	// at under 60 columns, two columns of box-drawing are text that does not
-	// fit.
-	borderlessBelow = 60
+	// BorderlessBelow is the width under which even the detail's border goes,
+	// and a dialog becomes a sheet: at under 60 columns, two columns of
+	// box-drawing are text that does not fit.
+	BorderlessBelow = 60
 
 	// compactSpineBelow is the height under which the spine drops its labels.
 	compactSpineBelow = 24
@@ -126,7 +126,7 @@ func (l Layout) Collapsed() bool {
 
 // Borderless reports a terminal too narrow to spend columns on a border.
 func (l Layout) Borderless() bool {
-	return l.Detail.Width < borderlessBelow
+	return l.Detail.Width < BorderlessBelow
 }
 
 // CompactSpine reports a terminal too short for the spine's labels.

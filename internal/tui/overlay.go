@@ -11,8 +11,10 @@ import (
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/jacob-delgado/workflow/internal/sanitize"
+	"github.com/jacob-delgado/workflow/internal/tui/layout"
 )
 
 // overlay is something that takes the keyboard until it is closed: a picker, a
@@ -234,7 +236,29 @@ type lastLook struct {
 	send    sendState
 }
 
-var _ failable[lastLook] = lastLook{}
+var (
+	_ failable[lastLook] = lastLook{}
+	_ floating           = lastLook{}
+)
+
+// A last look would like at least lookWidth columns, room for a sentence of
+// what it does and a path or a branch name on a line, and at most
+// lookWidthMost, past which a paragraph is hard to read across.
+const (
+	lookWidth     = 64
+	lookWidthMost = 100
+)
+
+// wants is a last look as wide as its longest line, between lookWidth and
+// lookWidthMost, and as tall as what it says at that width.
+func (l lastLook) wants(kit renderKit, most layout.Size) layout.Size {
+	widest := min(lookWidthMost, most.Width+dialogFrameColumns)
+	_, unwrapped := l.view(kit, widest-dialogFrameColumns, most.Height)
+	width := min(max(lookWidth, lipgloss.Width(unwrapped)+dialogFrameColumns), widest)
+	_, body := l.view(kit, width-dialogFrameColumns, most.Height)
+
+	return layout.Size{Width: width, Height: strings.Count(body, "\n") + 1 + dialogFrameRows}
+}
 
 // view names the act and what it acts on, its outcome pinned under the title.
 func (l lastLook) view(kit renderKit, width, _ int) (string, string) {
@@ -339,6 +363,17 @@ type checklist[F comparable] struct {
 	chosen      []F
 	label       func(F) string
 	apply       func(Model, []F) (Model, tea.Cmd)
+}
+
+var _ floating = checklist[string]{}
+
+// checklistWidth is the columns a checklist would like: a value and its
+// count beside a checkbox.
+const checklistWidth = 48
+
+// wants is a checklist as wide as checklistWidth, and as tall as its values.
+func (c checklist[F]) wants(_ renderKit, _ layout.Size) layout.Size {
+	return layout.Size{Width: checklistWidth, Height: max(1, len(c.choices.items)) + dialogFrameRows}
 }
 
 // view draws the checklist in as many rows as fit.

@@ -245,7 +245,7 @@ func TestEveryOtherStartedTaskIsStoppedFirst(t *testing.T) {
 			offered := typing(t, model, "2", "s", keyEnter)
 
 			// Assert: the look names every started task, and nothing is written yet
-			requireScreen(t, offered.View().Content, switchLook, tt.look)
+			requireScreen(t, dialogWords(t, offered.View().Content, switchLook), tt.look)
 			requireTaskWrites(t, repo)
 
 			// Act: go ahead

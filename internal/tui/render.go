@@ -48,6 +48,22 @@ func (m Model) View() tea.View {
 // spine above and the keys below.
 func (m Model) screen() string {
 	shape := m.shape()
+
+	body := m.body(shape)
+	if box, floats := m.dialogBox(); floats {
+		body = m.withDialog(shape, box)
+	}
+
+	rows := []string{m.spineView().draw(shape), body}
+	if m.showsNotice() {
+		rows = append(rows, m.noticeLine(shape.Footer.Width))
+	}
+
+	return lipgloss.JoinVertical(lipgloss.Left, append(rows, m.footer(shape.Footer.Width))...)
+}
+
+// body is the rail and the detail pane between the spine and the footer.
+func (m Model) body(shape layout.Layout) string {
 	box := shape.Detail
 	title, body, style := m.detailContent(shape)
 
@@ -57,16 +73,11 @@ func (m Model) screen() string {
 		body = frame.Render(title, body, box.Width, box.Height, style)
 	}
 
-	if !shape.Collapsed() {
-		body = lipgloss.JoinHorizontal(lipgloss.Top, m.rail(shape), body)
+	if shape.Collapsed() {
+		return body
 	}
 
-	rows := []string{m.spineView().draw(shape), body}
-	if m.showsNotice() {
-		rows = append(rows, m.noticeLine(shape.Footer.Width))
-	}
-
-	return lipgloss.JoinVertical(lipgloss.Left, append(rows, m.footer(shape.Footer.Width))...)
+	return lipgloss.JoinHorizontal(lipgloss.Top, m.rail(shape), body)
 }
 
 // noticeLine is the one-row report above the hints — the issue filter and
@@ -196,8 +207,15 @@ func (m Model) paneTitle(p pane, title string) string {
 	return title
 }
 
-// detailRows is how many rows of content the detail pane holds.
+// detailRows is how many rows of content the detail pane holds, or the open
+// dialog when the overlay floats.
 func (m Model) detailRows() int {
+	if box, floats := m.dialogBox(); floats {
+		_, rows := dialogInside(box)
+
+		return rows
+	}
+
 	shape := m.shape()
 	if shape.Borderless() {
 		return max(0, shape.Detail.Height-1)
@@ -206,9 +224,15 @@ func (m Model) detailRows() int {
 	return frame.BodyRows(shape.Detail.Height)
 }
 
-// detailWidth is how many columns of content the detail pane holds, which is
-// what text is wrapped to.
+// detailWidth is how many columns of content the detail pane holds, or the
+// open dialog when the overlay floats, which is what text is wrapped to.
 func (m Model) detailWidth() int {
+	if box, floats := m.dialogBox(); floats {
+		width, _ := dialogInside(box)
+
+		return width
+	}
+
 	shape := m.shape()
 	if shape.Borderless() {
 		return shape.Detail.Width
