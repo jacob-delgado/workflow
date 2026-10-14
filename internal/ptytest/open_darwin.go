@@ -20,8 +20,8 @@ const terminalNameSize = 128
 // openPair opens /dev/ptmx, grants and unlocks the terminal it made, and
 // opens that terminal by the name macOS gives it.
 //
-// Trade-off TRADE-35: no CI job compiles or runs this; only tests import
-// ptytest, and only a macOS go test builds it.
+// Trade-off TRADE-35: no CI job runs this; only tests import ptytest, so
+// only the Lint job's lint:crossvet compiles it, for macOS.
 func openPair() (*os.File, *os.File, error) {
 	typing, err := os.OpenFile("/dev/ptmx", os.O_RDWR|syscall.O_NOCTTY, 0)
 	if err != nil {
