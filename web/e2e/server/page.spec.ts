@@ -60,3 +60,33 @@ test('a page opened without the session says to open the address the server prin
     'Open the address workflow --web printed as it started',
   )
 })
+
+// The palette and the sheet are Base UI's dialogs, and the page sets them in
+// Recursive: neither writes what the content policy refuses, and the face the
+// page names is the one the browser drew in.
+test('the palette and the sheet open under the content policy, in the page’s own face', async ({
+  page,
+}) => {
+  // Arrange
+  const messages: ConsoleMessage[] = []
+  page.on('console', (message) => messages.push(message))
+  await openServed(page)
+  await openSection(page, 'Branch')
+
+  // Act
+  await page.keyboard.press('Control+k')
+  await expect(page.getByRole('dialog', { name: 'Command palette' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('?')
+  await expect(page.getByRole('dialog', { name: 'Keyboard shortcuts' })).toBeVisible()
+
+  // Assert
+  expect(policyViolations(messages)).toEqual([])
+  expect(
+    await page.evaluate(async () => {
+      await document.fonts.ready
+
+      return document.fonts.check('16px "Recursive Variable"')
+    }),
+  ).toBe(true)
+})

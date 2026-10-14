@@ -1,4 +1,5 @@
 import { screen, waitFor } from '@testing-library/react'
+import type { UserEvent } from '@testing-library/user-event'
 import App from '@/App.tsx'
 import type { IssueDetail, KeyAction, KeyList, Snapshot } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
@@ -121,5 +122,14 @@ export function commentBox(): Promise<HTMLElement> {
 export async function keysRead(key: string): Promise<void> {
   await waitFor(async () => {
     expect((await commentBox()).getAttribute('aria-keyshortcuts')).toBe(key)
+  })
+}
+
+// openPalette presses Ctrl+K and waits for the palette's field to take the
+// focus, which the dialog hands it on the next frame.
+export async function openPalette(user: UserEvent): Promise<void> {
+  await user.keyboard('{Control>}k{/Control}')
+  await waitFor(() => {
+    expect(document.activeElement).toBe(screen.getByRole('combobox', { name: 'Action' }))
   })
 }

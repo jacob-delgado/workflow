@@ -38,6 +38,16 @@ module.exports = {
       to: { path: '^src/(shell|features)/' },
     },
     {
+      name: 'base-ui-only-through-lib-baseui',
+      severity: 'error',
+      comment:
+        'Base UI parts come only through src/lib/baseui, which draws them in the ' +
+        "page's look and keeps the content policy's CSPProvider in one place, so a " +
+        'section never meets the library itself.',
+      from: { pathNot: '^src/lib/baseui/' },
+      to: { path: '^node_modules/@base-ui/' },
+    },
+    {
       name: 'not-to-unresolvable',
       severity: 'error',
       comment:

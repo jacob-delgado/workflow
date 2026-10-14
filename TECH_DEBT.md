@@ -916,3 +916,26 @@ first frame draws in the fallback and then swaps.
 **Reopen when.** Someone reads the page in a language the latin file does not
 cover often enough that the mixed faces matter, or the package ships one
 variable file covering more scripts at a size near this one.
+
+### TRADE-50 Base UI's ScrollArea and Select stay off the page
+
+**Decided.** The `--web` page draws its dialogs and its command palette with
+Base UI (`@base-ui/react`), through `web/src/lib/baseui` alone, under a
+`CSPProvider` with `disableStyleElements`: the content policy
+(`internal/webserver/guard.go`, `default-src 'self'`, no nonce) refuses the one
+`<style>` element Base UI writes, which only ScrollArea and Select (with
+`alignItemWithTrigger`) do, to hide a native scrollbar. So neither part is
+used, and every choice on the page stays a native `<select>`. Decided
+2026-10-14 by the maintainer, in the UX refresh's web pull request, over a
+per-request nonce in the policy.
+
+**Cost.** A choice in a form is the browser's own `<select>`: its open list is
+drawn by the platform, not in the page's theme or face, and cannot carry an
+icon, a hint or a group's heading as a Base UI Select could. A long list
+scrolls with the platform's scrollbar rather than a drawn one. And a later
+Base UI release that writes a `<style>` from another part would be refused by
+the policy without a sound: `e2e/server/page.spec.ts` fails on a refusal only
+where the spec opens that part.
+
+**Reopen when.** A choice needs more than a native `<select>` can draw, or the
+server gains a per-request nonce that the page could hand to `CSPProvider`.
