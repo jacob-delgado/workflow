@@ -64,6 +64,33 @@ test('a preview of a pull request a check failed on offers only to announce when
   ).toBeTruthy()
 })
 
+test('a preview of a merge a check failed on says to re-run the checks, offering no wait', async () => {
+  // Arrange
+  fakeApi({
+    '/api/announcement': () =>
+      Response.json({ text: composed, channel: '#dev', ci: 'failed', can_wait_for_ci: false }),
+  })
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      review: { found: true, announced: false, pull: { ...pull, state: 'merged' } },
+    }),
+  })
+  render(<MessagingPanel />)
+
+  // Act
+  await userEvent.click(screen.getByRole('button', { name: 'Announce to Slack' }))
+
+  // Assert
+  expect(
+    await screen.findByText(
+      'A check failed on #42, so its merge is not announced. ' +
+        'Re-run the failed checks on the forge, then announce it once they pass.',
+    ),
+  ).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Announce when CI passes' })).toBeNull()
+})
+
 test('a post refused because a check failed offers to wait', async () => {
   // Arrange
   let previews = 0

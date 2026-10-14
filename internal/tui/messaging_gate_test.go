@@ -108,3 +108,47 @@ func TestAQuitRightAfterAnnouncingWaitsForTheGateAndThePost(t *testing.T) {
 		t.Error("the gate's CI read went on once its program ended, want it ended with the program")
 	}
 }
+
+func TestAMergeACheckFailedOnSaysToReRunTheChecks(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A merge cannot wait for CI, so it is not pointed at the wait.
+	merged := newWorld()
+	merged.pull.State = forge.StateMerged
+	merged.ci = []forge.CI{failedCI()}
+
+	// Act
+	view := typing(t, merged.live(t, 140, 40), "5", "p", keyEnter).View().Content
+
+	// Assert
+	if posts := merged.asked("post "); len(posts) != 0 {
+		t.Errorf("posted %q, want nothing posted while a check failed", posts)
+	}
+
+	requireScreen(t, view, "A check failed on the pull request, so its merge was not announced.",
+		"then announce it once they pass.")
+	refuseScreen(t, view, "once CI passes")
+}
+
+func TestAMergeIsAnnouncedOnceTheChecksThatFailedOnItPass(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A check failed while it was open; it merged, and the failed checks were
+	// re-run on the forge and passed, which the pane does not follow.
+	rerun := newWorld()
+	rerun.ci = []forge.CI{failedCI()}
+	model := rerun.live(t, 140, 40)
+	rerun.pull.State = forge.StateMerged
+	rerun.ci = []forge.CI{{State: forge.CIPassed, Total: 1, Done: 1}}
+	model = typing(t, model, "4", "r")
+
+	// Act
+	typing(t, model, "5", "p", keyEnter)
+
+	// Assert
+	if posts := rerun.asked("post "); len(posts) != 1 {
+		t.Errorf("posted %q, want the merge announced once its checks passed", posts)
+	}
+}

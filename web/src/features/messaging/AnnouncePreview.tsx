@@ -18,7 +18,8 @@ interface AnnouncePreviewProps {
   linking: boolean
   canWait: boolean
   // ciFailedOn names the pull request a check failed on, when one did as the
-  // preview was composed: it is not announced now, only once CI passes.
+  // preview was composed: it is not announced now, only once CI passes — by
+  // waiting where canWait, or once a merge's failed checks are re-run.
   ciFailedOn: string | undefined
   onEdit: (text: string) => void
   onChannel: (channel: string) => void
@@ -35,7 +36,7 @@ interface AnnouncePreviewProps {
 // confirm — named apart from the button that opened the preview, since only
 // this one sends — and a cancel. One that can wait for CI also offers to be
 // held until the CI passes; one a check failed on offers only that, and says
-// why. The sends wait while an owner's link is being
+// why — a merge a check failed on, which cannot wait, offers neither. The sends wait while an owner's link is being
 // saved, so the post tags whom the preview ends up showing. It takes focus as
 // it opens, so what is about to be sent is what a screen reader reads next.
 export function AnnouncePreview(props: AnnouncePreviewProps) {
@@ -73,12 +74,7 @@ export function AnnouncePreview(props: AnnouncePreviewProps) {
           onLinking={onLinking}
         />
       ) : null}
-      {props.ciFailedOn === undefined ? null : (
-        <p role="status" className="text-sm">
-          A check failed on {props.ciFailedOn}, so it is not announced now. Announce when CI passes
-          waits for a fix.
-        </p>
-      )}
+      <CheckFailedNote pull={props.ciFailedOn} canWait={props.canWait} />
       <PreviewActions {...props} />
     </div>
   )
@@ -198,6 +194,24 @@ function PreviewActions({
         </Button>
       ) : null}
     </div>
+  )
+}
+
+// CheckFailedNote says why an announcement a check failed on, as the preview
+// read its CI, is not announced now, and the way on: one that can wait for CI
+// waits for a fix; a merge, which cannot, has its failed checks re-run.
+function CheckFailedNote({ pull, canWait }: { pull: string | undefined; canWait: boolean }) {
+  if (pull === undefined) {
+    return null
+  }
+
+  return (
+    <p role="status" className="text-sm">
+      {canWait
+        ? `A check failed on ${pull}, so it is not announced now. Announce when CI passes waits for a fix.`
+        : `A check failed on ${pull}, so its merge is not announced. ` +
+          'Re-run the failed checks on the forge, then announce it once they pass.'}
+    </p>
   )
 }
 

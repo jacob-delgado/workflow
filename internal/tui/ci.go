@@ -11,6 +11,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
 // ciCheckedFormat stamps the CI line with when it was last read.
@@ -162,6 +163,17 @@ type ciRead struct {
 // lastRead is how CI stood on the last read, when that read answered.
 func (s reviewState) lastRead() ciRead {
 	return ciRead{state: s.ci.State, read: s.checked && s.ciErr == nil}
+}
+
+// readFor is the last read that answered, for an announcement at moment:
+// none for a merge, whose CI the pane no longer follows, so a reading from
+// while it was open says nothing of it now; the gate reads it as it goes.
+func (s reviewState) readFor(moment messaging.Moment) ciRead {
+	if moment == messaging.MomentMerged {
+		return ciRead{}
+	}
+
+	return s.lastRead()
 }
 
 // failed reports a read that found a check failed.

@@ -113,6 +113,13 @@ func localErrors() []knownError {
 			brief: "nothing is staged",
 			full:  "nothing is staged: stage a file, then commit",
 		}},
+		// Before loop.ErrCIFailed, which it wraps, and saying all it does.
+		{errMergeCheckFailed, wording{
+			brief: "a check failed",
+			full: "A check failed on the pull request, so its merge was not announced. " +
+				"Re-run the failed checks on the forge, then announce it once they pass.",
+			whole: true,
+		}},
 	}
 }
 

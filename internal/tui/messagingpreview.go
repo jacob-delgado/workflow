@@ -6,6 +6,7 @@ package tui
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 
@@ -29,6 +30,10 @@ var (
 	errAnnouncementOnItsWay = errors.New("an announcement is on its way; wait for it before posting another")
 	errAlreadyAnnounced     = errors.New("this was announced while the preview was open; esc closes it")
 )
+
+// errMergeCheckFailed is the gate's refusal of a merge a check failed on,
+// which has no CI to wait for: its failed checks are re-run instead.
+var errMergeCheckFailed = errors.New("the merge was not announced")
 
 // messagingPreview is an announcement about to be sent.
 type messagingPreview struct {
@@ -304,10 +309,21 @@ func (m Model) sending(out outgoingAnnouncement, elsewhere loop.AnnounceMemory, 
 			delivery.Mentions = tag(ctx)
 		}
 
-		posted.err = loop.Deliver(ctx, seams, memory, delivery)
+		posted.err = refusedAt(delivery.Moment, loop.Deliver(ctx, seams, memory, delivery))
 
 		return posted
 	}
+}
+
+// refusedAt is err, how an announcement at moment went, with a merge's
+// failed check told apart from a ready one's, since only a ready one can
+// wait for a run that passes.
+func refusedAt(moment messaging.Moment, err error) error {
+	if moment == messaging.MomentMerged && errors.Is(err, loop.ErrCIFailed) {
+		return fmt.Errorf("%w: %w", errMergeCheckFailed, err)
+	}
+
+	return err
 }
 
 // applyEdit puts the edited message back in the preview, or records why the
