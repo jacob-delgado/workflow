@@ -107,6 +107,29 @@ func TestColorIsOffUnderNoColorOrTheSetting(t *testing.T) {
 	}
 }
 
+func TestOnlyReduceStillsTheInterface(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		ui   config.UI
+		want bool
+	}{
+		"the default moves":       {ui: config.UI{}, want: false},
+		"ui.motion reduce stills": {ui: config.UI{Motion: config.MotionReduce}, want: true},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := tt.ui.ReducedMotion(); got != tt.want {
+				t.Errorf("ReducedMotion() with %+v = %v, want %v", tt.ui, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestAConfigurationThatWasNotFoundStillHasTheDefaults(t *testing.T) {
 	t.Parallel()
 
