@@ -1,9 +1,9 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with
-code in this repository. Most of it applies in every session; the store's,
-the web server's, the terminal interface's and the web app's own rules are in
-a `CLAUDE.md` beside their code.
+Guidance for Claude Code (claude.ai/code) in this repository: the rules every
+session needs, and pointers to the rest. An area with rules of its own keeps
+them in a `CLAUDE.md` beside its code, listed under *Area guides* at the end;
+read the one for a directory before your first edit there.
 
 ## What this project is
 
@@ -11,19 +11,15 @@ a `CLAUDE.md` beside their code.
 / Data Center), a messaging service (Slack, Teams, Discord or a plain webhook),
 a Git forge (GitHub or GitLab) and, where it is installed, Taskwarrior into one
 developer workflow: pick up an issue, branch for it, open the pull or merge
-request, tell the team.
-
-Go at its core, shipped as a single static binary a developer runs on their own
-machine. It keeps a little state between sessions in an on-disk SQLite store
-(`internal/store`, under the OS-native data directory, never a secret) — on by
-default, `store.disabled` opts out. The default surface
-is a terminal UI — the Charm stack (Bubble Tea, Bubbles, Lip Gloss) with Cobra
-for the command tree. An opt-in `workflow --web` serves a React + TypeScript
-frontend, embedded in the same binary, over a local REST API bound to
-`127.0.0.1`, described by `api/openapi.yaml`; it drives the same domain seams
-(declared in `internal/seams`, connected to the real clients in
-`internal/wiring`) the TUI and CLI already do — a surface, not a second
-implementation. The web frontend lives in `web/`.
+request, tell the team. It ships as one static, pure-Go binary a developer runs
+on their own machine, with three surfaces over the same domain seams (declared
+in `internal/seams`, connected to the real clients in `internal/wiring`): the
+Cobra command line, the Bubble Tea terminal interface it opens by default, and
+an opt-in `workflow --web`, the React + TypeScript app in `web/`, embedded in
+the binary and served over a REST API on `127.0.0.1` that `api/openapi.yaml`
+describes — a surface, not a second implementation. A little state lives in an
+on-disk SQLite store (`internal/store`), on by default and never a secret.
+ARCHITECTURE.md is the map.
 
 Layout:
 
@@ -98,223 +94,206 @@ holds.
 | `task run` | run from source; `task run -- doctor --online` passes arguments |
 | `task test` | tests with the race detector |
 | `task test:cover` | tests plus the coverage floor |
-| `task lint` | every `lint:*` task (each linter and repository check) plus `docs:check` and `gen:verify`; `task --list` names each |
+| `task lint` | every `lint:*` task plus `docs:check` and `gen:verify`; `task --list` names each |
 | `task fmt` | format everything in place |
-| `task cloc` | count the source lines, and the Go test ratio (advisory) |
-| `task check` | **the full gate** — lint, the web's lint and client-drift check, the committed bundle against `web/src` (`web:dist:check`), the Go tests + coverage, the gate scripts' tests (`test:scripts`), the web's unit tests, condition coverage (`cover:branch`), govulncheck and gitleaks; CONTRIBUTING.md's gate table says what each enforces |
-| `task e2e` | the web's Playwright suites, which `task check` leaves out: run it too for a change under `web/` or `internal/webserver`; it runs `task build` first, so it rewrites `internal/web/dist` too |
+| `task check` | **the full gate**; CONTRIBUTING.md's *Day to day* lists its parts and what each enforces |
+| `task e2e` | the web's Playwright suites, which `task check` leaves out: run it too for a change under `web/` or `internal/webserver`; it builds first, so it rewrites `internal/web/dist` too |
 | `task container:check` | the same gate inside the build container |
 
 The toolchain is pinned in `mise.toml`. After cloning: `mise trust && mise
 install && task setup`.
 
-## Working style
+## Working agreement
 
-Prescriptive defaults for how new code should be written and how changes should
-be made. Override only when the user explicitly asks for something different.
+Prescriptive defaults for how changes are made. Override only when the user
+explicitly asks for something different.
 
-For tasks that would touch more than ~3 files or restructure a package, outline
-the approach first and wait for confirmation before writing code. Small changes
-and Boy Scout improvements don't need ceremony; large ones shouldn't start
-without agreement on direction.
+- **Outline first.** For tasks that would touch more than ~3 files or
+  restructure a package, outline the approach first and wait for confirmation
+  before writing code. Small changes and Boy Scout improvements don't need
+  ceremony; large ones shouldn't start without agreement on direction.
 
-### Code style
+- **Never commit to `main` — branch, and rebase before starting.** This
+  applies to Claude without exception: every change lands through a branch
+  named for its commit prefix (`feat/<slug>`, `fix/<slug>`, `docs/<slug>`)
+  and a pull request with green CI, and a session that begins with
+  uncommitted work on `main` moves it to a branch before committing. Start
+  from what is on main, and rebase rather than merge, since `main` merges by
+  rebase only and every commit lands as written:
+
+  ```sh
+  git fetch origin
+  git switch -c feat/<slug> origin/main   # new work
+  git rebase origin/main                  # work already in progress
+  ```
+
+- **Commits** follow CONTRIBUTING.md's *Commit messages*: Conventional Commits,
+  the subject and body limits, one logical change per commit, and how to mark
+  a breaking change. `scripts/check-commit-message.sh <file>` checks a message
+  as the hook and CI do.
+
+- **Do not bypass a hook to land work.** `LEFTHOOK=0` and `LEFTHOOK_EXCLUDE`
+  exist for genuine emergencies. A failing hook is the hook working; fix the
+  cause.
+
+- **No backwards compatibility before 1.0.** workflow is only installed fresh,
+  and before 1.0 it keeps no compatibility with itself: no shim, alias,
+  deprecated field or "still accepted" path, and no fallback for an old format.
+  A change to a public contract — the `--web` API in `api/openapi.yaml`, a
+  command, flag, output or exit status (what `scripting.md` promises), a
+  configuration key, a stored file's format — changes it cleanly to its best
+  shape, updates every caller, test and doc, and is a breaking commit:
+  `type(scope)!:` with a `BREAKING CHANGE:` footer saying what changed and
+  what a user or a script does now.
+
+- **Before 1.0, the minor digit is reserved for breaking changes.** `feat` and
+  `fix` both bump the patch; only a breaking change, marked `feat!`, bumps the
+  minor — the commit-msg hook refuses a body release-please would read as
+  breaking unless the subject has that `!`. That is `bump-minor-pre-major` plus
+  `bump-patch-for-minor-pre-major` in `release-please-config.json`, and **both
+  are deliberate** — a version bump
+  someone has to react to should mean something they depended on changed, not
+  that features were added. This looks like a misconfiguration if you only know
+  the more common pre-1.0 convention, and it has already been "fixed" once by
+  mistake. Do not change it without the maintainer asking.
+
+- **Releases are the maintainer's to publish — Claude prepares, never ships.**
+  release-please opens a release PR from the Conventional Commits on main;
+  merging it is what tags the version and triggers the build (CONTRIBUTING.md,
+  *Releases*). Claude may write commits that feed that PR, but must **not**,
+  without an instruction naming that exact action in the moment: merge the
+  release PR, push a `v*` tag, or run the release workflow. A published release
+  is something other people download; it cannot be cleanly withdrawn. When
+  preparation is done, print the one step the maintainer takes and stop.
+
+- **Scratch files** go in `tmp/` under the repo root, which is gitignored, or
+  in the session's own scratchpad directory; never anywhere else outside the
+  repo. A scratch `.go` file in `tmp/` still joins `go test ./...`, so keep Go
+  scratch outside the module.
+
+## Code style
 
 - **Go**: follow [Effective Go](https://go.dev/doc/effective_go) and
   [Google's Go Style Guide](https://google.github.io/styleguide/go/). Accept
-  interfaces, return structs. Small interfaces (1–3 methods). Composition over
-  inheritance. Embedding only for behavior delegation, never just to store a
-  field. No premature abstraction — three similar lines beat one abstract one.
-  Keep the build pure Go (`CGO_ENABLED=0`): the release binaries cross-compile
-  to every platform `RELEASE_PLATFORMS` names in `Taskfile.yml`, and that only
-  stays true without cgo.
+  interfaces, return structs; small interfaces (1–3 methods); embedding only
+  for behavior delegation; three similar lines beat one abstract one. Keep the
+  build pure Go (`CGO_ENABLED=0`): the release binaries cross-compile to every
+  platform `RELEASE_PLATFORMS` names in `Taskfile.yml` only without cgo.
 
 - **Interface compliance — assert it at compile time.** Every concrete type
   meant to satisfy an interface carries a static assertion next to its
-  definition, so a drifting method set breaks the build at the type rather than
-  at some distant call site: `var _ api.StrictServerInterface = (*server)(nil)`.
-  Use the form matching the receiver — `(*T)(nil)` for pointer receivers, `T{}`
-  for value receivers.
+  definition, in the form matching its receiver: `(*T)(nil)` for a pointer,
+  as `var _ api.StrictServerInterface = (*server)(nil)`, and `T{}` for a
+  value, as `var _ tea.Model = Model{}`.
 
-- **One receiver kind per type.** `recvcheck` fails a type whose methods mix value
-  and pointer receivers, so choose when the type is introduced and hold to it: a
-  type that satisfies an interface by value (`var _ tea.Model = Model{}`) is
-  all-value from then on. Relatedly, `ireturn` flags returning an interface —
-  return a concrete type or a func type, and keep `//nolint:ireturn` for the
-  signatures a third-party interface forces on you, as `tea.Model` does.
+- **One receiver kind per type** (`recvcheck`): choose when the type is
+  introduced and hold to it. `ireturn` flags returning an interface: return a
+  concrete type or a func type, and keep `//nolint:ireturn` for the signatures
+  a third-party interface forces on you, as `tea.Model` does.
 
 - **Language: American English.** Identifiers, comments, docs, commit messages,
   and user-facing copy all use American spellings — color, canceled, organize.
   Enforced by `misspell` (Go, locale US) and `typos` (repo-wide, `_typos.toml`),
   both wired into lefthook and `task lint`.
 
-- **Naming**: identifiers must reveal intent without a comment. If you find
-  yourself writing a comment to explain a name, the name is wrong — rename it.
-  Abbreviations only where universally understood (`ctx`, `err`, `cfg`). No
-  single-letter names outside loop counters. Exported names are the public
-  contract and deserve extra care; unexported names should still be unambiguous
-  in their package.
+- **Naming**: identifiers reveal intent without a comment; a name that needs
+  one is wrong. Abbreviations only where universally understood (`ctx`,
+  `err`, `cfg`), and no single-letter names outside loop counters.
 
-- **Function size and focus**: functions and methods do **one thing**. Aim for
-  ~25 lines as a soft ceiling. When a function grows past that, or handles more
-  than one level of abstraction, extract. The test: can you describe what it does
-  in a single clause without using "and"?
-
-- **File length — 500-line soft target, 800-line hard ceiling, 700 for a
-  test.** Aim for under 500: a file past that is usually carrying more than one
-  concern and wants splitting, file-per-concern. `scripts/check-file-length.sh`
-  *warns* past 500 but only *fails* past 800, so the guidance nudges without
-  blocking a file with a genuine reason to be long. It gates every tracked
-  `.go`, `.sh`, `.ts` and `.tsx` file in `task lint` and on pre-push (generated
-  code — `.gen.go` and `web/src/api/generated` — excepted); `--list` prints the
-  current standings, flagging each file `soft` or `OVER`. Tests count, and
-  sooner: a test file grows a case at a time, so it fails past 700, by which
-  point it holds the cases of more than one behavior — split it along them,
-  shared fixtures in a sibling file. The script's header names what counts as
-  a test file. There is no exemption list, deliberately — add one only when a
-  file genuinely earns it, with the reason written beside it.
-
-- **Package & directory size — cohesion first, a budget as the backstop.** Size
-  a grouping by responsibility, not by a file count. A Go package is *one*
-  cohesive responsibility behind a small exported API; many files in it is
-  idiomatic and good, and a package must **not** be split to chase a number.
-  Cohesion also says what may leave: extract code into a package of its own when
-  it has a reason to change of its own *and* the extraction makes no import
-  cycle, even out of a package that is cohesive as a whole. The web server's
-  request boundary (the guards, the session and the contract validator), its
-  Taskwarrior handlers and its git runs, the command line's doctor checks and
-  its pr/announce flow over the forge and messaging, and a Huh widget of the
-  terminal's own are each such code. What hangs off a shared type stays with it:
-  a pane or an overlay of `internal/tui` takes and returns `Model`, and cannot
-  leave without it. On the web, group by feature
-  (`web/src/features/<feature>/`), never one flat directory. But cohesion is a
-  judgment call and judgment loses to entropy — a folder reaches thirty files
-  one defensible file at a time. So every grouping also answers to a **file
-  budget**, gated by `scripts/check-package-size.sh` against
-  `scripts/package-size-budgets.txt` (`task lint`, `task check`, CI, and
-  lefthook pre-push; `--list`, or `task package-size`, prints the standings).
-  **Read the numbers there, never here** — a prose restatement drifts. An entry
-  is one of two kinds. A **ratcheted** budget is zero-headroom both ways: over
-  the number fails, and so does a budget left sitting *above* its directory's
-  count (a forgotten post-split ratchet). A **cohesive** ceiling is for a
-  grouping that is file-per-concern by design — one responsibility spelled a
-  file per pane, per endpoint or per command, each new one a new file, as
-  `internal/tui`, `internal/webserver` and `internal/cli` are — which fails only
-  past its ceiling and has no ratchet; its WHY names that spelling rule, and
-  what in the package has a reason to change of its own and may leave. Anything
-  else is ratcheted, and both kinds are earned by size. Counts are source files:
-  unit tests, stylesheets and generated code don't count, but integration tests
-  (`*_integration_test.go`) and e2e specs (everything under `web/e2e/`) do — an
-  end-to-end surface must break into per-surface folders rather than hide a
-  hundred scenario files in one directory. A trip has two honest answers, named
-  in the gate's own output: **split** when the grouping really carries a second
-  reason to change, cycle-free, or **bump** (raise the number, a budget or a
-  ceiling alike, rewrite the WHY above the entry, and append a row to
-  `scripts/package-size-budget-history.md`) when the new file is the same
-  responsibility one concern wider. "The gate was in the way" is neither.
+- **Function size and focus**: a function does **one thing**, in about 25
+  lines at most and one level of abstraction; if describing it needs "and",
+  extract.
 
 - **McCabe cyclomatic complexity ≤ 10 — enforced, not aspirational.** `gocyclo`
-  fails the build past 10, with `gocognit` (≤ 20) and `funlen` as backstops.
-  This is a small program; a function needing more than ten branches wants
-  extracting. Test files are exempt — a test's branch count is its assertions.
+  fails past 10, with `gocognit` (≤ 20) and `funlen` as backstops; test files
+  are exempt.
 
-- **Comments**: default to none. Only when the WHY is non-obvious — a hidden
-  constraint, a surprising invariant, a workaround for a specific bug. Never
-  re-explain WHAT the code does; well-named identifiers already do that.
-  Exception: doc comments on exported symbols are expected — they document the
-  contract, not the implementation.
+- **Comments**: default to none; only a WHY that is non-obvious, never WHAT the
+  code does. Doc comments on exported symbols are expected: the contract.
 
-- **Error handling — explicit and early.** Return errors; never swallow them
-  silently. Wrap with `%w` when crossing into another package's territory, and
-  define static sentinel errors (`var ErrNotFound = errors.New(…)`) rather than
-  building dynamic ones at the point of failure — `err113` enforces this. Avoid
-  sentinel zero-values as implicit "no result" signals when a typed result or
-  error would be clearer.
+- **Error handling — explicit and early.** Never swallow an error. Wrap with
+  `%w` when crossing into another package, and define static sentinels
+  (`var ErrNotFound = errors.New(…)`), never a dynamic error at the point of
+  failure (`err113`).
 
 - **Every seam method that does I/O takes `ctx context.Context` first.** A
   surface passes the context of whatever asked — a web read its request's, the
-  command line `cmd.Context()`, the terminal its session's. What must outlive
-  its asker detaches where the work is done: the web's writes and the reads its
-  streams share end when the server stops (`worlds.outliving`); the terminal's
-  writes end when a signal does (`outlasting` in `internal/tui`); the Slack
-  directory's shared read and a token's refresh end with the lifetime their
-  context carries, the server's or the command's (`internal/lifetime`); and a
-  post's record (`loop.Deliver`), the store's open, and the Slack secrets
-  Settings refreshes and keeps (`wiring.PlaceSlackCredentials`) detach from
-  their asker, finishing only where something waits for them (a command's own
-  call, `--web`'s five-second drain, a terminal quit's wait when one is a
-  counted write or runs inside one), while a signal in the terminal exits
-  under them (TRADE-38). The wiring never keeps a context past the call that
-  handed it one. `internal/seams`' test holds the rule and names the
-  exceptions.
+  command line `cmd.Context()`, the terminal its session's — and the wiring
+  never keeps a context past the call that handed it one. What must outlive its
+  asker detaches where the work is done, each case written down once:
+  `Execute`'s doc comment (`internal/cli/cli.go`), TRADE-37 and TRADE-38,
+  and `internal/lifetime`. `internal/seams`' test holds the rule and names
+  the exceptions.
 
-- **The store (`internal/store`) never holds a secret, and is never
-  trusted.** It is keyed only by credential-free identifiers, and the text in
-  it is sanitized on the way in and again at the seam that renders it. Its
-  schema, key and version rules are in `internal/store/CLAUDE.md`.
+- **File length — 500-line soft target, 800-line hard ceiling, 700 for a
+  test**, gated by `scripts/check-file-length.sh` (`--list` for the
+  standings, its header for why). A file past 500 usually carries more than one
+  concern: split it file-per-concern, a test along its behaviors with shared
+  fixtures in a sibling file.
 
-- **License headers**: every `.go` file begins with the two SPDX lines from
-  CONTRIBUTING.md. `scripts/check-license-headers.sh` gates this in lefthook,
-  `task lint` and CI.
+- **Package & directory size — cohesion first, a budget as the backstop.** A Go
+  package is *one* cohesive responsibility behind a small exported API; many
+  files in it is idiomatic and good, and a package must **not** be split to
+  chase a number. Cohesion also says what may leave: extract code into a
+  package of its own when it has a reason to change of its own *and* the
+  extraction makes no import cycle, even out of a package cohesive as a whole —
+  the web server's request boundary, its Taskwarrior handlers and git runs, the
+  command line's doctor checks and pr/announce flow, a Huh widget of the
+  terminal's own. What hangs off a shared type stays with it: a pane of
+  `internal/tui` takes and returns `Model`. On the web, group by feature
+  (`web/src/features/<feature>/`). Every grouping also answers to a **file
+  budget**, `scripts/check-package-size.sh` against
+  `scripts/package-size-budgets.txt`, whose header says what counts and the
+  two kinds of entry; **read the numbers there, never here.** A trip has two
+  honest answers: **split** when the grouping carries a second reason to
+  change, cycle-free, or **bump** (raise the number, rewrite the WHY above the
+  entry, append a row to `scripts/package-size-budget-history.md`) when the
+  new file is the same responsibility one concern wider. "The gate was in the
+  way" is neither.
 
-- **Shell** follows the style `scripts/CLAUDE.md` sets, wherever it lives,
-  and every script there has a sibling test.
+- **License headers**: every `.go` file begins with the two SPDX lines
+  CONTRIBUTING.md gives; `scripts/check-license-headers.sh` gates it.
 
-- **The `--web` app's rules** — accessibility in both themes, black-box tests
-  on role and name, server text rendered only as text — are in
-  `web/CLAUDE.md`.
+- **Shell** follows the style `scripts/CLAUDE.md` sets, wherever it lives.
 
-### Design principles
+## Design principles
 
 - **SOLID — a lens, not ceremony.** Go is not OOP; apply the underlying idea
   where it improves testability or readability.
-  - **S — Single responsibility.** A function or type does one thing (see
-    *Function size*, *File length*). Config loading, command wiring, and
-    rendering are separable concerns and live in separate packages.
-  - **O — Open/closed.** Adding a variant should *extend*, not edit. Note how to
-    spell that here: `gochecknoglobals` is on, so a package-level lookup map is
-    a build failure, not an option. Build the map inside a constructor and hang
-    it off the value that uses it, put the behavior on the discriminant type as
-    a method, or keep a `switch` and let `exhaustive` fail the build when a new
-    case is added without a branch. A `switch` lists every kind only where every
-    kind can arrive, and `exhaustive` guards it there. A function only some
-    kinds reach compares the kind to those it handles, and its fallthrough,
-    named in its doc comment, says what any other kind gets: a case no run can
-    take is a condition the gate fails as never evaluated (*see TDD process*).
-    Package-level `var Err… = errors.New(…)` sentinels are exempt and stay. A
-    compiled regular expression is the exception the linter itself makes:
-    declare it once as a package-level `var name = regexp.MustCompile(…)`, named
-    for what it matches, rather than compiling it in a helper on every call.
-    Only a pattern built from run-time input keeps a builder, called outside any
-    loop. A value derived once from immutable embedded data is the same kind of
-    constant Go cannot spell as one, and takes a `//nolint:gochecknoglobals`
-    with that reason, as the web server's parsed contract does.
-  - **L — Liskov substitution.** An implementation honors the contract its
-    callers rely on; a fake that cuts corners is a broken fake, not a shortcut.
-  - **I — Interface segregation.** Depend only on what you use. Declare small
-    consumer-side interfaces at point of use, not fat producer-side ones.
-  - **D — Dependency inversion.** High-level logic depends on a seam, not a
-    concrete. `config.Load(workDir, homeDir)` takes its directories as arguments
-    rather than reading the environment, which is exactly what lets its tests run
-    in parallel against temp directories.
+  - **S — Single responsibility.** A function or type does one thing; config
+    loading, command wiring and rendering live in separate packages.
+  - **O — Open/closed.** Adding a variant should *extend*, not edit.
+    `gochecknoglobals` is on, so a package-level lookup map is a build
+    failure: build the map in a constructor and hang it off the value that uses
+    it, put the behavior on the discriminant type as a method, or keep a
+    `switch` where every kind can arrive and let `exhaustive` guard it. A
+    function only some kinds reach compares the kind to those it handles, and
+    its doc comment says what any other kind gets: a case no run can take is a
+    condition the gate fails as never evaluated. Exempt: `var Err… =
+    errors.New(…)` sentinels; a compiled regular expression, declared once as
+    a package-level `var` named for what it matches (only a pattern built from
+    run-time input keeps a builder, outside any loop); and a value derived once
+    from immutable embedded data, with a `//nolint:gochecknoglobals` and its
+    reason, as the web server's parsed contract has.
+  - **L — Liskov.** A fake that cuts corners is a broken fake, not a shortcut.
+  - **I — Interface segregation.** Small consumer-side interfaces at the point
+    of use.
+  - **D — Dependency inversion.** Depend on a seam: `config.Load(workDir,
+    homeDir)` takes its directories rather than reading the environment.
 
-- **Composition over inheritance.** Assemble small collaborators. Embed for
-  behavior delegation only, never merely to borrow a field.
+- **Composition over inheritance**, and **function-variable seams over
+  interfaces for one-method dependencies**: `now func() time.Time` beats a
+  `Clock` interface.
 
-- **Prefer function-variable seams over interfaces for one-method
-  dependencies.** When a seam has a single method and a single fake, an interface
-  is YAGNI. `now func() time.Time` beats a `Clock` interface.
-
-- **Law of Demeter — accept what you read.** When a call returns many values,
-  bundle them into a single typed value rather than threading scalars through
-  layers.
-
-- **DRY with the rule of three.** Don't extract on the second occurrence — two is
-  coincidence.
+- **Law of Demeter — accept what you read**: bundle many returned values into
+  one typed value. **DRY with the rule of three**: two is coincidence.
 
 - **YAGNI — hard line.** No speculative interfaces, no "just in case" error
   handling for impossible conditions, no backwards-compat shims for unreleased
   code. If a feature is needed, the user will ask.
+
+- **No premature goroutines.** A goroutine starts only in `internal/proc`, the
+  tests, and the exceptions `scripts/check-goroutines.sh` writes down.
 
 - **Boy Scout Rule — leave it better than you found it.** Every time you touch a
   file, improve one thing: rename a cryptic identifier, break up an oversized
@@ -326,92 +305,32 @@ without agreement on direction.
 
 ### Code smells
 
-A smell is a *hint* to look closer, not a defect to reflexively refactor — weigh
-it against YAGNI and the rule of three first (a two-case `switch` is not yet a
-registry). A parenthetical marks which linter catches it (**lint**), which gate
-script fails it (**gate**), or which rule above it restates (*see*). The rest is
-review-time judgment.
+A smell is a *hint* to look closer, not a defect to reflexively refactor —
+weigh it against YAGNI and the rule of three first. The linters already fail
+the smells they can see (a long or deeply nested function, a magic number, an
+ignored or dynamic error, a naked return, dead or duplicated code, a stutter);
+review looks for the ones they cannot:
 
-**Bloaters** — grown too big to hold in your head:
+- a bare `string` or `int` carrying domain meaning (an issue key, a channel
+  name) → a named type; the same few fields traveling together → a type;
+  five or more positional parameters → a struct, or a split;
+- a boolean that forks behavior, `f(…, true)` → two functions or a named enum;
+  a parameter reassigned in place → return a new value;
+- a field set in some flows and nil in others → a separate type or a
+  parameter; a type that fights what it embeds → compose small parts;
+- one file edited for unrelated reasons → split by reason to change; one
+  change touching many files → centralize the knowledge;
+- a comment covering for a bad name → rename; an abstraction for a caller that
+  doesn't exist, or a type that only delegates → delete or inline it;
+- a method using another type's data more than its own, a reach into another
+  unit's internals, or `a.b().c().d()` through layers → move the method, use
+  the public surface, pass the one bundled value needed;
+- an interface with one implementation, or declared by its producer → declare
+  it at the consumer once a second implementation or a fake earns it;
+- `""`, `0` or `nil` meaning "no result" → a typed result or an explicit
+  error.
 
-- *Long method* — does more than one thing → extract (*see Function size*;
-  **lint** gocyclo, gocognit, funlen).
-- *Large type / god package* — too many responsibilities → split by concern
-  (*see File length*).
-- *Primitive obsession* — a bare `string`/`int` carrying domain meaning (an issue
-  key, a channel name) → a named type the compiler can track.
-- *Long parameter list* — 5+ positional params → bundle the cohesive ones into a
-  struct, or split.
-- *Data clumps* — the same few fields travel together everywhere → give them a
-  type.
-
-**Object-orientation abusers:**
-
-- *Type/kind `switch` every new case must edit* → a map built in a constructor
-  and keyed by the discriminant, or a method on that type (*see Open/closed* for
-  why it cannot be a package-level map; **lint** gochecknoglobals, and exhaustive
-  keeps a genuine switch honest).
-- *Temporary field* — set in some flows, nil otherwise → a separate type or a
-  parameter.
-- *Refused bequest* — a type that ignores or fights what it embeds → compose
-  small parts instead.
-
-**Change preventers:**
-
-- *Divergent change* — one file edited for unrelated reasons → split by reason to
-  change.
-- *Shotgun surgery* — one conceptual change touches many files → centralize the
-  knowledge in one place.
-
-**Dispensables:**
-
-- *Comments as deodorant* — a comment covering for a bad name → rename.
-- *Duplicated code* → extract on the third occurrence (*see DRY*).
-- *Dead code* — unused funcs/params/vars/branches → delete (**lint** unused,
-  unparam, ineffassign).
-- *Speculative generality* — abstraction for a caller that doesn't exist →
-  delete (*see YAGNI*).
-- *Middle man / lazy type* — a type that only delegates → inline it.
-
-**Couplers:**
-
-- *Feature envy* — a method uses another type's data more than its own → move it
-  onto that type.
-- *Inappropriate intimacy* — reaching into another unit's internals; tests
-  asserting on privates → use the public surface (*see Test public interfaces*).
-- *Message chains* — `a.b().c().d()` threaded through layers → pass the one
-  bundled value needed.
-
-**Modern additions:**
-
-- *Boolean/flag parameter* — `f(…, true)` that forks behavior → two functions or
-  a named enum, so the call site reads.
-- *Magic number/string* — an unexplained literal → a named constant (**lint**
-  mnd).
-- *Deep nesting / arrow code* — pyramids of `if` → early returns, guard clauses,
-  extracted helpers (**lint** nestif).
-- *Mutating a parameter* — reassigning an argument in place → return a new value.
-
-**Go-specific:**
-
-- `interface{}` / `any` as a shortcut → a concrete type or a small interface
-  (**lint** gocritic flags a range of Go micro-smells).
-- *Interface pollution* — an interface with one implementation, or defined on the
-  producer side → declare it at the *consumer*, once a second implementation or a
-  fake earns it. A one-method seam is a func var, not an interface.
-- *Ignored error* — `_ = f()` dropping a real error → handle or return it
-  (**lint** errcheck).
-- *Dynamic errors* — `errors.New` at the point of failure → a package-level
-  sentinel, wrapped (**lint** err113).
-- *Sentinel zero-value as "no result"* — `""`/`0`/`nil` meaning absence → a typed
-  result or an explicit error.
-- *Naked return* in more than a couple of lines → return values explicitly
-  (**lint** nakedret).
-- *Stutter* — `config.ConfigLoader`, `tui.TUIModel` → drop the package prefix.
-- *Premature goroutines/channels* — concurrency with no measured need → simple
-  synchronous code first (*see YAGNI*); a goroutine starts only in
-  `internal/proc`, the tests, and the exceptions the gate writes down with their
-  reasons (**gate** `scripts/check-goroutines.sh`, `task lint:goroutines`).
+## Testing
 
 ### TDD process
 
@@ -420,21 +339,17 @@ For **new features and bug fixes**:
 1. **RED first.** Write a failing test that reproduces the bug or demonstrates
    the feature's contract. Run it. Watch it fail with a message that names the
    gap.
-2. **GREEN minimal.** Smallest production change that makes the test pass. Resist
-   scope creep.
-3. **REFACTOR if it earns it.** Clean up only when the resulting shape is
-   genuinely better. Mechanical reshuffling is noise.
+2. **GREEN minimal.** The smallest production change that makes it pass.
+3. **REFACTOR if it earns it**, while the tests stay green; mechanical
+   reshuffling is noise.
 
-For bug fixes specifically: the failing test that reproduces the bug is the most
-valuable artifact in the commit — it documents both the bug and the contract that
-prevents its return. Do **not** write the fix first and add a test "to cover it";
-ordering matters.
+For a bug fix, the failing test that reproduces the bug is the most valuable
+artifact in the commit; do **not** write the fix first and add a test "to
+cover it". Each area's `CLAUDE.md` names the harness and fixtures to reuse.
 
 **Test public interfaces, not internals — black-box only.** Tests declare
-`package <name>_test` (the external test package), so only exported identifiers
-are reachable — `testpackage` enforces it. Do not reach into unexported helpers
-or assert on private fields. If something seems untestable black-box, that is a
-design smell: fix the API, don't white-box the test.
+`package <name>_test` (`testpackage` enforces it). If something seems
+untestable black-box, fix the API, don't white-box the test.
 
 **Arrange, Act, Assert — marked in every test.** Every `Test` and `Fuzz` body
 names its parts with a comment on a line of its own, below any `t.Parallel()`:
@@ -457,53 +372,25 @@ e2e specs answer to the same rule through its TypeScript twin,
 floor: it cannot tell a meaningful assertion from one that passes whatever the
 Act did, so ask of every Assert whether it would fail if the Act did nothing.
 
-**Tables when cases differ in data, not behavior.** When adding tests, prefer a
-table-driven test for cases that differ only in their inputs and expectations,
-as Go's own tests do. It is a preference, not a rule: a case that needs its own
+**Tables when cases differ in data, not behavior.** A case that needs its own
 closure to set up or to check is clearer as a test of its own.
 
-**Read the coverage floors in the gates, never here** — `COVERAGE_MIN` and
-`BRANCH_COVERAGE_MIN` in `Taskfile.yml`, enforced by `scripts/coverage-gate.sh`
-and `scripts/gobco-report.sh`, and the condition floor each consequential
-package holds on its own in `scripts/gobco-floors.txt`, since one module-wide
-share lets a small package's gaps disappear into `internal/tui`'s. A number
-restated in prose drifts from the number the gate enforces.
+**Coverage: read the floors in the gates, never here** — `COVERAGE_MIN` and
+`BRANCH_COVERAGE_MIN` in `Taskfile.yml`, and each consequential package's own
+condition floor in `scripts/gobco-floors.txt`. Statement coverage says a line
+ran; condition coverage (gobco, `task cover:branch`) says whether an
+`if a && b` was ever seen with `b` false, and its per-condition output is a
+worklist of missing test cases, not a percentage to chase. A condition no test
+evaluated, or an error check whose error arm no test reached, fails the gate
+unless `scripts/gobco-allowlist.txt` keeps it for a trade-off;
+CONTRIBUTING.md's *Tests* says what counts as an error check. A floor is
+raised only once the coverage is already there, to `floor(measured) − 2`,
+which the gates print. These are minimums, not targets — aim higher where the
+code touches a credential.
 
-**Two coverage metrics, and the second is the useful one.** Statement coverage
-says a line ran; condition coverage (gobco, `task cover:branch`) says whether an
-`if a && b` was ever seen with `b` false. Its per-condition output — "condition
-`err != nil` was 8 times false but never true" — is a worklist of missing test
-cases, not a percentage to chase, with one hard edge: a condition no test
-evaluated, and an error check whose error arm no test reached, fail the gate. An
-error check is one the gate can tell by its name: a name ending in `err` or
-`Err`, perhaps with a capitalized or numbered rest (`err`, `readErr`,
-`closeErr`, `err2`, `errParse`, but not `errorHandler`), or a call of a method
-so named (`ctx.Err()`), reached through fields and calls, compared with `nil`.
-So is an `errors.Is` or `!errors.Is` of such a name right after
-`<name> != nil &&`, which only an error reaches; its error arm is its true one.
-Any condition the gate does not read as an error check, seen one way, stays the
-worklist. The exception list is `scripts/gobco-allowlist.txt`, one line per arm
-a kept trade-off in `TECH_DEBT.md` keeps, naming it
-(`scripts/check-tradeoffs.sh` holds each name to the register); every other such
-arm is a test to write, and a line whose arm a test comes to reach fails until
-it goes. gobco measures every package in this module that has tests. It reads a
-package of build-tagged twins one file at a time, so each file the build takes
-must stand alone, and any package or file it cannot read fails the gate rather
-than quietly shrinking what the number covers.
-
-**Raising the floor: the ratchet is `floor(measured) − 2`.** Two points is the
-whole tolerance — enough for an incidental refactor, not enough to land a
-feature with its tests missing. A floor is raised only after the coverage is
-already there; the gate prints the available ratchet each run, the module's and
-each package floor's.
-
-These are minimums, not targets — aim higher where the code is consequential
-(credential handling, redaction, anything that touches a token).
-
-**Exempt** (no TDD ceremony): typo fixes, doc-only edits, formatter/linter
-passes, dependency bumps, configuration-only changes, and repo scaffolding that
-carries no behavior. Use judgment for refactors — extracting a helper rarely
-needs a new test, but changing observable behavior does.
+**Exempt** (no TDD ceremony): typo fixes, doc-only edits, formatter and linter
+passes, dependency bumps, configuration-only changes and behavior-free
+scaffolding. A refactor that changes observable behavior needs a test.
 
 **Before declaring any task done**, run `task check`; for a change under `web/`
 or `internal/webserver` also run `task e2e`, since `task check` leaves the
@@ -516,62 +403,45 @@ there is none, take CI's Branch coverage job, which runs as a user, as its
 verdict and say so. Never present work as complete while the build is red or
 tests are failing — say what's broken and why instead.
 
-### What to avoid
-
-The quick list; see **Code smells** for the full catalog and what's lint-enforced.
-Speculative interfaces; abstract layers without a second concrete caller;
-backwards-compat shims for unreleased code; "just in case" error handling for
-impossible conditions; over-engineering for hypothetical future requirements;
-tests that assert on unexported identifiers or internal data structures rather
-than observable, public behavior.
-
-## Cross-cutting conventions
-
-- **New dependencies require approval.** Do not add Go modules without first
-  proposing the dependency and getting explicit approval. Prefer the standard
-  library and what's already in `go.mod`. When a new dependency is genuinely the
-  right call, name it and explain why before adding it.
-
-- **Week-long dependency age gate.** Never adopt a version published less than 7
-  days ago — freshly compromised releases are usually detected and yanked within
-  days. Go has no native gate: before `go get`, check the publish date
-  (`curl https://proxy.golang.org/<module>/@v/<version>.info`) and pick an older
-  version if it is younger than a week. The same rule governs `mise.toml` pins.
-  `scripts/check-dependency-age.sh` holds every pull request to it (CI's Lint
-  job; `task deps:age` by hand): each version it adds to `go.mod`,
-  `docs/go.mod`, `web/yarn.lock` or `mise.toml` must be a week old.
-  **Known-CVE fixes override the cooldown — always.** List such a version in
-  `scripts/dependency-age-exceptions.txt` with its advisory. The gate guards
-  against *unknown* compromised releases, not *published* security fixes. The
-  maintainer, and only the maintainer, may also waive a version by name: list
-  it there with a dated waiver, `waived-YYYY-MM-DD`, the day they waived it.
-  An npm version takes a second line as well, in `web/.yarnrc.yml`'s
-  `npmPreapprovedPackages`, since yarn's own age gate refuses it at install.
-  Either way, each line goes once its version is a week old.
-  Dependabot's cooldown deliberately exempts `actions/*` and `github/*`: they
-  are GitHub's own first-party actions, and this age-gate rule is what governs
-  them by hand.
-
-- **Tool versions are exact, and they live in `mise.toml`.** `build/Dockerfile`
-  reads them through `scripts/tool-versions.sh`, and CI provisions them with
-  mise. Every copy that has to live elsewhere is gated, not trusted: Go's
-  version in `go.mod`, `docs/go.mod`, the Dockerfile and the README badge
-  (`scripts/check-go-version.sh`); mise's own version, which mise cannot pin,
-  on every workflow's `jdx/mise-action` step and in
-  `.devcontainer/postCreate.sh` (`scripts/check-mise-version.sh`, held to
-  `min_version`); the container's Go patch, which the base image's digest
-  decides and the Dockerfile's check after `FROM` refuses to build unless it is
-  `mise.toml`'s; and the SHA-256 lines of each tool the image downloads, in
-  `build/tool-checksums.txt` (`scripts/check-tool-checksums.sh`, `task
-  lint:checksums`), which a bump of that tool replaces. A floating `latest`
-  changes what the gate accepts without anyone deciding to.
+## Secrets, dependencies and contracts
 
 - **Never log or print a secret.** Any credential — a `config.Secret` field:
   the tokens, the webhook URL and every `jira.headers` value — is masked by
-  `config.Redact` before it reaches any output; `config show`, the TUI, and
-  error messages all go through it. When adding a code path that touches one,
-  the test that proves it never reaches output unmasked is part of the change.
-  `gitleaks` (`task secrets`) is the backstop, not the plan.
+  `config.Redact` before it reaches any output. A code path that touches one
+  ships with the test that proves it never reaches output unmasked; `gitleaks`
+  (`task secrets`) is the backstop, not the plan.
+
+- **The store (`internal/store`) never holds a secret, and is never
+  trusted.** It is keyed only by credential-free identifiers, and the text in
+  it is sanitized on the way in and again at the seam that renders it.
+
+- **New dependencies require approval.** Propose a module, name it and say why,
+  and get explicit approval before adding it; prefer the standard library and
+  what `go.mod` already has.
+
+- **Week-long dependency age gate.** Never adopt a version published less than
+  7 days ago — freshly compromised releases are usually detected and yanked
+  within days. Go has no native gate: before `go get`, check the publish date
+  (`curl https://proxy.golang.org/<module>/@v/<version>.info`). The same rule
+  governs `mise.toml` and `web/yarn.lock`, and
+  `scripts/check-dependency-age.sh` holds every pull request to it.
+  **Known-CVE fixes override the cooldown — always**: list such a version in
+  `scripts/dependency-age-exceptions.txt` with its advisory. The maintainer,
+  and only the maintainer, may also waive a version by name, with a dated
+  `waived-YYYY-MM-DD` line there. An npm version takes a second line, in
+  `web/.yarnrc.yml`'s `npmPreapprovedPackages`, which yarn's own gate reads.
+  Each line goes once its version is a week old. Dependabot's cooldown exempts
+  `actions/*` and `github/*`, GitHub's own actions, which this rule governs
+  by hand.
+
+- **Tool versions are exact, and they live in `mise.toml`**, whose header says
+  how `build/Dockerfile` and CI read them. Every copy that has to live
+  elsewhere is gated, not trusted: Go's version (`scripts/check-go-version.sh`),
+  mise's own on each `jdx/mise-action` step and in the dev container
+  (`scripts/check-mise-version.sh`), the container's Go patch (the
+  Dockerfile's check after `FROM`), and each downloaded tool's SHA-256 lines
+  in `build/tool-checksums.txt` (`task lint:checksums`). A floating `latest`
+  changes what the gate accepts without anyone deciding to.
 
 - **The `--web` API is spec first.** Change `api/openapi.yaml`, then run `task
   gen` (the Go side) and `corepack yarn gen` in `web/` (the web client), so
@@ -579,75 +449,31 @@ than observable, public behavior.
   `docs/` too. Its errors are RFC 9457 problem details, whose rules are in
   `internal/webserver/CLAUDE.md`.
 
-- **Use `tmp/` under the repo root for ad-hoc scratch files** — never `/tmp/…` or
-  any path outside the repo. PR-body drafts, intermediate output, log dumps:
-  `tmp/foo.md` (gitignored). One caveat: a scratch `.go` file there still joins
-  `go test ./...` even though `tmp/` is gitignored, so keep Go scratch outside the
-  module.
-
-- **Commits**: Conventional Commits prefix (`feat` `fix` `chore` `docs`
-  `refactor` `test` `perf` `build` `ci` `revert` `style`), enforced by lefthook's
-  `commit-msg` hook and mirrored in CI, plus a Linux-kernel-style body: subject ≤
-  72 characters, imperative, no period; body wrapped at 72 explaining *why*. One
-  logical change per commit.
-
-- **Never commit to `main` — branch, and rebase before starting.** Every change
-  lands via a branch and a PR with green CI. Branch names mirror the commit
-  prefix: `feat/<slug>`, `fix/<slug>`, `docs/<slug>`.
-
-  Before starting work, sync with the remote so the branch starts from what is
-  actually on main rather than from a stale local copy:
-
-  ```sh
-  git fetch origin
-  git switch -c feat/<slug> origin/main   # new work
-  git rebase origin/main                  # work already in progress
-  ```
-
-  This applies to Claude without exception: no commit goes onto `main` directly,
-  and a session that begins with uncommitted work already on `main` moves it to a
-  branch before committing. Rebase rather than merge, so the branch stays a
-  readable series of commits.
-
-  The remote enforces this rather than trusting it: `main` is protected, takes no
-  direct or force pushes, and **merges by rebase only** — merge commits and squash
-  are both disabled. Every commit therefore lands on `main` exactly as written,
-  which is why each one should stand on its own rather than relying on a squash to
-  tidy it up later.
-
-- **Do not bypass a hook to land work.** `LEFTHOOK=0` and `LEFTHOOK_EXCLUDE` exist
-  for genuine emergencies. A failing hook is the hook working; fix the cause.
-
 - **The command reference is generated.** Everything under
   `docs/content/docs/reference/` but `_index.md` comes from the Cobra tree:
   a command or flag change runs `task docs:gen` in the same commit, and
-  `task docs:check` fails when the two disagree. The site's other rules are
-  in `docs/CLAUDE.md`.
+  `task docs:check` fails when the two disagree.
 
-- **Kept trade-offs live in `TECH_DEBT.md`'s register.** A cost chosen on
-  purpose is an entry there, `### TRADE-n <title>`, with **Decided.**,
-  **Cost.** and **Reopen when.** paragraphs, and the code it keeps carries a
-  `Trade-off TRADE-n:` comment in its file's comment syntax. A review or an
-  audit drops a finding that restates an entry unless that entry's reopen
-  trigger has fired. `scripts/check-tradeoffs.sh` (in `task lint`) gates the
-  register's shape and fails a site naming an ID the register does not hold.
+- **Kept trade-offs live in `TECH_DEBT.md`'s register**: an entry headed
+  `### TRADE-n <title>` with **Decided.**, **Cost.** and **Reopen when.**
+  paragraphs, and a `Trade-off TRADE-n:` comment at the code it keeps
+  (`scripts/check-tradeoffs.sh`). A review or an audit drops a finding that
+  restates an entry unless the entry's reopen trigger has fired.
 
-- **Releases are the maintainer's to publish — Claude prepares, never ships.**
-  release-please opens a release PR from the Conventional Commits on main;
-  merging it is what tags the version and triggers the build. Claude may write
-  commits that feed that PR, but must **not**, without an instruction naming that
-  exact action in the moment: merge the release PR, push a `v*` tag, or run the
-  release workflow. A published release is something other people download; it
-  cannot be cleanly withdrawn. When preparation is done, print the one step the
-  maintainer takes and stop.
+## Area guides
 
-- **Before 1.0, the minor digit is reserved for breaking changes.** `feat` and
-  `fix` both bump the patch; only a breaking change, marked `feat!`, bumps the
-  minor — the commit-msg hook refuses a body release-please would read as
-  breaking unless the subject has that `!`. That is `bump-minor-pre-major` plus
-  `bump-patch-for-minor-pre-major` in `release-please-config.json`, and **both
-  are deliberate** — a version bump
-  someone has to react to should mean something they depended on changed, not
-  that features were added. This looks like a misconfiguration if you only know
-  the more common pre-1.0 convention, and it has already been "fixed" once by
-  mistake. Do not change it without the maintainer asking.
+A nested `CLAUDE.md` loads into a session, subagents included, the first time
+the session reads or edits a file in its directory, and not before. So read
+the one for a directory before your first edit there, and the rules a change
+needs before it reaches one (spec first, secrets, dependencies, commits,
+releases, no backwards compatibility) stay above.
+
+| File | Read it before you change |
+| --- | --- |
+| `internal/store/CLAUDE.md` | a table, a key, or how the store's files are opened |
+| `internal/tui/CLAUDE.md` | a pane, an overlay, a key or a form of the terminal interface |
+| `internal/webserver/CLAUDE.md` | an API operation, a guard, a problem or the event stream |
+| `internal/cli/CLAUDE.md` | a command, a flag, what a command prints or how it exits |
+| `web/CLAUDE.md` | anything under `web/`, the `--web` frontend |
+| `scripts/CLAUDE.md` | a gate script, its test, or a data file a gate reads |
+| `docs/CLAUDE.md` | a page of the documentation site |
