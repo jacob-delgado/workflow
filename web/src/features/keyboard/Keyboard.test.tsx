@@ -72,7 +72,9 @@ test('with single-key shortcuts off, c does nothing and Ctrl+K still opens the p
   await user.keyboard('{Control>}k{/Control}')
 
   // Assert: the palette opened
-  expect(document.activeElement).toBe(screen.getByRole('combobox', { name: 'Action' }))
+  await waitFor(() => {
+    expect(document.activeElement).toBe(screen.getByRole('combobox', { name: 'Action' }))
+  })
 })
 
 test('no single key reaches a control behind an open confirm', async () => {

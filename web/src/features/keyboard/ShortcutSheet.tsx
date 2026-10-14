@@ -1,10 +1,10 @@
-import { useId, useRef } from 'react'
+import { useRef } from 'react'
 import type { KeyAction } from '@/api/generated/types.gen.ts'
+import { Dialog, DialogClose, DialogTitle } from '@/lib/baseui/Dialog.tsx'
 import { Button } from '@/lib/Button.tsx'
 import { boundActions, helpAction } from './boundActions.ts'
 import { pressable } from './keyNames.ts'
 import { useKeysStore } from './keysApi.ts'
-import { ModalDialog } from './ModalDialog.tsx'
 
 interface ShortcutSheetProps {
   // helpKey is the key the sheet opens on, as the page answers it.
@@ -41,28 +41,28 @@ function boundGroups(actions: KeyAction[]): Group[] {
 // terminal's groups and in its words, with the key that triggers it here, and
 // whether single keys are on.
 export function ShortcutSheet({ helpKey, onClose, onSettings }: ShortcutSheetProps) {
-  const headingId = useId()
   const close = useRef<HTMLButtonElement>(null)
   const { shortcuts, actions } = useKeysStore()
 
   return (
-    <ModalDialog
-      namedBy={headingId}
-      takesFocus={close}
+    <Dialog
+      initialFocus={close}
       onClose={onClose}
-      className="m-auto max-h-[85dvh] w-[60rem] overflow-y-auto"
+      className="max-h-[85dvh] w-[60rem] overflow-y-auto"
     >
       <div className="flex flex-col gap-block p-block">
         <div className="flex items-start justify-between gap-group">
           <div className="flex flex-col gap-tight">
-            <h2 id={headingId} className="text-lg">
-              Keyboard shortcuts
-            </h2>
+            <DialogTitle className="text-lg">Keyboard shortcuts</DialogTitle>
             <ShortcutState shortcuts={shortcuts} onSettings={onSettings} />
           </div>
-          <Button ref={close} variant="secondary" size="sm" onClick={onClose}>
-            Close
-          </Button>
+          <DialogClose
+            render={
+              <Button ref={close} variant="secondary" size="sm">
+                Close
+              </Button>
+            }
+          />
         </div>
         <div className="gap-block sm:columns-2 lg:columns-3">
           {boundGroups(actions).map((group) => (
@@ -70,7 +70,7 @@ export function ShortcutSheet({ helpKey, onClose, onSettings }: ShortcutSheetPro
           ))}
         </div>
       </div>
-    </ModalDialog>
+    </Dialog>
   )
 }
 

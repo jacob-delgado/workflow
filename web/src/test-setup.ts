@@ -23,24 +23,6 @@ globalThis.EventSource = FakeEventSource as unknown as typeof EventSource
 // jsdom has no matchMedia either, and the theme hook queries it on mount.
 installMatchMedia()
 
-// jsdom draws a dialog but cannot open one as a modal: showModal and close
-// only set and clear its open attribute here. The page behind is not made
-// inert, so a test cannot see Tab kept inside; the e2e specs, in a browser,
-// do.
-HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
-  this.setAttribute('open', '')
-}
-HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
-  this.removeAttribute('open')
-}
-// A browser asks an open modal dialog to close, with a cancel event, when
-// Escape is pressed in it; jsdom does not, so this does.
-document.addEventListener('keydown', (event) => {
-  const shown = document.querySelector('dialog[open]')
-  if (event.key === 'Escape' && shown !== null) {
-    shown.dispatchEvent(new Event('cancel', { cancelable: true }))
-  }
-})
 // jsdom lays nothing out, so it has nothing to scroll into view.
 Element.prototype.scrollIntoView = function scrollIntoView() {}
 // jsdom has no ReadableStream, and the vmThreads pool, unlike a plain worker,
