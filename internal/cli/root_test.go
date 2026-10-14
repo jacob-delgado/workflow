@@ -110,10 +110,18 @@ func (r *rootRun) spine() string {
 	return strings.SplitN(ansi.Strip(r.model.View().Content), "\n", 2)[0]
 }
 
+// started is the interface the root command opened, started as Bubble Tea
+// starts it: Init run, and every answer it leads to delivered.
+func (r *rootRun) started(t *testing.T) tui.Model {
+	t.Helper()
+
+	return settle(t, r.model, r.model.Init())
+}
+
 // huesDrawn are the system hues — the red, green, yellow, blue and magenta
-// foregrounds — in the interface the root command opened.
-func (r *rootRun) huesDrawn() []string {
-	view := r.model.View().Content
+// foregrounds — in an interface's screen.
+func huesDrawn(model tui.Model) []string {
+	view := model.View().Content
 
 	var drawn []string
 
@@ -318,19 +326,22 @@ func TestColorTurnedOffOpensTheInterfaceWithoutHues(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			dir := t.TempDir()
+			// A feature branch one commit ahead of main, so the loop's Branch
+			// and Commits stages are done, which the track draws in git's hue.
+			dir := prRepo(t, "feat/colors")
 			writeFile(t, dir, tt.configuration)
 			setVariable(t, "NO_COLOR", tt.noColor)
 
 			// Act
 			ran := runRoot(t, dir)
+			started := ran.started(t)
 
 			// Assert
 			if ran.err != nil || ran.interfaces != 1 {
 				t.Fatalf("workflow = %v, opened %d interfaces; want the interface", ran.err, ran.interfaces)
 			}
 
-			if hues := ran.huesDrawn(); len(hues) != 0 {
+			if hues := huesDrawn(started); len(hues) != 0 {
 				t.Errorf("the interface opened with color off draws the hues %q, want none", hues)
 			}
 		})
@@ -343,18 +354,21 @@ func TestColorLeftOnOpensTheInterfaceWithItsHues(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
+	dir := prRepo(t, "feat/colors")
+	writeFile(t, dir, `{}`)
 	setVariable(t, "NO_COLOR", "")
 
 	// Act
-	ran := runRoot(t, t.TempDir())
+	ran := runRoot(t, dir)
+	started := ran.started(t)
 
 	// Assert
 	if ran.err != nil || ran.interfaces != 1 {
 		t.Fatalf("workflow = %v, opened %d interfaces; want the interface", ran.err, ran.interfaces)
 	}
 
-	if hues := ran.huesDrawn(); len(hues) == 0 {
-		t.Errorf("the interface opened with color on draws no hue:\n%q", ran.model.View().Content)
+	if hues := huesDrawn(started); len(hues) == 0 {
+		t.Errorf("the interface opened with color on draws no hue:\n%q", started.View().Content)
 	}
 }
 

@@ -12,29 +12,35 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/progress"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
 )
 
-// stage is one step of the loop the spine shows.
+// stage is one step of the loop the spine shows, and how much of the rule
+// after it is filled: all of it once the stage is done, CI's share of its
+// checks finished while Review is in flight, none otherwise.
 type stage struct {
 	name  string
+	state progress.State
 	glyph string
 	hue   lipgloss.Style
+	fill  float64
 }
 
 // spineView is what the spine draws: the glyphs and styles, whether the
 // session holds its writes back, where you work, how far the work has got,
-// what the messaging service is called, the active task and the clock it has
-// run by.
+// what the messaging service is called, CI's share of checks finished, the
+// active task and the clock it has run by.
 type spineView struct {
 	kit     renderKit
 	dryRun  bool
 	place   string
 	work    progress.Work
 	service string
+	checked float64
 	task    taskwarrior.Task
 	active  bool
 	now     time.Time
@@ -46,60 +52,178 @@ func (m Model) spineView() spineView {
 
 	return spineView{
 		kit: m.kit(), dryRun: m.dryRun, place: placeLabel(m.deps), work: m.work(),
-		service: m.cfg.Messaging.Service(), task: task, active: active, now: m.deps.now(),
+		service: m.cfg.Messaging.Service(), checked: checksFinished(m.review.ci), task: task, active: active,
+		now: m.deps.now(),
 	}
+}
+
+// checksFinished is the share of CI's checks that have finished, zero where
+// the forge reports none one by one.
+func checksFinished(ci forge.CI) float64 {
+	if ci.Total == 0 {
+		return 0
+	}
+
+	return float64(ci.Done) / float64(ci.Total)
+}
+
+// The loop track's rules: at most ruleMost columns each, and at least
+// ruleNamed while the stages keep their names. Below trackNarrowBelow columns
+// the stages go by their initials.
+const (
+	ruleMost         = 8
+	ruleNamed        = 3
+	trackNarrowBelow = 60
+	trackRules       = 4
+)
+
+// trackFit is one way the spine can be laid out: whether it leads with where
+// you work, whether the active task keeps its description, whether the stages
+// keep their names, and the fewest and most columns each rule may take.
+type trackFit struct {
+	place, described, named bool
+	leastRule, mostRule     int
+}
+
+// fits are the layouts the spine tries, roomiest first: the place gives way
+// first, then the task's description, then the stages' names, and last the
+// rules themselves.
+func (v spineView) fits(shape layout.Layout) []trackFit {
+	initials := []trackFit{{leastRule: 1, mostRule: 1}, {}}
+	if shape.CompactSpine() || shape.Spine.Width < trackNarrowBelow {
+		return initials
+	}
+
+	return append([]trackFit{
+		{place: v.place != "", described: true, named: true, leastRule: ruleNamed, mostRule: ruleMost},
+		{described: true, named: true, leastRule: ruleNamed, mostRule: ruleMost},
+		{named: true, leastRule: ruleNamed, mostRule: ruleMost},
+	}, initials...)
 }
 
 // draw draws the loop's stages across the top, each in its system's color and
-// with a glyph saying how far it has got, and the active task at its end. Short
-// of rows it drops the names.
+// with a glyph saying how far it has got, a rule after each filled as far as
+// the stage has, and the active task at its end. It takes the first of fits
+// with room for every rule.
 func (v spineView) draw(shape layout.Layout) string {
-	stages := v.stages()
-	parts := make([]string, 0, len(stages))
+	width, stages := shape.Spine.Width, v.stages()
+	fits := v.fits(shape)
+	chosen, rule := fits[len(fits)-1], 0
 
-	for _, each := range stages {
-		if shape.CompactSpine() {
-			parts = append(parts, each.hue.Render(initial(each.name))+v.paintGlyph(each))
-		} else {
-			parts = append(parts, v.paintGlyph(each)+each.hue.Render(" "+each.name))
+	for _, fit := range fits {
+		if length, ok := v.ruleLength(fit, stages, width); ok {
+			chosen, rule = fit, length
+
+			break
 		}
 	}
 
-	joined := " " + strings.Join(parts, v.kit.marks.rule)
-	if shape.CompactSpine() {
-		joined = " " + strings.Join(parts, " ")
-	}
+	line := v.lead(chosen) + v.trackOf(stages, chosen.named, rule)
 
-	joined = v.ledByPlace(joined, shape.Spine.Width)
-
-	if v.dryRun {
-		joined = " " + v.kit.styles.strong.Render("DRY RUN") + v.kit.marks.separator + strings.TrimLeft(joined, " ")
-	}
-
-	return ansi.Truncate(joined+v.activeTaskTail(shape, joined), shape.Spine.Width, "")
+	return ansi.Truncate(line+v.activeTaskTail(width, line, chosen.described), width, "")
 }
 
-// ledByPlace leads the stages with where you work, faint, when there is room
-// for both and for DRY RUN; the place is the first thing to give way, since
-// the Repositories pane says it in full.
-func (v spineView) ledByPlace(stages string, width int) string {
-	if v.place == "" {
-		return stages
-	}
+// ruleLength is how long each rule is under fit: an equal share of the room
+// the rest leaves, at most the fit's most, and whether there is that room and
+// the share reaches the fit's least.
+func (v spineView) ruleLength(fit trackFit, stages []stage, width int) (int, bool) {
+	free := width - v.ruleless(fit, stages) - v.leastTail(fit.described)
 
-	led := " " + v.kit.styles.label.Render(v.place) + v.kit.marks.separator + strings.TrimLeft(stages, " ")
-
-	room := width
-	if v.dryRun {
-		room -= ansi.StringWidth("DRY RUN" + v.kit.marks.separator)
-	}
-
-	if ansi.StringWidth(led) > room {
-		return stages
-	}
-
-	return led
+	return min(free/trackRules, fit.mostRule), free >= 0 && free/trackRules >= fit.leastRule
 }
+
+// ruleless is how wide the spine is under fit before its rules take a column:
+// a rule brings a space of its own beside the one between two stages.
+func (v spineView) ruleless(fit trackFit, stages []stage) int {
+	if fit.mostRule == 0 {
+		return ansi.StringWidth(v.lead(fit) + v.trackOf(stages, fit.named, 0))
+	}
+
+	return ansi.StringWidth(v.lead(fit)+v.trackOf(stages, fit.named, 1)) - trackRules
+}
+
+// leastTail is the fewest columns the active task needs at the spine's end,
+// with its description or without; none when no task is active.
+func (v spineView) leastTail(described bool) int {
+	if !v.active {
+		return 0
+	}
+
+	brief := ansi.StringWidth(" " + v.kit.marks.inFlight + " " + elapsed(v.task.Start, v.now))
+	if !described {
+		return brief
+	}
+
+	return brief + ansi.StringWidth(v.kit.marks.separator) +
+		min(describedAtLeast, ansi.StringWidth(v.task.Description))
+}
+
+// lead is what comes before the stages: DRY RUN while writes are held back,
+// and where you work when the fit has room for it.
+func (v spineView) lead(fit trackFit) string {
+	lead := " "
+	if v.dryRun {
+		lead += v.kit.styles.strong.Render("DRY RUN") + v.kit.marks.separator
+	}
+
+	if fit.place {
+		lead += v.kit.styles.label.Render(v.place) + v.kit.marks.separator
+	}
+
+	return lead
+}
+
+// trackOf is the stages, by name or by initial, with a rule of length
+// columns between each two; with no length for a rule, a space alone.
+func (v spineView) trackOf(stages []stage, named bool, length int) string {
+	parts := make([]string, len(stages))
+
+	for index, each := range stages {
+		parts[index] = v.label(each, named)
+		if index < len(stages)-1 && length > 0 {
+			parts[index] += " " + v.ruleAfter(each, length)
+		}
+	}
+
+	return strings.Join(parts, " ")
+}
+
+// label is a stage's glyph and its name, or its initial then its glyph:
+// faint while the stage is still to come, in its system's hue otherwise.
+func (v spineView) label(step stage, named bool) string {
+	hue := step.hue
+	if step.state == progress.NotStarted {
+		hue = v.kit.styles.label
+	}
+
+	glyph := v.paintGlyph(step, hue)
+	if !named {
+		return hue.Render(initial(step.name)) + glyph
+	}
+
+	return glyph + hue.Render(" "+step.name)
+}
+
+// ruleAfter is the rule after a stage: filled in its hue as far as the stage
+// has got, open and faint for the rest.
+func (v spineView) ruleAfter(step stage, length int) string {
+	marks := v.kit.marks
+	filled := int(step.fill*float64(length) + half)
+
+	rule := strings.Repeat(marks.trackFilled, filled)
+	if filled > 0 {
+		rule = step.hue.Render(rule)
+	}
+
+	if filled < length {
+		rule += v.kit.styles.label.Render(strings.Repeat(marks.trackOpen, length-filled))
+	}
+
+	return rule
+}
+
+// half rounds a share of a rule to the nearest column.
+const half = 0.5
 
 // placeLabel is where you work, briefly: the repository's name and the path
 // within it, or the directory's own name outside one; nothing when the
@@ -129,15 +253,15 @@ func placeLabel(deps Deps) string {
 const describedAtLeast = 8
 
 // activeTaskTail is the active task at the spine's right edge, in Taskwarrior's
-// hue, in the room the stages leave it. Nothing when no task is active.
-func (v spineView) activeTaskTail(shape layout.Layout, stages string) string {
+// hue, in the room the track leaves it. Nothing when no task is active.
+func (v spineView) activeTaskTail(width int, track string, described bool) string {
 	if !v.active {
 		return ""
 	}
 
-	room := shape.Spine.Width - ansi.StringWidth(stages) - 1
+	room := width - ansi.StringWidth(track) - 1
 
-	tail := v.fittedTaskTail(room, shape.CompactSpine())
+	tail := v.fittedTaskTail(room, !described)
 	if tail == "" {
 		return ""
 	}
@@ -147,20 +271,20 @@ func (v spineView) activeTaskTail(shape layout.Layout, stages string) string {
 
 // fittedTaskTail is the active task in room columns: what it is, its
 // description cut with the ellipsis where it must be, and how long it has run.
-// Only how long on a compact spine, or where fewer than describedAtLeast
-// columns of the description would show; and nothing where not even that fits,
-// since a time cut short reads as another.
-func (v spineView) fittedTaskTail(room int, compact bool) string {
+// Only how long when brief, or where fewer than describedAtLeast columns of
+// the description would show; and nothing where not even that fits, since a
+// time cut short reads as another.
+func (v spineView) fittedTaskTail(room int, brief bool) string {
 	marks, task := v.kit.marks, v.task
 	since := elapsed(task.Start, v.now)
-	brief := marks.inFlight + " " + since
-	described := room - ansi.StringWidth(brief+marks.separator)
+	short := marks.inFlight + " " + since
+	described := room - ansi.StringWidth(short+marks.separator)
 
 	switch {
-	case ansi.StringWidth(brief) > room:
+	case ansi.StringWidth(short) > room:
 		return ""
-	case compact || described < min(describedAtLeast, ansi.StringWidth(task.Description)):
-		return brief
+	case brief || described < min(describedAtLeast, ansi.StringWidth(task.Description)):
+		return short
 	default:
 		return marks.inFlight + " " + ansi.Truncate(task.Description, described, marks.ellipsis) +
 			marks.separator + since
@@ -190,13 +314,13 @@ func initial(name string) string {
 }
 
 // paintGlyph colors a stage's glyph: red where it failed, so red reads the same
-// on the spine as everywhere else, and the system's own hue otherwise.
-func (v spineView) paintGlyph(s stage) string {
-	if s.glyph == v.kit.marks.failed {
+// on the spine as everywhere else, and hue otherwise.
+func (v spineView) paintGlyph(s stage, hue lipgloss.Style) string {
+	if s.state == progress.Failed {
 		return v.kit.styles.failure.Render(s.glyph)
 	}
 
-	return s.hue.Render(s.glyph)
+	return hue.Render(s.glyph)
 }
 
 // stages works out how far along the loop the work is, in the hue of each
@@ -215,10 +339,27 @@ func (v spineView) stages() []stage {
 	stages := make([]stage, len(derived))
 
 	for index, each := range derived {
-		stages[index] = stage{name: each.Name, glyph: glyphFor(v.kit.marks, each.State), hue: hues[each.System]}
+		stages[index] = stage{
+			name: each.Name, state: each.State, glyph: glyphFor(v.kit.marks, each.State), hue: hues[each.System],
+			fill: v.fillOf(each),
+		}
 	}
 
 	return stages
+}
+
+// fillOf is how much of the rule after a stage is filled: all of it once
+// done, CI's share of checks finished while Review is in flight, and none
+// otherwise.
+func (v spineView) fillOf(each progress.Stage) float64 {
+	switch {
+	case each.State == progress.Done:
+		return 1
+	case each.State == progress.InFlight && each.System == progress.Forge:
+		return v.checked
+	default:
+		return 0
+	}
 }
 
 // work is what the panes know, gathered for the shared stage derivation.
