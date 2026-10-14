@@ -31,7 +31,10 @@ type ghResponses struct {
 	createError bool   // when set, POST .../pulls answers unreadably, so the open fails
 	signedOut   bool   // when set, `gh auth token` exits 1, so no token resolves through gh
 	apiHangs    bool   // when set, `gh api` answers nothing for ghHang, as behind a stalled gateway
-	sentLog     string // when set, each request carrying a body appends its endpoint and body here
+	// interruptsStatus, when set, has each status read press ctrl+c on the
+	// process that asked, as a person would mid-wait, and then hang.
+	interruptsStatus bool
+	sentLog          string // when set, each request carrying a body appends its endpoint and body here
 }
 
 // The routes a fake gh answers from a sequence as well as from one body.
@@ -138,6 +141,12 @@ func fakeGh(t *testing.T, responses ghResponses) {
 		hang = "if [ \"$1\" = api ]; then exec sleep " + strconv.Itoa(int(ghHang/time.Second)) + "; fi\n"
 	}
 
+	// The parent is the test's own process, which runs the command in it.
+	interrupt := ""
+	if responses.interruptsStatus {
+		interrupt = "if [ \"$f\" = " + statusRoute + " ]; then kill -INT $PPID; exec sleep 5; fi\n"
+	}
+
 	// A request with a body reads it from standard input (--input -).
 	record := ""
 	if responses.sentLog != "" {
@@ -157,6 +166,7 @@ func fakeGh(t *testing.T, responses ghResponses) {
 		"  *\"/user\"*) f=user ;;\n" +
 		"  *) f=default ;;\n" +
 		"esac\n" +
+		interrupt +
 		gated(responses.statusGate) +
 		sequenced(dir, statusRoute, len(responses.statusSequence)) +
 		sequenced(dir, pullsRoute, len(responses.pullsSequence)) +
