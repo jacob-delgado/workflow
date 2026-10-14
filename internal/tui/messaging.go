@@ -238,7 +238,7 @@ func (m Model) previewAnnouncement() (Model, tea.Cmd) {
 	preview, readTags := m.withTagging(messagingPreview{
 		text: m.announcement(moment), fallback: m.cfg.Messaging.Target(),
 		channel: channel, channels: channels, moment: moment, service: m.cfg.Messaging.Service(),
-		ci: m.review.lastRead(), opened: opened,
+		ci: m.review.readFor(moment), opened: opened,
 	})
 	m.overlay = preview
 

@@ -509,9 +509,10 @@ Nothing is announced while a check has failed on the pull request. The
 announcement reads its CI again as it goes, whatever the pane last read, and a
 failed check keeps it from going, ready or merged alike: the preview stays open
 saying why. While the last read found a check failed, the preview offers only
-`w`, which waits for a fix. A CI that cannot be read keeps it from going too, since nothing
-failing cannot be confirmed. `workflow announce` and the `--web` page hold to
-the same rule.
+`w`, which waits for a fix. A merge has no CI to wait for: its refusal says to
+re-run its failed checks on the forge, then announce it once they pass. A CI
+that cannot be read keeps it from going too, since nothing failing cannot be
+confirmed. `workflow announce` and the `--web` page hold to the same rule.
 
 #### Tag the code owners
 

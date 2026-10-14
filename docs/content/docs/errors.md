@@ -278,8 +278,10 @@ Status 409. An announcement was asked to go now, and a check had failed on its
 pull request when the server read its CI again to post it, so nothing was posted
 or remembered. Every surface holds to the same rule: a pull request is announced,
 ready or merged, only while nothing has failed on it, its CI running or passed
-(or reporting no check at all). The way on is to announce it when CI passes
-(`"when": "ci_passes"`), which waits for a run that passes, or to fix the check.
+(or reporting no check at all). The way on, for a pull request ready for
+review, is to announce it when CI passes (`"when": "ci_passes"`), which waits
+for a run that passes, or to fix the check. A merge has no CI to wait for: re-run
+its failed checks on the forge, then announce it once they pass.
 A CI the server cannot read posts nothing either; it is answered as the read
 that failed, an [Unreachable](#unreachable) forge among them.
 

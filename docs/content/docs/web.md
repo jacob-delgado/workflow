@@ -369,9 +369,11 @@ Nothing is announced while a check has failed on the pull request. The server
 reads its CI again as it posts, whatever the preview showed, and a failed
 check keeps it from going, ready or merged alike, with a `ci_failed` problem
 the section shows; a CI the server cannot read keeps it from going too. A
-preview whose CI has a failed check offers only **Announce when CI passes**,
-and says why; a post refused for a check that failed after the preview opened
-previews it again, offering the wait.
+ready-for-review preview whose CI has a failed check offers only **Announce
+when CI passes**, and says why; a post refused for a check that failed after
+the preview opened previews it again, offering the wait. A merge has no CI to
+wait for, so its preview offers neither, saying to re-run the failed checks on
+the forge and announce it once they pass.
 
 **Edit**, in the preview, turns the message into a box to change it in, as
 the terminal's `e` opens it in your editor; **Announce now** then sends the
