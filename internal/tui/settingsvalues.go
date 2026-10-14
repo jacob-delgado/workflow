@@ -69,12 +69,12 @@ func (f settingsForm) edited() (config.Config, error) {
 	}
 
 	// Trade-off TRADE-13: the configuration's JSON form always encodes.
-	edited, err := json.Marshal(values)
+	encoded, err := json.Marshal(values)
 	if err != nil {
 		return config.Config{}, fmt.Errorf("writing the configuration: %w", err)
 	}
 
-	return parsed(edited)
+	return parsed(encoded)
 }
 
 // parsed is a configuration's JSON form held to the standard a file on disk
