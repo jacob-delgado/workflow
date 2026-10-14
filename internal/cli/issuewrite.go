@@ -46,6 +46,9 @@ func (w issueWrite) run(ctx context.Context, out output, opts writeOptions, conf
 	return nil
 }
 
+// errStatusBlank refuses a move that names no status to move to.
+var errStatusBlank = errors.New("a transition needs a status to move to")
+
 // transitionSeams are what `workflow transition` reads and does, so a test can
 // answer without a tracker.
 type transitionSeams struct {
@@ -66,13 +69,18 @@ func newTransitionCmd(prompt Prompt) *cobra.Command {
 			"before it is made. A status the tracker does not offer is refused, naming those\n" +
 			"it does, and so is a move that asks for fields, naming them: change its status\n" +
 			"with t in the interface or Change status on the web, whose forms ask for them.\n" +
-			"Either refusal exits 4.",
+			"Either refusal exits 4. A blank status is refused before anything is asked.",
 		Example: examples(
 			`workflow transition PROJ-7 "In Review" --yes   # unattended`,
 		),
 		Args:              cobra.ExactArgs(2), //nolint:mnd // the issue and the status
 		ValidArgsFunction: completeAssignedIssues,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			status := strings.TrimSpace(args[1])
+			if status == "" {
+				return errStatusBlank
+			}
+
 			conn, err := connect(cmd)
 			if err != nil {
 				return err
@@ -85,7 +93,7 @@ func newTransitionCmd(prompt Prompt) *cobra.Command {
 				Confirm:     func(question string) (bool, error) { return confirm(prompt, question) },
 			}
 
-			return runTransition(cmd.Context(), outputOf(cmd), seams, jira.Key(args[0]), args[1], opts)
+			return runTransition(cmd.Context(), outputOf(cmd), seams, jira.Key(args[0]), status, opts)
 		},
 	}
 
