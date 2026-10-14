@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/gittest"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
@@ -29,11 +30,20 @@ const pipedKeysMode = "WORKFLOW_TUI_PIPED_KEYS"
 // it will never get fails the test rather than hanging it.
 const childPatience = 10 * time.Second
 
-// TestMain makes this test binary the child a test starts when pipedKeysMode
-// is set, and otherwise runs the tests. The child is dispatched here rather
-// than from a test function, so it never shows up as a test that asserts
-// nothing.
+// TestMain first clears the variables that tell git which repository to use,
+// as internal/cli's does: from a linked worktree's hook or a rebase's --exec,
+// GIT_DIR names the shared repository, and a test's git init would rewrite its
+// configuration (it once set core.bare) instead of making a temporary one.
+// Then it makes this test binary the child a test starts when pipedKeysMode is
+// set, and otherwise runs the tests. The child is dispatched here rather than
+// from a test function, so it never shows up as a test that asserts nothing.
 func TestMain(m *testing.M) {
+	// Running the tests anyway would be running them against that repository.
+	err := gittest.ClearLocalVariables()
+	if err != nil {
+		panic(err)
+	}
+
 	if os.Getenv(pipedKeysMode) != "" {
 		// Exits by itself: gobco rewrites an os.Exit written in TestMain to save
 		// its counters, which the child would otherwise race to overwrite.
