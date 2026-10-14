@@ -30,7 +30,7 @@ import { configOf, formValues, type SettingsValues } from './formValues.ts'
 import { type Removal, RemovalsContext, stored, without } from './removal.ts'
 import { firstSection, sectionOf, SettingsSections } from './SettingsSections.tsx'
 import { type HeldRefusal, heldRefusals, refusedPaths } from './settingsRules.ts'
-import { changedSettings, SaveBar } from './SaveBar.tsx'
+import { changedPaths, SaveBar } from './SaveBar.tsx'
 import { SetupArea } from './SetupForm.tsx'
 
 // SettingsPanel is the configuration form a section at a time, with the areas
@@ -162,6 +162,7 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
     { fallback: 'The configuration could not be read. Try Reload again.' },
   )
   const refused = refusedPaths(formState.errors)
+  const changed = changedPaths(formState.dirtyFields)
   // Only the server refuses a list as a whole, and no rule here judges one
   // again: its refusal would hold back every save, so it stands only until
   // the next save the rules here let through, which the server judges afresh.
@@ -192,6 +193,8 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
           section={view.section}
           onSection={view.setSection}
           fields={{ register, control }}
+          changed={changed}
+          refused={refused}
           form={{
             id: formId,
             noValidate: true,
@@ -201,7 +204,7 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
           bar={
             <SaveBar
               form={formId}
-              unsaved={changedSettings(formState.dirtyFields)}
+              unsaved={changed.length}
               toFix={toFix(refused)}
               saving={save.state === 'running'}
               said={outcome.said}
