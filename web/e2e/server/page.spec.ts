@@ -1,14 +1,6 @@
-import { expect, test, type ConsoleMessage } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 import { openSection, pinTheme } from '../support/cockpit.ts'
-import { openServed, printedAddress } from './served.ts'
-
-// policyViolations collects what the browser reports refusing under the
-// server's content policy, from the moment the page starts to load.
-function policyViolations(messages: ConsoleMessage[]): string[] {
-  return messages
-    .map((message) => message.text())
-    .filter((text) => text.includes('Content Security Policy'))
-}
+import { heardRefusals, openServed, printedAddress } from './served.ts'
 
 // The served page runs under the server's content policy, which runs no
 // script written into the page or built from a string: the theme is resolved
@@ -19,8 +11,7 @@ test('the page the server serves loads themed, with nothing its content policy r
   // Arrange
   // The console is heard from the start, so a refusal while the page loads is
   // caught.
-  const messages: ConsoleMessage[] = []
-  page.on('console', (message) => messages.push(message))
+  const refusals = heardRefusals(page)
   await pinTheme(page, 'dark')
 
   // Act
@@ -31,7 +22,7 @@ test('the page the server serves loads themed, with nothing its content policy r
   // Assert
   // eslint-disable-next-line no-restricted-syntax, playwright/no-raw-locators -- data-theme is the resolved theme itself, the value the pre-paint script sets; no role, name or text carries it
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
-  expect(policyViolations(messages)).toEqual([])
+  expect(refusals).toEqual([])
 })
 
 // The address the server prints carries the page's session in its fragment,
@@ -68,8 +59,7 @@ test('the palette and the sheet open under the content policy, in the page’s o
   page,
 }) => {
   // Arrange
-  const messages: ConsoleMessage[] = []
-  page.on('console', (message) => messages.push(message))
+  const refusals = heardRefusals(page)
   await openServed(page)
   await openSection(page, 'Branch')
 
@@ -81,7 +71,7 @@ test('the palette and the sheet open under the content policy, in the page’s o
   await expect(page.getByRole('dialog', { name: 'Keyboard shortcuts' })).toBeVisible()
 
   // Assert
-  expect(policyViolations(messages)).toEqual([])
+  expect(refusals).toEqual([])
   expect(
     await page.evaluate(async () => {
       await document.fonts.ready
