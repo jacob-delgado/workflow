@@ -8,8 +8,8 @@ import { KeyboardLayer } from '@/features/keyboard/KeyboardLayer.tsx'
 import { CiSettled } from '@/features/review/CiSettled.tsx'
 import { HereBadge } from '@/features/repositories/HereBadge.tsx'
 import { useFollowSwitch } from '@/features/repositories/useFollowSwitch.ts'
-import { ActiveTask } from '@/features/tasks/ActiveTask.tsx'
 import { cn } from '@/lib/utils.ts'
+import { LoopTrack } from './LoopTrack.tsx'
 import { NavRail } from './NavRail.tsx'
 import { SectionPanel } from './SectionPanel.tsx'
 import { StreamStatus } from './StreamStatus.tsx'
@@ -65,13 +65,13 @@ export function AppShell() {
           ) : null}
         </span>
         <HereBadge />
-        <ActiveTask />
         <div className="flex items-center gap-item">
           <ThemeToggle />
           <CiSettled />
           <StreamStatus />
         </div>
       </header>
+      <LoopTrack />
       {health?.dry_run ? (
         <p
           role="status"

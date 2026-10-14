@@ -115,6 +115,10 @@
   --forge: #5cc6bd;
   --messaging: #e797c4;
   --taskwarrior: #c9a0ee;
+
+  /* The ground of the loop's track under the header: each stage's rule is
+     drawn on it and fills in the stage's system's hue, which holds 3:1 on it. */
+  --track: #3a404b;
 }
 
 /* The same room by daylight, the dimmed theme's twin rather than its
@@ -179,6 +183,8 @@
   --forge: #0b6560;
   --messaging: #8a3672;
   --taskwarrior: #6c3296;
+
+  --track: #cfd6df;
 }
 
 /* Map the tokens to Tailwind's color scale, so `bg-background`,
@@ -222,6 +228,7 @@
   --color-forge: var(--forge);
   --color-messaging: var(--messaging);
   --color-taskwarrior: var(--taskwarrior);
+  --color-track: var(--track);
 }
 
 /* The page's type, space and corners: one scale each, the same in both themes.
