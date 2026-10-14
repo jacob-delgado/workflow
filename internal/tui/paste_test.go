@@ -157,7 +157,7 @@ func pasteTargets() map[string]pasteTarget {
 		},
 		"the go-to prompt": {
 			world: reposWorld, keys: append([]string{reposKey, "g"}, letters("~/src/web")...),
-			pastedX: "> ~/src/webx",
+			pastedX: "› ~/src/webx",
 		},
 	}
 }

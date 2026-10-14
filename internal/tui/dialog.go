@@ -55,11 +55,27 @@ func dialogInside(shape layout.Layout, box layout.Box) (int, int) {
 }
 
 // withDialog is the body of the screen — the rail and the detail — faint
-// behind the open overlay drawn as a dialog in box over it.
+// behind the open overlay drawn as a dialog in box over it, and over the
+// dialog a last look goes back to, when it floats too.
 func (m Model) withDialog(shape layout.Layout, box layout.Box) string {
 	behind := m
 	behind.overlay = nil
+	layers := []*lipgloss.Layer{lipgloss.NewLayer(m.backdrop(behind.body(shape)))}
 
+	if look, looks := m.overlay.(lastLook); looks {
+		under := m
+		under.overlay = look.back
+
+		if underBox, floats := under.dialogBox(); floats {
+			layers = append(layers, under.dialogLayer(shape, underBox, 1))
+		}
+	}
+
+	return lipgloss.NewCompositor(append(layers, m.dialogLayer(shape, box, 2))...).Render() //nolint:mnd // above both
+}
+
+// dialogLayer is the open overlay drawn as a dialog in box, depth layers up.
+func (m Model) dialogLayer(shape layout.Layout, box layout.Box, depth int) *lipgloss.Layer {
 	width, rows := dialogInside(shape, box)
 	title, content, style := m.overlayContent(width, rows)
 
@@ -68,10 +84,7 @@ func (m Model) withDialog(shape layout.Layout, box layout.Box) string {
 		drawn = frame.Plain(title, content, box.Width, box.Height, style)
 	}
 
-	return lipgloss.NewCompositor(
-		lipgloss.NewLayer(m.backdrop(behind.body(shape))),
-		lipgloss.NewLayer(drawn).X(box.X).Y(box.Y-shape.Detail.Y).Z(1),
-	).Render()
+	return lipgloss.NewLayer(drawn).X(box.X).Y(box.Y - shape.Detail.Y).Z(depth)
 }
 
 // backdrop is the body drawn faint, its own colors and weights given up so
