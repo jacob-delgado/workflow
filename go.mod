@@ -13,6 +13,7 @@ require (
 	github.com/getkin/kin-openapi v0.149.0
 	github.com/oapi-codegen/runtime v1.7.0
 	github.com/spf13/cobra v1.10.2
+	github.com/spf13/pflag v1.0.10
 	go.yaml.in/yaml/v3 v3.0.5
 	golang.org/x/sys v0.49.0
 	golang.org/x/term v0.47.0
@@ -51,7 +52,6 @@ require (
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
 	github.com/speakeasy-api/jsonpath v0.6.3 // indirect
 	github.com/speakeasy-api/openapi v1.25.5 // indirect
-	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/vmware-labs/yaml-jsonpath v0.3.2 // indirect
 	github.com/xo/terminfo v1.2.0 // indirect
 	golang.org/x/exp v0.0.0-20240404231335-c0f41cb1a7a0 // indirect

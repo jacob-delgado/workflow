@@ -167,7 +167,7 @@ type invocation struct {
 func execute(ctx context.Context, root *cobra.Command, run invocation) error {
 	err := executeTree(ctx, root, run)
 	if err != nil {
-		console.New(run.stderr, console.Options{Getenv: run.getenv}).Fail(err)
+		console.New(run.stderr, voiceOf(root, run.getenv)).Fail(err, ExitStatus(err))
 	}
 
 	return err
@@ -228,16 +228,16 @@ func NewRootCmdOver(prompt Prompt, run RunInterface, serveAt RunWebAt, env Envir
 
 	opening := surfaces{run: run, serveAt: serveAt}
 	root := &cobra.Command{
-		Use:              "workflow",
-		Short:            "Run your Jira, Git forge and messaging workflow, in the terminal or a browser",
-		Long:             longHelp,
-		Version:          buildinfo.Current(),
-		SilenceUsage:     true,
-		SilenceErrors:    true,
-		Args:             cobra.NoArgs,
-		PersistentPreRun: func(cmd *cobra.Command, _ []string) { handOver(cmd, env) },
-		PreRunE:          func(cmd *cobra.Command, _ []string) error { return checkPort(cmd, flags.web, flags.port) },
-		RunE:             func(cmd *cobra.Command, _ []string) error { return opening.open(cmd, prompt, flags) },
+		Use:               "workflow",
+		Short:             "Run your Jira, Git forge and messaging workflow, in the terminal or a browser",
+		Long:              longHelp,
+		Version:           buildinfo.Current(),
+		SilenceUsage:      true,
+		SilenceErrors:     true,
+		Args:              cobra.NoArgs,
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error { return handOver(cmd, env) },
+		PreRunE:           func(cmd *cobra.Command, _ []string) error { return checkPort(cmd, flags.web, flags.port) },
+		RunE:              func(cmd *cobra.Command, _ []string) error { return opening.open(cmd, prompt, flags) },
 	}
 
 	flags.declare(root)

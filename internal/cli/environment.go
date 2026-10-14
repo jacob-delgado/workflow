@@ -42,14 +42,22 @@ type environmentKey struct{}
 
 // handOver puts env in the context of the command cmd runs, which every
 // command under the root reads it from: the root does this before any
-// command's own work starts. The working directory is read at the first ask
-// and answered from then on as it was then. The context also carries itself
-// as the lifetime of what the command detaches from its asker (a Slack
-// directory read, a token's refresh), so a signal ends that too.
-func handOver(cmd *cobra.Command, env Environment) {
+// command's own work starts, once it has refused --quiet beside --verbose.
+// The working directory is read at the first ask and answered from then on
+// as it was then. The context also carries itself as the lifetime of what the
+// command detaches from its asker (a Slack directory read, a token's
+// refresh), so a signal ends that too.
+func handOver(cmd *cobra.Command, env Environment) error {
+	err := checkVoice(cmd)
+	if err != nil {
+		return err
+	}
+
 	env.WorkingDir = sync.OnceValues(env.WorkingDir)
 	running := cmd.Context()
 	cmd.SetContext(context.WithValue(lifetime.Within(running, running), environmentKey{}, env))
+
+	return nil
 }
 
 // errNoEnvironment is a command run without the environment it runs in: from
