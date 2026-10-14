@@ -1,5 +1,5 @@
 import { useId, useState, type ReactNode } from 'react'
-import type { Path, UseFormRegister } from 'react-hook-form'
+import { get, type Path, type UseFormRegister, useFormState } from 'react-hook-form'
 import { Button } from '@/lib/Button.tsx'
 import { Input, Select } from '@/lib/Field.tsx'
 import { useFocusHandback } from '@/lib/focus.ts'
@@ -8,6 +8,7 @@ import { OutcomeLine, type Teller, useOutcome } from '@/lib/Outcome.tsx'
 import { Failure } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import type { SettingsValues } from '../formValues.ts'
+import { ruleFor } from '../settingsRules.ts'
 import {
   type CredentialPath,
   type Removal,
@@ -37,6 +38,31 @@ function readCount(value: unknown): unknown {
 // aria-describedby.
 function hintId(name: Name): string {
   return `${name}-hint`
+}
+
+// refusalId is the id of what says why a field is refused.
+function refusalId(name: Name): string {
+  return `${name}-refusal`
+}
+
+// useRefusal is why the form refuses a field — a rule's word before a save,
+// or the server's after one — or undefined while it is not refused.
+function useRefusal(name: Name): string | undefined {
+  const { errors } = useFormState<SettingsValues>({ name })
+
+  return get(errors, `${name}.message`) as string | undefined
+}
+
+// refusedProps are what a field's control says of its hint and its refusal:
+// described by both, and invalid while it is refused.
+function refusedProps(name: Name, hint: string | undefined, refusal: string | undefined) {
+  const describers = [hint ? hintId(name) : '', refusal === undefined ? '' : refusalId(name)]
+  const describedBy = describers.filter((id) => id !== '').join(' ')
+
+  return {
+    'aria-describedby': describedBy === '' ? undefined : describedBy,
+    'aria-invalid': refusal === undefined ? undefined : true,
+  }
 }
 
 interface FieldsetProps {
@@ -71,11 +97,13 @@ interface FieldProps {
   name: Name
   label: string
   hint?: string
+  refusal?: string
   children: ReactNode
 }
 
-// Field is a control under its label, with the hint that describes it below.
-function Field({ name, label, hint, children }: FieldProps) {
+// Field is a control under its label, with the hint that describes it below,
+// and below that why it is refused, while it is.
+function Field({ name, label, hint, refusal, children }: FieldProps) {
   return (
     <div className="flex flex-col gap-tight">
       <label htmlFor={name} className="text-sm text-muted-foreground">
@@ -87,6 +115,7 @@ function Field({ name, label, hint, children }: FieldProps) {
           {hint}
         </p>
       ) : null}
+      {refusal === undefined ? null : <Failure id={refusalId(name)}>{refusal}</Failure>}
     </div>
   )
 }
@@ -114,15 +143,20 @@ export function TextField({
   readAs,
   readOnly = false,
 }: TextFieldProps) {
+  const refusal = useRefusal(name)
+
   return (
-    <Field name={name} label={label} hint={hint}>
+    <Field name={name} label={label} hint={hint} refusal={refusal}>
       <Input
         id={name}
         type={type}
         min={type === 'number' ? 0 : undefined}
         readOnly={readOnly}
-        aria-describedby={hint ? hintId(name) : undefined}
-        {...register(name, { setValueAs: type === 'number' ? readCount : readAs })}
+        {...refusedProps(name, hint, refusal)}
+        {...register(name, {
+          setValueAs: type === 'number' ? readCount : readAs,
+          validate: ruleFor(name),
+        })}
       />
     </Field>
   )
@@ -139,15 +173,16 @@ interface SecretFieldProps {
 // beside it while the file holds one, Remove…, which takes it out of the file.
 export function SecretField({ register, name, label, hint }: SecretFieldProps) {
   const outcome = useOutcome()
+  const refusal = useRefusal(name)
 
   return (
-    <Field name={name} label={label} hint={hint}>
+    <Field name={name} label={label} hint={hint} refusal={refusal}>
       <div className="flex flex-wrap items-center gap-item">
         <Input
           id={name}
           type="password"
           className="min-w-0 flex-1"
-          aria-describedby={hintId(name)}
+          {...refusedProps(name, hint, refusal)}
           {...register(name)}
         />
         <CredentialRemoval removal={{ credential: name }} tell={outcome} />
@@ -168,9 +203,11 @@ interface SelectFieldProps {
 
 // SelectField is a field chosen from a fixed set.
 export function SelectField({ register, name, label, hint, choices }: SelectFieldProps) {
+  const refusal = useRefusal(name)
+
   return (
-    <Field name={name} label={label} hint={hint}>
-      <Select id={name} aria-describedby={hint ? hintId(name) : undefined} {...register(name)}>
+    <Field name={name} label={label} hint={hint} refusal={refusal}>
+      <Select id={name} {...refusedProps(name, hint, refusal)} {...register(name)}>
         {choices.map(([value, words]) => (
           <option key={value} value={value}>
             {words}

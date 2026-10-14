@@ -5,7 +5,7 @@ import {
   getKeysQueryKey,
   listViewsQueryKey,
 } from '@/api/generated/@tanstack/react-query.gen.ts'
-import type { Config } from '@/api/generated/types.gen.ts'
+import type { Config, RefusedSetting } from '@/api/generated/types.gen.ts'
 
 // ConfigRead is the configuration as a read or a save returned it, with the
 // revision of the file it stands for: what the next save names, so it is
@@ -127,5 +127,26 @@ function readAgainAfter(client: QueryClient): void {
 export function changedSinceRead(caught: unknown): boolean {
   return (
     typeof caught === 'object' && caught !== null && 'code' in caught && caught.code === 'conflict'
+  )
+}
+
+// refusedSettings are the settings a save refused as not valid named, each
+// with why; none for any other refusal.
+export function refusedSettings(caught: unknown): RefusedSetting[] {
+  if (typeof caught !== 'object' || caught === null || !('fields' in caught)) {
+    return []
+  }
+
+  const { fields } = caught
+  if (!Array.isArray(fields)) {
+    return []
+  }
+
+  return fields.filter(
+    (field): field is RefusedSetting =>
+      typeof field === 'object' &&
+      field !== null &&
+      typeof (field as RefusedSetting).key === 'string' &&
+      typeof (field as RefusedSetting).detail === 'string',
   )
 }

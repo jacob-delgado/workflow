@@ -6,6 +6,7 @@ import {
   type Path,
   get,
   useFieldArray,
+  useFormContext,
   useFormState,
 } from 'react-hook-form'
 import { Button } from '@/lib/Button.tsx'
@@ -77,11 +78,45 @@ interface EntryListProps<N extends ListName> {
   unique?: Unique
 }
 
+// useEditedList is a list's rows, what the form refuses of them, and the
+// refusal of the list as a whole, which only a save the server refused names:
+// adding a row, removing one or changing one takes that refusal away, as a
+// change to a field takes away its own.
+function useEditedList<N extends ListName>(control: Control<SettingsValues>, name: N) {
+  const { fields, append, remove } = useFieldArray({ control, name })
+  const { errors } = useFormState({ control, name })
+  const { clearErrors } = useFormContext<SettingsValues>()
+  const refusal = get(errors, `${name}.root.message`) as string | undefined
+  // A clear redraws every field that shows a refusal, so a keystroke in a row
+  // clears only while there is one to take away.
+  const changed = () => {
+    if (refusal !== undefined) {
+      clearErrors(`${name}.root` as Path<SettingsValues>)
+    }
+  }
+
+  return {
+    fields,
+    errors,
+    refusal,
+    changed,
+    append: (row: FieldArray<SettingsValues, N>) => {
+      append(row)
+      changed()
+    },
+    remove: (index: number) => {
+      remove(index)
+      changed()
+    },
+  }
+}
+
 // EntryList is a list in the configuration edited as rows — the views, the
 // channels, the branch prefixes, the Jira headers: each row a group named for
 // its place in the list, holding its fields and its Remove, and Add below the
 // rows. Removing a row is an edit like any other, saved with the form; focus
-// goes to Add, since the Remove pressed is gone.
+// goes to Add, since the Remove pressed is gone. The list takes its path as
+// its id, as a field does.
 export function EntryList<N extends ListName>({
   control,
   register,
@@ -94,16 +129,18 @@ export function EntryList<N extends ListName>({
   storedAs = () => null,
   unique,
 }: EntryListProps<N>) {
-  const { fields, append, remove } = useFieldArray({ control, name })
-  const { errors } = useFormState({ control, name })
+  const list = useEditedList(control, name)
   const outcome = useOutcome()
   const add = useRef<HTMLButtonElement>(null)
   const hintId = useId()
   const Entry = entry.charAt(0).toUpperCase() + entry.slice(1)
+  const listRefusalId = `${hintId}-refusal`
+  const describers = [hint ? hintId : '', list.refusal === undefined ? '' : listRefusalId]
 
   return (
     <fieldset
-      aria-describedby={hint ? hintId : undefined}
+      id={name}
+      aria-describedby={describers.filter((id) => id !== '').join(' ') || undefined}
       className="flex min-w-0 flex-col gap-tight"
     >
       <legend className="text-sm text-muted-foreground">{legend}</legend>
@@ -112,10 +149,11 @@ export function EntryList<N extends ListName>({
           {hint}
         </p>
       ) : null}
-      {fields.map((row, index) => {
+      {list.refusal === undefined ? null : <Failure id={listRefusalId}>{list.refusal}</Failure>}
+      {list.fields.map((row, index) => {
         // The name is the row's first field, and the one a refusal is about.
         const namePath = `${name}.${String(index)}.${columns[0]?.field ?? ''}`
-        const refusal = get(errors, `${namePath}.message`) as string | undefined
+        const refusal = get(list.errors, `${namePath}.message`) as string | undefined
         const refusalId = `${hintId}-${namePath}`
 
         return (
@@ -132,6 +170,7 @@ export function EntryList<N extends ListName>({
               nameHeld={storedAs(index) !== null}
               refusalId={refusal === undefined ? undefined : refusalId}
               validate={unique ? takenBy(unique, index) : undefined}
+              onChange={list.changed}
             />
             <RowRefusal id={refusalId} refusal={refusal} />
             <RowRemoval
@@ -139,7 +178,7 @@ export function EntryList<N extends ListName>({
               label={`Remove ${entry} ${String(index + 1)}`}
               tell={outcome}
               onRemove={() => {
-                remove(index)
+                list.remove(index)
                 add.current?.focus()
               }}
             />
@@ -152,7 +191,7 @@ export function EntryList<N extends ListName>({
         size="sm"
         className="self-start"
         onClick={() => {
-          append(blank)
+          list.append(blank)
         }}
       >
         Add a {entry}
@@ -168,14 +207,24 @@ interface RowFieldsProps {
   row: string
   columns: Column[]
   // nameHeld keeps the name from being edited; refusalId names the refusal
-  // the name is described by, while there is one; validate refuses a name.
+  // the name is described by, while there is one; validate refuses a name;
+  // onChange is told of each change to any of the fields.
   nameHeld: boolean
   refusalId: string | undefined
   validate: ((value: unknown, values: SettingsValues) => true | string) | undefined
+  onChange: () => void
 }
 
 // RowFields are a row's fields, its name first.
-function RowFields({ register, row, columns, nameHeld, refusalId, validate }: RowFieldsProps) {
+function RowFields({
+  register,
+  row,
+  columns,
+  nameHeld,
+  refusalId,
+  validate,
+  onChange,
+}: RowFieldsProps) {
   return columns.map((column, at) => (
     <Input
       key={column.field}
@@ -186,10 +235,10 @@ function RowFields({ register, row, columns, nameHeld, refusalId, validate }: Ro
       aria-invalid={at === 0 && refusalId !== undefined ? true : undefined}
       aria-describedby={at === 0 ? refusalId : undefined}
       className={cn(column.wide ? 'min-w-48 flex-[2]' : 'min-w-32 flex-1')}
-      {...register(
-        `${row}.${column.field}` as Path<SettingsValues>,
-        at === 0 && validate ? { validate } : undefined,
-      )}
+      {...register(`${row}.${column.field}` as Path<SettingsValues>, {
+        onChange,
+        validate: at === 0 ? validate : undefined,
+      })}
     />
   ))
 }
