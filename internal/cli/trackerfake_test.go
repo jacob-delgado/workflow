@@ -21,6 +21,10 @@ const (
 // trackedIssue is the issue the issue commands' fake Jira holds.
 const trackedIssue = "PROJ-7"
 
+// movedIssue is the key trackedIssue had in the project it moved from, which
+// Jira still reads, answering with the issue under the key it has now.
+const movedIssue = "OLD-3"
+
 // trackedDetail is trackedIssue read in full, shaped like Data Center's GET
 // /rest/api/2/issue/{key}: two of its three comments folded in.
 const trackedDetail = `{"key":"` + trackedIssue + `","fields":{"summary":"Fix login",` +
@@ -109,7 +113,8 @@ func (a *trackerAsked) search(writer http.ResponseWriter, request *http.Request,
 }
 
 // answerIssue answers a request about trackedIssue: its writes, recorded, its
-// transitions, its comments past the first page, and its detail.
+// transitions, its comments past the first page, and its detail, asked by
+// either of its keys.
 func answerIssue(writer http.ResponseWriter, request *http.Request, asked *trackerAsked, answers trackerAnswers) {
 	path := request.URL.Path
 
@@ -129,7 +134,7 @@ func answerIssue(writer http.ResponseWriter, request *http.Request, asked *track
 		_, _ = writer.Write([]byte(cmp.Or(answers.transitions, trackerMoves)))
 	case strings.HasSuffix(path, "/comment"):
 		_, _ = writer.Write([]byte(`{"startAt":2,"total":3,"comments":[]}`))
-	case path == "/rest/api/2/issue/"+trackedIssue:
+	case path == "/rest/api/2/issue/"+trackedIssue, path == "/rest/api/2/issue/"+movedIssue:
 		writer.WriteHeader(cmp.Or(answers.issueCode, http.StatusOK))
 		_, _ = writer.Write([]byte(trackedDetail))
 	default:

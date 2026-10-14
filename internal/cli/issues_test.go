@@ -271,6 +271,29 @@ func TestIssueJSONPrintsTheWebsIssueDetail(t *testing.T) {
 	}
 }
 
+func TestIssueJSONLinksTheKeyTheTrackerAnsweredWith(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	baseURL, _ := trackerJira(t, trackerAnswers{})
+	dir := t.TempDir()
+	writeFile(t, dir, trackerConfig(baseURL, ""))
+
+	// Act
+	printed, err := runStreams(t, dir, unusedPrompt(t), "issue", movedIssue, "--json")
+	// Assert
+	if err != nil {
+		t.Fatalf("issue --json: %v (%+v)", err, printed)
+	}
+
+	// GET /api/issues/{key} links the key Jira answered with, not the one asked.
+	detail := decoded[api.IssueDetail](t, printed.stdout)
+	if detail.Key != trackedIssue || detail.URL != baseURL+"/browse/"+trackedIssue {
+		t.Errorf("issue %s --json = key %q, url %q; want %s and its link, as the web answers",
+			movedIssue, detail.Key, detail.URL, trackedIssue)
+	}
+}
+
 func TestIssuePrintsTheIssueInFull(t *testing.T) {
 	t.Parallel()
 
