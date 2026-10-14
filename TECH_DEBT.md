@@ -783,12 +783,14 @@ announced by hand.
 
 **Decided.** The Cross-compile job (`cross` in `.github/workflows/ci.yml`)
 runs `scripts/release/check-formula.sh`, `brew audit --strict` in a throwaway
-tap, on the formula `scripts/release/package-manifests.sh` writes for every
-change, with the Homebrew the `ubuntu-latest` image installs under
-`/home/linuxbrew`: put on PATH by `brew shellenv`, never updated in the run,
-and pinned nowhere, `mise.toml` included. No action sets it up, so the
-workflow gains none to approve and pin. Decided 2026-10-14 by the maintainer,
-with the check, over a pinned `Homebrew/actions/setup-homebrew` step.
+tap and in developer mode, on the formula
+`scripts/release/package-manifests.sh` writes for every change, with the
+Homebrew the `ubuntu-latest` image installs under `/home/linuxbrew`: put on
+PATH by `brew shellenv`, never updated in the run, and pinned nowhere,
+`mise.toml` included. No action sets it up, so the workflow gains none to
+approve and pin. Decided 2026-10-14 by the maintainer, with the check, over a
+pinned `Homebrew/actions/setup-homebrew` step; developer mode was added the
+same day, at the maintainer's request.
 
 **Cost.** The Homebrew that audits a change is unpinned, against the rule that
 tool versions are exact and live in `mise.toml`: it moves when GitHub rebuilds
@@ -802,9 +804,13 @@ script's hint, then names the network rather than the formula. The audit runs
 on Linux, where the formula's `if OS.mac?` is false, so the macOS url and
 sha256 get only the RuboCop cops that read the file's text, not the audit's
 checks of the url and checksum the formula loads with: the blind spot TRADE-35
-keeps for code only macOS runs. And `task check` does not run it, since it
-needs brew: a developer runs the script by hand where Homebrew is installed,
-or leaves it to CI.
+keeps for code only macOS runs. Developer mode is what turns a deprecation
+the formula calls into a failure rather than a silent pass, but it fails the
+audit on one in brew's own code just the same, which only a newer Homebrew
+fixes. The audit loads the formula without running its install or test block,
+so a call deprecated or changed there shows only once someone installs it.
+And `task check` does not run it, since it needs brew: a developer runs the
+script by hand where Homebrew is installed, or leaves it to CI.
 
 **Reopen when.** The audit fails a pull request over a Homebrew change more
 than rarely, or a pinned `Homebrew/actions/setup-homebrew` becomes worth
