@@ -409,6 +409,15 @@ jobs:
         run: |
           (cd dist && sha256sum workflow_* >SHA256SUMS)
           scripts/release/package-manifests.sh v0.0.0 dist/SHA256SUMS "${GITHUB_REPOSITORY}" tmp/packages
+      # brew audit --strict, style cops and all, on that formula, so a rule
+      # Homebrew adds fails a pull request rather than the tap after a release.
+      # ubuntu-latest images install Homebrew under /home/linuxbrew without
+      # putting it on PATH; without it there, the script says brew is missing.
+      # Trade-off TRADE-42: this is whatever Homebrew the image ships, unpinned.
+      - name: Audit the Homebrew formula
+        run: |
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          scripts/release/check-formula.sh tmp/packages/Formula/workflow.rb
 
   scan:
     name: Scan

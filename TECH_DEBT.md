@@ -778,3 +778,34 @@ the last one reported, or after arming, loses its automatic post; it is
 announced by hand.
 
 **Reopen when.** A CI is met that reports its first check later than that.
+
+### TRADE-42 The formula is audited by whatever Homebrew the runner image ships
+
+**Decided.** The Cross-compile job (`cross` in `.github/workflows/ci.yml`)
+runs `scripts/release/check-formula.sh`, `brew audit --strict` in a throwaway
+tap, on the formula `scripts/release/package-manifests.sh` writes for every
+change, with the Homebrew the `ubuntu-latest` image installs under
+`/home/linuxbrew`: put on PATH by `brew shellenv`, never updated in the run,
+and pinned nowhere, `mise.toml` included. No action sets it up, so the
+workflow gains none to approve and pin. Decided 2026-10-14 by the maintainer,
+with the check, over a pinned `Homebrew/actions/setup-homebrew` step.
+
+**Cost.** The Homebrew that audits a change is unpinned, against the rule that
+tool versions are exact and live in `mise.toml`: it moves when GitHub rebuilds
+the image, without anyone here deciding it. A rule a newer Homebrew adds can
+turn an unrelated pull request's Cross-compile red until
+`package-manifests.sh` is changed to keep it. Each run also needs the network:
+brew downloads its formula API from formulae.brew.sh and, on a runner without
+them, installs the gems its audit and style cops run on from rubygems.org, so
+either one unreachable turns the job red too; brew's own error, above the
+script's hint, then names the network rather than the formula. The audit runs
+on Linux, where the formula's `if OS.mac?` is false, so the macOS url and
+sha256 get only the RuboCop cops that read the file's text, not the audit's
+checks of the url and checksum the formula loads with: the blind spot TRADE-35
+keeps for code only macOS runs. And `task check` does not run it, since it
+needs brew: a developer runs the script by hand where Homebrew is installed,
+or leaves it to CI.
+
+**Reopen when.** The audit fails a pull request over a Homebrew change more
+than rarely, or a pinned `Homebrew/actions/setup-homebrew` becomes worth
+approving as a new action.
