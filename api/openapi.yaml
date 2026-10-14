@@ -2788,9 +2788,10 @@ paths:
         works, or from your home after a ~ — or in where the server works
         when path is not given. A directory linked to is listed with them; a
         hidden one is not, and is reached by naming it. Each says whether it
-        is a repository's root. At most a thousand are listed, first by name;
-        a prefix narrows the listing to the names starting with it in any
-        case, which reaches one past the first thousand. Refused with 404
+        is a repository's root. At most a thousand are listed, first by name,
+        and a listing cut short says the most it holds in truncated_to; a
+        prefix narrows the listing to the names starting with it in any case,
+        which reaches one past the first thousand. Refused with 404
         when the directory is not there and 422 when it cannot be listed;
         neither detail repeats the path. Reading works under --dry-run.
       tags: [repositories]
@@ -3006,7 +3007,7 @@ components:
     DirectoryListing:
       type: object
       description: A directory and the directories in it, by name.
-      required: [path, shown, parent, entries, truncated]
+      required: [path, shown, parent, entries]
       properties:
         path: {type: string, description: "The directory listed, as an absolute path."}
         shown: {type: string, description: "The directory written from your home."}
@@ -3016,9 +3017,13 @@ components:
         entries:
           type: array
           items: {$ref: "#/components/schemas/DirectoryEntry"}
-        truncated:
-          type: boolean
-          description: Whether there were more than a thousand.
+        truncated_to:
+          type: integer
+          minimum: 1
+          description: >-
+            The most a listing holds, when the directory held more: only the
+            first this many by name are listed, and a prefix reaches the rest.
+            Absent when every directory that matches is listed.
       additionalProperties: false
 
     Problem:

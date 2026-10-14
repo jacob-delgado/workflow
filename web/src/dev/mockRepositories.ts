@@ -137,7 +137,6 @@ export function mockDirectories(typed: string, prefix = ''): DirectoryListing {
     shown: shown(path),
     parent: path === '/' ? '' : parent,
     entries: entries.map((entry) => ({ ...entry, path: `${path}/${entry.name}` })),
-    truncated: false,
   }
 }
 

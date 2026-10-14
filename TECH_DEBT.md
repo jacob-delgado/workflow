@@ -1084,17 +1084,24 @@ variable file covering more scripts at a size near this one.
 ### TRADE-49 The directory picker draws at most 200 rows, with no virtual list
 
 **Decided.** A listing holds at most `workdirs.ListLimit`, a thousand
-directories, and the terminal's directory picker draws at most 200 of the
-ones matching what was typed (`rowsShownMost`, `internal/tui/dirrows.go`),
-then says how many more match and to keep typing; the web's directory dialog
-(`web/src/features/repositories/DirectoryDialog.tsx`) holds to the same cap.
-A listing cut short at the thousand is asked for again with the name typed.
-No virtualized list, and no library for one such as TanStack Virtual, was
+directories, and each surface draws at most 200 of the ones matching what was
+typed, then says how many more match and to keep typing: the terminal's
+directory picker by `rowsShownMost` (`internal/tui/dirrows.go`), the web's
+directory dialog by `rowCap`
+(`web/src/features/repositories/DirectoryDialog.tsx`). Nothing but this entry
+holds the two 200s to each other: the cap is how many rows a surface draws,
+not something a listing is, so it stays out of the API and no value is shared
+between the two. The thousand is the server's: `GET /api/directories` reports
+it as `truncated_to` on a listing cut short, and the dialog's "First N shown"
+line reads it from there; the terminal's own line names `workdirs.ListLimit`.
+A listing cut short at the thousand is asked for again with the name typed. No
+virtualized list, and no library for one such as TanStack Virtual, was
 adopted. Decided 2026-10-14 by the maintainer, with the picker.
 
 **Cost.** In a directory of more than 200 that match, the rest cannot be
 scrolled to: they are reached only by typing more of a name, or by a path
-typed whole.
+typed whole. A change to one surface's cap that misses the other's leaves the
+two apart, with no gate to say so.
 
 **Reopen when.** Someone needs to scroll past the first 200 rather than type,
 or a listing's cap is raised enough that typing to narrow stops being quick.

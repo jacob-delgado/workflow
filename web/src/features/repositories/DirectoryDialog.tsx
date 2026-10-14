@@ -268,7 +268,8 @@ function backspaceAtEnd(event: KeyboardEvent<HTMLInputElement>): boolean {
 function useListing(typed: string) {
   const { parent, segment } = splitTyped(typed)
   const all = useDirectories(parent)
-  const narrowing = segment !== '' && (all.data?.truncated === true || segment.startsWith('.'))
+  const narrowing =
+    segment !== '' && (all.data?.truncated_to !== undefined || segment.startsWith('.'))
   const narrowed = useDirectories(parent, segment, narrowing)
   const listing = narrowing ? joined(all.data, narrowed.data) : all.data
 
@@ -476,7 +477,9 @@ interface StandingProps {
 function Standing({ listing, segment, matches }: StandingProps) {
   const lines = [
     countLine(listing, segment, matches),
-    listing.truncated ? 'First 1000 shown; keep typing to narrow.' : undefined,
+    listing.truncated_to === undefined
+      ? undefined
+      : `First ${String(listing.truncated_to)} shown; keep typing to narrow.`,
     matches > rowCap ? `${String(matches - rowCap)} more match; keep typing to narrow.` : undefined,
   ].filter((line) => line !== undefined)
 

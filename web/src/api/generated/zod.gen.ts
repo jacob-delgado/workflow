@@ -82,7 +82,7 @@ export const zDirectoryListing = z.object({
     shown: z.string(),
     parent: z.string(),
     entries: z.array(zDirectoryEntry),
-    truncated: z.boolean()
+    truncated_to: z.int().gte(1).optional()
 });
 
 /**

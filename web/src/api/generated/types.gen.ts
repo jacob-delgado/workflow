@@ -157,9 +157,9 @@ export type DirectoryListing = {
     parent: string;
     entries: Array<DirectoryEntry>;
     /**
-     * Whether there were more than a thousand.
+     * The most a listing holds, when the directory held more: only the first this many by name are listed, and a prefix reaches the rest. Absent when every directory that matches is listed.
      */
-    truncated: boolean;
+    truncated_to?: number;
 };
 
 /**

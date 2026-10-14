@@ -607,6 +607,7 @@ goes up — from your home, on to the directory it is in, as in the terminal
 — and the path above the field goes up further. **Switch to**, at the foot,
 names the place highlighted and asks too. A hidden directory is listed once
 the name typed starts with its dot, and a directory of more than a thousand
+says that the first thousand are shown, as the server reports its limit, and
 is listed again for the name typed; the list draws at most two hundred, and
 says how many more match. The dialog stays open while a switch it asked for
 runs, so its refusal is shown in it.
@@ -808,7 +809,7 @@ describes each answer's fields, and every other request the API serves.
 | `GET /api/repositories` | Where the server works — the directory, its repository and the path within, origin and the configuration files — and your favorite directories, each with what is there now |
 | `PUT /api/repositories/here` | Switch the directory the server works in; refused while a write is in flight |
 | `PUT` / `DELETE /api/repositories/favorites` | Keep a directory as a favorite, or forget it |
-| `GET /api/directories` | The directories in one, or those whose names start with a prefix, to browse for one to switch to |
+| `GET /api/directories` | The directories in one, or those whose names start with a prefix, to browse for one to switch to; a listing cut short at its limit gives that limit as `truncated_to` |
 | `GET /api/tasks` | Your pending Taskwarrior tasks, most urgent first, waiting ones included, with the active context and whether a sync backend is set |
 
 Every request presents the run's session, the part of the printed address
