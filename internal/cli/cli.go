@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
+	"github.com/jacob-delgado/workflow/internal/cli/console"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/lifetime"
 	"github.com/jacob-delgado/workflow/internal/seams"
@@ -104,8 +105,9 @@ SECURITY
 
 // Execute runs the command tree with the given arguments and streams, in env:
 // the directory, home, variables, store and programs of the process it runs
-// in, which no command reads for itself. It returns an error rather than
-// exiting, so tests can drive it.
+// in, which no command reads for itself. A command that fails has its error
+// said once, on stderr, tagged ERROR; Execute returns it rather than exiting,
+// so tests can drive it and the caller can exit with its ExitStatus.
 //
 // SIGINT and SIGTERM cancel the context every command runs under, which flows to
 // each HTTP request and subprocess: a hung `doctor --online` or a slow git
@@ -147,16 +149,38 @@ func Execute(args []string, stdout, stderr io.Writer, prompt Prompt, env Environ
 
 	// The command tree carries no context; ctx reaches each command through
 	// Cobra's ExecuteContext, which is how cmd.Context() is set.
-	return execute(ctx, NewRootCmdOver(prompt, tui.Run, WebServerAt, env), args, stdout, stderr)
+	return execute(ctx, NewRootCmdOver(prompt, tui.Run, WebServerAt, env), invocation{
+		args: args, stdout: stdout, stderr: stderr, getenv: env.Process.Getenv,
+	})
 }
 
-// execute runs root with args and streams under ctx.
-func execute(ctx context.Context, root *cobra.Command, args []string, stdout, stderr io.Writer) error {
-	checked := &checkedOutput{out: stdout}
+// invocation is one run of the command tree: its arguments, the streams it
+// writes, and the variables that decide how its notes are said.
+type invocation struct {
+	args           []string
+	stdout, stderr io.Writer
+	getenv         func(name string) string
+}
 
-	root.SetArgs(args)
+// execute runs root as run asks under ctx, and says the error it ended with,
+// if any, once.
+func execute(ctx context.Context, root *cobra.Command, run invocation) error {
+	err := executeTree(ctx, root, run)
+	if err != nil {
+		console.New(run.stderr, console.Options{Getenv: run.getenv}).Fail(err)
+	}
+
+	return err
+}
+
+// executeTree runs root as run asks under ctx, and returns the error it ended
+// with.
+func executeTree(ctx context.Context, root *cobra.Command, run invocation) error {
+	checked := &checkedOutput{out: run.stdout}
+
+	root.SetArgs(run.args)
 	root.SetOut(checked)
-	root.SetErr(stderr)
+	root.SetErr(run.stderr)
 	// cobra adds its help and completion commands only as the tree runs, after
 	// any walk could meet them. Adding them here lets markMisuse reach them too,
 	// and only once the streams are set: a completion script keeps the stdout
@@ -174,10 +198,10 @@ func execute(ctx context.Context, root *cobra.Command, args []string, stdout, st
 	// status, and a failed git read is then reported as no repository at all;
 	// neither carries ctx's error, so put it back for ExitStatus to find.
 	if ctx.Err() != nil {
-		return fmt.Errorf("workflow: %w: %w", ctx.Err(), err)
+		return fmt.Errorf("%w: %w", ctx.Err(), err)
 	}
 
-	return fmt.Errorf("workflow: %w", err)
+	return err
 }
 
 // RunInterface starts the interface and blocks until the user quits, or asks

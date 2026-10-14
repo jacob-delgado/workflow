@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jacob-delgado/workflow/internal/cli/console"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/messaging"
@@ -94,8 +95,9 @@ func slackLogin(cmd *cobra.Command, prompt Prompt, conn connection) error {
 	}
 
 	if dryRunRequested(cmd) {
-		fmt.Fprintf(notes, "dry run: would ask for the Slack app's client ID and secret and a refresh token, "+
-			"refresh it once, and keep it in %s; nothing was asked or written\n", conn.process.SlackStore(conn.cfg).Where())
+		notes.Note("dry run: would ask for the Slack app's client ID and secret and a refresh token, " +
+			"refresh it once, and keep it in " + conn.process.SlackStore(conn.cfg).Where() +
+			"; nothing was asked or written")
 
 		return nil
 	}
@@ -194,7 +196,7 @@ func nameSlackApp(cfg config.Config, clientID string) (config.Config, error) {
 // token, and only then names the app in the file, so a refresh Slack refuses
 // changes nothing; then it says whose token it is. Each request is outlined in
 // conn's request log.
-func keepFirstToken(ctx context.Context, notes io.Writer, conn connection, answers loginAnswers) error {
+func keepFirstToken(ctx context.Context, notes console.Notes, conn connection, answers loginAnswers) error {
 	transport := conn.requestLog.Wrap("slack", onlineDoer(conn.cfg))
 	store := conn.process.SlackStore(conn.cfg)
 
@@ -219,7 +221,7 @@ func keepFirstToken(ctx context.Context, notes io.Writer, conn connection, answe
 // sayWhoseToken asks Slack whose the token cfg keeps is, and says so, and
 // where it is kept.
 func sayWhoseToken(
-	ctx context.Context, notes io.Writer, process wiring.Environment, cfg config.Config, transport httpx.Doer,
+	ctx context.Context, notes console.Notes, process wiring.Environment, cfg config.Config, transport httpx.Doer,
 ) error {
 	base, toSlack := process.SlackAPI(transport)
 	where := process.SlackStore(cfg).Where()
@@ -230,8 +232,8 @@ func sayWhoseToken(
 		return err
 	}
 
-	fmt.Fprintf(notes, "Logged in to Slack as %s in %s. The token is kept in %s and refreshed before it expires.\n",
-		identity.User, identity.Team, where)
+	notes.Note(fmt.Sprintf("Logged in to Slack as %s in %s. The token is kept in %s and refreshed before it expires.",
+		identity.User, identity.Team, where))
 
 	return nil
 }

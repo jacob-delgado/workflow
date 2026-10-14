@@ -160,9 +160,16 @@ func (n *progressNote) clear() {
 }
 
 // around is out with the note erased before anything is written to either
-// stream, so what the command prints never lands on the note's line.
+// stream, so what the command prints never lands on the note's line. Off a
+// terminal no note is kept, so there is none to erase.
 func (n *progressNote) around(out output) output {
-	return output{artifact: noteErasing{note: n, out: out.artifact}, notes: noteErasing{note: n, out: out.notes}}
+	if n.terminal == nil {
+		return out
+	}
+
+	return output{
+		artifact: noteErasing{note: n, out: out.artifact}, notes: out.notes.To(noteErasing{note: n, out: n.terminal}),
+	}
 }
 
 // noteErasing is a stream that erases a progress note before each write.

@@ -55,8 +55,8 @@ func tagAnnouncement(ctx context.Context, out output, seams announceSeams, momen
 	}
 
 	if scope, missing := missingScope(slack.grant, tags); missing {
-		fmt.Fprintf(out.notes, "Not tagging anyone: the Slack token lacks the %s scope; "+
-			"add it to the Slack app, then run workflow slack login.\n", scope)
+		out.notes.Warn("Not tagging anyone: the Slack token lacks the " + scope + " scope; " +
+			"add it to the Slack app, then run workflow slack login.")
 
 		return messaging.Mentions{}, memory
 	}
@@ -110,7 +110,7 @@ func (t announceTagging) identity(ctx context.Context, out output, moment messag
 		return t.Workspace(ctx)
 	})
 	if errors.Is(err, loop.ErrUnknownWorkspace) {
-		fmt.Fprintf(out.notes, "Not tagging anyone: %v; posting untagged.\n", err)
+		out.notes.Warn(fmt.Sprintf("Not tagging anyone: %v; posting untagged.", err))
 	}
 
 	return slackIdentity{workspace: workspace, grant: grant}, err == nil

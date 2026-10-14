@@ -183,7 +183,7 @@ func TestAnnounceWithATokenMissingAScopePostsUntaggedAndNamesIt(t *testing.T) {
 				t.Fatalf("announce --yes: %v (%+v)", err, printed)
 			}
 
-			if !strings.Contains(printed.stderr, "lacks the "+scope+" scope") {
+			if !strings.Contains(printed.stderr, "WARN Not tagging anyone: the Slack token lacks the "+scope+" scope") {
 				t.Errorf("announce said %q, want the missing %s scope named", printed.stderr, scope)
 			}
 

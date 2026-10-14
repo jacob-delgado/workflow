@@ -146,7 +146,7 @@ func TestRequestLogWarnsOnceWhenItCouldNotBeWritten(t *testing.T) {
 	// it was asked to keep is incomplete, and one line on stderr says so.
 	wantExit(t, err, 0)
 
-	if got := strings.Count(printed.stderr, "request log could not be fully written"); got != 1 {
+	if got := strings.Count(printed.stderr, "WARN The request log could not be fully written"); got != 1 {
 		t.Errorf("stderr warned %d times that the request log was not written, want once:\n%s", got, printed.stderr)
 	}
 }

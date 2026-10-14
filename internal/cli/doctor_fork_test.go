@@ -48,7 +48,8 @@ func TestDoctorJSONNamesTheBaseRemoteOfAFork(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	output, _ := run(t, forkClone(t), "doctor", "--json")
+	printed, _ := runStreams(t, forkClone(t), unusedPrompt(t), "doctor", "--json")
+	output := printed.stdout
 
 	// Assert
 	var report doctorRepository
@@ -69,7 +70,8 @@ func TestDoctorJSONNamesNoBaseOutsideAFork(t *testing.T) {
 	git(t, dir, "remote", "add", "origin", "https://github.com/owner/repo.git")
 
 	// Act
-	output, _ := run(t, dir, "doctor", "--json")
+	printed, _ := runStreams(t, dir, unusedPrompt(t), "doctor", "--json")
+	output := printed.stdout
 
 	// Assert
 	var report doctorRepository

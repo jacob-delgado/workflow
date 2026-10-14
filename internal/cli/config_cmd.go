@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jacob-delgado/workflow/internal/cli/console"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/setup"
@@ -115,7 +116,7 @@ func newConfigInitCmd(prompt Prompt) *cobra.Command {
 // for any.
 func showLoadError(cmd *cobra.Command, err error) error {
 	if errors.Is(err, config.ErrNotFound) {
-		fmt.Fprintf(cmd.ErrOrStderr(), "%s\n\n%s\n%s\n", config.NoConfigHeadline, config.InitStep, config.DoctorStep)
+		notesOf(cmd).Note(config.NoConfigHeadline + "\n\n" + config.InitStep + "\n" + config.DoctorStep)
 	}
 
 	return err
@@ -199,7 +200,7 @@ func (opts initOptions) refuseOverwrite(path string) error {
 // file, with every credential masked, as the artifact on stdout, and where it
 // would have gone on stderr.
 func previewConfig(cmd *cobra.Command, path string, cfg config.Config) error {
-	fmt.Fprintf(cmd.ErrOrStderr(), "dry run: would write %s (mode %#o)\n", path, config.FileMode)
+	notesOf(cmd).Note(fmt.Sprintf("dry run: would write %s (mode %#o)", path, config.FileMode))
 
 	return encodeJSON(cmd.OutOrStdout(), cfg.Redacted())
 }
@@ -227,11 +228,11 @@ func runConfigInit(cmd *cobra.Command, path string, opts initOptions) error {
 	}
 
 	// The file is what config init makes; everything it says is about the file.
-	out := cmd.ErrOrStderr()
-	fmt.Fprintf(out, "Wrote %s (mode %#o).\n", path, config.FileMode)
-	fmt.Fprintf(out, "\nNext: add your Jira and Slack tokens, then run `workflow doctor`.\n")
-	fmt.Fprintf(out, "`workflow --help` explains how to create each token.\n")
-	warnIfNotIgnored(cmd.Context(), out, path)
+	notes := notesOf(cmd)
+	notes.Note(fmt.Sprintf("Wrote %s (mode %#o).", path, config.FileMode))
+	notes.Note("\nNext: add your Jira and Slack tokens, then run `workflow doctor`.\n" +
+		"`workflow --help` explains how to create each token.")
+	warnIfNotIgnored(cmd.Context(), notes, path)
 
 	return nil
 }
@@ -253,11 +254,11 @@ func writeEmptyLayer(cmd *cobra.Command, path string, opts initOptions) error {
 		return err
 	}
 
-	out := cmd.ErrOrStderr()
-	fmt.Fprintf(out, "Wrote %s (mode %#o), over %s.\n"+
-		"\nNext: add only the settings this repository changes; the rest come from %s.\n",
-		path, config.FileMode, opts.layers.Home, opts.layers.Home)
-	warnIfNotIgnored(cmd.Context(), out, path)
+	notes := notesOf(cmd)
+	notes.Note(fmt.Sprintf("Wrote %s (mode %#o), over %s.\n"+
+		"\nNext: add only the settings this repository changes; the rest come from %s.",
+		path, config.FileMode, opts.layers.Home, opts.layers.Home))
+	warnIfNotIgnored(cmd.Context(), notes, path)
 
 	return nil
 }
@@ -336,9 +337,9 @@ func writeGuided(cmd *cobra.Command, path string, opts initOptions, guided guide
 		return err
 	}
 
-	out := cmd.ErrOrStderr()
-	fmt.Fprintf(out, "\nWrote %s (mode %#o). Run `workflow doctor` to check it again.\n", path, config.FileMode)
-	warnIfNotIgnored(cmd.Context(), out, path)
+	notes := notesOf(cmd)
+	notes.Note(fmt.Sprintf("\nWrote %s (mode %#o). Run `workflow doctor` to check it again.", path, config.FileMode))
+	warnIfNotIgnored(cmd.Context(), notes, path)
 
 	return nil
 }
@@ -468,20 +469,20 @@ func keepIfChecked(prompt Prompt, what string, checkErr error) (bool, error) {
 // by git, since credentials go in it — typed into the guided setup, or pasted
 // into the template or a repository's layer by hand. Outside a repository there
 // is nothing to warn about.
-func warnIfNotIgnored(ctx context.Context, out io.Writer, path string) {
+func warnIfNotIgnored(ctx context.Context, notes console.Notes, path string) {
 	if !setup.NotIgnored(ctx, path) {
 		return
 	}
 
-	fmt.Fprintf(out, "\nWarning: %s is not ignored by git, and credentials go in it —\n", filepath.Base(path))
-	fmt.Fprintf(out, "add it to .gitignore so it is never committed.\n")
+	notes.Warn(filepath.Base(path) + " is not ignored by git, and credentials go in it — " +
+		"add it to .gitignore so it is never committed.")
 }
 
 // runConfigShow prints the loaded configuration with every credential masked:
 // the JSON alone on stdout, so it pipes into jq, and which file it came from on
 // stderr.
 func runConfigShow(cmd *cobra.Command, cfg config.Config) error {
-	fmt.Fprintf(cmd.ErrOrStderr(), "# %s\n", cfg.Layers())
+	notesOf(cmd).Note(fmt.Sprintf("# %s", cfg.Layers()))
 
 	return encodeJSON(cmd.OutOrStdout(), cfg.Redacted())
 }

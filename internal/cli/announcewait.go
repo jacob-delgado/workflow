@@ -7,11 +7,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/jacob-delgado/workflow/internal/cli/console"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
@@ -23,10 +23,10 @@ import (
 // nothing. A dry run says it would, and a pull request not opened announces
 // nothing.
 func announceOpened(
-	ctx context.Context, notes io.Writer, seams announceSeams, report prReport, opts writeOptions,
+	ctx context.Context, notes console.Notes, seams announceSeams, report prReport, opts writeOptions,
 ) error {
 	if opts.dryRun {
-		fmt.Fprintln(notes, "dry run: would announce it to "+seams.Messaging.Target()+" once its CI passes")
+		notes.Note("dry run: would announce it to " + seams.Messaging.Target() + " once its CI passes")
 
 		return nil
 	}
@@ -41,7 +41,7 @@ func announceOpened(
 		),
 		Pull: report.opened, Branch: report.branch,
 	}
-	pending := previewAnnouncement(ctx, output{artifact: notes, notes: notes}, seams, composed)
+	pending := previewAnnouncement(ctx, output{artifact: notes.Writer(), notes: notes}, seams, composed)
 
 	return deliverWhenGreen(ctx, notes, seams, pending, seams.Kind.Sigil()+strconv.Itoa(report.opened.Number),
 		pullOpenedNow)
@@ -83,7 +83,7 @@ func onceGreen(prompt writePrompt, pull string) writePrompt {
 // branch's, or merged first; one opened a moment ago, as age says, is waited
 // for until the forge lists it. ctrl+c stops it, announcing nothing.
 func deliverWhenGreen(
-	ctx context.Context, notes io.Writer, seams announceSeams, pending pendingAnnouncement, pull string,
+	ctx context.Context, notes console.Notes, seams announceSeams, pending pendingAnnouncement, pull string,
 	age pullAge,
 ) error {
 	heard := &waitLines{notes: notes, pull: pull, target: seams.Messaging.Target()}
@@ -99,7 +99,7 @@ func deliverWhenGreen(
 		pending.delivery.Pull, pending.delivery.Head = green.Pull, green.Head
 
 		if seams.Memory.Holds(ctx, pending.delivery.Made()) {
-			fmt.Fprintln(notes, "Already announced from another session; not posted again.")
+			notes.Note("Already announced from another session; not posted again.")
 
 			return nil
 		}
@@ -137,12 +137,12 @@ func pause(ctx context.Context, wait time.Duration) error {
 
 // gaveUp words why a wait for CI ended without announcing: stopped, no check
 // reported, or the pull request no longer the one to announce.
-func gaveUp(notes io.Writer, err error, pull string) error {
+func gaveUp(notes console.Notes, err error, pull string) error {
 	patience := strconv.Itoa(int(loop.NoCIPatience.Minutes())) + "m"
 
 	switch {
 	case errors.Is(err, context.Canceled):
-		fmt.Fprintln(notes, "Stopped waiting; nothing was announced.")
+		notes.Note("Stopped waiting; nothing was announced.")
 
 		return err
 	case errors.Is(err, loop.ErrNoCI):
@@ -160,7 +160,7 @@ func gaveUp(notes io.Writer, err error, pull string) error {
 // waitLines tells what a wait for the CI of pull to pass waits on, to notes,
 // a line each time it changes.
 type waitLines struct {
-	notes        io.Writer
+	notes        console.Notes
 	pull, target string
 	last         string
 }
@@ -173,7 +173,7 @@ func (w *waitLines) hear(heard loop.Heard) {
 	}
 
 	w.last = line
-	fmt.Fprintln(w.notes, line)
+	w.notes.Note(line)
 }
 
 // line is what a read says of the wait, or "" when it says nothing new.

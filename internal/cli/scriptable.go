@@ -14,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jacob-delgado/workflow/internal/cli/console"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
@@ -29,15 +30,29 @@ import (
 
 // output is where a command writes: the artifact — the preview, the JSON, what
 // it created — on stdout, and what it says about it — a notice, a dry-run line,
-// a warning — on stderr, so a script capturing stdout gets data alone.
+// a warning — through the notes on stderr, so a script capturing stdout gets
+// data alone.
 type output struct {
 	artifact io.Writer
-	notes    io.Writer
+	notes    console.Notes
 }
 
-// outputOf is the command's stdout and stderr.
+// outputOf is the command's stdout and the notes it says on stderr.
 func outputOf(cmd *cobra.Command) output {
-	return output{artifact: cmd.OutOrStdout(), notes: cmd.ErrOrStderr()}
+	return output{artifact: cmd.OutOrStdout(), notes: notesOf(cmd)}
+}
+
+// aside is out with its artifact said as notes too, for a command whose
+// stdout carries another artifact: what it previews, printed beside the JSON
+// a script reads.
+func (o output) aside() output {
+	return output{artifact: o.notes.Writer(), notes: o.notes}
+}
+
+// notesOf is what the command cmd runs says on its stderr, colored as the
+// variables of the environment it runs in allow.
+func notesOf(cmd *cobra.Command) console.Notes {
+	return console.New(cmd.ErrOrStderr(), console.Options{Getenv: environmentOf(cmd).Process.Getenv})
 }
 
 // errOutputUnwritten reports an artifact that could not be written to stdout —
@@ -131,7 +146,7 @@ const logFlag = "log"
 func requestLogFor(cmd *cobra.Command) (*wiring.RequestLog, func(), error) {
 	path, _ := cmd.Flags().GetString(logFlag)
 	if path == "" {
-		return openRequestLog(path, cmd.ErrOrStderr())
+		return openRequestLog(path, notesOf(cmd))
 	}
 
 	found, err := fromWorkingDir(cmd, path)
@@ -139,7 +154,7 @@ func requestLogFor(cmd *cobra.Command) (*wiring.RequestLog, func(), error) {
 		return nil, func() {}, fmt.Errorf("opening the request log: %w", err)
 	}
 
-	return openRequestLog(found, cmd.ErrOrStderr())
+	return openRequestLog(found, notesOf(cmd))
 }
 
 // logFileMode is the permission a request log is created with. Like the
@@ -149,7 +164,7 @@ const logFileMode os.FileMode = 0o600
 // openRequestLog opens the request-outline log named by path. An empty path
 // means no logging: the log is nil and the returned close is a no-op, so the
 // caller wires and closes it the same way either way.
-func openRequestLog(path string, warn io.Writer) (*wiring.RequestLog, func(), error) {
+func openRequestLog(path string, notes console.Notes) (*wiring.RequestLog, func(), error) {
 	if path == "" {
 		return nil, func() {}, nil
 	}
@@ -162,18 +177,18 @@ func openRequestLog(path string, warn io.Writer) (*wiring.RequestLog, func(), er
 
 	requestLog := wiring.NewRequestLog(file, nil)
 
-	return requestLog, func() { closeRequestLog(requestLog, file, warn) }, nil
+	return requestLog, func() { closeRequestLog(requestLog, file, notes) }, nil
 }
 
 // closeRequestLog closes the log's file and, when an outline was lost or the
-// file did not close cleanly, says so on warn in one line. The command's own
-// result stands: its work was done, and only the record of it is incomplete.
-func closeRequestLog(requestLog *wiring.RequestLog, file *os.File, warn io.Writer) {
+// file did not close cleanly, warns so in one line. The command's own result
+// stands: its work was done, and only the record of it is incomplete.
+func closeRequestLog(requestLog *wiring.RequestLog, file *os.File, notes console.Notes) {
 	// Trade-off TRADE-18: only Linux's tests reach this, through /dev/full.
 	err := errors.Join(requestLog.Err(), file.Close())
 	if err != nil {
 		reason := strings.ReplaceAll(err.Error(), "\n", "; ")
-		fmt.Fprintf(warn, "workflow: the request log could not be fully written: %s\n", reason)
+		notes.Warn("The request log could not be fully written: " + reason)
 	}
 }
 
@@ -189,9 +204,9 @@ type writePrompt struct {
 // A dry run says what it would do and stops; --yes goes ahead without asking;
 // otherwise it asks, and a declined answer says so and stops. What it says is
 // commentary, written to notes.
-func (o *writeOptions) proceed(notes io.Writer, confirm func(string) (bool, error), say writePrompt) (bool, error) {
+func (o *writeOptions) proceed(notes console.Notes, confirm func(string) (bool, error), say writePrompt) (bool, error) {
 	if o.dryRun {
-		fmt.Fprintln(notes, say.dryRun)
+		notes.Note(say.dryRun)
 
 		return false, nil
 	}
@@ -210,7 +225,7 @@ func (o *writeOptions) proceed(notes io.Writer, confirm func(string) (bool, erro
 	}
 
 	if !ok {
-		fmt.Fprintln(notes, say.declined)
+		notes.Note(say.declined)
 	}
 
 	return ok, nil

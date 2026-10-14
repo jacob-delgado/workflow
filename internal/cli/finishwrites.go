@@ -44,7 +44,7 @@ func finishWrites(cmd *cobra.Command, writes *lifetime.InFlight, timeout time.Du
 	}
 
 	if pending > 0 {
-		fmt.Fprintf(cmd.ErrOrStderr(), "finishing %s…\n", writesCounted(pending))
+		notesOf(cmd).Note("finishing " + writesCounted(pending) + "…")
 	}
 
 	return settleWrites(cmd.Context(), writes, pending, timeout)

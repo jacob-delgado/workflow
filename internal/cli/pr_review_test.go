@@ -222,7 +222,7 @@ func TestPRReportsAFailedLinkAndStillMovesTheIssue(t *testing.T) {
 	}
 
 	// The link failing is said as it happens, and the status move is still made.
-	if !strings.Contains(printed.stderr, "Could not link #7 on PROJ-2") ||
+	if !strings.Contains(printed.stderr, "WARN Could not link #7 on PROJ-2") ||
 		!strings.Contains(printed.stderr, "Moved PROJ-2 to "+statusInReview+".\n") || writes.applied() != 1 {
 		t.Errorf("pr did not say the link failed and still move the issue (%d moves):\nstderr:\n%s",
 			writes.applied(), printed.stderr)

@@ -27,6 +27,7 @@ Layout:
 ```text
 cmd/workflow/         thin main: cli.Execute, its exit status, the terminal prompt, the process environment
 internal/cli/         the Cobra command tree
+internal/cli/console/ what a command says on stderr: notes, warnings, errors and the live line of a wait
 internal/config/      .workflow.json loading, saving, redaction, validation
 internal/keychain/    storing a token in the OS keychain and reading it back
 internal/setup/       the first run: where the file goes, the Jira check, the keychain offer

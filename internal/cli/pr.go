@@ -197,7 +197,7 @@ func reportPR(ctx context.Context, out output, seams prSeams, opts prOptions) (p
 	}
 
 	// The report is the artifact, so everything else is said beside it.
-	report, err := runPR(ctx, output{artifact: out.notes, notes: out.notes}, seams, opts.write)
+	report, err := runPR(ctx, out.aside(), seams, opts.write)
 	if report.ready {
 		err = errors.Join(err, encodeJSON(out.artifact, report))
 	}
@@ -347,7 +347,7 @@ func openPull(
 	if err != nil {
 		// The pull request is open; who could not be added is a warning, as
 		// the interface and the web give it, not a failure to open.
-		fmt.Fprintf(out.notes, "Opened without everyone asked: %v\n", err)
+		out.notes.Warn(fmt.Sprintf("Opened without everyone asked: %v", err))
 		report.Warning = err.Error()
 	}
 
@@ -355,7 +355,7 @@ func openPull(
 
 	report, err = followUp(ctx, out.notes, seams, openedPull{issueKey: issueKey, pull: pull}, opts, report)
 	if err == nil && seams.MessagingSetUp {
-		fmt.Fprintln(out.notes, "Announce it with workflow announce, or once CI passes with workflow announce --when-green.")
+		out.notes.Note("Announce it with workflow announce, or once CI passes with workflow announce --when-green.")
 	}
 
 	return report, err
