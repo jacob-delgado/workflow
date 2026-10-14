@@ -319,7 +319,10 @@ without agreement on direction.
   `:focus-visible` ring, and de-emphasize with color rather than `opacity` (which
   dims text below the contrast floor). The web tests are black-box — assert on
   role, accessible name and `aria-current`, never on classes, inline styles or
-  `data-*` hooks. The TUI needs no theme of its own: it draws in ANSI palette
+  `data-*` hooks. Base UI parts come only through `web/src/lib/baseui`; its
+  ScrollArea and Select write a `<style>` the CSP refuses, which the app's
+  `CSPProvider` turns off.
+  The TUI needs no theme of its own: it draws in ANSI palette
   indices, so the terminal's own theme — light or dark — already decides the
   shades. Its motion — the in-flight mark turning, a stage's rule filling, a
   bar springing — runs on frames through `Deps.After`, never `tea.Tick`, and
