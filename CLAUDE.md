@@ -2,8 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with
 code in this repository. Most of it applies in every session; the rules for
-the web app and the terminal interface apply only in those directories, and the
-store's and the web server's are in a `CLAUDE.md` beside their code.
+the web app apply only in `web/`, and the store's, the web server's and the
+terminal interface's are in a `CLAUDE.md` beside their code.
 
 ## What this project is
 
@@ -279,14 +279,6 @@ without agreement on direction.
   `CSPProvider` keeps them from writing the `<style>` the CSP refuses. Only
   ScrollArea and Select write one, and neither is used (TRADE-50): a choice from
   a fixed list is a native `<select>`.
-  The TUI needs no theme of its own: it draws in ANSI palette
-  indices, so the terminal's own theme — light or dark — already decides the
-  shades. Its motion — the in-flight mark turning, a stage's rule filling, a
-  bar springing — runs on frames through `Deps.After`, never `tea.Tick`, and
-  only while something moves; `ui.motion: reduce` draws every state still.
-  An overlay that floats is drawn over the screen through Lip Gloss layers;
-  Update still gives every key to `m.overlay`, the dialog on top, and relays
-  everything else to a Huh form inside it.
 
 ### Design principles
 
