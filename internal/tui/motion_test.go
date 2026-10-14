@@ -258,3 +258,70 @@ func TestTheTrackDrawsItsFirstScreenFilledWithoutMoving(t *testing.T) {
 		t.Errorf("Review's rule on the first screen = %q, want it already filled", rule)
 	}
 }
+
+// ciBar is the Review detail's bar of checks finished, plain: the row after
+// the CI line, from the CI line's column on, its rules only.
+func ciBar(t *testing.T, view string) string {
+	t.Helper()
+
+	lines := strings.Split(ansi.Strip(view), "\n")
+	for index, line := range lines {
+		before, _, found := strings.Cut(line, " CI ")
+		if found && index+1 < len(lines) {
+			under := []rune(lines[index+1])[len([]rune(before)):]
+
+			return strings.Map(func(r rune) rune {
+				if string(r) == filledRule || string(r) == openRule {
+					return r
+				}
+
+				return -1
+			}, string(under))
+		}
+	}
+
+	t.Fatalf("no CI line on the screen:\n%s", view)
+
+	return ""
+}
+
+func TestTheReviewBarSpringsTowardTheChecksFinished(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	frames := &stepper{}
+	repo := moving()
+	repo.ciInterval = 2 * time.Second
+	repo.ci = []forge.CI{
+		{State: forge.CIRunning, Total: 12, Done: 3},
+		{State: forge.CIRunning, Total: 12, Done: 7},
+	}
+	deps := repo.deps()
+	deps.After = frames.after
+	model := sized(t, tui.New(repo.cfg, nil, deps), 120, 40)
+	model = frames.settleFrames(t, drain(t, model, model.Init()))
+	before := strings.Count(ciBar(t, typing(t, model, "4").View().Content), filledRule)
+	refreshed := typing(t, model, "4", "r")
+
+	// Act: one frame on
+	stepped := frames.step(t, refreshed)
+
+	// Assert: on its way from three of twelve toward seven
+	view := stepped.View().Content
+	bar := ciBar(t, view)
+
+	if filled := strings.Count(bar, filledRule); filled <= before || filled*12 >= 7*len([]rune(bar)) {
+		t.Errorf("the bar after one frame = %q, want it between 3 and 7 of 12 filled", bar)
+	}
+
+	requireScreen(t, view, "7 of 12 finished")
+
+	// Act: every frame it asks for
+	settled := frames.settleFrames(t, stepped)
+
+	// Assert: seven of twelve
+	bar = ciBar(t, settled.View().Content)
+	if filled := strings.Count(bar, filledRule); filled*12 != 7*len([]rune(bar)) {
+		t.Errorf("the bar once settled = %q, want 7 of 12 filled", bar)
+	}
+}

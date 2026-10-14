@@ -5,6 +5,7 @@ package tui
 
 import (
 	"strconv"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -206,6 +207,21 @@ func (s reviewState) ciSummary(kit renderKit) string {
 	}
 
 	return s.ciGlyph(kit) + " " + state + s.checkedAtSuffix(kit)
+}
+
+// ciBarWidth is how many columns the Review detail's bar of checks finished
+// takes.
+const ciBarWidth = 24
+
+// ciBar is a bar of the share of CI's checks finished, on its way there, in
+// the forge's hue and lined up under the CI line's words; nothing where the
+// forge reports no checks one by one.
+func (m Model) ciBar() []string {
+	if !m.review.checked || m.review.ci.Total == 0 {
+		return nil
+	}
+
+	return []string{strings.Repeat(" ", len("CI     ")) + m.kit().bar(m.motion.checks.shown, ciBarWidth, m.styles.forge)}
 }
 
 // checkedAtSuffix says when CI was last read, for a line that already says

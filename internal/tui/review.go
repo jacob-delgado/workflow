@@ -182,6 +182,7 @@ func (m Model) reviewDetail(width int) string {
 	}
 
 	lines = append(lines, "", m.styles.label.Render("CI     ")+m.review.ciSummary(m.kit()))
+	lines = append(lines, m.ciBar()...)
 	lines = append(lines, m.review.failedChecks(m.kit())...)
 	lines = append(lines, m.styles.label.Render("review ")+reviewSummary(m.marks, pull))
 
