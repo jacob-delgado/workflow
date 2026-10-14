@@ -37,6 +37,7 @@ type spring struct {
 
 // motionState is what moves on the screen: the frame the in-flight mark has
 // turned to, the track's rules on their way to how far each stage has got,
+// the Review pane's bar on its way to the share of CI's checks finished,
 // whether the next frame is already asked for, so one chain of frames runs at
 // a time, when the session began and whether its first screen is done
 // filling in, before which nothing moves, and whether ui.motion keeps
@@ -45,6 +46,7 @@ type motionState struct {
 	turn   spinner.Spinner
 	frame  int
 	rules  []spring
+	checks spring
 	ease   harmonica.Spring
 	asked  bool
 	began  time.Time
@@ -70,22 +72,33 @@ func (s motionState) looked() motionState {
 }
 
 // aimed points each of the track's rules at targets, how far its stage has
-// got. Until the first screen has settled, and under reduced motion, a rule
-// stands where its stage has got, so the opening screen and a still one never
-// move.
-func (s motionState) aimed(targets []float64) motionState {
+// got, and the Review bar at checks, the share of CI's checks finished.
+func (s motionState) aimed(targets []float64, checks float64) motionState {
 	rules := make([]spring, len(targets))
 
 	for index, target := range targets {
 		rules[index] = spring{shown: target, target: target}
-		if s.opened && !s.still && index < len(s.rules) {
-			rules[index] = spring{shown: s.rules[index].shown, velocity: s.rules[index].velocity, target: target}
+		if index < len(s.rules) {
+			rules[index] = s.aim(s.rules[index], target)
 		}
 	}
 
-	s.rules = rules
+	s.rules, s.checks = rules, s.aim(s.checks, checks)
 
 	return s
+}
+
+// aim points from at target. Until the first screen is done filling in, and
+// under reduced motion, it stands at its target, so the opening screen and a
+// still one never move.
+func (s motionState) aim(from spring, target float64) spring {
+	if !s.opened || s.still {
+		return spring{shown: target, target: target}
+	}
+
+	from.target = target
+
+	return from
 }
 
 // stepped is every rule one frame further toward its target.
@@ -96,7 +109,7 @@ func (s motionState) stepped() motionState {
 		rules[index] = rule.stepped(s.ease)
 	}
 
-	s.rules = rules
+	s.rules, s.checks = rules, s.checks.stepped(s.ease)
 
 	return s
 }
@@ -116,7 +129,7 @@ func (r spring) resting() bool {
 	return math.Abs(r.target-r.shown) < springRest && math.Abs(r.velocity) < springRest
 }
 
-// filling reports whether any rule is still on its way.
+// filling reports whether any rule, or the Review bar, is still on its way.
 func (s motionState) filling() bool {
 	for _, rule := range s.rules {
 		if rule.shown != rule.target {
@@ -124,7 +137,7 @@ func (s motionState) filling() bool {
 		}
 	}
 
-	return false
+	return s.checks.shown != s.checks.target
 }
 
 // shown is how far each rule is drawn filled.
@@ -185,7 +198,7 @@ func (m Model) moving() bool {
 // frame is asked for yet. Only while: a screen at rest asks for nothing, so
 // the program sleeps until a key or an answer wakes it.
 func (m Model) nextFrame(cmd tea.Cmd) (Model, tea.Cmd) {
-	m.motion = m.motion.aimed(m.spineView().targets())
+	m.motion = m.motion.aimed(m.spineView().targets(), checksFinished(m.review.ci))
 	m.motion.opened = m.motion.opened || !m.reading() && m.deps.now().Sub(m.motion.began) >= openingGrace
 
 	if m.motion.asked || !m.moving() {
