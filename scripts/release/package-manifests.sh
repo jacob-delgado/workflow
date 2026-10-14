@@ -19,7 +19,8 @@
 # written into Ruby below never need escaping.
 #
 # Exits 0 when the formula is written, 1 when it refuses, and 2 for a usage
-# error. Run by .github/workflows/packages.yml.
+# error. Run by .github/workflows/packages.yml for each release, and by
+# ci.yml's Cross-compile job, as v0.0.0, for every change.
 set -euo pipefail
 
 readonly macos_binary="workflow_darwin_arm64"
