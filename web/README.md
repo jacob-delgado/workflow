@@ -54,8 +54,11 @@ production one, and a VITE_MOCK one whose populated sections the specs tagged
 `corepack yarn test:e2e:server` runs the specs under `e2e/server` against the
 binary `task build` makes: `scripts/e2e-server.sh` serves
 `workflow --web --port 13580` from a throwaway repository with a bare origin,
-and a spec stages, commits and pushes through the page. Nothing else may be
-listening on port 13580.
+and `commit.spec.ts` stages, commits and pushes through the page.
+`page.spec.ts` checks how the page takes its session, and that it and its
+palette open with nothing the content policy the server sends refuses;
+`policy.spec.ts` opens Settings' tabs and the tag picker under that policy and
+fails on anything it refuses. Nothing else may be listening on port 13580.
 
 ## Conventions
 
