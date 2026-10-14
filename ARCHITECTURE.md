@@ -402,8 +402,12 @@ never discarded — it reads as empty and refuses writes with
 `ErrKeptSchemaDiffers`, naming `workflow db-clean --all`. A `--dry-run`
 command's read-only open stamps neither file: it reads `workflow.db` as it is,
 whichever build made it, and a `kept.db` another build's schema made as empty.
-There are no migrations: a schema change is a `CREATE TABLE` edit and a bump of
-that file's version, and a `schemaVersion` bump never touches `kept.db`.
+Neither file has migrations, each for its own reason: `workflow.db` holds only
+what a session can see again, so a change to it is a `CREATE TABLE` edit and a
+bump of `schemaVersion`, and a file at another version is made anew; `kept.db`
+going without one is a kept trade-off, TRADE-25, which says what a change to a
+kept table costs and when that decision reopens. A `schemaVersion` bump never
+touches `kept.db`.
 
 ## Trust boundaries and data flow
 
