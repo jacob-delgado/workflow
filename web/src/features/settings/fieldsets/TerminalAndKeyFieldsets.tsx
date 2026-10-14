@@ -2,12 +2,47 @@ import { useState } from 'react'
 import type { KeyAction } from '@/api/generated/types.gen.ts'
 import { useKeysStore } from '@/features/keyboard/keysApi.ts'
 import { Input } from '@/lib/Field.tsx'
-import { CheckboxField, Fieldset, type Register } from './Field.tsx'
+import { CheckboxField, Fieldset, SelectField, TextField, type Register } from './Field.tsx'
 
 // notRebindable is the one action ui.keys cannot move: its keys are the pane
 // numbers, which no one key can stand in for, and the interface refuses a map
 // that names it.
 const notRebindable = 'jump-to-pane'
+
+// TerminalFieldset is how the terminal interface draws and behaves.
+export function TerminalFieldset({ register }: { register: Register }) {
+  return (
+    <Fieldset
+      legend="Terminal"
+      hint="How the terminal interface draws and behaves; a change applies when it next opens."
+    >
+      <CheckboxField register={register} name="ui.ascii" label="Draw in plain ASCII" />
+      <CheckboxField register={register} name="ui.mouse" label="Capture the mouse" />
+      <SelectField
+        register={register}
+        name="ui.color"
+        label="Color"
+        hint="Never keeps bold, faint and the reverse-video cursor, which mean the same without color."
+        choices={[
+          ['', 'When the terminal allows (default)'],
+          ['never', 'Never'],
+        ]}
+      />
+      <CheckboxField
+        register={register}
+        name="ui.notify"
+        label="Ring the terminal when CI finishes"
+      />
+      <TextField
+        register={register}
+        name="ui.comments_shown"
+        label="Comments shown"
+        type="number"
+        hint="How many of an issue's latest comments the detail shows; 0 keeps 5."
+      />
+    </Fieldset>
+  )
+}
 
 // KeyboardFieldset is whether a single key, pressed outside a text field, does
 // what the terminal's does — off until turned on, since a key that acts on its
