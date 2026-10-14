@@ -256,7 +256,9 @@ commit messages above, so a well-formed commit is also a changelog entry:
    the gate, builds a binary for each platform `RELEASE_PLATFORMS` in
    `Taskfile.yml` names, publishes the GitHub Release with everything
    [a release carries](https://jacob-delgado.github.io/workflow/docs/install/#from-a-release)
-   attached, and then republishes the documentation site.
+   attached, and then republishes the documentation site and dispatches
+   `.github/workflows/packages.yml`, which points the Homebrew tap at the
+   release. That workflow can also be run alone, for a release already out.
 
 **Before 1.0, the minor digit is reserved for breaking changes.** Both `feat`
 and `fix` bump the patch; only a breaking change — marked with `!`, as in

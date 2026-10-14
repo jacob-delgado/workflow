@@ -34,9 +34,25 @@ weight: 10
 whichever forge the repository is on), and `workflow doctor --online` warns
 when a GitLab token can read but not write.
 
+## With Homebrew
+
+On macOS or Linux:
+
+```sh
+brew install jacob-delgado/tap/workflow
+```
+
+This installs the release binary for your platform, checked against the
+release's checksum, or says so on a platform no release is built for. It comes
+with completions for bash, zsh and fish, and `brew upgrade workflow` brings the
+next release.
+
+On Windows, download the release's binary instead, as
+[From a release](#from-a-release) says.
+
 ## With Go
 
-The shortest path, if you have Go installed:
+If you have Go installed:
 
 ```sh
 go install github.com/jacob-delgado/workflow/cmd/workflow@latest
@@ -74,6 +90,13 @@ and install it:
 sha256sum -c SHA256SUMS --ignore-missing
 chmod +x workflow_darwin_arm64
 mv workflow_darwin_arm64 /usr/local/bin/workflow
+```
+
+On Windows, compare the hash PowerShell gives with the binary's line in
+`SHA256SUMS`, then rename it `workflow.exe` in a directory on your `PATH`:
+
+```powershell
+(Get-FileHash workflow_windows_amd64.exe -Algorithm SHA256).Hash.ToLower()
 ```
 
 Every binary is built by GitHub Actions and carries a provenance attestation, so
@@ -116,11 +139,12 @@ up, asking the same questions.
 
 ## Shell completion
 
-`workflow completion <shell>` prints a completion script for `bash`, `zsh`,
-`fish` or `powershell`. Source it from your shell's startup, and `<tab>`
-completes subcommands and flags — and `workflow branch <tab>`, and every other
-command that names an issue first (`issue`, `transition`, `assign`, `worklog`
-and `comment`), completes the keys of the issues assigned to you.
+[Homebrew](#with-homebrew) has already installed the completions for bash, zsh
+and fish. Otherwise, `workflow completion <shell>` prints a completion script
+for `bash`, `zsh`, `fish` or `powershell`. Source it from your shell's startup,
+and `<tab>` completes subcommands and flags — and `workflow branch <tab>`, and
+every other command that names an issue first (`issue`, `transition`, `assign`,
+`worklog` and `comment`), completes the keys of the issues assigned to you.
 
 ```sh
 # bash — for this shell now, or add to ~/.bashrc

@@ -40,8 +40,9 @@ go install github.com/jacob-delgado/workflow/cmd/workflow@v0.9.1
 <!-- x-release-please-end -->
 
 [Install](https://jacob-delgado.github.io/workflow/docs/install/) says what
-workflow needs beside it, where that binary lands, and the other two ways to get
-it: [from a release](https://jacob-delgado.github.io/workflow/docs/install/#from-a-release)
+workflow needs beside it, where that binary lands, and the other ways to get it:
+[with Homebrew](https://jacob-delgado.github.io/workflow/docs/install/#with-homebrew),
+[from a release](https://jacob-delgado.github.io/workflow/docs/install/#from-a-release)
 or [from source](https://jacob-delgado.github.io/workflow/docs/install/#from-source).
 To build and check it in a container or a devcontainer instead, see
 [Development setup](CONTRIBUTING.md#development-setup).
