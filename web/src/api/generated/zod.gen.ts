@@ -1894,7 +1894,8 @@ export const zAddFavoriteBody = zDirectoryChoice;
 export const zAddFavoriteResponse = zRepositories;
 
 export const zGetDirectoriesQuery = z.object({
-    path: z.string().optional()
+    path: z.string().optional(),
+    prefix: z.string().optional()
 });
 
 /**

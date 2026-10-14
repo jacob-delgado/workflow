@@ -4790,6 +4790,10 @@ export type GetDirectoriesData = {
          * The directory to list.
          */
         path?: string;
+        /**
+         * Only the directories whose names start with it, as written; a hidden one is listed once the prefix starts with its dot. Every directory when left out.
+         */
+        prefix?: string;
     };
     url: '/api/directories';
 };

@@ -2931,6 +2931,9 @@ type UpdateConfigParams struct {
 type GetDirectoriesParams struct {
 	// Path The directory to list.
 	Path *string `form:"path,omitempty" json:"path,omitempty"`
+
+	// Prefix Only the directories whose names start with it, as written; a hidden one is listed once the prefix starts with its dot. Every directory when left out.
+	Prefix *string `form:"prefix,omitempty" json:"prefix,omitempty"`
 }
 
 // StreamEventsParams defines parameters for StreamEvents.

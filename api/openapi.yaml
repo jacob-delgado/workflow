@@ -2788,15 +2788,25 @@ paths:
         works, or from your home after a ~ — or in where the server works
         when path is not given. A directory linked to is listed with them; a
         hidden one is not, and is reached by naming it. Each says whether it
-        is a repository's root. At most a thousand are listed. Refused with
-        404 when the directory is not there and 422 when it cannot be listed;
-        neither detail repeats the path. Reading works under --dry-run.
+        is a repository's root. At most a thousand are listed, first by name;
+        a prefix narrows the listing to the names starting with it, which
+        reaches one past the first thousand. Refused with 404 when the
+        directory is not there and 422 when it cannot be listed; neither
+        detail repeats the path. Reading works under --dry-run.
       tags: [repositories]
       parameters:
         - name: path
           in: query
           required: false
           description: The directory to list.
+          schema: {type: string}
+        - name: prefix
+          in: query
+          required: false
+          description: >-
+            Only the directories whose names start with it, as written; a
+            hidden one is listed once the prefix starts with its dot. Every
+            directory when left out.
           schema: {type: string}
       responses:
         "200":
