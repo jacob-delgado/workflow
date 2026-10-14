@@ -14,10 +14,11 @@ List a view's issues, as the Issues pane lists them
 List the issues of one of jira.views — the first when --view names none, or
 the issues assigned to you when none is configured — one a line: the key, the
 summary and the status. A view is scoped to you unless its query names the
-assignee, as the interfaces scope it, and the forge's issues join the first
-view when issues.forge is on. Only the first page of 50 is read: a longer
-list is noted on stderr, and --json carries its total. --json prints the web
-API's page of issues.
+assignee, as the interfaces scope it. Only the first page is read: the view's
+first 50 issues and, on the first view when issues.forge is on, the issues
+assigned to you on the repository's forge ahead of them. A longer list is
+noted on stderr, and --json carries its total, the forge's issues counted in
+it. --json prints the web API's page of issues.
 
 ```
 workflow issues [flags]

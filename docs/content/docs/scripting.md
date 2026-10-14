@@ -233,8 +233,10 @@ issues, whose key is the bare number — `summary`, `status`,
 `status_category` (`new`, `indeterminate` or `done`), `type` and, when
 there is one, `priority`; `total`, how many the view holds; `start_at`,
 always `0`; and `unavailable`, each tracker that could not be read. It is
-the view's first page of 50: a longer view's `total` says how many more
-there are.
+the view's first page: its first 50 issues and, on the first view when
+`issues.forge` is on, the issues assigned to you on the repository's forge
+ahead of them, which `total` counts too. A longer view's `total` says how
+many more there are.
 
 ```json
 {

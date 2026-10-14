@@ -39,10 +39,11 @@ func newIssuesCmd() *cobra.Command {
 		Long: "List the issues of one of jira.views — the first when --view names none, or\n" +
 			"the issues assigned to you when none is configured — one a line: the key, the\n" +
 			"summary and the status. A view is scoped to you unless its query names the\n" +
-			"assignee, as the interfaces scope it, and the forge's issues join the first\n" +
-			"view when issues.forge is on. Only the first page of 50 is read: a longer\n" +
-			"list is noted on stderr, and --json carries its total. --json prints the web\n" +
-			"API's page of issues.",
+			"assignee, as the interfaces scope it. Only the first page is read: the view's\n" +
+			"first 50 issues and, on the first view when issues.forge is on, the issues\n" +
+			"assigned to you on the repository's forge ahead of them. A longer list is\n" +
+			"noted on stderr, and --json carries its total, the forge's issues counted in\n" +
+			"it. --json prints the web API's page of issues.",
 		Example: examples(
 			`workflow issues --view Sprint`,
 			`workflow issues --json | jq -r '.issues[].key'   # the keys alone`,
