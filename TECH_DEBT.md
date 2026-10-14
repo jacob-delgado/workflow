@@ -569,11 +569,15 @@ layout both calendars draw: `Period.Weeks`, which the terminal's Day column
 draws (`calendar.dayColumn`, `internal/tui/calendar.go`), and `monthWeeks`,
 which the web's `MonthGrid` does, each held to the file's weeks cases. The
 web's calendar moves on every key (`MonthGrid`'s arrows, Page Up and Page
-Down, Home and End), so it cannot wait on a request for arithmetic. The server still decides the default period
-and reads every period, so only the moves are twinned, never which days were
-worked. Decided 2026-10-05, in #175: nearly all of it is the Gregorian
-calendar, whose rules do not change, and the one rule of workflow's own, that
-a whole month or year steps as one, is a few lines.
+Down, Home and End), so it cannot wait on a request for arithmetic. The server
+still decides the default period and reads every period, so only the moves are
+twinned, never which days were worked. Decided 2026-10-05, in #175: nearly all
+of it is the Gregorian calendar, whose rules do not change, and the one rule
+of workflow's own, that a whole month or year steps as one, is a few lines.
+The browsers the web supports are the latest two versions of Chrome, Edge,
+Firefox and Safari, written as the `browserslist` in `web/package.json`, which
+`npx browserslist` in `web/` resolves to versions; decided 2026-10-14 by the
+maintainer, so the trigger below names something that can be checked.
 
 **Cost.** A change to how a period steps is made twice, against one shared
 case file that fails whichever copy disagrees with it; a mistake in one copy's
@@ -582,7 +586,9 @@ passes that copy's tests.
 
 **Reopen when.** The two copies are found to disagree, the step rule changes,
 or `Temporal.PlainDate` is in every browser the web supports, so the browser's
-copy can become the platform's.
+copy can become the platform's. On 2026-10-14 the `caniuse-lite` the web
+installs (1.0.30001815) has Temporal in both supported versions of Chrome,
+Edge and Firefox, and in neither of Safari's, 26.6 and 27.
 
 ### TRADE-34 Switching directory starts the interface again
 
