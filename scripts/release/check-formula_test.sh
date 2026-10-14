@@ -188,7 +188,7 @@ if [[ "${audit}" != "audit --strict --formula ${tap}/workflow" ]]; then
 fi
 expect_no_calls "the audit is the only check run" --repository tap-new audit
 
-for variable in HOMEBREW_NO_AUTO_UPDATE HOMEBREW_NO_ANALYTICS HOMEBREW_NO_ENV_HINTS; do
+for variable in HOMEBREW_NO_AUTO_UPDATE HOMEBREW_NO_ANALYTICS HOMEBREW_NO_ENV_HINTS HOMEBREW_DEVELOPER; do
   count_case
   if [[ ! -s "${brew_env}" ]] || grep -q -v -F -e "${variable}=1 " "${brew_env}"; then
     fail_case "brew runs with ${variable} set" "$(<"${brew_env}")"

@@ -10,7 +10,11 @@
 # tap it also lints the workflows tap-new writes there, installing shellcheck
 # and actionlint to do it. Naming the formula in full is also what lets
 # Homebrew load it from a tap nobody has trusted, without adding to the trust
-# store.
+# store. brew runs in developer mode, as homebrew-core's own CI runs it: an
+# audit otherwise passes a formula calling something Homebrew has deprecated,
+# saying nothing, until Homebrew disables it and the published formula breaks.
+# The audit loads the formula without running its install or test block, so a
+# call deprecated there still passes.
 #
 # The tap is workflow-check/f<pid>-<random>, refused if Homebrew already has a
 # directory for it or cannot say where one would go as an absolute path, and
@@ -26,7 +30,7 @@ set -euo pipefail
 readonly script="scripts/release/check-formula.sh"
 readonly tap="workflow-check/f$$-${RANDOM}"
 
-export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_ENV_HINTS=1
+export HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_ENV_HINTS=1 HOMEBREW_DEVELOPER=1
 
 # usage says how to run this, and exits 2.
 #   usage [reason]
