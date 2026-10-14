@@ -58,14 +58,19 @@ what a script can rely on from them: exit codes, which stream carries what,
  t change status • c comment • b start work • a assign • w log work • ? keys • q quit
 ```
 
-- **The top row** is how far along the loop the work is. `○` not started, `◐`
-  in flight, `●` done, `✗` failed. It is derived, not recorded: the Issue stage
-  is done once the branch names an issue, Review follows the pull request's CI.
-  The last stage is named for your messaging service, as its pane is. It
+- **The top row** is how far along the loop the work is, drawn as a track.
+  `○` not started, `◐` in flight, `●` done, `✗` failed, and after each stage a
+  rule: filled `━` in the stage's color once it is done, open `─` while it is
+  still to come, and after Review filled as far as CI's checks have finished.
+  Stages still to come are faint. It is derived, not recorded: the Issue stage
+  is done once the branch names an issue, Review follows the pull request's
+  CI. The last stage is named for your messaging service, as its pane is. It
   starts with where you work, faint — the repository's name and the path
   within it, as `api/cmd` — which gives way first when the row is short; the
   [Repositories](#repositories) pane says it in full. At its right end is the
-  Taskwarrior task you have started and how long it has run.
+  Taskwarrior task you have started and how long it has run. When a stage
+  completes, its rule fills left to right; `ui.motion: reduce` draws it
+  filled at once.
 - **The rail** on the left is the nine panes in one box, a light rule between
   them. The focused one is drawn with heavy rules and a bold title, and takes
   the most room; the rest keep a few rows each. The first five follow the
@@ -100,8 +105,9 @@ the Issues pane, and the repository panes carry on.
 The layout follows the terminal. Below 80 columns the rail and the detail pane
 take turns rather than sharing the width; the detail pane drops its border once
 it has fewer than 60 columns, and the rail then keeps the focused pane's heavy
-rules, even while an overlay is open; below 24 rows the top row shrinks to a short form,
-each stage its initial and glyph. Nine panes share the rail's rows: each
+rules, even while an overlay is open; below 60 columns or 24 rows the top row
+shrinks to a short form, each stage its initial and glyph, with one-column
+rules between them. Nine panes share the rail's rows: each
 pane but the focused one keeps one row, a line of what it holds, until the
 focused one has eight; rows past that give the others a second row each, top
 first, and then go to the focused one, so a taller terminal never gives it
@@ -705,8 +711,8 @@ tracks the issue.
 
 **The started task** ends the top row, in cyan:
 `◐ PROJ-412: Fix token redaction · 1h12m`. Short of room the description is
-cut with an ellipsis, and then left out for `◐ 1h12m` alone, which is all the
-short top row below 24 rows shows.
+cut with an ellipsis, and then left out for `◐ 1h12m` alone, before the
+stages give up their names; the short top row shows only `◐ 1h12m`.
 
 **Offers at the loop's moments.** As the loop reaches a moment a task follows,
 workflow offers the matching change: a last look at it, or, for an issue no

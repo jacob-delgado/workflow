@@ -320,7 +320,9 @@ without agreement on direction.
   role, accessible name and `aria-current`, never on classes, inline styles or
   `data-*` hooks. The TUI needs no theme of its own: it draws in ANSI palette
   indices, so the terminal's own theme — light or dark — already decides the
-  shades.
+  shades. Its motion — the in-flight mark turning, a stage's rule filling, a
+  bar springing — runs on frames through `Deps.After`, never `tea.Tick`, and
+  only while something moves; `ui.motion: reduce` draws every state still.
 
 ### Design principles
 
