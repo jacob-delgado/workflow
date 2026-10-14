@@ -87,11 +87,14 @@ func twoTemplates() *world {
 	return templated
 }
 
-// fieldfulStatus is an issue whose one move asks for a user, a date and fix
-// versions.
-func fieldfulStatus() *world {
+// choosingTwice is a world whose one move asks for a resolution and then for
+// fix versions, each chosen rather than typed, so its form is reached with no
+// text field focused on the way.
+func choosingTwice() *world {
 	moving := newWorld()
-	moving.moves = []jira.Transition{fieldfulMove()}
+	resolve, versions := resolveIssue(), fieldfulMove()
+	resolve.Fields = []jira.Field{resolve.Fields[0], versions.Fields[2]}
+	moving.moves = []jira.Transition{resolve}
 
 	return moving
 }
@@ -210,9 +213,8 @@ func overlayStates() map[string][]overlayState {
 			stateFrom(withNoFile, applyAction, applyAction)),
 		named("the status picker",
 			stateAt(choosingStatus, "1", "change-status", downAction),
-			stateAt(resolvingIssue, "1", "change-status", applyAction),
-			stateAt(fieldfulStatus, slices.Concat([]string{"1", "change-status", applyAction},
-				typed("fred", applyAction), typed("2026-09-21", applyAction))...)),
+			formState(choosingTwice, "1", "change-status", applyAction),
+			formState(choosingTwice, "1", "change-status", applyAction, applyAction)),
 		named("the summary's post preview", stateAt(withChannels(summaryWorld), summaryKey, "post-summary")),
 		named("a task form", stateAt(withTasks, tasksPane, addTaskAction)),
 	)

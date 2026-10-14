@@ -837,3 +837,24 @@ rule stays open until the pipeline passes.
 
 **Reopen when.** A user asks to see the pull request and its CI as separate
 steps, or GitLab's checks are read one by one.
+
+### TRADE-46 A form's fields never blink, and the tests wait out each blink
+
+**Decided.** The terminal's multi-field forms are Huh forms embedded in an
+overlay, and Huh builds each text field's input with a blinking cursor it
+offers no way to turn off. Every focus and every cursor move returns a command
+that waits about 530 ms of real time before its blink arrives; `relayToForm`
+in `internal/tui/huhform.go` drops that blink rather than handing it on, so no
+timer runs for the life of a form and an embedded field never blinks, as the
+interface's own inputs never have. Decided 2026-10-14 by the maintainer, with
+Huh.
+
+**Cost.** The wait still happens: a running program pays nothing, since each
+new blink cancels the one before it, but a test that settles after every key
+pays the full wait per key typed into a Huh field. Adopting Huh for the status
+change's fields took the terminal's test suite from about 20 to about 40
+seconds.
+
+**Reopen when.** Huh lets a field's cursor be static, or the suite's time
+grows enough that a form's tests need a timer they can step.
+

@@ -204,6 +204,7 @@ var (
 	_ clickable              = statusPicker{}
 	_ steppable              = statusPicker{}
 	_ pasteable              = statusPicker{}
+	_ relaying               = statusPicker{}
 )
 
 // openStatusPicker opens the picker on the selected issue and starts listing its
@@ -264,7 +265,7 @@ func (p statusPicker) header() []string {
 }
 
 // view draws the picker in as many rows as fit.
-func (p statusPicker) view(kit renderKit, width, rows int) (string, string) {
+func (p statusPicker) view(kit renderKit, _, rows int) (string, string) {
 	lines := p.header()
 
 	switch {
@@ -275,7 +276,7 @@ func (p statusPicker) view(kit renderKit, width, rows int) (string, string) {
 	case len(p.transitions.items) == 0:
 		lines = append(lines, "Jira offers no status change for "+shownKey(p.issue.Key))
 	case p.form.open():
-		lines = append(lines, p.form.view(kit, width, rows-len(lines)-outcomeRows)...)
+		lines = append(lines, p.form.view(kit)...)
 		lines = append(lines, p.outcome(kit)...)
 	default:
 		lines = append(lines, p.transitions.rows(kit.marks, rows-len(lines)-outcomeRows, func(move jira.Transition) string {
@@ -375,10 +376,13 @@ func (p statusPicker) choose(m Model) (Model, tea.Cmd) {
 	}
 
 	if len(chosen.Fields) > 0 {
-		p.send.err, p.form = nil, newFieldForm(chosen)
+		var start tea.Cmd
+
+		p.send.err = nil
+		p.form, start = newFieldForm(chosen, m.kit(), m.keys, m.detailWidth(), m.detailRows()-len(p.header())-1)
 		m.overlay = p
 
-		return m, nil
+		return m, start
 	}
 
 	return p.apply(m, chosen, nil)

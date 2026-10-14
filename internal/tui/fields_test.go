@@ -316,3 +316,19 @@ func TestTheFieldFormLabelsEscAndEnterForWhatTheyDo(t *testing.T) {
 	// Assert
 	requireScreen(t, footerLine(field.View().Content), "enter next", "esc back")
 }
+
+func TestNextFieldMovedInUIKeysMovesThroughTheForm(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	resolving := newWorld()
+	resolving.moves = []jira.Transition{resolveIssue()}
+	resolving.cfg.UI.Keys = map[string]string{nextFieldAction: "f6"}
+	resolution := typing(t, resolving.live(t, 120, 40), "t", keyEnter)
+
+	// Act
+	cause := typing(t, resolution, "f6")
+
+	// Assert
+	requireScreen(t, cause.View().Content, "Root cause (2 of 2)")
+}
