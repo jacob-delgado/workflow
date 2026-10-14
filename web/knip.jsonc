@@ -1,0 +1,8 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignore": ["src/api/generated/**"],
+  // The page's face is a file of this package that index.css names in an
+  // @font-face url(), which Vite resolves and knip does not read: nothing
+  // imports the package from code, yet the build needs it.
+  "ignoreDependencies": ["@fontsource-variable/recursive"],
+}

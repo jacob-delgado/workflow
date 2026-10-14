@@ -54,3 +54,26 @@ func TestTheBuiltAppRunsNoInlineScript(t *testing.T) {
 		}
 	}
 }
+
+func TestAssetsCarryTheFontsLicense(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The page is set in Recursive, whose SIL Open Font License asks that the
+	// license travel with the font: the binary that serves the one serves the
+	// other.
+	assets := web.Assets()
+
+	// Act
+	license, err := fs.ReadFile(assets, "fonts/Recursive-OFL.txt")
+	// Assert
+	if err != nil {
+		t.Fatalf("reading fonts/Recursive-OFL.txt from the built app: %v", err)
+	}
+
+	for _, want := range []string{"The Recursive Project Authors", "SIL OPEN FONT LICENSE Version 1.1"} {
+		if !strings.Contains(string(license), want) {
+			t.Errorf("fonts/Recursive-OFL.txt does not say %q", want)
+		}
+	}
+}

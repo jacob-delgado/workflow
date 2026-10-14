@@ -1,5 +1,25 @@
 @import 'tailwindcss';
 
+/* The page's one face: Recursive's latin file with its MONO axis, so prose and
+   code are one family at two settings (--font-sans and --font-mono below)
+   rather than two fonts to fetch. Latin alone, as the cockpit's words are;
+   any other script falls back, glyph by glyph, to the platform's face.
+   Trade-off TRADE-48: the face carries latin only. It is served from the page's
+   own origin, as the content policy asks, and the text draws in the fallback
+   until it arrives rather than waiting for it. The SIL Open Font License it
+   ships under is served beside it, at /fonts/Recursive-OFL.txt. */
+@font-face {
+  font-family: 'Recursive Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 300 1000;
+  src: url('@fontsource-variable/recursive/files/recursive-latin-mono-normal.woff2')
+    format('woff2-variations');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 /* Two themes, chosen by the header toggle (system · light · dark). The default
    below is dark; the light variant is the `[data-theme='light']` block that
    follows, reassigning the same tokens the `@theme inline` map points at. A
@@ -211,18 +231,21 @@
    scale still draws, for review to catch. Sizes keep Tailwind's own keys,
    which tailwind-merge knows; web/src/lib/utils.ts teaches it the space names. */
 @theme {
-  /* The platform's own interface face — San Francisco, Segoe, the Linux
-     desktop's — so the cockpit reads as a native tool beside the terminal; no
-     web font, no fetch. */
+  /* Recursive at its proportional setting, MONO 0, for everything read as
+     prose; before it arrives, and for any script it lacks, the platform's
+     own interface face — San Francisco, Segoe, the Linux desktop's. */
   --font-sans:
-    system-ui, -apple-system, 'Segoe UI Variable Text', 'Segoe UI', Ubuntu, Cantarell, 'Noto Sans',
-    'Helvetica Neue', Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
-  /* The terminal's own code face — Terminal.app's, Windows Terminal's, the
-     Linux default — for what a reader would type or paste into one: a branch,
-     a commit, a path, a command. Nothing else is set in it. */
+    'Recursive Variable', system-ui, -apple-system, 'Segoe UI Variable Text', 'Segoe UI', Ubuntu,
+    Cantarell, 'Noto Sans', sans-serif;
+  --font-sans--font-variation-settings: 'MONO' 0;
+  /* The same face at MONO 1, every letter one width, for what a reader would
+     type or paste into a terminal: a branch, a commit, a path, a command.
+     Nothing else is set in it; the preflight sends code, kbd, samp and pre
+     here, as the font-mono utility does. Its fallback is the terminal's own
+     code face — Terminal.app's, Windows Terminal's, the Linux default. */
   --font-mono:
-    ui-monospace, 'SF Mono', SFMono-Regular, 'Cascadia Mono', Menlo, Consolas, 'DejaVu Sans Mono',
-    'Liberation Mono', monospace;
+    'Recursive Variable', ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+  --font-mono--font-variation-settings: 'MONO' 1;
 
   /* Type, by role: 2xl titles a section; lg titles the thing shown — an issue,
      a pull request, a branch; base heads a part of a panel; sm is the body
@@ -239,8 +262,8 @@
   --text-lg--font-weight: 500;
   --text-2xl: 1.5rem;
   --text-2xl--line-height: 2rem;
-  --text-2xl--font-weight: 600;
-  --text-2xl--letter-spacing: -0.015em;
+  --text-2xl--font-weight: 620;
+  --text-2xl--letter-spacing: -0.02em;
 
   /* Space between things, by how closely they belong: the parts of one unit
      (a label and its control), the items of a list, a heading and what it

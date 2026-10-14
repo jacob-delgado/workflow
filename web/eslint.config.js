@@ -309,9 +309,10 @@ export default tseslint.config(
   // owns formatting.
   ...jsonc.configs['flat/recommended-with-json'],
   ...jsonc.configs['flat/prettier'],
-  // TS project-config files use JSONC (block comments) despite the .json ext.
+  // TS project-config files use JSONC (block comments) despite the .json ext,
+  // and knip's config is JSONC by name, so an entry can say why it is there.
   {
-    files: ['**/tsconfig*.json'],
+    files: ['**/tsconfig*.json', 'knip.jsonc'],
     rules: { 'jsonc/no-comments': 'off' },
   },
 )
