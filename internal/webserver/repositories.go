@@ -100,12 +100,7 @@ func (s *server) GetDirectories(
 			problem(api.ProblemCodeUnprocessable, errNoSwitching.Error())), nil
 	}
 
-	typed := ""
-	if request.Params.Path != nil {
-		typed = *request.Params.Path
-	}
-
-	dir := workdirs.Resolve(typed, repositories.Here.Dir, repositories.Home)
+	dir := workdirs.Resolve(given(request.Params.Path), repositories.Here.Dir, repositories.Home)
 
 	listing, err := repositories.Subdirectories(dir, "")
 	if err != nil {
