@@ -7,7 +7,10 @@
 # exception naming neither, or a waiver whose date is no real day, fails. A
 # version whose publish date cannot be learned fails, versions the change
 # leaves alone are not looked up, and a base git cannot resolve is refused with
-# a status of its own.
+# a status of its own. A dated waiver a week past its day is warned of, and
+# its npmPreapprovedPackages entry in web/.yarnrc.yml with it, but fails
+# nothing; one whose week may not be over is not. A pre-approval no line of the
+# exceptions file lists is warned of too, and fails nothing.
 #
 # A stand-in curl answers each registry URL from a fixture file named for it,
 # and fails as curl -f does for any other, so no case reaches the network.
@@ -126,6 +129,28 @@ young_go_waived_on_no_day() {
   except example.com/young v1.3.0 waived-2026-02-30
 }
 
+# preapprove_npm lists an npm version in web/.yarnrc.yml's
+# npmPreapprovedPackages, as that file spells an entry.
+#   preapprove_npm <package> <version>
+preapprove_npm() {
+  printf "npmPreapprovedPackages:\n  # Waived by the maintainer.\n  - '%s@%s'\n\npackageExtensions: {}\n" "$1" "$2" \
+    >web/.yarnrc.yml
+}
+
+# npm_waiver_past_its_week lists an npm version waived a week before now, in
+# the exceptions file and in web/.yarnrc.yml.
+npm_waiver_past_its_week() {
+  except @scope/widget 2.0.0 waived-2026-09-30
+  preapprove_npm @scope/widget 2.0.0
+}
+
+# npm_waiver_in_its_week lists an npm version waived the day before now, in
+# the exceptions file and in web/.yarnrc.yml.
+npm_waiver_in_its_week() {
+  except @scope/widget 2.0.0 waived-2026-10-07
+  preapprove_npm @scope/widget 2.0.0
+}
+
 # mise_tools pins mise tools of several kinds, all a week old.
 mise_tools() {
   pin_tool node 24.22.0
@@ -201,5 +226,37 @@ if [[ -s "${untouched}.curl" ]]; then
 fi
 
 expect_exit 2 "a base git cannot resolve" age "${untouched}" no-such-branch
+
+# Now is 2026-10-08: a version waived on 2026-09-30 was published by the end of
+# that day, so it is a week old by now; one waived on 2026-10-01 may not be.
+waiver_past_its_week="$(repo waiver-past-its-week except example.com/kept v1.0.0 waived-2026-09-30)"
+expect_output pass "a waiver past its week, warned of" \
+  "example.com/kept v1.0.0: waived on 2026-09-30, so a week old by now; remove its line from scripts/dependency-age-exceptions.txt" \
+  age "${waiver_past_its_week}"
+
+waiver_in_its_week="$(repo waiver-in-its-week except example.com/kept v1.0.0 waived-2026-10-01)"
+expect_exit pass "a waiver whose week may not be over" age "${waiver_in_its_week}"
+count_case
+if grep -q "waived on" "${case_output}"; then
+  fail_case "a waiver whose week may not be over" "it was warned of: $(cat "${case_output}")"
+fi
+
+npm_waiver="$(repo npm-waiver-past-its-week npm_waiver_past_its_week)"
+expect_output pass "a pre-approved npm version past its week, warned of in both files" \
+  "@scope/widget 2.0.0: waived on 2026-09-30, so a week old by now; remove its line from scripts/dependency-age-exceptions.txt and its npmPreapprovedPackages entry from web/.yarnrc.yml" \
+  age "${npm_waiver}"
+
+npm_waiver_listed="$(repo npm-waiver-in-its-week npm_waiver_in_its_week)"
+expect_exit pass "a pre-approved npm version in its week, listed in the exceptions file" age "${npm_waiver_listed}"
+count_case
+if grep -q "warn" "${case_output}"; then
+  fail_case "a pre-approved npm version in its week, listed in the exceptions file" \
+    "it was warned of: $(cat "${case_output}")"
+fi
+
+preapproved_unlisted="$(repo preapproved-unlisted preapprove_npm @scope/widget 2.0.0)"
+expect_output pass "a pre-approved npm version no line of the exceptions file lists, warned of" \
+  "@scope/widget 2.0.0: web/.yarnrc.yml pre-approves it, but no line of scripts/dependency-age-exceptions.txt says why; remove its npmPreapprovedPackages entry" \
+  age "${preapproved_unlisted}"
 
 finish_tests
