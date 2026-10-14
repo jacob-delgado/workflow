@@ -36,7 +36,9 @@ git log -1 --format=%B | workflow comment PROJ-7 --yes   # the text on stdin, ne
 workflow transition PROJ-7 "In Review" --yes   # move it, unattended
 workflow assign PROJ-7 bo --yes        # hand it to bo
 workflow worklog PROJ-7 2h --comment "pairing" --yes   # log the time spent on it
-workflow --log requests.log doctor --online   # a bug report's evidence
+workflow --request-log requests.log doctor --online   # a bug report's evidence
+workflow -q branch PROJ-7 --yes        # only warnings and errors on stderr
+workflow --log-format json reviews 2>log.jsonl   # what it says, as JSON, a line an entry
 ```
 
 ## Exit status
@@ -48,7 +50,7 @@ the message, which is prose and may change.
 | --- | --- | --- |
 | 0 | Success. | |
 | 1 | Any other failure. | Standard output that could not be written — a pipe whose reader has gone, a full disk — whatever else the command found; an issue that is not in the tracker, a `pr --template` the repository has no template of, named with the templates it has, a `pr --base` no branch has, a push that was rejected, a `branch --fetch` whose fetch failed, a `finish` whose git step failed, git missing, a repository whose branch cannot be read; a `db-clean` that finds a symlink or a directory where a database file belongs. |
-| 2 | Usage: the command was called wrongly. | An unknown flag, command or subcommand; a wrong number of arguments; a `summary --from` or `--to` that is not a date written `YYYY-MM-DD`, or a period that runs backwards or is longer than a year and a day; `summary --json --post`, or `--yes` or `--channel` without `--post`; an `announce` or `summary` `--channel` where messaging posts through a webhook; `status --plain` with `--json`; a `pr --base` git would refuse as a branch's name, or `pr --body` with `--template`, or `--announce` with `--draft`; `reviews --sort` with an order it does not know; an `issues --view` naming no view `jira.views` configures; `--port` without `--web`, or outside 1 to 65535; a confirmation, or the guided `config init`, with no terminal to answer it; a `slack login` answer left blank; a `comment` with nothing but white space on standard input; a `transition` whose status is blank; an `assign` whose username is blank; a `worklog` with a blank duration, or on a forge issue, which keeps no worklog. |
+| 2 | Usage: the command was called wrongly. | An unknown flag, command or subcommand; a wrong number of arguments; a `summary --from` or `--to` that is not a date written `YYYY-MM-DD`, or a period that runs backwards or is longer than a year and a day; `summary --json --post`, or `--yes` or `--channel` without `--post`; an `announce` or `summary` `--channel` where messaging posts through a webhook; `status --plain` with `--json`; a `pr --base` git would refuse as a branch's name, or `pr --body` with `--template`, or `--announce` with `--draft`; `reviews --sort` with an order it does not know; an `issues --view` naming no view `jira.views` configures; `--port` without `--web`, or outside 1 to 65535; `--quiet` with `--verbose`; a `--log-format` other than `text`, `json` or `logfmt`; `--log`, which is `--request-log` now; a confirmation, or the guided `config init`, with no terminal to answer it; a `slack login` answer left blank; a `comment` with nothing but white space on standard input; a `transition` whose status is blank; an `assign` whose username is blank; a `worklog` with a blank duration, or on a forge issue, which keeps no worklog. |
 | 3 | Configuration: fix the file, a credential or a login. | No `.workflow.json` for `doctor`, `config show` or `slack login`; a file that does not parse; a required field left empty, or set unusably; a file other users can read; a `ui.keys` map the interface refuses to start on; no messaging configured for `announce` or `summary --post`; a `worklog` with no Jira configured, where the forge's issues are the tracker; a `slack login` where Slack posts through a webhook, or `messaging.kind` names another service, or whose credentials Slack refuses to refresh; no repository remote for `reviews` to find the forge from, or one on a host other than `github.com`, a `ghe.com` tenant, `gitlab.com` or the `forge.host` a `forge.kind` of `github` or `gitlab` describes; a credential that is missing — a Jira token, or a forge token from the file, the environment or `gh auth login` — or one a service rejected, a Jira 403 that says what the token may not do among them. |
 | 4 | A refused precondition: the command would not go ahead because of what it found. | A pull request already open; no commits to open one for; no pull request to announce; a check that failed on the pull request `announce` would announce; `announce --when-green` on a pull request that has merged, that reports no check within ten minutes, or that merges first or is replaced while it waits; a `finish` on a branch that has not merged, has no base to return to, holds commits that neither merged nor are on its upstream, or is not a branch of its own; a branch or configuration file that already exists; a directory that is not a git repository; a `db-clean` that could not remove a database file, as one another program holds open can be on Windows; a `summary --post` too long for the messaging service; a `transition` to a status the tracker does not offer from where the issue stands, which names those it does, or one whose move asks for fields, which names them. |
 | 5 | Unreachable: a service did not answer, or asked you to wait. | Jira, the forge or the messaging service could not be reached — Slack among them when `slack login` refreshes — began an answer it did not finish in time, or answered with a redirect — a sign-in gateway in front of it, say — which is refused so the credential goes nowhere else; rate limiting. |
@@ -100,15 +102,22 @@ Standard output carries the artifact — what a script would capture: the
 JSON, the preview of what a write will do, the draft, the rows, and what a
 write created. Standard error carries everything said *about* it: dry-run
 lines, declined and done notices, warnings, guidance, the questions a command
-asks, and the error itself, prefixed `workflow:`.
+asks, and the error itself, said once, after its tag: `ERROR …`. How standard
+error is said — which of it, and in which format — is [its own
+section](#what-standard-error-says-levels-and-formats).
 
 While a slow command waits on a service — `doctor --online` on each
-credential, `summary` on each source, `status DIR…` on each directory — it
-keeps one line on standard error saying what it is reading (`Checking Jira…`,
-`Reading GitHub…`, `Reading DIR…`), each replacing the last in place, and
-erases it before printing anything and when it ends. It writes that line only
-when standard error is a terminal, so a pipe, a redirect or a log never
-holds it.
+credential, `summary` on each source, `status DIR…` on each directory, and
+`announce --when-green`, or `pr --announce`, on the pull request's CI — it
+keeps a live line at the foot of standard error: a turning mark, what it is
+doing (`Checking Jira`, `Reading GitHub`, `Reading DIR`, `CI on #42`), and a
+bar of how many of how many are done (`5 of 7`). Whatever the command says
+meanwhile prints above the line and stays; the line itself is erased when the
+wait ends. It is kept only when standard error is a terminal, so a pipe, a
+redirect or a log never holds it, nor any escape of its. With standard output
+on the same terminal, what `doctor --online` reports while it waits prints
+above the line too, on standard error, rather than under it; piped or
+redirected, standard output gets the report as always.
 
 | Command | stdout | stderr |
 | --- | --- | --- |
@@ -135,6 +144,55 @@ holds it.
 
 So `workflow config show | jq .` parses, and `workflow reviews | wc -l` counts
 reviews and nothing else.
+
+## What standard error says: levels and formats
+
+What a command says on standard error is a log of entries, each a level:
+
+- A **note** — a done, declined or dry-run line, guidance, what was left out —
+  is the bare sentence, as it has always been.
+- A **warning** — something asked for that did not happen, while the command
+  goes on: a post sent untagged, a pull request opened without everyone asked,
+  a request log not fully written — starts with the tag `WARN`.
+- The **error** a command ends with starts with `ERROR`, and is said once.
+- A **debug** line, only with `--verbose`, starts with `DEBUG`.
+
+On a terminal the tags are colored — `WARN` yellow, `ERROR` red, `DEBUG`
+faint — and nothing else is. `NO_COLOR`, set to anything, turns the color
+off, and `CLICOLOR_FORCE=1` keeps it on a pipe.
+
+```text
+Created feat/PROJ-412-fix-login in a new worktree.
+WARN Not tagging anyone: the Slack token lacks the usergroups:read scope; add it to the Slack app, then run workflow slack login.
+ERROR the Jira token was refused (401); run workflow doctor --online
+```
+
+Three flags, accepted before or after any command, change what is said:
+
+- **`--quiet`**, or **`-q`**, leaves out every note, and keeps the warnings,
+  the error and the questions a write asks.
+- **`--verbose`** adds a debug line for each request the command makes, its
+  service, method, path, status and how long it took, as `--request-log`
+  writes it: `DEBUG jira GET /rest/api/2/myself 200 184ms`. The terminal
+  interface, which draws on the terminal standard error shares, says none;
+  `--request-log` keeps its requests instead. `--quiet` and `--verbose`
+  together are a mistake in the call, and exit 2.
+- **`--log-format`** says it all as `text` (the default), or, for a log
+  collector, as `json` — one object a line — or `logfmt` — one record a line.
+  Each entry of those two is stamped with its time, which text never is, and
+  the error carries the status the command exits with.
+
+```text
+$ workflow --log-format json reviews
+{"time":"2026-10-14T09:30:00Z","level":"info","msg":"No pull requests are waiting on your review."}
+$ workflow --log-format logfmt config show
+time=2026-10-14T09:30:00Z level=info msg="No .workflow.json found.\n\nCreate one with `workflow config init`.\nThen run `workflow doctor` to see what is still missing."
+time=2026-10-14T09:30:00Z level=error msg="no .workflow.json found in /home/ana/src/api or /home/ana" exit_status=3
+```
+
+The questions a write asks, and the guided `config init`'s conversation, are
+said as they always were, whatever the flags: they are for the person
+answering them.
 
 ## JSON
 
@@ -457,9 +515,9 @@ web's form allow:
 
 `--json` reports what was opened, `base` and `draft` among it.
 
-## A log for a bug report: `--log`
+## A log for a bug report: `--request-log`
 
-`--log FILE` appends a one-line outline of every request a command makes —
+`--request-log FILE` appends a one-line outline of every request a command makes —
 the time, the service, the method, the path, the status and how long it took
 — to `FILE`. Like `--dry-run`, it is accepted before or after any command.
 It records nothing else: never a header, a body, a query string or a host,
@@ -467,11 +525,13 @@ and never the path of a messaging webhook — Slack's, Teams', Discord's or a
 plain one — which is itself the credential. The file is created readable only
 by you. A line that cannot be written — on a full disk, say — neither stops
 the command nor changes its exit status: as it ends, the command says once on
-stderr that the request log could not be fully written.
+stderr that the request log could not be fully written. Its old name,
+`--log`, is refused, exit 2, naming the new one. `--verbose` says the same
+outlines on stderr as debug lines, beside the file or without one.
 
 ```text
 2026-09-22T18:04:11Z jira  GET  /rest/api/2/myself 200 184ms
 ```
 
-`workflow --log requests.log doctor --online` is the run a bug report most
-wants: every credential check, each under its service's name.
+`workflow --request-log requests.log doctor --online` is the run a bug report
+most wants: every credential check, each under its service's name.

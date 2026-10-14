@@ -25,8 +25,17 @@ The browser's side of it has [a page of its own]({{< relref "/docs/web" >}}).
 
 The steps a script or a shell prompt wants also run as commands, without the
 interface. [Scripting]({{< relref "/docs/scripting" >}}) names each, and says
-what a script can rely on from them: exit codes, which stream carries what,
-`--json`, `--yes`, `--dry-run` and `--log`.
+what a script can rely on from them: exit codes, which stream carries what
+and how standard error says it, `--json`, `--yes`, `--dry-run`, `--quiet`,
+`--verbose`, `--log-format` and `--request-log`.
+
+At a terminal the commands speak in one voice: a note is a plain sentence, a
+warning starts `WARN` and the error a command ends with `ERROR`, each tag in
+the terminal's own yellow or red; `--help` lays a command's usage, examples
+and flags out in titled sections; and a command that waits on a service —
+`doctor --online`, `summary`, `status DIR…`, `announce --when-green` — keeps
+a live line of what it is doing, and how much of it is done, at the foot of
+the terminal until it is.
 
 ## The screen
 
