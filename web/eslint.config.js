@@ -27,7 +27,7 @@ const noReactEscapeBypass = [
 // class dims the text with its background, below the contrast floor, and axe
 // skips a disabled control's contrast, so nothing else would catch it.
 const opacityDimming =
-  'De-emphasize with color (the --disabled tokens in index.css), not opacity, which dims text below the contrast floor (CLAUDE.md).'
+  'De-emphasize with color (the --disabled tokens in index.css), not opacity, which dims text below the contrast floor (web/CLAUDE.md).'
 const noOpacityDimming = [
   { selector: 'Literal[value=/opacity-[0-9]/]', message: opacityDimming },
   { selector: 'TemplateElement[value.raw=/opacity-[0-9]/]', message: opacityDimming },
@@ -68,8 +68,8 @@ const heldNotDisabled = [
 
 // An address in an href comes from a server — a CI check's target, a pull
 // request's page — and reaches the page only through NewTabLink, which allows
-// http and https alone (CLAUDE.md, "The web server does not sanitize on the
-// way out"). React escapes text, not what an href leads to.
+// http and https alone (web/CLAUDE.md, "Server text reaches the page as
+// text"). React escapes text, not what an href leads to.
 const linkThroughNewTabLink = [
   {
     selector:
@@ -177,8 +177,9 @@ export default tseslint.config(
       'react/jsx-key': 'error',
       'react/no-array-index-key': 'error',
       complexity: ['error', 10],
-      // Code-smell caps (see CLAUDE.md "Code smells"): long parameter list, deep
-      // nesting, callback pyramids, nested ternaries, and parameter mutation.
+      // Code-smell caps (web/CLAUDE.md, "Lint caps and bans"): long parameter
+      // list, deep nesting, callback pyramids, nested ternaries, and parameter
+      // mutation.
       'max-params': ['error', 4],
       'max-depth': ['error', 4],
       'max-nested-callbacks': ['error', 3],

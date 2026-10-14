@@ -4,9 +4,9 @@ import { expect } from './fixtures.ts'
 import { walkTabOrder } from './tabwalk.ts'
 
 // What every surface is held to, at each window and theme a spec opens it in
-// (CLAUDE.md, "Accessibility is enforced"): nothing scrolls sideways, the page
-// does not scroll, Tab reaches every drawn control and each is in view as it
-// has focus, and axe finds nothing.
+// (web/CLAUDE.md, "Accessibility is enforced"): nothing scrolls sideways, the
+// page does not scroll, Tab reaches every drawn control and each is in view as
+// it has focus, and axe finds nothing.
 
 // Reach is what a surface's Tab order holds beyond every drawn control.
 interface Reach {
