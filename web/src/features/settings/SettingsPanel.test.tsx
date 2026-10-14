@@ -10,7 +10,7 @@ import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { AppShell } from '@/shell/AppShell.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { SettingsPanel } from './SettingsPanel.tsx'
-import { showSection } from '@/test/settings.ts'
+import { editSomething, showSection } from '@/test/settings.ts'
 
 // servesSettings answers Settings' reads as a server keeps them: the mockup's
 // configuration to start and, after a save, what was saved, at the revision
@@ -178,7 +178,7 @@ test('editing the commit types saves them as a trimmed list', async () => {
 
   // Act
   await user.click(screen.getByRole('button', { name: /save changes/i }))
-  await screen.findByText(/saved/i)
+  await screen.findByText('Saved.')
   view.unmount()
   render(
     <QueryClientProvider client={client}>
@@ -202,6 +202,7 @@ test('an emptied subject limit saves as 0, which keeps the default', async () =>
       <SettingsPanel />
     </QueryClientProvider>,
   )
+  await editSomething()
   await showSection('Commits and branches')
   const limit = await screen.findByLabelText('Subject limit')
   await user.type(limit, '50')
@@ -209,7 +210,7 @@ test('an emptied subject limit saves as 0, which keeps the default', async () =>
 
   // Act
   await user.click(screen.getByRole('button', { name: /save changes/i }))
-  await screen.findByText(/saved/i)
+  await screen.findByText('Saved.')
   view.unmount()
   render(
     <QueryClientProvider client={client}>
@@ -244,7 +245,7 @@ test('offers turning the store off and rides it back through a save', async () =
   // Act: turn it off, save, then reopen against the same client
   await user.click(toggle)
   await user.click(screen.getByRole('button', { name: /save changes/i }))
-  await screen.findByText(/saved/i)
+  await screen.findByText('Saved.')
   view.unmount()
   render(
     <QueryClientProvider client={client}>
@@ -296,7 +297,7 @@ test("the Taskwarrior fieldset's switch rides back through a save, and its progr
 
   // Act
   await user.click(screen.getByRole('button', { name: /save changes/i }))
-  await screen.findByText(/saved/i)
+  await screen.findByText('Saved.')
   view.unmount()
   render(
     <QueryClientProvider client={client}>
@@ -319,12 +320,13 @@ test('confirms when the configuration is saved', async () => {
   const user = userEvent.setup()
   renderWithClient(<SettingsPanel />)
   await screen.findByLabelText('Base URL')
+  await editSomething()
 
   // Act
   await user.click(screen.getByRole('button', { name: /save changes/i }))
 
   // Assert
-  expect(await screen.findByText(/saved/i)).toBeTruthy()
+  expect(await screen.findByText('Saved.')).toBeTruthy()
 })
 
 test('a clicked Save keeps the focus it was clicked with once it has saved', async () => {
@@ -333,6 +335,7 @@ test('a clicked Save keeps the focus it was clicked with once it has saved', asy
   const user = userEvent.setup()
   renderWithClient(<SettingsPanel />)
   await screen.findByLabelText('Base URL')
+  await editSomething()
   const save = screen.getByRole('button', { name: 'Save changes' })
 
   // Act
@@ -348,6 +351,8 @@ test('a Save clicked by a pointer that gives it no focus hands focus to what it 
   servesSettings()
   renderWithClient(<SettingsPanel />)
   await screen.findByLabelText('Base URL')
+  await editSomething()
+  ;(document.activeElement as HTMLElement).blur()
 
   // Act
   fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
@@ -391,7 +396,7 @@ test('toggling Markdown comments rides back through a save', async () => {
   // Act: turn it off, save, then reopen against the same client
   await user.click(toggle)
   await user.click(screen.getByRole('button', { name: /save changes/i }))
-  await screen.findByText(/saved/i)
+  await screen.findByText('Saved.')
   view.unmount()
   render(
     <QueryClientProvider client={client}>
@@ -420,7 +425,7 @@ test('a save updates the cache so reopening Settings shows the change', async ()
 
   // Act
   await user.click(screen.getByRole('button', { name: /save changes/i }))
-  await screen.findByText(/saved/i)
+  await screen.findByText('Saved.')
   view.unmount()
   render(
     <QueryClientProvider client={client}>
@@ -452,6 +457,7 @@ test('says why a save was refused', async () => {
   const user = userEvent.setup()
   renderWithClient(<SettingsPanel />)
   await screen.findByLabelText('Base URL')
+  await editSomething()
 
   // Act
   await user.click(screen.getByRole('button', { name: /save changes/i }))
@@ -487,6 +493,7 @@ test('locks the save while it is in flight', async () => {
   await screen.findByLabelText('Base URL')
 
   // Act
+  await editSomething()
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
 
   // Assert
@@ -573,7 +580,7 @@ test("the switch that lists this repository's forge issues rides back through a 
 
   // Act
   await user.click(screen.getByRole('button', { name: /save changes/i }))
-  await screen.findByText(/saved/i)
+  await screen.findByText('Saved.')
   view.unmount()
   render(
     <QueryClientProvider client={client}>

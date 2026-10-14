@@ -6,7 +6,7 @@ import { useKeysStore } from '@/features/keyboard/keysApi.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { SettingsPanel } from './SettingsPanel.tsx'
-import { showSection } from '@/test/settings.ts'
+import { editSomething, showSection } from '@/test/settings.ts'
 
 // opened opens Settings over config, answering a save with what it was sent,
 // and returns the requests the page made.
@@ -125,6 +125,7 @@ test("a stored header's masked value goes back as it was read, so it is kept", a
     ...mockConfig,
     jira: { ...mockConfig.jira, headers: { 'CF-Access-Client-Secret': '****abcd' } },
   })
+  await editSomething()
 
   // Act
   const sent = await saved(requests)

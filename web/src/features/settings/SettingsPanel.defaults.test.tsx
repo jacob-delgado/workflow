@@ -83,7 +83,7 @@ test('announcing a pull request opened here once its CI passes is on, and saves 
   await user.click(screen.getByRole('button', { name: /save changes/i }))
 
   // Assert
-  await screen.findByText(/saved/i)
+  await screen.findByText('Saved.')
   expect(wasOn).toBe(true)
   expect(saved.at(-1)?.messaging.auto_announce).toBe(false)
 })

@@ -5,6 +5,7 @@ import { mockConfig } from '@/dev/mockConfig.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { appQueryClient, renderWithClient } from '@/test/renderWithClient.tsx'
 import { SettingsPanel } from './SettingsPanel.tsx'
+import { editSomething } from '@/test/settings.ts'
 
 // revisionedApi answers a read with the configuration at the revision "read-1",
 // and each save with the configuration at the next one: "saved-1", "saved-2"…
@@ -39,6 +40,7 @@ test('a save is made over the revision its read returned', async () => {
   await screen.findByLabelText('Base URL')
 
   // Act
+  await editSomething()
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
 
   // Assert
@@ -52,10 +54,12 @@ test('the next save is made over the revision the last one wrote', async () => {
   const user = userEvent.setup()
   renderWithClient(<SettingsPanel />)
   await screen.findByLabelText('Base URL')
+  await editSomething()
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
   await screen.findByText('Saved.')
 
   // Act
+  await editSomething()
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
 
   // Assert
@@ -101,6 +105,7 @@ async function saveRefusedAsChanged(...afterwards: Response[]) {
   const requests = configAnswers(configAt('read-1'), changedOnDisk(), ...afterwards)
   const user = userEvent.setup()
   renderWithClient(<SettingsPanel />)
+  await editSomething()
   await user.click(await screen.findByRole('button', { name: 'Save changes' }))
   const reload = await screen.findByRole('button', { name: 'Reload' })
 
@@ -127,6 +132,7 @@ test('a save refused because the file changed says so and offers Reload', async 
   await screen.findByLabelText('Base URL')
 
   // Act
+  await editSomething()
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
 
   // Assert
@@ -178,6 +184,7 @@ test('a save after Reload is made over the revision Reload read', async () => {
   })
 
   // Act
+  await editSomething()
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
 
   // Assert
@@ -228,6 +235,7 @@ test.each([
   await screen.findByLabelText('Base URL')
 
   // Act
+  await editSomething()
   await user.click(screen.getByRole('button', { name: 'Save changes' }))
 
   // Assert

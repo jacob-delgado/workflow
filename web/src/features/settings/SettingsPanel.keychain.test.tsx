@@ -35,6 +35,6 @@ test('reading the Jira token from the keychain rides back through a save', async
   await user.click(screen.getByRole('button', { name: /save changes/i }))
 
   // Assert
-  await screen.findByText(/saved/i)
+  await screen.findByText('Saved.')
   expect(saved.at(-1)?.jira.keychain).toBe(true)
 })

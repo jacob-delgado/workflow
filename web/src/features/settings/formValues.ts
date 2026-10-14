@@ -119,3 +119,37 @@ function mapOf(entries: [string, string][]): Record<string, string> | null {
 
   return kept.length === 0 ? null : Object.fromEntries(kept)
 }
+
+// changedKeys is the dotted key of each setting whose value differs between
+// two configurations, as a save would send them: a list is one setting, and a
+// map's entries each one of their own. An empty value — none, "", 0, false or
+// an empty list — keeps the default, as a setting the file leaves out does,
+// so the two are the same.
+export function changedKeys(now: Config, then: Config): string[] {
+  const before = flattened(then)
+  const after = flattened(now)
+  const keys = new Set([...before.keys(), ...after.keys()])
+
+  return [...keys].filter((key) => before.get(key) !== after.get(key))
+}
+
+// flattened is each setting of a configuration that is not empty, by its
+// dotted key, its value written as JSON so two can be compared.
+function flattened(value: unknown, prefix = '', into = new Map<string, string>()) {
+  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    for (const [key, inner] of Object.entries(value)) {
+      flattened(inner, prefix === '' ? key : `${prefix}.${key}`, into)
+    }
+  } else if (!isEmpty(value)) {
+    into.set(prefix, JSON.stringify(value))
+  }
+
+  return into
+}
+
+// isEmpty reports a value that keeps a setting's default.
+function isEmpty(value: unknown): boolean {
+  const empties: unknown[] = [undefined, null, '', 0, false]
+
+  return empties.includes(value) || (Array.isArray(value) && value.length === 0)
+}

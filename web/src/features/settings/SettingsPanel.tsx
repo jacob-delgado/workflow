@@ -4,7 +4,7 @@ import { apiErrorMessage, problemCode } from '@/api/apiError.ts'
 import type { Config, SetupResult } from '@/api/generated/types.gen.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusOnMount } from '@/lib/focus.ts'
-import { OutcomeLine, resultGround, useOutcome } from '@/lib/Outcome.tsx'
+import { resultGround, useOutcome } from '@/lib/Outcome.tsx'
 import { Failure, Reading, Unread } from '@/lib/Status.tsx'
 import { type AsyncState, useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn, contentMeasure } from '@/lib/utils.ts'
@@ -25,9 +25,10 @@ import { TaskwarriorFieldset } from './fieldsets/TaskwarriorFieldset.tsx'
 import { KeyboardFieldset, TerminalFieldset } from './fieldsets/TerminalAndKeyFieldsets.tsx'
 import { LocalData } from './people/LocalData.tsx'
 import { PeopleAndGroups } from './people/PeopleAndGroups.tsx'
-import { configOf, formValues, type SettingsValues } from './formValues.ts'
+import { changedKeys, configOf, formValues, type SettingsValues } from './formValues.ts'
 import { type Removal, RemovalsContext, stored, without } from './removal.ts'
-import { ConfigPanel, SettingsSections } from './SettingsSections.tsx'
+import { SaveBar } from './SaveBar.tsx'
+import { ConfigPanel, SettingsSections, unsavedBySection } from './SettingsSections.tsx'
 import { SetupArea } from './SetupForm.tsx'
 
 // SettingsPanel is the configuration, a section at a time beside the list of
@@ -136,10 +137,10 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
   // The whole config seeds the form, so every key no fieldset registers — the
   // token commands, the Slack access token and its expiry — rides back
   // unchanged on save rather than being dropped.
-  const { register, handleSubmit, reset, setFocus, control, formState } = useForm<SettingsValues>({
-    defaultValues: formValues(read.config),
-  })
+  const { register, handleSubmit, reset, setFocus, control, formState, watch } =
+    useForm<SettingsValues>({ defaultValues: formValues(read.config) })
   const file = useFormFile(read, reset)
+  const changed = changedKeys(configOf(watch()), configOf(formValues(file.seeded)))
   // How many times the form's first field has been asked to take focus: once
   // when the form replaces a Try again, and after each Reload, which takes its own
   // button away. The field is focused once the form has drawn it.
@@ -178,7 +179,7 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
 
   return (
     <RemovalsContext value={file.removals}>
-      <SettingsSections shown={shown} onShow={setShown}>
+      <SettingsSections shown={shown} onShow={setShown} unsaved={unsavedBySection(changed)}>
         <form
           aria-labelledby={sectionHeadingId}
           onSubmit={(event) => {
@@ -193,12 +194,18 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
           />
 
           {/* A refusal ChangedSinceRead explains is not said a second time. */}
-          <SaveControls
+          <SaveBar
+            unsaved={changed.length}
             saving={save.state === 'running'}
             said={outcome.said}
             error={file.changed || save.state !== 'error' ? '' : save.error}
-          />
-          {file.changed ? <ChangedSinceRead reload={reload} /> : null}
+            onDiscard={() => {
+              outcome.clear()
+              file.discard()
+            }}
+          >
+            {file.changed ? <ChangedSinceRead reload={reload} /> : null}
+          </SaveBar>
         </form>
       </SettingsSections>
     </RemovalsContext>
@@ -283,34 +290,15 @@ function useFormFile(read: ConfigRead, reset: UseFormReset<SettingsValues>) {
     setChanged,
     seed,
     write,
+    seeded,
+    discard: () => {
+      reset(formValues(seeded))
+    },
     removals: {
       holds: (removal: Removal) => stored(seeded, removal),
       remove: (removal: Removal) => write(without(seeded, removal), { keepEdits: true }),
     },
   }
-}
-
-interface SaveControlsProps {
-  saving: boolean
-  said: Parameters<typeof OutcomeLine>[0]['said']
-  error: string
-}
-
-// SaveControls is the Save button and what the last save said: that it saved,
-// on the form's outcome line, or why it did not, as a failure — unless the file
-// changed since the form read it, which ChangedSinceRead says instead.
-function SaveControls({ saving, said, error }: SaveControlsProps) {
-  return (
-    <div className="flex flex-col items-start gap-item">
-      <div className="flex items-center gap-item">
-        <Button variant="primary" type="submit" held={saving}>
-          {saving ? 'Saving…' : 'Save changes'}
-        </Button>
-        <OutcomeLine said={said} />
-      </div>
-      {error === '' ? null : <Failure>{error}</Failure>}
-    </div>
-  )
 }
 
 // ReloadAction is the one-shot read Reload runs.

@@ -23,9 +23,22 @@ const configSections: ConfigSection[] = [
   { id: 'advanced', name: 'Advanced', keys: ['timing', 'store'] },
 ]
 
+// unsavedBySection is how many of the settings changed, by their dotted
+// keys, each section holds, by its id.
+export function unsavedBySection(changed: string[]): Record<string, number> {
+  return Object.fromEntries(
+    configSections.map((section) => [
+      section.id,
+      changed.filter((key) => section.keys.includes(key.split('.')[0] ?? '')).length,
+    ]),
+  )
+}
+
 interface SettingsSectionsProps {
   shown: string
   onShow: (id: string) => void
+  // unsaved is how many unsaved changes each section holds, by its id.
+  unsaved: Record<string, number>
   // children are the configuration's panels, in the form that saves them.
   children: ReactNode
 }
@@ -33,7 +46,7 @@ interface SettingsSectionsProps {
 // SettingsSections shows Settings a section at a time beside the list of
 // them: the configuration's sections, which save together, then People and
 // groups and Local data, which save as they change.
-export function SettingsSections({ shown, onShow, children }: SettingsSectionsProps) {
+export function SettingsSections({ shown, onShow, unsaved, children }: SettingsSectionsProps) {
   return (
     <Tabs
       value={shown}
@@ -46,7 +59,15 @@ export function SettingsSections({ shown, onShow, children }: SettingsSectionsPr
       >
         {configSections.map((section) => (
           <Tab key={section.id} value={section.id}>
-            {section.name}
+            <span>
+              {section.name}
+              <Unsaved count={unsaved[section.id] ?? 0} />
+            </span>
+            {(unsaved[section.id] ?? 0) === 0 ? null : (
+              <span aria-hidden className="text-xs text-primary tabular-nums">
+                {unsaved[section.id]}
+              </span>
+            )}
           </Tab>
         ))}
         <span aria-hidden className="mx-3 hidden border-t border-border lg:my-1 lg:block" />
@@ -73,4 +94,10 @@ export function ConfigPanel({ id, children }: { id: string; children: ReactNode 
       {children}
     </TabPanel>
   )
+}
+
+// Unsaved says, after a section's name, how many unsaved changes it holds,
+// for a screen reader: the count drawn beside the name is hidden from it.
+function Unsaved({ count }: { count: number }) {
+  return count === 0 ? null : <span className="sr-only">, {count} unsaved</span>
 }
