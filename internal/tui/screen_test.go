@@ -47,7 +47,9 @@ func TestASCIIModeDrawsInASCII(t *testing.T) {
 			// The Issues pane's own keys fill the footer at 120 columns, so of the
 			// tail only the way out is left, ? keys and q quit, after an ASCII
 			// separator.
-			want: []string{"# Issue - # Branch", "#= 1 Issues", "> * PROJ-412", "Bug - In Progress", " | ? keys | q quit ..."},
+			want: []string{
+				"# Issue ======== # Branch", "#= 1 Issues", "> * PROJ-412", "Bug - In Progress", " | ? keys | q quit ...",
+			},
 		},
 		"the help": {height: 60, keys: []string{"?"}, want: []string{"up/k", "down/j"}},
 		"the hook picker": {
@@ -90,15 +92,15 @@ func TestTheSpineShowsHowFarTheWorkHasGot(t *testing.T) {
 		},
 		"changes on a branch": {
 			prepare: func(w *world) { w.branch.Commits, w.pullFound = nil, false },
-			want:    "● Issue ─ ● Branch ─ ◐ Commits ─ ○ Review ─ ○ Slack",
+			want:    "● Issue ━ ● Branch ━ ◐ Commits ─ ○ Review ─ ○ Slack",
 		},
 		"in review": {
 			prepare: func(w *world) { w.ci = []forge.CI{{State: forge.CIRunning}} },
-			want:    "● Issue ─ ● Branch ─ ● Commits ─ ◐ Review ─ ○ Slack",
+			want:    "● Issue ━ ● Branch ━ ● Commits ━ ◐ Review ─ ○ Slack",
 		},
 		"CI failed": {
 			prepare: func(w *world) { w.ci = []forge.CI{{State: forge.CIFailed}} },
-			want:    "● Issue ─ ● Branch ─ ● Commits ─ ✗ Review ─ ○ Slack",
+			want:    "● Issue ━ ● Branch ━ ● Commits ━ ✗ Review ─ ○ Slack",
 		},
 		"nothing selected": {
 			prepare: func(w *world) {
@@ -117,10 +119,10 @@ func TestTheSpineShowsHowFarTheWorkHasGot(t *testing.T) {
 			tt.prepare(staged)
 
 			// Act
-			spine, _, _ := strings.Cut(staged.live(t, 120, 40).View().Content, "\n")
+			view := staged.live(t, 120, 40).View().Content
 
 			// Assert
-			requireScreen(t, spine, tt.want)
+			requireScreen(t, track(view), tt.want)
 		})
 	}
 }
@@ -133,11 +135,11 @@ func TestTheSpineNamesTheLastStageForTheMessagingServiceInUse(t *testing.T) {
 	teams.cfg.Messaging = teamsMessaging()
 
 	// Act
-	spine, _, _ := strings.Cut(teams.live(t, 120, 40).View().Content, "\n")
+	view := teams.live(t, 120, 40).View().Content
 
 	// Assert
-	requireScreen(t, spine, "Review ─ ○ Teams")
-	refuseScreen(t, spine, "Slack")
+	requireScreen(t, track(view), "Review ━ ○ Teams")
+	refuseScreen(t, spineLine(view), "Slack")
 }
 
 func TestTheSpineMarksSlackOnceAnnounced(t *testing.T) {
@@ -155,11 +157,11 @@ func TestAShortTerminalCompactsTheSpine(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	spine, _, _ := strings.Cut(newWorld().live(t, 120, 20).View().Content, "\n")
+	view := newWorld().live(t, 120, 20).View().Content
 
 	// Assert
-	if !strings.HasPrefix(plain(spine), " I● B● C● R● S○") {
-		t.Errorf("spine = %q, want each stage labeled with its initial", spine)
+	if !strings.HasPrefix(track(view), " I● ━ B● ━ C● ━ R● ━ S○") {
+		t.Errorf("spine = %q, want each stage labeled with its initial", spineLine(view))
 	}
 }
 

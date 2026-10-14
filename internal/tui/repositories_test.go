@@ -185,7 +185,7 @@ func TestTheTopRowGivesUpThePlaceBeforeAnyStage(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	view := reposWorld().live(t, 56, 40).View().Content
+	view := reposWorld().live(t, 64, 40).View().Content
 
 	// Assert
 	spine := spineLine(view)
