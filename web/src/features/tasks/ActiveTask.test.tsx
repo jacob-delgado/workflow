@@ -21,7 +21,7 @@ function streamTasks(summary: TasksSummary) {
   useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot({ tasks: summary }) })
 }
 
-test('the header shows the active task, how long it has run, and opens the Tasks section', async () => {
+test('the loop track ends with the active task, how long it has run, and opens the Tasks section', async () => {
   // Arrange
   const user = userEvent.setup()
   streamTasks({ available: true, reason: '', active: started, linked: [started] })

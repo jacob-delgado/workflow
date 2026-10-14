@@ -321,6 +321,19 @@ describe.each(themes)('in the %s theme', (_, selector) => {
     expect(ratio).toBeGreaterThanOrEqual(3)
   })
 
+  // The loop's track draws each stage's rule on --track, filled in the
+  // stage's system's hue as the stage gets done.
+  test.each(identities)('%s holds 3:1 as a filled rule on the loop’s --track', (identity) => {
+    // Arrange
+    const tokens = tokensOf(selector)
+
+    // Act
+    const ratio = contrast(color(tokens, identity), color(tokens, '--track'))
+
+    // Assert
+    expect(ratio).toBeGreaterThanOrEqual(3)
+  })
+
   test.each(identities)(
     '%s is never mistaken for a status light, the control accent or another system',
     (identity) => {

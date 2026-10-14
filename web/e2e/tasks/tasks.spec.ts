@@ -117,11 +117,6 @@ function edgesOf(locator: Locator): Promise<Edges> {
   })
 }
 
-// middleOf is the height halfway down an element.
-function middleOf(edges: Edges): number {
-  return (edges.top + edges.bottom) / 2
-}
-
 test('a refused start sits below its row of buttons, not between them', async ({ page }) => {
   // Arrange
   await streams(page, withTasks({ available: true, reason: '', linked: [tracking] }))
@@ -145,9 +140,9 @@ test('a refused start sits below its row of buttons, not between them', async ({
   expect(refusal.top, 'the refusal below both').toBeGreaterThanOrEqual(done.bottom)
 })
 
-test('the header keeps one row beside a long started task, at 640 px', async ({ page }) => {
+test('a long started task takes a row of its own under the loop, at 640 px', async ({ page }) => {
   // Arrange
-  // A started task whose description is longer than the header has room for.
+  // A started task whose description is longer than the track has room for.
   await streams(
     page,
     withTasks({ available: true, reason: '', active: started, linked: [started] }),
@@ -161,11 +156,11 @@ test('the header keeps one row beside a long started task, at 640 px', async ({ 
 
   // Assert
   const drawn = await edgesOf(chip)
-  const toggle = await edgesOf(page.getByRole('button', { name: /change theme/i }))
-  expect(Math.abs(middleOf(toggle) - middleOf(drawn)), "the toggle on the chip's row").toBeLessThan(
-    2,
+  const track = await edgesOf(
+    page.getByRole('list', { name: 'Where the checked-out branch is in the loop' }),
   )
-  expect(toggle.left, 'the toggle right of the chip').toBeGreaterThanOrEqual(drawn.right)
+  expect(drawn.top, 'the chip below the stages').toBeGreaterThanOrEqual(track.bottom)
+  expect(drawn.right, 'the chip inside the window').toBeLessThanOrEqual(640)
 })
 
 // markHue is the color the first mark inside an element is drawn in: an icon
