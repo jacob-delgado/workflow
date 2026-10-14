@@ -32,6 +32,10 @@ type dirPicker struct {
 	// reads are the directories read, by dirRead's key; each copy of the
 	// picker that adds one adds it to a copy of its own.
 	reads map[string]dirRead
+	// standIn is the last listing narrowed by a name to answer; its
+	// directories stand in for the next one asked of the same directory
+	// while that is out.
+	standIn dirListed
 	// looking is a destination being checked; problem is why it could not
 	// be gone to.
 	looking bool
@@ -42,7 +46,9 @@ type dirPicker struct {
 }
 
 // dirRead is a directory's listing, narrowed by a prefix or not, or why it
-// could not be read; asked while the read is out.
+// could not be read, listing nothing of its own then; asked while the read is
+// out. A narrowed listing joined with a whole one that failed keeps its own
+// directories beside the whole one's failure.
 type dirRead struct {
 	listing workdirs.Listing
 	err     error
@@ -309,7 +315,7 @@ var _ applier = dirListed{}
 // apply keeps the listing in the picker that asked, open or under the last
 // look that goes back to it, and reads what it needs next: the same
 // directory narrowed by what was typed, when the listing stopped short of
-// everything in it.
+// everything in it or the name typed starts with a dot.
 func (msg dirListed) apply(m Model) (Model, tea.Cmd) {
 	list := m.deps.Repositories.Subdirectories
 
@@ -336,11 +342,17 @@ func (msg dirListed) apply(m Model) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// kept is the picker with a listing it asked for kept, its highlight on a
-// row there still is.
+// kept is the picker with a listing it asked for kept, and one narrowed by
+// a name kept to stand in for the next, its highlight on a row there still
+// is.
 func (p dirPicker) kept(msg dirListed) dirPicker {
 	p.reads = maps.Clone(p.reads)
 	p.reads[readKey(msg.dir, msg.prefix)] = msg.read
+
+	if msg.prefix != "" {
+		p.standIn = msg
+	}
+
 	p.cursor = min(p.cursor, max(0, len(p.rows())-1))
 
 	return p
@@ -372,8 +384,18 @@ func (p dirPicker) asking(list func(dir, prefix string) (workdirs.Listing, error
 	return p, func() tea.Msg {
 		listing, err := list(dir, prefix)
 
-		return dirListed{dir: dir, prefix: prefix, read: dirRead{listing: listing, err: err}, opened: opened}
+		return dirListed{dir: dir, prefix: prefix, read: readOf(listing, err), opened: opened}
 	}
+}
+
+// readOf is what reading a listing answered: the listing, or why it could
+// not be read, with nothing listed.
+func readOf(listing workdirs.Listing, err error) dirRead {
+	if err != nil {
+		return dirRead{err: err}
+	}
+
+	return dirRead{listing: listing}
 }
 
 // readKey is where the listing of dir, narrowed by prefix, is kept.

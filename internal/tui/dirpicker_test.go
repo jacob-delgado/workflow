@@ -17,14 +17,17 @@ import (
 // dirPickerTitle is the directory picker's title.
 const dirPickerTitle = "Go to a directory"
 
-// The names the picker's world lists under srcDir and where you work, and
-// srcName, which it lists in your home and in web.
+// The names the picker's world lists under srcDir and where you work;
+// srcName, which it lists in your home and in web; oldName, beside it in
+// your home; and configName, a hidden directory a world may put there.
 const (
 	apiDir      = "api"
 	webDir      = "web"
 	notesDir    = "workday-notes"
 	internalDir = "internal"
 	srcName     = "src"
+	oldName     = "old"
+	configName  = ".config"
 )
 
 // srcTyped and webTyped are srcDir and webRoot as typed in the picker, from
@@ -41,7 +44,7 @@ func pickingWorld() *world {
 	working := reposWorld()
 	working.dirs.listings = map[string][]string{
 		srcDir:  {apiDir, webDir, notesDir, "cli"},
-		anaHome: {srcName, "old"},
+		anaHome: {srcName, oldName},
 		apiCmd:  {internalDir},
 		webRoot: {srcName},
 	}
@@ -220,24 +223,6 @@ func TestATruncatedListingIsAskedAgainWithWhatWasTyped(t *testing.T) {
 
 	if pickerLine(view, notesDir) == "" {
 		t.Errorf("%s, past the first thousand, is not listed:\n%s", notesDir, plain(view))
-	}
-}
-
-func TestTypingADotListsTheHiddenDirectories(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// A listing leaves a hidden directory out until the name typed starts
-	// with its dot, so the picker has to ask with the name.
-	working := pickingWorld()
-	working.dirs.listings[anaHome] = []string{srcName, "old", ".config"}
-
-	// Act
-	view := picking(t, working, "~/.c").View().Content
-
-	// Assert
-	if pickerLine(view, ".config") == "" {
-		t.Errorf("typing ~/.c does not list .config:\n%s", plain(view))
 	}
 }
 

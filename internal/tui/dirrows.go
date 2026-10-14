@@ -108,17 +108,64 @@ func (p dirPicker) parent() string {
 	return workdirs.Resolve(head, p.base, p.home)
 }
 
-// listing is what is known of the directory the field points into: the
-// last of the listings its rows are drawn from that has been asked for, and
-// whether any has been.
+// listing is what is known of the directory the field points into, and
+// whether any of it has been asked for: the whole listing, or, where the
+// rows are drawn from one narrowed by the name typed too, the two joined as
+// the web joins them, still being read until both have answered. While the
+// narrowed one is out, the last listing of the same directory narrowed by a
+// name stands in for it, as the web's last answer does.
 func (p dirPicker) listing() (dirRead, bool) {
-	for _, prefix := range slices.Backward(p.drawnFrom()) {
-		if read, found := p.reads[readKey(p.parent(), prefix)]; found {
-			return read, true
-		}
+	prefixes := p.drawnFrom()
+	whole, found := p.reads[readKey(p.parent(), prefixes[0])]
+
+	if len(prefixes) == 1 {
+		return whole, found
 	}
 
-	return dirRead{}, false
+	narrowed, asked := p.reads[readKey(p.parent(), prefixes[1])]
+	if !asked || narrowed.asked {
+		narrowed = p.standingIn()
+	}
+
+	return narrowed.joined(whole), found
+}
+
+// standingIn is what stands in for a listing narrowed by a name while it is
+// read: the directories the last one of the same directory to answer held.
+func (p dirPicker) standingIn() dirRead {
+	reading := dirRead{asked: true}
+	if p.standIn.dir == p.parent() {
+		reading.listing = p.standIn.read.listing
+	}
+
+	return reading
+}
+
+// joined is a narrowed listing's read with the rest of the whole listing's
+// directories after its own, so a directory the whole one matched letter by
+// letter stays once the narrowed one answers. It is being read while
+// either one is, since the narrowed one may answer first. Where the narrowed
+// one failed, it is that failure, listing nothing; where the whole one alone
+// failed, it is that failure beside the narrowed one's directories, so a
+// hidden one found there can still be gone into.
+func (r dirRead) joined(whole dirRead) dirRead {
+	r.asked = r.asked || whole.asked
+	if r.err != nil {
+		return r
+	}
+
+	found := make(map[string]bool, len(r.listing.Entries))
+	for _, entry := range r.listing.Entries {
+		found[entry.Name] = true
+	}
+
+	rest := slices.DeleteFunc(slices.Clone(whole.listing.Entries), func(entry workdirs.Entry) bool {
+		return found[entry.Name]
+	})
+	r.listing.Entries = slices.Concat(r.listing.Entries, rest)
+	r.err = whole.err
+
+	return r
 }
 
 // needs is the prefix of the first listing the rows are drawn from that
@@ -137,21 +184,18 @@ func (p dirPicker) needs() (string, string, bool) {
 
 // drawnFrom are the prefixes of the listings of the directory the field
 // points into that its rows are drawn from, in the order they are asked for:
-// the name typed alone when it starts with a dot, since only a listing
-// narrowed by a hidden name's dot holds it; otherwise the whole listing,
-// then, where that stopped short, the one narrowed by the name typed.
+// the whole listing, then the one narrowed by the name typed where that
+// holds what the whole one cannot, a hidden directory once the name starts
+// with its dot or one past where the whole listing stopped short.
 func (p dirPicker) drawnFrom() []string {
 	name := p.nameTyped()
 	whole := p.reads[readKey(p.parent(), "")]
 
-	switch {
-	case strings.HasPrefix(name, "."):
-		return []string{name}
-	case whole.listing.Truncated && name != "":
+	if strings.HasPrefix(name, ".") || whole.listing.Truncated && name != "" {
 		return []string{"", name}
-	default:
-		return []string{""}
 	}
+
+	return []string{""}
 }
 
 // rows are what the picker offers: the worktrees and favorites whose names
@@ -185,15 +229,12 @@ func (p dirPicker) typedPath() string {
 	return workdirs.Resolve(p.input.Value(), p.base, p.home)
 }
 
-// childrenMatching are the directories where the field points whose names
-// hold the name typed, once they have been read: at most rowsShownMost of
-// them, and how many more match past those.
+// childrenMatching are the directories listed where the field points whose
+// names hold the name typed: at most rowsShownMost of them, and how many more
+// match past those. A read that failed lists none of its own; a narrowed one
+// joined with a whole listing that failed still lists what it found.
 func (p dirPicker) childrenMatching() ([]dirRow, int) {
-	read, found := p.listing()
-	if !found || read.err != nil {
-		return nil, 0
-	}
-
+	read, _ := p.listing()
 	matches := workdirs.Matching(read.listing.Entries, p.nameTyped())
 	// Trade-off TRADE-49: past rowsShownMost directories the rest are
 	// counted, not drawn or reached.
