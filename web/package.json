@@ -6,7 +6,7 @@
   "packageManager": "yarn@4.18.1",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && ../scripts/check-bundle-size.sh vite.config.ts ../internal/web/dist/assets",
     "gen": "openapi-ts",
     "gen:check": "openapi-ts && ../scripts/check-generated.sh src/api/generated \"The generated client is out of date. Run 'yarn gen' and commit src/api/generated.\"",
     "lint": "eslint . && tsc -b && prettier --check . && knip && yarn lint:deps",
