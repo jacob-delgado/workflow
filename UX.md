@@ -334,7 +334,10 @@ the face is Recursive, latin alone (TRADE-48): proportional, `MONO` 0, for
 prose, and `MONO` 1, every letter one width, for code alone. The dialogs —
 the command palette and the `?` sheet — are Base UI's Dialog and
 Autocomplete, drawn through `web/src/lib/baseui`, over a backdrop of the
-page's own ground. Periwinkle stays the one control accent, and
+page's own ground; Settings' sections are its Tabs, and a choice narrowed by
+typing — whom a code owner is on Slack — its Combobox. A field a form refuses
+is marked invalid, its edge in the failure color, and described by why, from
+`Field.tsx`'s one `error`. Periwinkle stays the one control accent, and
 the middle dot the separator. Each part of that is drawn in one place in
 `web/src/lib`: a field (`Field.tsx`) and a button (`Button.tsx`) in one
 padding and size scale, each held with `aria-disabled` while its request
