@@ -22,12 +22,14 @@ import (
 const jiraSecret = "jira-token-super-secret"
 
 // decodeReport parses doctor's JSON, failing the test when it is not valid JSON.
+// The JSON leads output, and stderr's error, when doctor ended with one,
+// follows it.
 func decodeReport(t *testing.T, output string) map[string]any {
 	t.Helper()
 
 	var report map[string]any
 
-	err := json.Unmarshal([]byte(output), &report)
+	err := json.NewDecoder(strings.NewReader(output)).Decode(&report)
 	if err != nil {
 		t.Fatalf("doctor --json is not valid JSON: %v\n%s", err, output)
 	}

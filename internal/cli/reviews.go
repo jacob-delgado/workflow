@@ -109,7 +109,7 @@ func runReviews(ctx context.Context, out output, seams reviewsSeams, opts review
 // queue is empty: a script counting the lines counts none.
 func renderReviews(out output, reviews []forge.ReviewRequest, now time.Time, kind forge.Kind) {
 	if len(reviews) == 0 {
-		fmt.Fprintln(out.notes, "No "+kind.Noun()+"s are waiting on your review.")
+		out.notes.Note("No " + kind.Noun() + "s are waiting on your review.")
 
 		return
 	}

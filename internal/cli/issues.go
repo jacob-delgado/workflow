@@ -120,13 +120,13 @@ func renderIssueList(out output, view jira.View, result jira.SearchResult) {
 
 	switch {
 	case len(result.Issues) == 0:
-		fmt.Fprintln(out.notes, "No issues in "+name+".")
+		out.notes.Note("No issues in " + name + ".")
 	case result.Total > len(result.Issues):
-		fmt.Fprintf(out.notes, "Listed the first %d of %d issues in %s.\n", len(result.Issues), result.Total, name)
+		out.notes.Note(fmt.Sprintf("Listed the first %d of %d issues in %s.", len(result.Issues), result.Total, name))
 	}
 
 	for _, unread := range result.Unavailable {
-		fmt.Fprintln(out.notes, "Not read: "+unread+".")
+		out.notes.Note("Not read: " + unread + ".")
 	}
 }
 

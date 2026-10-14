@@ -117,8 +117,8 @@ func runFinish(ctx context.Context, out output, seams finishSeams, opts writeOpt
 		return fmt.Errorf("finishing %s: %w", finishing.Branch, err)
 	}
 
-	fmt.Fprintln(out.notes, "Finished "+finishing.Branch+": switched to "+finishing.Base+", caught it up and deleted "+
-		finishing.Branch+".")
+	out.notes.Note("Finished " + finishing.Branch + ": switched to " + finishing.Base + ", caught it up and deleted " +
+		finishing.Branch + ".")
 
 	return nil
 }

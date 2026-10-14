@@ -8,11 +8,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
 
+	"github.com/jacob-delgado/workflow/internal/cli/console"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -308,9 +308,9 @@ func runStatus(ctx context.Context, out output, seams statusSeams, ascii, asJSON
 	return nil
 }
 
-// writeNotes writes each note on a service, one line apiece after label.
-func writeNotes(out io.Writer, label string, notes []string) {
-	for _, note := range notes {
-		fmt.Fprintln(out, label+note)
+// writeNotes says each note on a service, one apiece after label.
+func writeNotes(notes console.Notes, label string, said []string) {
+	for _, note := range said {
+		notes.Note(label + note)
 	}
 }

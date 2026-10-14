@@ -228,7 +228,7 @@ func (p startPlan) carryOut(ctx context.Context, out output, seams branchSeams) 
 	case err != nil:
 		return fmt.Errorf("creating %s: %w", p.name, err)
 	case p.worktree:
-		fmt.Fprintln(out.notes, "Created "+p.name+" in a new worktree.")
+		out.notes.Note("Created " + p.name + " in a new worktree.")
 		fmt.Fprintln(out.artifact, dir)
 	default:
 		fmt.Fprintln(out.artifact, "Created "+p.name)

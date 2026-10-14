@@ -7,9 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"strconv"
 
+	"github.com/jacob-delgado/workflow/internal/cli/console"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 )
@@ -20,7 +20,7 @@ import (
 // from being offered, and the command still fails with it; a question nothing
 // can answer stops both.
 func followUp(
-	ctx context.Context, notes io.Writer, seams prSeams, opened openedPull, opts writeOptions, report prReport,
+	ctx context.Context, notes console.Notes, seams prSeams, opened openedPull, opts writeOptions, report prReport,
 ) (prReport, error) {
 	link, linkErr := offerLink(ctx, notes, seams, opened, opts)
 	report.FollowUps = append(report.FollowUps, link...)
@@ -41,7 +41,7 @@ func followUp(
 // forge's own issues — is offered nothing. A failed link is said at once,
 // before the move is offered.
 func offerLink(
-	ctx context.Context, notes io.Writer, seams prSeams, opened openedPull, opts writeOptions,
+	ctx context.Context, notes console.Notes, seams prSeams, opened openedPull, opts writeOptions,
 ) ([]followUpReport, error) {
 	if seams.LinkPull == nil || opened.issueKey == "" {
 		return nil, nil
@@ -61,12 +61,12 @@ func offerLink(
 
 	err = seams.LinkPull(ctx, opened.issueKey, opened.pull.URL, opened.pull.Title)
 	if err != nil {
-		fmt.Fprintln(notes, "Could not link "+pull+" on "+issue+".")
+		notes.Warn("Could not link " + pull + " on " + issue + ".")
 
 		return []followUpReport{offer}, fmt.Errorf("linking %s on %s: %w", pull, issue, err)
 	}
 
-	fmt.Fprintln(notes, "Linked "+pull+" on "+issue+".")
+	notes.Note("Linked " + pull + " on " + issue + ".")
 
 	offer.Done = true
 
@@ -81,7 +81,7 @@ func offerLink(
 // already open. Everything it says is commentary on the open, so it goes to
 // notes.
 func offerReviewStatus(
-	ctx context.Context, notes io.Writer, seams prSeams, issueKey jira.Key, opts writeOptions,
+	ctx context.Context, notes console.Notes, seams prSeams, issueKey jira.Key, opts writeOptions,
 ) ([]followUpReport, error) {
 	target, ok := loop.ReviewTransition(ctx, seams.Transitions, issueKey, seams.ReviewStatus)
 	if !ok {
@@ -104,7 +104,7 @@ func offerReviewStatus(
 		return []followUpReport{offer}, fmt.Errorf("moving %s to %s: %w", issueKey, target.ToStatus, err)
 	}
 
-	fmt.Fprintln(notes, "Moved "+string(issueKey)+" to "+target.ToStatus+".")
+	notes.Note("Moved " + string(issueKey) + " to " + target.ToStatus + ".")
 
 	offer.Done = true
 

@@ -41,7 +41,7 @@ func (w issueWrite) run(ctx context.Context, out output, opts writeOptions, conf
 		return err
 	}
 
-	fmt.Fprintln(out.notes, done)
+	out.notes.Note(done)
 
 	return nil
 }

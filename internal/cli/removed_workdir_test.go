@@ -80,7 +80,7 @@ func TestALogNamedRelativelyFromARemovedDirectorySaysItCannotBeOpened(t *testing
 	printed, err := runFromARemovedDirectory(t, t.TempDir(), logOption, relativeLog, doctorCommand)
 
 	// Assert
-	if err == nil || !strings.HasPrefix(err.Error(), "workflow: opening the request log: "+workdirUnread) {
+	if err == nil || !strings.HasPrefix(err.Error(), "opening the request log: "+workdirUnread) {
 		t.Errorf("--log requests.log from a removed directory = %v, want it to say the log cannot be opened "+
 			"for the directory it cannot name (%+v)", err, printed)
 	}

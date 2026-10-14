@@ -16,7 +16,7 @@ import (
 
 // keptWarning is what --all says before removing the kept file: what it holds
 // cannot be seen again, only asked for again.
-const keptWarning = "warning: --all also removes kept.db, whom each code owner is on Slack and " +
+const keptWarning = "--all also removes kept.db, whom each code owner is on Slack and " +
 	"each repository's groups; people and group associations will be asked again"
 
 // newDBCleanCmd builds `workflow db-clean`.
@@ -82,7 +82,7 @@ func runDBClean(
 
 	reached := reachedBy(files, clean.scope)
 	if len(reached) == 0 {
-		fmt.Fprintln(out.notes, "Nothing to remove.")
+		out.notes.Note("Nothing to remove.")
 
 		return nil
 	}
@@ -102,7 +102,7 @@ func removeDataFiles(
 	for _, file := range reached {
 		names = append(names, file.Name)
 		if file.Kind == store.DataKept {
-			fmt.Fprintln(out.notes, keptWarning)
+			out.notes.Warn(keptWarning)
 		}
 	}
 
@@ -122,7 +122,7 @@ func removeDataFiles(
 		return fmt.Errorf("removing the local data: %w", err)
 	}
 
-	fmt.Fprintln(out.notes, "Removed "+listed+".")
+	out.notes.Note("Removed " + listed + ".")
 
 	return nil
 }

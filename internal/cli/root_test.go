@@ -501,7 +501,7 @@ func TestTheWebFlagSaysWhyTheConfigurationDidNotLoadAndServesAnyway(t *testing.T
 		t.Fatalf("workflow --web = %v, served %d times; want the server started to explain it", ran.err, ran.servers)
 	}
 
-	if !strings.Contains(ran.stderr, "configuration did not load cleanly") {
+	if !strings.Contains(ran.stderr, "WARN The configuration did not load cleanly") {
 		t.Errorf("workflow --web said %q, want why the configuration did not load", ran.stderr)
 	}
 }

@@ -7,13 +7,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/activity"
+	"github.com/jacob-delgado/workflow/internal/cli/console"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
@@ -194,10 +194,10 @@ func unreadSources(reads []activity.Read) error {
 
 // noteLeftOut says, of each source that is not set up, that it was left out
 // and how to set it up, in the words the web gives it.
-func noteLeftOut(notes io.Writer, reads []activity.Read) {
+func noteLeftOut(notes console.Notes, reads []activity.Read) {
 	for _, read := range reads {
 		if read.NotSetUp != nil {
-			fmt.Fprintln(notes, read.Source.Title()+" is not set up, so it was left out: "+
+			notes.Note(read.Source.Title() + " is not set up, so it was left out: " +
 				report.FaultDetail(read.NotSetUp))
 		}
 	}
@@ -217,7 +217,7 @@ func postSummary(ctx context.Context, out output, seams summarySeams, text strin
 
 	service, target := seams.Messaging.Service(), seams.Messaging.Target()
 	length := loop.SummaryLength(seams.Messaging.Kind, text)
-	fmt.Fprintln(out.notes, "to "+target+", "+length.String())
+	out.notes.Note("to " + target + ", " + length.String())
 
 	err := length.Check()
 	if err != nil {
@@ -238,7 +238,7 @@ func postSummary(ctx context.Context, out output, seams summarySeams, text strin
 		return fmt.Errorf("posting to %s: %w", service, err)
 	}
 
-	fmt.Fprintln(out.notes, "Posted to "+target+".")
+	out.notes.Note("Posted to " + target + ".")
 
 	return nil
 }

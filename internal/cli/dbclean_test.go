@@ -160,7 +160,8 @@ func TestDBCleanAllWarnsAndRemovesBothWithYes(t *testing.T) {
 		t.Error("db-clean --all --yes left a database file")
 	}
 
-	if !strings.Contains(printed.stderr, "people and group associations will be asked again") {
+	if !strings.Contains(printed.stderr, "WARN --all also removes kept.db") ||
+		!strings.Contains(printed.stderr, "people and group associations will be asked again") {
 		t.Errorf("--all does not warn that associations are asked again:\n%s", printed.stderr)
 	}
 }

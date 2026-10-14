@@ -138,7 +138,8 @@ func TestGuidedInitWarnsWhenTheFileIsNotGitIgnored(t *testing.T) {
 	// Assert
 	// A warning is said about the file written, not part of anything a script
 	// would capture, so it is on stderr alone.
-	if !strings.Contains(printed.stderr, "not ignored by git") || strings.Contains(printed.stdout, "not ignored") {
+	if !strings.Contains(printed.stderr, "WARN .workflow.json is not ignored by git") ||
+		strings.Contains(printed.stdout, "not ignored") {
 		t.Errorf("expected a git-ignore warning on stderr alone:\nstdout:\n%s\nstderr:\n%s",
 			printed.stdout, printed.stderr)
 	}

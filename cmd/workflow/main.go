@@ -7,7 +7,6 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"os"
 	"os/user"
@@ -22,12 +21,10 @@ import (
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
+// main runs the command and exits with its status; the command has said its
+// error, if any, itself.
 func main() {
-	err := cli.Execute(os.Args[1:], os.Stdout, os.Stderr, terminalPrompt(), processEnvironment())
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(cli.ExitStatus(err))
-	}
+	os.Exit(cli.ExitStatus(cli.Execute(os.Args[1:], os.Stdout, os.Stderr, terminalPrompt(), processEnvironment())))
 }
 
 // processEnvironment is the process workflow runs in, as the operating system

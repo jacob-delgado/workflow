@@ -103,10 +103,10 @@ const webSetupStep = "Set one up in Settings, on the page served below."
 func serveWeb(cmd *cobra.Command, conn connection, serveAt RunWebAt, flags rootFlags) error {
 	switch {
 	case errors.Is(conn.loadErr, config.ErrNotFound):
-		fmt.Fprintf(cmd.ErrOrStderr(), "%s\n\n%s\n%s\n%s\n\n",
-			config.NoConfigHeadline, webSetupStep, config.InitStep, config.DoctorStep)
+		notesOf(cmd).Note(config.NoConfigHeadline + "\n\n" + webSetupStep + "\n" + config.InitStep + "\n" +
+			config.DoctorStep + "\n")
 	case conn.loadErr != nil:
-		fmt.Fprintf(cmd.ErrOrStderr(), "workflow web: configuration did not load cleanly: %v\n", conn.loadErr)
+		notesOf(cmd).Warn(fmt.Sprintf("The configuration did not load cleanly: %v", conn.loadErr))
 	}
 
 	conn.controls.ResolveAhead(cmd.Context())

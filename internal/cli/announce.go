@@ -8,13 +8,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/jacob-delgado/workflow/internal/cli/console"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
@@ -354,7 +354,9 @@ func previewAnnouncement(
 // deliverAnnouncement posts pending under ctx and says where it went, and, for
 // one posted that the store could not remember, the warning every surface
 // says, then why.
-func deliverAnnouncement(ctx context.Context, notes io.Writer, seams announceSeams, pending pendingAnnouncement) error {
+func deliverAnnouncement(
+	ctx context.Context, notes console.Notes, seams announceSeams, pending pendingAnnouncement,
+) error {
 	err := loop.Deliver(ctx, seams.Deliver, pending.memory, pending.delivery)
 
 	why, notKept := loop.NotRememberedReason(err)
@@ -362,10 +364,10 @@ func deliverAnnouncement(ctx context.Context, notes io.Writer, seams announceSea
 		return fmt.Errorf("announcing to %s: %w", seams.Messaging.Service(), err)
 	}
 
-	fmt.Fprintln(notes, "Announced to "+seams.Messaging.Target()+".")
+	notes.Note("Announced to " + seams.Messaging.Target() + ".")
 
 	if notKept {
-		fmt.Fprintln(notes, loop.NotRememberedWarning+" "+sanitize.Line(why))
+		notes.Warn(loop.NotRememberedWarning + " " + sanitize.Line(why))
 	}
 
 	return nil
@@ -375,11 +377,11 @@ func deliverAnnouncement(ctx context.Context, notes io.Writer, seams announceSea
 // reports whether to offer it again: asked, yes, but never repeated under --yes,
 // which answers only the question it can see coming. A dry run goes on all the
 // same, to preview the announcement and say what --yes would do with it.
-func offerAgain(notes io.Writer, pull string, opts writeOptions) bool {
-	fmt.Fprintln(notes, pull+" was already announced at this moment in an earlier session.")
+func offerAgain(notes console.Notes, pull string, opts writeOptions) bool {
+	notes.Note(pull + " was already announced at this moment in an earlier session.")
 
 	if opts.yes && !opts.dryRun {
-		fmt.Fprintln(notes, "Not announced again; run without --yes to be asked.")
+		notes.Note("Not announced again; run without --yes to be asked.")
 
 		return false
 	}

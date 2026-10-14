@@ -86,7 +86,7 @@ func renderRepositories(out output, report api.Repositories) {
 	}
 
 	if report.WorktreesError != "" {
-		fmt.Fprintln(out.notes, "The worktrees could not be read: "+sanitize.Line(report.WorktreesError))
+		out.notes.Warn("The worktrees could not be read: " + sanitize.Line(report.WorktreesError))
 	}
 
 	for _, favorite := range report.Favorites {
