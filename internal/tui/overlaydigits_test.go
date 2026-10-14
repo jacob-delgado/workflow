@@ -55,10 +55,11 @@ func probeDigits(t *testing.T, states map[string][]overlayState, digits []string
 		for index, state := range states[overlay] {
 			model, _ := openedQuiet(t, state, moved)
 			unanswered, _ := model.Update(noKey())
-			probe := digitProbe{overlay: overlay, state: index, types: answers(model, keyMsg(letterTyped), unanswered)}
+			left := func() string { return unanswered.View().Content }
+			probe := digitProbe{overlay: overlay, state: index, types: answers(model, keyMsg(letterTyped), left)}
 
 			for _, digit := range digits {
-				if answers(model, keyMsg(digit), unanswered) {
+				if answers(model, keyMsg(digit), left) {
 					probe.answered = append(probe.answered, digit)
 				}
 			}
