@@ -372,9 +372,11 @@ flags change that, each spelled the same short way on every command that takes i
   asked. With `--dry-run` as well, it still prints the announcement, and its
   dry-run line says it would not announce it again. Nor does it announce a
   pull request a check failed on: `announce` reads its CI before it previews
-  anything, under `--dry-run` too, and exits 4 naming the checks that failed;
-  a CI it cannot read exits as that read failed (5 for a forge it could not
-  reach). With `--when-green` it waits instead, in the foreground: `--yes`
+  anything, under `--dry-run` too, and exits 4 naming the checks that failed
+  and the way on — `--when-green` for a pull request ready for review, and
+  re-running the failed checks on the forge for a merge, which has no CI to
+  wait for; a CI it cannot read exits as that read failed (5 for a forge it
+  could not reach). With `--when-green` it waits instead, in the foreground: `--yes`
   answers the one question before the wait, which reads CI every
   `timing.ci_interval`, through a failed run, and announces once a run
   passes. It exits 4 for a pull request that has merged (no CI to wait for),

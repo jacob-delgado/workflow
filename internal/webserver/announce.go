@@ -199,7 +199,7 @@ func (s *server) announceNow(ctx context.Context, post announcePost) api.Announc
 	}
 
 	if errors.Is(err, loop.ErrCIFailed) {
-		return api.Announce409ApplicationProblemPlusJSONResponse(s.ciFailed(post.delivery.Pull.Number))
+		return api.Announce409ApplicationProblemPlusJSONResponse(s.ciFailed(post.delivery))
 	}
 
 	if err != nil {
@@ -212,10 +212,19 @@ func (s *server) announceNow(ctx context.Context, post announcePost) api.Announc
 	return api.Announce200JSONResponse(posted)
 }
 
-// ciFailed refuses to announce pull now, since a check failed on it.
-func (s *server) ciFailed(pull int) api.Problem {
-	return problem(api.ProblemCodeCiFailed, "a check failed on "+s.pullName(pull)+
-		", so nothing was announced; announce it when CI passes to wait for a fix")
+// ciFailed refuses to post delivery now, since a check failed on its pull
+// request, saying the way on: a pull request ready for review can wait for a
+// run that passes; a merge, the other moment, has no CI to wait for, so its
+// failed checks are re-run.
+func (s *server) ciFailed(delivery loop.Delivery) api.Problem {
+	failed := "a check failed on " + s.pullName(delivery.Pull.Number)
+	if delivery.Moment == messaging.MomentReady {
+		return problem(api.ProblemCodeCiFailed, failed+
+			", so nothing was announced; announce it when CI passes to wait for a fix")
+	}
+
+	return problem(api.ProblemCodeCiFailed, failed+
+		", so its merge was not announced; re-run the failed checks on the forge, then announce it once they pass")
 }
 
 // announcement is the announcement for the checked-out branch's pull request,

@@ -79,3 +79,25 @@ func TestAnnouncingNowWhenCICannotBeReadPostsNothing(t *testing.T) {
 		t.Errorf("posted %d, want nothing posted when CI cannot be read", posts)
 	}
 }
+
+func TestAnnouncingAMergeACheckFailedOnSaysToReRunTheChecks(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A merge cannot wait for CI, so it is not pointed at the wait.
+	world := newForgeWorld()
+	world.state, world.ci = forge.StateMerged, forge.CIFailed
+	handler := serve(t, world.deps(), config.Default())
+
+	// Act
+	recorder := postAnnounce(t, handler, map[string]string{channelField: slackChannel})
+
+	// Assert
+	failure := decode[api.Problem](t, recorder)
+	want := "a check failed on #42, so its merge was not announced; " +
+		"re-run the failed checks on the forge, then announce it once they pass"
+
+	if recorder.Code != http.StatusConflict || failure.Code != api.ProblemCodeCiFailed || failure.Detail != want {
+		t.Errorf("status %d, problem %+v; want 409 ci_failed saying %q", recorder.Code, failure, want)
+	}
+}

@@ -278,8 +278,8 @@ func ownersBase(composed loop.Composed) string {
 
 // clearToAnnounce refuses, before anything is previewed or asked, to announce
 // composed's pull request, named pull, while a check has failed on it, naming
-// the checks that failed, or when its CI cannot be read to confirm that none
-// has. The forge is asked under ctx.
+// the checks that failed and the way on, or when its CI cannot be read to
+// confirm that none has. The forge is asked under ctx.
 func clearToAnnounce(
 	ctx context.Context, check func(context.Context, forge.PullRequest, string) (forge.CI, error),
 	composed loop.Composed, pull string,
@@ -289,12 +289,24 @@ func clearToAnnounce(
 	switch {
 	case errors.Is(err, loop.ErrCIFailed):
 		return forgeWordedError{loop.ErrCIFailed, "a check failed on " + pull + failedChecks(ci) +
-			", so it was not announced; workflow announce --when-green announces it once a run passes"}
+			checkFailedWayOn(composed.Announcement.Moment)}
 	case err != nil:
 		return fmt.Errorf("%s was not announced: %w", pull, err)
 	default:
 		return nil
 	}
+}
+
+// checkFailedWayOn is the rest of the refusal of an announcement at moment a
+// check failed on, saying the way on: a pull request ready for review can
+// wait for a run that passes; a merge, the other moment, has no CI to wait
+// for, so its failed checks are re-run.
+func checkFailedWayOn(moment messaging.Moment) string {
+	if moment == messaging.MomentReady {
+		return ", so it was not announced; workflow announce --when-green announces it once a run passes"
+	}
+
+	return ", so its merge was not announced; re-run the failed checks on the forge, then announce it once they pass"
 }
 
 // failedChecks names the checks that failed in ci, in brackets after a space,

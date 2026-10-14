@@ -86,3 +86,23 @@ func TestAnnounceRefusesWhatItCannotConfirm(t *testing.T) {
 			err, printed)
 	}
 }
+
+func TestAnnounceSaysToReRunTheChecksOfAMergeACheckFailedOn(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A merge cannot wait for CI, so it is not pointed at --when-green.
+	fakeGh(t, ghResponses{pulls: mergedPull("Add login"), status: failingStatus()})
+	repo := githubRepo(t, "fix/PROJ-2-thing")
+	writeFile(t, repo, forgeCLIConfig)
+
+	// Act
+	_, err := runStreams(t, repo, unusedPrompt(t), "announce", "--yes")
+
+	// Assert
+	want := "a check failed on #7 (ci), so its merge was not announced; " +
+		"re-run the failed checks on the forge, then announce it once they pass"
+	if got := cli.ExitStatus(err); got != 4 || err == nil || !strings.Contains(err.Error(), want) {
+		t.Errorf("announce --yes exited %d (%v), want 4 saying %q", got, err, want)
+	}
+}
