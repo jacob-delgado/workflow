@@ -23,8 +23,14 @@ export function changedSettings(dirty: unknown): number {
 
 // standing says where the form stands: saving, how many settings are changed
 // and not saved, or, with none, that there are none — unless a save has just
-// said it saved, which says so in its place.
-function standing({ saving, unsaved, said }: Pick<SaveBarProps, 'saving' | 'unsaved' | 'said'>) {
+// said it saved, which says so in its place — and how many of them to fix,
+// in which sections.
+function standing({
+  saving,
+  unsaved,
+  said,
+  toFix,
+}: Pick<SaveBarProps, 'saving' | 'unsaved' | 'said' | 'toFix'>) {
   if (saving) {
     return 'Saving…'
   }
@@ -33,7 +39,13 @@ function standing({ saving, unsaved, said }: Pick<SaveBarProps, 'saving' | 'unsa
     return said === null ? 'No unsaved changes' : ''
   }
 
-  return unsaved === 1 ? '1 unsaved change' : `${String(unsaved)} unsaved changes`
+  const changes = unsaved === 1 ? '1 unsaved change' : `${String(unsaved)} unsaved changes`
+  if (toFix.count === 0) {
+    return changes
+  }
+
+  // A comma between the sections, since a section's own title may hold "and".
+  return `${changes}, ${String(toFix.count)} to fix in ${toFix.sections.join(', ')}`
 }
 
 // ReloadAction is the one-shot read Reload runs.
@@ -43,16 +55,24 @@ interface ReloadAction {
   run: () => Promise<void>
 }
 
+// ToFix is how many settings are refused, and the sections they are in.
+interface ToFix {
+  count: number
+  sections: string[]
+}
+
 interface SaveBarProps {
   // form is the id of the form Save sends.
   form: string
   unsaved: number
+  toFix: ToFix
   saving: boolean
   said: Parameters<typeof OutcomeLine>[0]['said']
   // error is why the last save failed, or empty.
   error: string
   // reload is offered when the file changed since the form read it.
   reload: ReloadAction | null
+  onShow: () => void
   onDiscard: () => void
 }
 
@@ -61,7 +81,8 @@ interface SaveBarProps {
 // changed, or while a save goes — and what the last save said: that it saved,
 // while nothing has changed since, or why it did not. A save refused because
 // the file changed says so, and offers Reload, in place of its own reason.
-export function SaveBar({ form, unsaved, saving, said, error, reload, onDiscard }: SaveBarProps) {
+export function SaveBar(props: SaveBarProps) {
+  const { form, unsaved, toFix, saving, said, error, reload, onShow, onDiscard } = props
   const held = saving || unsaved === 0
 
   return (
@@ -72,10 +93,13 @@ export function SaveBar({ form, unsaved, saving, said, error, reload, onDiscard 
       className="sticky bottom-0 flex flex-col items-start gap-item border-t border-border bg-background py-3"
     >
       <div className="flex w-full flex-wrap items-center gap-item">
-        <p className="mr-auto text-sm text-muted-foreground">
-          {standing({ saving, unsaved, said })}
-        </p>
+        <p className="mr-auto text-sm text-muted-foreground">{standing(props)}</p>
         <OutcomeLine said={unsaved === 0 ? said : null} />
+        {toFix.count === 0 ? null : (
+          <Button variant="secondary" onClick={onShow}>
+            Show
+          </Button>
+        )}
         <Button variant="secondary" held={held} onClick={onDiscard}>
           Discard
         </Button>
