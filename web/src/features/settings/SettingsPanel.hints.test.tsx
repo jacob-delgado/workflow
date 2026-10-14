@@ -4,6 +4,7 @@ import type { Config } from '@/api/generated/types.gen.ts'
 import { mockConfig } from '@/dev/mockConfig.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
+import { inSection } from '@/test/settings.ts'
 import { SettingsPanel } from './SettingsPanel.tsx'
 
 // readsAs opens Settings over config, as the configuration a read finds.
@@ -100,6 +101,7 @@ test('the Jira token says where one typed is kept', async () => {
 test('the Announcement hint names its placeholders, Slack only, and the empty default', async () => {
   // Arrange
   readsAs(mockConfig)
+  await inSection('Messaging')
 
   // Act
   const announcement = await screen.findByRole('textbox', {
@@ -115,6 +117,7 @@ test('the Announcement hint names its placeholders, Slack only, and the empty de
 test('the Channel hint says it is for a Slack user token', async () => {
   // Arrange
   readsAs(mockConfig)
+  await inSection('Messaging')
 
   // Act & Assert
   expect(

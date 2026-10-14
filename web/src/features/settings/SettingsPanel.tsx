@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { type ReactNode, useEffect, useState } from 'react'
 import { type UseFormReset, useForm } from 'react-hook-form'
 import { apiErrorMessage, problemCode } from '@/api/apiError.ts'
 import type { Config, SetupResult } from '@/api/generated/types.gen.ts'
@@ -16,25 +16,27 @@ import {
   useReloadConfig,
   useSaveConfig,
 } from './configApi.ts'
-import { BranchFieldset, CommitFieldset } from './fieldsets/CommitAndBranchFieldsets.tsx'
-import { ForgeFieldset, PullRequestFieldset } from './fieldsets/ForgeAndPullRequestFieldsets.tsx'
-import { JiraFieldset } from './fieldsets/JiraFieldset.tsx'
-import { MessagingFieldset } from './fieldsets/MessagingFieldset.tsx'
-import { TaskwarriorFieldset } from './fieldsets/TaskwarriorFieldset.tsx'
-import { KeyboardFieldset, TerminalFieldset } from './fieldsets/TerminalAndKeyboardFieldsets.tsx'
-import { StoreFieldset, TimingFieldset } from './fieldsets/TimingAndStoreFieldsets.tsx'
 import { LocalData } from './people/LocalData.tsx'
 import { PeopleAndGroups } from './people/PeopleAndGroups.tsx'
 import { configOf, formValues, type SettingsValues } from './formValues.ts'
 import { type Removal, RemovalsContext, stored, without } from './removal.ts'
+import { firstSection, SettingsSections } from './SettingsSections.tsx'
 import { SetupArea } from './SetupForm.tsx'
 
-// SettingsPanel is the configuration form, and below it the areas that save on
-// their own rather than with the file: people and groups, and the local data.
+// SettingsPanel is the configuration form a section at a time, with the areas
+// that save on their own rather than with the file — people and groups, and
+// the local data — as sections of their own. Until the file is read, it is
+// why it is not, or the setup that writes a first one, above those two areas.
 export function SettingsPanel() {
+  return <ConfigArea />
+}
+
+// OwnSaves is why the configuration form is not shown, above the areas that
+// save on their own, which do not wait for the file.
+function OwnSaves({ children }: { children: ReactNode }) {
   return (
     <div className={cn('flex flex-col gap-section', contentMeasure)}>
-      <ConfigArea />
+      {children}
       <PeopleAndGroups />
       <LocalData />
     </div>
@@ -52,34 +54,44 @@ function ConfigArea() {
   const [setUp, setSetUp] = useState<SetupResult | null>(null)
 
   if (query.isError && problemCode(query.error) === 'not_found') {
-    return <SetupArea onWritten={setSetUp} />
+    return (
+      <OwnSaves>
+        <SetupArea onWritten={setSetUp} />
+      </OwnSaves>
+    )
   }
 
   // Settings opens on a fresh read rather than on the cached one: a form seeded
   // from a read the file has moved on from would only learn so on its save.
   if (query.isPending || (query.isFetching && !query.isFetchedAfterMount)) {
-    return <Reading>Reading the configuration…</Reading>
+    return (
+      <OwnSaves>
+        <Reading>Reading the configuration…</Reading>
+      </OwnSaves>
+    )
   }
 
   if (query.isError) {
     return (
-      <Unread
-        reason={apiErrorMessage(query.error, 'The configuration could not be read.')}
-        refusals={query.errorUpdateCount}
-        retrying={query.isFetching}
-        onRetry={() => {
-          setRetried(true)
-          void query.refetch()
-        }}
-      />
+      <OwnSaves>
+        <Unread
+          reason={apiErrorMessage(query.error, 'The configuration could not be read.')}
+          refusals={query.errorUpdateCount}
+          retrying={query.isFetching}
+          onRetry={() => {
+            setRetried(true)
+            void query.refetch()
+          }}
+        />
+      </OwnSaves>
     )
   }
 
   return (
-    <>
+    <div className="flex flex-col gap-section">
       {setUp === null ? null : <SetUpSaid result={setUp} />}
       <ConfigForm read={query.data} takesFocus={retried} />
-    </>
+    </div>
   )
 }
 
@@ -108,10 +120,10 @@ function SetUpSaid({ result }: { result: SetupResult }) {
   )
 }
 
-// ConfigForm edits the configuration, one fieldset per section it can edit. It
-// takes focus, on its first field, only when it replaces a control that had
-// it — a Try again, or a Reload — and otherwise leaves focus where the section
-// change put it.
+// ConfigForm edits the configuration a section at a time. It takes focus, on
+// Jira's first field, only when it replaces a control that had it — a Try
+// again, or a Reload — and otherwise leaves focus where the section change put
+// it.
 function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolean }) {
   // The whole config seeds the form, so every key no fieldset registers — the
   // token commands, the Slack access token and its expiry — rides back
@@ -124,6 +136,7 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
   // when the form replaces a Try again, and after each Reload, which takes its own
   // button away. The field is focused once the form has drawn it.
   const [focusRequests, setFocusRequests] = useState(takesFocus ? 1 : 0)
+  const [section, setSection] = useState(firstSection)
   const reloadConfig = useReloadConfig()
   const outcome = useOutcome()
   const save = useAsyncAction(
@@ -142,6 +155,7 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
       file.seed(await reloadConfig(), { keepEdits: false })
       file.setChanged(false)
       save.reset()
+      setSection(firstSection)
       setFocusRequests((requests) => requests + 1)
     },
     { fallback: 'The configuration could not be read. Try Reload again.' },
@@ -156,29 +170,21 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
 
   return (
     <RemovalsContext value={file.removals}>
-      <form
-        aria-labelledby={sectionHeadingId}
-        onSubmit={(event) => {
-          void onSubmit(event)
+      <SettingsSections
+        section={section}
+        onSection={setSection}
+        fields={{
+          register,
+          control,
+          storedToken: formState.defaultValues?.jira?.token ?? null,
         }}
-        className="flex flex-col gap-section"
+        form={{
+          'aria-labelledby': sectionHeadingId,
+          onSubmit: (event) => {
+            void onSubmit(event)
+          },
+        }}
       >
-        <JiraFieldset
-          register={register}
-          control={control}
-          storedToken={formState.defaultValues?.jira?.token ?? null}
-        />
-        <MessagingFieldset register={register} control={control} />
-        <ForgeFieldset register={register} />
-        <CommitFieldset register={register} />
-        <BranchFieldset register={register} control={control} />
-        <PullRequestFieldset register={register} />
-        <StoreFieldset register={register} />
-        <TaskwarriorFieldset register={register} />
-        <TimingFieldset register={register} />
-        <TerminalFieldset register={register} />
-        <KeyboardFieldset register={register} />
-
         {/* A refusal ChangedSinceRead explains is not said a second time. */}
         <SaveControls
           saving={save.state === 'running'}
@@ -186,7 +192,7 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
           error={file.changed || save.state !== 'error' ? '' : save.error}
         />
         {file.changed ? <ChangedSinceRead reload={reload} /> : null}
-      </form>
+      </SettingsSections>
     </RemovalsContext>
   )
 }

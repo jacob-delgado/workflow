@@ -4,6 +4,7 @@ import type { Config } from '@/api/generated/types.gen.ts'
 import { mockConfig } from '@/dev/mockConfig.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
+import { inSection } from '@/test/settings.ts'
 import { SettingsPanel } from './SettingsPanel.tsx'
 
 // opened opens Settings over config, answering a save with what it was sent,
@@ -27,11 +28,13 @@ function row(name: string) {
   return within(screen.getByRole('group', { name }))
 }
 
-// typedRow adds a row with Add, and types each of its fields, by label.
-async function typedRow(add: string, name: string, typed: Record<string, string>): Promise<void> {
+// filledRow adds a row with Add, and pastes each of its fields' text, by
+// label: a name is judged as the form is saved, however it was put in.
+async function filledRow(add: string, name: string, filled: Record<string, string>): Promise<void> {
   await userEvent.click(screen.getByRole('button', { name: add }))
-  for (const [label, text] of Object.entries(typed)) {
-    await userEvent.type(row(name).getByLabelText(label), text)
+  for (const [label, text] of Object.entries(filled)) {
+    await userEvent.click(row(name).getByLabelText(label))
+    await userEvent.paste(text)
   }
 }
 
@@ -42,10 +45,15 @@ const withHeader: Config = {
 
 const headerTaken = 'A header of that name is already listed.'
 
+const withPrefix: Config = {
+  ...mockConfig,
+  branch: { ...mockConfig.branch, prefixes: { Bug: 'fix' } },
+}
+
 test('a header named as a stored one in another case is refused at its name, and nothing is sent', async () => {
   // Arrange
   const requests = await opened(withHeader)
-  await typedRow('Add a header', 'Header 2', { Name: 'cf-access-client-secret', Value: 'x-1' })
+  await filledRow('Add a header', 'Header 2', { Name: 'cf-access-client-secret', Value: 'x-1' })
 
   // Act
   await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
@@ -62,8 +70,8 @@ test('a header named as a stored one in another case is refused at its name, and
 test('two new headers of one name are refused, rather than one silently dropped', async () => {
   // Arrange
   const requests = await opened(mockConfig)
-  await typedRow('Add a header', 'Header 1', { Name: 'X-Team', Value: 'one-1' })
-  await typedRow('Add a header', 'Header 2', { Name: 'X-Team', Value: 'two-2' })
+  await filledRow('Add a header', 'Header 1', { Name: 'X-Team', Value: 'one-1' })
+  await filledRow('Add a header', 'Header 2', { Name: 'X-Team', Value: 'two-2' })
 
   // Act
   await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
@@ -75,9 +83,9 @@ test('two new headers of one name are refused, rather than one silently dropped'
 
 test('a prefix for an issue type already listed in another case is refused at its type', async () => {
   // Arrange
-  const requests = await opened(mockConfig)
-  await typedRow('Add a prefix', 'Prefix 1', { 'Issue type': 'Bug', Prefix: 'fix' })
-  await typedRow('Add a prefix', 'Prefix 2', { 'Issue type': ' bug', Prefix: 'bugfix' })
+  const requests = await opened(withPrefix)
+  await inSection('Commits and branches')
+  await filledRow('Add a prefix', 'Prefix 2', { 'Issue type': ' bug', Prefix: 'bugfix' })
 
   // Act
   await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
@@ -93,7 +101,7 @@ test('a prefix for an issue type already listed in another case is refused at it
 test('renaming the second header clears its refusal and the save goes through', async () => {
   // Arrange
   const requests = await opened(withHeader)
-  await typedRow('Add a header', 'Header 2', { Name: 'cf-access-client-secret', Value: 'x-1' })
+  await filledRow('Add a header', 'Header 2', { Name: 'cf-access-client-secret', Value: 'x-1' })
   await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
   const name = await row('Header 2').findByRole('textbox', {
     name: 'Name',
