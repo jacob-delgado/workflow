@@ -133,15 +133,16 @@ func (u UI) ReducedMotion() bool {
 // move what a misspelled reduce was meant to still.
 func (c Config) validateUI() error {
 	if c.UI.CommentsShown < 0 {
-		return fmt.Errorf("%w: comments_shown cannot be negative: %d", ErrInvalidUI, c.UI.CommentsShown)
+		return refusing("ui.comments_shown",
+			fmt.Errorf("%w: comments_shown cannot be negative: %d", ErrInvalidUI, c.UI.CommentsShown))
 	}
 
 	if c.UI.Color != "" && c.UI.Color != colorNever {
-		return fmt.Errorf("%w: color is empty or never: %q", ErrInvalidUI, c.UI.Color)
+		return refusing("ui.color", fmt.Errorf("%w: color is empty or never: %q", ErrInvalidUI, c.UI.Color))
 	}
 
 	if c.UI.Motion != "" && c.UI.Motion != MotionReduce {
-		return fmt.Errorf("%w: motion is empty or reduce: %q", ErrInvalidUI, c.UI.Motion)
+		return refusing("ui.motion", fmt.Errorf("%w: motion is empty or reduce: %q", ErrInvalidUI, c.UI.Motion))
 	}
 
 	return nil

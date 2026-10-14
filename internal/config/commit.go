@@ -40,22 +40,24 @@ type Commit struct {
 func (c Config) validateCommit() error {
 	err := convention.ValidateScope(c.Commit.DefaultScope)
 	if err != nil {
-		return fmt.Errorf("%w: default scope: %w", ErrInvalidCommit, err)
+		return refusing("commit.default_scope", fmt.Errorf("%w: default scope: %w", ErrInvalidCommit, err))
 	}
 
 	for _, commitType := range c.Commit.Types {
 		err = convention.ValidateType(commitType)
 		if err != nil {
-			return fmt.Errorf("%w: %w", ErrInvalidCommit, err)
+			return refusing("commit.types", fmt.Errorf("%w: %w", ErrInvalidCommit, err))
 		}
 	}
 
 	if c.Commit.SubjectLimit < 0 {
-		return fmt.Errorf("%w: subject_limit cannot be negative: %d", ErrInvalidCommit, c.Commit.SubjectLimit)
+		return refusing("commit.subject_limit",
+			fmt.Errorf("%w: subject_limit cannot be negative: %d", ErrInvalidCommit, c.Commit.SubjectLimit))
 	}
 
 	if trailer := strings.TrimSpace(c.Commit.RefsTrailer); strings.ContainsAny(trailer, ": \t\n") {
-		return fmt.Errorf("%w: refs_trailer is a single word without a colon: %q", ErrInvalidCommit, c.Commit.RefsTrailer)
+		return refusing("commit.refs_trailer",
+			fmt.Errorf("%w: refs_trailer is a single word without a colon: %q", ErrInvalidCommit, c.Commit.RefsTrailer))
 	}
 
 	return nil

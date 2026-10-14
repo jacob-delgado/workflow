@@ -9,7 +9,8 @@ import "fmt"
 // An empty version is the current one, so an unversioned file still loads.
 func (c Config) validateVersion() error {
 	if c.Version != "" && c.Version != CurrentVersion {
-		return fmt.Errorf("%w: %q; this build reads version %s", ErrUnknownVersion, c.Version, CurrentVersion)
+		return refusing("version",
+			fmt.Errorf("%w: %q; this build reads version %s", ErrUnknownVersion, c.Version, CurrentVersion))
 	}
 
 	return nil

@@ -56,10 +56,14 @@ func (c Config) CIInterval() time.Duration {
 // validateTiming refuses a timing setting that is not a positive duration, so a
 // nonsense value fails at load rather than silently falling back.
 func (c Config) validateTiming() error {
-	for _, value := range []string{c.Timing.RequestTimeout, c.Timing.CIInterval} {
-		_, err := parseDuration(value)
+	settings := []struct{ key, value string }{
+		{"timing.request_timeout", c.Timing.RequestTimeout}, {"timing.ci_interval", c.Timing.CIInterval},
+	}
+
+	for _, setting := range settings {
+		_, err := parseDuration(setting.value)
 		if err != nil {
-			return err
+			return refusing(setting.key, err)
 		}
 	}
 
