@@ -27,6 +27,18 @@ func optional(s string) *string {
 	return &s
 }
 
+// given is an optional query parameter's value, its type's zero when the
+// request left it out.
+func given[T any](parameter *T) T {
+	if parameter == nil {
+		var absent T
+
+		return absent
+	}
+
+	return *parameter
+}
+
 // optionalTime is moment, or nil for the zero time, which a read gives for a
 // time there is none of — a date a task does not have, one a tracker or a
 // forge did not give or could not be read: the wire leaves such a time out,
