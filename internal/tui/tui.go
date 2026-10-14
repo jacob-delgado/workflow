@@ -234,7 +234,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 
-		return m, nil
+		return m.resized()
 	case tea.KeyPressMsg:
 		m.motion = m.motion.looked()
 		handled, cmd := m.handleKey(msg)
@@ -255,8 +255,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return applied.settled(cmd)
 	default:
+		return m.relayed(msg)
+	}
+}
+
+// relayed hands a message no case above answers to the open overlay's form,
+// whose own messages carry it from one field to the next; with no form open,
+// it is nothing to this interface.
+func (m Model) relayed(msg tea.Msg) (Model, tea.Cmd) {
+	form, relays := m.overlay.(relaying)
+	if !relays {
 		return m, nil
 	}
+
+	relayed, cmd := form.relay(m, msg)
+
+	return relayed.settled(cmd)
+}
+
+// resized fits the open overlay's form, when it holds one, to the screen's
+// new size; otherwise a resize leaves nothing to do but draw at it.
+func (m Model) resized() (Model, tea.Cmd) {
+	form, relays := m.overlay.(relaying)
+	if !relays {
+		return m, nil
+	}
+
+	return form.resized(m)
 }
 
 // settled opens the follow-up once no overlay is open, and asks for the next

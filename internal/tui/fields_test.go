@@ -4,7 +4,12 @@
 package tui_test
 
 import (
+	"slices"
+	"strconv"
+	"strings"
 	"testing"
+
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
@@ -315,4 +320,94 @@ func TestTheFieldFormLabelsEscAndEnterForWhatTheyDo(t *testing.T) {
 
 	// Assert
 	requireScreen(t, footerLine(field.View().Content), "enter next", "esc back")
+}
+
+func TestNextFieldMovedInUIKeysMovesThroughTheForm(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	resolving := newWorld()
+	resolving.moves = []jira.Transition{resolveIssue()}
+	resolving.cfg.UI.Keys = map[string]string{nextFieldAction: "f6"}
+	resolution := typing(t, resolving.live(t, 120, 40), "t", keyEnter)
+
+	// Act
+	cause := typing(t, resolution, "f6")
+
+	// Assert
+	requireScreen(t, cause.View().Content, "Root cause (2 of 2)")
+}
+
+func TestARefusalShowsUnderAFormAsTallAsThePane(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		move          jira.Transition
+		width, height int
+		keys          []string
+		refusal       string
+	}{
+		"a date under a form cut to the pane": {
+			move: manyVersionsMove(), width: 80, height: 24,
+			keys: slices.Concat([]string{"t", keyEnter}, letters("fred"), []string{keyEnter},
+				letters("soon"), []string{keyEnter}),
+			refusal: "✗ Due date must be a date written YYYY-MM-DD",
+		},
+		"empty text on a short screen": {
+			move: resolveIssue(), width: 120, height: 12,
+			keys: []string{"t", keyEnter, keyEnter, keyEnter}, refusal: "✗ Root cause needs a value",
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			moving := newWorld()
+			moving.moves = []jira.Transition{tt.move}
+
+			// Act
+			refused := typing(t, moving.live(t, tt.width, tt.height), tt.keys...)
+
+			// Assert
+			requireScreen(t, refused.View().Content, tt.refusal)
+		})
+	}
+}
+
+// manyVersionsMove is fieldfulMove offering twenty versions, so its tallest
+// field is taller than an 80 by 24 screen's pane.
+func manyVersionsMove() jira.Transition {
+	many := fieldfulMove()
+	many.Fields[2].Options = make([]jira.Option, 20)
+
+	for index := range many.Fields[2].Options {
+		many.Fields[2].Options[index] = jira.Option{ID: strconv.Itoa(10000 + index), Name: "1." + strconv.Itoa(index)}
+	}
+
+	return many
+}
+
+func TestAFormFollowsTheTerminalWhenItIsResized(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	resolving := newWorld()
+	resolving.moves = []jira.Transition{resolveIssue()}
+	wide := typing(t, resolving.live(t, 160, 30), "t", keyEnter)
+
+	// Act
+	narrowed, cmd := wide.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	narrow := drain(t, concrete(t, narrowed), cmd)
+
+	// Assert
+	// The form is still open after the resize, and fits the narrower pane.
+	requireScreen(t, narrow.View().Content, "Resolution (1 of 2)")
+
+	for line := range strings.SplitSeq(plain(narrow.View().Content), "\n") {
+		if strings.Contains(line, "Resolution (1 of 2)") && strings.Contains(line, "…") {
+			t.Errorf("the form is still as wide as the terminal was, cut at the pane's edge:\n%s", line)
+		}
+	}
 }

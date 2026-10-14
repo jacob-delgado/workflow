@@ -89,11 +89,23 @@ func keysOf(moved map[string]tea.KeyPressMsg) map[string]string {
 type overlayState struct {
 	start func(t *testing.T, moved map[string]tea.KeyPressMsg) tui.Model
 	steps []string
+	// afresh opens the state again for every press probed: its copies share
+	// a Huh form, which a press moves for all of them.
+	afresh bool
 }
 
 // stateFrom is the state a session reaches by steps.
 func stateFrom(start func(t *testing.T, moved map[string]tea.KeyPressMsg) tui.Model, steps ...string) overlayState {
 	return overlayState{start: start, steps: steps}
+}
+
+// formState is the state a world's session reaches by steps into a Huh form,
+// opened afresh for every press probed.
+func formState(made func() *world, steps ...string) overlayState {
+	state := stateAt(made, steps...)
+	state.afresh = true
+
+	return state
 }
 
 // stateAt is the state a world's session reaches by steps.
@@ -150,7 +162,16 @@ func probeOverlay(t *testing.T, state overlayState) overlayProbe {
 	found := overlayProbe{context: context, answered: nil, asks: nil}
 
 	for action, press := range moved {
-		if answers(model, press, unanswered) {
+		left := func() string { return unanswered.View().Content }
+
+		if state.afresh {
+			model, _ = openedQuiet(t, state, moved)
+			still, _ := model.Update(noKey())
+			screen := still.View().Content
+			left = func() string { return screen }
+		}
+
+		if answers(model, press, left) {
 			found.answered = append(found.answered, action)
 		}
 
@@ -196,10 +217,10 @@ func openedQuiet(t *testing.T, state overlayState, moved map[string]tea.KeyPress
 // compared with their escapes, which is where a text field draws its cursor,
 // and each is drawn as it is compared: a text area's copies share where it is
 // scrolled to, which the last one drawn sets.
-func answers(model tui.Model, press tea.KeyPressMsg, unanswered tea.Model) bool {
+func answers(model tui.Model, press tea.KeyPressMsg, unanswered func() string) bool {
 	pressed, cmd := model.Update(press)
 
-	return cmd != nil || pressed.View().Content != unanswered.View().Content
+	return cmd != nil || pressed.View().Content != unanswered()
 }
 
 // probeStates probes an overlay in each of its states.
