@@ -42,7 +42,7 @@ func progressCases() map[string]progressCase {
 				dir := t.TempDir()
 				writeFile(t, dir, `{"jira": {"base_url": "https://jira.invalid", "token": "t"}}`)
 
-				return dir, strings.Fields("doctor --online --log " + filepath.Join(dir, "requests.log"))
+				return dir, strings.Fields("doctor --online --request-log " + filepath.Join(dir, "requests.log"))
 			},
 			want: "Checking Jira…",
 		},

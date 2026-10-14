@@ -31,7 +31,7 @@ func TestALogWindowsReadsFromElsewhereIsNotReadFromTheWorkingDirectory(t *testin
 
 			// Assert
 			if err != nil && strings.HasPrefix(err.Error(), "opening the request log: "+workdirUnread) {
-				t.Errorf("--log %s from a removed directory = %v, want the log not read from the working "+
+				t.Errorf("--request-log %s from a removed directory = %v, want the log not read from the working "+
 					"directory (%+v)", path, err, printed)
 			}
 		})

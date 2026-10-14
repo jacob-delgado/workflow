@@ -168,7 +168,7 @@ func setUpThroughTheInterface(t *testing.T, where place, jiraURL, logPath string
 	root := cli.NewRootCmdOver(prompt, runInterface, func(string) cli.RunWeb {
 		return func(context.Context, config.Config, webserver.Deps, webserver.Info, io.Writer) error { return nil }
 	}, environmentFor(t, where))
-	root.SetArgs([]string{"--log=" + logPath})
+	root.SetArgs([]string{"--request-log=" + logPath})
 	root.SetOut(&bytes.Buffer{})
 	root.SetErr(&bytes.Buffer{})
 

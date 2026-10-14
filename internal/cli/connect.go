@@ -40,7 +40,7 @@ type connection struct {
 }
 
 // connect wires a command to its working directory, recording each request in
-// the --log file when one is named. A configuration file that is there but
+// the --request-log file when one is named. A configuration file that is there but
 // cannot be read is refused rather than replaced by the defaults, which would
 // act on settings nobody chose; no file at all is not an error.
 func connect(cmd *cobra.Command) (connection, error) {

@@ -583,16 +583,16 @@ which among the release targets builds for Windows alone), whose `Of` knows no
 owner, so the configuration's trust check refuses nothing there;
 `internal/proc/pgroup/pgroup_other.go` (`//go:build !unix`), whose `Isolate`
 isolates nothing, so a canceled streamed command's children can outlive it;
-`internal/cli/environment_windows_test.go`, the test that `--log` reads a path
-Windows roots elsewhere (`\logs`, `D:logs`) where Windows does, which as a test
-file no job even compiles, and which stands for two clauses of
+`internal/cli/environment_windows_test.go`, the test that `--request-log`
+reads a path Windows roots elsewhere (`\logs`, `D:logs`) where Windows does,
+which as a test file no job even compiles, and which stands for two clauses of
 `relativeToWorkingDir` in `internal/cli/environment.go`:
 `filepath.VolumeName(path) == ""`, false only for a path naming a drive, and
 `!rooted`, false only for a path rooted but not absolute, which elsewhere a
-rooted path never is, so on Linux neither is ever false and no job sees `--log`
-keep such a path off the working directory; `internal/ptytest/open_other.go`
-(`//go:build !linux && !darwin`, which among the release targets builds for
-Windows alone), whose `openPair` opens no pseudo-terminal, so the tests that
+rooted path never is, so on Linux neither is ever false and no job sees
+`--request-log` keep such a path off the working directory;
+`internal/ptytest/open_other.go` (`//go:build !linux && !darwin`, which among
+the release targets builds for Windows alone), whose `openPair` opens no pseudo-terminal, so the tests that
 type at a terminal (`internal/cli/prompt_terminal_test.go` and
 `TestRunReadsKeysFromATerminalItIsHanded` in `internal/tui/run_test.go`) skip
 there; `internal/ptytest/open_darwin.go` (built for macOS alone by its name),

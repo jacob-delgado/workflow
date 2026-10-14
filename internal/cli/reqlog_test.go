@@ -15,7 +15,7 @@ import (
 func TestRequestLogReportsAFileItCannotOpen(t *testing.T) {
 	t.Parallel()
 
-	// --log names a file whose parent directory does not exist, so opening the
+	// --request-log names a file whose parent directory does not exist, so opening the
 	// log fails before anything is asked of a service. The root opens it before
 	// it reaches the terminal, which is what makes the interface's case
 	// reachable at all.
@@ -36,7 +36,7 @@ func TestRequestLogReportsAFileItCannotOpen(t *testing.T) {
 			logPath := filepath.Join(t.TempDir(), "missing-dir", "requests.log")
 
 			// Act
-			_, err := run(t, t.TempDir(), append([]string{"--log", logPath}, args...)...)
+			_, err := run(t, t.TempDir(), append([]string{"--request-log", logPath}, args...)...)
 
 			// Assert
 			// The error must name the request log: bare `workflow` also fails when
@@ -84,7 +84,7 @@ func TestLogReachesASubcommand(t *testing.T) {
 			logPath := filepath.Join(t.TempDir(), "requests.log")
 
 			// Act
-			output, err := run(t, repo, append([]string{"--log", logPath}, args...)...)
+			output, err := run(t, repo, append([]string{"--request-log", logPath}, args...)...)
 			if err != nil {
 				t.Fatalf("%s: %v (%s)", name, err, output)
 			}
@@ -109,7 +109,7 @@ func TestLogReachesDoctorOnline(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "requests.log")
 
 	// Act
-	output, err := run(t, dir, "doctor", "--online", "--log", logPath)
+	output, err := run(t, dir, "doctor", "--online", "--request-log", logPath)
 	if err != nil {
 		t.Fatalf("doctor --online: %v (%s)", err, output)
 	}
@@ -139,7 +139,7 @@ func TestRequestLogWarnsOnceWhenItCouldNotBeWritten(t *testing.T) {
 	writeConfigFor(t, dir, workingJira(t))
 
 	// Act
-	printed, err := runStreams(t, dir, unusedPrompt(t), "doctor", "--online", "--log", fullDevice)
+	printed, err := runStreams(t, dir, unusedPrompt(t), "doctor", "--online", "--request-log", fullDevice)
 
 	// Assert
 	// The check itself succeeded, so its status stands; only the bug report
@@ -160,7 +160,7 @@ func TestLogReachesTheGuidedInitsCheck(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "requests.log")
 
 	// Act
-	output, err := runGuided(t, dir, prompt, "--log", logPath, "config", "init")
+	output, err := runGuided(t, dir, prompt, "--request-log", logPath, "config", "init")
 	if err != nil {
 		t.Fatalf("config init: %v (%s)", err, output)
 	}
@@ -217,7 +217,7 @@ func TestLogReachesSlackLogin(t *testing.T) {
 	prompt := asking([]string{slackClientID}, typedLogin(), new([]string), new([]string))
 
 	// Act
-	output, err := runGuided(t, dir, prompt, "--log", logPath, "slack", "login")
+	output, err := runGuided(t, dir, prompt, "--request-log", logPath, "slack", "login")
 	if err != nil {
 		t.Fatalf("slack login: %v (%s)", err, output)
 	}
