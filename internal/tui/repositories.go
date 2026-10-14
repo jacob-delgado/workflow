@@ -242,7 +242,7 @@ func (m Model) handleRepositoriesKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 func (m Model) openFromRepositories(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.goToDir):
-		return m.openDirPrompt()
+		return m.openDirPicker()
 	case key.Matches(msg, m.keys.settings) && m.offersSetup():
 		return m.openSetup()
 	case key.Matches(msg, m.keys.settings) && canEditSettings(m.deps):

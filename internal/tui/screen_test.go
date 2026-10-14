@@ -430,6 +430,10 @@ func TestASCIIStaysASCIIInEveryOverlay(t *testing.T) {
 		"the Summary's calendar": {
 			prepare: func(w *world) { w.done = summaryWorld().done }, keys: []string{summaryKey, "c", keySpace, "k"},
 		},
+		"the directory picker browsing a path": {
+			prepare: func(w *world) { w.dirs = pickingWorld().dirs },
+			keys:    append([]string{reposKey, "g"}, letters(srcTyped)...),
+		},
 		// commandRun is excluded on purpose: its body is a tool's own output, not
 		// interface-authored text, so it is outside the ASCII-glyph guarantee.
 		"the lefthook offer": {prepare: func(w *world) { w.gitHooks = legacyHooks() }},

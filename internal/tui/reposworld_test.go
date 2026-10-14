@@ -5,6 +5,7 @@ package tui_test
 
 import (
 	"context"
+	"slices"
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -31,8 +32,10 @@ type dirsWorld struct {
 	here      seams.Place
 	places    map[string]seams.Place
 	favorites []string
-	// listings are the directories in each directory, by its path.
-	listings map[string][]string
+	// listings are the directories in each directory, by its path; those
+	// named in repositories are repositories.
+	listings     map[string][]string
+	repositories []string
 	// keepsNothing binds no favorites, as a store turned off does.
 	keepsNothing bool
 	// failing is why reading and changing the favorites fails, or nil.
@@ -77,6 +80,39 @@ func reposWorld() *world {
 	return working
 }
 
+// listed is the directories in dir whose names start with prefix in any
+// case, a hidden one only once prefix starts with its dot, the first
+// workdirs.ListLimit of them kept, as workdirs.List gives them.
+func (dirs *dirsWorld) listed(dir, prefix string) (workdirs.Listing, error) {
+	names, found := dirs.listings[dir]
+	if !found {
+		return workdirs.Listing{}, workdirs.ErrNotFound
+	}
+
+	listing := workdirs.Listing{}
+
+	for _, name := range names {
+		if offered(name, prefix) {
+			entry := workdirs.Entry{Name: name, Repository: slices.Contains(dirs.repositories, name)}
+			listing.Entries = append(listing.Entries, entry)
+		}
+	}
+
+	if len(listing.Entries) > workdirs.ListLimit {
+		listing.Entries, listing.Truncated = listing.Entries[:workdirs.ListLimit], true
+	}
+
+	return listing, nil
+}
+
+// offered reports a name a listing for prefix holds, as workdirs.List
+// decides: one starting with it in any case, and not hidden unless prefix
+// starts with the dot.
+func offered(name, prefix string) bool {
+	return strings.HasPrefix(strings.ToLower(name), strings.ToLower(prefix)) &&
+		(!strings.HasPrefix(name, ".") || strings.HasPrefix(prefix, "."))
+}
+
 // withRepositories wires the Repositories seams and the favorites into deps
 // when the world has places, recording each favorite marked or forgotten.
 func (w *world) withRepositories(deps tui.Deps) tui.Deps {
@@ -96,20 +132,9 @@ func (w *world) withRepositories(deps tui.Deps) tui.Deps {
 			return place, nil
 		},
 		Subdirectories: func(dir, prefix string) (workdirs.Listing, error) {
-			names, found := dirs.listings[dir]
-			if !found {
-				return workdirs.Listing{}, workdirs.ErrNotFound
-			}
+			w.record("subdirectories " + dir + " " + prefix)
 
-			listing := workdirs.Listing{}
-
-			for _, name := range names {
-				if strings.HasPrefix(strings.ToLower(name), strings.ToLower(prefix)) {
-					listing.Entries = append(listing.Entries, workdirs.Entry{Name: name})
-				}
-			}
-
-			return listing, nil
+			return dirs.listed(dir, prefix)
 		},
 	}
 
