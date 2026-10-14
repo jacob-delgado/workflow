@@ -875,3 +875,20 @@ under the picker when the interface returns.
 
 **Reopen when.** The interface gains a screen-reader mode of its own (UX-154),
 or a user of the prompts asks to see the screen while answering.
+
+### TRADE-49 The directory picker draws at most 200 rows, with no virtual list
+
+**Decided.** A listing holds at most `workdirs.ListLimit`, a thousand
+directories, and the terminal's directory picker draws at most 200 of the
+ones matching what was typed (`rowsShownMost`, `internal/tui/dirrows.go`),
+then says how many more match and to keep typing; the web's directory dialog
+holds to the same cap. No virtualized list, and no library for one, was
+adopted. Decided 2026-10-14 by the maintainer, with the picker.
+
+**Cost.** In a directory of more than 200 that match, the rest cannot be
+scrolled to: they are reached only by typing more of a name, or by a path
+typed whole.
+
+**Reopen when.** Someone needs to scroll past the first 200 rather than type,
+or a listing's cap is raised enough that typing to narrow stops being quick.
+

@@ -224,52 +224,6 @@ func TestGoToADirectoryNotThereSaysSoAndStaysOpen(t *testing.T) {
 	requireScreen(t, answered.View().Content, "Go to a directory", "there is no such directory")
 }
 
-func TestTabCompletesTheOneDirectoryThatFits(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	working := reposWorld()
-	working.dirs.listings = map[string][]string{srcDir: {"cli", "www"}}
-	typed := goingTo(t, working, "~/src/w")
-
-	// Act
-	completed, _ := pressedAndAnswered(t, typed, keyTab)
-
-	// Assert
-	requireScreen(t, completed.View().Content, "> ~/src/www/")
-}
-
-func TestTabNamesTheDirectoriesThatFitWhenThereAreSeveral(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	working := reposWorld()
-	working.dirs.listings = map[string][]string{anaHome: {"notes", "notebooks", "srv"}}
-	typed := goingTo(t, working, "~/n")
-
-	// Act
-	completed, _ := pressedAndAnswered(t, typed, keyTab)
-
-	// Assert
-	// What they share is typed, and each is named, so the next letter picks.
-	requireScreen(t, completed.View().Content, "> ~/note", "notebooks", "notes")
-}
-
-func TestTabSaysWhenNothingFits(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	working := reposWorld()
-	working.dirs.listings = map[string][]string{anaHome: {"src"}}
-	typed := goingTo(t, working, "~/z")
-
-	// Act
-	completed, _ := pressedAndAnswered(t, typed, keyTab)
-
-	// Assert
-	requireScreen(t, completed.View().Content, "no directory there starts with z")
-}
-
 func TestTheGoToPromptTakesEveryLetter(t *testing.T) {
 	t.Parallel()
 
@@ -278,24 +232,7 @@ func TestTheGoToPromptTakesEveryLetter(t *testing.T) {
 	typed := goingTo(t, reposWorld(), "jq")
 
 	// Assert
-	requireScreen(t, typed.View().Content, "> jq")
-}
-
-func TestTabTypesWhatSeveralShareWithoutSplittingALetter(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// v1é and v1è share v1 and the first byte of their last letters.
-	working := reposWorld()
-	working.dirs.listings = map[string][]string{anaHome: {"v1é", "v1è"}}
-	typed := goingTo(t, working, "~/v")
-
-	// Act
-	completed, _ := pressedAndAnswered(t, typed, keyTab)
-
-	// Assert
-	requireScreen(t, completed.View().Content, "> ~/v1 ", "v1é", "v1è")
-	refuseScreen(t, completed.View().Content, "�")
+	requireScreen(t, typed.View().Content, "› jq")
 }
 
 func TestEscLeavesWhileAPathIsBeingLookedAt(t *testing.T) {
@@ -407,52 +344,6 @@ func TestGoToWhereYouWorkGoesNowhere(t *testing.T) {
 	requireScreen(t, answered.View().Content, "you already work in ~/src/api/cmd")
 }
 
-func TestTabAfterATildeAloneListsYourHome(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	working := reposWorld()
-	working.dirs.listings = map[string][]string{anaHome: {"src"}}
-	typed := goingTo(t, working, "~")
-
-	// Act
-	completed, _ := pressedAndAnswered(t, typed, keyTab)
-
-	// Assert
-	requireScreen(t, completed.View().Content, "> ~/src/")
-}
-
-func TestTabWhereThereIsNoSuchDirectorySaysSo(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	typed := goingTo(t, reposWorld(), "~/nowhere/x")
-
-	// Act
-	completed, _ := pressedAndAnswered(t, typed, keyTab)
-
-	// Assert
-	requireScreen(t, completed.View().Content, "there is no such directory")
-}
-
-func TestAnAnswerForAPathSinceChangedIsDropped(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	working := reposWorld()
-	working.dirs.listings = map[string][]string{srcDir: {"web"}}
-	typed := goingTo(t, working, "~/src/w")
-	asked, complete := pressed(t, typed, keyTab)
-	retyped := typing(t, asked, "x")
-
-	// Act
-	answered, _ := finish(t, retyped, complete)
-
-	// Assert
-	requireScreen(t, answered.View().Content, "> ~/src/wx")
-	refuseScreen(t, answered.View().Content, "~/src/web/")
-}
-
 func TestALookAnsweredAfterThePromptWasReopenedIsDropped(t *testing.T) {
 	t.Parallel()
 
@@ -468,7 +359,7 @@ func TestALookAnsweredAfterThePromptWasReopenedIsDropped(t *testing.T) {
 
 	// Assert
 	view := answered.View().Content
-	requireScreen(t, view, "Go to a directory", "> ~/src/api")
+	requireScreen(t, view, "Go to a directory", "› ~/src/api")
 	refuseScreen(t, view, "Switch directory")
 }
 
@@ -480,21 +371,21 @@ const (
 	zeroWidthDir   = srcDir + "/" + zeroWidthName
 )
 
-func TestTabCompletesTheNameAsItIsOnDisk(t *testing.T) {
+func TestThePickerGoesIntoTheNameAsItIsOnDisk(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	working := reposWorld()
 	working.dirs.listings = map[string][]string{srcDir: {"cli", zeroWidthName}}
 	working.dirs.places[zeroWidthDir] = seams.Place{Dir: zeroWidthDir, Root: zeroWidthDir}
-	completed, _ := pressedAndAnswered(t, goingTo(t, working, "~/src/z"), keyTab)
+	completed := typing(t, goingTo(t, working, "~/src/z"), keyRight)
 	asked, _ := pressedAndAnswered(t, completed, keyEnter)
 
 	// Act
 	left, cmd := pressed(t, asked, keyEnter)
 
 	// Assert
-	requireScreen(t, completed.View().Content, "> ~/src/zero�width/")
+	requireScreen(t, completed.View().Content, "› ~/src/zero�width/")
 	refuseScreen(t, completed.View().Content, string(zeroWidthSpace))
 
 	if !quits(cmd) || left.Destination().Dir != zeroWidthDir {

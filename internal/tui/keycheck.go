@@ -275,7 +275,7 @@ const (
 	overlayCommentComposer
 	overlayCommentPreview
 	overlayCommitComposer
-	overlayDirPrompt
+	overlayDirPicker
 	overlayFinishPreview
 	overlayFixupPicker
 	overlayHelp
@@ -325,7 +325,8 @@ func overlayKeyContexts() map[overlayKind]keyContext {
 		overlayCommentPreview: answering("the comment preview", "apply", "close"),
 		overlayCommitComposer: answering("the commit composer", "next-field", "previous-field", "cycle-type-left",
 			"cycle-type-right", "toggle-breaking", "edit-body", "apply", "close"),
-		overlayDirPrompt:     answering("the directory prompt", "next-field", "apply", "close"),
+		overlayDirPicker: listAnswering("the directory picker", "next-field", "cursor-left", "cursor-right",
+			"switch-directory", "apply", "close"),
 		overlayFinishPreview: answering("the finish preview", "apply", "close"),
 		overlayFixupPicker:   listAnswering("the fixup picker", "apply", "close"),
 		overlayHelp:          listAnswering("the help", "scroll-up", "scroll-down", "toggle-help", "quit", "close"),

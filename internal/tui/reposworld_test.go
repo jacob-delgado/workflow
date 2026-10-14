@@ -5,6 +5,7 @@ package tui_test
 
 import (
 	"context"
+	"slices"
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -31,8 +32,12 @@ type dirsWorld struct {
 	here      seams.Place
 	places    map[string]seams.Place
 	favorites []string
-	// listings are the directories in each directory, by its path.
-	listings map[string][]string
+	// listings are the directories in each directory, by its path; those
+	// named in repositories are repositories, and a listing of a directory in
+	// truncated stops, unnarrowed, at its first two.
+	listings     map[string][]string
+	repositories []string
+	truncated    map[string]bool
 	// keepsNothing binds no favorites, as a store turned off does.
 	keepsNothing bool
 	// failing is why reading and changing the favorites fails, or nil.
@@ -77,6 +82,31 @@ func reposWorld() *world {
 	return working
 }
 
+// listed is the directories in dir whose names start with prefix, as
+// workdirs.List gives them, cut at two when dir is truncated and nothing
+// narrows it.
+func (dirs *dirsWorld) listed(dir, prefix string) (workdirs.Listing, error) {
+	names, found := dirs.listings[dir]
+	if !found {
+		return workdirs.Listing{}, workdirs.ErrNotFound
+	}
+
+	listing := workdirs.Listing{}
+
+	for _, name := range names {
+		if strings.HasPrefix(name, prefix) {
+			entry := workdirs.Entry{Name: name, Repository: slices.Contains(dirs.repositories, name)}
+			listing.Entries = append(listing.Entries, entry)
+		}
+	}
+
+	if dirs.truncated[dir] && prefix == "" && len(listing.Entries) > 2 {
+		listing.Entries, listing.Truncated = listing.Entries[:2], true
+	}
+
+	return listing, nil
+}
+
 // withRepositories wires the Repositories seams and the favorites into deps
 // when the world has places, recording each favorite marked or forgotten.
 func (w *world) withRepositories(deps tui.Deps) tui.Deps {
@@ -96,20 +126,9 @@ func (w *world) withRepositories(deps tui.Deps) tui.Deps {
 			return place, nil
 		},
 		Subdirectories: func(dir, prefix string) (workdirs.Listing, error) {
-			names, found := dirs.listings[dir]
-			if !found {
-				return workdirs.Listing{}, workdirs.ErrNotFound
-			}
+			w.record("subdirectories " + dir + " " + prefix)
 
-			listing := workdirs.Listing{}
-
-			for _, name := range names {
-				if strings.HasPrefix(name, prefix) {
-					listing.Entries = append(listing.Entries, workdirs.Entry{Name: name})
-				}
-			}
-
-			return listing, nil
+			return dirs.listed(dir, prefix)
 		},
 	}
 
