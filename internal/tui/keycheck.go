@@ -348,7 +348,7 @@ func overlayKeyContexts() map[overlayKind]keyContext {
 		overlayQuitGuard: answering("the quit guard", "apply", "close"),
 		overlaySettings: listAnswering("Settings", "cycle-type-left", "cycle-type-right", "toggle-option",
 			actionRefresh, "save-settings", "remove-entry", "apply", "close"),
-		overlaySetupForm: listAnswering("the setup form", "apply", "close"),
+		overlaySetupForm: listAnswering("the setup form", "next-field", "previous-field", "apply", "close"),
 		overlayStatusPicker: listAnswering("the status picker", "next-field", "previous-field", "toggle-option",
 			"apply", "close"),
 		overlaySummaryPost: answering("the summary's post preview", "cycle-type-left", "cycle-type-right", "edit",

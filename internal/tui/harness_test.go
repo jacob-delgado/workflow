@@ -322,13 +322,13 @@ func (h *hold) update(t *testing.T, model tui.Model, msg tea.Msg) (tui.Model, te
 	return model, nil
 }
 
-// holding presses keys in order, as typing does, leaving out whatever held keeps
-// from answering.
+// holding presses keys in order, or pastes, as typing does, leaving out
+// whatever held keeps from answering.
 func holding(t *testing.T, held *hold, model tui.Model, keys ...string) tui.Model {
 	t.Helper()
 
 	for _, key := range keys {
-		updated, cmd := held.update(t, model, keyMsg(key))
+		updated, cmd := held.update(t, model, stepMsg(key))
 		model = drainPast(t, held, updated, cmd)
 	}
 
@@ -345,12 +345,36 @@ func (w *world) live(t *testing.T, width, height int) tui.Model {
 	return drain(t, model, model.Init())
 }
 
-// typing presses keys in order, finishing whatever each one starts.
+// pastePrefix marks a step of typing that pastes the text after it.
+const pastePrefix = "\x00paste:"
+
+// pasted is a step of typing that pastes text whole, as a terminal hands over
+// a bracketed paste. A Huh field pays a real blink wait for each change it
+// draws (TRADE-46), so a test types a field's text this way, once, rather
+// than a key at a time.
+func pasted(text string) string {
+	return pastePrefix + text
+}
+
+// stepMsg is what a step of typing sends: a paste for a step made by pasted,
+// and a press of the key it names otherwise.
+//
+//nolint:ireturn // tea.Msg is Bubble Tea's type for any message at all
+func stepMsg(step string) tea.Msg {
+	if text, isPaste := strings.CutPrefix(step, pastePrefix); isPaste {
+		return tea.PasteMsg{Content: text}
+	}
+
+	return keyMsg(step)
+}
+
+// typing presses keys in order, or pastes a step made by pasted, finishing
+// whatever each one starts.
 func typing(t *testing.T, model tui.Model, keys ...string) tui.Model {
 	t.Helper()
 
 	for _, key := range keys {
-		updated, cmd := model.Update(keyMsg(key))
+		updated, cmd := model.Update(stepMsg(key))
 		model = drain(t, concrete(t, updated), cmd)
 	}
 

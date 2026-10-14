@@ -43,6 +43,15 @@ func (m Model) dialogBox() (layout.Box, bool) {
 	return shape.Dialog(floater.wants(m.kit(), most)), true
 }
 
+// dialogColumns is the columns inside a dialog that would like width
+// columns, its frame included, on this screen.
+func (m Model) dialogColumns(width int) int {
+	shape := m.shape()
+	columns, _ := dialogInside(shape, shape.Dialog(layout.Size{Width: width, Height: 1}))
+
+	return columns
+}
+
 // dialogInside is the columns and rows of content a dialog in box holds on
 // a screen of shape: all of a sheet's but its title row, which has no frame
 // to spend columns on, and a floating dialog's inside its frame.

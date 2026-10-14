@@ -151,6 +151,20 @@ func fitForm(form *huh.Form, width, rows int) tea.Cmd {
 	return relayToForm(form, tea.WindowSizeMsg{Width: width, Height: max(1, rows-refusalRows)})
 }
 
+// startForm is the command that starts form: drawn in the overlay that holds
+// it, or, with accessible forms on, handed to the prompts. Either way done's
+// message arrives once it is answered, with the error that stopped the
+// prompts if any.
+func (m Model) startForm(form *huh.Form, start tea.Cmd, done func(error) tea.Msg) tea.Cmd {
+	if m.accessibleForms {
+		return m.deps.ask(form, done)
+	}
+
+	form.SubmitCmd = func() tea.Msg { return done(nil) }
+
+	return start
+}
+
 // formKeys is what a form's focused field answers now, for the footer.
 func formKeys(form *huh.Form) []key.Binding {
 	return slices.DeleteFunc(form.KeyBinds(), func(binding key.Binding) bool { return !binding.Enabled() })

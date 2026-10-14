@@ -5,6 +5,7 @@ package tui
 
 import (
 	"io"
+	"strings"
 
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/textinput"
@@ -20,15 +21,15 @@ import (
 // each focus and each key schedules a blink that waits half a second of real
 // time, which a test settling after every key pays in full.
 type quietInput struct {
-	title, placeholder string
-	value              *string
-	validate           func(string) error
-	input              textinput.Model
-	err                error
-	focused            bool
-	keymap             huh.InputKeyMap
-	theme              huh.Theme
-	width              int
+	title, hint, placeholder string
+	value                    *string
+	validate                 func(string) error
+	input                    textinput.Model
+	err                      error
+	focused                  bool
+	keymap                   huh.InputKeyMap
+	theme                    huh.Theme
+	width                    int
 }
 
 var _ huh.Field = (*quietInput)(nil)
@@ -87,12 +88,17 @@ func (q *quietInput) Update(msg tea.Msg) (huh.Model, tea.Cmd) {
 	return q, nil
 }
 
-// View is the field's title over the line typed, in the theme's styles for a
-// field focused or not.
+// View is the field's title over its hint, if it has one, and the line
+// typed, in the theme's styles for a field focused or not.
 func (q *quietInput) View() string {
 	styles := q.styles()
 
-	return styles.Base.Width(q.width).Render(styles.Title.Render(q.title) + "\n" + q.input.View())
+	lines := []string{styles.Title.Render(q.title)}
+	if q.hint != "" {
+		lines = append(lines, styles.Description.Render(q.hint))
+	}
+
+	return styles.Base.Width(q.width).Render(strings.Join(append(lines, q.input.View()), "\n"))
 }
 
 // Blur leaves the field, keeping and checking what was typed.
@@ -160,13 +166,17 @@ func (q *quietInput) WithKeyMap(keymap *huh.KeyMap) huh.Field {
 }
 
 // WithWidth fits the field to width columns, and its line to what is left
-// of them once the prompt and the cursor at its end are drawn.
+// of them once the prompt and the cursor at its end are drawn, scrolled so
+// the cursor stays in it.
 //
 //nolint:ireturn // huh.Field's own signature
 func (q *quietInput) WithWidth(width int) huh.Field {
 	q.width = width
 	frame := q.styles().Base.GetHorizontalFrameSize()
 	q.input.SetWidth(max(1, width-frame-lipgloss.Width(q.input.Prompt)-1))
+	// The input scrolls what is typed into its width only as the cursor
+	// moves, so the cursor is set where it is to scroll it into the new one.
+	q.input.SetCursor(q.input.Position())
 
 	return q
 }
@@ -198,6 +208,21 @@ func (q *quietInput) GetKey() string { return "" }
 // GetValue is what was typed.
 func (q *quietInput) GetValue() any { return q.input.Value() }
 
+// hinted is the field with hint under its title, saying what it is for.
+func (q *quietInput) hinted(hint string) *quietInput {
+	q.hint = hint
+
+	return q
+}
+
+// secret is the field drawing a mask in place of what is typed, and asking
+// as prompts without echoing it.
+func (q *quietInput) secret() *quietInput {
+	q.input.EchoMode = textinput.EchoPassword
+
+	return q
+}
+
 // checkedBy is the field refusing, with check's reason, what check refuses.
 func (q *quietInput) checkedBy(check func(string) error) *quietInput {
 	q.validate = check
@@ -223,7 +248,8 @@ func (q *quietInput) styles() huh.FieldStyles {
 // draw no cursor: titled in the field's theme, and checking what it is
 // answered with as the field checks what is typed.
 func (q *quietInput) accessible() *huh.Input {
-	input := huh.NewInput().Title(q.title).Placeholder(q.placeholder).Value(q.value).Validate(q.validate)
+	input := huh.NewInput().Title(q.title).Description(q.hint).Placeholder(q.placeholder).
+		EchoMode(huh.EchoMode(q.input.EchoMode)).Value(q.value).Validate(q.validate)
 	input.WithTheme(q.theme)
 
 	return input
