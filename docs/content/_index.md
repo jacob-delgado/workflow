@@ -57,7 +57,9 @@ format that may still change before 1.0.
   `.workflow.json`, and how to get the Jira token and a messaging webhook or
   Slack user token.
 - **[Scripting]({{< relref "/docs/scripting" >}})** — the commands without the
-  interface: exit codes, streams, `--json`, `--yes`, `--dry-run` and `--log`.
+  interface: exit codes, streams and what standard error says, `--json`,
+  `--yes`, `--dry-run`, `--quiet`, `--verbose`, `--log-format` and
+  `--request-log`.
 - **[Command reference]({{< relref "/docs/reference" >}})** — every command and
   flag, generated from the code.
 - **[Development]({{< relref "/docs/contributing" >}})** — the toolchain, the
