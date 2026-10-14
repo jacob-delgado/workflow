@@ -14,7 +14,7 @@ the debts.
 ## How to write an entry
 
 An entry is a `### DEBT-n <title>` section under a `##` heading for its area,
-above the register, with the next unused DEBT ID, DEBT-329 onward: an ID is
+above the register, with the next unused DEBT ID, DEBT-331 onward: an ID is
 never reused. One line under the title rates it, as
 `Severity: low · Confidence: read · Size: S`, ending in `· Breaking` when that
 applies, and four paragraphs follow: **Where.** names the functions and files
@@ -38,6 +38,59 @@ A DEBT entry is accidental debt. A cost chosen on purpose goes in [the
 trade-off register](#the-trade-off-register) instead, which lists what each
 costs and what would reopen it. A security problem goes in neither: report it
 as [SECURITY.md](SECURITY.md) asks.
+
+## The command line
+
+### DEBT-329 `cli.go` is past the 500-line soft target
+
+Severity: low · Confidence: measured · Size: S
+
+**Where.** `internal/cli/cli.go`: `loadFromEnvironment` and `configHome`,
+below the root command, the interfaces' loop and their switching.
+
+**Today.** The UX refresh took the file from 482 lines to 505, past
+CLAUDE.md's 500-line soft target, which `scripts/check-file-length.sh` warns
+on and does not fail (`--list` marks it `soft`). The two functions read
+where the configuration comes from out of the command's environment, which
+`environment.go` already holds, so the root command's file carries a concern
+that is not its own.
+
+**Fix.** The next change to `cli.go` moves `loadFromEnvironment` and
+`configHome` into `environment.go`, as a Boy Scout commit of its own. That
+takes no new file, which matters while `internal/cli` stands at its ceiling
+of 32 in `scripts/package-size-budgets.txt`.
+
+**Done when.** `scripts/check-file-length.sh --list` no longer marks
+`internal/cli/cli.go` `soft`.
+
+## The web server
+
+### DEBT-330 `announce.go` is past the 500-line soft target
+
+Severity: low · Confidence: measured · Size: S
+
+**Where.** `internal/webserver/announce.go`: whom an announcement tags, from
+the errors a post's mentions are refused with (`errNoTags`,
+`errTagsChanged`) and `tagging` down to `groupTagsDTO`, below the preview and
+the post.
+
+**Today.** The file holds two concerns: composing, previewing and posting an
+announcement, and whom it tags, read from the Slack directory and the kept
+links. It passed CLAUDE.md's 500-line soft target on 2026-10-13, when the
+server learned to hold an announcement through a failed run, and stands at
+519, which `scripts/check-file-length.sh` warns on and does not fail
+(`--list` marks it `soft`). The announcements stay in `internal/webserver`
+when the package is split, so no split of the package brings the file back
+under.
+
+**Fix.** The next change to `announce.go` moves whom it tags into
+`announcetags.go`, beside `announcetags_test.go`, which already tests it, as
+a Boy Scout commit of its own, leaving `announce.go` about 290 lines and
+`announcetags.go` about 250. The new file is the package's fortieth, which its
+ceiling of 40 in `scripts/package-size-budgets.txt` still allows.
+
+**Done when.** `scripts/check-file-length.sh --list` no longer marks
+`internal/webserver/announce.go` `soft`.
 
 ## The trade-off register
 
