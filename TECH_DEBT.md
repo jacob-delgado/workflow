@@ -347,15 +347,19 @@ hold.
 
 ### TRADE-24 The combined tracker reads its settings once
 
-**Decided.** Jira's settings (address, token, views) are read once, when the
-wiring is built, and the combined tracker (`internal/wiring/tracker.go`)
-follows them: whether the forge's issues join in, and which view they lead,
-are fixed then. The web makes only the forge and messaging settings live on
-save. Making these two live would mean always building the combined tracker
-and threading another control through every tracker seam, while the rest of
-Jira's settings would still wait for a restart. The forge-row count that
-offsets later pages is one per tracker, shared by every tab paging that view.
-Decided 2026-10-01, in #164.
+**Decided.** Jira's client settings are read once, when the wiring is built:
+its address, user and headers, and its token with where the token is read
+from (`jira.token`, `jira.keychain`, `jira.token_env`,
+`jira.token_command`). So is the combined tracker
+(`internal/wiring/tracker.go`): whether the forge's issues join in, and the
+JQL of the first view they lead, are fixed then. The web makes the forge and
+messaging settings live on save through the wiring's controls, and reads
+Jira's project, review status, views and Markdown comments from the
+configuration at each use. Making the tracker's two live would mean always
+building the combined tracker and threading another control through every
+tracker seam, while Jira's client settings would still wait for the next
+wiring. The forge-row count that offsets later pages is one per tracker,
+shared by every tab paging that view. Decided 2026-10-01, in #164.
 
 **Cost.** A Settings save that turns `issues.forge` on or off, or changes the
 first view, applies only after `workflow --web` restarts; both Settings
@@ -363,8 +367,8 @@ surfaces and the configuration reference should say so, and do not yet for
 `issues.forge`. Two tabs paging the first view while the forge's open issues
 change can skip or repeat one Jira row on a later page.
 
-**Reopen when.** Jira's settings become live on save, or someone is seen
-toggling `issues.forge` from Settings and expecting it to apply at once.
+**Reopen when.** Jira's client settings become live on save, or someone is
+seen toggling `issues.forge` from Settings and expecting it to apply at once.
 
 ### TRADE-25 Kept data has one schema and is never migrated
 
