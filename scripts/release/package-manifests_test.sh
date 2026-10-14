@@ -2,7 +2,8 @@
 #
 # Tests for package-manifests.sh. Each case writes a release's checksums the
 # way release.yml does, runs the script on them, and reads what it wrote: the
-# Homebrew formula, word for word, or nothing at all when it refuses.
+# Homebrew formula, word for word or against the rules brew style and brew
+# audit --strict hold a tap's formula to, or nothing at all when it refuses.
 #
 # Usage:
 #   scripts/release/package-manifests_test.sh
@@ -91,39 +92,97 @@ refuses() {
   expect_nothing_written "${name}"
 }
 
-formula="# Written by scripts/release/package-manifests.sh in jacob-delgado/workflow
+# formula_for prints the formula a release of a tag should get, word for word.
+# A prerelease also names its version, which Homebrew cannot scan from its url.
+#   formula_for <tag> [version]
+formula_for() {
+  local download="https://github.com/jacob-delgado/workflow/releases/download/$1" version=""
+  if [[ -n "${2:-}" ]]; then
+    version="
+  version \"$2\""
+  fi
+  cat <<FORMULA
+# Written by scripts/release/package-manifests.sh in jacob-delgado/workflow
 # for each release; an edit here is lost at the next one.
 class Workflow < Formula
-  desc \"Run your Jira, Git forge and messaging workflow, in the terminal or a browser\"
-  homepage \"https://github.com/jacob-delgado/workflow\"
-  version \"1.4.0\"
-  license \"Apache-2.0\"
+  desc "Run your Jira, Git forge and messaging workflow, in the terminal or a browser"
+  homepage "https://github.com/jacob-delgado/workflow"
+  if OS.mac?
+    url "${download}/workflow_darwin_arm64"
+    sha256 "${macos_sum}"
+  else
+    url "${download}/workflow_linux_amd64"
+    sha256 "${linux_sum}"
+  end${version}
+  license "Apache-2.0"
 
   on_macos do
-    url \"https://github.com/jacob-delgado/workflow/releases/download/v1.4.0/workflow_darwin_arm64\"
-    sha256 \"${macos_sum}\"
-
     depends_on arch: :arm64
   end
 
   on_linux do
-    url \"https://github.com/jacob-delgado/workflow/releases/download/v1.4.0/workflow_linux_amd64\"
-    sha256 \"${linux_sum}\"
-
     depends_on arch: :x86_64
   end
 
   def install
-    bin.install Dir[\"workflow_*\"].first => \"workflow\"
-    chmod 0755, bin/\"workflow\"
-    generate_completions_from_executable(bin/\"workflow\", \"completion\", shells: [:bash, :zsh, :fish])
+    bin.install Dir["workflow_*"].first => "workflow"
+    chmod 0755, bin/"workflow"
+    generate_completions_from_executable(bin/"workflow", "completion")
   end
 
   test do
-    assert_match version.to_s, shell_output(\"#{bin}/workflow --version\")
+    assert_match version.to_s, shell_output("#{bin}/workflow --version")
   end
-end"
+end
+FORMULA
+}
+
+formula="$(formula_for v1.4.0)"
 readonly formula
+
+# brew_rejects prints each line of a formula that `brew style` or
+# `brew audit --strict` rejects in a tap, with the rule it breaks. Homebrew's
+# FormulaAudit/ComponentsOrder lets an on_macos or on_linux block hold
+# dependencies and the like, never a url or a sha256. The audit refuses a
+# version a release's url already gives, as v1.4.0's does; a prerelease's url
+# gives none, so formula_for pins its version line instead. And
+# FormulaAudit/RedundantGenerateCompletionsShells refuses naming the shells
+# Homebrew writes completions for by default, which are bash, zsh and fish.
+#   brew_rejects <formula file>
+brew_rejects() {
+  awk '
+    /^  on_(macos|linux) do$/ { block = $1 }
+    /^  end$/ { block = "" }
+    block != "" && ($1 == "url" || $1 == "sha256") {
+      print "ComponentsOrder: " block " cannot include " $1 ": " $0
+    }
+    /releases\/download\/v[0-9]+\.[0-9]+\.[0-9]+\// { release = 1 }
+    $1 == "version" { version = $0 }
+    /shells: \[:bash, :zsh, :fish\]/ { print "RedundantGenerateCompletionsShells: " $0 }
+    END {
+      if (release && version != "") {
+        print "audit: the version is redundant with the one scanned from the url: " version
+      }
+    }
+  ' "$1"
+}
+
+# expect_brew_accepts wants nothing in the formula the last case wrote that
+# brew_rejects, as a case of its own.
+#   expect_brew_accepts <name>
+expect_brew_accepts() {
+  local name="$1" file="${workdir}/out${cases}/Formula/workflow.rb"
+  count_case
+  if [[ ! -f "${file}" ]]; then
+    fail_case "${name}" "Formula/workflow.rb was not written"
+    return
+  fi
+  brew_rejects "${file}" >"${workdir}/rejected"
+  if [[ -s "${workdir}/rejected" ]]; then
+    fail_case "${name}" "Homebrew would reject it:"
+    sed 's/^/    /' "${workdir}/rejected" >&2
+  fi
+}
 
 expect_exit pass "writes the formula for a release" generate v1.4.0 "$(sums "${release_sums}")"
 expect_file "writes the formula for a release" Formula/workflow.rb "${formula}"
@@ -139,11 +198,18 @@ if [[ "${written}" != "./Formula/workflow.rb" ]]; then
   fail_case "writes nothing for Windows, which installs from the release" "it wrote $(tr '\n' ' ' <<<"${written}")"
 fi
 
-expect_exit pass "a prerelease is written as its version" generate v1.4.0-rc.1 "$(sums "${release_sums}")"
-count_case
-if ! grep -qx '  version "1.4.0-rc.1"' "${workdir}/out$((cases - 1))/Formula/workflow.rb"; then
-  fail_case "a prerelease is written as its version" "the formula does not name version 1.4.0-rc.1"
-fi
+expect_exit pass "a release's formula keeps the rules brew style and brew audit --strict hold" \
+  generate v1.4.0 "$(sums "${release_sums}")"
+expect_brew_accepts "a release's formula keeps the rules brew style and brew audit --strict hold"
+
+expect_exit pass "a prerelease names its version, which its url does not give" \
+  generate v1.4.0-rc.1 "$(sums "${release_sums}")"
+expect_file "a prerelease names its version, which its url does not give" Formula/workflow.rb \
+  "$(formula_for v1.4.0-rc.1 1.4.0-rc.1)"
+
+expect_exit pass "a prerelease's formula keeps the rules brew style and brew audit --strict hold" \
+  generate v1.4.0-rc.1 "$(sums "${release_sums}")"
+expect_brew_accepts "a prerelease's formula keeps the rules brew style and brew audit --strict hold"
 
 expect_exit pass "writes into an out directory that does not exist yet" \
   "${script}" v1.4.0 "$(sums "${release_sums}")" "${repository}" "${workdir}/deep/er/out"
