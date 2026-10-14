@@ -364,6 +364,34 @@ test("the mockup's done answers the task done beside a list that no longer holds
   expect(data.tasks.map((task) => task.ranks.urgency).toSorted()).toEqual([0, 1, 2])
 })
 
+test('a prefix narrows the directories the mockup lists to the names starting with it', async () => {
+  // Arrange
+  await installed()
+
+  // Act
+  const { data } = await getDirectories({
+    query: { path: '/home/ana/src', prefix: 'w' },
+    throwOnError: true,
+  })
+
+  // Assert
+  expect(data.entries.map((entry) => entry.name)).toEqual(['web'])
+})
+
+test('the mockup narrows by a prefix in any case, as the server does', async () => {
+  // Arrange
+  await installed()
+
+  // Act
+  const { data } = await getDirectories({
+    query: { path: '/home/ana/src', prefix: 'W' },
+    throwOnError: true,
+  })
+
+  // Assert
+  expect(data.entries.map((entry) => entry.name)).toEqual(['web'])
+})
+
 test('a request the mockup does not answer goes on to the network', async () => {
   // Arrange
   const network = await installed(vi.fn<typeof fetch>(() => Promise.resolve(Response.json({}))))
