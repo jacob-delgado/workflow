@@ -1,9 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import {
   useForm,
+  useFormState,
   useWatch,
+  type Control,
   type UseFormGetValues,
   type UseFormRegister,
+  type UseFormRegisterReturn,
   type UseFormSetValue,
 } from 'react-hook-form'
 import { apiErrorMessage } from '@/api/apiError.ts'
@@ -162,12 +165,13 @@ function PullRequestForm({
   return (
     <form
       aria-label={`Open a ${noun}`}
+      noValidate
       onSubmit={(event) => {
         void submit(event)
       }}
       className="flex flex-col gap-group rounded-lg border border-border p-4"
     >
-      <ProposalFields register={register} onBaseLeft={redraft.ontoBase} />
+      <ProposalFields register={register} control={control} onBaseLeft={redraft.ontoBase} />
 
       {redraft.error === '' ? null : <Failure>{redraft.error}</Failure>}
 
@@ -281,22 +285,29 @@ function proposal(fields: PullRequestFields): OpenPullRequestRequest {
 // it opens as a draft.
 function ProposalFields({
   register,
+  control,
   onBaseLeft,
 }: {
   register: UseFormRegister<PullRequestFields>
+  control: Control<PullRequestFields>
   onBaseLeft: () => void
 }) {
   return (
     <>
-      <label className={labelClass}>
-        Title
-        <Input {...register('title')} required />
-      </label>
+      <NeededField
+        label="Title"
+        field={register('title', { validate: typed('Type a title first.') })}
+        control={control}
+      />
 
-      <label className={labelClass}>
-        Base branch
-        <Input {...register('base', { onBlur: onBaseLeft })} required />
-      </label>
+      <NeededField
+        label="Base branch"
+        field={register('base', {
+          onBlur: onBaseLeft,
+          validate: typed('Name the branch to merge into first.'),
+        })}
+        control={control}
+      />
 
       <label className={labelClass}>
         Reviewers
@@ -327,6 +338,35 @@ function ProposalFields({
 }
 
 const labelClass = 'flex flex-col gap-tight text-sm text-muted-foreground'
+
+// typed refuses a field left empty, with the words given.
+function typed(refusal: string) {
+  return (value: string): true | string => (value.trim() === '' ? refusal : true)
+}
+
+interface NeededFieldProps {
+  label: string
+  field: UseFormRegisterReturn<'title' | 'base'>
+  control: Control<PullRequestFields>
+}
+
+// NeededField is a field a pull request cannot open without, refused beside
+// itself when left empty.
+function NeededField({ label, field, control }: NeededFieldProps) {
+  const refusalId = useId()
+  const { errors } = useFormState({ control, name: field.name })
+  const refused = errors[field.name]?.message
+
+  return (
+    <div className="flex flex-col gap-tight">
+      <label className={labelClass}>
+        {label}
+        <Input {...field} required error={refused === undefined ? undefined : refusalId} />
+      </label>
+      {refused === undefined ? null : <Failure id={refusalId}>{refused}</Failure>}
+    </div>
+  )
+}
 
 // TemplateChoice starts the description from another of the repository's
 // templates, as the terminal's ctrl+t does, while there are several and the

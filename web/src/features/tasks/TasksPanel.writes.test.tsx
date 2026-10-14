@@ -437,6 +437,11 @@ test('an empty add line is refused without a request', async () => {
 
   // Assert
   expect((await screen.findByRole('alert')).textContent).toBe('Type a line for task add first.')
+  const line = screen.getByRole('textbox', {
+    name: 'task add',
+    description: 'Type a line for task add first.',
+  })
+  expect(line.getAttribute('aria-invalid')).toBe('true')
   expect(requests.filter((request) => request.method === 'POST')).toEqual([])
 })
 

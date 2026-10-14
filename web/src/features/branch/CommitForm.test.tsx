@@ -224,3 +224,21 @@ test('counts the header against the subject limit as the subject is typed', asyn
   // Assert: "fix: redact tokens" is 18
   expect(screen.getByText('18/20')).toBeTruthy()
 })
+
+test('an empty subject is refused beside it, and nothing is committed', async () => {
+  // Arrange
+  mockCommit.mockClear()
+  const user = userEvent.setup()
+  render(<CommitForm canCommit suggestedScope="" convention={conventional} />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: /commit staged changes/i }))
+
+  // Assert
+  const subject = await screen.findByRole('textbox', {
+    name: 'Subject',
+    description: /Type a subject first\./,
+  })
+  expect(subject.getAttribute('aria-invalid')).toBe('true')
+  expect(mockCommit).not.toHaveBeenCalled()
+})
