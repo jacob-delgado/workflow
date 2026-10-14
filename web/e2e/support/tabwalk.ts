@@ -158,7 +158,7 @@ export async function walkTabOrder(page: Page, { within }: Walk = {}): Promise<T
   const names = await controls.evaluate(controlNames)
   const walk: TabWalk = { reached: [], missed: [], hidden: [], left: [] }
   const reached = new Set<number>()
-  await page.keyboard.press('Tab')
+  await pressTab(page)
   const first = await page.evaluateHandle(() => document.activeElement)
   for (let step = 0; step < most; step++) {
     const stop = await controls.evaluate(focusedStop, part)
@@ -172,7 +172,7 @@ export async function walkTabOrder(page: Page, { within }: Walk = {}): Promise<T
       walk.hidden.push(`${name} (${String(Math.round(stop.shown * 100))}% in view)`)
     }
 
-    await page.keyboard.press('Tab')
+    await pressTab(page)
     if (await first.evaluate((began) => began === document.activeElement)) {
       walk.reached = names.filter((_, index) => reached.has(index))
       walk.missed = names.filter((_, index) => !reached.has(index))
@@ -182,6 +182,18 @@ export async function walkTabOrder(page: Page, { within }: Walk = {}): Promise<T
   }
 
   throw new Error(`Tab did not come back round to its first stop in ${String(most)} presses`)
+}
+
+// pressTab presses Tab and waits for focus to come to rest. A Base UI dialog
+// bounds its Tab order with focus guards hidden from assistive technology,
+// each of which hands focus back inside as it takes it, and not always before
+// the press resolves: read too soon, focus is on a guard outside the dialog.
+// Focus never rests on what assistive technology is told is not there, so a
+// guard that kept it would fail the wait, and a trap that leaks still fails
+// the walk.
+async function pressTab(page: Page): Promise<void> {
+  await page.keyboard.press('Tab')
+  await page.waitForFunction(() => document.activeElement?.closest('[aria-hidden="true"]') == null)
 }
 
 // walked is the part of the page a lap walks: the one within the locator, or
