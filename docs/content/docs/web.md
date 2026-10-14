@@ -133,8 +133,9 @@ on **Single-key shortcuts** in Settings (`ui.web_shortcuts`), since a key
 that acts on its own surprises a screen reader or speech user; `?` and the
 palette work either way. Even with them on, a key types into the field that
 has the focus, a search box or the comment box among them, and acts only
-outside one. Each control a key reaches says so to assistive technology
-(`aria-keyshortcuts`). See
+outside one; and while a dialog is open — the sheet, the palette, the
+directory dialog — no key reaches the page behind it. Each control a key
+reaches says so to assistive technology (`aria-keyshortcuts`). See
 [Keys on the web]({{< relref "/docs/configuration#keys-on-the-web" >}}).
 
 ## The sections
@@ -590,21 +591,34 @@ list, outside a repository, the list is left out.
 **Favorites** are the directories you keep, each with what is there now — a
 repository and its origin, a directory in no repository, or one not there any
 more. **Add to favorites** keeps where the server works, **Remove** forgets
-one, and **Switch** offers to switch to it. **Open another directory** browses
-for one: type a path — from where the server works, or from your home after
-`~` — and **Show** lists the directories in it; open one by its name, **Up**
-goes to the one above, and **Switch here** offers to switch to the one shown.
+one, and **Switch** offers to switch to it.
 
-A switch is asked once more, then made: the server wires the directory as it
-wired the first, and every section is read again for it. A directory whose
-configuration did not load, or binds keys workflow refuses, is refused rather
-than served on the defaults. The section you are
-in, the views' orders and narrowing and the Summary's period stay; the issue
-shown stays when it is a Jira issue, which is the same wherever you work. A
-page that has not yet noticed a switch — another tab, say — has its writes
-refused until it reads again, and a switch is refused while a write is being
-made. Under `--dry-run` the switch and the favorites are held back with every
-other write, and browsing still works.
+**Go to a directory…** (`g`, as in the terminal) opens a dialog for any other.
+Its field lists the worktrees and favorites first, then the directories where
+the server works; type a path — from where the server works, from your home
+after `~`, or from `/` — and it lists the directories in the one before the
+last slash, narrowed as you type a name after it: those starting with it
+first, then those holding its letters in order, the letters matched in bold,
+and each repository marked. The arrow keys choose, `Enter` goes into a
+directory or asks to switch to the place chosen, `Backspace` after a slash
+goes up — from your home, on to the directory it is in, as in the terminal
+— and the path above the field goes up further. **Switch to**, at the foot,
+names the place highlighted and asks too. A hidden directory is listed once
+the name typed starts with its dot, and a directory of more than a thousand
+is listed again for the name typed; the list draws at most two hundred, and
+says how many more match. The dialog stays open while a switch it asked for
+runs, so its refusal is shown in it.
+
+A switch is asked once more in the dialog, with **Back** to the list, then made:
+the server wires the directory as it wired the first, and every section is read
+again for it. A directory whose configuration did not load, or binds keys
+workflow refuses, is refused rather than served on the defaults. The section you
+are in, the views' orders and narrowing and the Summary's period stay; the issue
+shown stays when it is a Jira issue, which is the same wherever you work. A page
+that has not yet noticed a switch — another tab, say — has its writes refused
+until it reads again, and a switch is refused while a write is being made. Under
+`--dry-run` the switch and the favorites are held back with every other write,
+and browsing still works.
 
 ### Settings
 
