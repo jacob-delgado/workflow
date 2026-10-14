@@ -3,8 +3,8 @@
 This document is the map of `workflow` — what the pieces are, how they fit, and
 why the two kinds of local state (the `.workflow.json` **config** and the
 **store**, `workflow.db` and `kept.db`) are separate. It is the orientation a
-newcomer reads before the code; `CLAUDE.md` holds the day-to-day rules for
-changing it.
+newcomer reads before the code; `CLAUDE.md`, and the area `CLAUDE.md` files
+it indexes, hold the day-to-day rules for changing it.
 
 ## What it is
 
