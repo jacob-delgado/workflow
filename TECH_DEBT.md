@@ -994,25 +994,33 @@ or a listing's cap is raised enough that typing to narrow stops being quick.
 
 ### TRADE-50 Base UI's ScrollArea and Select stay off the page
 
-**Decided.** The `--web` page draws its dialogs and its command palette with
-Base UI (`@base-ui/react`), through `web/src/lib/baseui` alone, under a
-`CSPProvider` with `disableStyleElements`: the content policy
-(`internal/webserver/guard.go`, `default-src 'self'`, no nonce) refuses the one
-`<style>` element Base UI writes, which only ScrollArea and Select (with
-`alignItemWithTrigger`) do, to hide a native scrollbar. So neither part is
-used, and every choice from a fixed list stays a native `<select>`; a choice
-narrowed by typing, as the announcement's tag picker offers a channel's
-members, is Base UI's Combobox, which writes none. Decided
-2026-10-14 by the maintainer, in the UX refresh's web pull request, over a
-per-request nonce in the policy.
+**Decided.** The `--web` page draws its dialogs, its command palette and
+directory picker, Settings' sections and the announcement's tag picker with
+Base UI (`@base-ui/react`), whose Dialog, Autocomplete, Tabs and Combobox it
+takes through `web/src/lib/baseui` alone, under a `CSPProvider` with
+`disableStyleElements`: the content policy (`internal/webserver/guard.go`,
+`default-src 'self'`, no nonce) refuses the one `<style>` element Base UI
+writes, which only ScrollArea and Select (with `alignItemWithTrigger`) do, to
+hide a native scrollbar. So neither part is used, and every choice from a
+fixed list stays a native `<select>`; a choice narrowed by typing, as the tag
+picker offers a channel's members, is the Combobox, and a choice of section is
+Tabs, neither of which writes one. Decided 2026-10-14 by the maintainer, in the
+UX refresh's web pull request, over a per-request nonce in the policy.
 
 **Cost.** A choice in a form is the browser's own `<select>`: its open list is
 drawn by the platform, not in the page's theme or face, and cannot carry an
 icon, a hint or a group's heading as a Base UI Select could. A long list
 scrolls with the platform's scrollbar rather than a drawn one. And a later
-Base UI release that writes a `<style>` from another part would be refused by
-the policy without a sound: `e2e/server/page.spec.ts` fails on a refusal only
-where the spec opens that part.
+Base UI release that writes a `<style>` would be refused by the policy without
+a sound, so the server-backed specs, under the policy `workflow --web` itself
+sends, fail on any refusal while they open each part: `e2e/server/page.spec.ts`
+opens the palette, an Autocomplete in a Dialog, and the shortcut sheet, a
+Dialog; `e2e/server/policy.spec.ts` walks every one of Settings' Tabs and opens
+the tag picker's Combobox with its list of members shown, answering the reads
+that fill both itself, since the fixture has no configuration, Slack or forge.
+A refusal from a state those specs never reach, such as a list with nothing
+matching, from the directory picker's own Autocomplete, which none opens, or
+from a part the page takes up later, is still heard by no spec.
 
 **Reopen when.** A choice needs more than a native `<select>` can draw, or the
 server gains a per-request nonce that the page could hand to `CSPProvider`.
