@@ -6,6 +6,7 @@ package cli_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -69,11 +70,18 @@ func drive(t *testing.T, model tui.Model, keys ...tea.KeyPressMsg) tui.Model {
 	return model
 }
 
-// settle runs cmd and every command it leads to, delivering each message.
+// framesKept is how many frames of an animation in a row settle delivers.
+const framesKept = 2
+
+// settle runs cmd and every command it leads to, delivering each message. A
+// message the same as the one before it, more than framesKept times in a row,
+// is a frame of the interface moving while a read it never had answered stays
+// out, which settles nothing, and is dropped.
 func settle(t *testing.T, model tui.Model, cmd tea.Cmd) tui.Model {
 	t.Helper()
 
 	pending := []tea.Cmd{cmd}
+	last, repeats := "", 0
 
 	for len(pending) > 0 {
 		next := pending[0]
@@ -84,6 +92,17 @@ func settle(t *testing.T, model tui.Model, cmd tea.Cmd) tui.Model {
 		case tea.BatchMsg:
 			pending = append(pending, msg...)
 		default:
+			shown := fmt.Sprintf("%#v", msg)
+			if shown == last {
+				repeats++
+			} else {
+				last, repeats = shown, 0
+			}
+
+			if repeats >= framesKept {
+				continue
+			}
+
 			updated, follow := model.Update(msg)
 			model = asModel(t, updated)
 
