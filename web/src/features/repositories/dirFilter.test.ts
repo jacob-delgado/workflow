@@ -62,7 +62,7 @@ test.each([
   ['~', '/home/ana', ['/', '/home/'], 'ana'],
 ])('%j, at %j, has above it %j and is named %j', (shown, path, typed, name) => {
   // Act
-  const trail = trailOf({ path, shown, parent: '', entries: [], truncated: false })
+  const trail = trailOf({ path, shown, parent: '', entries: [] })
 
   // Assert
   expect(trail.above.map((above) => above.typed)).toEqual(typed)

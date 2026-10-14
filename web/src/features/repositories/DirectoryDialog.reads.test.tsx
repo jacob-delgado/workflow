@@ -11,11 +11,12 @@ import { RepositoriesPanel } from './RepositoriesPanel.tsx'
 // reads, when a listing is cut short and asked again by the name typed, when
 // a hidden one is asked for by its dot, and when a read is refused.
 
-const cutShort = 'First 1000 shown; keep typing to narrow.'
+// cutShort is what the dialog says of a listing cut short, at any limit.
+const cutShort = /^First \d+ shown; keep typing to narrow\.$/
 
-// big answers for ~/big, a directory of more than a thousand: cut short to
-// first, and asked again by a prefix, every name starting with it in any
-// case, past the first thousand too, as the server answers.
+// big answers for ~/big, a directory of more than a listing holds: cut short
+// to first, at as many as it names, and asked again by a prefix, every name
+// starting with it in any case, past the first too, as the server answers.
 function big(first: string[], past: string[]): (url: URL) => DirectoryListing {
   return (url) => {
     const prefix = url.searchParams.get('prefix')
@@ -23,14 +24,14 @@ function big(first: string[], past: string[]): (url: URL) => DirectoryListing {
       prefix === null
         ? first
         : [...first, ...past].filter((name) => name.toLowerCase().startsWith(prefix.toLowerCase()))
-
-    return {
+    const listed = {
       path: '/home/ana/big',
       shown: '~/big',
       parent: '/home/ana',
       entries: names.map((name) => ({ name, path: `/home/ana/big/${name}`, repository: false })),
-      truncated: prefix === null,
     }
+
+    return prefix === null ? { ...listed, truncated_to: first.length } : listed
   }
 }
 
@@ -46,6 +47,20 @@ test('a directory being read says which', async () => {
 
   // Assert
   expect(await screen.findByText('Reading ~/src…')).toBeTruthy()
+})
+
+test('a listing cut short says the most the server listed', async () => {
+  // Arrange
+  serving(big(['api', 'web'], ['webhooks']))
+  const user = userEvent.setup()
+  renderWithClient(<RepositoriesPanel />)
+  const field = await openDialog(user)
+
+  // Act
+  await user.type(field, '~/big/')
+
+  // Assert
+  expect(await screen.findByText('First 2 shown; keep typing to narrow.')).toBeTruthy()
 })
 
 test('a listing cut short is asked again for the names starting with what was typed', async () => {

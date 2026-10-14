@@ -126,8 +126,20 @@ func listingDTO(dir, home string, listing workdirs.Listing) api.DirectoryListing
 	}
 
 	return api.DirectoryListing{
-		Path: dir, Shown: workdirs.Shown(dir, home), Parent: parent, Entries: entries, Truncated: listing.Truncated,
+		Path: dir, Shown: workdirs.Shown(dir, home), Parent: parent, Entries: entries, TruncatedTo: truncatedTo(listing),
 	}
+}
+
+// truncatedTo is the most a listing holds when listing was cut short at it,
+// and nil when it holds every directory asked for.
+func truncatedTo(listing workdirs.Listing) *int {
+	if !listing.Truncated {
+		return nil
+	}
+
+	limit := workdirs.ListLimit
+
+	return &limit
 }
 
 // repositoriesDTO is where the server works and your favorites, each looked

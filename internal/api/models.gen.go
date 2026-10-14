@@ -1448,8 +1448,8 @@ type DirectoryListing struct {
 	// Shown The directory written from your home.
 	Shown string `json:"shown"`
 
-	// Truncated Whether there were more than a thousand.
-	Truncated bool `json:"truncated"`
+	// TruncatedTo The most a listing holds, when the directory held more: only the first this many by name are listed, and a prefix reaches the rest. Absent when every directory that matches is listed.
+	TruncatedTo *int `json:"truncated_to,omitempty"`
 }
 
 // DiscardRequest The one changed file whose changes to discard.
