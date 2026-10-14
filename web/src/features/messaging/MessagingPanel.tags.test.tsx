@@ -108,13 +108,30 @@ test('the preview shows each owner, the groups and whom it tags', async () => {
   expect(screen.getByText('@Carla Diaz, @control-plane-pod')).toBeTruthy()
 })
 
+// offered types label into the owner's field named, and is the choice of
+// that label once the field offers it.
+async function offered(
+  user: ReturnType<typeof userEvent.setup>,
+  field: string,
+  label: string,
+): Promise<HTMLElement> {
+  await user.type(screen.getByRole('combobox', { name: field }), label)
+
+  return screen.findByRole('option', { name: label })
+}
+
+// linked links the owner whose field is named to the member or group of
+// label, typed into the field and chosen once it is offered.
+async function linked(user: ReturnType<typeof userEvent.setup>, field: string, label: string) {
+  await user.click(await offered(user, field, label))
+}
+
 test('linking an owner saves it for next time and tags them', async () => {
   // Arrange
   const { requests, user } = await opensPreview({ text, channel: '#dev', tagging })
-  await screen.findByRole('option', { name: 'Ben Ito' })
 
   // Act
-  await user.selectOptions(screen.getByRole('combobox', { name: 'Slack user for ben' }), 'U0BEN')
+  await linked(user, 'Slack user for ben', 'Ben Ito')
 
   // Assert
   await screen.findByText('Saved for next time: ben is Ben Ito.')
@@ -268,10 +285,9 @@ test('an owner is linked to a member of the channel picked, named with it', asyn
     { ...twoChannels, people: oliveLinked },
   )
   await user.selectOptions(screen.getByRole('combobox', { name: /^Channel/ }), '#ops')
-  await screen.findByRole('option', { name: 'Olive Ops' })
 
   // Act
-  await user.selectOptions(screen.getByRole('combobox', { name: 'Slack user for ben' }), 'U0OLIVE')
+  await linked(user, 'Slack user for ben', 'Olive Ops')
 
   // Assert
   await screen.findByText('Saved for next time: ben is Olive Ops.')
@@ -300,7 +316,7 @@ test('a scope the opening channel lacks gives way to the channel picked', async 
   await user.selectOptions(screen.getByRole('combobox', { name: /^Channel/ }), '#ops')
 
   // Assert
-  await screen.findByRole('option', { name: 'Olive Ops' })
+  expect(await offered(user, 'Slack user for ben', 'Olive Ops')).toBeTruthy()
   expect(screen.queryByRole('note')).toBeNull()
 })
 
@@ -334,11 +350,7 @@ test('a group checked while a team link is saved stays checked, and is posted', 
     { text, channel: '#dev', tagging: teamTagging },
     { people },
   )
-  await screen.findByRole('option', { name: 'control-plane-pod' })
-  await user.selectOptions(
-    screen.getByRole('combobox', { name: 'Slack group for acme/control-plane' }),
-    'S0POD',
-  )
+  await linked(user, 'Slack group for acme/control-plane', 'control-plane-pod')
   await user.click(screen.getByRole('checkbox', { name: /@api-reviewers/ }))
   held.release()
   await screen.findByText('Saved for next time: acme/control-plane is control-plane-pod.')
@@ -359,13 +371,9 @@ test('the post waits while a link is being saved', async () => {
   // Arrange
   const { held, people } = teamLinkHeld()
   const { user } = await opensPreview({ text, channel: '#dev', tagging: teamTagging }, { people })
-  await screen.findByRole('option', { name: 'control-plane-pod' })
 
   // Act
-  await user.selectOptions(
-    screen.getByRole('combobox', { name: 'Slack group for acme/control-plane' }),
-    'S0POD',
-  )
+  await linked(user, 'Slack group for acme/control-plane', 'control-plane-pod')
 
   // Assert
   expect(screen.getByRole('button', { name: 'Announce now' }).getAttribute('aria-disabled')).toBe(
@@ -389,11 +397,10 @@ test('a refused link from the owner select says why, with focus still on the sel
     { text, channel: '#dev', tagging },
     { people: () => refusedLink() },
   )
-  await screen.findByRole('option', { name: 'Ben Ito' })
   const owner = screen.getByRole('combobox', { name: 'Slack user for ben' })
 
   // Act
-  await user.selectOptions(owner, 'U0BEN')
+  await linked(user, 'Slack user for ben', 'Ben Ito')
 
   // Assert
   expect(await screen.findByRole('alert')).toBeTruthy()

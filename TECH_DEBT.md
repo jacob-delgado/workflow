@@ -985,7 +985,9 @@ Base UI (`@base-ui/react`), through `web/src/lib/baseui` alone, under a
 (`internal/webserver/guard.go`, `default-src 'self'`, no nonce) refuses the one
 `<style>` element Base UI writes, which only ScrollArea and Select (with
 `alignItemWithTrigger`) do, to hide a native scrollbar. So neither part is
-used, and every choice on the page stays a native `<select>`. Decided
+used, and every choice from a fixed list stays a native `<select>`; a choice
+narrowed by typing, as the announcement's tag picker offers a channel's
+members, is Base UI's Combobox, which writes none. Decided
 2026-10-14 by the maintainer, in the UX refresh's web pull request, over a
 per-request nonce in the policy.
 

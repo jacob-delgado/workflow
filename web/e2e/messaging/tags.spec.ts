@@ -109,13 +109,18 @@ async function answersTags(page: Page): Promise<Sent> {
   return sent
 }
 
+// linkBen links ben to the member of label, typed into ben's field and chosen
+// once it is offered.
+async function linkBen(page: Page, label: string): Promise<void> {
+  await page.getByRole('combobox', { name: 'Slack user for ben' }).fill(label)
+  await page.getByRole('option', { name: label }).click()
+}
+
 test('links an owner, checks a group, and the post carries the groups', async ({ page }) => {
   // Arrange
   const sent = await answersTags(page)
   await openAnnouncementPreview(page)
-  const ownerChoice = page.getByRole('combobox', { name: 'Slack user for ben' })
-  await expect(ownerChoice.getByRole('option', { name: 'Ben Ito' })).toBeAttached()
-  await ownerChoice.selectOption({ label: 'Ben Ito' })
+  await linkBen(page, 'Ben Ito')
   await expect(page.getByText('Saved for next time: ben is Ben Ito.')).toBeVisible()
   await page.getByRole('checkbox', { name: /@api-reviewers/ }).check()
   await expect(
@@ -144,10 +149,9 @@ test('links an owner to a member of the other channel picked', async ({ page }) 
   const sent = await answersTags(page)
   await openAnnouncementPreview(page)
   await page.getByRole('combobox', { name: 'Channel' }).selectOption('#ops')
-  const ownerChoice = page.getByRole('combobox', { name: 'Slack user for ben' })
-  await expect(ownerChoice.getByRole('option', { name: 'Olive Ops' })).toBeAttached()
-  await expect(ownerChoice.getByRole('option', { name: 'Ben Ito' })).not.toBeAttached()
-  await ownerChoice.selectOption({ label: 'Olive Ops' })
+  await page.getByRole('combobox', { name: 'Slack user for ben' }).fill('Ben')
+  await expect(page.getByText('No member matches.')).toBeVisible()
+  await linkBen(page, 'Olive Ops')
   await expect(page.getByText('Saved for next time: ben is Olive Ops.')).toBeVisible()
 
   // Act
@@ -187,9 +191,7 @@ test(
     await openAnnouncementPreview(page)
 
     // Act
-    await page.getByRole('combobox', { name: 'Slack user for ben' }).selectOption({
-      label: 'Ben Ito',
-    })
+    await linkBen(page, 'Ben Ito')
 
     // Assert
     await expect(page.getByText('Saved for next time: ben is Ben Ito.')).toBeVisible()
@@ -205,11 +207,9 @@ test(
     // #releases has a member #dev-workflow has not.
     await openAnnouncementPreview(page)
     await page.getByRole('combobox', { name: 'Channel' }).selectOption('#releases')
-    const ownerChoice = page.getByRole('combobox', { name: 'Slack user for ben' })
-    await expect(ownerChoice.getByRole('option', { name: 'Erin Park' })).toBeAttached()
 
     // Act
-    await ownerChoice.selectOption({ label: 'Erin Park' })
+    await linkBen(page, 'Erin Park')
 
     // Assert
     await expect(page.getByText('Saved for next time: ben is Erin Park.')).toBeVisible()
