@@ -24,6 +24,17 @@
 # date cannot be learned fails, since a check that could not look must not
 # pass.
 #
+# A waiver has done its job once its version is a week old, and its line is
+# then due out, with the version's npmPreapprovedPackages entry in
+# web/.yarnrc.yml where yarn's own gate needed one. A version is published no
+# later than the day it is waived, so a week after that day ends, it is surely
+# a week old: from then, every run warns of the waiver, whatever the change
+# adds, and fails nothing for it. The week is counted from that day, with
+# nothing looked up, so the warning is never early, and can come up to a week,
+# or a day more at most, after the version actually turned a week old. A
+# pre-approval no line of the exceptions file lists is warned of too, and
+# fails nothing: its line may have gone out without it.
+#
 # Exits 0 when every new version is old enough, 1 when one is not or cannot be
 # dated, and 2 when git cannot compare with <base-ref>.
 set -euo pipefail
@@ -33,8 +44,10 @@ if (($# != 1)); then
   exit 2
 fi
 
-readonly min_seconds=$((7 * 24 * 60 * 60))
+readonly day_seconds=$((24 * 60 * 60))
+readonly min_seconds=$((7 * day_seconds))
 readonly exceptions="scripts/dependency-age-exceptions.txt"
+readonly yarnrc="web/.yarnrc.yml"
 readonly goproxy="https://proxy.golang.org"
 readonly npm_registry="https://registry.npmjs.org"
 readonly github_api="https://api.github.com"
@@ -207,18 +220,29 @@ listed_exception() {
   fi
 }
 
+# waived_on prints the day a dated waiver names, and nothing for an exception
+# that is no waiver or a waiver dated on no real day: a day the calendar lacks,
+# such as February 30, does not read back as itself.
+#   waived_on <exception>
+waived_on() {
+  if [[ "$1" =~ ^waived-([0-9]{4}-[0-9]{2}-[0-9]{2})$ ]]; then
+    jq -rn --arg day "${BASH_REMATCH[1]}" '($day + "T00:00:00Z") as $time
+      | if ($time | fromdateiso8601 | todate) == $time then $day else empty end' \
+      2>/dev/null || true
+  fi
+}
+
 # excused prints why an exception lets a version skip the wait: the advisory it
 # fixes, or the day the maintainer waived it. It prints nothing for anything
-# else, a waiver dated on no real day among them: a day the calendar lacks,
-# such as February 30, does not read back as itself.
+# else, a waiver dated on no real day among them.
 #   excused <exception>
 excused() {
+  local day
+  day="$(waived_on "$1")"
   if [[ "$1" =~ ^(CVE-[0-9]{4}-[0-9]{4,}|GHSA(-[0-9a-z]{4}){3})$ ]]; then
     echo "fixes $1"
-  elif [[ "$1" =~ ^waived-([0-9]{4}-[0-9]{2}-[0-9]{2})$ ]]; then
-    jq -rn --arg day "${BASH_REMATCH[1]}" '($day + "T00:00:00Z") as $time
-      | if ($time | fromdateiso8601 | todate) == $time then "waived on \($day) by the maintainer" else empty end' \
-      2>/dev/null || true
+  elif [[ -n "${day}" ]]; then
+    echo "waived on ${day} by the maintainer"
   fi
 }
 
@@ -262,9 +286,76 @@ check_all() {
   done <<<"$2"
 }
 
+# preapproved prints "package version" for each npmPreapprovedPackages entry
+# in web/.yarnrc.yml, which spells one 'package@version': the last @ parts
+# them, as a scope starts with one.
+preapproved() {
+  if [[ -f "${yarnrc}" ]]; then
+    awk -v quote="'" '
+      /^[^ \t#]/ { listed = ($0 ~ /^npmPreapprovedPackages:/); next }
+      listed && /^[ \t]*- / {
+        entry = $0
+        sub(/^[ \t]*- /, "", entry)
+        sub(/[ \t]+#.*$/, "", entry)
+        gsub(quote, "", entry)
+        gsub(/"/, "", entry)
+        at = match(entry, /@[^@]*$/)
+        if (at > 1) { print substr(entry, 1, at - 1), substr(entry, at + 1) }
+      }
+    ' "${yarnrc}"
+  fi
+}
+
+# day_start prints the second a day starts, UTC, and nothing for no day.
+#   day_start <YYYY-MM-DD>
+day_start() {
+  if [[ -n "$1" ]]; then
+    jq -rn --arg day "$1" '$day + "T00:00:00Z" | fromdateiso8601' 2>/dev/null || true
+  fi
+}
+
+# warn_past_their_week warns of each dated waiver a week past its day, and of
+# its version's pre-approval in web/.yarnrc.yml, and fails nothing. A version
+# waived on a day was published by that day's end at the latest, so the week
+# is counted from then.
+warn_past_their_week() {
+  local name version exception day start approved where
+  if [[ ! -f "${exceptions}" ]]; then
+    return
+  fi
+  approved="$(preapproved)"
+  while read -r name version exception _; do
+    day="$(waived_on "${exception:-}")"
+    start="$(day_start "${day}")"
+    if [[ -n "${start}" ]] && ((now - start >= day_seconds + min_seconds)); then
+      where="its line from ${exceptions}"
+      if grep -qxF -- "${name} ${version}" <<<"${approved}"; then
+        where="${where} and its npmPreapprovedPackages entry from ${yarnrc}"
+      fi
+      echo "warn  ${name} ${version}: waived on ${day}, so a week old by now; remove ${where}" >&2
+    fi
+  done <"${exceptions}"
+}
+
+# warn_unlisted_preapprovals warns of each npmPreapprovedPackages entry in
+# web/.yarnrc.yml that no line of the exceptions file lists, and fails
+# nothing: the exceptions file says why a version is let in early, and an entry
+# whose line has gone, with its week, is due out too.
+warn_unlisted_preapprovals() {
+  local name version listed
+  while read -r name version; do
+    listed="$(listed_exception "${name}" "${version}")"
+    if [[ -z "${listed}" ]]; then
+      echo "warn  ${name} ${version}: ${yarnrc} pre-approves it, but no line of ${exceptions} says why; remove its npmPreapprovedPackages entry, or list it there with its advisory or dated waiver" >&2
+    fi
+  done < <(preapproved)
+}
+
 check_all go "$(added "$(at "${base}" go.mod | go_requires)" "$(at HEAD go.mod | go_requires)")"
 check_all go "$(added "$(at "${base}" docs/go.mod | go_requires)" "$(at HEAD docs/go.mod | go_requires)")"
 check_all npm "$(added "$(at "${base}" web/yarn.lock | yarn_resolutions)" "$(at HEAD web/yarn.lock | yarn_resolutions)")"
 check_all mise "$(added "$(at "${base}" mise.toml | mise_pins)" "$(at HEAD mise.toml | mise_pins)")"
+warn_past_their_week
+warn_unlisted_preapprovals
 
 exit "${failed}"

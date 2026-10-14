@@ -12,7 +12,8 @@
 #     <name> <version> waived-<YYYY-MM-DD>
 #
 # Only the maintainer waives a version; a waiver dated on no real day fails the
-# gate. Remove a line once its version is a week old; it has done its job.
+# gate. Remove a line once its version is a week old; it has done its job. The
+# gate warns of a waiver still listed a week after the day it names.
 charm.land/bubbletea/v2 v2.1.0 waived-2026-10-13
 github.com/charmbracelet/x/ansi v0.11.9 waived-2026-10-13
 golang.org/x/sys v0.49.0 waived-2026-10-13
