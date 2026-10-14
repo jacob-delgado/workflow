@@ -8,6 +8,7 @@ import {
   parseDate,
   periodDays,
   shiftPeriod,
+  yearMonth,
   yearOf,
 } from './civilDate.ts'
 
@@ -35,6 +36,13 @@ const corpus = twinCases(
         steps: z.union([z.literal(-1), z.literal(1)]),
         days: z.number(),
         want: period,
+      }),
+    ),
+    weeks: z.array(
+      z.strictObject({
+        name: z.string(),
+        date: z.string(),
+        weeks: z.array(z.array(z.string().nullable())),
       }),
     ),
   }),
@@ -81,20 +89,10 @@ test.each(corpus.step)('a period steps by its own length: $name', (step) => {
   expect({ stepped, days: periodDays(stepping) }).toEqual({ stepped: step.want, days: step.days })
 })
 
-test('a month is weeks starting on Monday, blank before its first day', () => {
-  // Act
-  const weeks = monthWeeks(2026, 9)
-
-  // Assert
-  // September 2026 starts on a Tuesday and ends on a Wednesday.
-  expect(weeks[0]).toEqual([
-    null,
-    '2026-09-01',
-    '2026-09-02',
-    '2026-09-03',
-    '2026-09-04',
-    '2026-09-05',
-    '2026-09-06',
-  ])
-  expect(weeks.at(-1)).toEqual(['2026-09-28', '2026-09-29', '2026-09-30', null, null, null, null])
-})
+test.each(corpus.weeks)(
+  'a month is weeks starting on Monday, blank outside it: $name',
+  ({ date, weeks }) => {
+    // Act & Assert
+    expect(monthWeeks(...yearMonth(date))).toEqual(weeks)
+  },
+)

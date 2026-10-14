@@ -218,6 +218,38 @@ func (p Period) Step(steps int) Period {
 	}
 }
 
+// daysInWeek is how many days a week holds.
+const daysInWeek = 7
+
+// Week is seven days, Monday to Sunday.
+type Week [daysInWeek]Date
+
+// Weeks are the weeks, Monday to Sunday, the period's days fall in, as a
+// calendar lays the period out a week to a row: the first and the last may
+// hold days the period does not, which Holds tells apart.
+func (p Period) Weeks() []Week {
+	var weeks []Week
+
+	monday := p.From.AddDays(-placeInWeek(p.From))
+	for ; !p.To.Before(monday); monday = monday.AddDays(daysInWeek) {
+		var week Week
+		for place := range week {
+			week[place] = monday.AddDays(place)
+		}
+
+		weeks = append(weeks, week)
+	}
+
+	return weeks
+}
+
+// placeInWeek is where a date falls in its week from Monday: 0 on a Monday, 6
+// on a Sunday.
+func placeInWeek(date Date) int { return (int(date.Weekday()) + daysInWeek - 1) % daysInWeek }
+
+// Holds reports date one of the period's days.
+func (p Period) Holds(date Date) bool { return !date.Before(p.From) && !p.To.Before(date) }
+
 // Bounds are the period's first instant in loc and the first instant after
 // it, so an instant is in the period when it is at or after the one and
 // before the other.

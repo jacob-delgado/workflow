@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"slices"
 	"testing"
 	"time"
 
@@ -195,6 +196,13 @@ type datesCorpus struct {
 		Days  int        `json:"days"`
 		Want  periodCase `json:"want"`
 	} `json:"step"`
+	// Weeks are a month's weeks from Monday, each place a date or, outside
+	// the month, null, which reads here as a blank.
+	Weeks []struct {
+		Name  string     `json:"name"`
+		Date  string     `json:"date"`
+		Weeks [][]string `json:"weeks"`
+	} `json:"weeks"`
 }
 
 // readDates is the shared cases, refusing a field this side would ignore so a
@@ -324,6 +332,47 @@ func TestAPeriodStepsByItsOwnLengthAndAWholeMonthOrYearByItself(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAMonthIsWeeksFromMondayBlankOutsideIt(t *testing.T) {
+	t.Parallel()
+
+	for _, testCase := range readDates(t).Weeks {
+		t.Run(testCase.Name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			month := activity.MonthOf(day(t, testCase.Date))
+
+			// Act
+			weeks := month.Weeks()
+
+			// Assert
+			if got := laidOut(month, weeks); !slices.EqualFunc(got, testCase.Weeks, slices.Equal[[]string]) {
+				t.Errorf("the weeks of %s = %q, want %q", testCase.Date, got, testCase.Weeks)
+			}
+		})
+	}
+}
+
+// laidOut is weeks as the cases write them: each day month holds by its
+// date, and a blank for one outside it.
+func laidOut(month activity.Period, weeks []activity.Week) [][]string {
+	rows := make([][]string, 0, len(weeks))
+	for _, week := range weeks {
+		row := make([]string, 0, len(week))
+		for _, date := range week {
+			if month.Holds(date) {
+				row = append(row, date.String())
+			} else {
+				row = append(row, "")
+			}
+		}
+
+		rows = append(rows, row)
+	}
+
+	return rows
 }
 
 // askedOn is the Monday a period is asked on, and the others the days of the

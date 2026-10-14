@@ -4,9 +4,12 @@
 package tui_test
 
 import (
+	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -46,6 +49,60 @@ func lineHolding(view, text string) string {
 	}
 
 	return ""
+}
+
+func TestTheDayColumnDrawsNoDayOfANeighboringMonth(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// September 2026 runs from a Tuesday to a Wednesday, so its first week
+	// shares Monday with the 31st of August, and its last week shares
+	// Thursday to Sunday with the 1st to the 4th of October.
+	var september []string
+	for day := 1; day <= 30; day++ {
+		september = append(september, fmt.Sprintf("%02d", day))
+	}
+
+	// Act
+	view := typing(t, summaryWorld().live(t, 120, 40), calendarOpen()...).View().Content
+
+	// Assert
+	if got := dayColumnNumbers(view); !slices.Equal(got, september) {
+		t.Errorf("the Day column draws %v, want September's days alone:\n%s", got, plain(view))
+	}
+}
+
+// dayColumnNumbers is every day the calendar's Day column draws, row by row
+// from under its weekday heading to its last week.
+func dayColumnNumbers(view string) []string {
+	lines := strings.Split(plain(view), "\n")
+
+	heading := slices.IndexFunc(lines, func(line string) bool { return strings.Contains(line, " Mo  Tu ") })
+	if heading < 0 {
+		return nil
+	}
+
+	from := column(lines[heading], "Mo") - 1
+
+	var days []string
+
+	for _, line := range lines[heading+1:] {
+		chars := []rune(line)
+		if len(chars) <= from {
+			break
+		}
+
+		cells, _, _ := strings.Cut(string(chars[from:]), "┃")
+
+		row := strings.FieldsFunc(cells, func(char rune) bool { return !unicode.IsDigit(char) })
+		if len(row) == 0 {
+			break
+		}
+
+		days = append(days, row...)
+	}
+
+	return days
 }
 
 func TestEnterShowsWhatTheColumnWithTheCursorNames(t *testing.T) {
