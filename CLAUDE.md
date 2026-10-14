@@ -2,8 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with
 code in this repository. Most of it applies in every session; the rules for
-the web app, the terminal interface and the web server's errors apply only in
-those directories, and the store's are in `internal/store/CLAUDE.md`.
+the web app and the terminal interface apply only in those directories, and the
+store's and the web server's are in a `CLAUDE.md` beside their code.
 
 ## What this project is
 
@@ -312,10 +312,7 @@ without agreement on direction.
     Only a pattern built from run-time input keeps a builder, called outside any
     loop. A value derived once from immutable embedded data is the same kind of
     constant Go cannot spell as one, and takes a `//nolint:gochecknoglobals`
-    with that reason: the web server's parsed OpenAPI contract
-    (`routedContract`, `internal/webserver/validator.go`) is a package-level
-    `sync.OnceValues`, since every parse of the embedded spec gives the same
-    contract and parsing it for each `Handler` cost the race suite minutes.
+    with that reason, as the web server's parsed contract does.
   - **L — Liskov substitution.** An implementation honors the contract its
     callers rely on; a fake that cuts corners is a broken fake, not a shortcut.
   - **I — Interface segregation.** Depend only on what you use. Declare small
@@ -600,30 +597,11 @@ than observable, public behavior.
   the test that proves it never reaches output unmasked is part of the change.
   `gitleaks` (`task secrets`) is the backstop, not the plan.
 
-- **Web API errors are RFC 9457 problem details.** Every error the `--web` API's
-  handlers return is an `application/problem+json` object — `type`, `title`,
-  `status`, `detail`, and a stable machine `code` from the spec's enum — built
-  through the `problem`/`fault`/`writeProblem` helpers in
-  `internal/webserver/errors.go`, never an ad-hoc envelope. (Some refusals come
-  *before* a handler runs. The loopback, same-origin and dry-run guards, and
-  the app fallback's refusal of a method but GET and HEAD (`static.go`), answer
-  in plain text; that boundary stays. The session check and the contract
-  validator answer as problem details, through `writeProblem`.) **`fault`
-  classifies** a seam's error (a missing resource → `not_found` 404, an
-  unreachable upstream → `unreachable` 502) rather than flattening it to a
-  generic 500; a new class of failure gets a new class, not a bare 500: one
-  every surface tells alike in `internal/report/classes.go`, one only the
-  server tells in
-  `internal/webserver/faults.go`. The **`detail` never leaks a secret or an
-  internal host** — tokens are redacted before an error forms, and an
-  unreachable upstream is genericized through `fault` precisely because its
-  error carries the host; a write's refusal may still carry the git or forge's
-  own reason so the user can act (the test that an unreachable forge's detail
-  omits its host is part of the change). The `type` URI points at a section of
-  `docs/content/docs/errors.md`, so add the code there when you add one to the
-  enum. The OpenAPI spec is the source: change `api/openapi.yaml`, then
-  `task gen` (Go) and `corepack yarn gen` in `web/` (the web client) so both
-  stay generated from it.
+- **The `--web` API is spec first.** Change `api/openapi.yaml`, then run `task
+  gen` (the Go side) and `corepack yarn gen` in `web/` (the web client), so
+  both stay generated from it; a change there usually reaches `web/` and
+  `docs/` too. Its errors are RFC 9457 problem details, whose rules are in
+  `internal/webserver/CLAUDE.md`.
 
 - **The web server does not sanitize on the way out**, though the store's rule
   above asks the seam that renders stored text to: the web's rendering seam is
