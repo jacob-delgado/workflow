@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"io"
 	"slices"
 	"strings"
 
@@ -12,6 +13,47 @@ import (
 	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
 )
+
+// FormDeps hands a form the terminal to ask its questions as plain prompts,
+// one at a time, which a screen reader reads as it would any command's. It
+// takes the terminal while it asks, as the editor does.
+type FormDeps struct {
+	// Ask runs form's prompts and delivers done's message, with the error that
+	// stopped it if any, once it has its answers. Nil hands the program's
+	// terminal to Huh's accessible prompts through tea.Exec.
+	Ask func(form *huh.Form, done func(error) tea.Msg) tea.Cmd
+}
+
+// ask hands form the terminal for its prompts, through the seam if one is
+// given.
+func (d Deps) ask(form *huh.Form, done func(error) tea.Msg) tea.Cmd {
+	if d.Forms.Ask == nil {
+		return tea.Exec(promptedForm{form: form}, done)
+	}
+
+	return d.Forms.Ask(form, done)
+}
+
+// promptedForm is a form run as Huh's accessible prompts on the terminal
+// tea.Exec hands it.
+type promptedForm struct{ form *huh.Form }
+
+var _ tea.ExecCommand = promptedForm{}
+
+// Run asks the form's questions one at a time.
+func (p promptedForm) Run() error {
+	// Trade-off TRADE-47: the form takes the whole terminal while it asks.
+	return p.form.WithAccessible(true).Run() //nolint:wrapcheck // Huh's own words for a prompt it could not ask
+}
+
+// SetStdin is where the answers are read.
+func (p promptedForm) SetStdin(in io.Reader) { p.form.WithInput(in) }
+
+// SetStdout is where the questions are asked.
+func (p promptedForm) SetStdout(out io.Writer) { p.form.WithOutput(out) }
+
+// SetStderr is where nothing is written: Huh asks on its output alone.
+func (promptedForm) SetStderr(io.Writer) {}
 
 // relaying is an overlay holding a Huh form, which the messages Update has no
 // case of its own for are handed to — the form's own, on their way from one

@@ -42,8 +42,9 @@ func everySettingSet() config.Config {
 	cfg.Taskwarrior = config.Taskwarrior{Program: "/opt/every/task", Disabled: true}
 	cfg.Timing = config.Timing{RequestTimeout: "33s", CIInterval: "44s"}
 	cfg.UI = config.UI{
-		Mouse: true, ASCII: true, Color: "never", Motion: "reduce", Notify: true, CommentsShown: 7, WebShortcuts: true,
-		Keys: map[string]string{refreshAction: reboundRefreshKey},
+		Mouse: true, ASCII: true, Color: "never", Motion: "reduce", Accessible: true, Notify: true, CommentsShown: 7,
+		WebShortcuts: true,
+		Keys:         map[string]string{refreshAction: reboundRefreshKey},
 	}
 
 	return cfg
@@ -108,6 +109,7 @@ func TestEverySettingReadsTheValueItsPathHolds(t *testing.T) {
 		{toggledOn, "Capture the mouse"},
 		{"Color", "Never"},
 		{"Motion", "Reduced"},
+		{toggledOn, "Ask forms as plain prompts"},
 		{toggledOn, "Ring the terminal when CI finishes"},
 		{"Comments shown", "7"},
 		{toggledOn, "Single-key shortcuts on the web page"},
