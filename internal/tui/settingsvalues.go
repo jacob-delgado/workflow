@@ -78,16 +78,38 @@ func (f settingsForm) edited() (config.Config, error) {
 }
 
 // parsed is a configuration's JSON form held to the standard a file on disk
-// is, or why it falls short, on one line.
+// is, or why it falls short.
 func parsed(read []byte) (config.Config, error) {
 	cfg, err := config.Parse(bytes.NewReader(read))
 	if err != nil {
-		reason := strings.TrimPrefix(err.Error(), config.ErrInvalid.Error()+": ")
-
-		return config.Config{}, fmt.Errorf("%w: %s", errSettingsInvalid, strings.ReplaceAll(reason, "\n", "; "))
+		return config.Config{}, invalidSettingsError{parseErr: err}
 	}
 
 	return cfg, nil
+}
+
+// invalidSettingsError is why a configuration falls short of the standard a
+// file on disk is: config.Parse's refusal, said on one line in Settings'
+// words, which still names each setting it refuses, for their rows to be
+// marked.
+type invalidSettingsError struct {
+	parseErr error
+}
+
+var _ error = invalidSettingsError{}
+
+// Error is the refusal on one line, after Settings' own words for it in
+// place of the file's name, which a configuration being edited is not yet.
+func (e invalidSettingsError) Error() string {
+	reason := strings.TrimPrefix(e.parseErr.Error(), config.ErrInvalid.Error()+": ")
+
+	return errSettingsInvalid.Error() + ": " + strings.ReplaceAll(reason, "\n", "; ")
+}
+
+// Unwrap is Settings' kind of refusal and config.Parse's own, so
+// errors.Is finds either and config.FieldErrors each setting refused.
+func (e invalidSettingsError) Unwrap() []error {
+	return []error{errSettingsInvalid, e.parseErr}
 }
 
 // seed is a configuration's JSON form, read back as values, or why it could

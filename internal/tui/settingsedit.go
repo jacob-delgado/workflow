@@ -360,10 +360,12 @@ func (f settingsForm) text(field setting) string {
 	return text
 }
 
-// with is the form with a setting's value edited.
+// with is the form with a setting's value edited, and every refusal of it
+// still standing, a write's or Settings' own check's, taken away.
 func (f settingsForm) with(path string, value any) settingsForm {
 	f.edits = maps.Clone(f.edits)
 	f.edits[path] = value
+	f.refusals = f.refusals.without(path)
 
 	return f
 }

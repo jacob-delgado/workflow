@@ -1029,25 +1029,35 @@ token takes the access token made from them too. With no other edits,
 workflow then reopens as after a save; otherwise Settings stays open, says
 what was removed, and keeps your edits for `ctrl+s`.
 
-A save is checked as a file on disk is, and as the web's is: a value the
-configuration refuses, or a `ui.keys` map the interface would not start on,
-is named and nothing is written. It writes the file Settings read, the
-repository's over your home's as described in
-[Configuration]({{< relref "/docs/configuration" >}}), and only while that
-file is as Settings found it: one changed since — edited on disk, or saved
-from the web — is not written over, and `r` reads it again in place of your
-edits. Slack's user-token secrets are kept where the web's Settings keeps
-them, and so is a Jira token you type: on macOS, in the keychain item for
-the Jira address, the file saved reading it from there, which the row under
-the token turns on and off. Once saved, workflow reopens in the same directory, as a switch to
-another one does, so what was saved applies at once; the session's Jira
-comments, Tasks view and Summary period go with it. When reopening would lose
-work — a commit message or pull request being written, an announcement waiting
-for CI, a comment on a forge issue — it asks first, naming what, and `esc`
-stays, keeping the save for when workflow next opens. A directory that cannot
-be reopened with the new configuration reopens as it was, saying why. `esc`
-leaves Settings without saving, and under `--dry-run` `ctrl+s` says what it
-would have saved.
+A save is checked as a file on disk is, and as the web's is, and nothing is
+written while anything is refused. Each setting refused, by that check or by the
+write after it, is marked under its own row with why — a list under its first
+row — and the cursor goes to the first of them. The marks stay as you move, and
+changing a refused setting takes its mark away. A save held back by that check
+leaves what the write refused marked, with the write's reason where both refused
+one setting, and goes to the first setting the check refused that the write had
+not, or, when there is none, to the first the write refused; a save that is
+sent takes every mark away, and the write judges every setting afresh. A
+refused removal keeps every mark, since it writes the file as read, without
+your edits; it marks each setting it refuses beside them, with its own reason
+where one was marked already, and goes to the first of those. A refusal no row
+stands for, such as a `ui.keys` map the interface would not start on, is said
+below the rows. A save writes the file Settings read, the repository's over
+your home's as described in
+[Configuration]({{< relref "/docs/configuration" >}}), and only while that file
+is as Settings found it: one changed since — edited on disk, or saved from the
+web — is not written over, and `r` reads it again in place of your edits.
+Slack's user-token secrets are kept where the web's Settings keeps them, and so
+is a Jira token you type: on macOS, in the keychain item for the Jira address,
+the file saved reading it from there, which the row under the token turns on and
+off. Once saved, workflow reopens in the same directory, as a switch to another
+one does, so what was saved applies at once; the session's Jira comments, Tasks
+view and Summary period go with it. When reopening would lose work — a commit
+message or pull request being written, an announcement waiting for CI, a comment
+on a forge issue — it asks first, naming what, and `esc` stays, keeping the save
+for when workflow next opens. A directory that cannot be reopened with the new
+configuration reopens as it was, saying why. `esc` leaves Settings without
+saving, and under `--dry-run` `ctrl+s` says what it would have saved.
 
 ## Dry run
 

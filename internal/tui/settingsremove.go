@@ -152,6 +152,16 @@ func (f settingsForm) readWithout(removal credentialRemoval) (config.Config, err
 	return parsed(read)
 }
 
+// removalFailed marks each setting a refused removal names on its row, beside
+// every mark before, and pins what is left of the refusal in the form, as a
+// refused save's is.
+func (f settingsForm) removalFailed(err error) settingsForm {
+	marked, unmarked := f.markedByRemoval(err)
+	marked.send = marked.send.failed(unmarked)
+
+	return marked
+}
+
 // settingsRemoved is a credential removed, with what was written, or why it
 // was not.
 type settingsRemoved struct {
@@ -172,7 +182,7 @@ func (msg settingsRemoved) apply(m Model) (Model, tea.Cmd) {
 
 	switch {
 	case msg.err != nil:
-		m.overlay = form.failed(savedRefusal(msg.err))
+		m.overlay = form.removalFailed(savedRefusal(msg.err))
 
 		return m, nil
 	case len(form.edits) == 0:
