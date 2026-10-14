@@ -5,6 +5,11 @@ package workdirs
 
 import "unicode"
 
+// Trade-off TRADE-52: Matching and the rules below it are written again in
+// web/src/features/repositories/dirFilter.ts, and both copies answer to the
+// one case file testdata/twins/directory_match.json, so a change to either
+// alone fails its own tests.
+
 // Match is an entry whose name holds what was typed, letter by letter in
 // order: where in the name each letter matched, and whether the name starts
 // with them.

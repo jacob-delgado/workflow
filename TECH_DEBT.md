@@ -1167,3 +1167,29 @@ check but not the words, saying `needs a value` where the server says
 **Reopen when.** A client rule refuses a value the server accepts, or the
 server can be asked to check a configuration without saving it, which would
 let Settings ask rather than copy.
+
+### TRADE-52 The directory matcher is written twice
+
+The directory picker narrows a listing to the names holding what was typed,
+letter by letter in order and in any case, those starting with it first, in
+the terminal (`workdirs.Matching`, `internal/workdirs/match.go`) and in the
+web (`matching`, `web/src/features/repositories/dirFilter.ts`), each as the
+name is typed. Both copies read their cases from one file,
+`testdata/twins/directory_match.json`, and each decodes it strictly, so a case
+one side would not read fails rather than passing unread.
+
+**Decided.** 2026-10-14 by the maintainer, in the tech-debt pull request that
+found the two copies disagreeing on İ: the web's dialog narrows on every
+keystroke, and asking the server to rank the names would be a request per
+letter for a listing the page already holds, while the terminal matches
+without the API at all.
+
+**Cost.** A change to how a name matches is made twice, against one shared
+case file that fails whichever copy disagrees with it; a name the file holds no
+case for can still match differently. The two lower letters through different
+tables, Go's and the browser's, so a letter one of them knows and the other
+does not yet lowers on one surface alone.
+
+**Reopen when.** The server comes to rank a listing's names for another
+reason, or the two copies are found to disagree on a name the file does not
+hold.
