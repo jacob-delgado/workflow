@@ -8,7 +8,7 @@ import { Meta } from '@/lib/Meta.tsx'
 import { OutcomeLine, useOutcome, type Teller } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn, plural } from '@/lib/utils.ts'
-import { sectionMeta } from '@/shell/sections.ts'
+import { sectionMeta, sectionOf } from '@/shell/sections.ts'
 import { StateMark, type MarkState } from '@/lib/StateMark.tsx'
 import { useUiStore, type Section } from '@/shell/uiStore.ts'
 import { checkoutBranch } from './checkoutApi.ts'
@@ -63,23 +63,6 @@ interface Stage {
 // The issue's place in the loop: no local branch yet, a branch that is not
 // checked out, or the branch on HEAD.
 type Place = 'not-started' | 'elsewhere' | 'on-head'
-
-// sectionOf is the section a stage of the loop opens, by its step: the issue
-// picked up, branched for, the work committed, the pull request opened and CI
-// green, and announced.
-function sectionOf(step: Step): Section {
-  switch (step) {
-    case 'issue':
-      return 'issues'
-    case 'branch':
-    case 'commits':
-      return 'branch'
-    case 'review':
-      return 'review'
-    case 'announce':
-      return 'messaging'
-  }
-}
 
 // buildStages is the issue's story over the stages the server sends for it,
 // each drawn in the state the server read it in; only each stage's detail

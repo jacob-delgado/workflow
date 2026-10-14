@@ -10,6 +10,7 @@ import {
   Settings,
   type LucideIcon,
 } from 'lucide-react'
+import type { Stage } from '@/api/generated/types.gen.ts'
 import type { Section } from './uiStore.ts'
 
 // The label, rail icon and hue of each section — one source, read by the nav
@@ -44,4 +45,21 @@ export function sectionLabel(section: Section, service: string | undefined): str
   }
 
   return sectionMeta[section].label
+}
+
+// sectionOf is the section a stage of the loop opens, by its step: the issue
+// picked up, branched for, the work committed, the pull request opened and CI
+// green, and announced. Its hue is the stage's, wherever the loop is drawn.
+export function sectionOf(step: Stage['step']): Section {
+  switch (step) {
+    case 'issue':
+      return 'issues'
+    case 'branch':
+    case 'commits':
+      return 'branch'
+    case 'review':
+      return 'review'
+    case 'announce':
+      return 'messaging'
+  }
 }
