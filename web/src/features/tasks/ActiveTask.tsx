@@ -25,15 +25,14 @@ export function useNow(): number {
   return now
 }
 
-// ActiveTask is the header's chip for the task you have started: its mark, what
-// it is and how long it has run, as the terminal's spine ends with it — a
+// ActiveTask is the loop track's chip for the task you have started: its mark,
+// what it is and how long it has run, as the terminal's spine ends with it — a
 // button that opens the Tasks section. Nothing is drawn while no task is
-// started, nor where Taskwarrior is not available. The chip sits in the room
-// between the header's ends, which it never grows past: from a flex basis of
-// nothing, the header's row never wraps for it, and a long description is cut
-// short rather than push the header's controls onto a row of their own. The
-// chip is keyed on the task, so its clock starts as the task appears, not as
-// the page opened.
+// started, nor where Taskwarrior is not available. The chip ends the track's
+// row, in what room the stages leave it; where they leave too little, it wraps
+// onto a row of its own, and a long description is cut short rather than
+// widen the row. The chip is keyed on the task, so its clock starts as the
+// task appears, not as the page opened.
 export function ActiveTask() {
   const tasks = useSnapshotStore((state) => state.snapshot?.tasks)
   const active = tasks?.available === true ? tasks.active : undefined
@@ -43,7 +42,7 @@ export function ActiveTask() {
   }
 
   return (
-    <div className="flex min-w-0 flex-1 basis-0 justify-center">
+    <div className="flex min-w-0 flex-1 basis-48 justify-end">
       <Chip key={active.uuid} task={active} />
     </div>
   )

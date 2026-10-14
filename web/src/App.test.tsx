@@ -171,7 +171,7 @@ test('opens the Tasks section on your tasks', async () => {
   expect(document.activeElement).toBe(screen.getByRole('main'))
 })
 
-test('the header shows the task you have started, and its chip opens Tasks', async () => {
+test('the loop track ends with the task you have started, and its chip opens Tasks', async () => {
   // Arrange
   const user = userEvent.setup()
   const started = taskStanding(makeTask(), { start: new Date().toISOString() }, standing.started)
@@ -187,13 +187,15 @@ test('the header shows the task you have started, and its chip opens Tasks', asy
       ),
     )
   })
-  const chip = within(screen.getByRole('banner')).getByRole('button', { name: /active task/i })
+  const chip = screen.getByRole('button', { name: /active task/i })
 
   // Act
   await user.click(chip)
 
   // Assert
   expect(chip.textContent).toContain(started.description)
+  const track = screen.getByRole('list', { name: 'Where the checked-out branch is in the loop' })
+  expect(track.compareDocumentPosition(chip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   const rail = screen.getByRole('navigation', { name: 'Sections' })
   expect(within(rail).getByRole('button', { name: 'Tasks' }).getAttribute('aria-current')).toBe(
     'page',
