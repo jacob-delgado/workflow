@@ -6,6 +6,8 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"math"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -57,4 +59,43 @@ func postingIn(settings config.Messaging, channel string) (config.Messaging, err
 	posting.Channel = chosen
 
 	return posting, nil
+}
+
+// rootFlags are the root's flags: a dry run, which every command reads, and
+// --web and --port, which choose what bare workflow opens.
+type rootFlags struct {
+	dryRun bool
+	web    bool
+	port   int
+}
+
+// declare declares the flags on root: --dry-run and --log once, for every
+// command, so a script passes them before the command's name or after it, and
+// each command reads them back by name; --web and --port on the root alone.
+func (f *rootFlags) declare(root *cobra.Command) {
+	root.PersistentFlags().BoolVarP(&f.dryRun, dryRunFlag, dryRunShorthand, false,
+		"hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, "+
+			"and say what it would have done")
+	root.PersistentFlags().String(logFlag, "",
+		"append a one-line outline of each request (method, path, status, duration) to `FILE`, for a bug report")
+	root.Flags().BoolVar(&f.web, "web", false,
+		"serve the web interface on http://127.0.0.1 instead of opening the terminal interface")
+	root.Flags().IntVar(&f.port, portFlag, defaultWebPort, "the port --web serves on, from 1 to 65535")
+}
+
+// checkPort refuses, as a mistake in the call, --port without --web, where
+// nothing listens on it, and a port no listener can take.
+func checkPort(cmd *cobra.Command, web bool, port int) error {
+	var why string
+
+	switch {
+	case !web && cmd.Flags().Changed(portFlag):
+		why = "it takes effect only with --web"
+	case port < 1 || port > math.MaxUint16:
+		why = "it must be from 1 to 65535"
+	default:
+		return nil
+	}
+
+	return fmt.Errorf(`%w %q for "--port" flag: %s`, errUsage, strconv.Itoa(port), why)
 }
