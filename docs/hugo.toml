@@ -5,8 +5,9 @@
 #
 # The theme arrives as a Hugo Module, which is Go's module system: the exact
 # version is pinned in docs/go.mod and docs/go.sum, and updating it is a
-# reviewable diff rather than a moving target. That also keeps the site
-# Node-free, which the rest of this repo already is.
+# reviewable diff rather than a moving target. That also keeps the site's
+# build Node-free: it needs Go and Hugo alone, though the web app in web/
+# builds with Node.
 
 baseURL = "https://jacob-delgado.github.io/workflow/"
 # `locale`, not `languageCode`: the latter is deprecated as of Hugo 0.158.
