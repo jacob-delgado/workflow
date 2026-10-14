@@ -100,6 +100,71 @@ function color(tokens: Map<string, string>, name: string): string {
   return value
 }
 
+// declared is what a rule's block declares for a property, its whitespace
+// run together, or undefined where the block leaves it out.
+function declared(block: string, property: string): string | undefined {
+  const escaped = property.replaceAll('-', '\\-')
+
+  return new RegExp(`(?:^|[\\s;{])${escaped}:\\s*([^;]+);`)
+    .exec(block)?.[1]
+    ?.replaceAll(/\s+/g, ' ')
+    .trim()
+}
+
+// families is a font stack's faces in order, each without its quotes.
+function families(stack: string | undefined): string[] {
+  return (stack ?? '').split(',').map((face) => face.trim().replaceAll(/^'|'$/g, ''))
+}
+
+// blocksOf is the body of every rule the stylesheet opens with opening, in
+// order.
+function blocksOf(opening: string): string[] {
+  return css
+    .split(opening)
+    .slice(1)
+    .map((rest) => rest.slice(0, rest.indexOf('}')))
+}
+
+// The page's own face: Recursive, its latin mono file alone, the one variable
+// font whose MONO axis sets code apart from prose without a second family.
+const face = 'Recursive Variable'
+
+test('the page loads one face, Recursive’s latin mono file, swapped in as it arrives', () => {
+  // Act
+  const faces = blocksOf('@font-face {')
+
+  // Assert
+  expect(faces).toHaveLength(1)
+  const [only = ''] = faces
+  expect(families(declared(only, 'font-family'))).toEqual([face])
+  expect(declared(only, 'src')).toMatch(
+    /^url\('[^']*\/recursive-latin-mono-normal\.woff2'\) format\('woff2-variations'\)$/,
+  )
+  expect(declared(only, 'font-display')).toBe('swap')
+  expect(declared(only, 'font-weight')).toBe('300 1000')
+  expect(declared(only, 'unicode-range')).toMatch(/^U\+0000-00FF,/)
+})
+
+test.each([
+  ['--font-sans', "'MONO' 0", 'system-ui', 'sans-serif'],
+  ['--font-mono', "'MONO' 1", 'ui-monospace', 'monospace'],
+])(
+  '%s is Recursive at %s, falling back to the platform’s own face',
+  (font, axis, platform, generic) => {
+    // Arrange
+    const [theme = ''] = blocksOf('@theme {')
+
+    // Act
+    const stack = families(declared(theme, font))
+
+    // Assert
+    expect(stack[0]).toBe(face)
+    expect(stack[1]).toBe(platform)
+    expect(stack.at(-1)).toBe(generic)
+    expect(declared(theme, `${font}--font-variation-settings`)).toBe(axis)
+  },
+)
+
 // selectionTokens are the tokens the page's ::selection rule draws selected
 // text in and on, or a name no theme declares when either is not a token.
 function selectionTokens(): { ground: string; text: string } {

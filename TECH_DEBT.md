@@ -815,3 +815,24 @@ script by hand where Homebrew is installed, or leaves it to CI.
 **Reopen when.** The audit fails a pull request over a Homebrew change more
 than rarely, or a pinned `Homebrew/actions/setup-homebrew` becomes worth
 approving as a new action.
+
+### TRADE-48 The web page's face carries latin alone
+
+**Decided.** The `--web` page is set in Recursive
+(`@fontsource-variable/recursive`), and `web/src/index.css` declares one
+`@font-face`, the package's latin file with the weight and MONO axes
+(`recursive-latin-mono-normal.woff2`, 72,560 bytes), swapped in as it arrives.
+The latin-extended and Vietnamese files, and the CASL, CRSV and slant axes, are
+left out. Decided 2026-10-14 by the maintainer, in the UX refresh's web pull
+request, over carrying every subset the package ships.
+
+**Cost.** Text outside the latin range a forge, a tracker or a person writes —
+a name in Cyrillic, a title in Greek, a Vietnamese comment, even a Polish ł —
+draws in the platform's own face beside Recursive, glyph by glyph, so one line
+can mix two faces. The binary also carries the font: 72.6 kB more in every
+build, whether or not the page is ever served. Until the face arrives, the
+first frame draws in the fallback and then swaps.
+
+**Reopen when.** Someone reads the page in a language the latin file does not
+cover often enough that the mixed faces matter, or the package ships one
+variable file covering more scripts at a size near this one.

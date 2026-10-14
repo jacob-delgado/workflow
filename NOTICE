@@ -3,3 +3,12 @@ Copyright 2026 Jacob Delgado
 
 This product is licensed under the Apache License, Version 2.0.
 See the LICENSE file for details.
+
+The web interface that workflow --web serves is set in Recursive, which the
+binary carries in its built page:
+
+  Recursive
+  Copyright 2019 The Recursive Project Authors (github.com/arrowtype/recursive)
+  Licensed under the SIL Open Font License, Version 1.1. The license is
+  web/public/fonts/Recursive-OFL.txt, and the page serves it beside the font,
+  at /fonts/Recursive-OFL.txt.

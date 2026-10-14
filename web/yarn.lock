@@ -523,6 +523,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@fontsource-variable/recursive@npm:^5.3.0":
+  version: 5.3.0
+  resolution: "@fontsource-variable/recursive@npm:5.3.0"
+  checksum: 10c0/97a875a35f86a4d2b0ed658852db271a64be4aa77dbfc8dcd5d116fea15fd8d90619c0743b1de3d4b5b2f5e286a272adcaf35579f013e673eceee5cf061ec342
+  languageName: node
+  linkType: hard
+
 "@hey-api/codegen-core@npm:0.9.1":
   version: 0.9.1
   resolution: "@hey-api/codegen-core@npm:0.9.1"
@@ -6211,6 +6218,7 @@ __metadata:
     "@axe-core/playwright": "npm:^4.13.0"
     "@eslint-community/eslint-plugin-eslint-comments": "npm:^4.8.1"
     "@eslint/js": "npm:^9.39.5"
+    "@fontsource-variable/recursive": "npm:^5.3.0"
     "@hey-api/openapi-ts": "npm:^0.99.0"
     "@playwright/test": "npm:^1.64.0"
     "@tailwindcss/vite": "npm:^4.3.3"
