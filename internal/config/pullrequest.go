@@ -27,7 +27,7 @@ func (c Config) validatePullRequest() error {
 	case "", convention.TitleFromCommit, convention.TitleFromIssue:
 		return nil
 	default:
-		return fmt.Errorf("%w: title_source is commit or issue: %q",
-			ErrInvalidPullRequest, c.PullRequest.TitleSource)
+		return refusing("pull_request.title_source", fmt.Errorf("%w: title_source is commit or issue: %q",
+			ErrInvalidPullRequest, c.PullRequest.TitleSource))
 	}
 }

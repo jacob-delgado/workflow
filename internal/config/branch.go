@@ -51,15 +51,18 @@ func (b Branch) Naming() convention.BranchNaming {
 // nothing can read back.
 func (c Config) validateBranch() error {
 	if c.Branch.Template != "" && !strings.Contains(c.Branch.Template, keyPlaceholder) {
-		return fmt.Errorf("%w: must contain %s: %q", ErrInvalidBranch, keyPlaceholder, c.Branch.Template)
+		return refusing("branch.template",
+			fmt.Errorf("%w: must contain %s: %q", ErrInvalidBranch, keyPlaceholder, c.Branch.Template))
 	}
 
 	if c.Branch.SlugLimit < 0 {
-		return fmt.Errorf("%w: slug_limit cannot be negative: %d", ErrInvalidBranch, c.Branch.SlugLimit)
+		return refusing("branch.slug_limit",
+			fmt.Errorf("%w: slug_limit cannot be negative: %d", ErrInvalidBranch, c.Branch.SlugLimit))
 	}
 
 	if first, second, same := sameNamed(slices.Collect(maps.Keys(c.Branch.Prefixes)), convention.IssueTypeKey); same {
-		return fmt.Errorf("%w: branch.prefixes %q and %q name the same issue type", ErrSameName, first, second)
+		return refusing("branch.prefixes",
+			fmt.Errorf("%w: branch.prefixes %q and %q name the same issue type", ErrSameName, first, second))
 	}
 
 	return nil
