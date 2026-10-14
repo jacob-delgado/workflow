@@ -14,11 +14,12 @@ export default defineConfig({
   // 127.0.0.1, where its size costs no download worth splitting for, and
   // loading each section apart would only add a wait to its first visit. The
   // warning stays, set a little above the chunk's size, so a jump in what the
-  // page carries is still printed and looked into.
+  // page carries is still printed and looked into; it last rose for Base UI's
+  // Dialog and Autocomplete in place of hand-rolled ARIA.
   build: {
     outDir: '../internal/web/dist',
     emptyOutDir: true,
-    chunkSizeWarningLimit: 800,
+    chunkSizeWarningLimit: 900,
   },
   // `@/` is the src root. Cross-directory imports use it so a file that moves
   // between directories keeps its own imports intact; same-directory siblings

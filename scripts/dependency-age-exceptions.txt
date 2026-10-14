@@ -94,3 +94,5 @@ typos 1.51.1 waived-2026-10-13
 go:golang.org/x/vuln/cmd/govulncheck 1.9.0 waived-2026-10-13
 go:golang.org/x/tools/cmd/deadcode 0.52.0 waived-2026-10-13
 mise 2026.10.8 waived-2026-10-13
+@base-ui/react 1.9.0 waived-2026-10-14
+@base-ui/utils 0.5.0 waived-2026-10-14

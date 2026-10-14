@@ -107,7 +107,7 @@ test('an action on a key the page cannot bind is listed as the palette', async (
   expect(within(issues).getByRole('row', { name: 'palette load more' })).toBeTruthy()
 })
 
-test('a press on the backdrop closes the sheet', async () => {
+test('a press outside the sheet closes it', async () => {
   // Arrange
   const user = userEvent.setup()
   openOn(withIssue, keysWith(true))
@@ -115,7 +115,7 @@ test('a press on the backdrop closes the sheet', async () => {
   await user.keyboard('?')
 
   // Act
-  await user.click(screen.getByRole('dialog'))
+  await user.click(document.body)
 
   // Assert
   expect(screen.queryByRole('dialog')).toBeNull()
