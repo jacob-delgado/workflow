@@ -153,6 +153,7 @@ function SwitchAsked({ dir, shown, outcome, label, children }: SwitchAskedProps)
         destination={{ dir, shown }}
         switchTo={switchTo}
         teller={outcome}
+        drawn="section"
         onCancel={() => {
           handBack()
           setAsking(false)

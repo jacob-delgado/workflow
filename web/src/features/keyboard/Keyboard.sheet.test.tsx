@@ -1,6 +1,14 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { action, keysWith, withIssue, openOn, commentBox, keysRead } from '@/test/keyboard.tsx'
+import {
+  action,
+  keysWith,
+  withIssue,
+  openOn,
+  commentBox,
+  keysRead,
+  openDirectoryDialog,
+} from '@/test/keyboard.tsx'
 
 // The page's ? sheet, as a user meets it: it lists the terminal's keys the
 // page binds, under each pane's own heading, on the keys ui.keys gives them.
@@ -119,4 +127,17 @@ test('a press outside the sheet closes it', async () => {
 
   // Assert
   expect(screen.queryByRole('dialog')).toBeNull()
+})
+
+test('? opens no sheet over an open dialog', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  await openDirectoryDialog(user)
+
+  // Act
+  await user.keyboard('?')
+
+  // Assert
+  expect(screen.getByRole('dialog', { name: 'Go to a directory' })).toBeTruthy()
+  expect(screen.queryByRole('dialog', { name: 'Keyboard shortcuts' })).toBeNull()
 })
