@@ -47,8 +47,8 @@ format that may still change before 1.0.
 
 ## Where to go next
 
-- **[Install]({{< relref "/docs/install" >}})** — `go install`, release binaries,
-  or build from source.
+- **[Install]({{< relref "/docs/install" >}})** — Homebrew, `go install`,
+  release binaries, or build from source.
 - **[Using workflow]({{< relref "/docs/usage" >}})** — the panes, the keys,
   and the loop from issue to announcement.
 - **[The web interface]({{< relref "/docs/web" >}})** — `workflow --web`: its
