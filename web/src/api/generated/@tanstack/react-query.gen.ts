@@ -626,7 +626,7 @@ export const getDirectoriesQueryKey = (options?: Options<GetDirectoriesData>) =>
 /**
  * The directories in one, to browse for a directory to switch to.
  *
- * Lists the directories in the one path names — from where the server works, or from your home after a ~ — or in where the server works when path is not given. A directory linked to is listed with them; a hidden one is not, and is reached by naming it. Each says whether it is a repository's root. At most a thousand are listed. Refused with 404 when the directory is not there and 422 when it cannot be listed; neither detail repeats the path. Reading works under --dry-run.
+ * Lists the directories in the one path names — from where the server works, or from your home after a ~ — or in where the server works when path is not given. A directory linked to is listed with them; a hidden one is not, and is reached by naming it. Each says whether it is a repository's root. At most a thousand are listed, first by name; a prefix narrows the listing to the names starting with it, which reaches one past the first thousand. Refused with 404 when the directory is not there and 422 when it cannot be listed; neither detail repeats the path. Reading works under --dry-run.
  */
 export const getDirectoriesOptions = (options?: Options<GetDirectoriesData>) => queryOptions<GetDirectoriesResponse, GetDirectoriesError, GetDirectoriesResponse, ReturnType<typeof getDirectoriesQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {

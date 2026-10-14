@@ -90,7 +90,8 @@ func (s *server) changeFavorite(
 }
 
 // GetDirectories lists the directories in the one asked for, or in where the
-// server works.
+// server works: those whose names start with the prefix asked for, when one
+// is.
 func (s *server) GetDirectories(
 	_ context.Context, request api.GetDirectoriesRequestObject,
 ) (api.GetDirectoriesResponseObject, error) {
@@ -102,7 +103,7 @@ func (s *server) GetDirectories(
 
 	dir := workdirs.Resolve(given(request.Params.Path), repositories.Here.Dir, repositories.Home)
 
-	listing, err := repositories.Subdirectories(dir, "")
+	listing, err := repositories.Subdirectories(dir, given(request.Params.Prefix))
 	if err != nil {
 		return problemAnswer[api.GetDirectoriesdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
