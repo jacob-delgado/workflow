@@ -13,12 +13,12 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
-// readBranchOnto reads the branch again onto the base the composer's field now
-// names, once focus has left it, so the title, the body and the reviewers are
-// proposed from the commits that pull request would merge. A base left as it
-// was drafted onto, or left empty, reads nothing.
+// readBranchOnto reads the branch again onto the base the composer was
+// answered with, so the title, the body and the reviewers are proposed from
+// the commits that pull request would merge. A base left as it was drafted
+// onto, or left empty, reads nothing.
 func readBranchOnto(ctx context.Context, deps Deps, composer prComposer) tea.Cmd {
-	read, base := deps.Git.BranchOnto, strings.TrimSpace(composer.base.Value())
+	read, base := deps.Git.BranchOnto, strings.TrimSpace(composer.answers.base)
 	if read == nil || base == "" || base == composer.draftedOnto {
 		return nil
 	}
@@ -43,28 +43,43 @@ type branchOntoRead struct {
 
 var _ applier = branchOntoRead{}
 
-// apply drafts the composer again from the commits past the base, unless the
-// composer has closed or is being sent, or its base names another branch by
-// now. A base that could not be read, or that the branch holds nothing past,
-// keeps the draft it has: the forge says what is wrong with it on open.
+// apply drafts the composer again from the commits past the base, and reads
+// the owners again for reviewers still untyped over. A base that could not be
+// read, or that the branch holds nothing past, keeps the draft it has: the
+// forge says what is wrong with it on open. Nothing changes once the composer
+// has closed.
 func (read branchOntoRead) apply(m Model) (Model, tea.Cmd) {
 	composer, open := m.overlay.(prComposer)
-	if !open || composer.opened != read.opened || composer.send.sending ||
-		strings.TrimSpace(composer.base.Value()) != read.base || read.err != nil || len(read.branch.Commits) == 0 {
+	if !open || composer.opened != read.opened {
 		return m, nil
 	}
 
-	composer = composer.draftedFrom(read.base, read.branch.Commits)
+	composer.awaiting.onto = false
 
 	var reviewers tea.Cmd
-	if !composer.reviewersSettled || composer.reviewers.Value() == composer.reviewersProposed {
-		composer.reviewersSettled = false
-		reviewers = readReviewers(m.session, m.deps, composer)
+	if read.err == nil && len(read.branch.Commits) > 0 {
+		composer, reviewers = composer.redrafted(m, read.base, read.branch.Commits)
 	}
 
-	m.overlay = composer
+	m, opening := composer.settled(m)
 
-	return m, reviewers
+	return m, tea.Batch(reviewers, opening)
+}
+
+// redrafted is the composer drafted again from the commits past base, and
+// the read of the owners for reviewers still untyped over, which it then
+// waits on.
+func (c prComposer) redrafted(m Model, base string, commits []gitrepo.Commit) (prComposer, tea.Cmd) {
+	c = c.draftedFrom(base, commits)
+	if c.reviewersSettled && c.answers.reviewers != c.reviewersProposed {
+		return c, nil
+	}
+
+	c.reviewersSettled = false
+	reviewers := readReviewers(m.session, m.deps, c)
+	c.awaiting.reviewers = reviewers != nil
+
+	return c, reviewers
 }
 
 // draftedFrom proposes the title and body again from commits, the branch's past
@@ -76,13 +91,12 @@ func (c prComposer) draftedFrom(base string, commits []gitrepo.Commit) prCompose
 	c.proposedFrom.Subjects = loop.Subjects(commits)
 	c.draftedOnto = base
 
-	if c.title.Value() == proposed {
-		title, _ := loop.Draft(c.proposedFrom)
-		c.title.SetValue(title)
+	if c.answers.title == proposed {
+		c.answers.title, _ = loop.Draft(c.proposedFrom)
 	}
 
 	if !c.edited {
-		c = c.withTemplate(c.template)
+		c = c.withTemplate(c.answers.template)
 	}
 
 	return c

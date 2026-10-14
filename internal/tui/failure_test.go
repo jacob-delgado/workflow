@@ -222,7 +222,7 @@ func TestARefusedForgeWriteLeadsWithTheWriteScope(t *testing.T) {
 		"opening a pull request": {
 			start:   withoutPull,
 			prepare: func(w *world) { w.openErr = refused },
-			keys:    []string{"4", "n", keyEnter},
+			keys:    []string{"4", "n", keyEnter, keyEnter},
 			want:    lacksWriteScope,
 		},
 		"editing a pull request": {
@@ -240,7 +240,7 @@ func TestARefusedForgeWriteLeadsWithTheWriteScope(t *testing.T) {
 		"adding the reviewers to a pull request that opened": {
 			start:   withoutPull,
 			prepare: func(w *world) { w.reviewerErr = refused },
-			keys:    append(append([]string{"4", "n", keyTab, keyTab}, letters("ana")...), keyEnter),
+			keys:    []string{"4", "n", keyEnter, keyTab, keyTab, pasted("ana"), keyEnter},
 			want:    "could not add every reviewer, assignee or label: the forge refused the request",
 		},
 	}

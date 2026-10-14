@@ -16,14 +16,14 @@ import (
 // request is the pull request the composer describes. A reviewer named
 // org/team is a team, which the forge is asked for apart from the people.
 func (c prComposer) request() forge.NewPullRequest {
-	users, teams := loop.SplitReviewers(splitList(c.reviewers.Value()))
+	users, teams := loop.SplitReviewers(splitList(c.answers.reviewers))
 
 	return forge.NewPullRequest{
-		Title: strings.TrimSpace(c.title.Value()), Body: c.body, Head: forge.Head{Branch: c.head},
-		Base: strings.TrimSpace(c.base.Value()), Draft: c.draft,
+		Title: strings.TrimSpace(c.answers.title), Body: c.body, Head: forge.Head{Branch: c.head},
+		Base: strings.TrimSpace(c.answers.base), Draft: c.answers.draft,
 		Reviewers: users, TeamReviewers: teams,
-		Assignees: splitList(c.assignees.Value()),
-		Labels:    splitList(c.labels.Value()),
+		Assignees: splitList(c.answers.assignees),
+		Labels:    splitList(c.answers.labels),
 	}
 }
 
@@ -171,21 +171,20 @@ type prDraft struct {
 // snapshot is the composer's editable state, to reopen on.
 func (c prComposer) snapshot() prDraft {
 	return prDraft{
-		branch: c.head, title: c.title.Value(), base: c.base.Value(), body: c.body,
-		reviewers: c.reviewers.Value(), assignees: c.assignees.Value(), labels: c.labels.Value(),
-		template: c.template, draft: c.draft, edited: c.edited, reviewersSettled: c.reviewersSettled,
+		branch: c.head, title: c.answers.title, base: c.answers.base, body: c.body,
+		reviewers: c.answers.reviewers, assignees: c.answers.assignees, labels: c.answers.labels,
+		template: c.answers.template, draft: c.answers.draft, edited: c.edited, reviewersSettled: c.reviewersSettled,
 		draftedOnto: c.draftedOnto, reviewersProposed: c.reviewersProposed, subjects: c.proposedFrom.Subjects,
 	}
 }
 
 // restore fills the composer from a kept draft.
 func (c prComposer) restore(draft prDraft) prComposer {
-	c.title.SetValue(draft.title)
-	c.base.SetValue(draft.base)
-	c.reviewers.SetValue(draft.reviewers)
-	c.assignees.SetValue(draft.assignees)
-	c.labels.SetValue(draft.labels)
-	c.body, c.template, c.draft, c.edited = draft.body, draft.template, draft.draft, draft.edited
+	c.answers = &prAnswers{
+		title: draft.title, base: draft.base, reviewers: draft.reviewers, assignees: draft.assignees,
+		labels: draft.labels, template: draft.template, draft: draft.draft,
+	}
+	c.body, c.edited = draft.body, draft.edited
 	c.reviewersSettled = draft.reviewersSettled
 	c.draftedOnto, c.reviewersProposed = draft.draftedOnto, draft.reviewersProposed
 	c.proposedFrom.Subjects = draft.subjects

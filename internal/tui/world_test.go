@@ -46,6 +46,8 @@ const (
 	keyLeft      = "left"
 	keyCtrlO     = "ctrl+o"
 	keyBackspace = "backspace"
+	// keyClearLine clears a text field up to its cursor.
+	keyClearLine = "ctrl+u"
 	keyHome      = "home"
 	keyEnd       = "end"
 	keyUp        = "up"

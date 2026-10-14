@@ -143,7 +143,7 @@ func pasteTargets() map[string]pasteTarget {
 			world: newWorld, keys: []string{"2", "b"}, pastedX: "> fix/PROJ-412-fix-token-redactionx",
 		},
 		"the pull request composer's title": {
-			world: withoutPull, keys: []string{"4", "n"}, pastedX: "> " + pullTitle + "x",
+			world: withoutPull, keys: []string{"4", "n", keyEnter}, pastedX: "> " + pullTitle + "x",
 		},
 		"the pull request editor's title": {
 			world: newWorld, keys: []string{"4", "e"}, pastedX: "> " + pullTitle + "x",

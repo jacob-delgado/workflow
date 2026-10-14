@@ -5,13 +5,13 @@ package tui
 
 import (
 	"errors"
-	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
-	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
 
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -20,10 +20,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
-
-// prLabelWidth is the columns a pull request field's marker, label, prompt and
-// the cursor after the text take.
-const prLabelWidth = 12
 
 // prBodyPreviewLines is how much of a pull request body the composer shows.
 const prBodyPreviewLines = 12
@@ -41,39 +37,61 @@ var (
 	errNoBase  = errors.New("a base branch to merge into is required")
 )
 
-// Pull request composer fields, in the order tab moves through them.
+// prStage is where the pull request composer is: reading what it starts
+// from, asking where the pull request goes, or asking what it says.
+type prStage int
+
 const (
-	prFieldTitle = iota
-	prFieldBase
-	prFieldReviewers
-	prFieldAssignees
-	prFieldLabels
-	prFields
+	prReading prStage = iota
+	prWhere
+	prWhat
 )
 
+// prAnswers is what the composer's forms are answered with, each bound to its
+// Huh field. Every copy of the composer shares it, as they share the form.
+type prAnswers struct {
+	title, base, reviewers, assignees, labels string
+	template                                  int
+	draft                                     bool
+}
+
+// prAwaiting is the reads the composer waits on before its form opens: the
+// templates and remote branches, the issue's title, the code owners, and the
+// branch read again onto a base chosen.
+type prAwaiting struct {
+	starts, title, reviewers, onto bool
+}
+
+// ready reports every read answered.
+func (a prAwaiting) ready() bool {
+	return !a.starts && !a.title && !a.reviewers && !a.onto
+}
+
 // prComposer is a pull request about to be opened, started from the branch's
-// commits and the repository's template, all of it editable.
+// commits and the repository's template, all of it editable: once what it
+// starts from is read, a Huh form asks where it goes, the base and the
+// template, and then another what it says, the title, whether it is a draft,
+// and who reviews it. The body is handed to the editor.
 type prComposer struct {
-	title     textinput.Model
-	base      textinput.Model
-	reviewers textinput.Model
-	assignees textinput.Model
-	labels    textinput.Model
-	focus     int
+	stage    prStage
+	awaiting prAwaiting
+	form     *huh.Form
+	// fields are the open form's fields, in order: previous-field on the
+	// first of what it says goes back to the form before.
+	fields    []huh.Field
+	answers   *prAnswers
 	head      string
+	branches  []string
 	templates []forge.Template
-	template  int
-	// templatesRead reports the repository's templates read, which they are
-	// once the composer is open.
+	// templatesRead reports the repository's templates read.
 	templatesRead bool
 	// proposedFrom is what the title and body were proposed from, which a
 	// template chosen later, or the issue read later, proposes from again.
 	proposedFrom loop.DraftInput
 	// draftedOnto is the base proposedFrom's commits were read past: the
-	// branch's own at first, and each base chosen in the field after it.
+	// branch's own at first, and each base chosen after it.
 	draftedOnto string
 	body        string
-	draft       bool
 	edited      bool
 	// reviewersSettled reports reviewers typed, or filled from the owners,
 	// which a read of the owners then leaves alone. reviewersProposed is what
@@ -82,7 +100,7 @@ type prComposer struct {
 	reviewersSettled  bool
 	reviewersProposed string
 	// opened is the count of overlays opened when this one opened, so the
-	// owners read for it land in it alone.
+	// reads made for it land in it alone.
 	opened int
 	vocab  reviewVocab
 	send   sendState
@@ -92,16 +110,16 @@ var (
 	_ editable             = prComposer{}
 	_ failable[prComposer] = prComposer{}
 	_ pasteable            = prComposer{}
+	_ relaying             = prComposer{}
+	_ waiting              = prComposer{}
 )
 
-// openPullRequestComposer proposes a pull request for the branch, or reopens the
-// draft kept for it. An issue the list does not hold is read for the title
-// without holding the composer back: it opens on the title proposed without the
-// issue, which the issue's answer replaces while it is still untouched. The
-// code owners are read for the reviewers the same way, unless a kept draft
-// already says who reviews: one closed before the owners answered, its
-// reviewers never typed, is read for again. The templates and the remote
-// branches are read after it opens, too.
+// openPullRequestComposer proposes a pull request for the branch, or reopens
+// the draft kept for it, and reads what it starts from: the templates and the
+// remote branches, an issue the list does not hold for the title, and the
+// code owners for the reviewers, unless a kept draft already says who
+// reviews. Its form opens once every read has answered, so nothing it reads
+// changes a field under the cursor.
 func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 	branch := m.branch.branch
 	issueKey, _ := m.branch.issue(m.cfg.Jira.Project)
@@ -113,19 +131,21 @@ func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 		proposed = proposed.restore(m.prDraft)
 	}
 
-	m.overlay = proposed
-
-	var reviewers tea.Cmd
+	var reviewers, title tea.Cmd
 	if !proposed.reviewersSettled {
 		reviewers = readReviewers(m.session, m.deps, proposed)
 	}
 
-	starts := readPullRequestStarts(m.session, m.deps, proposed.opened)
-	if listed {
-		return m, tea.Batch(starts, reviewers)
+	if !listed {
+		title = readTitleIssue(m.session, m.deps, proposed)
 	}
 
-	return m, tea.Batch(starts, readTitleIssue(m.session, m.deps, proposed), reviewers)
+	starts := readPullRequestStarts(m.session, m.deps, proposed.opened)
+	proposed.awaiting = prAwaiting{starts: starts != nil, title: title != nil, reviewers: reviewers != nil}
+
+	m, opening := proposed.settled(m)
+
+	return m, tea.Batch(starts, title, reviewers, opening)
 }
 
 // proposePullRequest is the composer filled from the branch's commits, the
@@ -138,16 +158,9 @@ func (m Model) proposePullRequest(branch gitrepo.Branch, issueKey jira.Key, summ
 	title, _ := loop.Draft(proposedFrom)
 
 	composer := prComposer{
-		title:     newInput(title),
-		base:      newInput(branch.BaseName()),
-		reviewers: newInput(""), assignees: newInput(""), labels: newInput(""),
-		focus: prFieldTitle, head: branch.Name, proposedFrom: proposedFrom, draftedOnto: branch.BaseName(),
-		vocab: m.vocab,
+		answers: &prAnswers{title: title, base: branch.BaseName()},
+		head:    branch.Name, proposedFrom: proposedFrom, draftedOnto: branch.BaseName(), vocab: m.vocab,
 	}
-	composer.base.Blur()
-	composer.reviewers.Blur()
-	composer.assignees.Blur()
-	composer.labels.Blur()
 	composer.templatesRead = m.deps.Forge.Templates == nil
 
 	return composer.withTemplate(0)
@@ -155,7 +168,7 @@ func (m Model) proposePullRequest(branch gitrepo.Branch, issueKey jira.Key, summ
 
 // withTemplate starts the body from a template: the repository's, or none.
 func (c prComposer) withTemplate(index int) prComposer {
-	c.template = index
+	c.answers.template = index
 
 	from := c.proposedFrom
 	if index < len(c.templates) {
@@ -167,35 +180,55 @@ func (c prComposer) withTemplate(index int) prComposer {
 	return c
 }
 
-// view shows every part of the pull request as it will be opened.
-func (c prComposer) view(kit renderKit, width, _ int) (string, string) {
-	inner := max(1, width-prLabelWidth)
-	c.title.SetWidth(inner)
-	c.base.SetWidth(inner)
-	c.reviewers.SetWidth(inner)
-	c.assignees.SetWidth(inner)
-	c.labels.SetWidth(inner)
-
-	field := func(focus int, label string, input textinput.Model) string {
-		return kit.marks.marker(c.focus == focus) + fmt.Sprintf("%-9s ", label) + input.View()
+// settled is the composer as the reads answered so far leave it: still
+// reading while any is out, and otherwise asking, where it goes on the way
+// in and what it says once a base is chosen.
+func (c prComposer) settled(m Model) (Model, tea.Cmd) {
+	switch {
+	case !c.awaiting.ready():
+		c.stage = prReading
+	case c.stage == prReading && c.form != nil:
+		return c.asking(m, prWhat, 0)
+	case c.stage == prReading:
+		return c.asking(m, prWhere, 0)
 	}
 
-	lines := kit.pinnedOutcome(c.send, "opening", width)
-	lines = append(lines,
-		field(prFieldTitle, "title", c.title),
-		field(prFieldBase, "base", c.base),
-		field(prFieldReviewers, "reviewers", c.reviewers),
-		field(prFieldAssignees, "assignees", c.assignees),
-		field(prFieldLabels, "labels", c.labels),
-		fmt.Sprintf("  %-9s %s", "head", c.head),
-		"  "+c.templateName(kit)+kit.marks.separator+checkbox(c.draft)+"draft",
-		"",
-	)
+	m.overlay = c
 
+	return m, nil
+}
+
+// view shows every part of the pull request as it will be opened: the form
+// asking now, or what is being read, then where it goes and the body.
+func (c prComposer) view(kit renderKit, width, _ int) (string, string) {
+	lines := kit.pinnedOutcome(c.send, "opening", width)
+
+	if c.stage == prReading {
+		lines = append(lines, kit.marks.turning+" reading what the "+c.vocab.noun+" starts from"+kit.marks.ellipsis)
+	} else {
+		lines = append(lines, c.form.View())
+	}
+
+	lines = append(lines, "", kit.styles.label.Render(c.route(kit)), kit.styles.label.Render(c.summary(kit)), "")
 	body := strings.Split(wrap(strings.TrimRight(c.body, "\n"), width), "\n")
 	lines = append(lines, body[:min(len(body), prBodyPreviewLines)]...)
 
 	return "Open " + c.vocab.noun, strings.Join(lines, "\n")
+}
+
+// route says what the pull request goes from and into.
+func (c prComposer) route(kit renderKit) string {
+	return sanitize.Line(c.head) + kit.marks.arrow + sanitize.Line(strings.TrimSpace(c.answers.base))
+}
+
+// summary says the template the body starts from, and whether the pull
+// request is a draft.
+func (c prComposer) summary(kit renderKit) string {
+	if c.answers.draft {
+		return c.templateName(kit) + kit.marks.separator + "draft"
+	}
+
+	return c.templateName(kit)
 }
 
 // templateName names the template in use, and how many there are to choose
@@ -208,32 +241,56 @@ func (c prComposer) templateName(kit renderKit) string {
 		return "no template in this repository"
 	}
 
-	return "template " + sanitize.Line(c.templates[c.template].Name) +
-		" (" + strconv.Itoa(c.template+1) + " of " + strconv.Itoa(len(c.templates)) + ")"
+	return "template " + sanitize.Line(c.templates[c.answers.template].Name) +
+		" (" + strconv.Itoa(c.answers.template+1) + " of " + strconv.Itoa(len(c.templates)) + ")"
 }
 
-// footer offers every part that can be changed, opening, and leaving.
+// waits reports the composer reading what it starts from, whose mark turns
+// as it waits.
+func (c prComposer) waits() bool {
+	return c.stage == prReading
+}
+
+// footer offers what the field with the keyboard answers, the composer's own
+// keys, going on or opening, and leaving.
 func (c prComposer) footer(keys keyMap) []key.Binding {
-	if c.send.sending {
+	switch {
+	case c.send.sending:
 		return []key.Binding{keys.interrupt}
+	case c.stage == prReading:
+		return []key.Binding{relabel(keys.closeOverlay, escClose)}
 	}
 
-	bindings := []key.Binding{keys.nextField}
-	if c.canNextTemplate() {
+	bindings := formKeys(c.form)
+	if c.stage == prWhat && c.focused() == 0 {
+		bindings = append(bindings, relabel(keys.prevField, "where"))
+	}
+
+	if c.offersTemplate() {
 		bindings = append(bindings, keys.nextTemplate)
 	}
 
-	return append(bindings, keys.toggleDraft, keys.editBody, relabel(keys.confirm, "open"),
+	onward := "open"
+	if c.stage == prWhere {
+		onward = "next"
+	}
+
+	return append(bindings, keys.toggleDraft, keys.editBody, relabel(keys.confirm, onward),
 		relabel(keys.closeOverlay, escClose))
 }
 
-// canNextTemplate reports another template to cycle to that would not overwrite
-// an edited body: ctrl+t is offered only when it can do something safe.
-func (c prComposer) canNextTemplate() bool {
-	return len(c.templates) > 1 && !c.edited
+// offersTemplate reports another template the body can start from, which
+// would not overwrite an edited body: the form offers a choice of them, and
+// ctrl+t moves on to the next, only when that is safe.
+func (c prComposer) offersTemplate() bool {
+	return c.choosesTemplate() && !c.edited
 }
 
-// handleKey answers a key while the pull request is composed.
+// handleKey answers a key while the pull request is composed: esc keeps the
+// draft and closes; apply goes on from the form or opens; the composer's own
+// keys edit the body, cycle the template and turn the draft; previous-field on
+// the first of what it says goes back to where it goes; and every other key
+// is the form's.
 func (c prComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case c.send.sending:
@@ -242,107 +299,91 @@ func (c prComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		m.prDraft = c.snapshot()
 
 		return m.closeOverlay().noticedDraftKept(m.keys.newPullRequest), nil
-	case key.Matches(msg, m.keys.confirm):
-		return c.open(m)
+	case c.stage == prReading:
+		return m, nil
 	case key.Matches(msg, m.keys.editBody):
 		m.overlay = c
 
 		return m, c.editBody(m)
-	case key.Matches(msg, m.keys.nextTemplate) && c.canNextTemplate():
-		c = c.withTemplate(around(c.template, len(c.templates)).next())
-	case key.Matches(msg, m.keys.toggleDraft):
-		c.draft = !c.draft
-	case key.Matches(msg, m.keys.nextField, m.keys.prevField):
-		return c.navigated(m, msg)
-	default:
-		c = c.typed(msg)
 	}
 
-	m.overlay = c
-
-	return m, nil
+	return c.formKey(m, msg)
 }
 
-// navigated moves focus between the fields, and drafts again onto the base
-// when focus leaves it naming another.
-func (c prComposer) navigated(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	left := c.focus == prFieldBase
-	c = onFieldNav(c, around(c.focus, prFields), m.keys, msg)
-	m.overlay = c
+// formKey answers a key the open form has: apply goes on, the template and
+// the draft change in place, previous-field on the first of what it says goes
+// back, and every other key is the form's own.
+func (c prComposer) formKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	c.send.err = nil
 
-	if left && c.focus != prFieldBase {
-		return m, readBranchOnto(m.session, m.deps, c)
+	switch {
+	case key.Matches(msg, m.keys.confirm):
+		return c.answered(m)
+	case key.Matches(msg, m.keys.nextTemplate) && c.offersTemplate():
+		c = c.withTemplate(around(c.answers.template, len(c.templates)).next())
+
+		return c.asking(m, c.stage, c.focused())
+	case key.Matches(msg, m.keys.toggleDraft):
+		c.answers.draft = !c.answers.draft
+
+		return c.asking(m, c.stage, c.focused())
+	case c.stage == prWhat && key.Matches(msg, m.keys.prevField) && c.focused() == 0:
+		return c.asking(m, prWhere, 0)
 	}
 
-	return m, nil
+	m.overlay = c
+
+	return c.relay(m, msg)
+}
+
+// focused is how many fields into the open form the keyboard is.
+func (c prComposer) focused() int {
+	return max(0, slices.Index(c.fields, c.form.GetFocusedField()))
+}
+
+// resized fits the open form, while one is, to the pane at the screen's new
+// size.
+func (c prComposer) resized(m Model) (Model, tea.Cmd) {
+	if c.form == nil {
+		return m, nil
+	}
+
+	width, rows := composerSize(m)
+
+	return m, fitForm(c.form, width, rows)
+}
+
+// relay hands a message to the open form: a reviewer typed marks the
+// reviewers settled, which a read of the owners then leaves alone, and a
+// template chosen starts the body from it.
+func (c prComposer) relay(m Model, msg tea.Msg) (Model, tea.Cmd) {
+	if c.form == nil {
+		return m, nil
+	}
+
+	reviewers, template := c.answers.reviewers, c.answers.template
+	cmd := relayToForm(c.form, msg)
+	c.reviewersSettled = c.reviewersSettled || c.answers.reviewers != reviewers
+
+	if c.answers.template != template {
+		c = c.withTemplate(c.answers.template)
+	}
+
+	m.overlay = c
+
+	return m, cmd
 }
 
 // which names the pull request composer.
 func (prComposer) which() overlayKind { return overlayPRComposer }
 
-// suggesting is the base while it has focus, the one field that completes
-// what is typed.
-func (c prComposer) suggesting() (textinput.Model, bool) {
-	return c.base, c.focus == prFieldBase
-}
-
-// focusOn moves focus to a field, and the text cursor with it.
-func (c prComposer) focusOn(field int) prComposer {
-	c.focus = field
-
-	c.title.Blur()
-	c.base.Blur()
-	c.reviewers.Blur()
-	c.assignees.Blur()
-	c.labels.Blur()
-
-	switch field {
-	case prFieldBase:
-		c.base.Focus()
-	case prFieldReviewers:
-		c.reviewers.Focus()
-	case prFieldAssignees:
-		c.assignees.Focus()
-	case prFieldLabels:
-		c.labels.Focus()
-	default:
-		c.title.Focus()
-	}
-
-	return c
-}
-
-// typed hands a key to the field with focus.
-func (c prComposer) typed(msg tea.Msg) prComposer {
-	switch c.focus {
-	case prFieldBase:
-		c.base, _ = c.base.Update(msg)
-	case prFieldReviewers:
-		before := c.reviewers.Value()
-		c.reviewers, _ = c.reviewers.Update(msg)
-		c.reviewersSettled = c.reviewersSettled || c.reviewers.Value() != before
-	case prFieldAssignees:
-		c.assignees, _ = c.assignees.Update(msg)
-	case prFieldLabels:
-		c.labels, _ = c.labels.Update(msg)
-	default:
-		c.title, _ = c.title.Update(msg)
-	}
-
-	c.send.err = nil
-
-	return c
-}
-
 // pasted types a paste into the field with focus, as typing it would.
 func (c prComposer) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
-	if c.send.sending {
+	if c.send.sending || c.stage == prReading {
 		return m, nil
 	}
 
-	m.overlay = c.typed(paste)
-
-	return m, nil
+	return c.relay(m, paste)
 }
 
 // editBody opens the editor on the body.
@@ -357,12 +398,19 @@ func (c prComposer) editBody(m Model) tea.Cmd {
 }
 
 // applyEdit puts the body back in the composer, or records why the editor
-// failed.
+// failed. A form asking where the pull request goes asks again without its
+// choice of template, which would now overwrite the body.
 func (c prComposer) applyEdit(m Model, text string, err error) (Model, tea.Cmd) {
 	if err != nil {
 		c.send = c.send.failed(err)
-	} else {
-		c.body, c.edited = text, true
+		m.overlay = c
+
+		return m, nil
+	}
+
+	c.body, c.edited = text, true
+	if c.stage == prWhere && c.choosesTemplate() {
+		return c.asking(m, prWhere, 0)
 	}
 
 	m.overlay = c

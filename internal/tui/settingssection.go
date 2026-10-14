@@ -20,6 +20,11 @@ type settingsEdit struct {
 	keep func(settingsForm) (settingsForm, error)
 }
 
+// settingsKeep is what the footer calls keeping what a form open over
+// Settings holds, which apply on its last field and save-settings on any do
+// alike.
+const settingsKeep = "keep"
+
 // settingAnswer is a field's answer as it is filled in, beside what it
 // started as, so a field left alone is no edit.
 type settingAnswer struct {
@@ -71,7 +76,7 @@ func (f settingsForm) startEditing(m Model) (Model, tea.Cmd) {
 	// from functions none of its fields has: it has no use for either.
 	f.edit = &settingsEdit{keep: keep}
 	width, rows := f.editSize(m)
-	form, _ := newHuhForm(m.kit(), m.keys, width, rows, groups...)
+	form, _ := newHuhForm(m.kit(), huhKeys(m.keys, settingsKeep), width, rows, groups...)
 
 	for range f.at(field) {
 		form.NextField()

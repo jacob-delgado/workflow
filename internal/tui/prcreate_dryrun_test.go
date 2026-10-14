@@ -21,7 +21,7 @@ func TestADryRunOpenWhereJiraTakesNoLinkOffersOnlyTheMove(t *testing.T) {
 	model = drain(t, model, model.Init())
 
 	// Act
-	view := typing(t, model, "4", "n", keyEnter).View().Content
+	view := typing(t, model, "4", "n", keyEnter, keyEnter).View().Content
 
 	// Assert
 	requireScreen(t, view, "into main, then offer to move "+issueKey+" to "+statusInReview)

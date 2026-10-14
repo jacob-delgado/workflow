@@ -157,7 +157,7 @@ func writeFlows() map[string]writeFlow {
 			name: "logging work on an issue",
 		},
 		"Jira.LinkPullRequest": {
-			start: fromWorld(withoutPull), keys: []string{"4", "n", keyEnter, keyEnter},
+			start: fromWorld(withoutPull), keys: []string{"4", "n", keyEnter, keyEnter, keyEnter},
 			name: "linking an issue to its " + pullNoun,
 		},
 		"Git.Stage": {
@@ -203,7 +203,7 @@ func writeFlows() map[string]writeFlow {
 			name: "unlinking the branch from its issue",
 		},
 		"Forge.CreatePullRequest": {
-			start: fromWorld(withoutPull), keys: []string{"4", "n", keyEnter},
+			start: fromWorld(withoutPull), keys: []string{"4", "n", keyEnter, keyEnter},
 			name: "opening a " + pullNoun,
 		},
 		"Forge.EditPullRequest": {

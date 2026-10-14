@@ -123,7 +123,7 @@ func TestKeepingASectionRefusesACountThatIsNotOne(t *testing.T) {
 
 			// Act
 			view := typing(t, newWorld().live(t, each.width, each.height),
-				append(toRow(each.row), keyEnter, "ctrl+u", pasted("x"), each.keep)...).View().Content
+				append(toRow(each.row), keyEnter, keyClearLine, pasted("x"), each.keep)...).View().Content
 
 			// Assert
 			requireScreen(t, view, "> x")
@@ -212,6 +212,19 @@ func TestKeepingASectionUntouchedLeavesAChoiceItsOptionsSpellOtherwise(t *testin
 			// Assert
 			refuseScreen(t, view, "(edited)")
 		})
+	}
+}
+
+func TestASectionsFormCallsItsKeepOneThingOnEitherKey(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := typing(t, newWorld().live(t, 120, 40), append(toRow(commentsShownRow), keyEnter)...).View().Content
+
+	// Assert
+	footer := footerLine(view)
+	if !strings.Contains(footer, "enter keep") || !strings.Contains(footer, "ctrl+s keep") {
+		t.Errorf("the footer = %q, want enter and ctrl+s both named keep", footer)
 	}
 }
 

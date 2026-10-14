@@ -76,7 +76,7 @@ func TestAForgeIssueKeepsItsHashWhereverItIsNamed(t *testing.T) {
 	t.Parallel()
 
 	assign := []string{upAction, "a", keyEnter}
-	link := []string{"2", "i", "ctrl+u", "#", "4", "2", keyEnter}
+	link := []string{"2", "i", keyClearLine, "#", "4", "2", keyEnter}
 	offConventionWorld := func() *world { return onOffConventionBranch(false) }
 
 	cases := map[string]struct {

@@ -34,10 +34,10 @@ func TestTheComposerDraftsAgainWhenItsBaseChanges(t *testing.T) {
 	opening := ontoRelease()
 
 	// Act
-	view := typing(t, opening.live(t, 120, 40), baseKeys("release")...).View().Content
+	view := typing(t, opening.live(t, 120, 40), append(baseKeys("release"), keyEnter)...).View().Content
 
 	// Assert
-	requireScreen(t, view, "title     > "+releaseOnly)
+	requireScreen(t, view, "> "+releaseOnly)
 
 	if !slices.Equal(opening.asked("branch-onto"), []string{"branch-onto release"}) ||
 		!slices.Contains(opening.asked("changed-paths"), "changed-paths release") {
@@ -51,16 +51,16 @@ func TestATitleTypedOverStaysWhenTheBaseChanges(t *testing.T) {
 	// Arrange
 	opening := ontoRelease()
 
-	keys := append([]string{"4", "n", keyBackspace}, letters("!")...)
-	keys = append(keys, baseKeys("release")[2:]...)
+	// The title is typed over, then shift+tab goes back to the base.
+	keys := []string{"4", "n", keyEnter, keyBackspace, "!", keyShiftTab, keyClearLine, pasted("release"), keyEnter}
 
 	// Act
 	view := typing(t, opening.live(t, 120, 40), keys...).View().Content
 
 	// Assert
 	typed := pullTitle[:len(pullTitle)-1] + "!"
-	requireScreen(t, view, "title     > "+typed)
-	refuseScreen(t, view, "title     > "+releaseOnly)
+	requireScreen(t, view, "> "+typed)
+	refuseScreen(t, view, "> "+releaseOnly)
 }
 
 func TestTheComposerKeepsItsDraftOntoABaseNothingHolds(t *testing.T) {
@@ -70,10 +70,10 @@ func TestTheComposerKeepsItsDraftOntoABaseNothingHolds(t *testing.T) {
 	opening := ontoRelease()
 
 	// Act
-	view := typing(t, opening.live(t, 120, 40), baseKeys("nonesuch")...).View().Content
+	view := typing(t, opening.live(t, 120, 40), append(baseKeys("nonesuch"), keyEnter)...).View().Content
 
 	// Assert
-	requireScreen(t, view, "title     > "+pullTitle, "base      > nonesuch")
+	requireScreen(t, view, "> "+pullTitle, "→ nonesuch")
 }
 
 func TestLeavingTheBaseUnchangedReadsNothingAgain(t *testing.T) {
@@ -83,7 +83,7 @@ func TestLeavingTheBaseUnchangedReadsNothingAgain(t *testing.T) {
 	opening := ontoRelease()
 
 	// Act
-	typing(t, opening.live(t, 120, 40), "4", "n", keyTab, keyTab)
+	typing(t, opening.live(t, 120, 40), "4", "n", keyEnter)
 
 	// Assert
 	if asked := opening.asked("branch-onto"); len(asked) != 0 {
@@ -97,13 +97,13 @@ func TestAKeptDraftReopensOntoTheBaseItChose(t *testing.T) {
 	// Arrange
 	opening := ontoRelease()
 
-	keys := append(baseKeys("release"), keyEsc, "n", keyTab, keyTab)
+	keys := append(baseKeys("release"), keyEnter, keyEsc, "n", keyEnter)
 
 	// Act
 	view := typing(t, opening.live(t, 120, 40), keys...).View().Content
 
 	// Assert
-	requireScreen(t, view, "title     > "+releaseOnly)
+	requireScreen(t, view, "> "+releaseOnly)
 
 	if asked := opening.asked("branch-onto"); len(asked) != 1 {
 		t.Errorf("the kept draft read the branch onto its base again, %q, though it was drafted onto it", asked)
@@ -116,16 +116,17 @@ func TestReviewersTypedStayWhenTheBaseChanges(t *testing.T) {
 	// Arrange
 	opening := ontoRelease()
 
-	// Tab twice reaches the reviewers; four tabs more come round to the base.
-	keys := append([]string{"4", "n", keyTab, keyTab}, letters("zed")...)
-	keys = append(keys, keyTab, keyTab, keyTab, keyTab)
-	keys = append(keys, slices.Repeat([]string{keyBackspace}, len("main"))...)
-	keys = append(append(keys, letters("release")...), keyTab)
+	// Past the base, tab twice reaches the reviewers; shift+tab three times
+	// comes back to the base.
+	keys := []string{
+		"4", "n", keyEnter, keyTab, keyTab, pasted("zed"), keyShiftTab, keyShiftTab, keyShiftTab,
+		keyClearLine, pasted("release"), keyEnter,
+	}
 
 	// Act
 	view := typing(t, opening.live(t, 120, 40), keys...).View().Content
 
 	// Assert
 	// The owners filled ana, and zed was typed after them.
-	requireScreen(t, view, "reviewers > anazed", "title     > "+releaseOnly)
+	requireScreen(t, view, "> anazed", "> "+releaseOnly)
 }

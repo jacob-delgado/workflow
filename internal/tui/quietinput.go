@@ -74,6 +74,8 @@ func (q *quietInput) Update(msg tea.Msg) (huh.Model, tea.Cmd) {
 	case isKey && key.Matches(press, q.keymap.Prev):
 		return q, huh.PrevField
 	case isKey && key.Matches(press, q.keymap.Next, q.keymap.Submit):
+		q.completed(press)
+
 		q.err = q.validate(q.input.Value())
 		if q.err != nil {
 			return q, nil
@@ -84,6 +86,12 @@ func (q *quietInput) Update(msg tea.Msg) (huh.Model, tea.Cmd) {
 
 	q.input, _ = q.input.Update(msg)
 	*q.value = q.input.Value()
+
+	if !isKey {
+		// The input matches its suggestions again after a key, not a paste,
+		// so a pasted beginning is matched here, as a typed one is.
+		q.input.SetSuggestions(q.input.AvailableSuggestions())
+	}
 
 	return q, nil
 }
@@ -161,6 +169,7 @@ func (q *quietInput) WithTheme(theme huh.Theme) huh.Field {
 //nolint:ireturn // huh.Field's own signature
 func (q *quietInput) WithKeyMap(keymap *huh.KeyMap) huh.Field {
 	q.keymap = keymap.Input
+	q.input.KeyMap.AcceptSuggestion = keymap.Input.AcceptSuggestion
 
 	return q
 }
@@ -207,6 +216,26 @@ func (q *quietInput) GetKey() string { return "" }
 
 // GetValue is what was typed.
 func (q *quietInput) GetValue() any { return q.input.Value() }
+
+// completed takes the completion the field suggests for what is typed, when
+// press is the key that takes one, before the field is left.
+func (q *quietInput) completed(press tea.KeyPressMsg) {
+	if q.input.CurrentSuggestion() == "" || !key.Matches(press, q.keymap.AcceptSuggestion) {
+		return
+	}
+
+	q.input, _ = q.input.Update(press)
+	*q.value = q.input.Value()
+}
+
+// suggesting is the field completing what is typed to the first of options
+// it begins, shown faint after it until accepted.
+func (q *quietInput) suggesting(options []string) *quietInput {
+	q.input.SetSuggestions(options)
+	q.input.ShowSuggestions = len(options) > 0
+
+	return q
+}
 
 // hinted is the field with hint under its title, saying what it is for.
 func (q *quietInput) hinted(hint string) *quietInput {

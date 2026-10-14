@@ -17,8 +17,8 @@ import (
 
 // readPullRequestStarts is the command that reads, for the composer opened as
 // opened, the repository's templates and the remote branches its base can
-// complete to: files and git, read off the update loop so the composer never
-// waits on them.
+// complete to: files and git, read off the update loop. The composer's form
+// waits for them, so nothing they read changes a field under the cursor.
 func readPullRequestStarts(ctx context.Context, deps Deps, opened int) tea.Cmd {
 	templates, remoteBranches := deps.Forge.Templates, deps.Git.RemoteBranches
 	if templates == nil && remoteBranches == nil {
@@ -54,28 +54,26 @@ var _ applier = pullRequestStartsRead{}
 
 // apply offers the remote branches as the base's completions, and the
 // templates: the body is proposed again from the first while it is still the
-// one proposed, unless the composer they were read for has closed — even if
-// another has opened since — or is being sent.
+// one proposed. Nothing changes once the composer they were read for has
+// closed, even if another has opened since.
 func (read pullRequestStartsRead) apply(m Model) (Model, tea.Cmd) {
 	composer, open := m.overlay.(prComposer)
-	if !open || composer.opened != read.opened || composer.send.sending {
+	if !open || composer.opened != read.opened {
 		return m, nil
 	}
 
-	composer = composer.withBaseSuggestions(read.branches)
+	composer.awaiting.starts, composer.branches = false, read.branches
 
 	if read.templatesRead {
 		composer.templates, composer.templatesRead = read.templates, true
-		composer.template = min(composer.template, max(0, len(read.templates)-1))
+		composer.answers.template = min(composer.answers.template, max(0, len(read.templates)-1))
 	}
 
 	if read.templatesRead && !composer.edited {
-		composer = composer.withTemplate(composer.template)
+		composer = composer.withTemplate(composer.answers.template)
 	}
 
-	m.overlay = composer
-
-	return m, nil
+	return composer.settled(m)
 }
 
 // readTitleIssue reads the composer's issue for its title, when the title is to
@@ -88,7 +86,7 @@ func readTitleIssue(ctx context.Context, deps Deps, composer prComposer) tea.Cmd
 		return nil
 	}
 
-	head, proposed := composer.head, composer.title.Value()
+	opened, proposed := composer.opened, composer.answers.title
 
 	return func() tea.Msg {
 		from.IssueSummary = ""
@@ -100,37 +98,40 @@ func readTitleIssue(ctx context.Context, deps Deps, composer prComposer) tea.Cmd
 
 		fromIssue, _ := loop.Draft(from)
 
-		return titleIssueRead{head: head, proposed: proposed, fromIssue: fromIssue}
+		return titleIssueRead{opened: opened, proposed: proposed, fromIssue: fromIssue}
 	}
 }
 
 // titleIssueRead is the title the branch's issue gives the pull request, read
-// after its composer opened on the title proposed without it.
+// for the composer opened as opened, which proposed the title without it.
 type titleIssueRead struct {
-	head, proposed, fromIssue string
+	opened              int
+	proposed, fromIssue string
 }
 
 var _ applier = titleIssueRead{}
 
-// apply puts the issue's title in the composer, unless the composer has closed,
-// or is for another branch, or its title is no longer the one proposed: typed
-// over, or already being sent.
+// apply puts the issue's title in the composer while its title is still the
+// one proposed, which a kept draft's may not be. Nothing changes once the
+// composer it was read for has closed.
 func (read titleIssueRead) apply(m Model) (Model, tea.Cmd) {
 	composer, open := m.overlay.(prComposer)
-	if !open || composer.head != read.head || composer.send.sending || composer.title.Value() != read.proposed {
+	if !open || composer.opened != read.opened {
 		return m, nil
 	}
 
-	composer.title.SetValue(read.fromIssue)
-	m.overlay = composer
+	composer.awaiting.title = false
+	if composer.answers.title == read.proposed {
+		composer.answers.title = read.fromIssue
+	}
 
-	return m, nil
+	return composer.settled(m)
 }
 
 // readReviewers reads the code owners of the branch's changes against the
 // composer's base, to propose them as its reviewers. The read diffs and reads
-// git, and asks the forge who the author is, so it does not hold the composer
-// back.
+// git, and asks the forge who the author is, off the update loop; the
+// composer's form waits for it, as it does for the other reads.
 func readReviewers(ctx context.Context, deps Deps, composer prComposer) tea.Cmd {
 	owners := loop.OwnerSeams{
 		ChangedPaths: deps.Git.ChangedPaths, CodeOwnersAt: deps.Git.CodeOwnersAt, Author: deps.Forge.Author,
@@ -142,50 +143,35 @@ func readReviewers(ctx context.Context, deps Deps, composer prComposer) tea.Cmd 
 	opened, base := composer.opened, composer.draftedOnto
 
 	return func() tea.Msg {
-		return reviewersRead{opened: opened, base: base, proposed: loop.ProposedReviewers(ctx, owners, base)}
+		return reviewersRead{opened: opened, proposed: loop.ProposedReviewers(ctx, owners, base)}
 	}
 }
 
-// reviewersRead is who the code owners of the changes past base propose as
-// the pull request's reviewers, read after its composer opened.
+// reviewersRead is who the code owners of the branch's changes propose as the
+// pull request's reviewers, read for the composer opened as opened.
 type reviewersRead struct {
 	opened   int
-	base     string
 	proposed []string
 }
 
 var _ applier = reviewersRead{}
 
-// apply fills the composer's reviewers with the owners, unless the composer
-// they were read for has closed — even if another has opened since — or is
-// being sent, or drafts onto another base by now, or reviewers were typed in
-// the meantime.
+// apply fills the composer's reviewers with the owners, unless a kept draft
+// already says who reviews. Nothing changes once the composer they were read
+// for has closed, even if another has opened since.
 func (read reviewersRead) apply(m Model) (Model, tea.Cmd) {
 	composer, open := m.overlay.(prComposer)
-	if !open || composer.opened != read.opened || composer.send.sending || composer.reviewersSettled ||
-		composer.draftedOnto != read.base {
+	if !open || composer.opened != read.opened {
 		return m, nil
 	}
 
-	composer.reviewersProposed = strings.Join(read.proposed, ", ")
-	composer.reviewers.SetValue(composer.reviewersProposed)
-	composer.reviewersSettled = true
-	m.overlay = composer
-
-	return m, nil
-}
-
-// withBaseSuggestions offers the remote branches as completions for the base
-// field; with none listed the field is left plain.
-func (c prComposer) withBaseSuggestions(branches []string) prComposer {
-	if len(branches) == 0 {
-		return c
+	composer.awaiting.reviewers = false
+	if !composer.reviewersSettled {
+		composer.reviewersProposed = strings.Join(read.proposed, ", ")
+		composer.answers.reviewers, composer.reviewersSettled = composer.reviewersProposed, true
 	}
 
-	c.base.SetSuggestions(branches)
-	c.base.ShowSuggestions = true
-
-	return c
+	return composer.settled(m)
 }
 
 // browseURL links an issue, when there is an issue and a way to link it.

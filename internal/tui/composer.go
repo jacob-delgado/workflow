@@ -326,10 +326,7 @@ type navigable[T any] interface {
 	typed(msg tea.Msg) T
 }
 
-var (
-	_ navigable[commitComposer] = commitComposer{}
-	_ navigable[prComposer]     = prComposer{}
-)
+var _ navigable[commitComposer] = commitComposer{}
 
 // onFieldNav moves a composer's focus, standing among its fields, to the
 // previous field, or on next-field to the next one, unless the focused field
