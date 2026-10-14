@@ -5,16 +5,13 @@
 #     -f scripts/lib/gobco-arms.awk <<<"<conditions>"
 #
 # An arm no test reached fails: a condition never evaluated, and an error
-# check whose error arm was never seen. An error check compares with nil a
-# name ending in err or Err, perhaps with a capitalized or numbered rest
-# (err2, errParse, closeErr), or a call of a method so named (ctx.Err()),
-# either reached through fields and calls; its error arm is the one the
-# error takes. So is an errors.Is or !errors.Is of such a name that follows
-# "<name> != nil &&", on its line or the one before, since only an error
-# reaches it: its error arm is the one the check's body takes. gobco reports
-# the call without its !, so that arm is the call's true one, or its false
-# one where a ! comes before it. Columns count bytes, as Go's do, so the awk
-# reads in the C locale.
+# check whose error arm was never seen. What an error check is, and which arm
+# is the error's, is CONTRIBUTING.md's rule (*Tests*). This file matches it by
+# the condition's text: error_check is the pattern for the name compared with
+# nil, and errors_is_arm finds an errors.Is that follows "<name> != nil &&" on
+# its line or the one before. gobco reports that call without its !, so its
+# error arm is the call's true one, or its false one where a ! comes before
+# it. Columns count bytes, as Go's do, so the awk reads in the C locale.
 #
 # Each arm is named by its file, line and function, and by its number among
 # the conditions its function holds that read the same, counted from the
