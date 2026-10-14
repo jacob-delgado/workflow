@@ -5425,6 +5425,12 @@ components:
           type: string
           description: Empty for auto, or "never".
           enum: ["", never]
+        motion:
+          type: string
+          description: >-
+            Empty for the terminal's motion (a turning in-flight mark, a
+            stage's rule filling), or "reduce" to draw every state still.
+          enum: ["", reduce]
         notify: {type: boolean}
         comments_shown:
           type: integer

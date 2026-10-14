@@ -51,6 +51,10 @@ func KeyRefusals() []error {
 // colorNever is the ui.color that turns the system hues off.
 const colorNever = "never"
 
+// MotionReduce is the ui.motion that draws every state still: no mark turns,
+// no rule fills, no bar springs.
+const MotionReduce = "reduce"
+
 // UI is how the terminal interface behaves, and the one keyboard setting the
 // --web page reads beside its keys.
 type UI struct {
@@ -66,6 +70,10 @@ type UI struct {
 	// terminal allows, "never" turns them off while keeping bold, faint and the
 	// reverse-video cursor, which carry meaning without color.
 	Color string `json:"color"`
+	// Motion is whether the terminal interface moves: empty turns the in-flight
+	// mark, fills a stage's rule as it completes and springs the CI bar;
+	// "reduce" draws every state still, for anyone motion distracts or harms.
+	Motion string `json:"motion"`
 	// Notify rings the terminal, and sends a desktop notification where the
 	// terminal relays one, when CI finishes — and the --web page says so in its
 	// header — so a developer who stepped away is told rather than having to
@@ -100,10 +108,16 @@ func (u UI) DrawColor(noColorEnv string) bool {
 	return noColorEnv == "" && u.Color != colorNever
 }
 
+// ReducedMotion reports whether the interface draws every state still.
+func (u UI) ReducedMotion() bool {
+	return u.Motion == MotionReduce
+}
+
 // validateUI refuses a negative comments_shown — the detail pane keeps that many
-// of an issue's most recent comments, and no count below zero names any — and a
+// of an issue's most recent comments, and no count below zero names any — a
 // color other than empty or never, which would draw the hues a misspelled never
-// was meant to turn off.
+// was meant to turn off, and a motion other than empty or reduce, which would
+// move what a misspelled reduce was meant to still.
 func (c Config) validateUI() error {
 	if c.UI.CommentsShown < 0 {
 		return fmt.Errorf("%w: comments_shown cannot be negative: %d", ErrInvalidUI, c.UI.CommentsShown)
@@ -111,6 +125,10 @@ func (c Config) validateUI() error {
 
 	if c.UI.Color != "" && c.UI.Color != colorNever {
 		return fmt.Errorf("%w: color is empty or never: %q", ErrInvalidUI, c.UI.Color)
+	}
+
+	if c.UI.Motion != "" && c.UI.Motion != MotionReduce {
+		return fmt.Errorf("%w: motion is empty or reduce: %q", ErrInvalidUI, c.UI.Motion)
 	}
 
 	return nil

@@ -888,6 +888,24 @@ func (e UIConfigColor) Valid() bool {
 	}
 }
 
+// Defines values for UIConfigMotion.
+const (
+	UIConfigMotionEmpty  UIConfigMotion = ""
+	UIConfigMotionReduce UIConfigMotion = "reduce"
+)
+
+// Valid indicates whether the value is a known member of the UIConfigMotion enum.
+func (e UIConfigMotion) Valid() bool {
+	switch e {
+	case UIConfigMotionEmpty:
+		return true
+	case UIConfigMotionReduce:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for WorktreeState.
 const (
 	WorktreeStateHere     WorktreeState = "here"
@@ -2833,9 +2851,12 @@ type UIConfig struct {
 	CommentsShown *int `json:"comments_shown,omitempty"`
 
 	// Keys Map from a key action to the key that triggers it; see the configuration docs for the actions.
-	Keys   *map[string]string `json:"keys,omitempty"`
-	Mouse  *bool              `json:"mouse,omitempty"`
-	Notify *bool              `json:"notify,omitempty"`
+	Keys *map[string]string `json:"keys,omitempty"`
+
+	// Motion Empty for the terminal's motion (a turning in-flight mark, a stage's rule filling), or "reduce" to draw every state still.
+	Motion *UIConfigMotion `json:"motion,omitempty"`
+	Mouse  *bool           `json:"mouse,omitempty"`
+	Notify *bool           `json:"notify,omitempty"`
 
 	// WebShortcuts Whether the web page's single-key shortcuts are on. Off unless set; ? and the command palette work either way.
 	WebShortcuts *bool `json:"web_shortcuts,omitempty"`
@@ -2843,6 +2864,9 @@ type UIConfig struct {
 
 // UIConfigColor Empty for auto, or "never".
 type UIConfigColor string
+
+// UIConfigMotion Empty for the terminal's motion (a turning in-flight mark, a stage's rule filling), or "reduce" to draw every state still.
+type UIConfigMotion string
 
 // UnmanagedHook defines model for UnmanagedHook.
 type UnmanagedHook struct {

@@ -381,6 +381,7 @@ func TestUpdateConfigRefusesAUIValueOutsideTheContract(t *testing.T) {
 	cases := map[string]config.UI{
 		"a negative comments_shown": {Mouse: true, CommentsShown: -1},
 		"a misspelled color":        {Mouse: true, Color: "nevr"},
+		"a misspelled motion":       {Mouse: true, Motion: "still"},
 	}
 
 	for name, outOfContract := range cases {

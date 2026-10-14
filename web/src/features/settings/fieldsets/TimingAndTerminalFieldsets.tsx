@@ -43,6 +43,16 @@ export function TerminalFieldset({ register }: { register: Register }) {
           ['never', 'Never'],
         ]}
       />
+      <SelectField
+        register={register}
+        name="ui.motion"
+        label="Motion"
+        hint="Reduced draws every state still: no mark turns and no rule fills."
+        choices={[
+          ['', 'Moving where something changes (default)'],
+          ['reduce', 'Reduced'],
+        ]}
+      />
       <CheckboxField
         register={register}
         name="ui.notify"
