@@ -178,14 +178,16 @@ func newIssueCmd() *cobra.Command {
 	return cmd
 }
 
-// runIssue reads the issue and prints it, as JSON or in prose.
+// runIssue reads the issue and prints it, as JSON or in prose, linked under
+// the key the tracker answered with, as the web links it: an issue moved to
+// another project is still read by its old key.
 func runIssue(ctx context.Context, out output, seams issueSeams, issueKey jira.Key, asJSON bool) error {
 	detail, err := seams.Issue(ctx, issueKey)
 	if err != nil {
 		return fmt.Errorf("reading issue %s: %w", issueKey, err)
 	}
 
-	link := seams.BrowseURL(issueKey)
+	link := seams.BrowseURL(detail.Issue.Key)
 	if asJSON {
 		return encodeJSON(out.artifact, report.IssueDetail(detail, link))
 	}
