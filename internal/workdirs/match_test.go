@@ -4,11 +4,60 @@
 package workdirs_test
 
 import (
+	"encoding/json"
+	"os"
 	"slices"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/workdirs"
 )
+
+// casesFile is the matcher's cases, which the web's copy of it answers to as
+// well.
+const casesFile = "../../testdata/twins/directory_match.json"
+
+// matched is a name a case says matches: where its letters matched, and
+// whether it starts with them.
+type matched struct {
+	Name    string `json:"name"`
+	Letters []int  `json:"letters"`
+	Prefix  bool   `json:"prefix"`
+}
+
+type matchCorpus struct {
+	About string `json:"about"`
+	Cases []struct {
+		Name   string    `json:"name"`
+		Listed []string  `json:"listed"`
+		Typed  string    `json:"typed"`
+		Want   []matched `json:"want"`
+	} `json:"cases"`
+}
+
+// readMatchCases is the shared cases, refusing a field this side would ignore
+// so a case cannot pin one copy and pass the other unread.
+func readMatchCases(t *testing.T) matchCorpus {
+	t.Helper()
+
+	file, err := os.Open(casesFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer func() { _ = file.Close() }()
+
+	decoder := json.NewDecoder(file)
+	decoder.DisallowUnknownFields()
+
+	var read matchCorpus
+
+	err = decoder.Decode(&read)
+	if err != nil {
+		t.Fatalf("%s: %v", casesFile, err)
+	}
+
+	return read
+}
 
 // entries are directories by name, none of them a repository.
 func entries(names ...string) []workdirs.Entry {
@@ -20,63 +69,38 @@ func entries(names ...string) []workdirs.Entry {
 	return listed
 }
 
-// matchedNames are the names of what matched, in order.
-func matchedNames(matches []workdirs.Match) []string {
-	names := make([]string, 0, len(matches))
+// matchesOf are what matched, as the shared cases write them.
+func matchesOf(matches []workdirs.Match) []matched {
+	written := make([]matched, 0, len(matches))
 	for _, match := range matches {
-		names = append(names, match.Entry.Name)
+		written = append(written, matched{Name: match.Entry.Name, Letters: match.Letters, Prefix: match.Prefix})
 	}
 
-	return names
+	return written
 }
 
-func TestNamesStartingWithWhatIsTypedRankBeforeThoseHoldingItsLetters(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	listed := entries("lib", "two-words", "workflow", "notes", "Workday-notes")
-
-	// Act
-	got := workdirs.Matching(listed, "wo")
-
-	// Assert
-	want := []string{"workflow", "Workday-notes", "two-words"}
-	if names := matchedNames(got); !slices.Equal(names, want) {
-		t.Fatalf("matched %q, want %q", names, want)
-	}
-
-	if !got[0].Prefix || !got[1].Prefix || got[2].Prefix {
-		t.Errorf("matches %+v; want the first two to start with wo, the last not", got)
-	}
+// sameMatch reports one and other the same name, matched at the same letters.
+func sameMatch(one, other matched) bool {
+	return one.Name == other.Name && slices.Equal(one.Letters, other.Letters) && one.Prefix == other.Prefix
 }
 
-func TestAMatchSaysWhichLettersMatched(t *testing.T) {
+func TestMatchingFindsWhatTheSharedCasesName(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	listed := entries("café-two")
+	for _, tt := range readMatchCases(t).Cases {
+		t.Run(tt.Name, func(t *testing.T) {
+			t.Parallel()
 
-	// Act
-	got := workdirs.Matching(listed, "ÉW")
+			// Arrange
+			listed := entries(tt.Listed...)
 
-	// Assert
-	// Each letter's place is counted in letters, so é is the fourth.
-	if len(got) != 1 || !slices.Equal(got[0].Letters, []int{3, 6}) {
-		t.Errorf("matches %+v, want é and w at 3 and 6", got)
-	}
-}
+			// Act
+			got := matchesOf(workdirs.Matching(listed, tt.Typed))
 
-func TestEveryNameMatchesNothingTyped(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	listed := entries("web", "zoo")
-
-	// Act
-	got := workdirs.Matching(listed, "")
-
-	// Assert
-	if names := matchedNames(got); !slices.Equal(names, []string{"web", "zoo"}) || !got[0].Prefix || !got[1].Prefix {
-		t.Errorf("matches %+v, want both, as given, each starting with nothing", got)
+			// Assert
+			if !slices.EqualFunc(got, tt.Want, sameMatch) {
+				t.Errorf("Matching(%q, %q) = %+v, want %+v", tt.Listed, tt.Typed, got, tt.Want)
+			}
+		})
 	}
 }

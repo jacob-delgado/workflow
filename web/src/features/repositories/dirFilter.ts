@@ -114,16 +114,23 @@ export function matching(entries: DirectoryEntry[], typed: string): Match[] {
 
 // inOrder is where in name each of typed's letters is, in any case, each the
 // first after the last, or undefined when name runs out first. Each letter is
-// lowercased on its own, so a letter lowercasing to two keeps every place
-// after it where the name has it.
+// lowercased on its own, to one letter, so every place after it stays where
+// the name has it.
 function inOrder(name: string, typed: string): number[] | undefined {
-  const wanted = Array.from(typed, (letter) => letter.toLowerCase())
+  const wanted = Array.from(typed, lowered)
   const letters: number[] = []
   for (const [place, letter] of Array.from(name).entries()) {
-    if (letters.length < wanted.length && letter.toLowerCase() === wanted[letters.length]) {
+    if (letters.length < wanted.length && lowered(letter) === wanted[letters.length]) {
       letters.push(place)
     }
   }
 
   return letters.length === wanted.length ? letters : undefined
+}
+
+// lowered is a letter's own lowercase, as Go's unicode.ToLower gives it: the
+// first of what JavaScript lowers it to, since that lowers İ to i and a
+// combining dot, and the i alone is what typing i means to find.
+function lowered(letter: string): number | undefined {
+  return letter.toLowerCase().codePointAt(0)
 }
