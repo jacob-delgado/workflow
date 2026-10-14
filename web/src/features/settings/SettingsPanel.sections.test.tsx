@@ -5,7 +5,7 @@ import { mockConfig } from '@/dev/mockConfig.ts'
 import { useKeysStore } from '@/features/keyboard/keysApi.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
-import { inSection } from '@/test/settings.ts'
+import { anEdit, inSection } from '@/test/settings.ts'
 import { SettingsPanel } from './SettingsPanel.tsx'
 
 // opened opens Settings over config, answering a save with what it was sent,
@@ -126,6 +126,7 @@ test("a stored header's masked value goes back as it was read, so it is kept", a
     jira: { ...mockConfig.jira, headers: { 'CF-Access-Client-Secret': '****abcd' } },
   })
 
+  await anEdit()
   // Act
   const sent = await saved(requests)
 

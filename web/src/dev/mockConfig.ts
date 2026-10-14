@@ -10,8 +10,10 @@ export const mockConfig: Config = {
     token: '••••••••',
     token_command: '',
     token_env: '',
+    keychain: false,
     user: '',
     project: 'PROJ',
+    review_status: '',
     markdown_comments: true,
     headers: null,
     views: null,
@@ -41,6 +43,7 @@ export const mockConfig: Config = {
     color: '',
     notify: true,
     comments_shown: 5,
+    keys: {},
     web_shortcuts: true,
   },
   timing: {
@@ -51,9 +54,13 @@ export const mockConfig: Config = {
     template: '{prefix}/{key}-{slug}',
     prefixes: null,
     default_prefix: 'feat',
+    slug_limit: 0,
   },
   commit: {
     default_scope: '',
+    types: null,
+    subject_limit: 0,
+    refs_trailer: '',
   },
   pull_request: {
     title_source: '',

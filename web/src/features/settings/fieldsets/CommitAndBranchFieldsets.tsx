@@ -4,6 +4,18 @@ import type { SettingsValues } from '../formValues.ts'
 import { EntryList, matchedLower } from './EntryList.tsx'
 import { Fieldset, TextField, type Register } from './Field.tsx'
 
+// readTypes reads the commit types typed as a list, or as none when empty,
+// as the file holds no list.
+function readTypes(value: unknown): unknown {
+  if (typeof value !== 'string') {
+    return value
+  }
+
+  const types = splitList(value)
+
+  return types.length === 0 ? null : types
+}
+
 // CommitFieldset is the commit convention: the scope a commit opens on, the
 // types offered, how long a subject may be, and the trailer naming the issue.
 export function CommitFieldset({ register }: { register: Register }) {
@@ -20,7 +32,7 @@ export function CommitFieldset({ register }: { register: Register }) {
         name="commit.types"
         label="Types"
         hint="Comma-separated, in the order to offer them; empty keeps the Conventional Commit types."
-        readAs={(value) => (typeof value === 'string' ? splitList(value) : value)}
+        readAs={readTypes}
       />
       <TextField
         register={register}
