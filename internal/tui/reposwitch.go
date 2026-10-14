@@ -6,7 +6,6 @@ package tui
 import (
 	"strings"
 
-	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/activity"
@@ -297,12 +296,5 @@ func (m Model) switchToSelected() (Model, tea.Cmd) {
 		return m.noticed(shownDir(m.deps, row.dir) + " is not there"), nil
 	default:
 		return m.leaveFor(row.dir)
-	}
-}
-
-// footer offers going, completing, and canceling.
-func (dirPrompt) footer(keys keyMap) []key.Binding {
-	return []key.Binding{
-		relabel(keys.confirm, "go"), relabel(keys.nextField, "complete"), relabel(keys.closeOverlay, escCancel),
 	}
 }

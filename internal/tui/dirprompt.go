@@ -83,6 +83,13 @@ func (p dirPrompt) view(kit renderKit, width, _ int) (string, string) {
 	return "Go to a directory", wrap(strings.Join(lines, "\n"), width)
 }
 
+// footer offers going, completing, and canceling.
+func (dirPrompt) footer(keys keyMap) []key.Binding {
+	return []key.Binding{
+		relabel(keys.confirm, "go"), relabel(keys.nextField, "complete"), relabel(keys.closeOverlay, escCancel),
+	}
+}
+
 // handleKey types every key but the three the footer names, so a path's j
 // or q is typed rather than moving or quitting.
 func (p dirPrompt) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
