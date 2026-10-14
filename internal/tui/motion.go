@@ -153,6 +153,8 @@ func (s motionState) shown() []float64 {
 // motionTick is a frame arriving.
 type motionTick struct{}
 
+var _ applier = motionTick{}
+
 // apply moves the screen one frame on, asking for the next: each rule toward
 // its stage, and the in-flight mark one turn while a read is out, back to its
 // first once none is, so the next read starts there.
