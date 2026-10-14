@@ -115,6 +115,9 @@ type Model struct {
 	commentDrafts commentDrafts
 	hookgen       hookgenState
 
+	// motion is what moves on the screen, and how far it has moved.
+	motion motionState
+
 	// programOptions are what Run adds to the program it starts, so a choice
 	// made on the model, such as dropping color, reaches the terminal too.
 	programOptions []tea.ProgramOption
@@ -137,6 +140,7 @@ func New(cfg config.Config, loadErr error, deps Deps) Model {
 		width: defaultWidth, height: defaultHeight,
 		focus: paneIssues, mouse: cfg.UI.Mouse,
 		views: jira.Views(cfg.Jira.Views), viewIndex: 0,
+		motion: newMotion(marks.turn, cfg.UI.ReducedMotion()),
 	}
 	// Init always searches, so a list seeded from the cache is in flight.
 	model.issues = model.seededIssues()
@@ -240,7 +244,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return handled.settled(cmd)
 	case tea.MouseMsg:
-		return m.handleMouse(msg)
+		handled, cmd := m.handleMouse(msg)
+
+		return handled.nextFrame(cmd)
 	case applier:
 		applied, cmd := msg.apply(m)
 
@@ -250,19 +256,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-// settled opens the follow-up once no overlay is open. Every route through
-// Update ends here, so an offer made while another overlay had the keyboard
-// opens the moment that overlay closes, and never on top of it.
+// settled opens the follow-up once no overlay is open, and asks for the next
+// frame while something moves. Every route through Update that can start or
+// end a read ends here, so an offer made while another overlay had the
+// keyboard opens the moment that overlay closes, and never on top of it.
 func (m Model) settled(cmd tea.Cmd) (Model, tea.Cmd) {
 	if m.overlay != nil || m.followUp == nil {
-		return m, cmd
+		return m.nextFrame(cmd)
 	}
 
 	open := m.followUp
 	m.followUp = nil
 	opened, more := open(m)
 
-	return opened, tea.Batch(cmd, more)
+	return opened.nextFrame(tea.Batch(cmd, more))
 }
 
 // handleKey answers a key press. ctrl+c always quits. Otherwise an open overlay

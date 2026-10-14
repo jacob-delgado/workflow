@@ -279,7 +279,7 @@ func (w *world) blockingOutput() proc.Output {
 // a pull request whose CI passed.
 func newWorld() *world {
 	return &world{
-		cfg: completeConfig(),
+		cfg: stillConfig(),
 		issues: []jira.Issue{
 			{Key: issueKey, Summary: issueSummary, Status: "In Progress", StatusCategory: "indeterminate", Type: "Bug"},
 			{Key: secondIssue, Summary: "Add retries", Status: "To Do", StatusCategory: "new", Type: "Story"},
@@ -310,6 +310,16 @@ func newWorld() *world {
 			GitOnly:  []hooks.GitOnly{{Name: commitMsgHook, Reason: commitMsgReason}},
 		},
 	}
+}
+
+// stillConfig is completeConfig with motion reduced, so the screen a test reads
+// is the state the interface settled in, never a frame on the way to it.
+// Motion's own tests turn it back on.
+func stillConfig() config.Config {
+	cfg := completeConfig()
+	cfg.UI.Motion = config.MotionReduce
+
+	return cfg
 }
 
 // The hooks the fake lefthook configures, and why only git runs commit-msg.
