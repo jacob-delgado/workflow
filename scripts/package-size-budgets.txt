@@ -89,19 +89,22 @@ internal/forge 18
 # internal/tui — the Bubble Tea interface, spelled one file per pane, overlay
 # and composer. Model routes keys and messages and composes the screen; each
 # pane's state draws itself and keeps its behavior beside it, and each overlay
-# and each message answers through the Model it is handed and hands back. So the
-# package cannot be split without carrying Model, and everything that takes it,
-# across a package boundary Go does not allow; CLAUDE.md names it as the package
-# that must not be split to chase a number. The ceiling came in at 80 over 64
-# files; splitting the long files by concern, the panes' key bindings out of
-# keys.go and the Repositories pane's drawing out of repositories.go brought it
-# there, each a file past the 500-line target cut by concern, none a new reason
-# to change. Reaching 80 was looked at as the ceiling asks: layout/ and frame/
-# have left already, and the eight files that name no Model (dryrun.go,
-# errorwords.go, glyphs.go, issues.go, panekeys.go, settingsfields.go,
-# settingsvalues.go, setupsteps.go) each work on the package's own state, which
-# a split would export for this one caller. So 96, the same sixteen files of
-# room the ceiling came in with; reaching it is where the shape is looked at
+# and each message answers through the Model it is handed and hands back. So a
+# pane or an overlay cannot leave without carrying Model, and everything that
+# takes it, across a package boundary Go does not allow, and CLAUDE.md says the
+# package must not be split to chase a number. What may leave is a leaf with a
+# reason to change of its own and no Model in it, as layout/ and frame/ did.
+# The ceiling came in at 80 over 64 files; splitting the long files by concern,
+# the panes' key bindings out of keys.go and the Repositories pane's drawing
+# out of repositories.go brought it there, each a file past the 500-line target
+# cut by concern, none a new reason to change. Reaching 80 was looked at as the
+# ceiling asks, and the files that name no Model counted again on 2026-10-14:
+# eight (dryrun.go, errorwords.go, glyphs.go, issues.go, panekeys.go,
+# settingsedit.go, settingsfields.go, settingsvalues.go) each work on the
+# package's own state, which a split would export for this one caller; the
+# ninth, quietinput.go, is the Huh field typed text goes through, which changes
+# as huh.Field does, and so may leave as a leaf. So 96, the same sixteen files
+# of room the ceiling came in with; reaching it is where the shape is looked at
 # again.
 internal/tui 96 cohesive
 
@@ -110,9 +113,13 @@ internal/tui 96 cohesive
 # guard, errors, wire shapes, stream and server. One responsibility (turn a
 # guarded request into a seam call and a DTO) that grows only when the API
 # gains an operation, a decision api/openapi.yaml records first, so it answers
-# to a ceiling: 40 is the 31 files it held when the kind came in and the
-# operations still to come, and reaching it is where the surface's shape is
-# looked at again.
+# to a ceiling and is not split to chase a number. Code in it with a reason to
+# change of its own may leave where no import cycle follows: the request
+# boundary (the guards, the policy headers, the session and the contract
+# validator), which changes for security's reasons, and the Taskwarrior
+# handlers and the git runs, which each change with the tool they drive. 40 is
+# the 36 files it held when the kind came in and the operations still to come,
+# and reaching it is where the surface's shape is looked at again.
 internal/webserver 40 cohesive
 
 # internal/cli — the Cobra command tree, spelled one file per command, or per
@@ -120,15 +127,18 @@ internal/webserver 40 cohesive
 # do (or per section of a command that outgrew one, as doctor's, status's, pr's
 # and announce's did). One responsibility (turn a command line into a wiring
 # seam call and printed output) that grows when the tool gains a command, which
-# the docs reference records, so it answers to a ceiling. It came in at 28 over
-# 20 files and was reached with issues.go; looked at then as it asks, each file
-# is a command, a family of them, a section of one or what every command shares
-# (the scriptable contract, the shared flags, the prompt, the connection), none
-# a second reason to change, so 29 took issuewrite.go, 30 announce_tags.go,
-# the tags an announcement proposes, 31 announcewait.go, the wait for CI to
-# pass that announce --when-green makes — sections of announce's that pr comes
-# to share — and 32 takes pr_follow_up.go, the offers pr makes once the pull
-# request is open. Reaching it is where the tree's shape is looked at again.
+# the docs reference records, so it answers to a ceiling and is not split to
+# chase a number. Code in it with a reason to change of its own may leave where
+# no import cycle follows: doctor's checks, and the pr and announce flow over
+# the forge and messaging. It came in at 28 over 22 files and was reached with
+# issues.go; looked at then as it asks, each file is a command, a family of
+# them, a section of one or what every command shares (the scriptable contract,
+# the shared flags, the prompt, the connection), none a second reason to change
+# within the tree, so 29 took issuewrite.go, 30 announce_tags.go, the tags an
+# announcement proposes, 31 announcewait.go, the wait for CI to pass that
+# announce --when-green makes — sections of announce's that pr comes to share —
+# and 32 takes pr_follow_up.go, the offers pr makes once the pull request is
+# open. Reaching it is where the tree's shape is looked at again.
 internal/cli 32 cohesive
 
 # internal/loop — the loop composed once for the command line, the terminal
