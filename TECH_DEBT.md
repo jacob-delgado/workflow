@@ -95,18 +95,22 @@ reads again.
 
 ### TRADE-5 The progress spine's per-system hue is color-only
 
-**Decided.** On the progress spine each stage's glyph is drawn in its system's
-hue (Jira, git, forge, messaging), inside `spineView.stages` in
-`internal/tui/spine.go`. The hue only repeats what the text says: the stage's
-name, or its initial when compact, names the system, and the glyph's shape
-carries its state. The hues are part of UX.md's visual system, which the web's
-tokens share. Recorded 2026-09-24, in #140.
+**Decided.** On the loop track each stage's glyph, name and filled rule are
+drawn in its system's hue (Jira, git, forge, messaging), inside
+`spineView.stages` in `internal/tui/spine.go`. The hue only repeats what the
+text says: the stage's name, or its initial when compact, names the system,
+and the glyph's shape and the rule's weight carry its state. A stage still to
+come is drawn faint rather than in its hue, so there its identity rests on the
+name alone. The hues are part of UX.md's visual system, which the web's tokens
+share. Recorded 2026-09-24, in #140; revised 2026-10-14, when the spine became
+the track and its reopen trigger, a change to the visual system, fired.
 
 **Cost.** A monochrome or color-blind reader loses one redundant channel
-telling the systems apart.
+telling the systems apart, and on a stage still to come there is no hue to
+lose: only its name tells which system it is.
 
-**Reopen when.** UX.md's visual system changes, or an accessibility report
-names the spine's hue.
+**Reopen when.** UX.md's visual system changes again, or an accessibility
+report names the track's hue or its faint stages.
 
 ### TRADE-8 The web's branch floor is v8's range-based count
 
@@ -815,3 +819,21 @@ script by hand where Homebrew is installed, or leaves it to CI.
 **Reopen when.** The audit fails a pull request over a Homebrew change more
 than rarely, or a pinned `Homebrew/actions/setup-homebrew` becomes worth
 approving as a new action.
+
+### TRADE-45 The track keeps five stages, with CI as the fill of Review's rule
+
+**Decided.** The loop track draws the five stages `progress.Stages` derives —
+Issue, Branch, Commits, Review and the messaging service's — with no stage of
+its own for CI: the pull request and its CI are one forge stage, Review, and
+CI's progress is how far the rule after Review is filled, its checks finished
+over its checks (`spineView.fillOf`, `internal/tui/spine.go`). Nothing in
+`internal/progress` or the API changes, so `workflow status` and the web read
+the same five stages. Decided 2026-10-14 by the maintainer, with the track.
+
+**Cost.** A pull request opened with CI not yet started and one whose CI is
+under way both draw `◐ Review`; only the rule's fill tells them apart, and on
+GitLab, which reports a pipeline as a whole rather than check by check, the
+rule stays open until the pipeline passes.
+
+**Reopen when.** A user asks to see the pull request and its CI as separate
+steps, or GitLab's checks are read one by one.
