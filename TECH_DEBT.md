@@ -101,16 +101,23 @@ drawn in its system's hue (Jira, git, forge, messaging), inside
 text says: the stage's name, or its initial when compact, names the system,
 and the glyph's shape and the rule's weight carry its state. A stage still to
 come is drawn faint rather than in its hue, so there its identity rests on the
-name alone. The hues are part of UX.md's visual system, which the web's tokens
-share. Recorded 2026-09-24, in #140; revised 2026-10-14, when the spine became
-the track and its reopen trigger, a change to the visual system, fired.
+name alone. The web's track under the header draws it the same way (`hueOf`,
+`web/src/shell/LoopTrack.tsx`): a stage under way or done wears its system's
+hue, a failed one the failure color, and one not begun the faint ink, its name
+beside its mark and its state said in words for a screen reader. The hues are
+part of UX.md's visual system, which the web's tokens share. Recorded
+2026-09-24, in #140; revised 2026-10-14, when the spine became the track and
+its reopen trigger, a change to the visual system, fired; and again that day,
+to name the web's track, which UX.md's visual system gained in the same
+refresh, so that edit belongs to this revision rather than reopening it.
 
 **Cost.** A monochrome or color-blind reader loses one redundant channel
-telling the systems apart, and on a stage still to come there is no hue to
-lose: only its name tells which system it is.
+telling the systems apart, on the terminal's spine and the web's track alike,
+and on a stage still to come there is no hue to lose: only its name tells
+which system it is.
 
-**Reopen when.** UX.md's visual system changes again, or an accessibility
-report names the track's hue or its faint stages.
+**Reopen when.** UX.md's visual system changes after 2026-10-14's refresh, or
+an accessibility report names either track's hue or its faint stages.
 
 ### TRADE-8 The web's branch floor is v8's range-based count
 
@@ -148,51 +155,64 @@ anyone other than the user who pushed.
 
 **Decided.** `Environment.Deps` returns `tui.Deps`
 (`internal/wiring/wiring.go`), and `cli.WebDeps` hands its seam groups, which
-package `seams` declares, to `webserver.Deps` whole. Three of its fields speak
+package `seams` declares, to `webserver.Deps` whole. Four of its fields speak
 Bubble Tea: `Editor` (`EditorDeps`, whose functions take and return Bubble Tea
 messages and commands because `internal/editor` hands the terminal over
-through `tea.ExecProcess`), `After` and `Copy`. So the bundle is the
-terminal's type rather than one in package `seams`. Decided 2026-09-25, in #144.
+through `tea.ExecProcess`), `Forms` (`FormDeps`, `internal/tui/huhform.go`,
+whose `Ask` takes a Huh form and returns a Bubble Tea command, since a form's
+plain prompts take the terminal as the editor does), `After` and `Copy`. So
+the bundle is the terminal's type rather than one in package `seams`. Decided
+2026-09-25, in #144.
 
 **Cost.** The wiring's output is named for one surface, and the web reaches
 its seams through the terminal's struct; a second surface that wants the
-editor must import `internal/tui`.
+editor or a form's prompts must import `internal/tui`.
 
-**Reopen when.** A surface other than the terminal needs the editor, `After`
-or `Copy`; `internal/editor` stops returning a Bubble Tea command; or `--web`
-needs to be wired without `internal/tui`. Package `webserver` imports no
-`internal/tui` (`depguard`'s `webserver-not-terminal` rule forbids it), but
-`cli.WebDeps` still builds its seams from the `tui.Deps` the wiring returns,
-and hands it `tui.CheckKeys` and `tui.KeyActions` as functions.
+**Reopen when.** A surface other than the terminal needs the editor, a form's
+prompts, `After` or `Copy`; `internal/editor` stops returning a Bubble Tea
+command; or `--web` needs to be wired without `internal/tui`. Package
+`webserver` imports no `internal/tui` (`depguard`'s `webserver-not-terminal`
+rule forbids it), but `cli.WebDeps` still builds its seams from the
+`tui.Deps` the wiring returns, and hands it `tui.CheckKeys`, `tui.KeyActions`
+and `tui.PaneSections` as functions.
 
 ### TRADE-13 Encoding the program's own types is taken not to fail
 
 **Decided.** Every `json.Marshal`, `MarshalIndent` or `Unmarshal` on a value the
 program builds keeps its `err != nil` arm, though none can be true: the values
-hold only strings, integers, booleans, slices and maps of the same, or values
-just decoded from JSON, and a `config.Config`'s JSON always fits `api.Config`.
-Each site carries a `Trade-off TRADE-13:` comment, and
-`rg 'Trade-off TRADE-13' internal` lists them: 15 comments, in config, forge,
-jira, messaging, slackauth, tui and webserver, keeping the 17 arms
-`scripts/gobco-allowlist.txt` keeps under this entry, since one comment on
-`seed` (`internal/tui/settingsvalues.go`) and one on `configDTO`
-(`internal/webserver/config.go`) each keep two; lines are not listed here
-because they drift. Decided 2026-09-26, in #146.
+hold only strings, integers, booleans, finite floats, slices and maps of the
+same, or values just decoded from JSON, and a `config.Config`'s JSON always
+fits `api.Config`. `encoding/json` refuses a float only when it is NaN or
+infinite, and neither float encoded here can be: a task's `Urgency`
+(`api.Task`, which the stream's snapshot carries to `sendEvent`) is decoded
+from Taskwarrior's JSON, which has no way to write either, and a count in the
+terminal's Settings (`internal/tui/settingsvalues.go`) is read back from the
+configuration's JSON or converted from an integer. Each site carries a
+`Trade-off TRADE-13:` comment, and `rg 'Trade-off TRADE-13' internal` lists
+them: 15 comments, in config, forge, jira, messaging, slackauth, tui and
+webserver, keeping the 17 arms `scripts/gobco-allowlist.txt` keeps under this
+entry, since one comment on `seed` (`internal/tui/settingsvalues.go`) and one
+on `configDTO` (`internal/webserver/config.go`) each keep two; lines are not
+listed here because they drift. Decided 2026-09-26, in #146; re-decided
+2026-10-14 by the maintainer, once those two floats were found to meet the
+trigger's "gains a float" to the letter: a float that is always finite encodes
+as surely as an integer, so the trigger now names one that is not.
 
 **Cost.** Seventeen error arms no test runs. Because forge's
 `Client.newRequest`, jira's `Client.newJSONRequest`, messaging's
 `Client.postJSON` and `config.encodeValue` accept `any`, a caller passing a
-float, a channel or a failing marshaler would put an arm in play with no test
-behind it. The configuration's own encoders, `encodeValue`, `indented` and
-`decodeBuilt` (`internal/config`), panic on such a failure, as
+NaN or infinite float, a channel or a failing marshaler would put an arm in
+play with no test behind it. The configuration's own encoders, `encodeValue`,
+`indented` and `decodeBuilt` (`internal/config`), panic on such a failure, as
 `regexp.MustCompile` does on a pattern that cannot compile, rather than hand
 their callers an error nothing could cause, so a failure there would stop the
 program rather than be reported.
 
-**Reopen when.** A type encoded at one of these sites gains a float, a
-function, a channel, an interface-typed field or a `MarshalJSON` of its own;
-`config.Config` and `api.Config` disagree on a field's type; or an encoding
-failure is reported.
+**Reopen when.** A type encoded at one of these sites gains a float that can
+be NaN or infinite (one neither decoded from JSON nor converted from an
+integer), a function, a channel, an interface-typed field or a `MarshalJSON`
+of its own; `config.Config` and `api.Config` disagree on a field's type; or
+an encoding failure is reported.
 
 ### TRADE-14 What the binary embeds is taken to load
 
@@ -298,6 +318,9 @@ worklist this entry keeps. Two runs of the same code can differ by an arm or
 two: gobco's counters are plain increments, which a package's parallel tests
 can lose (`scripts/gobco-report.sh` says so), and two runs of the same
 `internal/config` code, this one and CI's, saw 500 and 501 of its 520 arms.
+Since then CI's coverage comment, on the pull requests merged on 2026-10-14
+(#268, #269 and #270), has read 95.6%. These figures are measured again on
+2026-11-14, the day TRADE-42 is looked at again too.
 
 **Decided.** 2026-09-26, in #146, and 2026-10-12, in #238, for which
 conditions the gate fails: a condition seen one way that the gate does not
@@ -319,7 +342,8 @@ source lines the gate cannot tell the two apart, and
 **Reopen when.** The measured figure comes within one point of
 `BRANCH_COVERAGE_MIN`, a defect ships through a condition the report listed
 as seen only one way, or a kept arm is found traded for a new one as the cost
-above describes.
+above describes. Whether or not one has, the entry is read again on
+2026-11-14 against the figures measured that day.
 
 ### TRADE-21 The place rules are written twice
 
@@ -380,18 +404,24 @@ seen toggling `issues.forge` from Settings and expecting it to apply at once.
 **Decided.** `kept.db` holds what the user decided and no session can see
 again: owner links, repository groups and favorite directories
 (`internal/store/kept.go`). It has one schema, `keptSchemaVersion`, and no
-migrations, because before 1.0 workflow is installed fresh. A file at another
-version is never discarded: it reads as empty and refuses writes with
-`ErrKeptSchemaDiffers`, which names `workflow db-clean --all`. Decided
-2026-10-01, in #165.
+migrations. Its one bump, to 2, shipped in v0.6.0, and a user of v0.5.0's
+`go install` or release binaries could upgrade across it; no kept table has
+changed since `brew upgrade workflow`, which carries a Homebrew install from
+one release to the next, arrived in v0.10.0, and the next change to one
+decides a migration path first. A file at another version is never
+discarded: it reads as empty and refuses writes with `ErrKeptSchemaDiffers`,
+which names `workflow db-clean --all`. Decided 2026-10-01, in #165, on the
+ground that workflow is installed fresh before 1.0; on 2026-10-14 the
+maintainer moved the trigger from 1.0 to the next kept-table change, since
+Homebrew users upgrade now.
 
 **Cost.** Each change to a kept table leaves files from earlier builds unread:
 tagging and favorites go blank until the user runs `workflow db-clean --all`
 and answers again.
 
-**Reopen when.** The first change to a kept table after a release users
-upgrade across (1.0 onward); a migration path is needed before that change
-ships, not after.
+**Reopen when.** The next change to a kept table, the first a Homebrew user
+upgrades across; a migration path is decided before that change ships, not
+after.
 
 ### TRADE-26 The Slack directory is read whole, once a session
 
@@ -456,7 +486,12 @@ a full-screen editor would hide, and the box needs no editor configured.
 Normal mode knows only moving and entering insert mode (`h`, `l`, `j`, `k`,
 `i`, `a`, `A`, `o`), so a key that types is never taken for a command.
 Decided 2026-10-05, in #173: building a fuller editor would cost more than
-the comments it serves.
+the comments it serves. The web's comment box (`CommentComposer`,
+`web/src/features/issues/CommentComposer.tsx`) is the browser's own text area
+and was already on main when this was decided, so the trigger's second
+surface is a second place in the terminal that wants a box of its own, and
+the maintainer read it so on 2026-10-14: the composer is still the
+terminal's one text area, so nothing has reopened this.
 
 **Cost.** The box is a worse editor than the user's own: no operators, no
 undo, no search, so vim's `dd` or `u` does nothing. Text that comes back from
@@ -466,7 +501,7 @@ working as Bubbles changes.
 
 **Reopen when.** Users ask for editing commands the box lacks, a comment
 written in `$EDITOR` is found posted wrong because of the filter, or a second
-surface wants a box of its own.
+place in the terminal wants a box of its own.
 
 ### TRADE-31 A comment too large to parse safely is shown unformatted
 
@@ -565,8 +600,10 @@ path to keep in step.
 **Cost.** A switch reads every pane again and drops what belonged to the
 repository left (a commit message, a pull request or a forge issue's comment
 being written, an announcement waiting for CI), so it asks first when any of
-those would be lost and refuses while a write is in flight. A session started
-by a switch reads the Slack directory afresh (TRADE-26).
+those would be lost, and refuses while an announcement or a change to a task
+is in flight (`writeInFlight`, `internal/tui/reposwitch.go`); any other write
+a pane sent goes on in the directory left, unshown, as TRADE-38 says. A
+session started by a switch reads the Slack directory afresh (TRADE-26).
 
 **Reopen when.** A switch is found slow enough to notice, or the terminal is
 found left changed by one in practice.
@@ -675,7 +712,7 @@ or stopping the server can.
 ### TRADE-38 The terminal stops its reads on quit, not on leaving a view
 
 **Decided.** The terminal asks every system under one session context, set by
-`Model.WithContext` (`internal/tui/tui.go`), which `tui.Run` ends when the
+`Model.WithContext` (`internal/tui/options.go`), which `tui.Run` ends when the
 program does. Quitting (`q`, or `ctrl+c` from anywhere) or switching directory
 (TRADE-34) therefore stops every read the program left in flight, and no write,
 but three pieces of work a read can begin: a shared read of the Slack directory
@@ -686,9 +723,10 @@ fails only as TRADE-16 says. Each runs to its own end, cut short no later than
 the command's: once workflow exits after the quit, or when a signal ends the
 command. The writes stay out of the session's end: `New` hands each write seam
 the session's values but not its end (`outlasting`, `internal/tui/deps.go`),
-and `Model.WithLifetime`, which `tui.Run` applies with the context it is given,
-ends the writes with that context instead, and counts each in flight, under a
-name that says what it does, in the `lifetime.InFlight` that context carries.
+and `Model.WithLifetime`, beside `WithContext`, which `tui.Run` applies with
+the context it is given, ends the writes with that context instead, and counts
+each in flight, under a name that says what it does, in the
+`lifetime.InFlight` that context carries.
 The command line gives it `whileOpen`'s (`internal/cli/cli.go`), which ends
 when SIGINT or SIGTERM cancels the command's context, until the command is
 done. When the last interface quits, workflow waits for the writes still in
@@ -833,13 +871,16 @@ script by hand where Homebrew is installed, or leaves it to CI.
 
 **Reopen when.** The audit fails a pull request over a Homebrew change more
 than rarely, or a pinned `Homebrew/actions/setup-homebrew` becomes worth
-approving as a new action.
+approving as a new action. The audit had run for about a day when this was
+written, and no Cross-compile job failed in the 80 CI runs up to 2026-10-14,
+so "more than rarely" is judged on 2026-11-14, over the month of runs since,
+the day TRADE-19's figures are measured again too.
 
 ### TRADE-43 A wait on a terminal prints its artifact on stderr
 
 **Decided.** While a slow command waits with a person watching, its live
 line is an inline Bubble Tea program at the foot of stderr
-(`console.Watched`, `internal/cli/console/live.go`), and everything written
+(`Notes.Watched`, `internal/cli/console/live.go`), and everything written
 to stderr meanwhile is printed above it through that program
 (`console.Stream`). When stdout is the same terminal, `artifactBeside`
 (`internal/cli/prompt.go`) prints the command's artifact above the line too,
@@ -924,13 +965,17 @@ settles after every key pays it in full: with Huh's inputs in the status
 change's text fields alone the terminal's tests took about 56 seconds rather
 than 34, and the first run's forms, typed a URL and a token at a time, took
 their tests from about 8 seconds to 3 and a half minutes. Decided 2026-10-14,
-with Huh, after measuring that cost.
+with Huh, after measuring that cost. Later that day the pull request form's
+base came to need suggestions, and a token's and a webhook's fields a mask;
+each was added to `quietInput` (`suggesting`, `secret`), so no form came to
+need what only `huh.Input` offers, and the maintainer read the trigger so:
+neither reopened this.
 
 **Cost.** `quietInput` does for one line what `huh.Input` does — its title,
-placeholder, prompt, check, keys, theme and width — so a fix or a feature Huh
-adds to its input (suggestions, a character limit, a mask) is not ours until
-it is added here. Its accessible prompt is Huh's own input, so that one stays
-Huh's.
+placeholder, prompt, check, keys, theme, width, suggestions and mask — so a
+fix or a feature Huh adds to its input, such as a character limit, is not ours
+until it is added here. Its accessible prompt is Huh's own input, so that one
+stays Huh's.
 
 **Reopen when.** Huh lets an input's cursor be static, or a form needs what
 only `huh.Input` offers.
@@ -1025,7 +1070,7 @@ from a part the page takes up later, is still heard by no spec.
 **Reopen when.** A choice needs more than a native `<select>` can draw, or the
 server gains a per-request nonce that the page could hand to `CSPProvider`.
 
-### TRADE-51 Settings checks a few settings the server checks again
+### TRADE-51 The web checks a few values the server checks again
 
 **Decided.** The `--web` Settings refuses a few settings beside themselves
 before a save is sent (`web/src/features/settings/settingsRules.ts`): a Jira
@@ -1033,16 +1078,29 @@ address that is not http or https, carries a login, or would send the token
 over http off this machine; a branch template without `{key}`; a timing that
 is not a positive Go duration; an issue trailer of more than one word or with
 a colon; and a count below zero. Each says again what `internal/config`
-refuses at load. The server stays the authority: a save it refuses as not
-valid names each setting in the problem's `fields`, and Settings marks those
-the same way. Decided 2026-10-14 by the maintainer, in the UX refresh's
-Settings pull request.
+refuses at load. A status change does the same for a field the change needs
+and was left empty (`emptyOf`,
+`web/src/features/issues/writes/StatusChangeForm.tsx`), refused beside the
+field before the change is sent, as the server refuses it
+(`internal/jira/fields.go`): a text or single-option field with
+`jira.ErrNeedsValue`, a list with nothing chosen with `jira.ErrNeedsChoice`.
+The server stays the authority: a save it refuses as not valid names each
+setting in the problem's `fields`, which Settings marks the same way, and a
+status change it refuses keeps its refusal beside the form. Decided
+2026-10-14 by the maintainer, in the UX refresh's Settings pull request, and
+widened the same day to the status change's check, which the refresh's
+inline refusals added, with no shared case file for either: the rules are
+few, and the server checks each again.
 
 **Cost.** Two copies of these checks, in Go and in TypeScript, which can
-drift: a rule loosened on the server alone is still refused in Settings until
+drift: a rule loosened on the server alone is still refused on the page until
 its twin follows, and one tightened there is caught only by the server's
-refusal after the save is sent. The client's words for a refusal are its own,
-not the server's.
+refusal after the save or the change is sent. Settings words a refusal its
+own way, not the server's. The status change copies the server's words,
+`needs a value`, for a text or single-option field, so a change to
+`jira.ErrNeedsValue` leaves the page's copy behind; for a list it copies the
+check but not the words, saying `needs a value` where the server says
+`needs at least one`.
 
 **Reopen when.** A client rule refuses a value the server accepts, or the
 server can be asked to check a configuration without saving it, which would

@@ -27,11 +27,13 @@ const keptName = "kept.db"
 const keptPragmas = dsnPragmas + "&_txlock=immediate"
 
 // keptSchemaVersion is the version of the schema keptSchema makes, stamped
-// into the file as SQLite's user_version. There are no migrations: a change to
-// a kept table changes keptSchema and bumps this, and a file at another
-// version is left for the user to remove.
+// into the file as SQLite's user_version.
 //
-// Trade-off TRADE-25: kept data has one schema and is never migrated.
+// Trade-off TRADE-25: there are no migrations. Today a file at another
+// version is left as it is, read as empty and refused writes until the user
+// removes it with `workflow db-clean --all`, and the next change to a kept
+// table, which Homebrew users upgrade across, decides a migration path before
+// it changes keptSchema or bumps this.
 const keptSchemaVersion = 2
 
 // ErrKeptSchemaDiffers reports a kept database written at another schema
