@@ -274,7 +274,7 @@ func TestLogReachesDoctorOnlinesForgeCheckThroughItsCLI(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "requests.log")
 
 	// Act
-	output, err := run(t, dir, "doctor", "--online", "--log", logPath)
+	output, err := run(t, dir, "doctor", "--online", "--request-log", logPath)
 	// Assert
 	if err != nil {
 		t.Fatalf("doctor --online: %v (%s)", err, output)

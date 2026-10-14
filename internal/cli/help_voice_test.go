@@ -68,8 +68,8 @@ func TestTheLogFlagNamesItsFile(t *testing.T) {
 	output, err := run(t, t.TempDir(), "--help")
 
 	// Assert
-	if err != nil || !strings.Contains(output, "--log FILE") || strings.Contains(output, "--log string") {
-		t.Errorf("--help = %v, want --log's placeholder named FILE:\n%s", err, output)
+	if err != nil || !strings.Contains(output, "--request-log FILE") || strings.Contains(output, "--request-log string") {
+		t.Errorf("--help = %v, want --request-log's placeholder named FILE:\n%s", err, output)
 	}
 }
 

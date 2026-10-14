@@ -137,9 +137,9 @@ func dryRunRequested(cmd *cobra.Command) bool {
 }
 
 // logFlag names the root's flag that turns on the request log.
-const logFlag = "log"
+const logFlag = "request-log"
 
-// requestLogFor opens the request log --log names and, under --verbose, says
+// requestLogFor opens the request log --request-log names and, under --verbose, says
 // each outline as a debug line too, or keeps none when neither asks for one,
 // warning on the command's stderr at close when the file was not fully
 // written. The root declares both flags for every command, so they are
@@ -191,7 +191,7 @@ func (logging requestLogging) open(path string) (*wiring.RequestLog, func(), err
 		return logging.unfiled(), func() {}, nil
 	}
 
-	//nolint:gosec // the path is the user's own --log argument, by design.
+	//nolint:gosec // the path is the user's own --request-log argument, by design.
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, logFileMode)
 	if err != nil {
 		return nil, func() {}, fmt.Errorf("opening the request log: %w", err)

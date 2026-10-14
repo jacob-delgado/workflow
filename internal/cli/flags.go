@@ -85,10 +85,11 @@ type rootFlags struct {
 	port   int
 }
 
-// declare declares the flags on root: --dry-run, --log and how stderr is
-// said once, for every command, so a script passes them before the command's
-// name or after it, and each command reads them back by name; --web and
-// --port on the root alone.
+// declare declares the flags on root: --dry-run, --request-log and how
+// stderr is said once, for every command, so a script passes them before the
+// command's name or after it, and each command reads them back by name; --web
+// and --port on the root alone. --log, the request log's old name, is kept
+// hidden only to refuse it with the new one.
 func (f *rootFlags) declare(root *cobra.Command) {
 	root.PersistentFlags().BoolVarP(&f.dryRun, dryRunFlag, dryRunShorthand, false,
 		"hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, "+
@@ -99,6 +100,7 @@ func (f *rootFlags) declare(root *cobra.Command) {
 		"also say each request's outline on stderr, as a debug line (not while the terminal interface draws)")
 	root.PersistentFlags().BoolP(quietFlag, quietShorthand, false,
 		"say only warnings, errors and questions on stderr, leaving every note out")
+	root.PersistentFlags().VarPF(renamedFlag{now: logFlag}, oldLogFlag, "", "").Hidden = true
 	root.PersistentFlags().Var(new(logFormatValue), logFormatFlag,
 		"say what goes to stderr as `FORMAT`: text, or json or logfmt, an entry a line stamped with its time")
 	root.Flags().BoolVar(&f.web, webFlag, false,
@@ -195,4 +197,33 @@ func verbosity(quiet, verbose bool) console.Verbosity {
 	default:
 		return console.Normal
 	}
+}
+
+// oldLogFlag is --request-log's old name.
+const oldLogFlag = "log"
+
+// errRenamed is a flag given by a name it no longer has.
+var errRenamed = errors.New("the flag was renamed")
+
+// renamedFlag is the value of a flag kept under its old name only to refuse
+// it, naming the flag it is now.
+type renamedFlag struct {
+	now string
+}
+
+var _ pflag.Value = renamedFlag{}
+
+// String is no value: the old name holds none.
+func (renamedFlag) String() string {
+	return ""
+}
+
+// Set refuses the value, naming the flag to give it to.
+func (f renamedFlag) Set(string) error {
+	return fmt.Errorf("%w; it is --%s now", errRenamed, f.now)
+}
+
+// Type is what the old name would call its value.
+func (renamedFlag) Type() string {
+	return "string"
 }

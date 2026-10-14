@@ -21,7 +21,7 @@ const workdirUnread = "determining the working directory"
 // logOption is the option that names the request log, and relativeLog a log
 // named relatively, which is read from the working directory.
 const (
-	logOption   = "--log"
+	logOption   = "--request-log"
 	relativeLog = "requests.log"
 )
 
@@ -81,7 +81,7 @@ func TestALogNamedRelativelyFromARemovedDirectorySaysItCannotBeOpened(t *testing
 
 	// Assert
 	if err == nil || !strings.HasPrefix(err.Error(), "opening the request log: "+workdirUnread) {
-		t.Errorf("--log requests.log from a removed directory = %v, want it to say the log cannot be opened "+
+		t.Errorf("--request-log requests.log from a removed directory = %v, want it to say the log cannot be opened "+
 			"for the directory it cannot name (%+v)", err, printed)
 	}
 }

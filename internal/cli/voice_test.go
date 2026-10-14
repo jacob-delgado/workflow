@@ -139,7 +139,7 @@ func TestVerboseKeepsTheRequestLogItIsGiven(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "requests.log")
 
 	// Act
-	printed, err := runStreams(t, dir, unusedPrompt(t), "--verbose", "--log", logPath, "doctor", "--online")
+	printed, err := runStreams(t, dir, unusedPrompt(t), "--verbose", "--request-log", logPath, "doctor", "--online")
 
 	// Assert
 	logged := readLog(t, logPath)
@@ -187,5 +187,31 @@ func TestVerboseLeavesTheTerminalInterfaceToDrawAlone(t *testing.T) {
 	if ran.err != nil || ran.interfaces != 1 || ran.stderr != "" {
 		t.Errorf("workflow --verbose = %v after %d interfaces, stderr %q; want the interface opened, nothing said",
 			ran.err, ran.interfaces, ran.stderr)
+	}
+}
+
+func TestTheOldLogFlagIsAUsageErrorNamingItsNewName(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), "--log", "requests.log", "doctor")
+
+	// Assert
+	wantExit(t, err, 2)
+
+	if printed.stdout != "" || !strings.Contains(printed.stderr, "--request-log") {
+		t.Errorf("stdout %q, stderr %q; want nothing run, and the flag's new name", printed.stdout, printed.stderr)
+	}
+}
+
+func TestTheOldLogFlagIsNotInTheHelp(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), "--help")
+
+	// Assert
+	if err != nil || strings.Contains(printed.stdout, "--log ") || !strings.Contains(printed.stdout, "--request-log") {
+		t.Errorf("--help = %v:\n%s\nwant --request-log alone", err, printed.stdout)
 	}
 }

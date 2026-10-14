@@ -23,9 +23,9 @@ workflow slack [flags]
 
 ```
   -n, --dry-run             hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, and say what it would have done
-      --log FILE            append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
       --log-format FORMAT   say what goes to stderr as FORMAT: text, or json or logfmt, an entry a line stamped with its time (default text)
   -q, --quiet               say only warnings, errors and questions on stderr, leaving every note out
+      --request-log FILE    append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
       --verbose             also say each request's outline on stderr, as a debug line (not while the terminal interface draws)
 ```
 

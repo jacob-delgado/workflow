@@ -74,8 +74,8 @@ func newDoctorCmd(prompt Prompt) *cobra.Command {
 			"your forge and Slack whether each credential works; a webhook is left\n" +
 			"unchecked. Add --json for the same facts as data, with the same masking.",
 		Example: examples(
-			`workflow doctor --online                      # ask each service whether its credential works`,
-			`workflow --log requests.log doctor --online   # a bug report's evidence`,
+			`workflow doctor --online                              # ask each service whether its credential works`,
+			`workflow --request-log requests.log doctor --online   # a bug report's evidence`,
 		),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
