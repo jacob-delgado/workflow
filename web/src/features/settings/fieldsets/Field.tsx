@@ -66,19 +66,15 @@ interface Described {
   refusal?: string
 }
 
-// describedProps are what a field's control says of what describes it, and
-// that it is invalid while it is refused.
+// describedProps are what a field's control is described by — where it is
+// kept, then its hint — and the error that refuses it, while one does.
 function describedProps(name: Name, { kept, hint, refusal }: Described) {
-  const describers = [
-    kept === undefined ? '' : keptId(name),
-    hint ? hintId(name) : '',
-    refusal === undefined ? '' : refusalId(name),
-  ]
+  const describers = [kept === undefined ? '' : keptId(name), hint ? hintId(name) : '']
   const describedBy = describers.filter((id) => id !== '').join(' ')
 
   return {
     'aria-describedby': describedBy === '' ? undefined : describedBy,
-    'aria-invalid': refusal === undefined ? undefined : true,
+    error: refusal === undefined ? undefined : refusalId(name),
   }
 }
 

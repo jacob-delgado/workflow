@@ -188,8 +188,7 @@ function RowFields({ register, row, columns, nameHeld, refusalId, validate }: Ro
       placeholder={column.label}
       type={column.secret ? 'password' : 'text'}
       readOnly={at === 0 && nameHeld}
-      aria-invalid={at === 0 && refusalId !== undefined ? true : undefined}
-      aria-describedby={at === 0 ? refusalId : undefined}
+      error={at === 0 ? refusalId : undefined}
       className={cn(column.wide ? 'min-w-48 flex-[2]' : 'min-w-32 flex-1')}
       {...register(
         `${row}.${column.field}` as Path<SettingsValues>,
