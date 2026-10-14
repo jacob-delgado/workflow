@@ -78,15 +78,17 @@ func (c Config) validateMessaging() error {
 
 	switch {
 	case !messaging.Kind.Known():
-		return fmt.Errorf("%w: kind is slack, teams, discord or webhook: %q", ErrInvalidMessaging, messaging.Kind)
+		return refusing("messaging.kind",
+			fmt.Errorf("%w: kind is slack, teams, discord or webhook: %q", ErrInvalidMessaging, messaging.Kind))
 	case messaging.hasUserToken() && messaging.Kind.webhookOnly():
-		return fmt.Errorf("%w: client_id and the user token belong to Slack alone, not %s",
-			ErrInvalidMessaging, messaging.Kind.Service())
+		return refusing("messaging.kind", fmt.Errorf("%w: client_id and the user token belong to Slack alone, not %s",
+			ErrInvalidMessaging, messaging.Kind.Service()))
 	case messaging.hasUserToken() && messaging.WebhookURL != "":
-		return fmt.Errorf("%w: Slack posts with a user token or a webhook_url, not both; remove one",
-			ErrInvalidMessaging)
+		return refusing("messaging.webhook_url", fmt.Errorf(
+			"%w: Slack posts with a user token or a webhook_url, not both; remove one", ErrInvalidMessaging))
 	case messaging.ExpiresAt != "" && !isTimestamp(messaging.ExpiresAt):
-		return fmt.Errorf("%w: expires_at is not an RFC 3339 time: %q", ErrInvalidMessaging, messaging.ExpiresAt)
+		return refusing("messaging.expires_at",
+			fmt.Errorf("%w: expires_at is not an RFC 3339 time: %q", ErrInvalidMessaging, messaging.ExpiresAt))
 	default:
 		return nil
 	}

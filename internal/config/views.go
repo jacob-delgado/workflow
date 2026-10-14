@@ -38,7 +38,8 @@ type Issues struct {
 // happened to set last.
 func (c Config) validateHeaders() error {
 	if first, second, same := sameNamed(slices.Collect(maps.Keys(c.Jira.Headers)), http.CanonicalHeaderKey); same {
-		return fmt.Errorf("%w: jira.headers %q and %q name the same header", ErrSameName, first, second)
+		return refusing("jira.headers",
+			fmt.Errorf("%w: jira.headers %q and %q name the same header", ErrSameName, first, second))
 	}
 
 	return nil
@@ -66,7 +67,7 @@ func sameNamed(names []string, key func(string) string) (string, string, bool) {
 func (c Config) validateViews() error {
 	for _, view := range c.Jira.Views {
 		if strings.TrimSpace(view.Name) == "" || strings.TrimSpace(view.JQL) == "" {
-			return fmt.Errorf("%w: each view needs a name and a jql", ErrInvalidView)
+			return refusing("jira.views", fmt.Errorf("%w: each view needs a name and a jql", ErrInvalidView))
 		}
 	}
 

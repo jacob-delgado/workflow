@@ -106,11 +106,12 @@ func (u UI) DrawColor(noColorEnv string) bool {
 // was meant to turn off.
 func (c Config) validateUI() error {
 	if c.UI.CommentsShown < 0 {
-		return fmt.Errorf("%w: comments_shown cannot be negative: %d", ErrInvalidUI, c.UI.CommentsShown)
+		return refusing("ui.comments_shown",
+			fmt.Errorf("%w: comments_shown cannot be negative: %d", ErrInvalidUI, c.UI.CommentsShown))
 	}
 
 	if c.UI.Color != "" && c.UI.Color != colorNever {
-		return fmt.Errorf("%w: color is empty or never: %q", ErrInvalidUI, c.UI.Color)
+		return refusing("ui.color", fmt.Errorf("%w: color is empty or never: %q", ErrInvalidUI, c.UI.Color))
 	}
 
 	return nil

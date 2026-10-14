@@ -474,7 +474,12 @@ func (c Config) validateJira() error {
 		return nil
 	}
 
-	return CheckBaseURL(c.Jira.BaseURL)
+	err := CheckBaseURL(c.Jira.BaseURL)
+	if err != nil {
+		return refusing("jira.base_url", err)
+	}
+
+	return nil
 }
 
 // validateForge refuses a forge.kind that names neither forge, read as the
@@ -484,6 +489,6 @@ func (c Config) validateForge() error {
 	case "", "github", "gitlab":
 		return nil
 	default:
-		return fmt.Errorf("%w: %q", ErrUnknownForgeKind, c.Forge.Kind)
+		return refusing("forge.kind", fmt.Errorf("%w: %q", ErrUnknownForgeKind, c.Forge.Kind))
 	}
 }
