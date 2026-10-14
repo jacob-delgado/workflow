@@ -1,5 +1,105 @@
 # Changelog
 
+## [0.11.0](https://github.com/jacob-delgado/workflow/compare/v0.10.0...v0.11.0) (2026-10-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cli:** --log is now --request-log; --log FILE is refused with exit status 2.
+* **cli:** an error reads "ERROR <message>" rather than
+
+### Features
+
+* **api:** name each refused setting in a save's problem ([ceb0521](https://github.com/jacob-delgado/workflow/commit/ceb0521aeb75fa79e0323f0c8bfdd31f50278c68))
+* **api:** narrow GET /api/directories by a name prefix ([38e7752](https://github.com/jacob-delgado/workflow/commit/38e7752c57ab18b1bef0407ddd68519130928a74))
+* **cli:** add --verbose, --quiet and --log-format ([ce41521](https://github.com/jacob-delgado/workflow/commit/ce4152137049caafcd4de482170ca007c529c725))
+* **cli:** keep a live line while a command waits on a terminal ([24cba9a](https://github.com/jacob-delgado/workflow/commit/24cba9a0d70fd4399623f0237152592b32002330))
+* **cli:** rename --log to --request-log ([b6504b8](https://github.com/jacob-delgado/workflow/commit/b6504b8055a64e20815206067d09c0fd4f048612))
+* **cli:** say notes, warnings and errors through one log ([ea03b50](https://github.com/jacob-delgado/workflow/commit/ea03b50c076ffdfdd7740e12547503918467136f))
+* **cli:** show CI's progress while announce waits for it ([ef3cc81](https://github.com/jacob-delgado/workflow/commit/ef3cc818a365a2c6083643414df8cdf321efd372))
+* **cli:** style help, usage and errors with fang ([45af262](https://github.com/jacob-delgado/workflow/commit/45af2626fb035730db897c94f187b002436b3e52))
+* **config:** add ui.motion, which reduce turns to stillness ([b327a21](https://github.com/jacob-delgado/workflow/commit/b327a21bff793735c5802d002b3ef51c2a9f953f))
+* **config:** name the setting each validation refuses ([f2e160e](https://github.com/jacob-delgado/workflow/commit/f2e160e8c1c590022bdaeca7f5fed50c20c33beb))
+* **tui:** ask the first run's questions in Huh forms ([b5cae7a](https://github.com/jacob-delgado/workflow/commit/b5cae7ab468e0a70ee4fb9d6cb2066c423100e04))
+* **tui:** browse for a directory in a picker dialog ([c38c1f7](https://github.com/jacob-delgado/workflow/commit/c38c1f778b56bcec52b93e9af162bc9860c236cc))
+* **tui:** compose a pull request in two Huh forms ([f38f4b9](https://github.com/jacob-delgado/workflow/commit/f38f4b9d4ded6d0cf33fe629ef59d807d44685ae))
+* **tui:** draw the loop as a track of filled and open rules ([5ddaeaa](https://github.com/jacob-delgado/workflow/commit/5ddaeaa52d3bd13a39ff534b7b055648f7a562f8))
+* **tui:** edit a Settings section in a Huh form ([134eab2](https://github.com/jacob-delgado/workflow/commit/134eab2bf01e95d5488196f7d12bc3748289add6))
+* **tui:** fill a stage's rule as the stage completes ([0ac2146](https://github.com/jacob-delgado/workflow/commit/0ac214674bb70efa0669be33b50f9bb583599a34))
+* **tui:** fill in a status change's fields in a Huh form ([151bafc](https://github.com/jacob-delgado/workflow/commit/151bafc6362c052f3e574ce2d67b2633edc257eb))
+* **tui:** float the keys, last looks and checklists as dialogs ([8d95e3e](https://github.com/jacob-delgado/workflow/commit/8d95e3e66450654dd70d1fd6e00a17d64b47aacb))
+* **tui:** hand a form to Huh's accessible prompts on request ([97db146](https://github.com/jacob-delgado/workflow/commit/97db146303da9941007b0634acafaf5c1f8e8ecb))
+* **tui:** spring the Review pane's bar toward checks finished ([9dd097e](https://github.com/jacob-delgado/workflow/commit/9dd097e7207dd9d0f9cdbeaeb9874b50e06dd3ba))
+* **tui:** turn the in-flight mark while a read is out ([77d112e](https://github.com/jacob-delgado/workflow/commit/77d112e9dcc4cf2c7e800826094746e7d153abbd))
+* **web:** browse for a directory in a dialog with typeahead ([777dcaf](https://github.com/jacob-delgado/workflow/commit/777dcafb85ed1e7c80afabad3cf10ad2ad5eb2be))
+* **web:** draw dialogs and the command palette with Base UI ([3208066](https://github.com/jacob-delgado/workflow/commit/3208066a80376f7bee64fa3f4e0da7104f7d956b))
+* **web:** draw the loop as a track under the header ([518d3c9](https://github.com/jacob-delgado/workflow/commit/518d3c9927de9e1d8030aded7f880de990d025d3))
+* **web:** keep a save bar in view with the unsaved count ([d78f113](https://github.com/jacob-delgado/workflow/commit/d78f113018cfea94510222933364ef4d689ee5c0))
+* **web:** mark each section's changes and refusals on its tab ([4d7816e](https://github.com/jacob-delgado/workflow/commit/4d7816e82a696a3b5b3144f94891b623bfd04b76))
+* **web:** mark refused fields inline across the forms ([abec28e](https://github.com/jacob-delgado/workflow/commit/abec28ec36c0ddcc0b3ed5277263af7d644be876))
+* **web:** pick whom an owner is on Slack by typing their name ([dea5d63](https://github.com/jacob-delgado/workflow/commit/dea5d63ff578800cd67312e4839fe97268f2cfb0))
+* **web:** say beside each setting why it was refused ([9b146bd](https://github.com/jacob-delgado/workflow/commit/9b146bdde0e7ae282fd4c9d454d6d26b2731b9d7))
+* **web:** say where each stored credential is kept ([efe27f4](https://github.com/jacob-delgado/workflow/commit/efe27f42fccfed002a39bfd8f8701bf1d975d623))
+* **web:** set the page in Recursive, its mono axis for code ([e72fd54](https://github.com/jacob-delgado/workflow/commit/e72fd54c8ab4e6b59621b19b2fa66ee19ddc6dd4))
+* **web:** show Settings a section at a time beside its list ([13f05c7](https://github.com/jacob-delgado/workflow/commit/13f05c74bd524cf1d578d42027236a61e8674300))
+* **workdirs:** rank names by prefix, then by letters in order ([8684aa8](https://github.com/jacob-delgado/workflow/commit/8684aa8c16d68692b71c23fe0100c47a36a11b95))
+
+
+### Bug Fixes
+
+* **release:** say brew tap-new failed, not that it made no tap ([bc7adaa](https://github.com/jacob-delgado/workflow/commit/bc7adaa73b163d35bfb1d86915ed0002f016bd64))
+* **web:** pin the save bar to the bottom of the content ([5ac8fe8](https://github.com/jacob-delgado/workflow/commit/5ac8fe8c62c8e3a1c42cce10f03d763bbec64cd3))
+* **workdirs:** narrow a listing by a prefix in any case ([c05ba96](https://github.com/jacob-delgado/workflow/commit/c05ba9644e233bdc219953ce7cdf6e1fdff1a67e))
+
+
+### Performance
+
+* **tui:** type a form's text in a field that never blinks ([39af1a6](https://github.com/jacob-delgado/workflow/commit/39af1a6e8a713b7c536b717ac26e7cd8e1df8b1b))
+
+
+### Refactors
+
+* **cli:** move the root's flags out of cli.go ([785776a](https://github.com/jacob-delgado/workflow/commit/785776af82f0fedfe0b4f2b2620ed0ee9adb287f))
+* **tui:** assert at compile time that a motion tick applies ([c317303](https://github.com/jacob-delgado/workflow/commit/c31730305e6938162c732898918a204808f17dbd))
+* **tui:** label the failed check's choices from a map ([9e2c767](https://github.com/jacob-delgado/workflow/commit/9e2c7671c8930f639431a1092f3c665a60341587))
+* **tui:** move Model's options out of tui.go ([0d83652](https://github.com/jacob-delgado/workflow/commit/0d8365231150300b5136f491968c1592a380f9a3))
+* **tui:** move the go-to prompt's footer beside its overlay ([5d085b1](https://github.com/jacob-delgado/workflow/commit/5d085b1293eca1d5d821192c68b373f52b9129e8))
+* **tui:** name what draws an overlay in the detail pane ([7695aba](https://github.com/jacob-delgado/workflow/commit/7695abaf79075830c0351c695d845c315a95b3b2))
+* **web:** keep each stage's section in sections.ts ([ba03c9b](https://github.com/jacob-delgado/workflow/commit/ba03c9b1f7e01d60788e08944f12466b22a35def))
+* **web:** mark refused settings through the fields' own error ([a927159](https://github.com/jacob-delgado/workflow/commit/a92715975d0cad29cbd70f171ee9b28e0abd3a88))
+* **web:** merge the small settings fieldsets by section ([9c9eac9](https://github.com/jacob-delgado/workflow/commit/9c9eac9a3e77f0edc7b26337e63885c812aa642b))
+* **webserver:** read an optional query parameter in one place ([789022e](https://github.com/jacob-delgado/workflow/commit/789022e3f9290b25da13169b3fd8352935a5acd1))
+
+
+### Documentation
+
+* **contributing:** say CI audits a stand-in and publishes no formula ([f1818f4](https://github.com/jacob-delgado/workflow/commit/f1818f48e52d4f1728c947bf9a05b4f9f45dc444))
+* describe dialogs and accessible forms ([c38bca9](https://github.com/jacob-delgado/workflow/commit/c38bca9ef0821dcbe00551c22d3d4643184a7f9d))
+* describe the directory dialog on the web ([0651958](https://github.com/jacob-delgado/workflow/commit/0651958d59c8a4ab1f76688d1a0adc92978ed174))
+* describe the loop track and ui.motion ([8b5f0f5](https://github.com/jacob-delgado/workflow/commit/8b5f0f59c7c82f52f2cd3d4ac973a197e21f5ae5))
+* describe the terminal's directory picker ([60afcb9](https://github.com/jacob-delgado/workflow/commit/60afcb9baa1fbbc68cabc8b0764dda2afa4c2154))
+* **scripting:** describe log levels, formats and the live line ([2369d1c](https://github.com/jacob-delgado/workflow/commit/2369d1c745b65b56b89b9925471e4264be6acb73))
+* **usage:** describe the terminal's forms and their keys ([f872898](https://github.com/jacob-delgado/workflow/commit/f8728987e383b53a418d1337250207d716acf19d))
+* **web:** describe Settings' sections and its save bar ([05aabd8](https://github.com/jacob-delgado/workflow/commit/05aabd8791b3fc79fff616bd9aaa6a553d49f9af))
+* **web:** describe the typeface, the track and the dialogs ([5afbbc3](https://github.com/jacob-delgado/workflow/commit/5afbbc3d47f16db04c2613940eff718fa69841ed))
+
+
+### Build & Packaging
+
+* **release:** fail the formula audit on a Homebrew deprecation ([388d78c](https://github.com/jacob-delgado/workflow/commit/388d78c2eb2009ea853c7cdafebfac442c943d86))
+* **release:** name the Homebrew that audits the formula ([d24e4b2](https://github.com/jacob-delgado/workflow/commit/d24e4b244dc53e15f8e881591141e6ae8bd83e9d))
+
+
+### Tests
+
+* **config:** read ui.motion's reduce both ways ([231635e](https://github.com/jacob-delgado/workflow/commit/231635e37b7a07d8ed2733efa1b23536f8bfad93))
+* **e2e:** hold the directory dialog to every width and theme ([59a41cf](https://github.com/jacob-delgado/workflow/commit/59a41cf464b11668720b69dde3134693ffb64d1c))
+* **e2e:** hold the Settings sections to every width and theme ([aaebb8c](https://github.com/jacob-delgado/workflow/commit/aaebb8c88aec923fe747758b8363e2fcf36f4a93))
+* **e2e:** wait for focus to leave a dialog's focus guard ([8994472](https://github.com/jacob-delgado/workflow/commit/8994472ed1136a1075a7ce617b02d8100212bcb4))
+* **tui:** hold the track's widths and ASCII in one table ([4df234f](https://github.com/jacob-delgado/workflow/commit/4df234f65ddb9de0577fc1d0c76e74cb6983b803))
+* **tui:** keep the tests off the repository git's environment names ([b918109](https://github.com/jacob-delgado/workflow/commit/b91810977c882c77e1424af61c9a7e7d14b37fab))
+* **tui:** run a sequence of commands in the test harness ([4bb226a](https://github.com/jacob-delgado/workflow/commit/4bb226a57c6656ab3d070edb1b99cff083df198b))
+
 ## [0.10.0](https://github.com/jacob-delgado/workflow/compare/v0.9.1...v0.10.0) (2026-10-14)
 
 
