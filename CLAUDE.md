@@ -177,14 +177,21 @@ without agreement on direction.
 - **Package & directory size — cohesion first, a budget as the backstop.** Size
   a grouping by responsibility, not by a file count. A Go package is *one*
   cohesive responsibility behind a small exported API; many files in it is
-  idiomatic and good — `internal/tui` is one interface spelled file-per-pane and
-  must **not** be split to chase a number. Split a package only when it carries
-  more than one reason to change *and* the extraction won't make an import
-  cycle; on the web, group by feature (`web/src/features/<feature>/`), never one
-  flat directory. But cohesion is a judgment call and judgment loses to entropy —
-  a folder reaches thirty files one defensible file at a time. So every grouping
-  also answers to a **file budget**, gated by `scripts/check-package-size.sh`
-  against `scripts/package-size-budgets.txt` (`task lint`, `task check`, CI, and
+  idiomatic and good, and a package must **not** be split to chase a number.
+  Cohesion also says what may leave: extract code into a package of its own when
+  it has a reason to change of its own *and* the extraction makes no import
+  cycle, even out of a package that is cohesive as a whole. The web server's
+  request boundary (the guards, the session and the contract validator), its
+  Taskwarrior handlers and its git runs, the command line's doctor checks and
+  its pr/announce flow over the forge and messaging, and a Huh widget of the
+  terminal's own are each such code. What hangs off a shared type stays with it:
+  a pane or an overlay of `internal/tui` takes and returns `Model`, and cannot
+  leave without it. On the web, group by feature
+  (`web/src/features/<feature>/`), never one flat directory. But cohesion is a
+  judgment call and judgment loses to entropy — a folder reaches thirty files
+  one defensible file at a time. So every grouping also answers to a **file
+  budget**, gated by `scripts/check-package-size.sh` against
+  `scripts/package-size-budgets.txt` (`task lint`, `task check`, CI, and
   lefthook pre-push; `--list`, or `task package-size`, prints the standings).
   **Read the numbers there, never here** — a prose restatement drifts. An entry
   is one of two kinds. A **ratcheted** budget is zero-headroom both ways: over
@@ -193,16 +200,17 @@ without agreement on direction.
   grouping that is file-per-concern by design — one responsibility spelled a
   file per pane, per endpoint or per command, each new one a new file, as
   `internal/tui`, `internal/webserver` and `internal/cli` are — which fails only
-  past its ceiling and has no ratchet; its WHY names that spelling rule.
-  Anything else is ratcheted, and both kinds are earned by size. Counts
-  are source files: unit tests, stylesheets and generated code don't count, but
-  integration tests (`*_integration_test.go`) and e2e specs (everything under
-  `web/e2e/`) do — an end-to-end surface must break into per-surface folders
-  rather than hide a hundred scenario files in one directory. A trip has
-  two honest answers, named in the gate's own output: **split** when the grouping
-  really carries a second reason to change, or **bump** (raise the number, a
-  budget or a ceiling alike, rewrite the WHY above the entry, and append a row
-  to `scripts/package-size-budget-history.md`) when the new file is the same
+  past its ceiling and has no ratchet; its WHY names that spelling rule, and
+  what in the package has a reason to change of its own and may leave. Anything
+  else is ratcheted, and both kinds are earned by size. Counts are source files:
+  unit tests, stylesheets and generated code don't count, but integration tests
+  (`*_integration_test.go`) and e2e specs (everything under `web/e2e/`) do — an
+  end-to-end surface must break into per-surface folders rather than hide a
+  hundred scenario files in one directory. A trip has two honest answers, named
+  in the gate's own output: **split** when the grouping really carries a second
+  reason to change, cycle-free, or **bump** (raise the number, a budget or a
+  ceiling alike, rewrite the WHY above the entry, and append a row to
+  `scripts/package-size-budget-history.md`) when the new file is the same
   responsibility one concern wider. "The gate was in the way" is neither.
 
 - **McCabe cyclomatic complexity ≤ 10 — enforced, not aspirational.** `gocyclo`
