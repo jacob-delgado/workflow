@@ -29,7 +29,7 @@ import { configOf, formValues, type SettingsValues } from './formValues.ts'
 import { type Removal, RemovalsContext, stored, without } from './removal.ts'
 import { firstSection, sectionOf, SettingsSections } from './SettingsSections.tsx'
 import { refusedPaths } from './settingsRules.ts'
-import { changedSettings, SaveBar } from './SaveBar.tsx'
+import { changedPaths, SaveBar } from './SaveBar.tsx'
 import { SetupArea } from './SetupForm.tsx'
 
 // SettingsPanel is the configuration form a section at a time, with the areas
@@ -161,6 +161,7 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
     { fallback: 'The configuration could not be read. Try Reload again.' },
   )
   const refused = refusedPaths(formState.errors)
+  const changed = changedPaths(formState.dirtyFields)
   const onSubmit = handleSubmit(
     (values) => save.run(values),
     (errors) => {
@@ -175,6 +176,8 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
           section={view.section}
           onSection={view.setSection}
           fields={{ register, control }}
+          changed={changed}
+          refused={refused}
           form={{
             id: formId,
             noValidate: true,
@@ -186,7 +189,7 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
           bar={
             <SaveBar
               form={formId}
-              unsaved={changedSettings(formState.dirtyFields)}
+              unsaved={changed.length}
               toFix={toFix(refused)}
               saving={save.state === 'running'}
               said={outcome.said}

@@ -3,22 +3,24 @@ import { OutcomeLine } from '@/lib/Outcome.tsx'
 import { Failure } from '@/lib/Status.tsx'
 import type { AsyncState } from '@/lib/useAsyncAction.ts'
 
-// changedSettings is how many settings the form's dirty fields mark changed:
-// each field, and each list as one, however many of its rows changed.
-export function changedSettings(dirty: unknown): number {
+// changedPaths are the paths of the settings the form's dirty fields mark
+// changed: each field, and each list once, however many of its rows changed.
+export function changedPaths(dirty: unknown, under = ''): string[] {
   if (dirty === true) {
-    return 1
+    return [under]
   }
 
   if (Array.isArray(dirty)) {
-    return dirty.some((row) => changedSettings(row) > 0) ? 1 : 0
+    return dirty.some((row) => changedPaths(row).length > 0) ? [under] : []
   }
 
   if (typeof dirty === 'object' && dirty !== null) {
-    return Object.values(dirty).reduce<number>((count, field) => count + changedSettings(field), 0)
+    return Object.entries(dirty).flatMap(([key, field]: [string, unknown]) =>
+      changedPaths(field, under === '' ? key : `${under}.${key}`),
+    )
   }
 
-  return 0
+  return []
 }
 
 // standing says where the form stands: saving, how many settings are changed

@@ -614,7 +614,9 @@ beside it — or above it, in rows, in a window narrower than 1024 px: **Jira**,
 **Messaging**, **Forge and pull requests**, **Commits and branches**,
 **Taskwarrior**, **Terminal and keys** and **Advanced** (timing and the
 store), which save together, then **People and groups** and **Local data**,
-which save as you change them. An edit stays as you move between sections.
+which save as you change them. An edit stays as you move between sections,
+and each section's tab marks how many of its settings are changed and not
+saved, or, once one is refused, how many are left to fix.
 
 A bar stays in view below whichever section is shown. It says how many
 settings are changed and not saved — a list counts once, however many of its

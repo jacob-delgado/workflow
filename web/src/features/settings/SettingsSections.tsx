@@ -117,6 +117,10 @@ interface SettingsSectionsProps {
   section: string
   onSection: (section: string) => void
   fields: Fields
+  // changed and refused are the paths of the settings changed and not saved,
+  // and of those refused, which each section's tab counts.
+  changed: string[]
+  refused: string[]
   // form is the configuration form's own attributes.
   form: ComponentProps<'form'>
   // bar is drawn below whichever section is shown.
@@ -126,13 +130,25 @@ interface SettingsSectionsProps {
 // SettingsSections is Settings a section at a time, chosen from the list
 // beside it: the configuration's sections, which save together, then People
 // and groups and Local data, which save on their own as they change.
-export function SettingsSections({ section, onSection, fields, form, bar }: SettingsSectionsProps) {
+export function SettingsSections({
+  section,
+  onSection,
+  fields,
+  changed,
+  refused,
+  form,
+  bar,
+}: SettingsSectionsProps) {
   return (
     <Tabs value={section} onValueChange={onSection}>
       <TabList label="Settings sections">
         {configSections.map(({ id, title }) => (
           <Tab key={id} value={id}>
             {title}
+            <SectionMark
+              changed={changed.filter((path) => sectionOf(path)?.id === id).length}
+              refused={refused.filter((path) => sectionOf(path)?.id === id).length}
+            />
           </Tab>
         ))}
         <Tab value="people" className={ownSavesRule}>
@@ -157,5 +173,27 @@ export function SettingsSections({ section, onSection, fields, form, bar }: Sett
         {bar}
       </div>
     </Tabs>
+  )
+}
+
+// SectionMark is what a section's tab marks beside its title: how many of
+// its settings are refused, or else how many are changed and not saved. It
+// is drawn for the eye alone, since the save bar says the same in words.
+function SectionMark({ changed, refused }: { changed: number; refused: number }) {
+  if (refused > 0) {
+    return (
+      <span
+        aria-hidden
+        className="rounded-sm bg-destructive-surface px-1 text-xs font-normal text-destructive tabular-nums"
+      >
+        {refused} to fix
+      </span>
+    )
+  }
+
+  return changed === 0 ? null : (
+    <span aria-hidden className="text-xs font-normal text-muted-foreground tabular-nums">
+      {changed}
+    </span>
   )
 }

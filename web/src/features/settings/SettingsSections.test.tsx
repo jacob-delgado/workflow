@@ -87,3 +87,30 @@ test('edits in two sections are saved together', async () => {
     '30s',
   ])
 })
+
+test("a section's tab counts its settings changed and not saved", async () => {
+  // Arrange
+  await opened()
+
+  // Act
+  await userEvent.type(screen.getByLabelText('User'), 'x')
+  await userEvent.type(screen.getByLabelText('Project'), 'x')
+
+  // Assert
+  expect(screen.getByRole('tab', { name: 'Jira' }).textContent).toBe('Jira2')
+  expect(screen.getByRole('tab', { name: 'Messaging' }).textContent).toBe('Messaging')
+})
+
+test("a section's tab says how many of its settings to fix", async () => {
+  // Arrange
+  await opened()
+  await userEvent.click(screen.getByRole('tab', { name: 'Advanced' }))
+  await userEvent.type(screen.getByLabelText('CI interval'), 'x')
+
+  // Act
+  await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+  // Assert
+  await screen.findByText('A duration such as 20s or 3m.')
+  expect(screen.getByRole('tab', { name: 'Advanced' }).textContent).toBe('Advanced1 to fix')
+})
