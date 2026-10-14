@@ -36,6 +36,10 @@ type dirsWorld struct {
 	// named in repositories are repositories.
 	listings     map[string][]string
 	repositories []string
+	// wholeErr is why a listing narrowed by no name fails, and narrowedErr
+	// why one narrowed by a name does, or nil, as a read cut off partway
+	// through a directory fails.
+	wholeErr, narrowedErr error
 	// keepsNothing binds no favorites, as a store turned off does.
 	keepsNothing bool
 	// failing is why reading and changing the favorites fails, or nil.
@@ -82,11 +86,21 @@ func reposWorld() *world {
 
 // listed is the directories in dir whose names start with prefix in any
 // case, a hidden one only once prefix starts with its dot, the first
-// workdirs.ListLimit of them kept, as workdirs.List gives them.
+// workdirs.ListLimit of them kept, as workdirs.List gives them; with no
+// prefix, wholeErr where the world has one, and with one, narrowedErr.
 func (dirs *dirsWorld) listed(dir, prefix string) (workdirs.Listing, error) {
 	names, found := dirs.listings[dir]
 	if !found {
 		return workdirs.Listing{}, workdirs.ErrNotFound
+	}
+
+	failed := dirs.narrowedErr
+	if prefix == "" {
+		failed = dirs.wholeErr
+	}
+
+	if failed != nil {
+		return workdirs.Listing{}, failed
 	}
 
 	listing := workdirs.Listing{}
