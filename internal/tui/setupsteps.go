@@ -35,19 +35,15 @@ const (
 	failedLeaveOut
 )
 
-// label is the choice's row.
+// label is the choice's row. A map, not a switch, so there is no last case
+// left empty to fall through to the label after it.
 func (c failedChoice) label() string {
-	switch c {
-	case failedTypeAgain:
-		return "Type the token again"
-	case failedTypeAddress:
-		return "Type the address again"
-	case failedKeep:
-		return "Keep them anyway"
-	case failedLeaveOut:
-	}
-
-	return "Leave Jira out"
+	return map[failedChoice]string{
+		failedTypeAgain:   "Type the token again",
+		failedTypeAddress: "Type the address again",
+		failedKeep:        "Keep them anyway",
+		failedLeaveOut:    "Leave Jira out",
+	}[c]
 }
 
 // The keychain's choices, in order.
