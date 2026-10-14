@@ -416,9 +416,10 @@ lost when the terminal closes.
 With a Slack user token, a ready-for-review announcement's preview also says
 whom it tags. **Tag code owners** lists the code owners of the branch's
 changes: one linked to Slack shows their Slack name, one decided not on Slack
-says so, and one not asked yet has a choice of the members of the channel the
-preview posts to, following the channel as you change it (a team's, of the
-workspace's user groups), and a **Not on Slack** button.
+says so, and one not asked yet has a field to choose a member of the channel
+the preview posts to, narrowed to the names holding what you type and
+following the channel as you change it (a team's, of the workspace's user
+groups), and a **Not on Slack** button.
 The choice is saved as you make it, for this and every later announcement on
 the same forge host, and the page says it was saved for next time;
 **Announce now** waits while a link is being saved, and a group checked
@@ -622,51 +623,75 @@ and browsing still works.
 
 ### Settings
 
-The configuration file in effect, in eleven parts — Jira, messaging, the
-forge, commits, branches, pull requests, the store, Taskwarrior, timing, the
-terminal and the keyboard — and **Save changes** writes it back. Jira's views
-and headers, messaging's channels and the branch prefixes are lists: **Add a
-view** (or a header, a channel, a prefix) puts a row in, and each row's
-**Remove** takes it out with the next save. A header's name is fixed once
-saved; to rename one, remove it and add it again. The keyboard part's
-**Rebind keys** lists every action the terminal binds, each with the key it
-is moved to (`ui.keys`) and the default an empty one keeps; a key that clashes
-with another where both work at once is refused when you save, as the
-terminal refuses it as it starts. A credential is shown masked and kept as it is
-unless you type a new one. Beside each one the file holds — the Jira token,
-the forge token, Slack's client secret and refresh token, the webhook URL and
-each Jira header — **Remove…** asks, then writes the file as it was read
-without it, leaving your other edits in the form for **Save changes**; it
-cannot be undone, and removing the client secret or the refresh token takes
-the access token made from them too. A change to the forge part — its token, host,
-kind or CLI — applies at once: the next call to the forge uses it, and the
-page names the forge it points at, with no restart. A change to the
-messaging part applies to the next announcement. Slack's user token is
-three fields — Client ID, Client secret and Refresh token; on macOS a save
-refreshes the token with them and keeps the secrets in the keychain rather
-than the file, and where the file already keeps them it keeps what you type
-(see [Configuration]({{< relref "/docs/configuration" >}})). The access token
-and its expiry have no field: workflow writes them. On macOS a Jira token you
-type goes to the keychain item for the Jira address, never into a file, and
-**Read the token from your keychain** is saved checked, so a repository whose
-file points Jira at another address takes a token of its own here; a token
-the keychain will not keep saves nothing. A change to the
-Taskwarrior part applies when workflow restarts, as the part says: workflow finds Taskwarrior as it starts,
-and until the restart the Tasks section says to restart rather than read
-Taskwarrior. What the form has no field for is kept unchanged when you
-save: `version`, `jira.token_command`, `jira.token_env`, and the Slack access
-token and its expiry. The task program is shown but not typed into: workflow
-runs it, and `jira.token_command`, as you, and reads the variable
-`jira.token_env` names, so they change only in the file itself, and a save
-over the API that carries another value for one is refused. Settings
-reads the file each time it opens, and a save checks that the file has not
-changed since: when it has (edited on disk, rewritten by
-`workflow config init --force`, or saved from another tab), nothing is written,
-and **Reload** reads it again in place of your edits so you can make the change
-again. The check and the write are not one step, so a change that lands in the
-moment between them is still written over. When the file on disk is not valid,
-Settings says so in place of the form, and `workflow doctor` says what is wrong
-with it.
+The configuration file in effect, a section at a time, chosen from the list
+beside it — or above it, in rows, in a window narrower than 1024 px: **Jira**,
+**Messaging**, **Forge and pull requests**, **Commits and branches**,
+**Taskwarrior**, **Terminal and keys** and **Advanced** (timing and the
+store), which save together, then **People and groups** and **Local data**,
+which save as you change them. An edit stays as you move between sections.
+
+A bar stays in view below whichever section is shown. It says how many
+settings are changed and not saved — a list counts once, however many of its
+rows changed — with **Discard**, which puts every section back as it was
+read, and **Save changes**, which writes the file; both are held while
+nothing is changed. It says *Saving…*, then *Saved.* A setting refused is
+marked beside itself, with why: a few are checked before anything is sent —
+Jira's address, the branch template's `{key}`, the timings, the issue
+trailer and the counts — and a save the server refuses names the settings
+it refused, which are marked the same way. The bar then says how many are
+left to fix and in which sections, and **Show** opens the first one's section
+with the focus on it. A save held back by those first checks goes to the setting
+it was held back for, and leaves what the server refused marked. Changing a
+refused setting takes its refusal away.
+
+Jira's views and headers, messaging's channels and the branch prefixes are
+lists: **Add a view** (or a header, a channel, a prefix) puts a row in, and each
+row's **Remove** takes it out with the next save. A header's name is fixed once
+saved; to rename one, remove it and add it again. The keyboard part's **Rebind
+keys** lists every action the terminal binds, each with the key it is moved to
+(`ui.keys`) and the default an empty one keeps; a key that clashes with another
+where both work at once is refused when you save, as the terminal refuses it as
+it starts. A credential is shown masked and kept as it is unless you type a new
+one. Above its field it says where it is kept: *Stored in the file*; for the
+Jira token, *Kept in your keychain, for* its host, *Read from $JIRA_TOKEN* (the
+variable `jira.token_env` names) or *Printed by a command you set*; for Slack's
+client secret and refresh token, not in the file, where the macOS keychain may
+keep them; for the forge token, not in the file, read from the environment or
+the forge's CLI when either has one — both come before a token the file keeps;
+or *Not set*. Once you type one, it says it replaces the stored one when you
+save. Beside each one the file holds — the Jira token, the forge token, Slack's
+client secret and refresh token, the webhook URL and each Jira header —
+**Remove…** asks, then writes the file as it was read without it, leaving your
+other edits in the form for **Save changes**; it cannot be undone, and removing
+the client secret or the refresh token takes the access token made from them
+too. A change to the forge part — its token, host, kind or CLI — applies at
+once: the next call to the forge uses it, and the page names the forge it points
+at, with no restart. A change to the messaging part applies to the next
+announcement. Slack's user token is three fields — Client ID, Client secret and
+Refresh token; on macOS a save refreshes the token with them and keeps the
+secrets in the keychain rather than the file, and where the file already keeps
+them it keeps what you type (see
+[Configuration]({{< relref "/docs/configuration" >}})). The access token and its
+expiry have no field: workflow writes them. On macOS a Jira token you type goes
+to the keychain item for the Jira address, never into a file, and **Read the
+token from your keychain** is saved checked, so a repository whose file points
+Jira at another address takes a token of its own here; a token the keychain will
+not keep saves nothing. A change to the Taskwarrior part applies when workflow
+restarts, as the part says: workflow finds Taskwarrior as it starts, and until
+the restart the Tasks section says to restart rather than read Taskwarrior. What
+the form has no field for is kept unchanged when you save: `version`,
+`jira.token_command`, `jira.token_env`, and the Slack access token and its
+expiry. The task program is shown but not typed into: workflow runs it, and
+`jira.token_command`, as you, and reads the variable `jira.token_env` names, so
+they change only in the file itself, and a save over the API that carries
+another value for one is refused. Settings reads the file each time it opens,
+and a save checks that the file has not changed since: when it has (edited on
+disk, rewritten by `workflow config init --force`, or saved from another tab),
+nothing is written, and **Reload** reads it again in place of your edits so you
+can make the change again — the bar says so, with **Reload**. The check and the
+write are not one step, so a change that lands in the moment between them is
+still written over. When the file on disk is not valid, Settings says so in
+place of the form, and `workflow doctor` says what is wrong with it.
 
 #### Setting up
 
@@ -696,37 +721,35 @@ there is never written over. The token and the webhook go only to the server
 on the loopback address, which takes them from no other page, and no answer
 carries them back. Under `--dry-run` writing is held back, and the form says so.
 
-Below the form, **People and groups** keeps what the announcement preview
-asks: a table of every code owner decided on this repository's forge host,
-then the branch's owners not decided yet, each with a choice of whom they are
-on Slack — not decided yet, not on Slack, or a member of the configured
-channel (a team, a user group) — saved as you change it. **Forget…** asks
-first, in place, and a forgotten owner is asked about again at the next
-ready-for-review announcement. **Groups for** the repository is a checkbox per
-user group in the workspace, kept with **Save groups**; a ready-for-review
-announcement offers those groups to tag. Each saves on its own, apart from the
-configuration, into `kept.db`, and the label kept is the one Slack's directory
-gives. A group already saved keeps its label, so one Slack no longer lists,
-or a token that cannot read the groups, can still be kept or unchecked, and
-clearing every group needs no Slack at all. A token without a scope the
-choices need is named in a note. Under
-`--dry-run` the area says its changes are held back and its controls are off.
+**People and groups** keeps what the announcement preview asks: a table of every
+code owner decided on this repository's forge host, then the branch's owners not
+decided yet, each with a choice of whom they are on Slack — not decided yet, not
+on Slack, or a member of the configured channel (a team, a user group) — saved
+as you change it. **Forget…** asks first, in place, and a forgotten owner is
+asked about again at the next ready-for-review announcement. **Groups for** the
+repository is a checkbox per user group in the workspace, kept with **Save
+groups**; a ready-for-review announcement offers those groups to tag. Each saves
+on its own, apart from the configuration, into `kept.db`, and the label kept is
+the one Slack's directory gives. A group already saved keeps its label, so one
+Slack no longer lists, or a token that cannot read the groups, can still be kept
+or unchecked, and clearing every group needs no Slack at all. A token without a
+scope the choices need is named in a note. Under `--dry-run` the area says its
+changes are held back and its controls are off.
 
-Below that, **Local data** shows where workflow keeps what it learns
-between sessions and a row for each database file: the cache (`workflow.db`)
-and the kept associations (`kept.db`), each with its size and what it holds.
-It is read each time Settings opens and saved apart from the configuration.
-**Remove cache…** and **Remove everything…** each ask first, in place, with
-**Cancel** and **Remove**; removing everything says that people and group
-associations will be asked again, and People and groups above is read again
-to show them gone. What the removal did is said below the buttons, and the
-listing is read again. A file another program holds open fails the removal, and
-the area says why and reads the listing again, since a file that could not be
-deleted after the rest were set aside may leave others gone. A removal waits
-for a change to People and groups under way, and the other way round. Under
-`--dry-run` the buttons are replaced by a sentence saying removing is held
-back. It is the web's `workflow db-clean`
-(see [Using workflow]({{< relref "/docs/usage#cleaning-the-local-data" >}})).
+**Local data** shows where workflow keeps what it learns between sessions and a
+row for each database file: the cache (`workflow.db`) and the kept associations
+(`kept.db`), each with its size and what it holds. It is read each time Settings
+opens and saved apart from the configuration. **Remove cache…** and **Remove
+everything…** each ask first, in place, with **Cancel** and **Remove**; removing
+everything says that people and group associations will be asked again, and
+People and groups is read again to show them gone. What the removal did is said
+below the buttons, and the listing is read again. A file another program holds
+open fails the removal, and the area says why and reads the listing again, since
+a file that could not be deleted after the rest were set aside may leave others
+gone. A removal waits for a change to People and groups under way, and the other
+way round. Under `--dry-run` the buttons are replaced by a sentence saying
+removing is held back. It is the web's `workflow db-clean` (see
+[Using workflow]({{< relref "/docs/usage#cleaning-the-local-data" >}})).
 
 ## What stays in the terminal
 
