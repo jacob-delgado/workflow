@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
+	"strings"
 
 	"charm.land/lipgloss/v2"
 	"charm.land/log/v2"
@@ -128,22 +130,30 @@ func colorVariables() []string {
 // kept, as the interface reads it, where colorprofile would take only a true
 // value and only on a terminal.
 func colorFor(stderr io.Writer, getenv func(string) string) colorprofile.Profile {
+	environ := environOf(getenv, colorVariables())
+
+	profile := colorprofile.Detect(Underlying(stderr), environ)
+	if slices.ContainsFunc(environ, func(variable string) bool { return strings.HasPrefix(variable, "NO_COLOR=") }) {
+		profile = min(profile, colorprofile.ASCII)
+	}
+
+	return profile
+}
+
+// environOf is the variables names name that getenv holds, as a program's
+// environment lists them: each set to something, and none from a nil getenv.
+func environOf(getenv func(string) string, names []string) []string {
 	if getenv == nil {
-		getenv = func(string) string { return "" }
+		return nil
 	}
 
 	var environ []string
 
-	for _, name := range colorVariables() {
+	for _, name := range names {
 		if value := getenv(name); value != "" {
 			environ = append(environ, name+"="+value)
 		}
 	}
 
-	profile := colorprofile.Detect(stderr, environ)
-	if getenv("NO_COLOR") != "" {
-		profile = min(profile, colorprofile.ASCII)
-	}
-
-	return profile
+	return environ
 }

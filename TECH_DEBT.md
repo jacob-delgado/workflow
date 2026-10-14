@@ -820,6 +820,33 @@ script by hand where Homebrew is installed, or leaves it to CI.
 than rarely, or a pinned `Homebrew/actions/setup-homebrew` becomes worth
 approving as a new action.
 
+### TRADE-43 A wait on a terminal prints its artifact on stderr
+
+**Decided.** While a slow command waits with a person watching, its live
+line is an inline Bubble Tea program at the foot of stderr
+(`console.Watched`, `internal/cli/console/live.go`), and everything written
+to stderr meanwhile is printed above it through that program
+(`console.Stream`). When stdout is the same terminal, `artifactBeside`
+(`internal/cli/prompt.go`) prints the command's artifact above the line too,
+through the program and so on stderr, rather than on stdout under the
+line's feet, where each would overwrite the other. With stdout piped or
+redirected, the artifact goes to stdout untouched. Decided 2026-10-14 by the
+maintainer, with the live line: the wait runs as the program's first
+command, so no goroutine of this module's own keeps the line turning.
+
+**Cost.** During a wait — `doctor --online`'s report, today — the artifact a
+person sees at the terminal reaches it on stderr: a program reading a
+terminal's stdout, such as an `expect` script on a pseudo-terminal, finds
+it on the other stream, and `2>/dev/null` at a terminal hides it with the
+line. A blank line printed above the line is a space, since the program
+prints nothing for an empty one. While the line is kept, the cursor is
+hidden and bracketed paste is on; both are restored when it ends, but a
+process killed outright leaves them as they were.
+
+**Reopen when.** A script is found reading a terminal's stdout during a
+wait, or the goroutine gate allows a ticker to keep the line, which would
+let the artifact stay on stdout.
+
 ### TRADE-44 Fang shapes the help, capitals and all
 
 **Decided.** `execute` (`internal/cli/cli.go`) runs the command tree through
@@ -842,8 +869,10 @@ process itself (`os.Environ`, `os.Stdout`, `os.Stdin`) rather than from the
 shell's `TERM` and `NO_COLOR`, as colorprofile reads them, and not to a
 test's, so the test that the help is colored on a terminal sets `TERM` on
 its process and runs alone. On a terminal, a help or an error first asks the
-terminal for its background, waiting up to two seconds for an answer. mango
-and roff are compiled into a binary that never builds a man page.
+terminal for its background, through stdin and then stdout; a terminal that
+answers neither that nor the device-attributes request beside it holds the
+command up to two seconds each time. mango and roff are compiled into a
+binary that never builds a man page.
 
 **Reopen when.** Fang lets its titles and first words keep their case, a man
 page is wanted, or a terminal that does not answer the background query is

@@ -17,6 +17,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 	"github.com/jacob-delgado/workflow/internal/workdirs"
 )
@@ -109,10 +110,7 @@ func runStatusCommand(cmd *cobra.Command, prompt Prompt, opts statusOptions, dir
 		return statusHere(cmd, opts)
 	}
 
-	note := newProgressNote(cmd.ErrOrStderr(), prompt.IsTerminal)
-	defer note.clear()
-
-	return statusAcross(cmd, note, dirs, opts)
+	return statusAcross(cmd, prompt, dirs, opts)
 }
 
 // statusHere prints the status of the current directory: a bare line, and a
@@ -129,18 +127,27 @@ func statusHere(cmd *cobra.Command, opts statusOptions) error {
 	return runStatus(cmd.Context(), outputOf(cmd), seamsFor(conn), opts.ascii(conn.cfg.UI.ASCII), opts.asJSON)
 }
 
-// statusAcross prints one labeled status per named directory. A directory that
-// cannot be read is noted in its row rather than stopping the rest, and then
-// fails the command, as bare status fails outside a repository.
-func statusAcross(cmd *cobra.Command, note *progressNote, dirs []string, opts statusOptions) error {
+// statusAcross prints one labeled status per named directory, once each has
+// been read, keeping a live line of which it is reading while a person
+// watches the terminal. A directory that cannot be read is noted in its row
+// rather than stopping the rest, and then fails the command, as bare status
+// fails outside a repository.
+func statusAcross(cmd *cobra.Command, prompt Prompt, dirs []string, opts statusOptions) error {
 	requestLog, closeLog, err := requestLogFor(cmd)
 	if err != nil {
 		return err
 	}
 	defer closeLog()
 
-	out := note.around(outputOf(cmd))
-	statuses := statusesOf(cmd, note, dirs, requestLog)
+	var statuses []directoryStatus
+
+	watchErr := waiting(cmd, prompt, func(_ output, live console.Wait) error {
+		statuses = statusesOf(cmd, live, dirs, requestLog)
+
+		return nil
+	})
+
+	out := outputOf(cmd)
 
 	if opts.asJSON {
 		err = statusesJSON(out.artifact, statuses)
@@ -152,7 +159,7 @@ func statusAcross(cmd *cobra.Command, note *progressNote, dirs []string, opts st
 		writeNotes(out.notes, status.label+": ", status.facts.notes)
 	}
 
-	return errors.Join(err, unreadDirectories(statuses))
+	return errors.Join(err, unreadDirectories(statuses), watchErr)
 }
 
 // unreadDirectories joins the error of every directory that could not be read,
@@ -182,15 +189,16 @@ type directoryStatus struct {
 }
 
 // statusesOf gathers the status of the repository at each directory, which
-// reads its own configuration, recording every request in one log and noting
-// which directory it is reading.
+// reads its own configuration, recording every request in one log and saying
+// on the live line which directory it is reading, and how many it has read.
 func statusesOf(
-	cmd *cobra.Command, note *progressNote, dirs []string, requestLog *wiring.RequestLog,
+	cmd *cobra.Command, live console.Wait, dirs []string, requestLog *wiring.RequestLog,
 ) []directoryStatus {
 	statuses := placed(cmd, dirs)
 
 	for index, status := range statuses {
-		note.show("Reading", status.label)
+		live.Doing("Reading " + sanitize.Line(status.label))
+		live.Counted(index, len(statuses))
 
 		if status.err != nil {
 			continue

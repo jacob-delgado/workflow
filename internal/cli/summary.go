@@ -37,8 +37,9 @@ type summarySeams struct {
 	// Messaging is where a post goes and how it is rendered.
 	Messaging config.Messaging
 	Confirm   func(question string) (bool, error)
-	// Note names the source being read while it answers.
-	Note *progressNote
+	// Watch runs the reads, keeping a live line of the source being read
+	// while it answers.
+	Watch func(reads func(console.Wait) error) error
 }
 
 // summaryOptions are summary's flags: the period, the JSON, the post and the
@@ -117,9 +118,6 @@ func runSummaryCommand(cmd *cobra.Command, prompt Prompt, opts summaryOptions) e
 		return err
 	}
 
-	note := newProgressNote(cmd.ErrOrStderr(), prompt.IsTerminal)
-	defer note.clear()
-
 	cfg, deps := conn.cfg, conn.deps
 	seams := summarySeams{
 		Activity: loop.ActivitySeams{
@@ -130,14 +128,16 @@ func runSummaryCommand(cmd *cobra.Command, prompt Prompt, opts summaryOptions) e
 		Now:       time.Now,
 		Messaging: settings,
 		Confirm:   func(question string) (bool, error) { return confirm(prompt, question) },
-		Note:      note,
+		Watch: func(reads func(console.Wait) error) error {
+			return waiting(cmd, prompt, func(_ output, live console.Wait) error { return reads(live) })
+		},
 	}
 
 	if cfg.Messaging.Mode() != config.MessagingNone {
 		seams.Post = deps.Messaging.Post
 	}
 
-	return runSummary(cmd.Context(), note.around(outputOf(cmd)), seams, opts)
+	return runSummary(cmd.Context(), outputOf(cmd), seams, opts)
 }
 
 // runSummary reads every source for the period asked under ctx and prints
@@ -154,8 +154,12 @@ func runSummary(ctx context.Context, out output, seams summarySeams, opts summar
 	}
 
 	start, end := period.Bounds(now.Location())
-	summary := activity.Summary{Period: period, Reads: readNoted(ctx, seams, start, end)}
-	unread := unreadSources(summary.Reads)
+
+	// A live line that could not be kept fails the command as a source that
+	// could not be read does, once what was read is out.
+	reads, watchErr := readNoted(ctx, seams, start, end)
+	summary := activity.Summary{Period: period, Reads: reads}
+	unread := errors.Join(unreadSources(summary.Reads), watchErr)
 
 	if opts.asJSON {
 		answer := report.Activity(summary, today, now.Location(), report.FaultDetail)
@@ -244,17 +248,24 @@ func postSummary(ctx context.Context, out output, seams summarySeams, text strin
 }
 
 // readNoted makes each source's read in turn under ctx, as loop.ReadAll does,
-// naming on the note the source it is reading — the forge by its own name.
-func readNoted(ctx context.Context, seams summarySeams, start, end time.Time) []activity.Read {
+// naming on the live line the source it is reading — the forge by its own
+// name — and how many it has read.
+func readNoted(ctx context.Context, seams summarySeams, start, end time.Time) ([]activity.Read, error) {
 	reads := loop.SummaryReads(seams.Activity, start, end)
 	made := make([]activity.Read, 0, len(reads))
 
-	for _, read := range reads {
-		seams.Note.show("Reading", sourceNoun(read.Source, seams.Activity.ForgeKind))
-		made = append(made, read.Read(ctx))
-	}
+	err := seams.Watch(func(live console.Wait) error {
+		for index, read := range reads {
+			live.Doing("Reading " + sourceNoun(read.Source, seams.Activity.ForgeKind))
+			live.Counted(index, len(reads))
 
-	return made
+			made = append(made, read.Read(ctx))
+		}
+
+		return nil
+	})
+
+	return made, err
 }
 
 // sourceNoun names a source mid-sentence, the forge by its own name when the
