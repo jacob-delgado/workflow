@@ -113,6 +113,10 @@ vars:
   # Release targets, as GOOS/GOARCH pairs. The one list of them: the docs and
   # the release notes name a platform only as an example, such as
   # workflow_darwin_arm64, and point at the release's assets for the rest.
+  # scripts/release/package-manifests.sh is the one other place a platform is
+  # spelled: it gives each binary its place in the Homebrew formula, or names
+  # it as installed from the release alone, and fails for one it has no place
+  # for, which CI's Cross-compile job checks on every change.
   RELEASE_PLATFORMS: >-
     darwin/arm64 linux/amd64 windows/amd64
 
