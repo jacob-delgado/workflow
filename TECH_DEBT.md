@@ -576,12 +576,15 @@ found left changed by one in practice.
 **Decided.** Every CI job runs on `ubuntu-latest`. The Cross-compile job
 (`cross` in `.github/workflows/ci.yml`) runs `task release:binaries` and
 `task release:verify`, which build a binary for every `RELEASE_PLATFORMS`
-target in `Taskfile.yml`, `darwin/arm64` and `windows/amd64` among them, so
-the code only a macOS or a Windows binary holds is compiled on every change,
-but no job runs it, and code only those systems' tests build is not compiled
-at all. Decided 2026-10-09 by the maintainer, in #237, for the code only
+target in `Taskfile.yml`, `darwin/arm64` and `windows/amd64` among them, and
+the Lint job's `task lint` runs `task lint:crossvet`, which vets each of those
+targets' build with its tests. So the code only a macOS or a Windows build
+holds, test files and all, is compiled and vetted on every change, but no job
+runs it. Decided 2026-10-09 by the maintainer, in #237, for the code only
 Windows runs, and 2026-10-12, in #241, for the code only macOS runs: CI stays
-on Linux, and the cost is recorded here.
+on Linux, and the cost is recorded here. The vet was added on 2026-10-14, by
+the maintainer's decision in the review of this register, as the part of the
+cost a Linux runner can pay.
 
 **Cost.** Five files are Windows-only, one is macOS-only, and four functions
 have a branch or a value only Windows takes, each marked with this entry's ID:
@@ -594,15 +597,16 @@ owner, so the configuration's trust check refuses nothing there;
 isolates nothing, so a canceled streamed command's children can outlive it;
 `internal/cli/environment_windows_test.go`, the test that `--request-log`
 reads a path Windows roots elsewhere (`\logs`, `D:logs`) where Windows does,
-which as a test file no job even compiles, and which stands for two clauses of
-`relativeToWorkingDir` in `internal/cli/environment.go`:
+which as a test file only `lint:crossvet` compiles, and which stands for two
+clauses of `relativeToWorkingDir` in `internal/cli/environment.go`:
 `filepath.VolumeName(path) == ""`, false only for a path naming a drive, and
 `!rooted`, false only for a path rooted but not absolute, which elsewhere a
 rooted path never is, so on Linux neither is ever false and no job sees
 `--request-log` keep such a path off the working directory;
 `internal/ptytest/open_other.go` (`//go:build !linux && !darwin`, which among
-the release targets builds for Windows alone), whose `openPair` opens no pseudo-terminal, so the tests that
-type at a terminal (`internal/cli/prompt_terminal_test.go` and
+the release targets builds for Windows alone), whose `openPair` opens no
+pseudo-terminal, so the tests that type at a terminal
+(`internal/cli/prompt_terminal_test.go` and
 `TestRunReadsKeysFromATerminalItIsHanded` in `internal/tui/run_test.go`) skip
 there; `internal/ptytest/open_darwin.go` (built for macOS alone by its name),
 whose `openPair` opens a pseudo-terminal as macOS makes one, granting and
@@ -615,13 +619,15 @@ package only ever passes it `runtime.GOOS`; and the
 `filepath.VolumeName(program)` that `probe` in
 `internal/taskwarrior/taskwarrior.go` starts a detection run from, the root of
 the drive the program is on, which is empty everywhere else, so no job sees a
-probe run from anywhere but `/`. No job compiles either of ptytest's files,
-since only tests import the package. A regression in any of the others builds,
-passes every job and ships, unseen until a Windows user meets it; one in
-`open_darwin.go` shows first as a failing or skipped test on a developer's Mac.
-The functions that take the platform as an argument (`store.Dir`,
-`keychain.Storer`, `keychain.Open`, `slackauth.Choose`,
-`taskwarrior.Candidates`, `wiring.BrowserCommand`,
+probe run from anywhere but `/`. Only `lint:crossvet` compiles either of
+ptytest's files, since only tests import the package. What the vet catches is a
+change that no longer compiles for one of those systems, or that vet's
+analyzers fault there; a regression that compiles and vets clean, a lock that
+never holds or a branch that returns the wrong value, passes every job and
+ships, unseen until a Windows user meets it, or, in `open_darwin.go`, until a
+test fails or skips on a developer's Mac. The functions that take the platform
+as an argument (`store.Dir`, `keychain.Storer`, `keychain.Open`,
+`slackauth.Choose`, `taskwarrior.Candidates`, `wiring.BrowserCommand`,
 `Environment.PlaceSlackCredentials` in `internal/wiring`,
 `hooks.NewFailureScan` and `hooks.ExistingHooks`) are not part of the cost:
 their tests pass `windows` or `darwin` on Linux.

@@ -365,6 +365,7 @@ tasks:
     desc: Run every linter
     cmds:
       - task: lint:go
+      - task: lint:crossvet
       - task: lint:testshape
       - task: lint:shell
       - task: lint:yaml
@@ -389,6 +390,25 @@ tasks:
     desc: Lint the Go code
     cmds:
       - golangci-lint run
+
+  # golangci-lint vets the build of the system it runs on, and every CI job
+  # runs on Linux, so the code only a macOS or a Windows build holds, and the
+  # tests only they compile, would meet no compiler before a user of that
+  # system did. This vets every release platform's build, tests and all,
+  # compiling each without running it. Trade-off TRADE-35: it compiles that
+  # code, and nothing here runs it.
+  lint:crossvet:
+    desc: Vet every release platform's build, tests and all, compiled but not run
+    cmds:
+      - for:
+          var: RELEASE_PLATFORMS
+          split: " "
+          as: PLATFORM
+        # Interpolated into a shell variable first, as release:binaries does.
+        cmd: |
+          platform="{{.PLATFORM}}"
+          echo "Vetting ${platform}"
+          CGO_ENABLED=0 GOOS="${platform%%/*}" GOARCH="${platform##*/}" go vet {{.GO_PKGS}}
 
   lint:testshape:
     desc: Check that every test marks its Arrange, Act and Assert
