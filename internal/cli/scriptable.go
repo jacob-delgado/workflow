@@ -398,8 +398,8 @@ func isAny(err error, targets ...error) bool {
 func exitFamilies() []exitFamily {
 	return []exitFamily{
 		{status: exitUsage, members: []error{
-			errUsage, errNoTerminal, errLoginBlank, errCommentBlank, errAssigneeBlank, errDurationBlank,
-			errWorklogOnForge,
+			errUsage, errNoTerminal, errLoginBlank, errCommentBlank, errStatusBlank, errAssigneeBlank,
+			errDurationBlank, errWorklogOnForge,
 		}},
 		{status: exitConfiguration, members: configurationErrors()},
 		{status: exitRefused, members: refusalErrors()},

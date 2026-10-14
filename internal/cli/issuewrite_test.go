@@ -6,6 +6,7 @@ package cli_test
 import (
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -56,6 +57,41 @@ func TestTransitionMatchesTheStatusWhateverItsCase(t *testing.T) {
 	// Assert
 	if err != nil || asked.applied() != 1 || !strings.Contains(asked.sentBody(), `"id":"31"`) {
 		t.Errorf("transition = %v, applied %d (%q); want the move to In Review", err, asked.applied(), asked.sentBody())
+	}
+}
+
+func TestTransitionTrimsTheStatus(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir, asked := trackerDir(t, trackerAnswers{})
+
+	// Act
+	_, err := runStreams(t, dir, unusedPrompt(t), "transition", trackedIssue, "  "+statusInReview+" ", "--yes")
+
+	// Assert
+	if err != nil || asked.applied() != 1 || !strings.Contains(asked.sentBody(), `"id":"31"`) {
+		t.Errorf("transition = %v, applied %d (%q); want the move to In Review", err, asked.applied(), asked.sentBody())
+	}
+}
+
+func TestTransitionRefusesABlankStatusBeforeAskingJira(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	reached := new(atomic.Bool)
+	server := jiraServer(t, http.StatusOK, trackerMoves, reached)
+	dir := t.TempDir()
+	writeFile(t, dir, trackerConfig(server.URL, ""))
+
+	// Act
+	_, err := runStreams(t, dir, unusedPrompt(t), "transition", trackedIssue, "  ", "--yes")
+
+	// Assert
+	wantExit(t, err, 2)
+
+	if reached.Load() {
+		t.Errorf("transition to a blank status = %v, and Jira was asked; want it refused first", err)
 	}
 }
 

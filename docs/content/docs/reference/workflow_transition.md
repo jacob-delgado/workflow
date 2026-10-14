@@ -16,7 +16,7 @@ tracker offers from where the issue stands. The move is printed and confirmed
 before it is made. A status the tracker does not offer is refused, naming those
 it does, and so is a move that asks for fields, naming them: change its status
 with t in the interface or Change status on the web, whose forms ask for them.
-Either refusal exits 4.
+Either refusal exits 4. A blank status is refused before anything is asked.
 
 ```
 workflow transition <issue> <status> [flags]
