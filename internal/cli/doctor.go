@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
+	"github.com/jacob-delgado/workflow/internal/cli/console"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
@@ -79,27 +80,7 @@ func newDoctorCmd(prompt Prompt) *cobra.Command {
 		),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			requestLog, closeLog, err := requestLogFor(cmd)
-			if err != nil {
-				return err
-			}
-			defer closeLog()
-
-			note := newProgressNote(cmd.ErrOrStderr(), prompt.IsTerminal)
-			defer note.clear()
-
-			run := doctorRun{
-				online: online, dryRun: dryRunRequested(cmd), log: requestLog, note: note, env: environmentOf(cmd),
-			}
-			run.dir, run.dirErr = workingDir(cmd)
-			run.cfg, run.loadErr = run.configuration()
-			out := note.around(outputOf(cmd)).artifact
-
-			if asJSON {
-				return runDoctorJSON(cmd.Context(), out, run)
-			}
-
-			return runDoctor(cmd.Context(), out, run)
+			return runDoctorCommand(cmd, prompt, online, asJSON)
 		},
 	}
 
@@ -107,6 +88,36 @@ func newDoctorCmd(prompt Prompt) *cobra.Command {
 	addJSONFlag(cmd, &asJSON, "print the report as JSON")
 
 	return cmd
+}
+
+// runDoctorCommand reports on where cmd runs, as text or, asJSON, as JSON,
+// asking each service about its credential when online, with a live line of
+// which it is asking while a person watches the terminal.
+func runDoctorCommand(cmd *cobra.Command, prompt Prompt, online, asJSON bool) error {
+	requestLog, closeLog, err := requestLogFor(cmd)
+	if err != nil {
+		return err
+	}
+	defer closeLog()
+
+	run := doctorRun{online: online, dryRun: dryRunRequested(cmd), log: requestLog, env: environmentOf(cmd)}
+	run.dir, run.dirErr = workingDir(cmd)
+	run.cfg, run.loadErr = run.configuration()
+
+	report := func(out output, live console.Wait) error {
+		run.live = live
+		if asJSON {
+			return runDoctorJSON(cmd.Context(), out.artifact, run)
+		}
+
+		return runDoctor(cmd.Context(), out.artifact, run)
+	}
+
+	if !online {
+		return notesOf(cmd).Unwatched(func(live console.Wait) error { return report(outputOf(cmd), live) })
+	}
+
+	return waiting(cmd, prompt, report)
 }
 
 // doctorRun is what one doctor run reports on: the directory it was run from,
@@ -123,8 +134,8 @@ type doctorRun struct {
 	// dryRun holds back a refresh of the Slack user token, which writes.
 	dryRun bool
 	log    *wiring.RequestLog
-	// note names the service --online is asking while it waits for the answer.
-	note *progressNote
+	// live names the service --online is asking while it waits for the answer.
+	live console.Wait
 	// env is the process doctor reports on: where it was run from, and the
 	// home, variables, store and programs it finds there.
 	env Environment

@@ -199,7 +199,7 @@ func prepare(root *cobra.Command, run invocation) *checkedOutput {
 
 	root.SetArgs(run.args)
 	root.SetOut(checked.stream())
-	root.SetErr(run.stderr)
+	root.SetErr(console.NewStream(run.stderr))
 	// cobra adds its help and completion commands only as the tree runs, after
 	// any walk could meet them. Adding them here lets markMisuse reach them too,
 	// and only once the streams are set: a completion script keeps the stdout

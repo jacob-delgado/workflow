@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package console is what a command says on stderr: its notes, warnings and
-// errors, each an entry of one log, and, with --verbose, a debug line for
-// each request. A note is the bare sentence, as a script reading stderr has
-// always seen it; a warning and an error carry their tags. --log-format says
-// them as JSON or logfmt instead, an entry a line, each stamped with its time.
+// errors, each an entry of one log; with --verbose, a debug line for each
+// request; and, while a command waits on a terminal, the live line of the
+// wait. A note is the bare sentence, as a script reading stderr has always
+// seen it; a warning and an error carry their tags. --log-format says them as
+// JSON or logfmt instead, an entry a line, each stamped with its time.
 package console
 
 import (
@@ -33,6 +34,10 @@ type Options struct {
 type Notes struct {
 	log    *log.Logger
 	format Format
+	// stderr is the stream the notes are said on, where a wait keeps its
+	// live line, and getenv the variables that say what it can draw.
+	stderr io.Writer
+	getenv func(name string) string
 }
 
 // New is the notes said on stderr as opts asks, colored as the terminal there
@@ -45,7 +50,7 @@ func New(stderr io.Writer, opts Options) Notes {
 	logger.SetStyles(opts.Format.styles())
 	logger.SetColorProfile(colorFor(stderr, opts.Getenv))
 
-	return Notes{log: logger, format: opts.Format}
+	return Notes{log: logger, format: opts.Format, stderr: stderr, getenv: opts.Getenv}
 }
 
 // To is the notes said to stream instead, tagged and colored as they were:
@@ -55,7 +60,7 @@ func (n Notes) To(stream io.Writer) Notes {
 	logger := n.log.With()
 	logger.SetOutput(stream)
 
-	return Notes{log: logger, format: n.format}
+	return Notes{log: logger, format: n.format, stderr: stream, getenv: n.getenv}
 }
 
 // Note says sentence, a note about what the command did or found: on a pipe,

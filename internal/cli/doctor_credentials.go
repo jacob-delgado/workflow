@@ -51,14 +51,15 @@ type credentialLine struct {
 }
 
 // checkCredentials makes each online check in turn, naming the service it is
-// asking in the progress note, hands answered each one's line as it comes,
-// and returns the run's verdict.
+// asking on the live line, and how many it has asked, hands answered each
+// one's line as it comes, and returns the run's verdict.
 func checkCredentials(ctx context.Context, run doctorRun, remote string, answered func(credentialLine)) error {
 	checks := credentialChecks(ctx, run, remote)
 	outcomes := make([]error, 0, len(checks))
 
-	for _, check := range checks {
-		run.note.show("Checking", check.name)
+	for index, check := range checks {
+		run.live.Doing("Checking " + check.name)
+		run.live.Counted(index, len(checks))
 
 		line, err := check.run()
 		line.Status = credentialStatus(err)
