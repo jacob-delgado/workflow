@@ -72,7 +72,6 @@ func newFieldForm(move jira.Transition, kit renderKit, keys keyMap, width, rows 
 	}
 
 	form, start := newHuhForm(kit, keys, width, rows, groups...)
-	form.SubmitCmd = func() tea.Msg { return fieldsFilled{form: form} }
 
 	return fieldForm{transition: move, form: form, answers: answers, last: last}, start
 }
