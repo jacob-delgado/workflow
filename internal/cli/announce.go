@@ -154,7 +154,7 @@ func announceSeamsOf(cmd *cobra.Command, conn connection, prompt Prompt) announc
 		Confirm:   func(question string) (bool, error) { return confirm(prompt, question) },
 		Tagging:   taggingFor(cfg.Messaging, deps),
 		Watch: func(wait func(console.Wait) error) error {
-			return waiting(cmd, prompt, func(_ output, live console.Wait) error { return wait(live) })
+			return waiting(cmd, prompt, liveLook(cfg.UI), func(_ output, live console.Wait) error { return wait(live) })
 		},
 	}
 

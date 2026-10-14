@@ -61,5 +61,11 @@ func TestStatusRefusesPlainBesideJSON(t *testing.T) {
 		t.Errorf("status --plain --json = %v, printed %q; want it refused, naming both flags", err, printed.stdout)
 	}
 
+	// A JSON run of named directories still keeps a live line, which ui.ascii
+	// alone draws in ASCII.
+	if !strings.Contains(said, "ui.ascii") {
+		t.Errorf("status --plain --json = %v; want it to name ui.ascii for a JSON run's live line", err)
+	}
+
 	wantExit(t, err, 2)
 }

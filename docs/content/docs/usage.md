@@ -35,7 +35,8 @@ the terminal's own yellow or red; `--help` lays a command's usage, examples
 and flags out in titled sections; and a command that waits on a service —
 `doctor --online`, `summary`, `status DIR…`, `announce --when-green` — keeps
 a live line of what it is doing, and how much of it is done, at the foot of
-the terminal until it is.
+the terminal until it is, drawn in ASCII under `ui.ascii` and with its mark
+still under `ui.motion: reduce`.
 
 ## The screen
 
@@ -1128,7 +1129,8 @@ wheel scrolls. Mouse capture stops your terminal's own click-and-drag selection,
 so `m` turns it off for the session and `ui.mouse` turns it off for good.
 
 `ui.ascii` draws borders and glyphs in plain ASCII, for a font that does not
-have them. See [Configuration]({{< relref "/docs/configuration" >}}).
+have them, and so does the live line a command keeps while it waits. See
+[Configuration]({{< relref "/docs/configuration" >}}).
 
 ## Limits
 

@@ -65,11 +65,48 @@ func (n Notes) Unwatched(wait func(Wait) error) error {
 	return wait(Wait{notes: n, above: n.Writer()})
 }
 
+// Look is how a live line is drawn: in plain ASCII, for a terminal or font
+// without the Unicode marks — ui.ascii, or status --plain — and still, its mark
+// held rather than turning, for anyone motion distracts — ui.motion reduce.
+type Look struct {
+	ASCII bool
+	Still bool
+}
+
+// frames is the frames the line's mark turns through: the first alone, which
+// does not turn, when the look is still.
+func (l Look) frames() []string {
+	turn := progress.Turn(l.ASCII)
+	if l.Still {
+		return turn[:1]
+	}
+
+	return turn
+}
+
+// liveGlyphs are the characters a live line draws its bar with, filled and
+// empty, and ends a line cut to the terminal's width with.
+type liveGlyphs struct {
+	filled, empty rune
+	cut           string
+}
+
+// glyphs is the characters the look draws a line with: plain ASCII, or the
+// Unicode a line is drawn in by default.
+func (l Look) glyphs() liveGlyphs {
+	if l.ASCII {
+		return liveGlyphs{filled: '=', empty: '-', cut: "..."}
+	}
+
+	return liveGlyphs{filled: '━', empty: '─', cut: "…"}
+}
+
 // Watched runs wait with a live line kept at the foot of stderr, a terminal
-// a person watches: a turning mark, what the wait is doing, and, once it
-// counts, a bar and how many of how many. Whatever is written to stderr while
-// it runs, through these notes or a Stream they are said on, prints above the
-// line, which is erased once the wait is over; the wait's error is Watched's.
+// a person watches, drawn as look asks: a mark, turning unless look holds it
+// still, what the wait is doing, and, once it counts, a bar and how many of
+// how many. Whatever is written to stderr while it runs, through these notes
+// or a Stream they are said on, prints above the line, which is erased once
+// the wait is over; the wait's error is Watched's.
 //
 // The line is a Bubble Tea program, inline and taking no input, so it sends
 // the terminal no query whose answer would reach the shell, and catching no
@@ -77,14 +114,14 @@ func (n Notes) Unwatched(wait func(Wait) error) error {
 // program's first command, so nothing here starts a goroutine of its own,
 // and the program ends when the wait does: a wait stopped by ctrl+c still
 // says why before the line goes.
-func (n Notes) Watched(wait func(Wait) error) error {
+func (n Notes) Watched(look Look, wait func(Wait) error) error {
 	var (
 		program *tea.Program
 		outcome error
 	)
 
 	stream := streamOver(n.stderr)
-	model := newLiveModel(func() tea.Msg {
+	model := newLiveModel(look, func() tea.Msg {
 		outcome = wait(Wait{program: program, notes: n.To(stream), above: stream})
 
 		return liveOver{}
@@ -134,7 +171,8 @@ type liveCount struct {
 type liveOver struct{}
 
 // liveModel is the live line: its mark, the words and count the wait last
-// gave it, and the width it is drawn in.
+// gave it, the width it is drawn in, and what ends it when it is cut to that
+// width.
 type liveModel struct {
 	wait        tea.Cmd
 	mark        spinner.Model
@@ -142,23 +180,33 @@ type liveModel struct {
 	doing       string
 	done, total int
 	width       int
+	cut         string
 }
 
 var _ tea.Model = liveModel{}
 
-// newLiveModel is the live line of wait, before it has anything to say.
-func newLiveModel(wait tea.Cmd) liveModel {
+// newLiveModel is the live line of wait, drawn as look asks, before it has
+// anything to say.
+func newLiveModel(look Look, wait tea.Cmd) liveModel {
+	drawn := look.glyphs()
 	bar := progressbar.New(progressbar.WithWidth(liveBarWidth), progressbar.WithoutPercentage(),
-		progressbar.WithFillCharacters('━', '─'), progressbar.WithColors(lipgloss.NoColor{}))
+		progressbar.WithFillCharacters(drawn.filled, drawn.empty), progressbar.WithColors(lipgloss.NoColor{}))
 	bar.EmptyColor = lipgloss.NoColor{}
 
-	turning := spinner.Spinner{Frames: progress.Turn(false), FPS: time.Second / liveFramesPerSecond}
+	turning := spinner.Spinner{Frames: look.frames(), FPS: time.Second / liveFramesPerSecond}
 
-	return liveModel{wait: wait, mark: spinner.New(spinner.WithSpinner(turning)), bar: bar, width: liveWidth}
+	return liveModel{
+		wait: wait, mark: spinner.New(spinner.WithSpinner(turning)), bar: bar, width: liveWidth, cut: drawn.cut,
+	}
 }
 
-// Init starts the wait, and the mark turning.
+// Init starts the wait, and the mark turning when it has more than one frame
+// to turn through.
 func (m liveModel) Init() tea.Cmd {
+	if len(m.mark.Spinner.Frames) == 1 {
+		return m.wait
+	}
+
 	return tea.Batch(m.wait, m.mark.Tick)
 }
 
@@ -200,5 +248,5 @@ func (m liveModel) View() tea.View {
 			strconv.Itoa(m.done) + " of " + strconv.Itoa(m.total)
 	}
 
-	return tea.NewView(ansi.Truncate(line, m.width-1, "…"))
+	return tea.NewView(ansi.Truncate(line, m.width-1, m.cut))
 }

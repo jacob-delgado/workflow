@@ -129,7 +129,7 @@ func runSummaryCommand(cmd *cobra.Command, prompt Prompt, opts summaryOptions) e
 		Messaging: settings,
 		Confirm:   func(question string) (bool, error) { return confirm(prompt, question) },
 		Watch: func(reads func(console.Wait) error) error {
-			return waiting(cmd, prompt, func(_ output, live console.Wait) error { return reads(live) })
+			return waiting(cmd, prompt, liveLook(cfg.UI), func(_ output, live console.Wait) error { return reads(live) })
 		},
 	}
 

@@ -63,16 +63,18 @@ type UI struct {
 	// which is why it can be turned off here, and toggled with m in a session.
 	Mouse bool `json:"mouse"`
 	// ASCII draws borders and glyphs in plain ASCII, for a terminal or font
-	// without box-drawing characters. There is no reliable way to detect that,
-	// so it is a setting rather than a guess.
+	// without box-drawing characters, and so the live line a command keeps
+	// while it waits. There is no reliable way to detect that, so it is a
+	// setting rather than a guess.
 	ASCII bool `json:"ascii"`
 	// Color is whether to draw the system hues: empty (auto) draws them when the
 	// terminal allows, "never" turns them off while keeping bold, faint and the
 	// reverse-video cursor, which carry meaning without color.
 	Color string `json:"color"`
-	// Motion is whether the terminal interface moves: empty turns the in-flight
-	// mark, fills a stage's rule as it completes and springs the CI bar;
-	// "reduce" draws every state still, for anyone motion distracts or harms.
+	// Motion is whether the terminal interface, and the live line a command
+	// keeps while it waits, move: empty turns the in-flight mark, fills a
+	// stage's rule as it completes and springs the CI bar; "reduce" draws
+	// every state still, for anyone motion distracts or harms.
 	Motion string `json:"motion"`
 	// Accessible hands each multi-field form in the terminal the whole
 	// terminal as a series of plain prompts, one question at a time, which a
@@ -121,7 +123,8 @@ func (u UI) AccessibleForms(accessibleEnv string) bool {
 	return u.Accessible || accessibleEnv != ""
 }
 
-// ReducedMotion reports whether the interface draws every state still.
+// ReducedMotion reports whether the interface, and a command's live line,
+// draw every state still.
 func (u UI) ReducedMotion() bool {
 	return u.Motion == MotionReduce
 }

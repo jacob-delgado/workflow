@@ -80,8 +80,16 @@ func outlastTurn(t *testing.T) {
 }
 
 // watching is what a wait watched on a stand-in terminal printed, and what it
-// returned, run in a bubble so the line's frames come on its fake clock.
+// returned, its line drawn as it is by default.
 func watching(t *testing.T, wait func(*standIn, console.Wait) error) (string, error) {
+	t.Helper()
+
+	return watchingAs(t, console.Look{}, wait)
+}
+
+// watchingAs is watching with the line drawn as look asks, run in a bubble so
+// the line's frames come on its fake clock.
+func watchingAs(t *testing.T, look console.Look, wait func(*standIn, console.Wait) error) (string, error) {
 	t.Helper()
 
 	var (
@@ -95,7 +103,7 @@ func watching(t *testing.T, wait func(*standIn, console.Wait) error) (string, er
 		terminal := new(standIn)
 
 		notes := console.New(terminal, console.Options{})
-		err = notes.Watched(func(watched console.Wait) error { return wait(terminal, watched) })
+		err = notes.Watched(look, func(watched console.Wait) error { return wait(terminal, watched) })
 		printed = terminal.String()
 	})
 
