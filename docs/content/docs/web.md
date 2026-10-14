@@ -53,13 +53,25 @@ web does not narrate what a held-back write would have done.
 ## The page
 
 The header holds the version, where the server works, the theme and the
-stream's state, and the Taskwarrior task you have started, when there is one.
+stream's state. Under it runs **the loop**: the checked-out branch's five
+stages — Issue, Branch, Commits, Review and your messaging service — each with
+its state's mark and a rule that fills in its system's color as the stage gets
+done; the Review rule fills as CI's checks finish. A stage not yet begun is
+faint, and a failed one red. The Taskwarrior task you have started, when there
+is one, ends the loop's row, or takes a row of its own on a narrow window.
 The rail down the left holds the nine sections; the one you are in, and its heading, take the hue of
 the system it belongs to. Below a medium width the rail keeps its icons
 alone; each still has its name, shown on hover and read by a screen reader.
 
 **The theme** button cycles System, Light and Dark. System follows your
 operating system; the choice is remembered in this browser.
+
+**The type** is Recursive, one variable face the binary carries and serves
+itself, so the page fetches nothing from elsewhere: proportional for what you
+read, and at its monospaced setting for what you would type into a terminal —
+a branch, a commit, a path. It covers the Latin alphabets; text in another
+script draws in your system's own face beside it. Its SIL Open Font License is
+served beside it, at `/fonts/Recursive-OFL.txt`.
 
 **The stream** keeps the page current. Every five seconds the server pushes
 each open tab what it finds, so nothing on the page needs refreshing by hand.
@@ -507,7 +519,7 @@ on a task already started, say, or **Undo** with nothing to undo — shows the
 sentence its `409` carries.
 
 Once Taskwarrior has answered, the rest of the page shows your tasks too: the
-header carries the task you have started and how long it has run, and opens
+loop under the header ends with the task you have started and how long it has run, and opens
 this section; each Issues row marks how its issue's tasks stand; and an
 issue's detail has a **Tasks** card listing each of its tasks, with **Start**
 or **Stop** and **Mark done…** on each still to do. A task marked done there
