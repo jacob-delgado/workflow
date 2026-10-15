@@ -26,6 +26,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/seams"
+	"github.com/jacob-delgado/workflow/internal/webserver/runs"
 	"github.com/jacob-delgado/workflow/internal/webserver/tasks"
 )
 
@@ -148,6 +149,10 @@ type server struct {
 	// of your tasks.
 	*tasks.Handlers
 
+	// Runner serves the git runs and lefthook's hooks, and holds the run
+	// going, if any.
+	*runs.Runner
+
 	deps Deps
 	info Info
 
@@ -210,9 +215,6 @@ type server struct {
 
 	// announced is what the store remembers announcing, held for an interval.
 	announced announcedCache
-
-	// run is the git run going, if any.
-	run runSlot
 
 	// worlds holds this server, and replaces it on a switch, closing retired
 	// so its event streams end and the page reconnects to the next.
