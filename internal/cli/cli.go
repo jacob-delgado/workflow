@@ -273,7 +273,7 @@ func NewRootCmdOver(prompt Prompt, run RunInterface, serveAt RunWebAt, env Envir
 		RunE:              func(cmd *cobra.Command, _ []string) error { return opening.open(cmd, prompt, flags) },
 	}
 
-	flags.declare(root)
+	flags.declare(root, defaultWebPort)
 	root.AddCommand(subcommands(prompt)...)
 
 	return root
