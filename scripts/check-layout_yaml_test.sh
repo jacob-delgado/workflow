@@ -8,8 +8,9 @@
 # as golangci-lint's configuration library does, so two keys it reads as one
 # setting leave that setting unread; and it refuses, naming the line, any
 # line it cannot read so. Which rules hold a package are
-# check-layout_depguard_test.sh's, and the layout block and the mark's need
-# of a rule check-layout_test.sh's.
+# check-layout_depguard_test.sh's, the mark's need of a depguard that runs,
+# however its keys are written, check-layout_runs_test.sh's, and the layout
+# block and the mark's need of a rule check-layout_test.sh's.
 #
 # Usage:
 #   scripts/check-layout_yaml_test.sh

@@ -1,13 +1,14 @@
 # shellcheck shell=bash
 #
-# The fixtures check-layout.sh's three tests build their repositories from: a
+# The fixtures check-layout.sh's four tests build their repositories from: a
 # CLAUDE.md whose layout block names the directories a case gives, a
 # repository holding it and the files the case tracks, and the go.mod and
 # depguard rules the gate looks a package marked "(tests only)" up in.
 # check-layout_test.sh drives the layout block against the tree and the mark's
-# need of a rule; check-layout_depguard_test.sh which rules hold a package;
-# and check-layout_yaml_test.sh how the gate reads .golangci.yml's YAML, and
-# what it refuses to.
+# need of a rule; check-layout_runs_test.sh its need of a depguard that runs;
+# check-layout_depguard_test.sh which rules hold a package; and
+# check-layout_yaml_test.sh how the gate reads .golangci.yml's YAML, and what
+# it refuses to.
 #
 # Sourced, never run, after lib/testing.sh:
 #

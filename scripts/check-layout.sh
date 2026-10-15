@@ -2,7 +2,7 @@
 #
 # Fail unless CLAUDE.md's layout block names every Go package directory, names
 # no directory that holds nothing, and marks "(tests only)" only a package a
-# depguard rule holds to tests.
+# depguard rule holds to tests, with depguard on.
 #
 # Usage:
 #   scripts/check-layout.sh
@@ -25,8 +25,21 @@
 # whose files leave out "$test" and nothing else, whose deny list names the
 # package's import path (go.mod's module, then the directory), and whose
 # list-mode, if set, is original, where a deny item wins over every allow
-# item, as rlimit-only-in-tests does. The rules are read only when a line is
-# marked.
+# item, as rlimit-only-in-tests does.
+#
+# A rule holds only while depguard runs, so a mark also fails when
+# .golangci.yml does not make sure it does: when linters.disable lists
+# depguard, when linters.default is not all and linters.enable does not list
+# it, or when linters holds a key the gate does not read, or a default,
+# enable or disable it does not read, as a block scalar. Of golangci-lint's
+# defaults only all is sure to run depguard: standard, the default when none
+# is set, and none leave it out, and fast holds it only while golangci-lint
+# counts depguard fast, which the configuration does not say. The rules, and
+# whether depguard runs, are read only when a line is marked.
+# Exclusion rules and //nolint:depguard stay unread, the maintainer's choice,
+# and so do issues.new and new-from-rev, -patch and -merge-base, which hide
+# what depguard finds as they do, and run.issues-exit-code, which set to 0
+# lets golangci-lint pass with what depguard finds printed.
 #
 # The gate reads .golangci.yml as golangci-lint does, as far as it can be sure
 # of that, and no further. golangci-lint looks for a .golangci.json,
@@ -36,14 +49,16 @@
 # line, each key plain or in quotes, and each value plain, in quotes, a flow
 # sequence of plain names, or a mapping or a list on the lines below. A block
 # scalar, after a "|" or a ">", it passes over unread: as a rule's files, or
-# a file among them, it leaves the rule holding nothing, and as a pkg it
-# names none. It reads each key in lower case and split at each "." into the
-# path of keys it names, as golangci-lint's configuration library does, so
-# two keys that read alike so set one setting, of which golangci-lint keeps
-# one: the gate then reads neither, so a rule they name holds nothing. It
-# refuses, naming the line, anything else it meets (an alias, a tag, a merge
-# or explicit key, an escape, a value that runs on past its line) rather than
-# read it another way.
+# a file among them, it leaves the rule holding nothing, as a pkg it names
+# none, and as linters' default, enable or disable, or an item of either
+# list, it fails the mark. It reads each key in lower case and split at each
+# "." into the path of keys it names, as golangci-lint's configuration
+# library does, so two keys that read alike so set one setting, of which
+# golangci-lint keeps one: the gate then reads neither, so a rule they name
+# holds nothing and a linters key they set fails the mark. It refuses, naming
+# the line, anything else it meets (an alias, a tag, a merge or explicit key,
+# an escape, a value that runs on past its line) rather than read it another
+# way.
 #
 #   TRACKED FILES ONLY, like the file-length gate: `git ls-files` measures what
 #   is committed or staged, so scratch files cannot fail it and a new package
@@ -219,6 +234,68 @@ held_to_tests() {
   ' "$1"
 }
 
+# depguard_off prints why the lint configuration does not make sure depguard
+# runs, and on the line after it the change that answers that reason, or
+# nothing when it does: golangci-lint runs it when linters.default is all or
+# linters.enable lists it, and linters.disable does not. It reads only
+# the keys directly under linters, so a default of a linter's settings, as
+# wsl_v5 has, or of another top-level key, as severity has, says nothing here,
+# and it reads none of them but default, enable, disable, settings and
+# exclusions. It finds depguard in enable or disable as one of the list's
+# items, on lines of their own, or on the key's line in a flow sequence or
+# in a string, which golangci-lint splits at its commas. A block scalar as
+# default, enable or disable, or as an item of either list, it does not read,
+# and says so: golangci-lint reads the block's text as the setting, a list's
+# split at its commas too.
+#   depguard_off <lint-config>
+depguard_off() {
+  awk "${yaml_lines}"'
+    function lists(setting, names,   count, i, name) {
+      gsub(/^\[[[:space:]]*|[[:space:]]*\]$/, "", names)
+      count = split(names, name, /[[:space:]]*,[[:space:]]*/)
+      for (i = 1; i <= count; i++) if (name[i] == "depguard") listed[setting] = 1
+    }
+    kind == "block" && (path[keys] == "linters\ndefault" || path[keys] == "linters\nenable" || path[keys] == "linters\ndisable") {
+      block_setting = "linters." substr(path[keys], length("linters\n") + 1)
+      unread = block_setting " holds a block scalar"
+      unread_change = "Write " block_setting " without a block scalar"
+    }
+    !item && index(path[keys], "linters\n") == 1 {
+      split(path[keys], part, "\n")
+      if (part[2] !~ /^(default|enable|disable|settings|exclusions)$/) {
+        unread = "linters." part[2] " is set"
+        unread_change = "Leave linters." part[2] " unset"
+      }
+      if (path[keys] == "linters\ndefault") linters_default = value
+      if (path[keys] == "linters\nenable" || path[keys] == "linters\ndisable") lists(part[2], value)
+    }
+    item && (path[keys] == "linters\nenable" || path[keys] == "linters\ndisable") && value == "depguard" {
+      listed[substr(path[keys], length("linters\n") + 1)] = 1
+    }
+    END {
+      count = split("linters,linters\ndefault,linters\nenable,linters\ndisable", spelling, ",")
+      for (i = 1; i <= count; i++) {
+        if (!(spelling[i] in doubled)) continue
+        gsub(/\n/, ".", spelling[i])
+        print spelling[i] " is set by two keys golangci-lint reads alike, and it keeps one of them"
+        print "Set " spelling[i] " by one key alone"
+        exit
+      }
+      if (unread != "") {
+        print unread ", which the gate does not read"
+        print unread_change
+      } else if (listed["disable"]) {
+        print "linters.disable lists depguard"
+        print "Take depguard off linters.disable"
+      } else if (linters_default != "all" && !listed["enable"]) {
+        if (linters_default == "") linters_default = "unset, so standard"
+        print "linters.default is " linters_default ", and linters.enable does not list depguard"
+        print "List depguard under linters.enable"
+      }
+    }
+  ' "$1"
+}
+
 # Capture the whole Go file list up front: a git that cannot answer must stop
 # the gate, not let its failure escape set -e and leave it comparing nothing.
 if ! go_files="$(git ls-files '*.go')"; then
@@ -240,6 +317,8 @@ fi
 
 marked="$(layout_tests_only_dirs "${guide}")"
 unheld=""
+depguard_off_because=""
+depguard_on_by=""
 if [[ -n "${marked}" ]]; then
   module="$(awk '$1 == "module" { print $2; exit }' go.mod 2>/dev/null || true)"
   if [[ -z "${module}" ]]; then
@@ -254,6 +333,8 @@ if [[ -n "${marked}" ]]; then
     fi
   done
   held=""
+  depguard_off_because="there is no ${lint_config}, so linters.default is standard"
+  depguard_on_by="Add a ${lint_config} whose linters.enable lists depguard"
   if [[ -f "${lint_config}" ]]; then
     unread="$(unread_line "${lint_config}")"
     if [[ -n "${unread}" ]]; then
@@ -263,6 +344,9 @@ if [[ -n "${marked}" ]]; then
       exit 2
     fi
     held="$(held_to_tests "${lint_config}")"
+    off_and_change="$(depguard_off "${lint_config}")"
+    depguard_off_because="${off_and_change%%$'\n'*}"
+    depguard_on_by="${off_and_change#*$'\n'}"
   fi
   while IFS= read -r dir; do
     if ! grep -Fqx -- "${module}/${dir}" <<<"${held}"; then
@@ -314,7 +398,12 @@ if [[ -n "${unheld}" ]]; then
   echo "Give each a depguard rule in ${lint_config} that denies its pkg to the files \"\$all\" and \"!\$test\" alone, as rlimit-only-in-tests does, or drop its mark: coverage-gate.sh leaves a marked package out of the statement total." >&2
 fi
 
-if [[ -n "${missing}" || -n "${stale}" || -n "${unheld}" ]]; then
+if [[ -n "${depguard_off_because}" ]]; then
+  echo "check-layout: a depguard rule holds the packages ${guide}'s layout marks (tests only) to tests only while depguard runs, and ${lint_config} does not make sure it does: ${depguard_off_because}." >&2
+  echo "${depguard_on_by}, or drop the marks: coverage-gate.sh leaves a marked package out of the statement total." >&2
+fi
+
+if [[ -n "${missing}" || -n "${stale}" || -n "${unheld}" || -n "${depguard_off_because}" ]]; then
   exit 1
 fi
 
