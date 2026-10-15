@@ -106,6 +106,10 @@ func TestScopeSuggestionsOffersTheStagedFilesDirectoryThenTheLogsScopes(t *testi
 			paths: []string{"main.go", "go.mod"},
 			want:  nil,
 		},
+		"files in separate trees share no directory": {
+			paths: []string{"cmd/workflow/main.go", "internal/config/a.go"},
+			want:  nil,
+		},
 		"a file at the root of an absolute path shares no directory": {
 			paths: []string{"/main.go"},
 			want:  nil,
