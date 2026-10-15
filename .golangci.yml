@@ -63,6 +63,16 @@ linters:
           deny:
             - pkg: github.com/jacob-delgado/workflow/internal/gittest
               desc: a test helper; clear git's environment and run test git only from a _test.go file
+        # internal/ptytest opens a pseudo-terminal for a test to type at, and
+        # imports testing: it skips or fails the test that asked when none can
+        # be opened, which only a test has to answer to.
+        ptytest-only-in-tests:
+          files:
+            - "$all"
+            - "!$test"
+          deny:
+            - pkg: github.com/jacob-delgado/workflow/internal/ptytest
+              desc: a test helper; open a pseudo-terminal only from a _test.go file
         # internal/webserver/webtest is the web server's test harness: it imports
         # testing and fails the test it is handed, and its fakes and fixtures
         # stand in for every seam. A production path that imported it would
