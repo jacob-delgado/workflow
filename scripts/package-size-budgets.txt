@@ -97,8 +97,10 @@ internal/forge 18
 # and as quietinput/ did on 2026-10-15, taking quietinput.go, the Huh field
 # typed text goes through, which changes as huh.Field does. Code leaves so
 # without its file too: the same day the commit scopes offered went from
-# scopesuggest.go to internal/convention, as Conventional Commits logic; the
-# file stayed, holding the composer's read of them, so the count did not move.
+# scopesuggest.go to internal/convention, as Conventional Commits logic, and
+# the outlasting plumbing from deps.go to internal/lifetime, as how any write
+# outlives its asker; each file stayed, holding what names the interface's
+# own seams and composer, so the count did not move.
 # The ceiling came in at 80 over 64 files; splitting the long files by concern,
 # the panes' key bindings out of keys.go and the Repositories pane's drawing
 # out of repositories.go brought it there, each a file past the 500-line target

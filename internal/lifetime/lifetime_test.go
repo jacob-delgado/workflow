@@ -18,6 +18,9 @@ var errStopped = errors.New("the server stopped")
 // valueKey keys the value a detached context keeps.
 type valueKey struct{}
 
+// keptValue is the value a detached context keeps under valueKey.
+const keptValue = "kept"
+
 // endingPatience is how long a context that must go on is watched for an
 // end: one canceled through context.AfterFunc ends in a goroutine of its
 // own, so a read right after the cancel can come too early to see it.
@@ -102,14 +105,14 @@ func TestADetachedContextKeepsItsAskersValues(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	asker := context.WithValue(t.Context(), valueKey{}, "kept")
+	asker := context.WithValue(t.Context(), valueKey{}, keptValue)
 
 	// Act
 	detached, release := lifetime.Detached(asker)
 	t.Cleanup(release)
 
 	// Assert
-	if got := detached.Value(valueKey{}); got != "kept" {
+	if got := detached.Value(valueKey{}); got != keptValue {
 		t.Errorf("the detached context's value = %v, want the asker's, kept", got)
 	}
 }

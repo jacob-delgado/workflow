@@ -7,7 +7,10 @@
 // stop halfway) detaches from the asker through Detached, and still ends with
 // that lifetime, so a server that stops, or a command a signal ends, is never
 // held open by it. A context can carry an InFlight too, the work begun under
-// it that has not yet ended, which a process waits for before it exits.
+// it that has not yet ended, which a process waits for before it exits. A
+// write that must outlast its asker, as the terminal's writes outlast a quit,
+// is wrapped by Outlasting0 and its kin to run under the context an Outliving
+// makes for it: Unending, EndingWith or UncountedEndingWith.
 package lifetime
 
 import "context"

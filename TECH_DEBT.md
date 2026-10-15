@@ -731,9 +731,10 @@ and stamping of its file (`internal/store`), which runs detached so a stamp
 fails only as TRADE-16 says. Each runs to its own end, cut short no later than
 the command's: once workflow exits after the quit, or when a signal ends the
 command. The writes stay out of the session's end: `New` hands each write seam
-the session's values but not its end (`outlasting`, `internal/tui/deps.go`),
-and `Model.WithLifetime`, beside `WithContext`, which `tui.Run` applies with
-the context it is given, ends the writes with that context instead, and counts
+the session's values but not its end (`outlasting`, `internal/tui/deps.go`,
+over the wrappers in `internal/lifetime/outlasting.go`), and
+`Model.WithLifetime`, beside `WithContext`, which `tui.Run` applies with the
+context it is given, ends the writes with that context instead, and counts
 each in flight, under a name that says what it does, in the
 `lifetime.InFlight` that context carries.
 The command line gives it `whileOpen`'s (`internal/cli/cli.go`), which ends
@@ -748,17 +749,17 @@ a write's command and before that write has begun, where a quit would otherwise
 exit under the write. A streamed write (a commit, a push, an amend, a fixup, a
 rebase, a hook) counts until its program exits, and no longer: once a quit or a
 switch leaves its output unread, the rest is read and dropped
-(`releasedOnExit`), so the program never blocks on a full pipe. The wait gives
-up after `timing.request_timeout`, naming each write it gave up on, and exits
-with status 1. A second `ctrl+c`, which the terminal the interface left sends
-as SIGINT, or SIGTERM ends every write's context and exits at once, with status
-130. A switch does not wait: a write sent before one goes on in the directory
-left, and the quit waits for it too. Leaving a view cancels nothing: a late
-answer is dropped by its read's count or view, and canceling per view would
-mean a cancel handle on every view's state. Decided 2026-10-09 by the
-maintainer for reads, with each seam taking its asker's context, and on
-2026-10-12, in review, for writes: they stay out of the session's end, and a
-quit waits for them, bounded.
+(`releasedOnExit`, `internal/lifetime/outlasting.go`), so the program never
+blocks on a full pipe. The wait gives up after `timing.request_timeout`, naming
+each write it gave up on, and exits with status 1. A second `ctrl+c`, which
+the terminal the interface left sends as SIGINT, or SIGTERM ends every write's
+context and exits at once, with status 130. A switch does not wait: a write
+sent before one goes on in the directory left, and the quit waits for it too.
+Leaving a view cancels nothing: a late answer is dropped by its read's count or
+view, and canceling per view would mean a cancel handle on every view's state.
+Decided 2026-10-09 by the maintainer for reads, with each seam taking its
+asker's context, and on 2026-10-12, in review, for writes: they stay out of the
+session's end, and a quit waits for them, bounded.
 
 **Cost.** A read for a view the user has left still spends its request to the
 tracker, the forge or Taskwarrior. Quitting cannot call off a slow write: it

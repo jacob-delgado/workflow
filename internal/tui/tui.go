@@ -19,6 +19,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/lifetime"
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
 )
 
@@ -137,7 +138,7 @@ func New(cfg config.Config, loadErr error, deps Deps) Model {
 	vocab := forgeVocab(deps.Forge.Kind)
 
 	model := Model{
-		cfg: cfg, loadErr: loadErr, deps: outlasting(detached, detached, deps, vocab.noun), given: deps,
+		cfg: cfg, loadErr: loadErr, deps: outlasting(lifetime.Unending, lifetime.Unending, deps, vocab.noun), given: deps,
 		keys:   newKeyMap(marks, vocab.noun, cfg.Messaging.Service(), cfg.UI.Keys),
 		styles: newStyles(true), marks: marks, vocab: vocab, session: context.Background(),
 		width: defaultWidth, height: defaultHeight,
