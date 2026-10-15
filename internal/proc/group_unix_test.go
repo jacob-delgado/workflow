@@ -11,6 +11,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -174,6 +175,80 @@ func TestARunWhoseLineIsTooLongEndsThoughAProcessItLeftBehindHoldsItsOutput(t *t
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("Lines stayed open and Wait blocked while the process left behind held the output")
+	}
+}
+
+// pastTheGrace is longer than the grace start.go's outputGrace, two seconds,
+// gives the output once the program exits, and shorter than any bound these
+// tests wait for a run.
+const pastTheGrace = "3"
+
+// The grace counts only once the program has exited: a program silent past it
+// before its exit still has its output read to the end.
+func TestAProgramSilentPastTheGraceBeforeItExitsKeepsItsOutput(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	output, err := proc.Start(t.Context(), script(`sleep `+pastTheGrace+`; echo late`))
+	if err != nil {
+		t.Fatalf("Start returned %v, want nil", err)
+	}
+
+	type ending struct {
+		lines []string
+		err   error
+	}
+
+	ended := make(chan ending, 1)
+
+	// Act
+	go func() {
+		lines, err := collect(t, output)
+		ended <- ending{lines: lines, err: err}
+	}()
+
+	// Assert
+	select {
+	case end := <-ended:
+		if end.err != nil || !slices.Equal(end.lines, []string{"late"}) {
+			t.Errorf("the run ended with %q and %v, want the line written late and no failure", end.lines, end.err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("the run of a program silent for a while did not end once it exited")
+	}
+}
+
+// The grace counts every wait on the pipe together, not each afresh: a process
+// left behind that writes a line now and then, each sooner than the grace,
+// keeps the run no longer than the grace in all.
+func TestTheGraceCountsEveryWaitOnThePipeTogether(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	pidFile := killedAtCleanup(t)
+
+	output, err := proc.Start(t.Context(), script(
+		`(i=0; while [ "$i" -lt 10 ]; do sleep 1.5; echo "$i"; i=$((i + 1)); done) & echo "$!" > '`+pidFile+`'`))
+	if err != nil {
+		t.Fatalf("Start returned %v, want nil", err)
+	}
+
+	ended := make(chan error, 1)
+
+	// Act
+	go func() {
+		_, err := collect(t, output)
+		ended <- err
+	}()
+
+	// Assert
+	select {
+	case err := <-ended:
+		if err != nil {
+			t.Errorf("the run ended with %v, want no failure", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("a process left behind writing now and then kept the run past the grace in all")
 	}
 }
 
