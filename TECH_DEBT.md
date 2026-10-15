@@ -39,35 +39,6 @@ trade-off register](#the-trade-off-register) instead, which lists what each
 costs and what would reopen it. A security problem goes in neither: report it
 as [SECURITY.md](SECURITY.md) asks.
 
-## The web server
-
-### DEBT-330 `announce.go` is past the 500-line soft target
-
-Severity: low · Confidence: measured · Size: S
-
-**Where.** `internal/webserver/announce.go`: whom an announcement tags, from
-the errors a post's mentions are refused with (`errNoTags`,
-`errTagsChanged`) and `tagging` down to `groupTagsDTO`, below the preview and
-the post.
-
-**Today.** The file holds two concerns: composing, previewing and posting an
-announcement, and whom it tags, read from the Slack directory and the kept
-links. It passed CLAUDE.md's 500-line soft target on 2026-10-13, when the
-server learned to hold an announcement through a failed run, and stands at
-519, which `scripts/check-file-length.sh` warns on and does not fail
-(`--list` marks it `soft`). The announcements stay in `internal/webserver`
-when the package is split, so no split of the package brings the file back
-under.
-
-**Fix.** The next change to `announce.go` moves whom it tags into
-`announcetags.go`, beside `announcetags_test.go`, which already tests it, as
-a Boy Scout commit of its own, leaving `announce.go` about 290 lines and
-`announcetags.go` about 250. The new file is the package's fortieth, which its
-ceiling of 40 in `scripts/package-size-budgets.txt` still allows.
-
-**Done when.** `scripts/check-file-length.sh --list` no longer marks
-`internal/webserver/announce.go` `soft`.
-
 ## The trade-off register
 
 These were chosen on purpose. They are not debt; they are listed because each
