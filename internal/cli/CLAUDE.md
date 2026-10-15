@@ -104,7 +104,12 @@ for a client's unreachable service, `cmdkit.ServicesUnreachable` in
   prompt it was not meant to. What a run sees of the outside world is its
   test's own (`clitest.ProgramsOf`, `clitest.SetVariable`). A fixture the
   tests of more than one package of the tree need lives there; one only this
-  package's tests need stays in its own `_test.go` files.
+  package's tests need stays in its own `_test.go` files. `clitest` has no
+  tests of its own, as `internal/ptytest` has none: depguard's
+  `clitest-only-in-tests` keeps it out of the binary, gobco names it in
+  `NO_TESTS` (`scripts/gobco-report.sh`), and `scripts/coverage-gate.sh`
+  leaves it out of the statement total `COVERAGE_MIN` holds, as it leaves
+  every package the root `CLAUDE.md`'s layout marks `(tests only)`.
 - **Fakes for the services**: `forgefake_test.go` (a fake `gh` and its pull
   requests), `trackerfake_test.go` and `slackfake_test.go` stand in for the
   forge, Jira and Slack, and `clitest.WorkingJira` is a Jira that accepts
