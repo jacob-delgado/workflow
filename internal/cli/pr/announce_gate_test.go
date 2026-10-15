@@ -34,6 +34,27 @@ func TestAnnounceRefusesAPullRequestACheckFailedOn(t *testing.T) {
 	}
 }
 
+func TestAnnounceNamesOnlyTheChecksThatFailed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// build passed and lint failed, so the refusal names lint alone.
+	mixed := `{"total_count":2,"statuses":[` +
+		`{"state":"success","context":"build","target_url":"https://x"},` +
+		`{"state":"failure","context":"lint","target_url":"https://x"}]}`
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: mixed})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
+
+	// Act
+	_, err := clitest.Run(t, repo, "announce", "--yes")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "a check failed on #7 (lint)") {
+		t.Errorf("announce = %v, want lint, the check that failed, named alone", err)
+	}
+}
+
 func TestAnnounceDryRunRefusesAFailedCheck(t *testing.T) {
 	t.Parallel()
 
