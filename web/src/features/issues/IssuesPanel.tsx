@@ -182,7 +182,6 @@ function ListAndDetail({ paging, shown, facts, unread, outcome, more }: ListAndD
           <EmptyState>Select an issue to see its detail.</EmptyState>
         ) : (
           <IssueDetailPanel
-            key={selected}
             issueKey={selected}
             listed={paging.loaded.find((issue) => issue.key === selected)}
           />
