@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/report"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
@@ -27,7 +28,7 @@ func newRepositoriesCmd() *cobra.Command {
 			"section show it: this directory and its repository, the repository's worktrees,\n" +
 			"the main one first, and the directories you keep as favorites, each with what is\n" +
 			"there now. --json prints the web API's Repositories shape.",
-		Example: examples(
+		Example: cmdkit.Examples(
 			`workflow repositories --json | jq -r '.worktrees[].dir'   # this repository's worktrees`,
 		),
 		Args: cobra.NoArgs,
@@ -36,7 +37,7 @@ func newRepositoriesCmd() *cobra.Command {
 		},
 	}
 
-	addJSONFlag(cmd, &asJSON, "print where workflow works as JSON")
+	cmdkit.AddJSONFlag(cmd, &asJSON, "print where workflow works as JSON")
 
 	return cmd
 }
@@ -44,16 +45,16 @@ func newRepositoriesCmd() *cobra.Command {
 // runRepositoriesCommand reads where the command runs through the same seams
 // the interface and the web read, and prints it.
 func runRepositoriesCommand(cmd *cobra.Command, asJSON bool) error {
-	conn, err := connect(cmd)
+	conn, err := cmdkit.Connect(cmd)
 	if err != nil {
 		return err
 	}
-	defer conn.closeLog()
+	defer conn.CloseLog()
 
 	view := report.RepositoriesView{
-		Repositories:  conn.deps.Repositories,
-		Favorites:     conn.deps.Store.Favorites,
-		FavoritesKept: conn.deps.Store.Favor != nil && !dryRunRequested(cmd),
+		Repositories:  conn.Deps.Repositories,
+		Favorites:     conn.Deps.Store.Favorites,
+		FavoritesKept: conn.Deps.Store.Favor != nil && !cmdkit.DryRunRequested(cmd),
 	}
 
 	report, readErr := view.Report(cmd.Context(), func(err error) string { return err.Error() })
@@ -61,9 +62,9 @@ func runRepositoriesCommand(cmd *cobra.Command, asJSON bool) error {
 		readErr = fmt.Errorf("reading your favorites: %w", readErr)
 	}
 
-	out := outputOf(cmd)
+	out := cmdkit.OutputOf(cmd)
 	if asJSON {
-		return errors.Join(encodeJSON(out.artifact, report), readErr)
+		return errors.Join(cmdkit.EncodeJSON(out.Artifact, report), readErr)
 	}
 
 	renderRepositories(out, report)
@@ -73,8 +74,8 @@ func runRepositoriesCommand(cmd *cobra.Command, asJSON bool) error {
 
 // renderRepositories writes one line for where workflow works, then one per
 // worktree and one per favorite, each path written from your home.
-func renderRepositories(out output, report api.Repositories) {
-	writeRow(out.artifact, "here", report.Here.Shown, report.Here.Origin)
+func renderRepositories(out cmdkit.Output, report api.Repositories) {
+	writeRow(out.Artifact, "here", report.Here.Shown, report.Here.Origin)
 
 	for _, worktree := range report.Worktrees {
 		branch := worktree.Branch
@@ -82,15 +83,15 @@ func renderRepositories(out output, report api.Repositories) {
 			branch = "(detached)"
 		}
 
-		writeRow(out.artifact, "worktree", worktree.Shown, branch, worktree.Head, worktreeNote(worktree))
+		writeRow(out.Artifact, "worktree", worktree.Shown, branch, worktree.Head, worktreeNote(worktree))
 	}
 
 	if report.WorktreesError != "" {
-		out.notes.Warn("The worktrees could not be read: " + sanitize.Line(report.WorktreesError))
+		out.Notes.Warn("The worktrees could not be read: " + sanitize.Line(report.WorktreesError))
 	}
 
 	for _, favorite := range report.Favorites {
-		writeRow(out.artifact, "favorite", favorite.Shown, string(favorite.State), favorite.Origin)
+		writeRow(out.Artifact, "favorite", favorite.Shown, string(favorite.State), favorite.Origin)
 	}
 }
 

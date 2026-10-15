@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/cli/console"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
@@ -23,9 +24,9 @@ import (
 // nothing. A dry run says it would, and a pull request not opened announces
 // nothing.
 func announceOpened(
-	ctx context.Context, notes console.Notes, seams announceSeams, report prReport, opts writeOptions,
+	ctx context.Context, notes console.Notes, seams announceSeams, report prReport, opts cmdkit.WriteOptions,
 ) error {
-	if opts.dryRun {
+	if opts.DryRun {
 		notes.Note("dry run: would announce it to " + seams.Messaging.Target() + " once its CI passes")
 
 		return nil
@@ -41,7 +42,7 @@ func announceOpened(
 		),
 		Pull: report.opened, Branch: report.branch,
 	}
-	pending := previewAnnouncement(ctx, output{artifact: notes.Writer(), notes: notes}, seams, composed)
+	pending := previewAnnouncement(ctx, cmdkit.Output{Artifact: notes.Writer(), Notes: notes}, seams, composed)
 
 	return deliverWhenGreen(ctx, seams, pending, seams.Kind.Sigil()+strconv.Itoa(report.opened.Number), pullOpenedNow)
 }
@@ -63,11 +64,11 @@ var errOnlyReadyWaits = errors.New("only a ready-for-review announcement waits f
 
 // onceGreen is announce's prompt for an announcement that waits for the CI of
 // pull to pass: its question and its dry run say so.
-func onceGreen(prompt writePrompt, pull string) writePrompt {
-	prompt.question = strings.TrimSuffix(prompt.question, "?") + " once CI on " + pull + " passes?"
+func onceGreen(prompt cmdkit.WritePrompt, pull string) cmdkit.WritePrompt {
+	prompt.Question = strings.TrimSuffix(prompt.Question, "?") + " once CI on " + pull + " passes?"
 
-	if strings.HasPrefix(prompt.dryRun, "dry run: would announce to ") {
-		prompt.dryRun += " once CI on " + pull + " passes"
+	if strings.HasPrefix(prompt.DryRun, "dry run: would announce to ") {
+		prompt.DryRun += " once CI on " + pull + " passes"
 	}
 
 	return prompt

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/cli/console"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
@@ -20,12 +21,12 @@ import (
 // from being offered, and the command still fails with it; a question nothing
 // can answer stops both.
 func followUp(
-	ctx context.Context, notes console.Notes, seams prSeams, opened openedPull, opts writeOptions, report prReport,
+	ctx context.Context, notes console.Notes, seams prSeams, opened openedPull, opts cmdkit.WriteOptions, report prReport,
 ) (prReport, error) {
 	link, linkErr := offerLink(ctx, notes, seams, opened, opts)
 	report.FollowUps = append(report.FollowUps, link...)
 
-	if errors.Is(linkErr, errNoTerminal) {
+	if errors.Is(linkErr, cmdkit.ErrNoTerminal) {
 		return report, linkErr
 	}
 
@@ -41,7 +42,7 @@ func followUp(
 // forge's own issues — is offered nothing. A failed link is said at once,
 // before the move is offered.
 func offerLink(
-	ctx context.Context, notes console.Notes, seams prSeams, opened openedPull, opts writeOptions,
+	ctx context.Context, notes console.Notes, seams prSeams, opened openedPull, opts cmdkit.WriteOptions,
 ) ([]followUpReport, error) {
 	if seams.LinkPull == nil || opened.issueKey == "" {
 		return nil, nil
@@ -50,10 +51,10 @@ func offerLink(
 	pull, issue := seams.Kind.Sigil()+strconv.Itoa(opened.pull.Number), string(opened.issueKey)
 	offer := followUpReport{Action: followUpLink, IssueKey: issue}
 
-	proceed, err := opts.proceed(notes, seams.Confirm, writePrompt{
-		question: "Link " + pull + " on " + issue + "?",
-		dryRun:   "dry run: would link it on " + issue,
-		declined: "Left " + issue + " unlinked.",
+	proceed, err := opts.Proceed(notes, seams.Confirm, cmdkit.WritePrompt{
+		Question: "Link " + pull + " on " + issue + "?",
+		DryRun:   "dry run: would link it on " + issue,
+		Declined: "Left " + issue + " unlinked.",
 	})
 	if err != nil || !proceed {
 		return []followUpReport{offer}, err
@@ -81,7 +82,7 @@ func offerLink(
 // already open. Everything it says is commentary on the open, so it goes to
 // notes.
 func offerReviewStatus(
-	ctx context.Context, notes console.Notes, seams prSeams, issueKey jira.Key, opts writeOptions,
+	ctx context.Context, notes console.Notes, seams prSeams, issueKey jira.Key, opts cmdkit.WriteOptions,
 ) ([]followUpReport, error) {
 	target, ok := loop.ReviewTransition(ctx, seams.Transitions, issueKey, seams.ReviewStatus)
 	if !ok {
@@ -90,10 +91,10 @@ func offerReviewStatus(
 
 	offer := followUpReport{Action: followUpTransition, IssueKey: string(issueKey), Status: target.ToStatus}
 
-	proceed, err := opts.proceed(notes, seams.Confirm, writePrompt{
-		question: "Move " + string(issueKey) + " to " + target.ToStatus + "?",
-		dryRun:   "dry run: would move " + string(issueKey) + " to " + target.ToStatus,
-		declined: "Left " + string(issueKey) + " as it is.",
+	proceed, err := opts.Proceed(notes, seams.Confirm, cmdkit.WritePrompt{
+		Question: "Move " + string(issueKey) + " to " + target.ToStatus + "?",
+		DryRun:   "dry run: would move " + string(issueKey) + " to " + target.ToStatus,
+		Declined: "Left " + string(issueKey) + " as it is.",
 	})
 	if err != nil || !proceed {
 		return []followUpReport{offer}, err

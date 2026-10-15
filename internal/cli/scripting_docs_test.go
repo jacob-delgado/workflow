@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 )
 
 // scriptingPage is the page that says what a script can rely on from each
@@ -29,7 +30,7 @@ func TestTheScriptingPageOpensByNamingEveryCommand(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	commands := topLevelCommands(cli.NewRootCmd(cli.Prompt{}))
+	commands := topLevelCommands(cli.NewRootCmd(cmdkit.Prompt{}))
 
 	// Act
 	named := firstWords(backtickedIn(openingParagraph(t)))
@@ -46,7 +47,7 @@ func TestTheScriptingPageSaysWhereEachCommandPrints(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	commands := pathsBelowRoot(leafCommands(cli.NewRootCmd(cli.Prompt{})))
+	commands := pathsBelowRoot(leafCommands(cli.NewRootCmd(cmdkit.Prompt{})))
 
 	// Act
 	rows := streamsTableCommands(t)

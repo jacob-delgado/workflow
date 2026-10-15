@@ -11,12 +11,13 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 )
 
 func TestEveryCommandLeadsItsHelpWithExamples(t *testing.T) {
 	t.Parallel()
 
-	for _, path := range leafCommands(cli.NewRootCmd(cli.Prompt{})) {
+	for _, path := range leafCommands(cli.NewRootCmd(cmdkit.Prompt{})) {
 		t.Run(path, func(t *testing.T) {
 			t.Parallel()
 

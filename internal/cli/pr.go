@@ -15,6 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -80,7 +81,7 @@ type prSeams struct {
 }
 
 // newPRCmd builds `workflow pr`.
-func newPRCmd(prompt Prompt) *cobra.Command {
+func newPRCmd(prompt cmdkit.Prompt) *cobra.Command {
 	var opts prOptions
 
 	cmd := &cobra.Command{
@@ -107,7 +108,7 @@ func newPRCmd(prompt Prompt) *cobra.Command {
 			"--json prints what was opened, and each offer and whether it was taken, as one\n" +
 			"JSON object on stdout — under --dry-run, the pull request it would open — and\n" +
 			"says everything else, the preview included, on stderr.",
-		Example: examples(
+		Example: cmdkit.Examples(
 			`workflow --dry-run pr                     # what pr would push and open`,
 			`workflow pr --yes                         # push, open, link and move, without asking`,
 			`workflow pr --yes --json | jq .pull.url   # the same, and the address it opened`,
@@ -121,11 +122,11 @@ func newPRCmd(prompt Prompt) *cobra.Command {
 	}
 
 	opts.chosen.declare(cmd)
-	addJSONFlag(cmd, &opts.asJSON, "print what was opened, and the offers that followed, as JSON")
+	cmdkit.AddJSONFlag(cmd, &opts.asJSON, "print what was opened, and the offers that followed, as JSON")
 	cmd.Flags().BoolVar(&opts.announce, "announce", false,
 		"once it is open, wait for its CI to pass, then announce it")
 
-	opts.write.addFlags(cmd, "go ahead without asking: push the branch when it needs it, open the pull request, "+
+	opts.write.AddFlags(cmd, "go ahead without asking: push the branch when it needs it, open the pull request, "+
 		"link it on the issue and move the issue to the review status")
 
 	return cmd
@@ -134,23 +135,23 @@ func newPRCmd(prompt Prompt) *cobra.Command {
 // runPRCommand wires the real repository and forge to the pull-request flow,
 // and, with --announce, the messaging service to the announcement that
 // follows it.
-func runPRCommand(cmd *cobra.Command, prompt Prompt, opts prOptions) error {
+func runPRCommand(cmd *cobra.Command, prompt cmdkit.Prompt, opts prOptions) error {
 	err := opts.check()
 	if err != nil {
 		return err
 	}
 
-	conn, err := connect(cmd)
+	conn, err := cmdkit.Connect(cmd)
 	if err != nil {
 		return err
 	}
-	defer conn.closeLog()
+	defer conn.CloseLog()
 
-	if opts.announce && conn.cfg.Messaging.Mode() == config.MessagingNone {
-		return messagingNotConfigured()
+	if opts.announce && conn.Config.Messaging.Mode() == config.MessagingNone {
+		return cmdkit.MessagingNotConfigured()
 	}
 
-	cfg, deps := conn.cfg, conn.deps
+	cfg, deps := conn.Config, conn.Deps
 	seams := prSeams{
 		Compose: loop.PullSeams{
 			Branch:     deps.Git.Branch,
@@ -176,30 +177,32 @@ func runPRCommand(cmd *cobra.Command, prompt Prompt, opts prOptions) error {
 		Transition:     deps.Jira.Transition,
 		ReviewStatus:   cfg.Jira.ReviewStatus,
 		Kind:           deps.Forge.Kind,
-		Confirm:        func(question string) (bool, error) { return confirm(prompt, question) },
+		Confirm:        func(question string) (bool, error) { return cmdkit.Confirm(prompt, question) },
 		MessagingSetUp: cfg.Messaging.Mode() != config.MessagingNone && !opts.announce,
 		Chosen:         opts.chosen,
 	}
 
-	report, err := reportPR(cmd.Context(), outputOf(cmd), seams, opts)
+	report, err := reportPR(cmd.Context(), cmdkit.OutputOf(cmd), seams, opts)
 	if err != nil || !opts.announce {
 		return err
 	}
 
-	return announceOpened(cmd.Context(), outputOf(cmd).notes, announceSeamsOf(cmd, conn, prompt), report, opts.write)
+	return announceOpened(
+		cmd.Context(), cmdkit.OutputOf(cmd).Notes, announceSeamsOf(cmd, conn, prompt), report, opts.write,
+	)
 }
 
 // reportPR runs the pull-request flow and, with --json, prints its report on
 // stdout, saying everything else on stderr beside it.
-func reportPR(ctx context.Context, out output, seams prSeams, opts prOptions) (prReport, error) {
+func reportPR(ctx context.Context, out cmdkit.Output, seams prSeams, opts prOptions) (prReport, error) {
 	if !opts.asJSON {
 		return runPR(ctx, out, seams, opts.write)
 	}
 
 	// The report is the artifact, so everything else is said beside it.
-	report, err := runPR(ctx, out.aside(), seams, opts.write)
+	report, err := runPR(ctx, out.Aside(), seams, opts.write)
 	if report.ready {
-		err = errors.Join(err, encodeJSON(out.artifact, report))
+		err = errors.Join(err, cmdkit.EncodeJSON(out.Artifact, report))
 	}
 
 	return report, err
@@ -268,30 +271,30 @@ func openedReport(request forge.NewPullRequest, pull forge.PullRequest) prReport
 // reports what it opened and offered. A dry run says what it would do at each
 // of those steps, the offers included, and reports the pull request it would
 // open.
-func runPR(ctx context.Context, out output, seams prSeams, opts writeOptions) (prReport, error) {
+func runPR(ctx context.Context, out cmdkit.Output, seams prSeams, opts cmdkit.WriteOptions) (prReport, error) {
 	request, branch, err := composed(ctx, seams)
 	if err != nil {
 		return prReport{}, err
 	}
 
-	previewPull(out.artifact, request, branch, seams.Chosen)
+	previewPull(out.Artifact, request, branch, seams.Chosen)
 
 	issueKey, _ := loop.JiraIssue(branch, seams.Options.Project)
 
-	proceed, err := opts.proceed(out.notes, seams.Confirm, writePrompt{
-		question: openQuestion(branch, draftNoun(request, seams.Kind)),
-		dryRun:   "dry run: would " + pushClause(branch) + "open " + request.Title,
-		declined: "Not opened.",
+	proceed, err := opts.Proceed(out.Notes, seams.Confirm, cmdkit.WritePrompt{
+		Question: openQuestion(branch, draftNoun(request, seams.Kind)),
+		DryRun:   "dry run: would " + pushClause(branch) + "open " + request.Title,
+		Declined: "Not opened.",
 	})
 	if err != nil {
 		return prReport{}, err
 	}
 
-	if opts.dryRun {
+	if opts.DryRun {
 		// Nothing was opened, so each offer the open would lead to says so in its
 		// own dry-run line.
 		return followUp(
-			ctx, out.notes, seams, openedPull{issueKey: issueKey}, opts, openedReport(request, forge.PullRequest{}),
+			ctx, out.Notes, seams, openedPull{issueKey: issueKey}, opts, openedReport(request, forge.PullRequest{}),
 		)
 	}
 
@@ -327,7 +330,8 @@ func previewPull(artifact io.Writer, request forge.NewPullRequest, branch gitrep
 // openPull pushes the branch when it needs it, opens the pull request, says
 // so, and follows up on the branch's issue.
 func openPull(
-	ctx context.Context, out output, seams prSeams, opts writeOptions, request forge.NewPullRequest, branch gitrepo.Branch,
+	ctx context.Context, out cmdkit.Output, seams prSeams, opts cmdkit.WriteOptions, request forge.NewPullRequest,
+	branch gitrepo.Branch,
 ) (prReport, error) {
 	err := loop.EnsurePushed(ctx, seams.Push, branch)
 	if err != nil {
@@ -339,7 +343,7 @@ func openPull(
 		return prReport{}, fmt.Errorf("opening the %s: %w", seams.Kind.Noun(), err)
 	}
 
-	fmt.Fprintln(out.artifact, "Opened "+seams.Kind.Sigil()+strconv.Itoa(pull.Number)+" "+pull.URL)
+	fmt.Fprintln(out.Artifact, "Opened "+seams.Kind.Sigil()+strconv.Itoa(pull.Number)+" "+pull.URL)
 
 	report := openedReport(request, pull)
 	report.branch = branch
@@ -347,15 +351,15 @@ func openPull(
 	if err != nil {
 		// The pull request is open; who could not be added is a warning, as
 		// the interface and the web give it, not a failure to open.
-		out.notes.Warn(fmt.Sprintf("Opened without everyone asked: %v", err))
+		out.Notes.Warn(fmt.Sprintf("Opened without everyone asked: %v", err))
 		report.Warning = err.Error()
 	}
 
 	issueKey, _ := loop.JiraIssue(branch, seams.Options.Project)
 
-	report, err = followUp(ctx, out.notes, seams, openedPull{issueKey: issueKey, pull: pull}, opts, report)
+	report, err = followUp(ctx, out.Notes, seams, openedPull{issueKey: issueKey, pull: pull}, opts, report)
 	if err == nil && seams.MessagingSetUp {
-		out.notes.Note("Announce it with workflow announce, or once CI passes with workflow announce --when-green.")
+		out.Notes.Note("Announce it with workflow announce, or once CI passes with workflow announce --when-green.")
 	}
 
 	return report, err

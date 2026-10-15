@@ -456,7 +456,7 @@ change is one appended line.
   `◐`), the way `ui.ascii` swaps them now.
 - **Overlays as questions.** A picker prints its choices numbered and
   takes a number; a preview prints what it will send, then "Send? enter
-  sends, esc cancels" — the command line's `writePrompt` shape.
+  sends, esc cancels" — the command line's `cmdkit.WritePrompt` shape.
 - **Keys unchanged.** The same bindings and `ui.keys`, and `?` prints the
   help, one key to a line.
 

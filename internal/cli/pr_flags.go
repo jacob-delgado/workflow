@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
@@ -37,14 +38,14 @@ type prOptions struct {
 	chosen   pullChoices
 	asJSON   bool
 	announce bool
-	write    writeOptions
+	write    cmdkit.WriteOptions
 }
 
 // check refuses the flags that cannot go together: those pullChoices.check
 // refuses, and --announce beside --draft.
 func (o *prOptions) check() error {
 	if o.announce && o.chosen.draft {
-		return fmt.Errorf("%w: %w", errUsage, errAnnounceBesideDraft)
+		return fmt.Errorf("%w: %w", cmdkit.ErrUsage, errAnnounceBesideDraft)
 	}
 
 	return o.chosen.check()
@@ -83,7 +84,7 @@ func (c *pullChoices) declare(cmd *cobra.Command) {
 // a base git would refuse as a branch's name.
 func (c *pullChoices) check() error {
 	if c.describes() && c.chosenTemplate() != "" {
-		return fmt.Errorf("%w: %w", errUsage, errBodyBesideTemplate)
+		return fmt.Errorf("%w: %w", cmdkit.ErrUsage, errBodyBesideTemplate)
 	}
 
 	base := c.chosenBase()
@@ -93,7 +94,7 @@ func (c *pullChoices) check() error {
 
 	err := convention.ValidateBranchName(base)
 	if err != nil {
-		return fmt.Errorf("%w %q for \"--base\" flag: %w", errUsage, base, err)
+		return fmt.Errorf("%w %q for \"--base\" flag: %w", cmdkit.ErrUsage, base, err)
 	}
 
 	return nil

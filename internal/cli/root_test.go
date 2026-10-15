@@ -18,6 +18,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
 	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/tui"
 	"github.com/jacob-delgado/workflow/internal/webserver"
@@ -45,7 +46,7 @@ type rootRun struct {
 	// read is what the interface read from the input it was handed.
 	read string
 	// env is the Environment the run was handed, which a switch moves on.
-	env     cli.Environment
+	env     cmdkit.Environment
 	servers int
 	addr    string
 	cfg     config.Config
@@ -183,7 +184,7 @@ func executeRoot(
 
 // executeRootIn is executeRoot in env.
 func executeRootIn(
-	t *testing.T, env cli.Environment, run cli.RunInterface, serveAt cli.RunWebAt, args ...string,
+	t *testing.T, env cmdkit.Environment, run cli.RunInterface, serveAt cli.RunWebAt, args ...string,
 ) (string, string, error) {
 	t.Helper()
 

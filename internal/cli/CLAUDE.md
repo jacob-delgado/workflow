@@ -36,12 +36,24 @@ flow over the forge and messaging. Reaching the ceiling means rewriting the
 WHY above the entry and a history row, or such an extraction, never a split
 for the count.
 
+What every command is built from has left already, as `internal/cli/cmdkit`
+beneath the tree: the connection to where a command runs, the environment it
+reads the process through, the flags every command shares, the prompt and the
+scriptable output. It imports no command, and not the web server
+(`.golangci.yml`'s `cmdkit-without-the-web-server`), so `cli.go` hands
+`RootFlags.Declare` the port `--web` serves on by default. The exit statuses
+and the families of errors that earn them stay at the root (`exitstatus.go`),
+since the families name sentinels the commands declare, and so do the two
+terminal reads `cmd/workflow` wires (`LineReader` and `SecretReader`,
+`prompt.go`).
+
 ## What a command prints
 
 - **stdout is the artifact**, and nothing else. It is written through
-  `checkedOutput` (`scriptable.go`), checked once where `prepare` (`cli.go`)
-  sets it up, so an artifact that went nowhere fails the command (exit 1)
-  while each `fmt.Fprint` is left unchecked (`.golangci.yml`'s errcheck note).
+  `cmdkit.CheckedOutput` (`cmdkit/scriptable.go`), checked once where
+  `prepare` (`cli.go`) sets it up, so an artifact that went nowhere fails the
+  command (exit 1) while each `fmt.Fprint` is left unchecked
+  (`.golangci.yml`'s errcheck note).
 - **stderr is `console.Notes`** (`console/console.go`): a note is the bare
   sentence, a warning and an error carry their tags, and `--log-format` says
   them as JSON or logfmt. A command writes stderr through it, never around
@@ -49,12 +61,12 @@ for the count.
 - **A wait with a person watching draws a live line** at the foot of stderr
   (`Notes.Watched`, `console/live.go`); everything said meanwhile prints above
   it, and when stdout is the same terminal the artifact does too
-  (`artifactBeside`, `prompt.go`, TRADE-43). Piped, the artifact goes to
+  (`artifactBeside`, `cmdkit/prompt.go`, TRADE-43). Piped, the artifact goes to
   stdout untouched. The line follows the configuration the terminal interface
-  draws by, through `console.Look` (`liveLook`, `prompt.go`): `ui.ascii`, or
-  `status --plain`, draws it in ASCII, and `ui.motion: reduce` holds its mark
-  still on the in-flight glyph; its mark's frames are `progress.Turn`'s, the
-  terminal's own.
+  draws by, through `console.Look` (`cmdkit.LiveLook`, `cmdkit/prompt.go`):
+  `ui.ascii`, or `status --plain`, draws it in ASCII, and `ui.motion: reduce`
+  holds its mark still on the in-flight glyph; its mark's frames are
+  `progress.Turn`'s, the terminal's own.
 - **fang renders the help, the usage and the errors** (`execute`, `cli.go`,
   TRADE-44), in the terminal's own sixteen colors (`ansiScheme`).
 
@@ -67,15 +79,15 @@ precondition 4, unreachable 5; any other failure is 1. `interrupted`
 (`cli.go`) puts the context's error back on a child's failure, so a Ctrl+C
 still reads as 130. A new sentinel a script should tell apart joins its
 family's list (`exitFamilies`, `configurationErrors`, `refusalErrors`, or,
-for a client's unreachable service, `servicesUnreachable` in
-`scriptable.go`) and `scripting.md`'s table, in the same commit.
+for a client's unreachable service, `cmdkit.ServicesUnreachable` in
+`cmdkit/scriptable.go`) and `scripting.md`'s table, in the same commit.
 
 ## The process, signals and the quit
 
-- **A command reads the process only through `cli.Environment`**
-  (`environment.go`): the working directory, home, variables, store directory
-  and programs. `Execute`'s caller builds it from the operating system, so a
-  test hands each run its own.
+- **A command reads the process only through `cmdkit.Environment`**
+  (`cmdkit/environment.go`): the working directory, home, variables, store
+  directory and programs. `Execute`'s caller builds it from the operating
+  system, so a test hands each run its own.
 - `Execute`'s doc comment (`cli.go`) is the reference for signals: SIGINT and
   SIGTERM cancel every command's context; after the interface quits, workflow
   waits up to `timing.request_timeout` for the writes it left in flight
@@ -111,6 +123,14 @@ for a client's unreachable service, `servicesUnreachable` in
   developer's home and git configuration and every task program off PATH.
   `TestTheTestsLeaveTheRepositoryAHookNamesAlone` proves the scrub; a new
   package whose tests run git needs the same (CONTRIBUTING.md, *Tests*).
+- **The kit's own tests live beside it**, in `internal/cli/cmdkit`: through
+  `cli.Execute` where a command is how a script meets the kit, and otherwise
+  over a small tree of their own (`probeTree`, `cmdkit/kit_test.go`) declared as
+  the root declares workflow's. Its `TestMain` clears git's variables as this
+  package's does, with a proof of its own. The kit's tests reach each of its
+  conditions both ways, since the condition gate measures a package by its
+  own tests alone, but for the two Windows clauses of `relativeToWorkingDir`
+  (`cmdkit/environment.go`) that TRADE-35 keeps, which they see one way only.
 - **A terminal** is a pseudo-terminal from `internal/ptytest`, as
   `help_terminal_test.go` and `prompt_terminal_test.go` use it.
 - **Test files near the ceiling.** A test file fails past 700 lines, and

@@ -18,8 +18,8 @@ import (
 	"testing/fstest"
 
 	"github.com/jacob-delgado/workflow/internal/api"
-	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 	"github.com/jacob-delgado/workflow/internal/webserver/edge"
 )
@@ -456,7 +456,7 @@ func TestSummaryPostStopsAtTheQuestionWhenNothingCanAnswer(t *testing.T) {
 	clitest.WriteFile(t, repo, `{"messaging":{"webhook_url":"`+hook.url+`"}}`)
 
 	// Act
-	_, err := clitest.RunStreams(t, repo, cli.Prompt{Line: answersThenEnds()}, "summary", "--post")
+	_, err := clitest.RunStreams(t, repo, cmdkit.Prompt{Line: answersThenEnds()}, "summary", "--post")
 
 	// Assert
 	if posts := hook.posted(); err == nil || !strings.Contains(err.Error(), "pass --yes") || len(posts) != 0 {

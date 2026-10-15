@@ -13,8 +13,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/config"
 )
 
@@ -130,7 +130,7 @@ func TestConfigInitForceOverAHomeFileReplacesTheRepositoryLayer(t *testing.T) {
 
 	cases := []struct {
 		name, command string
-		prompt        func(t *testing.T) cli.Prompt
+		prompt        func(t *testing.T) cmdkit.Prompt
 	}{
 		{
 			name:    "template",
@@ -140,7 +140,7 @@ func TestConfigInitForceOverAHomeFileReplacesTheRepositoryLayer(t *testing.T) {
 		{
 			name:    "guided",
 			command: "config init --force",
-			prompt:  func(*testing.T) cli.Prompt { return scripted([]string{""}, []string{""}) },
+			prompt:  func(*testing.T) cmdkit.Prompt { return scripted([]string{""}, []string{""}) },
 		},
 	}
 
@@ -218,12 +218,12 @@ func TestConfigInitOverAHomeFileIntoADirectoryItCannotWriteSaysSo(t *testing.T) 
 
 	cases := map[string]struct {
 		args   []string
-		prompt func(t *testing.T) cli.Prompt
+		prompt func(t *testing.T) cmdkit.Prompt
 	}{
 		"the template": {args: strings.Fields("config init --template"), prompt: clitest.UnusedPrompt},
 		"the guided setup, every prompt skipped": {
 			args:   strings.Fields("config init"),
-			prompt: func(*testing.T) cli.Prompt { return scripted([]string{""}, []string{""}) },
+			prompt: func(*testing.T) cmdkit.Prompt { return scripted([]string{""}, []string{""}) },
 		},
 	}
 

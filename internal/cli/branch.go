@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -57,9 +58,9 @@ type startPlan struct {
 }
 
 // newBranchCmd builds `workflow branch <issue>`.
-func newBranchCmd(prompt Prompt) *cobra.Command {
+func newBranchCmd(prompt cmdkit.Prompt) *cobra.Command {
 	var (
-		opts  writeOptions
+		opts  cmdkit.WriteOptions
 		start startOptions
 	)
 
@@ -75,17 +76,17 @@ func newBranchCmd(prompt Prompt) *cobra.Command {
 			"creates nothing. --worktree creates the branch in a new worktree beside the\n" +
 			"repository instead, leaving this checkout where it is, and prints the\n" +
 			"worktree's directory alone on the last line.",
-		Example: examples(
+		Example: cmdkit.Examples(
 			`cd "$(workflow branch PROJ-7 --fetch --worktree --yes | tail -n 1)"   # start fresh, beside this checkout`,
 		),
 		Args:              cobra.ExactArgs(1),
-		ValidArgsFunction: completeAssignedIssues,
+		ValidArgsFunction: cmdkit.CompleteAssignedIssues,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runBranchCommand(cmd, prompt, args[0], opts, start)
 		},
 	}
 
-	opts.addFlags(cmd, confirmationHelp)
+	opts.AddFlags(cmd, cmdkit.ConfirmationHelp)
 	cmd.Flags().BoolVar(&start.fetch, "fetch", false,
 		"fetch the base remote first (upstream in a fork's clone, else origin), to start from what it holds now")
 	cmd.Flags().BoolVar(&start.worktree, "worktree", false,
@@ -95,25 +96,27 @@ func newBranchCmd(prompt Prompt) *cobra.Command {
 }
 
 // runBranchCommand wires the real repository and tracker to the branch flow.
-func runBranchCommand(cmd *cobra.Command, prompt Prompt, issueKey string, opts writeOptions, start startOptions) error {
-	conn, err := connect(cmd)
+func runBranchCommand(
+	cmd *cobra.Command, prompt cmdkit.Prompt, issueKey string, opts cmdkit.WriteOptions, start startOptions,
+) error {
+	conn, err := cmdkit.Connect(cmd)
 	if err != nil {
 		return err
 	}
-	defer conn.closeLog()
+	defer conn.CloseLog()
 
 	seams := branchSeams{
-		Issue:          conn.deps.Jira.Issue,
-		Branches:       conn.deps.Git.Branches,
-		CreateBranch:   conn.deps.Git.CreateBranch,
-		CreateWorktree: conn.deps.Git.CreateWorktree,
-		Fetch:          conn.deps.Git.Fetch,
-		Branch:         conn.deps.Git.Branch,
-		Naming:         conn.cfg.Branch.Naming(),
-		Confirm:        func(question string) (bool, error) { return confirm(prompt, question) },
+		Issue:          conn.Deps.Jira.Issue,
+		Branches:       conn.Deps.Git.Branches,
+		CreateBranch:   conn.Deps.Git.CreateBranch,
+		CreateWorktree: conn.Deps.Git.CreateWorktree,
+		Fetch:          conn.Deps.Git.Fetch,
+		Branch:         conn.Deps.Git.Branch,
+		Naming:         conn.Config.Branch.Naming(),
+		Confirm:        func(question string) (bool, error) { return cmdkit.Confirm(prompt, question) },
 	}
 
-	return runBranch(cmd.Context(), outputOf(cmd), seams, issueKey, opts, start)
+	return runBranch(cmd.Context(), cmdkit.OutputOf(cmd), seams, issueKey, opts, start)
 }
 
 // runBranch names a branch for the issue, previews it, and creates it off the
@@ -121,19 +124,20 @@ func runBranchCommand(cmd *cobra.Command, prompt Prompt, issueKey string, opts w
 // in a new worktree, as start asks. A branch that already exists is refused
 // rather than recreated.
 func runBranch(
-	ctx context.Context, out output, seams branchSeams, issueKey string, opts writeOptions, start startOptions,
+	ctx context.Context, out cmdkit.Output, seams branchSeams, issueKey string, opts cmdkit.WriteOptions,
+	start startOptions,
 ) error {
 	plan, err := planStart(ctx, seams, issueKey, start)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintln(out.artifact, "Start work on "+plan.key+": "+plan.describe())
+	fmt.Fprintln(out.Artifact, "Start work on "+plan.key+": "+plan.describe())
 
-	proceed, err := opts.proceed(out.notes, seams.Confirm, writePrompt{
-		question: "Start work on " + plan.key + ": " + plan.question(),
-		dryRun:   "dry run: would start work on " + plan.key + ": " + plan.describe(),
-		declined: "Not created.",
+	proceed, err := opts.Proceed(out.Notes, seams.Confirm, cmdkit.WritePrompt{
+		Question: "Start work on " + plan.key + ": " + plan.question(),
+		DryRun:   "dry run: would start work on " + plan.key + ": " + plan.describe(),
+		Declined: "Not created.",
 	})
 	if err != nil || !proceed {
 		return err
@@ -203,7 +207,7 @@ func (p startPlan) question() string {
 // carryOut fetches when the plan asks, then creates the branch here or in a new
 // worktree, whose directory it prints alone so a script can go there. A fetch
 // that fails creates nothing, and says how to branch from what is here.
-func (p startPlan) carryOut(ctx context.Context, out output, seams branchSeams) error {
+func (p startPlan) carryOut(ctx context.Context, out cmdkit.Output, seams branchSeams) error {
 	var fetch func(context.Context) error
 	if p.fetch {
 		fetch = seams.Fetch
@@ -228,10 +232,10 @@ func (p startPlan) carryOut(ctx context.Context, out output, seams branchSeams) 
 	case err != nil:
 		return fmt.Errorf("creating %s: %w", p.name, err)
 	case p.worktree:
-		out.notes.Note("Created " + p.name + " in a new worktree.")
-		fmt.Fprintln(out.artifact, dir)
+		out.Notes.Note("Created " + p.name + " in a new worktree.")
+		fmt.Fprintln(out.Artifact, dir)
 	default:
-		fmt.Fprintln(out.artifact, "Created "+p.name)
+		fmt.Fprintln(out.Artifact, "Created "+p.name)
 	}
 
 	return nil

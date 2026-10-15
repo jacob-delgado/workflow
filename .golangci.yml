@@ -217,15 +217,29 @@ linters:
         # The command line serves --web from web.go and from nowhere else: what
         # it prints in the API's shapes — the Summary, the repositories, the
         # review queue, a failure's words — comes from internal/report, which
-        # the web server reads too, never from the server itself.
+        # the web server reads too, never from the server itself. The kit
+        # beneath the commands answers to a rule of its own, below.
         cli-serves-the-web-only-from-web-go:
           files:
             - "**/internal/cli/**"
             - "!**/internal/cli/web.go"
+            - "!**/internal/cli/cmdkit/**"
             - "!$test"
           deny:
             - pkg: github.com/jacob-delgado/workflow/internal/webserver
               desc: the command line imports the web server only to serve --web, in web.go; share through internal/report
+        # internal/cli/cmdkit is what every command is built from, so it sits
+        # beneath the command tree: importing a command back is a cycle the
+        # compiler refuses, and this holds the web server out of it too. The
+        # root hands it the port --web serves on by default, so the kit needs
+        # nothing of the server, and only web.go serves it.
+        cmdkit-without-the-web-server:
+          files:
+            - "**/internal/cli/cmdkit/**"
+            - "!$test"
+          deny:
+            - pkg: github.com/jacob-delgado/workflow/internal/webserver
+              desc: the command kit sits beneath the commands; web.go alone serves --web, and hands the kit the default port
         # The web server is a surface beside the terminal, not built on it: what
         # the two share lives in internal/loop and the domain packages. wiring is
         # denied with it, because wiring imports the terminal.
@@ -241,7 +255,7 @@ linters:
       # fmt.Fprint* is excluded whatever it writes to. Most of its writes go to
       # a command's output streams, and checking each one triples the length of
       # every help and report function. Stdout is checked once instead, where
-      # internal/cli sets it up (checkedOutput), so an artifact that went
+      # internal/cli sets it up (cmdkit.CheckedOutput), so an artifact that went
       # nowhere still fails the command; a failed write to stderr leaves no
       # channel to report it on. A file written through fmt.Fprint* is checked
       # by hand, as the request log checks each outline it writes.

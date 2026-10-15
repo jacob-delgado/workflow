@@ -9,6 +9,7 @@ import (
 	"io"
 
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/config"
 )
 
@@ -76,7 +77,7 @@ func runDoctorJSON(ctx context.Context, out io.Writer, run doctorRun) error {
 		report.Credentials, credErr = credentialFacts(ctx, run, remote)
 	}
 
-	err := encodeJSON(out, report)
+	err := cmdkit.EncodeJSON(out, report)
 	if err != nil {
 		return err
 	}

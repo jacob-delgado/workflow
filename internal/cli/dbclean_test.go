@@ -16,8 +16,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/store"
 )
 
@@ -375,7 +375,7 @@ func TestDBCleanWithNoTerminalToAskRemovesNothingAndNamesYes(t *testing.T) {
 	ended := func(string) (string, error) { return "", io.EOF }
 
 	// Act
-	_, err := clitest.RunStreamsAt(t, where, cli.Prompt{Line: ended, Secret: ended}, "db-clean")
+	_, err := clitest.RunStreamsAt(t, where, cmdkit.Prompt{Line: ended, Secret: ended}, "db-clean")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "--yes") {

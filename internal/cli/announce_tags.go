@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
@@ -37,9 +38,9 @@ type announceTagging struct {
 // groups chosen, when groups were offered. A token that lacks a scope tagging
 // needs is told the scope, and the post goes out untagged. base is the branch
 // the owners are read against. Slack is asked under ctx.
-func tagAnnouncement(ctx context.Context, out output, seams announceSeams, moment messaging.Moment, base string) (
-	messaging.Mentions, loop.AnnounceMemory,
-) {
+func tagAnnouncement(
+	ctx context.Context, out cmdkit.Output, seams announceSeams, moment messaging.Moment, base string,
+) (messaging.Mentions, loop.AnnounceMemory) {
 	memory := seams.Memory
 
 	slack, tagging := seams.Tagging.identity(ctx, out, moment)
@@ -55,7 +56,7 @@ func tagAnnouncement(ctx context.Context, out output, seams announceSeams, momen
 	}
 
 	if scope, missing := missingScope(slack.grant, tags); missing {
-		out.notes.Warn("Not tagging anyone: the Slack token lacks the " + scope + " scope; " +
+		out.Notes.Warn("Not tagging anyone: the Slack token lacks the " + scope + " scope; " +
 			"add it to the Slack app, then run workflow slack login.")
 
 		return messaging.Mentions{}, memory
@@ -65,10 +66,10 @@ func tagAnnouncement(ctx context.Context, out output, seams announceSeams, momen
 	// as tagged no one the mentions leave out.
 	tags, mentions := tags.Proposed()
 
-	fmt.Fprintln(out.artifact, "tags "+taggedNames(tags))
+	fmt.Fprintln(out.Artifact, "tags "+taggedNames(tags))
 
 	if untagged := untaggedOwners(tags.Owners); untagged != "" {
-		fmt.Fprintln(out.artifact, "not tagged: "+untagged)
+		fmt.Fprintln(out.Artifact, "not tagged: "+untagged)
 	}
 
 	if record := seams.Tagging.RecordGroups; len(tags.Groups) > 0 && record != nil {
@@ -92,7 +93,9 @@ type slackIdentity struct {
 // answers the workspace too, so a grant that cannot be read is a workspace
 // that cannot be: the post goes out untagged, and the notes say why. Slack is
 // asked under ctx.
-func (t announceTagging) identity(ctx context.Context, out output, moment messaging.Moment) (slackIdentity, bool) {
+func (t announceTagging) identity(
+	ctx context.Context, out cmdkit.Output, moment messaging.Moment,
+) (slackIdentity, bool) {
 	if moment != messaging.MomentReady || t.Workspace == nil || t.OwnerLinks == nil {
 		return slackIdentity{}, false
 	}
@@ -110,7 +113,7 @@ func (t announceTagging) identity(ctx context.Context, out output, moment messag
 		return t.Workspace(ctx)
 	})
 	if errors.Is(err, loop.ErrUnknownWorkspace) {
-		out.notes.Warn(fmt.Sprintf("Not tagging anyone: %v; posting untagged.", err))
+		out.Notes.Warn(fmt.Sprintf("Not tagging anyone: %v; posting untagged.", err))
 	}
 
 	return slackIdentity{workspace: workspace, grant: grant}, err == nil

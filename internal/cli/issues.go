@@ -14,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/report"
@@ -44,7 +45,7 @@ func newIssuesCmd() *cobra.Command {
 			"assigned to you on the repository's forge ahead of them. A longer list is\n" +
 			"noted on stderr, and --json carries its total, the forge's issues counted in\n" +
 			"it. --json prints the web API's page of issues.",
-		Example: examples(
+		Example: cmdkit.Examples(
 			`workflow issues --view Sprint`,
 			`workflow issues --json | jq -r '.issues[].key'   # the keys alone`,
 		),
@@ -55,26 +56,26 @@ func newIssuesCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&opts.view, "view", "", "the view to list, by its name in jira.views; the first when not given")
-	addJSONFlag(cmd, &opts.asJSON, "print the page of issues as JSON")
+	cmdkit.AddJSONFlag(cmd, &opts.asJSON, "print the page of issues as JSON")
 
 	return cmd
 }
 
 // runIssuesCommand wires the real tracker to the listing.
 func runIssuesCommand(cmd *cobra.Command, opts issuesOptions) error {
-	conn, err := connect(cmd)
+	conn, err := cmdkit.Connect(cmd)
 	if err != nil {
 		return err
 	}
-	defer conn.closeLog()
+	defer conn.CloseLog()
 
-	view, known := jira.ViewNamed(conn.cfg.Jira.Views, opts.view)
+	view, known := jira.ViewNamed(conn.Config.Jira.Views, opts.view)
 	if !known {
 		return fmt.Errorf(`%w %q for "--view" flag: %w: %s`,
-			errUsage, opts.view, errUnknownView, viewNames(conn.cfg.Jira.Views))
+			cmdkit.ErrUsage, opts.view, errUnknownView, viewNames(conn.Config.Jira.Views))
 	}
 
-	return runIssues(cmd.Context(), outputOf(cmd), conn.deps.Jira.Search, view, opts.asJSON)
+	return runIssues(cmd.Context(), cmdkit.OutputOf(cmd), conn.Deps.Jira.Search, view, opts.asJSON)
 }
 
 // viewNames are the names of the views configured, as a --view may name them.
@@ -91,7 +92,7 @@ func viewNames(configured []config.JiraView) string {
 
 // runIssues lists the first page of view's issues, as JSON or a line each.
 func runIssues(
-	ctx context.Context, out output,
+	ctx context.Context, out cmdkit.Output,
 	search func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error),
 	view jira.View, asJSON bool,
 ) error {
@@ -101,7 +102,7 @@ func runIssues(
 	}
 
 	if asJSON {
-		return encodeJSON(out.artifact, report.IssuesPage(result, 0))
+		return cmdkit.EncodeJSON(out.Artifact, report.IssuesPage(result, 0))
 	}
 
 	renderIssueList(out, view, result)
@@ -111,22 +112,22 @@ func runIssues(
 
 // renderIssueList writes an issue a line, then what the list leaves out:
 // that it is empty, cut short, or missing a tracker that could not be read.
-func renderIssueList(out output, view jira.View, result jira.SearchResult) {
+func renderIssueList(out cmdkit.Output, view jira.View, result jira.SearchResult) {
 	for _, issue := range result.Issues {
-		fmt.Fprintln(out.artifact, issueRow(issue))
+		fmt.Fprintln(out.Artifact, issueRow(issue))
 	}
 
 	name := sanitize.Line(view.Name)
 
 	switch {
 	case len(result.Issues) == 0:
-		out.notes.Note("No issues in " + name + ".")
+		out.Notes.Note("No issues in " + name + ".")
 	case result.Total > len(result.Issues):
-		out.notes.Note(fmt.Sprintf("Listed the first %d of %d issues in %s.", len(result.Issues), result.Total, name))
+		out.Notes.Note(fmt.Sprintf("Listed the first %d of %d issues in %s.", len(result.Issues), result.Total, name))
 	}
 
 	for _, unread := range result.Unavailable {
-		out.notes.Note("Not read: " + unread + ".")
+		out.Notes.Note("Not read: " + unread + ".")
 	}
 }
 
@@ -155,26 +156,26 @@ func newIssueCmd() *cobra.Command {
 			"type, status and priority, who reported it and who it is assigned to, its link,\n" +
 			"its description and its comments, oldest first. --json prints the web API's\n" +
 			"issue.",
-		Example: examples(
+		Example: cmdkit.Examples(
 			`workflow issue PROJ-7`,
 			`workflow issue PROJ-7 --json | jq -r .status   # where it stands`,
 		),
 		Args:              cobra.ExactArgs(1),
-		ValidArgsFunction: completeAssignedIssues,
+		ValidArgsFunction: cmdkit.CompleteAssignedIssues,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			conn, err := connect(cmd)
+			conn, err := cmdkit.Connect(cmd)
 			if err != nil {
 				return err
 			}
-			defer conn.closeLog()
+			defer conn.CloseLog()
 
-			seams := issueSeams{Issue: conn.deps.Jira.Issue, BrowseURL: conn.deps.Jira.BrowseURL}
+			seams := issueSeams{Issue: conn.Deps.Jira.Issue, BrowseURL: conn.Deps.Jira.BrowseURL}
 
-			return runIssue(cmd.Context(), outputOf(cmd), seams, jira.Key(args[0]), asJSON)
+			return runIssue(cmd.Context(), cmdkit.OutputOf(cmd), seams, jira.Key(args[0]), asJSON)
 		},
 	}
 
-	addJSONFlag(cmd, &asJSON, "print the issue as JSON")
+	cmdkit.AddJSONFlag(cmd, &asJSON, "print the issue as JSON")
 
 	return cmd
 }
@@ -182,7 +183,7 @@ func newIssueCmd() *cobra.Command {
 // runIssue reads the issue and prints it, as JSON or in prose, linked under
 // the key the tracker answered with, as the web links it: an issue moved to
 // another project is still read by its old key.
-func runIssue(ctx context.Context, out output, seams issueSeams, issueKey jira.Key, asJSON bool) error {
+func runIssue(ctx context.Context, out cmdkit.Output, seams issueSeams, issueKey jira.Key, asJSON bool) error {
 	detail, err := seams.Issue(ctx, issueKey)
 	if err != nil {
 		return fmt.Errorf("reading issue %s: %w", issueKey, err)
@@ -190,10 +191,10 @@ func runIssue(ctx context.Context, out output, seams issueSeams, issueKey jira.K
 
 	link := seams.BrowseURL(detail.Issue.Key)
 	if asJSON {
-		return encodeJSON(out.artifact, report.IssueDetail(detail, link))
+		return cmdkit.EncodeJSON(out.Artifact, report.IssueDetail(detail, link))
 	}
 
-	renderIssueDetail(out.artifact, detail, link)
+	renderIssueDetail(out.Artifact, detail, link)
 
 	return nil
 }

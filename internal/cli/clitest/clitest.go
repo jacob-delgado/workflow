@@ -17,6 +17,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/config"
 )
 
@@ -36,7 +37,7 @@ func Run(t *testing.T, dir string, args ...string) (string, error) {
 }
 
 // RunGuided is Run with a prompt that answers `config init`'s questions.
-func RunGuided(t *testing.T, dir string, prompt cli.Prompt, args ...string) (string, error) {
+func RunGuided(t *testing.T, dir string, prompt cmdkit.Prompt, args ...string) (string, error) {
 	t.Helper()
 
 	printed, err := RunStreams(t, dir, prompt, args...)
@@ -55,7 +56,7 @@ type Streams struct {
 // RunStreams is RunGuided with the two streams kept apart, for a test that
 // says which one a line belongs on: the artifact on stdout, what is said about
 // it on stderr.
-func RunStreams(t *testing.T, dir string, prompt cli.Prompt, args ...string) (Streams, error) {
+func RunStreams(t *testing.T, dir string, prompt cmdkit.Prompt, args ...string) (Streams, error) {
 	t.Helper()
 
 	return RunStreamsAt(t, Place{Dir: dir, Home: t.TempDir()}, prompt, args...)
@@ -74,7 +75,7 @@ type Place struct {
 }
 
 // RunStreamsAt is RunStreams in the home directory the test chose.
-func RunStreamsAt(t *testing.T, where Place, prompt cli.Prompt, args ...string) (Streams, error) {
+func RunStreamsAt(t *testing.T, where Place, prompt cmdkit.Prompt, args ...string) (Streams, error) {
 	t.Helper()
 
 	var stdout, stderr bytes.Buffer
@@ -99,7 +100,7 @@ func IsolatedEnvironment(where Place) map[string]string {
 
 // UnusedPrompt fails the test if a command reads from it: only the guided
 // `config init` should, and its tests drive it with a scripted prompt instead.
-func UnusedPrompt(t *testing.T) cli.Prompt {
+func UnusedPrompt(t *testing.T) cmdkit.Prompt {
 	t.Helper()
 
 	fail := func(string) (string, error) {
@@ -108,7 +109,7 @@ func UnusedPrompt(t *testing.T) cli.Prompt {
 		return "", errUnexpectedPrompt
 	}
 
-	return cli.Prompt{Line: fail, Secret: fail}
+	return cmdkit.Prompt{Line: fail, Secret: fail}
 }
 
 // WriteFile writes a configuration into dir, failing the test if it cannot.

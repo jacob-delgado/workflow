@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
@@ -38,8 +39,8 @@ type finishPlan struct {
 }
 
 // newFinishCmd builds `workflow finish`.
-func newFinishCmd(prompt Prompt) *cobra.Command {
-	var opts writeOptions
+func newFinishCmd(prompt cmdkit.Prompt) *cobra.Command {
+	var opts cmdkit.WriteOptions
 
 	cmd := &cobra.Command{
 		Use:   "finish",
@@ -55,7 +56,7 @@ func newFinishCmd(prompt Prompt) *cobra.Command {
 			"nor are on its upstream, which deleting it would lose. The delete is a force\n" +
 			"delete, so it goes ahead only for a branch at the very commit that merged, or\n" +
 			"one whose upstream holds every commit on it.",
-		Example: examples(
+		Example: cmdkit.Examples(
 			"workflow finish --dry-run   # the three git commands, none run",
 			"workflow finish --yes       # finish a merged branch, unattended",
 		),
@@ -65,48 +66,48 @@ func newFinishCmd(prompt Prompt) *cobra.Command {
 		},
 	}
 
-	opts.addFlags(cmd, confirmationHelp)
+	opts.AddFlags(cmd, cmdkit.ConfirmationHelp)
 
 	return cmd
 }
 
 // runFinishCommand wires the real repository and forge to the finish.
-func runFinishCommand(cmd *cobra.Command, prompt Prompt, opts writeOptions) error {
-	conn, err := connect(cmd)
+func runFinishCommand(cmd *cobra.Command, prompt cmdkit.Prompt, opts cmdkit.WriteOptions) error {
+	conn, err := cmdkit.Connect(cmd)
 	if err != nil {
 		return err
 	}
-	defer conn.closeLog()
+	defer conn.CloseLog()
 
 	seams := finishSeams{
-		Branch:   conn.deps.Git.Branch,
-		FindPull: conn.deps.Forge.FindPullRequest,
-		Finish:   conn.deps.Git.Finish,
-		Kind:     conn.deps.Forge.Kind,
-		Confirm:  func(question string) (bool, error) { return confirm(prompt, question) },
+		Branch:   conn.Deps.Git.Branch,
+		FindPull: conn.Deps.Forge.FindPullRequest,
+		Finish:   conn.Deps.Git.Finish,
+		Kind:     conn.Deps.Forge.Kind,
+		Confirm:  func(question string) (bool, error) { return cmdkit.Confirm(prompt, question) },
 	}
 
-	return runFinish(cmd.Context(), outputOf(cmd), seams, opts)
+	return runFinish(cmd.Context(), cmdkit.OutputOf(cmd), seams, opts)
 }
 
 // runFinish previews the three git commands that finish the merged branch and
 // runs them once confirmed. A branch that cannot be finished is refused with
 // the reason before anything is asked.
-func runFinish(ctx context.Context, out output, seams finishSeams, opts writeOptions) error {
+func runFinish(ctx context.Context, out cmdkit.Output, seams finishSeams, opts cmdkit.WriteOptions) error {
 	plan, err := planFinish(ctx, seams)
 	if err != nil {
 		return err
 	}
 
-	plan.preview(out.artifact, seams.Kind)
+	plan.preview(out.Artifact, seams.Kind)
 
 	finishing := plan.finishing
 	steps := "switch to " + finishing.Base + ", pull it from " + finishing.Remote
 
-	proceed, err := opts.proceed(out.notes, seams.Confirm, writePrompt{
-		question: "Finish " + finishing.Branch + ": " + steps + ", and delete it?",
-		dryRun:   "dry run: would finish " + finishing.Branch + " (" + steps + ", delete it)",
-		declined: "Not finished.",
+	proceed, err := opts.Proceed(out.Notes, seams.Confirm, cmdkit.WritePrompt{
+		Question: "Finish " + finishing.Branch + ": " + steps + ", and delete it?",
+		DryRun:   "dry run: would finish " + finishing.Branch + " (" + steps + ", delete it)",
+		Declined: "Not finished.",
 	})
 	if err != nil || !proceed {
 		return err
@@ -117,7 +118,7 @@ func runFinish(ctx context.Context, out output, seams finishSeams, opts writeOpt
 		return fmt.Errorf("finishing %s: %w", finishing.Branch, err)
 	}
 
-	out.notes.Note("Finished " + finishing.Branch + ": switched to " + finishing.Base + ", caught it up and deleted " +
+	out.Notes.Note("Finished " + finishing.Branch + ": switched to " + finishing.Base + ", caught it up and deleted " +
 		finishing.Branch + ".")
 
 	return nil

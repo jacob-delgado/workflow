@@ -9,6 +9,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/progress"
 )
@@ -80,7 +81,7 @@ type stageReport struct {
 
 // renderStatusJSON prints the same facts as indented JSON.
 func renderStatusJSON(out io.Writer, facts statusFacts) error {
-	return encodeJSON(out, statusReport{
+	return cmdkit.EncodeJSON(out, statusReport{
 		Issue:   facts.issue,
 		Summary: facts.summary,
 		Stages:  stageReports(facts.stages),
@@ -120,7 +121,7 @@ func statusesJSON(out io.Writer, statuses []directoryStatus) error {
 		reports = append(reports, report)
 	}
 
-	return encodeJSON(out, reports)
+	return cmdkit.EncodeJSON(out, reports)
 }
 
 // stageReports turns the stages into their JSON shape.
