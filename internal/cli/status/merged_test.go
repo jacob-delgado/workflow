@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli_test
+package status_test
 
 import (
 	"encoding/json"
@@ -22,7 +22,7 @@ func mergedStatusRepo(t *testing.T) string {
 	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.MergedPull("Add login")})
 
-	return statusFeatureRepo(t, server.URL)
+	return clitest.JiraFeatureRepo(t, server.URL)
 }
 
 func TestStatusLineReadsAMergedPullRequestsReviewAsDone(t *testing.T) {
@@ -99,7 +99,7 @@ func TestStatusLineReadsAnAnnouncementOfAClosedPullRequestAsNotStarted(t *testin
 	// closed without merging: there is no pull request left to announce.
 	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.ClosedPull("Add login")})
-	repo := statusFeatureRepo(t, server.URL)
+	repo := clitest.JiraFeatureRepo(t, server.URL)
 	home := clitest.AnnouncedEarlier(t, messaging.MomentReady)
 
 	// Act

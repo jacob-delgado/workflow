@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli_test
+package status_test
 
 import (
 	"encoding/json"
@@ -13,11 +13,34 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
+	"github.com/jacob-delgado/workflow/internal/cli/status"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
 // stageDone is the JSON word for a stage that is complete.
 const stageDone = "done"
+
+// statusCommand is the command these tests run, where it is named apart from
+// a whole command line.
+const statusCommand = "status"
+
+func TestNewCmdIsStatusWithItsFlags(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	cmd := status.NewCmd(clitest.UnusedPrompt(t))
+
+	// Assert
+	if cmd.Name() != statusCommand {
+		t.Errorf("NewCmd names %q, want status", cmd.Name())
+	}
+
+	for _, flag := range []string{"json", "plain"} {
+		if cmd.Flags().Lookup(flag) == nil {
+			t.Errorf("status declares no --%s", flag)
+		}
+	}
+}
 
 func TestStatusOutsideARepositoryReportsSo(t *testing.T) {
 	t.Parallel()
@@ -53,25 +76,11 @@ func TestStatusWithoutGitNamesTheMissingProgram(t *testing.T) {
 	wantExit(t, err, 1)
 }
 
-// featureRepo makes a repository on a branch for PROJ-2 with a commit, and
-// returns its path.
-func featureRepo(t *testing.T) string {
-	t.Helper()
-
-	repo := t.TempDir()
-	clitest.GitInit(t, repo)
-	clitest.Commit(t, repo, "init")
-	clitest.Git(t, repo, "checkout", "-b", "fix/PROJ-2-thing")
-	clitest.Commit(t, repo, "work")
-
-	return repo
-}
-
 func TestStatusHereReportsTheCurrentRepository(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	repo := featureRepo(t)
+	repo := clitest.FeatureRepo(t)
 
 	// Act
 	output, err := clitest.Run(t, repo, "status")
@@ -102,19 +111,6 @@ func TestStatusExitsAlikeOutsideARepository(t *testing.T) {
 	}
 }
 
-// statusFeatureRepo is a repository on a feature branch for PROJ-7, one commit
-// ahead of main, with a GitHub remote so the forge resolves through the fake gh,
-// and a configuration naming the Jira at jiraURL.
-func statusFeatureRepo(t *testing.T, jiraURL string) string {
-	t.Helper()
-
-	repo := clitest.GithubRepo(t, "fix/PROJ-7-login")
-	clitest.WriteFile(t, repo, `{"jira":{"base_url":"`+jiraURL+`","token":"t"},`+
-		`"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
-
-	return repo
-}
-
 func TestStatusLineShowsTheIssueStagesAndCI(t *testing.T) {
 	t.Parallel()
 
@@ -122,7 +118,7 @@ func TestStatusLineShowsTheIssueStagesAndCI(t *testing.T) {
 	// A feature branch with an open pull request whose CI is still running.
 	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: clitest.RunningStatus()})
-	repo := statusFeatureRepo(t, server.URL)
+	repo := clitest.JiraFeatureRepo(t, server.URL)
 
 	// Act
 	output, err := clitest.Run(t, repo, "status")
@@ -142,7 +138,7 @@ func TestStatusNamesTheLastStageForTheMessagingServiceInUse(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	repo := featureRepo(t)
+	repo := clitest.FeatureRepo(t)
 	clitest.WriteFile(t, repo, `{"messaging":{"kind":"teams","webhook_url":"https://outlook.office.example/webhook/x"}}`)
 
 	// Act
@@ -163,7 +159,7 @@ func TestStatusFailedCIReadsTheReviewFailed(t *testing.T) {
 	// Arrange
 	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: clitest.FailingStatus()})
-	repo := statusFeatureRepo(t, server.URL)
+	repo := clitest.JiraFeatureRepo(t, server.URL)
 
 	// Act
 	output, err := clitest.Run(t, repo, "status")
@@ -183,7 +179,7 @@ func TestStatusJSONReportsTheSameAsData(t *testing.T) {
 	// Arrange
 	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: clitest.PassingStatus()})
-	repo := statusFeatureRepo(t, server.URL)
+	repo := clitest.JiraFeatureRepo(t, server.URL)
 
 	// Act
 	output, err := clitest.Run(t, repo, "status", "--json")
@@ -233,7 +229,7 @@ func TestStatusLineReadsTheAnnouncementAtTheCurrentMoment(t *testing.T) {
 			// earlier announce, or session of the interface, leaves it.
 			server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 			clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: tt.status})
-			repo := statusFeatureRepo(t, server.URL)
+			repo := clitest.JiraFeatureRepo(t, server.URL)
 			home := clitest.AnnouncedEarlier(t, tt.remembered)
 
 			// Act
@@ -256,7 +252,7 @@ func TestStatusJSONReadsAnEarlierAnnouncementAsDone(t *testing.T) {
 	// Arrange
 	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: clitest.RunningStatus()})
-	repo := statusFeatureRepo(t, server.URL)
+	repo := clitest.JiraFeatureRepo(t, server.URL)
 	home := clitest.AnnouncedEarlier(t, messaging.MomentReady)
 
 	// Act
@@ -300,7 +296,7 @@ func TestStatusJSONNamesEachReviewState(t *testing.T) {
 			// Arrange
 			server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 			clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: tt.status})
-			repo := statusFeatureRepo(t, server.URL)
+			repo := clitest.JiraFeatureRepo(t, server.URL)
 
 			// Act
 			output, err := clitest.Run(t, repo, "status", "--json")
@@ -323,7 +319,7 @@ func TestStatusWhenCICannotBeRead(t *testing.T) {
 	// The pull request is open, but its CI cannot be read.
 	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: "{"})
-	repo := statusFeatureRepo(t, server.URL)
+	repo := clitest.JiraFeatureRepo(t, server.URL)
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "status")
@@ -362,6 +358,27 @@ func TestStatusInASCII(t *testing.T) {
 	// Assert
 	if !strings.Contains(output, "# Branch") {
 		t.Errorf("ASCII status should use plain marks:\n%s", output)
+	}
+}
+
+func TestStatusOnADetachedHeadIsNoFeatureBranch(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Commits made on a feature branch, then left for the commit itself: no
+	// branch is checked out to name an issue or a pull request.
+	repo := clitest.FeatureRepo(t)
+	clitest.Git(t, repo, "checkout", "--quiet", "--detach")
+
+	// Act
+	output, err := clitest.Run(t, repo, statusCommand)
+	if err != nil {
+		t.Fatalf("status: %v (%s)", err, output)
+	}
+
+	// Assert
+	if !strings.HasPrefix(output, "○ Issue  ○ Branch  ○ Commits") || strings.Contains(output, "PROJ-2") {
+		t.Errorf("status on a detached HEAD should read as no feature branch begun:\n%s", output)
 	}
 }
 

@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli_test
+package issues_test
 
 import (
 	"cmp"
@@ -14,7 +14,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
-// The writes trackerJira records, by kind, beside pr's link and transition.
+// The writes trackerJira records, by kind, beside clitest.WriteTransition.
 const (
 	writeAssign  = "assign"
 	writeWorklog = "worklog"
@@ -37,6 +37,24 @@ const trackedDetail = `{"key":"` + trackedIssue + `","fields":{"summary":"Fix lo
 	`"comment":{"startAt":0,"maxResults":2,"total":3,"comments":[` +
 	`{"author":{"displayName":"Ana Lopez"},"body":"Repro'd on 8.2.1","created":"2026-09-03T12:00:00.000+0000"},` +
 	`{"author":{"displayName":"Bo Chen"},"body":"Patch up shortly","created":"2026-09-04T12:00:00.000+0000"}]}}}`
+
+// sparseIssue is an issue the fake Jira holds with little said of it.
+const sparseIssue = "PROJ-8"
+
+// sparseDetail is sparseIssue read in full: no type, priority, reporter,
+// assignee or description, and its one comment, undated and unsigned.
+const sparseDetail = `{"key":"` + sparseIssue + `","fields":{"summary":"Bare",` +
+	`"status":{"name":"To Do","statusCategory":{"key":"new"}},` +
+	`"comment":{"startAt":0,"maxResults":50,"total":1,"comments":[{"body":"undated"}]}}}`
+
+// unlinkedIssue is an issue the fake Jira answers under a key with no
+// project part, for which the tracker seam keeps no page to link: Jira itself
+// never answers so, but the seam's link may be empty, and issue prints none.
+const unlinkedIssue = "PROJ-11"
+
+// unlinkedDetail is unlinkedIssue read, answered under the bare number.
+const unlinkedDetail = `{"key":"11","fields":{"summary":"Unlinked",` +
+	`"status":{"name":"To Do","statusCategory":{"key":"new"}}}}`
 
 // trackerMoves offers In Progress, a fieldless move to In Review, and a move
 // to Done that asks for a resolution and a fix version.
@@ -115,8 +133,8 @@ func (a *trackerAsked) search(writer http.ResponseWriter, request *http.Request,
 }
 
 // answerIssue answers a request about trackedIssue: its writes, recorded, its
-// transitions, its comments past the first page, and its detail, asked by
-// either of its keys.
+// transitions and its comments past the first page; and otherwise the detail
+// of an issue, through answerDetail.
 func answerIssue(writer http.ResponseWriter, request *http.Request, asked *trackerAsked, answers trackerAnswers) {
 	path := request.URL.Path
 
@@ -136,9 +154,23 @@ func answerIssue(writer http.ResponseWriter, request *http.Request, asked *track
 		_, _ = writer.Write([]byte(cmp.Or(answers.transitions, trackerMoves)))
 	case strings.HasSuffix(path, "/comment"):
 		_, _ = writer.Write([]byte(`{"startAt":2,"total":3,"comments":[]}`))
-	case path == "/rest/api/2/issue/"+trackedIssue, path == "/rest/api/2/issue/"+movedIssue:
+	default:
+		answerDetail(writer, path, answers)
+	}
+}
+
+// answerDetail answers a read of an issue the fake Jira holds in full:
+// trackedIssue by either of its keys, sparseIssue and unlinkedIssue; and that
+// no other issue exists.
+func answerDetail(writer http.ResponseWriter, path string, answers trackerAnswers) {
+	switch strings.TrimPrefix(path, "/rest/api/2/issue/") {
+	case trackedIssue, movedIssue:
 		writer.WriteHeader(cmp.Or(answers.issueCode, http.StatusOK))
 		_, _ = writer.Write([]byte(trackedDetail))
+	case sparseIssue:
+		_, _ = writer.Write([]byte(sparseDetail))
+	case unlinkedIssue:
+		_, _ = writer.Write([]byte(unlinkedDetail))
 	default:
 		writer.WriteHeader(http.StatusNotFound)
 		_, _ = writer.Write([]byte(`{"errorMessages":["Issue Does Not Exist"]}`))

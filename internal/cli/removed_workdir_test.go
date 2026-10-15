@@ -5,7 +5,6 @@ package cli_test
 
 import (
 	"bytes"
-	"errors"
 	"net/http"
 	"strings"
 	"sync/atomic"
@@ -26,34 +25,12 @@ const (
 	relativeLog = "requests.log"
 )
 
-// errDirectoryGone is a working directory that cannot be named, as a shell is
-// left standing in one when `git worktree remove` deletes the directory it is
-// in.
-var errDirectoryGone = errors.New("getwd: no such file or directory")
-
-// runFromARemovedDirectory runs the command tree from a working directory that
-// cannot be named. The home is the test's, for a configuration put there first.
-func runFromARemovedDirectory(t *testing.T, home string, args ...string) (clitest.Streams, error) {
-	t.Helper()
-
-	env := clitest.EnvironmentFor(t, clitest.Place{Dir: t.TempDir(), Home: home})
-	env.WorkingDir = func() (string, error) { return "", errDirectoryGone }
-
-	var stdout, stderr bytes.Buffer
-
-	err := cli.Execute(args, &stdout, &stderr, clitest.UnusedPrompt(t), env)
-
-	return clitest.Streams{Stdout: stdout.String(), Stderr: stderr.String()}, err
-}
-
 func TestACommandFromARemovedDirectorySaysItCannotNameIt(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string][]string{
-		"reading the status":                   strings.Fields("status"),
-		"reading a directory named relatively": strings.Fields("status ."),
-		"showing the configuration":            strings.Fields("config show"),
-		"writing a template":                   strings.Fields("config init --template"),
+		"showing the configuration": strings.Fields("config show"),
+		"writing a template":        strings.Fields("config init --template"),
 	}
 
 	for name, args := range cases {
@@ -61,7 +38,7 @@ func TestACommandFromARemovedDirectorySaysItCannotNameIt(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			printed, err := runFromARemovedDirectory(t, t.TempDir(), args...)
+			printed, err := clitest.RunFromARemovedDirectory(t, t.TempDir(), args...)
 
 			// Assert
 			if err == nil || !strings.Contains(err.Error(), workdirUnread) {
@@ -78,7 +55,7 @@ func TestALogNamedRelativelyFromARemovedDirectorySaysItCannotBeOpened(t *testing
 	// Act
 	// doctor opens the log before anything else reads the directory, so only
 	// the log's own reading of it can fail first.
-	printed, err := runFromARemovedDirectory(t, t.TempDir(), logOption, relativeLog, doctorCommand)
+	printed, err := clitest.RunFromARemovedDirectory(t, t.TempDir(), logOption, relativeLog, doctorCommand)
 
 	// Assert
 	if err == nil || !strings.HasPrefix(err.Error(), "opening the request log: "+workdirUnread) {
@@ -91,7 +68,7 @@ func TestDoctorFromARemovedDirectoryStillReports(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	printed, err := runFromARemovedDirectory(t, t.TempDir(), "doctor")
+	printed, err := clitest.RunFromARemovedDirectory(t, t.TempDir(), "doctor")
 
 	// Assert
 	// doctor is what someone runs to find out what is wrong, so the report still
@@ -110,7 +87,7 @@ func TestDoctorJSONFromARemovedDirectoryReportsNoWorkTree(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	printed, err := runFromARemovedDirectory(t, t.TempDir(), "doctor", "--json")
+	printed, err := clitest.RunFromARemovedDirectory(t, t.TempDir(), "doctor", "--json")
 
 	// Assert
 	report := decodeReport(t, printed.Stdout)
@@ -144,7 +121,7 @@ func TestDoctorReportsOnTheOneReadingOfItsDirectory(t *testing.T) {
 
 	env.WorkingDir = func() (string, error) {
 		if reads.Add(1) > 1 {
-			return "", errDirectoryGone
+			return "", clitest.ErrDirectoryGone
 		}
 
 		return dir, nil
@@ -177,7 +154,7 @@ func TestBranchCompletionFromARemovedDirectoryOffersNothing(t *testing.T) {
 	clitest.WriteConfigFor(t, home, server.URL)
 
 	// Act
-	printed, err := runFromARemovedDirectory(t, home, "__complete", "branch", "")
+	printed, err := clitest.RunFromARemovedDirectory(t, home, "__complete", "branch", "")
 
 	// Assert
 	// A failure would spill into the shell; the shell is told only that there is
@@ -192,39 +169,29 @@ func TestBranchCompletionFromARemovedDirectoryOffersNothing(t *testing.T) {
 // must all be read from one directory, so a command reads it once: a second
 // read could find another, or none, as a shell left standing in a directory
 // `git worktree remove` deletes does.
-func TestACommandReadsTheDirectoryItWasRunFromOnce(t *testing.T) {
+func TestDoctorLoggingRelativelyReadsTheDirectoryItWasRunFromOnce(t *testing.T) {
 	t.Parallel()
 
-	cases := map[string][]string{
-		"doctor, logging to a file named relatively":     {logOption, relativeLog, doctorCommand},
-		"the status of two directories named relatively": {statusCommand, ".", "."},
+	// Arrange
+	args := []string{logOption, relativeLog, doctorCommand}
+	env := clitest.EnvironmentFor(t, clitest.Place{Dir: t.TempDir(), Home: t.TempDir()})
+	read := env.WorkingDir
+
+	var reads atomic.Int32
+
+	env.WorkingDir = func() (string, error) {
+		reads.Add(1)
+
+		return read()
 	}
 
-	for name, args := range cases {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+	var stdout, stderr bytes.Buffer
 
-			// Arrange
-			env := clitest.EnvironmentFor(t, clitest.Place{Dir: t.TempDir(), Home: t.TempDir()})
-			read := env.WorkingDir
+	// Act
+	_ = cli.Execute(args, &stdout, &stderr, clitest.UnusedPrompt(t), env)
 
-			var reads atomic.Int32
-
-			env.WorkingDir = func() (string, error) {
-				reads.Add(1)
-
-				return read()
-			}
-
-			var stdout, stderr bytes.Buffer
-
-			// Act
-			_ = cli.Execute(args, &stdout, &stderr, clitest.UnusedPrompt(t), env)
-
-			// Assert
-			if got := reads.Load(); got != 1 {
-				t.Errorf("%v read the working directory %d times, want once", args, got)
-			}
-		})
+	// Assert
+	if got := reads.Load(); got != 1 {
+		t.Errorf("%v read the working directory %d times, want once", args, got)
 	}
 }

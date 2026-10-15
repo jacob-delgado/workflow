@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli
+package issues
 
 import (
 	"cmp"
@@ -49,8 +49,8 @@ func (w issueWrite) run(
 	return nil
 }
 
-// errStatusBlank refuses a move that names no status to move to.
-var errStatusBlank = errors.New("a transition needs a status to move to")
+// ErrStatusBlank refuses a move that names no status to move to.
+var ErrStatusBlank = errors.New("a transition needs a status to move to")
 
 // transitionSeams are what `workflow transition` reads and does, so a test can
 // answer without a tracker.
@@ -60,8 +60,8 @@ type transitionSeams struct {
 	Confirm     func(question string) (bool, error)
 }
 
-// newTransitionCmd builds `workflow transition <issue> <status>`.
-func newTransitionCmd(prompt cmdkit.Prompt) *cobra.Command {
+// NewTransitionCmd builds `workflow transition <issue> <status>`.
+func NewTransitionCmd(prompt cmdkit.Prompt) *cobra.Command {
 	var opts cmdkit.WriteOptions
 
 	cmd := &cobra.Command{
@@ -81,7 +81,7 @@ func newTransitionCmd(prompt cmdkit.Prompt) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			status := strings.TrimSpace(args[1])
 			if status == "" {
-				return errStatusBlank
+				return ErrStatusBlank
 			}
 
 			conn, err := cmdkit.Connect(cmd)
@@ -141,8 +141,8 @@ func runTransition(
 	}.run(ctx, out, opts, seams.Confirm)
 }
 
-// errAssigneeBlank refuses an assignment that names no one.
-var errAssigneeBlank = errors.New("an assignee needs a username")
+// ErrAssigneeBlank refuses an assignment that names no one.
+var ErrAssigneeBlank = errors.New("an assignee needs a username")
 
 // assignSeams are what `workflow assign` does, so a test can answer without a
 // tracker.
@@ -151,8 +151,8 @@ type assignSeams struct {
 	Confirm func(question string) (bool, error)
 }
 
-// newAssignCmd builds `workflow assign <issue> <username>`.
-func newAssignCmd(prompt cmdkit.Prompt) *cobra.Command {
+// NewAssignCmd builds `workflow assign <issue> <username>`.
+func NewAssignCmd(prompt cmdkit.Prompt) *cobra.Command {
 	var opts cmdkit.WriteOptions
 
 	cmd := &cobra.Command{
@@ -170,7 +170,7 @@ func newAssignCmd(prompt cmdkit.Prompt) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			assignee := strings.TrimSpace(args[1])
 			if assignee == "" {
-				return errAssigneeBlank
+				return ErrAssigneeBlank
 			}
 
 			conn, err := cmdkit.Connect(cmd)
@@ -220,13 +220,13 @@ func runAssign(
 
 // Why work cannot be logged.
 var (
-	// errDurationBlank refuses a worklog that says nothing of how long.
-	errDurationBlank = errors.New("logging work needs a duration, such as 2h or 30m")
-	// errWorklogOnForge refuses a worklog on a forge issue, which keeps none.
-	errWorklogOnForge = errors.New("a forge issue keeps no worklog; log work on a Jira issue")
-	// errWorklogNeedsJira refuses a worklog where the forge's issues are the
+	// ErrDurationBlank refuses a worklog that says nothing of how long.
+	ErrDurationBlank = errors.New("logging work needs a duration, such as 2h or 30m")
+	// ErrWorklogOnForge refuses a worklog on a forge issue, which keeps none.
+	ErrWorklogOnForge = errors.New("a forge issue keeps no worklog; log work on a Jira issue")
+	// ErrWorklogNeedsJira refuses a worklog where the forge's issues are the
 	// whole tracker.
-	errWorklogNeedsJira = errors.New("logging work needs Jira; set jira.base_url")
+	ErrWorklogNeedsJira = errors.New("logging work needs Jira; set jira.base_url")
 )
 
 // worklogSeams are what `workflow worklog` does, so a test can answer without
@@ -244,8 +244,8 @@ type worklogEntry struct {
 	note     string
 }
 
-// newWorklogCmd builds `workflow worklog <issue> <duration>`.
-func newWorklogCmd(prompt cmdkit.Prompt) *cobra.Command {
+// NewWorklogCmd builds `workflow worklog <issue> <duration>`.
+func NewWorklogCmd(prompt cmdkit.Prompt) *cobra.Command {
 	var (
 		opts cmdkit.WriteOptions
 		note string
@@ -296,11 +296,11 @@ func newWorklogCmd(prompt cmdkit.Prompt) *cobra.Command {
 // forge issue's, or one with no duration.
 func (e worklogEntry) check() error {
 	if report.TrackerOf(e.issueKey) == api.IssueTrackerForge {
-		return errWorklogOnForge
+		return ErrWorklogOnForge
 	}
 
 	if e.spent == "" {
-		return errDurationBlank
+		return ErrDurationBlank
 	}
 
 	return nil
@@ -311,7 +311,7 @@ func runWorklog(
 	ctx context.Context, out cmdkit.Output, seams worklogSeams, entry worklogEntry, opts cmdkit.WriteOptions,
 ) error {
 	if seams.AddWorklog == nil {
-		return errWorklogNeedsJira
+		return ErrWorklogNeedsJira
 	}
 
 	key := string(entry.issueKey)

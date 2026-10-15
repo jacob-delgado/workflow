@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli_test
+package issues_test
 
 import (
 	"encoding/json"
@@ -12,8 +12,11 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/spf13/cobra"
+
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
+	"github.com/jacob-delgado/workflow/internal/cli/issues"
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
@@ -39,6 +42,31 @@ func decoded[T any](t *testing.T, stdout string) T {
 	}
 
 	return value
+}
+
+func TestEachIssueCommandIsNamedForWhatItDoes(t *testing.T) {
+	t.Parallel()
+
+	prompt := clitest.UnusedPrompt(t)
+	cases := map[string]*cobra.Command{
+		"issues":     issues.NewIssuesCmd(),
+		"issue":      issues.NewIssueCmd(),
+		"transition": issues.NewTransitionCmd(prompt),
+		"assign":     issues.NewAssignCmd(prompt),
+		"worklog":    issues.NewWorklogCmd(prompt),
+		"comment":    issues.NewCommentCmd(prompt),
+	}
+
+	for want, cmd := range cases {
+		t.Run(want, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := cmd.Name(); got != want {
+				t.Errorf("command named %q, want %q", got, want)
+			}
+		})
+	}
 }
 
 func TestIssuesListsTheFirstViewScopedToYou(t *testing.T) {
@@ -232,6 +260,23 @@ func TestIssuesNotesAListCutShort(t *testing.T) {
 	}
 }
 
+func TestIssuesNotesNothingOfAListShownWhole(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	baseURL, _ := trackerJira(t, trackerAnswers{search: searchOf(2, "PROJ-7", "PROJ-8")})
+	dir := t.TempDir()
+	clitest.WriteFile(t, dir, trackerConfig(baseURL, sprintAndTriage))
+
+	// Act
+	printed, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "issues")
+
+	// Assert
+	if err != nil || printed.Stderr != "" {
+		t.Errorf("issues = %v\nstderr:\n%s\nwant no note on a list shown whole", err, printed.Stderr)
+	}
+}
+
 func TestIssuesSaysWhyTheViewCouldNotBeRead(t *testing.T) {
 	t.Parallel()
 
@@ -318,6 +363,43 @@ func TestIssuePrintsTheIssueInFull(t *testing.T) {
 		if !strings.Contains(printed.Stdout, want) {
 			t.Errorf("issue printed:\n%s\nwant it to hold %q", printed.Stdout, want)
 		}
+	}
+}
+
+func TestIssuePrintsOnlyWhatItHasOfASparseIssue(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	baseURL, _ := trackerJira(t, trackerAnswers{})
+	dir := t.TempDir()
+	clitest.WriteFile(t, dir, trackerConfig(baseURL, ""))
+
+	// Act
+	printed, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "issue", sparseIssue)
+
+	// Assert
+	want := "PROJ-8  Bare\nTo Do\nReported by nobody named, unassigned\n" + baseURL + "/browse/PROJ-8\n" +
+		"\nsomeone\n  undated\n"
+	if err != nil || printed.Stdout != want {
+		t.Errorf("issue = %v, printed:\n%s\nwant:\n%s", err, printed.Stdout, want)
+	}
+}
+
+func TestIssuePrintsNoLinkForAnIssueWithNoPage(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	baseURL, _ := trackerJira(t, trackerAnswers{})
+	dir := t.TempDir()
+	clitest.WriteFile(t, dir, trackerConfig(baseURL, ""))
+
+	// Act
+	printed, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "issue", unlinkedIssue)
+
+	// Assert
+	want := "11  Unlinked\nTo Do\nReported by nobody named, unassigned\n"
+	if err != nil || printed.Stdout != want {
+		t.Errorf("issue = %v, printed:\n%s\nwant:\n%s", err, printed.Stdout, want)
 	}
 }
 

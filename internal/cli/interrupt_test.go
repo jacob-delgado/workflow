@@ -17,7 +17,7 @@ import (
 
 func TestAnInterruptedGitCommandExitsAsInterrupted(t *testing.T) {
 	// Arrange
-	repo := featureRepo(t)
+	repo := clitest.FeatureRepo(t)
 	// A git that raises Ctrl+C on the process running it and then hangs until it
 	// is stopped: the interrupt lands mid-subprocess, where what comes back is
 	// git's own exit status rather than the interrupt.

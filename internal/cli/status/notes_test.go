@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli_test
+package status_test
 
 import (
 	"net/http"
@@ -20,7 +20,7 @@ func TestStatusSaysNothingOnStderrWhenEveryServiceAnswers(t *testing.T) {
 	// Arrange
 	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: clitest.PassingStatus()})
-	repo := statusFeatureRepo(t, server.URL)
+	repo := clitest.JiraFeatureRepo(t, server.URL)
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "status")
@@ -37,7 +37,7 @@ func TestStatusNamesTheForgeWhenItsPullRequestCannotBeRead(t *testing.T) {
 	// Arrange
 	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: "{"})
-	repo := statusFeatureRepo(t, server.URL)
+	repo := clitest.JiraFeatureRepo(t, server.URL)
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "status", "--json")
@@ -59,13 +59,13 @@ func TestStatusNamesJiraWhenTheIssueCannotBeRead(t *testing.T) {
 	// Arrange
 	server := clitest.JiraServer(t, http.StatusInternalServerError, `{}`, new(atomic.Bool))
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: clitest.PassingStatus()})
-	repo := statusFeatureRepo(t, server.URL)
+	repo := clitest.JiraFeatureRepo(t, server.URL)
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "status")
 
 	// Assert
-	if err != nil || !strings.Contains(printed.Stdout, "PROJ-7  ") {
+	if err != nil || !strings.HasPrefix(printed.Stdout, "PROJ-7  ● Issue") {
 		t.Errorf("status = %v, stdout %q, want the line without a summary", err, printed.Stdout)
 	}
 
@@ -121,7 +121,7 @@ func TestStatusSaysTheForgeIsNotSetUpWhenItHasNoToken(t *testing.T) {
 	// Arrange
 	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	clitest.FakeGh(t, clitest.GhResponses{SignedOut: true})
-	repo := statusFeatureRepo(t, server.URL)
+	repo := clitest.JiraFeatureRepo(t, server.URL)
 	// Not through gh's own transport, so the forge needs a token, and none is
 	// set or signed in.
 	clitest.WriteFile(
@@ -142,13 +142,33 @@ func TestStatusSaysTheForgeIsNotSetUpWhenItHasNoToken(t *testing.T) {
 	}
 }
 
+func TestStatusSaysTheForgeIsNotSetUpOnceWhenItIsTheTrackerToo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// No Jira, so the forge's issues are the tracker, and no token for the
+	// forge: the issue and the pull request are both unread for the one cause.
+	clitest.FakeGh(t, clitest.GhResponses{SignedOut: true})
+	repo := clitest.GithubRepo(t, "fix/42-thing")
+	clitest.WriteFile(t, repo, `{"forge":{"kind":"github","host":"github.com"}}`)
+
+	// Act
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "status")
+
+	// Assert
+	if err != nil || strings.Count(printed.Stderr, "\n") != 1 ||
+		!strings.HasPrefix(printed.Stderr, "GitHub is not set up: ") {
+		t.Errorf("status = %v, stderr %q, want GitHub's not being set up said once", err, printed.Stderr)
+	}
+}
+
 func TestStatusAcrossLabelsEachNoteWithItsDirectory(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: "{"})
-	repo := statusFeatureRepo(t, server.URL)
+	repo := clitest.JiraFeatureRepo(t, server.URL)
 
 	// Act
 	printed, err := clitest.RunStreams(t, t.TempDir(), clitest.UnusedPrompt(t), "status", repo)

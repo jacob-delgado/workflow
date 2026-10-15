@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli_test
+package issues_test
 
 import (
 	"encoding/json"
@@ -163,6 +163,25 @@ func TestCommentRefusesBlankText(t *testing.T) {
 
 	if got := posted.all(); len(got) != 0 {
 		t.Errorf("a blank comment was posted: %q", got)
+	}
+}
+
+func TestCommentRefusesTextOfWhiteSpaceItDoesNotTrim(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A form feed and a vertical tab are white space, but not the kind the
+	// end of the text is trimmed of.
+	dir, posted := commentJira(t, false)
+
+	// Act
+	_, err := clitest.RunStreams(t, dir, typed(t, "\f\v\n"), "comment", "PROJ-7", "--yes")
+
+	// Assert
+	wantExit(t, err, 2)
+
+	if got := posted.all(); len(got) != 0 {
+		t.Errorf("a comment of white space was posted: %q", got)
 	}
 }
 

@@ -1,7 +1,11 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli
+// Package issues is the commands over the issue tracker, Jira or the forge's
+// issues: `issues` and `issue`, which read, and `transition`, `assign`,
+// `worklog` and `comment`, which write an issue once its preview is
+// confirmed.
+package issues
 
 import (
 	"cmp"
@@ -30,8 +34,8 @@ type issuesOptions struct {
 	asJSON bool
 }
 
-// newIssuesCmd builds `workflow issues`.
-func newIssuesCmd() *cobra.Command {
+// NewIssuesCmd builds `workflow issues`.
+func NewIssuesCmd() *cobra.Command {
 	var opts issuesOptions
 
 	cmd := &cobra.Command{
@@ -145,8 +149,8 @@ type issueSeams struct {
 	BrowseURL func(issueKey jira.Key) string
 }
 
-// newIssueCmd builds `workflow issue <issue>`.
-func newIssueCmd() *cobra.Command {
+// NewIssueCmd builds `workflow issue <issue>`.
+func NewIssueCmd() *cobra.Command {
 	var asJSON bool
 
 	cmd := &cobra.Command{
