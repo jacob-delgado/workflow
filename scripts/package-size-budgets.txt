@@ -140,14 +140,16 @@ internal/webserver 40 cohesive
 # announcement proposes, 31 announcewait.go, the wait for CI to pass that
 # announce --when-green makes — sections of announce's that pr comes to share —
 # and 32 took pr_follow_up.go, the offers pr makes once the pull request is
-# open. 33 takes exitstatus.go, the exit statuses and the families of errors
+# open. 33 took exitstatus.go, the exit statuses and the families of errors
 # that earn them, out of scriptable.go: the families name sentinels the
-# commands declare, so they stay at the root of the tree, while the scriptable
-# contract around them is to leave as a package of its own beneath the
-# commands, with doctor's checks and the pr and announce flow after it. Each
-# that leaves ratchets the ceiling down to the files left. Reaching it is where
-# the tree's shape is looked at again.
-internal/cli 33 cohesive
+# commands declare, so they stay at the root of the tree. The kit every
+# command is built from — the connection, the environment, the shared flags,
+# the prompt and the scriptable output — has left since, as internal/cli/cmdkit
+# beneath the commands, so 29 is the files left, with doctor's checks and the
+# pr and announce flow to leave after it. Each that leaves ratchets the
+# ceiling down to the files left. Reaching it is where the tree's shape is
+# looked at again.
+internal/cli 29 cohesive
 
 # internal/loop — the loop composed once for the command line, the terminal
 # and the web: which issue a branch names, the pull request draft, the
