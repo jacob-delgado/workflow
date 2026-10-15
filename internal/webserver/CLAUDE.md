@@ -21,27 +21,27 @@ for a change to an API operation, the guards or the event stream. The root
 
 The package is the loopback REST surface spelled one file per operation, or
 per pair of writes that share their checks, beside the shared faults, wire
-shapes, stream and server. It answers to a cohesive ceiling in
-`scripts/package-size-budgets.txt`: read the number there, and
-`scripts/check-package-size.sh --list` for the count. A new operation is a new
-file. The package is not split to chase a number, but code in it with a reason
-to change of its own may leave where no import cycle follows. Four have left
-already: the RFC 9457 problem details, to `internal/webserver/problem`, which
-changes only with the error format; the Taskwarrior handlers, to
-`internal/webserver/tasks`, which change with Taskwarrior; the git runs and
-lefthook's hooks, to `internal/webserver/runs`, which change with git and
-lefthook; and the request boundary (the guards, the policy headers, the
-session, the contract validator and the app's fallback), to
-`internal/webserver/edge`, which changes for security's reasons. `tasks.New`
-builds the Taskwarrior handlers over `tasks.Seams`, bound with the taskwarrior
-settings the server started with, and takes what they need of the server
-through a `tasks.Kit`: `fault`, the settings in effect, the clock, the
-tracker's issue links, `worlds.outliving` and your home directory. `runs.New`
-builds the server's `runs.Runner`, which holds the run going, over
-`runs.Seams`, and takes the server's `unexpected` and its `indexWrites` lock,
-since a run holds the index the server's own writes queue for. Reaching the
-ceiling means rewriting the WHY above the entry and a history row, or such an
-extraction, never a split for the count.
+shapes, stream and server. It answers to a ratcheted budget in
+`scripts/package-size-budgets.txt`, at the count its splits left it: read the
+number there, and `scripts/check-package-size.sh --list` for the count. A new
+operation is a new file, and a bump: raise the number, rewrite the WHY above
+it, and append a row to `scripts/package-size-budget-history.md`. The package
+is not split to chase a number, but code in it with a reason to change of its
+own may leave where no import cycle follows. Four have left already: the
+RFC 9457 problem details, to `internal/webserver/problem`, which changes only
+with the error format; the Taskwarrior handlers, to `internal/webserver/tasks`,
+which change with Taskwarrior; the git runs and lefthook's hooks, to
+`internal/webserver/runs`, which change with git and lefthook; and the request
+boundary (the guards, the policy headers, the session, the contract validator
+and the app's fallback), to `internal/webserver/edge`, which changes for
+security's reasons. `tasks.New` builds the Taskwarrior handlers over
+`tasks.Seams`, bound with the taskwarrior settings the server started with,
+and takes what they need of the server through a `tasks.Kit`: `fault`, the
+settings in effect, the clock, the tracker's issue links, `worlds.outliving`
+and your home directory. `runs.New` builds the server's `runs.Runner`, which
+holds the run going, over `runs.Seams`, and takes the server's `unexpected`
+and its `indexWrites` lock, since a run holds the index the server's own
+writes queue for.
 
 ## A request, outside in
 
@@ -151,7 +151,7 @@ flight; and refuses, as `conflict`, a write whose `Workflow-Here` header
   beside them. `assertProblem` (`problemcheck_test.go`) checks a refusal's
   status, media type and detail.
 - **Helpers that cross a line sit in `webtest`.** A helper the tests of code
-  that has left or may leave (the Taskwarrior handlers, the git runs) share
+  that has left (the Taskwarrior handlers, the git runs) or may leave share
   with the tests of the rest is exported from `internal/webserver/webtest`,
   with what it needs, in a file named for what it holds: the harness
   (`harness.go`) and fixtures (`fixtures.go`) above, the event stream's
