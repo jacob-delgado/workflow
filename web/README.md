@@ -58,12 +58,13 @@ binary `task build` makes: `scripts/e2e-server.sh` serves
 and `commit.spec.ts` stages, commits and pushes through the page.
 `page.spec.ts` checks how the page takes its session, and that it and its
 palette open with nothing the content policy the server sends refuses;
-`policy.spec.ts` opens Settings' tabs and the tag picker under that policy and
-fails on anything it refuses. Nothing else may be listening on port 13580.
-Both runs launch the headless shell of the Chromium build Playwright pins, as
-CI does; where that build cannot be installed, `PLAYWRIGHT_CHROMIUM_EXECUTABLE`
-names another to launch, which a Claude Code cloud session's start sets to the
-image's headless shell, the kind of binary CI runs.
+`policy.spec.ts` opens Settings' tabs, the tag picker and the directory picker
+under that policy and fails on anything it refuses. Nothing else may be
+listening on port 13580. Both runs launch the headless shell of the Chromium
+build Playwright pins, as CI does; where that build cannot be installed,
+`PLAYWRIGHT_CHROMIUM_EXECUTABLE` names another to launch, which a Claude Code
+cloud session's start sets to the image's headless shell, the kind of binary CI
+runs.
 
 ## Conventions
 
