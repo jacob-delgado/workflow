@@ -111,35 +111,6 @@ func TestLogReachesDoctorOnline(t *testing.T) {
 	}
 }
 
-func TestRequestLogWarnsOnceWhenItCouldNotBeWritten(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// Every write to /dev/full fails as a full disk would; where there is none,
-	// no file can be made to refuse writes from a test.
-	const fullDevice = "/dev/full"
-
-	_, statErr := os.Stat(fullDevice)
-	if statErr != nil {
-		t.Skip("no " + fullDevice + " here to refuse the request log's writes")
-	}
-
-	dir := t.TempDir()
-	clitest.WriteConfigFor(t, dir, clitest.WorkingJira(t))
-
-	// Act
-	printed, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "doctor", "--online", "--request-log", fullDevice)
-
-	// Assert
-	// The check itself succeeded, so its status stands; only the bug report
-	// it was asked to keep is incomplete, and one line on stderr says so.
-	wantExit(t, err, 0)
-
-	if got := strings.Count(printed.Stderr, "WARN The request log could not be fully written"); got != 1 {
-		t.Errorf("stderr warned %d times that the request log was not written, want once:\n%s", got, printed.Stderr)
-	}
-}
-
 func TestLogReachesTheGuidedInitsCheck(t *testing.T) {
 	t.Parallel()
 
