@@ -535,7 +535,7 @@ tasks:
       - scripts/check-sibling-tests.sh
 
   lint:layout:
-    desc: Check that CLAUDE.md's layout names every Go package, and no directory that is gone
+    desc: Check CLAUDE.md's layout against the Go packages and its (tests only) marks against depguard
     cmds:
       - scripts/check-layout.sh
 

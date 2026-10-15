@@ -2,8 +2,12 @@
 #
 # Tests for check-layout.sh: every directory holding a tracked Go file must be
 # named in CLAUDE.md's layout block, every directory the block names must hold
-# a tracked file, and a repository git cannot read, or a CLAUDE.md with no
-# layout block, must not pass on nothing compared.
+# a tracked file, every package the block marks "(tests only)" must be one a
+# depguard rule holds to tests, in a .golangci.yml golangci-lint reads and no
+# file it reads first, and a repository git cannot read, or a CLAUDE.md with
+# no layout block, must not pass on nothing compared. Which rules hold a
+# package are check-layout_depguard_test.sh's, and how the gate reads the
+# YAML they are written in check-layout_yaml_test.sh's.
 #
 # Usage:
 #   scripts/check-layout_test.sh
@@ -14,57 +18,22 @@ readonly check="${here}/check-layout.sh"
 
 # shellcheck source=lib/testing.sh
 source "${here}/lib/testing.sh"
+# shellcheck source=lib/check-layout-fixtures.sh
+source "${here}/lib/check-layout-fixtures.sh"
 
-# layout writes a CLAUDE.md whose layout block names each argument, as the real
-# one does: the directory with a trailing slash, then what it holds.
-#   layout <dir>...
-layout() {
-  cat <<'END'
-# CLAUDE.md
-
-Layout:
-
-```text
-END
-  local dir
-  for dir in "$@"; do
-    printf '%-22s what it holds\n' "${dir}/"
-  done
-  cat <<'END'
-```
-
-## Common commands
-
-```text
-not/a/directory/   in another block
-```
-END
-}
-
-# repo makes a git repository at dir with a CLAUDE.md naming the directories
-# after the first `--`, and a tracked file at each path after it.
-#   repo <dir> <named-dir>... -- <tracked-path>...
-repo() {
+# lint writes, in a repository repo made, the go.mod of a module named example
+# and a .golangci.yml that turns depguard on, as the root's does, whose
+# depguard rules hold each package named to tests, as the root's
+# *-only-in-tests rules do.
+#   lint <dir> <package-dir>...
+lint() {
   local dir="$1"
   shift
-  local listed=()
-  while [[ "$1" != "--" ]]; do
-    listed+=("$1")
-    shift
-  done
-  shift
-
-  mkdir -p "${dir}"
-  git -C "${dir}" init -q
-  layout "${listed[@]}" >"${dir}/CLAUDE.md"
-  git -C "${dir}" add CLAUDE.md
-
-  local path
-  for path in "$@"; do
-    mkdir -p "${dir}/$(dirname "${path}")"
-    printf 'package x\n' >"${dir}/${path}"
-    git -C "${dir}" add "${path}"
-  done
+  module "${dir}"
+  {
+    depguard_rules_head "default: all"
+    rules_holding "$@"
+  } >"${dir}/.golangci.yml"
 }
 
 # expect runs the gate in a directory and compares its exit to pass or fail.
@@ -99,6 +68,81 @@ expect pass "a Go file under testdata" "${testdata}"
 stale="${workdir}/stale"
 repo "${stale}" internal/cli internal/gone -- internal/cli/cli.go
 expect_output fail "a line for a directory that is gone" "internal/gone" run_in "${stale}" "${check}"
+
+# coverage-gate.sh leaves each package the layout marks "(tests only)" out of
+# the statement total, so the mark must be the build's word: a marked package
+# passes when a depguard rule denies its import path to every file but a test.
+held="${workdir}/held"
+repo "${held}" internal/cli "internal/rlimit (tests only)" \
+  -- internal/cli/cli.go internal/rlimit/rlimit.go
+lint "${held}" internal/rlimit
+expect pass "a package marked (tests only) that depguard holds to tests" "${held}"
+
+# A marked package no rule holds fails, and the gate names it and the fix.
+unheld="${workdir}/unheld"
+repo "${unheld}" "internal/rlimit (tests only)" "internal/gittest (tests only)" \
+  -- internal/rlimit/rlimit.go internal/gittest/gittest.go
+lint "${unheld}" internal/rlimit
+expect_output fail "a package marked (tests only) that no rule holds" \
+  $'  internal/gittest/ (pkg: example/internal/gittest)\nGive each a depguard rule' \
+  run_in "${unheld}" "${check}"
+
+# The same package unmarked needs no rule: the mark is what asks for one.
+unmarked="${workdir}/unmarked"
+repo "${unmarked}" "internal/rlimit (tests only)" internal/gittest \
+  -- internal/rlimit/rlimit.go internal/gittest/gittest.go
+lint "${unmarked}" internal/rlimit
+expect pass "a package not marked (tests only) needs no rule" "${unmarked}"
+
+# A rule holds the import path its deny list names and no other, so one that
+# holds internal/webserver/webtest leaves internal/webserver above it unheld.
+parent="${workdir}/parent"
+repo "${parent}" "internal/webserver (tests only)" "internal/webserver/webtest (tests only)" \
+  -- internal/webserver/server.go internal/webserver/webtest/serve.go
+lint "${parent}" internal/webserver/webtest
+expect_output fail "a marked package only a rule for the package below it names" \
+  $'tests:\n  internal/webserver/ (pkg: example/internal/webserver)\nGive each' \
+  run_in "${parent}" "${check}"
+
+# The root's own .golangci.yml and go.mod turn depguard on and hold the
+# packages the root's layout marks to tests.
+root="${workdir}/root"
+repo "${root}" "internal/rlimit (tests only)" "internal/gittest (tests only)" \
+  "internal/ptytest (tests only)" "internal/webserver/webtest (tests only)" \
+  -- internal/rlimit/rlimit.go internal/gittest/gittest.go internal/ptytest/ptytest.go \
+  internal/webserver/webtest/webtest.go
+cp "${here}/../.golangci.yml" "${here}/../go.mod" "${root}/"
+expect pass "packages the root marks, under the root's .golangci.yml" "${root}"
+
+# With no .golangci.yml there is no rule, so a marked package fails by name.
+noconfig="${workdir}/noconfig"
+repo "${noconfig}" "internal/rlimit (tests only)" -- internal/rlimit/rlimit.go
+module "${noconfig}"
+expect_output fail "a marked package and no .golangci.yml" \
+  "internal/rlimit/ (pkg: example/internal/rlimit)" run_in "${noconfig}" "${check}"
+
+# golangci-lint looks for a .golangci.json, .golangci.toml and .golangci.yaml
+# before a .golangci.yml, tracked or not, so beside one the rules golangci-lint
+# holds a package to are that file's: the gate, which reads .golangci.yml
+# alone, refuses, naming it, though .golangci.yml holds the package.
+for sibling in json:'{"version": "2"}' toml:'version = "2"' yaml:'version: "2"'; do
+  config=".golangci.${sibling%%:*}"
+  dir="${workdir}/sibling-${sibling%%:*}"
+  repo "${dir}" "internal/rlimit (tests only)" -- internal/rlimit/rlimit.go
+  lint "${dir}" internal/rlimit
+  printf '%s\n' "${sibling#*:}" >"${dir}/${config}"
+  expect_output 2 "a marked package .golangci.yml holds, beside a ${config} that holds no rule" \
+    "golangci-lint reads ${config} ahead of .golangci.yml" run_in "${dir}" "${check}"
+done
+
+# Without a go.mod there is no import path to look for a marked package's rule
+# by, so the gate refuses rather than pass it unread.
+nomodule="${workdir}/nomodule"
+repo "${nomodule}" "internal/rlimit (tests only)" -- internal/rlimit/rlimit.go
+lint "${nomodule}" internal/rlimit
+rm "${nomodule}/go.mod"
+expect_output fail "a marked package and no go.mod to name it by" "no module path" \
+  run_in "${nomodule}" "${check}"
 
 # A CLAUDE.md with no layout block cannot be compared with, so it fails.
 noblock="${workdir}/noblock"
