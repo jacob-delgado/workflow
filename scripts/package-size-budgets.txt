@@ -111,18 +111,22 @@ internal/tui 91
 
 # internal/webserver — the loopback REST surface, spelled one file per
 # operation (or per pair of writes that share their checks) beside the shared
-# guard, faults, wire shapes, stream and server. One responsibility (turn a
-# guarded request into a seam call and a DTO) that grows only when the API
-# gains an operation, a decision api/openapi.yaml records first, so it answers
-# to a ceiling and is not split to chase a number. Code in it with a reason to
-# change of its own may leave where no import cycle follows: the request
-# boundary (the guards, the policy headers, the session and the contract
-# validator), which changes for security's reasons, and the Taskwarrior
-# handlers and the git runs, which each change with the tool they drive; the
-# RFC 9457 problem details have left already, to internal/webserver/problem.
-# 40 is the 36 files it held when the kind came in and the operations still to
-# come, and reaching it is where the surface's shape is looked at again.
-internal/webserver 40 cohesive
+# faults, wire shapes, stream and server. One responsibility (turn a request
+# the boundary admitted into a seam call and a DTO) that grows only when the
+# API gains an operation, a decision api/openapi.yaml records first, so it is
+# not split to chase a number. Code in it with a reason to change of its own
+# leaves where no import cycle follows, and four have: the RFC 9457 problem
+# details to internal/webserver/problem, which change only with the error
+# format; the Taskwarrior handlers to internal/webserver/tasks, which change
+# with Taskwarrior; the git runs and lefthook's hooks to
+# internal/webserver/runs, which change with git and lefthook; and the request
+# boundary (the guards, the policy headers, the session, the contract
+# validator and the app's fallback) to internal/webserver/edge, which changes
+# for security's reasons. It answered to a cohesive ceiling of 40 until then;
+# once they had left, the maintainer's budget decision (a split leaves its
+# parent a ratcheted budget at the count it leaves) made it 30, the files it
+# holds. So the next operation is a bump with its reason written here.
+internal/webserver 30
 
 # internal/cli — the Cobra command tree, spelled one file per command, or per
 # family of commands over one seam that share their checks, as the issue writes
