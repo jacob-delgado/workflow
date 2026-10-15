@@ -225,10 +225,11 @@ func (q *Input) GetKey() string { return "" }
 func (q *Input) GetValue() any { return q.input.Value() }
 
 // Suggesting is the field completing what is typed to the first of options
-// it begins, or keeping it when it is one of them, the completion shown faint
-// after it until accepted. What the field held before anything was typed in
-// it is left as it is: the base a pull request's form starts from is never
-// completed to a newer branch it begins.
+// it begins, or keeping it as typed when it is one of them whole, whatever
+// its case, the completion shown faint after it until accepted. What the
+// field held before anything was typed in it is left as it is: the base a
+// pull request's form starts from is never completed to a newer branch it
+// begins.
 func (q *Input) Suggesting(options []string) *Input {
 	q.options = options
 	q.input.ShowSuggestions = q.typedIn
@@ -273,9 +274,12 @@ func (q *Input) matchSuggestions() {
 // ordered are the options as offered, but for one that is what the field
 // holds whole, which comes first: the input completes to the first option
 // that begins with what is typed, so main typed is kept as main, though
-// main-backport, offered before it, begins with it too.
+// main-backport, offered before it, begins with it too. Whole is read without
+// regard to case, as the input reads beginning.
 func (q *Input) ordered() []string {
-	at := slices.Index(q.options, q.input.Value())
+	held := q.input.Value()
+
+	at := slices.IndexFunc(q.options, func(option string) bool { return strings.EqualFold(option, held) })
 	if at < 0 {
 		return q.options
 	}

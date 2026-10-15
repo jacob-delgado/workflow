@@ -358,3 +358,24 @@ func TestACompletionTheCheckRefusedIsMatchedAsATypedValueIs(t *testing.T) {
 			baseBranch, value, field.Error(), baseBranch)
 	}
 }
+
+// A suggestion typed whole in another case is kept as typed too, since the
+// input matches what is typed without regard to case: Main is no more a
+// beginning of main-backport than main is.
+func TestASuggestionTypedWholeInAnotherCaseIsKeptAsTyped(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	value := ""
+	field := focused(quietinput.New(baseTitle, "", &value).Suggesting([]string{backportBranch, baseBranch}),
+		acceptingKeys())
+	typed(t, field, "Main")
+
+	// Act
+	field.Update(pressed(keyTab))
+
+	// Assert
+	if value != "Main" {
+		t.Errorf("next-field after typing Main left %q, want it kept as typed", value)
+	}
+}
