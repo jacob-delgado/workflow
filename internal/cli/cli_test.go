@@ -14,7 +14,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
 	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
-	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/config"
 )
 
@@ -27,38 +26,6 @@ func runAtHome(t *testing.T, dir string, args ...string) (string, error) {
 	printed, err := clitest.RunStreamsAt(t, clitest.Place{Dir: dir, Home: dir}, clitest.UnusedPrompt(t), args...)
 
 	return printed.Stdout + printed.Stderr, err
-}
-
-// scripted answers the guided prompts in order: visible lines from lines,
-// secrets from secrets. A prompt past the end of its list reads as blank.
-func scripted(lines, secrets []string) cmdkit.Prompt {
-	return cmdkit.Prompt{Line: answersFrom(&lines), Secret: answersFrom(&secrets)}
-}
-
-// answering is a prompt that gives every question the same answer and keeps
-// each question it was asked, for a test of what a command asks.
-func answering(answer string, asked *[]string) cmdkit.Prompt {
-	reply := func(question string) (string, error) {
-		*asked = append(*asked, question)
-
-		return answer, nil
-	}
-
-	return cmdkit.Prompt{Line: reply, Secret: reply}
-}
-
-// answersFrom hands back each answer in turn, then blanks.
-func answersFrom(answers *[]string) func(string) (string, error) {
-	return func(string) (string, error) {
-		if len(*answers) == 0 {
-			return "", nil
-		}
-
-		next := (*answers)[0]
-		*answers = (*answers)[1:]
-
-		return next, nil
-	}
 }
 
 func TestConfigInitWritesATemplate(t *testing.T) {

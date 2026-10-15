@@ -132,7 +132,7 @@ func TestSlackLoginOverAPipeSaysToRunItAtATerminal(t *testing.T) {
 	path := clitest.WriteFile(t, dir, slackUserTokenFile)
 
 	// Act
-	_, err := clitest.RunGuided(t, dir, pipedPrompt(t, slackClientID+"\n"), "slack", "login")
+	_, err := clitest.RunGuided(t, dir, pipedPrompt(t, clitest.SlackClientID+"\n"), "slack", "login")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "at a terminal") || cli.ExitStatus(err) != 2 {

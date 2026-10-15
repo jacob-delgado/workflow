@@ -87,7 +87,7 @@ func TestReviewsShowsTheAuthorRepositoryCIAndAge(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{search: reviewSearch(
+	clitest.FakeGh(t, clitest.GhResponses{Search: reviewSearch(
 		reviewItem(7, "ben", "grp/proj", time.Now().Add(-50*time.Hour)),
 	)})
 	repo := reviewsRepo(t)
@@ -117,7 +117,7 @@ func TestReviewsOmitsAnUnknownRepository(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{search: reviewSearch(
+	clitest.FakeGh(t, clitest.GhResponses{Search: reviewSearch(
 		reviewItem(5, "ana", "", time.Now().Add(-time.Hour)),
 	)})
 	repo := reviewsRepo(t)
@@ -139,7 +139,7 @@ func TestReviewsWithNothingWaitingSaysSo(t *testing.T) {
 
 	// Arrange
 	// The default search answers with no items.
-	fakeGh(t, ghResponses{})
+	clitest.FakeGh(t, clitest.GhResponses{})
 	repo := reviewsRepo(t)
 
 	// Act
@@ -162,7 +162,7 @@ func TestReviewsReportsAForgeFailure(t *testing.T) {
 
 	// Arrange
 	// An unreadable search body makes the forge client fail to decode the answer.
-	fakeGh(t, ghResponses{search: "{"})
+	clitest.FakeGh(t, clitest.GhResponses{Search: "{"})
 	repo := reviewsRepo(t)
 
 	// Act
@@ -182,7 +182,7 @@ func TestReviewsAsJSONReportsEachOldestFirstWithWhenItWasOpened(t *testing.T) {
 	opened := map[int]time.Time{
 		30: now.Add(-30 * time.Minute), 10: now.Add(-74 * time.Hour), 20: now.Add(-5 * time.Hour),
 	}
-	fakeGh(t, ghResponses{search: reviewSearch(
+	clitest.FakeGh(t, clitest.GhResponses{Search: reviewSearch(
 		reviewItem(30, "ana", "ex/repo", opened[30]),
 		reviewItem(10, "ben", "ex/repo", opened[10]),
 		reviewItem(20, "cass", "ex/repo", opened[20]),
@@ -243,7 +243,7 @@ func TestReviewsSortsAsAsked(t *testing.T) {
 
 			// Arrange
 			now := time.Now()
-			fakeGh(t, ghResponses{search: reviewSearch(
+			clitest.FakeGh(t, clitest.GhResponses{Search: reviewSearch(
 				reviewItem(1, "ana", "acme/web", now.Add(-1*time.Hour)),
 				reviewItem(2, "ben", "acme/web", now.Add(-50*time.Hour)),
 				reviewItem(3, "cy", "acme/api", now.Add(-10*time.Hour)),
@@ -277,7 +277,7 @@ func TestReviewsRefusesASortItDoesNotKnow(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{search: reviewSearch()})
+	clitest.FakeGh(t, clitest.GhResponses{Search: reviewSearch()})
 	repo := reviewsRepo(t)
 
 	// Act

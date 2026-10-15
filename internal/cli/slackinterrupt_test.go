@@ -27,7 +27,7 @@ import (
 // end did not stop is still running when the test gives up on it.
 const patientTiming = `"timing":{"request_timeout":"2m"}`
 
-// slackExpiredConfig is slackLoggedInConfig with its access token run out, so
+// slackExpiredConfig is clitest.SlackLoggedInConfig with its access token run out, so
 // the first Slack request refreshes it.
 func slackExpiredConfig() string {
 	return `{"forge":{"cli":true,"kind":"github","host":"github.com"},` + patientTiming + `,` +
@@ -36,9 +36,9 @@ func slackExpiredConfig() string {
 		`"expires_at":"` + time.Now().Add(-time.Hour).UTC().Format(time.RFC3339) + `","channel":"#dev"}}`
 }
 
-// slackPatientConfig is slackLoggedInConfig with patientTiming.
+// slackPatientConfig is clitest.SlackLoggedInConfig with patientTiming.
 func slackPatientConfig() string {
-	return strings.Replace(slackLoggedInConfig(), `{`, `{`+patientTiming+`,`, 1)
+	return strings.Replace(clitest.SlackLoggedInConfig(), `{`, `{`+patientTiming+`,`, 1)
 }
 
 // heldRequest is a request a Slack on this machine holds: asked closes once
@@ -58,7 +58,7 @@ func interruptingSlack(t *testing.T, path string, interrupt context.CancelFunc) 
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		if request.URL.Path != path {
 			writer.Header().Set("Content-Type", "application/json")
-			_, _ = writer.Write([]byte(`{"ok":true,"team_id":"` + slackWorkspace + `"}`))
+			_, _ = writer.Write([]byte(`{"ok":true,"team_id":"` + clitest.SlackWorkspace + `"}`))
 
 			return
 		}
@@ -100,14 +100,14 @@ func TestACtrlCStopsASlackRequestThatOutlastsItsAsker(t *testing.T) {
 		held   string
 		config func() string
 	}{
-		"the directory's read of the workspace": {held: slackAuthTest, config: slackPatientConfig},
+		"the directory's read of the workspace": {held: clitest.SlackAuthTest, config: slackPatientConfig},
 		"the refresh of a token run out":        {held: slackRefresh, config: slackExpiredConfig},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			fakeGh(t, ghResponses{pulls: openPull("Add login")})
+			clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
 
 			command, interrupt := context.WithCancel(t.Context())
 			defer interrupt()

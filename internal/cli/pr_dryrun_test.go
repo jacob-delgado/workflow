@@ -26,14 +26,14 @@ func TestPRDryRunSaysWhatItWouldOfferOnceOpen(t *testing.T) {
 	for _, line := range []string{
 		"dry run: would open work",
 		"dry run: would link it on PROJ-2",
-		"dry run: would move PROJ-2 to " + statusInReview,
+		"dry run: would move PROJ-2 to " + clitest.StatusInReview,
 	} {
 		if !strings.Contains(printed.Stderr, line) {
 			t.Errorf("pr --dry-run does not say %q on stderr:\n%s", line, printed.Stderr)
 		}
 	}
 
-	if kinds := writes.kinds(); len(kinds) != 0 {
+	if kinds := writes.Kinds(); len(kinds) != 0 {
 		t.Errorf("a dry run wrote %q to Jira, want nothing", kinds)
 	}
 }
@@ -44,7 +44,7 @@ func TestPRDryRunNamesNoOfferItWouldNotMake(t *testing.T) {
 	// Arrange
 	// The forge's own issues are the tracker: nothing takes a link, and no
 	// review status is configured.
-	fakeGh(t, ghResponses{})
+	clitest.FakeGh(t, clitest.GhResponses{})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	pretendPushed(t, repo)
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)

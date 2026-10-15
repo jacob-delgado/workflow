@@ -30,7 +30,7 @@ func gitlabRepo(t *testing.T, branch string) string {
 // openMergeRequest is a listing holding merge request 7, open, as GitLab sends
 // it to both the branch's lookup and the review queue.
 func openMergeRequest() string {
-	return `[{"iid":7,"web_url":"` + gitlabMergeRequest + `","title":"fix: token","state":"opened",` +
+	return `[{"iid":7,"web_url":"` + clitest.GitlabMergeRequest + `","title":"fix: token","state":"opened",` +
 		`"created_at":"` + time.Now().Add(-50*time.Hour).UTC().Format(time.RFC3339) + `",` +
 		`"author":{"username":"ben"},"references":{"full":"grp/proj!7"}}]`
 }
@@ -49,7 +49,7 @@ func TestPRRefusesASecondMergeRequestInGitLabsWords(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGlabListing(t, openMergeRequest())
+	clitest.FakeGlabListing(t, openMergeRequest())
 	repo := gitlabRepo(t, "fix/PROJ-2-thing")
 
 	// Act
@@ -68,7 +68,7 @@ func TestPRRefusesABranchWithNoCommitsInGitLabsWords(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGlab(t)
+	clitest.FakeGlab(t)
 	repo := gitlabRepo(t, "fix/PROJ-2-thing")
 	git(t, repo, "reset", "--quiet", "--hard", "main")
 
@@ -88,7 +88,7 @@ func TestAnnounceRefusesABranchWithNoMergeRequestInGitLabsWords(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGlab(t)
+	clitest.FakeGlab(t)
 	repo := gitlabRepo(t, "fix/PROJ-2-thing")
 
 	// Act
@@ -107,7 +107,7 @@ func TestReviewsListsMergeRequestsInGitLabsWords(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGlabListing(t, openMergeRequest())
+	clitest.FakeGlabListing(t, openMergeRequest())
 	repo := gitlabRepo(t, "work")
 
 	// Act
@@ -126,7 +126,7 @@ func TestReviewsWithNothingWaitingSaysSoInGitLabsWords(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGlab(t)
+	clitest.FakeGlab(t)
 	repo := gitlabRepo(t, "work")
 
 	// Act

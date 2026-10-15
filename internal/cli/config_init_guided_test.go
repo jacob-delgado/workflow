@@ -30,7 +30,7 @@ func TestGuidedInitWritesWhatChecksOut(t *testing.T) {
 	// Arrange
 	dir := t.TempDir()
 	jiraURL := clitest.WorkingJira(t)
-	prompt := scripted(
+	prompt := clitest.Scripted(
 		[]string{jiraURL},
 		[]string{guidedToken, "https://hooks.slack.example/x"},
 	)
@@ -58,7 +58,7 @@ func TestGuidedInitSkipsAServiceThatFailsItsCheckWhenDeclined(t *testing.T) {
 	// Arrange
 	dir := t.TempDir()
 	badJira := clitest.JiraServer(t, http.StatusUnauthorized, "<html>login</html>", new(atomic.Bool)).URL
-	prompt := scripted([]string{badJira, "n"}, []string{"bad-token"})
+	prompt := clitest.Scripted([]string{badJira, "n"}, []string{"bad-token"})
 
 	// Act
 	output, err := clitest.RunGuided(t, dir, prompt, "config", "init")
@@ -83,7 +83,7 @@ func TestGuidedInitKeepsAFailedServiceWhenInsisted(t *testing.T) {
 	// Arrange
 	dir := t.TempDir()
 	badJira := clitest.JiraServer(t, http.StatusUnauthorized, "<html>login</html>", new(atomic.Bool)).URL
-	prompt := scripted([]string{badJira, "y"}, []string{"insisted-token"})
+	prompt := clitest.Scripted([]string{badJira, "y"}, []string{"insisted-token"})
 
 	// Act
 	output, err := clitest.RunGuided(t, dir, prompt, "config", "init")
@@ -107,7 +107,7 @@ func TestGuidedInitNeverKeepsAnAddressThatIsNotOne(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	prompt := scripted([]string{"https://fred:hunter2@jira.example.com", "y"}, []string{"insisted-token"})
+	prompt := clitest.Scripted([]string{"https://fred:hunter2@jira.example.com", "y"}, []string{"insisted-token"})
 
 	// Act
 	output, err := clitest.RunGuided(t, dir, prompt, "config", "init")
@@ -128,7 +128,7 @@ func TestGuidedInitWarnsWhenTheFileIsNotGitIgnored(t *testing.T) {
 	dir := t.TempDir()
 	gitInit(t, dir)
 
-	prompt := scripted([]string{""}, []string{""})
+	prompt := clitest.Scripted([]string{""}, []string{""})
 
 	// Act
 	printed, err := clitest.RunStreams(t, dir, prompt, "config", "init")
@@ -171,7 +171,7 @@ func TestGuidedInitStoresTheTokenInTheKeychainWhenChosen(t *testing.T) {
 
 	var stored atomic.Value
 
-	prompt := scripted([]string{jiraURL, "y"}, []string{guidedToken})
+	prompt := clitest.Scripted([]string{jiraURL, "y"}, []string{guidedToken})
 	prompt.StoreSecret = func(_ context.Context, service, secret string) error {
 		stored.Store(service + " holds " + secret)
 
@@ -209,7 +209,7 @@ func TestGuidedInitKeepsARepositoryFilesTokenInTheKeychainForItsAddress(t *testi
 
 	var stored atomic.Value
 
-	prompt := scripted([]string{jiraURL, "y"}, []string{guidedToken})
+	prompt := clitest.Scripted([]string{jiraURL, "y"}, []string{guidedToken})
 	prompt.StoreSecret = func(_ context.Context, service, secret string) error {
 		stored.Store(service + " holds " + secret)
 
@@ -236,7 +236,7 @@ func TestGuidedInitKeepsTheTokenInTheFileWhenKeychainDeclined(t *testing.T) {
 	dir := t.TempDir()
 	jiraURL := clitest.WorkingJira(t)
 
-	prompt := scripted([]string{jiraURL, "n"}, []string{guidedToken})
+	prompt := clitest.Scripted([]string{jiraURL, "n"}, []string{guidedToken})
 	prompt.StoreSecret = func(context.Context, string, string) error {
 		t.Error("stored the token though the offer was declined")
 
@@ -267,7 +267,7 @@ func TestGuidedInitReportsAKeychainFailure(t *testing.T) {
 	dir := t.TempDir()
 	jiraURL := clitest.WorkingJira(t)
 
-	prompt := scripted([]string{jiraURL, "y"}, []string{guidedToken})
+	prompt := clitest.Scripted([]string{jiraURL, "y"}, []string{guidedToken})
 	prompt.StoreSecret = func(context.Context, string, string) error { return errPromptBroke }
 
 	// Act
@@ -347,7 +347,7 @@ func TestGuidedInitStaysQuietWhenTheFileIsGitIgnored(t *testing.T) {
 		t.Fatalf("writing .gitignore: %v", err)
 	}
 
-	prompt := scripted([]string{""}, []string{""})
+	prompt := clitest.Scripted([]string{""}, []string{""})
 
 	// Act
 	output, err := clitest.RunGuided(t, dir, prompt, "config", "init")
@@ -398,7 +398,7 @@ func TestGuidedInitDryRunWritesAndStoresNothing(t *testing.T) {
 
 	var stored atomic.Bool
 
-	prompt := scripted([]string{jiraURL, "y"}, []string{guidedToken, "https://hooks.slack.example/x"})
+	prompt := clitest.Scripted([]string{jiraURL, "y"}, []string{guidedToken, "https://hooks.slack.example/x"})
 	prompt.StoreSecret = func(context.Context, string, string) error {
 		stored.Store(true)
 
@@ -467,7 +467,7 @@ func TestGuidedInitWithNoWebhookPointsToTheSlackLogin(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	prompt := scripted([]string{clitest.WorkingJira(t)}, []string{guidedToken, ""})
+	prompt := clitest.Scripted([]string{clitest.WorkingJira(t)}, []string{guidedToken, ""})
 
 	// Act
 	output, err := clitest.RunGuided(t, dir, prompt, "config", "init")
