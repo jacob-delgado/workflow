@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package webserver
+package runs
 
 import (
 	"context"
@@ -64,13 +64,13 @@ type plannedRun struct {
 	refused   string
 }
 
-// startRun starts the git run the request names and streams it, one RunEvent
+// StartRun starts the git run the request names and streams it, one RunEvent
 // a line: the run as it starts, each line its program writes, and the run as
 // it ended. It is registered by hand, as the event stream is, since the strict
 // one-response interface cannot stream. A refusal is a problem written before
 // anything runs. The run holds the index while it goes, and goes on to its end
 // on this connection's goroutine whether or not the page stays to read it.
-func (s *server) startRun(w http.ResponseWriter, request *http.Request) {
+func (r *Runner) StartRun(w http.ResponseWriter, request *http.Request) {
 	var asked api.RunRequest
 
 	// A body the contract admitted can still fail to decode: the contract
@@ -84,23 +84,23 @@ func (s *server) startRun(w http.ResponseWriter, request *http.Request) {
 
 	ctx := request.Context()
 
-	planned, err := s.planRun(ctx, asked)
+	planned, err := r.planRun(ctx, asked)
 	if err != nil {
 		writeRunRefusal(w, err)
 
 		return
 	}
 
-	if !s.claimRun(planned) {
+	if !r.claimRun(planned) {
 		problem.Write(w, api.ProblemCodeConflict, errRunGoing.Error())
 
 		return
 	}
 
-	defer s.freeRun()
+	defer r.freeRun()
 
-	s.indexWrites.Lock()
-	defer s.indexWrites.Unlock()
+	r.indexWrites.Lock()
+	defer r.indexWrites.Unlock()
 
 	output, err := planned.start(ctx)
 	if err != nil {
@@ -110,7 +110,7 @@ func (s *server) startRun(w http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	s.streamRun(w, planned, output)
+	r.streamRun(w, planned, output)
 }
 
 // writeRunRefusal answers a run refused before it started.
@@ -126,12 +126,12 @@ func writeRunRefusal(w http.ResponseWriter, err error) {
 // planRun is the run asked for, read against the branch and the changes as
 // they stand: a rebase onto the base git names, and an amend or a fixup only of
 // a commit not yet pushed. They are read under ctx.
-func (s *server) planRun(ctx context.Context, asked api.RunRequest) (plannedRun, error) {
+func (r *Runner) planRun(ctx context.Context, asked api.RunRequest) (plannedRun, error) {
 	planners := map[api.RunKind]func(context.Context, api.RunRequest) (plannedRun, error){
-		api.RunKindHook:   s.planHook,
-		api.RunKindRebase: s.planRebase,
-		api.RunKindAmend:  s.planAmend,
-		api.RunKindFixup:  s.planFixup,
+		api.RunKindHook:   r.planHook,
+		api.RunKindRebase: r.planRebase,
+		api.RunKindAmend:  r.planAmend,
+		api.RunKindFixup:  r.planFixup,
 	}
 
 	// The contract admits only these kinds, so every request names one.
@@ -141,14 +141,14 @@ func (s *server) planRun(ctx context.Context, asked api.RunRequest) (plannedRun,
 // planHook runs the hook asked for, as the terminal's h does, once lefthook's
 // configuration, read under ctx, lists it as one a run by hand can run: no
 // name lefthook did not list reaches its command line.
-func (s *server) planHook(ctx context.Context, asked api.RunRequest) (plannedRun, error) {
-	if s.deps.Hooks.Run == nil || s.deps.Hooks.Configured == nil {
+func (r *Runner) planHook(ctx context.Context, asked api.RunRequest) (plannedRun, error) {
+	if r.seams.Hooks.Run == nil || r.seams.Hooks.Configured == nil {
 		return plannedRun{}, errRunUnavailable
 	}
 
-	configured, err := s.deps.Hooks.Configured(ctx)
+	configured, err := r.seams.Hooks.Configured(ctx)
 	if err != nil {
-		s.unexpected(err)
+		r.unexpected(err)
 
 		return plannedRun{}, errHooksUnreadable
 	}
@@ -158,7 +158,7 @@ func (s *server) planHook(ctx context.Context, asked api.RunRequest) (plannedRun
 		return plannedRun{}, errHookNotRunnable
 	}
 
-	run := s.deps.Hooks.Run
+	run := r.seams.Hooks.Run
 
 	return plannedRun{
 		kind: api.RunKindHook, title: hook,
@@ -168,17 +168,17 @@ func (s *server) planHook(ctx context.Context, asked api.RunRequest) (plannedRun
 }
 
 // planRebase replays the checked-out branch onto its base.
-func (s *server) planRebase(ctx context.Context, _ api.RunRequest) (plannedRun, error) {
-	if s.deps.Git.Rebase == nil || s.deps.Git.Branch == nil {
+func (r *Runner) planRebase(ctx context.Context, _ api.RunRequest) (plannedRun, error) {
+	if r.seams.Git.Rebase == nil || r.seams.Git.Branch == nil {
 		return plannedRun{}, errRunUnavailable
 	}
 
-	branch, err := s.deps.Git.Branch(ctx)
+	branch, err := r.seams.Git.Branch(ctx)
 	if err != nil || !loop.CanRebase(branch) {
 		return plannedRun{}, errNothingToRebase
 	}
 
-	rebase := s.deps.Git.Rebase
+	rebase := r.seams.Git.Rebase
 
 	return plannedRun{
 		kind: api.RunKindRebase, title: "git rebase",
@@ -191,12 +191,12 @@ func (s *server) planRebase(ctx context.Context, _ api.RunRequest) (plannedRun, 
 
 // planAmend folds the staged changes into the branch's last commit, which
 // must be one not yet pushed.
-func (s *server) planAmend(ctx context.Context, _ api.RunRequest) (plannedRun, error) {
-	if s.deps.Git.Amend == nil {
+func (r *Runner) planAmend(ctx context.Context, _ api.RunRequest) (plannedRun, error) {
+	if r.seams.Git.Amend == nil {
 		return plannedRun{}, errRunUnavailable
 	}
 
-	foldable, err := s.foldable(ctx)
+	foldable, err := r.foldable(ctx)
 	if err != nil {
 		return plannedRun{}, err
 	}
@@ -204,19 +204,19 @@ func (s *server) planAmend(ctx context.Context, _ api.RunRequest) (plannedRun, e
 	last := foldable[len(foldable)-1]
 
 	return plannedRun{
-		kind: api.RunKindAmend, title: "git commit --amend", start: s.deps.Git.Amend,
+		kind: api.RunKindAmend, title: "git commit --amend", start: r.seams.Git.Amend,
 		succeeded: "Amended " + last.Subject + ".", refused: "The amend was refused.",
 	}, nil
 }
 
 // planFixup records a fixup! of the commit asked for, which must be one not
 // yet pushed.
-func (s *server) planFixup(ctx context.Context, asked api.RunRequest) (plannedRun, error) {
-	if s.deps.Git.Fixup == nil {
+func (r *Runner) planFixup(ctx context.Context, asked api.RunRequest) (plannedRun, error) {
+	if r.seams.Git.Fixup == nil {
 		return plannedRun{}, errRunUnavailable
 	}
 
-	foldable, err := s.foldable(ctx)
+	foldable, err := r.foldable(ctx)
 	if err != nil {
 		return plannedRun{}, err
 	}
@@ -226,7 +226,7 @@ func (s *server) planFixup(ctx context.Context, asked api.RunRequest) (plannedRu
 		return plannedRun{}, errNotFoldable
 	}
 
-	chosen, fixup := foldable[at], s.deps.Git.Fixup
+	chosen, fixup := foldable[at], r.seams.Git.Fixup
 
 	return plannedRun{
 		kind: api.RunKindFixup, title: "git commit --fixup",
@@ -237,17 +237,17 @@ func (s *server) planFixup(ctx context.Context, asked api.RunRequest) (plannedRu
 
 // foldable is the commits staged changes can be folded into, by loop's rule,
 // or errNothingToFold, read under ctx.
-func (s *server) foldable(ctx context.Context) ([]gitrepo.Commit, error) {
-	if s.deps.Git.Branch == nil || s.deps.Git.Changes == nil {
+func (r *Runner) foldable(ctx context.Context) ([]gitrepo.Commit, error) {
+	if r.seams.Git.Branch == nil || r.seams.Git.Changes == nil {
 		return nil, errRunUnavailable
 	}
 
-	branch, err := s.deps.Git.Branch(ctx)
+	branch, err := r.seams.Git.Branch(ctx)
 	if err != nil {
 		return nil, errNothingToFold
 	}
 
-	changes, err := s.deps.Git.Changes(ctx)
+	changes, err := r.seams.Git.Changes(ctx)
 	if err != nil {
 		return nil, errNothingToFold
 	}
@@ -261,15 +261,15 @@ func (s *server) foldable(ctx context.Context) ([]gitrepo.Commit, error) {
 }
 
 // claimRun makes planned the run going, unless one is going already.
-func (s *server) claimRun(planned plannedRun) bool {
-	s.run.mu.Lock()
-	defer s.run.mu.Unlock()
+func (r *Runner) claimRun(planned plannedRun) bool {
+	r.run.mu.Lock()
+	defer r.run.mu.Unlock()
 
-	if s.run.going != nil {
+	if r.run.going != nil {
 		return false
 	}
 
-	s.run.going = &goingRun{run: api.Run{
+	r.run.going = &goingRun{run: api.Run{
 		Kind: planned.kind, Title: planned.title, State: api.RunStateInProgress, Lines: []string{}, Outcome: "",
 	}}
 
@@ -277,63 +277,63 @@ func (s *server) claimRun(planned plannedRun) bool {
 }
 
 // freeRun lets the next run start.
-func (s *server) freeRun() {
-	s.run.mu.Lock()
-	defer s.run.mu.Unlock()
+func (r *Runner) freeRun() {
+	r.run.mu.Lock()
+	defer r.run.mu.Unlock()
 
-	s.run.going = nil
+	r.run.going = nil
 }
 
 // streamRun writes the run as it starts, each line its program writes as it
 // comes, and the run as it ended. A write that fails — the page went away —
 // stops the writing, never the run: its lines are still read to the end.
-func (s *server) streamRun(w http.ResponseWriter, planned plannedRun, output proc.Output) {
+func (r *Runner) streamRun(w http.ResponseWriter, planned plannedRun, output proc.Output) {
 	w.Header().Set("Content-Type", "application/x-ndjson")
 	w.Header().Set("Cache-Control", "no-cache")
 
 	stream := runStream{w: w}
-	stream.send(api.RunEvent{Run: s.runStarted(output.Stop)})
+	stream.send(api.RunEvent{Run: r.runStarted(output.Stop)})
 
 	for line := range output.Lines {
 		shown := sanitize.Line(line)
-		s.addRunLine(shown)
+		r.addRunLine(shown)
 		stream.send(api.RunEvent{Line: &shown})
 	}
 
-	stream.send(api.RunEvent{Run: s.runEnded(planned, output.Wait())})
+	stream.send(api.RunEvent{Run: r.runEnded(planned, output.Wait())})
 }
 
 // runStarted records how to stop the run, stopping it at once if it was asked
 // to stop before its program started, and answers it as it starts.
-func (s *server) runStarted(stop func()) *api.Run {
-	s.run.mu.Lock()
-	defer s.run.mu.Unlock()
+func (r *Runner) runStarted(stop func()) *api.Run {
+	r.run.mu.Lock()
+	defer r.run.mu.Unlock()
 
-	s.run.going.stop = stop
-	if s.run.going.stopped {
+	r.run.going.stop = stop
+	if r.run.going.stopped {
 		stop()
 	}
 
-	started := s.run.going.run
+	started := r.run.going.run
 
 	return &started
 }
 
 // addRunLine records a line the run wrote.
-func (s *server) addRunLine(line string) {
-	s.run.mu.Lock()
-	defer s.run.mu.Unlock()
+func (r *Runner) addRunLine(line string) {
+	r.run.mu.Lock()
+	defer r.run.mu.Unlock()
 
-	s.run.going.run.Lines = append(s.run.going.run.Lines, line)
+	r.run.going.run.Lines = append(r.run.going.run.Lines, line)
 }
 
 // runEnded records how the run ended — stopped, refused or passed — and
 // answers it whole.
-func (s *server) runEnded(planned plannedRun, exit error) *api.Run {
-	s.run.mu.Lock()
-	defer s.run.mu.Unlock()
+func (r *Runner) runEnded(planned plannedRun, exit error) *api.Run {
+	r.run.mu.Lock()
+	defer r.run.mu.Unlock()
 
-	going := s.run.going
+	going := r.run.going
 
 	switch {
 	case going.stopped:
@@ -349,17 +349,17 @@ func (s *server) runEnded(planned plannedRun, exit error) *api.Run {
 	return &ended
 }
 
-// runShown is the run going now, with its last runTail lines, for a frame of
+// RunShown is the run going now, with its last runTail lines, for a frame of
 // the event stream, or nil when none is going.
-func (s *server) runShown() *api.Run {
-	s.run.mu.Lock()
-	defer s.run.mu.Unlock()
+func (r *Runner) RunShown() *api.Run {
+	r.run.mu.Lock()
+	defer r.run.mu.Unlock()
 
-	if s.run.going == nil {
+	if r.run.going == nil {
 		return nil
 	}
 
-	shown := s.run.going.run
+	shown := r.run.going.run
 	shown.Lines = slices.Clone(shown.Lines[max(0, len(shown.Lines)-runTail):])
 
 	return &shown
@@ -368,11 +368,11 @@ func (s *server) runShown() *api.Run {
 // StopRun stops the run going — its program's whole process group — as the
 // terminal's interrupt does; its stream then ends with it stopped. With none
 // going it is a 404.
-func (s *server) StopRun(context.Context, api.StopRunRequestObject) (api.StopRunResponseObject, error) {
-	s.run.mu.Lock()
-	defer s.run.mu.Unlock()
+func (r *Runner) StopRun(context.Context, api.StopRunRequestObject) (api.StopRunResponseObject, error) {
+	r.run.mu.Lock()
+	defer r.run.mu.Unlock()
 
-	going := s.run.going
+	going := r.run.going
 	if going == nil {
 		return api.StopRun404ApplicationProblemPlusJSONResponse(
 			problem.New(api.ProblemCodeNotFound, errNoRunGoing.Error())), nil

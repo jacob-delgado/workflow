@@ -15,6 +15,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/lifetime"
 	"github.com/jacob-delgado/workflow/internal/webserver/problem"
+	"github.com/jacob-delgado/workflow/internal/webserver/runs"
 )
 
 // HereHeader is the header a page sends on a write naming the directory it
@@ -138,6 +139,8 @@ func (w *worlds) install(world World) (*server, error) {
 		forgeKind: world.Info.ForgeKind, worlds: w, retired: make(chan struct{}),
 	}
 	srv.Handlers = srv.taskHandlers()
+	srv.Runner = runs.New(runs.Seams{Git: world.Deps.Git, Hooks: world.Deps.Hooks},
+		srv.unexpected, &srv.indexWrites)
 
 	strict := api.NewStrictHandlerWithOptions(srv, nil, api.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  problem.WriteRequestError,
@@ -150,7 +153,7 @@ func (w *worlds) install(world World) (*server, error) {
 	// one-response-object interface cannot express, so they are registered by
 	// hand rather than generated.
 	apiMux.HandleFunc("GET /api/events", srv.streamEvents)
-	apiMux.HandleFunc("POST /api/runs", srv.startRun)
+	apiMux.HandleFunc("POST /api/runs", srv.StartRun)
 
 	apiHandler := api.HandlerWithOptions(strict, api.StdHTTPServerOptions{
 		BaseRouter:       apiMux,

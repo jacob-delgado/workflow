@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package webserver_test
+package runs_test
 
 // One run goes at a time: the stream carries it while it goes, and a stop
 // ends it, even one asked for before its program has started.

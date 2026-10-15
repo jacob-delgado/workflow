@@ -174,8 +174,8 @@ func (s *server) snapshot(ctx context.Context, view string) api.Snapshot {
 		}),
 		Messaging:          s.readMessaging(ctx),
 		QueuedAnnouncement: s.heldStatus(),
-		Run:                s.runShown(),
-		HooksUnmanaged:     s.hooksUnmanaged(ctx),
+		Run:                s.RunShown(),
+		HooksUnmanaged:     s.HooksUnmanaged(ctx),
 		UnstartedStages:    s.knownStages(progress.Work{IssueSelected: true}),
 
 		CommitTypes:    commit.Types(),

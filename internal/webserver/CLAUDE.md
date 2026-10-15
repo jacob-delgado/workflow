@@ -12,9 +12,9 @@ for a change to an API operation, the guards or the event stream. The root
   `corepack yarn gen` in `web/`. `task gen:verify` and `task web:gen:check`
   fail when either generated side drifts from the spec.
 - `server` implements `api.StrictServerInterface` (`webserver.go`); every
-  operation the spec names is a method on it, its own or, for the
-  Taskwarrior operations, one of the `tasks.Handlers` it embeds. An operation
-  whose `x-switch` extension is set switches the directory (`switchExtension`,
+  operation the spec names is a method on it, its own or one of the
+  `tasks.Handlers` or the `runs.Runner` it embeds. An operation whose
+  `x-switch` extension is set switches the directory (`switchExtension`,
   `validator.go`).
 
 ## One file per operation, and when code may leave
@@ -27,15 +27,19 @@ wire shapes, stream and server. It answers to a cohesive ceiling in
 file. The package is not split to chase a number, but code in it with a reason
 to change of its own may leave where no import cycle follows: the request
 boundary (the guards, the policy headers, the session and the contract
-validator), which changes for security's reasons, and the git runs, which
-change with the tool they drive. Two have left already: the RFC 9457 problem
-details, to `internal/webserver/problem`, which changes only with the error
-format, and the Taskwarrior handlers, to `internal/webserver/tasks`, which
-change with Taskwarrior. `tasks.New` builds them over `tasks.Seams`, bound
-with the taskwarrior settings the server started with, and takes what they
-need of the server through a `tasks.Kit`: `fault`, the settings in effect,
-the clock, the tracker's issue links, `worlds.outliving` and your home
-directory. Reaching the ceiling means rewriting the WHY above the entry and a
+validator), which changes for security's reasons. Three have left already:
+the RFC 9457 problem details, to `internal/webserver/problem`, which changes
+only with the error format; the Taskwarrior handlers, to
+`internal/webserver/tasks`, which change with Taskwarrior; and the git runs
+and lefthook's hooks, to `internal/webserver/runs`, which change with git and
+lefthook. `tasks.New` builds the Taskwarrior handlers over `tasks.Seams`,
+bound with the taskwarrior settings the server started with, and takes what
+they need of the server through a `tasks.Kit`: `fault`, the settings in
+effect, the clock, the tracker's issue links, `worlds.outliving` and your
+home directory. `runs.New` builds the server's `runs.Runner`, which holds the
+run going, over `runs.Seams`, and takes the server's `unexpected` and its
+`indexWrites` lock, since a run holds the index the server's own writes queue
+for. Reaching the ceiling means rewriting the WHY above the entry and a
 history row, or such an extraction, never a split for the count.
 
 ## A request, outside in
@@ -125,8 +129,8 @@ flight; and refuses, as `conflict`, a write whose `Workflow-Here` header
   starts as a test that sends the request and asserts the status and body the
   spec promises, or the problem the refusal is; watch it fail, then write the
   method. Tests are black-box, in `package webserver_test` (and
-  `package problem_test` and `package tasks_test` in theirs), marked
-  `// Arrange`, `// Act`, `// Assert`.
+  `package problem_test`, `package runs_test` and `package tasks_test` in
+  theirs), marked `// Arrange`, `// Act`, `// Assert`.
 - **The harness** (`internal/webserver/webtest`, which only tests import):
   `webtest.Serve`, `ServeWith` and `ServeWorld` build the handler under a
   session `Presenting` sends on every request; `Get` and `Send` make a
@@ -137,30 +141,32 @@ flight; and refuses, as `conflict`, a write whose `Workflow-Here` header
   beside them. `assertProblem` (`problemcheck_test.go`) checks a refusal's
   status, media type and detail.
 - **Helpers that cross a line sit in `webtest`.** A helper the tests of code
-  that has left or may leave (the Taskwarrior handlers, the request boundary,
-  the git runs) share with the tests of the rest is exported from
+  that has left or may leave (the Taskwarrior handlers, the git runs, the
+  request boundary) share with the tests of the rest is exported from
   `internal/webserver/webtest`, with what it needs, in a file named for what it
   holds: the harness (`harness.go`) and fixtures (`fixtures.go`) above, the
   event stream's reader (`streamclient.go`), a seam call held on its context
   (`heldcall.go`), the configuration's edits (`configedits.go`), the
   Taskwarrior fake (`taskwarriorfake.go`) and lefthook's fixtures
   (`hookfixtures.go`). A package that leaves keeps its own black-box tests,
-  which import `webtest` as these do and still drive the server through
-  `webserver.Handler`. A helper only one side's tests use stays in a test file
-  of that side, unless a shared helper needs it or it belongs to a grouped
-  declaration that moved whole. `webtest` has no tests of its own, as
-  `internal/ptytest` has none: depguard's `webtest-only-in-tests` keeps it out
-  of the binary, gobco names it in `NO_TESTS`, and its two goroutines are
-  written exceptions in `scripts/check-goroutines.sh`. Unlike gobco,
-  `scripts/coverage-gate.sh` does not leave it out: its statements count, at
-  0%, in the total `COVERAGE_MIN` holds, as ptytest's do, so the gate prints
-  a total lower than the code's own by webtest's share of the statements.
+  which import `webtest` as these do and drive the server through
+  `webserver.Handler`, or the package itself through its exported API, as
+  `tasks`' `handlers_test.go` and `runs`' `runner_test.go` do. A helper only
+  one side's tests use stays in a test file of that side, unless a shared
+  helper needs it or it belongs to a grouped declaration that moved whole.
+  `webtest` has no tests of its own, as `internal/ptytest` has none: depguard's
+  `webtest-only-in-tests` keeps it out of the binary, gobco names it in
+  `NO_TESTS`, and its two goroutines are written exceptions in
+  `scripts/check-goroutines.sh`. Unlike gobco, `scripts/coverage-gate.sh` does
+  not leave it out: its statements count, at 0%, in the total `COVERAGE_MIN`
+  holds, as ptytest's do, so the gate prints a total lower than the code's own
+  by webtest's share of the statements.
   A helper that fails the test for an Assert stays a test helper of each
-  package whose tests call it, as `assertProblem` (`problemcheck_test.go`)
-  does, with only what it reads, as `ProblemJSON` (`harness.go`), in
-  `webtest`: `cmd/testshape` reads the helpers in a test package's own files
-  alone, so an Assert whose only check is a call into `webtest` reaches no
-  failure it can see.
+  package whose tests call it, as `assertProblem` (`problemcheck_test.go`,
+  in the server's tests and in `runs`') does, with only what it reads, as
+  `ProblemJSON` (`harness.go`), in `webtest`: `cmd/testshape` reads the
+  helpers in a test package's own files alone, so an Assert whose only check
+  is a call into `webtest` reaches no failure it can see.
 - **What else holds a change.** `contract_test.go` checks the contract refuses
   what the server cannot use; a stream or a cache that waits is tested inside
   `synctest.Test`, on its fake clock (`stream_test.go`,

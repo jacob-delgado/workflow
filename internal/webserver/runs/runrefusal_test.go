@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package webserver_test
+package runs_test
 
 // A run with nothing to work on, with no seam to run it, or under a dry run is
 // refused before any program starts.
