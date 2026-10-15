@@ -135,10 +135,12 @@ interface ListAndDetailProps {
 // over the detail, in a pane of a few rows, so the detail it opens starts just
 // beneath; from lg the two sit side by side and fill the window's height, each
 // scrolling on its own. Each pane keeps a few pixels inside the edge it
-// scrolls within, so a row's focus ring is not clipped. The detail's pane
-// opens each issue at its top, as a section opens, and is positioned, as the
-// content around it is, so the text it keeps for a screen reader scrolls and
-// clips with it rather than growing the content.
+// scrolls within, so a row's focus ring is not clipped, and the detail's pane
+// pads its scroll as the content does, since WebKit scrolls a field that takes
+// focus only until its caret shows. The detail's pane opens each issue at its
+// top, as a section opens, and is positioned, as the content around it is, so
+// the text it keeps for a screen reader scrolls and clips with it rather than
+// growing the content.
 function ListAndDetail({ paging, shown, facts, unread, outcome, more }: ListAndDetailProps) {
   const selected = useUiStore((state) => state.selectedIssue?.key ?? null)
 
@@ -171,7 +173,10 @@ function ListAndDetail({ paging, shown, facts, unread, outcome, more }: ListAndD
       </div>
       <div
         key={selected ?? ''}
-        className={cn('relative min-w-0 flex-1 lg:overflow-y-auto lg:px-1', contentMeasure)}
+        className={cn(
+          'relative min-w-0 flex-1 lg:overflow-y-auto lg:scroll-py-block lg:px-1',
+          contentMeasure,
+        )}
       >
         {selected === null ? (
           <EmptyState>Select an issue to see its detail.</EmptyState>
