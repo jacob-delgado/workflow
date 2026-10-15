@@ -119,6 +119,22 @@ func TestTransitionRefusesAMoveThatNeedsFieldsNamingThem(t *testing.T) {
 	}
 }
 
+func TestTransitionNeedingFieldsSaysWhereAFormAsksForThem(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir, _ := trackerDir(t, trackerAnswers{})
+
+	// Act
+	_, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "transition", trackedIssue, "Done", "--yes")
+
+	// Assert
+	want := "; change its status with t in the interface or Change status on the web, whose forms ask for them"
+	if err == nil || !strings.HasSuffix(err.Error(), want) {
+		t.Errorf("transition to Done = %v, want it to end %q", err, want)
+	}
+}
+
 func TestTransitionRefusesAStatusNotOfferedNamingThoseThatAre(t *testing.T) {
 	t.Parallel()
 
@@ -326,6 +342,21 @@ func TestWorklogLogsTheDurationWithItsNote(t *testing.T) {
 	}
 }
 
+func TestWorklogWithoutANotePreviewsTheDurationAlone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir, _ := trackerDir(t, trackerAnswers{})
+
+	// Act
+	printed, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "worklog", trackedIssue, "2h", "--yes")
+
+	// Assert
+	if err != nil || printed.Stdout != "Log 2h on PROJ-7\n" {
+		t.Errorf("worklog = %v, previewed %q, want the duration alone", err, printed.Stdout)
+	}
+}
+
 func TestWorklogRefusesWhatCannotBeLogged(t *testing.T) {
 	t.Parallel()
 
@@ -403,5 +434,24 @@ func TestWorklogDryRunLogsNothing(t *testing.T) {
 	if err != nil || !strings.Contains(printed.Stderr, "dry run: would log 2h on PROJ-7") ||
 		len(asked.Of(writeWorklog)) != 0 {
 		t.Errorf("worklog --dry-run = %v, said %q, logged %+v", err, printed.Stderr, asked.Of(writeWorklog))
+	}
+}
+
+func TestWorklogAsksBeforeLogging(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir, asked := trackerDir(t, trackerAnswers{})
+
+	var questions []string
+
+	// Act
+	printed, err := clitest.RunStreams(t, dir, clitest.Answering("n", &questions), "worklog", trackedIssue, "2h")
+
+	// Assert
+	if err != nil || len(questions) != 1 || !strings.HasPrefix(questions[0], "Log 2h on PROJ-7?") ||
+		!strings.Contains(printed.Stderr, "Not logged.") || len(asked.Of(writeWorklog)) != 0 {
+		t.Errorf("worklog = %v, asked %q, said %q, logged %+v; want one question, declined, nothing logged",
+			err, questions, printed.Stderr, asked.Of(writeWorklog))
 	}
 }
