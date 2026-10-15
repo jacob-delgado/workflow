@@ -688,10 +688,12 @@ whole reason it can be switched off. Press `m` to toggle it for one session
 without editing the file.
 
 `ui.ascii` swaps the box-drawing borders and the status glyphs for plain ASCII,
-for a terminal or font that draws them as boxes of question marks, and draws
-the live line a command keeps while it waits with a `*` and a bar of `=` and
-`-`. There is no reliable way to detect that from inside a program, so it is
-a setting rather than a guess. `workflow status --plain` draws its line's
+for a terminal or font that draws them as boxes of question marks; the
+in-flight mark, in the interface and on the live line a command keeps while
+it waits, turns through `|`, `/`, `-` and `\`, or holds still on `*` under
+`ui.motion: reduce`, and the live line's bar is drawn with `=` and `-`.
+There is no reliable way to detect that from inside a program, so it is a
+setting rather than a guess. `workflow status --plain` draws its line's
 glyphs, and the live line it keeps on a terminal while it reads named
 directories, in ASCII for one run, whatever the file says.
 

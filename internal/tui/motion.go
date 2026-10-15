@@ -41,9 +41,10 @@ type spring struct {
 // whether the next frame is already asked for, so one chain of frames runs at
 // a time, when the session began and whether its first screen is done
 // filling in, before which nothing moves, and whether ui.motion keeps
-// everything still.
+// everything still, the in-flight mark held as its still glyph.
 type motionState struct {
 	turn   spinner.Spinner
+	held   string
 	frame  int
 	rules  []spring
 	checks spring
@@ -55,10 +56,10 @@ type motionState struct {
 }
 
 // newMotion is a screen at rest from began, turning the in-flight mark through
-// turn's frames when it moves at all.
-func newMotion(turn spinner.Spinner, began time.Time, still bool) motionState {
+// turn's frames when it moves at all, and holding it as held when it is still.
+func newMotion(turn spinner.Spinner, held string, began time.Time, still bool) motionState {
 	return motionState{
-		turn: turn, began: began, still: still,
+		turn: turn, held: held, began: began, still: still,
 		ease: harmonica.NewSpring(harmonica.FPS(framesPerSecond), springFrequency, springDamping),
 	}
 }
@@ -193,11 +194,10 @@ func (m Model) reading() bool {
 	return false
 }
 
-// turning reports whether the in-flight mark turns: a pane's read is out, the
-// mark has more than one frame to turn through, and ui.motion does not keep
-// it still.
+// turning reports whether the in-flight mark turns: a pane's read is out, and
+// ui.motion does not keep it still.
 func (m Model) turning() bool {
-	return !m.motion.still && len(m.motion.turn.Frames) > 1 && m.reading()
+	return !m.motion.still && m.reading()
 }
 
 // moving reports whether anything on screen moves: the in-flight mark, or a
@@ -223,7 +223,12 @@ func (m Model) nextFrame(cmd tea.Cmd) (Model, tea.Cmd) {
 	return m, tea.Batch(cmd, m.deps.after(m.motion.turn.FPS, func(time.Time) tea.Msg { return motionTick{} }))
 }
 
-// turning is the in-flight mark at the frame it has turned to.
+// turning is the in-flight mark at the frame it has turned to, or its still
+// glyph when ui.motion holds it.
 func (s motionState) turning() string {
+	if s.still {
+		return s.held
+	}
+
 	return s.turn.Frames[s.frame]
 }

@@ -21,13 +21,14 @@ func unicodeLine() []string {
 }
 
 // lookCase is a slow command run under a look its live line is drawn in: the
-// configuration at home that asks for it, if any, the mark the line opens
-// with, and what it never shows.
+// configuration at home that asks for it, if any, the marks the line may be
+// drawn with, the marks it is never drawn with, and what it never shows.
 type lookCase struct {
-	slow  progressCase
-	home  string
-	mark  string
-	never []string
+	slow   progressCase
+	home   string
+	marks  []string
+	turned []string
+	never  []string
 }
 
 // plainly is setUp's command with --plain.
@@ -46,16 +47,22 @@ func lookCases() map[string]lookCase {
 
 	for name, slow := range progressCases() {
 		cases[name+", under ui.ascii"] = lookCase{
-			slow: slow, home: `{"ui": {"ascii": true}}`, mark: "*", never: unicodeLine(),
+			slow: slow, home: `{"ui": {"ascii": true}}`, marks: asciiMarks(), never: append(unicodeLine(), "*"),
 		}
 		cases[name+", under ui.motion reduce"] = lookCase{
-			slow: slow, home: `{"ui": {"motion": "reduce"}}`, mark: "◐", never: []string{"◓", "◑", "◒"},
+			slow: slow, home: `{"ui": {"motion": "reduce"}}`, marks: []string{"◐"},
+			turned: []string{"◓", "◑", "◒"}, never: []string{"◓", "◑", "◒"},
+		}
+		cases[name+", under ui.ascii and ui.motion reduce"] = lookCase{
+			slow: slow, home: `{"ui": {"ascii": true, "motion": "reduce"}}`, marks: []string{"*"},
+			turned: asciiMarks(), never: unicodeLine(),
 		}
 	}
 
 	named := progressCases()["status of a named directory"]
 	cases["status of a named directory, with --plain"] = lookCase{
-		slow: progressCase{setUp: plainly(named.setUp), want: named.want}, mark: "*", never: unicodeLine(),
+		slow:  progressCase{setUp: plainly(named.setUp), want: named.want},
+		marks: asciiMarks(), never: append(unicodeLine(), "*"),
 	}
 
 	return cases
@@ -96,8 +103,9 @@ func TestASlowCommandDrawsItsLiveLineAsItsLookAsks(t *testing.T) {
 
 			// Assert
 			shown := ansi.Strip(stderr)
-			if !strings.Contains(shown, tt.mark+" "+tt.slow.want) {
-				t.Errorf("%s: stderr = %q, want the live line drawn with %q", name, shown, tt.mark)
+			if !drawnWith(shown, tt.marks, tt.slow.want) || drawnWith(shown, tt.turned, tt.slow.want) {
+				t.Errorf("%s: stderr = %q, want the live line drawn with one of %q, never %q",
+					name, shown, tt.marks, tt.turned)
 			}
 
 			for _, never := range tt.never {

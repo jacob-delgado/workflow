@@ -112,14 +112,15 @@ credential, `summary` on each source, `status DIR…` on each directory, and
 keeps a live line at the foot of standard error: a turning mark, what it is
 doing (`Checking Jira`, `Reading GitHub`, `Reading DIR`, `CI on #42`), and a
 bar of how many of how many are done (`5 of 7`). `ui.ascii`, or `--plain` on
-`status`, draws the line in ASCII: a `*` that does not turn, and a bar of `=`
-and `-`. `ui.motion: reduce` holds the mark still. Whatever the command says
-meanwhile prints above the line and stays; the line itself is erased when the
-wait ends. It is kept only when standard error is a terminal, so a pipe, a
-redirect or a log never holds it, nor any escape of its. With standard output
-on the same terminal, what `doctor --online` reports while it waits prints
-above the line too, on standard error, rather than under it; piped or
-redirected, standard output gets the report as always.
+`status`, draws the line in ASCII: a mark that turns through `|`, `/`, `-`
+and `\`, and a bar of `=` and `-`. `ui.motion: reduce` holds the mark still,
+on `◐`, or `*` in ASCII. Whatever the command says meanwhile prints above the
+line and stays; the line itself is erased when the wait ends. It is kept
+only when standard error is a terminal, so a pipe, a redirect or a log never
+holds it, nor any escape of its. With standard output on the same terminal,
+what `doctor --online` reports while it waits prints above the line too, on
+standard error, rather than under it; piped or redirected, standard output
+gets the report as always.
 
 | Command | stdout | stderr |
 | --- | --- | --- |

@@ -40,30 +40,38 @@ func TestEachStateHasOneMarkAndOneASCIIStandIn(t *testing.T) {
 	}
 }
 
-func TestTheInFlightMarkTurnsFromItsOwnGlyph(t *testing.T) {
+func TestTheInFlightMarkTurnsInUnicodeFromItsOwnGlyph(t *testing.T) {
 	t.Parallel()
 
 	// The terminal's panes and the command line's live line turn the same
-	// mark; ASCII has no shape that turns, so its stand-in holds still.
-	cases := map[string]struct {
-		ascii bool
-		want  []string
-	}{
-		"in Unicode": {ascii: false, want: []string{"◐", "◓", "◑", "◒"}},
-		"in ASCII":   {ascii: true, want: []string{"*"}},
+	// mark, a quarter turn a frame.
+
+	// Arrange
+	want := []string{"◐", "◓", "◑", "◒"}
+
+	// Act
+	frames := progress.Turn(false)
+
+	// Assert
+	if !slices.Equal(frames, want) || frames[0] != progress.InFlight.Glyph(false) {
+		t.Errorf("Turn(false) = %q, want %q, from the in-flight glyph", frames, want)
 	}
+}
 
-	for name, tt := range cases {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+func TestTheInFlightMarkTurnsInASCIIAsASpinner(t *testing.T) {
+	t.Parallel()
 
-			// Act
-			frames := progress.Turn(tt.ascii)
+	// ASCII has no shape that turns by quarters, so its mark is a line
+	// spinning.
 
-			// Assert
-			if !slices.Equal(frames, tt.want) || frames[0] != progress.InFlight.Glyph(tt.ascii) {
-				t.Errorf("Turn(%v) = %q, want %q, from the in-flight glyph", tt.ascii, frames, tt.want)
-			}
-		})
+	// Arrange
+	want := []string{"|", "/", "-", `\`}
+
+	// Act
+	frames := progress.Turn(true)
+
+	// Assert
+	if !slices.Equal(frames, want) {
+		t.Errorf("Turn(true) = %q, want %q", frames, want)
 	}
 }

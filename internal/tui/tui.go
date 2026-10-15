@@ -144,7 +144,7 @@ func New(cfg config.Config, loadErr error, deps Deps) Model {
 		width: defaultWidth, height: defaultHeight,
 		focus: paneIssues, mouse: cfg.UI.Mouse,
 		views: jira.Views(cfg.Jira.Views), viewIndex: 0,
-		motion: newMotion(marks.turn, deps.now(), cfg.UI.ReducedMotion()),
+		motion: newMotion(marks.turn, marks.inFlight, deps.now(), cfg.UI.ReducedMotion()),
 	}
 	// Init always searches, so a list seeded from the cache is in flight.
 	model.issues = model.seededIssues()

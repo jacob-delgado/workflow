@@ -166,7 +166,7 @@ func TestAnnounceWhenGreenDrawsItsLiveLineInASCIIUnderUIASCII(t *testing.T) {
 	<-released
 
 	shown := ansi.Strip(terminal.String())
-	if err != nil || posts.Load() != 1 || !strings.Contains(shown, "* CI on #7") {
+	if err != nil || posts.Load() != 1 || !drawnWith(shown, asciiMarks(), "CI on #7") {
 		t.Errorf("announce --when-green = %v after %d posts, showing %q; want a live line of CI on #7 in ASCII",
 			err, posts.Load(), shown)
 	}

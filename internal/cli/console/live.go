@@ -73,15 +73,14 @@ type Look struct {
 	Still bool
 }
 
-// frames is the frames the line's mark turns through: the first alone, which
-// does not turn, when the look is still.
+// frames is the frames the line's mark turns through: the in-flight glyph
+// alone, which does not turn, when the look is still.
 func (l Look) frames() []string {
-	turn := progress.Turn(l.ASCII)
 	if l.Still {
-		return turn[:1]
+		return []string{progress.InFlight.Glyph(l.ASCII)}
 	}
 
-	return turn
+	return progress.Turn(l.ASCII)
 }
 
 // liveGlyphs are the characters a live line draws its bar with, filled and
@@ -149,8 +148,8 @@ const (
 // liveBarWidth is how wide the live line's bar is.
 const liveBarWidth = 24
 
-// liveFramesPerSecond is how fast the live line's mark turns: a quarter turn
-// a frame, a turn a second.
+// liveFramesPerSecond is how fast the live line's mark turns: four frames a
+// second, a turn of its frames.
 const liveFramesPerSecond = 4
 
 // liveVariables are the variables the live line's program reads: what the

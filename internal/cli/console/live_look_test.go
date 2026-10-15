@@ -4,6 +4,7 @@
 package console_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -18,6 +19,17 @@ import (
 const tooLong = "Reading every repository under the directory named on the command line, " +
 	"one after another, until each has answered"
 
+// asciiMarks are the frames the live line's mark turns through in ASCII.
+func asciiMarks() []string {
+	return []string{"|", "/", "-", `\`}
+}
+
+// markedBefore reports whether shown draws text behind one of marks, the
+// frame the line's mark had turned to.
+func markedBefore(shown string, marks []string, text string) bool {
+	return slices.ContainsFunc(marks, func(mark string) bool { return strings.Contains(shown, mark+" "+text) })
+}
+
 // nonASCII reports whether shown holds a character outside ASCII.
 func nonASCII(shown string) bool {
 	return strings.ContainsFunc(shown, func(r rune) bool { return r > unicode.MaxASCII })
@@ -28,16 +40,17 @@ func TestALiveLineDrawsItsBarAndCutInTheCharactersItsLookAsks(t *testing.T) {
 
 	cases := map[string]struct {
 		look      console.Look
+		marks     []string
 		bar, cut  string
 		asciiOnly bool
 	}{
 		"by default": {
-			look: console.Look{},
-			bar:  "Checking Jira ━━━━━━━━──────────────── 1 of 3", cut: "…",
+			look: console.Look{}, marks: liveMarks(),
+			bar: "Checking Jira ━━━━━━━━──────────────── 1 of 3", cut: "…",
 		},
 		"in ASCII": {
-			look: console.Look{ASCII: true},
-			bar:  "* Checking Jira ========---------------- 1 of 3", cut: "...", asciiOnly: true,
+			look: console.Look{ASCII: true}, marks: asciiMarks(),
+			bar: "Checking Jira ========---------------- 1 of 3", cut: "...", asciiOnly: true,
 		},
 	}
 
@@ -58,8 +71,9 @@ func TestALiveLineDrawsItsBarAndCutInTheCharactersItsLookAsks(t *testing.T) {
 
 			// Assert
 			shown := ansi.Strip(printed)
-			if err != nil || !strings.Contains(shown, tt.bar) || !strings.Contains(shown, tt.cut) {
-				t.Errorf("watched = %v, showing %q; want %q, and the long line cut with %q", err, shown, tt.bar, tt.cut)
+			if err != nil || !markedBefore(shown, tt.marks, tt.bar) || !strings.Contains(shown, tt.cut) {
+				t.Errorf("watched = %v, showing %q; want %q behind one of %q, and the long line cut with %q",
+					err, shown, tt.bar, tt.marks, tt.cut)
 			}
 
 			if tt.asciiOnly && nonASCII(shown) {
@@ -76,9 +90,14 @@ func TestALiveLinesMarkTurnsOnlyWhereItsLookLetsItMove(t *testing.T) {
 		look         console.Look
 		drawn, never []string
 	}{
-		"by default": {look: console.Look{}, drawn: liveMarks(), never: []string{"*"}},
+		"by default": {look: console.Look{}, drawn: liveMarks(), never: asciiMarks()},
 		"still":      {look: console.Look{Still: true}, drawn: []string{"◐"}, never: []string{"◓", "◑", "◒"}},
-		"in ASCII":   {look: console.Look{ASCII: true}, drawn: []string{"*"}, never: liveMarks()},
+		"in ASCII": {
+			look: console.Look{ASCII: true}, drawn: asciiMarks(), never: append(liveMarks(), "*"),
+		},
+		"still in ASCII": {
+			look: console.Look{ASCII: true, Still: true}, drawn: []string{"*"}, never: asciiMarks(),
+		},
 	}
 
 	for name, tt := range cases {
@@ -89,8 +108,8 @@ func TestALiveLinesMarkTurnsOnlyWhereItsLookLetsItMove(t *testing.T) {
 			printed, _ := watchingAs(t, tt.look, func(terminal *standIn, wait console.Wait) error {
 				wait.Doing("Checking Jira")
 				terminal.shows(t, "Checking Jira")
-				// A second on the bubble's clock: four quarter turns, where
-				// the mark turns at all.
+				// A second on the bubble's clock: four frames, where the
+				// mark turns at all.
 				time.Sleep(time.Second)
 				terminal.shows(t, "Checking Jira")
 
