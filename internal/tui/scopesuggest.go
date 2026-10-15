@@ -5,8 +5,6 @@ package tui
 
 import (
 	"context"
-	"path"
-	"strings"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -41,7 +39,9 @@ func readScopes(ctx context.Context, deps Deps, opened int, paths []string, lear
 	}
 
 	return func() tea.Msg {
-		read := scopesRead{opened: opened, suggestions: scopeSuggestions(ctx, paths, recentSubjects)}
+		subjects := recentCommitSubjects(ctx, recentSubjects)
+
+		read := scopesRead{opened: opened, suggestions: convention.ScopeSuggestions(paths, subjects)}
 		if lastScope == nil {
 			return read
 		}
@@ -95,34 +95,10 @@ func (l changeList) stagedPaths() []string {
 	return paths
 }
 
-// scopeSuggestions is the scope completions for a commit: the shared directory of
-// the staged files first, then the scopes already used in recent commits, each
-// once. A missing or unreadable history contributes nothing.
-func scopeSuggestions(
-	ctx context.Context, paths []string, recentSubjects func(context.Context) ([]string, error),
-) []string {
-	var suggestions []string
-
-	seen := map[string]bool{}
-	add := func(value string) {
-		if value != "" && !seen[value] {
-			seen[value] = true
-			suggestions = append(suggestions, value)
-		}
-	}
-
-	add(sharedScope(paths))
-
-	for _, scope := range recentScopes(ctx, recentSubjects) {
-		add(scope)
-	}
-
-	return suggestions
-}
-
-// recentScopes reads the Conventional Commit scopes from recent commit subjects,
-// or none when the repository cannot be read or has no such seam.
-func recentScopes(ctx context.Context, recentSubjects func(context.Context) ([]string, error)) []string {
+// recentCommitSubjects reads the subjects of recent commits, or none when the
+// repository cannot be read or has no such seam: a missing or unreadable
+// history contributes nothing to the scope's completions.
+func recentCommitSubjects(ctx context.Context, recentSubjects func(context.Context) ([]string, error)) []string {
 	if recentSubjects == nil {
 		return nil
 	}
@@ -132,58 +108,5 @@ func recentScopes(ctx context.Context, recentSubjects func(context.Context) ([]s
 		return nil
 	}
 
-	return convention.Scopes(subjects)
-}
-
-// sharedScope is the name of the deepest directory the staged files share, when
-// that name is a well-formed scope — "config" for files under internal/config.
-// Empty when they share no directory or the name is not a usable scope.
-func sharedScope(paths []string) string {
-	dir := sharedDir(paths)
-	if dir == "" {
-		return ""
-	}
-
-	base := path.Base(dir)
-	if convention.ValidateScope(base) != nil {
-		return ""
-	}
-
-	return base
-}
-
-// sharedDir is the deepest directory every path lies under, or empty when they
-// share none — files at the repository root, or spread across separate trees.
-func sharedDir(paths []string) string {
-	if len(paths) == 0 {
-		return ""
-	}
-
-	shared := path.Dir(paths[0])
-	for _, each := range paths[1:] {
-		shared = commonDir(shared, path.Dir(each))
-	}
-
-	if shared == "." || shared == "/" {
-		return ""
-	}
-
-	return shared
-}
-
-// commonDir is the directory prefix two directories share, by path segment.
-func commonDir(first, second string) string {
-	firstParts, secondParts := strings.Split(first, "/"), strings.Split(second, "/")
-
-	var shared []string
-
-	for index := 0; index < len(firstParts) && index < len(secondParts); index++ {
-		if firstParts[index] != secondParts[index] {
-			break
-		}
-
-		shared = append(shared, firstParts[index])
-	}
-
-	return strings.Join(shared, "/")
+	return subjects
 }

@@ -37,9 +37,11 @@ a number. A pane or an overlay takes and returns `Model`, and so cannot leave
 without carrying `Model` across a package boundary Go does not allow. What may
 leave is a leaf with a reason to change of its own and no `Model` in it, as
 `layout/` and `frame/` did, and as `quietinput/` did when `quietinput.go`,
-which changes as `huh.Field` does, left. Reaching the ceiling means rewriting
-the WHY above the entry and a history row, or such an extraction, never a
-split for the count.
+which changes as `huh.Field` does, left. Code with no `Model` in it leaves
+for the package whose concern it is even when its file stays, as the commit
+scopes offered did for `internal/convention` (`ScopeSuggestions`). Reaching
+the ceiling means rewriting the WHY above the entry and a history row, or
+such an extraction, never a split for the count.
 
 ## Deps: the world outside the terminal
 

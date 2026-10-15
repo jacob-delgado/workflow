@@ -67,3 +67,71 @@ func TestScopesReadsTheScopesOutOfSubjects(t *testing.T) {
 		})
 	}
 }
+
+// The scopes the suggestions below are named.
+const (
+	apiScope      = "api"
+	configScope   = "config"
+	internalScope = "internal"
+)
+
+func TestScopeSuggestionsOffersTheStagedFilesDirectoryThenTheLogsScopes(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		paths, subjects []string
+		want            []string
+	}{
+		"files under one directory offer its name": {
+			paths: []string{"internal/config/a.go", "internal/config/b.go"},
+			want:  []string{configScope},
+		},
+		"files across sibling directories offer their parent": {
+			paths: []string{"internal/tui/a.go", "internal/jira/b.go"},
+			want:  []string{internalScope},
+		},
+		"a file above another's directory offers its own": {
+			paths: []string{"internal/a.go", "internal/tui/b.go"},
+			want:  []string{internalScope},
+		},
+		"a file below another's directory offers the other's": {
+			paths: []string{"internal/tui/a.go", "internal/b.go"},
+			want:  []string{internalScope},
+		},
+		"files at the repository root share no directory": {
+			paths: []string{"main.go", "go.mod"},
+			want:  nil,
+		},
+		"a file at the root of an absolute path shares no directory": {
+			paths: []string{"/main.go"},
+			want:  nil,
+		},
+		"a directory whose name is not a scope is not offered": {
+			paths: []string{"my dir/a.go", "my dir/b.go"},
+			want:  nil,
+		},
+		"with nothing staged the log's scopes alone are offered": {
+			subjects: []string{"feat(api): add a field"},
+			want:     []string{apiScope},
+		},
+		"the directory comes first and each scope once": {
+			paths:    []string{"internal/jira/a.go"},
+			subjects: []string{"fix(hooks): tidy", "feat(jira): add a field", "test(hooks): cover"},
+			want:     []string{"jira", "hooks"},
+		},
+	}
+
+	for name, testCase := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			got := convention.ScopeSuggestions(testCase.paths, testCase.subjects)
+
+			// Assert
+			if !slices.Equal(got, testCase.want) {
+				t.Errorf("ScopeSuggestions(%q, %q) = %q, want %q", testCase.paths, testCase.subjects, got, testCase.want)
+			}
+		})
+	}
+}
