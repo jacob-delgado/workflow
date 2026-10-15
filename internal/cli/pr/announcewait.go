@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli
+package pr
 
 import (
 	"context"
@@ -58,9 +58,9 @@ const (
 	pullOpenedNow
 )
 
-// errOnlyReadyWaits refuses to wait for the CI of a pull request that is not
+// ErrOnlyReadyWaits refuses to wait for the CI of a pull request that is not
 // ready for review: one merged has no CI left to wait for.
-var errOnlyReadyWaits = errors.New("only a ready-for-review announcement waits for CI")
+var ErrOnlyReadyWaits = errors.New("only a ready-for-review announcement waits for CI")
 
 // onceGreen is announce's prompt for an announcement that waits for the CI of
 // pull to pass: its question and its dry run say so.
