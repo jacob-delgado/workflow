@@ -383,6 +383,7 @@ tasks:
       - task: lint:goroutines
       - task: lint:tradeoffs
       - task: lint:techdebtpaths
+      - task: lint:siblingtests
       - task: lint:layout
       - task: docs:check
       - task: gen:verify
@@ -521,6 +522,11 @@ tasks:
     desc: Check that every repository path TECH_DEBT.md names in backticks is tracked
     cmds:
       - scripts/check-tech-debt-paths.sh
+
+  lint:siblingtests:
+    desc: Check that every script under scripts/ has its sibling test
+    cmds:
+      - scripts/check-sibling-tests.sh
 
   lint:layout:
     desc: Check that CLAUDE.md's layout names every Go package, and no directory that is gone

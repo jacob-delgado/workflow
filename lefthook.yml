@@ -3,8 +3,10 @@
 # Skip one hook for one commit: LEFTHOOK_EXCLUDE=name-of-hook git commit ...
 # Skip all hooks for one commit: LEFTHOOK=0 git commit ...
 #
-# Pre-commit hooks run against ONLY the staged diff ({staged_files}). Pre-push
-# runs seven commands over the working tree: unit-go (`task test`) and
+# Pre-commit hooks run against ONLY the staged diff ({staged_files}), but for
+# actionlint, which reads every workflow in the working tree, and
+# sibling-tests, which reads every script under scripts/ as the index holds it.
+# Pre-push runs seven commands over the working tree: unit-go (`task test`) and
 # lint-go-all (golangci-lint) when the push carries a Go change, web (the web's
 # lint, client-drift check and unit tests) when it carries a web/ or API-spec
 # change, and file-length, package-size, tradeoffs and tech-debt-paths on every
@@ -70,6 +72,14 @@ pre-commit:
     shellcheck:
       glob: "*.sh"
       run: shellcheck {staged_files}
+
+    # The whole of scripts/ rather than the staged files: a script staged
+    # without its test shows only against what the index holds. A commit that
+    # only deletes a test may stage no file the glob matches; task lint, which
+    # CI runs, still catches that.
+    sibling-tests:
+      glob: "scripts/**"
+      run: scripts/check-sibling-tests.sh
 
     yamllint:
       glob: "*.{yml,yaml}"
