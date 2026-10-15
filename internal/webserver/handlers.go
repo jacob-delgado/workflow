@@ -52,7 +52,7 @@ func (s *server) ListViews(_ context.Context, _ api.ListViewsRequestObject) (api
 func (s *server) ListIssues(
 	ctx context.Context, request api.ListIssuesRequestObject,
 ) (api.ListIssuesResponseObject, error) {
-	startAt, view := given(request.Params.StartAt), given(request.Params.View)
+	startAt, view := orZero(request.Params.StartAt), orZero(request.Params.View)
 
 	listed, ok := jira.ViewNamed(s.config().Jira.Views, view)
 	if !ok {
