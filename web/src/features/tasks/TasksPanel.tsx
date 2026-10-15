@@ -294,9 +294,11 @@ interface ListingProps {
 // list anew keeps the detail on it; the first listed takes its place only once
 // it leaves the list. Below lg the list sits over the detail, in a pane of a
 // few rows, as the issue list does; from lg the two sit side by side, each
-// scrolling on its own. The detail is keyed on its task, so a write that takes
-// the task away takes its controls with it, rather than leaving them on the
-// next task under the pointer.
+// scrolling on its own. The detail's pane pads its scroll as the content does:
+// WebKit scrolls a field that takes focus only until its caret shows, which
+// leaves the rest of the field under an edge with no padding. The detail is
+// keyed on its task, so a write that takes the task away takes its controls
+// with it, rather than leaving them on the next task under the pointer.
 function Listing({ groups, issues, teller, now, narrowed }: ListingProps) {
   const [held, setHeld] = useState<string | null>(null)
   const listed = listedOf(groups)
@@ -328,7 +330,12 @@ function Listing({ groups, issues, teller, now, narrowed }: ListingProps) {
       >
         <TaskList groups={groups} selected={selected.uuid} onSelect={setHeld} now={now} />
       </div>
-      <div className={cn('relative min-w-0 flex-1 lg:overflow-y-auto lg:px-1', contentMeasure)}>
+      <div
+        className={cn(
+          'relative min-w-0 flex-1 lg:overflow-y-auto lg:scroll-py-block lg:px-1',
+          contentMeasure,
+        )}
+      >
         <TaskDetail
           key={selected.uuid}
           task={selected}
