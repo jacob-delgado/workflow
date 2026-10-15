@@ -11,6 +11,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -249,6 +250,39 @@ func TestTheGraceCountsEveryWaitOnThePipeTogether(t *testing.T) {
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("a process left behind writing now and then kept the run past the grace in all")
+	}
+}
+
+// settling is how long a run's goroutines are given to end once Wait has
+// returned.
+const settling = 5 * time.Second
+
+// A run that gave up on an output a process left behind holds leaves nothing
+// of its own running once Wait has returned, though that process still holds
+// the pipe: the read it gave up on ends with the pipe it closes.
+//
+//nolint:paralleltest // it counts the process's goroutines, which a test beside it would add to.
+func TestARunThatGaveUpOnItsOutputLeavesNoGoroutineBehind(t *testing.T) {
+	// Arrange
+	pidFile := killedAtCleanup(t)
+	before := runtime.NumGoroutine()
+
+	output, err := proc.Start(t.Context(), script(`sleep 30 & echo "$!" > '`+pidFile+`'`))
+	if err != nil {
+		t.Fatalf("Start returned %v, want nil", err)
+	}
+
+	// Act
+	_, err = collect(t, output)
+
+	// Assert
+	deadline := time.Now().Add(settling)
+	for runtime.NumGoroutine() > before && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	if left := runtime.NumGoroutine() - before; err != nil || left > 0 {
+		t.Errorf("the run ended with %v, leaving %d goroutines of its own running; want no failure and none", err, left)
 	}
 }
 
