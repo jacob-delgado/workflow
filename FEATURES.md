@@ -271,9 +271,9 @@ Impact: low · Effort: medium
 
 - Why: a view on `sprint in openSprints()` already lists what is left this
   sprint — the configuration guide's *Sprint board* example
-  (`docs/content/docs/configuration.md:233`) — but flat, one row per issue
+  (`docs/content/docs/configuration.md:277`) — but flat, one row per issue
   with a status glyph, in update order (`issueList.render`,
-  `internal/tui/issues.go:270`). What is missing is grouping by status: how
+  `internal/tui/issues.go:214`). What is missing is grouping by status: how
   much is to do, in progress or in review is read by scanning glyphs.
 - Touches: `internal/tui/issues.go` (status headings in the list), and
   `internal/jira`'s Agile API only for what JQL cannot give — the sprint's
