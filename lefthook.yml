@@ -4,12 +4,13 @@
 # Skip all hooks for one commit: LEFTHOOK=0 git commit ...
 #
 # Pre-commit hooks run against ONLY the staged diff ({staged_files}). Pre-push
-# runs six commands over the working tree: unit-go (`task test`) and
+# runs seven commands over the working tree: unit-go (`task test`) and
 # lint-go-all (golangci-lint) when the push carries a Go change, web (the web's
 # lint, client-drift check and unit tests) when it carries a web/ or API-spec
-# change, and file-length, package-size and tradeoffs on every push. The rest of
-# `task check` — the Go coverage floors, the whole-tree linters and secret
-# scan, govulncheck — and CI's end-to-end suites run only there.
+# change, and file-length, package-size, tradeoffs and tech-debt-paths on every
+# push. The rest of `task check` — the Go coverage floors, the whole-tree
+# linters and secret scan, govulncheck — and CI's end-to-end suites run only
+# there.
 #
 # DO NOT reach for `LEFTHOOK=0` to get past a blocked commit. A failing hook is
 # the hook working — fix the underlying issue. The only legitimate bypass is a
@@ -110,10 +111,10 @@ pre-commit:
       run: gitleaks git --staged --redact --no-banner
 
 # Pre-push: the tests (unit-go), golangci-lint over every Go file
-# (lint-go-all), the web's gates (web), and the three whole-tree checks a
-# staged-diff hook cannot see (file-length, package-size, tradeoffs). A red
-# result here is a guaranteed red CI, and learning that locally costs far less
-# than a CI round trip.
+# (lint-go-all), the web's gates (web), and the four whole-tree checks a
+# staged-diff hook cannot see (file-length, package-size, tradeoffs,
+# tech-debt-paths). A red result here is a guaranteed red CI, and learning that
+# locally costs far less than a CI round trip.
 pre-push:
   parallel: false
   commands:
@@ -166,6 +167,11 @@ pre-push:
     # dropped from TECH_DEBT.md fails at a site the push did not touch.
     tradeoffs:
       run: scripts/check-tradeoffs.sh
+
+    # No glob: a rename moves the code an entry names without touching
+    # TECH_DEBT.md, and only the whole tree shows the path gone.
+    tech-debt-paths:
+      run: scripts/check-tech-debt-paths.sh
 
 # Commit-message format check: Conventional Commits, e.g.
 #   feat(jira): add issue transition command

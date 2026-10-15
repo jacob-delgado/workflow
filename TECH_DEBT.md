@@ -20,7 +20,9 @@ never reused. One line under the title rates it, as
 applies, and four paragraphs follow: **Where.** names the functions and files
 rather than lines, which drift; **Today.** says what is wrong and what it
 costs; **Fix.** gives one way to fix it; and **Done when.** says how to tell it
-is fixed.
+is fixed. A path in backticks is named from the repository's root, or is a
+file's name alone, and `task lint:techdebtpaths` fails one that no tracked file
+or directory has.
 
 - **Severity** is high (a wrong result a user could act on, or a blocked
   release), medium (a real defect with a narrower trigger, or a shortcut that
@@ -1082,11 +1084,12 @@ icon, a hint or a group's heading as a Base UI Select could. A long list
 scrolls with the platform's scrollbar rather than a drawn one. And a later
 Base UI release that writes a `<style>` would be refused by the policy without
 a sound, so the server-backed specs, under the policy `workflow --web` itself
-sends, fail on any refusal while they open each part: `e2e/server/page.spec.ts`
-opens the palette, an Autocomplete in a Dialog, and the shortcut sheet, a
-Dialog; `e2e/server/policy.spec.ts` walks every one of Settings' Tabs and opens
-the tag picker's Combobox with its list of members shown, answering the reads
-that fill both itself, since the fixture has no configuration, Slack or forge.
+sends, fail on any refusal while they open each part:
+`web/e2e/server/page.spec.ts` opens the palette, an Autocomplete in a Dialog,
+and the shortcut sheet, a Dialog; `web/e2e/server/policy.spec.ts` walks every
+one of Settings' Tabs and opens the tag picker's Combobox with its list of
+members shown, answering the reads that fill both itself, since the fixture
+has no configuration, Slack or forge.
 A refusal from a state those specs never reach, such as a list with nothing
 matching, from the directory picker's own Autocomplete, which none opens, or
 from a part the page takes up later, is still heard by no spec.
