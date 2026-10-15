@@ -4,6 +4,7 @@
 package proc_test
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -28,8 +29,8 @@ const helperParent = "WORKFLOW_PROC_PARENT"
 // error.
 const readyDescriptor = 3
 
-// helperCue names, to a helper left behind, the file whose making cues it to
-// write.
+// helperCue names, to a helper that waits on a cue, the file whose making
+// cues it: a helper left behind to write, or the "closing" one to exit.
 const helperCue = "WORKFLOW_PROC_CUE"
 
 // unreadLines is how many lines the "unread" helper writes before it exits:
@@ -45,10 +46,24 @@ const unreadLines = 200
 // cuedLine is what the "cued" helper writes once cued.
 const cuedLine = "cued"
 
-// actLeftBehind is the child in a mode about a process a program leaves
-// behind holding its output: the program that leaves it, or the one left.
-func actLeftBehind(mode string) {
+// The statuses the "closing" helper exits with: closedStatus once cued, and
+// neverCuedStatus if it gave up waiting for the cue.
+const (
+	closedStatus    = 3
+	neverCuedStatus = 4
+)
+
+// stillOpenPatience is how long Lines is watched for closing while the program
+// that ended its output goes on running.
+const stillOpenPatience = 250 * time.Millisecond
+
+// actAroundTheExit is the child in a mode about where a program's output ends
+// against its exit: the program that leaves a process behind holding it past
+// the exit, the one left, or a program ending it before.
+func actAroundTheExit(mode string) {
 	switch mode {
+	case "closing":
+		closeOutputThenExitOnCue()
 	case "background":
 		leaveASleeper()
 	case "outlived":
@@ -141,6 +156,24 @@ func leaveACuedWriter() {
 func writeOnceCued() {
 	awaitCue(os.Getenv(helperCue))
 	fmt.Fprintln(os.Stdout, cuedLine)
+}
+
+// closeOutputThenExitOnCue closes standard output and error, which ends the
+// run's output, then exits with closedStatus once cued, or with
+// neverCuedStatus if the cue never came.
+func closeOutputThenExitOnCue() {
+	_ = os.Stdout.Close()
+	_ = os.Stderr.Close()
+
+	cue := os.Getenv(helperCue)
+	awaitCue(cue)
+
+	_, err := os.Stat(cue)
+	if err != nil {
+		os.Exit(neverCuedStatus)
+	}
+
+	os.Exit(closedStatus)
 }
 
 // linesWrittenUnread are the lines the "unread" helper writes before it
@@ -236,4 +269,50 @@ func TestALineWrittenOnceTheRunHasTakenTheExitStillArrives(t *testing.T) {
 				len(lines), lines[max(0, len(lines)-2):], err, len(want), want[len(want)-2:])
 		}
 	})
+}
+
+// Lines closes once the program has exited, as Output says, and not once
+// its output has ended while it runs on.
+func TestLinesStayOpenUntilAProgramThatEndedItsOutputExits(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := t.TempDir()
+	cue := filepath.Join(dir, "cue")
+
+	output, err := proc.Start(t.Context(), child(dir, "closing", helperCue+"="+cue))
+	if err != nil {
+		t.Fatalf("Start returned %v, want nil", err)
+	}
+
+	// Act: read Lines while the program runs on with its output ended
+	var (
+		delivered, open bool
+		line            string
+	)
+
+	select {
+	case line, open = <-output.Lines:
+		delivered = true
+	case <-time.After(stillOpenPatience):
+	}
+
+	// Assert: Lines is still open, with nothing on it
+	if delivered {
+		t.Fatalf("Lines delivered %q (open %v) while the program ran, want it waiting on the exit", line, open)
+	}
+
+	// Act: cue the program to exit, and read the run to its end
+	err = os.WriteFile(cue, nil, 0o600)
+	if err != nil {
+		t.Fatalf("cueing the program to exit: %v", err)
+	}
+
+	lines, err := collect(t, output)
+
+	// Assert: Lines closes with nothing on it, and Wait reports the exit
+	if len(lines) != 0 || !errors.Is(err, proc.ErrExitStatus) ||
+		!strings.Contains(err.Error(), "exit status "+strconv.Itoa(closedStatus)) {
+		t.Errorf("the run ended with %q and %v, want no lines and exit status %d", lines, err, closedStatus)
+	}
 }
