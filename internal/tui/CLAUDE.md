@@ -34,17 +34,16 @@ and it answers to a ratcheted budget in `scripts/package-size-budgets.txt`,
 at the count its leaves left it: read the number there, and
 `scripts/check-package-size.sh --list` for the count. A new pane or overlay is
 a new file, and a bump: raise the number, rewrite the WHY above it, and append
-a row to `scripts/package-size-budget-history.md`. The package is not split to chase
-a number. A pane or an overlay takes and returns `Model`, and so cannot leave
-without carrying `Model` across a package boundary Go does not allow. What may
-leave is a leaf with a reason to change of its own and no `Model` in it, as
-`layout/` and `frame/` did, and as `quietinput/` did when `quietinput.go`,
-which changes as `huh.Field` does, left. Code with no `Model` in it leaves
-for the package whose concern it is even when its file stays, as the commit
-scopes offered did for `internal/convention` (`ScopeSuggestions`) and the
-outlasting plumbing for `internal/lifetime` (`lifetime.Outlasting0` and the
-rest). Reaching the ceiling means rewriting the WHY above the entry and a
-history row, or such an extraction, never a split for the count.
+a row to `scripts/package-size-budget-history.md`. The package is not split to
+chase a number. A pane or an overlay takes and returns `Model`, and so cannot
+leave without carrying `Model` across a package boundary Go does not allow.
+What may leave is a leaf with a reason to change of its own and no `Model` in
+it, as `layout/` and `frame/` did, and as `quietinput/` did when
+`quietinput.go`, which changes as `huh.Field` does, left. Code with no `Model`
+in it leaves for the package whose concern it is even when its file stays, as
+the commit scopes offered did for `internal/convention` (`ScopeSuggestions`)
+and the outlasting plumbing for `internal/lifetime` (`lifetime.Outlasting0`
+and the rest).
 
 ## Deps: the world outside the terminal
 
