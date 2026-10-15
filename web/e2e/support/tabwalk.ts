@@ -149,7 +149,7 @@ interface Walk {
 // it stopped outside the part walked. The lap ends as focus comes back to its
 // first stop, so it follows the browser's own order: a part that scrolls with
 // nothing in it to take focus, a dialog that scrolls among them, is a stop
-// there that no selector names.
+// there that no selector names, and in Firefox so is any part that scrolls.
 export async function walkTabOrder(page: Page, { within }: Walk = {}): Promise<TabWalk> {
   const part = await walked(page, within)
   const stops = await part.evaluateHandle(tabStops)
@@ -184,16 +184,85 @@ export async function walkTabOrder(page: Page, { within }: Walk = {}): Promise<T
   throw new Error(`Tab did not come back round to its first stop in ${String(most)} presses`)
 }
 
-// pressTab presses Tab and waits for focus to come to rest. A Base UI dialog
-// bounds its Tab order with focus guards hidden from assistive technology,
-// each of which hands focus back inside as it takes it, and not always before
-// the press resolves: read too soon, focus is on a guard outside the dialog.
-// Focus never rests on what assistive technology is told is not there, so a
-// guard that kept it would fail the wait, and a trap that leaks still fails
-// the walk.
+// pressTab presses Tab and waits for focus to come to rest, then, if the press
+// took focus out of the document without the page seeing it go, brings focus
+// back in at the top of its order.
+//
+// A press on the document's last stop takes focus out of it, to the browser's
+// own controls. Chromium then has focus on the page itself, and the next press
+// brings it back in at the top; WebKit's order comes round too. Playwright's
+// Firefox keeps the last stop focused instead, since its patch skips the blur
+// as focus leaves a page so that every page reads as focused, and each press
+// after leaves from that stop again: the order would never come round.
 async function pressTab(page: Page): Promise<void> {
+  const leftUnseen = await page.evaluateHandle(watchForLeaving)
+  await pressTabToRest(page)
+  if (await leftUnseen.evaluate((left) => left())) {
+    const putBack = await page.evaluateHandle(focusTop)
+    await pressTabToRest(page)
+    await putBack.evaluate((restore) => {
+      restore()
+    })
+  }
+}
+
+// pressTabToRest presses Tab and waits for focus to come to rest. A Base UI
+// dialog bounds its Tab order with focus guards hidden from assistive
+// technology, each of which hands focus back inside as it takes it, and not
+// always before the press resolves: read too soon, focus is on a guard outside
+// the dialog. Focus never rests on what assistive technology is told is not
+// there, so a guard that kept it would fail the wait, and a trap that leaks
+// still fails the walk.
+async function pressTabToRest(page: Page): Promise<void> {
   await page.keyboard.press('Tab')
   await page.waitForFunction(() => document.activeElement?.closest('[aria-hidden="true"]') == null)
+}
+
+// watchForLeaving watches the press about to be made, and gives back a check
+// of whether it took focus out of the document unseen: the page left the key
+// to the browser, yet focus came to nothing in the page and stayed where it
+// was. A control that keeps Tab to itself prevents the key, so its lap still
+// never closes. In Playwright's Firefox a trap that puts focus back on the
+// document's last stop after the key does so with no focus event, since focus
+// never left the stop, so the press reads as leaving and only Chromium's run
+// catches that trap.
+function watchForLeaving(): () => boolean {
+  const from = document.activeElement
+  let arrived = false
+  let press: KeyboardEvent | undefined
+  const onFocus = () => {
+    arrived = true
+  }
+  const onKey = (event: KeyboardEvent) => {
+    press ??= event
+  }
+  window.addEventListener('focusin', onFocus, true)
+  window.addEventListener('keydown', onKey, true)
+
+  return () => {
+    window.removeEventListener('focusin', onFocus, true)
+    window.removeEventListener('keydown', onKey, true)
+
+    return press?.defaultPrevented === false && !arrived && document.activeElement === from
+  }
+}
+
+// focusTop puts focus where Tab comes back into the document from the
+// browser's own controls: the page itself, or an open modal dialog, outside
+// which nothing takes focus. It gives back what puts the element as it was.
+function focusTop(): () => void {
+  const top = document.querySelector<HTMLElement>(':modal') ?? document.body
+  const tabIndex = top.getAttribute('tabindex')
+  top.tabIndex = -1
+  top.focus({ preventScroll: true })
+
+  return () => {
+    if (tabIndex === null) {
+      top.removeAttribute('tabindex')
+    } else {
+      top.setAttribute('tabindex', tabIndex)
+    }
+  }
 }
 
 // walked is the part of the page a lap walks: the one within the locator, or
