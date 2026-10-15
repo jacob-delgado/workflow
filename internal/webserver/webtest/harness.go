@@ -123,6 +123,9 @@ func Send(t *testing.T, handler http.Handler, method, target, body string) *http
 	return recorder
 }
 
+// ProblemJSON is the media type every refusal is written in.
+const ProblemJSON = "application/problem+json"
+
 // Decode unmarshals the recorder's JSON body into T, failing the test on error.
 func Decode[T any](t *testing.T, recorder *httptest.ResponseRecorder) T {
 	t.Helper()

@@ -155,9 +155,12 @@ flight; and refuses, as `conflict`, a write whose `Workflow-Here` header
   `scripts/coverage-gate.sh` does not leave it out: its statements count, at
   0%, in the total `COVERAGE_MIN` holds, as ptytest's do, so the gate prints
   a total lower than the code's own by webtest's share of the statements.
-  `assertProblem` and `problemJSON` (`problemcheck_test.go`), which the git
-  runs' tests share too, have not moved yet: they move to `webtest` with the
-  runs.
+  A helper that fails the test for an Assert stays a test helper of each
+  package whose tests call it, as `assertProblem` (`problemcheck_test.go`)
+  does, with only what it reads, as `ProblemJSON` (`harness.go`), in
+  `webtest`: `cmd/testshape` reads the helpers in a test package's own files
+  alone, so an Assert whose only check is a call into `webtest` reaches no
+  failure it can see.
 - **What else holds a change.** `contract_test.go` checks the contract refuses
   what the server cannot use; a stream or a cache that waits is tested inside
   `synctest.Test`, on its fake clock (`stream_test.go`,

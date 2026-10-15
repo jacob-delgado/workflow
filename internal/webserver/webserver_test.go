@@ -200,7 +200,7 @@ func TestAnErrorIsAnRFC9457Problem(t *testing.T) {
 
 	// Assert
 	failure := webtest.Decode[api.Problem](t, recorder)
-	if ct := recorder.Header().Get("Content-Type"); ct != problemJSON {
+	if ct := recorder.Header().Get("Content-Type"); ct != webtest.ProblemJSON {
 		t.Errorf("Content-Type = %q, want application/problem+json", ct)
 	}
 
