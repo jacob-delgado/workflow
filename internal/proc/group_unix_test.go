@@ -219,6 +219,12 @@ func TestAProgramSilentPastTheGraceBeforeItExitsKeepsItsOutput(t *testing.T) {
 	}
 }
 
+// linesInTheGrace bounds how many lines a process left behind gets through the
+// two-second grace start.go's outputGrace gives, writing one every quarter
+// second from once the program is reaped: seven, eight at most, since a write
+// can come late but never early, and one more for a run slow to take the exit.
+const linesInTheGrace = 9
+
 // The grace counts every wait on the pipe together, not each afresh: a process
 // left behind that writes a line now and then, each sooner than the grace,
 // keeps the run no longer than the grace in all.
@@ -229,24 +235,31 @@ func TestTheGraceCountsEveryWaitOnThePipeTogether(t *testing.T) {
 	pidFile := killedAtCleanup(t)
 
 	output, err := proc.Start(t.Context(), script(
-		`(i=0; while [ "$i" -lt 10 ]; do sleep 1.5; echo "$i"; i=$((i + 1)); done) & echo "$!" > '`+pidFile+`'`))
+		`(while kill -0 $$ 2>/dev/null; do sleep 0.01; done; i=0; `+
+			`while [ "$i" -lt 40 ]; do sleep 0.25; echo "$i"; i=$((i + 1)); done) & echo "$!" > '`+pidFile+`'`))
 	if err != nil {
 		t.Fatalf("Start returned %v, want nil", err)
 	}
 
-	ended := make(chan error, 1)
+	type ending struct {
+		lines []string
+		err   error
+	}
+
+	ended := make(chan ending, 1)
 
 	// Act
 	go func() {
-		_, err := collect(t, output)
-		ended <- err
+		lines, err := collect(t, output)
+		ended <- ending{lines: lines, err: err}
 	}()
 
 	// Assert
 	select {
-	case err := <-ended:
-		if err != nil {
-			t.Errorf("the run ended with %v, want no failure", err)
+	case end := <-ended:
+		if end.err != nil || len(end.lines) == 0 || len(end.lines) > linesInTheGrace {
+			t.Errorf("the run ended with %d lines and %v, want some, at most %d, as many as the grace in all lets "+
+				"through, and no failure", len(end.lines), end.err, linesInTheGrace)
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("a process left behind writing now and then kept the run past the grace in all")
