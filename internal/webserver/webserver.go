@@ -24,6 +24,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
@@ -218,6 +219,61 @@ type server struct {
 }
 
 var _ api.StrictServerInterface = (*server)(nil)
+
+// config returns a copy of the configuration in effect, taken under the read
+// lock so a concurrent write endpoint cannot tear it.
+func (s *server) config() config.Config {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.cfg
+}
+
+// forgeKindNow is the forge the remote is on under the settings in effect,
+// which a save in Settings may have changed since the server started.
+func (s *server) forgeKindNow() forge.Kind {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.forgeKind
+}
+
+// noun is what the forge calls a proposed change — a merge request on GitLab —
+// so what the page is told names it as the page itself does.
+func (s *server) noun() string {
+	return s.forgeKindNow().Noun()
+}
+
+// forgeInterval is how long a forge answer serves the stream:
+// timing.ci_interval in the configuration in effect, or config.DefaultCIInterval,
+// the terminal's own CI poll.
+func (s *server) forgeInterval() time.Duration {
+	interval := s.config().CIInterval()
+	if interval <= 0 {
+		return config.DefaultCIInterval
+	}
+
+	return interval
+}
+
+// now is the time by the clock the server was given.
+func (s *server) now() time.Time {
+	if s.deps.Clock == nil {
+		return time.Now()
+	}
+
+	return s.deps.Clock()
+}
+
+// browseURL is the issue's page in the tracker, or "" when no tracker link is
+// wired.
+func (s *server) browseURL(key jira.Key) string {
+	if s.deps.Jira.BrowseURL == nil {
+		return ""
+	}
+
+	return s.deps.Jira.BrowseURL(key)
+}
 
 // Handler builds the http.Handler that serves the web interface for first,
 // the directory it starts in: the API under /api, checked against the contract

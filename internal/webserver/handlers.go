@@ -18,24 +18,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/report"
 )
 
-// config returns a copy of the configuration in effect, taken under the read
-// lock so a concurrent write endpoint cannot tear it.
-func (s *server) config() config.Config {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	return s.cfg
-}
-
-// forgeKindNow is the forge the remote is on under the settings in effect,
-// which a save in Settings may have changed since the server started.
-func (s *server) forgeKindNow() forge.Kind {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	return s.forgeKind
-}
-
 // GetHealth reports the build, whether writes are held back, which forge the
 // repository is on, and that forge's own words for a proposed change, so the
 // browser names it as the terminal does.
@@ -107,16 +89,6 @@ func (s *server) GetIssue(ctx context.Context, request api.GetIssueRequestObject
 	}
 
 	return api.GetIssue200JSONResponse(report.IssueDetail(detail, s.browseURL(detail.Issue.Key))), nil
-}
-
-// browseURL is the issue's page in the tracker, or "" when no tracker link is
-// wired.
-func (s *server) browseURL(key jira.Key) string {
-	if s.deps.Jira.BrowseURL == nil {
-		return ""
-	}
-
-	return s.deps.Jira.BrowseURL(key)
 }
 
 // GetBranch returns the current branch, or an empty one when no repository is
