@@ -10,18 +10,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
-// gitlabRepo is prRepo on branch with a GitLab origin and
-// clitest.GitlabForgeConfig.
-func gitlabRepo(t *testing.T, branch string) string {
-	t.Helper()
-
-	repo := prRepo(t, branch)
-	git(t, repo, "remote", "add", "origin", "https://gitlab.com/owner/repo.git")
-	clitest.WriteFile(t, repo, clitest.GitlabForgeConfig)
-
-	return repo
-}
-
 // requireGitLabWords fails the test unless said names the merge request and
 // never GitHub's noun or sigil.
 func requireGitLabWords(t *testing.T, said, want string) {
@@ -37,7 +25,7 @@ func TestReviewsListsMergeRequestsInGitLabsWords(t *testing.T) {
 
 	// Arrange
 	clitest.FakeGlabListing(t, clitest.OpenMergeRequest())
-	repo := gitlabRepo(t, "work")
+	repo := clitest.GitlabRepo(t, "work")
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "reviews")
@@ -56,7 +44,7 @@ func TestReviewsWithNothingWaitingSaysSoInGitLabsWords(t *testing.T) {
 
 	// Arrange
 	clitest.FakeGlab(t)
-	repo := gitlabRepo(t, "work")
+	repo := clitest.GitlabRepo(t, "work")
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "reviews")

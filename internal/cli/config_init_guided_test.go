@@ -126,7 +126,7 @@ func TestGuidedInitWarnsWhenTheFileIsNotGitIgnored(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	gitInit(t, dir)
+	clitest.GitInit(t, dir)
 
 	prompt := clitest.Scripted([]string{""}, []string{""})
 
@@ -151,7 +151,7 @@ func TestConfigInitTemplateWarnsWhenTheFileIsNotGitIgnored(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	gitInit(t, dir)
+	clitest.GitInit(t, dir)
 
 	// Act
 	printed, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "config", "init", "--template")
@@ -340,7 +340,7 @@ func TestGuidedInitStaysQuietWhenTheFileIsGitIgnored(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	gitInit(t, dir)
+	clitest.GitInit(t, dir)
 
 	err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte(config.FileName+"\n"), 0o644)
 	if err != nil {

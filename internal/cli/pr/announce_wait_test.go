@@ -43,7 +43,7 @@ func TestAnnounceWhenGreenAnnouncesOnceCIPasses(t *testing.T) {
 		Pulls:          clitest.OpenPull("Add login"),
 		StatusSequence: []string{clitest.RunningStatus(), clitest.RunningStatus(), clitest.PassingStatus()},
 	})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
 
 	// Act
@@ -68,7 +68,7 @@ func TestAnnounceWhenGreenWaitsThroughAFailedRun(t *testing.T) {
 	clitest.FakeGh(t, clitest.GhResponses{
 		Pulls: clitest.OpenPull("Add login"), StatusSequence: []string{clitest.FailingStatus(), clitest.PassingStatus()},
 	})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
 
 	// Act
@@ -88,7 +88,7 @@ func TestAnnounceWhenGreenRefusesAMergedPullRequest(t *testing.T) {
 	var posts atomic.Int32
 
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.MergedPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
 
 	// Act
@@ -107,7 +107,7 @@ func TestAnnounceWhenGreenDryRunWaitsForNothing(t *testing.T) {
 	var posts atomic.Int32
 
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: clitest.FailingStatus()})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
 
 	// Act
@@ -127,7 +127,7 @@ func TestAnnounceWhenGreenAsksOnceCIPasses(t *testing.T) {
 	var asked []string
 
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: clitest.RunningStatus()})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, new(atomic.Int32))))
 
 	// Act
@@ -149,7 +149,7 @@ func TestAnnounceWhenGreenWaitsPastAReadThatFails(t *testing.T) {
 	clitest.FakeGh(t, clitest.GhResponses{
 		Pulls: clitest.OpenPull("Add login"), StatusSequence: []string{"{", clitest.PassingStatus()},
 	})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
 
 	// Act
@@ -202,7 +202,7 @@ func TestAnnounceWhenGreenPostsNothingAnnouncedWhileItWaited(t *testing.T) {
 
 	gate := t.TempDir()
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), StatusGate: gate})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
 	home := t.TempDir()
 
@@ -249,7 +249,7 @@ func TestAnnounceWhenGreenGivesUpOnAPullRequestThatIsNoLongerTheOne(t *testing.T
 			clitest.FakeGh(t, clitest.GhResponses{
 				PullsSequence: []string{clitest.OpenPull("Add login"), tt.then}, Status: clitest.RunningStatus(),
 			})
-			repo := githubRepo(t, "fix/PROJ-2-thing")
+			repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 			clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
 
 			// Act
@@ -276,7 +276,7 @@ func TestAnnounceWhenGreenWaitsAgainWhenTheGateRefuses(t *testing.T) {
 		Pulls:          clitest.OpenPull("Add login"),
 		StatusSequence: []string{clitest.PassingStatus(), clitest.FailingStatus(), clitest.PassingStatus()},
 	})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
 
 	// Act

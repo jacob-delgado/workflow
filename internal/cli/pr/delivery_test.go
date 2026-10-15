@@ -29,7 +29,7 @@ func TestAnnounceYesDeliversTheAnnouncement(t *testing.T) {
 	var posts atomic.Int32
 
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, announcingConfig(clitest.Webhook(t, &posts)))
 
 	// Act
@@ -52,7 +52,7 @@ func TestAnnounceRemembersADeliveredAnnouncement(t *testing.T) {
 	var posts atomic.Int32
 
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, announcingConfig(clitest.Webhook(t, &posts)))
 
 	where := clitest.Place{Dir: repo, Home: t.TempDir()}
@@ -80,7 +80,7 @@ func TestAnnounceRefusedForItsChannelSaysTheFixAndNoKey(t *testing.T) {
 	clitest.FakeSlack(t, map[string]clitest.SlackAnswer{
 		clitest.SlackPostMessage: {Status: http.StatusOK, Body: `{"ok":false,"error":"not_in_channel"}`},
 	})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, clitest.SlackLoggedInConfig())
 
 	// Act
@@ -103,7 +103,7 @@ func TestAnnounceDeliveredButNotRememberedSucceedsAndSaysSo(t *testing.T) {
 	var posts atomic.Int32
 
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, announcingConfig(clitest.Webhook(t, &posts)))
 
 	where := clitest.Place{Dir: repo, Home: t.TempDir(), State: t.TempDir()}

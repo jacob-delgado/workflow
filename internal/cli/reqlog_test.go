@@ -135,7 +135,7 @@ func TestDryRunIsAPersistentFlag(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	repo := prRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.PRRepo(t, "fix/PROJ-2-thing")
 
 	// Act
 	// The flag comes before the subcommand, as it does for the interface.

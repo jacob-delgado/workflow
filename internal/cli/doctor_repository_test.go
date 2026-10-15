@@ -16,7 +16,7 @@ func TestDoctorReportsTheRepositoryItIsIn(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	gitInit(t, dir)
+	clitest.GitInit(t, dir)
 
 	root, err := filepath.EvalSymlinks(dir)
 	if err != nil {
@@ -66,12 +66,12 @@ func TestDoctorReportsADetachedHead(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	gitInit(t, dir)
+	clitest.GitInit(t, dir)
 
 	// A commit is needed before HEAD can be detached from anything.
-	git(t, dir, "-c", "user.email=test@example.com", "-c", "user.name=Test",
+	clitest.Git(t, dir, "-c", "user.email=test@example.com", "-c", "user.name=Test",
 		"commit", "--allow-empty", "--quiet", "--message", "seed")
-	git(t, dir, "-c", "advice.detachedHead=false", "checkout", "--quiet", "--detach", "HEAD")
+	clitest.Git(t, dir, "-c", "advice.detachedHead=false", "checkout", "--quiet", "--detach", "HEAD")
 
 	// Act
 	output, _ := clitest.Run(t, dir, "doctor")
@@ -87,8 +87,8 @@ func repoWithRemote(t *testing.T, remote string) string {
 	t.Helper()
 
 	dir := t.TempDir()
-	gitInit(t, dir)
-	git(t, dir, "remote", "add", "origin", remote)
+	clitest.GitInit(t, dir)
+	clitest.Git(t, dir, "remote", "add", "origin", remote)
 
 	return dir
 }
@@ -161,7 +161,7 @@ func TestDoctorSaysWhenThereIsNoRemote(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	gitInit(t, dir)
+	clitest.GitInit(t, dir)
 
 	// Act
 	output, _ := clitest.Run(t, dir, "doctor")

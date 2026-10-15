@@ -60,7 +60,7 @@ func TestDryRunLineGoesToStderr(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	repo := prRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.PRRepo(t, "fix/PROJ-2-thing")
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--dry-run")

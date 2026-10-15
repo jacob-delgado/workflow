@@ -37,10 +37,12 @@ type GhResponses struct {
 	SentLog          string // when set, each request carrying a body appends its endpoint and body here
 }
 
-// The modes the fakes write their files with: a body read, and a program run.
+// The modes the fakes write their files with: a body read, and a program run;
+// and the mode of a directory a repository's file is written into.
 const (
 	dataMode    = 0o644
 	programMode = 0o755
+	dirMode     = 0o750
 )
 
 // The routes a fake gh answers from a sequence as well as from one body.
@@ -296,9 +298,10 @@ func WriteExecutable(t *testing.T, path, contents string, mode os.FileMode) {
 	}
 }
 
-// writeData writes a file the fakes read and never run, failing the test if it
-// cannot. Unlike WriteExecutable it takes no lock: only exec'ing a file a child
-// still holds open for writing fails, and nothing execs these.
+// writeData writes a file that is read and never run, a fake's body or a
+// repository's file, failing the test if it cannot. Unlike WriteExecutable it
+// takes no lock: only exec'ing a file a child still holds open for writing
+// fails, and nothing execs these.
 func writeData(t *testing.T, path, contents string) {
 	t.Helper()
 
@@ -332,9 +335,9 @@ func PassingStatus() string {
 	return `{"total_count":1,"statuses":[{"state":"success","context":"ci","target_url":"https://x"}]}`
 }
 
-// GitlabForgeConfig points the forge at GitLab's CLI, with a webhook so
+// gitlabForgeConfig points the forge at GitLab's CLI, with a webhook so
 // announce gets past its messaging guard.
-const GitlabForgeConfig = `{"forge":{"cli":true,"kind":"gitlab","host":"gitlab.com"},` +
+const gitlabForgeConfig = `{"forge":{"cli":true,"kind":"gitlab","host":"gitlab.com"},` +
 	`"messaging":{"webhook_url":"https://hooks.slack.example/services/x"}}`
 
 // OpenMergeRequest is a listing holding merge request 7, open, as GitLab sends

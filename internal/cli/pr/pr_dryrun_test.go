@@ -45,8 +45,8 @@ func TestPRDryRunNamesNoOfferItWouldNotMake(t *testing.T) {
 	// The forge's own issues are the tracker: nothing takes a link, and no
 	// review status is configured.
 	clitest.FakeGh(t, clitest.GhResponses{})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	pretendPushed(t, repo)
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.PretendPushed(t, repo)
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act

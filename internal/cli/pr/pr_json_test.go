@@ -110,8 +110,8 @@ func TestPRAsJSONDryRunPrintsTheDraft(t *testing.T) {
 
 	// Arrange
 	clitest.FakeGh(t, clitest.GhResponses{})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeRepoFile(t, repo, ".github/pull_request_template.md", "## Checklist\n")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteRepoFile(t, repo, ".github/pull_request_template.md", "## Checklist\n")
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act

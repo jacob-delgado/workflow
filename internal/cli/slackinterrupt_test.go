@@ -113,7 +113,7 @@ func TestACtrlCStopsASlackRequestThatOutlastsItsAsker(t *testing.T) {
 			defer interrupt()
 
 			slack := interruptingSlack(t, testCase.held, interrupt)
-			repo := ownedRepo(t)
+			repo := clitest.OwnedRepo(t)
 			clitest.WriteFile(t, repo, testCase.config())
 			root := cli.NewRootCmdOver(
 				clitest.UnusedPrompt(t), nil, nil, clitest.EnvironmentFor(t, clitest.Place{Dir: repo, Home: t.TempDir()}),

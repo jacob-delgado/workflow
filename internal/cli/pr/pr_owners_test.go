@@ -17,7 +17,7 @@ func TestPRPreviewsTheCodeOwnersAsReviewers(t *testing.T) {
 
 	// Arrange
 	clitest.FakeGh(t, clitest.GhResponses{})
-	repo := ownedRepo(t)
+	repo := clitest.OwnedRepo(t)
 
 	var asked []string
 
@@ -39,7 +39,7 @@ func TestPRRequestsTheCodeOwnersReview(t *testing.T) {
 	// Arrange
 	sent := filepath.Join(t.TempDir(), "sent")
 	clitest.FakeGh(t, clitest.GhResponses{SentLog: sent})
-	repo := ownedRepo(t)
+	repo := clitest.OwnedRepo(t)
 
 	// Act
 	_, err := clitest.Run(t, repo, "pr", "--yes")
@@ -61,7 +61,7 @@ func TestPRPreviewsNoReviewersWithoutCodeOwners(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	repo := prRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.PRRepo(t, "fix/PROJ-2-thing")
 
 	// Act
 	output, err := clitest.Run(t, repo, "pr", "--dry-run")
@@ -83,17 +83,17 @@ func TestPRSaysTheMergeRequestOpenedWhenAReviewerCouldNotBeAdded(t *testing.T) {
 	// that reviewer; it is open all the same.
 	clitest.FakeGlab(t)
 	repo := t.TempDir()
-	gitInit(t, repo)
-	writeRepoFile(t, repo, "CODEOWNERS", "* @ghost\n")
-	git(t, repo, "add", ".")
-	commit(t, repo, "init")
-	git(t, repo, "branch", "-M", "main")
-	git(t, repo, "checkout", "-b", "fix/PROJ-2-thing")
-	writeRepoFile(t, repo, "api/pull.go", "package api\n")
-	git(t, repo, "add", ".")
-	commit(t, repo, "fix: guard the api")
-	git(t, repo, "remote", "add", "origin", "https://gitlab.com/owner/repo.git")
-	pretendPushed(t, repo)
+	clitest.GitInit(t, repo)
+	clitest.WriteRepoFile(t, repo, "CODEOWNERS", "* @ghost\n")
+	clitest.Git(t, repo, "add", ".")
+	clitest.Commit(t, repo, "init")
+	clitest.Git(t, repo, "branch", "-M", "main")
+	clitest.Git(t, repo, "checkout", "-b", "fix/PROJ-2-thing")
+	clitest.WriteRepoFile(t, repo, "api/pull.go", "package api\n")
+	clitest.Git(t, repo, "add", ".")
+	clitest.Commit(t, repo, "fix: guard the api")
+	clitest.Git(t, repo, "remote", "add", "origin", "https://gitlab.com/owner/repo.git")
+	clitest.PretendPushed(t, repo)
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"gitlab","host":"gitlab.com"}}`)
 
 	// Act

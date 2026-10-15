@@ -21,7 +21,7 @@ func TestASecondPullRequestIsRefusedAsErrPullAlreadyOpen(t *testing.T) {
 
 	// Arrange
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
@@ -38,8 +38,8 @@ func TestABranchWithNoCommitsIsRefusedAsErrNoCommitsToOpen(t *testing.T) {
 
 	// Arrange
 	clitest.FakeGlab(t)
-	repo := gitlabRepo(t)
-	git(t, repo, "reset", "--quiet", "--hard", "main")
+	repo := clitest.GitlabRepo(t, "fix/PROJ-2-thing")
+	clitest.Git(t, repo, "reset", "--quiet", "--hard", "main")
 
 	// Act
 	_, err := clitest.Run(t, repo, "pr", "--yes")
@@ -55,7 +55,7 @@ func TestABranchWithNoPullRequestIsRefusedAsErrNoPullRequest(t *testing.T) {
 
 	// Arrange
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: "[]"})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
 
 	// Act
@@ -74,7 +74,7 @@ func TestAWaitForTheCIOfAMergeIsRefusedAsErrOnlyReadyWaits(t *testing.T) {
 	var posts atomic.Int32
 
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.MergedPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
 
 	// Act

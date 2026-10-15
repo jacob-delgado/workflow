@@ -78,7 +78,7 @@ func progressCases() map[string]progressCase {
 
 				clitest.FakeGh(t, clitest.GhResponses{})
 				repo := workedRepository(t, "Add the widget")
-				git(t, repo, "remote", "add", "origin", "https://github.com/owner/repo.git")
+				clitest.Git(t, repo, "remote", "add", "origin", "https://github.com/owner/repo.git")
 				clitest.WriteFile(
 					t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},"taskwarrior":{"disabled":true}}`,
 				)

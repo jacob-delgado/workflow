@@ -56,11 +56,11 @@ func repoWithWorktree(t *testing.T) (string, string) {
 	}
 
 	repo := filepath.Join(parent, "api")
-	git(t, parent, "init", "--quiet", "api")
-	commit(t, repo, "init")
+	clitest.Git(t, parent, "init", "--quiet", "api")
+	clitest.Commit(t, repo, "init")
 
 	second := filepath.Join(parent, "api-other")
-	git(t, repo, "worktree", "add", "--quiet", "-b", "other", second)
+	clitest.Git(t, repo, "worktree", "add", "--quiet", "-b", "other", second)
 
 	return repo, second
 }
@@ -154,8 +154,8 @@ func TestRepositoriesNotesADetachedLockedWorktree(t *testing.T) {
 
 	// Arrange
 	repo, second := repoWithWorktree(t)
-	git(t, second, "switch", "--quiet", "--detach")
-	git(t, repo, "worktree", "lock", second)
+	clitest.Git(t, second, "switch", "--quiet", "--detach")
+	clitest.Git(t, repo, "worktree", "lock", second)
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "repositories")

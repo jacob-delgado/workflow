@@ -79,8 +79,8 @@ func TestStatusNamesTheWorkingTreeWhenItsChangesCannotBeRead(t *testing.T) {
 
 	// Arrange
 	repo := t.TempDir()
-	gitInit(t, repo)
-	commit(t, repo, "init")
+	clitest.GitInit(t, repo)
+	clitest.Commit(t, repo, "init")
 
 	err := os.WriteFile(filepath.Join(repo, ".git", "index"), []byte("not an index"), 0o600)
 	if err != nil {
@@ -102,7 +102,7 @@ func TestStatusSaysTheForgeIsNotSetUpWhenOriginNamesNone(t *testing.T) {
 	// Arrange
 	// No origin, and no Jira: the forge is not set up, and the issue, read
 	// from the forge's issues, is no number it could hold.
-	repo := prRepo(t, "fix/PROJ-9-x")
+	repo := clitest.PRRepo(t, "fix/PROJ-9-x")
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "status")

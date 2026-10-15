@@ -5,7 +5,8 @@
 // off every other: it clears the variables a git hook exports, which would
 // point every git a test starts at the hook's repository, runs git with the
 // developer's own configuration kept out, and gives the test that proves a
-// hook's environment changes nothing what it compares. Only tests import it.
+// hook's environment changes nothing what it compares. Only tests import it,
+// and internal/cli/clitest, which only tests import in turn.
 package gittest
 
 import (

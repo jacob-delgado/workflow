@@ -18,7 +18,7 @@ func TestAnnounceYesDryRunPreviewsAMomentItWouldLeaveAsItIs(t *testing.T) {
 
 	// Arrange
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
 	home := clitest.AnnouncedEarlier(t, messaging.MomentReady)
 
@@ -47,7 +47,7 @@ func TestAnnounceDryRunComposesTheReadyMoment(t *testing.T) {
 	// Arrange
 	// An open pull request with green CI is ready for review.
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
 
 	// Act
@@ -73,7 +73,7 @@ func TestAnnounceDryRunComposesTheMergedMoment(t *testing.T) {
 
 	// Arrange
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.MergedPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
 
 	// Act
@@ -93,7 +93,7 @@ func TestAnnounceDryRunNamesTheConfiguredChannel(t *testing.T) {
 
 	// Arrange
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
 		`"messaging":{"kind":"slack","client_id":"`+clitest.SlackClientID+`","channel":"#dev"}}`)
 
@@ -114,7 +114,7 @@ func TestAnnounceDryRunNamesNoChannelWhereNoneIsSet(t *testing.T) {
 
 	// Arrange
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
 		`"messaging":{"kind":"slack","client_id":"`+clitest.SlackClientID+`"}}`)
 
@@ -136,7 +136,7 @@ func TestAnnounceDryRunSaysAWebhookKeepsItsOwnChannel(t *testing.T) {
 	// Arrange
 	// A webhook posts where it is bound, whatever channel the file names.
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
 		`"messaging":{"webhook_url":"https://hooks.slack.example/services/x","channel":"#dev"}}`)
 
@@ -158,7 +158,7 @@ func TestAnnounceDryRunComposesForAKeylessBranch(t *testing.T) {
 	// Arrange
 	// The branch names no issue, so the announcement is composed without one.
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Cleanup")})
-	repo := githubRepo(t, "chore/cleanup")
+	repo := clitest.GithubRepo(t, "chore/cleanup")
 	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
 
 	// Act
@@ -182,7 +182,7 @@ func TestAnnounceDryRunWithATrackerConfigured(t *testing.T) {
 
 	jira := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-2", "Bug", "thing"), &reached)
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, `{"jira":{"base_url":"`+jira.URL+`","token":"t"},`+
 		`"forge":{"cli":true,"kind":"github","host":"github.com"},`+
 		`"messaging":{"webhook_url":"https://hooks.slack.example/services/x"}}`)
@@ -209,7 +209,7 @@ func TestAnnounceDryRunWithoutAKnownAuthor(t *testing.T) {
 	// Arrange
 	// The forge will not name the author, so the announcement reads without one.
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), UserError: true})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
 
 	// Act

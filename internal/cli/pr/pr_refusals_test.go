@@ -17,8 +17,8 @@ func TestPRReportsAFailedOpen(t *testing.T) {
 	// Arrange
 	// The branch is published, but the forge rejects the open.
 	clitest.FakeGh(t, clitest.GhResponses{CreateError: true})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	pretendPushed(t, repo)
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.PretendPushed(t, repo)
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
@@ -37,9 +37,9 @@ func TestPRReportsAFailedPush(t *testing.T) {
 	// The push remote does not exist, so the branch cannot be published and no
 	// pull request is opened.
 	clitest.FakeGh(t, clitest.GhResponses{})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	git(t, repo, "remote", "add", "push-target", filepath.Join(t.TempDir(), "nonexistent.git"))
-	git(t, repo, "config", "remote.pushDefault", "push-target")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.Git(t, repo, "remote", "add", "push-target", filepath.Join(t.TempDir(), "nonexistent.git"))
+	clitest.Git(t, repo, "config", "remote.pushDefault", "push-target")
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
@@ -59,7 +59,7 @@ func TestPRRefusesASecondPullRequest(t *testing.T) {
 	// Arrange
 	// The branch already has an open pull request, which the forge reports.
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
@@ -79,7 +79,7 @@ func TestPRRefusesASecondPullRequestInItsOwnWords(t *testing.T) {
 	// Arrange
 	// The refusal is the command line's own sentence, not the shared layer's.
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
@@ -96,7 +96,7 @@ func TestPullAlreadyOpenCarriesItsURL(t *testing.T) {
 
 	// Arrange
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
@@ -114,10 +114,10 @@ func TestPRRefusesABranchWithNoCommits(t *testing.T) {
 	// Arrange
 	// A branch level with main has nothing to propose.
 	repo := t.TempDir()
-	gitInit(t, repo)
-	commit(t, repo, "init")
-	git(t, repo, "branch", "-M", "main")
-	git(t, repo, "checkout", "-b", "fix/PROJ-2-thing")
+	clitest.GitInit(t, repo)
+	clitest.Commit(t, repo, "init")
+	clitest.Git(t, repo, "branch", "-M", "main")
+	clitest.Git(t, repo, "checkout", "-b", "fix/PROJ-2-thing")
 
 	// Act
 	_, err := clitest.Run(t, repo, "pr", "--yes")

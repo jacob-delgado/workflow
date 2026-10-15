@@ -55,14 +55,17 @@ linters:
         # internal/gittest clears git's repository variables from the whole
         # process and imports testing, which only a test's own process should
         # do: a production path that did would undo a hook's GIT_DIR for every
-        # git workflow runs.
+        # git workflow runs. internal/cli/clitest may import it, to make the
+        # repositories the command tree's tests run in, since only tests may
+        # import clitest in turn (clitest-only-in-tests).
         gittest-only-in-tests:
           files:
             - "$all"
             - "!$test"
+            - "!**/internal/cli/clitest/**"
           deny:
             - pkg: github.com/jacob-delgado/workflow/internal/gittest
-              desc: a test helper; clear git's environment and run test git only from a _test.go file
+              desc: a test helper; clear git's environment and run test git only from a _test.go file or clitest
         # internal/ptytest opens a pseudo-terminal for a test to type at, and
         # imports testing: it skips or fails the test that asked when none can
         # be opened, which only a test has to answer to.

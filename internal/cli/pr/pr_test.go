@@ -35,14 +35,14 @@ func TestPRQuestionNamesThePush(t *testing.T) {
 
 			// Arrange
 			clitest.FakeGh(t, clitest.GhResponses{})
-			repo := githubRepo(t, "fix/PROJ-2-thing")
+			repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 
 			if tt.published {
-				pretendPushed(t, repo)
+				clitest.PretendPushed(t, repo)
 			}
 
 			if tt.pushRemote != "" {
-				git(t, repo, "config", "branch.fix/PROJ-2-thing.pushRemote", tt.pushRemote)
+				clitest.Git(t, repo, "config", "branch.fix/PROJ-2-thing.pushRemote", tt.pushRemote)
 			}
 
 			clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
@@ -65,9 +65,9 @@ func TestPROpensAMergeRequestInGitLabsWords(t *testing.T) {
 
 	// Arrange
 	clitest.FakeGlab(t)
-	repo := prRepo(t, "fix/PROJ-2-thing")
-	git(t, repo, "remote", "add", "origin", "https://gitlab.com/owner/repo.git")
-	pretendPushed(t, repo)
+	repo := clitest.PRRepo(t, "fix/PROJ-2-thing")
+	clitest.Git(t, repo, "remote", "add", "origin", "https://gitlab.com/owner/repo.git")
+	clitest.PretendPushed(t, repo)
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"gitlab","host":"gitlab.com"}}`)
 
 	var asked []string
@@ -93,9 +93,9 @@ func TestPRDryRunPreviewsWithoutOpening(t *testing.T) {
 
 	// Arrange
 	clitest.FakeGh(t, clitest.GhResponses{})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	// The template becomes the body, which the preview shows in full.
-	writeRepoFile(t, repo, ".github/pull_request_template.md", "## Checklist\n\n- [ ] Tests\n")
+	clitest.WriteRepoFile(t, repo, ".github/pull_request_template.md", "## Checklist\n\n- [ ] Tests\n")
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
@@ -123,7 +123,7 @@ func TestPRComposesForABranchWithoutAnIssueKey(t *testing.T) {
 
 	// Arrange
 	// The branch names no issue, so the pull request is composed without one.
-	repo := prRepo(t, "chore/cleanup")
+	repo := clitest.PRRepo(t, "chore/cleanup")
 
 	// Act
 	output, err := clitest.Run(t, repo, "pr", "--dry-run")
@@ -146,7 +146,7 @@ func TestPRDryRunPreviewsWithATrackerConfigured(t *testing.T) {
 	var reached atomic.Bool
 
 	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-2", "Bug", "thing"), &reached)
-	repo := prRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.PRRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteConfigFor(t, repo, server.URL)
 
 	// Act
@@ -173,8 +173,8 @@ func TestPRDryRunOnAPushedBranchOmitsThePush(t *testing.T) {
 	// Arrange
 	// The branch is already published, so the dry run would only open, not push.
 	clitest.FakeGh(t, clitest.GhResponses{})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	pretendPushed(t, repo)
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.PretendPushed(t, repo)
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
@@ -197,7 +197,7 @@ func TestPRTakesItsTitleFromTheConfiguredSource(t *testing.T) {
 	// than the branch's oldest commit ("work").
 	clitest.FakeGh(t, clitest.GhResponses{})
 	baseURL, _ := reviewJira(t)
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, `{"jira":{"base_url":"`+baseURL+`","token":"t"},`+
 		`"forge":{"cli":true,"kind":"github","host":"github.com"},`+
 		`"pull_request":{"title_source":"issue"}}`)
@@ -223,7 +223,7 @@ func TestPRTitlesAForgeIssueNumberFromItsCommitWithoutAskingJira(t *testing.T) {
 	var reached atomic.Bool
 
 	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("OPS-7", "Bug", "an unrelated issue"), &reached)
-	repo := prRepo(t, "fix/42-typo")
+	repo := clitest.PRRepo(t, "fix/42-typo")
 	clitest.WriteFile(t, repo, `{"jira":{"base_url":"`+server.URL+`","token":"t"},`+
 		`"pull_request":{"title_source":"issue"}}`)
 
@@ -245,8 +245,8 @@ func TestPROpensThePullRequest(t *testing.T) {
 	// Arrange
 	// The branch is already published and has no pull request, so one is opened.
 	clitest.FakeGh(t, clitest.GhResponses{})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	pretendPushed(t, repo)
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.PretendPushed(t, repo)
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
@@ -268,8 +268,8 @@ func TestPRPrintsTheOpenedPullRequestOnStdout(t *testing.T) {
 	// The pull request's address is the artifact a script captures, so it is
 	// the one line that must be on stdout alone.
 	clitest.FakeGh(t, clitest.GhResponses{})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	pretendPushed(t, repo)
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.PretendPushed(t, repo)
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
@@ -293,9 +293,9 @@ func TestPRPushesThenOpensAnUnpublishedBranch(t *testing.T) {
 	// The branch has never been pushed, so the flow pushes it — to a local bare
 	// remote here — and then opens the pull request.
 	clitest.FakeGh(t, clitest.GhResponses{})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	// A repository template becomes the pull request body during compose.
-	writeRepoFile(t, repo, ".github/pull_request_template.md", "## Checklist\n\n- [ ] Tests\n")
+	clitest.WriteRepoFile(t, repo, ".github/pull_request_template.md", "## Checklist\n\n- [ ] Tests\n")
 	bare := localPushRemote(t, repo)
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
@@ -310,7 +310,7 @@ func TestPRPushesThenOpensAnUnpublishedBranch(t *testing.T) {
 		t.Errorf("output does not report the opened pull request:\n%s", output)
 	}
 
-	if !strings.Contains(gitOutput(t, bare, "branch", "--list", "fix/PROJ-2-thing"), "fix/PROJ-2-thing") {
+	if !strings.Contains(clitest.GitOutput(t, bare, "branch", "--list", "fix/PROJ-2-thing"), "fix/PROJ-2-thing") {
 		t.Error("the branch was not pushed to the remote before opening")
 	}
 }
@@ -324,8 +324,8 @@ func TestPRDoesNotMoveAForgeIssueNumberOnJira(t *testing.T) {
 	// unrelated issue.
 	clitest.FakeGh(t, clitest.GhResponses{})
 	baseURL, writes := reviewJira(t)
-	repo := githubRepo(t, "fix/42-typo")
-	pretendPushed(t, repo)
+	repo := clitest.GithubRepo(t, "fix/42-typo")
+	clitest.PretendPushed(t, repo)
 	clitest.WriteFile(t, repo, `{"jira":{"base_url":"`+baseURL+`","token":"t",`+
 		`"review_status":"`+clitest.StatusInReview+`"},`+
 		`"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
@@ -365,8 +365,8 @@ func TestPRPointsToAnnounceOnlyWhenMessagingIsSetUp(t *testing.T) {
 
 			// Arrange
 			clitest.FakeGh(t, clitest.GhResponses{})
-			repo := githubRepo(t, "fix/PROJ-2-thing")
-			pretendPushed(t, repo)
+			repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+			clitest.PretendPushed(t, repo)
 			clitest.WriteFile(t, repo, tt.configuration)
 
 			// Act
@@ -397,10 +397,10 @@ func localPushRemote(t *testing.T, repo string) string {
 	t.Helper()
 
 	bare := t.TempDir()
-	git(t, bare, "init", "--bare", "--quiet")
-	git(t, repo, "remote", "add", "push-target", "https://github.com/owner/repo.git")
-	git(t, repo, "config", "remote.push-target.pushurl", bare)
-	git(t, repo, "config", "remote.pushDefault", "push-target")
+	clitest.Git(t, bare, "init", "--bare", "--quiet")
+	clitest.Git(t, repo, "remote", "add", "push-target", "https://github.com/owner/repo.git")
+	clitest.Git(t, repo, "config", "remote.push-target.pushurl", bare)
+	clitest.Git(t, repo, "config", "remote.pushDefault", "push-target")
 
 	return bare
 }

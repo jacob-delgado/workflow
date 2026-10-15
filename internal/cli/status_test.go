@@ -59,10 +59,10 @@ func featureRepo(t *testing.T) string {
 	t.Helper()
 
 	repo := t.TempDir()
-	gitInit(t, repo)
-	git(t, repo, "-c", "user.email=t@example.com", "-c", "user.name=Tester", "commit", "--allow-empty", "-m", "init")
-	git(t, repo, "checkout", "-b", "fix/PROJ-2-thing")
-	git(t, repo, "-c", "user.email=t@example.com", "-c", "user.name=Tester", "commit", "--allow-empty", "-m", "work")
+	clitest.GitInit(t, repo)
+	clitest.Commit(t, repo, "init")
+	clitest.Git(t, repo, "checkout", "-b", "fix/PROJ-2-thing")
+	clitest.Commit(t, repo, "work")
 
 	return repo
 }
@@ -108,7 +108,7 @@ func TestStatusExitsAlikeOutsideARepository(t *testing.T) {
 func statusFeatureRepo(t *testing.T, jiraURL string) string {
 	t.Helper()
 
-	repo := githubRepo(t, "fix/PROJ-7-login")
+	repo := clitest.GithubRepo(t, "fix/PROJ-7-login")
 	clitest.WriteFile(t, repo, `{"jira":{"base_url":"`+jiraURL+`","token":"t"},`+
 		`"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
@@ -349,7 +349,7 @@ func TestStatusInASCII(t *testing.T) {
 	// Arrange
 	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: clitest.PassingStatus()})
-	repo := githubRepo(t, "fix/PROJ-7-login")
+	repo := clitest.GithubRepo(t, "fix/PROJ-7-login")
 	clitest.WriteFile(t, repo, `{"ui":{"ascii":true},"jira":{"base_url":"`+server.URL+`","token":"t"},`+
 		`"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
@@ -371,9 +371,9 @@ func TestStatusOnTheBaseBranchIsNotStarted(t *testing.T) {
 	// Arrange
 	// A repository sitting on its base branch, with no issue and no work begun.
 	repo := t.TempDir()
-	gitInit(t, repo)
-	git(t, repo, "-c", "user.email=t@example.com", "-c", "user.name=Tester", "commit", "--allow-empty", "-m", "init")
-	git(t, repo, "branch", "-M", "main")
+	clitest.GitInit(t, repo)
+	clitest.Commit(t, repo, "init")
+	clitest.Git(t, repo, "branch", "-M", "main")
 
 	// Act
 	output, err := clitest.Run(t, repo, "status")
@@ -393,7 +393,7 @@ func TestStatusDegradesEachServiceOnAFeatureBranch(t *testing.T) {
 	// Arrange
 	// A feature branch for an issue, but neither Jira nor the forge is configured
 	// to answer, so each service's stage degrades rather than failing the line.
-	repo := prRepo(t, "fix/PROJ-9-x")
+	repo := clitest.PRRepo(t, "fix/PROJ-9-x")
 
 	// Act
 	output, err := clitest.Run(t, repo, "status")

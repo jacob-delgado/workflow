@@ -53,7 +53,7 @@ func TestConfirmWithoutATerminalNamesYes(t *testing.T) {
 
 	// Arrange
 	// Stdin is piped and empty, so the confirmation reads end-of-file.
-	repo := prRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.PRRepo(t, "fix/PROJ-2-thing")
 	closed := cmdkit.Prompt{Line: func(string) (string, error) { return "", io.EOF }}
 
 	// Act
