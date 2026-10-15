@@ -307,7 +307,9 @@ func checkFailedWayOn(moment messaging.Moment) string {
 }
 
 // failedChecks names the checks that failed in ci, in brackets after a space,
-// or nothing where the forge named none, as GitLab's pipeline does not.
+// or nothing where the forge named none as failed. No forge does that today for
+// CI that failed: GitHub fails CI only by a failed check, and GitLab names its
+// pipeline when it can read no failed job.
 func failedChecks(ci forge.CI) string {
 	var names []string
 
