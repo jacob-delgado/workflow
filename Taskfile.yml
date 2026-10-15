@@ -382,6 +382,7 @@ tasks:
       - task: lint:checksums
       - task: lint:goroutines
       - task: lint:tradeoffs
+      - task: lint:techdebtpaths
       - task: lint:layout
       - task: docs:check
       - task: gen:verify
@@ -515,6 +516,11 @@ tasks:
     desc: Check the trade-off register's shape, and that every site comment names an entry
     cmds:
       - scripts/check-tradeoffs.sh
+
+  lint:techdebtpaths:
+    desc: Check that every repository path TECH_DEBT.md names in backticks is tracked
+    cmds:
+      - scripts/check-tech-debt-paths.sh
 
   lint:layout:
     desc: Check that CLAUDE.md's layout names every Go package, and no directory that is gone

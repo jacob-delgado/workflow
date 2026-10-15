@@ -32,7 +32,10 @@ callers' tests.
   `expect_output <want> <name> <text> <command>...`, where `<want>` is `pass`,
   `fail` or an exact status; `run_in <dir>` runs a command from a directory,
   `count_case` and `fail_case` count a case a test checks itself, and
-  `finish_tests` ends the run with its summary.
+  `finish_tests` ends the run with its summary. A test that outgrows its file
+  keeps `<name>_test.sh` and moves a behavior's cases to a
+  `<name>_<behavior>_test.sh` beside it, the two sharing their fixtures in
+  `lib/<name>-fixtures.sh`, as `check-tech-debt-paths.sh`'s do.
 - **`hook-environment_test.sh` is the one runner** (`task test:scripts`): it
   runs every `*_test.sh` and `release/*_test.sh` once under a hook's git
   environment naming a sentinel repository, and fails if the sentinel
