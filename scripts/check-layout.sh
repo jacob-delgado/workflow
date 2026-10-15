@@ -21,6 +21,10 @@
 #   counts the moment it is `git add`ed.
 set -euo pipefail
 
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/layout.sh
+source "${here}/lib/layout.sh"
+
 if (($# > 0)); then
   sed -n '3,7p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
   exit 2
@@ -40,14 +44,7 @@ if [[ ! -f "${guide}" ]]; then
   exit 2
 fi
 
-# The layout is the ```text block that follows the line `Layout:`; each of its
-# lines starts with a directory and its trailing slash.
-named="$(awk '
-  /^Layout:$/ { after = 1; next }
-  after && /^```text$/ { inside = 1; next }
-  inside && /^```$/ { exit }
-  inside && $1 ~ /\/$/ { sub(/\/$/, "", $1); print $1 }
-' "${guide}" | sort -u)"
+named="$(layout_dirs "${guide}" | sort -u)"
 
 if [[ -z "${named}" ]]; then
   echo "check-layout: ${guide} has no layout block (a \`\`\`text block after 'Layout:') to compare with." >&2
