@@ -50,18 +50,26 @@ func TestPullRequestTitleFromTheChosenSource(t *testing.T) {
 
 	cases := map[string]struct {
 		source       convention.TitleSource
+		subjects     []string
 		key, summary string
 		want         string
 	}{
 		"the commit source takes the oldest commit": {
-			source: convention.TitleFromCommit, key: projKey, summary: issueSummary, want: redactSubject,
+			source: convention.TitleFromCommit, subjects: subjects, key: projKey, summary: issueSummary,
+			want: redactSubject,
 		},
 		"the issue source takes the issue over the commit": {
-			source: convention.TitleFromIssue, key: projKey, summary: issueSummary,
+			source: convention.TitleFromIssue, subjects: subjects, key: projKey, summary: issueSummary,
 			want: "PROJ-412: Fix token redaction",
 		},
 		"the issue source falls back to the commit without an issue": {
-			source: convention.TitleFromIssue, key: "", summary: "", want: redactSubject,
+			source: convention.TitleFromIssue, subjects: subjects, key: "", summary: "", want: redactSubject,
+		},
+		"the issue source falls back to the commit when the summary is unknown": {
+			source: convention.TitleFromIssue, subjects: subjects, key: projKey, summary: "", want: redactSubject,
+		},
+		"the issue source falls back to the summary with no issue and no commit": {
+			source: convention.TitleFromIssue, subjects: nil, key: "", summary: issueSummary, want: issueSummary,
 		},
 	}
 
@@ -70,7 +78,7 @@ func TestPullRequestTitleFromTheChosenSource(t *testing.T) {
 			t.Parallel()
 
 			// Act & Assert
-			if got := convention.PullRequestTitleFrom(tt.source, subjects, tt.key, tt.summary); got != tt.want {
+			if got := convention.PullRequestTitleFrom(tt.source, tt.subjects, tt.key, tt.summary); got != tt.want {
 				t.Errorf("PullRequestTitleFrom(%q) = %q, want %q", tt.source, got, tt.want)
 			}
 		})
@@ -154,6 +162,8 @@ func TestWithIssueLineAddsTheIssueToAPullRequestThatDoesNotNameIt(t *testing.T) 
 		"a Jira-like key": {body: "PR-42", key: "42", want: "PR-42\n\nCloses #42\n", changed: true},
 		"an anchor":       {body: "docs#42", key: "42", want: "docs#42\n\nCloses #42\n", changed: true},
 		"a mention":       {body: "Follows (#42).", key: "42", want: "Follows (#42).", changed: false},
+		// A key neither tracker writes names no issue, so there is none to add.
+		"a key no tracker writes": {body: "ran tests", key: "0", want: "ran tests", changed: false},
 		"the issue's URL": {
 			body: "See https://github.com/o/r/issues/42", key: "42", want: "See https://github.com/o/r/issues/42",
 			changed: false,
