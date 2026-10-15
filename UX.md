@@ -10,19 +10,22 @@ says what happens today, what could happen instead, where the change would
 land, and how to tell when it is done. The numbering continues from the entries that
 have since shipped, so an ID is never reused.
 
-Checked against commit `38cfba25` on 2026-10-14, main after the UX
-refresh: every pointer was found again there and its line moved to where
-its symbol now stands, the promises' counts were taken again by the recipe
-under their table, and what stays open across the surfaces was listed
-afresh. The entries and the rest of the prose were last audited in full at
-`e5156e3` on 2026-10-06, the `claude/wizardly-babbage-lptyxi-ux2` branch
-where the Summary's post on every surface, the web's answer to the
-terminal's keys and both interfaces' first-run setup shipped; the commits
-since then edited the sections they changed as they landed, the refresh's
-among them (the track, the visual system, the dialogs, the directory
-picker and Settings). An entry they closed is gone, and one they narrowed
-says only what is left. Line numbers drift, so every pointer also names the
-symbol it means.
+Checked against commit `edc25ce` on 2026-10-15, main after the terminal's
+quiet input, the lifetime plumbing and the web server's Taskwarrior handlers
+moved into packages of their own, which the directory picker and Settings'
+refused rows, brought together on both interfaces, landed shortly before:
+every pointer was found again there and its line moved to where its symbol
+now stands, the promises' counts were taken again by the recipe under their
+table, and the differences kept across the surfaces were listed afresh, the
+picker's and Settings' among them. The entries and the rest of the prose
+were last audited in full at `e5156e3` on 2026-10-06, the
+`claude/wizardly-babbage-lptyxi-ux2` branch where the Summary's post on
+every surface, the web's answer to the terminal's keys and both interfaces'
+first-run setup shipped; the commits since then edited the sections they
+changed as they landed, the refresh's among them (the track, the visual
+system, the dialogs, the directory picker and Settings). An entry they
+closed is gone, and one they narrowed says only what is left. Line numbers
+drift, so every pointer also names the symbol it means.
 
 ## How this was produced
 
@@ -194,15 +197,15 @@ them.
 
 The terminal states its own rules, in its docs and in its code. This table
 is the shortest summary of how far the screen keeps them, re-counted at
-`38cfba25`.
+`edc25ce`.
 
 | The promise | Where it is made | Kept? |
 | --- | --- | --- |
-| "`?` lists every key" | `docs/content/docs/usage.md:109` | **Yes, by construction, and a test enumerates every placement.** Help is generated from the bindings (`helpBuilder.place`, `internal/tui/keys.go:174`, rendered in two columns split where they balance, `balancedSplit`, `internal/tui/help.go:166`): 104 placements — 94 `builder.bind` and 10 `builder.bindShown` calls — in 15 groups (`groupMoving` to `groupPanesAndOverlays`, `internal/tui/keys.go:108`), on 103 lines, since `cycle-type-right` has no help of its own and rides `cycle-type-left`'s line (`internal/tui/keys.go:271`). `TestHelpListsEveryPlacedBinding` (`internal/tui/help_test.go:309`) reads `?` back and holds it to a table of every placement. |
+| "`?` lists every key" | `docs/content/docs/usage.md:110` | **Yes, by construction, and a test enumerates every placement.** Help is generated from the bindings (`helpBuilder.place`, `internal/tui/keys.go:174`, rendered in two columns split where they balance, `balancedSplit`, `internal/tui/help.go:166`): 104 placements — 94 `builder.bind` and 10 `builder.bindShown` calls — in 15 groups (`groupMoving` to `groupPanesAndOverlays`, `internal/tui/keys.go:108`), on 103 lines, since `cycle-type-right` has no help of its own and rides `cycle-type-left`'s line (`internal/tui/keys.go:271`). `TestHelpListsEveryPlacedBinding` (`internal/tui/help_test.go:309`) reads `?` back and holds it to a table of every placement. |
 | "the one way the interface says something broke" | `wording`, `internal/tui/errorwords.go:28` | **Yes: every site that renders an error's text.** Each is told through `errorSentence` (`internal/tui/errorwords.go:67`) and drawn by one of nine helpers — those that draw a mark choose it, and its style, through `voice` (`internal/tui/failure.go:79`), the footer's two failure notices through `markOf` (`:67`), which asks the same `loop.NotSetUp`: `failureBlock` at 22 sites, `pinnedOutcome` 18, `pinnedProblem` 2, `failureLine` 19, `failureSummary` 9, `unreadRow` 3, `noticedFailure` 15, `noticedFailureLedBy` 3 and `noticedGuidance` 7 (plain, since red means something broke). They are also the one way the terminal says something was never set up: as guidance, with `○` and no red, in `loop.SetUpAdvice`'s words (`setUp`, `internal/tui/errorwords.go:129`), as principle 4 asks. |
 | "Nothing outward facing is sent without" a last look | `commentPreview`, `internal/tui/comment.go:53` | **Yes, under principle 2.** Every write that leaves the machine or cannot be taken back waits on a preview or a confirmation, most through `lastLook` (`internal/tui/overlay.go:220`): every write to Jira, the forge and the messaging service, every push, Taskwarrior's sync, mark done and undo, forgetting a person and every directory switch. The reversible local toggles principle 2 names act at once. |
 | "a refused change must never go unseen" | `statusPicker`, `internal/tui/picker.go:328` | **Yes: 19 of 19.** Every overlay that sends a request refuses every key while it is in flight and keeps a refusal where it happened until `esc`: `branchCreator`, `branchLinker`, `branchPicker`, `commentPreview`, `finishPreview`, `hookgenOffer`, `issueLinker`, `issueWrite`, `lastLook`, `mergePicker`, `messagingPreview`, `peopleOverlay`, `prComposer`, `prEditor`, `settingsForm` (each refused setting marked under its own row until that setting is edited or a save is sent), `setupForm` (`internal/tui/setupform.go:264`, while it writes or checks), `statusPicker` (with its field form), `summaryPost` and `taskLine`. |
-| "Each pane fails on its own" | `docs/content/docs/usage.md:117` | **Yes.** `Init` (`internal/tui/tui.go:214`) batches eight loads, and the Summary and Repositories panes read on first focus (Init reads Repositories too when it starts focused there, `internal/tui/tui.go:224`); each pane holds and renders its own load's error, the Summary per source, and says of a service never set up how to set it up. |
+| "Each pane fails on its own" | `docs/content/docs/usage.md:118` | **Yes.** `Init` (`internal/tui/tui.go:215`) batches eight loads, and the Summary and Repositories panes read on first focus (Init reads Repositories too when it starts focused there, `internal/tui/tui.go:225`); each pane holds and renders its own load's error, the Summary per source, and says of a service never set up how to set it up. |
 | State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:19` | **Yes.** `unicodeGlyphs` and `asciiGlyphs` differ in shape (`internal/tui/glyphs.go:48`, `:65`); `NO_COLOR` keeps bold and faint. Two residues: the progress spine's five system hues are color-only, mitigated by each system's name or initial, and `◐` means both "partly staged" and "announces when CI passes" (see the visual system). |
 
 To re-count rather than trust these numbers: `grep -o '\bfailureBlock('
@@ -230,8 +233,8 @@ delay, and undo.
 Impact: low · Effort: medium
 
 **Today.** `NO_COLOR` and `ui.color: never` keep bold and faint
-(`UI.DrawColor`, `internal/config/ui.go:113`; `Model.WithoutColor`,
-`internal/tui/options.go:54`); `ui.ascii` swaps glyphs and borders
+(`UI.DrawColor`, `internal/config/ui.go:115`; `Model.WithoutColor`,
+`internal/tui/options.go:56`); `ui.ascii` swaps glyphs and borders
 (`asciiGlyphs`, `internal/tui/glyphs.go:65`); escapes in server text are
 neutralized. But there is no screen-reader mode; the alternate screen is
 unconditional (`Model.View`, `internal/tui/render.go:38`, `view.AltScreen
@@ -243,8 +246,8 @@ and nothing offers a plain mode that prints a line at a time
 instead; the command line is the only other way in.
 
 **Instead.** `ui.alt_screen: false` for inline rendering; `ui.color:
-always`, which `Config.validateUI` (`internal/config/ui.go:134`) and the
-`UIConfig.color` enum (`api/openapi.yaml:5461`) refuse until they list it;
+always`, which `Config.validateUI` (`internal/config/ui.go:137`) and the
+`UIConfig.color` enum (`api/openapi.yaml:5463`) refuse until they list it;
 `ui.detail_delay` in milliseconds.
 
 **Done when.** Each setting is read and honored by a screen test.
@@ -403,6 +406,55 @@ each recorded where it is kept:
   request on it, and complete it on a merge or a move to done; the web
   leaves each to the Tasks card's and the Tasks section's buttons, pressed
   when you choose (web.md's "What stays in the terminal").
+
+Seven more are kept by the maintainer's rule for the two interfaces: each
+surface does what serves it best, and parity is best effort. Five are the
+directory picker's, as the terminal's (`dirPicker`,
+`internal/tui/dirpicker.go`, its rows in `dirrows.go`) and the web's
+(`DirectoryDialog`, `web/src/features/repositories/DirectoryDialog.tsx`)
+read a listing asked again by the name typed, for a hidden directory or
+one past where the whole listing stopped (#279); two are Settings', as
+each answers a refused save (#278):
+
+- **The whole listing failed, the narrowed one answered.** Both say the
+  failure beside the narrowed listing's directories, and either goes into
+  one, so a hidden directory such as `.config` can be reached before the
+  whole listing reads cleanly. The terminal counts none of them, since they
+  are not all there is (`dirPicker.heading`); the web counts them, as "1 of
+  1 in ~/src", under the failure.
+- **The narrowed listing refused while the whole one is still out.** The web
+  shows the refusal beside "Reading ~/src…" (`Said`); the terminal says it is
+  reading, and shows the refusal once the whole listing answers
+  (`dirPicker.status`).
+- **The count while a narrowed listing is out.** The terminal drops its "N of
+  M" and says it is reading until both listings have answered; the web keeps
+  its count line, over the whole listing and the last narrowed answer
+  standing in (`useDirectories`,
+  `web/src/features/repositories/repositoriesApi.ts`).
+- **The lines past the cap while a listing is out.** While the whole listing
+  is out, the web holds back its "First N shown" and "N more match" lines
+  with its count; the terminal still draws "N more match; keep typing to
+  narrow" among its rows, from what it holds (`dirPicker.drawnRows`). While
+  only the narrowed one is out, both draw "N more match", but the terminal
+  says it is reading where it would say "first N shown"
+  (`dirPicker.status`), and the web keeps that line for a listing cut short
+  (TRADE-49).
+- **A narrowed read that failed, as the stand-in.** While the next narrowed
+  listing is read, the last narrowed listing to answer stands in for it, if
+  it was of the same directory. The terminal takes a failed one too, so
+  meanwhile it shows only the whole listing's matches
+  (`dirPicker.standingIn`); the web stands in only what answered, so a
+  failed read is skipped and the last listing that answered stays.
+- **How many settings are left to fix.** The web's save bar says "N unsaved
+  changes, M to fix in" and the sections
+  (`web/src/features/settings/SaveBar.tsx`); the terminal's Settings has no
+  such line, and marks each refused setting under its own row instead
+  (`settingsForm.rowLines`, `internal/tui/settingsrefusals.go`).
+- **A save held back that names no row.** When Settings' own check holds a
+  save back, names no setting a row stands for, and no refusal before it
+  still stands, the terminal's cursor stays where it was
+  (`settingsForm.onFirstOf`); the web takes the focus to `jira.base_url`
+  (`web/src/features/settings/SettingsPanel.tsx`).
 
 The rule the last looks follow was chosen by the maintainer: **confirm
 what leaves the machine or cannot be undone; a reversible local toggle

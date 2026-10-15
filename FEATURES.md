@@ -9,16 +9,21 @@ and a later Claude Code session asked to "pick up" an entry by its ID. Each
 entry therefore says why it matters, which files it would touch, and how to
 tell when it is done.
 
-Checked against commit `f05ae9f` on 2026-09-24. Its entries were read at
-that commit; every pointer was checked again against the symbol it names
-at `cac1adf` on 2026-10-06, the `docs/ux-refresh` branch, where the web's
-review actions and its memory of what was announced shipped and left this
-file, and again at `e5156e3` on 2026-10-06, the
-`claude/wizardly-babbage-lptyxi-ux2` branch, where the Summary's post on
-every surface and the `summary` command shipped and left it too. This edition also tracked the fixes made on that branch
-since, from a Summary refused when too long for its service to the
-terminal telling what was never set up as guidance. Line numbers drift,
-so every pointer also names the symbol it means.
+Checked against commit `edc25ce` on 2026-10-15, main after the terminal's
+quiet input, the lifetime plumbing and the web server's Taskwarrior
+handlers moved into packages of their own: every path was found again
+there, every pointer read at its line and moved to where its symbol now
+stands, and FEAT-87's file budgets counted again. Its entries were first
+read at `f05ae9f` on 2026-09-24; every pointer was checked again against
+the symbol it names at `cac1adf` on 2026-10-06, the `docs/ux-refresh`
+branch, where the web's review actions and its memory of what was
+announced shipped and left this file, and again at `e5156e3` on
+2026-10-06, the `claude/wizardly-babbage-lptyxi-ux2` branch, where the
+Summary's post on every surface and the `summary` command shipped and left
+it too. That edition also tracked the fixes made on that branch since,
+from a Summary refused when too long for its service to the terminal
+telling what was never set up as guidance. Line numbers drift, so every
+pointer also names the symbol it means.
 
 ## How to read an entry
 
@@ -97,9 +102,9 @@ Impact: low · Effort: small
 
 - Why: a commit that pairs or lands under a DCO needs its trailers typed by
   hand. `CommitConvention.Message` takes only the subject, body and issue key
-  (`internal/convention/commit.go:159`), and the composer's fields are type,
+  (`internal/convention/commit.go:162`), and the composer's fields are type,
   scope, subject, body and a breaking toggle (`commitComposer`,
-  `internal/tui/composer.go:51`) — no trailer among them.
+  `internal/tui/composer.go:55`) — no trailer among them.
 - Touches: `internal/convention/commit.go` (trailers on `Message`),
   `internal/tui/composer.go` (a co-author picker over recent authors and a
   sign-off toggle), `internal/gitrepo` (the recent authors).
@@ -130,9 +135,9 @@ Impact: medium · Effort: medium
   every surface (`loop.DeliverSeams.Post` and `loop.Delivery`, in
   `internal/loop/announce.go`, which the interface's
   `seams.Messaging.Post`, `announceSeams.Deliver` in
-  `internal/cli/announce.go` and the web server's `Deps.Post`, through
-  `server.Announce`, all post through), and the *Each announcement is its
-  own message* limit in `docs/content/docs/usage.md`.
+  `internal/cli/announce.go` and the web server's `Deps.Messaging.Post`,
+  through `server.Announce`, all post through), and the *Each announcement
+  is its own message* limit in `docs/content/docs/usage.md`.
 - Done when: the second announcement of a pull request is posted as a reply
   to the first when a user token is configured; with a webhook it posts
   top-level and the preview says why; the store still holds no token.
@@ -144,7 +149,7 @@ Impact: medium · Effort: medium
 Impact: medium · Effort: large
 
 - Why: Every write workflow makes is told once, in a notice that the next
-  action clears (`Model.noticed`, `internal/tui/overlay.go:181`) or an
+  action clears (`Model.noticed`, `internal/tui/overlay.go:172`) or an
   outcome line beside a button, and then is gone. After a burst — a
   branch, three stages, a commit, a push, a pull request, a link, a move,
   an announcement — nothing shows what was done or where, and nothing
@@ -164,14 +169,14 @@ Impact: medium · Effort: large
   from the header); the clients that need a delete:
   `internal/jira` (a comment's id, which `Comment` does not carry today,
   `internal/jira/detail.go:24`, and `DELETE` on it; a worklog's id, which
-  `Worklog` already carries, `internal/jira/worklog.go:13`),
+  `Worklog` already carries, `internal/jira/worklog.go:12`),
   `internal/forge` (a comment's id, `IssueComment` at
-  `internal/forge/issues.go:47` carrying none, and its delete).
+  `internal/forge/issues.go:48` carrying none, and its delete).
 - What can be undone, and how: stage and unstage, each other
-  (`Repository.Unstage`, `internal/gitrepo/status.go:205`); favorite and
+  (`Repository.Unstage`, `internal/gitrepo/status.go:207`); favorite and
   unfavorite (`DELETE /api/repositories/favorites`); a task's start,
   stop, done, add, annotate or modify, through Taskwarrior's own undo
-  (`Client.Undo`, `internal/taskwarrior/write.go:82`) only while it is
+  (`Client.Undo`, `internal/taskwarrior/write.go:78`) only while it is
   still Taskwarrior's last change, which the row checks first; an issue's
   move, by moving it back when Jira offers a transition to the old status
   from the new one (`Transitions`, `internal/jira/transitions.go:61`) —
@@ -179,13 +184,13 @@ Impact: medium · Effort: large
   assigning the issue to whoever had it, which the record keeps; a
   comment or a worklog, by deleting it; a branch or a worktree just made
   and not yet pushed, by removing it once nothing is uncommitted; a branch
-  link, by unlinking it (`Git.UnlinkIssue`, `internal/seams/seams.go:128`).
+  link, by unlinking it (`Git.UnlinkIssue`, `internal/seams/seams.go:137`).
 - What cannot, said on the row: a push (taking it back would be a force
   push to a shared remote); a merge (its reversal is a revert, a new pull
   request); finishing a branch (`branch -D`; the commits stay reachable
   from the base); a pull request opened or edited, which the forge keeps;
   a commit or an amend once pushed; and a post: `Client.Post` returns
-  only an error (`internal/messaging/post.go:87`), so there is nothing to
+  only an error (`internal/messaging/post.go:90`), so there is nothing to
   delete a Slack message by until FEAT-81 decodes its timestamp, and a
   Slack, Teams, Discord or plain webhook post cannot be taken back through
   this package at all.
@@ -201,10 +206,16 @@ Impact: medium · Effort: large
   settles. The record holds no text a user typed — a comment's body, a
   commit message — only what it was done to and the link, and no
   credential, since everything recorded is a credential-free identifier;
-  the test that a token cannot reach a record ships with it. `internal/tui`
-  (62 of 62) and `web/src/shell` (12 of 12) are at their file budgets
-  (`scripts/package-size-budgets.txt`), so the overlay and the drawer each
-  come with a budget bump and its reason, or a home elsewhere.
+  the test that a token cannot reach a record ships with it. Where it
+  lands is near its file budgets (`scripts/package-size-budgets.txt`,
+  counted by `scripts/check-package-size.sh --list`): `internal/loop` (16
+  of 16), `internal/wiring` (14 of 14) and `internal/tui` (91 of 91) are
+  ratcheted at their counts, so a file added to any of them, the overlay
+  among them, comes with a budget bump and its reason, as does
+  `internal/forge` (18 of 18, ratcheted) unless its comment delete lands
+  in a file it has; `internal/webserver` (35 of a cohesive 40) has room
+  for the handlers; and `internal/jira` (11) and `web/src/shell` (11),
+  unlisted, answer to the default of 12, so each has room for one more.
 - Done when: after a screen test stages a file, comments and moves an
   issue, the overlay lists the three newest first with their links; `u`
   on the comment, after its last look, calls the fake Jira's delete with
@@ -271,14 +282,14 @@ Impact: low · Effort: medium
 
 - Why: a view on `sprint in openSprints()` already lists what is left this
   sprint — the configuration guide's *Sprint board* example
-  (`docs/content/docs/configuration.md:233`) — but flat, one row per issue
-  with a status glyph, in update order (`issueList.render`,
+  (`docs/content/docs/configuration.md:277`) — but flat, one row per issue
+  with a status glyph, in update order (`issueList.listing`,
   `internal/tui/issues.go:270`). What is missing is grouping by status: how
   much is to do, in progress or in review is read by scanning glyphs.
 - Touches: `internal/tui/issues.go` (status headings in the list), and
   `internal/jira`'s Agile API only for what JQL cannot give — the sprint's
   name and dates in the heading.
-- Done when: the Sprint view (`jira.views`, `internal/config/config.go:73`)
+- Done when: the Sprint view (`jira.views`, `internal/config/config.go:90`)
   renders its issues under status headings.
 
 ## Build and platform

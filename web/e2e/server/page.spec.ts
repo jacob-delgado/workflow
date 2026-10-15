@@ -11,7 +11,7 @@ test('the page the server serves loads themed, with nothing its content policy r
   // Arrange
   // The console is heard from the start, so a refusal while the page loads is
   // caught.
-  const refusals = heardRefusals(page)
+  const refusals = await heardRefusals(page)
   await pinTheme(page, 'dark')
 
   // Act
@@ -59,7 +59,7 @@ test('the palette and the sheet open under the content policy, in the page’s o
   page,
 }) => {
   // Arrange
-  const refusals = heardRefusals(page)
+  const refusals = await heardRefusals(page)
   await openServed(page)
   await openSection(page, 'Branch')
 

@@ -575,9 +575,12 @@ twinned, never which days were worked. Decided 2026-10-05, in #175: nearly all
 of it is the Gregorian calendar, whose rules do not change, and the one rule
 of workflow's own, that a whole month or year steps as one, is a few lines.
 The browsers the web supports are the latest two versions of Chrome, Edge,
-Firefox and Safari, written as the `browserslist` in `web/package.json`, which
-`npx browserslist` in `web/` resolves to versions; decided 2026-10-14 by the
-maintainer, so the trigger below names something that can be checked.
+Firefox and desktop Safari, written as the `browserslist` in
+`web/package.json`, which `npx browserslist` in `web/` resolves to versions;
+decided 2026-10-14 by the maintainer, so the trigger below names something
+that can be checked. Safari is desktop Safari alone, browserslist's `Safari`,
+and never iOS Safari, `ios_saf`: the page is only ever served on 127.0.0.1,
+to a browser on the machine `workflow --web` runs on.
 
 **Cost.** A change to how a period steps is made twice, against one shared
 case file that fails whichever copy disagrees with it; a mistake in one copy's
@@ -1079,10 +1082,16 @@ sends, fail on any refusal while they open each part: `e2e/server/page.spec.ts`
 opens the palette, an Autocomplete in a Dialog, and the shortcut sheet, a
 Dialog; `e2e/server/policy.spec.ts` walks every one of Settings' Tabs and opens
 the tag picker's Combobox with its list of members shown, answering the reads
-that fill both itself, since the fixture has no configuration, Slack or forge.
-A refusal from a state those specs never reach, such as a list with nothing
-matching, from the directory picker's own Autocomplete, which none opens, or
-from a part the page takes up later, is still heard by no spec.
+that fill both itself, since the fixture has no configuration, Slack or forge,
+and opens the directory picker's Autocomplete, in its Dialog, three times over
+the fixture's own directories: once listing the directories above the
+repository, once on the repository, whose listing holds none, and once
+naming a directory that is not there, whose list is left empty.
+`page.spec.ts` runs on Chromium, Firefox and WebKit, and `policy.spec.ts` on
+Chromium alone. A refusal from a state those specs never reach, such as the
+tag picker's list with no member matching, from a part the page takes up
+later, or one only Gecko or WebKit reports from Settings' Tabs, the tag
+picker or the directory picker, is still heard by no spec.
 
 **Reopen when.** A choice needs more than a native `<select>` can draw, or the
 server gains a per-request nonce that the page could hand to `CSPProvider`.
