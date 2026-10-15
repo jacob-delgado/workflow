@@ -483,23 +483,3 @@ func subcommands(prompt Prompt) []*cobra.Command {
 		newSlackCmd(prompt), newDBCleanCmd(prompt),
 	}
 }
-
-// loadFromEnvironment loads the configuration that applies where cmd runs,
-// searching up from its working directory to the repository root and then
-// the home directory. A missing or unreadable file, or a working directory
-// that cannot be named, is reported through the error.
-func loadFromEnvironment(cmd *cobra.Command) (config.Config, error) {
-	workDir, err := workingDir(cmd)
-	if err != nil {
-		return config.Config{}, err
-	}
-
-	return config.Load(workDir, configHome(cmd))
-}
-
-// configHome is the home directory a configuration falls back to, or "" for
-// none. A machine without a home directory is unusual but not a failure: the
-// working directory alone is still a valid place to find a configuration.
-func configHome(cmd *cobra.Command) string {
-	return environmentOf(cmd).Process.Home
-}
