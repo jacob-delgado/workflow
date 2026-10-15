@@ -41,6 +41,27 @@ func TestAnnounceYesDryRunPreviewsAMomentItWouldLeaveAsItIs(t *testing.T) {
 	}
 }
 
+func TestAnnounceYesDryRunSaysItWouldAnnounceAMomentNotYetAnnounced(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
+
+	// Act
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--yes", "--dry-run")
+	// Assert
+	if err != nil {
+		t.Fatalf("announce --yes --dry-run: %v (%+v)", err, printed)
+	}
+
+	if !strings.Contains(printed.Stderr, "dry run: would announce to") ||
+		strings.Contains(printed.Stderr, "would not announce it again") {
+		t.Errorf("stderr = %q, want it to say it would announce a moment not yet announced", printed.Stderr)
+	}
+}
+
 func TestAnnounceDryRunComposesTheReadyMoment(t *testing.T) {
 	t.Parallel()
 

@@ -297,3 +297,29 @@ func TestPRYesHelpNamesEverythingItAnswers(t *testing.T) {
 		}
 	}
 }
+
+func TestPRNamesNoNextStepAfterAFailedLink(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Messaging is set up, but the open's follow-up failed, so the command
+	// fails rather than pointing on to the announcement.
+	clitest.FakeGh(t, clitest.GhResponses{})
+	baseURL, _ := reviewJiraAnswering(t, reviewMoves,
+		jiraAnswers{link: http.StatusInternalServerError, transition: http.StatusNoContent})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.PretendPushed(t, repo)
+	clitest.WriteFile(t, repo, `{"jira":{"base_url":"`+baseURL+`","token":"t",`+
+		`"review_status":"`+clitest.StatusInReview+`"},`+
+		`"forge":{"cli":true,"kind":"github","host":"github.com"},`+
+		`"messaging":{"webhook_url":"https://hooks.slack.example/services/x"}}`)
+
+	// Act
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes")
+
+	// Assert
+	if err == nil || strings.Contains(printed.Stderr, "Announce it with workflow announce") {
+		t.Errorf("pr with a failed link = %v, said %q; want it to fail without naming the next step",
+			err, printed.Stderr)
+	}
+}

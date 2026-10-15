@@ -339,3 +339,34 @@ func TestAnnounceWhenGreenWaitsAgainWhenTheGateRefuses(t *testing.T) {
 			err, posts.Load(), printed.Stderr)
 	}
 }
+
+// pipelineAt is merge request 7 read on its own, its head pipeline at status.
+func pipelineAt(status string) string {
+	return `{"iid":7,"web_url":"` + clitest.GitlabMergeRequest + `","state":"opened",` +
+		`"head_pipeline":{"id":1,"status":"` + status + `","web_url":"https://gitlab.com/p/1"}}`
+}
+
+func TestAnnounceWhenGreenCountsNoChecksWhereTheForgeCountsNone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// GitLab reports a merge request's head pipeline as a whole, counting no
+	// checks within it, so the wait says how many finished nowhere.
+	var posts atomic.Int32
+
+	clitest.FakeGlabMerging(t, clitest.OpenMergeRequest(), pipelineAt("running"), pipelineAt("success"))
+	repo := clitest.GitlabRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"gitlab","host":"gitlab.com"},`+
+		`"messaging":{"webhook_url":"`+webhook(t, &posts)+`"},"timing":{"ci_interval":"10ms"}}`)
+
+	// Act
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--when-green", "--yes")
+	// Assert
+	if err != nil || posts.Load() != 1 {
+		t.Fatalf("announce --when-green --yes = %v, posted %d (%+v); want it announced once", err, posts.Load(), printed)
+	}
+
+	if !strings.Contains(printed.Stderr, "Waiting for CI on !7 to pass, then announcing") {
+		t.Errorf("stderr = %q, want the wait said with no count of finished checks", printed.Stderr)
+	}
+}

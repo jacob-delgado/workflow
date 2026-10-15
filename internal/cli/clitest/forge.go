@@ -45,10 +45,12 @@ const (
 	dirMode     = 0o750
 )
 
-// The routes a fake gh answers from a sequence as well as from one body.
+// The routes a fake gh answers from a sequence as well as from one body, and
+// the one a fake glab does.
 const (
 	statusRoute = "status"
 	pullsRoute  = "pulls"
+	mergeRoute  = "merge"
 )
 
 // GhHang is how long a fake gh whose api hangs takes to give up on its own:
@@ -199,7 +201,7 @@ func gated(gate string) string {
 		"fi\n"
 }
 
-// sequenced is the fake gh's step that answers the reads of route from its
+// sequenced is a fake's step that answers the reads of route from its
 // sequence, each read the next, the last of count repeated; nothing when
 // there is none.
 func sequenced(dir, route string, count int) string {
@@ -246,23 +248,38 @@ func FakeGlabListing(t *testing.T, list string) {
 	fakeGlabAnswering(t, list, `{}`)
 }
 
-// fakeGlabAnswering is FakeGlab whose listings answer list and whose token,
-// asked about, answers scopes.
-func fakeGlabAnswering(t *testing.T, list, scopes string) {
+// FakeGlabMerging is FakeGlab whose merge-request listings answer list and
+// whose merge request 7, read on its own as its pipeline is, answers each of
+// merges in turn, the last repeated.
+func FakeGlabMerging(t *testing.T, list string, merges ...string) {
+	t.Helper()
+
+	fakeGlabAnswering(t, list, `{}`, merges...)
+}
+
+// fakeGlabAnswering is FakeGlab whose listings answer list, whose token, asked
+// about, answers scopes, and whose merge request 7, read on its own, answers
+// merges in turn, or nothing it knows of when there are none.
+func fakeGlabAnswering(t *testing.T, list, scopes string, merges ...string) {
 	t.Helper()
 
 	dir := t.TempDir()
 	bodies := map[string]string{
-		"list":    list,
-		"create":  `{"iid":7,"web_url":"` + GitlabMergeRequest + `","title":"work","state":"opened"}`,
-		"user":    `{"username":"tanuki"}`,
-		"users":   "[]",
-		"scopes":  scopes,
-		"default": `{}`,
+		mergeRoute: `{}`,
+		"list":     list,
+		"create":   `{"iid":7,"web_url":"` + GitlabMergeRequest + `","title":"work","state":"opened"}`,
+		"user":     `{"username":"tanuki"}`,
+		"users":    "[]",
+		"scopes":   scopes,
+		"default":  `{}`,
 	}
 
 	for name, body := range bodies {
 		writeData(t, filepath.Join(dir, "resp-"+name), body)
+	}
+
+	for index, body := range merges {
+		writeData(t, filepath.Join(dir, "resp-"+mergeRoute+"-"+strconv.Itoa(index)), body)
 	}
 
 	script := "#!/bin/sh\n" +
@@ -270,11 +287,13 @@ func fakeGlabAnswering(t *testing.T, list, scopes string) {
 		"case \"$path\" in\n" +
 		"  *\"/merge_requests?\"* | \"merge_requests?\"*) f=list ;;\n" +
 		"  *\"/merge_requests\") f=create ;;\n" +
+		"  *\"/merge_requests/7\") f=" + mergeRoute + " ;;\n" +
 		"  user) f=user ;;\n" +
 		"  *\"users?\"*) f=users ;;\n" +
 		"  personal_access_tokens/self) f=scopes ;;\n" +
 		"  *) f=default ;;\n" +
 		"esac\n" +
+		sequenced(dir, mergeRoute, len(merges)) +
 		"printf 'HTTP/1.1 200 OK\\r\\nContent-Type: application/json\\r\\n\\r\\n'\n" +
 		"cat \"" + dir + "/resp-$f\"\n"
 
