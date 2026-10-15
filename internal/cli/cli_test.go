@@ -14,6 +14,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
 	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/config"
 )
 
@@ -30,20 +31,20 @@ func runAtHome(t *testing.T, dir string, args ...string) (string, error) {
 
 // scripted answers the guided prompts in order: visible lines from lines,
 // secrets from secrets. A prompt past the end of its list reads as blank.
-func scripted(lines, secrets []string) cli.Prompt {
-	return cli.Prompt{Line: answersFrom(&lines), Secret: answersFrom(&secrets)}
+func scripted(lines, secrets []string) cmdkit.Prompt {
+	return cmdkit.Prompt{Line: answersFrom(&lines), Secret: answersFrom(&secrets)}
 }
 
 // answering is a prompt that gives every question the same answer and keeps
 // each question it was asked, for a test of what a command asks.
-func answering(answer string, asked *[]string) cli.Prompt {
+func answering(answer string, asked *[]string) cmdkit.Prompt {
 	reply := func(question string) (string, error) {
 		*asked = append(*asked, question)
 
 		return answer, nil
 	}
 
-	return cli.Prompt{Line: reply, Secret: reply}
+	return cmdkit.Prompt{Line: reply, Secret: reply}
 }
 
 // answersFrom hands back each answer in turn, then blanks.

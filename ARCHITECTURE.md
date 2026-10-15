@@ -83,7 +83,7 @@ variable, not an interface.
 `resolveAhead` hook, over `env`, a `wiring.Environment`: the home directory, the
 environment's variables, the store's directory and where a program is found. The
 wiring reads none of them from the process itself; the command line hands them
-over from the `cli.Environment` that `cmd/workflow` builds from the operating
+over from the `cmdkit.Environment` that `cmd/workflow` builds from the operating
 system, beside the working directory, so each test hands a run one of its own
 and the CLI's tests run in parallel. It composes one grouped seam per external
 system (`Jira`, `Git`, `Forge`, `Messaging`, `Hooks`, `Editor`, `Store`) plus a
@@ -122,11 +122,12 @@ so it sits below the surfaces and above `internal/loop`.
   again on first use, where its failure is reported.
 - **Switching directory.** The Repositories pane's switch ends the running
   program with a `tui.Next` naming the directory; the CLI checks it, wires it
-  through the same `connectAt` the first directory went through, refuses it if
-  its `ui.keys` would be, and only then moves the process there and opens the
-  next interface, handing it what of the session the switch carried. A switch
-  that cannot be made reopens the interface where it was. So a bundle is still
-  built once per interface, never rewired under a running one (TRADE-34).
+  through the same `cmdkit.ConnectAt` the first directory went through,
+  refuses it if its `ui.keys` would be, and only then moves the process there
+  and opens the next interface, handing it what of the session the switch
+  carried. A switch that cannot be made reopens the interface where it was. So
+  a bundle is still built once per interface, never rewired under a running
+  one (TRADE-34).
 
 A seam speaks the interface's own domain types, and wiring translates at the
 boundary. The store seam is the clearest example: `seams.Store.CachedIssues`

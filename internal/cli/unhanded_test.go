@@ -12,6 +12,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 )
 
 // unhanded is what a command says when it was run without the environment it
@@ -59,7 +60,7 @@ func TestACommandRunFromATreeBuiltToWalkSaysItHasNoEnvironment(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	root := cli.NewRootCmd(cli.Prompt{})
+	root := cli.NewRootCmd(cmdkit.Prompt{})
 	root.SetArgs(configShow())
 
 	// Act

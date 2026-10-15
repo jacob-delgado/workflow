@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 )
@@ -31,8 +32,8 @@ type commentSeams struct {
 }
 
 // newCommentCmd builds `workflow comment <issue>`.
-func newCommentCmd(prompt Prompt) *cobra.Command {
-	var opts writeOptions
+func newCommentCmd(prompt cmdkit.Prompt) *cobra.Command {
+	var opts cmdkit.WriteOptions
 
 	cmd := &cobra.Command{
 		Use:   "comment <issue>",
@@ -43,41 +44,41 @@ func newCommentCmd(prompt Prompt) *cobra.Command {
 			"posted as Jira's markup when jira.markdown_comments is on, as the interface\n" +
 			"posts one; a forge issue's is Markdown. The comment, as it will be stored, is\n" +
 			"printed and confirmed before it is posted.",
-		Example: examples(
+		Example: cmdkit.Examples(
 			`git log -1 --format=%B | workflow comment PROJ-7 --yes   # the text on stdin, never quoted`,
 		),
 		Args:              cobra.ExactArgs(1),
-		ValidArgsFunction: completeAssignedIssues,
+		ValidArgsFunction: cmdkit.CompleteAssignedIssues,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommentCommand(cmd, prompt, args[0], opts)
 		},
 	}
 
-	opts.addFlags(cmd, confirmationHelp)
+	opts.AddFlags(cmd, cmdkit.ConfirmationHelp)
 
 	return cmd
 }
 
 // runCommentCommand wires the real tracker to the comment flow.
-func runCommentCommand(cmd *cobra.Command, prompt Prompt, issueKey string, opts writeOptions) error {
+func runCommentCommand(cmd *cobra.Command, prompt cmdkit.Prompt, issueKey string, opts cmdkit.WriteOptions) error {
 	text, err := readInput(prompt.Input)
 	if err != nil {
 		return err
 	}
 
-	conn, err := connect(cmd)
+	conn, err := cmdkit.Connect(cmd)
 	if err != nil {
 		return err
 	}
-	defer conn.closeLog()
+	defer conn.CloseLog()
 
 	seams := commentSeams{
-		Comment: conn.deps.Jira.Comment,
-		Markup:  func(issueKey jira.Key) loop.CommentMarkup { return loop.CommentMarkupOf(conn.cfg.Jira, issueKey) },
-		Confirm: func(question string) (bool, error) { return confirm(prompt, question) },
+		Comment: conn.Deps.Jira.Comment,
+		Markup:  func(issueKey jira.Key) loop.CommentMarkup { return loop.CommentMarkupOf(conn.Config.Jira, issueKey) },
+		Confirm: func(question string) (bool, error) { return cmdkit.Confirm(prompt, question) },
 	}
 
-	return runComment(cmd.Context(), outputOf(cmd), seams, jira.Key(issueKey), text, opts)
+	return runComment(cmd.Context(), cmdkit.OutputOf(cmd), seams, jira.Key(issueKey), text, opts)
 }
 
 // readInput is the text on input, to its end, without the white space a
@@ -104,17 +105,17 @@ func readInput(input io.Reader) (string, error) {
 // runComment previews the comment as its tracker will store it, and posts it
 // once confirmed.
 func runComment(
-	ctx context.Context, out output, seams commentSeams, issueKey jira.Key, text string, opts writeOptions,
+	ctx context.Context, out cmdkit.Output, seams commentSeams, issueKey jira.Key, text string, opts cmdkit.WriteOptions,
 ) error {
 	stored := seams.Markup(issueKey).Stored(text)
 	key := string(issueKey)
 
 	return issueWrite{
 		preview: "Comment on " + key + ":\n" + stored,
-		say: writePrompt{
-			question: "Post this comment on " + key + "?",
-			dryRun:   "dry run: would comment on " + key,
-			declined: "Not posted.",
+		say: cmdkit.WritePrompt{
+			Question: "Post this comment on " + key + "?",
+			DryRun:   "dry run: would comment on " + key,
+			Declined: "Not posted.",
 		},
 		write: func(ctx context.Context) (string, error) {
 			_, err := seams.Comment(ctx, issueKey, stored)

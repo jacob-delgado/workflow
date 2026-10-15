@@ -19,6 +19,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/cli/console"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/lifetime"
@@ -143,7 +144,7 @@ SECURITY
 // The editor the interface hands the terminal to runs under no context:
 // it is yours until you leave it, and a signal while it is open ends workflow
 // once you do.
-func Execute(args []string, stdout, stderr io.Writer, prompt Prompt, env Environment) error {
+func Execute(args []string, stdout, stderr io.Writer, prompt cmdkit.Prompt, env cmdkit.Environment) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	// stop cancels ctx as well as the signals' diversion, once the last
 	// interface has quit and the writes it left in flight have landed or been
@@ -177,15 +178,15 @@ func execute(ctx context.Context, root *cobra.Command, run invocation) error {
 	var said error
 
 	fail := func(err error) {
-		said = checked.failed(interrupted(ctx, err))
-		console.New(run.stderr, voiceOf(root, run.getenv)).Fail(said, ExitStatus(said))
+		said = checked.Failed(interrupted(ctx, err))
+		console.New(run.stderr, cmdkit.VoiceOf(root, run.getenv)).Fail(said, ExitStatus(said))
 	}
 
 	err := fang.Execute(ctx, root, fang.WithVersion(buildinfo.Current()), fang.WithoutManpage(),
 		fang.WithColorSchemeFunc(ansiScheme), fang.WithErrorHandler(func(_ io.Writer, _ fang.Styles, err error) {
 			fail(err)
 		}))
-	if err == nil && checked.err != nil {
+	if err == nil && checked.Err != nil {
 		fail(nil)
 	}
 
@@ -194,19 +195,19 @@ func execute(ctx context.Context, root *cobra.Command, run invocation) error {
 
 // prepare readies root to run as run asks, writing its artifact to stdout
 // through the check it returns.
-func prepare(root *cobra.Command, run invocation) *checkedOutput {
-	checked := &checkedOutput{out: run.stdout}
+func prepare(root *cobra.Command, run invocation) *cmdkit.CheckedOutput {
+	checked := &cmdkit.CheckedOutput{Out: run.stdout}
 
 	root.SetArgs(run.args)
-	root.SetOut(checked.stream())
+	root.SetOut(checked.Stream())
 	root.SetErr(console.NewStream(run.stderr))
 	// cobra adds its help and completion commands only as the tree runs, after
-	// any walk could meet them. Adding them here lets markMisuse reach them too,
-	// and only once the streams are set: a completion script keeps the stdout
-	// its command was added under.
+	// any walk could meet them. Adding them here lets cmdkit.MarkMisuse reach
+	// them too, and only once the streams are set: a completion script keeps
+	// the stdout its command was added under.
 	root.InitDefaultHelpCmd()
 	root.InitDefaultCompletionCmd()
-	markMisuse(root)
+	cmdkit.MarkMisuse(root)
 
 	return checked
 }
@@ -249,15 +250,15 @@ type RunInterface func(ctx context.Context, model tui.Model, in io.Reader, out i
 // does: it runs no command, so it is handed no Environment to run one in, and
 // a command run from it anyway says so. The prompt is how `config init` asks
 // for credentials; a zero one is fine.
-func NewRootCmd(prompt Prompt) *cobra.Command {
-	return NewRootCmdOver(prompt, tui.Run, WebServerAt, noEnvironment())
+func NewRootCmd(prompt cmdkit.Prompt) *cobra.Command {
+	return NewRootCmdOver(prompt, tui.Run, WebServerAt, cmdkit.NoEnvironment())
 }
 
 // NewRootCmdOver builds the command tree over the interface and web server a
 // caller hands it, so a test can see what bare `workflow` and `workflow --web`
 // open without a terminal or a port, and has every command run in env.
-func NewRootCmdOver(prompt Prompt, run RunInterface, serveAt RunWebAt, env Environment) *cobra.Command {
-	var flags rootFlags
+func NewRootCmdOver(prompt cmdkit.Prompt, run RunInterface, serveAt RunWebAt, env cmdkit.Environment) *cobra.Command {
+	var flags cmdkit.RootFlags
 
 	opening := surfaces{run: run, serveAt: serveAt}
 	root := &cobra.Command{
@@ -268,12 +269,12 @@ func NewRootCmdOver(prompt Prompt, run RunInterface, serveAt RunWebAt, env Envir
 		SilenceUsage:      true,
 		SilenceErrors:     true,
 		Args:              cobra.NoArgs,
-		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error { return handOver(cmd, env) },
-		PreRunE:           func(cmd *cobra.Command, _ []string) error { return checkPort(cmd, flags.web, flags.port) },
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error { return cmdkit.HandOver(cmd, env) },
+		PreRunE:           func(cmd *cobra.Command, _ []string) error { return cmdkit.CheckPort(cmd, flags.Web, flags.Port) },
 		RunE:              func(cmd *cobra.Command, _ []string) error { return opening.open(cmd, prompt, flags) },
 	}
 
-	flags.declare(root, defaultWebPort)
+	flags.Declare(root, defaultWebPort)
 	root.AddCommand(subcommands(prompt)...)
 
 	return root
@@ -288,20 +289,20 @@ type surfaces struct {
 
 // open wires the working directory, offering a first run where it works, and
 // opens the web server where flags ask for it and the interface otherwise.
-func (s surfaces) open(cmd *cobra.Command, prompt Prompt, flags rootFlags) error {
-	conn, err := connectLeniently(cmd)
+func (s surfaces) open(cmd *cobra.Command, prompt cmdkit.Prompt, flags cmdkit.RootFlags) error {
+	conn, err := cmdkit.ConnectLeniently(cmd)
 	if err != nil {
 		return err
 	}
-	defer conn.closeLog()
+	defer conn.CloseLog()
 
-	conn = conn.withSetup(cmd, prompt.StoreSecret)
+	conn = conn.WithSetup(cmd, prompt.StoreSecret)
 
-	if flags.web {
+	if flags.Web {
 		return serveWeb(cmd, conn, s.serveAt, flags)
 	}
 
-	return runInterfaces(cmd, s.run, conn, flags.dryRun)
+	return runInterfaces(cmd, s.run, conn, flags.DryRun)
 }
 
 // interfaceInput bundles what opening the terminal interface needs, so the
@@ -323,12 +324,12 @@ type interfaceInput struct {
 }
 
 // inputFor is what opening the interface wired by conn needs.
-func inputFor(cmd *cobra.Command, conn connection, dryRun bool) interfaceInput {
+func inputFor(cmd *cobra.Command, conn cmdkit.Connection, dryRun bool) interfaceInput {
 	return interfaceInput{
-		cfg: conn.cfg, loadErr: conn.loadErr, deps: conn.deps, resolveAhead: conn.controls.ResolveAhead,
-		dryRun: dryRun, noColorEnv: environmentOf(cmd).Process.Getenv("NO_COLOR"),
-		accessibleEnv: environmentOf(cmd).Process.Getenv("ACCESSIBLE"), in: cmd.InOrStdin(),
-		out:    terminalOut(cmd),
+		cfg: conn.Config, loadErr: conn.LoadErr, deps: conn.Deps, resolveAhead: conn.Controls.ResolveAhead,
+		dryRun: dryRun, noColorEnv: cmdkit.EnvironmentOf(cmd).Process.Getenv("NO_COLOR"),
+		accessibleEnv: cmdkit.EnvironmentOf(cmd).Process.Getenv("ACCESSIBLE"), in: cmd.InOrStdin(),
+		out:    cmdkit.TerminalOut(cmd),
 		arrive: func(model tui.Model) tui.Model { return model },
 	}
 }
@@ -342,7 +343,7 @@ func inputFor(cmd *cobra.Command, conn connection, dryRun bool) interfaceInput {
 //
 // Trade-off TRADE-34: a switch ends one program and starts the next, wired
 // afresh, rather than rewiring the one running.
-func runInterfaces(cmd *cobra.Command, run RunInterface, conn connection, dryRun bool) error {
+func runInterfaces(cmd *cobra.Command, run RunInterface, conn cmdkit.Connection, dryRun bool) error {
 	program, closed := whileOpen(cmd.Context())
 	defer closed()
 
@@ -353,7 +354,7 @@ func runInterfaces(cmd *cobra.Command, run RunInterface, conn connection, dryRun
 	for {
 		next, err := openInterface(program, run, input)
 		if err != nil || next.Dir == "" {
-			return errors.Join(err, finishWrites(cmd, writes, requestTimeout(conn.cfg)))
+			return errors.Join(err, finishWrites(cmd, writes, cmdkit.RequestTimeout(conn.Config)))
 		}
 
 		moved, err := switchTo(cmd, conn, next.Dir)
@@ -389,10 +390,10 @@ var errKeysRefused = errors.New("the configuration there binds keys workflow ref
 // switchTo wires the directory a switch asked for, and moves there once its
 // configuration is one the interface can open on: a directory not there, or
 // keys the interface would refuse, leave the working directory as it was.
-func switchTo(cmd *cobra.Command, from connection, dir string) (connection, error) {
+func switchTo(cmd *cobra.Command, from cmdkit.Connection, dir string) (cmdkit.Connection, error) {
 	conn, err := wireAt(cmd.Context(), cmd, from, dir)
 	if err != nil {
-		return connection{}, err
+		return cmdkit.Connection{}, err
 	}
 
 	return conn, moveTo(cmd, dir)
@@ -401,28 +402,28 @@ func switchTo(cmd *cobra.Command, from connection, dir string) (connection, erro
 // wireAt wires dir as from was wired, under ctx, to the same request log,
 // refusing a directory that is not there and keys the interface would refuse.
 // It moves nothing.
-func wireAt(ctx context.Context, cmd *cobra.Command, from connection, dir string) (connection, error) {
+func wireAt(ctx context.Context, cmd *cobra.Command, from cmdkit.Connection, dir string) (cmdkit.Connection, error) {
 	err := workdirs.Check(dir)
 	if err != nil {
-		return connection{}, err
+		return cmdkit.Connection{}, err
 	}
 
-	conn := connectAt(ctx, cmd, dir, from.requestLog)
+	conn := cmdkit.ConnectAt(ctx, cmd, dir, from.RequestLog)
 
-	err = tui.CheckKeys(conn.cfg.UI.Keys)
+	err = tui.CheckKeys(conn.Config.UI.Keys)
 	if err != nil {
-		return connection{}, fmt.Errorf("%w: %w", errKeysRefused, err)
+		return cmdkit.Connection{}, fmt.Errorf("%w: %w", errKeysRefused, err)
 	}
 
-	conn.closeLog = from.closeLog
+	conn.CloseLog = from.CloseLog
 
-	return conn.withSetup(cmd, from.keychain), nil
+	return conn.WithSetup(cmd, from.Keychain), nil
 }
 
 // moveTo makes dir the process's working directory, so whatever the new
 // session runs — an editor, a hook — starts there.
 func moveTo(cmd *cobra.Command, dir string) error {
-	err := environmentOf(cmd).Chdir(dir)
+	err := cmdkit.EnvironmentOf(cmd).Chdir(dir)
 	if err != nil {
 		return fmt.Errorf("moving to the directory: %w", err)
 	}
@@ -474,7 +475,7 @@ func openInterface(ctx context.Context, run RunInterface, input interfaceInput) 
 
 // subcommands are every `workflow` subcommand: the read commands, the guided
 // config, and the scriptable write commands.
-func subcommands(prompt Prompt) []*cobra.Command {
+func subcommands(prompt cmdkit.Prompt) []*cobra.Command {
 	return []*cobra.Command{
 		newConfigCmd(prompt), newDoctorCmd(prompt), newStatusCmd(prompt), newSummaryCmd(prompt), newReviewsCmd(),
 		newRepositoriesCmd(), newIssuesCmd(), newIssueCmd(),

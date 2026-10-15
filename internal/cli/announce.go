@@ -14,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/cli/console"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -58,13 +59,13 @@ type announceSeams struct {
 // announce in instead of messaging.channel, and whether to wait for the pull
 // request's CI to pass before announcing it.
 type announceFlags struct {
-	write     writeOptions
+	write     cmdkit.WriteOptions
 	channel   string
 	whenGreen bool
 }
 
 // newAnnounceCmd builds `workflow announce`.
-func newAnnounceCmd(prompt Prompt) *cobra.Command {
+func newAnnounceCmd(prompt cmdkit.Prompt) *cobra.Command {
 	var flags announceFlags
 
 	cmd := &cobra.Command{
@@ -87,7 +88,7 @@ func newAnnounceCmd(prompt Prompt) *cobra.Command {
 			"--when-green, announce waits in the foreground for its CI to pass, through a\n" +
 			"failed run, then announces it; ctrl+c stops waiting without announcing, and a\n" +
 			"pull request that reports no check for ten minutes is given up on.",
-		Example: examples(
+		Example: cmdkit.Examples(
 			`workflow --dry-run announce            # the announcement, and where it would go`,
 			`workflow announce --yes                # announce it, unattended`,
 			`workflow announce --when-green --yes   # announce it once CI passes, unattended`,
@@ -98,7 +99,7 @@ func newAnnounceCmd(prompt Prompt) *cobra.Command {
 		},
 	}
 
-	flags.write.addFlags(cmd, confirmationHelp)
+	flags.write.AddFlags(cmd, cmdkit.ConfirmationHelp)
 	cmd.Flags().StringVar(&flags.channel, "channel", "",
 		"announce in `CHANNEL` instead of messaging.channel; a Slack user token only")
 	cmd.Flags().BoolVar(&flags.whenGreen, "when-green", false,
@@ -110,29 +111,29 @@ func newAnnounceCmd(prompt Prompt) *cobra.Command {
 // runAnnounceCommand wires the real repository, forge, Jira and messaging
 // service to the announce flow, posting in the channel flags give when one is
 // given.
-func runAnnounceCommand(cmd *cobra.Command, prompt Prompt, flags announceFlags) error {
-	conn, err := connect(cmd)
+func runAnnounceCommand(cmd *cobra.Command, prompt cmdkit.Prompt, flags announceFlags) error {
+	conn, err := cmdkit.Connect(cmd)
 	if err != nil {
 		return err
 	}
-	defer conn.closeLog()
+	defer conn.CloseLog()
 
 	seams := announceSeamsOf(cmd, conn, prompt)
 
-	seams.Messaging, err = postingIn(seams.Messaging, flags.channel)
+	seams.Messaging, err = cmdkit.PostingIn(seams.Messaging, flags.channel)
 	if err != nil {
 		return err
 	}
 
-	return runAnnounce(cmd.Context(), outputOf(cmd), seams, flags)
+	return runAnnounce(cmd.Context(), cmdkit.OutputOf(cmd), seams, flags)
 }
 
 // announceSeamsOf wires conn's repository, forge, Jira, store and messaging
 // service to what announcing reads and does, asking prompt to confirm and
 // keeping cmd's live line while it waits for CI. It posts to the configured
 // channel; a command that posts elsewhere says so itself.
-func announceSeamsOf(cmd *cobra.Command, conn connection, prompt Prompt) announceSeams {
-	cfg, deps := conn.cfg, conn.deps
+func announceSeamsOf(cmd *cobra.Command, conn cmdkit.Connection, prompt cmdkit.Prompt) announceSeams {
+	cfg, deps := conn.Config, conn.Deps
 	seams := announceSeams{
 		Compose: loop.AnnounceSeams{
 			Branch:    deps.Git.Branch,
@@ -147,10 +148,12 @@ func announceSeamsOf(cmd *cobra.Command, conn connection, prompt Prompt) announc
 		Project:   cfg.Jira.Project,
 		Messaging: cfg.Messaging,
 		Memory:    loop.AnnounceMemory{Recorded: deps.Store.Announced, Record: deps.Store.RecordAnnounce},
-		Confirm:   func(question string) (bool, error) { return confirm(prompt, question) },
+		Confirm:   func(question string) (bool, error) { return cmdkit.Confirm(prompt, question) },
 		Tagging:   taggingFor(cfg.Messaging, deps),
 		Watch: func(wait func(console.Wait) error) error {
-			return waiting(cmd, prompt, liveLook(cfg.UI), func(_ output, live console.Wait) error { return wait(live) })
+			return cmdkit.Waiting(cmd, prompt, cmdkit.LiveLook(cfg.UI), func(_ cmdkit.Output, live console.Wait) error {
+				return wait(live)
+			})
 		},
 	}
 
@@ -189,7 +192,7 @@ func taggingFor(settings config.Messaging, deps tui.Deps) announceTagging {
 // it, and announces it once confirmed — at once, or, with --when-green, once
 // its CI passes — remembering it so a later run does not repeat it unasked.
 // Slack is asked under ctx.
-func runAnnounce(ctx context.Context, out output, seams announceSeams, flags announceFlags) error {
+func runAnnounce(ctx context.Context, out cmdkit.Output, seams announceSeams, flags announceFlags) error {
 	opts := flags.write
 
 	composed, err := composeFor(ctx, seams)
@@ -200,7 +203,7 @@ func runAnnounce(ctx context.Context, out output, seams announceSeams, flags ann
 	pull := seams.Kind.Sigil() + strconv.Itoa(composed.Pull.Number)
 
 	again := seams.Memory.Holds(ctx, composed.Made())
-	if again && !offerAgain(out.notes, pull, opts) {
+	if again && !offerAgain(out.Notes, pull, opts) {
 		return nil
 	}
 
@@ -216,7 +219,7 @@ func runAnnounce(ctx context.Context, out output, seams announceSeams, flags ann
 		say = onceGreen(say, pull)
 	}
 
-	proceed, err := opts.proceed(out.notes, seams.Confirm, say)
+	proceed, err := opts.Proceed(out.Notes, seams.Confirm, say)
 	if err != nil || !proceed {
 		return unattendedAgain(err, again)
 	}
@@ -225,7 +228,7 @@ func runAnnounce(ctx context.Context, out output, seams announceSeams, flags ann
 		return deliverWhenGreen(ctx, seams, pending, pull, pullFoundBefore)
 	}
 
-	return deliverAnnouncement(ctx, out.notes, seams, pending)
+	return deliverAnnouncement(ctx, out.Notes, seams, pending)
 }
 
 // readyToAnnounce refuses composed's pull request, named pull, that cannot be
@@ -251,7 +254,7 @@ func readyToAnnounce(
 // can post it or the branch has no pull request to announce.
 func composeFor(ctx context.Context, seams announceSeams) (loop.Composed, error) {
 	if seams.Deliver.Post == nil {
-		return loop.Composed{}, messagingNotConfigured()
+		return loop.Composed{}, cmdkit.MessagingNotConfigured()
 	}
 
 	composed, err := loop.ComposeAnnouncement(ctx, seams.Compose, seams.Messaging, seams.Project, seams.Kind)
@@ -331,11 +334,11 @@ type pendingAnnouncement struct {
 // previewAnnouncement prints the announcement and where it would go, then
 // whom it tags, read under ctx, and holds it ready to deliver.
 func previewAnnouncement(
-	ctx context.Context, out output, seams announceSeams, composed loop.Composed,
+	ctx context.Context, out cmdkit.Output, seams announceSeams, composed loop.Composed,
 ) pendingAnnouncement {
 	text := composed.Announcement.Text()
-	fmt.Fprintln(out.artifact, text)
-	fmt.Fprintln(out.artifact, "to "+seams.Messaging.Target())
+	fmt.Fprintln(out.Artifact, text)
+	fmt.Fprintln(out.Artifact, "to "+seams.Messaging.Target())
 
 	mentions, memory := tagAnnouncement(ctx, out, seams, composed.Announcement.Moment, ownersBase(composed))
 
@@ -371,10 +374,10 @@ func deliverAnnouncement(
 // reports whether to offer it again: asked, yes, but never repeated under --yes,
 // which answers only the question it can see coming. A dry run goes on all the
 // same, to preview the announcement and say what --yes would do with it.
-func offerAgain(notes console.Notes, pull string, opts writeOptions) bool {
+func offerAgain(notes console.Notes, pull string, opts cmdkit.WriteOptions) bool {
 	notes.Note(pull + " was already announced at this moment in an earlier session.")
 
-	if opts.yes && !opts.dryRun {
+	if opts.Yes && !opts.DryRun {
 		notes.Note("Not announced again; run without --yes to be asked.")
 
 		return false
@@ -386,19 +389,19 @@ func offerAgain(notes console.Notes, pull string, opts writeOptions) bool {
 // announcePrompt is what announce says around its confirmation: it asks
 // whether to announce again when an earlier session already did, and its dry
 // run under --yes says that such a moment would be left as it is.
-func announcePrompt(service, target string, again bool, opts writeOptions) writePrompt {
-	prompt := writePrompt{
-		question: "Announce to " + service + "?",
-		dryRun:   "dry run: would announce to " + target,
-		declined: "Not announced.",
+func announcePrompt(service, target string, again bool, opts cmdkit.WriteOptions) cmdkit.WritePrompt {
+	prompt := cmdkit.WritePrompt{
+		Question: "Announce to " + service + "?",
+		DryRun:   "dry run: would announce to " + target,
+		Declined: "Not announced.",
 	}
 
 	if again {
-		prompt.question = "Announce to " + service + " again?"
+		prompt.Question = "Announce to " + service + " again?"
 	}
 
-	if again && opts.yes {
-		prompt.dryRun = "dry run: would not announce it again; --yes leaves an announced moment as it is"
+	if again && opts.Yes {
+		prompt.DryRun = "dry run: would not announce it again; --yes leaves an announced moment as it is"
 	}
 
 	return prompt
@@ -407,8 +410,8 @@ func announcePrompt(service, target string, again bool, opts writeOptions) write
 // unattendedAgain words a repeat that nothing could confirm: --yes leaves a
 // moment already announced as it is, so the way on is a terminal, not --yes.
 func unattendedAgain(err error, again bool) error {
-	if again && errors.Is(err, errNoTerminal) {
-		return fmt.Errorf("%w; run it at a terminal to be asked whether to announce it again", errNoTerminal)
+	if again && errors.Is(err, cmdkit.ErrNoTerminal) {
+		return fmt.Errorf("%w; run it at a terminal to be asked whether to announce it again", cmdkit.ErrNoTerminal)
 	}
 
 	return err

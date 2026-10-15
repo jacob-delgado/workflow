@@ -16,6 +16,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 )
 
 // everyCommand is root and every command under it.
@@ -35,7 +36,7 @@ func TestEveryLongHelpOpensInTheImperative(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	root := cli.NewRootCmd(cli.Prompt{})
+	root := cli.NewRootCmd(cmdkit.Prompt{})
 
 	// Act
 	commands := everyCommand(root)
@@ -66,7 +67,7 @@ func TestTheLogFlagNamesItsFile(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	root := cli.NewRootCmd(cli.Prompt{})
+	root := cli.NewRootCmd(cmdkit.Prompt{})
 
 	// Act
 	reference := root.PersistentFlags().FlagUsages()
@@ -81,7 +82,7 @@ func TestTheRootSummaryNamesBothInterfaces(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	root := cli.NewRootCmd(cli.Prompt{})
+	root := cli.NewRootCmd(cmdkit.Prompt{})
 
 	// Act
 	opening, _, _ := strings.Cut(root.Long, ".")
@@ -115,7 +116,7 @@ func TestTheRootLongHelpFitsInEightyColumns(t *testing.T) {
 	const columns = 80
 
 	// Act
-	root := cli.NewRootCmd(cli.Prompt{})
+	root := cli.NewRootCmd(cmdkit.Prompt{})
 
 	// Assert
 	for line := range strings.Lines(root.Long) {

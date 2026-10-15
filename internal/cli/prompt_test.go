@@ -13,6 +13,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 )
 
 func TestLineReaderKeepsAFinalLineTypedWithoutANewline(t *testing.T) {
@@ -96,13 +97,15 @@ func TestSecretReaderAnswersAPipeAsTheEndOfTheInput(t *testing.T) {
 
 // pipedPrompt is the prompt the terminal's main wires, over stdin piped with
 // text.
-func pipedPrompt(t *testing.T, text string) cli.Prompt {
+func pipedPrompt(t *testing.T, text string) cmdkit.Prompt {
 	t.Helper()
 
 	stdin := pipedInput(t, text)
 	reader := bufio.NewReader(stdin)
 
-	return cli.Prompt{Line: cli.LineReader(reader, io.Discard), Secret: cli.SecretReader(stdin, io.Discard), Input: reader}
+	return cmdkit.Prompt{
+		Line: cli.LineReader(reader, io.Discard), Secret: cli.SecretReader(stdin, io.Discard), Input: reader,
+	}
 }
 
 func TestGuidedInitOverAPipeSaysToWriteTheTemplate(t *testing.T) {

@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/cli/console"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/httpx"
@@ -37,7 +38,7 @@ var (
 
 // newSlackCmd builds `workflow slack`, under which the Slack user token is set
 // up.
-func newSlackCmd(prompt Prompt) *cobra.Command {
+func newSlackCmd(prompt cmdkit.Prompt) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "slack",
 		Short: "Set up posting to Slack with a rotating user token",
@@ -51,7 +52,7 @@ func newSlackCmd(prompt Prompt) *cobra.Command {
 }
 
 // newSlackLoginCmd builds `workflow slack login`.
-func newSlackLoginCmd(prompt Prompt) *cobra.Command {
+func newSlackLoginCmd(prompt cmdkit.Prompt) *cobra.Command {
 	return &cobra.Command{
 		Use:   "login",
 		Short: "Set up the Slack user token workflow posts with",
@@ -66,17 +67,17 @@ users:read, channels:read, groups:read and usergroups:read; without them the
 announcement posts untagged and says which scope to add. workflow refreshes the
 token before its twelve hours run out, and keeps each new one where this put
 the first.`,
-		Example: examples(
+		Example: cmdkit.Examples(
 			`workflow slack login             # set up the user token, at a terminal`,
 			`workflow --dry-run slack login   # where it would keep the token, asking nothing`,
 		),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			conn, err := connect(cmd)
+			conn, err := cmdkit.Connect(cmd)
 			if err != nil {
 				return err
 			}
-			defer conn.closeLog()
+			defer conn.CloseLog()
 
 			return slackLogin(cmd, prompt, conn)
 		},
@@ -86,17 +87,17 @@ the first.`,
 // slackLogin sets up the Slack user token of the configuration conn wired,
 // outlining its requests in conn's request log, or says what it would do under
 // a dry run. It makes no artifact, so all it says goes to notes.
-func slackLogin(cmd *cobra.Command, prompt Prompt, conn connection) error {
-	notes := outputOf(cmd).notes
+func slackLogin(cmd *cobra.Command, prompt cmdkit.Prompt, conn cmdkit.Connection) error {
+	notes := cmdkit.OutputOf(cmd).Notes
 
-	err := loginAllowed(conn.cfg)
+	err := loginAllowed(conn.Config)
 	if err != nil {
 		return err
 	}
 
-	if dryRunRequested(cmd) {
+	if cmdkit.DryRunRequested(cmd) {
 		notes.Note("dry run: would ask for the Slack app's client ID and secret and a refresh token, " +
-			"refresh it once, and keep it in " + conn.process.SlackStore(conn.cfg).Where() +
+			"refresh it once, and keep it in " + conn.Process.SlackStore(conn.Config).Where() +
 			"; nothing was asked or written")
 
 		return nil
@@ -133,7 +134,7 @@ type loginAnswers struct {
 
 // askForLogin asks for the app's client ID on screen, then its secret and the
 // refresh token off it.
-func askForLogin(prompt Prompt) (loginAnswers, error) {
+func askForLogin(prompt cmdkit.Prompt) (loginAnswers, error) {
 	clientID, err := askFor(prompt.Line, "Slack app client ID (Basic Information): ", "client ID")
 	if err != nil {
 		return loginAnswers{}, err
@@ -158,7 +159,7 @@ func askForLogin(prompt Prompt) (loginAnswers, error) {
 func askFor(ask func(string) (string, error), question, what string) (string, error) {
 	answer, err := ask(question)
 	if errors.Is(err, io.EOF) {
-		return "", fmt.Errorf("%w; run it at a terminal, since it asks for secrets", errNoTerminal)
+		return "", fmt.Errorf("%w; run it at a terminal, since it asks for secrets", cmdkit.ErrNoTerminal)
 	}
 
 	if err != nil {
@@ -196,11 +197,11 @@ func nameSlackApp(cfg config.Config, clientID string) (config.Config, error) {
 // token, and only then names the app in the file, so a refresh Slack refuses
 // changes nothing; then it says whose token it is. Each request is outlined in
 // conn's request log.
-func keepFirstToken(ctx context.Context, notes console.Notes, conn connection, answers loginAnswers) error {
-	transport := conn.requestLog.Wrap("slack", onlineDoer(conn.cfg))
-	store := conn.process.SlackStore(conn.cfg)
+func keepFirstToken(ctx context.Context, notes console.Notes, conn cmdkit.Connection, answers loginAnswers) error {
+	transport := conn.RequestLog.Wrap("slack", cmdkit.OnlineDoer(conn.Config))
+	store := conn.Process.SlackStore(conn.Config)
 
-	renewed, err := conn.process.SlackRefresher(answers.clientID, transport).Refresh(ctx, answers.starting)
+	renewed, err := conn.Process.SlackRefresher(answers.clientID, transport).Refresh(ctx, answers.starting)
 	if err != nil {
 		return err
 	}
@@ -210,12 +211,12 @@ func keepFirstToken(ctx context.Context, notes console.Notes, conn connection, a
 		return err
 	}
 
-	named, err := nameSlackApp(conn.cfg, answers.clientID)
+	named, err := nameSlackApp(conn.Config, answers.clientID)
 	if err != nil {
 		return err
 	}
 
-	return sayWhoseToken(ctx, notes, conn.process, named, transport)
+	return sayWhoseToken(ctx, notes, conn.Process, named, transport)
 }
 
 // sayWhoseToken asks Slack whose the token cfg keeps is, and says so, and

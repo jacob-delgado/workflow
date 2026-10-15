@@ -13,6 +13,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 )
 
 // eraseBelow is what the live line's program sends as it ends, erasing the
@@ -71,7 +72,7 @@ func markDrawn(shown string) (int, int) {
 
 // atTerminal is clitest.UnusedPrompt with every stream flagged a terminal, as
 // main flags a real one.
-func atTerminal(t *testing.T) cli.Prompt {
+func atTerminal(t *testing.T) cmdkit.Prompt {
 	t.Helper()
 
 	prompt := clitest.UnusedPrompt(t)

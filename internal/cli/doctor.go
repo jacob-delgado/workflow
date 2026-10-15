@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/cli/console"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -57,7 +58,7 @@ const labelWidth = 14
 
 // newDoctorCmd builds `workflow doctor`. prompt says whether stderr is a
 // terminal, where --online keeps a note of the service it is asking.
-func newDoctorCmd(prompt Prompt) *cobra.Command {
+func newDoctorCmd(prompt cmdkit.Prompt) *cobra.Command {
 	var (
 		online bool
 		asJSON bool
@@ -74,7 +75,7 @@ func newDoctorCmd(prompt Prompt) *cobra.Command {
 			"tells you only that a credential is present. Add --online to ask Jira,\n" +
 			"your forge and Slack whether each credential works; a webhook is left\n" +
 			"unchecked. Add --json for the same facts as data, with the same masking.",
-		Example: examples(
+		Example: cmdkit.Examples(
 			`workflow doctor --online                              # ask each service whether its credential works`,
 			`workflow --request-log requests.log doctor --online   # a bug report's evidence`,
 		),
@@ -85,7 +86,7 @@ func newDoctorCmd(prompt Prompt) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&online, "online", false, "ask Jira, the forge and Slack if each credential works (not a webhook)")
-	addJSONFlag(cmd, &asJSON, "print the report as JSON")
+	cmdkit.AddJSONFlag(cmd, &asJSON, "print the report as JSON")
 
 	return cmd
 }
@@ -93,31 +94,31 @@ func newDoctorCmd(prompt Prompt) *cobra.Command {
 // runDoctorCommand reports on where cmd runs, as text or, asJSON, as JSON,
 // asking each service about its credential when online, with a live line of
 // which it is asking while a person watches the terminal.
-func runDoctorCommand(cmd *cobra.Command, prompt Prompt, online, asJSON bool) error {
-	requestLog, closeLog, err := requestLogFor(cmd)
+func runDoctorCommand(cmd *cobra.Command, prompt cmdkit.Prompt, online, asJSON bool) error {
+	requestLog, closeLog, err := cmdkit.RequestLogFor(cmd)
 	if err != nil {
 		return err
 	}
 	defer closeLog()
 
-	run := doctorRun{online: online, dryRun: dryRunRequested(cmd), log: requestLog, env: environmentOf(cmd)}
-	run.dir, run.dirErr = workingDir(cmd)
+	run := doctorRun{online: online, dryRun: cmdkit.DryRunRequested(cmd), log: requestLog, env: cmdkit.EnvironmentOf(cmd)}
+	run.dir, run.dirErr = cmdkit.WorkingDir(cmd)
 	run.cfg, run.loadErr = run.configuration()
 
-	report := func(out output, live console.Wait) error {
+	report := func(out cmdkit.Output, live console.Wait) error {
 		run.live = live
 		if asJSON {
-			return runDoctorJSON(cmd.Context(), out.artifact, run)
+			return runDoctorJSON(cmd.Context(), out.Artifact, run)
 		}
 
-		return runDoctor(cmd.Context(), out.artifact, run)
+		return runDoctor(cmd.Context(), out.Artifact, run)
 	}
 
 	if !online {
-		return notesOf(cmd).Unwatched(func(live console.Wait) error { return report(outputOf(cmd), live) })
+		return cmdkit.NotesOf(cmd).Unwatched(func(live console.Wait) error { return report(cmdkit.OutputOf(cmd), live) })
 	}
 
-	return waiting(cmd, prompt, liveLook(run.cfg.UI), report)
+	return cmdkit.Waiting(cmd, prompt, cmdkit.LiveLook(run.cfg.UI), report)
 }
 
 // doctorRun is what one doctor run reports on: the directory it was run from,
@@ -138,7 +139,7 @@ type doctorRun struct {
 	live console.Wait
 	// env is the process doctor reports on: where it was run from, and the
 	// home, variables, store and programs it finds there.
-	env Environment
+	env cmdkit.Environment
 }
 
 // configuration loads the configuration that applies in the directory run was

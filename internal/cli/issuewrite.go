@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/report"
@@ -23,15 +24,17 @@ import (
 // what to say once it is made.
 type issueWrite struct {
 	preview string
-	say     writePrompt
+	say     cmdkit.WritePrompt
 	write   func(ctx context.Context) (string, error)
 }
 
 // run previews the write, and makes it once confirmed, saying so.
-func (w issueWrite) run(ctx context.Context, out output, opts writeOptions, confirm func(string) (bool, error)) error {
-	fmt.Fprintln(out.artifact, w.preview)
+func (w issueWrite) run(
+	ctx context.Context, out cmdkit.Output, opts cmdkit.WriteOptions, confirm func(string) (bool, error),
+) error {
+	fmt.Fprintln(out.Artifact, w.preview)
 
-	proceed, err := opts.proceed(out.notes, confirm, w.say)
+	proceed, err := opts.Proceed(out.Notes, confirm, w.say)
 	if err != nil || !proceed {
 		return err
 	}
@@ -41,7 +44,7 @@ func (w issueWrite) run(ctx context.Context, out output, opts writeOptions, conf
 		return err
 	}
 
-	out.notes.Note(done)
+	out.Notes.Note(done)
 
 	return nil
 }
@@ -58,8 +61,8 @@ type transitionSeams struct {
 }
 
 // newTransitionCmd builds `workflow transition <issue> <status>`.
-func newTransitionCmd(prompt Prompt) *cobra.Command {
-	var opts writeOptions
+func newTransitionCmd(prompt cmdkit.Prompt) *cobra.Command {
+	var opts cmdkit.WriteOptions
 
 	cmd := &cobra.Command{
 		Use:   "transition <issue> <status>",
@@ -70,34 +73,34 @@ func newTransitionCmd(prompt Prompt) *cobra.Command {
 			"it does, and so is a move that asks for fields, naming them: change its status\n" +
 			"with t in the interface or Change status on the web, whose forms ask for them.\n" +
 			"Either refusal exits 4. A blank status is refused before anything is asked.",
-		Example: examples(
+		Example: cmdkit.Examples(
 			`workflow transition PROJ-7 "In Review" --yes   # unattended`,
 		),
 		Args:              cobra.ExactArgs(2), //nolint:mnd // the issue and the status
-		ValidArgsFunction: completeAssignedIssues,
+		ValidArgsFunction: cmdkit.CompleteAssignedIssues,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			status := strings.TrimSpace(args[1])
 			if status == "" {
 				return errStatusBlank
 			}
 
-			conn, err := connect(cmd)
+			conn, err := cmdkit.Connect(cmd)
 			if err != nil {
 				return err
 			}
-			defer conn.closeLog()
+			defer conn.CloseLog()
 
 			seams := transitionSeams{
-				Transitions: conn.deps.Jira.Transitions,
-				Transition:  conn.deps.Jira.Transition,
-				Confirm:     func(question string) (bool, error) { return confirm(prompt, question) },
+				Transitions: conn.Deps.Jira.Transitions,
+				Transition:  conn.Deps.Jira.Transition,
+				Confirm:     func(question string) (bool, error) { return cmdkit.Confirm(prompt, question) },
 			}
 
-			return runTransition(cmd.Context(), outputOf(cmd), seams, jira.Key(args[0]), status, opts)
+			return runTransition(cmd.Context(), cmdkit.OutputOf(cmd), seams, jira.Key(args[0]), status, opts)
 		},
 	}
 
-	opts.addFlags(cmd, confirmationHelp)
+	opts.AddFlags(cmd, cmdkit.ConfirmationHelp)
 
 	return cmd
 }
@@ -105,7 +108,8 @@ func newTransitionCmd(prompt Prompt) *cobra.Command {
 // runTransition finds the move to status, previews it, and makes it once
 // confirmed. A move that asks for fields says where a form asks for them.
 func runTransition(
-	ctx context.Context, out output, seams transitionSeams, issueKey jira.Key, status string, opts writeOptions,
+	ctx context.Context, out cmdkit.Output, seams transitionSeams, issueKey jira.Key, status string,
+	opts cmdkit.WriteOptions,
 ) error {
 	move, err := loop.TransitionTo(ctx, seams.Transitions, issueKey, status)
 	if errors.Is(err, loop.ErrNeedsFields) {
@@ -121,10 +125,10 @@ func runTransition(
 
 	return issueWrite{
 		preview: "Move " + key + " to " + target + " (" + move.Name + ")",
-		say: writePrompt{
-			question: "Move " + key + " to " + target + "?",
-			dryRun:   "dry run: would move " + key + " to " + target,
-			declined: "Left " + key + " as it is.",
+		say: cmdkit.WritePrompt{
+			Question: "Move " + key + " to " + target + "?",
+			DryRun:   "dry run: would move " + key + " to " + target,
+			Declined: "Left " + key + " as it is.",
 		},
 		write: func(ctx context.Context) (string, error) {
 			err := seams.Transition(ctx, issueKey, move, nil)
@@ -148,8 +152,8 @@ type assignSeams struct {
 }
 
 // newAssignCmd builds `workflow assign <issue> <username>`.
-func newAssignCmd(prompt Prompt) *cobra.Command {
-	var opts writeOptions
+func newAssignCmd(prompt cmdkit.Prompt) *cobra.Command {
+	var opts cmdkit.WriteOptions
 
 	cmd := &cobra.Command{
 		Use:   "assign <issue> <username>",
@@ -158,49 +162,50 @@ func newAssignCmd(prompt Prompt) *cobra.Command {
 			"Jira issue, their forge login for a forge issue. The assignment is printed and\n" +
 			"confirmed before it is made. A blank username is refused before anything is\n" +
 			"asked.",
-		Example: examples(
+		Example: cmdkit.Examples(
 			`workflow assign PROJ-7 bo --yes   # unattended`,
 		),
 		Args:              cobra.ExactArgs(2), //nolint:mnd // the issue and the username
-		ValidArgsFunction: completeAssignedIssues,
+		ValidArgsFunction: cmdkit.CompleteAssignedIssues,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			assignee := strings.TrimSpace(args[1])
 			if assignee == "" {
 				return errAssigneeBlank
 			}
 
-			conn, err := connect(cmd)
+			conn, err := cmdkit.Connect(cmd)
 			if err != nil {
 				return err
 			}
-			defer conn.closeLog()
+			defer conn.CloseLog()
 
 			seams := assignSeams{
-				Assign:  conn.deps.Jira.Assign,
-				Confirm: func(question string) (bool, error) { return confirm(prompt, question) },
+				Assign:  conn.Deps.Jira.Assign,
+				Confirm: func(question string) (bool, error) { return cmdkit.Confirm(prompt, question) },
 			}
 
-			return runAssign(cmd.Context(), outputOf(cmd), seams, jira.Key(args[0]), assignee, opts)
+			return runAssign(cmd.Context(), cmdkit.OutputOf(cmd), seams, jira.Key(args[0]), assignee, opts)
 		},
 	}
 
-	opts.addFlags(cmd, confirmationHelp)
+	opts.AddFlags(cmd, cmdkit.ConfirmationHelp)
 
 	return cmd
 }
 
 // runAssign previews the assignment, and makes it once confirmed.
 func runAssign(
-	ctx context.Context, out output, seams assignSeams, issueKey jira.Key, assignee string, opts writeOptions,
+	ctx context.Context, out cmdkit.Output, seams assignSeams, issueKey jira.Key, assignee string,
+	opts cmdkit.WriteOptions,
 ) error {
 	key, who := string(issueKey), assignee
 
 	return issueWrite{
 		preview: "Assign " + key + " to " + who,
-		say: writePrompt{
-			question: "Assign " + key + " to " + who + "?",
-			dryRun:   "dry run: would assign " + key + " to " + who,
-			declined: "Not assigned.",
+		say: cmdkit.WritePrompt{
+			Question: "Assign " + key + " to " + who + "?",
+			DryRun:   "dry run: would assign " + key + " to " + who,
+			Declined: "Not assigned.",
 		},
 		write: func(ctx context.Context) (string, error) {
 			err := seams.Assign(ctx, issueKey, assignee)
@@ -240,9 +245,9 @@ type worklogEntry struct {
 }
 
 // newWorklogCmd builds `workflow worklog <issue> <duration>`.
-func newWorklogCmd(prompt Prompt) *cobra.Command {
+func newWorklogCmd(prompt cmdkit.Prompt) *cobra.Command {
 	var (
-		opts writeOptions
+		opts cmdkit.WriteOptions
 		note string
 	)
 
@@ -253,11 +258,11 @@ func newWorklogCmd(prompt Prompt) *cobra.Command {
 			"--comment's note beside it. The worklog is printed and confirmed before it is\n" +
 			"logged. A forge issue keeps no worklog, so its number is refused, as is a blank\n" +
 			"duration, before anything is asked.",
-		Example: examples(
+		Example: cmdkit.Examples(
 			`workflow worklog PROJ-7 2h --comment "pairing on the fix" --yes`,
 		),
 		Args:              cobra.ExactArgs(2), //nolint:mnd // the issue and the duration
-		ValidArgsFunction: completeAssignedIssues,
+		ValidArgsFunction: cmdkit.CompleteAssignedIssues,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			entry := worklogEntry{issueKey: jira.Key(args[0]), spent: strings.TrimSpace(args[1]), note: note}
 
@@ -266,22 +271,22 @@ func newWorklogCmd(prompt Prompt) *cobra.Command {
 				return err
 			}
 
-			conn, err := connect(cmd)
+			conn, err := cmdkit.Connect(cmd)
 			if err != nil {
 				return err
 			}
-			defer conn.closeLog()
+			defer conn.CloseLog()
 
 			seams := worklogSeams{
-				AddWorklog: conn.deps.Jira.AddWorklog,
-				Confirm:    func(question string) (bool, error) { return confirm(prompt, question) },
+				AddWorklog: conn.Deps.Jira.AddWorklog,
+				Confirm:    func(question string) (bool, error) { return cmdkit.Confirm(prompt, question) },
 			}
 
-			return runWorklog(cmd.Context(), outputOf(cmd), seams, entry, opts)
+			return runWorklog(cmd.Context(), cmdkit.OutputOf(cmd), seams, entry, opts)
 		},
 	}
 
-	opts.addFlags(cmd, confirmationHelp)
+	opts.AddFlags(cmd, cmdkit.ConfirmationHelp)
 	cmd.Flags().StringVar(&note, "comment", "", "a note to log beside the time")
 
 	return cmd
@@ -302,7 +307,9 @@ func (e worklogEntry) check() error {
 }
 
 // runWorklog previews the worklog, and logs it once confirmed.
-func runWorklog(ctx context.Context, out output, seams worklogSeams, entry worklogEntry, opts writeOptions) error {
+func runWorklog(
+	ctx context.Context, out cmdkit.Output, seams worklogSeams, entry worklogEntry, opts cmdkit.WriteOptions,
+) error {
 	if seams.AddWorklog == nil {
 		return errWorklogNeedsJira
 	}
@@ -316,10 +323,10 @@ func runWorklog(ctx context.Context, out output, seams worklogSeams, entry workl
 
 	return issueWrite{
 		preview: preview,
-		say: writePrompt{
-			question: "Log " + entry.spent + " on " + key + "?",
-			dryRun:   "dry run: would log " + entry.spent + " on " + key,
-			declined: "Not logged.",
+		say: cmdkit.WritePrompt{
+			Question: "Log " + entry.spent + " on " + key + "?",
+			DryRun:   "dry run: would log " + entry.spent + " on " + key,
+			Declined: "Not logged.",
 		},
 		write: func(ctx context.Context) (string, error) {
 			logged, err := seams.AddWorklog(ctx, entry.issueKey, entry.spent, entry.note)

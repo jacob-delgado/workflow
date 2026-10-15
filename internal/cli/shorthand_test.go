@@ -13,6 +13,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 )
 
 func TestEveryCommandSpellsTheSharedFlagsShortAlike(t *testing.T) {
@@ -20,7 +21,7 @@ func TestEveryCommandSpellsTheSharedFlagsShortAlike(t *testing.T) {
 
 	// Arrange
 	shorthands := map[string]string{"dry-run": "n", "yes": "y", "json": "j"}
-	root := cli.NewRootCmd(cli.Prompt{})
+	root := cli.NewRootCmd(cmdkit.Prompt{})
 
 	// Act
 	commands := everyCommand(root)

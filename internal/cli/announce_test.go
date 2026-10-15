@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/store"
 )
@@ -191,7 +191,7 @@ func TestAnnounceAgainWithNoTerminalDoesNotPointAtYes(t *testing.T) {
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, forgeCLIConfig)
 	home := announcedEarlier(t, messaging.MomentReady)
-	noTerminal := cli.Prompt{Line: func(string) (string, error) { return "", io.EOF }}
+	noTerminal := cmdkit.Prompt{Line: func(string) (string, error) { return "", io.EOF }}
 
 	// Act
 	_, err := clitest.RunStreamsAt(t, clitest.Place{Dir: repo, Home: home}, noTerminal, "announce")

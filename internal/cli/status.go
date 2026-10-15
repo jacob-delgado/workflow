@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/cli/console"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -66,14 +67,14 @@ func (o statusOptions) ascii(configured bool) bool {
 // look is how the live line is drawn while status reads named directories:
 // as ui asks, and in ASCII when --plain does.
 func (o statusOptions) look(ui config.UI) console.Look {
-	look := liveLook(ui)
+	look := cmdkit.LiveLook(ui)
 	look.ASCII = o.ascii(ui.ASCII)
 
 	return look
 }
 
 // newStatusCmd builds `workflow status [directory...]`.
-func newStatusCmd(prompt Prompt) *cobra.Command {
+func newStatusCmd(prompt cmdkit.Prompt) *cobra.Command {
 	var opts statusOptions
 
 	cmd := &cobra.Command{
@@ -94,7 +95,7 @@ func newStatusCmd(prompt Prompt) *cobra.Command {
 			"command then fails, as it does outside a repository: it exits 3 when a\n" +
 			"directory's configuration does not load, otherwise 4 when one is not a git\n" +
 			"repository — as bare status exits 4 outside one — otherwise 1.",
-		Example: examples(
+		Example: cmdkit.Examples(
 			`workflow status --json        # where the work stands, as data`,
 			`workflow status ~/src/*       # every repository at once, a line each`,
 		),
@@ -104,7 +105,7 @@ func newStatusCmd(prompt Prompt) *cobra.Command {
 		},
 	}
 
-	addJSONFlag(cmd, &opts.asJSON, "print the status as JSON")
+	cmdkit.AddJSONFlag(cmd, &opts.asJSON, "print the status as JSON")
 	cmd.Flags().BoolVar(&opts.plain, "plain", false,
 		"draw the line's marks, and the live line's, in ASCII, as ui.ascii does, whatever the configuration says")
 
@@ -113,9 +114,9 @@ func newStatusCmd(prompt Prompt) *cobra.Command {
 
 // runStatusCommand prints the status of the current repository, or of each
 // named directory, noting on a terminal which directory it is reading.
-func runStatusCommand(cmd *cobra.Command, prompt Prompt, opts statusOptions, dirs []string) error {
+func runStatusCommand(cmd *cobra.Command, prompt cmdkit.Prompt, opts statusOptions, dirs []string) error {
 	if opts.plain && opts.asJSON {
-		return fmt.Errorf("%w: %w", errUsage, errPlainBesideJSON)
+		return fmt.Errorf("%w: %w", cmdkit.ErrUsage, errPlainBesideJSON)
 	}
 
 	if len(dirs) == 0 {
@@ -130,13 +131,13 @@ func runStatusCommand(cmd *cobra.Command, prompt Prompt, opts statusOptions, dir
 func statusHere(cmd *cobra.Command, opts statusOptions) error {
 	// A missing configuration is not fatal: the repository stages still read,
 	// and the service stages simply stay not-started.
-	conn, err := connect(cmd)
+	conn, err := cmdkit.Connect(cmd)
 	if err != nil {
 		return err
 	}
-	defer conn.closeLog()
+	defer conn.CloseLog()
 
-	return runStatus(cmd.Context(), outputOf(cmd), seamsFor(conn), opts.ascii(conn.cfg.UI.ASCII), opts.asJSON)
+	return runStatus(cmd.Context(), cmdkit.OutputOf(cmd), seamsFor(conn), opts.ascii(conn.Config.UI.ASCII), opts.asJSON)
 }
 
 // statusAcross prints one labeled status per named directory, once each has
@@ -144,8 +145,8 @@ func statusHere(cmd *cobra.Command, opts statusOptions) error {
 // watches the terminal. A directory that cannot be read is noted in its row
 // rather than stopping the rest, and then fails the command, as bare status
 // fails outside a repository.
-func statusAcross(cmd *cobra.Command, prompt Prompt, dirs []string, opts statusOptions) error {
-	requestLog, closeLog, err := requestLogFor(cmd)
+func statusAcross(cmd *cobra.Command, prompt cmdkit.Prompt, dirs []string, opts statusOptions) error {
+	requestLog, closeLog, err := cmdkit.RequestLogFor(cmd)
 	if err != nil {
 		return err
 	}
@@ -154,26 +155,26 @@ func statusAcross(cmd *cobra.Command, prompt Prompt, dirs []string, opts statusO
 	// The live line is the command's own, drawn as the configuration where it
 	// runs asks. One that cannot be read draws it as the defaults do: each
 	// directory reads, and reports, its own.
-	here, _ := loadFromEnvironment(cmd)
+	here, _ := cmdkit.LoadFromEnvironment(cmd)
 
 	var statuses []directoryStatus
 
-	watchErr := waiting(cmd, prompt, opts.look(here.UI), func(_ output, live console.Wait) error {
+	watchErr := cmdkit.Waiting(cmd, prompt, opts.look(here.UI), func(_ cmdkit.Output, live console.Wait) error {
 		statuses = statusesOf(cmd, live, dirs, requestLog)
 
 		return nil
 	})
 
-	out := outputOf(cmd)
+	out := cmdkit.OutputOf(cmd)
 
 	if opts.asJSON {
-		err = statusesJSON(out.artifact, statuses)
+		err = statusesJSON(out.Artifact, statuses)
 	} else {
-		statusLines(out.artifact, statuses, opts)
+		statusLines(out.Artifact, statuses, opts)
 	}
 
 	for _, status := range statuses {
-		writeNotes(out.notes, status.label+": ", status.facts.notes)
+		writeNotes(out.Notes, status.label+": ", status.facts.notes)
 	}
 
 	return errors.Join(err, unreadDirectories(statuses), watchErr)
@@ -221,9 +222,9 @@ func statusesOf(
 			continue
 		}
 
-		conn := connectAt(cmd.Context(), cmd, status.found, requestLog)
+		conn := cmdkit.ConnectAt(cmd.Context(), cmd, status.found, requestLog)
 		statuses[index].facts, statuses[index].err = statusOf(cmd.Context(), conn)
-		statuses[index].ascii = conn.cfg.UI.ASCII
+		statuses[index].ascii = conn.Config.UI.ASCII
 	}
 
 	return statuses
@@ -237,14 +238,14 @@ func placed(cmd *cobra.Command, dirs []string) []directoryStatus {
 	leads := make([]string, len(dirs))
 
 	for index, dir := range dirs {
-		found, err := fromWorkingDir(cmd, dir)
+		found, err := cmdkit.FromWorkingDir(cmd, dir)
 		statuses[index] = directoryStatus{dir: dir, found: found, err: err}
 		// An unnamed working directory leaves nothing found: the lead is then
 		// the directory as given.
 		leads[index] = filepath.Clean(cmp.Or(found, dir))
 	}
 
-	for index, label := range directoryLabels(leads, configHome(cmd)) {
+	for index, label := range directoryLabels(leads, cmdkit.ConfigHome(cmd)) {
 		statuses[index].label = label
 	}
 
@@ -253,8 +254,8 @@ func placed(cmd *cobra.Command, dirs []string) []directoryStatus {
 
 // statusOf gathers the status of the repository a connection wired under ctx,
 // refusing one whose configuration file could not be read.
-func statusOf(ctx context.Context, conn connection) (statusFacts, error) {
-	err := conn.unreadConfiguration()
+func statusOf(ctx context.Context, conn cmdkit.Connection) (statusFacts, error) {
+	err := conn.UnreadConfiguration()
 	if err != nil {
 		return statusFacts{}, err
 	}
@@ -263,29 +264,29 @@ func statusOf(ctx context.Context, conn connection) (statusFacts, error) {
 }
 
 // seamsFor reads the repository, forge, Jira and store a connection wired.
-func seamsFor(conn connection) statusSeams {
+func seamsFor(conn cmdkit.Connection) statusSeams {
 	return statusSeams{
-		Branch:      conn.deps.Git.Branch,
-		Changes:     conn.deps.Git.Changes,
-		FindPull:    conn.deps.Forge.FindPullRequest,
-		CheckStatus: conn.deps.Forge.CheckStatus,
-		Issue:       conn.deps.Jira.Issue,
-		Memory:      loop.AnnounceMemory{Recorded: conn.deps.Store.Announced},
-		Project:     conn.cfg.Jira.Project,
-		Service:     conn.cfg.Messaging.Service(),
-		Forge:       conn.deps.Forge.Kind,
+		Branch:      conn.Deps.Git.Branch,
+		Changes:     conn.Deps.Git.Changes,
+		FindPull:    conn.Deps.Forge.FindPullRequest,
+		CheckStatus: conn.Deps.Forge.CheckStatus,
+		Issue:       conn.Deps.Jira.Issue,
+		Memory:      loop.AnnounceMemory{Recorded: conn.Deps.Store.Announced},
+		Project:     conn.Config.Jira.Project,
+		Service:     conn.Config.Messaging.Service(),
+		Forge:       conn.Deps.Forge.Kind,
 		Tracker:     trackerName(conn),
 	}
 }
 
 // trackerName names the tracker the issue is read from: Jira when it is
 // configured, and otherwise the forge, whose issues stand in for it.
-func trackerName(conn connection) string {
-	if conn.cfg.Jira.Configured() {
+func trackerName(conn cmdkit.Connection) string {
+	if conn.Config.Jira.Configured() {
 		return "Jira"
 	}
 
-	return forgeName(conn.deps.Forge.Kind)
+	return forgeName(conn.Deps.Forge.Kind)
 }
 
 // directoryLabels names each directory in the output by its base name or,
@@ -316,19 +317,19 @@ func directoryLabels(dirs []string, home string) []string {
 // runStatus gathers the current state and prints it, as a line or as JSON,
 // with a note on stderr for each service that refused to answer or is not set
 // up. The store is read under ctx.
-func runStatus(ctx context.Context, out output, seams statusSeams, ascii, asJSON bool) error {
+func runStatus(ctx context.Context, out cmdkit.Output, seams statusSeams, ascii, asJSON bool) error {
 	facts, err := statusFromSeams(ctx, seams)
 	if err != nil {
 		return err
 	}
 
-	writeNotes(out.notes, "", facts.notes)
+	writeNotes(out.Notes, "", facts.notes)
 
 	if asJSON {
-		return renderStatusJSON(out.artifact, facts)
+		return renderStatusJSON(out.Artifact, facts)
 	}
 
-	renderStatusLine(out.artifact, facts, ascii)
+	renderStatusLine(out.Artifact, facts, ascii)
 
 	return nil
 }

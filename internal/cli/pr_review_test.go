@@ -12,8 +12,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 )
 
 // statusInReview is the review status these tests configure `pr` to offer.
@@ -285,7 +285,7 @@ func TestPRStopsAtTheLinkWhenNothingCanAnswer(t *testing.T) {
 
 	var asked int
 
-	ending := cli.Prompt{Line: func(string) (string, error) {
+	ending := cmdkit.Prompt{Line: func(string) (string, error) {
 		asked++
 		if asked > len(answers) {
 			return "", io.EOF

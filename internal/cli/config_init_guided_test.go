@@ -13,8 +13,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/config"
 )
 
@@ -283,7 +283,7 @@ func TestGuidedInitReportsAPromptThatCannotRead(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	broken := cli.Prompt{
+	broken := cmdkit.Prompt{
 		Line:   func(string) (string, error) { return "", errPromptBroke },
 		Secret: func(string) (string, error) { return "", errPromptBroke },
 	}
@@ -302,7 +302,7 @@ func TestGuidedInitReportsAFailureReadingTheToken(t *testing.T) {
 
 	// Arrange
 	// The URL reads, but reading the secret token fails.
-	broken := cli.Prompt{
+	broken := cmdkit.Prompt{
 		Line:   func(string) (string, error) { return "https://jira.example.com", nil },
 		Secret: func(string) (string, error) { return "", errPromptBroke },
 	}

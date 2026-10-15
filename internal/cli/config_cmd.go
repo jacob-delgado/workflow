@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/cli/console"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -20,13 +21,14 @@ import (
 )
 
 // newConfigCmd builds the `workflow config` subtree.
-func newConfigCmd(prompt Prompt) *cobra.Command {
+func newConfigCmd(prompt cmdkit.Prompt) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
 		Short: "Create and inspect the configuration file",
 		Args:  cobra.NoArgs,
 		// Runnable, so NoArgs refuses an unknown subcommand as misuse; declared
-		// here, not left to markMisuse, so the generated reference shows it too.
+		// here, not left to cmdkit.MarkMisuse, so the generated reference shows
+		// it too.
 		RunE: func(cmd *cobra.Command, _ []string) error { return cmd.Help() },
 	}
 
@@ -62,7 +64,7 @@ func (opts initOptions) write(path string, cfg config.Config, over config.Revisi
 // newConfigInitCmd builds `workflow config init`. It asks for each credential
 // and checks the Jira token, saving a webhook unchecked, unless --template is
 // given, which writes a blank file to edit by hand.
-func newConfigInitCmd(prompt Prompt) *cobra.Command {
+func newConfigInitCmd(prompt cmdkit.Prompt) *cobra.Command {
 	var opts initOptions
 
 	cmd := &cobra.Command{
@@ -77,14 +79,14 @@ func newConfigInitCmd(prompt Prompt) *cobra.Command {
 			"Use --template to write a blank file to fill in by hand rather than being\n" +
 			"asked. With --dry-run it runs the same checks, writes nothing and stores\n" +
 			"nothing in the keychain, and prints the file it would write, masked.",
-		Example: examples(
+		Example: cmdkit.Examples(
 			`workflow config init              # answer the prompts, the Jira token checked`,
 			`workflow config init --template   # a blank file to fill in by hand`,
 			`workflow config init --global     # one file in your home, for every directory`,
 		),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			opts.dryRun = dryRunRequested(cmd)
+			opts.dryRun = cmdkit.DryRunRequested(cmd)
 
 			where, err := whereInit(cmd, opts.global)
 			if err != nil {
@@ -116,7 +118,7 @@ func newConfigInitCmd(prompt Prompt) *cobra.Command {
 // for any.
 func showLoadError(cmd *cobra.Command, err error) error {
 	if errors.Is(err, config.ErrNotFound) {
-		notesOf(cmd).Note(config.NoConfigHeadline + "\n\n" + config.InitStep + "\n" + config.DoctorStep)
+		cmdkit.NotesOf(cmd).Note(config.NoConfigHeadline + "\n\n" + config.InitStep + "\n" + config.DoctorStep)
 	}
 
 	return err
@@ -131,12 +133,12 @@ func newConfigShowCmd() *cobra.Command {
 			"The JSON alone goes to stdout, so it pipes into jq; the file it came from is\n" +
 			"named on stderr. With no configuration file it says how to create one and\n" +
 			"exits 3, as doctor does.",
-		Example: examples(
+		Example: cmdkit.Examples(
 			`workflow config show | jq -r .jira.base_url   # one setting in effect, as data`,
 		),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			cfg, err := loadFromEnvironment(cmd)
+			cfg, err := cmdkit.LoadFromEnvironment(cmd)
 			if err != nil {
 				return showLoadError(cmd, err)
 			}
@@ -153,7 +155,7 @@ var errNoHome = errors.New("determining the home directory: none is set")
 // home, or the home directory alone for --global, which needs one.
 func whereInit(cmd *cobra.Command, global bool) (setup.Where, error) {
 	if global {
-		home := configHome(cmd)
+		home := cmdkit.ConfigHome(cmd)
 		if home == "" {
 			return setup.Where{}, errNoHome
 		}
@@ -161,12 +163,12 @@ func whereInit(cmd *cobra.Command, global bool) (setup.Where, error) {
 		return setup.Where{HomeDir: home}, nil
 	}
 
-	workDir, err := workingDir(cmd)
+	workDir, err := cmdkit.WorkingDir(cmd)
 	if err != nil {
 		return setup.Where{}, err
 	}
 
-	return setup.Where{WorkDir: workDir, HomeDir: configHome(cmd)}, nil
+	return setup.Where{WorkDir: workDir, HomeDir: cmdkit.ConfigHome(cmd)}, nil
 }
 
 // placeFor is where --global says the file goes.
@@ -200,9 +202,9 @@ func (opts initOptions) refuseOverwrite(path string) error {
 // file, with every credential masked, as the artifact on stdout, and where it
 // would have gone on stderr.
 func previewConfig(cmd *cobra.Command, path string, cfg config.Config) error {
-	notesOf(cmd).Note(fmt.Sprintf("dry run: would write %s (mode %#o)", path, config.FileMode))
+	cmdkit.NotesOf(cmd).Note(fmt.Sprintf("dry run: would write %s (mode %#o)", path, config.FileMode))
 
-	return encodeJSON(cmd.OutOrStdout(), cfg.Redacted())
+	return cmdkit.EncodeJSON(cmd.OutOrStdout(), cfg.Redacted())
 }
 
 // runConfigInit writes the template, unless the file is already there. Over a
@@ -228,7 +230,7 @@ func runConfigInit(cmd *cobra.Command, path string, opts initOptions) error {
 	}
 
 	// The file is what config init makes; everything it says is about the file.
-	notes := notesOf(cmd)
+	notes := cmdkit.NotesOf(cmd)
 	notes.Note(fmt.Sprintf("Wrote %s (mode %#o).", path, config.FileMode))
 	notes.Note("\nNext: add your Jira and Slack tokens, then run `workflow doctor`.\n" +
 		"`workflow --help` explains how to create each token.")
@@ -254,7 +256,7 @@ func writeEmptyLayer(cmd *cobra.Command, path string, opts initOptions) error {
 		return err
 	}
 
-	notes := notesOf(cmd)
+	notes := cmdkit.NotesOf(cmd)
 	notes.Note(fmt.Sprintf("Wrote %s (mode %#o), over %s.\n"+
 		"\nNext: add only the settings this repository changes; the rest come from %s.",
 		path, config.FileMode, opts.layers.Home, opts.layers.Home))
@@ -267,7 +269,7 @@ func writeEmptyLayer(cmd *cobra.Command, path string, opts initOptions) error {
 // webhook unchecked, and writes what it kept, unless the file is already
 // there. A dry run asks and checks the same, but offers no keychain — which
 // would store the token — and prints the file rather than writing it.
-func runGuidedInit(cmd *cobra.Command, path string, opts initOptions, prompt Prompt) error {
+func runGuidedInit(cmd *cobra.Command, path string, opts initOptions, prompt cmdkit.Prompt) error {
 	err := opts.refuseOverwrite(path)
 	if err != nil {
 		return err
@@ -295,8 +297,8 @@ type guidedFile struct {
 // guidedAnswers asks setup's questions for the file at path, checking the Jira
 // token over the request log, and lays the answers over the home file beneath.
 // With nothing to answer them, it says to write the template instead.
-func guidedAnswers(cmd *cobra.Command, path string, opts initOptions, prompt Prompt) (guidedFile, error) {
-	requestLog, closeLog, err := requestLogFor(cmd)
+func guidedAnswers(cmd *cobra.Command, path string, opts initOptions, prompt cmdkit.Prompt) (guidedFile, error) {
+	requestLog, closeLog, err := cmdkit.RequestLogFor(cmd)
 	if err != nil {
 		return guidedFile{}, err
 	}
@@ -311,9 +313,9 @@ func guidedAnswers(cmd *cobra.Command, path string, opts initOptions, prompt Pro
 	}
 
 	answers, err := askAnswers(cmd.Context(), out, guidedPrompt(prompt, opts.dryRun),
-		requestLog.Wrap("jira", onlineDoer(config.Config{})))
-	if errors.Is(err, io.EOF) || errors.Is(err, errNoTerminal) {
-		return guidedFile{}, fmt.Errorf("%w; pass --template to write a file to edit by hand", errNoTerminal)
+		requestLog.Wrap("jira", cmdkit.OnlineDoer(config.Config{})))
+	if errors.Is(err, io.EOF) || errors.Is(err, cmdkit.ErrNoTerminal) {
+		return guidedFile{}, fmt.Errorf("%w; pass --template to write a file to edit by hand", cmdkit.ErrNoTerminal)
 	}
 
 	return guidedFile{cfg: answers.Over(beneath), over: over}, err
@@ -321,7 +323,7 @@ func guidedAnswers(cmd *cobra.Command, path string, opts initOptions, prompt Pro
 
 // guidedPrompt is prompt as the guided setup asks with it: offering no keychain
 // under a dry run, which would store the token.
-func guidedPrompt(prompt Prompt, dryRun bool) Prompt {
+func guidedPrompt(prompt cmdkit.Prompt, dryRun bool) cmdkit.Prompt {
 	if dryRun {
 		prompt.StoreSecret = nil
 	}
@@ -337,7 +339,7 @@ func writeGuided(cmd *cobra.Command, path string, opts initOptions, guided guide
 		return err
 	}
 
-	notes := notesOf(cmd)
+	notes := cmdkit.NotesOf(cmd)
 	notes.Note(fmt.Sprintf("\nWrote %s (mode %#o). Run `workflow doctor` to check it again.", path, config.FileMode))
 	warnIfNotIgnored(cmd.Context(), notes, path)
 
@@ -345,7 +347,7 @@ func writeGuided(cmd *cobra.Command, path string, opts initOptions, guided guide
 }
 
 // askAnswers asks setup's questions in turn: Jira's, then messaging's.
-func askAnswers(ctx context.Context, out io.Writer, prompt Prompt, doer jira.Doer) (setup.Answers, error) {
+func askAnswers(ctx context.Context, out io.Writer, prompt cmdkit.Prompt, doer jira.Doer) (setup.Answers, error) {
 	asked, err := collectJira(ctx, out, prompt, doer)
 	if err != nil {
 		return setup.Answers{}, err
@@ -361,7 +363,7 @@ func askAnswers(ctx context.Context, out io.Writer, prompt Prompt, doer jira.Doe
 
 // collectJira asks for the Jira address and token, checks them over doer, and
 // keeps them only if the check passed or the user chose to save them regardless.
-func collectJira(ctx context.Context, out io.Writer, prompt Prompt, doer jira.Doer) (config.Jira, error) {
+func collectJira(ctx context.Context, out io.Writer, prompt cmdkit.Prompt, doer jira.Doer) (config.Jira, error) {
 	baseURL, err := prompt.Line("Jira base URL (e.g. https://jira.example.com), blank to skip: ")
 	if err != nil {
 		return config.Jira{}, err
@@ -405,12 +407,14 @@ func checkTyped(ctx context.Context, out io.Writer, doer jira.Doer, settings con
 // for its address, so the file reads it from there rather than holding the
 // secret, keeping it under ctx. It is a no-op where the keychain is not wired
 // for the platform.
-func keepTokenSafe(ctx context.Context, out io.Writer, prompt Prompt, settings config.Jira) (config.Jira, error) {
+func keepTokenSafe(
+	ctx context.Context, out io.Writer, prompt cmdkit.Prompt, settings config.Jira,
+) (config.Jira, error) {
 	if prompt.StoreSecret == nil {
 		return settings, nil
 	}
 
-	store, err := confirm(prompt, "Store the Jira token in your keychain, keeping it out of the file?")
+	store, err := cmdkit.Confirm(prompt, "Store the Jira token in your keychain, keeping it out of the file?")
 	if err != nil || !store {
 		return settings, err
 	}
@@ -431,7 +435,7 @@ func keepTokenSafe(ctx context.Context, out io.Writer, prompt Prompt, settings c
 // login` sets up, since it needs the app's client ID and a refresh token; the
 // other services' webhooks are left to the docs and a later hand edit of the
 // messaging block.
-func collectMessaging(out io.Writer, prompt Prompt) (config.Secret, error) {
+func collectMessaging(out io.Writer, prompt cmdkit.Prompt) (config.Secret, error) {
 	webhook, err := prompt.Secret("Slack incoming webhook URL, blank to post with your user token instead: ")
 	if err != nil {
 		return "", err
@@ -453,7 +457,7 @@ func collectMessaging(out io.Writer, prompt Prompt) (config.Secret, error) {
 // and a failing one asks, so a service that is merely unreachable right now can
 // still be saved. An address that is no address is never kept, so it is not
 // asked about: the setup stops on it.
-func keepIfChecked(prompt Prompt, what string, checkErr error) (bool, error) {
+func keepIfChecked(prompt cmdkit.Prompt, what string, checkErr error) (bool, error) {
 	if checkErr == nil {
 		return true, nil
 	}
@@ -462,7 +466,7 @@ func keepIfChecked(prompt Prompt, what string, checkErr error) (bool, error) {
 		return false, checkErr
 	}
 
-	return confirm(prompt, "The "+what+" check did not pass. Save it anyway?")
+	return cmdkit.Confirm(prompt, "The "+what+" check did not pass. Save it anyway?")
 }
 
 // warnIfNotIgnored says so when the file is inside a repository but not ignored
@@ -482,7 +486,7 @@ func warnIfNotIgnored(ctx context.Context, notes console.Notes, path string) {
 // the JSON alone on stdout, so it pipes into jq, and which file it came from on
 // stderr.
 func runConfigShow(cmd *cobra.Command, cfg config.Config) error {
-	notesOf(cmd).Note(fmt.Sprintf("# %s", cfg.Layers()))
+	cmdkit.NotesOf(cmd).Note(fmt.Sprintf("# %s", cfg.Layers()))
 
-	return encodeJSON(cmd.OutOrStdout(), cfg.Redacted())
+	return cmdkit.EncodeJSON(cmd.OutOrStdout(), cfg.Redacted())
 }

@@ -15,8 +15,8 @@ import (
 	"testing"
 	"testing/iotest"
 
-	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 )
 
 // errUnreadableInput is standard input failing part way through a read.
@@ -76,7 +76,7 @@ func commentJira(t *testing.T, markdown bool) (string, *commentsPosted) {
 }
 
 // typed is a prompt that asks nothing and reads text from standard input.
-func typed(t *testing.T, text string) cli.Prompt {
+func typed(t *testing.T, text string) cmdkit.Prompt {
 	t.Helper()
 
 	prompt := clitest.UnusedPrompt(t)
@@ -173,7 +173,7 @@ func TestCommentWithNothingToAnswerSaysToPassYes(t *testing.T) {
 	// The text took standard input to its end, so the question has nothing
 	// left to read an answer from.
 	dir, posted := commentJira(t, false)
-	prompt := cli.Prompt{
+	prompt := cmdkit.Prompt{
 		Line:  func(string) (string, error) { return "", io.EOF },
 		Input: strings.NewReader("hello"),
 	}

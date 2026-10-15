@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/report"
 )
@@ -52,7 +53,7 @@ func newReviewsCmd() *cobra.Command {
 			"--sort newest lists the latest first, and --sort repo groups them by\n" +
 			"repository, oldest first within each. --json prints the web API's review\n" +
 			"requests, each with when it was opened.",
-		Example: examples(
+		Example: cmdkit.Examples(
 			`workflow reviews | wc -l      # how many pull requests wait on you`,
 			`workflow reviews --json       # the same, oldest first, as data`,
 		),
@@ -62,7 +63,7 @@ func newReviewsCmd() *cobra.Command {
 		},
 	}
 
-	addJSONFlag(cmd, &opts.asJSON, "print the reviews as JSON")
+	cmdkit.AddJSONFlag(cmd, &opts.asJSON, "print the reviews as JSON")
 	cmd.Flags().StringVar(&opts.sort, "sort", "oldest", "the order to list them in: oldest, newest or repo")
 
 	return cmd
@@ -70,24 +71,24 @@ func newReviewsCmd() *cobra.Command {
 
 // runReviewsCommand wires the real forge to the reviews listing.
 func runReviewsCommand(cmd *cobra.Command, opts reviewsOptions) error {
-	conn, err := connect(cmd)
+	conn, err := cmdkit.Connect(cmd)
 	if err != nil {
 		return err
 	}
-	defer conn.closeLog()
+	defer conn.CloseLog()
 
-	seams := reviewsSeams{List: conn.deps.Forge.ReviewRequests, Now: time.Now, Kind: conn.deps.Forge.Kind}
+	seams := reviewsSeams{List: conn.Deps.Forge.ReviewRequests, Now: time.Now, Kind: conn.Deps.Forge.Kind}
 
-	return runReviews(cmd.Context(), outputOf(cmd), seams, opts)
+	return runReviews(cmd.Context(), cmdkit.OutputOf(cmd), seams, opts)
 }
 
 // runReviews lists the reviews waiting on you, in the order opts asks for.
-func runReviews(ctx context.Context, out output, seams reviewsSeams, opts reviewsOptions) error {
+func runReviews(ctx context.Context, out cmdkit.Output, seams reviewsSeams, opts reviewsOptions) error {
 	order, known := map[string]func([]forge.ReviewRequest) []forge.ReviewRequest{
 		"oldest": forge.OldestFirst, "newest": forge.NewestFirst, "repo": forge.ByRepository,
 	}[opts.sort]
 	if !known {
-		return fmt.Errorf(`%w %q for "--sort" flag: %w`, errUsage, opts.sort, errUnknownSort)
+		return fmt.Errorf(`%w %q for "--sort" flag: %w`, cmdkit.ErrUsage, opts.sort, errUnknownSort)
 	}
 
 	answered, err := seams.List(ctx)
@@ -97,7 +98,7 @@ func runReviews(ctx context.Context, out output, seams reviewsSeams, opts review
 
 	reviews := order(answered)
 	if opts.asJSON {
-		return encodeJSON(out.artifact, report.ReviewRequests(reviews))
+		return cmdkit.EncodeJSON(out.Artifact, report.ReviewRequests(reviews))
 	}
 
 	renderReviews(out, reviews, seams.Now(), seams.Kind)
@@ -107,15 +108,15 @@ func runReviews(ctx context.Context, out output, seams reviewsSeams, opts review
 
 // renderReviews writes one line per review, or says, as commentary, that the
 // queue is empty: a script counting the lines counts none.
-func renderReviews(out output, reviews []forge.ReviewRequest, now time.Time, kind forge.Kind) {
+func renderReviews(out cmdkit.Output, reviews []forge.ReviewRequest, now time.Time, kind forge.Kind) {
 	if len(reviews) == 0 {
-		out.notes.Note("No " + kind.Noun() + "s are waiting on your review.")
+		out.Notes.Note("No " + kind.Noun() + "s are waiting on your review.")
 
 		return
 	}
 
 	for _, review := range reviews {
-		fmt.Fprintln(out.artifact, reviewLine(review, now, kind))
+		fmt.Fprintln(out.Artifact, reviewLine(review, now, kind))
 	}
 }
 

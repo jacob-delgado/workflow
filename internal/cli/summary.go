@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/activity"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/cli/console"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -50,17 +51,17 @@ type summaryOptions struct {
 	asJSON  bool
 	post    bool
 	channel string
-	write   writeOptions
+	write   cmdkit.WriteOptions
 }
 
 // apart reports flags given together that summary does not take together:
 // --json with --post, or --yes or --channel without it.
 func (o summaryOptions) apart() bool {
-	return o.asJSON && o.post || !o.post && (o.write.yes || strings.TrimSpace(o.channel) != "")
+	return o.asJSON && o.post || !o.post && (o.write.Yes || strings.TrimSpace(o.channel) != "")
 }
 
 // newSummaryCmd builds `workflow summary`.
-func newSummaryCmd(prompt Prompt) *cobra.Command {
+func newSummaryCmd(prompt cmdkit.Prompt) *cobra.Command {
 	var opts summaryOptions
 
 	cmd := &cobra.Command{
@@ -80,7 +81,7 @@ func newSummaryCmd(prompt Prompt) *cobra.Command {
 			"rest. A source that is not set up — no token, no forge the base remote names,\n" +
 			"no Taskwarrior — is left out, with a note on standard error saying how to set it\n" +
 			"up.",
-		Example: examples(
+		Example: cmdkit.Examples(
 			`workflow summary --json | jq -r .text   # what you did on the previous working day`,
 			`workflow summary --post --yes          # post it to your team, unattended`,
 		),
@@ -92,33 +93,33 @@ func newSummaryCmd(prompt Prompt) *cobra.Command {
 
 	cmd.Flags().StringVar(&opts.from, "from", "", "the first day, written YYYY-MM-DD")
 	cmd.Flags().StringVar(&opts.to, "to", "", "the last day, written YYYY-MM-DD")
-	addJSONFlag(cmd, &opts.asJSON, "print the summary as JSON")
+	cmdkit.AddJSONFlag(cmd, &opts.asJSON, "print the summary as JSON")
 	cmd.Flags().BoolVar(&opts.post, "post", false, "post the summary to your team's chat, after a preview")
 	cmd.Flags().StringVar(&opts.channel, "channel", "",
 		"with --post, post in `CHANNEL` instead of messaging.channel; a Slack user token only")
-	opts.write.addFlags(cmd, "post without the confirmation")
+	opts.write.AddFlags(cmd, "post without the confirmation")
 
 	return cmd
 }
 
 // runSummaryCommand wires the real sources and messaging service to summary.
-func runSummaryCommand(cmd *cobra.Command, prompt Prompt, opts summaryOptions) error {
+func runSummaryCommand(cmd *cobra.Command, prompt cmdkit.Prompt, opts summaryOptions) error {
 	if opts.apart() {
-		return fmt.Errorf("%w: %w", errUsage, errFlagsApart)
+		return fmt.Errorf("%w: %w", cmdkit.ErrUsage, errFlagsApart)
 	}
 
-	conn, err := connect(cmd)
+	conn, err := cmdkit.Connect(cmd)
 	if err != nil {
 		return err
 	}
-	defer conn.closeLog()
+	defer conn.CloseLog()
 
-	settings, err := postingIn(conn.cfg.Messaging, opts.channel)
+	settings, err := cmdkit.PostingIn(conn.Config.Messaging, opts.channel)
 	if err != nil {
 		return err
 	}
 
-	cfg, deps := conn.cfg, conn.deps
+	cfg, deps := conn.Config, conn.Deps
 	seams := summarySeams{
 		Activity: loop.ActivitySeams{
 			Commits: deps.Git.CommitsBetween, Touched: deps.Tasks.Touched,
@@ -127,9 +128,11 @@ func runSummaryCommand(cmd *cobra.Command, prompt Prompt, opts summaryOptions) e
 		},
 		Now:       time.Now,
 		Messaging: settings,
-		Confirm:   func(question string) (bool, error) { return confirm(prompt, question) },
+		Confirm:   func(question string) (bool, error) { return cmdkit.Confirm(prompt, question) },
 		Watch: func(reads func(console.Wait) error) error {
-			return waiting(cmd, prompt, liveLook(cfg.UI), func(_ output, live console.Wait) error { return reads(live) })
+			return cmdkit.Waiting(cmd, prompt, cmdkit.LiveLook(cfg.UI), func(_ cmdkit.Output, live console.Wait) error {
+				return reads(live)
+			})
 		},
 	}
 
@@ -137,20 +140,20 @@ func runSummaryCommand(cmd *cobra.Command, prompt Prompt, opts summaryOptions) e
 		seams.Post = deps.Messaging.Post
 	}
 
-	return runSummary(cmd.Context(), outputOf(cmd), seams, opts)
+	return runSummary(cmd.Context(), cmdkit.OutputOf(cmd), seams, opts)
 }
 
 // runSummary reads every source for the period asked under ctx and prints
 // what they answered — as Markdown, or as the web's JSON — then posts it when
 // asked. A source that could not be read fails the command once the rest is
 // out.
-func runSummary(ctx context.Context, out output, seams summarySeams, opts summaryOptions) error {
+func runSummary(ctx context.Context, out cmdkit.Output, seams summarySeams, opts summaryOptions) error {
 	now := seams.Now()
 	today := activity.DateOf(now)
 
 	period, err := activity.PeriodAsked(opts.from, opts.to, today)
 	if err != nil {
-		return fmt.Errorf("%w: the period could not be read: %w", errUsage, err)
+		return fmt.Errorf("%w: the period could not be read: %w", cmdkit.ErrUsage, err)
 	}
 
 	start, end := period.Bounds(now.Location())
@@ -164,16 +167,16 @@ func runSummary(ctx context.Context, out output, seams summarySeams, opts summar
 	if opts.asJSON {
 		answer := report.Activity(summary, today, now.Location(), report.FaultDetail)
 		answer.PostLength = report.PostLength(seams.Messaging, answer.Text)
-		err = encodeJSON(out.artifact, answer)
-		noteLeftOut(out.notes, summary.Reads)
+		err = cmdkit.EncodeJSON(out.Artifact, answer)
+		noteLeftOut(out.Notes, summary.Reads)
 
 		return errors.Join(err, unread)
 	}
 
 	// Every value in it is a source's to write, so none may drive the terminal.
 	text := sanitize.Text(summary.Text(now.Location()))
-	fmt.Fprint(out.artifact, text)
-	noteLeftOut(out.notes, summary.Reads)
+	fmt.Fprint(out.Artifact, text)
+	noteLeftOut(out.Notes, summary.Reads)
 
 	if opts.post {
 		err = postSummary(ctx, out, seams, text, opts.write)
@@ -213,25 +216,27 @@ func noteLeftOut(notes console.Notes, reads []activity.Read) {
 // posts to the channel it is bound to, which is said as such. How long the
 // summary is against what the service takes is said beside where it goes, and
 // a summary longer than that is refused before anything is asked or sent.
-func postSummary(ctx context.Context, out output, seams summarySeams, text string, opts writeOptions) error {
+func postSummary(
+	ctx context.Context, out cmdkit.Output, seams summarySeams, text string, opts cmdkit.WriteOptions,
+) error {
 	if seams.Post == nil {
 		return fmt.Errorf("%w: set messaging.kind and messaging.webhook_url in %s — or, for Slack, run "+
-			"workflow slack login — then check them with workflow doctor", errMessagingNotConfigured, config.FileName)
+			"workflow slack login — then check them with workflow doctor", cmdkit.ErrMessagingNotConfigured, config.FileName)
 	}
 
 	service, target := seams.Messaging.Service(), seams.Messaging.Target()
 	length := loop.SummaryLength(seams.Messaging.Kind, text)
-	out.notes.Note("to " + target + ", " + length.String())
+	out.Notes.Note("to " + target + ", " + length.String())
 
 	err := length.Check()
 	if err != nil {
 		return err
 	}
 
-	proceed, err := opts.proceed(out.notes, seams.Confirm, writePrompt{
-		question: "Post to " + service + "?",
-		dryRun:   "dry run: would post to " + target,
-		declined: "Not posted.",
+	proceed, err := opts.Proceed(out.Notes, seams.Confirm, cmdkit.WritePrompt{
+		Question: "Post to " + service + "?",
+		DryRun:   "dry run: would post to " + target,
+		Declined: "Not posted.",
 	})
 	if err != nil || !proceed {
 		return err
@@ -242,7 +247,7 @@ func postSummary(ctx context.Context, out output, seams summarySeams, text strin
 		return fmt.Errorf("posting to %s: %w", service, err)
 	}
 
-	out.notes.Note("Posted to " + target + ".")
+	out.Notes.Note("Posted to " + target + ".")
 
 	return nil
 }
@@ -272,7 +277,7 @@ func readNoted(ctx context.Context, seams summarySeams, start, end time.Time) ([
 // remote says which.
 func sourceNoun(source activity.Source, kind forge.Kind) string {
 	if source == activity.SourceForge {
-		return forgeNoun(kind)
+		return cmdkit.ForgeNoun(kind)
 	}
 
 	return source.Name()
