@@ -270,7 +270,7 @@ func (g *pipeGrace) run(running bool) {
 		g.started = time.Now()
 		g.timer = time.NewTimer(g.left)
 	case g.timer != nil:
-		g.timer.Stop()
+		// The timer dropped is never read again, so it needs no Stop.
 		g.left -= time.Since(g.started)
 		g.timer = nil
 	}
