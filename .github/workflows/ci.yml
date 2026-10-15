@@ -282,7 +282,7 @@ jobs:
   # Firefox and WebKit, Safari's engine, each run the layout and axe specs on
   # both builds and the Tab walk's own on the production build (smokeSpecs in
   # web/playwright.config.ts), while E2E runs every spec on Chromium. A job per
-  # engine beside E2E rather than steps in it: the subset is 188 tests an
+  # engine beside E2E rather than steps in it: the subset is 190 tests an
   # engine, whose 183 layout and axe tests took 4.3 minutes on Chromium on four
   # cores, against E2E's six, where inside E2E the two would nearly double the
   # run's slowest job. Gecko and WebKit run slower than Chromium, so how long
