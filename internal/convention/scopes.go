@@ -69,12 +69,9 @@ func ScopeSuggestions(paths, subjects []string) []string {
 // that name is a well-formed scope — "config" for files under internal/config.
 // Empty when they share no directory or the name is not a usable scope.
 func sharedScope(paths []string) string {
-	dir := sharedDir(paths)
-	if dir == "" {
-		return ""
-	}
-
-	base := path.Base(dir)
+	// Files that share no directory share "", "." or "/", whose base is "." or
+	// "/": names ValidateScope refuses like any other that is not a scope.
+	base := path.Base(sharedDir(paths))
 	if ValidateScope(base) != nil {
 		return ""
 	}
@@ -82,8 +79,9 @@ func sharedScope(paths []string) string {
 	return base
 }
 
-// sharedDir is the deepest directory every path lies under, or empty when they
-// share none — files at the repository root, or spread across separate trees.
+// sharedDir is the deepest directory every path lies under: "." or "/" when
+// every file lies at the root of a relative or an absolute tree, and empty
+// when nothing is staged or the files share no first directory.
 func sharedDir(paths []string) string {
 	if len(paths) == 0 {
 		return ""
@@ -92,10 +90,6 @@ func sharedDir(paths []string) string {
 	shared := path.Dir(paths[0])
 	for _, each := range paths[1:] {
 		shared = commonDir(shared, path.Dir(each))
-	}
-
-	if shared == "." || shared == "/" {
-		return ""
 	}
 
 	return shared
