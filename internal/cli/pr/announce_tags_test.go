@@ -24,12 +24,14 @@ import (
 const slackUserConfig = `{"forge":{"cli":true,"kind":"github","host":"github.com"},` +
 	`"messaging":{"client_id":"1234.5678","client_secret":"client-secret-9999","channel":"#dev"}}`
 
-// keptLinks is a home whose kept store links ana on github.com and gives the
-// repository a group, chosen the last time, in a Slack workspace.
-func keptLinks(t *testing.T) string {
+// keptRepo is the repository clitest.OwnedRepo's origin names, as the kept
+// store keys it.
+const keptRepo = "github.com/acme/repo"
+
+// keptIn is the kept store under home.
+func keptIn(t *testing.T, home string) store.Store {
 	t.Helper()
 
-	home := t.TempDir()
 	env := clitest.IsolatedEnvironment(clitest.Place{Home: home})
 
 	dir, err := store.Dir(runtime.GOOS, home, func(name string) (string, bool) {
@@ -41,20 +43,40 @@ func keptLinks(t *testing.T) string {
 		t.Fatalf("finding the store under %s: %v", home, err)
 	}
 
-	kept, repo, workspace, now := store.New(dir, false), "github.com/acme/repo", clitest.SlackWorkspace, time.Now()
-	linked := store.OwnerLink{
+	return store.New(dir, false)
+}
+
+// anaLinked is ana linked to her Slack user.
+func anaLinked() store.OwnerLink {
+	return store.OwnerLink{
 		Owner: "ana", Team: false, OnSlack: true, Slack: store.SlackTarget{ID: "U0ANA", Label: "Ana Souza"},
 	}
+}
 
-	for _, seed := range []error{
-		kept.LinkOwner(t.Context(), "github.com", workspace, linked, now),
-		kept.SetRepoGroups(t.Context(), repo, workspace, []store.SlackTarget{{ID: "S0API", Label: "api-reviewers"}}, now),
-		kept.RecordGroups(t.Context(), repo, workspace, []string{"S0API"}, now),
-	} {
+// requireSeeded fails the test at the first seed of the kept store that failed.
+func requireSeeded(t *testing.T, seeds ...error) {
+	t.Helper()
+
+	for _, seed := range seeds {
 		if seed != nil {
 			t.Fatalf("seeding the kept store: %v", seed)
 		}
 	}
+}
+
+// keptLinks is a home whose kept store links ana on github.com and gives the
+// repository a group, chosen the last time, in a Slack workspace.
+func keptLinks(t *testing.T) string {
+	t.Helper()
+
+	home := t.TempDir()
+	kept, workspace, now := keptIn(t, home), clitest.SlackWorkspace, time.Now()
+
+	requireSeeded(t,
+		kept.LinkOwner(t.Context(), "github.com", workspace, anaLinked(), now),
+		kept.SetRepoGroups(t.Context(), keptRepo, workspace, []store.SlackTarget{{ID: "S0API", Label: "api-reviewers"}}, now),
+		kept.RecordGroups(t.Context(), keptRepo, workspace, []string{"S0API"}, now),
+	)
 
 	return home
 }
@@ -170,6 +192,88 @@ func TestAnnounceTagsTheGroupsOfAChangeNoOneOwns(t *testing.T) {
 
 	if post := slack.Post(t); !strings.Contains(post, "<!subteam^S0API>") {
 		t.Errorf("announce posted %q, want api-reviewers tagged", post)
+	}
+}
+
+func TestAnnounceTagsALinkedTeamAsItsGroupAlone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The team that owns the API is linked to a user group: it is tagged as
+	// that group, once, never as a person.
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
+	clitest.FakeSlack(t, nil)
+	repo := clitest.OwnedRepo(t)
+	clitest.WriteFile(t, repo, clitest.SlackLoggedInConfig())
+	home := t.TempDir()
+	team := store.OwnerLink{
+		Owner: "acme/control-plane", Team: true, OnSlack: true,
+		Slack: store.SlackTarget{ID: "S0CP", Label: "control-plane"},
+	}
+	requireSeeded(t,
+		keptIn(t, home).LinkOwner(t.Context(), "github.com", clitest.SlackWorkspace, team, time.Now()))
+
+	// Act
+	printed, err := clitest.RunStreamsAt(
+		t, clitest.Place{Dir: repo, Home: home}, clitest.UnusedPrompt(t), "announce", "--dry-run",
+	)
+	// Assert
+	if err != nil {
+		t.Fatalf("announce --dry-run: %v (%+v)", err, printed)
+	}
+
+	if tagged := strings.Count(printed.Stdout, "@control-plane"); tagged != 1 {
+		t.Errorf("announce previewed %q, tagging the team %d times; want it tagged once, as its group",
+			printed.Stdout, tagged)
+	}
+}
+
+func TestAnnounceRemembersNoGroupChoiceWhereNoGroupWasOffered(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// ana is linked, but the repository has no group to offer, so there is no
+	// choice of groups to remember.
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
+	slack := clitest.FakeSlack(t, nil)
+	repo := clitest.OwnedRepo(t)
+	clitest.WriteFile(t, repo, clitest.SlackLoggedInConfig())
+	home := t.TempDir()
+	requireSeeded(t,
+		keptIn(t, home).LinkOwner(t.Context(), "github.com", clitest.SlackWorkspace, anaLinked(), time.Now()))
+
+	// Act
+	printed, err := clitest.RunStreamsAt(
+		t, clitest.Place{Dir: repo, Home: home}, clitest.UnusedPrompt(t), "announce", "--yes",
+	)
+	// Assert
+	if err != nil || !strings.Contains(slack.Post(t), "<@U0ANA>") {
+		t.Fatalf("announce --yes: %v (%+v), want ana tagged", err, printed)
+	}
+
+	if groups, chosen, err := keptIn(t, home).LastGroups(t.Context(), keptRepo, clitest.SlackWorkspace); chosen {
+		t.Errorf("the store remembers groups %q chosen (%v), want no choice remembered", groups, err)
+	}
+}
+
+func TestAnnounceTagsNoOneWithTheStoreOff(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// With the store off, nothing kept is read, so no one is linked to tag.
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
+	clitest.FakeSlack(t, nil)
+	repo := clitest.OwnedRepo(t)
+	clitest.WriteFile(t, repo, strings.Replace(clitest.SlackLoggedInConfig(), `{`, `{"store":{"disabled":true},`, 1))
+	home := keptLinks(t)
+
+	// Act
+	printed, err := clitest.RunStreamsAt(
+		t, clitest.Place{Dir: repo, Home: home}, clitest.UnusedPrompt(t), "announce", "--dry-run",
+	)
+	// Assert
+	if err != nil || strings.Contains(printed.Stdout, "tags ") {
+		t.Errorf("announce --dry-run with the store off = %v, previewed %q; want no one tagged", err, printed.Stdout)
 	}
 }
 
