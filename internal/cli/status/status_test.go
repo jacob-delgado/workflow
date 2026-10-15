@@ -361,6 +361,27 @@ func TestStatusInASCII(t *testing.T) {
 	}
 }
 
+func TestStatusOnADetachedHeadIsNoFeatureBranch(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Commits made on a feature branch, then left for the commit itself: no
+	// branch is checked out to name an issue or a pull request.
+	repo := clitest.FeatureRepo(t)
+	clitest.Git(t, repo, "checkout", "--quiet", "--detach")
+
+	// Act
+	output, err := clitest.Run(t, repo, statusCommand)
+	if err != nil {
+		t.Fatalf("status: %v (%s)", err, output)
+	}
+
+	// Assert
+	if !strings.HasPrefix(output, "○ Issue  ○ Branch  ○ Commits") || strings.Contains(output, "PROJ-2") {
+		t.Errorf("status on a detached HEAD should read as no feature branch begun:\n%s", output)
+	}
+}
+
 func TestStatusOnTheBaseBranchIsNotStarted(t *testing.T) {
 	t.Parallel()
 

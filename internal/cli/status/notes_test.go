@@ -65,7 +65,7 @@ func TestStatusNamesJiraWhenTheIssueCannotBeRead(t *testing.T) {
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "status")
 
 	// Assert
-	if err != nil || !strings.Contains(printed.Stdout, "PROJ-7  ") {
+	if err != nil || !strings.HasPrefix(printed.Stdout, "PROJ-7  ● Issue") {
 		t.Errorf("status = %v, stdout %q, want the line without a summary", err, printed.Stdout)
 	}
 
@@ -139,6 +139,26 @@ func TestStatusSaysTheForgeIsNotSetUpWhenItHasNoToken(t *testing.T) {
 	if strings.Count(printed.Stderr, "\n") != 1 || !strings.HasPrefix(printed.Stderr, "GitHub is not set up: ") ||
 		!strings.Contains(printed.Stderr, "$GITHUB_TOKEN") {
 		t.Errorf("stderr = %q, want one note saying GitHub is not set up and how to set it up", printed.Stderr)
+	}
+}
+
+func TestStatusSaysTheForgeIsNotSetUpOnceWhenItIsTheTrackerToo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// No Jira, so the forge's issues are the tracker, and no token for the
+	// forge: the issue and the pull request are both unread for the one cause.
+	clitest.FakeGh(t, clitest.GhResponses{SignedOut: true})
+	repo := clitest.GithubRepo(t, "fix/42-thing")
+	clitest.WriteFile(t, repo, `{"forge":{"kind":"github","host":"github.com"}}`)
+
+	// Act
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "status")
+
+	// Assert
+	if err != nil || strings.Count(printed.Stderr, "\n") != 1 ||
+		!strings.HasPrefix(printed.Stderr, "GitHub is not set up: ") {
+		t.Errorf("status = %v, stderr %q, want GitHub's not being set up said once", err, printed.Stderr)
 	}
 }
 
