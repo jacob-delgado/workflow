@@ -20,6 +20,8 @@ import (
 const (
 	baseTitle  = "Base"
 	baseBranch = "main"
+	// backportBranch is a branch whose name begins with baseBranch's.
+	backportBranch = "main-backport"
 )
 
 // errRefused is what a field's check refuses with.
@@ -80,6 +82,8 @@ func pressed(name string) tea.KeyPressMsg {
 		return tea.KeyPressMsg{Code: 'e', Mod: tea.ModCtrl}
 	case wordDeleting:
 		return tea.KeyPressMsg{Code: 'w', Mod: tea.ModCtrl}
+	case "end":
+		return tea.KeyPressMsg{Code: tea.KeyEnd}
 	default:
 		return tea.KeyPressMsg{Code: rune(name[0]), Text: name}
 	}
@@ -345,6 +349,99 @@ func TestSuggestingNothingTakesBackWhatWasSuggested(t *testing.T) {
 	if !sameMsg(cmd, huh.NextField) || value != "m" {
 		t.Errorf("next-field moved on %v and left %q once nothing was suggested, want it moved on with m, uncompleted",
 			sameMsg(cmd, huh.NextField), value)
+	}
+}
+
+// What the field holds before anything is typed in it, as the base a pull
+// request's form starts from, is left as it is when the field is left, though
+// a suggestion begins with it: only what is typed or pasted is completed.
+func TestLeavingAFieldNothingWasTypedInLeavesItsValueUncompleted(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		offeredBefore [][]string
+		pressedFirst  []string
+	}{
+		"left at once":                        {},
+		"left after a key that types nothing": {pressedFirst: []string{"end"}},
+		"left once suggestions were offered again": {
+			offeredBefore: [][]string{{"release"}},
+		},
+		"left once suggestions were taken back and offered again": {
+			offeredBefore: [][]string{{backportBranch}, nil},
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			value := baseBranch
+			field := quietinput.New(baseTitle, "", &value)
+
+			for _, options := range tt.offeredBefore {
+				field.Suggesting(options)
+			}
+
+			focused(field.Suggesting([]string{backportBranch, baseBranch}), acceptingKeys())
+
+			for _, key := range tt.pressedFirst {
+				field.Update(pressed(key))
+			}
+
+			// Act
+			_, cmd := field.Update(pressed("tab"))
+
+			// Assert
+			if !sameMsg(cmd, huh.NextField) || value != baseBranch {
+				t.Errorf("leaving the field moved on %v and left %q, want it moved on with %q as it was",
+					sameMsg(cmd, huh.NextField), value, baseBranch)
+			}
+		})
+	}
+}
+
+// Suggestions offered once something is typed complete it, as ones offered
+// before it was typed do.
+func TestSuggestionsOfferedOnceSomethingIsTypedCompleteIt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var value string
+
+	field := focused(quietinput.New(baseTitle, "", &value), acceptingKeys())
+	typed(t, field, "m")
+	field.Suggesting([]string{baseBranch})
+
+	// Act
+	field.Update(pressed("tab"))
+
+	// Assert
+	if value != baseBranch {
+		t.Errorf("next-field after suggesting %q once m was typed left %q, want it completed to %q",
+			baseBranch, value, baseBranch)
+	}
+}
+
+// A paste into what was typed is matched again, as a typed key is, so the
+// completion follows what the field now holds.
+func TestAPasteAfterTypingCompletesToWhatTheFieldNowBegins(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var value string
+
+	field := focused(quietinput.New(baseTitle, "", &value).Suggesting([]string{baseBranch, "master"}), acceptingKeys())
+	typed(t, field, "m")
+	field.Update(tea.PasteMsg{Content: "as"})
+
+	// Act
+	field.Update(pressed("tab"))
+
+	// Assert
+	if value != "master" {
+		t.Errorf("next-field after typing m and pasting as left %q, want it completed to %q", value, "master")
 	}
 }
 
