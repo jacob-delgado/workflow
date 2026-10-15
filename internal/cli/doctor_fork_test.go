@@ -67,9 +67,7 @@ func TestDoctorJSONNamesNoBaseOutsideAFork(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	dir := t.TempDir()
-	clitest.GitInit(t, dir)
-	clitest.Git(t, dir, "remote", "add", "origin", "https://github.com/owner/repo.git")
+	dir := clitest.RepoWithRemote(t, "https://github.com/owner/repo.git")
 
 	// Act
 	printed, _ := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "doctor", "--json")

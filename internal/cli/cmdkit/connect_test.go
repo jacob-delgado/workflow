@@ -21,10 +21,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 )
 
-// workdirUnread is what a command says when it cannot name the directory it
-// was run from.
-const workdirUnread = "determining the working directory"
-
 func TestConnectFindsNoRepositoryWhereThereIsNone(t *testing.T) {
 	t.Parallel()
 
@@ -115,7 +111,7 @@ func TestConnectSaysWhyItCannotBeWired(t *testing.T) {
 		"a working directory that cannot be named": {
 			env:  fromARemovedDirectory,
 			args: func(*testing.T) []string { return []string{probeCommand} },
-			want: workdirUnread,
+			want: clitest.WorkdirUnread,
 		},
 		"a request log that cannot be opened": {
 			env: func(t *testing.T) cmdkit.Environment {

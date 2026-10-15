@@ -57,7 +57,7 @@ func TestDoctorOnlineNamesWhereASlackTokenIsKeptWhenItCannotBeReadAgain(t *testi
 	// so how long the token has left cannot be read.
 	dir := t.TempDir()
 	path := clitest.WriteFile(t, dir, clitest.SlackLoggedInConfig())
-	broken := breakFile(t, path)
+	broken := clitest.BreakFile(t, path)
 
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 		broken()

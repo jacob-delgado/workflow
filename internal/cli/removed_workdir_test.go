@@ -5,7 +5,6 @@ package cli_test
 
 import (
 	"bytes"
-	"errors"
 	"net/http"
 	"strings"
 	"sync/atomic"
@@ -15,36 +14,12 @@ import (
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
-// workdirUnread is what a command says when it cannot name the directory it was
-// run from.
-const workdirUnread = "determining the working directory"
-
 // logOption is the option that names the request log, and relativeLog a log
 // named relatively, which is read from the working directory.
 const (
 	logOption   = "--request-log"
 	relativeLog = "requests.log"
 )
-
-// errDirectoryGone is a working directory that cannot be named, as a shell is
-// left standing in one when `git worktree remove` deletes the directory it is
-// in.
-var errDirectoryGone = errors.New("getwd: no such file or directory")
-
-// runFromARemovedDirectory runs the command tree from a working directory that
-// cannot be named. The home is the test's, for a configuration put there first.
-func runFromARemovedDirectory(t *testing.T, home string, args ...string) (clitest.Streams, error) {
-	t.Helper()
-
-	env := clitest.EnvironmentFor(t, clitest.Place{Dir: t.TempDir(), Home: home})
-	env.WorkingDir = func() (string, error) { return "", errDirectoryGone }
-
-	var stdout, stderr bytes.Buffer
-
-	err := cli.Execute(args, &stdout, &stderr, clitest.UnusedPrompt(t), env)
-
-	return clitest.Streams{Stdout: stdout.String(), Stderr: stderr.String()}, err
-}
 
 func TestACommandFromARemovedDirectorySaysItCannotNameIt(t *testing.T) {
 	t.Parallel()
@@ -61,10 +36,10 @@ func TestACommandFromARemovedDirectorySaysItCannotNameIt(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			printed, err := runFromARemovedDirectory(t, t.TempDir(), args...)
+			printed, err := clitest.RunFromARemovedDirectory(t, t.TempDir(), args...)
 
 			// Assert
-			if err == nil || !strings.Contains(err.Error(), workdirUnread) {
+			if err == nil || !strings.Contains(err.Error(), clitest.WorkdirUnread) {
 				t.Errorf("%s from a removed directory = %v, want it to say it cannot name the directory (%+v)",
 					name, err, printed)
 			}
@@ -78,10 +53,10 @@ func TestALogNamedRelativelyFromARemovedDirectorySaysItCannotBeOpened(t *testing
 	// Act
 	// doctor opens the log before anything else reads the directory, so only
 	// the log's own reading of it can fail first.
-	printed, err := runFromARemovedDirectory(t, t.TempDir(), logOption, relativeLog, doctorCommand)
+	printed, err := clitest.RunFromARemovedDirectory(t, t.TempDir(), logOption, relativeLog, doctorCommand)
 
 	// Assert
-	if err == nil || !strings.HasPrefix(err.Error(), "opening the request log: "+workdirUnread) {
+	if err == nil || !strings.HasPrefix(err.Error(), "opening the request log: "+clitest.WorkdirUnread) {
 		t.Errorf("--request-log requests.log from a removed directory = %v, want it to say the log cannot be opened "+
 			"for the directory it cannot name (%+v)", err, printed)
 	}
@@ -91,17 +66,17 @@ func TestDoctorFromARemovedDirectoryStillReports(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	printed, err := runFromARemovedDirectory(t, t.TempDir(), "doctor")
+	printed, err := clitest.RunFromARemovedDirectory(t, t.TempDir(), "doctor")
 
 	// Assert
 	// doctor is what someone runs to find out what is wrong, so the report still
 	// comes, naming the directory it could not read in place of a repository.
 	got := fieldValue(printed.Stdout, "Repository")
-	if !strings.HasPrefix(got, "(none — "+workdirUnread) {
+	if !strings.HasPrefix(got, "(none — "+clitest.WorkdirUnread) {
 		t.Errorf("Repository = %q, want it to say the working directory cannot be named:\n%s", got, printed.Stdout)
 	}
 
-	if err == nil || !strings.Contains(err.Error(), workdirUnread) {
+	if err == nil || !strings.Contains(err.Error(), clitest.WorkdirUnread) {
 		t.Errorf("doctor from a removed directory = %v, want it to fail naming the directory it could not read", err)
 	}
 }
@@ -110,7 +85,7 @@ func TestDoctorJSONFromARemovedDirectoryReportsNoWorkTree(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	printed, err := runFromARemovedDirectory(t, t.TempDir(), "doctor", "--json")
+	printed, err := clitest.RunFromARemovedDirectory(t, t.TempDir(), "doctor", "--json")
 
 	// Assert
 	report := decodeReport(t, printed.Stdout)
@@ -120,11 +95,11 @@ func TestDoctorJSONFromARemovedDirectoryReportsNoWorkTree(t *testing.T) {
 		t.Errorf("repository = %v, want no work tree for a directory that is gone", report["repository"])
 	}
 
-	if problem, _ := repository["problem"].(string); !strings.HasPrefix(problem, workdirUnread) {
+	if problem, _ := repository["problem"].(string); !strings.HasPrefix(problem, clitest.WorkdirUnread) {
 		t.Errorf("repository problem = %q, want the directory that could not be named", problem)
 	}
 
-	if problem, _ := report["config_problem"].(string); !strings.Contains(problem, workdirUnread) {
+	if problem, _ := report["config_problem"].(string); !strings.Contains(problem, clitest.WorkdirUnread) {
 		t.Errorf("config_problem = %q, want the directory that could not be read", problem)
 	}
 
@@ -144,7 +119,7 @@ func TestDoctorReportsOnTheOneReadingOfItsDirectory(t *testing.T) {
 
 	env.WorkingDir = func() (string, error) {
 		if reads.Add(1) > 1 {
-			return "", errDirectoryGone
+			return "", clitest.ErrDirectoryGone
 		}
 
 		return dir, nil
@@ -161,7 +136,7 @@ func TestDoctorReportsOnTheOneReadingOfItsDirectory(t *testing.T) {
 		t.Errorf("Repository = %q, want %q, from the one reading of the directory:\n%s", got, want, stdout.String())
 	}
 
-	if err == nil || strings.Contains(err.Error(), workdirUnread) {
+	if err == nil || strings.Contains(err.Error(), clitest.WorkdirUnread) {
 		t.Errorf("doctor = %v, want it to fail on the missing configuration, not on the directory", err)
 	}
 }
@@ -177,7 +152,7 @@ func TestBranchCompletionFromARemovedDirectoryOffersNothing(t *testing.T) {
 	clitest.WriteConfigFor(t, home, server.URL)
 
 	// Act
-	printed, err := runFromARemovedDirectory(t, home, "__complete", "branch", "")
+	printed, err := clitest.RunFromARemovedDirectory(t, home, "__complete", "branch", "")
 
 	// Assert
 	// A failure would spill into the shell; the shell is told only that there is

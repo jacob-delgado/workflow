@@ -216,7 +216,7 @@ func TestDoctorJSONOnlineReportsARedirectAsUnreachable(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := httptest.NewServer(http.HandlerFunc(redirecting))
+	server := httptest.NewServer(http.HandlerFunc(clitest.Redirecting))
 	t.Cleanup(server.Close)
 
 	dir := t.TempDir()
@@ -237,7 +237,7 @@ func TestDoctorJSONOnlineChecksNothingWhenTheFileDidNotLoad(t *testing.T) {
 	// Arrange
 	// Every forge variable is cleared, so only gh could answer for the forge:
 	// a token in the environment would resolve first and gh would never run.
-	dir := repoWithRemote(t, githubSSHRemote)
+	dir := clitest.RepoWithRemote(t, githubSSHRemote)
 	clitest.WriteFile(t, dir, "{not json")
 	ghRan := ghSignedOutRecording(t)
 
@@ -303,10 +303,6 @@ func TestDoctorJSONOnlineCallsARefusedCredentialRejected(t *testing.T) {
 	wantExit(t, err, 3)
 }
 
-// emptyTokenVariable is a token_env the tests set to nothing, standing in for a
-// variable the shell never exported.
-const emptyTokenVariable = "WORKFLOW_TEST_EMPTY_TOKEN"
-
 // configuredWith is a directory holding a configuration made of fields, for a
 // test whose credential sits in the file rather than in a repository.
 func configuredWith(t *testing.T, fields string) string {
@@ -360,7 +356,7 @@ func TestDoctorJSONOnlineCallsAnAbsentCredentialMissing(t *testing.T) {
 			t.Helper()
 			pathWithOnlyGit(t)
 
-			dir := repoWithRemote(t, githubSSHRemote)
+			dir := clitest.RepoWithRemote(t, githubSSHRemote)
 			clitest.WriteConfigFor(t, dir, clitest.WorkingJira(t))
 
 			return dir
@@ -375,7 +371,7 @@ func TestDoctorJSONOnlineCallsAnAbsentCredentialMissing(t *testing.T) {
 			dir := tt.setup(t)
 
 			// Act
-			output, err := runAtHome(t, dir, "doctor", "--json", "--online")
+			output, err := clitest.RunAtHome(t, dir, "doctor", "--json", "--online")
 
 			// Assert
 			wantExit(t, err, 3)
@@ -398,22 +394,22 @@ func TestDoctorJSONOnlineAsksJiraNothingWhenItsTokenEnvIsEmpty(t *testing.T) {
 	var reached atomic.Bool
 
 	server := clitest.JiraServer(t, http.StatusOK, clitest.JiraFixture, &reached)
-	clitest.SetVariable(t, emptyTokenVariable, "")
+	clitest.SetVariable(t, clitest.EmptyTokenVariable, "")
 	dir := configuredWith(t,
-		`"jira": {"base_url": "`+server.URL+`", "token_env": "`+emptyTokenVariable+`"}, `+clitest.SlackWebhook)
+		`"jira": {"base_url": "`+server.URL+`", "token_env": "`+clitest.EmptyTokenVariable+`"}, `+clitest.SlackWebhook)
 
 	// Act
-	output, err := runAtHome(t, dir, "doctor", "--json", "--online")
+	output, err := clitest.RunAtHome(t, dir, "doctor", "--json", "--online")
 
 	// Assert
 	wantExit(t, err, 3)
 
 	if reached.Load() {
-		t.Errorf("doctor asked Jira with the empty token %s gave it", emptyTokenVariable)
+		t.Errorf("doctor asked Jira with the empty token %s gave it", clitest.EmptyTokenVariable)
 	}
 
 	if got := credentialStatusIn(decodeReport(t, output), jiraService); got != "missing" {
-		t.Errorf("the online report calls an empty %s %q, want missing:\n%s", emptyTokenVariable, got, output)
+		t.Errorf("the online report calls an empty %s %q, want missing:\n%s", clitest.EmptyTokenVariable, got, output)
 	}
 }
 
@@ -422,7 +418,7 @@ func TestDoctorJSONOnlineAsksJiraNothingWhenItsTokenEnvIsEmpty(t *testing.T) {
 func forgeKindRepository(t *testing.T, forgeFields string) string {
 	t.Helper()
 
-	dir := repoWithRemote(t, unreachableForge)
+	dir := clitest.RepoWithRemote(t, unreachableForge)
 	clitest.WriteFile(t, dir, `{"jira": {"base_url": "`+clitest.WorkingJira(t)+`", "token": "t"}, `+clitest.SlackWebhook+
 		`,`+
 		` "forge": {`+forgeFields+`}}`)
@@ -451,7 +447,7 @@ func TestDoctorJSONOnlineCallsAForgeItCannotAskUnchecked(t *testing.T) {
 		"a host that names neither forge": {wantExit: 0, setup: func(t *testing.T) string {
 			t.Helper()
 
-			dir := repoWithRemote(t, unreachableForge)
+			dir := clitest.RepoWithRemote(t, unreachableForge)
 			clitest.WriteConfigFor(t, dir, clitest.WorkingJira(t))
 
 			return dir

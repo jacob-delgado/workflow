@@ -20,6 +20,10 @@ const JiraFixture = `{"key":"JIRAUSER10100","name":"fred","displayName":"Fred F.
 // SlackWebhook is a webhook configuration doctor accepts and never posts to.
 const SlackWebhook = `"messaging": {"webhook_url": "https://hooks.slack.example/services/not-real"}`
 
+// EmptyTokenVariable is a token_env the tests set to nothing, standing in for
+// a variable the shell never exported.
+const EmptyTokenVariable = "WORKFLOW_TEST_EMPTY_TOKEN" //nolint:gosec // G101: the name of a variable, not a credential
+
 // WriteConfigFor writes a configuration pointing Jira at baseURL.
 func WriteConfigFor(t *testing.T, dir, baseURL string) {
 	t.Helper()
