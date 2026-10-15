@@ -30,9 +30,12 @@ type Input struct {
 	input                    textinput.Model
 	err                      error
 	focused                  bool
-	keymap                   huh.InputKeyMap
-	theme                    huh.Theme
-	width                    int
+	// typedIn is whether anything has been typed or pasted in the field,
+	// before which nothing is completed.
+	typedIn bool
+	keymap  huh.InputKeyMap
+	theme   huh.Theme
+	width   int
 }
 
 var _ huh.Field = (*Input)(nil)
@@ -86,14 +89,11 @@ func (q *Input) Update(msg tea.Msg) (huh.Model, tea.Cmd) {
 		return q, huh.NextField
 	}
 
+	before := q.input.Value()
 	q.input, _ = q.input.Update(msg)
 	*q.value = q.input.Value()
 
-	if !isKey {
-		// The input matches its suggestions again after a key, not a paste,
-		// so a pasted beginning is matched here, as a typed one is.
-		q.input.SetSuggestions(q.input.AvailableSuggestions())
-	}
+	q.matchSuggestions(before != *q.value)
 
 	return q, nil
 }
@@ -220,10 +220,12 @@ func (q *Input) GetKey() string { return "" }
 func (q *Input) GetValue() any { return q.input.Value() }
 
 // Suggesting is the field completing what is typed to the first of options
-// it begins, shown faint after it until accepted.
+// it begins, shown faint after it until accepted. What the field held before
+// anything was typed in it is left as it is: the base a pull request's form
+// starts from is never completed to a newer branch it begins.
 func (q *Input) Suggesting(options []string) *Input {
+	q.input.ShowSuggestions = q.typedIn
 	q.input.SetSuggestions(options)
-	q.input.ShowSuggestions = len(options) > 0
 
 	return q
 }
@@ -248,6 +250,20 @@ func (q *Input) CheckedBy(check func(string) error) *Input {
 	q.validate = check
 
 	return q
+}
+
+// matchSuggestions matches what is typed against the suggestions once a key or
+// a paste changed it. The input matches only while its suggestions are on, so
+// they are turned on with the first change, and it matches by itself after a
+// key, not a paste, so what is typed is matched here either way.
+func (q *Input) matchSuggestions(changed bool) {
+	if !changed {
+		return
+	}
+
+	q.typedIn = true
+	q.input.ShowSuggestions = true
+	q.input.SetSuggestions(q.input.AvailableSuggestions())
 }
 
 // completed takes the completion the field suggests for what is typed, when
