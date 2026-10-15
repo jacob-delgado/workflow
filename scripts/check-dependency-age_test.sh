@@ -9,8 +9,9 @@
 # leaves alone are not looked up, and a base git cannot resolve is refused with
 # a status of its own. A dated waiver a week past its day is warned of, and
 # its npmPreapprovedPackages entry in web/.yarnrc.yml with it, but fails
-# nothing; one whose week may not be over is not. A pre-approval no line of the
-# exceptions file lists is warned of too, and fails nothing.
+# nothing; one whose week may not be over is not. In GitHub Actions the warning
+# is also a ::warning annotation, which the pull request shows. A pre-approval
+# no line of the exceptions file lists is warned of too, and fails nothing.
 #
 # A stand-in curl answers each registry URL from a fixture file named for it,
 # and fails as curl -f does for any other, so no case reaches the network.
@@ -158,12 +159,21 @@ mise_tools() {
   pin_tool shellcheck 0.12.0
 }
 
-# age runs the check in a repository against main, with the stand-in curl.
+# age runs the check in a repository against main, with the stand-in curl,
+# outside GitHub Actions whatever runs the test.
 #   age <dir> [base]
 age() {
   : >"$1.curl"
+  (cd "$1" && env -u GITHUB_ACTIONS PATH="${stub_bin}:${PATH}" CURL_STUB_LOG="$1.curl" \
+    CURL_STUB_FIXTURES="${fixtures}" DEPENDENCY_AGE_NOW="${now}" "${check}" "${2:-main}")
+}
+
+# age_in_actions runs age as a GitHub Actions job does.
+#   age_in_actions <dir>
+age_in_actions() {
+  : >"$1.curl"
   (cd "$1" && env PATH="${stub_bin}:${PATH}" CURL_STUB_LOG="$1.curl" CURL_STUB_FIXTURES="${fixtures}" \
-    DEPENDENCY_AGE_NOW="${now}" "${check}" "${2:-main}")
+    DEPENDENCY_AGE_NOW="${now}" GITHUB_ACTIONS=true "${check}" main)
 }
 
 go_old="$(repo go-old require_go example.com/old v1.2.0)"
@@ -233,6 +243,18 @@ waiver_past_its_week="$(repo waiver-past-its-week except example.com/kept v1.0.0
 expect_output pass "a waiver past its week, warned of" \
   "example.com/kept v1.0.0: waived on 2026-09-30, so a week old by now; remove its line from scripts/dependency-age-exceptions.txt" \
   age "${waiver_past_its_week}"
+count_case
+if grep -q "::warning" "${case_output}"; then
+  fail_case "a waiver past its week, warned of" "it was annotated outside GitHub Actions: $(cat "${case_output}")"
+fi
+
+expect_output pass "a waiver past its week, annotated in GitHub Actions" \
+  "::warning file=scripts/dependency-age-exceptions.txt,line=2::example.com/kept v1.0.0: waived on 2026-09-30, so a week old by now" \
+  age_in_actions "${waiver_past_its_week}"
+count_case
+if ! grep -q "^warn  example.com/kept v1.0.0: waived on 2026-09-30" "${case_output}"; then
+  fail_case "a waiver past its week, annotated in GitHub Actions" "its plain warning is gone: $(cat "${case_output}")"
+fi
 
 waiver_in_its_week="$(repo waiver-in-its-week except example.com/kept v1.0.0 waived-2026-10-01)"
 expect_exit pass "a waiver whose week may not be over" age "${waiver_in_its_week}"

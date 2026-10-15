@@ -29,11 +29,13 @@
 # web/.yarnrc.yml where yarn's own gate needed one. A version is published no
 # later than the day it is waived, so a week after that day ends, it is surely
 # a week old: from then, every run warns of the waiver, whatever the change
-# adds, and fails nothing for it. The week is counted from that day, with
-# nothing looked up, so the warning is never early, and can come up to a week,
-# or a day more at most, after the version actually turned a week old. A
-# pre-approval no line of the exceptions file lists is warned of too, and
-# fails nothing: its line may have gone out without it.
+# adds, and fails nothing for it; in GitHub Actions the warning is also a
+# ::warning annotation on the waiver's line, so the pull request shows it. The
+# week is counted from that day, with nothing looked up, so the warning is
+# never early, and can come up to a week, or a day more at most, after the
+# version actually turned a week old. A pre-approval no line of the exceptions
+# file lists is warned of too, and fails nothing: its line may have gone out
+# without it.
 #
 # Exits 0 when every new version is old enough, 1 when one is not or cannot be
 # dated, and 2 when git cannot compare with <base-ref>.
@@ -314,17 +316,29 @@ day_start() {
   fi
 }
 
+# warn_of_waiver warns of a waiver past its week on stderr and, in GitHub
+# Actions, as an annotation on its line too, which the pull request shows where
+# a log line would go unread.
+#   warn_of_waiver <line-number> <message>
+warn_of_waiver() {
+  echo "warn  $2" >&2
+  if [[ "${GITHUB_ACTIONS:-}" == true ]]; then
+    echo "::warning file=${exceptions},line=$1::$2"
+  fi
+}
+
 # warn_past_their_week warns of each dated waiver a week past its day, and of
 # its version's pre-approval in web/.yarnrc.yml, and fails nothing. A version
 # waived on a day was published by that day's end at the latest, so the week
 # is counted from then.
 warn_past_their_week() {
-  local name version exception day start approved where
+  local name version exception day start approved where line=0
   if [[ ! -f "${exceptions}" ]]; then
     return
   fi
   approved="$(preapproved)"
   while read -r name version exception _; do
+    line=$((line + 1))
     day="$(waived_on "${exception:-}")"
     start="$(day_start "${day}")"
     if [[ -n "${start}" ]] && ((now - start >= day_seconds + min_seconds)); then
@@ -332,7 +346,7 @@ warn_past_their_week() {
       if grep -qxF -- "${name} ${version}" <<<"${approved}"; then
         where="${where} and its npmPreapprovedPackages entry from ${yarnrc}"
       fi
-      echo "warn  ${name} ${version}: waived on ${day}, so a week old by now; remove ${where}" >&2
+      warn_of_waiver "${line}" "${name} ${version}: waived on ${day}, so a week old by now; remove ${where}"
     fi
   done <"${exceptions}"
 }
