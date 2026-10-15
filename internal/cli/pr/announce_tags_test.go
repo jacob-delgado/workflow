@@ -277,6 +277,32 @@ func TestAnnounceTagsNoOneWithTheStoreOff(t *testing.T) {
 	}
 }
 
+func TestAnnounceWithNoOneToTagPreviewsNoTags(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// No code owner and no group: there is no one to propose, so no tags line.
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
+	slack := clitest.FakeSlack(t, nil)
+	repo := clitest.PRRepo(t, "fix/PROJ-2-thing")
+	clitest.Git(t, repo, "remote", "add", "origin", "https://github.com/acme/repo.git")
+	clitest.PretendPushed(t, repo)
+	clitest.WriteFile(t, repo, clitest.SlackLoggedInConfig())
+
+	// Act
+	printed, err := clitest.RunStreamsAt(
+		t, clitest.Place{Dir: repo, Home: t.TempDir()}, clitest.UnusedPrompt(t), "announce", "--yes",
+	)
+	// Assert
+	if err != nil || !untagged(slack.Post(t)) {
+		t.Fatalf("announce --yes = %v (%+v), want it posted untagged", err, printed)
+	}
+
+	if strings.Contains(printed.Stdout, "tags ") {
+		t.Errorf("announce previewed %q, want no tags line with no one to tag", printed.Stdout)
+	}
+}
+
 func TestAnnounceTagsNoOneLinkedOnlyInAnotherWorkspace(t *testing.T) {
 	t.Parallel()
 
