@@ -1037,20 +1037,26 @@ directories, and each surface draws at most 200 of the ones matching what was
 typed, then says how many more match and to keep typing: the terminal's
 directory picker by `rowsShownMost` (`internal/tui/dirrows.go`), the web's
 directory dialog by `rowCap`
-(`web/src/features/repositories/DirectoryDialog.tsx`). Nothing but this entry
-holds the two 200s to each other: the cap is how many rows a surface draws,
-not something a listing is, so it stays out of the API and no value is shared
-between the two. The thousand is the server's: `GET /api/directories` reports
-it as `truncated_to` on a listing cut short, and the dialog's "First N shown"
-line reads it from there; the terminal's own line names `workdirs.ListLimit`.
-A listing cut short at the thousand is asked for again with the name typed. No
-virtualized list, and no library for one such as TanStack Virtual, was
-adopted. Decided 2026-10-14 by the maintainer, with the picker.
+(`web/src/features/repositories/DirectoryDialog.tsx`). The cap is how many rows
+a surface draws, not something a listing is, so it stays out of the API, and
+each surface keeps its own constant; one file,
+`testdata/twins/directory_rows.json`, holds the 200 both answer to. Each
+surface's tests decode it strictly and draw past it, so a cap that differs
+from the file's fails that surface's own tests. The thousand is the server's:
+`GET /api/directories` reports it as `truncated_to` on a listing cut short,
+and the dialog's "First N shown" line reads it from there; the terminal's own
+line names `workdirs.ListLimit`. A listing cut short at the thousand is asked
+for again with the name typed. No virtualized list, and no library for one
+such as TanStack Virtual, was adopted. Decided 2026-10-14 by the maintainer,
+with the picker; the shared file was the maintainer's call the day after, in
+place of this entry alone holding the two 200s to each other.
 
 **Cost.** In a directory of more than 200 that match, the rest cannot be
 scrolled to: they are reached only by typing more of a name, or by a path
-typed whole. A change to one surface's cap that misses the other's leaves the
-two apart, with no gate to say so.
+typed whole. The cap is written in each surface's constant and in the shared
+file, which the tests hold together, and in prose that nothing holds to it:
+`docs/content/docs/usage.md`, `docs/content/docs/web.md`, `web/CLAUDE.md` and
+this entry. A change to it is made in every one.
 
 **Reopen when.** Someone needs to scroll past the first 200 rather than type,
 or a listing's cap is raised enough that typing to narrow stops being quick.

@@ -44,7 +44,8 @@ type dirRow struct {
 }
 
 // rowsShownMost is the most rows the picker draws; past them it says how
-// many more match.
+// many more match. testdata/twins/directory_rows.json holds the same number,
+// which the web's dialog answers to as well (TRADE-49).
 const rowsShownMost = 200
 
 // pickerShortcuts are the repository's other worktrees, then the favorites,

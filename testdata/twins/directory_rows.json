@@ -1,0 +1,4 @@
+{
+  "about": "The most rows the directory picker draws of the directories matching what was typed, read by internal/tui and by web/src/features/repositories/DirectoryDialog.reads.test.tsx alike, so a change to either surface's cap alone fails its own tests. Each draws past it and checks the cut: the first most matches drawn, and the rest counted as more that match.",
+  "most": 200
+}

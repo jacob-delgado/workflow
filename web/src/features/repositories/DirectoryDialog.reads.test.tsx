@@ -1,15 +1,24 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { z } from 'zod'
 import type { DirectoryListing } from '@/api/generated/types.gen.ts'
 import { mockRepositories } from '@/dev/mockRepositories.ts'
 import { listing, openDialog, options, serving } from '@/test/directoryDialog.ts'
 import { fakeApi, held } from '@/test/fakeApi.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
+import { twinCases } from '@/test/twinCases.ts'
 import { RepositoriesPanel } from './RepositoriesPanel.tsx'
 
 // How the directory dialog reads a directory, as a user meets it: while it
 // reads, when a listing is cut short and asked again by the name typed, when
 // a hidden one is asked for by its dot, and when a read is refused.
+
+// The most rows the dialog draws, which internal/tui's picker answers to as
+// well.
+const { most } = twinCases(
+  'testdata/twins/directory_rows.json',
+  z.strictObject({ about: z.string(), most: z.number().int().positive() }),
+)
 
 // cutShort is what the dialog says of a listing cut short, at any limit.
 const cutShort = /^First \d+ shown; keep typing to narrow\.$/
@@ -231,9 +240,9 @@ test('a listing asked again by its dot that is refused while the whole one is re
   expect(said.map((line) => line.textContent)).toContain('Reading ~/src…')
 })
 
-test('at most two hundred matches are listed, with how many more there are', async () => {
+test('at most the matches the shared file names are listed, with how many more there are', async () => {
   // Arrange
-  const many = Array.from({ length: 241 }, (_, index) => ({
+  const many = Array.from({ length: most + 41 }, (_, index) => ({
     name: `dir${String(index).padStart(3, '0')}`,
     path: `/home/ana/src/dir${String(index)}`,
     repository: false,
@@ -248,7 +257,7 @@ test('at most two hundred matches are listed, with how many more there are', asy
 
   // Assert
   expect(await screen.findByText('41 more match; keep typing to narrow.')).toBeTruthy()
-  expect(options()).toHaveLength(201)
+  expect(options()).toHaveLength(most + 1)
 })
 
 test('a directory that cannot be listed is an alert in the dialog, which stays open', async () => {
