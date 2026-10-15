@@ -23,6 +23,23 @@ func liveMarks() []string {
 	return []string{"◐", "◓", "◑", "◒"}
 }
 
+// asciiMarks are the frames the live line's mark turns through in ASCII.
+func asciiMarks() []string {
+	return []string{"|", "/", "-", `\`}
+}
+
+// drawnWith reports whether shown draws want behind one of marks, the frame
+// the live line's mark had turned to.
+func drawnWith(shown string, marks []string, want string) bool {
+	for _, mark := range marks {
+		if strings.Contains(shown, mark+" "+want) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // markedLive reports whether shown holds the live line's mark.
 func markedLive(shown string) bool {
 	for _, mark := range liveMarks() {

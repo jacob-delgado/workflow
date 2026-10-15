@@ -84,10 +84,12 @@ and the rest).
   so the terminal's own theme, light or dark, decides the shades. **Shape
   carries state, not color**: a glyph's shape tells the state in monochrome
   and in ASCII, and a hue only repeats it.
-- **Motion** — the in-flight mark turning, a stage's rule filling, a bar
+- **Motion** — the in-flight mark turning (`progress.Turn`'s frames, which
+  the command line's live line turns too), a stage's rule filling, a bar
   springing — runs on frames through `Deps.After` (`m.deps.after`), never
   `tea.Tick`, which is only its nil default, and only while something moves;
-  `ui.motion: reduce` (`config.MotionReduce`) draws every state still.
+  `ui.motion: reduce` (`config.MotionReduce`) draws every state still, the
+  mark held on the in-flight glyph.
 
 ## Tests: red, green, refactor
 

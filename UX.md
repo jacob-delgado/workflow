@@ -327,11 +327,13 @@ left, up to eight columns each; the place gives way first, then the active
 task's description, then the stage names for initials, which below 60
 columns or 24 rows the row uses from the start, and ASCII draws them `=`
 and `-`. Motion is deliberate and rare (`internal/tui/motion.go`): the
-in-flight mark of a read turns `◐◓◑◒` while the read is out, a stage's
-rule fills on a critically damped spring when the stage completes, and the
-Review pane's bar of checks springs toward the share finished — each on
-frames through `Deps.After`, only while something moves, never while the
-first screen fills in, and never under `ui.motion: reduce`.
+in-flight mark of a read turns `◐◓◑◒` (`|/-\` in ASCII, `progress.Turn`)
+while the read is out, a stage's rule fills on a critically damped spring
+when the stage completes, and the Review pane's bar of checks springs
+toward the share finished — each on frames through `Deps.After`, only
+while something moves, never while the first screen fills in, and never
+under `ui.motion: reduce`, which holds the mark on its still glyph, `◐` or
+`*`.
 
 The web now speaks it too. The five systems' hues are tokens in both
 themes (`web/src/index.css:113`), held at least 30° of OKLCH hue from the

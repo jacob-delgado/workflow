@@ -46,12 +46,14 @@ func (s State) Glyph(ascii bool) string {
 }
 
 // Turn is the frames the in-flight mark turns through while work is out — the
-// terminal's panes and the command line's live line alike — from InFlight's
-// own glyph, a quarter turn a frame; with ascii, which has no shape that
-// turns, it is the stand-in alone, held still.
+// terminal's panes and the command line's live line alike, each at its own
+// rate whichever frames it draws: a quarter turn a frame from InFlight's own
+// glyph; with ascii, which has no shape that turns by quarters, a line
+// spinning. Held still, by ui.motion, the mark is InFlight's glyph instead,
+// which in Unicode is the first frame.
 func Turn(ascii bool) []string {
 	if ascii {
-		return []string{InFlight.Glyph(true)}
+		return []string{"|", "/", "-", `\`}
 	}
 
 	return []string{InFlight.Glyph(false), "◓", "◑", "◒"}

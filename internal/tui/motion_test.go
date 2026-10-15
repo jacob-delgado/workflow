@@ -91,40 +91,75 @@ func heldReview(after func(time.Duration, func(time.Time) tea.Msg) tea.Cmd) func
 	}
 }
 
+// inASCII is the world with ui.ascii on.
+func inASCII(repo *world) *world {
+	repo.cfg.UI.ASCII = true
+
+	return repo
+}
+
 func TestTheInFlightMarkTurnsWhileAReadIsOut(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	frames := &stepper{}
-	held := newHold(t)
-	started := heldLive(t, held, moving(), heldReview(frames.after))
-	held.armed.Store(true)
-	refreshing := holding(t, held, started, "4", "r")
+	cases := map[string]struct {
+		repo func() *world
+		want string
+	}{
+		"in Unicode": {repo: moving, want: "Review ◓"},
+		"in ASCII":   {repo: func() *world { return inASCII(moving()) }, want: "Review /"},
+	}
 
-	// Act
-	turned := frames.step(t, refreshing)
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// Assert
-	requireScreen(t, turned.View().Content, "Review ◓")
+			// Arrange
+			frames := &stepper{}
+			held := newHold(t)
+			started := heldLive(t, held, tt.repo(), heldReview(frames.after))
+			held.armed.Store(true)
+			refreshing := holding(t, held, started, "4", "r")
+
+			// Act
+			turned := frames.step(t, refreshing)
+
+			// Assert
+			requireScreen(t, turned.View().Content, tt.want)
+		})
+	}
 }
 
 func TestReducedMotionKeepsTheInFlightMarkStill(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	frames := &stepper{}
-	held := newHold(t)
-	started := heldLive(t, held, newWorld(), heldReview(frames.after))
-	held.armed.Store(true)
+	cases := map[string]struct {
+		repo func() *world
+		want string
+	}{
+		"in Unicode": {repo: newWorld, want: "Review ◐"},
+		"in ASCII":   {repo: func() *world { return inASCII(newWorld()) }, want: "Review *"},
+	}
 
-	// Act
-	view := holding(t, held, started, "4", "r").View().Content
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// Assert
-	requireScreen(t, view, "Review ◐")
+			// Arrange
+			frames := &stepper{}
+			held := newHold(t)
+			started := heldLive(t, held, tt.repo(), heldReview(frames.after))
+			held.armed.Store(true)
 
-	if len(frames.waits) != 0 {
-		t.Errorf("asked for %d frames under reduced motion, want none", len(frames.waits))
+			// Act
+			view := holding(t, held, started, "4", "r").View().Content
+
+			// Assert
+			requireScreen(t, view, tt.want)
+
+			if len(frames.waits) != 0 {
+				t.Errorf("asked for %d frames under reduced motion, want none", len(frames.waits))
+			}
+		})
 	}
 }
 
