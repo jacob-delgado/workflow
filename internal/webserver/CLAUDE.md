@@ -52,8 +52,9 @@ writes queue for.
 outside:
 
 1. `withPolicyHeaders` (`edge/guard.go`): the content policy,
-   `default-src 'self'` with no nonce (TRADE-50), and
-   `X-Frame-Options: DENY`.
+   `default-src 'self'` with no nonce (TRADE-50) and one inline style
+   attribute allowed by its hash, the one WebKit writes on a slot of each
+   native `<select>` (TRADE-55), and `X-Frame-Options: DENY`.
 2. `guardLoopback`: a non-loopback Host, or a cross-origin write, is refused.
 3. `refuseWritesInDryRun`: every write is refused under `--dry-run` (TRADE-3).
 4. Under `/api/`, the contract validator (`edge/validator.go`), admitting

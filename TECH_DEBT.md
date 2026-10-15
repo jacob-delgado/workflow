@@ -1103,11 +1103,12 @@ Autocomplete, in its Dialog, three times over the fixture's own directories:
 once listing the directories above the repository, once on the repository,
 whose listing holds none, and once naming a directory that is not there,
 whose list is left empty. `page.spec.ts` runs on Chromium, Firefox and
-WebKit, and `policy.spec.ts` on Chromium alone. A refusal from a state those
-specs never reach, such as the tag picker's list with no member matching,
-from a part the page takes up later, or one only Gecko or WebKit reports from
-Settings' Tabs, the tag picker or the directory picker, is still heard by no
-spec.
+WebKit, and `policy.spec.ts` on Chromium alone. WebKit's own shadow tree for
+each native `<select>` writes a style attribute the policy allows by its hash
+alone (TRADE-55). A refusal from a state those specs never reach, such as the
+tag picker's list with no member matching, from a part the page takes up
+later, or one only Gecko or WebKit reports from Settings' Tabs, the tag picker
+or the directory picker, is still heard by no spec.
 
 **Reopen when.** A choice needs more than a native `<select>` can draw, or the
 server gains a per-request nonce that the page could hand to `CSPProvider`.
@@ -1272,3 +1273,47 @@ environment holds `GH_TOKEN`, `GITHUB_TOKEN` or `ZIZMOR_GITHUB_TOKEN`.
 **Reopen when.** The cloud environment's network policy allows `vuln.go.dev`
 (the gate then runs `vuln` again on its own), or CI's zizmor is handed a
 token, so the local run no longer matches CI's.
+
+### TRADE-55 The content policy allows WebKit's style for a select's slot
+
+**Decided.** The content policy (`contentPolicy`,
+`internal/webserver/edge/guard.go`) allows one inline style attribute, and
+only by its hash: `style-src-attr 'unsafe-hashes'` with the SHA-256 of
+`text-overflow:inherit`. WebKit, building the shadow tree of its own that
+every native `<select>` draws from (`didAddUserAgentShadowRoot`, in WebKit's
+`HTMLSelectElement`), sets that style attribute on the tree's button slot
+before attaching the slot to the tree, so WebKit does not yet see the
+attribute as its own tree's (`isInUserAgentShadowTree` is false) and judges
+it by the page's policy. Under `default-src 'self'` alone that refused it.
+In Playwright's WebKit 27.2, the build CI runs, the two tests of the
+`server-webkit` project that listen for a refusal heard two each and failed;
+its other two listen for none. WebKit's main branch sets the attribute the
+same way, once for each select, so a Safari built from it would log a
+console error per select, though no shipping Safari was tried. The refusal
+likely changes nothing on screen: the button slot holds only a `<button>`
+written as a select's first child, which no select on the page has, and
+WebKit's own comment there says a select drawn natively does not use the
+slots. The native `<select>` stays, since TRADE-50 keeps it, so the policy
+takes the one string WebKit writes rather than refuse it. Decided 2026-10-15
+by the maintainer, in the pull request that runs the server-backed page spec
+on Firefox and WebKit, whose WebKit run heard the refusals.
+
+**Cost.** The policy carries a hash a reader has to take on trust, with the
+string it stands for written only in `guard.go`'s comment, in this entry and
+in `TestThePolicyAllowsNoInlineStyleButTheOneWebKitGivesASelect`
+(`internal/webserver/edge/guard_test.go`), which holds `style-src-attr` to
+exactly that hash and the rest of the policy to what it was. Under
+`'unsafe-hashes'` a style attribute with that value applies wherever it is
+written, by the page as well as by WebKit, though `text-overflow:inherit` is
+all it can ever say. The allowance follows WebKit's string exactly: a release
+that writes it otherwise, with a space or another property, is refused again,
+and the page spec fails on `server-webkit` until the hash follows. An engine
+that applies no hash to a style attribute refuses it as before.
+
+**Reopen when.** A WebKit release no longer writes that attribute on a slot
+not yet attached: it writes the attribute only after attaching the slot; it
+sets the property through `setInlineStyleProperty` instead, as its list-box
+slot already does, which writes no attribute for the policy to judge; or it
+sets no such style at all. Or the page stops drawing a native `<select>`,
+which reopening TRADE-50 would mean. Then the hash and `'unsafe-hashes'`
+leave the policy.

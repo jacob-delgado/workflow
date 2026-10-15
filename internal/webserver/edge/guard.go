@@ -110,9 +110,15 @@ func guardLoopback(next http.Handler) http.Handler {
 // app's scripts, styles, fonts and requests come from its own origin only,
 // never a script written into the page or built from a string; it embeds no
 // plugin, posts no form elsewhere, and is framed by no page — a page on
-// another origin cannot lay the app under its own to steer a click.
+// another origin cannot lay the app under its own to steer a click. One
+// inline style attribute is allowed, by its hash alone: text-overflow:inherit,
+// which WebKit writes on the button slot of the shadow tree it builds for
+// every native <select> before attaching the slot, so the policy judges it as
+// the page's own.
+//
+// Trade-off TRADE-55: WebKit's style for a select's slot is allowed by hash.
 const contentPolicy = "default-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; " +
-	"object-src 'none'"
+	"object-src 'none'; style-src-attr 'unsafe-hashes' 'sha256-3oFxofzq3N//6J8H86e9ul4WT2OkJrtonB66gn/TLJw='"
 
 // withPolicyHeaders gives every answer — the app, the API, and a guard's
 // refusal — the content policy, and the headers that say the same to a
