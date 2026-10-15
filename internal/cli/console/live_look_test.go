@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 	"unicode"
 
@@ -128,6 +129,82 @@ func TestALiveLinesMarkTurnsOnlyWhereItsLookLetsItMove(t *testing.T) {
 				if strings.Contains(shown, mark) {
 					t.Errorf("showing %q, want no %q", shown, mark)
 				}
+			}
+		})
+	}
+}
+
+// stillRun is what a wait watched in a still look came to: what it printed,
+// what Watched returned, and the panic its bubble ended in, if any.
+type stillRun struct {
+	printed string
+	err     error
+	ended   any
+}
+
+// watchedStill watches wait in look, in a bubble that does not outlast the
+// mark's next turn as watchingAs's does. synctest panics when the bubble's
+// goroutine ends with another still blocked in it, as one waiting on the
+// mark's timer is, and the run keeps that panic for the test to judge.
+func watchedStill(t *testing.T, look console.Look, wait func(*standIn, console.Wait) error) stillRun {
+	t.Helper()
+
+	var run stillRun
+
+	func() {
+		defer func() { run.ended = recover() }()
+
+		synctest.Test(t, func(*testing.T) {
+			terminal := new(standIn)
+
+			notes := console.New(terminal, console.Options{})
+			run.err = notes.Watched(look, func(watched console.Wait) error { return wait(terminal, watched) })
+			run.printed = terminal.String()
+		})
+	}()
+
+	return run
+}
+
+func TestAStillLiveLineStartsNoTimerForItsMark(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		look   console.Look
+		drawn  string
+		turned []string
+	}{
+		"held in Unicode": {look: console.Look{Still: true}, drawn: "◐ Checking Jira", turned: []string{"◓", "◑", "◒"}},
+		"held in ASCII": {
+			look: console.Look{ASCII: true, Still: true}, drawn: "* Checking Jira", turned: asciiMarks(),
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			run := watchedStill(t, tt.look, func(terminal *standIn, wait console.Wait) error {
+				wait.Doing("Checking Jira")
+				terminal.shows(t, "Checking Jira")
+				// Three seconds on the bubble's clock: twelve frames, had the
+				// mark a timer to turn on.
+				time.Sleep(3 * time.Second)
+				terminal.shows(t, "Checking Jira")
+
+				return nil
+			})
+
+			// Assert
+			if run.ended != nil || run.err != nil {
+				t.Errorf("watched = %v, its bubble ending in %v; want nil, and no panic, as a timer the "+
+					"line left waiting makes it", run.err, run.ended)
+			}
+
+			shown := ansi.Strip(run.printed)
+			if !strings.Contains(shown, tt.drawn) || strings.ContainsAny(shown, strings.Join(tt.turned, "")) {
+				t.Errorf("showing %q, want %q alone, never turned", shown, tt.drawn)
 			}
 		})
 	}
