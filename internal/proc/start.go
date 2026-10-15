@@ -171,12 +171,17 @@ type stream struct {
 // follow delivers the run's output until it ends, or until the program has
 // exited and the pipe has kept it waiting outputGrace, and reports how the
 // program ended. The program is waited for on its own, since a process it
-// left behind can hold the pipe open past its exit.
+// left behind can hold the pipe open past its exit; how it ended is read once
+// the output is done with, whichever of the two came first, and before Lines
+// closes, which Output says it does once the program has exited.
 func (s stream) follow(ctx context.Context) error {
-	waited := make(chan error, 1)
+	wait := sync.OnceValue(s.command.Wait)
+	reaped := make(chan struct{})
 
 	go func() {
-		waited <- s.command.Wait()
+		_ = wait()
+
+		close(reaped)
 	}()
 
 	onPipe := make(chan bool)
@@ -186,7 +191,8 @@ func (s stream) follow(ctx context.Context) error {
 		scanned <- deliver(ctx, s.reader, s.sender, s.waiting(onPipe))
 	}()
 
-	waitErr, scanErr := s.watch(waited, onPipe, scanned)
+	scanErr := s.watch(reaped, onPipe, scanned)
+	waitErr := wait()
 
 	s.sender.close()
 
@@ -207,38 +213,32 @@ func (s stream) waiting(onPipe chan<- bool) func(bool) {
 }
 
 // watch follows the run to the end of its output, counting outputGrace down
-// while the program has exited and deliver waits on the pipe. Past it the
-// pipe is closed, which ends a read in progress on Unix, and the output is
-// abandoned, so the run ends even where that read cannot be ended.
-func (s stream) watch(waited <-chan error, onPipe <-chan bool, scanned <-chan error) (error, error) {
-	var (
-		waitErr error
-		reading bool
-	)
+// while the program has exited and deliver waits on the pipe, and reports how
+// reading the output ended. Past the grace the pipe is closed, which ends a
+// read in progress on Unix, and the output is abandoned, so the run ends even
+// where that read cannot be ended.
+func (s stream) watch(reaped <-chan struct{}, onPipe <-chan bool, scanned <-chan error) error {
+	var reading bool
 
 	grace := pipeGrace{left: outputGrace, started: time.Time{}, timer: nil}
-	exit := waited
+	exit := reaped
 
 	for {
 		select {
 		case reading = <-onPipe:
 			grace.run(exit == nil && reading)
-		case waitErr = <-exit:
+		case <-exit:
 			exit = nil
 
 			grace.run(reading)
 		case scanErr := <-scanned:
-			if exit != nil {
-				waitErr = <-exit
-			}
-
-			return waitErr, scanErr
+			return scanErr
 		case <-grace.expired():
 			s.sender.abandon()
 
 			_ = s.reader.Close()
 
-			return waitErr, nil
+			return nil
 		}
 	}
 }
