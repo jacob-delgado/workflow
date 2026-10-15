@@ -4,7 +4,9 @@
 package pr_test
 
 import (
+	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -14,6 +16,25 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
+
+// webhook is a local incoming webhook over https that accepts every post, as
+// Slack's does, and counts them in posts. The process trusts its certificate
+// (see TestMain). The count is atomic because `task test` runs -race and the
+// handler runs on its own goroutine.
+func webhook(t *testing.T, posts *atomic.Int32) string {
+	t.Helper()
+
+	server := httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		_, _ = io.Copy(io.Discard, request.Body)
+
+		posts.Add(1)
+
+		_, _ = writer.Write([]byte("ok"))
+	}))
+	t.Cleanup(server.Close)
+
+	return server.URL + "/services/x"
+}
 
 // announcingConfig points the forge at its CLI, as clitest.ForgeCLIConfig does, and
 // messaging at a webhook that answers.
@@ -30,7 +51,7 @@ func TestAnnounceYesDeliversTheAnnouncement(t *testing.T) {
 
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
 	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, announcingConfig(clitest.Webhook(t, &posts)))
+	clitest.WriteFile(t, repo, announcingConfig(webhook(t, &posts)))
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--yes")
@@ -53,7 +74,7 @@ func TestAnnounceRemembersADeliveredAnnouncement(t *testing.T) {
 
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
 	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, announcingConfig(clitest.Webhook(t, &posts)))
+	clitest.WriteFile(t, repo, announcingConfig(webhook(t, &posts)))
 
 	where := clitest.Place{Dir: repo, Home: t.TempDir()}
 
@@ -104,7 +125,7 @@ func TestAnnounceDeliveredButNotRememberedSucceedsAndSaysSo(t *testing.T) {
 
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
 	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, announcingConfig(clitest.Webhook(t, &posts)))
+	clitest.WriteFile(t, repo, announcingConfig(webhook(t, &posts)))
 
 	where := clitest.Place{Dir: repo, Home: t.TempDir(), State: t.TempDir()}
 	writeStoreBlocker(t, where.State)

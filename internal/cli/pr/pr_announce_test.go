@@ -34,7 +34,7 @@ func TestPRAnnounceOpensThenAnnouncesOnceCIPasses(t *testing.T) {
 	clitest.FakeGh(t, openingThenOpen())
 	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.PretendPushed(t, repo)
-	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes", "--announce")
@@ -85,7 +85,7 @@ func TestPRRefusesAnnounceBesideDraft(t *testing.T) {
 	clitest.FakeGh(t, responses)
 	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.PretendPushed(t, repo)
-	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, new(atomic.Int32))))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, new(atomic.Int32))))
 
 	// Act
 	_, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes", "--draft", "--announce")
@@ -109,7 +109,7 @@ func TestPRAnnounceDryRunSaysItWouldAnnounce(t *testing.T) {
 	clitest.FakeGh(t, openingThenOpen())
 	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.PretendPushed(t, repo)
-	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, new(atomic.Int32))))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, new(atomic.Int32))))
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--dry-run", "--announce")
@@ -130,7 +130,7 @@ func TestPRAnnounceJSONPrintsTheReportBeforeWaiting(t *testing.T) {
 	clitest.FakeGh(t, openingThenOpen())
 	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.PretendPushed(t, repo)
-	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes", "--json", "--announce")
@@ -181,7 +181,7 @@ func TestPRAnnounceWaitsForAPullRequestTheForgeHasNotListedYet(t *testing.T) {
 	clitest.FakeGh(t, responses)
 	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.PretendPushed(t, repo)
-	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes", "--announce")
