@@ -110,7 +110,7 @@ export async function seeds(page: Page, seed: Seed, snapshot?: Snapshot): Promis
 const problemBase = 'https://jacob-delgado.github.io/workflow/docs/errors/'
 
 // meanings are the status and title the server fixes for each code
-// (codeMeaning in internal/webserver/errors.go).
+// (codeMeaning in internal/webserver/problem/problem.go).
 const meanings: Record<Problem['code'], { status: number; title: string }> = {
   bad_request: { status: 400, title: 'Bad request' },
   unauthorized: { status: 401, title: 'Unauthorized' },
@@ -138,7 +138,7 @@ interface Refusal {
 
 // problem is the server's refusal for a code, saying the detail given: an RFC
 // 9457 problem whose type, title and status come from the code, as the
-// server's problem does.
+// server's problem.New does.
 export function problem(code: Problem['code'], detail: string): Refusal {
   const { status, title } = meanings[code]
 

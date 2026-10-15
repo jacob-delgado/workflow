@@ -19,7 +19,7 @@ for a change to an API operation, the guards or the event stream. The root
 ## One file per operation, and when code may leave
 
 The package is the loopback REST surface spelled one file per operation, or
-per pair of writes that share their checks, beside the shared guard, errors,
+per pair of writes that share their checks, beside the shared guard, faults,
 wire shapes, stream and server. It answers to a cohesive ceiling in
 `scripts/package-size-budgets.txt`: read the number there, and
 `scripts/check-package-size.sh --list` for the count. A new operation is a new
@@ -27,8 +27,9 @@ file. The package is not split to chase a number, but code in it with a reason
 to change of its own may leave where no import cycle follows: the request
 boundary (the guards, the policy headers, the session and the contract
 validator), which changes for security's reasons, and the Taskwarrior handlers
-and the git runs, which each change with the tool they drive. Reaching the
-ceiling means rewriting the WHY above the entry and a history row, or such an
+and the git runs, which each change with the tool they drive. The RFC 9457
+problem details have left already, to `internal/webserver/problem`, which
+changes only with the error format. Reaching the ceiling means rewriting the WHY above the entry and a history row, or such an
 extraction, never a split for the count.
 
 ## A request, outside in
@@ -46,7 +47,7 @@ extraction, never a split for the count.
 
 The guards in 2 and 3, and the app's refusal of any other method, answer in
 plain text; that boundary stays. The validator answers as problem details,
-through `writeProblem`: `unauthorized` without the session, `not_found` and
+through `problem.Write`: `unauthorized` without the session, `not_found` and
 `method_not_allowed` for a route the spec lacks, `bad_request` for a request
 that does not match it. The session (`Session`, `guard.go`) rides the
 fragment of the address the server prints, which no browser sends to a
@@ -64,8 +65,9 @@ flight; and refuses, as `conflict`, a write whose `Workflow-Here` header
 
 - Every error a handler returns is an `application/problem+json` object —
   `type`, `title`, `status`, `detail`, and a stable machine `code` from the
-  spec's enum — built through `problem`, `fault` and `writeProblem`
-  (`errors.go`), never an ad-hoc envelope.
+  spec's enum — built through `problem.New`, `problem.Answer` and
+  `problem.Write` (`internal/webserver/problem`), or `fault` (`faults.go`),
+  never an ad-hoc envelope.
 - **`fault` classifies** a seam's error (a missing resource → `not_found` 404,
   an unreachable upstream → `unreachable` 502) rather than flattening it to a
   generic 500. A new class of failure gets a new class, not a bare 500: one
@@ -78,10 +80,11 @@ flight; and refuses, as `conflict`, a write whose `Workflow-Here` header
   (TRADE-9). The test that an unreachable service's detail omits its host is
   part of the change, as `TestUnreachableJiraDetailOmitsItsHost`
   (`issuewrite_test.go`) is.
-- `codeMeaning` is a map, not a switch, so gobco sees no arm it can never
-  reach, and `exhaustive` keeps it complete.
+- `codeMeaning` (`problem/problem.go`) is a map, not a switch, so gobco sees
+  no arm it can never reach, and `exhaustive` keeps it complete.
 - The `type` URI points at a section of `docs/content/docs/errors.md`
-  (`problemBase`), one `##` heading per code: add the heading with the code.
+  (`problemBase`, beside it), one `##` heading per code: add the heading with
+  the code.
   `errorsdoc_test.go` fails on a code with no heading, or none in
   `scripting.md`'s families.
 - The server does not sanitize on the way out: the web app renders its text as
@@ -115,7 +118,8 @@ flight; and refuses, as `conflict`, a write whose `Workflow-Here` header
 - **Red first, through the handler.** A new operation, or a change to one,
   starts as a test that sends the request and asserts the status and body the
   spec promises, or the problem the refusal is; watch it fail, then write the
-  method. Tests are black-box, in `package webserver_test`, marked
+  method. Tests are black-box, in `package webserver_test` (and
+  `package problem_test` in `internal/webserver/problem`), marked
   `// Arrange`, `// Act`, `// Assert`.
 - **The harness** (`harness_test.go`): `serve`, `serveWith` and
   `serveWorld` build the handler under a session `presenting` sends on every
