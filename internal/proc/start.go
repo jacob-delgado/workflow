@@ -55,6 +55,9 @@ type Command struct {
 type Output struct {
 	// Lines delivers each line of standard output and standard error in the
 	// order the program wrote them, and closes when the program has exited.
+	// Once the run gives up on an output a process the program left behind
+	// holds past outputGrace, nothing more is delivered: not even a line the
+	// program began and never ended.
 	Lines <-chan string
 	// Wait reports how the program exited. It blocks until then, and until its
 	// output has been read to the end or ctx has ended, so call it once Lines
@@ -139,7 +142,7 @@ func Start(ctx context.Context, program Command) (Output, error) {
 	done := make(chan error, 1)
 	run := stream{
 		name: program.Name, command: command, reader: reader,
-		sender: &lineSender{mu: sync.Mutex{}, lines: lines, closed: false, abandoned: make(chan struct{})},
+		sender: &lineSender{mu: sync.Mutex{}, lines: lines, abandoned: make(chan struct{})},
 	}
 
 	go func() {
@@ -275,25 +278,31 @@ func (g *pipeGrace) expired() <-chan time.Time {
 	return g.timer.C
 }
 
-// lineSender hands lines to Lines until it is closed, and drops any after, so
-// Lines can close while a read the run abandoned is still in progress.
+// lineSender hands lines to Lines until the run abandons its output, and drops
+// any after, so Lines can close while a read the run abandoned is still in
+// progress.
 type lineSender struct {
-	mu     sync.Mutex
-	lines  chan string
-	closed bool
+	mu    sync.Mutex
+	lines chan string
 	// abandoned closes when the run stops waiting for the rest of its output, so
 	// a send or a read still in progress delivers nothing more.
 	abandoned chan struct{}
 }
 
-// send hands a line on, unless ctx is done or the output is abandoned or
-// closed, so the program is never left writing to a pipe nobody empties.
+// send hands a line on, unless ctx is done or the output is abandoned, so the
+// program is never left writing to a pipe nobody empties. A line read once the
+// output was abandoned is dropped before it can race the abandonment to Lines:
+// the line a program began and never ended is one, finished by the read the
+// run gave up on as it fails. Lines closes only once the output is abandoned
+// or read to its end, so a send never meets it closed.
 func (s *lineSender) send(ctx context.Context, line string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.closed {
+	select {
+	case <-s.abandoned:
 		return
+	default:
 	}
 
 	select {
@@ -313,7 +322,6 @@ func (s *lineSender) close() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.closed = true
 	close(s.lines)
 }
 
