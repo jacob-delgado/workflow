@@ -33,6 +33,16 @@ const readyDescriptor = 3
 // cues it: a helper left behind to write, or the "closing" one to exit.
 const helperCue = "WORKFLOW_PROC_CUE"
 
+// helperPIDFile names, to a helper that leaves a process behind, the file to
+// write that process's pid to, for the test to kill it however it ends.
+const helperPIDFile = "WORKFLOW_PROC_PID_FILE"
+
+// notePID writes pid to the file helperPIDFile names.
+func notePID(pid int) {
+	complain("noting the pid of the process left behind",
+		os.WriteFile(os.Getenv(helperPIDFile), []byte(strconv.Itoa(pid)), 0o600))
+}
+
 // helperCuedLines names, to the "cued" helper, how many lines to write once
 // cued: one when it is not set.
 const helperCuedLines = "WORKFLOW_PROC_CUED_LINES"
@@ -90,8 +100,8 @@ func actAroundTheExit(mode string) {
 }
 
 // leaveASleeper leaves a sleeping copy of this binary behind holding standard
-// output, as a hook that backgrounds a server does, prints its pid, and exits
-// at once.
+// output, as a hook that backgrounds a server does, notes and prints its pid,
+// and exits at once.
 func leaveASleeper() {
 	//nolint:noctx // this test binary re-run as the "sleep" helper, in a helper that has no context to thread
 	grand := exec.Command(os.Args[0], "-test.run=^$")
@@ -106,6 +116,7 @@ func leaveASleeper() {
 		return
 	}
 
+	notePID(grand.Process.Pid)
 	fmt.Fprintln(os.Stdout, grand.Process.Pid)
 }
 
@@ -135,15 +146,16 @@ func leaveALateWriter() {
 	complain("waiting for the late writer to say it started", err)
 }
 
-// writeLate says this one has started, then, once the program that left it
-// behind has exited and been reaped, prints its pid and holds the output, as a
-// server a hook backgrounded does when it logs late.
+// writeLate says this one has started and notes its pid, then, once the
+// program that left it behind has exited and been reaped, prints its pid and
+// holds the output, as a server a hook backgrounded does when it logs late.
 func writeLate() {
 	started := os.NewFile(readyDescriptor, "ready")
 	_, err := started.Write([]byte{'\n'})
 	complain("saying it started", err)
 	complain("closing the pipe it said it started on", started.Close())
 
+	notePID(os.Getpid())
 	awaitGone(os.Getenv(helperParent))
 	fmt.Fprintln(os.Stdout, os.Getpid())
 	time.Sleep(time.Minute)
