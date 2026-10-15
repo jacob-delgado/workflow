@@ -156,8 +156,9 @@ export async function walkTabOrder(page: Page, { within }: Walk = {}): Promise<T
   const most = 2 * (await stops.evaluate((all) => all.length)) + 2
   const controls = await stops.evaluateHandle(drawnOnly)
   const names = await controls.evaluate(controlNames)
-  const walk: TabWalk = { reached: [], missed: [], hidden: [], left: [] }
   const reached = new Set<number>()
+  const hidden: string[] = []
+  const left: string[] = []
   await pressTab(page)
   const first = await page.evaluateHandle(() => document.activeElement)
   for (let step = 0; step < most; step++) {
@@ -165,19 +166,21 @@ export async function walkTabOrder(page: Page, { within }: Walk = {}): Promise<T
     if (stop.inside) {
       reached.add(stop.index)
     } else {
-      walk.left.push(stop.words)
+      left.push(stop.words)
     }
     if (stop.inside && stop.shown < inView) {
       const name = names[stop.index] ?? stop.words
-      walk.hidden.push(`${name} (${String(Math.round(stop.shown * 100))}% in view)`)
+      hidden.push(`${name} (${String(Math.round(stop.shown * 100))}% in view)`)
     }
 
     await pressTab(page)
     if (await first.evaluate((began) => began === document.activeElement)) {
-      walk.reached = names.filter((_, index) => reached.has(index))
-      walk.missed = names.filter((_, index) => !reached.has(index))
-
-      return walk
+      return {
+        reached: names.filter((_, index) => reached.has(index)),
+        missed: names.filter((_, index) => !reached.has(index)),
+        hidden,
+        left,
+      }
     }
   }
 
