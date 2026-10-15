@@ -690,8 +690,8 @@ token from your keychain** is saved checked, so a repository whose file points
 Jira at another address takes a token of its own here; a token the keychain will
 not keep saves nothing. A change to the Taskwarrior part waits until workflow
 restarts or switches directory, as the part says: workflow finds Taskwarrior as
-it starts in a directory, and until then the Tasks section says to restart
-rather than read Taskwarrior. What
+it starts in a directory or switches to one, and until then the Tasks section
+says to restart or switch directory rather than read Taskwarrior. What
 the form has no field for is kept unchanged when you save: `version`,
 `jira.token_command`, `jira.token_env`, and the Slack access token and its
 expiry. The task program is shown but not typed into: workflow runs it, and

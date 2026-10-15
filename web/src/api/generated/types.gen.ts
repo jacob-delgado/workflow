@@ -1350,7 +1350,7 @@ export type TaskList = {
      */
     reason: string;
     /**
-     * Why Taskwarrior is not available, as a code the page can act on without reading reason: not installed, a task program that is not Taskwarrior (go-task, most likely), too old, never run, turned off by taskwarrior.disabled, a taskrc with a malformed line, or unavailable for a reason workflow doctor explains, or taskwarrior settings saved since workflow started, which apply once it restarts, or the list after a write that was made could not be read. Absent when Taskwarrior is available.
+     * Why Taskwarrior is not available, as a code the page can act on without reading reason: not installed, a task program that is not Taskwarrior (go-task, most likely), too old, never run, turned off by taskwarrior.disabled, a taskrc with a malformed line, or unavailable for a reason workflow doctor explains, or taskwarrior settings saved since workflow started in or switched to this directory, which apply once it restarts or switches directory, or the list after a write that was made could not be read. Absent when Taskwarrior is available.
      */
     reason_code?: 'not_installed' | 'not_taskwarrior' | 'too_old' | 'never_run' | 'turned_off' | 'malformed_taskrc' | 'unavailable';
     /**

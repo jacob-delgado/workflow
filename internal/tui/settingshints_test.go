@@ -21,6 +21,8 @@ const (
 	channelRow      = messagingKindRow + 5
 	announcementRow = messagingKindRow + 7
 	titleSourceRow  = branchTemplateRow + 4
+
+	taskwarriorDisabledRow = storeDisabledRow + 2
 )
 
 func TestTheTokenHintNamesTheCommandItIsTakenFrom(t *testing.T) {
@@ -202,4 +204,17 @@ func TestAChoiceComesBackRoundToTheDefaultItSavesEmpty(t *testing.T) {
 	if got := repo.settings.PullRequest.TitleSource; got != "" {
 		t.Errorf("saved pull_request.title_source %q, want empty: the default", got)
 	}
+}
+
+func TestTheTaskwarriorHintSaysAChangeAppliesOnceWorkflowReopensOrSwitches(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := newWorld()
+
+	// Act
+	view := typing(t, repo.live(t, 120, 40), toRow(taskwarriorDisabledRow)...).View().Content
+
+	// Assert
+	requireScreen(t, view, "A change here applies once workflow reopens or switches directory.")
 }

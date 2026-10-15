@@ -28,8 +28,8 @@ test.each([
   [
     'go-task on PATH, and names the setting that finds Taskwarrior',
     'not_taskwarrior',
-    "The task on PATH is another program (go-task, most likely), not Taskwarrior. Set taskwarrior.program to Taskwarrior's path, then restart workflow; workflow doctor names what it found.",
-    "The task on PATH is another program (go-task, most likely), not Taskwarrior. Set taskwarrior.program to Taskwarrior's path, then restart workflow; workflow doctor names what it found.",
+    "The task on PATH is another program (go-task, most likely), not Taskwarrior. Set taskwarrior.program to Taskwarrior's path; workflow reads it as it starts in a directory or switches to one, and workflow doctor names what it found.",
+    "The task on PATH is another program (go-task, most likely), not Taskwarrior. Set taskwarrior.program to Taskwarrior's path; workflow reads it as it starts in a directory or switches to one, and workflow doctor names what it found.",
   ],
   [
     'no Taskwarrior at all',
@@ -40,8 +40,8 @@ test.each([
   [
     'Taskwarrior settings saved since the start',
     'unavailable',
-    'Taskwarrior settings changed; restart workflow to apply.',
-    'Taskwarrior settings changed; restart workflow to apply.',
+    'Taskwarrior settings changed; restart workflow or switch directory to apply.',
+    'Taskwarrior settings changed; restart workflow or switch directory to apply.',
   ],
   [
     'a Taskwarrior that could not start',
