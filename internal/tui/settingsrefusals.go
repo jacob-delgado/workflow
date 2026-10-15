@@ -178,8 +178,13 @@ func (f settingsForm) refusalLines(kit renderKit, field setting, width int) []st
 		return nil
 	}
 
-	indent := strings.Repeat(" ", ansi.StringWidth(kit.marks.unselected))
-	lines := strings.Split(wrap(kit.marks.failed+" "+reason, width-len(indent)), "\n")
+	return failureLines(kit, reason, strings.Repeat(" ", ansi.StringWidth(kit.marks.unselected)), width)
+}
+
+// failureLines are text after the failure mark, in the failure style, wrapped
+// to width with each line after indent.
+func failureLines(kit renderKit, text, indent string, width int) []string {
+	lines := strings.Split(wrap(kit.marks.failed+" "+text, width-len(indent)), "\n")
 
 	for index, line := range lines {
 		lines[index] = indent + kit.styles.failure.Render(line)
