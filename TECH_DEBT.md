@@ -1079,10 +1079,14 @@ sends, fail on any refusal while they open each part: `e2e/server/page.spec.ts`
 opens the palette, an Autocomplete in a Dialog, and the shortcut sheet, a
 Dialog; `e2e/server/policy.spec.ts` walks every one of Settings' Tabs and opens
 the tag picker's Combobox with its list of members shown, answering the reads
-that fill both itself, since the fixture has no configuration, Slack or forge.
-A refusal from a state those specs never reach, such as a list with nothing
-matching, from the directory picker's own Autocomplete, which none opens, or
-from a part the page takes up later, is still heard by no spec.
+that fill both itself, since the fixture has no configuration, Slack or forge,
+and opens the directory picker's Autocomplete, in its Dialog, three times over
+the fixture's own directories: once listing the directories above the
+repository, once on the repository, whose listing holds none, and once
+naming a directory that is not there, whose list is left empty. A refusal
+from a state those specs never reach, such as the tag picker's list with no
+member matching, or from a part the page takes up later, is still heard by
+no spec.
 
 **Reopen when.** A choice needs more than a native `<select>` can draw, or the
 server gains a per-request nonce that the page could hand to `CSPProvider`.

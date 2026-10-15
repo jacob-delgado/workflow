@@ -57,8 +57,9 @@ binary `task build` makes: `scripts/e2e-server.sh` serves
 and `commit.spec.ts` stages, commits and pushes through the page.
 `page.spec.ts` checks how the page takes its session, and that it and its
 palette open with nothing the content policy the server sends refuses;
-`policy.spec.ts` opens Settings' tabs and the tag picker under that policy and
-fails on anything it refuses. Nothing else may be listening on port 13580.
+`policy.spec.ts` opens Settings' tabs, the tag picker and the directory picker
+under that policy and fails on anything it refuses. Nothing else may be
+listening on port 13580.
 
 ## Conventions
 
