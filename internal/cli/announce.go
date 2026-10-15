@@ -27,10 +27,6 @@ import (
 // told through forgeWordedError, in the forge's own noun.
 var errNoPullRequest = errors.New("there is no pull request on this branch to announce")
 
-// errMessagingNotConfigured refuses announcing when no messaging transport is
-// set up.
-var errMessagingNotConfigured = errors.New("no messaging transport is configured")
-
 // announceSeams are what `workflow announce` reads and does, so a test can
 // answer without a repository, a forge or a messaging service.
 type announceSeams struct {
@@ -249,14 +245,6 @@ func readyToAnnounce(
 	}
 
 	return nil
-}
-
-// messagingNotConfigured refuses to announce with no messaging transport set
-// up, saying how to set one up.
-func messagingNotConfigured() error {
-	return fmt.Errorf("%w: set messaging.kind and messaging.webhook_url in %s — or, "+
-		"for Slack, run workflow slack login — then check them with workflow doctor",
-		errMessagingNotConfigured, config.FileName)
 }
 
 // composeFor composes the announcement seams can post, refusing where nothing
