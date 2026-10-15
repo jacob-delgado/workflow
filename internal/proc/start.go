@@ -60,9 +60,10 @@ type Output struct {
 	// program began and never ended.
 	Lines <-chan string
 	// Wait reports how the program exited. It blocks until then, and until its
-	// output has been read to the end or ctx has ended, so call it once Lines
-	// has closed. Calling it again returns the same result rather than
-	// blocking.
+	// output has ended: read to the end, cut at a line too long to deliver, or
+	// given up on once a process the program left behind has held it
+	// outputGrace past the exit. So call it once Lines has closed. Calling it
+	// again returns the same result rather than blocking.
 	Wait func() error
 	// Stop kills this run — the whole process group — without disturbing the
 	// context the caller passed, so one hung or unwanted run can be ended on its
