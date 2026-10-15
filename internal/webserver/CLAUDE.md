@@ -170,12 +170,12 @@ flight; and refuses, as `conflict`, a write whose `Workflow-Here` header
   stays in a test file of that side, unless a shared helper needs it or it
   belongs to a grouped declaration that moved whole.
   `webtest` has no tests of its own, as `internal/ptytest` has none: depguard's
-  `webtest-only-in-tests` keeps it out of the binary, gobco names it in
-  `NO_TESTS`, and its two goroutines are written exceptions in
-  `scripts/check-goroutines.sh`. Unlike gobco, `scripts/coverage-gate.sh` does
-  not leave it out: its statements count, at 0%, in the total `COVERAGE_MIN`
-  holds, as ptytest's do, so the gate prints a total lower than the code's own
-  by webtest's share of the statements.
+  `webtest-only-in-tests` keeps it out of the binary, and its two goroutines
+  are written exceptions in `scripts/check-goroutines.sh`. Neither coverage
+  gate measures it, as neither measures ptytest: gobco names it in
+  `NO_TESTS`, and `scripts/coverage-gate.sh` leaves it out of the statement
+  total `COVERAGE_MIN` holds, because its line in the root `CLAUDE.md`'s
+  layout ends `(tests only)`.
   A helper that fails the test for an Assert stays a test helper of each
   package whose tests call it, as `assertProblem` (`problemcheck_test.go`,
   in the server's tests and in `runs`') does, with only what it reads, as

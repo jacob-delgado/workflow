@@ -3,8 +3,8 @@
 # Reading the root CLAUDE.md's layout block: the ```text block after the line
 # `Layout:`, each of whose lines starts with a directory and its trailing
 # slash, then says what that directory holds. check-layout.sh holds the block
-# to the Go packages; reading it here keeps one reading of it for every gate
-# that does.
+# to the Go packages, and coverage-gate.sh reads from it the packages that
+# serve only tests; reading it here keeps one reading of it for both.
 #
 # Sourced, never run, after the script's own `set -euo pipefail`:
 #
@@ -34,4 +34,13 @@ layout_lines() {
 #   layout_dirs <guide>
 layout_dirs() {
   layout_lines "$1" | awk '{ print $1 }'
+}
+
+# layout_tests_only_dirs prints each directory, one a line and without its
+# trailing slash, whose line in the guide's layout block ends "(tests only)":
+# a package only tests import. A block that marks none prints nothing, which
+# is no error: there is then no such package.
+#   layout_tests_only_dirs <guide>
+layout_tests_only_dirs() {
+  layout_lines "$1" | awk '/ \(tests only\)$/ { print $1 }'
 }

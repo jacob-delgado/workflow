@@ -24,7 +24,10 @@ vars:
   DOCS_REFERENCE: docs/content/docs/reference
   # The coverage floor. This is the number the gate enforces — no document
   # restates it, because a restated number drifts. Raise it with the ratchet
-  # scripts/coverage-gate.sh prints: floor(measured) - 2.
+  # scripts/coverage-gate.sh prints: floor(measured) - 2. It is a floor on the
+  # product's code alone: the total the gate measures leaves out the generated
+  # trees and every package whose line in CLAUDE.md's layout block ends
+  # "(tests only)" (CONTRIBUTING.md, *Tests*).
   #
   # It stepped 95→94 when the white-box tests were removed to make testpackage
   # strict (.golangci.yml — no *_internal_test.go exemption): a few of them
@@ -313,6 +316,9 @@ tasks:
         unset $(git rev-parse --local-env-vars);
         {{if .GO_TEST_JSON}}scripts/go-test-json.sh {{.GO_TEST_JSON}}{{else}}go test{{end}}
         -race -timeout {{.GO_TEST_TIMEOUT}} -coverprofile=coverage.out -covermode=atomic {{.GO_PKGS}}
+      # Run from the root: the gate reads CLAUDE.md's layout there for the
+      # packages that serve only tests, which leave its total, as the
+      # generated trees do.
       - scripts/coverage-gate.sh coverage.out {{.COVERAGE_MIN}}
 
   fuzz:
