@@ -499,7 +499,7 @@ func exitFamilies() []exitFamily {
 		}},
 		{status: exitConfiguration, members: configurationErrors()},
 		{status: exitRefused, members: refusalErrors()},
-		{status: exitUnreachable, members: unreachableErrors()},
+		{status: exitUnreachable, members: append(servicesUnreachable(), errUnreachable)},
 	}
 }
 
@@ -543,14 +543,15 @@ func refusalErrors() []error {
 	}
 }
 
-// unreachableErrors are a service that never answered the request itself: it
-// could not be reached, answered only to say wait, answered with a redirect
-// the client refused to follow, or took too long to finish its answer. A
-// script may try again later.
-func unreachableErrors() []error {
+// servicesUnreachable are the clients' errors for a service that never
+// answered the request itself: it could not be reached, answered only to say
+// wait, answered with a redirect the client refused to follow, or took too
+// long to finish its answer. A script may try again later. The exit family
+// adds doctor's errUnreachable, which says the same of a check it made.
+func servicesUnreachable() []error {
 	return []error{
 		jira.ErrUnreachable, forge.ErrUnreachable, messaging.ErrUnreachable, slackauth.ErrUnreachable,
-		errUnreachable, httpx.ErrRateLimited, httpx.ErrRedirected, httpx.ErrTimedOut,
+		httpx.ErrRateLimited, httpx.ErrRedirected, httpx.ErrTimedOut,
 	}
 }
 

@@ -61,7 +61,7 @@ precondition 4, unreachable 5; any other failure is 1. `interrupted`
 (`cli.go`) puts the context's error back on a child's failure, so a Ctrl+C
 still reads as 130. A new sentinel a script should tell apart joins its
 family's list (`exitFamilies`, `configurationErrors`, `refusalErrors`,
-`unreachableErrors`) and `scripting.md`'s table, in the same commit.
+`servicesUnreachable`) and `scripting.md`'s table, in the same commit.
 
 ## The process, signals and the quit
 
