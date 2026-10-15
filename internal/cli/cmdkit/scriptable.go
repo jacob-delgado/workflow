@@ -448,7 +448,7 @@ func IsAny(err error, targets ...error) bool {
 // answered the request itself: it could not be reached, answered only to say
 // wait, answered with a redirect the client refused to follow, or took too
 // long to finish its answer. A script may try again later. The exit family
-// adds doctor's errUnreachable, which says the same of a check it made.
+// adds doctor.ErrUnreachable, which says the same of a check doctor made.
 func ServicesUnreachable() []error {
 	return []error{
 		jira.ErrUnreachable, forge.ErrUnreachable, messaging.ErrUnreachable, slackauth.ErrUnreachable,

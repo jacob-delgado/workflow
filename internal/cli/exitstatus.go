@@ -8,6 +8,7 @@ import (
 	"errors"
 
 	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
+	"github.com/jacob-delgado/workflow/internal/cli/doctor"
 	"github.com/jacob-delgado/workflow/internal/cli/pr"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -88,7 +89,7 @@ func exitFamilies() []exitFamily {
 		}},
 		{status: exitConfiguration, members: configurationErrors()},
 		{status: exitRefused, members: refusalErrors()},
-		{status: exitUnreachable, members: append(cmdkit.ServicesUnreachable(), errUnreachable)},
+		{status: exitUnreachable, members: append(cmdkit.ServicesUnreachable(), doctor.ErrUnreachable)},
 	}
 }
 
@@ -108,7 +109,7 @@ func configurationErrors() []error {
 		forge.ErrNoToken, forge.ErrKindNeedsHost, forge.ErrNotARemote, forge.ErrUnknownForge,
 		messaging.ErrNoCredential, messaging.ErrInsecureWebhook,
 		jira.ErrUnauthorized, jira.ErrForbidden, forge.ErrUnauthorized, messaging.ErrRejected,
-		errCredentialRejected, errCredentialMissing, errIncomplete, errInvalid, errShared,
+		doctor.ErrCredentialRejected, doctor.ErrCredentialMissing, doctor.ErrIncomplete, doctor.ErrInvalid, doctor.ErrShared,
 		cmdkit.ErrMessagingNotConfigured, errLoginNeedsConfig, errLoginOverWebhook, errLoginNotSlack, errWorklogNeedsJira,
 		slackauth.ErrRefreshRefused, slackauth.ErrNotAUserToken,
 	}, config.KeyRefusals()...)

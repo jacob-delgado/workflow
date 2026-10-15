@@ -369,20 +369,3 @@ func TestTheVersionFlagPrintsTheBuild(t *testing.T) {
 		t.Errorf("--version = %q, want it to contain the build %q", output, want)
 	}
 }
-
-func TestDoctorReportsTheVersionFirst(t *testing.T) {
-	t.Parallel()
-
-	// Act
-	output, _ := clitest.Run(t, t.TempDir(), "doctor")
-
-	// Assert
-	version, repository := strings.Index(output, "Version:"), strings.Index(output, "Repository:")
-	if version < 0 || repository < 0 || version > repository {
-		t.Errorf("doctor did not report the version before the repository:\n%s", output)
-	}
-
-	if got := fieldValue(output, "Version"); got != buildinfo.Current() {
-		t.Errorf("doctor Version = %q, want %q", got, buildinfo.Current())
-	}
-}

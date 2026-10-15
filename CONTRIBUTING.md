@@ -117,19 +117,20 @@ repository, and a test's `git -C <temp dir>` would work on that repository
 instead: one pre-push set `core.bare`, moved `main` and rewrote the config that
 way. The gate is safe to run from a hook or a linked worktree only because of
 this. The Go packages whose tests commit, fetch or push (`internal/cli`,
-`internal/cli/pr`, `internal/gittest`, `internal/wiring`), and
-`internal/cli/cmdkit`, which shares `internal/cli`'s `clitest.Main`, clear them
-in `TestMain`, each proven by `TestTheTestsLeaveTheRepositoryAHookNamesAlone`,
-and then have every git the process starts read the tests' own configuration
-(`gittest.Configure`, which `gittest.Run` calls for each git it runs, and
-`clitest.Main` and wiring's `TestMain` for the whole process): the developer's
-is kept out, and so is git's automatic maintenance, which since git 2.47 a
-commit, a fetch or a push's receive-pack leaves running detached, still able to
-write into a test's repository as it is removed. The other packages whose tests
-start git, `internal/tui`, `internal/setup` and `internal/webserver`, run only
-`init`, `rev-parse` and `check-ignore`, none of which starts maintenance, so
-they read the developer's configuration. Every script test that runs git unsets
-those variables, and each of its gits that keeps the test's environment reads a
+`internal/cli/doctor`, `internal/cli/pr`, `internal/gittest`,
+`internal/wiring`), and `internal/cli/cmdkit`, which shares `internal/cli`'s
+`clitest.Main`, clear them in `TestMain`, each proven by
+`TestTheTestsLeaveTheRepositoryAHookNamesAlone`, and then have every git the
+process starts read the tests' own configuration (`gittest.Configure`, which
+`gittest.Run` calls for each git it runs, and `clitest.Main` and wiring's
+`TestMain` for the whole process): the developer's is kept out, and so is git's
+automatic maintenance, which since git 2.47 a commit, a fetch or a push's
+receive-pack leaves running detached, still able to write into a test's
+repository as it is removed. The other packages whose tests start git,
+`internal/tui`, `internal/setup` and `internal/webserver`, run only `init`,
+`rev-parse` and `check-ignore`, none of which starts maintenance, so they read
+the developer's configuration. Every script test that runs git unsets those
+variables, and each of its gits that keeps the test's environment reads a
 configuration of the harness's own, maintenance off in it too
 (`scripts/lib/testing.sh`), both of which `scripts/hook-environment_test.sh`
 checks. A git run under `env -i` reads none of it:

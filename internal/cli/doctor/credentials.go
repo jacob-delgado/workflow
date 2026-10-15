@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli
+package doctor
 
 import (
 	"context"
@@ -80,9 +80,9 @@ func credentialStatus(err error) string {
 		return "ok"
 	case errors.Is(err, errUnchecked):
 		return "unchecked"
-	case errors.Is(err, errCredentialMissing):
+	case errors.Is(err, ErrCredentialMissing):
 		return "missing"
-	case errors.Is(err, errUnreachable):
+	case errors.Is(err, ErrUnreachable):
 		return "unreachable"
 	default:
 		return "rejected"
@@ -366,11 +366,11 @@ func userTokenNote(ctx context.Context, process wiring.Environment, cfg config.C
 func credentialOutcome(err error, service string) error {
 	switch {
 	case cmdkit.IsAny(err, jira.ErrNoCredential, messaging.ErrNoCredential, forge.ErrNoToken):
-		return fmt.Errorf("%w: %s", errCredentialMissing, service)
-	case cmdkit.IsAny(err, append(cmdkit.ServicesUnreachable(), errUnreachable)...):
-		return fmt.Errorf("%w: %s", errUnreachable, service)
+		return fmt.Errorf("%w: %s", ErrCredentialMissing, service)
+	case cmdkit.IsAny(err, append(cmdkit.ServicesUnreachable(), ErrUnreachable)...):
+		return fmt.Errorf("%w: %s", ErrUnreachable, service)
 	default:
-		return fmt.Errorf("%w: %s", errCredentialRejected, service)
+		return fmt.Errorf("%w: %s", ErrCredentialRejected, service)
 	}
 }
 
@@ -383,7 +383,7 @@ func credentialFailed(service, detail string, err error) (credentialLine, error)
 // credentialMissing says why service has no credential to ask about, and
 // reports it missing rather than rejected: nothing was put to the service.
 func credentialMissing(service, why string) (credentialLine, error) {
-	return credentialLine{Service: service, Detail: why}, fmt.Errorf("%w: %s", errCredentialMissing, service)
+	return credentialLine{Service: service, Detail: why}, fmt.Errorf("%w: %s", ErrCredentialMissing, service)
 }
 
 // credentialUnchecked says why doctor could not ask about service's credential,
