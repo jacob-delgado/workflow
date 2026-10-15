@@ -272,8 +272,9 @@ func writeScopeNote(ctx context.Context, client forge.Client, kind forge.Kind) s
 }
 
 // unansweredBecause says why a forge request failed: its own error, or why the
-// check's context ended when that is what stopped it, since a gh or glab killed
-// at the time limit can say only that it was killed.
+// check's context ended when that is what stopped it. A gh or glab stopped at
+// the time limit reports that cause too, but inside the forge client's and the
+// CLI's own words, which add nothing the reader can act on.
 func unansweredBecause(ctx context.Context, err error) string {
 	if ctx.Err() != nil {
 		return context.Cause(ctx).Error()
