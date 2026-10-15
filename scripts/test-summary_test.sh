@@ -7,8 +7,8 @@
 #
 # A stub go on PATH logs each call, answers `go test` with a fixed event stream
 # and profile, and answers `go tool cover` with a total that shows whether the
-# profile it was handed still held cmd/docsgen. A stub corepack fails, so the
-# web rows report dashes without running.
+# profile it was handed still held cmd/docsgen. A stub corepack logs each call
+# and fails, so the web rows report dashes without running.
 #
 # Usage:
 #   scripts/test-summary_test.sh
@@ -73,6 +73,7 @@ EOF
 
 cat >"${stub_bin}/corepack" <<'EOF'
 #!/usr/bin/env bash
+printf '%s\n' "$*" >>"${STUB_DIR}/corepack.calls"
 exit 1
 EOF
 chmod +x "${stub_bin}/go" "${stub_bin}/corepack"
@@ -82,6 +83,7 @@ chmod +x "${stub_bin}/go" "${stub_bin}/corepack"
 #   run_summary <go-package-root>...
 run_summary() {
   : >"${workdir}/go.calls"
+  : >"${workdir}/corepack.calls"
   status=0
   PATH="${stub_bin}:${PATH}" STUB_DIR="${workdir}" GITHUB_STEP_SUMMARY="" \
     "${summary}" "$@" >"${workdir}/report.md" 2>/dev/null || status=$?
@@ -90,6 +92,7 @@ run_summary() {
 # Act: one report over two roots of the test's own choosing.
 run_summary ./alpha/... ./beta/...
 test_call="$(grep -E '(^| )test ' "${workdir}/go.calls" || true)"
+playwright_call="$(grep -E '(^| )playwright test' "${workdir}/corepack.calls" || true)"
 
 # Assert: the report succeeds.
 count_case
@@ -119,6 +122,13 @@ fi
 count_case
 if ! grep -qF '| Go | 96.6% |' "${workdir}/report.md"; then
   fail_case "Go coverage" "want the gate's 96.6%, got: $(grep '^| Go |' "${workdir}/report.md" || true)"
+fi
+
+# Assert: the E2E row runs Chromium's projects, as CI's E2E job does, so a
+# developer with Chromium alone installed gets no Firefox or WebKit failures.
+count_case
+if [[ " ${playwright_call} " != *" --project=chromium --project=mock "* ]]; then
+  fail_case "E2E projects" "want Chromium's projects alone, got: ${playwright_call}"
 fi
 
 # Act: a report given no roots.
