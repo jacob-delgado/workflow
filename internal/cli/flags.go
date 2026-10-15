@@ -50,6 +50,9 @@ const (
 // opening the terminal one.
 const webFlag = "web"
 
+// portFlag names the root's flag that picks the port --web serves on.
+const portFlag = "port"
+
 // addJSONFlag declares --json, or -j, on cmd, held in asJSON, with help that
 // says what it prints: the one way every command's data is asked for.
 func addJSONFlag(cmd *cobra.Command, asJSON *bool, help string) {
@@ -100,9 +103,10 @@ type rootFlags struct {
 // declare declares the flags on root: --dry-run, --request-log and how
 // stderr is said once, for every command, so a script passes them before the
 // command's name or after it, and each command reads them back by name; --web
-// and --port on the root alone. --log, the request log's old name, is kept
-// hidden only to refuse it with the new one.
-func (f *rootFlags) declare(root *cobra.Command) {
+// and --port, serving on defaultPort unless given, on the root alone. --log,
+// the request log's old name, is kept hidden only to refuse it with the new
+// one.
+func (f *rootFlags) declare(root *cobra.Command, defaultPort int) {
 	root.PersistentFlags().BoolVarP(&f.dryRun, dryRunFlag, dryRunShorthand, false,
 		"hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, "+
 			"and say what it would have done")
@@ -117,7 +121,7 @@ func (f *rootFlags) declare(root *cobra.Command) {
 		"say what goes to stderr as `FORMAT`: text, or json or logfmt, an entry a line stamped with its time")
 	root.Flags().BoolVar(&f.web, webFlag, false,
 		"serve the web interface on http://127.0.0.1 instead of opening the terminal interface")
-	root.Flags().IntVar(&f.port, portFlag, defaultWebPort, "the port --web serves on, from 1 to 65535")
+	root.Flags().IntVar(&f.port, portFlag, defaultPort, "the port --web serves on, from 1 to 65535")
 }
 
 // checkPort refuses, as a mistake in the call, --port without --web, where

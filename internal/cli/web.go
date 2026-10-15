@@ -167,6 +167,3 @@ func webWorld(cmd *cobra.Command, conn connection, dryRun bool) webserver.World 
 
 	return webserver.World{Deps: deps, Config: conn.cfg, Info: info}
 }
-
-// portFlag names the root's flag that picks the port --web serves on.
-const portFlag = "port"
