@@ -97,11 +97,6 @@ func TestServeReturnsOnlyOnceARequestInFlightIsAnswered(t *testing.T) {
 	}
 }
 
-// endsWithin is how long a context the server ends is given to be seen ended:
-// one it never ends is never seen, so the bound only has to outlast a busy
-// machine.
-const endsWithin = 2 * time.Second
-
 // An open event stream never goes idle, so a request in flight that went on
 // past the server's stop would hold the drain for the whole grace.
 func TestServeEndsTheContextOfARequestInFlightWhenItStops(t *testing.T) {

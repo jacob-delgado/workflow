@@ -49,17 +49,6 @@ func servedFile(t *testing.T, contents string, info webserver.Info) (http.Handle
 	return serveWith(t, webserver.Deps{}, cfg, info), path
 }
 
-// rewrite leaves the file at path holding contents, as an edit made outside
-// the browser does.
-func rewrite(t *testing.T, path, contents string) {
-	t.Helper()
-
-	err := os.WriteFile(path, []byte(contents), config.FileMode)
-	if err != nil {
-		t.Fatalf("writing %s: %v", path, err)
-	}
-}
-
 // deleteFile deletes the file at path, as a deletion made outside the browser
 // does.
 func deleteFile(t *testing.T, path string) {

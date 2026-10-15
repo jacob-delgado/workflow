@@ -19,12 +19,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
-const (
-	prTitle = "fix: redact tokens"
-	prBase  = "main"
-	prURL   = "https://x/7"
-)
-
 // openRequestBody is a complete request opening a pull request titled prTitle
 // into prBase.
 const openRequestBody = `{"title":"` + prTitle + `","base":"` + prBase + `","body":"why"}`

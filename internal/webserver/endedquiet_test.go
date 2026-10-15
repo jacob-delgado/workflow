@@ -10,22 +10,12 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/hooks"
-	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
 // The tests here hold a request whose context ended, its page gone or the
 // server stopping, to answering without alarm: what it was doing failed with
 // its context, and nothing went wrong to hear of, whichever way the server
 // would hear of a failure.
-
-// hearing is deps with Unexpected spied on, and what it heard.
-func hearing(deps webserver.Deps) (webserver.Deps, *[]error) {
-	var heard []error
-
-	deps.Unexpected = func(_ config.Config, err error) { heard = append(heard, err) }
-
-	return deps, &heard
-}
 
 func TestARepositoriesReadWhosePageLeftIsNotHandedToUnexpected(t *testing.T) {
 	t.Parallel()

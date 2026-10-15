@@ -117,15 +117,25 @@ flight; and refuses, as `conflict`, a write whose `Workflow-Here` header
   spec promises, or the problem the refusal is; watch it fail, then write the
   method. Tests are black-box, in `package webserver_test`, marked
   `// Arrange`, `// Act`, `// Assert`.
-- **The harness** (`webserver_test.go`): `filledDeps()` is every seam with a
-  canned answer, so a test nils or replaces only the one it exercises;
-  `serve`, `serveWith` and `serveWorld` build the handler under a session
-  `presenting` sends on every request; `get` and `send` make a loopback
-  request; `decode[T]` reads the answer. `assertProblem`
-  (`problemcheck_test.go`) checks a refusal's status, media type and detail;
-  `errSeam` fails a seam with no class, which the opaque 500 answers. The
-  fixture constants (`testKey`, `repoPath`, `loopbackHost` and the rest) sit
-  beside them.
+- **The harness** (`harness_test.go`): `serve`, `serveWith` and
+  `serveWorld` build the handler under a session `presenting` sends on every
+  request; `get` and `send` make a loopback request; `decode[T]` reads the
+  answer. `filledDeps()` (`fixtures_test.go`) is every seam with a canned
+  answer, so a test nils or replaces only the one it exercises; `errSeam`
+  fails a seam with no class, which the opaque 500 answers; the fixture
+  constants (`testKey`, `repoPath`, `loopbackHost` and the rest) sit beside
+  them. `assertProblem` (`problemcheck_test.go`) checks a refusal's status,
+  media type and detail.
+- **Helpers that cross a line sit apart.** A helper the tests of code that
+  may leave (the request boundary, the Taskwarrior handlers, the git runs)
+  share with the tests of the rest sits, with what it needs, in a file of
+  helpers alone, named for what it holds: those above, the event stream's reader
+  (`streamclient_test.go`), a seam call held on its context
+  (`heldcall_test.go`), the configuration's edits (`configedits_test.go`),
+  the Taskwarrior fake (`taskwarriorfake_test.go`) and lefthook's fixtures
+  (`hookfixtures_test.go`). A helper only one side's tests use stays in a
+  test file of that side, unless a shared helper needs it or it belongs to a
+  grouped declaration that moved whole.
 - **What else holds a change.** `contract_test.go` checks the contract refuses
   what the server cannot use; a stream or a cache that waits is tested inside
   `synctest.Test`, on its fake clock (`stream_test.go`,
@@ -136,7 +146,7 @@ flight; and refuses, as `conflict`, a write whose `Workflow-Here` header
   `workflow --web --port 13580` from the binary `task build` makes, so nothing
   else may listen on that port.
 - **Test files near the ceiling.** A test file fails past 700 lines, and
-  `issuewrite_test.go`, `repositories_test.go`, `setup_test.go`,
-  `reviewwrites_test.go` and `tasks_test.go` are at 600 or more
+  `issuewrite_test.go`, `repositories_test.go`, `setup_test.go` and
+  `reviewwrites_test.go` are at 600 or more
   (`scripts/check-file-length.sh --list` prints each count): a new case for
   one of them likely starts a sibling file named for its behavior.

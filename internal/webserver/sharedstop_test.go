@@ -27,20 +27,6 @@ import (
 // stops, or the stream that began it, which waits for it, holds the server's
 // drain for the whole grace.
 
-// once is held's wait for the first call alone: every later call answers at
-// once, as a read made after the server stopped would.
-func (b *heldCall) once() func(context.Context) error {
-	var began atomic.Bool
-
-	return func(ctx context.Context) error {
-		if began.CompareAndSwap(false, true) {
-			return b.wait(ctx)
-		}
-
-		return nil
-	}
-}
-
 // sharedReads holds each read every stream shares, by what it reads: each case
 // hands its seam's first call to held, then answers as the seam did.
 func sharedReads() map[string]func(deps *webserver.Deps, held func(context.Context) error) {

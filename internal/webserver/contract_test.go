@@ -16,12 +16,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
-// The writes the contract's tests ask for, and the body that names no issue.
-const (
-	checkoutPath = "/api/checkout"
-	noIssueKey   = `{"issue_key":""}`
-)
-
 func TestTheContractRefusesWhatTheServerCannotUse(t *testing.T) {
 	t.Parallel()
 

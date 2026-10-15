@@ -5,8 +5,6 @@ package webserver_test
 
 import (
 	"context"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -15,40 +13,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
-
-// streamedFrames is how many snapshots the tests here let a stream push: enough
-// for a read made once to show against one made on every frame.
-const streamedFrames = 3
-
-// cancelingFlusher records the stream and cancels its request from inside the
-// flush that completes the last frame wanted, so a test sees a known number of
-// pushes without timing them. It embeds the recorder for everything else a
-// ResponseWriter does.
-type cancelingFlusher struct {
-	*httptest.ResponseRecorder
-
-	cancel  context.CancelFunc
-	frames  int
-	flushed int
-
-	// between, when set, runs after each flush but the last wanted, as time
-	// passing between two frames would; a frame that slips out after the
-	// cancel lands at the last frame's time.
-	between func()
-}
-
-func (c *cancelingFlusher) Flush() {
-	c.ResponseRecorder.Flush()
-
-	c.flushed++
-	if c.flushed < c.frames && c.between != nil {
-		c.between()
-	}
-
-	if c.flushed == c.frames {
-		c.cancel()
-	}
-}
 
 // streamFrames runs the events handler on a millisecond interval until it has
 // pushed streamedFrames snapshots, and returns the body. The handler runs on the
@@ -59,36 +23,6 @@ func streamFrames(t *testing.T, deps webserver.Deps) string {
 	t.Helper()
 
 	return streamPaced(t, deps, config.Default(), 0)
-}
-
-// streamPaced is streamFrames over cfg, on a clock that starts at paceStart and
-// that step moves on between two frames, as that much time passing would.
-func streamPaced(t *testing.T, deps webserver.Deps, cfg config.Config, step time.Duration) string {
-	t.Helper()
-
-	now := paceStart()
-	deps.Clock = func() time.Time { return now }
-
-	info := webserver.Info{Version: testVersion, StreamInterval: time.Millisecond}
-	handler := serveWith(t, deps, cfg, info)
-
-	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
-
-	request := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/events", nil)
-	request.Host = loopbackHost
-	writer := &cancelingFlusher{
-		ResponseRecorder: httptest.NewRecorder(), cancel: cancel, frames: streamedFrames,
-		between: func() { now = now.Add(step) },
-	}
-	handler.ServeHTTP(writer, request)
-
-	return writer.Body.String()
-}
-
-// paceStart is the moment a paced stream's clock starts at.
-func paceStart() time.Time {
-	return time.Date(2026, time.September, 26, 9, 0, 0, 0, time.UTC)
 }
 
 func TestStreamAsksTheForgeWhoTheAuthorIsOnce(t *testing.T) {

@@ -8,7 +8,6 @@ import (
 	"errors"
 	"io/fs"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,45 +17,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
-
-// marshal renders a configuration as the request body a client would send.
-func marshal(t *testing.T, cfg config.Config) string {
-	t.Helper()
-
-	data, err := json.Marshal(cfg)
-	if err != nil {
-		t.Fatalf("marshaling the config body: %v", err)
-	}
-
-	return string(data)
-}
-
-// putConfig saves body as Settings does: it reads the configuration first, and
-// saves over the revision that read returned.
-func putConfig(t *testing.T, handler http.Handler, body string) *httptest.ResponseRecorder {
-	t.Helper()
-
-	return putConfigOver(t, handler, body, get(t, handler, "/api/config").Header().Get("ETag"))
-}
-
-// putConfigOver saves body over the revision etag names, sent as If-Match; an
-// empty etag sends none.
-func putConfigOver(t *testing.T, handler http.Handler, body, etag string) *httptest.ResponseRecorder {
-	t.Helper()
-
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodPut, "/api/config", strings.NewReader(body))
-	request.Host = loopbackHost
-	request.Header.Set("Content-Type", "application/json")
-
-	if etag != "" {
-		request.Header.Set("If-Match", etag)
-	}
-
-	recorder := httptest.NewRecorder()
-	handler.ServeHTTP(recorder, request)
-
-	return recorder
-}
 
 func TestGetConfigMasksSecrets(t *testing.T) {
 	t.Parallel()
@@ -485,9 +445,6 @@ func TestUpdateConfigSavesAKeymapTheInterfaceAccepts(t *testing.T) {
 		t.Errorf("saved ui.keys = %v, want comment on ctrl+e", saved.UI.Keys)
 	}
 }
-
-// taskwarriorProgram is a taskwarrior.program a user might set.
-const taskwarriorProgram = "/opt/homebrew/bin/task"
 
 func TestTheWebConfigRoundTripKeepsTaskwarrior(t *testing.T) {
 	t.Parallel()

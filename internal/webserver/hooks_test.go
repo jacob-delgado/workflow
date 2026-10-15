@@ -18,13 +18,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
-// hookSetupAt is where the lefthook offer is read and taken, and hooksAt
-// where the hooks lefthook configures are listed.
-const (
-	hookSetupAt = "/api/hooks/setup"
-	hooksAt     = "/api/hooks"
-)
-
 // errUnreadableHere is lefthook unable to read the configuration, in words
 // that name the repository.
 var errUnreadableHere = errors.New("reading lefthook's configuration: lefthook: exit status 1: " +
@@ -34,26 +27,6 @@ var errUnreadableHere = errors.New("reading lefthook's configuration: lefthook: 
 func listedDeps(list func(context.Context) (hooks.Configured, error)) webserver.Deps {
 	deps := filledDeps()
 	deps.Hooks.Configured = list
-
-	return deps
-}
-
-// oldHooks is a repository's own pre-commit hook, which lefthook does not
-// manage: two plain commands.
-func oldHooks() []hooks.GitHook {
-	return []hooks.GitHook{{Name: preCommitHook, Script: "#!/bin/sh\ngo vet ./...\ngo test ./...\n"}}
-}
-
-// hookDeps is filledDeps with the hooks directory holding found, configured
-// or not, and the configuration written kept in written.
-func hookDeps(found []hooks.GitHook, configured bool, written *[]hooks.Generated) webserver.Deps {
-	deps := filledDeps()
-	deps.Hooks.Existing = func(context.Context) ([]hooks.GitHook, bool) { return found, configured }
-	deps.Hooks.Write = func(_ context.Context, generated hooks.Generated) error {
-		*written = append(*written, generated)
-
-		return nil
-	}
 
 	return deps
 }
