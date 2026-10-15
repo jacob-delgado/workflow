@@ -157,6 +157,32 @@ test('a status change sent with a field it needs left empty is refused beside it
   expect(sent).toEqual([])
 })
 
+test('a list field sent with nothing chosen is refused in the server’s words', async () => {
+  // Arrange
+  const sent = trackerTakingWrites()
+  renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
+  await open('Change status')
+  await choose('21')
+  const fields = form('Change the status of PROJ-1')
+  await userEvent.type(within(fields).getByRole('textbox', { name: 'Due date' }), '2026-10-09')
+  await userEvent.selectOptions(
+    within(fields).getByRole('combobox', { name: 'Resolution' }),
+    "Won't Fix",
+  )
+
+  // Act
+  await userEvent.click(screen.getByRole('button', { name: 'Change to Resolved' }))
+
+  // Assert
+  expect(
+    screen.getByRole('group', {
+      name: 'Fix versions',
+      description: 'Fix versions needs at least one.',
+    }),
+  ).toBeTruthy()
+  expect(sent).toEqual([])
+})
+
 test('a date field says the shape it takes, as the terminal and the refusal do', async () => {
   // Arrange
   trackerTakingWrites()

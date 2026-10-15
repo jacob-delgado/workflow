@@ -153,7 +153,7 @@ function ChosenFields({
       key={field.id}
       field={field}
       value={filled[field.id]}
-      refusal={unfilled.includes(field.id) ? `${field.name} needs a value.` : undefined}
+      refusal={unfilled.includes(field.id) ? emptyRefusal(field) : undefined}
       onChange={(value) => {
         onFill(field.id, value)
       }}
@@ -314,14 +314,23 @@ function onlyJira(change: StatusChange): StatusChangeField | undefined {
 
 // emptyOf is the ids of the fields a change needs that are left empty.
 //
-// Trade-off TRADE-51: this says again what the server refuses, so an empty
-// field is refused before the change is sent: jira.ErrNeedsValue for a text or
-// single-option field, whose words the page copies, and jira.ErrNeedsChoice
-// for a list, whose check it copies but not its words.
+// Trade-off TRADE-51: this and emptyRefusal say again what the server refuses,
+// so an empty field is refused before the change is sent: jira.ErrNeedsValue
+// for a text or single-option field and jira.ErrNeedsChoice for a list, each
+// in the server's words.
 function emptyOf(change: StatusChange, filled: Filled): string[] {
   return change.fields
     .filter((field) => String(filled[field.id] ?? '').trim() === '')
     .map((field) => field.id)
+}
+
+// emptyRefusal is why a field left empty is refused, in the words the server
+// refuses it with: a list needs at least one of its values chosen, and any
+// other field a value.
+function emptyRefusal(field: StatusChangeField): string {
+  const needs = field.kind === 'option_list' ? 'needs at least one' : 'needs a value'
+
+  return `${field.name} ${needs}.`
 }
 
 // entriesOf is what is sent for each field change needs, in its order: the
