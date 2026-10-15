@@ -179,7 +179,9 @@ func leaveACuedWriter() {
 // writeOnceCued writes cuedLine once cued, as many times as helperCuedLines
 // says, and exits, which ends the output.
 func writeOnceCued() {
-	awaitCue(os.Getenv(helperCue))
+	if !awaitCue(os.Getenv(helperCue)) {
+		return
+	}
 
 	count, err := strconv.Atoi(os.Getenv(helperCuedLines))
 	if err != nil {
@@ -196,11 +198,7 @@ func closeOutputThenExitOnCue() {
 	_ = os.Stdout.Close()
 	_ = os.Stderr.Close()
 
-	cue := os.Getenv(helperCue)
-	awaitCue(cue)
-
-	_, err := os.Stat(cue)
-	if err != nil {
+	if !awaitCue(os.Getenv(helperCue)) {
 		os.Exit(neverCuedStatus)
 	}
 
@@ -218,21 +216,28 @@ func linesWrittenUnread() []string {
 	return lines
 }
 
-// awaitCue waits until the file path names is there, for a minute at most, so
-// a test that never cues does not leave the helper behind for good.
-func awaitCue(path string) {
+// awaitCue waits until the file path names is there, and reports whether it
+// came. It gives up once the directory the file would be made in is gone, the
+// test that would make it having ended, and after a minute at most, so a test
+// that never cues does not leave the helper behind for good.
+func awaitCue(path string) bool {
 	deadline := time.Now().Add(time.Minute)
 
 	for {
 		_, err := os.Stat(path)
 		if err == nil {
-			return
+			return true
+		}
+
+		_, dirErr := os.Stat(filepath.Dir(path))
+		if dirErr != nil {
+			return false
 		}
 
 		if time.Now().After(deadline) {
 			complain("waiting to be cued", err)
 
-			return
+			return false
 		}
 
 		time.Sleep(time.Millisecond)
