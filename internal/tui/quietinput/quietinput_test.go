@@ -44,6 +44,21 @@ func acceptingKeys() *huh.KeyMap {
 	return keymap
 }
 
+// wordDeleting is the key the input under the field deletes a word on.
+const wordDeleting = "ctrl+w"
+
+// leavingOnWordDeleting is a key map whose next-field is wordDeleting, and
+// whose completion is accepted on accept.
+func leavingOnWordDeleting(accept string) *huh.KeyMap {
+	keymap := huh.NewDefaultKeyMap()
+	next := key.NewBinding(key.WithKeys(wordDeleting))
+	keymap.Input = huh.InputKeyMap{
+		AcceptSuggestion: key.NewBinding(key.WithKeys(accept)), Next: next, Prev: keymap.Input.Prev, Submit: next,
+	}
+
+	return keymap
+}
+
 // focused is field keyed by keymap and focused, as a form hands it the keys.
 func focused(field *quietinput.Input, keymap *huh.KeyMap) *quietinput.Input {
 	field.WithKeyMap(keymap)
@@ -63,6 +78,8 @@ func pressed(name string) tea.KeyPressMsg {
 		return tea.KeyPressMsg{Code: tea.KeyEnter}
 	case "ctrl+e":
 		return tea.KeyPressMsg{Code: 'e', Mod: tea.ModCtrl}
+	case wordDeleting:
+		return tea.KeyPressMsg{Code: 'w', Mod: tea.ModCtrl}
 	default:
 		return tea.KeyPressMsg{Code: rune(name[0]), Text: name}
 	}
@@ -236,6 +253,40 @@ func TestNextFieldTakesTheCompletionOnlyWhenItIsTheKeyThatAcceptsOne(t *testing.
 			if !sameMsg(cmd, huh.NextField) || value != tt.want {
 				t.Errorf("%s moved on %v leaving %q, want it to move on leaving %q",
 					tt.next, sameMsg(cmd, huh.NextField), value, tt.want)
+			}
+		})
+	}
+}
+
+// Only a completion is taken on the way out: the key leaving the field is
+// never handed to the input under it, which would delete a word on this one.
+func TestNextFieldNeverTypesItsOwnKeyIntoTheField(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		accept, typed string
+	}{
+		"a key that accepts no completion, with one suggested":   {accept: "ctrl+e", typed: "m"},
+		"the key that accepts a completion, with none suggested": {accept: wordDeleting, typed: "x"},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			var value string
+
+			field := quietinput.New(baseTitle, "", &value).Suggesting([]string{baseBranch})
+			typed(t, focused(field, leavingOnWordDeleting(tt.accept)), tt.typed)
+
+			// Act
+			_, cmd := field.Update(pressed(wordDeleting))
+
+			// Assert
+			if !sameMsg(cmd, huh.NextField) || value != tt.typed {
+				t.Errorf("%s moved on %v leaving %q, want it to move on leaving %q as typed",
+					wordDeleting, sameMsg(cmd, huh.NextField), value, tt.typed)
 			}
 		})
 	}
