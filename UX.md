@@ -404,6 +404,55 @@ each recorded where it is kept:
   leaves each to the Tasks card's and the Tasks section's buttons, pressed
   when you choose (web.md's "What stays in the terminal").
 
+Seven more are kept by the maintainer's rule for the two interfaces: each
+surface does what serves it best, and parity is best effort. Five are the
+directory picker's, as the terminal's (`dirPicker`,
+`internal/tui/dirpicker.go`, its rows in `dirrows.go`) and the web's
+(`DirectoryDialog`, `web/src/features/repositories/DirectoryDialog.tsx`)
+read a listing asked again by the name typed, for a hidden directory or
+one past where the whole listing stopped (#279); two are Settings', as
+each answers a refused save (#278):
+
+- **The whole listing failed, the narrowed one answered.** Both say the
+  failure beside the narrowed listing's directories, and either goes into
+  one, so a hidden directory such as `.config` can be reached before the
+  whole listing reads cleanly. The terminal counts none of them, since they
+  are not all there is (`dirPicker.heading`); the web counts them, as "1 of
+  1 in ~/src", under the failure.
+- **The narrowed listing refused while the whole one is still out.** The web
+  shows the refusal beside "Reading ~/src…" (`Said`); the terminal says it is
+  reading, and shows the refusal once the whole listing answers
+  (`dirPicker.status`).
+- **The count while a narrowed listing is out.** The terminal drops its "N of
+  M" and says it is reading until both listings have answered; the web keeps
+  its count line, over the whole listing and the last narrowed answer
+  standing in (`useDirectories`,
+  `web/src/features/repositories/repositoriesApi.ts`).
+- **The lines past the cap while a listing is out.** While the whole listing
+  is out, the web holds back its "First N shown" and "N more match" lines
+  with its count; the terminal still draws "N more match; keep typing to
+  narrow" among its rows, from what it holds (`dirPicker.drawnRows`). While
+  only the narrowed one is out, both draw "N more match", but the terminal
+  says it is reading where it would say "first N shown"
+  (`dirPicker.status`), and the web keeps that line for a listing cut short
+  (TRADE-49).
+- **A narrowed read that failed, as the stand-in.** While the next narrowed
+  listing is read, the last narrowed listing to answer stands in for it, if
+  it was of the same directory. The terminal takes a failed one too, so
+  meanwhile it shows only the whole listing's matches
+  (`dirPicker.standingIn`); the web stands in only what answered, so a
+  failed read is skipped and the last listing that answered stays.
+- **How many settings are left to fix.** The web's save bar says "N unsaved
+  changes, M to fix in" and the sections
+  (`web/src/features/settings/SaveBar.tsx`); the terminal's Settings has no
+  such line, and marks each refused setting under its own row instead
+  (`settingsForm.rowLines`, `internal/tui/settingsrefusals.go`).
+- **A save held back that names no row.** When Settings' own check holds a
+  save back, names no setting a row stands for, and no refusal before it
+  still stands, the terminal's cursor stays where it was
+  (`settingsForm.onFirstOf`); the web takes the focus to `jira.base_url`
+  (`web/src/features/settings/SettingsPanel.tsx`).
+
 The rule the last looks follow was chosen by the maintainer: **confirm
 what leaves the machine or cannot be undone; a reversible local toggle
 acts at once.** The parity rule beside it: the terminal and the web cover
