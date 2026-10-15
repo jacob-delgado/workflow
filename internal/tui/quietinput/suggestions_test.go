@@ -164,7 +164,8 @@ func TestSuggestingNothingTakesBackWhatWasSuggested(t *testing.T) {
 
 // What the field holds before anything is typed in it, as the base a pull
 // request's form starts from, is left as it is when the field is left, though
-// a suggestion begins with it: only what is typed or pasted is completed.
+// a suggestion begins with it and none is it whole, as when the base is no
+// remote branch: only what is typed or pasted is completed.
 func TestLeavingAFieldNothingWasTypedInLeavesItsValueUncompleted(t *testing.T) {
 	t.Parallel()
 
@@ -194,7 +195,7 @@ func TestLeavingAFieldNothingWasTypedInLeavesItsValueUncompleted(t *testing.T) {
 				field.Suggesting(options)
 			}
 
-			focused(field.Suggesting([]string{backportBranch, baseBranch}), acceptingKeys())
+			focused(field.Suggesting([]string{backportBranch}), acceptingKeys())
 
 			for _, key := range tt.pressedFirst {
 				field.Update(pressed(key))
