@@ -19,8 +19,8 @@ func TestStatusCountsNoChangesItCannotRead(t *testing.T) {
 	// There is a change to count, but git cannot read the index to count it,
 	// while the branch and its commits still read.
 	repo := t.TempDir()
-	gitInit(t, repo)
-	commit(t, repo, "init")
+	clitest.GitInit(t, repo)
+	clitest.Commit(t, repo, "init")
 
 	err := os.WriteFile(filepath.Join(repo, "notes.txt"), []byte("draft\n"), 0o600)
 	if err != nil {

@@ -118,7 +118,7 @@ func TestStatusAcrossSaysWhyARepositoryCannotBeRead(t *testing.T) {
 	// A repository whose branch name holds a character with no width: it is a
 	// repository, but its branch cannot be shown as it is, so it is not read.
 	repo := featureRepo(t)
-	git(t, repo, "checkout", "-b", "fix/PROJ\u200b-3")
+	clitest.Git(t, repo, "checkout", "-b", "fix/PROJ\u200b-3")
 
 	// Act
 	output, err := clitest.Run(t, t.TempDir(), "status", repo)

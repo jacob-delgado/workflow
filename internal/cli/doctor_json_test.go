@@ -443,7 +443,7 @@ func TestDoctorJSONOnlineCallsAForgeItCannotAskUnchecked(t *testing.T) {
 			t.Helper()
 
 			dir := t.TempDir()
-			gitInit(t, dir)
+			clitest.GitInit(t, dir)
 			clitest.WriteConfigFor(t, dir, clitest.WorkingJira(t))
 
 			return dir

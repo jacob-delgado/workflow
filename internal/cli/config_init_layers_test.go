@@ -170,7 +170,7 @@ func TestConfigInitTemplateOverAHomeFileWarnsWhenTheLayerIsNotGitIgnored(t *test
 
 	// Arrange
 	where := homeAndRepository(t)
-	gitInit(t, where.Dir)
+	clitest.GitInit(t, where.Dir)
 
 	// Act
 	printed, err := clitest.RunStreamsAt(t, where, clitest.UnusedPrompt(t), "config", "init", "--template")

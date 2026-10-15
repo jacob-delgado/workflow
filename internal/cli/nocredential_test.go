@@ -40,7 +40,7 @@ func TestASlackUserTokenNotLoggedInNamesTheLogin(t *testing.T) {
 	// Arrange
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
 
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
 		`"messaging":{"client_id":"1234.5678","client_secret":"client-secret-9999","channel":"#dev"}}`)
 

@@ -19,13 +19,13 @@ import (
 func forkRepo(t *testing.T, branch string) (string, string) {
 	t.Helper()
 
-	repo := prRepo(t, branch)
+	repo := clitest.PRRepo(t, branch)
 	bare := t.TempDir()
-	git(t, bare, "init", "--bare", "--quiet")
-	git(t, repo, "remote", "add", "origin", "https://github.com/contributor/repo.git")
-	git(t, repo, "config", "remote.origin.pushurl", bare)
-	git(t, repo, "remote", "add", "upstream", "https://github.com/owner/repo.git")
-	git(t, repo, "update-ref", "refs/remotes/upstream/main", "main")
+	clitest.Git(t, bare, "init", "--bare", "--quiet")
+	clitest.Git(t, repo, "remote", "add", "origin", "https://github.com/contributor/repo.git")
+	clitest.Git(t, repo, "config", "remote.origin.pushurl", bare)
+	clitest.Git(t, repo, "remote", "add", "upstream", "https://github.com/owner/repo.git")
+	clitest.Git(t, repo, "update-ref", "refs/remotes/upstream/main", "main")
 
 	return repo, bare
 }
@@ -48,7 +48,7 @@ func TestPROpensOnTheBaseFromAForksPushRemote(t *testing.T) {
 		t.Fatalf("pr --yes: %v (%s)", err, output)
 	}
 
-	if !strings.Contains(gitOutput(t, bare, "branch", "--list", "fix/PROJ-2-thing"), "fix/PROJ-2-thing") {
+	if !strings.Contains(clitest.GitOutput(t, bare, "branch", "--list", "fix/PROJ-2-thing"), "fix/PROJ-2-thing") {
 		t.Error("the branch was not pushed to the fork before opening")
 	}
 

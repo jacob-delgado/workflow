@@ -19,8 +19,8 @@ import (
 	"github.com/jacob-delgado/workflow/internal/store"
 )
 
-// slackUserConfig is ownedRepo's forge, announcing to Slack with a user token
-// whose credentials the file keeps, so no keychain is read.
+// slackUserConfig is clitest.OwnedRepo's forge, announcing to Slack with a user
+// token whose credentials the file keeps, so no keychain is read.
 const slackUserConfig = `{"forge":{"cli":true,"kind":"github","host":"github.com"},` +
 	`"messaging":{"client_id":"1234.5678","client_secret":"client-secret-9999","channel":"#dev"}}`
 
@@ -66,7 +66,7 @@ func TestAnnounceTagsNoOneWithoutAWorkspaceToReadLinksIn(t *testing.T) {
 	// The token is set up but not logged in, so Slack cannot be asked which
 	// workspace it is for, and links kept in any workspace are left alone.
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
-	repo := ownedRepo(t)
+	repo := clitest.OwnedRepo(t)
 	clitest.WriteFile(t, repo, slackUserConfig)
 	home := keptLinks(t)
 
@@ -89,7 +89,7 @@ func TestAnnounceTagsNoOneThroughAWebhook(t *testing.T) {
 
 	// Arrange
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
-	repo := ownedRepo(t)
+	repo := clitest.OwnedRepo(t)
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
 		`"messaging":{"webhook_url":"https://hooks.slack.example/services/x","channel":"#dev"}}`)
 	home := keptLinks(t)
@@ -114,7 +114,7 @@ func TestAnnounceTagsTheOwnersAndGroupsLinkedInTheWorkspaceInUse(t *testing.T) {
 	// Arrange
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
 	slack := clitest.FakeSlack(t, nil)
-	repo := ownedRepo(t)
+	repo := clitest.OwnedRepo(t)
 	clitest.WriteFile(t, repo, clitest.SlackLoggedInConfig())
 	home := keptLinks(t)
 
@@ -149,7 +149,7 @@ func TestAnnounceTagsNoOneLinkedOnlyInAnotherWorkspace(t *testing.T) {
 	clitest.FakeSlack(t, map[string]clitest.SlackAnswer{
 		clitest.SlackAuthTest: {Status: http.StatusOK, Body: `{"ok":true,"team":"Other","user":"ana","team_id":"T0OTHER"}`},
 	})
-	repo := ownedRepo(t)
+	repo := clitest.OwnedRepo(t)
 	clitest.WriteFile(t, repo, clitest.SlackLoggedInConfig())
 	home := keptLinks(t)
 
@@ -181,7 +181,7 @@ func TestAnnounceWithATokenMissingAScopePostsUntaggedAndNamesIt(t *testing.T) {
 			slack := clitest.FakeSlack(t, nil)
 			slack.Grant(strings.ReplaceAll(clitest.TaggingScopes, ","+scope, ""))
 
-			repo := ownedRepo(t)
+			repo := clitest.OwnedRepo(t)
 			clitest.WriteFile(t, repo, clitest.SlackLoggedInConfig())
 			home := keptLinks(t)
 
@@ -214,7 +214,7 @@ func TestAnnounceReadsNoDirectoryToTellItsScopes(t *testing.T) {
 	// already, so it needs none of it.
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
 	slack := clitest.FakeSlack(t, nil)
-	repo := ownedRepo(t)
+	repo := clitest.OwnedRepo(t)
 	clitest.WriteFile(t, repo, clitest.SlackLoggedInConfig())
 	home := keptLinks(t)
 
@@ -270,7 +270,7 @@ func TestAnnounceWhenSlackCannotNameTheWorkspacePostsUntaggedAndSaysWhy(t *testi
 			// Arrange
 			clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
 			slack := answering(t)
-			repo := ownedRepo(t)
+			repo := clitest.OwnedRepo(t)
 			clitest.WriteFile(t, repo, clitest.SlackLoggedInConfig())
 			home := keptLinks(t)
 
@@ -303,21 +303,21 @@ func releaseBranchRepo(t *testing.T) string {
 	t.Helper()
 
 	repo := t.TempDir()
-	gitInit(t, repo)
-	writeRepoFile(t, repo, ".github/CODEOWNERS", "/api/ @ana\n/ops/ @ben\n")
-	git(t, repo, "add", ".")
-	commit(t, repo, "init")
-	git(t, repo, "branch", "-M", "main")
-	git(t, repo, "checkout", "-b", "release")
-	writeRepoFile(t, repo, "ops/deploy.sh", "echo deploy\n")
-	git(t, repo, "add", ".")
-	commit(t, repo, "chore: deploy")
-	git(t, repo, "checkout", "-b", "fix/PROJ-2-thing")
-	writeRepoFile(t, repo, "api/pull.go", "package api\n")
-	git(t, repo, "add", ".")
-	commit(t, repo, "fix: guard the api")
-	git(t, repo, "remote", "add", "origin", "https://github.com/acme/repo.git")
-	pretendPushed(t, repo)
+	clitest.GitInit(t, repo)
+	clitest.WriteRepoFile(t, repo, ".github/CODEOWNERS", "/api/ @ana\n/ops/ @ben\n")
+	clitest.Git(t, repo, "add", ".")
+	clitest.Commit(t, repo, "init")
+	clitest.Git(t, repo, "branch", "-M", "main")
+	clitest.Git(t, repo, "checkout", "-b", "release")
+	clitest.WriteRepoFile(t, repo, "ops/deploy.sh", "echo deploy\n")
+	clitest.Git(t, repo, "add", ".")
+	clitest.Commit(t, repo, "chore: deploy")
+	clitest.Git(t, repo, "checkout", "-b", "fix/PROJ-2-thing")
+	clitest.WriteRepoFile(t, repo, "api/pull.go", "package api\n")
+	clitest.Git(t, repo, "add", ".")
+	clitest.Commit(t, repo, "fix: guard the api")
+	clitest.Git(t, repo, "remote", "add", "origin", "https://github.com/acme/repo.git")
+	clitest.PretendPushed(t, repo)
 	clitest.WriteFile(t, repo, clitest.SlackLoggedInConfig())
 
 	return repo

@@ -55,9 +55,9 @@ func workedRepository(t *testing.T, subject string) string {
 	t.Helper()
 
 	dir := t.TempDir()
-	gitInit(t, dir)
-	git(t, dir, "config", "user.email", "me@example.com")
-	git(t, dir, "config", "user.name", "Me")
+	clitest.GitInit(t, dir)
+	clitest.Git(t, dir, "config", "user.email", "me@example.com")
+	clitest.Git(t, dir, "config", "user.name", "Me")
 	datedCommit(t, dir, subject, workedOn)
 
 	return dir

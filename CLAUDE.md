@@ -28,7 +28,7 @@ cmd/workflow/         thin main: cli.Execute, its exit status, the terminal prom
 internal/cli/         the Cobra command tree
 internal/cli/console/ what a command says on stderr: notes, warnings, errors and the live line of a wait
 internal/cli/cmdkit/  what every command is built from: its connection, environment, shared flags, prompt and scriptable output
-internal/cli/clitest/ running the command line for a test in a world of its own, with the Jira, forge, Slack and prompts it meets there (tests only)
+internal/cli/clitest/ running the command line for a test in a world of its own, with the Jira, forge, Slack, prompts and repositories it meets there (tests only)
 internal/cli/pr/      the pull or merge request's flow: workflow pr, and workflow announce, which tells the team
 internal/config/      .workflow.json loading, saving, redaction, validation
 internal/keychain/    storing a token in the OS keychain and reading it back
