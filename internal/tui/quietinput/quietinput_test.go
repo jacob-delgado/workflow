@@ -84,6 +84,8 @@ func pressed(name string) tea.KeyPressMsg {
 		return tea.KeyPressMsg{Code: 'w', Mod: tea.ModCtrl}
 	case "end":
 		return tea.KeyPressMsg{Code: tea.KeyEnd}
+	case "backspace":
+		return tea.KeyPressMsg{Code: tea.KeyBackspace}
 	default:
 		return tea.KeyPressMsg{Code: rune(name[0]), Text: name}
 	}
@@ -442,6 +444,52 @@ func TestAPasteAfterTypingCompletesToWhatTheFieldNowBegins(t *testing.T) {
 	// Assert
 	if value != "master" {
 		t.Errorf("next-field after typing m and pasting as left %q, want it completed to %q", value, "master")
+	}
+}
+
+// What is typed whole as one of the suggestions is kept as typed, though a
+// suggestion before it begins with it: typing main is asking for main.
+func TestATypedSuggestionIsKeptThoughALongerOneBeginsWithIt(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		start                 string
+		keysBefore, keysAfter []string
+	}{
+		"typed into an empty field":   {start: "", keysAfter: []string{"m", "a", "i", "n"}},
+		"typed back over a base held": {start: baseBranch, keysAfter: []string{"backspace", "n"}},
+		"typed before the suggestions were offered": {
+			start: "", keysBefore: []string{"m", "a", "i", "n"},
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			value := tt.start
+			field := focused(quietinput.New(baseTitle, "", &value), acceptingKeys())
+
+			for _, key := range tt.keysBefore {
+				field.Update(pressed(key))
+			}
+
+			field.Suggesting([]string{backportBranch, baseBranch})
+
+			for _, key := range tt.keysAfter {
+				field.Update(pressed(key))
+			}
+
+			// Act
+			_, cmd := field.Update(pressed("tab"))
+
+			// Assert
+			if !sameMsg(cmd, huh.NextField) || value != baseBranch {
+				t.Errorf("next-field after typing %q moved on %v and left %q, want it moved on with %q",
+					baseBranch, sameMsg(cmd, huh.NextField), value, baseBranch)
+			}
+		})
 	}
 }
 
