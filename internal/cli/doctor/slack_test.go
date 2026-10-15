@@ -4,7 +4,8 @@
 package doctor_test
 
 // `workflow doctor --online` asks Slack, here a fake on this machine
-// (clitest.FakeSlack), whose a Slack user token is.
+// (clitest.FakeSlack), who holds a Slack user token: which user, in which
+// workspace.
 
 import (
 	"net/http"
@@ -124,5 +125,43 @@ func TestDoctorUnderDryRunCallsASlackTokenNeverLoggedInMissing(t *testing.T) {
 	// Assert
 	if status := credentialStatusIn(decodeReport(t, output), messagingService); status != missingStatus {
 		t.Errorf("the Slack check under --dry-run = %q, want missing:\n%s", status, output)
+	}
+}
+
+func TestDoctorUnderDryRunAsksSlackAboutATokenStillGood(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The token held has an hour left, so asking Slack about it writes nothing.
+	clitest.FakeSlack(t, nil)
+
+	dir := t.TempDir()
+	clitest.WriteFile(t, dir, clitest.SlackLoggedInConfig())
+
+	// Act
+	output, _ := clitest.Run(t, dir, "doctor", "--online", "--dry-run")
+
+	// Assert
+	if row := credentialRow(output, "slack"); !strings.HasPrefix(row, "ana in Acme (user token, kept in ") {
+		t.Errorf("doctor's slack row under --dry-run = %q, want ana in Acme:\n%s", row, output)
+	}
+}
+
+func TestDoctorUnderDryRunHoldsBackARefreshForATokenNeverHeld(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The login kept a refresh token but no access token yet, so the first
+	// post would refresh, which writes.
+	dir := t.TempDir()
+	clitest.WriteFile(t, dir, `{"messaging":{"client_id":"1234.5678","client_secret":"client-secret-9999",`+
+		`"refresh_token":"slack-refresh-8888","expires_at":"2999-01-01T00:00:00Z","channel":"#dev"}}`)
+
+	// Act
+	output, _ := clitest.Run(t, dir, "doctor", "--json", "--online", "--dry-run")
+
+	// Assert
+	if status := credentialStatusIn(decodeReport(t, output), messagingService); status != uncheckedStatus {
+		t.Errorf("the Slack check under --dry-run = %q, want unchecked:\n%s", status, output)
 	}
 }
