@@ -365,7 +365,6 @@ func TestEveryCommandRefusesAConfigurationItCannotRead(t *testing.T) {
 	// command run on settings nobody chose would act on the wrong things. pr
 	// and announce answer for theirs in internal/cli/pr.
 	cases := [][]string{
-		strings.Fields("status"),
 		strings.Fields("reviews"),
 		strings.Fields("summary"),
 		strings.Fields("branch PROJ-1"),
@@ -409,7 +408,7 @@ func TestACommandRefusesAConfigurationItCannotOpen(t *testing.T) {
 
 	// A repository, so a command falling back to the defaults would succeed
 	// rather than fail for some other reason.
-	repo := featureRepo(t)
+	repo := clitest.FeatureRepo(t)
 	path := clitest.WriteFile(t, repo, `{}`)
 
 	err := os.Chmod(path, 0)

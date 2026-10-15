@@ -24,13 +24,13 @@ change to a command, a flag, what a command prints or how it exits. The root
 
 The package is the Cobra command tree spelled one file per command, per family
 of commands over one seam, or per section of a command that outgrew one, as
-doctor's and status's did. It answers to a ratcheted budget in
+doctor's did. It answers to a ratcheted budget in
 `scripts/package-size-budgets.txt`, the count its last split left it at: read
 the number there, and `scripts/check-package-size.sh --list` for the count,
 which a ratcheted budget always equals, so the next command file trips the
 gate and is a decision. The package is not split to chase a number, but code
 in it with a reason to change of its own may leave where no import cycle
-follows: doctor's checks, and status and issues. A trip means a bump, with
+follows: doctor's checks, and the issue commands. A trip means a bump, with
 the WHY above the entry rewritten and a history row, or such an extraction,
 never a split for the count; each extraction ratchets the budget down to the
 files left, and the entry goes once the package holds no more than the
@@ -45,6 +45,13 @@ read. It exports the two commands `cli.go` registers (`pr.NewCmd`,
 this package's do, with a `TestMain` and hook-safety proof of their own, and
 reach every condition it holds, since the condition gate measures a package
 by its own tests alone.
+
+`workflow status` has left as well, as `internal/cli/status`: the command,
+the facts it gathers from each repository's services with the notes on those
+that do not answer (`gather.go`), and the line and the JSON it prints
+(`render.go`). `cli.go` registers its one export, `status.NewCmd`. Its tests
+live beside it, driving the command through `cli.Execute`, with a `TestMain`
+and a proof of their own, as pr's do.
 
 What every command is built from has left already, as `internal/cli/cmdkit`
 beneath the tree: the connection to where a command runs, the environment it

@@ -138,3 +138,23 @@ func ReadLog(t *testing.T, path string) string {
 
 	return string(contents)
 }
+
+// ErrDirectoryGone is a working directory that cannot be named, as a shell is
+// left standing in one when `git worktree remove` deletes the directory it is
+// in.
+var ErrDirectoryGone = errors.New("getwd: no such file or directory")
+
+// RunFromARemovedDirectory runs the command tree from a working directory that
+// cannot be named. The home is the test's, for a configuration put there first.
+func RunFromARemovedDirectory(t *testing.T, home string, args ...string) (Streams, error) {
+	t.Helper()
+
+	env := EnvironmentFor(t, Place{Dir: t.TempDir(), Home: home})
+	env.WorkingDir = func() (string, error) { return "", ErrDirectoryGone }
+
+	var stdout, stderr bytes.Buffer
+
+	err := cli.Execute(args, &stdout, &stderr, UnusedPrompt(t), env)
+
+	return Streams{Stdout: stdout.String(), Stderr: stderr.String()}, err
+}

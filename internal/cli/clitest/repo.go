@@ -136,3 +136,30 @@ func WriteRepoFile(t *testing.T, repo, rel, contents string) {
 
 	WriteExecutable(t, path, contents, dataMode)
 }
+
+// FeatureRepo makes a repository on a branch for PROJ-2 with a commit, and
+// returns its path.
+func FeatureRepo(t *testing.T) string {
+	t.Helper()
+
+	repo := t.TempDir()
+	GitInit(t, repo)
+	Commit(t, repo, "init")
+	Git(t, repo, "checkout", "-b", "fix/PROJ-2-thing")
+	Commit(t, repo, "work")
+
+	return repo
+}
+
+// JiraFeatureRepo is a repository on a feature branch for PROJ-7, one commit
+// ahead of main, with a GitHub remote so the forge resolves through the fake gh,
+// and a configuration naming the Jira at jiraURL.
+func JiraFeatureRepo(t *testing.T, jiraURL string) string {
+	t.Helper()
+
+	repo := GithubRepo(t, "fix/PROJ-7-login")
+	WriteFile(t, repo, `{"jira":{"base_url":"`+jiraURL+`","token":"t"},`+
+		`"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+
+	return repo
+}

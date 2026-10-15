@@ -5,7 +5,6 @@ package cmdkit_test
 
 import (
 	"bytes"
-	"errors"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -31,11 +30,6 @@ const (
 // tests build: workflow's root hands the kit the web server's default the same
 // way.
 const probePort = 4747
-
-// errDirectoryGone is a working directory that cannot be named, as a shell is
-// left standing in one when `git worktree remove` deletes the directory it is
-// in.
-var errDirectoryGone = errors.New("getwd: no such file or directory")
 
 // probeTree is a command tree declared as workflow's root declares its own —
 // the root's flags, env handed over before any command runs, and every mistake
@@ -90,7 +84,7 @@ func fromARemovedDirectory(t *testing.T) cmdkit.Environment {
 	t.Helper()
 
 	env, _ := inATempDir(t)
-	env.WorkingDir = func() (string, error) { return "", errDirectoryGone }
+	env.WorkingDir = func() (string, error) { return "", clitest.ErrDirectoryGone }
 
 	return env
 }
