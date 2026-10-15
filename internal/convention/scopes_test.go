@@ -43,6 +43,10 @@ func TestScopesReadsTheScopesOutOfSubjects(t *testing.T) {
 			subjects: []string{"feat(TUI): a", "fix(a b): b", "chore(deps): c"},
 			want:     []string{"deps"},
 		},
+		"a scope of whitespace alone contributes nothing": {
+			subjects: []string{"feat( ): x"},
+			want:     nil,
+		},
 		"whitespace around a scope is trimmed off": {
 			subjects: []string{"feat( tui ): a", "fix(tui): b"},
 			want:     []string{"tui"},

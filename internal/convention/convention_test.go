@@ -56,6 +56,14 @@ func TestBranchNameReadsAsTheIssue(t *testing.T) {
 			issueType: taskType, key: "OPS-3", summary: "Café menü für Zoë",
 			want: "feat/OPS-3-cafe-menu-fur-zoe",
 		},
+		"a letter with no ASCII form ends a word": {
+			issueType: taskType, key: "OPS-6", summary: "Fix the λ parser",
+			want: "feat/OPS-6-fix-the-parser",
+		},
+		"a digit stays in its word": {
+			issueType: taskType, key: "OPS-8", summary: "Retry 3 times on 5xx",
+			want: "feat/OPS-8-retry-3-times-on-5xx",
+		},
 		"a summary with no letters leaves just the key": {
 			issueType: taskType, key: "OPS-4", summary: "!!! ???", want: "feat/OPS-4",
 		},
@@ -438,6 +446,13 @@ func TestMessageAddsTheIssueAsATrailer(t *testing.T) {
 		"the trailer joins an existing block": {
 			body: "Why.\n\nCo-authored-by: Dev <dev@example.com>", key: projKey,
 			want: "fix(config): redact tokens\n\nWhy.\n\nCo-authored-by: Dev <dev@example.com>\nRefs: PROJ-412\n",
+		},
+		// Only an empty line ends a paragraph, so a line of spaces inside the
+		// block is passed over rather than taken for a line that is no trailer.
+		"a line of spaces inside the block is passed over": {
+			body: "Why.\n\nCo-authored-by: Dev <dev@example.com>\n  \nReviewed-by: Rev <rev@example.com>", key: projKey,
+			want: "fix(config): redact tokens\n\nWhy.\n\nCo-authored-by: Dev <dev@example.com>\n  \n" +
+				"Reviewed-by: Rev <rev@example.com>\nRefs: PROJ-412\n",
 		},
 	}
 
