@@ -103,3 +103,22 @@ func TestDoctorOnlinePrintsNoPartOfTheLoginInJiraAddress(t *testing.T) {
 		})
 	}
 }
+
+func TestDoctorOnlineSaysJiraHasNoTokenToSend(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Jira has an address and no token from anywhere, so its auth mode is none
+	// and the check asks Jira itself, whose client refuses to send nothing.
+	dir := t.TempDir()
+	clitest.WriteFile(t, dir, `{"jira": {"base_url": "https://jira.invalid"}, `+clitest.SlackWebhook+`}`)
+
+	// Act
+	output, _ := clitest.Run(t, dir, "doctor", "--online")
+
+	// Assert
+	want := "no Jira token to send (token from no token configured)"
+	if row := credentialRow(output, "jira"); row != want {
+		t.Errorf("doctor's jira row = %q, want %q:\n%s", row, want, output)
+	}
+}
