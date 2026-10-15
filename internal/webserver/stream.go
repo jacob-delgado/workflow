@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
-	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -471,25 +470,4 @@ func (s *server) snapshotReview(ctx context.Context, branch gitrepo.Branch, bran
 	}
 
 	return s.forgeReview(ctx, branch)
-}
-
-// forgeInterval is how long a forge answer serves the stream:
-// timing.ci_interval in the configuration in effect, or config.DefaultCIInterval,
-// the terminal's own CI poll.
-func (s *server) forgeInterval() time.Duration {
-	interval := s.config().CIInterval()
-	if interval <= 0 {
-		return config.DefaultCIInterval
-	}
-
-	return interval
-}
-
-// now is the time by the clock the server was given.
-func (s *server) now() time.Time {
-	if s.deps.Clock == nil {
-		return time.Now()
-	}
-
-	return s.deps.Clock()
 }

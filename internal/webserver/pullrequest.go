@@ -115,12 +115,6 @@ func (s *server) OpenPullRequest(
 	return api.OpenPullRequest200JSONResponse(opened), nil
 }
 
-// noun is what the forge calls a proposed change — a merge request on GitLab —
-// so what the page is told names it as the page itself does.
-func (s *server) noun() string {
-	return s.forgeKindNow().Noun()
-}
-
 // openConflict is the 409 for a composition the loop refused, worded by its
 // cause — the pull request already open, named by its number the way the forge
 // marks it, or no branch with commits to propose — and false for any other
