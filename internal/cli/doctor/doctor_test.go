@@ -366,3 +366,21 @@ func TestDoctorReportsTheVersionFirst(t *testing.T) {
 		t.Errorf("doctor Version = %q, want %q", got, buildinfo.Current())
 	}
 }
+
+func TestDoctorSaysAnUnparsableFileCannotBeParsedAndChecksNoCredential(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := t.TempDir()
+	clitest.WriteFile(t, dir, `{"jira": `)
+
+	// Act
+	output, _ := clitest.Run(t, dir, "doctor")
+
+	// Assert
+	// The configuration in hand is the defaults, not the user's, so nothing is
+	// said of its credentials, checked or not.
+	if got := fieldValue(output, "Configuration"); got != "cannot be parsed" || strings.Contains(output, "Credentials") {
+		t.Errorf("Configuration = %q, want cannot be parsed and no word of credentials:\n%s", got, output)
+	}
+}
