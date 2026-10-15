@@ -292,16 +292,18 @@ type lineSender struct {
 	mu    sync.Mutex
 	lines chan string
 	// abandoned closes when the run stops waiting for the rest of its output, so
-	// a send or a read still in progress delivers nothing more.
+	// a read still in progress delivers nothing more.
 	abandoned chan struct{}
 }
 
-// send hands a line on, unless ctx is done or the output is abandoned, so the
-// program is never left writing to a pipe nobody empties. A line read once the
-// output was abandoned is dropped before it can race the abandonment to Lines:
-// the line a program began and never ended is one, finished by the read the
-// run gave up on as it fails. Lines closes only once the output is abandoned
-// or deliver is done with it, so a send never meets it closed.
+// send hands a line on unless the output is abandoned, or ctx is done while
+// it waits for a reader, so the program is never left writing to a pipe
+// nobody empties. A line read once the output was abandoned is dropped: the
+// line a program began and never ended is one, finished by the read the run
+// gave up on as it fails. The output is never abandoned while a send waits,
+// since the grace that abandons it counts only while the run waits on the
+// pipe; and Lines closes only once the output is abandoned or deliver is done
+// with it, so a send never meets it closed.
 func (s *lineSender) send(ctx context.Context, line string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -315,11 +317,11 @@ func (s *lineSender) send(ctx context.Context, line string) {
 	select {
 	case s.lines <- line:
 	case <-ctx.Done():
-	case <-s.abandoned:
 	}
 }
 
-// abandon gives up on the rest of the output, ending a send in progress.
+// abandon gives up on the rest of the output, so whatever a read in progress
+// finishes is dropped.
 func (s *lineSender) abandon() {
 	close(s.abandoned)
 }
