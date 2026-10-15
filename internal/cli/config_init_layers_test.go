@@ -4,12 +4,10 @@
 package cli_test
 
 import (
-	"encoding/json"
 	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 
@@ -71,34 +69,6 @@ func TestConfigShowNamesEveryFileInEffect(t *testing.T) {
 	home, repo := filepath.Join(where.Home, config.FileName), filepath.Join(where.Dir, config.FileName)
 	if err != nil || !strings.Contains(printed.Stderr, home) || !strings.Contains(printed.Stderr, repo) {
 		t.Errorf("config show = %v, said:\n%s\nwant it to name %s and %s", err, printed.Stderr, repo, home)
-	}
-}
-
-func TestDoctorNamesEveryFileInEffect(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	where := clitest.HomeAndRepository(t)
-	clitest.WriteFile(t, where.Dir, `{"jira": {"project": "OSS"}}`)
-
-	// Act
-	printed, _ := clitest.RunStreamsAt(t, where, clitest.UnusedPrompt(t), "doctor", "--json")
-
-	// Assert
-	var report struct {
-		Configuration struct {
-			Path  string   `json:"path"`
-			Files []string `json:"files"`
-		} `json:"configuration"`
-	}
-
-	err := json.Unmarshal([]byte(printed.Stdout), &report)
-
-	home, repo := filepath.Join(where.Home, config.FileName), filepath.Join(where.Dir, config.FileName)
-	got := report.Configuration
-
-	if err != nil || got.Path != repo || !slices.Equal(got.Files, []string{home, repo}) {
-		t.Errorf("configuration = %+v, %v; want saving to %s, read from %s then %s", got, err, repo, home, repo)
 	}
 }
 

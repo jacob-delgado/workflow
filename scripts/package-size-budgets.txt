@@ -130,24 +130,24 @@ internal/webserver 30
 
 # internal/cli — the Cobra command tree, spelled one file per command, or per
 # family of commands over one seam that share their checks, as the issue writes
-# do (or per section of a command that outgrew one, as doctor's and status's
-# did). One responsibility (turn a command line into a wiring seam call and
-# printed output), so it is not split to chase a number, but code in it with a
-# reason to change of its own leaves where no import cycle follows. It
-# answered to a cohesive ceiling, which came in at 28 over 22 files and rose a
-# file at a time to 33, each a command, a family of them, a section of one or
-# what every command shares; the kit every command is built from (the
-# connection, the environment, the shared flags, the prompt and the scriptable
-# output) has left since, as internal/cli/cmdkit beneath the commands, while
-# the exit statuses stay at the root in exitstatus.go, since their families
-# name the commands' sentinels. The pr and announce flow over the forge and
-# messaging has left too, as internal/cli/pr. The maintainer's budget decision
-# (a split leaves its parent a ratcheted budget at the count it leaves) makes
-# it 23, the files it holds, so the next file trips the gate: a new command is
-# a bump with its reason written here. The splits still to come, doctor's
-# checks, and status and issues, each ratchet it down to the files left, and
+# do (or per section of a command that outgrew one, as status's did). One
+# responsibility (turn a command line into a wiring seam call and printed
+# output), so it is not split to chase a number, but code in it with a reason
+# to change of its own leaves where no import cycle follows. It answered to a
+# cohesive ceiling, which came in at 28 over 22 files and rose a file at a time
+# to 33, each a command, a family of them, a section of one or what every
+# command shares; the kit every command is built from (the connection, the
+# environment, the shared flags, the prompt and the scriptable output) has left
+# since, as internal/cli/cmdkit beneath the commands, while the exit statuses
+# stay at the root in exitstatus.go, since their families name the commands'
+# sentinels. The pr and announce flow over the forge and messaging has left
+# too, as internal/cli/pr, and doctor's checks, as internal/cli/doctor. The
+# maintainer's budget decision (a split leaves its parent a ratcheted budget at
+# the count it leaves) makes it 19, the files it holds, so the next file trips
+# the gate: a new command is a bump with its reason written here. The split
+# still to come, status and issues, ratchets it down to the files left, and
 # once it holds no more than the default allows, the entry goes.
-internal/cli 23
+internal/cli 19
 
 # internal/loop — the loop composed once for the command line, the terminal
 # and the web: which issue a branch names, the pull request draft, the

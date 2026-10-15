@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli_test
+package doctor_test
 
 // `workflow doctor --online` asks Slack, here a fake on this machine
 // (clitest.FakeSlack), whose a Slack user token is.
@@ -9,6 +9,7 @@ package cli_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -75,5 +76,53 @@ func TestDoctorOnlineNamesWhereASlackTokenIsKeptWhenItCannotBeReadAgain(t *testi
 	if row := credentialRow(output, "slack"); row != "ana in Acme (user token, kept in the configuration file "+path+")" {
 		t.Errorf("doctor's slack row = %q, want ana in Acme and where the token is kept, without its expiry:\n%s",
 			row, output)
+	}
+}
+
+func TestDoctorUnderDryRunHoldsBackARefreshThatWouldWrite(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := t.TempDir()
+	path := clitest.WriteFile(t, dir, `{"messaging":{"client_id":"1234.5678","client_secret":"client-secret-9999",`+
+		`"refresh_token":"slack-refresh-8888","access_token":"xoxe.xoxp-old","expires_at":"2020-01-01T00:00:00Z",`+
+		`"channel":"#dev"}}`)
+
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("reading the fixture: %v", err)
+	}
+
+	// Act
+	output, _ := clitest.Run(t, dir, "doctor", "--online", "--dry-run")
+
+	// Assert
+	if !strings.Contains(output, "--dry-run") {
+		t.Errorf("doctor does not say the refresh was held back for --dry-run:\n%s", output)
+	}
+
+	after, err := os.ReadFile(path)
+	if err != nil || string(after) != string(before) {
+		t.Errorf("the configuration file changed under --dry-run (%v)", err)
+	}
+}
+
+func TestDoctorUnderDryRunCallsASlackTokenNeverLoggedInMissing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The file keeps the app's secret but no refresh token: the login was
+	// never finished.
+	dir := t.TempDir()
+	clitest.WriteFile(
+		t, dir, `{"messaging":{"client_id":"1234.5678","client_secret":"client-secret-9999","channel":"#dev"}}`,
+	)
+
+	// Act
+	output, _ := clitest.Run(t, dir, "doctor", "--json", "--online", "--dry-run")
+
+	// Assert
+	if status := credentialStatusIn(decodeReport(t, output), messagingService); status != missingStatus {
+		t.Errorf("the Slack check under --dry-run = %q, want missing:\n%s", status, output)
 	}
 }
