@@ -32,6 +32,25 @@ func TestTheBaseFieldCompletesToAMatchingRemoteBranch(t *testing.T) {
 	requireScreen(t, view, "→ develop")
 }
 
+// The base the composer opens at stays the base when the field is left
+// untouched but for a key that types nothing, though a remote branch begins
+// with its name and none is it, as when the base was never pushed.
+func TestTheBaseTheComposerOpensAtIsKeptThoughANewerBranchBeginsWithIt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	opening := withoutPull()
+	opening.remoteBranches = []string{baseName + "-backport"}
+	model := opening.live(t, 120, 40)
+
+	// Act
+	view := typing(t, model, "4", "n", keyEnd, keyTab, keyEnter).View().Content
+
+	// Assert
+	requireScreen(t, view, "→ "+baseName)
+	refuseScreen(t, view, "→ "+baseName+"-backport")
+}
+
 func TestTabMovesPastTheBaseWhenNothingCompletes(t *testing.T) {
 	t.Parallel()
 
