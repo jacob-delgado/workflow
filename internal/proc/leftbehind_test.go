@@ -33,6 +33,18 @@ const readyDescriptor = 3
 // cues it: a helper left behind to write, or the "closing" one to exit.
 const helperCue = "WORKFLOW_PROC_CUE"
 
+// helperCuedLines names, to the "cued" helper, how many lines to write once
+// cued: one when it is not set.
+const helperCuedLines = "WORKFLOW_PROC_CUED_LINES"
+
+// cuedBurst is how many lines a "cued" helper writes for a reader that is slow
+// to take them: more than a run holds, so the rest wait in the pipe.
+const cuedBurst = 150
+
+// slowReader is how long a reader that is slow to come keeps the run waiting:
+// far longer than any grace a run gives the output once the program exits.
+const slowReader = time.Minute
+
 // unreadLines is how many lines the "unread" helper writes before it exits:
 // more than a run holds for a reader that has yet to come, so the last of them
 // waits for one, and few enough to wait in the pipe meanwhile, so the program
@@ -152,10 +164,17 @@ func leaveACuedWriter() {
 	complain("starting the cued writer", cued.Start())
 }
 
-// writeOnceCued writes one line once cued and exits, which ends the output.
+// writeOnceCued writes cuedLine once cued, as many times as helperCuedLines
+// says, and exits, which ends the output.
 func writeOnceCued() {
 	awaitCue(os.Getenv(helperCue))
-	fmt.Fprintln(os.Stdout, cuedLine)
+
+	count, err := strconv.Atoi(os.Getenv(helperCuedLines))
+	if err != nil {
+		count = 1
+	}
+
+	fmt.Fprint(os.Stdout, strings.Repeat(cuedLine+"\n", count))
 }
 
 // closeOutputThenExitOnCue closes standard output and error, which ends the
@@ -315,4 +334,68 @@ func TestLinesStayOpenUntilAProgramThatEndedItsOutputExits(t *testing.T) {
 		!strings.Contains(err.Error(), "exit status "+strconv.Itoa(closedStatus)) {
 		t.Errorf("the run ended with %q and %v, want no lines and exit status %d", lines, err, closedStatus)
 	}
+}
+
+// The grace a run gives a process left behind holding its output counts only
+// while the run waits on the pipe, never while its lines wait on a reader: a
+// reader slow past any grace, once the program has exited, still gets every
+// line, whether it is slow while the program's last lines wait or while the
+// process left behind writes more than the run holds.
+func TestAReaderSlowPastTheGraceStillGetsEveryLine(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// As in TestALineWrittenOnceTheRunHasTakenTheExitStillArrives, the run
+		// has taken the exit once synctest.Wait returns, its lines waiting on a
+		// reader. The bubble's clock moves only while every goroutine of the run
+		// waits on another, never while it waits on the pipe.
+		dir := t.TempDir()
+		cue := filepath.Join(dir, "cue")
+
+		output, err := proc.Start(t.Context(), child(dir, "unread",
+			helperCue+"="+cue, helperCuedLines+"="+strconv.Itoa(cuedBurst)))
+		if err != nil {
+			t.Fatalf("Start returned %v, want nil", err)
+		}
+
+		synctest.Wait()
+
+		// Act: stay slow while the program's last lines wait, then read them
+		time.Sleep(slowReader)
+
+		unread := make([]string, 0, unreadLines)
+		for line := range output.Lines {
+			unread = append(unread, line)
+			if len(unread) == unreadLines {
+				break
+			}
+		}
+
+		// Assert: every one of them came
+		if !slices.Equal(unread, linesWrittenUnread()) {
+			t.Fatalf("a reader slow once the program exited read %d of its %d lines before Lines closed",
+				len(unread), unreadLines)
+		}
+
+		// Act: cue the process left behind, stay slow while its lines wait, then
+		// read the run to its end
+		err = os.WriteFile(cue, nil, 0o600)
+		if err != nil {
+			t.Fatalf("cueing the process left behind: %v", err)
+		}
+
+		synctest.Wait()
+		time.Sleep(slowReader)
+
+		cued, err := collect(t, output)
+
+		// Assert: every line it wrote came, and the run ended well
+		if err != nil || len(cued) != cuedBurst || slices.ContainsFunc(cued, func(line string) bool {
+			return line != cuedLine
+		}) {
+			t.Errorf("a reader slow while the process left behind wrote got %d lines and %v, want %d %q lines and "+
+				"no failure", len(cued), err, cuedBurst, cuedLine)
+		}
+	})
 }
