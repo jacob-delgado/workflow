@@ -67,7 +67,7 @@ func TestConfirmWithoutATerminalNamesYes(t *testing.T) {
 	wantExit(t, err, 2)
 }
 
-func TestEveryCommandRefusesAConfigurationItCannotRead(t *testing.T) {
+func TestPRAndAnnounceRefuseAConfigurationTheyCannotRead(t *testing.T) {
 	t.Parallel()
 
 	// A file that exists but does not parse is not replaced by the defaults: a
