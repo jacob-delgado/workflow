@@ -17,7 +17,7 @@ import (
 // completion, as the terminal's pull request composer keys its fields.
 func acceptingKeys() *huh.KeyMap {
 	keymap := huh.NewDefaultKeyMap()
-	tab := key.NewBinding(key.WithKeys("tab"))
+	tab := key.NewBinding(key.WithKeys(keyTab))
 	keymap.Input = huh.InputKeyMap{AcceptSuggestion: tab, Next: tab, Prev: keymap.Input.Prev, Submit: tab}
 
 	return keymap
@@ -46,7 +46,7 @@ func TestNextFieldTakesTheCompletionOnlyWhenItIsTheKeyThatAcceptsOne(t *testing.
 		next   string
 		want   string
 	}{
-		"the key that accepts a completion": {keymap: acceptingKeys(), next: "tab", want: baseBranch},
+		"the key that accepts a completion": {keymap: acceptingKeys(), next: keyTab, want: baseBranch},
 		"another key going on":              {keymap: defaultKeys(), next: "enter", want: "m"},
 	}
 
@@ -135,7 +135,7 @@ func TestNextFieldCompletesAPastedBeginning(t *testing.T) {
 	field.Update(tea.PasteMsg{Content: "ma"})
 
 	// Act
-	field.Update(pressed("tab"))
+	field.Update(pressed(keyTab))
 
 	// Assert
 	if value != baseBranch {
@@ -153,7 +153,7 @@ func TestSuggestingNothingTakesBackWhatWasSuggested(t *testing.T) {
 	typed(t, focused(field, acceptingKeys()), "m")
 
 	// Act
-	_, cmd := field.Update(pressed("tab"))
+	_, cmd := field.Update(pressed(keyTab))
 
 	// Assert
 	if !sameMsg(cmd, huh.NextField) || value != "m" {
@@ -201,7 +201,7 @@ func TestLeavingAFieldNothingWasTypedInLeavesItsValueUncompleted(t *testing.T) {
 			}
 
 			// Act
-			_, cmd := field.Update(pressed("tab"))
+			_, cmd := field.Update(pressed(keyTab))
 
 			// Assert
 			if !sameMsg(cmd, huh.NextField) || value != baseBranch {
@@ -225,7 +225,7 @@ func TestSuggestionsOfferedOnceSomethingIsTypedCompleteIt(t *testing.T) {
 	field.Suggesting([]string{baseBranch})
 
 	// Act
-	field.Update(pressed("tab"))
+	field.Update(pressed(keyTab))
 
 	// Assert
 	if value != baseBranch {
@@ -247,7 +247,7 @@ func TestAPasteAfterTypingCompletesToWhatTheFieldNowBegins(t *testing.T) {
 	field.Update(tea.PasteMsg{Content: "as"})
 
 	// Act
-	field.Update(pressed("tab"))
+	field.Update(pressed(keyTab))
 
 	// Assert
 	if value != "master" {
@@ -290,7 +290,7 @@ func TestATypedSuggestionIsKeptThoughALongerOneBeginsWithIt(t *testing.T) {
 			}
 
 			// Act
-			_, cmd := field.Update(pressed("tab"))
+			_, cmd := field.Update(pressed(keyTab))
 
 			// Assert
 			if !sameMsg(cmd, huh.NextField) || value != baseBranch {
@@ -298,5 +298,28 @@ func TestATypedSuggestionIsKeptThoughALongerOneBeginsWithIt(t *testing.T) {
 					baseBranch, sameMsg(cmd, huh.NextField), value, baseBranch)
 			}
 		})
+	}
+}
+
+// The input's next-suggestion key cycles from a value typed whole through the
+// other suggestions that begin with it, in the order they were offered.
+func TestCyclingFromAValueTypedWholeReachesEachLongerSuggestionInTurn(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	value := ""
+	field := focused(quietinput.New(baseTitle, "", &value).Suggesting([]string{backportBranch, baseBranch, "main-2"}),
+		acceptingKeys())
+	typed(t, field, baseBranch)
+
+	// Act
+	for _, key := range []string{keyDown, keyDown, keyTab} {
+		field.Update(pressed(key))
+	}
+
+	// Assert
+	if value != "main-2" {
+		t.Errorf("down, down and next-field after typing %q left %q, want %q, the third suggestion it begins",
+			baseBranch, value, "main-2")
 	}
 }

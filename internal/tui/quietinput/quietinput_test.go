@@ -23,6 +23,12 @@ const (
 	backportBranch = "main-backport"
 )
 
+// The keys these tests press by name more than once.
+const (
+	keyTab  = "tab"
+	keyDown = "down"
+)
+
 // errRefused is what a field's check refuses with.
 var errRefused = errors.New("refused")
 
@@ -46,7 +52,7 @@ func focused(field *quietinput.Input, keymap *huh.KeyMap) *quietinput.Input {
 // pressed is the press of the key named, as Bubble Tea delivers it.
 func pressed(name string) tea.KeyPressMsg {
 	switch name {
-	case "tab":
+	case keyTab:
 		return tea.KeyPressMsg{Code: tea.KeyTab}
 	case "shift+tab":
 		return tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift}
@@ -60,6 +66,8 @@ func pressed(name string) tea.KeyPressMsg {
 		return tea.KeyPressMsg{Code: tea.KeyEnd}
 	case "backspace":
 		return tea.KeyPressMsg{Code: tea.KeyBackspace}
+	case keyDown:
+		return tea.KeyPressMsg{Code: tea.KeyDown}
 	default:
 		return tea.KeyPressMsg{Code: rune(name[0]), Text: name}
 	}
