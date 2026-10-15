@@ -195,7 +195,7 @@ function Controls({
   return (
     <div className="flex flex-col gap-item">
       <p role="status" className="text-sm text-muted-foreground">
-        {groups === undefined || list === undefined
+        {groups === undefined
           ? ''
           : listSummary(listedOf(groups).length, unnarrowed, groups.order, narrowed)}
       </p>
