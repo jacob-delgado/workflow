@@ -362,12 +362,12 @@ func userTokenNote(ctx context.Context, process wiring.Environment, cfg config.C
 // the reader can act on: no credential to ask with, a service that never judged
 // the one it was given, or a credential the service refused. It reads
 // unreachable as every command's exit status does: a service not reached, one
-// asking to wait, or a refused redirect.
+// asking to wait, a refused redirect, or an answer never finished.
 func credentialOutcome(err error, service string) error {
 	switch {
-	case cmdkit.IsAny(err, jira.ErrNoCredential, messaging.ErrNoCredential, forge.ErrNoToken):
+	case cmdkit.IsAny(err, jira.ErrNoCredential, messaging.ErrNoCredential):
 		return fmt.Errorf("%w: %s", ErrCredentialMissing, service)
-	case cmdkit.IsAny(err, append(cmdkit.ServicesUnreachable(), ErrUnreachable)...):
+	case cmdkit.IsAny(err, cmdkit.ServicesUnreachable()...):
 		return fmt.Errorf("%w: %s", ErrUnreachable, service)
 	default:
 		return fmt.Errorf("%w: %s", ErrCredentialRejected, service)
