@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 func TestACommentFollowsMarkdownTurnedOnInSettings(t *testing.T) {
@@ -22,17 +23,17 @@ func TestACommentFollowsMarkdownTurnedOnInSettings(t *testing.T) {
 	cfg := config.Default()
 	cfg.Jira.MarkdownComments = false
 	cfg.Path = filepath.Join(t.TempDir(), ".workflow.json")
-	handler := serve(t, commentingDeps(&comments), cfg)
+	handler := webtest.Serve(t, commentingDeps(&comments), cfg)
 
 	next := config.Default()
 	next.Jira.MarkdownComments = true
 
-	if saved := putConfig(t, handler, marshal(t, next)); saved.Code != http.StatusOK {
+	if saved := webtest.PutConfig(t, handler, webtest.Marshal(t, next)); saved.Code != http.StatusOK {
 		t.Fatalf("saving Settings: status %d (%s)", saved.Code, saved.Body.String())
 	}
 
 	// Act
-	recorder := send(t, handler, http.MethodPost, commentPath, `{"text":"See **the docs** at `+"`run()`"+`."}`)
+	recorder := webtest.Send(t, handler, http.MethodPost, commentPath, `{"text":"See **the docs** at `+"`run()`"+`."}`)
 
 	// Assert
 	if recorder.Code != http.StatusOK {

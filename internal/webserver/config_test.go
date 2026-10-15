@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 func TestGetConfigMasksSecrets(t *testing.T) {
@@ -27,7 +28,7 @@ func TestGetConfigMasksSecrets(t *testing.T) {
 	cfg.Jira.Token = "jira-secret-abcd"
 
 	// Act
-	out := decode[api.Config](t, get(t, serve(t, webserver.Deps{}, cfg), "/api/config"))
+	out := webtest.Decode[api.Config](t, webtest.Get(t, webtest.Serve(t, webserver.Deps{}, cfg), "/api/config"))
 
 	// Assert
 	if out.Jira.Token == nil || !strings.HasPrefix(*out.Jira.Token, "****") {
@@ -50,7 +51,7 @@ func TestUpdateConfigWritesTheFile(t *testing.T) {
 	next.Jira.BaseURL = "https://new.example.com"
 
 	// Act
-	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, next))
+	recorder := webtest.PutConfig(t, webtest.Serve(t, webserver.Deps{}, cfg), webtest.Marshal(t, next))
 
 	// Assert
 	if recorder.Code != http.StatusOK {
@@ -116,10 +117,10 @@ func TestUpdateConfigKeepsWhatOnlyTheHomeFileMayHoldOutOfTheRepositoryFile(t *te
 			tt.change(&next)
 
 			// Act
-			recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, next))
+			recorder := webtest.PutConfig(t, webtest.Serve(t, webserver.Deps{}, cfg), webtest.Marshal(t, next))
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.ProblemCodeUnprocessable ||
 				!strings.Contains(failure.Detail, tt.want) || strings.Contains(failure.Detail, typedToken) {
 				t.Errorf("status %d, problem %+v; want 422 naming %q, without the token",
@@ -159,10 +160,10 @@ func TestUpdateConfigRejectsAnInvalidConfig(t *testing.T) {
 			tt.refuse(&bad)
 
 			// Act
-			recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, bad))
+			recorder := webtest.PutConfig(t, webtest.Serve(t, webserver.Deps{}, cfg), webtest.Marshal(t, bad))
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.ProblemCodeUnprocessable {
 				t.Errorf("status = %d, code %q; want 422 and unprocessable", recorder.Code, failure.Code)
 			}
@@ -190,12 +191,12 @@ func TestUpdateConfigNamesEveryRefusalOnOneLine(t *testing.T) {
 	bad.Commit.RefsTrailer = "Refs:"
 
 	// Act
-	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, bad))
+	recorder := webtest.PutConfig(t, webtest.Serve(t, webserver.Deps{}, cfg), webtest.Marshal(t, bad))
 
 	// Assert
 	// The detail names no file, since a posted configuration is not one yet,
 	// and joins the timing's reason to the trailer's on the one line.
-	detail := decode[api.Problem](t, recorder).Detail
+	detail := webtest.Decode[api.Problem](t, recorder).Detail
 	if !strings.HasPrefix(detail, "the configuration is not valid: ") ||
 		strings.Contains(detail, config.ErrInvalid.Error()) || strings.Contains(detail, "\n") {
 		t.Errorf("detail = %q, want one line after the refusal, naming no file", detail)
@@ -216,7 +217,7 @@ func TestUpdateConfigRefusesABaseURLCarryingALogin(t *testing.T) {
 	posted.Jira.BaseURL = "https://user:s3cret@jira.example.com"
 
 	// Act
-	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, posted))
+	recorder := webtest.PutConfig(t, webtest.Serve(t, webserver.Deps{}, cfg), webtest.Marshal(t, posted))
 
 	// Assert
 	if recorder.Code != http.StatusUnprocessableEntity || strings.Contains(recorder.Body.String(), "s3cret") {
@@ -235,7 +236,7 @@ func TestUpdateConfigKeepsAMaskedSecret(t *testing.T) {
 	cfg.Jira.Token = "real-secret-wxyz"
 
 	// Act
-	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, cfg.Redacted()))
+	recorder := webtest.PutConfig(t, webtest.Serve(t, webserver.Deps{}, cfg), webtest.Marshal(t, cfg.Redacted()))
 
 	// Assert
 	if recorder.Code != http.StatusOK {
@@ -264,7 +265,7 @@ func TestUpdateConfigSetsANewSecret(t *testing.T) {
 	next.Jira.Token = "brand-new-secret-1111" // a real new value, neither empty nor the mask
 
 	// Act
-	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, next))
+	recorder := webtest.PutConfig(t, webtest.Serve(t, webserver.Deps{}, cfg), webtest.Marshal(t, next))
 
 	// Assert
 	if recorder.Code != http.StatusOK {
@@ -297,7 +298,7 @@ func TestUpdateConfigResolvesHeaders(t *testing.T) {
 	}
 
 	// Act
-	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, next))
+	recorder := webtest.PutConfig(t, webtest.Serve(t, webserver.Deps{}, cfg), webtest.Marshal(t, next))
 
 	// Assert
 	if recorder.Code != http.StatusOK {
@@ -327,7 +328,7 @@ func TestUpdateConfigReportsASaveFailure(t *testing.T) {
 	cfg.Path = filepath.Join(t.TempDir(), "missing", ".workflow.json")
 
 	// Act
-	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, config.Default()))
+	recorder := webtest.PutConfig(t, webtest.Serve(t, webserver.Deps{}, cfg), webtest.Marshal(t, config.Default()))
 
 	// Assert
 	if recorder.Code != http.StatusInternalServerError {
@@ -356,14 +357,14 @@ func TestUpdateConfigRefusesAUIValueOutsideTheContract(t *testing.T) {
 			bad.UI = outOfContract
 
 			// Act
-			recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, bad))
+			recorder := webtest.PutConfig(t, webtest.Serve(t, webserver.Deps{}, cfg), webtest.Marshal(t, bad))
 
 			// Assert
 			if recorder.Code != http.StatusBadRequest {
 				t.Fatalf("status = %d, want 400: %s", recorder.Code, recorder.Body.String())
 			}
 
-			if failure := decode[api.Problem](t, recorder); failure.Code != api.ProblemCodeBadRequest {
+			if failure := webtest.Decode[api.Problem](t, recorder); failure.Code != api.ProblemCodeBadRequest {
 				t.Errorf("code = %q, want bad_request", failure.Code)
 			}
 		})
@@ -395,17 +396,17 @@ func TestUpdateConfigRefusesAKeymapTheInterfaceWouldRefuse(t *testing.T) {
 	next := config.Default()
 	next.UI.Keys = map[string]string{"commit": "space"}
 
-	handler := serve(t, webserver.Deps{CheckKeys: refuseAMovedCommit}, cfg)
+	handler := webtest.Serve(t, webserver.Deps{CheckKeys: refuseAMovedCommit}, cfg)
 
 	// Act
-	recorder := putConfig(t, handler, marshal(t, next))
+	recorder := webtest.PutConfig(t, handler, webtest.Marshal(t, next))
 
 	// Assert
 	if recorder.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("status = %d, want 422: %s", recorder.Code, recorder.Body.String())
 	}
 
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if failure.Code != api.ProblemCodeUnprocessable || !strings.Contains(failure.Detail, errCommitOnTaken.Error()) {
 		t.Errorf("problem = %q saying %q, want unprocessable saying %q", failure.Code, failure.Detail, errCommitOnTaken)
 	}
@@ -426,10 +427,10 @@ func TestUpdateConfigSavesAKeymapTheInterfaceAccepts(t *testing.T) {
 	next := config.Default()
 	next.UI.Keys = map[string]string{"comment": "ctrl+e"}
 
-	handler := serve(t, webserver.Deps{CheckKeys: refuseAMovedCommit}, cfg)
+	handler := webtest.Serve(t, webserver.Deps{CheckKeys: refuseAMovedCommit}, cfg)
 
 	// Act
-	recorder := putConfig(t, handler, marshal(t, next))
+	recorder := webtest.PutConfig(t, handler, webtest.Marshal(t, next))
 
 	// Assert
 	if recorder.Code != http.StatusOK {
@@ -452,16 +453,16 @@ func TestTheWebConfigRoundTripKeepsTaskwarrior(t *testing.T) {
 	// Arrange
 	cfg := config.Default()
 	cfg.Path = filepath.Join(t.TempDir(), ".workflow.json")
-	cfg.Taskwarrior.Program = taskwarriorProgram
+	cfg.Taskwarrior.Program = webtest.TaskwarriorProgram
 
-	handler := serve(t, webserver.Deps{}, cfg)
+	handler := webtest.Serve(t, webserver.Deps{}, cfg)
 
 	// Act: read the configuration
-	response := get(t, handler, "/api/config")
-	read := decode[api.Config](t, response)
+	response := webtest.Get(t, handler, "/api/config")
+	read := webtest.Decode[api.Config](t, response)
 
 	// Assert: it carries the taskwarrior section
-	if read.Taskwarrior.Program == nil || *read.Taskwarrior.Program != taskwarriorProgram {
+	if read.Taskwarrior.Program == nil || *read.Taskwarrior.Program != webtest.TaskwarriorProgram {
 		t.Fatalf("the read served %s, want taskwarrior.program set", response.Body.String())
 	}
 
@@ -474,7 +475,7 @@ func TestTheWebConfigRoundTripKeepsTaskwarrior(t *testing.T) {
 		t.Fatalf("marshaling the read back: %v", err)
 	}
 
-	recorder := putConfigOver(t, handler, string(body), etagOf(response))
+	recorder := webtest.PutConfigOver(t, handler, string(body), etagOf(response))
 
 	// Assert: the file holds the change, and the program the read carried
 	if recorder.Code != http.StatusOK {
@@ -486,7 +487,7 @@ func TestTheWebConfigRoundTripKeepsTaskwarrior(t *testing.T) {
 		t.Fatalf("reading the saved file: %v", err)
 	}
 
-	if saved.Taskwarrior.Program != taskwarriorProgram || !saved.Taskwarrior.Disabled {
+	if saved.Taskwarrior.Program != webtest.TaskwarriorProgram || !saved.Taskwarrior.Disabled {
 		t.Errorf("saved taskwarrior = %+v, want the program kept and disabled written", saved.Taskwarrior)
 	}
 }

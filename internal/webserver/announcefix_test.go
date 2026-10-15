@@ -13,6 +13,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // waitingOn is the held announcement of #42 to #dev, waiting, its CI last
@@ -42,7 +43,7 @@ func TestAHeldAnnouncementWaitsOnAFix(t *testing.T) {
 
 	// Arrange
 	world := newForgeWorld()
-	handler := serve(t, world.deps(), config.Default())
+	handler := webtest.Serve(t, world.deps(), config.Default())
 	announceWhenGreen(t, handler, nil)
 	world.turn(func(w *forgeWorld) { w.ci = forge.CIFailed })
 
@@ -73,7 +74,7 @@ func TestAHeldAnnouncementGivesUpWhenNoCheckIsReported(t *testing.T) {
 	// patience.
 	world := newForgeWorld()
 	world.ci = forge.CINone
-	handler := serve(t, world.deps(), config.Default())
+	handler := webtest.Serve(t, world.deps(), config.Default())
 	announceWhenGreen(t, handler, nil)
 	world.turn(func(*forgeWorld) {})
 
@@ -133,7 +134,7 @@ func TestAHeldAnnouncementTheGateRefusesKeepsWaiting(t *testing.T) {
 	world, gate := newForgeWorld(), &failingAtTheGate{}
 	deps := world.deps()
 	deps.Forge.CheckStatus = gate.check
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 	cancelHeld(t, handler)
 	announceWhenGreen(t, handler, nil)
 	gate.arm()
@@ -166,7 +167,7 @@ func TestAnnouncingWhenCIPassesHoldsAnythingShortOfPassing(t *testing.T) {
 			// Arrange
 			world := newForgeWorld()
 			change(world)
-			handler := serve(t, world.deps(), config.Default())
+			handler := webtest.Serve(t, world.deps(), config.Default())
 			cancelHeld(t, handler)
 
 			// Act
@@ -187,13 +188,13 @@ func TestOnlyAReadyAnnouncementWaits(t *testing.T) {
 	// Arrange
 	world := newForgeWorld()
 	world.state = forge.StateMerged
-	handler := serve(t, world.deps(), config.Default())
+	handler := webtest.Serve(t, world.deps(), config.Default())
 
 	// Act
 	recorder := announceWhenGreen(t, handler, nil)
 
 	// Assert
-	if failure := decode[api.Problem](t, recorder); recorder.Code != http.StatusConflict ||
+	if failure := webtest.Decode[api.Problem](t, recorder); recorder.Code != http.StatusConflict ||
 		failure.Code != api.ProblemCodeConflict || len(world.posted()) != 0 {
 		t.Errorf("status/code = %d/%s, posted %q; want 409 and nothing posted",
 			recorder.Code, failure.Code, world.posted())
@@ -224,10 +225,10 @@ func TestAPreviewSaysHowCIStands(t *testing.T) {
 			tt.change(world)
 
 			// Act
-			recorder := get(t, serve(t, world.deps(), config.Default()), "/api/announcement")
+			recorder := webtest.Get(t, webtest.Serve(t, world.deps(), config.Default()), "/api/announcement")
 
 			// Assert
-			preview := decode[api.Announcement](t, recorder)
+			preview := webtest.Decode[api.Announcement](t, recorder)
 			canWait := preview.CanWaitForCi != nil && *preview.CanWaitForCi
 
 			if ciOf(preview.Ci) != string(tt.ci) || canWait != tt.canWait {
@@ -243,7 +244,7 @@ func TestARefusedPostNowKeepsTheHeldAnnouncement(t *testing.T) {
 	// Arrange
 	// An announcement is held for CI; a check fails, and Announce now is asked.
 	world := newForgeWorld()
-	handler := serve(t, world.deps(), config.Default())
+	handler := webtest.Serve(t, world.deps(), config.Default())
 	cancelHeld(t, handler)
 	announceWhenGreen(t, handler, nil)
 	world.turn(func(w *forgeWorld) { w.ci = forge.CIFailed })
@@ -271,15 +272,15 @@ func TestARefusedPostNowKeepsTheHeldAnnouncement(t *testing.T) {
 	}
 }
 
-// fixedHead is the commit a fix for a check failed at filledHead is
+// fixedHead is the commit a fix for a check failed at webtest.FilledHead is
 // pushed as.
 const fixedHead = "def5678"
 
-// fixedOnANewHead is deps reading a check failed at filledHead and every
-// check passed at any other head: a fix pushed as a new commit.
+// fixedOnANewHead is deps reading a check failed at webtest.FilledHead and
+// every check passed at any other head: a fix pushed as a new commit.
 func fixedOnANewHead(deps webserver.Deps) webserver.Deps {
 	deps.Forge.CheckStatus = func(_ context.Context, _ forge.PullRequest, head string) (forge.CI, error) {
-		if head == filledHead {
+		if head == webtest.FilledHead {
 			return forge.CI{State: forge.CIFailed, Total: 1}, nil
 		}
 
@@ -296,7 +297,7 @@ func TestAHeldAnnouncementGoesOnceAFixLandsOnANewHead(t *testing.T) {
 	// A check failed where it was held, and the fix was pushed as a new
 	// commit whose run passes.
 	world := newForgeWorld()
-	handler := serve(t, fixedOnANewHead(world.deps()), config.Default())
+	handler := webtest.Serve(t, fixedOnANewHead(world.deps()), config.Default())
 	cancelHeld(t, handler)
 	announceWhenGreen(t, handler, nil)
 	world.turn(func(w *forgeWorld) { w.head = fixedHead })

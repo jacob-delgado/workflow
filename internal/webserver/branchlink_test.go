@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // linking records what the link endpoints asked of git and the forge: each
@@ -28,11 +29,11 @@ type linking struct {
 	held             string
 }
 
-// linkingDeps is filledDeps on a branch begun outside workflow, with an open
-// pull request whose description names no issue, recording each link and
+// linkingDeps is webtest.FilledDeps on a branch begun outside workflow, with an
+// open pull request whose description names no issue, recording each link and
 // edit.
 func linkingDeps(record *linking, detached bool) webserver.Deps {
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
 		return gitrepo.Branch{Name: unnamedBranch, Detached: detached}, nil
 	}
@@ -89,10 +90,10 @@ func TestLinkingTheBranchKeepsTheLinkAndUpdatesThePullRequest(t *testing.T) {
 
 	// Arrange
 	record := &linking{}
-	handler := serve(t, linkingDeps(record, false), config.Default())
+	handler := webtest.Serve(t, linkingDeps(record, false), config.Default())
 
 	// Act
-	answer := send(t, handler, http.MethodPut, "/api/branch/issue", `{"key":"#42","update_pull":true}`)
+	answer := webtest.Send(t, handler, http.MethodPut, "/api/branch/issue", `{"key":"#42","update_pull":true}`)
 
 	// Assert
 	if answer.Code != http.StatusOK || len(record.linked) != 1 || record.linked[0] != "my-thing 42" {
@@ -111,10 +112,10 @@ func TestLinkingAddsTheIssueLineToTheDescriptionTheForgeHolds(t *testing.T) {
 	// What is shown of a description has its controls and bidirectional marks
 	// replaced and its carriage returns dropped; the forge holds it as written.
 	record := &linking{held: "Speeds it up.\r\n\u202Eright to left\u202C\r\n"}
-	handler := serve(t, linkingDeps(record, false), config.Default())
+	handler := webtest.Serve(t, linkingDeps(record, false), config.Default())
 
 	// Act
-	answer := send(t, handler, http.MethodPut, "/api/branch/issue", `{"key":"#42","update_pull":true}`)
+	answer := webtest.Send(t, handler, http.MethodPut, "/api/branch/issue", `{"key":"#42","update_pull":true}`)
 
 	// Assert
 	if answer.Code != http.StatusOK || len(record.edited) != 1 ||
@@ -133,10 +134,10 @@ func TestLinkingWithoutUpdatingLeavesThePullRequest(t *testing.T) {
 
 	// Arrange
 	record := &linking{}
-	handler := serve(t, linkingDeps(record, false), config.Default())
+	handler := webtest.Serve(t, linkingDeps(record, false), config.Default())
 
 	// Act
-	answer := send(t, handler, http.MethodPut, "/api/branch/issue", `{"key":"PROJ-7","update_pull":false}`)
+	answer := webtest.Send(t, handler, http.MethodPut, "/api/branch/issue", `{"key":"PROJ-7","update_pull":false}`)
 
 	// Assert
 	if answer.Code != http.StatusOK || len(record.linked) != 1 || len(record.edited) != 0 {
@@ -149,10 +150,10 @@ func TestLinkingRefusesAKeyThatNamesNoIssue(t *testing.T) {
 
 	// Arrange
 	record := &linking{}
-	handler := serve(t, linkingDeps(record, false), config.Default())
+	handler := webtest.Serve(t, linkingDeps(record, false), config.Default())
 
 	// Act
-	answer := send(t, handler, http.MethodPut, "/api/branch/issue", `{"key":"soon","update_pull":true}`)
+	answer := webtest.Send(t, handler, http.MethodPut, "/api/branch/issue", `{"key":"soon","update_pull":true}`)
 
 	// Assert
 	if answer.Code != http.StatusUnprocessableEntity || len(record.linked) != 0 {
@@ -169,10 +170,10 @@ func TestLinkingOrUnlinkingADetachedHeadIsAConflict(t *testing.T) {
 
 			// Arrange
 			record := &linking{}
-			handler := serve(t, linkingDeps(record, true), config.Default())
+			handler := webtest.Serve(t, linkingDeps(record, true), config.Default())
 
 			// Act
-			answer := send(t, handler, tt.method, "/api/branch/issue", tt.body)
+			answer := webtest.Send(t, handler, tt.method, "/api/branch/issue", tt.body)
 
 			// Assert
 			if answer.Code != http.StatusConflict || len(record.linked)+len(record.unlinked) != 0 {
@@ -193,13 +194,13 @@ func TestLinkingOrUnlinkingABranchGitCouldNotReadIsInternal(t *testing.T) {
 			// Arrange
 			record := &linking{}
 			deps := linkingDeps(record, false)
-			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, webtest.ErrSeam }
 
 			// Act
-			answer := send(t, serve(t, deps, config.Default()), tt.method, "/api/branch/issue", tt.body)
+			answer := webtest.Send(t, webtest.Serve(t, deps, config.Default()), tt.method, "/api/branch/issue", tt.body)
 
 			// Assert
-			failure := decode[api.Problem](t, answer)
+			failure := webtest.Decode[api.Problem](t, answer)
 			if answer.Code != http.StatusInternalServerError || failure.Code != api.ProblemCodeInternal ||
 				len(record.linked)+len(record.unlinked) != 0 {
 				t.Errorf("status/code %d/%s, linked %v, unlinked %v; want 500/internal and nothing changed",
@@ -213,13 +214,13 @@ func TestThePreviewOfADetachedHeadNamesNoPullRequest(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	handler := serve(t, linkingDeps(&linking{}, true), config.Default())
+	handler := webtest.Serve(t, linkingDeps(&linking{}, true), config.Default())
 
 	// Act
-	recorder := get(t, handler, "/api/branch/issue/preview?key=%2342")
+	recorder := webtest.Get(t, handler, "/api/branch/issue/preview?key=%2342")
 
 	// Assert
-	preview := decode[api.BranchIssuePreview](t, recorder)
+	preview := webtest.Decode[api.BranchIssuePreview](t, recorder)
 	if recorder.Code != http.StatusOK || preview.Pull != 0 || preview.Body != "" || preview.Key != "42" {
 		t.Errorf("status %d, preview %+v; want 200 naming 42 and no pull request", recorder.Code, preview)
 	}
@@ -236,7 +237,7 @@ func TestLinkingWhenThePullRequestCannotBeFoundLeavesTheBranchUnlinked(t *testin
 	}
 
 	// Act
-	answer := send(t, serve(t, deps, config.Default()), http.MethodPut, "/api/branch/issue",
+	answer := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPut, "/api/branch/issue",
 		`{"key":"PROJ-7","update_pull":true}`)
 
 	// Assert
@@ -250,10 +251,10 @@ func TestThePreviewShowsTheDescriptionWithTheIssue(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	handler := serve(t, linkingDeps(&linking{}, false), config.Default())
+	handler := webtest.Serve(t, linkingDeps(&linking{}, false), config.Default())
 
 	// Act
-	preview := decode[api.BranchIssuePreview](t, get(t, handler, "/api/branch/issue/preview?key=%2342"))
+	preview := webtest.Decode[api.BranchIssuePreview](t, webtest.Get(t, handler, "/api/branch/issue/preview?key=%2342"))
 
 	// Assert
 	if preview.Pull != 9 || !preview.Changes || !strings.HasSuffix(preview.Body, "Closes #42\n") || preview.Key != "42" {
@@ -267,14 +268,14 @@ func TestThePreviewAnswersABranchGitCouldNotRead(t *testing.T) {
 	// Arrange
 	deps := linkingDeps(&linking{}, false)
 	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
-		return gitrepo.Branch{}, fmt.Errorf("reading HEAD in %s: %w", repoPath, errSeam)
+		return gitrepo.Branch{}, fmt.Errorf("reading HEAD in %s: %w", webtest.RepoPath, webtest.ErrSeam)
 	}
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/branch/issue/preview?key=%2342")
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/branch/issue/preview?key=%2342")
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusInternalServerError || failure.Code != api.ProblemCodeInternal {
 		t.Errorf("status/code = %d/%s, want 500/internal rather than no pull request to update",
 			recorder.Code, failure.Code)
@@ -286,10 +287,10 @@ func TestUnlinkingForgetsTheLink(t *testing.T) {
 
 	// Arrange
 	record := &linking{}
-	handler := serve(t, linkingDeps(record, false), config.Default())
+	handler := webtest.Serve(t, linkingDeps(record, false), config.Default())
 
 	// Act
-	answer := send(t, handler, http.MethodDelete, "/api/branch/issue", "")
+	answer := webtest.Send(t, handler, http.MethodDelete, "/api/branch/issue", "")
 
 	// Assert
 	if answer.Code != http.StatusOK || len(record.unlinked) != 1 || record.unlinked[0] != "my-thing" {
@@ -311,7 +312,7 @@ func TestALinkGitCannotKeepIsUnprocessable(t *testing.T) {
 			deps.Git.UnlinkIssue = func(context.Context, string) error { return refused }
 
 			// Act
-			answer := send(t, serve(t, deps, config.Default()), tt.method, "/api/branch/issue", tt.body)
+			answer := webtest.Send(t, webtest.Serve(t, deps, config.Default()), tt.method, "/api/branch/issue", tt.body)
 
 			// Assert
 			if answer.Code != http.StatusUnprocessableEntity {
@@ -332,7 +333,7 @@ func TestAPullRequestThatCannotBeEditedLeavesTheBranchUnlinked(t *testing.T) {
 	}
 
 	// Act
-	answer := send(t, serve(t, deps, config.Default()), http.MethodPut, "/api/branch/issue",
+	answer := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPut, "/api/branch/issue",
 		`{"key":"PROJ-7","update_pull":true}`)
 
 	// Assert
@@ -350,7 +351,7 @@ func TestALinkNotKeptAfterThePullRequestIsEditedIsReported(t *testing.T) {
 	deps.Git.LinkIssue = func(context.Context, string, string) error { return gitrepo.ErrIssueLinkNotSaved }
 
 	// Act
-	answer := send(t, serve(t, deps, config.Default()), http.MethodPut, "/api/branch/issue",
+	answer := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPut, "/api/branch/issue",
 		`{"key":"PROJ-7","update_pull":true}`)
 
 	// Assert
@@ -371,7 +372,7 @@ func TestLinkingAndUnlinkingWithoutTheSeamAnswerAlike(t *testing.T) {
 			deps.Git.LinkIssue, deps.Git.UnlinkIssue = nil, nil
 
 			// Act
-			answer := send(t, serve(t, deps, config.Default()), tt.method, "/api/branch/issue", tt.body)
+			answer := webtest.Send(t, webtest.Serve(t, deps, config.Default()), tt.method, "/api/branch/issue", tt.body)
 
 			// Assert
 			if answer.Code != http.StatusUnprocessableEntity {

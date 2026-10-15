@@ -19,6 +19,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // keptList is one list the store was asked to keep: the view's JQL, the keys
@@ -64,7 +65,7 @@ func (k *keptLists) all() []keptList {
 // bugsView is a configuration offering the Bugs view.
 func bugsView() config.Config {
 	cfg := config.Default()
-	cfg.Jira.Views = []config.JiraView{{Name: testBugView, JQL: testBugJQL}}
+	cfg.Jira.Views = []config.JiraView{{Name: webtest.TestBugView, JQL: webtest.TestBugJQL}}
 
 	return cfg
 }
@@ -80,7 +81,7 @@ func TestASearchKeepsTheViewsFirstPageForTheNextSession(t *testing.T) {
 		"the issues assigned to you": {cfg: config.Default(), want: jira.AssignedToMe},
 		// The terminal keys the cache by the scoped query too, so the two
 		// surfaces share what is kept.
-		"a named view": {cfg: bugsView(), query: "?view=" + testBugView, want: jira.ScopedToMe(testBugJQL)},
+		"a named view": {cfg: bugsView(), query: "?view=" + webtest.TestBugView, want: jira.ScopedToMe(webtest.TestBugJQL)},
 	}
 
 	for name, tt := range cases {
@@ -88,16 +89,16 @@ func TestASearchKeepsTheViewsFirstPageForTheNextSession(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			kept, deps := &keptLists{}, filledDeps()
+			kept, deps := &keptLists{}, webtest.FilledDeps()
 			deps.Store.CacheIssues = kept.keep
 
 			// Act
-			streamOnce(t, serve(t, deps, tt.cfg), "/api/events"+tt.query)
+			webtest.StreamOnce(t, webtest.Serve(t, deps, tt.cfg), "/api/events"+tt.query)
 
 			// Assert
 			got := kept.all()
-			if len(got) != 1 || got[0].jql != tt.want || !slices.Equal(got[0].keys, []jira.Key{testKey}) {
-				t.Errorf("kept %+v, want %s's first page, [%s], once", got, tt.want, testKey)
+			if len(got) != 1 || got[0].jql != tt.want || !slices.Equal(got[0].keys, []jira.Key{webtest.TestKey}) {
+				t.Errorf("kept %+v, want %s's first page, [%s], once", got, tt.want, webtest.TestKey)
 			}
 		})
 	}
@@ -108,13 +109,13 @@ func TestAViewsFirstPageIsKeptOnceASearch(t *testing.T) {
 
 	// Arrange
 	clock, tracker, kept := newSharedClock(), &countedSearch{}, &keptLists{}
-	deps := tracker.wire(filledDeps(), clock)
+	deps := tracker.wire(webtest.FilledDeps(), clock)
 	deps.Store.CacheIssues = kept.keep
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 
 	// Act: two frames in one interval
-	streamOnce(t, handler, "/api/events")
-	streamOnce(t, handler, "/api/events")
+	webtest.StreamOnce(t, handler, "/api/events")
+	webtest.StreamOnce(t, handler, "/api/events")
 
 	// Assert: one search, so one keep
 	if got := len(kept.all()); got != 1 {
@@ -123,7 +124,7 @@ func TestAViewsFirstPageIsKeptOnceASearch(t *testing.T) {
 
 	// Act: a frame past the interval
 	clock.pastTheForgeInterval()
-	streamOnce(t, handler, "/api/events")
+	webtest.StreamOnce(t, handler, "/api/events")
 
 	// Assert: a keep for each search, not for each frame
 	if got := len(kept.all()); got != 2 {
@@ -141,7 +142,7 @@ func TestNoIssueListIsKept(t *testing.T) {
 		"after a search that failed": {
 			unwire: func(deps *webserver.Deps) {
 				deps.Jira.Search = func(context.Context, string, int) (jira.SearchResult, error) {
-					return jira.SearchResult{}, errSeam
+					return jira.SearchResult{}, webtest.ErrSeam
 				}
 			},
 		},
@@ -153,12 +154,12 @@ func TestNoIssueListIsKept(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			kept, deps := &keptLists{}, filledDeps()
+			kept, deps := &keptLists{}, webtest.FilledDeps()
 			deps.Store.CacheIssues = kept.keep
 			tt.unwire(&deps)
 
 			// Act
-			streamOnce(t, serveWith(t, deps, config.Default(), tt.info), "/api/events")
+			webtest.StreamOnce(t, webtest.ServeWith(t, deps, config.Default(), tt.info), "/api/events")
 
 			// Assert
 			if got := kept.all(); len(got) != 0 {
@@ -174,19 +175,20 @@ func TestAnIssueListTheStoreCouldNotKeepIsNoted(t *testing.T) {
 	// Arrange
 	var noted []error
 
-	kept, deps := &keptLists{err: errSeam}, filledDeps()
+	kept, deps := &keptLists{err: webtest.ErrSeam}, webtest.FilledDeps()
 	deps.Store.CacheIssues = kept.keep
 	deps.Unexpected = func(_ config.Config, err error) { noted = append(noted, err) }
 
 	// Act
-	frame := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
+	frame := webtest.FirstSnapshot(t, webtest.StreamOnce(t, webtest.Serve(t, deps, config.Default()),
+		"/api/events").Body.String())
 
 	// Assert
-	if len(noted) != 1 || !errors.Is(noted[0], errSeam) {
+	if len(noted) != 1 || !errors.Is(noted[0], webtest.ErrSeam) {
 		t.Errorf("noted %v, want the store's failure once", noted)
 	}
 
-	if len(frame.Issues.Issues) != 1 || frame.Issues.Issues[0].Key != testKey || frame.Problems != nil {
+	if len(frame.Issues.Issues) != 1 || frame.Issues.Issues[0].Key != webtest.TestKey || frame.Problems != nil {
 		t.Errorf("frame issues = %+v, problems %+v; want the list shown all the same", frame.Issues, frame.Problems)
 	}
 }
@@ -195,10 +197,10 @@ func TestAKeptIssueListOutlivesThePageThatSearchedIt(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	held, kept, deps := newHeld(), &keptLists{}, filledDeps()
+	held, kept, deps := webtest.NewHeld(), &keptLists{}, webtest.FilledDeps()
 	deps.Jira.Search = heldFirst(held, deps.Jira.Search)
 	deps.Store.CacheIssues = kept.keep
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 
 	// Act
 	leftMidRead(t, handler, held)
@@ -232,13 +234,13 @@ func keptFor(issues []jira.Issue, asked *[]string) func(context.Context, string)
 }
 
 // seedOf decodes the seed a message carries, failing t when it is not one.
-func seedOf(t *testing.T, sent message) api.Seed {
+func seedOf(t *testing.T, sent webtest.Message) api.Seed {
 	t.Helper()
 
 	var seed api.Seed
 
-	err := json.Unmarshal([]byte(sent.data), &seed)
-	if sent.event != seedMessage || err != nil {
+	err := json.Unmarshal([]byte(sent.Data), &seed)
+	if sent.Event != webtest.SeedMessage || err != nil {
 		t.Fatalf("message %+v is not a seed: %v", sent, err)
 	}
 
@@ -255,7 +257,7 @@ func TestStreamSendsTheKeptIssuesBeforeAskingJira(t *testing.T) {
 	)
 
 	recorder := httptest.NewRecorder()
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Store.CachedIssues = keptFor([]jira.Issue{keptIssue()}, &asked)
 	search := deps.Jira.Search
 	deps.Jira.Search = func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error) {
@@ -268,13 +270,13 @@ func TestStreamSendsTheKeptIssuesBeforeAskingJira(t *testing.T) {
 	cancel()
 
 	request := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/events", nil)
-	request.Host = loopbackHost
+	request.Host = webtest.LoopbackHost
 
 	// Act
-	serve(t, deps, config.Default()).ServeHTTP(recorder, request)
+	webtest.Serve(t, deps, config.Default()).ServeHTTP(recorder, request)
 
 	// Assert
-	before := messages(whenSearched)
+	before := webtest.Messages(whenSearched)
 	if len(before) != 1 {
 		t.Fatalf("Jira was asked after %d messages (%q), want after the seed alone", len(before), whenSearched)
 	}
@@ -290,8 +292,8 @@ func TestStreamSendsTheKeptIssuesBeforeAskingJira(t *testing.T) {
 		t.Errorf("seed = %+v, want %+v", got, want)
 	}
 
-	sent := messages(recorder.Body.String())
-	if len(sent) != 2 || sent[0].id != "1" || sent[1].event != snapshotMessage || sent[1].id != "2" {
+	sent := webtest.Messages(recorder.Body.String())
+	if len(sent) != 2 || sent[0].ID != "1" || sent[1].Event != webtest.SnapshotMessage || sent[1].ID != "2" {
 		t.Errorf("messages = %+v, want the seed as 1, then a snapshot as 2", sent)
 	}
 }
@@ -302,14 +304,14 @@ func TestStreamSeedsANamedViewFromItsOwnKeptList(t *testing.T) {
 	// Arrange
 	var asked []string
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Store.CachedIssues = keptFor([]jira.Issue{keptIssue()}, &asked)
 
 	// Act
-	streamOnce(t, serve(t, deps, bugsView()), "/api/events?view="+testBugView)
+	webtest.StreamOnce(t, webtest.Serve(t, deps, bugsView()), "/api/events?view="+webtest.TestBugView)
 
 	// Assert
-	if want := []string{jira.ScopedToMe(testBugJQL)}; !slices.Equal(asked, want) {
+	if want := []string{jira.ScopedToMe(webtest.TestBugJQL)}; !slices.Equal(asked, want) {
 		t.Errorf("the store was asked for %q, want %q", asked, want)
 	}
 }
@@ -320,11 +322,11 @@ func TestStreamSeedsAViewKeptEmpty(t *testing.T) {
 	// Arrange
 	var asked []string
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Store.CachedIssues = keptFor([]jira.Issue{}, &asked)
 
 	// Act
-	sent := messages(streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
+	sent := webtest.Messages(webtest.StreamOnce(t, webtest.Serve(t, deps, config.Default()), "/api/events").Body.String())
 
 	// Assert
 	if seed := seedOf(t, sent[0]); len(seed.Issues.Issues) != 0 || seed.Issues.Total != 0 {
@@ -359,15 +361,16 @@ func TestStreamSendsNoSeed(t *testing.T) {
 			// Arrange
 			var asked []string
 
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			deps.Store.CachedIssues = keptFor([]jira.Issue{keptIssue()}, &asked)
 			tt.unwire(&deps)
 
 			// Act
-			sent := messages(streamOnce(t, serveWith(t, deps, config.Default(), tt.info), "/api/events").Body.String())
+			sent := webtest.Messages(webtest.StreamOnce(t, webtest.ServeWith(t, deps, config.Default(), tt.info),
+				"/api/events").Body.String())
 
 			// Assert
-			if len(sent) == 0 || sent[0].event != snapshotMessage || sent[0].id != "1" {
+			if len(sent) == 0 || sent[0].Event != webtest.SnapshotMessage || sent[0].ID != "1" {
 				t.Errorf("messages = %+v, want a snapshot first, as 1", sent)
 			}
 
@@ -389,11 +392,11 @@ func TestASeedCarriesAStatusUnderNoCategoryAsNotStarted(t *testing.T) {
 	odd := keptIssue()
 	odd.StatusCategory = noCategory
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Store.CachedIssues = keptFor([]jira.Issue{odd}, &asked)
 
 	// Act
-	sent := messages(streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
+	sent := webtest.Messages(webtest.StreamOnce(t, webtest.Serve(t, deps, config.Default()), "/api/events").Body.String())
 
 	// Assert
 	seed := seedOf(t, sent[0])
@@ -406,28 +409,28 @@ func TestTheSeedsReadOfTheStoreStopsWhenItsPageLeaves(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	held, deps := newHeldUntilEnded(), filledDeps()
+	held, deps := webtest.NewHeldUntilEnded(), webtest.FilledDeps()
 	deps.Store.CachedIssues = func(ctx context.Context, _ string) ([]jira.Issue, bool) {
-		return nil, held.wait(ctx) == nil
+		return nil, held.Wait(ctx) == nil
 	}
-	stream := openStream(t, serve(t, deps, config.Default()), "/api/events")
+	stream := webtest.OpenStream(t, webtest.Serve(t, deps, config.Default()), "/api/events")
 
 	select {
-	case <-held.entered:
-	case <-time.After(endsWithin):
+	case <-held.Entered:
+	case <-time.After(webtest.EndsWithin):
 		t.Fatal("the stream never read the store for a seed")
 	}
 
 	// Act
-	stream.cancel()
+	stream.Cancel()
 
 	// Assert
-	err := held.endedWith(t)
+	err := held.EndedWith(t)
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("the store's read ended with %v, want it canceled once its page left", err)
 	}
 
-	<-stream.done
+	<-stream.Done
 }
 
 func TestAStreamWhoseSeedCannotBeWrittenAsksJiraNothing(t *testing.T) {
@@ -438,7 +441,7 @@ func TestAStreamWhoseSeedCannotBeWrittenAsksJiraNothing(t *testing.T) {
 	// before any snapshot is read.
 	var asked, searched []string
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Store.CachedIssues = keptFor([]jira.Issue{keptIssue()}, &asked)
 	deps.Jira.Search = func(_ context.Context, jql string, _ int) (jira.SearchResult, error) {
 		searched = append(searched, jql)
@@ -447,19 +450,19 @@ func TestAStreamWhoseSeedCannotBeWrittenAsksJiraNothing(t *testing.T) {
 	}
 
 	request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/events", nil)
-	request.Host = loopbackHost
+	request.Host = webtest.LoopbackHost
 	done := make(chan struct{})
 
 	// Act
 	go func() {
-		serve(t, deps, config.Default()).ServeHTTP(&failingFlushWriter{}, request)
+		webtest.Serve(t, deps, config.Default()).ServeHTTP(&webtest.FailingFlushWriter{}, request)
 		close(done)
 	}()
 
 	// Assert
 	select {
 	case <-done:
-	case <-time.After(endsWithin):
+	case <-time.After(webtest.EndsWithin):
 		t.Fatal("the stream did not stop after its seed could not be written")
 	}
 

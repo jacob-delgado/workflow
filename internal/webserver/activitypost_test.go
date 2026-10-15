@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // activityPostPath is where the Summary is posted, and summaryMarkdown a
@@ -51,7 +52,7 @@ func postActivity(t *testing.T, handler http.Handler, fields map[string]string) 
 		t.Fatalf("encoding the request: %v", err)
 	}
 
-	return send(t, handler, http.MethodPost, activityPostPath, string(body))
+	return webtest.Send(t, handler, http.MethodPost, activityPostPath, string(body))
 }
 
 // tuesdaysSummary is the request posting summaryMarkdown for Tuesday.
@@ -65,13 +66,13 @@ func TestTheSummaryIsPostedRenderedForTheService(t *testing.T) {
 	// Arrange
 	var posts []postedSummary
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Messaging.Post = recordingPost(&posts)
 	fields := tuesdaysSummary()
 	fields[channelField] = teamChannel
 
 	// Act
-	recorder := postActivity(t, serve(t, deps, config.Default()), fields)
+	recorder := postActivity(t, webtest.Serve(t, deps, config.Default()), fields)
 
 	// Assert
 	want := postedSummary{channel: teamChannel, text: "*" + tuesday + "*\n\n• committed abc1234 Fix the leak\n"}
@@ -79,7 +80,7 @@ func TestTheSummaryIsPostedRenderedForTheService(t *testing.T) {
 		t.Fatalf("POST %s = %d, posted %+v; want %+v once", activityPostPath, recorder.Code, posts, want)
 	}
 
-	answer := decode[api.ActivityPost](t, recorder)
+	answer := webtest.Decode[api.ActivityPost](t, recorder)
 	if answer.Channel != teamChannel || answer.Destination != teamChannel || answer.Text != summaryMarkdown ||
 		answer.From.String() != tuesday {
 		t.Errorf("answer = %+v, want the Markdown posted to #team for Tuesday", answer)
@@ -92,16 +93,16 @@ func TestAWebhookSummaryPostSaysItWentToTheWebhooksChannel(t *testing.T) {
 	// Arrange
 	var posts []postedSummary
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Messaging.Post = recordingPost(&posts)
 	cfg := config.Default()
 	cfg.Messaging = config.Messaging{Kind: config.KindTeams, WebhookURL: "https://example.com/hook"}
 
 	// Act
-	recorder := postActivity(t, serve(t, deps, cfg), tuesdaysSummary())
+	recorder := postActivity(t, webtest.Serve(t, deps, cfg), tuesdaysSummary())
 
 	// Assert
-	answer := decode[api.ActivityPost](t, recorder)
+	answer := webtest.Decode[api.ActivityPost](t, recorder)
 	if len(posts) != 1 || !strings.HasPrefix(posts[0].text, "**"+tuesday+"**") || answer.Channel != "" ||
 		answer.Destination != "the channel its webhook is bound to" {
 		t.Errorf("posted %+v and answered %+v, want it rendered for Teams, to the webhook's own channel", posts, answer)
@@ -126,17 +127,17 @@ func TestASummaryPostIsRefusedBeforeItGoes(t *testing.T) {
 			// Arrange
 			var posts []postedSummary
 
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			deps.Messaging.Post = recordingPost(&posts)
 			fields := tuesdaysSummary()
 			fields[tt.field] = tt.value
 
 			// Act
-			recorder := postActivity(t, serve(t, deps, config.Default()), fields)
+			recorder := postActivity(t, webtest.Serve(t, deps, config.Default()), fields)
 
 			// Assert
 			if recorder.Code != http.StatusUnprocessableEntity || len(posts) != 0 ||
-				!strings.Contains(decode[api.Problem](t, recorder).Detail, tt.detail) {
+				!strings.Contains(webtest.Decode[api.Problem](t, recorder).Detail, tt.detail) {
 				t.Errorf("POST = %d %s after %d posts, want 422 naming %q and nothing posted",
 					recorder.Code, recorder.Body, len(posts), tt.detail)
 			}
@@ -164,11 +165,11 @@ func TestAFailedSummaryPostNamesNeitherTheWebhookNorTheHost(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			deps.Messaging.Post = func(context.Context, string, string) error { return tt.err }
 
 			// Act
-			recorder := postActivity(t, serve(t, deps, config.Default()), tuesdaysSummary())
+			recorder := postActivity(t, webtest.Serve(t, deps, config.Default()), tuesdaysSummary())
 
 			// Assert
 			body := recorder.Body.String()
@@ -183,11 +184,11 @@ func TestASummaryPostWithNothingToPostThroughIsRefused(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Messaging.Post = nil
 
 	// Act
-	recorder := postActivity(t, serve(t, deps, config.Default()), tuesdaysSummary())
+	recorder := postActivity(t, webtest.Serve(t, deps, config.Default()), tuesdaysSummary())
 
 	// Assert
 	if recorder.Code != http.StatusUnprocessableEntity {
@@ -201,9 +202,9 @@ func TestASummaryPostIsRefusedUnderADryRun(t *testing.T) {
 	// Arrange
 	var posts []postedSummary
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Messaging.Post = recordingPost(&posts)
-	handler := serveWith(t, deps, config.Default(), webserver.Info{Version: testVersion, DryRun: true})
+	handler := webtest.ServeWith(t, deps, config.Default(), webserver.Info{Version: webtest.TestVersion, DryRun: true})
 
 	// Act
 	recorder := postActivity(t, handler, tuesdaysSummary())
@@ -220,7 +221,7 @@ func TestASummaryTooLongForDiscordIsRefusedBeforeItGoes(t *testing.T) {
 	// Arrange
 	var posts []postedSummary
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Messaging.Post = recordingPost(&posts)
 	cfg := config.Default()
 	cfg.Messaging = config.Messaging{Kind: config.KindDiscord, WebhookURL: "https://discord.example/api/webhooks/1/x"}
@@ -228,10 +229,10 @@ func TestASummaryTooLongForDiscordIsRefusedBeforeItGoes(t *testing.T) {
 	fields[textField] = "# " + tuesday + "\n\n- " + strings.Repeat("x", 2500) + "\n"
 
 	// Act
-	recorder := postActivity(t, serve(t, deps, cfg), fields)
+	recorder := postActivity(t, webtest.Serve(t, deps, cfg), fields)
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 
 	want := "too long for Discord (2517 of 2000 characters); pick a shorter period"
 	if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.ProblemCodeTooLong ||

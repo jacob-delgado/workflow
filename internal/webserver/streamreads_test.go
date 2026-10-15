@@ -12,17 +12,18 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // streamFrames runs the events handler on a millisecond interval until it has
-// pushed streamedFrames snapshots, and returns the body. The handler runs on the
-// test's goroutine, so the seams it calls need no lock. A frame may slip out
-// after the cancel, so a test compares its reads against the frames the body
-// carries rather than against streamedFrames.
+// pushed webtest.StreamedFrames snapshots, and returns the body. The handler
+// runs on the test's goroutine, so the seams it calls need no lock. A frame may
+// slip out after the cancel, so a test compares its reads against the frames
+// the body carries rather than against webtest.StreamedFrames.
 func streamFrames(t *testing.T, deps webserver.Deps) string {
 	t.Helper()
 
-	return streamPaced(t, deps, config.Default(), 0)
+	return webtest.StreamPaced(t, deps, config.Default(), 0)
 }
 
 func TestStreamAsksTheForgeWhoTheAuthorIsOnce(t *testing.T) {
@@ -30,27 +31,27 @@ func TestStreamAsksTheForgeWhoTheAuthorIsOnce(t *testing.T) {
 
 	// Arrange
 	asked := 0
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Forge.Author = func(context.Context) (string, error) {
 		asked++
 
-		return testAuthor, nil
+		return webtest.TestAuthor, nil
 	}
 
 	// Act
-	pushed := snapshots(t, streamFrames(t, deps))
+	pushed := webtest.Snapshots(t, streamFrames(t, deps))
 
 	// Assert
-	if len(pushed) < streamedFrames {
-		t.Fatalf("the stream pushed %d snapshots, want at least %d", len(pushed), streamedFrames)
+	if len(pushed) < webtest.StreamedFrames {
+		t.Fatalf("the stream pushed %d snapshots, want at least %d", len(pushed), webtest.StreamedFrames)
 	}
 
 	if asked != 1 {
 		t.Errorf("asked the forge for the author %d times across %d frames, want once", asked, len(pushed))
 	}
 
-	if last := pushed[len(pushed)-1]; last.Messaging.Author != testAuthor {
-		t.Errorf("last frame's author = %q, want %q kept from the first read", last.Messaging.Author, testAuthor)
+	if last := pushed[len(pushed)-1]; last.Messaging.Author != webtest.TestAuthor {
+		t.Errorf("last frame's author = %q, want %q kept from the first read", last.Messaging.Author, webtest.TestAuthor)
 	}
 }
 
@@ -59,15 +60,15 @@ func TestStreamHoldsAFailedAuthorReadForTheForgeInterval(t *testing.T) {
 
 	// Arrange
 	asked := 0
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Forge.Author = func(context.Context) (string, error) {
 		asked++
 
-		return "", errSeam
+		return "", webtest.ErrSeam
 	}
 
 	// Act
-	pushed := snapshots(t, streamFrames(t, deps))
+	pushed := webtest.Snapshots(t, streamFrames(t, deps))
 
 	// Assert
 	if asked != 1 {
@@ -83,30 +84,30 @@ func TestStreamAsksForTheAuthorAgainAnIntervalAfterAFailedRead(t *testing.T) {
 	// The first read fails and the second answers: the failure is asked again
 	// once the forge interval has passed, and the answer is kept from then on.
 	asked := 0
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Forge.Author = func(context.Context) (string, error) {
 		asked++
 		if asked == 1 {
-			return "", errSeam
+			return "", webtest.ErrSeam
 		}
 
-		return testAuthor, nil
+		return webtest.TestAuthor, nil
 	}
 
 	// Act
-	pushed := snapshots(t, streamPaced(t, deps, config.Default(), 20*time.Second))
+	pushed := webtest.Snapshots(t, webtest.StreamPaced(t, deps, config.Default(), 20*time.Second))
 
 	// Assert
-	if len(pushed) < streamedFrames {
-		t.Fatalf("the stream pushed %d snapshots, want at least %d", len(pushed), streamedFrames)
+	if len(pushed) < webtest.StreamedFrames {
+		t.Fatalf("the stream pushed %d snapshots, want at least %d", len(pushed), webtest.StreamedFrames)
 	}
 
 	if first := pushed[0]; first.Messaging.Author != "" {
 		t.Errorf("first frame's author = %q, want empty while the forge cannot say", first.Messaging.Author)
 	}
 
-	if last := pushed[len(pushed)-1]; last.Messaging.Author != testAuthor {
-		t.Errorf("last frame's author = %q, want %q once the forge answers", last.Messaging.Author, testAuthor)
+	if last := pushed[len(pushed)-1]; last.Messaging.Author != webtest.TestAuthor {
+		t.Errorf("last frame's author = %q, want %q once the forge answers", last.Messaging.Author, webtest.TestAuthor)
 	}
 
 	if asked != 2 {
@@ -122,21 +123,21 @@ func TestStreamReadsTheBranchOncePerFrame(t *testing.T) {
 	// The branches panel is listed too, so its marker for the checked-out
 	// branch is one of the frame's reads.
 	reads := 0
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	readBranch := deps.Git.Branch
 	deps.Git.Branch = func(ctx context.Context) (gitrepo.Branch, error) {
 		reads++
 
 		return readBranch(ctx)
 	}
-	deps.Git.Branches = func(context.Context) ([]string, error) { return []string{testBranchName}, nil }
+	deps.Git.Branches = func(context.Context) ([]string, error) { return []string{webtest.TestBranchName}, nil }
 
 	// Act
-	pushed := snapshots(t, streamFrames(t, deps))
+	pushed := webtest.Snapshots(t, streamFrames(t, deps))
 
 	// Assert
-	if len(pushed) < streamedFrames {
-		t.Fatalf("the stream pushed %d snapshots, want at least %d", len(pushed), streamedFrames)
+	if len(pushed) < webtest.StreamedFrames {
+		t.Fatalf("the stream pushed %d snapshots, want at least %d", len(pushed), webtest.StreamedFrames)
 	}
 
 	if reads != len(pushed) {
@@ -153,12 +154,12 @@ func TestStreamFrameDescribesOneBranch(t *testing.T) {
 	// marker must all describe the one the frame read.
 	checkedOut := []string{"fix/PROJ-1", "fix/PROJ-2", "fix/PROJ-3"}
 	reads := 0
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
 		name := checkedOut[reads%len(checkedOut)]
 		reads++
 
-		return gitrepo.Branch{Name: name, Head: testCommitHash}, nil
+		return gitrepo.Branch{Name: name, Head: webtest.TestCommitHash}, nil
 	}
 	deps.Git.Branches = func(context.Context) ([]string, error) { return checkedOut, nil }
 
@@ -171,10 +172,10 @@ func TestStreamFrameDescribesOneBranch(t *testing.T) {
 	}
 
 	cfg := config.Default()
-	cfg.Jira.Project = testProject
+	cfg.Jira.Project = webtest.TestProject
 
 	// Act
-	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, cfg), "/api/events").Body.String())
+	snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, webtest.Serve(t, deps, cfg), "/api/events").Body.String())
 
 	// Assert
 	if len(snap.Branches) != len(checkedOut) {

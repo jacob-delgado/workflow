@@ -15,14 +15,16 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
-// Where the issue forms' requests go, for testKey.
+// Where the issue forms' requests go, for webtest.TestKey.
 const (
-	statusChangesPath = "/api/issues/" + testKey + "/transitions"
-	assigneePath      = "/api/issues/" + testKey + "/assignee"
-	worklogPath       = "/api/issues/" + testKey + "/worklog"
-	// resolved and blocked are where the two changes testKey offers lead.
+	statusChangesPath = "/api/issues/" + webtest.TestKey + "/transitions"
+	assigneePath      = "/api/issues/" + webtest.TestKey + "/assignee"
+	worklogPath       = "/api/issues/" + webtest.TestKey + "/worklog"
+	// resolved and blocked are where the two changes webtest.TestKey offers
+	// lead.
 	resolved = "Resolved"
 	// noFieldsChange asks for the change to blocked, which needs no field.
 	noFieldsChange = `{"transition_id":"11","fields":[]}`
@@ -70,10 +72,11 @@ type issueWrites struct {
 	worklogOn []jira.Key
 }
 
-// formDeps is filledDeps with the issue forms' seams wired over writes:
-// testKey offers a change to Blocked that needs nothing and resolveMove.
+// formDeps is webtest.FilledDeps with the issue forms' seams wired over writes:
+// webtest.TestKey offers a change to Blocked that needs nothing and
+// resolveMove.
 func formDeps(writes *issueWrites) webserver.Deps {
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Jira.Transitions = func(context.Context, jira.Key) ([]jira.Transition, error) {
 		return []jira.Transition{
 			{ID: "11", Name: "Block", ToStatus: blocked, ToStatusCategory: "new"},
@@ -118,14 +121,14 @@ func TestStatusChangesListEachWithTheFieldsItNeeds(t *testing.T) {
 	}
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), statusChangesPath)
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), statusChangesPath)
 
 	// Assert
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d (%s), want 200", recorder.Code, recorder.Body.String())
 	}
 
-	changes := decode[[]api.StatusChange](t, recorder)
+	changes := webtest.Decode[[]api.StatusChange](t, recorder)
 	if len(changes) != 1 || changes[0].ID != "5" || changes[0].ToStatus != resolved ||
 		changes[0].Name != "Resolve Issue" || changes[0].ToStatusCategory != api.StatusCategoryDone {
 		t.Fatalf("changes = %+v, want the one change to Resolved", changes)
@@ -162,10 +165,10 @@ func TestStatusChangesAreUnavailableWithoutATracker(t *testing.T) {
 	deps.Jira.Transitions = nil
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), statusChangesPath)
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), statusChangesPath)
 
 	// Assert
-	if failure := decode[api.Problem](t, recorder); recorder.Code != http.StatusUnprocessableEntity ||
+	if failure := webtest.Decode[api.Problem](t, recorder); recorder.Code != http.StatusUnprocessableEntity ||
 		failure.Code != api.ProblemCodeUnprocessable {
 		t.Errorf("status/code = %d/%s, want 422/unprocessable", recorder.Code, failure.Code)
 	}
@@ -177,18 +180,18 @@ func TestAStatusChangeIsMadeWithTheFieldsItNeeds(t *testing.T) {
 	// Arrange
 	var writes issueWrites
 
-	handler := serve(t, formDeps(&writes), config.Default())
+	handler := webtest.Serve(t, formDeps(&writes), config.Default())
 
 	// Act
-	recorder := send(t, handler, http.MethodPost, statusChangesPath, resolveBody)
+	recorder := webtest.Send(t, handler, http.MethodPost, statusChangesPath, resolveBody)
 
 	// Assert
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d (%s), want 200", recorder.Code, recorder.Body.String())
 	}
 
-	if moved := decode[api.MovedIssue](t, recorder); moved.Key != testKey || moved.Status != resolved {
-		t.Errorf("answer = %+v, want %s now Resolved", moved, testKey)
+	if moved := webtest.Decode[api.MovedIssue](t, recorder); moved.Key != webtest.TestKey || moved.Status != resolved {
+		t.Errorf("answer = %+v, want %s now Resolved", moved, webtest.TestKey)
 	}
 
 	if len(writes.changes) != 1 || writes.changes[0].to.ID != "5" {
@@ -215,10 +218,10 @@ func TestAStatusChangeNeedingNoFieldsIsMade(t *testing.T) {
 	// Arrange
 	var writes issueWrites
 
-	handler := serve(t, formDeps(&writes), config.Default())
+	handler := webtest.Serve(t, formDeps(&writes), config.Default())
 
 	// Act
-	recorder := send(t, handler, http.MethodPost, statusChangesPath, noFieldsChange)
+	recorder := webtest.Send(t, handler, http.MethodPost, statusChangesPath, noFieldsChange)
 
 	// Assert
 	if recorder.Code != http.StatusOK || len(writes.changes) != 1 || writes.changes[0].to.ToStatus != blocked ||
@@ -281,10 +284,10 @@ func TestAStatusChangeIsRefusedWithAFieldItCannotTake(t *testing.T) {
 			}
 
 			// Act
-			recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, statusChangesPath, tt.body)
+			recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPost, statusChangesPath, tt.body)
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != http.StatusUnprocessableEntity || writes.sent() != 0 {
 				t.Errorf("status = %d, changes = %+v; want 422 and nothing sent", recorder.Code, writes.changes)
 			}
@@ -302,13 +305,13 @@ func TestAStatusChangeNoLongerOfferedIsRefused(t *testing.T) {
 	// Arrange
 	var writes issueWrites
 
-	handler := serve(t, formDeps(&writes), config.Default())
+	handler := webtest.Serve(t, formDeps(&writes), config.Default())
 
 	// Act
-	recorder := send(t, handler, http.MethodPost, statusChangesPath, `{"transition_id":"99","fields":[]}`)
+	recorder := webtest.Send(t, handler, http.MethodPost, statusChangesPath, `{"transition_id":"99","fields":[]}`)
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusConflict || failure.Code != api.ProblemCodeConflict || writes.sent() != 0 {
 		t.Errorf("status/code = %d/%s, sent %d; want 409/conflict and nothing sent", recorder.Code, failure.Code,
 			writes.sent())
@@ -321,22 +324,23 @@ func TestAnIssueIsAssigned(t *testing.T) {
 	// Arrange
 	var writes issueWrites
 
-	handler := serve(t, formDeps(&writes), config.Default())
+	handler := webtest.Serve(t, formDeps(&writes), config.Default())
 
 	// Act
-	recorder := send(t, handler, http.MethodPut, assigneePath, `{"assignee":" ana.lopez "}`)
+	recorder := webtest.Send(t, handler, http.MethodPut, assigneePath, `{"assignee":" ana.lopez "}`)
 
 	// Assert
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d (%s), want 200", recorder.Code, recorder.Body.String())
 	}
 
-	if !slices.Equal(writes.assigned, []string{testKey + " ana.lopez"}) {
-		t.Errorf("assigned = %v, want %s assigned to ana.lopez once", writes.assigned, testKey)
+	if !slices.Equal(writes.assigned, []string{webtest.TestKey + " ana.lopez"}) {
+		t.Errorf("assigned = %v, want %s assigned to ana.lopez once", writes.assigned, webtest.TestKey)
 	}
 
-	if answer := decode[api.AssignedIssue](t, recorder); answer.Key != testKey || answer.Assignee != "ana.lopez" {
-		t.Errorf("answer = %+v, want %s assigned to ana.lopez", answer, testKey)
+	if answer := webtest.Decode[api.AssignedIssue](t, recorder); answer.Key != webtest.TestKey ||
+		answer.Assignee != "ana.lopez" {
+		t.Errorf("answer = %+v, want %s assigned to ana.lopez", answer, webtest.TestKey)
 	}
 }
 
@@ -346,10 +350,10 @@ func TestWorkIsLoggedWithItsNote(t *testing.T) {
 	// Arrange
 	var writes issueWrites
 
-	handler := serve(t, formDeps(&writes), config.Default())
+	handler := webtest.Serve(t, formDeps(&writes), config.Default())
 
 	// Act
-	recorder := send(t, handler, http.MethodPost, worklogPath, `{"time_spent":"1h 30m","comment":"pairing"}`)
+	recorder := webtest.Send(t, handler, http.MethodPost, worklogPath, `{"time_spent":"1h 30m","comment":"pairing"}`)
 
 	// Assert
 	if recorder.Code != http.StatusOK {
@@ -360,8 +364,9 @@ func TestWorkIsLoggedWithItsNote(t *testing.T) {
 		t.Errorf("worklogs = %v, want 1h 30m logged with the note", writes.worklogs)
 	}
 
-	if logged := decode[api.LoggedWork](t, recorder); logged.Key != testKey || logged.TimeSpent != "1h 30m" {
-		t.Errorf("answer = %+v, want 1h 30m logged on %s", logged, testKey)
+	if logged := webtest.Decode[api.LoggedWork](t, recorder); logged.Key != webtest.TestKey ||
+		logged.TimeSpent != "1h 30m" {
+		t.Errorf("answer = %+v, want 1h 30m logged on %s", logged, webtest.TestKey)
 	}
 }
 
@@ -402,10 +407,10 @@ func TestAnIssueWriteIsRefusedWhereItCannotBeMade(t *testing.T) {
 			}
 
 			// Act
-			recorder := send(t, serve(t, deps, config.Default()), tt.method, tt.path, tt.body)
+			recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), tt.method, tt.path, tt.body)
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.ProblemCodeUnprocessable ||
 				writes.sent() != 0 {
 				t.Errorf("status/code = %d/%s, sent %d; want 422/unprocessable and nothing sent",
@@ -437,11 +442,11 @@ func TestDryRunRefusesTheIssueForms(t *testing.T) {
 			// Arrange
 			var writes issueWrites
 
-			dryRun := webserver.Info{Version: testVersion, DryRun: true}
-			handler := serveWith(t, formDeps(&writes), config.Default(), dryRun)
+			dryRun := webserver.Info{Version: webtest.TestVersion, DryRun: true}
+			handler := webtest.ServeWith(t, formDeps(&writes), config.Default(), dryRun)
 
 			// Act
-			recorder := send(t, handler, tt.method, tt.path, tt.body)
+			recorder := webtest.Send(t, handler, tt.method, tt.path, tt.body)
 
 			// Assert
 			if recorder.Code != http.StatusForbidden || writes.sent() != 0 {
@@ -494,7 +499,7 @@ func TestAnIssueFormsFailureNeverCarriesTheTrackersHost(t *testing.T) {
 			failWith(&deps, failing(tt.cause))
 
 			// Act
-			recorder := send(t, serve(t, deps, config.Default()), tt.method, tt.path, tt.body)
+			recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), tt.method, tt.path, tt.body)
 
 			// Assert
 			if recorder.Code != tt.status {
@@ -536,10 +541,10 @@ func TestAStatusChangeToAStatusUnderNoCategoryIsOffered(t *testing.T) {
 	}
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), statusChangesPath)
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), statusChangesPath)
 
 	// Assert
-	changes := decode[[]api.StatusChange](t, recorder)
+	changes := webtest.Decode[[]api.StatusChange](t, recorder)
 	if len(changes) != 1 || changes[0].ToStatusCategory != api.StatusCategoryNew {
 		t.Errorf("changes = %+v, want the change to Triage, not yet started", changes)
 	}

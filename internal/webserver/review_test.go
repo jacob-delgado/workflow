@@ -15,13 +15,15 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 func TestGetReviewReturnsThePullAndCI(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	review := decode[api.Review](t, get(t, serve(t, filledDeps(), config.Default()), "/api/review"))
+	review := webtest.Decode[api.Review](t, webtest.Get(t, webtest.Serve(t, webtest.FilledDeps(), config.Default()),
+		"/api/review"))
 
 	// Assert
 	if !review.Found || review.Pull == nil || review.Pull.Number != 42 {
@@ -41,13 +43,13 @@ func TestGetReviewReportsNoPull(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{}, false, nil
 	}
 
 	// Act
-	review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
+	review := webtest.Decode[api.Review](t, webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/review"))
 
 	// Assert
 	if review.Found || review.Pull != nil {
@@ -59,11 +61,11 @@ func TestGetReviewHasNothingWithoutAForge(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Forge.FindPullRequest = nil
 
 	// Act
-	review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
+	review := webtest.Decode[api.Review](t, webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/review"))
 
 	// Assert
 	if review.Found {
@@ -75,11 +77,11 @@ func TestGetReviewHasNothingWhenNoRepositoryIsConfigured(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Branch = nil
 
 	// Act
-	review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
+	review := webtest.Decode[api.Review](t, webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/review"))
 
 	// Assert
 	if review.Found {
@@ -91,11 +93,11 @@ func TestGetReviewReportsABranchFailure(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
-	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+	deps := webtest.FilledDeps()
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, webtest.ErrSeam }
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/review")
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/review")
 
 	// Assert
 	if recorder.Code != http.StatusInternalServerError {
@@ -107,13 +109,13 @@ func TestGetReviewReportsAPullFailure(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
-		return forge.PullRequest{}, false, errSeam
+		return forge.PullRequest{}, false, webtest.ErrSeam
 	}
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/review")
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/review")
 
 	// Assert
 	if recorder.Code != http.StatusInternalServerError {
@@ -125,13 +127,13 @@ func TestGetReviewOmitsCIWhenItCannotBeRead(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
-		return forge.CI{}, errSeam
+		return forge.CI{}, webtest.ErrSeam
 	}
 
 	// Act
-	review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
+	review := webtest.Decode[api.Review](t, webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/review"))
 
 	// Assert
 	// The pull request still shows; only its CI is left off.
@@ -148,11 +150,11 @@ func TestGetReviewOmitsCIWhenUnavailable(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Forge.CheckStatus = nil
 
 	// Act
-	review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
+	review := webtest.Decode[api.Review](t, webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/review"))
 
 	// Assert
 	if !review.Found || review.Ci != nil {
@@ -167,7 +169,7 @@ func TestGetReviewAsksNoCIAboutAMergedPull(t *testing.T) {
 	// A merged pull request has no live CI, as the terminal already knows.
 	var asked atomic.Int32
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{Number: 42, State: forge.StateMerged}, true, nil
 	}
@@ -178,7 +180,7 @@ func TestGetReviewAsksNoCIAboutAMergedPull(t *testing.T) {
 	}
 
 	// Act
-	review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
+	review := webtest.Decode[api.Review](t, webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/review"))
 
 	// Assert
 	if !review.Found || review.Pull == nil {
@@ -207,13 +209,13 @@ func TestGetReviewCarriesThePullRequestsState(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 				return forge.PullRequest{Number: 42, State: tt.state}, true, nil
 			}
 
 			// Act
-			review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
+			review := webtest.Decode[api.Review](t, webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/review"))
 
 			// Assert
 			if review.Pull == nil || review.Pull.State != tt.want {
@@ -229,7 +231,7 @@ func TestGetReviewMapsEveryCIState(t *testing.T) {
 	// Arrange
 	// One CI carrying every state — the overall state and one check per state —
 	// so the mapping is exercised for all of them at once.
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
 		return forge.CI{
 			State: forge.CIRunning,
@@ -242,7 +244,7 @@ func TestGetReviewMapsEveryCIState(t *testing.T) {
 	}
 
 	// Act
-	review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
+	review := webtest.Decode[api.Review](t, webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/review"))
 
 	// Assert
 	if review.Ci == nil || review.Ci.State != api.CIStateRunning || len(review.Ci.Checks) != 3 {
@@ -274,13 +276,13 @@ func TestGetReviewMapsMergeability(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 				return forge.PullRequest{Number: 1, Mergeable: tt.from}, true, nil
 			}
 
 			// Act
-			review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
+			review := webtest.Decode[api.Review](t, webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/review"))
 
 			// Assert
 			if review.Pull == nil || review.Pull.Mergeable != tt.want {
@@ -296,13 +298,14 @@ func TestSnapshotReviewIsNotFoundWhenTheBranchReadFails(t *testing.T) {
 	// Arrange
 	// The forge would find a pull request for any branch, so only the failed
 	// branch read can leave the review empty.
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
-		return gitrepo.Branch{Name: testBranchName}, errSeam
+		return gitrepo.Branch{Name: webtest.TestBranchName}, webtest.ErrSeam
 	}
 
 	// Act
-	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
+	snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, webtest.Serve(t, deps, config.Default()),
+		"/api/events").Body.String())
 
 	// Assert
 	if snap.Review.Found || snap.Review.Pull != nil {
@@ -316,13 +319,14 @@ func TestSnapshotReviewIsNotFoundWhenThePullReadFails(t *testing.T) {
 	// Arrange
 	// The failing find still hands back a pull request, so only the error can
 	// empty the review.
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
-		return forge.PullRequest{Number: 42}, true, errSeam
+		return forge.PullRequest{Number: 42}, true, webtest.ErrSeam
 	}
 
 	// Act
-	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
+	snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, webtest.Serve(t, deps, config.Default()),
+		"/api/events").Body.String())
 
 	// Assert
 	if snap.Review.Found || snap.Review.Pull != nil {
@@ -336,15 +340,16 @@ func TestSnapshotReviewIsNotFoundWithoutAForge(t *testing.T) {
 	// Arrange
 	// The branch is read and known, so only the missing forge can leave the
 	// review empty.
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Forge.FindPullRequest = nil
 
 	// Act
-	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
+	snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, webtest.Serve(t, deps, config.Default()),
+		"/api/events").Body.String())
 
 	// Assert
-	if snap.Branch.Name != testBranchName {
-		t.Fatalf("branch = %q, want %q read for the frame", snap.Branch.Name, testBranchName)
+	if snap.Branch.Name != webtest.TestBranchName {
+		t.Fatalf("branch = %q, want %q read for the frame", snap.Branch.Name, webtest.TestBranchName)
 	}
 
 	if snap.Review.Found || snap.Review.Pull != nil {
@@ -358,7 +363,7 @@ func TestGetReviewSaysWhyAMergedBranchCannotBeFinished(t *testing.T) {
 	committedSince := func(deps webserver.Deps) webserver.Deps {
 		deps = merged(deps)
 		deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
-			return gitrepo.Branch{Name: testBranchName, Base: testBase, Head: "def456"}, nil
+			return gitrepo.Branch{Name: webtest.TestBranchName, Base: webtest.TestBase, Head: "def456"}, nil
 		}
 
 		return deps
@@ -378,10 +383,10 @@ func TestGetReviewSaysWhyAMergedBranchCannotBeFinished(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			deps := tt.shape(filledDeps())
+			deps := tt.shape(webtest.FilledDeps())
 
 			// Act
-			review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
+			review := webtest.Decode[api.Review](t, webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/review"))
 
 			// Assert
 			refusal := ""

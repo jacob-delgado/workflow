@@ -23,6 +23,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/setup"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // Answers the page's first run sends.
@@ -88,7 +89,7 @@ func (r *firstRun) deps(t *testing.T) webserver.Deps {
 		next := deps
 		next.Settings.Setup = seams.Setup{}
 
-		return webserver.World{Deps: next, Config: cfg, Info: webserver.Info{Version: testVersion}}, err
+		return webserver.World{Deps: next, Config: cfg, Info: webserver.Info{Version: webtest.TestVersion}}, err
 	}
 
 	return deps
@@ -98,7 +99,7 @@ func (r *firstRun) deps(t *testing.T) webserver.Deps {
 func (r *firstRun) handler(t *testing.T) http.Handler {
 	t.Helper()
 
-	return serve(t, r.deps(t), config.Default())
+	return webtest.Serve(t, r.deps(t), config.Default())
 }
 
 // setupBody is a request to set up in the repository with the typed token,
@@ -131,7 +132,7 @@ func TestSetupIsOfferedWhereNoFileApplies(t *testing.T) {
 	run := newFirstRun(t, http.StatusOK)
 
 	// Act
-	offer := decode[api.SetupOffer](t, get(t, run.handler(t), setupPath))
+	offer := webtest.Decode[api.SetupOffer](t, webtest.Get(t, run.handler(t), setupPath))
 
 	// Assert
 	if !offer.Needed || len(offer.Places) != 2 || offer.Places[0].Place != api.SetupPlaceNameRepository ||
@@ -145,10 +146,10 @@ func TestTheConfigurationIsNotFoundWhereNoFileApplies(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	recorder := get(t, newFirstRun(t, http.StatusOK).handler(t), "/api/config")
+	recorder := webtest.Get(t, newFirstRun(t, http.StatusOK).handler(t), "/api/config")
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusNotFound || failure.Code != api.ProblemCodeNotFound {
 		t.Errorf("status %d, problem %+v; want 404 not_found", recorder.Code, failure)
 	}
@@ -161,10 +162,11 @@ func TestSetupWritesTheFileAndServesItWithoutTheToken(t *testing.T) {
 	run := newFirstRun(t, http.StatusOK)
 
 	// Act
-	recorder := send(t, run.handler(t), http.MethodPost, setupPath, setupBodyAt(t, api.SetupPlaceNameHome, true, false))
+	recorder := webtest.Send(t, run.handler(t), http.MethodPost, setupPath, setupBodyAt(t, api.SetupPlaceNameHome, true,
+		false))
 
 	// Assert
-	result := decode[api.SetupResult](t, recorder)
+	result := webtest.Decode[api.SetupResult](t, recorder)
 	if recorder.Code != http.StatusOK || result.JiraUser != "Fred F. User (fred)" || !result.Keychain ||
 		!result.Reopened || result.Shown == "" {
 		t.Fatalf("status %d, result %+v; want the file written, the user named and the server reopened",
@@ -183,10 +185,10 @@ func TestAfterASetupTheConfigurationIsServedMasked(t *testing.T) {
 	// Arrange
 	run := newFirstRun(t, http.StatusOK)
 	handler := run.handler(t)
-	send(t, handler, http.MethodPost, setupPath, setupBody(t, false, false))
+	webtest.Send(t, handler, http.MethodPost, setupPath, setupBody(t, false, false))
 
 	// Act
-	read := get(t, handler, "/api/config")
+	read := webtest.Get(t, handler, "/api/config")
 
 	// Assert
 	body := read.Body.String()
@@ -202,10 +204,10 @@ func TestSetupKeepsTheTokenInTheFileWhenTheKeychainIsDeclined(t *testing.T) {
 	run := newFirstRun(t, http.StatusOK)
 
 	// Act
-	recorder := send(t, run.handler(t), http.MethodPost, setupPath, setupBody(t, false, false))
+	recorder := webtest.Send(t, run.handler(t), http.MethodPost, setupPath, setupBody(t, false, false))
 
 	// Assert
-	result := decode[api.SetupResult](t, recorder)
+	result := webtest.Decode[api.SetupResult](t, recorder)
 
 	cfg, _, err := config.LoadLayersAt(config.Files{Home: result.Path})
 	if err != nil || cfg.Jira.Token.Reveal() != setupToken || run.stored != "" {
@@ -224,7 +226,7 @@ func TestSetupNeverAnswersOrNotesTheToken(t *testing.T) {
 			run := newFirstRun(t, status)
 
 			// Act
-			recorder := send(t, run.handler(t), http.MethodPost, setupPath, setupBody(t, false, false))
+			recorder := webtest.Send(t, run.handler(t), http.MethodPost, setupPath, setupBody(t, false, false))
 
 			// Assert
 			noted := strings.Join(run.noted, " ")
@@ -242,10 +244,10 @@ func TestSetupRefusesATokenJiraDoesNotAccept(t *testing.T) {
 	run := newFirstRun(t, http.StatusUnauthorized)
 
 	// Act
-	recorder := send(t, run.handler(t), http.MethodPost, setupPath, setupBody(t, false, false))
+	recorder := webtest.Send(t, run.handler(t), http.MethodPost, setupPath, setupBody(t, false, false))
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.ProblemCodeCheckFailed ||
 		strings.Contains(failure.Detail, "jira.internal.example") {
 		t.Errorf("status %d, problem %+v; want check_failed naming no host", recorder.Code, failure)
@@ -264,10 +266,10 @@ func TestSetupKeepsATokenUncheckedWhenAsked(t *testing.T) {
 	run := newFirstRun(t, http.StatusUnauthorized)
 
 	// Act
-	recorder := send(t, run.handler(t), http.MethodPost, setupPath, setupBody(t, false, true))
+	recorder := webtest.Send(t, run.handler(t), http.MethodPost, setupPath, setupBody(t, false, true))
 
 	// Assert
-	result := decode[api.SetupResult](t, recorder)
+	result := webtest.Decode[api.SetupResult](t, recorder)
 	if recorder.Code != http.StatusOK || result.JiraUser != "" {
 		t.Errorf("status %d, result %+v; want the file written unchecked", recorder.Code, result)
 	}
@@ -282,10 +284,10 @@ func TestSetupIsRefusedWhereAFileApplies(t *testing.T) {
 	cfg.Path = run.where.Path(setup.Home)
 
 	// Act
-	recorder := send(t, serve(t, run.deps(t), cfg), http.MethodPost, setupPath, setupBody(t, false, false))
+	recorder := webtest.Send(t, webtest.Serve(t, run.deps(t), cfg), http.MethodPost, setupPath, setupBody(t, false, false))
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusConflict || failure.Code != api.ProblemCodeConflict {
 		t.Errorf("status %d, problem %+v; want 409", recorder.Code, failure)
 	}
@@ -298,7 +300,7 @@ func TestSetupTakesTheFileUpWhereTheServerWorks(t *testing.T) {
 	run := newFirstRun(t, http.StatusOK)
 
 	// Act
-	send(t, run.handler(t), http.MethodPost, setupPath, setupBody(t, false, false))
+	webtest.Send(t, run.handler(t), http.MethodPost, setupPath, setupBody(t, false, false))
 
 	// Assert
 	if len(run.reached) != 1 || run.reached[0] != run.where.WorkDir {
@@ -319,10 +321,10 @@ func TestSetupTakesUpAFileMadeSinceTheServerStarted(t *testing.T) {
 	}
 
 	// Act
-	recorder := send(t, handler, http.MethodPost, setupPath, setupBody(t, false, false))
+	recorder := webtest.Send(t, handler, http.MethodPost, setupPath, setupBody(t, false, false))
 
 	// Assert
-	read := get(t, handler, "/api/config")
+	read := webtest.Get(t, handler, "/api/config")
 	if recorder.Code != http.StatusConflict || read.Code != http.StatusOK ||
 		!strings.Contains(read.Body.String(), "BYHAND") {
 		t.Errorf("setup = %d, then GET /api/config = %d %s; want 409 and the file made by hand served",
@@ -346,14 +348,14 @@ func TestTwoSetupsAtOnceWriteOnce(t *testing.T) {
 
 		return check(ctx, settings)
 	}
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 
 	// Act
 	codes := make(chan int, 2)
 
 	var both sync.WaitGroup
 	for range 2 {
-		both.Go(func() { codes <- send(t, handler, http.MethodPost, setupPath, setupBody(t, false, false)).Code })
+		both.Go(func() { codes <- webtest.Send(t, handler, http.MethodPost, setupPath, setupBody(t, false, false)).Code })
 	}
 
 	both.Wait()
@@ -379,10 +381,10 @@ func TestSetupWithJiraLeftOutAsksNoOne(t *testing.T) {
 	body := `{"place":"home","jira_base_url":"","jira_token":"","webhook_url":"","keychain":false,"keep_unchecked":false}`
 
 	// Act
-	recorder := send(t, run.handler(t), http.MethodPost, setupPath, body)
+	recorder := webtest.Send(t, run.handler(t), http.MethodPost, setupPath, body)
 
 	// Assert
-	result := decode[api.SetupResult](t, recorder)
+	result := webtest.Decode[api.SetupResult](t, recorder)
 	if recorder.Code != http.StatusOK || result.JiraUser != "" || result.Path != run.where.Path(setup.Home) {
 		t.Errorf("status %d, result %+v; want the home file written with no Jira", recorder.Code, result)
 	}
@@ -401,7 +403,7 @@ func TestSetupNeverWritesOverAFileAtThePathChosen(t *testing.T) {
 	}
 
 	// Act
-	recorder := send(t, run.handler(t), http.MethodPost, setupPath, setupBody(t, false, false))
+	recorder := webtest.Send(t, run.handler(t), http.MethodPost, setupPath, setupBody(t, false, false))
 
 	// Assert
 	kept, readErr := os.ReadFile(path)
@@ -420,10 +422,11 @@ func TestSetupRefusesTheKeychainWhereThereIsNone(t *testing.T) {
 	deps.Settings.Setup.Write = guide.Write
 
 	// Act
-	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, setupPath, setupBody(t, true, false))
+	recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPost, setupPath, setupBody(t, true,
+		false))
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.ProblemCodeUnprocessable {
 		t.Errorf("status %d, problem %+v; want 422 unprocessable", recorder.Code, failure)
 	}
@@ -436,10 +439,10 @@ func TestSetupKeepsTheTokenOfARepositoryFileInTheKeychain(t *testing.T) {
 	run := newFirstRun(t, http.StatusOK)
 
 	// Act
-	recorder := send(t, run.handler(t), http.MethodPost, setupPath, setupBody(t, true, false))
+	recorder := webtest.Send(t, run.handler(t), http.MethodPost, setupPath, setupBody(t, true, false))
 
 	// Assert
-	result := decode[api.SetupResult](t, recorder)
+	result := webtest.Decode[api.SetupResult](t, recorder)
 
 	written, err := os.ReadFile(result.Path)
 	if recorder.Code != http.StatusOK || !result.Keychain || run.stored != setupToken || err != nil ||
@@ -458,10 +461,11 @@ func TestSetupWithNoWayToTakeTheFileUpSaysSo(t *testing.T) {
 	deps.Reach = nil
 
 	// Act
-	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, setupPath, setupBody(t, false, false))
+	recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPost, setupPath, setupBody(t, false,
+		false))
 
 	// Assert
-	result := decode[api.SetupResult](t, recorder)
+	result := webtest.Decode[api.SetupResult](t, recorder)
 	if recorder.Code != http.StatusOK || result.Reopened {
 		t.Errorf("status %d, result %+v; want the file written and not taken up", recorder.Code, result)
 	}
@@ -476,10 +480,11 @@ func TestSetupThatCannotBeTakenUpIsNoted(t *testing.T) {
 	deps.Reach = func(context.Context, string) (webserver.World, error) { return webserver.World{}, errSetupUnreachable }
 
 	// Act
-	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, setupPath, setupBody(t, false, false))
+	recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPost, setupPath, setupBody(t, false,
+		false))
 
 	// Assert
-	result := decode[api.SetupResult](t, recorder)
+	result := webtest.Decode[api.SetupResult](t, recorder)
 	if result.Reopened || len(run.noted) != 1 {
 		t.Errorf("result %+v, noted %q; want it not taken up, and why noted", result, run.noted)
 	}
@@ -510,10 +515,10 @@ func TestSetupNamesTheCheckThatDidNotPass(t *testing.T) {
 			body := strings.Replace(setupBody(t, false, false), setupJira, each.address, 1)
 
 			// Act
-			recorder := send(t, run.handler(t), http.MethodPost, setupPath, body)
+			recorder := webtest.Send(t, run.handler(t), http.MethodPost, setupPath, body)
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if failure.Code != api.ProblemCodeCheckFailed || !strings.Contains(failure.Detail, each.want) {
 				t.Errorf("problem %+v, want check_failed saying %q", failure, each.want)
 			}
@@ -539,10 +544,10 @@ func TestSetupNeverKeepsAnAddressThatIsNotOne(t *testing.T) {
 			body := strings.Replace(setupBody(t, false, true), setupJira, address, 1)
 
 			// Act
-			recorder := send(t, run.handler(t), http.MethodPost, setupPath, body)
+			recorder := webtest.Send(t, run.handler(t), http.MethodPost, setupPath, body)
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			_, statErr := os.Stat(run.where.Path(setup.Repository))
 
 			if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.ProblemCodeUnprocessable ||
@@ -560,7 +565,8 @@ func TestSetupOffersNothingWhereItIsNotWired(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	offer := decode[api.SetupOffer](t, get(t, serve(t, webserver.Deps{}, config.Default()), setupPath))
+	offer := webtest.Decode[api.SetupOffer](t, webtest.Get(t, webtest.Serve(t, webserver.Deps{}, config.Default()),
+		setupPath))
 
 	// Assert
 	if offer.Needed || len(offer.Places) != 0 {
@@ -583,10 +589,10 @@ func TestSetupRefusesHomeWithoutAHomeDirectory(t *testing.T) {
 	}
 
 	// Act
-	recorder := send(t, run.handler(t), http.MethodPost, setupPath, string(body))
+	recorder := webtest.Send(t, run.handler(t), http.MethodPost, setupPath, string(body))
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.ProblemCodeUnprocessable {
 		t.Errorf("status %d, problem %+v; want 422 unprocessable", recorder.Code, failure)
 	}
@@ -603,7 +609,7 @@ func TestSetupWhoseWriteFailsSaysWhyByItsKind(t *testing.T) {
 		// Made between the look for one and the write, which never writes over it.
 		"a file made meanwhile": {failure: setup.ErrExists, wantCode: http.StatusConflict, wantKind: api.ProblemCodeConflict},
 		"a write that fails": {
-			failure: errSeam, wantCode: http.StatusInternalServerError, wantKind: api.ProblemCodeInternal,
+			failure: webtest.ErrSeam, wantCode: http.StatusInternalServerError, wantKind: api.ProblemCodeInternal,
 		},
 	}
 
@@ -619,10 +625,11 @@ func TestSetupWhoseWriteFailsSaysWhyByItsKind(t *testing.T) {
 			}
 
 			// Act
-			recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, setupPath, setupBody(t, false, false))
+			recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPost, setupPath, setupBody(t, false,
+				false))
 
 			// Assert
-			if failure := decode[api.Problem](t, recorder); recorder.Code != tt.wantCode || failure.Code != tt.wantKind {
+			if failure := webtest.Decode[api.Problem](t, recorder); recorder.Code != tt.wantCode || failure.Code != tt.wantKind {
 				t.Errorf("status/code %d/%s, want %d/%s", recorder.Code, failure.Code, tt.wantCode, tt.wantKind)
 			}
 		})

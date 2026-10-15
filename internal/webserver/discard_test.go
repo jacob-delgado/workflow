@@ -15,6 +15,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // discardPath is the endpoint that drops a file's changes.
@@ -52,7 +53,7 @@ func TestDiscardDropsTheChangeTheTreeListsAtThePath(t *testing.T) {
 		t.Errorf("status = %d, discarded %+v; want 200 and exactly %+v", recorder.Code, discarded, want)
 	}
 
-	if listed := decode[api.ChangeList](t, recorder); len(listed.Changes) != len(workTree()) {
+	if listed := webtest.Decode[api.ChangeList](t, recorder); len(listed.Changes) != len(workTree()) {
 		t.Errorf("answered %d changes, want the working tree as read again", len(listed.Changes))
 	}
 }
@@ -95,7 +96,7 @@ func TestDiscardRefusesWhatItCannotDrop(t *testing.T) {
 			recorder := sendStaging(t, deps, discardPath, tt.body)
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != tt.status || failure.Code != tt.code || len(discarded) != 0 ||
 				!strings.Contains(failure.Detail, tt.detail) {
 				t.Errorf("status/code = %d/%s, detail %q, discarded %+v; want %d/%s, %q and nothing discarded",
@@ -114,14 +115,14 @@ func TestADiscardGitRefusesNamesTheFileAndNeverTheHost(t *testing.T) {
 	deps := discarding(&discarded)
 	deps.Git.Discard = func(context.Context, gitrepo.Change) error {
 		return fmt.Errorf("discarding %s: %w: fatal: unable to access 'https://%s/acme/repo.git/'",
-			editedPath, errSeam, gitHost)
+			editedPath, webtest.ErrSeam, gitHost)
 	}
 
 	// Act
 	recorder := sendStaging(t, deps, discardPath, `{"path":"`+editedPath+`"}`)
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusUnprocessableEntity || !strings.Contains(failure.Detail, "discard "+editedPath) {
 		t.Errorf("status = %d, detail %q; want 422 naming the discard of %s", recorder.Code, failure.Detail, editedPath)
 	}
@@ -137,11 +138,11 @@ func TestADiscardIsRefusedInDryRun(t *testing.T) {
 	// Arrange
 	var discarded []gitrepo.Change
 
-	dryRun := webserver.Info{Version: testVersion, DryRun: true}
-	handler := serveWith(t, discarding(&discarded), config.Default(), dryRun)
+	dryRun := webserver.Info{Version: webtest.TestVersion, DryRun: true}
+	handler := webtest.ServeWith(t, discarding(&discarded), config.Default(), dryRun)
 
 	// Act
-	recorder := send(t, handler, http.MethodPost, discardPath, `{"path":"`+editedPath+`"}`)
+	recorder := webtest.Send(t, handler, http.MethodPost, discardPath, `{"path":"`+editedPath+`"}`)
 
 	// Assert
 	if recorder.Code != http.StatusForbidden || len(discarded) != 0 {

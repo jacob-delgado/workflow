@@ -14,16 +14,18 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 func TestListIssuesReturnsAPage(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	page := decode[api.IssuesPage](t, get(t, serve(t, filledDeps(), config.Default()), "/api/issues?start_at=0"))
+	page := webtest.Decode[api.IssuesPage](t, webtest.Get(t, webtest.Serve(t, webtest.FilledDeps(), config.Default()),
+		"/api/issues?start_at=0"))
 
 	// Assert
-	if page.Total != 1 || len(page.Issues) != 1 || page.Issues[0].Key != testKey {
+	if page.Total != 1 || len(page.Issues) != 1 || page.Issues[0].Key != webtest.TestKey {
 		t.Errorf("page = %+v, want the one issue", page)
 	}
 
@@ -36,11 +38,11 @@ func TestListIssuesIsEmptyWhenTheTrackerIsNotConfigured(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Jira.Search = nil
 
 	// Act
-	page := decode[api.IssuesPage](t, get(t, serve(t, deps, config.Default()), "/api/issues"))
+	page := webtest.Decode[api.IssuesPage](t, webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/issues"))
 
 	// Assert
 	if page.Total != 0 || len(page.Issues) != 0 {
@@ -52,20 +54,20 @@ func TestListIssuesReportsASeamFailure(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Jira.Search = func(context.Context, string, int) (jira.SearchResult, error) {
-		return jira.SearchResult{}, errSeam
+		return jira.SearchResult{}, webtest.ErrSeam
 	}
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/issues")
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/issues")
 
 	// Assert
 	if recorder.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want 500", recorder.Code)
 	}
 
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if failure.Code != api.ProblemCodeInternal || strings.Contains(failure.Detail, "seam") {
 		t.Errorf("error = %+v, want a generic internal error", failure)
 	}
@@ -77,7 +79,7 @@ func TestListIssuesRefusesAnUnknownView(t *testing.T) {
 	// Arrange
 	// A typo in the view must not quietly answer with the default view's issues.
 	searched := false
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Jira.Search = func(context.Context, string, int) (jira.SearchResult, error) {
 		searched = true
 
@@ -85,10 +87,10 @@ func TestListIssuesRefusesAnUnknownView(t *testing.T) {
 	}
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/issues?view=nope")
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/issues?view=nope")
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusNotFound || failure.Code != api.ProblemCodeNotFound {
 		t.Errorf("status/code = %d/%s, want 404/not_found", recorder.Code, failure.Code)
 	}
@@ -104,7 +106,7 @@ func TestListIssuesUsesTheNamedView(t *testing.T) {
 	// Arrange
 	var gotJQL string
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Jira.Search = func(_ context.Context, jql string, _ int) (jira.SearchResult, error) {
 		gotJQL = jql
 
@@ -112,13 +114,13 @@ func TestListIssuesUsesTheNamedView(t *testing.T) {
 	}
 
 	cfg := config.Default()
-	cfg.Jira.Views = []config.JiraView{{Name: testBugView, JQL: testBugJQL}}
+	cfg.Jira.Views = []config.JiraView{{Name: webtest.TestBugView, JQL: webtest.TestBugJQL}}
 
 	// Act
-	_ = get(t, serve(t, deps, cfg), "/api/issues?view="+testBugView)
+	_ = webtest.Get(t, webtest.Serve(t, deps, cfg), "/api/issues?view="+webtest.TestBugView)
 
 	// Assert
-	if want := jira.ScopedToMe(testBugJQL); gotJQL != want {
+	if want := jira.ScopedToMe(webtest.TestBugJQL); gotJQL != want {
 		t.Errorf("searched %q, want the named view's JQL scoped to you, %q", gotJQL, want)
 	}
 }
@@ -127,10 +129,11 @@ func TestGetIssueReturnsTheDetail(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	detail := decode[api.IssueDetail](t, get(t, serve(t, filledDeps(), config.Default()), "/api/issues/"+testKey))
+	detail := webtest.Decode[api.IssueDetail](t, webtest.Get(t, webtest.Serve(t, webtest.FilledDeps(), config.Default()),
+		"/api/issues/"+webtest.TestKey))
 
 	// Assert
-	if detail.Key != testKey || detail.Reporter != testReporter || detail.CommentTotal != 1 {
+	if detail.Key != webtest.TestKey || detail.Reporter != webtest.TestReporter || detail.CommentTotal != 1 {
 		t.Errorf("detail = %+v, want the full issue", detail)
 	}
 }
@@ -139,26 +142,27 @@ func TestGetIssueLinksTheIssueAndNamesItsAssignee(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	issue := deps.Jira.Issue
 	deps.Jira.Issue = func(ctx context.Context, key jira.Key) (jira.IssueDetail, error) {
 		detail, err := issue(ctx, key)
-		detail.Assignee = testAuthor
+		detail.Assignee = webtest.TestAuthor
 
 		return detail, err
 	}
 	deps.Jira.BrowseURL = func(key jira.Key) string { return "https://jira.example.com/browse/" + string(key) }
 
 	// Act
-	detail := decode[api.IssueDetail](t, get(t, serve(t, deps, config.Default()), "/api/issues/"+testKey))
+	detail := webtest.Decode[api.IssueDetail](t, webtest.Get(t, webtest.Serve(t, deps, config.Default()),
+		"/api/issues/"+webtest.TestKey))
 
 	// Assert
-	if detail.URL != "https://jira.example.com/browse/"+testKey {
+	if detail.URL != "https://jira.example.com/browse/"+webtest.TestKey {
 		t.Errorf("url = %q, want the issue's page in the tracker", detail.URL)
 	}
 
-	if detail.Assignee == nil || *detail.Assignee != testAuthor {
-		t.Errorf("assignee = %v, want %q", detail.Assignee, testAuthor)
+	if detail.Assignee == nil || *detail.Assignee != webtest.TestAuthor {
+		t.Errorf("assignee = %v, want %q", detail.Assignee, webtest.TestAuthor)
 	}
 }
 
@@ -166,12 +170,12 @@ func TestGetIssueHasNoLinkOrAssigneeWhenNeitherIsKnown(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// filledDeps names no assignee and wires no BrowseURL: the link is empty
-	// rather than absent, and the assignee is left out.
-	handler := serve(t, filledDeps(), config.Default())
+	// webtest.FilledDeps names no assignee and wires no BrowseURL: the link is
+	// empty rather than absent, and the assignee is left out.
+	handler := webtest.Serve(t, webtest.FilledDeps(), config.Default())
 
 	// Act
-	recorder := get(t, handler, "/api/issues/"+testKey)
+	recorder := webtest.Get(t, handler, "/api/issues/"+webtest.TestKey)
 
 	// Assert
 	var raw map[string]any
@@ -196,14 +200,14 @@ func TestGetIssueIsUnprocessableWithoutATracker(t *testing.T) {
 	// Arrange
 	// No tracker configured is not a missing issue: 404 is reserved for an issue
 	// that genuinely does not exist, so this answers 422.
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Jira.Issue = nil
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/issues/PROJ-1")
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/issues/PROJ-1")
 
 	// Assert
-	if failure := decode[api.Problem](t, recorder); recorder.Code != http.StatusUnprocessableEntity ||
+	if failure := webtest.Decode[api.Problem](t, recorder); recorder.Code != http.StatusUnprocessableEntity ||
 		failure.Code != api.ProblemCodeUnprocessable {
 		t.Errorf("status/code = %d/%s, want 422/unprocessable", recorder.Code, failure.Code)
 	}
@@ -224,14 +228,14 @@ func TestGetIssueIsNotFoundForAMissingIssue(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			deps.Jira.Issue = func(context.Context, jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, cause }
 
 			// Act
-			recorder := get(t, serve(t, deps, config.Default()), "/api/issues/PROJ-404")
+			recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/issues/PROJ-404")
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != http.StatusNotFound || failure.Code != api.ProblemCodeNotFound {
 				t.Errorf("status/code = %d/%s, want 404/not_found", recorder.Code, failure.Code)
 			}
@@ -247,16 +251,16 @@ func TestGetIssueIsUnreachableWhenTheTrackerIsDown(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Jira.Issue = func(context.Context, jira.Key) (jira.IssueDetail, error) {
 		return jira.IssueDetail{}, jira.ErrUnreachable
 	}
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/issues/PROJ-1")
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/issues/PROJ-1")
 
 	// Assert
-	if failure := decode[api.Problem](t, recorder); recorder.Code != http.StatusBadGateway ||
+	if failure := webtest.Decode[api.Problem](t, recorder); recorder.Code != http.StatusBadGateway ||
 		failure.Code != api.ProblemCodeUnreachable {
 		t.Errorf("status/code = %d/%s, want 502/unreachable", recorder.Code, failure.Code)
 	}
@@ -266,11 +270,13 @@ func TestGetIssueReportsAFailure(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
-	deps.Jira.Issue = func(context.Context, jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, errSeam }
+	deps := webtest.FilledDeps()
+	deps.Jira.Issue = func(context.Context, jira.Key) (jira.IssueDetail, error) {
+		return jira.IssueDetail{}, webtest.ErrSeam
+	}
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/issues/PROJ-1")
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/issues/PROJ-1")
 
 	// Assert
 	if recorder.Code != http.StatusInternalServerError {
@@ -282,22 +288,23 @@ func TestListIssuesSaysEachIssuesTrackerAndWhichCouldNotBeRead(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Jira.Search = func(context.Context, string, int) (jira.SearchResult, error) {
 		return jira.SearchResult{
-			Issues:      []jira.Issue{{Key: "57", Summary: "Typo"}, {Key: testKey, Summary: "Leak"}},
+			Issues:      []jira.Issue{{Key: "57", Summary: "Typo"}, {Key: webtest.TestKey, Summary: "Leak"}},
 			Total:       2,
 			Unavailable: []string{"the forge's issues"},
 		}, nil
 	}
 
 	// Act
-	page := decode[api.IssuesPage](t, get(t, serve(t, deps, config.Default()), "/api/issues?start_at=0"))
+	page := webtest.Decode[api.IssuesPage](t, webtest.Get(t, webtest.Serve(t, deps, config.Default()),
+		"/api/issues?start_at=0"))
 
 	// Assert
 	if len(page.Issues) != 2 || page.Issues[0].Tracker != api.IssueTrackerForge ||
 		page.Issues[1].Tracker != api.IssueTrackerJira {
-		t.Errorf("issues = %+v, want 57 from the forge and %s from Jira", page.Issues, testKey)
+		t.Errorf("issues = %+v, want 57 from the forge and %s from Jira", page.Issues, webtest.TestKey)
 	}
 
 	if len(page.Unavailable) != 1 || page.Unavailable[0] != "the forge's issues" {

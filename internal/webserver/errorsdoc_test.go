@@ -15,6 +15,7 @@ import (
 	apispec "github.com/jacob-delgado/workflow/api"
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // errorsPage is the reference page every problem's type URI points into.
@@ -67,10 +68,10 @@ func TestAProblemsTypeEndsInItsCodesAnchor(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	recorder := get(t, serve(t, filledDeps(), config.Default()), "/api/issues?view=nope")
+	recorder := webtest.Get(t, webtest.Serve(t, webtest.FilledDeps(), config.Default()), "/api/issues?view=nope")
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if want := "#" + problemFragment(string(api.ProblemCodeNotFound)); !strings.HasSuffix(failure.Type, want) {
 		t.Errorf("type = %q, want it to end in %q", failure.Type, want)
 	}

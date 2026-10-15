@@ -15,6 +15,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 func TestGetConfigServesAnEditMadeOnDisk(t *testing.T) {
@@ -22,14 +23,14 @@ func TestGetConfigServesAnEditMadeOnDisk(t *testing.T) {
 
 	// Arrange
 	handler, path := servedFile(t, fileAtStart, webserver.Info{})
-	before := get(t, handler, "/api/config")
-	rewrite(t, path, editedFile)
+	before := webtest.Get(t, handler, "/api/config")
+	webtest.Rewrite(t, path, editedFile)
 
 	// Act
-	recorder := get(t, handler, "/api/config")
+	recorder := webtest.Get(t, handler, "/api/config")
 
 	// Assert
-	if out := decode[api.Config](t, recorder); out.Jira.BaseURL == nil || *out.Jira.BaseURL != editBaseURL {
+	if out := webtest.Decode[api.Config](t, recorder); out.Jira.BaseURL == nil || *out.Jira.BaseURL != editBaseURL {
 		t.Errorf("jira.base_url = %v, want the edit made on disk", out.Jira.BaseURL)
 	}
 
@@ -44,11 +45,11 @@ func TestAnEditReadFromDiskReachesTheViews(t *testing.T) {
 
 	// Arrange
 	handler, path := servedFile(t, fileAtStart, webserver.Info{})
-	rewrite(t, path, withSprint)
-	get(t, handler, "/api/config")
+	webtest.Rewrite(t, path, withSprint)
+	webtest.Get(t, handler, "/api/config")
 
 	// Act
-	views := decode[api.ViewList](t, get(t, handler, "/api/views"))
+	views := webtest.Decode[api.ViewList](t, webtest.Get(t, handler, "/api/views"))
 
 	// Assert
 	if len(views.Views) != 1 || views.Views[0].Name != sprintView {
@@ -61,15 +62,15 @@ func TestGetConfigRefusesAFileOnDiskThatIsNotValid(t *testing.T) {
 
 	// Arrange
 	handler, path := servedFile(t, withSprint, webserver.Info{})
-	rewrite(t, path, notValid)
+	webtest.Rewrite(t, path, notValid)
 
 	// Act
-	recorder := get(t, handler, "/api/config")
+	recorder := webtest.Get(t, handler, "/api/config")
 
 	// Assert
 	refusedWith(t, recorder, http.StatusUnprocessableEntity, api.ProblemCodeUnprocessable, path)
 
-	views := decode[api.ViewList](t, get(t, handler, "/api/views"))
+	views := webtest.Decode[api.ViewList](t, webtest.Get(t, handler, "/api/views"))
 	if len(views.Views) != 1 || views.Views[0].Name != sprintView {
 		t.Errorf("views = %+v, want the configuration in effect kept", views.Views)
 	}
@@ -88,7 +89,7 @@ func TestGetConfigAnswersAFileItCanNoLongerReadAsInternal(t *testing.T) {
 	}
 
 	// Act
-	recorder := get(t, handler, "/api/config")
+	recorder := webtest.Get(t, handler, "/api/config")
 
 	// Assert
 	refusedWith(t, recorder, http.StatusInternalServerError, api.ProblemCodeInternal, path)
@@ -99,13 +100,13 @@ func TestAFileDeletedThenPutBackIsReadAsBefore(t *testing.T) {
 
 	// Arrange
 	handler, path := servedFile(t, fileAtStart, webserver.Info{})
-	first := get(t, handler, "/api/config")
+	first := webtest.Get(t, handler, "/api/config")
 	deleteFile(t, path)
-	get(t, handler, "/api/config")
-	rewrite(t, path, fileAtStart)
+	webtest.Get(t, handler, "/api/config")
+	webtest.Rewrite(t, path, fileAtStart)
 
 	// Act: read the file put back
-	back := get(t, handler, "/api/config")
+	back := webtest.Get(t, handler, "/api/config")
 
 	// Assert: the read names what the first one did, not a file gone
 	if etagOf(back) != etagOf(first) {
@@ -113,7 +114,7 @@ func TestAFileDeletedThenPutBackIsReadAsBefore(t *testing.T) {
 	}
 
 	// Act: save over that read
-	saved := putConfigOver(t, handler, jiraAt(t, savedBaseURL), etagOf(back))
+	saved := webtest.PutConfigOver(t, handler, jiraAt(t, savedBaseURL), etagOf(back))
 
 	// Assert: the save is written over the file put back
 	if saved.Code != http.StatusOK || !strings.Contains(onDisk(t, path), savedBaseURL) {
@@ -144,26 +145,26 @@ func TestHandlerTakesUpAnEditMadeBeforeItWasBuilt(t *testing.T) {
 	// The process reads the file, and the file is edited before the server is
 	// built over what the process read.
 	path := filepath.Join(t.TempDir(), config.FileName)
-	rewrite(t, path, fileAtStart)
+	webtest.Rewrite(t, path, fileAtStart)
 
 	cfg, _, err := config.LoadLayersAt(config.Files{Home: path})
 	if err != nil {
 		t.Fatalf("loading the file: %v", err)
 	}
 
-	rewrite(t, path, editedFile)
-	handler := serveWith(t, webserver.Deps{}, cfg, webserver.Info{})
+	webtest.Rewrite(t, path, editedFile)
+	handler := webtest.ServeWith(t, webserver.Deps{}, cfg, webserver.Info{})
 
 	// Act: read the configuration
-	read := get(t, handler, "/api/config")
+	read := webtest.Get(t, handler, "/api/config")
 
 	// Assert: the read serves the edit
-	if out := decode[api.Config](t, read); out.Jira.BaseURL == nil || *out.Jira.BaseURL != editBaseURL {
+	if out := webtest.Decode[api.Config](t, read); out.Jira.BaseURL == nil || *out.Jira.BaseURL != editBaseURL {
 		t.Errorf("the read served %s, want the edit made before the server was built", read.Body.String())
 	}
 
 	// Act: save what the read served, over the revision it named
-	saved := putConfigOver(t, handler, read.Body.String(), etagOf(read))
+	saved := webtest.PutConfigOver(t, handler, read.Body.String(), etagOf(read))
 
 	// Assert: the edit is saved back, not replaced by what the process read
 	if got := onDisk(t, path); saved.Code != http.StatusOK || !strings.Contains(got, editBaseURL) {
@@ -179,7 +180,7 @@ func TestHandlerStartsFromWhatTheProcessReadWhenTheFileHasTurnedInvalid(t *testi
 	// since: the server starts from what the process read rather than refusing
 	// to start.
 	path := filepath.Join(t.TempDir(), config.FileName)
-	rewrite(t, path, notValid)
+	webtest.Rewrite(t, path, notValid)
 
 	cfg := config.Default()
 	cfg.Path = path
@@ -194,7 +195,7 @@ func TestHandlerStartsFromWhatTheProcessReadWhenTheFileHasTurnedInvalid(t *testi
 		t.Fatalf("Handler over a file that is not valid = %v, want it served anyway", err)
 	}
 
-	views := decode[api.ViewList](t, get(t, presenting(t, session, handler), "/api/views"))
+	views := webtest.Decode[api.ViewList](t, webtest.Get(t, webtest.Presenting(t, session, handler), "/api/views"))
 	if len(views.Views) != 1 || views.Views[0].Name != sprintView {
 		t.Errorf("views = %+v, want the configuration the process read", views.Views)
 	}

@@ -18,17 +18,18 @@ import (
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // Where the writes that name no task are sent, and the issue's page a tracked
 // task is annotated with.
 const (
-	trackPath = tasksPath + "/track"
-	undoPath  = tasksPath + "/undo"
-	syncPath  = tasksPath + "/sync"
-	issuePage = "https://jira.example/browse/" + testKey
-	// trackBody asks to track testKey.
-	trackBody = `{"issue_key":"` + testKey + `"}`
+	trackPath = webtest.TasksPath + "/track"
+	undoPath  = webtest.TasksPath + "/undo"
+	syncPath  = webtest.TasksPath + "/sync"
+	issuePage = "https://jira.example/browse/" + webtest.TestKey
+	// trackBody asks to track webtest.TestKey.
+	trackBody = `{"issue_key":"` + webtest.TestKey + `"}`
 	// addVerb is how the fake records an add, which tracking makes too, and
 	// startVerb, stopVerb, doneVerb, undoVerb, annotateVerb and pendingRead how
 	// it records a start, a stop, a done, an undo, an annotation and the read of
@@ -52,15 +53,15 @@ const (
 // and by host and port.
 func leakyWords() string {
 	return strings.Join([]string{
-		"Found existing '*.data' files in " + dataPath,
-		"Hook " + homePath + "/.task/hooks/on-exit.sync said:",
+		"Found existing '*.data' files in " + webtest.DataPath,
+		"Hook " + webtest.HomePath + "/.task/hooks/on-exit.sync said:",
 		"could not sync with https://" + syncServer,
 		"connecting to " + syncServer + ":8080 failed",
 	}, "\n")
 }
 
 // trackableDeps is tasksDeps with the tracker's page for each issue.
-func trackableDeps(fake *taskFake) webserver.Deps {
+func trackableDeps(fake *webtest.TaskFake) webserver.Deps {
 	deps := tasksDeps(fake)
 	deps.Jira.BrowseURL = func(key jira.Key) string { return "https://jira.example/browse/" + string(key) }
 
@@ -71,20 +72,20 @@ func TestAddTaskSendsTheLineAndAnswersTheList(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fake := fakeTaskwarrior()
+	fake := webtest.FakeTaskwarrior()
 
 	// Act
-	recorder := send(t, serve(t, tasksDeps(fake), config.Default()),
-		http.MethodPost, tasksPath, `{"line":"Water the plants project:home"}`)
+	recorder := webtest.Send(t, webtest.Serve(t, tasksDeps(fake), config.Default()),
+		http.MethodPost, webtest.TasksPath, `{"line":"Water the plants project:home"}`)
 
 	// Assert
-	list := decode[api.TaskList](t, recorder)
-	if recorder.Code != http.StatusOK || !list.Available || !fake.readAfter("add Water the plants project:home") {
-		t.Errorf("answer = %d %+v, calls = %q, want 200 with the list read after the add", recorder.Code, list, fake.asked())
+	list := webtest.Decode[api.TaskList](t, recorder)
+	if recorder.Code != http.StatusOK || !list.Available || !fake.ReadAfter("add Water the plants project:home") {
+		t.Errorf("answer = %d %+v, calls = %q, want 200 with the list read after the add", recorder.Code, list, fake.Asked())
 	}
 
-	if list.Added == nil || *list.Added != addedUUID {
-		t.Errorf("added = %v, want the new task's uuid %s", list.Added, addedUUID)
+	if list.Added == nil || *list.Added != webtest.AddedUUID {
+		t.Errorf("added = %v, want the new task's uuid %s", list.Added, webtest.AddedUUID)
 	}
 }
 
@@ -92,14 +93,15 @@ func TestAddTaskRequiresALine(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fake := fakeTaskwarrior()
+	fake := webtest.FakeTaskwarrior()
 
 	// Act
-	recorder := send(t, serve(t, tasksDeps(fake), config.Default()), http.MethodPost, tasksPath, `{"line":"  "}`)
+	recorder := webtest.Send(t, webtest.Serve(t, tasksDeps(fake), config.Default()), http.MethodPost, webtest.TasksPath,
+		`{"line":"  "}`)
 
 	// Assert
-	if recorder.Code != http.StatusUnprocessableEntity || len(fake.asked()) != 0 {
-		t.Errorf("answer = %d, calls = %q, want 422 before Taskwarrior is asked", recorder.Code, fake.asked())
+	if recorder.Code != http.StatusUnprocessableEntity || len(fake.Asked()) != 0 {
+		t.Errorf("answer = %d, calls = %q, want 422 before Taskwarrior is asked", recorder.Code, fake.Asked())
 	}
 }
 
@@ -107,31 +109,32 @@ func TestTrackIssueBuildsTheLineFromTheIssueAndAnnotatesIt(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fake := fakeTaskwarrior()
+	fake := webtest.FakeTaskwarrior()
 	deps := trackableDeps(fake)
 	deps.Jira.Issue = func(_ context.Context, key jira.Key) (jira.IssueDetail, error) {
-		return jira.IssueDetail{Issue: jira.Issue{Key: key, Summary: testSummary, Priority: "High"}}, nil
+		return jira.IssueDetail{Issue: jira.Issue{Key: key, Summary: webtest.TestSummary, Priority: "High"}}, nil
 	}
 
 	// Act
-	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, trackPath, trackBody)
+	recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPost, trackPath, trackBody)
 
 	// Assert
-	add := "add jiraid:" + testKey + " jiraurl:" + issuePage + " +jira priority:H -- " + testKey + ": " + testSummary
-	annotate := "annotate " + addedUUID + " " + issuePage
+	add := "add jiraid:" + webtest.TestKey + " jiraurl:" + issuePage + " +jira priority:H -- " +
+		webtest.TestKey + ": " + webtest.TestSummary
+	annotate := "annotate " + webtest.AddedUUID + " " + issuePage
 
-	calls := fake.asked()
+	calls := fake.Asked()
 	if added := slices.Index(calls, add); added < 0 || slices.Index(calls, annotate) < added {
 		t.Fatalf("calls = %q, want %q and then %q", calls, add, annotate)
 	}
 
-	list := decode[api.TaskList](t, recorder)
-	if recorder.Code != http.StatusOK || list.Said != "" || !fake.readAfter(annotate) {
+	list := webtest.Decode[api.TaskList](t, recorder)
+	if recorder.Code != http.StatusOK || list.Said != "" || !fake.ReadAfter(annotate) {
 		t.Errorf("answer = %d %+v, want 200 with the list read after the annotation", recorder.Code, list)
 	}
 
-	if list.Added == nil || *list.Added != addedUUID {
-		t.Errorf("added = %v, want the issue's new task's uuid %s", list.Added, addedUUID)
+	if list.Added == nil || *list.Added != webtest.AddedUUID {
+		t.Errorf("added = %v, want the issue's new task's uuid %s", list.Added, webtest.AddedUUID)
 	}
 }
 
@@ -141,18 +144,18 @@ func TestTrackIssueWithoutAPageAddsNoAnnotation(t *testing.T) {
 	// Arrange
 	// The forge's own issues have no page to link, and Taskwarrior refuses an
 	// empty annotation.
-	fake := fakeTaskwarrior()
+	fake := webtest.FakeTaskwarrior()
 
 	// Act
-	recorder := send(t, serve(t, tasksDeps(fake), config.Default()), http.MethodPost, trackPath, trackBody)
+	recorder := webtest.Send(t, webtest.Serve(t, tasksDeps(fake), config.Default()), http.MethodPost, trackPath, trackBody)
 
 	// Assert
-	if recorder.Code != http.StatusOK || fake.count("add") != 1 || fake.count("annotate") != 0 {
-		t.Errorf("answer = %d, calls = %q, want 200 with the task added and not annotated", recorder.Code, fake.asked())
+	if recorder.Code != http.StatusOK || fake.Count("add") != 1 || fake.Count("annotate") != 0 {
+		t.Errorf("answer = %d, calls = %q, want 200 with the task added and not annotated", recorder.Code, fake.Asked())
 	}
 
-	if list := decode[api.TaskList](t, recorder); list.Added == nil || *list.Added != addedUUID {
-		t.Errorf("added = %v, want the issue's new task's uuid %s", list.Added, addedUUID)
+	if list := webtest.Decode[api.TaskList](t, recorder); list.Added == nil || *list.Added != webtest.AddedUUID {
+		t.Errorf("added = %v, want the issue's new task's uuid %s", list.Added, webtest.AddedUUID)
 	}
 }
 
@@ -160,22 +163,22 @@ func TestTrackIssueOfAnUnknownIssueIs404(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fake := fakeTaskwarrior()
+	fake := webtest.FakeTaskwarrior()
 	deps := trackableDeps(fake)
 	deps.Jira.Issue = func(context.Context, jira.Key) (jira.IssueDetail, error) {
 		return jira.IssueDetail{}, jira.ErrNotFound
 	}
 
 	// Act
-	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, trackPath, trackBody)
+	recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPost, trackPath, trackBody)
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
-	if recorder.Code != http.StatusNotFound || failure.Code != api.ProblemCodeNotFound || fake.count("add") != 0 {
-		t.Errorf("answer = %d %+v, calls = %q, want 404 and no task added", recorder.Code, failure, fake.asked())
+	failure := webtest.Decode[api.Problem](t, recorder)
+	if recorder.Code != http.StatusNotFound || failure.Code != api.ProblemCodeNotFound || fake.Count("add") != 0 {
+		t.Errorf("answer = %d %+v, calls = %q, want 404 and no task added", recorder.Code, failure, fake.Asked())
 	}
 
-	if want := "issue " + testKey + " was not found"; failure.Detail != want {
+	if want := "issue " + webtest.TestKey + " was not found"; failure.Detail != want {
 		t.Errorf("detail = %q, want %q, as GET /api/issues/{key} says it", failure.Detail, want)
 	}
 }
@@ -217,7 +220,10 @@ func TestTrackIssueIsRefusedWithoutWhatItNeeds(t *testing.T) {
 			body: trackBody, wantStatus: http.StatusUnprocessableEntity,
 			mutate: func(deps *webserver.Deps) {
 				deps.Jira.Issue = func(context.Context, jira.Key) (jira.IssueDetail, error) {
-					return jira.IssueDetail{Issue: jira.Issue{Key: testKey + " rc.hooks.location=/tmp", Summary: testSummary}}, nil
+					return jira.IssueDetail{Issue: jira.Issue{
+						Key:     webtest.TestKey + " rc.hooks.location=/tmp",
+						Summary: webtest.TestSummary,
+					}}, nil
 				}
 			},
 		},
@@ -228,17 +234,17 @@ func TestTrackIssueIsRefusedWithoutWhatItNeeds(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			fake := fakeTaskwarrior()
+			fake := webtest.FakeTaskwarrior()
 			deps := trackableDeps(fake)
 			tt.mutate(&deps)
 
 			// Act
-			recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, trackPath, tt.body)
+			recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPost, trackPath, tt.body)
 
 			// Assert
-			if recorder.Code != tt.wantStatus || len(fake.asked()) != 0 {
+			if recorder.Code != tt.wantStatus || len(fake.Asked()) != 0 {
 				t.Errorf("answer = %d, calls = %q, want %d and nothing asked of Taskwarrior",
-					recorder.Code, fake.asked(), tt.wantStatus)
+					recorder.Code, fake.Asked(), tt.wantStatus)
 			}
 		})
 	}
@@ -248,21 +254,22 @@ func TestTrackIssueWhoseAnnotationFailsStillAnswersTheList(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fake := fakeTaskwarrior()
-	fake.fail["annotate"] = fmt.Errorf("%s: %w after 30s", dataPath, proc.ErrTimedOut)
+	fake := webtest.FakeTaskwarrior()
+	fake.Fail["annotate"] = fmt.Errorf("%s: %w after 30s", webtest.DataPath, proc.ErrTimedOut)
 
 	// Act
-	recorder := send(t, serve(t, trackableDeps(fake), config.Default()), http.MethodPost, trackPath, trackBody)
+	recorder := webtest.Send(t, webtest.Serve(t, trackableDeps(fake), config.Default()), http.MethodPost, trackPath,
+		trackBody)
 
 	// Assert
-	list := decode[api.TaskList](t, recorder)
+	list := webtest.Decode[api.TaskList](t, recorder)
 	if want := "created but not annotated: Taskwarrior did not answer in time"; recorder.Code != http.StatusOK ||
 		list.Said != want || len(list.Tasks) != 2 {
 		t.Errorf("answer = %d %+v, want 200 with the list and said %q", recorder.Code, list, want)
 	}
 
-	if list.Added == nil || *list.Added != addedUUID {
-		t.Errorf("added = %v, want the task created, %s", list.Added, addedUUID)
+	if list.Added == nil || *list.Added != webtest.AddedUUID {
+		t.Errorf("added = %v, want the task created, %s", list.Added, webtest.AddedUUID)
 	}
 }
 
@@ -294,13 +301,13 @@ func TestUndoAndSyncAnswerWhatTaskwarriorSaid(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			fake := fakeTaskwarrior()
-			fake.said = tt.said
-			verb := strings.TrimPrefix(tt.path, tasksPath+"/")
-			fake.fail[verb] = tt.fail
+			fake := webtest.FakeTaskwarrior()
+			fake.Said = tt.said
+			verb := strings.TrimPrefix(tt.path, webtest.TasksPath+"/")
+			fake.Fail[verb] = tt.fail
 
 			// Act
-			recorder := send(t, serve(t, tasksDeps(fake), config.Default()), http.MethodPost, tt.path, "")
+			recorder := webtest.Send(t, webtest.Serve(t, tasksDeps(fake), config.Default()), http.MethodPost, tt.path, "")
 
 			// Assert
 			body := recorder.Body.String()
@@ -318,7 +325,7 @@ func TestTaskCommandsAnswerARefusalInTaskwarriorsWords(t *testing.T) {
 	cases := map[string]struct {
 		verb, path, body string
 	}{
-		"an add":  {verb: addVerb, path: tasksPath, body: addBody},
+		"an add":  {verb: addVerb, path: webtest.TasksPath, body: addBody},
 		"a track": {verb: addVerb, path: trackPath, body: trackBody},
 		"an undo": {verb: undoVerb, path: undoPath},
 	}
@@ -328,14 +335,15 @@ func TestTaskCommandsAnswerARefusalInTaskwarriorsWords(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			fake := fakeTaskwarrior()
-			fake.fail[tt.verb] = fmt.Errorf("%w: %s", taskwarrior.ErrRefused, words)
+			fake := webtest.FakeTaskwarrior()
+			fake.Fail[tt.verb] = fmt.Errorf("%w: %s", taskwarrior.ErrRefused, words)
 
 			// Act
-			recorder := send(t, serve(t, trackableDeps(fake), config.Default()), http.MethodPost, tt.path, tt.body)
+			recorder := webtest.Send(t, webtest.Serve(t, trackableDeps(fake), config.Default()), http.MethodPost, tt.path,
+				tt.body)
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != http.StatusUnprocessableEntity || failure.Detail != "Taskwarrior refused the command: "+words {
 				t.Errorf("answer = %d %+v, want 422 with Taskwarrior's words", recorder.Code, failure)
 			}
@@ -347,14 +355,14 @@ func TestUndoWithNothingToUndoIs409(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fake := fakeTaskwarrior()
-	fake.fail["undo"] = taskwarrior.ErrNothingChanged
+	fake := webtest.FakeTaskwarrior()
+	fake.Fail["undo"] = taskwarrior.ErrNothingChanged
 
 	// Act
-	recorder := send(t, serve(t, tasksDeps(fake), config.Default()), http.MethodPost, undoPath, "")
+	recorder := webtest.Send(t, webtest.Serve(t, tasksDeps(fake), config.Default()), http.MethodPost, undoPath, "")
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusConflict || failure.Detail != "Taskwarrior has nothing to undo" {
 		t.Errorf("answer = %d %+v, want 409 saying Taskwarrior has nothing to undo", recorder.Code, failure)
 	}
@@ -366,20 +374,21 @@ func TestARefusedSyncNeverRepeatsTaskwarriorsWords(t *testing.T) {
 	// Arrange
 	// A refused sync names the sync server, an internal host.
 	host := "sync.corp.internal"
-	fake := fakeTaskwarrior()
-	fake.fail["sync"] = fmt.Errorf("%w: could not reach https://%s:8080 for %s", taskwarrior.ErrRefused, host, dataPath)
+	fake := webtest.FakeTaskwarrior()
+	fake.Fail["sync"] = fmt.Errorf("%w: could not reach https://%s:8080 for %s", taskwarrior.ErrRefused, host,
+		webtest.DataPath)
 
 	// Act
-	recorder := send(t, serve(t, tasksDeps(fake), config.Default()), http.MethodPost, syncPath, "")
+	recorder := webtest.Send(t, webtest.Serve(t, tasksDeps(fake), config.Default()), http.MethodPost, syncPath, "")
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusUnprocessableEntity ||
 		failure.Detail != "Taskwarrior could not sync; run task sync in a terminal to see why" {
 		t.Errorf("answer = %d %+v, want 422 in fixed words", recorder.Code, failure)
 	}
 
-	if body := recorder.Body.String(); strings.Contains(body, host) || strings.Contains(body, dataPath) {
+	if body := recorder.Body.String(); strings.Contains(body, host) || strings.Contains(body, webtest.DataPath) {
 		t.Errorf("body = %s, which repeats Taskwarrior's words", body)
 	}
 }
@@ -387,7 +396,7 @@ func TestARefusedSyncNeverRepeatsTaskwarriorsWords(t *testing.T) {
 func TestTaskFaultsNeverLeakAPath(t *testing.T) {
 	t.Parallel()
 
-	start := taskPath(startedUUID, "start")
+	start := taskPath(webtest.StartedUUID, "start")
 	cases := map[string]struct {
 		method, path, body string
 		// verb is the call that fails, with cause wrapped around leakyWords.
@@ -433,7 +442,7 @@ func TestTaskFaultsNeverLeakAPath(t *testing.T) {
 			wantStatus: http.StatusUnprocessableEntity, wantCode: api.ProblemCodeUnprocessable,
 		},
 		"a refused add": {
-			method: http.MethodPost, path: tasksPath, body: addBody, verb: addVerb,
+			method: http.MethodPost, path: webtest.TasksPath, body: addBody, verb: addVerb,
 			cause: taskwarrior.ErrRefused, wantStatus: http.StatusUnprocessableEntity, wantCode: api.ProblemCodeUnprocessable,
 		},
 		"a refused undo": {
@@ -441,7 +450,7 @@ func TestTaskFaultsNeverLeakAPath(t *testing.T) {
 			wantStatus: http.StatusUnprocessableEntity, wantCode: api.ProblemCodeUnprocessable,
 		},
 		"a refused read of the list": {
-			method: http.MethodGet, path: tasksPath, verb: pendingRead, cause: taskwarrior.ErrRefused,
+			method: http.MethodGet, path: webtest.TasksPath, verb: pendingRead, cause: taskwarrior.ErrRefused,
 			wantStatus: http.StatusUnprocessableEntity, wantCode: api.ProblemCodeUnprocessable,
 		},
 		// The start is made, so it answers the list, unavailable with why.
@@ -462,26 +471,26 @@ func TestTaskFaultsNeverLeakAPath(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			fake := fakeTaskwarrior()
-			fake.fail[tt.verb] = fmt.Errorf("%w: %s", tt.cause, leakyWords())
+			fake := webtest.FakeTaskwarrior()
+			fake.Fail[tt.verb] = fmt.Errorf("%w: %s", tt.cause, leakyWords())
 
 			// Act
-			recorder := send(t, serve(t, trackableDeps(fake), config.Default()), tt.method, tt.path, tt.body)
+			recorder := webtest.Send(t, webtest.Serve(t, trackableDeps(fake), config.Default()), tt.method, tt.path, tt.body)
 
 			// Assert
-			answer := decode[struct {
+			answer := webtest.Decode[struct {
 				Code   api.ProblemCode `json:"code"`
 				Detail string          `json:"detail"`
 				Said   string          `json:"said"`
 				Reason string          `json:"reason"`
 			}](t, recorder)
-			if fake.count(tt.verb) != 1 || recorder.Code != tt.wantStatus || answer.Code != tt.wantCode ||
+			if fake.Count(tt.verb) != 1 || recorder.Code != tt.wantStatus || answer.Code != tt.wantCode ||
 				answer.Detail+answer.Said+answer.Reason == "" {
 				t.Errorf("answer = %d %s, calls = %q, want %d %q saying why", recorder.Code, recorder.Body.String(),
-					fake.asked(), tt.wantStatus, tt.wantCode)
+					fake.Asked(), tt.wantStatus, tt.wantCode)
 			}
 
-			for _, leak := range []string{dataPath, homePath, syncServer} {
+			for _, leak := range []string{webtest.DataPath, webtest.HomePath, syncServer} {
 				if strings.Contains(recorder.Body.String(), leak) {
 					t.Errorf("body = %s, which names %s", recorder.Body.String(), leak)
 				}

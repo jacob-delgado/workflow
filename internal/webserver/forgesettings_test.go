@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // savedHost is the host the saved forge settings name.
@@ -58,7 +59,7 @@ func savingForge(t *testing.T, recorder *settingsRecorder) (http.Handler, config
 	cfg.Path = filepath.Join(t.TempDir(), ".workflow.json")
 	deps := webserver.Deps{UseForgeSettings: recorder.use}
 
-	return serveWith(t, deps, cfg, webserver.Info{Version: testVersion, ForgeKind: forge.KindGitHub}), cfg
+	return webtest.ServeWith(t, deps, cfg, webserver.Info{Version: webtest.TestVersion, ForgeKind: forge.KindGitHub}), cfg
 }
 
 func TestSavedForgeSettingsAreHandedOnAtOnce(t *testing.T) {
@@ -71,7 +72,7 @@ func TestSavedForgeSettingsAreHandedOnAtOnce(t *testing.T) {
 	next.Forge = config.Forge{Token: "glpat-saved-in-settings", Kind: "gitlab", Host: savedHost}
 
 	// Act
-	saved := putConfig(t, handler, marshal(t, next))
+	saved := webtest.PutConfig(t, handler, webtest.Marshal(t, next))
 
 	// Assert
 	if saved.Code != http.StatusOK {
@@ -92,10 +93,10 @@ func TestThePageNamesTheForgeTheSavedSettingsPointAt(t *testing.T) {
 	handler, cfg := savingForge(t, recorder)
 	next := cfg
 	next.Forge = config.Forge{Kind: "gitlab", Host: savedHost}
-	putConfig(t, handler, marshal(t, next))
+	webtest.PutConfig(t, handler, webtest.Marshal(t, next))
 
 	// Act
-	health := decode[api.Health](t, get(t, handler, "/api/health"))
+	health := webtest.Decode[api.Health](t, webtest.Get(t, handler, "/api/health"))
 
 	// Assert
 	if health.ForgeNoun != forge.KindGitLab.Noun() {
@@ -108,7 +109,7 @@ func TestAForgeTokenEditedOnDiskIsHandedOnOnceRead(t *testing.T) {
 
 	// Arrange
 	path := filepath.Join(t.TempDir(), config.FileName)
-	rewrite(t, path, fileAtStart)
+	webtest.Rewrite(t, path, fileAtStart)
 
 	cfg, _, err := config.LoadLayersAt(config.Files{Home: path})
 	if err != nil {
@@ -116,11 +117,12 @@ func TestAForgeTokenEditedOnDiskIsHandedOnOnceRead(t *testing.T) {
 	}
 
 	recorder := &settingsRecorder{kind: forge.KindGitLab}
-	handler := serveWith(t, webserver.Deps{UseForgeSettings: recorder.use}, cfg, webserver.Info{Version: testVersion})
-	rewrite(t, path, `{"jira": {"token": "`+fileToken+`"}, "forge": {"token": "glpat-edited-on-disk"}}`)
+	handler := webtest.ServeWith(t, webserver.Deps{UseForgeSettings: recorder.use}, cfg,
+		webserver.Info{Version: webtest.TestVersion})
+	webtest.Rewrite(t, path, `{"jira": {"token": "`+fileToken+`"}, "forge": {"token": "glpat-edited-on-disk"}}`)
 
 	// Act
-	get(t, handler, "/api/config")
+	webtest.Get(t, handler, "/api/config")
 
 	// Assert
 	used, ok := recorder.last()

@@ -15,6 +15,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // The credentials the removal and redaction tests store and type.
@@ -84,10 +85,10 @@ func TestUpdateConfigRemovesACredentialSentAsNull(t *testing.T) {
 
 	// Arrange
 	cfg := storedConfig(t)
-	body := withValue(t, marshal(t, cfg.Redacted()), "jira.token", nil, false)
+	body := withValue(t, webtest.Marshal(t, cfg.Redacted()), "jira.token", nil, false)
 
 	// Act
-	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), body)
+	recorder := webtest.PutConfig(t, webtest.Serve(t, webserver.Deps{}, cfg), body)
 
 	// Assert
 	written, err := os.ReadFile(cfg.Path)
@@ -102,10 +103,10 @@ func TestUpdateConfigRefusesABodyLeavingACredentialOut(t *testing.T) {
 
 	// Arrange
 	cfg := storedConfig(t)
-	body := withValue(t, marshal(t, cfg.Redacted()), "jira.token", nil, true)
+	body := withValue(t, webtest.Marshal(t, cfg.Redacted()), "jira.token", nil, true)
 
 	// Act
-	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), body)
+	recorder := webtest.PutConfig(t, webtest.Serve(t, webserver.Deps{}, cfg), body)
 
 	// Assert
 	saved, _, err := config.LoadLayersAt(config.Files{Home: cfg.Path})
@@ -129,9 +130,11 @@ func TestACredentialTypedIntoSettingsIsNeverAnsweredUnmasked(t *testing.T) {
 		body string
 		deps webserver.Deps
 	}{
-		"a save that writes":            {body: marshal(t, typed)},
-		"a save refused as not valid":   {body: marshal(t, invalid)},
-		"a save refused for its keymap": {body: marshal(t, typed), deps: webserver.Deps{CheckKeys: refuseAMovedCommit}},
+		"a save that writes":          {body: webtest.Marshal(t, typed)},
+		"a save refused as not valid": {body: webtest.Marshal(t, invalid)},
+		"a save refused for its keymap": {
+			body: webtest.Marshal(t, typed), deps: webserver.Deps{CheckKeys: refuseAMovedCommit},
+		},
 	}
 
 	for name, tt := range cases {
@@ -146,11 +149,11 @@ func TestACredentialTypedIntoSettingsIsNeverAnsweredUnmasked(t *testing.T) {
 				body = withValue(t, body, "ui.keys", map[string]string{"commit": "C"}, false)
 			}
 
-			handler := serve(t, tt.deps, cfg)
+			handler := webtest.Serve(t, tt.deps, cfg)
 
 			// Act
-			saved := putConfig(t, handler, body)
-			read := get(t, handler, "/api/config")
+			saved := webtest.PutConfig(t, handler, body)
+			read := webtest.Get(t, handler, "/api/config")
 
 			// Assert
 			for _, answer := range []string{saved.Body.String(), read.Body.String()} {
@@ -172,7 +175,7 @@ func TestAViewAddedInSettingsIsInTheConfigurationTheInterfaceReads(t *testing.T)
 	next.Jira.Views = []config.JiraView{{Name: "Review", JQL: "status = Review"}}
 
 	// Act
-	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, next))
+	recorder := webtest.PutConfig(t, webtest.Serve(t, webserver.Deps{}, cfg), webtest.Marshal(t, next))
 
 	// Assert
 	saved, _, err := config.LoadLayersAt(config.Files{Home: cfg.Path})
@@ -190,11 +193,11 @@ func TestAChannelAddedInSettingsIsOfferedForTheAnnouncement(t *testing.T) {
 	next := cfg.Redacted()
 	next.Messaging.ClientID, next.Messaging.Channel = "1234.5678", "#dev"
 	next.Messaging.Channels = []string{addedChannel}
-	handler := serve(t, webserver.Deps{}, cfg)
-	putConfig(t, handler, marshal(t, next))
+	handler := webtest.Serve(t, webserver.Deps{}, cfg)
+	webtest.PutConfig(t, handler, webtest.Marshal(t, next))
 
 	// Act
-	destination := decode[api.MessagingDestination](t, get(t, handler, "/api/messaging"))
+	destination := webtest.Decode[api.MessagingDestination](t, webtest.Get(t, handler, "/api/messaging"))
 
 	// Assert
 	if !slices.Contains(destination.Channels, addedChannel) {

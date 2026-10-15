@@ -62,6 +62,12 @@ readonly exceptions=(
   # readsAtOnce at a time and each writing only its own index, because every
   # read runs git and one after another the pane waits on them all.
   'internal/wiring/repositories.go:running.Go(func() {'
+  # The web server's tests serve a request, or hold an event stream open, on a
+  # goroutine of its own, as the HTTP server runs each, so the test can end it
+  # from outside or see it end. Only tests import internal/webserver/webtest,
+  # the harness both live in.
+  'internal/webserver/webtest/heldcall.go:go func() {'
+  'internal/webserver/webtest/streamclient.go:go func() {'
 )
 
 found=""

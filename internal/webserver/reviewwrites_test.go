@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // Where the review's writes go.
@@ -51,10 +52,10 @@ func (w *reviewWrites) sent() int {
 	return len(w.edits) + len(w.merges) + len(w.finishes) + len(w.reruns)
 }
 
-// reviewDeps is filledDeps with #42 approved, green and clean — mergeable —
-// and the review's write seams recording into writes.
+// reviewDeps is webtest.FilledDeps with #42 approved, green and clean —
+// mergeable — and the review's write seams recording into writes.
 func reviewDeps(writes *reviewWrites) webserver.Deps {
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{
 			Number: 42, Title: pullTitle, Body: "Why: tokens leak.",
@@ -96,7 +97,10 @@ func reviewDeps(writes *reviewWrites) webserver.Deps {
 // branch is at.
 func merged(deps webserver.Deps) webserver.Deps {
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
-		return forge.PullRequest{Number: 42, Title: pullTitle, State: forge.StateMerged, HeadCommit: filledHead}, true, nil
+		return forge.PullRequest{
+			Number: 42, Title: pullTitle, State: forge.StateMerged,
+			HeadCommit: webtest.FilledHead,
+		}, true, nil
 	}
 
 	return deps
@@ -124,10 +128,10 @@ func TestEditReadsThePullRequestsTextAfresh(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	recorder := get(t, serve(t, reviewDeps(&reviewWrites{}), config.Default()), pullAt)
+	recorder := webtest.Get(t, webtest.Serve(t, reviewDeps(&reviewWrites{}), config.Default()), pullAt)
 
 	// Assert
-	text := decode[api.PullRequestText](t, recorder)
+	text := webtest.Decode[api.PullRequestText](t, recorder)
 	if text.Title != pullTitle || text.Body != "Why: tokens leak." {
 		t.Errorf("text = %+v, want the pull request's title and description", text)
 	}
@@ -138,13 +142,14 @@ func TestEditSavesTheTitleAndDescription(t *testing.T) {
 
 	// Arrange
 	writes := &reviewWrites{}
-	handler := serve(t, reviewDeps(writes), config.Default())
+	handler := webtest.Serve(t, reviewDeps(writes), config.Default())
 
 	// Act
-	recorder := send(t, handler, http.MethodPatch, pullAt, `{"title":"Redact every token","body":"Why: all of them."}`)
+	recorder := webtest.Send(t, handler, http.MethodPatch, pullAt,
+		`{"title":"Redact every token","body":"Why: all of them."}`)
 
 	// Assert
-	pull := decode[api.PullRequest](t, recorder)
+	pull := webtest.Decode[api.PullRequest](t, recorder)
 	if pull.Title != "Redact every token" {
 		t.Errorf("answered %+v, want the pull request as edited", pull)
 	}
@@ -176,7 +181,7 @@ func TestReviewWritesAreRefusedWhenThereIsNothingToWriteTo(t *testing.T) {
 		deps = merged(deps)
 		deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
 			return gitrepo.Branch{
-				Name: testBranchName, Base: testBase, Upstream: "origin/" + testBranchName, Ahead: 1,
+				Name: webtest.TestBranchName, Base: webtest.TestBase, Upstream: "origin/" + webtest.TestBranchName, Ahead: 1,
 				PushRemote: gitrepo.DefaultRemote,
 			}, nil
 		}
@@ -219,7 +224,7 @@ func TestReviewWritesAreRefusedWhenThereIsNothingToWriteTo(t *testing.T) {
 			}
 
 			// Act
-			recorder := send(t, serve(t, deps, config.Default()), tt.method, tt.path, tt.body)
+			recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), tt.method, tt.path, tt.body)
 
 			// Assert
 			assertProblem(t, recorder, http.StatusConflict, tt.saying)
@@ -238,7 +243,7 @@ func TestEditRefusesAnEmptyTitle(t *testing.T) {
 	writes := &reviewWrites{}
 
 	// Act
-	recorder := send(t, serve(t, reviewDeps(writes), config.Default()), http.MethodPatch, pullAt,
+	recorder := webtest.Send(t, webtest.Serve(t, reviewDeps(writes), config.Default()), http.MethodPatch, pullAt,
 		`{"title":"  ","body":"x"}`)
 
 	// Assert
@@ -253,10 +258,10 @@ func TestMergeOffersTheMethodsTheRepositoryPermits(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	recorder := get(t, serve(t, reviewDeps(&reviewWrites{}), config.Default()), mergeAt)
+	recorder := webtest.Get(t, webtest.Serve(t, reviewDeps(&reviewWrites{}), config.Default()), mergeAt)
 
 	// Assert
-	offer := decode[api.MergeOffer](t, recorder)
+	offer := webtest.Decode[api.MergeOffer](t, recorder)
 	if !slices.Equal(offer.Methods, []api.MergeMethod{api.MergeMethodSquash, api.MergeMethodRebase}) ||
 		offer.Pull.Number != 42 {
 		t.Errorf("offer = %+v, want #42 by squash or rebase", offer)
@@ -271,7 +276,7 @@ func TestMergeOffersNothingWhenTheRepositoryPermitsNothing(t *testing.T) {
 	deps.Forge.MergeMethods = func(context.Context) ([]forge.MergeMethod, error) { return nil, nil }
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), mergeAt)
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), mergeAt)
 
 	// Assert
 	assertProblem(t, recorder, http.StatusUnprocessableEntity, "permits no merge method")
@@ -284,7 +289,8 @@ func TestMergeMergesByTheMethodChosen(t *testing.T) {
 	writes := &reviewWrites{}
 
 	// Act
-	recorder := send(t, serve(t, reviewDeps(writes), config.Default()), http.MethodPost, mergeAt, `{"method":"rebase"}`)
+	recorder := webtest.Send(t, webtest.Serve(t, reviewDeps(writes), config.Default()), http.MethodPost, mergeAt,
+		`{"method":"rebase"}`)
 
 	// Assert
 	if recorder.Code != http.StatusOK || !slices.Equal(writes.merges, []forge.MergeMethod{forge.MergeRebase}) {
@@ -299,7 +305,8 @@ func TestMergeRefusesAMethodTheRepositoryDoesNotPermit(t *testing.T) {
 	writes := &reviewWrites{}
 
 	// Act
-	recorder := send(t, serve(t, reviewDeps(writes), config.Default()), http.MethodPost, mergeAt, `{"method":"merge"}`)
+	recorder := webtest.Send(t, webtest.Serve(t, reviewDeps(writes), config.Default()), http.MethodPost, mergeAt,
+		`{"method":"merge"}`)
 
 	// Assert
 	assertProblem(t, recorder, http.StatusUnprocessableEntity, "does not permit")
@@ -317,7 +324,7 @@ func TestARefusedMergeNamesTheMissingScopeAndNoHost(t *testing.T) {
 	deps.Forge.Merge = func(context.Context, forge.PullRequest, forge.MergeMethod) error { return refusedByForge() }
 
 	// Act
-	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, mergeAt, bySquash)
+	recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPost, mergeAt, bySquash)
 
 	// Assert
 	assertProblem(t, recorder, http.StatusUnprocessableEntity, "the token may lack the repo scope")
@@ -334,13 +341,14 @@ func TestFinishFinishesAMergedBranch(t *testing.T) {
 	writes := &reviewWrites{}
 
 	// Act
-	recorder := send(t, serve(t, merged(reviewDeps(writes)), config.Default()), http.MethodPost, finishAt, "")
+	recorder := webtest.Send(t, webtest.Serve(t, merged(reviewDeps(writes)), config.Default()), http.MethodPost, finishAt,
+		"")
 
 	// Assert
-	want := []string{testBranchName + " onto main from origin"}
+	want := []string{webtest.TestBranchName + " onto main from origin"}
 	if recorder.Code != http.StatusOK || !slices.Equal(writes.finishes, want) {
 		t.Errorf("status %d, finishes %v; want %s finished onto main from origin", recorder.Code, writes.finishes,
-			testBranchName)
+			webtest.TestBranchName)
 	}
 }
 
@@ -350,11 +358,11 @@ func TestAFinishGitRefusesKeepsItsWordsOff(t *testing.T) {
 	// Arrange
 	deps := merged(reviewDeps(&reviewWrites{}))
 	deps.Git.Finish = func(context.Context, gitrepo.Finishing) error {
-		return fmt.Errorf("git pull from https://%s/acme.git: %w", forgeHost, errSeam)
+		return fmt.Errorf("git pull from https://%s/acme.git: %w", forgeHost, webtest.ErrSeam)
 	}
 
 	// Act
-	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, finishAt, "")
+	recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPost, finishAt, "")
 
 	// Assert
 	assertProblem(t, recorder, http.StatusUnprocessableEntity, "git would not finish")
@@ -371,10 +379,12 @@ func TestRerunRestartsTheFailedChecks(t *testing.T) {
 	writes := &reviewWrites{}
 
 	// Act
-	recorder := send(t, serve(t, failedCI(reviewDeps(writes)), config.Default()), http.MethodPost, rerunAt, "")
+	recorder := webtest.Send(t, webtest.Serve(t, failedCI(reviewDeps(writes)), config.Default()), http.MethodPost, rerunAt,
+		"")
 
 	// Assert
-	if !decode[api.Rerun](t, recorder).Reran || !slices.Equal(writes.reruns, []string{"#42 at " + filledHead}) {
+	if !webtest.Decode[api.Rerun](t, recorder).Reran || !slices.Equal(writes.reruns,
+		[]string{"#42 at " + webtest.FilledHead}) {
 		t.Errorf("reruns = %v, want #42's failed checks re-run at its head", writes.reruns)
 	}
 }
@@ -387,7 +397,7 @@ func TestARefusedRerunNamesTheScopeAndNoHost(t *testing.T) {
 	deps.Forge.Rerun = func(context.Context, forge.PullRequest, string) (bool, error) { return false, refusedByForge() }
 
 	// Act
-	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, rerunAt, "")
+	recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPost, rerunAt, "")
 
 	// Assert
 	assertProblem(t, recorder, http.StatusUnprocessableEntity, "the token may lack")
@@ -420,7 +430,7 @@ func TestReviewWritesWithoutTheirSeamAreNotAvailable(t *testing.T) {
 			tt.unset(&deps)
 
 			// Act
-			recorder := send(t, serve(t, deps, config.Default()), tt.method, tt.path, tt.body)
+			recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), tt.method, tt.path, tt.body)
 
 			// Assert
 			assertProblem(t, recorder, http.StatusUnprocessableEntity, "not available")
@@ -433,15 +443,15 @@ func TestReviewWritesAreHeldBackUnderADryRun(t *testing.T) {
 
 	// Arrange
 	writes := &reviewWrites{}
-	handler := serveWith(t, failedCI(reviewDeps(writes)), config.Default(),
-		webserver.Info{Version: testVersion, DryRun: true})
+	handler := webtest.ServeWith(t, failedCI(reviewDeps(writes)), config.Default(),
+		webserver.Info{Version: webtest.TestVersion, DryRun: true})
 
 	// Act
 	codes := []int{
-		send(t, handler, http.MethodPatch, pullAt, anEdit).Code,
-		send(t, handler, http.MethodPost, mergeAt, bySquash).Code,
-		send(t, handler, http.MethodPost, finishAt, "").Code,
-		send(t, handler, http.MethodPost, rerunAt, "").Code,
+		webtest.Send(t, handler, http.MethodPatch, pullAt, anEdit).Code,
+		webtest.Send(t, handler, http.MethodPost, mergeAt, bySquash).Code,
+		webtest.Send(t, handler, http.MethodPost, finishAt, "").Code,
+		webtest.Send(t, handler, http.MethodPost, rerunAt, "").Code,
 	}
 
 	// Assert
@@ -454,26 +464,26 @@ func TestTheDraftStartsFromTheTemplateChosen(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{}, false, nil
 	}
 	deps.Forge.Templates = func() []forge.Template {
 		return []forge.Template{{Name: "feature", Body: "## Feature\n"}, {Name: bugfixTemplate, Body: "## Bug\n"}}
 	}
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 
 	// Act
-	recorder := get(t, handler, "/api/pull-request/draft?template=bugfix")
+	recorder := webtest.Get(t, handler, "/api/pull-request/draft?template=bugfix")
 
 	// Assert
-	draft := decode[api.PullRequestDraft](t, recorder)
+	draft := webtest.Decode[api.PullRequestDraft](t, recorder)
 	if !strings.HasPrefix(draft.Body, "## Bug") || draft.Template != bugfixTemplate ||
 		!slices.Equal(draft.Templates, []string{"feature", bugfixTemplate}) {
 		t.Errorf("draft = %+v, want the bugfix template, both listed", draft)
 	}
 
-	unknown := get(t, handler, "/api/pull-request/draft?template=nope")
+	unknown := webtest.Get(t, handler, "/api/pull-request/draft?template=nope")
 	assertProblem(t, unknown, http.StatusNotFound, "no pull request template")
 }
 
@@ -495,11 +505,11 @@ func TestReviewWritesWhoseReadsFailSayToTryAgain(t *testing.T) {
 
 	failures := map[string]func(*webserver.Deps){
 		"the branch": func(deps *webserver.Deps) {
-			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, webtest.ErrSeam }
 		},
 		"the pull request": func(deps *webserver.Deps) {
 			deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
-				return forge.PullRequest{}, false, errSeam
+				return forge.PullRequest{}, false, webtest.ErrSeam
 			}
 		},
 	}
@@ -515,10 +525,10 @@ func TestReviewWritesWhoseReadsFailSayToTryAgain(t *testing.T) {
 				fail(&deps)
 
 				// Act
-				recorder := send(t, serve(t, deps, config.Default()), write[0], write[1], write[2])
+				recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), write[0], write[1], write[2])
 
 				// Assert
-				assertProblem(t, recorder, http.StatusInternalServerError, tryAgain)
+				assertProblem(t, recorder, http.StatusInternalServerError, webtest.TryAgain)
 
 				if writes.sent() != 0 {
 					t.Errorf("writes = %+v, want none", writes)
@@ -552,7 +562,7 @@ func TestReviewWritesWithNoPullRequestHaveNothingToWriteTo(t *testing.T) {
 				unset(&deps)
 
 				// Act
-				recorder := send(t, serve(t, deps, config.Default()), write[0], write[1], write[2])
+				recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), write[0], write[1], write[2])
 
 				// Assert
 				if recorder.Code != http.StatusConflict || writes.sent() != 0 {
@@ -572,7 +582,7 @@ func TestAMergeWithNoCIToReadCannotGo(t *testing.T) {
 	deps.Forge.CheckStatus = nil
 
 	// Act
-	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, mergeAt, bySquash)
+	recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPost, mergeAt, bySquash)
 
 	// Assert
 	assertProblem(t, recorder, http.StatusConflict, "cannot be merged yet")
@@ -609,7 +619,7 @@ func TestReviewWritesTheForgeRefusesSayWhy(t *testing.T) {
 			tt.refuse(&deps)
 
 			// Act
-			recorder := send(t, serve(t, deps, config.Default()), tt.method, tt.path, tt.body)
+			recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), tt.method, tt.path, tt.body)
 
 			// Assert
 			assertProblem(t, recorder, http.StatusUnprocessableEntity, "the token may lack")

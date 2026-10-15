@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // slackApp and slackChannel are the Slack user token's app and channel the
@@ -106,7 +107,7 @@ func TestSlackSecretsSavedInSettingsArePlacedAndKeptOutOfTheFile(t *testing.T) {
 		},
 		UseMessagingSettings: func(settings config.Messaging) { used <- settings },
 	}
-	handler := serveWith(t, deps, cfg, webserver.Info{Version: testVersion})
+	handler := webtest.ServeWith(t, deps, cfg, webserver.Info{Version: webtest.TestVersion})
 	next := cfg
 	next.Messaging = config.Messaging{
 		Kind: config.KindSlack, ClientID: slackApp, ClientSecret: "client-secret-9999",
@@ -114,7 +115,7 @@ func TestSlackSecretsSavedInSettingsArePlacedAndKeptOutOfTheFile(t *testing.T) {
 	}
 
 	// Act
-	saved := putConfig(t, handler, marshal(t, next))
+	saved := webtest.PutConfig(t, handler, webtest.Marshal(t, next))
 
 	// Assert
 	if saved.Code != http.StatusOK {
@@ -140,11 +141,11 @@ func TestSlackSecretsSentBackMaskedAreKeptAsTheyWere(t *testing.T) {
 
 	// Arrange
 	cfg := fileKeepingSlack(t)
-	handler := serveWith(t, webserver.Deps{PlaceSlackCredentials: placingNothing(t)}, cfg, webserver.Info{})
-	read := get(t, handler, "/api/config")
+	handler := webtest.ServeWith(t, webserver.Deps{PlaceSlackCredentials: placingNothing(t)}, cfg, webserver.Info{})
+	read := webtest.Get(t, handler, "/api/config")
 
 	// Act
-	saved := putConfigOver(t, handler, read.Body.String(), read.Header().Get("ETag"))
+	saved := webtest.PutConfigOver(t, handler, read.Body.String(), read.Header().Get("ETag"))
 
 	// Assert
 	for _, secret := range []string{keptSecret, keptRefresh, keptAccess} {
@@ -168,10 +169,10 @@ func TestSlackSecretsTypedIntoAFileThatKeepsThemStartAFreshToken(t *testing.T) {
 
 	// Arrange
 	cfg := fileKeepingSlack(t)
-	handler := serveWith(t, webserver.Deps{PlaceSlackCredentials: placingNothing(t)}, cfg, webserver.Info{})
+	handler := webtest.ServeWith(t, webserver.Deps{PlaceSlackCredentials: placingNothing(t)}, cfg, webserver.Info{})
 
 	// Act
-	saved := putConfig(t, handler, marshal(t, typingRefresh(cfg)))
+	saved := webtest.PutConfig(t, handler, webtest.Marshal(t, typingRefresh(cfg)))
 
 	// Assert
 	written, _, err := config.LoadLayersAt(config.Files{Home: cfg.Path})
@@ -193,10 +194,10 @@ func TestASlackRefusalOfTypedSecretsSaysWhatToCheck(t *testing.T) {
 		return config.Config{}, fmt.Errorf("%w: %w", messaging.ErrRejected, errSlackSaysNo)
 	}}
 	cfg := keychainKept(t)
-	handler := serveWith(t, deps, cfg, webserver.Info{})
+	handler := webtest.ServeWith(t, deps, cfg, webserver.Info{})
 
 	// Act
-	saved := putConfig(t, handler, marshal(t, typingRefresh(cfg)))
+	saved := webtest.PutConfig(t, handler, webtest.Marshal(t, typingRefresh(cfg)))
 
 	// Assert
 	if saved.Code != http.StatusUnprocessableEntity || !strings.Contains(saved.Body.String(), "Slack refused") {
@@ -218,8 +219,8 @@ func TestSlackSecretsAreNotPlacedOverAFileChangedSinceTheRead(t *testing.T) {
 
 	// Arrange
 	cfg := keychainKept(t)
-	handler := serveWith(t, webserver.Deps{PlaceSlackCredentials: placingNothing(t)}, cfg, webserver.Info{})
-	etag := get(t, handler, "/api/config").Header().Get("ETag")
+	handler := webtest.ServeWith(t, webserver.Deps{PlaceSlackCredentials: placingNothing(t)}, cfg, webserver.Info{})
+	etag := webtest.Get(t, handler, "/api/config").Header().Get("ETag")
 
 	err := os.WriteFile(cfg.Path, []byte(`{"version":"1"}`), 0o600)
 	if err != nil {
@@ -227,7 +228,7 @@ func TestSlackSecretsAreNotPlacedOverAFileChangedSinceTheRead(t *testing.T) {
 	}
 
 	// Act
-	saved := putConfigOver(t, handler, marshal(t, typingRefresh(cfg)), etag)
+	saved := webtest.PutConfigOver(t, handler, webtest.Marshal(t, typingRefresh(cfg)), etag)
 
 	// Assert
 	if saved.Code != http.StatusConflict {

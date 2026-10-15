@@ -17,6 +17,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // gitReadWrite is a write that reads the repository before it changes it: how
@@ -49,11 +50,11 @@ func gitReadWrites() map[string]gitReadWrite {
 	}
 }
 
-// writesWired is filledDeps with every git write wired to count the writes
-// that ran, so a request answered before its write can be told from one that
-// went ahead.
+// writesWired is webtest.FilledDeps with every git write wired to count the
+// writes that ran, so a request answered before its write can be told from one
+// that went ahead.
 func writesWired(ran *int) webserver.Deps {
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Push = func(context.Context, string) (proc.Output, error) {
 		*ran++
 
@@ -91,7 +92,7 @@ type gitReadAnswer struct {
 func assertGitReadAnswer(t *testing.T, recorder *httptest.ResponseRecorder, ran int, want gitReadAnswer) {
 	t.Helper()
 
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != want.status || failure.Code != want.code {
 		t.Errorf("status = %d, code %q; want %d and %q", recorder.Code, failure.Code, want.status, want.code)
 	}
@@ -100,7 +101,7 @@ func assertGitReadAnswer(t *testing.T, recorder *httptest.ResponseRecorder, ran 
 		t.Errorf("detail = %q, want it to say %q", failure.Detail, want.detail)
 	}
 
-	if strings.Contains(failure.Detail, errSeam.Error()) || strings.Contains(failure.Detail, repoPath) {
+	if strings.Contains(failure.Detail, webtest.ErrSeam.Error()) || strings.Contains(failure.Detail, webtest.RepoPath) {
 		t.Errorf("detail = %q, names the read's own words or the repository's path", failure.Detail)
 	}
 
@@ -113,7 +114,7 @@ func TestAFailedGitReadAnswersEveryWriteAlike(t *testing.T) {
 	t.Parallel()
 
 	// A read that fails says where the repository is, as gitrepo words it.
-	readErr := fmt.Errorf("reading the current branch of %s: %w", repoPath, errSeam)
+	readErr := fmt.Errorf("reading the current branch of %s: %w", webtest.RepoPath, webtest.ErrSeam)
 
 	for name, write := range gitReadWrites() {
 		t.Run(name, func(t *testing.T) {
@@ -125,11 +126,11 @@ func TestAFailedGitReadAnswersEveryWriteAlike(t *testing.T) {
 			write.failRead(&deps, readErr)
 
 			// Act
-			recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, write.path, write.body)
+			recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPost, write.path, write.body)
 
 			// Assert
 			assertGitReadAnswer(t, recorder, ran,
-				gitReadAnswer{http.StatusInternalServerError, api.ProblemCodeInternal, tryAgain})
+				gitReadAnswer{http.StatusInternalServerError, api.ProblemCodeInternal, webtest.TryAgain})
 		})
 	}
 }
@@ -138,7 +139,7 @@ func TestAServerOutsideARepositoryAnswersEveryWriteWithAConflict(t *testing.T) {
 	t.Parallel()
 
 	// Outside a work tree gitrepo says so, naming the directory it looked in.
-	readErr := fmt.Errorf("%w: %s", gitrepo.ErrNotARepository, repoPath)
+	readErr := fmt.Errorf("%w: %s", gitrepo.ErrNotARepository, webtest.RepoPath)
 
 	for name, write := range gitReadWrites() {
 		t.Run(name, func(t *testing.T) {
@@ -150,7 +151,7 @@ func TestAServerOutsideARepositoryAnswersEveryWriteWithAConflict(t *testing.T) {
 			write.failRead(&deps, readErr)
 
 			// Act
-			recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, write.path, write.body)
+			recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPost, write.path, write.body)
 
 			// Assert
 			assertGitReadAnswer(t, recorder, ran, gitReadAnswer{http.StatusConflict, api.ProblemCodeConflict, notARepository})
@@ -161,7 +162,7 @@ func TestAServerOutsideARepositoryAnswersEveryWriteWithAConflict(t *testing.T) {
 func TestAServerOutsideARepositoryAnswersItsReadsWithAConflict(t *testing.T) {
 	t.Parallel()
 
-	readErr := fmt.Errorf("%w: %s", gitrepo.ErrNotARepository, repoPath)
+	readErr := fmt.Errorf("%w: %s", gitrepo.ErrNotARepository, webtest.RepoPath)
 	cases := map[string]string{
 		"the branch":  "/api/branch",
 		"the changes": "/api/changes",
@@ -172,12 +173,12 @@ func TestAServerOutsideARepositoryAnswersItsReadsWithAConflict(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, readErr }
 			deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return nil, readErr }
 
 			// Act
-			recorder := get(t, serve(t, deps, config.Default()), path)
+			recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), path)
 
 			// Assert
 			assertGitReadAnswer(t, recorder, 0, gitReadAnswer{http.StatusConflict, api.ProblemCodeConflict, notARepository})

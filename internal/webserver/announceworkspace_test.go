@@ -15,6 +15,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // unknownWorkspace is the note an announcement that cannot tell its
@@ -27,13 +28,13 @@ func TestGetAnnouncementSaysWhyItTagsNoOneInAnUnknownWorkspace(t *testing.T) {
 	// Arrange
 	fake := newFakeKept()
 	fake.workspaceErr = messaging.ErrNoWorkspace
-	handler := keptServer(t, fake, webserver.Info{Version: testVersion})
+	handler := keptServer(t, fake, webserver.Info{Version: webtest.TestVersion})
 
 	// Act
-	recorder := get(t, handler, "/api/announcement")
+	recorder := webtest.Get(t, handler, "/api/announcement")
 
 	// Assert
-	tagging := decode[api.Announcement](t, recorder).Tagging
+	tagging := webtest.Decode[api.Announcement](t, recorder).Tagging
 	if tagging == nil || tagging.Available || len(tagging.Owners)+len(tagging.Groups) != 0 {
 		t.Fatalf("tagging = %+v, want it unavailable, proposing no one", tagging)
 	}
@@ -49,13 +50,13 @@ func TestPeopleIsRefusedWithWhyInAnUnknownWorkspace(t *testing.T) {
 	// Arrange
 	fake := newFakeKept()
 	fake.workspaceErr = messaging.ErrNoWorkspace
-	handler := keptServer(t, fake, webserver.Info{Version: testVersion})
+	handler := keptServer(t, fake, webserver.Info{Version: webtest.TestVersion})
 
 	// Act
-	recorder := get(t, handler, peoplePath)
+	recorder := webtest.Get(t, handler, peoplePath)
 
 	// Assert
-	if detail := decode[api.Problem](t, recorder).Detail; recorder.Code != http.StatusUnprocessableEntity ||
+	if detail := webtest.Decode[api.Problem](t, recorder).Detail; recorder.Code != http.StatusUnprocessableEntity ||
 		!strings.Contains(detail, unknownWorkspace) {
 		t.Errorf("status %d, detail %q; want 422 saying %q", recorder.Code, detail, unknownWorkspace)
 	}

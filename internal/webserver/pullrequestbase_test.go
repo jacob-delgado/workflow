@@ -12,6 +12,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // releaseOnlySubject is the one commit the branch holds past release.
@@ -29,7 +30,7 @@ func ontoReleaseDeps() webserver.Deps {
 
 		branch := pushedBranch()
 		branch.Base = "origin/release"
-		branch.Commits = []gitrepo.Commit{{Hash: testCommitHash, Subject: releaseOnlySubject}}
+		branch.Commits = []gitrepo.Commit{{Hash: webtest.TestCommitHash, Subject: releaseOnlySubject}}
 
 		return branch, nil
 	}
@@ -41,14 +42,15 @@ func TestGetPullRequestDraftComposesOntoTheBaseItIsGiven(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	recorder := get(t, serve(t, ontoReleaseDeps(), config.Default()), "/api/pull-request/draft?base=release")
+	recorder := webtest.Get(t, webtest.Serve(t, ontoReleaseDeps(), config.Default()),
+		"/api/pull-request/draft?base=release")
 
 	// Assert
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", recorder.Code)
 	}
 
-	draft := decode[api.PullRequestDraft](t, recorder)
+	draft := webtest.Decode[api.PullRequestDraft](t, recorder)
 	if draft.Title != releaseOnlySubject || draft.Base != "release" {
 		t.Errorf("draft = %+v, want release's own commit as the title, into release", draft)
 	}
@@ -58,10 +60,11 @@ func TestGetPullRequestDraftIsNotFoundOntoABaseNothingHolds(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	recorder := get(t, serve(t, ontoReleaseDeps(), config.Default()), "/api/pull-request/draft?base=nonesuch")
+	recorder := webtest.Get(t, webtest.Serve(t, ontoReleaseDeps(), config.Default()),
+		"/api/pull-request/draft?base=nonesuch")
 
 	// Assert
-	problem := decode[api.Problem](t, recorder)
+	problem := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusNotFound || problem.Code != api.ProblemCodeNotFound {
 		t.Errorf("status = %d, problem %+v; want a 404 not_found", recorder.Code, problem)
 	}
@@ -77,7 +80,7 @@ func TestGetPullRequestDraftIsNotFoundOntoABaseGitWouldReadAsAnOption(t *testing
 	}
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/pull-request/draft?base=-x")
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/pull-request/draft?base=-x")
 
 	// Assert
 	if recorder.Code != http.StatusNotFound {

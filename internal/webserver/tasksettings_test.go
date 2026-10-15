@@ -13,6 +13,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // settingsChanged is the task list's reason once the taskwarrior settings in
@@ -30,14 +31,14 @@ func savedSettings(
 	cfg.Path = filepath.Join(t.TempDir(), config.FileName)
 	cfg.Taskwarrior = start
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Tasks = tasks
-	handler := serve(t, deps, cfg)
+	handler := webtest.Serve(t, deps, cfg)
 
 	saved := cfg
 	change(&saved.Taskwarrior)
 
-	recorder := putConfig(t, handler, marshal(t, saved))
+	recorder := webtest.PutConfig(t, handler, webtest.Marshal(t, saved))
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("saving the settings answered %d: %s", recorder.Code, recorder.Body.String())
 	}
@@ -58,7 +59,7 @@ func TestTheTaskListSaysSavedTaskwarriorSettingsApplyAtTheNextStart(t *testing.T
 			change: func(settings *config.Taskwarrior) { settings.Disabled = false },
 		},
 		"turned off": {
-			tasks:  fakeTaskwarrior().seams(),
+			tasks:  webtest.FakeTaskwarrior().Seams(),
 			change: func(settings *config.Taskwarrior) { settings.Disabled = true },
 		},
 	}
@@ -71,10 +72,10 @@ func TestTheTaskListSaysSavedTaskwarriorSettingsApplyAtTheNextStart(t *testing.T
 			handler := savedSettings(t, tt.tasks, tt.start, tt.change)
 
 			// Act
-			recorder := get(t, handler, tasksPath)
+			recorder := webtest.Get(t, handler, webtest.TasksPath)
 
 			// Assert
-			list := decode[api.TaskList](t, recorder)
+			list := webtest.Decode[api.TaskList](t, recorder)
 			if recorder.Code != http.StatusOK || list.Available || list.Reason != settingsChanged {
 				t.Errorf("answer = %d %+v, want 200, not available, reason %q", recorder.Code, list, settingsChanged)
 			}
@@ -93,24 +94,24 @@ func TestTheTaskListSaysAProgramNamedInTheFileAppliesAtTheNextStart(t *testing.T
 	// The search at start answered that task on PATH was not Taskwarrior, and
 	// the file has named a program since; a read of the configuration takes
 	// the edit up, as Settings opening does.
-	fake := fakeTaskwarrior()
-	fake.fail["install"] = fmt.Errorf("%w: tried /usr/local/bin/task", taskwarrior.ErrNotTaskwarrior)
+	fake := webtest.FakeTaskwarrior()
+	fake.Fail["install"] = fmt.Errorf("%w: tried /usr/local/bin/task", taskwarrior.ErrNotTaskwarrior)
 
 	cfg := config.Default()
 	cfg.Path = filepath.Join(t.TempDir(), config.FileName)
 
-	deps := filledDeps()
-	deps.Tasks = fake.seams()
-	handler := serve(t, deps, cfg)
+	deps := webtest.FilledDeps()
+	deps.Tasks = fake.Seams()
+	handler := webtest.Serve(t, deps, cfg)
 
-	rewrite(t, cfg.Path, `{"taskwarrior": {"program": "`+taskwarriorProgram+`"}}`)
-	get(t, handler, "/api/config")
+	webtest.Rewrite(t, cfg.Path, `{"taskwarrior": {"program": "`+webtest.TaskwarriorProgram+`"}}`)
+	webtest.Get(t, handler, "/api/config")
 
 	// Act
-	recorder := get(t, handler, tasksPath)
+	recorder := webtest.Get(t, handler, webtest.TasksPath)
 
 	// Assert
-	list := decode[api.TaskList](t, recorder)
+	list := webtest.Decode[api.TaskList](t, recorder)
 	if recorder.Code != http.StatusOK || list.Available || list.Reason != settingsChanged {
 		t.Errorf("answer = %d %+v, want 200, not available, reason %q", recorder.Code, list, settingsChanged)
 	}
@@ -124,10 +125,10 @@ func TestTheSnapshotSaysSavedTaskwarriorSettingsApplyAtTheNextStart(t *testing.T
 		func(settings *config.Taskwarrior) { settings.Disabled = false })
 
 	// Act
-	body := streamOnce(t, handler, "/api/events").Body.String()
+	body := webtest.StreamOnce(t, handler, "/api/events").Body.String()
 
 	// Assert
-	if tasks := firstSnapshot(t, body).Tasks; tasks.Available || tasks.Reason != settingsChanged {
+	if tasks := webtest.FirstSnapshot(t, body).Tasks; tasks.Available || tasks.Reason != settingsChanged {
 		t.Errorf("tasks = %+v, want not available, reason %q", tasks, settingsChanged)
 	}
 }
@@ -136,14 +137,14 @@ func TestSettingsSavedBackAsTheyWereAtStartApply(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	handler := savedSettings(t, fakeTaskwarrior().seams(), config.Taskwarrior{Program: taskwarriorProgram},
+	handler := savedSettings(t, webtest.FakeTaskwarrior().Seams(), config.Taskwarrior{Program: webtest.TaskwarriorProgram},
 		func(*config.Taskwarrior) {})
 
 	// Act
-	recorder := get(t, handler, tasksPath)
+	recorder := webtest.Get(t, handler, webtest.TasksPath)
 
 	// Assert
-	if list := decode[api.TaskList](t, recorder); !list.Available || list.Reason != "" {
+	if list := webtest.Decode[api.TaskList](t, recorder); !list.Available || list.Reason != "" {
 		t.Errorf("answer = %d %+v, want Taskwarrior available with no reason", recorder.Code, list)
 	}
 }

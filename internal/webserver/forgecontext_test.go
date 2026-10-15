@@ -13,6 +13,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // The tests here hold the context each kind of request hands the forge: a
@@ -24,13 +25,13 @@ import (
 // under the context it is asked under, before it answers as answer does;
 // every later call answers at once.
 func heldFirstFind(
-	held *heldCall, answer func(context.Context, string) (forge.PullRequest, bool, error),
+	held *webtest.HeldCall, answer func(context.Context, string) (forge.PullRequest, bool, error),
 ) func(context.Context, string) (forge.PullRequest, bool, error) {
 	var began atomic.Bool
 
 	return func(ctx context.Context, branch string) (forge.PullRequest, bool, error) {
 		if began.CompareAndSwap(false, true) {
-			err := held.wait(ctx)
+			err := held.Wait(ctx)
 			if err != nil {
 				return forge.PullRequest{}, false, err
 			}
@@ -44,20 +45,20 @@ func TestAReviewReadStopsWhenItsPageLeaves(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	held, deps := newHeldUntilEnded(), filledDeps()
+	held, deps := webtest.NewHeldUntilEnded(), webtest.FilledDeps()
 	deps.Forge.FindPullRequest = func(ctx context.Context, _ string) (forge.PullRequest, bool, error) {
-		return forge.PullRequest{}, false, held.wait(ctx)
+		return forge.PullRequest{}, false, held.Wait(ctx)
 	}
 	ctx, leave := context.WithCancel(t.Context())
-	answered := asking(ctx, serve(t, deps, config.Default()), http.MethodGet, "/api/review")
+	answered := webtest.Asking(ctx, webtest.Serve(t, deps, config.Default()), http.MethodGet, "/api/review")
 
-	<-held.entered
+	<-held.Entered
 
 	// Act
 	leave()
 
 	// Assert
-	err := held.endedWith(t)
+	err := held.EndedWith(t)
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("the read's context ended with %v, want it canceled once its page left", err)
 	}
@@ -72,13 +73,13 @@ func TestASharedForgeReadGoesOnWhenThePageThatBeganItLeaves(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	held, deps := newHeld(), filledDeps()
+	held, deps := webtest.NewHeld(), webtest.FilledDeps()
 	deps.Forge.FindPullRequest = heldFirstFind(held, deps.Forge.FindPullRequest)
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 	leftMidRead(t, handler, held)
 
 	// Act
-	frame := firstSnapshot(t, streamOnce(t, handler, "/api/events").Body.String())
+	frame := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
 
 	// Assert
 	if !frame.Review.Found || frame.Problems != nil {
@@ -94,14 +95,14 @@ func TestASharedAuthorAskGoesOnWhenThePageThatBeganItLeaves(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	held, deps := newHeld(), filledDeps()
+	held, deps := webtest.NewHeld(), webtest.FilledDeps()
 	answer := deps.Forge.Author
 
 	var began atomic.Bool
 
 	deps.Forge.Author = func(ctx context.Context) (string, error) {
 		if began.CompareAndSwap(false, true) {
-			err := held.wait(ctx)
+			err := held.Wait(ctx)
 			if err != nil {
 				return "", err
 			}
@@ -109,16 +110,16 @@ func TestASharedAuthorAskGoesOnWhenThePageThatBeganItLeaves(t *testing.T) {
 
 		return answer(ctx)
 	}
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 	leftMidRead(t, handler, held)
 
 	// Act
-	frame := firstSnapshot(t, streamOnce(t, handler, "/api/events").Body.String())
+	frame := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
 
 	// Assert
-	if frame.Messaging.Author != testAuthor {
+	if frame.Messaging.Author != webtest.TestAuthor {
 		t.Errorf("the next page's author = %q, want %q, though the page that began the ask left mid-ask",
-			frame.Messaging.Author, testAuthor)
+			frame.Messaging.Author, webtest.TestAuthor)
 	}
 }
 
@@ -126,28 +127,28 @@ func TestAFrameWaitingOnAnotherPagesForgeReadStopsWhenItsPageLeaves(t *testing.T
 	t.Parallel()
 
 	// Arrange
-	held, deps := newHeld(), filledDeps()
+	held, deps := webtest.NewHeld(), webtest.FilledDeps()
 	deps.Forge.FindPullRequest = heldFirstFind(held, deps.Forge.FindPullRequest)
-	handler := serve(t, deps, config.Default())
-	reading := openStream(t, handler, "/api/events")
+	handler := webtest.Serve(t, deps, config.Default())
+	reading := webtest.OpenStream(t, handler, "/api/events")
 
-	<-held.entered
+	<-held.Entered
 
 	defer func() {
-		reading.cancel()
-		close(held.release)
-		<-reading.done
+		reading.Cancel()
+		close(held.Release)
+		<-reading.Done
 	}()
 
-	waiting := openStream(t, handler, "/api/events")
+	waiting := webtest.OpenStream(t, handler, "/api/events")
 
 	// Act
-	waiting.cancel()
+	waiting.Cancel()
 
 	// Assert
 	select {
-	case <-waiting.done:
-	case <-time.After(endsWithin):
+	case <-waiting.Done:
+	case <-time.After(webtest.EndsWithin):
 		t.Error("the frame that left kept waiting on the other page's forge read")
 	}
 }

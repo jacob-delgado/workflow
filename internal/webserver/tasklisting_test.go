@@ -13,17 +13,18 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // listedTasks is the task list the server answers over the fake, read at
-// taskDay's noon.
-func listedTasks(t *testing.T, fake *taskFake) api.TaskList {
+// webtest.TaskDay's noon.
+func listedTasks(t *testing.T, fake *webtest.TaskFake) api.TaskList {
 	t.Helper()
 
 	deps := tasksDeps(fake)
-	deps.Clock = func() time.Time { return taskDay().Add(3 * time.Hour) }
+	deps.Clock = func() time.Time { return webtest.TaskDay().Add(3 * time.Hour) }
 
-	return decode[api.TaskList](t, get(t, serve(t, deps, config.Default()), tasksPath))
+	return webtest.Decode[api.TaskList](t, webtest.Get(t, webtest.Serve(t, deps, config.Default()), webtest.TasksPath))
 }
 
 // taskFacetLines is each facet as kind|value|label, in order.
@@ -41,10 +42,10 @@ func TestListTasksSaysWhereEachTaskStandsAsTheListWordsIt(t *testing.T) {
 
 	// Arrange
 	// The plain task is pending, but hidden until after the list is read.
-	fake := fakeTaskwarrior()
-	waits := plainTask()
-	waits.Wait = taskDay().Add(24 * time.Hour)
-	fake.pending.Tasks = []taskwarrior.Task{startedTask(), waits}
+	fake := webtest.FakeTaskwarrior()
+	waits := webtest.PlainTask()
+	waits.Wait = webtest.TaskDay().Add(24 * time.Hour)
+	fake.Pending.Tasks = []taskwarrior.Task{webtest.StartedTask(), waits}
 
 	// Act
 	list := listedTasks(t, fake)
@@ -64,7 +65,7 @@ func TestListTasksDescribesEachTasksFacets(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	list := listedTasks(t, fakeTaskwarrior())
+	list := listedTasks(t, webtest.FakeTaskwarrior())
 
 	// Assert
 	want := [][]string{
@@ -95,8 +96,8 @@ func TestListTasksRanksEachTaskInEveryOrder(t *testing.T) {
 	// Arrange
 	// The started task is the more urgent, task 3, tagged, for an issue, at
 	// priority H; the plain one is task 7, untagged, unlinked, with none.
-	fake := fakeTaskwarrior()
-	fake.pending.Tasks = []taskwarrior.Task{plainTask(), startedTask()}
+	fake := webtest.FakeTaskwarrior()
+	fake.Pending.Tasks = []taskwarrior.Task{webtest.PlainTask(), webtest.StartedTask()}
 
 	// Act
 	list := listedTasks(t, fake)
@@ -121,7 +122,7 @@ func TestListTasksShipsTheFieldsTypedTextMatchesLowerCased(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	list := listedTasks(t, fakeTaskwarrior())
+	list := listedTasks(t, webtest.FakeTaskwarrior())
 
 	// Assert
 	want := []string{"proj-412: fix token redaction", "workflow", "proj-412", "+jira", "#3"}
@@ -134,7 +135,7 @@ func TestListTasksShipsTheOrderTheFilterOffersItsValuesIn(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	list := listedTasks(t, fakeTaskwarrior())
+	list := listedTasks(t, webtest.FakeTaskwarrior())
 
 	// Assert
 	want := []string{
@@ -154,14 +155,14 @@ func TestListTasksOffersNothingWithNoTaskwarrior(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Tasks = seams.Tasks{}
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), tasksPath)
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), webtest.TasksPath)
 
 	// Assert
-	list := decode[api.TaskList](t, recorder)
+	list := webtest.Decode[api.TaskList](t, recorder)
 	if list.Available || list.FacetOrder == nil || len(list.FacetOrder) != 0 {
 		t.Errorf("list = %+v, want unavailable with an empty facet_order", list)
 	}
@@ -186,7 +187,7 @@ func TestTheSnapshotRanksTheActiveTaskAmongTheListThatHoldsIt(t *testing.T) {
 	// urgent is more urgent than the started task and numbered before it, so
 	// among your pending tasks the started one ranks second by both. Among the
 	// linked ones, PROJ-7's done task comes before it by issue.
-	urgent := plainTask()
+	urgent := webtest.PlainTask()
 	urgent.ID, urgent.Urgency = 1, 20
 
 	cases := map[string]struct {
@@ -195,11 +196,11 @@ func TestTheSnapshotRanksTheActiveTaskAmongTheListThatHoldsIt(t *testing.T) {
 		heldBy func(t *testing.T, list api.TaskList, summary api.TasksSummary) api.TaskRanks
 	}{
 		"your pending tasks": {
-			pending: []taskwarrior.Task{urgent, startedTask()},
+			pending: []taskwarrior.Task{urgent, webtest.StartedTask()},
 			heldBy: func(t *testing.T, list api.TaskList, _ api.TasksSummary) api.TaskRanks {
 				t.Helper()
 
-				return ranksOf(t, list.Tasks, startedUUID)
+				return ranksOf(t, list.Tasks, webtest.StartedUUID)
 			},
 		},
 		"the linked tasks, when the context hides it": {
@@ -207,7 +208,7 @@ func TestTheSnapshotRanksTheActiveTaskAmongTheListThatHoldsIt(t *testing.T) {
 			heldBy: func(t *testing.T, _ api.TaskList, summary api.TasksSummary) api.TaskRanks {
 				t.Helper()
 
-				return ranksOf(t, summary.Linked, startedUUID)
+				return ranksOf(t, summary.Linked, webtest.StartedUUID)
 			},
 		},
 	}
@@ -217,15 +218,15 @@ func TestTheSnapshotRanksTheActiveTaskAmongTheListThatHoldsIt(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			fake := fakeTaskwarrior()
-			fake.pending.Tasks = tt.pending
+			fake := webtest.FakeTaskwarrior()
+			fake.Pending.Tasks = tt.pending
 			deps := tasksDeps(fake)
-			deps.Clock = func() time.Time { return taskDay().Add(3 * time.Hour) }
-			handler := serve(t, deps, config.Default())
-			list := decode[api.TaskList](t, get(t, handler, tasksPath))
+			deps.Clock = func() time.Time { return webtest.TaskDay().Add(3 * time.Hour) }
+			handler := webtest.Serve(t, deps, config.Default())
+			list := webtest.Decode[api.TaskList](t, webtest.Get(t, handler, webtest.TasksPath))
 
 			// Act
-			summary := firstSnapshot(t, streamOnce(t, handler, "/api/events").Body.String()).Tasks
+			summary := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String()).Tasks
 
 			// Assert
 			want := tt.heldBy(t, list, summary)
@@ -244,11 +245,11 @@ func TestListTasksReadsTheClockOnceForTheTasksAndTheirFilter(t *testing.T) {
 	// clock's first read: a list read at two moments would word it waiting,
 	// yet offer its project, which the filter offers only for a task not
 	// waiting.
-	first := taskDay().Add(3 * time.Hour)
-	waits := plainTask()
+	first := webtest.TaskDay().Add(3 * time.Hour)
+	waits := webtest.PlainTask()
 	waits.Project, waits.Wait = "garden", first.Add(time.Minute)
-	fake := fakeTaskwarrior()
-	fake.pending.Tasks = []taskwarrior.Task{waits}
+	fake := webtest.FakeTaskwarrior()
+	fake.Pending.Tasks = []taskwarrior.Task{waits}
 	deps := tasksDeps(fake)
 
 	var reads atomic.Int32
@@ -262,7 +263,7 @@ func TestListTasksReadsTheClockOnceForTheTasksAndTheirFilter(t *testing.T) {
 	}
 
 	// Act
-	list := decode[api.TaskList](t, get(t, serve(t, deps, config.Default()), tasksPath))
+	list := webtest.Decode[api.TaskList](t, webtest.Get(t, webtest.Serve(t, deps, config.Default()), webtest.TasksPath))
 
 	// Assert
 	if len(list.Tasks) != 1 || list.Tasks[0].State != api.TaskStateWaiting {

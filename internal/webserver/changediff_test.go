@@ -15,6 +15,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // renamed is a staged rename, whose diff reads both of its paths.
@@ -33,7 +34,7 @@ func TestChangeDiffReadsTheChangeTheTreeLists(t *testing.T) {
 	// Arrange
 	var asked []gitrepo.Change
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return []gitrepo.Change{renamed()}, nil }
 	deps.Git.Diff = func(_ context.Context, change gitrepo.Change) ([]string, error) {
 		asked = append(asked, change)
@@ -42,14 +43,14 @@ func TestChangeDiffReadsTheChangeTheTreeLists(t *testing.T) {
 	}
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), diffOf("internal/new.go"))
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), diffOf("internal/new.go"))
 
 	// Assert
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200: %s", recorder.Code, recorder.Body)
 	}
 
-	diff := decode[api.FileDiff](t, recorder)
+	diff := webtest.Decode[api.FileDiff](t, recorder)
 	if diff.Path != "internal/new.go" || len(diff.Lines) != 3 || diff.Lines[2] != "+package internal" {
 		t.Errorf("diff = %+v, want the three lines of internal/new.go", diff)
 	}
@@ -63,11 +64,11 @@ func TestChangeDiffOfAnUnchangedFileIsNotFound(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Diff = func(context.Context, gitrepo.Change) ([]string, error) { return nil, nil }
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), diffOf("/etc/passwd"))
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), diffOf("/etc/passwd"))
 
 	// Assert
 	assertProblem(t, recorder, http.StatusNotFound, "lists no change at that path")
@@ -77,11 +78,11 @@ func TestChangeDiffWithNoRepositoryIsNotAvailable(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Diff = nil
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), diffOf("internal/config/config.go"))
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), diffOf("internal/config/config.go"))
 
 	// Assert
 	assertProblem(t, recorder, http.StatusUnprocessableEntity, "not available")
@@ -91,18 +92,18 @@ func TestChangeDiffThatGitCannotReadKeepsItsWordsOff(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Diff = func(context.Context, gitrepo.Change) ([]string, error) {
-		return nil, fmt.Errorf("reading the diff in %s: %w", repoPath, errSeam)
+		return nil, fmt.Errorf("reading the diff in %s: %w", webtest.RepoPath, webtest.ErrSeam)
 	}
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), diffOf("internal/config/config.go"))
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), diffOf("internal/config/config.go"))
 
 	// Assert
-	assertProblem(t, recorder, http.StatusInternalServerError, tryAgain)
+	assertProblem(t, recorder, http.StatusInternalServerError, webtest.TryAgain)
 
-	if strings.Contains(recorder.Body.String(), repoPath) {
+	if strings.Contains(recorder.Body.String(), webtest.RepoPath) {
 		t.Errorf("the refusal %s names where the repository is", recorder.Body)
 	}
 }
@@ -111,14 +112,14 @@ func TestChangeDiffWithNoDifferenceIsEmpty(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Diff = func(context.Context, gitrepo.Change) ([]string, error) { return nil, nil }
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), diffOf("internal/config/config.go"))
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), diffOf("internal/config/config.go"))
 
 	// Assert
-	if diff := decode[api.FileDiff](t, recorder); diff.Lines == nil || len(diff.Lines) != 0 {
+	if diff := webtest.Decode[api.FileDiff](t, recorder); diff.Lines == nil || len(diff.Lines) != 0 {
 		t.Errorf("lines = %#v, want an empty list", diff.Lines)
 	}
 }
@@ -127,12 +128,12 @@ func TestChangeDiffWithNoTreeToReadIsNotAvailable(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Diff = func(context.Context, gitrepo.Change) ([]string, error) { return nil, nil }
 	deps.Git.Changes = nil
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), diffOf("a.go"))
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), diffOf("a.go"))
 
 	// Assert
 	assertProblem(t, recorder, http.StatusUnprocessableEntity, "not available")
@@ -142,13 +143,13 @@ func TestChangeDiffWhoseTreeCannotBeReadSaysToTryAgain(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Diff = func(context.Context, gitrepo.Change) ([]string, error) { return nil, nil }
-	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return nil, errSeam }
+	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return nil, webtest.ErrSeam }
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), diffOf("a.go"))
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), diffOf("a.go"))
 
 	// Assert
-	assertProblem(t, recorder, http.StatusInternalServerError, tryAgain)
+	assertProblem(t, recorder, http.StatusInternalServerError, webtest.TryAgain)
 }

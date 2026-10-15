@@ -19,6 +19,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/proc"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // heldRun is a run's output that writes a line, then waits until it is
@@ -80,7 +81,7 @@ func TestOneRunGoesAtATimeAndAStopEndsIt(t *testing.T) {
 
 	// Arrange
 	held := newHeldRun("hanging")
-	handler := serve(t, runDeps(&runCalls{}, held.output), config.Default())
+	handler := webtest.Serve(t, runDeps(&runCalls{}, held.output), config.Default())
 	first, done := startHeld(t, handler)
 
 	// Act: start a second while the first is going
@@ -90,7 +91,7 @@ func TestOneRunGoesAtATimeAndAStopEndsIt(t *testing.T) {
 	assertProblem(t, second, http.StatusConflict, "already going")
 
 	// Act: stop the first
-	stopped := send(t, handler, http.MethodDelete, runningAt, "")
+	stopped := webtest.Send(t, handler, http.MethodDelete, runningAt, "")
 
 	<-done
 
@@ -118,7 +119,7 @@ func TestARunStoppedBeforeItsProgramStartsEndsStopped(t *testing.T) {
 
 		return passing(), nil
 	}
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 	recorder := newSyncRecorder()
 	ran := make(chan struct{})
 
@@ -131,7 +132,7 @@ func TestARunStoppedBeforeItsProgramStartsEndsStopped(t *testing.T) {
 	<-starting
 
 	// Act
-	stopped := send(t, handler, http.MethodDelete, runningAt, "")
+	stopped := webtest.Send(t, handler, http.MethodDelete, runningAt, "")
 
 	close(release)
 	<-ran
@@ -146,7 +147,8 @@ func TestStoppingWithNoRunGoingIsNotFound(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	recorder := send(t, serve(t, runDeps(&runCalls{}, passing), config.Default()), http.MethodDelete, runningAt, "")
+	recorder := webtest.Send(t, webtest.Serve(t, runDeps(&runCalls{}, passing), config.Default()), http.MethodDelete,
+		runningAt, "")
 
 	// Assert
 	assertProblem(t, recorder, http.StatusNotFound, "no run is going")
@@ -157,11 +159,11 @@ func TestTheStreamCarriesTheRunGoingNow(t *testing.T) {
 
 	// Arrange
 	held := newHeldRun("hanging")
-	handler := serve(t, runDeps(&runCalls{}, held.output), config.Default())
+	handler := webtest.Serve(t, runDeps(&runCalls{}, held.output), config.Default())
 	_, done := startHeld(t, handler)
 
 	// Act
-	snap := firstSnapshot(t, streamOnce(t, handler, "/api/events").Body.String())
+	snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
 
 	// Assert
 	held.output().Stop()
@@ -176,11 +178,11 @@ func TestTheStreamCarriesNoRunOnceItEnded(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	handler := serve(t, runDeps(&runCalls{}, passing), config.Default())
+	handler := webtest.Serve(t, runDeps(&runCalls{}, passing), config.Default())
 	startRun(t, handler, preCommitRun)
 
 	// Act
-	snap := firstSnapshot(t, streamOnce(t, handler, "/api/events").Body.String())
+	snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
 
 	// Assert
 	if snap.Run != nil {

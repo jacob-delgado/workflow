@@ -18,6 +18,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // errStoreFull is a store that could not write.
@@ -69,7 +70,7 @@ func TestAnnounceRecordsWhatItAnnounced(t *testing.T) {
 
 	// Arrange
 	memory := &announceMemory{}
-	handler := serve(t, memory.wire(filledDeps()), config.Default())
+	handler := webtest.Serve(t, memory.wire(webtest.FilledDeps()), config.Default())
 
 	// Act
 	recorder := postAnnounce(t, handler, map[string]string{channelField: ""})
@@ -89,7 +90,7 @@ func TestAnnounceRefusesWhatWasAlreadyAnnounced(t *testing.T) {
 
 	// Arrange
 	memory := &announceMemory{held: []loop.Announced{readyAt42()}}
-	deps := memory.wire(filledDeps())
+	deps := memory.wire(webtest.FilledDeps())
 	posted := 0
 	deps.Messaging.Post = func(context.Context, string, string) error {
 		posted++
@@ -98,7 +99,7 @@ func TestAnnounceRefusesWhatWasAlreadyAnnounced(t *testing.T) {
 	}
 
 	// Act
-	recorder := postAnnounce(t, serve(t, deps, config.Default()), map[string]string{channelField: ""})
+	recorder := postAnnounce(t, webtest.Serve(t, deps, config.Default()), map[string]string{channelField: ""})
 
 	// Assert
 	assertProblem(t, recorder, http.StatusConflict, "already announced")
@@ -131,10 +132,10 @@ func TestSnapshotSaysWhetherThePullWasAnnouncedAtItsMoment(t *testing.T) {
 
 			// Arrange
 			memory := &announceMemory{held: tt.held}
-			handler := serve(t, memory.wire(filledDeps()), config.Default())
+			handler := webtest.Serve(t, memory.wire(webtest.FilledDeps()), config.Default())
 
 			// Act
-			snap := firstSnapshot(t, streamOnce(t, handler, "/api/events").Body.String())
+			snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
 
 			// Assert
 			if got := snap.Review.Announced; got != tt.want {
@@ -152,13 +153,14 @@ func TestSnapshotReadsAPullRequestClosedWithoutMergingAsNotAnnounced(t *testing.
 	// closed without merging: the loop follows no pull request now, so the
 	// review says so as the announce stage does.
 	memory := &announceMemory{held: []loop.Announced{readyAt42()}}
-	deps := memory.wire(filledDeps())
+	deps := memory.wire(webtest.FilledDeps())
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return inState(forge.StateClosed, false), true, nil
 	}
 
 	// Act
-	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
+	snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, webtest.Serve(t, deps, config.Default()),
+		"/api/events").Body.String())
 
 	// Assert
 	if snap.Review.Announced {
@@ -173,13 +175,13 @@ func TestAnnounceRefusesAPullRequestClosedWithoutMergingAsNoneToAnnounce(t *test
 	// Remembered as announced before it was closed, it is still none to
 	// announce: not one announced already.
 	memory := &announceMemory{held: []loop.Announced{readyAt42()}}
-	deps := memory.wire(filledDeps())
+	deps := memory.wire(webtest.FilledDeps())
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return inState(forge.StateClosed, false), true, nil
 	}
 
 	// Act
-	recorder := postAnnounce(t, serve(t, deps, config.Default()), map[string]string{channelField: ""})
+	recorder := postAnnounce(t, webtest.Serve(t, deps, config.Default()), map[string]string{channelField: ""})
 
 	// Assert
 	assertProblem(t, recorder, http.StatusConflict, "there is no pull request to announce")
@@ -190,14 +192,14 @@ func TestSnapshotSeesAnAnnouncementMadeHereAtOnce(t *testing.T) {
 
 	// Arrange
 	memory := &announceMemory{}
-	handler := serve(t, memory.wire(filledDeps()), config.Default())
-	streamOnce(t, handler, "/api/events")
+	handler := webtest.Serve(t, memory.wire(webtest.FilledDeps()), config.Default())
+	webtest.StreamOnce(t, handler, "/api/events")
 
 	// Act
 	postAnnounce(t, handler, map[string]string{channelField: ""})
 
 	// Assert
-	snap := firstSnapshot(t, streamOnce(t, handler, "/api/events").Body.String())
+	snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
 	if !snap.Review.Announced {
 		t.Error("the frame after an announcement does not say it was made")
 	}
@@ -208,11 +210,11 @@ func TestSnapshotReadsNoStoreUnderADryRun(t *testing.T) {
 
 	// Arrange
 	memory := &announceMemory{held: []loop.Announced{readyAt42()}}
-	deps := memory.wire(filledDeps())
-	handler := serveWith(t, deps, config.Default(), webserver.Info{Version: testVersion, DryRun: true})
+	deps := memory.wire(webtest.FilledDeps())
+	handler := webtest.ServeWith(t, deps, config.Default(), webserver.Info{Version: webtest.TestVersion, DryRun: true})
 
 	// Act
-	streamOnce(t, handler, "/api/events")
+	webtest.StreamOnce(t, handler, "/api/events")
 
 	// Assert
 	if memory.reads != 0 {
@@ -225,13 +227,14 @@ func TestAPullRequestAnnouncedReadyStaysAnnouncedWhileACheckFails(t *testing.T) 
 
 	// Arrange
 	memory := &announceMemory{held: []loop.Announced{readyAt42()}}
-	deps := memory.wire(filledDeps())
+	deps := memory.wire(webtest.FilledDeps())
 	deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
 		return forge.CI{State: forge.CIFailed, Total: 1, Done: 1, Failed: 1}, nil
 	}
 
 	// Act
-	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
+	snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, webtest.Serve(t, deps, config.Default()),
+		"/api/events").Body.String())
 
 	// Assert
 	if !snap.Review.Announced {
@@ -244,18 +247,18 @@ func TestTheStoreIsReadAgainOnceTheForgeIntervalHasPassed(t *testing.T) {
 
 	// Arrange
 	memory := &announceMemory{}
-	deps := memory.wire(filledDeps())
+	deps := memory.wire(webtest.FilledDeps())
 	now := time.Date(2026, 10, 6, 9, 0, 0, 0, time.UTC)
 	deps.Clock = func() time.Time { return now }
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 
-	streamOnce(t, handler, "/api/events")
-	streamOnce(t, handler, "/api/events")
+	webtest.StreamOnce(t, handler, "/api/events")
+	webtest.StreamOnce(t, handler, "/api/events")
 
 	// Act
 	now = now.Add(time.Minute)
 
-	streamOnce(t, handler, "/api/events")
+	webtest.StreamOnce(t, handler, "/api/events")
 
 	// Assert
 	if memory.reads != 2 {
@@ -268,7 +271,7 @@ func TestAnnounceTheStoreCannotRememberIsMadeAndNoted(t *testing.T) {
 
 	// Arrange
 	memory := &announceMemory{}
-	deps := memory.wire(filledDeps())
+	deps := memory.wire(webtest.FilledDeps())
 	deps.Store.RecordAnnounce = func(context.Context, loop.Announced) error { return errStoreFull }
 
 	var noted []string
@@ -276,7 +279,7 @@ func TestAnnounceTheStoreCannotRememberIsMadeAndNoted(t *testing.T) {
 	deps.Unexpected = func(_ config.Config, err error) { noted = append(noted, err.Error()) }
 
 	// Act
-	recorder := postAnnounce(t, serve(t, deps, config.Default()), map[string]string{channelField: ""})
+	recorder := postAnnounce(t, webtest.Serve(t, deps, config.Default()), map[string]string{channelField: ""})
 
 	// Assert
 	wantNoted := []string{"posted, but not remembered: it may be offered again: " + errStoreFull.Error()}
@@ -302,18 +305,18 @@ func TestAnnounceWarnsOnlyOfAPostTheStoreCannotRemember(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			deps := (&announceMemory{}).wire(filledDeps())
+			deps := (&announceMemory{}).wire(webtest.FilledDeps())
 			deps.Store.RecordAnnounce = func(context.Context, loop.Announced) error { return tt.recordErr }
 
 			// Act
-			recorder := postAnnounce(t, serve(t, deps, config.Default()), map[string]string{channelField: ""})
+			recorder := postAnnounce(t, webtest.Serve(t, deps, config.Default()), map[string]string{channelField: ""})
 
 			// Assert
 			if recorder.Code != http.StatusOK {
 				t.Fatalf("status = %d (%s), want 200: the announcement was posted", recorder.Code, recorder.Body)
 			}
 
-			if got := orEmpty(decode[api.Announcement](t, recorder).Warning); got != tt.wantWarning {
+			if got := orEmpty(webtest.Decode[api.Announcement](t, recorder).Warning); got != tt.wantWarning {
 				t.Errorf("warning = %q, want %q", got, tt.wantWarning)
 			}
 		})
@@ -327,7 +330,7 @@ func TestAHeldAnnouncementTheStoreCannotRememberWarnsSo(t *testing.T) {
 	world := newForgeWorld()
 	deps := world.deps()
 	deps.Store.RecordAnnounce = func(context.Context, loop.Announced) error { return errStoreFull }
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 	announceWhenGreen(t, handler, nil)
 	world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
 
@@ -363,7 +366,7 @@ func TestTheNextHoldSaysNothingOfTheLastOnesWarning(t *testing.T) {
 			world := newForgeWorld()
 			deps := world.deps()
 			deps.Store.RecordAnnounce = func(context.Context, loop.Announced) error { return errStoreFull }
-			handler := serve(t, deps, config.Default())
+			handler := webtest.Serve(t, deps, config.Default())
 			cancelHeld(t, handler)
 			announceWhenGreen(t, handler, nil)
 			world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })

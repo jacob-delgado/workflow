@@ -17,6 +17,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 const (
@@ -90,11 +91,11 @@ func TestTwoStreamsShareOneSearchAnInterval(t *testing.T) {
 
 	// Arrange
 	clock, tracker := newSharedClock(), &countedSearch{}
-	handler := serve(t, tracker.wire(filledDeps(), clock), config.Default())
+	handler := webtest.Serve(t, tracker.wire(webtest.FilledDeps(), clock), config.Default())
 
 	// Act: a frame of each of two streams
-	first := firstSnapshot(t, streamOnce(t, handler, "/api/events").Body.String())
-	second := firstSnapshot(t, streamOnce(t, handler, "/api/events").Body.String())
+	first := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
+	second := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
 
 	// Assert: one search served both
 	if got := tracker.searches(); got != 1 || first.Issues.Total != 1 || second.Issues.Total != 1 {
@@ -104,7 +105,7 @@ func TestTwoStreamsShareOneSearchAnInterval(t *testing.T) {
 
 	// Act: a frame once the interval has passed
 	clock.pastTheForgeInterval()
-	streamOnce(t, handler, "/api/events")
+	webtest.StreamOnce(t, handler, "/api/events")
 
 	// Assert: the tracker is searched again
 	if got := tracker.searches(); got != 2 {
@@ -119,15 +120,16 @@ func TestAStatusChangeMadeHereIsSearchedForOnTheNextFrame(t *testing.T) {
 	var writes issueWrites
 
 	clock, tracker := newSharedClock(), &countedSearch{}
-	handler := serve(t, tracker.wire(formDeps(&writes), clock), config.Default())
-	streamOnce(t, handler, "/api/events")
+	handler := webtest.Serve(t, tracker.wire(formDeps(&writes), clock), config.Default())
+	webtest.StreamOnce(t, handler, "/api/events")
 
-	if recorder := send(t, handler, http.MethodPost, statusChangesPath, noFieldsChange); recorder.Code != http.StatusOK {
+	if recorder := webtest.Send(t, handler, http.MethodPost, statusChangesPath,
+		noFieldsChange); recorder.Code != http.StatusOK {
 		t.Fatalf("the status change answered %d: %s", recorder.Code, recorder.Body.String())
 	}
 
 	// Act
-	streamOnce(t, handler, "/api/events")
+	webtest.StreamOnce(t, handler, "/api/events")
 
 	// Assert
 	if got := tracker.searches(); got != 2 {
@@ -217,7 +219,7 @@ func frameInFlight(t *testing.T, handler http.Handler, read *slowRead) <-chan *h
 
 	frame := make(chan *httptest.ResponseRecorder, 1)
 
-	go func() { frame <- streamOnce(t, handler, "/api/events") }()
+	go func() { frame <- webtest.StreamOnce(t, handler, "/api/events") }()
 
 	select {
 	case <-read.started:
@@ -234,10 +236,10 @@ func TestASlowForgeReadHoldsUpNoOtherStream(t *testing.T) {
 	// Arrange
 	clock, slow := newSharedClock(), newSlowForge()
 	slow.openThePull()
-	deps := slow.wire(filledDeps())
+	deps := slow.wire(webtest.FilledDeps())
 	deps.Clock = clock.read
-	handler := serve(t, deps, config.Default())
-	streamOnce(t, handler, "/api/events")
+	handler := webtest.Serve(t, deps, config.Default())
+	webtest.StreamOnce(t, handler, "/api/events")
 	clock.pastTheForgeInterval()
 	slow.slowDown()
 	reading := frameInFlight(t, handler, slow.slowRead)
@@ -250,12 +252,12 @@ func TestASlowForgeReadHoldsUpNoOtherStream(t *testing.T) {
 	// Act
 	other := make(chan *httptest.ResponseRecorder, 1)
 
-	go func() { other <- streamOnce(t, handler, "/api/events") }()
+	go func() { other <- webtest.StreamOnce(t, handler, "/api/events") }()
 
 	// Assert
 	select {
 	case recorder := <-other:
-		if review := firstSnapshot(t, recorder.Body.String()).Review; !review.Found || review.Pull.Number != 42 {
+		if review := webtest.FirstSnapshot(t, recorder.Body.String()).Review; !review.Found || review.Pull.Number != 42 {
 			t.Errorf("the other stream's review = %+v, want the pull request held", review)
 		}
 	case <-time.After(frameWait):
@@ -270,7 +272,7 @@ func failingAuthor(deps webserver.Deps, read *slowRead, asked *atomic.Int32) web
 		asked.Add(1)
 		read.call()
 
-		return "", errSeam
+		return "", webtest.ErrSeam
 	}
 
 	return deps
@@ -285,10 +287,10 @@ func TestASlowAuthorReadHoldsUpNoOtherStream(t *testing.T) {
 	var asked atomic.Int32
 
 	clock, author := newSharedClock(), newSlowRead()
-	deps := failingAuthor(filledDeps(), author, &asked)
+	deps := failingAuthor(webtest.FilledDeps(), author, &asked)
 	deps.Clock = clock.read
-	handler := serve(t, deps, config.Default())
-	streamOnce(t, handler, "/api/events")
+	handler := webtest.Serve(t, deps, config.Default())
+	webtest.StreamOnce(t, handler, "/api/events")
 	clock.pastTheForgeInterval()
 	author.slowDown()
 	asking := frameInFlight(t, handler, author)
@@ -301,7 +303,7 @@ func TestASlowAuthorReadHoldsUpNoOtherStream(t *testing.T) {
 	// Act
 	other := make(chan *httptest.ResponseRecorder, 1)
 
-	go func() { other <- streamOnce(t, handler, "/api/events") }()
+	go func() { other <- webtest.StreamOnce(t, handler, "/api/events") }()
 
 	// Assert
 	select {
@@ -338,8 +340,8 @@ func TestASlowAskForYourIssuesHoldsUpNoOtherStream(t *testing.T) {
 	clock, tracker := newSharedClock(), newSlowRead()
 	deps := slowTracker(scopedDeps([]jira.Key{yourIssue}, nil, &asked), tracker)
 	deps.Clock = clock.read
-	handler := serve(t, deps, scopedConfig())
-	streamOnce(t, handler, "/api/events")
+	handler := webtest.Serve(t, deps, scopedConfig())
+	webtest.StreamOnce(t, handler, "/api/events")
 	clock.pastTheForgeInterval()
 	tracker.slowDown()
 	asking := frameInFlight(t, handler, tracker)
@@ -352,13 +354,13 @@ func TestASlowAskForYourIssuesHoldsUpNoOtherStream(t *testing.T) {
 	// Act
 	other := make(chan *httptest.ResponseRecorder, 1)
 
-	go func() { other <- streamOnce(t, handler, "/api/events") }()
+	go func() { other <- webtest.StreamOnce(t, handler, "/api/events") }()
 
 	// Assert
 	select {
 	case recorder := <-other:
 		want := []string{yourLocalBranch}
-		if got := listed(firstSnapshot(t, recorder.Body.String()).Branches); !slices.Equal(got, want) {
+		if got := listed(webtest.FirstSnapshot(t, recorder.Body.String()).Branches); !slices.Equal(got, want) {
 			t.Errorf("the other stream's branches = %v, want the answer held, %v", got, want)
 		}
 	case <-time.After(frameWait):
@@ -379,14 +381,14 @@ func TestAPullRequestOpenedDuringAForgeReadShowsOnTheNextFrame(t *testing.T) {
 
 		return forge.PullRequest{Number: 42, URL: pull42, Title: pullTitle}, nil
 	}
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 
 	slow.slowDown()
 	reading := frameInFlight(t, handler, slow.slowRead)
 
 	opened := make(chan int, 1)
 
-	go func() { opened <- send(t, handler, http.MethodPost, "/api/pull-request", openRequestBody).Code }()
+	go func() { opened <- webtest.Send(t, handler, http.MethodPost, "/api/pull-request", openRequestBody).Code }()
 
 	select {
 	case code := <-opened:
@@ -401,7 +403,7 @@ func TestAPullRequestOpenedDuringAForgeReadShowsOnTheNextFrame(t *testing.T) {
 	<-reading
 
 	// Act
-	review := firstSnapshot(t, streamOnce(t, handler, "/api/events").Body.String()).Review
+	review := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String()).Review
 
 	// Assert
 	if !review.Found || review.Pull.Number != 42 {

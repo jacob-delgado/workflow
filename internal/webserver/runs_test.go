@@ -20,6 +20,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // The bodies that ask for each run but a fixup, which names a commit: a hook
@@ -81,16 +82,16 @@ func (c *runCalls) asked() []string {
 // configuredHooks is the tests' lefthook configuration.
 func configuredHooks() hooks.Configured {
 	return hooks.Configured{
-		Runnable: []string{preCommitHook, prePushHook},
-		GitOnly:  []hooks.GitOnly{{Name: commitMsgHook, Reason: commitMsgReason}},
+		Runnable: []string{webtest.PreCommitHook, webtest.PrePushHook},
+		GitOnly:  []hooks.GitOnly{{Name: webtest.CommitMsgHook, Reason: webtest.CommitMsgReason}},
 	}
 }
 
-// runDeps is filledDeps — a staged change, and one commit not yet pushed on
-// fix/PROJ-412 off origin/main — with every run's seam answering output, and
-// lefthook configuring configuredHooks.
+// runDeps is webtest.FilledDeps — a staged change, and one commit not yet
+// pushed on fix/PROJ-412 off origin/main — with every run's seam answering
+// output, and lefthook configuring configuredHooks.
 func runDeps(calls *runCalls, output func() proc.Output) webserver.Deps {
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Hooks.Run = func(_ context.Context, hook string) (proc.Output, error) {
 		return calls.record("hook "+hook, output())
 	}
@@ -115,7 +116,7 @@ func passing() proc.Output {
 func startRun(t *testing.T, handler http.Handler, body string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	return send(t, handler, http.MethodPost, runsAt, body)
+	return webtest.Send(t, handler, http.MethodPost, runsAt, body)
 }
 
 // runEvents reads a run's stream, one event a line.
@@ -159,7 +160,7 @@ func TestPreCommitStreamsItsOutputAsItRuns(t *testing.T) {
 
 	// Arrange
 	calls := &runCalls{}
-	handler := serve(t, runDeps(calls, passing), config.Default())
+	handler := webtest.Serve(t, runDeps(calls, passing), config.Default())
 
 	// Act
 	events := runEvents(t, startRun(t, handler, preCommitRun))
@@ -188,13 +189,14 @@ func TestAHookRunRunsTheHookAskedFor(t *testing.T) {
 
 	// Arrange
 	calls := &runCalls{}
-	handler := serve(t, runDeps(calls, passing), config.Default())
+	handler := webtest.Serve(t, runDeps(calls, passing), config.Default())
 
 	// Act
 	ended := lastRun(t, runEvents(t, startRun(t, handler, prePushRun)))
 
 	// Assert
-	if ended.Kind != api.RunKindHook || ended.Title != prePushHook || ended.Outcome != "The pre-push hook passed." {
+	if ended.Kind != api.RunKindHook || ended.Title != webtest.PrePushHook ||
+		ended.Outcome != "The pre-push hook passed." {
 		t.Errorf("the run = %+v, want pre-push run as a hook, and passed", ended)
 	}
 
@@ -208,7 +210,7 @@ func TestARunThatFailsEndsRefusedWithItsOutput(t *testing.T) {
 
 	// Arrange
 	failing := func() proc.Output { return finished(errExit, "\x1b[31mlint: 2 issues\x1b[0m") }
-	handler := serve(t, runDeps(&runCalls{}, failing), config.Default())
+	handler := webtest.Serve(t, runDeps(&runCalls{}, failing), config.Default())
 
 	// Act
 	ended := lastRun(t, runEvents(t, startRun(t, handler, preCommitRun)))
@@ -228,7 +230,7 @@ func TestRebaseGoesOntoTheBaseGitNames(t *testing.T) {
 
 	// Arrange
 	calls := &runCalls{}
-	handler := serve(t, runDeps(calls, passing), config.Default())
+	handler := webtest.Serve(t, runDeps(calls, passing), config.Default())
 
 	// Act
 	ended := lastRun(t, runEvents(t, startRun(t, handler, rebaseRun)))
@@ -238,8 +240,8 @@ func TestRebaseGoesOntoTheBaseGitNames(t *testing.T) {
 		t.Errorf("the run ended %q, %q; want rebased onto main", ended.State, ended.Outcome)
 	}
 
-	if !slices.Equal(calls.asked(), []string{"rebase " + testBase}) {
-		t.Errorf("calls = %v, want a rebase onto %s", calls.asked(), testBase)
+	if !slices.Equal(calls.asked(), []string{"rebase " + webtest.TestBase}) {
+		t.Errorf("calls = %v, want a rebase onto %s", calls.asked(), webtest.TestBase)
 	}
 }
 
@@ -248,13 +250,13 @@ func TestAmendFoldsTheStagedChangesIntoTheLastCommit(t *testing.T) {
 
 	// Arrange
 	calls := &runCalls{}
-	handler := serve(t, runDeps(calls, passing), config.Default())
+	handler := webtest.Serve(t, runDeps(calls, passing), config.Default())
 
 	// Act
 	ended := lastRun(t, runEvents(t, startRun(t, handler, amendRun)))
 
 	// Assert
-	if ended.Outcome != "Amended "+testCommitSubject+"." || !slices.Equal(calls.asked(), []string{"amend"}) {
+	if ended.Outcome != "Amended "+webtest.TestCommitSubject+"." || !slices.Equal(calls.asked(), []string{"amend"}) {
 		t.Errorf("the run ended %q after %v, want the last commit amended", ended.Outcome, calls.asked())
 	}
 }
@@ -264,13 +266,13 @@ func TestFixupRecordsAFixupOfTheCommitNamed(t *testing.T) {
 
 	// Arrange
 	calls := &runCalls{}
-	handler := serve(t, runDeps(calls, passing), config.Default())
+	handler := webtest.Serve(t, runDeps(calls, passing), config.Default())
 
 	// Act
 	ended := lastRun(t, runEvents(t, startRun(t, handler, `{"kind":"fixup","commit":"abc123"}`)))
 
 	// Assert
-	if ended.Outcome != "Recorded a fixup! of "+testCommitSubject+"." ||
+	if ended.Outcome != "Recorded a fixup! of "+webtest.TestCommitSubject+"." ||
 		!slices.Equal(calls.asked(), []string{"fixup abc123"}) {
 		t.Errorf("the run ended %q after %v, want a fixup! of abc123", ended.Outcome, calls.asked())
 	}
@@ -292,7 +294,7 @@ func TestARunRequestThatDoesNotDecodeIsRefusedAndNothingRuns(t *testing.T) {
 
 			// Arrange
 			calls := &runCalls{}
-			handler := serve(t, runDeps(calls, passing), config.Default())
+			handler := webtest.Serve(t, runDeps(calls, passing), config.Default())
 
 			// Act
 			recorder := startRun(t, handler, body)
@@ -315,7 +317,7 @@ func runRequest(t *testing.T, body string) *http.Request {
 	t.Helper()
 
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, runsAt, strings.NewReader(body))
-	request.Host = loopbackHost
+	request.Host = webtest.LoopbackHost
 	request.Header.Set("Content-Type", "application/json")
 
 	return request
@@ -326,10 +328,10 @@ func TestARunGoesToItsEndWhenThePageHasGone(t *testing.T) {
 
 	// Arrange
 	calls := &runCalls{}
-	handler := serve(t, runDeps(calls, passing), config.Default())
+	handler := webtest.Serve(t, runDeps(calls, passing), config.Default())
 
 	// Act
-	handler.ServeHTTP(&failingFlushWriter{}, runRequest(t, amendRun))
+	handler.ServeHTTP(&webtest.FailingFlushWriter{}, runRequest(t, amendRun))
 
 	// Assert
 	again := startRun(t, handler, amendRun)
@@ -343,14 +345,14 @@ func TestARunWritesToAPageThatCannotFlush(t *testing.T) {
 
 	// Arrange
 	calls := &runCalls{}
-	handler := serve(t, runDeps(calls, passing), config.Default())
-	writer := &unflushableWriter{}
+	handler := webtest.Serve(t, runDeps(calls, passing), config.Default())
+	writer := &webtest.UnflushableWriter{}
 
 	// Act
 	handler.ServeHTTP(writer, runRequest(t, preCommitRun))
 
 	// Assert
-	if writer.code != 0 && writer.code != http.StatusOK || len(calls.asked()) != 1 {
-		t.Errorf("status %d after %v, want the run made and written unflushed", writer.code, calls.asked())
+	if writer.Code != 0 && writer.Code != http.StatusOK || len(calls.asked()) != 1 {
+		t.Errorf("status %d after %v, want the run made and written unflushed", writer.Code, calls.asked())
 	}
 }

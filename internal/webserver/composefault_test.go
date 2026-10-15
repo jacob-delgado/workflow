@@ -18,6 +18,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/proc"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // route is a request to one endpoint: its method, path and body.
@@ -56,7 +57,7 @@ func TestAnUnreachableForgeIsNotNothingToAnnounce(t *testing.T) {
 			// Arrange
 			posted := false
 
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			deps.Messaging.Post = func(context.Context, string, string) error {
 				posted = true
 
@@ -67,10 +68,10 @@ func TestAnUnreachableForgeIsNotNothingToAnnounce(t *testing.T) {
 			}
 
 			// Act
-			recorder := send(t, serve(t, deps, config.Default()), request.method, request.path, request.body)
+			recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), request.method, request.path, request.body)
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != http.StatusBadGateway || failure.Code != api.ProblemCodeUnreachable {
 				t.Errorf("status = %d, code %q; want 502 and %q", recorder.Code, failure.Code, api.ProblemCodeUnreachable)
 			}
@@ -90,7 +91,7 @@ func TestAFailedBranchReadIsNotNothingToOpen(t *testing.T) {
 	t.Parallel()
 
 	// A read that fails says where the repository is, as gitrepo words it.
-	readErr := fmt.Errorf("reading the current branch of %s: %w", repoPath, errSeam)
+	readErr := fmt.Errorf("reading the current branch of %s: %w", webtest.RepoPath, webtest.ErrSeam)
 
 	for name, request := range pullRoutes() {
 		t.Run(name, func(t *testing.T) {
@@ -113,11 +114,11 @@ func TestAFailedBranchReadIsNotNothingToOpen(t *testing.T) {
 			}
 
 			// Act
-			recorder := send(t, serve(t, deps, config.Default()), request.method, request.path, request.body)
+			recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), request.method, request.path, request.body)
 
 			// Assert
 			assertGitReadAnswer(t, recorder, wrote,
-				gitReadAnswer{http.StatusInternalServerError, api.ProblemCodeInternal, tryAgain})
+				gitReadAnswer{http.StatusInternalServerError, api.ProblemCodeInternal, webtest.TryAgain})
 		})
 	}
 }

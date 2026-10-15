@@ -18,6 +18,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // reviewsPath is where the review queue is read.
@@ -26,7 +27,7 @@ const reviewsPath = "/api/reviews"
 // queueDeps is the filled Deps with a review queue that answers requests, or
 // fails with err.
 func queueDeps(requests []forge.ReviewRequest, err error) webserver.Deps {
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Forge.ReviewRequests = func(context.Context) ([]forge.ReviewRequest, error) { return requests, err }
 
 	return deps
@@ -49,10 +50,11 @@ func TestListReviewsAnswersTheForgeQueue(t *testing.T) {
 	}
 
 	// Act
-	recorder := get(t, serve(t, queueDeps([]forge.ReviewRequest{newer, older}, nil), config.Default()), reviewsPath)
+	recorder := webtest.Get(t, webtest.Serve(t, queueDeps([]forge.ReviewRequest{newer, older}, nil), config.Default()),
+		reviewsPath)
 
 	// Assert
-	queue := decode[api.ReviewQueue](t, recorder)
+	queue := webtest.Decode[api.ReviewQueue](t, recorder)
 	want := []api.ReviewRequest{
 		{
 			Number: 42, URL: older.URL, Title: older.Title, Author: "ana", Repository: "ex/api",
@@ -99,10 +101,10 @@ func TestListReviewsDescribesEachRequestsFacets(t *testing.T) {
 	}
 
 	// Act
-	recorder := get(t, serve(t, queueDeps(requests, nil), config.Default()), reviewsPath)
+	recorder := webtest.Get(t, webtest.Serve(t, queueDeps(requests, nil), config.Default()), reviewsPath)
 
 	// Assert
-	queue := decode[api.ReviewQueue](t, recorder)
+	queue := webtest.Decode[api.ReviewQueue](t, recorder)
 	want := [][]string{
 		{"repository|ex/tools|ex/tools", "ci|running|CI running", "draft|draft|draft", "author|lee|by lee"},
 		{"repository||no repository", "ci|none|CI none", "draft|ready|ready", "author|kim|by kim"},
@@ -129,10 +131,10 @@ func TestListReviewsShipsTheOrderTheFilterOffersItsValuesIn(t *testing.T) {
 	}
 
 	// Act
-	recorder := get(t, serve(t, queueDeps(requests, nil), config.Default()), reviewsPath)
+	recorder := webtest.Get(t, webtest.Serve(t, queueDeps(requests, nil), config.Default()), reviewsPath)
 
 	// Assert
-	queue := decode[api.ReviewQueue](t, recorder)
+	queue := webtest.Decode[api.ReviewQueue](t, recorder)
 	want := []string{
 		"repository|ex/lib|ex/lib", "repository|ex/web|ex/web", "ci|failed|CI failed", "ci|passed|CI passed",
 		"ci|running|CI running", "ci|none|CI none", "draft|draft|draft", "draft|ready|ready",
@@ -148,7 +150,7 @@ func TestListReviewsAnswersAnEmptyQueueAsAnEmptyList(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	recorder := get(t, serve(t, queueDeps(nil, nil), config.Default()), reviewsPath)
+	recorder := webtest.Get(t, webtest.Serve(t, queueDeps(nil, nil), config.Default()), reviewsPath)
 
 	// Assert
 	body := recorder.Body.String()
@@ -164,7 +166,7 @@ func TestListReviewsSaysThereIsNoForgeToAsk(t *testing.T) {
 	// No forge to ask is an answer about where the server runs, not a missing
 	// resource: the queue is not available, and empty, rather than a 404.
 	cases := map[string]func(context.Context) ([]forge.ReviewRequest, error){
-		noForgeSeam: nil,
+		webtest.NoForgeSeam: nil,
 		"outside a repository": func(context.Context) ([]forge.ReviewRequest, error) {
 			return nil, fmt.Errorf("reading the base remote: %w", forge.ErrNotARemote)
 		},
@@ -178,11 +180,11 @@ func TestListReviewsSaysThereIsNoForgeToAsk(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			deps.Forge.ReviewRequests = seam
 
 			// Act
-			recorder := get(t, serve(t, deps, config.Default()), reviewsPath)
+			recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), reviewsPath)
 
 			// Assert
 			body := recorder.Body.String()
@@ -215,7 +217,7 @@ func TestListReviewsDetailOmitsTheForgeHost(t *testing.T) {
 		},
 		"a forge asking to wait": {
 			cause:      fmt.Errorf("searching https://%s: %w", forgeHost, httpx.RateLimited(http.Header{})),
-			wantStatus: http.StatusServiceUnavailable, want: waitAndTryAgain,
+			wantStatus: http.StatusServiceUnavailable, want: webtest.WaitAndTryAgain,
 		},
 		"a refusal of the token": {
 			cause:      fmt.Errorf("searching https://%s: %w", forgeHost, forge.ErrRefused),
@@ -241,10 +243,10 @@ func TestListReviewsDetailOmitsTheForgeHost(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			recorder := get(t, serve(t, queueDeps(nil, tt.cause), config.Default()), reviewsPath)
+			recorder := webtest.Get(t, webtest.Serve(t, queueDeps(nil, tt.cause), config.Default()), reviewsPath)
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != tt.wantStatus || !strings.Contains(failure.Detail, tt.want) {
 				t.Errorf("status/detail = %d/%q, want %d saying %q", recorder.Code, failure.Detail, tt.wantStatus, tt.want)
 			}

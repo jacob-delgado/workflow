@@ -14,9 +14,10 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
-// otherBranchName is a branch checked out after testBranchName.
+// otherBranchName is a branch checked out after webtest.TestBranchName.
 const otherBranchName = "fix/PROJ-2"
 
 // forgeCounts is how many times a server asked the forge, by seam.
@@ -64,7 +65,7 @@ func TestStreamAsksTheForgeAtMostOncePerCIInterval(t *testing.T) {
 		wantReads  int
 	}{
 		"frames within the default twenty seconds":  {step: 5 * time.Second, wantReads: 1},
-		"the default twenty seconds between frames": {step: 20 * time.Second, wantReads: streamedFrames},
+		"the default twenty seconds between frames": {step: 20 * time.Second, wantReads: webtest.StreamedFrames},
 		"a configured minute, half of it between frames": {
 			ciInterval: "1m", step: 30 * time.Second, wantReads: 2,
 		},
@@ -81,7 +82,7 @@ func TestStreamAsksTheForgeAtMostOncePerCIInterval(t *testing.T) {
 			cfg.Timing.CIInterval = tt.ciInterval
 
 			// Act
-			pushed := snapshots(t, streamPaced(t, counted(filledDeps(), &counts), cfg, tt.step))
+			pushed := webtest.Snapshots(t, webtest.StreamPaced(t, counted(webtest.FilledDeps(), &counts), cfg, tt.step))
 
 			// Assert
 			if counts.finds != tt.wantReads || counts.checks != tt.wantReads {
@@ -106,13 +107,13 @@ func TestStreamsShareOneForgeRead(t *testing.T) {
 	// the first page's frame read.
 	var counts forgeCounts
 
-	deps := counted(filledDeps(), &counts)
-	deps.Clock = paceStart
-	handler := serve(t, deps, config.Default())
-	streamOnce(t, handler, "/api/events")
+	deps := counted(webtest.FilledDeps(), &counts)
+	deps.Clock = webtest.PaceStart
+	handler := webtest.Serve(t, deps, config.Default())
+	webtest.StreamOnce(t, handler, "/api/events")
 
 	// Act
-	snap := firstSnapshot(t, streamOnce(t, handler, "/api/events").Body.String())
+	snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
 
 	// Assert
 	if !snap.Review.Found || snap.Review.Ci == nil {
@@ -130,12 +131,14 @@ func TestStreamAsksTheForgeAgainForAnotherBranchOrHead(t *testing.T) {
 
 	cases := map[string][]gitrepo.Branch{
 		"a new head on the branch": {
-			{Name: testBranchName, Head: "abc1"}, {Name: testBranchName, Head: "abc2"}, {Name: testBranchName, Head: "abc3"},
+			{Name: webtest.TestBranchName, Head: "abc1"},
+			{Name: webtest.TestBranchName, Head: "abc2"},
+			{Name: webtest.TestBranchName, Head: "abc3"},
 		},
 		"another branch checked out": {
-			{Name: testBranchName, Head: testCommitHash},
-			{Name: otherBranchName, Head: testCommitHash},
-			{Name: "fix/PROJ-3", Head: testCommitHash},
+			{Name: webtest.TestBranchName, Head: webtest.TestCommitHash},
+			{Name: otherBranchName, Head: webtest.TestCommitHash},
+			{Name: "fix/PROJ-3", Head: webtest.TestCommitHash},
 		},
 	}
 
@@ -148,11 +151,11 @@ func TestStreamAsksTheForgeAgainForAnotherBranchOrHead(t *testing.T) {
 			// about has changed.
 			var counts forgeCounts
 
-			deps := counted(filledDeps(), &counts)
+			deps := counted(webtest.FilledDeps(), &counts)
 			deps.Git.Branch = branchesInTurn(branches...)
 
 			// Act
-			pushed := snapshots(t, streamPaced(t, deps, config.Default(), 0))
+			pushed := webtest.Snapshots(t, webtest.StreamPaced(t, deps, config.Default(), 0))
 
 			// Assert
 			if counts.finds != len(branches) || counts.checks != len(branches) {
@@ -170,22 +173,22 @@ func TestStreamKeepsTheLastForgeAnswerWhenARefreshFails(t *testing.T) {
 	// The interval passes between every two frames, so each asks again; only
 	// the first ask is answered.
 	asked := 0
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	find := deps.Forge.FindPullRequest
 	deps.Forge.FindPullRequest = func(ctx context.Context, branch string) (forge.PullRequest, bool, error) {
 		asked++
 		if asked > 1 {
-			return forge.PullRequest{}, false, errSeam
+			return forge.PullRequest{}, false, webtest.ErrSeam
 		}
 
 		return find(ctx, branch)
 	}
 
 	// Act
-	pushed := snapshots(t, streamPaced(t, deps, config.Default(), 20*time.Second))
+	pushed := webtest.Snapshots(t, webtest.StreamPaced(t, deps, config.Default(), 20*time.Second))
 
 	// Assert
-	if asked != streamedFrames {
+	if asked != webtest.StreamedFrames {
 		t.Fatalf("asked the forge for the pull %d times across %d frames, want once a frame", asked, len(pushed))
 	}
 
@@ -208,22 +211,22 @@ func TestStreamKeepsTheLastCIWhenItsReadFails(t *testing.T) {
 	// The interval passes between every two frames, so each asks again; the
 	// pull is found every time, and its CI only the first.
 	checked := 0
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	check := deps.Forge.CheckStatus
 	deps.Forge.CheckStatus = func(ctx context.Context, pull forge.PullRequest, head string) (forge.CI, error) {
 		checked++
 		if checked > 1 {
-			return forge.CI{}, errSeam
+			return forge.CI{}, webtest.ErrSeam
 		}
 
 		return check(ctx, pull, head)
 	}
 
 	// Act
-	pushed := snapshots(t, streamPaced(t, deps, config.Default(), 20*time.Second))
+	pushed := webtest.Snapshots(t, webtest.StreamPaced(t, deps, config.Default(), 20*time.Second))
 
 	// Assert
-	if checked != streamedFrames {
+	if checked != webtest.StreamedFrames {
 		t.Fatalf("asked the forge for CI %d times across %d frames, want once a frame", checked, len(pushed))
 	}
 
@@ -263,7 +266,7 @@ func TestStreamDropsTheLastCIForAPullItWasNotReadFor(t *testing.T) {
 			// The first frame reads the forge whole; each later one, a frame
 			// an interval on, finds later, whose CI cannot be read.
 			finds := 0
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			find, check := deps.Forge.FindPullRequest, deps.Forge.CheckStatus
 			deps.Forge.FindPullRequest = func(ctx context.Context, branch string) (forge.PullRequest, bool, error) {
 				finds++
@@ -277,14 +280,14 @@ func TestStreamDropsTheLastCIForAPullItWasNotReadFor(t *testing.T) {
 			}
 			deps.Forge.CheckStatus = func(ctx context.Context, pull forge.PullRequest, head string) (forge.CI, error) {
 				if finds > 1 {
-					return forge.CI{}, errSeam
+					return forge.CI{}, webtest.ErrSeam
 				}
 
 				return check(ctx, pull, head)
 			}
 
 			// Act
-			pushed := snapshots(t, streamPaced(t, deps, config.Default(), 20*time.Second))
+			pushed := webtest.Snapshots(t, webtest.StreamPaced(t, deps, config.Default(), 20*time.Second))
 
 			// Assert
 			last := pushed[len(pushed)-1].Review
@@ -303,21 +306,21 @@ func TestStreamDropsTheLastCIForANewHead(t *testing.T) {
 	// The same pull is found at each head, but only the first head's CI can
 	// be read: what CI said of that commit says nothing of the next.
 	checks := 0
-	deps := filledDeps()
-	deps.Git.Branch = branchesInTurn(gitrepo.Branch{Name: testBranchName, Head: "abc1"},
-		gitrepo.Branch{Name: testBranchName, Head: "abc2"})
+	deps := webtest.FilledDeps()
+	deps.Git.Branch = branchesInTurn(gitrepo.Branch{Name: webtest.TestBranchName, Head: "abc1"},
+		gitrepo.Branch{Name: webtest.TestBranchName, Head: "abc2"})
 	check := deps.Forge.CheckStatus
 	deps.Forge.CheckStatus = func(ctx context.Context, pull forge.PullRequest, head string) (forge.CI, error) {
 		checks++
 		if checks > 1 {
-			return forge.CI{}, errSeam
+			return forge.CI{}, webtest.ErrSeam
 		}
 
 		return check(ctx, pull, head)
 	}
 
 	// Act
-	pushed := snapshots(t, streamPaced(t, deps, config.Default(), 0))
+	pushed := webtest.Snapshots(t, webtest.StreamPaced(t, deps, config.Default(), 0))
 
 	// Assert
 	if last := pushed[len(pushed)-1].Review; last.Pull == nil || last.Ci != nil {
@@ -330,15 +333,15 @@ func TestStreamWaitsOutTheIntervalAfterAFailedForgeRead(t *testing.T) {
 
 	// Arrange
 	asked := 0
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		asked++
 
-		return forge.PullRequest{}, false, errSeam
+		return forge.PullRequest{}, false, webtest.ErrSeam
 	}
 
 	// Act
-	pushed := snapshots(t, streamPaced(t, deps, config.Default(), 5*time.Second))
+	pushed := webtest.Snapshots(t, webtest.StreamPaced(t, deps, config.Default(), 5*time.Second))
 
 	// Assert
 	if asked != 1 {
@@ -360,20 +363,20 @@ func TestStreamDropsTheLastForgeAnswerForAnotherBranch(t *testing.T) {
 
 	// Arrange
 	// The first branch's pull is found; the forge cannot answer for the next.
-	first := gitrepo.Branch{Name: testBranchName, Head: testCommitHash}
-	deps := filledDeps()
-	deps.Git.Branch = branchesInTurn(first, gitrepo.Branch{Name: otherBranchName, Head: testCommitHash})
+	first := gitrepo.Branch{Name: webtest.TestBranchName, Head: webtest.TestCommitHash}
+	deps := webtest.FilledDeps()
+	deps.Git.Branch = branchesInTurn(first, gitrepo.Branch{Name: otherBranchName, Head: webtest.TestCommitHash})
 	find := deps.Forge.FindPullRequest
 	deps.Forge.FindPullRequest = func(ctx context.Context, branch string) (forge.PullRequest, bool, error) {
 		if branch != first.Name {
-			return forge.PullRequest{}, false, errSeam
+			return forge.PullRequest{}, false, webtest.ErrSeam
 		}
 
 		return find(ctx, branch)
 	}
 
 	// Act
-	pushed := snapshots(t, streamPaced(t, deps, config.Default(), 0))
+	pushed := webtest.Snapshots(t, webtest.StreamPaced(t, deps, config.Default(), 0))
 
 	// Assert
 	if last := pushed[len(pushed)-1]; last.Review.Found {
@@ -398,20 +401,20 @@ func TestStreamAsksTheForgeAgainOnceAPullIsOpenedHere(t *testing.T) {
 		return create(ctx, request)
 	}
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
-		return forge.PullRequest{Number: 7, URL: prURL, Title: "opened"}, opened, nil
+		return forge.PullRequest{Number: 7, URL: webtest.PRURL, Title: "opened"}, opened, nil
 	}
-	deps.Clock = paceStart
+	deps.Clock = webtest.PaceStart
 
-	handler := serve(t, deps, config.Default())
-	streamOnce(t, handler, "/api/events")
+	handler := webtest.Serve(t, deps, config.Default())
+	webtest.StreamOnce(t, handler, "/api/events")
 
-	openAnswer := send(t, handler, http.MethodPost, "/api/pull-request", openRequestBody)
+	openAnswer := webtest.Send(t, handler, http.MethodPost, "/api/pull-request", openRequestBody)
 	if openAnswer.Code != http.StatusOK {
 		t.Fatalf("opening the pull request: status = %d (%s), want 200", openAnswer.Code, openAnswer.Body.String())
 	}
 
 	// Act
-	snap := firstSnapshot(t, streamOnce(t, handler, "/api/events").Body.String())
+	snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
 
 	// Assert
 	if !snap.Review.Found || snap.Review.Pull == nil || snap.Review.Pull.Number != 7 {

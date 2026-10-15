@@ -20,6 +20,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/messaging/directory"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // The tests here hold a read every stream shares to the server's lifetime: it
@@ -93,10 +94,10 @@ func sharedReads() map[string]func(deps *webserver.Deps, held func(context.Conte
 			}
 		},
 		"the search for Taskwarrior": func(deps *webserver.Deps, held func(context.Context) error) {
-			fake := fakeTaskwarrior()
-			deps.Tasks = fake.seams()
+			fake := webtest.FakeTaskwarrior()
+			deps.Tasks = fake.Seams()
 			deps.Tasks.Install = func(ctx context.Context) (taskwarrior.Install, error) {
-				return fake.install, held(ctx)
+				return fake.Install, held(ctx)
 			}
 		},
 	}
@@ -112,14 +113,15 @@ func TestASharedReadEndsWhenTheServerStops(t *testing.T) {
 			// Arrange
 			var asked atomic.Int32
 
-			held, deps := newHeldUntilEnded(), scopedDeps([]jira.Key{yourIssue}, nil, &asked)
-			hold(&deps, held.once())
-			handler, lifetime, stop := serveForALifetime(t, deps, scopedConfig())
-			stream := openStreamOf(t, handler, httptest.NewRequestWithContext(lifetime, http.MethodGet, "/api/events", nil))
+			held, deps := webtest.NewHeldUntilEnded(), scopedDeps([]jira.Key{yourIssue}, nil, &asked)
+			hold(&deps, held.Once())
+			handler, lifetime, stop := webtest.ServeForALifetime(t, deps, scopedConfig())
+			stream := webtest.OpenStreamOf(t, handler, httptest.NewRequestWithContext(lifetime, http.MethodGet, "/api/events",
+				nil))
 
 			select {
-			case <-held.entered:
-			case <-time.After(endsWithin):
+			case <-held.Entered:
+			case <-time.After(webtest.EndsWithin):
 				t.Fatal("no frame began the shared read")
 			}
 
@@ -127,14 +129,14 @@ func TestASharedReadEndsWhenTheServerStops(t *testing.T) {
 			stop()
 
 			// Assert
-			err := held.endedWith(t)
+			err := held.EndedWith(t)
 			if !errors.Is(err, context.Canceled) {
 				t.Errorf("the shared read's context ended with %v, want it canceled once the server stopped", err)
 			}
 
 			select {
-			case <-stream.done:
-			case <-time.After(endsWithin):
+			case <-stream.Done:
+			case <-time.After(webtest.EndsWithin):
 				t.Error("the stream that began the shared read went on after the server stopped")
 			}
 		})
@@ -148,9 +150,9 @@ func TestServeReturnsPromptlyWithASharedReadUnderWay(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	held, deps := newHeldUntilEnded(), filledDeps()
+	held, deps := webtest.NewHeldUntilEnded(), webtest.FilledDeps()
 	deps.Forge.FindPullRequest = heldFirstFind(held, deps.Forge.FindPullRequest)
-	handler, lifetime, stop := serveForALifetime(t, deps, scopedConfig())
+	handler, lifetime, stop := webtest.ServeForALifetime(t, deps, scopedConfig())
 	listener := listen(t)
 	served := make(chan error, 1)
 
@@ -158,7 +160,7 @@ func TestServeReturnsPromptlyWithASharedReadUnderWay(t *testing.T) {
 
 	go askOnce(t, "http://"+listener.Addr().String()+"/api/events")
 
-	<-held.entered
+	<-held.Entered
 
 	// Act
 	stop()
@@ -166,9 +168,9 @@ func TestServeReturnsPromptlyWithASharedReadUnderWay(t *testing.T) {
 	// Assert
 	select {
 	case <-served:
-	case <-time.After(endsWithin):
+	case <-time.After(webtest.EndsWithin):
 		t.Errorf("Serve had not returned %v after the server stopped, want it within: the shared read held "+
-			"the drain", endsWithin)
+			"the drain", webtest.EndsWithin)
 	}
 }
 
@@ -185,7 +187,7 @@ func holdingSlack(t *testing.T) (messaging.Client, <-chan struct{}, <-chan struc
 		select {
 		case <-request.Context().Done():
 			close(finished)
-		case <-time.After(heldPatience):
+		case <-time.After(webtest.HeldPatience):
 		}
 	}))
 	t.Cleanup(server.Close)
@@ -206,11 +208,11 @@ func TestASlackDirectoryReadEndsWhenTheServerStops(t *testing.T) {
 	// Arrange
 	client, entered, ended := holdingSlack(t)
 	slack := directory.New(func() (messaging.Client, error) { return client, nil }, time.Now)
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Messaging.UserGroups = slack.UserGroups
-	handler, lifetime, stop := serveForALifetime(t, deps, slackUserConfig())
+	handler, lifetime, stop := webtest.ServeForALifetime(t, deps, slackUserConfig())
 	request := httptest.NewRequestWithContext(lifetime, http.MethodGet, groupsPath, nil)
-	request.Host = loopbackHost
+	request.Host = webtest.LoopbackHost
 	answered := make(chan struct{})
 
 	go func() {
@@ -221,7 +223,7 @@ func TestASlackDirectoryReadEndsWhenTheServerStops(t *testing.T) {
 
 	select {
 	case <-entered:
-	case <-time.After(endsWithin):
+	case <-time.After(webtest.EndsWithin):
 		t.Fatal("no page began the Slack directory read")
 	}
 
@@ -231,7 +233,7 @@ func TestASlackDirectoryReadEndsWhenTheServerStops(t *testing.T) {
 	// Assert
 	select {
 	case <-ended:
-	case <-time.After(endsWithin):
+	case <-time.After(webtest.EndsWithin):
 		t.Error("the Slack directory read went on after the server stopped")
 	}
 

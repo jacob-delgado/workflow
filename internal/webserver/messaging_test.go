@@ -9,6 +9,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 func TestGetMessagingReturnsTheDestination(t *testing.T) {
@@ -20,11 +21,12 @@ func TestGetMessagingReturnsTheDestination(t *testing.T) {
 	cfg.Messaging.Channel = slackChannel
 
 	// Act
-	destination := decode[api.MessagingDestination](t, get(t, serve(t, filledDeps(), cfg), "/api/messaging"))
+	destination := webtest.Decode[api.MessagingDestination](t, webtest.Get(t, webtest.Serve(t, webtest.FilledDeps(), cfg),
+		"/api/messaging"))
 
 	// Assert
 	if destination.Service != "Slack" || !destination.Configured ||
-		destination.Channel != slackChannel || destination.Author != testAuthor {
+		destination.Channel != slackChannel || destination.Author != webtest.TestAuthor {
 		t.Errorf("destination = %+v, want configured Slack, #dev and octocat", destination)
 	}
 }
@@ -40,7 +42,8 @@ func TestGetMessagingMarksAWebhookServiceConfigured(t *testing.T) {
 	cfg.Messaging.WebhookURL = "https://example.com/hook"
 
 	// Act
-	destination := decode[api.MessagingDestination](t, get(t, serve(t, filledDeps(), cfg), "/api/messaging"))
+	destination := webtest.Decode[api.MessagingDestination](t, webtest.Get(t, webtest.Serve(t, webtest.FilledDeps(), cfg),
+		"/api/messaging"))
 
 	// Assert
 	if destination.Service != "Teams" || !destination.Configured || destination.Channel != "" {
@@ -52,11 +55,12 @@ func TestGetMessagingHasNoAuthorWithoutAForge(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Forge.Author = nil
 
 	// Act
-	destination := decode[api.MessagingDestination](t, get(t, serve(t, deps, config.Default()), "/api/messaging"))
+	destination := webtest.Decode[api.MessagingDestination](t, webtest.Get(t, webtest.Serve(t, deps, config.Default()),
+		"/api/messaging"))
 
 	// Assert
 	if destination.Author != "" {
@@ -68,11 +72,12 @@ func TestGetMessagingHasNoAuthorWhenTheForgeCannotSay(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
-	deps.Forge.Author = func(context.Context) (string, error) { return "", errSeam }
+	deps := webtest.FilledDeps()
+	deps.Forge.Author = func(context.Context) (string, error) { return "", webtest.ErrSeam }
 
 	// Act
-	destination := decode[api.MessagingDestination](t, get(t, serve(t, deps, config.Default()), "/api/messaging"))
+	destination := webtest.Decode[api.MessagingDestination](t, webtest.Get(t, webtest.Serve(t, deps, config.Default()),
+		"/api/messaging"))
 
 	// Assert
 	if destination.Author != "" {
@@ -86,11 +91,12 @@ func TestSnapshotHasNoAuthorWhenTheForgeCannotSay(t *testing.T) {
 	// Arrange
 	// The failing read still names someone, so only the error can empty the
 	// author.
-	deps := filledDeps()
-	deps.Forge.Author = func(context.Context) (string, error) { return testAuthor, errSeam }
+	deps := webtest.FilledDeps()
+	deps.Forge.Author = func(context.Context) (string, error) { return webtest.TestAuthor, webtest.ErrSeam }
 
 	// Act
-	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
+	snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, webtest.Serve(t, deps, config.Default()),
+		"/api/events").Body.String())
 
 	// Assert
 	if snap.Messaging.Author != "" {

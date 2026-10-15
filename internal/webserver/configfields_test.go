@@ -12,6 +12,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // refusedFields are a problem's refused settings, none when it names none.
@@ -35,10 +36,10 @@ func TestARefusedSaveNamesEachSettingItRefused(t *testing.T) {
 	bad.Commit.RefsTrailer = "Closes:"
 
 	// Act
-	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, bad))
+	recorder := webtest.PutConfig(t, webtest.Serve(t, webserver.Deps{}, cfg), webtest.Marshal(t, bad))
 
 	// Assert
-	fields := refusedFields(decode[api.Problem](t, recorder))
+	fields := refusedFields(webtest.Decode[api.Problem](t, recorder))
 	if recorder.Code != http.StatusUnprocessableEntity || len(fields) != 2 ||
 		fields[0].Key != "timing.request_timeout" || !strings.Contains(fields[0].Detail, `"later"`) ||
 		fields[1].Key != "commit.refs_trailer" || !strings.Contains(fields[1].Detail, `"Closes:"`) {
@@ -57,10 +58,10 @@ func TestARefusedSettingNeverCarriesASecret(t *testing.T) {
 	posted.Jira.Token = "jira-token-wxyz"
 
 	// Act
-	recorder := putConfig(t, serve(t, webserver.Deps{}, cfg), marshal(t, posted))
+	recorder := webtest.PutConfig(t, webtest.Serve(t, webserver.Deps{}, cfg), webtest.Marshal(t, posted))
 
 	// Assert
-	fields := refusedFields(decode[api.Problem](t, recorder))
+	fields := refusedFields(webtest.Decode[api.Problem](t, recorder))
 	if len(fields) != 1 || fields[0].Key != "jira.base_url" ||
 		strings.Contains(recorder.Body.String(), "s3cret") || strings.Contains(recorder.Body.String(), "wxyz") {
 		t.Errorf("fields %+v, body %s; want jira.base_url refused with no secret", fields, recorder.Body.String())

@@ -22,6 +22,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/store"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 	"github.com/jacob-delgado/workflow/internal/workdirs"
 )
 
@@ -67,7 +68,7 @@ type keptFavorites struct {
 // repositoryDeps work in api's cmd directory, with web, notes and a directory
 // since removed as favorites.
 func repositoryDeps(kept *keptFavorites) webserver.Deps {
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	places := placesByDir()
 	deps.Repositories = seams.Repositories{
 		Here: apiPlace(), Home: anaHome,
@@ -128,10 +129,10 @@ func TestRepositoriesSayWhereTheServerWorks(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	recorder := get(t, serve(t, repositoryDeps(favoritesKept()), config.Default()), reposPath)
+	recorder := webtest.Get(t, webtest.Serve(t, repositoryDeps(favoritesKept()), config.Default()), reposPath)
 
 	// Assert
-	got := decode[api.Repositories](t, recorder)
+	got := webtest.Decode[api.Repositories](t, recorder)
 	want := api.Place{
 		Dir: apiCmd, Shown: "~/src/api/cmd", Root: apiRoot, RootShown: "~/src/api", Within: "cmd",
 		Origin: "github.com/acme/api", Config: []string{"~/src/api/.workflow.json", "~/.workflow.json"},
@@ -154,10 +155,10 @@ func TestFavoritesSayWhatIsThereNow(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	recorder := get(t, serve(t, repositoryDeps(favoritesKept()), config.Default()), reposPath)
+	recorder := webtest.Get(t, webtest.Serve(t, repositoryDeps(favoritesKept()), config.Default()), reposPath)
 
 	// Assert
-	got := decode[api.Repositories](t, recorder)
+	got := webtest.Decode[api.Repositories](t, recorder)
 
 	states := map[string]api.FavoriteState{}
 	for _, favorite := range got.Favorites {
@@ -185,13 +186,13 @@ func TestAStoreThatKeepsNothingSaysFavoritesAreNotKept(t *testing.T) {
 	// Arrange
 	deps := repositoryDeps(favoritesKept())
 	deps.Store.Favor, deps.Store.Unfavor = nil, nil
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 
 	// Act
-	recorder := send(t, handler, http.MethodPut, reposPath+"/favorites", `{"dir":"/srv/web"}`)
+	recorder := webtest.Send(t, handler, http.MethodPut, reposPath+"/favorites", `{"dir":"/srv/web"}`)
 
 	// Assert
-	kept := decode[api.Repositories](t, get(t, handler, reposPath)).FavoritesKept
+	kept := webtest.Decode[api.Repositories](t, webtest.Get(t, handler, reposPath)).FavoritesKept
 	if recorder.Code != http.StatusUnprocessableEntity || kept {
 		t.Errorf("status %d; want 422 and favorites_kept false", recorder.Code)
 	}
@@ -203,10 +204,10 @@ func TestWithoutAStoreTheFavoritesAreAnEmptyList(t *testing.T) {
 	// Arrange
 	deps := repositoryDeps(favoritesKept())
 	deps.Store.Favorites = nil
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 
 	// Act
-	recorder := get(t, handler, reposPath)
+	recorder := webtest.Get(t, handler, reposPath)
 
 	// Assert
 	if body := recorder.Body.String(); recorder.Code != http.StatusOK || !strings.Contains(body, `"favorites":[]`) {
@@ -234,10 +235,10 @@ func TestAFavoriteIsMarkedAndForgotten(t *testing.T) {
 
 			// Arrange
 			kept := favoritesKept()
-			handler := serve(t, repositoryDeps(kept), config.Default())
+			handler := webtest.Serve(t, repositoryDeps(kept), config.Default())
 
 			// Act
-			recorder := send(t, handler, change.method, change.target, change.body)
+			recorder := webtest.Send(t, handler, change.method, change.target, change.body)
 
 			// Assert
 			if recorder.Code != http.StatusOK || !slices.Equal(kept.asked, []string{change.want}) {
@@ -261,10 +262,10 @@ func TestAFavoriteIsAnAbsolutePath(t *testing.T) {
 
 			// Arrange
 			kept := favoritesKept()
-			handler := serve(t, repositoryDeps(kept), config.Default())
+			handler := webtest.Serve(t, repositoryDeps(kept), config.Default())
 
 			// Act
-			recorder := send(t, handler, tt.method, tt.target, tt.body)
+			recorder := webtest.Send(t, handler, tt.method, tt.target, tt.body)
 
 			// Assert
 			if recorder.Code != http.StatusUnprocessableEntity || len(kept.asked) != 0 {
@@ -278,14 +279,14 @@ func TestTheDirectoriesInOneAreListed(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	handler := serve(t, repositoryDeps(favoritesKept()), config.Default())
+	handler := webtest.Serve(t, repositoryDeps(favoritesKept()), config.Default())
 
 	// Act
 	// A path is read from your home after a ~.
-	recorder := get(t, handler, "/api/directories?path=~%2Fsrc")
+	recorder := webtest.Get(t, handler, "/api/directories?path=~%2Fsrc")
 
 	// Assert
-	got := decode[api.DirectoryListing](t, recorder)
+	got := webtest.Decode[api.DirectoryListing](t, recorder)
 	if recorder.Code != http.StatusOK || got.Path != "/home/ana/src" || got.Shown != "~/src" ||
 		got.Parent != anaHome || len(got.Entries) != 2 || got.Entries[0].Path != apiRoot || !got.Entries[0].Repository {
 		t.Errorf("status %d, listing %+v; want ~/src with api, a repository, first", recorder.Code, got)
@@ -296,10 +297,10 @@ func TestADirectoryNotThereIsRefusedWithoutItsPath(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	handler := serve(t, repositoryDeps(favoritesKept()), config.Default())
+	handler := webtest.Serve(t, repositoryDeps(favoritesKept()), config.Default())
 
 	// Act
-	recorder := get(t, handler, "/api/directories?path=%2Fsecret%2Fplace")
+	recorder := webtest.Get(t, handler, "/api/directories?path=%2Fsecret%2Fplace")
 
 	// Assert
 	if recorder.Code != http.StatusNotFound || strings.Contains(recorder.Body.String(), "secret") {
@@ -321,7 +322,7 @@ func reachable(deps webserver.Deps, reached *[]string) webserver.Deps {
 		next := deps
 		next.Repositories.Here = place
 
-		return webserver.World{Deps: next, Config: config.Default(), Info: webserver.Info{Version: testVersion}}, nil
+		return webserver.World{Deps: next, Config: config.Default(), Info: webserver.Info{Version: webtest.TestVersion}}, nil
 	}
 
 	return deps
@@ -333,13 +334,13 @@ func TestASwitchServesTheDirectorySwitchedTo(t *testing.T) {
 	// Arrange
 	var reached []string
 
-	handler := serve(t, reachable(repositoryDeps(favoritesKept()), &reached), config.Default())
+	handler := webtest.Serve(t, reachable(repositoryDeps(favoritesKept()), &reached), config.Default())
 
 	// Act
-	recorder := send(t, handler, http.MethodPut, reposPath+"/here", `{"dir":"`+webRoot+`"}`)
+	recorder := webtest.Send(t, handler, http.MethodPut, reposPath+"/here", `{"dir":"`+webRoot+`"}`)
 
 	// Assert
-	after := decode[api.Repositories](t, get(t, handler, reposPath))
+	after := webtest.Decode[api.Repositories](t, webtest.Get(t, handler, reposPath))
 	if recorder.Code != http.StatusOK || after.Here.Dir != webRoot || !slices.Equal(reached, []string{webRoot}) {
 		t.Errorf("status %d, now in %q, reached %v; want 200 and web served", recorder.Code, after.Here.Dir, reached)
 	}
@@ -351,13 +352,13 @@ func TestASwitchToADirectoryNotThereIsRefused(t *testing.T) {
 	// Arrange
 	var reached []string
 
-	handler := serve(t, reachable(repositoryDeps(favoritesKept()), &reached), config.Default())
+	handler := webtest.Serve(t, reachable(repositoryDeps(favoritesKept()), &reached), config.Default())
 
 	// Act
-	recorder := send(t, handler, http.MethodPut, reposPath+"/here", `{"dir":"/secret/gone"}`)
+	recorder := webtest.Send(t, handler, http.MethodPut, reposPath+"/here", `{"dir":"/secret/gone"}`)
 
 	// Assert
-	after := decode[api.Repositories](t, get(t, handler, reposPath))
+	after := webtest.Decode[api.Repositories](t, webtest.Get(t, handler, reposPath))
 
 	named := strings.Contains(recorder.Body.String(), "secret")
 	if recorder.Code != http.StatusNotFound || after.Here.Dir != apiCmd || named {
@@ -375,19 +376,19 @@ func TestASwitchWaitsForNoWriteButIsRefusedWhileOneRuns(t *testing.T) {
 
 	kept := favoritesKept()
 	kept.hold, kept.entered = make(chan struct{}), make(chan struct{})
-	handler := serve(t, reachable(repositoryDeps(kept), &reached), config.Default())
+	handler := webtest.Serve(t, reachable(repositoryDeps(kept), &reached), config.Default())
 
 	writing := make(chan struct{})
 	go func() {
 		defer close(writing)
 
-		send(t, handler, http.MethodPut, reposPath+"/favorites", `{"dir":"/srv/web"}`)
+		webtest.Send(t, handler, http.MethodPut, reposPath+"/favorites", `{"dir":"/srv/web"}`)
 	}()
 
 	<-kept.entered
 
 	// Act
-	recorder := send(t, handler, http.MethodPut, reposPath+"/here", `{"dir":"`+webRoot+`"}`)
+	recorder := webtest.Send(t, handler, http.MethodPut, reposPath+"/here", `{"dir":"`+webRoot+`"}`)
 
 	// Assert
 	close(kept.hold)
@@ -420,10 +421,10 @@ func TestAWriteFromAPageShowingAnotherDirectoryIsRefused(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			handler := serve(t, repositoryDeps(favoritesKept()), config.Default())
+			handler := webtest.Serve(t, repositoryDeps(favoritesKept()), config.Default())
 			request := httptest.NewRequestWithContext(t.Context(), http.MethodPut, reposPath+"/favorites",
 				strings.NewReader(`{"dir":"/srv/web"}`))
-			request.Host = loopbackHost
+			request.Host = webtest.LoopbackHost
 			request.Header.Set("Content-Type", "application/json")
 			request.Header.Set(webserver.HereHeader, page.shown)
 
@@ -446,7 +447,7 @@ func TestASwitchEndsTheEventStreamSoThePageReconnects(t *testing.T) {
 	// Arrange
 	var reached []string
 
-	handler := serve(t, reachable(repositoryDeps(favoritesKept()), &reached), config.Default())
+	handler := webtest.Serve(t, reachable(repositoryDeps(favoritesKept()), &reached), config.Default())
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
 
@@ -470,7 +471,7 @@ func TestASwitchEndsTheEventStreamSoThePageReconnects(t *testing.T) {
 	}
 
 	// Act
-	send(t, handler, http.MethodPut, reposPath+"/here", `{"dir":"`+webRoot+`"}`)
+	webtest.Send(t, handler, http.MethodPut, reposPath+"/here", `{"dir":"`+webRoot+`"}`)
 
 	// Assert
 	var rest []string
@@ -487,10 +488,10 @@ func TestEverySnapshotSaysWhereTheServerWorks(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	recorder := streamOnce(t, serve(t, repositoryDeps(favoritesKept()), config.Default()), "/api/events")
+	recorder := webtest.StreamOnce(t, webtest.Serve(t, repositoryDeps(favoritesKept()), config.Default()), "/api/events")
 
 	// Assert
-	if here := firstSnapshot(t, recorder.Body.String()).Here; here != apiCmd {
+	if here := webtest.FirstSnapshot(t, recorder.Body.String()).Here; here != apiCmd {
 		t.Errorf("snapshot here = %q, want %s", here, apiCmd)
 	}
 }
@@ -503,10 +504,10 @@ func TestAFavoriteInKeptDataFromAnotherBuildSaysHowToStartItFresh(t *testing.T) 
 	// earlier build made refuses one until it is started fresh.
 	deps := repositoryDeps(favoritesKept())
 	deps.Store.Favor = func(context.Context, string) error { return store.ErrKeptSchemaDiffers }
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 
 	// Act
-	recorder := send(t, handler, http.MethodPut, reposPath+"/favorites", `{"dir":"/srv/web"}`)
+	recorder := webtest.Send(t, handler, http.MethodPut, reposPath+"/favorites", `{"dir":"/srv/web"}`)
 
 	// Assert
 	if recorder.Code != http.StatusUnprocessableEntity || !strings.Contains(recorder.Body.String(), "db-clean --all") {
@@ -530,10 +531,10 @@ func TestAFavoriteKeptThroughALinkToWhereTheServerWorksIsHere(t *testing.T) {
 	deps.Repositories.Here = seams.Place{Dir: target}
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), reposPath)
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), reposPath)
 
 	// Assert
-	got := decode[api.Repositories](t, recorder)
+	got := webtest.Decode[api.Repositories](t, recorder)
 	if len(got.Favorites) != 1 || got.Favorites[0].State != api.FavoriteStateHere || got.Favorites[0].Dir != link {
 		t.Errorf("favorites %+v, want the link kept as where the server works", got.Favorites)
 	}
@@ -546,10 +547,10 @@ func TestASwitchIsToThePathWrittenPlainly(t *testing.T) {
 	// Where the server works is a path written plainly, as a favorite must be.
 	var reached []string
 
-	handler := serve(t, reachable(repositoryDeps(favoritesKept()), &reached), config.Default())
+	handler := webtest.Serve(t, reachable(repositoryDeps(favoritesKept()), &reached), config.Default())
 
 	// Act
-	recorder := send(t, handler, http.MethodPut, reposPath+"/here", `{"dir":"/home/ana/src/api/../web/"}`)
+	recorder := webtest.Send(t, handler, http.MethodPut, reposPath+"/here", `{"dir":"/home/ana/src/api/../web/"}`)
 
 	// Assert
 	if recorder.Code != http.StatusOK || !slices.Equal(reached, []string{webRoot}) {
@@ -565,10 +566,11 @@ func TestWithoutAPathTheDirectoryWorkedInIsListed(t *testing.T) {
 	deps.Repositories.Here = seams.Place{Dir: anaHome + "/src"}
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/directories")
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/directories")
 
 	// Assert
-	if got := decode[api.DirectoryListing](t, recorder); recorder.Code != http.StatusOK || got.Path != anaHome+"/src" {
+	if got := webtest.Decode[api.DirectoryListing](t, recorder); recorder.Code != http.StatusOK ||
+		got.Path != anaHome+"/src" {
 		t.Errorf("status %d, listing %+v; want where the server works", recorder.Code, got)
 	}
 }
@@ -600,7 +602,7 @@ func TestWhatTheServerCannotDoWithDirectoriesIsRefused(t *testing.T) {
 			refused.cut(&deps)
 
 			// Act
-			recorder := send(t, serve(t, deps, config.Default()), refused.method, refused.target, refused.body)
+			recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), refused.method, refused.target, refused.body)
 
 			// Assert
 			if recorder.Code != http.StatusUnprocessableEntity {
@@ -618,10 +620,10 @@ func TestTheRootHasNothingAbove(t *testing.T) {
 	deps.Repositories.Subdirectories = func(string, string) (workdirs.Listing, error) { return workdirs.Listing{}, nil }
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/directories?path=%2F")
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/directories?path=%2F")
 
 	// Assert
-	if got := decode[api.DirectoryListing](t, recorder); got.Path != "/" || got.Parent != "" {
+	if got := webtest.Decode[api.DirectoryListing](t, recorder); got.Path != "/" || got.Parent != "" {
 		t.Errorf("listing %+v, want / with no parent", got)
 	}
 }
@@ -631,10 +633,10 @@ func TestADryRunListsFavoritesAndKeepsNone(t *testing.T) {
 
 	// Arrange
 	deps := repositoryDeps(favoritesKept())
-	handler := serveWith(t, deps, config.Default(), webserver.Info{Version: testVersion, DryRun: true})
+	handler := webtest.ServeWith(t, deps, config.Default(), webserver.Info{Version: webtest.TestVersion, DryRun: true})
 
 	// Act
-	got := decode[api.Repositories](t, get(t, handler, reposPath))
+	got := webtest.Decode[api.Repositories](t, webtest.Get(t, handler, reposPath))
 
 	// Assert
 	if got.FavoritesKept || len(got.Favorites) == 0 {
@@ -650,13 +652,13 @@ func TestFavoritesThatCannotBeReadOrLookedAtStillAnswer(t *testing.T) {
 	// at a directory says it is missing.
 	deps := repositoryDeps(favoritesKept())
 	deps.Repositories.Look = nil
-	deps.Store.Favorites = func(context.Context) ([]string, error) { return []string{webRoot}, errSeam }
+	deps.Store.Favorites = func(context.Context) ([]string, error) { return []string{webRoot}, webtest.ErrSeam }
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), reposPath)
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), reposPath)
 
 	// Assert
-	got := decode[api.Repositories](t, recorder)
+	got := webtest.Decode[api.Repositories](t, recorder)
 	if recorder.Code != http.StatusOK || len(got.Favorites) != 1 || got.Favorites[0].State != api.FavoriteStateMissing {
 		t.Errorf("status %d, favorites %+v; want web, missing", recorder.Code, got.Favorites)
 	}

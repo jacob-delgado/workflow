@@ -15,6 +15,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // errForgeDown is why a forge could not be reached, as a transport says it.
@@ -23,7 +24,7 @@ var errForgeDown = errors.New("connection refused")
 // gatedDeps are filled deps over memory, posting nowhere but counting posts,
 // whose CI reads answer reported and err.
 func gatedDeps(memory *announceMemory, posts *int, reported forge.CI, err error) webserver.Deps {
-	deps := memory.wire(filledDeps())
+	deps := memory.wire(webtest.FilledDeps())
 	deps.Messaging.Post = func(context.Context, string, string) error {
 		*posts++
 
@@ -42,10 +43,10 @@ func TestAnnouncingNowWithAFailedCheckAnswersCIFailed(t *testing.T) {
 	deps := gatedDeps(memory, &posts, forge.CI{State: forge.CIFailed}, nil)
 
 	// Act
-	recorder := postAnnounce(t, serve(t, deps, config.Default()), map[string]string{channelField: ""})
+	recorder := postAnnounce(t, webtest.Serve(t, deps, config.Default()), map[string]string{channelField: ""})
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusConflict || failure.Code != api.ProblemCodeCiFailed ||
 		!strings.Contains(failure.Detail, "a check failed on #42") {
 		t.Errorf("status %d, problem %+v; want 409 ci_failed naming #42", recorder.Code, failure)
@@ -66,10 +67,10 @@ func TestAnnouncingNowWhenCICannotBeReadPostsNothing(t *testing.T) {
 	deps := gatedDeps(memory, &posts, forge.CI{}, unreachable)
 
 	// Act
-	recorder := postAnnounce(t, serve(t, deps, config.Default()), map[string]string{channelField: ""})
+	recorder := postAnnounce(t, webtest.Serve(t, deps, config.Default()), map[string]string{channelField: ""})
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusBadGateway || failure.Code != api.ProblemCodeUnreachable ||
 		strings.Contains(failure.Detail, forgeHost) {
 		t.Errorf("status %d, problem %+v; want 502 unreachable naming no host", recorder.Code, failure)
@@ -87,13 +88,13 @@ func TestAnnouncingAMergeACheckFailedOnSaysToReRunTheChecks(t *testing.T) {
 	// A merge cannot wait for CI, so it is not pointed at the wait.
 	world := newForgeWorld()
 	world.state, world.ci = forge.StateMerged, forge.CIFailed
-	handler := serve(t, world.deps(), config.Default())
+	handler := webtest.Serve(t, world.deps(), config.Default())
 
 	// Act
 	recorder := postAnnounce(t, handler, map[string]string{channelField: slackChannel})
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	want := "a check failed on #42, so its merge was not announced; " +
 		"re-run the failed checks on the forge, then announce it once they pass"
 

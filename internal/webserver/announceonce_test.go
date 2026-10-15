@@ -15,6 +15,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // postHeld is how long a slow post takes: long enough that a second
@@ -133,10 +134,10 @@ func TestTwoAnnouncementsAskedAtOnceArePostedOnce(t *testing.T) {
 	// Arrange
 	// The second is asked once the first has started to post.
 	memory := &announceMemory{}
-	deps := memory.wire(filledDeps())
+	deps := memory.wire(webtest.FilledDeps())
 	service := newSlowPost()
 	deps.Messaging.Post = service.post
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 	answers := make(chan int, 2)
 	announce := func() { answers <- postAnnounce(t, handler, map[string]string{channelField: ""}).Code }
 
@@ -171,7 +172,7 @@ func postingHeld(t *testing.T, world *forgeWorld) (http.Handler, *heldPost, <-ch
 	deps := world.deps()
 	service := newHeldPost()
 	deps.Messaging.Post = service.post
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 
 	if recorder := announceWhenGreen(t, handler, nil); recorder.Code != http.StatusAccepted {
 		t.Fatalf("holding the announcement answered %d: %s", recorder.Code, recorder.Body.String())
@@ -181,7 +182,7 @@ func postingHeld(t *testing.T, world *forgeWorld) (http.Handler, *heldPost, <-ch
 
 	frame := make(chan *httptest.ResponseRecorder, 1)
 
-	go func() { frame <- streamOnce(t, handler, "/api/events") }()
+	go func() { frame <- webtest.StreamOnce(t, handler, "/api/events") }()
 
 	service.awaitStart(t)
 
@@ -246,7 +247,7 @@ func TestDroppingTheHeldAnnouncementWhileItIsPostedIsAConflict(t *testing.T) {
 	handler, service, frame := postingHeld(t, newForgeWorld())
 
 	// Act
-	recorder := send(t, handler, http.MethodDelete, queuedPath, "")
+	recorder := webtest.Send(t, handler, http.MethodDelete, queuedPath, "")
 
 	close(service.release)
 	<-frame

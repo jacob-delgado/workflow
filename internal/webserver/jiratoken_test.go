@@ -18,6 +18,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // The addresses and tokens a repository moving Jira is saved with.
@@ -56,7 +57,8 @@ func movedJiraServed(
 		t.Fatalf("reading the layers: %v", err)
 	}
 
-	return serveWith(t, webserver.Deps{KeepJiraToken: keep}, cfg, webserver.Info{Version: testVersion}), cfg
+	return webtest.ServeWith(t, webserver.Deps{KeepJiraToken: keep}, cfg,
+		webserver.Info{Version: webtest.TestVersion}), cfg
 }
 
 // typingJiraToken is cfg with typedForMovedJira typed into its token.
@@ -79,7 +81,7 @@ func TestATokenTypedForAMovedJiraIsKeptInTheKeychainForItsAddress(t *testing.T) 
 	})
 
 	// Act
-	saved := putConfig(t, handler, marshal(t, typingJiraToken(cfg)))
+	saved := webtest.PutConfig(t, handler, webtest.Marshal(t, typingJiraToken(cfg)))
 
 	// Assert
 	if saved.Code != http.StatusOK || strings.Contains(saved.Body.String(), typedForMovedJira) {
@@ -106,7 +108,7 @@ func TestATokenTheKeychainWillNotKeepIsRefusedWithoutIt(t *testing.T) {
 	handler, cfg := movedJiraServed(t, func(context.Context, string, string) error { return errKeychainRefused })
 
 	// Act
-	saved := putConfig(t, handler, marshal(t, typingJiraToken(cfg)))
+	saved := webtest.PutConfig(t, handler, webtest.Marshal(t, typingJiraToken(cfg)))
 
 	// Assert
 	if saved.Code != http.StatusUnprocessableEntity || strings.Contains(saved.Body.String(), typedForMovedJira) ||

@@ -12,6 +12,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // The tests here hold the context each kind of request hands Taskwarrior: a
@@ -19,29 +20,29 @@ import (
 // stream shares with neither.
 
 // startPath starts the plain task.
-const startPath = tasksPath + "/" + plainUUID + "/start"
+const startPath = webtest.TasksPath + "/" + webtest.PlainUUID + "/start"
 
 func TestATaskReadStopsWhenItsPageLeaves(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	held := newHeldUntilEnded()
-	tasks := fakeTaskwarrior().seams()
-	tasks.Pending = func(ctx context.Context) (taskwarrior.List, error) { return taskwarrior.List{}, held.wait(ctx) }
+	held := webtest.NewHeldUntilEnded()
+	tasks := webtest.FakeTaskwarrior().Seams()
+	tasks.Pending = func(ctx context.Context) (taskwarrior.List, error) { return taskwarrior.List{}, held.Wait(ctx) }
 
 	var heard []error
 
 	deps := webserver.Deps{Tasks: tasks, Unexpected: func(_ config.Config, err error) { heard = append(heard, err) }}
 	ctx, leave := context.WithCancel(t.Context())
-	answered := asking(ctx, serve(t, deps, config.Default()), http.MethodGet, tasksPath)
+	answered := webtest.Asking(ctx, webtest.Serve(t, deps, config.Default()), http.MethodGet, webtest.TasksPath)
 
-	<-held.entered
+	<-held.Entered
 
 	// Act
 	leave()
 
 	// Assert
-	err := held.endedWith(t)
+	err := held.EndedWith(t)
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("the read's context ended with %v, want it canceled once its page left", err)
 	}
@@ -57,20 +58,21 @@ func TestATaskWriteGoesOnWhenItsPageLeaves(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	held := newHeld()
-	tasks := fakeTaskwarrior().seams()
-	tasks.Start = func(ctx context.Context, _ string) error { return held.wait(ctx) }
+	held := webtest.NewHeld()
+	tasks := webtest.FakeTaskwarrior().Seams()
+	tasks.Start = func(ctx context.Context, _ string) error { return held.Wait(ctx) }
 	ctx, leave := context.WithCancel(t.Context())
-	answered := asking(ctx, serve(t, webserver.Deps{Tasks: tasks}, config.Default()), http.MethodPost, startPath)
+	answered := webtest.Asking(ctx, webtest.Serve(t, webserver.Deps{Tasks: tasks}, config.Default()), http.MethodPost,
+		startPath)
 
-	<-held.entered
+	<-held.Entered
 
 	// Act
 	leave()
-	close(held.release)
+	close(held.Release)
 
 	// Assert
-	err := held.endedWith(t)
+	err := held.EndedWith(t)
 	if err != nil {
 		t.Errorf("the write's context ended with %v once its page left, want it to go on", err)
 	}
@@ -82,19 +84,19 @@ func TestATaskWriteEndsWhenTheServerStops(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	held := newHeldUntilEnded()
-	tasks := fakeTaskwarrior().seams()
-	tasks.Start = func(ctx context.Context, _ string) error { return held.wait(ctx) }
-	handler, stop := serveUntilStopped(t, webserver.Deps{Tasks: tasks})
-	answered := asking(t.Context(), handler, http.MethodPost, startPath)
+	held := webtest.NewHeldUntilEnded()
+	tasks := webtest.FakeTaskwarrior().Seams()
+	tasks.Start = func(ctx context.Context, _ string) error { return held.Wait(ctx) }
+	handler, stop := webtest.ServeUntilStopped(t, webserver.Deps{Tasks: tasks})
+	answered := webtest.Asking(t.Context(), handler, http.MethodPost, startPath)
 
-	<-held.entered
+	<-held.Entered
 
 	// Act
 	stop()
 
 	// Assert
-	err := held.endedWith(t)
+	err := held.EndedWith(t)
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("the write's context ended with %v, want it canceled once the server stopped", err)
 	}
@@ -106,18 +108,18 @@ func TestAStreamsTaskReadStopsWhenItsPageLeaves(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	held := newHeldUntilEnded()
-	tasks := fakeTaskwarrior().seams()
-	tasks.Pending = func(ctx context.Context) (taskwarrior.List, error) { return taskwarrior.List{}, held.wait(ctx) }
-	stream := openStream(t, serve(t, webserver.Deps{Tasks: tasks}, config.Default()), "/api/events")
+	held := webtest.NewHeldUntilEnded()
+	tasks := webtest.FakeTaskwarrior().Seams()
+	tasks.Pending = func(ctx context.Context) (taskwarrior.List, error) { return taskwarrior.List{}, held.Wait(ctx) }
+	stream := webtest.OpenStream(t, webtest.Serve(t, webserver.Deps{Tasks: tasks}, config.Default()), "/api/events")
 
-	<-held.entered
+	<-held.Entered
 
 	// Act
-	stream.cancel()
+	stream.Cancel()
 
 	// Assert
-	err := held.endedWith(t)
+	err := held.EndedWith(t)
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("the frame's read ended with %v, want it canceled once its page left", err)
 	}
@@ -130,28 +132,28 @@ func TestASearchForTaskwarriorGoesOnWhenThePageThatBeganItLeaves(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	held, fake := newHeld(), fakeTaskwarrior()
-	tasks := fake.seams()
+	held, fake := webtest.NewHeld(), webtest.FakeTaskwarrior()
+	tasks := fake.Seams()
 	searched := false
 	tasks.Install = func(ctx context.Context) (taskwarrior.Install, error) {
 		if searched {
-			return fake.install, nil
+			return fake.Install, nil
 		}
 
 		searched = true
 
-		return fake.install, held.wait(ctx)
+		return fake.Install, held.Wait(ctx)
 	}
-	handler := serve(t, webserver.Deps{Tasks: tasks}, config.Default())
-	first := openStream(t, handler, "/api/events")
+	handler := webtest.Serve(t, webserver.Deps{Tasks: tasks}, config.Default())
+	first := webtest.OpenStream(t, handler, "/api/events")
 
-	<-held.entered
-	first.cancel()
-	close(held.release)
-	<-first.done
+	<-held.Entered
+	first.Cancel()
+	close(held.Release)
+	<-first.Done
 
 	// Act
-	frame := firstSnapshot(t, streamOnce(t, handler, "/api/events").Body.String())
+	frame := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
 
 	// Assert
 	if !frame.Tasks.Available {

@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // The reads the session's tests ask for: one answered from the seams, and the
@@ -31,7 +32,10 @@ const (
 func serveBare(t *testing.T, session webserver.Session) http.Handler {
 	t.Helper()
 
-	world := webserver.World{Deps: filledDeps(), Config: config.Default(), Info: webserver.Info{Version: testVersion}}
+	world := webserver.World{
+		Deps: webtest.FilledDeps(), Config: config.Default(),
+		Info: webserver.Info{Version: webtest.TestVersion},
+	}
 
 	handler, err := webserver.Handler(t.Context(), world, fstest.MapFS{}, session)
 	if err != nil {
@@ -62,7 +66,7 @@ func (r sessionRequest) send(t *testing.T, handler http.Handler) *httptest.Respo
 	}
 
 	request := httptest.NewRequestWithContext(ctx, r.method, r.target, body)
-	request.Host = loopbackHost
+	request.Host = webtest.LoopbackHost
 	request.Header.Set("Content-Type", "application/json")
 
 	if r.authorization != "" {
@@ -80,14 +84,15 @@ func TestARequestWithoutTheSessionIsRefused(t *testing.T) {
 
 	session := webserver.NewSession()
 	handler := serveBare(t, session)
-	token := sessionToken(t, session)
+	token := webtest.SessionToken(t, session)
 
 	cases := map[string]sessionRequest{
 		"a read presenting none":     {method: http.MethodGet, target: branchPath},
 		"a write presenting none":    {method: http.MethodPut, target: "/api/config", body: `{}`},
 		"the health presenting none": {method: http.MethodGet, target: healthPath},
 		"a read presenting another run's": {
-			method: http.MethodGet, target: branchPath, authorization: "Bearer " + sessionToken(t, webserver.NewSession()),
+			method: http.MethodGet, target: branchPath, authorization: "Bearer " + webtest.SessionToken(t,
+				webserver.NewSession()),
 		},
 		"a read presenting it in another scheme": {
 			method: http.MethodGet, target: branchPath, authorization: "Basic " + token,
@@ -97,7 +102,7 @@ func TestARequestWithoutTheSessionIsRefused(t *testing.T) {
 		},
 		"the stream presenting none": {method: http.MethodGet, target: "/api/events"},
 		"the stream presenting another run's in its query": {
-			method: http.MethodGet, target: "/api/events?session=" + sessionToken(t, webserver.NewSession()),
+			method: http.MethodGet, target: "/api/events?session=" + webtest.SessionToken(t, webserver.NewSession()),
 		},
 	}
 
@@ -113,7 +118,7 @@ func TestARequestWithoutTheSessionIsRefused(t *testing.T) {
 				t.Fatalf("status = %d, want 401; body %q", recorder.Code, recorder.Body.String())
 			}
 
-			if got := decode[api.Problem](t, recorder).Code; got != api.ProblemCodeUnauthorized {
+			if got := webtest.Decode[api.Problem](t, recorder).Code; got != api.ProblemCodeUnauthorized {
 				t.Errorf("code = %q, want unauthorized", got)
 			}
 
@@ -129,7 +134,7 @@ func TestARefusedWriteChangesNothing(t *testing.T) {
 
 	// Arrange
 	called := false
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Checkout = func(context.Context, string) error {
 		called = true
 
@@ -144,7 +149,7 @@ func TestARefusedWriteChangesNothing(t *testing.T) {
 	}
 
 	// Act
-	recorder := sessionRequest{method: http.MethodPost, target: checkoutPath, body: `{"branch":"main"}`}.
+	recorder := sessionRequest{method: http.MethodPost, target: webtest.CheckoutPath, body: `{"branch":"main"}`}.
 		send(t, handler)
 
 	// Assert
@@ -158,7 +163,7 @@ func TestTheSessionAdmitsARequestPresentingIt(t *testing.T) {
 
 	session := webserver.NewSession()
 	handler := serveBare(t, session)
-	token := sessionToken(t, session)
+	token := webtest.SessionToken(t, session)
 
 	cases := map[string]sessionRequest{
 		"a read presenting it as a bearer": {
@@ -192,14 +197,14 @@ func TestTheSessionsAddressCarriesItInItsFragmentAlone(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	address, err := url.Parse(webserver.NewSession().Address(loopbackHost))
+	address, err := url.Parse(webserver.NewSession().Address(webtest.LoopbackHost))
 	// Assert
 	if err != nil {
 		t.Fatalf("parsing the address: %v", err)
 	}
 
-	if address.Scheme != "http" || address.Host != loopbackHost || address.Path != "/" || address.RawQuery != "" {
-		t.Errorf("address = %s, want the page at http://%s/ with no query", address, loopbackHost)
+	if address.Scheme != "http" || address.Host != webtest.LoopbackHost || address.Path != "/" || address.RawQuery != "" {
+		t.Errorf("address = %s, want the page at http://%s/ with no query", address, webtest.LoopbackHost)
 	}
 
 	// rand.Text's 26 characters carry 128 bits.
@@ -216,7 +221,7 @@ func TestEachRunMakesASessionOfItsOwn(t *testing.T) {
 	first, second := webserver.NewSession(), webserver.NewSession()
 
 	// Assert
-	if sessionToken(t, first) == sessionToken(t, second) {
+	if webtest.SessionToken(t, first) == webtest.SessionToken(t, second) {
 		t.Error("two sessions carry the same token, want each its own")
 	}
 }

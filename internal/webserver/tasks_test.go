@@ -23,14 +23,15 @@ import (
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
-// tasksDeps is filledDeps with the fake as its Taskwarrior, run from a home at
-// homePath.
-func tasksDeps(fake *taskFake) webserver.Deps {
-	deps := filledDeps()
-	deps.Tasks = fake.seams()
-	deps.Repositories.Home = homePath
+// tasksDeps is webtest.FilledDeps with the fake as its Taskwarrior, run from a
+// home at webtest.HomePath.
+func tasksDeps(fake *webtest.TaskFake) webserver.Deps {
+	deps := webtest.FilledDeps()
+	deps.Tasks = fake.Seams()
+	deps.Repositories.Home = webtest.HomePath
 
 	return deps
 }
@@ -39,17 +40,17 @@ func tasksDeps(fake *taskFake) webserver.Deps {
 // know: one a synced replica holds, or whose status sanitizing emptied.
 func oddTask() taskwarrior.Task {
 	return taskwarrior.Task{
-		UUID: oddUUID, Description: "PROJ-8: From another replica", Status: "",
-		Entry: taskDay(), Modified: taskDay(), Start: taskDay(), IssueKey: "PROJ-8",
+		UUID: webtest.OddUUID, Description: "PROJ-8: From another replica", Status: "",
+		Entry: webtest.TaskDay(), Modified: webtest.TaskDay(), Start: webtest.TaskDay(), IssueKey: "PROJ-8",
 	}
 }
 
 // withTasks is the fake Taskwarrior holding pending and linked instead.
 func withTasks(pending, linked []taskwarrior.Task) seams.Tasks {
-	fake := fakeTaskwarrior()
-	fake.pending.Tasks, fake.linked = pending, linked
+	fake := webtest.FakeTaskwarrior()
+	fake.Pending.Tasks, fake.Linked = pending, linked
 
-	return fake.seams()
+	return fake.Seams()
 }
 
 // uuidsOf is each task's uuid, in order.
@@ -66,23 +67,23 @@ func TestListTasksAnswersThePendingList(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fake := fakeTaskwarrior()
+	fake := webtest.FakeTaskwarrior()
 
 	// Act
-	recorder := get(t, serve(t, tasksDeps(fake), config.Default()), tasksPath)
+	recorder := webtest.Get(t, webtest.Serve(t, tasksDeps(fake), config.Default()), webtest.TasksPath)
 
 	// Assert
-	list := decode[api.TaskList](t, recorder)
+	list := webtest.Decode[api.TaskList](t, recorder)
 	if recorder.Code != http.StatusOK || !list.Available || list.Reason != "" || list.ReasonCode != nil {
 		t.Fatalf("answer = %d %+v, want 200 with Taskwarrior available and no reason", recorder.Code, list)
 	}
 
-	if want := []string{startedUUID, plainUUID}; !slices.Equal(uuidsOf(list.Tasks), want) {
+	if want := []string{webtest.StartedUUID, webtest.PlainUUID}; !slices.Equal(uuidsOf(list.Tasks), want) {
 		t.Errorf("tasks = %v, want %v in the order Taskwarrior gave", uuidsOf(list.Tasks), want)
 	}
 
-	if list.Context != taskContext || !list.SyncAvailable || list.Said != "" || list.Added != nil {
-		t.Errorf("list = %+v, want context %q, sync available, nothing said and nothing added", list, taskContext)
+	if list.Context != webtest.TaskContext || !list.SyncAvailable || list.Said != "" || list.Added != nil {
+		t.Errorf("list = %+v, want context %q, sync available, nothing said and nothing added", list, webtest.TaskContext)
 	}
 }
 
@@ -94,15 +95,16 @@ func TestListTasksSaysWhetherASyncHasSomewhereToGo(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			fake := fakeTaskwarrior()
-			fake.install.SyncConfigured = syncConfigured
+			fake := webtest.FakeTaskwarrior()
+			fake.Install.SyncConfigured = syncConfigured
 
 			// Act
-			recorder := get(t, serve(t, tasksDeps(fake), config.Default()), tasksPath)
+			recorder := webtest.Get(t, webtest.Serve(t, tasksDeps(fake), config.Default()), webtest.TasksPath)
 
 			// Assert
 			want := fmt.Sprintf(`"sync_available":%t`, syncConfigured)
-			if list := decode[api.TaskList](t, recorder); !list.Available || !strings.Contains(recorder.Body.String(), want) {
+			if list := webtest.Decode[api.TaskList](t, recorder); !list.Available || !strings.Contains(recorder.Body.String(),
+				want) {
 				t.Errorf("body = %s, want the list with %s", recorder.Body.String(), want)
 			}
 		})
@@ -113,11 +115,11 @@ func TestListTasksAnswersNoPendingTaskAsAnEmptyList(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fake := fakeTaskwarrior()
-	fake.pending.Tasks = nil
+	fake := webtest.FakeTaskwarrior()
+	fake.Pending.Tasks = nil
 
 	// Act
-	recorder := get(t, serve(t, tasksDeps(fake), config.Default()), tasksPath)
+	recorder := webtest.Get(t, webtest.Serve(t, tasksDeps(fake), config.Default()), webtest.TasksPath)
 
 	// Assert
 	if body := recorder.Body.String(); recorder.Code != http.StatusOK || !strings.Contains(body, `"tasks":[]`) {
@@ -129,15 +131,15 @@ func TestListTasksLeavesOutATaskWhoseStatusTheSpecDoesNotKnow(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fake := fakeTaskwarrior()
-	fake.pending.Tasks = append(fake.pending.Tasks, oddTask())
+	fake := webtest.FakeTaskwarrior()
+	fake.Pending.Tasks = append(fake.Pending.Tasks, oddTask())
 
 	// Act
-	recorder := get(t, serve(t, tasksDeps(fake), config.Default()), tasksPath)
+	recorder := webtest.Get(t, webtest.Serve(t, tasksDeps(fake), config.Default()), webtest.TasksPath)
 
 	// Assert
-	list := decode[api.TaskList](t, recorder)
-	if want := []string{startedUUID, plainUUID}; !slices.Equal(uuidsOf(list.Tasks), want) {
+	list := webtest.Decode[api.TaskList](t, recorder)
+	if want := []string{webtest.StartedUUID, webtest.PlainUUID}; !slices.Equal(uuidsOf(list.Tasks), want) {
 		t.Errorf("tasks = %v, want %v, never the task whose status the spec does not know", uuidsOf(list.Tasks), want)
 	}
 }
@@ -146,10 +148,10 @@ func TestListTasksSaysWhenTaskwarriorIsNotAvailable(t *testing.T) {
 	t.Parallel()
 
 	failing := func(err error) seams.Tasks {
-		fake := fakeTaskwarrior()
-		fake.fail["install"] = err
+		fake := webtest.FakeTaskwarrior()
+		fake.Fail["install"] = err
 
-		return fake.seams()
+		return fake.Seams()
 	}
 	program := "/Users/x/bin/task"
 	notInstalled := "Taskwarrior is not installed, or no task program is on PATH. " +
@@ -207,16 +209,16 @@ func TestListTasksSaysWhenTaskwarriorIsNotAvailable(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			deps.Tasks = tt.tasks
 			cfg := config.Default()
 			cfg.Taskwarrior.Disabled = tt.disabled
 
 			// Act
-			recorder := get(t, serve(t, deps, cfg), tasksPath)
+			recorder := webtest.Get(t, webtest.Serve(t, deps, cfg), webtest.TasksPath)
 
 			// Assert
-			list := decode[api.TaskList](t, recorder)
+			list := webtest.Decode[api.TaskList](t, recorder)
 			if recorder.Code != http.StatusOK || list.Available || list.Reason != tt.wantReason {
 				t.Errorf("answer = %d %+v, want 200, not available, reason %q", recorder.Code, list, tt.wantReason)
 			}
@@ -236,14 +238,14 @@ func TestListTasksAnswersAFailedReadAsAProblem(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fake := fakeTaskwarrior()
-	fake.fail["pending"] = fmt.Errorf("%s: %w after 10s", dataPath, proc.ErrTimedOut)
+	fake := webtest.FakeTaskwarrior()
+	fake.Fail["pending"] = fmt.Errorf("%s: %w after 10s", webtest.DataPath, proc.ErrTimedOut)
 
 	// Act
-	recorder := get(t, serve(t, tasksDeps(fake), config.Default()), tasksPath)
+	recorder := webtest.Get(t, webtest.Serve(t, tasksDeps(fake), config.Default()), webtest.TasksPath)
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusBadGateway || failure.Detail != "Taskwarrior did not answer in time" {
 		t.Errorf("answer = %d %+v, want 502 saying Taskwarrior did not answer in time", recorder.Code, failure)
 	}
@@ -255,16 +257,16 @@ func TestAGitTimeoutIsNotWordedAsTaskwarriors(t *testing.T) {
 	// Arrange
 	// Git's reads time out with the same sentinel Taskwarrior's do; only a
 	// Taskwarrior read may say Taskwarrior did not answer.
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
 		return gitrepo.Branch{}, fmt.Errorf("reading the branch: %w after 10s", proc.ErrTimedOut)
 	}
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/branch")
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/branch")
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusInternalServerError || failure.Code != api.ProblemCodeInternal {
 		t.Errorf("answer = %d %+v, want the 500 internal problem a git read that timed out answers", recorder.Code, failure)
 	}
@@ -277,8 +279,8 @@ func TestAGitTimeoutIsNotWordedAsTaskwarriors(t *testing.T) {
 func TestTheSnapshotCarriesTheTasksSummary(t *testing.T) {
 	t.Parallel()
 
-	startedPlain := plainTask()
-	startedPlain.Start = taskDay()
+	startedPlain := webtest.PlainTask()
+	startedPlain.Start = webtest.TaskDay()
 	cases := map[string]struct {
 		tasks         seams.Tasks
 		wantAvailable bool
@@ -286,22 +288,25 @@ func TestTheSnapshotCarriesTheTasksSummary(t *testing.T) {
 		wantLinked    int
 	}{
 		"a Taskwarrior that answers": {
-			tasks: fakeTaskwarrior().seams(), wantAvailable: true, wantActive: startedUUID, wantLinked: 2,
+			tasks: webtest.FakeTaskwarrior().Seams(), wantAvailable: true, wantActive: webtest.StartedUUID, wantLinked: 2,
 		},
 		"a started task only the pending list holds": {
-			tasks:         withTasks([]taskwarrior.Task{startedPlain}, []taskwarrior.Task{doneTask()}),
-			wantAvailable: true, wantActive: plainUUID, wantLinked: 1,
+			tasks:         withTasks([]taskwarrior.Task{startedPlain}, []taskwarrior.Task{webtest.DoneTask()}),
+			wantAvailable: true, wantActive: webtest.PlainUUID, wantLinked: 1,
 		},
 		"a started task outside the context, which only the linked list holds": {
-			tasks:         withTasks([]taskwarrior.Task{plainTask()}, []taskwarrior.Task{startedTask(), doneTask()}),
-			wantAvailable: true, wantActive: startedUUID, wantLinked: 2,
+			tasks: withTasks([]taskwarrior.Task{webtest.PlainTask()}, []taskwarrior.Task{
+				webtest.StartedTask(),
+				webtest.DoneTask(),
+			}),
+			wantAvailable: true, wantActive: webtest.StartedUUID, wantLinked: 2,
 		},
 		"a started linked task whose status the spec does not know": {
-			tasks:         withTasks([]taskwarrior.Task{plainTask()}, []taskwarrior.Task{oddTask(), doneTask()}),
+			tasks:         withTasks([]taskwarrior.Task{webtest.PlainTask()}, []taskwarrior.Task{oddTask(), webtest.DoneTask()}),
 			wantAvailable: true, wantActive: "", wantLinked: 1,
 		},
 		"an answer with no linked task the spec knows": {
-			tasks:         withTasks([]taskwarrior.Task{plainTask()}, []taskwarrior.Task{oddTask()}),
+			tasks:         withTasks([]taskwarrior.Task{webtest.PlainTask()}, []taskwarrior.Task{oddTask()}),
 			wantAvailable: true, wantActive: "", wantLinked: 0,
 		},
 		"no Taskwarrior": {tasks: seams.Tasks{}, wantAvailable: false, wantActive: "", wantLinked: 0},
@@ -312,14 +317,14 @@ func TestTheSnapshotCarriesTheTasksSummary(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			deps.Tasks = tt.tasks
 
 			// Act
-			body := streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String()
+			body := webtest.StreamOnce(t, webtest.Serve(t, deps, config.Default()), "/api/events").Body.String()
 
 			// Assert
-			summary := firstSnapshot(t, body).Tasks
+			summary := webtest.FirstSnapshot(t, body).Tasks
 			if summary.Available != tt.wantAvailable || activeUUID(summary) != tt.wantActive ||
 				len(summary.Linked) != tt.wantLinked {
 				t.Errorf("tasks = %+v, want available %t, active %q and %d linked",
@@ -380,14 +385,14 @@ func TestTheSnapshotIsUnavailableUntilTaskwarriorHasAnsweredBothReads(t *testing
 			t.Parallel()
 
 			// Arrange
-			fake := fakeTaskwarrior()
-			fake.fail[read] = errSeam
+			fake := webtest.FakeTaskwarrior()
+			fake.Fail[read] = webtest.ErrSeam
 
 			// Act
-			body := streamOnce(t, serve(t, tasksDeps(fake), config.Default()), "/api/events").Body.String()
+			body := webtest.StreamOnce(t, webtest.Serve(t, tasksDeps(fake), config.Default()), "/api/events").Body.String()
 
 			// Assert
-			tasks := firstSnapshot(t, body).Tasks
+			tasks := webtest.FirstSnapshot(t, body).Tasks
 			if tasks.Available || tasks.Reason != "Taskwarrior could not be read; workflow doctor says why." ||
 				tasks.Active != nil || !strings.Contains(body, `"linked":[]`) {
 				t.Errorf("tasks = %+v in %s, want Taskwarrior not available, the fixed reason, no active task "+
@@ -407,7 +412,7 @@ func TestTheSnapshotHoldsAFailedSearchForTaskwarriorForAMinute(t *testing.T) {
 		wantAsked int
 	}{
 		"frames within the minute": {between: 0, wantAsked: 1},
-		"frames a minute apart":    {between: time.Minute, wantAsked: streamedFrames},
+		"frames a minute apart":    {between: time.Minute, wantAsked: webtest.StreamedFrames},
 	}
 
 	for name, tt := range cases {
@@ -415,14 +420,14 @@ func TestTheSnapshotHoldsAFailedSearchForTaskwarriorForAMinute(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			fake := fakeTaskwarrior()
-			fake.fail["install"] = taskwarrior.ErrNotTaskwarrior
+			fake := webtest.FakeTaskwarrior()
+			fake.Fail["install"] = taskwarrior.ErrNotTaskwarrior
 
 			// Act
-			pushed := snapshots(t, streamPaced(t, tasksDeps(fake), config.Default(), tt.between))
+			pushed := webtest.Snapshots(t, webtest.StreamPaced(t, tasksDeps(fake), config.Default(), tt.between))
 
 			// Assert
-			if asked := fake.count("install"); asked != tt.wantAsked {
+			if asked := fake.Count("install"); asked != tt.wantAsked {
 				t.Errorf("looked for Taskwarrior %d times over %d frames, want %d", asked, len(pushed), tt.wantAsked)
 			}
 
@@ -437,10 +442,10 @@ func TestTaskDatesAreRFC3339(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fake := fakeTaskwarrior()
+	fake := webtest.FakeTaskwarrior()
 
 	// Act
-	recorder := get(t, serve(t, tasksDeps(fake), config.Default()), tasksPath)
+	recorder := webtest.Get(t, webtest.Serve(t, tasksDeps(fake), config.Default()), webtest.TasksPath)
 
 	// Assert
 	var list struct {
@@ -460,8 +465,8 @@ func TestTaskDatesAreRFC3339(t *testing.T) {
 	}
 
 	parsed, err := time.Parse(time.RFC3339, due)
-	if err != nil || !parsed.Equal(startedTask().Due) {
-		t.Errorf("due = %q (%v), want %s in RFC 3339", due, err, startedTask().Due)
+	if err != nil || !parsed.Equal(webtest.StartedTask().Due) {
+		t.Errorf("due = %q (%v), want %s in RFC 3339", due, err, webtest.StartedTask().Due)
 	}
 
 	if absent, found := list.Tasks[1]["due"]; found {

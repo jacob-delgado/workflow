@@ -18,6 +18,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // inTurn answers each call with the next of answers, and the last once they
@@ -59,12 +60,12 @@ func TestAnAnnouncementWhoseBranchCannotBeReadAsItIsAskedToWaitIsHeld(t *testing
 	readable := inTurn(true, false)
 	deps.Git.Branch = func(ctx context.Context) (gitrepo.Branch, error) {
 		if !readable() {
-			return gitrepo.Branch{}, errSeam
+			return gitrepo.Branch{}, webtest.ErrSeam
 		}
 
 		return checkedOut(ctx)
 	}
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 	cancelHeld(t, handler)
 
 	// Act
@@ -73,7 +74,7 @@ func TestAnAnnouncementWhoseBranchCannotBeReadAsItIsAskedToWaitIsHeld(t *testing
 	// Assert
 	// Its CI could not be read, so nothing failing could not be confirmed:
 	// it waits for a read that says CI passed.
-	held := decode[api.QueuedAnnouncement](t, recorder)
+	held := webtest.Decode[api.QueuedAnnouncement](t, recorder)
 	if recorder.Code != http.StatusAccepted || held.State != api.QueuedAnnouncementStateWaiting || held.Ci != nil {
 		t.Errorf("status = %d, held %+v; want 202 and it waiting, its CI unread", recorder.Code, held)
 	}
@@ -89,7 +90,7 @@ func TestAHeldAnnouncementMadeMeanwhileElsewhereIsDroppedUnposted(t *testing.T) 
 	deps := world.deps()
 	remembering := memory.wire(deps)
 	deps.Store.Announced, deps.Store.RecordAnnounce = remembering.Store.Announced, remembering.Store.RecordAnnounce
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 
 	if recorder := askToWait(t, handler); recorder.Code != http.StatusAccepted {
 		t.Fatalf("holding the announcement answered %d: %s", recorder.Code, recorder.Body.String())

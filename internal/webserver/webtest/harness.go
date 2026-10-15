@@ -1,7 +1,13 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package webserver_test
+// Package webtest is what the tests of internal/webserver and of the packages
+// that leave it share: the harness that serves the API handler under a session
+// and sends it requests, the canned seams and fixture constants, the event
+// stream's reader, a seam call held on its context, the configuration's edits,
+// the Taskwarrior fake and lefthook's fixtures. Each test still drives the
+// server black-box, through webserver.Handler. Only tests import it.
+package webtest
 
 import (
 	"encoding/json"
@@ -18,29 +24,29 @@ import (
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
-// serve builds the API handler over deps and cfg, not in dry-run, so the write
+// Serve builds the API handler over deps and cfg, not in dry-run, so the write
 // endpoints are reachable — the common case — with deps' Taskwarrior bound
 // with cfg's settings, as at start. A test that exercises dry-run's read-only
 // guard passes its own Info. Handler fails only when the embedded spec cannot
 // load, which is a build defect, so the test fails there.
-func serve(t *testing.T, deps webserver.Deps, cfg config.Config) http.Handler {
+func Serve(t *testing.T, deps webserver.Deps, cfg config.Config) http.Handler {
 	t.Helper()
 
-	return serveWith(t, deps, cfg, webserver.Info{Version: testVersion, Taskwarrior: cfg.Taskwarrior})
+	return ServeWith(t, deps, cfg, webserver.Info{Version: TestVersion, Taskwarrior: cfg.Taskwarrior})
 }
 
-// serveWith is serve with the caller's Info, for the tests that need a specific
+// ServeWith is Serve with the caller's Info, for the tests that need a specific
 // stream interval.
-func serveWith(t *testing.T, deps webserver.Deps, cfg config.Config, info webserver.Info) http.Handler {
+func ServeWith(t *testing.T, deps webserver.Deps, cfg config.Config, info webserver.Info) http.Handler {
 	t.Helper()
 
-	return serveWorld(t, webserver.World{Deps: deps, Config: cfg, Info: info}, fstest.MapFS{})
+	return ServeWorld(t, webserver.World{Deps: deps, Config: cfg, Info: info}, fstest.MapFS{})
 }
 
-// serveWorld builds the handler for world with assets mounted, under a session
+// ServeWorld builds the handler for world with assets mounted, under a session
 // of its own that it presents on each request as the page does. Handler fails
 // only on a spec that cannot load, which is a build defect.
-func serveWorld(t *testing.T, world webserver.World, assets fs.FS) http.Handler {
+func ServeWorld(t *testing.T, world webserver.World, assets fs.FS) http.Handler {
 	t.Helper()
 
 	session := webserver.NewSession()
@@ -50,16 +56,16 @@ func serveWorld(t *testing.T, world webserver.World, assets fs.FS) http.Handler 
 		t.Fatalf("building the handler: %v", err)
 	}
 
-	return presenting(t, session, handler)
+	return Presenting(t, session, handler)
 }
 
-// presenting hands handler each request with session presented as the page
+// Presenting hands handler each request with session presented as the page
 // presents it, unless the request presents one itself, as a test of the
 // session's check does.
-func presenting(t *testing.T, session webserver.Session, handler http.Handler) http.Handler {
+func Presenting(t *testing.T, session webserver.Session, handler http.Handler) http.Handler {
 	t.Helper()
 
-	authorization := "Bearer " + sessionToken(t, session)
+	authorization := "Bearer " + SessionToken(t, session)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		if request.Header.Get("Authorization") == "" {
@@ -70,12 +76,12 @@ func presenting(t *testing.T, session webserver.Session, handler http.Handler) h
 	})
 }
 
-// sessionToken is the session the address the server prints carries, read
+// SessionToken is the session the address the server prints carries, read
 // from its fragment as the page reads it.
-func sessionToken(t *testing.T, session webserver.Session) string {
+func SessionToken(t *testing.T, session webserver.Session) string {
 	t.Helper()
 
-	address, err := url.Parse(session.Address(loopbackHost))
+	address, err := url.Parse(session.Address(LoopbackHost))
 	if err != nil {
 		t.Fatalf("reading the session's address: %v", err)
 	}
@@ -88,15 +94,15 @@ func sessionToken(t *testing.T, session webserver.Session) string {
 	return token
 }
 
-// get sends a GET and returns the recorder.
-func get(t *testing.T, handler http.Handler, target string) *httptest.ResponseRecorder {
+// Get sends a GET and returns the recorder.
+func Get(t *testing.T, handler http.Handler, target string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	return send(t, handler, http.MethodGet, target, "")
+	return Send(t, handler, http.MethodGet, target, "")
 }
 
-// send sends a request with an optional body and returns the recorder.
-func send(t *testing.T, handler http.Handler, method, target, body string) *httptest.ResponseRecorder {
+// Send sends a request with an optional body and returns the recorder.
+func Send(t *testing.T, handler http.Handler, method, target, body string) *httptest.ResponseRecorder {
 	t.Helper()
 
 	var reader io.Reader
@@ -105,7 +111,7 @@ func send(t *testing.T, handler http.Handler, method, target, body string) *http
 	}
 
 	request := httptest.NewRequestWithContext(t.Context(), method, target, reader)
-	request.Host = loopbackHost
+	request.Host = LoopbackHost
 
 	if body != "" {
 		request.Header.Set("Content-Type", "application/json")
@@ -117,8 +123,8 @@ func send(t *testing.T, handler http.Handler, method, target, body string) *http
 	return recorder
 }
 
-// decode unmarshals the recorder's JSON body into T, failing the test on error.
-func decode[T any](t *testing.T, recorder *httptest.ResponseRecorder) T {
+// Decode unmarshals the recorder's JSON body into T, failing the test on error.
+func Decode[T any](t *testing.T, recorder *httptest.ResponseRecorder) T {
 	t.Helper()
 
 	var value T

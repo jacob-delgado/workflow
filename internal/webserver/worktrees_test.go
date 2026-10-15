@@ -21,6 +21,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // The api repository's worktrees beside its root.
@@ -42,7 +43,7 @@ func worktreeDeps() webserver.Deps {
 	deps := repositoryDeps(favoritesKept())
 	deps.Repositories.Worktrees = func(context.Context) ([]gitrepo.Worktree, error) {
 		return []gitrepo.Worktree{
-			{Dir: apiRoot, Branch: prBase, Head: worktreeHead},
+			{Dir: apiRoot, Branch: webtest.PRBase, Head: worktreeHead},
 			{Dir: apiFeature, Branch: "feat/x", Head: worktreeHead, Locked: true},
 			{Dir: apiGone, Head: worktreeHead, Detached: true, Missing: true},
 		}, nil
@@ -55,11 +56,11 @@ func TestRepositoriesListTheWorktrees(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	recorder := get(t, serve(t, worktreeDeps(), config.Default()), reposPath)
+	recorder := webtest.Get(t, webtest.Serve(t, worktreeDeps(), config.Default()), reposPath)
 
 	// Assert
 	want := []api.Worktree{
-		{Dir: apiRoot, Shown: "~/src/api", Branch: prBase, Head: shortHead, State: api.WorktreeStateHere},
+		{Dir: apiRoot, Shown: "~/src/api", Branch: webtest.PRBase, Head: shortHead, State: api.WorktreeStateHere},
 		{
 			Dir: apiFeature, Shown: "~/src/api-feat-x", Branch: "feat/x", Head: shortHead, State: api.WorktreeStateWorktree,
 			Locked: true,
@@ -67,7 +68,7 @@ func TestRepositoriesListTheWorktrees(t *testing.T) {
 		{Dir: apiGone, Shown: "~/src/api-gone", Branch: "", Head: shortHead, State: api.WorktreeStateMissing},
 	}
 
-	got := decode[api.Repositories](t, recorder)
+	got := webtest.Decode[api.Repositories](t, recorder)
 	if recorder.Code != http.StatusOK || !slices.Equal(got.Worktrees, want) || got.WorktreesError != "" {
 		t.Errorf("status %d, worktrees %+v (%q); want %+v", recorder.Code, got.Worktrees, got.WorktreesError, want)
 	}
@@ -77,10 +78,10 @@ func TestOutsideARepositoryThereAreNoWorktrees(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	recorder := get(t, serve(t, repositoryDeps(favoritesKept()), config.Default()), reposPath)
+	recorder := webtest.Get(t, webtest.Serve(t, repositoryDeps(favoritesKept()), config.Default()), reposPath)
 
 	// Assert
-	got := decode[api.Repositories](t, recorder)
+	got := webtest.Decode[api.Repositories](t, recorder)
 	if got.Worktrees == nil || len(got.Worktrees) != 0 || got.WorktreesError != "" {
 		t.Errorf("worktrees %+v (%q), want an empty list and no error", got.Worktrees, got.WorktreesError)
 	}
@@ -96,10 +97,10 @@ func TestWorktreesThatCannotBeReadSayWhyWithoutAPath(t *testing.T) {
 	}
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), reposPath)
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), reposPath)
 
 	// Assert
-	got := decode[api.Repositories](t, recorder)
+	got := webtest.Decode[api.Repositories](t, recorder)
 	if recorder.Code != http.StatusOK || got.WorktreesError == "" || strings.Contains(got.WorktreesError, "/home") {
 		t.Errorf("status %d, worktrees error %q; want why, without a path", recorder.Code, got.WorktreesError)
 	}
@@ -110,7 +111,7 @@ func TestWorktreesThatCannotBeReadSayWhyWithoutAPath(t *testing.T) {
 func postWorktree(t *testing.T, deps webserver.Deps, info webserver.Info) *httptest.ResponseRecorder {
 	t.Helper()
 
-	return send(t, serveWith(t, deps, config.Default(), info), http.MethodPost, worktreesAt,
+	return webtest.Send(t, webtest.ServeWith(t, deps, config.Default(), info), http.MethodPost, worktreesAt,
 		`{"issue_key":"`+startIssue+`"}`)
 }
 
@@ -128,13 +129,13 @@ func TestCreateWorktreeStartsWorkOnTheIssueBesideTheRepository(t *testing.T) {
 	}
 
 	// Act
-	recorder := postWorktree(t, deps, webserver.Info{Version: testVersion})
+	recorder := postWorktree(t, deps, webserver.Info{Version: webtest.TestVersion})
 
 	// Assert
-	got := decode[api.CreatedWorktree](t, recorder)
+	got := webtest.Decode[api.CreatedWorktree](t, recorder)
 	wantDir := apiRoot + "-" + strings.ReplaceAll(wantBranchName(t), "/", "-")
 
-	if recorder.Code != http.StatusOK || made != wantBranchName(t) || from != testBase ||
+	if recorder.Code != http.StatusOK || made != wantBranchName(t) || from != webtest.TestBase ||
 		got.Dir != wantDir || got.Branch != wantBranchName(t) || !strings.HasPrefix(got.Shown, "~/src/api-") {
 		t.Errorf("status %d, made %q from %q, answered %+v; want %s's branch from origin/main at %s",
 			recorder.Code, made, from, got, startIssue, wantDir)
@@ -155,7 +156,7 @@ func TestCreateWorktreeRefusesWhenTheBranchExists(t *testing.T) {
 	}
 
 	// Act
-	recorder := postWorktree(t, deps, webserver.Info{Version: testVersion})
+	recorder := postWorktree(t, deps, webserver.Info{Version: webtest.TestVersion})
 
 	// Assert
 	if recorder.Code != http.StatusConflict || called {
@@ -171,12 +172,12 @@ func TestCreateWorktreeNeverForwardsGitsOwnWords(t *testing.T) {
 	deps.Git.CreateWorktree = func(context.Context, string, string) (string, error) { return "", errWorktreeList }
 
 	// Act
-	recorder := postWorktree(t, deps, webserver.Info{Version: testVersion})
+	recorder := postWorktree(t, deps, webserver.Info{Version: webtest.TestVersion})
 
 	// Assert
 	// workflow branch makes the branch in place, the opposite of what was
 	// asked, so the reason is shown where a worktree is made in the terminal.
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusUnprocessableEntity || strings.Contains(failure.Detail, "/home") ||
 		!strings.Contains(failure.Detail, "ctrl+w") || strings.Contains(failure.Detail, "workflow branch") {
 		t.Errorf("status %d, detail %q; want 422 in fixed words naming ctrl+w", recorder.Code, failure.Detail)
@@ -199,10 +200,10 @@ func TestCreateWorktreeForAnIssueJiraDoesNotHaveMakesNothing(t *testing.T) {
 	}
 
 	// Act
-	recorder := postWorktree(t, deps, webserver.Info{Version: testVersion})
+	recorder := postWorktree(t, deps, webserver.Info{Version: webtest.TestVersion})
 
 	// Assert
-	if failure := decode[api.Problem](t, recorder); recorder.Code != http.StatusNotFound ||
+	if failure := webtest.Decode[api.Problem](t, recorder); recorder.Code != http.StatusNotFound ||
 		failure.Code != api.ProblemCodeNotFound || called {
 		t.Errorf("status/code %d/%s, created %v; want 404/not_found and nothing made", recorder.Code, failure.Code, called)
 	}
@@ -212,7 +213,7 @@ func TestCreateWorktreeIsUnavailableWithoutAGitSeam(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	recorder := postWorktree(t, repositoryDeps(favoritesKept()), webserver.Info{Version: testVersion})
+	recorder := postWorktree(t, repositoryDeps(favoritesKept()), webserver.Info{Version: webtest.TestVersion})
 
 	// Assert
 	if recorder.Code != http.StatusUnprocessableEntity {
@@ -233,7 +234,7 @@ func TestCreateWorktreeIsRefusedInDryRun(t *testing.T) {
 	}
 
 	// Act
-	recorder := postWorktree(t, deps, webserver.Info{Version: testVersion, DryRun: true})
+	recorder := postWorktree(t, deps, webserver.Info{Version: webtest.TestVersion, DryRun: true})
 
 	// Assert
 	if recorder.Code != http.StatusForbidden || called {
@@ -248,18 +249,21 @@ func TestASnapshotBranchSaysWhichOtherWorktreeHasItCheckedOut(t *testing.T) {
 	// git refuses to check out a branch another worktree has, so the page
 	// offers a switch there instead, and needs to know where it is.
 	deps := worktreeDeps()
-	deps.Git.Branches = func(context.Context) ([]string, error) { return []string{testBranchName, targetBranch}, nil }
+	deps.Git.Branches = func(context.Context) ([]string, error) {
+		return []string{webtest.TestBranchName, targetBranch},
+			nil
+	}
 	deps.Repositories.Worktrees = func(context.Context) ([]gitrepo.Worktree, error) {
 		return []gitrepo.Worktree{
-			{Dir: apiRoot, Branch: testBranchName, Head: worktreeHead},
+			{Dir: apiRoot, Branch: webtest.TestBranchName, Head: worktreeHead},
 			{Dir: apiFeature, Branch: targetBranch, Head: worktreeHead},
 		}, nil
 	}
 	cfg := config.Default()
-	cfg.Jira.Project = testProject
+	cfg.Jira.Project = webtest.TestProject
 
 	// Act
-	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, cfg), "/api/events").Body.String())
+	snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, webtest.Serve(t, deps, cfg), "/api/events").Body.String())
 
 	// Assert
 	worktrees := map[string]string{}
@@ -267,7 +271,7 @@ func TestASnapshotBranchSaysWhichOtherWorktreeHasItCheckedOut(t *testing.T) {
 		worktrees[branch.Name] = valueOf(branch.Worktree) + " " + valueOf(branch.WorktreeShown)
 	}
 
-	want := map[string]string{testBranchName: " ", targetBranch: apiFeature + " ~/src/api-feat-x"}
+	want := map[string]string{webtest.TestBranchName: " ", targetBranch: apiFeature + " ~/src/api-feat-x"}
 	if !maps.Equal(worktrees, want) {
 		t.Errorf("worktrees by branch = %q, want %q: the one here none, the other its own", worktrees, want)
 	}
@@ -280,15 +284,18 @@ func TestASnapshotBranchNamesNoWorktreeWhenTheWorktreesCannotBeRead(t *testing.T
 	// Each branch then reads as one to check out, as it did before worktrees
 	// were read at all, whatever a read that failed gave back with its error.
 	deps := worktreeDeps()
-	deps.Git.Branches = func(context.Context) ([]string, error) { return []string{testBranchName, targetBranch}, nil }
+	deps.Git.Branches = func(context.Context) ([]string, error) {
+		return []string{webtest.TestBranchName, targetBranch},
+			nil
+	}
 	deps.Repositories.Worktrees = func(context.Context) ([]gitrepo.Worktree, error) {
 		return []gitrepo.Worktree{{Dir: apiFeature, Branch: targetBranch, Head: worktreeHead}}, errWorktreeList
 	}
 	cfg := config.Default()
-	cfg.Jira.Project = testProject
+	cfg.Jira.Project = webtest.TestProject
 
 	// Act
-	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, cfg), "/api/events").Body.String())
+	snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, webtest.Serve(t, deps, cfg), "/api/events").Body.String())
 
 	// Assert
 	named := 0
@@ -350,13 +357,13 @@ func TestTwoStartsOfWorkAtOnceMakeOneBranch(t *testing.T) {
 
 		return apiFeature, nil
 	}
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 	codes := make(chan int, 2)
 
 	// Act
 	for _, path := range []string{branchesAt, worktreesAt} {
 		go func() {
-			codes <- send(t, handler, http.MethodPost, path, `{"issue_key":"`+startIssue+`"}`).Code
+			codes <- webtest.Send(t, handler, http.MethodPost, path, `{"issue_key":"`+startIssue+`"}`).Code
 		}()
 	}
 
@@ -376,18 +383,21 @@ func TestASnapshotBranchHeldByAWorktreeThatIsGoneSaysSo(t *testing.T) {
 	// git will not check out a branch a worktree holds, even one gone, until
 	// the worktree is pruned, so the page says so rather than offering either.
 	deps := worktreeDeps()
-	deps.Git.Branches = func(context.Context) ([]string, error) { return []string{testBranchName, targetBranch}, nil }
+	deps.Git.Branches = func(context.Context) ([]string, error) {
+		return []string{webtest.TestBranchName, targetBranch},
+			nil
+	}
 	deps.Repositories.Worktrees = func(context.Context) ([]gitrepo.Worktree, error) {
 		return []gitrepo.Worktree{
-			{Dir: apiRoot, Branch: testBranchName, Head: worktreeHead},
+			{Dir: apiRoot, Branch: webtest.TestBranchName, Head: worktreeHead},
 			{Dir: apiGone, Branch: targetBranch, Head: worktreeHead, Missing: true},
 		}, nil
 	}
 	cfg := config.Default()
-	cfg.Jira.Project = testProject
+	cfg.Jira.Project = webtest.TestProject
 
 	// Act
-	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, cfg), "/api/events").Body.String())
+	snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, webtest.Serve(t, deps, cfg), "/api/events").Body.String())
 
 	// Assert
 	for _, branch := range snap.Branches {
