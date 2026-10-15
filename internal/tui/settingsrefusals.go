@@ -181,6 +181,39 @@ func (f settingsForm) refusalLines(kit renderKit, field setting, width int) []st
 	return failureLines(kit, reason, strings.Repeat(" ", ansi.StringWidth(kit.marks.unselected)), width)
 }
 
+// standingLines are every refusal still standing, each named by its
+// setting under its section, for Settings' foot while a form open over the
+// rows hides the marks under them; once for a collection, however many rows
+// it has.
+func (f settingsForm) standingLines(kit renderKit, width int) []string {
+	var lines []string
+
+	said := map[string]bool{}
+
+	for _, field := range f.fields {
+		reason, refused := f.refusals.reason(field.path)
+		if refused && !said[field.path] {
+			said[field.path] = true
+			lines = append(lines, failureLines(kit, field.named(kit.marks)+": "+reason, "", width)...)
+		}
+	}
+
+	return lines
+}
+
+// named is a setting as the foot names it: its section, then within it,
+// after the mark that closes a chosen value, its label, or a collection's own
+// name, the last word of its path, since its rows are labeled by an entry
+// each, or, with none, by the row that adds one.
+func (s setting) named(marks glyphs) string {
+	label := s.label
+	if s.kind == settingEntry || s.kind == settingAdd {
+		label = capitalized(s.path[strings.LastIndex(s.path, ".")+1:])
+	}
+
+	return s.section + " " + marks.chosenClose + " " + label
+}
+
 // failureLines are text after the failure mark, in the failure style, wrapped
 // to width with each line after indent.
 func failureLines(kit renderKit, text, indent string, width int) []string {

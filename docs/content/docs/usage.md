@@ -1040,10 +1040,12 @@ not, or, when there is none, to the first the write refused; a save that is
 sent takes every mark away, and the write judges every setting afresh. A
 refused removal keeps every mark, since it writes the file as read, without
 your edits; it marks each setting it refuses beside them, with its own reason
-where one was marked already, and goes to the first of those. A refusal no row
-stands for, such as a `ui.keys` map the interface would not start on, is said
-below the rows. A save writes the file Settings read, the repository's over
-your home's as described in
+where one was marked already, and goes to the first of those. While a form is
+open over the rows, hiding their marks, each refusal still standing is said
+below it instead, named by its section and setting, as Jira › Project. A
+refusal no row stands for, such as a `ui.keys` map the interface would not
+start on, is said below the rows. A save writes the file Settings read, the
+repository's over your home's as described in
 [Configuration]({{< relref "/docs/configuration" >}}), and only while that file
 is as Settings found it: one changed since — edited on disk, or saved from the
 web — is not written over, and `r` reads it again in place of your edits.
