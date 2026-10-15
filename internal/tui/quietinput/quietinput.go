@@ -96,7 +96,9 @@ func (q *Input) Update(msg tea.Msg) (huh.Model, tea.Cmd) {
 	q.input, _ = q.input.Update(msg)
 	*q.value = q.input.Value()
 
-	q.matchSuggestions(before != *q.value)
+	if *q.value != before {
+		q.matchSuggestions()
+	}
 
 	return q, nil
 }
@@ -257,15 +259,12 @@ func (q *Input) CheckedBy(check func(string) error) *Input {
 	return q
 }
 
-// matchSuggestions matches what is typed against the suggestions once a key or
-// a paste changed it. The input matches only while its suggestions are on, so
-// they are turned on with the first change, and it matches by itself after a
-// key, not a paste, so what is typed is matched here either way.
-func (q *Input) matchSuggestions(changed bool) {
-	if !changed {
-		return
-	}
-
+// matchSuggestions matches what the field holds against the suggestions, once
+// a key, a paste or a completion taken has changed it. The input matches only
+// while its suggestions are on, so they are turned on with the first change,
+// and it matches by itself after a key, not a paste, so what the field holds is
+// matched here either way, and with the option it holds whole listed first.
+func (q *Input) matchSuggestions() {
 	q.typedIn = true
 	q.input.ShowSuggestions = true
 	q.input.SetSuggestions(q.ordered())
@@ -293,6 +292,8 @@ func (q *Input) completed(press tea.KeyPressMsg) {
 
 	q.input, _ = q.input.Update(press)
 	*q.value = q.input.Value()
+
+	q.matchSuggestions()
 }
 
 // styles are the theme's styles for the field as it is now.
