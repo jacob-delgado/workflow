@@ -184,7 +184,8 @@ explicitly asks for something different.
   interfaces, return structs; small interfaces (1–3 methods); embedding only
   for behavior delegation; three similar lines beat one abstract one. Keep the
   build pure Go (`CGO_ENABLED=0`): the release binaries cross-compile to every
-  platform `RELEASE_PLATFORMS` names in `Taskfile.yml` only without cgo.
+  platform `RELEASE_PLATFORMS` names in `Taskfile.yml` only without cgo, and
+  `task lint:crossvet` vets each of them, tests and all.
 
 - **Interface compliance — assert it at compile time.** Every concrete type
   meant to satisfy an interface carries a static assertion next to its
