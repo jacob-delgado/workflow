@@ -30,6 +30,17 @@ func fieldValue(output, label string) string {
 	return ""
 }
 
+// configuredWith is a directory holding a configuration made of fields, for a
+// test whose credential sits in the file rather than in a repository.
+func configuredWith(t *testing.T, fields string) string {
+	t.Helper()
+
+	dir := t.TempDir()
+	clitest.WriteFile(t, dir, "{"+fields+"}")
+
+	return dir
+}
+
 func TestDoctorReportsAMissingFile(t *testing.T) {
 	t.Parallel()
 
