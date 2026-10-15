@@ -24,11 +24,11 @@ func repoWithOrigin(t *testing.T, jiraURL string) (string, string) {
 
 	repo := repoForBranch(t, jiraURL)
 	origin := t.TempDir()
-	git(t, origin, "init", "--bare", "--quiet")
-	git(t, repo, "remote", "add", "origin", origin)
-	git(t, repo, "push", "--quiet", "origin", "HEAD:refs/heads/main")
-	git(t, repo, "fetch", "--quiet", "origin")
-	git(t, repo, "remote", "set-head", "origin", "main")
+	clitest.Git(t, origin, "init", "--bare", "--quiet")
+	clitest.Git(t, repo, "remote", "add", "origin", origin)
+	clitest.Git(t, repo, "push", "--quiet", "origin", "HEAD:refs/heads/main")
+	clitest.Git(t, repo, "fetch", "--quiet", "origin")
+	clitest.Git(t, repo, "remote", "set-head", "origin", "main")
 
 	return repo, origin
 }
@@ -39,12 +39,12 @@ func advanceOrigin(t *testing.T, origin string) string {
 	t.Helper()
 
 	other := filepath.Join(t.TempDir(), "other")
-	git(t, filepath.Dir(other), "clone", "--quiet", "--branch", "main", origin, other)
-	git(t, other, "-c", "user.email=t@example.com", "-c", "user.name=Tester",
+	clitest.Git(t, filepath.Dir(other), "clone", "--quiet", "--branch", "main", origin, other)
+	clitest.Git(t, other, "-c", "user.email=t@example.com", "-c", "user.name=Tester",
 		"commit", "--allow-empty", "-m", "since")
-	git(t, other, "push", "--quiet", "origin", "HEAD:main")
+	clitest.Git(t, other, "push", "--quiet", "origin", "HEAD:main")
 
-	return strings.TrimSpace(gitOutput(t, other, "rev-parse", "HEAD"))
+	return clitest.GitOutput(t, other, "rev-parse", "HEAD")
 }
 
 func TestBranchFetchStartsFromWhatOriginHoldsNow(t *testing.T) {
@@ -64,7 +64,7 @@ func TestBranchFetchStartsFromWhatOriginHoldsNow(t *testing.T) {
 
 	// Only a fetch before the create can start the branch at a commit the
 	// repository had never seen.
-	if got := strings.TrimSpace(gitOutput(t, repo, "rev-parse", loginBranch)); got != latest {
+	if got := clitest.GitOutput(t, repo, "rev-parse", loginBranch); got != latest {
 		t.Errorf("fix/PROJ-7-login starts at %s, want origin's newest commit %s", got, latest)
 	}
 }
@@ -96,7 +96,7 @@ func TestBranchFetchThatFailsCreatesNothing(t *testing.T) {
 	// Arrange
 	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo, origin := repoWithOrigin(t, server.URL)
-	before := currentBranch(t, repo)
+	before := clitest.CurrentBranch(t, repo)
 
 	err := os.RemoveAll(origin)
 	if err != nil {
@@ -113,7 +113,7 @@ func TestBranchFetchThatFailsCreatesNothing(t *testing.T) {
 		t.Errorf("branch --fetch with origin gone = %v, want the fetch named and the way to branch without it", err)
 	}
 
-	if got := currentBranch(t, repo); got != before {
+	if got := clitest.CurrentBranch(t, repo); got != before {
 		t.Errorf("a failed fetch left the repository on %q, want %q", got, before)
 	}
 }
@@ -127,10 +127,10 @@ func TestBranchFetchNamesTheBaseRemoteOfAFork(t *testing.T) {
 	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo, _ := repoWithOrigin(t, server.URL)
 	upstream := t.TempDir()
-	git(t, upstream, "init", "--bare", "--quiet")
-	git(t, repo, "remote", "add", "upstream", upstream)
-	git(t, repo, "push", "--quiet", "upstream", "HEAD:refs/heads/main")
-	git(t, repo, "fetch", "--quiet", "upstream")
+	clitest.Git(t, upstream, "init", "--bare", "--quiet")
+	clitest.Git(t, repo, "remote", "add", "upstream", upstream)
+	clitest.Git(t, repo, "push", "--quiet", "upstream", "HEAD:refs/heads/main")
+	clitest.Git(t, repo, "fetch", "--quiet", "upstream")
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "branch", "PROJ-7", "--fetch", "--dry-run")
@@ -148,7 +148,7 @@ func TestBranchWorktreePrintsTheDirectoryItMade(t *testing.T) {
 	// Arrange
 	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
-	before := currentBranch(t, repo)
+	before := clitest.CurrentBranch(t, repo)
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "branch", "PROJ-7", "--worktree", "--yes")
@@ -160,7 +160,7 @@ func TestBranchWorktreePrintsTheDirectoryItMade(t *testing.T) {
 	lines := strings.Split(strings.TrimSpace(printed.Stdout), "\n")
 	dir := lines[len(lines)-1]
 
-	if got := currentBranch(t, dir); got != loginBranch {
+	if got := clitest.CurrentBranch(t, dir); got != loginBranch {
 		t.Errorf("the last line of stdout, %q, is no worktree on fix/PROJ-7-login (on %q)", dir, got)
 	}
 
@@ -168,7 +168,7 @@ func TestBranchWorktreePrintsTheDirectoryItMade(t *testing.T) {
 		t.Errorf("the worktree %s is not beside the repository %s", dir, repo)
 	}
 
-	if got := currentBranch(t, repo); got != before {
+	if got := clitest.CurrentBranch(t, repo); got != before {
 		t.Errorf("a worktree moved the repository's own checkout to %q, want it left on %q", got, before)
 	}
 }

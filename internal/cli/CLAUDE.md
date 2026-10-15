@@ -128,9 +128,10 @@ for a client's unreachable service, `cmdkit.ServicesUnreachable` in
   `trackerfake_test.go` and `clitest.FakeSlack` (`clitest/messaging.go`)
   stand in for the forge, Jira and Slack, and `clitest.WorkingJira` is a Jira
   that accepts the credential. The repositories they answer for are made with
-  git in `repo_test.go`, since only a test file may run git (`.golangci.yml`'s
-  `gittest-only-in-tests`); `runRoot` (`root_test.go`) runs the root command
-  over a stand-in interface and web server.
+  git itself (`clitest.PRRepo`, `clitest.GithubRepo` and their kin,
+  `clitest/repo.go`), which `.golangci.yml`'s `gittest-only-in-tests` lets
+  clitest alone do outside a test file; `runRoot` (`root_test.go`) runs the
+  root command over a stand-in interface and web server.
 - **`TestMain` (`main_test.go`) clears git's repository variables** before
   any test runs (`gittest.ClearLocalVariables`), so a hook's `GIT_DIR` never
   sends a test's git at the developer's repository; it then runs the tests

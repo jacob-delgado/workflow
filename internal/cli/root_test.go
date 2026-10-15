@@ -330,7 +330,7 @@ func TestColorTurnedOffOpensTheInterfaceWithoutHues(t *testing.T) {
 			// Arrange
 			// A feature branch one commit ahead of main, so the loop's Branch
 			// and Commits stages are done, which the track draws in git's hue.
-			dir := prRepo(t, "feat/colors")
+			dir := clitest.PRRepo(t, "feat/colors")
 			clitest.WriteFile(t, dir, tt.configuration)
 			clitest.SetVariable(t, "NO_COLOR", tt.noColor)
 
@@ -356,7 +356,7 @@ func TestColorLeftOnOpensTheInterfaceWithItsHues(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	dir := prRepo(t, "feat/colors")
+	dir := clitest.PRRepo(t, "feat/colors")
 	clitest.WriteFile(t, dir, `{}`)
 	clitest.SetVariable(t, "NO_COLOR", "")
 

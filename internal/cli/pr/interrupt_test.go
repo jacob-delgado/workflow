@@ -21,7 +21,7 @@ func TestAWaitForCIStoppedByCtrlCSaysNothingWasAnnounced(t *testing.T) {
 	var posts atomic.Int32
 
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), InterruptsStatus: true})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
 
 	// Act

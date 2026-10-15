@@ -97,7 +97,7 @@ func TestAnnounceWhenGreenKeepsALiveLineOfCIsProgressOnATerminal(t *testing.T) {
 
 	gate := t.TempDir()
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), StatusGate: gate})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
 
 	terminal := newShownSoFar()
@@ -142,7 +142,7 @@ func TestAnnounceWhenGreenDrawsItsLiveLineInASCIIUnderUIASCII(t *testing.T) {
 
 	gate := t.TempDir()
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), StatusGate: gate})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
 	home := t.TempDir()
 	clitest.WriteFile(t, home, `{"ui": {"ascii": true}}`)

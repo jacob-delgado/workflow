@@ -44,7 +44,7 @@ func reviewSearch(items ...string) string {
 func reviewsRepo(t *testing.T) string {
 	t.Helper()
 
-	repo := githubRepo(t, "work")
+	repo := clitest.GithubRepo(t, "work")
 	clitest.WriteFile(t, repo, reviewsForgeConfig)
 
 	return repo

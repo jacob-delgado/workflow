@@ -10,18 +10,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
-// gitlabRepo is prRepo on fix/PROJ-2-thing with a GitLab origin and
-// clitest.GitlabForgeConfig.
-func gitlabRepo(t *testing.T) string {
-	t.Helper()
-
-	repo := prRepo(t, "fix/PROJ-2-thing")
-	git(t, repo, "remote", "add", "origin", "https://gitlab.com/owner/repo.git")
-	clitest.WriteFile(t, repo, clitest.GitlabForgeConfig)
-
-	return repo
-}
-
 // requireGitLabWords fails the test unless said names the merge request and
 // never GitHub's noun or sigil.
 func requireGitLabWords(t *testing.T, said, want string) {
@@ -37,7 +25,7 @@ func TestPRRefusesASecondMergeRequestInGitLabsWords(t *testing.T) {
 
 	// Arrange
 	clitest.FakeGlabListing(t, clitest.OpenMergeRequest())
-	repo := gitlabRepo(t)
+	repo := clitest.GitlabRepo(t, "fix/PROJ-2-thing")
 
 	// Act
 	_, err := clitest.Run(t, repo, "pr", "--yes")
@@ -56,8 +44,8 @@ func TestPRRefusesABranchWithNoCommitsInGitLabsWords(t *testing.T) {
 
 	// Arrange
 	clitest.FakeGlab(t)
-	repo := gitlabRepo(t)
-	git(t, repo, "reset", "--quiet", "--hard", "main")
+	repo := clitest.GitlabRepo(t, "fix/PROJ-2-thing")
+	clitest.Git(t, repo, "reset", "--quiet", "--hard", "main")
 
 	// Act
 	_, err := clitest.Run(t, repo, "pr", "--yes")
@@ -76,7 +64,7 @@ func TestAnnounceRefusesABranchWithNoMergeRequestInGitLabsWords(t *testing.T) {
 
 	// Arrange
 	clitest.FakeGlab(t)
-	repo := gitlabRepo(t)
+	repo := clitest.GitlabRepo(t, "fix/PROJ-2-thing")
 
 	// Act
 	_, err := clitest.Run(t, repo, "announce", "--yes")

@@ -370,7 +370,7 @@ func TestDoctorOnlineSaysThereIsNoForgeWithoutARemote(t *testing.T) {
 	// Arrange
 
 	dir := t.TempDir()
-	gitInit(t, dir)
+	clitest.GitInit(t, dir)
 	clitest.WriteConfigFor(t, dir, clitest.WorkingJira(t))
 
 	// Act

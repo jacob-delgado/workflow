@@ -86,8 +86,8 @@ func reviewRepoAnswering(t *testing.T, transitions string, answers jiraAnswers) 
 
 	clitest.FakeGh(t, clitest.GhResponses{})
 	baseURL, writes := reviewJiraAnswering(t, transitions, answers)
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	pretendPushed(t, repo)
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.PretendPushed(t, repo)
 	clitest.WriteFile(t, repo, `{"jira":{"base_url":"`+baseURL+`","token":"t",`+
 		`"review_status":"`+clitest.StatusInReview+`"},`+
 		`"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
@@ -237,8 +237,8 @@ func TestPRLinksNothingForABranchWithoutAnIssue(t *testing.T) {
 	// Arrange
 	clitest.FakeGh(t, clitest.GhResponses{})
 	baseURL, writes := reviewJira(t)
-	repo := githubRepo(t, "chore/cleanup")
-	pretendPushed(t, repo)
+	repo := clitest.GithubRepo(t, "chore/cleanup")
+	clitest.PretendPushed(t, repo)
 	clitest.WriteFile(t, repo, `{"jira":{"base_url":"`+baseURL+`","token":"t",`+
 		`"review_status":"`+clitest.StatusInReview+`"},`+
 		`"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
@@ -263,8 +263,8 @@ func TestPRDoesNotLinkAForgeIssueNumberOnJira(t *testing.T) {
 	// the link, or read 42 as the id of an unrelated issue.
 	clitest.FakeGh(t, clitest.GhResponses{})
 	baseURL, writes := reviewJira(t)
-	repo := githubRepo(t, "fix/42-typo")
-	pretendPushed(t, repo)
+	repo := clitest.GithubRepo(t, "fix/42-typo")
+	clitest.PretendPushed(t, repo)
 	clitest.WriteFile(t, repo, `{"jira":{"base_url":"`+baseURL+`","token":"t"},`+
 		`"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 

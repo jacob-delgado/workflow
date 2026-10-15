@@ -21,7 +21,7 @@ func TestAnnouncePostsInTheChannelItIsGiven(t *testing.T) {
 	// Arrange
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
 	slack := clitest.FakeSlack(t, nil)
-	repo := ownedRepo(t)
+	repo := clitest.OwnedRepo(t)
 	clitest.WriteFile(t, repo, clitest.SlackLoggedInConfig())
 
 	// Act
@@ -46,7 +46,7 @@ func TestAnnounceWhenGreenPostsInTheChannelItIsGiven(t *testing.T) {
 		Pulls: clitest.OpenPull("Add login"), StatusSequence: []string{clitest.RunningStatus(), clitest.PassingStatus()},
 	})
 	slack := clitest.FakeSlack(t, nil)
-	repo := ownedRepo(t)
+	repo := clitest.OwnedRepo(t)
 	clitest.WriteFile(t, repo, strings.TrimSuffix(clitest.SlackLoggedInConfig(), "}")+`,"timing":{"ci_interval":"10ms"}}`)
 
 	// Act
@@ -71,7 +71,7 @@ func TestAnnounceRefusesAChannelAWebhookCannotHonor(t *testing.T) {
 	// Arrange
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
 	hook := clitest.NewCapturingWebhook(t)
-	repo := ownedRepo(t)
+	repo := clitest.OwnedRepo(t)
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
 		`"messaging":{"webhook_url":"`+hook.URL+`"}}`)
 

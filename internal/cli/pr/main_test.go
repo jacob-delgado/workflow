@@ -52,7 +52,7 @@ func TestTheTestsLeaveTheRepositoryAHookNamesAlone(t *testing.T) {
 	const fixture = "TestPRPushesThenOpensAnUnpublishedBranch"
 
 	named := t.TempDir()
-	git(t, named, "init", "--quiet")
+	clitest.Git(t, named, "init", "--quiet")
 
 	before := gittest.FilesUnder(t, named)
 

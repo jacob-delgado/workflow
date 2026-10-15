@@ -32,8 +32,8 @@ func TestPRAnnounceOpensThenAnnouncesOnceCIPasses(t *testing.T) {
 	var posts atomic.Int32
 
 	clitest.FakeGh(t, openingThenOpen())
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	pretendPushed(t, repo)
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.PretendPushed(t, repo)
 	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
 
 	// Act
@@ -58,8 +58,8 @@ func TestPRAnnounceWithoutMessagingOpensNothing(t *testing.T) {
 	responses := openingThenOpen()
 	responses.SentLog = sent
 	clitest.FakeGh(t, responses)
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	pretendPushed(t, repo)
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.PretendPushed(t, repo)
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
@@ -83,8 +83,8 @@ func TestPRRefusesAnnounceBesideDraft(t *testing.T) {
 	responses := openingThenOpen()
 	responses.SentLog = sent
 	clitest.FakeGh(t, responses)
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	pretendPushed(t, repo)
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.PretendPushed(t, repo)
 	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, new(atomic.Int32))))
 
 	// Act
@@ -107,8 +107,8 @@ func TestPRAnnounceDryRunSaysItWouldAnnounce(t *testing.T) {
 
 	// Arrange
 	clitest.FakeGh(t, openingThenOpen())
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	pretendPushed(t, repo)
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.PretendPushed(t, repo)
 	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, new(atomic.Int32))))
 
 	// Act
@@ -128,8 +128,8 @@ func TestPRAnnounceJSONPrintsTheReportBeforeWaiting(t *testing.T) {
 	var posts atomic.Int32
 
 	clitest.FakeGh(t, openingThenOpen())
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	pretendPushed(t, repo)
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.PretendPushed(t, repo)
 	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
 
 	// Act
@@ -154,8 +154,8 @@ func TestPRWithoutAnnounceNamesWhenGreen(t *testing.T) {
 
 	// Arrange
 	clitest.FakeGh(t, clitest.GhResponses{})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	pretendPushed(t, repo)
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.PretendPushed(t, repo)
 	clitest.WriteFile(t, repo, waitingConfig("https://hooks.slack.example/services/x"))
 
 	// Act
@@ -179,8 +179,8 @@ func TestPRAnnounceWaitsForAPullRequestTheForgeHasNotListedYet(t *testing.T) {
 	responses := openingThenOpen()
 	responses.PullsSequence = []string{"[]", "[]", clitest.OpenPull("work")}
 	clitest.FakeGh(t, responses)
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	pretendPushed(t, repo)
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.PretendPushed(t, repo)
 	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
 
 	// Act

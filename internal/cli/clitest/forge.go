@@ -37,10 +37,12 @@ type GhResponses struct {
 	SentLog          string // when set, each request carrying a body appends its endpoint and body here
 }
 
-// The modes the fakes write their files with: a body read, and a program run.
+// The modes the fakes write their files with: a body read, and a program run;
+// and the mode of a directory a repository's file is written into.
 const (
 	dataMode    = 0o644
 	programMode = 0o755
+	dirMode     = 0o750
 )
 
 // The routes a fake gh answers from a sequence as well as from one body.

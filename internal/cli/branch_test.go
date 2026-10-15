@@ -25,8 +25,8 @@ func repoForBranch(t *testing.T, jiraURL string) string {
 	t.Helper()
 
 	repo := t.TempDir()
-	gitInit(t, repo)
-	git(t, repo, "-c", "user.email=t@example.com", "-c", "user.name=Tester",
+	clitest.GitInit(t, repo)
+	clitest.Git(t, repo, "-c", "user.email=t@example.com", "-c", "user.name=Tester",
 		"commit", "--allow-empty", "-m", "init")
 	clitest.WriteConfigFor(t, repo, jiraURL)
 
@@ -53,7 +53,7 @@ func TestBranchCreatesTheBranchForTheIssue(t *testing.T) {
 		t.Errorf("the created branch is not on stdout alone:\nstdout:\n%s\nstderr:\n%s", printed.Stdout, printed.Stderr)
 	}
 
-	if got := currentBranch(t, repo); got != "fix/PROJ-7-login" {
+	if got := clitest.CurrentBranch(t, repo); got != "fix/PROJ-7-login" {
 		t.Errorf("checked-out branch = %q, want the created branch", got)
 	}
 }
@@ -64,7 +64,7 @@ func TestBranchRefusesAnIssueThatAlreadyHasABranch(t *testing.T) {
 	// Arrange
 	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
-	git(t, repo, "branch", "fix/PROJ-7-login")
+	clitest.Git(t, repo, "branch", "fix/PROJ-7-login")
 
 	// Act
 	output, err := clitest.Run(t, repo, "branch", "PROJ-7", "--yes")
@@ -84,7 +84,7 @@ func TestBranchExistsSaysHowToSwitch(t *testing.T) {
 	// Arrange
 	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
-	git(t, repo, "branch", "fix/PROJ-7-login")
+	clitest.Git(t, repo, "branch", "fix/PROJ-7-login")
 
 	// Act
 	_, err := clitest.Run(t, repo, "branch", "PROJ-7", "--yes")
@@ -143,7 +143,7 @@ func TestBranchDryRunCreatesNothing(t *testing.T) {
 	// Arrange
 	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Story", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
-	before := currentBranch(t, repo)
+	before := clitest.CurrentBranch(t, repo)
 
 	// Act
 	output, err := clitest.Run(t, repo, "branch", "PROJ-7", "--dry-run")
@@ -156,7 +156,7 @@ func TestBranchDryRunCreatesNothing(t *testing.T) {
 		t.Errorf("output does not describe the dry run:\n%s", output)
 	}
 
-	if got := currentBranch(t, repo); got != before {
+	if got := clitest.CurrentBranch(t, repo); got != before {
 		t.Errorf("a dry run left the repository on %q, want it unchanged from %q", got, before)
 	}
 }
@@ -176,7 +176,7 @@ func TestBranchCreatesAfterConfirmation(t *testing.T) {
 		t.Fatalf("branch: %v (%s)", err, output)
 	}
 
-	if got := currentBranch(t, repo); got != "fix/PROJ-7-login" {
+	if got := clitest.CurrentBranch(t, repo); got != "fix/PROJ-7-login" {
 		t.Errorf("a confirmed branch was not created: on %q", got)
 	}
 }
@@ -187,7 +187,7 @@ func TestBranchDeclinedCreatesNothing(t *testing.T) {
 	// Arrange
 	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
-	before := currentBranch(t, repo)
+	before := clitest.CurrentBranch(t, repo)
 
 	var asked []string
 
@@ -208,7 +208,7 @@ func TestBranchDeclinedCreatesNothing(t *testing.T) {
 		t.Errorf("output does not report the branch was left uncreated:\n%s", output)
 	}
 
-	if got := currentBranch(t, repo); got != before {
+	if got := clitest.CurrentBranch(t, repo); got != before {
 		t.Errorf("a declined branch left the repository on %q, want %q", got, before)
 	}
 }
@@ -221,10 +221,10 @@ func TestBranchCutsFromHeadWithoutAConventionalBase(t *testing.T) {
 	// base to name and the branch is cut from HEAD.
 	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := t.TempDir()
-	gitInit(t, repo)
-	git(t, repo, "-c", "user.email=t@example.com", "-c", "user.name=Tester",
+	clitest.GitInit(t, repo)
+	clitest.Git(t, repo, "-c", "user.email=t@example.com", "-c", "user.name=Tester",
 		"commit", "--allow-empty", "-m", "init")
-	git(t, repo, "branch", "-M", "trunk")
+	clitest.Git(t, repo, "branch", "-M", "trunk")
 	clitest.WriteConfigFor(t, repo, server.URL)
 
 	// Act
@@ -246,7 +246,7 @@ func TestBranchStopsWhenTheConfirmationCannotBeRead(t *testing.T) {
 	// The confirmation prompt fails, so the branch is not created.
 	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
-	before := currentBranch(t, repo)
+	before := clitest.CurrentBranch(t, repo)
 	failing := cmdkit.Prompt{
 		Line:   func(string) (string, error) { return "", errPromptClosed },
 		Secret: func(string) (string, error) { return "", errPromptClosed },
@@ -260,7 +260,7 @@ func TestBranchStopsWhenTheConfirmationCannotBeRead(t *testing.T) {
 		t.Error("branch proceeded despite an unreadable confirmation")
 	}
 
-	if got := currentBranch(t, repo); got != before {
+	if got := clitest.CurrentBranch(t, repo); got != before {
 		t.Errorf("a failed confirmation created a branch: now on %q", got)
 	}
 }
@@ -273,7 +273,7 @@ func TestBranchReportsAFailedCreate(t *testing.T) {
 	// both a name and a directory of names.
 	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
-	git(t, repo, "branch", "fix")
+	clitest.Git(t, repo, "branch", "fix")
 
 	// Act
 	_, err := clitest.Run(t, repo, "branch", "PROJ-7", "--yes")
@@ -337,7 +337,7 @@ func TestBranchFromABranchWhoseNameCannotBeShownCutsFromHead(t *testing.T) {
 	// branch starts from HEAD.
 	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
-	git(t, repo, "checkout", "-b", "fix/PROJ\u200b-3")
+	clitest.Git(t, repo, "checkout", "-b", "fix/PROJ\u200b-3")
 
 	// Act
 	output, err := clitest.Run(t, repo, "branch", "PROJ-7", "--dry-run")
