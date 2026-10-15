@@ -23,7 +23,9 @@ func TestAnInterruptedGitCommandExitsAsInterrupted(t *testing.T) {
 	// A git that raises Ctrl+C on the process running it and then hangs until it
 	// is stopped: the interrupt lands mid-subprocess, where what comes back is
 	// git's own exit status rather than the interrupt.
-	writeExecutable(t, filepath.Join(clitest.ProgramsOf(t), "git"), "#!/bin/sh\nkill -INT $PPID\nexec sleep 5\n", 0o755)
+	clitest.WriteExecutable(
+		t, filepath.Join(clitest.ProgramsOf(t), "git"), "#!/bin/sh\nkill -INT $PPID\nexec sleep 5\n", 0o755,
+	)
 
 	// Act
 	_, err := clitest.Run(t, repo, "status")
@@ -36,12 +38,12 @@ func TestAWaitForCIStoppedByCtrlCSaysNothingWasAnnounced(t *testing.T) {
 	// Arrange
 	var posts atomic.Int32
 
-	fakeGh(t, ghResponses{pulls: openPull("Add login"), interruptsStatus: true})
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), InterruptsStatus: true})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
 
 	// Act
-	printed, err := clitest.RunStreams(t, repo, atTerminal(t), "announce", "--when-green", "--yes")
+	printed, err := clitest.RunStreams(t, repo, clitest.AtTerminal(t), "announce", "--when-green", "--yes")
 
 	// Assert
 	wantExit(t, err, 130)

@@ -5,7 +5,7 @@ package cli_test
 
 // `workflow slack login`: what it asks, what it refuses before asking
 // anything, and what it keeps once Slack, here a fake on this machine
-// (fakeSlack), accepts the refresh it makes.
+// (clitest.FakeSlack), accepts the refresh it makes.
 
 import (
 	"errors"
@@ -23,9 +23,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/slackauth"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
-
-// slackClientID is the Slack app's client ID the login is given.
-const slackClientID = "1234.5678"
 
 // slackUserTokenFile is a configuration set up to post to Slack with a user
 // token not yet logged in, keeping its credentials in the file.
@@ -61,7 +58,7 @@ func TestSlackLoginAsksForTheAppOnScreenAndItsSecretOffIt(t *testing.T) {
 
 	var askedLine, askedSecret []string
 
-	prompt := asking([]string{slackClientID}, nil, &askedLine, &askedSecret)
+	prompt := asking([]string{clitest.SlackClientID}, nil, &askedLine, &askedSecret)
 
 	// Act
 	_, err := clitest.RunGuided(t, dir, prompt, "slack", "login")
@@ -161,17 +158,17 @@ func TestSlackLoginKeepsWhatSlackGivesBackAndSaysWhoseItIs(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeSlack(t, map[string]slackAnswer{slackRefresh: {http.StatusOK, slackRenewed}})
+	clitest.FakeSlack(t, map[string]clitest.SlackAnswer{slackRefresh: {Status: http.StatusOK, Body: slackRenewed}})
 
 	dir := t.TempDir()
 	// The file already keeps the app's secret, so the token is kept there on
 	// every system, never in the keychain of the machine the test runs on.
-	path := clitest.WriteFile(t, dir, `{"messaging": {"kind": "slack", "client_id": "`+slackClientID+`",`+
+	path := clitest.WriteFile(t, dir, `{"messaging": {"kind": "slack", "client_id": "`+clitest.SlackClientID+`",`+
 		` "client_secret": "client-secret-old", "channel": "#dev"}}`)
 
 	var askedLine, askedSecret []string
 
-	prompt := asking([]string{slackClientID}, typedLogin(), &askedLine, &askedSecret)
+	prompt := asking([]string{clitest.SlackClientID}, typedLogin(), &askedLine, &askedSecret)
 
 	// Act
 	printed, err := clitest.RunStreams(t, dir, prompt, "slack", "login")
@@ -244,9 +241,9 @@ func TestSlackLoginWithNoTerminalSaysToRunItAtOne(t *testing.T) {
 
 	// Each case is where the input ends.
 	cases := map[string]cmdkit.Prompt{
-		"at the client ID": {Line: answersThenEnds(), Secret: answersThenEnds()},
+		"at the client ID": {Line: clitest.AnswersThenEnds(), Secret: clitest.AnswersThenEnds()},
 		"at the refresh token": {
-			Line: answersThenEnds(slackClientID), Secret: answersThenEnds("client-secret-9999"),
+			Line: clitest.AnswersThenEnds(clitest.SlackClientID), Secret: clitest.AnswersThenEnds("client-secret-9999"),
 		},
 	}
 
@@ -276,12 +273,14 @@ func TestSlackLoginThatSlackRefusesLeavesTheFileAsItWas(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeSlack(t, map[string]slackAnswer{slackRefresh: {http.StatusOK, `{"ok":false,"error":"invalid_grant"}`}})
+	clitest.FakeSlack(t, map[string]clitest.SlackAnswer{
+		slackRefresh: {Status: http.StatusOK, Body: `{"ok":false,"error":"invalid_grant"}`},
+	})
 
 	dir := t.TempDir()
 	// A working login's file, the app's secret kept in it, so nothing is read
 	// from the keychain of the machine the test runs on.
-	contents := `{"messaging": {"kind": "slack", "client_id": "` + slackClientID + `",` +
+	contents := `{"messaging": {"kind": "slack", "client_id": "` + clitest.SlackClientID + `",` +
 		` "client_secret": "client-secret-old", "channel": "#dev"}}`
 	path := clitest.WriteFile(t, dir, contents)
 
@@ -303,7 +302,7 @@ func slackRefreshing(t *testing.T, changed func()) {
 	t.Helper()
 
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		answer := `{"ok":true,"team":"Acme","user":"ana","team_id":"` + slackWorkspace + `"}`
+		answer := `{"ok":true,"team":"Acme","user":"ana","team_id":"` + clitest.SlackWorkspace + `"}`
 
 		if request.URL.Path == slackRefresh {
 			changed()
@@ -330,9 +329,9 @@ func breakFile(t *testing.T, path string) func() {
 	}
 }
 
-// loginTyped is a prompt typing a login for the app slackClientID.
+// loginTyped is a prompt typing a login for the app clitest.SlackClientID.
 func loginTyped() cmdkit.Prompt {
-	return asking([]string{slackClientID}, typedLogin(), new([]string), new([]string))
+	return asking([]string{clitest.SlackClientID}, typedLogin(), new([]string), new([]string))
 }
 
 func TestSlackLoginStopsWhenAnAnswerCannotBeRead(t *testing.T) {
@@ -379,7 +378,7 @@ func TestSlackLoginThatCannotKeepThePairSaysSo(t *testing.T) {
 	// The file keeps the app's secret, so the pair is kept there; it stops
 	// parsing while Slack answers the refresh.
 	dir := t.TempDir()
-	path := clitest.WriteFile(t, dir, `{"messaging": {"kind": "slack", "client_id": "`+slackClientID+`",`+
+	path := clitest.WriteFile(t, dir, `{"messaging": {"kind": "slack", "client_id": "`+clitest.SlackClientID+`",`+
 		` "client_secret": "client-secret-old", "channel": "#dev"}}`)
 	slackRefreshing(t, breakFile(t, path))
 
@@ -459,13 +458,13 @@ func TestSlackLoginWhoseTokenSlackThenRefusesSaysSoHavingKeptIt(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeSlack(t, map[string]slackAnswer{
-		slackRefresh:  {http.StatusOK, slackRenewed},
-		slackAuthTest: {http.StatusOK, `{"ok":false,"error":"invalid_auth"}`},
+	clitest.FakeSlack(t, map[string]clitest.SlackAnswer{
+		slackRefresh:          {Status: http.StatusOK, Body: slackRenewed},
+		clitest.SlackAuthTest: {Status: http.StatusOK, Body: `{"ok":false,"error":"invalid_auth"}`},
 	})
 
 	dir := t.TempDir()
-	path := clitest.WriteFile(t, dir, `{"messaging": {"kind": "slack", "client_id": "`+slackClientID+`",`+
+	path := clitest.WriteFile(t, dir, `{"messaging": {"kind": "slack", "client_id": "`+clitest.SlackClientID+`",`+
 		` "client_secret": "client-secret-old", "channel": "#dev"}}`)
 
 	// Act
@@ -481,3 +480,16 @@ func TestSlackLoginWhoseTokenSlackThenRefusesSaysSoHavingKeptIt(t *testing.T) {
 		t.Errorf("%s holds %q (%v), want the pair Slack gave back kept", path, held, readErr)
 	}
 }
+
+// slackRefresh is the path of Slack's oauth.v2.access, which a user token is
+// refreshed at.
+const slackRefresh = "/oauth.v2.access"
+
+// slackRenewed is Slack's answer to a refresh it accepts: a new pair, good for
+// twelve hours.
+const slackRenewed = `{"ok":true,"token_type":"user",` +
+	`"access_token":"xoxe.xoxp-1-new","refresh_token":"xoxe-1-next","expires_in":43200}`
+
+// typedLogin is a login's typed secrets: the app's client secret, and the
+// refresh token Slack gave at install.
+func typedLogin() []string { return []string{"client-secret-9999", "xoxe-1-first"} }

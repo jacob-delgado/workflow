@@ -19,10 +19,10 @@ func TestAnnouncePostsInTheChannelItIsGiven(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{pulls: openPull("Add login")})
-	slack := fakeSlack(t, nil)
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
+	slack := clitest.FakeSlack(t, nil)
 	repo := ownedRepo(t)
-	clitest.WriteFile(t, repo, slackLoggedInConfig())
+	clitest.WriteFile(t, repo, clitest.SlackLoggedInConfig())
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--yes", "--channel", "#release")
@@ -31,7 +31,7 @@ func TestAnnouncePostsInTheChannelItIsGiven(t *testing.T) {
 		t.Fatalf("announce --channel: %v (%+v)", err, printed)
 	}
 
-	if posted := slack.channel(t); posted != "#release" || !strings.Contains(printed.Stderr, "Announced to #release.") {
+	if posted := slack.Channel(t); posted != "#release" || !strings.Contains(printed.Stderr, "Announced to #release.") {
 		t.Errorf("announce --channel '#release' posted in %q, said %q; want #release in place of #dev",
 			posted, printed.Stderr)
 	}
@@ -42,10 +42,12 @@ func TestAnnounceWhenGreenPostsInTheChannelItIsGiven(t *testing.T) {
 
 	// Arrange
 	// CI runs at the first read and has passed by the next, read every 10ms.
-	fakeGh(t, ghResponses{pulls: openPull("Add login"), statusSequence: []string{runningStatus(), passingStatus()}})
-	slack := fakeSlack(t, nil)
+	clitest.FakeGh(t, clitest.GhResponses{
+		Pulls: clitest.OpenPull("Add login"), StatusSequence: []string{clitest.RunningStatus(), clitest.PassingStatus()},
+	})
+	slack := clitest.FakeSlack(t, nil)
 	repo := ownedRepo(t)
-	clitest.WriteFile(t, repo, strings.TrimSuffix(slackLoggedInConfig(), "}")+`,"timing":{"ci_interval":"10ms"}}`)
+	clitest.WriteFile(t, repo, strings.TrimSuffix(clitest.SlackLoggedInConfig(), "}")+`,"timing":{"ci_interval":"10ms"}}`)
 
 	// Act
 	printed, err := clitest.RunStreams(
@@ -56,7 +58,7 @@ func TestAnnounceWhenGreenPostsInTheChannelItIsGiven(t *testing.T) {
 		t.Fatalf("announce --when-green --channel: %v (%+v)", err, printed)
 	}
 
-	posted := slack.channel(t)
+	posted := slack.Channel(t)
 	if posted != "#release" || !strings.Contains(printed.Stderr, "then announcing to #release") {
 		t.Errorf("announce --when-green --channel '#release' posted in %q, said %q; want it to wait on, "+
 			"then announce in, #release in place of #dev", posted, printed.Stderr)
@@ -67,7 +69,7 @@ func TestAnnounceRefusesAChannelAWebhookCannotHonor(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{pulls: openPull("Add login")})
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
 	hook := newCapturingWebhook(t)
 	repo := ownedRepo(t)
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
@@ -110,9 +112,9 @@ func TestSummaryPostsInTheChannelItIsGiven(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	slack := fakeSlack(t, nil)
+	slack := clitest.FakeSlack(t, nil)
 	repo := workedRepository(t, "Add the widget")
-	clitest.WriteFile(t, repo, slackLoggedInConfig())
+	clitest.WriteFile(t, repo, clitest.SlackLoggedInConfig())
 
 	// Act
 	printed, err := clitest.RunStreams(
@@ -124,7 +126,7 @@ func TestSummaryPostsInTheChannelItIsGiven(t *testing.T) {
 		t.Fatalf("summary --post --channel: %v (%+v)", err, printed)
 	}
 
-	if posted := slack.channel(t); posted != "#standup" {
+	if posted := slack.Channel(t); posted != "#standup" {
 		t.Errorf("summary --post --channel '#standup' posted in %q, want #standup in place of #dev", posted)
 	}
 }

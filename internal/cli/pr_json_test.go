@@ -73,7 +73,7 @@ func TestPRAsJSONPrintsWhatItOpened(t *testing.T) {
 
 	want := []followUpReport{
 		{Action: "link", IssueKey: issueKey, Done: true},
-		{Action: "transition", IssueKey: issueKey, Status: statusInReview, Done: true},
+		{Action: "transition", IssueKey: issueKey, Status: clitest.StatusInReview, Done: true},
 	}
 	if !reflect.DeepEqual(report.FollowUps, want) {
 		t.Errorf("follow_ups = %+v, want the link and the move, both made", report.FollowUps)
@@ -93,7 +93,7 @@ func TestPRAsJSONSaysAnOfferDeclined(t *testing.T) {
 
 	// Act
 	// The open and the link are answered yes, the move no.
-	printed, err := clitest.RunStreams(t, repo, scripted([]string{"y", "y", "n"}, nil), "pr", "--json")
+	printed, err := clitest.RunStreams(t, repo, clitest.Scripted([]string{"y", "y", "n"}, nil), "pr", "--json")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr --json: %v (%+v)", err, printed)
@@ -109,7 +109,7 @@ func TestPRAsJSONDryRunPrintsTheDraft(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{})
+	clitest.FakeGh(t, clitest.GhResponses{})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	writeRepoFile(t, repo, ".github/pull_request_template.md", "## Checklist\n")
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
@@ -143,7 +143,7 @@ func TestPRAsJSONDeclinedPrintsNoReport(t *testing.T) {
 	repo, _ := reviewRepo(t, reviewMoves)
 
 	// Act
-	printed, err := clitest.RunStreams(t, repo, scripted([]string{"n"}, nil), "pr", "--json")
+	printed, err := clitest.RunStreams(t, repo, clitest.Scripted([]string{"n"}, nil), "pr", "--json")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr --json: %v (%+v)", err, printed)

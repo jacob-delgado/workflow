@@ -32,15 +32,15 @@ func TestTransitionAppliesAFieldlessMove(t *testing.T) {
 
 	// Act
 	printed, err := clitest.RunStreams(
-		t, dir, clitest.UnusedPrompt(t), "transition", trackedIssue, statusInReview, "--yes",
+		t, dir, clitest.UnusedPrompt(t), "transition", trackedIssue, clitest.StatusInReview, "--yes",
 	)
 	// Assert
 	if err != nil {
 		t.Fatalf("transition --yes: %v (%+v)", err, printed)
 	}
 
-	if asked.applied() != 1 || !strings.Contains(asked.sentBody(), `"id":"31"`) {
-		t.Errorf("applied %d, last sent %q; want transition 31 once", asked.applied(), asked.sentBody())
+	if asked.Applied() != 1 || !strings.Contains(asked.SentBody(), `"id":"31"`) {
+		t.Errorf("applied %d, last sent %q; want transition 31 once", asked.Applied(), asked.SentBody())
 	}
 
 	if !strings.Contains(printed.Stdout, "Move PROJ-7 to In Review (Start Review)") ||
@@ -59,8 +59,8 @@ func TestTransitionMatchesTheStatusWhateverItsCase(t *testing.T) {
 	_, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "transition", trackedIssue, "in REVIEW", "--yes")
 
 	// Assert
-	if err != nil || asked.applied() != 1 || !strings.Contains(asked.sentBody(), `"id":"31"`) {
-		t.Errorf("transition = %v, applied %d (%q); want the move to In Review", err, asked.applied(), asked.sentBody())
+	if err != nil || asked.Applied() != 1 || !strings.Contains(asked.SentBody(), `"id":"31"`) {
+		t.Errorf("transition = %v, applied %d (%q); want the move to In Review", err, asked.Applied(), asked.SentBody())
 	}
 }
 
@@ -72,12 +72,12 @@ func TestTransitionTrimsTheStatus(t *testing.T) {
 
 	// Act
 	_, err := clitest.RunStreams(
-		t, dir, clitest.UnusedPrompt(t), "transition", trackedIssue, "  "+statusInReview+" ", "--yes",
+		t, dir, clitest.UnusedPrompt(t), "transition", trackedIssue, "  "+clitest.StatusInReview+" ", "--yes",
 	)
 
 	// Assert
-	if err != nil || asked.applied() != 1 || !strings.Contains(asked.sentBody(), `"id":"31"`) {
-		t.Errorf("transition = %v, applied %d (%q); want the move to In Review", err, asked.applied(), asked.sentBody())
+	if err != nil || asked.Applied() != 1 || !strings.Contains(asked.SentBody(), `"id":"31"`) {
+		t.Errorf("transition = %v, applied %d (%q); want the move to In Review", err, asked.Applied(), asked.SentBody())
 	}
 }
 
@@ -114,8 +114,8 @@ func TestTransitionRefusesAMoveThatNeedsFieldsNamingThem(t *testing.T) {
 	wantExit(t, err, 4)
 
 	if err == nil || !strings.Contains(err.Error(), "Resolution") || !strings.Contains(err.Error(), "Fix Version/s") ||
-		asked.applied() != 0 {
-		t.Errorf("transition to Done = %v, applied %d; want the fields named and nothing applied", err, asked.applied())
+		asked.Applied() != 0 {
+		t.Errorf("transition to Done = %v, applied %d; want the fields named and nothing applied", err, asked.Applied())
 	}
 }
 
@@ -131,8 +131,8 @@ func TestTransitionRefusesAStatusNotOfferedNamingThoseThatAre(t *testing.T) {
 	// Assert
 	wantExit(t, err, 4)
 
-	if err == nil || !strings.Contains(err.Error(), "In Progress, In Review, Done") || asked.applied() != 0 {
-		t.Errorf("transition to Blocked = %v, applied %d; want the statuses offered named", err, asked.applied())
+	if err == nil || !strings.Contains(err.Error(), "In Progress, In Review, Done") || asked.Applied() != 0 {
+		t.Errorf("transition to Blocked = %v, applied %d; want the statuses offered named", err, asked.Applied())
 	}
 }
 
@@ -145,13 +145,15 @@ func TestTransitionAsksBeforeMoving(t *testing.T) {
 	var questions []string
 
 	// Act
-	printed, err := clitest.RunStreams(t, dir, answering("n", &questions), "transition", trackedIssue, statusInReview)
+	printed, err := clitest.RunStreams(
+		t, dir, clitest.Answering("n", &questions), "transition", trackedIssue, clitest.StatusInReview,
+	)
 
 	// Assert
 	if err != nil || len(questions) != 1 || !strings.HasPrefix(questions[0], "Move PROJ-7 to In Review?") ||
-		!strings.Contains(printed.Stderr, "Left PROJ-7 as it is.") || asked.applied() != 0 {
+		!strings.Contains(printed.Stderr, "Left PROJ-7 as it is.") || asked.Applied() != 0 {
 		t.Errorf("transition = %v, asked %q, said %q, applied %d; want one question, declined, nothing moved",
-			err, questions, printed.Stderr, asked.applied())
+			err, questions, printed.Stderr, asked.Applied())
 	}
 }
 
@@ -163,13 +165,13 @@ func TestTransitionDryRunMovesNothing(t *testing.T) {
 
 	// Act
 	printed, err := clitest.RunStreams(
-		t, dir, clitest.UnusedPrompt(t), "transition", trackedIssue, statusInReview, "--dry-run",
+		t, dir, clitest.UnusedPrompt(t), "transition", trackedIssue, clitest.StatusInReview, "--dry-run",
 	)
 
 	// Assert
 	if err != nil || !strings.Contains(printed.Stderr, "dry run: would move PROJ-7 to In Review") ||
-		asked.applied() != 0 {
-		t.Errorf("transition --dry-run = %v, said %q, applied %d", err, printed.Stderr, asked.applied())
+		asked.Applied() != 0 {
+		t.Errorf("transition --dry-run = %v, said %q, applied %d", err, printed.Stderr, asked.Applied())
 	}
 }
 
@@ -180,7 +182,9 @@ func TestTransitionSaysWhatJiraRefused(t *testing.T) {
 	dir, _ := trackerDir(t, trackerAnswers{writeCode: http.StatusBadRequest})
 
 	// Act
-	_, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "transition", trackedIssue, statusInReview, "--yes")
+	_, err := clitest.RunStreams(
+		t, dir, clitest.UnusedPrompt(t), "transition", trackedIssue, clitest.StatusInReview, "--yes",
+	)
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "moving PROJ-7 to In Review") {
@@ -195,11 +199,13 @@ func TestTransitionSaysWhyTheMovesCouldNotBeRead(t *testing.T) {
 	dir, asked := trackerDir(t, trackerAnswers{movesCode: http.StatusInternalServerError})
 
 	// Act
-	_, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "transition", trackedIssue, statusInReview, "--yes")
+	_, err := clitest.RunStreams(
+		t, dir, clitest.UnusedPrompt(t), "transition", trackedIssue, clitest.StatusInReview, "--yes",
+	)
 
 	// Assert
-	if err == nil || !strings.Contains(err.Error(), "reading the transitions of PROJ-7") || asked.applied() != 0 {
-		t.Errorf("transition with the moves unread = %v, applied %d", err, asked.applied())
+	if err == nil || !strings.Contains(err.Error(), "reading the transitions of PROJ-7") || asked.Applied() != 0 {
+		t.Errorf("transition with the moves unread = %v, applied %d", err, asked.Applied())
 	}
 }
 
@@ -216,8 +222,8 @@ func TestAssignSetsTheAssignee(t *testing.T) {
 		t.Fatalf("assign --yes: %v (%+v)", err, printed)
 	}
 
-	assigned := asked.of(writeAssign)
-	if len(assigned) != 1 || !strings.Contains(assigned[0].body, `"name":"bo"`) {
+	assigned := asked.Of(writeAssign)
+	if len(assigned) != 1 || !strings.Contains(assigned[0].Body, `"name":"bo"`) {
 		t.Errorf("assignments = %+v, want PROJ-7 assigned to bo once", assigned)
 	}
 
@@ -239,7 +245,7 @@ func TestAssignRefusesABlankUsername(t *testing.T) {
 	// Assert
 	wantExit(t, err, 2)
 
-	if got := asked.of(writeAssign); len(got) != 0 {
+	if got := asked.Of(writeAssign); len(got) != 0 {
 		t.Errorf("a blank username was sent: %+v", got)
 	}
 }
@@ -253,11 +259,11 @@ func TestAssignAsksBeforeAssigning(t *testing.T) {
 	var questions []string
 
 	// Act
-	printed, err := clitest.RunStreams(t, dir, answering("n", &questions), "assign", trackedIssue, "bo")
+	printed, err := clitest.RunStreams(t, dir, clitest.Answering("n", &questions), "assign", trackedIssue, "bo")
 
 	// Assert
 	if err != nil || len(questions) != 1 || !strings.HasPrefix(questions[0], "Assign PROJ-7 to bo?") ||
-		!strings.Contains(printed.Stderr, "Not assigned.") || len(asked.of(writeAssign)) != 0 {
+		!strings.Contains(printed.Stderr, "Not assigned.") || len(asked.Of(writeAssign)) != 0 {
 		t.Errorf("assign = %v, asked %q, said %q; want one question, declined, nothing assigned",
 			err, questions, printed.Stderr)
 	}
@@ -289,8 +295,8 @@ func TestAssignDryRunAssignsNothing(t *testing.T) {
 
 	// Assert
 	if err != nil || !strings.Contains(printed.Stderr, "dry run: would assign PROJ-7 to bo") ||
-		len(asked.of(writeAssign)) != 0 {
-		t.Errorf("assign --dry-run = %v, said %q, assigned %+v", err, printed.Stderr, asked.of(writeAssign))
+		len(asked.Of(writeAssign)) != 0 {
+		t.Errorf("assign --dry-run = %v, said %q, assigned %+v", err, printed.Stderr, asked.Of(writeAssign))
 	}
 }
 
@@ -308,9 +314,9 @@ func TestWorklogLogsTheDurationWithItsNote(t *testing.T) {
 		t.Fatalf("worklog --yes: %v (%+v)", err, printed)
 	}
 
-	logged := asked.of(writeWorklog)
-	if len(logged) != 1 || !strings.Contains(logged[0].body, `"timeSpent":"2h"`) ||
-		!strings.Contains(logged[0].body, `"comment":"pairing"`) {
+	logged := asked.Of(writeWorklog)
+	if len(logged) != 1 || !strings.Contains(logged[0].Body, `"timeSpent":"2h"`) ||
+		!strings.Contains(logged[0].Body, `"comment":"pairing"`) {
 		t.Errorf("worklogs = %+v, want 2h with its note, once", logged)
 	}
 
@@ -344,7 +350,7 @@ func TestWorklogRefusesWhatCannotBeLogged(t *testing.T) {
 			// Assert
 			wantExit(t, err, 2)
 
-			if got := asked.of(writeWorklog); len(got) != 0 {
+			if got := asked.Of(writeWorklog); len(got) != 0 {
 				t.Errorf("work was logged: %+v", got)
 			}
 		})
@@ -395,7 +401,7 @@ func TestWorklogDryRunLogsNothing(t *testing.T) {
 
 	// Assert
 	if err != nil || !strings.Contains(printed.Stderr, "dry run: would log 2h on PROJ-7") ||
-		len(asked.of(writeWorklog)) != 0 {
-		t.Errorf("worklog --dry-run = %v, said %q, logged %+v", err, printed.Stderr, asked.of(writeWorklog))
+		len(asked.Of(writeWorklog)) != 0 {
+		t.Errorf("worklog --dry-run = %v, said %q, logged %+v", err, printed.Stderr, asked.Of(writeWorklog))
 	}
 }

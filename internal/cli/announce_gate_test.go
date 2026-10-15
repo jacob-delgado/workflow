@@ -15,9 +15,9 @@ func TestAnnounceRefusesAPullRequestACheckFailedOn(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: failingStatus()})
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: clitest.FailingStatus()})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, forgeCLIConfig)
+	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--yes")
@@ -38,9 +38,9 @@ func TestAnnounceDryRunRefusesAFailedCheck(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: failingStatus()})
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: clitest.FailingStatus()})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, forgeCLIConfig)
+	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--dry-run")
@@ -56,9 +56,9 @@ func TestAnnounceAnnouncesWhileCIRuns(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: runningStatus()})
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: clitest.RunningStatus()})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, forgeCLIConfig)
+	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--dry-run")
@@ -74,9 +74,9 @@ func TestAnnounceRefusesWhatItCannotConfirm(t *testing.T) {
 
 	// Arrange
 	// An unreadable answer stands for a read of CI that failed.
-	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: "{"})
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: "{"})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, forgeCLIConfig)
+	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--yes")
@@ -93,9 +93,9 @@ func TestAnnounceSaysToReRunTheChecksOfAMergeACheckFailedOn(t *testing.T) {
 
 	// Arrange
 	// A merge cannot wait for CI, so it is not pointed at --when-green.
-	fakeGh(t, ghResponses{pulls: mergedPull("Add login"), status: failingStatus()})
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.MergedPull("Add login"), Status: clitest.FailingStatus()})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, forgeCLIConfig)
+	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
 
 	// Act
 	_, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--yes")

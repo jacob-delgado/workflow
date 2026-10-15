@@ -12,40 +12,17 @@ import (
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
-// ownedRepo is a GitHub repository whose main holds a CODEOWNERS giving the
-// API to ana, a team and octo — the fake gh's own user — on a branch that
-// changes the API and is already pushed.
-func ownedRepo(t *testing.T) string {
-	t.Helper()
-
-	repo := t.TempDir()
-	gitInit(t, repo)
-	writeRepoFile(t, repo, ".github/CODEOWNERS", "/api/ @ana @acme/control-plane @octo\n")
-	git(t, repo, "add", ".")
-	commit(t, repo, "init")
-	git(t, repo, "branch", "-M", "main")
-	git(t, repo, "checkout", "-b", "fix/PROJ-2-thing")
-	writeRepoFile(t, repo, "api/pull.go", "package api\n")
-	git(t, repo, "add", ".")
-	commit(t, repo, "fix: guard the api")
-	git(t, repo, "remote", "add", "origin", "https://github.com/acme/repo.git")
-	pretendPushed(t, repo)
-	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
-
-	return repo
-}
-
 func TestPRPreviewsTheCodeOwnersAsReviewers(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{})
+	clitest.FakeGh(t, clitest.GhResponses{})
 	repo := ownedRepo(t)
 
 	var asked []string
 
 	// Act
-	printed, err := clitest.RunStreams(t, repo, answering("n", &asked), "pr")
+	printed, err := clitest.RunStreams(t, repo, clitest.Answering("n", &asked), "pr")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr: %v (%+v)", err, printed)
@@ -61,7 +38,7 @@ func TestPRRequestsTheCodeOwnersReview(t *testing.T) {
 
 	// Arrange
 	sent := filepath.Join(t.TempDir(), "sent")
-	fakeGh(t, ghResponses{sentLog: sent})
+	clitest.FakeGh(t, clitest.GhResponses{SentLog: sent})
 	repo := ownedRepo(t)
 
 	// Act
@@ -104,7 +81,7 @@ func TestPRSaysTheMergeRequestOpenedWhenAReviewerCouldNotBeAdded(t *testing.T) {
 	// Arrange
 	// GitLab knows no user named ghost, so the merge request opens without
 	// that reviewer; it is open all the same.
-	fakeGlab(t)
+	clitest.FakeGlab(t)
 	repo := t.TempDir()
 	gitInit(t, repo)
 	writeRepoFile(t, repo, "CODEOWNERS", "* @ghost\n")
@@ -126,7 +103,8 @@ func TestPRSaysTheMergeRequestOpenedWhenAReviewerCouldNotBeAdded(t *testing.T) {
 		t.Fatalf("pr --yes = %v (%+v), want it to succeed: the merge request is open", err, printed)
 	}
 
-	if !strings.Contains(printed.Stdout, "Opened !7 "+gitlabMergeRequest) || !strings.Contains(printed.Stderr, "ghost") {
+	if !strings.Contains(printed.Stdout, "Opened !7 "+clitest.GitlabMergeRequest) ||
+		!strings.Contains(printed.Stderr, "ghost") {
 		t.Errorf("pr printed %+v, want the merge request opened and ghost named as not added", printed)
 	}
 }

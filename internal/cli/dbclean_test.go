@@ -76,7 +76,7 @@ func TestDBCleanListsWhatEachFileHolds(t *testing.T) {
 	where, dir := storedHome(t)
 
 	// Act
-	printed, err := clitest.RunStreamsAt(t, where, answering("n", new([]string)), "db-clean")
+	printed, err := clitest.RunStreamsAt(t, where, clitest.Answering("n", new([]string)), "db-clean")
 	// Assert
 	if err != nil {
 		t.Fatalf("db-clean: %v (%+v)", err, printed)
@@ -102,7 +102,7 @@ func TestDBCleanRemovesTheCacheOnceConfirmed(t *testing.T) {
 	var asked []string
 
 	// Act
-	printed, err := clitest.RunStreamsAt(t, where, answering("y", &asked), "db-clean")
+	printed, err := clitest.RunStreamsAt(t, where, clitest.Answering("y", &asked), "db-clean")
 	// Assert
 	if err != nil {
 		t.Fatalf("db-clean: %v (%+v)", err, printed)
@@ -129,7 +129,7 @@ func TestDBCleanLeavesEverythingWhenDeclined(t *testing.T) {
 	where, dir := storedHome(t)
 
 	// Act
-	printed, err := clitest.RunStreamsAt(t, where, answering("", new([]string)), "db-clean", "--all")
+	printed, err := clitest.RunStreamsAt(t, where, clitest.Answering("", new([]string)), "db-clean", "--all")
 	// Assert
 	if err != nil {
 		t.Fatalf("db-clean --all: %v (%+v)", err, printed)

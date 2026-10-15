@@ -51,7 +51,7 @@ func TestBranchFetchStartsFromWhatOriginHoldsNow(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo, origin := repoWithOrigin(t, server.URL)
 	latest := advanceOrigin(t, origin)
 
@@ -73,7 +73,7 @@ func TestBranchFetchSaysItFetchesFirst(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo, _ := repoWithOrigin(t, server.URL)
 
 	// Act
@@ -94,7 +94,7 @@ func TestBranchFetchThatFailsCreatesNothing(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo, origin := repoWithOrigin(t, server.URL)
 	before := currentBranch(t, repo)
 
@@ -124,7 +124,7 @@ func TestBranchFetchNamesTheBaseRemoteOfAFork(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo, _ := repoWithOrigin(t, server.URL)
 	upstream := t.TempDir()
 	git(t, upstream, "init", "--bare", "--quiet")
@@ -146,7 +146,7 @@ func TestBranchWorktreePrintsTheDirectoryItMade(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
 	before := currentBranch(t, repo)
 
@@ -177,7 +177,7 @@ func TestBranchWorktreeDryRunSaysWhereItWouldWork(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
 
 	// Act

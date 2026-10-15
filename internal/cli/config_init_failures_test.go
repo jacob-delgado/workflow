@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"io"
 	"io/fs"
 	"net/http"
 	"os"
@@ -32,21 +31,6 @@ func noConfigWritten(t *testing.T, dir string) {
 	_, err := os.Stat(filepath.Join(dir, config.FileName))
 	if !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("a configuration file was written in %s (stat: %v)", dir, err)
-	}
-}
-
-// answersThenEnds answers each question with the next of answers, then reads
-// the end of the input, as a pipe that runs dry does.
-func answersThenEnds(answers ...string) func(string) (string, error) {
-	return func(string) (string, error) {
-		if len(answers) == 0 {
-			return "", io.EOF
-		}
-
-		next := answers[0]
-		answers = answers[1:]
-
-		return next, nil
 	}
 }
 
@@ -81,7 +65,7 @@ func TestConfigInitIntoADirectoryItCannotWriteSaysSo(t *testing.T) {
 		},
 		"the guided setup, every prompt skipped": {
 			args:   strings.Fields("config init"),
-			prompt: func(*testing.T) cmdkit.Prompt { return scripted([]string{""}, []string{""}) },
+			prompt: func(*testing.T) cmdkit.Prompt { return clitest.Scripted([]string{""}, []string{""}) },
 		},
 	}
 
@@ -147,8 +131,8 @@ func TestGuidedInitStopsWhenNothingAnswersWhetherToKeepAFailedCheck(t *testing.T
 	dir := t.TempDir()
 	badJira := clitest.JiraServer(t, http.StatusUnauthorized, "<html>login</html>", new(atomic.Bool)).URL
 	prompt := cmdkit.Prompt{
-		Line:   answersThenEnds(badJira),
-		Secret: answersThenEnds("bad-token"),
+		Line:   clitest.AnswersThenEnds(badJira),
+		Secret: clitest.AnswersThenEnds("bad-token"),
 	}
 
 	// Act
@@ -174,8 +158,8 @@ func TestGuidedInitStopsWhenNothingAnswersTheKeychainOffer(t *testing.T) {
 	var stored atomic.Bool
 
 	prompt := cmdkit.Prompt{
-		Line:   answersThenEnds(clitest.WorkingJira(t)),
-		Secret: answersThenEnds(guidedToken),
+		Line:   clitest.AnswersThenEnds(clitest.WorkingJira(t)),
+		Secret: clitest.AnswersThenEnds(guidedToken),
 		StoreSecret: func(context.Context, string, string) error {
 			stored.Store(true)
 
@@ -215,7 +199,7 @@ func TestGuidedInitStopsTheKeychainWriteWhenTheCommandIsCanceled(t *testing.T) {
 		return nil, context.Cause(ctx)
 	}
 	fred := func() (*user.User, error) { return &user.User{Username: "fred"}, nil }
-	prompt := scripted([]string{clitest.WorkingJira(t), "y"}, []string{guidedToken})
+	prompt := clitest.Scripted([]string{clitest.WorkingJira(t), "y"}, []string{guidedToken})
 	prompt.StoreSecret = keychain.Storer("darwin", security, fred, os.Getenv)
 	root := cli.NewRootCmdOver(
 		prompt, nil, nil, clitest.EnvironmentFor(t, clitest.Place{Dir: t.TempDir(), Home: t.TempDir()}),
@@ -262,16 +246,16 @@ func TestGuidedInitWithNothingToReadPointsToTheTemplate(t *testing.T) {
 
 	cases := map[string]cmdkit.Prompt{
 		"the address": {
-			Line:   answersThenEnds(),
-			Secret: answersThenEnds(),
+			Line:   clitest.AnswersThenEnds(),
+			Secret: clitest.AnswersThenEnds(),
 		},
 		"the token": {
-			Line:   answersThenEnds("https://jira.example.com"),
-			Secret: answersThenEnds(),
+			Line:   clitest.AnswersThenEnds("https://jira.example.com"),
+			Secret: clitest.AnswersThenEnds(),
 		},
 		"the webhook": {
-			Line:   answersThenEnds(""),
-			Secret: answersThenEnds(),
+			Line:   clitest.AnswersThenEnds(""),
+			Secret: clitest.AnswersThenEnds(),
 		},
 	}
 

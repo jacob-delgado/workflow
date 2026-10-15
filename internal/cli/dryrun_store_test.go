@@ -25,9 +25,9 @@ func TestAnnounceDryRunMakesNoStore(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{pulls: openPull("Add login")})
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, forgeCLIConfig)
+	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
 	where := clitest.Place{Dir: repo, Home: t.TempDir()}
 
 	// Act
@@ -46,8 +46,8 @@ func TestStatusOfARepositoryUnderDryRunMakesNoStore(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
-	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: runningStatus()})
+	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: clitest.RunningStatus()})
 	repo := statusFeatureRepo(t, server.URL)
 	where := clitest.Place{Dir: t.TempDir(), Home: t.TempDir()}
 
