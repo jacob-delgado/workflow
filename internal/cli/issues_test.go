@@ -147,11 +147,11 @@ func TestIssuesListsTheForgesIssuesBesideTheFirstView(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{search: `{"total_count":1,"items":[{"number":42,` +
+	clitest.FakeGh(t, clitest.GhResponses{Search: `{"total_count":1,"items":[{"number":42,` +
 		`"html_url":"https://github.com/owner/repo/issues/42","title":"forge bug"}]}`})
 
 	baseURL, _ := trackerJira(t, trackerAnswers{search: clitest.SearchFixture("PROJ-7")})
-	repo := githubRepo(t, "work")
+	repo := clitest.GithubRepo(t, "work")
 	clitest.WriteFile(t, repo, `{"jira":{"base_url":"`+baseURL+`","token":"t"`+sprintAndTriage+`},`+
 		`"issues":{"forge":true},"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
@@ -178,10 +178,10 @@ func TestIssuesSaysWhichTrackerCouldNotBeRead(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{search: "{"})
+	clitest.FakeGh(t, clitest.GhResponses{Search: "{"})
 
 	baseURL, _ := trackerJira(t, trackerAnswers{search: clitest.SearchFixture("PROJ-7")})
-	repo := githubRepo(t, "work")
+	repo := clitest.GithubRepo(t, "work")
 	clitest.WriteFile(t, repo, `{"jira":{"base_url":"`+baseURL+`","token":"t"},`+
 		`"issues":{"forge":true},"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 

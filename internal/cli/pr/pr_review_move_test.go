@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli_test
+package pr_test
 
 import (
 	"net/http"
@@ -18,10 +18,10 @@ func TestPRReportsAFailedMove(t *testing.T) {
 		link    int
 		reports []string
 	}{
-		"the move fails": {link: http.StatusCreated, reports: []string{"moving PROJ-2 to " + statusInReview}},
+		"the move fails": {link: http.StatusCreated, reports: []string{"moving PROJ-2 to " + clitest.StatusInReview}},
 		"both fail": {
 			link:    http.StatusInternalServerError,
-			reports: []string{"linking #7 on PROJ-2", "moving PROJ-2 to " + statusInReview},
+			reports: []string{"linking #7 on PROJ-2", "moving PROJ-2 to " + clitest.StatusInReview},
 		},
 	}
 
@@ -62,7 +62,7 @@ func TestPRMovesTheIssueToTheReviewStatus(t *testing.T) {
 	}
 
 	// What was opened is the artifact; the move that follows is said about it.
-	moved := "Moved PROJ-2 to " + statusInReview
+	moved := "Moved PROJ-2 to " + clitest.StatusInReview
 	if !strings.Contains(printed.Stdout, "Opened #7") ||
 		!strings.Contains(printed.Stderr, moved) || strings.Contains(printed.Stdout, moved) {
 		t.Errorf("pr did not open on stdout and move the issue on stderr:\nstdout:\n%s\nstderr:\n%s",
@@ -71,9 +71,9 @@ func TestPRMovesTheIssueToTheReviewStatus(t *testing.T) {
 
 	// The offer is chosen by the destination status name, so the In Review
 	// transition (31) is applied — not the first-listed In Progress (11).
-	if applied.applied() != 1 || !strings.Contains(applied.sentBody(), `"id":"31"`) {
+	if applied.Applied() != 1 || !strings.Contains(applied.SentBody(), `"id":"31"`) {
 		t.Errorf("applied = %d, body = %q; want the In Review transition sent once",
-			applied.applied(), applied.sentBody())
+			applied.Applied(), applied.SentBody())
 	}
 }
 
@@ -85,7 +85,7 @@ func TestPRLeavesTheIssueWhenTheReviewMoveIsDeclined(t *testing.T) {
 
 	// Act
 	// Yes to opening the pull request and to linking it, no to moving the issue.
-	printed, err := clitest.RunStreams(t, repo, scripted([]string{"y", "y", "n"}, nil), "pr")
+	printed, err := clitest.RunStreams(t, repo, clitest.Scripted([]string{"y", "y", "n"}, nil), "pr")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr: %v (%+v)", err, printed)
@@ -98,8 +98,8 @@ func TestPRLeavesTheIssueWhenTheReviewMoveIsDeclined(t *testing.T) {
 			printed.Stdout, printed.Stderr)
 	}
 
-	if applied.applied() != 0 {
-		t.Errorf("a declined move still applied a transition (%d)", applied.applied())
+	if applied.Applied() != 0 {
+		t.Errorf("a declined move still applied a transition (%d)", applied.Applied())
 	}
 }
 
@@ -111,7 +111,7 @@ func TestPRDoesNotMoveToAReviewStatusItCannotComplete(t *testing.T) {
 	noReview := `{"transitions":[{"id":"11","name":"Start Progress",` +
 		`"to":{"name":"In Progress","statusCategory":{"key":"indeterminate"}},"fields":{}}]}`
 	needsField := `{"transitions":[{"id":"31","name":"Start Review",` +
-		`"to":{"name":"` + statusInReview + `","statusCategory":{"key":"indeterminate"}},` +
+		`"to":{"name":"` + clitest.StatusInReview + `","statusCategory":{"key":"indeterminate"}},` +
 		`"fields":{"resolution":{"required":true,"hasDefaultValue":false,"name":"Resolution",` +
 		`"schema":{"type":"string"}}}}]}`
 
@@ -138,7 +138,7 @@ func TestPRDoesNotMoveToAReviewStatusItCannotComplete(t *testing.T) {
 				t.Errorf("the pull request should still open:\n%s", output)
 			}
 
-			if strings.Contains(output, "Moved PROJ-2") || applied.applied() != 0 {
+			if strings.Contains(output, "Moved PROJ-2") || applied.Applied() != 0 {
 				t.Errorf("moved the issue to a review status it could not complete:\n%s", output)
 			}
 		})

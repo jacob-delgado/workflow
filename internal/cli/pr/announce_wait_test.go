@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli_test
+package pr_test
 
 import (
 	"context"
@@ -39,10 +39,11 @@ func TestAnnounceWhenGreenAnnouncesOnceCIPasses(t *testing.T) {
 	// Arrange
 	var posts atomic.Int32
 
-	fakeGh(t, ghResponses{
-		pulls: openPull("Add login"), statusSequence: []string{runningStatus(), runningStatus(), passingStatus()},
+	clitest.FakeGh(t, clitest.GhResponses{
+		Pulls:          clitest.OpenPull("Add login"),
+		StatusSequence: []string{clitest.RunningStatus(), clitest.RunningStatus(), clitest.PassingStatus()},
 	})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
@@ -64,8 +65,10 @@ func TestAnnounceWhenGreenWaitsThroughAFailedRun(t *testing.T) {
 	// Arrange
 	var posts atomic.Int32
 
-	fakeGh(t, ghResponses{pulls: openPull("Add login"), statusSequence: []string{failingStatus(), passingStatus()}})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	clitest.FakeGh(t, clitest.GhResponses{
+		Pulls: clitest.OpenPull("Add login"), StatusSequence: []string{clitest.FailingStatus(), clitest.PassingStatus()},
+	})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
@@ -84,8 +87,8 @@ func TestAnnounceWhenGreenRefusesAMergedPullRequest(t *testing.T) {
 	// Arrange
 	var posts atomic.Int32
 
-	fakeGh(t, ghResponses{pulls: mergedPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.MergedPull("Add login")})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
@@ -103,8 +106,8 @@ func TestAnnounceWhenGreenDryRunWaitsForNothing(t *testing.T) {
 	// Arrange
 	var posts atomic.Int32
 
-	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: failingStatus()})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: clitest.FailingStatus()})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
@@ -123,12 +126,12 @@ func TestAnnounceWhenGreenAsksOnceCIPasses(t *testing.T) {
 	// Arrange
 	var asked []string
 
-	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: runningStatus()})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: clitest.RunningStatus()})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, waitingConfig(webhook(t, new(atomic.Int32))))
 
 	// Act
-	_, err := clitest.RunStreams(t, repo, answering("n", &asked), "announce", "--when-green")
+	_, err := clitest.RunStreams(t, repo, clitest.Answering("n", &asked), "announce", "--when-green")
 
 	// Assert
 	if err != nil || len(asked) != 1 || !strings.HasPrefix(asked[0], "Announce to Slack once CI on #7 passes?") {
@@ -143,8 +146,10 @@ func TestAnnounceWhenGreenWaitsPastAReadThatFails(t *testing.T) {
 	var posts atomic.Int32
 
 	// An unreadable answer stands for a read of CI that failed.
-	fakeGh(t, ghResponses{pulls: openPull("Add login"), statusSequence: []string{"{", passingStatus()}})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	clitest.FakeGh(t, clitest.GhResponses{
+		Pulls: clitest.OpenPull("Add login"), StatusSequence: []string{"{", clitest.PassingStatus()},
+	})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
@@ -176,7 +181,7 @@ func recordWhenWaiting(ctx context.Context, gate, home string) error {
 		time.Sleep(time.Millisecond)
 	}
 
-	err := recordAnnounced(ctx, home, messaging.MomentReady)
+	err := clitest.RecordAnnounced(ctx, home, messaging.MomentReady)
 	if err != nil {
 		return err
 	}
@@ -196,8 +201,8 @@ func TestAnnounceWhenGreenPostsNothingAnnouncedWhileItWaited(t *testing.T) {
 	var posts atomic.Int32
 
 	gate := t.TempDir()
-	fakeGh(t, ghResponses{pulls: openPull("Add login"), statusGate: gate})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), StatusGate: gate})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 	home := t.TempDir()
 
@@ -230,8 +235,8 @@ func TestAnnounceWhenGreenGivesUpOnAPullRequestThatIsNoLongerTheOne(t *testing.T
 		then string
 		want string
 	}{
-		"closed":       {then: closedPull("Add login"), want: "#7 is no longer this branch's"},
-		"merged first": {then: mergedPull("Add login, merged"), want: "#7 merged before its CI passed"},
+		"closed":       {then: clitest.ClosedPull("Add login"), want: "#7 is no longer this branch's"},
+		"merged first": {then: clitest.MergedPull("Add login, merged"), want: "#7 merged before its CI passed"},
 	}
 
 	for name, tt := range cases {
@@ -241,8 +246,10 @@ func TestAnnounceWhenGreenGivesUpOnAPullRequestThatIsNoLongerTheOne(t *testing.T
 			// Arrange
 			var posts atomic.Int32
 
-			fakeGh(t, ghResponses{pullsSequence: []string{openPull("Add login"), tt.then}, status: runningStatus()})
-			repo := githubRepo(t, "fix/PROJ-2-thing")
+			clitest.FakeGh(t, clitest.GhResponses{
+				PullsSequence: []string{clitest.OpenPull("Add login"), tt.then}, Status: clitest.RunningStatus(),
+			})
+			repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 			clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 			// Act
@@ -257,18 +264,50 @@ func TestAnnounceWhenGreenGivesUpOnAPullRequestThatIsNoLongerTheOne(t *testing.T
 	}
 }
 
-func TestAnnounceWhenGreenWaitsAgainWhenTheGateRefuses(t *testing.T) {
+func TestAnnounceWhenGreenSaysWhatItWaitsOnOnce(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// CI passes on the read that lets the post go, a check has failed by the
-	// gate's own read, and a later run passes.
+	// Two reads find CI running alike before it passes; only a change is said.
 	var posts atomic.Int32
 
-	fakeGh(t, ghResponses{
-		pulls: openPull("Add login"), statusSequence: []string{passingStatus(), failingStatus(), passingStatus()},
+	clitest.FakeGh(t, clitest.GhResponses{
+		Pulls:          clitest.OpenPull("Add login"),
+		StatusSequence: []string{clitest.RunningStatus(), clitest.RunningStatus(), clitest.PassingStatus()},
 	})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
+
+	// Act
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--when-green", "--yes")
+	// Assert
+	if err != nil {
+		t.Fatalf("announce --when-green --yes = %v (%+v)", err, printed)
+	}
+
+	if said := strings.Count(printed.Stderr, "Waiting for CI on #7 to pass"); said != 1 {
+		t.Errorf("stderr said it waits %d times, want once:\n%s", said, printed.Stderr)
+	}
+
+	// The read that lets the post go says nothing, not an empty line.
+	if strings.Contains(printed.Stderr, "\n\n") || strings.HasPrefix(printed.Stderr, "\n") {
+		t.Errorf("stderr holds an empty line:\n%q", printed.Stderr)
+	}
+}
+
+func TestAnnounceWhenGreenWaitsAgainWhenTheGateCannotReadCI(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// CI passes on the read that lets the post go, the gate's own read cannot
+	// be understood, and a later run passes.
+	var posts atomic.Int32
+
+	clitest.FakeGh(t, clitest.GhResponses{
+		Pulls:          clitest.OpenPull("Add login"),
+		StatusSequence: []string{clitest.PassingStatus(), "{", clitest.PassingStatus()},
+	})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
@@ -278,5 +317,61 @@ func TestAnnounceWhenGreenWaitsAgainWhenTheGateRefuses(t *testing.T) {
 	if err != nil || posts.Load() != 1 {
 		t.Errorf("announce --when-green = %v, posted %d, said %q; want it to wait again, then announce once",
 			err, posts.Load(), printed.Stderr)
+	}
+}
+
+func TestAnnounceWhenGreenWaitsAgainWhenTheGateRefuses(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// CI passes on the read that lets the post go, a check has failed by the
+	// gate's own read, and a later run passes.
+	var posts atomic.Int32
+
+	clitest.FakeGh(t, clitest.GhResponses{
+		Pulls:          clitest.OpenPull("Add login"),
+		StatusSequence: []string{clitest.PassingStatus(), clitest.FailingStatus(), clitest.PassingStatus()},
+	})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
+
+	// Act
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--when-green", "--yes")
+
+	// Assert
+	if err != nil || posts.Load() != 1 {
+		t.Errorf("announce --when-green = %v, posted %d, said %q; want it to wait again, then announce once",
+			err, posts.Load(), printed.Stderr)
+	}
+}
+
+// pipelineAt is merge request 7 read on its own, its head pipeline at status.
+func pipelineAt(status string) string {
+	return `{"iid":7,"web_url":"` + clitest.GitlabMergeRequest + `","state":"opened",` +
+		`"head_pipeline":{"id":1,"status":"` + status + `","web_url":"https://gitlab.com/p/1"}}`
+}
+
+func TestAnnounceWhenGreenCountsNoChecksWhereTheForgeCountsNone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// GitLab reports a merge request's head pipeline as a whole, counting no
+	// checks within it, so the wait says how many finished nowhere.
+	var posts atomic.Int32
+
+	clitest.FakeGlabMerging(t, clitest.OpenMergeRequest(), pipelineAt("running"), pipelineAt("success"))
+	repo := clitest.GitlabRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"gitlab","host":"gitlab.com"},`+
+		`"messaging":{"webhook_url":"`+webhook(t, &posts)+`"},"timing":{"ci_interval":"10ms"}}`)
+
+	// Act
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--when-green", "--yes")
+	// Assert
+	if err != nil || posts.Load() != 1 {
+		t.Fatalf("announce --when-green --yes = %v, posted %d (%+v); want it announced once", err, posts.Load(), printed)
+	}
+
+	if !strings.Contains(printed.Stderr, "Waiting for CI on !7 to pass, then announcing") {
+		t.Errorf("stderr = %q, want the wait said with no count of finished checks", printed.Stderr)
 	}
 }

@@ -9,30 +9,14 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
-	"github.com/jacob-delgado/workflow/internal/gittest"
 )
-
-// gitInit makes dir a real repository, so doctor's repository section can be
-// tested against git itself rather than against an imitation of it.
-func gitInit(t *testing.T, dir string) {
-	t.Helper()
-	git(t, dir, "init", "--quiet", ".")
-}
-
-// git runs one git command in dir, failing the test if it does not succeed. The
-// developer's own git configuration is kept out, as clitest.Run keeps it out
-// of doctor.
-func git(t *testing.T, dir string, args ...string) {
-	t.Helper()
-	gittest.Run(t, dir, args...)
-}
 
 func TestDoctorReportsTheRepositoryItIsIn(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	dir := t.TempDir()
-	gitInit(t, dir)
+	clitest.GitInit(t, dir)
 
 	root, err := filepath.EvalSymlinks(dir)
 	if err != nil {
@@ -82,12 +66,12 @@ func TestDoctorReportsADetachedHead(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	gitInit(t, dir)
+	clitest.GitInit(t, dir)
 
 	// A commit is needed before HEAD can be detached from anything.
-	git(t, dir, "-c", "user.email=test@example.com", "-c", "user.name=Test",
+	clitest.Git(t, dir, "-c", "user.email=test@example.com", "-c", "user.name=Test",
 		"commit", "--allow-empty", "--quiet", "--message", "seed")
-	git(t, dir, "-c", "advice.detachedHead=false", "checkout", "--quiet", "--detach", "HEAD")
+	clitest.Git(t, dir, "-c", "advice.detachedHead=false", "checkout", "--quiet", "--detach", "HEAD")
 
 	// Act
 	output, _ := clitest.Run(t, dir, "doctor")
@@ -103,8 +87,8 @@ func repoWithRemote(t *testing.T, remote string) string {
 	t.Helper()
 
 	dir := t.TempDir()
-	gitInit(t, dir)
-	git(t, dir, "remote", "add", "origin", remote)
+	clitest.GitInit(t, dir)
+	clitest.Git(t, dir, "remote", "add", "origin", remote)
 
 	return dir
 }
@@ -177,7 +161,7 @@ func TestDoctorSaysWhenThereIsNoRemote(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	gitInit(t, dir)
+	clitest.GitInit(t, dir)
 
 	// Act
 	output, _ := clitest.Run(t, dir, "doctor")

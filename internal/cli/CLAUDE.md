@@ -24,17 +24,27 @@ change to a command, a flag, what a command prints or how it exits. The root
 
 The package is the Cobra command tree spelled one file per command, per family
 of commands over one seam, or per section of a command that outgrew one, as
-doctor's, status's, pr's and announce's did. It answers to a ratcheted budget
-in `scripts/package-size-budgets.txt`, the count its last split left it at:
-read the number there, and `scripts/check-package-size.sh --list` for the
-count, which a ratcheted budget always equals, so the next command file trips
-the gate and is a decision. The package is not split to chase a number, but
-code in it with a reason to change of its own may leave where no import cycle
-follows: doctor's checks, the pr and announce flow over the forge and
-messaging, and status and issues. A trip means a bump, with the WHY above the
-entry rewritten and a history row, or such an extraction, never a split for
-the count; each extraction ratchets the budget down to the files left, and
-the entry goes once the package holds no more than the default allows.
+doctor's and status's did. It answers to a ratcheted budget in
+`scripts/package-size-budgets.txt`, the count its last split left it at: read
+the number there, and `scripts/check-package-size.sh --list` for the count,
+which a ratcheted budget always equals, so the next command file trips the
+gate and is a decision. The package is not split to chase a number, but code
+in it with a reason to change of its own may leave where no import cycle
+follows: doctor's checks, and status and issues. A trip means a bump, with
+the WHY above the entry rewritten and a history row, or such an extraction,
+never a split for the count; each extraction ratchets the budget down to the
+files left, and the entry goes once the package holds no more than the
+default allows.
+
+The pr and announce flow over the forge and messaging has left as
+`internal/cli/pr`, one package for both, since `pr --announce` hands what it
+opened to announce's wait and `pr --json`'s report carries fields only the two
+read. It exports the two commands `cli.go` registers (`pr.NewCmd`,
+`pr.NewAnnounceCmd`) and the sentinels the exit families name. Its tests,
+`package pr_test`, drive the commands through `cli.Execute` and clitest as
+this package's do, with a `TestMain` and hook-safety proof of their own, and
+reach every condition it holds, since the condition gate measures a package
+by its own tests alone.
 
 What every command is built from has left already, as `internal/cli/cmdkit`
 beneath the tree: the connection to where a command runs, the environment it
@@ -43,9 +53,9 @@ scriptable output. It imports no command, and not the web server
 (`.golangci.yml`'s `cmdkit-without-the-web-server`), so `cli.go` hands
 `RootFlags.Declare` the port `--web` serves on by default. The exit statuses
 and the families of errors that earn them stay at the root (`exitstatus.go`),
-since the families name sentinels the commands declare, and so do the two
-terminal reads `cmd/workflow` wires (`LineReader` and `SecretReader`,
-`prompt.go`).
+since the families name sentinels the commands declare, `internal/cli/pr`'s
+among them, and so do the two terminal reads `cmd/workflow` wires
+(`LineReader` and `SecretReader`, `prompt.go`).
 
 ## What a command prints
 
@@ -101,22 +111,27 @@ for a client's unreachable service, `cmdkit.ServicesUnreachable` in
   own and none of the developer's environment, and returns everything
   printed; `clitest.RunStreams` keeps stdout and stderr apart, for a test
   that says which stream a line is on; `runAtHome` (`cli_test.go`) makes
-  `dir` the home too; `clitest.RunGuided` answers prompts through `scripted`
-  (`cli_test.go`). `clitest.UnusedPrompt` fails a test whose command reads a
-  prompt it was not meant to. What a run sees of the outside world is its
-  test's own (`clitest.ProgramsOf`, `clitest.SetVariable`). A fixture the
-  tests of more than one package of the tree need lives there; one only this
-  package's tests need stays in its own `_test.go` files. `clitest` has no
-  tests of its own, as `internal/ptytest` has none: depguard's
-  `clitest-only-in-tests` keeps it out of the binary, gobco names it in
-  `NO_TESTS` (`scripts/gobco-report.sh`), and `scripts/coverage-gate.sh`
-  leaves it out of the statement total `COVERAGE_MIN` holds, as it leaves
-  every package the root `CLAUDE.md`'s layout marks `(tests only)`.
-- **Fakes for the services**: `forgefake_test.go` (a fake `gh` and its pull
-  requests), `trackerfake_test.go` and `slackfake_test.go` stand in for the
-  forge, Jira and Slack, and `clitest.WorkingJira` is a Jira that accepts
-  the credential; `runRoot` (`root_test.go`) runs the root command over a
-  stand-in interface and web server.
+  `dir` the home too; `clitest.RunGuided` answers prompts through
+  `clitest.Scripted` (`clitest/prompt.go`). `clitest.UnusedPrompt` fails a
+  test whose command reads a prompt it was not meant to. What a run sees of
+  the outside world is its test's own (`clitest.ProgramsOf`,
+  `clitest.SetVariable`). A fixture the tests of more than one package of the
+  tree need lives there; one only this package's tests need stays in its own
+  `_test.go` files. `clitest` has no tests of its own, as `internal/ptytest`
+  has none: depguard's `clitest-only-in-tests` keeps it out of the binary,
+  gobco names it in `NO_TESTS` (`scripts/gobco-report.sh`), and
+  `scripts/coverage-gate.sh` leaves it out of the statement total
+  `COVERAGE_MIN` holds, as it leaves every package the root `CLAUDE.md`'s
+  layout marks `(tests only)`.
+- **Fakes for the services**: `clitest.FakeGh` and `clitest.FakeGlab`
+  (`clitest/forge.go`, a fake `gh` or `glab` and its pull requests),
+  `trackerfake_test.go` and `clitest.FakeSlack` (`clitest/messaging.go`)
+  stand in for the forge, Jira and Slack, and `clitest.WorkingJira` is a Jira
+  that accepts the credential. The repositories they answer for are made with
+  git itself (`clitest.PRRepo`, `clitest.GithubRepo` and their kin,
+  `clitest/repo.go`), which `.golangci.yml`'s `gittest-only-in-tests` lets
+  clitest alone do outside a test file; `runRoot` (`root_test.go`) runs the
+  root command over a stand-in interface and web server.
 - **`TestMain` (`main_test.go`) clears git's repository variables** before
   any test runs (`gittest.ClearLocalVariables`), so a hook's `GIT_DIR` never
   sends a test's git at the developer's repository; it then runs the tests

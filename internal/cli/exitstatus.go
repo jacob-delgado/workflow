@@ -8,6 +8,7 @@ import (
 	"errors"
 
 	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
+	"github.com/jacob-delgado/workflow/internal/cli/pr"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
@@ -124,9 +125,9 @@ func refusalErrors() []error {
 		loop.ErrPullAlreadyOpen, loop.ErrNothingToOpen, loop.ErrNoPullRequest,
 		loop.ErrDirtyTree, loop.ErrNothingStaged,
 		loop.ErrNotOnFeatureBranch, loop.ErrNotMerged, loop.ErrNoBase, loop.ErrUnpushedWork,
-		errPullAlreadyOpen, errNoCommitsToOpen, errNoPullRequest,
+		pr.ErrPullAlreadyOpen, pr.ErrNoCommitsToOpen, pr.ErrNoPullRequest,
 		errBranchExists, setup.ErrExists, gitrepo.ErrNotARepository, store.ErrNotCleaned,
 		messaging.ErrTooLong, loop.ErrNoTransition, loop.ErrNeedsFields,
-		loop.ErrCIFailed, loop.ErrNoCI, loop.ErrPullChanged, loop.ErrMergedFirst, errOnlyReadyWaits,
+		loop.ErrCIFailed, loop.ErrNoCI, loop.ErrPullChanged, loop.ErrMergedFirst, pr.ErrOnlyReadyWaits,
 	}
 }

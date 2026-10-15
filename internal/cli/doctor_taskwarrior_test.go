@@ -36,7 +36,7 @@ func fakeTaskProgram(t *testing.T, versionAnswer, show string) string {
 
 	program := filepath.Join(clitest.ProgramsOf(t), "task")
 
-	writeExecutable(t, program, "#!/bin/sh\n"+
+	clitest.WriteExecutable(t, program, "#!/bin/sh\n"+
 		"for last in \"$@\"; do :; done\n"+
 		"case \"$last\" in\n"+
 		"_version) "+versionAnswer+" ;;\n"+

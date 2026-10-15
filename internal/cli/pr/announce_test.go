@@ -1,56 +1,17 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli_test
+package pr_test
 
 import (
-	"context"
-	"fmt"
 	"io"
-	"runtime"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/messaging"
-	"github.com/jacob-delgado/workflow/internal/store"
 )
-
-// announcedEarlier is a home whose store remembers the fake forge's pull request
-// 7 announced at moment, as an earlier session — of the interface or of
-// announce — leaves it: keyed by the repository's host and path.
-func announcedEarlier(t *testing.T, moment messaging.Moment) string {
-	t.Helper()
-
-	home := t.TempDir()
-
-	err := recordAnnounced(t.Context(), home, moment)
-	if err != nil {
-		t.Fatalf("seeding the store: %v", err)
-	}
-
-	return home
-}
-
-// recordAnnounced records, in the store under home, the fake forge's pull
-// request 7 announced at moment.
-func recordAnnounced(ctx context.Context, home string, moment messaging.Moment) error {
-	env := clitest.IsolatedEnvironment(clitest.Place{Home: home})
-
-	dir, err := store.Dir(runtime.GOOS, home, func(name string) (string, bool) {
-		value, ok := env[name]
-
-		return value, ok
-	})
-	if err != nil {
-		return fmt.Errorf("finding the store under %s: %w", home, err)
-	}
-
-	return store.New(dir, false).RecordAnnounce(ctx, "github.com/owner/repo",
-		store.Announce{Pull: 7, Moment: int(moment)}, time.Now())
-}
 
 // alreadyAnnounced is what announce says of a pull request an earlier session
 // announced at the moment it is at.
@@ -61,15 +22,15 @@ func TestAnnounceAsksByTheServiceName(t *testing.T) {
 
 	// Arrange
 	// With a Teams webhook, the question names Teams, not Slack.
-	fakeGh(t, ghResponses{pulls: openPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
 		`"messaging":{"kind":"teams","webhook_url":"https://outlook.office.example/webhook/x"}}`)
 
 	var asked []string
 
 	// Act
-	printed, err := clitest.RunStreams(t, repo, answering("n", &asked), "announce")
+	printed, err := clitest.RunStreams(t, repo, clitest.Answering("n", &asked), "announce")
 	// Assert
 	if err != nil {
 		t.Fatalf("announce: %v (%+v)", err, printed)
@@ -85,14 +46,14 @@ func TestAnnounceAsksToAnnounce(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{pulls: openPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, forgeCLIConfig)
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
 
 	var asked []string
 
 	// Act
-	printed, err := clitest.RunStreams(t, repo, answering("n", &asked), "announce")
+	printed, err := clitest.RunStreams(t, repo, clitest.Answering("n", &asked), "announce")
 	// Assert
 	if err != nil {
 		t.Fatalf("announce: %v (%+v)", err, printed)
@@ -110,10 +71,10 @@ func TestAnnounceSaysWhenAlreadyPosted(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{pulls: openPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, forgeCLIConfig)
-	home := announcedEarlier(t, messaging.MomentReady)
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
+	home := clitest.AnnouncedEarlier(t, messaging.MomentReady)
 
 	// Act
 	printed, err := clitest.RunStreamsAt(
@@ -136,10 +97,10 @@ func TestAnnounceYesSkipsWhatWasAlreadyAnnounced(t *testing.T) {
 	// Arrange
 	// A post would fail — the webhook is on a reserved domain — so succeeding is
 	// what proves nothing was posted.
-	fakeGh(t, ghResponses{pulls: openPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, forgeCLIConfig)
-	home := announcedEarlier(t, messaging.MomentReady)
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
+	home := clitest.AnnouncedEarlier(t, messaging.MomentReady)
 
 	// Act
 	printed, err := clitest.RunStreamsAt(
@@ -162,15 +123,17 @@ func TestAnnounceAsksBeforeAnnouncingAgain(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{pulls: openPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, forgeCLIConfig)
-	home := announcedEarlier(t, messaging.MomentReady)
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
+	home := clitest.AnnouncedEarlier(t, messaging.MomentReady)
 
 	var asked []string
 
 	// Act
-	printed, err := clitest.RunStreamsAt(t, clitest.Place{Dir: repo, Home: home}, answering("n", &asked), "announce")
+	printed, err := clitest.RunStreamsAt(
+		t, clitest.Place{Dir: repo, Home: home}, clitest.Answering("n", &asked), "announce",
+	)
 	// Assert
 	if err != nil {
 		t.Fatalf("announce: %v (%+v)", err, printed)
@@ -187,10 +150,10 @@ func TestAnnounceAgainWithNoTerminalDoesNotPointAtYes(t *testing.T) {
 	// Arrange
 	// --yes leaves a moment already announced as it is, so the refusal must not
 	// send a script there: it names the one way to announce again.
-	fakeGh(t, ghResponses{pulls: openPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, forgeCLIConfig)
-	home := announcedEarlier(t, messaging.MomentReady)
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
+	home := clitest.AnnouncedEarlier(t, messaging.MomentReady)
 	noTerminal := cmdkit.Prompt{Line: func(string) (string, error) { return "", io.EOF }}
 
 	// Act
@@ -204,16 +167,38 @@ func TestAnnounceAgainWithNoTerminalDoesNotPointAtYes(t *testing.T) {
 	}
 }
 
+func TestAnnounceWithNoTerminalPointsAtYes(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Nothing was announced before, so --yes is the way on, not a terminal.
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
+
+	noTerminal := cmdkit.Prompt{Line: func(string) (string, error) { return "", io.EOF }}
+
+	// Act
+	_, err := clitest.RunGuided(t, repo, noTerminal, "announce")
+
+	// Assert
+	wantExit(t, err, 2)
+
+	if err == nil || !strings.Contains(err.Error(), "--yes") || strings.Contains(err.Error(), "again") {
+		t.Errorf("announce = %v, want it to say to pass --yes", err)
+	}
+}
+
 func TestAnnounceOffersAMomentNotYetAnnounced(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	// The earlier session announced the pull request's merge; it is open now,
 	// which is another moment.
-	fakeGh(t, ghResponses{pulls: openPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, forgeCLIConfig)
-	home := announcedEarlier(t, messaging.MomentMerged)
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
+	home := clitest.AnnouncedEarlier(t, messaging.MomentMerged)
 
 	// Act
 	printed, err := clitest.RunStreamsAt(
@@ -234,9 +219,9 @@ func TestAnnounceRefusesABranchWithNoPullRequest(t *testing.T) {
 
 	// Arrange
 	// The forge is reachable and answers that the branch has no pull request.
-	fakeGh(t, ghResponses{pulls: "[]"})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, forgeCLIConfig)
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: "[]"})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
 
 	// Act
 	_, err := clitest.Run(t, repo, "announce", "--yes")
@@ -254,9 +239,9 @@ func TestAnnounceRefusesABranchWithNoPullRequestInItsOwnWords(t *testing.T) {
 
 	// Arrange
 	// The refusal is the command line's own sentence, not the shared layer's.
-	fakeGh(t, ghResponses{pulls: "[]"})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, forgeCLIConfig)
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: "[]"})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
 
 	// Act
 	_, err := clitest.Run(t, repo, "announce", "--yes")
@@ -271,9 +256,9 @@ func TestNoPullRequestPointsAtPR(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{pulls: "[]"})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, forgeCLIConfig)
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: "[]"})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
 
 	// Act
 	_, err := clitest.Run(t, repo, "announce", "--yes")
@@ -303,9 +288,9 @@ func TestAnnounceReportsAFailedPost(t *testing.T) {
 
 	// Arrange
 	// The pull request is found, but the Slack webhook cannot be reached.
-	fakeGh(t, ghResponses{pulls: openPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, forgeCLIConfig)
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
 
 	// Act
 	_, err := clitest.Run(t, repo, "announce", "--yes")
@@ -341,7 +326,7 @@ func TestAnnounceReportsWhenThePullRequestCannotBeRead(t *testing.T) {
 	// Arrange
 	// Slack is configured, so the command gets as far as looking for the pull
 	// request; with no forge there is none it can read.
-	repo := prRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.PRRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, `{"messaging": {"webhook_url": "https://hooks.slack.example/services/x"}}`)
 
 	// Act

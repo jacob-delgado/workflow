@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli_test
+package pr_test
 
 import (
 	"encoding/json"
@@ -18,10 +18,10 @@ import (
 
 // openingThenOpen is a forge with no pull request for the branch until one is
 // opened, which every later find answers, its CI running and then passed.
-func openingThenOpen() ghResponses {
-	return ghResponses{
-		pullsSequence:  []string{"[]", openPull("work")},
-		statusSequence: []string{runningStatus(), passingStatus()},
+func openingThenOpen() clitest.GhResponses {
+	return clitest.GhResponses{
+		PullsSequence:  []string{"[]", clitest.OpenPull("work")},
+		StatusSequence: []string{clitest.RunningStatus(), clitest.PassingStatus()},
 	}
 }
 
@@ -31,9 +31,9 @@ func TestPRAnnounceOpensThenAnnouncesOnceCIPasses(t *testing.T) {
 	// Arrange
 	var posts atomic.Int32
 
-	fakeGh(t, openingThenOpen())
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	pretendPushed(t, repo)
+	clitest.FakeGh(t, openingThenOpen())
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.PretendPushed(t, repo)
 	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
@@ -56,10 +56,10 @@ func TestPRAnnounceWithoutMessagingOpensNothing(t *testing.T) {
 	// Arrange
 	sent := filepath.Join(t.TempDir(), "sent.log")
 	responses := openingThenOpen()
-	responses.sentLog = sent
-	fakeGh(t, responses)
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	pretendPushed(t, repo)
+	responses.SentLog = sent
+	clitest.FakeGh(t, responses)
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.PretendPushed(t, repo)
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
@@ -81,10 +81,10 @@ func TestPRRefusesAnnounceBesideDraft(t *testing.T) {
 	// Arrange
 	sent := filepath.Join(t.TempDir(), "sent.log")
 	responses := openingThenOpen()
-	responses.sentLog = sent
-	fakeGh(t, responses)
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	pretendPushed(t, repo)
+	responses.SentLog = sent
+	clitest.FakeGh(t, responses)
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.PretendPushed(t, repo)
 	clitest.WriteFile(t, repo, waitingConfig(webhook(t, new(atomic.Int32))))
 
 	// Act
@@ -106,9 +106,9 @@ func TestPRAnnounceDryRunSaysItWouldAnnounce(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, openingThenOpen())
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	pretendPushed(t, repo)
+	clitest.FakeGh(t, openingThenOpen())
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.PretendPushed(t, repo)
 	clitest.WriteFile(t, repo, waitingConfig(webhook(t, new(atomic.Int32))))
 
 	// Act
@@ -127,9 +127,9 @@ func TestPRAnnounceJSONPrintsTheReportBeforeWaiting(t *testing.T) {
 	// Arrange
 	var posts atomic.Int32
 
-	fakeGh(t, openingThenOpen())
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	pretendPushed(t, repo)
+	clitest.FakeGh(t, openingThenOpen())
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.PretendPushed(t, repo)
 	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
@@ -153,9 +153,9 @@ func TestPRWithoutAnnounceNamesWhenGreen(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	pretendPushed(t, repo)
+	clitest.FakeGh(t, clitest.GhResponses{})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.PretendPushed(t, repo)
 	clitest.WriteFile(t, repo, waitingConfig("https://hooks.slack.example/services/x"))
 
 	// Act
@@ -177,10 +177,10 @@ func TestPRAnnounceWaitsForAPullRequestTheForgeHasNotListedYet(t *testing.T) {
 	var posts atomic.Int32
 
 	responses := openingThenOpen()
-	responses.pullsSequence = []string{"[]", "[]", openPull("work")}
-	fakeGh(t, responses)
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	pretendPushed(t, repo)
+	responses.PullsSequence = []string{"[]", "[]", clitest.OpenPull("work")}
+	clitest.FakeGh(t, responses)
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.PretendPushed(t, repo)
 	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
@@ -189,6 +189,28 @@ func TestPRAnnounceWaitsForAPullRequestTheForgeHasNotListedYet(t *testing.T) {
 	// Assert
 	if err != nil || posts.Load() != 1 {
 		t.Errorf("pr --announce = %v, posted %d, said %q; want it announced once the forge lists it",
+			err, posts.Load(), printed.Stderr)
+	}
+}
+
+func TestPRAnnounceNamesNoNextStep(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// --announce is the step that follows the open, so pr does not name it.
+	var posts atomic.Int32
+
+	clitest.FakeGh(t, openingThenOpen())
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.PretendPushed(t, repo)
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
+
+	// Act
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes", "--announce")
+
+	// Assert
+	if err != nil || posts.Load() != 1 || strings.Contains(printed.Stderr, "Announce it with workflow announce") {
+		t.Errorf("pr --announce = %v, posted %d, said %q; want it announced, with no next step named",
 			err, posts.Load(), printed.Stderr)
 	}
 }

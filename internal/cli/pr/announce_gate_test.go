@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli_test
+package pr_test
 
 import (
 	"strings"
@@ -15,9 +15,9 @@ func TestAnnounceRefusesAPullRequestACheckFailedOn(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: failingStatus()})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, forgeCLIConfig)
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: clitest.FailingStatus()})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--yes")
@@ -34,13 +34,34 @@ func TestAnnounceRefusesAPullRequestACheckFailedOn(t *testing.T) {
 	}
 }
 
+func TestAnnounceNamesOnlyTheChecksThatFailed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// build passed and lint failed, so the refusal names lint alone.
+	mixed := `{"total_count":2,"statuses":[` +
+		`{"state":"success","context":"build","target_url":"https://x"},` +
+		`{"state":"failure","context":"lint","target_url":"https://x"}]}`
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: mixed})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
+
+	// Act
+	_, err := clitest.Run(t, repo, "announce", "--yes")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "a check failed on #7 (lint)") {
+		t.Errorf("announce = %v, want lint, the check that failed, named alone", err)
+	}
+}
+
 func TestAnnounceDryRunRefusesAFailedCheck(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: failingStatus()})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, forgeCLIConfig)
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: clitest.FailingStatus()})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--dry-run")
@@ -56,9 +77,9 @@ func TestAnnounceAnnouncesWhileCIRuns(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: runningStatus()})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, forgeCLIConfig)
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: clitest.RunningStatus()})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--dry-run")
@@ -74,9 +95,9 @@ func TestAnnounceRefusesWhatItCannotConfirm(t *testing.T) {
 
 	// Arrange
 	// An unreadable answer stands for a read of CI that failed.
-	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: "{"})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, forgeCLIConfig)
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: "{"})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--yes")
@@ -93,9 +114,9 @@ func TestAnnounceSaysToReRunTheChecksOfAMergeACheckFailedOn(t *testing.T) {
 
 	// Arrange
 	// A merge cannot wait for CI, so it is not pointed at --when-green.
-	fakeGh(t, ghResponses{pulls: mergedPull("Add login"), status: failingStatus()})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, forgeCLIConfig)
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.MergedPull("Add login"), Status: clitest.FailingStatus()})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
 
 	// Act
 	_, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--yes")

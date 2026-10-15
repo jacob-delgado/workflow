@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli_test
+package pr_test
 
 import (
 	"strings"
@@ -19,12 +19,12 @@ func TestPRStopsAtTheMoveWhenNothingCanAnswer(t *testing.T) {
 	repo, writes := reviewRepo(t, reviewMoves)
 
 	// Act
-	_, err := clitest.RunStreams(t, repo, cmdkit.Prompt{Line: answersThenEnds("y", "y")}, "pr")
+	_, err := clitest.RunStreams(t, repo, cmdkit.Prompt{Line: clitest.AnswersThenEnds("y", "y")}, "pr")
 
 	// Assert
-	if len(writes.of(writeLink)) != 1 || writes.applied() != 0 {
+	if len(writes.Of(clitest.WriteLink)) != 1 || writes.Applied() != 0 {
 		t.Errorf("pr made %d links and %d moves, want the link made and no move",
-			len(writes.of(writeLink)), writes.applied())
+			len(writes.Of(clitest.WriteLink)), writes.Applied())
 	}
 
 	if err == nil || !strings.Contains(err.Error(), "pass --yes") {

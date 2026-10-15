@@ -68,7 +68,7 @@ func TestGuidedInitOverAHomeFileKeepsWhatWasLeftBlank(t *testing.T) {
 	where := homeAndRepository(t)
 
 	// Act
-	_, err := clitest.RunStreamsAt(t, where, scripted([]string{""}, []string{""}), "config", "init")
+	_, err := clitest.RunStreamsAt(t, where, clitest.Scripted([]string{""}, []string{""}), "config", "init")
 	// Assert
 	if err != nil {
 		t.Fatalf("config init: %v", err)
@@ -140,7 +140,7 @@ func TestConfigInitForceOverAHomeFileReplacesTheRepositoryLayer(t *testing.T) {
 		{
 			name:    "guided",
 			command: "config init --force",
-			prompt:  func(*testing.T) cmdkit.Prompt { return scripted([]string{""}, []string{""}) },
+			prompt:  func(*testing.T) cmdkit.Prompt { return clitest.Scripted([]string{""}, []string{""}) },
 		},
 	}
 
@@ -170,7 +170,7 @@ func TestConfigInitTemplateOverAHomeFileWarnsWhenTheLayerIsNotGitIgnored(t *test
 
 	// Arrange
 	where := homeAndRepository(t)
-	gitInit(t, where.Dir)
+	clitest.GitInit(t, where.Dir)
 
 	// Act
 	printed, err := clitest.RunStreamsAt(t, where, clitest.UnusedPrompt(t), "config", "init", "--template")
@@ -223,7 +223,7 @@ func TestConfigInitOverAHomeFileIntoADirectoryItCannotWriteSaysSo(t *testing.T) 
 		"the template": {args: strings.Fields("config init --template"), prompt: clitest.UnusedPrompt},
 		"the guided setup, every prompt skipped": {
 			args:   strings.Fields("config init"),
-			prompt: func(*testing.T) cmdkit.Prompt { return scripted([]string{""}, []string{""}) },
+			prompt: func(*testing.T) cmdkit.Prompt { return clitest.Scripted([]string{""}, []string{""}) },
 		},
 	}
 

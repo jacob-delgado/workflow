@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli_test
+package pr_test
 
 import (
 	"io"
@@ -36,7 +36,7 @@ func webhook(t *testing.T, posts *atomic.Int32) string {
 	return server.URL + "/services/x"
 }
 
-// announcingConfig points the forge at its CLI, as forgeCLIConfig does, and
+// announcingConfig points the forge at its CLI, as clitest.ForgeCLIConfig does, and
 // messaging at a webhook that answers.
 func announcingConfig(webhookURL string) string {
 	return `{"forge":{"cli":true,"kind":"github","host":"github.com"},` +
@@ -49,8 +49,8 @@ func TestAnnounceYesDeliversTheAnnouncement(t *testing.T) {
 	// Arrange
 	var posts atomic.Int32
 
-	fakeGh(t, ghResponses{pulls: openPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, announcingConfig(webhook(t, &posts)))
 
 	// Act
@@ -72,8 +72,8 @@ func TestAnnounceRemembersADeliveredAnnouncement(t *testing.T) {
 	// Arrange
 	var posts atomic.Int32
 
-	fakeGh(t, ghResponses{pulls: openPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, announcingConfig(webhook(t, &posts)))
 
 	where := clitest.Place{Dir: repo, Home: t.TempDir()}
@@ -97,10 +97,12 @@ func TestAnnounceRefusedForItsChannelSaysTheFixAndNoKey(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{pulls: openPull("Add login")})
-	fakeSlack(t, map[string]slackAnswer{slackPostMessage: {http.StatusOK, `{"ok":false,"error":"not_in_channel"}`}})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, slackLoggedInConfig())
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
+	clitest.FakeSlack(t, map[string]clitest.SlackAnswer{
+		clitest.SlackPostMessage: {Status: http.StatusOK, Body: `{"ok":false,"error":"not_in_channel"}`},
+	})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, clitest.SlackLoggedInConfig())
 
 	// Act
 	_, err := clitest.Run(t, repo, "announce", "--yes")
@@ -121,8 +123,8 @@ func TestAnnounceDeliveredButNotRememberedSucceedsAndSaysSo(t *testing.T) {
 	// A file stands where the store's directory goes, so nothing is kept.
 	var posts atomic.Int32
 
-	fakeGh(t, ghResponses{pulls: openPull("Add login")})
-	repo := githubRepo(t, "fix/PROJ-2-thing")
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, announcingConfig(webhook(t, &posts)))
 
 	where := clitest.Place{Dir: repo, Home: t.TempDir(), State: t.TempDir()}

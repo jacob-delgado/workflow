@@ -29,7 +29,7 @@ func gitAndGlab(t *testing.T) {
 	t.Helper()
 
 	pathWithOnlyGit(t)
-	fakeGlab(t)
+	clitest.FakeGlab(t)
 }
 
 func TestDoctorReportsGlabBesideGh(t *testing.T) {
@@ -115,7 +115,7 @@ func TestDoctorOnlineWarnsATokenThatCannotWriteToGitLab(t *testing.T) {
 
 	// Arrange
 	dir := forgeCLIRepository(t, gitlabSSHRemote)
-	fakeGlabWithScopes(t, `{"scopes":["read_api","read_user"]}`)
+	clitest.FakeGlabWithScopes(t, `{"scopes":["read_api","read_user"]}`)
 
 	// Act
 	output, err := clitest.Run(t, dir, "doctor", "--online")
@@ -144,7 +144,7 @@ func TestDoctorOnlineSaysNothingOfAScopeItCannotRead(t *testing.T) {
 
 			// Arrange
 			dir := forgeCLIRepository(t, gitlabSSHRemote)
-			fakeGlabWithScopes(t, scopes)
+			clitest.FakeGlabWithScopes(t, scopes)
 
 			// Act
 			output, err := clitest.Run(t, dir, "doctor", "--online")
@@ -166,7 +166,7 @@ func TestDoctorOnlineWarnsAGitLabTokenThatCannotUseTheAPI(t *testing.T) {
 
 	// Arrange
 	dir := forgeCLIRepository(t, gitlabSSHRemote)
-	fakeGlabWithScopes(t, `{"scopes":["read_user"]}`)
+	clitest.FakeGlabWithScopes(t, `{"scopes":["read_user"]}`)
 
 	// Act
 	output, _ := clitest.Run(t, dir, "doctor", "--online")

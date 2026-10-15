@@ -12,7 +12,6 @@ import (
 	"os/exec"
 	"reflect"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"testing/fstest"
@@ -55,53 +54,12 @@ func workedRepository(t *testing.T, subject string) string {
 	t.Helper()
 
 	dir := t.TempDir()
-	gitInit(t, dir)
-	git(t, dir, "config", "user.email", "me@example.com")
-	git(t, dir, "config", "user.name", "Me")
+	clitest.GitInit(t, dir)
+	clitest.Git(t, dir, "config", "user.email", "me@example.com")
+	clitest.Git(t, dir, "config", "user.name", "Me")
 	datedCommit(t, dir, subject, workedOn)
 
 	return dir
-}
-
-// capturingWebhook is a local https webhook that accepts every post and keeps
-// each body's text.
-type capturingWebhook struct {
-	mu    sync.Mutex
-	texts []string
-	url   string
-}
-
-// newCapturingWebhook serves a capturing webhook for the test's length.
-func newCapturingWebhook(t *testing.T) *capturingWebhook {
-	t.Helper()
-
-	hook := &capturingWebhook{}
-	server := httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		var body struct {
-			Text string `json:"text"`
-		}
-
-		_ = json.NewDecoder(request.Body).Decode(&body)
-
-		hook.mu.Lock()
-		hook.texts = append(hook.texts, body.Text)
-		hook.mu.Unlock()
-
-		_, _ = writer.Write([]byte("ok"))
-	}))
-	t.Cleanup(server.Close)
-
-	hook.url = server.URL + "/services/x"
-
-	return hook
-}
-
-// posted is every text posted so far.
-func (h *capturingWebhook) posted() []string {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	return append([]string(nil), h.texts...)
 }
 
 func TestSummaryReadsYourCommitsInThePeriod(t *testing.T) {
@@ -240,16 +198,16 @@ func TestSummaryPostYesPostsTheTextRenderedForTheService(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	hook := newCapturingWebhook(t)
+	hook := clitest.NewCapturingWebhook(t)
 	repo := workedRepository(t, "Add the widget")
-	clitest.WriteFile(t, repo, `{"messaging":{"webhook_url":"`+hook.url+`"}}`)
+	clitest.WriteFile(t, repo, `{"messaging":{"webhook_url":"`+hook.URL+`"}}`)
 
 	// Act
 	printed, _ := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay,
 		"--post", "--yes")
 
 	// Assert
-	posts := hook.posted()
+	posts := hook.Posted()
 	if len(posts) != 1 || !strings.Contains(posts[0], "*"+summaryDay+"*") ||
 		!strings.Contains(posts[0], "Add the widget") {
 		t.Errorf("summary --post --yes posted %q, want the summary once, its headings Slack's bold lines", posts)
@@ -265,9 +223,9 @@ func TestSummaryPostPrintsOnlyTheSummaryOnStdout(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	hook := newCapturingWebhook(t)
+	hook := clitest.NewCapturingWebhook(t)
 	repo := workedRepository(t, "Add the widget")
-	clitest.WriteFile(t, repo, `{"messaging":{"webhook_url":"`+hook.url+`"}}`)
+	clitest.WriteFile(t, repo, `{"messaging":{"webhook_url":"`+hook.URL+`"}}`)
 	read, _ := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay)
 
 	// Act
@@ -285,9 +243,9 @@ func TestSummaryPostRefusesASummaryTooLongForTheServiceBeforeAsking(t *testing.T
 	t.Parallel()
 
 	// Arrange
-	hook := newCapturingWebhook(t)
+	hook := clitest.NewCapturingWebhook(t)
 	repo := workedRepository(t, strings.Repeat("x", 2100))
-	clitest.WriteFile(t, repo, `{"messaging":{"kind":"discord","webhook_url":"`+hook.url+`"}}`)
+	clitest.WriteFile(t, repo, `{"messaging":{"kind":"discord","webhook_url":"`+hook.URL+`"}}`)
 
 	// Act
 	printed, err := clitest.RunStreams(
@@ -295,7 +253,7 @@ func TestSummaryPostRefusesASummaryTooLongForTheServiceBeforeAsking(t *testing.T
 	)
 
 	// Assert
-	if posts := hook.posted(); len(posts) != 0 || err == nil ||
+	if posts := hook.Posted(); len(posts) != 0 || err == nil ||
 		!strings.Contains(err.Error(), "too long for Discord (") ||
 		!strings.Contains(err.Error(), " of 2000 characters); pick a shorter period") {
 		t.Errorf("summary --post = %v after %d posts, said:\n%s\nwant it refused, naming the length, nothing posted",
@@ -309,9 +267,9 @@ func TestSummaryPostSaysHowLongItIsAgainstTheServicesLimit(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	hook := newCapturingWebhook(t)
+	hook := clitest.NewCapturingWebhook(t)
 	repo := workedRepository(t, "Add the widget")
-	clitest.WriteFile(t, repo, `{"messaging":{"kind":"discord","webhook_url":"`+hook.url+`"}}`)
+	clitest.WriteFile(t, repo, `{"messaging":{"kind":"discord","webhook_url":"`+hook.URL+`"}}`)
 
 	// Act
 	printed, _ := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay,
@@ -328,15 +286,15 @@ func TestSummaryPostDryRunPostsNothing(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	hook := newCapturingWebhook(t)
+	hook := clitest.NewCapturingWebhook(t)
 	repo := workedRepository(t, "Add the widget")
-	clitest.WriteFile(t, repo, `{"messaging":{"webhook_url":"`+hook.url+`"}}`)
+	clitest.WriteFile(t, repo, `{"messaging":{"webhook_url":"`+hook.URL+`"}}`)
 
 	// Act
 	printed, _ := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "summary", "--post", "--yes", "--dry-run")
 
 	// Assert
-	if posts := hook.posted(); len(posts) != 0 ||
+	if posts := hook.Posted(); len(posts) != 0 ||
 		!strings.Contains(printed.Stderr, "dry run: would post to the channel its webhook is bound to") {
 		t.Errorf("summary --post --yes --dry-run posted %q and said:\n%s\nwant nothing posted, and what would be",
 			posts, printed.Stderr)
@@ -347,15 +305,15 @@ func TestSummaryPostIsNotPostedWhenDeclined(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	hook := newCapturingWebhook(t)
+	hook := clitest.NewCapturingWebhook(t)
 	repo := workedRepository(t, "Add the widget")
-	clitest.WriteFile(t, repo, `{"messaging":{"kind":"teams","webhook_url":"`+hook.url+`"}}`)
+	clitest.WriteFile(t, repo, `{"messaging":{"kind":"teams","webhook_url":"`+hook.URL+`"}}`)
 
 	// Act
-	printed, _ := clitest.RunStreams(t, repo, scripted([]string{"n"}, nil), "summary", "--post")
+	printed, _ := clitest.RunStreams(t, repo, clitest.Scripted([]string{"n"}, nil), "summary", "--post")
 
 	// Assert
-	if posts := hook.posted(); len(posts) != 0 || !strings.Contains(printed.Stderr, "Not posted.") {
+	if posts := hook.Posted(); len(posts) != 0 || !strings.Contains(printed.Stderr, "Not posted.") {
 		t.Errorf("a declined summary --post posted %q and said:\n%s\nwant nothing posted, and that it was not",
 			posts, printed.Stderr)
 	}
@@ -438,7 +396,7 @@ func TestSummaryPostReportsAFailedPostByItsService(t *testing.T) {
 	clitest.WriteFile(t, repo, `{"messaging":{"kind":"teams","webhook_url":"https://hooks.teams.example/services/x"}}`)
 
 	// Act
-	_, err := clitest.RunGuided(t, repo, scripted([]string{"y"}, nil), "summary", "--post")
+	_, err := clitest.RunGuided(t, repo, clitest.Scripted([]string{"y"}, nil), "summary", "--post")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "posting to Teams") {
@@ -450,15 +408,15 @@ func TestSummaryPostStopsAtTheQuestionWhenNothingCanAnswer(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	hook := newCapturingWebhook(t)
+	hook := clitest.NewCapturingWebhook(t)
 	repo := workedRepository(t, "Add the widget")
-	clitest.WriteFile(t, repo, `{"messaging":{"webhook_url":"`+hook.url+`"}}`)
+	clitest.WriteFile(t, repo, `{"messaging":{"webhook_url":"`+hook.URL+`"}}`)
 
 	// Act
-	_, err := clitest.RunStreams(t, repo, cmdkit.Prompt{Line: answersThenEnds()}, "summary", "--post")
+	_, err := clitest.RunStreams(t, repo, cmdkit.Prompt{Line: clitest.AnswersThenEnds()}, "summary", "--post")
 
 	// Assert
-	if posts := hook.posted(); err == nil || !strings.Contains(err.Error(), "pass --yes") || len(posts) != 0 {
+	if posts := hook.Posted(); err == nil || !strings.Contains(err.Error(), "pass --yes") || len(posts) != 0 {
 		t.Errorf("summary --post = %v after posting %q, want it to stop at the question, saying to pass --yes",
 			err, posts)
 	}

@@ -15,12 +15,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
-// unicodeLine is every character the live line draws by default and never in
-// ASCII: its mark's frames, and its bar's.
-func unicodeLine() []string {
-	return append(liveMarks(), "━", "─")
-}
-
 // lookCase is a slow command run under a look its live line is drawn in: the
 // configuration at home that asks for it, if any, the mark the line opens
 // with, and what it never shows.
@@ -47,7 +41,7 @@ func lookCases() map[string]lookCase {
 
 	for name, slow := range progressCases() {
 		cases[name+", under ui.ascii"] = lookCase{
-			slow: slow, home: `{"ui": {"ascii": true}}`, mark: "*", never: unicodeLine(),
+			slow: slow, home: `{"ui": {"ascii": true}}`, mark: "*", never: clitest.UnicodeLine(),
 		}
 		cases[name+", under ui.motion reduce"] = lookCase{
 			slow: slow, home: `{"ui": {"motion": "reduce"}}`, mark: "◐", never: []string{"◓", "◑", "◒"},
@@ -56,7 +50,7 @@ func lookCases() map[string]lookCase {
 
 	named := progressCases()["status of a named directory"]
 	cases["status of a named directory, with --plain"] = lookCase{
-		slow: progressCase{setUp: plainly(named.setUp), want: named.want}, mark: "*", never: unicodeLine(),
+		slow: progressCase{setUp: plainly(named.setUp), want: named.want}, mark: "*", never: clitest.UnicodeLine(),
 	}
 
 	return cases

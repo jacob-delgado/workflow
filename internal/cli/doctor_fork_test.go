@@ -23,9 +23,9 @@ func forkClone(t *testing.T) string {
 	t.Helper()
 
 	dir := t.TempDir()
-	gitInit(t, dir)
-	git(t, dir, "remote", "add", "origin", "https://github.com/contributor/repo.git")
-	git(t, dir, "remote", "add", "upstream", "https://github.com/owner/repo.git")
+	clitest.GitInit(t, dir)
+	clitest.Git(t, dir, "remote", "add", "origin", "https://github.com/contributor/repo.git")
+	clitest.Git(t, dir, "remote", "add", "upstream", "https://github.com/owner/repo.git")
 
 	return dir
 }
@@ -68,8 +68,8 @@ func TestDoctorJSONNamesNoBaseOutsideAFork(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	gitInit(t, dir)
-	git(t, dir, "remote", "add", "origin", "https://github.com/owner/repo.git")
+	clitest.GitInit(t, dir)
+	clitest.Git(t, dir, "remote", "add", "origin", "https://github.com/owner/repo.git")
 
 	// Act
 	printed, _ := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "doctor", "--json")

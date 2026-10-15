@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli_test
+package pr_test
 
 import (
 	"os"
@@ -12,40 +12,17 @@ import (
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
-// ownedRepo is a GitHub repository whose main holds a CODEOWNERS giving the
-// API to ana, a team and octo — the fake gh's own user — on a branch that
-// changes the API and is already pushed.
-func ownedRepo(t *testing.T) string {
-	t.Helper()
-
-	repo := t.TempDir()
-	gitInit(t, repo)
-	writeRepoFile(t, repo, ".github/CODEOWNERS", "/api/ @ana @acme/control-plane @octo\n")
-	git(t, repo, "add", ".")
-	commit(t, repo, "init")
-	git(t, repo, "branch", "-M", "main")
-	git(t, repo, "checkout", "-b", "fix/PROJ-2-thing")
-	writeRepoFile(t, repo, "api/pull.go", "package api\n")
-	git(t, repo, "add", ".")
-	commit(t, repo, "fix: guard the api")
-	git(t, repo, "remote", "add", "origin", "https://github.com/acme/repo.git")
-	pretendPushed(t, repo)
-	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
-
-	return repo
-}
-
 func TestPRPreviewsTheCodeOwnersAsReviewers(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{})
-	repo := ownedRepo(t)
+	clitest.FakeGh(t, clitest.GhResponses{})
+	repo := clitest.OwnedRepo(t)
 
 	var asked []string
 
 	// Act
-	printed, err := clitest.RunStreams(t, repo, answering("n", &asked), "pr")
+	printed, err := clitest.RunStreams(t, repo, clitest.Answering("n", &asked), "pr")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr: %v (%+v)", err, printed)
@@ -61,8 +38,8 @@ func TestPRRequestsTheCodeOwnersReview(t *testing.T) {
 
 	// Arrange
 	sent := filepath.Join(t.TempDir(), "sent")
-	fakeGh(t, ghResponses{sentLog: sent})
-	repo := ownedRepo(t)
+	clitest.FakeGh(t, clitest.GhResponses{SentLog: sent})
+	repo := clitest.OwnedRepo(t)
 
 	// Act
 	_, err := clitest.Run(t, repo, "pr", "--yes")
@@ -84,7 +61,7 @@ func TestPRPreviewsNoReviewersWithoutCodeOwners(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	repo := prRepo(t, "fix/PROJ-2-thing")
+	repo := clitest.PRRepo(t, "fix/PROJ-2-thing")
 
 	// Act
 	output, err := clitest.Run(t, repo, "pr", "--dry-run")
@@ -104,19 +81,19 @@ func TestPRSaysTheMergeRequestOpenedWhenAReviewerCouldNotBeAdded(t *testing.T) {
 	// Arrange
 	// GitLab knows no user named ghost, so the merge request opens without
 	// that reviewer; it is open all the same.
-	fakeGlab(t)
+	clitest.FakeGlab(t)
 	repo := t.TempDir()
-	gitInit(t, repo)
-	writeRepoFile(t, repo, "CODEOWNERS", "* @ghost\n")
-	git(t, repo, "add", ".")
-	commit(t, repo, "init")
-	git(t, repo, "branch", "-M", "main")
-	git(t, repo, "checkout", "-b", "fix/PROJ-2-thing")
-	writeRepoFile(t, repo, "api/pull.go", "package api\n")
-	git(t, repo, "add", ".")
-	commit(t, repo, "fix: guard the api")
-	git(t, repo, "remote", "add", "origin", "https://gitlab.com/owner/repo.git")
-	pretendPushed(t, repo)
+	clitest.GitInit(t, repo)
+	clitest.WriteRepoFile(t, repo, "CODEOWNERS", "* @ghost\n")
+	clitest.Git(t, repo, "add", ".")
+	clitest.Commit(t, repo, "init")
+	clitest.Git(t, repo, "branch", "-M", "main")
+	clitest.Git(t, repo, "checkout", "-b", "fix/PROJ-2-thing")
+	clitest.WriteRepoFile(t, repo, "api/pull.go", "package api\n")
+	clitest.Git(t, repo, "add", ".")
+	clitest.Commit(t, repo, "fix: guard the api")
+	clitest.Git(t, repo, "remote", "add", "origin", "https://gitlab.com/owner/repo.git")
+	clitest.PretendPushed(t, repo)
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"gitlab","host":"gitlab.com"}}`)
 
 	// Act
@@ -126,7 +103,8 @@ func TestPRSaysTheMergeRequestOpenedWhenAReviewerCouldNotBeAdded(t *testing.T) {
 		t.Fatalf("pr --yes = %v (%+v), want it to succeed: the merge request is open", err, printed)
 	}
 
-	if !strings.Contains(printed.Stdout, "Opened !7 "+gitlabMergeRequest) || !strings.Contains(printed.Stderr, "ghost") {
+	if !strings.Contains(printed.Stdout, "Opened !7 "+clitest.GitlabMergeRequest) ||
+		!strings.Contains(printed.Stderr, "ghost") {
 		t.Errorf("pr printed %+v, want the merge request opened and ghost named as not added", printed)
 	}
 }

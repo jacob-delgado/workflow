@@ -13,35 +13,14 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
-	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 )
-
-// eraseBelow is what the live line's program sends as it ends, erasing the
-// line it kept.
-const eraseBelow = "\x1b[J"
-
-// liveMarks are the frames the live line's mark turns through.
-func liveMarks() []string {
-	return []string{"◐", "◓", "◑", "◒"}
-}
-
-// markedLive reports whether shown holds the live line's mark.
-func markedLive(shown string) bool {
-	for _, mark := range liveMarks() {
-		if strings.Contains(shown, mark) {
-			return true
-		}
-	}
-
-	return false
-}
 
 // markDrawn is where the live line's mark was first and last drawn in shown,
 // or -1 for both when it never was.
 func markDrawn(shown string) (int, int) {
 	first, last := -1, -1
 
-	for _, mark := range liveMarks() {
+	for _, mark := range clitest.LiveMarks() {
 		at := strings.Index(shown, mark)
 		if at >= 0 && (first < 0 || at < first) {
 			first = at
@@ -51,17 +30,6 @@ func markDrawn(shown string) (int, int) {
 	}
 
 	return first, last
-}
-
-// atTerminal is clitest.UnusedPrompt with every stream flagged a terminal, as
-// main flags a real one.
-func atTerminal(t *testing.T) cmdkit.Prompt {
-	t.Helper()
-
-	prompt := clitest.UnusedPrompt(t)
-	prompt.IsTerminal = func(io.Writer) bool { return true }
-
-	return prompt
 }
 
 // runWatched runs args in dir with stderr a stand-in terminal, and stdout one
@@ -108,9 +76,9 @@ func progressCases() map[string]progressCase {
 			setUp: func(t *testing.T) (string, []string) {
 				t.Helper()
 
-				fakeGh(t, ghResponses{})
+				clitest.FakeGh(t, clitest.GhResponses{})
 				repo := workedRepository(t, "Add the widget")
-				git(t, repo, "remote", "add", "origin", "https://github.com/owner/repo.git")
+				clitest.Git(t, repo, "remote", "add", "origin", "https://github.com/owner/repo.git")
 				clitest.WriteFile(
 					t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},"taskwarrior":{"disabled":true}}`,
 				)
@@ -144,7 +112,7 @@ func TestASlowCommandKeepsALiveLineOfWhatItIsReadingOnATerminal(t *testing.T) {
 			dir, args := tt.setUp(t)
 
 			// Act
-			printed, _ := clitest.RunStreams(t, dir, atTerminal(t), args...)
+			printed, _ := clitest.RunStreams(t, dir, clitest.AtTerminal(t), args...)
 
 			// Assert
 			first, last := markDrawn(printed.Stderr)
@@ -152,11 +120,11 @@ func TestASlowCommandKeepsALiveLineOfWhatItIsReadingOnATerminal(t *testing.T) {
 				t.Errorf("%s at a terminal: stderr = %q, want the live line %q", name, printed.Stderr, tt.want)
 			}
 
-			if erased := strings.LastIndex(printed.Stderr, eraseBelow); erased < last {
+			if erased := strings.LastIndex(printed.Stderr, clitest.EraseBelow); erased < last {
 				t.Errorf("%s left its live line on the terminal: stderr = %q", name, printed.Stderr)
 			}
 
-			if strings.Contains(printed.Stdout, tt.want) || markedLive(printed.Stdout) {
+			if strings.Contains(printed.Stdout, tt.want) || clitest.MarkedLive(printed.Stdout) {
 				t.Errorf("%s put its live line on stdout: %q", name, printed.Stdout)
 			}
 		})
@@ -188,7 +156,7 @@ func TestAWaitWithBothStreamsOnTheTerminalPrintsItsArtifactAboveTheLine(t *testi
 	printed, _ := runWatched(t, dir, true, args...)
 
 	// Assert
-	if printed.Stdout != "" || !strings.Contains(printed.Stderr, "Version:") || !markedLive(printed.Stderr) {
+	if printed.Stdout != "" || !strings.Contains(printed.Stderr, "Version:") || !clitest.MarkedLive(printed.Stderr) {
 		t.Errorf("stdout %q, stderr %q; want the report above the live line, on stderr", printed.Stdout, printed.Stderr)
 	}
 }
@@ -207,7 +175,7 @@ func TestASlowCommandSaysNothingOfItsProgressOffATerminal(t *testing.T) {
 			printed, _ := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), args...)
 
 			// Assert
-			if strings.Contains(printed.Stdout+printed.Stderr, tt.want) || markedLive(printed.Stderr) ||
+			if strings.Contains(printed.Stdout+printed.Stderr, tt.want) || clitest.MarkedLive(printed.Stderr) ||
 				strings.Contains(printed.Stdout+printed.Stderr, "\x1b[") {
 				t.Errorf("%s off a terminal printed a progress note:\n%q\n%q", name, printed.Stdout, printed.Stderr)
 			}
