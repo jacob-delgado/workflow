@@ -17,8 +17,8 @@ import (
 
 // goroutinePatience is how long a test waits for what happens in a goroutine
 // of its own, a run its asker left unread drained and released, or a write's
-// context ended once its program's is: long enough never to be what fails a
-// test, short enough that a hang fails it.
+// or a detached context ended once its program's or its lifetime is: long
+// enough never to be what fails a test, short enough that a hang fails it.
 const goroutinePatience = 10 * time.Second
 
 // run is a streamed write of either shape seen through one signature.
