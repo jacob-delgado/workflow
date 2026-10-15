@@ -249,12 +249,14 @@ jobs:
       - name: Install dependencies
         run: yarn install --immutable
       # Only the headless shell: neither Playwright config names a channel,
-      # so every spec drives chromium-headless-shell, and the full Chrome for
-      # Testing it also downloaded went unused. --with-deps stays: its system
-      # packages bring the fonts the layout and axe specs measure against.
+      # so Chromium's projects drive chromium-headless-shell, and the full
+      # Chrome for Testing it also downloaded went unused. --with-deps stays:
+      # its system packages bring the fonts the layout and axe specs measure
+      # against.
       - name: Install the Playwright browser
         run: yarn playwright install --with-deps --only-shell chromium
-      - run: yarn test:e2e
+      # Chromium's projects alone: E2E (firefox) and E2E (webkit) run theirs.
+      - run: yarn test:e2e --project=chromium --project=mock
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -274,6 +276,55 @@ jobs:
         with:
           name: screens
           path: web/test-results/**/*.png
+          retention-days: 7
+
+  # The smoke run on the other two engines of the browsers the page supports:
+  # Firefox and WebKit, Safari's engine, each run the layout and axe specs
+  # (smokeSpecs in web/playwright.config.ts) on both builds, while E2E runs
+  # every spec on Chromium. A job per engine beside E2E rather than steps in it:
+  # the subset is 183 tests an engine, which took 4.3 minutes on Chromium on
+  # four cores, against E2E's six, where inside E2E the two would nearly double
+  # the run's slowest job. Gecko and WebKit run slower than Chromium, so how
+  # long each job takes is for CI's own runs to show. Their counts stay out of
+  # the Test summary, whose E2E row is Chromium's; E2E (server)'s row holds
+  # page.spec.ts's run on each engine with the rest of that job's.
+  e2e-engines:
+    name: E2E (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [firefox, webkit]
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
+        with:
+          version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
+          install_args: node
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Install dependencies
+        run: yarn install --immutable
+      # --with-deps, as in E2E: the fonts the layout and axe specs measure
+      # against, and the engine's own system libraries.
+      - name: Install the Playwright browser
+        run: yarn playwright install --with-deps "${BROWSER}"
+        env:
+          BROWSER: ${{ matrix.browser }}
+      - run: yarn test:e2e --project="${BROWSER}" --project="${BROWSER}-mock"
+        env:
+          BROWSER: ${{ matrix.browser }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: playwright-report-${{ matrix.browser }}
+          path: web/playwright-report/
           retention-days: 7
 
   # The server-backed end-to-end run: `task build` makes the binary with the web
@@ -301,9 +352,10 @@ jobs:
         run: corepack enable
       - name: Install dependencies
         run: yarn install --immutable
-      # The headless shell alone, as in E2E.
-      - name: Install the Playwright browser
-        run: yarn playwright install --with-deps --only-shell chromium
+      # Chromium's headless shell, as in E2E, and Firefox and WebKit for
+      # page.spec.ts, which they run too (playwright.server.config.ts).
+      - name: Install the Playwright browsers
+        run: yarn playwright install --with-deps --only-shell chromium firefox webkit
       - name: Build the binary with the web app embedded
         run: task build
         working-directory: .
@@ -589,7 +641,7 @@ jobs:
   # of mistake: add a job here, add it to `needs`, and protection keeps working.
   ci-gate:
     name: ci-gate
-    needs: [lint, test, scripts, branch-coverage, web, e2e, e2e-server, cross, scan, commit-lint]
+    needs: [lint, test, scripts, branch-coverage, web, e2e, e2e-engines, e2e-server, cross, scan, commit-lint]
     # always(), so the gate reports a verdict even when a dependency fails —
     # without it the gate would be skipped, and a skipped required check never
     # goes green.
