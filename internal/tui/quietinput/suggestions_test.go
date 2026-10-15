@@ -4,6 +4,7 @@
 package quietinput_test
 
 import (
+	"errors"
 	"testing"
 
 	"charm.land/bubbles/v2/key"
@@ -322,5 +323,38 @@ func TestCyclingFromAValueTypedWholeReachesEachLongerSuggestionInTurn(t *testing
 	if value != "main-2" {
 		t.Errorf("down, down and next-field after typing %q left %q, want %q, the third suggestion it begins",
 			baseBranch, value, "main-2")
+	}
+}
+
+// A completion taken on the way out that the field's check then refuses
+// leaves the field matching what it now holds, as a typed value is matched:
+// next-field again keeps main, typed whole by the completion, rather than
+// completing it to main-backport.
+func TestACompletionTheCheckRefusedIsMatchedAsATypedValueIs(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	value := ""
+	field := quietinput.New(baseTitle, "", &value).CheckedBy(func(text string) error {
+		if text == baseBranch {
+			return errRefused
+		}
+
+		return nil
+	})
+	focused(field.Suggesting([]string{backportBranch, baseBranch, "mail"}), acceptingKeys())
+	typed(t, field, "ma")
+
+	for _, key := range []string{keyDown, keyTab} {
+		field.Update(pressed(key))
+	}
+
+	// Act
+	field.Update(pressed(keyTab))
+
+	// Assert
+	if value != baseBranch || !errors.Is(field.Error(), errRefused) {
+		t.Errorf("next-field again after %q was taken and refused left %q with %v, want %q kept and refused",
+			baseBranch, value, field.Error(), baseBranch)
 	}
 }
