@@ -242,3 +242,27 @@ func TestDoctorSaysWhatAMissingTaskwarriorCosts(t *testing.T) {
 		t.Errorf("the taskwarrior row = %q, want %q:\n%s", row, want, output)
 	}
 }
+
+func TestDoctorNamesTaskWhenTheProgramNeverRunHasNoPrintableName(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// taskwarrior.program names a program made only of a terminal control,
+	// which doctor strips before printing, so it has no name left to give.
+	const controlOnly = "\x1b[0m"
+
+	clitest.WriteExecutable(t, filepath.Join(clitest.ProgramsOf(t), controlOnly),
+		"#!/bin/sh\necho 'Cannot proceed without rc file.' >&2; exit 2\n", 0o755)
+
+	// Only the home directory's file may set it.
+	home := t.TempDir()
+	clitest.WriteFile(t, home, `{"taskwarrior": {"program": "\u001b[0m"}}`)
+
+	// Act
+	output, _ := clitest.RunAtHome(t, home, "doctor")
+
+	// Assert
+	if row, want := taskwarriorRow(output), "not usable — installed but never run; run task once"; row != want {
+		t.Errorf("the taskwarrior row = %q, want %q:\n%s", row, want, output)
+	}
+}
