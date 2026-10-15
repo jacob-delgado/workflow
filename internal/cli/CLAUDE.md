@@ -121,9 +121,14 @@ for a client's unreachable service, `cmdkit.ServicesUnreachable` in
   `cli.Execute` where a command is how a script meets the kit, and otherwise
   over a small tree of their own (`probeTree`, `kit_test.go`) declared as the
   root declares workflow's. Its `TestMain` clears git's variables as this
-  package's does, with a proof of its own, and every condition the kit holds
-  is reached both ways from there, since the condition gate measures a
-  package by its own tests alone.
+  package's does, with a proof of its own. The kit's tests reach each of its
+  conditions both ways, since the condition gate measures a package by its
+  own tests alone, but for the two Windows clauses of `relativeToWorkingDir`
+  (`cmdkit/environment.go`) that TRADE-35 keeps: only
+  `cmdkit/environment_windows_test.go` sees them false, and only a Windows
+  `go test` runs it. gobco lists the two as seen one way, which fails
+  nothing: the gate fails a condition no test evaluated and an error check
+  whose error arm none reached, and these are neither.
 - **A terminal** is a pseudo-terminal from `internal/ptytest`, as
   `help_terminal_test.go` and `prompt_terminal_test.go` use it.
 - **Test files near the ceiling.** A test file fails past 700 lines, and

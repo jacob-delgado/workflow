@@ -641,10 +641,11 @@ which among the release targets builds for Windows alone), whose `Of` knows no
 owner, so the configuration's trust check refuses nothing there;
 `internal/proc/pgroup/pgroup_other.go` (`//go:build !unix`), whose `Isolate`
 isolates nothing, so a canceled streamed command's children can outlive it;
-`internal/cli/environment_windows_test.go`, the test that `--request-log`
-reads a path Windows roots elsewhere (`\logs`, `D:logs`) where Windows does,
-which as a test file only `lint:crossvet` compiles, and which stands for two
-clauses of `relativeToWorkingDir` in `internal/cli/cmdkit/environment.go`:
+`internal/cli/cmdkit/environment_windows_test.go`, the test that a request
+log named by a path Windows roots elsewhere (`\logs`, `D:logs`) is opened
+where Windows reads it, which as a test file only `lint:crossvet` compiles,
+and which stands beside the two clauses of `relativeToWorkingDir` in
+`internal/cli/cmdkit/environment.go` it covers:
 `filepath.VolumeName(path) == ""`, false only for a path naming a drive, and
 `!rooted`, false only for a path rooted but not absolute, which elsewhere a
 rooted path never is, so on Linux neither is ever false and no job sees
