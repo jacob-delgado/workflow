@@ -9,6 +9,8 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -105,7 +107,9 @@ func TestARunThatGaveUpOnItsOutputDeliversNothingMore(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	output, err := proc.Start(t.Context(), script(`sleep 30 & echo "$!"; printf partial`))
+	pidFile := killedAtCleanup(t)
+
+	output, err := proc.Start(t.Context(), script(`sleep 30 & echo "$!" | tee '`+pidFile+`'; printf partial`))
 	if err != nil {
 		t.Fatalf("Start returned %v, want nil", err)
 	}
@@ -126,8 +130,6 @@ func TestARunThatGaveUpOnItsOutputDeliversNothingMore(t *testing.T) {
 	// Assert
 	select {
 	case end := <-ended:
-		t.Cleanup(func() { killAll(end.lines) })
-
 		if end.err != nil || len(end.lines) != 1 || strings.Contains(end.lines[0], "partial") {
 			t.Errorf("the run ended with %q and %v, want the pid it printed alone and no failure", end.lines, end.err)
 		}
@@ -143,8 +145,10 @@ func TestARunWhoseLineIsTooLongEndsThoughAProcessItLeftBehindHoldsItsOutput(t *t
 	t.Parallel()
 
 	// Arrange
+	pidFile := killedAtCleanup(t)
+
 	output, err := proc.Start(t.Context(),
-		script(`sleep 30 & echo "$!"; head -c 2000000 /dev/zero | tr '\0' a; echo`))
+		script(`sleep 30 & echo "$!" | tee '`+pidFile+`'; head -c 2000000 /dev/zero | tr '\0' a; echo`))
 	if err != nil {
 		t.Fatalf("Start returned %v, want nil", err)
 	}
@@ -165,14 +169,30 @@ func TestARunWhoseLineIsTooLongEndsThoughAProcessItLeftBehindHoldsItsOutput(t *t
 	// Assert
 	select {
 	case end := <-ended:
-		t.Cleanup(func() { killAll(end.lines) })
-
 		if !errors.Is(end.err, bufio.ErrTooLong) || len(end.lines) != 1 {
 			t.Errorf("the run ended with %q and %v, want the pid it printed and the line too long", end.lines, end.err)
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("Lines stayed open and Wait blocked while the process left behind held the output")
 	}
+}
+
+// killedAtCleanup is a file for a test's program to write the pid of a
+// process it leaves behind to, which is killed once the test ends, however it
+// ends.
+func killedAtCleanup(t *testing.T) string {
+	t.Helper()
+
+	pidFile := filepath.Join(t.TempDir(), "pid")
+
+	t.Cleanup(func() {
+		pid, err := os.ReadFile(pidFile)
+		if err == nil {
+			killAll([]string{string(pid)})
+		}
+	})
+
+	return pidFile
 }
 
 // killAll kills each process a line names by its pid.
