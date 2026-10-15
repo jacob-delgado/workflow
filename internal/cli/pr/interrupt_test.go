@@ -22,7 +22,7 @@ func TestAWaitForCIStoppedByCtrlCSaysNothingWasAnnounced(t *testing.T) {
 
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), InterruptsStatus: true})
 	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.AtTerminal(t), "announce", "--when-green", "--yes")

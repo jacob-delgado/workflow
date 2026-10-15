@@ -75,7 +75,7 @@ func TestAWaitForTheCIOfAMergeIsRefusedAsErrOnlyReadyWaits(t *testing.T) {
 
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.MergedPull("Add login")})
 	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
 	_, err := clitest.Run(t, repo, "announce", "--when-green", "--yes")

@@ -13,7 +13,6 @@ import (
 	"net/http/httptest"
 	"runtime"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -194,25 +193,6 @@ func (s *SlackFake) answer(writer http.ResponseWriter, request *http.Request) {
 
 // SlackClientID is the Slack app's client ID the login is given.
 const SlackClientID = "1234.5678"
-
-// Webhook is a local incoming webhook over https that accepts every post, as
-// Slack's does, and counts them in posts. The process trusts its certificate
-// (see Main). The count is atomic because `task test` runs -race and the
-// handler runs on its own goroutine.
-func Webhook(t *testing.T, posts *atomic.Int32) string {
-	t.Helper()
-
-	server := httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		_, _ = io.Copy(io.Discard, request.Body)
-
-		posts.Add(1)
-
-		_, _ = writer.Write([]byte("ok"))
-	}))
-	t.Cleanup(server.Close)
-
-	return server.URL + "/services/x"
-}
 
 // fakePull is the number of the pull request the fake forges answer with.
 const fakePull = 7

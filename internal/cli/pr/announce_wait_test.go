@@ -44,7 +44,7 @@ func TestAnnounceWhenGreenAnnouncesOnceCIPasses(t *testing.T) {
 		StatusSequence: []string{clitest.RunningStatus(), clitest.RunningStatus(), clitest.PassingStatus()},
 	})
 	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--when-green", "--yes")
@@ -69,7 +69,7 @@ func TestAnnounceWhenGreenWaitsThroughAFailedRun(t *testing.T) {
 		Pulls: clitest.OpenPull("Add login"), StatusSequence: []string{clitest.FailingStatus(), clitest.PassingStatus()},
 	})
 	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--when-green", "--yes")
@@ -89,7 +89,7 @@ func TestAnnounceWhenGreenRefusesAMergedPullRequest(t *testing.T) {
 
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.MergedPull("Add login")})
 	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
 	_, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--when-green", "--yes")
@@ -108,7 +108,7 @@ func TestAnnounceWhenGreenDryRunWaitsForNothing(t *testing.T) {
 
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: clitest.FailingStatus()})
 	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--when-green", "--dry-run")
@@ -128,7 +128,7 @@ func TestAnnounceWhenGreenAsksOnceCIPasses(t *testing.T) {
 
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: clitest.RunningStatus()})
 	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, new(atomic.Int32))))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, new(atomic.Int32))))
 
 	// Act
 	_, err := clitest.RunStreams(t, repo, clitest.Answering("n", &asked), "announce", "--when-green")
@@ -150,7 +150,7 @@ func TestAnnounceWhenGreenWaitsPastAReadThatFails(t *testing.T) {
 		Pulls: clitest.OpenPull("Add login"), StatusSequence: []string{"{", clitest.PassingStatus()},
 	})
 	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--when-green", "--yes")
@@ -203,7 +203,7 @@ func TestAnnounceWhenGreenPostsNothingAnnouncedWhileItWaited(t *testing.T) {
 	gate := t.TempDir()
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), StatusGate: gate})
 	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 	home := t.TempDir()
 
 	recorded := make(chan error, 1)
@@ -250,7 +250,7 @@ func TestAnnounceWhenGreenGivesUpOnAPullRequestThatIsNoLongerTheOne(t *testing.T
 				PullsSequence: []string{clitest.OpenPull("Add login"), tt.then}, Status: clitest.RunningStatus(),
 			})
 			repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
-			clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
+			clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 			// Act
 			_, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--when-green", "--yes")
@@ -276,7 +276,7 @@ func TestAnnounceWhenGreenSaysWhatItWaitsOnOnce(t *testing.T) {
 		StatusSequence: []string{clitest.RunningStatus(), clitest.RunningStatus(), clitest.PassingStatus()},
 	})
 	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--when-green", "--yes")
@@ -303,7 +303,7 @@ func TestAnnounceWhenGreenWaitsAgainWhenTheGateCannotReadCI(t *testing.T) {
 		StatusSequence: []string{clitest.PassingStatus(), "{", clitest.PassingStatus()},
 	})
 	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--when-green", "--yes")
@@ -328,7 +328,7 @@ func TestAnnounceWhenGreenWaitsAgainWhenTheGateRefuses(t *testing.T) {
 		StatusSequence: []string{clitest.PassingStatus(), clitest.FailingStatus(), clitest.PassingStatus()},
 	})
 	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--when-green", "--yes")
