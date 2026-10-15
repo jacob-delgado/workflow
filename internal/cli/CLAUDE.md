@@ -160,7 +160,7 @@ for a client's unreachable service, `cmdkit.ServicesUnreachable` in
   `cli.Execute` as a user or a script runs it, over the forge and Slack fakes
   in `clitest` (`clitest.FakeGh`, `clitest.FakeGlab`, `clitest.FakeSlack`).
   Its `TestMain` clears git's variables as this package's does, with a proof
-  of its own.
+  of its own, and every condition doctor holds is reached both ways there.
 - **The kit's own tests live beside it**, in `internal/cli/cmdkit`: through
   `cli.Execute` where a command is how a script meets the kit, and otherwise
   over a small tree of their own (`probeTree`, `cmdkit/kit_test.go`) declared as

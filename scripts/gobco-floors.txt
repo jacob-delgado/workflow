@@ -25,6 +25,10 @@
 # available, and a floor is raised once the coverage is already there. The
 # numbers live here and nowhere else; no document restates them.
 
+# internal/cli/doctor puts every configured credential to its service, and
+# masks the origin and base remote addresses it reports.
+internal/cli/doctor 98
+
 # internal/config reads, validates and saves .workflow.json, the file that
 # names every credential and which file may lend them, and refuses one
 # someone else could have written.
