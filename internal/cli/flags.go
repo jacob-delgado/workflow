@@ -77,6 +77,18 @@ func postingIn(settings config.Messaging, channel string) (config.Messaging, err
 	return posting, nil
 }
 
+// errMessagingNotConfigured refuses announcing when no messaging transport is
+// set up.
+var errMessagingNotConfigured = errors.New("no messaging transport is configured")
+
+// messagingNotConfigured refuses to announce with no messaging transport set
+// up, saying how to set one up.
+func messagingNotConfigured() error {
+	return fmt.Errorf("%w: set messaging.kind and messaging.webhook_url in %s — or, "+
+		"for Slack, run workflow slack login — then check them with workflow doctor",
+		errMessagingNotConfigured, config.FileName)
+}
+
 // rootFlags are the root's flags: a dry run, which every command reads, and
 // --web and --port, which choose what bare workflow opens.
 type rootFlags struct {
