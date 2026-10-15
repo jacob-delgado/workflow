@@ -46,76 +46,97 @@ const cuedLine = "cued"
 func actLeftBehind(mode string) {
 	switch mode {
 	case "background":
-		// Leave a sleeping copy of this binary behind holding standard output, as
-		// a hook that backgrounds a server does, print its pid, and exit at once.
-		//nolint:noctx // this test binary re-run as the sleeper above, in a helper that has no context to thread
-		grand := exec.Command(os.Args[0], "-test.run=^$")
-
-		grand.Env = append(os.Environ(), helperMode+"=sleep")
-		grand.Stdout = os.Stdout
-
-		err := grand.Start()
-		if err != nil {
-			complain("starting the sleeper", err)
-
-			return
-		}
-
-		fmt.Fprintln(os.Stdout, grand.Process.Pid)
+		leaveASleeper()
 	case "outlived":
-		// Leave a copy of this binary behind holding standard output, which
-		// writes there only once this one has exited, and exit once it says it
-		// has started: how long a start takes is then no part of the wait the
-		// run gives the pipe after the exit.
-		ready, readyWriter, err := os.Pipe()
-		if err != nil {
-			complain("opening the pipe the late writer says it started on", err)
-
-			return
-		}
-
-		//nolint:noctx // this test binary re-run as the late writer below, in a helper that has no context to thread
-		late := exec.Command(os.Args[0], "-test.run=^$")
-
-		late.Env = append(os.Environ(), helperMode+"=late", helperParent+"="+strconv.Itoa(os.Getpid()))
-		late.Stdout, late.Stderr = os.Stdout, os.Stderr
-		late.ExtraFiles = []*os.File{readyWriter}
-
-		complain("starting the late writer", late.Start())
-		complain("closing this end of the pipe it says it started on", readyWriter.Close())
-
-		_, err = ready.Read(make([]byte, 1))
-		complain("waiting for the late writer to say it started", err)
+		leaveALateWriter()
 	case "late":
-		// Say this one has started, then, once the program that left it behind
-		// has exited and been reaped, print its pid and hold the output, as a
-		// server a hook backgrounded does when it logs late.
-		started := os.NewFile(readyDescriptor, "ready")
-		_, err := started.Write([]byte{'\n'})
-		complain("saying it started", err)
-		complain("closing the pipe it said it started on", started.Close())
-
-		awaitGone(os.Getenv(helperParent))
-		fmt.Fprintln(os.Stdout, os.Getpid())
-		time.Sleep(time.Minute)
+		writeLate()
 	case "unread":
-		// Write more than a run holds for a reader that has yet to come, leave
-		// behind a copy of this binary holding standard output, which writes
-		// one line more only once cued, and exit at once.
-		fmt.Fprint(os.Stdout, strings.Join(linesWrittenUnread(), "\n")+"\n")
-
-		//nolint:noctx // this test binary re-run as the cued writer below, in a helper that has no context to thread
-		cued := exec.Command(os.Args[0], "-test.run=^$")
-
-		cued.Env = append(os.Environ(), helperMode+"=cued")
-		cued.Stdout, cued.Stderr = os.Stdout, os.Stderr
-
-		complain("starting the cued writer", cued.Start())
+		leaveACuedWriter()
 	case "cued":
-		// Once cued, write one line and exit, which ends the output.
-		awaitCue(os.Getenv(helperCue))
-		fmt.Fprintln(os.Stdout, cuedLine)
+		writeOnceCued()
 	}
+}
+
+// leaveASleeper leaves a sleeping copy of this binary behind holding standard
+// output, as a hook that backgrounds a server does, prints its pid, and exits
+// at once.
+func leaveASleeper() {
+	//nolint:noctx // this test binary re-run as the "sleep" helper, in a helper that has no context to thread
+	grand := exec.Command(os.Args[0], "-test.run=^$")
+
+	grand.Env = append(os.Environ(), helperMode+"=sleep")
+	grand.Stdout = os.Stdout
+
+	err := grand.Start()
+	if err != nil {
+		complain("starting the sleeper", err)
+
+		return
+	}
+
+	fmt.Fprintln(os.Stdout, grand.Process.Pid)
+}
+
+// leaveALateWriter leaves a copy of this binary behind holding standard
+// output, which writes there only once this one has exited, and exits once it
+// says it has started: how long a start takes is then no part of the wait the
+// run gives the pipe after the exit.
+func leaveALateWriter() {
+	ready, readyWriter, err := os.Pipe()
+	if err != nil {
+		complain("opening the pipe the late writer says it started on", err)
+
+		return
+	}
+
+	//nolint:noctx // this test binary re-run as the late writer below, in a helper that has no context to thread
+	late := exec.Command(os.Args[0], "-test.run=^$")
+
+	late.Env = append(os.Environ(), helperMode+"=late", helperParent+"="+strconv.Itoa(os.Getpid()))
+	late.Stdout, late.Stderr = os.Stdout, os.Stderr
+	late.ExtraFiles = []*os.File{readyWriter}
+
+	complain("starting the late writer", late.Start())
+	complain("closing this end of the pipe it says it started on", readyWriter.Close())
+
+	_, err = ready.Read(make([]byte, 1))
+	complain("waiting for the late writer to say it started", err)
+}
+
+// writeLate says this one has started, then, once the program that left it
+// behind has exited and been reaped, prints its pid and holds the output, as a
+// server a hook backgrounded does when it logs late.
+func writeLate() {
+	started := os.NewFile(readyDescriptor, "ready")
+	_, err := started.Write([]byte{'\n'})
+	complain("saying it started", err)
+	complain("closing the pipe it said it started on", started.Close())
+
+	awaitGone(os.Getenv(helperParent))
+	fmt.Fprintln(os.Stdout, os.Getpid())
+	time.Sleep(time.Minute)
+}
+
+// leaveACuedWriter writes more than a run holds for a reader that has yet to
+// come, leaves behind a copy of this binary holding standard output, which
+// writes one line more only once cued, and exits at once.
+func leaveACuedWriter() {
+	fmt.Fprint(os.Stdout, strings.Join(linesWrittenUnread(), "\n")+"\n")
+
+	//nolint:noctx // this test binary re-run as the cued writer below, in a helper that has no context to thread
+	cued := exec.Command(os.Args[0], "-test.run=^$")
+
+	cued.Env = append(os.Environ(), helperMode+"=cued")
+	cued.Stdout, cued.Stderr = os.Stdout, os.Stderr
+
+	complain("starting the cued writer", cued.Start())
+}
+
+// writeOnceCued writes one line once cued and exits, which ends the output.
+func writeOnceCued() {
+	awaitCue(os.Getenv(helperCue))
+	fmt.Fprintln(os.Stdout, cuedLine)
 }
 
 // linesWrittenUnread are the lines the "unread" helper writes before it
