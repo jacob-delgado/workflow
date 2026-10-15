@@ -466,3 +466,24 @@ func TestDoctorJSONOnlineCallsJiraUncheckedWhenTheForgeIsTheTracker(t *testing.T
 		t.Errorf("the online report calls Jira %q with no jira.base_url, want unchecked:\n%s", got, output)
 	}
 }
+
+func TestDoctorOnlineSaysOnlyWhyItGaveUpOnTheForge(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// gh is stopped at the time limit, so the forge's row gives the limit
+	// doctor gave up at, and none of the client's or gh's words around it.
+	dir := clitest.RepoWithRemote(t, githubSSHRemote)
+	clitest.WriteFile(t, dir, `{"jira": {"base_url": "`+clitest.WorkingJira(t)+`", "token": "t"}, `+
+		clitest.SlackWebhook+`, "forge": {"cli": true}, "timing": {"request_timeout": "`+onlineRequestTimeout+`"}}`)
+	clitest.FakeGh(t, clitest.GhResponses{SignedOut: true, APIHangs: true})
+
+	// Act
+	output, _ := clitest.Run(t, dir, "doctor", "--online")
+
+	// Assert
+	want := "could not reach the forge: gave up after " + onlineRequestTimeout + " (through gh)"
+	if row := credentialRow(output, "forge"); row != want {
+		t.Errorf("doctor's forge row = %q, want %q:\n%s", row, want, output)
+	}
+}
