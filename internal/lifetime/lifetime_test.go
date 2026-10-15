@@ -57,7 +57,11 @@ func TestADetachedContextEndsWithTheLifetimeItsAskerCarries(t *testing.T) {
 	stop(errStopped)
 
 	// Assert
-	<-detached.Done()
+	select {
+	case <-detached.Done():
+	case <-time.After(goroutinePatience):
+		t.Fatalf("the detached context did not end within %v of its lifetime", goroutinePatience)
+	}
 
 	cause := context.Cause(detached)
 	if !errors.Is(cause, errStopped) {
