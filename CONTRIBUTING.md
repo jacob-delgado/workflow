@@ -117,10 +117,10 @@ repository, and a test's `git -C <temp dir>` would work on that repository
 instead: one pre-push set `core.bare`, moved `main` and rewrote the config that
 way. The gate is safe to run from a hook or a linked worktree only because of
 this. The Go packages whose tests commit, fetch or push (`internal/cli`,
-`internal/cli/doctor`, `internal/cli/pr`, `internal/gittest`,
-`internal/wiring`), and `internal/cli/cmdkit`, which shares `internal/cli`'s
-`clitest.Main`, clear them in `TestMain`, each proven by
-`TestTheTestsLeaveTheRepositoryAHookNamesAlone`, and then have every git the
+`internal/cli/doctor`, `internal/cli/pr`, `internal/cli/status`,
+`internal/gittest`, `internal/wiring`), and `internal/cli/cmdkit`, which
+shares `internal/cli`'s `clitest.Main`, clear them in `TestMain`, each proven
+by `TestTheTestsLeaveTheRepositoryAHookNamesAlone`, and then have every git the
 process starts read the tests' own configuration (`gittest.Configure`, which
 `gittest.Run` calls for each git it runs, and `clitest.Main` and wiring's
 `TestMain` for the whole process): the developer's is kept out, and so is git's

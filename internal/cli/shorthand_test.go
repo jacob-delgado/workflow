@@ -94,7 +94,7 @@ func TestDashJPrintsTheData(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	repo := featureRepo(t)
+	repo := clitest.FeatureRepo(t)
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "status", "-j")

@@ -25,10 +25,8 @@ func TestACommandFromARemovedDirectorySaysItCannotNameIt(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string][]string{
-		"reading the status":                   strings.Fields("status"),
-		"reading a directory named relatively": strings.Fields("status ."),
-		"showing the configuration":            strings.Fields("config show"),
-		"writing a template":                   strings.Fields("config init --template"),
+		"showing the configuration": strings.Fields("config show"),
+		"writing a template":        strings.Fields("config init --template"),
 	}
 
 	for name, args := range cases {
@@ -84,43 +82,33 @@ func TestBranchCompletionFromARemovedDirectoryOffersNothing(t *testing.T) {
 	}
 }
 
-// A command's sections, its request log and each directory it names relatively
-// must all be read from one directory, so a command reads it once: a second
-// read could find another, or none, as a shell left standing in a directory
-// `git worktree remove` deletes does.
-func TestACommandReadsTheDirectoryItWasRunFromOnce(t *testing.T) {
+// doctor's sections and its request log, named relatively, must both be read
+// from one directory, so doctor reads it once: a second read could find
+// another, or none, as a shell left standing in a directory `git worktree
+// remove` deletes does.
+func TestDoctorLoggingRelativelyReadsTheDirectoryItWasRunFromOnce(t *testing.T) {
 	t.Parallel()
 
-	cases := map[string][]string{
-		"doctor, logging to a file named relatively":     {logOption, relativeLog, doctorCommand},
-		"the status of two directories named relatively": {statusCommand, ".", "."},
+	// Arrange
+	args := []string{logOption, relativeLog, doctorCommand}
+	env := clitest.EnvironmentFor(t, clitest.Place{Dir: t.TempDir(), Home: t.TempDir()})
+	read := env.WorkingDir
+
+	var reads atomic.Int32
+
+	env.WorkingDir = func() (string, error) {
+		reads.Add(1)
+
+		return read()
 	}
 
-	for name, args := range cases {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+	var stdout, stderr bytes.Buffer
 
-			// Arrange
-			env := clitest.EnvironmentFor(t, clitest.Place{Dir: t.TempDir(), Home: t.TempDir()})
-			read := env.WorkingDir
+	// Act
+	_ = cli.Execute(args, &stdout, &stderr, clitest.UnusedPrompt(t), env)
 
-			var reads atomic.Int32
-
-			env.WorkingDir = func() (string, error) {
-				reads.Add(1)
-
-				return read()
-			}
-
-			var stdout, stderr bytes.Buffer
-
-			// Act
-			_ = cli.Execute(args, &stdout, &stderr, clitest.UnusedPrompt(t), env)
-
-			// Assert
-			if got := reads.Load(); got != 1 {
-				t.Errorf("%v read the working directory %d times, want once", args, got)
-			}
-		})
+	// Assert
+	if got := reads.Load(); got != 1 {
+		t.Errorf("%v read the working directory %d times, want once", args, got)
 	}
 }

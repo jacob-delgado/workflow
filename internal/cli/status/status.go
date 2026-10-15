@@ -1,7 +1,11 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli
+// Package status is `workflow status`: where the work in a repository stands
+// along the loop, read from its branch, its forge, its tracker and the store,
+// printed on one line or as JSON, for the current repository or for each
+// directory named.
+package status
 
 import (
 	"cmp"
@@ -73,8 +77,8 @@ func (o statusOptions) look(ui config.UI) console.Look {
 	return look
 }
 
-// newStatusCmd builds `workflow status [directory...]`.
-func newStatusCmd(prompt cmdkit.Prompt) *cobra.Command {
+// NewCmd builds `workflow status [directory...]`.
+func NewCmd(prompt cmdkit.Prompt) *cobra.Command {
 	var opts statusOptions
 
 	cmd := &cobra.Command{

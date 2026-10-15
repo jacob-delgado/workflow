@@ -26,17 +26,17 @@ a new word comes from that table.
 
 The package is the Cobra command tree spelled one file per command, per family
 of commands over one seam, or per section of a command that outgrew one, as
-status's did. It answers to a ratcheted budget in
+doctor's and status's did before each left. It answers to a ratcheted budget in
 `scripts/package-size-budgets.txt`, the count its last split left it at: read
 the number there, and `scripts/check-package-size.sh --list` for the count,
 which a ratcheted budget always equals, so the next command file trips the
 gate and is a decision. The package is not split to chase a number, but code
 in it with a reason to change of its own may leave where no import cycle
-follows, as doctor's checks have, and status and issues may. A trip means a
-bump, with the WHY above the entry rewritten and a history row, or such an
-extraction, never a split for the count; each extraction ratchets the budget
-down to the files left, and the entry goes once the package holds no more
-than the default allows.
+follows, as doctor's checks and status have, and the issue commands may. A
+trip means a bump, with the WHY above the entry rewritten and a history row,
+or such an extraction, never a split for the count; each extraction ratchets
+the budget down to the files left, and the entry goes once the package holds
+no more than the default allows.
 
 The pr and announce flow over the forge and messaging has left as
 `internal/cli/pr`, one package for both, since `pr --announce` hands what it
@@ -63,6 +63,13 @@ and `internal/cli/doctor`'s among them, and so do the two terminal reads
 tree: `cli.go` registers its `NewCmd`, and `exitstatus.go`'s families name
 the six sentinels it exports, so it imports neither the root nor any other
 command.
+
+`workflow status` has left as well, as `internal/cli/status`: the command,
+the facts it gathers from each repository's services with the notes on those
+that do not answer (`gather.go`), and the line and the JSON it prints
+(`render.go`). `cli.go` registers its one export, `status.NewCmd`. Its tests
+live beside it, driving the command through `cli.Execute`, with a `TestMain`
+and a proof of their own, as pr's do.
 
 ## What a command prints
 
