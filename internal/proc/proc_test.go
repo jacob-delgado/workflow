@@ -119,9 +119,25 @@ func TestRunCommandReportsAProgramThatCouldNotRunAsNoExit(t *testing.T) {
 
 	// Assert
 	_, _, exited := proc.Failure(err)
-	if exited || !errors.Is(err, fs.ErrPermission) || !strings.HasPrefix(err.Error(), "tool: ") {
-		t.Errorf("running a file that may not run = %v, an exit %v; want the refusal, named for tool, and no exit",
-			err, exited)
+
+	want := "tool: fork/exec " + unrunnable + ": permission denied"
+	if exited || !errors.Is(err, fs.ErrPermission) || err.Error() != want {
+		t.Errorf("running a file that may not run = %v, an exit %v; want %q and no exit", err, exited, want)
+	}
+}
+
+func TestRunReportsAProgramKilledBySignalWithWhatItWroteToStandardError(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	_, err := proc.Run(t.Context(), "sh", "-c", `echo "fatal: out of memory" >&2; kill -KILL $$`)
+
+	// Assert
+	_, _, exited := proc.Failure(err)
+
+	want := "sh: signal: killed: fatal: out of memory"
+	if exited || err == nil || err.Error() != want {
+		t.Errorf("a run killed by a signal = %v, an exit %v; want %q and no exit", err, exited, want)
 	}
 }
 
