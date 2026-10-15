@@ -296,13 +296,9 @@ runs.
 `task cover:branch` fails on an arm no test reached of two kinds: a condition
 no test evaluated, and the error arm of an error check, each unless a line of
 `scripts/gobco-allowlist.txt` keeps it for a kept entry in this register. An
-error check is one the gate can tell by its name: a name ending in `err` or
-`Err`, perhaps with a capitalized or numbered rest (`err`, `readErr`,
-`closeErr`, `err2`, `errParse`, but not `errorHandler`), or a call of a method
-so named (`ctx.Err()`), reached through fields and calls, compared with `nil`;
-and an `errors.Is` or `!errors.Is` of such a name right after
-`<name> != nil &&`, whose error arm is its true one. Every other condition seen
-only one way, a boolean, a comparison, any other `errors.Is` or an `ok`, fails
+error check is one the gate can tell by its name, as CONTRIBUTING.md's *Tests*
+defines it, where that rule is written once. Every other condition seen only
+one way, a boolean, a comparison, any other `errors.Is` or an `ok`, fails
 nothing: the report lists it on every run, by file, line and how many times it
 was seen each way, and it stays out of this file and out of the allowlist.
 CLAUDE.md reads that list as "a worklist of missing test cases, not a
