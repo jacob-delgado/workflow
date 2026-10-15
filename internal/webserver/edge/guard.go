@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package webserver
+package edge
 
 import (
 	"context"
@@ -144,7 +144,7 @@ func refuseWritesInDryRun(dryRun bool, next http.Handler) http.Handler {
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		if !isSafeMethod(request.Method) {
+		if !IsSafeMethod(request.Method) {
 			http.Error(w, "the web interface is read-only while --dry-run is set", http.StatusForbidden)
 
 			return
@@ -163,7 +163,7 @@ func refuseWritesInDryRun(dryRun bool, next http.Handler) http.Handler {
 // server with a no-preflight POST; the browser always attaches Origin to a
 // cross-origin write, and the app itself is always same-origin.
 func allowedOrigin(request *http.Request) bool {
-	if isSafeMethod(request.Method) {
+	if IsSafeMethod(request.Method) {
 		return true
 	}
 
@@ -180,8 +180,8 @@ func allowedOrigin(request *http.Request) bool {
 	return strings.EqualFold(parsed.Host, request.Host)
 }
 
-// isSafeMethod reports whether method only reads, so it needs no write guard.
-func isSafeMethod(method string) bool {
+// IsSafeMethod reports whether method only reads, so it needs no write guard.
+func IsSafeMethod(method string) bool {
 	switch method {
 	case http.MethodGet, http.MethodHead, http.MethodOptions:
 		return true

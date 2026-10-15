@@ -15,6 +15,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/edge"
 	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
@@ -130,7 +131,7 @@ func TestHandlerRefusesAConfigurationPathItCannotRead(t *testing.T) {
 	cfg.Path = t.TempDir()
 
 	// Act
-	_, err := webserver.Handler(t.Context(), webserver.World{Config: cfg}, fstest.MapFS{}, webserver.NewSession())
+	_, err := webserver.Handler(t.Context(), webserver.World{Config: cfg}, fstest.MapFS{}, edge.NewSession())
 
 	// Assert
 	if err == nil {
@@ -186,7 +187,7 @@ func TestHandlerStartsFromWhatTheProcessReadWhenTheFileHasTurnedInvalid(t *testi
 	cfg.Path = path
 	cfg.Jira.Views = []config.JiraView{{Name: sprintView, JQL: "sprint = 1"}}
 
-	session := webserver.NewSession()
+	session := edge.NewSession()
 
 	// Act
 	handler, err := webserver.Handler(t.Context(), webserver.World{Config: cfg}, fstest.MapFS{}, session)

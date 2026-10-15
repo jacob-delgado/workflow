@@ -15,6 +15,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/edge"
 )
 
 // EndsWithin is how long a context the server ends is given to be seen ended:
@@ -134,7 +135,7 @@ func ServeForALifetime(
 	t.Helper()
 
 	lifetime, stop := context.WithCancel(t.Context())
-	session := webserver.NewSession()
+	session := edge.NewSession()
 	world := webserver.World{Deps: deps, Config: cfg, Info: webserver.Info{Taskwarrior: cfg.Taskwarrior}}
 
 	handler, err := webserver.Handler(lifetime, world, fstest.MapFS{}, session)

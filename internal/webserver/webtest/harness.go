@@ -16,6 +16,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/edge"
 )
 
 // Serve builds the API handler over deps and cfg, not in dry-run, so the write
@@ -43,7 +44,7 @@ func ServeWith(t *testing.T, deps webserver.Deps, cfg config.Config, info webser
 func ServeWorld(t *testing.T, world webserver.World, assets fs.FS) http.Handler {
 	t.Helper()
 
-	session := webserver.NewSession()
+	session := edge.NewSession()
 
 	handler, err := webserver.Handler(t.Context(), world, assets, session)
 	if err != nil {
@@ -56,7 +57,7 @@ func ServeWorld(t *testing.T, world webserver.World, assets fs.FS) http.Handler 
 // Presenting hands handler each request with session presented as the page
 // presents it, unless the request presents one itself, as a test of the
 // session's check does.
-func Presenting(t *testing.T, session webserver.Session, handler http.Handler) http.Handler {
+func Presenting(t *testing.T, session edge.Session, handler http.Handler) http.Handler {
 	t.Helper()
 
 	authorization := "Bearer " + SessionToken(t, session)
@@ -72,7 +73,7 @@ func Presenting(t *testing.T, session webserver.Session, handler http.Handler) h
 
 // SessionToken is the session the address the server prints carries, read
 // from its fragment as the page reads it.
-func SessionToken(t *testing.T, session webserver.Session) string {
+func SessionToken(t *testing.T, session edge.Session) string {
 	t.Helper()
 
 	address, err := url.Parse(session.Address(LoopbackHost))

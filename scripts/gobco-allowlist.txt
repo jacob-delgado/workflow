@@ -51,11 +51,11 @@ internal/webserver/stream.go sendEvent TRADE-13 any 1 err != nil
 # TRADE-14: what the binary embeds, the OpenAPI contract and the web app, is
 # taken to load.
 internal/web/embed.go Assets TRADE-14 any 1 err != nil
-internal/webserver/validator.go loadSpec TRADE-14 any 1 err != nil
-internal/webserver/validator.go loadSpec TRADE-14 any 2 err != nil
-internal/webserver/validator.go loadContract TRADE-14 any 1 err != nil
-internal/webserver/validator.go loadContract TRADE-14 any 2 err != nil
-internal/webserver/webserver.go Handler TRADE-14 any 1 err != nil
+internal/webserver/edge/edge.go Handler TRADE-14 any 1 err != nil
+internal/webserver/edge/validator.go loadSpec TRADE-14 any 1 err != nil
+internal/webserver/edge/validator.go loadSpec TRADE-14 any 2 err != nil
+internal/webserver/edge/validator.go loadContract TRADE-14 any 1 err != nil
+internal/webserver/edge/validator.go loadContract TRADE-14 any 2 err != nil
 
 # TRADE-16: opening the store at this build's schema version, removeDatabase
 # and stamp each follow a call that just read or made the same file, so fail
