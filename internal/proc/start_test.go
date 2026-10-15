@@ -81,7 +81,7 @@ func actAsHelper(mode string) {
 			fmt.Fprintln(os.Stdout, "after")
 		}
 	default:
-		actLeftBehind(mode)
+		actAroundTheExit(mode)
 	}
 
 	os.Exit(0)
