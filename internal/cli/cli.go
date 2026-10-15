@@ -21,6 +21,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
 	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/cli/console"
+	"github.com/jacob-delgado/workflow/internal/cli/issues"
 	"github.com/jacob-delgado/workflow/internal/cli/pr"
 	"github.com/jacob-delgado/workflow/internal/cli/status"
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -480,9 +481,10 @@ func openInterface(ctx context.Context, run RunInterface, input interfaceInput) 
 func subcommands(prompt cmdkit.Prompt) []*cobra.Command {
 	return []*cobra.Command{
 		newConfigCmd(prompt), newDoctorCmd(prompt), status.NewCmd(prompt), newSummaryCmd(prompt), newReviewsCmd(),
-		newRepositoriesCmd(), newIssuesCmd(), newIssueCmd(),
-		newBranchCmd(prompt), pr.NewCmd(prompt), newFinishCmd(prompt), pr.NewAnnounceCmd(prompt), newCommentCmd(prompt),
-		newTransitionCmd(prompt), newAssignCmd(prompt), newWorklogCmd(prompt),
+		newRepositoriesCmd(), issues.NewIssuesCmd(), issues.NewIssueCmd(),
+		newBranchCmd(prompt), pr.NewCmd(prompt), newFinishCmd(prompt), pr.NewAnnounceCmd(prompt),
+		issues.NewCommentCmd(prompt), issues.NewTransitionCmd(prompt), issues.NewAssignCmd(prompt),
+		issues.NewWorklogCmd(prompt),
 		newSlackCmd(prompt), newDBCleanCmd(prompt),
 	}
 }

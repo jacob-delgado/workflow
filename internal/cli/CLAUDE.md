@@ -30,7 +30,7 @@ the number there, and `scripts/check-package-size.sh --list` for the count,
 which a ratcheted budget always equals, so the next command file trips the
 gate and is a decision. The package is not split to chase a number, but code
 in it with a reason to change of its own may leave where no import cycle
-follows: doctor's checks, and the issue commands. A trip means a bump, with
+follows: doctor's checks. A trip means a bump, with
 the WHY above the entry rewritten and a history row, or such an extraction,
 never a split for the count; each extraction ratchets the budget down to the
 files left, and the entry goes once the package holds no more than the
@@ -52,6 +52,14 @@ that do not answer (`gather.go`), and the line and the JSON it prints
 (`render.go`). `cli.go` registers its one export, `status.NewCmd`. Its tests
 live beside it, driving the command through `cli.Execute`, with a `TestMain`
 and a proof of their own, as pr's do.
+
+The commands over the issue tracker have left the same way, as
+`internal/cli/issues`: `issues` and `issue`, which read (`issues.go`), and
+`transition`, `assign`, `worklog` (`write.go`) and `comment` (`comment.go`),
+which write through the preview and confirmation they share. `cli.go`
+registers its six commands, and `exitstatus.go`'s families name the six
+sentinels it exports. Its tests live beside it as status's do, with the fake
+Jira they alone need (`trackerfake_test.go`).
 
 What every command is built from has left already, as `internal/cli/cmdkit`
 beneath the tree: the connection to where a command runs, the environment it
@@ -132,7 +140,7 @@ for a client's unreachable service, `cmdkit.ServicesUnreachable` in
   layout marks `(tests only)`.
 - **Fakes for the services**: `clitest.FakeGh` and `clitest.FakeGlab`
   (`clitest/forge.go`, a fake `gh` or `glab` and its pull requests),
-  `trackerfake_test.go` and `clitest.FakeSlack` (`clitest/messaging.go`)
+  `clitest.JiraServer` and `clitest.FakeSlack` (`clitest/messaging.go`)
   stand in for the forge, Jira and Slack, and `clitest.WorkingJira` is a Jira
   that accepts the credential. The repositories they answer for are made with
   git itself (`clitest.PRRepo`, `clitest.GithubRepo` and their kin,

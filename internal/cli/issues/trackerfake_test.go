@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli_test
+package issues_test
 
 import (
 	"cmp"
@@ -14,7 +14,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
-// The writes trackerJira records, by kind, beside pr's link and transition.
+// The writes trackerJira records, by kind, beside clitest.WriteTransition.
 const (
 	writeAssign  = "assign"
 	writeWorklog = "worklog"
