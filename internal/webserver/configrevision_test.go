@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // The configuration file these tests serve, and the edits made to it outside
@@ -39,14 +40,14 @@ func servedFile(t *testing.T, contents string, info webserver.Info) (http.Handle
 	t.Helper()
 
 	path := filepath.Join(t.TempDir(), config.FileName)
-	rewrite(t, path, contents)
+	webtest.Rewrite(t, path, contents)
 
 	cfg, _, err := config.LoadLayersAt(config.Files{Home: path})
 	if err != nil {
 		t.Fatalf("loading the served file: %v", err)
 	}
 
-	return serveWith(t, webserver.Deps{}, cfg, info), path
+	return webtest.ServeWith(t, webserver.Deps{}, cfg, info), path
 }
 
 // deleteFile deletes the file at path, as a deletion made outside the browser
@@ -83,7 +84,7 @@ func jiraAt(t *testing.T, baseURL string) string {
 	cfg := config.Default()
 	cfg.Jira.BaseURL = baseURL
 
-	return marshal(t, cfg)
+	return webtest.Marshal(t, cfg)
 }
 
 // etagOf is the ETag a response carries.
@@ -100,7 +101,7 @@ func refusedWith(t *testing.T, recorder *httptest.ResponseRecorder, status int, 
 		t.Fatalf("status = %d, want %d: %s", recorder.Code, status, recorder.Body.String())
 	}
 
-	if failure := decode[api.Problem](t, recorder); failure.Code != code {
+	if failure := webtest.Decode[api.Problem](t, recorder); failure.Code != code {
 		t.Errorf("code = %q, want %q", failure.Code, code)
 	}
 
@@ -114,11 +115,11 @@ func TestASaveOverAnEditMadeOnDiskIsRefused(t *testing.T) {
 
 	// Arrange
 	handler, path := servedFile(t, withSprint, webserver.Info{})
-	read := get(t, handler, "/api/config")
-	rewrite(t, path, editedFile)
+	read := webtest.Get(t, handler, "/api/config")
+	webtest.Rewrite(t, path, editedFile)
 
 	// Act
-	recorder := putConfigOver(t, handler, jiraAt(t, savedBaseURL), etagOf(read))
+	recorder := webtest.PutConfigOver(t, handler, jiraAt(t, savedBaseURL), etagOf(read))
 
 	// Assert
 	refusedWith(t, recorder, http.StatusConflict, api.ProblemCodeConflict, path)
@@ -129,7 +130,7 @@ func TestASaveOverAnEditMadeOnDiskIsRefused(t *testing.T) {
 
 	// The views are read from the configuration in effect, without reading the
 	// file again, so they show whether the refused save was taken up.
-	views := decode[api.ViewList](t, get(t, handler, "/api/views"))
+	views := webtest.Decode[api.ViewList](t, webtest.Get(t, handler, "/api/views"))
 	if len(views.Views) != 1 || views.Views[0].Name != sprintView {
 		t.Errorf("views = %+v, want the configuration in effect kept", views.Views)
 	}
@@ -141,17 +142,17 @@ func TestASaveOverARevisionAnotherSaveReplacedIsRefused(t *testing.T) {
 	// Arrange
 	// Two tabs read the same file; the second saves first.
 	handler, path := servedFile(t, fileAtStart, webserver.Info{})
-	first := get(t, handler, "/api/config")
-	second := get(t, handler, "/api/config")
+	first := webtest.Get(t, handler, "/api/config")
+	second := webtest.Get(t, handler, "/api/config")
 
-	if saved := putConfigOver(t, handler, jiraAt(t, savedBaseURL), etagOf(second)); saved.Code != http.StatusOK {
+	if saved := webtest.PutConfigOver(t, handler, jiraAt(t, savedBaseURL), etagOf(second)); saved.Code != http.StatusOK {
 		t.Fatalf("the second tab's save: status = %d: %s", saved.Code, saved.Body.String())
 	}
 
 	want := onDisk(t, path)
 
 	// Act
-	recorder := putConfigOver(t, handler, jiraAt(t, "https://stale.example.com"), etagOf(first))
+	recorder := webtest.PutConfigOver(t, handler, jiraAt(t, "https://stale.example.com"), etagOf(first))
 
 	// Assert
 	refusedWith(t, recorder, http.StatusConflict, api.ProblemCodeConflict, path)
@@ -160,7 +161,7 @@ func TestASaveOverARevisionAnotherSaveReplacedIsRefused(t *testing.T) {
 		t.Errorf("the file holds %q, want the second tab's save left as it was", got)
 	}
 
-	if out := decode[api.Config](t, get(t, handler, "/api/config")); out.Jira.BaseURL == nil ||
+	if out := webtest.Decode[api.Config](t, webtest.Get(t, handler, "/api/config")); out.Jira.BaseURL == nil ||
 		*out.Jira.BaseURL != savedBaseURL {
 		t.Errorf("jira.base_url = %v, want the second tab's save still in effect", out.Jira.BaseURL)
 	}
@@ -174,13 +175,13 @@ func TestASaveOverARevisionTheFileCameBackToIsRefused(t *testing.T) {
 	// undone: the file is back at the revision this read named, but the
 	// configuration in effect, whose secrets a save keeps, is the edit's.
 	handler, path := servedFile(t, fileAtStart, webserver.Info{})
-	read := get(t, handler, "/api/config")
-	rewrite(t, path, otherToken)
-	get(t, handler, "/api/config")
-	rewrite(t, path, fileAtStart)
+	read := webtest.Get(t, handler, "/api/config")
+	webtest.Rewrite(t, path, otherToken)
+	webtest.Get(t, handler, "/api/config")
+	webtest.Rewrite(t, path, fileAtStart)
 
 	// Act
-	recorder := putConfigOver(t, handler, read.Body.String(), etagOf(read))
+	recorder := webtest.PutConfigOver(t, handler, read.Body.String(), etagOf(read))
 
 	// Assert
 	refusedWith(t, recorder, http.StatusConflict, api.ProblemCodeConflict, path)
@@ -222,7 +223,7 @@ func TestASaveThatNamesNoRevisionIsRefused(t *testing.T) {
 			handler, path := servedFile(t, fileAtStart, webserver.Info{})
 
 			// Act
-			recorder := putConfigOver(t, handler, jiraAt(t, savedBaseURL), tt.ifMatch)
+			recorder := webtest.PutConfigOver(t, handler, jiraAt(t, savedBaseURL), tt.ifMatch)
 
 			// Assert
 			refusedWith(t, recorder, tt.status, tt.code, path)
@@ -239,12 +240,12 @@ func TestASaveWritesOnceSettingsHasReadTheEdit(t *testing.T) {
 
 	// Arrange
 	handler, path := servedFile(t, fileAtStart, webserver.Info{})
-	get(t, handler, "/api/config")
-	rewrite(t, path, editedFile)
-	reread := get(t, handler, "/api/config")
+	webtest.Get(t, handler, "/api/config")
+	webtest.Rewrite(t, path, editedFile)
+	reread := webtest.Get(t, handler, "/api/config")
 
 	// Act
-	recorder := putConfigOver(t, handler, jiraAt(t, savedBaseURL), etagOf(reread))
+	recorder := webtest.PutConfigOver(t, handler, jiraAt(t, savedBaseURL), etagOf(reread))
 
 	// Assert
 	if recorder.Code != http.StatusOK {
@@ -261,10 +262,10 @@ func TestASaveCanFollowASave(t *testing.T) {
 
 	// Arrange
 	handler, path := servedFile(t, fileAtStart, webserver.Info{})
-	first := putConfig(t, handler, jiraAt(t, "https://first.example.com"))
+	first := webtest.PutConfig(t, handler, jiraAt(t, "https://first.example.com"))
 
 	// Act
-	second := putConfigOver(t, handler, jiraAt(t, savedBaseURL), etagOf(first))
+	second := webtest.PutConfigOver(t, handler, jiraAt(t, savedBaseURL), etagOf(first))
 
 	// Assert
 	if first.Code != http.StatusOK || second.Code != http.StatusOK {
@@ -284,15 +285,16 @@ func TestSettingsWritesBackAFileDeletedOnDisk(t *testing.T) {
 	deleteFile(t, path)
 
 	// Act: read with the file gone
-	read := get(t, handler, "/api/config")
+	read := webtest.Get(t, handler, "/api/config")
 
 	// Assert: the configuration in effect stands
-	if out := decode[api.Config](t, read); out.Jira.BaseURL == nil || *out.Jira.BaseURL != "https://file.example.com" {
+	if out := webtest.Decode[api.Config](t, read); out.Jira.BaseURL == nil ||
+		*out.Jira.BaseURL != "https://file.example.com" {
 		t.Errorf("jira.base_url = %v, want the configuration in effect kept", out.Jira.BaseURL)
 	}
 
 	// Act: save over what was read
-	saved := putConfigOver(t, handler, jiraAt(t, savedBaseURL), etagOf(read))
+	saved := webtest.PutConfigOver(t, handler, jiraAt(t, savedBaseURL), etagOf(read))
 
 	// Assert: the file is written back
 	if saved.Code != http.StatusOK || !strings.Contains(onDisk(t, path), savedBaseURL) {
@@ -300,7 +302,7 @@ func TestSettingsWritesBackAFileDeletedOnDisk(t *testing.T) {
 	}
 
 	// Act: save again over what the save wrote, with no read between
-	again := putConfigOver(t, handler, jiraAt(t, "https://again.example.com"), etagOf(saved))
+	again := webtest.PutConfigOver(t, handler, jiraAt(t, "https://again.example.com"), etagOf(saved))
 
 	// Assert: the file written back is no longer gone
 	if again.Code != http.StatusOK || !strings.Contains(onDisk(t, path), "https://again.example.com") {
@@ -318,14 +320,14 @@ func TestASaveOverAnEarlierDeletionOfTheFileIsRefused(t *testing.T) {
 	// save keeps, is now the second file's.
 	handler, path := servedFile(t, fileAtStart, webserver.Info{})
 	deleteFile(t, path)
-	firstGone := get(t, handler, "/api/config")
-	rewrite(t, path, otherToken)
-	get(t, handler, "/api/config")
+	firstGone := webtest.Get(t, handler, "/api/config")
+	webtest.Rewrite(t, path, otherToken)
+	webtest.Get(t, handler, "/api/config")
 	deleteFile(t, path)
-	get(t, handler, "/api/config")
+	webtest.Get(t, handler, "/api/config")
 
 	// Act
-	recorder := putConfigOver(t, handler, firstGone.Body.String(), etagOf(firstGone))
+	recorder := webtest.PutConfigOver(t, handler, firstGone.Body.String(), etagOf(firstGone))
 
 	// Assert
 	refusedWith(t, recorder, http.StatusConflict, api.ProblemCodeConflict, path)
@@ -344,15 +346,15 @@ func servedLayers(t *testing.T, home, repo string) (http.Handler, config.Files) 
 	files := config.Files{
 		Home: filepath.Join(t.TempDir(), config.FileName), Repo: filepath.Join(t.TempDir(), config.FileName),
 	}
-	rewrite(t, files.Home, home)
-	rewrite(t, files.Repo, repo)
+	webtest.Rewrite(t, files.Home, home)
+	webtest.Rewrite(t, files.Repo, repo)
 
 	cfg, _, err := config.LoadLayersAt(files)
 	if err != nil {
 		t.Fatalf("loading the served files: %v", err)
 	}
 
-	return serveWith(t, webserver.Deps{}, cfg, webserver.Info{}), files
+	return webtest.ServeWith(t, webserver.Deps{}, cfg, webserver.Info{}), files
 }
 
 func TestASaveOverLayersNowGoneKeepsTheHomeFilesSettingsOutOfTheRepositoryFile(t *testing.T) {
@@ -376,15 +378,15 @@ func TestASaveOverLayersNowGoneKeepsTheHomeFilesSettingsOutOfTheRepositoryFile(t
 				deleteFile(t, path)
 			}
 
-			read := get(t, handler, "/api/config")
+			read := webtest.Get(t, handler, "/api/config")
 
 			// Act
-			recorder := putConfigOver(t, handler, read.Body.String(), etagOf(read))
+			recorder := webtest.PutConfigOver(t, handler, read.Body.String(), etagOf(read))
 
 			// Assert
 			refusedWith(t, recorder, http.StatusUnprocessableEntity, api.ProblemCodeUnprocessable, files.Repo)
 
-			if detail := decode[api.Problem](t, recorder).Detail; !strings.Contains(detail, "home directory's file") {
+			if detail := webtest.Decode[api.Problem](t, recorder).Detail; !strings.Contains(detail, "home directory's file") {
 				t.Errorf("detail = %q, want it to say the home directory's file keeps the setting", detail)
 			}
 
@@ -400,10 +402,10 @@ func TestDryRunRefusesASettingsSave(t *testing.T) {
 
 	// Arrange
 	handler, path := servedFile(t, fileAtStart, webserver.Info{DryRun: true})
-	read := get(t, handler, "/api/config")
+	read := webtest.Get(t, handler, "/api/config")
 
 	// Act
-	recorder := putConfigOver(t, handler, jiraAt(t, savedBaseURL), etagOf(read))
+	recorder := webtest.PutConfigOver(t, handler, jiraAt(t, savedBaseURL), etagOf(read))
 
 	// Assert
 	if recorder.Code != http.StatusForbidden || onDisk(t, path) != fileAtStart {

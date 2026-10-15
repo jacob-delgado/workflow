@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // fetchHost is where origin is, which a failed fetch's error names and no
@@ -69,10 +70,10 @@ func TestStartWorkFetchesBeforeItCreates(t *testing.T) {
 
 			// Arrange
 			calls := &startCalls{}
-			handler := serve(t, calls.wire(filledDeps(), nil), config.Default())
+			handler := webtest.Serve(t, calls.wire(webtest.FilledDeps(), nil), config.Default())
 
 			// Act
-			recorder := send(t, handler, http.MethodPost, path, `{"issue_key":"`+startIssue+`"}`)
+			recorder := webtest.Send(t, handler, http.MethodPost, path, `{"issue_key":"`+startIssue+`"}`)
 
 			// Assert
 			if recorder.Code != http.StatusOK {
@@ -95,10 +96,10 @@ func TestStartWorkThatCannotFetchCreatesNothingAndSaysSo(t *testing.T) {
 
 			// Arrange
 			calls := &startCalls{}
-			handler := serve(t, calls.wire(filledDeps(), errFetch), config.Default())
+			handler := webtest.Serve(t, calls.wire(webtest.FilledDeps(), errFetch), config.Default())
 
 			// Act
-			recorder := send(t, handler, http.MethodPost, path, `{"issue_key":"`+startIssue+`"}`)
+			recorder := webtest.Send(t, handler, http.MethodPost, path, `{"issue_key":"`+startIssue+`"}`)
 
 			// Assert
 			failure := assertProblem(t, recorder, http.StatusBadGateway, "the base remote could not be fetched")
@@ -127,10 +128,10 @@ func TestStartWorkFromWhatYouHaveFetchesNothing(t *testing.T) {
 
 			// Arrange
 			calls := &startCalls{}
-			handler := serve(t, calls.wire(filledDeps(), errFetch), config.Default())
+			handler := webtest.Serve(t, calls.wire(webtest.FilledDeps(), errFetch), config.Default())
 
 			// Act
-			recorder := send(t, handler, http.MethodPost, path, `{"issue_key":"`+startIssue+`","fetch":false}`)
+			recorder := webtest.Send(t, handler, http.MethodPost, path, `{"issue_key":"`+startIssue+`","fetch":false}`)
 
 			// Assert
 			if recorder.Code != http.StatusOK {
@@ -149,11 +150,11 @@ func TestStartWorkWithNoBaseHasNothingToFetch(t *testing.T) {
 
 	// Arrange
 	calls := &startCalls{}
-	deps := calls.wire(filledDeps(), errFetch)
-	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{Name: prBase}, nil }
+	deps := calls.wire(webtest.FilledDeps(), errFetch)
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{Name: webtest.PRBase}, nil }
 
 	// Act
-	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, "/api/branches",
+	recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPost, "/api/branches",
 		`{"issue_key":"`+startIssue+`"}`)
 
 	// Assert

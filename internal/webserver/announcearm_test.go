@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // draftNotArmed is what an opened draft's answer says of its announcement.
@@ -56,12 +57,12 @@ func webhookConfig() config.Config {
 func opened(t *testing.T, handler http.Handler) api.OpenedPullRequest {
 	t.Helper()
 
-	recorder := send(t, handler, http.MethodPost, "/api/pull-request", openRequestBody)
+	recorder := webtest.Send(t, handler, http.MethodPost, "/api/pull-request", openRequestBody)
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d (%s), want the pull request opened", recorder.Code, recorder.Body.String())
 	}
 
-	return decode[api.OpenedPullRequest](t, recorder)
+	return webtest.Decode[api.OpenedPullRequest](t, recorder)
 }
 
 // armedAndWaiting reports an announcement of #42 armed as it opened, waiting.
@@ -75,7 +76,7 @@ func TestOpeningAPullRequestArmsItsAnnouncement(t *testing.T) {
 
 	// Arrange
 	world := newForgeWorld()
-	handler := serve(t, openingDeps(world, false), webhookConfig())
+	handler := webtest.Serve(t, openingDeps(world, false), webhookConfig())
 	cancelHeld(t, handler)
 
 	// Act: open the pull request
@@ -108,7 +109,7 @@ func TestOpeningArmsNothingWithAutoAnnounceOff(t *testing.T) {
 	world := newForgeWorld()
 	cfg := webhookConfig()
 	cfg.Messaging.AutoAnnounce = false
-	handler := serve(t, openingDeps(world, false), cfg)
+	handler := webtest.Serve(t, openingDeps(world, false), cfg)
 
 	// Act
 	answer := opened(t, handler)
@@ -124,7 +125,7 @@ func TestOpeningArmsNothingWithoutMessaging(t *testing.T) {
 
 	// Arrange
 	world := newForgeWorld()
-	handler := serve(t, openingDeps(world, false), config.Default())
+	handler := webtest.Serve(t, openingDeps(world, false), config.Default())
 
 	// Act
 	answer := opened(t, handler)
@@ -140,7 +141,7 @@ func TestOpeningADraftArmsNothing(t *testing.T) {
 
 	// Arrange
 	world := newForgeWorld()
-	handler := serve(t, openingDeps(world, true), webhookConfig())
+	handler := webtest.Serve(t, openingDeps(world, true), webhookConfig())
 
 	// Act
 	answer := opened(t, handler)
@@ -157,11 +158,11 @@ func TestStopWaitingDropsAnArmedAnnouncement(t *testing.T) {
 
 	// Arrange
 	world := newForgeWorld()
-	handler := serve(t, openingDeps(world, false), webhookConfig())
+	handler := webtest.Serve(t, openingDeps(world, false), webhookConfig())
 	opened(t, handler)
 
 	// Act
-	recorder := send(t, handler, http.MethodDelete, queuedPath, "")
+	recorder := webtest.Send(t, handler, http.MethodDelete, queuedPath, "")
 
 	// Assert
 	world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
@@ -178,7 +179,7 @@ func TestARefusedPostNowKeepsTheArmedAnnouncement(t *testing.T) {
 	// Arrange
 	// The armed announcement waits; a check fails, and Announce now is asked.
 	world := newForgeWorld()
-	handler := serve(t, openingDeps(world, false), webhookConfig())
+	handler := webtest.Serve(t, openingDeps(world, false), webhookConfig())
 	cancelHeld(t, handler)
 	opened(t, handler)
 	world.turn(func(w *forgeWorld) { w.ci = forge.CIFailed })
@@ -214,7 +215,7 @@ func TestAnArmedAnnouncementTagsAsAnnounceYesDoes(t *testing.T) {
 		tagged       bool
 	}{
 		"a workspace Slack names":         {workspaceErr: nil, tagged: true},
-		"a workspace Slack will not name": {workspaceErr: errSeam, tagged: false},
+		"a workspace Slack will not name": {workspaceErr: webtest.ErrSeam, tagged: false},
 	}
 
 	for name, tt := range cases {
@@ -227,7 +228,7 @@ func TestAnArmedAnnouncementTagsAsAnnounceYesDoes(t *testing.T) {
 			kept := newFakeKept()
 			kept.workspaceErr = tt.workspaceErr
 			kept.wire(&deps)
-			handler := serve(t, deps, slackUserConfig())
+			handler := webtest.Serve(t, deps, slackUserConfig())
 			opened(t, handler)
 
 			// Act
@@ -253,7 +254,7 @@ func TestOpeningWhileAHeldAnnouncementIsPostedArmsNothing(t *testing.T) {
 	deps := openingDeps(world, false)
 	world.gone = false
 	deps.Messaging.Post = held.post
-	handler := serve(t, deps, webhookConfig())
+	handler := webtest.Serve(t, deps, webhookConfig())
 	announceWhenGreen(t, handler, nil)
 	world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
 
@@ -287,7 +288,7 @@ func TestAnArmedAnnouncementGoesOnceAFixLandsOnANewHead(t *testing.T) {
 	// A check failed on the commit it opened at, and the fix was pushed as a
 	// new commit whose run passes.
 	world := newForgeWorld()
-	handler := serve(t, fixedOnANewHead(openingDeps(world, false)), webhookConfig())
+	handler := webtest.Serve(t, fixedOnANewHead(openingDeps(world, false)), webhookConfig())
 	cancelHeld(t, handler)
 	opened(t, handler)
 	world.turn(func(w *forgeWorld) { w.head = fixedHead })
@@ -326,10 +327,10 @@ func TestAnArmedAnnouncementTagsTheOwnersAgainstTheBaseItOpenedInto(t *testing.T
 
 		return pull, err
 	}
-	handler := serve(t, deps, slackUserConfig())
-	body := `{"title":"` + prTitle + `","base":"` + release + `","body":"why"}`
+	handler := webtest.Serve(t, deps, slackUserConfig())
+	body := `{"title":"` + webtest.PRTitle + `","base":"` + release + `","body":"why"}`
 
-	if recorder := send(t, handler, http.MethodPost, "/api/pull-request", body); recorder.Code != http.StatusOK {
+	if recorder := webtest.Send(t, handler, http.MethodPost, "/api/pull-request", body); recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d (%s), want the pull request opened", recorder.Code, recorder.Body.String())
 	}
 

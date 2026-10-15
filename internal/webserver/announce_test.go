@@ -19,6 +19,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // webhookSecret is the secret path of a Slack webhook, embedded in a post error
@@ -35,14 +36,14 @@ func postAnnounce(t *testing.T, handler http.Handler, fields map[string]string) 
 		t.Fatalf("encoding the announce request: %v", err)
 	}
 
-	return send(t, handler, http.MethodPost, "/api/announce", string(body))
+	return webtest.Send(t, handler, http.MethodPost, "/api/announce", string(body))
 }
 
 // doAnnounce posts an announcement to channel against a server over deps and cfg.
 func doAnnounce(t *testing.T, deps webserver.Deps, cfg config.Config, channel string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	return postAnnounce(t, serve(t, deps, cfg), map[string]string{channelField: channel})
+	return postAnnounce(t, webtest.Serve(t, deps, cfg), map[string]string{channelField: channel})
 }
 
 // announcePreviewed posts the announcement to channel against handler, carrying
@@ -58,12 +59,12 @@ func announcePreviewed(t *testing.T, handler http.Handler, channel, previewed st
 func previewAnnouncement(t *testing.T, handler http.Handler) string {
 	t.Helper()
 
-	recorder := get(t, handler, "/api/announcement")
+	recorder := webtest.Get(t, handler, "/api/announcement")
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("preview status = %d, want 200", recorder.Code)
 	}
 
-	return decode[api.Announcement](t, recorder).Text
+	return webtest.Decode[api.Announcement](t, recorder).Text
 }
 
 func TestAnnounceRefusesAnAnnouncementThatChangedSinceItsPreview(t *testing.T) {
@@ -76,7 +77,7 @@ func TestAnnounceRefusesAnAnnouncementThatChangedSinceItsPreview(t *testing.T) {
 	state := forge.StateOpen
 	posts := 0
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	findPull := deps.Forge.FindPullRequest
 	deps.Forge.FindPullRequest = func(ctx context.Context, branch string) (forge.PullRequest, bool, error) {
 		pull, found, err := findPull(ctx, branch)
@@ -90,7 +91,7 @@ func TestAnnounceRefusesAnAnnouncementThatChangedSinceItsPreview(t *testing.T) {
 		return nil
 	}
 
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 	previewed := previewAnnouncement(t, handler)
 	state = forge.StateMerged
 
@@ -98,7 +99,7 @@ func TestAnnounceRefusesAnAnnouncementThatChangedSinceItsPreview(t *testing.T) {
 	recorder := announcePreviewed(t, handler, "#dev", previewed)
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusConflict || !strings.Contains(failure.Detail, "changed since it was previewed") {
 		t.Errorf("status/detail = %d/%q, want 409 saying it changed since it was previewed", recorder.Code, failure.Detail)
 	}
@@ -114,14 +115,14 @@ func TestAnnouncePostsTheTextItsPreviewShowed(t *testing.T) {
 	// Arrange
 	var posted string
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Messaging.Post = func(_ context.Context, _, text string) error {
 		posted = text
 
 		return nil
 	}
 
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 	previewed := previewAnnouncement(t, handler)
 
 	// Act
@@ -146,14 +147,14 @@ func TestAnnouncePostsThePreviewWhenTheAuthorReadFailsAfterIt(t *testing.T) {
 	var posted string
 
 	asked := 0
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Forge.Author = func(context.Context) (string, error) {
 		asked++
 		if asked > 1 {
-			return "", errSeam
+			return "", webtest.ErrSeam
 		}
 
-		return testAuthor, nil
+		return webtest.TestAuthor, nil
 	}
 	deps.Messaging.Post = func(_ context.Context, _, text string) error {
 		posted = text
@@ -161,7 +162,7 @@ func TestAnnouncePostsThePreviewWhenTheAuthorReadFailsAfterIt(t *testing.T) {
 		return nil
 	}
 
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 	previewed := previewAnnouncement(t, handler)
 
 	// Act
@@ -172,8 +173,8 @@ func TestAnnouncePostsThePreviewWhenTheAuthorReadFailsAfterIt(t *testing.T) {
 		t.Fatalf("status = %d, want 200 for the announcement its preview showed", recorder.Code)
 	}
 
-	if posted != previewed || !strings.Contains(posted, testAuthor) {
-		t.Errorf("posted %q, want the previewed %q, naming %s", posted, previewed, testAuthor)
+	if posted != previewed || !strings.Contains(posted, webtest.TestAuthor) {
+		t.Errorf("posted %q, want the previewed %q, naming %s", posted, previewed, webtest.TestAuthor)
 	}
 }
 
@@ -182,24 +183,24 @@ func TestGetAnnouncementComposesThePreview(t *testing.T) {
 
 	// Arrange
 	cfg := config.Default()
-	cfg.Messaging.Channel = testChannel
+	cfg.Messaging.Channel = webtest.TestChannel
 
 	// Act
-	// filledDeps has a pull request, an author, and the branch's issue.
-	recorder := get(t, serve(t, filledDeps(), cfg), "/api/announcement")
+	// webtest.FilledDeps has a pull request, an author, and the branch's issue.
+	recorder := webtest.Get(t, webtest.Serve(t, webtest.FilledDeps(), cfg), "/api/announcement")
 
 	// Assert
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", recorder.Code)
 	}
 
-	preview := decode[api.Announcement](t, recorder)
+	preview := webtest.Decode[api.Announcement](t, recorder)
 	if !strings.Contains(preview.Text, "redact") || !strings.Contains(preview.Text, "PROJ-412") {
 		t.Errorf("preview = %q, want the pull request title and the issue key", preview.Text)
 	}
 
-	if preview.Channel != testChannel {
-		t.Errorf("preview channel = %q, want the configured %s", preview.Channel, testChannel)
+	if preview.Channel != webtest.TestChannel {
+		t.Errorf("preview channel = %q, want the configured %s", preview.Channel, webtest.TestChannel)
 	}
 }
 
@@ -207,15 +208,15 @@ func TestGetAnnouncementUsesTheForgeNounAndIssueLink(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Jira.BrowseURL = func(key jira.Key) string { return "https://jira.example.com/browse/" + string(key) }
-	info := webserver.Info{Version: testVersion, ForgeKind: forge.KindGitLab}
+	info := webserver.Info{Version: webtest.TestVersion, ForgeKind: forge.KindGitLab}
 
 	// Act
-	recorder := get(t, serveWith(t, deps, config.Default(), info), "/api/announcement")
+	recorder := webtest.Get(t, webtest.ServeWith(t, deps, config.Default(), info), "/api/announcement")
 
 	// Assert
-	text := decode[api.Announcement](t, recorder).Text
+	text := webtest.Decode[api.Announcement](t, recorder).Text
 	if !strings.Contains(text, "merge request") || !strings.Contains(text, "browse/PROJ-412") {
 		t.Errorf("preview = %q, want the merge-request noun and a link to the issue", text)
 	}
@@ -225,13 +226,13 @@ func TestGetAnnouncementUsesThePullRequestNounForGitHub(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	info := webserver.Info{Version: testVersion, ForgeKind: forge.KindGitHub}
+	info := webserver.Info{Version: webtest.TestVersion, ForgeKind: forge.KindGitHub}
 
 	// Act
-	recorder := get(t, serveWith(t, filledDeps(), config.Default(), info), "/api/announcement")
+	recorder := webtest.Get(t, webtest.ServeWith(t, webtest.FilledDeps(), config.Default(), info), "/api/announcement")
 
 	// Assert
-	text := decode[api.Announcement](t, recorder).Text
+	text := webtest.Decode[api.Announcement](t, recorder).Text
 	if !strings.Contains(text, "pull request") || strings.Contains(text, "merge request") {
 		t.Errorf("preview = %q, want the pull-request noun for a GitHub remote", text)
 	}
@@ -242,16 +243,16 @@ func TestGetAnnouncementMarksAMergedPull(t *testing.T) {
 
 	// Arrange
 	// The branch's pull request has merged, so the announcement marks the merge.
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{Number: 42, URL: "https://x/42", Title: "redact", State: forge.StateMerged}, true, nil
 	}
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/announcement")
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/announcement")
 
 	// Assert
-	if text := decode[api.Announcement](t, recorder).Text; !strings.Contains(text, "merged a pull request") {
+	if text := webtest.Decode[api.Announcement](t, recorder).Text; !strings.Contains(text, "merged a pull request") {
 		t.Errorf("preview = %q, want a merge announcement", text)
 	}
 }
@@ -264,7 +265,7 @@ func TestGetAnnouncementComposesTheSameWhateverCISays(t *testing.T) {
 			return forge.CI{State: forge.CIFailed}, nil
 		},
 		"CI cannot be read": func(context.Context, forge.PullRequest, string) (forge.CI, error) {
-			return forge.CI{}, errSeam
+			return forge.CI{}, webtest.ErrSeam
 		},
 	}
 
@@ -273,14 +274,14 @@ func TestGetAnnouncementComposesTheSameWhateverCISays(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			deps.Forge.CheckStatus = check
 
 			// Act
-			recorder := get(t, serve(t, deps, config.Default()), "/api/announcement")
+			recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/announcement")
 
 			// Assert
-			if text := decode[api.Announcement](t, recorder).Text; !strings.Contains(text, "opened a pull request") {
+			if text := webtest.Decode[api.Announcement](t, recorder).Text; !strings.Contains(text, "opened a pull request") {
 				t.Errorf("preview = %q, want the ready announcement whatever its CI says", text)
 			}
 		})
@@ -296,7 +297,7 @@ func TestAnnouncePostsToTheChosenChannel(t *testing.T) {
 		posted    string
 	)
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Messaging.Post = func(_ context.Context, channel, text string) error {
 		toChannel = channel
 		posted = text
@@ -320,7 +321,7 @@ func TestAnnouncePostsToTheChosenChannel(t *testing.T) {
 		t.Errorf("posted %q, want the announcement text", posted)
 	}
 
-	if channel := decode[api.Announcement](t, recorder).Channel; channel != "#releases" {
+	if channel := webtest.Decode[api.Announcement](t, recorder).Channel; channel != "#releases" {
 		t.Errorf("response channel = %q, want the chosen #releases", channel)
 	}
 }
@@ -331,7 +332,7 @@ func TestAnnounceFallsBackToTheConfiguredChannel(t *testing.T) {
 	// Arrange
 	var toChannel string
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Messaging.Post = func(_ context.Context, channel, _ string) error {
 		toChannel = channel
 
@@ -339,7 +340,7 @@ func TestAnnounceFallsBackToTheConfiguredChannel(t *testing.T) {
 	}
 
 	cfg := config.Default()
-	cfg.Messaging.Channel = testChannel
+	cfg.Messaging.Channel = webtest.TestChannel
 
 	// Act
 	// An empty channel in the request falls back to the configured one.
@@ -350,8 +351,8 @@ func TestAnnounceFallsBackToTheConfiguredChannel(t *testing.T) {
 		t.Fatalf("status = %d, want 200", recorder.Code)
 	}
 
-	if toChannel != testChannel {
-		t.Errorf("posted to %q, want the configured %s", toChannel, testChannel)
+	if toChannel != webtest.TestChannel {
+		t.Errorf("posted to %q, want the configured %s", toChannel, webtest.TestChannel)
 	}
 }
 
@@ -380,11 +381,11 @@ func TestAnnounceNeverForwardsTheWebhook(t *testing.T) {
 		},
 		"an undocumented answer": {messaging.ErrUnexpectedStatus, unreachable, "answered with a status it does not document"},
 		"no answer":              {messaging.ErrUnreachable, unreachable, "check the network, then try again"},
-		"asked to wait":          {httpx.ErrRateLimited, http.StatusServiceUnavailable, waitAndTryAgain},
+		"asked to wait":          {httpx.ErrRateLimited, http.StatusServiceUnavailable, webtest.WaitAndTryAgain},
 		"a redirect refused":     {httpx.ErrRedirected, unreachable, "check its configured address"},
 		"an answer too large":    {httpx.ErrAnswerTooLarge, unreachable, "more than workflow reads"},
 		"an answer too slow":     {httpx.ErrTimedOut, unreachable, "took too long to answer"},
-		"a failure of no kind":   {errSeam, http.StatusInternalServerError, tryAgain},
+		"a failure of no kind":   {webtest.ErrSeam, http.StatusInternalServerError, webtest.TryAgain},
 	}
 
 	for name, tt := range cases {
@@ -392,7 +393,7 @@ func TestAnnounceNeverForwardsTheWebhook(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			deps.Messaging.Post = func(context.Context, string, string) error {
 				return fmt.Errorf("posting to https://hooks.slack.com/services/%s: %w", webhookSecret, tt.cause)
 			}
@@ -401,7 +402,7 @@ func TestAnnounceNeverForwardsTheWebhook(t *testing.T) {
 			recorder := doAnnounce(t, deps, config.Default(), "#dev")
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != tt.wantStatus || !strings.Contains(failure.Detail, tt.want) {
 				t.Errorf("status/detail = %d/%q, want %d saying %q", recorder.Code, failure.Detail, tt.wantStatus, tt.want)
 			}
@@ -418,8 +419,8 @@ func TestAnnounceIsUnavailableWithoutASlackSeam(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// filledDeps leaves Post nil.
-	deps := filledDeps()
+	// webtest.FilledDeps leaves Post nil.
+	deps := webtest.FilledDeps()
 
 	// Act
 	recorder := doAnnounce(t, deps, config.Default(), "#dev")
@@ -434,13 +435,13 @@ func TestGetAnnouncementIsAConflictWithoutAPullRequest(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{}, false, nil
 	}
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/announcement")
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/announcement")
 
 	// Assert
 	if recorder.Code != http.StatusConflict {
@@ -461,7 +462,7 @@ func TestAnnouncingIsAConflictWithoutAPullRequest(t *testing.T) {
 
 			return deps
 		},
-		noForgeSeam: func(deps webserver.Deps) webserver.Deps {
+		webtest.NoForgeSeam: func(deps webserver.Deps) webserver.Deps {
 			deps.Forge.FindPullRequest = nil
 
 			return deps
@@ -473,7 +474,7 @@ func TestAnnouncingIsAConflictWithoutAPullRequest(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			deps := mutate(filledDeps())
+			deps := mutate(webtest.FilledDeps())
 			deps.Messaging.Post = func(context.Context, string, string) error { return nil }
 
 			// Act

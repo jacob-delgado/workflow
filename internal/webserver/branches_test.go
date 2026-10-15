@@ -16,22 +16,24 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 func TestSnapshotListsTaskBranchesMarkingTheCheckedOutOne(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// filledDeps' Branch is on fix/PROJ-412, so that is the one in flight on HEAD.
-	deps := filledDeps()
+	// webtest.FilledDeps' Branch is on fix/PROJ-412, so that is the one in
+	// flight on HEAD.
+	deps := webtest.FilledDeps()
 	deps.Git.Branches = func(context.Context) ([]string, error) {
-		return []string{testBranchName, "feat/PROJ-500-metrics", "main"}, nil
+		return []string{webtest.TestBranchName, "feat/PROJ-500-metrics", "main"}, nil
 	}
 	cfg := config.Default()
-	cfg.Jira.Project = testProject
+	cfg.Jira.Project = webtest.TestProject
 
 	// Act
-	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, cfg), "/api/events").Body.String())
+	snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, webtest.Serve(t, deps, cfg), "/api/events").Body.String())
 
 	// Assert
 	byKey := map[string]api.TaskBranch{}
@@ -43,7 +45,7 @@ func TestSnapshotListsTaskBranchesMarkingTheCheckedOutOne(t *testing.T) {
 		t.Fatalf("branches = %+v, want two issue branches (main excluded)", snap.Branches)
 	}
 
-	if current := byKey["PROJ-412"]; current.Name != testBranchName || !current.Current {
+	if current := byKey["PROJ-412"]; current.Name != webtest.TestBranchName || !current.Current {
 		t.Errorf("PROJ-412 branch = %+v, want name fix/PROJ-412 marked current", current)
 	}
 
@@ -56,11 +58,12 @@ func TestSnapshotBranchesAreEmptyWhenListingFails(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
-	deps.Git.Branches = func(context.Context) ([]string, error) { return nil, errSeam }
+	deps := webtest.FilledDeps()
+	deps.Git.Branches = func(context.Context) ([]string, error) { return nil, webtest.ErrSeam }
 
 	// Act
-	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
+	snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, webtest.Serve(t, deps, config.Default()),
+		"/api/events").Body.String())
 
 	// Assert
 	if len(snap.Branches) != 0 {
@@ -74,7 +77,7 @@ func TestNoTaskBranchIsCurrentWhenTheCheckedOutBranchIsUnknown(t *testing.T) {
 	// The checked-out branch is unknown either because the read failed or because
 	// there is no branch seam; neither must mark a listed branch as current.
 	cases := map[string]func(context.Context) (gitrepo.Branch, error){
-		"the branch read fails":   func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam },
+		"the branch read fails":   func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, webtest.ErrSeam },
 		"there is no branch seam": nil,
 	}
 
@@ -83,14 +86,14 @@ func TestNoTaskBranchIsCurrentWhenTheCheckedOutBranchIsUnknown(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			deps.Git.Branch = branch
-			deps.Git.Branches = func(context.Context) ([]string, error) { return []string{testBranchName}, nil }
+			deps.Git.Branches = func(context.Context) ([]string, error) { return []string{webtest.TestBranchName}, nil }
 			cfg := config.Default()
-			cfg.Jira.Project = testProject
+			cfg.Jira.Project = webtest.TestProject
 
 			// Act
-			snap := firstSnapshot(t, streamOnce(t, serve(t, deps, cfg), "/api/events").Body.String())
+			snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, webtest.Serve(t, deps, cfg), "/api/events").Body.String())
 
 			// Assert
 			if len(snap.Branches) != 1 {
@@ -108,11 +111,11 @@ func TestSnapshotBranchesAreAnEmptyArrayWithoutAGitSeam(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Branches = nil
 
 	// Act
-	body := streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String()
+	body := webtest.StreamOnce(t, webtest.Serve(t, deps, config.Default()), "/api/events").Body.String()
 
 	// Assert
 	// The wire value is an empty array, never null, so the typed client and the
@@ -137,11 +140,11 @@ const (
 	listedEveryIssue = "branches = %+v, want every branch naming an issue, %v"
 )
 
-// scopedDeps is filledDeps with the scoping tests' branches, local and remote,
-// and a lenient search that answers the keys in yours as assigned, or fails
-// with fail, counting each ask.
+// scopedDeps is webtest.FilledDeps with the scoping tests' branches, local and
+// remote, and a lenient search that answers the keys in yours as assigned, or
+// fails with fail, counting each ask.
 func scopedDeps(yours []jira.Key, fail error, asked *atomic.Int32) webserver.Deps {
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Branches = func(context.Context) ([]string, error) { return []string{yourLocalBranch, otherLocalBranch}, nil }
 	deps.Git.RemoteBranches = func(context.Context) ([]string, error) {
 		return []string{yourLocalBranch, yourRemoteBranch}, nil
@@ -165,7 +168,7 @@ func scopedDeps(yours []jira.Key, fail error, asked *atomic.Int32) webserver.Dep
 // scopedConfig is the default configuration on the PROJ project.
 func scopedConfig() config.Config {
 	cfg := config.Default()
-	cfg.Jira.Project = testProject
+	cfg.Jira.Project = webtest.TestProject
 
 	return cfg
 }
@@ -194,11 +197,11 @@ func TestSnapshotBranchesAreOnlyThoseForYourIssues(t *testing.T) {
 	deps := scopedDeps([]jira.Key{yourIssue, "PROJ-3"}, nil, &asked)
 
 	// Act
-	body := streamOnce(t, serve(t, deps, scopedConfig()), "/api/events").Body.String()
+	body := webtest.StreamOnce(t, webtest.Serve(t, deps, scopedConfig()), "/api/events").Body.String()
 
 	// Assert
 	want := []string{yourLocalBranch, yourRemoteBranch + " (remote)"}
-	if got := listed(firstSnapshot(t, body).Branches); !slices.Equal(got, want) {
+	if got := listed(webtest.FirstSnapshot(t, body).Branches); !slices.Equal(got, want) {
 		t.Errorf(listedTooMany, got, want)
 	}
 
@@ -219,10 +222,10 @@ func TestSnapshotBranchesKeepTheCheckedOutBranchWhoseIssueIsNotYours(t *testing.
 	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{Name: otherLocalBranch}, nil }
 
 	// Act
-	body := streamOnce(t, serve(t, deps, scopedConfig()), "/api/events").Body.String()
+	body := webtest.StreamOnce(t, webtest.Serve(t, deps, scopedConfig()), "/api/events").Body.String()
 
 	// Assert
-	branches := firstSnapshot(t, body).Branches
+	branches := webtest.FirstSnapshot(t, body).Branches
 
 	checkedOut := slices.IndexFunc(branches, func(branch api.TaskBranch) bool { return branch.Name == otherLocalBranch })
 	if checkedOut < 0 || !branches[checkedOut].Current {
@@ -236,11 +239,11 @@ func TestSnapshotBranchesAskTheTrackerOncePerKeySet(t *testing.T) {
 	// Arrange
 	var asked atomic.Int32
 
-	handler := serve(t, scopedDeps([]jira.Key{yourIssue}, nil, &asked), scopedConfig())
-	streamOnce(t, handler, "/api/events")
+	handler := webtest.Serve(t, scopedDeps([]jira.Key{yourIssue}, nil, &asked), scopedConfig())
+	webtest.StreamOnce(t, handler, "/api/events")
 
 	// Act
-	snap := firstSnapshot(t, streamOnce(t, handler, "/api/events").Body.String())
+	snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
 
 	// Assert
 	if asked.Load() != 1 {
@@ -285,11 +288,11 @@ func TestSnapshotBranchesAskTheTrackerAgain(t *testing.T) {
 			}
 
 			// Act
-			pushed := snapshots(t, streamPaced(t, deps, scopedConfig(), tt.between))
+			pushed := webtest.Snapshots(t, webtest.StreamPaced(t, deps, scopedConfig(), tt.between))
 
 			// Assert
-			if asked.Load() != streamedFrames {
-				t.Errorf("asked the tracker %d times over %d frames, want %d", asked.Load(), len(pushed), streamedFrames)
+			if asked.Load() != webtest.StreamedFrames {
+				t.Errorf("asked the tracker %d times over %d frames, want %d", asked.Load(), len(pushed), webtest.StreamedFrames)
 			}
 		})
 	}
@@ -315,7 +318,7 @@ func TestSnapshotBranchesFollowTheTrackersLatestAnswer(t *testing.T) {
 	}
 
 	// Act
-	pushed := snapshots(t, streamPaced(t, deps, scopedConfig(), 0))
+	pushed := webtest.Snapshots(t, webtest.StreamPaced(t, deps, scopedConfig(), 0))
 
 	// Assert
 	want := []string{yourLocalBranch}
@@ -333,7 +336,8 @@ func TestSnapshotBranchesListEveryIssueBranchWhenTheTrackerCannotBeAsked(t *test
 	deps := scopedDeps(nil, jira.ErrUnreachable, &asked)
 
 	// Act
-	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, scopedConfig()), "/api/events").Body.String())
+	snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, webtest.Serve(t, deps, scopedConfig()),
+		"/api/events").Body.String())
 
 	// Assert
 	want := []string{yourLocalBranch, otherLocalBranch, yourRemoteBranch + " (remote)"}
@@ -351,7 +355,7 @@ func TestSnapshotBranchesAskATrackerThatFailedOnceAMinute(t *testing.T) {
 	deps := scopedDeps(nil, jira.ErrUnreachable, &asked)
 
 	// Act
-	pushed := snapshots(t, streamPaced(t, deps, scopedConfig(), 0))
+	pushed := webtest.Snapshots(t, webtest.StreamPaced(t, deps, scopedConfig(), 0))
 
 	// Assert
 	if asked.Load() != 1 {
@@ -396,7 +400,7 @@ func TestSnapshotBranchesCountTheIssueOfANewBranchAsYoursWhileTheTrackerIsDown(t
 	}
 
 	// Act
-	pushed := snapshots(t, streamPaced(t, deps, scopedConfig(), 0))
+	pushed := webtest.Snapshots(t, webtest.StreamPaced(t, deps, scopedConfig(), 0))
 
 	// Assert
 	if asked.Load() < 2 {
@@ -428,7 +432,7 @@ func TestSnapshotBranchesKeepTheLastAnswerWhenALaterAskFails(t *testing.T) {
 	}
 
 	// Act
-	pushed := snapshots(t, streamPaced(t, deps, scopedConfig(), minuteAndABit))
+	pushed := webtest.Snapshots(t, webtest.StreamPaced(t, deps, scopedConfig(), minuteAndABit))
 
 	// Assert
 	if asked.Load() < 2 {
@@ -444,12 +448,13 @@ func TestSnapshotBranchesAreTheLocalOnesWhenTheRemoteCannotBeRead(t *testing.T) 
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Branches = func(context.Context) ([]string, error) { return []string{yourLocalBranch}, nil }
-	deps.Git.RemoteBranches = func(context.Context) ([]string, error) { return nil, errSeam }
+	deps.Git.RemoteBranches = func(context.Context) ([]string, error) { return nil, webtest.ErrSeam }
 
 	// Act
-	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, scopedConfig()), "/api/events").Body.String())
+	snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, webtest.Serve(t, deps, scopedConfig()),
+		"/api/events").Body.String())
 
 	// Assert
 	if got := listed(snap.Branches); !slices.Equal(got, []string{yourLocalBranch}) {

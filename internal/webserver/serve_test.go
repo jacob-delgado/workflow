@@ -14,6 +14,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 func TestServeStopsWhenTheContextIsCanceled(t *testing.T) {
@@ -21,7 +22,7 @@ func TestServeStopsWhenTheContextIsCanceled(t *testing.T) {
 
 	// Arrange
 	ctx, cancel := context.WithCancel(context.Background())
-	handler := serve(t, webserver.Deps{}, config.Default())
+	handler := webtest.Serve(t, webserver.Deps{}, config.Default())
 	done := make(chan error, 1)
 
 	listener := listen(t)
@@ -124,7 +125,7 @@ func TestServeEndsTheContextOfARequestInFlightWhenItStops(t *testing.T) {
 	// Assert
 	select {
 	case <-ended:
-	case <-time.After(endsWithin):
+	case <-time.After(webtest.EndsWithin):
 		t.Fatal("the request in flight's context did not end when the server stopped")
 	}
 }
@@ -154,7 +155,7 @@ func TestServeReportsAListenerThatCannotAccept(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	handler := serve(t, webserver.Deps{}, config.Default())
+	handler := webtest.Serve(t, webserver.Deps{}, config.Default())
 	listener := listen(t)
 	_ = listener.Close()
 
@@ -186,7 +187,7 @@ func TestABadQueryParameterIsRejected(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	recorder := get(t, serve(t, filledDeps(), config.Default()), "/api/issues?start_at=notanumber")
+	recorder := webtest.Get(t, webtest.Serve(t, webtest.FilledDeps(), config.Default()), "/api/issues?start_at=notanumber")
 
 	// Assert
 	if recorder.Code != http.StatusBadRequest {
@@ -198,7 +199,8 @@ func TestAMalformedBodyIsRejected(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	recorder := send(t, serve(t, webserver.Deps{}, config.Default()), http.MethodPut, "/api/config", "{not json")
+	recorder := webtest.Send(t, webtest.Serve(t, webserver.Deps{}, config.Default()), http.MethodPut, "/api/config",
+		"{not json")
 
 	// Assert
 	if recorder.Code != http.StatusBadRequest {
@@ -210,14 +212,14 @@ func TestAnUnknownEndpointIsNotFound(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	recorder := get(t, serve(t, filledDeps(), config.Default()), "/api/nonexistent")
+	recorder := webtest.Get(t, webtest.Serve(t, webtest.FilledDeps(), config.Default()), "/api/nonexistent")
 
 	// Assert
 	if recorder.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404 for an unknown endpoint", recorder.Code)
 	}
 
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if failure.Code != api.ProblemCodeNotFound {
 		t.Errorf("code = %q, want not_found", failure.Code)
 	}
@@ -241,7 +243,7 @@ func TestAWrongMethodOnAKnownPathIsNotAllowed(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			recorder := send(t, serve(t, filledDeps(), config.Default()), tt.method, tt.target, "")
+			recorder := webtest.Send(t, webtest.Serve(t, webtest.FilledDeps(), config.Default()), tt.method, tt.target, "")
 
 			// Assert
 			if recorder.Code != http.StatusMethodNotAllowed {
@@ -253,7 +255,7 @@ func TestAWrongMethodOnAKnownPathIsNotAllowed(t *testing.T) {
 				t.Errorf("Allow = %q, want %q", allow, tt.wantAllow)
 			}
 
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if failure.Code != api.ProblemCodeMethodNotAllowed || failure.Status != http.StatusMethodNotAllowed {
 				t.Errorf("problem = %s (%d), want method_not_allowed (405)", failure.Code, failure.Status)
 			}

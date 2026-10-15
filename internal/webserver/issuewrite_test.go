@@ -17,6 +17,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // Fixtures the issue-write tests share.
@@ -28,8 +29,8 @@ const (
 	// forgeHost is the forge's address, which a forge error can carry and no
 	// answer may repeat either.
 	forgeHost = "git.internal.example"
-	linkPath  = "/api/issues/" + testKey + "/link"
-	movePath  = "/api/issues/" + testKey + "/transition"
+	linkPath  = "/api/issues/" + webtest.TestKey + "/link"
+	movePath  = "/api/issues/" + webtest.TestKey + "/transition"
 )
 
 // linkCall is what a link seam was asked to record.
@@ -39,11 +40,12 @@ type linkCall struct {
 	title    string
 }
 
-// writableDeps is filledDeps with the tracker's writes wired: the checked-out
-// branch names testKey and has the pull request 42 open, and Jira offers a
-// fields-less move to the review status. Each write records what it was asked.
+// writableDeps is webtest.FilledDeps with the tracker's writes wired: the
+// checked-out branch names webtest.TestKey and has the pull request 42 open,
+// and Jira offers a fields-less move to the review status. Each write records
+// what it was asked.
 func writableDeps(links *[]linkCall, moves *[]jira.Transition) webserver.Deps {
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Jira.LinkPullRequest = func(_ context.Context, issueKey jira.Key, pullURL, title string) error {
 		*links = append(*links, linkCall{issueKey: issueKey, url: pullURL, title: title})
 
@@ -76,7 +78,7 @@ func reviewConfig() config.Config {
 func post(t *testing.T, deps webserver.Deps, cfg config.Config, path string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	return send(t, serve(t, deps, cfg), http.MethodPost, path, "")
+	return webtest.Send(t, webtest.Serve(t, deps, cfg), http.MethodPost, path, "")
 }
 
 func TestLinkRecordsThePullOnTheIssue(t *testing.T) {
@@ -86,7 +88,7 @@ func TestLinkRecordsThePullOnTheIssue(t *testing.T) {
 	var links []linkCall
 
 	deps := writableDeps(&links, new([]jira.Transition))
-	openPull, _, _ := deps.Forge.FindPullRequest(t.Context(), testBranchName)
+	openPull, _, _ := deps.Forge.FindPullRequest(t.Context(), webtest.TestBranchName)
 
 	// Act
 	recorder := post(t, deps, config.Default(), linkPath)
@@ -96,12 +98,12 @@ func TestLinkRecordsThePullOnTheIssue(t *testing.T) {
 		t.Fatalf("status = %d (%s), want 200", recorder.Code, recorder.Body.String())
 	}
 
-	want := linkCall{issueKey: testKey, url: openPull.URL, title: openPull.Title}
+	want := linkCall{issueKey: webtest.TestKey, url: openPull.URL, title: openPull.Title}
 	if len(links) != 1 || links[0] != want {
-		t.Errorf("links = %+v, want the branch's pull request 42 recorded on %s", links, testKey)
+		t.Errorf("links = %+v, want the branch's pull request 42 recorded on %s", links, webtest.TestKey)
 	}
 
-	if linked := decode[api.PullRequest](t, recorder); linked.Number != 42 {
+	if linked := webtest.Decode[api.PullRequest](t, recorder); linked.Number != 42 {
 		t.Errorf("answer = %+v, want the linked pull request 42", linked)
 	}
 }
@@ -112,8 +114,8 @@ func TestLinkRefusesAKeyTheBranchDoesNotName(t *testing.T) {
 	cases := map[string]struct {
 		branch, key string
 	}{
-		"another issue":           {branch: testBranchName, key: "PROJ-9"},
-		"a branch naming nothing": {branch: "fix/typo", key: testKey},
+		"another issue":           {branch: webtest.TestBranchName, key: "PROJ-9"},
+		"a branch naming nothing": {branch: "fix/typo", key: webtest.TestKey},
 		// A forge issue number is not a Jira key: Jira would refuse it, or read
 		// it as an unrelated issue's id.
 		"a forge issue number": {branch: "42-fix-typo", key: "42"},
@@ -164,9 +166,9 @@ func TestLinkIsUnavailableWithoutItsSeams(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]func(*webserver.Deps){
-		"no link seam": func(deps *webserver.Deps) { deps.Jira.LinkPullRequest = nil },
-		noBranchSeam:   func(deps *webserver.Deps) { deps.Git.Branch = nil },
-		noForgeSeam:    func(deps *webserver.Deps) { deps.Forge.FindPullRequest = nil },
+		"no link seam":       func(deps *webserver.Deps) { deps.Jira.LinkPullRequest = nil },
+		webtest.NoBranchSeam: func(deps *webserver.Deps) { deps.Git.Branch = nil },
+		webtest.NoForgeSeam:  func(deps *webserver.Deps) { deps.Forge.FindPullRequest = nil },
 	}
 
 	for name, unwire := range cases {
@@ -197,7 +199,7 @@ func TestLinkReportsWhatItCouldNotRead(t *testing.T) {
 	}{
 		"the branch cannot be read": {
 			unwire: func(deps *webserver.Deps) {
-				deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+				deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, webtest.ErrSeam }
 			},
 			wantCode: http.StatusInternalServerError,
 		},
@@ -256,8 +258,8 @@ func TestTransitionMovesTheIssueToTheReviewStatus(t *testing.T) {
 		t.Errorf("moves = %+v, want the one move to %s", moves, reviewStatus)
 	}
 
-	if moved := decode[api.MovedIssue](t, recorder); moved.Key != testKey || moved.Status != reviewStatus {
-		t.Errorf("answer = %+v, want %s now in %s", moved, testKey, reviewStatus)
+	if moved := webtest.Decode[api.MovedIssue](t, recorder); moved.Key != webtest.TestKey || moved.Status != reviewStatus {
+		t.Errorf("answer = %+v, want %s now in %s", moved, webtest.TestKey, reviewStatus)
 	}
 }
 
@@ -280,7 +282,7 @@ func TestTransitionRefusesAFormTransition(t *testing.T) {
 	recorder := post(t, deps, reviewConfig(), movePath)
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusConflict || failure.Code != api.ProblemCodeConflict || len(moves) != 0 {
 		t.Errorf("status/code = %d/%s, moves = %+v; want 409/conflict and nothing moved", recorder.Code, failure.Code, moves)
 	}
@@ -309,7 +311,7 @@ func TestTransitionRefusesAMoveJiraDoesNotOffer(t *testing.T) {
 		t.Errorf("status = %d, moves = %+v; want 409 and nothing moved", recorder.Code, moves)
 	}
 
-	if failure := decode[api.Problem](t, recorder); !strings.Contains(failure.Detail, "Done") {
+	if failure := webtest.Decode[api.Problem](t, recorder); !strings.Contains(failure.Detail, "Done") {
 		t.Errorf("detail = %q, want it to name the status Jira does offer", failure.Detail)
 	}
 }
@@ -364,11 +366,11 @@ func TestDryRunRefusesTheIssueWrites(t *testing.T) {
 				moves []jira.Transition
 			)
 
-			dryRun := webserver.Info{Version: testVersion, DryRun: true}
-			handler := serveWith(t, writableDeps(&links, &moves), reviewConfig(), dryRun)
+			dryRun := webserver.Info{Version: webtest.TestVersion, DryRun: true}
+			handler := webtest.ServeWith(t, writableDeps(&links, &moves), reviewConfig(), dryRun)
 
 			// Act
-			recorder := send(t, handler, http.MethodPost, path, "")
+			recorder := webtest.Send(t, handler, http.MethodPost, path, "")
 
 			// Assert
 			if recorder.Code != http.StatusForbidden || len(links) != 0 || len(moves) != 0 {
@@ -420,7 +422,7 @@ func TestUnreachableJiraDetailOmitsItsHost(t *testing.T) {
 			recorder := post(t, deps, reviewConfig(), tt.path)
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != http.StatusBadGateway || failure.Code != api.ProblemCodeUnreachable {
 				t.Errorf("status/code = %d/%s, want 502/unreachable", recorder.Code, failure.Code)
 			}
@@ -432,8 +434,8 @@ func TestUnreachableJiraDetailOmitsItsHost(t *testing.T) {
 	}
 }
 
-// commentPath is where a comment on testKey is posted.
-const commentPath = "/api/issues/" + testKey + "/comment"
+// commentPath is where a comment on webtest.TestKey is posted.
+const commentPath = "/api/issues/" + webtest.TestKey + "/comment"
 
 // commentCall is what a comment seam was asked to post.
 type commentCall struct {
@@ -441,10 +443,10 @@ type commentCall struct {
 	text     string
 }
 
-// commentingDeps is filledDeps with a comment seam that records what it was
-// asked and answers it as Jira would store it.
+// commentingDeps is webtest.FilledDeps with a comment seam that records what it
+// was asked and answers it as Jira would store it.
 func commentingDeps(comments *[]commentCall) webserver.Deps {
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Jira.Comment = func(_ context.Context, issueKey jira.Key, text string) (jira.Comment, error) {
 		*comments = append(*comments, commentCall{issueKey: issueKey, text: text})
 
@@ -458,7 +460,7 @@ func commentingDeps(comments *[]commentCall) webserver.Deps {
 func postComment(t *testing.T, deps webserver.Deps, path, body string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	return send(t, serve(t, deps, config.Default()), http.MethodPost, path, body)
+	return webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPost, path, body)
 }
 
 func TestACommentIsPostedAndAnsweredAsJiraStoredIt(t *testing.T) {
@@ -477,12 +479,12 @@ func TestACommentIsPostedAndAnsweredAsJiraStoredIt(t *testing.T) {
 		t.Fatalf("status = %d (%s), want 200", recorder.Code, recorder.Body.String())
 	}
 
-	want := commentCall{issueKey: testKey, text: "Looks good to me"}
+	want := commentCall{issueKey: webtest.TestKey, text: "Looks good to me"}
 	if len(comments) != 1 || comments[0] != want {
 		t.Errorf("comments = %+v, want %+v posted once", comments, want)
 	}
 
-	if posted := decode[api.Comment](t, recorder); posted.Author != "Ana Lima" || posted.Body != want.text {
+	if posted := webtest.Decode[api.Comment](t, recorder); posted.Author != "Ana Lima" || posted.Body != want.text {
 		t.Errorf("answer = %+v, want the comment as Jira stored it", posted)
 	}
 }
@@ -519,7 +521,7 @@ func TestACommentIsRefusedWhereItCannotBePosted(t *testing.T) {
 			recorder := postComment(t, deps, tt.path, tt.body)
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.ProblemCodeUnprocessable ||
 				len(comments) != 0 {
 				t.Errorf("status/code = %d/%s, comments = %+v; want 422/unprocessable and nothing posted",
@@ -551,14 +553,14 @@ func TestACommentJiraCannotTakeSaysWhyWithoutItsHost(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			deps.Jira.Comment = func(context.Context, jira.Key, string) (jira.Comment, error) { return jira.Comment{}, tt.err }
 
 			// Act
 			recorder := postComment(t, deps, commentPath, `{"text":"hi"}`)
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != tt.status || failure.Code != tt.code {
 				t.Errorf("status/code = %d/%s, want %d/%s", recorder.Code, failure.Code, tt.status, tt.code)
 			}
@@ -576,11 +578,11 @@ func TestDryRunRefusesAComment(t *testing.T) {
 	// Arrange
 	var comments []commentCall
 
-	dryRun := webserver.Info{Version: testVersion, DryRun: true}
-	handler := serveWith(t, commentingDeps(&comments), config.Default(), dryRun)
+	dryRun := webserver.Info{Version: webtest.TestVersion, DryRun: true}
+	handler := webtest.ServeWith(t, commentingDeps(&comments), config.Default(), dryRun)
 
 	// Act
-	recorder := send(t, handler, http.MethodPost, commentPath, `{"text":"hi"}`)
+	recorder := webtest.Send(t, handler, http.MethodPost, commentPath, `{"text":"hi"}`)
 
 	// Assert
 	if recorder.Code != http.StatusForbidden || len(comments) != 0 {
@@ -601,10 +603,10 @@ func TestAForgeIssuesCommentIsPostedAsWrittenWithMarkdownOn(t *testing.T) {
 
 	cfg := config.Default()
 	cfg.Jira.MarkdownComments = true
-	handler := serve(t, commentingDeps(&comments), cfg)
+	handler := webtest.Serve(t, commentingDeps(&comments), cfg)
 
 	// Act
-	recorder := send(t, handler, http.MethodPost, forgeCommentPath, `{"text":"Ship **it**"}`)
+	recorder := webtest.Send(t, handler, http.MethodPost, forgeCommentPath, `{"text":"Ship **it**"}`)
 
 	// Assert
 	want := commentCall{issueKey: "42", text: "Ship **it**"}
@@ -650,14 +652,14 @@ func TestACommentTheForgeCannotTakeSaysWhyWithoutItsHost(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			deps.Jira.Comment = func(context.Context, jira.Key, string) (jira.Comment, error) { return jira.Comment{}, tt.err }
 
 			// Act
 			recorder := postComment(t, deps, forgeCommentPath, `{"text":"hi"}`)
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != tt.status || !strings.Contains(failure.Detail, tt.detail) {
 				t.Errorf("status %d, detail %q; want %d naming %q", recorder.Code, failure.Detail, tt.status, tt.detail)
 			}

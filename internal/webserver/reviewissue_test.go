@@ -16,15 +16,16 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // unnamedBranch is a branch begun outside workflow, named for no issue.
 const unnamedBranch = "my-thing"
 
-// reviewOn is filledDeps on a branch begun outside workflow, linked to link,
-// with a pull request whose description is body.
+// reviewOn is webtest.FilledDeps on a branch begun outside workflow, linked to
+// link, with a pull request whose description is body.
 func reviewOn(link, body string) webserver.Deps {
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
 		return gitrepo.Branch{Name: unnamedBranch, IssueLink: link}, nil
 	}
@@ -40,7 +41,8 @@ func TestTheReviewNamesTheIssueTheBranchWasLinkedTo(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	review := decode[api.Review](t, get(t, serve(t, reviewOn("PROJ-7", ""), config.Default()), "/api/review"))
+	review := webtest.Decode[api.Review](t, webtest.Get(t, webtest.Serve(t, reviewOn("PROJ-7", ""), config.Default()),
+		"/api/review"))
 
 	// Assert
 	issue := review.Issue
@@ -54,7 +56,8 @@ func TestTheReviewFindsTheIssueThePullRequestNames(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	review := decode[api.Review](t, get(t, serve(t, reviewOn("", "Speeds it up.\n\nCloses #42"), config.Default()),
+	review := webtest.Decode[api.Review](t, webtest.Get(t, webtest.Serve(t, reviewOn("", "Speeds it up.\n\nCloses #42"),
+		config.Default()),
 		"/api/review"))
 
 	// Assert
@@ -69,7 +72,8 @@ func TestAReviewWithNoIssueNamesNone(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	review := decode[api.Review](t, get(t, serve(t, reviewOn("", "Speeds it up."), config.Default()), "/api/review"))
+	review := webtest.Decode[api.Review](t, webtest.Get(t, webtest.Serve(t, reviewOn("", "Speeds it up."),
+		config.Default()), "/api/review"))
 
 	// Assert
 	if review.Issue != nil {
@@ -81,7 +85,7 @@ func TestTheReviewSaysWhyAFailedCheckFailed(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
 		return forge.CI{State: forge.CIFailed, Checks: []forge.Check{{
 			ID: "501", Name: "unit-race", Stage: "test", Reason: "script failure", State: forge.CIFailed,
@@ -90,7 +94,7 @@ func TestTheReviewSaysWhyAFailedCheckFailed(t *testing.T) {
 	}
 
 	// Act
-	review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
+	review := webtest.Decode[api.Review](t, webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/review"))
 
 	// Assert
 	if review.Ci == nil || len(review.Ci.Checks) != 1 {
@@ -116,10 +120,10 @@ func deref[T any](value *T) T {
 	return *value
 }
 
-// failingDeps is filledDeps with one failed check, 501, whose log the forge
-// keeps, recording each log read.
+// failingDeps is webtest.FilledDeps with one failed check, 501, whose log the
+// forge keeps, recording each log read.
 func failingDeps(read *[]string) webserver.Deps {
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
 		return forge.CI{State: forge.CIFailed, Checks: []forge.Check{
 			{ID: "501", Name: "unit-race", State: forge.CIFailed, LogAvailable: true},
@@ -141,7 +145,8 @@ func TestACheckLogIsReadForACheckOfThePullRequest(t *testing.T) {
 	var read []string
 
 	// Act
-	log := decode[api.JobLog](t, get(t, serve(t, failingDeps(&read), config.Default()), "/api/review/checks/501/log"))
+	log := webtest.Decode[api.JobLog](t, webtest.Get(t, webtest.Serve(t, failingDeps(&read), config.Default()),
+		"/api/review/checks/501/log"))
 
 	// Assert
 	if log.Text != "--- FAIL: TestRetry" || !log.Truncated || len(read) != 1 {
@@ -156,7 +161,7 @@ func TestACheckLogIsNotReadForAnIDThePullRequestDoesNotList(t *testing.T) {
 	var read []string
 
 	// Act
-	answer := get(t, serve(t, failingDeps(&read), config.Default()), "/api/review/checks/999/log")
+	answer := webtest.Get(t, webtest.Serve(t, failingDeps(&read), config.Default()), "/api/review/checks/999/log")
 
 	// Assert
 	if answer.Code != http.StatusNotFound || len(read) != 0 {
@@ -176,7 +181,7 @@ func TestACheckLogWhoseForgeCannotBeReachedIsNotANotFound(t *testing.T) {
 	}
 
 	// Act
-	answer := get(t, serve(t, deps, config.Default()), "/api/review/checks/501/log")
+	answer := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/review/checks/501/log")
 
 	// Assert
 	if answer.Code != http.StatusBadGateway || len(read) != 0 {
@@ -204,7 +209,7 @@ func TestACheckLogTheForgeCouldNotHandOverIsAnUpstreamFault(t *testing.T) {
 			deps.Forge.JobLog = func(context.Context, forge.Check) (forge.JobLog, error) { return forge.JobLog{}, cause }
 
 			// Act
-			answer := get(t, serve(t, deps, config.Default()), "/api/review/checks/501/log")
+			answer := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/review/checks/501/log")
 
 			// Assert
 			if answer.Code != http.StatusBadGateway {
@@ -243,7 +248,7 @@ func TestACheckLogTheForgeHasNoneOfIsUnprocessable(t *testing.T) {
 			change(&deps)
 
 			// Act
-			answer := get(t, serve(t, deps, config.Default()), "/api/review/checks/501/log")
+			answer := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/review/checks/501/log")
 
 			// Assert
 			if answer.Code != http.StatusUnprocessableEntity || len(read) != 0 {
@@ -261,7 +266,7 @@ func TestACheckLogWhoseBranchOrCICannotBeReadIsNotANotFound(t *testing.T) {
 		want   int
 	}{
 		"the branch checked out": {want: http.StatusInternalServerError, change: func(deps *webserver.Deps) {
-			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, webtest.ErrSeam }
 		}},
 		"the CI": {want: http.StatusBadGateway, change: func(deps *webserver.Deps) {
 			deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
@@ -281,7 +286,7 @@ func TestACheckLogWhoseBranchOrCICannotBeReadIsNotANotFound(t *testing.T) {
 			tt.change(&deps)
 
 			// Act
-			answer := get(t, serve(t, deps, config.Default()), "/api/review/checks/501/log")
+			answer := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/review/checks/501/log")
 
 			// Assert
 			if answer.Code != tt.want || len(read) != 0 {

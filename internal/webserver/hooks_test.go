@@ -16,16 +16,17 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // errUnreadableHere is lefthook unable to read the configuration, in words
 // that name the repository.
 var errUnreadableHere = errors.New("reading lefthook's configuration: lefthook: exit status 1: " +
-	"couldn't load config: open " + repoPath + "/lefthook.yml: permission denied")
+	"couldn't load config: open " + webtest.RepoPath + "/lefthook.yml: permission denied")
 
-// listedDeps is filledDeps with lefthook configuring what list answers.
+// listedDeps is webtest.FilledDeps with lefthook configuring what list answers.
 func listedDeps(list func(context.Context) (hooks.Configured, error)) webserver.Deps {
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Hooks.Configured = list
 
 	return deps
@@ -35,18 +36,19 @@ func TestHookSetupOffersTheConfigurationThatRunsTheOldHooks(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	handler := serve(t, hookDeps(oldHooks(), false, &[]hooks.Generated{}), config.Default())
+	handler := webtest.Serve(t, webtest.HookDeps(webtest.OldHooks(), false, &[]hooks.Generated{}), config.Default())
 
 	// Act
-	recorder := get(t, handler, hookSetupAt)
+	recorder := webtest.Get(t, handler, webtest.HookSetupAt)
 
 	// Assert
-	setup := decode[api.HookSetup](t, recorder)
-	if !setup.Offered || len(setup.Hooks) != 1 || setup.Hooks[0].Name != preCommitHook || setup.Hooks[0].Lines != 3 {
+	setup := webtest.Decode[api.HookSetup](t, recorder)
+	if !setup.Offered || len(setup.Hooks) != 1 || setup.Hooks[0].Name != webtest.PreCommitHook ||
+		setup.Hooks[0].Lines != 3 {
 		t.Fatalf("setup = %+v, want the pre-commit hook of three lines offered", setup)
 	}
 
-	if setup.Config != hooks.Structured(oldHooks()).Config {
+	if setup.Config != hooks.Structured(webtest.OldHooks()).Config {
 		t.Errorf("config = %q, want the terminal's structured configuration", setup.Config)
 	}
 }
@@ -55,10 +57,10 @@ func TestHookSetupOffersNothingOnceLefthookIsConfigured(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	handler := serve(t, hookDeps(oldHooks(), true, &[]hooks.Generated{}), config.Default())
+	handler := webtest.Serve(t, webtest.HookDeps(webtest.OldHooks(), true, &[]hooks.Generated{}), config.Default())
 
 	// Act
-	setup := decode[api.HookSetup](t, get(t, handler, hookSetupAt))
+	setup := webtest.Decode[api.HookSetup](t, webtest.Get(t, handler, webtest.HookSetupAt))
 
 	// Assert
 	if setup.Offered || len(setup.Hooks) != 0 || setup.Config != "" {
@@ -73,8 +75,8 @@ func TestSettingUpHooksWritesTheChosenConfiguration(t *testing.T) {
 		body string
 		want hooks.Generated
 	}{
-		"as lefthook jobs":       {body: `{}`, want: hooks.Structured(oldHooks())},
-		"every hook as a script": {body: `{"verbatim":true}`, want: hooks.Verbatim(oldHooks())},
+		"as lefthook jobs":       {body: `{}`, want: hooks.Structured(webtest.OldHooks())},
+		"every hook as a script": {body: `{"verbatim":true}`, want: hooks.Verbatim(webtest.OldHooks())},
 	}
 
 	for name, tt := range cases {
@@ -84,10 +86,10 @@ func TestSettingUpHooksWritesTheChosenConfiguration(t *testing.T) {
 			// Arrange
 			var written []hooks.Generated
 
-			handler := serve(t, hookDeps(oldHooks(), false, &written), config.Default())
+			handler := webtest.Serve(t, webtest.HookDeps(webtest.OldHooks(), false, &written), config.Default())
 
 			// Act
-			recorder := send(t, handler, http.MethodPost, hookSetupAt, tt.body)
+			recorder := webtest.Send(t, handler, http.MethodPost, webtest.HookSetupAt, tt.body)
 
 			// Assert
 			if recorder.Code != http.StatusOK {
@@ -107,10 +109,10 @@ func TestSettingUpHooksWithNothingOfferedWritesNothing(t *testing.T) {
 	// Arrange
 	var written []hooks.Generated
 
-	handler := serve(t, hookDeps(nil, false, &written), config.Default())
+	handler := webtest.Serve(t, webtest.HookDeps(nil, false, &written), config.Default())
 
 	// Act
-	recorder := send(t, handler, http.MethodPost, hookSetupAt, `{}`)
+	recorder := webtest.Send(t, handler, http.MethodPost, webtest.HookSetupAt, `{}`)
 
 	// Assert
 	assertProblem(t, recorder, http.StatusConflict, "nothing to set up")
@@ -124,18 +126,18 @@ func TestSettingUpHooksThatFailsKeepsItsWordsOff(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := hookDeps(oldHooks(), false, &[]hooks.Generated{})
+	deps := webtest.HookDeps(webtest.OldHooks(), false, &[]hooks.Generated{})
 	deps.Hooks.Write = func(context.Context, hooks.Generated) error {
-		return fmt.Errorf("writing %s/lefthook.yml: %w", repoPath, errSeam)
+		return fmt.Errorf("writing %s/lefthook.yml: %w", webtest.RepoPath, webtest.ErrSeam)
 	}
 
 	// Act
-	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, hookSetupAt, `{}`)
+	recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPost, webtest.HookSetupAt, `{}`)
 
 	// Assert
 	assertProblem(t, recorder, http.StatusUnprocessableEntity, "lefthook.yml was not written")
 
-	if strings.Contains(recorder.Body.String(), repoPath) {
+	if strings.Contains(recorder.Body.String(), webtest.RepoPath) {
 		t.Errorf("the refusal %s names where the repository is", recorder.Body)
 	}
 }
@@ -144,11 +146,11 @@ func TestHookSetupWithNoRepositoryIsNotAvailable(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 
 	// Act
-	read := get(t, serve(t, deps, config.Default()), hookSetupAt)
-	write := send(t, serve(t, deps, config.Default()), http.MethodPost, hookSetupAt, `{}`)
+	read := webtest.Get(t, webtest.Serve(t, deps, config.Default()), webtest.HookSetupAt)
+	write := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPost, webtest.HookSetupAt, `{}`)
 
 	// Assert
 	assertProblem(t, read, http.StatusUnprocessableEntity, "not available")
@@ -171,10 +173,11 @@ func TestTheStreamCountsTheHooksLefthookDoesNotManage(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			handler := serve(t, hookDeps(oldHooks(), tt.configured, &[]hooks.Generated{}), config.Default())
+			handler := webtest.Serve(t, webtest.HookDeps(webtest.OldHooks(), tt.configured, &[]hooks.Generated{}),
+				config.Default())
 
 			// Act
-			snap := firstSnapshot(t, streamOnce(t, handler, "/api/events").Body.String())
+			snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
 
 			// Assert
 			if snap.HooksUnmanaged != tt.want {
@@ -188,11 +191,11 @@ func TestSettingUpHooksWithNoWayToWriteIsNotAvailable(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := hookDeps(oldHooks(), false, &[]hooks.Generated{})
+	deps := webtest.HookDeps(webtest.OldHooks(), false, &[]hooks.Generated{})
 	deps.Hooks.Write = nil
 
 	// Act
-	recorder := send(t, serve(t, deps, config.Default()), http.MethodPost, hookSetupAt, `{}`)
+	recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPost, webtest.HookSetupAt, `{}`)
 
 	// Assert
 	assertProblem(t, recorder, http.StatusUnprocessableEntity, "not available")
@@ -202,19 +205,19 @@ func TestListHooksSplitsThemByWhetherARunByHandStandsInForGits(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	handler := serve(t, listedDeps(func(context.Context) (hooks.Configured, error) {
+	handler := webtest.Serve(t, listedDeps(func(context.Context) (hooks.Configured, error) {
 		return configuredHooks(), nil
 	}), config.Default())
 
 	// Act
-	listed := decode[api.ConfiguredHooks](t, get(t, handler, hooksAt))
+	listed := webtest.Decode[api.ConfiguredHooks](t, webtest.Get(t, handler, webtest.HooksAt))
 
 	// Assert
-	if !slices.Equal(listed.Runnable, []string{preCommitHook, prePushHook}) {
+	if !slices.Equal(listed.Runnable, []string{webtest.PreCommitHook, webtest.PrePushHook}) {
 		t.Errorf("runnable = %q, want pre-commit and pre-push", listed.Runnable)
 	}
 
-	want := []api.GitOnlyHook{{Name: commitMsgHook, Reason: commitMsgReason}}
+	want := []api.GitOnlyHook{{Name: webtest.CommitMsgHook, Reason: webtest.CommitMsgReason}}
 	if !slices.Equal(listed.GitOnly, want) {
 		t.Errorf("git_only = %+v, want %+v", listed.GitOnly, want)
 	}
@@ -224,12 +227,12 @@ func TestListHooksAnswersEmptyListsWhereNoLefthookIsConfigured(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	handler := serve(t, listedDeps(func(context.Context) (hooks.Configured, error) {
+	handler := webtest.Serve(t, listedDeps(func(context.Context) (hooks.Configured, error) {
 		return hooks.Configured{}, nil
 	}), config.Default())
 
 	// Act
-	recorder := get(t, handler, hooksAt)
+	recorder := webtest.Get(t, handler, webtest.HooksAt)
 
 	// Assert
 	body := recorder.Body.String()
@@ -243,10 +246,10 @@ func TestListHooksWithoutLefthookIsNotAvailable(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	handler := serve(t, listedDeps(nil), config.Default())
+	handler := webtest.Serve(t, listedDeps(nil), config.Default())
 
 	// Act
-	recorder := get(t, handler, hooksAt)
+	recorder := webtest.Get(t, handler, webtest.HooksAt)
 
 	// Assert
 	assertProblem(t, recorder, http.StatusUnprocessableEntity, "lefthook is not installed")
@@ -256,17 +259,17 @@ func TestListHooksThatCannotReadTheConfigurationKeepsLefthooksWordsOff(t *testin
 	t.Parallel()
 
 	// Arrange
-	deps, heard := hearing(listedDeps(func(context.Context) (hooks.Configured, error) {
+	deps, heard := webtest.Hearing(listedDeps(func(context.Context) (hooks.Configured, error) {
 		return hooks.Configured{}, errUnreadableHere
 	}))
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 
 	// Act
-	recorder := get(t, handler, hooksAt)
+	recorder := webtest.Get(t, handler, webtest.HooksAt)
 
 	// Assert
 	failure := assertProblem(t, recorder, http.StatusUnprocessableEntity, "could not be read")
-	if strings.Contains(failure.Detail, repoPath) {
+	if strings.Contains(failure.Detail, webtest.RepoPath) {
 		t.Errorf("detail = %q, want lefthook's words, which name the repository, kept off the wire", failure.Detail)
 	}
 

@@ -17,9 +17,11 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
-// The issue filledDeps' Issue seam returns: a Bug titled "Fix token redaction".
+// The issue webtest.FilledDeps' Issue seam returns: a Bug titled "Fix token
+// redaction".
 const startIssue = "PROJ-401"
 
 // wantBranchName is the branch the convention names for that issue, the oracle a
@@ -41,7 +43,7 @@ func doCreateBranch(t *testing.T, deps webserver.Deps) *httptest.ResponseRecorde
 
 	body := `{"issue_key":"` + startIssue + `"}`
 
-	return send(t, serve(t, deps, config.Default()), http.MethodPost, "/api/branches", body)
+	return webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPost, "/api/branches", body)
 }
 
 func TestCreateBranchStartsWorkOnTheIssue(t *testing.T) {
@@ -51,7 +53,7 @@ func TestCreateBranchStartsWorkOnTheIssue(t *testing.T) {
 	// No Branches seam, so no branch exists yet and the create goes ahead.
 	var created string
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.CreateBranch = func(_ context.Context, name, _ string) error {
 		created = name
 
@@ -75,10 +77,11 @@ func TestCreateBranchBranchesFromTheBase(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// filledDeps' branch has base origin/main, so a new branch starts from it.
+	// webtest.FilledDeps' branch has base origin/main, so a new branch starts
+	// from it.
 	var start string
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.CreateBranch = func(_ context.Context, _, base string) error {
 		start = base
 
@@ -93,8 +96,8 @@ func TestCreateBranchBranchesFromTheBase(t *testing.T) {
 		t.Fatalf("status = %d, want 200", recorder.Code)
 	}
 
-	if start != testBase {
-		t.Errorf("branched from %q, want the base %q", start, testBase)
+	if start != webtest.TestBase {
+		t.Errorf("branched from %q, want the base %q", start, webtest.TestBase)
 	}
 }
 
@@ -103,7 +106,7 @@ func TestCreateBranchRefusesWhenOneAlreadyExists(t *testing.T) {
 
 	// Arrange
 	called := false
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Branches = func(context.Context) ([]string, error) { return []string{wantBranchName(t)}, nil }
 	deps.Git.CreateBranch = func(context.Context, string, string) error {
 		called = true
@@ -123,7 +126,7 @@ func TestCreateBranchRefusesWhenOneAlreadyExists(t *testing.T) {
 		t.Error("created a branch despite one already existing")
 	}
 
-	if failure := decode[api.Problem](t, recorder); failure.Code != api.ProblemCodeConflict {
+	if failure := webtest.Decode[api.Problem](t, recorder); failure.Code != api.ProblemCodeConflict {
 		t.Errorf("code = %q, want conflict", failure.Code)
 	}
 }
@@ -159,7 +162,7 @@ func TestCreateBranchSaysWhyTheIssueCouldNotBeRead(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			deps.Jira.Issue = func(context.Context, jira.Key) (jira.IssueDetail, error) {
 				return jira.IssueDetail{}, fmt.Errorf("reading https://%s/rest/api/2/issue/%s: %w",
 					jiraHost, startIssue, tt.cause)
@@ -170,7 +173,7 @@ func TestCreateBranchSaysWhyTheIssueCouldNotBeRead(t *testing.T) {
 			recorder := doCreateBranch(t, deps)
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != tt.wantStatus || !strings.Contains(failure.Detail, tt.want) {
 				t.Errorf("status = %d, detail %q; want %d saying %q", recorder.Code, failure.Detail, tt.wantStatus, tt.want)
 			}
@@ -186,8 +189,8 @@ func TestCreateBranchReportsAFailedCreate(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
-	deps.Git.CreateBranch = func(context.Context, string, string) error { return errSeam }
+	deps := webtest.FilledDeps()
+	deps.Git.CreateBranch = func(context.Context, string, string) error { return webtest.ErrSeam }
 
 	// Act
 	recorder := doCreateBranch(t, deps)
@@ -206,11 +209,11 @@ func TestCreateBranchSucceedsEvenIfTheRereadFails(t *testing.T) {
 	// fails; the created branch is answered by its name rather than told as a
 	// failure a retry would then find already done.
 	created := false
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	branch := deps.Git.Branch
 	deps.Git.Branch = func(ctx context.Context) (gitrepo.Branch, error) {
 		if created {
-			return gitrepo.Branch{}, errSeam
+			return gitrepo.Branch{}, webtest.ErrSeam
 		}
 
 		return branch(ctx)
@@ -229,7 +232,7 @@ func TestCreateBranchSucceedsEvenIfTheRereadFails(t *testing.T) {
 		t.Fatalf("status = %d, want 200 — the branch was created despite the re-read failing", recorder.Code)
 	}
 
-	if answered := decode[api.Branch](t, recorder); answered.Name != wantBranchName(t) {
+	if answered := webtest.Decode[api.Branch](t, recorder); answered.Name != wantBranchName(t) {
 		t.Errorf("branch = %+v, want the created branch %q", answered, wantBranchName(t))
 	}
 }
@@ -242,8 +245,8 @@ func TestCreateBranchAnswersTheCreatedNameWhenNoBranchCanBeRead(t *testing.T) {
 	// HEAD; the branch as read before cannot stand in, and the created name does.
 	var created string
 
-	deps := filledDeps()
-	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+	deps := webtest.FilledDeps()
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, webtest.ErrSeam }
 	deps.Git.CreateBranch = func(_ context.Context, name, _ string) error {
 		created = name
 
@@ -258,7 +261,7 @@ func TestCreateBranchAnswersTheCreatedNameWhenNoBranchCanBeRead(t *testing.T) {
 		t.Fatalf("status = %d, want 200 for a branch that was created", recorder.Code)
 	}
 
-	if answered := decode[api.Branch](t, recorder); created == "" || answered.Name != created {
+	if answered := webtest.Decode[api.Branch](t, recorder); created == "" || answered.Name != created {
 		t.Errorf("branch = %+v, created %q; want the created branch answered", answered, created)
 	}
 }
@@ -266,9 +269,10 @@ func TestCreateBranchAnswersTheCreatedNameWhenNoBranchCanBeRead(t *testing.T) {
 func TestCreateBranchIsUnavailableWithoutAGitSeam(t *testing.T) {
 	t.Parallel()
 
-	// Creating a branch needs the create, tracker, and branch-read seams; missing
-	// any one means it is not available. filledDeps leaves CreateBranch nil, so the
-	// other two cases set it to isolate the seam under test.
+	// Creating a branch needs the create, tracker, and branch-read seams;
+	// missing any one means it is not available. webtest.FilledDeps leaves
+	// CreateBranch nil, so the other two cases set it to isolate the seam under
+	// test.
 	withCreate := func(deps webserver.Deps) webserver.Deps {
 		deps.Git.CreateBranch = func(context.Context, string, string) error { return nil }
 
@@ -283,7 +287,7 @@ func TestCreateBranchIsUnavailableWithoutAGitSeam(t *testing.T) {
 
 			return deps
 		},
-		noBranchSeam: func(deps webserver.Deps) webserver.Deps {
+		webtest.NoBranchSeam: func(deps webserver.Deps) webserver.Deps {
 			deps = withCreate(deps)
 			deps.Git.Branch = nil
 
@@ -296,7 +300,7 @@ func TestCreateBranchIsUnavailableWithoutAGitSeam(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			recorder := doCreateBranch(t, mutate(filledDeps()))
+			recorder := doCreateBranch(t, mutate(webtest.FilledDeps()))
 
 			// Assert
 			if recorder.Code != http.StatusUnprocessableEntity {
@@ -313,10 +317,10 @@ func TestCreateBranchNeverForwardsGitsOwnWords(t *testing.T) {
 	// Switching to the new branch checks its tree out, which in a partial clone
 	// fetches from the remote, so git's own words can name it; the detail names
 	// the issue and what to do, and never the host.
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.CreateBranch = func(_ context.Context, name, _ string) error {
 		return fmt.Errorf("creating branch %s: %w: fatal: unable to access 'https://%s/acme/repo.git/'",
-			name, errSeam, gitHost)
+			name, webtest.ErrSeam, gitHost)
 	}
 
 	// Act
@@ -326,7 +330,7 @@ func TestCreateBranchNeverForwardsGitsOwnWords(t *testing.T) {
 	want := "git would not create the branch for " + startIssue +
 		"; run workflow branch " + startIssue + " from a terminal to see git's reason"
 
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusUnprocessableEntity || failure.Detail != want {
 		t.Errorf("status = %d, detail %q; want 422 saying %q", recorder.Code, failure.Detail, want)
 	}

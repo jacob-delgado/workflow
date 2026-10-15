@@ -20,6 +20,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // activityPath is where the Summary is read.
@@ -32,7 +33,7 @@ func wednesday() time.Time { return time.Date(2026, 9, 16, 16, 0, 0, 0, time.UTC
 // activityDeps answer as a day's work: a commit at nine on Tuesday, and the
 // forge read failing with its host in its words; each read's start is kept.
 func activityDeps(starts *[]time.Time) webserver.Deps {
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Clock = wednesday
 	deps.Git.CommitsBetween = func(_ context.Context, start, _ time.Time) []loop.RepositoryCommits {
 		*starts = append(*starts, start)
@@ -56,13 +57,13 @@ func TestTheSummaryIsThePreviousWorkingDayByDefault(t *testing.T) {
 	// Arrange
 	var starts []time.Time
 
-	handler := serve(t, activityDeps(&starts), config.Default())
+	handler := webtest.Serve(t, activityDeps(&starts), config.Default())
 
 	// Act
-	recorder := send(t, handler, http.MethodGet, activityPath, "")
+	recorder := webtest.Send(t, handler, http.MethodGet, activityPath, "")
 
 	// Assert
-	got := decode[api.Activity](t, recorder)
+	got := webtest.Decode[api.Activity](t, recorder)
 	if recorder.Code != http.StatusOK || got.From.String() != "2026-09-15" || got.To.String() != "2026-09-15" ||
 		got.Today.String() != "2026-09-16" {
 		t.Errorf("status %d, period %s to %s, today %s; want Tuesday, today Wednesday",
@@ -80,10 +81,10 @@ func TestTheSummaryNestsItsItemsAndWritesThemAsMarkdown(t *testing.T) {
 	// Arrange
 	var starts []time.Time
 
-	handler := serve(t, activityDeps(&starts), config.Default())
+	handler := webtest.Serve(t, activityDeps(&starts), config.Default())
 
 	// Act
-	got := decode[api.Activity](t, send(t, handler, http.MethodGet, activityPath, ""))
+	got := webtest.Decode[api.Activity](t, webtest.Send(t, handler, http.MethodGet, activityPath, ""))
 
 	// Assert
 	month := got.Years[0].Months[0]
@@ -106,13 +107,13 @@ func TestASourceThatCannotBeReadIsNamedWithoutItsHost(t *testing.T) {
 	// Arrange
 	var starts []time.Time
 
-	handler := serve(t, activityDeps(&starts), config.Default())
+	handler := webtest.Serve(t, activityDeps(&starts), config.Default())
 
 	// Act
-	recorder := send(t, handler, http.MethodGet, activityPath+"?from=2026-09-14&to=2026-09-15", "")
+	recorder := webtest.Send(t, handler, http.MethodGet, activityPath+"?from=2026-09-14&to=2026-09-15", "")
 
 	// Assert
-	got := decode[api.Activity](t, recorder)
+	got := webtest.Decode[api.Activity](t, recorder)
 	if recorder.Code != http.StatusOK || strings.Contains(recorder.Body.String(), "git.internal.example") {
 		t.Fatalf("status %d, body %s; want 200 and no host", recorder.Code, recorder.Body.String())
 	}
@@ -145,10 +146,10 @@ func TestAPeriodThatCannotBeSummedUpIsRefused(t *testing.T) {
 			// Arrange
 			var starts []time.Time
 
-			handler := serve(t, activityDeps(&starts), config.Default())
+			handler := webtest.Serve(t, activityDeps(&starts), config.Default())
 
 			// Act
-			recorder := send(t, handler, http.MethodGet, activityPath+query, "")
+			recorder := webtest.Send(t, handler, http.MethodGet, activityPath+query, "")
 
 			// Assert
 			if recorder.Code != http.StatusUnprocessableEntity || len(starts) != 0 {
@@ -168,13 +169,13 @@ func TestOneDayGivenIsThatDayAlone(t *testing.T) {
 			// Arrange
 			var starts []time.Time
 
-			handler := serve(t, activityDeps(&starts), config.Default())
+			handler := webtest.Serve(t, activityDeps(&starts), config.Default())
 
 			// Act
-			recorder := send(t, handler, http.MethodGet, activityPath+query, "")
+			recorder := webtest.Send(t, handler, http.MethodGet, activityPath+query, "")
 
 			// Assert
-			got := decode[api.Activity](t, recorder)
+			got := webtest.Decode[api.Activity](t, recorder)
 			if got.From.String() != "2026-09-10" || got.To.String() != "2026-09-10" {
 				t.Errorf("period %s to %s, want 2026-09-10 alone", got.From, got.To)
 			}
@@ -197,10 +198,10 @@ func TestEverySourceTheServerReachesIsRead(t *testing.T) {
 	deps.Jira.BrowseURL = nil
 
 	// Act
-	recorder := send(t, serve(t, deps, config.Default()), http.MethodGet, activityPath, "")
+	recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodGet, activityPath, "")
 
 	// Assert
-	got := decode[api.Activity](t, recorder)
+	got := webtest.Decode[api.Activity](t, recorder)
 
 	named := make([]api.ActivitySourceName, 0, len(got.Sources))
 	for _, source := range got.Sources {
@@ -219,8 +220,8 @@ func TestEverySourceTheServerReachesIsRead(t *testing.T) {
 func sourceDetail(t *testing.T, deps webserver.Deps, source api.ActivitySourceName) string {
 	t.Helper()
 
-	recorder := send(t, serve(t, deps, config.Default()), http.MethodGet, activityPath, "")
-	for _, read := range decode[api.Activity](t, recorder).Sources {
+	recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodGet, activityPath, "")
+	for _, read := range webtest.Decode[api.Activity](t, recorder).Sources {
 		if read.Source == source {
 			return read.Detail
 		}
@@ -307,11 +308,11 @@ func TestASourceNotSetUpIsMarkedApartFromOneThatFailed(t *testing.T) {
 	}
 
 	// Act
-	recorder := send(t, serve(t, deps, config.Default()), http.MethodGet, activityPath, "")
+	recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodGet, activityPath, "")
 
 	// Assert
 	states := map[api.ActivitySourceName]api.ActivitySourceState{}
-	for _, source := range decode[api.Activity](t, recorder).Sources {
+	for _, source := range webtest.Decode[api.Activity](t, recorder).Sources {
 		states[source.Source] = source.State
 	}
 
@@ -390,10 +391,10 @@ func TestTheSummarySaysHowLongItIsForTheServiceItPostsTo(t *testing.T) {
 
 	cfg := config.Default()
 	cfg.Messaging = config.Messaging{Kind: config.KindDiscord, WebhookURL: "https://discord.example/api/webhooks/1/x"}
-	handler := serve(t, activityDeps(&starts), cfg)
+	handler := webtest.Serve(t, activityDeps(&starts), cfg)
 
 	// Act
-	got := decode[api.Activity](t, send(t, handler, http.MethodGet, activityPath, ""))
+	got := webtest.Decode[api.Activity](t, webtest.Send(t, handler, http.MethodGet, activityPath, ""))
 
 	// Assert
 	want := loop.SummaryLength(config.KindDiscord, got.Text)
@@ -409,10 +410,10 @@ func TestTheSummarySaysNoLengthWithNowhereToPost(t *testing.T) {
 	// Arrange
 	var starts []time.Time
 
-	handler := serve(t, activityDeps(&starts), config.Default())
+	handler := webtest.Serve(t, activityDeps(&starts), config.Default())
 
 	// Act
-	got := decode[api.Activity](t, send(t, handler, http.MethodGet, activityPath, ""))
+	got := webtest.Decode[api.Activity](t, webtest.Send(t, handler, http.MethodGet, activityPath, ""))
 
 	// Assert
 	if got.PostLength != nil {

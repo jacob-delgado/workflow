@@ -9,6 +9,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/convention"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 func TestSnapshotCarriesTheEffectiveCommitTypes(t *testing.T) {
@@ -35,10 +36,10 @@ func TestSnapshotCarriesTheEffectiveCommitTypes(t *testing.T) {
 			cfg.Commit.Types = tt.configured
 
 			// Act
-			recorder := streamOnce(t, serve(t, filledDeps(), cfg), "/api/events")
+			recorder := webtest.StreamOnce(t, webtest.Serve(t, webtest.FilledDeps(), cfg), "/api/events")
 
 			// Assert
-			if got := firstSnapshot(t, recorder.Body.String()).CommitTypes; !slices.Equal(got, tt.want) {
+			if got := webtest.FirstSnapshot(t, recorder.Body.String()).CommitTypes; !slices.Equal(got, tt.want) {
 				t.Errorf("commit types = %q, want %q", got, tt.want)
 			}
 		})
@@ -67,10 +68,10 @@ func TestSnapshotCarriesTheEffectiveSubjectLimit(t *testing.T) {
 			cfg.Commit.SubjectLimit = tt.configured
 
 			// Act
-			recorder := streamOnce(t, serve(t, filledDeps(), cfg), "/api/events")
+			recorder := webtest.StreamOnce(t, webtest.Serve(t, webtest.FilledDeps(), cfg), "/api/events")
 
 			// Assert
-			if got := firstSnapshot(t, recorder.Body.String()).SubjectLimit; got != tt.want {
+			if got := webtest.FirstSnapshot(t, recorder.Body.String()).SubjectLimit; got != tt.want {
 				t.Errorf("subject limit = %d, want %d", got, tt.want)
 			}
 		})

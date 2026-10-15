@@ -11,6 +11,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 func TestAWriteTaskwarriorRefusesIs422WithItsWords(t *testing.T) {
@@ -30,11 +31,11 @@ func TestAWriteTaskwarriorRefusesIs422WithItsWords(t *testing.T) {
 			words: notADate, homeUnknown: true, wantDetail: refused + ": " + notADate,
 		},
 		"its data directory": {
-			words:      "Could not open " + dataPath + "/taskchampion.sqlite3.",
+			words:      "Could not open " + webtest.DataPath + "/taskchampion.sqlite3.",
 			wantDetail: refused + ": Could not open the data directory/taskchampion.sqlite3.",
 		},
 		"your home": {
-			words:      "Hook " + homePath + "/.task/hooks/on-modify.check failed.",
+			words:      "Hook " + webtest.HomePath + "/.task/hooks/on-modify.check failed.",
 			wantDetail: refused + ": Hook ~/.task/hooks/on-modify.check failed.",
 		},
 		"a line naming a URL": {
@@ -91,8 +92,8 @@ func TestAWriteTaskwarriorRefusesIs422WithItsWords(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			fake := fakeTaskwarrior()
-			fake.fail["modify"] = fmt.Errorf("%w: %s", taskwarrior.ErrRefused, tt.words)
+			fake := webtest.FakeTaskwarrior()
+			fake.Fail["modify"] = fmt.Errorf("%w: %s", taskwarrior.ErrRefused, tt.words)
 
 			deps := tasksDeps(fake)
 			if tt.homeUnknown {
@@ -100,11 +101,11 @@ func TestAWriteTaskwarriorRefusesIs422WithItsWords(t *testing.T) {
 			}
 
 			// Act
-			recorder := send(t, serve(t, deps, config.Default()),
-				http.MethodPost, taskPath(startedUUID, modifyWrite), `{"line":"due:xyz"}`)
+			recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()),
+				http.MethodPost, taskPath(webtest.StartedUUID, modifyWrite), `{"line":"due:xyz"}`)
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != http.StatusUnprocessableEntity || failure.Detail != tt.wantDetail {
 				t.Errorf("answer = %d %+v, want 422 with detail %q", recorder.Code, failure, tt.wantDetail)
 			}
@@ -121,8 +122,8 @@ func TestARefusalKeepsWordsThatOnlyLookLikeAPlace(t *testing.T) {
 	cases := map[string]struct {
 		dataDir, home, words string
 	}{
-		"a relative data.location": {dataDir: "task", home: homePath, words: "Cannot modify a deleted task."},
-		"a home at the root":       {dataDir: dataPath, home: "/", words: "Could not read /etc/taskrc."},
+		"a relative data.location": {dataDir: "task", home: webtest.HomePath, words: "Cannot modify a deleted task."},
+		"a home at the root":       {dataDir: webtest.DataPath, home: "/", words: "Could not read /etc/taskrc."},
 	}
 
 	for name, tt := range cases {
@@ -130,20 +131,20 @@ func TestARefusalKeepsWordsThatOnlyLookLikeAPlace(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			fake := fakeTaskwarrior()
-			fake.install.DataDir = tt.dataDir
-			fake.fail["modify"] = fmt.Errorf("%w: %s", taskwarrior.ErrRefused, tt.words)
+			fake := webtest.FakeTaskwarrior()
+			fake.Install.DataDir = tt.dataDir
+			fake.Fail["modify"] = fmt.Errorf("%w: %s", taskwarrior.ErrRefused, tt.words)
 
 			deps := tasksDeps(fake)
 			deps.Repositories.Home = tt.home
 
 			// Act
-			recorder := send(t, serve(t, deps, config.Default()),
-				http.MethodPost, taskPath(startedUUID, modifyWrite), `{"line":"due:xyz"}`)
+			recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()),
+				http.MethodPost, taskPath(webtest.StartedUUID, modifyWrite), `{"line":"due:xyz"}`)
 
 			// Assert
 			want := "Taskwarrior refused the command: " + tt.words
-			if failure := decode[api.Problem](t, recorder); failure.Detail != want {
+			if failure := webtest.Decode[api.Problem](t, recorder); failure.Detail != want {
 				t.Errorf("detail = %q, want %q", failure.Detail, want)
 			}
 		})
@@ -157,18 +158,18 @@ func TestARefusalNamesYourHomeWhenTaskwarriorCannotSayWhereItsDataIs(t *testing.
 	// Asked where its data is, Taskwarrior does not answer, so the path its
 	// refusal names is written from your home rather than as the data
 	// directory.
-	fake := fakeTaskwarrior()
-	fake.fail["install"] = taskwarrior.ErrNotInstalled
-	words := "Could not open " + dataPath + "/taskchampion.sqlite3."
-	fake.fail["modify"] = fmt.Errorf("%w: %s", taskwarrior.ErrRefused, words)
+	fake := webtest.FakeTaskwarrior()
+	fake.Fail["install"] = taskwarrior.ErrNotInstalled
+	words := "Could not open " + webtest.DataPath + "/taskchampion.sqlite3."
+	fake.Fail["modify"] = fmt.Errorf("%w: %s", taskwarrior.ErrRefused, words)
 
 	// Act
-	recorder := send(t, serve(t, tasksDeps(fake), config.Default()),
-		http.MethodPost, taskPath(startedUUID, modifyWrite), `{"line":"due:xyz"}`)
+	recorder := webtest.Send(t, webtest.Serve(t, tasksDeps(fake), config.Default()),
+		http.MethodPost, taskPath(webtest.StartedUUID, modifyWrite), `{"line":"due:xyz"}`)
 
 	// Assert
 	want := "Taskwarrior refused the command: Could not open ~/.local/share/task/taskchampion.sqlite3."
-	if failure := decode[api.Problem](t, recorder); recorder.Code != http.StatusUnprocessableEntity ||
+	if failure := webtest.Decode[api.Problem](t, recorder); recorder.Code != http.StatusUnprocessableEntity ||
 		failure.Detail != want {
 		t.Errorf("answer = %d %+v, want 422 with detail %q", recorder.Code, failure, want)
 	}

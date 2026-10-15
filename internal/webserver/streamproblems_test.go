@@ -17,6 +17,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // internalHost is an address a seam's error carries that must never reach the
@@ -27,7 +28,7 @@ func TestStreamPanelProblemsNeverCarryTheUnreachableHost(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Jira.Search = func(context.Context, string, int) (jira.SearchResult, error) {
 		return jira.SearchResult{}, fmt.Errorf("%w: https://%s/rest/api/2/search", jira.ErrUnreachable, internalHost)
 	}
@@ -35,14 +36,14 @@ func TestStreamPanelProblemsNeverCarryTheUnreachableHost(t *testing.T) {
 		return forge.PullRequest{}, false, fmt.Errorf("%w: https://%s/api/v4", forge.ErrUnreachable, internalHost)
 	}
 	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) {
-		return nil, fmt.Errorf("git status in /home/me/%s: %w", internalHost, errSeam)
+		return nil, fmt.Errorf("git status in /home/me/%s: %w", internalHost, webtest.ErrSeam)
 	}
 
 	// Act
-	recorder := streamOnce(t, serve(t, deps, config.Default()), "/api/events")
+	recorder := webtest.StreamOnce(t, webtest.Serve(t, deps, config.Default()), "/api/events")
 
 	// Assert
-	snap := firstSnapshot(t, recorder.Body.String())
+	snap := webtest.FirstSnapshot(t, recorder.Body.String())
 	if snap.Problems == nil || snap.Problems.Issues == nil || snap.Problems.Review == nil ||
 		snap.Problems.Changes == nil {
 		t.Fatalf("problems = %+v, want the issues, review and changes problems", snap.Problems)
@@ -80,10 +81,11 @@ func TestStreamSaysNoProblemOfAServiceThereIsNothingToAsk(t *testing.T) {
 			arrange(&edit)
 
 			// Act
-			recorder := streamOnce(t, serve(t, edit.apply(filledDeps()), config.Default()), "/api/events")
+			recorder := webtest.StreamOnce(t, webtest.Serve(t, edit.apply(webtest.FilledDeps()), config.Default()),
+				"/api/events")
 
 			// Assert
-			if snap := firstSnapshot(t, recorder.Body.String()); snap.Problems != nil {
+			if snap := webtest.FirstSnapshot(t, recorder.Body.String()); snap.Problems != nil {
 				t.Errorf("problems = %+v, want none when there was nothing to ask", snap.Problems)
 			}
 		})
@@ -110,10 +112,11 @@ func TestStreamSaysAForgeThatIsNotSetUpIsNotSetUp(t *testing.T) {
 			edit := webserverDepsEdit{pullErr: fmt.Errorf("%w: "+internalHost, tt.cause)}
 
 			// Act
-			recorder := streamOnce(t, serve(t, edit.apply(filledDeps()), config.Default()), "/api/events")
+			recorder := webtest.StreamOnce(t, webtest.Serve(t, edit.apply(webtest.FilledDeps()), config.Default()),
+				"/api/events")
 
 			// Assert
-			problems := firstSnapshot(t, recorder.Body.String()).Problems
+			problems := webtest.FirstSnapshot(t, recorder.Body.String()).Problems
 			if problems == nil || problems.Review == nil || problems.Review.Code != api.ProblemCodeNotSetUp ||
 				!strings.Contains(problems.Review.Detail, tt.want) || strings.Contains(problems.Review.Detail, internalHost) {
 				t.Errorf("problems = %+v, want the review not set up, saying %q, never the host", problems, tt.want)
@@ -122,7 +125,7 @@ func TestStreamSaysAForgeThatIsNotSetUpIsNotSetUp(t *testing.T) {
 	}
 }
 
-// webserverDepsEdit is which reads of filledDeps fail, and with what.
+// webserverDepsEdit is which reads of webtest.FilledDeps fail, and with what.
 type webserverDepsEdit struct {
 	branchErr  error
 	changesErr error
@@ -152,13 +155,13 @@ func TestGetReviewSaysWhyItsCICouldNotBeRead(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
 		return forge.CI{}, fmt.Errorf("%w: https://%s", forge.ErrUnreachable, internalHost)
 	}
 
 	// Act
-	review := decode[api.Review](t, get(t, serve(t, deps, config.Default()), "/api/review"))
+	review := webtest.Decode[api.Review](t, webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/review"))
 
 	// Assert
 	if review.Ci != nil || review.CiError == nil || review.CiError.Code != api.ProblemCodeUnreachable ||
@@ -174,7 +177,7 @@ func TestAHeldAnnouncementWaitsOnWhileTheForgeCannotBeRead(t *testing.T) {
 	// A commit lands, so nothing is held for the branch at its new head, and
 	// the forge then cannot be read: that says nothing of the pull request.
 	world := newForgeWorld()
-	handler := serve(t, world.deps(), config.Default())
+	handler := webtest.Serve(t, world.deps(), config.Default())
 	cancelHeld(t, handler)
 	announceWhenGreen(t, handler, nil)
 	world.turn(func(w *forgeWorld) { w.head, w.pullErr = "def4567", forge.ErrUnreachable })
@@ -192,7 +195,7 @@ func TestAHeldAnnouncementWithNoPageOpenOutlastsAReadThatFails(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]func(*forgeWorld){
-		"the branch cannot be read": func(w *forgeWorld) { w.branchErr = errSeam },
+		"the branch cannot be read": func(w *forgeWorld) { w.branchErr = webtest.ErrSeam },
 		"the forge cannot be read":  func(w *forgeWorld) { w.head, w.pullErr = "def4567", forge.ErrUnreachable },
 	}
 
@@ -208,7 +211,7 @@ func TestAHeldAnnouncementWithNoPageOpenOutlastsAReadThatFails(t *testing.T) {
 				world := newForgeWorld()
 				cfg := config.Default()
 				cfg.Timing.CIInterval = ciTick.String()
-				handler := serve(t, world.deps(), cfg)
+				handler := webtest.Serve(t, world.deps(), cfg)
 				cancelHeld(t, handler)
 				announceWhenGreen(t, handler, nil)
 				world.turn(fail)

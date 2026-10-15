@@ -20,6 +20,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // lacksAScope is how the answer to a token the forge refused names the likely
@@ -56,7 +57,7 @@ func TestOpenPullRequestClassifiesAFailedOpenThroughFault(t *testing.T) {
 		},
 		"a forge limiting requests": {
 			err:        askedToWait30(),
-			wantStatus: http.StatusServiceUnavailable, wantCode: api.ProblemCodeRateLimited, wantDetail: waitAndTryAgain,
+			wantStatus: http.StatusServiceUnavailable, wantCode: api.ProblemCodeRateLimited, wantDetail: webtest.WaitAndTryAgain,
 		},
 		"a repository the token cannot see": {
 			err:        fmt.Errorf("%w: %s/acme/repo", forge.ErrNoRepository, forgeHost),
@@ -67,8 +68,8 @@ func TestOpenPullRequestClassifiesAFailedOpenThroughFault(t *testing.T) {
 			wantStatus: http.StatusUnprocessableEntity, wantCode: api.ProblemCodeUnprocessable, wantDetail: lacksAScope,
 		},
 		"a failure nothing more is known of": {
-			err:        fmt.Errorf("opening at %s: %w", apiBase, errSeam),
-			wantStatus: http.StatusInternalServerError, wantCode: api.ProblemCodeInternal, wantDetail: tryAgain,
+			err:        fmt.Errorf("opening at %s: %w", apiBase, webtest.ErrSeam),
+			wantStatus: http.StatusInternalServerError, wantCode: api.ProblemCodeInternal, wantDetail: webtest.TryAgain,
 		},
 	}
 
@@ -83,7 +84,7 @@ func TestOpenPullRequestClassifiesAFailedOpenThroughFault(t *testing.T) {
 			recorder := doOpen(t, deps, openRequestBody)
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 
 			answered := recorder.Code == tt.wantStatus && failure.Code == tt.wantCode
 			if !answered || !strings.Contains(failure.Detail, tt.wantDetail) {
@@ -103,7 +104,7 @@ func TestOpenPullRequestKeepsTheWordsTheCallerCanActOn(t *testing.T) {
 
 	cases := map[string]error{
 		"a pull request the forge turned down": fmt.Errorf("%w: A pull request already exists for acme:%s",
-			forge.ErrRejected, testBranchName),
+			forge.ErrRejected, webtest.TestBranchName),
 	}
 
 	for name, err := range cases {
@@ -117,7 +118,7 @@ func TestOpenPullRequestKeepsTheWordsTheCallerCanActOn(t *testing.T) {
 			recorder := doOpen(t, deps, openRequestBody)
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != http.StatusUnprocessableEntity || failure.Detail != err.Error() {
 				t.Errorf("status = %d, detail %q; want 422 saying %q", recorder.Code, failure.Detail, err.Error())
 			}
@@ -140,7 +141,7 @@ func TestARefusedTokenIsToldInTheWordsTheTerminalUses(t *testing.T) {
 	recorder := doOpen(t, failingOpenDeps(refusal), openRequestBody)
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusUnprocessableEntity || failure.Detail != advice {
 		t.Errorf("status/detail = %d/%q, want 422 with the terminal's words %q", recorder.Code, failure.Detail, advice)
 	}

@@ -14,19 +14,20 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
-// openFollowable opens a pull request from a branch naming testKey, with the
-// tracker's writes wired, and returns what the open offers next.
+// openFollowable opens a pull request from a branch naming webtest.TestKey,
+// with the tracker's writes wired, and returns what the open offers next.
 func openFollowable(t *testing.T, deps webserver.Deps, cfg config.Config) (api.OpenedPullRequest, string) {
 	t.Helper()
 
-	recorder := send(t, serve(t, deps, cfg), http.MethodPost, "/api/pull-request", openRequestBody)
+	recorder := webtest.Send(t, webtest.Serve(t, deps, cfg), http.MethodPost, "/api/pull-request", openRequestBody)
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d (%s), want the pull request opened", recorder.Code, recorder.Body.String())
 	}
 
-	return decode[api.OpenedPullRequest](t, recorder), recorder.Body.String()
+	return webtest.Decode[api.OpenedPullRequest](t, recorder), recorder.Body.String()
 }
 
 // followableDeps can open a pull request, and has the tracker's writes wired.
@@ -65,7 +66,7 @@ func TestOpenPullRequestOffersTheLinkThenTheMove(t *testing.T) {
 	opened, _ := openFollowable(t, deps, reviewConfig())
 
 	// Assert
-	want := "link " + testKey + ", transition " + testKey + " to " + reviewStatus
+	want := "link " + webtest.TestKey + ", transition " + webtest.TestKey + " to " + reviewStatus
 	if got := strings.Join(offered(opened), ", "); got != want {
 		t.Errorf("follow_ups = %q, want %q", got, want)
 	}
@@ -80,22 +81,23 @@ func TestOpenPullRequestOffersOnlyWhatApplies(t *testing.T) {
 		want   string
 	}{
 		"no review status configured": {
-			unwire: func(*webserver.Deps) {}, cfg: config.Default(), want: "link " + testKey,
+			unwire: func(*webserver.Deps) {}, cfg: config.Default(), want: "link " + webtest.TestKey,
 		},
 		// The pull request is open either way; a tracker that cannot be read
 		// offers no move rather than failing the open.
 		"the moves cannot be read": {
 			unwire: func(deps *webserver.Deps) {
-				deps.Jira.Transitions = func(context.Context, jira.Key) ([]jira.Transition, error) { return nil, errSeam }
+				deps.Jira.Transitions = func(context.Context, jira.Key) ([]jira.Transition, error) { return nil, webtest.ErrSeam }
 			},
-			cfg: reviewConfig(), want: "link " + testKey,
+			cfg: reviewConfig(), want: "link " + webtest.TestKey,
 		},
 		"no way to move": {
-			unwire: func(deps *webserver.Deps) { deps.Jira.Transition = nil }, cfg: reviewConfig(), want: "link " + testKey,
+			unwire: func(deps *webserver.Deps) { deps.Jira.Transition = nil }, cfg: reviewConfig(),
+			want: "link " + webtest.TestKey,
 		},
 		"a tracker that takes no link": {
 			unwire: func(deps *webserver.Deps) { deps.Jira.LinkPullRequest = nil },
-			cfg:    reviewConfig(), want: "transition " + testKey + " to " + reviewStatus,
+			cfg:    reviewConfig(), want: "transition " + webtest.TestKey + " to " + reviewStatus,
 		},
 	}
 

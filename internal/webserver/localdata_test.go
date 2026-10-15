@@ -17,6 +17,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/store"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // storeDir is where the fake store keeps its files.
@@ -65,27 +66,27 @@ func (f *fakeStore) wire(deps *webserver.Deps) {
 func storeServer(t *testing.T, fake *fakeStore, info webserver.Info) http.Handler {
 	t.Helper()
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	fake.wire(&deps)
 
-	return serveWith(t, deps, config.Default(), info)
+	return webtest.ServeWith(t, deps, config.Default(), info)
 }
 
 func TestLocalDataListsEachFileWithWhatItHolds(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	handler := storeServer(t, newFakeStore(), webserver.Info{Version: testVersion})
+	handler := storeServer(t, newFakeStore(), webserver.Info{Version: webtest.TestVersion})
 
 	// Act
-	answer := get(t, handler, "/api/local-data")
+	answer := webtest.Get(t, handler, "/api/local-data")
 
 	// Assert
 	if answer.Code != http.StatusOK {
 		t.Fatalf("status %d: %s", answer.Code, answer.Body.String())
 	}
 
-	data := decode[api.LocalData](t, answer)
+	data := webtest.Decode[api.LocalData](t, answer)
 	if data.Dir != storeDir || len(data.Files) != 2 {
 		t.Fatalf("listed %+v, want both files in %s", data, storeDir)
 	}
@@ -115,10 +116,10 @@ func TestLocalDataSaysWhenTheServerRunsDry(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	handler := storeServer(t, newFakeStore(), webserver.Info{Version: testVersion, DryRun: true})
+	handler := storeServer(t, newFakeStore(), webserver.Info{Version: webtest.TestVersion, DryRun: true})
 
 	// Act
-	data := decode[api.LocalData](t, get(t, handler, "/api/local-data"))
+	data := webtest.Decode[api.LocalData](t, webtest.Get(t, handler, "/api/local-data"))
 
 	// Assert
 	if data.DryRun == nil || !*data.DryRun {
@@ -144,10 +145,10 @@ func TestCleaningLocalDataRemovesTheScopeAsked(t *testing.T) {
 
 			// Arrange
 			fake := newFakeStore()
-			handler := storeServer(t, fake, webserver.Info{Version: testVersion})
+			handler := storeServer(t, fake, webserver.Info{Version: webtest.TestVersion})
 
 			// Act
-			answer := send(t, handler, http.MethodDelete, "/api/local-data?scope="+test.query, "")
+			answer := webtest.Send(t, handler, http.MethodDelete, "/api/local-data?scope="+test.query, "")
 
 			// Assert
 			if answer.Code != http.StatusOK {
@@ -158,7 +159,7 @@ func TestCleaningLocalDataRemovesTheScopeAsked(t *testing.T) {
 				t.Errorf("cleaned %v, want %v", fake.cleaned, test.wantScope)
 			}
 
-			if left := decode[api.LocalData](t, answer).Files; len(left) != test.wantLeft {
+			if left := webtest.Decode[api.LocalData](t, answer).Files; len(left) != test.wantLeft {
 				t.Errorf("answered %d files after the clean, want %d", len(left), test.wantLeft)
 			}
 		})
@@ -189,17 +190,17 @@ func TestCleaningLocalDataAnswersAFailureByItsKind(t *testing.T) {
 			// Arrange
 			fake := newFakeStore()
 			fake.failure = test.failure
-			handler := storeServer(t, fake, webserver.Info{Version: testVersion})
+			handler := storeServer(t, fake, webserver.Info{Version: webtest.TestVersion})
 
 			// Act
-			answer := send(t, handler, http.MethodDelete, "/api/local-data?scope=all", "")
+			answer := webtest.Send(t, handler, http.MethodDelete, "/api/local-data?scope=all", "")
 
 			// Assert
 			if answer.Code != test.wantCode {
 				t.Fatalf("status %d, want %d: %s", answer.Code, test.wantCode, answer.Body.String())
 			}
 
-			if problem := decode[api.Problem](t, answer); problem.Code != test.wantKind {
+			if problem := webtest.Decode[api.Problem](t, answer); problem.Code != test.wantKind {
 				t.Errorf("code %q, want %q", problem.Code, test.wantKind)
 			}
 		})
@@ -211,10 +212,10 @@ func TestCleaningLocalDataRefusesAnUnknownScope(t *testing.T) {
 
 	// Arrange
 	fake := newFakeStore()
-	handler := storeServer(t, fake, webserver.Info{Version: testVersion})
+	handler := storeServer(t, fake, webserver.Info{Version: webtest.TestVersion})
 
 	// Act
-	answer := send(t, handler, http.MethodDelete, "/api/local-data?scope=kept", "")
+	answer := webtest.Send(t, handler, http.MethodDelete, "/api/local-data?scope=kept", "")
 
 	// Assert
 	if answer.Code != http.StatusBadRequest || len(fake.cleaned) != 0 {
@@ -227,10 +228,10 @@ func TestCleaningLocalDataIsRefusedInADryRun(t *testing.T) {
 
 	// Arrange
 	fake := newFakeStore()
-	handler := storeServer(t, fake, webserver.Info{Version: testVersion, DryRun: true})
+	handler := storeServer(t, fake, webserver.Info{Version: webtest.TestVersion, DryRun: true})
 
 	// Act
-	answer := send(t, handler, http.MethodDelete, "/api/local-data?scope=all", "")
+	answer := webtest.Send(t, handler, http.MethodDelete, "/api/local-data?scope=all", "")
 
 	// Assert
 	if answer.Code != http.StatusForbidden || len(fake.cleaned) != 0 {
@@ -254,10 +255,10 @@ func TestLocalDataIsUnprocessableWithoutAStore(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			handler := serve(t, filledDeps(), config.Default())
+			handler := webtest.Serve(t, webtest.FilledDeps(), config.Default())
 
 			// Act
-			answer := send(t, handler, test.method, test.target, "")
+			answer := webtest.Send(t, handler, test.method, test.target, "")
 
 			// Assert
 			if answer.Code != http.StatusUnprocessableEntity {
@@ -271,12 +272,12 @@ func TestLocalDataIsUnprocessableWithNowhereToKeepIt(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Settings.LocalData = func(context.Context) (string, []store.DataFile, error) { return "", nil, store.ErrNoDir }
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 
 	// Act
-	answer := get(t, handler, "/api/local-data")
+	answer := webtest.Get(t, handler, "/api/local-data")
 
 	// Assert
 	if answer.Code != http.StatusUnprocessableEntity {
@@ -290,16 +291,16 @@ func TestCleaningLocalDataThatCannotBeListedAfterIsAFault(t *testing.T) {
 	// Arrange
 	// The clean goes through; listing what is left after it does not.
 	fake := newFakeStore()
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	fake.wire(&deps)
-	deps.Settings.LocalData = func(context.Context) (string, []store.DataFile, error) { return "", nil, errSeam }
-	handler := serveWith(t, deps, config.Default(), webserver.Info{Version: testVersion})
+	deps.Settings.LocalData = func(context.Context) (string, []store.DataFile, error) { return "", nil, webtest.ErrSeam }
+	handler := webtest.ServeWith(t, deps, config.Default(), webserver.Info{Version: webtest.TestVersion})
 
 	// Act
-	answer := send(t, handler, http.MethodDelete, "/api/local-data?scope=cache", "")
+	answer := webtest.Send(t, handler, http.MethodDelete, "/api/local-data?scope=cache", "")
 
 	// Assert
-	if failure := decode[api.Problem](t, answer); answer.Code != http.StatusInternalServerError ||
+	if failure := webtest.Decode[api.Problem](t, answer); answer.Code != http.StatusInternalServerError ||
 		failure.Code != api.ProblemCodeInternal {
 		t.Errorf("status/code %d/%s, want 500/internal", answer.Code, failure.Code)
 	}

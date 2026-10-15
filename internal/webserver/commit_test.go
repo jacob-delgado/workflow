@@ -17,6 +17,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // fakeOutput is a finished command's output: the lines it wrote, already closed,
@@ -41,17 +42,18 @@ func fakeOutput(lines []string, waitErr error) proc.Output {
 func doCommit(t *testing.T, deps webserver.Deps, body string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	return send(t, serve(t, deps, config.Default()), http.MethodPost, "/api/commit", body)
+	return webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPost, "/api/commit", body)
 }
 
 func TestCommitCommitsStagedChanges(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// filledDeps' one change is staged, so there is something to commit.
+	// webtest.FilledDeps' one change is staged, so there is something to
+	// commit.
 	var message string
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Commit = func(_ context.Context, msg string) (proc.Output, error) {
 		message = msg
 
@@ -79,7 +81,7 @@ func TestCommitBuildsAFullMessage(t *testing.T) {
 	// Arrange
 	var message string
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Commit = func(_ context.Context, msg string) (proc.Output, error) {
 		message = msg
 
@@ -108,7 +110,7 @@ func TestCommitHonorsTheConfiguredConvention(t *testing.T) {
 	// A team whose types are hotfix/chore and whose issue trailer is "Closes".
 	var message string
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Commit = func(_ context.Context, msg string) (proc.Output, error) {
 		message = msg
 
@@ -120,7 +122,7 @@ func TestCommitHonorsTheConfiguredConvention(t *testing.T) {
 	cfg.Commit.RefsTrailer = "Closes"
 
 	// Act
-	recorder := send(t, serve(t, deps, cfg), http.MethodPost, "/api/commit",
+	recorder := webtest.Send(t, webtest.Serve(t, deps, cfg), http.MethodPost, "/api/commit",
 		`{"type":"hotfix","subject":"patch the leak"}`)
 
 	// Assert
@@ -139,7 +141,7 @@ func TestCommitRejectsATypeOutsideTheConfiguredConvention(t *testing.T) {
 	// Arrange
 	// With only hotfix and chore configured, the built-in "fix" is no longer valid.
 	called := false
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Commit = func(context.Context, string) (proc.Output, error) {
 		called = true
 
@@ -150,7 +152,7 @@ func TestCommitRejectsATypeOutsideTheConfiguredConvention(t *testing.T) {
 	cfg.Commit.Types = []string{"hotfix", "chore"}
 
 	// Act
-	recorder := send(t, serve(t, deps, cfg), http.MethodPost, "/api/commit",
+	recorder := webtest.Send(t, webtest.Serve(t, deps, cfg), http.MethodPost, "/api/commit",
 		`{"type":"fix","subject":"redact tokens"}`)
 
 	// Assert
@@ -168,7 +170,7 @@ func TestCommitRefusesWhenNothingIsStaged(t *testing.T) {
 
 	// Arrange
 	called := false
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return nil, nil }
 	deps.Git.Commit = func(context.Context, string) (proc.Output, error) {
 		called = true
@@ -188,7 +190,7 @@ func TestCommitRefusesWhenNothingIsStaged(t *testing.T) {
 		t.Error("committed with nothing staged")
 	}
 
-	if failure := decode[api.Problem](t, recorder); failure.Code != api.ProblemCodeConflict {
+	if failure := webtest.Decode[api.Problem](t, recorder); failure.Code != api.ProblemCodeConflict {
 		t.Errorf("code = %q, want conflict", failure.Code)
 	}
 }
@@ -198,7 +200,7 @@ func TestCommitRejectsAnInvalidMessage(t *testing.T) {
 
 	// Arrange
 	called := false
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Commit = func(context.Context, string) (proc.Output, error) {
 		called = true
 
@@ -224,7 +226,7 @@ func TestCommitRejectsASubjectSpanningLines(t *testing.T) {
 
 	// Arrange
 	called := false
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Commit = func(context.Context, string) (proc.Output, error) {
 		called = true
 
@@ -243,7 +245,7 @@ func TestCommitRejectsASubjectSpanningLines(t *testing.T) {
 		t.Error("committed a subject spanning lines")
 	}
 
-	if detail := decode[api.Problem](t, recorder).Detail; detail != convention.ErrSubjectNotOneLine.Error() {
+	if detail := webtest.Decode[api.Problem](t, recorder).Detail; detail != convention.ErrSubjectNotOneLine.Error() {
 		t.Errorf("detail = %q, want %q", detail, convention.ErrSubjectNotOneLine)
 	}
 }
@@ -253,9 +255,9 @@ func TestCommitReportsAFailingCommit(t *testing.T) {
 
 	// Arrange
 	// A hook rejects the commit: the exit is a failure and its output explains why.
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Commit = func(context.Context, string) (proc.Output, error) {
-		return fakeOutput([]string{"lint: trailing whitespace"}, errSeam), nil
+		return fakeOutput([]string{"lint: trailing whitespace"}, webtest.ErrSeam), nil
 	}
 
 	// Act
@@ -266,7 +268,7 @@ func TestCommitReportsAFailingCommit(t *testing.T) {
 		t.Fatalf("status = %d, want 422 when the commit fails", recorder.Code)
 	}
 
-	message := decode[api.Problem](t, recorder).Detail
+	message := webtest.Decode[api.Problem](t, recorder).Detail
 
 	if !strings.Contains(message, "the commit failed") || !strings.Contains(message, "trailing whitespace") {
 		t.Errorf("message = %q, want the failure and its output", message)
@@ -279,9 +281,9 @@ func TestCommitReportsAChangesReadFailure(t *testing.T) {
 	// Arrange
 	// The read's own words name where the repository is; the answer is the one
 	// any failure nothing more is known of gets.
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) {
-		return nil, fmt.Errorf("reading the status of %s: %w", repoPath, errSeam)
+		return nil, fmt.Errorf("reading the status of %s: %w", webtest.RepoPath, webtest.ErrSeam)
 	}
 	deps.Git.Commit = func(context.Context, string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
 
@@ -289,12 +291,12 @@ func TestCommitReportsAChangesReadFailure(t *testing.T) {
 	recorder := doCommit(t, deps, `{"type":"fix","subject":"redact tokens"}`)
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusInternalServerError || failure.Code != api.ProblemCodeInternal {
 		t.Errorf("status = %d, code %q; want 500 and %q", recorder.Code, failure.Code, api.ProblemCodeInternal)
 	}
 
-	if strings.Contains(failure.Detail, errSeam.Error()) || strings.Contains(failure.Detail, repoPath) {
+	if strings.Contains(failure.Detail, webtest.ErrSeam.Error()) || strings.Contains(failure.Detail, webtest.RepoPath) {
 		t.Errorf("detail = %q, names the read's own words or the repository's path", failure.Detail)
 	}
 }
@@ -305,9 +307,9 @@ func TestCommitReportsAFailedStart(t *testing.T) {
 	// Arrange
 	// The commit cannot even be started, and the seam's words name where the
 	// repository is; the answer says how to see why instead.
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Commit = func(context.Context, string) (proc.Output, error) {
-		return proc.Output{}, fmt.Errorf("running git in %s: %w", repoPath, errSeam)
+		return proc.Output{}, fmt.Errorf("running git in %s: %w", webtest.RepoPath, webtest.ErrSeam)
 	}
 
 	// Act
@@ -316,7 +318,7 @@ func TestCommitReportsAFailedStart(t *testing.T) {
 	// Assert
 	want := "the commit could not be started; commit from a terminal to see why"
 
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusUnprocessableEntity || failure.Detail != want {
 		t.Errorf("status = %d, detail %q; want 422 saying %q", recorder.Code, failure.Detail, want)
 	}
@@ -329,7 +331,7 @@ func TestCommitSucceedsEvenIfTheRereadFails(t *testing.T) {
 	// The commit lands, but the read that would confirm it fails; the branch as
 	// read before stands in, with no head or commits to name the wrong commit.
 	reads := 0
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	branch := deps.Git.Branch
 	deps.Git.Branch = func(ctx context.Context) (gitrepo.Branch, error) {
 		reads++
@@ -337,7 +339,7 @@ func TestCommitSucceedsEvenIfTheRereadFails(t *testing.T) {
 			return branch(ctx)
 		}
 
-		return gitrepo.Branch{}, errSeam
+		return gitrepo.Branch{}, webtest.ErrSeam
 	}
 
 	var message string
@@ -356,9 +358,9 @@ func TestCommitSucceedsEvenIfTheRereadFails(t *testing.T) {
 		t.Fatalf("status = %d, want 200 — the commit landed despite the re-read failing", recorder.Code)
 	}
 
-	answered := decode[api.Branch](t, recorder)
-	if answered.Name != testBranchName || answered.Head != "" || len(answered.Commits) != 0 {
-		t.Errorf("branch = %+v, want %s with no head or commits", answered, testBranchName)
+	answered := webtest.Decode[api.Branch](t, recorder)
+	if answered.Name != webtest.TestBranchName || answered.Head != "" || len(answered.Commits) != 0 {
+		t.Errorf("branch = %+v, want %s with no head or commits", answered, webtest.TestBranchName)
 	}
 
 	if !strings.Contains(message, "Refs: PROJ-412") {
@@ -374,8 +376,8 @@ func TestCommitLandsWithNoTrailerWhenTheBranchCannotBeRead(t *testing.T) {
 	// and a commit that landed is not reported as failed.
 	var message string
 
-	deps := filledDeps()
-	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+	deps := webtest.FilledDeps()
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, webtest.ErrSeam }
 	deps.Git.Commit = func(_ context.Context, msg string) (proc.Output, error) {
 		message = msg
 
@@ -398,9 +400,9 @@ func TestCommitLandsWithNoTrailerWhenTheBranchCannotBeRead(t *testing.T) {
 func TestCommitIsUnavailableWithoutAGitSeam(t *testing.T) {
 	t.Parallel()
 
-	// Committing needs the commit, changes, and branch-read seams; missing any one
-	// means it is not available. filledDeps leaves Commit nil, so the other cases
-	// set it to isolate the seam under test.
+	// Committing needs the commit, changes, and branch-read seams; missing any
+	// one means it is not available. webtest.FilledDeps leaves Commit nil, so
+	// the other cases set it to isolate the seam under test.
 	withCommit := func(deps webserver.Deps) webserver.Deps {
 		deps.Git.Commit = func(context.Context, string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
 
@@ -415,7 +417,7 @@ func TestCommitIsUnavailableWithoutAGitSeam(t *testing.T) {
 
 			return deps
 		},
-		noBranchSeam: func(deps webserver.Deps) webserver.Deps {
+		webtest.NoBranchSeam: func(deps webserver.Deps) webserver.Deps {
 			deps = withCommit(deps)
 			deps.Git.Branch = nil
 
@@ -428,7 +430,7 @@ func TestCommitIsUnavailableWithoutAGitSeam(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			recorder := doCommit(t, mutate(filledDeps()), `{"type":"fix","subject":"redact tokens"}`)
+			recorder := doCommit(t, mutate(webtest.FilledDeps()), `{"type":"fix","subject":"redact tokens"}`)
 
 			// Assert
 			if recorder.Code != http.StatusUnprocessableEntity {

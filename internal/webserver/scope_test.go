@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // The scopes the suggestion tests tell apart: one learned from an earlier
@@ -78,9 +79,10 @@ func withDefaultScope(scope string) config.Config {
 	return cfg
 }
 
-// committable is filledDeps with a staged change and a commit that lands.
+// committable is webtest.FilledDeps with a staged change and a commit that
+// lands.
 func committable() webserver.Deps {
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Commit = func(context.Context, string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
 
 	return deps
@@ -109,16 +111,16 @@ func TestSnapshotCarriesTheSuggestedScope(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			if tt.store != nil {
 				tt.store.wire(&deps)
 			}
 
 			// Act
-			recorder := streamOnce(t, serve(t, deps, withDefaultScope(tt.defaultsTo)), "/api/events")
+			recorder := webtest.StreamOnce(t, webtest.Serve(t, deps, withDefaultScope(tt.defaultsTo)), "/api/events")
 
 			// Assert
-			if got := firstSnapshot(t, recorder.Body.String()).SuggestedScope; got != tt.want {
+			if got := webtest.FirstSnapshot(t, recorder.Body.String()).SuggestedScope; got != tt.want {
 				t.Errorf("suggested scope = %q, want %q", got, tt.want)
 			}
 		})
@@ -129,7 +131,7 @@ func TestEveryFrameNamesTheSuggestedScopeEvenWhenEmpty(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	recorder := streamOnce(t, serve(t, filledDeps(), config.Default()), "/api/events")
+	recorder := webtest.StreamOnce(t, webtest.Serve(t, webtest.FilledDeps(), config.Default()), "/api/events")
 
 	// Assert
 	// The page's schema requires the key, so an empty suggestion is sent as
@@ -155,11 +157,11 @@ func TestTheStoreIsReadOnceAcrossFrames(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			store.wire(&deps)
 
 			// Act
-			pushes := len(snapshots(t, streamFrames(t, deps)))
+			pushes := len(webtest.Snapshots(t, streamFrames(t, deps)))
 
 			// Assert
 			if reads := store.readCount(); pushes < 2 || reads != 1 {
@@ -176,17 +178,17 @@ func TestADryRunSuggestsTheDefaultWithoutReadingTheCache(t *testing.T) {
 	// A dry run reads nothing from the cache, so it reads no learned scope;
 	// the configured default still applies.
 	store := &scopeStore{scope: learnedScope, holds: true}
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	store.wire(&deps)
 
-	dryRun := webserver.Info{Version: testVersion, DryRun: true}
-	handler := serveWith(t, deps, withDefaultScope(configuredScope), dryRun)
+	dryRun := webserver.Info{Version: webtest.TestVersion, DryRun: true}
+	handler := webtest.ServeWith(t, deps, withDefaultScope(configuredScope), dryRun)
 
 	// Act
-	recorder := streamOnce(t, handler, "/api/events")
+	recorder := webtest.StreamOnce(t, handler, "/api/events")
 
 	// Assert
-	got := firstSnapshot(t, recorder.Body.String()).SuggestedScope
+	got := webtest.FirstSnapshot(t, recorder.Body.String()).SuggestedScope
 	if got != configuredScope || store.readCount() != 0 {
 		t.Errorf("suggested %q after %d store reads, want %q and none", got, store.readCount(), configuredScope)
 	}
@@ -237,21 +239,24 @@ func TestCommitRecordsTheScope(t *testing.T) {
 			tt.store.wire(&deps)
 
 			if tt.commitFails {
-				deps.Git.Commit = func(context.Context, string) (proc.Output, error) { return fakeOutput(nil, errSeam), nil }
+				deps.Git.Commit = func(context.Context, string) (proc.Output, error) {
+					return fakeOutput(nil, webtest.ErrSeam),
+						nil
+				}
 			}
 
-			handler := serve(t, deps, withDefaultScope(configuredScope))
-			first := firstSnapshot(t, streamOnce(t, handler, "/api/events").Body.String())
+			handler := webtest.Serve(t, deps, withDefaultScope(configuredScope))
+			first := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
 
 			// Act
-			send(t, handler, http.MethodPost, "/api/commit", tt.body)
+			webtest.Send(t, handler, http.MethodPost, "/api/commit", tt.body)
 
 			// Assert
 			if !slices.Equal(tt.store.recorded, tt.wantRecorded) {
 				t.Errorf("recorded %q, want %q", tt.store.recorded, tt.wantRecorded)
 			}
 
-			next := firstSnapshot(t, streamOnce(t, handler, "/api/events").Body.String())
+			next := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
 			if first.SuggestedScope != tt.wantFirst || next.SuggestedScope != tt.wantSuggested {
 				t.Errorf("suggested %q, then %q; want %q, then %q",
 					first.SuggestedScope, next.SuggestedScope, tt.wantFirst, tt.wantSuggested)
@@ -284,23 +289,23 @@ func TestADefaultScopeSavedInSettingsIsSuggestedWhileNoneIsLearned(t *testing.T)
 			t.Parallel()
 
 			// Arrange
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			tt.store.wire(&deps)
 
 			cfg := config.Default()
 			cfg.Path = filepath.Join(t.TempDir(), ".workflow.json")
-			handler := serve(t, deps, cfg)
+			handler := webtest.Serve(t, deps, cfg)
 			saved := withDefaultScope(configuredScope)
 
 			// Act
-			recorder := putConfig(t, handler, marshal(t, saved))
+			recorder := webtest.PutConfig(t, handler, webtest.Marshal(t, saved))
 
 			// Assert
 			if recorder.Code != http.StatusOK {
 				t.Fatalf("saving the configuration: status = %d: %s", recorder.Code, recorder.Body.String())
 			}
 
-			next := firstSnapshot(t, streamOnce(t, handler, "/api/events").Body.String())
+			next := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
 			if next.SuggestedScope != tt.want {
 				t.Errorf("suggested %q after saving default_scope %q, want %q", next.SuggestedScope, configuredScope, tt.want)
 			}
@@ -315,19 +320,19 @@ func TestACommitWhoseScopeTheStoreCannotKeepLandsAndIsNoted(t *testing.T) {
 	var noted []error
 
 	deps := committable()
-	deps.Store.RecordScope = func(context.Context, string) error { return errSeam }
+	deps.Store.RecordScope = func(context.Context, string) error { return webtest.ErrSeam }
 	deps.Unexpected = func(_ config.Config, err error) { noted = append(noted, err) }
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 
 	// Act
-	recorder := send(t, handler, http.MethodPost, "/api/commit", `{"type":"fix","scope":"cli","subject":"redact"}`)
+	recorder := webtest.Send(t, handler, http.MethodPost, "/api/commit", `{"type":"fix","scope":"cli","subject":"redact"}`)
 
 	// Assert
 	if recorder.Code != http.StatusOK {
 		t.Errorf("status %d (%s), want the commit answered as made", recorder.Code, recorder.Body.String())
 	}
 
-	if len(noted) != 1 || !errors.Is(noted[0], errSeam) {
+	if len(noted) != 1 || !errors.Is(noted[0], webtest.ErrSeam) {
 		t.Errorf("noted %v, want the store's failure noted once", noted)
 	}
 }

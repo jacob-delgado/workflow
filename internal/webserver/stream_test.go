@@ -20,6 +20,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // goldenFrames is the file the web client's frame test reads: what the stream
@@ -38,7 +39,7 @@ var updateGolden = flag.Bool("update", false, "rewrite the golden files from wha
 func lastSnapshot(t *testing.T, body string) api.Snapshot {
 	t.Helper()
 
-	pushed := snapshots(t, body)
+	pushed := webtest.Snapshots(t, body)
 
 	return pushed[len(pushed)-1]
 }
@@ -47,19 +48,19 @@ func TestStreamPushesASnapshotOnConnect(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	recorder := streamOnce(t, serve(t, filledDeps(), config.Default()), "/api/events")
+	recorder := webtest.StreamOnce(t, webtest.Serve(t, webtest.FilledDeps(), config.Default()), "/api/events")
 
 	// Assert
 	if ct := recorder.Header().Get("Content-Type"); ct != "text/event-stream" {
 		t.Errorf("Content-Type = %q, want text/event-stream", ct)
 	}
 
-	snap := firstSnapshot(t, recorder.Body.String())
-	if snap.Issues.Total != 1 || snap.Branch.Name != testBranchName || !snap.Review.Found {
+	snap := webtest.FirstSnapshot(t, recorder.Body.String())
+	if snap.Issues.Total != 1 || snap.Branch.Name != webtest.TestBranchName || !snap.Review.Found {
 		t.Errorf("snapshot = %+v, want the filled read state", snap)
 	}
 
-	if len(snap.Changes.Changes) != 1 || snap.Messaging.Author != testAuthor {
+	if len(snap.Changes.Changes) != 1 || snap.Messaging.Author != webtest.TestAuthor {
 		t.Errorf("snapshot = %+v, want the changes and messaging author", snap)
 	}
 }
@@ -70,7 +71,7 @@ func TestStreamUsesTheNamedView(t *testing.T) {
 	// Arrange
 	var gotJQL string
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Jira.Search = func(_ context.Context, jql string, _ int) (jira.SearchResult, error) {
 		gotJQL = jql
 
@@ -78,13 +79,13 @@ func TestStreamUsesTheNamedView(t *testing.T) {
 	}
 
 	cfg := config.Default()
-	cfg.Jira.Views = []config.JiraView{{Name: testBugView, JQL: testBugJQL}}
+	cfg.Jira.Views = []config.JiraView{{Name: webtest.TestBugView, JQL: webtest.TestBugJQL}}
 
 	// Act
-	_ = streamOnce(t, serve(t, deps, cfg), "/api/events?view="+testBugView)
+	_ = webtest.StreamOnce(t, webtest.Serve(t, deps, cfg), "/api/events?view="+webtest.TestBugView)
 
 	// Assert
-	if want := jira.ScopedToMe(testBugJQL); gotJQL != want {
+	if want := jira.ScopedToMe(webtest.TestBugJQL); gotJQL != want {
 		t.Errorf("searched %q, want the named view's JQL scoped to you, %q", gotJQL, want)
 	}
 }
@@ -95,7 +96,10 @@ func TestViewsDTOScopesEachViewToYou(t *testing.T) {
 	cases := map[string]struct {
 		jql, want string
 	}{
-		"a view of everyone's issues": {jql: testBugJQL, want: "(" + testBugJQL + ") AND assignee = currentUser()"},
+		"a view of everyone's issues": {
+			jql:  webtest.TestBugJQL,
+			want: "(" + webtest.TestBugJQL + ") AND assignee = currentUser()",
+		},
 		"a view that names the assignee": {
 			jql: "assignee is EMPTY ORDER BY created", want: "assignee is EMPTY ORDER BY created",
 		},
@@ -108,17 +112,17 @@ func TestViewsDTOScopesEachViewToYou(t *testing.T) {
 			// Arrange
 			var searched string
 
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			deps.Jira.Search = func(_ context.Context, jql string, _ int) (jira.SearchResult, error) {
 				searched = jql
 
 				return jira.SearchResult{}, nil
 			}
 			cfg := config.Default()
-			cfg.Jira.Views = []config.JiraView{{Name: testBugView, JQL: tt.jql}}
+			cfg.Jira.Views = []config.JiraView{{Name: webtest.TestBugView, JQL: tt.jql}}
 
 			// Act
-			streamOnce(t, serve(t, deps, cfg), "/api/events?view="+testBugView)
+			webtest.StreamOnce(t, webtest.Serve(t, deps, cfg), "/api/events?view="+webtest.TestBugView)
 
 			// Assert
 			if searched != tt.want {
@@ -132,7 +136,7 @@ func TestStreamRefusesAnUnknownViewBeforeUpgrading(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	recorder := streamOnce(t, serve(t, filledDeps(), config.Default()), "/api/events?view=nope")
+	recorder := webtest.StreamOnce(t, webtest.Serve(t, webtest.FilledDeps(), config.Default()), "/api/events?view=nope")
 
 	// Assert
 	// A problem, not an event stream: the refusal comes before the upgrade, so
@@ -141,7 +145,7 @@ func TestStreamRefusesAnUnknownViewBeforeUpgrading(t *testing.T) {
 		t.Errorf("Content-Type = %q, want application/problem+json", ct)
 	}
 
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusNotFound || failure.Code != api.ProblemCodeNotFound {
 		t.Errorf("status/code = %d/%s, want 404/not_found", recorder.Code, failure.Code)
 	}
@@ -157,15 +161,15 @@ func TestStreamEmptiesTheIssuesWhenItsViewIsRemoved(t *testing.T) {
 		// another view's issues.
 		cfg := config.Default()
 		cfg.Path = filepath.Join(t.TempDir(), ".workflow.json")
-		cfg.Jira.Views = []config.JiraView{{Name: testBugView, JQL: testBugJQL}}
-		info := webserver.Info{Version: testVersion, StreamInterval: streamTick}
-		handler := serveWith(t, filledDeps(), cfg, info)
-		stream := openStream(t, handler, "/api/events?view="+testBugView)
+		cfg.Jira.Views = []config.JiraView{{Name: webtest.TestBugView, JQL: webtest.TestBugJQL}}
+		info := webserver.Info{Version: webtest.TestVersion, StreamInterval: streamTick}
+		handler := webtest.ServeWith(t, webtest.FilledDeps(), cfg, info)
+		stream := webtest.OpenStream(t, handler, "/api/events?view="+webtest.TestBugView)
 
 		synctest.Wait()
 
 		// Act
-		saved := putConfig(t, handler, marshal(t, config.Default()))
+		saved := webtest.PutConfig(t, handler, webtest.Marshal(t, config.Default()))
 
 		advance(streamTick)
 
@@ -174,7 +178,7 @@ func TestStreamEmptiesTheIssuesWhenItsViewIsRemoved(t *testing.T) {
 			t.Fatalf("saving the config: status = %d, want 200", saved.Code)
 		}
 
-		if last := lastSnapshot(t, stream.close()); last.Issues.Total != 0 {
+		if last := lastSnapshot(t, stream.Close()); last.Issues.Total != 0 {
 			t.Errorf("last snapshot's issues = %+v, want an empty page once the view is gone", last.Issues)
 		}
 	})
@@ -184,11 +188,11 @@ func TestStreamSnapshotIsEmptyWithoutSeams(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	recorder := streamOnce(t, serve(t, webserver.Deps{}, config.Default()), "/api/events")
+	recorder := webtest.StreamOnce(t, webtest.Serve(t, webserver.Deps{}, config.Default()), "/api/events")
 
 	// Assert
 	// Nothing configured is nothing to ask, so no panel says it failed.
-	snap := firstSnapshot(t, recorder.Body.String())
+	snap := webtest.FirstSnapshot(t, recorder.Body.String())
 	if snap.Issues.Total != 0 || snap.Branch.Name != "" || len(snap.Changes.Changes) != 0 || snap.Review.Found ||
 		snap.Problems != nil {
 		t.Errorf("snapshot = %+v, want empty panels and no problem when nothing is configured", snap)
@@ -201,21 +205,21 @@ func TestStreamSnapshotDegradesWhenSeamsFail(t *testing.T) {
 	// Arrange
 	// Every read fails; the stream must still push a snapshot, with each failing
 	// panel empty rather than the whole snapshot lost, and saying why beside it.
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Jira.Search = func(context.Context, string, int) (jira.SearchResult, error) {
-		return jira.SearchResult{}, errSeam
+		return jira.SearchResult{}, webtest.ErrSeam
 	}
-	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
-	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return nil, errSeam }
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, webtest.ErrSeam }
+	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return nil, webtest.ErrSeam }
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
-		return forge.PullRequest{}, false, errSeam
+		return forge.PullRequest{}, false, webtest.ErrSeam
 	}
 
 	// Act
-	recorder := streamOnce(t, serve(t, deps, config.Default()), "/api/events")
+	recorder := webtest.StreamOnce(t, webtest.Serve(t, deps, config.Default()), "/api/events")
 
 	// Assert
-	snap := firstSnapshot(t, recorder.Body.String())
+	snap := webtest.FirstSnapshot(t, recorder.Body.String())
 	if snap.Issues.Total != 0 || snap.Branch.Name != "" || len(snap.Changes.Changes) != 0 || snap.Review.Found {
 		t.Errorf("snapshot = %+v, want empty panels when the seams fail", snap)
 	}
@@ -246,14 +250,14 @@ func TestStreamRepushesOnTheInterval(t *testing.T) {
 
 	synctest.Test(t, func(t *testing.T) {
 		// Arrange
-		info := webserver.Info{Version: testVersion, StreamInterval: streamTick}
-		stream := openStream(t, serveWith(t, filledDeps(), config.Default(), info), "/api/events")
+		info := webserver.Info{Version: webtest.TestVersion, StreamInterval: streamTick}
+		stream := webtest.OpenStream(t, webtest.ServeWith(t, webtest.FilledDeps(), config.Default(), info), "/api/events")
 
 		// Act
 		advance(streamTick)
 
 		// Assert
-		if pushes := len(snapshots(t, stream.close())); pushes != 2 {
+		if pushes := len(webtest.Snapshots(t, stream.Close())); pushes != 2 {
 			t.Errorf("got %d snapshots over one interval, want 2: on connect, and once it had passed", pushes)
 		}
 	})
@@ -263,17 +267,17 @@ func TestStreamRequiresAFlushableWriter(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	handler := serve(t, filledDeps(), config.Default())
+	handler := webtest.Serve(t, webtest.FilledDeps(), config.Default())
 	request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/events", nil)
-	request.Host = loopbackHost
-	writer := &unflushableWriter{}
+	request.Host = webtest.LoopbackHost
+	writer := &webtest.UnflushableWriter{}
 
 	// Act
 	handler.ServeHTTP(writer, request)
 
 	// Assert
-	if writer.code != http.StatusInternalServerError {
-		t.Errorf("status = %d, want 500 when the writer cannot stream", writer.code)
+	if writer.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want 500 when the writer cannot stream", writer.Code)
 	}
 }
 
@@ -283,14 +287,14 @@ func TestStreamStopsWhenTheConnectionFails(t *testing.T) {
 	// Arrange
 	// The context never cancels, so only a failed write can end the stream; a
 	// writer that fails every write proves the handler stops on a broken pipe.
-	handler := serve(t, filledDeps(), config.Default())
+	handler := webtest.Serve(t, webtest.FilledDeps(), config.Default())
 	request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/events", nil)
-	request.Host = loopbackHost
+	request.Host = webtest.LoopbackHost
 	done := make(chan struct{})
 
 	// Act
 	go func() {
-		handler.ServeHTTP(&failingFlushWriter{}, request)
+		handler.ServeHTTP(&webtest.FailingFlushWriter{}, request)
 		close(done)
 	}()
 
@@ -324,23 +328,26 @@ func TestStreamFrameMatchesTheClientGolden(t *testing.T) {
 	// and its commit, a change, the pull request and its CI, the issues in
 	// flight, one only the remote has, a learned scope, the started task and
 	// the linked ones — and one with nothing wired at all.
-	filled := filledDeps()
-	filled.Git.Branches = func(context.Context) ([]string, error) { return []string{testBranchName, targetBranch}, nil }
+	filled := webtest.FilledDeps()
+	filled.Git.Branches = func(context.Context) ([]string, error) {
+		return []string{webtest.TestBranchName, targetBranch},
+			nil
+	}
 	filled.Git.RemoteBranches = func(context.Context) ([]string, error) {
-		return []string{testBranchName, "feat/PROJ-7-flag"}, nil
+		return []string{webtest.TestBranchName, "feat/PROJ-7-flag"}, nil
 	}
 	filled.Store.LastScope = func(context.Context) (string, bool) { return "api", true }
 	filled.Store.CachedIssues = func(context.Context, string) ([]jira.Issue, bool) {
 		return []jira.Issue{keptIssue()}, true
 	}
-	filled.Tasks = fakeTaskwarrior().seams()
+	filled.Tasks = webtest.FakeTaskwarrior().Seams()
 
 	cfg := config.Default()
-	cfg.Messaging.Channel = testChannel
+	cfg.Messaging.Channel = webtest.TestChannel
 
 	// Act
-	frames := streamOnce(t, serve(t, filled, cfg), "/api/events").Body.String() +
-		streamOnce(t, serve(t, webserver.Deps{}, config.Default()), "/api/events").Body.String()
+	frames := webtest.StreamOnce(t, webtest.Serve(t, filled, cfg), "/api/events").Body.String() +
+		webtest.StreamOnce(t, webtest.Serve(t, webserver.Deps{}, config.Default()), "/api/events").Body.String()
 
 	// Assert
 	path := filepath.FromSlash(goldenFrames)
@@ -373,16 +380,20 @@ func TestAFrameCarriesAnIssueWhoseStatusIsUnderNoCategory(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Jira.Search = func(context.Context, string, int) (jira.SearchResult, error) {
 		return jira.SearchResult{
-			Issues: []jira.Issue{{Key: testKey, Summary: testSummary, Status: uncategorized, StatusCategory: noCategory}},
-			Total:  1,
+			Issues: []jira.Issue{{
+				Key: webtest.TestKey, Summary: webtest.TestSummary, Status: uncategorized,
+				StatusCategory: noCategory,
+			}},
+			Total: 1,
 		}, nil
 	}
 
 	// Act
-	frame := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
+	frame := webtest.FirstSnapshot(t, webtest.StreamOnce(t, webtest.Serve(t, deps, config.Default()),
+		"/api/events").Body.String())
 
 	// Assert
 	if len(frame.Issues.Issues) != 1 || frame.Issues.Issues[0].StatusCategory != api.StatusCategoryNew {

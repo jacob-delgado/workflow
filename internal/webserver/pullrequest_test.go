@@ -17,18 +17,20 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
-// openRequestBody is a complete request opening a pull request titled prTitle
-// into prBase.
-const openRequestBody = `{"title":"` + prTitle + `","base":"` + prBase + `","body":"why"}`
+// openRequestBody is a complete request opening a pull request titled
+// webtest.PRTitle into webtest.PRBase.
+const openRequestBody = `{"title":"` + webtest.PRTitle + `","base":"` + webtest.PRBase + `","body":"why"}`
 
 // pushedBranch is the checked-out branch already published to its remote, with a
 // commit and no open pull request, so opening one needs no push first.
 func pushedBranch() gitrepo.Branch {
 	return gitrepo.Branch{
-		Name: testBranchName, Base: testBase, Upstream: "origin/" + testBranchName, Ahead: 0,
-		PushRemote: gitrepo.DefaultRemote, Commits: []gitrepo.Commit{{Hash: testCommitHash, Subject: testCommitSubject}},
+		Name: webtest.TestBranchName, Base: webtest.TestBase, Upstream: "origin/" + webtest.TestBranchName, Ahead: 0,
+		PushRemote: gitrepo.DefaultRemote,
+		Commits:    []gitrepo.Commit{{Hash: webtest.TestCommitHash, Subject: webtest.TestCommitSubject}},
 	}
 }
 
@@ -36,13 +38,13 @@ func pushedBranch() gitrepo.Branch {
 // a pull request can be composed and opened; the push and create seams record
 // what they were asked to do.
 func openableDeps() webserver.Deps {
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{}, false, nil
 	}
 	deps.Git.Push = func(context.Context, string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
 	deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.PullRequest, error) {
-		return forge.PullRequest{Number: 7, URL: prURL, Title: "opened", Mergeable: forge.MergeClean}, nil
+		return forge.PullRequest{Number: 7, URL: webtest.PRURL, Title: "opened", Mergeable: forge.MergeClean}, nil
 	}
 
 	return deps
@@ -58,11 +60,11 @@ func TestOpenPullRequestForwardsReviewersAssigneesAndLabels(t *testing.T) {
 	deps.Forge.CreatePullRequest = func(_ context.Context, newPull forge.NewPullRequest) (forge.PullRequest, error) {
 		request = newPull
 
-		return forge.PullRequest{Number: 7, URL: prURL, Title: newPull.Title}, nil
+		return forge.PullRequest{Number: 7, URL: webtest.PRURL, Title: newPull.Title}, nil
 	}
 
 	// A padded reviewer and a blank label are cleaned rather than sent on.
-	body := `{"title":"` + prTitle + `","base":"` + prBase +
+	body := `{"title":"` + webtest.PRTitle + `","base":"` + webtest.PRBase +
 		`","reviewers":["ana"," ben "],"assignees":["cass"],"labels":["bug",""]}`
 
 	// Act
@@ -93,7 +95,7 @@ func TestOpenPullRequestKeepsAPullWhoseReviewersCouldNotBeAdded(t *testing.T) {
 	// The pull opens, but the token cannot add its reviewers.
 	deps := openableDeps()
 	deps.Forge.CreatePullRequest = func(_ context.Context, newPull forge.NewPullRequest) (forge.PullRequest, error) {
-		return forge.PullRequest{Number: 7, URL: prURL, Title: newPull.Title}, forge.ErrRefused
+		return forge.PullRequest{Number: 7, URL: webtest.PRURL, Title: newPull.Title}, forge.ErrRefused
 	}
 
 	// Act
@@ -105,7 +107,7 @@ func TestOpenPullRequestKeepsAPullWhoseReviewersCouldNotBeAdded(t *testing.T) {
 		t.Fatalf("status = %d, want 200 for a pull that opened", recorder.Code)
 	}
 
-	opened := decode[api.OpenedPullRequest](t, recorder)
+	opened := webtest.Decode[api.OpenedPullRequest](t, recorder)
 	if opened.Pull.Number != 7 {
 		t.Errorf("pull number = %d, want the opened 7", opened.Pull.Number)
 	}
@@ -119,7 +121,7 @@ func TestOpenPullRequestKeepsAPullWhoseReviewersCouldNotBeAdded(t *testing.T) {
 func doOpen(t *testing.T, deps webserver.Deps, body string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	return send(t, serve(t, deps, config.Default()), http.MethodPost, "/api/pull-request", body)
+	return webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPost, "/api/pull-request", body)
 }
 
 func TestGetPullRequestDraftComposesTheProposal(t *testing.T) {
@@ -129,19 +131,20 @@ func TestGetPullRequestDraftComposesTheProposal(t *testing.T) {
 	deps := openableDeps()
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/pull-request/draft")
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/pull-request/draft")
 
 	// Assert
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", recorder.Code)
 	}
 
-	draft := decode[api.PullRequestDraft](t, recorder)
-	if draft.Title != testCommitSubject || draft.Base != prBase || draft.Head != testBranchName {
-		t.Errorf("draft = %+v, want the first commit's title, base %q, head %q", draft, prBase, testBranchName)
+	draft := webtest.Decode[api.PullRequestDraft](t, recorder)
+	if draft.Title != webtest.TestCommitSubject || draft.Base != webtest.PRBase || draft.Head != webtest.TestBranchName {
+		t.Errorf("draft = %+v, want the first commit's title, base %q, head %q", draft, webtest.PRBase,
+			webtest.TestBranchName)
 	}
 
-	if !draft.NeedsPush || !strings.Contains(draft.Body, testCommitSubject) {
+	if !draft.NeedsPush || !strings.Contains(draft.Body, webtest.TestCommitSubject) {
 		t.Errorf("draft = %+v, want needs_push and the commit in the body", draft)
 	}
 }
@@ -150,21 +153,21 @@ func TestGetPullRequestDraftTakesItsTitleFromTheConfiguredSource(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// With the issue as the title source, the draft title is the issue rather than
-	// the branch's oldest commit (testCommitSubject).
+	// With the issue as the title source, the draft title is the issue rather
+	// than the branch's oldest commit (webtest.TestCommitSubject).
 	deps := openableDeps()
 	cfg := config.Default()
 	cfg.PullRequest.TitleSource = "issue"
 
 	// Act
-	recorder := get(t, serve(t, deps, cfg), "/api/pull-request/draft")
+	recorder := webtest.Get(t, webtest.Serve(t, deps, cfg), "/api/pull-request/draft")
 
 	// Assert
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", recorder.Code)
 	}
 
-	if draft := decode[api.PullRequestDraft](t, recorder); draft.Title != "PROJ-412: Fix token redaction" {
+	if draft := webtest.Decode[api.PullRequestDraft](t, recorder); draft.Title != "PROJ-412: Fix token redaction" {
 		t.Errorf("draft title = %q, want the configured issue source", draft.Title)
 	}
 }
@@ -181,10 +184,10 @@ func TestGetPullRequestDraftBuildsTheBodyFromTheRepositoryTemplate(t *testing.T)
 	}
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/pull-request/draft")
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/pull-request/draft")
 
 	// Assert
-	if body := decode[api.PullRequestDraft](t, recorder).Body; !strings.Contains(body, marker) {
+	if body := webtest.Decode[api.PullRequestDraft](t, recorder).Body; !strings.Contains(body, marker) {
 		t.Errorf("body = %q, want the repository template used", body)
 	}
 }
@@ -197,10 +200,10 @@ func TestGetPullRequestDraftDoesNotNeedPushForAPublishedBranch(t *testing.T) {
 	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return pushedBranch(), nil }
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/pull-request/draft")
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/pull-request/draft")
 
 	// Assert
-	if decode[api.PullRequestDraft](t, recorder).NeedsPush {
+	if webtest.Decode[api.PullRequestDraft](t, recorder).NeedsPush {
 		t.Error("needs_push = true for an already-published branch; want false")
 	}
 }
@@ -217,7 +220,7 @@ func TestGetPullRequestDraftComposesOverAMergedPull(t *testing.T) {
 	}
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/pull-request/draft")
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/pull-request/draft")
 
 	// Assert
 	if recorder.Code != http.StatusOK {
@@ -233,19 +236,19 @@ func TestGetPullRequestDraftComposesWhenTheForgeCannotBeRead(t *testing.T) {
 	// the way of proposing one; the open is where the forge's own answer lands.
 	deps := openableDeps()
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
-		return forge.PullRequest{}, false, errSeam
+		return forge.PullRequest{}, false, webtest.ErrSeam
 	}
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/pull-request/draft")
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/pull-request/draft")
 
 	// Assert
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200 when the forge cannot be read, not a 409", recorder.Code)
 	}
 
-	if draft := decode[api.PullRequestDraft](t, recorder); draft.Head != testBranchName {
-		t.Errorf("draft head = %q, want the checked-out %q", draft.Head, testBranchName)
+	if draft := webtest.Decode[api.PullRequestDraft](t, recorder); draft.Head != webtest.TestBranchName {
+		t.Errorf("draft head = %q, want the checked-out %q", draft.Head, webtest.TestBranchName)
 	}
 }
 
@@ -257,12 +260,12 @@ func TestOpenPullRequestOpensWhenTheForgeCannotBeRead(t *testing.T) {
 
 	deps := openableDeps()
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
-		return forge.PullRequest{}, false, errSeam
+		return forge.PullRequest{}, false, webtest.ErrSeam
 	}
 	deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.PullRequest, error) {
 		opened = true
 
-		return forge.PullRequest{Number: 7, URL: prURL, Title: prTitle}, nil
+		return forge.PullRequest{Number: 7, URL: webtest.PRURL, Title: webtest.PRTitle}, nil
 	}
 
 	// Act
@@ -279,7 +282,7 @@ func TestGetPullRequestDraftIsAConflictWhenNothingToOpen(t *testing.T) {
 
 	// There is nothing to open a pull request for whenever the branch cannot
 	// carry a new one.
-	commit := []gitrepo.Commit{{Hash: testCommitHash, Subject: testCommitSubject}}
+	commit := []gitrepo.Commit{{Hash: webtest.TestCommitHash, Subject: webtest.TestCommitSubject}}
 	cases := map[string]func(webserver.Deps) webserver.Deps{
 		"a pull request is already open": func(deps webserver.Deps) webserver.Deps {
 			deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
@@ -290,7 +293,7 @@ func TestGetPullRequestDraftIsAConflictWhenNothingToOpen(t *testing.T) {
 		},
 		"the branch has no commits": func(deps webserver.Deps) webserver.Deps {
 			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
-				return gitrepo.Branch{Name: testBranchName, Base: testBase}, nil
+				return gitrepo.Branch{Name: webtest.TestBranchName, Base: webtest.TestBase}, nil
 			}
 
 			return deps
@@ -312,7 +315,7 @@ func TestGetPullRequestDraftIsAConflictWhenNothingToOpen(t *testing.T) {
 			deps := mutate(openableDeps())
 
 			// Act
-			recorder := get(t, serve(t, deps, config.Default()), "/api/pull-request/draft")
+			recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/pull-request/draft")
 
 			// Assert
 			if recorder.Code != http.StatusConflict {
@@ -341,7 +344,7 @@ func TestOpenPullRequestPushesThenOpens(t *testing.T) {
 		calls = append(calls, "open")
 		request = newPull
 
-		return forge.PullRequest{Number: 7, URL: prURL, Title: newPull.Title, Mergeable: forge.MergeClean}, nil
+		return forge.PullRequest{Number: 7, URL: webtest.PRURL, Title: newPull.Title, Mergeable: forge.MergeClean}, nil
 	}
 
 	// Act
@@ -358,11 +361,12 @@ func TestOpenPullRequestPushesThenOpens(t *testing.T) {
 		t.Errorf("calls = %v, want the branch pushed before the pull request is opened", calls)
 	}
 
-	if request.Head.Branch != testBranchName || request.Base != prBase || request.Title != prTitle {
-		t.Errorf("opened %+v, want head %q, base %q, and the given title", request, testBranchName, prBase)
+	if request.Head.Branch != webtest.TestBranchName || request.Base != webtest.PRBase ||
+		request.Title != webtest.PRTitle {
+		t.Errorf("opened %+v, want head %q, base %q, and the given title", request, webtest.TestBranchName, webtest.PRBase)
 	}
 
-	if number := decode[api.OpenedPullRequest](t, recorder).Pull.Number; number != 7 {
+	if number := webtest.Decode[api.OpenedPullRequest](t, recorder).Pull.Number; number != 7 {
 		t.Errorf("response number = %d, want the opened pull request's 7", number)
 	}
 }
@@ -377,11 +381,11 @@ func TestOpenPullRequestOpensADraftWhenAsked(t *testing.T) {
 	deps.Forge.CreatePullRequest = func(_ context.Context, newPull forge.NewPullRequest) (forge.PullRequest, error) {
 		request = newPull
 
-		return forge.PullRequest{Number: 7, URL: prURL, Title: newPull.Title, Draft: true}, nil
+		return forge.PullRequest{Number: 7, URL: webtest.PRURL, Title: newPull.Title, Draft: true}, nil
 	}
 
 	// Act
-	recorder := doOpen(t, deps, `{"title":"`+prTitle+`","base":"`+prBase+`","draft":true}`)
+	recorder := doOpen(t, deps, `{"title":"`+webtest.PRTitle+`","base":"`+webtest.PRBase+`","draft":true}`)
 
 	// Assert
 	if recorder.Code != http.StatusOK {
@@ -454,7 +458,7 @@ func TestOpenPullRequestReportsAFailedPush(t *testing.T) {
 	// Arrange
 	deps := openableDeps()
 	deps.Git.Push = func(context.Context, string) (proc.Output, error) {
-		return fakeOutput([]string{"! [rejected]"}, errSeam), nil
+		return fakeOutput([]string{"! [rejected]"}, webtest.ErrSeam), nil
 	}
 
 	// Act
@@ -510,7 +514,7 @@ func TestOpenPullRequestIsUnreachableAndHidesTheForgeHost(t *testing.T) {
 	recorder := doOpen(t, deps, openRequestBody)
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusBadGateway || failure.Code != api.ProblemCodeUnreachable {
 		t.Errorf("status/code = %d/%s, want 502/unreachable", recorder.Code, failure.Code)
 	}
@@ -544,7 +548,7 @@ func TestOpenPullRequestDetailOmitsAnUnknownForgesHost(t *testing.T) {
 	recorder := doOpen(t, deps, openRequestBody)
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.ProblemCodeNotSetUp ||
 		!strings.Contains(failure.Detail, "forge.kind") {
 		t.Errorf("status/code/detail = %d/%s/%q, want 422 not_set_up saying what to set",

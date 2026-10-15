@@ -16,13 +16,14 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // doPush posts a push against a server over deps. Push takes no body.
 func doPush(t *testing.T, deps webserver.Deps) *httptest.ResponseRecorder {
 	t.Helper()
 
-	return send(t, serve(t, deps, config.Default()), http.MethodPost, "/api/push", "")
+	return webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPost, "/api/push", "")
 }
 
 // pushRoutes are the two requests that push the branch: the push itself, and
@@ -38,10 +39,11 @@ func TestPushPublishesTheBranch(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// filledDeps' branch is ahead with commits and has no upstream, so it can push.
+	// webtest.FilledDeps' branch is ahead with commits and has no upstream, so
+	// it can push.
 	var pushed string
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Push = func(_ context.Context, branch string) (proc.Output, error) {
 		pushed = branch
 
@@ -56,8 +58,8 @@ func TestPushPublishesTheBranch(t *testing.T) {
 		t.Fatalf("status = %d, want 200", recorder.Code)
 	}
 
-	if pushed != testBranchName {
-		t.Errorf("pushed %q, want the current branch %q", pushed, testBranchName)
+	if pushed != webtest.TestBranchName {
+		t.Errorf("pushed %q, want the current branch %q", pushed, webtest.TestBranchName)
 	}
 }
 
@@ -71,11 +73,11 @@ func TestPushSendsABranchWhoseUpstreamIsOffItsPushRemote(t *testing.T) {
 
 	var pushed string
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
 		return gitrepo.Branch{
-			Name: testBranchName, Upstream: "origin/" + testBranchName, PushRemote: forkRemote,
-			Ahead: 0, Commits: []gitrepo.Commit{{Hash: testCommitHash, Subject: "feat: done"}},
+			Name: webtest.TestBranchName, Upstream: "origin/" + webtest.TestBranchName, PushRemote: forkRemote,
+			Ahead: 0, Commits: []gitrepo.Commit{{Hash: webtest.TestCommitHash, Subject: "feat: done"}},
 		}, nil
 	}
 	deps.Git.Push = func(_ context.Context, branch string) (proc.Output, error) {
@@ -88,18 +90,18 @@ func TestPushSendsABranchWhoseUpstreamIsOffItsPushRemote(t *testing.T) {
 	recorder := doPush(t, deps)
 
 	// Assert
-	if recorder.Code != http.StatusOK || pushed != testBranchName {
-		t.Errorf("status = %d, pushed %q; want 200 with %q pushed", recorder.Code, pushed, testBranchName)
+	if recorder.Code != http.StatusOK || pushed != webtest.TestBranchName {
+		t.Errorf("status = %d, pushed %q; want 200 with %q pushed", recorder.Code, pushed, webtest.TestBranchName)
 	}
 }
 
 func TestPushRefusesWhenThereIsNothingToPush(t *testing.T) {
 	t.Parallel()
 
-	commit := []gitrepo.Commit{{Hash: testCommitHash, Subject: "feat: done"}}
+	commit := []gitrepo.Commit{{Hash: webtest.TestCommitHash, Subject: "feat: done"}}
 	cases := map[string]gitrepo.Branch{
 		"already up to date": {
-			Name: testBranchName, Upstream: "origin/" + testBranchName, PushRemote: gitrepo.DefaultRemote,
+			Name: webtest.TestBranchName, Upstream: "origin/" + webtest.TestBranchName, PushRemote: gitrepo.DefaultRemote,
 			Ahead: 0, Commits: commit,
 		},
 		// A detached HEAD is not on a branch, so there is nothing to push — and it
@@ -108,7 +110,7 @@ func TestPushRefusesWhenThereIsNothingToPush(t *testing.T) {
 		// The base is what work merges into, not a branch to publish, however far
 		// ahead of its upstream it is — the terminal withholds that push too.
 		"the base branch": {
-			Name: "main", Base: testBase, Upstream: testBase, PushRemote: gitrepo.DefaultRemote,
+			Name: "main", Base: webtest.TestBase, Upstream: webtest.TestBase, PushRemote: gitrepo.DefaultRemote,
 			Ahead: 1, Commits: commit,
 		},
 	}
@@ -119,7 +121,7 @@ func TestPushRefusesWhenThereIsNothingToPush(t *testing.T) {
 
 			// Arrange
 			called := false
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return branch, nil }
 			deps.Git.Push = func(context.Context, string) (proc.Output, error) {
 				called = true
@@ -144,9 +146,9 @@ func TestPushReportsAFailingPush(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Push = func(context.Context, string) (proc.Output, error) {
-		return fakeOutput([]string{"! [rejected] fix/PROJ-412"}, errSeam), nil
+		return fakeOutput([]string{"! [rejected] fix/PROJ-412"}, webtest.ErrSeam), nil
 	}
 
 	// Act
@@ -157,7 +159,7 @@ func TestPushReportsAFailingPush(t *testing.T) {
 		t.Fatalf("status = %d, want 422 when the push fails", recorder.Code)
 	}
 
-	message := decode[api.Problem](t, recorder).Detail
+	message := webtest.Decode[api.Problem](t, recorder).Detail
 	if !strings.Contains(message, "the push failed") || !strings.Contains(message, "rejected") {
 		t.Errorf("message = %q, want the failure and its output", message)
 	}
@@ -169,16 +171,16 @@ func TestPushReportsAFailedPushAsAFailureNotAStart(t *testing.T) {
 	// Arrange
 	// The push ran and was rejected, so the detail is the push's own output, not
 	// a push that never started.
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Push = func(context.Context, string) (proc.Output, error) {
-		return fakeOutput([]string{"! [rejected] fix/PROJ-412"}, errSeam), nil
+		return fakeOutput([]string{"! [rejected] fix/PROJ-412"}, webtest.ErrSeam), nil
 	}
 
 	// Act
 	recorder := doPush(t, deps)
 
 	// Assert
-	if detail := decode[api.Problem](t, recorder).Detail; detail != "the push failed:\n! [rejected] fix/PROJ-412" {
+	if detail := webtest.Decode[api.Problem](t, recorder).Detail; detail != "the push failed:\n! [rejected] fix/PROJ-412" {
 		t.Errorf("detail = %q, want the failure and its output, not a failed start", detail)
 	}
 }
@@ -198,14 +200,14 @@ func TestPushReportsAFailedStart(t *testing.T) {
 			// Arrange
 			deps := openableDeps()
 			deps.Git.Push = func(context.Context, string) (proc.Output, error) {
-				return proc.Output{}, fmt.Errorf("running git in %s: %w", repoPath, errSeam)
+				return proc.Output{}, fmt.Errorf("running git in %s: %w", webtest.RepoPath, webtest.ErrSeam)
 			}
 
 			// Act
-			recorder := send(t, serve(t, deps, config.Default()), request.method, request.path, request.body)
+			recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), request.method, request.path, request.body)
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != http.StatusUnprocessableEntity || failure.Detail != want {
 				t.Errorf("status = %d, detail %q; want 422 saying %q", recorder.Code, failure.Detail, want)
 			}
@@ -219,11 +221,14 @@ func TestPushReturnsThePublishedBranch(t *testing.T) {
 	// Arrange
 	// The push sets the upstream, so the branch read after it differs from the one
 	// read before; the response must carry the published (after) branch.
-	before := gitrepo.Branch{Name: testBranchName, Ahead: 1, Commits: []gitrepo.Commit{{Hash: "a", Subject: "x"}}}
-	after := gitrepo.Branch{Name: testBranchName, Upstream: "origin/" + testBranchName, PushRemote: gitrepo.DefaultRemote}
+	before := gitrepo.Branch{Name: webtest.TestBranchName, Ahead: 1, Commits: []gitrepo.Commit{{Hash: "a", Subject: "x"}}}
+	after := gitrepo.Branch{
+		Name: webtest.TestBranchName, Upstream: "origin/" + webtest.TestBranchName,
+		PushRemote: gitrepo.DefaultRemote,
+	}
 	reads := 0
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
 		reads++
 		if reads == 1 {
@@ -242,7 +247,7 @@ func TestPushReturnsThePublishedBranch(t *testing.T) {
 		t.Fatalf("status = %d, want 200", recorder.Code)
 	}
 
-	if branch := decode[api.Branch](t, recorder); branch.Upstream != "origin/"+testBranchName {
+	if branch := webtest.Decode[api.Branch](t, recorder); branch.Upstream != "origin/"+webtest.TestBranchName {
 		t.Errorf("branch = %+v, want the published branch with its new upstream", branch)
 	}
 }
@@ -253,17 +258,17 @@ func TestPushSucceedsEvenIfTheRereadFails(t *testing.T) {
 	// Arrange
 	// The push reaches the remote, but the read that would confirm it fails; the
 	// completed, outward push must not be reported as failed.
-	before := gitrepo.Branch{Name: testBranchName, Ahead: 1, Commits: []gitrepo.Commit{{Hash: "a", Subject: "x"}}}
+	before := gitrepo.Branch{Name: webtest.TestBranchName, Ahead: 1, Commits: []gitrepo.Commit{{Hash: "a", Subject: "x"}}}
 	reads := 0
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
 		reads++
 		if reads == 1 {
 			return before, nil
 		}
 
-		return gitrepo.Branch{}, errSeam
+		return gitrepo.Branch{}, webtest.ErrSeam
 	}
 	deps.Git.Push = func(context.Context, string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
 
@@ -275,7 +280,7 @@ func TestPushSucceedsEvenIfTheRereadFails(t *testing.T) {
 		t.Fatalf("status = %d, want 200 — the push succeeded despite the re-read failing", recorder.Code)
 	}
 
-	if branch := decode[api.Branch](t, recorder); branch.Name != testBranchName {
+	if branch := webtest.Decode[api.Branch](t, recorder); branch.Name != webtest.TestBranchName {
 		t.Errorf("branch = %+v, want the pre-push branch as a best-effort result", branch)
 	}
 }
@@ -283,11 +288,12 @@ func TestPushSucceedsEvenIfTheRereadFails(t *testing.T) {
 func TestPushIsUnavailableWithoutAGitSeam(t *testing.T) {
 	t.Parallel()
 
-	// Pushing needs the push and branch-read seams; missing either means it is not
-	// available. filledDeps leaves Push nil, so the branch case sets it.
+	// Pushing needs the push and branch-read seams; missing either means it is
+	// not available. webtest.FilledDeps leaves Push nil, so the branch case
+	// sets it.
 	cases := map[string]func(webserver.Deps) webserver.Deps{
 		"no push seam": func(deps webserver.Deps) webserver.Deps { return deps },
-		noBranchSeam: func(deps webserver.Deps) webserver.Deps {
+		webtest.NoBranchSeam: func(deps webserver.Deps) webserver.Deps {
 			deps.Git.Push = func(context.Context, string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
 			deps.Git.Branch = nil
 
@@ -300,7 +306,7 @@ func TestPushIsUnavailableWithoutAGitSeam(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			recorder := doPush(t, mutate(filledDeps()))
+			recorder := doPush(t, mutate(webtest.FilledDeps()))
 
 			// Assert
 			if recorder.Code != http.StatusUnprocessableEntity {
@@ -330,24 +336,27 @@ func TestAFailedPushKeepsGitsReasonButNotTheRemotesAddress(t *testing.T) {
 				// Arrange
 				output := []string{
 					"To " + remote,
-					" ! [rejected]        " + testBranchName + " -> " + testBranchName + " (fetch first)",
+					" ! [rejected]        " + webtest.TestBranchName + " -> " + webtest.TestBranchName + " (fetch first)",
 					"error: failed to push some refs to '" + remote + "'",
 					"hint: Updates were rejected because the remote contains work that you do not",
 				}
 				deps := openableDeps()
-				deps.Git.Push = func(context.Context, string) (proc.Output, error) { return fakeOutput(output, errSeam), nil }
+				deps.Git.Push = func(context.Context, string) (proc.Output, error) {
+					return fakeOutput(output, webtest.ErrSeam),
+						nil
+				}
 
 				// Act
-				recorder := send(t, serve(t, deps, config.Default()), request.method, request.path, request.body)
+				recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), request.method, request.path, request.body)
 
 				// Assert
 				want := "the push failed:\n" +
 					"To <address>\n" +
-					" ! [rejected]        " + testBranchName + " -> " + testBranchName + " (fetch first)\n" +
+					" ! [rejected]        " + webtest.TestBranchName + " -> " + webtest.TestBranchName + " (fetch first)\n" +
 					"error: failed to push some refs to '<address>'\n" +
 					"hint: Updates were rejected because the remote contains work that you do not"
 
-				failure := decode[api.Problem](t, recorder)
+				failure := webtest.Decode[api.Problem](t, recorder)
 				if recorder.Code != http.StatusUnprocessableEntity || failure.Detail != want {
 					t.Errorf("status = %d, detail %q; want 422 saying %q", recorder.Code, failure.Detail, want)
 				}
@@ -364,16 +373,16 @@ func TestAFailedPushKeepsARefNamedWithAnAtSign(t *testing.T) {
 	// remote's user@host:path and stays as git printed it.
 	const refLine = " ! [rejected]        spike@home -> spike@home (fetch first)"
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Push = func(context.Context, string) (proc.Output, error) {
-		return fakeOutput([]string{refLine}, errSeam), nil
+		return fakeOutput([]string{refLine}, webtest.ErrSeam), nil
 	}
 
 	// Act
 	recorder := doPush(t, deps)
 
 	// Assert
-	if detail := decode[api.Problem](t, recorder).Detail; detail != "the push failed:\n"+refLine {
+	if detail := webtest.Decode[api.Problem](t, recorder).Detail; detail != "the push failed:\n"+refLine {
 		t.Errorf("detail = %q, want the ref line kept as git printed it", detail)
 	}
 }

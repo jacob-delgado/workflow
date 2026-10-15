@@ -12,6 +12,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 func TestTheBranchCarriesTheCommandsAFinishRuns(t *testing.T) {
@@ -25,7 +26,7 @@ func TestTheBranchCarriesTheCommandsAFinishRuns(t *testing.T) {
 	}{
 		"a branch with a base": {
 			branch: gitrepo.Branch{Name: yourLocalBranch, Base: "origin/main", BaseRemote: gitrepo.DefaultRemote},
-			want:   gitrepo.Finishing{Branch: yourLocalBranch, Base: prBase, Remote: gitrepo.DefaultRemote}.Commands(),
+			want:   gitrepo.Finishing{Branch: yourLocalBranch, Base: webtest.PRBase, Remote: gitrepo.DefaultRemote}.Commands(),
 		},
 		// A fork's clone pulls its base from upstream, whatever its main
 		// tracks.
@@ -46,14 +47,14 @@ func TestTheBranchCarriesTheCommandsAFinishRuns(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return tt.branch, nil }
 
 			// Act
-			answer := send(t, serve(t, deps, config.Default()), http.MethodGet, "/api/branch", "")
+			answer := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodGet, "/api/branch", "")
 
 			// Assert
-			got := decode[api.Branch](t, answer).FinishCommands
+			got := webtest.Decode[api.Branch](t, answer).FinishCommands
 			if (got == nil) != (tt.want == nil) || (got != nil && !slices.Equal(*got, tt.want)) {
 				t.Errorf("finish_commands = %v, want %q", got, tt.want)
 			}

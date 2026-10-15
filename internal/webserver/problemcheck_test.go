@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // problemJSON is the media type every refusal is written in.
@@ -27,7 +28,7 @@ func assertProblem(t *testing.T, recorder *httptest.ResponseRecorder, status int
 		t.Errorf("Content-Type = %q, want application/problem+json", kind)
 	}
 
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if !strings.Contains(failure.Detail, want) {
 		t.Errorf("detail = %q, want it to say %q", failure.Detail, want)
 	}

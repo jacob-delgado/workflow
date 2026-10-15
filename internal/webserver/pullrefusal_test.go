@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 func TestOpenPullRequestIsAConflictWhenOneIsAlreadyOpen(t *testing.T) {
@@ -37,15 +38,18 @@ func TestOpenPullRequestIsAConflictWhenOneIsAlreadyOpen(t *testing.T) {
 			// Arrange
 			deps := openableDeps()
 			deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
-				return forge.PullRequest{Number: 42, URL: prURL}, true, nil
+				return forge.PullRequest{Number: 42, URL: webtest.PRURL}, true, nil
 			}
-			handler := serveWith(t, deps, config.Default(), webserver.Info{Version: testVersion, ForgeKind: tt.kind})
+			handler := webtest.ServeWith(t, deps, config.Default(), webserver.Info{
+				Version:   webtest.TestVersion,
+				ForgeKind: tt.kind,
+			})
 
 			// Act
-			recorder := send(t, handler, http.MethodPost, "/api/pull-request", openRequestBody)
+			recorder := webtest.Send(t, handler, http.MethodPost, "/api/pull-request", openRequestBody)
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != http.StatusConflict || failure.Detail != tt.wantDetail {
 				t.Errorf("status = %d, detail %q; want 409 saying %q", recorder.Code, failure.Detail, tt.wantDetail)
 			}
@@ -59,15 +63,16 @@ func TestGetPullRequestDraftSaysThereIsNoWorkToPropose(t *testing.T) {
 	// Arrange
 	deps := openableDeps()
 	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
-		return gitrepo.Branch{Name: testBranchName, Base: testBase}, nil
+		return gitrepo.Branch{Name: webtest.TestBranchName, Base: webtest.TestBase}, nil
 	}
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/pull-request/draft")
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/pull-request/draft")
 
 	// Assert
 	const want = "there is no branch with commits to open a pull request for"
-	if failure := decode[api.Problem](t, recorder); recorder.Code != http.StatusConflict || failure.Detail != want {
+	if failure := webtest.Decode[api.Problem](t, recorder); recorder.Code != http.StatusConflict ||
+		failure.Detail != want {
 		t.Errorf("status = %d, detail %q; want 409 saying %q", recorder.Code, failure.Detail, want)
 	}
 }

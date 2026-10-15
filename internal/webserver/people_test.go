@@ -21,6 +21,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // The owners, scope, group and paths the tests name.
@@ -167,11 +168,11 @@ func (f *fakeKept) without(owner string) []loop.OwnerLink {
 func keptServer(t *testing.T, fake *fakeKept, info webserver.Info) http.Handler {
 	t.Helper()
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Messaging.Post = func(context.Context, string, string) error { return nil }
 	fake.wire(&deps)
 
-	return serveWith(t, deps, slackUserConfig(), info)
+	return webtest.ServeWith(t, deps, slackUserConfig(), info)
 }
 
 // slackUserConfig is a configuration that posts with a Slack user token,
@@ -195,10 +196,10 @@ func TestGetPeopleListsTheDecidedOwnersThenTheUndecidedOnes(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	handler := keptServer(t, newFakeKept(), webserver.Info{Version: testVersion})
+	handler := keptServer(t, newFakeKept(), webserver.Info{Version: webtest.TestVersion})
 
 	// Act
-	recorder := get(t, handler, peoplePath)
+	recorder := webtest.Get(t, handler, peoplePath)
 
 	// Assert
 	want := api.People{Owners: []api.OwnerTag{
@@ -207,7 +208,7 @@ func TestGetPeopleListsTheDecidedOwnersThenTheUndecidedOnes(t *testing.T) {
 		{Owner: benOwner, Kind: api.OwnerTagKindUser, State: api.OwnerTagStateUnlinked, Slack: nil},
 		{Owner: ownedTeam, Kind: api.OwnerTagKindTeam, State: api.OwnerTagStateUnlinked, Slack: nil},
 	}}
-	if got := decode[api.People](t, recorder); recorder.Code != http.StatusOK || !reflect.DeepEqual(got, want) {
+	if got := webtest.Decode[api.People](t, recorder); recorder.Code != http.StatusOK || !reflect.DeepEqual(got, want) {
 		t.Errorf("GET /api/people = %d %+v, want 200 %+v", recorder.Code, got, want)
 	}
 }
@@ -217,10 +218,11 @@ func TestLinkPersonKeepsTheLabelSlacksDirectoryGives(t *testing.T) {
 
 	// Arrange
 	fake := newFakeKept()
-	handler := keptServer(t, fake, webserver.Info{Version: testVersion})
+	handler := keptServer(t, fake, webserver.Info{Version: webtest.TestVersion})
 
 	// Act
-	recorder := send(t, handler, http.MethodPut, peoplePath, `{"owner":"ben","slack_id":"U0BEN","not_on_slack":false}`)
+	recorder := webtest.Send(t, handler, http.MethodPut, peoplePath,
+		`{"owner":"ben","slack_id":"U0BEN","not_on_slack":false}`)
 
 	// Assert
 	if recorder.Code != http.StatusOK {
@@ -238,14 +240,14 @@ func TestLinkPersonLinksATeamToAUserGroup(t *testing.T) {
 
 	// Arrange
 	fake := newFakeKept()
-	handler := keptServer(t, fake, webserver.Info{Version: testVersion})
+	handler := keptServer(t, fake, webserver.Info{Version: webtest.TestVersion})
 
 	// Act
-	recorder := send(t, handler, http.MethodPut, peoplePath,
+	recorder := webtest.Send(t, handler, http.MethodPut, peoplePath,
 		`{"owner":"acme/control-plane","slack_id":"S0POD","not_on_slack":false}`)
 
 	// Assert
-	people := decode[api.People](t, recorder)
+	people := webtest.Decode[api.People](t, recorder)
 	team := people.Owners[len(people.Owners)-1]
 
 	linked := team.State == api.OwnerTagStateLinked && reflect.DeepEqual(team.Slack, slackTarget(podGroup()))
@@ -259,10 +261,10 @@ func TestLinkPersonMarksAnOwnerNotOnSlack(t *testing.T) {
 
 	// Arrange
 	fake := newFakeKept()
-	handler := keptServer(t, fake, webserver.Info{Version: testVersion})
+	handler := keptServer(t, fake, webserver.Info{Version: webtest.TestVersion})
 
 	// Act
-	recorder := send(t, handler, http.MethodPut, peoplePath, `{"owner":"ben","not_on_slack":true}`)
+	recorder := webtest.Send(t, handler, http.MethodPut, peoplePath, `{"owner":"ben","not_on_slack":true}`)
 
 	// Assert
 	want := loop.OwnerLink{Owner: benOwner, OnSlack: false, Slack: loop.SlackTarget{}}
@@ -291,13 +293,13 @@ func TestLinkPersonRefusesWhatItCannotKeep(t *testing.T) {
 
 			// Arrange
 			fake := newFakeKept()
-			handler := keptServer(t, fake, webserver.Info{Version: testVersion})
+			handler := keptServer(t, fake, webserver.Info{Version: webtest.TestVersion})
 
 			// Act
-			recorder := send(t, handler, http.MethodPut, peoplePath, testCase.body)
+			recorder := webtest.Send(t, handler, http.MethodPut, peoplePath, testCase.body)
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != http.StatusUnprocessableEntity || !strings.Contains(failure.Detail, testCase.detail) {
 				t.Errorf("status/detail = %d/%q, want 422 saying %q", recorder.Code, failure.Detail, testCase.detail)
 			}
@@ -315,13 +317,14 @@ func TestLinkPersonNamesTheScopeTheTokenLacks(t *testing.T) {
 	// Arrange
 	fake := newFakeKept()
 	fake.membersErr = &messaging.MissingScopeError{Needed: usersRead}
-	handler := keptServer(t, fake, webserver.Info{Version: testVersion})
+	handler := keptServer(t, fake, webserver.Info{Version: webtest.TestVersion})
 
 	// Act
-	recorder := send(t, handler, http.MethodPut, peoplePath, `{"owner":"ben","slack_id":"U0BEN","not_on_slack":false}`)
+	recorder := webtest.Send(t, handler, http.MethodPut, peoplePath,
+		`{"owner":"ben","slack_id":"U0BEN","not_on_slack":false}`)
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusUnprocessableEntity || !strings.Contains(failure.Detail, usersRead) {
 		t.Errorf("status/detail = %d/%q, want 422 naming users:read", recorder.Code, failure.Detail)
 	}
@@ -347,13 +350,13 @@ func TestPeopleNeedASlackUserTokenAndAStore(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			handler := serve(t, filledDeps(), config.Default())
+			handler := webtest.Serve(t, webtest.FilledDeps(), config.Default())
 
 			// Act
-			recorder := send(t, handler, testCase.method, testCase.target, testCase.body)
+			recorder := webtest.Send(t, handler, testCase.method, testCase.target, testCase.body)
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != http.StatusUnprocessableEntity || !strings.Contains(failure.Detail, testCase.detail) {
 				t.Errorf("status/detail = %d/%q, want 422 saying %q", recorder.Code, failure.Detail, testCase.detail)
 			}
@@ -365,13 +368,13 @@ func TestForgetPersonAsksAboutTheOwnerAgain(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	handler := keptServer(t, newFakeKept(), webserver.Info{Version: testVersion})
+	handler := keptServer(t, newFakeKept(), webserver.Info{Version: webtest.TestVersion})
 
 	// Act
-	recorder := send(t, handler, http.MethodDelete, "/api/people?owner=dan", "")
+	recorder := webtest.Send(t, handler, http.MethodDelete, "/api/people?owner=dan", "")
 
 	// Assert
-	for _, owner := range decode[api.People](t, recorder).Owners {
+	for _, owner := range webtest.Decode[api.People](t, recorder).Owners {
 		if owner.Owner == danOwner {
 			t.Errorf("dan is still listed as %+v after being forgotten", owner)
 		}
@@ -394,14 +397,14 @@ func TestSlackDirectoryReadsListTheirEntries(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			handler := keptServer(t, newFakeKept(), webserver.Info{Version: testVersion})
+			handler := keptServer(t, newFakeKept(), webserver.Info{Version: webtest.TestVersion})
 
 			// Act
-			recorder := get(t, handler, testCase.target)
+			recorder := webtest.Get(t, handler, testCase.target)
 
 			// Assert
 			want := api.SlackDirectory{Entries: testCase.want, MissingScope: nil}
-			if got := decode[api.SlackDirectory](t, recorder); !reflect.DeepEqual(got, want) {
+			if got := webtest.Decode[api.SlackDirectory](t, recorder); !reflect.DeepEqual(got, want) {
 				t.Errorf("GET %s = %+v, want %+v", testCase.target, got, want)
 			}
 		})
@@ -414,13 +417,13 @@ func TestSlackDirectoryReadsNameAMissingScopeWithoutFailing(t *testing.T) {
 	// Arrange
 	fake := newFakeKept()
 	fake.groupsErr = fmt.Errorf("reading user groups: %w", &messaging.MissingScopeError{Needed: groupsRead})
-	handler := keptServer(t, fake, webserver.Info{Version: testVersion})
+	handler := keptServer(t, fake, webserver.Info{Version: webtest.TestVersion})
 
 	// Act
-	recorder := get(t, handler, groupsPath)
+	recorder := webtest.Get(t, handler, groupsPath)
 
 	// Assert
-	got := decode[api.SlackDirectory](t, recorder)
+	got := webtest.Decode[api.SlackDirectory](t, recorder)
 	if recorder.Code != http.StatusOK || got.MissingScope == nil || *got.MissingScope != groupsRead ||
 		len(got.Entries) != 0 {
 		t.Errorf("GET /api/slack/groups = %d %+v, want 200 with no entries naming usergroups:read", recorder.Code, got)
@@ -433,13 +436,13 @@ func TestSlackGroupsAnswerNoneForAWorkspaceWithout(t *testing.T) {
 	// Arrange
 	fake := newFakeKept()
 	fake.groupsErr = messaging.ErrNoUserGroups
-	handler := keptServer(t, fake, webserver.Info{Version: testVersion})
+	handler := keptServer(t, fake, webserver.Info{Version: webtest.TestVersion})
 
 	// Act
-	recorder := get(t, handler, groupsPath)
+	recorder := webtest.Get(t, handler, groupsPath)
 
 	// Assert
-	if got := decode[api.SlackDirectory](t, recorder); recorder.Code != http.StatusOK || len(got.Entries) != 0 {
+	if got := webtest.Decode[api.SlackDirectory](t, recorder); recorder.Code != http.StatusOK || len(got.Entries) != 0 {
 		t.Errorf("GET /api/slack/groups = %d %+v, want 200 and none", recorder.Code, got)
 	}
 }
@@ -450,13 +453,13 @@ func TestAnUnreachableSlackNamesNoHost(t *testing.T) {
 	// Arrange
 	fake := newFakeKept()
 	fake.membersErr = fmt.Errorf("%w: dial tcp slack.example.com:443", messaging.ErrUnreachable)
-	handler := keptServer(t, fake, webserver.Info{Version: testVersion})
+	handler := keptServer(t, fake, webserver.Info{Version: webtest.TestVersion})
 
 	// Act
-	recorder := get(t, handler, "/api/slack/members")
+	recorder := webtest.Get(t, handler, "/api/slack/members")
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusBadGateway || strings.Contains(failure.Detail, "slack.example.com") {
 		t.Errorf("status/detail = %d/%q, want 502 naming no host", recorder.Code, failure.Detail)
 	}
@@ -467,16 +470,17 @@ func TestSetRepoGroupsLabelsEachGroupFromTheDirectory(t *testing.T) {
 
 	// Arrange
 	fake := newFakeKept()
-	handler := keptServer(t, fake, webserver.Info{Version: testVersion, Repository: "acme/widgets"})
+	handler := keptServer(t, fake, webserver.Info{Version: webtest.TestVersion, Repository: "acme/widgets"})
 
 	// Act
-	recorder := send(t, handler, http.MethodPut, repoGroupsPath, `{"ids":["S0POD","S0API","S0POD"]}`)
+	recorder := webtest.Send(t, handler, http.MethodPut, repoGroupsPath, `{"ids":["S0POD","S0API","S0POD"]}`)
 
 	// Assert
 	want := api.RepoGroups{
 		Repository: "acme/widgets", Groups: []api.SlackTarget{api.SlackTarget(podGroup()), api.SlackTarget(apiReviews())},
 	}
-	if got := decode[api.RepoGroups](t, recorder); recorder.Code != http.StatusOK || !reflect.DeepEqual(got, want) {
+	if got := webtest.Decode[api.RepoGroups](t, recorder); recorder.Code != http.StatusOK || !reflect.DeepEqual(got,
+		want) {
 		t.Errorf("PUT /api/repo-groups = %d %+v, want 200 %+v", recorder.Code, got, want)
 	}
 }
@@ -486,10 +490,10 @@ func TestSetRepoGroupsRefusesAGroupTheWorkspaceLacks(t *testing.T) {
 
 	// Arrange
 	fake := newFakeKept()
-	handler := keptServer(t, fake, webserver.Info{Version: testVersion})
+	handler := keptServer(t, fake, webserver.Info{Version: webtest.TestVersion})
 
 	// Act
-	recorder := send(t, handler, http.MethodPut, repoGroupsPath, `{"ids":["S0POD","S0GONE"]}`)
+	recorder := webtest.Send(t, handler, http.MethodPut, repoGroupsPath, `{"ids":["S0POD","S0GONE"]}`)
 
 	// Assert
 	unchanged := reflect.DeepEqual(fake.repoGroups, []loop.SlackTarget{apiReviews()})
@@ -515,10 +519,10 @@ func TestPeopleWritesAreRefusedUnderDryRun(t *testing.T) {
 
 			// Arrange
 			fake := newFakeKept()
-			handler := keptServer(t, fake, webserver.Info{Version: testVersion, DryRun: true})
+			handler := keptServer(t, fake, webserver.Info{Version: webtest.TestVersion, DryRun: true})
 
 			// Act
-			recorder := send(t, handler, testCase.method, testCase.target, testCase.body)
+			recorder := webtest.Send(t, handler, testCase.method, testCase.target, testCase.body)
 
 			// Assert
 			if recorder.Code != http.StatusForbidden || len(fake.links) != 2 || len(fake.repoGroups) != 1 {

@@ -11,6 +11,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 func TestTheBranchNamesTheTrackerItsLinkedIssueLivesIn(t *testing.T) {
@@ -35,16 +36,16 @@ func TestTheBranchNamesTheTrackerItsLinkedIssueLivesIn(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
 				return gitrepo.Branch{Name: unnamedBranch, IssueLink: tt.link}, nil
 			}
 
 			// Act
-			answer := send(t, serve(t, deps, config.Default()), http.MethodGet, "/api/branch", "")
+			answer := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodGet, "/api/branch", "")
 
 			// Assert
-			got := decode[api.Branch](t, answer).IssueLinkTracker
+			got := webtest.Decode[api.Branch](t, answer).IssueLinkTracker
 			if (got == nil) != (tt.want == nil) || (got != nil && *got != *tt.want) {
 				t.Errorf("issue_link_tracker = %v, want %v", got, tt.want)
 			}

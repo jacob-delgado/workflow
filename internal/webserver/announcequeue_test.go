@@ -23,6 +23,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // Where an announcement is posted or held, and where a held one is dropped,
@@ -48,7 +49,8 @@ const (
 type forgeWorld struct {
 	mu     sync.Mutex
 	branch string
-	// head, when set, is the commit the branch is at, in place of filledDeps'.
+	// head, when set, is the commit the branch is at, in place of
+	// webtest.FilledDeps'.
 	head string
 	// pullErr, when set, is how the forge fails to find the pull request.
 	pullErr error
@@ -67,15 +69,15 @@ type forgeWorld struct {
 // newForgeWorld is pull request 42, open, its CI running, at a fixed time.
 func newForgeWorld() *forgeWorld {
 	return &forgeWorld{
-		branch: testBranchName, ci: forge.CIRunning, pull: 42, state: forge.StateOpen,
+		branch: webtest.TestBranchName, ci: forge.CIRunning, pull: 42, state: forge.StateOpen,
 		now: time.Date(2026, 10, 6, 9, 0, 0, 0, time.UTC),
 	}
 }
 
-// deps is filledDeps reading the world's pull request, CI and clock, and
-// posting into it.
+// deps is webtest.FilledDeps reading the world's pull request, CI and clock,
+// and posting into it.
 func (w *forgeWorld) deps() webserver.Deps {
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	checkedOut := deps.Git.Branch
 	deps.Git.Branch = func(ctx context.Context) (gitrepo.Branch, error) {
 		branch, err := checkedOut(ctx)
@@ -165,7 +167,7 @@ func announceWhenGreen(t *testing.T, handler http.Handler, extra map[string]stri
 func heldAnnouncement(t *testing.T, handler http.Handler) *api.QueuedAnnouncement {
 	t.Helper()
 
-	return firstSnapshot(t, streamOnce(t, handler, "/api/events").Body.String()).QueuedAnnouncement
+	return webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String()).QueuedAnnouncement
 }
 
 // cancelHeld drops a held announcement once the test is over, so the server's
@@ -173,7 +175,7 @@ func heldAnnouncement(t *testing.T, handler http.Handler) *api.QueuedAnnouncemen
 func cancelHeld(t *testing.T, handler http.Handler) {
 	t.Helper()
 
-	t.Cleanup(func() { send(t, handler, http.MethodDelete, queuedPath, "") })
+	t.Cleanup(func() { webtest.Send(t, handler, http.MethodDelete, queuedPath, "") })
 }
 
 func TestAnnouncingWhenCIPassesHoldsItWhileCIRuns(t *testing.T) {
@@ -181,7 +183,7 @@ func TestAnnouncingWhenCIPassesHoldsItWhileCIRuns(t *testing.T) {
 
 	// Arrange
 	world := newForgeWorld()
-	handler := serve(t, world.deps(), config.Default())
+	handler := webtest.Serve(t, world.deps(), config.Default())
 	cancelHeld(t, handler)
 
 	// Act
@@ -193,7 +195,7 @@ func TestAnnouncingWhenCIPassesHoldsItWhileCIRuns(t *testing.T) {
 	}
 
 	want := waitingOn(api.CIStateRunning)
-	if held := decode[api.QueuedAnnouncement](t, recorder); !sameHold(&held, want) {
+	if held := webtest.Decode[api.QueuedAnnouncement](t, recorder); !sameHold(&held, want) {
 		t.Errorf("answer = %+v, want %+v", held, want)
 	}
 
@@ -211,7 +213,7 @@ func TestAHeldAnnouncementGoesOnTheFirstFrameWithGreenCI(t *testing.T) {
 
 	// Arrange
 	world := newForgeWorld()
-	handler := serve(t, world.deps(), config.Default())
+	handler := webtest.Serve(t, world.deps(), config.Default())
 	announceWhenGreen(t, handler, map[string]string{editedTextField: "Ready for review: #42"})
 	world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
 
@@ -263,7 +265,7 @@ func TestAHeldAnnouncementIsDroppedWithTheReason(t *testing.T) {
 
 			// Arrange
 			world := newForgeWorld()
-			handler := serve(t, world.deps(), config.Default())
+			handler := webtest.Serve(t, world.deps(), config.Default())
 			announceWhenGreen(t, handler, nil)
 			world.turn(tt.change)
 
@@ -287,7 +289,7 @@ func TestAHeldAnnouncementThatCannotBePostedSaysWhyWithoutTheWebhook(t *testing.
 
 	// Arrange
 	world := newForgeWorld()
-	handler := serve(t, world.deps(), config.Default())
+	handler := webtest.Serve(t, world.deps(), config.Default())
 	announceWhenGreen(t, handler, nil)
 	world.turn(func(w *forgeWorld) {
 		w.ci = forge.CIPassed
@@ -321,7 +323,7 @@ func TestAHeldAnnouncementGoesWithNoPageOpen(t *testing.T) {
 		world := newForgeWorld()
 		cfg := config.Default()
 		cfg.Timing.CIInterval = ciTick.String()
-		handler := serve(t, world.deps(), cfg)
+		handler := webtest.Serve(t, world.deps(), cfg)
 		cancelHeld(t, handler)
 		announceWhenGreen(t, handler, nil)
 		world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
@@ -342,7 +344,7 @@ func TestAnnouncingWhenCIPassesPostsAtOnceWhenItHasPassed(t *testing.T) {
 	// Arrange
 	world := newForgeWorld()
 	world.ci = forge.CIPassed
-	handler := serve(t, world.deps(), config.Default())
+	handler := webtest.Serve(t, world.deps(), config.Default())
 
 	// Act
 	recorder := announceWhenGreen(t, handler, nil)
@@ -358,7 +360,7 @@ func TestAHeldAnnouncementWaitsOnWhileItsCICannotBeRead(t *testing.T) {
 
 	// Arrange
 	world := newForgeWorld()
-	handler := serve(t, world.deps(), config.Default())
+	handler := webtest.Serve(t, world.deps(), config.Default())
 	cancelHeld(t, handler)
 	announceWhenGreen(t, handler, nil)
 	world.turn(func(w *forgeWorld) { w.ciErr = forge.ErrUnreachable })
@@ -381,7 +383,7 @@ func TestAnnouncingNowDropsTheHeldAnnouncement(t *testing.T) {
 
 	// Arrange
 	world := newForgeWorld()
-	handler := serve(t, world.deps(), config.Default())
+	handler := webtest.Serve(t, world.deps(), config.Default())
 	announceWhenGreen(t, handler, nil)
 	previewed := previewAnnouncement(t, handler)
 
@@ -411,11 +413,11 @@ func TestCancelingDropsTheHeldAnnouncementUnposted(t *testing.T) {
 
 	// Arrange
 	world := newForgeWorld()
-	handler := serve(t, world.deps(), config.Default())
+	handler := webtest.Serve(t, world.deps(), config.Default())
 	announceWhenGreen(t, handler, nil)
 
 	// Act: drop it
-	recorder := send(t, handler, http.MethodDelete, queuedPath, "")
+	recorder := webtest.Send(t, handler, http.MethodDelete, queuedPath, "")
 
 	// Assert: it was dropped
 	if recorder.Code != http.StatusNoContent {
@@ -439,13 +441,13 @@ func TestCancelingWithNothingHeldIsAConflict(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	handler := serve(t, newForgeWorld().deps(), config.Default())
+	handler := webtest.Serve(t, newForgeWorld().deps(), config.Default())
 
 	// Act
-	recorder := send(t, handler, http.MethodDelete, queuedPath, "")
+	recorder := webtest.Send(t, handler, http.MethodDelete, queuedPath, "")
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusConflict || failure.Code != api.ProblemCodeConflict {
 		t.Errorf("status/code = %d/%s, want 409/conflict", recorder.Code, failure.Code)
 	}
@@ -457,7 +459,7 @@ func TestAnEditedAnnouncementIsPostedAsEdited(t *testing.T) {
 	// Arrange
 	world := newForgeWorld()
 	world.ci = forge.CIPassed
-	handler := serve(t, world.deps(), config.Default())
+	handler := webtest.Serve(t, world.deps(), config.Default())
 	previewed := previewAnnouncement(t, handler)
 
 	// Act
@@ -474,7 +476,7 @@ func TestAnEditedAnnouncementIsPostedAsEdited(t *testing.T) {
 		t.Errorf("posted %q, want the edited text", posts)
 	}
 
-	if answer := decode[api.Announcement](t, recorder); answer.Text != editedText {
+	if answer := webtest.Decode[api.Announcement](t, recorder); answer.Text != editedText {
 		t.Errorf("answer = %+v, want the text as posted", answer)
 	}
 }
@@ -515,7 +517,7 @@ func TestAnEditedAnnouncementIsRefusedWhereItCannotGo(t *testing.T) {
 			// Arrange
 			world := newForgeWorld()
 			world.ci = forge.CIPassed
-			handler := serve(t, world.deps(), config.Default())
+			handler := webtest.Serve(t, world.deps(), config.Default())
 			previewed := previewAnnouncement(t, handler)
 
 			if tt.turn != nil {
@@ -551,11 +553,11 @@ func TestDryRunRefusesToHoldOrDropAnAnnouncement(t *testing.T) {
 
 			// Arrange
 			world := newForgeWorld()
-			dryRun := webserver.Info{Version: testVersion, DryRun: true}
-			handler := serveWith(t, world.deps(), config.Default(), dryRun)
+			dryRun := webserver.Info{Version: webtest.TestVersion, DryRun: true}
+			handler := webtest.ServeWith(t, world.deps(), config.Default(), dryRun)
 
 			// Act
-			recorder := send(t, handler, tt.method, tt.path, tt.body)
+			recorder := webtest.Send(t, handler, tt.method, tt.path, tt.body)
 
 			// Assert
 			if recorder.Code != http.StatusForbidden || heldAnnouncement(t, handler) != nil {

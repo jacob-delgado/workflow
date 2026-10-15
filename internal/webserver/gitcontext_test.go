@@ -11,6 +11,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // The tests here hold the context each kind of request hands git: a read's
@@ -20,18 +21,18 @@ func TestAChangesReadStopsWhenItsPageLeaves(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	held, deps := newHeldUntilEnded(), filledDeps()
-	deps.Git.Changes = func(ctx context.Context) ([]gitrepo.Change, error) { return nil, held.wait(ctx) }
+	held, deps := webtest.NewHeldUntilEnded(), webtest.FilledDeps()
+	deps.Git.Changes = func(ctx context.Context) ([]gitrepo.Change, error) { return nil, held.Wait(ctx) }
 	ctx, leave := context.WithCancel(t.Context())
-	answered := asking(ctx, serve(t, deps, config.Default()), http.MethodGet, "/api/changes")
+	answered := webtest.Asking(ctx, webtest.Serve(t, deps, config.Default()), http.MethodGet, "/api/changes")
 
-	<-held.entered
+	<-held.Entered
 
 	// Act
 	leave()
 
 	// Assert
-	err := held.endedWith(t)
+	err := held.EndedWith(t)
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("the read's context ended with %v, want it canceled once its page left", err)
 	}
@@ -43,17 +44,17 @@ func TestAStreamsBranchReadStopsWhenItsPageLeaves(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	held, deps := newHeldUntilEnded(), filledDeps()
-	deps.Git.Branch = func(ctx context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, held.wait(ctx) }
-	stream := openStream(t, serve(t, deps, config.Default()), "/api/events")
+	held, deps := webtest.NewHeldUntilEnded(), webtest.FilledDeps()
+	deps.Git.Branch = func(ctx context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, held.Wait(ctx) }
+	stream := webtest.OpenStream(t, webtest.Serve(t, deps, config.Default()), "/api/events")
 
-	<-held.entered
+	<-held.Entered
 
 	// Act
-	stream.cancel()
+	stream.Cancel()
 
 	// Assert
-	err := held.endedWith(t)
+	err := held.EndedWith(t)
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("the frame's read ended with %v, want it canceled once its page left", err)
 	}
@@ -63,18 +64,18 @@ func TestARepositoriesReadStopsWhenItsPageLeaves(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	held, deps := newHeldUntilEnded(), filledDeps()
-	deps.Repositories.Worktrees = func(ctx context.Context) ([]gitrepo.Worktree, error) { return nil, held.wait(ctx) }
+	held, deps := webtest.NewHeldUntilEnded(), webtest.FilledDeps()
+	deps.Repositories.Worktrees = func(ctx context.Context) ([]gitrepo.Worktree, error) { return nil, held.Wait(ctx) }
 	ctx, leave := context.WithCancel(t.Context())
-	answered := asking(ctx, serve(t, deps, config.Default()), http.MethodGet, "/api/repositories")
+	answered := webtest.Asking(ctx, webtest.Serve(t, deps, config.Default()), http.MethodGet, "/api/repositories")
 
-	<-held.entered
+	<-held.Entered
 
 	// Act
 	leave()
 
 	// Assert
-	err := held.endedWith(t)
+	err := held.EndedWith(t)
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("the read's context ended with %v, want it canceled once its page left", err)
 	}

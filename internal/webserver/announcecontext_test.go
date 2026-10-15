@@ -12,6 +12,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // The tests here hold the context an announcement is posted and remembered
@@ -30,13 +31,13 @@ func TestAHeldAnnouncementAFrameTakesToPostGoesOnThoughThatPageLeft(t *testing.T
 
 		return posted(ctx, channel, text)
 	}
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 	announceWhenGreen(t, handler, nil)
 	world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
 
 	// Act
 	// A frame whose page has already left.
-	streamOnce(t, handler, "/api/events")
+	webtest.StreamOnce(t, handler, "/api/events")
 
 	// Assert
 	select {
@@ -67,8 +68,8 @@ func TestAFrameWhosePageLeftDoesNotLetAnAnnouncementPostTwice(t *testing.T) {
 
 		return []loop.Announced{{Pull: 42, Moment: messaging.MomentReady}}
 	}
-	handler := serve(t, deps, config.Default())
-	streamOnce(t, handler, "/api/events")
+	handler := webtest.Serve(t, deps, config.Default())
+	webtest.StreamOnce(t, handler, "/api/events")
 	previewed := previewAnnouncement(t, handler)
 
 	// Act
@@ -87,7 +88,7 @@ func TestAFrameWhosePageLeftStillLearnsTheScopeForEveryStream(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Store.LastScope = func(ctx context.Context) (string, bool) {
 		if ctx.Err() != nil {
 			return "", false
@@ -95,10 +96,10 @@ func TestAFrameWhosePageLeftStillLearnsTheScopeForEveryStream(t *testing.T) {
 
 		return learnedScope, true
 	}
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 
 	// Act
-	frame := firstSnapshot(t, streamOnce(t, handler, "/api/events").Body.String())
+	frame := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
 
 	// Assert
 	if frame.SuggestedScope != learnedScope {

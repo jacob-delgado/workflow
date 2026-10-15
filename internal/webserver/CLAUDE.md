@@ -121,25 +121,37 @@ flight; and refuses, as `conflict`, a write whose `Workflow-Here` header
   method. Tests are black-box, in `package webserver_test` (and
   `package problem_test` in `internal/webserver/problem`), marked
   `// Arrange`, `// Act`, `// Assert`.
-- **The harness** (`harness_test.go`): `serve`, `serveWith` and
-  `serveWorld` build the handler under a session `presenting` sends on every
-  request; `get` and `send` make a loopback request; `decode[T]` reads the
-  answer. `filledDeps()` (`fixtures_test.go`) is every seam with a canned
-  answer, so a test nils or replaces only the one it exercises; `errSeam`
-  fails a seam with no class, which the opaque 500 answers; the fixture
-  constants (`testKey`, `repoPath`, `loopbackHost` and the rest) sit beside
-  them. `assertProblem` (`problemcheck_test.go`) checks a refusal's status,
-  media type and detail.
-- **Helpers that cross a line sit apart.** A helper the tests of code that
-  may leave (the request boundary, the Taskwarrior handlers, the git runs)
-  share with the tests of the rest sits, with what it needs, in a file of
-  helpers alone, named for what it holds: those above, the event stream's reader
-  (`streamclient_test.go`), a seam call held on its context
-  (`heldcall_test.go`), the configuration's edits (`configedits_test.go`),
-  the Taskwarrior fake (`taskwarriorfake_test.go`) and lefthook's fixtures
-  (`hookfixtures_test.go`). A helper only one side's tests use stays in a
-  test file of that side, unless a shared helper needs it or it belongs to a
-  grouped declaration that moved whole.
+- **The harness** (`internal/webserver/webtest`, which only tests import):
+  `webtest.Serve`, `ServeWith` and `ServeWorld` build the handler under a
+  session `Presenting` sends on every request; `Get` and `Send` make a
+  loopback request; `Decode[T]` reads the answer. `FilledDeps()` is every seam
+  with a canned answer, so a test nils or replaces only the one it exercises;
+  `ErrSeam` fails a seam with no class, which the opaque 500 answers; the
+  fixture constants (`TestKey`, `RepoPath`, `LoopbackHost` and the rest) sit
+  beside them. `assertProblem` (`problemcheck_test.go`) checks a refusal's
+  status, media type and detail.
+- **Helpers that cross a line sit in `webtest`.** A helper the tests of code
+  that may leave (the request boundary, the Taskwarrior handlers, the git
+  runs) share with the tests of the rest is exported from
+  `internal/webserver/webtest`, with what it needs, in a file named for what it
+  holds: the harness (`harness.go`) and fixtures (`fixtures.go`) above, the
+  event stream's reader (`streamclient.go`), a seam call held on its context
+  (`heldcall.go`), the configuration's edits (`configedits.go`), the
+  Taskwarrior fake (`taskwarriorfake.go`) and lefthook's fixtures
+  (`hookfixtures.go`). A package that leaves keeps its own black-box tests,
+  which import `webtest` as these do and still drive the server through
+  `webserver.Handler`. A helper only one side's tests use stays in a test file
+  of that side, unless a shared helper needs it or it belongs to a grouped
+  declaration that moved whole. `webtest` has no tests of its own, as
+  `internal/ptytest` has none: depguard's `webtest-only-in-tests` keeps it out
+  of the binary, gobco names it in `NO_TESTS`, and its two goroutines are
+  written exceptions in `scripts/check-goroutines.sh`. Unlike gobco,
+  `scripts/coverage-gate.sh` does not leave it out: its statements count, at
+  0%, in the total `COVERAGE_MIN` holds, as ptytest's do, so the gate prints
+  a total lower than the code's own by webtest's share of the statements.
+  `assertProblem` and `problemJSON` (`problemcheck_test.go`), which the git
+  runs' tests share too, have not moved yet: they move to `webtest` with the
+  runs.
 - **What else holds a change.** `contract_test.go` checks the contract refuses
   what the server cannot use; a stream or a cache that waits is tested inside
   `synctest.Test`, on its fake clock (`stream_test.go`,

@@ -13,6 +13,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // fileRunningAsYou is a configuration file that names what workflow runs, or
@@ -28,17 +29,17 @@ func readToSave(t *testing.T) (http.Handler, string, api.Config, string) {
 	t.Helper()
 
 	path := filepath.Join(t.TempDir(), config.FileName)
-	rewrite(t, path, fileRunningAsYou)
+	webtest.Rewrite(t, path, fileRunningAsYou)
 
 	cfg, _, err := config.LoadLayersAt(config.Files{Home: path})
 	if err != nil {
 		t.Fatalf("loading the file: %v", err)
 	}
 
-	handler := serve(t, webserver.Deps{}, cfg)
-	read := get(t, handler, "/api/config")
+	handler := webtest.Serve(t, webserver.Deps{}, cfg)
+	read := webtest.Get(t, handler, "/api/config")
 
-	return handler, path, decode[api.Config](t, read), etagOf(read)
+	return handler, path, webtest.Decode[api.Config](t, read), etagOf(read)
 }
 
 // body is cfg as the request body a save sends.
@@ -87,14 +88,14 @@ func TestASaveCannotChangeWhatWorkflowRunsAsYou(t *testing.T) {
 			tt.change(&read)
 
 			// Act
-			recorder := putConfigOver(t, handler, body(t, read), etag)
+			recorder := webtest.PutConfigOver(t, handler, body(t, read), etag)
 
 			// Assert
 			if recorder.Code != http.StatusUnprocessableEntity {
 				t.Fatalf("status = %d, want 422: %s", recorder.Code, recorder.Body.String())
 			}
 
-			if got := decode[api.Problem](t, recorder); !strings.HasPrefix(got.Detail, tt.setting+" ") {
+			if got := webtest.Decode[api.Problem](t, recorder); !strings.HasPrefix(got.Detail, tt.setting+" ") {
 				t.Errorf("detail = %q, want it to name %s", got.Detail, tt.setting)
 			}
 
@@ -114,7 +115,7 @@ func TestASaveLeavingOutWhatWorkflowRunsAsYouKeepsIt(t *testing.T) {
 	read.Jira.Project = new("PROJ")
 
 	// Act
-	recorder := putConfigOver(t, handler, body(t, read), etag)
+	recorder := webtest.PutConfigOver(t, handler, body(t, read), etag)
 
 	// Assert
 	if recorder.Code != http.StatusOK {

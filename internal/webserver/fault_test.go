@@ -20,6 +20,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 const (
@@ -89,7 +90,7 @@ func TestTransitionNeverForwardsTheJiraHost(t *testing.T) {
 		},
 		"asked to wait": {
 			err:        fmt.Errorf("reading https://%s: %w", jiraHost, askedToWait30()),
-			wantStatus: http.StatusServiceUnavailable, want: waitAndTryAgain,
+			wantStatus: http.StatusServiceUnavailable, want: webtest.WaitAndTryAgain,
 		},
 	}
 
@@ -105,7 +106,7 @@ func TestTransitionNeverForwardsTheJiraHost(t *testing.T) {
 			recorder := post(t, deps, reviewConfig(), movePath)
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != tt.wantStatus || !strings.Contains(failure.Detail, tt.want) {
 				t.Errorf("status/detail = %d/%q, want %d saying %q", recorder.Code, failure.Detail, tt.wantStatus, tt.want)
 			}
@@ -150,16 +151,16 @@ func TestAForgeFailureSaysWhatToDo(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 				return forge.PullRequest{}, false, fmt.Errorf("reading https://%s/api/v3: %w", forgeHost, tt.cause)
 			}
 
 			// Act
-			recorder := get(t, serve(t, deps, config.Default()), "/api/review")
+			recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/review")
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != tt.wantStatus || !strings.Contains(failure.Detail, tt.want) {
 				t.Errorf("status/detail = %d/%q, want %d saying %q", recorder.Code, failure.Detail, tt.wantStatus, tt.want)
 			}
@@ -197,20 +198,20 @@ func TestARateLimitAsksTheCallerToWait(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			deps.Jira.Search = func(context.Context, string, int) (jira.SearchResult, error) {
 				return jira.SearchResult{}, tt.err
 			}
 
 			// Act
-			recorder := get(t, serve(t, deps, config.Default()), "/api/issues")
+			recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/issues")
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != http.StatusServiceUnavailable || failure.Code != api.ProblemCodeRateLimited ||
-				!strings.Contains(failure.Detail, waitAndTryAgain) {
+				!strings.Contains(failure.Detail, webtest.WaitAndTryAgain) {
 				t.Errorf("status/code/detail = %d/%s/%q, want 503/rate_limited saying %q",
-					recorder.Code, failure.Code, failure.Detail, waitAndTryAgain)
+					recorder.Code, failure.Code, failure.Detail, webtest.WaitAndTryAgain)
 			}
 
 			if got := recorder.Header().Get(retryAfterHeader); got != tt.wantRetryAfter {
@@ -278,7 +279,7 @@ func TestAMissingIssueIsNotFoundBeforeARefusal(t *testing.T) {
 			recorder := post(t, deps, reviewConfig(), tt.path)
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != http.StatusNotFound || failure.Code != api.ProblemCodeNotFound {
 				t.Errorf("status/code = %d/%s, want 404/not_found", recorder.Code, failure.Code)
 			}
@@ -294,10 +295,10 @@ func TestAnAnswerThatCannotBeWrittenSaysWhatToDo(t *testing.T) {
 	// its place, opaque about why and plain about what to do.
 	writer := &firstWriteFails{}
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/health", nil)
-	request.Host = loopbackHost
+	request.Host = webtest.LoopbackHost
 
 	// Act
-	serve(t, filledDeps(), config.Default()).ServeHTTP(writer, request)
+	webtest.Serve(t, webtest.FilledDeps(), config.Default()).ServeHTTP(writer, request)
 
 	// Assert
 	var failure api.Problem
@@ -318,7 +319,7 @@ func TestOnlyAFailureNoClassExplainsIsHandedToUnexpected(t *testing.T) {
 		wantStatus int
 		wantHeard  int
 	}{
-		"a failure no class explains": {cause: errSeam, wantStatus: http.StatusInternalServerError, wantHeard: 1},
+		"a failure no class explains": {cause: webtest.ErrSeam, wantStatus: http.StatusInternalServerError, wantHeard: 1},
 		"a failure a class explains":  {cause: jira.ErrUnreachable, wantStatus: http.StatusBadGateway, wantHeard: 0},
 		// Its asker has gone, or the server is stopping: no one reads the
 		// answer, and nothing went wrong to hear of.
@@ -332,14 +333,14 @@ func TestOnlyAFailureNoClassExplainsIsHandedToUnexpected(t *testing.T) {
 			// Arrange
 			var heard []error
 
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			deps.Jira.Search = func(context.Context, string, int) (jira.SearchResult, error) {
 				return jira.SearchResult{}, fmt.Errorf("searching: %w", tt.cause)
 			}
 			deps.Unexpected = func(_ config.Config, err error) { heard = append(heard, err) }
 
 			// Act
-			recorder := get(t, serve(t, deps, config.Default()), "/api/issues")
+			recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/issues")
 
 			// Assert
 			if recorder.Code != tt.wantStatus {
@@ -359,18 +360,18 @@ func TestAnAnswerThatCannotBeWrittenIsHandedToUnexpected(t *testing.T) {
 	// Arrange
 	var heard []error
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Unexpected = func(_ config.Config, err error) { heard = append(heard, err) }
 
 	writer := &firstWriteFails{}
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/health", nil)
-	request.Host = loopbackHost
+	request.Host = webtest.LoopbackHost
 
 	// Act
-	serve(t, deps, config.Default()).ServeHTTP(writer, request)
+	webtest.Serve(t, deps, config.Default()).ServeHTTP(writer, request)
 
 	// Assert
-	if len(heard) != 1 || !errors.Is(heard[0], errSeam) {
+	if len(heard) != 1 || !errors.Is(heard[0], webtest.ErrSeam) {
 		t.Errorf("Unexpected heard %v, want the failed write once", heard)
 	}
 }
@@ -395,7 +396,7 @@ func (f *firstWriteFails) Write(written []byte) (int, error) {
 	if !f.failed {
 		f.failed = true
 
-		return 0, errSeam
+		return 0, webtest.ErrSeam
 	}
 
 	kept, err := f.body.Write(written)

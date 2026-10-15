@@ -18,18 +18,23 @@ import (
 	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 func TestARunWithNothingToWorkOnIsRefusedBeforeItRuns(t *testing.T) {
 	t.Parallel()
 
 	onBase := func(context.Context) (gitrepo.Branch, error) {
-		return gitrepo.Branch{Name: prBase, Base: testBase, Head: filledHead, PushRemote: gitrepo.DefaultRemote}, nil
+		return gitrepo.Branch{
+			Name: webtest.PRBase, Base: webtest.TestBase, Head: webtest.FilledHead,
+			PushRemote: gitrepo.DefaultRemote,
+		}, nil
 	}
 	pushed := func(context.Context) (gitrepo.Branch, error) {
 		return gitrepo.Branch{
-			Name: testBranchName, Base: testBase, Upstream: gitrepo.DefaultRemote + "/" + testBranchName,
-			PushRemote: gitrepo.DefaultRemote, Commits: []gitrepo.Commit{{Hash: filledHead, Subject: testCommitSubject}},
+			Name: webtest.TestBranchName, Base: webtest.TestBase, Upstream: gitrepo.DefaultRemote + "/" + webtest.TestBranchName,
+			PushRemote: gitrepo.DefaultRemote,
+			Commits:    []gitrepo.Commit{{Hash: webtest.FilledHead, Subject: webtest.TestCommitSubject}},
 		}, nil
 	}
 	unstaged := func(context.Context) ([]gitrepo.Change, error) {
@@ -78,7 +83,7 @@ func TestARunWithNothingToWorkOnIsRefusedBeforeItRuns(t *testing.T) {
 			}
 
 			// Act
-			recorder := startRun(t, serve(t, deps, config.Default()), tt.body)
+			recorder := startRun(t, webtest.Serve(t, deps, config.Default()), tt.body)
 
 			// Assert
 			assertProblem(t, recorder, tt.status, tt.saying)
@@ -93,8 +98,8 @@ func TestARunWithNothingToWorkOnIsRefusedBeforeItRuns(t *testing.T) {
 func TestARunWhoseReadsFailHasNothingToWorkOn(t *testing.T) {
 	t.Parallel()
 
-	failingBranch := func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
-	failingChanges := func(context.Context) ([]gitrepo.Change, error) { return nil, errSeam }
+	failingBranch := func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, webtest.ErrSeam }
+	failingChanges := func(context.Context) ([]gitrepo.Change, error) { return nil, webtest.ErrSeam }
 
 	cases := map[string]struct {
 		body    string
@@ -123,7 +128,7 @@ func TestARunWhoseReadsFailHasNothingToWorkOn(t *testing.T) {
 			}
 
 			// Act
-			recorder := startRun(t, serve(t, deps, config.Default()), tt.body)
+			recorder := startRun(t, webtest.Serve(t, deps, config.Default()), tt.body)
 
 			// Assert
 			assertProblem(t, recorder, http.StatusConflict, "nothing to")
@@ -143,7 +148,7 @@ func TestARunThatIsNotWiredIsNotAvailable(t *testing.T) {
 	deps.Hooks.Run = nil
 
 	// Act
-	recorder := startRun(t, serve(t, deps, config.Default()), preCommitRun)
+	recorder := startRun(t, webtest.Serve(t, deps, config.Default()), preCommitRun)
 
 	// Assert
 	assertProblem(t, recorder, http.StatusUnprocessableEntity, "not available")
@@ -174,7 +179,7 @@ func TestEveryRunIsUnavailableWithoutItsSeam(t *testing.T) {
 			tt.unset(&deps)
 
 			// Act
-			recorder := startRun(t, serve(t, deps, config.Default()), tt.body)
+			recorder := startRun(t, webtest.Serve(t, deps, config.Default()), tt.body)
 
 			// Assert
 			assertProblem(t, recorder, http.StatusUnprocessableEntity, "not available")
@@ -194,7 +199,7 @@ func TestEveryRunWithoutABranchSeamIsNotAvailable(t *testing.T) {
 			deps.Git.Branch = nil
 
 			// Act
-			recorder := startRun(t, serve(t, deps, config.Default()), body)
+			recorder := startRun(t, webtest.Serve(t, deps, config.Default()), body)
 
 			// Assert
 			assertProblem(t, recorder, http.StatusUnprocessableEntity, "not available")
@@ -208,16 +213,16 @@ func TestARunThatCannotStartKeepsGitsWordsOff(t *testing.T) {
 	// Arrange
 	deps := runDeps(&runCalls{}, passing)
 	deps.Git.Rebase = func(context.Context, string) (proc.Output, error) {
-		return proc.Output{}, fmt.Errorf("git -C %s rebase: %w", repoPath, errSeam)
+		return proc.Output{}, fmt.Errorf("git -C %s rebase: %w", webtest.RepoPath, webtest.ErrSeam)
 	}
 
 	// Act
-	recorder := startRun(t, serve(t, deps, config.Default()), rebaseRun)
+	recorder := startRun(t, webtest.Serve(t, deps, config.Default()), rebaseRun)
 
 	// Assert
 	assertProblem(t, recorder, http.StatusUnprocessableEntity, "could not be started")
 
-	if strings.Contains(recorder.Body.String(), repoPath) {
+	if strings.Contains(recorder.Body.String(), webtest.RepoPath) {
 		t.Errorf("the refusal %s names where the repository is", recorder.Body)
 	}
 }
@@ -227,7 +232,10 @@ func TestARunIsHeldBackUnderADryRun(t *testing.T) {
 
 	// Arrange
 	calls := &runCalls{}
-	handler := serveWith(t, runDeps(calls, passing), config.Default(), webserver.Info{Version: testVersion, DryRun: true})
+	handler := webtest.ServeWith(t, runDeps(calls, passing), config.Default(), webserver.Info{
+		Version: webtest.TestVersion,
+		DryRun:  true,
+	})
 
 	// Act
 	recorder := startRun(t, handler, rebaseRun)
@@ -253,7 +261,7 @@ func TestAHookRunIsRefusedForAHookNotRunByHand(t *testing.T) {
 			calls := &runCalls{}
 
 			// Act
-			recorder := startRun(t, serve(t, runDeps(calls, passing), config.Default()), body)
+			recorder := startRun(t, webtest.Serve(t, runDeps(calls, passing), config.Default()), body)
 
 			// Assert
 			assertProblem(t, recorder, http.StatusUnprocessableEntity, "not one lefthook runs by hand")
@@ -276,11 +284,11 @@ func TestAHookRunWhoseConfigurationCannotBeReadIsRefused(t *testing.T) {
 	}
 
 	// Act
-	recorder := startRun(t, serve(t, deps, config.Default()), preCommitRun)
+	recorder := startRun(t, webtest.Serve(t, deps, config.Default()), preCommitRun)
 
 	// Assert
 	failure := assertProblem(t, recorder, http.StatusUnprocessableEntity, "could not be read")
-	if strings.Contains(failure.Detail, repoPath) {
+	if strings.Contains(failure.Detail, webtest.RepoPath) {
 		t.Errorf("detail = %q, want lefthook's words, which name the repository, kept off the wire", failure.Detail)
 	}
 

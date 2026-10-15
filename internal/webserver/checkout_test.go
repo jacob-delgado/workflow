@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 const targetBranch = "feat/PROJ-500-metrics"
@@ -26,15 +27,16 @@ func doCheckout(t *testing.T, deps webserver.Deps, branch string) *httptest.Resp
 
 	body := `{"branch":"` + branch + `"}`
 
-	return send(t, serve(t, deps, config.Default()), http.MethodPost, "/api/checkout", body)
+	return webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPost, "/api/checkout", body)
 }
 
-// cleanDeps is filledDeps with a clean working tree and a checkout that records
-// the branch it was asked to switch to, so a test can assert the switch happened.
+// cleanDeps is webtest.FilledDeps with a clean working tree and a checkout that
+// records the branch it was asked to switch to, so a test can assert the switch
+// happened.
 func cleanDeps(t *testing.T, switched *string) webserver.Deps {
 	t.Helper()
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return nil, nil }
 	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{Name: targetBranch}, nil }
 	deps.Git.Checkout = func(_ context.Context, name string) error {
@@ -66,7 +68,7 @@ func TestCheckoutSwitchesToTheBranch(t *testing.T) {
 		t.Errorf("checked out %q, want %q", switched, targetBranch)
 	}
 
-	if branch := decode[api.Branch](t, recorder); branch.Name != targetBranch {
+	if branch := webtest.Decode[api.Branch](t, recorder); branch.Name != targetBranch {
 		t.Errorf("branch = %+v, want the switched-to branch", branch)
 	}
 }
@@ -82,10 +84,10 @@ func TestCheckoutSucceedsEvenIfTheRereadFails(t *testing.T) {
 	deps := cleanDeps(t, &switched)
 	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
 		if switched != "" {
-			return gitrepo.Branch{}, errSeam
+			return gitrepo.Branch{}, webtest.ErrSeam
 		}
 
-		return gitrepo.Branch{Name: testBranchName}, nil
+		return gitrepo.Branch{Name: webtest.TestBranchName}, nil
 	}
 
 	// Act
@@ -96,7 +98,7 @@ func TestCheckoutSucceedsEvenIfTheRereadFails(t *testing.T) {
 		t.Fatalf("status = %d, want 200 — the switch landed despite the re-read failing", recorder.Code)
 	}
 
-	if branch := decode[api.Branch](t, recorder); branch.Name != targetBranch {
+	if branch := webtest.Decode[api.Branch](t, recorder); branch.Name != targetBranch {
 		t.Errorf("branch = %+v, want the switched-to branch %q", branch, targetBranch)
 	}
 }
@@ -105,9 +107,10 @@ func TestCheckoutRefusesADirtyTree(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// filledDeps' Changes reports a modified file, so the tree is dirty.
+	// webtest.FilledDeps' Changes reports a modified file, so the tree is
+	// dirty.
 	called := false
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Checkout = func(context.Context, string) error {
 		called = true
 
@@ -126,7 +129,7 @@ func TestCheckoutRefusesADirtyTree(t *testing.T) {
 		t.Error("checkout ran despite a dirty tree, want it refused before switching")
 	}
 
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if failure.Code != api.ProblemCodeConflict {
 		t.Errorf("code = %q, want conflict", failure.Code)
 	}
@@ -140,9 +143,9 @@ func TestCheckoutReportsAFailedSwitch(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return nil, nil }
-	deps.Git.Checkout = func(context.Context, string) error { return errSeam }
+	deps.Git.Checkout = func(context.Context, string) error { return webtest.ErrSeam }
 
 	// Act
 	recorder := doCheckout(t, deps, "nope")
@@ -152,7 +155,7 @@ func TestCheckoutReportsAFailedSwitch(t *testing.T) {
 		t.Fatalf("status = %d, want 422 for a checkout that fails", recorder.Code)
 	}
 
-	if failure := decode[api.Problem](t, recorder); failure.Code != api.ProblemCodeUnprocessable {
+	if failure := webtest.Decode[api.Problem](t, recorder); failure.Code != api.ProblemCodeUnprocessable {
 		t.Errorf("code = %q, want unprocessable", failure.Code)
 	}
 }
@@ -168,7 +171,7 @@ func TestCheckoutIsUnavailableWithoutAGitSeam(t *testing.T) {
 
 			return deps
 		},
-		noBranchSeam: func(deps webserver.Deps) webserver.Deps {
+		webtest.NoBranchSeam: func(deps webserver.Deps) webserver.Deps {
 			deps.Git.Branch = nil
 
 			return deps
@@ -180,7 +183,7 @@ func TestCheckoutIsUnavailableWithoutAGitSeam(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			deps := mutate(filledDeps())
+			deps := mutate(webtest.FilledDeps())
 			deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return nil, nil }
 
 			// Act
@@ -225,11 +228,11 @@ func TestCheckoutNeverForwardsGitsOwnWords(t *testing.T) {
 	// In a partial clone, a switch fetches the files the branch needs, so git's
 	// own words can name the remote; the detail names the branch and what to do,
 	// and never the host.
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return nil, nil }
 	deps.Git.Checkout = func(context.Context, string) error {
 		return fmt.Errorf("switching to %s: %w: fatal: unable to access 'https://%s/acme/repo.git/'",
-			targetBranch, errSeam, gitHost)
+			targetBranch, webtest.ErrSeam, gitHost)
 	}
 
 	// Act
@@ -238,7 +241,7 @@ func TestCheckoutNeverForwardsGitsOwnWords(t *testing.T) {
 	// Assert
 	want := "git would not switch to " + targetBranch + "; switch from a terminal to see git's reason"
 
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusUnprocessableEntity || failure.Detail != want {
 		t.Errorf("status = %d, detail %q; want 422 saying %q", recorder.Code, failure.Detail, want)
 	}

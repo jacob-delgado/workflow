@@ -11,6 +11,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // postCheckout sends a checkout write with the given Origin header, so a test can
@@ -21,7 +22,7 @@ func postCheckout(t *testing.T, handler http.Handler, origin string) *httptest.R
 	request := httptest.NewRequestWithContext(
 		t.Context(), http.MethodPost, "/api/checkout", strings.NewReader(`{"branch":"fix/PROJ-1"}`),
 	)
-	request.Host = loopbackHost
+	request.Host = webtest.LoopbackHost
 	request.Header.Set("Content-Type", "application/json")
 
 	if origin != "" {
@@ -37,7 +38,7 @@ func postCheckout(t *testing.T, handler http.Handler, origin string) *httptest.R
 func TestNonLoopbackHostsAreRejected(t *testing.T) {
 	t.Parallel()
 
-	handler := serve(t, webserver.Deps{}, config.Default())
+	handler := webtest.Serve(t, webserver.Deps{}, config.Default())
 
 	// A foreign name (a rebound hostname) and a foreign IP literal both name
 	// somewhere other than the loopback interface.
@@ -65,8 +66,8 @@ func TestWritesAreRefusedInDryRun(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	dryRun := webserver.Info{Version: testVersion, DryRun: true}
-	handler := serveWith(t, filledDeps(), config.Default(), dryRun)
+	dryRun := webserver.Info{Version: webtest.TestVersion, DryRun: true}
+	handler := webtest.ServeWith(t, webtest.FilledDeps(), config.Default(), dryRun)
 
 	// Act
 	// A same-origin write that would otherwise be allowed.
@@ -81,7 +82,7 @@ func TestWritesAreRefusedInDryRun(t *testing.T) {
 func TestACrossOriginWriteIsRefused(t *testing.T) {
 	t.Parallel()
 
-	handler := serve(t, filledDeps(), config.Default())
+	handler := webtest.Serve(t, webtest.FilledDeps(), config.Default())
 
 	// A foreign host, and a page on another loopback port — both cross-origin to
 	// the server's own 127.0.0.1:13579, so both must be refused.
@@ -104,7 +105,7 @@ func TestAMalformedOriginIsRefusedForAWrite(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	handler := serve(t, filledDeps(), config.Default())
+	handler := webtest.Serve(t, webtest.FilledDeps(), config.Default())
 
 	// Act
 	recorder := postCheckout(t, handler, "http://%zz")
@@ -119,9 +120,9 @@ func TestASafeMethodSkipsTheWriteGuard(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	handler := serve(t, filledDeps(), config.Default())
+	handler := webtest.Serve(t, webtest.FilledDeps(), config.Default())
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodOptions, "/api/checkout", nil)
-	request.Host = loopbackHost
+	request.Host = webtest.LoopbackHost
 	request.Header.Set("Origin", "http://evil.example.com")
 
 	recorder := httptest.NewRecorder()
@@ -141,11 +142,12 @@ func TestASameOriginWriteIsNotRefused(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	handler := serve(t, filledDeps(), config.Default())
+	handler := webtest.Serve(t, webtest.FilledDeps(), config.Default())
 
 	// Act
-	// A loopback Origin passes the guard and reaches the handler; filledDeps has a
-	// dirty tree, so the checkout is refused with 409 — not the guard's 403.
+	// A loopback Origin passes the guard and reaches the handler;
+	// webtest.FilledDeps has a dirty tree, so the checkout is refused with 409
+	// — not the guard's 403.
 	recorder := postCheckout(t, handler, "http://127.0.0.1:13579")
 
 	// Assert
@@ -157,7 +159,7 @@ func TestASameOriginWriteIsNotRefused(t *testing.T) {
 func TestLoopbackHostsReachTheAPI(t *testing.T) {
 	t.Parallel()
 
-	handler := serve(t, webserver.Deps{}, config.Default())
+	handler := webtest.Serve(t, webserver.Deps{}, config.Default())
 
 	// The loopback name and IP literals, with and without a port.
 	for _, host := range []string{"127.0.0.1:13579", "localhost:13579", "[::1]:13579", "127.0.0.1"} {

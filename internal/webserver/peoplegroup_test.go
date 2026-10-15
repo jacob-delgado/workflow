@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/codeowners"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // acmeOwnedServer is a server whose branch's changes only the bare name acme
@@ -23,7 +24,7 @@ import (
 func acmeOwnedServer(t *testing.T, fake *fakeKept) http.Handler {
 	t.Helper()
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Messaging.Post = func(context.Context, string, string) error { return nil }
 	fake.wire(&deps)
 	deps.Git.CodeOwnersAt = func(context.Context, string) (codeowners.File, bool, error) {
@@ -31,7 +32,7 @@ func acmeOwnedServer(t *testing.T, fake *fakeKept) http.Handler {
 	}
 	deps.Forge.IsGroup = func(_ context.Context, name string) (bool, error) { return name == "acme", nil }
 
-	return serveWith(t, deps, slackUserConfig(), webserver.Info{Version: testVersion})
+	return webtest.ServeWith(t, deps, slackUserConfig(), webserver.Info{Version: webtest.TestVersion})
 }
 
 func TestLinkPersonLinksABareNamedGitLabGroupToAUserGroup(t *testing.T) {
@@ -43,10 +44,11 @@ func TestLinkPersonLinksABareNamedGitLabGroupToAUserGroup(t *testing.T) {
 	handler := acmeOwnedServer(t, fake)
 
 	// Act
-	recorder := send(t, handler, http.MethodPut, peoplePath, `{"owner":"acme","slack_id":"S0POD","not_on_slack":false}`)
+	recorder := webtest.Send(t, handler, http.MethodPut, peoplePath,
+		`{"owner":"acme","slack_id":"S0POD","not_on_slack":false}`)
 
 	// Assert
-	people := decode[api.People](t, recorder)
+	people := webtest.Decode[api.People](t, recorder)
 	if recorder.Code != http.StatusOK || len(people.Owners) != 1 || people.Owners[0].Kind != api.OwnerTagKindTeam ||
 		people.Owners[0].State != api.OwnerTagStateLinked {
 		t.Errorf("status %d, people %+v; want acme a team linked to the pod's group", recorder.Code, people)
@@ -64,10 +66,11 @@ func TestLinkPersonLinksAGroupDecidedAsAPersonBeforeTheForgeCouldTell(t *testing
 	handler := acmeOwnedServer(t, fake)
 
 	// Act
-	recorder := send(t, handler, http.MethodPut, peoplePath, `{"owner":"acme","slack_id":"S0POD","not_on_slack":false}`)
+	recorder := webtest.Send(t, handler, http.MethodPut, peoplePath,
+		`{"owner":"acme","slack_id":"S0POD","not_on_slack":false}`)
 
 	// Assert
-	people := decode[api.People](t, recorder)
+	people := webtest.Decode[api.People](t, recorder)
 	if recorder.Code != http.StatusOK || len(people.Owners) != 1 || people.Owners[0].Kind != api.OwnerTagKindTeam ||
 		people.Owners[0].State != api.OwnerTagStateLinked {
 		t.Errorf("status %d, people %+v; want acme a team linked to the pod's group", recorder.Code, people)

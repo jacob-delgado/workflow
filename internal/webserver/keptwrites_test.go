@@ -22,6 +22,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/store"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // keptWriteHeld is how long a fake kept write takes: long enough that a
@@ -41,7 +42,7 @@ func TestSetRepoGroupsIsRefusedWithoutASlackWorkspace(t *testing.T) {
 	handler := keptOver(t, fake, slackWebhookConfig(), &posted)
 
 	// Act
-	recorder := send(t, handler, http.MethodPut, repoGroupsPath, `{"ids":[]}`)
+	recorder := webtest.Send(t, handler, http.MethodPut, repoGroupsPath, `{"ids":[]}`)
 
 	// Assert
 	if recorder.Code != http.StatusUnprocessableEntity || len(fake.repoGroups) != 1 {
@@ -74,7 +75,7 @@ func TestSetRepoGroupsKeepsASavedGroupTheDirectoryCannotList(t *testing.T) {
 			handler := keptOver(t, fake, slackUserConfig(), &posted)
 
 			// Act
-			recorder := send(t, handler, http.MethodPut, repoGroupsPath, `{"ids":["S0API"]}`)
+			recorder := webtest.Send(t, handler, http.MethodPut, repoGroupsPath, `{"ids":["S0API"]}`)
 
 			// Assert
 			want := []loop.SlackTarget{apiReviews()}
@@ -98,7 +99,7 @@ func TestRemoveLocalDataWaitsForAKeptWriteUnderWay(t *testing.T) {
 	)
 
 	linking := make(chan struct{})
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	newFakeKept().wire(&deps)
 	deps.Store.LinkOwner = func(context.Context, string, loop.OwnerLink) error {
 		writing.Store(true)
@@ -114,15 +115,15 @@ func TestRemoveLocalDataWaitsForAKeptWriteUnderWay(t *testing.T) {
 
 		return nil
 	}
-	handler := serveWith(t, deps, slackUserConfig(), webserver.Info{Version: testVersion})
+	handler := webtest.ServeWith(t, deps, slackUserConfig(), webserver.Info{Version: webtest.TestVersion})
 
 	var write sync.WaitGroup
 
-	write.Go(func() { send(t, handler, http.MethodPut, peoplePath, `{"owner":"ben","not_on_slack":true}`) })
+	write.Go(func() { webtest.Send(t, handler, http.MethodPut, peoplePath, `{"owner":"ben","not_on_slack":true}`) })
 	<-linking
 
 	// Act
-	removed := send(t, handler, http.MethodDelete, "/api/local-data?scope=all", "")
+	removed := webtest.Send(t, handler, http.MethodDelete, "/api/local-data?scope=all", "")
 
 	write.Wait()
 
@@ -139,13 +140,13 @@ func TestRemoveLocalDataSaysAFileNotRemovedMayLeaveOthersGone(t *testing.T) {
 	// Arrange
 	fake := newFakeStore()
 	fake.failure = fmt.Errorf("%w: busy", store.ErrNotCleaned)
-	handler := storeServer(t, fake, webserver.Info{Version: testVersion})
+	handler := storeServer(t, fake, webserver.Info{Version: webtest.TestVersion})
 
 	// Act
-	answer := send(t, handler, http.MethodDelete, "/api/local-data?scope=all", "")
+	answer := webtest.Send(t, handler, http.MethodDelete, "/api/local-data?scope=all", "")
 
 	// Assert
-	detail := decode[api.Problem](t, answer).Detail
+	detail := webtest.Decode[api.Problem](t, answer).Detail
 	if strings.Contains(detail, "nothing was removed") || !strings.Contains(detail, "listing") {
 		t.Errorf("detail %q, want it pointing at the listing, not promising nothing was removed", detail)
 	}

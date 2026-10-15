@@ -14,6 +14,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/codeowners"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // The person and the team that own the changes.
@@ -42,15 +43,15 @@ func TestGetPullRequestDraftProposesTheCodeOwnersAsReviewers(t *testing.T) {
 	deps.Forge.Author = func(context.Context) (string, error) { return "me", nil }
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/pull-request/draft")
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/pull-request/draft")
 
 	// Assert
-	draft := decode[api.PullRequestDraft](t, recorder)
+	draft := webtest.Decode[api.PullRequestDraft](t, recorder)
 	if want := []string{ownedUser, ownedTeam}; !slices.Equal(draft.Reviewers, want) {
 		t.Errorf("reviewers = %q, want %q", draft.Reviewers, want)
 	}
 
-	if !slices.Equal(read, []string{prBase, prBase}) {
+	if !slices.Equal(read, []string{webtest.PRBase, webtest.PRBase}) {
 		t.Errorf("owners read at %q, want the base twice", read)
 	}
 }
@@ -62,7 +63,7 @@ func TestGetPullRequestDraftProposesNoReviewersWithoutCodeOwners(t *testing.T) {
 	deps := openableDeps()
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/pull-request/draft")
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/pull-request/draft")
 
 	// Assert
 	// The field is required, so nobody is an empty list rather than null.
@@ -81,10 +82,11 @@ func TestOpenPullRequestRequestsTeamsAsTeams(t *testing.T) {
 	deps.Forge.CreatePullRequest = func(_ context.Context, newPull forge.NewPullRequest) (forge.PullRequest, error) {
 		request = newPull
 
-		return forge.PullRequest{Number: 7, URL: prURL, Title: newPull.Title}, nil
+		return forge.PullRequest{Number: 7, URL: webtest.PRURL, Title: newPull.Title}, nil
 	}
 
-	body := `{"title":"` + prTitle + `","base":"` + prBase + `","reviewers":["` + ownedUser + `"," ` + ownedTeam + ` "]}`
+	body := `{"title":"` + webtest.PRTitle + `","base":"` + webtest.PRBase +
+		`","reviewers":["` + ownedUser + `"," ` + ownedTeam + ` "]}`
 
 	// Act
 	recorder := doOpen(t, deps, body)

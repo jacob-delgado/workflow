@@ -15,6 +15,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // The tests here hold the context each kind of request hands the tracker: a
@@ -25,13 +26,13 @@ import (
 // it is asked under, before it answers as answer does; every later call
 // answers at once.
 func heldFirst(
-	held *heldCall, answer func(context.Context, string, int) (jira.SearchResult, error),
+	held *webtest.HeldCall, answer func(context.Context, string, int) (jira.SearchResult, error),
 ) func(context.Context, string, int) (jira.SearchResult, error) {
 	var began atomic.Bool
 
 	return func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error) {
 		if began.CompareAndSwap(false, true) {
-			err := held.wait(ctx)
+			err := held.Wait(ctx)
 			if err != nil {
 				return jira.SearchResult{}, err
 			}
@@ -44,36 +45,36 @@ func heldFirst(
 // leftMidRead opens a stream on handler, and closes it once held is entered,
 // letting held go only after: the frame's page has left while its read was
 // under way.
-func leftMidRead(t *testing.T, handler http.Handler, held *heldCall) {
+func leftMidRead(t *testing.T, handler http.Handler, held *webtest.HeldCall) {
 	t.Helper()
 
-	stream := openStream(t, handler, "/api/events")
+	stream := webtest.OpenStream(t, handler, "/api/events")
 
-	<-held.entered
-	stream.cancel()
-	close(held.release)
-	<-stream.done
+	<-held.Entered
+	stream.Cancel()
+	close(held.Release)
+	<-stream.Done
 }
 
 func TestAnIssueReadStopsWhenItsPageLeaves(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	held := newHeldUntilEnded()
+	held := webtest.NewHeldUntilEnded()
 	tracker := seams.Jira{Issue: func(ctx context.Context, _ jira.Key) (jira.IssueDetail, error) {
-		return jira.IssueDetail{}, held.wait(ctx)
+		return jira.IssueDetail{}, held.Wait(ctx)
 	}}
 	ctx, leave := context.WithCancel(t.Context())
-	answered := asking(ctx, serve(t, webserver.Deps{Jira: tracker}, config.Default()), http.MethodGet,
-		"/api/issues/"+testKey)
+	answered := webtest.Asking(ctx, webtest.Serve(t, webserver.Deps{Jira: tracker}, config.Default()), http.MethodGet,
+		"/api/issues/"+webtest.TestKey)
 
-	<-held.entered
+	<-held.Entered
 
 	// Act
 	leave()
 
 	// Assert
-	err := held.endedWith(t)
+	err := held.EndedWith(t)
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("the read's context ended with %v, want it canceled once its page left", err)
 	}
@@ -88,13 +89,13 @@ func TestASharedIssueSearchGoesOnWhenThePageThatBeganItLeaves(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	held, deps := newHeld(), filledDeps()
+	held, deps := webtest.NewHeld(), webtest.FilledDeps()
 	deps.Jira.Search = heldFirst(held, deps.Jira.Search)
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 	leftMidRead(t, handler, held)
 
 	// Act
-	frame := firstSnapshot(t, streamOnce(t, handler, "/api/events").Body.String())
+	frame := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
 
 	// Assert
 	if frame.Issues.Total != 1 || frame.Problems != nil {
@@ -112,13 +113,13 @@ func TestASharedAskForYourIssuesGoesOnWhenThePageThatBeganItLeaves(t *testing.T)
 	// Arrange
 	var asked atomic.Int32
 
-	held, deps := newHeld(), scopedDeps([]jira.Key{yourIssue}, nil, &asked)
+	held, deps := webtest.NewHeld(), scopedDeps([]jira.Key{yourIssue}, nil, &asked)
 	deps.Jira.SearchLenient = heldFirst(held, deps.Jira.SearchLenient)
-	handler := serve(t, deps, scopedConfig())
+	handler := webtest.Serve(t, deps, scopedConfig())
 	leftMidRead(t, handler, held)
 
 	// Act
-	frame := firstSnapshot(t, streamOnce(t, handler, "/api/events").Body.String())
+	frame := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
 
 	// Assert
 	want := []string{yourLocalBranch}

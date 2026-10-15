@@ -12,16 +12,18 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 func TestGetBranchReturnsTheBranch(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	branch := decode[api.Branch](t, get(t, serve(t, filledDeps(), config.Default()), "/api/branch"))
+	branch := webtest.Decode[api.Branch](t, webtest.Get(t, webtest.Serve(t, webtest.FilledDeps(), config.Default()),
+		"/api/branch"))
 
 	// Assert
-	if branch.Name != testBranchName || branch.Base != testBase || branch.Ahead != 2 {
+	if branch.Name != webtest.TestBranchName || branch.Base != webtest.TestBase || branch.Ahead != 2 {
 		t.Errorf("branch = %+v, want the current branch", branch)
 	}
 }
@@ -32,13 +34,13 @@ func TestGetBranchNamesTheRemoteItsPushGoesTo(t *testing.T) {
 	// Arrange
 	const forkRemote = "fork"
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
-		return gitrepo.Branch{Name: testBranchName, PushRemote: forkRemote}, nil
+		return gitrepo.Branch{Name: webtest.TestBranchName, PushRemote: forkRemote}, nil
 	}
 
 	// Act
-	branch := decode[api.Branch](t, get(t, serve(t, deps, config.Default()), "/api/branch"))
+	branch := webtest.Decode[api.Branch](t, webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/branch"))
 
 	// Assert
 	if branch.PushRemote != forkRemote {
@@ -50,11 +52,11 @@ func TestGetBranchIsEmptyWhenNoRepositoryIsConfigured(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Branch = nil
 
 	// Act
-	branch := decode[api.Branch](t, get(t, serve(t, deps, config.Default()), "/api/branch"))
+	branch := webtest.Decode[api.Branch](t, webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/branch"))
 
 	// Assert
 	if branch.Name != "" || len(branch.Commits) != 0 {
@@ -66,11 +68,11 @@ func TestGetBranchReportsAFailure(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
-	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+	deps := webtest.FilledDeps()
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, webtest.ErrSeam }
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/branch")
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/branch")
 
 	// Assert
 	if recorder.Code != http.StatusInternalServerError {
@@ -84,13 +86,14 @@ func TestSnapshotBranchIsEmptyWhenTheReadFails(t *testing.T) {
 	// Arrange
 	// The failing read still hands back a branch, so only the error can empty
 	// the panel.
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
-		return gitrepo.Branch{Name: testBranchName}, errSeam
+		return gitrepo.Branch{Name: webtest.TestBranchName}, webtest.ErrSeam
 	}
 
 	// Act
-	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
+	snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, webtest.Serve(t, deps, config.Default()),
+		"/api/events").Body.String())
 
 	// Assert
 	if snap.Branch.Name != "" || snap.Branch.Commits == nil {
@@ -102,17 +105,18 @@ func TestTheBranchMarksTheCommitsNotYetPushed(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
 		return gitrepo.Branch{
-			Name: testBranchName, Base: testBase, Upstream: gitrepo.DefaultRemote + "/" + testBranchName,
+			Name: webtest.TestBranchName, Base: webtest.TestBase, Upstream: gitrepo.DefaultRemote + "/" + webtest.TestBranchName,
 			PushRemote: gitrepo.DefaultRemote, Ahead: 1,
 			Commits: []gitrepo.Commit{{Hash: "aaa1111", Subject: "feat: first"}, {Hash: "bbb2222", Subject: "fix: second"}},
 		}, nil
 	}
 
 	// Act
-	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String())
+	snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, webtest.Serve(t, deps, config.Default()),
+		"/api/events").Body.String())
 
 	// Assert
 	marked := make([]bool, 0, len(snap.Branch.Commits))

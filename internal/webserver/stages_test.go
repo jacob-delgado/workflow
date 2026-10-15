@@ -15,6 +15,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // errCIUnread is a CI read that failed, which leaves the pull request without
@@ -25,9 +26,9 @@ var errCIUnread = errors.New("the forge did not answer for the checks")
 func framedStages(t *testing.T, deps webserver.Deps) []api.Stage {
 	t.Helper()
 
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 
-	return firstSnapshot(t, streamOnce(t, handler, "/api/events").Body.String()).Stages
+	return webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String()).Stages
 }
 
 // stageStates is how far each of the loop's stages has got, by its step; a
@@ -70,7 +71,7 @@ func TestSnapshotCarriesTheLoopsStagesInOrder(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	stages := framedStages(t, filledDeps())
+	stages := framedStages(t, webtest.FilledDeps())
 
 	// Assert
 	want := loopStages(config.KindSlack, stageStates{
@@ -85,9 +86,9 @@ func TestSnapshotStagesStartNowhereOnTheBase(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
-		return gitrepo.Branch{Name: prBase, Base: testBase}, nil
+		return gitrepo.Branch{Name: webtest.PRBase, Base: webtest.TestBase}, nil
 	}
 	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return nil, nil }
 
@@ -114,7 +115,7 @@ func TestSnapshotReadsTheCommitsStage(t *testing.T) {
 		want    api.StageState
 	}{
 		"done on a commit with files still to commit": {
-			commits: []gitrepo.Commit{{Hash: filledHead, Subject: testCommitSubject}},
+			commits: []gitrepo.Commit{{Hash: webtest.FilledHead, Subject: webtest.TestCommitSubject}},
 			changes: []gitrepo.Change{{Path: "internal/config/redact.go", Unstaged: 'M'}},
 			want:    api.StageStateDone,
 		},
@@ -130,9 +131,12 @@ func TestSnapshotReadsTheCommitsStage(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
-				return gitrepo.Branch{Name: testBranchName, Base: testBase, Head: filledHead, Commits: tt.commits}, nil
+				return gitrepo.Branch{
+					Name: webtest.TestBranchName, Base: webtest.TestBase, Head: webtest.FilledHead,
+					Commits: tt.commits,
+				}, nil
 			}
 			deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return tt.changes, nil }
 
@@ -223,7 +227,7 @@ func TestSnapshotReadsTheReviewStage(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 				return tt.pull, true, nil
 			}
@@ -246,7 +250,7 @@ func TestSnapshotReadsTheReviewStageNotStartedWithNoPullRequest(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{}, false, nil
 	}
@@ -267,7 +271,7 @@ func TestSnapshotReadsTheAnnounceStageDoneOnceAnnouncedAtItsMoment(t *testing.T)
 	memory := &announceMemory{held: []loop.Announced{readyAt42()}}
 
 	// Act
-	stages := framedStages(t, memory.wire(filledDeps()))
+	stages := framedStages(t, memory.wire(webtest.FilledDeps()))
 
 	// Assert
 	if got := stageOf(t, stages, api.StageStepAnnounce).State; got != api.StageStateDone {
@@ -282,7 +286,7 @@ func TestSnapshotReadsTheAnnounceStageNotStartedForAPullRequestClosedWithoutMerg
 	// The store remembers pull request 42 announced as ready, before it was
 	// closed: there is no pull request left for the loop to announce.
 	memory := &announceMemory{held: []loop.Announced{readyAt42()}}
-	deps := memory.wire(filledDeps())
+	deps := memory.wire(webtest.FilledDeps())
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return inState(forge.StateClosed, false), true, nil
 	}
@@ -301,12 +305,12 @@ func TestSnapshotReadsTheAnnounceStageInFlightWhileAnAnnouncementWaitsForCI(t *t
 
 	// Arrange
 	world := newForgeWorld()
-	handler := serve(t, world.deps(), config.Default())
+	handler := webtest.Serve(t, world.deps(), config.Default())
 	cancelHeld(t, handler)
 	announceWhenGreen(t, handler, nil)
 
 	// Act
-	stages := firstSnapshot(t, streamOnce(t, handler, "/api/events").Body.String()).Stages
+	stages := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String()).Stages
 
 	// Assert
 	if got := stageOf(t, stages, api.StageStepAnnounce).State; got != api.StageStateInFlight {
@@ -322,7 +326,8 @@ func TestSnapshotNamesTheAnnounceStageForTheService(t *testing.T) {
 	cfg.Messaging.Kind = config.KindTeams
 
 	// Act
-	snap := firstSnapshot(t, streamOnce(t, serve(t, filledDeps(), cfg), "/api/events").Body.String())
+	snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, webtest.Serve(t, webtest.FilledDeps(), cfg),
+		"/api/events").Body.String())
 
 	// Assert
 	if got := stageOf(t, snap.Stages, api.StageStepAnnounce).Name; got != "Teams" {
@@ -330,19 +335,22 @@ func TestSnapshotNamesTheAnnounceStageForTheService(t *testing.T) {
 	}
 }
 
-// branchStagesOf is the stages a frame over deps gives each branch named for
-// an issue, by the branch's name, beside the frame's own stages. filledDeps'
-// Branch is on fix/PROJ-412, with a commit and an open pull request whose CI
-// passed; feat/PROJ-500-metrics is not checked out.
+// branchStagesOf is the stages a frame over deps gives each branch named for an
+// issue, by the branch's name, beside the frame's own stages.
+// webtest.FilledDeps' Branch is on fix/PROJ-412, with a commit and an open pull
+// request whose CI passed; feat/PROJ-500-metrics is not checked out.
 func branchStagesOf(t *testing.T) (map[string][]api.Stage, []api.Stage) {
 	t.Helper()
 
-	deps := filledDeps()
-	deps.Git.Branches = func(context.Context) ([]string, error) { return []string{testBranchName, elsewhereBranch}, nil }
+	deps := webtest.FilledDeps()
+	deps.Git.Branches = func(context.Context) ([]string, error) {
+		return []string{webtest.TestBranchName, elsewhereBranch},
+			nil
+	}
 	cfg := config.Default()
-	cfg.Jira.Project = testProject
+	cfg.Jira.Project = webtest.TestProject
 
-	snap := firstSnapshot(t, streamOnce(t, serve(t, deps, cfg), "/api/events").Body.String())
+	snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, webtest.Serve(t, deps, cfg), "/api/events").Body.String())
 
 	byName := map[string][]api.Stage{}
 	for _, branch := range snap.Branches {
@@ -362,7 +370,7 @@ func TestSnapshotGivesTheCheckedOutBranchTheFramesStages(t *testing.T) {
 	byName, framed := branchStagesOf(t)
 
 	// Assert
-	if got := byName[testBranchName]; len(got) == 0 || !slices.Equal(got, framed) {
+	if got := byName[webtest.TestBranchName]; len(got) == 0 || !slices.Equal(got, framed) {
 		t.Errorf("checked-out branch's stages = %+v, want the frame's %+v", got, framed)
 	}
 }
@@ -390,7 +398,8 @@ func TestSnapshotReadsAnIssueWithNoBranchAsPickedAndNothingBegun(t *testing.T) {
 	cfg.Messaging.Kind = config.KindTeams
 
 	// Act
-	snap := firstSnapshot(t, streamOnce(t, serve(t, filledDeps(), cfg), "/api/events").Body.String())
+	snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, webtest.Serve(t, webtest.FilledDeps(), cfg),
+		"/api/events").Body.String())
 
 	// Assert
 	want := loopStages(config.KindTeams, stageStates{issue: api.StageStateInFlight})

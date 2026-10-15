@@ -18,6 +18,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // otherChannel is a channel a preview picks other than the configured one.
@@ -36,7 +37,7 @@ func slackWebhookConfig() config.Config {
 func keptOver(t *testing.T, fake *fakeKept, cfg config.Config, posted *string) http.Handler {
 	t.Helper()
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	fake.wire(&deps)
 	deps.Messaging.Post = func(_ context.Context, _, text string) error {
 		*posted = text
@@ -44,7 +45,7 @@ func keptOver(t *testing.T, fake *fakeKept, cfg config.Config, posted *string) h
 		return nil
 	}
 
-	return serve(t, deps, cfg)
+	return webtest.Serve(t, deps, cfg)
 }
 
 func TestGetAnnouncementTagsNoOneWhenTheConfigurationPostsByWebhook(t *testing.T) {
@@ -56,10 +57,10 @@ func TestGetAnnouncementTagsNoOneWhenTheConfigurationPostsByWebhook(t *testing.T
 	handler := keptOver(t, newFakeKept(), slackWebhookConfig(), &posted)
 
 	// Act
-	recorder := get(t, handler, "/api/announcement")
+	recorder := webtest.Get(t, handler, "/api/announcement")
 
 	// Assert
-	if got := decode[api.Announcement](t, recorder).Tagging; got != nil {
+	if got := webtest.Decode[api.Announcement](t, recorder).Tagging; got != nil {
 		t.Errorf("tagging = %+v, want none while posting by webhook", got)
 	}
 }
@@ -76,10 +77,10 @@ func TestGetAnnouncementTagsNoOneWhenSlackHasNoCredential(t *testing.T) {
 	handler := keptOver(t, fake, slackUserConfig(), &posted)
 
 	// Act
-	recorder := get(t, handler, "/api/announcement")
+	recorder := webtest.Get(t, handler, "/api/announcement")
 
 	// Assert
-	if got := decode[api.Announcement](t, recorder).Tagging; got != nil {
+	if got := webtest.Decode[api.Announcement](t, recorder).Tagging; got != nil {
 		t.Errorf("tagging = %+v, want none while Slack has no credential", got)
 	}
 }
@@ -90,20 +91,20 @@ func TestGetAnnouncementChecksTheScopeAgainstTheChannelPreviewed(t *testing.T) {
 	// Arrange
 	var asked []string
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	newFakeKept().wire(&deps)
 	deps.Messaging.ChannelMembers = func(_ context.Context, channel string) ([]loop.SlackTarget, error) {
 		asked = append(asked, channel)
 
 		return nil, &messaging.MissingScopeError{Needed: usersRead}
 	}
-	handler := serve(t, deps, slackUserConfig())
+	handler := webtest.Serve(t, deps, slackUserConfig())
 
 	// Act
-	recorder := get(t, handler, "/api/announcement?channel=%23ops")
+	recorder := webtest.Get(t, handler, "/api/announcement?channel=%23ops")
 
 	// Assert
-	got := decode[api.Announcement](t, recorder)
+	got := webtest.Decode[api.Announcement](t, recorder)
 	elsewhere := func(channel string) bool { return channel != otherChannel }
 
 	everyRead := len(asked) > 0 && !slices.ContainsFunc(asked, elsewhere)
@@ -144,7 +145,7 @@ func TestAnnounceRefusesWhenWhomItTagsChangedSinceThePreview(t *testing.T) {
 	recorder := announceWith(t, handler, []string{carla().ID}, []string{apiGroupID})
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusConflict || posted != "" || !strings.Contains(failure.Detail, "preview it again") {
 		t.Errorf("status/detail %d/%q, posted %q; want 409 and nothing posted", recorder.Code, failure.Detail, posted)
 	}
@@ -195,10 +196,10 @@ func TestSlackDirectoryNeedsAUserTokenInEffect(t *testing.T) {
 			target := map[bool]string{true: "/api/slack/members", false: groupsPath}[strings.HasPrefix(name, "members")]
 
 			// Act
-			recorder := get(t, handler, target)
+			recorder := webtest.Get(t, handler, target)
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != http.StatusUnprocessableEntity || !strings.Contains(failure.Detail, "Slack user token") {
 				t.Errorf("status/detail = %d/%q, want 422 asking for a Slack user token", recorder.Code, failure.Detail)
 			}
@@ -212,18 +213,18 @@ func TestLinkPersonChecksTheMemberInTheChannelPickedFrom(t *testing.T) {
 	// Arrange
 	var asked []string
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	newFakeKept().wire(&deps)
 	deps.Messaging.ChannelMembers = func(_ context.Context, channel string) ([]loop.SlackTarget, error) {
 		asked = append(asked, channel)
 
 		return []loop.SlackTarget{ben()}, nil
 	}
-	handler := serveWith(t, deps, slackUserConfig(), webserver.Info{Version: testVersion})
+	handler := webtest.ServeWith(t, deps, slackUserConfig(), webserver.Info{Version: webtest.TestVersion})
 	link := `{"owner":"ben","slack_id":"U0BEN","not_on_slack":false,"channel":"#ops"}`
 
 	// Act
-	recorder := send(t, handler, http.MethodPut, peoplePath, link)
+	recorder := webtest.Send(t, handler, http.MethodPut, peoplePath, link)
 
 	// Assert
 	if recorder.Code != http.StatusOK || len(asked) != 1 || asked[0] != otherChannel {

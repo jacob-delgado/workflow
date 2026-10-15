@@ -14,6 +14,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 func TestTheContractRefusesWhatTheServerCannotUse(t *testing.T) {
@@ -21,13 +22,13 @@ func TestTheContractRefusesWhatTheServerCannotUse(t *testing.T) {
 
 	cases := map[string]struct{ method, target, body string }{
 		"a checkout of no branch": {
-			method: http.MethodPost, target: checkoutPath, body: `{"branch":""}`,
+			method: http.MethodPost, target: webtest.CheckoutPath, body: `{"branch":""}`,
 		},
 		"a branch for no issue": {
-			method: http.MethodPost, target: branchesAt, body: noIssueKey,
+			method: http.MethodPost, target: branchesAt, body: webtest.NoIssueKey,
 		},
 		"a worktree for no issue": {
-			method: http.MethodPost, target: worktreesAt, body: noIssueKey,
+			method: http.MethodPost, target: worktreesAt, body: webtest.NoIssueKey,
 		},
 		"a summary of a period that is no date": {
 			method: http.MethodGet, target: activityPath + "?from=yesterday",
@@ -42,19 +43,19 @@ func TestTheContractRefusesWhatTheServerCannotUse(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			deps := filledDeps()
+			deps := webtest.FilledDeps()
 			deps.Messaging.Post = func(context.Context, string, string) error { return nil }
-			handler := serve(t, deps, config.Default())
+			handler := webtest.Serve(t, deps, config.Default())
 
 			// Act
-			recorder := send(t, handler, tt.method, tt.target, tt.body)
+			recorder := webtest.Send(t, handler, tt.method, tt.target, tt.body)
 
 			// Assert
 			if recorder.Code != http.StatusBadRequest {
 				t.Fatalf("status = %d, want 400 from the contract: %s", recorder.Code, recorder.Body.String())
 			}
 
-			if got := decode[api.Problem](t, recorder).Code; got != api.ProblemCodeBadRequest {
+			if got := webtest.Decode[api.Problem](t, recorder).Code; got != api.ProblemCodeBadRequest {
 				t.Errorf("code = %q, want bad_request", got)
 			}
 		})
@@ -65,13 +66,13 @@ func TestAWriteTheContractRoutesNowhereIsNotFound(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	handler := serve(t, filledDeps(), config.Default())
+	handler := webtest.Serve(t, webtest.FilledDeps(), config.Default())
 
 	// Act
-	recorder := send(t, handler, http.MethodPost, "/api/no-such-operation", `{}`)
+	recorder := webtest.Send(t, handler, http.MethodPost, "/api/no-such-operation", `{}`)
 
 	// Assert
-	if failure := decode[api.Problem](t, recorder); recorder.Code != http.StatusNotFound ||
+	if failure := webtest.Decode[api.Problem](t, recorder); recorder.Code != http.StatusNotFound ||
 		failure.Code != api.ProblemCodeNotFound {
 		t.Errorf("status/code %d/%s, want 404/not_found", recorder.Code, failure.Code)
 	}
@@ -107,16 +108,16 @@ func TestACommentWhoseDateCouldNotBeReadCarriesNone(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Jira.Issue = func(_ context.Context, key jira.Key) (jira.IssueDetail, error) {
 		return jira.IssueDetail{
-			Issue:    jira.Issue{Key: key, Summary: testSummary},
-			Comments: []jira.Comment{{Author: testReporter, Body: "Repro'd"}}, CommentTotal: 1,
+			Issue:    jira.Issue{Key: key, Summary: webtest.TestSummary},
+			Comments: []jira.Comment{{Author: webtest.TestReporter, Body: "Repro'd"}}, CommentTotal: 1,
 		}, nil
 	}
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/issues/"+testKey)
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/issues/"+webtest.TestKey)
 
 	// Assert
 	if comment := fieldsOf(t, recorder.Body.Bytes(), "comments"); comment["created"] != nil {
@@ -128,13 +129,13 @@ func TestAReviewRequestWithNoTimeOpenedCarriesNone(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Forge.ReviewRequests = func(context.Context) ([]forge.ReviewRequest, error) {
-		return []forge.ReviewRequest{{Number: 7, URL: "https://x/7", Title: "docs", Author: testAuthor}}, nil
+		return []forge.ReviewRequest{{Number: 7, URL: "https://x/7", Title: "docs", Author: webtest.TestAuthor}}, nil
 	}
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/reviews")
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/reviews")
 
 	// Assert
 	if request := fieldsOf(t, recorder.Body.Bytes(), "requests"); request["opened_at"] != nil {
@@ -147,13 +148,13 @@ func TestAReviewRequestCarriesTheTimeItWasOpened(t *testing.T) {
 
 	// Arrange
 	opened := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Forge.ReviewRequests = func(context.Context) ([]forge.ReviewRequest, error) {
 		return []forge.ReviewRequest{{Number: 7, URL: "https://x/7", Title: "docs", OpenedAt: opened}}, nil
 	}
 
 	// Act
-	queue := decode[api.ReviewQueue](t, get(t, serve(t, deps, config.Default()), "/api/reviews"))
+	queue := webtest.Decode[api.ReviewQueue](t, webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/reviews"))
 
 	// Assert
 	if len(queue.Requests) != 1 || queue.Requests[0].OpenedAt == nil || !queue.Requests[0].OpenedAt.Equal(opened) {
@@ -184,7 +185,8 @@ func TestTheMessagingDestinationNamesItsServiceByKind(t *testing.T) {
 			cfg.Messaging.Kind = tt.kind
 
 			// Act
-			destination := decode[api.MessagingDestination](t, get(t, serve(t, filledDeps(), cfg), "/api/messaging"))
+			destination := webtest.Decode[api.MessagingDestination](t, webtest.Get(t, webtest.Serve(t, webtest.FilledDeps(),
+				cfg), "/api/messaging"))
 
 			// Assert
 			if destination.Kind != tt.want {

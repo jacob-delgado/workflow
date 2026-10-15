@@ -20,6 +20,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // The staging endpoints, and the working tree their tests stage in.
@@ -62,7 +63,7 @@ type staging struct {
 
 // deps wires the recording seams over workTree.
 func (s *staging) deps() webserver.Deps {
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return workTree(), nil }
 	deps.Git.Stage = func(_ context.Context, change gitrepo.Change) error {
 		s.staged = append(s.staged, change)
@@ -92,7 +93,7 @@ func pathsOf(changes []gitrepo.Change) []string {
 func sendStaging(t *testing.T, deps webserver.Deps, path, body string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	return send(t, serve(t, deps, config.Default()), http.MethodPost, path, body)
+	return webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPost, path, body)
 }
 
 func TestStageAllStagesEveryChange(t *testing.T) {
@@ -115,7 +116,7 @@ func TestStageAllStagesEveryChange(t *testing.T) {
 		t.Errorf("staged %q, want %q", got, want)
 	}
 
-	if listed := decode[api.ChangeList](t, recorder); len(listed.Changes) != len(workTree()) {
+	if listed := webtest.Decode[api.ChangeList](t, recorder); len(listed.Changes) != len(workTree()) {
 		t.Errorf("answered %d changes, want the working tree's %d", len(listed.Changes), len(workTree()))
 	}
 }
@@ -148,7 +149,7 @@ func TestStageRefusesAPathThatIsNotAChange(t *testing.T) {
 	recorder := sendStaging(t, tree.deps(), stagePath, `{"path":"../../.ssh/id_ed25519"}`)
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if recorder.Code != http.StatusNotFound || failure.Code != api.ProblemCodeNotFound || len(tree.staged) != 0 {
 		t.Errorf("status/code = %d/%s, staged %+v; want 404/not_found and nothing staged",
 			recorder.Code, failure.Code, tree.staged)
@@ -208,7 +209,7 @@ func TestStagingNeedsAPathOrAllButNotBoth(t *testing.T) {
 			recorder := sendStaging(t, tree.deps(), tt.endpoint, tt.body)
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != http.StatusUnprocessableEntity || failure.Code != api.ProblemCodeUnprocessable {
 				t.Errorf("status/code = %d/%s, want 422/unprocessable", recorder.Code, failure.Code)
 			}
@@ -247,7 +248,7 @@ func TestStagingIsUnavailableWithoutItsSeams(t *testing.T) {
 			recorder := sendStaging(t, deps, tt.endpoint, everything)
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != http.StatusUnprocessableEntity || !strings.Contains(failure.Detail, "not available") {
 				t.Errorf("status = %d, detail %q; want 422 saying staging is not available", recorder.Code, failure.Detail)
 			}
@@ -262,14 +263,14 @@ func TestStagingReportsAChangesReadFailure(t *testing.T) {
 	var tree staging
 
 	deps := tree.deps()
-	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return nil, errSeam }
+	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) { return nil, webtest.ErrSeam }
 
 	// Act
 	recorder := sendStaging(t, deps, stagePath, `{"path":"`+editedPath+`"}`)
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
-	if recorder.Code != http.StatusInternalServerError || strings.Contains(failure.Detail, errSeam.Error()) {
+	failure := webtest.Decode[api.Problem](t, recorder)
+	if recorder.Code != http.StatusInternalServerError || strings.Contains(failure.Detail, webtest.ErrSeam.Error()) {
 		t.Errorf("status = %d, detail %q; want an opaque 500", recorder.Code, failure.Detail)
 	}
 }
@@ -280,7 +281,7 @@ func TestStagingNeverForwardsGitsOwnWords(t *testing.T) {
 	// Unstaging in a partial clone fetches what the index needs, so git's own
 	// words can name the remote; the detail names the file and never the host.
 	refused := fmt.Errorf("unstaging %s: %w: fatal: unable to access 'https://%s/acme/repo.git/'",
-		stagedPath, errSeam, gitHost)
+		stagedPath, webtest.ErrSeam, gitHost)
 	cases := map[string]struct {
 		endpoint, body, want string
 	}{
@@ -304,7 +305,7 @@ func TestStagingNeverForwardsGitsOwnWords(t *testing.T) {
 			recorder := sendStaging(t, deps, tt.endpoint, tt.body)
 
 			// Assert
-			failure := decode[api.Problem](t, recorder)
+			failure := webtest.Decode[api.Problem](t, recorder)
 			if recorder.Code != http.StatusUnprocessableEntity || !strings.Contains(failure.Detail, tt.want) {
 				t.Errorf("status = %d, detail %q; want 422 naming %q", recorder.Code, failure.Detail, tt.want)
 			}
@@ -329,7 +330,7 @@ func TestStagingAnswersTheTreeAsReadBeforeWhenTheRereadFails(t *testing.T) {
 	deps.Git.Changes = func(context.Context) ([]gitrepo.Change, error) {
 		reads++
 		if reads > 1 {
-			return nil, errSeam
+			return nil, webtest.ErrSeam
 		}
 
 		return workTree(), nil
@@ -339,7 +340,7 @@ func TestStagingAnswersTheTreeAsReadBeforeWhenTheRereadFails(t *testing.T) {
 	recorder := sendStaging(t, deps, stagePath, `{"path":"`+editedPath+`"}`)
 
 	// Assert
-	listed := decode[api.ChangeList](t, recorder)
+	listed := webtest.Decode[api.ChangeList](t, recorder)
 	if recorder.Code != http.StatusOK || len(listed.Changes) != len(workTree()) || len(tree.staged) != 1 {
 		t.Errorf("status = %d, answered %d changes, staged %d; want 200, the tree as read, one staged",
 			recorder.Code, len(listed.Changes), len(tree.staged))
@@ -372,7 +373,7 @@ func TestStagingAnswersTheTreeAsItNowStands(t *testing.T) {
 	recorder := sendStaging(t, deps, stagePath, `{"path":"`+editedPath+`"}`)
 
 	// Assert
-	listed := decode[api.ChangeList](t, recorder)
+	listed := webtest.Decode[api.ChangeList](t, recorder)
 
 	answered := slices.IndexFunc(listed.Changes, func(change api.Change) bool { return change.Path == editedPath })
 	if recorder.Code != http.StatusOK || answered < 0 {
@@ -400,14 +401,14 @@ func TestStagingWritesWaitForEachOther(t *testing.T) {
 		defer writing.Add(-1)
 
 		if writing.Add(1) > 1 {
-			return errSeam
+			return webtest.ErrSeam
 		}
 
 		time.Sleep(indexHeld)
 
 		return nil
 	}
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 
 	// Stage all, and one file's own Stage pressed while it runs.
 	bodies := []string{everything, `{"path":"` + editedPath + `"}`}
@@ -417,7 +418,7 @@ func TestStagingWritesWaitForEachOther(t *testing.T) {
 
 	// Act
 	for index, body := range bodies {
-		group.Go(func() { codes[index] = send(t, handler, http.MethodPost, stagePath, body).Code })
+		group.Go(func() { codes[index] = webtest.Send(t, handler, http.MethodPost, stagePath, body).Code })
 	}
 
 	group.Wait()
@@ -474,21 +475,23 @@ func TestEveryIndexWriteWaitsForAStageUnderWay(t *testing.T) {
 			}
 			write.seam(&deps, func() error {
 				if writing.Load() > 0 {
-					return errSeam
+					return webtest.ErrSeam
 				}
 
 				return nil
 			})
-			handler := serve(t, deps, config.Default())
+			handler := webtest.Serve(t, deps, config.Default())
 
 			staged := make(chan int, 1)
 
-			go func() { staged <- send(t, handler, http.MethodPost, stagePath, `{"path":"`+editedPath+`"}`).Code }()
+			go func() {
+				staged <- webtest.Send(t, handler, http.MethodPost, stagePath, `{"path":"`+editedPath+`"}`).Code
+			}()
 
 			<-holding
 
 			// Act
-			code := send(t, handler, http.MethodPost, write.path, write.body).Code
+			code := webtest.Send(t, handler, http.MethodPost, write.path, write.body).Code
 
 			// Assert
 			if stageCode := <-staged; code != http.StatusOK || stageCode != http.StatusOK {
@@ -518,11 +521,11 @@ func TestDryRunRefusesStaging(t *testing.T) {
 			// Arrange
 			var tree staging
 
-			dryRun := webserver.Info{Version: testVersion, DryRun: true}
-			handler := serveWith(t, tree.deps(), config.Default(), dryRun)
+			dryRun := webserver.Info{Version: webtest.TestVersion, DryRun: true}
+			handler := webtest.ServeWith(t, tree.deps(), config.Default(), dryRun)
 
 			// Act
-			recorder := send(t, handler, http.MethodPost, tt.endpoint, tt.body)
+			recorder := webtest.Send(t, handler, http.MethodPost, tt.endpoint, tt.body)
 
 			// Assert
 			if recorder.Code != http.StatusForbidden || len(tree.staged)+len(tree.unstaged) != 0 {

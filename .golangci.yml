@@ -63,6 +63,17 @@ linters:
           deny:
             - pkg: github.com/jacob-delgado/workflow/internal/gittest
               desc: a test helper; clear git's environment and run test git only from a _test.go file
+        # internal/webserver/webtest is the web server's test harness: it imports
+        # testing and fails the test it is handed, and its fakes and fixtures
+        # stand in for every seam. A production path that imported it would
+        # serve canned answers, so only tests may.
+        webtest-only-in-tests:
+          files:
+            - "$all"
+            - "!$test"
+          deny:
+            - pkg: github.com/jacob-delgado/workflow/internal/webserver/webtest
+              desc: a test helper; serve the API handler over fixtures only from a _test.go file
         # internal/loop composes the loop once for the command line, the terminal
         # and the web, so it sits below all three and above the domain packages.
         # Importing a surface back, or wiring (which imports the terminal for
@@ -312,6 +323,11 @@ linters:
       # variable file paths. gosec stays fully strict on production code.
       - path: _test\.go$
         linters: [gosec]
+      # internal/webserver/webtest is test fixtures that left their _test.go
+      # files so several packages' tests can share them: a canned issue's
+      # numbers are data, as they were in a test, where mnd does not look.
+      - path: internal/webserver/webtest/
+        linters: [mnd]
       # This CLI test interrupts its own process, as Ctrl+C does, which every
       # run beside it would hear too, so it runs alone. Every other CLI test is
       # handed an Environment of its own and runs in parallel.

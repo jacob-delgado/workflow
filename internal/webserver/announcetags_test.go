@@ -21,13 +21,14 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // postTagged is a server over fake whose posts land in posted.
 func postTagged(t *testing.T, fake *fakeKept, posted *string) http.Handler {
 	t.Helper()
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	fake.wire(&deps)
 	deps.Messaging.Post = func(_ context.Context, _, text string) error {
 		*posted = text
@@ -35,7 +36,7 @@ func postTagged(t *testing.T, fake *fakeKept, posted *string) http.Handler {
 		return nil
 	}
 
-	return serve(t, deps, slackUserConfig())
+	return webtest.Serve(t, deps, slackUserConfig())
 }
 
 // announceWith posts the announcement previewed, which showed users tagged,
@@ -50,7 +51,7 @@ func announceWith(t *testing.T, handler http.Handler, users, groups []string) *h
 		t.Fatalf("encoding the announce request: %v", err)
 	}
 
-	return send(t, handler, http.MethodPost, "/api/announce", string(body))
+	return webtest.Send(t, handler, http.MethodPost, "/api/announce", string(body))
 }
 
 func TestGetAnnouncementProposesWhomToTag(t *testing.T) {
@@ -59,10 +60,10 @@ func TestGetAnnouncementProposesWhomToTag(t *testing.T) {
 	// Arrange
 	fake := newFakeKept()
 	fake.links = append(fake.links, ownerLinkedTo(ownedTeam, podGroup()))
-	handler := keptServer(t, fake, webserver.Info{Version: testVersion})
+	handler := keptServer(t, fake, webserver.Info{Version: webtest.TestVersion})
 
 	// Act
-	recorder := get(t, handler, "/api/announcement")
+	recorder := webtest.Get(t, handler, "/api/announcement")
 
 	// Assert
 	want := &api.AnnouncementTagging{
@@ -77,7 +78,7 @@ func TestGetAnnouncementProposesWhomToTag(t *testing.T) {
 			{Slack: api.SlackTarget(podGroup()), Checked: true, FromOwners: true},
 		},
 	}
-	if got := decode[api.Announcement](t, recorder).Tagging; !reflect.DeepEqual(got, want) {
+	if got := webtest.Decode[api.Announcement](t, recorder).Tagging; !reflect.DeepEqual(got, want) {
 		t.Errorf("tagging = %+v, want %+v", got, want)
 	}
 }
@@ -86,13 +87,13 @@ func TestGetAnnouncementTagsNoOneWithoutASlackUserToken(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	handler := serve(t, filledDeps(), config.Default())
+	handler := webtest.Serve(t, webtest.FilledDeps(), config.Default())
 
 	// Act
-	recorder := get(t, handler, "/api/announcement")
+	recorder := webtest.Get(t, handler, "/api/announcement")
 
 	// Assert
-	if got := decode[api.Announcement](t, recorder).Tagging; got != nil {
+	if got := webtest.Decode[api.Announcement](t, recorder).Tagging; got != nil {
 		t.Errorf("tagging = %+v, want none without a Slack user token", got)
 	}
 }
@@ -105,13 +106,13 @@ func TestGetAnnouncementTagsNoOneWhileTheDirectoryHasNoCredential(t *testing.T) 
 	// while they post with no Slack user token.
 	fake := newFakeKept()
 	fake.membersErr = messaging.ErrNoCredential
-	handler := keptServer(t, fake, webserver.Info{Version: testVersion})
+	handler := keptServer(t, fake, webserver.Info{Version: webtest.TestVersion})
 
 	// Act
-	recorder := get(t, handler, "/api/announcement")
+	recorder := webtest.Get(t, handler, "/api/announcement")
 
 	// Assert
-	if got := decode[api.Announcement](t, recorder).Tagging; got != nil {
+	if got := webtest.Decode[api.Announcement](t, recorder).Tagging; got != nil {
 		t.Errorf("tagging = %+v, want none while there is no Slack user token", got)
 	}
 }
@@ -139,7 +140,7 @@ func TestGetAnnouncementTagsNoOneUnlessReadyForReview(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	newFakeKept().wire(&deps)
 	findPull := deps.Forge.FindPullRequest
 	deps.Forge.FindPullRequest = func(ctx context.Context, branch string) (forge.PullRequest, bool, error) {
@@ -148,13 +149,13 @@ func TestGetAnnouncementTagsNoOneUnlessReadyForReview(t *testing.T) {
 
 		return pull, found, err
 	}
-	handler := serve(t, deps, slackUserConfig())
+	handler := webtest.Serve(t, deps, slackUserConfig())
 
 	// Act
-	recorder := get(t, handler, "/api/announcement")
+	recorder := webtest.Get(t, handler, "/api/announcement")
 
 	// Assert
-	got := decode[api.Announcement](t, recorder).Tagging
+	got := webtest.Decode[api.Announcement](t, recorder).Tagging
 	if got == nil || got.Available || len(got.Owners) != 0 {
 		t.Errorf("tagging = %+v, want it unavailable with no owners for a merge", got)
 	}
@@ -166,13 +167,13 @@ func TestGetAnnouncementNamesTheScopeToLinkAnOwner(t *testing.T) {
 	// Arrange
 	fake := newFakeKept()
 	fake.membersErr = &messaging.MissingScopeError{Needed: usersRead}
-	handler := keptServer(t, fake, webserver.Info{Version: testVersion})
+	handler := keptServer(t, fake, webserver.Info{Version: webtest.TestVersion})
 
 	// Act
-	recorder := get(t, handler, "/api/announcement")
+	recorder := webtest.Get(t, handler, "/api/announcement")
 
 	// Assert
-	got := decode[api.Announcement](t, recorder).Tagging
+	got := webtest.Decode[api.Announcement](t, recorder).Tagging
 	if got == nil || got.MissingScope == nil || *got.MissingScope != usersRead {
 		t.Errorf("tagging = %+v, want it naming users:read", got)
 	}
@@ -254,19 +255,19 @@ func TestAnnounceRefusesMentionsWhereNoOneIsTagged(t *testing.T) {
 	// Arrange
 	var posted string
 
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Messaging.Post = func(_ context.Context, _, text string) error {
 		posted = text
 
 		return nil
 	}
-	handler := serve(t, deps, config.Default())
+	handler := webtest.Serve(t, deps, config.Default())
 
 	// Act
 	recorder := announceWith(t, handler, []string{}, []string{})
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 
 	refused := recorder.Code == http.StatusUnprocessableEntity && strings.Contains(failure.Detail, "tags no one")
 	if !refused || posted != "" {
@@ -280,13 +281,13 @@ func TestGetAnnouncementTagsNoOneWhenSlackHasNoCredentialToNameTheWorkspace(t *t
 	// Arrange
 	fake := newFakeKept()
 	fake.workspaceErr = messaging.ErrNoCredential
-	handler := keptServer(t, fake, webserver.Info{Version: testVersion})
+	handler := keptServer(t, fake, webserver.Info{Version: webtest.TestVersion})
 
 	// Act
-	recorder := get(t, handler, "/api/announcement")
+	recorder := webtest.Get(t, handler, "/api/announcement")
 
 	// Assert
-	if got := decode[api.Announcement](t, recorder); recorder.Code != http.StatusOK || got.Tagging != nil {
+	if got := webtest.Decode[api.Announcement](t, recorder); recorder.Code != http.StatusOK || got.Tagging != nil {
 		t.Errorf("status %d, tagging %+v; want 200 tagging no one", recorder.Code, got.Tagging)
 	}
 }
@@ -299,13 +300,13 @@ func TestGetAnnouncementTagsNoOneWithNoGroupsToLinkAnOwningTeamTo(t *testing.T) 
 	// cannot be read for want of a credential.
 	fake := newFakeKept()
 	fake.groupsErr = messaging.ErrNoCredential
-	handler := keptServer(t, fake, webserver.Info{Version: testVersion})
+	handler := keptServer(t, fake, webserver.Info{Version: webtest.TestVersion})
 
 	// Act
-	recorder := get(t, handler, "/api/announcement")
+	recorder := webtest.Get(t, handler, "/api/announcement")
 
 	// Assert
-	if got := decode[api.Announcement](t, recorder); recorder.Code != http.StatusOK || got.Tagging != nil {
+	if got := webtest.Decode[api.Announcement](t, recorder); recorder.Code != http.StatusOK || got.Tagging != nil {
 		t.Errorf("status %d, tagging %+v; want 200 tagging no one", recorder.Code, got.Tagging)
 	}
 }
@@ -324,7 +325,7 @@ func TestAnnounceRefusesMentionsInAWorkspaceSlackWillNotName(t *testing.T) {
 	recorder := announceWith(t, handler, []string{carla().ID}, []string{})
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 
 	refused := recorder.Code == http.StatusUnprocessableEntity && strings.Contains(failure.Detail, "tags no one")
 	if !refused || posted != "" {

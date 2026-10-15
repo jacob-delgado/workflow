@@ -20,11 +20,13 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
-// keptDeps is filledDeps over fake, posting nowhere, as keptServer serves it.
+// keptDeps is webtest.FilledDeps over fake, posting nowhere, as keptServer
+// serves it.
 func keptDeps(fake *fakeKept) webserver.Deps {
-	deps := filledDeps()
+	deps := webtest.FilledDeps()
 	deps.Messaging.Post = func(context.Context, string, string) error { return nil }
 	fake.wire(&deps)
 
@@ -59,14 +61,14 @@ func breaksOnceWritten(deps *webserver.Deps) {
 
 	deps.Store.OwnerLinks = func(ctx context.Context, workspace string) ([]loop.OwnerLink, error) {
 		if isBroken() {
-			return nil, errSeam
+			return nil, webtest.ErrSeam
 		}
 
 		return links(ctx, workspace)
 	}
 	deps.Store.RepoGroups = func(ctx context.Context, workspace string) ([]loop.SlackTarget, error) {
 		if isBroken() {
-			return nil, errSeam
+			return nil, webtest.ErrSeam
 		}
 
 		return groups(ctx, workspace)
@@ -87,14 +89,14 @@ func TestGetPeopleListsTheDecidedAloneWhenTheOwnersOfTheBranchCannotBeRead(t *te
 
 	cases := map[string]func(deps *webserver.Deps){
 		"the branch git is on": func(deps *webserver.Deps) {
-			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, errSeam }
+			deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return gitrepo.Branch{}, webtest.ErrSeam }
 		},
 		"the changed paths": func(deps *webserver.Deps) {
-			deps.Git.ChangedPaths = func(context.Context, string) ([]string, error) { return nil, errSeam }
+			deps.Git.ChangedPaths = func(context.Context, string) ([]string, error) { return nil, webtest.ErrSeam }
 		},
 		"the code owners": func(deps *webserver.Deps) {
 			deps.Git.CodeOwnersAt = func(context.Context, string) (codeowners.File, bool, error) {
-				return codeowners.File{}, false, errSeam
+				return codeowners.File{}, false, webtest.ErrSeam
 			}
 		},
 	}
@@ -108,14 +110,14 @@ func TestGetPeopleListsTheDecidedAloneWhenTheOwnersOfTheBranchCannotBeRead(t *te
 			unreadable(&deps)
 
 			// Act
-			recorder := get(t, serve(t, deps, slackUserConfig()), peoplePath)
+			recorder := webtest.Get(t, webtest.Serve(t, deps, slackUserConfig()), peoplePath)
 
 			// Assert
 			want := api.People{Owners: []api.OwnerTag{
 				{Owner: carlaOwner, Kind: api.OwnerTagKindUser, State: api.OwnerTagStateLinked, Slack: slackTarget(carla())},
 				{Owner: danOwner, Kind: api.OwnerTagKindUser, State: api.OwnerTagStateNotOnSlack, Slack: nil},
 			}}
-			if got := decode[api.People](t, recorder); recorder.Code != http.StatusOK || !reflect.DeepEqual(got, want) {
+			if got := webtest.Decode[api.People](t, recorder); recorder.Code != http.StatusOK || !reflect.DeepEqual(got, want) {
 				t.Errorf("GET /api/people = %d %+v, want 200 %+v", recorder.Code, got, want)
 			}
 		})
@@ -128,13 +130,13 @@ func TestPeopleIsRefusedForADirectoryWhenSlackHasNoCredential(t *testing.T) {
 	// Arrange
 	fake := newFakeKept()
 	fake.workspaceErr = messaging.ErrNoCredential
-	handler := keptServer(t, fake, webserver.Info{Version: testVersion})
+	handler := keptServer(t, fake, webserver.Info{Version: webtest.TestVersion})
 
 	// Act
-	recorder := get(t, handler, peoplePath)
+	recorder := webtest.Get(t, handler, peoplePath)
 
 	// Assert
-	if detail := decode[api.Problem](t, recorder).Detail; recorder.Code != http.StatusUnprocessableEntity ||
+	if detail := webtest.Decode[api.Problem](t, recorder).Detail; recorder.Code != http.StatusUnprocessableEntity ||
 		!strings.Contains(detail, "tagging needs a Slack user token") {
 		t.Errorf("status %d, detail %q; want 422 saying tagging needs a Slack user token", recorder.Code, detail)
 	}
@@ -146,13 +148,14 @@ func TestLinkPersonIsRefusedWithWhyInAnUnknownWorkspace(t *testing.T) {
 	// Arrange
 	fake := newFakeKept()
 	fake.workspaceErr = messaging.ErrNoWorkspace
-	handler := keptServer(t, fake, webserver.Info{Version: testVersion})
+	handler := keptServer(t, fake, webserver.Info{Version: webtest.TestVersion})
 
 	// Act
-	recorder := send(t, handler, http.MethodPut, peoplePath, `{"owner":"ben","slack_id":"U0BEN","not_on_slack":false}`)
+	recorder := webtest.Send(t, handler, http.MethodPut, peoplePath,
+		`{"owner":"ben","slack_id":"U0BEN","not_on_slack":false}`)
 
 	// Assert
-	if detail := decode[api.Problem](t, recorder).Detail; recorder.Code != http.StatusUnprocessableEntity ||
+	if detail := webtest.Decode[api.Problem](t, recorder).Detail; recorder.Code != http.StatusUnprocessableEntity ||
 		!strings.Contains(detail, unknownWorkspace) {
 		t.Errorf("status %d, detail %q; want 422 saying %q", recorder.Code, detail, unknownWorkspace)
 	}
@@ -190,10 +193,10 @@ func TestAPersonDecidedThatTheStoreCannotListBackIsAFault(t *testing.T) {
 			breaksOnceWritten(&deps)
 
 			// Act
-			recorder := send(t, serve(t, deps, slackUserConfig()), tt.method, tt.target, tt.body)
+			recorder := webtest.Send(t, webtest.Serve(t, deps, slackUserConfig()), tt.method, tt.target, tt.body)
 
 			// Assert
-			assertProblem(t, recorder, http.StatusInternalServerError, tryAgain)
+			assertProblem(t, recorder, http.StatusInternalServerError, webtest.TryAgain)
 
 			if !tt.decided(fake.links) {
 				t.Errorf("links = %+v, want the decision kept before the listing failed", fake.links)
@@ -206,14 +209,15 @@ func TestRepoGroupsAreThoseOfTheRepository(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	handler := keptServer(t, newFakeKept(), webserver.Info{Version: testVersion, Repository: "acme/kept"})
+	handler := keptServer(t, newFakeKept(), webserver.Info{Version: webtest.TestVersion, Repository: "acme/kept"})
 
 	// Act
-	recorder := get(t, handler, repoGroupsPath)
+	recorder := webtest.Get(t, handler, repoGroupsPath)
 
 	// Assert
 	want := api.RepoGroups{Repository: "acme/kept", Groups: []api.SlackTarget{api.SlackTarget(apiReviews())}}
-	if got := decode[api.RepoGroups](t, recorder); recorder.Code != http.StatusOK || !reflect.DeepEqual(got, want) {
+	if got := webtest.Decode[api.RepoGroups](t, recorder); recorder.Code != http.StatusOK || !reflect.DeepEqual(got,
+		want) {
 		t.Errorf("GET %s = %d %+v, want 200 %+v", repoGroupsPath, recorder.Code, got, want)
 	}
 }
@@ -224,13 +228,13 @@ func TestRepoGroupsAreRefusedWithWhyInAnUnknownWorkspace(t *testing.T) {
 	// Arrange
 	fake := newFakeKept()
 	fake.workspaceErr = messaging.ErrNoWorkspace
-	handler := keptServer(t, fake, webserver.Info{Version: testVersion})
+	handler := keptServer(t, fake, webserver.Info{Version: webtest.TestVersion})
 
 	// Act
-	recorder := get(t, handler, repoGroupsPath)
+	recorder := webtest.Get(t, handler, repoGroupsPath)
 
 	// Assert
-	if detail := decode[api.Problem](t, recorder).Detail; recorder.Code != http.StatusUnprocessableEntity ||
+	if detail := webtest.Decode[api.Problem](t, recorder).Detail; recorder.Code != http.StatusUnprocessableEntity ||
 		!strings.Contains(detail, unknownWorkspace) {
 		t.Errorf("status %d, detail %q; want 422 saying %q", recorder.Code, detail, unknownWorkspace)
 	}
@@ -242,13 +246,14 @@ func TestSettingRepoGroupsTheStoreCannotReadIsAFault(t *testing.T) {
 	// Arrange
 	fake := newFakeKept()
 	deps := keptDeps(fake)
-	deps.Store.RepoGroups = func(context.Context, string) ([]loop.SlackTarget, error) { return nil, errSeam }
+	deps.Store.RepoGroups = func(context.Context, string) ([]loop.SlackTarget, error) { return nil, webtest.ErrSeam }
 
 	// Act
-	recorder := send(t, serve(t, deps, slackUserConfig()), http.MethodPut, repoGroupsPath, `{"ids":["S0POD"]}`)
+	recorder := webtest.Send(t, webtest.Serve(t, deps, slackUserConfig()), http.MethodPut, repoGroupsPath,
+		`{"ids":["S0POD"]}`)
 
 	// Assert
-	assertProblem(t, recorder, http.StatusInternalServerError, tryAgain)
+	assertProblem(t, recorder, http.StatusInternalServerError, webtest.TryAgain)
 
 	if !reflect.DeepEqual(fake.repoGroups, newFakeKept().repoGroups) {
 		t.Errorf("repository groups = %+v, want them left as they were", fake.repoGroups)
@@ -264,10 +269,11 @@ func TestSettingRepoGroupsTheStoreCannotListBackIsAFault(t *testing.T) {
 	breaksOnceWritten(&deps)
 
 	// Act
-	recorder := send(t, serve(t, deps, slackUserConfig()), http.MethodPut, repoGroupsPath, `{"ids":["S0POD"]}`)
+	recorder := webtest.Send(t, webtest.Serve(t, deps, slackUserConfig()), http.MethodPut, repoGroupsPath,
+		`{"ids":["S0POD"]}`)
 
 	// Assert
-	assertProblem(t, recorder, http.StatusInternalServerError, tryAgain)
+	assertProblem(t, recorder, http.StatusInternalServerError, webtest.TryAgain)
 
 	if !reflect.DeepEqual(fake.repoGroups, []loop.SlackTarget{podGroup()}) {
 		t.Errorf("repository groups = %+v, want the pod's group kept before the listing failed", fake.repoGroups)

@@ -15,24 +15,25 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 func TestGetHealthReportsTheBuild(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	dryRun := webserver.Info{Version: testVersion, DryRun: true}
+	dryRun := webserver.Info{Version: webtest.TestVersion, DryRun: true}
 
 	// Act
-	recorder := get(t, serveWith(t, webserver.Deps{}, config.Default(), dryRun), "/api/health")
+	recorder := webtest.Get(t, webtest.ServeWith(t, webserver.Deps{}, config.Default(), dryRun), "/api/health")
 
 	// Assert
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", recorder.Code)
 	}
 
-	health := decode[api.Health](t, recorder)
-	if health.Version != testVersion || !health.DryRun {
+	health := webtest.Decode[api.Health](t, recorder)
+	if health.Version != webtest.TestVersion || !health.DryRun {
 		t.Errorf("health = %+v, want version 1.2.3 and dry_run true", health)
 	}
 }
@@ -61,13 +62,13 @@ func TestGetHealthNamesTheForgeAndItsOwnWords(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			info := webserver.Info{Version: testVersion, ForgeKind: tt.kind}
+			info := webserver.Info{Version: webtest.TestVersion, ForgeKind: tt.kind}
 
 			// Act
-			recorder := get(t, serveWith(t, webserver.Deps{}, config.Default(), info), "/api/health")
+			recorder := webtest.Get(t, webtest.ServeWith(t, webserver.Deps{}, config.Default(), info), "/api/health")
 
 			// Assert
-			health := decode[api.Health](t, recorder)
+			health := webtest.Decode[api.Health](t, recorder)
 			if health.ForgeKind != tt.wantKind || health.ForgeNoun != tt.wantNoun || health.ForgeSigil != tt.wantSigil {
 				t.Errorf("health = %+v, want forge_kind %q, forge_noun %q and forge_sigil %q",
 					health, tt.wantKind, tt.wantNoun, tt.wantSigil)
@@ -88,14 +89,14 @@ func TestWhatThePageIsToldSaysMergeRequestOnGitLab(t *testing.T) {
 	}
 	noCommits := func(deps webserver.Deps) webserver.Deps {
 		deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
-			return gitrepo.Branch{Name: testBranchName, Base: testBase}, nil
+			return gitrepo.Branch{Name: webtest.TestBranchName, Base: webtest.TestBase}, nil
 		}
 
 		return deps
 	}
 	reviewersRefused := func(deps webserver.Deps) webserver.Deps {
 		deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.PullRequest, error) {
-			return forge.PullRequest{Number: 7, URL: prURL, Title: prTitle}, forge.ErrRefused
+			return forge.PullRequest{Number: 7, URL: webtest.PRURL, Title: webtest.PRTitle}, forge.ErrRefused
 		}
 
 		return deps
@@ -138,10 +139,10 @@ func TestWhatThePageIsToldSaysMergeRequestOnGitLab(t *testing.T) {
 			// Arrange
 			deps := tt.mutate(openableDeps())
 			deps.Messaging.Post = func(context.Context, string, string) error { return nil }
-			info := webserver.Info{Version: testVersion, ForgeKind: forge.KindGitLab}
+			info := webserver.Info{Version: webtest.TestVersion, ForgeKind: forge.KindGitLab}
 
 			// Act
-			recorder := send(t, serveWith(t, deps, config.Default(), info), tt.method, tt.path, tt.body)
+			recorder := webtest.Send(t, webtest.ServeWith(t, deps, config.Default(), info), tt.method, tt.path, tt.body)
 
 			// Assert
 			told := recorder.Body.String()
@@ -156,10 +157,10 @@ func TestListViewsFallsBackToTheBuiltInList(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	recorder := get(t, serve(t, filledDeps(), config.Default()), "/api/views")
+	recorder := webtest.Get(t, webtest.Serve(t, webtest.FilledDeps(), config.Default()), "/api/views")
 
 	// Assert
-	views := decode[api.ViewList](t, recorder)
+	views := webtest.Decode[api.ViewList](t, recorder)
 	if len(views.Views) != 1 || views.Views[0].Name != "Assigned to me" {
 		t.Errorf("views = %+v, want the one built-in list", views.Views)
 	}
@@ -173,7 +174,7 @@ func TestListViewsListsTheConfiguredViews(t *testing.T) {
 	cfg.Jira.Views = []config.JiraView{{Name: "Sprint", JQL: "sprint in openSprints()"}}
 
 	// Act
-	views := decode[api.ViewList](t, get(t, serve(t, filledDeps(), cfg), "/api/views"))
+	views := webtest.Decode[api.ViewList](t, webtest.Get(t, webtest.Serve(t, webtest.FilledDeps(), cfg), "/api/views"))
 
 	// Assert
 	want := "(sprint in openSprints()) AND assignee = currentUser()"
@@ -188,14 +189,17 @@ func TestAnErrorIsAnRFC9457Problem(t *testing.T) {
 	// Arrange
 	// Any failure is answered as application/problem+json with the problem's type,
 	// title and status populated — the RFC 9457 shape, not the old code+message.
-	deps := filledDeps()
-	deps.Jira.Issue = func(context.Context, jira.Key) (jira.IssueDetail, error) { return jira.IssueDetail{}, errSeam }
+	deps := webtest.FilledDeps()
+	deps.Jira.Issue = func(context.Context, jira.Key) (jira.IssueDetail, error) {
+		return jira.IssueDetail{},
+			webtest.ErrSeam
+	}
 
 	// Act
-	recorder := get(t, serve(t, deps, config.Default()), "/api/issues/PROJ-1")
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/issues/PROJ-1")
 
 	// Assert
-	failure := decode[api.Problem](t, recorder)
+	failure := webtest.Decode[api.Problem](t, recorder)
 	if ct := recorder.Header().Get("Content-Type"); ct != problemJSON {
 		t.Errorf("Content-Type = %q, want application/problem+json", ct)
 	}

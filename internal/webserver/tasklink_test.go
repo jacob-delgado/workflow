@@ -11,6 +11,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
+	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
 // trackerPage is the tracker's page for an issue, as Deps.BrowseURL gives it.
@@ -30,22 +31,22 @@ func TestATasksIssueLinkIsTheTrackersPage(t *testing.T) {
 		want              string
 	}{
 		"the tracker's page over a stale jiraurl": {
-			issueKey: testKey, jiraURL: "https://old.example.com/388", tracker: true, want: trackerPage(testKey),
+			issueKey: webtest.TestKey, jiraURL: "https://old.example.com/388", tracker: true, want: trackerPage(webtest.TestKey),
 		},
 		"the tracker's page for a task linked by jiraid alone": {
-			issueKey: testKey, tracker: true, want: trackerPage(testKey),
+			issueKey: webtest.TestKey, tracker: true, want: trackerPage(webtest.TestKey),
 		},
 		"the jiraurl with no tracker link": {
-			issueKey: testKey, jiraURL: "https://jira.example/browse/" + testKey,
-			want: "https://jira.example/browse/" + testKey,
+			issueKey: webtest.TestKey, jiraURL: "https://jira.example/browse/" + webtest.TestKey,
+			want: "https://jira.example/browse/" + webtest.TestKey,
 		},
 		"the jiraurl of a task naming no issue": {
 			jiraURL: "http://jira.example/browse/PROJ-9", tracker: true, want: "http://jira.example/browse/PROJ-9",
 		},
-		"no link for a jiraurl that is not a web address": {issueKey: testKey, jiraURL: "javascript:alert(1)"},
-		"no link for a jiraurl with no host":              {issueKey: testKey, jiraURL: "https:///browse/PROJ-412"},
-		"no link for a relative jiraurl":                  {issueKey: testKey, jiraURL: "/browse/PROJ-412"},
-		"no link for a jiraurl that does not parse":       {issueKey: testKey, jiraURL: "https://jira.example/%zz"},
+		"no link for a jiraurl that is not a web address": {issueKey: webtest.TestKey, jiraURL: "javascript:alert(1)"},
+		"no link for a jiraurl with no host":              {issueKey: webtest.TestKey, jiraURL: "https:///browse/PROJ-412"},
+		"no link for a relative jiraurl":                  {issueKey: webtest.TestKey, jiraURL: "/browse/PROJ-412"},
+		"no link for a jiraurl that does not parse":       {issueKey: webtest.TestKey, jiraURL: "https://jira.example/%zz"},
 		"no link for a task naming neither":               {tracker: true},
 	}
 
@@ -54,11 +55,11 @@ func TestATasksIssueLinkIsTheTrackersPage(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			task := plainTask()
+			task := webtest.PlainTask()
 			task.IssueKey, task.IssueURL = tt.issueKey, tt.jiraURL
 
-			fake := fakeTaskwarrior()
-			fake.pending.Tasks = []taskwarrior.Task{task}
+			fake := webtest.FakeTaskwarrior()
+			fake.Pending.Tasks = []taskwarrior.Task{task}
 
 			deps := tasksDeps(fake)
 			if tt.tracker {
@@ -66,10 +67,10 @@ func TestATasksIssueLinkIsTheTrackersPage(t *testing.T) {
 			}
 
 			// Act
-			recorder := get(t, serve(t, deps, config.Default()), tasksPath)
+			recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), webtest.TasksPath)
 
 			// Assert
-			list := decode[api.TaskList](t, recorder)
+			list := webtest.Decode[api.TaskList](t, recorder)
 			if recorder.Code != http.StatusOK || len(list.Tasks) != 1 {
 				t.Fatalf("answer = %d %+v, want 200 with the one task", recorder.Code, list)
 			}
@@ -85,21 +86,21 @@ func TestTheSnapshotsTaskLinksAreTheTrackersPage(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fake := fakeTaskwarrior()
-	for index := range fake.linked {
-		fake.linked[index].IssueURL = "https://old.example.com/" + fake.linked[index].IssueKey
+	fake := webtest.FakeTaskwarrior()
+	for index := range fake.Linked {
+		fake.Linked[index].IssueURL = "https://old.example.com/" + fake.Linked[index].IssueKey
 	}
 
 	deps := tasksDeps(fake)
 	deps.Jira.BrowseURL = trackerPage
 
 	// Act
-	body := streamOnce(t, serve(t, deps, config.Default()), "/api/events").Body.String()
+	body := webtest.StreamOnce(t, webtest.Serve(t, deps, config.Default()), "/api/events").Body.String()
 
 	// Assert
-	summary := firstSnapshot(t, body).Tasks
-	if summary.Active == nil || summary.Active.IssueURL != trackerPage(testKey) {
-		t.Errorf("active = %+v, want its issue_url the tracker's page %q", summary.Active, trackerPage(testKey))
+	summary := webtest.FirstSnapshot(t, body).Tasks
+	if summary.Active == nil || summary.Active.IssueURL != trackerPage(webtest.TestKey) {
+		t.Errorf("active = %+v, want its issue_url the tracker's page %q", summary.Active, trackerPage(webtest.TestKey))
 	}
 
 	for _, task := range summary.Linked {
