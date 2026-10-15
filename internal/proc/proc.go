@@ -161,6 +161,10 @@ func failed(ctx context.Context, name string, err error, stderr *bytes.Buffer) e
 		return &ExitError{Program: name, Code: exit.ExitCode(), Stderr: reason}
 	}
 
+	if reason == "" {
+		return fmt.Errorf("%s: %w", name, err)
+	}
+
 	return fmt.Errorf("%s: %w: %s", name, err, reason)
 }
 
