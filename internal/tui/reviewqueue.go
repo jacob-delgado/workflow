@@ -167,7 +167,7 @@ func (s reviewQueueState) rail(view reviewsView) string {
 	case !view.listed:
 		return "no forge for reviews"
 	case !s.loaded:
-		return view.kit.marks.reading()
+		return view.kit.reading()
 	case s.err != nil:
 		return view.kit.failureSummary(s.err)
 	case len(s.all) == 0:
@@ -183,7 +183,7 @@ func (s reviewQueueState) detail(view reviewsView, width int) string {
 	case !view.listed:
 		return wrap("This forge does not list the "+view.vocab.noun+"s waiting on your review.", width)
 	case !s.loaded:
-		return view.kit.marks.reading()
+		return view.kit.reading()
 	case s.err != nil:
 		return view.kit.failureBlock(s.err, width)
 	case len(s.all) == 0:

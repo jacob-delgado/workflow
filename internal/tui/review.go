@@ -132,7 +132,7 @@ func (s reviewState) rail(kit renderKit, vocab reviewVocab, onFeatureBranch bool
 	case !onFeatureBranch:
 		return "on no feature branch"
 	case !s.loaded:
-		return kit.marks.reading()
+		return kit.reading()
 	case s.err != nil:
 		return kit.failureSummary(s.err)
 	case !s.found:

@@ -421,7 +421,7 @@ func (p dirPicker) status(kit renderKit, where string) []string {
 	case p.problem != nil:
 		return []string{kit.failureLine(p.problem)}
 	case !found || read.asked:
-		return []string{kit.marks.turning + " reading " + strings.TrimPrefix(where, "in ") + kit.marks.ellipsis}
+		return []string{kit.turned + " reading " + strings.TrimPrefix(where, "in ") + kit.marks.ellipsis}
 	case read.err != nil:
 		return []string{kit.failureLine(read.err)}
 	case len(workdirs.Matching(read.listing.Entries, p.nameTyped())) == 0 && p.nameTyped() != "":

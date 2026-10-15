@@ -216,7 +216,7 @@ func (l issueList) render(kit renderKit, rows int, mark func(jira.Key) string) s
 
 	switch {
 	case !l.settled:
-		return kit.marks.reading()
+		return kit.reading()
 	case l.err != nil && len(l.found.Issues) == 0:
 		return failed
 	case len(l.found.Issues) == 0:

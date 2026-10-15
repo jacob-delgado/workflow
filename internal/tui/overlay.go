@@ -37,19 +37,24 @@ type overlay interface {
 }
 
 // renderKit is what an overlay draws with: the interface's glyphs and styles,
-// handed to its view rather than copied into every overlay that opens.
+// handed to its view rather than copied into every overlay that opens, and
+// the frame the in-flight mark of a read has turned to.
 type renderKit struct {
 	marks  glyphs
 	styles styles
+	turned string
 }
 
-// kit is the glyphs and styles the interface draws with, the in-flight mark
-// of a read turned to its frame.
+// kit is the glyphs and styles the interface draws with, and the in-flight
+// mark of a read turned to its frame.
 func (m Model) kit() renderKit {
-	marks := m.marks
-	marks.turning = m.motion.turning()
+	return renderKit{styles: m.styles, marks: m.marks, turned: m.motion.turning()}
+}
 
-	return renderKit{styles: m.styles, marks: marks}
+// reading is a pane's first wait, marked in flight as an overlay's wait is,
+// with the mark turned as far as it has.
+func (k renderKit) reading() string {
+	return k.turned + " reading" + k.marks.ellipsis
 }
 
 // clickable is an overlay whose rows can be chosen with the mouse. line is the
