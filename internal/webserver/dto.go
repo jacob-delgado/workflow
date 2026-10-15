@@ -5,7 +5,6 @@ package webserver
 
 import (
 	"slices"
-	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -36,18 +35,6 @@ func orZero[T any](pointer *T) T {
 	}
 
 	return *pointer
-}
-
-// optionalTime is moment, or nil for the zero time, which a read gives for a
-// time there is none of — a date a task does not have, one a tracker or a
-// forge did not give or could not be read: the wire leaves such a time out,
-// never sending the zero time.
-func optionalTime(moment time.Time) *time.Time {
-	if moment.IsZero() {
-		return nil
-	}
-
-	return &moment
 }
 
 // branchDTO maps the current branch and its commits.

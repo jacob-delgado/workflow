@@ -182,7 +182,7 @@ func (s *server) snapshot(ctx context.Context, view string) api.Snapshot {
 		SubjectLimit:   commit.SubjectLimit(),
 		SuggestedScope: s.suggestedScope(ctx),
 
-		Tasks: s.snapshotTasks(ctx),
+		Tasks: s.Summary(ctx),
 		Here:  s.deps.Repositories.Here.Dir,
 	}
 	frame.Stages = s.frameStages(branch, read, frame)

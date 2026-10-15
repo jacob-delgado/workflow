@@ -26,6 +26,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/seams"
+	"github.com/jacob-delgado/workflow/internal/webserver/tasks"
 )
 
 // Deps is what the server asks of the world: the seam groups internal/seams
@@ -143,6 +144,10 @@ func (i Info) streamInterval() time.Duration {
 // The configuration is held behind a lock because the write endpoint replaces it
 // while read endpoints are serving concurrent requests.
 type server struct {
+	// Handlers answers the Taskwarrior operations, and the stream's summary
+	// of your tasks.
+	*tasks.Handlers
+
 	deps Deps
 	info Info
 
@@ -209,9 +214,6 @@ type server struct {
 	// run is the git run going, if any.
 	run runSlot
 
-	// detection is the stream's last search for Taskwarrior, when it found none.
-	detection detectionCache
-
 	// worlds holds this server, and replaces it on a switch, closing retired
 	// so its event streams end and the page reconnects to the next.
 	worlds  *worlds
@@ -273,6 +275,22 @@ func (s *server) browseURL(key jira.Key) string {
 	}
 
 	return s.deps.Jira.BrowseURL(key)
+}
+
+// taskHandlers builds the Taskwarrior operations over the server's seams,
+// bound with the taskwarrior settings it started with, taking its fault
+// classes, its configuration, its clock, its issue links, its lifetime and
+// your home directory.
+func (s *server) taskHandlers() *tasks.Handlers {
+	return tasks.New(tasks.Seams{Tasks: s.deps.Tasks, Issue: s.deps.Jira.Issue}, s.info.Taskwarrior, tasks.Kit{
+		Fault: s.fault, Config: s.taskwarriorSettings, Now: s.now,
+		BrowseURL: s.deps.Jira.BrowseURL, Outliving: s.worlds.outliving, Home: s.deps.Repositories.Home,
+	})
+}
+
+// taskwarriorSettings is the taskwarrior settings in effect.
+func (s *server) taskwarriorSettings() config.Taskwarrior {
+	return s.config().Taskwarrior
 }
 
 // Handler builds the http.Handler that serves the web interface for first,

@@ -13,6 +13,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/report"
 	"github.com/jacob-delgado/workflow/internal/webserver/problem"
+	"github.com/jacob-delgado/workflow/internal/webserver/tasks"
 )
 
 // writeResponseError is the safety net for a handler that returns an error
@@ -114,7 +115,7 @@ func branchFaults() []report.Class {
 func taskWriteFaults() []report.Class {
 	return []report.Class{
 		{
-			Causes: []error{errStartDeclined},
+			Causes: []error{tasks.ErrStartDeclined},
 			Code:   api.ProblemCodeConflict, Detail: "the task is already started, or no such task exists",
 		},
 	}
