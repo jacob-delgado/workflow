@@ -124,7 +124,8 @@ own:
   line in `CLAUDE.md`'s layout block ends `(tests only)`, a helper that only
   tests may import. A new package of that kind takes the mark there, which
   the gate reads, and a depguard `*-only-in-tests` rule in `.golangci.yml`,
-  which holds every other import of it to a test.
+  which holds every other import of it to a test; `task lint:layout` fails a
+  mark without that rule.
 - **Conditions** (`task cover:branch`, via [gobco](https://github.com/rillig/gobco))
   — was each condition seen both ways, each operand of an `a && b` on its own.
   Its output names every condition observed only one way, which is a worklist of

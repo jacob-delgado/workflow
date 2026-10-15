@@ -36,7 +36,9 @@ callers' tests.
   `finish_tests` ends the run with its summary. A test that outgrows its file
   keeps `<name>_test.sh` and moves a behavior's cases to a
   `<name>_<behavior>_test.sh` beside it, the two sharing their fixtures in
-  `lib/<name>-fixtures.sh`, as `check-tech-debt-paths.sh`'s do.
+  `lib/<name>-fixtures.sh`, as `check-tech-debt-paths.sh`'s do and
+  `check-layout.sh`'s, whose `check-layout_depguard_test.sh` and
+  `check-layout_yaml_test.sh` share `lib/check-layout-fixtures.sh`.
 - **`hook-environment_test.sh` is the one runner** (`task test:scripts`): it
   runs every `*_test.sh` and `release/*_test.sh` once under a hook's git
   environment naming a sentinel repository, and fails if the sentinel
@@ -74,9 +76,32 @@ as its status, so a gate that fails for the wrong reason fails the test.
   `Layout:` block**, through `lib/layout.sh`: the first holds it to the Go
   packages, and the second leaves each package whose line ends
   `(tests only)` out of the statement total. So the block stays in the root,
-  and both tests (`check-layout_test.sh`, `coverage-gate_test.sh`) build
-  fixture `CLAUDE.md` files; moving the block, or changing the mark, means
-  changing the library and both.
+  and both gates' tests (`check-layout.sh`'s, through
+  `lib/check-layout-fixtures.sh`, and `coverage-gate_test.sh`) build fixture
+  `CLAUDE.md` files; moving the block, or changing the mark, means changing
+  the library and both.
+- **A `(tests only)` mark must be the build's word.** Since the mark takes a
+  package out of the statement total, `check-layout.sh` fails a marked line
+  unless a rule under `linters.settings.depguard.rules` in `.golangci.yml`
+  denies the package's import path (go.mod's module, then the directory) to
+  every file but a test: its files are `"!$test"`, alone or beside `"$all"`,
+  the shape of the `*-only-in-tests` rules, and its `list-mode` is unset or
+  `original`, since under `lax` or `strict` an allow item longer than the
+  deny item lets the import through.
+- **The check reads `.golangci.yml` as golangci-lint does, or not at all.**
+  It exits 2 beside a `.golangci.json`, `.golangci.toml` or `.golangci.yaml`,
+  tracked or not, each of which golangci-lint reads in its place. It reads
+  the first YAML document's block style a line at a time, each key lowered
+  and split at its dots as golangci-lint's configuration library does, so
+  two keys that then read alike leave their setting unread; it passes over a
+  block scalar's text, so a rule's files or pkg written as one hold nothing;
+  and it exits 2 naming the first line it cannot read so (an alias, a tag, a
+  merge or explicit key, an escape, a value running on past its line). Its
+  tests build a fixture `.golangci.yml` and `go.mod`: `check-layout_test.sh`
+  holds the mark's need of a rule, and of the file golangci-lint reads,
+  `check-layout_depguard_test.sh` which rules hold, and
+  `check-layout_yaml_test.sh` which YAML the check reads and which it
+  refuses; a change to what it reads changes the check and that test.
 - **`release/`** belongs to the maintainer's release path, and the root's
   release rule covers it. `release-please.yml` runs `push-release-tag.sh`
   twice, as `decide` in its gate job and again in its tag job to push the
