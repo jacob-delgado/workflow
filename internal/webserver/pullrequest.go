@@ -14,6 +14,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
 // GetPullRequestDraft composes the pull request that would be opened for the
@@ -27,12 +28,12 @@ func (s *server) GetPullRequestDraft(
 
 	draft, branch, err := s.composePullRequest(ctx, template, orZero(request.Params.Base))
 	if errors.Is(err, loop.ErrNoSuchTemplate) {
-		return api.GetPullRequestDraft404ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeNotFound,
+		return api.GetPullRequestDraft404ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeNotFound,
 			"the repository has no pull request template of that name")), nil
 	}
 
 	if errors.Is(err, gitrepo.ErrNoSuchBase) || errors.Is(err, gitrepo.ErrOptionLikeRef) {
-		return api.GetPullRequestDraft404ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeNotFound,
+		return api.GetPullRequestDraft404ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeNotFound,
 			gitrepo.ErrNoSuchBase.Error())), nil
 	}
 
@@ -124,11 +125,11 @@ func (s *server) openConflict(err error) (api.Problem, bool) {
 	if open, ok := errors.AsType[loop.PullAlreadyOpenError](err); ok {
 		number := s.forgeKindNow().Sigil() + strconv.Itoa(open.Pull.Number)
 
-		return problem(api.ProblemCodeConflict, number+" is already open for this branch"), true
+		return problem.New(api.ProblemCodeConflict, number+" is already open for this branch"), true
 	}
 
 	if errors.Is(err, loop.ErrNothingToOpen) {
-		return problem(api.ProblemCodeConflict, "there is no branch with commits to open a "+s.noun()+" for"), true
+		return problem.New(api.ProblemCodeConflict, "there is no branch with commits to open a "+s.noun()+" for"), true
 	}
 
 	return api.Problem{}, false
@@ -140,7 +141,7 @@ func (s *server) draftRefusal(err error) api.GetPullRequestDraftResponseObject {
 		return api.GetPullRequestDraft409ApplicationProblemPlusJSONResponse(conflict)
 	}
 
-	return problemAnswer[api.GetPullRequestDraftdefaultApplicationProblemPlusJSONResponse](s.fault(err))
+	return problem.Answer[api.GetPullRequestDraftdefaultApplicationProblemPlusJSONResponse](s.fault(err))
 }
 
 // openRefusal answers an open whose pull request could not be composed.
@@ -149,7 +150,7 @@ func (s *server) openRefusal(err error) api.OpenPullRequestResponseObject {
 		return api.OpenPullRequest409ApplicationProblemPlusJSONResponse(conflict)
 	}
 
-	return problemAnswer[api.OpenPullRequestdefaultApplicationProblemPlusJSONResponse](s.fault(err))
+	return problem.Answer[api.OpenPullRequestdefaultApplicationProblemPlusJSONResponse](s.fault(err))
 }
 
 // canOpenPull reports whether the seams the open needs are wired: creating the
@@ -262,7 +263,7 @@ func draftDTO(draft forge.NewPullRequest, branch gitrepo.Branch) api.PullRequest
 // openUnprocessable is the 422 response for a pull request the server will not
 // open.
 func openUnprocessable(message string) api.OpenPullRequest422ApplicationProblemPlusJSONResponse {
-	return api.OpenPullRequest422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, message))
+	return api.OpenPullRequest422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable, message))
 }
 
 // openFailure answers an open the forge did not make. A pull request the forge
@@ -276,6 +277,6 @@ func (s *server) openFailure(err error) api.OpenPullRequestResponseObject {
 	case errors.Is(err, forge.ErrRejected):
 		return openUnprocessable(err.Error())
 	default:
-		return problemAnswer[api.OpenPullRequestdefaultApplicationProblemPlusJSONResponse](s.fault(err))
+		return problem.Answer[api.OpenPullRequestdefaultApplicationProblemPlusJSONResponse](s.fault(err))
 	}
 }

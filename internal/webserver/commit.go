@@ -13,6 +13,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
 var (
@@ -71,13 +72,13 @@ func (s *server) Commit(ctx context.Context, request api.CommitRequestObject) (a
 func (s *server) commitFailure(err error) api.CommitResponseObject {
 	switch {
 	case errors.Is(err, loop.ErrNothingStaged):
-		return api.Commit409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict, errNothingStaged.Error()))
+		return api.Commit409ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeConflict, errNothingStaged.Error()))
 	case errors.Is(err, errCommitFailed):
 		return commitUnprocessable(err.Error())
 	case errors.Is(err, errCommitNotStarted):
 		return commitUnprocessable(errCommitNotStarted.Error() + "; commit from a terminal to see why")
 	default:
-		return problemAnswer[api.CommitdefaultApplicationProblemPlusJSONResponse](s.fault(err))
+		return problem.Answer[api.CommitdefaultApplicationProblemPlusJSONResponse](s.fault(err))
 	}
 }
 
@@ -227,5 +228,5 @@ func (s *server) rememberScope(ctx context.Context, scope string) {
 
 // commitUnprocessable is the 422 response for a commit the server will not make.
 func commitUnprocessable(message string) api.Commit422ApplicationProblemPlusJSONResponse {
-	return api.Commit422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, message))
+	return api.Commit422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable, message))
 }

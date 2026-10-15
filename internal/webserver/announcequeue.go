@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
 var (
@@ -85,7 +86,7 @@ const (
 // not ready for review. One posted at once is posted under ctx.
 func (s *server) announceWhenGreen(ctx context.Context, post announcePost) api.AnnounceResponseObject {
 	if post.delivery.Moment != messaging.MomentReady {
-		return api.Announce409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
+		return api.Announce409ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeConflict,
 			"only a ready-for-review announcement waits for CI; this one announces a merge, so announce it now"))
 	}
 
@@ -131,7 +132,7 @@ type ciReading struct {
 func (s *server) holdAnswer(post announcePost, branch string, reading ciReading) api.AnnounceResponseObject {
 	queued, err := s.hold(post, branch, reading)
 	if err != nil {
-		return api.Announce409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict, err.Error()))
+		return api.Announce409ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeConflict, err.Error()))
 	}
 
 	return api.Announce202JSONResponse(queued)
@@ -397,7 +398,7 @@ func (s *server) CancelQueuedAnnouncement(
 
 	if err != nil {
 		return api.CancelQueuedAnnouncement409ApplicationProblemPlusJSONResponse(
-			problem(api.ProblemCodeConflict, err.Error())), nil
+			problem.New(api.ProblemCodeConflict, err.Error())), nil
 	}
 
 	return api.CancelQueuedAnnouncement204Response{}, nil

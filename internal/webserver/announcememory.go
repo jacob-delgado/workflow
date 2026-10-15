@@ -12,6 +12,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
 // errAnnouncedAlready is an announcement made already at its moment, from
@@ -131,6 +132,6 @@ func (s *server) deliver(ctx context.Context, post announcePost) (string, error)
 // announcedBefore refuses to announce pull at a moment it was announced at
 // already.
 func (s *server) announcedBefore(pull int) api.Problem {
-	return problem(api.ProblemCodeConflict,
+	return problem.New(api.ProblemCodeConflict,
 		s.pullName(pull)+" was already announced at this moment, here or from a terminal")
 }

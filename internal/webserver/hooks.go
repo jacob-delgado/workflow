@@ -11,6 +11,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
 // Why lefthook was not set up, or its hooks not listed.
@@ -30,7 +31,7 @@ var (
 func (s *server) ListHooks(ctx context.Context, _ api.ListHooksRequestObject) (api.ListHooksResponseObject, error) {
 	if s.deps.Hooks.Configured == nil {
 		return api.ListHooks422ApplicationProblemPlusJSONResponse(
-			problem(api.ProblemCodeUnprocessable, errHooksUnavailable.Error())), nil
+			problem.New(api.ProblemCodeUnprocessable, errHooksUnavailable.Error())), nil
 	}
 
 	configured, err := s.deps.Hooks.Configured(ctx)
@@ -38,7 +39,7 @@ func (s *server) ListHooks(ctx context.Context, _ api.ListHooksRequestObject) (a
 		s.unexpected(err)
 
 		return api.ListHooks422ApplicationProblemPlusJSONResponse(
-			problem(api.ProblemCodeUnprocessable, errHooksUnreadable.Error())), nil
+			problem.New(api.ProblemCodeUnprocessable, errHooksUnreadable.Error())), nil
 	}
 
 	return api.ListHooks200JSONResponse(configuredDTO(configured)), nil
@@ -65,7 +66,7 @@ func (s *server) GetHookSetup(
 ) (api.GetHookSetupResponseObject, error) {
 	if s.deps.Hooks.Existing == nil {
 		return api.GetHookSetup422ApplicationProblemPlusJSONResponse(
-			problem(api.ProblemCodeUnprocessable, errHookSetupUnavailable.Error())), nil
+			problem.New(api.ProblemCodeUnprocessable, errHookSetupUnavailable.Error())), nil
 	}
 
 	found := s.unmanagedHooks(ctx)
@@ -89,13 +90,13 @@ func (s *server) SetUpHooks(
 ) (api.SetUpHooksResponseObject, error) {
 	if s.deps.Hooks.Existing == nil || s.deps.Hooks.Write == nil {
 		return api.SetUpHooks422ApplicationProblemPlusJSONResponse(
-			problem(api.ProblemCodeUnprocessable, errHookSetupUnavailable.Error())), nil
+			problem.New(api.ProblemCodeUnprocessable, errHookSetupUnavailable.Error())), nil
 	}
 
 	found := s.unmanagedHooks(ctx)
 	if len(found) == 0 {
 		return api.SetUpHooks409ApplicationProblemPlusJSONResponse(
-			problem(api.ProblemCodeConflict, errNothingToSetUp.Error())), nil
+			problem.New(api.ProblemCodeConflict, errNothingToSetUp.Error())), nil
 	}
 
 	generated := hooks.Structured(found)
@@ -108,7 +109,7 @@ func (s *server) SetUpHooks(
 		// The answer leaves the cause out; the server's own log keeps it.
 		s.unexpected(err)
 
-		return api.SetUpHooks422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
+		return api.SetUpHooks422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable,
 			"lefthook.yml was not written, or lefthook not installed; "+
 				"set it up with g in the terminal's Commits pane to see why")), nil
 	}

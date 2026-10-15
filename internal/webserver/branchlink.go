@@ -13,6 +13,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
 // The reasons a link to an issue is refused, in the words the answer carries.
@@ -30,13 +31,14 @@ func (s *server) LinkBranchIssue(
 ) (api.LinkBranchIssueResponseObject, error) {
 	ref, known := convention.RefOf(strings.TrimSpace(request.Body.Key))
 	if !known || s.deps.Git.LinkIssue == nil {
-		return api.LinkBranchIssue422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
+		return api.LinkBranchIssue422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable,
 			refusal(known, errNotAnIssue, errCannotLink))), nil
 	}
 
 	branch, err := s.linkableBranch(ctx)
 	if errors.Is(err, errNoBranchToLink) {
-		return api.LinkBranchIssue409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict, err.Error())), nil
+		return api.LinkBranchIssue409ApplicationProblemPlusJSONResponse(
+			problem.New(api.ProblemCodeConflict, err.Error())), nil
 	}
 
 	if err == nil {
@@ -44,7 +46,7 @@ func (s *server) LinkBranchIssue(
 	}
 
 	if err != nil {
-		return problemAnswer[api.LinkBranchIssuedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.LinkBranchIssuedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.LinkBranchIssue200JSONResponse(branchDTO(s.branchAfter(ctx, branch))), nil
@@ -55,13 +57,14 @@ func (s *server) UnlinkBranchIssue(
 	ctx context.Context, _ api.UnlinkBranchIssueRequestObject,
 ) (api.UnlinkBranchIssueResponseObject, error) {
 	if s.deps.Git.UnlinkIssue == nil {
-		return api.UnlinkBranchIssue422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
+		return api.UnlinkBranchIssue422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable,
 			errCannotLink.Error())), nil
 	}
 
 	branch, err := s.linkableBranch(ctx)
 	if errors.Is(err, errNoBranchToLink) {
-		return api.UnlinkBranchIssue409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict, err.Error())), nil
+		return api.UnlinkBranchIssue409ApplicationProblemPlusJSONResponse(
+			problem.New(api.ProblemCodeConflict, err.Error())), nil
 	}
 
 	if err == nil {
@@ -69,7 +72,7 @@ func (s *server) UnlinkBranchIssue(
 	}
 
 	if err != nil {
-		return problemAnswer[api.UnlinkBranchIssuedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.UnlinkBranchIssuedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.UnlinkBranchIssue200JSONResponse(branchDTO(s.branchAfter(ctx, branch))), nil
@@ -82,7 +85,7 @@ func (s *server) PreviewBranchIssue(
 ) (api.PreviewBranchIssueResponseObject, error) {
 	ref, known := convention.RefOf(strings.TrimSpace(request.Params.Key))
 	if !known {
-		return api.PreviewBranchIssue422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
+		return api.PreviewBranchIssue422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable,
 			errNotAnIssue.Error())), nil
 	}
 
@@ -90,7 +93,7 @@ func (s *server) PreviewBranchIssue(
 
 	pull, open, err := s.openPull(ctx)
 	if err != nil {
-		return problemAnswer[api.PreviewBranchIssuedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.PreviewBranchIssuedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	if open {

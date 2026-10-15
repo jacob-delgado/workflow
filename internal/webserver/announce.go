@@ -11,6 +11,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
 // GetAnnouncement composes the announcement for the checked-out branch's pull
@@ -27,7 +28,7 @@ func (s *server) GetAnnouncement(
 	}
 
 	if err != nil {
-		return problemAnswer[api.GetAnnouncementdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.GetAnnouncementdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	moment := composed.Announcement.Moment
@@ -114,7 +115,7 @@ func (s *server) postFor(ctx context.Context, body api.AnnounceRequest) (announc
 	text, err := postedText(body, announcement)
 	if errors.Is(err, errChangedSincePreview) {
 		return announcePost{}, api.Announce409ApplicationProblemPlusJSONResponse(
-			problem(api.ProblemCodeConflict, err.Error()))
+			problem.New(api.ProblemCodeConflict, err.Error()))
 	}
 
 	if err != nil {
@@ -165,7 +166,7 @@ func (s *server) postMentions(
 	mentions, memory, err := s.mentions(ctx, asked, moment)
 	if errors.Is(err, errTagsChanged) {
 		return messaging.Mentions{}, loop.AnnounceMemory{},
-			api.Announce409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict, err.Error()))
+			api.Announce409ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeConflict, err.Error()))
 	}
 
 	if err != nil {
@@ -184,7 +185,7 @@ func (s *server) postMentions(
 func (s *server) announceNow(ctx context.Context, post announcePost) api.AnnounceResponseObject {
 	dropped, err := s.dropHeld()
 	if err != nil {
-		return api.Announce409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict, err.Error()))
+		return api.Announce409ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeConflict, err.Error()))
 	}
 
 	warning, err := s.deliver(ctx, post)
@@ -217,11 +218,11 @@ func (s *server) announceNow(ctx context.Context, post announcePost) api.Announc
 func (s *server) ciFailed(delivery loop.Delivery) api.Problem {
 	failed := "a check failed on " + s.pullName(delivery.Pull.Number)
 	if delivery.Moment == messaging.MomentReady {
-		return problem(api.ProblemCodeCiFailed, failed+
+		return problem.New(api.ProblemCodeCiFailed, failed+
 			", so nothing was announced; announce it when CI passes to wait for a fix")
 	}
 
-	return problem(api.ProblemCodeCiFailed, failed+
+	return problem.New(api.ProblemCodeCiFailed, failed+
 		", so its merge was not announced; re-run the failed checks on the forge, then announce it once they pass")
 }
 
@@ -269,17 +270,17 @@ func announcementDTO(text, channel string) api.Announcement {
 // announceFault answers an announcement that failed, in reading what it
 // announces or in posting it, through fault.
 func (s *server) announceFault(err error) api.AnnounceResponseObject {
-	return problemAnswer[api.AnnouncedefaultApplicationProblemPlusJSONResponse](s.fault(err))
+	return problem.Answer[api.AnnouncedefaultApplicationProblemPlusJSONResponse](s.fault(err))
 }
 
 // announceUnprocessable is the 422 response for an announcement the server will
 // not post.
 func announceUnprocessable(message string) api.Announce422ApplicationProblemPlusJSONResponse {
-	return api.Announce422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, message))
+	return api.Announce422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable, message))
 }
 
 // nothingToAnnounce refuses an announcement with no pull request to announce,
 // named in the forge's own noun.
 func (s *server) nothingToAnnounce() api.Problem {
-	return problem(api.ProblemCodeConflict, "there is no "+s.noun()+" to announce")
+	return problem.New(api.ProblemCodeConflict, "there is no "+s.noun()+" to announce")
 }

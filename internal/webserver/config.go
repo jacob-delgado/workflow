@@ -14,6 +14,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
 // GetConfig reads the configuration file, taking up an edit made to it since
@@ -21,24 +22,24 @@ import (
 // secrets masked, and what it stands for as its ETag.
 func (s *server) GetConfig(_ context.Context, _ api.GetConfigRequestObject) (api.GetConfigResponseObject, error) {
 	if s.setupNeeded() {
-		return api.GetConfig404ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeNotFound, noFileHere)), nil
+		return api.GetConfig404ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeNotFound, noFileHere)), nil
 	}
 
 	cfg, read, err := s.reread()
 	if errors.Is(err, config.ErrInvalid) {
-		return api.GetConfig422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
+		return api.GetConfig422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable,
 			"the configuration file on disk is not valid, so the configuration in effect stands; "+
 				"workflow doctor says what is wrong with it")), nil
 	}
 
 	if err != nil {
-		return problemAnswer[api.GetConfigdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.GetConfigdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	// Trade-off TRADE-13: configDTO does not fail; see there.
 	out, err := configDTO(cfg)
 	if err != nil {
-		return problemAnswer[api.GetConfigdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.GetConfigdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.GetConfig200JSONResponse{Body: out, Headers: api.GetConfig200ResponseHeaders{ETag: read.etag()}}, nil
@@ -134,11 +135,11 @@ func (s *server) UpdateConfig(
 	ctx context.Context, request api.UpdateConfigRequestObject,
 ) (api.UpdateConfigResponseObject, error) {
 	if s.setupNeeded() {
-		return api.UpdateConfig404ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeNotFound, noFileHere)), nil
+		return api.UpdateConfig404ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeNotFound, noFileHere)), nil
 	}
 
 	if request.Params.IfMatch == nil {
-		return api.UpdateConfig428ApplicationProblemPlusJSONResponse(problem(api.ProblemCodePreconditionRequired,
+		return api.UpdateConfig428ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodePreconditionRequired,
 			"the save did not say which revision of the configuration it was made over; "+
 				"reload the page, then save again")), nil
 	}
@@ -146,8 +147,9 @@ func (s *server) UpdateConfig(
 	over, err := basisIn(*request.Params.IfMatch)
 	if err != nil {
 		//nolint:nilerr // an If-Match naming no revision is answered with a 400 response, not a returned error
-		return problemAnswer[api.UpdateConfigdefaultApplicationProblemPlusJSONResponse](problem(api.ProblemCodeBadRequest,
-			"If-Match names no revision of the configuration; send the ETag a read of it returned")), nil
+		return problem.Answer[api.UpdateConfigdefaultApplicationProblemPlusJSONResponse](
+			problem.New(api.ProblemCodeBadRequest,
+				"If-Match names no revision of the configuration; send the ETag a read of it returned")), nil
 	}
 
 	return s.writeOver(ctx, *request.Body, over), nil
@@ -158,7 +160,7 @@ func (s *server) UpdateConfig(
 func (s *server) writeOver(ctx context.Context, posted api.Config, over basis) api.UpdateConfigResponseObject {
 	incoming, err := fromDTO(posted)
 	if err != nil {
-		refusal := problem(api.ProblemCodeUnprocessable, invalidReason(err))
+		refusal := problem.New(api.ProblemCodeUnprocessable, invalidReason(err))
 		refusal.Fields = refusedSettings(err)
 
 		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(refusal)
@@ -166,28 +168,28 @@ func (s *server) writeOver(ctx context.Context, posted api.Config, over basis) a
 
 	err = s.keymapRefusal(incoming.UI.Keys)
 	if err != nil {
-		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
+		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable,
 			"the terminal interface would not start on this keymap: "+err.Error()))
 	}
 
 	saved, written, err := s.save(ctx, posted, incoming, over)
 	if detail, refused := unsavable(err); refused {
-		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, detail))
+		return api.UpdateConfig422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable, detail))
 	}
 
 	if errors.Is(err, config.ErrChangedOnDisk) {
-		return api.UpdateConfig409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
+		return api.UpdateConfig409ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeConflict,
 			"the configuration changed since Settings read it; reload Settings and apply your change again"))
 	}
 
 	if err != nil {
-		return problemAnswer[api.UpdateConfigdefaultApplicationProblemPlusJSONResponse](s.fault(err))
+		return problem.Answer[api.UpdateConfigdefaultApplicationProblemPlusJSONResponse](s.fault(err))
 	}
 
 	// Trade-off TRADE-13: configDTO does not fail; see there.
 	out, err := configDTO(saved)
 	if err != nil {
-		return problemAnswer[api.UpdateConfigdefaultApplicationProblemPlusJSONResponse](s.fault(err))
+		return problem.Answer[api.UpdateConfigdefaultApplicationProblemPlusJSONResponse](s.fault(err))
 	}
 
 	return api.UpdateConfig200JSONResponse{

@@ -12,6 +12,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
 // GetSlackMembers lists the people in a channel — the configured one when
@@ -23,7 +24,7 @@ func (s *server) GetSlackMembers(
 
 	directory, err := directoryAnswer(members, err)
 	if err != nil {
-		return problemAnswer[api.GetSlackMembersdefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
+		return problem.Answer[api.GetSlackMembersdefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
 	}
 
 	return api.GetSlackMembers200JSONResponse(directory), nil
@@ -38,7 +39,7 @@ func (s *server) GetSlackGroups(
 
 	directory, err := directoryAnswer(groups, err)
 	if err != nil {
-		return problemAnswer[api.GetSlackGroupsdefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
+		return problem.Answer[api.GetSlackGroupsdefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
 	}
 
 	return api.GetSlackGroups200JSONResponse(directory), nil

@@ -19,6 +19,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/progress"
 	"github.com/jacob-delgado/workflow/internal/report"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
 // defaultStreamInterval is how often the event stream re-pushes a snapshot when
@@ -34,7 +35,7 @@ const defaultStreamInterval = 5 * time.Second
 func (s *server) streamEvents(w http.ResponseWriter, request *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		writeProblem(w, api.ProblemCodeInternal, "streaming is not supported")
+		problem.Write(w, api.ProblemCodeInternal, "streaming is not supported")
 
 		return
 	}
@@ -45,7 +46,7 @@ func (s *server) streamEvents(w http.ResponseWriter, request *http.Request) {
 
 	listed, known := jira.ViewNamed(s.config().Jira.Views, view)
 	if !known {
-		writeProblem(w, api.ProblemCodeNotFound, unknownView(view))
+		problem.Write(w, api.ProblemCodeNotFound, unknownView(view))
 
 		return
 	}

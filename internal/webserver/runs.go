@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
 // runTail is how many of a run's last lines the event stream carries: enough
@@ -76,7 +77,7 @@ func (s *server) startRun(w http.ResponseWriter, request *http.Request) {
 	// reads a repeated key's last value, and the decoder fails on its first.
 	err := json.NewDecoder(request.Body).Decode(&asked)
 	if err != nil {
-		writeRequestError(w, request, err)
+		problem.WriteRequestError(w, request, err)
 
 		return
 	}
@@ -91,7 +92,7 @@ func (s *server) startRun(w http.ResponseWriter, request *http.Request) {
 	}
 
 	if !s.claimRun(planned) {
-		writeProblem(w, api.ProblemCodeConflict, errRunGoing.Error())
+		problem.Write(w, api.ProblemCodeConflict, errRunGoing.Error())
 
 		return
 	}
@@ -103,7 +104,7 @@ func (s *server) startRun(w http.ResponseWriter, request *http.Request) {
 
 	output, err := planned.start(ctx)
 	if err != nil {
-		writeProblem(w, api.ProblemCodeUnprocessable,
+		problem.Write(w, api.ProblemCodeUnprocessable,
 			planned.title+" could not be started; run it from a terminal to see why")
 
 		return
@@ -116,9 +117,9 @@ func (s *server) startRun(w http.ResponseWriter, request *http.Request) {
 func writeRunRefusal(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, errNothingToRebase), errors.Is(err, errNothingToFold):
-		writeProblem(w, api.ProblemCodeConflict, err.Error())
+		problem.Write(w, api.ProblemCodeConflict, err.Error())
 	default:
-		writeProblem(w, api.ProblemCodeUnprocessable, err.Error())
+		problem.Write(w, api.ProblemCodeUnprocessable, err.Error())
 	}
 }
 
@@ -373,7 +374,8 @@ func (s *server) StopRun(context.Context, api.StopRunRequestObject) (api.StopRun
 
 	going := s.run.going
 	if going == nil {
-		return api.StopRun404ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeNotFound, errNoRunGoing.Error())), nil
+		return api.StopRun404ApplicationProblemPlusJSONResponse(
+			problem.New(api.ProblemCodeNotFound, errNoRunGoing.Error())), nil
 	}
 
 	going.stopped = true

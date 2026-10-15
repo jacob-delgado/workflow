@@ -14,6 +14,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
 // Why a write to the branch's pull request was not made.
@@ -70,15 +71,15 @@ func (s *server) readPull(ctx context.Context, withCI bool) (pullRead, error) {
 func (s *server) refusal(err error) api.Problem {
 	switch {
 	case errors.Is(err, errNoOpenPull), errors.Is(err, errNotFinishable), errors.Is(err, errNothingToRerun):
-		return problem(api.ProblemCodeConflict, err.Error())
+		return problem.New(api.ProblemCodeConflict, err.Error())
 	case errors.Is(err, errFinishRefused):
-		return problem(api.ProblemCodeUnprocessable, "git would not finish the branch; "+
+		return problem.New(api.ProblemCodeUnprocessable, "git would not finish the branch; "+
 			"finish it with F in the terminal's Review pane to see git's reason")
 	case errors.Is(err, errNotMergeable):
-		return problem(api.ProblemCodeConflict, "the "+s.noun()+" "+err.Error())
+		return problem.New(api.ProblemCodeConflict, "the "+s.noun()+" "+err.Error())
 	case errors.Is(err, errReviewWriteUnavailable), errors.Is(err, errNoMergeMethod),
 		errors.Is(err, errTitleRequired), errors.Is(err, errMethodNotPermitted):
-		return problem(api.ProblemCodeUnprocessable, err.Error())
+		return problem.New(api.ProblemCodeUnprocessable, err.Error())
 	default:
 		return s.fault(err)
 	}
@@ -105,7 +106,7 @@ func (s *server) GetPullRequestText(
 ) (api.GetPullRequestTextResponseObject, error) {
 	pull, err := s.branchOpenPull(ctx)
 	if err != nil {
-		return problemAnswer[api.GetPullRequestTextdefaultApplicationProblemPlusJSONResponse](s.refusal(err)), nil
+		return problem.Answer[api.GetPullRequestTextdefaultApplicationProblemPlusJSONResponse](s.refusal(err)), nil
 	}
 
 	return api.GetPullRequestText200JSONResponse(api.PullRequestText{Title: pull.Title, Body: pull.Body}), nil
@@ -118,7 +119,7 @@ func (s *server) EditPullRequest(
 ) (api.EditPullRequestResponseObject, error) {
 	edited, err := s.editPull(ctx, forge.PullRequestEdit{Title: request.Body.Title, Body: request.Body.Body})
 	if err != nil {
-		return problemAnswer[api.EditPullRequestdefaultApplicationProblemPlusJSONResponse](s.refusal(err)), nil
+		return problem.Answer[api.EditPullRequestdefaultApplicationProblemPlusJSONResponse](s.refusal(err)), nil
 	}
 
 	return api.EditPullRequest200JSONResponse(pullDTO(edited)), nil
@@ -200,7 +201,7 @@ func (s *server) GetMergeMethods(
 	}
 
 	if err != nil {
-		return problemAnswer[api.GetMergeMethodsdefaultApplicationProblemPlusJSONResponse](s.refusal(err)), nil
+		return problem.Answer[api.GetMergeMethodsdefaultApplicationProblemPlusJSONResponse](s.refusal(err)), nil
 	}
 
 	offered := make([]api.MergeMethod, 0, len(methods))
@@ -218,7 +219,7 @@ func (s *server) MergePullRequest(
 ) (api.MergePullRequestResponseObject, error) {
 	pull, err := s.merge(ctx, forge.MergeMethod(request.Body.Method))
 	if err != nil {
-		return problemAnswer[api.MergePullRequestdefaultApplicationProblemPlusJSONResponse](s.refusal(err)), nil
+		return problem.Answer[api.MergePullRequestdefaultApplicationProblemPlusJSONResponse](s.refusal(err)), nil
 	}
 
 	return api.MergePullRequest200JSONResponse(pullDTO(pull)), nil
@@ -260,7 +261,7 @@ func (s *server) FinishBranch(
 ) (api.FinishBranchResponseObject, error) {
 	branch, err := s.finish(ctx)
 	if err != nil {
-		return problemAnswer[api.FinishBranchdefaultApplicationProblemPlusJSONResponse](s.refusal(err)), nil
+		return problem.Answer[api.FinishBranchdefaultApplicationProblemPlusJSONResponse](s.refusal(err)), nil
 	}
 
 	return api.FinishBranch200JSONResponse(branchDTO(branch)), nil
@@ -310,7 +311,7 @@ func (s *server) RerunChecks(
 ) (api.RerunChecksResponseObject, error) {
 	reran, err := s.rerun(ctx)
 	if err != nil {
-		return problemAnswer[api.RerunChecksdefaultApplicationProblemPlusJSONResponse](s.refusal(err)), nil
+		return problem.Answer[api.RerunChecksdefaultApplicationProblemPlusJSONResponse](s.refusal(err)), nil
 	}
 
 	return api.RerunChecks200JSONResponse(api.Rerun{Reran: reran}), nil

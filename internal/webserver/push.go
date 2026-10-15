@@ -13,6 +13,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
 // errPushFailed carries the push's own output, so the caller learns why it did
@@ -41,12 +42,12 @@ func (s *server) Push(ctx context.Context, _ api.PushRequestObject) (api.PushRes
 
 	branch, err := s.deps.Git.Branch(ctx)
 	if err != nil {
-		return problemAnswer[api.PushdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.PushdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	if nothingToPush(branch) {
 		return api.Push409ApplicationProblemPlusJSONResponse(
-			problem(api.ProblemCodeConflict, "there is nothing to push")), nil
+			problem.New(api.ProblemCodeConflict, "there is nothing to push")), nil
 	}
 
 	err = loop.Push(ctx, s.deps.Git.Push, branch.Name)
@@ -106,5 +107,5 @@ var remoteAddress = regexp.MustCompile(`[A-Za-z][A-Za-z0-9+.-]*://[^\s'"]+|[^\s'
 
 // pushUnprocessable is the 422 response for a push the server will not make.
 func pushUnprocessable(message string) api.Push422ApplicationProblemPlusJSONResponse {
-	return api.Push422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, message))
+	return api.Push422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable, message))
 }

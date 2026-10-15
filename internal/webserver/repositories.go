@@ -10,6 +10,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/report"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 	"github.com/jacob-delgado/workflow/internal/workdirs"
 )
 
@@ -40,11 +41,12 @@ func (s *server) SwitchRepository(
 	switch {
 	case errors.Is(err, workdirs.ErrNotFound):
 		return api.SwitchRepository404ApplicationProblemPlusJSONResponse(
-			problem(api.ProblemCodeNotFound, "there is no such directory")), nil
+			problem.New(api.ProblemCodeNotFound, "there is no such directory")), nil
 	case errors.Is(err, errWriteInFlight):
-		return api.SwitchRepository409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict, err.Error())), nil
+		return api.SwitchRepository409ApplicationProblemPlusJSONResponse(
+			problem.New(api.ProblemCodeConflict, err.Error())), nil
 	case err != nil:
-		return problemAnswer[api.SwitchRepositorydefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.SwitchRepositorydefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.SwitchRepository200JSONResponse(next.repositoriesDTO(ctx)), nil
@@ -56,7 +58,7 @@ func (s *server) AddFavorite(
 ) (api.AddFavoriteResponseObject, error) {
 	err := s.changeFavorite(ctx, s.deps.Store.Favor, request.Body.Dir)
 	if err != nil {
-		return problemAnswer[api.AddFavoritedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.AddFavoritedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.AddFavorite200JSONResponse(s.repositoriesDTO(ctx)), nil
@@ -68,7 +70,7 @@ func (s *server) RemoveFavorite(
 ) (api.RemoveFavoriteResponseObject, error) {
 	err := s.changeFavorite(ctx, s.deps.Store.Unfavor, request.Params.Dir)
 	if err != nil {
-		return problemAnswer[api.RemoveFavoritedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.RemoveFavoritedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.RemoveFavorite200JSONResponse(s.repositoriesDTO(ctx)), nil
@@ -98,14 +100,14 @@ func (s *server) GetDirectories(
 	repositories := s.deps.Repositories
 	if repositories.Subdirectories == nil {
 		return api.GetDirectories422ApplicationProblemPlusJSONResponse(
-			problem(api.ProblemCodeUnprocessable, errNoSwitching.Error())), nil
+			problem.New(api.ProblemCodeUnprocessable, errNoSwitching.Error())), nil
 	}
 
 	dir := workdirs.Resolve(orZero(request.Params.Path), repositories.Here.Dir, repositories.Home)
 
 	listing, err := repositories.Subdirectories(dir, orZero(request.Params.Prefix))
 	if err != nil {
-		return problemAnswer[api.GetDirectoriesdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.GetDirectoriesdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.GetDirectories200JSONResponse(listingDTO(dir, repositories.Home, listing)), nil

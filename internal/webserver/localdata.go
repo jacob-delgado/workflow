@@ -10,6 +10,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/report"
 	"github.com/jacob-delgado/workflow/internal/store"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
 // errNoLocalData refuses the Local data area on a server wired with no store.
@@ -31,7 +32,7 @@ func (s *server) GetLocalData(
 ) (api.GetLocalDataResponseObject, error) {
 	data, err := s.localData(ctx)
 	if err != nil {
-		return problemAnswer[api.GetLocalDatadefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.GetLocalDatadefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.GetLocalData200JSONResponse(data), nil
@@ -43,7 +44,7 @@ func (s *server) RemoveLocalData(
 	ctx context.Context, request api.RemoveLocalDataRequestObject,
 ) (api.RemoveLocalDataResponseObject, error) {
 	if s.deps.Settings.RemoveLocalData == nil {
-		return api.RemoveLocalData422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
+		return api.RemoveLocalData422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable,
 			errNoLocalData.Error())), nil
 	}
 
@@ -62,7 +63,7 @@ func (s *server) RemoveLocalData(
 		}
 	}
 
-	return problemAnswer[api.RemoveLocalDatadefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+	return problem.Answer[api.RemoveLocalDatadefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 }
 
 // localData reads the store's directory and files into the answer's shape.

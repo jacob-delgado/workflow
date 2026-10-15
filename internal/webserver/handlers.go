@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/report"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
 // GetHealth reports the build, whether writes are held back, which forge the
@@ -56,7 +57,8 @@ func (s *server) ListIssues(
 
 	listed, ok := jira.ViewNamed(s.config().Jira.Views, view)
 	if !ok {
-		return api.ListIssues404ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeNotFound, unknownView(view))), nil
+		return api.ListIssues404ApplicationProblemPlusJSONResponse(
+			problem.New(api.ProblemCodeNotFound, unknownView(view))), nil
 	}
 
 	if s.deps.Jira.Search == nil {
@@ -65,7 +67,7 @@ func (s *server) ListIssues(
 
 	result, err := s.deps.Jira.Search(ctx, listed.JQL, startAt)
 	if err != nil {
-		return problemAnswer[api.ListIssuesdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.ListIssuesdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.ListIssues200JSONResponse(report.IssuesPage(result, startAt)), nil
@@ -74,18 +76,18 @@ func (s *server) ListIssues(
 // GetIssue returns one issue in full.
 func (s *server) GetIssue(ctx context.Context, request api.GetIssueRequestObject) (api.GetIssueResponseObject, error) {
 	if s.deps.Jira.Issue == nil {
-		return problemAnswer[api.GetIssuedefaultApplicationProblemPlusJSONResponse](
-			problem(api.ProblemCodeUnprocessable, "no issue tracker is configured")), nil
+		return problem.Answer[api.GetIssuedefaultApplicationProblemPlusJSONResponse](
+			problem.New(api.ProblemCodeUnprocessable, "no issue tracker is configured")), nil
 	}
 
 	detail, err := s.deps.Jira.Issue(ctx, jira.Key(request.Key))
 	if err != nil {
 		if errors.Is(err, jira.ErrNotFound) || errors.Is(err, forge.ErrNoRepository) {
 			return api.GetIssue404ApplicationProblemPlusJSONResponse(
-				problem(api.ProblemCodeNotFound, "issue "+request.Key+" was not found")), nil
+				problem.New(api.ProblemCodeNotFound, "issue "+request.Key+" was not found")), nil
 		}
 
-		return problemAnswer[api.GetIssuedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.GetIssuedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.GetIssue200JSONResponse(report.IssueDetail(detail, s.browseURL(detail.Issue.Key))), nil
@@ -96,7 +98,7 @@ func (s *server) GetIssue(ctx context.Context, request api.GetIssueRequestObject
 func (s *server) GetBranch(ctx context.Context, _ api.GetBranchRequestObject) (api.GetBranchResponseObject, error) {
 	branch, err := s.readBranch(ctx)
 	if err != nil {
-		return problemAnswer[api.GetBranchdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.GetBranchdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.GetBranch200JSONResponse(branchDTO(branch)), nil
@@ -133,7 +135,7 @@ func (s *server) ListChanges(
 ) (api.ListChangesResponseObject, error) {
 	changes, err := s.readChanges(ctx)
 	if err != nil {
-		return problemAnswer[api.ListChangesdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.ListChangesdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.ListChanges200JSONResponse(changesDTO(changes)), nil
@@ -154,7 +156,7 @@ func (s *server) readChanges(ctx context.Context) ([]gitrepo.Change, error) {
 func (s *server) GetReview(ctx context.Context, _ api.GetReviewRequestObject) (api.GetReviewResponseObject, error) {
 	review, err := s.readReview(ctx)
 	if err != nil {
-		return problemAnswer[api.GetReviewdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.GetReviewdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.GetReview200JSONResponse(review), nil
@@ -279,7 +281,7 @@ func (s *server) ListReviews(
 	}
 
 	if err != nil {
-		return problemAnswer[api.ListReviewsdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.ListReviewsdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.ListReviews200JSONResponse(reviewQueueDTO(forge.OldestFirst(requests))), nil
@@ -351,7 +353,7 @@ func (s *server) GetCheckLog(
 ) (api.GetCheckLogResponseObject, error) {
 	check, err := s.currentCheck(ctx, request.ID)
 	if errors.Is(err, errNoSuchCheck) {
-		return api.GetCheckLog404ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeNotFound, err.Error())), nil
+		return api.GetCheckLog404ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeNotFound, err.Error())), nil
 	}
 
 	if err == nil && (s.deps.Forge.JobLog == nil || !check.LogAvailable) {
@@ -359,7 +361,8 @@ func (s *server) GetCheckLog(
 	}
 
 	if errors.Is(err, forge.ErrNoLog) {
-		return api.GetCheckLog422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, err.Error())), nil
+		return api.GetCheckLog422ApplicationProblemPlusJSONResponse(
+			problem.New(api.ProblemCodeUnprocessable, err.Error())), nil
 	}
 
 	var log forge.JobLog
@@ -368,7 +371,7 @@ func (s *server) GetCheckLog(
 	}
 
 	if err != nil {
-		return problemAnswer[api.GetCheckLogdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.GetCheckLogdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.GetCheckLog200JSONResponse(api.JobLog{Text: log.Text, Truncated: log.Truncated}), nil

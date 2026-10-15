@@ -13,6 +13,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
 // taskFault is fault for what a Taskwarrior seam asked under ctx answered. A
@@ -22,9 +23,9 @@ import (
 func (s *server) taskFault(ctx context.Context, err error) api.Problem {
 	switch {
 	case errors.Is(err, taskwarrior.ErrRefused):
-		return problem(api.ProblemCodeUnprocessable, s.refusalDetail(ctx, err))
+		return problem.New(api.ProblemCodeUnprocessable, s.refusalDetail(ctx, err))
 	case errors.Is(err, proc.ErrTimedOut):
-		return problem(api.ProblemCodeUnreachable, "Taskwarrior did not answer in time")
+		return problem.New(api.ProblemCodeUnreachable, "Taskwarrior did not answer in time")
 	default:
 		return s.fault(err)
 	}
