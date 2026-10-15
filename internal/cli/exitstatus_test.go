@@ -357,17 +357,12 @@ func TestEveryCommandRefusesAConfigurationItCannotRead(t *testing.T) {
 
 	// A file that exists but does not parse is not replaced by the defaults: a
 	// command run on settings nobody chose would act on the wrong things.
-	// status answers for its own in internal/cli/status, and pr and announce
-	// for theirs in internal/cli/pr.
+	// status, the issue commands, and pr and announce answer for theirs in
+	// internal/cli/status, internal/cli/issues and internal/cli/pr.
 	cases := [][]string{
 		strings.Fields("reviews"),
 		strings.Fields("summary"),
 		strings.Fields("branch PROJ-1"),
-		strings.Fields("issues"),
-		strings.Fields("issue PROJ-1"),
-		strings.Fields("transition PROJ-1 Done --dry-run"),
-		strings.Fields("assign PROJ-1 bo --dry-run"),
-		strings.Fields("worklog PROJ-1 1h --dry-run"),
 		strings.Fields("finish --dry-run"),
 	}
 

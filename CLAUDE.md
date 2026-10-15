@@ -31,6 +31,7 @@ internal/cli/cmdkit/  what every command is built from: its connection, environm
 internal/cli/doctor/  workflow doctor: the repository, tooling, store and configuration in effect, and each credential online
 internal/cli/clitest/ running the command line for a test in a world of its own, with the Jira, forge, Slack, prompts and repositories it meets there (tests only)
 internal/cli/status/  workflow status: where the work stands, gathered from each service and printed
+internal/cli/issues/  the commands over the issue tracker: issues and issue read, transition, assign, worklog and comment write
 internal/cli/pr/      the pull or merge request's flow: workflow pr, and workflow announce, which tells the team
 internal/config/      .workflow.json loading, saving, redaction, validation
 internal/keychain/    storing a token in the OS keychain and reading it back

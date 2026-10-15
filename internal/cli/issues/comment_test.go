@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli_test
+package issues_test
 
 import (
 	"encoding/json"
@@ -17,6 +17,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
+	"github.com/jacob-delgado/workflow/internal/config"
 )
 
 // errUnreadableInput is standard input failing part way through a read.
@@ -253,7 +254,10 @@ func TestCommentWithAConfigurationItCannotReadPostsNothing(t *testing.T) {
 	_, err := clitest.RunStreams(t, dir, typed(t, "hello"), "comment", "PROJ-7", "--yes")
 
 	// Assert
-	if err == nil || len(posted.all()) != 0 {
-		t.Errorf("comment = %v, posted %q; want an error and nothing posted", err, posted.all())
+	if !errors.Is(err, config.ErrInvalid) || len(posted.all()) != 0 {
+		t.Errorf("comment = %v, posted %q; want the malformed configuration refused and nothing posted",
+			err, posted.all())
 	}
+
+	wantExit(t, err, 3)
 }

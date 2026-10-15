@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli_test
+package issues_test
 
 import (
 	"encoding/json"
@@ -12,8 +12,11 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/spf13/cobra"
+
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
+	"github.com/jacob-delgado/workflow/internal/cli/issues"
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
@@ -39,6 +42,31 @@ func decoded[T any](t *testing.T, stdout string) T {
 	}
 
 	return value
+}
+
+func TestEachIssueCommandIsNamedForWhatItDoes(t *testing.T) {
+	t.Parallel()
+
+	prompt := clitest.UnusedPrompt(t)
+	cases := map[string]*cobra.Command{
+		"issues":     issues.NewIssuesCmd(),
+		"issue":      issues.NewIssueCmd(),
+		"transition": issues.NewTransitionCmd(prompt),
+		"assign":     issues.NewAssignCmd(prompt),
+		"worklog":    issues.NewWorklogCmd(prompt),
+		"comment":    issues.NewCommentCmd(prompt),
+	}
+
+	for want, cmd := range cases {
+		t.Run(want, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := cmd.Name(); got != want {
+				t.Errorf("command named %q, want %q", got, want)
+			}
+		})
+	}
 }
 
 func TestIssuesListsTheFirstViewScopedToYou(t *testing.T) {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/cli/doctor"
+	"github.com/jacob-delgado/workflow/internal/cli/issues"
 	"github.com/jacob-delgado/workflow/internal/cli/pr"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -84,8 +85,9 @@ func (f exitFamily) holds(err error) bool {
 func exitFamilies() []exitFamily {
 	return []exitFamily{
 		{status: exitUsage, members: []error{
-			cmdkit.ErrUsage, cmdkit.ErrNoTerminal, errLoginBlank, errCommentBlank, errStatusBlank, errAssigneeBlank,
-			errDurationBlank, errWorklogOnForge,
+			cmdkit.ErrUsage, cmdkit.ErrNoTerminal, errLoginBlank,
+			issues.ErrCommentBlank, issues.ErrStatusBlank, issues.ErrAssigneeBlank,
+			issues.ErrDurationBlank, issues.ErrWorklogOnForge,
 		}},
 		{status: exitConfiguration, members: configurationErrors()},
 		{status: exitRefused, members: refusalErrors()},
@@ -110,7 +112,8 @@ func configurationErrors() []error {
 		messaging.ErrNoCredential, messaging.ErrInsecureWebhook,
 		jira.ErrUnauthorized, jira.ErrForbidden, forge.ErrUnauthorized, messaging.ErrRejected,
 		doctor.ErrCredentialRejected, doctor.ErrCredentialMissing, doctor.ErrIncomplete, doctor.ErrInvalid, doctor.ErrShared,
-		cmdkit.ErrMessagingNotConfigured, errLoginNeedsConfig, errLoginOverWebhook, errLoginNotSlack, errWorklogNeedsJira,
+		cmdkit.ErrMessagingNotConfigured, errLoginNeedsConfig, errLoginOverWebhook, errLoginNotSlack,
+		issues.ErrWorklogNeedsJira,
 		slackauth.ErrRefreshRefused, slackauth.ErrNotAUserToken,
 	}, config.KeyRefusals()...)
 }

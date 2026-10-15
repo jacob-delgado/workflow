@@ -32,11 +32,11 @@ the number there, and `scripts/check-package-size.sh --list` for the count,
 which a ratcheted budget always equals, so the next command file trips the
 gate and is a decision. The package is not split to chase a number, but code
 in it with a reason to change of its own may leave where no import cycle
-follows, as doctor's checks and status have, and the issue commands may. A
-trip means a bump, with the WHY above the entry rewritten and a history row,
-or such an extraction, never a split for the count; each extraction ratchets
-the budget down to the files left, and the entry goes once the package holds
-no more than the default allows.
+follows, as doctor's checks, status and the issue commands have. A trip
+means a bump, with the WHY above the entry rewritten and a history row, or
+such an extraction, never a split for the count; each extraction ratchets the
+budget down to the files left, and the entry goes once the package holds no
+more than the default allows.
 
 The pr and announce flow over the forge and messaging has left as
 `internal/cli/pr`, one package for both, since `pr --announce` hands what it
@@ -55,9 +55,10 @@ scriptable output. It imports no command, and not the web server
 (`.golangci.yml`'s `cmdkit-without-the-web-server`), so `cli.go` hands
 `RootFlags.Declare` the port `--web` serves on by default. The exit statuses
 and the families of errors that earn them stay at the root (`exitstatus.go`),
-since the families name sentinels the commands declare, `internal/cli/pr`'s
-and `internal/cli/doctor`'s among them, and so do the two terminal reads
-`cmd/workflow` wires (`LineReader` and `SecretReader`, `prompt.go`).
+since the families name sentinels the commands declare, `internal/cli/pr`'s,
+`internal/cli/doctor`'s and `internal/cli/issues`' among them, and so do the
+two terminal reads `cmd/workflow` wires (`LineReader` and `SecretReader`,
+`prompt.go`).
 
 `workflow doctor` has left as `internal/cli/doctor`, a command beside the
 tree: `cli.go` registers its `NewCmd`, and `exitstatus.go`'s families name
@@ -70,6 +71,14 @@ that do not answer (`gather.go`), and the line and the JSON it prints
 (`render.go`). `cli.go` registers its one export, `status.NewCmd`. Its tests
 live beside it, driving the command through `cli.Execute`, with a `TestMain`
 and a proof of their own, as pr's do.
+
+The commands over the issue tracker have left the same way, as
+`internal/cli/issues`: `issues` and `issue`, which read (`issues.go`), and
+`transition`, `assign`, `worklog` (`write.go`) and `comment` (`comment.go`),
+which write through the preview and confirmation they share. `cli.go`
+registers its six commands, and `exitstatus.go`'s families name the six
+sentinels it exports. Its tests live beside it as status's do, with the fake
+Jira they alone need (`trackerfake_test.go`).
 
 ## What a command prints
 
@@ -143,13 +152,14 @@ for a client's unreachable service, `cmdkit.ServicesUnreachable` in
   layout marks `(tests only)`.
 - **Fakes for the services**: `clitest.FakeGh` and `clitest.FakeGlab`
   (`clitest/forge.go`, a fake `gh` or `glab` and its pull requests),
-  `trackerfake_test.go` and `clitest.FakeSlack` (`clitest/messaging.go`)
-  stand in for the forge, Jira and Slack, and `clitest.WorkingJira` is a Jira
-  that accepts the credential. The repositories they answer for are made with
-  git itself (`clitest.PRRepo`, `clitest.GithubRepo` and their kin,
-  `clitest/repo.go`), which `.golangci.yml`'s `gittest-only-in-tests` lets
-  clitest alone do outside a test file; `runRoot` (`root_test.go`) runs the
-  root command over a stand-in interface and web server.
+  `clitest.JiraServer` (`clitest/jira.go`) and `clitest.FakeSlack`
+  (`clitest/messaging.go`) stand in for the forge, Jira and Slack, and
+  `clitest.WorkingJira` is a Jira that accepts the credential. The repositories
+  they answer for are made with git itself (`clitest.PRRepo`,
+  `clitest.GithubRepo` and their kin, `clitest/repo.go`), which
+  `.golangci.yml`'s `gittest-only-in-tests` lets clitest alone do outside a test
+  file; `runRoot` (`root_test.go`) runs the root command over a stand-in
+  interface and web server.
 - **`TestMain` (`main_test.go`) clears git's repository variables** before
   any test runs (`gittest.ClearLocalVariables`), so a hook's `GIT_DIR` never
   sends a test's git at the developer's repository; it then runs the tests
