@@ -86,3 +86,65 @@ func TestDoctorJSONNamesNoBaseOutsideAFork(t *testing.T) {
 		t.Errorf("doctor --json repository = %v, %v; want no base outside a fork", report.Repository, err)
 	}
 }
+
+// tokenUpstream is a fork's upstream whose address carries a credential.
+const tokenUpstream = "https://user:secret-token@github.com/owner/repo.git"
+
+// forkWithATokenUpstream is forkClone whose upstream's address carries a
+// credential, as a remote cloned with one in its URL does.
+func forkWithATokenUpstream(t *testing.T) string {
+	t.Helper()
+
+	dir := t.TempDir()
+	clitest.GitInit(t, dir)
+	clitest.Git(t, dir, "remote", "add", "origin", "https://github.com/contributor/repo.git")
+	clitest.Git(t, dir, "remote", "add", "upstream", tokenUpstream)
+
+	return dir
+}
+
+func TestDoctorMasksACredentialInTheBaseRemote(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	output, _ := clitest.Run(t, forkWithATokenUpstream(t), "doctor")
+
+	// Assert
+	if got := fieldValue(output, "Base remote"); got != "upstream (https://xxxxx@github.com/owner/repo.git)" ||
+		strings.Contains(output, "secret-token") {
+		t.Errorf("Base remote = %q, want the upstream's credential masked:\n%s", got, output)
+	}
+}
+
+func TestDoctorJSONMasksACredentialInTheBaseRemote(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	printed, _ := clitest.RunStreams(t, forkWithATokenUpstream(t), clitest.UnusedPrompt(t), "doctor", "--json")
+
+	// Assert
+	var report doctorRepository
+
+	err := json.Unmarshal([]byte(printed.Stdout), &report)
+	if err != nil || report.Repository["base"] != "https://xxxxx@github.com/owner/repo.git" ||
+		strings.Contains(printed.Stdout, "secret-token") {
+		t.Errorf("doctor --json repository = %v, %v; want the upstream's credential masked", report.Repository, err)
+	}
+}
+
+func TestDoctorNamesNoBaseRemoteOutsideAFork(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := t.TempDir()
+	clitest.GitInit(t, dir)
+	clitest.Git(t, dir, "remote", "add", "origin", "https://github.com/owner/repo.git")
+
+	// Act
+	output, _ := clitest.Run(t, dir, "doctor")
+
+	// Assert
+	if strings.Contains(output, "Base remote:") {
+		t.Errorf("doctor names a base remote for a repository that is no fork:\n%s", output)
+	}
+}
