@@ -5,7 +5,10 @@ package doctor_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
+	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -212,5 +215,78 @@ func TestDoctorJSONCarriesTheAuthModeAndWhetherOthersCanReachTheFile(t *testing.
 	if configuration["jira_auth_mode"] != "bearer token" || configuration["world_readable"] != true {
 		t.Errorf("configuration = %v, want jira_auth_mode bearer token and world_readable true:\n%s",
 			configuration, output)
+	}
+}
+
+// The keys scripting.md promises are held by name: what doctor printed is
+// compared whole with the JSON a script would read, which fails when a key is
+// renamed as well as when one appears.
+
+// asData is text decoded as JSON, the form a want takes here.
+func asData(t *testing.T, text string) any {
+	t.Helper()
+
+	var data any
+
+	err := json.Unmarshal([]byte(text), &data)
+	if err != nil {
+		t.Fatalf("the want is not JSON: %v\n%s", err, text)
+	}
+
+	return data
+}
+
+func TestDoctorJSONNamesEachRepositoryFact(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := clitest.RepoWithRemote(t, githubSSHRemote)
+	clitest.Git(t, dir, "checkout", "--quiet", "-b", "feat/PROJ-1-key")
+
+	root, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Act
+	printed, _ := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "doctor", "--json")
+
+	// Assert
+	want := asData(t, fmt.Sprintf(`{"inside_work_tree": true, "root": %q, "branch": "feat/PROJ-1-key", `+
+		`"detached": false, "remote": %q, "forge": "GitHub owner/repo at https://api.github.com"}`,
+		root, githubSSHRemote))
+	if got := decodeReport(t, printed.Stdout)["repository"]; !reflect.DeepEqual(got, want) {
+		t.Errorf("repository = %#v, want %#v", got, want)
+	}
+}
+
+func TestDoctorJSONNamesEachFactOfARequiredTool(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	printed, _ := clitest.RunStreams(t, t.TempDir(), clitest.UnusedPrompt(t), "doctor", "--json")
+
+	// Assert
+	tooling, _ := decodeReport(t, printed.Stdout)["tooling"].([]any)
+	want := asData(t, `{"name": "git", "found": true, "required": true, `+
+		`"effect": "every repository action runs through it"}`)
+
+	if len(tooling) == 0 || !reflect.DeepEqual(tooling[0], want) {
+		t.Errorf("tooling = %#v, want git first, as %#v", tooling, want)
+	}
+}
+
+func TestDoctorJSONNamesTheFieldsMissing(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	printed, _ := clitest.RunStreams(t, missingAField(t), clitest.UnusedPrompt(t), "doctor", "--json")
+
+	// Assert
+	configuration, _ := decodeReport(t, printed.Stdout)["configuration"].(map[string]any)
+	want := asData(t, `["messaging.client_id (workflow slack login) or messaging.webhook_url"]`)
+
+	if got := configuration["missing"]; !reflect.DeepEqual(got, want) {
+		t.Errorf("configuration.missing = %#v, want %#v", got, want)
 	}
 }

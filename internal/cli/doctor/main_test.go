@@ -32,6 +32,11 @@ func TestMain(m *testing.M) {
 	os.Exit(clitest.Main(m))
 }
 
+// doctorCommand is the command these tests run, named for the argument lists
+// that start with it so their shared literal does not trip goconst, which
+// counts no plain call argument: a call that names the command spells it.
+const doctorCommand = "doctor"
+
 // wantExit fails the test unless err exits with want. It lives beside the
 // tests that assert with it, since cmd/testshape follows an Assert's failure
 // helper only within its own test package.
