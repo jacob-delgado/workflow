@@ -1982,13 +1982,16 @@ export type ForgeConfig = {
 
 export type UiConfig = {
     mouse?: boolean;
+    /**
+     * Draw borders and glyphs in plain ASCII, in the terminal interface and on the live line a command keeps while it waits.
+     */
     ascii?: boolean;
     /**
      * Empty for auto, or "never".
      */
     color?: '' | 'never';
     /**
-     * Empty for the terminal's motion (a turning in-flight mark, a stage's rule filling), or "reduce" to draw every state still.
+     * Empty for motion (a turning in-flight mark, a stage's rule filling), or "reduce" to draw every state still, in the terminal interface and on the live line a command keeps while it waits.
      */
     motion?: '' | 'reduce';
     /**

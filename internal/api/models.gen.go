@@ -2858,7 +2858,9 @@ type TrackIssueRequest struct {
 type UIConfig struct {
 	// Accessible Whether the terminal's forms ask as plain prompts, one question at a time, rather than drawn over the screen.
 	Accessible *bool `json:"accessible,omitempty"`
-	ASCII      *bool `json:"ascii,omitempty"`
+
+	// ASCII Draw borders and glyphs in plain ASCII, in the terminal interface and on the live line a command keeps while it waits.
+	ASCII *bool `json:"ascii,omitempty"`
 
 	// Color Empty for auto, or "never".
 	Color *UIConfigColor `json:"color,omitempty"`
@@ -2869,7 +2871,7 @@ type UIConfig struct {
 	// Keys Map from a key action to the key that triggers it; see the configuration docs for the actions.
 	Keys *map[string]string `json:"keys,omitempty"`
 
-	// Motion Empty for the terminal's motion (a turning in-flight mark, a stage's rule filling), or "reduce" to draw every state still.
+	// Motion Empty for motion (a turning in-flight mark, a stage's rule filling), or "reduce" to draw every state still, in the terminal interface and on the live line a command keeps while it waits.
 	Motion *UIConfigMotion `json:"motion,omitempty"`
 	Mouse  *bool           `json:"mouse,omitempty"`
 	Notify *bool           `json:"notify,omitempty"`
@@ -2881,7 +2883,7 @@ type UIConfig struct {
 // UIConfigColor Empty for auto, or "never".
 type UIConfigColor string
 
-// UIConfigMotion Empty for the terminal's motion (a turning in-flight mark, a stage's rule filling), or "reduce" to draw every state still.
+// UIConfigMotion Empty for motion (a turning in-flight mark, a stage's rule filling), or "reduce" to draw every state still, in the terminal interface and on the live line a command keeps while it waits.
 type UIConfigMotion string
 
 // UnmanagedHook defines model for UnmanagedHook.

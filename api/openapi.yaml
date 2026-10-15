@@ -5460,7 +5460,11 @@ components:
       type: object
       properties:
         mouse: {type: boolean}
-        ascii: {type: boolean}
+        ascii:
+          type: boolean
+          description: >-
+            Draw borders and glyphs in plain ASCII, in the terminal interface
+            and on the live line a command keeps while it waits.
         color:
           type: string
           description: Empty for auto, or "never".
@@ -5468,8 +5472,9 @@ components:
         motion:
           type: string
           description: >-
-            Empty for the terminal's motion (a turning in-flight mark, a
-            stage's rule filling), or "reduce" to draw every state still.
+            Empty for motion (a turning in-flight mark, a stage's rule
+            filling), or "reduce" to draw every state still, in the terminal
+            interface and on the live line a command keeps while it waits.
           enum: ["", reduce]
         accessible:
           type: boolean

@@ -169,7 +169,7 @@ them on stderr, so there is never a question about which were read.
 | `forge.token` | **no** | GitHub or GitLab token. Usually leave it empty — see below. |
 | `forge.cli` | no | Route forge API calls through the forge's own command-line tool — `gh` for GitHub, `glab` for GitLab — instead of over HTTP, so the login that tool already holds carries the request. This is what reaches a forge behind an SSO gateway a bare token cannot. Falls back to HTTP when the tool is not installed. Defaults to `false`. |
 | `ui.mouse` | no | Capture the mouse, so a click focuses a pane or selects a row. Defaults to `true`. |
-| `ui.ascii` | no | Draw borders and glyphs in plain ASCII. Defaults to `false`. |
+| `ui.ascii` | no | Draw borders and glyphs in plain ASCII, in the interface and on the live line a command keeps while it waits. Defaults to `false`. |
 | `ui.color` | no | `never` turns off the system hues; bold, faint and the cursor stay. Empty (the default) draws them; any other value is refused when the file loads. `NO_COLOR`, set to a non-empty value, also turns them off. |
 | `ui.motion` | no | `reduce` draws every state still: the in-flight mark does not turn, in the interface or on the live line a command keeps while it waits, and a stage's rule and the CI bar stand where they have got rather than filling. Empty (the default) moves them; any other value is refused when the file loads. |
 | `ui.accessible` | no | Ask a form's questions as plain prompts that take the whole terminal, one at a time, for a screen reader, instead of drawing the form over the screen. Defaults to `false`; the `ACCESSIBLE` environment variable, set to anything, does the same. |
