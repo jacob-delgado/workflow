@@ -137,7 +137,7 @@ interface BrowseProps {
 // Browse is the dialog's list: the field, the directories it names, what the
 // list stands at, and the switch to the row highlighted.
 function Browse({ repositories, typed, field, notice, onType, onChoose }: BrowseProps) {
-  const { parent, read, listing, segment, matches } = useListing(typed)
+  const { parent, read, reading, listing, segment, matches } = useListing(typed)
   const [highlighted, setHighlighted] = useState<string>()
   const trail = listing === undefined ? undefined : trailOf(listing)
   const groups = listing === undefined ? [] : groupsOf(repositories, listing, typed, matches)
@@ -192,6 +192,7 @@ function Browse({ repositories, typed, field, notice, onType, onChoose }: Browse
       />
       <Said
         read={read}
+        reading={reading}
         parent={parent}
         listing={listing}
         segment={segment}
@@ -207,7 +208,10 @@ function Browse({ repositories, typed, field, notice, onType, onChoose }: Browse
 }
 
 interface SaidProps {
+  // read is the read whose refusal is said; reading, the whole listing still
+  // out.
   read: UseQueryResult<DirectoryListing>
+  reading: boolean
   parent: string
   listing: DirectoryListing | undefined
   segment: string
@@ -216,8 +220,12 @@ interface SaidProps {
 }
 
 // Said is what the dialog says under its list: a read refused, the directory
-// being read, what the list stands at, and a notice.
-function Said({ read, parent, listing, segment, matches, notice }: SaidProps) {
+// being read, what the list stands at, and a notice. A listing narrowed by
+// the name typed may answer, or be refused, while the whole one is still out;
+// its rows or its refusal are shown, but the dialog says it is reading until
+// the whole one answers, since that may hold more that match, and only then
+// what the list stands at.
+function Said({ read, reading, parent, listing, segment, matches, notice }: SaidProps) {
   return (
     <div className="flex flex-col gap-tight px-4 py-2 text-sm text-muted-foreground">
       {read.isError ? (
@@ -225,12 +233,10 @@ function Said({ read, parent, listing, segment, matches, notice }: SaidProps) {
           {apiErrorMessage(read.error, 'That directory could not be listed.')}
         </Failure>
       ) : null}
-      {listing === undefined ? (
-        read.isPending && (
-          <Reading>Reading {parent === '' ? 'where the server works' : parent}…</Reading>
-        )
+      {reading ? (
+        <Reading>Reading {parent === '' ? 'where the server works' : parent}…</Reading>
       ) : (
-        <Standing listing={listing} segment={segment} matches={matches} />
+        listing !== undefined && <Standing listing={listing} segment={segment} matches={matches} />
       )}
       {notice === '' ? null : <p role="status">{notice}</p>}
     </div>
@@ -254,9 +260,9 @@ function backspaceAtEnd(event: KeyboardEvent<HTMLInputElement>): boolean {
 // useListing reads the directory the field names, and again for the names
 // starting with what was typed after its last slash when the first listing
 // was cut short, or when that name starts with a dot, since a hidden
-// directory is listed only then: the directory read, the read whose failure
-// or wait is shown, what the two list together, the name typed, and the
-// directories that hold it.
+// directory is listed only then: the directory read, the read whose refusal
+// is shown, whether the whole listing is still out, what the two list
+// together, the name typed, and the directories that hold it.
 function useListing(typed: string) {
   const { parent, segment } = splitTyped(typed)
   const all = useDirectories(parent)
@@ -268,6 +274,7 @@ function useListing(typed: string) {
   return {
     parent,
     read: narrowing && narrowed.isError ? narrowed : all,
+    reading: all.isPending,
     listing,
     segment,
     matches: listing === undefined ? [] : matching(listing.entries, segment),

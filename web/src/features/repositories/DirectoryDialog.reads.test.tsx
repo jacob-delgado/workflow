@@ -14,6 +14,10 @@ import { RepositoriesPanel } from './RepositoriesPanel.tsx'
 // cutShort is what the dialog says of a listing cut short, at any limit.
 const cutShort = /^First \d+ shown; keep typing to narrow\.$/
 
+// standing is what the dialog says of the directory listed once it is read:
+// how many of its directories match, or that none do, or that it holds none.
+const standing = /^(?:\d+ of \d+|\d+ director(?:y|ies)|No directories|Nothing) in /
+
 // big answers for ~/big, a directory of more than a listing holds: cut short
 // to first, at as many as it names, and asked again by a prefix, every name
 // starting with it in any case, past the first too, as the server answers.
@@ -160,6 +164,71 @@ test('a hidden directory is asked for once its dot is typed', async () => {
   await waitFor(() => {
     expect(options()).toEqual(['.config', 'switch here~'])
   })
+})
+
+test.each([
+  ['nothing', [], ['switch here~/src']],
+  ['a hidden directory', ['.cache'], ['.cache', 'switch here~/src']],
+])(
+  'a listing asked again by its dot that answers before the whole one, finding %s, leaves the dialog reading',
+  async (_, hidden, listed) => {
+    // Arrange
+    // The whole listing of ~/src is held back, and the one narrowed by the
+    // dot answers: what the whole one holds may match the dot too.
+    serving((url) => {
+      const prefix = url.searchParams.get('prefix')
+      if (url.searchParams.get('path') === '~/src' && prefix === null) {
+        return held<DirectoryListing>().promise
+      }
+
+      const entries = hidden.map((name) => ({
+        name,
+        path: `/home/ana/src/${name}`,
+        repository: false,
+      }))
+
+      return prefix === '.' ? { ...listing(url), entries } : listing(url)
+    })
+    const user = userEvent.setup()
+    renderWithClient(<RepositoriesPanel />)
+    const field = await openDialog(user)
+
+    // Act
+    await user.type(field, '~/src/.')
+
+    // Assert
+    await waitFor(() => {
+      expect(options()).toEqual(listed)
+    })
+    expect(screen.getByText('Reading ~/src…')).toBeTruthy()
+    expect(screen.queryByText(standing)).toBeNull()
+  },
+)
+
+test('a listing asked again by its dot that is refused while the whole one is read says both', async () => {
+  // Arrange
+  // The whole listing of ~/src is held back, and the one narrowed by the dot
+  // is refused.
+  serving((url) => {
+    const prefix = url.searchParams.get('prefix')
+    if (url.searchParams.get('path') === '~/src' && prefix === null) {
+      return held<DirectoryListing>().promise
+    }
+
+    return prefix === '.' ? new Response('', { status: 500 }) : listing(url)
+  })
+  const user = userEvent.setup()
+  renderWithClient(<RepositoriesPanel />)
+  const field = await openDialog(user)
+
+  // Act
+  await user.type(field, '~/src/.')
+
+  // Assert
+  const dialog = screen.getByRole('dialog', { name: 'Go to a directory' })
+  expect(await within(dialog).findByRole('alert')).toBeTruthy()
+  const said = within(dialog).getAllByRole('status')
+  expect(said.map((line) => line.textContent)).toContain('Reading ~/src…')
 })
 
 test('at most two hundred matches are listed, with how many more there are', async () => {
