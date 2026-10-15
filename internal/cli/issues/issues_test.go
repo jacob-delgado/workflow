@@ -349,6 +349,43 @@ func TestIssuePrintsTheIssueInFull(t *testing.T) {
 	}
 }
 
+func TestIssuePrintsOnlyWhatItHasOfASparseIssue(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	baseURL, _ := trackerJira(t, trackerAnswers{})
+	dir := t.TempDir()
+	clitest.WriteFile(t, dir, trackerConfig(baseURL, ""))
+
+	// Act
+	printed, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "issue", sparseIssue)
+
+	// Assert
+	want := "PROJ-8  Bare\nTo Do\nReported by nobody named, unassigned\n" + baseURL + "/browse/PROJ-8\n" +
+		"\nsomeone\n  undated\n"
+	if err != nil || printed.Stdout != want {
+		t.Errorf("issue = %v, printed:\n%s\nwant:\n%s", err, printed.Stdout, want)
+	}
+}
+
+func TestIssuePrintsNoLinkForAnIssueWithNoPage(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	baseURL, _ := trackerJira(t, trackerAnswers{})
+	dir := t.TempDir()
+	clitest.WriteFile(t, dir, trackerConfig(baseURL, ""))
+
+	// Act
+	printed, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "issue", unlinkedIssue)
+
+	// Assert
+	want := "11  Unlinked\nTo Do\nReported by nobody named, unassigned\n"
+	if err != nil || printed.Stdout != want {
+		t.Errorf("issue = %v, printed:\n%s\nwant:\n%s", err, printed.Stdout, want)
+	}
+}
+
 func TestIssueNotInTheTrackerExitsAsAFailure(t *testing.T) {
 	t.Parallel()
 
