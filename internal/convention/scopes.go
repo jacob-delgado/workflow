@@ -70,9 +70,11 @@ func ScopeSuggestions(paths, subjects []string) []string {
 // Empty when they share no directory or the name is not a usable scope.
 func sharedScope(paths []string) string {
 	// Files that share no directory share "", "." or "/", whose base is "." or
-	// "/": names ValidateScope refuses like any other that is not a scope.
+	// "/": names refused like any other that is not a scope. The name is held
+	// to the scope's shape as it is, not as ValidateScope trims it, which takes
+	// a name of spaces alone for an empty scope, and an empty scope as none.
 	base := path.Base(sharedDir(paths))
-	if ValidateScope(base) != nil {
+	if !wellFormedScope.MatchString(base) {
 		return ""
 	}
 

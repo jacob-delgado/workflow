@@ -114,6 +114,14 @@ func TestScopeSuggestionsOffersTheStagedFilesDirectoryThenTheLogsScopes(t *testi
 			paths: []string{"/main.go"},
 			want:  nil,
 		},
+		"a directory named by spaces alone is not offered": {
+			paths: []string{"  /a.go", "  /b.go"},
+			want:  nil,
+		},
+		"a directory whose name is padded by spaces is not offered": {
+			paths: []string{" cfg /a.go", " cfg /b.go"},
+			want:  nil,
+		},
 		"a directory whose name is not a scope is not offered": {
 			paths: []string{"my dir/a.go", "my dir/b.go"},
 			want:  nil,
