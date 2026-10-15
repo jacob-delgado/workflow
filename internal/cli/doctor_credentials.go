@@ -4,7 +4,6 @@
 package cli
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -114,16 +113,6 @@ func credentialChecks(ctx context.Context, run doctorRun, remote string) []crede
 	}
 }
 
-// forgeNoun names a forge mid-sentence: by its own name, or as the forge when
-// the remote does not say which.
-func forgeNoun(kind forge.Kind) string {
-	if kind == forge.KindUnknown {
-		return "the forge"
-	}
-
-	return kind.String()
-}
-
 // credentialVerdict joins the checks' outcomes into the run's verdict, leaving
 // out a check doctor could not make: nothing is known to be wrong with a
 // credential nobody could ask about, so it must not fail the run.
@@ -137,19 +126,6 @@ func credentialVerdict(outcomes ...error) error {
 	}
 
 	return errors.Join(counted...)
-}
-
-// requestTimeout is the configured request timeout, or the default when none
-// is set: it bounds each of doctor's --online checks, so a hung service does
-// not hang doctor, and how long a quit waits for the writes in flight.
-func requestTimeout(cfg config.Config) time.Duration {
-	return cmp.Or(cfg.RequestTimeout(), config.DefaultRequestTimeout)
-}
-
-// onlineDoer is the transport the tracker and messaging checks travel over: the
-// redirect-refusing client, bounded by requestTimeout.
-func onlineDoer(cfg config.Config) httpx.Doer {
-	return httpx.Client(requestTimeout(cfg)).Do
 }
 
 // serviceDoers are the online transport once per HTTP-only service, each
