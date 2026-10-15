@@ -340,15 +340,20 @@ func timingSettings() []setting {
 	}
 }
 
-// terminalSettings are how the terminal interface draws and behaves.
+// terminalSettings are how the terminal interface draws and behaves, and how
+// a command's live line is drawn.
 func terminalSettings() []setting {
 	const (
 		section  = "Terminal"
 		nextOpen = "A change applies when the interface next opens."
+		nextRun  = "A change applies when the interface next opens or a command next runs."
 	)
 
 	return []setting{
-		{section: section, label: "Draw in plain ASCII", path: "ui.ascii", kind: settingToggle, hint: nextOpen},
+		{
+			section: section, label: "Draw in plain ASCII", path: "ui.ascii", kind: settingToggle,
+			hint: "Draws the interface, and the live line a command keeps while it waits, in ASCII. " + nextRun,
+		},
 		{section: section, label: "Capture the mouse", path: "ui.mouse", kind: settingToggle, hint: nextOpen},
 		{
 			section: section, label: "Color", path: "ui.color", kind: settingChoice,
@@ -357,7 +362,8 @@ func terminalSettings() []setting {
 		},
 		{
 			section: section, label: "Motion", path: "ui.motion", kind: settingChoice,
-			hint:    "Reduced draws every state still: no mark turns and no rule fills. " + nextOpen,
+			hint: "Reduced draws every state still, in the interface and on a command's live line: " +
+				"no mark turns and no rule fills. " + nextRun,
 			choices: []option{{"", "Moving where something changes (default)"}, {config.MotionReduce, "Reduced"}},
 		},
 		{

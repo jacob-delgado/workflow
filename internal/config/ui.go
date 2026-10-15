@@ -51,12 +51,13 @@ func KeyRefusals() []error {
 // colorNever is the ui.color that turns the system hues off.
 const colorNever = "never"
 
-// MotionReduce is the ui.motion that draws every state still: no mark turns,
-// no rule fills, no bar springs.
+// MotionReduce is the ui.motion that draws every state still, in the
+// terminal interface and on a command's live line: no mark turns, no rule
+// fills, no bar springs.
 const MotionReduce = "reduce"
 
-// UI is how the terminal interface behaves, and the one keyboard setting the
-// --web page reads beside its keys.
+// UI is how the terminal interface behaves, how a command's live line is
+// drawn, and the one keyboard setting the --web page reads beside its keys.
 type UI struct {
 	// Mouse captures the mouse, so a click focuses a pane or selects a row.
 	// Capturing it takes away the terminal's own click-and-drag selection,

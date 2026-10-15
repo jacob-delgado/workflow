@@ -4,12 +4,13 @@ import { useKeysStore } from '@/features/keyboard/keysApi.ts'
 import { Input } from '@/lib/Field.tsx'
 import { CheckboxField, Fieldset, SelectField, TextField, type Register } from './Field.tsx'
 
-// TerminalFieldset is how the terminal interface draws and behaves.
+// TerminalFieldset is how the terminal interface draws and behaves, and how a
+// command's live line is drawn.
 export function TerminalFieldset({ register }: { register: Register }) {
   return (
     <Fieldset
       legend="Terminal"
-      hint="How the terminal interface draws and behaves; a change applies when it next opens."
+      hint="How the terminal interface draws and behaves; a change applies when it next opens. ASCII and motion also apply to the live line a command keeps while it waits, from its next run."
     >
       <CheckboxField register={register} name="ui.ascii" label="Draw in plain ASCII" />
       <CheckboxField register={register} name="ui.mouse" label="Capture the mouse" />
@@ -27,7 +28,7 @@ export function TerminalFieldset({ register }: { register: Register }) {
         register={register}
         name="ui.motion"
         label="Motion"
-        hint="Reduced draws every state still: no mark turns and no rule fills."
+        hint="Reduced draws every state still, in the interface and on a command's live line: no mark turns and no rule fills."
         choices={[
           ['', 'Moving where something changes (default)'],
           ['reduce', 'Reduced'],

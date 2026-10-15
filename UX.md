@@ -230,7 +230,7 @@ delay, and undo.
 Impact: low · Effort: medium
 
 **Today.** `NO_COLOR` and `ui.color: never` keep bold and faint
-(`UI.DrawColor`, `internal/config/ui.go:113`; `Model.WithoutColor`,
+(`UI.DrawColor`, `internal/config/ui.go:116`; `Model.WithoutColor`,
 `internal/tui/options.go:54`); `ui.ascii` swaps glyphs and borders
 (`asciiGlyphs`, `internal/tui/glyphs.go:63`); escapes in server text are
 neutralized. But there is no screen-reader mode; the alternate screen is
@@ -243,8 +243,8 @@ and nothing offers a plain mode that prints a line at a time
 instead; the command line is the only other way in.
 
 **Instead.** `ui.alt_screen: false` for inline rendering; `ui.color:
-always`, which `Config.validateUI` (`internal/config/ui.go:134`) and the
-`UIConfig.color` enum (`api/openapi.yaml:5461`) refuse until they list it;
+always`, which `Config.validateUI` (`internal/config/ui.go:138`) and the
+`UIConfig.color` enum (`api/openapi.yaml:5470`) refuse until they list it;
 `ui.detail_delay` in milliseconds.
 
 **Done when.** Each setting is read and honored by a screen test.
