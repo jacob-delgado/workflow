@@ -24,7 +24,7 @@ import (
 const maxLine = 1 << 20
 
 // lineBuffer is how many lines may wait for a reader before the program is made
-// to wait instead.
+// to wait instead. leftbehind_test.go's unreadLines must stay above it.
 const lineBuffer = 64
 
 // outputGrace is how long a run's output may keep it waiting once the program
