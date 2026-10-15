@@ -337,6 +337,11 @@ linters:
       # the help, and t.Setenv panics in a parallel test, so it runs alone.
       - path: internal/cli/help_terminal_test\.go$
         linters: [paralleltest]
+      # Run asks on this process's own standard input and output, which these
+      # tests point at a terminal, as a secret needs, with TERM set there, and
+      # t.Setenv panics in a parallel test, so they run alone.
+      - path: internal/tui/quietinput/run_(terminal|secret_linux)_test\.go$
+        linters: [paralleltest]
       # This interface test raises SIGTERM on its own process, which every run
       # beside it would hear too, so it runs alone.
       - path: internal/tui/sigterm_unix_test\.go$
