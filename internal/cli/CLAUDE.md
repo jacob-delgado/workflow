@@ -2,7 +2,9 @@
 
 The scriptable contract and the output plumbing every command keeps, for a
 change to a command, a flag, what a command prints or how it exits. The root
-`CLAUDE.md` still applies; this adds what holds here alone.
+`CLAUDE.md` still applies; this adds what holds here alone. UX.md's Principles
+and Vocabulary are binding here: an action keeps one name through its flow, and
+a new word comes from that table.
 
 ## A published contract
 
