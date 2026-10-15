@@ -308,15 +308,13 @@ func (s *lineSender) abandon() {
 	close(s.abandoned)
 }
 
-// close closes Lines, once.
+// close closes Lines, which follow does once the run is done with its output.
 func (s *lineSender) close() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if !s.closed {
-		s.closed = true
-		close(s.lines)
-	}
+	s.closed = true
+	close(s.lines)
 }
 
 // deliver sends each line until the output ends, and never leaves the program
