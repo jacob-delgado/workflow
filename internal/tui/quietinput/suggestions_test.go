@@ -172,10 +172,11 @@ func TestLeavingAFieldNothingWasTypedInLeavesItsValueUncompleted(t *testing.T) {
 
 	cases := map[string]struct {
 		offeredBefore [][]string
-		pressedFirst  []string
+		first         []tea.Msg
 	}{
-		"left at once":                        {},
-		"left after a key that types nothing": {pressedFirst: []string{"end"}},
+		"left at once":                            {},
+		"left after a key that types nothing":     {first: []tea.Msg{pressed("end")}},
+		"left after a paste that changes nothing": {first: []tea.Msg{tea.PasteMsg{Content: ""}}},
 		"left once suggestions were offered again": {
 			offeredBefore: [][]string{{"release"}},
 		},
@@ -198,8 +199,8 @@ func TestLeavingAFieldNothingWasTypedInLeavesItsValueUncompleted(t *testing.T) {
 
 			focused(field.Suggesting([]string{backportBranch}), acceptingKeys())
 
-			for _, key := range tt.pressedFirst {
-				field.Update(pressed(key))
+			for _, msg := range tt.first {
+				field.Update(msg)
 			}
 
 			// Act
