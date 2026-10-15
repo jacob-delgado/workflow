@@ -141,6 +141,38 @@ func TestAnnounceTagsTheOwnersAndGroupsLinkedInTheWorkspaceInUse(t *testing.T) {
 	}
 }
 
+func TestAnnounceTagsTheGroupsOfAChangeNoOneOwns(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The repository has no CODEOWNERS, so no owner is proposed, but its group
+	// is still chosen.
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
+	slack := clitest.FakeSlack(t, nil)
+	repo := clitest.PRRepo(t, "fix/PROJ-2-thing")
+	clitest.Git(t, repo, "remote", "add", "origin", "https://github.com/acme/repo.git")
+	clitest.PretendPushed(t, repo)
+	clitest.WriteFile(t, repo, clitest.SlackLoggedInConfig())
+	home := keptLinks(t)
+
+	// Act
+	printed, err := clitest.RunStreamsAt(
+		t, clitest.Place{Dir: repo, Home: home}, clitest.UnusedPrompt(t), "announce", "--yes",
+	)
+	// Assert
+	if err != nil {
+		t.Fatalf("announce --yes: %v (%+v)", err, printed)
+	}
+
+	if !strings.Contains(printed.Stdout, "tags @api-reviewers\n") {
+		t.Errorf("announce previewed %q, want api-reviewers tagged", printed.Stdout)
+	}
+
+	if post := slack.Post(t); !strings.Contains(post, "<!subteam^S0API>") {
+		t.Errorf("announce posted %q, want api-reviewers tagged", post)
+	}
+}
+
 func TestAnnounceTagsNoOneLinkedOnlyInAnotherWorkspace(t *testing.T) {
 	t.Parallel()
 
