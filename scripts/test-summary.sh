@@ -88,12 +88,15 @@ vitest_row() {
   fi
 }
 
-# playwright_row runs the end-to-end suite and records the counts from its json
-# reporter. A run that cannot start (no browser) leaves the counts as dashes.
+# playwright_row runs the end-to-end suite on Chromium, every spec, as CI's E2E
+# job does, and records the counts from its json reporter; Firefox's and
+# WebKit's smoke run is left to `task e2e`. A run that cannot start (no
+# browser) leaves the counts as dashes.
 playwright_row() {
   e2e_pass="-" e2e_skip="-" e2e_fail="-"
 
-  (cd "${root}/web" && corepack yarn playwright test --reporter=json) >"${work}/pw.json" 2>/dev/null || true
+  (cd "${root}/web" && corepack yarn playwright test --project=chromium --project=mock \
+    --reporter=json) >"${work}/pw.json" 2>/dev/null || true
 
   read -r e2e_pass e2e_skip e2e_fail <<<"$(counts playwright "${work}/pw.json")"
 }
