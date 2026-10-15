@@ -10,6 +10,8 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/huh/v2"
+
+	"github.com/jacob-delgado/workflow/internal/tui/quietinput"
 )
 
 // settingsEdit is a Huh form open over Settings' rows: a section's settings
@@ -192,13 +194,13 @@ func settingField(field setting, answer *settingAnswer) huh.Field {
 			Value(&answer.text)
 	}
 
-	input := newQuietInput(field.label, "", &answer.text).hinted(field.hint).checkedBy(func(text string) error {
+	input := quietinput.New(field.label, "", &answer.text).Hinted(field.hint).CheckedBy(func(text string) error {
 		_, _, err := typedValue(field, text)
 
 		return err
 	})
 	if field.kind == settingSecret {
-		return input.secret()
+		return input.Secret()
 	}
 
 	return input
@@ -240,9 +242,9 @@ func (f settingsForm) entryGroups(field setting) ([]*huh.Group, func(settingsFor
 		answer.text = f.entryValue(field)
 	}
 
-	input := newQuietInput(field.label, field.list.valueWord, &answer.text).hinted(field.hint)
+	input := quietinput.New(field.label, field.list.valueWord, &answer.text).Hinted(field.hint)
 	if field.list.secret {
-		input = input.secret()
+		input = input.Secret()
 	}
 
 	keep := func(into settingsForm) (settingsForm, error) { return into.keptEntry(field, answer.text), nil }
@@ -254,12 +256,12 @@ func (f settingsForm) entryGroups(field setting) ([]*huh.Group, func(settingsFor
 // left empty or already listed and a value left empty.
 func (f settingsForm) addGroups(field setting) ([]*huh.Group, func(settingsForm) (settingsForm, error)) {
 	name, value := &settingAnswer{}, &settingAnswer{}
-	named := newQuietInput(capitalized(field.list.nameWord), "", &name.text).
-		checkedBy(func(typed string) error { return f.nameProblem(field, typed) })
-	valued := newQuietInput(capitalized(field.list.valueWord), "", &value.text).checkedBy(valueProblem)
+	named := quietinput.New(capitalized(field.list.nameWord), "", &name.text).
+		CheckedBy(func(typed string) error { return f.nameProblem(field, typed) })
+	valued := quietinput.New(capitalized(field.list.valueWord), "", &value.text).CheckedBy(valueProblem)
 
 	if field.list.secret {
-		valued = valued.secret()
+		valued = valued.Secret()
 	}
 
 	keep := func(into settingsForm) (settingsForm, error) { return into.added(field, name.text, value.text) }

@@ -15,6 +15,7 @@ import (
 	"charm.land/huh/v2"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/tui/quietinput"
 )
 
 // errNeedsValue reports a one-line write left empty.
@@ -86,8 +87,8 @@ func newFieldForm(move jira.Transition, kit renderKit, keys keyMap, width, rows 
 func huhField(field jira.Field, title string, answer *fieldAnswer) huh.Field {
 	switch {
 	case textual(field.Kind):
-		return newQuietInput(title, placeholder(field.Kind), &answer.text).
-			checkedBy(func(text string) error { return (&fieldAnswer{text: text}).checked(field) })
+		return quietinput.New(title, placeholder(field.Kind), &answer.text).
+			CheckedBy(func(text string) error { return (&fieldAnswer{text: text}).checked(field) })
 	case field.Kind == jira.FieldOptionList:
 		// Its height is named: left to itself, Huh counts its options' rows and
 		// takes the title out of them, drawing one option too few.

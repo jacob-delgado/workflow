@@ -93,7 +93,9 @@ internal/forge 18
 # pane or an overlay cannot leave without carrying Model, and everything that
 # takes it, across a package boundary Go does not allow, and CLAUDE.md says the
 # package must not be split to chase a number. What may leave is a leaf with a
-# reason to change of its own and no Model in it, as layout/ and frame/ did.
+# reason to change of its own and no Model in it, as layout/ and frame/ did,
+# and as quietinput/ did on 2026-10-15, taking quietinput.go, the Huh field
+# typed text goes through, which changes as huh.Field does.
 # The ceiling came in at 80 over 64 files; splitting the long files by concern,
 # the panes' key bindings out of keys.go and the Repositories pane's drawing
 # out of repositories.go brought it there, each a file past the 500-line target
@@ -102,10 +104,9 @@ internal/forge 18
 # eight (dryrun.go, errorwords.go, glyphs.go, issues.go, panekeys.go,
 # settingsedit.go, settingsfields.go, settingsvalues.go) each work on the
 # package's own state, which a split would export for this one caller; the
-# ninth, quietinput.go, is the Huh field typed text goes through, which changes
-# as huh.Field does, and so may leave as a leaf. So 96, the same sixteen files
-# of room the ceiling came in with; reaching it is where the shape is looked at
-# again.
+# ninth was quietinput.go, which has since left as quietinput/. So 96, the same
+# sixteen files of room the ceiling came in with; reaching it is where the
+# shape is looked at again.
 internal/tui 96 cohesive
 
 # internal/webserver — the loopback REST surface, spelled one file per

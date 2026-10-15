@@ -965,7 +965,7 @@ steps, or GitLab's checks are read one by one.
 
 **Decided.** The terminal's multi-field forms are Huh forms embedded in an
 overlay, with Huh's own groups, selects and accessible prompts, but each field
-that takes typed text is `quietInput` (`internal/tui/quietinput.go`), a
+that takes typed text is `quietinput.Input` (`internal/tui/quietinput`), a
 `huh.Field` of our own over a text input whose cursor never blinks. Huh's
 `Input` blinks and offers no way not to: each focus and each key schedules a
 blink that waits about half a second of real time. A running program pays
@@ -976,15 +976,15 @@ than 34, and the first run's forms, typed a URL and a token at a time, took
 their tests from about 8 seconds to 3 and a half minutes. Decided 2026-10-14,
 with Huh, after measuring that cost. Later that day the pull request form's
 base came to need suggestions, and a token's and a webhook's fields a mask;
-each was added to `quietInput` (`suggesting`, `secret`), so no form came to
-need what only `huh.Input` offers, and the maintainer read the trigger so:
-neither reopened this.
+each was added to `quietinput.Input` (`Suggesting`, `Secret`), so no form
+came to need what only `huh.Input` offers, and the maintainer read the trigger
+so: neither reopened this.
 
-**Cost.** `quietInput` does for one line what `huh.Input` does — its title,
-placeholder, prompt, check, keys, theme, width, suggestions and mask — so a
-fix or a feature Huh adds to its input, such as a character limit, is not ours
-until it is added here. Its accessible prompt is Huh's own input, so that one
-stays Huh's.
+**Cost.** `quietinput.Input` does for one line what `huh.Input` does — its
+title, placeholder, prompt, check, keys, theme, width, suggestions and mask —
+so a fix or a feature Huh adds to its input, such as a character limit, is not
+ours until it is added here. Its accessible prompt is Huh's own input, so that
+one stays Huh's.
 
 **Reopen when.** Huh lets an input's cursor be static, or a form needs what
 only `huh.Input` offers.

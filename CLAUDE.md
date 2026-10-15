@@ -39,6 +39,7 @@ internal/places/      where an issue can be, for narrowing the Issues list on bo
 internal/tui/         the Bubble Tea interface; every outside call is a Deps seam
 internal/tui/frame/   a titled, bordered box of an exact size
 internal/tui/layout/  where each region of the interface goes, per terminal size
+internal/tui/quietinput/ the Huh field typed text goes through, whose cursor never blinks
 internal/webserver/   the --web REST API and event stream, bound to 127.0.0.1
 internal/webserver/problem/ the RFC 9457 problem details the --web API answers a failure with
 internal/web/         the built web app, committed so every build embeds it

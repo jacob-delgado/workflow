@@ -8,6 +8,7 @@ import (
 	"charm.land/huh/v2"
 
 	"github.com/jacob-delgado/workflow/internal/sanitize"
+	"github.com/jacob-delgado/workflow/internal/tui/quietinput"
 )
 
 // asking is the composer asking stage's form, on its field focusing, and the
@@ -44,8 +45,8 @@ func composerSize(m Model) (int, int) {
 // remote branch, and, where the repository has more than one and the body is
 // not edited, the template its body starts from.
 func (c prComposer) whereFields() []huh.Field {
-	base := newQuietInput("Base", "", &c.answers.base).suggesting(c.branches).
-		hinted("The branch " + sanitize.Line(c.head) + " merges into.")
+	base := quietinput.New("Base", "", &c.answers.base).Suggesting(c.branches).
+		Hinted("The branch " + sanitize.Line(c.head) + " merges into.")
 	if !c.offersTemplate() {
 		return []huh.Field{base}
 	}
@@ -67,11 +68,11 @@ func (c prComposer) choosesTemplate() bool {
 // draft, and who reviews it, is assigned it, and what labels it carries.
 func (c prComposer) whatFields() []huh.Field {
 	listed := func(title, description string, value *string) huh.Field {
-		return newQuietInput(title, "", value).hinted(description)
+		return quietinput.New(title, "", value).Hinted(description)
 	}
 
 	return []huh.Field{
-		newQuietInput("Title", "", &c.answers.title),
+		quietinput.New("Title", "", &c.answers.title),
 		huh.NewConfirm().Title("Draft").Affirmative("Yes").Negative("No").Inline(true).Value(&c.answers.draft),
 		listed("Reviewers", "Comma-separated; org/team names a team.", &c.answers.reviewers),
 		listed("Assignees", "Comma-separated.", &c.answers.assignees),
