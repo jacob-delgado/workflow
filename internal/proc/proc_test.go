@@ -6,7 +6,9 @@ package proc_test
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -82,6 +84,44 @@ func TestRunReportsAFailureStatusAsAnExitError(t *testing.T) {
 	exit, ok := errors.AsType[*proc.ExitError](err)
 	if !ok || exit.Program != "sh" || exit.Code != 3 || exit.Stderr != "fatal: no such ref" {
 		t.Errorf("Run's failure = %#v, want ExitError{sh, 3, %q}", err, "fatal: no such ref")
+	}
+}
+
+func TestAnExitErrorWithNothingOnStandardErrorGivesTheStatusAlone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	exit := &proc.ExitError{Program: "git", Code: 1, Stderr: ""}
+
+	// Act
+	said := exit.Error()
+
+	// Assert
+	if said != "git: exit status 1" {
+		t.Errorf("the error said %q, want %q", said, "git: exit status 1")
+	}
+}
+
+func TestRunCommandReportsAProgramThatCouldNotRunAsNoExit(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A file without an execute bit, which not even root may run.
+	unrunnable := filepath.Join(t.TempDir(), "tool")
+
+	err := os.WriteFile(unrunnable, []byte("#!/bin/sh\n"), 0o600)
+	if err != nil {
+		t.Fatalf("writing the program: %v", err)
+	}
+
+	// Act
+	_, err = proc.RunCommand(t.Context(), proc.Command{Name: "tool", Path: unrunnable})
+
+	// Assert
+	_, _, exited := proc.Failure(err)
+	if exited || !errors.Is(err, fs.ErrPermission) || !strings.HasPrefix(err.Error(), "tool: ") {
+		t.Errorf("running a file that may not run = %v, an exit %v; want the refusal, named for tool, and no exit",
+			err, exited)
 	}
 }
 
