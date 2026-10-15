@@ -51,6 +51,24 @@ func TestTheBaseTheComposerOpensAtIsKeptThoughANewerBranchBeginsWithIt(t *testin
 	refuseScreen(t, view, "→ "+baseName+"-backport")
 }
 
+// A base typed whole is the base, though a newer remote branch, listed
+// first, begins with its name.
+func TestABaseTypedWholeIsKeptThoughANewerBranchBeginsWithIt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	opening := withoutPull()
+	opening.remoteBranches = []string{baseName + "-backport", baseName}
+	model := opening.live(t, 120, 40)
+
+	// Act
+	view := typing(t, model, append(baseKeys(baseName), keyEnter)...).View().Content
+
+	// Assert
+	requireScreen(t, view, "→ "+baseName)
+	refuseScreen(t, view, "→ "+baseName+"-backport")
+}
+
 func TestTabMovesPastTheBaseWhenNothingCompletes(t *testing.T) {
 	t.Parallel()
 
