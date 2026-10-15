@@ -51,7 +51,9 @@ link and the `:focus-visible` ring, and de-emphasize with color rather than
 through `src/lib/baseui`, whose `CSPProvider` keeps them from writing the
 `<style>` the server's content policy refuses; ScrollArea and Select, the only
 parts that write one, are not used, and a choice from a fixed list is a native
-`<select>` (TRADE-50).
+`<select>` (TRADE-50). `e2e/server/policy.spec.ts` holds the page the binary
+serves to that real content policy while it opens Settings' Tabs and the tag
+picker's Combobox.
 
 ## Server text reaches the page as text
 
