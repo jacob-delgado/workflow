@@ -3,15 +3,18 @@
 
 // Package clitest runs the workflow command line for a test, as a user or a
 // script would type it: each run in a world of its own — a working directory,
-// a home and none of the developer's environment but what the test set — with
-// a Jira that answers, and the process readied for the tests by Main. It is
-// the support the command tree's packages share for their black-box tests;
-// only tests import it.
+// a home and none of the developer's environment but what the test set — or
+// from a directory that is gone, or into an output that refuses writes, with
+// a Jira, a Slack and a gh or glab that answer, and the process readied for
+// the tests by Main. It is the support the command tree's packages share for
+// their black-box tests; only tests import it.
 package clitest
 
 import (
 	"bytes"
 	"errors"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
@@ -85,6 +88,54 @@ func RunStreamsAt(t *testing.T, where Place, prompt cmdkit.Prompt, args ...strin
 	return Streams{Stdout: stdout.String(), Stderr: stderr.String()}, err
 }
 
+// RunAtHome is Run with dir as the home directory as well, so the file there
+// is the home file, the one file that may set a program to run or a variable
+// to read.
+func RunAtHome(t *testing.T, dir string, args ...string) (string, error) {
+	t.Helper()
+
+	printed, err := RunStreamsAt(t, Place{Dir: dir, Home: dir}, UnusedPrompt(t), args...)
+
+	return printed.Stdout + printed.Stderr, err
+}
+
+// WorkdirUnread is what a command says when it cannot name the directory it
+// was run from.
+const WorkdirUnread = "determining the working directory"
+
+// ErrDirectoryGone is a working directory that cannot be named, as a shell is
+// left standing in one when `git worktree remove` deletes the directory it is
+// in.
+var ErrDirectoryGone = errors.New("getwd: no such file or directory")
+
+// RunFromARemovedDirectory runs the command tree from a working directory that
+// cannot be named. The home is the test's, for a configuration put there
+// first.
+func RunFromARemovedDirectory(t *testing.T, home string, args ...string) (Streams, error) {
+	t.Helper()
+
+	env := EnvironmentFor(t, Place{Dir: t.TempDir(), Home: home})
+	env.WorkingDir = func() (string, error) { return "", ErrDirectoryGone }
+
+	var stdout, stderr bytes.Buffer
+
+	err := cli.Execute(args, &stdout, &stderr, UnusedPrompt(t), env)
+
+	return Streams{Stdout: stdout.String(), Stderr: stderr.String()}, err
+}
+
+// ErrOutputClosed is a stdout whose reader has gone, as when a pipe's far end
+// exits early.
+var ErrOutputClosed = errors.New("output closed")
+
+// RefusingOutput fails every write.
+type RefusingOutput struct{}
+
+var _ io.Writer = RefusingOutput{}
+
+// Write refuses whatever it is handed, writing none of it.
+func (RefusingOutput) Write([]byte) (int, error) { return 0, ErrOutputClosed }
+
 // IsolatedEnvironment is the environment every run gets, so nothing of the
 // developer's own decides a result or is touched by one: the home is the
 // test's — a ~/.workflow.json would stand in for a missing file — and the store
@@ -137,4 +188,10 @@ func ReadLog(t *testing.T, path string) string {
 	}
 
 	return string(contents)
+}
+
+// Redirecting answers every request with a redirect to a sign-in page, as a
+// gateway in front of a service does.
+func Redirecting(writer http.ResponseWriter, request *http.Request) {
+	http.Redirect(writer, request, "https://sso.example.com/login", http.StatusFound)
 }

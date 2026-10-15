@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli_test
+package doctor_test
 
 import (
 	"strings"
@@ -95,7 +95,7 @@ func TestDoctorOnlineSaysGlabsLoginIsNotRead(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	dir := repoWithRemote(t, gitlabSSHRemote)
+	dir := clitest.RepoWithRemote(t, gitlabSSHRemote)
 	clitest.WriteConfigFor(t, dir, clitest.WorkingJira(t))
 	gitAndGlab(t)
 
@@ -174,5 +174,46 @@ func TestDoctorOnlineWarnsAGitLabTokenThatCannotUseTheAPI(t *testing.T) {
 	// Assert
 	if !strings.Contains(output, "cannot use the API: it has read_user, not api") {
 		t.Errorf("doctor --online does not warn of a token without API access:\n%s", output)
+	}
+}
+
+func TestDoctorOnlineSaysNothingOfATokenThatCanWriteToGitLab(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := forgeCLIRepository(t, gitlabSSHRemote)
+	clitest.FakeGlabWithScopes(t, `{"scopes":["api","read_user"]}`)
+
+	// Act
+	output, err := clitest.Run(t, dir, "doctor", "--online")
+	// Assert
+	if err != nil {
+		t.Errorf("doctor --online = %v, want a token with the api scope to pass", err)
+	}
+
+	if row := credentialRow(output, "forge"); !strings.HasPrefix(row, "authenticates as tanuki") ||
+		strings.Contains(row, ";") {
+		t.Errorf("doctor's forge row = %q, want who the token is and no warning of its scopes:\n%s", row, output)
+	}
+}
+
+func TestDoctorSaysWhatGlabCarriesWhenForgeCLIIsOff(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The repository is on GitLab with forge.cli off, so a missing glab costs
+	// only what it would carry were forge.cli on.
+	dir := clitest.RepoWithRemote(t, gitlabSSHRemote)
+	clitest.WriteFile(t, dir, completeConfig)
+	pathWithOnlyGit(t)
+
+	// Act
+	output, _ := clitest.Run(t, dir, "doctor")
+
+	// Assert
+	row := toolingRow(output, "glab")
+	if !strings.Contains(row, "carries GitLab calls when forge.cli is on") ||
+		strings.Contains(row, "forge.cli is on, so") {
+		t.Errorf("the glab row = %q, want what glab carries when forge.cli is on:\n%s", row, output)
 	}
 }

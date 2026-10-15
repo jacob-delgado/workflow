@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli_test
+package doctor_test
 
 import (
 	"path/filepath"
@@ -222,5 +222,47 @@ func TestDoctorSaysTaskwarriorIsTooOld(t *testing.T) {
 	if !strings.HasPrefix(row, "not usable — ") || !strings.Contains(row, "2.6.2 at "+program) ||
 		!strings.Contains(row, "3.5.0 or newer") {
 		t.Errorf("the taskwarrior row = %q, want the version found, where, and the one needed", row)
+	}
+}
+
+func TestDoctorSaysWhatAMissingTaskwarriorCosts(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := t.TempDir()
+	clitest.WriteFile(t, dir, completeConfig)
+	pathWithOnlyGit(t)
+
+	// Act
+	output, _ := clitest.Run(t, dir, "doctor")
+
+	// Assert
+	want := "not found — the Tasks pane and section are not offered without it"
+	if row := toolingRow(output, "taskwarrior"); !strings.HasSuffix(row, " "+want) {
+		t.Errorf("the taskwarrior row = %q, want %q:\n%s", row, want, output)
+	}
+}
+
+func TestDoctorNamesTaskWhenTheProgramNeverRunHasNoPrintableName(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// taskwarrior.program names a program made only of a terminal control,
+	// which doctor strips before printing, so it has no name left to give.
+	const controlOnly = "\x1b[0m"
+
+	clitest.WriteExecutable(t, filepath.Join(clitest.ProgramsOf(t), controlOnly),
+		"#!/bin/sh\necho 'Cannot proceed without rc file.' >&2; exit 2\n", 0o755)
+
+	// Only the home directory's file may set it.
+	home := t.TempDir()
+	clitest.WriteFile(t, home, `{"taskwarrior": {"program": "\u001b[0m"}}`)
+
+	// Act
+	output, _ := clitest.RunAtHome(t, home, "doctor")
+
+	// Assert
+	if row, want := taskwarriorRow(output), "not usable — installed but never run; run task once"; row != want {
+		t.Errorf("the taskwarrior row = %q, want %q:\n%s", row, want, output)
 	}
 }

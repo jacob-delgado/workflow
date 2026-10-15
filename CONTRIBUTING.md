@@ -106,12 +106,13 @@ repository, and a test's `git -C <temp dir>` would work on that repository
 instead: one pre-push set `core.bare`, moved `main` and rewrote the config that
 way. The gate is safe to run from a hook or a linked worktree only because of
 this. The Go packages that run git (`internal/cli`, `internal/cli/cmdkit`,
-`internal/cli/pr`, `internal/wiring`) clear them in `TestMain`, each proven by
-`TestTheTestsLeaveTheRepositoryAHookNamesAlone`. Every script test that runs git
-unsets them, which `scripts/hook-environment_test.sh` checks. The pre-push hook,
-`task test`, `task test:cover`, `task cover:branch` and `task test:summary` all
-unset them before running the Go tests as well. A new package or script test
-that runs git needs the same.
+`internal/cli/doctor`, `internal/cli/pr`, `internal/wiring`) clear them in
+`TestMain`, each proven by `TestTheTestsLeaveTheRepositoryAHookNamesAlone`.
+Every script test that runs git unsets them, which
+`scripts/hook-environment_test.sh` checks. The pre-push hook, `task test`,
+`task test:cover`, `task cover:branch` and `task test:summary` all unset them
+before running the Go tests as well. A new package or script test that runs
+git needs the same.
 
 Two Go coverage floors gate a change, both configured in `Taskfile.yml` and
 both printing the available ratchet when you clear them; condition coverage

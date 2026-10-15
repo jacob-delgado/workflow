@@ -144,7 +144,7 @@ func TestFromWorkingDirNeedsTheWorkingDirectoryOnlyForARelativePath(t *testing.T
 			_, err := runTree(t, root, probeCommand)
 
 			// Assert
-			if refused := err != nil && strings.Contains(err.Error(), workdirUnread); refused != tt.refused {
+			if refused := err != nil && strings.Contains(err.Error(), clitest.WorkdirUnread); refused != tt.refused {
 				t.Errorf("%s from a removed directory = %v, want it refused: %v", name, err, tt.refused)
 			}
 		})
@@ -190,7 +190,7 @@ func TestLoadFromEnvironmentSaysWhenTheWorkingDirectoryCannotBeNamed(t *testing.
 	_, err := runTree(t, root, probeCommand)
 
 	// Assert
-	if err == nil || !strings.Contains(err.Error(), workdirUnread) {
+	if err == nil || !strings.Contains(err.Error(), clitest.WorkdirUnread) {
 		t.Errorf("load from a removed directory = %v, want it to say it cannot name the directory", err)
 	}
 }

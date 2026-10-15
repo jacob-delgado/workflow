@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli_test
+package doctor_test
 
 import (
 	"errors"
@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/jacob-delgado/workflow/internal/buildinfo"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/config"
 )
@@ -335,5 +336,40 @@ func TestDoctorReportsSetButInvalidValues(t *testing.T) {
 
 	if strings.Contains(out, "Missing") {
 		t.Errorf("doctor reported a missing field in a complete configuration:\n%s", out)
+	}
+}
+
+func TestDoctorReportsTheVersionFirst(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	output, _ := clitest.Run(t, t.TempDir(), "doctor")
+
+	// Assert
+	version, repository := strings.Index(output, "Version:"), strings.Index(output, "Repository:")
+	if version < 0 || repository < 0 || version > repository {
+		t.Errorf("doctor did not report the version before the repository:\n%s", output)
+	}
+
+	if got := fieldValue(output, "Version"); got != buildinfo.Current() {
+		t.Errorf("doctor Version = %q, want %q", got, buildinfo.Current())
+	}
+}
+
+func TestDoctorSaysAnUnparsableFileCannotBeParsedAndChecksNoCredential(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := t.TempDir()
+	clitest.WriteFile(t, dir, `{"jira": `)
+
+	// Act
+	output, _ := clitest.Run(t, dir, "doctor")
+
+	// Assert
+	// The configuration in hand is the defaults, not the user's, so nothing is
+	// said of its credentials, checked or not.
+	if got := fieldValue(output, "Configuration"); got != "cannot be parsed" || strings.Contains(output, "Credentials") {
+		t.Errorf("Configuration = %q, want cannot be parsed and no word of credentials:\n%s", got, output)
 	}
 }

@@ -1,7 +1,13 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli
+// Package doctor is `workflow doctor`: it reports the build, the git
+// repository a directory is in, the external programs workflow uses, where the
+// store keeps its files and the configuration in effect, as prose or as JSON,
+// and, asked to, puts each credential to its service. The command tree
+// registers NewCmd, and its exit families name the sentinels doctor's
+// findings wrap.
+package doctor
 
 import (
 	"context"
@@ -23,29 +29,29 @@ import (
 
 // Errors doctor reports. Callers distinguish them with errors.Is.
 var (
-	// errIncomplete reports a configuration that loaded but is missing fields.
-	errIncomplete = errors.New("configuration is incomplete")
-	// errInvalid reports a configuration that loaded but holds a malformed value.
-	errInvalid = errors.New("configuration has an invalid value")
-	// errShared reports a configuration file that is not its owner's alone.
-	errShared = errors.New("the configuration file can be reached by other users")
+	// ErrIncomplete reports a configuration that loaded but is missing fields.
+	ErrIncomplete = errors.New("configuration is incomplete")
+	// ErrInvalid reports a configuration that loaded but holds a malformed value.
+	ErrInvalid = errors.New("configuration has an invalid value")
+	// ErrShared reports a configuration file that is not its owner's alone.
+	ErrShared = errors.New("the configuration file can be reached by other users")
 	// errMissingTooling reports a required external program that is absent.
 	errMissingTooling = errors.New("required tooling is missing")
-	// errCredentialRejected reports a credential refused by the service asked, as
+	// ErrCredentialRejected reports a credential refused by the service asked, as
 	// distinct from a credential there was none of to ask with and from a
 	// service that never answered.
-	errCredentialRejected = errors.New("a credential was rejected")
-	// errCredentialMissing reports a service doctor had no credential to ask
+	ErrCredentialRejected = errors.New("a credential was rejected")
+	// ErrCredentialMissing reports a service doctor had no credential to ask
 	// about: none is configured, Jira's keychain item, token_command or
 	// token_env gave none, or the Slack user token was never logged in.
-	errCredentialMissing = errors.New("a credential is missing")
+	ErrCredentialMissing = errors.New("a credential is missing")
 	// errRefreshHeldBack reports a Slack user token due a refresh that a dry
 	// run holds back, since the refresh writes the new pair where it is kept.
 	errRefreshHeldBack = errors.New("the Slack user token is due a refresh, which --dry-run holds back; " +
 		"run doctor --online without it to check the token")
-	// errUnreachable reports a service that never answered, as distinct from one
+	// ErrUnreachable reports a service that never answered, as distinct from one
 	// that answered by refusing the credential.
-	errUnreachable = errors.New("the service could not be reached")
+	ErrUnreachable = errors.New("the service could not be reached")
 	// errUnchecked reports a credential doctor could not ask about: a webhook,
 	// which only posting would test, a forge it cannot name, or a Jira that is
 	// not the tracker or sits at an address the client cannot use. It belongs to
@@ -56,9 +62,9 @@ var (
 // labelWidth keeps the report's values in one column so the eye can scan them.
 const labelWidth = 14
 
-// newDoctorCmd builds `workflow doctor`. prompt says whether stderr is a
+// NewCmd builds `workflow doctor`. prompt says whether stderr is a
 // terminal, where --online keeps a note of the service it is asking.
-func newDoctorCmd(prompt cmdkit.Prompt) *cobra.Command {
+func NewCmd(prompt cmdkit.Prompt) *cobra.Command {
 	var (
 		online bool
 		asJSON bool

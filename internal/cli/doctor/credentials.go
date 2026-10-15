@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli
+package doctor
 
 import (
 	"context"
@@ -80,9 +80,9 @@ func credentialStatus(err error) string {
 		return "ok"
 	case errors.Is(err, errUnchecked):
 		return "unchecked"
-	case errors.Is(err, errCredentialMissing):
+	case errors.Is(err, ErrCredentialMissing):
 		return "missing"
-	case errors.Is(err, errUnreachable):
+	case errors.Is(err, ErrUnreachable):
 		return "unreachable"
 	default:
 		return "rejected"
@@ -272,8 +272,9 @@ func writeScopeNote(ctx context.Context, client forge.Client, kind forge.Kind) s
 }
 
 // unansweredBecause says why a forge request failed: its own error, or why the
-// check's context ended when that is what stopped it, since a gh or glab killed
-// at the time limit can say only that it was killed.
+// check's context ended when that is what stopped it. A gh or glab stopped at
+// the time limit reports that cause too, but inside the forge client's and the
+// CLI's own words, which add nothing the reader can act on.
 func unansweredBecause(ctx context.Context, err error) string {
 	if ctx.Err() != nil {
 		return context.Cause(ctx).Error()
@@ -362,15 +363,15 @@ func userTokenNote(ctx context.Context, process wiring.Environment, cfg config.C
 // the reader can act on: no credential to ask with, a service that never judged
 // the one it was given, or a credential the service refused. It reads
 // unreachable as every command's exit status does: a service not reached, one
-// asking to wait, or a refused redirect.
+// asking to wait, a refused redirect, or an answer never finished.
 func credentialOutcome(err error, service string) error {
 	switch {
-	case cmdkit.IsAny(err, jira.ErrNoCredential, messaging.ErrNoCredential, forge.ErrNoToken):
-		return fmt.Errorf("%w: %s", errCredentialMissing, service)
-	case cmdkit.IsAny(err, append(cmdkit.ServicesUnreachable(), errUnreachable)...):
-		return fmt.Errorf("%w: %s", errUnreachable, service)
+	case cmdkit.IsAny(err, jira.ErrNoCredential, messaging.ErrNoCredential):
+		return fmt.Errorf("%w: %s", ErrCredentialMissing, service)
+	case cmdkit.IsAny(err, cmdkit.ServicesUnreachable()...):
+		return fmt.Errorf("%w: %s", ErrUnreachable, service)
 	default:
-		return fmt.Errorf("%w: %s", errCredentialRejected, service)
+		return fmt.Errorf("%w: %s", ErrCredentialRejected, service)
 	}
 }
 
@@ -383,7 +384,7 @@ func credentialFailed(service, detail string, err error) (credentialLine, error)
 // credentialMissing says why service has no credential to ask about, and
 // reports it missing rather than rejected: nothing was put to the service.
 func credentialMissing(service, why string) (credentialLine, error) {
-	return credentialLine{Service: service, Detail: why}, fmt.Errorf("%w: %s", errCredentialMissing, service)
+	return credentialLine{Service: service, Detail: why}, fmt.Errorf("%w: %s", ErrCredentialMissing, service)
 }
 
 // credentialUnchecked says why doctor could not ask about service's credential,

@@ -4,7 +4,6 @@
 package cli_test
 
 import (
-	"os"
 	"strings"
 	"testing"
 
@@ -17,17 +16,21 @@ func TestAJiraTokenVariableThatGivesNothingIsNamedNotCalledUnconfigured(t *testi
 	t.Parallel()
 
 	// Arrange
-	clitest.SetVariable(t, emptyTokenVariable, "")
+	clitest.SetVariable(t, clitest.EmptyTokenVariable, "")
 
 	repo := repoForBranch(t, "https://jira.example.net")
-	clitest.WriteFile(t, repo, `{"jira": {"base_url": "https://jira.example.net", "token_env": "`+emptyTokenVariable+`"}}`)
+	clitest.WriteFile(
+		t, repo, `{"jira": {"base_url": "https://jira.example.net", "token_env": "`+clitest.EmptyTokenVariable+`"}}`,
+	)
 
 	// Act
-	_, err := runAtHome(t, repo, "branch", "PROJ-7", "--yes")
+	_, err := clitest.RunAtHome(t, repo, "branch", "PROJ-7", "--yes")
 
 	// Assert
-	if err == nil || strings.Contains(err.Error(), "is configured") || !strings.Contains(err.Error(), emptyTokenVariable) {
-		t.Errorf("branch = %v, want the error to name %s and not call the token unconfigured", err, emptyTokenVariable)
+	if err == nil || strings.Contains(err.Error(), "is configured") ||
+		!strings.Contains(err.Error(), clitest.EmptyTokenVariable) {
+		t.Errorf("branch = %v, want the error to name %s and not call the token unconfigured",
+			err, clitest.EmptyTokenVariable)
 	}
 }
 
@@ -50,53 +53,5 @@ func TestASlackUserTokenNotLoggedInNamesTheLogin(t *testing.T) {
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "workflow slack login") {
 		t.Errorf("announce = %v, want the error to name workflow slack login", err)
-	}
-}
-
-func TestDoctorUnderDryRunHoldsBackARefreshThatWouldWrite(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	dir := t.TempDir()
-	path := clitest.WriteFile(t, dir, `{"messaging":{"client_id":"1234.5678","client_secret":"client-secret-9999",`+
-		`"refresh_token":"slack-refresh-8888","access_token":"xoxe.xoxp-old","expires_at":"2020-01-01T00:00:00Z",`+
-		`"channel":"#dev"}}`)
-
-	before, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("reading the fixture: %v", err)
-	}
-
-	// Act
-	output, _ := clitest.Run(t, dir, "doctor", "--online", "--dry-run")
-
-	// Assert
-	if !strings.Contains(output, "--dry-run") {
-		t.Errorf("doctor does not say the refresh was held back for --dry-run:\n%s", output)
-	}
-
-	after, err := os.ReadFile(path)
-	if err != nil || string(after) != string(before) {
-		t.Errorf("the configuration file changed under --dry-run (%v)", err)
-	}
-}
-
-func TestDoctorUnderDryRunCallsASlackTokenNeverLoggedInMissing(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// The file keeps the app's secret but no refresh token: the login was
-	// never finished.
-	dir := t.TempDir()
-	clitest.WriteFile(
-		t, dir, `{"messaging":{"client_id":"1234.5678","client_secret":"client-secret-9999","channel":"#dev"}}`,
-	)
-
-	// Act
-	output, _ := clitest.Run(t, dir, "doctor", "--json", "--online", "--dry-run")
-
-	// Assert
-	if status := credentialStatusIn(decodeReport(t, output), messagingService); status != missingStatus {
-		t.Errorf("the Slack check under --dry-run = %q, want missing:\n%s", status, output)
 	}
 }

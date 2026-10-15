@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli_test
+package doctor_test
 
 import (
 	"os"
@@ -18,10 +18,6 @@ import (
 // githubSSHRemote is a GitHub origin written as an SSH remote, so the forge
 // resolves to github.com without a token in the URL.
 const githubSSHRemote = "git@github.com:owner/repo.git"
-
-// onPremisesRemote is an origin on a host whose name says neither GitHub nor
-// GitLab, so only forge.kind can say which forge it is.
-const onPremisesRemote = "git@git.example.com:acme/thing.git"
 
 // ghSignedOut puts git and a gh on PATH where gh exits non-zero for every
 // invocation, standing in for a gh that is installed but signed out of every
@@ -92,7 +88,7 @@ func TestDoctorOnlineExplainsWhyNoForgeTokenResolved(t *testing.T) {
 			// Arrange
 			// Every forge variable is cleared, so a laptop's or CI's own token
 			// cannot resolve; the tracker answers, so only the forge check fails.
-			dir := repoWithRemote(t, tt.remote)
+			dir := clitest.RepoWithRemote(t, tt.remote)
 			clitest.WriteConfigFor(t, dir, clitest.WorkingJira(t))
 			tt.onPath(t)
 
@@ -134,7 +130,7 @@ func TestDoctorNamesAMissingGitOnTheRepositoryLine(t *testing.T) {
 func forgeCLIRepository(t *testing.T, remote string) string {
 	t.Helper()
 
-	dir := repoWithRemote(t, remote)
+	dir := clitest.RepoWithRemote(t, remote)
 	clitest.WriteFile(t, dir, `{"jira": {"base_url": "`+clitest.WorkingJira(t)+`", "token": "t"}, `+
 		clitest.SlackWebhook+`, "forge": {"cli": true}}`)
 
@@ -243,7 +239,7 @@ func TestDoctorOnlineGivesUpOnAForgeCLIThatNeverAnswers(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	dir := repoWithRemote(t, githubSSHRemote)
+	dir := clitest.RepoWithRemote(t, githubSSHRemote)
 	clitest.WriteFile(t, dir, `{"jira": {"base_url": "`+clitest.WorkingJira(t)+`", "token": "t"}, `+
 		clitest.SlackWebhook+`, "forge": {"cli": true}, "timing": {"request_timeout": "`+onlineRequestTimeout+`"}}`)
 	clitest.FakeGh(t, clitest.GhResponses{SignedOut: true, APIHangs: true})
@@ -295,7 +291,7 @@ func workTree(t *testing.T, remote string) string {
 		return t.TempDir()
 	}
 
-	return repoWithRemote(t, remote)
+	return clitest.RepoWithRemote(t, remote)
 }
 
 // jiraTracker is a configuration with Jira as the tracker at baseURL, and a
@@ -318,12 +314,12 @@ func TestDoctorNamesTheTrackerInEffect(t *testing.T) {
 			want:   "GitHub issues (no jira.base_url)",
 		},
 		"forge.kind names an on-premises forge's issues": {
-			remote: onPremisesRemote,
+			remote: clitest.OnPremisesRemote,
 			config: `{` + clitest.SlackWebhook + `, "forge": {"kind": "gitlab", "host": "git.example.com"}}`,
 			want:   "GitLab issues (no jira.base_url)",
 		},
 		"an on-premises host without forge.kind leaves the forge unnamed": {
-			remote: onPremisesRemote,
+			remote: clitest.OnPremisesRemote,
 			config: `{` + clitest.SlackWebhook + `}`,
 			want:   "the forge's issues (no jira.base_url)",
 		},
@@ -407,7 +403,7 @@ func TestDoctorJSONNamesTheTrackerInEffect(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			dir := repoWithRemote(t, githubSSHRemote)
+			dir := clitest.RepoWithRemote(t, githubSSHRemote)
 			clitest.WriteFile(t, dir, tt.config)
 
 			// Act
@@ -430,7 +426,7 @@ func TestDoctorJSONNamesTheTrackerInEffect(t *testing.T) {
 func forgeTrackerRepository(t *testing.T) string {
 	t.Helper()
 
-	dir := repoWithRemote(t, githubSSHRemote)
+	dir := clitest.RepoWithRemote(t, githubSSHRemote)
 	clitest.WriteFile(t, dir, `{`+clitest.SlackWebhook+`, "forge": {"cli": true}}`)
 	ghSignedOutButAnswering(t)
 
@@ -468,5 +464,26 @@ func TestDoctorJSONOnlineCallsJiraUncheckedWhenTheForgeIsTheTracker(t *testing.T
 
 	if got := credentialStatusIn(decodeReport(t, output), jiraService); got != uncheckedStatus {
 		t.Errorf("the online report calls Jira %q with no jira.base_url, want unchecked:\n%s", got, output)
+	}
+}
+
+func TestDoctorOnlineSaysOnlyWhyItGaveUpOnTheForge(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// gh is stopped at the time limit, so the forge's row gives the limit
+	// doctor gave up at, and none of the client's or gh's words around it.
+	dir := clitest.RepoWithRemote(t, githubSSHRemote)
+	clitest.WriteFile(t, dir, `{"jira": {"base_url": "`+clitest.WorkingJira(t)+`", "token": "t"}, `+
+		clitest.SlackWebhook+`, "forge": {"cli": true}, "timing": {"request_timeout": "`+onlineRequestTimeout+`"}}`)
+	clitest.FakeGh(t, clitest.GhResponses{SignedOut: true, APIHangs: true})
+
+	// Act
+	output, _ := clitest.Run(t, dir, "doctor", "--online")
+
+	// Assert
+	want := "could not reach the forge: gave up after " + onlineRequestTimeout + " (through gh)"
+	if row := credentialRow(output, "forge"); row != want {
+		t.Errorf("doctor's forge row = %q, want %q:\n%s", row, want, output)
 	}
 }

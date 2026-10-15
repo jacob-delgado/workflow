@@ -4,20 +4,14 @@
 package cli_test
 
 import (
-	"bytes"
 	"errors"
 	"io"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
-
-// errOutputClosed is a stdout whose reader has gone, as when a pipe's far end
-// exits early.
-var errOutputClosed = errors.New("output closed")
 
 // The commands the refused-output tests run, each named more than once in the
 // package's tests.
@@ -26,34 +20,6 @@ const (
 	reviewsCommand = "reviews"
 	doctorCommand  = "doctor"
 )
-
-// refusingOutput fails every write.
-type refusingOutput struct{}
-
-var _ io.Writer = refusingOutput{}
-
-func (refusingOutput) Write([]byte) (int, error) { return 0, errOutputClosed }
-
-func TestDoctorJSONFailsWhenItsOutputCannotBeWritten(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	env := clitest.EnvironmentFor(t, clitest.Place{Dir: t.TempDir(), Home: t.TempDir()})
-
-	var stderr bytes.Buffer
-
-	// Act
-	err := cli.Execute(strings.Fields("doctor --json"), refusingOutput{}, &stderr, clitest.UnusedPrompt(t), env)
-
-	// Assert
-	// A script reading the report would otherwise take a report cut short, or
-	// none, for a run that succeeded.
-	if !errors.Is(err, errOutputClosed) {
-		t.Errorf("doctor --json into an output that refuses writes = %v, want that failure returned", err)
-	}
-
-	wantExit(t, err, 1)
-}
 
 func TestProseFailsWhenItsOutputCannotBeWritten(t *testing.T) {
 	t.Parallel()
@@ -82,10 +48,10 @@ func TestProseFailsWhenItsOutputCannotBeWritten(t *testing.T) {
 			env := clitest.EnvironmentFor(t, clitest.Place{Dir: where(t), Home: t.TempDir()})
 
 			// Act
-			err := cli.Execute([]string{command}, refusingOutput{}, io.Discard, clitest.UnusedPrompt(t), env)
+			err := cli.Execute([]string{command}, clitest.RefusingOutput{}, io.Discard, clitest.UnusedPrompt(t), env)
 
 			// Assert
-			if !errors.Is(err, errOutputClosed) {
+			if !errors.Is(err, clitest.ErrOutputClosed) {
 				t.Errorf("%s into an output that refuses writes = %v, want that failure returned", command, err)
 			}
 

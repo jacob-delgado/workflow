@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli_test
+package doctor_test
 
 import (
 	"net/http"
@@ -58,7 +58,7 @@ func TestDoctorOnlineNamesATokenSourceWithoutShowingIt(t *testing.T) {
 	)
 
 	// Act
-	output, err := runAtHome(t, dir, "doctor", "--online")
+	output, err := clitest.RunAtHome(t, dir, "doctor", "--online")
 
 	// Assert
 	if err != nil || !reached.Load() {
@@ -85,7 +85,7 @@ func TestDoctorOnlineSaysTheKeychainGaveNoTokenWithoutAskingJira(t *testing.T) {
 	clitest.WriteFile(t, dir, `{"jira": {"base_url": "`+server.URL+`", "keychain": true}, `+clitest.SlackWebhook+`}`)
 
 	// Act
-	output, err := runAtHome(t, dir, "doctor", "--online")
+	output, err := clitest.RunAtHome(t, dir, "doctor", "--online")
 
 	// Assert
 	if err == nil || reached.Load() {
@@ -252,7 +252,7 @@ const unreachableHost = "forge.invalid"
 func repoWithConfig(t *testing.T, forgeToken string) string {
 	t.Helper()
 
-	dir := repoWithRemote(t, unreachableForge)
+	dir := clitest.RepoWithRemote(t, unreachableForge)
 	clitest.WriteFile(t, dir, `{"jira": {"base_url": "`+clitest.WorkingJira(t)+`", "token": "t"}, `+clitest.SlackWebhook+
 		`,`+
 		` "forge": {"kind": "github", "host": "`+unreachableHost+`", "token": "`+forgeToken+`"}}`)
@@ -387,7 +387,7 @@ func TestDoctorOnlineAsksForForgeKindOnAnUnknownHost(t *testing.T) {
 
 	// Arrange
 
-	dir := repoWithRemote(t, unreachableForge)
+	dir := clitest.RepoWithRemote(t, unreachableForge)
 	clitest.WriteConfigFor(t, dir, clitest.WorkingJira(t))
 
 	// Act
@@ -406,7 +406,7 @@ func TestDoctorOnlineRejectsAnUnknownForgeKind(t *testing.T) {
 
 	// Arrange
 
-	dir := repoWithRemote(t, unreachableForge)
+	dir := clitest.RepoWithRemote(t, unreachableForge)
 	clitest.WriteFile(t, dir, `{"jira": {"base_url": "`+clitest.WorkingJira(t)+`", "token": "t"}, `+clitest.SlackWebhook+
 		`,`+
 		` "forge": {"kind": "bitbucket"}}`)
@@ -452,7 +452,7 @@ func TestDoctorOnlineCountsARedirectAsUnreachable(t *testing.T) {
 	// Arrange
 	// A sign-in gateway in front of Jira answers with a redirect, which is
 	// refused: the credential was never put to Jira, so it was not rejected.
-	server := httptest.NewServer(http.HandlerFunc(redirecting))
+	server := httptest.NewServer(http.HandlerFunc(clitest.Redirecting))
 	t.Cleanup(server.Close)
 
 	dir := t.TempDir()

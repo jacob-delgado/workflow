@@ -144,12 +144,6 @@ func askForge(ctx context.Context, base string) error {
 	return err
 }
 
-// redirecting answers every request with a redirect to a sign-in page, as a
-// gateway in front of a service does.
-func redirecting(writer http.ResponseWriter, request *http.Request) {
-	http.Redirect(writer, request, "https://sso.example.com/login", http.StatusFound)
-}
-
 // stalling begins a JSON answer and sends nothing more for longer than the
 // commands' client waits, or until the client goes.
 func stalling(writer http.ResponseWriter, request *http.Request) {
@@ -201,12 +195,12 @@ func TestAServiceAnswerExitsInItsFamily(t *testing.T) {
 		},
 		// A redirect is refused so the credential goes nowhere else: the service
 		// never answered the request, as a script waiting on 5 expects.
-		"jira answered with a redirect": {answer: redirecting, ask: askJira, want: 5},
+		"jira answered with a redirect": {answer: clitest.Redirecting, ask: askJira, want: 5},
 		// An answer begun and never finished: the service may answer in full
 		// another time.
 		"jira stalled mid-answer":            {answer: stalling, ask: askJira, want: 5},
-		"the forge answered with a redirect": {answer: redirecting, ask: askForge, want: 5},
-		"slack answered with a redirect":     {answer: redirecting, ask: postToSlack, want: 5},
+		"the forge answered with a redirect": {answer: clitest.Redirecting, ask: askForge, want: 5},
+		"slack answered with a redirect":     {answer: clitest.Redirecting, ask: postToSlack, want: 5},
 	}
 
 	for name, tt := range cases {

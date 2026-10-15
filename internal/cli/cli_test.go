@@ -17,17 +17,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 )
 
-// runAtHome is clitest.Run with dir as the home directory as well, so the
-// file there is the home file, the one file that may set a program to run or a
-// variable to read.
-func runAtHome(t *testing.T, dir string, args ...string) (string, error) {
-	t.Helper()
-
-	printed, err := clitest.RunStreamsAt(t, clitest.Place{Dir: dir, Home: dir}, clitest.UnusedPrompt(t), args...)
-
-	return printed.Stdout + printed.Stderr, err
-}
-
 func TestConfigInitWritesATemplate(t *testing.T) {
 	t.Parallel()
 
@@ -378,22 +367,5 @@ func TestTheVersionFlagPrintsTheBuild(t *testing.T) {
 
 	if want := buildinfo.Current(); !strings.Contains(output, want) {
 		t.Errorf("--version = %q, want it to contain the build %q", output, want)
-	}
-}
-
-func TestDoctorReportsTheVersionFirst(t *testing.T) {
-	t.Parallel()
-
-	// Act
-	output, _ := clitest.Run(t, t.TempDir(), "doctor")
-
-	// Assert
-	version, repository := strings.Index(output, "Version:"), strings.Index(output, "Repository:")
-	if version < 0 || repository < 0 || version > repository {
-		t.Errorf("doctor did not report the version before the repository:\n%s", output)
-	}
-
-	if got := fieldValue(output, "Version"); got != buildinfo.Current() {
-		t.Errorf("doctor Version = %q, want %q", got, buildinfo.Current())
 	}
 }
