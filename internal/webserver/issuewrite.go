@@ -17,6 +17,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/report"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
 // Why the checked-out branch's pull request cannot be linked on an issue.
@@ -39,7 +40,7 @@ func (s *server) LinkPullRequest(
 ) (api.LinkPullRequestResponseObject, error) {
 	if s.deps.Jira.LinkPullRequest == nil || s.deps.Git.Branch == nil || s.deps.Forge.FindPullRequest == nil {
 		return api.LinkPullRequest422ApplicationProblemPlusJSONResponse(
-			problem(api.ProblemCodeUnprocessable, "linking a "+s.noun()+" on an issue is not available")), nil
+			problem.New(api.ProblemCodeUnprocessable, "linking a "+s.noun()+" on an issue is not available")), nil
 	}
 
 	issueKey := jira.Key(request.Key)
@@ -51,7 +52,7 @@ func (s *server) LinkPullRequest(
 
 	err = s.deps.Jira.LinkPullRequest(ctx, issueKey, pull.URL, pull.Title)
 	if err != nil {
-		return problemAnswer[api.LinkPullRequestdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.LinkPullRequestdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.LinkPullRequest200JSONResponse(pullDTO(pull)), nil
@@ -87,13 +88,13 @@ func (s *server) branchPull(ctx context.Context, issueKey jira.Key) (forge.PullR
 func (s *server) linkRefusal(err error, issueKey jira.Key) api.LinkPullRequestResponseObject {
 	switch {
 	case errors.Is(err, errNotTheBranchIssue):
-		return api.LinkPullRequest409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
+		return api.LinkPullRequest409ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeConflict,
 			"the checked-out branch does not name "+string(issueKey)+"; switch to its branch to link it"))
 	case errors.Is(err, errNoPullToLink):
-		return api.LinkPullRequest409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
+		return api.LinkPullRequest409ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeConflict,
 			"the checked-out branch has no "+s.noun()+" to link on "+string(issueKey)))
 	default:
-		return problemAnswer[api.LinkPullRequestdefaultApplicationProblemPlusJSONResponse](s.fault(err))
+		return problem.Answer[api.LinkPullRequestdefaultApplicationProblemPlusJSONResponse](s.fault(err))
 	}
 }
 
@@ -106,7 +107,7 @@ func (s *server) TransitionIssue(
 ) (api.TransitionIssueResponseObject, error) {
 	if s.deps.Jira.Transitions == nil || s.deps.Jira.Transition == nil {
 		return api.TransitionIssue422ApplicationProblemPlusJSONResponse(
-			problem(api.ProblemCodeUnprocessable, "moving an issue is not available")), nil
+			problem.New(api.ProblemCodeUnprocessable, "moving an issue is not available")), nil
 	}
 
 	issueKey := jira.Key(request.Key)
@@ -119,7 +120,7 @@ func (s *server) TransitionIssue(
 
 	err = s.deps.Jira.Transition(ctx, issueKey, move, nil)
 	if err != nil {
-		return problemAnswer[api.TransitionIssuedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.TransitionIssuedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	s.issuesHeld.drop()
@@ -134,15 +135,15 @@ func (s *server) TransitionIssue(
 func (s *server) transitionRefusal(err error) api.TransitionIssueResponseObject {
 	switch {
 	case errors.Is(err, loop.ErrNoReviewStatus):
-		return api.TransitionIssue422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
+		return api.TransitionIssue422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable,
 			"no review status is configured; set jira.review_status to move an issue there"))
 	case errors.Is(err, loop.ErrNeedsFields):
-		return api.TransitionIssue409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
+		return api.TransitionIssue409ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeConflict,
 			err.Error()+"; change its status from the issue, whose form asks for them"))
 	case errors.Is(err, loop.ErrNoTransition):
-		return api.TransitionIssue409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict, err.Error()))
+		return api.TransitionIssue409ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeConflict, err.Error()))
 	default:
-		return problemAnswer[api.TransitionIssuedefaultApplicationProblemPlusJSONResponse](s.fault(err))
+		return problem.Answer[api.TransitionIssuedefaultApplicationProblemPlusJSONResponse](s.fault(err))
 	}
 }
 
@@ -180,12 +181,12 @@ func (s *server) commentFailure(err error) api.AddCommentResponseObject {
 		return commentRefusal(err.Error())
 	}
 
-	return problemAnswer[api.AddCommentdefaultApplicationProblemPlusJSONResponse](s.fault(err))
+	return problem.Answer[api.AddCommentdefaultApplicationProblemPlusJSONResponse](s.fault(err))
 }
 
 // commentRefusal is a comment that was not posted, and why.
 func commentRefusal(detail string) api.AddCommentResponseObject {
-	return api.AddComment422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, detail))
+	return api.AddComment422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable, detail))
 }
 
 // followUps are what the page can offer once a pull request is open, in the
@@ -236,13 +237,13 @@ func (s *server) ListStatusChanges(
 	ctx context.Context, request api.ListStatusChangesRequestObject,
 ) (api.ListStatusChangesResponseObject, error) {
 	if s.deps.Jira.Transitions == nil {
-		return api.ListStatusChanges422ApplicationProblemPlusJSONResponse(
-			problem(api.ProblemCodeUnprocessable, "changing an issue's status is not available; configure Jira or a forge")), nil
+		return api.ListStatusChanges422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable,
+			"changing an issue's status is not available; configure Jira or a forge")), nil
 	}
 
 	moves, err := s.deps.Jira.Transitions(ctx, jira.Key(request.Key))
 	if err != nil {
-		return problemAnswer[api.ListStatusChangesdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.ListStatusChangesdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.ListStatusChanges200JSONResponse(statusChangesDTO(moves)), nil
@@ -255,8 +256,8 @@ func (s *server) ChangeStatus(
 	ctx context.Context, request api.ChangeStatusRequestObject,
 ) (api.ChangeStatusResponseObject, error) {
 	if s.deps.Jira.Transitions == nil || s.deps.Jira.Transition == nil {
-		return api.ChangeStatus422ApplicationProblemPlusJSONResponse(
-			problem(api.ProblemCodeUnprocessable, "changing an issue's status is not available; configure Jira or a forge")), nil
+		return api.ChangeStatus422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable,
+			"changing an issue's status is not available; configure Jira or a forge")), nil
 	}
 
 	issueKey := jira.Key(request.Key)
@@ -268,7 +269,7 @@ func (s *server) ChangeStatus(
 
 	err = s.deps.Jira.Transition(ctx, issueKey, move, values)
 	if err != nil {
-		return problemAnswer[api.ChangeStatusdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.ChangeStatusdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	s.issuesHeld.drop()
@@ -355,13 +356,13 @@ func fieldValue(field jira.Field, entries []api.FieldEntry) jira.FieldValue {
 func (s *server) statusChangeRefusal(err error, issueKey jira.Key) api.ChangeStatusResponseObject {
 	switch {
 	case errors.Is(err, errChangeGone):
-		return api.ChangeStatus409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
+		return api.ChangeStatus409ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeConflict,
 			"that status change is no longer offered for "+string(issueKey)+
 				" from where it stands; read its status changes again"))
 	case isFieldRefusal(err):
-		return api.ChangeStatus422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, err.Error()))
+		return api.ChangeStatus422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable, err.Error()))
 	default:
-		return problemAnswer[api.ChangeStatusdefaultApplicationProblemPlusJSONResponse](s.fault(err))
+		return problem.Answer[api.ChangeStatusdefaultApplicationProblemPlusJSONResponse](s.fault(err))
 	}
 }
 
@@ -389,7 +390,7 @@ func (s *server) AssignIssue(
 
 	err := s.deps.Jira.Assign(ctx, jira.Key(request.Key), assignee)
 	if err != nil {
-		return problemAnswer[api.AssignIssuedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.AssignIssuedefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	s.issuesHeld.drop()
@@ -399,7 +400,7 @@ func (s *server) AssignIssue(
 
 // assignRefusal is an assignment that was not made, and why.
 func assignRefusal(detail string) api.AssignIssueResponseObject {
-	return api.AssignIssue422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, detail))
+	return api.AssignIssue422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable, detail))
 }
 
 // LogWork logs time spent on a Jira issue, as the terminal's w does, with the
@@ -420,7 +421,7 @@ func (s *server) LogWork(ctx context.Context, request api.LogWorkRequestObject) 
 
 	logged, err := s.deps.Jira.AddWorklog(ctx, issueKey, spent, strings.TrimSpace(orZero(request.Body.Comment)))
 	if err != nil {
-		return problemAnswer[api.LogWorkdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.LogWorkdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.LogWork200JSONResponse{Key: request.Key, TimeSpent: cmp.Or(logged.TimeSpent, spent)}, nil
@@ -428,5 +429,5 @@ func (s *server) LogWork(ctx context.Context, request api.LogWorkRequestObject) 
 
 // worklogRefusal is work that was not logged, and why.
 func worklogRefusal(detail string) api.LogWorkResponseObject {
-	return api.LogWork422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, detail))
+	return api.LogWork422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable, detail))
 }

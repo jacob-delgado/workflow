@@ -15,6 +15,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/report"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
 // taskwarriorHold is how long a search for Taskwarrior that found none serves
@@ -47,7 +48,7 @@ type detectionCache struct {
 func (s *server) ListTasks(ctx context.Context, _ api.ListTasksRequestObject) (api.ListTasksResponseObject, error) {
 	list, err := s.readTaskList(ctx, "")
 	if err != nil {
-		return problemAnswer[api.ListTasksdefaultApplicationProblemPlusJSONResponse](s.taskFault(ctx, err)), nil
+		return problem.Answer[api.ListTasksdefaultApplicationProblemPlusJSONResponse](s.taskFault(ctx, err)), nil
 	}
 
 	return api.ListTasks200JSONResponse(list), nil

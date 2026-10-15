@@ -12,6 +12,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
 // Why a staging request was not carried out.
@@ -60,7 +61,7 @@ func (s *server) Stage(ctx context.Context, request api.StageRequestObject) (api
 
 	target, changes, err := s.moveChanges(ctx, *request.Body, direction)
 	if err != nil {
-		return problemAnswer[api.StagedefaultApplicationProblemPlusJSONResponse](
+		return problem.Answer[api.StagedefaultApplicationProblemPlusJSONResponse](
 			s.stagingProblem(err, direction, target)), nil
 	}
 
@@ -75,7 +76,7 @@ func (s *server) Unstage(ctx context.Context, request api.UnstageRequestObject) 
 
 	target, changes, err := s.moveChanges(ctx, *request.Body, direction)
 	if err != nil {
-		return problemAnswer[api.UnstagedefaultApplicationProblemPlusJSONResponse](
+		return problem.Answer[api.UnstagedefaultApplicationProblemPlusJSONResponse](
 			s.stagingProblem(err, direction, target)), nil
 	}
 
@@ -90,7 +91,7 @@ func (s *server) Discard(ctx context.Context, request api.DiscardRequestObject) 
 
 	target, changes, err := s.moveChanges(ctx, api.StagingRequest{Path: &request.Body.Path, All: nil}, direction)
 	if err != nil {
-		return problemAnswer[api.DiscarddefaultApplicationProblemPlusJSONResponse](
+		return problem.Answer[api.DiscarddefaultApplicationProblemPlusJSONResponse](
 			s.stagingProblem(err, direction, target)), nil
 	}
 
@@ -175,13 +176,13 @@ func (s *server) stagingProblem(err error, direction stagingDirection, target st
 
 	switch {
 	case errors.Is(err, loop.ErrStagingUnavailable):
-		return problem(api.ProblemCodeUnprocessable, direction.act+" is not available")
+		return problem.New(api.ProblemCodeUnprocessable, direction.act+" is not available")
 	case errors.Is(err, errNoStagingTarget):
-		return problem(api.ProblemCodeUnprocessable, errNoStagingTarget.Error())
+		return problem.New(api.ProblemCodeUnprocessable, errNoStagingTarget.Error())
 	case errors.Is(err, errNotAChange):
-		return problem(api.ProblemCodeNotFound, "the working tree lists no change at "+target.path)
+		return problem.New(api.ProblemCodeNotFound, "the working tree lists no change at "+target.path)
 	case errors.Is(err, errGitRefused):
-		return problem(api.ProblemCodeUnprocessable,
+		return problem.New(api.ProblemCodeUnprocessable,
 			"git would not "+verb+" "+target.words()+"; "+verb+" from a terminal to see git's reason")
 	default:
 		return s.fault(err)
@@ -199,17 +200,17 @@ func (s *server) GetChangeDiff(
 ) (api.GetChangeDiffResponseObject, error) {
 	if s.deps.Git.Diff == nil || s.deps.Git.Changes == nil {
 		return api.GetChangeDiff422ApplicationProblemPlusJSONResponse(
-			problem(api.ProblemCodeUnprocessable, "reading a diff is not available")), nil
+			problem.New(api.ProblemCodeUnprocessable, "reading a diff is not available")), nil
 	}
 
 	lines, err := s.diffAt(ctx, request.Params.Path)
 	if errors.Is(err, errNotAChange) {
 		return api.GetChangeDiff404ApplicationProblemPlusJSONResponse(
-			problem(api.ProblemCodeNotFound, "the working tree lists no change at that path")), nil
+			problem.New(api.ProblemCodeNotFound, "the working tree lists no change at that path")), nil
 	}
 
 	if err != nil {
-		return problemAnswer[api.GetChangeDiffdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.GetChangeDiffdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	if lines == nil {

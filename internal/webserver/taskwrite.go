@@ -12,6 +12,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
 // notAvailable is the detail of a write with no Taskwarrior to make it.
@@ -27,7 +28,7 @@ func (s *server) StartTask(
 ) (api.StartTaskResponseObject, error) {
 	list, prob := s.taskWrite(ctx, request.UUID, declinedAsStart(s.deps.Tasks.Start))
 	if prob != nil {
-		return problemAnswer[api.StartTaskdefaultApplicationProblemPlusJSONResponse](*prob), nil
+		return problem.Answer[api.StartTaskdefaultApplicationProblemPlusJSONResponse](*prob), nil
 	}
 
 	return api.StartTask200JSONResponse(list), nil
@@ -54,7 +55,7 @@ func declinedAsStart(start func(ctx context.Context, uuid string) error) func(co
 func (s *server) StopTask(ctx context.Context, request api.StopTaskRequestObject) (api.StopTaskResponseObject, error) {
 	list, prob := s.taskWrite(ctx, request.UUID, s.deps.Tasks.Stop)
 	if prob != nil {
-		return problemAnswer[api.StopTaskdefaultApplicationProblemPlusJSONResponse](*prob), nil
+		return problem.Answer[api.StopTaskdefaultApplicationProblemPlusJSONResponse](*prob), nil
 	}
 
 	return api.StopTask200JSONResponse(list), nil
@@ -68,7 +69,7 @@ func (s *server) CompleteTask(
 ) (api.CompleteTaskResponseObject, error) {
 	list, prob := s.taskWrite(ctx, request.UUID, s.deps.Tasks.Done)
 	if prob != nil {
-		return problemAnswer[api.CompleteTaskdefaultApplicationProblemPlusJSONResponse](*prob), nil
+		return problem.Answer[api.CompleteTaskdefaultApplicationProblemPlusJSONResponse](*prob), nil
 	}
 
 	list.Done = s.linkedTask(ctx, request.UUID)
@@ -102,12 +103,12 @@ func (s *server) AnnotateTask(
 ) (api.AnnotateTaskResponseObject, error) {
 	if blank(request.Body.Text) {
 		return api.AnnotateTask422ApplicationProblemPlusJSONResponse(
-			problem(api.ProblemCodeUnprocessable, "text is required")), nil
+			problem.New(api.ProblemCodeUnprocessable, "text is required")), nil
 	}
 
 	list, prob := s.taskWrite(ctx, request.UUID, withText(s.deps.Tasks.Annotate, request.Body.Text))
 	if prob != nil {
-		return problemAnswer[api.AnnotateTaskdefaultApplicationProblemPlusJSONResponse](*prob), nil
+		return problem.Answer[api.AnnotateTaskdefaultApplicationProblemPlusJSONResponse](*prob), nil
 	}
 
 	return api.AnnotateTask200JSONResponse(list), nil
@@ -119,12 +120,13 @@ func (s *server) ModifyTask(
 	ctx context.Context, request api.ModifyTaskRequestObject,
 ) (api.ModifyTaskResponseObject, error) {
 	if blank(request.Body.Line) {
-		return api.ModifyTask422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, lineRequired)), nil
+		return api.ModifyTask422ApplicationProblemPlusJSONResponse(
+			problem.New(api.ProblemCodeUnprocessable, lineRequired)), nil
 	}
 
 	list, prob := s.taskWrite(ctx, request.UUID, withText(s.deps.Tasks.Modify, request.Body.Line))
 	if prob != nil {
-		return problemAnswer[api.ModifyTaskdefaultApplicationProblemPlusJSONResponse](*prob), nil
+		return problem.Answer[api.ModifyTaskdefaultApplicationProblemPlusJSONResponse](*prob), nil
 	}
 
 	return api.ModifyTask200JSONResponse(list), nil
@@ -140,7 +142,7 @@ func (s *server) taskWrite(
 	ctx context.Context, uuid string, act func(ctx context.Context, uuid string) error,
 ) (api.TaskList, *api.Problem) {
 	if act == nil {
-		prob := problem(api.ProblemCodeUnprocessable, notAvailable)
+		prob := problem.New(api.ProblemCodeUnprocessable, notAvailable)
 
 		return api.TaskList{}, &prob
 	}

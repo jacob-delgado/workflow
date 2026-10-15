@@ -11,6 +11,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
 // errSwitchRefused is git declining the switch. Its own words stay off the
@@ -39,12 +40,12 @@ func (s *server) Checkout(
 		return api.Checkout200JSONResponse(branchDTO(branch)), nil
 	case errors.Is(err, loop.ErrDirtyTree):
 		return api.Checkout409ApplicationProblemPlusJSONResponse(
-			problem(api.ProblemCodeConflict, loop.ErrDirtyTree.Error())), nil
+			problem.New(api.ProblemCodeConflict, loop.ErrDirtyTree.Error())), nil
 	case errors.Is(err, errSwitchRefused):
 		return unprocessable("git would not switch to " + request.Body.Branch +
 			"; switch from a terminal to see git's reason"), nil
 	default:
-		return problemAnswer[api.CheckoutdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.CheckoutdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 }
 
@@ -82,5 +83,5 @@ func (s *server) refuseADirtyTree(ctx context.Context) error {
 
 // unprocessable is the 422 response for a checkout the server will not attempt.
 func unprocessable(message string) api.Checkout422ApplicationProblemPlusJSONResponse {
-	return api.Checkout422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, message))
+	return api.Checkout422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable, message))
 }

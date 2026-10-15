@@ -20,6 +20,7 @@ import (
 
 	apispec "github.com/jacob-delgado/workflow/api"
 	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
 // loadSpec parses the embedded OpenAPI document and validates it. A spec that
@@ -141,14 +142,15 @@ func (c contract) admit(serve operationServer) http.Handler {
 // lists the methods it does; an unknown path is a not-found.
 func (c contract) refuseUnrouted(writer http.ResponseWriter, request *http.Request, err error) {
 	if !errors.Is(err, routers.ErrMethodNotAllowed) {
-		writeProblem(writer, api.ProblemCodeNotFound, "no such endpoint")
+		problem.Write(writer, api.ProblemCodeNotFound, "no such endpoint")
 
 		return
 	}
 
 	allowed := strings.Join(allowedMethods(request.Context(), c.router, c.methods, request), ", ")
 	writer.Header().Set("Allow", allowed)
-	writeProblem(writer, api.ProblemCodeMethodNotAllowed, "this endpoint does not answer that method; it answers "+allowed)
+	problem.Write(writer, api.ProblemCodeMethodNotAllowed,
+		"this endpoint does not answer that method; it answers "+allowed)
 }
 
 // refuseInvalid answers a request routed to an operation it does not fit. One
@@ -160,12 +162,12 @@ func (c contract) refuseUnrouted(writer http.ResponseWriter, request *http.Reque
 func refuseInvalid(writer http.ResponseWriter, err error) {
 	if _, unauthorized := errors.AsType[*openapi3filter.SecurityRequirementsError](err); unauthorized {
 		writer.Header().Set("WWW-Authenticate", `Bearer realm="workflow"`)
-		writeProblem(writer, api.ProblemCodeUnauthorized, noSession)
+		problem.Write(writer, api.ProblemCodeUnauthorized, noSession)
 
 		return
 	}
 
-	writeProblem(writer, api.ProblemCodeBadRequest, "the request did not match the API contract")
+	problem.Write(writer, api.ProblemCodeBadRequest, "the request did not match the API contract")
 }
 
 // noSession is what a request presenting no session of this run is told.

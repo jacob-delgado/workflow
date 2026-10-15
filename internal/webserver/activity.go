@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/report"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
 // GetActivity reads back what you did over the period asked, or the previous
@@ -43,7 +44,8 @@ func (s *server) GetActivity(
 
 // periodRefused is a period that could not be read as asked, and why.
 func periodRefused(err error) api.GetActivityResponseObject {
-	return api.GetActivity422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, periodReason(err)))
+	return api.GetActivity422ApplicationProblemPlusJSONResponse(
+		problem.New(api.ProblemCodeUnprocessable, periodReason(err)))
 }
 
 // periodReason says why a period of days that are each a date cannot be
@@ -88,11 +90,11 @@ func (s *server) PostActivity(
 	}
 
 	if errors.Is(err, messaging.ErrTooLong) {
-		return api.PostActivity422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeTooLong, err.Error())), nil
+		return api.PostActivity422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeTooLong, err.Error())), nil
 	}
 
 	if err != nil {
-		return problemAnswer[api.PostActivitydefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
+		return problem.Answer[api.PostActivitydefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
 	return api.PostActivity200JSONResponse{
@@ -103,7 +105,7 @@ func (s *server) PostActivity(
 
 // activityPostRefused is the 422 refusing a Summary the server will not post.
 func activityPostRefused(detail string) api.PostActivity422ApplicationProblemPlusJSONResponse {
-	return api.PostActivity422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, detail))
+	return api.PostActivity422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable, detail))
 }
 
 // destination is where a post to channel goes, in words: the channel, or

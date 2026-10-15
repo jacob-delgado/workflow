@@ -13,6 +13,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 	"github.com/jacob-delgado/workflow/internal/workdirs"
 )
 
@@ -54,7 +55,7 @@ func (s *server) CreateBranch(
 // createBranchFailure answers a start of work that made no branch, as
 // startRefusal words it.
 func (s *server) createBranchFailure(err error, key string) api.CreateBranchResponseObject {
-	return problemAnswer[api.CreateBranchdefaultApplicationProblemPlusJSONResponse](s.startRefusal(err, key))
+	return problem.Answer[api.CreateBranchdefaultApplicationProblemPlusJSONResponse](s.startRefusal(err, key))
 }
 
 // startRefusal words a start of work that made nothing: git's refusal, saying
@@ -64,13 +65,13 @@ func (s *server) createBranchFailure(err error, key string) api.CreateBranchResp
 func (s *server) startRefusal(err error, key string) api.Problem {
 	switch {
 	case errors.Is(err, loop.ErrFetchFailed):
-		return problem(api.ProblemCodeFetchFailed, "the base remote could not be fetched, so nothing was made for "+key+
+		return problem.New(api.ProblemCodeFetchFailed, "the base remote could not be fetched, so nothing was made for "+key+
 			"; start work from what you have, or run git fetch in a terminal to see why")
 	case errors.Is(err, errCreateRefused):
-		return problem(api.ProblemCodeUnprocessable, "git would not create the branch for "+key+
+		return problem.New(api.ProblemCodeUnprocessable, "git would not create the branch for "+key+
 			"; run workflow branch "+key+" from a terminal to see git's reason")
 	case errors.Is(err, errWorktreeRefused):
-		return problem(api.ProblemCodeUnprocessable, "git would not make a worktree for "+key+
+		return problem.New(api.ProblemCodeUnprocessable, "git would not make a worktree for "+key+
 			"; make it with ctrl+w in the terminal interface's branch creator to see git's reason")
 	default:
 		return s.fault(err)
@@ -150,7 +151,7 @@ func (s *server) fetchFor(asked *bool) func(context.Context) error {
 // createBranchUnprocessable is the 422 response for a branch the server will not
 // create.
 func createBranchUnprocessable(message string) api.CreateBranch422ApplicationProblemPlusJSONResponse {
-	return api.CreateBranch422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, message))
+	return api.CreateBranch422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable, message))
 }
 
 // createUnlessTaken makes the branch name from the base with create, unless a
@@ -221,11 +222,11 @@ func (s *server) CreateWorktree(
 		return api.CreateWorktree200JSONResponse{Dir: dir, Shown: shown, Branch: name}, nil
 	}
 
-	return problemAnswer[api.CreateWorktreedefaultApplicationProblemPlusJSONResponse](s.startRefusal(err, key)), nil
+	return problem.Answer[api.CreateWorktreedefaultApplicationProblemPlusJSONResponse](s.startRefusal(err, key)), nil
 }
 
 // createWorktreeUnprocessable is the 422 response for a worktree the server
 // will not create.
 func createWorktreeUnprocessable(message string) api.CreateWorktree422ApplicationProblemPlusJSONResponse {
-	return api.CreateWorktree422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, message))
+	return api.CreateWorktree422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable, message))
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/report"
 	"github.com/jacob-delgado/workflow/internal/setup"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 	"github.com/jacob-delgado/workflow/internal/workdirs"
 )
 
@@ -70,7 +71,7 @@ func (s *server) SetUp(ctx context.Context, request api.SetUpRequestObject) (api
 // whose take-up failed — taken up rather than written over.
 func (s *server) setUp(ctx context.Context, body api.SetupRequest) api.SetUpResponseObject {
 	if !s.setupNeeded() {
-		return api.SetUp409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
+		return api.SetUp409ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeConflict,
 			"a configuration file already applies here; edit it in Settings"))
 	}
 
@@ -124,7 +125,7 @@ func (s *server) fileMade() bool {
 func (s *server) alreadyThere(ctx context.Context) api.SetUpResponseObject {
 	s.takeUp(ctx)
 
-	return api.SetUp409ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeConflict,
+	return api.SetUp409ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeConflict,
 		"a configuration file is already there; it is never written over, so edit it in Settings"))
 }
 
@@ -149,14 +150,14 @@ func (s *server) setupRefusal(ctx context.Context, err error) api.SetUpResponseO
 	case errors.Is(err, setup.ErrExists):
 		return s.alreadyThere(ctx)
 	case errors.Is(err, setup.ErrNoKeychain):
-		return api.SetUp422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
+		return api.SetUp422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable,
 			"there is no keychain here to keep the token in; keep it in the file instead"))
 	case errors.Is(err, setup.ErrNoHome):
-		return api.SetUp422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
+		return api.SetUp422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable,
 			"there is no home directory here to keep the file in; keep it in the repository instead"))
 	}
 
-	return problemAnswer[api.SetUpdefaultApplicationProblemPlusJSONResponse](s.fault(err))
+	return problem.Answer[api.SetUpdefaultApplicationProblemPlusJSONResponse](s.fault(err))
 }
 
 // takeUp serves the file just written from now on, where the server works,
@@ -179,12 +180,12 @@ func (s *server) takeUp(ctx context.Context) bool {
 // the page offers to keep anyway.
 func checkFailure(err error) api.SetUpResponseObject {
 	if !setup.Keepable(err) {
-		return api.SetUp422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable,
+		return api.SetUp422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeUnprocessable,
 			"Jira's address is not an https address, or http to this machine, without a username or password; "+
 				"type it again"))
 	}
 
-	return api.SetUp422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeCheckFailed, checkRefusal(err)))
+	return api.SetUp422ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeCheckFailed, checkRefusal(err)))
 }
 
 // checkRefusal says why Jira's check did not pass, in words that name no

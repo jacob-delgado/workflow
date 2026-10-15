@@ -15,6 +15,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/report"
 	"github.com/jacob-delgado/workflow/internal/store"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
 // What People and groups refuses, in words that say what to do.
@@ -32,7 +33,7 @@ var (
 func (s *server) GetPeople(ctx context.Context, _ api.GetPeopleRequestObject) (api.GetPeopleResponseObject, error) {
 	people, err := s.people(ctx)
 	if err != nil {
-		return problemAnswer[api.GetPeopledefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
+		return problem.Answer[api.GetPeopledefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
 	}
 
 	return api.GetPeople200JSONResponse(people), nil
@@ -53,7 +54,7 @@ func (s *server) LinkPerson(
 		}
 	}
 
-	return problemAnswer[api.LinkPersondefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
+	return problem.Answer[api.LinkPersondefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
 }
 
 // ForgetPerson drops what was decided for an owner, so they are asked again.
@@ -76,7 +77,7 @@ func (s *server) ForgetPerson(
 		}
 	}
 
-	return problemAnswer[api.ForgetPersondefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
+	return problem.Answer[api.ForgetPersondefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
 }
 
 // people is every decided owner, then the branch's undecided ones, users
@@ -248,11 +249,11 @@ func (s *server) keptWrite(write func() error) error {
 // and anything else is classified by fault.
 func (s *server) peopleFault(err error) api.Problem {
 	if errors.Is(err, loop.ErrUnknownWorkspace) {
-		return problem(api.ProblemCodeUnprocessable, workspaceRefusal(err))
+		return problem.New(api.ProblemCodeUnprocessable, workspaceRefusal(err))
 	}
 
 	if scope, missing := missingScope(err); missing {
-		return problem(api.ProblemCodeUnprocessable, "the Slack token lacks the "+scope+
+		return problem.New(api.ProblemCodeUnprocessable, "the Slack token lacks the "+scope+
 			" scope; add it to the Slack app, then sign in again with workflow slack login")
 	}
 

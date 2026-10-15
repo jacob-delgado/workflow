@@ -9,6 +9,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
 // GetRepoGroups lists the user groups this repository's announcements may
@@ -18,7 +19,7 @@ func (s *server) GetRepoGroups(
 ) (api.GetRepoGroupsResponseObject, error) {
 	groups, err := s.repoGroups(ctx)
 	if err != nil {
-		return problemAnswer[api.GetRepoGroupsdefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
+		return problem.Answer[api.GetRepoGroupsdefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
 	}
 
 	return api.GetRepoGroups200JSONResponse(groups), nil
@@ -39,7 +40,7 @@ func (s *server) SetRepoGroups(
 		}
 	}
 
-	return problemAnswer[api.SetRepoGroupsdefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
+	return problem.Answer[api.SetRepoGroupsdefaultApplicationProblemPlusJSONResponse](s.peopleFault(err)), nil
 }
 
 // repoGroups is this repository's user groups, with its name, in the Slack

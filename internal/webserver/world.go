@@ -14,6 +14,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/lifetime"
+	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
 // HereHeader is the header a page sends on a write naming the directory it
@@ -96,7 +97,7 @@ func (w *worlds) serve(writer http.ResponseWriter, request *http.Request, switch
 	srv, handler := w.served()
 
 	if !isSafeMethod(request.Method) && showsAnother(request, srv.deps.Repositories.Here.Dir) {
-		writeProblem(writer, api.ProblemCodeConflict, "the page shows another directory than the server works in; reload it")
+		problem.Write(writer, api.ProblemCodeConflict, "the page shows another directory than the server works in; reload it")
 
 		return
 	}
@@ -138,7 +139,7 @@ func (w *worlds) install(world World) (*server, error) {
 	}
 
 	strict := api.NewStrictHandlerWithOptions(srv, nil, api.StrictHTTPServerOptions{
-		RequestErrorHandlerFunc:  writeRequestError,
+		RequestErrorHandlerFunc:  problem.WriteRequestError,
 		ResponseErrorHandlerFunc: srv.writeResponseError,
 	})
 
@@ -152,7 +153,7 @@ func (w *worlds) install(world World) (*server, error) {
 
 	apiHandler := api.HandlerWithOptions(strict, api.StdHTTPServerOptions{
 		BaseRouter:       apiMux,
-		ErrorHandlerFunc: writeRequestError,
+		ErrorHandlerFunc: problem.WriteRequestError,
 	})
 
 	w.mu.Lock()
