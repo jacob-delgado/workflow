@@ -56,12 +56,12 @@ missing its ID or one of its three fields, and a site comment or a
 ### TRADE-3 The web is read-only under `--dry-run`
 
 **Decided.** Under `--dry-run` the web is read-only. `refuseWritesInDryRun` in
-`internal/webserver/guard.go` answers every unsafe method 403 before a handler
-runs. The browser reads `dry_run` from `getHealth`, shows a banner, and holds
-each write in `web/src/api/client.ts` before it is sent, so the 403 is only
-the backstop. One gate over every write is what guarantees nothing is written;
-simulating each write would mean a second, per-endpoint narration beside the
-terminal's. Recorded 2026-09-24, in #140.
+`internal/webserver/edge/guard.go` answers every unsafe method 403 before a
+handler runs. The browser reads `dry_run` from `getHealth`, shows a banner, and
+holds each write in `web/src/api/client.ts` before it is sent, so the 403 is
+only the backstop. One gate over every write is what guarantees nothing is
+written; simulating each write would mean a second, per-endpoint narration
+beside the terminal's. Recorded 2026-09-24, in #140.
 
 **Cost.** A web write under dry run is refused, not simulated, so the page
 cannot show what the write would have done the way the terminal's narration
@@ -216,9 +216,10 @@ an encoding failure is reported.
 
 ### TRADE-14 What the binary embeds is taken to load
 
-**Decided.** `loadSpec` and `loadContract` (`internal/webserver/validator.go`)
-and `Handler` (`internal/webserver/webserver.go`) keep five `err != nil` arms
-for an embedded `api/openapi.yaml` that fails to load, validate or route, and
+**Decided.** `loadSpec` and `loadContract`
+(`internal/webserver/edge/validator.go`) and `Handler`
+(`internal/webserver/edge/edge.go`) keep five `err != nil` arms for an
+embedded `api/openapi.yaml` that fails to load, validate or route, and
 `Assets` (`internal/web/embed.go`) keeps a sixth, which panics, for an
 `fs.Sub` that cannot root the embedded web app at its `dist` directory. Both
 are compiled in (`api/embed.go`, and the `//go:embed all:dist` beside
@@ -1060,7 +1061,7 @@ or a listing's cap is raised enough that typing to narrow stops being quick.
 directory picker, Settings' sections and the announcement's tag picker with
 Base UI (`@base-ui/react`), whose Dialog, Autocomplete, Tabs and Combobox it
 takes through `web/src/lib/baseui` alone, under a `CSPProvider` with
-`disableStyleElements`: the content policy (`internal/webserver/guard.go`,
+`disableStyleElements`: the content policy (`internal/webserver/edge/guard.go`,
 `default-src 'self'`, no nonce) refuses the one `<style>` element Base UI
 writes, which only ScrollArea and Select (with `alignItemWithTrigger`) do, to
 hide a native scrollbar. So neither part is used, and every choice from a

@@ -46,3 +46,9 @@ internal/slackauth 97
 # internal/store is the on-disk SQLite store: what it reads back from disk is
 # never trusted, and kept.db holds what the user decided and cannot see again.
 internal/store 90
+
+# internal/webserver/edge is the request boundary of --web: the loopback and
+# same-origin guards, dry-run's refusal of every write, and the session and
+# contract check that stand between any program on this machine and the
+# writes the server makes.
+internal/webserver/edge 90

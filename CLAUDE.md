@@ -41,6 +41,7 @@ internal/tui/frame/   a titled, bordered box of an exact size
 internal/tui/layout/  where each region of the interface goes, per terminal size
 internal/tui/quietinput/ the Huh field typed text goes through, whose cursor never blinks
 internal/webserver/   the --web REST API and event stream, bound to 127.0.0.1
+internal/webserver/edge/ the request boundary of --web: the guards, the session, the contract check and the app
 internal/webserver/problem/ the RFC 9457 problem details the --web API answers a failure with
 internal/webserver/runs/ the --web git runs and lefthook's hooks: a run started, streamed and stopped
 internal/webserver/tasks/ the --web API's Taskwarrior operations, and the event stream's summary of your tasks

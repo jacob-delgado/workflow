@@ -14,6 +14,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/lifetime"
+	"github.com/jacob-delgado/workflow/internal/webserver/edge"
 	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 	"github.com/jacob-delgado/workflow/internal/webserver/runs"
 )
@@ -83,21 +84,21 @@ func newWorlds(serving context.Context, first World) (*worlds, error) {
 func (w *worlds) serve(writer http.ResponseWriter, request *http.Request, switches bool) {
 	request = request.WithContext(lifetime.Within(request.Context(), w.lifetime))
 
-	if !isSafeMethod(request.Method) {
+	if !edge.IsSafeMethod(request.Method) {
 		var release context.CancelFunc
 
 		request, release = w.outlivingItsPage(request)
 		defer release()
 	}
 
-	if !isSafeMethod(request.Method) && !switches {
+	if !edge.IsSafeMethod(request.Method) && !switches {
 		w.gate.RLock()
 		defer w.gate.RUnlock()
 	}
 
 	srv, handler := w.served()
 
-	if !isSafeMethod(request.Method) && showsAnother(request, srv.deps.Repositories.Here.Dir) {
+	if !edge.IsSafeMethod(request.Method) && showsAnother(request, srv.deps.Repositories.Here.Dir) {
 		problem.Write(writer, api.ProblemCodeConflict, "the page shows another directory than the server works in; reload it")
 
 		return

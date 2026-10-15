@@ -26,6 +26,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/seams"
+	"github.com/jacob-delgado/workflow/internal/webserver/edge"
 	"github.com/jacob-delgado/workflow/internal/webserver/runs"
 	"github.com/jacob-delgado/workflow/internal/webserver/tasks"
 )
@@ -296,39 +297,25 @@ func (s *server) taskwarriorSettings() config.Taskwarrior {
 }
 
 // Handler builds the http.Handler that serves the web interface for first,
-// the directory it starts in: the API under /api, checked against the contract
-// by the request validator, which admits only a request presenting session,
-// and the embedded single-page app, assets, under every other path. The whole
-// surface is behind the loopback guard, so a browser aimed at the server from
-// a foreign origin is refused, and every answer carries the content policy, so
-// no other page can frame the app. The server starts from the configuration
-// file at first.Config.Path as startingPoint reads it, not from that
-// configuration alone, which the process read a moment before. It fails when
-// the embedded spec cannot be loaded or routed, which is a build defect, or
-// when that file cannot be read. ctx is the server's lifetime: a read ends
-// when its page goes, but a write goes on to its end and ends only with ctx.
-func Handler(ctx context.Context, first World, assets fs.FS, session Session) (http.Handler, error) {
-	// Trade-off TRADE-14: the embedded spec loads in every build a test runs.
-	spec, err := routedContract()
-	if err != nil {
-		return nil, err
-	}
-
+// the directory it starts in: the API, behind the request boundary
+// (internal/webserver/edge), which admits only a request presenting session,
+// with the embedded single-page app, assets, under every other path. The
+// server starts from the configuration file at first.Config.Path as
+// startingPoint reads it, not from that configuration alone, which the process
+// read a moment before. It fails when that file cannot be read, or when the
+// embedded spec cannot be loaded or routed, which is a build defect. ctx is
+// the server's lifetime: a read ends when its page goes, but a write goes on
+// to its end and ends only with ctx.
+func Handler(ctx context.Context, first World, assets fs.FS, session edge.Session) (http.Handler, error) {
 	held, err := newWorlds(ctx, first)
 	if err != nil {
 		return nil, err
 	}
 
-	// The API is validated against the contract, before a write takes the gate
-	// a switch waits on or is held to the directory its page shows, so a
-	// request presenting no session learns nothing of either; the app is not,
-	// since its paths are not in the spec, so only the /api subtree passes
-	// through the validator.
-	root := http.NewServeMux()
-	root.Handle("/api/", spec.admitting(session).admit(held.serve))
-	root.Handle("/", spaHandler(assets))
-
-	return withPolicyHeaders(guardLoopback(refuseWritesInDryRun(first.Info.DryRun, root))), nil
+	// The boundary checks each API request against the contract before
+	// held.serve takes it, so a write takes the gate a switch waits on, and is
+	// held to the directory its page shows, only once it presents the session.
+	return edge.Handler(first.Info.DryRun, session, assets, held.serve)
 }
 
 // startingPoint is the configuration the server starts from, with the revision

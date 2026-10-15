@@ -20,6 +20,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/edge"
 )
 
 // summaryDay is the one day the cases read, and workedOn a time on it.
@@ -152,7 +153,7 @@ func webActivity(t *testing.T, repo, query string) api.Activity {
 		t.Fatalf("workflow --web: %v", ran.err)
 	}
 
-	session := webserver.NewSession()
+	session := edge.NewSession()
 
 	world := webserver.World{Deps: ran.deps, Config: ran.cfg, Info: ran.info}
 

@@ -18,6 +18,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/tui"
 	"github.com/jacob-delgado/workflow/internal/web"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/edge"
 )
 
 // RunWeb starts the local web server and blocks until the context is canceled.
@@ -57,7 +58,7 @@ func WebServerAt(addr string) RunWeb {
 			fmt.Fprintf(notes, "workflow web: %s\n", strings.Join(lines, "; "))
 		}
 
-		session := webserver.NewSession()
+		session := edge.NewSession()
 
 		world := webserver.World{Deps: deps, Config: cfg, Info: info}
 

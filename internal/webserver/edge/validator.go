@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package webserver
+package edge
 
 import (
 	"context"
@@ -104,16 +104,16 @@ func (c contract) admitting(session Session) contract {
 	return c
 }
 
-// operationServer serves a request the contract admitted, told whether the
+// OperationServer serves a request the contract admitted, told whether the
 // operation it asks for is one the spec marks as a switch: one that changes
 // what the server works with — the directory, or a first configuration file
 // set up.
-type operationServer func(writer http.ResponseWriter, request *http.Request, switches bool)
+type OperationServer func(writer http.ResponseWriter, request *http.Request, switches bool)
 
 // admit checks each request against the contract, routing it once, before
 // serve takes it; one the contract does not admit is answered here, with the
 // house error envelope.
-func (c contract) admit(serve operationServer) http.Handler {
+func (c contract) admit(serve OperationServer) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		route, parameters, err := c.router.FindRoute(request)
 		if err != nil {

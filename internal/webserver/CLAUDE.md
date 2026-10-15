@@ -15,52 +15,56 @@ for a change to an API operation, the guards or the event stream. The root
   operation the spec names is a method on it, its own or one of the
   `tasks.Handlers` or the `runs.Runner` it embeds. An operation whose
   `x-switch` extension is set switches the directory (`switchExtension`,
-  `validator.go`).
+  `edge/validator.go`).
 
 ## One file per operation, and when code may leave
 
 The package is the loopback REST surface spelled one file per operation, or
-per pair of writes that share their checks, beside the shared guard, faults,
-wire shapes, stream and server. It answers to a cohesive ceiling in
+per pair of writes that share their checks, beside the shared faults, wire
+shapes, stream and server. It answers to a cohesive ceiling in
 `scripts/package-size-budgets.txt`: read the number there, and
 `scripts/check-package-size.sh --list` for the count. A new operation is a new
 file. The package is not split to chase a number, but code in it with a reason
-to change of its own may leave where no import cycle follows: the request
-boundary (the guards, the policy headers, the session and the contract
-validator), which changes for security's reasons. Three have left already:
-the RFC 9457 problem details, to `internal/webserver/problem`, which changes
-only with the error format; the Taskwarrior handlers, to
-`internal/webserver/tasks`, which change with Taskwarrior; and the git runs
-and lefthook's hooks, to `internal/webserver/runs`, which change with git and
-lefthook. `tasks.New` builds the Taskwarrior handlers over `tasks.Seams`,
-bound with the taskwarrior settings the server started with, and takes what
-they need of the server through a `tasks.Kit`: `fault`, the settings in
-effect, the clock, the tracker's issue links, `worlds.outliving` and your
-home directory. `runs.New` builds the server's `runs.Runner`, which holds the
-run going, over `runs.Seams`, and takes the server's `unexpected` and its
-`indexWrites` lock, since a run holds the index the server's own writes queue
-for. Reaching the ceiling means rewriting the WHY above the entry and a
-history row, or such an extraction, never a split for the count.
+to change of its own may leave where no import cycle follows. Four have left
+already: the RFC 9457 problem details, to `internal/webserver/problem`, which
+changes only with the error format; the Taskwarrior handlers, to
+`internal/webserver/tasks`, which change with Taskwarrior; the git runs and
+lefthook's hooks, to `internal/webserver/runs`, which change with git and
+lefthook; and the request boundary (the guards, the policy headers, the
+session, the contract validator and the app's fallback), to
+`internal/webserver/edge`, which changes for security's reasons. `tasks.New`
+builds the Taskwarrior handlers over `tasks.Seams`, bound with the taskwarrior
+settings the server started with, and takes what they need of the server
+through a `tasks.Kit`: `fault`, the settings in effect, the clock, the
+tracker's issue links, `worlds.outliving` and your home directory. `runs.New`
+builds the server's `runs.Runner`, which holds the run going, over
+`runs.Seams`, and takes the server's `unexpected` and its `indexWrites` lock,
+since a run holds the index the server's own writes queue for. Reaching the
+ceiling means rewriting the WHY above the entry and a history row, or such an
+extraction, never a split for the count.
 
 ## A request, outside in
 
-`Handler` (`webserver.go`) wraps, from the outside:
+`Handler` (`webserver.go`) hands `worlds.serve` (`world.go`) to
+`edge.Handler` (`internal/webserver/edge`, `edge.go`), which wraps, from the
+outside:
 
-1. `withPolicyHeaders` (`guard.go`): the content policy, `default-src 'self'`
-   with no nonce (TRADE-50), and `X-Frame-Options: DENY`.
+1. `withPolicyHeaders` (`edge/guard.go`): the content policy,
+   `default-src 'self'` with no nonce (TRADE-50), and
+   `X-Frame-Options: DENY`.
 2. `guardLoopback`: a non-loopback Host, or a cross-origin write, is refused.
 3. `refuseWritesInDryRun`: every write is refused under `--dry-run` (TRADE-3).
-4. Under `/api/`, the contract validator (`validator.go`), admitting only a
-   request that presents the session, then `worlds.serve` (`world.go`). Every
-   other path is the embedded app (`static.go`), which answers GET and HEAD
-   alone.
+4. Under `/api/`, the contract validator (`edge/validator.go`), admitting
+   only a request that presents the session, then the `edge.OperationServer`
+   it was handed, `worlds.serve`. Every other path is the embedded app
+   (`edge/static.go`), which answers GET and HEAD alone.
 
 The guards in 2 and 3, and the app's refusal of any other method, answer in
 plain text; that boundary stays. The validator answers as problem details,
 through `problem.Write`: `unauthorized` without the session, `not_found` and
 `method_not_allowed` for a route the spec lacks, `bad_request` for a request
-that does not match it. The session (`Session`, `guard.go`) rides the
-fragment of the address the server prints, which no browser sends to a
+that does not match it. The session (`edge.Session`, `edge/guard.go`) rides
+the fragment of the address the server prints, which no browser sends to a
 server; the page keeps it and presents it where the contract's security
 schemes say, a bearer token or, for the event stream, a query parameter.
 
@@ -118,10 +122,11 @@ flight; and refuses, as `conflict`, a write whose `Workflow-Here` header
   `internal/cli/web.go` imports it (`cli-serves-the-web-only-from-web-go`);
   what the command line shares with it lives in `internal/report`.
 - `gochecknoglobals` forbids a package-level value, with one exception
-  written beside it: the parsed contract (`routedContract`, `validator.go`) is
-  a package-level `sync.OnceValues` with a `//nolint:gochecknoglobals` and its
-  reason, since every parse of the embedded spec gives the same contract and
-  parsing it for each `Handler` cost the race suite minutes.
+  written beside it: the parsed contract (`routedContract`,
+  `edge/validator.go`) is a package-level `sync.OnceValues` with a
+  `//nolint:gochecknoglobals` and its reason, since every parse of the
+  embedded spec gives the same contract and parsing it for each `Handler`
+  cost the race suite minutes.
 
 ## Tests: red, green, refactor
 
@@ -129,8 +134,13 @@ flight; and refuses, as `conflict`, a write whose `Workflow-Here` header
   starts as a test that sends the request and asserts the status and body the
   spec promises, or the problem the refusal is; watch it fail, then write the
   method. Tests are black-box, in `package webserver_test` (and
-  `package problem_test`, `package runs_test` and `package tasks_test` in
-  theirs), marked `// Arrange`, `// Act`, `// Assert`.
+  `package problem_test`, `package runs_test`, `package tasks_test` and
+  `package edge_test` in theirs), marked `// Arrange`, `// Act`, `// Assert`.
+- **The boundary is tested at the boundary.** `edge_test` drives
+  `edge.Handler` around a stand-in `OperationServer` (`edge/edge_test.go`),
+  so a guard, the session, the validator and the app are each checked with no
+  server behind them; `edgewiring_test.go` holds only `Handler`'s wiring of
+  it, that the run's dry-run, session and app reach it.
 - **The harness** (`internal/webserver/webtest`, which only tests import):
   `webtest.Serve`, `ServeWith` and `ServeWorld` build the handler under a
   session `Presenting` sends on every request; `Get` and `Send` make a
@@ -141,19 +151,22 @@ flight; and refuses, as `conflict`, a write whose `Workflow-Here` header
   beside them. `assertProblem` (`problemcheck_test.go`) checks a refusal's
   status, media type and detail.
 - **Helpers that cross a line sit in `webtest`.** A helper the tests of code
-  that has left or may leave (the Taskwarrior handlers, the git runs, the
-  request boundary) share with the tests of the rest is exported from
-  `internal/webserver/webtest`, with what it needs, in a file named for what it
-  holds: the harness (`harness.go`) and fixtures (`fixtures.go`) above, the
-  event stream's reader (`streamclient.go`), a seam call held on its context
+  that has left or may leave (the Taskwarrior handlers, the git runs) share
+  with the tests of the rest is exported from `internal/webserver/webtest`,
+  with what it needs, in a file named for what it holds: the harness
+  (`harness.go`) and fixtures (`fixtures.go`) above, the event stream's
+  reader (`streamclient.go`), a seam call held on its context
   (`heldcall.go`), the configuration's edits (`configedits.go`), the
   Taskwarrior fake (`taskwarriorfake.go`) and lefthook's fixtures
   (`hookfixtures.go`). A package that leaves keeps its own black-box tests,
   which import `webtest` as these do and drive the server through
   `webserver.Handler`, or the package itself through its exported API, as
-  `tasks`' `handlers_test.go` and `runs`' `runner_test.go` do. A helper only
-  one side's tests use stays in a test file of that side, unless a shared
-  helper needs it or it belongs to a grouped declaration that moved whole.
+  `tasks`' `handlers_test.go` and `runs`' `runner_test.go` do. One that serves
+  on its own, as `edge` does, is tested through its own handler instead, with
+  helpers of its own (`edge/edge_test.go`), since importing `webtest` would
+  link the whole server into its tests. A helper only one side's tests use
+  stays in a test file of that side, unless a shared helper needs it or it
+  belongs to a grouped declaration that moved whole.
   `webtest` has no tests of its own, as `internal/ptytest` has none: depguard's
   `webtest-only-in-tests` keeps it out of the binary, gobco names it in
   `NO_TESTS`, and its two goroutines are written exceptions in
