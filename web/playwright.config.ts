@@ -14,6 +14,32 @@ const desktopChrome = {
 const hermeticURL = 'http://localhost:4173'
 const mockURL = 'http://localhost:4174'
 
+// smokeSpecs are what Firefox and WebKit run: the layout and axe sweeps, at
+// every width and in both themes, on both builds. Chromium runs every spec;
+// the other two engines of the browsers the page supports (browserslist in
+// package.json) run this subset alone, a smoke run that keeps CI's added time
+// modest.
+const smokeSpecs = /\/e2e\/(?:layout|a11y)\.spec\.ts$/
+
+// smokeProjects are an engine's two runs of the subset: on the production
+// build, and on the populated one for the specs tagged @populated.
+function smokeProjects(name: string, device: (typeof devices)[string]) {
+  return [
+    {
+      name,
+      testMatch: smokeSpecs,
+      grepInvert: /@populated/,
+      use: { ...device, baseURL: hermeticURL },
+    },
+    {
+      name: `${name}-mock`,
+      testMatch: smokeSpecs,
+      grep: /@populated/,
+      use: { ...device, baseURL: mockURL },
+    },
+  ]
+}
+
 // This e2e run has no backend. It serves two builds of the SPA with Vite
 // preview, which proxies nothing: the production build, whose specs answer the
 // API themselves (page.route) and otherwise see the shell and its empty
@@ -55,6 +81,8 @@ export default defineConfig({
       grep: /@populated/,
       use: { ...desktopChrome, baseURL: mockURL },
     },
+    ...smokeProjects('firefox', devices['Desktop Firefox']),
+    ...smokeProjects('webkit', devices['Desktop Safari']),
   ],
   webServer: [
     {
