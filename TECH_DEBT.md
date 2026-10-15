@@ -396,7 +396,9 @@ reopening would lose something. Two tabs paging the first view while the
 forge's open issues change can skip or repeat one Jira row on a later page.
 
 **Reopen when.** Jira's client settings become live on save, or someone is
-seen toggling `issues.forge` from Settings and expecting it to apply at once.
+seen toggling `issues.forge` from Settings and expecting it to apply at once,
+or editing the first view's JQL from Settings and expecting the forge's issues
+to follow it.
 
 ### TRADE-25 Kept data has one schema and is never migrated
 
@@ -918,10 +920,11 @@ let the artifact stay on stdout.
 `fang.Execute` (`charm.land/fang/v2`), which draws the help, the usage and
 the version, in the terminal's own colors from `ansiScheme`. Fang sends its
 titles through `strings.ToUpper` and capitalizes the first word of each
-flag's and command's help, and neither can be turned off; and it links
-`muesli/mango-cobra` and `muesli/roff` for a `man` command that
-`fang.WithoutManpage()` leaves out. Decided 2026-10-14 by the maintainer,
-with the CLI's look, accepting both.
+flag's and command's help, and neither can be turned off; and it links four
+man-page libraries, `muesli/mango-cobra` and `muesli/roff` directly and
+`muesli/mango` and `muesli/mango-pflag` through `mango-cobra`, for a `man`
+command that `fang.WithoutManpage()` leaves out. Decided 2026-10-14 by the
+maintainer, with the CLI's look, accepting both.
 
 **Cost.** The help reads "USAGE", "FLAGS" and "Hold back every write…",
 where the flag help in the code and the reference generated from the same
@@ -936,8 +939,8 @@ test's, so the test that the help is colored on a terminal sets `TERM` on
 its process and runs alone. On a terminal, a help or an error first asks the
 terminal for its background, through stdin and then stdout; a terminal that
 answers neither that nor the device-attributes request beside it holds the
-command up to two seconds each time. mango and roff are compiled into a
-binary that never builds a man page.
+command up to two seconds each time. The four man-page libraries are compiled
+into a binary that never builds a man page.
 
 **Reopen when.** Fang lets its titles and first words keep their case, a man
 page is wanted, or a terminal that does not answer the background query is
@@ -987,7 +990,13 @@ ours until it is added here. Its accessible prompt is Huh's own input, so that
 one stays Huh's.
 
 **Reopen when.** Huh lets an input's cursor be static, or a form needs what
-only `huh.Input` offers.
+only `huh.Input` offers. That is where extending `quietinput.Input` stops
+being worth it: a feature that is an option of the text input beneath, such as a
+character limit, is still added here, but a field whose title, description,
+placeholder or suggestions follow another field's value, as Huh's
+`TitleFunc`, `DescriptionFunc`, `PlaceholderFunc` and `SuggestionsFunc`
+re-evaluate on each change, would copy Huh's machinery for watching what they
+bind to, and that is the cost this entry does not take on.
 
 ### TRADE-47 An accessible form takes the whole terminal while it asks
 
