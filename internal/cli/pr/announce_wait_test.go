@@ -288,6 +288,11 @@ func TestAnnounceWhenGreenSaysWhatItWaitsOnOnce(t *testing.T) {
 	if said := strings.Count(printed.Stderr, "Waiting for CI on #7 to pass"); said != 1 {
 		t.Errorf("stderr said it waits %d times, want once:\n%s", said, printed.Stderr)
 	}
+
+	// The read that lets the post go says nothing, not an empty line.
+	if strings.Contains(printed.Stderr, "\n\n") || strings.HasPrefix(printed.Stderr, "\n") {
+		t.Errorf("stderr holds an empty line:\n%q", printed.Stderr)
+	}
 }
 
 func TestAnnounceWhenGreenWaitsAgainWhenTheGateCannotReadCI(t *testing.T) {
