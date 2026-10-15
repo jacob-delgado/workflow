@@ -260,6 +260,23 @@ func TestIssuesNotesAListCutShort(t *testing.T) {
 	}
 }
 
+func TestIssuesNotesNothingOfAListShownWhole(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	baseURL, _ := trackerJira(t, trackerAnswers{search: searchOf(2, "PROJ-7", "PROJ-8")})
+	dir := t.TempDir()
+	clitest.WriteFile(t, dir, trackerConfig(baseURL, sprintAndTriage))
+
+	// Act
+	printed, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "issues")
+
+	// Assert
+	if err != nil || printed.Stderr != "" {
+		t.Errorf("issues = %v\nstderr:\n%s\nwant no note on a list shown whole", err, printed.Stderr)
+	}
+}
+
 func TestIssuesSaysWhyTheViewCouldNotBeRead(t *testing.T) {
 	t.Parallel()
 
