@@ -118,7 +118,13 @@ both printing the available ratchet when you clear them; condition coverage
 also holds each package `scripts/gobco-floors.txt` names to a floor of its
 own:
 
-- **Statements** (`task test:cover`) — did this line run.
+- **Statements** (`task test:cover`) — did this line run. The total counts
+  the product's code alone: `scripts/coverage-gate.sh` leaves out the
+  generated trees (`cmd/docsgen`, `internal/api`) and every package whose
+  line in `CLAUDE.md`'s layout block ends `(tests only)`, a helper that only
+  tests may import. A new package of that kind takes the mark there, which
+  the gate reads, and a depguard `*-only-in-tests` rule in `.golangci.yml`,
+  which holds every other import of it to a test.
 - **Conditions** (`task cover:branch`, via [gobco](https://github.com/rillig/gobco))
   — was each condition seen both ways, each operand of an `a && b` on its own.
   Its output names every condition observed only one way, which is a worklist of

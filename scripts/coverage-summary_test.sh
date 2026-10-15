@@ -15,14 +15,24 @@ readonly summary="${here}/coverage-summary.sh"
 # shellcheck source=lib/testing.sh
 source "${here}/lib/testing.sh"
 
-# The same minimal 50%-covered module coverage-gate's own test uses; the summary
-# reads the statement number through the gate, so it must run from here.
+# The same minimal 50%-covered module coverage-gate's own test uses, with the
+# layout block the gate reads in its CLAUDE.md; the summary reads the statement
+# number through the gate, so it must run from here.
 module="${workdir}/module"
 mkdir -p "${module}"
 cat >"${module}/go.mod" <<'EOF'
 module example
 
 go 1.27
+EOF
+cat >"${module}/CLAUDE.md" <<'EOF'
+# CLAUDE.md
+
+Layout:
+
+```text
+cmd/workflow/  thin main
+```
 EOF
 cat >"${module}/f.go" <<'EOF'
 package example

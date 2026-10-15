@@ -47,11 +47,12 @@ go_row() {
   go_counts="$(counts go "${work}/go.json")"
 
   # Taken from the gate, with a floor of 0 so it never fails, as
-  # coverage-summary.sh does: the gate leaves generated code out of the
-  # denominator, so a total read straight off the profile would differ from the
-  # number the build enforces. The gate runs `go tool cover`, which resolves the
-  # profile's paths against the module, hence from the root. A bare number (or
-  # a dash), so the report's pct helper adds the one % sign.
+  # coverage-summary.sh does: the gate leaves generated code and the packages
+  # that serve only tests out of the denominator, so a total read straight off
+  # the profile would differ from the number the build enforces. The gate runs
+  # `go tool cover`, which resolves the profile's paths against the module, and
+  # reads the layout from the CLAUDE.md beside go.mod, hence from the root. A
+  # bare number (or a dash), so the report's pct helper adds the one % sign.
   pct="-"
   if [[ -s "${work}/go.cov" ]]; then
     pct="$(

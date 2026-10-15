@@ -70,9 +70,13 @@ as its status, so a gate that fails for the wrong reason fails the test.
   to pass having measured nothing when git lists nothing (the
   `check-file-length.sh`, `check-goroutines.sh` and `check-layout.sh` headers
   say why).
-- **`check-layout.sh` reads the root `CLAUDE.md`'s `Layout:` block**, so the
-  block stays in the root and its test (`check-layout_test.sh`) builds fixture
-  `CLAUDE.md` files; moving the block means changing both.
+- **`check-layout.sh` and `coverage-gate.sh` read the root `CLAUDE.md`'s
+  `Layout:` block**, through `lib/layout.sh`: the first holds it to the Go
+  packages, and the second leaves each package whose line ends
+  `(tests only)` out of the statement total. So the block stays in the root,
+  and both tests (`check-layout_test.sh`, `coverage-gate_test.sh`) build
+  fixture `CLAUDE.md` files; moving the block, or changing the mark, means
+  changing the library and both.
 - **`release/`** belongs to the maintainer's release path, and the root's
   release rule covers it. `release-please.yml` runs `push-release-tag.sh`
   twice, as `decide` in its gate job and again in its tag job to push the
