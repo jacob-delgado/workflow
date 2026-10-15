@@ -317,18 +317,6 @@ func slackRefreshing(t *testing.T, changed func()) {
 	clitest.SetVariable(t, wiring.SlackAPIVariable, server.URL)
 }
 
-// breakFile writes what no configuration parses over the file at path.
-func breakFile(t *testing.T, path string) func() {
-	t.Helper()
-
-	return func() {
-		err := os.WriteFile(path, []byte("{"), 0o600)
-		if err != nil {
-			t.Errorf("breaking %s: %v", path, err)
-		}
-	}
-}
-
 // loginTyped is a prompt typing a login for the app clitest.SlackClientID.
 func loginTyped() cmdkit.Prompt {
 	return asking([]string{clitest.SlackClientID}, typedLogin(), new([]string), new([]string))
@@ -380,7 +368,7 @@ func TestSlackLoginThatCannotKeepThePairSaysSo(t *testing.T) {
 	dir := t.TempDir()
 	path := clitest.WriteFile(t, dir, `{"messaging": {"kind": "slack", "client_id": "`+clitest.SlackClientID+`",`+
 		` "client_secret": "client-secret-old", "channel": "#dev"}}`)
-	slackRefreshing(t, breakFile(t, path))
+	slackRefreshing(t, clitest.BreakFile(t, path))
 
 	// Act
 	_, err := clitest.RunGuided(t, dir, loginTyped(), "slack", "login")
@@ -400,7 +388,7 @@ func TestSlackLoginThatCannotNameTheAppSaysSo(t *testing.T) {
 	where := clitest.Place{Dir: t.TempDir(), Home: t.TempDir()}
 	clitest.WriteFile(t, where.Home, `{}`)
 	path := clitest.WriteFile(t, where.Dir, slackUserTokenFile)
-	slackRefreshing(t, breakFile(t, path))
+	slackRefreshing(t, clitest.BreakFile(t, path))
 
 	// Act
 	_, err := clitest.RunStreamsAt(t, where, loginTyped(), "slack", "login")

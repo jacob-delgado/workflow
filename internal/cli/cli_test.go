@@ -17,17 +17,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 )
 
-// runAtHome is clitest.Run with dir as the home directory as well, so the
-// file there is the home file, the one file that may set a program to run or a
-// variable to read.
-func runAtHome(t *testing.T, dir string, args ...string) (string, error) {
-	t.Helper()
-
-	printed, err := clitest.RunStreamsAt(t, clitest.Place{Dir: dir, Home: dir}, clitest.UnusedPrompt(t), args...)
-
-	return printed.Stdout + printed.Stderr, err
-}
-
 func TestConfigInitWritesATemplate(t *testing.T) {
 	t.Parallel()
 

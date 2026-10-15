@@ -110,8 +110,8 @@ for a client's unreachable service, `cmdkit.ServicesUnreachable` in
   `clitest.Run(t, dir, args...)` executes in `dir` with an empty home of its
   own and none of the developer's environment, and returns everything
   printed; `clitest.RunStreams` keeps stdout and stderr apart, for a test
-  that says which stream a line is on; `runAtHome` (`cli_test.go`) makes
-  `dir` the home too; `clitest.RunGuided` answers prompts through
+  that says which stream a line is on; `clitest.RunAtHome` makes `dir` the
+  home too; `clitest.RunGuided` answers prompts through
   `clitest.Scripted` (`clitest/prompt.go`). `clitest.UnusedPrompt` fails a
   test whose command reads a prompt it was not meant to. What a run sees of
   the outside world is its test's own (`clitest.ProgramsOf`,

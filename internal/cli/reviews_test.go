@@ -70,7 +70,7 @@ func TestReviewsOnAHostThatNamesNoForgeReportsSo(t *testing.T) {
 
 	// Arrange
 	// The hostname says neither GitHub nor GitLab, and no forge.kind says which.
-	repo := repoWithRemote(t, onPremisesRemote)
+	repo := clitest.RepoWithRemote(t, clitest.OnPremisesRemote)
 
 	// Act
 	_, err := clitest.Run(t, repo, "reviews")

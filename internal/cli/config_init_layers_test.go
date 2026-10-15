@@ -18,34 +18,11 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 )
 
-// homeConfig is the configuration in the home directory the layering tests
-// start a repository's file over.
-const homeConfig = `{"jira": {"base_url": "https://jira.example.com", "token": "jira-token-home-1234"},` +
-	` "messaging": {"webhook_url": "https://hooks.slack.example/home"}}`
-
-// homeAndRepository is a home directory holding homeConfig and a repository
-// beside it, with nothing in the repository yet.
-func homeAndRepository(t *testing.T) clitest.Place {
-	t.Helper()
-
-	home := t.TempDir()
-	clitest.WriteFile(t, home, homeConfig)
-
-	repo := t.TempDir()
-
-	err := os.Mkdir(filepath.Join(repo, ".git"), 0o700)
-	if err != nil {
-		t.Fatalf("making the repository marker: %v", err)
-	}
-
-	return clitest.Place{Dir: repo, Home: home}
-}
-
 func TestConfigInitTemplateOverAHomeFileWritesAnEmptyLayer(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	where := homeAndRepository(t)
+	where := clitest.HomeAndRepository(t)
 
 	// Act
 	printed, err := clitest.RunStreamsAt(t, where, clitest.UnusedPrompt(t), "config", "init", "--template")
@@ -65,7 +42,7 @@ func TestGuidedInitOverAHomeFileKeepsWhatWasLeftBlank(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	where := homeAndRepository(t)
+	where := clitest.HomeAndRepository(t)
 
 	// Act
 	_, err := clitest.RunStreamsAt(t, where, clitest.Scripted([]string{""}, []string{""}), "config", "init")
@@ -84,7 +61,7 @@ func TestConfigShowNamesEveryFileInEffect(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	where := homeAndRepository(t)
+	where := clitest.HomeAndRepository(t)
 	clitest.WriteFile(t, where.Dir, `{"jira": {"project": "OSS"}}`)
 
 	// Act
@@ -101,7 +78,7 @@ func TestDoctorNamesEveryFileInEffect(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	where := homeAndRepository(t)
+	where := clitest.HomeAndRepository(t)
 	clitest.WriteFile(t, where.Dir, `{"jira": {"project": "OSS"}}`)
 
 	// Act
@@ -149,7 +126,7 @@ func TestConfigInitForceOverAHomeFileReplacesTheRepositoryLayer(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			where := homeAndRepository(t)
+			where := clitest.HomeAndRepository(t)
 			clitest.WriteFile(t, where.Dir, `{"jira": {"project": "OSS"}}`)
 
 			// Act
@@ -169,7 +146,7 @@ func TestConfigInitTemplateOverAHomeFileWarnsWhenTheLayerIsNotGitIgnored(t *test
 	t.Parallel()
 
 	// Arrange
-	where := homeAndRepository(t)
+	where := clitest.HomeAndRepository(t)
 	clitest.GitInit(t, where.Dir)
 
 	// Act
@@ -196,7 +173,7 @@ func TestConfigInitOverAHomeFileThatDoesNotParseSaysSoAndWritesNothing(t *testin
 			// Arrange
 			// The repository's file would lie over the home file, which cannot
 			// be read for what it would lie over.
-			where := homeAndRepository(t)
+			where := clitest.HomeAndRepository(t)
 			clitest.WriteFile(t, where.Home, `{`)
 
 			// Act
@@ -236,7 +213,7 @@ func TestConfigInitOverAHomeFileIntoADirectoryItCannotWriteSaysSo(t *testing.T) 
 				t.Skip("root writes into a directory whatever its mode, so the save would succeed")
 			}
 
-			where := homeAndRepository(t)
+			where := clitest.HomeAndRepository(t)
 
 			err := os.Chmod(where.Dir, 0o500)
 			if err != nil {

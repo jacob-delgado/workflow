@@ -12,6 +12,10 @@ import (
 	"time"
 )
 
+// OnPremisesRemote is an origin on a host whose name says neither GitHub nor
+// GitLab, so only forge.kind can say which forge it is.
+const OnPremisesRemote = "git@git.example.com:acme/thing.git"
+
 // GhResponses are the canned bodies a fake gh returns per route; an empty field
 // falls back to a benign default (no pull, no CI).
 type GhResponses struct {

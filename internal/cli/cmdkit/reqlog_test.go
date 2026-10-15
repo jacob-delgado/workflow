@@ -127,7 +127,7 @@ func TestARequestLogNamedRelativelyNeedsTheWorkingDirectory(t *testing.T) {
 	_, err := runTree(t, root, "--request-log", "requests.log", probeCommand)
 
 	// Assert
-	if err == nil || !strings.HasPrefix(err.Error(), "opening the request log: "+workdirUnread) {
+	if err == nil || !strings.HasPrefix(err.Error(), "opening the request log: "+clitest.WorkdirUnread) {
 		t.Errorf("--request-log requests.log from a removed directory = %v, want it to say the log cannot be "+
 			"opened for the directory it cannot name", err)
 	}

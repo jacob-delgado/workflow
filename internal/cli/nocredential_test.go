@@ -17,17 +17,21 @@ func TestAJiraTokenVariableThatGivesNothingIsNamedNotCalledUnconfigured(t *testi
 	t.Parallel()
 
 	// Arrange
-	clitest.SetVariable(t, emptyTokenVariable, "")
+	clitest.SetVariable(t, clitest.EmptyTokenVariable, "")
 
 	repo := repoForBranch(t, "https://jira.example.net")
-	clitest.WriteFile(t, repo, `{"jira": {"base_url": "https://jira.example.net", "token_env": "`+emptyTokenVariable+`"}}`)
+	clitest.WriteFile(
+		t, repo, `{"jira": {"base_url": "https://jira.example.net", "token_env": "`+clitest.EmptyTokenVariable+`"}}`,
+	)
 
 	// Act
-	_, err := runAtHome(t, repo, "branch", "PROJ-7", "--yes")
+	_, err := clitest.RunAtHome(t, repo, "branch", "PROJ-7", "--yes")
 
 	// Assert
-	if err == nil || strings.Contains(err.Error(), "is configured") || !strings.Contains(err.Error(), emptyTokenVariable) {
-		t.Errorf("branch = %v, want the error to name %s and not call the token unconfigured", err, emptyTokenVariable)
+	if err == nil || strings.Contains(err.Error(), "is configured") ||
+		!strings.Contains(err.Error(), clitest.EmptyTokenVariable) {
+		t.Errorf("branch = %v, want the error to name %s and not call the token unconfigured",
+			err, clitest.EmptyTokenVariable)
 	}
 }
 

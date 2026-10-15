@@ -82,17 +82,6 @@ func TestDoctorReportsADetachedHead(t *testing.T) {
 	}
 }
 
-// repoWithRemote makes dir a repository whose origin is remote.
-func repoWithRemote(t *testing.T, remote string) string {
-	t.Helper()
-
-	dir := t.TempDir()
-	clitest.GitInit(t, dir)
-	clitest.Git(t, dir, "remote", "add", "origin", remote)
-
-	return dir
-}
-
 func TestDoctorNamesTheForgeAndItsAPI(t *testing.T) {
 	t.Parallel()
 
@@ -115,7 +104,7 @@ func TestDoctorNamesTheForgeAndItsAPI(t *testing.T) {
 		// Neither forge announces itself in an on-premises hostname, and their
 		// API paths differ, so guessing would send a token to the wrong service.
 		"an on-premises host": {
-			remote: onPremisesRemote,
+			remote: clitest.OnPremisesRemote,
 			want:   "acme/thing on git.example.com (cannot tell GitHub Enterprise from self-managed GitLab)",
 		},
 		// A remote on the local disk has no host, so there is no forge to name.
@@ -139,7 +128,7 @@ func TestDoctorNamesTheForgeAndItsAPI(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			dir := repoWithRemote(t, tt.remote)
+			dir := clitest.RepoWithRemote(t, tt.remote)
 
 			// Act
 			output, _ := clitest.Run(t, dir, "doctor")
