@@ -39,30 +39,6 @@ trade-off register](#the-trade-off-register) instead, which lists what each
 costs and what would reopen it. A security problem goes in neither: report it
 as [SECURITY.md](SECURITY.md) asks.
 
-## The command line
-
-### DEBT-329 `cli.go` is past the 500-line soft target
-
-Severity: low · Confidence: measured · Size: S
-
-**Where.** `internal/cli/cli.go`: `loadFromEnvironment` and `configHome`,
-below the root command, the interfaces' loop and their switching.
-
-**Today.** The UX refresh took the file from 482 lines to 505, past
-CLAUDE.md's 500-line soft target, which `scripts/check-file-length.sh` warns
-on and does not fail (`--list` marks it `soft`). The two functions read
-where the configuration comes from out of the command's environment, which
-`environment.go` already holds, so the root command's file carries a concern
-that is not its own.
-
-**Fix.** The next change to `cli.go` moves `loadFromEnvironment` and
-`configHome` into `environment.go`, as a Boy Scout commit of its own. That
-takes no new file, which matters while `internal/cli` stands at its ceiling
-of 32 in `scripts/package-size-budgets.txt`.
-
-**Done when.** `scripts/check-file-length.sh --list` no longer marks
-`internal/cli/cli.go` `soft`.
-
 ## The web server
 
 ### DEBT-330 `announce.go` is past the 500-line soft target

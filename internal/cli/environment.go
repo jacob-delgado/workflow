@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/lifetime"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/wiring"
@@ -128,4 +129,24 @@ func relativeToWorkingDir(path string) bool {
 	// Trade-off TRADE-35: no CI job sees the volume clause or the rooted one
 	// false; elsewhere a path names no volume, and a rooted path is absolute.
 	return !filepath.IsAbs(path) && filepath.VolumeName(path) == "" && !rooted
+}
+
+// loadFromEnvironment loads the configuration that applies where cmd runs,
+// searching up from its working directory to the repository root and then
+// the home directory. A missing or unreadable file, or a working directory
+// that cannot be named, is reported through the error.
+func loadFromEnvironment(cmd *cobra.Command) (config.Config, error) {
+	workDir, err := workingDir(cmd)
+	if err != nil {
+		return config.Config{}, err
+	}
+
+	return config.Load(workDir, configHome(cmd))
+}
+
+// configHome is the home directory a configuration falls back to, or "" for
+// none. A machine without a home directory is unusual but not a failure: the
+// working directory alone is still a valid place to find a configuration.
+func configHome(cmd *cobra.Command) string {
+	return environmentOf(cmd).Process.Home
 }
