@@ -33,9 +33,6 @@ type Input struct {
 	focused                  bool
 	// options are the suggestions in the order they were offered.
 	options []string
-	// typedIn is whether a key or a paste has changed what the field holds,
-	// before which nothing is completed.
-	typedIn bool
 	keymap  huh.InputKeyMap
 	theme   huh.Theme
 	width   int
@@ -232,7 +229,6 @@ func (q *Input) GetValue() any { return q.input.Value() }
 // begins.
 func (q *Input) Suggesting(options []string) *Input {
 	q.options = options
-	q.input.ShowSuggestions = q.typedIn
 	q.input.SetSuggestions(q.ordered())
 
 	return q
@@ -266,7 +262,6 @@ func (q *Input) CheckedBy(check func(string) error) *Input {
 // and it matches by itself after a key, not a paste, so what the field holds is
 // matched here either way, and with the option it holds whole listed first.
 func (q *Input) matchSuggestions() {
-	q.typedIn = true
 	q.input.ShowSuggestions = true
 	q.input.SetSuggestions(q.ordered())
 }
