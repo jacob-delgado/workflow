@@ -1,10 +1,12 @@
 # web
 
-The rules and gates of the `--web` frontend (React, TypeScript, Vite,
-Vitest, Playwright), for any change under `web/`. The root `CLAUDE.md` still
-applies; this adds what holds here alone. **`web/README.md` is the guide to
-read with it**: the dev loop, the checks, the conventions and why each
-dependency pin stands are written there once, and not restated here.
+The rules and gates of the `--web` frontend (React, TypeScript, Vite, Vitest,
+Playwright), for any change under `web/`. The root `CLAUDE.md` still applies;
+this adds what holds here alone. UX.md's Principles and Vocabulary are binding
+here: an action keeps one name through its flow, and a new word comes from that
+table. **`web/README.md` is the guide to read with it**: the dev loop, the
+checks, the conventions and why each dependency pin stands are written there
+once, and not restated here.
 
 ## Running it
 

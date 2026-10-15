@@ -2,7 +2,9 @@
 
 How a request to `workflow --web` becomes a seam call and a problem or a DTO,
 for a change to an API operation, the guards or the event stream. The root
-`CLAUDE.md` still applies; this adds what holds here alone.
+`CLAUDE.md` still applies; this adds what holds here alone. UX.md's Principles
+and Vocabulary are binding here: an action keeps one name through its flow, and
+a new word comes from that table.
 
 ## Spec first
 
