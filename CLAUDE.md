@@ -42,6 +42,7 @@ internal/tui/layout/  where each region of the interface goes, per terminal size
 internal/tui/quietinput/ the Huh field typed text goes through, whose cursor never blinks
 internal/webserver/   the --web REST API and event stream, bound to 127.0.0.1
 internal/webserver/problem/ the RFC 9457 problem details the --web API answers a failure with
+internal/webserver/tasks/ the --web API's Taskwarrior operations, and the event stream's summary of your tasks
 internal/webserver/webtest/ serving the --web API to a test, with its fakes and fixtures (tests only)
 internal/web/         the built web app, committed so every build embeds it
 internal/api/         the Go types and server interface generated from api/

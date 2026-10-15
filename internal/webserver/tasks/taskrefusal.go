@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package webserver
+package tasks
 
 import (
 	"context"
@@ -16,18 +16,18 @@ import (
 	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
-// taskFault is fault for what a Taskwarrior seam asked under ctx answered. A
-// refusal carries Taskwarrior's own words, which name what in the line it
-// could not take, and a bound that ran out is Taskwarrior's: no class can say
-// so, since git's reads time out with the same sentinel.
-func (s *server) taskFault(ctx context.Context, err error) api.Problem {
+// taskFault is the kit's Fault for what a Taskwarrior seam asked under ctx
+// answered. A refusal carries Taskwarrior's own words, which name what in the
+// line it could not take, and a bound that ran out is Taskwarrior's: no class
+// can say so, since git's reads time out with the same sentinel.
+func (h *Handlers) taskFault(ctx context.Context, err error) api.Problem {
 	switch {
 	case errors.Is(err, taskwarrior.ErrRefused):
-		return problem.New(api.ProblemCodeUnprocessable, s.refusalDetail(ctx, err))
+		return problem.New(api.ProblemCodeUnprocessable, h.refusalDetail(ctx, err))
 	case errors.Is(err, proc.ErrTimedOut):
 		return problem.New(api.ProblemCodeUnreachable, "Taskwarrior did not answer in time")
 	default:
-		return s.fault(err)
+		return h.kit.Fault(err)
 	}
 }
 
@@ -41,8 +41,8 @@ const malformedEntry = "Malformed entry '"
 // read as fixed words, and each line naming a URL or a host and port, since a
 // hook's feedback can name the sync server, or quoting a taskrc line, dropped
 // whole — or, with no words left, the refusal alone.
-func (s *server) refusalDetail(ctx context.Context, err error) string {
-	places := s.knownPlaces(ctx)
+func (h *Handlers) refusalDetail(ctx context.Context, err error) string {
+	places := h.knownPlaces(ctx)
 
 	var kept []string
 
@@ -65,15 +65,15 @@ func (s *server) refusalDetail(ctx context.Context, err error) string {
 // a path under both reads as the data directory. One that names no place of
 // its own is left out — see namesAPlace. Which Taskwarrior answered is asked
 // under ctx.
-func (s *server) knownPlaces(ctx context.Context) *strings.Replacer {
+func (h *Handlers) knownPlaces(ctx context.Context) *strings.Replacer {
 	var pairs []string
 
-	install, err := s.installed(ctx)
+	install, err := h.installed(ctx)
 	if err == nil && namesAPlace(install.DataDir) {
 		pairs = append(pairs, install.DataDir, "the data directory")
 	}
 
-	if home := s.homeDir(); namesAPlace(home) {
+	if home := h.homeDir(); namesAPlace(home) {
 		pairs = append(pairs, home, "~")
 	}
 
@@ -88,8 +88,8 @@ func namesAPlace(dir string) bool {
 }
 
 // homeDir is your home directory, or "" when none is known.
-func (s *server) homeDir() string {
-	return s.deps.Repositories.Home
+func (h *Handlers) homeDir() string {
+	return h.kit.Home
 }
 
 // networkAddress matches what names a machine on the network: a URL, or a host

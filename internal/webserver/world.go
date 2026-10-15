@@ -137,6 +137,7 @@ func (w *worlds) install(world World) (*server, error) {
 		deps: world.Deps, info: world.Info, files: world.Config.Layers(), cfg: inEffect, seen: seen,
 		forgeKind: world.Info.ForgeKind, worlds: w, retired: make(chan struct{}),
 	}
+	srv.Handlers = srv.taskHandlers()
 
 	strict := api.NewStrictHandlerWithOptions(srv, nil, api.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  problem.WriteRequestError,

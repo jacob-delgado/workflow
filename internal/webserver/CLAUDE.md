@@ -12,8 +12,9 @@ for a change to an API operation, the guards or the event stream. The root
   `corepack yarn gen` in `web/`. `task gen:verify` and `task web:gen:check`
   fail when either generated side drifts from the spec.
 - `server` implements `api.StrictServerInterface` (`webserver.go`); every
-  operation the spec names is a method on it. An operation whose `x-switch`
-  extension is set switches the directory (`switchExtension`,
+  operation the spec names is a method on it, its own or, for the
+  Taskwarrior operations, one of the `tasks.Handlers` it embeds. An operation
+  whose `x-switch` extension is set switches the directory (`switchExtension`,
   `validator.go`).
 
 ## One file per operation, and when code may leave
@@ -26,11 +27,16 @@ wire shapes, stream and server. It answers to a cohesive ceiling in
 file. The package is not split to chase a number, but code in it with a reason
 to change of its own may leave where no import cycle follows: the request
 boundary (the guards, the policy headers, the session and the contract
-validator), which changes for security's reasons, and the Taskwarrior handlers
-and the git runs, which each change with the tool they drive. The RFC 9457
-problem details have left already, to `internal/webserver/problem`, which
-changes only with the error format. Reaching the ceiling means rewriting the WHY above the entry and a history row, or such an
-extraction, never a split for the count.
+validator), which changes for security's reasons, and the git runs, which
+change with the tool they drive. Two have left already: the RFC 9457 problem
+details, to `internal/webserver/problem`, which changes only with the error
+format, and the Taskwarrior handlers, to `internal/webserver/tasks`, which
+change with Taskwarrior. `tasks.New` builds them over `tasks.Seams`, bound
+with the taskwarrior settings the server started with, and takes what they
+need of the server through a `tasks.Kit`: `fault`, the settings in effect,
+the clock, the tracker's issue links, `worlds.outliving` and your home
+directory. Reaching the ceiling means rewriting the WHY above the entry and a
+history row, or such an extraction, never a split for the count.
 
 ## A request, outside in
 
@@ -119,7 +125,7 @@ flight; and refuses, as `conflict`, a write whose `Workflow-Here` header
   starts as a test that sends the request and asserts the status and body the
   spec promises, or the problem the refusal is; watch it fail, then write the
   method. Tests are black-box, in `package webserver_test` (and
-  `package problem_test` in `internal/webserver/problem`), marked
+  `package problem_test` and `package tasks_test` in theirs), marked
   `// Arrange`, `// Act`, `// Assert`.
 - **The harness** (`internal/webserver/webtest`, which only tests import):
   `webtest.Serve`, `ServeWith` and `ServeWorld` build the handler under a
@@ -131,8 +137,8 @@ flight; and refuses, as `conflict`, a write whose `Workflow-Here` header
   beside them. `assertProblem` (`problemcheck_test.go`) checks a refusal's
   status, media type and detail.
 - **Helpers that cross a line sit in `webtest`.** A helper the tests of code
-  that may leave (the request boundary, the Taskwarrior handlers, the git
-  runs) share with the tests of the rest is exported from
+  that has left or may leave (the Taskwarrior handlers, the request boundary,
+  the git runs) share with the tests of the rest is exported from
   `internal/webserver/webtest`, with what it needs, in a file named for what it
   holds: the harness (`harness.go`) and fixtures (`fixtures.go`) above, the
   event stream's reader (`streamclient.go`), a seam call held on its context

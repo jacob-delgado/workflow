@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package webserver
+package tasks
 
 import (
 	"context"
@@ -45,10 +45,10 @@ type detectionCache struct {
 // ListTasks answers your pending tasks, or why no Taskwarrior can be asked —
 // an answer about where the server runs, as the review queue's is, not a
 // missing resource.
-func (s *server) ListTasks(ctx context.Context, _ api.ListTasksRequestObject) (api.ListTasksResponseObject, error) {
-	list, err := s.readTaskList(ctx, "")
+func (h *Handlers) ListTasks(ctx context.Context, _ api.ListTasksRequestObject) (api.ListTasksResponseObject, error) {
+	list, err := h.readTaskList(ctx, "")
 	if err != nil {
-		return problem.Answer[api.ListTasksdefaultApplicationProblemPlusJSONResponse](s.taskFault(ctx, err)), nil
+		return problem.Answer[api.ListTasksdefaultApplicationProblemPlusJSONResponse](h.taskFault(ctx, err)), nil
 	}
 
 	return api.ListTasks200JSONResponse(list), nil
@@ -59,8 +59,8 @@ func (s *server) ListTasks(ctx context.Context, _ api.ListTasksRequestObject) (a
 // is what undo or sync printed, or what a write has to add. The clock is read
 // once, so the tasks' states and the values the filter offers describe one
 // moment.
-func (s *server) readTaskList(ctx context.Context, said string) (api.TaskList, error) {
-	install, err := s.unlessSettingsChanged(ctx, s.installed)
+func (h *Handlers) readTaskList(ctx context.Context, said string) (api.TaskList, error) {
+	install, err := h.unlessSettingsChanged(ctx, h.installed)
 	if err != nil {
 		code, reason := unavailableReason(err)
 
@@ -69,26 +69,26 @@ func (s *server) readTaskList(ctx context.Context, said string) (api.TaskList, e
 		}, nil
 	}
 
-	pending, err := s.deps.Tasks.Pending(ctx)
+	pending, err := h.seams.Tasks.Pending(ctx)
 	if err != nil {
 		return api.TaskList{}, err
 	}
 
-	tasks, now := knownTasks(pending.Tasks), s.now()
+	tasks, now := knownTasks(pending.Tasks), h.kit.Now()
 
 	return api.TaskList{
 		Available: true, Reason: "", Context: pending.Context, SyncAvailable: install.SyncConfigured,
-		Said: said, Tasks: s.tasksDTO(tasks, now), FacetOrder: taskFacetsDTO(taskwarrior.OfferedFacets(tasks, now)),
+		Said: said, Tasks: h.tasksDTO(tasks, now), FacetOrder: taskFacetsDTO(taskwarrior.OfferedFacets(tasks, now)),
 	}, nil
 }
 
 // unlessSettingsChanged is the Taskwarrior find answers, or errSettingsChanged
 // without asking once the taskwarrior settings in effect are not the ones the
 // seams were bound with: whatever find would say is about the old settings.
-func (s *server) unlessSettingsChanged(
+func (h *Handlers) unlessSettingsChanged(
 	ctx context.Context, find func(context.Context) (taskwarrior.Install, error),
 ) (taskwarrior.Install, error) {
-	if s.config().Taskwarrior != s.info.Taskwarrior {
+	if h.kit.Config() != h.bound {
 		return taskwarrior.Install{}, errSettingsChanged
 	}
 
@@ -98,12 +98,12 @@ func (s *server) unlessSettingsChanged(
 // installed is the Taskwarrior that answers, asked under ctx, or why none can
 // be asked: with no seam, the integration was turned off at start or no task
 // program was found.
-func (s *server) installed(ctx context.Context) (taskwarrior.Install, error) {
-	if s.deps.Tasks.Install != nil {
-		return s.deps.Tasks.Install(ctx)
+func (h *Handlers) installed(ctx context.Context) (taskwarrior.Install, error) {
+	if h.seams.Tasks.Install != nil {
+		return h.seams.Tasks.Install(ctx)
 	}
 
-	if s.info.Taskwarrior.Disabled {
+	if h.bound.Disabled {
 		return taskwarrior.Install{}, errTurnedOff
 	}
 
@@ -146,13 +146,13 @@ func unavailableReason(err error) (api.TaskListReasonCode, string) {
 	return api.TaskListReasonCodeUnavailable, "Taskwarrior could not be asked; workflow doctor says why."
 }
 
-// snapshotTasks is the stream's summary of your tasks: whether Taskwarrior can
+// Summary is the stream's summary of your tasks: whether Taskwarrior can
 // be asked, and why not; the started task; and every task linked to an issue.
 // Until Taskwarrior has answered both reads the summary is unavailable, as the
 // terminal draws no task mark until it has, so a page never takes a read that
 // failed for "no task tracks this issue" and offers to track it again.
-func (s *server) snapshotTasks(ctx context.Context) api.TasksSummary {
-	_, err := s.unlessSettingsChanged(ctx, s.heldDetection)
+func (h *Handlers) Summary(ctx context.Context) api.TasksSummary {
+	_, err := h.unlessSettingsChanged(ctx, h.heldDetection)
 	if err != nil {
 		_, reason := unavailableReason(err)
 
@@ -163,17 +163,17 @@ func (s *server) snapshotTasks(ctx context.Context) api.TasksSummary {
 		Available: false, Reason: "Taskwarrior could not be read; workflow doctor says why.", Linked: []api.Task{},
 	}
 
-	pending, err := s.deps.Tasks.Pending(ctx)
+	pending, err := h.seams.Tasks.Pending(ctx)
 	if err != nil {
 		return unanswered
 	}
 
-	linked, err := s.deps.Tasks.Linked(ctx)
+	linked, err := h.seams.Tasks.Linked(ctx)
 	if err != nil {
 		return unanswered
 	}
 
-	return s.tasksSummaryDTO(pending.Tasks, linked, s.now())
+	return h.tasksSummaryDTO(pending.Tasks, linked, h.kit.Now())
 }
 
 // heldDetection is which Taskwarrior answers, for the stream: a search that
@@ -181,30 +181,30 @@ func (s *server) snapshotTasks(ctx context.Context) api.TasksSummary {
 // the search, so it runs to its end even if the page whose frame began it
 // leaves; a search canceled then would be held as none for every page. It ends
 // when the server stops.
-func (s *server) heldDetection(ctx context.Context) (taskwarrior.Install, error) {
-	s.detection.mu.Lock()
-	defer s.detection.mu.Unlock()
+func (h *Handlers) heldDetection(ctx context.Context) (taskwarrior.Install, error) {
+	h.detection.mu.Lock()
+	defer h.detection.mu.Unlock()
 
-	now := s.now()
-	if s.detection.failed != nil && now.Sub(s.detection.readAt) < taskwarriorHold {
-		return taskwarrior.Install{}, s.detection.failed
+	now := h.kit.Now()
+	if h.detection.failed != nil && now.Sub(h.detection.readAt) < taskwarriorHold {
+		return taskwarrior.Install{}, h.detection.failed
 	}
 
-	shared, release := s.worlds.outliving(ctx)
+	shared, release := h.kit.Outliving(ctx)
 	defer release()
 
-	install, err := s.installed(shared)
-	s.detection.failed, s.detection.readAt = err, now
+	install, err := h.installed(shared)
+	h.detection.failed, h.detection.readAt = err, now
 
 	return install, err
 }
 
 // tasksSummaryDTO maps what Taskwarrior answered onto the stream's summary, as
 // the tasks stand at now: the started task and every linked task.
-func (s *server) tasksSummaryDTO(pending, linked []taskwarrior.Task, now time.Time) api.TasksSummary {
+func (h *Handlers) tasksSummaryDTO(pending, linked []taskwarrior.Task, now time.Time) api.TasksSummary {
 	known := knownTasks(linked)
-	summary := api.TasksSummary{Available: true, Reason: "", Linked: s.tasksDTO(known, now)}
-	summary.Active = s.activeTask(knownTasks(pending), known, summary.Linked, now)
+	summary := api.TasksSummary{Available: true, Reason: "", Linked: h.tasksDTO(known, now)}
+	summary.Active = h.activeTask(knownTasks(pending), known, summary.Linked, now)
 
 	return summary
 }
@@ -214,9 +214,9 @@ func (s *server) tasksSummaryDTO(pending, linked []taskwarrior.Task, now time.Ti
 // tasks, as the Tasks list ranks it, or the linked ones, given here as
 // linkedDTO, when the active context hides it from the pending. It is nil when
 // none is started.
-func (s *server) activeTask(pending, linked []taskwarrior.Task, linkedDTO []api.Task, now time.Time) *api.Task {
+func (h *Handlers) activeTask(pending, linked []taskwarrior.Task, linkedDTO []api.Task, now time.Time) *api.Task {
 	if started := slices.IndexFunc(pending, taskwarrior.Task.Active); started >= 0 {
-		return &s.tasksDTO(pending, now)[started]
+		return &h.tasksDTO(pending, now)[started]
 	}
 
 	if started := slices.IndexFunc(linked, taskwarrior.Task.Active); started >= 0 {
@@ -238,12 +238,12 @@ func knownTasks(tasks []taskwarrior.Task) []taskwarrior.Task {
 
 // tasksDTO maps tasks onto the wire, an empty list rather than null, each as
 // it stands at now, with its place in every order among them.
-func (s *server) tasksDTO(tasks []taskwarrior.Task, now time.Time) []api.Task {
+func (h *Handlers) tasksDTO(tasks []taskwarrior.Task, now time.Time) []api.Task {
 	ranks := taskwarrior.RanksOf(tasks, now)
 	out := make([]api.Task, 0, len(tasks))
 
 	for index, task := range tasks {
-		out = append(out, s.taskDTO(task, ranks[index], now))
+		out = append(out, h.taskDTO(task, ranks[index], now))
 	}
 
 	return out
@@ -251,7 +251,7 @@ func (s *server) tasksDTO(tasks []taskwarrior.Task, now time.Time) []api.Task {
 
 // taskDTO maps a task onto the wire, each date it does not have absent, with
 // where it stands at now, its facets, its ranks and the fields text matches.
-func (s *server) taskDTO(task taskwarrior.Task, ranks taskwarrior.Ranks, now time.Time) api.Task {
+func (h *Handlers) taskDTO(task taskwarrior.Task, ranks taskwarrior.Ranks, now time.Time) api.Task {
 	return api.Task{
 		UUID: task.UUID, ID: task.ID, Description: task.Description, Status: api.TaskStatus(task.Status),
 		State: api.TaskState(task.State(now).String()), Project: task.Project, Priority: task.Priority,
@@ -259,7 +259,7 @@ func (s *server) taskDTO(task taskwarrior.Task, ranks taskwarrior.Ranks, now tim
 		Due:  optionalTime(task.Due), Wait: optionalTime(task.Wait), Scheduled: optionalTime(task.Scheduled),
 		Until: optionalTime(task.Until), Start: optionalTime(task.Start), End: optionalTime(task.End),
 		Entry: task.Entry, Modified: task.Modified, Urgency: task.Urgency,
-		Annotations: annotationsDTO(task.Annotations), IssueKey: task.IssueKey, IssueURL: s.taskIssueURL(task),
+		Annotations: annotationsDTO(task.Annotations), IssueKey: task.IssueKey, IssueURL: h.taskIssueURL(task),
 		Facets: taskFacetsDTO(task.Facets(now)), Ranks: ranksDTO(ranks), Searchable: task.Searchable(),
 	}
 }
@@ -294,9 +294,9 @@ func taskFacetsDTO(facets []taskwarrior.Facet) []api.TaskFacet {
 // otherwise the task's own jiraurl, but only an http or https address — it is
 // Taskwarrior's data, which a hand edit or any synced replica can have written;
 // else none.
-func (s *server) taskIssueURL(task taskwarrior.Task) string {
-	if task.IssueKey != "" && s.deps.Jira.BrowseURL != nil {
-		return s.deps.Jira.BrowseURL(jira.Key(task.IssueKey))
+func (h *Handlers) taskIssueURL(task taskwarrior.Task) string {
+	if task.IssueKey != "" && h.kit.BrowseURL != nil {
+		return h.kit.BrowseURL(jira.Key(task.IssueKey))
 	}
 
 	address, err := url.Parse(task.IssueURL)
@@ -316,6 +316,18 @@ func annotationsDTO(annotations []taskwarrior.Annotation) []api.TaskAnnotation {
 	}
 
 	return out
+}
+
+// optionalTime is moment, or nil for the zero time, which a read gives for a
+// time there is none of — a date a task does not have, one a tracker or a
+// forge did not give or could not be read: the wire leaves such a time out,
+// never sending the zero time.
+func optionalTime(moment time.Time) *time.Time {
+	if moment.IsZero() {
+		return nil
+	}
+
+	return &moment
 }
 
 // orEmpty is texts, or an empty list rather than null on the wire.
