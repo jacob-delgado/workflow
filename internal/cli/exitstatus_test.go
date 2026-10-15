@@ -362,7 +362,8 @@ func TestEveryCommandRefusesAConfigurationItCannotRead(t *testing.T) {
 	t.Parallel()
 
 	// A file that exists but does not parse is not replaced by the defaults: a
-	// command run on settings nobody chose would act on the wrong things.
+	// command run on settings nobody chose would act on the wrong things. pr
+	// and announce answer for theirs in internal/cli/pr.
 	cases := [][]string{
 		strings.Fields("status"),
 		strings.Fields("reviews"),
@@ -373,9 +374,7 @@ func TestEveryCommandRefusesAConfigurationItCannotRead(t *testing.T) {
 		strings.Fields("transition PROJ-1 Done --dry-run"),
 		strings.Fields("assign PROJ-1 bo --dry-run"),
 		strings.Fields("worklog PROJ-1 1h --dry-run"),
-		strings.Fields("pr --dry-run"),
 		strings.Fields("finish --dry-run"),
-		strings.Fields("announce --dry-run"),
 	}
 
 	for _, args := range cases {

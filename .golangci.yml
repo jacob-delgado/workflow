@@ -353,10 +353,10 @@ linters:
       # numbers are data, as they were in a test, where mnd does not look.
       - path: internal/webserver/webtest/
         linters: [mnd]
-      # This CLI test interrupts its own process, as Ctrl+C does, which every
-      # run beside it would hear too, so it runs alone. Every other CLI test is
-      # handed an Environment of its own and runs in parallel.
-      - path: internal/cli/interrupt_test\.go$
+      # These CLI tests interrupt their own process, as Ctrl+C does, which
+      # every run beside them would hear too, so they run alone. Every other
+      # CLI test is handed an Environment of its own and runs in parallel.
+      - path: internal/cli/(pr/)?interrupt_test\.go$
         linters: [paralleltest]
       # This CLI test sets TERM on its own process, which fang reads to color
       # the help, and t.Setenv panics in a parallel test, so it runs alone.

@@ -36,8 +36,9 @@ func TestTheTestsLeaveTheRepositoryAHookNamesAlone(t *testing.T) {
 
 	// Arrange
 	// The fixtures that did the damage once: a bare push remote, a branch, an
-	// identity written to a repository's configuration.
-	fixtures := []string{"TestPRPushesThenOpensAnUnpublishedBranch", "TestSummaryReadsYourCommitsInThePeriod"}
+	// identity written to a repository's configuration. A push before a pull
+	// request opens is internal/cli/pr's to prove, beside its tests.
+	fixtures := []string{"TestFinishYesDeletesTheMergedBranch", "TestSummaryReadsYourCommitsInThePeriod"}
 
 	named := t.TempDir()
 	git(t, named, "init", "--quiet")
