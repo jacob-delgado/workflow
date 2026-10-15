@@ -97,6 +97,44 @@ func TestARunEndsThoughAProcessItLeftBehindHoldsItsOutput(t *testing.T) {
 	}
 }
 
+// Once the run gives up on an output a process it left behind holds, nothing
+// more is delivered: not even the line the program began and never ended,
+// which the read the run gives up on finishes as it fails.
+func TestARunThatGaveUpOnItsOutputDeliversNothingMore(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	output, err := proc.Start(t.Context(), script(`sleep 30 & echo "$!"; printf partial`))
+	if err != nil {
+		t.Fatalf("Start returned %v, want nil", err)
+	}
+
+	type ending struct {
+		lines []string
+		err   error
+	}
+
+	ended := make(chan ending, 1)
+
+	// Act
+	go func() {
+		lines, err := collect(t, output)
+		ended <- ending{lines: lines, err: err}
+	}()
+
+	// Assert
+	select {
+	case end := <-ended:
+		t.Cleanup(func() { killAll(end.lines) })
+
+		if end.err != nil || len(end.lines) != 1 || strings.Contains(end.lines[0], "partial") {
+			t.Errorf("the run ended with %q and %v, want the pid it printed alone and no failure", end.lines, end.err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("Lines stayed open and Wait blocked while the process left behind held the output")
+	}
+}
+
 // killAll kills each process a line names by its pid.
 func killAll(lines []string) {
 	for _, line := range lines {
