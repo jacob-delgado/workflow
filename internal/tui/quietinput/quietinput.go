@@ -1,7 +1,10 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package tui
+// Package quietinput is a Huh field typing one line of text, as huh.Input
+// does, over an input whose cursor never blinks: what every form of the
+// terminal's takes typed text through.
+package quietinput
 
 import (
 	"io"
@@ -14,13 +17,13 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// quietInput is a Huh field typing one line of text, as huh.Input does, over
-// an input whose cursor never blinks.
+// Input is a Huh field typing one line of text, as huh.Input does, over an
+// input whose cursor never blinks.
 //
 // Trade-off TRADE-46: huh.Input blinks its cursor and offers no way not to;
 // each focus and each key schedules a blink that waits half a second of real
 // time, which a test settling after every key pays in full.
-type quietInput struct {
+type Input struct {
 	title, hint, placeholder string
 	value                    *string
 	validate                 func(string) error
@@ -32,25 +35,24 @@ type quietInput struct {
 	width                    int
 }
 
-var _ huh.Field = (*quietInput)(nil)
+var _ huh.Field = (*Input)(nil)
 
-// newQuietInput is a field titled title, with placeholder in it until
-// something is typed, holding what value holds and writing what is typed back
-// to it.
-func newQuietInput(title, placeholder string, value *string) *quietInput {
+// New is a field titled title, with placeholder in it until something is
+// typed, holding what value holds and writing what is typed back to it.
+func New(title, placeholder string, value *string) *Input {
 	input := textinput.New()
 	input.Prompt = "> "
 	input.Placeholder = placeholder
 	input.SetValue(*value)
 
-	return &quietInput{
+	return &Input{
 		title: title, placeholder: placeholder, value: value, input: input,
 		validate: func(string) error { return nil },
 	}
 }
 
 // Init starts the field unfocused, as huh.Input does.
-func (q *quietInput) Init() tea.Cmd {
+func (q *Input) Init() tea.Cmd {
 	q.input.Blur()
 
 	return nil
@@ -62,7 +64,7 @@ func (q *quietInput) Init() tea.Cmd {
 // never handed on, as the interface's other inputs never hand it on.
 //
 //nolint:ireturn // huh.Field's Update returns Huh's Model
-func (q *quietInput) Update(msg tea.Msg) (huh.Model, tea.Cmd) {
+func (q *Input) Update(msg tea.Msg) (huh.Model, tea.Cmd) {
 	press, isKey := msg.(tea.KeyPressMsg)
 	if _, isPaste := msg.(tea.PasteMsg); !isKey && !isPaste {
 		return q, nil
@@ -98,7 +100,7 @@ func (q *quietInput) Update(msg tea.Msg) (huh.Model, tea.Cmd) {
 
 // View is the field's title over its hint, if it has one, and the line
 // typed, in the theme's styles for a field focused or not.
-func (q *quietInput) View() string {
+func (q *Input) View() string {
 	styles := q.styles()
 
 	lines := []string{styles.Title.Render(q.title)}
@@ -110,7 +112,7 @@ func (q *quietInput) View() string {
 }
 
 // Blur leaves the field, keeping and checking what was typed.
-func (q *quietInput) Blur() tea.Cmd {
+func (q *Input) Blur() tea.Cmd {
 	q.focused = false
 	q.input.Blur()
 	*q.value = q.input.Value()
@@ -120,7 +122,7 @@ func (q *quietInput) Blur() tea.Cmd {
 }
 
 // Focus enters the field, dropping the blink the input asks for.
-func (q *quietInput) Focus() tea.Cmd {
+func (q *Input) Focus() tea.Cmd {
 	q.focused = true
 	q.input.Focus()
 
@@ -128,28 +130,28 @@ func (q *quietInput) Focus() tea.Cmd {
 }
 
 // Error is why what was typed was refused, if it was.
-func (q *quietInput) Error() error {
+func (q *Input) Error() error {
 	return q.err
 }
 
 // Run asks the field on its own, as Huh's input.
-func (q *quietInput) Run() error {
+func (q *Input) Run() error {
 	return q.accessible().Run() //nolint:wrapcheck // Huh's own words for a field it could not ask
 }
 
 // RunAccessible asks the field as a plain prompt on in and out.
-func (q *quietInput) RunAccessible(out io.Writer, in io.Reader) error {
+func (q *Input) RunAccessible(out io.Writer, in io.Reader) error {
 	return q.accessible().RunAccessible(out, in) //nolint:wrapcheck // as Run
 }
 
 // Skip reports that the field is asked, never passed over.
-func (q *quietInput) Skip() bool { return false }
+func (q *Input) Skip() bool { return false }
 
 // Zoom reports that the field shares its group's height.
-func (q *quietInput) Zoom() bool { return false }
+func (q *Input) Zoom() bool { return false }
 
 // KeyBinds are the keys the field answers, for the footer.
-func (q *quietInput) KeyBinds() []key.Binding {
+func (q *Input) KeyBinds() []key.Binding {
 	return []key.Binding{q.keymap.Prev, q.keymap.Submit, q.keymap.Next}
 }
 
@@ -157,7 +159,7 @@ func (q *quietInput) KeyBinds() []key.Binding {
 // since the field is given no theme of its own.
 //
 //nolint:ireturn // huh.Field's own signature
-func (q *quietInput) WithTheme(theme huh.Theme) huh.Field {
+func (q *Input) WithTheme(theme huh.Theme) huh.Field {
 	q.theme = theme
 	q.input.SetStyles(textStyles(q.input.Styles(), theme.Theme(false)))
 
@@ -167,7 +169,7 @@ func (q *quietInput) WithTheme(theme huh.Theme) huh.Field {
 // WithKeyMap keys the field by keymap's input keys.
 //
 //nolint:ireturn // huh.Field's own signature
-func (q *quietInput) WithKeyMap(keymap *huh.KeyMap) huh.Field {
+func (q *Input) WithKeyMap(keymap *huh.KeyMap) huh.Field {
 	q.keymap = keymap.Input
 	q.input.KeyMap.AcceptSuggestion = keymap.Input.AcceptSuggestion
 
@@ -179,7 +181,7 @@ func (q *quietInput) WithKeyMap(keymap *huh.KeyMap) huh.Field {
 // the cursor stays in it.
 //
 //nolint:ireturn // huh.Field's own signature
-func (q *quietInput) WithWidth(width int) huh.Field {
+func (q *Input) WithWidth(width int) huh.Field {
 	q.width = width
 	frame := q.styles().Base.GetHorizontalFrameSize()
 	q.input.SetWidth(max(1, width-frame-lipgloss.Width(q.input.Prompt)-1))
@@ -194,7 +196,7 @@ func (q *quietInput) WithWidth(width int) huh.Field {
 // shows as much of it as fits.
 //
 //nolint:ireturn // huh.Field's own signature
-func (q *quietInput) WithHeight(int) huh.Field {
+func (q *Input) WithHeight(int) huh.Field {
 	return q
 }
 
@@ -202,7 +204,7 @@ func (q *quietInput) WithHeight(int) huh.Field {
 // next-field everywhere but the last, which submit answers instead.
 //
 //nolint:ireturn // huh.Field's own signature
-func (q *quietInput) WithPosition(position huh.FieldPosition) huh.Field {
+func (q *Input) WithPosition(position huh.FieldPosition) huh.Field {
 	q.keymap.Prev.SetEnabled(!position.IsFirst())
 	q.keymap.Next.SetEnabled(!position.IsLast())
 	q.keymap.Submit.SetEnabled(position.IsLast())
@@ -212,14 +214,45 @@ func (q *quietInput) WithPosition(position huh.FieldPosition) huh.Field {
 
 // GetKey is the field's key in the form's results: it has none, since what
 // it holds is written to its value.
-func (q *quietInput) GetKey() string { return "" }
+func (q *Input) GetKey() string { return "" }
 
 // GetValue is what was typed.
-func (q *quietInput) GetValue() any { return q.input.Value() }
+func (q *Input) GetValue() any { return q.input.Value() }
+
+// Suggesting is the field completing what is typed to the first of options
+// it begins, shown faint after it until accepted.
+func (q *Input) Suggesting(options []string) *Input {
+	q.input.SetSuggestions(options)
+	q.input.ShowSuggestions = len(options) > 0
+
+	return q
+}
+
+// Hinted is the field with hint under its title, saying what it is for.
+func (q *Input) Hinted(hint string) *Input {
+	q.hint = hint
+
+	return q
+}
+
+// Secret is the field drawing a mask in place of what is typed, and asking
+// as prompts without echoing it.
+func (q *Input) Secret() *Input {
+	q.input.EchoMode = textinput.EchoPassword
+
+	return q
+}
+
+// CheckedBy is the field refusing, with check's reason, what check refuses.
+func (q *Input) CheckedBy(check func(string) error) *Input {
+	q.validate = check
+
+	return q
+}
 
 // completed takes the completion the field suggests for what is typed, when
 // press is the key that takes one, before the field is left.
-func (q *quietInput) completed(press tea.KeyPressMsg) {
+func (q *Input) completed(press tea.KeyPressMsg) {
 	if q.input.CurrentSuggestion() == "" || !key.Matches(press, q.keymap.AcceptSuggestion) {
 		return
 	}
@@ -228,39 +261,8 @@ func (q *quietInput) completed(press tea.KeyPressMsg) {
 	*q.value = q.input.Value()
 }
 
-// suggesting is the field completing what is typed to the first of options
-// it begins, shown faint after it until accepted.
-func (q *quietInput) suggesting(options []string) *quietInput {
-	q.input.SetSuggestions(options)
-	q.input.ShowSuggestions = len(options) > 0
-
-	return q
-}
-
-// hinted is the field with hint under its title, saying what it is for.
-func (q *quietInput) hinted(hint string) *quietInput {
-	q.hint = hint
-
-	return q
-}
-
-// secret is the field drawing a mask in place of what is typed, and asking
-// as prompts without echoing it.
-func (q *quietInput) secret() *quietInput {
-	q.input.EchoMode = textinput.EchoPassword
-
-	return q
-}
-
-// checkedBy is the field refusing, with check's reason, what check refuses.
-func (q *quietInput) checkedBy(check func(string) error) *quietInput {
-	q.validate = check
-
-	return q
-}
-
 // styles are the theme's styles for the field as it is now.
-func (q *quietInput) styles() huh.FieldStyles {
+func (q *Input) styles() huh.FieldStyles {
 	theme := q.theme
 	if theme == nil {
 		theme = huh.ThemeFunc(huh.ThemeBase)
@@ -276,7 +278,7 @@ func (q *quietInput) styles() huh.FieldStyles {
 // accessible is the field as Huh's own input, for its plain prompts, which
 // draw no cursor: titled in the field's theme, and checking what it is
 // answered with as the field checks what is typed.
-func (q *quietInput) accessible() *huh.Input {
+func (q *Input) accessible() *huh.Input {
 	input := huh.NewInput().Title(q.title).Description(q.hint).Placeholder(q.placeholder).
 		EchoMode(huh.EchoMode(q.input.EchoMode)).Value(q.value).Validate(q.validate)
 	input.WithTheme(q.theme)

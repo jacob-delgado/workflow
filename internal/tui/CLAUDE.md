@@ -19,8 +19,8 @@ action keeps one name through its flow, and a new word comes from that table.
   layers (`dialog.go`). `Update` gives every key to `m.overlay`, the dialog on
   top, and relays every message no case answers to a Huh form inside it (the
   `relaying` overlays, `tui.go`).
-- **Text typed into a form is a `quietInput`** (`quietinput.go`), a Huh field
-  of our own whose cursor never blinks (TRADE-46), never `huh.Input`. The
+- **Text typed into a form is a `quietinput.Input`** (`quietinput/`), a Huh
+  field of our own whose cursor never blinks (TRADE-46), never `huh.Input`. The
   accessible mode hands the terminal to Huh's prompts (`promptedForm`,
   `huhform.go`, TRADE-47).
 - `layout/` places each region per terminal size and `frame/` draws a titled
@@ -36,9 +36,10 @@ count. A new pane or overlay is a new file. The package is not split to chase
 a number. A pane or an overlay takes and returns `Model`, and so cannot leave
 without carrying `Model` across a package boundary Go does not allow. What may
 leave is a leaf with a reason to change of its own and no `Model` in it, as
-`layout/` and `frame/` did: `quietinput.go`, which changes as `huh.Field`
-does, is one. Reaching the ceiling means rewriting the WHY above the entry and
-a history row, or such an extraction, never a split for the count.
+`layout/` and `frame/` did, and as `quietinput/` did when `quietinput.go`,
+which changes as `huh.Field` does, left. Reaching the ceiling means rewriting
+the WHY above the entry and a history row, or such an extraction, never a
+split for the count.
 
 ## Deps: the world outside the terminal
 

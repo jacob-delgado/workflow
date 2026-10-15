@@ -12,6 +12,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/setup"
+	"github.com/jacob-delgado/workflow/internal/tui/quietinput"
 )
 
 // setupStage is where the first run's form is: a Huh form asking its
@@ -93,10 +94,10 @@ func (f setupForm) jiraGroups(kit renderKit) []*huh.Group {
 	place := huh.NewSelect[int]().Title("Where should the file go?").
 		Description("A repository's file applies across it; your home directory's, everywhere.").
 		Options(f.placeOptions(kit)...).Value(&f.bound.place)
-	address := newQuietInput("Jira's address, such as https://jira.example.com", "", &f.bound.address).
-		hinted("Blank leaves Jira out; the forge's issues are the tracker then.")
-	token := newQuietInput("Your Jira personal access token", "", &f.bound.token).secret().
-		hinted("Masked as it is typed. It is checked with Jira before it is kept.")
+	address := quietinput.New("Jira's address, such as https://jira.example.com", "", &f.bound.address).
+		Hinted("Blank leaves Jira out; the forge's issues are the tracker then.")
+	token := quietinput.New("Your Jira personal access token", "", &f.bound.token).Secret().
+		Hinted("Masked as it is typed. It is checked with Jira before it is kept.")
 
 	return []*huh.Group{huh.NewGroup(place), huh.NewGroup(address), huh.NewGroup(token).WithHideFunc(f.bound.jiraLeftOut)}
 }
@@ -149,8 +150,8 @@ func (f setupForm) failedGroups() []*huh.Group {
 // restGroups ask where the token is kept, where a keychain can keep it, and
 // for a webhook.
 func (f setupForm) restGroups() []*huh.Group {
-	webhook := newQuietInput("A Slack incoming webhook URL", "", &f.bound.webhook).secret().
-		hinted("Masked as it is typed, and saved unchecked: a webhook cannot be checked without " +
+	webhook := quietinput.New("A Slack incoming webhook URL", "", &f.bound.webhook).Secret().
+		Hinted("Masked as it is typed, and saved unchecked: a webhook cannot be checked without " +
 			"posting. Blank posts with your Slack user token; run `workflow slack login` for it.")
 
 	if !f.keychainAsked() {
