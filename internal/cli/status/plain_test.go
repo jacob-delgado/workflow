@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli_test
+package status_test
 
 // status --plain draws the line's marks in ASCII for one run, as ui.ascii
 // does for every run, whatever the configuration says.
@@ -30,7 +30,7 @@ func TestStatusPlainDrawsTheMarksInASCII(t *testing.T) {
 
 			// Arrange
 			// Neither configuration sets ui.ascii, so only --plain asks for it.
-			repo := featureRepo(t)
+			repo := clitest.FeatureRepo(t)
 			dir, args := t.TempDir(), []string{statusCommand, "--plain", repo}
 
 			if tt.inRepository {
@@ -52,7 +52,7 @@ func TestStatusRefusesPlainBesideJSON(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	repo := featureRepo(t)
+	repo := clitest.FeatureRepo(t)
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "status", "--plain", "--json")

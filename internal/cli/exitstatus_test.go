@@ -356,10 +356,10 @@ func TestEveryCommandRefusesAConfigurationItCannotRead(t *testing.T) {
 	t.Parallel()
 
 	// A file that exists but does not parse is not replaced by the defaults: a
-	// command run on settings nobody chose would act on the wrong things. pr
-	// and announce answer for theirs in internal/cli/pr.
+	// command run on settings nobody chose would act on the wrong things.
+	// status answers for its own in internal/cli/status, and pr and announce
+	// for theirs in internal/cli/pr.
 	cases := [][]string{
-		strings.Fields("status"),
 		strings.Fields("reviews"),
 		strings.Fields("summary"),
 		strings.Fields("branch PROJ-1"),
@@ -403,7 +403,7 @@ func TestACommandRefusesAConfigurationItCannotOpen(t *testing.T) {
 
 	// A repository, so a command falling back to the defaults would succeed
 	// rather than fail for some other reason.
-	repo := featureRepo(t)
+	repo := clitest.FeatureRepo(t)
 	path := clitest.WriteFile(t, repo, `{}`)
 
 	err := os.Chmod(path, 0)

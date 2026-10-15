@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli_test
+package status_test
 
 import (
 	"encoding/json"
@@ -53,7 +53,7 @@ func TestStatusAcrossAsJSONLabelsTheCurrentRepositoryByItsName(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	repo := featureRepo(t)
+	repo := clitest.FeatureRepo(t)
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "status", "--json", ".")
@@ -79,7 +79,7 @@ func TestStatusAcrossReportsEachRepository(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	repo := featureRepo(t)
+	repo := clitest.FeatureRepo(t)
 	notRepo := t.TempDir()
 
 	// Act
@@ -100,7 +100,7 @@ func TestStatusAcrossPassesWhenEveryDirectoryIsARepository(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	repo := featureRepo(t)
+	repo := clitest.FeatureRepo(t)
 
 	// Act
 	output, err := clitest.Run(t, t.TempDir(), "status", repo)
@@ -117,7 +117,7 @@ func TestStatusAcrossSaysWhyARepositoryCannotBeRead(t *testing.T) {
 	// Arrange
 	// A repository whose branch name holds a character with no width: it is a
 	// repository, but its branch cannot be shown as it is, so it is not read.
-	repo := featureRepo(t)
+	repo := clitest.FeatureRepo(t)
 	clitest.Git(t, repo, "checkout", "-b", "fix/PROJ\u200b-3")
 
 	// Act
@@ -135,7 +135,7 @@ func TestStatusAcrossRefusesADirectoryWhoseConfigurationCannotBeRead(t *testing.
 	t.Parallel()
 
 	// Arrange
-	repo := featureRepo(t)
+	repo := clitest.FeatureRepo(t)
 	clitest.WriteFile(t, repo, "{not json")
 
 	// Act
@@ -153,7 +153,7 @@ func TestStatusAcrossAsJSONIsAnArray(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	repo := featureRepo(t)
+	repo := clitest.FeatureRepo(t)
 	notRepo := t.TempDir()
 
 	// Act

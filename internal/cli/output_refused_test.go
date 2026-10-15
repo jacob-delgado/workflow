@@ -16,7 +16,6 @@ import (
 // The commands the refused-output tests run, each named more than once in the
 // package's tests.
 const (
-	statusCommand  = "status"
 	reviewsCommand = "reviews"
 	doctorCommand  = "doctor"
 )
@@ -26,7 +25,7 @@ func TestProseFailsWhenItsOutputCannotBeWritten(t *testing.T) {
 
 	// Each command, by name, and where it runs.
 	cases := map[string]func(t *testing.T) string{
-		statusCommand: featureRepo,
+		"status": clitest.FeatureRepo,
 		reviewsCommand: func(t *testing.T) string {
 			t.Helper()
 			clitest.FakeGh(t, clitest.GhResponses{Search: reviewSearch(reviewItem(1, "ana", "ex/repo", time.Now()))})

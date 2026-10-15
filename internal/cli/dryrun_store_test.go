@@ -48,7 +48,7 @@ func TestStatusOfARepositoryUnderDryRunMakesNoStore(t *testing.T) {
 	// Arrange
 	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: clitest.RunningStatus()})
-	repo := statusFeatureRepo(t, server.URL)
+	repo := clitest.JiraFeatureRepo(t, server.URL)
 	where := clitest.Place{Dir: t.TempDir(), Home: t.TempDir()}
 
 	// Act
