@@ -63,8 +63,9 @@ type settingsForm struct {
 	// edit is the form open over the rows, nil while none is.
 	edit    *settingsEdit
 	problem error
-	// refusals are why settings were refused, each said under its row until
-	// that setting is edited or a save is sent. A save's refused write
+	// refusals are why settings were refused, each said under its row, and
+	// at the foot while a form open over the rows hides them, until that
+	// setting is edited or a save is sent. A save's refused write
 	// replaces every mark before; a save Settings' own check holds back
 	// replaces only the check's earlier marks, and the writes' stay; a
 	// refused removal adds its marks to every mark before, its reason in place
@@ -183,12 +184,17 @@ func splitLines(texts ...string) []string {
 }
 
 // footLines are the selected setting's hint, which a form open over the
-// rows gives its fields instead, and the outcome of the last key.
+// rows gives its fields instead, saying in its place every refusal the rows
+// it hides were marked with, and the outcome of the last key.
 func (f settingsForm) footLines(kit renderKit, width int) []string {
 	lines := []string{""}
 
 	if hint := f.current().hint; hint != "" && f.edit == nil {
 		lines = append(lines, wrap(hint, width))
+	}
+
+	if f.edit != nil {
+		lines = append(lines, f.standingLines(kit, width)...)
 	}
 
 	if f.problem != nil {

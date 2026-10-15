@@ -106,8 +106,8 @@ func (f settingsForm) groupsFor(field setting) ([]*huh.Group, func(settingsForm)
 }
 
 // editSize is the columns and rows a form open over Settings has: the
-// pane's, less what Settings says above it and a blank row, and the outcome
-// of the last key under it.
+// pane's, less what Settings says above it and a blank row, and under it the
+// refusals still standing and the outcome of the last key.
 func (f settingsForm) editSize(m Model) (int, int) {
 	width := m.detailWidth()
 	around := len(f.head(width)) + 1 + len(splitLines(f.footLines(m.kit(), width)...))
