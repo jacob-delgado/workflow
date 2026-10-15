@@ -46,9 +46,9 @@ type statusSeams struct {
 
 // errPlainBesideJSON refuses --plain beside --json, which prints no status line
 // for it to draw. The live line a JSON run of named directories keeps is drawn
-// as ui.ascii asks, so the refusal names it.
-var errPlainBesideJSON = errors.New("--plain draws the status line's marks and --json prints no status line: " +
-	"use one or the other; ui.ascii draws a JSON run's live line in ASCII")
+// as ui.ascii asks, which scripting.md says beside the refusal.
+var errPlainBesideJSON = errors.New("--plain and --json cannot be used together: " +
+	"drop --plain for JSON, or --json for the status line in ASCII")
 
 // statusOptions are status's flags: the JSON, and the line's marks drawn in
 // ASCII.
