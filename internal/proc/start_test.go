@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/proc"
@@ -336,6 +337,45 @@ func TestCancelingEndsTheProgramEvenWhenNobodyReads(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("the program outlived its context")
 	}
+}
+
+// A reader that goes away with ctx never leaves the run waiting on it, even
+// once the program has written more than the run holds for a reader.
+func TestCancelingEndsARunWhoseLinesNobodyReads(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// The program writes more lines than the run holds and exits. Once
+		// synctest.Wait returns, the run has taken the exit and its next line
+		// waits on a reader; the bubble's clock moves only while every
+		// goroutine of the run waits on another.
+		ctx, cancel := context.WithCancel(t.Context())
+
+		output, err := proc.Start(ctx, script(`i=0; while [ "$i" -lt 300 ]; do echo "$i"; i=$((i + 1)); done`))
+		if err != nil {
+			t.Fatalf("Start returned %v, want nil", err)
+		}
+
+		synctest.Wait()
+
+		// Act
+		cancel()
+
+		finished := make(chan error, 1)
+
+		go func() { finished <- output.Wait() }()
+
+		// Assert
+		select {
+		case err := <-finished:
+			if err != nil {
+				t.Errorf("Wait returned %v once its reader went away, want how the program exited, nil", err)
+			}
+		case <-time.After(time.Minute):
+			t.Fatal("the run kept waiting on a reader that went away with its context")
+		}
+	})
 }
 
 func TestStopEndsARunningProgramWithoutCancelingTheCaller(t *testing.T) {
