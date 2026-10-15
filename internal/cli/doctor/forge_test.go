@@ -257,8 +257,11 @@ func TestDoctorOnlineGivesUpOnAForgeCLIThatNeverAnswers(t *testing.T) {
 
 	wantExit(t, err, 5)
 
-	if want := "gave up after " + onlineRequestTimeout + " (through gh)"; !strings.Contains(output, want) {
-		t.Errorf("doctor does not say it gave up on the forge: want %q\n%s", want, output)
+	// gh is stopped at the time limit, so the forge's row gives the limit
+	// doctor gave up at, and none of the client's or gh's words around it.
+	want := "could not reach the forge: gave up after " + onlineRequestTimeout + " (through gh)"
+	if row := credentialRow(output, "forge"); row != want {
+		t.Errorf("doctor's forge row = %q, want %q:\n%s", row, want, output)
 	}
 }
 

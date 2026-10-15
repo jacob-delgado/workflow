@@ -224,3 +224,21 @@ func TestDoctorSaysTaskwarriorIsTooOld(t *testing.T) {
 		t.Errorf("the taskwarrior row = %q, want the version found, where, and the one needed", row)
 	}
 }
+
+func TestDoctorSaysWhatAMissingTaskwarriorCosts(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := t.TempDir()
+	clitest.WriteFile(t, dir, completeConfig)
+	pathWithOnlyGit(t)
+
+	// Act
+	output, _ := clitest.Run(t, dir, "doctor")
+
+	// Assert
+	want := "not found — the Tasks pane and section are not offered without it"
+	if row := toolingRow(output, "taskwarrior"); !strings.HasSuffix(row, " "+want) {
+		t.Errorf("the taskwarrior row = %q, want %q:\n%s", row, want, output)
+	}
+}

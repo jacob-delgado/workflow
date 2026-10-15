@@ -175,3 +175,42 @@ func TestDoctorJSONSaysWhyThereIsNoRepository(t *testing.T) {
 		})
 	}
 }
+
+func TestDoctorJSONSaysNoCredentialWasCheckedOffline(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := t.TempDir()
+	clitest.WriteFile(t, dir, completeConfig)
+
+	// Act
+	output, _ := clitest.Run(t, dir, "doctor", "--json")
+
+	// Assert
+	credentials, ok := decodeReport(t, output)["credentials"].(map[string]any)
+	if !ok || credentials["checked"] != false {
+		t.Errorf("credentials = %v, want checked false without --online:\n%s", credentials, output)
+	}
+}
+
+func TestDoctorJSONCarriesTheAuthModeAndWhetherOthersCanReachTheFile(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := t.TempDir()
+
+	err := os.Chmod(clitest.WriteFile(t, dir, completeConfig), 0o644)
+	if err != nil {
+		t.Fatalf("chmod: %v", err)
+	}
+
+	// Act
+	output, _ := clitest.Run(t, dir, "doctor", "--json")
+
+	// Assert
+	configuration, _ := decodeReport(t, output)["configuration"].(map[string]any)
+	if configuration["jira_auth_mode"] != "bearer token" || configuration["world_readable"] != true {
+		t.Errorf("configuration = %v, want jira_auth_mode bearer token and world_readable true:\n%s",
+			configuration, output)
+	}
+}
