@@ -59,6 +59,17 @@ func Git(t *testing.T, dir string, args ...string) {
 	gittest.Run(t, dir, args...)
 }
 
+// RepoWithRemote makes a repository whose origin is remote.
+func RepoWithRemote(t *testing.T, remote string) string {
+	t.Helper()
+
+	dir := t.TempDir()
+	GitInit(t, dir)
+	Git(t, dir, "remote", "add", "origin", remote)
+
+	return dir
+}
+
 // GitOutput runs one git command in dir and returns what it wrote to standard
 // output, trimmed, keeping the developer's own git configuration out as Run
 // does.

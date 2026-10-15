@@ -95,7 +95,7 @@ func TestDoctorOnlineSaysGlabsLoginIsNotRead(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	dir := repoWithRemote(t, gitlabSSHRemote)
+	dir := clitest.RepoWithRemote(t, gitlabSSHRemote)
 	clitest.WriteConfigFor(t, dir, clitest.WorkingJira(t))
 	gitAndGlab(t)
 
