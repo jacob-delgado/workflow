@@ -128,28 +128,22 @@ internal/webserver 40 cohesive
 # family of commands over one seam that share their checks, as the issue writes
 # do (or per section of a command that outgrew one, as doctor's, status's, pr's
 # and announce's did). One responsibility (turn a command line into a wiring
-# seam call and printed output) that grows when the tool gains a command, which
-# the docs reference records, so it answers to a ceiling and is not split to
-# chase a number. Code in it with a reason to change of its own may leave where
-# no import cycle follows: doctor's checks, and the pr and announce flow over
-# the forge and messaging. It came in at 28 over 22 files and was reached with
-# issues.go; looked at then as it asks, each file is a command, a family of
-# them, a section of one or what every command shares (the scriptable contract,
-# the shared flags, the prompt, the connection), none a second reason to change
-# within the tree, so 29 took issuewrite.go, 30 announce_tags.go, the tags an
-# announcement proposes, 31 announcewait.go, the wait for CI to pass that
-# announce --when-green makes — sections of announce's that pr comes to share —
-# and 32 took pr_follow_up.go, the offers pr makes once the pull request is
-# open. 33 took exitstatus.go, the exit statuses and the families of errors
-# that earn them, out of scriptable.go: the families name sentinels the
-# commands declare, so they stay at the root of the tree. The kit every
-# command is built from — the connection, the environment, the shared flags,
-# the prompt and the scriptable output — has left since, as internal/cli/cmdkit
-# beneath the commands, so 29 is the files left, with doctor's checks and the
-# pr and announce flow to leave after it. Each that leaves ratchets the
-# ceiling down to the files left. Reaching it is where the tree's shape is
-# looked at again.
-internal/cli 29 cohesive
+# seam call and printed output), so it is not split to chase a number, but code
+# in it with a reason to change of its own leaves where no import cycle
+# follows. It answered to a cohesive ceiling, which came in at 28 over 22 files
+# and rose a file at a time to 33, each a command, a family of them, a section
+# of one or what every command shares; the kit every command is built from (the
+# connection, the environment, the shared flags, the prompt and the scriptable
+# output) has left since, as internal/cli/cmdkit beneath the commands, while
+# the exit statuses stay at the root in exitstatus.go, since their families
+# name the commands' sentinels. The maintainer's budget decision (a split
+# leaves its parent a ratcheted budget at the count it leaves) makes it 29, the
+# files it holds, so the next file trips the gate: a new command is a bump with
+# its reason written here. The splits still to come, doctor's checks, the pr
+# and announce flow over the forge and messaging, and status and issues, each
+# ratchet it down to the files left, and once it holds no more than the default
+# allows, the entry goes.
+internal/cli 29
 
 # internal/loop — the loop composed once for the command line, the terminal
 # and the web: which issue a branch names, the pull request draft, the

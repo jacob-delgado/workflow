@@ -24,15 +24,17 @@ change to a command, a flag, what a command prints or how it exits. The root
 
 The package is the Cobra command tree spelled one file per command, per family
 of commands over one seam, or per section of a command that outgrew one, as
-doctor's, status's, pr's and announce's did. It answers to a cohesive ceiling
-in `scripts/package-size-budgets.txt`: read the number there, and
-`scripts/check-package-size.sh --list` for the count, which is at the ceiling
-as this is written, so the next command file is a decision. The package is not
-split to chase a number, but code in it with a reason to change of its own may
-leave where no import cycle follows: doctor's checks, and the pr and announce
-flow over the forge and messaging. Reaching the ceiling means rewriting the
-WHY above the entry and a history row, or such an extraction, never a split
-for the count.
+doctor's, status's, pr's and announce's did. It answers to a ratcheted budget
+in `scripts/package-size-budgets.txt`, the count its last split left it at:
+read the number there, and `scripts/check-package-size.sh --list` for the
+count, which a ratcheted budget always equals, so the next command file trips
+the gate and is a decision. The package is not split to chase a number, but
+code in it with a reason to change of its own may leave where no import cycle
+follows: doctor's checks, the pr and announce flow over the forge and
+messaging, and status and issues. A trip means a bump, with the WHY above the
+entry rewritten and a history row, or such an extraction, never a split for
+the count; each extraction ratchets the budget down to the files left, and
+the entry goes once the package holds no more than the default allows.
 
 What every command is built from has left already, as `internal/cli/cmdkit`
 beneath the tree: the connection to where a command runs, the environment it
