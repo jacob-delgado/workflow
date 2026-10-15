@@ -335,8 +335,14 @@ func TestACompletionTheCheckRefusedIsMatchedAsATypedValueIs(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	value := ""
+	var (
+		value  string
+		checks int
+	)
+
 	field := quietinput.New(baseTitle, "", &value).CheckedBy(func(text string) error {
+		checks++
+
 		if text == baseBranch {
 			return errRefused
 		}
@@ -354,9 +360,9 @@ func TestACompletionTheCheckRefusedIsMatchedAsATypedValueIs(t *testing.T) {
 	field.Update(pressed(keyTab))
 
 	// Assert
-	if value != baseBranch || !errors.Is(field.Error(), errRefused) {
-		t.Errorf("next-field again after %q was taken and refused left %q with %v, want %q kept and refused",
-			baseBranch, value, field.Error(), baseBranch)
+	if value != baseBranch || !errors.Is(field.Error(), errRefused) || checks != 2 {
+		t.Errorf("next-field again after %q was taken and refused left %q with %v, checked %d times; want %q "+
+			"kept and refused again, checked twice", baseBranch, value, field.Error(), checks, baseBranch)
 	}
 }
 
@@ -373,10 +379,11 @@ func TestASuggestionTypedWholeInAnotherCaseIsKeptAsTyped(t *testing.T) {
 	typed(t, field, "Main")
 
 	// Act
-	field.Update(pressed(keyTab))
+	_, cmd := field.Update(pressed(keyTab))
 
 	// Assert
-	if value != "Main" {
-		t.Errorf("next-field after typing Main left %q, want it kept as typed", value)
+	if !sameMsg(cmd, huh.NextField) || value != "Main" {
+		t.Errorf("next-field after typing Main moved on %v and left %q, want it moved on with Main as typed",
+			sameMsg(cmd, huh.NextField), value)
 	}
 }
