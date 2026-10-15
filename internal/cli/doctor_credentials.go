@@ -366,7 +366,7 @@ func credentialOutcome(err error, service string) error {
 	switch {
 	case isAny(err, jira.ErrNoCredential, messaging.ErrNoCredential, forge.ErrNoToken):
 		return fmt.Errorf("%w: %s", errCredentialMissing, service)
-	case isAny(err, unreachableErrors()...):
+	case isAny(err, append(servicesUnreachable(), errUnreachable)...):
 		return fmt.Errorf("%w: %s", errUnreachable, service)
 	default:
 		return fmt.Errorf("%w: %s", errCredentialRejected, service)
