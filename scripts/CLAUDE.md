@@ -20,7 +20,8 @@ else in the repository, `.devcontainer/postCreate.sh` included.
 
 Every script here and under `release/` has a sibling `<name>_test.sh` that
 drives it: a new script brings its test in the same commit, and a change to a
-script changes or adds a case in its test. `pr-comment.mjs`'s test is
+script changes or adds a case in its test. `check-sibling-tests.sh` fails a
+script under `scripts/` that has none. `pr-comment.mjs`'s test is
 `pr-comment_test.sh`, and `.devcontainer/postCreate.sh`'s is
 `postcreate_test.sh`; the libraries in `lib/` are driven through their
 callers' tests.
