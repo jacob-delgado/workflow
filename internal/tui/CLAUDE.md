@@ -30,9 +30,11 @@ action keeps one name through its flow, and a new word comes from that table.
 ## One file per pane, and when code may leave
 
 The package is the interface spelled one file per pane, overlay and composer,
-and it answers to a cohesive ceiling in `scripts/package-size-budgets.txt`:
-read the number there, and `scripts/check-package-size.sh --list` for the
-count. A new pane or overlay is a new file. The package is not split to chase
+and it answers to a ratcheted budget in `scripts/package-size-budgets.txt`,
+at the count its leaves left it: read the number there, and
+`scripts/check-package-size.sh --list` for the count. A new pane or overlay is
+a new file, and a bump: raise the number, rewrite the WHY above it, and append
+a row to `scripts/package-size-budget-history.md`. The package is not split to chase
 a number. A pane or an overlay takes and returns `Model`, and so cannot leave
 without carrying `Model` across a package boundary Go does not allow. What may
 leave is a leaf with a reason to change of its own and no `Model` in it, as

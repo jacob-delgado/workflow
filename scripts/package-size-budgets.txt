@@ -91,28 +91,23 @@ internal/forge 18
 # pane's state draws itself and keeps its behavior beside it, and each overlay
 # and each message answers through the Model it is handed and hands back. So a
 # pane or an overlay cannot leave without carrying Model, and everything that
-# takes it, across a package boundary Go does not allow, and CLAUDE.md says the
-# package must not be split to chase a number. What may leave is a leaf with a
-# reason to change of its own and no Model in it, as layout/ and frame/ did,
-# and as quietinput/ did on 2026-10-15, taking quietinput.go, the Huh field
-# typed text goes through, which changes as huh.Field does. Code leaves so
-# without its file too: the same day the commit scopes offered went from
-# scopesuggest.go to internal/convention, as Conventional Commits logic, and
-# the outlasting plumbing from deps.go to internal/lifetime, as how any write
-# outlives its asker; each file stayed, holding what names the interface's
-# own seams and composer, so the count did not move.
-# The ceiling came in at 80 over 64 files; splitting the long files by concern,
-# the panes' key bindings out of keys.go and the Repositories pane's drawing
-# out of repositories.go brought it there, each a file past the 500-line target
-# cut by concern, none a new reason to change. Reaching 80 was looked at as the
-# ceiling asks, and the files that name no Model counted again on 2026-10-14:
-# eight (dryrun.go, errorwords.go, glyphs.go, issues.go, panekeys.go,
-# settingsedit.go, settingsfields.go, settingsvalues.go) each work on the
-# package's own state, which a split would export for this one caller; the
-# ninth was quietinput.go, which has since left as quietinput/. So 96, the same
-# sixteen files of room the ceiling came in with; reaching it is where the
-# shape is looked at again.
-internal/tui 96 cohesive
+# takes it, across a package boundary Go does not allow, and the package is
+# not split to chase a number. What may leave is a leaf with a reason to change
+# of its own and no Model in it, as layout/ and frame/ did, and as quietinput/
+# did on 2026-10-15, taking quietinput.go, the Huh field typed text goes
+# through, which changes as huh.Field does. Code leaves so without its file
+# too: the same day the commit scopes offered went from scopesuggest.go to
+# internal/convention, as Conventional Commits logic, and the outlasting
+# plumbing from deps.go to internal/lifetime, as how any write outlives its
+# asker. It answered to a cohesive ceiling of 96 until then; once its leaves
+# had left, the maintainer's budget decision (a split leaves its parent a
+# ratcheted budget at the count it leaves) made it 91, the files it holds. So
+# the next pane, overlay or composer is a bump with its reason written here,
+# and the files that name no Model (dryrun.go, errorwords.go, glyphs.go,
+# issues.go, panekeys.go, settingsedit.go, settingsfields.go, settingsvalues.go,
+# each working on the package's own state) are where a leaf is looked for
+# first when it is.
+internal/tui 91
 
 # internal/webserver — the loopback REST surface, spelled one file per
 # operation (or per pair of writes that share their checks) beside the shared
