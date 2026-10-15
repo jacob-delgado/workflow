@@ -119,6 +119,22 @@ func TestTransitionRefusesAMoveThatNeedsFieldsNamingThem(t *testing.T) {
 	}
 }
 
+func TestTransitionNeedingFieldsSaysWhereAFormAsksForThem(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir, _ := trackerDir(t, trackerAnswers{})
+
+	// Act
+	_, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "transition", trackedIssue, "Done", "--yes")
+
+	// Assert
+	want := "; change its status with t in the interface or Change status on the web, whose forms ask for them"
+	if err == nil || !strings.HasSuffix(err.Error(), want) {
+		t.Errorf("transition to Done = %v, want it to end %q", err, want)
+	}
+}
+
 func TestTransitionRefusesAStatusNotOfferedNamingThoseThatAre(t *testing.T) {
 	t.Parallel()
 
@@ -323,6 +339,21 @@ func TestWorklogLogsTheDurationWithItsNote(t *testing.T) {
 	if !strings.Contains(printed.Stdout, "Log 2h on PROJ-7\n  pairing") ||
 		!strings.Contains(printed.Stderr, "Logged 2h on PROJ-7.") {
 		t.Errorf("worklog previewed or reported wrongly:\nstdout:\n%s\nstderr:\n%s", printed.Stdout, printed.Stderr)
+	}
+}
+
+func TestWorklogWithoutANotePreviewsTheDurationAlone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir, _ := trackerDir(t, trackerAnswers{})
+
+	// Act
+	printed, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "worklog", trackedIssue, "2h", "--yes")
+
+	// Assert
+	if err != nil || printed.Stdout != "Log 2h on PROJ-7\n" {
+		t.Errorf("worklog = %v, previewed %q, want the duration alone", err, printed.Stdout)
 	}
 }
 
