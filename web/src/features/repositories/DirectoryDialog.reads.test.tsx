@@ -214,6 +214,47 @@ test.each([
   },
 )
 
+test('the whole listing answering after the one asked again by its dot counts what both hold', async () => {
+  // Arrange
+  // The whole listing of ~/src is held back while the one narrowed by the
+  // dot answers with .cache; the whole one then holds x.y, which matches the
+  // dot letter by letter, and api, which does not.
+  const whole = held<DirectoryListing>()
+  serving((url) => {
+    const prefix = url.searchParams.get('prefix')
+    if (url.searchParams.get('path') === '~/src' && prefix === null) {
+      return whole.promise
+    }
+
+    const cache = { name: '.cache', path: '/home/ana/src/.cache', repository: false }
+
+    return prefix === '.' ? { ...listing(url), entries: [cache] } : listing(url)
+  })
+  const user = userEvent.setup()
+  renderWithClient(<RepositoriesPanel />)
+  const field = await openDialog(user)
+  await user.type(field, '~/src/.')
+  await waitFor(() => {
+    expect(options()).toEqual(['.cache', 'switch here~/src'])
+  })
+
+  // Act
+  whole.answer({
+    path: '/home/ana/src',
+    shown: '~/src',
+    parent: '/home/ana',
+    entries: ['api', 'x.y'].map((name) => ({
+      name,
+      path: `/home/ana/src/${name}`,
+      repository: false,
+    })),
+  })
+
+  // Assert
+  expect(await screen.findByText('2 of 3 in ~/src')).toBeTruthy()
+  expect(screen.queryByText('Reading ~/src…')).toBeNull()
+})
+
 test('a listing asked again by its dot that is refused while the whole one is read says both', async () => {
   // Arrange
   // The whole listing of ~/src is held back, and the one narrowed by the dot
