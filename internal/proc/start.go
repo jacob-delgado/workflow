@@ -251,13 +251,15 @@ type pipeGrace struct {
 	timer   *time.Timer
 }
 
-// run starts or pauses the count.
+// run starts the count, or pauses it if it runs. watch never starts a count
+// already running: deliver says it waits on the pipe and that it no longer
+// does by turns, and the exit comes once.
 func (g *pipeGrace) run(running bool) {
 	switch {
-	case running && g.timer == nil:
+	case running:
 		g.started = time.Now()
 		g.timer = time.NewTimer(g.left)
-	case !running && g.timer != nil:
+	case g.timer != nil:
 		g.timer.Stop()
 		g.left -= time.Since(g.started)
 		g.timer = nil
