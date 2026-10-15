@@ -52,10 +52,11 @@ and run in CI. `corepack yarn test:e2e` serves two builds with no backend: the
 production one, and a VITE_MOCK one whose populated sections the specs tagged
 `@populated` scan with axe and screenshot at 640, 1024 and 1440 px into
 `test-results/` (CI uploads them as the `screens` artifact). Chromium runs every
-spec; Firefox and WebKit, the engines of the other browsers the page supports,
-run `layout.spec.ts` and `a11y.spec.ts` alone, on both builds (the `firefox`,
-`firefox-mock`, `webkit` and `webkit-mock` projects), and CI runs each in a job
-of its own beside E2E. Install the three once with
+spec. Firefox and WebKit, the engines of the other browsers the page supports,
+run a subset (the `firefox`, `firefox-mock`, `webkit` and `webkit-mock`
+projects): `layout.spec.ts` and `a11y.spec.ts` on both builds, and the Tab
+walk's own `support/tabwalk.spec.ts` on the production build alone. CI runs each
+engine in a job of its own beside E2E. Install the three once with
 `corepack yarn playwright install chromium firefox webkit`; `--project=chromium
 --project=mock` runs Chromium's alone. The smoke projects are held on Linux,
 where CI runs them: on a Mac, WebKit and Firefox may leave links out of the

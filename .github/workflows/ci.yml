@@ -279,14 +279,15 @@ jobs:
           retention-days: 7
 
   # The smoke run on the other two engines of the browsers the page supports:
-  # Firefox and WebKit, Safari's engine, each run the layout and axe specs
-  # (smokeSpecs in web/playwright.config.ts) on both builds, while E2E runs
-  # every spec on Chromium. A job per engine beside E2E rather than steps in it:
-  # the subset is 183 tests an engine, which took 4.3 minutes on Chromium on
-  # four cores, against E2E's six, where inside E2E the two would nearly double
-  # the run's slowest job. Gecko and WebKit run slower than Chromium, so how
-  # long each job takes is for CI's own runs to show. Their counts stay out of
-  # the Test summary, whose E2E row is Chromium's; E2E (server)'s row holds
+  # Firefox and WebKit, Safari's engine, each run the layout and axe specs on
+  # both builds and the Tab walk's own on the production build (smokeSpecs in
+  # web/playwright.config.ts), while E2E runs every spec on Chromium. A job per
+  # engine beside E2E rather than steps in it: the subset is 188 tests an
+  # engine, whose 183 layout and axe tests took 4.3 minutes on Chromium on four
+  # cores, against E2E's six, where inside E2E the two would nearly double the
+  # run's slowest job. Gecko and WebKit run slower than Chromium, so how long
+  # each job takes is for CI's own runs to show. Their counts stay out of the
+  # Test summary, whose E2E row is Chromium's; E2E (server)'s row holds
   # page.spec.ts's run on each engine with the rest of that job's.
   e2e-engines:
     name: E2E (${{ matrix.browser }})

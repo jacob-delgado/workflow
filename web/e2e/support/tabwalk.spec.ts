@@ -59,3 +59,35 @@ test('a walk within a dialog counts its controls alone, clipped by its box', asy
     left: [],
   })
 })
+
+test('a walk that starts partway round comes back in at the top of the page', async ({ page }) => {
+  // Arrange
+  await page.setContent(`
+    <button>Top</button>
+    <button>Middle</button>
+    <button>Last</button>
+  `)
+  await page.getByRole('button', { name: 'Middle' }).focus()
+
+  // Act
+  const { reached, missed } = await walkTabOrder(page)
+
+  // Assert
+  expect({ reached, missed }).toEqual({ reached: ['Top', 'Middle', 'Last'], missed: [] })
+})
+
+test('a lap past a control that keeps Tab to itself never closes', async ({ page }) => {
+  // Arrange
+  await page.setContent(`
+    <button>Before</button>
+    <button>Keeper</button>
+    <script>
+      document.querySelector('button:last-of-type').addEventListener('keydown', (event) => {
+        if (event.key === 'Tab') event.preventDefault()
+      })
+    </script>
+  `)
+
+  // Act & Assert
+  await expect(walkTabOrder(page)).rejects.toThrow('did not come back round')
+})
