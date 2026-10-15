@@ -39,9 +39,10 @@ leave is a leaf with a reason to change of its own and no `Model` in it, as
 `layout/` and `frame/` did, and as `quietinput/` did when `quietinput.go`,
 which changes as `huh.Field` does, left. Code with no `Model` in it leaves
 for the package whose concern it is even when its file stays, as the commit
-scopes offered did for `internal/convention` (`ScopeSuggestions`). Reaching
-the ceiling means rewriting the WHY above the entry and a history row, or
-such an extraction, never a split for the count.
+scopes offered did for `internal/convention` (`ScopeSuggestions`) and the
+outlasting plumbing for `internal/lifetime` (`lifetime.Outlasting0` and the
+rest). Reaching the ceiling means rewriting the WHY above the entry and a
+history row, or such an extraction, never a split for the count.
 
 ## Deps: the world outside the terminal
 
@@ -54,10 +55,11 @@ such an extraction, never a split for the count.
   once the model has what it acts on.
 - **Reads end with the session, writes do not.** `WithContext` (`options.go`)
   sets the session a quit or a switch ends, stopping every read in flight.
-  `WithLifetime` wraps each write in `outlasting` (`deps.go`): it goes on
-  past a quit, so git is never stopped midway with its index locked, is
-  counted in flight by name, and ends only when the program's lifetime does,
-  on SIGINT or SIGTERM (TRADE-38). A new write seam joins `outlasting`.
+  `WithLifetime` wraps each write in `outlasting` (`deps.go`), over the
+  wrappers in `internal/lifetime/outlasting.go`: it goes on past a quit, so
+  git is never stopped midway with its index locked, is counted in flight by
+  name, and ends only when the program's lifetime does, on SIGINT or SIGTERM
+  (TRADE-38). A new write seam joins `outlasting`.
 - **What leaves the machine waits on a last look** (`lastLook`, `overlay.go`):
   a push, a post, a merge, a Taskwarrior sync and the rest UX.md's principle 2
   names. A reversible local toggle acts at once.

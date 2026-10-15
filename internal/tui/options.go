@@ -8,6 +8,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/colorprofile"
+
+	"github.com/jacob-delgado/workflow/internal/lifetime"
 )
 
 // WithContext is the interface asking every system outside it under ctx, its
@@ -30,7 +32,7 @@ func (m Model) WithContext(ctx context.Context) Model {
 func (m Model) WithLifetime(ctx context.Context) Model {
 	// Trade-off TRADE-38: a quit or a switch stops reads alone; the end of the
 	// program's lifetime stops writes too.
-	m.deps = outlasting(endingWith(ctx), uncountedEndingWith(ctx), m.given, m.vocab.noun)
+	m.deps = outlasting(lifetime.EndingWith(ctx), lifetime.UncountedEndingWith(ctx), m.given, m.vocab.noun)
 
 	return m
 }
