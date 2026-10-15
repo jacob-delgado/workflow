@@ -226,9 +226,9 @@ func (s stream) waiting(onPipe chan<- bool) func(bool) {
 
 // watch follows the run to the end of its output, counting outputGrace down
 // while the program has exited and deliver waits on the pipe, and reports how
-// reading the output ended. Past the grace the pipe is closed, which ends a
-// read in progress on Unix, and the output is abandoned, so the run ends even
-// where that read cannot be ended.
+// reading the output ended. Past the grace the output is abandoned, so the
+// run ends even where a read in progress cannot be ended; follow then closes
+// the pipe, which ends that read on Unix.
 func (s stream) watch(reaped <-chan struct{}, onPipe <-chan bool, scanned <-chan error) error {
 	var reading bool
 
@@ -247,8 +247,6 @@ func (s stream) watch(reaped <-chan struct{}, onPipe <-chan bool, scanned <-chan
 			return scanErr
 		case <-grace.expired():
 			s.sender.abandon()
-
-			_ = s.reader.Close()
 
 			return nil
 		}
