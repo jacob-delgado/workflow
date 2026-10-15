@@ -190,7 +190,10 @@ flight; and refuses, as `conflict`, a write whose `Workflow-Here` header
   `workflow --web --port 13580` from the binary `task build` makes, so nothing
   else may listen on that port.
 - **Test files near the ceiling.** A test file fails past 700 lines, and
-  `issuewrite_test.go`, `repositories_test.go`, `setup_test.go` and
-  `reviewwrites_test.go` are at 600 or more
+  `setup_test.go` and `reviewwrites_test.go` are at 600 or more
   (`scripts/check-file-length.sh --list` prints each count): a new case for
-  one of them likely starts a sibling file named for its behavior.
+  one of them likely starts a sibling file named for its behavior, as the
+  issue writes' comments (`issuecomment_test.go`) and the directory switch
+  (`repositoryswitch_test.go`) did, with what they share in a fixtures file
+  beside them (`issuewritefixtures_test.go`,
+  `repositoriesfixtures_test.go`).

@@ -4,126 +4,21 @@
 package webserver_test
 
 import (
-	"bufio"
 	"context"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
-	"sync"
 	"testing"
-	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
-	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/store"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
-	"github.com/jacob-delgado/workflow/internal/workdirs"
 )
-
-// The directories the cases work in, under anaHome.
-const (
-	anaHome   = "/home/ana"
-	apiRoot   = "/home/ana/src/api"
-	apiCmd    = "/home/ana/src/api/cmd"
-	webRoot   = "/home/ana/src/web"
-	notesDir  = "/home/ana/notes"
-	oldDir    = "/home/ana/old"
-	reposPath = "/api/repositories"
-)
-
-// apiPlace is the api repository, worked in from its cmd directory.
-func apiPlace() seams.Place {
-	return seams.Place{
-		Dir: apiCmd, Root: apiRoot,
-		Remote: forge.Repo{Kind: forge.KindGitHub, Host: "github.com", Path: "acme/api"},
-		Config: config.Files{Repo: apiRoot + "/.workflow.json", Home: anaHome + "/.workflow.json"},
-	}
-}
-
-// placesByDir are the directories there are, as Look reads them.
-func placesByDir() map[string]seams.Place {
-	return map[string]seams.Place{
-		apiCmd:   apiPlace(),
-		webRoot:  {Dir: webRoot, Root: webRoot, Remote: forge.Repo{Host: "github.com", Path: "acme/web"}},
-		notesDir: {Dir: notesDir},
-	}
-}
-
-// keptFavorites is the favorites a case's store keeps, and what it was asked.
-type keptFavorites struct {
-	mu    sync.Mutex
-	dirs  []string
-	asked []string
-	// hold, when set, keeps a Favor from answering until it is closed, and
-	// entered is closed once one has started.
-	hold, entered chan struct{}
-}
-
-// repositoryDeps work in api's cmd directory, with web, notes and a directory
-// since removed as favorites.
-func repositoryDeps(kept *keptFavorites) webserver.Deps {
-	deps := webtest.FilledDeps()
-	places := placesByDir()
-	deps.Repositories = seams.Repositories{
-		Here: apiPlace(), Home: anaHome,
-		Look: func(_ context.Context, dir string) (seams.Place, error) {
-			place, found := places[dir]
-			if !found {
-				return seams.Place{}, workdirs.ErrNotFound
-			}
-
-			return place, nil
-		},
-		Subdirectories: func(dir, _ string) (workdirs.Listing, error) {
-			if dir != "/home/ana/src" {
-				return workdirs.Listing{}, workdirs.ErrNotFound
-			}
-
-			return workdirs.Listing{Entries: []workdirs.Entry{{Name: "api", Repository: true}, {Name: "notes"}}}, nil
-		},
-	}
-	deps.Store.Favorites = func(context.Context) ([]string, error) {
-		kept.mu.Lock()
-		defer kept.mu.Unlock()
-
-		return slices.Clone(kept.dirs), nil
-	}
-	deps.Store.Favor = func(_ context.Context, dir string) error {
-		if kept.hold != nil {
-			close(kept.entered)
-			<-kept.hold
-		}
-
-		kept.mu.Lock()
-		defer kept.mu.Unlock()
-
-		kept.asked = append(kept.asked, "favor "+dir)
-		kept.dirs = append(kept.dirs, dir)
-
-		return nil
-	}
-	deps.Store.Unfavor = func(_ context.Context, dir string) error {
-		kept.mu.Lock()
-		defer kept.mu.Unlock()
-
-		kept.asked = append(kept.asked, "unfavor "+dir)
-
-		return nil
-	}
-
-	return deps
-}
-
-// favoritesKept is a store keeping web, notes and a removed directory.
-func favoritesKept() *keptFavorites {
-	return &keptFavorites{dirs: []string{webRoot, notesDir, oldDir, apiCmd}}
-}
 
 func TestRepositoriesSayWhereTheServerWorks(t *testing.T) {
 	t.Parallel()
@@ -275,215 +170,6 @@ func TestAFavoriteIsAnAbsolutePath(t *testing.T) {
 	}
 }
 
-func TestTheDirectoriesInOneAreListed(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	handler := webtest.Serve(t, repositoryDeps(favoritesKept()), config.Default())
-
-	// Act
-	// A path is read from your home after a ~.
-	recorder := webtest.Get(t, handler, "/api/directories?path=~%2Fsrc")
-
-	// Assert
-	got := webtest.Decode[api.DirectoryListing](t, recorder)
-	if recorder.Code != http.StatusOK || got.Path != "/home/ana/src" || got.Shown != "~/src" ||
-		got.Parent != anaHome || len(got.Entries) != 2 || got.Entries[0].Path != apiRoot || !got.Entries[0].Repository {
-		t.Errorf("status %d, listing %+v; want ~/src with api, a repository, first", recorder.Code, got)
-	}
-}
-
-func TestADirectoryNotThereIsRefusedWithoutItsPath(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	handler := webtest.Serve(t, repositoryDeps(favoritesKept()), config.Default())
-
-	// Act
-	recorder := webtest.Get(t, handler, "/api/directories?path=%2Fsecret%2Fplace")
-
-	// Assert
-	if recorder.Code != http.StatusNotFound || strings.Contains(recorder.Body.String(), "secret") {
-		t.Errorf("status %d, body %s; want 404 that names no path", recorder.Code, recorder.Body.String())
-	}
-}
-
-// reachable lets deps switch to any directory Look reads, and records each
-// switch asked.
-func reachable(deps webserver.Deps, reached *[]string) webserver.Deps {
-	deps.Reach = func(ctx context.Context, dir string) (webserver.World, error) {
-		*reached = append(*reached, dir)
-
-		place, err := deps.Repositories.Look(ctx, dir)
-		if err != nil {
-			return webserver.World{}, err
-		}
-
-		next := deps
-		next.Repositories.Here = place
-
-		return webserver.World{Deps: next, Config: config.Default(), Info: webserver.Info{Version: webtest.TestVersion}}, nil
-	}
-
-	return deps
-}
-
-func TestASwitchServesTheDirectorySwitchedTo(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	var reached []string
-
-	handler := webtest.Serve(t, reachable(repositoryDeps(favoritesKept()), &reached), config.Default())
-
-	// Act
-	recorder := webtest.Send(t, handler, http.MethodPut, reposPath+"/here", `{"dir":"`+webRoot+`"}`)
-
-	// Assert
-	after := webtest.Decode[api.Repositories](t, webtest.Get(t, handler, reposPath))
-	if recorder.Code != http.StatusOK || after.Here.Dir != webRoot || !slices.Equal(reached, []string{webRoot}) {
-		t.Errorf("status %d, now in %q, reached %v; want 200 and web served", recorder.Code, after.Here.Dir, reached)
-	}
-}
-
-func TestASwitchToADirectoryNotThereIsRefused(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	var reached []string
-
-	handler := webtest.Serve(t, reachable(repositoryDeps(favoritesKept()), &reached), config.Default())
-
-	// Act
-	recorder := webtest.Send(t, handler, http.MethodPut, reposPath+"/here", `{"dir":"/secret/gone"}`)
-
-	// Assert
-	after := webtest.Decode[api.Repositories](t, webtest.Get(t, handler, reposPath))
-
-	named := strings.Contains(recorder.Body.String(), "secret")
-	if recorder.Code != http.StatusNotFound || after.Here.Dir != apiCmd || named {
-		t.Errorf("status %d, body %s, now in %q; want 404 naming no path, still in api", recorder.Code,
-			recorder.Body.String(), after.Here.Dir)
-	}
-}
-
-func TestASwitchWaitsForNoWriteButIsRefusedWhileOneRuns(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// A favorite being marked is a write the switch would leave unknown.
-	var reached []string
-
-	kept := favoritesKept()
-	kept.hold, kept.entered = make(chan struct{}), make(chan struct{})
-	handler := webtest.Serve(t, reachable(repositoryDeps(kept), &reached), config.Default())
-
-	writing := make(chan struct{})
-	go func() {
-		defer close(writing)
-
-		webtest.Send(t, handler, http.MethodPut, reposPath+"/favorites", `{"dir":"/srv/web"}`)
-	}()
-
-	<-kept.entered
-
-	// Act
-	recorder := webtest.Send(t, handler, http.MethodPut, reposPath+"/here", `{"dir":"`+webRoot+`"}`)
-
-	// Assert
-	close(kept.hold)
-	<-writing
-
-	if recorder.Code != http.StatusConflict || len(reached) != 0 {
-		t.Errorf("status %d, reached %v; want 409 and no switch", recorder.Code, reached)
-	}
-}
-
-func TestAWriteFromAPageShowingAnotherDirectoryIsRefused(t *testing.T) {
-	t.Parallel()
-
-	cases := map[string]struct {
-		shown string
-		want  int
-	}{
-		"the directory the server works in": {shown: apiCmd, want: http.StatusOK},
-		"another":                           {shown: webRoot, want: http.StatusConflict},
-		// A header carries bytes, not text, so the page escapes the path as a
-		// URL path is escaped.
-		"escaped":          {shown: "%2Fhome%2Fana%2Fsrc%2Fapi%2Fcmd", want: http.StatusOK},
-		"escaped, another": {shown: "%2Fhome%2Fjos%C3%A9", want: http.StatusConflict},
-		// One that does not unescape names no directory, so not this one.
-		"escaped badly": {shown: "%2Fhome%zz", want: http.StatusConflict},
-	}
-
-	for name, page := range cases {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			// Arrange
-			handler := webtest.Serve(t, repositoryDeps(favoritesKept()), config.Default())
-			request := httptest.NewRequestWithContext(t.Context(), http.MethodPut, reposPath+"/favorites",
-				strings.NewReader(`{"dir":"/srv/web"}`))
-			request.Host = webtest.LoopbackHost
-			request.Header.Set("Content-Type", "application/json")
-			request.Header.Set(webserver.HereHeader, page.shown)
-
-			recorder := httptest.NewRecorder()
-
-			// Act
-			handler.ServeHTTP(recorder, request)
-
-			// Assert
-			if recorder.Code != page.want {
-				t.Errorf("status %d, want %d", recorder.Code, page.want)
-			}
-		})
-	}
-}
-
-func TestASwitchEndsTheEventStreamSoThePageReconnects(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	var reached []string
-
-	handler := webtest.Serve(t, reachable(repositoryDeps(favoritesKept()), &reached), config.Default())
-	server := httptest.NewServer(handler)
-	t.Cleanup(server.Close)
-
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-	defer cancel()
-
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/api/events", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	response, err := server.Client().Do(request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = response.Body.Close() }()
-
-	lines := bufio.NewScanner(response.Body)
-	for lines.Scan() && !strings.HasPrefix(lines.Text(), "data: ") {
-		continue
-	}
-
-	// Act
-	webtest.Send(t, handler, http.MethodPut, reposPath+"/here", `{"dir":"`+webRoot+`"}`)
-
-	// Assert
-	var rest []string
-	for lines.Scan() {
-		rest = append(rest, lines.Text())
-	}
-
-	if !slices.Contains(rest, "retry: 1000") {
-		t.Errorf("the stream went on with %q, want it to end asking the page to reconnect", rest)
-	}
-}
-
 func TestEverySnapshotSaysWhereTheServerWorks(t *testing.T) {
 	t.Parallel()
 
@@ -540,41 +226,6 @@ func TestAFavoriteKeptThroughALinkToWhereTheServerWorksIsHere(t *testing.T) {
 	}
 }
 
-func TestASwitchIsToThePathWrittenPlainly(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// Where the server works is a path written plainly, as a favorite must be.
-	var reached []string
-
-	handler := webtest.Serve(t, reachable(repositoryDeps(favoritesKept()), &reached), config.Default())
-
-	// Act
-	recorder := webtest.Send(t, handler, http.MethodPut, reposPath+"/here", `{"dir":"/home/ana/src/api/../web/"}`)
-
-	// Assert
-	if recorder.Code != http.StatusOK || !slices.Equal(reached, []string{webRoot}) {
-		t.Errorf("status %d, reached %v; want %s", recorder.Code, reached, webRoot)
-	}
-}
-
-func TestWithoutAPathTheDirectoryWorkedInIsListed(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	deps := repositoryDeps(favoritesKept())
-	deps.Repositories.Here = seams.Place{Dir: anaHome + "/src"}
-
-	// Act
-	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/directories")
-
-	// Assert
-	if got := webtest.Decode[api.DirectoryListing](t, recorder); recorder.Code != http.StatusOK ||
-		got.Path != anaHome+"/src" {
-		t.Errorf("status %d, listing %+v; want where the server works", recorder.Code, got)
-	}
-}
-
 func TestWhatTheServerCannotDoWithDirectoriesIsRefused(t *testing.T) {
 	t.Parallel()
 
@@ -609,22 +260,6 @@ func TestWhatTheServerCannotDoWithDirectoriesIsRefused(t *testing.T) {
 				t.Errorf("status %d, want 422", recorder.Code)
 			}
 		})
-	}
-}
-
-func TestTheRootHasNothingAbove(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	deps := repositoryDeps(favoritesKept())
-	deps.Repositories.Subdirectories = func(string, string) (workdirs.Listing, error) { return workdirs.Listing{}, nil }
-
-	// Act
-	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/directories?path=%2F")
-
-	// Assert
-	if got := webtest.Decode[api.DirectoryListing](t, recorder); got.Path != "/" || got.Parent != "" {
-		t.Errorf("listing %+v, want / with no parent", got)
 	}
 }
 
