@@ -72,9 +72,11 @@ The local gate needs Node, which `mise install` provisions, and installs the
 frontend's dependencies when they are missing. CI runs the same gates, and adds
 the Playwright end-to-end suites, which `task e2e` runs locally: the web
 frontend alone, and then the page served by the binary `task build` makes,
-staging, committing and pushing through it. Each needs a browser, installed
-once with `yarn playwright install chromium` in `web/`; run them for a change
-under `web/` or `internal/webserver`. One gate is narrower in CI: a pull
+staging, committing and pushing through it. Chromium runs every spec, and
+Firefox and WebKit a smoke run of the layout and axe specs and the served
+page's `page.spec.ts`, so they need all three browsers, installed once with
+`yarn playwright install chromium firefox webkit` in `web/`; run them for a
+change under `web/` or `internal/webserver`. One gate is narrower in CI: a pull
 request that changes no Markdown file, nothing under `docs/`, not
 `.markdownlint-cli2.yaml` and not `mise.toml`, which pins the Markdown linter,
 skips the Markdown lint (`scripts/markdown-changed.sh` decides); a push to

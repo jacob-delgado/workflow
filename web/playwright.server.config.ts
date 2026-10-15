@@ -37,6 +37,11 @@ function runFixture(): string {
 
 const fixture = runFixture()
 
+// metadata is what a spec reads of the run: origin, where it reads what a push
+// landed, with git, and serverLog, where it reads the address the server
+// printed, with its session.
+const metadata = { origin: join(fixture, 'origin.git'), serverLog: join(fixture, 'server.log') }
+
 // The server-backed run: `workflow --web`, the binary `task build` makes with
 // the app embedded, serves the page and its API from that repository, so a
 // spec here drives a write through to git. It runs apart from
@@ -59,12 +64,21 @@ export default defineConfig({
   projects: [
     {
       name: 'server',
-      // The spec reads what a push landed from origin, with git, and opens the
-      // page at the address the server printed, with its session, from
-      // serverLog.
-      metadata: { origin: join(fixture, 'origin.git'), serverLog: join(fixture, 'server.log') },
+      metadata,
       use: { ...devices['Desktop Chrome'], baseURL: serverURL },
     },
+    // Firefox and WebKit run page.spec.ts alone, the smoke run
+    // playwright.config.ts describes: the page the server serves, its session
+    // and its dialogs, under the content policy each engine enforces.
+    ...[
+      { name: 'server-firefox', device: devices['Desktop Firefox'] },
+      { name: 'server-webkit', device: devices['Desktop Safari'] },
+    ].map(({ name, device }) => ({
+      name,
+      testMatch: 'page.spec.ts',
+      metadata,
+      use: { ...device, baseURL: serverURL },
+    })),
   ],
   webServer: {
     command: `../scripts/e2e-server.sh '${fixture}' ${port}`,

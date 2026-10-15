@@ -50,13 +50,23 @@ dependencies first when they are missing. The Playwright suites stay outside it
 and run in CI. `corepack yarn test:e2e` serves two builds with no backend: the
 production one, and a VITE_MOCK one whose populated sections the specs tagged
 `@populated` scan with axe and screenshot at 640, 1024 and 1440 px into
-`test-results/` (CI uploads them as the `screens` artifact).
+`test-results/` (CI uploads them as the `screens` artifact). Chromium runs every
+spec; Firefox and WebKit, the engines of the other browsers the page supports,
+run `layout.spec.ts` and `a11y.spec.ts` alone, on both builds (the `firefox`,
+`firefox-mock`, `webkit` and `webkit-mock` projects), and CI runs each in a job
+of its own beside E2E. Install the three once with
+`corepack yarn playwright install chromium firefox webkit`; `--project=chromium
+--project=mock` runs Chromium's alone. The smoke projects are held on Linux,
+where CI runs them: on a Mac, WebKit and Firefox may leave links out of the
+Tab order, as Safari does by default, and the layout spec's Tab walk would
+then fail there for the platform, not the page.
 `corepack yarn test:e2e:server` runs the specs under `e2e/server` against the
 binary `task build` makes: `scripts/e2e-server.sh` serves
 `workflow --web --port 13580` from a throwaway repository with a bare origin,
 and `commit.spec.ts` stages, commits and pushes through the page.
 `page.spec.ts` checks how the page takes its session, and that it and its
-palette open with nothing the content policy the server sends refuses;
+palette open with nothing the content policy the server sends refuses, on
+Firefox and WebKit too (the `server-firefox` and `server-webkit` projects);
 `policy.spec.ts` opens Settings' tabs, the tag picker and the directory picker
 under that policy and fails on anything it refuses. Nothing else may be
 listening on port 13580.
