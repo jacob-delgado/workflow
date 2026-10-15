@@ -209,11 +209,11 @@ func (s *OpenedStream) Close() string {
 // enough for a read made once to show against one made on every frame.
 const StreamedFrames = 3
 
-// CancelingFlusher records the stream and cancels its request from inside the
+// cancelingFlusher records the stream and cancels its request from inside the
 // flush that completes the last frame wanted, so a test sees a known number of
 // pushes without timing them. It embeds the recorder for everything else a
 // ResponseWriter does.
-type CancelingFlusher struct {
+type cancelingFlusher struct {
 	*httptest.ResponseRecorder
 
 	cancel  context.CancelFunc
@@ -226,9 +226,11 @@ type CancelingFlusher struct {
 	between func()
 }
 
+var _ http.Flusher = (*cancelingFlusher)(nil)
+
 // Flush flushes the recorder, runs between unless it completes the last frame
 // wanted, and cancels the request once it does.
-func (c *CancelingFlusher) Flush() {
+func (c *cancelingFlusher) Flush() {
 	c.ResponseRecorder.Flush()
 
 	c.flushed++
@@ -258,7 +260,7 @@ func StreamPaced(t *testing.T, deps webserver.Deps, cfg config.Config, step time
 
 	request := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/events", nil)
 	request.Host = LoopbackHost
-	writer := &CancelingFlusher{
+	writer := &cancelingFlusher{
 		ResponseRecorder: httptest.NewRecorder(), cancel: cancel, frames: StreamedFrames,
 		between: func() { now = now.Add(step) },
 	}
