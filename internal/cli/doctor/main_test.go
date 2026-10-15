@@ -31,6 +31,9 @@ func TestMain(m *testing.M) {
 	os.Exit(clitest.Main(m))
 }
 
+// doctorCommand is the command these tests run.
+const doctorCommand = "doctor"
+
 // wantExit fails the test unless err exits with want. It lives beside the
 // tests that assert with it, since cmd/testshape follows an Assert's failure
 // helper only within its own test package.
