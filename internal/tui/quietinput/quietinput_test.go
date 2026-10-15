@@ -414,6 +414,25 @@ func TestRunAccessibleAsksAsAPlainPromptAndKeepsTheAnswer(t *testing.T) {
 	}
 }
 
+// Huh asks for a secret only through a terminal, which a plain reader is not,
+// so a secret field refuses to be asked on one rather than echo the answer.
+func TestRunAccessibleAsksForASecretOnlyOnATerminal(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var value string
+
+	field := quietinput.New(baseTitle, "", &value).Secret()
+
+	// Act
+	err := field.RunAccessible(new(bytes.Buffer), strings.NewReader(baseBranch+"\n"))
+
+	// Assert
+	if err == nil || value != "" {
+		t.Errorf("a secret asked on a plain reader kept %q with %v, want it refused and nothing kept", value, err)
+	}
+}
+
 func TestTheFieldIsAskedAndHoldsItsValueRatherThanAKey(t *testing.T) {
 	t.Parallel()
 
