@@ -37,8 +37,9 @@ callers' tests.
   keeps `<name>_test.sh` and moves a behavior's cases to a
   `<name>_<behavior>_test.sh` beside it, the two sharing their fixtures in
   `lib/<name>-fixtures.sh`, as `check-tech-debt-paths.sh`'s do and
-  `check-layout.sh`'s, whose `check-layout_depguard_test.sh` and
-  `check-layout_yaml_test.sh` share `lib/check-layout-fixtures.sh`.
+  `check-layout.sh`'s, whose `check-layout_runs_test.sh`,
+  `check-layout_depguard_test.sh` and `check-layout_yaml_test.sh` share
+  `lib/check-layout-fixtures.sh`.
 - **`hook-environment_test.sh` is the one runner** (`task test:scripts`): it
   runs every `*_test.sh` and `release/*_test.sh` once under a hook's git
   environment naming a sentinel repository, and fails if the sentinel
@@ -87,7 +88,17 @@ as its status, so a gate that fails for the wrong reason fails the test.
   every file but a test: its files are `"!$test"`, alone or beside `"$all"`,
   the shape of the `*-only-in-tests` rules, and its `list-mode` is unset or
   `original`, since under `lax` or `strict` an allow item longer than the
-  deny item lets the import through.
+  deny item lets the import through. A rule holds only while depguard runs,
+  so the check also fails a mark when `.golangci.yml` does not make sure it
+  does: `linters.disable` lists depguard, `linters.default` is not `all` and
+  `linters.enable` does not list it (`standard`, `none` and `fast` each need
+  it there), `linters` holds a key besides `default`, `enable`, `disable`,
+  `settings` and `exclusions`, or its `default`, `enable` or `disable`, or
+  an item of either list, is a block scalar, which the check does not read.
+  Exclusion rules and `//nolint:depguard` stay unread, and so do
+  `issues.new` and its `new-from-*` kin, which hide depguard's findings as
+  they do, and `run.issues-exit-code`, which set to 0 lets golangci-lint
+  pass with them printed.
 - **The check reads `.golangci.yml` as golangci-lint does, or not at all.**
   It exits 2 beside a `.golangci.json`, `.golangci.toml` or `.golangci.yaml`,
   tracked or not, each of which golangci-lint reads in its place. It reads
@@ -99,6 +110,7 @@ as its status, so a gate that fails for the wrong reason fails the test.
   merge or explicit key, an escape, a value running on past its line). Its
   tests build a fixture `.golangci.yml` and `go.mod`: `check-layout_test.sh`
   holds the mark's need of a rule, and of the file golangci-lint reads,
+  `check-layout_runs_test.sh` its need of a depguard that runs,
   `check-layout_depguard_test.sh` which rules hold, and
   `check-layout_yaml_test.sh` which YAML the check reads and which it
   refuses; a change to what it reads changes the check and that test.

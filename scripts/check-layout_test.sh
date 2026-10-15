@@ -5,9 +5,10 @@
 # a tracked file, every package the block marks "(tests only)" must be one a
 # depguard rule holds to tests, in a .golangci.yml golangci-lint reads and no
 # file it reads first, and a repository git cannot read, or a CLAUDE.md with
-# no layout block, must not pass on nothing compared. Which rules hold a
-# package are check-layout_depguard_test.sh's, and how the gate reads the
-# YAML they are written in check-layout_yaml_test.sh's.
+# no layout block, must not pass on nothing compared. The mark's need of a
+# depguard that runs is check-layout_runs_test.sh's, which rules hold a
+# package check-layout_depguard_test.sh's, and how the gate reads the YAML
+# they are written in check-layout_yaml_test.sh's.
 #
 # Usage:
 #   scripts/check-layout_test.sh
