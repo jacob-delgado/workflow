@@ -264,6 +264,57 @@ func TestAnnounceWhenGreenGivesUpOnAPullRequestThatIsNoLongerTheOne(t *testing.T
 	}
 }
 
+func TestAnnounceWhenGreenSaysWhatItWaitsOnOnce(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Two reads find CI running alike before it passes; only a change is said.
+	var posts atomic.Int32
+
+	clitest.FakeGh(t, clitest.GhResponses{
+		Pulls:          clitest.OpenPull("Add login"),
+		StatusSequence: []string{clitest.RunningStatus(), clitest.RunningStatus(), clitest.PassingStatus()},
+	})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
+
+	// Act
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--when-green", "--yes")
+	// Assert
+	if err != nil {
+		t.Fatalf("announce --when-green --yes = %v (%+v)", err, printed)
+	}
+
+	if said := strings.Count(printed.Stderr, "Waiting for CI on #7 to pass"); said != 1 {
+		t.Errorf("stderr said it waits %d times, want once:\n%s", said, printed.Stderr)
+	}
+}
+
+func TestAnnounceWhenGreenWaitsAgainWhenTheGateCannotReadCI(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// CI passes on the read that lets the post go, the gate's own read cannot
+	// be understood, and a later run passes.
+	var posts atomic.Int32
+
+	clitest.FakeGh(t, clitest.GhResponses{
+		Pulls:          clitest.OpenPull("Add login"),
+		StatusSequence: []string{clitest.PassingStatus(), "{", clitest.PassingStatus()},
+	})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
+
+	// Act
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--when-green", "--yes")
+
+	// Assert
+	if err != nil || posts.Load() != 1 {
+		t.Errorf("announce --when-green = %v, posted %d, said %q; want it to wait again, then announce once",
+			err, posts.Load(), printed.Stderr)
+	}
+}
+
 func TestAnnounceWhenGreenWaitsAgainWhenTheGateRefuses(t *testing.T) {
 	t.Parallel()
 
