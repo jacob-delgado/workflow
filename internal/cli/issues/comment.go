@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli
+package issues
 
 import (
 	"context"
@@ -17,9 +17,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
-// errCommentBlank refuses a comment with no text: standard input held nothing
+// ErrCommentBlank refuses a comment with no text: standard input held nothing
 // but white space.
-var errCommentBlank = errors.New("a comment needs text on standard input")
+var ErrCommentBlank = errors.New("a comment needs text on standard input")
 
 // commentSeams are what `workflow comment` reads and does, so a test can
 // answer without a tracker.
@@ -31,8 +31,8 @@ type commentSeams struct {
 	Confirm func(question string) (bool, error)
 }
 
-// newCommentCmd builds `workflow comment <issue>`.
-func newCommentCmd(prompt cmdkit.Prompt) *cobra.Command {
+// NewCommentCmd builds `workflow comment <issue>`.
+func NewCommentCmd(prompt cmdkit.Prompt) *cobra.Command {
 	var opts cmdkit.WriteOptions
 
 	cmd := &cobra.Command{
@@ -86,7 +86,7 @@ func runCommentCommand(cmd *cobra.Command, prompt cmdkit.Prompt, issueKey string
 // refused before anything is asked.
 func readInput(input io.Reader) (string, error) {
 	if input == nil {
-		return "", errCommentBlank
+		return "", ErrCommentBlank
 	}
 
 	read, err := io.ReadAll(input)
@@ -96,7 +96,7 @@ func readInput(input io.Reader) (string, error) {
 
 	text := strings.TrimRight(string(read), " \t\r\n")
 	if strings.TrimSpace(text) == "" {
-		return "", errCommentBlank
+		return "", ErrCommentBlank
 	}
 
 	return text, nil

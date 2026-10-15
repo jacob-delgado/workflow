@@ -162,13 +162,13 @@ wording to another.
 
 `internal/loop` is a leaf above the domain packages and below the surfaces. It
 imports only the domain packages the `loop-below-the-surfaces` rule in
-`.golangci.yml` lists, and is imported by `cli`, `cli/pr` and `cli/status`,
-`report`, `seams`, `tui`, `webserver` and its `runs` package, and `wiring`. It
-cannot live in `wiring`, which imports `tui` for `tui.Deps` (the terminal
-importing it back would be a cycle), nor in `tui`, which the web server must
-not import, nor in `convention`, which `config` imports and so can never take
-a `config.Config`. Two `depguard` rules in `.golangci.yml` hold its direction:
-`loop-below-the-surfaces` allows `internal/loop` only that list, and
+`.golangci.yml` lists, and is imported by `cli`, `cli/issues`, `cli/pr` and
+`cli/status`, `report`, `seams`, `tui`, `webserver` and its `runs` package,
+and `wiring`. It cannot live in `wiring`, which imports `tui` for `tui.Deps`
+(the terminal importing it back would be a cycle), nor in `tui`, which the web
+server must not import, nor in `convention`, which `config` imports and so can
+never take a `config.Config`. Two `depguard` rules in `.golangci.yml` hold its
+direction: `loop-below-the-surfaces` allows `internal/loop` only that list, and
 `webserver-not-terminal` keeps the web server off `tui` and `wiring`.
 
 The composition that belongs to a single domain type lives on that type
