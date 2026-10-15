@@ -50,7 +50,11 @@ for the count.
   (`Notes.Watched`, `console/live.go`); everything said meanwhile prints above
   it, and when stdout is the same terminal the artifact does too
   (`artifactBeside`, `prompt.go`, TRADE-43). Piped, the artifact goes to
-  stdout untouched.
+  stdout untouched. The line follows the configuration the terminal interface
+  draws by, through `console.Look` (`liveLook`, `prompt.go`): `ui.ascii`, or
+  `status --plain`, draws it in ASCII, and `ui.motion: reduce` holds its mark
+  still on the in-flight glyph; its mark's frames are `progress.Turn`'s, the
+  terminal's own.
 - **fang renders the help, the usage and the errors** (`execute`, `cli.go`,
   TRADE-44), in the terminal's own sixteen colors (`ansiScheme`).
 
