@@ -76,8 +76,8 @@ func TestDoctorReportsADetachedHead(t *testing.T) {
 	output, _ := clitest.Run(t, dir, "doctor")
 
 	// Assert
-	if got := fieldValue(output, "Branch"); !strings.Contains(got, "detached HEAD") {
-		t.Errorf("Branch = %q, want a detached HEAD reported:\n%s", got, output)
+	if got := fieldValue(output, "Branch"); got != "(detached HEAD — check out a branch before starting work)" {
+		t.Errorf("Branch = %q, want the detached HEAD reported and the advice to check out a branch:\n%s", got, output)
 	}
 }
 

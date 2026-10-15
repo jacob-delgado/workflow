@@ -43,7 +43,7 @@ func TestDoctorsFindingsWrapTheSentinelsTheExitFamiliesName(t *testing.T) {
 			dir := testCase.setup(t)
 
 			// Act
-			output, err := clitest.Run(t, dir, append([]string{"doctor"}, testCase.args...)...)
+			output, err := clitest.Run(t, dir, append([]string{doctorCommand}, testCase.args...)...)
 
 			// Assert
 			if !errors.Is(err, testCase.sentinel) {

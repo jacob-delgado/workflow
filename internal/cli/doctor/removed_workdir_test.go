@@ -79,7 +79,7 @@ func TestDoctorReportsOnTheOneReadingOfItsDirectory(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 
 	// Act
-	err := cli.Execute([]string{"doctor"}, &stdout, &stderr, clitest.UnusedPrompt(t), env)
+	err := cli.Execute([]string{doctorCommand}, &stdout, &stderr, clitest.UnusedPrompt(t), env)
 
 	// Assert
 	want := "(none — " + dir + " is not in a git work tree)"
