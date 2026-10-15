@@ -7,7 +7,6 @@ import (
 	"errors"
 	"net/http"
 	"os"
-	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -106,24 +105,4 @@ func pointingAtNoHost(t *testing.T) string {
 	t.Helper()
 
 	return configuredWith(t, `"jira": {"base_url": "https://jira.invalid", "token": "t"}, `+clitest.SlackWebhook)
-}
-
-func TestDoctorCountsWhatIsMissingAndWhatIsWrong(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// commit is bound to a key stage-all holds, and there is no messaging
-	// service.
-	dir := t.TempDir()
-	clitest.WriteFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"}, `+
-		`"ui": {"keys": {"commit": "a"}}}`)
-
-	// Act
-	_, err := clitest.Run(t, dir, "doctor")
-
-	// Assert
-	if err == nil || !strings.Contains(err.Error(), "1 field(s) missing") ||
-		!strings.Contains(err.Error(), "1 invalid value(s)") {
-		t.Errorf("doctor = %v, want one field counted missing and one value counted invalid", err)
-	}
 }

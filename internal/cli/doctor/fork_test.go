@@ -17,15 +17,13 @@ type doctorRepository struct {
 	Repository map[string]any `json:"repository"`
 }
 
-// forkClone is a repository whose origin is a fork and whose upstream is the
-// repository it was forked from.
-func forkClone(t *testing.T) string {
+// forkWithUpstream is a repository whose origin is a fork and whose upstream,
+// the repository it was forked from, is at upstream.
+func forkWithUpstream(t *testing.T, upstream string) string {
 	t.Helper()
 
-	dir := t.TempDir()
-	clitest.GitInit(t, dir)
-	clitest.Git(t, dir, "remote", "add", "origin", "https://github.com/contributor/repo.git")
-	clitest.Git(t, dir, "remote", "add", "upstream", "https://github.com/owner/repo.git")
+	dir := clitest.RepoWithRemote(t, "https://github.com/contributor/repo.git")
+	clitest.Git(t, dir, "remote", "add", "upstream", upstream)
 
 	return dir
 }
@@ -33,8 +31,11 @@ func forkClone(t *testing.T) string {
 func TestDoctorNamesTheBaseRemoteOfAFork(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
+	dir := forkWithUpstream(t, "https://github.com/owner/repo.git")
+
 	// Act
-	output, _ := clitest.Run(t, forkClone(t), "doctor")
+	output, _ := clitest.Run(t, dir, "doctor")
 
 	// Assert
 	if got := fieldValue(output, "Base remote"); got != "upstream (https://github.com/owner/repo.git)" {
@@ -49,8 +50,11 @@ func TestDoctorNamesTheBaseRemoteOfAFork(t *testing.T) {
 func TestDoctorJSONNamesTheBaseRemoteOfAFork(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
+	dir := forkWithUpstream(t, "https://github.com/owner/repo.git")
+
 	// Act
-	printed, _ := clitest.RunStreams(t, forkClone(t), clitest.UnusedPrompt(t), "doctor", "--json")
+	printed, _ := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "doctor", "--json")
 	output := printed.Stdout
 
 	// Assert
@@ -82,5 +86,61 @@ func TestDoctorJSONNamesNoBaseOutsideAFork(t *testing.T) {
 
 	if err != nil || named || addressed {
 		t.Errorf("doctor --json repository = %v, %v; want no base outside a fork", report.Repository, err)
+	}
+}
+
+// tokenUpstream is a fork's upstream whose address carries a credential, as a
+// remote cloned with one in its URL does.
+const tokenUpstream = "https://user:secret-token@github.com/owner/repo.git"
+
+func TestDoctorMasksACredentialInTheBaseRemote(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := forkWithUpstream(t, tokenUpstream)
+
+	// Act
+	output, _ := clitest.Run(t, dir, "doctor")
+
+	// Assert
+	if got := fieldValue(output, "Base remote"); got != "upstream (https://xxxxx@github.com/owner/repo.git)" ||
+		strings.Contains(output, "secret-token") {
+		t.Errorf("Base remote = %q, want the upstream's credential masked:\n%s", got, output)
+	}
+}
+
+func TestDoctorJSONMasksACredentialInTheBaseRemote(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := forkWithUpstream(t, tokenUpstream)
+
+	// Act
+	printed, _ := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "doctor", "--json")
+
+	// Assert
+	var report doctorRepository
+
+	err := json.Unmarshal([]byte(printed.Stdout), &report)
+	if err != nil || report.Repository["base"] != "https://xxxxx@github.com/owner/repo.git" ||
+		strings.Contains(printed.Stdout, "secret-token") {
+		t.Errorf("doctor --json repository = %v, %v; want the upstream's credential masked", report.Repository, err)
+	}
+}
+
+func TestDoctorNamesNoBaseRemoteOutsideAFork(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := clitest.RepoWithRemote(t, "https://github.com/owner/repo.git")
+
+	// Act
+	output, _ := clitest.Run(t, dir, "doctor")
+
+	// Assert
+	if got := fieldValue(output, "Remote"); got != "https://github.com/owner/repo.git" ||
+		strings.Contains(output, "Base remote:") {
+		t.Errorf("Remote = %q, want the origin reported and no base remote for a repository that is no fork:\n%s",
+			got, output)
 	}
 }
