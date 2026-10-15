@@ -12,9 +12,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
-// problemJSON is the media type every refusal is written in.
-const problemJSON = "application/problem+json"
-
 // assertProblem checks that a refusal is a problem of status whose detail
 // says want.
 func assertProblem(t *testing.T, recorder *httptest.ResponseRecorder, status int, want string) api.Problem {
@@ -24,7 +21,7 @@ func assertProblem(t *testing.T, recorder *httptest.ResponseRecorder, status int
 		t.Fatalf("status = %d, want %d: %s", recorder.Code, status, recorder.Body.String())
 	}
 
-	if kind := recorder.Header().Get("Content-Type"); kind != problemJSON {
+	if kind := recorder.Header().Get("Content-Type"); kind != webtest.ProblemJSON {
 		t.Errorf("Content-Type = %q, want application/problem+json", kind)
 	}
 
