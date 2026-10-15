@@ -8,6 +8,7 @@ package runs_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -22,7 +23,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
-// heldRun is a run's output that writes a line, then waits until it is
+// heldRun is a run's output that writes its lines, then waits until it is
 // stopped, as a hook that hangs does.
 type heldRun struct {
 	lines   chan string
@@ -30,10 +31,12 @@ type heldRun struct {
 	stopped chan struct{}
 }
 
-// newHeldRun is a run that has written its first line.
-func newHeldRun(first string) *heldRun {
-	held := &heldRun{lines: make(chan string, 1), stopped: make(chan struct{})}
-	held.lines <- first
+// newHeldRun is a run that has written the lines given.
+func newHeldRun(written ...string) *heldRun {
+	held := &heldRun{lines: make(chan string, len(written)), stopped: make(chan struct{})}
+	for _, line := range written {
+		held.lines <- line
+	}
 
 	return held
 }
@@ -56,9 +59,9 @@ func (h *heldRun) output() proc.Output {
 	}
 }
 
-// startHeld starts a run that hangs after its first line on handler, and
-// returns the recorder its stream is written to, once that line is written,
-// and a channel closed when the stream ends.
+// startHeld starts a run that hangs once it has written the line "hanging"
+// on handler, and returns the recorder its stream is written to, once that
+// line is written, and a channel closed when the stream ends.
 func startHeld(t *testing.T, handler http.Handler) (*syncRecorder, chan struct{}) {
 	t.Helper()
 
@@ -85,9 +88,21 @@ func TestOneRunGoesAtATimeAndAStopEndsIt(t *testing.T) {
 	first, done := startHeld(t, handler)
 
 	// Act: start a second while the first is going
-	second := startRun(t, handler, preCommitRun)
+	answered := make(chan *httptest.ResponseRecorder, 1)
+
+	go func() { answered <- startRun(t, handler, preCommitRun) }()
 
 	// Assert: it is refused
+	var second *httptest.ResponseRecorder
+
+	select {
+	case second = <-answered:
+	case <-time.After(writeWait):
+		held.output().Stop()
+		<-done
+		t.Fatal("a second run went on beside the first, want it refused")
+	}
+
 	assertProblem(t, second, http.StatusConflict, "already going")
 
 	// Act: stop the first
@@ -110,14 +125,16 @@ func TestARunStoppedBeforeItsProgramStartsEndsStopped(t *testing.T) {
 
 	// Arrange
 	// The run is claimed, and its program is held starting, when the stop
-	// comes: the server has no way to stop it yet.
+	// comes: the server has no way to stop it yet. Once started, the program
+	// hangs until it is stopped, so the run ends only if the stop reaches it.
 	starting, release := make(chan struct{}), make(chan struct{})
+	held := newHeldRun("hanging")
 	deps := runDeps(&runCalls{}, passing)
 	deps.Hooks.Run = func(context.Context, string) (proc.Output, error) {
 		close(starting)
 		<-release
 
-		return passing(), nil
+		return held.output(), nil
 	}
 	handler := webtest.Serve(t, deps, config.Default())
 	recorder := newSyncRecorder()
@@ -135,9 +152,16 @@ func TestARunStoppedBeforeItsProgramStartsEndsStopped(t *testing.T) {
 	stopped := webtest.Send(t, handler, http.MethodDelete, runningAt, "")
 
 	close(release)
-	<-ran
 
 	// Assert
+	select {
+	case <-ran:
+	case <-time.After(writeWait):
+		held.output().Stop()
+		<-ran
+		t.Fatal("the program went on once it started, want the stop asked for before it to stop it")
+	}
+
 	if stopped.Code != http.StatusNoContent || !strings.Contains(recorder.body(), `"state":"stopped"`) {
 		t.Errorf("stop = %d, stream %s; want 204 and the run ended stopped", stopped.Code, recorder.body())
 	}
@@ -174,6 +198,32 @@ func TestTheStreamCarriesTheRunGoingNow(t *testing.T) {
 	}
 }
 
+func TestTheStreamCarriesOnlyTheLastLinesOfALongRun(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	written := make([]string, 0, runTailLines+1)
+	for line := range runTailLines {
+		written = append(written, fmt.Sprintf("line %d", line))
+	}
+
+	written = append(written, "hanging")
+	held := newHeldRun(written...)
+	handler := webtest.Serve(t, runDeps(&runCalls{}, held.output), config.Default())
+	_, done := startHeld(t, handler)
+
+	// Act
+	snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
+
+	// Assert
+	held.output().Stop()
+	<-done
+
+	if snap.Run == nil || !slices.Equal(snap.Run.Lines, written[1:]) {
+		t.Errorf("the frame's run = %+v, want only its last %d lines", snap.Run, runTailLines)
+	}
+}
+
 func TestTheStreamCarriesNoRunOnceItEnded(t *testing.T) {
 	t.Parallel()
 
@@ -189,6 +239,10 @@ func TestTheStreamCarriesNoRunOnceItEnded(t *testing.T) {
 		t.Errorf("the frame's run = %+v, want none once it ended", snap.Run)
 	}
 }
+
+// runTailLines is how many of a run's last lines a frame of the stream
+// carries.
+const runTailLines = 200
 
 // writeWait is how long a test waits for a run's stream to write what it is
 // waiting for before failing: a failsafe, never the pace of the test.
