@@ -4,6 +4,9 @@
 package edge_test
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
+	"maps"
 	"net/http"
 	"strings"
 	"testing"
@@ -226,4 +229,49 @@ func TestEveryAnswerRefusesToBeFramedOrSniffed(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestThePolicyAllowsNoInlineStyleButTheOneWebKitGivesASelect(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	const self, none = "'self'", "'none'"
+
+	// WebKit writes this style attribute on a slot in the shadow tree it
+	// builds for every native <select>, before the slot is attached, so the
+	// policy judges it as the page's own.
+	slotStyle := sha256.Sum256([]byte("text-overflow:inherit"))
+	want := map[string]string{
+		"default-src":     self,
+		"base-uri":        none,
+		"form-action":     self,
+		"frame-ancestors": none,
+		"object-src":      none,
+		"style-src-attr":  "'unsafe-hashes' 'sha256-" + base64.StdEncoding.EncodeToString(slotStyle[:]) + "'",
+	}
+
+	// Act
+	recorder := call{method: http.MethodGet, target: "/", host: loopbackHost}.send(t, serveOver(t, &operations{}))
+
+	// Assert
+	policy := recorder.Header().Get("Content-Security-Policy")
+	if got := directivesOf(policy); !maps.Equal(got, want) {
+		t.Errorf("Content-Security-Policy = %q, want exactly %q: no inline style but WebKit's slot's, "+
+			"and never 'unsafe-inline'", policy, want)
+	}
+}
+
+// directivesOf reads a policy's directives by name, each to its sources, and
+// keeps the first of two that share a name, as a browser does.
+func directivesOf(policy string) map[string]string {
+	directives := map[string]string{}
+
+	for directive := range strings.SplitSeq(policy, ";") {
+		name, sources, _ := strings.Cut(strings.TrimSpace(directive), " ")
+		if _, seen := directives[name]; !seen {
+			directives[name] = sources
+		}
+	}
+
+	return directives
 }
