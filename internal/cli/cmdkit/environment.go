@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli
+package cmdkit
 
 import (
 	"context"
@@ -41,14 +41,14 @@ type Environment struct {
 // environmentKey is what a command's context keeps its Environment under.
 type environmentKey struct{}
 
-// handOver puts env in the context of the command cmd runs, which every
+// HandOver puts env in the context of the command cmd runs, which every
 // command under the root reads it from: the root does this before any
 // command's own work starts, once it has refused --quiet beside --verbose.
 // The working directory is read at the first ask and answered from then on
 // as it was then. The context also carries itself as the lifetime of what the
 // command detaches from its asker (a Slack directory read, a token's
 // refresh), so a signal ends that too.
-func handOver(cmd *cobra.Command, env Environment) error {
+func HandOver(cmd *cobra.Command, env Environment) error {
 	err := checkVoice(cmd)
 	if err != nil {
 		return err
@@ -66,20 +66,20 @@ func handOver(cmd *cobra.Command, env Environment) error {
 // keeps the root's from handing it over.
 var errNoEnvironment = errors.New("the command was run without the environment it runs in")
 
-// environmentOf is the Environment the command cmd runs in, or, when none was
+// EnvironmentOf is the Environment the command cmd runs in, or, when none was
 // handed over, one that answers every question with errNoEnvironment.
-func environmentOf(cmd *cobra.Command) Environment {
+func EnvironmentOf(cmd *cobra.Command) Environment {
 	env, handed := cmd.Context().Value(environmentKey{}).(Environment)
 	if !handed {
-		return noEnvironment()
+		return NoEnvironment()
 	}
 
 	return env
 }
 
-// noEnvironment is the environment of a command that has none: it names no
+// NoEnvironment is the environment of a command that has none: it names no
 // directory, home or variable, finds no program, and moves nowhere.
-func noEnvironment() Environment {
+func NoEnvironment() Environment {
 	return Environment{
 		WorkingDir: func() (string, error) { return "", errNoEnvironment },
 		Chdir:      func(string) error { return errNoEnvironment },
@@ -92,10 +92,10 @@ func noEnvironment() Environment {
 	}
 }
 
-// workingDir is the directory the command cmd runs in was run from, or why it
+// WorkingDir is the directory the command cmd runs in was run from, or why it
 // cannot be named: the one place a command reads it.
-func workingDir(cmd *cobra.Command) (string, error) {
-	dir, err := environmentOf(cmd).WorkingDir()
+func WorkingDir(cmd *cobra.Command) (string, error) {
+	dir, err := EnvironmentOf(cmd).WorkingDir()
 	if err != nil {
 		return "", fmt.Errorf("determining the working directory: %w", err)
 	}
@@ -103,15 +103,15 @@ func workingDir(cmd *cobra.Command) (string, error) {
 	return dir, nil
 }
 
-// fromWorkingDir is path, or where it leads from the directory the command
+// FromWorkingDir is path, or where it leads from the directory the command
 // cmd runs in was run from when it is relative to that, as a shell would read
 // it there.
-func fromWorkingDir(cmd *cobra.Command, path string) (string, error) {
+func FromWorkingDir(cmd *cobra.Command, path string) (string, error) {
 	if !relativeToWorkingDir(path) {
 		return path, nil
 	}
 
-	dir, err := workingDir(cmd)
+	dir, err := WorkingDir(cmd)
 	if err != nil {
 		return "", err
 	}
@@ -131,22 +131,22 @@ func relativeToWorkingDir(path string) bool {
 	return !filepath.IsAbs(path) && filepath.VolumeName(path) == "" && !rooted
 }
 
-// loadFromEnvironment loads the configuration that applies where cmd runs,
+// LoadFromEnvironment loads the configuration that applies where cmd runs,
 // searching up from its working directory to the repository root and then
 // the home directory. A missing or unreadable file, or a working directory
 // that cannot be named, is reported through the error.
-func loadFromEnvironment(cmd *cobra.Command) (config.Config, error) {
-	workDir, err := workingDir(cmd)
+func LoadFromEnvironment(cmd *cobra.Command) (config.Config, error) {
+	workDir, err := WorkingDir(cmd)
 	if err != nil {
 		return config.Config{}, err
 	}
 
-	return config.Load(workDir, configHome(cmd))
+	return config.Load(workDir, ConfigHome(cmd))
 }
 
-// configHome is the home directory a configuration falls back to, or "" for
+// ConfigHome is the home directory a configuration falls back to, or "" for
 // none. A machine without a home directory is unusual but not a failure: the
 // working directory alone is still a valid place to find a configuration.
-func configHome(cmd *cobra.Command) string {
-	return environmentOf(cmd).Process.Home
+func ConfigHome(cmd *cobra.Command) string {
+	return EnvironmentOf(cmd).Process.Home
 }

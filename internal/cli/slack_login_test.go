@@ -17,8 +17,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/slackauth"
 	"github.com/jacob-delgado/workflow/internal/wiring"
@@ -33,7 +33,7 @@ const slackUserTokenFile = `{"messaging": {"kind": "slack", "channel": "#dev"}}`
 
 // asking is a prompt that answers lines from lines and secrets from secrets,
 // keeping which questions were asked of each.
-func asking(lines, secrets []string, askedLine, askedSecret *[]string) cli.Prompt {
+func asking(lines, secrets []string, askedLine, askedSecret *[]string) cmdkit.Prompt {
 	answer := func(answers *[]string, asked *[]string) func(string) (string, error) {
 		return func(question string) (string, error) {
 			*asked = append(*asked, question)
@@ -49,7 +49,7 @@ func asking(lines, secrets []string, askedLine, askedSecret *[]string) cli.Promp
 		}
 	}
 
-	return cli.Prompt{Line: answer(&lines, askedLine), Secret: answer(&secrets, askedSecret)}
+	return cmdkit.Prompt{Line: answer(&lines, askedLine), Secret: answer(&secrets, askedSecret)}
 }
 
 func TestSlackLoginAsksForTheAppOnScreenAndItsSecretOffIt(t *testing.T) {
@@ -205,7 +205,7 @@ func TestSlackLoginRefusalsExitInTheirFamily(t *testing.T) {
 
 	cases := map[string]struct {
 		contents string
-		prompt   func(t *testing.T) cli.Prompt
+		prompt   func(t *testing.T) cmdkit.Prompt
 		want     int
 	}{
 		"no configuration file": {want: 3, prompt: clitest.UnusedPrompt},
@@ -216,7 +216,7 @@ func TestSlackLoginRefusalsExitInTheirFamily(t *testing.T) {
 		"another service": {contents: `{"messaging": {"kind": "teams"}}`, want: 3, prompt: clitest.UnusedPrompt},
 		"a blank client ID": {
 			contents: slackUserTokenFile, want: 2,
-			prompt: func(*testing.T) cli.Prompt { return asking(nil, nil, new([]string), new([]string)) },
+			prompt: func(*testing.T) cmdkit.Prompt { return asking(nil, nil, new([]string), new([]string)) },
 		},
 	}
 
@@ -243,7 +243,7 @@ func TestSlackLoginWithNoTerminalSaysToRunItAtOne(t *testing.T) {
 	t.Parallel()
 
 	// Each case is where the input ends.
-	cases := map[string]cli.Prompt{
+	cases := map[string]cmdkit.Prompt{
 		"at the client ID": {Line: answersThenEnds(), Secret: answersThenEnds()},
 		"at the refresh token": {
 			Line: answersThenEnds(slackClientID), Secret: answersThenEnds("client-secret-9999"),
@@ -331,7 +331,7 @@ func breakFile(t *testing.T, path string) func() {
 }
 
 // loginTyped is a prompt typing a login for the app slackClientID.
-func loginTyped() cli.Prompt {
+func loginTyped() cmdkit.Prompt {
 	return asking([]string{slackClientID}, typedLogin(), new([]string), new([]string))
 }
 
@@ -344,7 +344,7 @@ func TestSlackLoginStopsWhenAnAnswerCannotBeRead(t *testing.T) {
 	broken := func(string) (string, error) { return "", errPromptBroke }
 
 	// Act
-	_, err := clitest.RunGuided(t, dir, cli.Prompt{Line: broken, Secret: broken}, "slack", "login")
+	_, err := clitest.RunGuided(t, dir, cmdkit.Prompt{Line: broken, Secret: broken}, "slack", "login")
 
 	// Assert
 	if !errors.Is(err, errPromptBroke) {

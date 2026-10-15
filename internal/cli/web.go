@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/tui"
 	"github.com/jacob-delgado/workflow/internal/web"
@@ -100,19 +101,19 @@ const webSetupStep = "Set one up in Settings, on the page served below."
 // surface names them — and hands the server the wiring's control over the
 // forge settings a save in Settings changes, and a way to reach another
 // directory, wired as this one was, for a switch.
-func serveWeb(cmd *cobra.Command, conn connection, serveAt RunWebAt, flags rootFlags) error {
+func serveWeb(cmd *cobra.Command, conn cmdkit.Connection, serveAt RunWebAt, flags cmdkit.RootFlags) error {
 	switch {
-	case errors.Is(conn.loadErr, config.ErrNotFound):
-		notesOf(cmd).Note(config.NoConfigHeadline + "\n\n" + webSetupStep + "\n" + config.InitStep + "\n" +
+	case errors.Is(conn.LoadErr, config.ErrNotFound):
+		cmdkit.NotesOf(cmd).Note(config.NoConfigHeadline + "\n\n" + webSetupStep + "\n" + config.InitStep + "\n" +
 			config.DoctorStep + "\n")
-	case conn.loadErr != nil:
-		notesOf(cmd).Warn(fmt.Sprintf("The configuration did not load cleanly: %v", conn.loadErr))
+	case conn.LoadErr != nil:
+		cmdkit.NotesOf(cmd).Warn(fmt.Sprintf("The configuration did not load cleanly: %v", conn.LoadErr))
 	}
 
-	conn.controls.ResolveAhead(cmd.Context())
+	conn.Controls.ResolveAhead(cmd.Context())
 
-	world := webWorld(cmd, conn, flags.dryRun)
-	serve := serveAt(webserver.LoopbackAddr(flags.port))
+	world := webWorld(cmd, conn, flags.DryRun)
+	serve := serveAt(webserver.LoopbackAddr(flags.Port))
 
 	return serve(cmd.Context(), world.Config, world.Deps, world.Info, cmd.ErrOrStderr())
 }
@@ -121,7 +122,7 @@ func serveWeb(cmd *cobra.Command, conn connection, serveAt RunWebAt, flags rootF
 // switch, and moves the process there only once the server can serve it: its
 // keys are ones the interface accepts and its configuration loaded cleanly.
 func reachFrom(
-	ctx context.Context, cmd *cobra.Command, conn connection, dir string, dryRun bool,
+	ctx context.Context, cmd *cobra.Command, conn cmdkit.Connection, dir string, dryRun bool,
 ) (webserver.World, error) {
 	wired, err := wireAt(ctx, cmd, conn, dir)
 	if errors.Is(err, errKeysRefused) {
@@ -134,12 +135,12 @@ func reachFrom(
 
 	// A configuration that did not load would leave the server on the
 	// defaults there, posting and pushing with settings nobody chose.
-	err = wired.unreadConfiguration()
+	err = wired.UnreadConfiguration()
 	if err != nil {
 		return webserver.World{}, fmt.Errorf("%w: %w", webserver.ErrConfigurationUnreadable, err)
 	}
 
-	wired.controls.ResolveAhead(ctx)
+	wired.Controls.ResolveAhead(ctx)
 
 	err = moveTo(cmd, dir)
 	if err != nil {
@@ -150,20 +151,20 @@ func reachFrom(
 }
 
 // webWorld is the web server's view of the directory conn is wired to.
-func webWorld(cmd *cobra.Command, conn connection, dryRun bool) webserver.World {
+func webWorld(cmd *cobra.Command, conn cmdkit.Connection, dryRun bool) webserver.World {
 	info := webserver.Info{
-		Version: buildinfo.Current(), DryRun: dryRun, ForgeKind: conn.deps.Forge.Kind,
-		Taskwarrior: conn.cfg.Taskwarrior, Repository: conn.where.Name(),
+		Version: buildinfo.Current(), DryRun: dryRun, ForgeKind: conn.Deps.Forge.Kind,
+		Taskwarrior: conn.Config.Taskwarrior, Repository: conn.Where.Name(),
 	}
 
-	deps := WebDeps(conn.deps)
-	deps.UseForgeSettings = conn.controls.UseForgeSettings
-	deps.UseMessagingSettings = conn.controls.UseMessagingSettings
-	deps.PlaceSlackCredentials = conn.controls.PlaceSlackCredentials
-	deps.KeepJiraToken = conn.controls.KeepJiraToken
+	deps := WebDeps(conn.Deps)
+	deps.UseForgeSettings = conn.Controls.UseForgeSettings
+	deps.UseMessagingSettings = conn.Controls.UseMessagingSettings
+	deps.PlaceSlackCredentials = conn.Controls.PlaceSlackCredentials
+	deps.KeepJiraToken = conn.Controls.KeepJiraToken
 	deps.Reach = func(ctx context.Context, dir string) (webserver.World, error) {
 		return reachFrom(ctx, cmd, conn, dir, dryRun)
 	}
 
-	return webserver.World{Deps: deps, Config: conn.cfg, Info: info}
+	return webserver.World{Deps: deps, Config: conn.Config, Info: info}
 }

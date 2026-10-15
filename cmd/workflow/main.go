@@ -15,6 +15,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/keychain"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/store"
@@ -30,12 +31,12 @@ func main() {
 // processEnvironment is the process workflow runs in, as the operating system
 // tells it: the one place a command's working directory, home, variables,
 // store and programs are read from it.
-func processEnvironment() cli.Environment {
+func processEnvironment() cmdkit.Environment {
 	// A machine without a home directory is unusual but not a failure: the
 	// working directory alone is still a valid place to find a configuration.
 	home, _ := os.UserHomeDir()
 
-	return cli.Environment{
+	return cmdkit.Environment{
 		WorkingDir: os.Getwd,
 		Chdir:      os.Chdir,
 		Process: wiring.Environment{
@@ -50,10 +51,10 @@ func processEnvironment() cli.Environment {
 // untested main, because a real terminal is what a test cannot make; keeping
 // a secret in the keychain and composing in the editor come from their own
 // packages.
-func terminalPrompt() cli.Prompt {
+func terminalPrompt() cmdkit.Prompt {
 	reader := bufio.NewReader(os.Stdin)
 
-	return cli.Prompt{
+	return cmdkit.Prompt{
 		Line:        cli.LineReader(reader, os.Stderr),
 		Secret:      cli.SecretReader(os.Stdin, os.Stderr),
 		StoreSecret: keychain.Storer(runtime.GOOS, proc.Capture, user.Current, os.Getenv),

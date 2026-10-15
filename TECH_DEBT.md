@@ -259,13 +259,13 @@ lets a test fail the second without the first.
 ### TRADE-18 Two conditions a test reaches where the report cannot see it
 
 Two conditions are reached by a test the condition report does not count.
-`closeRequestLog` (`internal/cli/scriptable.go`) asks whether the request
-log's file could be fully written, and says so on stderr when it could not.
-`TestRequestLogWarnsOnceWhenItCouldNotBeWritten`
-(`internal/cli/reqlog_test.go`) reaches it by logging to `/dev/full`, every
-write to which fails as a full disk would; macOS has none, and no other file
-can be made to refuse writes from a test, so a report measured there lists it
-as seen one way, and CI's, measured on Linux, does not. `keysFrom`
+`closeRequestLog` (`internal/cli/cmdkit/scriptable.go`) asks whether the
+request log's file could be fully written, and says so on stderr when it could
+not. `TestRequestLogWarnsOnceWhenItCouldNotBeWritten`
+(`internal/cli/cmdkit/reqlog_test.go`) reaches it by logging to `/dev/full`,
+every write to which fails as a full disk would; macOS has none, and no other
+file can be made to refuse writes from a test, so a report measured there
+lists it as seen one way, and CI's, measured on Linux, does not. `keysFrom`
 (`internal/tui/tui.go`) asks whether the interface's input is a file and, if
 so, whether that file is a terminal, and reads no keys from a file that is
 none. `TestRunReadsKeysFromATerminalItIsHanded` (`internal/tui/run_test.go`)
@@ -273,8 +273,8 @@ hands `Run` a pseudo-terminal in the test process, so the file check is seen
 both ways. Only `TestRunReadsNoKeysFromAFileThatIsNoTerminal`
 (`internal/tui/run_unix_test.go`) hands it a file that is no terminal, in a
 child process that has no terminal at all, as a test run from a developer's
-shell does not, and gobco counts only the test process, so every report
-lists the terminal check as never false.
+shell does not, and gobco counts only the test process, so every report lists
+the terminal check as never false.
 
 **Decided.** 2026-09-26, in #146, for `closeRequestLog`, and in #237, on
 2026-10-09, for `keysFrom`.
@@ -644,7 +644,7 @@ isolates nothing, so a canceled streamed command's children can outlive it;
 `internal/cli/environment_windows_test.go`, the test that `--request-log`
 reads a path Windows roots elsewhere (`\logs`, `D:logs`) where Windows does,
 which as a test file only `lint:crossvet` compiles, and which stands for two
-clauses of `relativeToWorkingDir` in `internal/cli/environment.go`:
+clauses of `relativeToWorkingDir` in `internal/cli/cmdkit/environment.go`:
 `filepath.VolumeName(path) == ""`, false only for a path naming a drive, and
 `!rooted`, false only for a path rooted but not absolute, which elsewhere a
 rooted path never is, so on Linux neither is ever false and no job sees
@@ -893,9 +893,9 @@ line is an inline Bubble Tea program at the foot of stderr
 (`Notes.Watched`, `internal/cli/console/live.go`), and everything written
 to stderr meanwhile is printed above it through that program
 (`console.Stream`). When stdout is the same terminal, `artifactBeside`
-(`internal/cli/prompt.go`) prints the command's artifact above the line too,
-through the program and so on stderr, rather than on stdout under the
-line's feet, where each would overwrite the other. With stdout piped or
+(`internal/cli/cmdkit/prompt.go`) prints the command's artifact above the
+line too, through the program and so on stderr, rather than on stdout under
+the line's feet, where each would overwrite the other. With stdout piped or
 redirected, the artifact goes to stdout untouched. Decided 2026-10-14 by the
 maintainer, with the live line: the wait runs as the program's first
 command, so no goroutine of this module's own keeps the line turning.

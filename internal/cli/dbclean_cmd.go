@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/store"
 )
 
@@ -20,9 +21,9 @@ const keptWarning = "--all also removes kept.db, whom each code owner is on Slac
 	"each repository's groups; people and group associations will be asked again"
 
 // newDBCleanCmd builds `workflow db-clean`.
-func newDBCleanCmd(prompt Prompt) *cobra.Command {
+func newDBCleanCmd(prompt cmdkit.Prompt) *cobra.Command {
 	var (
-		opts writeOptions
+		opts cmdkit.WriteOptions
 		all  bool
 	)
 
@@ -35,26 +36,26 @@ func newDBCleanCmd(prompt Prompt) *cobra.Command {
 			"again. --all also removes kept.db, whom each code owner is on Slack and each\n" +
 			"repository's groups, which are then asked again. Nothing is removed under\n" +
 			"--dry-run.",
-		Example: examples(
+		Example: cmdkit.Examples(
 			`workflow db-clean --dry-run   # each file and what it holds, nothing removed`,
 			`workflow db-clean --yes       # remove the cache, unattended`,
 			`workflow db-clean --all       # also forget whom each code owner is on Slack`,
 		),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			dir, err := environmentOf(cmd).Process.StateDir()
+			dir, err := cmdkit.EnvironmentOf(cmd).Process.StateDir()
 			if err != nil {
 				return fmt.Errorf("finding the local data: %w", err)
 			}
 
 			clean := storeClean{dir: dir, scope: map[bool]store.CleanScope{false: store.CleanCache, true: store.CleanAll}[all]}
-			ask := func(question string) (bool, error) { return confirm(prompt, question) }
+			ask := func(question string) (bool, error) { return cmdkit.Confirm(prompt, question) }
 
-			return runDBClean(cmd.Context(), outputOf(cmd), ask, clean, opts)
+			return runDBClean(cmd.Context(), cmdkit.OutputOf(cmd), ask, clean, opts)
 		},
 	}
 
-	opts.addFlags(cmd, confirmationHelp)
+	opts.AddFlags(cmd, cmdkit.ConfirmationHelp)
 	cmd.Flags().BoolVar(&all, "all", false,
 		"also remove kept.db, so people and group associations are asked again")
 
@@ -71,18 +72,18 @@ type storeClean struct {
 // runDBClean lists the store's files, then removes those clean reaches once
 // confirmed.
 func runDBClean(
-	ctx context.Context, out output, ask func(string) (bool, error), clean storeClean, opts writeOptions,
+	ctx context.Context, out cmdkit.Output, ask func(string) (bool, error), clean storeClean, opts cmdkit.WriteOptions,
 ) error {
 	files, err := store.Files(ctx, clean.dir)
 	if err != nil {
 		return fmt.Errorf("reading the local data: %w", err)
 	}
 
-	listDataFiles(out.artifact, clean.dir, files)
+	listDataFiles(out.Artifact, clean.dir, files)
 
 	reached := reachedBy(files, clean.scope)
 	if len(reached) == 0 {
-		out.notes.Note("Nothing to remove.")
+		out.Notes.Note("Nothing to remove.")
 
 		return nil
 	}
@@ -93,7 +94,8 @@ func runDBClean(
 // removeDataFiles removes the files clean reaches once confirmed, warning
 // first when the kept file is among them.
 func removeDataFiles(
-	out output, ask func(string) (bool, error), clean storeClean, reached []store.DataFile, opts writeOptions,
+	out cmdkit.Output, ask func(string) (bool, error), clean storeClean, reached []store.DataFile,
+	opts cmdkit.WriteOptions,
 ) error {
 	dir := clean.dir
 
@@ -102,16 +104,16 @@ func removeDataFiles(
 	for _, file := range reached {
 		names = append(names, file.Name)
 		if file.Kind == store.DataKept {
-			out.notes.Warn(keptWarning)
+			out.Notes.Warn(keptWarning)
 		}
 	}
 
 	listed := strings.Join(names, " and ")
 
-	proceed, err := opts.proceed(out.notes, ask, writePrompt{
-		question: "Remove " + listed + " from " + dir + "?",
-		dryRun:   "dry run: would remove " + listed + " from " + dir + "; nothing was removed",
-		declined: "Nothing removed.",
+	proceed, err := opts.Proceed(out.Notes, ask, cmdkit.WritePrompt{
+		Question: "Remove " + listed + " from " + dir + "?",
+		DryRun:   "dry run: would remove " + listed + " from " + dir + "; nothing was removed",
+		Declined: "Nothing removed.",
 	})
 	if err != nil || !proceed {
 		return err
@@ -122,7 +124,7 @@ func removeDataFiles(
 		return fmt.Errorf("removing the local data: %w", err)
 	}
 
-	out.notes.Note("Removed " + listed + ".")
+	out.Notes.Note("Removed " + listed + ".")
 
 	return nil
 }

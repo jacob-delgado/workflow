@@ -19,6 +19,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/keychain"
 	"github.com/jacob-delgado/workflow/internal/proc"
@@ -72,7 +73,7 @@ func TestConfigInitIntoADirectoryItCannotWriteSaysSo(t *testing.T) {
 
 	cases := map[string]struct {
 		args   []string
-		prompt func(t *testing.T) cli.Prompt
+		prompt func(t *testing.T) cmdkit.Prompt
 	}{
 		"a template": {
 			args:   strings.Fields("config init --template"),
@@ -80,7 +81,7 @@ func TestConfigInitIntoADirectoryItCannotWriteSaysSo(t *testing.T) {
 		},
 		"the guided setup, every prompt skipped": {
 			args:   strings.Fields("config init"),
-			prompt: func(*testing.T) cli.Prompt { return scripted([]string{""}, []string{""}) },
+			prompt: func(*testing.T) cmdkit.Prompt { return scripted([]string{""}, []string{""}) },
 		},
 	}
 
@@ -121,7 +122,7 @@ func TestGuidedInitStopsWhenTheWebhookCannotBeRead(t *testing.T) {
 	// Arrange
 	// Jira is skipped, then reading the webhook fails.
 	dir := t.TempDir()
-	broken := cli.Prompt{
+	broken := cmdkit.Prompt{
 		Line:   func(string) (string, error) { return "", nil },
 		Secret: func(string) (string, error) { return "", errPromptBroke },
 	}
@@ -145,7 +146,7 @@ func TestGuidedInitStopsWhenNothingAnswersWhetherToKeepAFailedCheck(t *testing.T
 	// the credential anyway can be answered.
 	dir := t.TempDir()
 	badJira := clitest.JiraServer(t, http.StatusUnauthorized, "<html>login</html>", new(atomic.Bool)).URL
-	prompt := cli.Prompt{
+	prompt := cmdkit.Prompt{
 		Line:   answersThenEnds(badJira),
 		Secret: answersThenEnds("bad-token"),
 	}
@@ -172,7 +173,7 @@ func TestGuidedInitStopsWhenNothingAnswersTheKeychainOffer(t *testing.T) {
 
 	var stored atomic.Bool
 
-	prompt := cli.Prompt{
+	prompt := cmdkit.Prompt{
 		Line:   answersThenEnds(clitest.WorkingJira(t)),
 		Secret: answersThenEnds(guidedToken),
 		StoreSecret: func(context.Context, string, string) error {
@@ -259,7 +260,7 @@ func TestConfigInitRefusesALinkWhereTheFileWouldGo(t *testing.T) {
 func TestGuidedInitWithNothingToReadPointsToTheTemplate(t *testing.T) {
 	t.Parallel()
 
-	cases := map[string]cli.Prompt{
+	cases := map[string]cmdkit.Prompt{
 		"the address": {
 			Line:   answersThenEnds(),
 			Secret: answersThenEnds(),

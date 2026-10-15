@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 )
 
 func TestPRStopsAtTheMoveWhenNothingCanAnswer(t *testing.T) {
@@ -19,7 +19,7 @@ func TestPRStopsAtTheMoveWhenNothingCanAnswer(t *testing.T) {
 	repo, writes := reviewRepo(t, reviewMoves)
 
 	// Act
-	_, err := clitest.RunStreams(t, repo, cli.Prompt{Line: answersThenEnds("y", "y")}, "pr")
+	_, err := clitest.RunStreams(t, repo, cmdkit.Prompt{Line: answersThenEnds("y", "y")}, "pr")
 
 	// Assert
 	if len(writes.of(writeLink)) != 1 || writes.applied() != 0 {

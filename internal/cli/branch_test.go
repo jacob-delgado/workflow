@@ -12,8 +12,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
@@ -280,7 +280,7 @@ func TestBranchStopsWhenTheConfirmationCannotBeRead(t *testing.T) {
 	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
 	before := currentBranch(t, repo)
-	failing := cli.Prompt{
+	failing := cmdkit.Prompt{
 		Line:   func(string) (string, error) { return "", errPromptClosed },
 		Secret: func(string) (string, error) { return "", errPromptClosed },
 	}

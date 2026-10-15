@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli
+package cmdkit
 
 import (
 	"errors"
@@ -53,25 +53,25 @@ const webFlag = "web"
 // portFlag names the root's flag that picks the port --web serves on.
 const portFlag = "port"
 
-// addJSONFlag declares --json, or -j, on cmd, held in asJSON, with help that
+// AddJSONFlag declares --json, or -j, on cmd, held in asJSON, with help that
 // says what it prints: the one way every command's data is asked for.
-func addJSONFlag(cmd *cobra.Command, asJSON *bool, help string) {
+func AddJSONFlag(cmd *cobra.Command, asJSON *bool, help string) {
 	cmd.Flags().BoolVarP(asJSON, jsonFlag, jsonShorthand, false, help)
 }
 
-// postingIn is settings posting in channel, as --channel asks, in place of
+// PostingIn is settings posting in channel, as --channel asks, in place of
 // messaging.channel; a blank channel leaves them as they are. A webhook cannot
 // post anywhere but where it is bound, so asking it to is refused as usage.
 // With no messaging set up the channel is set all the same, for the command's
 // own refusal to say what to set up.
-func postingIn(settings config.Messaging, channel string) (config.Messaging, error) {
+func PostingIn(settings config.Messaging, channel string) (config.Messaging, error) {
 	chosen := strings.TrimSpace(channel)
 	if chosen == "" {
 		return settings, nil
 	}
 
 	if settings.Mode() == config.MessagingWebhook {
-		return settings, fmt.Errorf("%w %q for \"--channel\" flag: %w", errUsage, chosen, errChannelNeedsUserToken)
+		return settings, fmt.Errorf("%w %q for \"--channel\" flag: %w", ErrUsage, chosen, errChannelNeedsUserToken)
 	}
 
 	posting := settings
@@ -80,34 +80,37 @@ func postingIn(settings config.Messaging, channel string) (config.Messaging, err
 	return posting, nil
 }
 
-// errMessagingNotConfigured refuses announcing when no messaging transport is
+// ErrMessagingNotConfigured refuses announcing when no messaging transport is
 // set up.
-var errMessagingNotConfigured = errors.New("no messaging transport is configured")
+var ErrMessagingNotConfigured = errors.New("no messaging transport is configured")
 
-// messagingNotConfigured refuses to announce with no messaging transport set
+// MessagingNotConfigured refuses to announce with no messaging transport set
 // up, saying how to set one up.
-func messagingNotConfigured() error {
+func MessagingNotConfigured() error {
 	return fmt.Errorf("%w: set messaging.kind and messaging.webhook_url in %s — or, "+
 		"for Slack, run workflow slack login — then check them with workflow doctor",
-		errMessagingNotConfigured, config.FileName)
+		ErrMessagingNotConfigured, config.FileName)
 }
 
-// rootFlags are the root's flags: a dry run, which every command reads, and
+// RootFlags are the root's flags: a dry run, which every command reads, and
 // --web and --port, which choose what bare workflow opens.
-type rootFlags struct {
-	dryRun bool
-	web    bool
-	port   int
+type RootFlags struct {
+	// DryRun is --dry-run: show what would change, and change nothing.
+	DryRun bool
+	// Web is --web: serve the web app rather than open the interface.
+	Web bool
+	// Port is --port, the port --web serves on.
+	Port int
 }
 
-// declare declares the flags on root: --dry-run, --request-log and how
+// Declare declares the flags on root: --dry-run, --request-log and how
 // stderr is said once, for every command, so a script passes them before the
 // command's name or after it, and each command reads them back by name; --web
 // and --port, serving on defaultPort unless given, on the root alone. --log,
 // the request log's old name, is kept hidden only to refuse it with the new
 // one.
-func (f *rootFlags) declare(root *cobra.Command, defaultPort int) {
-	root.PersistentFlags().BoolVarP(&f.dryRun, dryRunFlag, dryRunShorthand, false,
+func (f *RootFlags) Declare(root *cobra.Command, defaultPort int) {
+	root.PersistentFlags().BoolVarP(&f.DryRun, dryRunFlag, dryRunShorthand, false,
 		"hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, "+
 			"and say what it would have done")
 	root.PersistentFlags().String(logFlag, "",
@@ -119,14 +122,14 @@ func (f *rootFlags) declare(root *cobra.Command, defaultPort int) {
 	root.PersistentFlags().VarPF(renamedFlag{now: logFlag}, oldLogFlag, "", "").Hidden = true
 	root.PersistentFlags().Var(new(logFormatValue), logFormatFlag,
 		"say what goes to stderr as `FORMAT`: text, or json or logfmt, an entry a line stamped with its time")
-	root.Flags().BoolVar(&f.web, webFlag, false,
+	root.Flags().BoolVar(&f.Web, webFlag, false,
 		"serve the web interface on http://127.0.0.1 instead of opening the terminal interface")
-	root.Flags().IntVar(&f.port, portFlag, defaultPort, "the port --web serves on, from 1 to 65535")
+	root.Flags().IntVar(&f.Port, portFlag, defaultPort, "the port --web serves on, from 1 to 65535")
 }
 
-// checkPort refuses, as a mistake in the call, --port without --web, where
+// CheckPort refuses, as a mistake in the call, --port without --web, where
 // nothing listens on it, and a port no listener can take.
-func checkPort(cmd *cobra.Command, web bool, port int) error {
+func CheckPort(cmd *cobra.Command, web bool, port int) error {
 	var why string
 
 	switch {
@@ -138,7 +141,7 @@ func checkPort(cmd *cobra.Command, web bool, port int) error {
 		return nil
 	}
 
-	return fmt.Errorf(`%w %q for "--port" flag: %s`, errUsage, strconv.Itoa(port), why)
+	return fmt.Errorf(`%w %q for "--port" flag: %s`, ErrUsage, strconv.Itoa(port), why)
 }
 
 // logFormatValue is --log-format's value: the format the notes are said in,
@@ -189,10 +192,10 @@ func checkVoice(cmd *cobra.Command) error {
 	return nil
 }
 
-// voiceOf is how the notes of a run of root are said, as its flags ask: in
+// VoiceOf is how the notes of a run of root are said, as its flags ask: in
 // the --log-format given, leaving the notes out under --quiet and adding
 // debug lines under --verbose, colored as getenv's variables allow.
-func voiceOf(root *cobra.Command, getenv func(string) string) console.Options {
+func VoiceOf(root *cobra.Command, getenv func(string) string) console.Options {
 	flags := root.PersistentFlags()
 	quiet, _ := flags.GetBool(quietFlag)
 	verbose, _ := flags.GetBool(verboseFlag)

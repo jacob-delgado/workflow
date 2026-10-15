@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
@@ -217,7 +217,7 @@ func TestFinishWithoutATerminalSaysToPassYes(t *testing.T) {
 
 	// Arrange
 	repo := mergedFinishRepo(t)
-	noTerminal := cli.Prompt{Line: func(string) (string, error) { return "", io.EOF }}
+	noTerminal := cmdkit.Prompt{Line: func(string) (string, error) { return "", io.EOF }}
 
 	// Act
 	_, err := clitest.RunStreams(t, repo, noTerminal, "finish")

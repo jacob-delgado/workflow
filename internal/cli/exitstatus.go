@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
@@ -51,7 +52,7 @@ func ExitStatus(err error) int {
 
 	// An artifact that went nowhere is the run's failure whatever else it
 	// found, which a script never saw.
-	if errors.Is(err, errOutputUnwritten) {
+	if errors.Is(err, cmdkit.ErrOutputUnwritten) {
 		return exitFailure
 	}
 
@@ -72,7 +73,7 @@ type exitFamily struct {
 
 // holds reports whether err is, or wraps, one of the family's errors.
 func (f exitFamily) holds(err error) bool {
-	return isAny(err, f.members...)
+	return cmdkit.IsAny(err, f.members...)
 }
 
 // exitFamilies are the kinds of failure a script can tell apart, in the order a
@@ -81,12 +82,12 @@ func (f exitFamily) holds(err error) bool {
 func exitFamilies() []exitFamily {
 	return []exitFamily{
 		{status: exitUsage, members: []error{
-			errUsage, errNoTerminal, errLoginBlank, errCommentBlank, errStatusBlank, errAssigneeBlank,
+			cmdkit.ErrUsage, cmdkit.ErrNoTerminal, errLoginBlank, errCommentBlank, errStatusBlank, errAssigneeBlank,
 			errDurationBlank, errWorklogOnForge,
 		}},
 		{status: exitConfiguration, members: configurationErrors()},
 		{status: exitRefused, members: refusalErrors()},
-		{status: exitUnreachable, members: append(servicesUnreachable(), errUnreachable)},
+		{status: exitUnreachable, members: append(cmdkit.ServicesUnreachable(), errUnreachable)},
 	}
 }
 
@@ -107,7 +108,7 @@ func configurationErrors() []error {
 		messaging.ErrNoCredential, messaging.ErrInsecureWebhook,
 		jira.ErrUnauthorized, jira.ErrForbidden, forge.ErrUnauthorized, messaging.ErrRejected,
 		errCredentialRejected, errCredentialMissing, errIncomplete, errInvalid, errShared,
-		errMessagingNotConfigured, errLoginNeedsConfig, errLoginOverWebhook, errLoginNotSlack, errWorklogNeedsJira,
+		cmdkit.ErrMessagingNotConfigured, errLoginNeedsConfig, errLoginOverWebhook, errLoginNotSlack, errWorklogNeedsJira,
 		slackauth.ErrRefreshRefused, slackauth.ErrNotAUserToken,
 	}, config.KeyRefusals()...)
 }

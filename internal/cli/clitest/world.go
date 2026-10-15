@@ -16,7 +16,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/store"
 	"github.com/jacob-delgado/workflow/internal/wiring"
@@ -149,7 +149,7 @@ func testPath(t *testing.T) string {
 // EnvironmentFor is the Environment a run of test t where says sees: run from
 // where.Dir, which a switch moves on from, with where.Home as its home and none
 // of the developer's own environment but what t set.
-func EnvironmentFor(t *testing.T, where Place) cli.Environment {
+func EnvironmentFor(t *testing.T, where Place) cmdkit.Environment {
 	t.Helper()
 
 	getenv := func(name string) string {
@@ -159,7 +159,7 @@ func EnvironmentFor(t *testing.T, where Place) cli.Environment {
 	}
 	working := &workingDir{dir: where.Dir}
 
-	return cli.Environment{
+	return cmdkit.Environment{
 		WorkingDir: working.get,
 		Chdir:      working.set,
 		Process: wiring.Environment{

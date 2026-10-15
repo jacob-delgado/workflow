@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/lifetime"
 )
 
@@ -44,7 +45,7 @@ func finishWrites(cmd *cobra.Command, writes *lifetime.InFlight, timeout time.Du
 	}
 
 	if pending > 0 {
-		notesOf(cmd).Note("finishing " + writesCounted(pending) + "…")
+		cmdkit.NotesOf(cmd).Note("finishing " + writesCounted(pending) + "…")
 	}
 
 	return settleWrites(cmd.Context(), writes, pending, timeout)

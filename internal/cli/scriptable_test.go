@@ -11,8 +11,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 )
@@ -114,7 +114,7 @@ func TestConfirmWithoutATerminalNamesYes(t *testing.T) {
 	// Arrange
 	// Stdin is piped and empty, so the confirmation reads end-of-file.
 	repo := prRepo(t, "fix/PROJ-2-thing")
-	closed := cli.Prompt{Line: func(string) (string, error) { return "", io.EOF }}
+	closed := cmdkit.Prompt{Line: func(string) (string, error) { return "", io.EOF }}
 
 	// Act
 	_, err := clitest.RunGuided(t, repo, closed, "pr")

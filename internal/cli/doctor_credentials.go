@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/httpx"
@@ -107,7 +108,7 @@ func credentialChecks(ctx context.Context, run doctorRun, remote string) []crede
 			run:  func() (credentialLine, error) { return checkMessaging(ctx, doers.messaging, run) },
 		},
 		{
-			name: forgeNoun(wiring.ForgeKind(cfg.Forge, remote)),
+			name: cmdkit.ForgeNoun(wiring.ForgeKind(cfg.Forge, remote)),
 			run:  func() (credentialLine, error) { return checkForge(ctx, run, remote) },
 		},
 	}
@@ -140,7 +141,7 @@ type serviceDoers struct {
 // onlineDoers wraps the online transport for each service in log, which may be
 // nil for no log.
 func onlineDoers(cfg config.Config, log *wiring.RequestLog) serviceDoers {
-	doer := onlineDoer(cfg)
+	doer := cmdkit.OnlineDoer(cfg)
 
 	return serviceDoers{
 		jira:      log.Wrap("jira", doer),
@@ -195,7 +196,7 @@ func checkForge(ctx context.Context, run doctorRun, remote string) (credentialLi
 
 	// One limit for the whole check, beside each request's own: finding the
 	// token, which may ask gh or glab for it, runs under this context alone.
-	timeout := requestTimeout(run.cfg)
+	timeout := cmdkit.RequestTimeout(run.cfg)
 	gaveUp := fmt.Errorf("%w: gave up after %s", forge.ErrUnreachable, timeout)
 
 	ctx, cancel := context.WithTimeoutCause(ctx, timeout, gaveUp)
@@ -364,9 +365,9 @@ func userTokenNote(ctx context.Context, process wiring.Environment, cfg config.C
 // asking to wait, or a refused redirect.
 func credentialOutcome(err error, service string) error {
 	switch {
-	case isAny(err, jira.ErrNoCredential, messaging.ErrNoCredential, forge.ErrNoToken):
+	case cmdkit.IsAny(err, jira.ErrNoCredential, messaging.ErrNoCredential, forge.ErrNoToken):
 		return fmt.Errorf("%w: %s", errCredentialMissing, service)
-	case isAny(err, append(servicesUnreachable(), errUnreachable)...):
+	case cmdkit.IsAny(err, append(cmdkit.ServicesUnreachable(), errUnreachable)...):
 		return fmt.Errorf("%w: %s", errUnreachable, service)
 	default:
 		return fmt.Errorf("%w: %s", errCredentialRejected, service)
