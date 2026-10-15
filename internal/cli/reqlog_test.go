@@ -89,28 +89,6 @@ func TestLogReachesASubcommand(t *testing.T) {
 	}
 }
 
-func TestLogReachesDoctorOnline(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	dir := t.TempDir()
-	clitest.WriteConfigFor(t, dir, clitest.WorkingJira(t))
-	logPath := filepath.Join(t.TempDir(), "requests.log")
-
-	// Act
-	output, err := clitest.Run(t, dir, "doctor", "--online", "--request-log", logPath)
-	if err != nil {
-		t.Fatalf("doctor --online: %v (%s)", err, output)
-	}
-
-	// Assert
-	// doctor --online is what a bug report asks for first, so its questions to
-	// each service are what the log most needs to hold.
-	if logged := clitest.ReadLog(t, logPath); !strings.Contains(logged, "jira  GET  /rest/api/2/myself") {
-		t.Errorf("the request log does not outline doctor's check of Jira:\n%s", logged)
-	}
-}
-
 func TestLogReachesTheGuidedInitsCheck(t *testing.T) {
 	t.Parallel()
 

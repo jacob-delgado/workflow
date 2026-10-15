@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli
+package doctor
 
 import (
 	"cmp"
@@ -62,13 +62,13 @@ func reviewConfiguration(cfg config.Config) configReview {
 func (review configReview) err() error {
 	var sharedErr error
 	if review.shared {
-		sharedErr = fmt.Errorf("%w: mode %#o", errShared, review.mode)
+		sharedErr = fmt.Errorf("%w: mode %#o", ErrShared, review.mode)
 	}
 
 	return errors.Join(
 		sharedErr,
-		countedError(errIncomplete, len(review.missing), "field(s) missing"),
-		countedError(errInvalid, len(review.problems), "invalid value(s)"),
+		countedError(ErrIncomplete, len(review.missing), "field(s) missing"),
+		countedError(ErrInvalid, len(review.problems), "invalid value(s)"),
 	)
 }
 

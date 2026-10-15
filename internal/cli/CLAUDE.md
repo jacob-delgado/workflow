@@ -24,17 +24,17 @@ change to a command, a flag, what a command prints or how it exits. The root
 
 The package is the Cobra command tree spelled one file per command, per family
 of commands over one seam, or per section of a command that outgrew one, as
-doctor's and status's did. It answers to a ratcheted budget in
+status's did. It answers to a ratcheted budget in
 `scripts/package-size-budgets.txt`, the count its last split left it at: read
 the number there, and `scripts/check-package-size.sh --list` for the count,
 which a ratcheted budget always equals, so the next command file trips the
 gate and is a decision. The package is not split to chase a number, but code
 in it with a reason to change of its own may leave where no import cycle
-follows: doctor's checks, and status and issues. A trip means a bump, with
-the WHY above the entry rewritten and a history row, or such an extraction,
-never a split for the count; each extraction ratchets the budget down to the
-files left, and the entry goes once the package holds no more than the
-default allows.
+follows, as doctor's checks have, and status and issues may. A trip means a
+bump, with the WHY above the entry rewritten and a history row, or such an
+extraction, never a split for the count; each extraction ratchets the budget
+down to the files left, and the entry goes once the package holds no more
+than the default allows.
 
 The pr and announce flow over the forge and messaging has left as
 `internal/cli/pr`, one package for both, since `pr --announce` hands what it
@@ -54,8 +54,13 @@ scriptable output. It imports no command, and not the web server
 `RootFlags.Declare` the port `--web` serves on by default. The exit statuses
 and the families of errors that earn them stay at the root (`exitstatus.go`),
 since the families name sentinels the commands declare, `internal/cli/pr`'s
-among them, and so do the two terminal reads `cmd/workflow` wires
-(`LineReader` and `SecretReader`, `prompt.go`).
+and `internal/cli/doctor`'s among them, and so do the two terminal reads
+`cmd/workflow` wires (`LineReader` and `SecretReader`, `prompt.go`).
+
+`workflow doctor` has left as `internal/cli/doctor`, a command beside the
+tree: `cli.go` registers its `NewCmd`, and `exitstatus.go`'s families name
+the six sentinels it exports, so it imports neither the root nor any other
+command.
 
 ## What a command prints
 
@@ -139,6 +144,11 @@ for a client's unreachable service, `cmdkit.ServicesUnreachable` in
   developer's home and git configuration and every task program off PATH.
   `TestTheTestsLeaveTheRepositoryAHookNamesAlone` proves the scrub; a new
   package whose tests run git needs the same (CONTRIBUTING.md, *Tests*).
+- **doctor's own tests live beside it**, in `internal/cli/doctor`, through
+  `cli.Execute` as a user or a script runs it, over the forge and Slack fakes
+  in `clitest` (`clitest.FakeGh`, `clitest.FakeGlab`, `clitest.FakeSlack`).
+  Its `TestMain` clears git's variables as this package's does, with a proof
+  of its own, and every condition doctor holds is reached both ways there.
 - **The kit's own tests live beside it**, in `internal/cli/cmdkit`: through
   `cli.Execute` where a command is how a script meets the kit, and otherwise
   over a small tree of their own (`probeTree`, `kit_test.go`) declared as the
