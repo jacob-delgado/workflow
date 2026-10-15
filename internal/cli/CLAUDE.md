@@ -54,14 +54,15 @@ for the count.
 
 ## How a command exits
 
-`ExitStatus` (`scriptable.go`) is 0 for none, 130 when interrupted (checked
+`ExitStatus` (`exitstatus.go`) is 0 for none, 130 when interrupted (checked
 first), 1 when the output could not be written, and otherwise the first
 family the error is in, in order: usage 2, configuration 3, a refused
 precondition 4, unreachable 5; any other failure is 1. `interrupted`
 (`cli.go`) puts the context's error back on a child's failure, so a Ctrl+C
 still reads as 130. A new sentinel a script should tell apart joins its
-family's list (`exitFamilies`, `configurationErrors`, `refusalErrors`,
-`servicesUnreachable`) and `scripting.md`'s table, in the same commit.
+family's list (`exitFamilies`, `configurationErrors`, `refusalErrors`, or,
+for a client's unreachable service, `servicesUnreachable` in
+`scriptable.go`) and `scripting.md`'s table, in the same commit.
 
 ## The process, signals and the quit
 
