@@ -1,7 +1,13 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli
+// Package pr is the pull or merge request's flow on the command line:
+// `workflow pr`, which opens one for the checked-out branch and makes the
+// offers that follow, and `workflow announce`, which tells the team about it,
+// at once or once its CI passes. They are one package because `pr --announce`
+// hands what it opened to announce's wait, and `pr --json`'s report carries
+// fields only the two of them read.
+package pr
 
 import (
 	"cmp"
@@ -25,14 +31,14 @@ import (
 	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
-// errNoCommitsToOpen refuses opening a pull request with nothing to propose.
+// ErrNoCommitsToOpen refuses opening a pull request with nothing to propose.
 // It is told through forgeWordedError, in the forge's own noun.
-var errNoCommitsToOpen = errors.New("no branch with commits to open a pull request for")
+var ErrNoCommitsToOpen = errors.New("no branch with commits to open a pull request for")
 
-// errPullAlreadyOpen refuses opening a second pull request for a branch that
+// ErrPullAlreadyOpen refuses opening a second pull request for a branch that
 // already has an open one. It is told through forgeWordedError, in the forge's own
 // noun.
-var errPullAlreadyOpen = errors.New("an open pull request already exists for this branch")
+var ErrPullAlreadyOpen = errors.New("an open pull request already exists for this branch")
 
 // forgeWordedError is a refusal told in the forge's own words — a merge request on
 // GitLab — that still answers errors.Is for its sentinel, so its exit status
@@ -80,8 +86,8 @@ type prSeams struct {
 	Chosen pullChoices
 }
 
-// newPRCmd builds `workflow pr`.
-func newPRCmd(prompt cmdkit.Prompt) *cobra.Command {
+// NewCmd builds `workflow pr`.
+func NewCmd(prompt cmdkit.Prompt) *cobra.Command {
 	var opts prOptions
 
 	cmd := &cobra.Command{
@@ -379,12 +385,12 @@ type openedPull struct {
 // to the person who asked.
 func composeRefusal(err error, kind forge.Kind) error {
 	if open, ok := errors.AsType[loop.PullAlreadyOpenError](err); ok {
-		return forgeWordedError{errPullAlreadyOpen, "an open " + kind.Noun() + " already exists for this branch: " +
+		return forgeWordedError{ErrPullAlreadyOpen, "an open " + kind.Noun() + " already exists for this branch: " +
 			open.Pull.URL}
 	}
 
 	if errors.Is(err, loop.ErrNothingToOpen) {
-		return forgeWordedError{errNoCommitsToOpen, "no branch with commits to open a " + kind.Noun() + " for"}
+		return forgeWordedError{ErrNoCommitsToOpen, "no branch with commits to open a " + kind.Noun() + " for"}
 	}
 
 	return err

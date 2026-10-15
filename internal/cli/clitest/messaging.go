@@ -250,3 +250,44 @@ func RecordAnnounced(ctx context.Context, home string, moment messaging.Moment) 
 	return store.New(dir, false).RecordAnnounce(ctx, "github.com/owner/repo",
 		store.Announce{Pull: fakePull, Moment: int(moment)}, time.Now())
 }
+
+// CapturingWebhook is a local https webhook that accepts every post and keeps
+// each body's text.
+type CapturingWebhook struct {
+	mu    sync.Mutex
+	texts []string
+	URL   string
+}
+
+// NewCapturingWebhook serves a capturing webhook for the test's length.
+func NewCapturingWebhook(t *testing.T) *CapturingWebhook {
+	t.Helper()
+
+	hook := &CapturingWebhook{}
+	server := httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		var body struct {
+			Text string `json:"text"`
+		}
+
+		_ = json.NewDecoder(request.Body).Decode(&body)
+
+		hook.mu.Lock()
+		hook.texts = append(hook.texts, body.Text)
+		hook.mu.Unlock()
+
+		_, _ = writer.Write([]byte("ok"))
+	}))
+	t.Cleanup(server.Close)
+
+	hook.URL = server.URL + "/services/x"
+
+	return hook
+}
+
+// Posted is every text posted so far.
+func (h *CapturingWebhook) Posted() []string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	return append([]string(nil), h.texts...)
+}

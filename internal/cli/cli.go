@@ -21,6 +21,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
 	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/cli/console"
+	"github.com/jacob-delgado/workflow/internal/cli/pr"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/lifetime"
 	"github.com/jacob-delgado/workflow/internal/seams"
@@ -479,7 +480,7 @@ func subcommands(prompt cmdkit.Prompt) []*cobra.Command {
 	return []*cobra.Command{
 		newConfigCmd(prompt), newDoctorCmd(prompt), newStatusCmd(prompt), newSummaryCmd(prompt), newReviewsCmd(),
 		newRepositoriesCmd(), newIssuesCmd(), newIssueCmd(),
-		newBranchCmd(prompt), newPRCmd(prompt), newFinishCmd(prompt), newAnnounceCmd(prompt), newCommentCmd(prompt),
+		newBranchCmd(prompt), pr.NewCmd(prompt), newFinishCmd(prompt), pr.NewAnnounceCmd(prompt), newCommentCmd(prompt),
 		newTransitionCmd(prompt), newAssignCmd(prompt), newWorklogCmd(prompt),
 		newSlackCmd(prompt), newDBCleanCmd(prompt),
 	}

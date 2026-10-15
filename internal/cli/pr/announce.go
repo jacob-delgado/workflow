@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli
+package pr
 
 import (
 	"cmp"
@@ -24,9 +24,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
-// errNoPullRequest refuses announcing a branch that has no pull request. It is
+// ErrNoPullRequest refuses announcing a branch that has no pull request. It is
 // told through forgeWordedError, in the forge's own noun.
-var errNoPullRequest = errors.New("there is no pull request on this branch to announce")
+var ErrNoPullRequest = errors.New("there is no pull request on this branch to announce")
 
 // announceSeams are what `workflow announce` reads and does, so a test can
 // answer without a repository, a forge or a messaging service.
@@ -64,8 +64,8 @@ type announceFlags struct {
 	whenGreen bool
 }
 
-// newAnnounceCmd builds `workflow announce`.
-func newAnnounceCmd(prompt cmdkit.Prompt) *cobra.Command {
+// NewAnnounceCmd builds `workflow announce`.
+func NewAnnounceCmd(prompt cmdkit.Prompt) *cobra.Command {
 	var flags announceFlags
 
 	cmd := &cobra.Command{
@@ -243,7 +243,7 @@ func readyToAnnounce(
 	}
 
 	if composed.Announcement.Moment != messaging.MomentReady {
-		return forgeWordedError{errOnlyReadyWaits, pull + " has merged, so there is no CI to wait for; " +
+		return forgeWordedError{ErrOnlyReadyWaits, pull + " has merged, so there is no CI to wait for; " +
 			"announce it with workflow announce"}
 	}
 
@@ -259,7 +259,7 @@ func composeFor(ctx context.Context, seams announceSeams) (loop.Composed, error)
 
 	composed, err := loop.ComposeAnnouncement(ctx, seams.Compose, seams.Messaging, seams.Project, seams.Kind)
 	if errors.Is(err, loop.ErrNoPullRequest) {
-		return loop.Composed{}, forgeWordedError{errNoPullRequest, "there is no " + seams.Kind.Noun() +
+		return loop.Composed{}, forgeWordedError{ErrNoPullRequest, "there is no " + seams.Kind.Noun() +
 			" on this branch to announce; open one with `workflow pr`"}
 	}
 

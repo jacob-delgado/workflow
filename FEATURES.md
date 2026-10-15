@@ -130,7 +130,7 @@ Impact: medium · Effort: medium
   every surface (`loop.DeliverSeams.Post` and `loop.Delivery`, in
   `internal/loop/announce.go`, which the interface's
   `seams.Messaging.Post`, `announceSeams.Deliver` in
-  `internal/cli/announce.go` and the web server's `Deps.Post`, through
+  `internal/cli/pr/announce.go` and the web server's `Deps.Post`, through
   `server.Announce`, all post through), and the *Each announcement is its
   own message* limit in `docs/content/docs/usage.md`.
 - Done when: the second announcement of a pull request is posted as a reply

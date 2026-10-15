@@ -331,3 +331,16 @@ func RunningStatus() string {
 func PassingStatus() string {
 	return `{"total_count":1,"statuses":[{"state":"success","context":"ci","target_url":"https://x"}]}`
 }
+
+// GitlabForgeConfig points the forge at GitLab's CLI, with a webhook so
+// announce gets past its messaging guard.
+const GitlabForgeConfig = `{"forge":{"cli":true,"kind":"gitlab","host":"gitlab.com"},` +
+	`"messaging":{"webhook_url":"https://hooks.slack.example/services/x"}}`
+
+// OpenMergeRequest is a listing holding merge request 7, open, as GitLab sends
+// it to both the branch's lookup and the review queue.
+func OpenMergeRequest() string {
+	return `[{"iid":7,"web_url":"` + GitlabMergeRequest + `","title":"fix: token","state":"opened",` +
+		`"created_at":"` + time.Now().Add(-50*time.Hour).UTC().Format(time.RFC3339) + `",` +
+		`"author":{"username":"ben"},"references":{"full":"grp/proj!7"}}]`
+}
