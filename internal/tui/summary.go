@@ -321,7 +321,7 @@ func (s summaryState) rail(kit renderKit, now time.Time) string {
 
 	switch items := len(s.items(now)); {
 	case !s.complete && items == 0:
-		return period + ": " + kit.marks.reading()
+		return period + ": " + kit.reading()
 	case items == 0:
 		return period + ": nothing done"
 	case items == 1:

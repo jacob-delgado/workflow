@@ -23,9 +23,8 @@ type glyphs struct {
 	selected, unselected                        string
 	arrow, separator                            string
 	// turn is the frames the in-flight mark turns through while a read is
-	// out, and turning the one it has turned to.
-	turn    spinner.Spinner
-	turning string
+	// out.
+	turn spinner.Spinner
 	// trackFilled and trackOpen draw the loop track's rules: filled after a
 	// stage that is done, open after one still to come.
 	trackFilled, trackOpen  string
@@ -48,9 +47,8 @@ type glyphs struct {
 func unicodeGlyphs() glyphs {
 	return glyphs{
 		notStarted: progress.NotStarted.Glyph(false), inFlight: progress.InFlight.Glyph(false),
-		turn:    spinner.Spinner{Frames: progress.Turn(false), FPS: time.Second / framesPerSecond},
-		turning: progress.InFlight.Glyph(false),
-		done:    progress.Done.Glyph(false), failed: progress.Failed.Glyph(false), unknown: "·",
+		turn: spinner.Spinner{Frames: progress.Turn(false), FPS: time.Second / framesPerSecond},
+		done: progress.Done.Glyph(false), failed: progress.Failed.Glyph(false), unknown: "·",
 		selected: "▸ ", unselected: "  ",
 		arrow: " → ", separator: " · ", trackFilled: "━", trackOpen: "─",
 		ellipsis: "…", ahead: "↑", behind: "↓", chosenOpen: "‹", chosenClose: "›", favorite: "★",
@@ -65,9 +63,8 @@ func unicodeGlyphs() glyphs {
 func asciiGlyphs() glyphs {
 	return glyphs{
 		notStarted: progress.NotStarted.Glyph(true), inFlight: progress.InFlight.Glyph(true),
-		turn:    spinner.Spinner{Frames: progress.Turn(true), FPS: time.Second / framesPerSecond},
-		turning: progress.InFlight.Glyph(true),
-		done:    progress.Done.Glyph(true), failed: progress.Failed.Glyph(true), unknown: ".",
+		turn: spinner.Spinner{Frames: progress.Turn(true), FPS: time.Second / framesPerSecond},
+		done: progress.Done.Glyph(true), failed: progress.Failed.Glyph(true), unknown: ".",
 		selected: "> ", unselected: "  ",
 		arrow: " -> ", separator: " - ", trackFilled: "=", trackOpen: "-",
 		ellipsis: "...", ahead: "+", behind: "-", chosenOpen: "<", chosenClose: ">", favorite: "^",
@@ -95,12 +92,6 @@ func (g glyphs) marker(selected bool) string {
 	}
 
 	return g.unselected
-}
-
-// reading is a pane's first wait, marked in flight as an overlay's wait is,
-// with the mark turned as far as it has.
-func (g glyphs) reading() string {
-	return g.turning + " reading" + g.ellipsis
 }
 
 // checkbox marks whether a multi-select row is one of those chosen. It is the

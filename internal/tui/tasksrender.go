@@ -66,7 +66,7 @@ func (s tasksState) rail(view tasksView) string {
 	case !view.installed:
 		return view.unavailable()
 	case !s.loaded:
-		return view.kit.marks.reading()
+		return view.kit.reading()
 	case s.err != nil:
 		return view.kit.failureSummary(s.err)
 	case s.writing:
@@ -125,7 +125,7 @@ func (s tasksState) detail(view tasksView, width int) string {
 	case !view.installed:
 		return view.unavailableDetail(width)
 	case !s.loaded:
-		return view.kit.marks.reading()
+		return view.kit.reading()
 	case s.err != nil:
 		return view.kit.failureBlock(s.err, width)
 	case len(groups.listed()) == 0 && len(s.pending) > 0 && s.listing.narrows():

@@ -204,7 +204,7 @@ func (c prComposer) view(kit renderKit, width, _ int) (string, string) {
 	lines := kit.pinnedOutcome(c.send, "opening", width)
 
 	if c.stage == prReading {
-		lines = append(lines, kit.marks.turning+" reading what the "+c.vocab.noun+" starts from"+kit.marks.ellipsis)
+		lines = append(lines, kit.turned+" reading what the "+c.vocab.noun+" starts from"+kit.marks.ellipsis)
 	} else {
 		lines = append(lines, c.form.View())
 	}
@@ -236,7 +236,7 @@ func (c prComposer) summary(kit renderKit) string {
 func (c prComposer) templateName(kit renderKit) string {
 	switch {
 	case !c.templatesRead:
-		return "template " + kit.marks.reading()
+		return "template " + kit.reading()
 	case len(c.templates) == 0:
 		return "no template in this repository"
 	}

@@ -49,7 +49,7 @@ func (s repositoriesState) rail(view repositoriesView, rows int) string {
 func (s repositoriesState) favoritesCount(view repositoriesView) string {
 	switch count := len(s.rows(view.here)) - 1 - len(s.worktreeRows(view.here.Root)); {
 	case !s.read && s.loading:
-		return view.kit.marks.reading()
+		return view.kit.reading()
 	case !s.read:
 		return "favorites, read when opened"
 	case count == 1:
@@ -85,7 +85,7 @@ func (s repositoriesState) detail(view repositoriesView, width int) string {
 	case s.err != nil:
 		lines = append(lines, kit.failureSummary(s.err))
 	case !s.read:
-		lines = append(lines, kit.marks.reading())
+		lines = append(lines, kit.reading())
 	case len(rows) == 1+worktrees:
 		lines = append(lines, "No favorites yet; "+view.keys.favoriteDir.Help().Key+" marks the directory under the cursor.")
 	}

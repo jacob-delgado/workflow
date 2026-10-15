@@ -102,7 +102,7 @@ func (l changeList) staged() int {
 func (l changeList) rail(kit renderKit, commits int) string {
 	switch {
 	case !l.loaded:
-		return kit.marks.reading()
+		return kit.reading()
 	case l.err != nil:
 		return kit.unreadRow(l.err, "status failed")
 	}

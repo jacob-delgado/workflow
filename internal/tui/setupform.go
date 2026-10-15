@@ -187,7 +187,7 @@ func (f setupForm) asked(kit renderKit) []string {
 // outcome is how the check or the write is going.
 func (f setupForm) outcome(kit renderKit, width int) []string {
 	if f.stage == stageChecking {
-		return []string{"", kit.marks.turning + " checking the token with Jira" + kit.marks.ellipsis}
+		return []string{"", kit.turned + " checking the token with Jira" + kit.marks.ellipsis}
 	}
 
 	if outcome := kit.pinnedOutcome(f.send, "writing", width); outcome != nil {

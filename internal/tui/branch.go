@@ -88,7 +88,7 @@ func (s branchState) onFeatureBranch() bool {
 func (s branchState) rail(kit renderKit) string {
 	switch {
 	case !s.loaded:
-		return kit.marks.reading()
+		return kit.reading()
 	case s.err != nil:
 		return kit.unreadRow(s.err, "could not read the branch")
 	case s.branch.Detached:
