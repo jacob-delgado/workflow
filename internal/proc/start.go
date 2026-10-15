@@ -171,12 +171,13 @@ type stream struct {
 	sender  *lineSender
 }
 
-// follow delivers the run's output until it ends, or until the program has
-// exited and the pipe has kept it waiting outputGrace, and reports how the
-// program ended. The program is waited for on its own, since a process it
-// left behind can hold the pipe open past its exit; how it ended is read once
-// the output is done with, whichever of the two came first, and before Lines
-// closes, which Output says it does once the program has exited.
+// follow delivers the run's output until it ends, until a line too long to
+// deliver, or until the program has exited and the pipe has kept it waiting
+// outputGrace, and reports how the program ended. The program is waited for
+// on its own, since a process it left behind can hold the pipe open past its
+// exit; how it ended is read once the output is done with, whichever of the
+// two came first, and before Lines closes, which Output says it does once the
+// program has exited.
 func (s stream) follow(ctx context.Context) error {
 	wait := sync.OnceValue(s.command.Wait)
 	reaped := make(chan struct{})
@@ -192,6 +193,13 @@ func (s stream) follow(ctx context.Context) error {
 
 	go func() {
 		scanned <- deliver(ctx, s.reader, s.sender, s.waiting(onPipe))
+
+		// A program goes on writing past a line too long to deliver, so the
+		// rest is read and dropped until the run closes the pipe, never
+		// leaving it waiting on a full one, while the run ends with the
+		// program as it does once the output ends. Past the output's end
+		// there is nothing to read.
+		_, _ = io.Copy(io.Discard, s.reader)
 	}()
 
 	scanErr := s.watch(reaped, onPipe, scanned)
@@ -294,7 +302,7 @@ type lineSender struct {
 // output was abandoned is dropped before it can race the abandonment to Lines:
 // the line a program began and never ended is one, finished by the read the
 // run gave up on as it fails. Lines closes only once the output is abandoned
-// or read to its end, so a send never meets it closed.
+// or deliver is done with it, so a send never meets it closed.
 func (s *lineSender) send(ctx context.Context, line string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -325,10 +333,12 @@ func (s *lineSender) close() {
 	close(s.lines)
 }
 
-// deliver sends each line until the output ends, and never leaves the program
-// writing to a pipe that nobody empties: once ctx is done it keeps reading
-// without sending, and after a line too long to scan it discards the rest. It
-// says through waiting when it starts and stops waiting on the pipe.
+// deliver sends each line until the output ends, or until a line too long to
+// scan, which it reports at once, leaving the rest of the output to its
+// caller. Once ctx is done it keeps reading, no longer waiting for a reader
+// to send to, so the program is never left writing to a pipe that nobody
+// empties. It says through waiting when it starts and stops waiting on the
+// pipe.
 func deliver(ctx context.Context, output io.Reader, sender *lineSender, waiting func(bool)) error {
 	scanner := bufio.NewScanner(output)
 	scanner.Buffer(make([]byte, 0, bufio.MaxScanTokenSize), maxLine)
@@ -349,8 +359,6 @@ func deliver(ctx context.Context, output io.Reader, sender *lineSender, waiting 
 
 	err := scanner.Err()
 	if err != nil {
-		_, _ = io.Copy(io.Discard, output)
-
 		return fmt.Errorf("reading its output: %w", err)
 	}
 
