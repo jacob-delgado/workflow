@@ -35,7 +35,11 @@ const helperCue = "WORKFLOW_PROC_CUE"
 // unreadLines is how many lines the "unread" helper writes before it exits:
 // more than a run holds for a reader that has yet to come, so the last of them
 // waits for one, and few enough to wait in the pipe meanwhile, so the program
-// still exits.
+// still exits. What a run holds is start.go's unexported lineBuffer, and this
+// count must stay above it: a run holding every line would wait on the
+// pipe, which a bubble's Wait does not count as blocked, until the helper left
+// behind gave up its minute's wait for the cue and wrote that it did, failing
+// the test a minute late with that complaint among the lines.
 const unreadLines = 200
 
 // cuedLine is what the "cued" helper writes once cued.
