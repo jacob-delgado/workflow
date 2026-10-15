@@ -32,7 +32,7 @@ const settingsSections = [
 
 test('Settings’ sections open one after another under the content policy', async ({ page }) => {
   // Arrange
-  const refusals = heardRefusals(page)
+  const refusals = await heardRefusals(page)
   // Where no configuration file applies, Settings offers to set one up rather
   // than its sections; the mockup's configuration stands in for one.
   await page.route('**/api/config', (route) => route.fulfill({ json: mockConfig }))
@@ -103,7 +103,7 @@ test('the tag picker offers an owner the channel’s members under the content p
   page,
 }) => {
   // Arrange
-  const refusals = heardRefusals(page)
+  const refusals = await heardRefusals(page)
   await streams(page, announcing)
   await page.route('**/api/announcement**', (route) => route.fulfill({ json: announcement }))
   await page.route('**/api/slack/members**', (route) =>
@@ -138,7 +138,7 @@ test('the directory picker lists a directory’s directories under the content p
   page,
 }) => {
   // Arrange
-  const refusals = heardRefusals(page)
+  const refusals = await heardRefusals(page)
   const field = await openDirectoryPicker(page)
 
   // Act
@@ -159,7 +159,7 @@ test('the directory picker says a directory holds none under the content policy'
   page,
 }) => {
   // Arrange
-  const refusals = heardRefusals(page)
+  const refusals = await heardRefusals(page)
 
   // Act
   // The fixture's repository holds no directory but .git, which is hidden.
@@ -174,7 +174,7 @@ test('the directory picker says a directory cannot be listed under the content p
   page,
 }) => {
   // Arrange
-  const refusals = heardRefusals(page)
+  const refusals = await heardRefusals(page)
   const field = await openDirectoryPicker(page)
 
   // Act
