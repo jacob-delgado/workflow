@@ -4,6 +4,8 @@
 package tui_test
 
 import (
+	"encoding/json"
+	"os"
 	"regexp"
 	"slices"
 	"strconv"
@@ -288,11 +290,48 @@ func manyDirs(count int) []string {
 	return many
 }
 
-// manyDirsWorld is pickingWorld with 205 directories in srcDir, five past
-// the most the picker draws.
-func manyDirsWorld() *world {
+// rowsFile holds the most rows the picker draws, which the web's directory
+// dialog answers to as well.
+const rowsFile = "../../testdata/twins/directory_rows.json"
+
+// mostRows is the most rows the picker draws, as rowsFile holds it, refusing
+// a field this side would ignore so the file cannot pin one surface's cap and
+// pass the other's unread, and a count below one, which no test could draw
+// past.
+func mostRows(t *testing.T) int {
+	t.Helper()
+
+	file, err := os.Open(rowsFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer func() { _ = file.Close() }()
+
+	decoder := json.NewDecoder(file)
+	decoder.DisallowUnknownFields()
+
+	var read struct {
+		About string `json:"about"`
+		Most  int    `json:"most"`
+	}
+
+	err = decoder.Decode(&read)
+	if err != nil {
+		t.Fatalf("%s: %v", rowsFile, err)
+	}
+
+	if read.Most < 1 {
+		t.Fatalf("%s: most is %d, want a count of rows of 1 or more", rowsFile, read.Most)
+	}
+
+	return read.Most
+}
+
+// manyDirsWorld is pickingWorld with count directories in srcDir.
+func manyDirsWorld(count int) *world {
 	working := pickingWorld()
-	working.dirs.listings[srcDir] = manyDirs(205)
+	working.dirs.listings[srcDir] = manyDirs(count)
 
 	return working
 }
@@ -306,29 +345,42 @@ func truncatedWorld() *world {
 	return working
 }
 
-func TestThePickerDrawsTwoHundredRowsAndCountsTheRest(t *testing.T) {
+func TestThePickerDrawsTheMostRowsTheSharedFileHoldsAndCountsTheRest(t *testing.T) {
 	t.Parallel()
 
+	// Arrange
+	most := mostRows(t)
+	presses := slices.Repeat([]string{keyDown}, most-1)
+
 	// Act
-	view := picking(t, manyDirsWorld(), "~/src/dir").View().Content
+	view := picking(t, manyDirsWorld(most+5), "~/src/dir", presses...).View().Content
 
 	// Assert
-	requireScreen(t, view, "5 more match; keep typing to narrow")
+	// Down to the last row drawn highlights the last directory under the
+	// most, and the five past it are counted.
+	requireScreen(t, view, "▸ "+manyDirs(most)[most-1], "5 more match; keep typing to narrow")
 }
 
 func TestTheHighlightStopsAtTheLastRowThePickerDraws(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	presses := slices.Repeat([]string{keyDown}, 210)
+	most := mostRows(t)
+	presses := slices.Repeat([]string{keyDown}, most+10)
 
 	// Act
-	view := picking(t, manyDirsWorld(), "~/src/dir", presses...).View().Content
+	view := picking(t, manyDirsWorld(most+5), "~/src/dir", presses...).View().Content
 
 	// Assert
-	// Past the two hundredth match, down reaches switching here, after them,
+	// Past the last match drawn, down reaches switching here, after them,
 	// and goes no further into directories that are counted but not drawn.
-	requireScreen(t, view, "▸ ↳ switch here")
+	lines := strings.Split(pickerText(t, view), "\n")
+	here := slices.IndexFunc(lines, func(line string) bool { return strings.Contains(line, "▸ ↳ switch here") })
+
+	if last := manyDirs(most)[most-1]; here < 1 || !strings.Contains(lines[here-1], last) {
+		t.Errorf("the highlight is not on switching here, just after %s, the last directory drawn:\n%s",
+			last, plain(view))
+	}
 }
 
 func TestThePickerSaysWhatItCannotList(t *testing.T) {
@@ -336,6 +388,7 @@ func TestThePickerSaysWhatItCannotList(t *testing.T) {
 
 	// ~/src holds more than a listing keeps, and more than the picker draws
 	// match all but a name it has no directory for.
+	counted := strconv.Itoa(workdirs.ListLimit-mostRows(t)) + " more match; keep typing to narrow"
 	cases := map[string]struct {
 		typed string
 		keys  []string
@@ -345,11 +398,11 @@ func TestThePickerSaysWhatItCannotList(t *testing.T) {
 		"nothing matching":   {typed: "~/src/zz", want: []string{"nothing in ~/src matches zz"}},
 		"a listing cut short": {
 			typed: srcTyped,
-			want:  []string{"800 more match; keep typing to narrow", "first 1000 shown; keep typing to narrow"},
+			want:  []string{counted, "first 1000 shown; keep typing to narrow"},
 		},
 		"a refusal below the rows drawn": {
 			typed: srcTyped, keys: []string{keyTab, "j", "s"},
-			want: []string{"800 more match; keep typing to narrow", "there is no such directory"},
+			want: []string{counted, "there is no such directory"},
 		},
 	}
 
