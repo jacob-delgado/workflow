@@ -56,15 +56,10 @@ func TestStatusRefusesPlainBesideJSON(t *testing.T) {
 	printed, err := runStreams(t, repo, unusedPrompt(t), "status", "--plain", "--json")
 
 	// Assert
-	said := fmt.Sprint(err)
-	if !strings.Contains(said, "--plain") || !strings.Contains(said, "--json") || printed.stdout != "" {
-		t.Errorf("status --plain --json = %v, printed %q; want it refused, naming both flags", err, printed.stdout)
-	}
-
-	// A JSON run of named directories still keeps a live line, which ui.ascii
-	// alone draws in ASCII.
-	if !strings.Contains(said, "ui.ascii") {
-		t.Errorf("status --plain --json = %v; want it to name ui.ascii for a JSON run's live line", err)
+	const refusal = "--plain and --json cannot be used together: " +
+		"drop --plain for JSON, or --json for the status line in ASCII"
+	if !strings.HasSuffix(fmt.Sprint(err), ": "+refusal) || printed.stdout != "" {
+		t.Errorf("status --plain --json = %v, printed %q; want it refused with %q", err, printed.stdout, refusal)
 	}
 
 	wantExit(t, err, 2)
