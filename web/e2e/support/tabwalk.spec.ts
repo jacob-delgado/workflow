@@ -91,3 +91,57 @@ test('a lap past a control that keeps Tab to itself never closes', async ({ page
   // Act & Assert
   await expect(walkTabOrder(page)).rejects.toThrow('did not come back round')
 })
+
+test('a guard handing focus back to the only control of a dialog keeps the walk within it', async ({
+  page,
+}) => {
+  // Arrange
+  // Focus guards as Base UI draws them round a modal dialog: hidden from
+  // assistive technology, each handing focus back in on the next frame.
+  await page.setContent(`
+    <button>Outside</button>
+    <span class="guard" tabindex="0" aria-hidden="true"></span>
+    <div role="dialog" aria-label="Notice"><button>Only</button></div>
+    <span class="guard" tabindex="0" aria-hidden="true"></span>
+    <style>
+      .guard {
+        position: fixed; top: 0; left: 0; width: 1px; height: 1px;
+        overflow: hidden; clip-path: inset(50%);
+      }
+    </style>
+    <script>
+      for (const guard of document.querySelectorAll('.guard')) {
+        guard.addEventListener('focus', () => {
+          requestAnimationFrame(() => document.querySelector('[role=dialog] button').focus())
+        })
+      }
+    </script>
+  `)
+  await page.getByRole('button', { name: 'Only' }).focus()
+
+  // Act
+  const { reached, left } = await walkTabOrder(page, { within: page.getByRole('dialog') })
+
+  // Assert
+  expect({ reached, left }).toEqual({ reached: ['Only'], left: [] })
+})
+
+test('a page that keeps its focus events from the walk is still walked to its end', async ({
+  page,
+}) => {
+  // Arrange
+  // Focus moves with no focus event the walk can see, as it does into a frame.
+  await page.setContent(`
+    <button>Before</button>
+    <button>After</button>
+    <script>
+      window.addEventListener('focusin', (event) => event.stopImmediatePropagation(), true)
+    </script>
+  `)
+
+  // Act
+  const { reached, missed } = await walkTabOrder(page)
+
+  // Assert
+  expect({ reached, missed }).toEqual({ reached: ['Before', 'After'], missed: [] })
+})
