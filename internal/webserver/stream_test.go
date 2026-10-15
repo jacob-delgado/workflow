@@ -5,13 +5,11 @@ package webserver_test
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -36,85 +34,6 @@ const regenerateFrames = "regenerate it with: " +
 //nolint:gochecknoglobals // go test's -update flag has to be registered before the tests run
 var updateGolden = flag.Bool("update", false, "rewrite the golden files from what the code writes")
 
-// snapshotMessage and seedMessage name the stream's two kinds of message.
-const (
-	snapshotMessage = "snapshot"
-	seedMessage     = "seed"
-)
-
-// message is one event-stream message: its id, its event and its data.
-type message struct {
-	id    string
-	event string
-	data  string
-}
-
-// messages splits an event-stream body into its messages, in the order sent:
-// each is separated from the next by a blank line.
-func messages(body string) []message {
-	var sent []message
-
-	for block := range strings.SplitSeq(body, "\n\n") {
-		var read message
-
-		for line := range strings.SplitSeq(block, "\n") {
-			if id, ok := strings.CutPrefix(line, "id: "); ok {
-				read.id = id
-			}
-
-			if event, ok := strings.CutPrefix(line, "event: "); ok {
-				read.event = event
-			}
-
-			if data, ok := strings.CutPrefix(line, "data: "); ok {
-				read.data = data
-			}
-		}
-
-		if read.event != "" {
-			sent = append(sent, read)
-		}
-	}
-
-	return sent
-}
-
-// snapshots decodes every snapshot event's data from an event-stream body, in
-// the order the stream pushed them.
-func snapshots(t *testing.T, body string) []api.Snapshot {
-	t.Helper()
-
-	var pushed []api.Snapshot
-
-	for _, sent := range messages(body) {
-		if sent.event != snapshotMessage {
-			continue
-		}
-
-		var snap api.Snapshot
-
-		err := json.Unmarshal([]byte(sent.data), &snap)
-		if err != nil {
-			t.Fatalf("decoding the snapshot from %q: %v", sent.data, err)
-		}
-
-		pushed = append(pushed, snap)
-	}
-
-	if len(pushed) == 0 {
-		t.Fatalf("no snapshot event in the stream body: %q", body)
-	}
-
-	return pushed
-}
-
-// firstSnapshot is the first snapshot an event-stream body carries.
-func firstSnapshot(t *testing.T, body string) api.Snapshot {
-	t.Helper()
-
-	return snapshots(t, body)[0]
-}
-
 // lastSnapshot is the most recent snapshot an event-stream body carries.
 func lastSnapshot(t *testing.T, body string) api.Snapshot {
 	t.Helper()
@@ -122,22 +41,6 @@ func lastSnapshot(t *testing.T, body string) api.Snapshot {
 	pushed := snapshots(t, body)
 
 	return pushed[len(pushed)-1]
-}
-
-// streamOnce runs the events handler with a context that is canceled at once, so
-// it pushes a single snapshot and returns. It returns the recorder.
-func streamOnce(t *testing.T, handler http.Handler, target string) *httptest.ResponseRecorder {
-	t.Helper()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	request := httptest.NewRequestWithContext(ctx, http.MethodGet, target, nil)
-	request.Host = loopbackHost
-	recorder := httptest.NewRecorder()
-	handler.ServeHTTP(recorder, request)
-
-	return recorder
 }
 
 func TestStreamPushesASnapshotOnConnect(t *testing.T) {
@@ -399,93 +302,10 @@ func TestStreamStopsWhenTheConnectionFails(t *testing.T) {
 	}
 }
 
-// unflushableWriter is an http.ResponseWriter that does not support flushing, so
-// the events handler must refuse it.
-type unflushableWriter struct {
-	header http.Header
-	code   int
-}
-
-func (u *unflushableWriter) Header() http.Header {
-	if u.header == nil {
-		u.header = http.Header{}
-	}
-
-	return u.header
-}
-
-func (u *unflushableWriter) Write(b []byte) (int, error) { return len(b), nil }
-func (u *unflushableWriter) WriteHeader(code int)        { u.code = code }
-
-// failingFlushWriter can flush but fails every write, standing in for a client
-// that has hung up mid-stream.
-type failingFlushWriter struct {
-	header http.Header
-}
-
-func (f *failingFlushWriter) Header() http.Header {
-	if f.header == nil {
-		f.header = http.Header{}
-	}
-
-	return f.header
-}
-
-func (f *failingFlushWriter) Write([]byte) (int, error) { return 0, errSeam }
-func (f *failingFlushWriter) WriteHeader(int)           {}
-func (f *failingFlushWriter) Flush()                    {}
-
 // streamTick is the interval a stream on a fake clock pushes at: in a bubble
 // its length costs nothing, and it is far from defaultStreamInterval, so a
 // stream that ignored the interval it was given would push a different count.
 const streamTick = time.Minute
-
-// openedStream is the events handler serving a page's connection on a
-// goroutine of its own, as the HTTP server runs it.
-type openedStream struct {
-	cancel   context.CancelFunc
-	done     chan struct{}
-	recorder *httptest.ResponseRecorder
-}
-
-// openStream connects to target on handler, and disconnects when the test
-// ends if close has not already.
-func openStream(t *testing.T, handler http.Handler, target string) *openedStream {
-	t.Helper()
-
-	return openStreamOf(t, handler, httptest.NewRequestWithContext(t.Context(), http.MethodGet, target, nil))
-}
-
-// openStreamOf is openStream for request, disconnected by ending a context
-// derived from its own: one derived from the server's lifetime, as Serve
-// derives each, ends when the server stops too.
-func openStreamOf(t *testing.T, handler http.Handler, request *http.Request) *openedStream {
-	t.Helper()
-
-	ctx, cancel := context.WithCancel(request.Context())
-	request = request.WithContext(ctx)
-	request.Host = loopbackHost
-	stream := &openedStream{cancel: cancel, done: make(chan struct{}), recorder: httptest.NewRecorder()}
-
-	go func() {
-		defer close(stream.done)
-
-		handler.ServeHTTP(stream.recorder, request)
-	}()
-
-	t.Cleanup(func() { stream.close() })
-
-	return stream
-}
-
-// close disconnects, waits for the handler to return, and answers what the
-// stream wrote.
-func (s *openedStream) close() string {
-	s.cancel()
-	<-s.done
-
-	return s.recorder.Body.String()
-}
 
 // advance moves a bubble's clock on by d, then waits until everything that
 // came due has run and is blocked again. Inside a synctest bubble the sleep

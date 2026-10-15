@@ -22,9 +22,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
-// filledHead is the head commit of filledDeps' branch, its one commit.
-const filledHead = "abc123"
-
 // The bodies that ask for each run but a fixup, which names a commit: a hook
 // run of pre-commit, and of pre-push.
 const (
@@ -80,15 +77,6 @@ func (c *runCalls) asked() []string {
 
 	return slices.Clone(c.calls)
 }
-
-// The hooks the tests' lefthook configures: pre-commit and pre-push, which a
-// run by hand can run, and commit-msg, which only git runs, and why.
-const (
-	preCommitHook   = "pre-commit"
-	prePushHook     = "pre-push"
-	commitMsgHook   = "commit-msg"
-	commitMsgReason = "git hands it the file holding the commit message"
-)
 
 // configuredHooks is the tests' lefthook configuration.
 func configuredHooks() hooks.Configured {
