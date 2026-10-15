@@ -181,6 +181,28 @@ func TestAWholeListingThatFailedLeavesWhatTheNarrowedOneFoundToGoInto(t *testing
 	}
 }
 
+func TestAListingThatFailedListsNoneOfWhatItReadBeforeItWasCutOff(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Your home's listing fails, handing back src and old, which it read
+	// before it was cut off: the picker says why, and lists neither.
+	working := pickingWorld()
+	working.dirs.wholeErr = errListingCutOff
+
+	// Act
+	view := picking(t, working, "~/").View().Content
+
+	// Assert
+	requireScreen(t, view, errListingCutOff.Error())
+
+	for _, name := range []string{srcName, oldName} {
+		if line := pickerLine(pickerText(t, view), name); line != "" {
+			t.Errorf("%s, read before the listing failed, is listed as %q:\n%s", name, line, plain(view))
+		}
+	}
+}
+
 func TestANarrowedListingThatFailedIsShownInPlaceOfTheRows(t *testing.T) {
 	t.Parallel()
 
