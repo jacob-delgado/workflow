@@ -60,8 +60,9 @@ type Kit struct {
 // and the event stream's summary of your tasks.
 type Handlers struct {
 	seams Seams
-	// bound is the taskwarrior settings Seams.Tasks was bound with at start. A
-	// change saved since applies at the next start, so while the settings in
+	// bound is the taskwarrior settings Seams.Tasks was bound with when
+	// workflow started in or switched to this directory. A change saved since
+	// applies at the next start or directory switch, so while the settings in
 	// effect differ the task list says so rather than a reason the new
 	// settings would not give.
 	bound config.Taskwarrior

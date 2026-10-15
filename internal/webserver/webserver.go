@@ -126,10 +126,11 @@ type Info struct {
 	// or negative value takes defaultStreamInterval.
 	StreamInterval time.Duration
 
-	// Taskwarrior is the taskwarrior settings Deps.Tasks was bound with at
-	// start. A change saved since applies at the next start, so while the
-	// settings in effect differ the task list says so rather than a reason
-	// the new settings would not give.
+	// Taskwarrior is the taskwarrior settings Deps.Tasks was bound with when
+	// workflow started in or switched to this directory. A change saved since
+	// applies at the next start or directory switch, so while the settings in
+	// effect differ the task list says so rather than a reason the new
+	// settings would not give.
 	Taskwarrior config.Taskwarrior
 }
 

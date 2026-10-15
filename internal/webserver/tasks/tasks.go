@@ -29,8 +29,10 @@ var errTurnedOff = errors.New("turned off by taskwarrior.disabled")
 
 // errSettingsChanged is why the task list and the stream answer from no
 // Taskwarrior once the taskwarrior settings in effect are not the ones the
-// seams were bound with at start: a change applies at the next start.
-var errSettingsChanged = errors.New("the taskwarrior settings changed since workflow started")
+// seams were bound with as workflow started in or switched to this directory:
+// a change applies at the next start or directory switch.
+var errSettingsChanged = errors.New(
+	"the taskwarrior settings changed since workflow started in or switched to this directory")
 
 // detectionCache is the event stream's last search for Taskwarrior when it
 // found none, held for taskwarriorHold so a frame does not search again; a
@@ -96,8 +98,8 @@ func (h *Handlers) unlessSettingsChanged(
 }
 
 // installed is the Taskwarrior that answers, asked under ctx, or why none can
-// be asked: with no seam, the integration was turned off at start or no task
-// program was found.
+// be asked: with no seam, the integration was turned off, or no task program
+// was found, when workflow started in or switched to this directory.
 func (h *Handlers) installed(ctx context.Context) (taskwarrior.Install, error) {
 	if h.seams.Tasks.Install != nil {
 		return h.seams.Tasks.Install(ctx)
@@ -134,7 +136,7 @@ func unavailableReason(err error) (api.TaskListReasonCode, string) {
 		},
 		report.TaskwarriorReason{
 			Cause: errSettingsChanged, Code: api.TaskListReasonCodeUnavailable,
-			Text: "Taskwarrior settings changed; restart workflow to apply.",
+			Text: "Taskwarrior settings changed; restart workflow or switch directory to apply.",
 		})
 
 	for _, reason := range reasons {

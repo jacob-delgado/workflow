@@ -62,8 +62,8 @@ func setUpCauses() []setUpCause {
 		{taskwarrior.ErrNotInstalled, "Taskwarrior is not installed, or no task program is on PATH. Install " +
 			"Taskwarrior " + taskwarrior.MinimumVersion + " or newer, or set taskwarrior.program."},
 		{taskwarrior.ErrNotTaskwarrior, "The task on PATH is another program (go-task, most likely), not " +
-			"Taskwarrior. Set taskwarrior.program to Taskwarrior's path, then restart workflow; workflow doctor " +
-			"names what it found."},
+			"Taskwarrior. Set taskwarrior.program to Taskwarrior's path; workflow reads it as it starts in a " +
+			"directory or switches to one, and workflow doctor names what it found."},
 		{taskwarrior.ErrNotConfigured, "Taskwarrior has never been run: run it once in a terminal so it creates " +
 			"its configuration; workflow doctor names the program."},
 		{messaging.ErrNoCredential, "messaging has no credential; run workflow slack login to post to Slack " +

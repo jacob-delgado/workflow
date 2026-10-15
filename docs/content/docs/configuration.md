@@ -996,8 +996,8 @@ workflow finds Taskwarrior once for the directory it works in, as it starts or
 switches there, so a change to `taskwarrior.program` or `taskwarrior.disabled`
 applies when workflow next starts or switches directory. One saved from the
 web's Settings waits too: until then, the Tasks section says to restart workflow
-to apply it — never a reason that holds only for the settings workflow started
-with — and the rest of the page shows no task.
+or switch directory to apply it — never a reason that holds only for the
+settings workflow started with — and the rest of the page shows no task.
 
 `workflow doctor` names the Taskwarrior it found, or why none is usable:
 

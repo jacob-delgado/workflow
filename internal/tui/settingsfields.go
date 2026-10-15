@@ -306,18 +306,18 @@ func pullRequestSettings(noun string) []setting {
 // storeAndTaskwarriorSettings are whether anything is kept on disk, and which
 // task program is Taskwarrior.
 func storeAndTaskwarriorSettings() []setting {
-	const restarts = " A change here applies when workflow restarts."
+	const appliesOnReopenOrSwitch = " A change here applies once workflow reopens or switches directory."
 
 	return []setting{
 		{section: "Store", label: "Keep nothing on disk between sessions", path: "store.disabled", kind: settingToggle},
 		{
 			section: "Taskwarrior", label: "Task program", path: "taskwarrior.program",
 			hint: "Empty tries every task in an absolute PATH directory and keeps the first that is " +
-				"Taskwarrior 3.5.0 or newer." + restarts,
+				"Taskwarrior 3.5.0 or newer." + appliesOnReopenOrSwitch,
 		},
 		{
 			section: "Taskwarrior", label: "Turn off the Taskwarrior integration", path: "taskwarrior.disabled",
-			kind: settingToggle, hint: strings.TrimSpace(restarts),
+			kind: settingToggle, hint: strings.TrimSpace(appliesOnReopenOrSwitch),
 		},
 	}
 }

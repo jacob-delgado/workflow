@@ -17,8 +17,9 @@ import (
 )
 
 // settingsChanged is the task list's reason once the taskwarrior settings in
-// effect are not the ones its Taskwarrior was bound with at start.
-const settingsChanged = "Taskwarrior settings changed; restart workflow to apply."
+// effect are not the ones its Taskwarrior was bound with when workflow started
+// in or switched to this directory.
+const settingsChanged = "Taskwarrior settings changed; restart workflow or switch directory to apply."
 
 // savedSettings is a server started over start, with tasks as its Taskwarrior,
 // once Settings has saved change over the taskwarrior settings.
@@ -46,7 +47,7 @@ func savedSettings(
 	return handler
 }
 
-func TestTheTaskListSaysSavedTaskwarriorSettingsApplyAtTheNextStart(t *testing.T) {
+func TestTheTaskListSaysSavedTaskwarriorSettingsApplyAtTheNextStartOrSwitch(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
@@ -87,13 +88,13 @@ func TestTheTaskListSaysSavedTaskwarriorSettingsApplyAtTheNextStart(t *testing.T
 	}
 }
 
-func TestTheTaskListSaysAProgramNamedInTheFileAppliesAtTheNextStart(t *testing.T) {
+func TestTheTaskListSaysAProgramNamedInTheFileAppliesAtTheNextStartOrSwitch(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// The search at start answered that task on PATH was not Taskwarrior, and
-	// the file has named a program since; a read of the configuration takes
-	// the edit up, as Settings opening does.
+	// The search as workflow started in this directory answered that task on
+	// PATH was not Taskwarrior, and the file has named a program since; a read
+	// of the configuration takes the edit up, as Settings opening does.
 	fake := webtest.FakeTaskwarrior()
 	fake.Fail["install"] = fmt.Errorf("%w: tried /usr/local/bin/task", taskwarrior.ErrNotTaskwarrior)
 
@@ -117,7 +118,7 @@ func TestTheTaskListSaysAProgramNamedInTheFileAppliesAtTheNextStart(t *testing.T
 	}
 }
 
-func TestTheSnapshotSaysSavedTaskwarriorSettingsApplyAtTheNextStart(t *testing.T) {
+func TestTheSnapshotSaysSavedTaskwarriorSettingsApplyAtTheNextStartOrSwitch(t *testing.T) {
 	t.Parallel()
 
 	// Arrange

@@ -176,7 +176,8 @@ func TestListTasksSaysWhenTaskwarriorIsNotAvailable(t *testing.T) {
 		"not Taskwarrior": {
 			tasks: failing(fmt.Errorf("%w: tried %s", taskwarrior.ErrNotTaskwarrior, program)),
 			wantReason: "The task on PATH is another program (go-task, most likely), not Taskwarrior. " +
-				"Set taskwarrior.program to Taskwarrior's path, then restart workflow; workflow doctor names what it found.",
+				"Set taskwarrior.program to Taskwarrior's path; workflow reads it as it starts in a directory " +
+				"or switches to one, and workflow doctor names what it found.",
 			wantCode: api.TaskListReasonCodeNotTaskwarrior,
 		},
 		"too old": {

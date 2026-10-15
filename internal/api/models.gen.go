@@ -2768,7 +2768,7 @@ type TaskList struct {
 	// Reason Why Taskwarrior is not available, safe to show; empty when it is.
 	Reason string `json:"reason"`
 
-	// ReasonCode Why Taskwarrior is not available, as a code the page can act on without reading reason: not installed, a task program that is not Taskwarrior (go-task, most likely), too old, never run, turned off by taskwarrior.disabled, a taskrc with a malformed line, or unavailable for a reason workflow doctor explains, or taskwarrior settings saved since workflow started, which apply once it restarts, or the list after a write that was made could not be read. Absent when Taskwarrior is available.
+	// ReasonCode Why Taskwarrior is not available, as a code the page can act on without reading reason: not installed, a task program that is not Taskwarrior (go-task, most likely), too old, never run, turned off by taskwarrior.disabled, a taskrc with a malformed line, or unavailable for a reason workflow doctor explains, or taskwarrior settings saved since workflow started in or switched to this directory, which apply once it restarts or switches directory, or the list after a write that was made could not be read. Absent when Taskwarrior is available.
 	ReasonCode *TaskListReasonCode `json:"reason_code,omitempty"`
 
 	// Said What the write this list answers has to add: how many operations an undo reverted, what a sync printed, or that a tracked issue's task was created but not annotated. Empty otherwise.
@@ -2781,7 +2781,7 @@ type TaskList struct {
 	Tasks []Task `json:"tasks"`
 }
 
-// TaskListReasonCode Why Taskwarrior is not available, as a code the page can act on without reading reason: not installed, a task program that is not Taskwarrior (go-task, most likely), too old, never run, turned off by taskwarrior.disabled, a taskrc with a malformed line, or unavailable for a reason workflow doctor explains, or taskwarrior settings saved since workflow started, which apply once it restarts, or the list after a write that was made could not be read. Absent when Taskwarrior is available.
+// TaskListReasonCode Why Taskwarrior is not available, as a code the page can act on without reading reason: not installed, a task program that is not Taskwarrior (go-task, most likely), too old, never run, turned off by taskwarrior.disabled, a taskrc with a malformed line, or unavailable for a reason workflow doctor explains, or taskwarrior settings saved since workflow started in or switched to this directory, which apply once it restarts or switches directory, or the list after a write that was made could not be read. Absent when Taskwarrior is available.
 type TaskListReasonCode string
 
 // TaskRanks A task's place in each order the Tasks list sorts by, 0 first, among the tasks of the list that carries it, every tie broken down to the uuid, so a narrowed list keeps the same order.
