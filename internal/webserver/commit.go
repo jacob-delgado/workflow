@@ -229,14 +229,3 @@ func (s *server) rememberScope(ctx context.Context, scope string) {
 func commitUnprocessable(message string) api.Commit422ApplicationProblemPlusJSONResponse {
 	return api.Commit422ApplicationProblemPlusJSONResponse(problem(api.ProblemCodeUnprocessable, message))
 }
-
-// orZero dereferences an optional field, or returns its zero value when absent.
-func orZero[T any](pointer *T) T {
-	if pointer == nil {
-		var zero T
-
-		return zero
-	}
-
-	return *pointer
-}

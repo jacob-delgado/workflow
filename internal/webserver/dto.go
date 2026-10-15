@@ -27,16 +27,15 @@ func optional(s string) *string {
 	return &s
 }
 
-// given is an optional query parameter's value, its type's zero when the
-// request left it out.
-func given[T any](parameter *T) T {
-	if parameter == nil {
-		var absent T
+// orZero dereferences an optional field, or returns its zero value when absent.
+func orZero[T any](pointer *T) T {
+	if pointer == nil {
+		var zero T
 
-		return absent
+		return zero
 	}
 
-	return *parameter
+	return *pointer
 }
 
 // optionalTime is moment, or nil for the zero time, which a read gives for a
