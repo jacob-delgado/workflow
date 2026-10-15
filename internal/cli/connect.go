@@ -4,12 +4,18 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"errors"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/httpx"
+	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/setup"
 	"github.com/jacob-delgado/workflow/internal/tui"
 	"github.com/jacob-delgado/workflow/internal/wiring"
@@ -122,4 +128,60 @@ func (c connection) unreadConfiguration() error {
 	}
 
 	return c.loadErr
+}
+
+// requestTimeout is the configured request timeout, or the default when none
+// is set: it bounds each of doctor's --online checks, so a hung service does
+// not hang doctor, and how long a quit waits for the writes in flight.
+func requestTimeout(cfg config.Config) time.Duration {
+	return cmp.Or(cfg.RequestTimeout(), config.DefaultRequestTimeout)
+}
+
+// onlineDoer is the transport the tracker and messaging checks travel over: the
+// redirect-refusing client, bounded by requestTimeout.
+func onlineDoer(cfg config.Config) httpx.Doer {
+	return httpx.Client(requestTimeout(cfg)).Do
+}
+
+// forgeNoun names a forge mid-sentence: by its own name, or as the forge when
+// the remote does not say which.
+func forgeNoun(kind forge.Kind) string {
+	if kind == forge.KindUnknown {
+		return "the forge"
+	}
+
+	return kind.String()
+}
+
+// completeAssignedIssues completes an issue command's key with the keys of the
+// issues assigned to you, for `workflow branch <tab>` and every command that
+// names an issue first. Past the key it offers nothing and asks nothing, and a
+// tracker that cannot be reached offers nothing rather than an error.
+func completeAssignedIssues(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) > 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	dir, err := workingDir(cmd)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	// Completion runs on every <tab>, so it records nothing in a request log.
+	conn := connectAt(cmd.Context(), cmd, dir, nil)
+
+	result, err := conn.deps.Jira.Search(cmd.Context(), jira.AssignedToMe, 0)
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	var keys []string
+
+	for _, issue := range result.Issues {
+		if key := string(issue.Key); strings.HasPrefix(key, toComplete) {
+			keys = append(keys, key)
+		}
+	}
+
+	return keys, cobra.ShellCompDirectiveNoFileComp
 }
