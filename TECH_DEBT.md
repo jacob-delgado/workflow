@@ -575,9 +575,12 @@ twinned, never which days were worked. Decided 2026-10-05, in #175: nearly all
 of it is the Gregorian calendar, whose rules do not change, and the one rule
 of workflow's own, that a whole month or year steps as one, is a few lines.
 The browsers the web supports are the latest two versions of Chrome, Edge,
-Firefox and Safari, written as the `browserslist` in `web/package.json`, which
-`npx browserslist` in `web/` resolves to versions; decided 2026-10-14 by the
-maintainer, so the trigger below names something that can be checked.
+Firefox and desktop Safari, written as the `browserslist` in
+`web/package.json`, which `npx browserslist` in `web/` resolves to versions;
+decided 2026-10-14 by the maintainer, so the trigger below names something
+that can be checked. Safari is desktop Safari alone, browserslist's `Safari`,
+and never iOS Safari, `ios_saf`: the page is only ever served on 127.0.0.1,
+to a browser on the machine `workflow --web` runs on.
 
 **Cost.** A change to how a period steps is made twice, against one shared
 case file that fails whichever copy disagrees with it; a mistake in one copy's

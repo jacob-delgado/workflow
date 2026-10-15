@@ -8,8 +8,8 @@ const mockURL = 'http://localhost:4174'
 // smokeSpecs are what Firefox and WebKit run: the layout and axe sweeps, at
 // every width and in both themes, on both builds. Chromium runs every spec;
 // the other two engines of the browsers the page supports (browserslist in
-// package.json) run this subset alone, a smoke run that keeps CI's added time
-// modest.
+// package.json), Firefox and desktop Safari's WebKit, run this subset alone,
+// a smoke run that keeps CI's added time modest.
 const smokeSpecs = /\/e2e\/(?:layout|a11y)\.spec\.ts$/
 
 // smokeProjects are an engine's two runs of the subset: on the production

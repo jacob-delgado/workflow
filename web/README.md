@@ -88,6 +88,12 @@ listening on port 13580.
 
 `package.json` cannot hold a comment, so why each of its pins stands is here.
 
+- **`browserslist`** names the browsers the page supports: the latest two
+  versions of Chrome, Edge, Firefox and desktop Safari. Its `Safari` is desktop
+  Safari alone; iOS Safari, `ios_saf`, is left out because the page is only
+  ever served on 127.0.0.1, to a browser on the machine `workflow --web` runs
+  on. `npx browserslist` resolves it to versions (TRADE-33).
+
 - **`resolutions` `js-yaml ^4.3.2`** lifts the js-yaml 4.2.0 that
   `@hey-api/json-schema-ref-parser` pins to 4.3.2, which fixes three
   high-severity advisories (GHSA-52cp-r559-cp3m, GHSA-5p4m-2wfm-xmqj,
