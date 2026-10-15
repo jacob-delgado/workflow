@@ -3,10 +3,12 @@
 
 package doctor_test
 
-// What doctor says in each row and verdict it gives, compared whole: a test
-// that only looks for part of a line passes whatever the rest of it says.
+// What doctor says in each row, compared whole: a test that only looks for
+// part of a line passes whatever the rest of it says. The verdicts, held the
+// same way, are in verdict_test.go, over the fixtures here.
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -16,11 +18,14 @@ import (
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
-// ran is what one doctor run printed, stdout and stderr together, and what it
-// returned.
+// ran is what one doctor run printed and what it returned. output is stdout
+// and stderr together, or stdout alone where a case reads only that stream;
+// dir is the directory doctorIn ran it from, and a case that builds its own
+// ran leaves it empty.
 type ran struct {
 	output string
 	err    error
+	dir    string
 }
 
 // verdict is the error a run returned, said as a script reads it, or "" for
@@ -46,7 +51,7 @@ func doctorIn(t *testing.T, dir string, args ...string) ran {
 
 	output, err := clitest.Run(t, dir, append([]string{doctorCommand}, args...)...)
 
-	return ran{output: output, err: err}
+	return ran{output: output, err: err, dir: dir}
 }
 
 // onlineWith runs doctor --online in a directory outside any repository
@@ -89,9 +94,9 @@ func labeled(label string) func(ran) string {
 	return func(r ran) string { return fieldValue(r.output, label) }
 }
 
-// workingJira is a configuration's Jira, which accepts its token, and a
-// webhook.
-func workingJira(t *testing.T) string {
+// workingJiraFields are a configuration's Jira, which accepts its token, and
+// a webhook.
+func workingJiraFields(t *testing.T) string {
 	t.Helper()
 
 	return `"jira": {"base_url": "` + clitest.WorkingJira(t) + `", "token": "t"}, ` + clitest.SlackWebhook
@@ -137,13 +142,36 @@ func scopes(list string) func(t *testing.T) {
 // nothingMore leaves PATH as the test has it.
 func nothingMore(*testing.T) {}
 
+// slackDryRun runs doctor --online --dry-run over a Slack login fields keeps.
+func slackDryRun(fields string) func(t *testing.T) ran {
+	return func(t *testing.T) ran {
+		t.Helper()
+
+		return doctorIn(t, configuredWith(t, `"messaging":{"client_id":"1234.5678",`+
+			`"client_secret":"client-secret-9999",`+fields+`"channel":"#dev"}`), "--online", "--dry-run")
+	}
+}
+
+// tokenVariableGivingNothing runs doctor --online from a home whose file has
+// Jira's token read from a variable set to nothing.
+func tokenVariableGivingNothing(t *testing.T) ran {
+	t.Helper()
+
+	clitest.SetVariable(t, clitest.EmptyTokenVariable, "")
+	dir := configuredWith(t, `"jira": {"base_url": "`+clitest.WorkingJira(t)+`", "token_env": "`+
+		clitest.EmptyTokenVariable+`"}, `+clitest.SlackWebhook)
+	output, err := clitest.RunAtHome(t, dir, "doctor", "--online")
+
+	return ran{output: output, err: err}
+}
+
 func onlineRowCases() map[string]fixedCase {
 	return map[string]fixedCase{
 		"jira answers": {
 			run: func(t *testing.T) ran {
 				t.Helper()
 
-				return onlineWith(workingJira(t))(t)
+				return onlineWith(workingJiraFields(t))(t)
 			},
 			read: row("jira"), want: "authenticates as Fred F. User (fred) (token from the configuration file)",
 		},
@@ -152,16 +180,7 @@ func onlineRowCases() map[string]fixedCase {
 			read: row("jira"), want: "not configured — the forge's issues are the tracker",
 		},
 		"a token variable that gives nothing": {
-			run: func(t *testing.T) ran {
-				t.Helper()
-
-				clitest.SetVariable(t, clitest.EmptyTokenVariable, "")
-				dir := configuredWith(t, `"jira": {"base_url": "`+clitest.WorkingJira(t)+`", "token_env": "`+
-					clitest.EmptyTokenVariable+`"}, `+clitest.SlackWebhook)
-				output, err := clitest.RunAtHome(t, dir, "doctor", "--online")
-
-				return ran{output: output, err: err}
-			},
+			run:  tokenVariableGivingNothing,
 			read: row("jira"), want: "no token from the " + clitest.EmptyTokenVariable + " environment variable",
 		},
 		"a webhook": {
@@ -199,6 +218,18 @@ func onlineRowCases() map[string]fixedCase {
 			read: row("forge"),
 			want: "authenticates as tanuki (through glab); cannot use the API: it has read_user, read_repository, not api",
 		},
+		"a refresh held back": {
+			run: slackDryRun(`"refresh_token":"slack-refresh-8888","access_token":"xoxe.xoxp-old",` +
+				`"expires_at":"2020-01-01T00:00:00Z",`),
+			read: row("slack"),
+			want: "the Slack user token is due a refresh, which --dry-run holds back; " +
+				"run doctor --online without it to check the token",
+		},
+		"a login never finished": {
+			run:  slackDryRun(""),
+			read: row("slack"),
+			want: "messaging has no credential: no Slack user token is set up; run `workflow slack login`",
+		},
 	}
 }
 
@@ -220,16 +251,6 @@ func TestDoctorOnlineSaysEachCredentialRowWordForWord(t *testing.T) {
 	}
 }
 
-// slackDryRun runs doctor --online --dry-run over a Slack login fields keeps.
-func slackDryRun(fields string) func(t *testing.T) ran {
-	return func(t *testing.T) ran {
-		t.Helper()
-
-		return doctorIn(t, configuredWith(t, `"messaging":{"client_id":"1234.5678",`+
-			`"client_secret":"client-secret-9999",`+fields+`"channel":"#dev"}`), "--online", "--dry-run")
-	}
-}
-
 // withoutGit runs doctor with nothing on PATH, so not even git is found.
 func withoutGit(t *testing.T) ran {
 	t.Helper()
@@ -238,94 +259,6 @@ func withoutGit(t *testing.T) ran {
 
 	return doctorIn(t, configuredWith(t, `"jira": {"base_url": "https://jira.example.com", "token": "t"}, `+
 		clitest.SlackWebhook))
-}
-
-func verdictCases() map[string]fixedCase {
-	return map[string]fixedCase{
-		"a field missing": {
-			run: func(t *testing.T) ran {
-				t.Helper()
-
-				return doctorIn(t, missingAField(t))
-			},
-			read: ran.verdict, want: "configuration is incomplete: 1 field(s) missing",
-		},
-		"values set wrong": {
-			run: func(t *testing.T) ran {
-				t.Helper()
-
-				return doctorIn(t, settingAValueWrong(t))
-			},
-			read: ran.verdict, want: "configuration has an invalid value: 2 invalid value(s)",
-		},
-		"a file others can reach": {
-			run: func(t *testing.T) ran {
-				t.Helper()
-
-				return doctorIn(t, sharingTheFile(t))
-			},
-			read: ran.verdict, want: "the configuration file can be reached by other users: mode 0644",
-		},
-		"a credential refused": {
-			run: func(t *testing.T) ran {
-				t.Helper()
-
-				return doctorIn(t, refusingTheToken(t), "--online")
-			},
-			read: ran.verdict, want: "a credential was rejected: jira",
-		},
-		"no token at all": {
-			run: func(t *testing.T) ran {
-				t.Helper()
-
-				return doctorIn(t, leavingOutTheToken(t), "--online")
-			},
-			read: ran.verdict, want: "configuration is incomplete: 1 field(s) missing\na credential is missing: jira",
-		},
-		"a token variable that gives nothing": {
-			run:  onlineRowCases()["a token variable that gives nothing"].run,
-			read: ran.verdict, want: "a credential is missing: jira",
-		},
-		"a service never reached": {
-			run: func(t *testing.T) ran {
-				t.Helper()
-
-				return doctorIn(t, pointingAtNoHost(t), "--online")
-			},
-			read: ran.verdict, want: "the service could not be reached: jira",
-		},
-		"git missing": {run: withoutGit, read: ran.verdict, want: "required tooling is missing: git"},
-		"a refresh held back": {
-			run: slackDryRun(`"refresh_token":"slack-refresh-8888","access_token":"xoxe.xoxp-old",` +
-				`"expires_at":"2020-01-01T00:00:00Z",`),
-			read: row("slack"),
-			want: "the Slack user token is due a refresh, which --dry-run holds back; " +
-				"run doctor --online without it to check the token",
-		},
-		"a login never finished": {
-			run:  slackDryRun(""),
-			read: row("slack"),
-			want: "messaging has no credential: no Slack user token is set up; run `workflow slack login`",
-		},
-	}
-}
-
-func TestDoctorGivesEachVerdictWordForWord(t *testing.T) {
-	t.Parallel()
-
-	for name, tt := range verdictCases() {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			// Act
-			got := tt.read(tt.run(t))
-
-			// Assert
-			if got != tt.want {
-				t.Errorf("doctor = %q, want %q", got, tt.want)
-			}
-		})
-	}
 }
 
 func rowCases() map[string]fixedCase {
@@ -371,6 +304,39 @@ func rowCases() map[string]fixedCase {
 			read: tool("taskwarrior"),
 			want: "not usable — task on PATH is not Taskwarrior (go-task?); set taskwarrior.program, " +
 				"e.g. /opt/homebrew/bin/task",
+		},
+		"no Jira": {
+			run: func(t *testing.T) ran {
+				t.Helper()
+
+				return doctorIn(t, configuredWith(t, clitest.SlackWebhook))
+			},
+			read: labeled("Jira"), want: "(not set) (none)",
+		},
+		"no Jira, as data": {
+			run: func(t *testing.T) ran {
+				t.Helper()
+
+				printed, err := clitest.RunStreams(t, configuredWith(t, clitest.SlackWebhook),
+					clitest.UnusedPrompt(t), "doctor", "--json")
+
+				return ran{output: printed.Stdout, err: err}
+			},
+			read: func(done ran) string {
+				var report struct {
+					Configuration struct {
+						JiraURL string `json:"jira_url"`
+					} `json:"configuration"`
+				}
+
+				err := json.Unmarshal([]byte(done.output), &report)
+				if err != nil {
+					return err.Error()
+				}
+
+				return report.Configuration.JiraURL
+			},
+			want: "(not set)",
 		},
 		"no home for the store": {
 			run: func(t *testing.T) ran {

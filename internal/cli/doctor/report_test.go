@@ -4,12 +4,14 @@
 package doctor_test
 
 // The prose report, word for word, for a directory outside any repository
-// with only git on PATH: what a person pastes into a bug report is what these
-// pin. The store's directory is the platform's, so it is read back rather
-// than written out.
+// with only git on PATH, and the verdict and Credentials section a run of
+// --online on the test's own PATH ends with: what a person pastes into a bug
+// report is what these pin. The store's directory is the platform's, so it is
+// read back rather than written out.
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
@@ -137,5 +139,26 @@ func TestDoctorReportsNoFileWordForWord(t *testing.T) {
 	// Assert
 	if got != want {
 		t.Errorf("doctor =\n%s\nwant\n%s", got, want)
+	}
+}
+
+func TestDoctorOnlineReportsTheCredentialsItCheckedWordForWord(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := t.TempDir()
+	clitest.WriteConfigFor(t, dir, clitest.WorkingJira(t))
+
+	// Act
+	printed, _ := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "doctor", "--online")
+
+	// Assert
+	want := "\nEverything required is set.\n\n" +
+		"Credentials:\n" +
+		"  jira       authenticates as Fred F. User (fred) (token from the configuration file)\n" +
+		"  slack      an incoming webhook cannot be checked without posting with it\n" +
+		"  forge      no repository remote, so there is no forge to ask\n"
+	if !strings.HasSuffix(printed.Stdout, want) {
+		t.Errorf("doctor --online =\n%s\nwant it to end\n%s", printed.Stdout, want)
 	}
 }
