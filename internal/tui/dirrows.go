@@ -123,8 +123,12 @@ func (p dirPicker) listing() (dirRead, bool) {
 		return whole, found
 	}
 
-	narrowed, asked := p.reads[readKey(p.parent(), prefixes[1])]
-	if !asked || narrowed.asked {
+	// A narrowed listing not yet asked for joins as one listing nothing: it
+	// is missing only while the whole one is out or was never asked for,
+	// either of which keeps the picker reading, or within the update the
+	// whole one answers in, which asks for it before anything is drawn.
+	narrowed := p.reads[readKey(p.parent(), prefixes[1])]
+	if narrowed.asked {
 		narrowed = p.standingIn()
 	}
 
