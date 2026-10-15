@@ -8,6 +8,7 @@ package quietinput
 
 import (
 	"io"
+	"slices"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -30,7 +31,9 @@ type Input struct {
 	input                    textinput.Model
 	err                      error
 	focused                  bool
-	// typedIn is whether anything has been typed or pasted in the field,
+	// options are the suggestions in the order they were offered.
+	options []string
+	// typedIn is whether a key or a paste has changed what the field holds,
 	// before which nothing is completed.
 	typedIn bool
 	keymap  huh.InputKeyMap
@@ -220,12 +223,14 @@ func (q *Input) GetKey() string { return "" }
 func (q *Input) GetValue() any { return q.input.Value() }
 
 // Suggesting is the field completing what is typed to the first of options
-// it begins, shown faint after it until accepted. What the field held before
-// anything was typed in it is left as it is: the base a pull request's form
-// starts from is never completed to a newer branch it begins.
+// it begins, or keeping it when it is one of them, the completion shown faint
+// after it until accepted. What the field held before anything was typed in
+// it is left as it is: the base a pull request's form starts from is never
+// completed to a newer branch it begins.
 func (q *Input) Suggesting(options []string) *Input {
+	q.options = options
 	q.input.ShowSuggestions = q.typedIn
-	q.input.SetSuggestions(options)
+	q.input.SetSuggestions(q.ordered())
 
 	return q
 }
@@ -263,7 +268,20 @@ func (q *Input) matchSuggestions(changed bool) {
 
 	q.typedIn = true
 	q.input.ShowSuggestions = true
-	q.input.SetSuggestions(q.input.AvailableSuggestions())
+	q.input.SetSuggestions(q.ordered())
+}
+
+// ordered are the options as offered, but for one that is what the field
+// holds whole, which comes first: the input completes to the first option
+// that begins with what is typed, so main typed is kept as main, though
+// main-backport, offered before it, begins with it too.
+func (q *Input) ordered() []string {
+	at := slices.Index(q.options, q.input.Value())
+	if at < 0 {
+		return q.options
+	}
+
+	return slices.Concat(q.options[at:at+1], q.options[:at], q.options[at+1:])
 }
 
 // completed takes the completion the field suggests for what is typed, when
