@@ -97,7 +97,7 @@ func (m Model) openCommitComposer() (Model, tea.Cmd) {
 	composer.scope.Blur()
 
 	paths := m.changes.stagedPaths()
-	m.overlay = composer.withScopeSuggestions(scopeSuggestions(m.session, paths, nil))
+	m.overlay = composer.withScopeSuggestions(convention.ScopeSuggestions(paths, nil))
 
 	return m, readScopes(m.session, m.deps, opened, paths, draft.scope == "")
 }
