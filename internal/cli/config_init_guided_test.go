@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/config"
 )
 
@@ -28,14 +29,14 @@ func TestGuidedInitWritesWhatChecksOut(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	jiraURL := workingJira(t)
+	jiraURL := clitest.WorkingJira(t)
 	prompt := scripted(
 		[]string{jiraURL},
 		[]string{guidedToken, "https://hooks.slack.example/x"},
 	)
 
 	// Act
-	output, err := runGuided(t, dir, prompt, "config", "init")
+	output, err := clitest.RunGuided(t, dir, prompt, "config", "init")
 	if err != nil {
 		t.Fatalf("config init: %v (%s)", err, output)
 	}
@@ -56,11 +57,11 @@ func TestGuidedInitSkipsAServiceThatFailsItsCheckWhenDeclined(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	badJira := jiraServer(t, http.StatusUnauthorized, "<html>login</html>", new(atomic.Bool)).URL
+	badJira := clitest.JiraServer(t, http.StatusUnauthorized, "<html>login</html>", new(atomic.Bool)).URL
 	prompt := scripted([]string{badJira, "n"}, []string{"bad-token"})
 
 	// Act
-	output, err := runGuided(t, dir, prompt, "config", "init")
+	output, err := clitest.RunGuided(t, dir, prompt, "config", "init")
 	if err != nil {
 		t.Fatalf("config init: %v (%s)", err, output)
 	}
@@ -81,11 +82,11 @@ func TestGuidedInitKeepsAFailedServiceWhenInsisted(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	badJira := jiraServer(t, http.StatusUnauthorized, "<html>login</html>", new(atomic.Bool)).URL
+	badJira := clitest.JiraServer(t, http.StatusUnauthorized, "<html>login</html>", new(atomic.Bool)).URL
 	prompt := scripted([]string{badJira, "y"}, []string{"insisted-token"})
 
 	// Act
-	output, err := runGuided(t, dir, prompt, "config", "init")
+	output, err := clitest.RunGuided(t, dir, prompt, "config", "init")
 	if err != nil {
 		t.Fatalf("config init: %v (%s)", err, output)
 	}
@@ -109,7 +110,7 @@ func TestGuidedInitNeverKeepsAnAddressThatIsNotOne(t *testing.T) {
 	prompt := scripted([]string{"https://fred:hunter2@jira.example.com", "y"}, []string{"insisted-token"})
 
 	// Act
-	output, err := runGuided(t, dir, prompt, "config", "init")
+	output, err := clitest.RunGuided(t, dir, prompt, "config", "init")
 
 	// Assert
 	_, statErr := os.Stat(filepath.Join(dir, config.FileName))
@@ -130,7 +131,7 @@ func TestGuidedInitWarnsWhenTheFileIsNotGitIgnored(t *testing.T) {
 	prompt := scripted([]string{""}, []string{""})
 
 	// Act
-	printed, err := runStreams(t, dir, prompt, "config", "init")
+	printed, err := clitest.RunStreams(t, dir, prompt, "config", "init")
 	if err != nil {
 		t.Fatalf("config init: %v (%+v)", err, printed)
 	}
@@ -138,10 +139,10 @@ func TestGuidedInitWarnsWhenTheFileIsNotGitIgnored(t *testing.T) {
 	// Assert
 	// A warning is said about the file written, not part of anything a script
 	// would capture, so it is on stderr alone.
-	if !strings.Contains(printed.stderr, "WARN .workflow.json is not ignored by git") ||
-		strings.Contains(printed.stdout, "not ignored") {
+	if !strings.Contains(printed.Stderr, "WARN .workflow.json is not ignored by git") ||
+		strings.Contains(printed.Stdout, "not ignored") {
 		t.Errorf("expected a git-ignore warning on stderr alone:\nstdout:\n%s\nstderr:\n%s",
-			printed.stdout, printed.stderr)
+			printed.Stdout, printed.Stderr)
 	}
 }
 
@@ -153,11 +154,11 @@ func TestConfigInitTemplateWarnsWhenTheFileIsNotGitIgnored(t *testing.T) {
 	gitInit(t, dir)
 
 	// Act
-	printed, err := runStreams(t, dir, unusedPrompt(t), "config", "init", "--template")
+	printed, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "config", "init", "--template")
 
 	// Assert
-	if err != nil || !strings.Contains(printed.stderr, "not ignored by git") {
-		t.Errorf("config init --template = %v, said:\n%s\nwant a git-ignore warning on stderr", err, printed.stderr)
+	if err != nil || !strings.Contains(printed.Stderr, "not ignored by git") {
+		t.Errorf("config init --template = %v, said:\n%s\nwant a git-ignore warning on stderr", err, printed.Stderr)
 	}
 }
 
@@ -165,8 +166,8 @@ func TestGuidedInitStoresTheTokenInTheKeychainWhenChosen(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	where := place{dir: t.TempDir(), home: t.TempDir()}
-	jiraURL := workingJira(t)
+	where := clitest.Place{Dir: t.TempDir(), Home: t.TempDir()}
+	jiraURL := clitest.WorkingJira(t)
 
 	var stored atomic.Value
 
@@ -178,13 +179,13 @@ func TestGuidedInitStoresTheTokenInTheKeychainWhenChosen(t *testing.T) {
 	}
 
 	// Act
-	printed, err := runStreamsAt(t, where, prompt, "config", "init", "--global")
+	printed, err := clitest.RunStreamsAt(t, where, prompt, "config", "init", "--global")
 	if err != nil {
 		t.Fatalf("config init --global: %v (%+v)", err, printed)
 	}
 
 	// Assert
-	cfg, err := config.Load(t.TempDir(), where.home)
+	cfg, err := config.Load(t.TempDir(), where.Home)
 	if err != nil {
 		t.Fatalf("loading: %v", err)
 	}
@@ -194,8 +195,8 @@ func TestGuidedInitStoresTheTokenInTheKeychainWhenChosen(t *testing.T) {
 			cfg.Jira.Token != "", cfg.Jira.Keychain, stored.Load())
 	}
 
-	if strings.Contains(printed.stderr, guidedToken) || !strings.Contains(printed.stderr, "workflow-jira "+jiraURL) {
-		t.Errorf("config init said:\n%s\nwant the keychain item named and the token never shown", printed.stderr)
+	if strings.Contains(printed.Stderr, guidedToken) || !strings.Contains(printed.Stderr, "workflow-jira "+jiraURL) {
+		t.Errorf("config init said:\n%s\nwant the keychain item named and the token never shown", printed.Stderr)
 	}
 }
 
@@ -204,7 +205,7 @@ func TestGuidedInitKeepsARepositoryFilesTokenInTheKeychainForItsAddress(t *testi
 
 	// Arrange
 	dir := t.TempDir()
-	jiraURL := workingJira(t)
+	jiraURL := clitest.WorkingJira(t)
 
 	var stored atomic.Value
 
@@ -216,7 +217,7 @@ func TestGuidedInitKeepsARepositoryFilesTokenInTheKeychainForItsAddress(t *testi
 	}
 
 	// Act
-	output, err := runGuided(t, dir, prompt, "config", "init")
+	output, err := clitest.RunGuided(t, dir, prompt, "config", "init")
 
 	// Assert
 	cfg, loadErr := config.Load(dir, t.TempDir())
@@ -233,7 +234,7 @@ func TestGuidedInitKeepsTheTokenInTheFileWhenKeychainDeclined(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	jiraURL := workingJira(t)
+	jiraURL := clitest.WorkingJira(t)
 
 	prompt := scripted([]string{jiraURL, "n"}, []string{guidedToken})
 	prompt.StoreSecret = func(context.Context, string, string) error {
@@ -243,7 +244,7 @@ func TestGuidedInitKeepsTheTokenInTheFileWhenKeychainDeclined(t *testing.T) {
 	}
 
 	// Act
-	output, err := runGuided(t, dir, prompt, "config", "init")
+	output, err := clitest.RunGuided(t, dir, prompt, "config", "init")
 	if err != nil {
 		t.Fatalf("config init: %v (%s)", err, output)
 	}
@@ -264,13 +265,13 @@ func TestGuidedInitReportsAKeychainFailure(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	jiraURL := workingJira(t)
+	jiraURL := clitest.WorkingJira(t)
 
 	prompt := scripted([]string{jiraURL, "y"}, []string{guidedToken})
 	prompt.StoreSecret = func(context.Context, string, string) error { return errPromptBroke }
 
 	// Act
-	_, err := runGuided(t, dir, prompt, "config", "init", "--global")
+	_, err := clitest.RunGuided(t, dir, prompt, "config", "init", "--global")
 
 	// Assert
 	if !errors.Is(err, errPromptBroke) {
@@ -288,7 +289,7 @@ func TestGuidedInitReportsAPromptThatCannotRead(t *testing.T) {
 	}
 
 	// Act
-	_, err := runGuided(t, t.TempDir(), broken, "config", "init")
+	_, err := clitest.RunGuided(t, t.TempDir(), broken, "config", "init")
 
 	// Assert
 	if !errors.Is(err, errPromptBroke) {
@@ -307,7 +308,7 @@ func TestGuidedInitReportsAFailureReadingTheToken(t *testing.T) {
 	}
 
 	// Act
-	_, err := runGuided(t, t.TempDir(), broken, "config", "init")
+	_, err := clitest.RunGuided(t, t.TempDir(), broken, "config", "init")
 
 	// Assert
 	if !errors.Is(err, errPromptBroke) {
@@ -319,16 +320,16 @@ func TestConfigInitTemplateWritesGloballyToHome(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	where := place{dir: t.TempDir(), home: t.TempDir()}
+	where := clitest.Place{Dir: t.TempDir(), Home: t.TempDir()}
 
 	// Act
-	printed, err := runStreamsAt(t, where, unusedPrompt(t), "config", "init", "--template", "--global")
+	printed, err := clitest.RunStreamsAt(t, where, clitest.UnusedPrompt(t), "config", "init", "--template", "--global")
 	if err != nil {
 		t.Fatalf("config init --template --global: %v (%+v)", err, printed)
 	}
 
 	// Assert
-	_, err = os.Stat(filepath.Join(where.home, config.FileName))
+	_, err = os.Stat(filepath.Join(where.Home, config.FileName))
 	if err != nil {
 		t.Errorf("--global did not write to the home directory: %v", err)
 	}
@@ -349,7 +350,7 @@ func TestGuidedInitStaysQuietWhenTheFileIsGitIgnored(t *testing.T) {
 	prompt := scripted([]string{""}, []string{""})
 
 	// Act
-	output, err := runGuided(t, dir, prompt, "config", "init")
+	output, err := clitest.RunGuided(t, dir, prompt, "config", "init")
 	if err != nil {
 		t.Fatalf("config init: %v (%s)", err, output)
 	}
@@ -367,7 +368,7 @@ func TestConfigInitDryRunWritesNoTemplate(t *testing.T) {
 	dir := t.TempDir()
 
 	// Act
-	printed, err := runStreams(t, dir, unusedPrompt(t), "config", "init", "--template", "--dry-run")
+	printed, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "config", "init", "--template", "--dry-run")
 	if err != nil {
 		t.Fatalf("config init --template --dry-run: %v (%+v)", err, printed)
 	}
@@ -378,13 +379,13 @@ func TestConfigInitDryRunWritesNoTemplate(t *testing.T) {
 		t.Errorf("a dry run left a file behind: %v", statErr)
 	}
 
-	shown, decodeErr := config.Parse(strings.NewReader(printed.stdout))
+	shown, decodeErr := config.Parse(strings.NewReader(printed.Stdout))
 	if decodeErr != nil || shown.Jira.BaseURL != config.Template().Jira.BaseURL {
-		t.Errorf("a dry run did not print the template it would write: %v\n%s", decodeErr, printed.stdout)
+		t.Errorf("a dry run did not print the template it would write: %v\n%s", decodeErr, printed.Stdout)
 	}
 
-	if !strings.Contains(printed.stderr, "dry run: would write") {
-		t.Errorf("a dry run did not say what it would write:\n%s", printed.stderr)
+	if !strings.Contains(printed.Stderr, "dry run: would write") {
+		t.Errorf("a dry run did not say what it would write:\n%s", printed.Stderr)
 	}
 }
 
@@ -393,7 +394,7 @@ func TestGuidedInitDryRunWritesAndStoresNothing(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	jiraURL := workingJira(t)
+	jiraURL := clitest.WorkingJira(t)
 
 	var stored atomic.Bool
 
@@ -405,7 +406,7 @@ func TestGuidedInitDryRunWritesAndStoresNothing(t *testing.T) {
 	}
 
 	// Act
-	printed, err := runStreams(t, dir, prompt, "config", "init", "--dry-run")
+	printed, err := clitest.RunStreams(t, dir, prompt, "config", "init", "--dry-run")
 	if err != nil {
 		t.Fatalf("config init --dry-run: %v (%+v)", err, printed)
 	}
@@ -417,9 +418,9 @@ func TestGuidedInitDryRunWritesAndStoresNothing(t *testing.T) {
 	}
 
 	// What it would have written is shown, with the credential masked.
-	shown, decodeErr := config.Parse(strings.NewReader(printed.stdout))
-	if decodeErr != nil || shown.Jira.BaseURL != jiraURL || strings.Contains(printed.stdout, guidedToken) {
-		t.Errorf("a dry run did not print the masked file it would write: %v\n%s", decodeErr, printed.stdout)
+	shown, decodeErr := config.Parse(strings.NewReader(printed.Stdout))
+	if decodeErr != nil || shown.Jira.BaseURL != jiraURL || strings.Contains(printed.Stdout, guidedToken) {
+		t.Errorf("a dry run did not print the masked file it would write: %v\n%s", decodeErr, printed.Stdout)
 	}
 }
 
@@ -440,17 +441,17 @@ func TestConfigInitDryRunRefusesAnExistingFile(t *testing.T) {
 			// Arrange
 			dir := t.TempDir()
 			existing := `{"jira":{"base_url":"https://jira.example.com"}}`
-			path := writeFile(t, dir, existing)
+			path := clitest.WriteFile(t, dir, existing)
 
 			// Act
 			// No prompt: the guided flow refuses before it asks anything.
-			printed, err := runStreams(t, dir, unusedPrompt(t), args...)
+			printed, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), args...)
 
 			// Assert
 			wantExit(t, err, 4)
 
-			if err == nil || !strings.Contains(err.Error(), "already exists") || printed.stdout != "" {
-				t.Errorf("%s over a file = %v, want it refused with no preview:\n%s", name, err, printed.stdout)
+			if err == nil || !strings.Contains(err.Error(), "already exists") || printed.Stdout != "" {
+				t.Errorf("%s over a file = %v, want it refused with no preview:\n%s", name, err, printed.Stdout)
 			}
 
 			kept, readErr := os.ReadFile(path)
@@ -466,10 +467,10 @@ func TestGuidedInitWithNoWebhookPointsToTheSlackLogin(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	prompt := scripted([]string{workingJira(t)}, []string{guidedToken, ""})
+	prompt := scripted([]string{clitest.WorkingJira(t)}, []string{guidedToken, ""})
 
 	// Act
-	output, err := runGuided(t, dir, prompt, "config", "init")
+	output, err := clitest.RunGuided(t, dir, prompt, "config", "init")
 
 	// Assert
 	if err != nil || !strings.Contains(output, "workflow slack login") {

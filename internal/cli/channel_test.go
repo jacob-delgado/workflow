@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 func TestAnnouncePostsInTheChannelItIsGiven(t *testing.T) {
@@ -20,18 +22,18 @@ func TestAnnouncePostsInTheChannelItIsGiven(t *testing.T) {
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	slack := fakeSlack(t, nil)
 	repo := ownedRepo(t)
-	writeFile(t, repo, slackLoggedInConfig())
+	clitest.WriteFile(t, repo, slackLoggedInConfig())
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "announce", "--yes", "--channel", "#release")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--yes", "--channel", "#release")
 	// Assert
 	if err != nil {
 		t.Fatalf("announce --channel: %v (%+v)", err, printed)
 	}
 
-	if posted := slack.channel(t); posted != "#release" || !strings.Contains(printed.stderr, "Announced to #release.") {
+	if posted := slack.channel(t); posted != "#release" || !strings.Contains(printed.Stderr, "Announced to #release.") {
 		t.Errorf("announce --channel '#release' posted in %q, said %q; want #release in place of #dev",
-			posted, printed.stderr)
+			posted, printed.Stderr)
 	}
 }
 
@@ -43,19 +45,21 @@ func TestAnnounceWhenGreenPostsInTheChannelItIsGiven(t *testing.T) {
 	fakeGh(t, ghResponses{pulls: openPull("Add login"), statusSequence: []string{runningStatus(), passingStatus()}})
 	slack := fakeSlack(t, nil)
 	repo := ownedRepo(t)
-	writeFile(t, repo, strings.TrimSuffix(slackLoggedInConfig(), "}")+`,"timing":{"ci_interval":"10ms"}}`)
+	clitest.WriteFile(t, repo, strings.TrimSuffix(slackLoggedInConfig(), "}")+`,"timing":{"ci_interval":"10ms"}}`)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "announce", "--when-green", "--yes", "--channel", "#release")
+	printed, err := clitest.RunStreams(
+		t, repo, clitest.UnusedPrompt(t), "announce", "--when-green", "--yes", "--channel", "#release",
+	)
 	// Assert
 	if err != nil {
 		t.Fatalf("announce --when-green --channel: %v (%+v)", err, printed)
 	}
 
 	posted := slack.channel(t)
-	if posted != "#release" || !strings.Contains(printed.stderr, "then announcing to #release") {
+	if posted != "#release" || !strings.Contains(printed.Stderr, "then announcing to #release") {
 		t.Errorf("announce --when-green --channel '#release' posted in %q, said %q; want it to wait on, "+
-			"then announce in, #release in place of #dev", posted, printed.stderr)
+			"then announce in, #release in place of #dev", posted, printed.Stderr)
 	}
 }
 
@@ -66,11 +70,11 @@ func TestAnnounceRefusesAChannelAWebhookCannotHonor(t *testing.T) {
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	hook := newCapturingWebhook(t)
 	repo := ownedRepo(t)
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
 		`"messaging":{"webhook_url":"`+hook.url+`"}}`)
 
 	// Act
-	_, err := runStreams(t, repo, unusedPrompt(t), "announce", "--yes", "--channel", "#x")
+	_, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--yes", "--channel", "#x")
 
 	// Assert
 	if !strings.Contains(fmt.Sprint(err), `"--channel"`) || len(hook.posted()) != 0 {
@@ -87,10 +91,10 @@ func TestSummaryRefusesAChannelAWebhookCannotHonor(t *testing.T) {
 	// Arrange
 	hook := newCapturingWebhook(t)
 	repo := workedRepository(t, "Add the widget")
-	writeFile(t, repo, `{"messaging":{"webhook_url":"`+hook.url+`"}}`)
+	clitest.WriteFile(t, repo, `{"messaging":{"webhook_url":"`+hook.url+`"}}`)
 
 	// Act
-	_, err := runStreams(t, repo, unusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay,
+	_, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay,
 		"--post", "--yes", "--channel", "#x")
 
 	// Assert
@@ -108,11 +112,13 @@ func TestSummaryPostsInTheChannelItIsGiven(t *testing.T) {
 	// Arrange
 	slack := fakeSlack(t, nil)
 	repo := workedRepository(t, "Add the widget")
-	writeFile(t, repo, slackLoggedInConfig())
+	clitest.WriteFile(t, repo, slackLoggedInConfig())
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay,
-		"--post", "--yes", "--channel", "#standup")
+	printed, err := clitest.RunStreams(
+		t, repo, clitest.UnusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay,
+		"--post", "--yes", "--channel", "#standup",
+	)
 	// Assert
 	if err != nil {
 		t.Fatalf("summary --post --channel: %v (%+v)", err, printed)

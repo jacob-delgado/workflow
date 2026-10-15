@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 // forkRepo is a fork's clone on a branch with a commit of its own: origin is
@@ -37,10 +39,10 @@ func TestPROpensOnTheBaseFromAForksPushRemote(t *testing.T) {
 	sent := filepath.Join(t.TempDir(), "sent")
 	fakeGh(t, ghResponses{sentLog: sent})
 	repo, bare := forkRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
-	output, err := run(t, repo, "pr", "--yes")
+	output, err := clitest.Run(t, repo, "pr", "--yes")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr --yes: %v (%s)", err, output)

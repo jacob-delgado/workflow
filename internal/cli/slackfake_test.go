@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
@@ -99,7 +100,7 @@ func fakeSlack(t *testing.T, changed map[string]slackAnswer) *slackFake {
 	slack := &slackFake{answers: answers, first: map[string]slackAnswer{}, granted: taggingScopes, asked: map[string]int{}}
 	server := httptest.NewServer(http.HandlerFunc(slack.answer))
 	t.Cleanup(server.Close)
-	setVariable(t, wiring.SlackAPIVariable, server.URL)
+	clitest.SetVariable(t, wiring.SlackAPIVariable, server.URL)
 
 	return slack
 }

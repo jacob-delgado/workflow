@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 // openedWith runs pr in repo with args, every request the fake gh is sent
@@ -22,7 +24,7 @@ func openedWith(t *testing.T, repo string, args ...string) string {
 	sent := filepath.Join(t.TempDir(), "sent")
 	fakeGh(t, ghResponses{sentLog: sent})
 
-	printed, err := runStreams(t, repo, unusedPrompt(t), append([]string{"pr"}, args...)...)
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), append([]string{"pr"}, args...)...)
 	if err != nil {
 		t.Fatalf("pr %v: %v (%+v)", args, err, printed)
 	}
@@ -73,11 +75,11 @@ func TestPRPreviewsADraftAsOne(t *testing.T) {
 	repo := ownedRepo(t)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--dry-run", "--draft")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--dry-run", "--draft")
 
 	// Assert
-	if err != nil || !strings.Contains(printed.stdout, "  fix/PROJ-2-thing → main (draft)\n") {
-		t.Errorf("pr --dry-run --draft = %v, printed %q; want the branches marked a draft", err, printed.stdout)
+	if err != nil || !strings.Contains(printed.Stdout, "  fix/PROJ-2-thing → main (draft)\n") {
+		t.Errorf("pr --dry-run --draft = %v, printed %q; want the branches marked a draft", err, printed.Stdout)
 	}
 }
 
@@ -91,7 +93,7 @@ func TestPRAsksToOpenTheDraft(t *testing.T) {
 	var asked []string
 
 	// Act
-	_, err := runStreams(t, repo, answering("n", &asked), "pr", "--draft")
+	_, err := clitest.RunStreams(t, repo, answering("n", &asked), "pr", "--draft")
 
 	// Assert
 	if err != nil || len(asked) != 1 || !strings.HasPrefix(asked[0], "Open the draft pull request?") {
@@ -110,7 +112,7 @@ func TestPRAsksToPushAndOpenTheDraft(t *testing.T) {
 	var asked []string
 
 	// Act
-	_, err := runStreams(t, repo, answering("n", &asked), "pr", "--draft")
+	_, err := clitest.RunStreams(t, repo, answering("n", &asked), "pr", "--draft")
 
 	// Assert
 	want := "Push fix/PROJ-2-thing to origin and open the draft pull request?"
@@ -142,12 +144,12 @@ func TestPRAsksTheCodeOwnersOfTheBaseItIsGiven(t *testing.T) {
 	repo := releaseRepo(t)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--dry-run", "--base", "release")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--dry-run", "--base", "release")
 
 	// Assert
-	if err != nil || !strings.Contains(printed.stdout, "  fix/PROJ-2-thing → release\n") ||
-		!strings.Contains(printed.stdout, "  reviewers bea (code owners)\n") {
-		t.Errorf("pr --base release = %v, printed %q; want release's own code owner asked", err, printed.stdout)
+	if err != nil || !strings.Contains(printed.Stdout, "  fix/PROJ-2-thing → release\n") ||
+		!strings.Contains(printed.Stdout, "  reviewers bea (code owners)\n") {
+		t.Errorf("pr --base release = %v, printed %q; want release's own code owner asked", err, printed.Stdout)
 	}
 }
 
@@ -166,12 +168,12 @@ func TestPRDraftsFromTheCommitsPastTheBaseItIsGiven(t *testing.T) {
 	pretendPushed(t, repo)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--dry-run", "--base", "release")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--dry-run", "--base", "release")
 
 	// Assert
-	if err != nil || !strings.Contains(printed.stdout, "fix: guard the release") ||
-		strings.Contains(printed.stdout, "hand the API to bea") {
-		t.Errorf("pr --base release = %v, printed %q; want only the commit past release drafted", err, printed.stdout)
+	if err != nil || !strings.Contains(printed.Stdout, "fix: guard the release") ||
+		strings.Contains(printed.Stdout, "hand the API to bea") {
+		t.Errorf("pr --base release = %v, printed %q; want only the commit past release drafted", err, printed.Stdout)
 	}
 }
 
@@ -183,7 +185,7 @@ func TestPRSaysWhenTheBaseItIsGivenIsNoBranch(t *testing.T) {
 	repo := ownedRepo(t)
 
 	// Act
-	_, err := runStreams(t, repo, unusedPrompt(t), "pr", "--dry-run", "--base", "nonesuch")
+	_, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--dry-run", "--base", "nonesuch")
 
 	// Assert
 	if !strings.Contains(fmt.Sprint(err), "nonesuch") {
@@ -209,7 +211,7 @@ func TestPRRefusesABaseGitWouldNotName(t *testing.T) {
 			repo := ownedRepo(t)
 
 			// Act
-			_, err := runStreams(t, repo, unusedPrompt(t), "pr", "--dry-run", flag)
+			_, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--dry-run", flag)
 
 			// Assert
 			if !strings.Contains(fmt.Sprint(err), `"--base"`) {
@@ -246,11 +248,11 @@ func TestPRPreviewsTheReviewersItIsGivenAsNoCodeOwners(t *testing.T) {
 	repo := ownedRepo(t)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--dry-run", "--reviewer", "bea")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--dry-run", "--reviewer", "bea")
 
 	// Assert
-	if err != nil || !strings.Contains(printed.stdout, "  reviewers bea\n") {
-		t.Errorf("pr --reviewer bea = %v, printed %q; want bea previewed, not as a code owner", err, printed.stdout)
+	if err != nil || !strings.Contains(printed.Stdout, "  reviewers bea\n") {
+		t.Errorf("pr --reviewer bea = %v, printed %q; want bea previewed, not as a code owner", err, printed.Stdout)
 	}
 }
 
@@ -318,7 +320,7 @@ func TestPRNamesTheTemplatesItHasWhenAskedForOneItLacks(t *testing.T) {
 			repo := templatedRepo(t, tt.templates...)
 
 			// Act
-			_, err := runStreams(t, repo, unusedPrompt(t), "pr", "--dry-run", "--template", "docs")
+			_, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--dry-run", "--template", "docs")
 
 			// Assert
 			if said := fmt.Sprint(err); !strings.Contains(said, `"docs"`) || !strings.Contains(said, tt.want) {
@@ -337,7 +339,9 @@ func TestPRRefusesABodyBesideATemplate(t *testing.T) {
 	repo := templatedRepo(t, "bug")
 
 	// Act
-	_, err := runStreams(t, repo, unusedPrompt(t), "pr", "--dry-run", "--body", "Guarded.", "--template", "bug")
+	_, err := clitest.RunStreams(
+		t, repo, clitest.UnusedPrompt(t), "pr", "--dry-run", "--body", "Guarded.", "--template", "bug",
+	)
 
 	// Assert
 	if said := fmt.Sprint(err); !strings.Contains(said, "--body") || !strings.Contains(said, "--template") {

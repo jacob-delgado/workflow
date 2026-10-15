@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 // gitlabForgeConfig points the forge at GitLab's CLI, with a webhook so
@@ -20,7 +22,7 @@ func gitlabRepo(t *testing.T, branch string) string {
 
 	repo := prRepo(t, branch)
 	git(t, repo, "remote", "add", "origin", "https://gitlab.com/owner/repo.git")
-	writeFile(t, repo, gitlabForgeConfig)
+	clitest.WriteFile(t, repo, gitlabForgeConfig)
 
 	return repo
 }
@@ -51,7 +53,7 @@ func TestPRRefusesASecondMergeRequestInGitLabsWords(t *testing.T) {
 	repo := gitlabRepo(t, "fix/PROJ-2-thing")
 
 	// Act
-	_, err := run(t, repo, "pr", "--yes")
+	_, err := clitest.Run(t, repo, "pr", "--yes")
 
 	// Assert
 	if err == nil {
@@ -71,7 +73,7 @@ func TestPRRefusesABranchWithNoCommitsInGitLabsWords(t *testing.T) {
 	git(t, repo, "reset", "--quiet", "--hard", "main")
 
 	// Act
-	_, err := run(t, repo, "pr", "--yes")
+	_, err := clitest.Run(t, repo, "pr", "--yes")
 
 	// Assert
 	if err == nil {
@@ -90,7 +92,7 @@ func TestAnnounceRefusesABranchWithNoMergeRequestInGitLabsWords(t *testing.T) {
 	repo := gitlabRepo(t, "fix/PROJ-2-thing")
 
 	// Act
-	_, err := run(t, repo, "announce", "--yes")
+	_, err := clitest.Run(t, repo, "announce", "--yes")
 
 	// Assert
 	if err == nil {
@@ -109,14 +111,14 @@ func TestReviewsListsMergeRequestsInGitLabsWords(t *testing.T) {
 	repo := gitlabRepo(t, "work")
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "reviews")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "reviews")
 	// Assert
 	if err != nil {
 		t.Fatalf("reviews: %v (%+v)", err, printed)
 	}
 
-	if !strings.HasPrefix(printed.stdout, "!7  fix: token") || strings.Contains(printed.stdout, "#7") {
-		t.Errorf("reviews printed %q, want each merge request marked with GitLab's sigil", printed.stdout)
+	if !strings.HasPrefix(printed.Stdout, "!7  fix: token") || strings.Contains(printed.Stdout, "#7") {
+		t.Errorf("reviews printed %q, want each merge request marked with GitLab's sigil", printed.Stdout)
 	}
 }
 
@@ -128,11 +130,11 @@ func TestReviewsWithNothingWaitingSaysSoInGitLabsWords(t *testing.T) {
 	repo := gitlabRepo(t, "work")
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "reviews")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "reviews")
 	// Assert
 	if err != nil {
 		t.Fatalf("reviews: %v (%+v)", err, printed)
 	}
 
-	requireGitLabWords(t, printed.stderr, "No merge requests are waiting on your review.")
+	requireGitLabWords(t, printed.Stderr, "No merge requests are waiting on your review.")
 }

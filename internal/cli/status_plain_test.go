@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 func TestStatusPlainDrawsTheMarksInASCII(t *testing.T) {
@@ -36,11 +38,11 @@ func TestStatusPlainDrawsTheMarksInASCII(t *testing.T) {
 			}
 
 			// Act
-			printed, err := runStreams(t, dir, unusedPrompt(t), args...)
+			printed, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), args...)
 
 			// Assert
-			if err != nil || !strings.Contains(printed.stdout, "# Branch") || strings.Contains(printed.stdout, "●") {
-				t.Errorf("%v = %v, printed %q; want the marks in ASCII", args, err, printed.stdout)
+			if err != nil || !strings.Contains(printed.Stdout, "# Branch") || strings.Contains(printed.Stdout, "●") {
+				t.Errorf("%v = %v, printed %q; want the marks in ASCII", args, err, printed.Stdout)
 			}
 		})
 	}
@@ -53,12 +55,12 @@ func TestStatusRefusesPlainBesideJSON(t *testing.T) {
 	repo := featureRepo(t)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "status", "--plain", "--json")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "status", "--plain", "--json")
 
 	// Assert
 	said := fmt.Sprint(err)
-	if !strings.Contains(said, "--plain") || !strings.Contains(said, "--json") || printed.stdout != "" {
-		t.Errorf("status --plain --json = %v, printed %q; want it refused, naming both flags", err, printed.stdout)
+	if !strings.Contains(said, "--plain") || !strings.Contains(said, "--json") || printed.Stdout != "" {
+		t.Errorf("status --plain --json = %v, printed %q; want it refused, naming both flags", err, printed.Stdout)
 	}
 
 	// A JSON run of named directories still keeps a live line, which ui.ascii

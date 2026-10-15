@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 func TestLineReaderKeepsAFinalLineTypedWithoutANewline(t *testing.T) {
@@ -111,7 +112,7 @@ func TestGuidedInitOverAPipeSaysToWriteTheTemplate(t *testing.T) {
 	dir := t.TempDir()
 
 	// Act
-	_, err := runGuided(t, dir, pipedPrompt(t, "https://jira.example\n"), "config", "init")
+	_, err := clitest.RunGuided(t, dir, pipedPrompt(t, "https://jira.example\n"), "config", "init")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "--template") || cli.ExitStatus(err) != 2 {
@@ -125,10 +126,10 @@ func TestSlackLoginOverAPipeSaysToRunItAtATerminal(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	path := writeFile(t, dir, slackUserTokenFile)
+	path := clitest.WriteFile(t, dir, slackUserTokenFile)
 
 	// Act
-	_, err := runGuided(t, dir, pipedPrompt(t, slackClientID+"\n"), "slack", "login")
+	_, err := clitest.RunGuided(t, dir, pipedPrompt(t, slackClientID+"\n"), "slack", "login")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "at a terminal") || cli.ExitStatus(err) != 2 {

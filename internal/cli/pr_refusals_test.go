@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 func TestPRReportsAFailedOpen(t *testing.T) {
@@ -17,10 +19,10 @@ func TestPRReportsAFailedOpen(t *testing.T) {
 	fakeGh(t, ghResponses{createError: true})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	pretendPushed(t, repo)
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
-	_, err := run(t, repo, "pr", "--yes")
+	_, err := clitest.Run(t, repo, "pr", "--yes")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "pull request") {
@@ -38,10 +40,10 @@ func TestPRReportsAFailedPush(t *testing.T) {
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	git(t, repo, "remote", "add", "push-target", filepath.Join(t.TempDir(), "nonexistent.git"))
 	git(t, repo, "config", "remote.pushDefault", "push-target")
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
-	_, err := run(t, repo, "pr", "--yes")
+	_, err := clitest.Run(t, repo, "pr", "--yes")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "pushed") {
@@ -58,10 +60,10 @@ func TestPRRefusesASecondPullRequest(t *testing.T) {
 	// The branch already has an open pull request, which the forge reports.
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
-	_, err := run(t, repo, "pr", "--yes")
+	_, err := clitest.Run(t, repo, "pr", "--yes")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "already") {
@@ -78,10 +80,10 @@ func TestPRRefusesASecondPullRequestInItsOwnWords(t *testing.T) {
 	// The refusal is the command line's own sentence, not the shared layer's.
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
-	_, err := run(t, repo, "pr", "--yes")
+	_, err := clitest.Run(t, repo, "pr", "--yes")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "an open pull request already exists for this branch") {
@@ -95,10 +97,10 @@ func TestPullAlreadyOpenCarriesItsURL(t *testing.T) {
 	// Arrange
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
-	_, err := run(t, repo, "pr", "--yes")
+	_, err := clitest.Run(t, repo, "pr", "--yes")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "https://github.com/owner/repo/pull/7") {
@@ -118,7 +120,7 @@ func TestPRRefusesABranchWithNoCommits(t *testing.T) {
 	git(t, repo, "checkout", "-b", "fix/PROJ-2-thing")
 
 	// Act
-	_, err := run(t, repo, "pr", "--yes")
+	_, err := clitest.Run(t, repo, "pr", "--yes")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "commits") {

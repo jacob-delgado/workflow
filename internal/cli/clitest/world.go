@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package cli_test
+package clitest
 
 import (
 	"errors"
@@ -29,7 +29,14 @@ import (
 // world, which its runs read without being handed it, and which a subtest
 // shares with the tests above it.
 
-// worldsRoot is where every test's world lives while this package's tests run,
+// The modes a world is kept in: the test's user's alone, as the configuration
+// a run reads beside it is.
+const (
+	worldDirMode  os.FileMode = 0o700
+	worldFileMode os.FileMode = 0o600
+)
+
+// worldsRoot is where every test's world lives while a package's tests run,
 // named for the process so two runs of them never share one.
 func worldsRoot() string {
 	return filepath.Join(os.TempDir(), "workflow-cli-tests-"+strconv.Itoa(os.Getpid()))
@@ -50,14 +57,14 @@ func worldOf(t *testing.T) string {
 	return dir
 }
 
-// programsOf is the directory test t's stand-in programs are in, found first
+// ProgramsOf is the directory test t's stand-in programs are in, found first
 // on its runs' PATH.
-func programsOf(t *testing.T) string {
+func ProgramsOf(t *testing.T) string {
 	t.Helper()
 
 	dir := filepath.Join(worldOf(t), "bin")
 
-	err := os.MkdirAll(dir, 0o700)
+	err := os.MkdirAll(dir, worldDirMode)
 	if err != nil {
 		t.Fatalf("making the directory for stand-in programs: %v", err)
 	}
@@ -65,19 +72,19 @@ func programsOf(t *testing.T) string {
 	return dir
 }
 
-// setVariable sets an environment variable for test t's runs, and for its
+// SetVariable sets an environment variable for test t's runs, and for its
 // subtests'.
-func setVariable(t *testing.T, name, value string) {
+func SetVariable(t *testing.T, name, value string) {
 	t.Helper()
 
 	dir := filepath.Join(worldOf(t), "env")
 
-	err := os.MkdirAll(dir, 0o700)
+	err := os.MkdirAll(dir, worldDirMode)
 	if err != nil {
 		t.Fatalf("making the directory for environment variables: %v", err)
 	}
 
-	err = os.WriteFile(filepath.Join(dir, name), []byte(value), 0o600)
+	err = os.WriteFile(filepath.Join(dir, name), []byte(value), worldFileMode)
 	if err != nil {
 		t.Fatalf("setting %s: %v", name, err)
 	}
@@ -116,7 +123,7 @@ func variableSet(t *testing.T, name string) (string, bool) {
 	t.Helper()
 
 	for _, world := range worldsAbove(t) {
-		value, err := os.ReadFile(filepath.Join(world, "env", name))
+		value, err := os.ReadFile(filepath.Join(world, "env", name)) //nolint:gosec // a file of the test's own world
 		if err == nil {
 			return string(value), true
 		}
@@ -126,7 +133,7 @@ func variableSet(t *testing.T, name string) (string, bool) {
 }
 
 // testPath is the PATH test t's runs search: each of its worlds' stand-in
-// programs, then this process's own PATH, which TestMain has taken every task
+// programs, then this process's own PATH, which Main has taken every task
 // program off.
 func testPath(t *testing.T) string {
 	t.Helper()
@@ -139,10 +146,10 @@ func testPath(t *testing.T) string {
 	return strings.Join(append(dirs, os.Getenv("PATH")), string(os.PathListSeparator))
 }
 
-// environmentFor is the Environment a run of test t where says sees: run from
-// where.dir, which a switch moves on from, with where.home as its home and none
+// EnvironmentFor is the Environment a run of test t where says sees: run from
+// where.Dir, which a switch moves on from, with where.Home as its home and none
 // of the developer's own environment but what t set.
-func environmentFor(t *testing.T, where place) cli.Environment {
+func EnvironmentFor(t *testing.T, where Place) cli.Environment {
 	t.Helper()
 
 	getenv := func(name string) string {
@@ -150,16 +157,16 @@ func environmentFor(t *testing.T, where place) cli.Environment {
 
 		return value
 	}
-	working := &workingDir{dir: where.dir}
+	working := &workingDir{dir: where.Dir}
 
 	return cli.Environment{
 		WorkingDir: working.get,
 		Chdir:      working.set,
 		Process: wiring.Environment{
-			Home:   where.home,
+			Home:   where.Home,
 			Getenv: getenv,
 			StateDir: func() (string, error) {
-				return store.Dir(runtime.GOOS, where.home, func(name string) (string, bool) {
+				return store.Dir(runtime.GOOS, where.Home, func(name string) (string, bool) {
 					return lookupVariable(t, where, name)
 				})
 			},
@@ -170,7 +177,7 @@ func environmentFor(t *testing.T, where place) cli.Environment {
 
 // lookupVariable is the variable name as a run of test t where says sees it:
 // what t set, or else the isolated environment every run gets.
-func lookupVariable(t *testing.T, where place, name string) (string, bool) {
+func lookupVariable(t *testing.T, where Place, name string) (string, bool) {
 	t.Helper()
 
 	value, set := variableSet(t, name)
@@ -182,7 +189,7 @@ func lookupVariable(t *testing.T, where place, name string) (string, bool) {
 		return testPath(t), true
 	}
 
-	value, set = isolatedEnvironment(where)[name]
+	value, set = IsolatedEnvironment(where)[name]
 
 	return value, set
 }

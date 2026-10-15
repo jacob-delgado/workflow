@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
@@ -23,10 +24,10 @@ func TestDoctorOnlineSaysWhoseAnAcceptedSlackUserTokenIs(t *testing.T) {
 	fakeSlack(t, nil)
 
 	dir := t.TempDir()
-	writeFile(t, dir, slackLoggedInConfig())
+	clitest.WriteFile(t, dir, slackLoggedInConfig())
 
 	// Act
-	output, _ := run(t, dir, "doctor", "--online")
+	output, _ := clitest.Run(t, dir, "doctor", "--online")
 
 	// Assert
 	row := credentialRow(output, "slack")
@@ -55,7 +56,7 @@ func TestDoctorOnlineNamesWhereASlackTokenIsKeptWhenItCannotBeReadAgain(t *testi
 	// The file stops parsing once Slack has answered for the token it held,
 	// so how long the token has left cannot be read.
 	dir := t.TempDir()
-	path := writeFile(t, dir, slackLoggedInConfig())
+	path := clitest.WriteFile(t, dir, slackLoggedInConfig())
 	broken := breakFile(t, path)
 
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
@@ -65,10 +66,10 @@ func TestDoctorOnlineNamesWhereASlackTokenIsKeptWhenItCannotBeReadAgain(t *testi
 		_, _ = writer.Write([]byte(`{"ok":true,"team":"Acme","user":"ana","team_id":"` + slackWorkspace + `"}`))
 	}))
 	t.Cleanup(server.Close)
-	setVariable(t, wiring.SlackAPIVariable, server.URL)
+	clitest.SetVariable(t, wiring.SlackAPIVariable, server.URL)
 
 	// Act
-	output, _ := run(t, dir, "doctor", "--online")
+	output, _ := clitest.Run(t, dir, "doctor", "--online")
 
 	// Assert
 	if row := credentialRow(output, "slack"); row != "ana in Acme (user token, kept in the configuration file "+path+")" {

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 // commit makes an empty commit in dir with a fixed identity.
@@ -66,12 +68,12 @@ func TestPRQuestionNamesThePush(t *testing.T) {
 				git(t, repo, "config", "branch.fix/PROJ-2-thing.pushRemote", tt.pushRemote)
 			}
 
-			writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+			clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 			var asked []string
 
 			// Act
-			_, err := runStreams(t, repo, answering("n", &asked), "pr")
+			_, err := clitest.RunStreams(t, repo, answering("n", &asked), "pr")
 
 			// Assert
 			if err != nil || len(asked) != 1 || !strings.HasPrefix(asked[0], tt.want) {
@@ -89,12 +91,12 @@ func TestPROpensAMergeRequestInGitLabsWords(t *testing.T) {
 	repo := prRepo(t, "fix/PROJ-2-thing")
 	git(t, repo, "remote", "add", "origin", "https://gitlab.com/owner/repo.git")
 	pretendPushed(t, repo)
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"gitlab","host":"gitlab.com"}}`)
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"gitlab","host":"gitlab.com"}}`)
 
 	var asked []string
 
 	// Act
-	printed, err := runStreams(t, repo, answering("y", &asked), "pr")
+	printed, err := clitest.RunStreams(t, repo, answering("y", &asked), "pr")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr: %v (%+v)", err, printed)
@@ -104,8 +106,8 @@ func TestPROpensAMergeRequestInGitLabsWords(t *testing.T) {
 		t.Errorf("pr asked %q, want GitLab's noun in its question", asked)
 	}
 
-	if !strings.Contains(printed.stdout, "Opened !7 "+gitlabMergeRequest) {
-		t.Errorf("pr printed %q, want the merge request marked with GitLab's sigil", printed.stdout)
+	if !strings.Contains(printed.Stdout, "Opened !7 "+gitlabMergeRequest) {
+		t.Errorf("pr printed %q, want the merge request marked with GitLab's sigil", printed.Stdout)
 	}
 }
 
@@ -117,25 +119,25 @@ func TestPRDryRunPreviewsWithoutOpening(t *testing.T) {
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	// The template becomes the body, which the preview shows in full.
 	writeRepoFile(t, repo, ".github/pull_request_template.md", "## Checklist\n\n- [ ] Tests\n")
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--dry-run")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr --dry-run: %v (%+v)", err, printed)
 	}
 
-	if !strings.Contains(printed.stdout, "fix/PROJ-2-thing → main") {
-		t.Errorf("preview does not name the branch and its base:\n%s", printed.stdout)
+	if !strings.Contains(printed.Stdout, "fix/PROJ-2-thing → main") {
+		t.Errorf("preview does not name the branch and its base:\n%s", printed.Stdout)
 	}
 
-	if !strings.Contains(printed.stdout, "## Checklist") || !strings.Contains(printed.stdout, "- [ ] Tests") {
-		t.Errorf("preview does not show the body composed from the template:\n%s", printed.stdout)
+	if !strings.Contains(printed.Stdout, "## Checklist") || !strings.Contains(printed.Stdout, "- [ ] Tests") {
+		t.Errorf("preview does not show the body composed from the template:\n%s", printed.Stdout)
 	}
 
-	if !strings.Contains(printed.stderr, "dry run: would push fix/PROJ-2-thing to origin and open") {
-		t.Errorf("dry run does not describe the push and open it would do:\n%s", printed.stderr)
+	if !strings.Contains(printed.Stderr, "dry run: would push fix/PROJ-2-thing to origin and open") {
+		t.Errorf("dry run does not describe the push and open it would do:\n%s", printed.Stderr)
 	}
 }
 
@@ -147,7 +149,7 @@ func TestPRComposesForABranchWithoutAnIssueKey(t *testing.T) {
 	repo := prRepo(t, "chore/cleanup")
 
 	// Act
-	output, err := run(t, repo, "pr", "--dry-run")
+	output, err := clitest.Run(t, repo, "pr", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr --dry-run: %v (%s)", err, output)
@@ -166,12 +168,12 @@ func TestPRDryRunPreviewsWithATrackerConfigured(t *testing.T) {
 	// the same, and nothing is opened.
 	var reached atomic.Bool
 
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-2", "Bug", "thing"), &reached)
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-2", "Bug", "thing"), &reached)
 	repo := prRepo(t, "fix/PROJ-2-thing")
-	writeConfigFor(t, repo, server.URL)
+	clitest.WriteConfigFor(t, repo, server.URL)
 
 	// Act
-	output, err := run(t, repo, "pr", "--dry-run")
+	output, err := clitest.Run(t, repo, "pr", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr --dry-run: %v (%s)", err, output)
@@ -196,10 +198,10 @@ func TestPRDryRunOnAPushedBranchOmitsThePush(t *testing.T) {
 	fakeGh(t, ghResponses{})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	pretendPushed(t, repo)
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
-	output, err := run(t, repo, "pr", "--dry-run")
+	output, err := clitest.Run(t, repo, "pr", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr --dry-run: %v (%s)", err, output)
@@ -219,12 +221,12 @@ func TestPRTakesItsTitleFromTheConfiguredSource(t *testing.T) {
 	fakeGh(t, ghResponses{})
 	baseURL, _ := reviewJira(t)
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, `{"jira":{"base_url":"`+baseURL+`","token":"t"},`+
+	clitest.WriteFile(t, repo, `{"jira":{"base_url":"`+baseURL+`","token":"t"},`+
 		`"forge":{"cli":true,"kind":"github","host":"github.com"},`+
 		`"pull_request":{"title_source":"issue"}}`)
 
 	// Act
-	output, err := run(t, repo, "pr", "--dry-run")
+	output, err := clitest.Run(t, repo, "pr", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr --dry-run: %v (%s)", err, output)
@@ -243,13 +245,13 @@ func TestPRTitlesAForgeIssueNumberFromItsCommitWithoutAskingJira(t *testing.T) {
 	// as the id of an unrelated issue and title the pull request after it.
 	var reached atomic.Bool
 
-	server := jiraServer(t, http.StatusOK, issueFixture("OPS-7", "Bug", "an unrelated issue"), &reached)
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("OPS-7", "Bug", "an unrelated issue"), &reached)
 	repo := prRepo(t, "fix/42-typo")
-	writeFile(t, repo, `{"jira":{"base_url":"`+server.URL+`","token":"t"},`+
+	clitest.WriteFile(t, repo, `{"jira":{"base_url":"`+server.URL+`","token":"t"},`+
 		`"pull_request":{"title_source":"issue"}}`)
 
 	// Act
-	output, err := run(t, repo, "pr", "--dry-run")
+	output, err := clitest.Run(t, repo, "pr", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr --dry-run: %v (%s)", err, output)
@@ -268,10 +270,10 @@ func TestPROpensThePullRequest(t *testing.T) {
 	fakeGh(t, ghResponses{})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	pretendPushed(t, repo)
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
-	output, err := run(t, repo, "pr", "--yes")
+	output, err := clitest.Run(t, repo, "pr", "--yes")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr --yes: %v (%s)", err, output)
@@ -291,19 +293,19 @@ func TestPRPrintsTheOpenedPullRequestOnStdout(t *testing.T) {
 	fakeGh(t, ghResponses{})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	pretendPushed(t, repo)
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--yes")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr --yes: %v (%+v)", err, printed)
 	}
 
 	const opened = "Opened #7 https://github.com/owner/repo/pull/7"
-	if !strings.Contains(printed.stdout, opened) || strings.Contains(printed.stderr, opened) {
+	if !strings.Contains(printed.Stdout, opened) || strings.Contains(printed.Stderr, opened) {
 		t.Errorf("the opened pull request is not on stdout alone:\nstdout:\n%s\nstderr:\n%s",
-			printed.stdout, printed.stderr)
+			printed.Stdout, printed.Stderr)
 	}
 }
 
@@ -318,10 +320,10 @@ func TestPRPushesThenOpensAnUnpublishedBranch(t *testing.T) {
 	// A repository template becomes the pull request body during compose.
 	writeRepoFile(t, repo, ".github/pull_request_template.md", "## Checklist\n\n- [ ] Tests\n")
 	bare := localPushRemote(t, repo)
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
-	output, err := run(t, repo, "pr", "--yes")
+	output, err := clitest.Run(t, repo, "pr", "--yes")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr --yes: %v (%s)", err, output)
@@ -347,18 +349,18 @@ func TestPRDoesNotMoveAForgeIssueNumberOnJira(t *testing.T) {
 	baseURL, writes := reviewJira(t)
 	repo := githubRepo(t, "fix/42-typo")
 	pretendPushed(t, repo)
-	writeFile(t, repo, `{"jira":{"base_url":"`+baseURL+`","token":"t","review_status":"`+statusInReview+`"},`+
+	clitest.WriteFile(t, repo, `{"jira":{"base_url":"`+baseURL+`","token":"t","review_status":"`+statusInReview+`"},`+
 		`"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--yes")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr --yes: %v (%+v)", err, printed)
 	}
 
-	if writes.applied() != 0 || strings.Contains(printed.stderr, "Moved 42") {
-		t.Errorf("a forge issue number was moved on Jira (%d transitions):\n%s", writes.applied(), printed.stderr)
+	if writes.applied() != 0 || strings.Contains(printed.Stderr, "Moved 42") {
+		t.Errorf("a forge issue number was moved on Jira (%d transitions):\n%s", writes.applied(), printed.Stderr)
 	}
 }
 
@@ -387,22 +389,22 @@ func TestPRPointsToAnnounceOnlyWhenMessagingIsSetUp(t *testing.T) {
 			fakeGh(t, ghResponses{})
 			repo := githubRepo(t, "fix/PROJ-2-thing")
 			pretendPushed(t, repo)
-			writeFile(t, repo, tt.configuration)
+			clitest.WriteFile(t, repo, tt.configuration)
 
 			// Act
-			printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--yes")
+			printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes")
 			// Assert
 			if err != nil {
 				t.Fatalf("pr --yes: %v (%+v)", err, printed)
 			}
 
-			if got := strings.Contains(printed.stderr, "workflow announce"); got != tt.wantPointer {
+			if got := strings.Contains(printed.Stderr, "workflow announce"); got != tt.wantPointer {
 				t.Errorf("pr --yes with %s: stderr names workflow announce = %v, want %v\n%s",
-					name, got, tt.wantPointer, printed.stderr)
+					name, got, tt.wantPointer, printed.Stderr)
 			}
 
-			if strings.Contains(printed.stdout, "workflow announce") {
-				t.Errorf("pr --yes put the pointer on stdout, the artifact's stream:\n%s", printed.stdout)
+			if strings.Contains(printed.Stdout, "workflow announce") {
+				t.Errorf("pr --yes put the pointer on stdout, the artifact's stream:\n%s", printed.Stdout)
 			}
 		})
 	}

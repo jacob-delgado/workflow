@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 // openingThenOpen is a forge with no pull request for the branch until one is
@@ -33,19 +34,19 @@ func TestPRAnnounceOpensThenAnnouncesOnceCIPasses(t *testing.T) {
 	fakeGh(t, openingThenOpen())
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	pretendPushed(t, repo)
-	writeFile(t, repo, waitingConfig(webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--yes", "--announce")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes", "--announce")
 
 	// Assert
-	if err != nil || posts.Load() != 1 || !strings.Contains(printed.stdout, "Opened #7") {
+	if err != nil || posts.Load() != 1 || !strings.Contains(printed.Stdout, "Opened #7") {
 		t.Errorf("pr --announce = %v, posted %d, printed %+v; want it opened, then announced once",
 			err, posts.Load(), printed)
 	}
 
-	if strings.Contains(printed.stdout, "opened a pull request") {
-		t.Errorf("pr --announce previewed the announcement on stdout, the pull request's stream:\n%s", printed.stdout)
+	if strings.Contains(printed.Stdout, "opened a pull request") {
+		t.Errorf("pr --announce previewed the announcement on stdout, the pull request's stream:\n%s", printed.Stdout)
 	}
 }
 
@@ -59,10 +60,10 @@ func TestPRAnnounceWithoutMessagingOpensNothing(t *testing.T) {
 	fakeGh(t, responses)
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	pretendPushed(t, repo)
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
-	_, err := runStreams(t, repo, unusedPrompt(t), "pr", "--yes", "--announce")
+	_, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes", "--announce")
 
 	// Assert
 	if got := cli.ExitStatus(err); got != 3 {
@@ -84,10 +85,10 @@ func TestPRRefusesAnnounceBesideDraft(t *testing.T) {
 	fakeGh(t, responses)
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	pretendPushed(t, repo)
-	writeFile(t, repo, waitingConfig(webhook(t, new(atomic.Int32))))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, new(atomic.Int32))))
 
 	// Act
-	_, err := runStreams(t, repo, unusedPrompt(t), "pr", "--yes", "--draft", "--announce")
+	_, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes", "--draft", "--announce")
 
 	// Assert
 	if said := fmt.Sprint(err); !strings.Contains(said, "--announce") || !strings.Contains(said, "--draft") {
@@ -108,15 +109,15 @@ func TestPRAnnounceDryRunSaysItWouldAnnounce(t *testing.T) {
 	fakeGh(t, openingThenOpen())
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	pretendPushed(t, repo)
-	writeFile(t, repo, waitingConfig(webhook(t, new(atomic.Int32))))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, new(atomic.Int32))))
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--dry-run", "--announce")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--dry-run", "--announce")
 
 	// Assert
 	want := "dry run: would announce it to the channel its webhook is bound to once its CI passes"
-	if err != nil || !strings.Contains(printed.stderr, want) {
-		t.Errorf("pr --dry-run --announce = %v, said %q; want %q", err, printed.stderr, want)
+	if err != nil || !strings.Contains(printed.Stderr, want) {
+		t.Errorf("pr --dry-run --announce = %v, said %q; want %q", err, printed.Stderr, want)
 	}
 }
 
@@ -129,10 +130,10 @@ func TestPRAnnounceJSONPrintsTheReportBeforeWaiting(t *testing.T) {
 	fakeGh(t, openingThenOpen())
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	pretendPushed(t, repo)
-	writeFile(t, repo, waitingConfig(webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--yes", "--json", "--announce")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes", "--json", "--announce")
 
 	// Assert
 	var report struct {
@@ -141,10 +142,10 @@ func TestPRAnnounceJSONPrintsTheReportBeforeWaiting(t *testing.T) {
 		} `json:"pull"`
 	}
 
-	decodeErr := json.Unmarshal([]byte(printed.stdout), &report)
+	decodeErr := json.Unmarshal([]byte(printed.Stdout), &report)
 	if err != nil || decodeErr != nil || report.Pull.Number != 7 || posts.Load() != 1 {
 		t.Errorf("pr --json --announce = %v, stdout %q (%v), posted %d; want the report, then one post",
-			err, printed.stdout, decodeErr, posts.Load())
+			err, printed.Stdout, decodeErr, posts.Load())
 	}
 }
 
@@ -155,15 +156,15 @@ func TestPRWithoutAnnounceNamesWhenGreen(t *testing.T) {
 	fakeGh(t, ghResponses{})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	pretendPushed(t, repo)
-	writeFile(t, repo, waitingConfig("https://hooks.slack.example/services/x"))
+	clitest.WriteFile(t, repo, waitingConfig("https://hooks.slack.example/services/x"))
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--yes")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes")
 
 	// Assert
 	want := "Announce it with workflow announce, or once CI passes with workflow announce --when-green."
-	if err != nil || !strings.Contains(printed.stderr, want) {
-		t.Errorf("pr --yes = %v, said %q; want %q", err, printed.stderr, want)
+	if err != nil || !strings.Contains(printed.Stderr, want) {
+		t.Errorf("pr --yes = %v, said %q; want %q", err, printed.Stderr, want)
 	}
 }
 
@@ -180,14 +181,14 @@ func TestPRAnnounceWaitsForAPullRequestTheForgeHasNotListedYet(t *testing.T) {
 	fakeGh(t, responses)
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	pretendPushed(t, repo)
-	writeFile(t, repo, waitingConfig(webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--yes", "--announce")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes", "--announce")
 
 	// Assert
 	if err != nil || posts.Load() != 1 {
 		t.Errorf("pr --announce = %v, posted %d, said %q; want it announced once the forge lists it",
-			err, posts.Load(), printed.stderr)
+			err, posts.Load(), printed.Stderr)
 	}
 }

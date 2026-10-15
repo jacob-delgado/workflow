@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 // completeConfig is a configuration doctor finds nothing wrong with, so its
@@ -32,7 +34,7 @@ func fakeTaskwarrior(t *testing.T, version, show string) string {
 func fakeTaskProgram(t *testing.T, versionAnswer, show string) string {
 	t.Helper()
 
-	program := filepath.Join(programsOf(t), "task")
+	program := filepath.Join(clitest.ProgramsOf(t), "task")
 
 	writeExecutable(t, program, "#!/bin/sh\n"+
 		"for last in \"$@\"; do :; done\n"+
@@ -62,7 +64,7 @@ func TestDoctorReportsTaskwarriorWhenItAnswers(t *testing.T) {
 	program := fakeTaskwarrior(t, "3.5.0", "uda.jiraid.type=string")
 
 	// Act
-	output, _ := run(t, t.TempDir(), "doctor", "--json")
+	output, _ := clitest.Run(t, t.TempDir(), "doctor", "--json")
 
 	// Assert
 	report := decodeReport(t, output)
@@ -88,7 +90,7 @@ func TestDoctorPrintsTheTaskwarriorItFound(t *testing.T) {
 	program := fakeTaskwarrior(t, "3.5.0", "uda.jiraid.type=string")
 
 	// Act
-	output, _ := run(t, t.TempDir(), "doctor")
+	output, _ := clitest.Run(t, t.TempDir(), "doctor")
 
 	// Assert
 	if got, want := taskwarriorRow(output), "found — 3.5.0 at "+program; got != want {
@@ -103,10 +105,10 @@ func TestDoctorTellsGoTaskFromTaskwarrior(t *testing.T) {
 	fakeTaskwarrior(t, "", "")
 
 	dir := t.TempDir()
-	writeFile(t, dir, completeConfig)
+	clitest.WriteFile(t, dir, completeConfig)
 
 	// Act
-	output, err := run(t, dir, "doctor")
+	output, err := clitest.Run(t, dir, "doctor")
 
 	// Assert
 	if row := taskwarriorRow(output); !strings.HasPrefix(row, "not usable — task on PATH is not Taskwarrior") ||
@@ -126,7 +128,7 @@ func TestDoctorHintsTheUDALinesWhenTaskrcLacksThem(t *testing.T) {
 	fakeTaskwarrior(t, "3.5.0", "data.location=/tmp")
 
 	// Act
-	output, _ := run(t, t.TempDir(), "doctor")
+	output, _ := clitest.Run(t, t.TempDir(), "doctor")
 
 	// Assert
 	if row := taskwarriorRow(output); !strings.HasPrefix(row, "found — 3.5.0") ||
@@ -142,10 +144,10 @@ func TestDoctorSaysTaskwarriorIsDisabled(t *testing.T) {
 	fakeTaskwarrior(t, "3.5.0", "")
 
 	dir := t.TempDir()
-	writeFile(t, dir, `{"taskwarrior": {"disabled": true}}`)
+	clitest.WriteFile(t, dir, `{"taskwarrior": {"disabled": true}}`)
 
 	// Act
-	output, _ := run(t, dir, "doctor")
+	output, _ := clitest.Run(t, dir, "doctor")
 
 	// Assert
 	if row := taskwarriorRow(output); row != "not usable — disabled by taskwarrior.disabled" {
@@ -161,7 +163,7 @@ func TestDoctorSaysTaskrcIsMalformedWithoutQuotingIt(t *testing.T) {
 	fakeTaskProgram(t, `echo "Malformed entry 'sync.encryption_secret hunter2' in config file." >&2; exit 2`, "")
 
 	// Act
-	output, _ := run(t, t.TempDir(), "doctor")
+	output, _ := clitest.Run(t, t.TempDir(), "doctor")
 
 	// Assert
 	if row := taskwarriorRow(output); row != "not usable — taskrc has a malformed line" {
@@ -181,7 +183,7 @@ func TestDoctorSaysTaskwarriorWasNeverRunAndWhichToRun(t *testing.T) {
 	program := fakeTaskProgram(t, `echo 'Cannot proceed without rc file.' >&2; exit 2`, "")
 
 	// Act
-	output, _ := run(t, t.TempDir(), "doctor")
+	output, _ := clitest.Run(t, t.TempDir(), "doctor")
 
 	// Assert
 	if row, want := taskwarriorRow(output), "not usable — installed but never run; run "+program+" once"; row != want {
@@ -198,7 +200,7 @@ func TestDoctorSaysWhyTaskwarriorCannotStart(t *testing.T) {
 	fakeTaskProgram(t, `echo "`+words+`" >&2; exit 2`, "")
 
 	// Act
-	output, _ := run(t, t.TempDir(), "doctor")
+	output, _ := clitest.Run(t, t.TempDir(), "doctor")
 
 	// Assert
 	if row := taskwarriorRow(output); row != "not usable — "+words {
@@ -213,7 +215,7 @@ func TestDoctorSaysTaskwarriorIsTooOld(t *testing.T) {
 	program := fakeTaskwarrior(t, "2.6.2", "")
 
 	// Act
-	output, _ := run(t, t.TempDir(), "doctor")
+	output, _ := clitest.Run(t, t.TempDir(), "doctor")
 
 	// Assert
 	row := taskwarriorRow(output)

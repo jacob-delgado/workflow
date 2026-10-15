@@ -17,6 +17,7 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/tui"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 	"github.com/jacob-delgado/workflow/internal/workdirs"
@@ -55,7 +56,7 @@ func TestASwitchOpensTheInterfaceAgainWhereItWasAskedToGo(t *testing.T) {
 	start, other := twoDirectories(t)
 
 	// Act
-	ran := runRootSwitching(t, place{dir: start, home: t.TempDir()}, []tui.Next{{Dir: other}})
+	ran := runRootSwitching(t, clitest.Place{Dir: start, Home: t.TempDir()}, []tui.Next{{Dir: other}})
 
 	// Assert
 	if ran.err != nil || ran.interfaces != 2 {
@@ -78,7 +79,7 @@ func TestASwitchMovesTheWorkingDirectory(t *testing.T) {
 	start, other := twoDirectories(t)
 
 	// Act
-	ran := runRootSwitching(t, place{dir: start, home: t.TempDir()}, []tui.Next{{Dir: other}})
+	ran := runRootSwitching(t, clitest.Place{Dir: start, Home: t.TempDir()}, []tui.Next{{Dir: other}})
 
 	// Assert
 	// Whatever the new session runs — an editor, a hook — starts there too.
@@ -116,7 +117,7 @@ func TestASwitchThatCannotBeMadeStaysWhereItWasAndSaysWhy(t *testing.T) {
 			destination := target(t, other)
 
 			// Act
-			ran := runRootSwitching(t, place{dir: start, home: t.TempDir()}, []tui.Next{{Dir: destination}})
+			ran := runRootSwitching(t, clitest.Place{Dir: start, Home: t.TempDir()}, []tui.Next{{Dir: destination}})
 
 			// Assert
 			if ran.err != nil || ran.interfaces != 2 {
@@ -143,10 +144,10 @@ var errMoveRefused = errors.New("chdir: permission denied")
 
 // runRootUnmoving is runRootSwitching in a process the operating system will
 // not move to another directory.
-func runRootUnmoving(t *testing.T, where place, nexts []tui.Next, args ...string) *rootRun {
+func runRootUnmoving(t *testing.T, where clitest.Place, nexts []tui.Next, args ...string) *rootRun {
 	t.Helper()
 
-	ran := rootRun{nexts: nexts, env: environmentFor(t, where)}
+	ran := rootRun{nexts: nexts, env: clitest.EnvironmentFor(t, where)}
 	ran.env.Chdir = func(string) error { return errMoveRefused }
 
 	ran.stdout, ran.stderr, ran.err = executeRootIn(t, ran.env, ran.runInterface, ran.serveWebAt, args...)
@@ -163,7 +164,7 @@ func TestASwitchTheProcessCannotMoveForStaysWhereItWasAndSaysWhy(t *testing.T) {
 	// Act
 	// The directory is there and its configuration loads, but the process
 	// cannot be moved into it.
-	ran := runRootUnmoving(t, place{dir: start, home: t.TempDir()}, []tui.Next{{Dir: other}})
+	ran := runRootUnmoving(t, clitest.Place{Dir: start, Home: t.TempDir()}, []tui.Next{{Dir: other}})
 
 	// Assert
 	if ran.err != nil || ran.interfaces != 2 {
@@ -188,7 +189,7 @@ func TestTheWebServerReachesAnotherDirectoryWiredAsTheFirst(t *testing.T) {
 
 	// Arrange
 	start, other := twoDirectories(t)
-	ran := runRootSwitching(t, place{dir: start, home: t.TempDir()}, nil, "--web")
+	ran := runRootSwitching(t, clitest.Place{Dir: start, Home: t.TempDir()}, nil, "--web")
 
 	// Act
 	world, err := ran.deps.Reach(t.Context(), other)
@@ -215,7 +216,7 @@ func TestTheWebServerCannotReachADirectoryWhoseKeysWouldBeRefused(t *testing.T) 
 		t.Fatal(err)
 	}
 
-	ran := runRootSwitching(t, place{dir: start, home: t.TempDir()}, nil, "--web")
+	ran := runRootSwitching(t, clitest.Place{Dir: start, Home: t.TempDir()}, nil, "--web")
 
 	// Act
 	_, err = ran.deps.Reach(t.Context(), other)
@@ -243,7 +244,7 @@ func TestTheWebServerCannotReachADirectoryWhoseConfigurationCannotBeRead(t *test
 		t.Fatal(err)
 	}
 
-	ran := runRootSwitching(t, place{dir: start, home: t.TempDir()}, nil, "--web")
+	ran := runRootSwitching(t, clitest.Place{Dir: start, Home: t.TempDir()}, nil, "--web")
 
 	// Act
 	_, err = ran.deps.Reach(t.Context(), other)
@@ -259,7 +260,7 @@ func TestTheWebServerCannotReachADirectoryNotThere(t *testing.T) {
 
 	// Arrange
 	start, other := twoDirectories(t)
-	ran := runRootSwitching(t, place{dir: start, home: t.TempDir()}, nil, "--web")
+	ran := runRootSwitching(t, clitest.Place{Dir: start, Home: t.TempDir()}, nil, "--web")
 
 	// Act
 	_, err := ran.deps.Reach(t.Context(), filepath.Join(other, "gone"))
@@ -275,7 +276,7 @@ func TestTheWebServerCannotReachADirectoryTheProcessCannotMoveTo(t *testing.T) {
 
 	// Arrange
 	start, other := twoDirectories(t)
-	ran := runRootUnmoving(t, place{dir: start, home: t.TempDir()}, nil, "--web")
+	ran := runRootUnmoving(t, clitest.Place{Dir: start, Home: t.TempDir()}, nil, "--web")
 
 	// Act
 	_, err := ran.deps.Reach(t.Context(), other)

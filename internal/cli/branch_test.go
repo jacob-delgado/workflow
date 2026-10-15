@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
@@ -29,7 +30,7 @@ func issueFixture(key, issueType, summary string) string {
 }
 
 // gitOutput runs one git command in dir and returns its output, keeping the
-// developer's own git configuration out as run does.
+// developer's own git configuration out as clitest.Run does.
 func gitOutput(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 
@@ -60,7 +61,7 @@ func repoForBranch(t *testing.T, jiraURL string) string {
 	gitInit(t, repo)
 	git(t, repo, "-c", "user.email=t@example.com", "-c", "user.name=Tester",
 		"commit", "--allow-empty", "-m", "init")
-	writeConfigFor(t, repo, jiraURL)
+	clitest.WriteConfigFor(t, repo, jiraURL)
 
 	return repo
 }
@@ -69,11 +70,11 @@ func TestBranchCreatesTheBranchForTheIssue(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "branch", "PROJ-7", "--yes")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "branch", "PROJ-7", "--yes")
 	// Assert
 	if err != nil {
 		t.Fatalf("branch: %v (%+v)", err, printed)
@@ -81,8 +82,8 @@ func TestBranchCreatesTheBranchForTheIssue(t *testing.T) {
 
 	// The branch it created is the artifact, for a script to read back.
 	const created = "Created fix/PROJ-7-login"
-	if !strings.Contains(printed.stdout, created) || strings.Contains(printed.stderr, created) {
-		t.Errorf("the created branch is not on stdout alone:\nstdout:\n%s\nstderr:\n%s", printed.stdout, printed.stderr)
+	if !strings.Contains(printed.Stdout, created) || strings.Contains(printed.Stderr, created) {
+		t.Errorf("the created branch is not on stdout alone:\nstdout:\n%s\nstderr:\n%s", printed.Stdout, printed.Stderr)
 	}
 
 	if got := currentBranch(t, repo); got != "fix/PROJ-7-login" {
@@ -94,12 +95,12 @@ func TestBranchRefusesAnIssueThatAlreadyHasABranch(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
 	git(t, repo, "branch", "fix/PROJ-7-login")
 
 	// Act
-	output, err := run(t, repo, "branch", "PROJ-7", "--yes")
+	output, err := clitest.Run(t, repo, "branch", "PROJ-7", "--yes")
 
 	// Assert
 	// The existing branch is switched to in the interface, never recreated here.
@@ -114,12 +115,12 @@ func TestBranchExistsSaysHowToSwitch(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
 	git(t, repo, "branch", "fix/PROJ-7-login")
 
 	// Act
-	_, err := run(t, repo, "branch", "PROJ-7", "--yes")
+	_, err := clitest.Run(t, repo, "branch", "PROJ-7", "--yes")
 
 	// Assert
 	if err == nil || !strings.HasSuffix(err.Error(), "; switch to it with `git switch fix/PROJ-7-login`") {
@@ -131,11 +132,11 @@ func TestBranchPreviewSaysItSwitchesToTheBranch(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "branch", "PROJ-7", "--dry-run")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "branch", "PROJ-7", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("branch --dry-run: %v (%+v)", err, printed)
@@ -143,12 +144,12 @@ func TestBranchPreviewSaysItSwitchesToTheBranch(t *testing.T) {
 
 	// The working tree moves onto the new branch, which the preview and the dry
 	// run each say rather than leave to be discovered.
-	if !strings.Contains(printed.stdout, "Start work on PROJ-7: create fix/PROJ-7-login from ") ||
-		!strings.HasSuffix(strings.TrimSpace(printed.stdout), " and switch to it") ||
-		!strings.Contains(printed.stderr, "dry run: would start work on PROJ-7: create fix/PROJ-7-login from ") ||
-		!strings.HasSuffix(strings.TrimSpace(printed.stderr), " and switch to it") {
+	if !strings.Contains(printed.Stdout, "Start work on PROJ-7: create fix/PROJ-7-login from ") ||
+		!strings.HasSuffix(strings.TrimSpace(printed.Stdout), " and switch to it") ||
+		!strings.Contains(printed.Stderr, "dry run: would start work on PROJ-7: create fix/PROJ-7-login from ") ||
+		!strings.HasSuffix(strings.TrimSpace(printed.Stderr), " and switch to it") {
 		t.Errorf("branch does not say it switches to the branch it creates:\nstdout:\n%s\nstderr:\n%s",
-			printed.stdout, printed.stderr)
+			printed.Stdout, printed.Stderr)
 	}
 }
 
@@ -156,16 +157,16 @@ func TestBranchHelpSaysItSwitchesToTheBranch(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), "branch", "--help")
+	printed, err := clitest.RunStreams(t, t.TempDir(), clitest.UnusedPrompt(t), "branch", "--help")
 	// Assert
 	if err != nil {
 		t.Fatalf("branch --help: %v", err)
 	}
 
 	// Read as prose, whatever the line breaks.
-	prose := strings.Join(strings.Fields(printed.stdout), " ")
+	prose := strings.Join(strings.Fields(printed.Stdout), " ")
 	if !strings.HasPrefix(prose, "Start work on an issue") || !strings.Contains(prose, "base and switch to it") {
-		t.Errorf("branch's help does not say it starts work and switches to the branch it creates:\n%s", printed.stdout)
+		t.Errorf("branch's help does not say it starts work and switches to the branch it creates:\n%s", printed.Stdout)
 	}
 }
 
@@ -173,12 +174,12 @@ func TestBranchDryRunCreatesNothing(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Story", "login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Story", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
 	before := currentBranch(t, repo)
 
 	// Act
-	output, err := run(t, repo, "branch", "PROJ-7", "--dry-run")
+	output, err := clitest.Run(t, repo, "branch", "PROJ-7", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("branch --dry-run: %v (%s)", err, output)
@@ -198,11 +199,11 @@ func TestBranchCreatesAfterConfirmation(t *testing.T) {
 
 	// Arrange
 	// The confirmation is answered "yes", so the branch is created.
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
 
 	// Act
-	output, err := runGuided(t, repo, scripted([]string{"y"}, nil), "branch", "PROJ-7")
+	output, err := clitest.RunGuided(t, repo, scripted([]string{"y"}, nil), "branch", "PROJ-7")
 	// Assert
 	if err != nil {
 		t.Fatalf("branch: %v (%s)", err, output)
@@ -217,7 +218,7 @@ func TestBranchDeclinedCreatesNothing(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
 	before := currentBranch(t, repo)
 
@@ -225,7 +226,7 @@ func TestBranchDeclinedCreatesNothing(t *testing.T) {
 
 	// Act
 	// The confirmation is answered "no".
-	output, err := runGuided(t, repo, answering("n", &asked), "branch", "PROJ-7")
+	output, err := clitest.RunGuided(t, repo, answering("n", &asked), "branch", "PROJ-7")
 	// Assert
 	if err != nil {
 		t.Fatalf("branch: %v (%s)", err, output)
@@ -251,16 +252,16 @@ func TestBranchCutsFromHeadWithoutAConventionalBase(t *testing.T) {
 	// Arrange
 	// The repository's only branch is neither main nor master, so there is no
 	// base to name and the branch is cut from HEAD.
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := t.TempDir()
 	gitInit(t, repo)
 	git(t, repo, "-c", "user.email=t@example.com", "-c", "user.name=Tester",
 		"commit", "--allow-empty", "-m", "init")
 	git(t, repo, "branch", "-M", "trunk")
-	writeConfigFor(t, repo, server.URL)
+	clitest.WriteConfigFor(t, repo, server.URL)
 
 	// Act
-	output, err := run(t, repo, "branch", "PROJ-7", "--dry-run")
+	output, err := clitest.Run(t, repo, "branch", "PROJ-7", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("branch --dry-run: %v (%s)", err, output)
@@ -276,7 +277,7 @@ func TestBranchStopsWhenTheConfirmationCannotBeRead(t *testing.T) {
 
 	// Arrange
 	// The confirmation prompt fails, so the branch is not created.
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
 	before := currentBranch(t, repo)
 	failing := cli.Prompt{
@@ -285,7 +286,7 @@ func TestBranchStopsWhenTheConfirmationCannotBeRead(t *testing.T) {
 	}
 
 	// Act
-	_, err := runGuided(t, repo, failing, "branch", "PROJ-7")
+	_, err := clitest.RunGuided(t, repo, failing, "branch", "PROJ-7")
 
 	// Assert
 	if err == nil {
@@ -303,12 +304,12 @@ func TestBranchReportsAFailedCreate(t *testing.T) {
 	// Arrange
 	// A branch named "fix" blocks creating "fix/PROJ-7-login": a ref cannot be
 	// both a name and a directory of names.
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
 	git(t, repo, "branch", "fix")
 
 	// Act
-	_, err := run(t, repo, "branch", "PROJ-7", "--yes")
+	_, err := clitest.Run(t, repo, "branch", "PROJ-7", "--yes")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "creating fix/PROJ-7-login") {
@@ -324,12 +325,12 @@ func TestBranchReportsAnUnreadableRepository(t *testing.T) {
 	// Arrange
 	// The tracker is reachable, but the working directory is not a repository, so
 	// the existing branches cannot be listed.
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	dir := t.TempDir()
-	writeConfigFor(t, dir, server.URL)
+	clitest.WriteConfigFor(t, dir, server.URL)
 
 	// Act
-	_, err := run(t, dir, "branch", "PROJ-7", "--yes")
+	_, err := clitest.Run(t, dir, "branch", "PROJ-7", "--yes")
 
 	// Assert
 	if !errors.Is(err, gitrepo.ErrNotARepository) {
@@ -346,11 +347,11 @@ func TestBranchReportsATrackerServerError(t *testing.T) {
 	// The tracker answers every request with a server error, so the issue cannot
 	// be read and no branch is named. The tracker did answer, so this is not the
 	// unreachable family.
-	server := jiraServer(t, http.StatusInternalServerError, "boom", new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusInternalServerError, "boom", new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
 
 	// Act
-	_, err := run(t, repo, "branch", "PROJ-7", "--yes")
+	_, err := clitest.Run(t, repo, "branch", "PROJ-7", "--yes")
 
 	// Assert
 	if !errors.Is(err, jira.ErrUnexpectedStatus) {
@@ -367,12 +368,12 @@ func TestBranchFromABranchWhoseNameCannotBeShownCutsFromHead(t *testing.T) {
 	// main is there to be the base, but the checked-out branch's name holds a
 	// character with no width, so where it stands is not read and the new
 	// branch starts from HEAD.
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
 	git(t, repo, "checkout", "-b", "fix/PROJ\u200b-3")
 
 	// Act
-	output, err := run(t, repo, "branch", "PROJ-7", "--dry-run")
+	output, err := clitest.Run(t, repo, "branch", "PROJ-7", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("branch --dry-run: %v (%s)", err, output)

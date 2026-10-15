@@ -16,6 +16,7 @@ import (
 	"testing/iotest"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 // errUnreadableInput is standard input failing part way through a read.
@@ -68,7 +69,7 @@ func commentJira(t *testing.T, markdown bool) (string, *commentsPosted) {
 	t.Cleanup(server.Close)
 
 	dir := t.TempDir()
-	writeFile(t, dir, `{"jira":{"base_url":"`+server.URL+`","token":"t","markdown_comments":`+
+	clitest.WriteFile(t, dir, `{"jira":{"base_url":"`+server.URL+`","token":"t","markdown_comments":`+
 		strconv.FormatBool(markdown)+`}}`)
 
 	return dir, posted
@@ -78,7 +79,7 @@ func commentJira(t *testing.T, markdown bool) (string, *commentsPosted) {
 func typed(t *testing.T, text string) cli.Prompt {
 	t.Helper()
 
-	prompt := unusedPrompt(t)
+	prompt := clitest.UnusedPrompt(t)
 	prompt.Input = strings.NewReader(text)
 
 	return prompt
@@ -91,7 +92,9 @@ func TestCommentPostsTheTextFromStandardInput(t *testing.T) {
 	dir, posted := commentJira(t, false)
 
 	// Act
-	printed, err := runStreams(t, dir, typed(t, "Looks good; it's \"quoted\" & all.\n"), "comment", "PROJ-7", "--yes")
+	printed, err := clitest.RunStreams(
+		t, dir, typed(t, "Looks good; it's \"quoted\" & all.\n"), "comment", "PROJ-7", "--yes",
+	)
 	// Assert
 	if err != nil {
 		t.Fatalf("comment --yes: %v (%+v)", err, printed)
@@ -101,10 +104,10 @@ func TestCommentPostsTheTextFromStandardInput(t *testing.T) {
 		t.Errorf("comments posted = %q, want the text read, as typed, once", got)
 	}
 
-	if !strings.Contains(printed.stdout, `Looks good; it's "quoted" & all.`) ||
-		!strings.Contains(printed.stderr, "Commented on PROJ-7.") {
+	if !strings.Contains(printed.Stdout, `Looks good; it's "quoted" & all.`) ||
+		!strings.Contains(printed.Stderr, "Commented on PROJ-7.") {
 		t.Errorf("comment did not preview on stdout and say it posted on stderr:\nstdout:\n%s\nstderr:\n%s",
-			printed.stdout, printed.stderr)
+			printed.Stdout, printed.Stderr)
 	}
 }
 
@@ -115,7 +118,7 @@ func TestCommentPostsMarkdownAsJirasMarkup(t *testing.T) {
 	dir, posted := commentJira(t, true)
 
 	// Act
-	printed, err := runStreams(t, dir, typed(t, "**bold**"), "comment", "PROJ-7", "--yes")
+	printed, err := clitest.RunStreams(t, dir, typed(t, "**bold**"), "comment", "PROJ-7", "--yes")
 	// Assert
 	if err != nil {
 		t.Fatalf("comment --yes: %v (%+v)", err, printed)
@@ -123,8 +126,8 @@ func TestCommentPostsMarkdownAsJirasMarkup(t *testing.T) {
 
 	// Converted as the terminal's and the web's comments are, and previewed as
 	// it will be stored.
-	if got := posted.all(); len(got) != 1 || got[0] != "*bold*" || !strings.Contains(printed.stdout, "*bold*") {
-		t.Errorf("comments posted = %q, previewed %q; want Markdown posted as Jira's *bold*", got, printed.stdout)
+	if got := posted.all(); len(got) != 1 || got[0] != "*bold*" || !strings.Contains(printed.Stdout, "*bold*") {
+		t.Errorf("comments posted = %q, previewed %q; want Markdown posted as Jira's *bold*", got, printed.Stdout)
 	}
 }
 
@@ -135,14 +138,14 @@ func TestCommentDryRunPostsNothing(t *testing.T) {
 	dir, posted := commentJira(t, false)
 
 	// Act
-	printed, err := runStreams(t, dir, typed(t, "later"), "comment", "PROJ-7", "--dry-run")
+	printed, err := clitest.RunStreams(t, dir, typed(t, "later"), "comment", "PROJ-7", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("comment --dry-run: %v (%+v)", err, printed)
 	}
 
-	if got := posted.all(); len(got) != 0 || !strings.Contains(printed.stderr, "dry run: would comment on PROJ-7") {
-		t.Errorf("comment --dry-run posted %q and said:\n%s", got, printed.stderr)
+	if got := posted.all(); len(got) != 0 || !strings.Contains(printed.Stderr, "dry run: would comment on PROJ-7") {
+		t.Errorf("comment --dry-run posted %q and said:\n%s", got, printed.Stderr)
 	}
 }
 
@@ -153,7 +156,7 @@ func TestCommentRefusesBlankText(t *testing.T) {
 	dir, posted := commentJira(t, false)
 
 	// Act
-	_, err := runStreams(t, dir, typed(t, " \n\n"), "comment", "PROJ-7", "--yes")
+	_, err := clitest.RunStreams(t, dir, typed(t, " \n\n"), "comment", "PROJ-7", "--yes")
 
 	// Assert
 	wantExit(t, err, 2)
@@ -176,7 +179,7 @@ func TestCommentWithNothingToAnswerSaysToPassYes(t *testing.T) {
 	}
 
 	// Act
-	_, err := runStreams(t, dir, prompt, "comment", "PROJ-7")
+	_, err := clitest.RunStreams(t, dir, prompt, "comment", "PROJ-7")
 
 	// Assert
 	wantExit(t, err, 2)
@@ -191,11 +194,11 @@ func TestCommentWithNoStandardInputRefusesBlankText(t *testing.T) {
 
 	// Arrange
 	dir, posted := commentJira(t, false)
-	prompt := unusedPrompt(t)
+	prompt := clitest.UnusedPrompt(t)
 	prompt.Input = nil
 
 	// Act
-	_, err := runStreams(t, dir, prompt, "comment", "PROJ-7", "--yes")
+	_, err := clitest.RunStreams(t, dir, prompt, "comment", "PROJ-7", "--yes")
 
 	// Assert
 	wantExit(t, err, 2)
@@ -210,11 +213,11 @@ func TestCommentWhoseInputCannotBeReadFails(t *testing.T) {
 
 	// Arrange
 	dir, posted := commentJira(t, false)
-	prompt := unusedPrompt(t)
+	prompt := clitest.UnusedPrompt(t)
 	prompt.Input = iotest.ErrReader(errUnreadableInput)
 
 	// Act
-	_, err := runStreams(t, dir, prompt, "comment", "PROJ-7", "--yes")
+	_, err := clitest.RunStreams(t, dir, prompt, "comment", "PROJ-7", "--yes")
 
 	// Assert
 	if !errors.Is(err, errUnreadableInput) || len(posted.all()) != 0 {
@@ -229,13 +232,13 @@ func TestCommentOnAnIssueJiraLacksSaysWhichIssue(t *testing.T) {
 	dir, posted := commentJira(t, false)
 
 	// Act
-	printed, err := runStreams(t, dir, typed(t, "hello"), "comment", "PROJ-8", "--yes")
+	printed, err := clitest.RunStreams(t, dir, typed(t, "hello"), "comment", "PROJ-8", "--yes")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "commenting on PROJ-8") || len(posted.all()) != 0 ||
-		strings.Contains(printed.stderr, "Commented on") {
+		strings.Contains(printed.Stderr, "Commented on") {
 		t.Errorf("comment = %v, posted %q, said %q; want PROJ-8's failure and no success", err, posted.all(),
-			printed.stderr)
+			printed.Stderr)
 	}
 }
 
@@ -244,10 +247,10 @@ func TestCommentWithAConfigurationItCannotReadPostsNothing(t *testing.T) {
 
 	// Arrange
 	dir, posted := commentJira(t, false)
-	writeFile(t, dir, `{`)
+	clitest.WriteFile(t, dir, `{`)
 
 	// Act
-	_, err := runStreams(t, dir, typed(t, "hello"), "comment", "PROJ-7", "--yes")
+	_, err := clitest.RunStreams(t, dir, typed(t, "hello"), "comment", "PROJ-7", "--yes")
 
 	// Assert
 	if err == nil || len(posted.all()) != 0 {

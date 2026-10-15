@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/config"
 )
 
@@ -32,7 +33,7 @@ func TestDoctorReportsAMissingFile(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	output, err := run(t, t.TempDir(), "doctor")
+	output, err := clitest.Run(t, t.TempDir(), "doctor")
 
 	// Assert
 	if err == nil || !strings.Contains(output, "config init") {
@@ -47,10 +48,10 @@ func TestDoctorNamesMissingFields(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"}}`)
+	clitest.WriteFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"}}`)
 
 	// Act
-	output, err := run(t, dir, "doctor")
+	output, err := clitest.Run(t, dir, "doctor")
 
 	// Assert
 	if err == nil {
@@ -75,11 +76,11 @@ func TestDoctorAcceptsACompleteConfig(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"},`+
+	clitest.WriteFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"},`+
 		` "messaging": {"webhook_url": "https://hooks.slack.example/services/not-real"}}`)
 
 	// Act
-	output, err := run(t, dir, "doctor")
+	output, err := clitest.Run(t, dir, "doctor")
 
 	// Assert
 	if err != nil || !strings.Contains(output, "bearer token") {
@@ -94,12 +95,12 @@ func TestDoctorReportsAConflictingKeyOverride(t *testing.T) {
 	// commit and stage-all both live on the Commits pane, so binding commit to
 	// stage-all's key is a conflict doctor should catch.
 	dir := t.TempDir()
-	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"},`+
+	clitest.WriteFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"},`+
 		` "messaging": {"webhook_url": "https://hooks.slack.example/services/not-real"},`+
 		` "ui": {"keys": {"commit": "a"}}}`)
 
 	// Act
-	output, err := run(t, dir, "doctor")
+	output, err := clitest.Run(t, dir, "doctor")
 
 	// Assert
 	if err == nil {
@@ -116,7 +117,7 @@ func TestDoctorFailsOnAConfigurationOthersCanRead(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	path := writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"},`+
+	path := clitest.WriteFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"},`+
 		` "messaging": {"webhook_url": "https://hooks.slack.example/services/not-real"}}`)
 
 	err := os.Chmod(path, 0o644)
@@ -125,7 +126,7 @@ func TestDoctorFailsOnAConfigurationOthersCanRead(t *testing.T) {
 	}
 
 	// Act
-	output, err := run(t, dir, "doctor")
+	output, err := clitest.Run(t, dir, "doctor")
 
 	// Assert
 	// It says what is wrong and the one command that puts it right.
@@ -140,7 +141,7 @@ func TestDoctorReportsTheExternalTooling(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	output, _ := run(t, t.TempDir(), "doctor")
+	output, _ := clitest.Run(t, t.TempDir(), "doctor")
 
 	// Assert
 	if !strings.Contains(output, "Tooling:") {
@@ -166,10 +167,10 @@ func TestDoctorFailsWhenRequiredToolingIsMissing(t *testing.T) {
 	// Arrange
 	// An empty PATH is the only portable way to make every program unfindable,
 	// which is what proves the required/optional distinction actually bites.
-	setVariable(t, "PATH", "")
+	clitest.SetVariable(t, "PATH", "")
 
 	// Act
-	output, err := run(t, t.TempDir(), "doctor")
+	output, err := clitest.Run(t, t.TempDir(), "doctor")
 
 	// Assert
 	if err == nil {
@@ -195,10 +196,10 @@ func TestDoctorReportsAMalformedConfiguration(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	writeFile(t, dir, "{not json")
+	clitest.WriteFile(t, dir, "{not json")
 
 	// Act
-	output, err := run(t, dir, "doctor")
+	output, err := clitest.Run(t, dir, "doctor")
 
 	// Assert
 	if !errors.Is(err, config.ErrInvalid) {
@@ -222,7 +223,7 @@ func TestDoctorSaysItCannotReadTheConfiguration(t *testing.T) {
 	}
 
 	dir := t.TempDir()
-	path := writeFile(t, dir, `{}`)
+	path := clitest.WriteFile(t, dir, `{}`)
 
 	err := os.Chmod(path, 0)
 	if err != nil {
@@ -230,7 +231,7 @@ func TestDoctorSaysItCannotReadTheConfiguration(t *testing.T) {
 	}
 
 	// Act
-	output, err := run(t, dir, "doctor")
+	output, err := clitest.Run(t, dir, "doctor")
 
 	// Assert
 	if got := fieldValue(output, "Configuration"); !strings.Contains(got, "cannot be read") {
@@ -252,11 +253,11 @@ func TestDoctorAcceptsAWebhookWithoutAChannel(t *testing.T) {
 
 	const webhook = "https://hooks.slack.com/services/T00000000/B00000000/supersecretpayload"
 
-	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"},`+
+	clitest.WriteFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"},`+
 		` "messaging": {"webhook_url": "`+webhook+`"}}`)
 
 	// Act
-	output, err := run(t, dir, "doctor")
+	output, err := clitest.Run(t, dir, "doctor")
 	if err != nil {
 		t.Fatalf("doctor rejected a webhook-only configuration: %v (%s)", err, output)
 	}
@@ -284,11 +285,11 @@ func TestDoctorDoesNotTouchTheNetworkWithoutTheFlag(t *testing.T) {
 	var reached atomic.Bool
 
 	dir := t.TempDir()
-	server := jiraServer(t, http.StatusOK, jiraFixture, &reached)
-	writeConfigFor(t, dir, server.URL)
+	server := clitest.JiraServer(t, http.StatusOK, clitest.JiraFixture, &reached)
+	clitest.WriteConfigFor(t, dir, server.URL)
 
 	// Act
-	output, err := run(t, dir, "doctor")
+	output, err := clitest.Run(t, dir, "doctor")
 	if err != nil {
 		t.Fatalf("doctor: %v (%s)", err, output)
 	}
@@ -314,10 +315,10 @@ func TestDoctorReportsSetButInvalidValues(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	writeFile(t, dir, invalidValuesConfig)
+	clitest.WriteFile(t, dir, invalidValuesConfig)
 
 	// Act
-	out, err := run(t, dir, "doctor")
+	out, err := clitest.Run(t, dir, "doctor")
 
 	// Assert
 	if err == nil {

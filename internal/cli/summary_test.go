@@ -19,6 +19,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
@@ -110,11 +111,13 @@ func TestSummaryReadsYourCommitsInThePeriod(t *testing.T) {
 	repo := workedRepository(t, "Add the widget")
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay)
+	printed, err := clitest.RunStreams(
+		t, repo, clitest.UnusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay,
+	)
 
 	// Assert
-	if !strings.Contains(printed.stdout, "# "+summaryDay) || !strings.Contains(printed.stdout, "Add the widget") {
-		t.Errorf("summary = %v and printed:\n%s\nwant the period's commit", err, printed.stdout)
+	if !strings.Contains(printed.Stdout, "# "+summaryDay) || !strings.Contains(printed.Stdout, "Add the widget") {
+		t.Errorf("summary = %v and printed:\n%s\nwant the period's commit", err, printed.Stdout)
 	}
 }
 
@@ -127,14 +130,16 @@ func TestSummaryAsJSONIsWhatTheWebAnswersForThePeriod(t *testing.T) {
 	web := webActivity(t, repo, query)
 
 	// Act
-	printed, _ := runStreams(t, repo, unusedPrompt(t), "summary", "--from", summaryDay, "--to", "2026-10-02", asJSON)
+	printed, _ := clitest.RunStreams(
+		t, repo, clitest.UnusedPrompt(t), "summary", "--from", summaryDay, "--to", "2026-10-02", asJSON,
+	)
 
 	// Assert
 	var got api.Activity
 
-	err := json.Unmarshal([]byte(printed.stdout), &got)
+	err := json.Unmarshal([]byte(printed.Stdout), &got)
 	if err != nil {
-		t.Fatalf("summary --json printed what is not JSON: %v\n%s", err, printed.stdout)
+		t.Fatalf("summary --json printed what is not JSON: %v\n%s", err, printed.Stdout)
 	}
 
 	if !reflect.DeepEqual(got, web) || !strings.Contains(got.Text, "Add the widget") {
@@ -192,7 +197,7 @@ func TestSummaryRefusesAPeriodItCannotRead(t *testing.T) {
 	repo := workedRepository(t, "Add the widget")
 
 	// Act
-	_, err := run(t, repo, "summary", "--from", "yesterday")
+	_, err := clitest.Run(t, repo, "summary", "--from", "yesterday")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "YYYY-MM-DD") {
@@ -219,7 +224,7 @@ func TestSummaryRefusesFlagsThatDoNotGoTogether(t *testing.T) {
 			repo := workedRepository(t, "Add the widget")
 
 			// Act
-			_, err := run(t, repo, args...)
+			_, err := clitest.Run(t, repo, args...)
 
 			// Assert
 			if err == nil || !strings.Contains(err.Error(), "--post") {
@@ -237,10 +242,10 @@ func TestSummaryPostYesPostsTheTextRenderedForTheService(t *testing.T) {
 	// Arrange
 	hook := newCapturingWebhook(t)
 	repo := workedRepository(t, "Add the widget")
-	writeFile(t, repo, `{"messaging":{"webhook_url":"`+hook.url+`"}}`)
+	clitest.WriteFile(t, repo, `{"messaging":{"webhook_url":"`+hook.url+`"}}`)
 
 	// Act
-	printed, _ := runStreams(t, repo, unusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay,
+	printed, _ := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay,
 		"--post", "--yes")
 
 	// Assert
@@ -250,9 +255,9 @@ func TestSummaryPostYesPostsTheTextRenderedForTheService(t *testing.T) {
 		t.Errorf("summary --post --yes posted %q, want the summary once, its headings Slack's bold lines", posts)
 	}
 
-	if !strings.Contains(printed.stderr, "Posted to the channel its webhook is bound to.") {
+	if !strings.Contains(printed.Stderr, "Posted to the channel its webhook is bound to.") {
 		t.Errorf("summary --post --yes said:\nstdout:\n%s\nstderr:\n%s\nwant that it was posted",
-			printed.stdout, printed.stderr)
+			printed.Stdout, printed.Stderr)
 	}
 }
 
@@ -262,17 +267,17 @@ func TestSummaryPostPrintsOnlyTheSummaryOnStdout(t *testing.T) {
 	// Arrange
 	hook := newCapturingWebhook(t)
 	repo := workedRepository(t, "Add the widget")
-	writeFile(t, repo, `{"messaging":{"webhook_url":"`+hook.url+`"}}`)
-	read, _ := runStreams(t, repo, unusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay)
+	clitest.WriteFile(t, repo, `{"messaging":{"webhook_url":"`+hook.url+`"}}`)
+	read, _ := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay)
 
 	// Act
-	printed, _ := runStreams(t, repo, unusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay,
+	printed, _ := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay,
 		"--post", "--yes")
 
 	// Assert
-	if printed.stdout != read.stdout || !strings.Contains(printed.stderr, "to the channel its webhook is bound to") {
+	if printed.Stdout != read.Stdout || !strings.Contains(printed.Stderr, "to the channel its webhook is bound to") {
 		t.Errorf("summary --post --yes printed:\nstdout:\n%s\nstderr:\n%s\nwant the summary alone on stdout, "+
-			"as without --post:\n%s", printed.stdout, printed.stderr, read.stdout)
+			"as without --post:\n%s", printed.Stdout, printed.Stderr, read.Stdout)
 	}
 }
 
@@ -282,17 +287,19 @@ func TestSummaryPostRefusesASummaryTooLongForTheServiceBeforeAsking(t *testing.T
 	// Arrange
 	hook := newCapturingWebhook(t)
 	repo := workedRepository(t, strings.Repeat("x", 2100))
-	writeFile(t, repo, `{"messaging":{"kind":"discord","webhook_url":"`+hook.url+`"}}`)
+	clitest.WriteFile(t, repo, `{"messaging":{"kind":"discord","webhook_url":"`+hook.url+`"}}`)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay, "--post")
+	printed, err := clitest.RunStreams(
+		t, repo, clitest.UnusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay, "--post",
+	)
 
 	// Assert
 	if posts := hook.posted(); len(posts) != 0 || err == nil ||
 		!strings.Contains(err.Error(), "too long for Discord (") ||
 		!strings.Contains(err.Error(), " of 2000 characters); pick a shorter period") {
 		t.Errorf("summary --post = %v after %d posts, said:\n%s\nwant it refused, naming the length, nothing posted",
-			err, len(posts), printed.stderr)
+			err, len(posts), printed.Stderr)
 	}
 
 	wantExit(t, err, 4)
@@ -304,16 +311,16 @@ func TestSummaryPostSaysHowLongItIsAgainstTheServicesLimit(t *testing.T) {
 	// Arrange
 	hook := newCapturingWebhook(t)
 	repo := workedRepository(t, "Add the widget")
-	writeFile(t, repo, `{"messaging":{"kind":"discord","webhook_url":"`+hook.url+`"}}`)
+	clitest.WriteFile(t, repo, `{"messaging":{"kind":"discord","webhook_url":"`+hook.url+`"}}`)
 
 	// Act
-	printed, _ := runStreams(t, repo, unusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay,
+	printed, _ := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay,
 		"--post", "--dry-run")
 
 	// Assert
-	if !strings.Contains(printed.stderr, " of 2000 characters") {
+	if !strings.Contains(printed.Stderr, " of 2000 characters") {
 		t.Errorf("summary --post --dry-run said:\n%s\nwant the length against Discord's 2000 characters",
-			printed.stderr)
+			printed.Stderr)
 	}
 }
 
@@ -323,16 +330,16 @@ func TestSummaryPostDryRunPostsNothing(t *testing.T) {
 	// Arrange
 	hook := newCapturingWebhook(t)
 	repo := workedRepository(t, "Add the widget")
-	writeFile(t, repo, `{"messaging":{"webhook_url":"`+hook.url+`"}}`)
+	clitest.WriteFile(t, repo, `{"messaging":{"webhook_url":"`+hook.url+`"}}`)
 
 	// Act
-	printed, _ := runStreams(t, repo, unusedPrompt(t), "summary", "--post", "--yes", "--dry-run")
+	printed, _ := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "summary", "--post", "--yes", "--dry-run")
 
 	// Assert
 	if posts := hook.posted(); len(posts) != 0 ||
-		!strings.Contains(printed.stderr, "dry run: would post to the channel its webhook is bound to") {
+		!strings.Contains(printed.Stderr, "dry run: would post to the channel its webhook is bound to") {
 		t.Errorf("summary --post --yes --dry-run posted %q and said:\n%s\nwant nothing posted, and what would be",
-			posts, printed.stderr)
+			posts, printed.Stderr)
 	}
 }
 
@@ -342,15 +349,15 @@ func TestSummaryPostIsNotPostedWhenDeclined(t *testing.T) {
 	// Arrange
 	hook := newCapturingWebhook(t)
 	repo := workedRepository(t, "Add the widget")
-	writeFile(t, repo, `{"messaging":{"kind":"teams","webhook_url":"`+hook.url+`"}}`)
+	clitest.WriteFile(t, repo, `{"messaging":{"kind":"teams","webhook_url":"`+hook.url+`"}}`)
 
 	// Act
-	printed, _ := runStreams(t, repo, scripted([]string{"n"}, nil), "summary", "--post")
+	printed, _ := clitest.RunStreams(t, repo, scripted([]string{"n"}, nil), "summary", "--post")
 
 	// Assert
-	if posts := hook.posted(); len(posts) != 0 || !strings.Contains(printed.stderr, "Not posted.") {
+	if posts := hook.posted(); len(posts) != 0 || !strings.Contains(printed.Stderr, "Not posted.") {
 		t.Errorf("a declined summary --post posted %q and said:\n%s\nwant nothing posted, and that it was not",
-			posts, printed.stderr)
+			posts, printed.Stderr)
 	}
 }
 
@@ -361,7 +368,7 @@ func TestSummaryPostWithoutMessagingSaysHowToSetItUp(t *testing.T) {
 	repo := workedRepository(t, "Add the widget")
 
 	// Act
-	_, err := run(t, repo, "summary", "--post", "--yes")
+	_, err := clitest.Run(t, repo, "summary", "--post", "--yes")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "no messaging transport is configured") {
@@ -375,17 +382,19 @@ func TestSummaryNamesASourceItCouldNotReadAfterPrintingTheRest(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	jira := jiraServer(t, http.StatusUnauthorized, `{}`, new(atomic.Bool))
+	jira := clitest.JiraServer(t, http.StatusUnauthorized, `{}`, new(atomic.Bool))
 	repo := workedRepository(t, "Add the widget")
-	writeFile(t, repo, `{"jira":{"base_url":"`+jira.URL+`","token":"t"}}`)
+	clitest.WriteFile(t, repo, `{"jira":{"base_url":"`+jira.URL+`","token":"t"}}`)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay)
+	printed, err := clitest.RunStreams(
+		t, repo, clitest.UnusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay,
+	)
 
 	// Assert
-	if !strings.Contains(printed.stdout, "Add the widget") || err == nil ||
+	if !strings.Contains(printed.Stdout, "Add the widget") || err == nil ||
 		!strings.Contains(err.Error(), "Jira could not be read") {
-		t.Errorf("summary = %v, printing:\n%s\nwant the commit printed, then Jira named as unread", err, printed.stdout)
+		t.Errorf("summary = %v, printing:\n%s\nwant the commit printed, then Jira named as unread", err, printed.Stdout)
 	}
 
 	wantExit(t, err, 3)
@@ -398,11 +407,11 @@ func TestSummaryNeutralizesWhatASourceSaysBeforeTheTerminal(t *testing.T) {
 	repo := workedRepository(t, "Fix \x1b]0;owned\x07 the title")
 
 	// Act
-	printed, _ := runStreams(t, repo, unusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay)
+	printed, _ := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "summary", "--from", summaryDay, "--to", summaryDay)
 
 	// Assert
-	if strings.ContainsRune(printed.stdout, '\x1b') || strings.ContainsRune(printed.stdout, '\x07') {
-		t.Errorf("summary printed a terminal control from a commit subject:\n%q", printed.stdout)
+	if strings.ContainsRune(printed.Stdout, '\x1b') || strings.ContainsRune(printed.Stdout, '\x07') {
+		t.Errorf("summary printed a terminal control from a commit subject:\n%q", printed.Stdout)
 	}
 }
 
@@ -410,7 +419,7 @@ func TestStandupIsNoLongerACommand(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	_, err := run(t, t.TempDir(), "standup")
+	_, err := clitest.Run(t, t.TempDir(), "standup")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), `unknown command "standup"`) {
@@ -426,10 +435,10 @@ func TestSummaryPostReportsAFailedPostByItsService(t *testing.T) {
 	// Arrange
 	// The webhook cannot be reached, so the confirmed post fails.
 	repo := workedRepository(t, "Add the widget")
-	writeFile(t, repo, `{"messaging":{"kind":"teams","webhook_url":"https://hooks.teams.example/services/x"}}`)
+	clitest.WriteFile(t, repo, `{"messaging":{"kind":"teams","webhook_url":"https://hooks.teams.example/services/x"}}`)
 
 	// Act
-	_, err := runGuided(t, repo, scripted([]string{"y"}, nil), "summary", "--post")
+	_, err := clitest.RunGuided(t, repo, scripted([]string{"y"}, nil), "summary", "--post")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "posting to Teams") {
@@ -443,10 +452,10 @@ func TestSummaryPostStopsAtTheQuestionWhenNothingCanAnswer(t *testing.T) {
 	// Arrange
 	hook := newCapturingWebhook(t)
 	repo := workedRepository(t, "Add the widget")
-	writeFile(t, repo, `{"messaging":{"webhook_url":"`+hook.url+`"}}`)
+	clitest.WriteFile(t, repo, `{"messaging":{"webhook_url":"`+hook.url+`"}}`)
 
 	// Act
-	_, err := runStreams(t, repo, cli.Prompt{Line: answersThenEnds()}, "summary", "--post")
+	_, err := clitest.RunStreams(t, repo, cli.Prompt{Line: answersThenEnds()}, "summary", "--post")
 
 	// Assert
 	if posts := hook.posted(); err == nil || !strings.Contains(err.Error(), "pass --yes") || len(posts) != 0 {

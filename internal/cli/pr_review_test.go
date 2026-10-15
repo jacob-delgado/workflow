@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 // statusInReview is the review status these tests configure `pr` to offer.
@@ -166,7 +167,7 @@ func reviewRepoAnswering(t *testing.T, transitions string, answers jiraAnswers) 
 	baseURL, writes := reviewJiraAnswering(t, transitions, answers)
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	pretendPushed(t, repo)
-	writeFile(t, repo, `{"jira":{"base_url":"`+baseURL+`","token":"t","review_status":"`+statusInReview+`"},`+
+	clitest.WriteFile(t, repo, `{"jira":{"base_url":"`+baseURL+`","token":"t","review_status":"`+statusInReview+`"},`+
 		`"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	return repo, writes
@@ -179,7 +180,7 @@ func TestPRLinksThePullOnTheIssue(t *testing.T) {
 	repo, writes := reviewRepo(t, reviewMoves)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--yes")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr --yes: %v (%+v)", err, printed)
@@ -199,8 +200,8 @@ func TestPRLinksThePullOnTheIssue(t *testing.T) {
 		t.Errorf("Jira was written %q, want the link and then the move", kinds)
 	}
 
-	if !strings.Contains(printed.stderr, "Linked #7 on PROJ-2.\n") {
-		t.Errorf("pr does not say it linked the pull request:\nstderr:\n%s", printed.stderr)
+	if !strings.Contains(printed.Stderr, "Linked #7 on PROJ-2.\n") {
+		t.Errorf("pr does not say it linked the pull request:\nstderr:\n%s", printed.Stderr)
 	}
 }
 
@@ -212,7 +213,7 @@ func TestPRReportsAFailedLinkAndStillMovesTheIssue(t *testing.T) {
 		jiraAnswers{link: http.StatusInternalServerError, transition: http.StatusNoContent})
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--yes")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes")
 
 	// Assert
 	wantExit(t, err, 1)
@@ -222,10 +223,10 @@ func TestPRReportsAFailedLinkAndStillMovesTheIssue(t *testing.T) {
 	}
 
 	// The link failing is said as it happens, and the status move is still made.
-	if !strings.Contains(printed.stderr, "WARN Could not link #7 on PROJ-2") ||
-		!strings.Contains(printed.stderr, "Moved PROJ-2 to "+statusInReview+".\n") || writes.applied() != 1 {
+	if !strings.Contains(printed.Stderr, "WARN Could not link #7 on PROJ-2") ||
+		!strings.Contains(printed.Stderr, "Moved PROJ-2 to "+statusInReview+".\n") || writes.applied() != 1 {
 		t.Errorf("pr did not say the link failed and still move the issue (%d moves):\nstderr:\n%s",
-			writes.applied(), printed.stderr)
+			writes.applied(), printed.Stderr)
 	}
 }
 
@@ -238,7 +239,7 @@ func TestPRAsksToLinkThenToMove(t *testing.T) {
 	var asked []string
 
 	// Act
-	printed, err := runStreams(t, repo, answering("y", &asked), "pr")
+	printed, err := clitest.RunStreams(t, repo, answering("y", &asked), "pr")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr: %v (%+v)", err, printed)
@@ -259,14 +260,14 @@ func TestPRLeavesTheIssueUnlinkedWhenDeclined(t *testing.T) {
 
 	// Act
 	// Yes to opening the pull request, no to linking it, yes to the move.
-	printed, err := runStreams(t, repo, scripted([]string{"y", "n", "y"}, nil), "pr")
+	printed, err := clitest.RunStreams(t, repo, scripted([]string{"y", "n", "y"}, nil), "pr")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr: %v (%+v)", err, printed)
 	}
 
-	if links := writes.of(writeLink); len(links) != 0 || !strings.Contains(printed.stderr, "Left PROJ-2 unlinked.") {
-		t.Errorf("a declined link still sent %+v, or was not said:\nstderr:\n%s", links, printed.stderr)
+	if links := writes.of(writeLink); len(links) != 0 || !strings.Contains(printed.Stderr, "Left PROJ-2 unlinked.") {
+		t.Errorf("a declined link still sent %+v, or was not said:\nstderr:\n%s", links, printed.Stderr)
 	}
 
 	if writes.applied() != 1 {
@@ -294,7 +295,7 @@ func TestPRStopsAtTheLinkWhenNothingCanAnswer(t *testing.T) {
 	}}
 
 	// Act
-	_, err := runStreams(t, repo, ending, "pr")
+	_, err := clitest.RunStreams(t, repo, ending, "pr")
 
 	// Assert
 	wantExit(t, err, 2)
@@ -315,11 +316,11 @@ func TestPRLinksNothingForABranchWithoutAnIssue(t *testing.T) {
 	baseURL, writes := reviewJira(t)
 	repo := githubRepo(t, "chore/cleanup")
 	pretendPushed(t, repo)
-	writeFile(t, repo, `{"jira":{"base_url":"`+baseURL+`","token":"t","review_status":"`+statusInReview+`"},`+
+	clitest.WriteFile(t, repo, `{"jira":{"base_url":"`+baseURL+`","token":"t","review_status":"`+statusInReview+`"},`+
 		`"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--yes")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr --yes: %v (%+v)", err, printed)
@@ -340,11 +341,11 @@ func TestPRDoesNotLinkAForgeIssueNumberOnJira(t *testing.T) {
 	baseURL, writes := reviewJira(t)
 	repo := githubRepo(t, "fix/42-typo")
 	pretendPushed(t, repo)
-	writeFile(t, repo, `{"jira":{"base_url":"`+baseURL+`","token":"t"},`+
+	clitest.WriteFile(t, repo, `{"jira":{"base_url":"`+baseURL+`","token":"t"},`+
 		`"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--yes")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr --yes: %v (%+v)", err, printed)
@@ -359,16 +360,16 @@ func TestPRYesHelpNamesEverythingItAnswers(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), "pr", "--help")
+	printed, err := clitest.RunStreams(t, t.TempDir(), clitest.UnusedPrompt(t), "pr", "--help")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr --help: %v", err)
 	}
 
-	help := strings.Join(strings.Fields(printed.stdout), " ")
+	help := strings.Join(strings.Fields(printed.Stdout), " ")
 	for _, answered := range []string{"push the branch", "link it on the issue", "review status"} {
 		if !strings.Contains(help, answered) {
-			t.Errorf("pr's help does not say --yes answers %q:\n%s", answered, printed.stdout)
+			t.Errorf("pr's help does not say --yes answers %q:\n%s", answered, printed.Stdout)
 		}
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 // missingTaskwarrior is a configuration naming a task program that does not
@@ -24,15 +25,15 @@ func TestSummaryLeavesOutASourceThatIsNotSetUp(t *testing.T) {
 	// Arrange
 	// No origin names a forge, and no Taskwarrior is installed.
 	repo := workedRepository(t, "Add the widget")
-	writeFile(t, repo, `{`+missingTaskwarrior+`}`)
+	clitest.WriteFile(t, repo, `{`+missingTaskwarrior+`}`)
 
 	// Act
-	printed, err := runStreamsAt(t, place{dir: repo, home: repo}, unusedPrompt(t),
+	printed, err := clitest.RunStreamsAt(t, clitest.Place{Dir: repo, Home: repo}, clitest.UnusedPrompt(t),
 		"summary", "--from", summaryDay, "--to", summaryDay)
 
 	// Assert
-	if err != nil || !strings.Contains(printed.stdout, "Add the widget") {
-		t.Errorf("summary = %v, printing:\n%s\nwant the commit printed and success", err, printed.stdout)
+	if err != nil || !strings.Contains(printed.Stdout, "Add the widget") {
+		t.Errorf("summary = %v, printing:\n%s\nwant the commit printed and success", err, printed.Stdout)
 	}
 
 	for _, want := range []string{
@@ -40,13 +41,13 @@ func TestSummaryLeavesOutASourceThatIsNotSetUp(t *testing.T) {
 			"else origin), or a branch's push remote, does not name a repository on a forge",
 		"Taskwarrior is not set up, so it was left out: Taskwarrior is not installed",
 	} {
-		if !strings.Contains(printed.stderr, want) {
-			t.Errorf("stderr = %q, want a note %q", printed.stderr, want)
+		if !strings.Contains(printed.Stderr, want) {
+			t.Errorf("stderr = %q, want a note %q", printed.Stderr, want)
 		}
 	}
 
-	if strings.Contains(printed.stdout+printed.stderr, "could not be read") {
-		t.Errorf("summary said a source could not be read:\n%s\n%s", printed.stdout, printed.stderr)
+	if strings.Contains(printed.Stdout+printed.Stderr, "could not be read") {
+		t.Errorf("summary said a source could not be read:\n%s\n%s", printed.Stdout, printed.Stderr)
 	}
 }
 
@@ -57,16 +58,16 @@ func TestSummaryFailsWhenAConfiguredForgeRefuses(t *testing.T) {
 	fakeGh(t, ghResponses{search: "{", userError: true})
 	repo := workedRepository(t, "Add the widget")
 	git(t, repo, "remote", "add", "origin", "https://github.com/owner/repo.git")
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+missingTaskwarrior+`}`)
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+missingTaskwarrior+`}`)
 
 	// Act
-	printed, err := runStreamsAt(t, place{dir: repo, home: repo}, unusedPrompt(t),
+	printed, err := clitest.RunStreamsAt(t, clitest.Place{Dir: repo, Home: repo}, clitest.UnusedPrompt(t),
 		"summary", "--from", summaryDay, "--to", summaryDay)
 
 	// Assert
-	if !strings.Contains(printed.stdout, "Add the widget") || err == nil ||
+	if !strings.Contains(printed.Stdout, "Add the widget") || err == nil ||
 		!strings.Contains(err.Error(), "The forge could not be read") {
-		t.Errorf("summary = %v, printing:\n%s\nwant the commit printed, then the forge named as unread", err, printed.stdout)
+		t.Errorf("summary = %v, printing:\n%s\nwant the commit printed, then the forge named as unread", err, printed.Stdout)
 	}
 }
 
@@ -74,20 +75,20 @@ func TestSummaryAsJSONMarksASourceNotSetUpApartFromOneThatFailed(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	jira := jiraServer(t, http.StatusUnauthorized, `{}`, new(atomic.Bool))
+	jira := clitest.JiraServer(t, http.StatusUnauthorized, `{}`, new(atomic.Bool))
 	repo := workedRepository(t, "Add the widget")
-	writeFile(t, repo, `{"jira":{"base_url":"`+jira.URL+`","token":"t"},`+missingTaskwarrior+`}`)
+	clitest.WriteFile(t, repo, `{"jira":{"base_url":"`+jira.URL+`","token":"t"},`+missingTaskwarrior+`}`)
 
 	// Act
-	printed, _ := runStreamsAt(t, place{dir: repo, home: repo}, unusedPrompt(t),
+	printed, _ := clitest.RunStreamsAt(t, clitest.Place{Dir: repo, Home: repo}, clitest.UnusedPrompt(t),
 		"summary", "--from", summaryDay, "--to", summaryDay, asJSON)
 
 	// Assert
 	var got api.Activity
 
-	err := json.Unmarshal([]byte(printed.stdout), &got)
+	err := json.Unmarshal([]byte(printed.Stdout), &got)
 	if err != nil {
-		t.Fatalf("summary --json printed what is not JSON: %v\n%s", err, printed.stdout)
+		t.Fatalf("summary --json printed what is not JSON: %v\n%s", err, printed.Stdout)
 	}
 
 	states := map[api.ActivitySourceName]api.ActivitySourceState{}

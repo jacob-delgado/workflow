@@ -82,20 +82,27 @@ for a client's unreachable service, `servicesUnreachable` in
   stderr and the exit status the contract promises; watch it fail, then make
   the change. Tests are black-box, in `package cli_test`, marked
   `// Arrange`, `// Act`, `// Assert` as the root asks.
-- **The runners** (`cli_test.go`): `run(t, dir, args...)` executes in `dir`
-  with an empty home of its own and none of the developer's environment, and
-  returns everything printed; `runStreams` keeps stdout and stderr apart, for
-  a test that says which stream a line is on; `runAtHome` makes `dir` the home
-  too; `runGuided` answers prompts through `scripted`. `unusedPrompt` fails a
-  test whose command reads a prompt it was not meant to.
+- **The runners** (`internal/cli/clitest`, which only tests import):
+  `clitest.Run(t, dir, args...)` executes in `dir` with an empty home of its
+  own and none of the developer's environment, and returns everything
+  printed; `clitest.RunStreams` keeps stdout and stderr apart, for a test
+  that says which stream a line is on; `runAtHome` (`cli_test.go`) makes
+  `dir` the home too; `clitest.RunGuided` answers prompts through `scripted`
+  (`cli_test.go`). `clitest.UnusedPrompt` fails a test whose command reads a
+  prompt it was not meant to. What a run sees of the outside world is its
+  test's own (`clitest.ProgramsOf`, `clitest.SetVariable`). A fixture the
+  tests of more than one package of the tree need lives there; one only this
+  package's tests need stays in its own `_test.go` files.
 - **Fakes for the services**: `forgefake_test.go` (a fake `gh` and its pull
   requests), `trackerfake_test.go` and `slackfake_test.go` stand in for the
-  forge, Jira and Slack; `runRoot` (`root_test.go`) runs the root command
-  over a stand-in interface and web server.
+  forge, Jira and Slack, and `clitest.WorkingJira` is a Jira that accepts
+  the credential; `runRoot` (`root_test.go`) runs the root command over a
+  stand-in interface and web server.
 - **`TestMain` (`main_test.go`) clears git's repository variables** before
   any test runs (`gittest.ClearLocalVariables`), so a hook's `GIT_DIR` never
-  sends a test's git at the developer's repository; it also keeps every
-  program a test starts out of the developer's home and git configuration.
+  sends a test's git at the developer's repository; it then runs the tests
+  through `clitest.Main`, which keeps every program a test starts out of the
+  developer's home and git configuration and every task program off PATH.
   `TestTheTestsLeaveTheRepositoryAHookNamesAlone` proves the scrub; a new
   package whose tests run git needs the same (CONTRIBUTING.md, *Tests*).
 - **A terminal** is a pseudo-terminal from `internal/ptytest`, as

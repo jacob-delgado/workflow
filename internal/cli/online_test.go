@@ -12,45 +12,9 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
-
-// jiraFixture is the body Jira Data Center returns for /rest/api/2/myself.
-const jiraFixture = `{"key":"JIRAUSER10100","name":"fred","displayName":"Fred F. User","active":true}`
-
-// slackWebhook is a webhook configuration doctor accepts and never posts to.
-const slackWebhook = `"messaging": {"webhook_url": "https://hooks.slack.example/services/not-real"}`
-
-// writeConfigFor writes a configuration pointing Jira at baseURL.
-func writeConfigFor(t *testing.T, dir, baseURL string) {
-	t.Helper()
-
-	writeFile(t, dir, `{"jira": {"base_url": "`+baseURL+`", "token": "jira-token-for-tests"}, `+slackWebhook+`}`)
-}
-
-// jiraServer answers one myself request with status and body, recording whether
-// it was reached at all. The flag is atomic because `task test` runs -race and
-// the handler runs on its own goroutine.
-func jiraServer(t *testing.T, status int, body string, reached *atomic.Bool) *httptest.Server {
-	t.Helper()
-
-	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
-		reached.Store(true)
-		writer.Header().Set("Content-Type", "application/json")
-		writer.WriteHeader(status)
-		_, _ = writer.Write([]byte(body))
-	}))
-	t.Cleanup(server.Close)
-
-	return server
-}
-
-// workingJira is a local Jira that accepts the credential, so an online check
-// never reaches a real host.
-func workingJira(t *testing.T) string {
-	t.Helper()
-
-	return jiraServer(t, http.StatusOK, jiraFixture, new(atomic.Bool)).URL
-}
 
 func TestDoctorOnlineReportsTheJiraUser(t *testing.T) {
 	t.Parallel()
@@ -59,11 +23,11 @@ func TestDoctorOnlineReportsTheJiraUser(t *testing.T) {
 	var reached atomic.Bool
 
 	dir := t.TempDir()
-	server := jiraServer(t, http.StatusOK, jiraFixture, &reached)
-	writeConfigFor(t, dir, server.URL)
+	server := clitest.JiraServer(t, http.StatusOK, clitest.JiraFixture, &reached)
+	clitest.WriteConfigFor(t, dir, server.URL)
 
 	// Act
-	output, err := run(t, dir, "doctor", "--online")
+	output, err := clitest.Run(t, dir, "doctor", "--online")
 
 	// Assert
 	if err != nil || !reached.Load() {
@@ -86,10 +50,12 @@ func TestDoctorOnlineNamesATokenSourceWithoutShowingIt(t *testing.T) {
 	var reached atomic.Bool
 
 	dir := t.TempDir()
-	server := jiraServer(t, http.StatusOK, jiraFixture, &reached)
+	server := clitest.JiraServer(t, http.StatusOK, clitest.JiraFixture, &reached)
 
 	const secret = "secret-from-the-command-1234"
-	writeFile(t, dir, `{"jira": {"base_url": "`+server.URL+`", "token_command": "echo `+secret+`"}, `+slackWebhook+`}`)
+	clitest.WriteFile(
+		t, dir, `{"jira": {"base_url": "`+server.URL+`", "token_command": "echo `+secret+`"}, `+clitest.SlackWebhook+`}`,
+	)
 
 	// Act
 	output, err := runAtHome(t, dir, "doctor", "--online")
@@ -115,8 +81,8 @@ func TestDoctorOnlineSaysTheKeychainGaveNoTokenWithoutAskingJira(t *testing.T) {
 	var reached atomic.Bool
 
 	dir := t.TempDir()
-	server := jiraServer(t, http.StatusOK, jiraFixture, &reached)
-	writeFile(t, dir, `{"jira": {"base_url": "`+server.URL+`", "keychain": true}, `+slackWebhook+`}`)
+	server := clitest.JiraServer(t, http.StatusOK, clitest.JiraFixture, &reached)
+	clitest.WriteFile(t, dir, `{"jira": {"base_url": "`+server.URL+`", "keychain": true}, `+clitest.SlackWebhook+`}`)
 
 	// Act
 	output, err := runAtHome(t, dir, "doctor", "--online")
@@ -139,11 +105,11 @@ func TestDoctorOnlineFailsOnARejectedCredential(t *testing.T) {
 	var reached atomic.Bool
 
 	dir := t.TempDir()
-	server := jiraServer(t, http.StatusUnauthorized, "<html>login</html>", &reached)
-	writeConfigFor(t, dir, server.URL)
+	server := clitest.JiraServer(t, http.StatusUnauthorized, "<html>login</html>", &reached)
+	clitest.WriteConfigFor(t, dir, server.URL)
 
 	// Act
-	output, err := run(t, dir, "doctor", "--online")
+	output, err := clitest.Run(t, dir, "doctor", "--online")
 
 	// Assert
 	if err == nil || !reached.Load() {
@@ -169,11 +135,11 @@ func TestDoctorOnlineFallsBackToTheLoginName(t *testing.T) {
 
 	dir := t.TempDir()
 	// An instance can be configured to withhold display names.
-	server := jiraServer(t, http.StatusOK, `{"name":"fred","active":true}`, &reached)
-	writeConfigFor(t, dir, server.URL)
+	server := clitest.JiraServer(t, http.StatusOK, `{"name":"fred","active":true}`, &reached)
+	clitest.WriteConfigFor(t, dir, server.URL)
 
 	// Act
-	output, err := run(t, dir, "doctor", "--online")
+	output, err := clitest.Run(t, dir, "doctor", "--online")
 
 	// Assert
 	if err != nil || !reached.Load() || !strings.Contains(output, "authenticates as fred (token from") {
@@ -208,11 +174,11 @@ func TestDoctorOnlineSaysAWebhookCannotBeChecked(t *testing.T) {
 			var reached atomic.Bool
 
 			dir := t.TempDir()
-			server := jiraServer(t, http.StatusOK, jiraFixture, &reached)
-			writeConfigFor(t, dir, server.URL)
+			server := clitest.JiraServer(t, http.StatusOK, clitest.JiraFixture, &reached)
+			clitest.WriteConfigFor(t, dir, server.URL)
 
 			// Act
-			output, err := run(t, dir, strings.Fields(tt.command)...)
+			output, err := clitest.Run(t, dir, strings.Fields(tt.command)...)
 
 			// Assert
 			if err != nil || !reached.Load() {
@@ -233,11 +199,11 @@ func TestDoctorOnlineFailsWhenSlackIsNotConfigured(t *testing.T) {
 	var reached atomic.Bool
 
 	dir := t.TempDir()
-	server := jiraServer(t, http.StatusOK, jiraFixture, &reached)
-	writeFile(t, dir, `{"jira": {"base_url": "`+server.URL+`", "token": "jira-token-for-tests"}}`)
+	server := clitest.JiraServer(t, http.StatusOK, clitest.JiraFixture, &reached)
+	clitest.WriteFile(t, dir, `{"jira": {"base_url": "`+server.URL+`", "token": "jira-token-for-tests"}}`)
 
 	// Act
-	output, err := run(t, dir, "doctor", "--online")
+	output, err := clitest.Run(t, dir, "doctor", "--online")
 
 	// Assert
 	if err == nil {
@@ -262,12 +228,12 @@ func pathWithOnlyGit(t *testing.T) {
 		t.Fatalf("these tests need git: %v", err)
 	}
 
-	err = os.Symlink(gitPath, filepath.Join(programsOf(t), "git"))
+	err = os.Symlink(gitPath, filepath.Join(clitest.ProgramsOf(t), "git"))
 	if err != nil {
 		t.Fatalf("linking git: %v", err)
 	}
 
-	setVariable(t, "PATH", programsOf(t))
+	clitest.SetVariable(t, "PATH", clitest.ProgramsOf(t))
 }
 
 // unreachableForge is a remote on a host under .invalid, which RFC 6761 reserves
@@ -287,7 +253,8 @@ func repoWithConfig(t *testing.T, forgeToken string) string {
 	t.Helper()
 
 	dir := repoWithRemote(t, unreachableForge)
-	writeFile(t, dir, `{"jira": {"base_url": "`+workingJira(t)+`", "token": "t"}, `+slackWebhook+`,`+
+	clitest.WriteFile(t, dir, `{"jira": {"base_url": "`+clitest.WorkingJira(t)+`", "token": "t"}, `+clitest.SlackWebhook+
+		`,`+
 		` "forge": {"kind": "github", "host": "`+unreachableHost+`", "token": "`+forgeToken+`"}}`)
 
 	return dir
@@ -297,13 +264,13 @@ func TestDoctorOnlineNamesWhereTheForgeTokenCameFrom(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	setVariable(t, "GH_ENTERPRISE_TOKEN", "forge-token-for-tests")
-	setVariable(t, "GH_HOST", unreachableHost)
+	clitest.SetVariable(t, "GH_ENTERPRISE_TOKEN", "forge-token-for-tests")
+	clitest.SetVariable(t, "GH_HOST", unreachableHost)
 
 	dir := repoWithConfig(t, "")
 
 	// Act
-	output, err := run(t, dir, "doctor", "--online")
+	output, err := clitest.Run(t, dir, "doctor", "--online")
 
 	// Assert
 	// The forge cannot be reached, so the check fails — and still says where the
@@ -323,12 +290,12 @@ func TestDoctorOnlineOffersGitHubsOwnVariableOnlyToGitHubsOwnHosts(t *testing.T)
 
 	// Arrange
 	pathWithOnlyGit(t)
-	setVariable(t, "GITHUB_TOKEN", "forge-token-for-tests")
+	clitest.SetVariable(t, "GITHUB_TOKEN", "forge-token-for-tests")
 
 	dir := repoWithConfig(t, "")
 
 	// Act
-	output, err := run(t, dir, "doctor", "--online")
+	output, err := clitest.Run(t, dir, "doctor", "--online")
 
 	// Assert
 	if err == nil || strings.Contains(output, "token from the environment") {
@@ -340,13 +307,13 @@ func TestDoctorOnlinePrefersTheEnvironmentOverTheConfiguration(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	setVariable(t, "GH_ENTERPRISE_TOKEN", "from-the-environment")
-	setVariable(t, "GH_HOST", unreachableHost)
+	clitest.SetVariable(t, "GH_ENTERPRISE_TOKEN", "from-the-environment")
+	clitest.SetVariable(t, "GH_HOST", unreachableHost)
 
 	dir := repoWithConfig(t, "from-the-file")
 
 	// Act
-	output, err := run(t, dir, "doctor", "--online")
+	output, err := clitest.Run(t, dir, "doctor", "--online")
 
 	// Assert
 	if err == nil || !strings.Contains(output, "token from the environment") {
@@ -364,7 +331,7 @@ func TestDoctorOnlineFallsBackToTheConfiguredForgeToken(t *testing.T) {
 	dir := repoWithConfig(t, "from-the-file")
 
 	// Act
-	output, err := run(t, dir, "doctor", "--online")
+	output, err := clitest.Run(t, dir, "doctor", "--online")
 
 	// Assert
 	if err == nil || !strings.Contains(output, "token from forge.token") {
@@ -381,7 +348,7 @@ func TestDoctorOnlineReportsNoForgeTokenAtAll(t *testing.T) {
 	dir := repoWithConfig(t, "")
 
 	// Act
-	output, err := run(t, dir, "doctor", "--online")
+	output, err := clitest.Run(t, dir, "doctor", "--online")
 
 	// Assert
 	if err == nil {
@@ -404,10 +371,10 @@ func TestDoctorOnlineSaysThereIsNoForgeWithoutARemote(t *testing.T) {
 
 	dir := t.TempDir()
 	gitInit(t, dir)
-	writeConfigFor(t, dir, workingJira(t))
+	clitest.WriteConfigFor(t, dir, clitest.WorkingJira(t))
 
 	// Act
-	output, err := run(t, dir, "doctor", "--online")
+	output, err := clitest.Run(t, dir, "doctor", "--online")
 
 	// Assert
 	if err != nil || !strings.Contains(output, "no repository remote") {
@@ -421,10 +388,10 @@ func TestDoctorOnlineAsksForForgeKindOnAnUnknownHost(t *testing.T) {
 	// Arrange
 
 	dir := repoWithRemote(t, unreachableForge)
-	writeConfigFor(t, dir, workingJira(t))
+	clitest.WriteConfigFor(t, dir, clitest.WorkingJira(t))
 
 	// Act
-	output, err := run(t, dir, "doctor", "--online")
+	output, err := clitest.Run(t, dir, "doctor", "--online")
 
 	// Assert
 	// A GitHub Enterprise Server and a self-managed GitLab are indistinguishable
@@ -440,11 +407,12 @@ func TestDoctorOnlineRejectsAnUnknownForgeKind(t *testing.T) {
 	// Arrange
 
 	dir := repoWithRemote(t, unreachableForge)
-	writeFile(t, dir, `{"jira": {"base_url": "`+workingJira(t)+`", "token": "t"}, `+slackWebhook+`,`+
+	clitest.WriteFile(t, dir, `{"jira": {"base_url": "`+clitest.WorkingJira(t)+`", "token": "t"}, `+clitest.SlackWebhook+
+		`,`+
 		` "forge": {"kind": "bitbucket"}}`)
 
 	// Act
-	output, err := run(t, dir, "doctor", "--online")
+	output, err := clitest.Run(t, dir, "doctor", "--online")
 
 	// Assert
 	if err == nil || !strings.Contains(output, "bitbucket") {
@@ -457,10 +425,10 @@ func TestDoctorOnlineDistinguishesAnUnreachableServiceFromARejection(t *testing.
 
 	// Arrange
 	dir := t.TempDir()
-	writeFile(t, dir, `{"jira": {"base_url": "https://jira.invalid", "token": "t"}, `+slackWebhook+`}`)
+	clitest.WriteFile(t, dir, `{"jira": {"base_url": "https://jira.invalid", "token": "t"}, `+clitest.SlackWebhook+`}`)
 
 	// Act
-	output, err := run(t, dir, "doctor", "--online")
+	output, err := clitest.Run(t, dir, "doctor", "--online")
 
 	// Assert
 	if err == nil {
@@ -488,10 +456,10 @@ func TestDoctorOnlineCountsARedirectAsUnreachable(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	dir := t.TempDir()
-	writeConfigFor(t, dir, server.URL)
+	clitest.WriteConfigFor(t, dir, server.URL)
 
 	// Act
-	output, err := run(t, dir, "doctor", "--online")
+	output, err := clitest.Run(t, dir, "doctor", "--online")
 
 	// Assert
 	if err == nil || strings.Contains(err.Error(), "a credential was rejected") ||
@@ -517,10 +485,10 @@ func TestDoctorOnlineCountsARateLimitAsUnreachable(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	dir := t.TempDir()
-	writeConfigFor(t, dir, server.URL)
+	clitest.WriteConfigFor(t, dir, server.URL)
 
 	// Act
-	output, err := run(t, dir, "doctor", "--online")
+	output, err := clitest.Run(t, dir, "doctor", "--online")
 
 	// Assert
 	if err == nil || strings.Contains(err.Error(), "a credential was rejected") ||

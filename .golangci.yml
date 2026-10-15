@@ -74,6 +74,17 @@ linters:
           deny:
             - pkg: github.com/jacob-delgado/workflow/internal/webserver/webtest
               desc: a test helper; serve the API handler over fixtures only from a _test.go file
+        # internal/cli/clitest readies the whole process for the command
+        # tree's tests — PATH, HOME, git's configuration, the roots it trusts —
+        # and imports testing, which only a test's own process should do: a
+        # production path that did would run workflow in a test's world.
+        clitest-only-in-tests:
+          files:
+            - "$all"
+            - "!$test"
+          deny:
+            - pkg: github.com/jacob-delgado/workflow/internal/cli/clitest
+              desc: a test helper; run the command line in a test's world only from a _test.go file
         # internal/loop composes the loop once for the command line, the terminal
         # and the web, so it sits below all three and above the domain packages.
         # Importing a surface back, or wiring (which imports the terminal for

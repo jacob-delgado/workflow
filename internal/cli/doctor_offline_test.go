@@ -6,6 +6,8 @@ package cli_test
 import (
 	"strings"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 func TestDoctorOfflineSaysWhatOnlineAsksAndThatAWebhookStaysUnchecked(t *testing.T) {
@@ -15,11 +17,11 @@ func TestDoctorOfflineSaysWhatOnlineAsksAndThatAWebhookStaysUnchecked(t *testing
 	// A webhook is the one messaging credential --online cannot ask about
 	// without posting, so the offline line must not promise it.
 	dir := t.TempDir()
-	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"},`+
+	clitest.WriteFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"},`+
 		` "messaging": {"webhook_url": "https://hooks.slack.example/services/not-real"}}`)
 
 	// Act
-	output, err := run(t, dir, "doctor")
+	output, err := clitest.Run(t, dir, "doctor")
 
 	// Assert
 	const want = "Credentials were not checked. Add --online to ask Jira, your forge and Slack; " +

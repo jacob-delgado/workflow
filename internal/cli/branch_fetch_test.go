@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 // loginBranch is the branch PROJ-7, a bug titled "login", is named.
@@ -49,12 +51,12 @@ func TestBranchFetchStartsFromWhatOriginHoldsNow(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo, origin := repoWithOrigin(t, server.URL)
 	latest := advanceOrigin(t, origin)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "branch", "PROJ-7", "--fetch", "--yes")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "branch", "PROJ-7", "--fetch", "--yes")
 	// Assert
 	if err != nil {
 		t.Fatalf("branch --fetch: %v (%+v)", err, printed)
@@ -71,20 +73,20 @@ func TestBranchFetchSaysItFetchesFirst(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo, _ := repoWithOrigin(t, server.URL)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "branch", "PROJ-7", "--fetch", "--dry-run")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "branch", "PROJ-7", "--fetch", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("branch --fetch --dry-run: %v (%+v)", err, printed)
 	}
 
 	const plan = "fetch origin, then create fix/PROJ-7-login from origin/main and switch to it"
-	if !strings.Contains(printed.stdout, "Start work on PROJ-7: "+plan) ||
-		!strings.Contains(printed.stderr, "dry run: would start work on PROJ-7: "+plan) {
-		t.Errorf("branch --fetch does not say it fetches first:\nstdout:\n%s\nstderr:\n%s", printed.stdout, printed.stderr)
+	if !strings.Contains(printed.Stdout, "Start work on PROJ-7: "+plan) ||
+		!strings.Contains(printed.Stderr, "dry run: would start work on PROJ-7: "+plan) {
+		t.Errorf("branch --fetch does not say it fetches first:\nstdout:\n%s\nstderr:\n%s", printed.Stdout, printed.Stderr)
 	}
 }
 
@@ -92,7 +94,7 @@ func TestBranchFetchThatFailsCreatesNothing(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo, origin := repoWithOrigin(t, server.URL)
 	before := currentBranch(t, repo)
 
@@ -102,7 +104,7 @@ func TestBranchFetchThatFailsCreatesNothing(t *testing.T) {
 	}
 
 	// Act
-	_, err = run(t, repo, "branch", "PROJ-7", "--fetch", "--yes")
+	_, err = clitest.Run(t, repo, "branch", "PROJ-7", "--fetch", "--yes")
 
 	// Assert
 	// The way out is the terminal's "branch from what you have".
@@ -122,7 +124,7 @@ func TestBranchFetchNamesTheBaseRemoteOfAFork(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo, _ := repoWithOrigin(t, server.URL)
 	upstream := t.TempDir()
 	git(t, upstream, "init", "--bare", "--quiet")
@@ -131,12 +133,12 @@ func TestBranchFetchNamesTheBaseRemoteOfAFork(t *testing.T) {
 	git(t, repo, "fetch", "--quiet", "upstream")
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "branch", "PROJ-7", "--fetch", "--dry-run")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "branch", "PROJ-7", "--fetch", "--dry-run")
 
 	// Assert
 	const plan = "fetch upstream, then create fix/PROJ-7-login from upstream/main and switch to it"
-	if err != nil || !strings.Contains(printed.stdout, "Start work on PROJ-7: "+plan) {
-		t.Errorf("branch --fetch in a fork's clone = %v:\n%s\nwant the plan %q", err, printed.stdout, plan)
+	if err != nil || !strings.Contains(printed.Stdout, "Start work on PROJ-7: "+plan) {
+		t.Errorf("branch --fetch in a fork's clone = %v:\n%s\nwant the plan %q", err, printed.Stdout, plan)
 	}
 }
 
@@ -144,18 +146,18 @@ func TestBranchWorktreePrintsTheDirectoryItMade(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
 	before := currentBranch(t, repo)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "branch", "PROJ-7", "--worktree", "--yes")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "branch", "PROJ-7", "--worktree", "--yes")
 	// Assert
 	if err != nil {
 		t.Fatalf("branch --worktree: %v (%+v)", err, printed)
 	}
 
-	lines := strings.Split(strings.TrimSpace(printed.stdout), "\n")
+	lines := strings.Split(strings.TrimSpace(printed.Stdout), "\n")
 	dir := lines[len(lines)-1]
 
 	if got := currentBranch(t, dir); got != loginBranch {
@@ -175,19 +177,19 @@ func TestBranchWorktreeDryRunSaysWhereItWouldWork(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "branch", "PROJ-7", "--worktree", "--dry-run")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "branch", "PROJ-7", "--worktree", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("branch --worktree --dry-run: %v (%+v)", err, printed)
 	}
 
-	if !strings.Contains(printed.stderr, "dry run: would start work on PROJ-7: create fix/PROJ-7-login from ") ||
-		!strings.HasSuffix(strings.TrimSpace(printed.stderr), " in a new worktree beside the repository") {
-		t.Errorf("branch --worktree --dry-run does not say it makes a worktree:\n%s", printed.stderr)
+	if !strings.Contains(printed.Stderr, "dry run: would start work on PROJ-7: create fix/PROJ-7-login from ") ||
+		!strings.HasSuffix(strings.TrimSpace(printed.Stderr), " in a new worktree beside the repository") {
+		t.Errorf("branch --worktree --dry-run does not say it makes a worktree:\n%s", printed.Stderr)
 	}
 
 	_, err = os.Stat(repo + "-fix-PROJ-7-login")

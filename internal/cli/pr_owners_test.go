@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 // ownedRepo is a GitHub repository whose main holds a CODEOWNERS giving the
@@ -28,7 +30,7 @@ func ownedRepo(t *testing.T) string {
 	commit(t, repo, "fix: guard the api")
 	git(t, repo, "remote", "add", "origin", "https://github.com/acme/repo.git")
 	pretendPushed(t, repo)
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	return repo
 }
@@ -43,14 +45,14 @@ func TestPRPreviewsTheCodeOwnersAsReviewers(t *testing.T) {
 	var asked []string
 
 	// Act
-	printed, err := runStreams(t, repo, answering("n", &asked), "pr")
+	printed, err := clitest.RunStreams(t, repo, answering("n", &asked), "pr")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr: %v (%+v)", err, printed)
 	}
 
-	if !strings.Contains(printed.stdout, "  reviewers ana, acme/control-plane (code owners)\n") {
-		t.Errorf("pr printed %q, want the code owners but its author as reviewers", printed.stdout)
+	if !strings.Contains(printed.Stdout, "  reviewers ana, acme/control-plane (code owners)\n") {
+		t.Errorf("pr printed %q, want the code owners but its author as reviewers", printed.Stdout)
 	}
 }
 
@@ -63,7 +65,7 @@ func TestPRRequestsTheCodeOwnersReview(t *testing.T) {
 	repo := ownedRepo(t)
 
 	// Act
-	_, err := run(t, repo, "pr", "--yes")
+	_, err := clitest.Run(t, repo, "pr", "--yes")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr --yes: %v", err)
@@ -85,7 +87,7 @@ func TestPRPreviewsNoReviewersWithoutCodeOwners(t *testing.T) {
 	repo := prRepo(t, "fix/PROJ-2-thing")
 
 	// Act
-	output, err := run(t, repo, "pr", "--dry-run")
+	output, err := clitest.Run(t, repo, "pr", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr --dry-run: %v (%s)", err, output)
@@ -115,16 +117,16 @@ func TestPRSaysTheMergeRequestOpenedWhenAReviewerCouldNotBeAdded(t *testing.T) {
 	commit(t, repo, "fix: guard the api")
 	git(t, repo, "remote", "add", "origin", "https://gitlab.com/owner/repo.git")
 	pretendPushed(t, repo)
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"gitlab","host":"gitlab.com"}}`)
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"gitlab","host":"gitlab.com"}}`)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--yes")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr --yes = %v (%+v), want it to succeed: the merge request is open", err, printed)
 	}
 
-	if !strings.Contains(printed.stdout, "Opened !7 "+gitlabMergeRequest) || !strings.Contains(printed.stderr, "ghost") {
+	if !strings.Contains(printed.Stdout, "Opened !7 "+gitlabMergeRequest) || !strings.Contains(printed.Stderr, "ghost") {
 		t.Errorf("pr printed %+v, want the merge request opened and ghost named as not added", printed)
 	}
 }
