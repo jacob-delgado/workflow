@@ -167,6 +167,28 @@ func TestAnnounceAgainWithNoTerminalDoesNotPointAtYes(t *testing.T) {
 	}
 }
 
+func TestAnnounceWithNoTerminalPointsAtYes(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Nothing was announced before, so --yes is the way on, not a terminal.
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
+
+	noTerminal := cmdkit.Prompt{Line: func(string) (string, error) { return "", io.EOF }}
+
+	// Act
+	_, err := clitest.RunGuided(t, repo, noTerminal, "announce")
+
+	// Assert
+	wantExit(t, err, 2)
+
+	if err == nil || !strings.Contains(err.Error(), "--yes") || strings.Contains(err.Error(), "again") {
+		t.Errorf("announce = %v, want it to say to pass --yes", err)
+	}
+}
+
 func TestAnnounceOffersAMomentNotYetAnnounced(t *testing.T) {
 	t.Parallel()
 

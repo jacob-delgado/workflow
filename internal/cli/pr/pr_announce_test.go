@@ -192,3 +192,25 @@ func TestPRAnnounceWaitsForAPullRequestTheForgeHasNotListedYet(t *testing.T) {
 			err, posts.Load(), printed.Stderr)
 	}
 }
+
+func TestPRAnnounceNamesNoNextStep(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// --announce is the step that follows the open, so pr does not name it.
+	var posts atomic.Int32
+
+	clitest.FakeGh(t, openingThenOpen())
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.PretendPushed(t, repo)
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
+
+	// Act
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes", "--announce")
+
+	// Assert
+	if err != nil || posts.Load() != 1 || strings.Contains(printed.Stderr, "Announce it with workflow announce") {
+		t.Errorf("pr --announce = %v, posted %d, said %q; want it announced, with no next step named",
+			err, posts.Load(), printed.Stderr)
+	}
+}
