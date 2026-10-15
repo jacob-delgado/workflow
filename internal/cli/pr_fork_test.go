@@ -37,7 +37,7 @@ func TestPROpensOnTheBaseFromAForksPushRemote(t *testing.T) {
 
 	// Arrange
 	sent := filepath.Join(t.TempDir(), "sent")
-	fakeGh(t, ghResponses{sentLog: sent})
+	clitest.FakeGh(t, clitest.GhResponses{SentLog: sent})
 	repo, bare := forkRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 

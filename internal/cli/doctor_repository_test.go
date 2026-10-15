@@ -9,23 +9,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
-	"github.com/jacob-delgado/workflow/internal/gittest"
 )
-
-// gitInit makes dir a real repository, so doctor's repository section can be
-// tested against git itself rather than against an imitation of it.
-func gitInit(t *testing.T, dir string) {
-	t.Helper()
-	git(t, dir, "init", "--quiet", ".")
-}
-
-// git runs one git command in dir, failing the test if it does not succeed. The
-// developer's own git configuration is kept out, as clitest.Run keeps it out
-// of doctor.
-func git(t *testing.T, dir string, args ...string) {
-	t.Helper()
-	gittest.Run(t, dir, args...)
-}
 
 func TestDoctorReportsTheRepositoryItIsIn(t *testing.T) {
 	t.Parallel()

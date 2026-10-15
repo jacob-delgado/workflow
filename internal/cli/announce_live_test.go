@@ -96,9 +96,9 @@ func TestAnnounceWhenGreenKeepsALiveLineOfCIsProgressOnATerminal(t *testing.T) {
 	)
 
 	gate := t.TempDir()
-	fakeGh(t, ghResponses{pulls: openPull("Add login"), statusGate: gate})
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), StatusGate: gate})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
 
 	terminal := newShownSoFar()
 	released := make(chan struct{})
@@ -110,14 +110,14 @@ func TestAnnounceWhenGreenKeepsALiveLineOfCIsProgressOnATerminal(t *testing.T) {
 	}()
 
 	// Act
-	err := cli.Execute(strings.Fields("announce --when-green --yes"), &stdout, terminal, atTerminal(t),
+	err := cli.Execute(strings.Fields("announce --when-green --yes"), &stdout, terminal, clitest.AtTerminal(t),
 		clitest.EnvironmentFor(t, clitest.Place{Dir: repo, Home: t.TempDir()}))
 
 	// Assert
 	<-released
 
 	shown := terminal.String()
-	if err != nil || posts.Load() != 1 || !markedLive(shown) || !strings.Contains(ansi.Strip(shown), "CI on #7") {
+	if err != nil || posts.Load() != 1 || !clitest.MarkedLive(shown) || !strings.Contains(ansi.Strip(shown), "CI on #7") {
 		t.Errorf("announce --when-green = %v after %d posts, showing %q; want a live line of CI on #7", err,
 			posts.Load(), shown)
 	}
@@ -126,7 +126,7 @@ func TestAnnounceWhenGreenKeepsALiveLineOfCIsProgressOnATerminal(t *testing.T) {
 		t.Errorf("showing %q, want the wait's lines kept above the live line", shown)
 	}
 
-	if strings.LastIndex(shown, eraseBelow) < strings.LastIndex(shown, "─ 0 of 1") {
+	if strings.LastIndex(shown, clitest.EraseBelow) < strings.LastIndex(shown, "─ 0 of 1") {
 		t.Errorf("showing %q, want the live line erased once CI passed", shown)
 	}
 }
@@ -141,9 +141,9 @@ func TestAnnounceWhenGreenDrawsItsLiveLineInASCIIUnderUIASCII(t *testing.T) {
 	)
 
 	gate := t.TempDir()
-	fakeGh(t, ghResponses{pulls: openPull("Add login"), statusGate: gate})
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), StatusGate: gate})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
 	home := t.TempDir()
 	clitest.WriteFile(t, home, `{"ui": {"ascii": true}}`)
 
@@ -167,12 +167,12 @@ func TestAnnounceWhenGreenDrawsItsLiveLineInASCIIUnderUIASCII(t *testing.T) {
 	<-released
 
 	shown := ansi.Strip(terminal.String())
-	if err != nil || posts.Load() != 1 || !drawnWith(shown, asciiMarks(), "CI on #7") {
+	if err != nil || posts.Load() != 1 || !clitest.DrawnWith(shown, clitest.ASCIIMarks(), "CI on #7") {
 		t.Errorf("announce --when-green = %v after %d posts, showing %q; want a live line of CI on #7 in ASCII",
 			err, posts.Load(), shown)
 	}
 
-	for _, never := range unicodeLine() {
+	for _, never := range clitest.UnicodeLine() {
 		if strings.Contains(shown, never) {
 			t.Errorf("showing %q, want no %q", shown, never)
 		}

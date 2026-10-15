@@ -15,12 +15,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
-// unicodeLine is every character the live line draws by default and never in
-// ASCII: its mark's frames, and its bar's.
-func unicodeLine() []string {
-	return append(liveMarks(), "━", "─")
-}
-
 // lookCase is a slow command run under a look its live line is drawn in: the
 // configuration at home that asks for it, if any, the marks the line may be
 // drawn with, the marks it is never drawn with, and what it never shows.
@@ -48,7 +42,7 @@ func lookCases() map[string]lookCase {
 
 	for name, slow := range progressCases() {
 		cases[name+", under ui.ascii"] = lookCase{
-			slow: slow, home: `{"ui": {"ascii": true}}`, marks: asciiMarks(), never: append(unicodeLine(), "*"),
+			slow: slow, home: `{"ui": {"ascii": true}}`, marks: clitest.ASCIIMarks(), never: append(clitest.UnicodeLine(), "*"),
 		}
 		cases[name+", under ui.motion reduce"] = lookCase{
 			slow: slow, home: `{"ui": {"motion": "reduce"}}`, marks: []string{"◐"},
@@ -56,14 +50,14 @@ func lookCases() map[string]lookCase {
 		}
 		cases[name+", under ui.ascii and ui.motion reduce"] = lookCase{
 			slow: slow, home: `{"ui": {"ascii": true, "motion": "reduce"}}`, marks: []string{"*"},
-			turned: asciiMarks(), never: unicodeLine(),
+			turned: clitest.ASCIIMarks(), never: clitest.UnicodeLine(),
 		}
 	}
 
 	named := progressCases()["status of a named directory"]
 	cases["status of a named directory, with --plain"] = lookCase{
 		slow:  progressCase{setUp: plainly(named.setUp), want: named.want},
-		marks: asciiMarks(), never: append(unicodeLine(), "*"),
+		marks: clitest.ASCIIMarks(), never: append(clitest.UnicodeLine(), "*"),
 	}
 
 	return cases
@@ -104,7 +98,7 @@ func TestASlowCommandDrawsItsLiveLineAsItsLookAsks(t *testing.T) {
 
 			// Assert
 			shown := ansi.Strip(stderr)
-			if !drawnWith(shown, tt.marks, tt.slow.want) || drawnWith(shown, tt.turned, tt.slow.want) {
+			if !clitest.DrawnWith(shown, tt.marks, tt.slow.want) || clitest.DrawnWith(shown, tt.turned, tt.slow.want) {
 				t.Errorf("%s: stderr = %q, want the live line drawn with one of %q, never %q",
 					name, shown, tt.marks, tt.turned)
 			}

@@ -19,8 +19,8 @@ import (
 func mergedStatusRepo(t *testing.T) string {
 	t.Helper()
 
-	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
-	fakeGh(t, ghResponses{pulls: mergedPull("Add login")})
+	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.MergedPull("Add login")})
 
 	return statusFeatureRepo(t, server.URL)
 }
@@ -77,7 +77,7 @@ func TestStatusLineReadsAMergedAnnouncementAsDone(t *testing.T) {
 	// The store remembers pull request 7 announced as merged, as announce
 	// leaves it once the merge is posted.
 	repo := mergedStatusRepo(t)
-	home := announcedEarlier(t, messaging.MomentMerged)
+	home := clitest.AnnouncedEarlier(t, messaging.MomentMerged)
 
 	// Act
 	printed, err := clitest.RunStreamsAt(t, clitest.Place{Dir: repo, Home: home}, clitest.UnusedPrompt(t), "status")
@@ -97,10 +97,10 @@ func TestStatusLineReadsAnAnnouncementOfAClosedPullRequestAsNotStarted(t *testin
 	// Arrange
 	// The store remembers pull request 7 announced as ready, before it was
 	// closed without merging: there is no pull request left to announce.
-	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
-	fakeGh(t, ghResponses{pulls: closedPull("Add login")})
+	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.ClosedPull("Add login")})
 	repo := statusFeatureRepo(t, server.URL)
-	home := announcedEarlier(t, messaging.MomentReady)
+	home := clitest.AnnouncedEarlier(t, messaging.MomentReady)
 
 	// Act
 	printed, err := clitest.RunStreamsAt(t, clitest.Place{Dir: repo, Home: home}, clitest.UnusedPrompt(t), "status")

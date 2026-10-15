@@ -353,7 +353,7 @@ func TestSummaryPostIsNotPostedWhenDeclined(t *testing.T) {
 	clitest.WriteFile(t, repo, `{"messaging":{"kind":"teams","webhook_url":"`+hook.url+`"}}`)
 
 	// Act
-	printed, _ := clitest.RunStreams(t, repo, scripted([]string{"n"}, nil), "summary", "--post")
+	printed, _ := clitest.RunStreams(t, repo, clitest.Scripted([]string{"n"}, nil), "summary", "--post")
 
 	// Assert
 	if posts := hook.posted(); len(posts) != 0 || !strings.Contains(printed.Stderr, "Not posted.") {
@@ -439,7 +439,7 @@ func TestSummaryPostReportsAFailedPostByItsService(t *testing.T) {
 	clitest.WriteFile(t, repo, `{"messaging":{"kind":"teams","webhook_url":"https://hooks.teams.example/services/x"}}`)
 
 	// Act
-	_, err := clitest.RunGuided(t, repo, scripted([]string{"y"}, nil), "summary", "--post")
+	_, err := clitest.RunGuided(t, repo, clitest.Scripted([]string{"y"}, nil), "summary", "--post")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "posting to Teams") {
@@ -456,7 +456,7 @@ func TestSummaryPostStopsAtTheQuestionWhenNothingCanAnswer(t *testing.T) {
 	clitest.WriteFile(t, repo, `{"messaging":{"webhook_url":"`+hook.url+`"}}`)
 
 	// Act
-	_, err := clitest.RunStreams(t, repo, cmdkit.Prompt{Line: answersThenEnds()}, "summary", "--post")
+	_, err := clitest.RunStreams(t, repo, cmdkit.Prompt{Line: clitest.AnswersThenEnds()}, "summary", "--post")
 
 	// Assert
 	if posts := hook.posted(); err == nil || !strings.Contains(err.Error(), "pass --yes") || len(posts) != 0 {

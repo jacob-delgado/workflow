@@ -70,11 +70,11 @@ func TestDeclineNoticeGoesToStderr(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
 
 	// Act
-	printed, err := clitest.RunStreams(t, repo, scripted([]string{"n"}, nil), "branch", "PROJ-7")
+	printed, err := clitest.RunStreams(t, repo, clitest.Scripted([]string{"n"}, nil), "branch", "PROJ-7")
 	if err != nil {
 		t.Fatalf("branch: %v (%+v)", err, printed)
 	}

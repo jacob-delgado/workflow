@@ -53,7 +53,7 @@ func ghSignedOutRecording(t *testing.T) string {
 	ran := filepath.Join(t.TempDir(), "gh-ran")
 	script := "#!/bin/sh\n: >'" + ran + "'\nexit 1\n"
 
-	writeExecutable(t, filepath.Join(dir, "gh"), script, 0o755)
+	clitest.WriteExecutable(t, filepath.Join(dir, "gh"), script, 0o755)
 
 	clitest.SetVariable(t, "PATH", dir)
 
@@ -147,7 +147,7 @@ func forgeCLIRepository(t *testing.T, remote string) string {
 func ghSignedOutButAnswering(t *testing.T) {
 	t.Helper()
 
-	fakeGh(t, ghResponses{signedOut: true})
+	clitest.FakeGh(t, clitest.GhResponses{SignedOut: true})
 }
 
 func TestDoctorOnlineAsksTheForgeThroughItsCLI(t *testing.T) {
@@ -165,7 +165,7 @@ func TestDoctorOnlineAsksTheForgeThroughItsCLI(t *testing.T) {
 		},
 		"a GitLab remote asks through glab": {
 			remote: "git@gitlab.com:group/proj.git",
-			onPath: fakeGlab,
+			onPath: clitest.FakeGlab,
 			want:   "authenticates as tanuki (through glab)",
 		},
 	}
@@ -246,7 +246,7 @@ func TestDoctorOnlineGivesUpOnAForgeCLIThatNeverAnswers(t *testing.T) {
 	dir := repoWithRemote(t, githubSSHRemote)
 	clitest.WriteFile(t, dir, `{"jira": {"base_url": "`+clitest.WorkingJira(t)+`", "token": "t"}, `+
 		clitest.SlackWebhook+`, "forge": {"cli": true}, "timing": {"request_timeout": "`+onlineRequestTimeout+`"}}`)
-	fakeGh(t, ghResponses{signedOut: true, apiHangs: true})
+	clitest.FakeGh(t, clitest.GhResponses{SignedOut: true, APIHangs: true})
 
 	started := time.Now()
 
@@ -254,7 +254,7 @@ func TestDoctorOnlineGivesUpOnAForgeCLIThatNeverAnswers(t *testing.T) {
 	output, err := clitest.Run(t, dir, "doctor", "--online")
 
 	// Assert
-	if elapsed := time.Since(started); elapsed >= ghHang/2 {
+	if elapsed := time.Since(started); elapsed >= clitest.GhHang/2 {
 		t.Fatalf("doctor --online took %s over a gh that never answers, want it to give up after %s:\n%s",
 			elapsed, onlineRequestTimeout, output)
 	}

@@ -6,7 +6,7 @@ package cli_test
 // `workflow announce` tags the code owners already linked to Slack and the
 // groups that start checked, never asking, and names who it leaves untagged —
 // in the Slack workspace the token is for, which only Slack can say, so
-// nobody is tagged without one. Slack is a fake on this machine (fakeSlack).
+// nobody is tagged without one. Slack is a fake on this machine (clitest.FakeSlack).
 
 import (
 	"net/http"
@@ -41,7 +41,7 @@ func keptLinks(t *testing.T) string {
 		t.Fatalf("finding the store under %s: %v", home, err)
 	}
 
-	kept, repo, workspace, now := store.New(dir, false), "github.com/acme/repo", slackWorkspace, time.Now()
+	kept, repo, workspace, now := store.New(dir, false), "github.com/acme/repo", clitest.SlackWorkspace, time.Now()
 	linked := store.OwnerLink{
 		Owner: "ana", Team: false, OnSlack: true, Slack: store.SlackTarget{ID: "U0ANA", Label: "Ana Souza"},
 	}
@@ -65,7 +65,7 @@ func TestAnnounceTagsNoOneWithoutAWorkspaceToReadLinksIn(t *testing.T) {
 	// Arrange
 	// The token is set up but not logged in, so Slack cannot be asked which
 	// workspace it is for, and links kept in any workspace are left alone.
-	fakeGh(t, ghResponses{pulls: openPull("Add login")})
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
 	repo := ownedRepo(t)
 	clitest.WriteFile(t, repo, slackUserConfig)
 	home := keptLinks(t)
@@ -88,7 +88,7 @@ func TestAnnounceTagsNoOneThroughAWebhook(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{pulls: openPull("Add login")})
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
 	repo := ownedRepo(t)
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
 		`"messaging":{"webhook_url":"https://hooks.slack.example/services/x","channel":"#dev"}}`)
@@ -112,10 +112,10 @@ func TestAnnounceTagsTheOwnersAndGroupsLinkedInTheWorkspaceInUse(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{pulls: openPull("Add login")})
-	slack := fakeSlack(t, nil)
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
+	slack := clitest.FakeSlack(t, nil)
 	repo := ownedRepo(t)
-	clitest.WriteFile(t, repo, slackLoggedInConfig())
+	clitest.WriteFile(t, repo, clitest.SlackLoggedInConfig())
 	home := keptLinks(t)
 
 	// Act
@@ -136,7 +136,7 @@ func TestAnnounceTagsTheOwnersAndGroupsLinkedInTheWorkspaceInUse(t *testing.T) {
 		}
 	}
 
-	if post := slack.post(t); !strings.Contains(post, "<@U0ANA>") || !strings.Contains(post, "<!subteam^S0API>") {
+	if post := slack.Post(t); !strings.Contains(post, "<@U0ANA>") || !strings.Contains(post, "<!subteam^S0API>") {
 		t.Errorf("announce posted %q, want ana and api-reviewers tagged", post)
 	}
 }
@@ -145,12 +145,12 @@ func TestAnnounceTagsNoOneLinkedOnlyInAnotherWorkspace(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{pulls: openPull("Add login")})
-	fakeSlack(t, map[string]slackAnswer{
-		slackAuthTest: {http.StatusOK, `{"ok":true,"team":"Other","user":"ana","team_id":"T0OTHER"}`},
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
+	clitest.FakeSlack(t, map[string]clitest.SlackAnswer{
+		clitest.SlackAuthTest: {Status: http.StatusOK, Body: `{"ok":true,"team":"Other","user":"ana","team_id":"T0OTHER"}`},
 	})
 	repo := ownedRepo(t)
-	clitest.WriteFile(t, repo, slackLoggedInConfig())
+	clitest.WriteFile(t, repo, clitest.SlackLoggedInConfig())
 	home := keptLinks(t)
 
 	// Act
@@ -177,12 +177,12 @@ func TestAnnounceWithATokenMissingAScopePostsUntaggedAndNamesIt(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			fakeGh(t, ghResponses{pulls: openPull("Add login")})
-			slack := fakeSlack(t, nil)
-			slack.grant(strings.ReplaceAll(taggingScopes, ","+scope, ""))
+			clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
+			slack := clitest.FakeSlack(t, nil)
+			slack.Grant(strings.ReplaceAll(clitest.TaggingScopes, ","+scope, ""))
 
 			repo := ownedRepo(t)
-			clitest.WriteFile(t, repo, slackLoggedInConfig())
+			clitest.WriteFile(t, repo, clitest.SlackLoggedInConfig())
 			home := keptLinks(t)
 
 			// Act
@@ -198,7 +198,7 @@ func TestAnnounceWithATokenMissingAScopePostsUntaggedAndNamesIt(t *testing.T) {
 				t.Errorf("announce said %q, want the missing %s scope named", printed.Stderr, scope)
 			}
 
-			if post := slack.post(t); !untagged(post) {
+			if post := slack.Post(t); !untagged(post) {
 				t.Errorf("announce posted %q, want it untagged", post)
 			}
 		})
@@ -212,10 +212,10 @@ func TestAnnounceReadsNoDirectoryToTellItsScopes(t *testing.T) {
 	// In a large workspace the directory is pages of users.list and a
 	// users.info per member; the announcement tags only whom is linked
 	// already, so it needs none of it.
-	fakeGh(t, ghResponses{pulls: openPull("Add login")})
-	slack := fakeSlack(t, nil)
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
+	slack := clitest.FakeSlack(t, nil)
 	repo := ownedRepo(t)
-	clitest.WriteFile(t, repo, slackLoggedInConfig())
+	clitest.WriteFile(t, repo, clitest.SlackLoggedInConfig())
 	home := keptLinks(t)
 
 	// Act
@@ -228,12 +228,12 @@ func TestAnnounceReadsNoDirectoryToTellItsScopes(t *testing.T) {
 	}
 
 	for _, path := range []string{"/users.conversations", "/conversations.members", "/users.list", "/usergroups.list"} {
-		if asked := slack.count(path); asked != 0 {
+		if asked := slack.Count(path); asked != 0 {
 			t.Errorf("announce asked %s %d times, want none", path, asked)
 		}
 	}
 
-	if post := slack.post(t); untagged(post) {
+	if post := slack.Post(t); untagged(post) {
 		t.Errorf("announce posted %q, want ana and api-reviewers tagged", post)
 	}
 }
@@ -245,20 +245,20 @@ func TestAnnounceWhenSlackCannotNameTheWorkspacePostsUntaggedAndSaysWhy(t *testi
 	// workspace it is for. It can fail, when neither is read, though a
 	// second one asked would have answered; or name no workspace, though it
 	// lists the scopes.
-	cases := map[string]func(t *testing.T) *slackFake{
-		"an auth.test that fails": func(t *testing.T) *slackFake {
+	cases := map[string]func(t *testing.T) *clitest.SlackFake{
+		"an auth.test that fails": func(t *testing.T) *clitest.SlackFake {
 			t.Helper()
 
-			slack := fakeSlack(t, nil)
-			slack.answerFirst(slackAuthTest, slackAnswer{http.StatusServiceUnavailable, ""})
+			slack := clitest.FakeSlack(t, nil)
+			slack.AnswerFirst(clitest.SlackAuthTest, clitest.SlackAnswer{Status: http.StatusServiceUnavailable, Body: ""})
 
 			return slack
 		},
-		"an auth.test that names no workspace": func(t *testing.T) *slackFake {
+		"an auth.test that names no workspace": func(t *testing.T) *clitest.SlackFake {
 			t.Helper()
 
-			return fakeSlack(t, map[string]slackAnswer{
-				slackAuthTest: {http.StatusOK, `{"ok":true,"team":"Acme","user":"ana"}`},
+			return clitest.FakeSlack(t, map[string]clitest.SlackAnswer{
+				clitest.SlackAuthTest: {Status: http.StatusOK, Body: `{"ok":true,"team":"Acme","user":"ana"}`},
 			})
 		},
 	}
@@ -268,10 +268,10 @@ func TestAnnounceWhenSlackCannotNameTheWorkspacePostsUntaggedAndSaysWhy(t *testi
 			t.Parallel()
 
 			// Arrange
-			fakeGh(t, ghResponses{pulls: openPull("Add login")})
+			clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
 			slack := answering(t)
 			repo := ownedRepo(t)
-			clitest.WriteFile(t, repo, slackLoggedInConfig())
+			clitest.WriteFile(t, repo, clitest.SlackLoggedInConfig())
 			home := keptLinks(t)
 
 			// Act
@@ -289,7 +289,7 @@ func TestAnnounceWhenSlackCannotNameTheWorkspacePostsUntaggedAndSaysWhy(t *testi
 					printed.Stderr)
 			}
 
-			if post := slack.post(t); !untagged(post) {
+			if post := slack.Post(t); !untagged(post) {
 				t.Errorf("announce posted %q, want it untagged", post)
 			}
 		})
@@ -318,7 +318,7 @@ func releaseBranchRepo(t *testing.T) string {
 	commit(t, repo, "fix: guard the api")
 	git(t, repo, "remote", "add", "origin", "https://github.com/acme/repo.git")
 	pretendPushed(t, repo)
-	clitest.WriteFile(t, repo, slackLoggedInConfig())
+	clitest.WriteFile(t, repo, clitest.SlackLoggedInConfig())
 
 	return repo
 }
@@ -327,9 +327,9 @@ func TestAnnounceReadsTheOwnersAgainstThePullRequestsBase(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{pulls: `[{"number":7,"html_url":"https://github.com/acme/repo/pull/7",` +
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: `[{"number":7,"html_url":"https://github.com/acme/repo/pull/7",` +
 		`"title":"Add login","state":"open","draft":false,"base":{"ref":"release"}}]`})
-	fakeSlack(t, nil)
+	clitest.FakeSlack(t, nil)
 	repo := releaseBranchRepo(t)
 	home := keptLinks(t)
 
@@ -346,4 +346,9 @@ func TestAnnounceReadsTheOwnersAgainstThePullRequestsBase(t *testing.T) {
 		t.Errorf("announce previewed %q, want ana tagged and ben, who owns only release's change, not named",
 			printed.Stdout)
 	}
+}
+
+// untagged reports a post that tags no one on Slack.
+func untagged(post string) bool {
+	return !strings.Contains(post, "<@") && !strings.Contains(post, "<!subteam^")
 }

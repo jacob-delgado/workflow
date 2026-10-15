@@ -10,9 +10,12 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
-// The writes trackerJira records, by kind, beside pr's link and transition.
+// The writes trackerJira records, by kind, beside clitest's WriteLink and
+// WriteTransition.
 const (
 	writeAssign  = "assign"
 	writeWorklog = "worklog"
@@ -42,7 +45,7 @@ const trackerMoves = `{"transitions":[` +
 	`{"id":"11","name":"Start Progress",` +
 	`"to":{"name":"In Progress","statusCategory":{"key":"indeterminate"}},"fields":{}},` +
 	`{"id":"31","name":"Start Review",` +
-	`"to":{"name":"` + statusInReview + `","statusCategory":{"key":"indeterminate"}},"fields":{}},` +
+	`"to":{"name":"` + clitest.StatusInReview + `","statusCategory":{"key":"indeterminate"}},"fields":{}},` +
 	`{"id":"41","name":"Close",` +
 	`"to":{"name":"Done","statusCategory":{"key":"done"}},"fields":{` +
 	`"resolution":{"required":true,"name":"Resolution","schema":{"type":"resolution"}},` +
@@ -63,7 +66,7 @@ type trackerAnswers struct {
 // each write, by kind. A mutex guards it because `task test` runs -race and
 // the handler answers on its own goroutine.
 type trackerAsked struct {
-	jiraWrites
+	clitest.JiraWrites
 
 	searchMu sync.Mutex
 	searched []string
@@ -120,13 +123,13 @@ func answerIssue(writer http.ResponseWriter, request *http.Request, asked *track
 
 	switch {
 	case strings.HasSuffix(path, "/transitions") && request.Method == http.MethodPost:
-		asked.record(writeTransition, request)
+		asked.Record(clitest.WriteTransition, request)
 		writer.WriteHeader(cmp.Or(answers.writeCode, http.StatusNoContent))
 	case strings.HasSuffix(path, "/assignee"):
-		asked.record(writeAssign, request)
+		asked.Record(writeAssign, request)
 		writer.WriteHeader(cmp.Or(answers.writeCode, http.StatusNoContent))
 	case strings.HasSuffix(path, "/worklog"):
-		asked.record(writeWorklog, request)
+		asked.Record(writeWorklog, request)
 		writer.WriteHeader(cmp.Or(answers.writeCode, http.StatusCreated))
 		_, _ = writer.Write([]byte(`{"timeSpent":"2h"}`))
 	case strings.HasSuffix(path, "/transitions"):

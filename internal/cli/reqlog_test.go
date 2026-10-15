@@ -67,8 +67,8 @@ func TestLogReachesASubcommand(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
-			fakeGh(t, ghResponses{pulls: openPull("Add login"), status: passingStatus()})
+			server := clitest.JiraServer(t, http.StatusOK, clitest.IssueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
+			clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: clitest.PassingStatus()})
 			repo := statusFeatureRepo(t, server.URL)
 			logPath := filepath.Join(t.TempDir(), "requests.log")
 
@@ -116,7 +116,7 @@ func TestLogReachesTheGuidedInitsCheck(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	prompt := scripted([]string{clitest.WorkingJira(t)}, []string{guidedToken})
+	prompt := clitest.Scripted([]string{clitest.WorkingJira(t)}, []string{guidedToken})
 	logPath := filepath.Join(t.TempDir(), "requests.log")
 
 	// Act
@@ -167,14 +167,14 @@ func TestLogReachesSlackLogin(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeSlack(t, map[string]slackAnswer{slackRefresh: {http.StatusOK, slackRenewed}})
+	clitest.FakeSlack(t, map[string]clitest.SlackAnswer{slackRefresh: {Status: http.StatusOK, Body: slackRenewed}})
 
 	dir := t.TempDir()
-	clitest.WriteFile(t, dir, `{"messaging": {"kind": "slack", "client_id": "`+slackClientID+`",`+
+	clitest.WriteFile(t, dir, `{"messaging": {"kind": "slack", "client_id": "`+clitest.SlackClientID+`",`+
 		` "client_secret": "client-secret-old", "channel": "#dev"}}`)
 
 	logPath := filepath.Join(t.TempDir(), "requests.log")
-	prompt := asking([]string{slackClientID}, typedLogin(), new([]string), new([]string))
+	prompt := asking([]string{clitest.SlackClientID}, typedLogin(), new([]string), new([]string))
 
 	// Act
 	output, err := clitest.RunGuided(t, dir, prompt, "--request-log", logPath, "slack", "login")
@@ -184,7 +184,8 @@ func TestLogReachesSlackLogin(t *testing.T) {
 
 	// Assert
 	logged := clitest.ReadLog(t, logPath)
-	if !strings.Contains(logged, "slack POST "+slackRefresh) || !strings.Contains(logged, "slack POST "+slackAuthTest) {
+	if !strings.Contains(logged, "slack POST "+slackRefresh) ||
+		!strings.Contains(logged, "slack POST "+clitest.SlackAuthTest) {
 		t.Errorf("the request log does not outline the login's refresh and its auth.test:\n%s", logged)
 	}
 }

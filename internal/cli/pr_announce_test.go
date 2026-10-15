@@ -18,10 +18,10 @@ import (
 
 // openingThenOpen is a forge with no pull request for the branch until one is
 // opened, which every later find answers, its CI running and then passed.
-func openingThenOpen() ghResponses {
-	return ghResponses{
-		pullsSequence:  []string{"[]", openPull("work")},
-		statusSequence: []string{runningStatus(), passingStatus()},
+func openingThenOpen() clitest.GhResponses {
+	return clitest.GhResponses{
+		PullsSequence:  []string{"[]", clitest.OpenPull("work")},
+		StatusSequence: []string{clitest.RunningStatus(), clitest.PassingStatus()},
 	}
 }
 
@@ -31,10 +31,10 @@ func TestPRAnnounceOpensThenAnnouncesOnceCIPasses(t *testing.T) {
 	// Arrange
 	var posts atomic.Int32
 
-	fakeGh(t, openingThenOpen())
+	clitest.FakeGh(t, openingThenOpen())
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	pretendPushed(t, repo)
-	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes", "--announce")
@@ -56,8 +56,8 @@ func TestPRAnnounceWithoutMessagingOpensNothing(t *testing.T) {
 	// Arrange
 	sent := filepath.Join(t.TempDir(), "sent.log")
 	responses := openingThenOpen()
-	responses.sentLog = sent
-	fakeGh(t, responses)
+	responses.SentLog = sent
+	clitest.FakeGh(t, responses)
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	pretendPushed(t, repo)
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
@@ -81,11 +81,11 @@ func TestPRRefusesAnnounceBesideDraft(t *testing.T) {
 	// Arrange
 	sent := filepath.Join(t.TempDir(), "sent.log")
 	responses := openingThenOpen()
-	responses.sentLog = sent
-	fakeGh(t, responses)
+	responses.SentLog = sent
+	clitest.FakeGh(t, responses)
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	pretendPushed(t, repo)
-	clitest.WriteFile(t, repo, waitingConfig(webhook(t, new(atomic.Int32))))
+	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, new(atomic.Int32))))
 
 	// Act
 	_, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes", "--draft", "--announce")
@@ -106,10 +106,10 @@ func TestPRAnnounceDryRunSaysItWouldAnnounce(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, openingThenOpen())
+	clitest.FakeGh(t, openingThenOpen())
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	pretendPushed(t, repo)
-	clitest.WriteFile(t, repo, waitingConfig(webhook(t, new(atomic.Int32))))
+	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, new(atomic.Int32))))
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--dry-run", "--announce")
@@ -127,10 +127,10 @@ func TestPRAnnounceJSONPrintsTheReportBeforeWaiting(t *testing.T) {
 	// Arrange
 	var posts atomic.Int32
 
-	fakeGh(t, openingThenOpen())
+	clitest.FakeGh(t, openingThenOpen())
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	pretendPushed(t, repo)
-	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes", "--json", "--announce")
@@ -153,7 +153,7 @@ func TestPRWithoutAnnounceNamesWhenGreen(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{})
+	clitest.FakeGh(t, clitest.GhResponses{})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	pretendPushed(t, repo)
 	clitest.WriteFile(t, repo, waitingConfig("https://hooks.slack.example/services/x"))
@@ -177,11 +177,11 @@ func TestPRAnnounceWaitsForAPullRequestTheForgeHasNotListedYet(t *testing.T) {
 	var posts atomic.Int32
 
 	responses := openingThenOpen()
-	responses.pullsSequence = []string{"[]", "[]", openPull("work")}
-	fakeGh(t, responses)
+	responses.PullsSequence = []string{"[]", "[]", clitest.OpenPull("work")}
+	clitest.FakeGh(t, responses)
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	pretendPushed(t, repo)
-	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(clitest.Webhook(t, &posts)))
 
 	// Act
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes", "--announce")

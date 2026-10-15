@@ -4,9 +4,10 @@
 // Package clitest runs the workflow command line for a test, as a user or a
 // script would type it: each run in a world of its own — a working directory,
 // a home and none of the developer's environment but what the test set — with
-// a Jira that answers, and the process readied for the tests by Main. It is
-// the support the command tree's packages share for their black-box tests;
-// only tests import it.
+// a Jira, a gh or glab, and a Slack or webhook that answer as the test scripts
+// them, the prompts a guided command reads, and the process readied for the
+// tests by Main. It is the support the command tree's packages share for their
+// black-box tests; only tests import it.
 package clitest
 
 import (

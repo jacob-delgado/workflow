@@ -596,7 +596,7 @@ func TestTheInterfaceAndTheWebServerStartWithTheTokenCommandsRun(t *testing.T) {
 			record := filepath.Join(dir, "runs")
 			command := filepath.Join(dir, "token")
 
-			writeExecutable(t, command, "#!/bin/sh\nprintf 'x\\n' >> '"+record+"'\nprintf 'a-token\\n'\n", 0o700)
+			clitest.WriteExecutable(t, command, "#!/bin/sh\nprintf 'x\\n' >> '"+record+"'\nprintf 'a-token\\n'\n", 0o700)
 
 			clitest.WriteFile(t, dir, `{"jira": {"base_url": "https://jira.example.net", "token_command": "`+command+`"}}`)
 

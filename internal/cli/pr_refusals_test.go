@@ -16,7 +16,7 @@ func TestPRReportsAFailedOpen(t *testing.T) {
 
 	// Arrange
 	// The branch is published, but the forge rejects the open.
-	fakeGh(t, ghResponses{createError: true})
+	clitest.FakeGh(t, clitest.GhResponses{CreateError: true})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	pretendPushed(t, repo)
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
@@ -36,7 +36,7 @@ func TestPRReportsAFailedPush(t *testing.T) {
 	// Arrange
 	// The push remote does not exist, so the branch cannot be published and no
 	// pull request is opened.
-	fakeGh(t, ghResponses{})
+	clitest.FakeGh(t, clitest.GhResponses{})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	git(t, repo, "remote", "add", "push-target", filepath.Join(t.TempDir(), "nonexistent.git"))
 	git(t, repo, "config", "remote.pushDefault", "push-target")
@@ -58,7 +58,7 @@ func TestPRRefusesASecondPullRequest(t *testing.T) {
 
 	// Arrange
 	// The branch already has an open pull request, which the forge reports.
-	fakeGh(t, ghResponses{pulls: openPull("Add login")})
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
@@ -78,7 +78,7 @@ func TestPRRefusesASecondPullRequestInItsOwnWords(t *testing.T) {
 
 	// Arrange
 	// The refusal is the command line's own sentence, not the shared layer's.
-	fakeGh(t, ghResponses{pulls: openPull("Add login")})
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
@@ -95,7 +95,7 @@ func TestPullAlreadyOpenCarriesItsURL(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{pulls: openPull("Add login")})
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 

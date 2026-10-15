@@ -4,7 +4,7 @@
 package cli_test
 
 // `workflow doctor --online` asks Slack, here a fake on this machine
-// (fakeSlack), whose a Slack user token is.
+// (clitest.FakeSlack), whose a Slack user token is.
 
 import (
 	"net/http"
@@ -21,10 +21,10 @@ func TestDoctorOnlineSaysWhoseAnAcceptedSlackUserTokenIs(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeSlack(t, nil)
+	clitest.FakeSlack(t, nil)
 
 	dir := t.TempDir()
-	clitest.WriteFile(t, dir, slackLoggedInConfig())
+	clitest.WriteFile(t, dir, clitest.SlackLoggedInConfig())
 
 	// Act
 	output, _ := clitest.Run(t, dir, "doctor", "--online")
@@ -56,14 +56,14 @@ func TestDoctorOnlineNamesWhereASlackTokenIsKeptWhenItCannotBeReadAgain(t *testi
 	// The file stops parsing once Slack has answered for the token it held,
 	// so how long the token has left cannot be read.
 	dir := t.TempDir()
-	path := clitest.WriteFile(t, dir, slackLoggedInConfig())
+	path := clitest.WriteFile(t, dir, clitest.SlackLoggedInConfig())
 	broken := breakFile(t, path)
 
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 		broken()
 
 		writer.Header().Set("Content-Type", "application/json")
-		_, _ = writer.Write([]byte(`{"ok":true,"team":"Acme","user":"ana","team_id":"` + slackWorkspace + `"}`))
+		_, _ = writer.Write([]byte(`{"ok":true,"team":"Acme","user":"ana","team_id":"` + clitest.SlackWorkspace + `"}`))
 	}))
 	t.Cleanup(server.Close)
 	clitest.SetVariable(t, wiring.SlackAPIVariable, server.URL)

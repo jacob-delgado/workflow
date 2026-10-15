@@ -23,13 +23,13 @@ const (
 )
 
 // finishRepo is a repository on finishedBranch, one commit ahead of main, with
-// a GitHub origin whose pull request for it fakeGh answers with pulls, handed
+// a GitHub origin whose pull request for it clitest.FakeGh answers with pulls, handed
 // the commit the branch is at.
 func finishRepo(t *testing.T, pulls func(head string) string) string {
 	t.Helper()
 
 	repo := githubRepo(t, finishedBranch)
-	fakeGh(t, ghResponses{pulls: pulls(headOf(t, repo))})
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: pulls(headOf(t, repo))})
 	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	return repo
@@ -194,7 +194,7 @@ func TestFinishAsksBeforeRunning(t *testing.T) {
 	var asked []string
 
 	// Act
-	printed, err := clitest.RunStreams(t, repo, answering("n", &asked), "finish")
+	printed, err := clitest.RunStreams(t, repo, clitest.Answering("n", &asked), "finish")
 	// Assert
 	if err != nil {
 		t.Fatalf("finish declined: %v (%+v)", err, printed)
@@ -239,14 +239,14 @@ func TestFinishRefusesWhatCannotBeFinished(t *testing.T) {
 		shape  func(t *testing.T, repo string)
 		reason error
 	}{
-		"an open pull request": {pulls: listing(openPull("work")), reason: loop.ErrNotMerged},
-		"one closed unmerged":  {pulls: listing(closedPull("work")), reason: loop.ErrNotMerged},
+		"an open pull request": {pulls: listing(clitest.OpenPull("work")), reason: loop.ErrNotMerged},
+		"one closed unmerged":  {pulls: listing(clitest.ClosedPull("work")), reason: loop.ErrNotMerged},
 		"a commit not pushed":  {pulls: mergedAtHead, reason: loop.ErrUnpushedWork, shape: committedSincePushed},
 		"a commit since the merge, no upstream": {
 			pulls: mergedAtHead, reason: loop.ErrUnpushedWork, shape: committedSinceMerged,
 		},
 		"merged at a commit the forge did not name": {
-			pulls: listing(mergedPull("work")), reason: loop.ErrUnpushedWork,
+			pulls: listing(clitest.MergedPull("work")), reason: loop.ErrUnpushedWork,
 		},
 		"no base to return to": {pulls: mergedAtHead, reason: loop.ErrNoBase, shape: baseRenamed},
 	}
@@ -354,7 +354,7 @@ func TestFinishNamesAMergeRequestInGitLabsWords(t *testing.T) {
 
 	// Arrange
 	repo := gitlabRepo(t, finishedBranch)
-	fakeGlabListing(t, `[{"iid":7,"web_url":"`+gitlabMergeRequest+`","title":"work","state":"merged",`+
+	clitest.FakeGlabListing(t, `[{"iid":7,"web_url":"`+clitest.GitlabMergeRequest+`","title":"work","state":"merged",`+
 		`"sha":"`+headOf(t, repo)+`"}]`)
 
 	// Act
@@ -365,4 +365,11 @@ func TestFinishNamesAMergeRequestInGitLabsWords(t *testing.T) {
 	}
 
 	requireGitLabWords(t, printed.Stdout, "Finish "+finishedBranch+": !7 merged")
+}
+
+// mergedPullAt is clitest.MergedPull with its branch at head on the forge, the commit
+// the merge took, as GitHub reports it.
+func mergedPullAt(title, head string) string {
+	return `[{"number":7,"html_url":"https://github.com/owner/repo/pull/7","title":"` +
+		title + `","state":"closed","merged_at":"2026-01-01T00:00:00Z","head":{"sha":"` + head + `"}}]`
 }

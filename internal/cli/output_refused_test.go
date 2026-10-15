@@ -63,7 +63,7 @@ func TestProseFailsWhenItsOutputCannotBeWritten(t *testing.T) {
 		statusCommand: featureRepo,
 		reviewsCommand: func(t *testing.T) string {
 			t.Helper()
-			fakeGh(t, ghResponses{search: reviewSearch(reviewItem(1, "ana", "ex/repo", time.Now()))})
+			clitest.FakeGh(t, clitest.GhResponses{Search: reviewSearch(reviewItem(1, "ana", "ex/repo", time.Now()))})
 
 			return reviewsRepo(t)
 		},

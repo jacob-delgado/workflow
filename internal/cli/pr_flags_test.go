@@ -22,7 +22,7 @@ func openedWith(t *testing.T, repo string, args ...string) string {
 	t.Helper()
 
 	sent := filepath.Join(t.TempDir(), "sent")
-	fakeGh(t, ghResponses{sentLog: sent})
+	clitest.FakeGh(t, clitest.GhResponses{SentLog: sent})
 
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), append([]string{"pr"}, args...)...)
 	if err != nil {
@@ -71,7 +71,7 @@ func TestPRPreviewsADraftAsOne(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{})
+	clitest.FakeGh(t, clitest.GhResponses{})
 	repo := ownedRepo(t)
 
 	// Act
@@ -87,13 +87,13 @@ func TestPRAsksToOpenTheDraft(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{})
+	clitest.FakeGh(t, clitest.GhResponses{})
 	repo := ownedRepo(t)
 
 	var asked []string
 
 	// Act
-	_, err := clitest.RunStreams(t, repo, answering("n", &asked), "pr", "--draft")
+	_, err := clitest.RunStreams(t, repo, clitest.Answering("n", &asked), "pr", "--draft")
 
 	// Assert
 	if err != nil || len(asked) != 1 || !strings.HasPrefix(asked[0], "Open the draft pull request?") {
@@ -105,14 +105,14 @@ func TestPRAsksToPushAndOpenTheDraft(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{})
+	clitest.FakeGh(t, clitest.GhResponses{})
 	repo := ownedRepo(t)
 	commit(t, repo, "fix: not yet pushed")
 
 	var asked []string
 
 	// Act
-	_, err := clitest.RunStreams(t, repo, answering("n", &asked), "pr", "--draft")
+	_, err := clitest.RunStreams(t, repo, clitest.Answering("n", &asked), "pr", "--draft")
 
 	// Assert
 	want := "Push fix/PROJ-2-thing to origin and open the draft pull request?"
@@ -140,7 +140,7 @@ func TestPRAsksTheCodeOwnersOfTheBaseItIsGiven(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{})
+	clitest.FakeGh(t, clitest.GhResponses{})
 	repo := releaseRepo(t)
 
 	// Act
@@ -159,7 +159,7 @@ func TestPRDraftsFromTheCommitsPastTheBaseItIsGiven(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{})
+	clitest.FakeGh(t, clitest.GhResponses{})
 	repo := releaseRepo(t)
 	git(t, repo, "checkout", "-q", "-b", "fix/PROJ-3-release", "release")
 	writeRepoFile(t, repo, "api/release.go", "package api\n")
@@ -181,7 +181,7 @@ func TestPRSaysWhenTheBaseItIsGivenIsNoBranch(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{})
+	clitest.FakeGh(t, clitest.GhResponses{})
 	repo := ownedRepo(t)
 
 	// Act
@@ -244,7 +244,7 @@ func TestPRPreviewsTheReviewersItIsGivenAsNoCodeOwners(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fakeGh(t, ghResponses{})
+	clitest.FakeGh(t, clitest.GhResponses{})
 	repo := ownedRepo(t)
 
 	// Act
@@ -316,7 +316,7 @@ func TestPRNamesTheTemplatesItHasWhenAskedForOneItLacks(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			fakeGh(t, ghResponses{})
+			clitest.FakeGh(t, clitest.GhResponses{})
 			repo := templatedRepo(t, tt.templates...)
 
 			// Act
