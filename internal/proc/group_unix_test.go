@@ -69,7 +69,9 @@ func TestARunEndsThoughAProcessItLeftBehindHoldsItsOutput(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			output, err := proc.Start(t.Context(), child(t.TempDir(), mode))
+			pidFile := killedAtCleanup(t)
+
+			output, err := proc.Start(t.Context(), child(t.TempDir(), mode, helperPIDFile+"="+pidFile))
 			if err != nil {
 				t.Fatalf("Start returned %v, want nil", err)
 			}
@@ -90,8 +92,6 @@ func TestARunEndsThoughAProcessItLeftBehindHoldsItsOutput(t *testing.T) {
 			// Assert
 			select {
 			case end := <-ended:
-				t.Cleanup(func() { killAll(end.lines) })
-
 				if end.err != nil || len(end.lines) != 1 {
 					t.Errorf("the run ended with %q and %v, want the pid it printed and no failure", end.lines, end.err)
 				}
