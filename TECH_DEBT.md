@@ -1121,10 +1121,9 @@ drift: a rule loosened on the server alone is still refused on the page until
 its twin follows, and one tightened there is caught only by the server's
 refusal after the save or the change is sent. Settings words a refusal its
 own way, not the server's. The status change copies the server's words,
-`needs a value`, for a text or single-option field, so a change to
-`jira.ErrNeedsValue` leaves the page's copy behind; for a list it copies the
-check but not the words, saying `needs a value` where the server says
-`needs at least one`.
+`needs a value` for a text or single-option field and `needs at least one`
+for a list (`emptyRefusal`), so a change to `jira.ErrNeedsValue` or
+`jira.ErrNeedsChoice` leaves the page's copy behind.
 
 **Reopen when.** A client rule refuses a value the server accepts, or the
 server can be asked to check a configuration without saving it, which would
