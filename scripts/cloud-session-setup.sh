@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
 # Install the tools `task check` and the hooks run, at the versions mise.toml
-# pins, into a Claude Code cloud session, link them onto PATH, make the
-# non-root user the gate runs as, and install the git hooks.
+# pins, into a Claude Code cloud session, link them and the gate onto PATH,
+# make the non-root user the gate runs as, and install the git hooks.
 #
 # Usage:
 #   scripts/cloud-session-setup.sh
@@ -28,7 +28,9 @@
 # what depends on it; a tool whose stamp is in place is left alone, and a run
 # with nothing to install takes a moment. The links go into ~/.local/bin,
 # which is on the session's PATH already: the shell the session runs commands
-# in does not read ~/.bashrc. One setup runs at a time.
+# in does not read ~/.bashrc. Every run copies scripts/gate-as-dev.sh into the
+# prefix beside the tools, so the gate on PATH is root's own and outlives the
+# checkout that ran the setup. One setup runs at a time.
 #
 # The environment is the seam: CLOUD_SETUP_PREFIX (/opt/workflow-tools) is
 # where the tools go, CLOUD_SETUP_BIN (~/.local/bin) where they are linked,
@@ -265,7 +267,8 @@ install_markdownlint() {
     --no-fund --no-audit "markdownlint-cli2@${markdownlint_version}"
 }
 
-# link_tools links every installed tool into the link directory.
+# link_tools links every installed tool, the gate's copy among them, into the
+# link directory.
 link_tools() {
   local tool
   for tool in "${prefix}"/bin/* "${prefix}"/go/bin/* "${prefix}"/node/bin/*; do
@@ -298,6 +301,7 @@ ensure gobco "${gobco_version}+${built_by}" go_install "github.com/rillig/gobco@
 ensure deadcode "${deadcode_version}+${built_by}" go_install "golang.org/x/tools/cmd/deadcode@v${deadcode_version}"
 ensure yamllint "${yamllint_version}" install_yamllint
 ensure markdownlint-cli2 "${markdownlint_version}+node${node_version}" install_markdownlint
+install -m 0755 "${repo}/scripts/gate-as-dev.sh" "${prefix}/bin/gate-as-dev"
 chmod -R a+rX "${prefix}"
 link_tools
 

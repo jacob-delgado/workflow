@@ -1,28 +1,29 @@
 #!/usr/bin/env bash
 #
 # Tests for scripts/cloud-session-setup.sh: a finished setup fetches nothing
-# again and leaves the tools linked and readable, and the run after an install
-# fetches nothing either; every download lands where the setup links it from,
-# runnable by anyone, and a tool installed again while it runs is replaced; a
-# download that fails or misses its pinned SHA-256 is not installed, and the
-# setup names the tool and exits 1; a tool mise.toml does not pin stops the
-# setup; a Go already in the prefix survives a repair, and a Go build a run cut
-# short left behind is not built into; a Go or node bump rebuilds what was built
-# with the old one, and leaves a Go copied from the module cache's read-only
-# tree writable for the next, each Go tool built into the prefix by the pinned
-# Go alone, with none of the environment's flags and in a build cache of the
-# setup's own, removed after, and markdownlint-cli2 installed by the pinned
-# node's own npm, which takes no dependency released within the week; yamllint
-# is installed again at its pin when its stamp is gone; run as root, no
-# archive's owner is kept; the setup stops before it fetches on a disk without
-# room and on a machine it has no downloads for, waits for another setup and
-# stops when that one holds the lock too long; and the gate user is made, with a
-# home, only when it is missing, a gate user or git hooks that cannot be set up
-# exiting 1 too, without blaming a tool the run installed first; and git hooks
-# are installed only in a checkout that is a repository. Stand-ins for curl, go,
-# python3, pip, npm, df, uname, id, useradd and lefthook record what they were
-# asked, and curl serves only the files a case puts in place, by name, so
-# nothing is downloaded, built or installed for real.
+# again and leaves the tools, the gate's own copy among them, linked and
+# readable, and the run after an install fetches nothing either; every download
+# lands where the setup links it from, runnable by anyone, and a tool installed
+# again while it runs is replaced; a download that fails or misses its pinned
+# SHA-256 is not installed, and the setup names the tool and exits 1; a tool
+# mise.toml does not pin stops the setup; a Go already in the prefix survives a
+# repair, and a Go build a run cut short left behind is not built into; a Go or
+# node bump rebuilds what was built with the old one, and leaves a Go copied
+# from the module cache's read-only tree writable for the next, each Go tool
+# built into the prefix by the pinned Go alone, with none of the environment's
+# flags and in a build cache of the setup's own, removed after, and
+# markdownlint-cli2 installed by the pinned node's own npm, which takes no
+# dependency released within the week; yamllint is installed again at its pin
+# when its stamp is gone; run as root, no archive's owner is kept; the setup
+# stops before it fetches on a disk without room and on a machine it has no
+# downloads for, waits for another setup and stops when that one holds the lock
+# too long; and the gate user is made, with a home, only when it is missing, a
+# gate user or git hooks that cannot be set up exiting 1 too, without blaming a
+# tool the run installed first; and git hooks are installed only in a checkout
+# that is a repository. Stand-ins for curl, go, python3, pip, npm, df, uname,
+# id, useradd and lefthook record what they were asked, and curl serves only the
+# files a case puts in place, by name, so nothing is downloaded, built or
+# installed for real.
 #
 # Usage:
 #   scripts/cloud-session-setup_test.sh
@@ -119,11 +120,12 @@ actionlint@1.7.12+go1.27.2 govulncheck@1.9.0+go1.27.2 gitleaks@8.30.1+go1.27.2
 gobco@1.3.4+go1.27.2 deadcode@0.52.0+go1.27.2 markdownlint-cli2@0.23.3+node24.21.0'
 
 # repo lays out a checkout with the setup script, the download check it calls,
-# a mise.toml and an empty checksums file.
+# the gate it installs, a mise.toml and an empty checksums file.
 #   repo <dir>
 repo() {
   mkdir -p "$1/scripts" "$1/build"
   cp "${here}/cloud-session-setup.sh" "${here}/verify-download.sh" "$1/scripts/"
+  printf '#!/usr/bin/env bash\n# the gate\n' >"$1/scripts/gate-as-dev.sh"
   printf '[tools]\n%s\n' "${pins}" >"$1/mise.toml"
   : >"$1/build/tool-checksums.txt"
 }
@@ -190,6 +192,11 @@ for tool in bin/task go/bin/go node/bin/node; do
     fail_case "the tools onto PATH" "${tool##*/} is not linked from the prefix's ${tool%/*}"
   fi
 done
+count_case
+if [[ "$(readlink "${done_repo}.bin/gate-as-dev")" != "${done_repo}.prefix/bin/gate-as-dev" ]] \
+  || ! cmp -s "${done_repo}/scripts/gate-as-dev.sh" "${done_repo}.prefix/bin/gate-as-dev"; then
+  fail_case "the gate onto PATH" "gate-as-dev is not linked to a copy of scripts/gate-as-dev.sh in the prefix"
+fi
 count_case
 if [[ -z "$(find "${done_repo}.prefix/bin/task" -perm -o=rx)" ]]; then
   fail_case "the tools for the gate user" "the prefix is not readable by others: $(ls -l "${done_repo}.prefix/bin/task")"
