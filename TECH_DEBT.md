@@ -1163,3 +1163,31 @@ does not yet lowers on one surface alone.
 **Reopen when.** The server comes to rank a listing's names for another
 reason, or the two copies are found to disagree on a name the file does not
 hold.
+
+### TRADE-54 A cloud session's gate runs zizmor offline and leaves vuln to CI
+
+`scripts/gate-as-dev.sh` runs the gate in a Claude Code cloud session as the
+non-root user, so the session can catch before a push what CI would. Its
+`hand_over` runs zizmor with `ZIZMOR_OFFLINE=true`, and, while `vuln.go.dev`
+cannot be reached, its `check_steps` leaves `vuln` out of `task check`'s
+steps.
+
+**Decided.** 2026-10-16, with the local gate the maintainer asked cloud
+sessions to run before a push. zizmor runs its online audits whenever a
+GitHub token is in its environment, and they list each third-party action's
+tags from github.com, which refuses a cloud session's token with a 401. The
+gate user is handed no token, so its zizmor would run offline anyway;
+`ZIZMOR_OFFLINE=true` keeps it so whatever its environment comes to hold.
+And the session's network refuses `vuln.go.dev`, where govulncheck reads its
+database. Either would fail a local run for a reason no change can fix.
+
+**Cost.** A dependency with a newly published advisory passes the local gate
+and fails first in CI's Scan job, which runs `vuln`. zizmor costs nothing
+against CI: CI's Lint job hands zizmor no token, so it runs offline there too.
+Its online audits (known-vulnerable-actions, impostor-commit, ref-confusion,
+stale-action-refs and ref-version-mismatch) run only where a developer's own
+environment holds `GH_TOKEN`, `GITHUB_TOKEN` or `ZIZMOR_GITHUB_TOKEN`.
+
+**Reopen when.** The cloud environment's network policy allows `vuln.go.dev`
+(the gate then runs `vuln` again on its own), or CI's zizmor is handed a
+token, so the local run no longer matches CI's.
