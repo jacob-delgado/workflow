@@ -47,7 +47,7 @@ func TestTheBaseTheComposerOpensAtIsKeptThoughANewerBranchBeginsWithIt(t *testin
 	view := typing(t, model, "4", "n", keyEnd, keyTab, keyEnter).View().Content
 
 	// Assert
-	requireScreen(t, view, "→ "+baseName)
+	requireScreen(t, view, "Title", "→ "+baseName)
 	refuseScreen(t, view, "→ "+baseName+"-backport")
 }
 
@@ -65,7 +65,7 @@ func TestABaseTypedWholeIsKeptThoughANewerBranchBeginsWithIt(t *testing.T) {
 	view := typing(t, model, append(baseKeys(baseName), keyEnter)...).View().Content
 
 	// Assert
-	requireScreen(t, view, "→ "+baseName)
+	requireScreen(t, view, "Title", "→ "+baseName)
 	refuseScreen(t, view, "→ "+baseName+"-backport")
 }
 
