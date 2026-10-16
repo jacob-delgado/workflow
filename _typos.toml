@@ -2,7 +2,14 @@
 # American English is the house language — see CLAUDE.md.
 
 [files]
+# Hidden files and directories hold prose too: the CI workflows, the
+# development container, the cloud session's hook and the skills lanes load.
+ignore-hidden = false
 extend-exclude = [
+  # The repository itself, which typos no longer skips as hidden: in a full
+  # clone .git is a directory of objects and git's own sample hooks, in a
+  # linked worktree a one-line file.
+  ".git",
   "go.sum",
   "bin/**",
   "dist/**",

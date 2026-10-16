@@ -18,7 +18,7 @@ permissions:
   contents: read
 
 # A newer run builds the same image from a newer tree, so it replaces one in
-# flight rather than queueing behind it.
+# flight rather than queuing behind it.
 concurrency:
   group: container-${{ github.ref }}
   cancel-in-progress: true
