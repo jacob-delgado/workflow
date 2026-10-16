@@ -5,6 +5,15 @@ import { defineConfig, devices } from '@playwright/test'
 
 const isCI = Boolean(process.env.CI)
 
+// desktopChrome is the device every Chromium project runs. Where the Chromium
+// build Playwright pins cannot be installed, as in a Claude Code cloud session,
+// PLAYWRIGHT_CHROMIUM_EXECUTABLE names the Chromium to launch instead; unset,
+// Playwright launches its own.
+const desktopChrome = {
+  ...devices['Desktop Chrome'],
+  launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE },
+}
+
 // Beside the default port, 13579, and not on it: the run exercises --port,
 // and never meets a developer's own `workflow --web` or the /api proxy of the
 // Vite preview playwright.config.ts serves, which both use the default.
@@ -63,7 +72,7 @@ export default defineConfig({
       // page at the address the server printed, with its session, from
       // serverLog.
       metadata: { origin: join(fixture, 'origin.git'), serverLog: join(fixture, 'server.log') },
-      use: { ...devices['Desktop Chrome'], baseURL: serverURL },
+      use: { ...desktopChrome, baseURL: serverURL },
     },
   ],
   webServer: {

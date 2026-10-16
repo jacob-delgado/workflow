@@ -9,8 +9,10 @@
 # or without one; its time limit for the setup is under the one
 # .claude/settings.json gives the hook, so that line still reaches the
 # session; and it gives the session's commands, once each, the link
-# directory on PATH, zizmor offline and corepack's registry, keeping whatever
-# else the environment file holds. The setup it runs is a stand-in.
+# directory on PATH, zizmor offline, corepack's registry and, for Playwright,
+# the newest of the image's Chromium headless shells, or its full Chromium
+# where it has no shell, quoted as the shell reads it, keeping whatever else
+# the environment file holds. The setup it runs is a stand-in.
 #
 # Usage:
 #   scripts/session-start_test.sh
@@ -48,13 +50,26 @@ STUB
 }
 
 # start runs a checkout's hook as Claude Code would start a session, with a
-# log and an environment file of its own.
+# log, an environment file and a browsers directory of its own, which holds
+# no browser until a case puts one there.
 #   start <dir> [VAR=value...]
 start() {
   local dir="$1"
   shift
-  env CLAUDE_PROJECT_DIR="${dir}" CLOUD_SETUP_LOG="${dir}.log" CLAUDE_ENV_FILE="${dir}.env" "$@" \
-    "${dir}/.claude/hooks/session-start.sh"
+  env CLAUDE_PROJECT_DIR="${dir}" CLOUD_SETUP_LOG="${dir}.log" CLAUDE_ENV_FILE="${dir}.env" \
+    CLOUD_SETUP_BROWSERS="${dir}.browsers" "$@" "${dir}/.claude/hooks/session-start.sh"
+}
+
+# browsers puts an executable stand-in at each path under a browsers
+# directory.
+#   browsers <dir> <path>...
+browsers() {
+  local dir="$1" path
+  shift
+  for path in "$@"; do
+    mkdir -p "$(dirname "${dir}/${path}")"
+    install -m 0755 /dev/null "${dir}/${path}"
+  done
 }
 
 for remote in "" false; do
@@ -89,6 +104,60 @@ for line in 'export SOMETHING_ELSE=kept' 'export PATH="${HOME}/.local/bin:${PATH
     fail_case "the session's environment" "it does not hold ${line} once: $(grep -cxF "${line}" "${ready}.env")"
   fi
 done
+
+count_case
+if grep -q PLAYWRIGHT_CHROMIUM_EXECUTABLE "${ready}.env"; then
+  fail_case "a session with no browsers directory" "Playwright is pointed at a browser that is not there"
+fi
+
+# Headless shells in both layouts Playwright has unpacked them in, the full
+# Chromium beside them, and revisions a sort by text would put in the wrong
+# order.
+shells="${workdir}/shells"
+project "${shells}"
+browsers "${shells}.browsers" chromium \
+  chromium_headless_shell-999/chrome-headless-shell-linux64/chrome-headless-shell \
+  chromium_headless_shell-1194/chrome-linux/headless_shell \
+  chromium_headless_shell-1300/chrome-headless-shell-linux64/chrome-headless-shell
+newest="${shells}.browsers/chromium_headless_shell-1300/chrome-headless-shell-linux64/chrome-headless-shell"
+expect_exit pass "a session with the image's headless shells" start "${shells}" CLAUDE_CODE_REMOTE=true
+expect_exit pass "a second start with the image's headless shells" start "${shells}" CLAUDE_CODE_REMOTE=true
+count_case
+if [[ "$(grep -cxF "export PLAYWRIGHT_CHROMIUM_EXECUTABLE=${newest}" "${shells}.env")" != 1 ]]; then
+  fail_case "a session with the image's headless shells" "Playwright is not pointed at the newest once: $(grep PLAYWRIGHT_CHROMIUM_EXECUTABLE "${shells}.env" || true)"
+fi
+
+full="${workdir}/full"
+project "${full}"
+browsers "${full}.browsers" chromium
+expect_exit pass "a session with the image's full Chromium alone" start "${full}" CLAUDE_CODE_REMOTE=true
+count_case
+if [[ "$(grep -cxF "export PLAYWRIGHT_CHROMIUM_EXECUTABLE=${full}.browsers/chromium" "${full}.env")" != 1 ]]; then
+  fail_case "a session with the image's full Chromium alone" "Playwright is not pointed at it: $(grep PLAYWRIGHT_CHROMIUM_EXECUTABLE "${full}.env" || true)"
+fi
+
+empty="${workdir}/empty"
+project "${empty}"
+mkdir -p "${empty}.browsers"
+expect_exit pass "a session with no browser" start "${empty}" CLAUDE_CODE_REMOTE=true
+count_case
+if grep -q PLAYWRIGHT_CHROMIUM_EXECUTABLE "${empty}.env"; then
+  fail_case "a session with no browser" "Playwright is pointed at a browser that is not there: $(grep PLAYWRIGHT_CHROMIUM_EXECUTABLE "${empty}.env")"
+fi
+
+odd_browsers="${workdir}/an odd; \$HOME dir"
+browsers "${odd_browsers}" chromium_headless_shell-1194/chrome-linux/headless_shell
+odd_chromium="${odd_browsers}/chromium_headless_shell-1194/chrome-linux/headless_shell"
+odd="${workdir}/odd"
+project "${odd}"
+expect_exit pass "a Chromium at a path the shell would split" \
+  start "${odd}" CLAUDE_CODE_REMOTE=true CLOUD_SETUP_BROWSERS="${odd_browsers}"
+count_case
+# shellcheck disable=SC2016 # expanded by the shell that sources the file
+sourced="$(bash -c 'source "$1" 2>&1; printf "%s" "${PLAYWRIGHT_CHROMIUM_EXECUTABLE-}"' _ "${odd}.env")"
+if [[ "${sourced}" != "${odd_chromium}" ]]; then
+  fail_case "a Chromium at a path the shell would split" "sourcing the environment file gives back: ${sourced}"
+fi
 
 no_env_file="${workdir}/no-env-file"
 project "${no_env_file}"

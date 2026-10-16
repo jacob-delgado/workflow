@@ -50,11 +50,11 @@ readonly need_gb=10 floor_gb=8 step_need_gb=3 step_floor_gb=2
 # The variables the gate user's environment is built from, when root has them:
 # the PATH that reaches the toolchain, the locale and terminal, the proxy the
 # session reaches the network through and its certificates, and where
-# Playwright finds its browsers.
+# Playwright finds its browsers and which Chromium it launches.
 readonly passed_on=(PATH LANG TERM
   HTTPS_PROXY https_proxy HTTP_PROXY http_proxy NO_PROXY no_proxy
   SSL_CERT_FILE NODE_EXTRA_CA_CERTS GIT_SSL_CAINFO CURL_CA_BUNDLE REQUESTS_CA_BUNDLE PIP_CERT
-  PLAYWRIGHT_BROWSERS_PATH)
+  PLAYWRIGHT_BROWSERS_PATH PLAYWRIGHT_CHROMIUM_EXECUTABLE)
 
 # free_gb prints the whole gigabytes free on /.
 free_gb() {
