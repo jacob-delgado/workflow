@@ -17,7 +17,9 @@ rules:
   # not mechanically aligned to the neighboring line.
   comments-indentation: disable
 
+# A checkout Claude Code keeps under .claude/worktrees/ is another tree's.
 ignore: |
+  .claude/worktrees/
   bin/
   dist/
   tmp/

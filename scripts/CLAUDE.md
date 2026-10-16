@@ -14,7 +14,8 @@ Follow the
 `.shellcheckrc`, which turns on every optional check but SC2312 and follows a
 sourced file from the sourcing script's own directory. lefthook formats and
 checks a staged script on commit. The same style holds for shell anywhere
-else in the repository, `.devcontainer/postCreate.sh` included.
+else in the repository, `.devcontainer/postCreate.sh` and
+`.claude/hooks/session-start.sh` included, which `task lint:shell` finds.
 
 ## Every script has a sibling test
 
@@ -22,8 +23,9 @@ Every script here and under `release/` has a sibling `<name>_test.sh` that
 drives it: a new script brings its test in the same commit, and a change to a
 script changes or adds a case in its test. `check-sibling-tests.sh` fails a
 script under `scripts/` that has none. `pr-comment.mjs`'s test is
-`pr-comment_test.sh`, and `.devcontainer/postCreate.sh`'s is
-`postcreate_test.sh`; the libraries in `lib/` are driven through their
+`pr-comment_test.sh`, `.devcontainer/postCreate.sh`'s is
+`postcreate_test.sh`, and `.claude/hooks/session-start.sh`'s is
+`session-start_test.sh`; the libraries in `lib/` are driven through their
 callers' tests.
 
 - **The harness is `lib/testing.sh`**, sourced after the test's own

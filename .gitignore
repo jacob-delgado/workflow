@@ -52,9 +52,16 @@ tmp/
 .task/
 
 # --- Claude Code ---
-# The whole directory: it holds per-machine settings and session state such as
-# scheduled_tasks.lock, none of which belongs to the project.
-.claude/
+# Per-machine settings and session state, such as settings.local.json and
+# scheduled_tasks.lock, stay out; the project's own settings, the hook that
+# sets a cloud session up, and the skills lanes load are the project's. A
+# .claude/ below the root, which Claude Code makes when started there, stays
+# out whole: `.claude/*` holds at the root alone.
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+!.claude/skills/
+*/**/.claude/
 CLAUDE.local.md
 
 # --- macOS ---
