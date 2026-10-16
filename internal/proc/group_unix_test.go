@@ -179,6 +179,10 @@ func TestARunWhoseLineIsTooLongEndsThoughAProcessItLeftBehindHoldsItsOutput(t *t
 	}
 }
 
+// theGrace is the grace start.go's outputGrace gives the output once the
+// program exits, which a run waits out before it gives up an output held.
+const theGrace = 2 * time.Second
+
 // pastTheGrace is longer than the grace start.go's outputGrace, two seconds,
 // gives the output once the program exits, and shorter than any bound these
 // tests wait for a run.
@@ -287,7 +291,9 @@ func TestARunThatGaveUpOnItsOutputLeavesNoGoroutineBehind(t *testing.T) {
 		t.Fatalf("Start returned %v, want nil", err)
 	}
 
+	begun := time.Now()
 	err = output.Wait()
+	waited := time.Since(begun)
 
 	deadline := time.Now().Add(settling)
 	for runtime.NumGoroutine() > before && time.Now().Before(deadline) {
@@ -296,6 +302,11 @@ func TestARunThatGaveUpOnItsOutputLeavesNoGoroutineBehind(t *testing.T) {
 
 	if left := runtime.NumGoroutine() - before; err != nil || left > 0 {
 		t.Errorf("the run ended with %v, leaving %d goroutines of its own running; want no failure and none", err, left)
+	}
+
+	if waited < theGrace {
+		t.Errorf("Wait returned %v after the run started, within the grace; want the run to have given up an "+
+			"output the process left behind still held, past the grace", waited)
 	}
 }
 
