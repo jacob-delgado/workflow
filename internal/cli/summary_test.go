@@ -34,14 +34,14 @@ const (
 const summaryCommand = "summary"
 
 // datedCommit makes a commit in dir authored at when, as the identity the
-// repository is configured with.
+// repository is configured with, reading the git configuration clitest.Main
+// gave the process.
 func datedCommit(t *testing.T, dir, message, when string) {
 	t.Helper()
 
 	cmd := exec.CommandContext(t.Context(), "git", "-C", dir, "commit", "--quiet", "--allow-empty", "-m", message)
 
-	cmd.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL="+os.DevNull, "GIT_CONFIG_NOSYSTEM=1",
-		"GIT_AUTHOR_DATE="+when, "GIT_COMMITTER_DATE="+when)
+	cmd.Env = append(os.Environ(), "GIT_AUTHOR_DATE="+when, "GIT_COMMITTER_DATE="+when)
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {

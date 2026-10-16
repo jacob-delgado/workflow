@@ -56,8 +56,9 @@ linters:
         # process and imports testing, which only a test's own process should
         # do: a production path that did would undo a hook's GIT_DIR for every
         # git workflow runs. internal/cli/clitest may import it, to make the
-        # repositories the command tree's tests run in, since only tests may
-        # import clitest in turn (clitest-only-in-tests).
+        # repositories the command tree's tests run in and to point every git
+        # their process starts at the tests' configuration (gittest.Configure),
+        # since only tests may import clitest in turn (clitest-only-in-tests).
         gittest-only-in-tests:
           files:
             - "$all"

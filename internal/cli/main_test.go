@@ -11,6 +11,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/gittest"
+	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
 // TestMain clears the variables that tell git which repository to use before
@@ -65,5 +66,36 @@ func TestTheTestsLeaveTheRepositoryAHookNamesAlone(t *testing.T) {
 		if !strings.Contains(string(output), "--- PASS: "+fixture+" ") {
 			t.Errorf("%s did not pass with git's environment naming another repository:\n%s", fixture, output)
 		}
+	}
+}
+
+func TestTheGitACommandStartsLeavesNoMaintenanceRunning(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A command starts git in the process's environment, as proc starts
+	// every program. Since git 2.47 a commit returns with maintenance it
+	// detached from itself still running, which can be writing into the
+	// repository as the test's TempDir is removed.
+	repo := t.TempDir()
+	clitest.GitInit(t, repo)
+
+	trace := t.TempDir()
+	commit := proc.Command{
+		Name: "git", Dir: repo, Env: []string{"GIT_TRACE2_EVENT=" + trace},
+		Args: []string{
+			"-c", "user.email=t@example.com", "-c", "user.name=Tester", "commit", "--quiet", "--allow-empty", "-m", "work",
+		},
+	}
+
+	// Act
+	_, err := proc.RunCommand(t.Context(), commit)
+	// Assert
+	if err != nil {
+		t.Fatalf("git commit: %v", err)
+	}
+
+	if started := gittest.MaintenanceStarted(t, trace); len(started) != 0 || len(gittest.FilesUnder(t, trace)) == 0 {
+		t.Errorf("the commit started %q, want it traced and no maintenance to outlive it", started)
 	}
 }
