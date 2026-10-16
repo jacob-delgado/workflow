@@ -432,9 +432,13 @@ tasks:
     desc: Lint and format-check the shell scripts
     vars:
       # Found rather than globbed: scripts/ has subdirectories, and a glob that
-      # silently misses one means a script nobody ever lints.
+      # silently misses one means a script nobody ever lints. .claude/'s are
+      # listed from git instead, tracked and not-yet-added alike so a new hook
+      # is checked before its first `git add`: Claude Code keeps its own
+      # checkouts of this repository under .claude/, which .gitignore keeps
+      # out, but whose scripts a find would lint and fmt would rewrite.
       SHELL_FILES:
-        sh: find scripts .devcontainer -name '*.sh' -type f | sort | tr '\n' ' '
+        sh: "{ find scripts .devcontainer -name '*.sh' -type f; git ls-files --cached --others --exclude-standard -- '.claude/*.sh'; } | sort | tr '\\n' ' '"
     cmds:
       - shfmt -i 2 -ci -bn -d {{.SHELL_FILES}}
       - shellcheck {{.SHELL_FILES}}
@@ -552,8 +556,9 @@ tasks:
   fmt:
     desc: Format everything in place
     vars:
+      # The same list as lint:shell's; its comment says why.
       SHELL_FILES:
-        sh: find scripts .devcontainer -name '*.sh' -type f | sort | tr '\n' ' '
+        sh: "{ find scripts .devcontainer -name '*.sh' -type f; git ls-files --cached --others --exclude-standard -- '.claude/*.sh'; } | sort | tr '\\n' ' '"
     cmds:
       - golangci-lint fmt
       - shfmt -i 2 -ci -bn -w {{.SHELL_FILES}}

@@ -10,7 +10,8 @@ single source of truth, from which the typed client is generated.
 
 Node is pinned in the repo's `mise.toml`; run `mise install` from the repo root.
 yarn is not pinned there — Corepack (bundled with Node) runs the version the
-`packageManager` field names. One command, from the repo root, runs the whole
+`packageManager` field names, and refuses a download that does not match the
+SHA-512 the field carries. One command, from the repo root, runs the whole
 cockpit:
 
 ```sh

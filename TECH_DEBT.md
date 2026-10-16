@@ -1170,7 +1170,10 @@ hold.
 non-root user, so the session can catch before a push what CI would. Its
 `hand_over` runs zizmor with `ZIZMOR_OFFLINE=true`, and, while `vuln.go.dev`
 cannot be reached, its `check_steps` leaves `vuln` out of `task check`'s
-steps.
+steps. The SessionStart hook, `.claude/hooks/session-start.sh`, sets
+`ZIZMOR_OFFLINE=true` for the session's own commands too, so the pre-commit
+hook and `task lint`, run as root with the session's GitHub token in their
+environment, do the same.
 
 **Decided.** 2026-10-16, with the local gate the maintainer asked cloud
 sessions to run before a push. zizmor runs its online audits whenever a

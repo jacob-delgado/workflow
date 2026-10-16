@@ -1,5 +1,10 @@
 # markdownlint-cli2 — Markdown lint and format, wired into `task lint:markdown`,
 # `task fmt` and the lefthook pre-commit hook.
+# Whatever .gitignore keeps out is not linted either: a checkout Claude Code
+# keeps under .claude/worktrees/ among it, whose own generated reference pages
+# the root-anchored ignores below would miss.
+gitignore: true
+
 globs:
   - "**/*.md"
 
