@@ -145,6 +145,12 @@ for a client's unreachable service, `cmdkit.ServicesUnreachable` in
   developer's home and git configuration and every task program off PATH.
   `TestTheTestsLeaveTheRepositoryAHookNamesAlone` proves the scrub; a new
   package whose tests run git needs the same (CONTRIBUTING.md, *Tests*).
+  Every git a test or a command under test starts reads the tests' own
+  configuration (`gittest.Configure`, which `clitest.Main` hands the
+  process), with git's automatic maintenance off, which git 2.47 and later
+  leave running detached after a commit and could still be writing a test's
+  repository as its TempDir is removed;
+  `TestTheGitACommandStartsLeavesNoMaintenanceRunning` proves it.
 - **The kit's own tests live beside it**, in `internal/cli/cmdkit`: through
   `cli.Execute` where a command is how a script meets the kit, and otherwise
   over a small tree of their own (`probeTree`, `cmdkit/kit_test.go`) declared as

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/gittest"
+	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
 // TestMain clears the variables that tell git which repository to use before
@@ -18,7 +19,8 @@ import (
 // start, theirs, lefthook's or a seam's, would inherit it and work on that
 // repository instead of its temporary one — committing to it, and pushing to
 // its origin. The names are git's own list for the purpose,
-// gittest.LocalVariables.
+// gittest.LocalVariables. The tests then run with every such git reading
+// the tests' own configuration.
 func TestMain(m *testing.M) {
 	// Running the tests anyway would be running them against that repository.
 	err := gittest.ClearLocalVariables()
@@ -26,7 +28,34 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	os.Exit(m.Run())
+	os.Exit(withTheTestsGit(m))
+}
+
+// withTheTestsGit runs the tests m holds with every git the process starts
+// reading the tests' own configuration (gittest.Configure), written into a
+// directory it removes once they have run, and returns their exit code: a
+// developer's global hooks or signing key would change what a test's git
+// does, and maintenance git left running could write into a test's
+// repository as it is removed.
+func withTheTestsGit(m *testing.M) int {
+	configured, err := os.MkdirTemp("", "workflow-test-git-*")
+	if err != nil {
+		panic(err)
+	}
+
+	err = gittest.Configure(configured, os.Setenv)
+	if err != nil {
+		panic(err)
+	}
+
+	code := m.Run()
+
+	err = os.RemoveAll(configured)
+	if err != nil {
+		panic(err)
+	}
+
+	return code
 }
 
 func TestTheTestsLeaveTheRepositoryAHookNamesAlone(t *testing.T) {
@@ -67,5 +96,37 @@ func TestTheTestsLeaveTheRepositoryAHookNamesAlone(t *testing.T) {
 		if !strings.Contains(string(output), "--- PASS: "+fixture+" ") {
 			t.Errorf("%s did not pass with git's environment naming another repository:\n%s", fixture, output)
 		}
+	}
+}
+
+func TestTheGitASeamStartsLeavesNoMaintenanceRunning(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A seam starts git in the process's environment, as proc starts every
+	// program, whether or not its test isolates anything more. Since git 2.47
+	// a commit returns with maintenance it detached from itself still
+	// running, which can be writing into the repository as the test's TempDir
+	// is removed.
+	repo := t.TempDir()
+	git(t, repo, "init", "--quiet")
+
+	trace := t.TempDir()
+	commit := proc.Command{
+		Name: "git", Dir: repo, Env: []string{"GIT_TRACE2_EVENT=" + trace},
+		Args: []string{
+			"-c", "user.email=t@example.com", "-c", "user.name=Tester", "commit", "--quiet", "--allow-empty", "-m", "work",
+		},
+	}
+
+	// Act
+	_, err := proc.RunCommand(t.Context(), commit)
+	// Assert
+	if err != nil {
+		t.Fatalf("git commit: %v", err)
+	}
+
+	if started := gittest.MaintenanceStarted(t, trace); len(started) != 0 || len(gittest.FilesUnder(t, trace)) == 0 {
+		t.Errorf("the commit started %q, want it traced and no maintenance to outlive it", started)
 	}
 }

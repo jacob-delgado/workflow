@@ -39,14 +39,12 @@ const githubKind = "github"
 // featureBranch is the branch the git tests start.
 const featureBranch = "feat/PROJ-1-x"
 
-// isolateGit keeps a developer's own git configuration — global hooks, a
-// signing key, a default branch — and language out of a test.
+// isolateGit keeps a developer's own language out of a test's git, as
+// TestMain keeps their git configuration out of every test's: git translates
+// its messages, and a test that reads git's reason must read it in one
+// language.
 func isolateGit(t *testing.T) {
 	t.Helper()
-	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
-	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
-	// git translates its messages, and a test that reads git's reason must
-	// read it in one language.
 	t.Setenv("LC_ALL", "C")
 }
 
@@ -161,8 +159,8 @@ func TestLocateOutsideARepositoryIsTheDirectoryItself(t *testing.T) {
 	}
 }
 
-// gitSeams are the git seams on a new repository, with git's own configuration
-// kept out and drafts written under drafts.
+// gitSeams are the git seams on a new repository, their git speaking one
+// language (isolateGit) and writing drafts under drafts.
 func gitSeams(t *testing.T) (seams.Git, string, string) {
 	t.Helper()
 

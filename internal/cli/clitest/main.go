@@ -5,11 +5,14 @@ package clitest
 
 import (
 	"encoding/pem"
+	"errors"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/gittest"
 )
 
 // Main runs the tests m holds in a process readied for them and returns their
@@ -35,11 +38,13 @@ func Main(m *testing.M) int {
 	return code
 }
 
-// awayFromHome points this process, and so every program it starts, at an
-// empty home of its own, and has git read no configuration but a repository's
-// own — a developer's global commit.gpgsign would fail a commit — and returns
-// the home it made. Each run is handed a home of its own; this keeps git, and
-// whatever else the programs a run starts read, off the developer's.
+// awayFromHome points this process, and so every program it starts, at a
+// home of its own, and has git read no configuration but a repository's own
+// and the tests' (gittest.Configure), which it writes there — a developer's
+// global commit.gpgsign would fail a commit, and maintenance git left running
+// could write into a test's repository as it is removed — and returns the home
+// it made. Each run is handed a home of its own; this keeps git, and whatever
+// else the programs a run starts read, off the developer's.
 func awayFromHome() string {
 	home, err := os.MkdirTemp("", "workflow-test-home-*")
 	if err != nil {
@@ -48,14 +53,15 @@ func awayFromHome() string {
 
 	isolated := map[string]string{
 		"HOME": home, "XDG_STATE_HOME": "", "XDG_CONFIG_HOME": "", "AppData": filepath.Join(home, "AppData"),
-		"GIT_CONFIG_GLOBAL": os.DevNull, "GIT_CONFIG_NOSYSTEM": "1",
 	}
 
+	err = gittest.Configure(home, os.Setenv)
 	for name, value := range isolated {
-		err = os.Setenv(name, value)
-		if err != nil {
-			panic(err)
-		}
+		err = errors.Join(err, os.Setenv(name, value))
+	}
+
+	if err != nil {
+		panic(err)
 	}
 
 	return home
