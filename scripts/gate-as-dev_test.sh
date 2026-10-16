@@ -111,7 +111,7 @@ readonly handed_on=(LANG=C.UTF-8 TERM=dumb
   NO_PROXY=localhost no_proxy=localhost
   SSL_CERT_FILE=/test/ca.pem NODE_EXTRA_CA_CERTS=/test/ca.pem GIT_SSL_CAINFO=/test/ca.pem
   CURL_CA_BUNDLE=/test/ca.pem REQUESTS_CA_BUNDLE=/test/ca.pem PIP_CERT=/test/ca.pem
-  PLAYWRIGHT_BROWSERS_PATH=/test/browsers)
+  PLAYWRIGHT_BROWSERS_PATH=/test/browsers PLAYWRIGHT_CHROMIUM_EXECUTABLE=/test/chromium)
 
 # as_root runs the gate as root would, with the stand-ins, a lock of its own
 # and the variables root hands on.

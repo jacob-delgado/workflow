@@ -2,6 +2,15 @@ import { defineConfig, devices } from '@playwright/test'
 
 const isCI = Boolean(process.env.CI)
 
+// desktopChrome is the device every Chromium project runs. Where the Chromium
+// build Playwright pins cannot be installed, as in a Claude Code cloud session,
+// PLAYWRIGHT_CHROMIUM_EXECUTABLE names the Chromium to launch instead; unset,
+// Playwright launches its own.
+const desktopChrome = {
+  ...devices['Desktop Chrome'],
+  launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE },
+}
+
 const hermeticURL = 'http://localhost:4173'
 const mockURL = 'http://localhost:4174'
 
@@ -39,12 +48,12 @@ export default defineConfig({
     {
       name: 'chromium',
       grepInvert: /@populated/,
-      use: { ...devices['Desktop Chrome'], baseURL: hermeticURL },
+      use: { ...desktopChrome, baseURL: hermeticURL },
     },
     {
       name: 'mock',
       grep: /@populated/,
-      use: { ...devices['Desktop Chrome'], baseURL: mockURL },
+      use: { ...desktopChrome, baseURL: mockURL },
     },
   ],
   webServer: [
