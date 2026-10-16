@@ -280,15 +280,15 @@ func TestARunThatGaveUpOnItsOutputLeavesNoGoroutineBehind(t *testing.T) {
 	pidFile := killedAtCleanup(t)
 	before := runtime.NumGoroutine()
 
+	// Act
 	output, err := proc.Start(t.Context(), script(`sleep 30 & echo "$!" > '`+pidFile+`'`))
+	// Assert
 	if err != nil {
 		t.Fatalf("Start returned %v, want nil", err)
 	}
 
-	// Act
-	_, err = collect(t, output)
+	err = output.Wait()
 
-	// Assert
 	deadline := time.Now().Add(settling)
 	for runtime.NumGoroutine() > before && time.Now().Before(deadline) {
 		time.Sleep(10 * time.Millisecond)
