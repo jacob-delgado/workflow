@@ -87,6 +87,7 @@ build/                the build container
 docs/                 the Hugo documentation site
 .devcontainer/        the development container definition
 .github/              CI workflows, and the issue and pull request templates
+.claude/              a cloud session's startup hook and settings, and the skills lanes load
 ```
 
 `task lint:layout` fails when a Go package has no line here, a line names a
@@ -469,6 +470,36 @@ tests are failing — say what's broken and why instead.
   paragraphs, and a `Trade-off TRADE-n:` comment at the code it keeps
   (`scripts/check-tradeoffs.sh`). A review or an audit drops a finding that
   restates an entry unless the entry's reopen trigger has fired.
+
+## Cloud sessions and lanes
+
+A Claude Code cloud session, and every lane it starts, gets the toolchain
+`mise.toml` pins from the SessionStart hook, `.claude/hooks/session-start.sh`,
+which runs `scripts/cloud-session-setup.sh`. The `cloud-lanes` skill
+(`.claude/skills/cloud-lanes/SKILL.md`) holds what the container does to the
+work and what to do about it: read it before starting lanes, and whenever the
+container gets in the way. The rules every session needs:
+
+- **The hook rule holds here too** (Working agreement): with the toolchain
+  linked, nothing in a cloud session needs `LEFTHOOK=0`. The one exclusion
+  the maintainer allows is the skill's push rule, for a push of the exact
+  commit the gate as dev passed.
+- **The gate as dev before a push.** `gate-as-dev <worktree>` runs it as the
+  non-root `dev` user, whose verdict holds where root's does not (*Testing*,
+  above), on what the worktree has committed. It checks the disk itself,
+  refusing to start under 8 GB free, and leaves `vuln` to CI while
+  `vuln.go.dev` is refused (TRADE-54).
+- **The disk is an allowance.** Check `df -h /` before a build, a gate run or
+  launching agents. A lane under 3 GB free stops and reports, clearing
+  nothing shared; under 5 GB the main session clears what regenerates, and
+  trims root's shared Go build cache rather than clearing it while a lane
+  builds.
+- **Chromium alone runs here,** the image's build, which the hook points
+  Playwright at; never run `playwright install`. Any other engine's verdict
+  comes from CI, where the branch's `ci.yml` runs it.
+- **After a usage-limit cutoff**, the main session reads `git status` and
+  `git reflog` in every lane's worktree, stashes half-done work, and moves the
+  branch back to its last complete commit before anything resumes.
 
 ## Area guides
 
