@@ -8,8 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"os/exec"
 	"reflect"
 	"strings"
 	"sync/atomic"
@@ -19,6 +17,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
+	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 	"github.com/jacob-delgado/workflow/internal/webserver/edge"
 )
@@ -39,13 +38,12 @@ const summaryCommand = "summary"
 func datedCommit(t *testing.T, dir, message, when string) {
 	t.Helper()
 
-	cmd := exec.CommandContext(t.Context(), "git", "-C", dir, "commit", "--quiet", "--allow-empty", "-m", message)
-
-	cmd.Env = append(os.Environ(), "GIT_AUTHOR_DATE="+when, "GIT_COMMITTER_DATE="+when)
-
-	out, err := cmd.CombinedOutput()
+	_, err := proc.RunCommand(t.Context(), proc.Command{
+		Name: "git", Args: []string{"-C", dir, "commit", "--quiet", "--allow-empty", "-m", message},
+		Env: []string{"GIT_AUTHOR_DATE=" + when, "GIT_COMMITTER_DATE=" + when},
+	})
 	if err != nil {
-		t.Fatalf("git commit: %v (%s)", err, out)
+		t.Fatalf("git commit: %v", err)
 	}
 }
 
