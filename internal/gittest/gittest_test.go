@@ -401,3 +401,31 @@ func TestMaintenanceStartedFailsTheTestForATraceThatIsNotGits(t *testing.T) {
 		t.Errorf("MaintenanceStarted = %q, failing the test with %q; want nothing and the trace named", started, test.said)
 	}
 }
+
+func TestConfigurationIsTheOneTheScriptTestsRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := t.TempDir()
+
+	want, err := os.ReadFile(filepath.Join("..", "..", "scripts", "lib", "test-gitconfig"))
+	if err != nil {
+		t.Fatalf("reading the script tests' git configuration: %v", err)
+	}
+
+	// Act
+	err = gittest.Configure(dir, func(string, string) error { return nil })
+	// Assert
+	if err != nil {
+		t.Fatalf("Configure: %v", err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(dir, ".gitconfig"))
+	if err != nil {
+		t.Fatalf("reading what Configure wrote: %v", err)
+	}
+
+	if string(got) != string(want) {
+		t.Errorf("gittest's configuration differs from scripts/lib/test-gitconfig:\n got %q\nwant %q", got, want)
+	}
+}

@@ -1,8 +1,10 @@
 # shellcheck shell=bash
 #
 # The harness every script test sources: a work directory removed on exit,
-# git's repository variables cleared, the case counters, the two expectations
-# most cases are, and the summary that ends the run.
+# git's repository variables cleared and its configuration the harness's own,
+# with automatic maintenance off, the case counters, the two expectations most
+# cases are, a reader of git's trace for the maintenance it started, and the
+# summary that ends the run.
 #
 # Sourced, never run, after the test's own `set -euo pipefail`:
 #
@@ -22,8 +24,9 @@
 # the test's own, and `run_in <dir> <command>` runs one from a directory. What
 # it printed is kept in the file ${case_output} names, and shown when the case
 # fails; its exit status is left in ${case_status}. A case a test checks itself
-# calls count_case, and fail_case when its check fails. The test ends with
-# finish_tests.
+# calls count_case, and fail_case when its check fails; one that traces git
+# reads what maintenance it started with `git_maintenance_started <dir>`. The
+# test ends with finish_tests.
 
 # A git hook or `git rebase --exec` exports the variables that locate its
 # repository; the repositories a test builds must not inherit them.
@@ -34,6 +37,23 @@ workdir="$(mktemp -d)"
 readonly workdir
 trap 'rm -rf "${workdir}"' EXIT
 mkdir "${workdir}/.testing"
+
+# Every git a test starts, and every git the script it drives starts, that keeps
+# the test's environment reads a global configuration of the harness's own: the
+# developer's and the system's are kept out, and so is git's automatic
+# maintenance. A git run under `env -i` reads none of it, as
+# e2e-server_test.sh's own gits, which only read, do. Since git 2.47 a commit, a
+# fetch or a merge, and the receive-pack a push to a repository on disk starts,
+# return with `git maintenance run --auto` detached from them and still running,
+# which can be writing into ${workdir} as the trap above removes it, and an rm
+# that fails there fails the test. That receive-pack reads only its own
+# repository's configuration and this one, never a -c the pushing git was
+# handed; an older git's runs gc instead, which receive.autoGc stops too.
+# The configuration is lib/test-gitconfig, copied so that a test's own
+# `git config --global` changes the copy; internal/gittest writes the same
+# for the Go tests, and a test of its own holds the two to each other.
+cp -- "$(dirname "${BASH_SOURCE[0]}")/test-gitconfig" "${workdir}/.testing/gitconfig"
+export GIT_CONFIG_GLOBAL="${workdir}/.testing/gitconfig" GIT_CONFIG_NOSYSTEM=1
 
 cases=0
 failures=0
@@ -84,6 +104,24 @@ run_case() {
   case_output="${workdir}/.testing/case${cases}.out"
   case_status=0
   ("$@") >"${case_output}" 2>&1 || case_status=$?
+}
+
+# git_maintenance_started prints every automatic maintenance or gc started by
+# the gits that traced their events into a directory (GIT_TRACE2_EVENT naming
+# it), each as its command line, sorted, and nothing when none was. A directory
+# it cannot read stops the test: a trace never read must not read as a pass.
+#   git_maintenance_started <trace dir>
+git_maintenance_started() {
+  local started status=0
+  started="$(grep -rhE '"event":"child_start".*"argv":\["[^"]*","(maintenance|gc)"' -- "$1")" || status=$?
+  if ((status > 1)); then
+    echo "testing.sh: could not read git's trace in '$1'" >&2
+    exit 2
+  fi
+
+  if [[ -n "${started}" ]]; then
+    sed -E 's/.*"argv":\[([^]]*)\].*/\1/; s/","/ /g; s/"//g' <<<"${started}" | sort
+  fi
 }
 
 # show_output prints what the case's command printed, indented under its FAIL.

@@ -118,11 +118,15 @@ write into a test's repository as it is removed. The other packages whose tests
 start git, `internal/tui`, `internal/setup` and `internal/webserver`, run only
 `init`, `rev-parse` and `check-ignore`, none of which starts maintenance, so
 they read the developer's configuration. Every script test that runs git unsets
-those variables, which `scripts/hook-environment_test.sh` checks. The pre-push
-hook, `task test`, `task test:cover`, `task cover:branch` and
-`task test:summary` all unset them before running the Go tests as well. A new
-package or script test that runs git needs the same, and the tests'
-configuration too once it commits, fetches or pushes.
+those variables, and each of its gits that keeps the test's environment reads a
+configuration of the harness's own, maintenance off in it too
+(`scripts/lib/testing.sh`), both of which `scripts/hook-environment_test.sh`
+checks. A git run under `env -i` reads none of it, as
+`scripts/e2e-server_test.sh`'s own gits, which only read, do. The pre-push hook,
+`task test`, `task test:cover`, `task cover:branch` and `task test:summary` all
+unset those variables before running the Go tests as well. A new package or
+script test that runs git needs the same, and the tests' configuration too once
+it commits, fetches or pushes.
 
 Two Go coverage floors gate a change, both configured in `Taskfile.yml` and
 both printing the available ratchet when you clear them; condition coverage
