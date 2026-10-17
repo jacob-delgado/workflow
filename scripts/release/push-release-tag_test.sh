@@ -37,9 +37,11 @@ readonly unlabeled='[{"number":42,"merged_at":"2026-09-20T12:00:00Z","labels":[{
 readonly unmerged='[{"number":42,"merged_at":null,"labels":[{"name":"autorelease: pending"}]}]'
 readonly no_pulls='[]'
 
-# quiet_git runs git with the developer's own configuration kept out.
+# quiet_git runs git, keeping what it says out of the test's output. It reads
+# the harness's git configuration, as the script does: the developer's is kept
+# out, and so is the maintenance a push's receive-pack would leave running.
 quiet_git() {
-  GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 git "$@" >/dev/null 2>&1
+  git "$@" >/dev/null 2>&1
 }
 
 # repository makes a clone of a fresh origin whose manifest names a version.
@@ -70,7 +72,7 @@ expect() {
 
   if ! (cd "${workdir}/${slug}" \
     && PATH="${workdir}/bin:${PATH}" GH_STUB_LOG="${workdir}/${slug}.log" GH_STUB_PULLS="${pulls}" \
-      GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 HEAD_COMMIT_MSG="${subject}" \
+      HEAD_COMMIT_MSG="${subject}" \
       bash "${script}" >"${workdir}/${slug}.out" 2>&1); then
     got_exit="fails"
   fi
@@ -131,7 +133,7 @@ quiet_git -C "${workdir}/again" tag -d v1.4.0
 
 (cd "${workdir}/again" \
   && PATH="${workdir}/bin:${PATH}" GH_STUB_LOG="${workdir}/again.log" GH_STUB_PULLS="${released}" \
-    GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 HEAD_COMMIT_MSG="chore(main): release 1.4.0" \
+    HEAD_COMMIT_MSG="chore(main): release 1.4.0" \
     bash "${script}" >"${workdir}/again.out" 2>&1) || true
 
 if grep -q 'workflow run' "${workdir}/again.log" 2>/dev/null; then
@@ -161,7 +163,7 @@ quiet_git -C "${workdir}/unknown" push origin main
 
 if (cd "${workdir}/unknown" \
   && PATH="${workdir}/bin:${PATH}" GH_STUB_LOG="${workdir}/unknown.log" GH_STUB_PULLS="${released}" \
-    GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 HEAD_COMMIT_MSG="chore(main): release 1.4.0" \
+    HEAD_COMMIT_MSG="chore(main): release 1.4.0" \
     bash "${script}" tag >"${workdir}/unknown.out" 2>&1) \
   || git -C "${workdir}/unknown.git" rev-parse --verify --quiet refs/tags/v1.4.0 >/dev/null 2>&1; then
   fail_case "an unknown step" "want it refused with nothing tagged"

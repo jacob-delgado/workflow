@@ -124,13 +124,15 @@ as_root() {
 }
 
 # as_gate_user runs the gate's second half, as the gate user would, against a
-# checkout under a home of its own.
+# checkout under a home of its own, whose global git configuration starts as a
+# copy of the harness's, so its gits leave no maintenance running either.
 #   as_gate_user <home> <common dir> <sha> [task...]
 as_gate_user() {
   local home="$1"
   shift
   : >"${log}"
   mkdir -p "${home}"
+  [[ -e "${home}/.gitconfig" ]] || cp -- "${GIT_CONFIG_GLOBAL}" "${home}/.gitconfig"
   env PATH="${stub_bin}:${PATH}" GATE_TOOLS="${workdir}/tools" \
     HOME="${home}" GIT_CONFIG_GLOBAL="${home}/.gitconfig" "${gate}" --as-gate-user "$@"
 }

@@ -30,8 +30,12 @@ callers' tests.
 
 - **The harness is `lib/testing.sh`**, sourced after the test's own
   `set -euo pipefail`. It makes a work directory removed on exit
-  (`${workdir}`), clears git's repository variables, and gives the two
-  expectations most cases are: `expect_exit <want> <name> <command>...` and
+  (`${workdir}`), clears git's repository variables, points every git the
+  test and its script start that keeps their environment at a configuration
+  of its own, with git's automatic maintenance off (a git run under `env -i`,
+  as `e2e-server_test.sh` runs its own, reads none of it), and gives the two
+  expectations most cases are:
+  `expect_exit <want> <name> <command>...` and
   `expect_output <want> <name> <text> <command>...`, where `<want>` is `pass`,
   `fail` or an exact status; `run_in <dir>` runs a command from a directory,
   `count_case` and `fail_case` count a case a test checks itself, and
@@ -46,7 +50,11 @@ callers' tests.
   runs every `*_test.sh` and `release/*_test.sh` once under a hook's git
   environment naming a sentinel repository, and fails if the sentinel
   changes, so a new test needs no registration and a test that lets git
-  touch the developer's repository fails.
+  touch the developer's repository fails. It traces every git each test
+  starts (`GIT_TRACE2_EVENT`) and fails a test whose gits start git's
+  automatic maintenance, which since git 2.47 a commit, a fetch or a push's
+  receive-pack leaves running detached, still writing into `${workdir}` as
+  the exit trap removes it; `git_maintenance_started` reads the trace.
 - **A gate's seams are its environment.** A gate reads the repository from
   its own location unless a variable points it elsewhere
   (`PACKAGE_SIZE_ROOT`, `PACKAGE_SIZE_BUDGETS`, `DOCS_REFERENCE`, `DOCSGEN`),
