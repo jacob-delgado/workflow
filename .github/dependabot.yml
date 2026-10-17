@@ -9,7 +9,7 @@
 #
 # COOLDOWN APPLIES ONLY TO SCHEDULED VERSION UPDATES. Dependabot *security*
 # updates — the ones raised from a published advisory against something already
-# in go.sum or yarn.lock — bypass both the cooldown and the schedule, and GitHub
+# in go.sum or a lock — bypass both the cooldown and the schedule, and GitHub
 # raises them immediately. There is no configuration knob for that because none
 # is needed: it is the unconditional default, and it is exactly the behavior
 # this project wants. The seven-day cooldown guards against unknown compromised
@@ -65,6 +65,24 @@ updates:
       # that migration.
       - dependency-name: "typescript"
         versions: ["7.x"]
+
+  # markdownlint-cli2 and its whole tree (build/markdownlint/package.json and
+  # its package-lock.json), which `task tools` installs with npm ci. A bump
+  # re-resolves the lock, so the age gate dates every package it moves; the
+  # cooldown holds markdownlint-cli2 itself. No pip entry beside it:
+  # build/yamllint/requirements.txt pins every wheel's hash, which Dependabot
+  # is not known to rewrite, so `task deps:yamllint` moves it.
+  - package-ecosystem: npm
+    directory: "/build/markdownlint"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build
+    cooldown:
+      default-days: 7
+    groups:
+      markdownlint:
+        update-types: ["minor", "patch"]
 
   # The actions used by CI, all of which are SHA-pinned with a version comment;
   # Dependabot updates both together. Official GitHub actions are a trusted
