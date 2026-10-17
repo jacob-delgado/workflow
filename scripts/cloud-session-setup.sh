@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
 # Install the tools `task check` and the hooks run, at the versions mise.toml
-# pins, into a Claude Code cloud session, link them and the gate onto PATH,
-# make the non-root user the gate runs as, and install the git hooks.
+# and the linters' pin files under build/ pin, into a Claude Code cloud
+# session, link them and the gate onto PATH, make the non-root user the gate
+# runs as, and install the git hooks.
 #
 # Usage:
 #   scripts/cloud-session-setup.sh
@@ -23,14 +24,22 @@
 # `task deadcode`; hugo-extended, air and cloc, which no gate runs, are left
 # out.
 #
-# Each tool's stamp names its pin, and for a Go tool the Go that built it and
-# for markdownlint-cli2 the node it runs under, so a bump of either rebuilds
-# what depends on it; a tool whose stamp is in place is left alone, and a run
-# with nothing to install takes a moment. The links go into ~/.local/bin,
-# which is on the session's PATH already: the shell the session runs commands
-# in does not read ~/.bashrc. Every run copies scripts/gate-as-dev.sh into the
-# prefix beside the tools, so the gate on PATH is root's own and outlives the
-# checkout that ran the setup. One setup runs at a time.
+# yamllint and markdownlint-cli2 are pinned outside mise.toml, each one's
+# whole tree by hash (Trade-off TRADE-53), and are installed from those files
+# as `task tools` installs them: yamllint into a venv of its own from
+# build/yamllint/requirements.txt, and markdownlint-cli2 by the pinned node's
+# npm ci from a copy of build/markdownlint/package-lock.json, running no
+# package's install script.
+#
+# Each tool's stamp names its pin, for those two the SHA-256 of the pin file,
+# and for a Go tool the Go that built it and for markdownlint-cli2 the node it
+# runs under, so a bump of either rebuilds what depends on it; a tool whose
+# stamp is in place is left alone, and a run with nothing to install takes a
+# moment. The links go into ~/.local/bin, which is on the session's PATH
+# already: the shell the session runs commands in does not read ~/.bashrc.
+# Every run copies scripts/gate-as-dev.sh into the prefix beside the tools, so
+# the gate on PATH is root's own and outlives the checkout that ran the setup.
+# One setup runs at a time.
 #
 # The environment is the seam: CLOUD_SETUP_PREFIX (/opt/workflow-tools) is
 # where the tools go, CLOUD_SETUP_BIN (~/.local/bin) where they are linked,
@@ -41,8 +50,8 @@
 #
 # Exits 0 once the toolchain is in; 1 when an install fails, the disk has no
 # room, another setup holds the lock, or the gate user or the git hooks cannot
-# be set up; and 2 when mise.toml does not pin a tool this installs or the
-# machine is not x86_64.
+# be set up; and 2 when mise.toml does not pin a tool this installs, a pin file
+# under build/ is missing, or the machine is not x86_64.
 set -euo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -52,6 +61,8 @@ readonly link_dir="${CLOUD_SETUP_BIN:-${HOME}/.local/bin}"
 readonly gate_user="${CLOUD_SETUP_GATE_USER:-dev}"
 readonly lock_wait="${CLOUD_SETUP_LOCK_WAIT:-900}"
 readonly checksums="${repo}/build/tool-checksums.txt"
+readonly requirements="${repo}/build/yamllint/requirements.txt"
+readonly npm_pins="${repo}/build/markdownlint"
 readonly arch=amd64
 # The room an install from nothing takes: the tools, their downloads, and the
 # Go tools' build cache while they build.
@@ -68,6 +79,23 @@ pin() {
     exit 2
   fi
   printf '%s' "${value}"
+}
+
+# pin_digest prints the SHA-256 of a pin file under build/, or stops the setup.
+# sha256sum is GNU's; stock macOS has only shasum.
+#   pin_digest <file>
+pin_digest() {
+  local digest
+  if [[ ! -f "$1" ]]; then
+    echo "cloud-session-setup: no pin file ${1#"${repo}/"}" >&2
+    exit 2
+  fi
+  if command -v sha256sum >/dev/null; then
+    digest="$(sha256sum "$1")"
+  else
+    digest="$(shasum -a 256 "$1")"
+  fi
+  printf '%s' "${digest%% *}"
 }
 
 machine="$(uname -m)"
@@ -93,8 +121,13 @@ govulncheck_version="$(pin 'go:golang.org/x/vuln/cmd/govulncheck')"
 gitleaks_version="$(pin 'go:github.com/zricethezav/gitleaks/v8')"
 gobco_version="$(pin 'go:github.com/rillig/gobco')"
 deadcode_version="$(pin 'go:golang.org/x/tools/cmd/deadcode')"
-yamllint_version="$(pin yamllint)"
-markdownlint_version="$(pin 'npm:markdownlint-cli2')"
+yamllint_pins="$(pin_digest "${requirements}")"
+# npm ci refuses a package.json its lock does not match, so the lock changes
+# whenever what package.json asks for does, and its digest names the stamp
+# alone. package.json is checked here all the same, outside a command
+# substitution, so that one missing stops the setup with 2 too.
+markdownlint_pins="$(pin_digest "${npm_pins}/package-lock.json")"
+pin_digest "${npm_pins}/package.json" >/dev/null
 
 mkdir -p "${prefix}/bin" "${prefix}/stamps" "${link_dir}"
 exec {lock}>"${prefix}/.setup.lock"
@@ -250,28 +283,36 @@ go_install() {
     "${prefix}/go/bin/go" install "$1"
 }
 
+# install_yamllint installs yamllint and its tree into a venv of its own, from
+# the requirements file that pins every package by each wheel's sha256.
 install_yamllint() {
   rm -rf "${prefix}/venv"
   python3 -m venv "${prefix}/venv"
-  "${prefix}/venv/bin/pip" install --quiet --no-cache-dir "yamllint==${yamllint_version}"
+  "${prefix}/venv/bin/pip" install --quiet --no-cache-dir --disable-pip-version-check -r "${requirements}"
   ln -sfn "${prefix}/venv/bin/yamllint" "${prefix}/bin/yamllint"
 }
 
-# install_markdownlint installs markdownlint-cli2 under the pinned node.
-# mise.toml pins the package alone, so npm resolves its dependencies as it
-# installs; --min-release-age=7 takes none published within the week, the
-# age CLAUDE.md asks of every dependency. The pinned node's own npm runs it:
-# the image's older npm takes the flag and ignores it.
+# install_markdownlint installs markdownlint-cli2 with the pinned node's own
+# npm, from a copy of the lock that pins every package by its sha512: npm ci
+# takes exactly what the lock names, and --ignore-scripts runs no package's
+# install script. It is built beside the one in place and then swapped in.
 install_markdownlint() {
-  PATH="${prefix}/node/bin:${PATH}" npm install -g --min-release-age=7 --prefix "${prefix}/node" \
-    --no-fund --no-audit "markdownlint-cli2@${markdownlint_version}"
+  rm -rf "${prefix}/markdownlint.new"
+  mkdir -p "${prefix}/markdownlint.new"
+  cp "${npm_pins}/package.json" "${npm_pins}/package-lock.json" "${prefix}/markdownlint.new/"
+  PATH="${prefix}/node/bin:${PATH}" npm ci --prefix "${prefix}/markdownlint.new" --ignore-scripts \
+    --no-fund --no-audit
+  swap_in "${prefix}/markdownlint.new" markdownlint
+  ln -sfn "${prefix}/markdownlint/node_modules/.bin/markdownlint-cli2" "${prefix}/bin/markdownlint-cli2"
 }
 
 # link_tools links every installed tool, the gate's copy among them, into the
-# link directory.
+# link directory. The prefix's own bin comes last, so a tool installed there
+# wins over one of the same name a runtime's bin holds, as an older setup's
+# markdownlint-cli2 in node's.
 link_tools() {
   local tool
-  for tool in "${prefix}"/bin/* "${prefix}"/go/bin/* "${prefix}"/node/bin/*; do
+  for tool in "${prefix}"/go/bin/* "${prefix}"/node/bin/* "${prefix}"/bin/*; do
     if [[ -e "${tool}" ]]; then
       ln -sfn "${tool}" "${link_dir}/$(basename "${tool}")"
     fi
@@ -299,8 +340,8 @@ ensure govulncheck "${govulncheck_version}+${built_by}" \
 ensure gitleaks "${gitleaks_version}+${built_by}" go_install "github.com/zricethezav/gitleaks/v8@v${gitleaks_version}"
 ensure gobco "${gobco_version}+${built_by}" go_install "github.com/rillig/gobco@v${gobco_version}"
 ensure deadcode "${deadcode_version}+${built_by}" go_install "golang.org/x/tools/cmd/deadcode@v${deadcode_version}"
-ensure yamllint "${yamllint_version}" install_yamllint
-ensure markdownlint-cli2 "${markdownlint_version}+node${node_version}" install_markdownlint
+ensure yamllint "${yamllint_pins}" install_yamllint
+ensure markdownlint-cli2 "${markdownlint_pins}+node${node_version}" install_markdownlint
 install -m 0755 "${repo}/scripts/gate-as-dev.sh" "${prefix}/bin/gate-as-dev"
 chmod -R a+rX "${prefix}"
 link_tools
