@@ -486,8 +486,9 @@ tests are failing — say what's broken and why instead.
 ## Cloud sessions and lanes
 
 A Claude Code cloud session, and every lane it starts, gets the toolchain
-`mise.toml` pins from the SessionStart hook, `.claude/hooks/session-start.sh`,
-which runs `scripts/cloud-session-setup.sh`. The `cloud-lanes` skill
+`mise.toml` and the linters' pin files under `build/` pin from the SessionStart
+hook, `.claude/hooks/session-start.sh`, which runs
+`scripts/cloud-session-setup.sh`. The `cloud-lanes` skill
 (`.claude/skills/cloud-lanes/SKILL.md`) holds what the container does to the
 work and what to do about it: read it before starting lanes, and whenever the
 container gets in the way. The rules every session needs:

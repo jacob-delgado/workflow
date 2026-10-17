@@ -5,25 +5,25 @@
 # readable, and the run after an install fetches nothing either; every download
 # lands where the setup links it from, runnable by anyone, and a tool installed
 # again while it runs is replaced; a download that fails or misses its pinned
-# SHA-256 is not installed, and the setup names the tool and exits 1; a tool
-# mise.toml does not pin stops the setup; a Go already in the prefix survives a
-# repair, and a Go build a run cut short left behind is not built into; a Go or
-# node bump rebuilds what was built with the old one, and leaves a Go copied
-# from the module cache's read-only tree writable for the next, each Go tool
-# built into the prefix by the pinned Go alone, with none of the environment's
-# flags and in a build cache of the setup's own, removed after, and
-# markdownlint-cli2 installed by the pinned node's own npm, which takes no
-# dependency released within the week; yamllint is installed again at its pin
-# when its stamp is gone; run as root, no archive's owner is kept; the setup
+# SHA-256 is not installed, and the setup names the tool and exits 1; a Go
+# already in the prefix survives a repair, and a Go build a run cut short left
+# behind is not built into; a Go or node bump rebuilds what was built with the
+# old one, and leaves a Go copied from the module cache's read-only tree
+# writable for the next, each Go tool built into the prefix by the pinned Go
+# alone, with none of the environment's flags and in a build cache of the
+# setup's own, removed after, and markdownlint-cli2 installed again by the
+# pinned node's own npm; run as root, no archive's owner is kept; the setup
 # stops before it fetches on a disk without room and on a machine it has no
-# downloads for, waits for another setup and stops when that one holds the lock
-# too long; and the gate user is made, with a home, only when it is missing, a
-# gate user or git hooks that cannot be set up exiting 1 too, without blaming a
-# tool the run installed first; and git hooks are installed only in a checkout
-# that is a repository. Stand-ins for curl, go, python3, pip, npm, df, uname,
-# id, useradd and lefthook record what they were asked, and curl serves only the
-# files a case puts in place, by name, so nothing is downloaded, built or
-# installed for real.
+# downloads for, waits for another setup and stops when that one holds the
+# lock too long; and the gate user is made, with a home, only when it is
+# missing, a gate user or git hooks that cannot be set up exiting 1 too,
+# without blaming a tool the run installed first; and git hooks are installed
+# only in a checkout that is a repository. What the setup reads its pins from,
+# and how it installs the linters pinned under build/, are
+# cloud-session-setup_pins_test.sh's. The stand-ins
+# lib/cloud-session-setup-fixtures.sh writes record what they were asked, and
+# curl serves only the files a case puts in place, by name, so nothing is
+# downloaded, built or installed for real.
 #
 # Usage:
 #   scripts/cloud-session-setup_test.sh
@@ -33,148 +33,14 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # shellcheck source=lib/testing.sh
 source "${here}/lib/testing.sh"
+# shellcheck source=lib/cloud-session-setup-fixtures.sh
+source "${here}/lib/cloud-session-setup-fixtures.sh"
 
 # The setup takes its lock with flock, which util-linux has and stock macOS
 # does not; the script is for a Linux cloud session alone.
 command -v flock >/dev/null || {
   echo "cloud-session-setup_test.sh: skipped, no flock here"
   exit 0
-}
-
-readonly stub_bin="${workdir}/stubs"
-readonly log="${workdir}/calls.log"
-readonly served="${workdir}/served"
-mkdir -p "${stub_bin}" "${served}"
-
-# stub writes a stand-in command that logs its name and arguments.
-#   stub <name> [body]
-stub() {
-  printf '#!/usr/bin/env bash\nprintf "%%s %%s\\n" "%s" "$*" >>"%s"\n%s\n' \
-    "$1" "${log}" "${2:-}" >"${stub_bin}/$1"
-  chmod +x "${stub_bin}/$1"
-}
-
-# curl serves a file from ${served} named as the URL's last part, and fails
-# as curl -f does for anything else. It writes a new file, as curl -o does,
-# so a download never keeps the served file's mode.
-# shellcheck disable=SC2016 # the stand-in's own variables, expanded when it runs
-stub curl 'out="" url=""
-while (($#)); do case "$1" in -o) out="$2"; shift ;; http*) url="$1" ;; esac; shift; done
-file="'"${served}"'/${url##*/}"
-[[ -f "${file}" ]] || exit 22
-cat "${file}" >"${out}"'
-# go reports GO_ROOT as the root of the Go it is asked for, and logs which
-# toolchain that was.
-# shellcheck disable=SC2016 # the stand-in's own variables, expanded when it runs
-stub go 'if [[ "$*" == "env GOROOT" ]]; then
-  printf "toolchain %s\n" "${GOTOOLCHAIN:-}" >>"'"${log}"'"
-  printf "%s\n" "${GO_ROOT}"
-fi'
-# python3 -m venv makes a venv whose pip is a stand-in too.
-stub pip
-# shellcheck disable=SC2016 # the stand-in's own variables, expanded when it runs
-stub python3 'if [[ "$1 $2" == "-m venv" ]]; then
-  mkdir -p "$3/bin" && cp "'"${stub_bin}"'/pip" "$3/bin/pip" && : >"$3/bin/yamllint"
-fi'
-stub npm
-# lefthook fails outside a repository, as the real one does.
-# shellcheck disable=SC2016 # the stand-in's own variable, expanded when it runs
-stub lefthook 'git rev-parse --git-dir >/dev/null 2>&1 || exit 128
-exit "${LEFTHOOK_STATUS:-0}"'
-# shellcheck disable=SC2016 # the stand-in's own variable, expanded when it runs
-stub useradd 'exit "${USERADD_STATUS:-0}"'
-# shellcheck disable=SC2016 # the stand-in's own variable, expanded when it runs
-stub id 'exit "${ID_STATUS:-0}"'
-# shellcheck disable=SC2016 # the stand-in's own variable, expanded when it runs
-stub uname 'printf "%s\n" "${UNAME_M:-x86_64}"'
-# shellcheck disable=SC2016 # the stand-in's own variable, expanded when it runs
-stub df 'printf "Filesystem 1024-blocks Used Available Capacity Mounted on\n/dev/vda 1 1 %d 1%% /\n" $((${DF_FREE_GB:-50} * 1048576))'
-
-# The pins every case starts from; a case moves or removes one.
-readonly pins='go = "1.27.2"
-task = "3.54.0"
-golangci-lint = "2.14.0"
-lefthook = "2.2.1"
-shellcheck = "0.11.0"
-shfmt = "3.14.1"
-yamllint = "1.38.0"
-typos = "1.51.1"
-actionlint = "1.7.12"
-hadolint = "2.15.1"
-taplo = "0.10.0"
-zizmor = "1.30.1"
-node = "24.21.0"
-"npm:markdownlint-cli2" = "0.23.3"
-jq = "1.8.2"
-"go:golang.org/x/vuln/cmd/govulncheck" = "1.9.0"
-"go:github.com/rillig/gobco" = "1.3.4"
-"go:github.com/zricethezav/gitleaks/v8" = "8.30.1"
-"go:golang.org/x/tools/cmd/deadcode" = "0.52.0"'
-
-# Every stamp a finished setup holds at those pins. A Go tool's names the Go it
-# was built with, and markdownlint's the node it was installed under.
-readonly stamps='go@1.27.2 node@24.21.0 shellcheck@0.11.0 jq@1.8.2 lefthook@2.2.1
-typos@1.51.1 hadolint@2.15.1 taplo@0.10.0 zizmor@1.30.1 yamllint@1.38.0
-task@3.54.0+go1.27.2 golangci-lint@2.14.0+go1.27.2 shfmt@3.14.1+go1.27.2
-actionlint@1.7.12+go1.27.2 govulncheck@1.9.0+go1.27.2 gitleaks@8.30.1+go1.27.2
-gobco@1.3.4+go1.27.2 deadcode@0.52.0+go1.27.2 markdownlint-cli2@0.23.3+node24.21.0'
-
-# repo lays out a checkout with the setup script, the download check it calls,
-# the gate it installs, a mise.toml and an empty checksums file.
-#   repo <dir>
-repo() {
-  mkdir -p "$1/scripts" "$1/build"
-  cp "${here}/cloud-session-setup.sh" "${here}/verify-download.sh" "$1/scripts/"
-  printf '#!/usr/bin/env bash\n# the gate\n' >"$1/scripts/gate-as-dev.sh"
-  printf '[tools]\n%s\n' "${pins}" >"$1/mise.toml"
-  : >"$1/build/tool-checksums.txt"
-}
-
-# repin moves or removes a checkout's pins with a sed script, in the form both
-# GNU's and BSD's sed take.
-#   repin <dir> <sed script>
-repin() {
-  sed -i.bak "$2" "$1/mise.toml" && rm "$1/mise.toml.bak"
-}
-
-# installed fills a prefix as a finished setup leaves it: every stamp, and a
-# tool in each directory the setup links from, made unreadable to others.
-#   installed <prefix>
-installed() {
-  local stamp
-  mkdir -p "$1/stamps" "$1/bin" "$1/go/bin" "$1/node/bin"
-  for stamp in ${stamps}; do : >"$1/stamps/${stamp}"; done
-  install -m 0700 /dev/null "$1/bin/task"
-  install -m 0700 /dev/null "$1/go/bin/go"
-  install -m 0700 /dev/null "$1/node/bin/node"
-}
-
-# pin_checksum pins a served file's SHA-256 for a tool in a checkout, with
-# GNU's sha256sum or, as on stock macOS, shasum.
-#   pin_checksum <dir> <tool> <version> <file>
-pin_checksum() {
-  local digest
-  if command -v sha256sum >/dev/null; then
-    digest="$(sha256sum "$4")"
-  else
-    digest="$(shasum -a 256 "$4")"
-  fi
-  printf '%s %s amd64 %s\n' "$2" "$3" "${digest%% *}" >>"$1/build/tool-checksums.txt"
-}
-
-# setup runs a checkout's setup script with the stand-ins, a prefix and a
-# link directory of its own, and a fresh call log. GOTOOLCHAIN, GOBIN,
-# GOFLAGS and GOCACHE are set to what a Go tool must not be built with, so a
-# build that leaves one to the environment shows.
-#   setup <dir> [VAR=value...]
-setup() {
-  local dir="$1"
-  shift
-  : >"${log}"
-  env PATH="${stub_bin}:${PATH}" HOME="${dir}.home" GO_ROOT="${dir}.goroot" \
-    GOTOOLCHAIN=auto GOBIN="${dir}.gobin" GOFLAGS=-mod=vendor GOCACHE="${dir}.gocache" \
-    CLOUD_SETUP_PREFIX="${dir}.prefix" CLOUD_SETUP_BIN="${dir}.bin" "$@" \
-    "${dir}/scripts/cloud-session-setup.sh"
 }
 
 done_repo="${workdir}/done"
@@ -335,26 +201,6 @@ if grep -qE '^(curl|go|python3|npm|df) ' "${log}"; then
   fail_case "the run after an install" "it fetched or measured again: $(grep -E '^(curl|go|python3|npm|df) ' "${log}" | head -1)"
 fi
 
-yamllint_repo="${workdir}/yamllint"
-repo "${yamllint_repo}"
-installed "${yamllint_repo}.prefix"
-rm "${yamllint_repo}.prefix/stamps/yamllint@1.38.0"
-expect_exit pass "yamllint, installed again" setup "${yamllint_repo}"
-count_case
-if ! grep -qE '^pip install .*yamllint==1\.38\.0$' "${log}"; then
-  fail_case "yamllint, installed again" "yamllint is not installed at its pin: $(grep '^pip ' "${log}" || true)"
-fi
-count_case
-if [[ "$(readlink "${yamllint_repo}.prefix/bin/yamllint")" != "${yamllint_repo}.prefix/venv/bin/yamllint" ]]; then
-  fail_case "yamllint, installed again" "the prefix does not link the venv's yamllint"
-fi
-
-unpinned="${workdir}/unpinned"
-repo "${unpinned}"
-installed "${unpinned}.prefix"
-repin "${unpinned}" '/^jq = /d'
-expect_output 2 "a tool mise.toml does not pin" "no pin for 'jq'" setup "${unpinned}"
-
 repair="${workdir}/repair"
 repo "${repair}"
 installed "${repair}.prefix"
@@ -425,8 +271,7 @@ installed "${nodebump}.prefix"
 repin "${nodebump}" 's/^node = .*/node = "24.22.0"/'
 mkdir -p "${workdir}/node/node-v24.22.0-linux-x64/bin"
 printf '#!/bin/sh\n' >"${workdir}/node/node-v24.22.0-linux-x64/bin/node"
-# The new node's own npm, which knows --min-release-age, as the image's
-# older npm does not.
+# The new node's own npm, as the image's may be another.
 # shellcheck disable=SC2016 # the stand-in's own arguments, expanded when it runs
 printf '#!/usr/bin/env bash\nprintf "pinned-npm %%s\\n" "$*" >>"%s"\n' "${log}" \
   >"${workdir}/node/node-v24.22.0-linux-x64/bin/npm"
@@ -435,12 +280,12 @@ tar -cJf "${served}/node-v24.22.0-linux-x64.tar.xz" -C "${workdir}/node" node-v2
 pin_checksum "${nodebump}" node 24.22.0 "${served}/node-v24.22.0-linux-x64.tar.xz"
 expect_exit pass "a node bump" setup "${nodebump}"
 count_case
-if ! grep -q '^pinned-npm install -g .*markdownlint-cli2@0.23.3' "${log}"; then
-  fail_case "a node bump" "markdownlint-cli2 was not installed again by the new node's npm: $(grep -E '^(pinned-)?npm ' "${log}" || true)"
+if ! grep -q '^pinned-npm ci ' "${log}" || grep -q '^npm ' "${log}"; then
+  fail_case "a node bump" "markdownlint-cli2 was not installed again by the new node's npm alone: $(grep -E '^(pinned-)?npm ' "${log}" || true)"
 fi
 count_case
-if ! grep '^pinned-npm install ' "${log}" | grep -q -- ' --min-release-age=7 '; then
-  fail_case "markdownlint-cli2's dependencies" "npm may resolve one released within the week: $(grep -E '^(pinned-)?npm ' "${log}" || true)"
+if [[ ! -e "${nodebump}.prefix/stamps/markdownlint-cli2@${lock_digest}+node24.22.0" ]]; then
+  fail_case "a node bump" "markdownlint-cli2's stamp does not name the new node: $(ls "${nodebump}.prefix/stamps")"
 fi
 
 full="${workdir}/full"
@@ -497,7 +342,7 @@ nohooks="${workdir}/nohooks"
 repo "${nohooks}"
 git -C "${nohooks}" init -q
 installed "${nohooks}.prefix"
-rm "${nohooks}.prefix/stamps/yamllint@1.38.0"
+rm "${nohooks}.prefix/stamps/yamllint@${requirements_digest}"
 expect_output 1 "git hooks that cannot be installed" "could not install the git hooks" \
   setup "${nohooks}" LEFTHOOK_STATUS=3
 count_case

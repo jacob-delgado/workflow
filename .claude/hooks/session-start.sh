@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
 # SessionStart hook: in a Claude Code cloud session, install the toolchain
-# mise.toml pins before the session's first command, with
-# scripts/cloud-session-setup.sh. Outside a cloud session it does nothing.
+# mise.toml and the linters' pin files under build/ pin before the session's
+# first command, with scripts/cloud-session-setup.sh. Outside a cloud session
+# it does nothing.
 #
 # What a SessionStart hook prints becomes context for the session, so the
 # setup's own output goes to a log (CLOUD_SETUP_LOG) and the hook says in one
@@ -79,9 +80,9 @@ status=0
 mkdir -p "$(dirname "${log}")"
 timeout "${time_limit}" "${project}/scripts/cloud-session-setup.sh" >"${log}" 2>&1 || status=$?
 if ((status == 0)); then
-  echo "cloud-session-setup: the toolchain mise.toml pins is ready; run the gate as the dev user with gate-as-dev <worktree> (log: ${log})"
+  echo "cloud-session-setup: the pinned toolchain is ready; run the gate as the dev user with gate-as-dev <worktree> (log: ${log})"
 elif ((status == 124)); then
-  echo "cloud-session-setup ran out of its ${time_limit} s: the session may have its image's tools, not mise.toml's pins. Read ${log}, then rerun scripts/cloud-session-setup.sh."
+  echo "cloud-session-setup ran out of its ${time_limit} s: the session may have its image's tools, not the pinned ones. Read ${log}, then rerun scripts/cloud-session-setup.sh."
 else
-  echo "cloud-session-setup failed (exit ${status}): the session may have its image's tools, not mise.toml's pins. Read ${log}, then rerun scripts/cloud-session-setup.sh."
+  echo "cloud-session-setup failed (exit ${status}): the session may have its image's tools, not the pinned ones. Read ${log}, then rerun scripts/cloud-session-setup.sh."
 fi
