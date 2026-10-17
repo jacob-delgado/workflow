@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
@@ -22,7 +23,7 @@ func TestStatusOutsideARepositoryReportsSo(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	_, err := run(t, t.TempDir(), "status")
+	_, err := clitest.Run(t, t.TempDir(), "status")
 
 	// Assert
 	if err == nil {
@@ -37,10 +38,10 @@ func TestStatusWithoutGitNamesTheMissingProgram(t *testing.T) {
 
 	// Arrange
 	// An empty PATH is the portable way to make git unfindable.
-	setVariable(t, "PATH", "")
+	clitest.SetVariable(t, "PATH", "")
 
 	// Act
-	_, err := run(t, t.TempDir(), "status")
+	_, err := clitest.Run(t, t.TempDir(), "status")
 
 	// Assert
 	// The error is what main prints, so it is what names the program.
@@ -73,7 +74,7 @@ func TestStatusHereReportsTheCurrentRepository(t *testing.T) {
 	repo := featureRepo(t)
 
 	// Act
-	output, err := run(t, repo, "status")
+	output, err := clitest.Run(t, repo, "status")
 	if err != nil {
 		t.Fatalf("status: %v (%s)", err, output)
 	}
@@ -89,11 +90,11 @@ func TestStatusExitsAlikeOutsideARepository(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	_, bareErr := run(t, dir, "status")
+	_, bareErr := clitest.Run(t, dir, "status")
 
 	// Act
 	// "." names the working directory, which is no repository here.
-	_, err := run(t, dir, "status", ".")
+	_, err := clitest.Run(t, dir, "status", ".")
 
 	// Assert
 	if got, bare := cli.ExitStatus(err), cli.ExitStatus(bareErr); got != bare || got != 4 {
@@ -118,7 +119,7 @@ func statusFeatureRepo(t *testing.T, jiraURL string) string {
 	t.Helper()
 
 	repo := githubRepo(t, "fix/PROJ-7-login")
-	writeFile(t, repo, `{"jira":{"base_url":"`+jiraURL+`","token":"t"},`+
+	clitest.WriteFile(t, repo, `{"jira":{"base_url":"`+jiraURL+`","token":"t"},`+
 		`"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	return repo
@@ -129,12 +130,12 @@ func TestStatusLineShowsTheIssueStagesAndCI(t *testing.T) {
 
 	// Arrange
 	// A feature branch with an open pull request whose CI is still running.
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: runningStatus()})
 	repo := statusFeatureRepo(t, server.URL)
 
 	// Act
-	output, err := run(t, repo, "status")
+	output, err := clitest.Run(t, repo, "status")
 	if err != nil {
 		t.Fatalf("status: %v (%s)", err, output)
 	}
@@ -152,10 +153,10 @@ func TestStatusNamesTheLastStageForTheMessagingServiceInUse(t *testing.T) {
 
 	// Arrange
 	repo := featureRepo(t)
-	writeFile(t, repo, `{"messaging":{"kind":"teams","webhook_url":"https://outlook.office.example/webhook/x"}}`)
+	clitest.WriteFile(t, repo, `{"messaging":{"kind":"teams","webhook_url":"https://outlook.office.example/webhook/x"}}`)
 
 	// Act
-	output, err := run(t, repo, "status")
+	output, err := clitest.Run(t, repo, "status")
 	if err != nil {
 		t.Fatalf("status: %v (%s)", err, output)
 	}
@@ -170,12 +171,12 @@ func TestStatusFailedCIReadsTheReviewFailed(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: failingStatus()})
 	repo := statusFeatureRepo(t, server.URL)
 
 	// Act
-	output, err := run(t, repo, "status")
+	output, err := clitest.Run(t, repo, "status")
 	if err != nil {
 		t.Fatalf("status: %v (%s)", err, output)
 	}
@@ -190,12 +191,12 @@ func TestStatusJSONReportsTheSameAsData(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: passingStatus()})
 	repo := statusFeatureRepo(t, server.URL)
 
 	// Act
-	output, err := run(t, repo, "status", "--json")
+	output, err := clitest.Run(t, repo, "status", "--json")
 	if err != nil {
 		t.Fatalf("status --json: %v (%s)", err, output)
 	}
@@ -239,20 +240,20 @@ func TestStatusLineReadsTheAnnouncementAtTheCurrentMoment(t *testing.T) {
 			// Arrange
 			// The store remembers pull request 7 announced at one moment, as an
 			// earlier announce, or session of the interface, leaves it.
-			server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
+			server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 			fakeGh(t, ghResponses{pulls: openPull("Add login"), status: tt.status})
 			repo := statusFeatureRepo(t, server.URL)
 			home := announcedEarlier(t, tt.remembered)
 
 			// Act
-			printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t), "status")
+			printed, err := clitest.RunStreamsAt(t, clitest.Place{Dir: repo, Home: home}, clitest.UnusedPrompt(t), "status")
 			if err != nil {
 				t.Fatalf("status: %v (%+v)", err, printed)
 			}
 
 			// Assert
-			if !strings.Contains(printed.stdout, tt.mark) {
-				t.Errorf("status line missing %q:\n%s", tt.mark, printed.stdout)
+			if !strings.Contains(printed.Stdout, tt.mark) {
+				t.Errorf("status line missing %q:\n%s", tt.mark, printed.Stdout)
 			}
 		})
 	}
@@ -262,13 +263,15 @@ func TestStatusJSONReadsAnEarlierAnnouncementAsDone(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: runningStatus()})
 	repo := statusFeatureRepo(t, server.URL)
 	home := announcedEarlier(t, messaging.MomentReady)
 
 	// Act
-	printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t), "status", "--json")
+	printed, err := clitest.RunStreamsAt(
+		t, clitest.Place{Dir: repo, Home: home}, clitest.UnusedPrompt(t), "status", "--json",
+	)
 	if err != nil {
 		t.Fatalf("status --json: %v (%+v)", err, printed)
 	}
@@ -278,9 +281,9 @@ func TestStatusJSONReadsAnEarlierAnnouncementAsDone(t *testing.T) {
 		Stages []map[string]any `json:"stages"`
 	}
 
-	err = json.Unmarshal([]byte(printed.stdout), &report)
+	err = json.Unmarshal([]byte(printed.Stdout), &report)
 	if err != nil {
-		t.Fatalf("output is not JSON: %v\n%s", err, printed.stdout)
+		t.Fatalf("output is not JSON: %v\n%s", err, printed.Stdout)
 	}
 
 	if len(report.Stages) != 5 || report.Stages[4]["name"] != "Slack" || report.Stages[4]["state"] != stageDone {
@@ -304,12 +307,12 @@ func TestStatusJSONNamesEachReviewState(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
+			server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 			fakeGh(t, ghResponses{pulls: openPull("Add login"), status: tt.status})
 			repo := statusFeatureRepo(t, server.URL)
 
 			// Act
-			output, err := run(t, repo, "status", "--json")
+			output, err := clitest.Run(t, repo, "status", "--json")
 			if err != nil {
 				t.Fatalf("status --json: %v (%s)", err, output)
 			}
@@ -327,12 +330,12 @@ func TestStatusWhenCICannotBeRead(t *testing.T) {
 
 	// Arrange
 	// The pull request is open, but its CI cannot be read.
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: "{"})
 	repo := statusFeatureRepo(t, server.URL)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "status")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "status")
 	if err != nil {
 		t.Fatalf("status: %v (%+v)", err, printed)
 	}
@@ -340,12 +343,12 @@ func TestStatusWhenCICannotBeRead(t *testing.T) {
 	// Assert
 	// The line still reads none, so a prompt keeps its shape, but the forge
 	// that would not say is named where a person or a script can see it.
-	if !strings.Contains(printed.stdout, "CI none") || strings.Contains(printed.stdout, "GitHub") {
-		t.Errorf("stdout = %q, want the line with CI none and nothing more", printed.stdout)
+	if !strings.Contains(printed.Stdout, "CI none") || strings.Contains(printed.Stdout, "GitHub") {
+		t.Errorf("stdout = %q, want the line with CI none and nothing more", printed.Stdout)
 	}
 
-	if !strings.Contains(printed.stderr, "GitHub could not be read") {
-		t.Errorf("stderr = %q, want a note naming GitHub", printed.stderr)
+	if !strings.Contains(printed.Stderr, "GitHub could not be read") {
+		t.Errorf("stderr = %q, want a note naming GitHub", printed.Stderr)
 	}
 }
 
@@ -353,14 +356,14 @@ func TestStatusInASCII(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: passingStatus()})
 	repo := githubRepo(t, "fix/PROJ-7-login")
-	writeFile(t, repo, `{"ui":{"ascii":true},"jira":{"base_url":"`+server.URL+`","token":"t"},`+
+	clitest.WriteFile(t, repo, `{"ui":{"ascii":true},"jira":{"base_url":"`+server.URL+`","token":"t"},`+
 		`"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
-	output, err := run(t, repo, "status")
+	output, err := clitest.Run(t, repo, "status")
 	if err != nil {
 		t.Fatalf("status: %v (%s)", err, output)
 	}
@@ -382,7 +385,7 @@ func TestStatusOnTheBaseBranchIsNotStarted(t *testing.T) {
 	git(t, repo, "branch", "-M", "main")
 
 	// Act
-	output, err := run(t, repo, "status")
+	output, err := clitest.Run(t, repo, "status")
 	if err != nil {
 		t.Fatalf("status: %v (%s)", err, output)
 	}
@@ -402,7 +405,7 @@ func TestStatusDegradesEachServiceOnAFeatureBranch(t *testing.T) {
 	repo := prRepo(t, "fix/PROJ-9-x")
 
 	// Act
-	output, err := run(t, repo, "status")
+	output, err := clitest.Run(t, repo, "status")
 	if err != nil {
 		t.Fatalf("status should degrade, not fail: %v (%s)", err, output)
 	}

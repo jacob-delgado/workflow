@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
@@ -42,18 +43,18 @@ func TestAnnounceWhenGreenAnnouncesOnceCIPasses(t *testing.T) {
 		pulls: openPull("Add login"), statusSequence: []string{runningStatus(), runningStatus(), passingStatus()},
 	})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, waitingConfig(webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "announce", "--when-green", "--yes")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--when-green", "--yes")
 
 	// Assert
 	if err != nil || posts.Load() != 1 {
 		t.Fatalf("announce --when-green --yes = %v, posted %d; want it announced once (%+v)", err, posts.Load(), printed)
 	}
 
-	if !strings.Contains(printed.stderr, "Waiting for CI on #7 to pass") {
-		t.Errorf("stderr = %q, want it to say it waits for CI on #7", printed.stderr)
+	if !strings.Contains(printed.Stderr, "Waiting for CI on #7 to pass") {
+		t.Errorf("stderr = %q, want it to say it waits for CI on #7", printed.Stderr)
 	}
 }
 
@@ -65,15 +66,15 @@ func TestAnnounceWhenGreenWaitsThroughAFailedRun(t *testing.T) {
 
 	fakeGh(t, ghResponses{pulls: openPull("Add login"), statusSequence: []string{failingStatus(), passingStatus()}})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, waitingConfig(webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "announce", "--when-green", "--yes")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--when-green", "--yes")
 
 	// Assert
-	if err != nil || posts.Load() != 1 || !strings.Contains(printed.stderr, "A check failed on #7 (ci)") {
+	if err != nil || posts.Load() != 1 || !strings.Contains(printed.Stderr, "A check failed on #7 (ci)") {
 		t.Errorf("announce --when-green = %v, posted %d, said %q; want it to wait on a fix, then announce",
-			err, posts.Load(), printed.stderr)
+			err, posts.Load(), printed.Stderr)
 	}
 }
 
@@ -85,10 +86,10 @@ func TestAnnounceWhenGreenRefusesAMergedPullRequest(t *testing.T) {
 
 	fakeGh(t, ghResponses{pulls: mergedPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, waitingConfig(webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
-	_, err := runStreams(t, repo, unusedPrompt(t), "announce", "--when-green", "--yes")
+	_, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--when-green", "--yes")
 
 	// Assert
 	if got := cli.ExitStatus(err); got != 4 || posts.Load() != 0 {
@@ -104,15 +105,15 @@ func TestAnnounceWhenGreenDryRunWaitsForNothing(t *testing.T) {
 
 	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: failingStatus()})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, waitingConfig(webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "announce", "--when-green", "--dry-run")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--when-green", "--dry-run")
 
 	// Assert
 	want := "dry run: would announce to the channel its webhook is bound to once CI on #7 passes"
-	if err != nil || !strings.Contains(printed.stderr, want) || posts.Load() != 0 {
-		t.Errorf("announce --when-green --dry-run = %v, said %q; want %q and nothing posted", err, printed.stderr, want)
+	if err != nil || !strings.Contains(printed.Stderr, want) || posts.Load() != 0 {
+		t.Errorf("announce --when-green --dry-run = %v, said %q; want %q and nothing posted", err, printed.Stderr, want)
 	}
 }
 
@@ -124,10 +125,10 @@ func TestAnnounceWhenGreenAsksOnceCIPasses(t *testing.T) {
 
 	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: runningStatus()})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, waitingConfig(webhook(t, new(atomic.Int32))))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, new(atomic.Int32))))
 
 	// Act
-	_, err := runStreams(t, repo, answering("n", &asked), "announce", "--when-green")
+	_, err := clitest.RunStreams(t, repo, answering("n", &asked), "announce", "--when-green")
 
 	// Assert
 	if err != nil || len(asked) != 1 || !strings.HasPrefix(asked[0], "Announce to Slack once CI on #7 passes?") {
@@ -144,15 +145,15 @@ func TestAnnounceWhenGreenWaitsPastAReadThatFails(t *testing.T) {
 	// An unreadable answer stands for a read of CI that failed.
 	fakeGh(t, ghResponses{pulls: openPull("Add login"), statusSequence: []string{"{", passingStatus()}})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, waitingConfig(webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "announce", "--when-green", "--yes")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--when-green", "--yes")
 
 	// Assert
-	if err != nil || posts.Load() != 1 || !strings.Contains(printed.stderr, "Could not read CI on #7") {
+	if err != nil || posts.Load() != 1 || !strings.Contains(printed.Stderr, "Could not read CI on #7") {
 		t.Errorf("announce --when-green = %v, posted %d, said %q; want the failed read told, then the post",
-			err, posts.Load(), printed.stderr)
+			err, posts.Load(), printed.Stderr)
 	}
 }
 
@@ -197,7 +198,7 @@ func TestAnnounceWhenGreenPostsNothingAnnouncedWhileItWaited(t *testing.T) {
 	gate := t.TempDir()
 	fakeGh(t, ghResponses{pulls: openPull("Add login"), statusGate: gate})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, waitingConfig(webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 	home := t.TempDir()
 
 	recorded := make(chan error, 1)
@@ -205,7 +206,9 @@ func TestAnnounceWhenGreenPostsNothingAnnouncedWhileItWaited(t *testing.T) {
 	go func() { recorded <- recordWhenWaiting(t.Context(), gate, home) }()
 
 	// Act
-	printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t), "announce", "--when-green", "--yes")
+	printed, err := clitest.RunStreamsAt(
+		t, clitest.Place{Dir: repo, Home: home}, clitest.UnusedPrompt(t), "announce", "--when-green", "--yes",
+	)
 
 	// Assert
 	recordErr := <-recorded
@@ -214,9 +217,9 @@ func TestAnnounceWhenGreenPostsNothingAnnouncedWhileItWaited(t *testing.T) {
 	}
 
 	if err != nil || posts.Load() != 0 ||
-		!strings.Contains(printed.stderr, "Already announced from another session; not posted again.") {
+		!strings.Contains(printed.Stderr, "Already announced from another session; not posted again.") {
 		t.Errorf("announce --when-green = %v, posted %d, said %q; want nothing posted a second time",
-			err, posts.Load(), printed.stderr)
+			err, posts.Load(), printed.Stderr)
 	}
 }
 
@@ -240,10 +243,10 @@ func TestAnnounceWhenGreenGivesUpOnAPullRequestThatIsNoLongerTheOne(t *testing.T
 
 			fakeGh(t, ghResponses{pullsSequence: []string{openPull("Add login"), tt.then}, status: runningStatus()})
 			repo := githubRepo(t, "fix/PROJ-2-thing")
-			writeFile(t, repo, waitingConfig(webhook(t, &posts)))
+			clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 			// Act
-			_, err := runStreams(t, repo, unusedPrompt(t), "announce", "--when-green", "--yes")
+			_, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--when-green", "--yes")
 
 			// Assert
 			if got := cli.ExitStatus(err); got != 4 || !strings.Contains(err.Error(), tt.want) || posts.Load() != 0 {
@@ -266,14 +269,14 @@ func TestAnnounceWhenGreenWaitsAgainWhenTheGateRefuses(t *testing.T) {
 		pulls: openPull("Add login"), statusSequence: []string{passingStatus(), failingStatus(), passingStatus()},
 	})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, waitingConfig(webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "announce", "--when-green", "--yes")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--when-green", "--yes")
 
 	// Assert
 	if err != nil || posts.Load() != 1 {
 		t.Errorf("announce --when-green = %v, posted %d, said %q; want it to wait again, then announce once",
-			err, posts.Load(), printed.stderr)
+			err, posts.Load(), printed.Stderr)
 	}
 }

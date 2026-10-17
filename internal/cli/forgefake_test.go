@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 // ghResponses are the canned bodies a fake gh returns per route; an empty field
@@ -173,7 +175,7 @@ func fakeGh(t *testing.T, responses ghResponses) {
 		"printf 'HTTP/1.1 200 OK\\r\\nContent-Type: application/json\\r\\n\\r\\n'\n" +
 		"cat \"" + dir + "/resp-$f\"\n"
 
-	writeExecutable(t, filepath.Join(programsOf(t), "gh"), script, 0o755)
+	writeExecutable(t, filepath.Join(clitest.ProgramsOf(t), "gh"), script, 0o755)
 }
 
 // gated is the fake gh's step that answers the status reads by gate's
@@ -268,7 +270,7 @@ func fakeGlabAnswering(t *testing.T, list, scopes string) {
 		"printf 'HTTP/1.1 200 OK\\r\\nContent-Type: application/json\\r\\n\\r\\n'\n" +
 		"cat \"" + dir + "/resp-$f\"\n"
 
-	writeExecutable(t, filepath.Join(programsOf(t), "glab"), script, 0o755)
+	writeExecutable(t, filepath.Join(clitest.ProgramsOf(t), "glab"), script, 0o755)
 }
 
 // writeRepoFile writes contents to a path under repo, creating parent directories

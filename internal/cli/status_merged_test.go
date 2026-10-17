@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
@@ -18,7 +19,7 @@ import (
 func mergedStatusRepo(t *testing.T) string {
 	t.Helper()
 
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	fakeGh(t, ghResponses{pulls: mergedPull("Add login")})
 
 	return statusFeatureRepo(t, server.URL)
@@ -31,7 +32,7 @@ func TestStatusLineReadsAMergedPullRequestsReviewAsDone(t *testing.T) {
 	repo := mergedStatusRepo(t)
 
 	// Act
-	output, err := run(t, repo, "status")
+	output, err := clitest.Run(t, repo, "status")
 	if err != nil {
 		t.Fatalf("status: %v (%s)", err, output)
 	}
@@ -49,7 +50,7 @@ func TestStatusJSONReadsAMergedPullRequestsReviewAsDone(t *testing.T) {
 	repo := mergedStatusRepo(t)
 
 	// Act
-	output, err := run(t, repo, "status", "--json")
+	output, err := clitest.Run(t, repo, "status", "--json")
 	if err != nil {
 		t.Fatalf("status --json: %v (%s)", err, output)
 	}
@@ -79,14 +80,14 @@ func TestStatusLineReadsAMergedAnnouncementAsDone(t *testing.T) {
 	home := announcedEarlier(t, messaging.MomentMerged)
 
 	// Act
-	printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t), "status")
+	printed, err := clitest.RunStreamsAt(t, clitest.Place{Dir: repo, Home: home}, clitest.UnusedPrompt(t), "status")
 	if err != nil {
 		t.Fatalf("status: %v (%+v)", err, printed)
 	}
 
 	// Assert
-	if !strings.Contains(printed.stdout, "● Slack") {
-		t.Errorf("status line does not read the merged announcement as done:\n%s", printed.stdout)
+	if !strings.Contains(printed.Stdout, "● Slack") {
+		t.Errorf("status line does not read the merged announcement as done:\n%s", printed.Stdout)
 	}
 }
 
@@ -96,19 +97,19 @@ func TestStatusLineReadsAnAnnouncementOfAClosedPullRequestAsNotStarted(t *testin
 	// Arrange
 	// The store remembers pull request 7 announced as ready, before it was
 	// closed without merging: there is no pull request left to announce.
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	fakeGh(t, ghResponses{pulls: closedPull("Add login")})
 	repo := statusFeatureRepo(t, server.URL)
 	home := announcedEarlier(t, messaging.MomentReady)
 
 	// Act
-	printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t), "status")
+	printed, err := clitest.RunStreamsAt(t, clitest.Place{Dir: repo, Home: home}, clitest.UnusedPrompt(t), "status")
 	if err != nil {
 		t.Fatalf("status: %v (%+v)", err, printed)
 	}
 
 	// Assert
-	if !strings.Contains(printed.stdout, "○ Review") || !strings.Contains(printed.stdout, "○ Slack") {
-		t.Errorf("status line reads a closed pull request's announcement as made:\n%s", printed.stdout)
+	if !strings.Contains(printed.Stdout, "○ Review") || !strings.Contains(printed.Stdout, "○ Slack") {
+		t.Errorf("status line reads a closed pull request's announcement as made:\n%s", printed.Stdout)
 	}
 }

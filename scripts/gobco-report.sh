@@ -82,7 +82,9 @@ readonly out_dir="${OUT_DIR:-${repo_root}/tmp/gobco}"
 # internal/ptytest is one too: the cli and tui tests that type at a terminal
 # open it through it. internal/webserver/webtest is another: the web server's
 # tests serve the API handler and read its answers through it.
-readonly NO_TESTS="cmd/workflow cmd/docsgen cmd/testshape internal/api api internal/rlimit internal/ptytest internal/webserver/webtest"
+# internal/cli/clitest is one more: the command tree's tests run the command
+# line through it.
+readonly NO_TESTS="cmd/workflow cmd/docsgen cmd/testshape internal/api api internal/rlimit internal/ptytest internal/webserver/webtest internal/cli/clitest"
 
 # gobco type-checks the standard library from SOURCE, with the go/types compiled
 # into it: that of the Go that BUILT gobco, not the Go on PATH. One built by Go

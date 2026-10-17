@@ -6,6 +6,8 @@ package cli_test
 import (
 	"strings"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 func TestPRDryRunSaysWhatItWouldOfferOnceOpen(t *testing.T) {
@@ -15,7 +17,7 @@ func TestPRDryRunSaysWhatItWouldOfferOnceOpen(t *testing.T) {
 	repo, writes := reviewRepo(t, reviewMoves)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--dry-run")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr --dry-run: %v (%+v)", err, printed)
@@ -26,8 +28,8 @@ func TestPRDryRunSaysWhatItWouldOfferOnceOpen(t *testing.T) {
 		"dry run: would link it on PROJ-2",
 		"dry run: would move PROJ-2 to " + statusInReview,
 	} {
-		if !strings.Contains(printed.stderr, line) {
-			t.Errorf("pr --dry-run does not say %q on stderr:\n%s", line, printed.stderr)
+		if !strings.Contains(printed.Stderr, line) {
+			t.Errorf("pr --dry-run does not say %q on stderr:\n%s", line, printed.Stderr)
 		}
 	}
 
@@ -45,16 +47,16 @@ func TestPRDryRunNamesNoOfferItWouldNotMake(t *testing.T) {
 	fakeGh(t, ghResponses{})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	pretendPushed(t, repo)
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--dry-run")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr --dry-run: %v (%+v)", err, printed)
 	}
 
-	if strings.Contains(printed.stderr, "would link") || strings.Contains(printed.stderr, "would move") {
-		t.Errorf("pr --dry-run names an offer it would not make:\n%s", printed.stderr)
+	if strings.Contains(printed.Stderr, "would link") || strings.Contains(printed.Stderr, "would move") {
+		t.Errorf("pr --dry-run names an offer it would not make:\n%s", printed.Stderr)
 	}
 }

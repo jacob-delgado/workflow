@@ -17,6 +17,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 // shownSoFar is a stand-in terminal for a run whose live line is drawn from
@@ -97,7 +98,7 @@ func TestAnnounceWhenGreenKeepsALiveLineOfCIsProgressOnATerminal(t *testing.T) {
 	gate := t.TempDir()
 	fakeGh(t, ghResponses{pulls: openPull("Add login"), statusGate: gate})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, waitingConfig(webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 
 	terminal := newShownSoFar()
 	released := make(chan struct{})
@@ -110,7 +111,7 @@ func TestAnnounceWhenGreenKeepsALiveLineOfCIsProgressOnATerminal(t *testing.T) {
 
 	// Act
 	err := cli.Execute(strings.Fields("announce --when-green --yes"), &stdout, terminal, atTerminal(t),
-		environmentFor(t, place{dir: repo, home: t.TempDir()}))
+		clitest.EnvironmentFor(t, clitest.Place{Dir: repo, Home: t.TempDir()}))
 
 	// Assert
 	<-released
@@ -142,9 +143,9 @@ func TestAnnounceWhenGreenDrawsItsLiveLineInASCIIUnderUIASCII(t *testing.T) {
 	gate := t.TempDir()
 	fakeGh(t, ghResponses{pulls: openPull("Add login"), statusGate: gate})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, waitingConfig(webhook(t, &posts)))
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
 	home := t.TempDir()
-	writeFile(t, home, `{"ui": {"ascii": true}}`)
+	clitest.WriteFile(t, home, `{"ui": {"ascii": true}}`)
 
 	terminal := newShownSoFar()
 	released := make(chan struct{})
@@ -155,12 +156,12 @@ func TestAnnounceWhenGreenDrawsItsLiveLineInASCIIUnderUIASCII(t *testing.T) {
 		releaseOnceShown(t, terminal, gate, "- 0 of 1")
 	}()
 
-	prompt := unusedPrompt(t)
+	prompt := clitest.UnusedPrompt(t)
 	prompt.IsTerminal = func(stream io.Writer) bool { return stream == terminal }
 
 	// Act
 	err := cli.Execute(strings.Fields("announce --when-green --yes"), &stdout, terminal, prompt,
-		environmentFor(t, place{dir: repo, home: home}))
+		clitest.EnvironmentFor(t, clitest.Place{Dir: repo, Home: home}))
 
 	// Assert
 	<-released

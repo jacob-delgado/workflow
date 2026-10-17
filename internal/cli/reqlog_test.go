@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 func TestRequestLogReportsAFileItCannotOpen(t *testing.T) {
@@ -36,7 +38,7 @@ func TestRequestLogReportsAFileItCannotOpen(t *testing.T) {
 			logPath := filepath.Join(t.TempDir(), "missing-dir", "requests.log")
 
 			// Act
-			_, err := run(t, t.TempDir(), append([]string{"--request-log", logPath}, args...)...)
+			_, err := clitest.Run(t, t.TempDir(), append([]string{"--request-log", logPath}, args...)...)
 
 			// Assert
 			// The error must name the request log: bare `workflow` also fails when
@@ -47,19 +49,6 @@ func TestRequestLogReportsAFileItCannotOpen(t *testing.T) {
 			}
 		})
 	}
-}
-
-// readLog is what the request log at path holds, failing the test if it
-// cannot be read.
-func readLog(t *testing.T, path string) string {
-	t.Helper()
-
-	contents, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("reading the request log: %v", err)
-	}
-
-	return string(contents)
 }
 
 func TestLogReachesASubcommand(t *testing.T) {
@@ -78,13 +67,13 @@ func TestLogReachesASubcommand(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
+			server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 			fakeGh(t, ghResponses{pulls: openPull("Add login"), status: passingStatus()})
 			repo := statusFeatureRepo(t, server.URL)
 			logPath := filepath.Join(t.TempDir(), "requests.log")
 
 			// Act
-			output, err := run(t, repo, append([]string{"--request-log", logPath}, args...)...)
+			output, err := clitest.Run(t, repo, append([]string{"--request-log", logPath}, args...)...)
 			if err != nil {
 				t.Fatalf("%s: %v (%s)", name, err, output)
 			}
@@ -92,7 +81,7 @@ func TestLogReachesASubcommand(t *testing.T) {
 			// Assert
 			// status reads the issue from Jira and the pull request through gh;
 			// both requests are outlined for a bug report.
-			logged := readLog(t, logPath)
+			logged := clitest.ReadLog(t, logPath)
 			if !strings.Contains(logged, "jira  GET") || !strings.Contains(logged, "forge GET") {
 				t.Errorf("the request log does not outline %s's requests:\n%s", name, logged)
 			}
@@ -105,11 +94,11 @@ func TestLogReachesDoctorOnline(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	writeConfigFor(t, dir, workingJira(t))
+	clitest.WriteConfigFor(t, dir, clitest.WorkingJira(t))
 	logPath := filepath.Join(t.TempDir(), "requests.log")
 
 	// Act
-	output, err := run(t, dir, "doctor", "--online", "--request-log", logPath)
+	output, err := clitest.Run(t, dir, "doctor", "--online", "--request-log", logPath)
 	if err != nil {
 		t.Fatalf("doctor --online: %v (%s)", err, output)
 	}
@@ -117,7 +106,7 @@ func TestLogReachesDoctorOnline(t *testing.T) {
 	// Assert
 	// doctor --online is what a bug report asks for first, so its questions to
 	// each service are what the log most needs to hold.
-	if logged := readLog(t, logPath); !strings.Contains(logged, "jira  GET  /rest/api/2/myself") {
+	if logged := clitest.ReadLog(t, logPath); !strings.Contains(logged, "jira  GET  /rest/api/2/myself") {
 		t.Errorf("the request log does not outline doctor's check of Jira:\n%s", logged)
 	}
 }
@@ -136,18 +125,18 @@ func TestRequestLogWarnsOnceWhenItCouldNotBeWritten(t *testing.T) {
 	}
 
 	dir := t.TempDir()
-	writeConfigFor(t, dir, workingJira(t))
+	clitest.WriteConfigFor(t, dir, clitest.WorkingJira(t))
 
 	// Act
-	printed, err := runStreams(t, dir, unusedPrompt(t), "doctor", "--online", "--request-log", fullDevice)
+	printed, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "doctor", "--online", "--request-log", fullDevice)
 
 	// Assert
 	// The check itself succeeded, so its status stands; only the bug report
 	// it was asked to keep is incomplete, and one line on stderr says so.
 	wantExit(t, err, 0)
 
-	if got := strings.Count(printed.stderr, "WARN The request log could not be fully written"); got != 1 {
-		t.Errorf("stderr warned %d times that the request log was not written, want once:\n%s", got, printed.stderr)
+	if got := strings.Count(printed.Stderr, "WARN The request log could not be fully written"); got != 1 {
+		t.Errorf("stderr warned %d times that the request log was not written, want once:\n%s", got, printed.Stderr)
 	}
 }
 
@@ -156,17 +145,17 @@ func TestLogReachesTheGuidedInitsCheck(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	prompt := scripted([]string{workingJira(t)}, []string{guidedToken})
+	prompt := scripted([]string{clitest.WorkingJira(t)}, []string{guidedToken})
 	logPath := filepath.Join(t.TempDir(), "requests.log")
 
 	// Act
-	output, err := runGuided(t, dir, prompt, "--request-log", logPath, "config", "init")
+	output, err := clitest.RunGuided(t, dir, prompt, "--request-log", logPath, "config", "init")
 	if err != nil {
 		t.Fatalf("config init: %v (%s)", err, output)
 	}
 
 	// Assert
-	if logged := readLog(t, logPath); !strings.Contains(logged, "jira  GET  /rest/api/2/myself") {
+	if logged := clitest.ReadLog(t, logPath); !strings.Contains(logged, "jira  GET  /rest/api/2/myself") {
 		t.Errorf("the request log does not outline config init's check of Jira:\n%s", logged)
 	}
 }
@@ -179,7 +168,7 @@ func TestDryRunIsAPersistentFlag(t *testing.T) {
 
 	// Act
 	// The flag comes before the subcommand, as it does for the interface.
-	output, err := run(t, repo, "--dry-run", "pr")
+	output, err := clitest.Run(t, repo, "--dry-run", "pr")
 
 	// Assert
 	if err != nil || !strings.Contains(output, "dry run: would push fix/PROJ-2-thing to origin and open") {
@@ -194,7 +183,7 @@ func TestDryRunReachesConfigInit(t *testing.T) {
 	dir := t.TempDir()
 
 	// Act
-	output, err := run(t, dir, "--dry-run", "config", "init", "--template")
+	output, err := clitest.Run(t, dir, "--dry-run", "config", "init", "--template")
 
 	// Assert
 	_, statErr := os.Stat(filepath.Join(dir, ".workflow.json"))
@@ -210,20 +199,20 @@ func TestLogReachesSlackLogin(t *testing.T) {
 	fakeSlack(t, map[string]slackAnswer{slackRefresh: {http.StatusOK, slackRenewed}})
 
 	dir := t.TempDir()
-	writeFile(t, dir, `{"messaging": {"kind": "slack", "client_id": "`+slackClientID+`",`+
+	clitest.WriteFile(t, dir, `{"messaging": {"kind": "slack", "client_id": "`+slackClientID+`",`+
 		` "client_secret": "client-secret-old", "channel": "#dev"}}`)
 
 	logPath := filepath.Join(t.TempDir(), "requests.log")
 	prompt := asking([]string{slackClientID}, typedLogin(), new([]string), new([]string))
 
 	// Act
-	output, err := runGuided(t, dir, prompt, "--request-log", logPath, "slack", "login")
+	output, err := clitest.RunGuided(t, dir, prompt, "--request-log", logPath, "slack", "login")
 	if err != nil {
 		t.Fatalf("slack login: %v (%s)", err, output)
 	}
 
 	// Assert
-	logged := readLog(t, logPath)
+	logged := clitest.ReadLog(t, logPath)
 	if !strings.Contains(logged, "slack POST "+slackRefresh) || !strings.Contains(logged, "slack POST "+slackAuthTest) {
 		t.Errorf("the request log does not outline the login's refresh and its auth.test:\n%s", logged)
 	}

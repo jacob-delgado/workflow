@@ -17,6 +17,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/buildinfo"
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/tui"
 	"github.com/jacob-delgado/workflow/internal/webserver"
@@ -140,11 +141,11 @@ func huesDrawn(model tui.Model) []string {
 func runRoot(t *testing.T, dir string, args ...string) *rootRun {
 	t.Helper()
 
-	return runRootAt(t, place{dir: dir, home: t.TempDir()}, args...)
+	return runRootAt(t, clitest.Place{Dir: dir, Home: t.TempDir()}, args...)
 }
 
 // runRootAt is runRoot in the home directory the test chose.
-func runRootAt(t *testing.T, where place, args ...string) *rootRun {
+func runRootAt(t *testing.T, where clitest.Place, args ...string) *rootRun {
 	t.Helper()
 
 	return runRootSwitching(t, where, nil, args...)
@@ -152,10 +153,10 @@ func runRootAt(t *testing.T, where place, args ...string) *rootRun {
 
 // runRootSwitching is runRootAt over interfaces that end asking to go where
 // nexts says, in turn.
-func runRootSwitching(t *testing.T, where place, nexts []tui.Next, args ...string) *rootRun {
+func runRootSwitching(t *testing.T, where clitest.Place, nexts []tui.Next, args ...string) *rootRun {
 	t.Helper()
 
-	ran := rootRun{nexts: nexts, env: environmentFor(t, where)}
+	ran := rootRun{nexts: nexts, env: clitest.EnvironmentFor(t, where)}
 
 	ran.stdout, ran.stderr, ran.err = executeRootIn(t, ran.env, ran.runInterface, ran.serveWebAt, args...)
 
@@ -173,11 +174,11 @@ func (r *rootRun) workingDir() string {
 // and web server given, and returns what it said on stdout and on stderr, and
 // how it ended.
 func executeRoot(
-	t *testing.T, where place, run cli.RunInterface, serveAt cli.RunWebAt, args ...string,
+	t *testing.T, where clitest.Place, run cli.RunInterface, serveAt cli.RunWebAt, args ...string,
 ) (string, string, error) {
 	t.Helper()
 
-	return executeRootIn(t, environmentFor(t, where), run, serveAt, args...)
+	return executeRootIn(t, clitest.EnvironmentFor(t, where), run, serveAt, args...)
 }
 
 // executeRootIn is executeRoot in env.
@@ -188,7 +189,7 @@ func executeRootIn(
 
 	var stdout, stderr bytes.Buffer
 
-	root := cli.NewRootCmdOver(unusedPrompt(t), run, serveAt, env)
+	root := cli.NewRootCmdOver(clitest.UnusedPrompt(t), run, serveAt, env)
 	root.SetArgs(args)
 	root.SetIn(strings.NewReader(keysTyped))
 	root.SetOut(&stdout)
@@ -271,8 +272,8 @@ func TestADryRunInterfaceLeavesNoStoreOnDisk(t *testing.T) {
 	// store it is handed. Nothing on disk shows only that none was made; that a
 	// dry run drops the store is TestADryRunInterfaceOpensWithoutTheKeptIssueList.
 	dir := t.TempDir()
-	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.net"}}`)
-	where := place{dir: dir, home: t.TempDir()}
+	clitest.WriteFile(t, dir, `{"jira": {"base_url": "https://jira.example.net"}}`)
+	where := clitest.Place{Dir: dir, Home: t.TempDir()}
 
 	// Act
 	ran := runRootAt(t, where, "--dry-run")
@@ -282,7 +283,7 @@ func TestADryRunInterfaceLeavesNoStoreOnDisk(t *testing.T) {
 		t.Fatalf("workflow --dry-run = %v, opened %d interfaces; want the interface", ran.err, ran.interfaces)
 	}
 
-	if kept, found := storeKept(t, where.home); found {
+	if kept, found := storeKept(t, where.Home); found {
 		t.Errorf("workflow --dry-run made the store at %s, want nothing on disk", kept)
 	}
 }
@@ -294,8 +295,8 @@ func TestTheInterfaceOpensTheStoreToSeedItsIssueList(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.net"}}`)
-	where := place{dir: dir, home: t.TempDir()}
+	clitest.WriteFile(t, dir, `{"jira": {"base_url": "https://jira.example.net"}}`)
+	where := clitest.Place{Dir: dir, Home: t.TempDir()}
 
 	// Act
 	ran := runRootAt(t, where)
@@ -305,7 +306,7 @@ func TestTheInterfaceOpensTheStoreToSeedItsIssueList(t *testing.T) {
 		t.Fatalf("workflow = %v, opened %d interfaces; want the interface", ran.err, ran.interfaces)
 	}
 
-	if kept, found := storeKept(t, where.home); !found {
+	if kept, found := storeKept(t, where.Home); !found {
 		t.Errorf("workflow opened no store at %s, want its issue list seeded from it", kept)
 	}
 }
@@ -329,8 +330,8 @@ func TestColorTurnedOffOpensTheInterfaceWithoutHues(t *testing.T) {
 			// A feature branch one commit ahead of main, so the loop's Branch
 			// and Commits stages are done, which the track draws in git's hue.
 			dir := prRepo(t, "feat/colors")
-			writeFile(t, dir, tt.configuration)
-			setVariable(t, "NO_COLOR", tt.noColor)
+			clitest.WriteFile(t, dir, tt.configuration)
+			clitest.SetVariable(t, "NO_COLOR", tt.noColor)
 
 			// Act
 			ran := runRoot(t, dir)
@@ -355,8 +356,8 @@ func TestColorLeftOnOpensTheInterfaceWithItsHues(t *testing.T) {
 
 	// Arrange
 	dir := prRepo(t, "feat/colors")
-	writeFile(t, dir, `{}`)
-	setVariable(t, "NO_COLOR", "")
+	clitest.WriteFile(t, dir, `{}`)
+	clitest.SetVariable(t, "NO_COLOR", "")
 
 	// Act
 	ran := runRoot(t, dir)
@@ -379,7 +380,7 @@ func TestAConflictingKeymapStopsTheInterfaceBeforeItOpens(t *testing.T) {
 	// commit and stage-all both live on the Commits pane, so binding commit to
 	// stage-all's key is a conflict.
 	dir := t.TempDir()
-	writeFile(t, dir, `{"ui": {"keys": {"commit": "a"}}}`)
+	clitest.WriteFile(t, dir, `{"ui": {"keys": {"commit": "a"}}}`)
 
 	// Act
 	ran := runRoot(t, dir)
@@ -412,7 +413,7 @@ func TestARefusedKeymapExitsAsAConfigurationProblem(t *testing.T) {
 
 			// Arrange
 			dir := t.TempDir()
-			writeFile(t, dir, `{"ui": {"keys": `+keymap+`}}`)
+			clitest.WriteFile(t, dir, `{"ui": {"keys": `+keymap+`}}`)
 
 			// Act
 			ran := runRoot(t, dir)
@@ -430,7 +431,7 @@ func TestTheWebFlagServesTheLoadedConfigurationInsteadOfTheInterface(t *testing.
 
 	// Arrange
 	dir := t.TempDir()
-	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.net"}}`)
+	clitest.WriteFile(t, dir, `{"jira": {"base_url": "https://jira.example.net"}}`)
 
 	// Act
 	ran := runRoot(t, dir, "--web")
@@ -473,10 +474,10 @@ func TestTheWebFlagTellsTheServerTheTaskwarriorSettingsItStartedWith(t *testing.
 
 	// Arrange
 	dir := t.TempDir()
-	writeFile(t, dir, `{"taskwarrior": {"program": "/opt/homebrew/bin/task", "disabled": true}}`)
+	clitest.WriteFile(t, dir, `{"taskwarrior": {"program": "/opt/homebrew/bin/task", "disabled": true}}`)
 
 	// Act
-	ran := runRootAt(t, place{dir: dir, home: dir}, "--web")
+	ran := runRootAt(t, clitest.Place{Dir: dir, Home: dir}, "--web")
 
 	// Assert
 	want := config.Taskwarrior{Program: "/opt/homebrew/bin/task", Disabled: true}
@@ -491,7 +492,7 @@ func TestTheWebFlagSaysWhyTheConfigurationDidNotLoadAndServesAnyway(t *testing.T
 
 	// Arrange
 	dir := t.TempDir()
-	writeFile(t, dir, `{"jira": `)
+	clitest.WriteFile(t, dir, `{"jira": `)
 
 	// Act
 	ran := runRoot(t, dir, "--web")
@@ -596,7 +597,7 @@ func TestTheInterfaceAndTheWebServerStartWithTheTokenCommandsRun(t *testing.T) {
 
 			writeExecutable(t, command, "#!/bin/sh\nprintf 'x\\n' >> '"+record+"'\nprintf 'a-token\\n'\n", 0o700)
 
-			writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.net", "token_command": "`+command+`"}}`)
+			clitest.WriteFile(t, dir, `{"jira": {"base_url": "https://jira.example.net", "token_command": "`+command+`"}}`)
 
 			runsAtStart := -1
 			countRuns := func() {
@@ -605,7 +606,7 @@ func TestTheInterfaceAndTheWebServerStartWithTheTokenCommandsRun(t *testing.T) {
 			}
 
 			// Act
-			_, _, err := executeRoot(t, place{dir: dir, home: dir},
+			_, _, err := executeRoot(t, clitest.Place{Dir: dir, Home: dir},
 				func(context.Context, tui.Model, io.Reader, io.Writer) (tui.Next, error) {
 					countRuns()
 

@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
@@ -18,25 +19,25 @@ func TestAnnounceYesDryRunPreviewsAMomentItWouldLeaveAsItIs(t *testing.T) {
 	// Arrange
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, forgeCLIConfig)
+	clitest.WriteFile(t, repo, forgeCLIConfig)
 	home := announcedEarlier(t, messaging.MomentReady)
 
 	// Act
-	printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t),
+	printed, err := clitest.RunStreamsAt(t, clitest.Place{Dir: repo, Home: home}, clitest.UnusedPrompt(t),
 		"announce", "--yes", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("announce --yes --dry-run: %v (%+v)", err, printed)
 	}
 
-	if !strings.Contains(printed.stdout, "opened a pull request") {
-		t.Errorf("stdout does not preview the announcement:\n%s", printed.stdout)
+	if !strings.Contains(printed.Stdout, "opened a pull request") {
+		t.Errorf("stdout does not preview the announcement:\n%s", printed.Stdout)
 	}
 
-	if !strings.Contains(printed.stderr, alreadyAnnounced) ||
-		!strings.Contains(printed.stderr, "dry run: would not announce it again") ||
-		strings.Contains(printed.stderr, "run without --yes") {
-		t.Errorf("stderr does not say that --yes would leave the announced moment as it is:\n%s", printed.stderr)
+	if !strings.Contains(printed.Stderr, alreadyAnnounced) ||
+		!strings.Contains(printed.Stderr, "dry run: would not announce it again") ||
+		strings.Contains(printed.Stderr, "run without --yes") {
+		t.Errorf("stderr does not say that --yes would leave the announced moment as it is:\n%s", printed.Stderr)
 	}
 }
 
@@ -47,23 +48,23 @@ func TestAnnounceDryRunComposesTheReadyMoment(t *testing.T) {
 	// An open pull request with green CI is ready for review.
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, forgeCLIConfig)
+	clitest.WriteFile(t, repo, forgeCLIConfig)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "announce", "--dry-run")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("announce --dry-run: %v (%+v)", err, printed)
 	}
 
 	// The preview is the artifact; what the dry run would do is said about it.
-	if !strings.Contains(printed.stdout, "opened a pull request") {
-		t.Errorf("stdout does not preview the ready-for-review moment:\n%s", printed.stdout)
+	if !strings.Contains(printed.Stdout, "opened a pull request") {
+		t.Errorf("stdout does not preview the ready-for-review moment:\n%s", printed.Stdout)
 	}
 
-	if !strings.Contains(printed.stderr, "dry run: would announce to the channel its webhook is bound to") ||
-		strings.Contains(printed.stdout, "dry run:") {
-		t.Errorf("the dry-run line is not on stderr alone:\nstdout:\n%s\nstderr:\n%s", printed.stdout, printed.stderr)
+	if !strings.Contains(printed.Stderr, "dry run: would announce to the channel its webhook is bound to") ||
+		strings.Contains(printed.Stdout, "dry run:") {
+		t.Errorf("the dry-run line is not on stderr alone:\nstdout:\n%s\nstderr:\n%s", printed.Stdout, printed.Stderr)
 	}
 }
 
@@ -73,10 +74,10 @@ func TestAnnounceDryRunComposesTheMergedMoment(t *testing.T) {
 	// Arrange
 	fakeGh(t, ghResponses{pulls: mergedPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, forgeCLIConfig)
+	clitest.WriteFile(t, repo, forgeCLIConfig)
 
 	// Act
-	output, err := run(t, repo, "announce", "--dry-run")
+	output, err := clitest.Run(t, repo, "announce", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("announce --dry-run: %v (%s)", err, output)
@@ -93,11 +94,11 @@ func TestAnnounceDryRunNamesTheConfiguredChannel(t *testing.T) {
 	// Arrange
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
 		`"messaging":{"kind":"slack","client_id":"`+slackClientID+`","channel":"#dev"}}`)
 
 	// Act
-	output, err := run(t, repo, "announce", "--dry-run")
+	output, err := clitest.Run(t, repo, "announce", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("announce --dry-run: %v (%s)", err, output)
@@ -114,11 +115,11 @@ func TestAnnounceDryRunNamesNoChannelWhereNoneIsSet(t *testing.T) {
 	// Arrange
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
 		`"messaging":{"kind":"slack","client_id":"`+slackClientID+`"}}`)
 
 	// Act
-	output, err := run(t, repo, "announce", "--dry-run")
+	output, err := clitest.Run(t, repo, "announce", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("announce --dry-run: %v (%s)", err, output)
@@ -136,11 +137,11 @@ func TestAnnounceDryRunSaysAWebhookKeepsItsOwnChannel(t *testing.T) {
 	// A webhook posts where it is bound, whatever channel the file names.
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
 		`"messaging":{"webhook_url":"https://hooks.slack.example/services/x","channel":"#dev"}}`)
 
 	// Act
-	output, err := run(t, repo, "announce", "--dry-run")
+	output, err := clitest.Run(t, repo, "announce", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("announce --dry-run: %v (%s)", err, output)
@@ -158,10 +159,10 @@ func TestAnnounceDryRunComposesForAKeylessBranch(t *testing.T) {
 	// The branch names no issue, so the announcement is composed without one.
 	fakeGh(t, ghResponses{pulls: openPull("Cleanup")})
 	repo := githubRepo(t, "chore/cleanup")
-	writeFile(t, repo, forgeCLIConfig)
+	clitest.WriteFile(t, repo, forgeCLIConfig)
 
 	// Act
-	output, err := run(t, repo, "announce", "--dry-run")
+	output, err := clitest.Run(t, repo, "announce", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("announce --dry-run: %v (%s)", err, output)
@@ -179,15 +180,15 @@ func TestAnnounceDryRunWithATrackerConfigured(t *testing.T) {
 	// With Jira reachable the announcement reads the issue and links it.
 	var reached atomic.Bool
 
-	jira := jiraServer(t, http.StatusOK, issueFixture("PROJ-2", "Bug", "thing"), &reached)
+	jira := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-2", "Bug", "thing"), &reached)
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, `{"jira":{"base_url":"`+jira.URL+`","token":"t"},`+
+	clitest.WriteFile(t, repo, `{"jira":{"base_url":"`+jira.URL+`","token":"t"},`+
 		`"forge":{"cli":true,"kind":"github","host":"github.com"},`+
 		`"messaging":{"webhook_url":"https://hooks.slack.example/services/x"}}`)
 
 	// Act
-	output, err := run(t, repo, "announce", "--dry-run")
+	output, err := clitest.Run(t, repo, "announce", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("announce --dry-run: %v (%s)", err, output)
@@ -209,10 +210,10 @@ func TestAnnounceDryRunWithoutAKnownAuthor(t *testing.T) {
 	// The forge will not name the author, so the announcement reads without one.
 	fakeGh(t, ghResponses{pulls: openPull("Add login"), userError: true})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, forgeCLIConfig)
+	clitest.WriteFile(t, repo, forgeCLIConfig)
 
 	// Act
-	output, err := run(t, repo, "announce", "--dry-run")
+	output, err := clitest.Run(t, repo, "announce", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("announce --dry-run: %v (%s)", err, output)

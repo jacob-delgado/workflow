@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/wiring"
 )
 
@@ -75,7 +76,7 @@ func interruptingSlack(t *testing.T, path string, interrupt context.CancelFunc) 
 		}
 	}))
 	t.Cleanup(server.Close)
-	setVariable(t, wiring.SlackAPIVariable, server.URL)
+	clitest.SetVariable(t, wiring.SlackAPIVariable, server.URL)
 
 	return held
 }
@@ -113,8 +114,10 @@ func TestACtrlCStopsASlackRequestThatOutlastsItsAsker(t *testing.T) {
 
 			slack := interruptingSlack(t, testCase.held, interrupt)
 			repo := ownedRepo(t)
-			writeFile(t, repo, testCase.config())
-			root := cli.NewRootCmdOver(unusedPrompt(t), nil, nil, environmentFor(t, place{dir: repo, home: t.TempDir()}))
+			clitest.WriteFile(t, repo, testCase.config())
+			root := cli.NewRootCmdOver(
+				clitest.UnusedPrompt(t), nil, nil, clitest.EnvironmentFor(t, clitest.Place{Dir: repo, Home: t.TempDir()}),
+			)
 			root.SetArgs([]string{"announce", "--yes"})
 			root.SetOut(io.Discard)
 			root.SetErr(io.Discard)

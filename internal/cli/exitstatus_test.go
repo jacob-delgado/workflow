@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
@@ -249,7 +250,7 @@ func TestExitStatusMarksMisuse(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			_, err := run(t, t.TempDir(), strings.Fields(tt.args)...)
+			_, err := clitest.Run(t, t.TempDir(), strings.Fields(tt.args)...)
 
 			// Assert
 			wantExit(t, err, 2)
@@ -283,15 +284,15 @@ func TestUnknownCommandPointsAtHelp(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), strings.Fields(tt.args)...)
+			printed, err := clitest.RunStreams(t, t.TempDir(), clitest.UnusedPrompt(t), strings.Fields(tt.args)...)
 
 			// Assert
 			wantExit(t, err, 2)
 
 			if err == nil || !strings.Contains(err.Error(), "Did you mean this?\n\t"+tt.meant+"\n") ||
-				!strings.HasSuffix(err.Error(), tt.help) || printed.stdout != "" {
+				!strings.HasSuffix(err.Error(), tt.help) || printed.Stdout != "" {
 				t.Errorf("workflow %s = %v, want the closest command, %q, then %q, and nothing on stdout (%q)",
-					tt.args, err, tt.meant, tt.help, printed.stdout)
+					tt.args, err, tt.meant, tt.help, printed.Stdout)
 			}
 		})
 	}
@@ -314,7 +315,7 @@ func TestMisuseWithNothingToSuggestPointsAtHelpAlone(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			_, err := run(t, t.TempDir(), strings.Fields(tt.args)...)
+			_, err := clitest.Run(t, t.TempDir(), strings.Fields(tt.args)...)
 
 			// Assert
 			wantExit(t, err, 2)
@@ -330,14 +331,14 @@ func TestBareConfigPrintsItsHelp(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), "config")
+	printed, err := clitest.RunStreams(t, t.TempDir(), clitest.UnusedPrompt(t), "config")
 
 	// Assert
 	wantExit(t, err, 0)
 
 	for _, want := range []string{"COMMANDS", "init", "show"} {
-		if !strings.Contains(printed.stdout, want) {
-			t.Errorf("workflow config printed %q, want its help naming %q", printed.stdout, want)
+		if !strings.Contains(printed.Stdout, want) {
+			t.Errorf("workflow config printed %q, want its help naming %q", printed.Stdout, want)
 		}
 	}
 }
@@ -346,14 +347,14 @@ func TestCompletionWritesItsScriptToStdout(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), "completion", "bash")
+	printed, err := clitest.RunStreams(t, t.TempDir(), clitest.UnusedPrompt(t), "completion", "bash")
 	// Assert
 	if err != nil {
 		t.Fatalf("workflow completion bash = %v", err)
 	}
 
-	if !strings.Contains(printed.stdout, "bash completion") {
-		t.Errorf("workflow completion bash printed %q, want the script on the stdout it was given", printed.stdout)
+	if !strings.Contains(printed.Stdout, "bash completion") {
+		t.Errorf("workflow completion bash printed %q, want the script on the stdout it was given", printed.Stdout)
 	}
 }
 
@@ -384,10 +385,10 @@ func TestEveryCommandRefusesAConfigurationItCannotRead(t *testing.T) {
 
 			// Arrange
 			dir := t.TempDir()
-			writeFile(t, dir, "{not json")
+			clitest.WriteFile(t, dir, "{not json")
 
 			// Act
-			_, err := run(t, dir, args...)
+			_, err := clitest.Run(t, dir, args...)
 
 			// Assert
 			if !errors.Is(err, config.ErrInvalid) {
@@ -410,7 +411,7 @@ func TestACommandRefusesAConfigurationItCannotOpen(t *testing.T) {
 	// A repository, so a command falling back to the defaults would succeed
 	// rather than fail for some other reason.
 	repo := featureRepo(t)
-	path := writeFile(t, repo, `{}`)
+	path := clitest.WriteFile(t, repo, `{}`)
 
 	err := os.Chmod(path, 0)
 	if err != nil {
@@ -418,7 +419,7 @@ func TestACommandRefusesAConfigurationItCannotOpen(t *testing.T) {
 	}
 
 	// Act
-	output, err := run(t, repo, "status")
+	output, err := clitest.Run(t, repo, "status")
 
 	// Assert
 	if err == nil || errors.Is(err, config.ErrInvalid) || strings.Contains(output, "PROJ-2") {
@@ -432,7 +433,7 @@ func TestExitStatusPutsMisuseBeforeEveryOtherKind(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	_, misuse := run(t, t.TempDir(), "status", "--no-such-flag")
+	_, misuse := clitest.Run(t, t.TempDir(), "status", "--no-such-flag")
 
 	// Act & Assert
 	wantExit(t, errors.Join(config.ErrNotFound, misuse), 2)
@@ -444,10 +445,10 @@ func TestExitStatusPutsTheConfigurationBeforeMissingTooling(t *testing.T) {
 	// Arrange
 	// No PATH, so git is missing, and no configuration either: doctor reports
 	// both, and the configuration is what a script should act on first.
-	setVariable(t, "PATH", "")
+	clitest.SetVariable(t, "PATH", "")
 
 	// Act
-	_, err := run(t, t.TempDir(), "doctor")
+	_, err := clitest.Run(t, t.TempDir(), "doctor")
 
 	// Assert
 	wantExit(t, err, 3)
@@ -458,12 +459,12 @@ func TestExitStatusOfMissingToolingAlone(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"},`+
+	clitest.WriteFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "t"},`+
 		` "messaging": {"webhook_url": "https://hooks.slack.example/services/not-real"}}`)
-	setVariable(t, "PATH", "")
+	clitest.SetVariable(t, "PATH", "")
 
 	// Act
-	_, err := run(t, dir, "doctor")
+	_, err := clitest.Run(t, dir, "doctor")
 
 	// Assert
 	wantExit(t, err, 1)

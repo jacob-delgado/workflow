@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/forge"
 )
 
@@ -42,7 +43,7 @@ func ghSignedOutRecording(t *testing.T) string {
 		t.Fatalf("these tests need git: %v", err)
 	}
 
-	dir := programsOf(t)
+	dir := clitest.ProgramsOf(t)
 
 	err = os.Symlink(gitPath, filepath.Join(dir, "git"))
 	if err != nil {
@@ -54,7 +55,7 @@ func ghSignedOutRecording(t *testing.T) string {
 
 	writeExecutable(t, filepath.Join(dir, "gh"), script, 0o755)
 
-	setVariable(t, "PATH", dir)
+	clitest.SetVariable(t, "PATH", dir)
 
 	return ran
 }
@@ -92,11 +93,11 @@ func TestDoctorOnlineExplainsWhyNoForgeTokenResolved(t *testing.T) {
 			// Every forge variable is cleared, so a laptop's or CI's own token
 			// cannot resolve; the tracker answers, so only the forge check fails.
 			dir := repoWithRemote(t, tt.remote)
-			writeConfigFor(t, dir, workingJira(t))
+			clitest.WriteConfigFor(t, dir, clitest.WorkingJira(t))
 			tt.onPath(t)
 
 			// Act
-			output, err := run(t, dir, "doctor", "--online")
+			output, err := clitest.Run(t, dir, "doctor", "--online")
 
 			// Assert
 			if err == nil {
@@ -115,10 +116,10 @@ func TestDoctorNamesAMissingGitOnTheRepositoryLine(t *testing.T) {
 
 	// Arrange
 	// An empty PATH is the portable way to make git unfindable.
-	setVariable(t, "PATH", "")
+	clitest.SetVariable(t, "PATH", "")
 
 	// Act
-	output, _ := run(t, t.TempDir(), "doctor")
+	output, _ := clitest.Run(t, t.TempDir(), "doctor")
 
 	// Assert
 	if got := fieldValue(output, "Repository"); !strings.Contains(got, "git is not on PATH") {
@@ -134,8 +135,8 @@ func forgeCLIRepository(t *testing.T, remote string) string {
 	t.Helper()
 
 	dir := repoWithRemote(t, remote)
-	writeFile(t, dir, `{"jira": {"base_url": "`+workingJira(t)+`", "token": "t"}, `+slackWebhook+`,`+
-		` "forge": {"cli": true}}`)
+	clitest.WriteFile(t, dir, `{"jira": {"base_url": "`+clitest.WorkingJira(t)+`", "token": "t"}, `+
+		clitest.SlackWebhook+`, "forge": {"cli": true}}`)
 
 	return dir
 }
@@ -178,7 +179,7 @@ func TestDoctorOnlineAsksTheForgeThroughItsCLI(t *testing.T) {
 			tt.onPath(t)
 
 			// Act
-			output, err := run(t, dir, "doctor", "--online")
+			output, err := clitest.Run(t, dir, "doctor", "--online")
 			// Assert
 			if err != nil {
 				t.Fatalf("doctor --online = %v, want a forge its CLI answers for to pass:\n%s", err, output)
@@ -199,7 +200,7 @@ func TestDoctorJSONOnlineCallsAForgeItsCLIAnswersForOK(t *testing.T) {
 	ghSignedOutButAnswering(t)
 
 	// Act
-	output, err := run(t, dir, "doctor", "--json", "--online")
+	output, err := clitest.Run(t, dir, "doctor", "--json", "--online")
 
 	// Assert
 	wantExit(t, err, 0)
@@ -219,7 +220,7 @@ func TestDoctorJSONOnlineCallsAForgeItsSignedOutCLIUnreachable(t *testing.T) {
 	ghSignedOut(t)
 
 	// Act
-	output, err := run(t, dir, "doctor", "--json", "--online")
+	output, err := clitest.Run(t, dir, "doctor", "--json", "--online")
 
 	// Assert
 	wantExit(t, err, 5)
@@ -243,14 +244,14 @@ func TestDoctorOnlineGivesUpOnAForgeCLIThatNeverAnswers(t *testing.T) {
 
 	// Arrange
 	dir := repoWithRemote(t, githubSSHRemote)
-	writeFile(t, dir, `{"jira": {"base_url": "`+workingJira(t)+`", "token": "t"}, `+slackWebhook+`,`+
-		` "forge": {"cli": true}, "timing": {"request_timeout": "`+onlineRequestTimeout+`"}}`)
+	clitest.WriteFile(t, dir, `{"jira": {"base_url": "`+clitest.WorkingJira(t)+`", "token": "t"}, `+
+		clitest.SlackWebhook+`, "forge": {"cli": true}, "timing": {"request_timeout": "`+onlineRequestTimeout+`"}}`)
 	fakeGh(t, ghResponses{signedOut: true, apiHangs: true})
 
 	started := time.Now()
 
 	// Act
-	output, err := run(t, dir, "doctor", "--online")
+	output, err := clitest.Run(t, dir, "doctor", "--online")
 
 	// Assert
 	if elapsed := time.Since(started); elapsed >= ghHang/2 {
@@ -274,13 +275,13 @@ func TestLogReachesDoctorOnlinesForgeCheckThroughItsCLI(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "requests.log")
 
 	// Act
-	output, err := run(t, dir, "doctor", "--online", "--request-log", logPath)
+	output, err := clitest.Run(t, dir, "doctor", "--online", "--request-log", logPath)
 	// Assert
 	if err != nil {
 		t.Fatalf("doctor --online: %v (%s)", err, output)
 	}
 
-	if logged := readLog(t, logPath); !strings.Contains(logged, "forge GET  /user") {
+	if logged := clitest.ReadLog(t, logPath); !strings.Contains(logged, "forge GET  /user") {
 		t.Errorf("the request log does not outline doctor's check of the forge:\n%s", logged)
 	}
 }
@@ -300,7 +301,7 @@ func workTree(t *testing.T, remote string) string {
 // jiraTracker is a configuration with Jira as the tracker at baseURL, and a
 // webhook doctor never posts to.
 func jiraTracker(baseURL string) string {
-	return `{"jira": {"base_url": "` + baseURL + `", "token": "t"}, ` + slackWebhook + `}`
+	return `{"jira": {"base_url": "` + baseURL + `", "token": "t"}, ` + clitest.SlackWebhook + `}`
 }
 
 func TestDoctorNamesTheTrackerInEffect(t *testing.T) {
@@ -313,22 +314,22 @@ func TestDoctorNamesTheTrackerInEffect(t *testing.T) {
 	}{
 		"no jira.base_url and a GitHub remote names GitHub's issues": {
 			remote: githubSSHRemote,
-			config: `{` + slackWebhook + `}`,
+			config: `{` + clitest.SlackWebhook + `}`,
 			want:   "GitHub issues (no jira.base_url)",
 		},
 		"forge.kind names an on-premises forge's issues": {
 			remote: onPremisesRemote,
-			config: `{` + slackWebhook + `, "forge": {"kind": "gitlab", "host": "git.example.com"}}`,
+			config: `{` + clitest.SlackWebhook + `, "forge": {"kind": "gitlab", "host": "git.example.com"}}`,
 			want:   "GitLab issues (no jira.base_url)",
 		},
 		"an on-premises host without forge.kind leaves the forge unnamed": {
 			remote: onPremisesRemote,
-			config: `{` + slackWebhook + `}`,
+			config: `{` + clitest.SlackWebhook + `}`,
 			want:   "the forge's issues (no jira.base_url)",
 		},
 		"no remote leaves the forge unnamed": {
 			remote: "",
-			config: `{` + slackWebhook + `}`,
+			config: `{` + clitest.SlackWebhook + `}`,
 			want:   "the forge's issues (no jira.base_url)",
 		},
 		"a jira.base_url makes Jira the tracker": {
@@ -344,10 +345,10 @@ func TestDoctorNamesTheTrackerInEffect(t *testing.T) {
 
 			// Arrange
 			dir := workTree(t, tt.remote)
-			writeFile(t, dir, tt.config)
+			clitest.WriteFile(t, dir, tt.config)
 
 			// Act
-			output, err := run(t, dir, "doctor")
+			output, err := clitest.Run(t, dir, "doctor")
 
 			// Assert
 			wantExit(t, err, 0)
@@ -367,10 +368,10 @@ func TestDoctorRefusesAJiraBaseURLsPasswordWithoutPrintingIt(t *testing.T) {
 
 	// Arrange
 	dir := workTree(t, githubSSHRemote)
-	writeFile(t, dir, jiraTracker("https://fred:hunter2@jira.example.com"))
+	clitest.WriteFile(t, dir, jiraTracker("https://fred:hunter2@jira.example.com"))
 
 	// Act
-	output, err := run(t, dir, "doctor")
+	output, err := clitest.Run(t, dir, "doctor")
 
 	// Assert
 	wantExit(t, err, 3)
@@ -396,7 +397,7 @@ func TestDoctorJSONNamesTheTrackerInEffect(t *testing.T) {
 			want:   "jira",
 		},
 		"no jira.base_url leaves the forge's issues": {
-			config: `{` + slackWebhook + `}`,
+			config: `{` + clitest.SlackWebhook + `}`,
 			want:   "forge",
 		},
 	}
@@ -407,10 +408,10 @@ func TestDoctorJSONNamesTheTrackerInEffect(t *testing.T) {
 
 			// Arrange
 			dir := repoWithRemote(t, githubSSHRemote)
-			writeFile(t, dir, tt.config)
+			clitest.WriteFile(t, dir, tt.config)
 
 			// Act
-			output, err := run(t, dir, "doctor", "--json")
+			output, err := clitest.Run(t, dir, "doctor", "--json")
 
 			// Assert
 			wantExit(t, err, 0)
@@ -430,7 +431,7 @@ func forgeTrackerRepository(t *testing.T) string {
 	t.Helper()
 
 	dir := repoWithRemote(t, githubSSHRemote)
-	writeFile(t, dir, `{`+slackWebhook+`, "forge": {"cli": true}}`)
+	clitest.WriteFile(t, dir, `{`+clitest.SlackWebhook+`, "forge": {"cli": true}}`)
 	ghSignedOutButAnswering(t)
 
 	return dir
@@ -443,7 +444,7 @@ func TestDoctorOnlineSaysTheForgeStandsInForJira(t *testing.T) {
 	dir := forgeTrackerRepository(t)
 
 	// Act
-	output, err := run(t, dir, "doctor", "--online")
+	output, err := clitest.Run(t, dir, "doctor", "--online")
 
 	// Assert
 	wantExit(t, err, 0)
@@ -460,7 +461,7 @@ func TestDoctorJSONOnlineCallsJiraUncheckedWhenTheForgeIsTheTracker(t *testing.T
 	dir := forgeTrackerRepository(t)
 
 	// Act
-	output, err := run(t, dir, "doctor", "--json", "--online")
+	output, err := clitest.Run(t, dir, "doctor", "--json", "--online")
 
 	// Assert
 	wantExit(t, err, 0)

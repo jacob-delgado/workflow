@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 func TestEveryCommandSpellsTheSharedFlagsShortAlike(t *testing.T) {
@@ -59,13 +60,13 @@ func TestDashNHoldsBackAWrite(t *testing.T) {
 	// Arrange
 	fakeGh(t, ghResponses{})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "-n")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "-n")
 
 	// Assert
-	if err != nil || !strings.Contains(printed.stderr, "dry run: would push fix/PROJ-2-thing to origin and open") {
+	if err != nil || !strings.Contains(printed.Stderr, "dry run: would push fix/PROJ-2-thing to origin and open") {
 		t.Errorf("pr -n = %v, printed %+v; want the push and open held back", err, printed)
 	}
 }
@@ -77,13 +78,13 @@ func TestDashYGoesAheadWithoutAsking(t *testing.T) {
 	fakeGh(t, ghResponses{})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	pretendPushed(t, repo)
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "-y")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "-y")
 
 	// Assert
-	if err != nil || !strings.Contains(printed.stdout, "Opened #7") {
+	if err != nil || !strings.Contains(printed.Stdout, "Opened #7") {
 		t.Errorf("pr -y = %v, printed %+v; want the pull request opened unasked", err, printed)
 	}
 }
@@ -95,15 +96,15 @@ func TestDashJPrintsTheData(t *testing.T) {
 	repo := featureRepo(t)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "status", "-j")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "status", "-j")
 
 	// Assert
 	var report struct {
 		Stages []map[string]any `json:"stages"`
 	}
 
-	decodeErr := json.Unmarshal([]byte(printed.stdout), &report)
+	decodeErr := json.Unmarshal([]byte(printed.Stdout), &report)
 	if err != nil || decodeErr != nil || len(report.Stages) == 0 {
-		t.Errorf("status -j = %v, printed %q (%v); want the status as JSON", err, printed.stdout, decodeErr)
+		t.Errorf("status -j = %v, printed %q (%v); want the status as JSON", err, printed.Stdout, decodeErr)
 	}
 }

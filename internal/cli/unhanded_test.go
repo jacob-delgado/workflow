@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 // unhanded is what a command says when it was run without the environment it
@@ -77,7 +78,9 @@ func TestACommandWhoseOwnHookKeepsTheRootsSaysItHasNoEnvironment(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	root := cli.NewRootCmdOver(unusedPrompt(t), nil, nil, environmentFor(t, place{dir: t.TempDir(), home: t.TempDir()}))
+	root := cli.NewRootCmdOver(
+		clitest.UnusedPrompt(t), nil, nil, clitest.EnvironmentFor(t, clitest.Place{Dir: t.TempDir(), Home: t.TempDir()}),
+	)
 	root.SetArgs(configShow())
 
 	show, _, err := root.Find(configShow())

@@ -15,6 +15,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 // jiraSecret is the token the JSON report must carry knowledge of without ever
@@ -42,10 +44,12 @@ func TestDoctorJSONReportsTheFactsAsData(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "`+jiraSecret+`"}, `+slackWebhook+`}`)
+	clitest.WriteFile(
+		t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "`+jiraSecret+`"}, `+clitest.SlackWebhook+`}`,
+	)
 
 	// Act
-	output, _ := run(t, dir, "doctor", "--json")
+	output, _ := clitest.Run(t, dir, "doctor", "--json")
 
 	// Assert
 	report := decodeReport(t, output)
@@ -98,10 +102,10 @@ func TestDoctorJSONFailsOnSetButInvalidValues(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	writeFile(t, dir, invalidValuesConfig)
+	clitest.WriteFile(t, dir, invalidValuesConfig)
 
 	// Act
-	output, err := run(t, dir, "doctor", "--json")
+	output, err := clitest.Run(t, dir, "doctor", "--json")
 
 	// Assert
 	wantExit(t, err, 3)
@@ -119,10 +123,12 @@ func TestDoctorJSONNeverEchoesASecret(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	writeFile(t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "`+jiraSecret+`"}, `+slackWebhook+`}`)
+	clitest.WriteFile(
+		t, dir, `{"jira": {"base_url": "https://jira.example.com", "token": "`+jiraSecret+`"}, `+clitest.SlackWebhook+`}`,
+	)
 
 	// Act
-	output, _ := run(t, dir, "doctor", "--json")
+	output, _ := clitest.Run(t, dir, "doctor", "--json")
 
 	// Assert
 	decodeReport(t, output) // it is JSON, so the check is not fooled by prose
@@ -136,7 +142,7 @@ func TestDoctorJSONReportsAMissingFileAsData(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	output, err := run(t, t.TempDir(), "doctor", "--json")
+	output, err := clitest.Run(t, t.TempDir(), "doctor", "--json")
 
 	// Assert
 	report := decodeReport(t, output)
@@ -151,14 +157,14 @@ func TestDoctorJSONOnlineNamesTheIdentityWithoutTheToken(t *testing.T) {
 	// Arrange
 	var reached atomic.Bool
 
-	server := jiraServer(t, http.StatusOK, jiraFixture, &reached)
+	server := clitest.JiraServer(t, http.StatusOK, clitest.JiraFixture, &reached)
 	defer server.Close()
 
 	dir := t.TempDir()
-	writeConfigFor(t, dir, server.URL)
+	clitest.WriteConfigFor(t, dir, server.URL)
 
 	// Act
-	output, _ := run(t, dir, "doctor", "--json", "--online")
+	output, _ := clitest.Run(t, dir, "doctor", "--json", "--online")
 
 	// Assert
 	if strings.Contains(output, "jira-token-for-tests") {
@@ -214,10 +220,10 @@ func TestDoctorJSONOnlineReportsARedirectAsUnreachable(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	dir := t.TempDir()
-	writeConfigFor(t, dir, server.URL)
+	clitest.WriteConfigFor(t, dir, server.URL)
 
 	// Act
-	output, _ := run(t, dir, "doctor", "--json", "--online")
+	output, _ := clitest.Run(t, dir, "doctor", "--json", "--online")
 
 	// Assert
 	if got := credentialStatusIn(decodeReport(t, output), jiraService); got != unreachableStatus {
@@ -232,11 +238,11 @@ func TestDoctorJSONOnlineChecksNothingWhenTheFileDidNotLoad(t *testing.T) {
 	// Every forge variable is cleared, so only gh could answer for the forge:
 	// a token in the environment would resolve first and gh would never run.
 	dir := repoWithRemote(t, githubSSHRemote)
-	writeFile(t, dir, "{not json")
+	clitest.WriteFile(t, dir, "{not json")
 	ghRan := ghSignedOutRecording(t)
 
 	// Act
-	output, err := run(t, dir, "doctor", "--json", "--online")
+	output, err := clitest.Run(t, dir, "doctor", "--json", "--online")
 
 	// Assert
 	wantExit(t, err, 3)
@@ -260,10 +266,10 @@ func TestDoctorJSONOnlineReportsARateLimitAsUnreachable(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	dir := t.TempDir()
-	writeConfigFor(t, dir, server.URL)
+	clitest.WriteConfigFor(t, dir, server.URL)
 
 	// Act
-	output, err := run(t, dir, "doctor", "--json", "--online")
+	output, err := clitest.Run(t, dir, "doctor", "--json", "--online")
 
 	// Assert
 	if got := credentialStatusIn(decodeReport(t, output), jiraService); got != unreachableStatus {
@@ -281,13 +287,13 @@ func TestDoctorJSONOnlineCallsARefusedCredentialRejected(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := jiraServer(t, http.StatusUnauthorized, "<html>login</html>", new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusUnauthorized, "<html>login</html>", new(atomic.Bool))
 
 	dir := t.TempDir()
-	writeConfigFor(t, dir, server.URL)
+	clitest.WriteConfigFor(t, dir, server.URL)
 
 	// Act
-	output, err := run(t, dir, "doctor", "--json", "--online")
+	output, err := clitest.Run(t, dir, "doctor", "--json", "--online")
 
 	// Assert
 	if got := credentialStatusIn(decodeReport(t, output), jiraService); got != "rejected" {
@@ -307,7 +313,7 @@ func configuredWith(t *testing.T, fields string) string {
 	t.Helper()
 
 	dir := t.TempDir()
-	writeFile(t, dir, "{"+fields+"}")
+	clitest.WriteFile(t, dir, "{"+fields+"}")
 
 	return dir
 }
@@ -322,28 +328,32 @@ func TestDoctorJSONOnlineCallsAnAbsentCredentialMissing(t *testing.T) {
 		"no jira.token": {service: jiraService, setup: func(t *testing.T) string {
 			t.Helper()
 
-			return configuredWith(t, `"jira": {"base_url": "`+workingJira(t)+`"}, `+slackWebhook)
+			return configuredWith(t, `"jira": {"base_url": "`+clitest.WorkingJira(t)+`"}, `+clitest.SlackWebhook)
 		}},
 		"a jira token_command that fails": {service: jiraService, setup: func(t *testing.T) string {
 			t.Helper()
 
-			return configuredWith(t, `"jira": {"base_url": "`+workingJira(t)+`", "token_command": "false"}, `+slackWebhook)
+			return configuredWith(
+				t, `"jira": {"base_url": "`+clitest.WorkingJira(t)+`", "token_command": "false"}, `+clitest.SlackWebhook,
+			)
 		}},
 		"a jira token_command that prints nothing": {service: jiraService, setup: func(t *testing.T) string {
 			t.Helper()
 
-			return configuredWith(t, `"jira": {"base_url": "`+workingJira(t)+`", "token_command": "true"}, `+slackWebhook)
+			return configuredWith(
+				t, `"jira": {"base_url": "`+clitest.WorkingJira(t)+`", "token_command": "true"}, `+clitest.SlackWebhook,
+			)
 		}},
 		"no messaging credential": {service: messagingService, setup: func(t *testing.T) string {
 			t.Helper()
 
-			return configuredWith(t, `"jira": {"base_url": "`+workingJira(t)+`", "token": "t"}`)
+			return configuredWith(t, `"jira": {"base_url": "`+clitest.WorkingJira(t)+`", "token": "t"}`)
 		}},
 		// The file keeps the token's credentials, so no keychain is read.
 		"a Slack user token not logged in": {service: messagingService, setup: func(t *testing.T) string {
 			t.Helper()
 
-			return configuredWith(t, `"jira": {"base_url": "`+workingJira(t)+`", "token": "t"}, `+
+			return configuredWith(t, `"jira": {"base_url": "`+clitest.WorkingJira(t)+`", "token": "t"}, `+
 				`"messaging": {"client_id": "1234.5678", "client_secret": "client-secret-9999", "channel": "#dev"}`)
 		}},
 		"no forge token": {service: "forge", setup: func(t *testing.T) string {
@@ -351,7 +361,7 @@ func TestDoctorJSONOnlineCallsAnAbsentCredentialMissing(t *testing.T) {
 			pathWithOnlyGit(t)
 
 			dir := repoWithRemote(t, githubSSHRemote)
-			writeConfigFor(t, dir, workingJira(t))
+			clitest.WriteConfigFor(t, dir, clitest.WorkingJira(t))
 
 			return dir
 		}},
@@ -387,10 +397,10 @@ func TestDoctorJSONOnlineAsksJiraNothingWhenItsTokenEnvIsEmpty(t *testing.T) {
 	// Arrange
 	var reached atomic.Bool
 
-	server := jiraServer(t, http.StatusOK, jiraFixture, &reached)
-	setVariable(t, emptyTokenVariable, "")
+	server := clitest.JiraServer(t, http.StatusOK, clitest.JiraFixture, &reached)
+	clitest.SetVariable(t, emptyTokenVariable, "")
 	dir := configuredWith(t,
-		`"jira": {"base_url": "`+server.URL+`", "token_env": "`+emptyTokenVariable+`"}, `+slackWebhook)
+		`"jira": {"base_url": "`+server.URL+`", "token_env": "`+emptyTokenVariable+`"}, `+clitest.SlackWebhook)
 
 	// Act
 	output, err := runAtHome(t, dir, "doctor", "--json", "--online")
@@ -413,7 +423,8 @@ func forgeKindRepository(t *testing.T, forgeFields string) string {
 	t.Helper()
 
 	dir := repoWithRemote(t, unreachableForge)
-	writeFile(t, dir, `{"jira": {"base_url": "`+workingJira(t)+`", "token": "t"}, `+slackWebhook+`,`+
+	clitest.WriteFile(t, dir, `{"jira": {"base_url": "`+clitest.WorkingJira(t)+`", "token": "t"}, `+clitest.SlackWebhook+
+		`,`+
 		` "forge": {`+forgeFields+`}}`)
 
 	return dir
@@ -433,7 +444,7 @@ func TestDoctorJSONOnlineCallsAForgeItCannotAskUnchecked(t *testing.T) {
 
 			dir := t.TempDir()
 			gitInit(t, dir)
-			writeConfigFor(t, dir, workingJira(t))
+			clitest.WriteConfigFor(t, dir, clitest.WorkingJira(t))
 
 			return dir
 		}},
@@ -441,7 +452,7 @@ func TestDoctorJSONOnlineCallsAForgeItCannotAskUnchecked(t *testing.T) {
 			t.Helper()
 
 			dir := repoWithRemote(t, unreachableForge)
-			writeConfigFor(t, dir, workingJira(t))
+			clitest.WriteConfigFor(t, dir, clitest.WorkingJira(t))
 
 			return dir
 		}},
@@ -460,7 +471,7 @@ func TestDoctorJSONOnlineCallsAForgeItCannotAskUnchecked(t *testing.T) {
 			dir := tt.setup(t)
 
 			// Act
-			output, err := run(t, dir, "doctor", "--json", "--online")
+			output, err := clitest.Run(t, dir, "doctor", "--json", "--online")
 
 			// Assert
 			wantExit(t, err, tt.wantExit)
@@ -488,13 +499,13 @@ func TestDoctorJSONSaysWhyThereIsNoRepository(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			setVariable(t, "PATH", tt.path)
+			clitest.SetVariable(t, "PATH", tt.path)
 
 			// Act
-			printed, _ := runStreams(t, t.TempDir(), unusedPrompt(t), "doctor", "--json")
+			printed, _ := clitest.RunStreams(t, t.TempDir(), clitest.UnusedPrompt(t), "doctor", "--json")
 
 			// Assert
-			repository, _ := decodeReport(t, printed.stdout)["repository"].(map[string]any)
+			repository, _ := decodeReport(t, printed.Stdout)["repository"].(map[string]any)
 			if problem, _ := repository["problem"].(string); !strings.Contains(problem, tt.want) ||
 				repository["inside_work_tree"] != false {
 				t.Errorf("repository = %v, want it outside a work tree because %q", repository, tt.want)
@@ -507,22 +518,22 @@ func TestDoctorOnlineSaysTheSameOfEachCredentialInProseAndJSON(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := jiraServer(t, http.StatusOK, jiraFixture, new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, clitest.JiraFixture, new(atomic.Bool))
 	dir := t.TempDir()
-	writeConfigFor(t, dir, server.URL)
+	clitest.WriteConfigFor(t, dir, server.URL)
 
-	prose, _ := runStreams(t, dir, unusedPrompt(t), "doctor", "--online")
+	prose, _ := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "doctor", "--online")
 
 	// Act
-	asJSON, _ := runStreams(t, dir, unusedPrompt(t), "doctor", "--online", "--json")
+	asJSON, _ := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "doctor", "--online", "--json")
 
 	// Assert
-	credentials, _ := decodeReport(t, asJSON.stdout)["credentials"].(map[string]any)
+	credentials, _ := decodeReport(t, asJSON.Stdout)["credentials"].(map[string]any)
 	results, _ := credentials["results"].([]any)
 
 	if len(results) != 3 {
 		t.Fatalf("the online report has %d results, want Jira's, messaging's and the forge's:\n%s",
-			len(results), asJSON.stdout)
+			len(results), asJSON.Stdout)
 	}
 
 	for _, result := range results {
@@ -530,8 +541,8 @@ func TestDoctorOnlineSaysTheSameOfEachCredentialInProseAndJSON(t *testing.T) {
 		service, _ := line["service"].(string)
 		detail, _ := line["detail"].(string)
 
-		if said := fmt.Sprintf("  %-10s %s\n", service, detail); detail == "" || !strings.Contains(prose.stdout, said) {
-			t.Errorf("the JSON says %q of %s, which the prose report does not:\n%s", detail, service, prose.stdout)
+		if said := fmt.Sprintf("  %-10s %s\n", service, detail); detail == "" || !strings.Contains(prose.Stdout, said) {
+			t.Errorf("the JSON says %q of %s, which the prose report does not:\n%s", detail, service, prose.Stdout)
 		}
 	}
 }

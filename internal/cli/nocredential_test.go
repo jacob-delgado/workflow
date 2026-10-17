@@ -7,6 +7,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 // A token_env that gives nothing is a configured source, so the error names
@@ -15,10 +17,10 @@ func TestAJiraTokenVariableThatGivesNothingIsNamedNotCalledUnconfigured(t *testi
 	t.Parallel()
 
 	// Arrange
-	setVariable(t, emptyTokenVariable, "")
+	clitest.SetVariable(t, emptyTokenVariable, "")
 
 	repo := repoForBranch(t, "https://jira.example.net")
-	writeFile(t, repo, `{"jira": {"base_url": "https://jira.example.net", "token_env": "`+emptyTokenVariable+`"}}`)
+	clitest.WriteFile(t, repo, `{"jira": {"base_url": "https://jira.example.net", "token_env": "`+emptyTokenVariable+`"}}`)
 
 	// Act
 	_, err := runAtHome(t, repo, "branch", "PROJ-7", "--yes")
@@ -39,11 +41,11 @@ func TestASlackUserTokenNotLoggedInNamesTheLogin(t *testing.T) {
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
 		`"messaging":{"client_id":"1234.5678","client_secret":"client-secret-9999","channel":"#dev"}}`)
 
 	// Act
-	_, err := run(t, repo, "announce", "--yes")
+	_, err := clitest.Run(t, repo, "announce", "--yes")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "workflow slack login") {
@@ -56,7 +58,7 @@ func TestDoctorUnderDryRunHoldsBackARefreshThatWouldWrite(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	path := writeFile(t, dir, `{"messaging":{"client_id":"1234.5678","client_secret":"client-secret-9999",`+
+	path := clitest.WriteFile(t, dir, `{"messaging":{"client_id":"1234.5678","client_secret":"client-secret-9999",`+
 		`"refresh_token":"slack-refresh-8888","access_token":"xoxe.xoxp-old","expires_at":"2020-01-01T00:00:00Z",`+
 		`"channel":"#dev"}}`)
 
@@ -66,7 +68,7 @@ func TestDoctorUnderDryRunHoldsBackARefreshThatWouldWrite(t *testing.T) {
 	}
 
 	// Act
-	output, _ := run(t, dir, "doctor", "--online", "--dry-run")
+	output, _ := clitest.Run(t, dir, "doctor", "--online", "--dry-run")
 
 	// Assert
 	if !strings.Contains(output, "--dry-run") {
@@ -86,10 +88,12 @@ func TestDoctorUnderDryRunCallsASlackTokenNeverLoggedInMissing(t *testing.T) {
 	// The file keeps the app's secret but no refresh token: the login was
 	// never finished.
 	dir := t.TempDir()
-	writeFile(t, dir, `{"messaging":{"client_id":"1234.5678","client_secret":"client-secret-9999","channel":"#dev"}}`)
+	clitest.WriteFile(
+		t, dir, `{"messaging":{"client_id":"1234.5678","client_secret":"client-secret-9999","channel":"#dev"}}`,
+	)
 
 	// Act
-	output, _ := run(t, dir, "doctor", "--json", "--online", "--dry-run")
+	output, _ := clitest.Run(t, dir, "doctor", "--json", "--online", "--dry-run")
 
 	// Assert
 	if status := credentialStatusIn(decodeReport(t, output), messagingService); status != missingStatus {

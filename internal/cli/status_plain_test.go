@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 func TestStatusPlainDrawsTheMarksInASCII(t *testing.T) {
@@ -36,11 +38,11 @@ func TestStatusPlainDrawsTheMarksInASCII(t *testing.T) {
 			}
 
 			// Act
-			printed, err := runStreams(t, dir, unusedPrompt(t), args...)
+			printed, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), args...)
 
 			// Assert
-			if err != nil || !strings.Contains(printed.stdout, "# Branch") || strings.Contains(printed.stdout, "●") {
-				t.Errorf("%v = %v, printed %q; want the marks in ASCII", args, err, printed.stdout)
+			if err != nil || !strings.Contains(printed.Stdout, "# Branch") || strings.Contains(printed.Stdout, "●") {
+				t.Errorf("%v = %v, printed %q; want the marks in ASCII", args, err, printed.Stdout)
 			}
 		})
 	}
@@ -53,13 +55,13 @@ func TestStatusRefusesPlainBesideJSON(t *testing.T) {
 	repo := featureRepo(t)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "status", "--plain", "--json")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "status", "--plain", "--json")
 
 	// Assert
 	const refusal = "--plain and --json cannot be used together: " +
 		"drop --plain for JSON, or --json for the status line in ASCII"
-	if !strings.HasSuffix(fmt.Sprint(err), ": "+refusal) || printed.stdout != "" {
-		t.Errorf("status --plain --json = %v, printed %q; want it refused with %q", err, printed.stdout, refusal)
+	if !strings.HasSuffix(fmt.Sprint(err), ": "+refusal) || printed.Stdout != "" {
+		t.Errorf("status --plain --json = %v, printed %q; want it refused with %q", err, printed.Stdout, refusal)
 	}
 
 	wantExit(t, err, 2)

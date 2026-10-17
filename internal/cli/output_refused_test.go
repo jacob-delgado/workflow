@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 // errOutputClosed is a stdout whose reader has gone, as when a pipe's far end
@@ -37,12 +38,12 @@ func TestDoctorJSONFailsWhenItsOutputCannotBeWritten(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	env := environmentFor(t, place{dir: t.TempDir(), home: t.TempDir()})
+	env := clitest.EnvironmentFor(t, clitest.Place{Dir: t.TempDir(), Home: t.TempDir()})
 
 	var stderr bytes.Buffer
 
 	// Act
-	err := cli.Execute(strings.Fields("doctor --json"), refusingOutput{}, &stderr, unusedPrompt(t), env)
+	err := cli.Execute(strings.Fields("doctor --json"), refusingOutput{}, &stderr, clitest.UnusedPrompt(t), env)
 
 	// Assert
 	// A script reading the report would otherwise take a report cut short, or
@@ -78,10 +79,10 @@ func TestProseFailsWhenItsOutputCannotBeWritten(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			env := environmentFor(t, place{dir: where(t), home: t.TempDir()})
+			env := clitest.EnvironmentFor(t, clitest.Place{Dir: where(t), Home: t.TempDir()})
 
 			// Act
-			err := cli.Execute([]string{command}, refusingOutput{}, io.Discard, unusedPrompt(t), env)
+			err := cli.Execute([]string{command}, refusingOutput{}, io.Discard, clitest.UnusedPrompt(t), env)
 
 			// Assert
 			if !errors.Is(err, errOutputClosed) {

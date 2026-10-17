@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 // everyCommand is root and every command under it.
@@ -52,7 +53,7 @@ func TestConfigInitSummaryClaimsOnlyWhatItAsks(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	output, err := run(t, t.TempDir(), "config", "--help")
+	output, err := clitest.Run(t, t.TempDir(), "config", "--help")
 
 	// Assert
 	if err != nil || strings.Contains(output, "each credential") ||
@@ -99,7 +100,7 @@ func TestTheReviewsSummaryNamesBothForgesNouns(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	output, err := run(t, t.TempDir(), "--help")
+	output, err := clitest.Run(t, t.TempDir(), "--help")
 
 	// Assert
 	if err != nil || !strings.Contains(output, "List the pull or merge requests that are waiting on your review") {

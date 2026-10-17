@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 func TestStatusAcrossLabelsARelativeDirectoryByWhereItLeads(t *testing.T) {
@@ -33,13 +35,13 @@ func TestStatusAcrossLabelsARelativeDirectoryByWhereItLeads(t *testing.T) {
 			makeDirectory(t, working)
 
 			// Act
-			printed, err := runStreams(t, working, unusedPrompt(t), "status", tt.dir)
+			printed, err := clitest.RunStreams(t, working, clitest.UnusedPrompt(t), "status", tt.dir)
 
 			// Assert
-			if !strings.HasPrefix(printed.stdout, tt.want+"  ") ||
-				!strings.Contains(printed.stdout, "not a git repository") {
+			if !strings.HasPrefix(printed.Stdout, tt.want+"  ") ||
+				!strings.Contains(printed.Stdout, "not a git repository") {
 				t.Errorf("status %s from %s printed:\n%s\nwant its line labeled %q",
-					tt.dir, working, printed.stdout, tt.want)
+					tt.dir, working, printed.Stdout, tt.want)
 			}
 
 			wantExit(t, err, 4)
@@ -54,7 +56,7 @@ func TestStatusAcrossAsJSONLabelsTheCurrentRepositoryByItsName(t *testing.T) {
 	repo := featureRepo(t)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "status", "--json", ".")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "status", "--json", ".")
 
 	// Assert
 	var reports []struct {
@@ -63,7 +65,7 @@ func TestStatusAcrossAsJSONLabelsTheCurrentRepositoryByItsName(t *testing.T) {
 		Issue      string `json:"issue"`
 	}
 
-	decodeErr := json.Unmarshal([]byte(printed.stdout), &reports)
+	decodeErr := json.Unmarshal([]byte(printed.Stdout), &reports)
 	if decodeErr != nil || len(reports) != 1 || reports[0].Repository != filepath.Base(repo) ||
 		reports[0].Dir != "." || reports[0].Issue != "PROJ-2" {
 		t.Errorf("status --json . = %+v (%v), want the repository named %q, its directory as given",
@@ -81,7 +83,7 @@ func TestStatusAcrossReportsEachRepository(t *testing.T) {
 	notRepo := t.TempDir()
 
 	// Act
-	output, err := run(t, t.TempDir(), "status", notRepo, repo)
+	output, err := clitest.Run(t, t.TempDir(), "status", notRepo, repo)
 
 	// Assert
 	// Every directory gets its line, even after one that cannot be read, and
@@ -101,7 +103,7 @@ func TestStatusAcrossPassesWhenEveryDirectoryIsARepository(t *testing.T) {
 	repo := featureRepo(t)
 
 	// Act
-	output, err := run(t, t.TempDir(), "status", repo)
+	output, err := clitest.Run(t, t.TempDir(), "status", repo)
 
 	// Assert
 	if err != nil || !strings.Contains(output, "PROJ-2") {
@@ -119,7 +121,7 @@ func TestStatusAcrossSaysWhyARepositoryCannotBeRead(t *testing.T) {
 	git(t, repo, "checkout", "-b", "fix/PROJ\u200b-3")
 
 	// Act
-	output, err := run(t, t.TempDir(), "status", repo)
+	output, err := clitest.Run(t, t.TempDir(), "status", repo)
 
 	// Assert
 	if strings.Contains(output, "not a git repository") || !strings.Contains(output, "cannot be shown") {
@@ -134,10 +136,10 @@ func TestStatusAcrossRefusesADirectoryWhoseConfigurationCannotBeRead(t *testing.
 
 	// Arrange
 	repo := featureRepo(t)
-	writeFile(t, repo, "{not json")
+	clitest.WriteFile(t, repo, "{not json")
 
 	// Act
-	output, err := run(t, t.TempDir(), "status", repo)
+	output, err := clitest.Run(t, t.TempDir(), "status", repo)
 
 	// Assert
 	if strings.Contains(output, "PROJ-2") || !strings.Contains(output, "invalid") {
@@ -155,7 +157,7 @@ func TestStatusAcrossAsJSONIsAnArray(t *testing.T) {
 	notRepo := t.TempDir()
 
 	// Act
-	printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), "status", "--json", notRepo, repo)
+	printed, err := clitest.RunStreams(t, t.TempDir(), clitest.UnusedPrompt(t), "status", "--json", notRepo, repo)
 
 	// Assert
 	var reports []struct {
@@ -164,9 +166,9 @@ func TestStatusAcrossAsJSONIsAnArray(t *testing.T) {
 		Error      string `json:"error"`
 	}
 
-	decodeErr := json.Unmarshal([]byte(printed.stdout), &reports)
+	decodeErr := json.Unmarshal([]byte(printed.Stdout), &reports)
 	if decodeErr != nil {
-		t.Fatalf("output is not a JSON array: %v\n%s", decodeErr, printed.stdout)
+		t.Fatalf("output is not a JSON array: %v\n%s", decodeErr, printed.Stdout)
 	}
 
 	if len(reports) != 2 || reports[0].Error != "not a git repository" || reports[1].Issue != "PROJ-2" {
@@ -208,13 +210,13 @@ func TestStatusAcrossLabelsDirectoriesOfOneNameApart(t *testing.T) {
 	first, second := twoOfOneName(t)
 
 	// Act
-	printed, _ := runStreams(t, t.TempDir(), unusedPrompt(t), "status", first, second)
+	printed, _ := clitest.RunStreams(t, t.TempDir(), clitest.UnusedPrompt(t), "status", first, second)
 
 	// Assert
-	lines := strings.Split(strings.TrimSpace(printed.stdout), "\n")
+	lines := strings.Split(strings.TrimSpace(printed.Stdout), "\n")
 	if len(lines) != 2 || !strings.HasPrefix(lines[0], first+"  ") || !strings.HasPrefix(lines[1], second+"  ") {
 		t.Errorf("status of two directories named api printed:\n%s\nwant each line labeled with its path",
-			printed.stdout)
+			printed.Stdout)
 	}
 }
 
@@ -225,7 +227,7 @@ func TestStatusAcrossAsJSONNamesEachDirectory(t *testing.T) {
 	first, second := twoOfOneName(t)
 
 	// Act
-	printed, _ := runStreams(t, t.TempDir(), unusedPrompt(t), "status", "--json", first, second)
+	printed, _ := clitest.RunStreams(t, t.TempDir(), clitest.UnusedPrompt(t), "status", "--json", first, second)
 
 	// Assert
 	var reports []struct {
@@ -233,7 +235,7 @@ func TestStatusAcrossAsJSONNamesEachDirectory(t *testing.T) {
 		Dir        string `json:"dir"`
 	}
 
-	err := json.Unmarshal([]byte(printed.stdout), &reports)
+	err := json.Unmarshal([]byte(printed.Stdout), &reports)
 	if err != nil || len(reports) != 2 || reports[0].Dir != first || reports[1].Dir != second ||
 		reports[0].Repository == reports[1].Repository {
 		t.Errorf("status --json = %+v (%v), want each entry labeled apart and naming its directory", reports, err)
@@ -248,12 +250,14 @@ func TestStatusAcrossLabelsRelativeDirectoriesOfOneNameByTheirPathsFromHome(t *t
 	parent := filepath.Dir(filepath.Dir(first))
 
 	// Act
-	printed, _ := runStreamsAt(t, place{dir: parent, home: parent}, unusedPrompt(t), "status", "work/api", "oss/api")
+	printed, _ := clitest.RunStreamsAt(
+		t, clitest.Place{Dir: parent, Home: parent}, clitest.UnusedPrompt(t), "status", "work/api", "oss/api",
+	)
 
 	// Assert
-	lines := strings.Split(strings.TrimSpace(printed.stdout), "\n")
+	lines := strings.Split(strings.TrimSpace(printed.Stdout), "\n")
 	if len(lines) != 2 || !strings.HasPrefix(lines[0], "~/work/api  ") || !strings.HasPrefix(lines[1], "~/oss/api  ") {
 		t.Errorf("status work/api oss/api from home printed:\n%s\nwant each line labeled with its path from home",
-			printed.stdout)
+			printed.Stdout)
 	}
 }

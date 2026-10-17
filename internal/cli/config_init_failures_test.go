@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/keychain"
 	"github.com/jacob-delgado/workflow/internal/proc"
@@ -52,10 +53,10 @@ func TestConfigInitGlobalWithoutAHomeSaysSo(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	where := place{dir: t.TempDir(), home: ""}
+	where := clitest.Place{Dir: t.TempDir(), Home: ""}
 
 	// Act
-	printed, err := runStreamsAt(t, where, unusedPrompt(t), "config", "init", "--template", "--global")
+	printed, err := clitest.RunStreamsAt(t, where, clitest.UnusedPrompt(t), "config", "init", "--template", "--global")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "determining the home directory") {
@@ -63,7 +64,7 @@ func TestConfigInitGlobalWithoutAHomeSaysSo(t *testing.T) {
 			err, printed)
 	}
 
-	noConfigWritten(t, where.dir)
+	noConfigWritten(t, where.Dir)
 }
 
 func TestConfigInitIntoADirectoryItCannotWriteSaysSo(t *testing.T) {
@@ -75,7 +76,7 @@ func TestConfigInitIntoADirectoryItCannotWriteSaysSo(t *testing.T) {
 	}{
 		"a template": {
 			args:   strings.Fields("config init --template"),
-			prompt: unusedPrompt,
+			prompt: clitest.UnusedPrompt,
 		},
 		"the guided setup, every prompt skipped": {
 			args:   strings.Fields("config init"),
@@ -102,7 +103,7 @@ func TestConfigInitIntoADirectoryItCannotWriteSaysSo(t *testing.T) {
 			t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
 
 			// Act
-			_, err = runGuided(t, dir, tt.prompt(t), tt.args...)
+			_, err = clitest.RunGuided(t, dir, tt.prompt(t), tt.args...)
 
 			// Assert
 			if !errors.Is(err, fs.ErrPermission) || !strings.Contains(err.Error(), config.FileName) {
@@ -126,7 +127,7 @@ func TestGuidedInitStopsWhenTheWebhookCannotBeRead(t *testing.T) {
 	}
 
 	// Act
-	_, err := runGuided(t, dir, broken, "config", "init")
+	_, err := clitest.RunGuided(t, dir, broken, "config", "init")
 
 	// Assert
 	if !errors.Is(err, errPromptBroke) {
@@ -143,14 +144,14 @@ func TestGuidedInitStopsWhenNothingAnswersWhetherToKeepAFailedCheck(t *testing.T
 	// The Jira check fails, and the input ends before the question of keeping
 	// the credential anyway can be answered.
 	dir := t.TempDir()
-	badJira := jiraServer(t, http.StatusUnauthorized, "<html>login</html>", new(atomic.Bool)).URL
+	badJira := clitest.JiraServer(t, http.StatusUnauthorized, "<html>login</html>", new(atomic.Bool)).URL
 	prompt := cli.Prompt{
 		Line:   answersThenEnds(badJira),
 		Secret: answersThenEnds("bad-token"),
 	}
 
 	// Act
-	_, err := runGuided(t, dir, prompt, "config", "init")
+	_, err := clitest.RunGuided(t, dir, prompt, "config", "init")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "no terminal to answer on") {
@@ -172,7 +173,7 @@ func TestGuidedInitStopsWhenNothingAnswersTheKeychainOffer(t *testing.T) {
 	var stored atomic.Bool
 
 	prompt := cli.Prompt{
-		Line:   answersThenEnds(workingJira(t)),
+		Line:   answersThenEnds(clitest.WorkingJira(t)),
 		Secret: answersThenEnds(guidedToken),
 		StoreSecret: func(context.Context, string, string) error {
 			stored.Store(true)
@@ -182,7 +183,7 @@ func TestGuidedInitStopsWhenNothingAnswersTheKeychainOffer(t *testing.T) {
 	}
 
 	// Act
-	_, err := runGuided(t, dir, prompt, "config", "init")
+	_, err := clitest.RunGuided(t, dir, prompt, "config", "init")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "no terminal to answer on") || stored.Load() {
@@ -213,9 +214,11 @@ func TestGuidedInitStopsTheKeychainWriteWhenTheCommandIsCanceled(t *testing.T) {
 		return nil, context.Cause(ctx)
 	}
 	fred := func() (*user.User, error) { return &user.User{Username: "fred"}, nil }
-	prompt := scripted([]string{workingJira(t), "y"}, []string{guidedToken})
+	prompt := scripted([]string{clitest.WorkingJira(t), "y"}, []string{guidedToken})
 	prompt.StoreSecret = keychain.Storer("darwin", security, fred, os.Getenv)
-	root := cli.NewRootCmdOver(prompt, nil, nil, environmentFor(t, place{dir: t.TempDir(), home: t.TempDir()}))
+	root := cli.NewRootCmdOver(
+		prompt, nil, nil, clitest.EnvironmentFor(t, clitest.Place{Dir: t.TempDir(), Home: t.TempDir()}),
+	)
 	root.SetArgs(strings.Fields("config init --global"))
 	root.SetOut(&bytes.Buffer{})
 	root.SetErr(&bytes.Buffer{})
@@ -243,7 +246,7 @@ func TestConfigInitRefusesALinkWhereTheFileWouldGo(t *testing.T) {
 	}
 
 	// Act
-	output, err := run(t, dir, "config", "init", "--template")
+	output, err := clitest.Run(t, dir, "config", "init", "--template")
 
 	// Assert
 	_, statErr := os.Lstat(elsewhere)
@@ -279,7 +282,7 @@ func TestGuidedInitWithNothingToReadPointsToTheTemplate(t *testing.T) {
 			dir := t.TempDir()
 
 			// Act
-			_, err := runGuided(t, dir, prompt, "config", "init")
+			_, err := clitest.RunGuided(t, dir, prompt, "config", "init")
 
 			// Assert
 			if err == nil || !strings.Contains(err.Error(), "pass --template") {
@@ -331,7 +334,7 @@ func TestConfigInitForceRefusesARepositoryFileThatIsALink(t *testing.T) {
 	repo, target := linkedRepositoryFile(t)
 
 	// Act
-	output, err := run(t, repo, "config", "init", "--template", "--force")
+	output, err := clitest.Run(t, repo, "config", "init", "--template", "--force")
 
 	// Assert
 	if !errors.Is(err, config.ErrLinkedFile) {
@@ -348,7 +351,7 @@ func TestGuidedInitForceRefusesARepositoryFileThatIsALinkBeforeAsking(t *testing
 	repo, target := linkedRepositoryFile(t)
 
 	// Act
-	output, err := run(t, repo, "config", "init", "--force")
+	output, err := clitest.Run(t, repo, "config", "init", "--force")
 
 	// Assert
 	if !errors.Is(err, config.ErrLinkedFile) {

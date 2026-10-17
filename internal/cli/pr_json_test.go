@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 // prReport is what `workflow pr --json` prints.
@@ -55,13 +57,13 @@ func TestPRAsJSONPrintsWhatItOpened(t *testing.T) {
 	repo, _ := reviewRepo(t, reviewMoves)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--yes", "--json")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes", "--json")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr --yes --json: %v (%+v)", err, printed)
 	}
 
-	report := decodePR(t, printed.stdout)
+	report := decodePR(t, printed.Stdout)
 	if report.Pull.Number != 7 || report.Pull.URL != "https://github.com/owner/repo/pull/7" ||
 		report.Pull.Head != "fix/PROJ-2-thing" || report.Pull.Base != "main" {
 		t.Errorf("pull = %+v, want #7 from fix/PROJ-2-thing into main", report.Pull)
@@ -78,8 +80,8 @@ func TestPRAsJSONPrintsWhatItOpened(t *testing.T) {
 	}
 
 	// What is said about the open stays on stderr, the preview among it.
-	if !strings.Contains(printed.stderr, "Linked #7 on PROJ-2.") || !strings.Contains(printed.stderr, "Open work") {
-		t.Errorf("pr --json did not keep its notes on stderr:\n%s", printed.stderr)
+	if !strings.Contains(printed.Stderr, "Linked #7 on PROJ-2.") || !strings.Contains(printed.Stderr, "Open work") {
+		t.Errorf("pr --json did not keep its notes on stderr:\n%s", printed.Stderr)
 	}
 }
 
@@ -91,13 +93,13 @@ func TestPRAsJSONSaysAnOfferDeclined(t *testing.T) {
 
 	// Act
 	// The open and the link are answered yes, the move no.
-	printed, err := runStreams(t, repo, scripted([]string{"y", "y", "n"}, nil), "pr", "--json")
+	printed, err := clitest.RunStreams(t, repo, scripted([]string{"y", "y", "n"}, nil), "pr", "--json")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr --json: %v (%+v)", err, printed)
 	}
 
-	report := decodePR(t, printed.stdout)
+	report := decodePR(t, printed.Stdout)
 	if len(report.FollowUps) != 2 || !report.FollowUps[0].Done || report.FollowUps[1].Done {
 		t.Errorf("follow_ups = %+v, want the link made and the move left", report.FollowUps)
 	}
@@ -110,16 +112,16 @@ func TestPRAsJSONDryRunPrintsTheDraft(t *testing.T) {
 	fakeGh(t, ghResponses{})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
 	writeRepoFile(t, repo, ".github/pull_request_template.md", "## Checklist\n")
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--dry-run", "--json")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--dry-run", "--json")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr --dry-run --json: %v (%+v)", err, printed)
 	}
 
-	report := decodePR(t, printed.stdout)
+	report := decodePR(t, printed.Stdout)
 	if report.Pull.Number != 0 || report.Pull.Title == "" || report.Pull.Head != "fix/PROJ-2-thing" ||
 		report.Pull.Base != "main" {
 		t.Errorf("pull = %+v, want the unopened draft from fix/PROJ-2-thing into main", report.Pull)
@@ -129,8 +131,8 @@ func TestPRAsJSONDryRunPrintsTheDraft(t *testing.T) {
 		t.Errorf("pull body = %q, want the body composed from the template", report.Pull.Body)
 	}
 
-	if !strings.Contains(printed.stderr, "dry run: would push fix/PROJ-2-thing to origin and open") {
-		t.Errorf("the dry-run line is not on stderr:\n%s", printed.stderr)
+	if !strings.Contains(printed.Stderr, "dry run: would push fix/PROJ-2-thing to origin and open") {
+		t.Errorf("the dry-run line is not on stderr:\n%s", printed.Stderr)
 	}
 }
 
@@ -141,13 +143,13 @@ func TestPRAsJSONDeclinedPrintsNoReport(t *testing.T) {
 	repo, _ := reviewRepo(t, reviewMoves)
 
 	// Act
-	printed, err := runStreams(t, repo, scripted([]string{"n"}, nil), "pr", "--json")
+	printed, err := clitest.RunStreams(t, repo, scripted([]string{"n"}, nil), "pr", "--json")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr --json: %v (%+v)", err, printed)
 	}
 
-	if printed.stdout != "" {
-		t.Errorf("pr --json printed %q, want no report for a pull request never opened", printed.stdout)
+	if printed.Stdout != "" {
+		t.Errorf("pr --json printed %q, want no report for a pull request never opened", printed.Stdout)
 	}
 }
