@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 #
-# Tests for .devcontainer/postCreate.sh's last step: it installs the git hooks
-# in any checkout git can read — a clone, or a `git worktree add` checkout,
-# whose .git is a file rather than a directory — and outside a repository says
-# to run `task setup` once there is one. A stand-in mise records what it was
+# Tests for .devcontainer/postCreate.sh's last step: it hands the rest of the
+# setup to `task setup`, in a clone and outside a repository alike, and runs
+# none of that task's steps itself, so a step the task gains reaches the dev
+# container with no copy here. `task setup` decides whether there is a
+# repository to install the git hooks in. A stand-in mise records what it was
 # asked and does nothing, so no toolchain is installed.
 #
 # Usage:
@@ -50,34 +51,34 @@ provision() {
     "$1/.devcontainer/postCreate.sh"
 }
 
-# What the stand-in mise is asked when postCreate.sh installs the hooks.
-readonly install_hooks='exec -- lefthook install'
+# What the stand-in mise is asked when postCreate.sh hands over to the
+# Taskfile, and the steps of `task setup` it must not run itself.
+readonly task_setup='exec -- task setup'
+readonly setup_steps='go mod download|lefthook install'
+
+# expect_handed_over checks that a workspace's run asked mise for `task setup`
+# and for none of its steps.
+#   expect_handed_over <name> <dir>
+expect_handed_over() {
+  count_case
+  if ! grep -qx "${task_setup}" "$2.mise"; then
+    fail_case "$1" "mise was not asked to run task setup: $(cat "$2.mise")"
+  fi
+  count_case
+  if grep -qE "${setup_steps}" "$2.mise"; then
+    fail_case "$1" "postCreate.sh ran a step of task setup itself: $(cat "$2.mise")"
+  fi
+}
 
 clone="${workdir}/clone"
 workspace "${clone}"
 commit "${clone}"
-expect_output pass "a clone gets its hooks" "lefthook install" provision "${clone}"
-count_case
-if ! grep -qx "${install_hooks}" "${clone}.mise"; then
-  fail_case "a clone's hooks" "mise was not asked to install them"
-fi
-
-main="${workdir}/main"
-workspace "${main}"
-commit "${main}"
-git -C "${main}" worktree add -q "${workdir}/linked"
-expect_output pass "a linked worktree gets its hooks" "lefthook install" provision "${workdir}/linked"
-count_case
-if ! grep -qx "${install_hooks}" "${workdir}/linked.mise"; then
-  fail_case "a linked worktree's hooks" "mise was not asked to install them"
-fi
+expect_output pass "a clone is set up by task setup" "task setup" provision "${clone}"
+expect_handed_over "a clone is set up by task setup" "${clone}"
 
 bare="${workdir}/bare"
 workspace "${bare}"
-expect_output pass "no repository yet" "run 'task setup' after 'git init'" provision "${bare}"
-count_case
-if grep -qx "${install_hooks}" "${bare}.mise"; then
-  fail_case "no repository's hooks" "mise was asked to install hooks with no repository"
-fi
+expect_output pass "no repository yet is set up by task setup too" "task setup" provision "${bare}"
+expect_handed_over "no repository yet is set up by task setup too" "${bare}"
 
 finish_tests

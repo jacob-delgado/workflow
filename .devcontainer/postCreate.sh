@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Devcontainer provisioning: install mise, let it install the pinned toolchain
-# from mise.toml, then wire the git hooks. Runs once, after the container is
+# from mise.toml, then run `task setup`. Runs once, after the container is
 # created — in VS Code, GoLand/Gateway, Codespaces and the devcontainer CLI
 # alike, so it assumes nothing about which one started it.
 set -euo pipefail
@@ -88,17 +88,10 @@ eval "$(mise activate bash)"
 BASHRC
 fi
 
-log "go mod download"
-mise exec -- go mod download
-
-# Asked of git rather than of a .git directory: in a linked worktree or a
-# submodule .git is a file, and the hooks belong there all the same.
-if git -C "${workspace}" rev-parse --git-dir >/dev/null 2>&1; then
-  log "lefthook install — pre-commit, commit-msg and pre-push hooks"
-  mise exec -- lefthook install
-else
-  log "Not a git repository yet; run 'task setup' after 'git init' to add the hooks."
-fi
+# The rest is what a developer's clone runs after `mise install`, so a step
+# the task gains reaches the container with no copy here.
+log "task setup — the modules, then the git hooks once there is a repository"
+mise exec -- task setup
 
 log "Installed toolchain:"
 mise ls --current
