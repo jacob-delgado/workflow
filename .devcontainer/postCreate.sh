@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Devcontainer provisioning: install mise, let it install the pinned toolchain
-# from mise.toml, then run `task setup`. Runs once, after the container is
-# created — in VS Code, GoLand/Gateway, Codespaces and the devcontainer CLI
-# alike, so it assumes nothing about which one started it.
+# from mise.toml, add the Python venv module the image lacks, then run `task
+# setup`. Runs once, after the container is created — in VS Code,
+# GoLand/Gateway, Codespaces and the devcontainer CLI alike, so it assumes
+# nothing about which one started it.
 set -euo pipefail
 
 workspace="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -88,9 +89,19 @@ eval "$(mise activate bash)"
 BASHRC
 fi
 
+# `task setup` installs yamllint into a venv (Trade-off TRADE-53), and the
+# image's Debian has no venv module: python3-venv brings it, with python3 and
+# the ensurepip a venv is built with. Unpinned, as build/Dockerfile's apt
+# packages are: the image's Debian release pins it.
+if ! python3 -c 'import ensurepip' >/dev/null 2>&1; then
+  log "apt-get install python3-venv — the Python task setup builds yamllint's venv with"
+  sudo apt-get update -qq
+  sudo apt-get install -y -qq --no-install-recommends python3-venv
+fi
+
 # The rest is what a developer's clone runs after `mise install`, so a step
 # the task gains reaches the container with no copy here.
-log "task setup — the modules, then the git hooks once there is a repository"
+log "task setup — the modules, the linters mise does not pin, then the git hooks once there is a repository"
 mise exec -- task setup
 
 log "Installed toolchain:"

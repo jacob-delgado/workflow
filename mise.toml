@@ -1,15 +1,24 @@
 # mise — the toolchain manager (https://mise.jdx.dev).
 #
-# Single source of truth for every tool the build, the gates and CI use. The
-# Taskfile runs the recipes; mise provisions the binaries they call, and
-# build/Dockerfile reads its versions from this file (scripts/tool-versions.sh).
-# The container's Go is the one exception: its base image's digest decides it,
-# and the image build fails unless that is the Go pinned below. A tool the
-# image downloads (node, shellcheck, jq, lefthook, typos, hadolint, taplo,
-# zizmor) also carries its SHA-256s in build/tool-checksums.txt, so a bump here
-# replaces its lines there; `task lint` names any that are missing.
+# Single source of truth for every tool the build, the gates and CI use but
+# yamllint. The Taskfile runs the recipes; mise provisions the binaries they
+# call, and build/Dockerfile reads its versions from this file
+# (scripts/tool-versions.sh), all but yamllint's and its own Go. Its Go is
+# decided by its base image's digest, and the image build fails unless that is
+# the Go pinned below. A tool the image downloads (node, shellcheck, jq,
+# lefthook, typos, hadolint, taplo, zizmor) also carries its SHA-256s in
+# build/tool-checksums.txt, so a bump here replaces its lines there; `task
+# lint` names any that are missing.
 #
-# After cloning:   mise trust && mise install && lefthook install
+# yamllint is pinned in build/yamllint/requirements.txt instead, with every
+# package of its tree by version and wheel hash, and `task tools` installs it
+# into tmp/tools/bin, which [env] puts on PATH below and CI's jobs add to
+# theirs, and the image installs from the same file. A pin here would name
+# yamllint alone, and mise would resolve its dependencies afresh at every
+# install, with no hash and outside the age gate. Trade-off TRADE-53: mise
+# install alone no longer provides every linter.
+#
+# After cloning:   mise trust && mise install && task setup
 # Update a pin:    edit below, then `mise install`
 #
 # Every tool is pinned to an EXACT version, deliberately. A floating "latest"
@@ -30,6 +39,9 @@ min_version = "2026.10.8"
 # Pin the toolchain so `go build`/`go test` use the Go below rather than
 # silently downloading whatever go.mod's directive resolves to.
 GOTOOLCHAIN = "local"
+# What `task tools` installs from the pin files under build/, ahead of the
+# rest of PATH in any shell mise activates.
+_.path = ["tmp/tools/bin"]
 
 [tools]
 # Language runtime — keep in step with go.mod's `go` directive.
@@ -45,7 +57,6 @@ golangci-lint = "2.14.0"
 lefthook = "2.2.1"
 shellcheck = "0.11.0"
 shfmt = "3.14.1"
-yamllint = "1.38.0"
 typos = "1.51.1"
 actionlint = "1.7.12"
 hadolint = "2.15.1"      # build/Dockerfile lint

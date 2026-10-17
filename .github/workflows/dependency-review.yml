@@ -32,4 +32,8 @@ jobs:
           # This project is Apache-2.0; copyleft licenses would change what
           # downstream users may do with the binary.
           deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0, LGPL-3.0
+          # Trade-off TRADE-53: yamllint (GPL-3.0-or-later) is a lint tool,
+          # installed from build/yamllint/requirements.txt into tmp/tools and
+          # the build image, never linked into or shipped with the binary.
+          allow-dependencies-licenses: pkg:pypi/yamllint
           comment-summary-in-pr: on-failure

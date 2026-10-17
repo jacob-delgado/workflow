@@ -33,7 +33,14 @@ jobs:
       - uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
         with:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
-          install_args: go task golangci-lint shellcheck shfmt yamllint typos actionlint hadolint taplo zizmor node npm:markdownlint-cli2 jq
+          install_args: go task golangci-lint shellcheck shfmt typos actionlint hadolint taplo zizmor node npm:markdownlint-cli2 jq
+      # yamllint is pinned outside mise.toml, its whole tree by hash
+      # (Trade-off TRADE-53): `task tools` installs it into tmp/tools/bin, and
+      # the path is added for the steps below, not left to mise.toml's [env].
+      - name: Install the linters pinned outside mise
+        run: |
+          task tools
+          echo "${GITHUB_WORKSPACE}/tmp/tools/bin" >>"${GITHUB_PATH}"
       # A pull request lints its Markdown only when it changes Markdown, docs/,
       # the markdownlint config or mise.toml, which pins the linter; a push to
       # main lints all of it, and a change that cannot be compared with its base

@@ -1,5 +1,5 @@
 # Lefthook git hooks.
-# Install:  mise install && lefthook install   (lefthook is pinned in mise.toml)
+# Install:  mise install && task setup   (lefthook is pinned in mise.toml)
 # Skip one hook for one commit: LEFTHOOK_EXCLUDE=name-of-hook git commit ...
 # Skip all hooks for one commit: LEFTHOOK=0 git commit ...
 #

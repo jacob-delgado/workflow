@@ -84,7 +84,7 @@ cmd/testshape/        the thin main that runs internal/testshape
 api/                  the OpenAPI contract for --web, embedded in the binary
 web/                  the React + TypeScript frontend --web serves
 scripts/              the gate scripts lefthook, task and CI share
-build/                the build container
+build/                the build container, and yamllint's pin file
 docs/                 the Hugo documentation site
 .devcontainer/        the development container definition
 .github/              CI workflows, and the issue and pull request templates
@@ -450,13 +450,18 @@ tests are failing — say what's broken and why instead.
   by hand.
 
 - **Tool versions are exact, and they live in `mise.toml`**, whose header says
-  how `build/Dockerfile` and CI read them. Every copy that has to live
-  elsewhere is gated, not trusted: Go's version (`scripts/check-go-version.sh`),
-  mise's own on each `jdx/mise-action` step and in the dev container
-  (`scripts/check-mise-version.sh`), the container's Go patch (the
-  Dockerfile's check after `FROM`), and each downloaded tool's SHA-256 lines
-  in `build/tool-checksums.txt` (`task lint:checksums`). A floating `latest`
-  changes what the gate accepts without anyone deciding to.
+  how `build/Dockerfile` and CI read them. yamllint is the named exception
+  (TRADE-53): a pin in `mise.toml` would name it alone and leave its
+  dependencies to resolve afresh at every install, so
+  `build/yamllint/requirements.txt` pins its whole tree instead, every package
+  by version and every wheel by hash; `task deps:yamllint` rewrites it, `task
+  tools` installs from it, and the age gate dates each file it adds. Every copy
+  that has to live elsewhere is gated, not trusted: Go's version
+  (`scripts/check-go-version.sh`), mise's own on each `jdx/mise-action` step
+  and in the dev container (`scripts/check-mise-version.sh`), the container's
+  Go patch (the Dockerfile's check after `FROM`), and each downloaded tool's
+  SHA-256 lines in `build/tool-checksums.txt` (`task lint:checksums`). A
+  floating `latest` changes what the gate accepts without anyone deciding to.
 
 - **The `--web` API is spec first.** Change `api/openapi.yaml`, then run `task
   gen` (the Go side) and `corepack yarn gen` in `web/` (the web client), so

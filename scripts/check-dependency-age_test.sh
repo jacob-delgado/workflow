@@ -148,9 +148,6 @@ go_package="$(repo go-package pin_tool go:golang.org/x/vuln/cmd/govulncheck 1.9.
 expect_output fail "a Go-built tool whose module is up its package path" \
   "go:golang.org/x/vuln/cmd/govulncheck 1.9.0 was published 1 day(s) ago" age "${go_package}"
 
-pypi_young="$(repo pypi-young pin_tool yamllint 1.39.0)"
-expect_output fail "a PyPI tool two days old" "yamllint 1.39.0" age "${pypi_young}"
-
 release_young="$(repo release-young pin_tool jq 1.9.0)"
 expect_output fail "a GitHub release two days old, tagged with its name" "jq 1.9.0" age "${release_young}"
 

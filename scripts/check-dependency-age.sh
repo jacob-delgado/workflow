@@ -232,10 +232,6 @@ mise_published() {
       "${get[@]}" "https://nodejs.org/dist/index.json" 2>/dev/null \
         | jq -r --arg version "v$2" '.[] | select(.version == $version) | .date + "T00:00:00Z"' 2>/dev/null || true
       ;;
-    yamllint)
-      "${get[@]}" "https://pypi.org/pypi/yamllint/$2/json" 2>/dev/null \
-        | jq -r '[.urls[].upload_time_iso_8601] | min // empty' 2>/dev/null || true
-      ;;
     *) release_published "$1" "$2" ;;
   esac
 }
