@@ -30,7 +30,7 @@ const (
 func forkWorkspace(t *testing.T) (wiring.Workspace, string) {
 	t.Helper()
 
-	isolateGit(t)
+	keepGitUntranslated(t)
 
 	root := repository(t)
 	git(t, root, "remote", "add", "origin", forkOrigin)
@@ -77,7 +77,7 @@ func TestLocateReadsTheBaseRemoteBesideOrigin(t *testing.T) {
 
 func TestLocateTakesTheRemoteGhMarkedAsTheBase(t *testing.T) {
 	// Arrange
-	isolateGit(t)
+	keepGitUntranslated(t)
 
 	root := repository(t)
 	git(t, root, "remote", "add", "origin", forkOrigin)

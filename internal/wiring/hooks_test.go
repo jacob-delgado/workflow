@@ -40,7 +40,7 @@ func requireLefthook(t *testing.T) {
 func TestTheHookSeamsReadWriteAndRunLefthook(t *testing.T) {
 	// Arrange
 	requireLefthook(t)
-	isolateGit(t)
+	keepGitUntranslated(t)
 
 	root := repository(t)
 	write(t, filepath.Join(root, ".git", "hooks", preCommit), "#!/bin/sh\necho checked\n", 0o700)
@@ -92,7 +92,7 @@ func TestTheHookSeamsReadWriteAndRunLefthook(t *testing.T) {
 func TestTheHookSeamsListWhatLefthooksMergedConfigurationDefines(t *testing.T) {
 	// Arrange
 	requireLefthook(t)
-	isolateGit(t)
+	keepGitUntranslated(t)
 
 	root := repository(t)
 	write(t, filepath.Join(root, "lefthook.yml"), "pre-commit:\n  commands:\n    vet:\n      run: go vet ./...\n"+
@@ -121,7 +121,7 @@ func TestTheHookSeamsListWhatLefthooksMergedConfigurationDefines(t *testing.T) {
 func TestTheHookSeamsListLefthooksHooksWhileItLogsVerbosely(t *testing.T) {
 	// Arrange
 	requireLefthook(t)
-	isolateGit(t)
+	keepGitUntranslated(t)
 	t.Setenv("LEFTHOOK_VERBOSE", "1")
 
 	root := repository(t)
@@ -141,7 +141,7 @@ func TestTheHookSeamsListLefthooksHooksWhileItLogsVerbosely(t *testing.T) {
 func TestTheHookSeamsListALocalOverrideThatStandsAlone(t *testing.T) {
 	// Arrange
 	requireLefthook(t)
-	isolateGit(t)
+	keepGitUntranslated(t)
 
 	root := repository(t)
 	write(t, filepath.Join(root, "lefthook-local.yml"), "pre-push:\n  jobs:\n    - run: go test ./...\n", 0o600)
@@ -160,7 +160,7 @@ func TestTheHookSeamsListALocalOverrideThatStandsAlone(t *testing.T) {
 func TestTheHookSeamsListNothingWhereLefthookFindsNoConfiguration(t *testing.T) {
 	// Arrange
 	requireLefthook(t)
-	isolateGit(t)
+	keepGitUntranslated(t)
 
 	seams := wired(t, config.Default(), onOrigin(repository(t), ""), nil).Hooks
 
@@ -176,7 +176,7 @@ func TestTheHookSeamsListNothingWhereLefthookFindsNoConfiguration(t *testing.T) 
 func TestTheHookSeamsOfferNothingOutsideARepository(t *testing.T) {
 	// Arrange
 	requireLefthook(t)
-	isolateGit(t)
+	keepGitUntranslated(t)
 
 	seams := wired(t, config.Default(), onOrigin(t.TempDir(), ""), nil).Hooks
 
@@ -192,7 +192,7 @@ func TestTheHookSeamsOfferNothingOutsideARepository(t *testing.T) {
 func TestTheHookSeamsNeverOverwriteAConfiguration(t *testing.T) {
 	// Arrange
 	requireLefthook(t)
-	isolateGit(t)
+	keepGitUntranslated(t)
 
 	root := repository(t)
 	write(t, filepath.Join(root, "lefthook.yml"), "# mine\n", 0o600)
@@ -234,7 +234,7 @@ echo '{"commit-msg": {"commands": {"c": {"run": "x {1}"}}}, "pre-push": {"jobs":
 
 func TestTheHookSeamsListWhatLefthookDumps(t *testing.T) {
 	// Arrange
-	isolateGit(t)
+	keepGitUntranslated(t)
 
 	root := repository(t)
 	write(t, filepath.Join(root, "lefthook.yml"), "pre-push:\n", 0o600)
@@ -257,7 +257,7 @@ func TestTheHookSeamsListWhatLefthookDumps(t *testing.T) {
 
 func TestTheHookSeamsListNothingWhereNoLefthookIsConfigured(t *testing.T) {
 	// Arrange
-	isolateGit(t)
+	keepGitUntranslated(t)
 
 	root := repository(t)
 	t.Setenv("PATH", pathWithGitAnd(t, "lefthook",
@@ -277,7 +277,7 @@ func TestTheHookSeamsListNothingWhereNoLefthookIsConfigured(t *testing.T) {
 
 func TestAHookListLefthookRefusesSaysWhatLefthookSaid(t *testing.T) {
 	// Arrange
-	isolateGit(t)
+	keepGitUntranslated(t)
 
 	root := repository(t)
 	write(t, filepath.Join(root, "lefthook.yml"), "pre-commit: [\n", 0o600)
@@ -297,7 +297,7 @@ func TestAHookListLefthookRefusesSaysWhatLefthookSaid(t *testing.T) {
 
 func TestAFailedLefthookInstallSaysWhatLefthookSaid(t *testing.T) {
 	// Arrange
-	isolateGit(t)
+	keepGitUntranslated(t)
 
 	root := repository(t)
 	bin := pathWithGitAnd(t, "lefthook", "#!/bin/sh\necho 'no hooks path for you' >&2\nexit 3\n")
@@ -319,7 +319,7 @@ func TestALefthookGoneBeforeTheWriteSaysItCouldNotBeInstalled(t *testing.T) {
 	// Arrange
 	// lefthook was there when the seams were built, and is gone by the time
 	// the configuration is written.
-	isolateGit(t)
+	keepGitUntranslated(t)
 
 	root := repository(t)
 	bin := pathWithGitAnd(t, "lefthook", "#!/bin/sh\nexit 0\n")

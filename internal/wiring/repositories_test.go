@@ -59,7 +59,7 @@ func repositoryWithOrigin(t *testing.T) (string, string) {
 
 func TestHereIsWhereTheSessionWorksAndTheRepositoryItIsIn(t *testing.T) {
 	// Arrange
-	isolateGit(t)
+	keepGitUntranslated(t)
 	homeOfItsOwn(t)
 	root, within := repositoryWithOrigin(t)
 	where := processEnvironment().Locate(t.Context(), within)
@@ -76,7 +76,7 @@ func TestHereIsWhereTheSessionWorksAndTheRepositoryItIsIn(t *testing.T) {
 
 func TestLookReadsAnotherDirectoryAsAPlace(t *testing.T) {
 	// Arrange
-	isolateGit(t)
+	keepGitUntranslated(t)
 	homeOfItsOwn(t)
 	root, within := repositoryWithOrigin(t)
 	write(t, filepath.Join(root, ".workflow.json"), "{}\n", 0o600)
@@ -94,7 +94,7 @@ func TestLookReadsAnotherDirectoryAsAPlace(t *testing.T) {
 
 func TestADirectoryOutsideARepositoryHasNoRoot(t *testing.T) {
 	// Arrange
-	isolateGit(t)
+	keepGitUntranslated(t)
 	homeOfItsOwn(t)
 
 	plain, err := filepath.EvalSymlinks(t.TempDir())
@@ -204,7 +204,7 @@ func TestADirectoryReachedThroughALinkIsReadWhereItIs(t *testing.T) {
 	// Arrange
 	// git names the repository's root with every link resolved, so the
 	// directory is too, or the path within the root would climb out of it.
-	isolateGit(t)
+	keepGitUntranslated(t)
 	homeOfItsOwn(t)
 	root, within := repositoryWithOrigin(t)
 	link := filepath.Join(t.TempDir(), "linked")
@@ -225,7 +225,7 @@ func TestADirectoryReachedThroughALinkIsReadWhereItIs(t *testing.T) {
 
 func TestTheWorktreesOfTheRepositoryHereAreListed(t *testing.T) {
 	// Arrange
-	isolateGit(t)
+	keepGitUntranslated(t)
 
 	root := repository(t)
 	linked := filepath.Join(t.TempDir(), "hotfix")
@@ -259,7 +259,7 @@ func TestALockedWorktreeWhoseDirectoryIsGoneReadsAsGone(t *testing.T) {
 	// Arrange
 	// git never marks a locked worktree prunable, as on a drive since
 	// unmounted, so its directory is looked for.
-	isolateGit(t)
+	keepGitUntranslated(t)
 
 	root := repository(t)
 	linked := filepath.Join(t.TempDir(), "usb")
@@ -286,7 +286,7 @@ func TestALockedWorktreeWhoseDirectoryIsGoneReadsAsGone(t *testing.T) {
 // the context it is asked under, so one asked for a page that has left stops.
 func TestARepositoriesSeamAskedUnderAnEndedContextIsCanceled(t *testing.T) {
 	// Arrange
-	isolateGit(t)
+	keepGitUntranslated(t)
 
 	root := repository(t)
 	repositories := wired(t, config.Default(), processEnvironment().Locate(t.Context(), root), nil).Repositories
@@ -304,7 +304,7 @@ func TestARepositoriesSeamAskedUnderAnEndedContextIsCanceled(t *testing.T) {
 
 func TestALockedWorktreeWhoseDirectoryIsThereReadsAsThere(t *testing.T) {
 	// Arrange
-	isolateGit(t)
+	keepGitUntranslated(t)
 
 	root := repository(t)
 	linked := filepath.Join(t.TempDir(), "usb")
@@ -324,7 +324,7 @@ func TestALockedWorktreeWhoseDirectoryIsThereReadsAsThere(t *testing.T) {
 
 func TestLocateReadsADirectoryThatIsNotThereAsItIsNamed(t *testing.T) {
 	// Arrange
-	isolateGit(t)
+	keepGitUntranslated(t)
 
 	dir := filepath.Join(t.TempDir(), "removed")
 

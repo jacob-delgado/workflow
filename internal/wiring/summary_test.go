@@ -115,7 +115,7 @@ func TestYourCommitsInARepositoryNoLongerThereSayWhy(t *testing.T) {
 	// Arrange
 	// The session's repository was removed while it ran: git can say nothing
 	// of it now, not even which repository its worktrees share.
-	isolateGit(t)
+	keepGitUntranslated(t)
 
 	removed := wiring.Workspace{Root: t.TempDir(), Repository: true}
 	gitSeams := wired(t, config.Default(), removed, nil).Git
@@ -133,7 +133,7 @@ func TestYourCommitsInARepositoryNoLongerThereSayWhy(t *testing.T) {
 // day summaryDay reads, under email.
 func committedOn(t *testing.T, email string) string {
 	t.Helper()
-	isolateGit(t)
+	keepGitUntranslated(t)
 
 	start, _ := summaryDay()
 	when := start.Add(9 * time.Hour).Format(time.RFC3339)
