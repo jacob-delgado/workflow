@@ -435,13 +435,16 @@ tests are failing — say what's broken and why instead.
   7 days ago — freshly compromised releases are usually detected and yanked
   within days. Go has no native gate: before `go get`, check the publish date
   (`curl https://proxy.golang.org/<module>/@v/<version>.info`). The same rule
-  governs `mise.toml` and `web/yarn.lock`, and
+  governs `mise.toml`, `web/yarn.lock` and the two linters' pin files,
+  `build/yamllint/requirements.txt` (each wheel it hashes, dated by its own
+  upload) and `build/markdownlint/package-lock.json`, and
   `scripts/check-dependency-age.sh` holds every pull request to it.
   **Known-CVE fixes override the cooldown — always**: list such a version in
   `scripts/dependency-age-exceptions.txt` with its advisory. The maintainer,
   and only the maintainer, may also waive a version by name, with a dated
-  `waived-YYYY-MM-DD` line there. An npm version takes a second line, in
-  `web/.yarnrc.yml`'s `npmPreapprovedPackages`, which yarn's own gate reads.
+  `waived-YYYY-MM-DD` line there. An npm version in `web/yarn.lock` takes a
+  second line, in `web/.yarnrc.yml`'s `npmPreapprovedPackages`, which yarn's
+  own gate reads.
   Each line goes once its version is a week old. Dependabot's cooldown exempts
   `actions/*` and `github/*`, GitHub's own actions, which this rule governs
   by hand.

@@ -5,8 +5,9 @@
 # scripts/check-dependency-age.sh passes a version listed here at any age.
 #
 # One per line, the name as the file that pins it spells it (a Go module path,
-# an npm package, a mise.toml tool key), its version as pinned there, and
-# either the CVE or GHSA id it fixes or the maintainer's dated waiver:
+# an npm package, a PyPI package as build/yamllint/requirements.txt names it, a
+# mise.toml tool key), its version as pinned there, and either the CVE or GHSA
+# id it fixes or the maintainer's dated waiver:
 #
 #     <name> <version> <advisory>
 #     <name> <version> waived-<YYYY-MM-DD>

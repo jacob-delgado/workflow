@@ -54,7 +54,8 @@ jobs:
         env:
           LINT_MARKDOWN: ${{ steps.markdown.outputs.lint }}
       # The week-long age gate, for every version a pull request adds to
-      # go.mod, docs/go.mod, web/yarn.lock or mise.toml, Dependabot's or not.
+      # go.mod, docs/go.mod, web/yarn.lock, mise.toml or the two linters' pin
+      # files under build/, Dependabot's or not.
       # Not in `task lint`: it asks the registries, and it needs the base. The
       # token lets it read GitHub release dates without the anonymous limit.
       - name: Check that each new dependency version is a week old
