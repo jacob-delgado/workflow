@@ -24,14 +24,22 @@ The toolchain is pinned with [mise](https://mise.jdx.dev) and the build runner i
 ```sh
 git clone https://github.com/jacob-delgado/workflow.git
 cd workflow
-mise trust && mise install   # Go, task, and every linter, at pinned versions
-task setup                   # modules + git hooks (lefthook)
+mise trust && mise install   # Go, task, every linter but yamllint, pinned
+task setup                   # modules, yamllint, git hooks (lefthook)
 ```
 
-`mise install` is the only setup step that installs anything: Go, the task
-runner, every linter and formatter, the coverage and security scanners, and the
-docs builder all come from `mise.toml` at exact versions, so your local gate and
-CI agree. That file is the list — naming each tool here only drifts from it.
+`mise install` installs nearly everything: Go, the task runner, every linter and
+formatter but yamllint, the coverage and security scanners, and the docs builder
+all come from `mise.toml` at exact versions, so your local gate and CI agree.
+That file is the list — naming each tool here only drifts from it. `task setup`
+installs yamllint (`task tools`) from `build/yamllint/requirements.txt`, which
+pins it and every package it needs by version and hash, into `tmp/tools/bin`,
+which `mise.toml` puts on your PATH. It needs a `python3` from 3.10 to 3.14 with
+`venv`; run `task tools` again after a pull that changes the file. The install
+is per checkout, so a new clone, or a worktree made with `git worktree add`,
+runs `task tools` before its first commit, or the yamllint pre-commit hook
+cannot find its linter. A worktree shares the clone's git hooks, so it needs
+`task tools`, not all of `task setup`.
 
 Two alternatives, if you would rather not install a toolchain:
 

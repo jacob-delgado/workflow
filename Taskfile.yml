@@ -132,9 +132,10 @@ tasks:
     silent: true
 
   setup:
-    desc: Download modules and install the git hooks
+    desc: Download modules, install the linters mise does not, and install the git hooks
     cmds:
       - go mod download
+      - task: tools
       # Asked of git rather than of a .git directory: in a linked worktree or
       # a submodule .git is a file, and the hooks belong there all the same.
       # The dev container runs this before its workspace may be a repository.
@@ -144,6 +145,41 @@ tasks:
         else
           echo "Not a git repository yet; run 'task setup' after 'git init' to add the hooks."
         fi
+
+  # The linter mise.toml does not pin (Trade-off TRADE-53), installed from a
+  # committed file that pins its whole dependency tree by version and hash,
+  # into tmp/tools/bin, which mise.toml puts on PATH. Each linter's task is
+  # skipped until its pin file changes or what it installed no longer runs, as
+  # a venv does once its python3 moves to another minor version. CI's Lint
+  # job and the release gates run this before `task lint` and `task check`.
+  tools:
+    desc: Install yamllint from its pin file into tmp/tools/bin
+    cmds:
+      - task: tools:yamllint
+
+  # yamllint 1.38.0 needs Python 3.10 or later, and pyyaml 6.0.3 has wheels up
+  # to CPython 3.14 alone, which --only-binary :all: holds pip to: the range
+  # moves with the pins in build/yamllint/requirements.txt.
+  tools:yamllint:
+    internal: true
+    sources:
+      - build/yamllint/requirements.txt
+    generates:
+      - tmp/tools/bin/yamllint
+    status:
+      - tmp/tools/bin/yamllint --version
+    cmds:
+      - rm -rf tmp/tools/yamllint tmp/tools/bin/yamllint
+      - |
+        if ! python3 -c 'import sys; sys.exit(not (3, 10) <= sys.version_info[:2] <= (3, 14))' \
+          || ! python3 -m venv tmp/tools/yamllint; then
+          echo "task tools: yamllint needs a python3 from 3.10 to 3.14, with venv, on PATH; found $(python3 --version 2>&1)" >&2
+          exit 1
+        fi
+      - tmp/tools/yamllint/bin/python -m pip install --quiet --disable-pip-version-check -r build/yamllint/requirements.txt
+      - mkdir -p tmp/tools/bin
+      - ln -sfn ../yamllint/bin/yamllint tmp/tools/bin/yamllint
+      - tmp/tools/bin/yamllint --version
 
   build:
     desc: Build the binary into bin/, with the web interface embedded
@@ -583,6 +619,21 @@ tasks:
       # `task lint`.
       - scripts/check-dependency-age.sh {{.BASE | default "origin/main"}}
 
+  # `task deps:yamllint VERSION=1.39.0` moves yamllint itself, and
+  # `task deps:yamllint -- pyyaml==6.0.4` takes a vulnerability fix younger
+  # than the week, which scripts/dependency-age-exceptions.txt then lists.
+  deps:yamllint:
+    desc: Re-pin yamllint's tree in build/yamllint/requirements.txt, each dependency at its newest release a week old (VERSION= moves yamllint)
+    vars:
+      PINNED:
+        sh: sed -n -E 's/^yamllint==([^ ]+).*/\1/p' build/yamllint/requirements.txt
+    cmds:
+      # Written aside and then moved, so a run that fails leaves the pins as
+      # they were.
+      - mkdir -p tmp
+      - scripts/pin-yamllint.sh {{.VERSION | default .PINNED}} {{.CLI_ARGS}} >tmp/yamllint-requirements.txt
+      - mv tmp/yamllint-requirements.txt build/yamllint/requirements.txt
+
   docs:gen:
     desc: Regenerate the command reference from the Cobra command tree
     cmds:
@@ -709,7 +760,7 @@ tasks:
       - rm -rf bin dist coverage.out coverage.html
 
   container:build:
-    desc: Build the build-container image (tools pinned from mise.toml)
+    desc: Build the build-container image (tools pinned from mise.toml and the pin files under build/)
     cmds:
       - >-
         {{.CONTAINER_RUNTIME}} build $(scripts/tool-versions.sh)

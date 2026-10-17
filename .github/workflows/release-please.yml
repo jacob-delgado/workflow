@@ -95,6 +95,14 @@ jobs:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
           cache: false
 
+      # The linters mise.toml does not pin, which the gate below runs, from
+      # their pin files, as CI's Lint job installs them.
+      - name: Install the linters pinned outside mise
+        if: steps.release.outputs.version != ''
+        run: |
+          task tools
+          echo "${GITHUB_WORKSPACE}/tmp/tools/bin" >>"${GITHUB_PATH}"
+
       # Gate before the tag job tags anything. A failed step fails this job, so
       # the tag job, which needs it, never runs and no tag is pushed — a tag with
       # no release behind it is the failure this guards, and a published release

@@ -120,7 +120,7 @@ task build            # builds bin/workflow
 ```
 
 This needs [mise](https://mise.jdx.dev), which provisions the pinned toolchain —
-Go, the linters, and everything else the build expects. See
+Go and everything else the build expects. See
 [Development]({{< relref "/docs/contributing" >}}) for what else is in there.
 
 ## First run

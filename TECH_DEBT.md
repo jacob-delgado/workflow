@@ -1164,6 +1164,57 @@ does not yet lowers on one surface alone.
 reason, or the two copies are found to disagree on a name the file does not
 hold.
 
+### TRADE-53 yamllint is pinned outside mise, its whole tree by hash
+
+yamllint is pinned by `build/yamllint/requirements.txt`, which names it and
+every package it needs at run time, each by version and by the sha256 of every
+wheel PyPI holds for it, under `--require-hashes` and `--only-binary :all:`.
+`scripts/pin-yamllint.sh` writes it (`task deps:yamllint`), taking each
+dependency at its newest final release whose every file is a week old; `task
+tools` installs it into a virtual environment under `tmp/tools` and links it
+into `tmp/tools/bin`, which `mise.toml`'s `[env]` puts on PATH; the build
+container installs it with Debian's pip; and `scripts/check-dependency-age.sh`
+dates each file a pull request adds by its own upload. mise is the exception's
+reason, named in `mise.toml`'s header and in CLAUDE.md's rule that tool
+versions live there.
+
+**Decided.** 2026-10-17 by the maintainer, in the pull request that pins
+yamllint's tree, once a fresh install was seen taking a dependency
+published that week. A `mise.toml` pin named yamllint alone, so every
+install, a developer's, CI's, the image's and the dev container's, resolved
+pyyaml and pathspec afresh, with no hash and outside the age gate. mise
+2026.10.8 could not hold the tree itself: an exact pin skips its own age
+filter, `uv tool install` wrote corrupted constraint hashes, pip refuses the
+bare pin mise passes it under `--require-hashes`, and mise's own lockfile
+needs uv, a new tool to approve. A committed requirements file needs nothing
+the repository does not already run: pip, curl and jq.
+
+**Cost.** `mise install` alone no longer installs every linter: `task setup`
+or `task tools` must run too, and after a pull that changes the pin file the
+installed copy is stale until `task tools` runs again. Each checkout and
+linked worktree has its own `tmp/tools/bin`, so a new one has no yamllint
+until `task tools` runs in it. It needs a `python3` from 3.10 to 3.14 with
+venv on the host and on CI's runner, a prerequisite no pin holds: yamllint
+needs 3.10, pyyaml has no wheel past CPython 3.14, and pip builds none. The
+dev container adds Debian's python3-venv, which its image lacks. CI's Lint job
+and both release gates add the step and its PATH line themselves. The file is
+a pip manifest GitHub's dependency graph reads, so dependency review sees
+yamllint, licensed GPL-3.0-or-later, against its GPL deny list, and
+`.github/workflows/dependency-review.yml` allows `pkg:pypi/yamllint` by name:
+a lint tool, never linked into or shipped with the binary. For the same reason
+the release's SBOM leaves the pin file and `tmp/` out (`build/syft.yaml`), and
+a tool pinned by a file of its own under `build/` joins that list. Dependabot
+does not move the file, so a bump is `task deps:yamllint` by hand. The
+generator reads no version range a requirement names, and pip refusing the
+tree at install is the only check of one; a hand edit that drops
+`--only-binary` is caught only in review.
+
+**Reopen when.** mise can install a Python tool from a lock of its whole
+tree, with hashes and within its age filter, using no tool the repository
+does not already pin; or uv is adopted for another reason, which would let
+mise's own lockfile hold the tree; or yamllint is replaced by a linter
+released as a single binary.
+
 ### TRADE-54 A cloud session's gate runs zizmor offline and leaves vuln to CI
 
 `scripts/gate-as-dev.sh` runs the gate in a Claude Code cloud session as the

@@ -46,7 +46,6 @@ ARG SHELLCHECK_VERSION
 ARG NODE_VERSION
 ARG JQ_VERSION
 ARG SHFMT_VERSION
-ARG YAMLLINT_VERSION
 ARG TYPOS_VERSION
 ARG ACTIONLINT_VERSION
 ARG HADOLINT_VERSION
@@ -61,10 +60,11 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # System packages. Deliberately unpinned: the base image's Debian release pins
 # them, and pinning again here breaks the build on every security update. Only
-# the base tools live here — git, the cert bundle, pip for yamllint, and xz to
-# unpack the .tar.xz release archives below. shellcheck, node and jq are NOT
-# taken from apt: they are gates whose versions the mise.toml pins decide, so
-# they are installed from those pins further down.
+# the base tools live here — git, the cert bundle, pip to install yamllint from
+# its pin file, and xz to unpack the .tar.xz release archives below.
+# shellcheck, node and jq are NOT taken from apt: they are gates whose versions
+# the mise.toml pins decide, so they are installed from those pins further
+# down.
 # hadolint ignore=DL3008
 RUN set -eux; \
     apt-get update; \
@@ -144,11 +144,14 @@ RUN set -eux; \
     go install "github.com/rillig/gobco@v${GOBCO_VERSION}"; \
     go clean -cache -modcache
 
-# yamllint is Python; the image is not a Python project, so installing into the
+# yamllint is Python, installed from the file that pins it and every package
+# it needs by version and by each wheel's sha256, as `task tools` installs it
+# on the host. The image is not a Python project, so installing into the
 # system environment is what --break-system-packages is for here.
+COPY build/yamllint/requirements.txt /usr/local/share/yamllint-requirements.txt
 RUN set -eux; \
-    : "${YAMLLINT_VERSION:?}"; \
-    pip3 install --no-cache-dir --break-system-packages "yamllint==${YAMLLINT_VERSION}"
+    pip3 install --no-cache-dir --break-system-packages -r /usr/local/share/yamllint-requirements.txt; \
+    yamllint --version
 
 # typos ships prebuilt binaries per architecture.
 RUN set -eux; \

@@ -63,7 +63,6 @@ answer "https://proxy.golang.org/golang.org/toolchain/@v/v0.0.1-go1.27.2.linux-a
 answer "https://proxy.golang.org/github.com/rillig/gobco/@v/v1.4.0.info" "{\"Time\":\"${old}\"}"
 answer "https://proxy.golang.org/golang.org/x/vuln/@v/v1.9.0.info" "{\"Time\":\"${young}\"}"
 answer "https://nodejs.org/dist/index.json" '[{"version":"v24.22.0","date":"2026-09-01"}]'
-answer "https://pypi.org/pypi/yamllint/1.39.0/json" "{\"urls\":[{\"upload_time_iso_8601\":\"${young}\"}]}"
 answer "https://api.github.com/repos/koalaman/shellcheck/releases/tags/v0.12.0" "{\"published_at\":\"${old}\"}"
 answer "https://api.github.com/repos/jqlang/jq/releases/tags/jq-1.9.0" "{\"published_at\":\"${young}\"}"
 
