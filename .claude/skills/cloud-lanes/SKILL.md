@@ -190,7 +190,7 @@ Say which host and why, and carry on with what does not need it.
 | a condition no test evaluated | `task cover:branch`, as dev |
 | golangci-lint against a new Go | the pinned pair from the setup, `task lint:go` |
 | a timing flake | `go test -race -count=20 -run <test> ./<pkg>`; `--repeat-each` for a spec |
-| a dependency under a week old | `task deps:age` in the lane's own worktree, for an npm or Go module and for a `mise.toml` pin of go, node, yamllint or a `go:` or `npm:` tool; a GitHub-released mise tool, or mise's `min_version`, is dated only in CI; no script dates an Action bump, so check its release date by hand |
+| a dependency under a week old | `task deps:age` in the lane's own worktree, for an npm or Go module, for a `mise.toml` pin of go, node, yamllint or a `go:` or `npm:` tool, and for each pin a linter's file under `build/` adds; a GitHub-released mise tool, or mise's `min_version`, is dated only in CI; no script dates an Action bump, so check its release date by hand |
 | a new Go advisory | CI only, while `vuln.go.dev` is refused |
 | an engine other than Chromium | CI only |
 
