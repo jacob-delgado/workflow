@@ -135,7 +135,15 @@ tasks:
     desc: Download modules and install the git hooks
     cmds:
       - go mod download
-      - lefthook install
+      # Asked of git rather than of a .git directory: in a linked worktree or
+      # a submodule .git is a file, and the hooks belong there all the same.
+      # The dev container runs this before its workspace may be a repository.
+      - |
+        if git rev-parse --git-dir >/dev/null 2>&1; then
+          lefthook install
+        else
+          echo "Not a git repository yet; run 'task setup' after 'git init' to add the hooks."
+        fi
 
   build:
     desc: Build the binary into bin/, with the web interface embedded
