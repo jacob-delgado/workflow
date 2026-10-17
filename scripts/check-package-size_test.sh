@@ -107,6 +107,12 @@ expect_output fail "a cohesive directory at the default" "is at or under the def
   env PACKAGE_SIZE_ROOT="${cohesive}" PACKAGE_SIZE_BUDGETS="${ceiling_budgets}" \
   DEFAULT_MAX_FILES=4 "${check}"
 
+# So is a ratcheted one: a budget that equals a count at or under the default
+# is refused, so a ratchet cannot keep a split-down directory registered.
+expect_output fail "a ratcheted directory at the default" "is at or under the default" \
+  env PACKAGE_SIZE_ROOT="${declared}" PACKAGE_SIZE_BUDGETS="${equal_budgets}" \
+  DEFAULT_MAX_FILES=3 "${check}"
+
 # --list shows how far each cohesive directory is from its ceiling.
 expect_output pass "--list prints a cohesive directory's headroom" \
   "internal/panes                                    4 / 6    (cohesive, 2 to the ceiling)" \
