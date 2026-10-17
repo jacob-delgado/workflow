@@ -39,11 +39,10 @@ const githubKind = "github"
 // featureBranch is the branch the git tests start.
 const featureBranch = "feat/PROJ-1-x"
 
-// isolateGit keeps a developer's own language out of a test's git, as
-// TestMain keeps their git configuration out of every test's: git translates
-// its messages, and a test that reads git's reason must read it in one
-// language.
-func isolateGit(t *testing.T) {
+// keepGitUntranslated has the git a test starts write its messages in git's
+// own words, whatever the developer's language: a test that reads git's
+// reason must read it in one language.
+func keepGitUntranslated(t *testing.T) {
 	t.Helper()
 	t.Setenv("LC_ALL", "C")
 }
@@ -123,7 +122,7 @@ func drained(output proc.Output) ([]string, error) {
 
 func TestLocateFindsTheRepositoryFromAnywhereInIt(t *testing.T) {
 	// Arrange
-	isolateGit(t)
+	keepGitUntranslated(t)
 
 	root := repository(t)
 	git(t, root, "remote", "add", "origin", githubRemote)
@@ -146,7 +145,7 @@ func TestLocateFindsTheRepositoryFromAnywhereInIt(t *testing.T) {
 
 func TestLocateOutsideARepositoryIsTheDirectoryItself(t *testing.T) {
 	// Arrange
-	isolateGit(t)
+	keepGitUntranslated(t)
 
 	outside := t.TempDir()
 
@@ -159,12 +158,12 @@ func TestLocateOutsideARepositoryIsTheDirectoryItself(t *testing.T) {
 	}
 }
 
-// gitSeams are the git seams on a new repository, their git speaking one
-// language (isolateGit) and writing drafts under drafts.
+// gitSeams are the git seams on a new repository, their git untranslated and
+// writing drafts under drafts.
 func gitSeams(t *testing.T) (seams.Git, string, string) {
 	t.Helper()
 
-	isolateGit(t)
+	keepGitUntranslated(t)
 
 	drafts := t.TempDir()
 	t.Setenv("TMPDIR", drafts)
@@ -444,7 +443,7 @@ func TestAFetchGitCannotRunSaysGitWasNotFound(t *testing.T) {
 
 func TestTheForgeSeamRetriesAfterAFailedConnection(t *testing.T) {
 	// Arrange
-	isolateGit(t)
+	keepGitUntranslated(t)
 
 	dir := t.TempDir()
 	probe := filepath.Join(dir, "attempts")

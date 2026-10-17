@@ -69,7 +69,7 @@ func TestTheTestsLeaveTheRepositoryAHookNamesAlone(t *testing.T) {
 		"TestTheGitSeamsFinishAMergedBranch",
 	}
 
-	isolateGit(t)
+	keepGitUntranslated(t)
 
 	named := t.TempDir()
 	git(t, named, "init", "--quiet")
