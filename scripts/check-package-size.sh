@@ -180,9 +180,9 @@ printf '%s\n' "${counts}" | awk \
       next
     }
 
-    if (cohesive && n <= default_max) {
+    if (declared && n <= default_max) {
       err(dir " is at " n " files, which is at or under the default " default_max \
-          " — delete its cohesive entry; registration is earned by size.")
+          " — delete its " (cohesive ? "cohesive " : "") "entry; registration is earned by size.")
     }
 
     # Zero headroom: a ratcheted budget must EQUAL the count it names. Slack is
