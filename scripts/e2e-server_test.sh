@@ -3,10 +3,12 @@
 # Tests for e2e-server.sh: it builds the fixture at a path that is missing,
 # an empty directory or one it made before, and serves it on the port it is
 # given; it refuses, leaving it exactly as it was, a path that is a file, a
-# symbolic link or a directory holding files it did not make; and it stops,
-# making nothing, when someone else makes the path again as it is cleared. A
-# stub stands in for bin/workflow, writes down the arguments it was run with
-# and exits at once, so the script returns once the fixture is built.
+# symbolic link or a directory holding files it did not make; it stops,
+# making nothing, when someone else makes the path again as it is cleared;
+# and no git it runs as it builds the fixture leaves git's automatic
+# maintenance running there. A stub stands in for bin/workflow, writes down
+# the arguments it was run with and exits at once, so the script returns once
+# the fixture is built.
 #
 # Usage:
 #   scripts/e2e-server_test.sh
@@ -18,13 +20,15 @@ readonly here
 # shellcheck source=lib/testing.sh
 source "${here}/lib/testing.sh"
 
-# The script serves the bin/workflow beside its own directory, so a copy of it
+# The script serves the bin/workflow beside its own directory and copies the
+# tests' git configuration from scripts/lib, so a copy of it, with that file,
 # serves the stub, which says where it serves on stderr as the server does.
 readonly root="${workdir}/root"
 readonly ran_with="${root}/bin/ran-with"
 readonly said='workflow web: serving http://127.0.0.1:24680/#session=STUB'
-mkdir -p "${root}/scripts" "${root}/bin"
+mkdir -p "${root}/scripts/lib" "${root}/bin"
 cp "${here}/e2e-server.sh" "${root}/scripts/"
+cp "${here}/lib/test-gitconfig" "${root}/scripts/lib/"
 printf '#!/bin/sh\necho "$*" >"%s"\necho "%s" >&2\nexit 0\n' "${ran_with}" "${said}" >"${root}/bin/workflow"
 chmod +x "${root}/bin/workflow"
 
@@ -179,6 +183,32 @@ expect_raced() {
   fi
 }
 
+# expect_no_maintenance wants the script to build the fixture at a path with
+# no git it runs starting git's automatic maintenance: since git 2.47 a
+# commit, and the receive-pack of a push to origin.git, return with it
+# detached and still running, able to write into the fixture as the run
+# removes it. The script's env -i keeps PATH and clears everything else, so a
+# git first on PATH is what traces each of its gits (GIT_TRACE2_EVENT); the
+# server's own gits run in the same environment as the script's.
+#   expect_no_maintenance <name> <path>
+expect_no_maintenance() {
+  local name="$1" path="$2" tracing="${workdir}/tracing" trace="${workdir}/trace" got started
+  count_case
+  mkdir -p "${tracing}" "${trace}"
+  printf '#!/bin/sh\nGIT_TRACE2_EVENT="%s" exec "%s" "$@"\n' "${trace}" "$(command -v git)" >"${tracing}/git"
+  chmod +x "${tracing}/git"
+  got="$(PATH="${tracing}:${PATH}" serve "${path}")"
+  started="$(git_maintenance_started "${trace}")"
+
+  if [[ "${got}" != "pass" ]]; then
+    failed "${name}" "${path}" "want a fixture, got a refusal"
+  elif [[ -z "$(find "${trace}" -type f -print -quit)" ]]; then
+    failed "${name}" "${path}" "no git the script ran was traced"
+  elif [[ -n "${started}" ]]; then
+    failed "${name}" "${path}" "its gits started ${started//$'\n'/, }"
+  fi
+}
+
 file="${workdir}/file"
 printf 'not a fixture\n' >"${file}"
 expect_refused "a file" "${file}"
@@ -209,5 +239,7 @@ if [[ -e "${rebuilt}/stale.txt" ]]; then
 fi
 
 expect_raced "a path made again by someone else between clearing and making" "${workdir}/raced"
+
+expect_no_maintenance "no git the fixture's build runs starts maintenance" "${workdir}/maintained"
 
 finish_tests
