@@ -3,9 +3,10 @@
 # Tests for which depguard rules check-layout.sh reads as holding a package
 # marked "(tests only)" to tests: only a rule under
 # linters.settings.depguard.rules in .golangci.yml whose files leave out
-# "$test" and nothing else, whose deny list names the package and whose
-# list-mode, if set, is original, while a rule of any other shape or place
-# holds nothing. How the gate reads the YAML the rules are written in is
+# "$test" and nothing else, or besides it only a directory every package of
+# which a rule holds to tests in turn, whose deny list names the package and
+# whose list-mode, if set, is original, while a rule of any other shape or
+# place holds nothing. How the gate reads the YAML the rules are written in is
 # check-layout_yaml_test.sh's, and the layout block itself, and the mark's
 # need of a rule, are check-layout_test.sh's.
 #
@@ -26,8 +27,10 @@ source "${here}/lib/check-layout-fixtures.sh"
 # to which files. The gate must read none of internal/webserver/webtest,
 # internal/ptytest, internal/oldfake, internal/stalefake, internal/fakebus,
 # internal/fakerss, internal/fakenntp, internal/fakegopher, internal/fakewiki,
-# internal/fakeci, internal/fakeoauth and internal/fakemetrics as held to
-# tests, and every other package they name as held.
+# internal/fakeci, internal/fakeoauth, internal/fakemetrics, internal/fakeping,
+# internal/fakepong and internal/fakedns as held to tests, nor
+# internal/fakehttp but where a rule holds every package under a directory
+# named internal/fakekit, and every other package they name as held.
 fixed_rules() {
   cat <<'END'
         # Denied in internal/loop alone.
@@ -166,6 +169,44 @@ fixed_rules() {
           deny:
             - desc: example/internal/fakerss
               pkg: example/internal/fakeatom
+        # Denied to every file but a test and a file under a directory named
+        # internal/fakekit, which a case's own rule may hold to tests in turn.
+        fakehttp-in-tests-and-the-kit:
+          files:
+            - "$all"
+            - "!$test"
+            - "!**/internal/fakekit/**"
+          deny:
+            - pkg: example/internal/fakehttp
+              desc: a test helper; use it only from a _test.go file or the kit
+        # Denied to every file but a test and internal/fakepong's, whose rule
+        # leaves out internal/fakeping's in turn: neither is held first.
+        fakeping-in-tests-and-pong:
+          files:
+            - "$all"
+            - "!$test"
+            - "!**/internal/fakepong/**"
+          deny:
+            - pkg: example/internal/fakeping
+              desc: a test helper; use it only from a _test.go file or pong
+        fakepong-in-tests-and-ping:
+          files:
+            - "$all"
+            - "!$test"
+            - "!**/internal/fakeping/**"
+          deny:
+            - pkg: example/internal/fakepong
+              desc: a test helper; use it only from a _test.go file or ping
+        # Denied to every file but a test and one under any directory whose
+        # name begins internal/fakekit: a pattern, not one directory.
+        fakedns-in-tests-and-kits:
+          files:
+            - "$all"
+            - "!$test"
+            - "!**/internal/fakekit*/**"
+          deny:
+            - pkg: example/internal/fakedns
+              desc: a test helper; use it only from a _test.go file or a kit
         # Denied to every file but a test. Its allow list holds a string that
         # reads like a deny item for internal/fakebus, but allow is a list of
         # strings, and the rule denies fakebus nothing by name.
@@ -281,21 +322,66 @@ repo "${original}" "internal/fakevault (tests only)" -- internal/fakevault/vault
 lint "${original}"
 expect pass "a marked package whose rule's list-mode is Original" "${original}"
 
+# A rule may leave out a directory besides the tests, "!**/<dir>/**", when
+# every package whose files that leaves out is one a rule holds to tests in
+# turn: a test helper may import another, since only tests reach either.
+# The gate sorts the denials, and example/internal/fakehttp sorts before
+# example/internal/fakekit, so its first pass meets fakehttp before the kit
+# is held and only a second pass holds it: a rename that sorts the kit first
+# stops this case from testing that a chain holds.
+kit="${workdir}/kit"
+repo "${kit}" "internal/fakehttp (tests only)" "internal/fakekit (tests only)" \
+  -- internal/fakehttp/http.go internal/fakekit/kit.go
+lint "${kit}" internal/fakekit
+expect pass "a marked package whose rule leaves out a directory a rule holds to tests" "${kit}"
+
+# "**/internal/fakekit/**" leaves out every directory of that name, at any
+# depth, so a package under another of them that no rule holds is free to
+# import internal/fakehttp, and the rule holds it to nothing.
+vendored="${workdir}/vendored"
+repo "${vendored}" "internal/fakehttp (tests only)" "internal/fakekit (tests only)" \
+  internal/vendored/internal/fakekit \
+  -- internal/fakehttp/http.go internal/fakekit/kit.go internal/vendored/internal/fakekit/kit.go
+lint "${vendored}" internal/fakekit
+expect_output fail "a marked package whose rule leaves out a directory a package no rule holds is under too" \
+  "internal/fakehttp/ (pkg: example/internal/fakehttp)" run_in "${vendored}" "${check}"
+
+# The gate reads a directory left out only as "!**/<dir>/**" with no pattern
+# in <dir>, so a rule leaving out every directory "internal/fakekit*" names
+# holds nothing, though a rule holds internal/fakekit itself to tests.
+kits="${workdir}/kits"
+repo "${kits}" "internal/fakedns (tests only)" "internal/fakekit (tests only)" \
+  -- internal/fakedns/dns.go internal/fakekit/kit.go
+lint "${kits}" internal/fakekit
+expect_output fail "a marked package whose rule leaves out a pattern of directories" \
+  "internal/fakedns/ (pkg: example/internal/fakedns)" run_in "${kits}" "${check}"
+
+# Two rules that each leave out the other's directory hold neither package:
+# each is held only once the other is.
+cycle="${workdir}/cycle"
+repo "${cycle}" "internal/fakeping (tests only)" "internal/fakepong (tests only)" \
+  -- internal/fakeping/ping.go internal/fakepong/pong.go
+lint "${cycle}"
+expect_output fail "marked packages whose rules each leave out the other's directory" \
+  $'  internal/fakeping/ (pkg: example/internal/fakeping)\n  internal/fakepong/ (pkg: example/internal/fakepong)' \
+  run_in "${cycle}" "${check}"
+
 # A rule that leaves some file other than a test free to import the package
 # does not hold it to tests, whether it denies it in one directory alone or
-# everywhere but one, or leaves out a file besides the tests with a "!$all"
-# or a "!$test/**" that only begins as "!$test" does, or names no file but
-# under a directory named $all with an "$all/**" that only begins as "$all"
-# does; nor does one whose files are "$test" alone, the tests and no other
-# file; nor does one in lax or strict list mode, where an allow item longer
-# than the deny item lets the import through; nor does one that denies it to
-# the tests as well, though a "!$test" stands in its allow list rather than
-# its files; nor does a rule of the right shape anywhere but
-# linters.settings.depguard.rules, where golangci-lint reads depguard's
-# rules: under a linter that is not depguard, under depguard's rule, linters'
-# setting or formatters' settings; nor does a string in an allow list that
-# reads like a deny item, or a deny item's desc. Each package fails by name,
-# though a rule that holds internal/rlimit follows them.
+# everywhere but one, or leaves out a file besides the tests with a "!$all" or
+# a "!$test/**" that only begins as "!$test" does, or names no file but under
+# a directory named $all with an "$all/**" that only begins as "$all" does, or
+# leaves out a directory no rule holds to tests; nor does one whose files are
+# "$test" alone, the tests and no other file; nor does one in lax or strict
+# list mode, where an allow item longer than the deny item lets the import
+# through; nor does one that denies it to the tests as well, though a "!$test"
+# stands in its allow list rather than its files; nor does a rule of the right
+# shape anywhere but linters.settings.depguard.rules, where golangci-lint
+# reads depguard's rules: under a linter that is not depguard, under
+# depguard's rule, linters' setting or formatters' settings; nor does a string
+# in an allow list that reads like a deny item, or a deny item's desc. Each
+# package fails by name, though a rule that holds internal/rlimit follows
+# them.
 scoped="${workdir}/scoped"
 repo "${scoped}" "internal/webserver/webtest (tests only)" "internal/ptytest (tests only)" \
   "internal/oldfake (tests only)" "internal/stalefake (tests only)" \
@@ -305,18 +391,21 @@ repo "${scoped}" "internal/webserver/webtest (tests only)" "internal/ptytest (te
   "internal/fakegopher (tests only)" "internal/fakerss (tests only)" \
   "internal/fakewiki (tests only)" "internal/fakeci (tests only)" \
   "internal/fakeoauth (tests only)" "internal/fakemetrics (tests only)" \
+  "internal/fakehttp (tests only)" "internal/fakekit" \
   -- internal/webserver/webtest/serve.go internal/ptytest/open.go internal/oldfake/fake.go \
   internal/stalefake/fake.go internal/fakeforge/forge.go internal/fakebus/bus.go \
   internal/fakejira/jira.go internal/fakeslack/slack.go internal/faketeams/teams.go \
   internal/fakenntp/nntp.go internal/fakegopher/gopher.go internal/fakerss/rss.go \
   internal/fakewiki/wiki.go internal/fakeci/ci.go internal/fakeoauth/oauth.go \
-  internal/fakemetrics/metrics.go
+  internal/fakemetrics/metrics.go internal/fakehttp/http.go internal/fakekit/kit.go
 lint "${scoped}" internal/rlimit
 misplaced_rules >>"${scoped}/.golangci.yml"
 expect_output fail "a marked package a rule denies in one directory alone" \
   "internal/webserver/webtest/ (pkg: example/internal/webserver/webtest)" run_in "${scoped}" "${check}"
 expect_output fail "a marked package a rule denies everywhere but one directory" \
   "internal/ptytest/ (pkg: example/internal/ptytest)" run_in "${scoped}" "${check}"
+expect_output fail "a marked package a rule denies everywhere but a directory no rule holds" \
+  "internal/fakehttp/ (pkg: example/internal/fakehttp)" run_in "${scoped}" "${check}"
 expect_output fail "a marked package whose rule's files say \"!\$all\" too" \
   "internal/fakenntp/ (pkg: example/internal/fakenntp)" run_in "${scoped}" "${check}"
 expect_output fail "a marked package whose rule's files say \"!\$test/**\" too" \
