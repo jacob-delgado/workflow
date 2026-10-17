@@ -13,8 +13,10 @@ go.sum linguist-generated=true
 web/src/api/generated/** linguist-generated=true
 internal/**/*.gen.go linguist-generated=true
 web/yarn.lock linguist-generated=true
-# The linters' pin files are written by `task deps:yamllint`.
+# The linters' pin files are written by `task deps:yamllint` and
+# `task deps:markdownlint`.
 build/yamllint/requirements.txt linguist-generated=true
+build/markdownlint/package-lock.json linguist-generated=true
 # The frontend's production build, committed so `go install` embeds it:
 # minified, so a diff of it says nothing a diff of web/src does not.
 internal/web/dist/** -diff linguist-generated=true

@@ -40,7 +40,6 @@ hadolint = "2.14.0"
 "go:github.com/rillig/gobco" = "1.7.0"
 taplo = "0.10.0"
 zizmor = "1.14.2"
-"npm:markdownlint-cli2" = "0.18.1"
 TOML
 }
 

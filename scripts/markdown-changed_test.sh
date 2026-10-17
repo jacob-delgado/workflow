@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 #
 # Tests for markdown-changed.sh: it says Markdown needs linting when a change
-# since the base touches docs/, any .md file, the markdownlint config, or
-# mise.toml, which pins markdownlint-cli2, and that it does not for a change to
-# code alone; and when git cannot answer, it says so with a status of its own,
-# so CI lints rather than skips.
+# since the base touches docs/, any .md file, the markdownlint config,
+# build/markdownlint/, which pins markdownlint-cli2 and its tree, or mise.toml,
+# which pins the node it runs under, and that it does not for a change to code
+# alone; and when git cannot answer, it says so with a status of its own, so CI
+# lints rather than skips.
 #
 # Usage:
 #   scripts/markdown-changed_test.sh
@@ -49,13 +50,15 @@ repo_changing nested internal/notes/NOTES.md
 repo_changing config .markdownlint-cli2.yaml
 repo_changing code internal/code.go
 repo_changing toolchain mise.toml
+repo_changing lock build/markdownlint/package-lock.json
 
 # Act & Assert
 expect "a change under docs/" docs 0
 expect "a Markdown file at the root" readme 0
 expect "a Markdown file anywhere" nested 0
 expect "the markdownlint config" config 0
-expect "the toolchain pins, markdownlint-cli2's among them" toolchain 0
+expect "the toolchain pins, the node markdownlint-cli2 runs under among them" toolchain 0
+expect "markdownlint-cli2's lock" lock 0
 expect "code alone" code 1
 
 # Act & Assert: a base git cannot resolve cannot be told, and says so apart from

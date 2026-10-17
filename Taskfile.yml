@@ -146,16 +146,18 @@ tasks:
           echo "Not a git repository yet; run 'task setup' after 'git init' to add the hooks."
         fi
 
-  # The linter mise.toml does not pin (Trade-off TRADE-53), installed from a
-  # committed file that pins its whole dependency tree by version and hash,
-  # into tmp/tools/bin, which mise.toml puts on PATH. Each linter's task is
-  # skipped until its pin file changes or what it installed no longer runs, as
-  # a venv does once its python3 moves to another minor version. CI's Lint
-  # job and the release gates run this before `task lint` and `task check`.
+  # The two linters mise.toml does not pin (Trade-off TRADE-53), each
+  # installed from committed files that pin its whole dependency tree by
+  # version and hash, into tmp/tools/bin, which mise.toml puts on PATH. Each
+  # linter's task is skipped until its pin files change or what it installed
+  # no longer runs, as a venv does once its python3 moves to another minor
+  # version. CI's Lint job and the release gates run this before `task lint`
+  # and `task check`.
   tools:
-    desc: Install yamllint from its pin file into tmp/tools/bin
+    desc: Install yamllint and markdownlint-cli2 from their pin files into tmp/tools/bin
     cmds:
       - task: tools:yamllint
+      - task: tools:markdownlint
 
   # yamllint 1.38.0 needs Python 3.10 or later, and pyyaml 6.0.3 has wheels up
   # to CPython 3.14 alone, which --only-binary :all: holds pip to: the range
@@ -180,6 +182,29 @@ tasks:
       - mkdir -p tmp/tools/bin
       - ln -sfn ../yamllint/bin/yamllint tmp/tools/bin/yamllint
       - tmp/tools/bin/yamllint --version
+
+  # Installed from a copy of its lock, so node_modules lands under tmp/ rather
+  # than beside the pin files. npm ci takes exactly what the lock names, by
+  # each package's sha512, and runs no package's install script; the node it
+  # runs under is mise.toml's. markdownlint-cli2 has no --version flag.
+  # Given only the negated glob '#**', with --no-globs, it lints no file
+  # wherever it runs, and the first line of its output names the version.
+  tools:markdownlint:
+    internal: true
+    sources:
+      - build/markdownlint/package.json
+      - build/markdownlint/package-lock.json
+    generates:
+      - tmp/tools/bin/markdownlint-cli2
+    status:
+      - tmp/tools/bin/markdownlint-cli2 --no-globs '#**'
+    cmds:
+      - rm -rf tmp/tools/markdownlint tmp/tools/bin/markdownlint-cli2
+      - mkdir -p tmp/tools/markdownlint tmp/tools/bin
+      - cp build/markdownlint/package.json build/markdownlint/package-lock.json tmp/tools/markdownlint/
+      - npm ci --prefix tmp/tools/markdownlint --ignore-scripts --no-fund --no-audit
+      - ln -sfn ../markdownlint/node_modules/.bin/markdownlint-cli2 tmp/tools/bin/markdownlint-cli2
+      - tmp/tools/bin/markdownlint-cli2 --no-globs '#**'
 
   build:
     desc: Build the binary into bin/, with the web interface embedded
@@ -521,11 +546,12 @@ tasks:
     desc: Lint the Markdown
     cmds:
       # CI's Lint job passes LINT_MARKDOWN=false for a pull request that changes
-      # no Markdown, nothing under docs/, not the markdownlint config and not
-      # mise.toml, which pins markdownlint-cli2 (scripts/markdown-changed.sh);
-      # everywhere else every file is linted.
+      # no Markdown, nothing under docs/, not the markdownlint config, nothing
+      # under build/markdownlint/, which pins markdownlint-cli2 and its tree,
+      # and not mise.toml, which pins the node it runs under
+      # (scripts/markdown-changed.sh); everywhere else every file is linted.
       - >-
-        {{if eq .LINT_MARKDOWN "false"}}echo "Markdown lint skipped: this change touches no Markdown, docs/, its config or its pin"{{else}}markdownlint-cli2{{end}}
+        {{if eq .LINT_MARKDOWN "false"}}echo "Markdown lint skipped: this change touches no Markdown, docs/, its config or its pins"{{else}}markdownlint-cli2{{end}}
 
   lint:toml:
     desc: Lint and format-check the TOML
@@ -633,6 +659,22 @@ tasks:
       - mkdir -p tmp
       - scripts/pin-yamllint.sh {{.VERSION | default .PINNED}} {{.CLI_ARGS}} >tmp/yamllint-requirements.txt
       - mv tmp/yamllint-requirements.txt build/yamllint/requirements.txt
+
+  # Edit the version in build/markdownlint/package.json first to move
+  # markdownlint-cli2 itself; left as it is, the run moves only its tree.
+  # .npmrc beside it holds npm to versions a week old, which a fix younger
+  # than that passes with --min-release-age-exclude=<name> for one run, listed
+  # in scripts/dependency-age-exceptions.txt.
+  deps:markdownlint:
+    desc: Re-lock markdownlint-cli2's tree in build/markdownlint/package-lock.json, each package a week old
+    cmds:
+      # Resolved aside and then moved, so a run that fails leaves the lock as
+      # it was. The directory holds no lock, so the tree resolves afresh.
+      - rm -rf tmp/markdownlint-lock
+      - mkdir -p tmp/markdownlint-lock
+      - cp build/markdownlint/package.json build/markdownlint/.npmrc tmp/markdownlint-lock/
+      - cd tmp/markdownlint-lock && npm install --package-lock-only --ignore-scripts --no-fund --no-audit {{.CLI_ARGS}}
+      - mv tmp/markdownlint-lock/package-lock.json build/markdownlint/package-lock.json
 
   docs:gen:
     desc: Regenerate the command reference from the Cobra command tree
