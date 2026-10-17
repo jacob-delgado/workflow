@@ -110,8 +110,9 @@ expect_output fail "a marked package only a rule for the package below it names"
 root="${workdir}/root"
 repo "${root}" "internal/rlimit (tests only)" "internal/gittest (tests only)" \
   "internal/ptytest (tests only)" "internal/webserver/webtest (tests only)" \
+  "internal/cli/clitest (tests only)" \
   -- internal/rlimit/rlimit.go internal/gittest/gittest.go internal/ptytest/ptytest.go \
-  internal/webserver/webtest/webtest.go
+  internal/webserver/webtest/webtest.go internal/cli/clitest/main.go
 cp "${here}/../.golangci.yml" "${here}/../go.mod" "${root}/"
 expect pass "packages the root marks, under the root's .golangci.yml" "${root}"
 

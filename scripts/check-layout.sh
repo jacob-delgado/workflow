@@ -25,7 +25,11 @@
 # whose files leave out "$test" and nothing else, whose deny list names the
 # package's import path (go.mod's module, then the directory), and whose
 # list-mode, if set, is original, where a deny item wins over every allow
-# item, as rlimit-only-in-tests does.
+# item, as rlimit-only-in-tests does. Its files may also leave out a
+# directory, "!**/<dir>/**" with no pattern in <dir>, when the directory
+# holds a package a rule holds to tests in turn, as is every package under a
+# directory of that name at any depth, whose files the pattern leaves out
+# too: a test helper may import another, since only tests reach either.
 #
 # A rule holds only while depguard runs, so a mark also fails when
 # .golangci.yml does not make sure it does: when linters.disable lists
@@ -194,18 +198,20 @@ unread_line() {
   ' "$1"
 }
 
-# held_to_tests prints, one a line, each package a depguard rule in the lint
-# configuration denies to every file but a test: a rule under
-# linters.settings.depguard.rules whose files leave out "$test" and nothing
-# else, "!$test" with or without "$all" (depguard reads a list of negations
-# alone as every file, less those), whose deny list names the package, and
-# whose list-mode, if set, is original in any letter case (lax and strict let
-# an allow item longer than the deny item through), where no two keys spell
-# the rule, its files, its deny list or a key above them. It reads only a
-# rule's list-mode, the list items under its files and deny keys, and a deny
-# item's pkg only from the item's own line.
-#   held_to_tests <lint-config>
-held_to_tests() {
+# denials prints, one a line, each package a depguard rule in the lint
+# configuration denies to every file but a test and the directories the line
+# names after it, each after a tab: a rule under
+# linters.settings.depguard.rules whose files leave out "$test", "!$test"
+# with or without "$all" (depguard reads a list of negations alone as every
+# file, less those), and besides it only directories, each as "!**/<dir>/**"
+# with no pattern in <dir>, whose deny list names the package, and whose
+# list-mode, if set, is original in any letter case (lax and strict let an
+# allow item longer than the deny item through), where no two keys spell the
+# rule, its files, its deny list or a key above them. It reads only a rule's
+# list-mode, the list items under its files and deny keys, and a deny item's
+# pkg only from the item's own line.
+#   denials <lint-config>
+denials() {
   awk "${yaml_lines}"'
     BEGIN { rules = "linters\nsettings\ndepguard\nrules\n" }
     function spelled_once(spelling,   count, i, part, prefix) {
@@ -220,7 +226,9 @@ held_to_tests() {
     item && index(path[keys], rules) == 1 && split(substr(path[keys], length(rules) + 1), part, "\n") == 2 {
       rule = rules part[1]
       if (part[2] == "files" && value == "!$test") leaves_out_tests[rule] = 1
-      else if (part[2] == "files" && value != "$all") narrowed[rule] = 1
+      else if (part[2] == "files" && value ~ /^!\*\*\/[A-Za-z0-9_][A-Za-z0-9_.-]*(\/[A-Za-z0-9_][A-Za-z0-9_.-]*)*\/\*\*$/) {
+        leaves_out[rule] = leaves_out[rule] "\t" substr(value, 5, length(value) - 7)
+      } else if (part[2] == "files" && value != "$all") narrowed[rule] = 1
       else if (part[2] == "deny" && key == "pkg") denies[rule] = denies[rule] value "\n"
     }
     !item && index(path[keys], rules) == 1 && split(substr(path[keys], length(rules) + 1), part, "\n") == 2 && part[2] == "list-mode" && tolower(value) != "original" {
@@ -228,10 +236,58 @@ held_to_tests() {
     }
     END {
       for (rule in denies) {
-        if (leaves_out_tests[rule] && !narrowed[rule] && !allow_can_win[rule] && spelled_once(rule "\nfiles") && spelled_once(rule "\ndeny")) printf "%s", denies[rule]
+        if (!leaves_out_tests[rule] || narrowed[rule] || allow_can_win[rule] || !spelled_once(rule "\nfiles") || !spelled_once(rule "\ndeny")) continue
+        count = split(denies[rule], denied, "\n")
+        for (i = 1; i < count; i++) print denied[i] leaves_out[rule]
       }
     }
   ' "$1"
+}
+
+# held_to_tests prints, one a line, each package one of the denials holds to
+# tests: a denial that leaves out no directory, or one each directory of which
+# is a package held to tests, as is every package under a directory of that
+# name, at any depth, since "**/<dir>/**" leaves out the files of each.
+# A package held through another is held once that one is, so a chain holds
+# and a cycle holds none of its packages.
+#   held_to_tests <denials> <module> <packages>
+held_to_tests() {
+  local denials="$1" module="$2" packages="$3" held="" grew=yes line blocking
+  local -a denial
+  while [[ -n "${grew}" ]]; do
+    grew=""
+    while IFS= read -r line; do
+      [[ -n "${line}" ]] || continue
+      IFS=$'\t' read -r -a denial <<<"${line}"
+      grep -Fqx -- "${denial[0]}" <<<"${held}" && continue
+      blocking="$(unheld_left_out "${held}" "${module}" "${packages}" "${denial[@]:1}")"
+      [[ -z "${blocking}" ]] || continue
+      held+="${denial[0]}"$'\n'
+      grew=yes
+    done <<<"${denials}"
+  done
+  printf '%s' "${held}"
+}
+
+# unheld_left_out prints the first directory given that is not a package
+# held to tests, or that has a package not held under it or under any
+# directory of that name at any depth; nothing when every one is held.
+#   unheld_left_out <held> <module> <packages> [<dir>...]
+unheld_left_out() {
+  local held="$1" module="$2" packages="$3" dir package
+  shift 3
+  for dir in "$@"; do
+    if ! grep -Fqx -- "${module}/${dir}" <<<"${held}"; then
+      printf '%s\n' "${dir}"
+      return
+    fi
+    while IFS= read -r package; do
+      if [[ "/${package}/" == *"/${dir}/"* ]] && ! grep -Fqx -- "${module}/${package}" <<<"${held}"; then
+        printf '%s\n' "${dir}"
+        return
+      fi
+    done <<<"${packages}"
+  done
 }
 
 # depguard_off prints why the lint configuration does not make sure depguard
@@ -315,6 +371,8 @@ if [[ -z "${named}" ]]; then
   exit 2
 fi
 
+packages="$(printf '%s\n' "${go_files}" | grep -vE '(^|/)testdata/' | sed -n 's|/[^/]*$||p' | sort -u || true)"
+
 marked="$(layout_tests_only_dirs "${guide}")"
 unheld=""
 depguard_off_because=""
@@ -343,7 +401,10 @@ if [[ -n "${marked}" ]]; then
       echo "Write it as the rest is, a key or a list item to a line in block style with no alias, tag, merge or explicit key, escape, or value running on past its line, or drop the marks: coverage-gate.sh leaves a marked package out of the statement total." >&2
       exit 2
     fi
-    held="$(held_to_tests "${lint_config}")"
+    # Sorted, since awk's for-in prints the denials in no set order: in one
+    # order on every awk, the depguard test can hold a package only on a
+    # second pass, and so test that a chain holds.
+    held="$(held_to_tests "$(denials "${lint_config}" | LC_ALL=C sort)" "${module}" "${packages}")"
     off_and_change="$(depguard_off "${lint_config}")"
     depguard_off_because="${off_and_change%%$'\n'*}"
     depguard_on_by="${off_and_change#*$'\n'}"
@@ -355,8 +416,6 @@ if [[ -n "${marked}" ]]; then
   done <<<"${marked}"
   unheld="${unheld%$'\n'}"
 fi
-
-packages="$(printf '%s\n' "${go_files}" | grep -vE '(^|/)testdata/' | sed -n 's|/[^/]*$||p' | sort -u || true)"
 
 missing="$(comm -23 <(printf '%s\n' "${packages}") <(printf '%s\n' "${named}") | sed '/^$/d')"
 
@@ -395,7 +454,7 @@ if [[ -n "${unheld}" ]]; then
   while IFS= read -r dir; do
     printf '  %s/ (pkg: %s/%s)\n' "${dir}" "${module}" "${dir}" >&2
   done <<<"${unheld}"
-  echo "Give each a depguard rule in ${lint_config} that denies its pkg to the files \"\$all\" and \"!\$test\" alone, as rlimit-only-in-tests does, or drop its mark: coverage-gate.sh leaves a marked package out of the statement total." >&2
+  echo "Give each a depguard rule in ${lint_config} that denies its pkg to the files \"\$all\" and \"!\$test\" alone, as rlimit-only-in-tests does, or besides them leaves out only a \"!**/<dir>/**\" whose every package such a rule holds, or drop its mark: coverage-gate.sh leaves a marked package out of the statement total." >&2
 fi
 
 if [[ -n "${depguard_off_because}" ]]; then

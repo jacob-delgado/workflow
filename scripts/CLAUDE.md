@@ -88,19 +88,22 @@ as its status, so a gate that fails for the wrong reason fails the test.
   unless a rule under `linters.settings.depguard.rules` in `.golangci.yml`
   denies the package's import path (go.mod's module, then the directory) to
   every file but a test: its files are `"!$test"`, alone or beside `"$all"`,
-  the shape of the `*-only-in-tests` rules, and its `list-mode` is unset or
-  `original`, since under `lax` or `strict` an allow item longer than the
-  deny item lets the import through. A rule holds only while depguard runs,
-  so the check also fails a mark when `.golangci.yml` does not make sure it
-  does: `linters.disable` lists depguard, `linters.default` is not `all` and
+  the shape of the `*-only-in-tests` rules, or besides it leave out only a
+  `"!**/<dir>/**"` naming a package held to tests in turn, as is every package
+  under a directory of that name at any depth, which the pattern leaves out
+  too (a test helper may import another), and its `list-mode` is unset or
+  `original`, since under `lax` or `strict` an allow item longer than the deny
+  item lets the import through. A rule holds only while depguard runs, so the
+  check also fails a mark when `.golangci.yml` does not make sure it does:
+  `linters.disable` lists depguard, `linters.default` is not `all` and
   `linters.enable` does not list it (`standard`, `none` and `fast` each need
   it there), `linters` holds a key besides `default`, `enable`, `disable`,
-  `settings` and `exclusions`, or its `default`, `enable` or `disable`, or
-  an item of either list, is a block scalar, which the check does not read.
-  Exclusion rules and `//nolint:depguard` stay unread, and so do
-  `issues.new` and its `new-from-*` kin, which hide depguard's findings as
-  they do, and `run.issues-exit-code`, which set to 0 lets golangci-lint
-  pass with them printed.
+  `settings` and `exclusions`, or its `default`, `enable` or `disable`, or an
+  item of either list, is a block scalar, which the check does not read.
+  Exclusion rules and `//nolint:depguard` stay unread, and so do `issues.new`
+  and its `new-from-*` kin, which hide depguard's findings as they do, and
+  `run.issues-exit-code`, which set to 0 lets golangci-lint pass with them
+  printed.
 - **The check reads `.golangci.yml` as golangci-lint does, or not at all.**
   It exits 2 beside a `.golangci.json`, `.golangci.toml` or `.golangci.yaml`,
   tracked or not, each of which golangci-lint reads in its place. It reads
