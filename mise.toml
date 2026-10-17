@@ -1,22 +1,24 @@
 # mise — the toolchain manager (https://mise.jdx.dev).
 #
 # Single source of truth for every tool the build, the gates and CI use but
-# yamllint. The Taskfile runs the recipes; mise provisions the binaries they
+# two linters. The Taskfile runs the recipes; mise provisions the binaries they
 # call, and build/Dockerfile reads its versions from this file
-# (scripts/tool-versions.sh), all but yamllint's and its own Go. Its Go is
-# decided by its base image's digest, and the image build fails unless that is
-# the Go pinned below. A tool the image downloads (node, shellcheck, jq,
-# lefthook, typos, hadolint, taplo, zizmor) also carries its SHA-256s in
+# (scripts/tool-versions.sh), all but the two linters' and its own Go. Its
+# Go is decided by its base image's digest, and the image build fails unless
+# that is the Go pinned below. A tool the image downloads (node, shellcheck,
+# jq, lefthook, typos, hadolint, taplo, zizmor) also carries its SHA-256s in
 # build/tool-checksums.txt, so a bump here replaces its lines there; `task
 # lint` names any that are missing.
 #
-# yamllint is pinned in build/yamllint/requirements.txt instead, with every
-# package of its tree by version and wheel hash, and `task tools` installs it
-# into tmp/tools/bin, which [env] puts on PATH below and CI's jobs add to
-# theirs, and the image installs from the same file. A pin here would name
-# yamllint alone, and mise would resolve its dependencies afresh at every
-# install, with no hash and outside the age gate. Trade-off TRADE-53: mise
-# install alone no longer provides every linter.
+# yamllint and markdownlint-cli2 are pinned under build/ instead, every package
+# of each one's tree by version and hash: build/yamllint/requirements.txt by
+# each wheel's sha256, build/markdownlint/package-lock.json by each package's
+# sha512. `task tools` installs both into tmp/tools/bin, which [env] puts on
+# PATH below and CI's jobs add to theirs, and the image installs from the
+# same files. A pin here would name the linter alone, and mise would resolve
+# its dependencies afresh at every install, with no hash and outside the age
+# gate. Trade-off TRADE-53: mise install alone no longer provides every
+# linter.
 #
 # After cloning:   mise trust && mise install && task setup
 # Update a pin:    edit below, then `mise install`
@@ -65,13 +67,13 @@ taplo = "0.10.0"         # TOML lint + format
 # valid; zizmor checks that it is safe — script injection, over-broad
 # permissions, a mutable action reference.
 zizmor = "1.30.1"
-# node is the runtime the npm: tools below need. mise installs an npm: tool but
-# not a node to run it under, so a clean machine that relied on an ambient node
-# would run `task lint` against a different one than CI. Held on the 24.x line —
-# the last the web toolchain (corepack/yarn, Vite, Vitest) is tested against; 25+
-# fails the frontend build here. 24.21.0 is the latest 24.x past the age gate.
+# node is the runtime the npm: tool below and markdownlint-cli2 need. mise
+# installs an npm: tool but not a node to run it under, so a clean machine that
+# relied on an ambient node would run `task lint` against a different one than
+# CI. Held on the 24.x line — the last the web toolchain (corepack/yarn, Vite,
+# Vitest) is tested against; 25+ fails the frontend build here. 24.21.0 is the
+# latest 24.x past the age gate.
 node = "24.21.0"
-"npm:markdownlint-cli2" = "0.23.3" # Markdown lint + format
 # Source-line counting for `task cloc`. Advisory: a report, never a gate.
 "npm:cloc" = "2.6.0-cloc"
 

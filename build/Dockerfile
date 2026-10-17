@@ -54,7 +54,6 @@ ARG GITLEAKS_VERSION
 ARG GOBCO_VERSION
 ARG TAPLO_VERSION
 ARG ZIZMOR_VERSION
-ARG MARKDOWNLINT_VERSION
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -208,12 +207,17 @@ RUN set -eux; \
     rm -f /tmp/zizmor.tar.gz; \
     zizmor --version
 
-# markdownlint-cli2 is a Node package; npm comes from the node install above.
+# markdownlint-cli2 is a Node package, installed from the lock that pins it and
+# every package it needs by each one's sha512, with the npm the node install
+# above brought, as `task tools` installs it on the host. It has no --version
+# flag. Given only the negated glob '#**', with --no-globs, it lints no file
+# wherever it runs, and the first line of its output names the version.
+COPY build/markdownlint/package.json build/markdownlint/package-lock.json /opt/markdownlint/
 RUN set -eux; \
-    : "${MARKDOWNLINT_VERSION:?}"; \
-    npm install -g --no-fund --no-audit "markdownlint-cli2@${MARKDOWNLINT_VERSION}"; \
+    npm ci --prefix /opt/markdownlint --ignore-scripts --no-fund --no-audit; \
     npm cache clean --force; \
-    markdownlint-cli2 --version
+    ln -s /opt/markdownlint/node_modules/.bin/markdownlint-cli2 /usr/local/bin/markdownlint-cli2; \
+    markdownlint-cli2 --no-globs '#**'
 
 # The container:* tasks run the gate as the invoking user, who has no passwd
 # entry here, so HOME names a directory any user can write: Go's build cache,

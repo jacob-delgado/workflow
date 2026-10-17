@@ -6,3 +6,4 @@
 exclude:
   - ./tmp/**
   - ./build/yamllint/**
+  - ./build/markdownlint/**

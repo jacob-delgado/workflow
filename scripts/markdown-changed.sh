@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # markdown-changed.sh — say whether a change needs its Markdown linted: whether
 # anything since <base> touches docs/, any .md file, or what decides what the
-# lint accepts: the markdownlint config, and mise.toml, which pins the
-# markdownlint-cli2 that runs it, so a bump is linted on its own pull request.
+# lint accepts: the markdownlint config, build/markdownlint/, which pins the
+# markdownlint-cli2 that runs it and its tree, and mise.toml, which pins the
+# node it runs under, so a bump is linted on its own pull request.
 #
 # Usage: markdown-changed.sh <base-ref>
 #
@@ -23,9 +24,9 @@ if ! changed="$(git diff --name-only "${base}...HEAD" 2>/dev/null)"; then
   exit 2
 fi
 
-matching="$(grep -E '^docs/|\.md$|^\.markdownlint-cli2\.yaml$|^mise\.toml$' <<<"${changed}" || true)"
+matching="$(grep -E '^docs/|\.md$|^\.markdownlint-cli2\.yaml$|^build/markdownlint/|^mise\.toml$' <<<"${changed}" || true)"
 if [[ -z "${matching}" ]]; then
-  echo "No Markdown, docs/, markdownlint config or mise.toml changed since ${base}."
+  echo "No Markdown, docs/, markdownlint config or pin, or mise.toml changed since ${base}."
   exit 1
 fi
 
