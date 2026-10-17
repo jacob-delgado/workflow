@@ -10,22 +10,24 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 func TestStatusSaysNothingOnStderrWhenEveryServiceAnswers(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: passingStatus()})
 	repo := statusFeatureRepo(t, server.URL)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "status")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "status")
 
 	// Assert
-	if err != nil || printed.stderr != "" {
-		t.Errorf("status = %v, stderr %q, want no note when every service answered", err, printed.stderr)
+	if err != nil || printed.Stderr != "" {
+		t.Errorf("status = %v, stderr %q, want no note when every service answered", err, printed.Stderr)
 	}
 }
 
@@ -33,21 +35,21 @@ func TestStatusNamesTheForgeWhenItsPullRequestCannotBeRead(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	fakeGh(t, ghResponses{pulls: "{"})
 	repo := statusFeatureRepo(t, server.URL)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "status", "--json")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "status", "--json")
 
 	// Assert
 	// The JSON is the data a script reads, unchanged; the note is beside it.
-	if err != nil || !strings.Contains(printed.stdout, `"ci": "none"`) {
-		t.Errorf("status --json = %v, stdout %q, want the status as data", err, printed.stdout)
+	if err != nil || !strings.Contains(printed.Stdout, `"ci": "none"`) {
+		t.Errorf("status --json = %v, stdout %q, want the status as data", err, printed.Stdout)
 	}
 
-	if strings.Count(printed.stderr, "\n") != 1 || !strings.HasPrefix(printed.stderr, "GitHub could not be read: ") {
-		t.Errorf("stderr = %q, want one line naming GitHub", printed.stderr)
+	if strings.Count(printed.Stderr, "\n") != 1 || !strings.HasPrefix(printed.Stderr, "GitHub could not be read: ") {
+		t.Errorf("stderr = %q, want one line naming GitHub", printed.Stderr)
 	}
 }
 
@@ -55,20 +57,20 @@ func TestStatusNamesJiraWhenTheIssueCannotBeRead(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := jiraServer(t, http.StatusInternalServerError, `{}`, new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusInternalServerError, `{}`, new(atomic.Bool))
 	fakeGh(t, ghResponses{pulls: openPull("Add login"), status: passingStatus()})
 	repo := statusFeatureRepo(t, server.URL)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "status")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "status")
 
 	// Assert
-	if err != nil || !strings.Contains(printed.stdout, "PROJ-7  ") {
-		t.Errorf("status = %v, stdout %q, want the line without a summary", err, printed.stdout)
+	if err != nil || !strings.Contains(printed.Stdout, "PROJ-7  ") {
+		t.Errorf("status = %v, stdout %q, want the line without a summary", err, printed.Stdout)
 	}
 
-	if !strings.HasPrefix(printed.stderr, "Jira could not be read: ") || strings.Contains(printed.stderr, "GitHub") {
-		t.Errorf("stderr = %q, want a note naming Jira alone", printed.stderr)
+	if !strings.HasPrefix(printed.Stderr, "Jira could not be read: ") || strings.Contains(printed.Stderr, "GitHub") {
+		t.Errorf("stderr = %q, want a note naming Jira alone", printed.Stderr)
 	}
 }
 
@@ -86,11 +88,11 @@ func TestStatusNamesTheWorkingTreeWhenItsChangesCannotBeRead(t *testing.T) {
 	}
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "status")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "status")
 
 	// Assert
-	if err != nil || !strings.HasPrefix(printed.stderr, "The working tree could not be read: ") {
-		t.Errorf("status = %v, stderr %q, want a note naming the working tree", err, printed.stderr)
+	if err != nil || !strings.HasPrefix(printed.Stderr, "The working tree could not be read: ") {
+		t.Errorf("status = %v, stderr %q, want a note naming the working tree", err, printed.Stderr)
 	}
 }
 
@@ -103,13 +105,13 @@ func TestStatusSaysTheForgeIsNotSetUpWhenOriginNamesNone(t *testing.T) {
 	repo := prRepo(t, "fix/PROJ-9-x")
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "status")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "status")
 
 	// Assert
 	want := "The forge is not set up: the base remote (upstream in a fork's clone, else origin), " +
 		"or a branch's push remote, does not name a repository on a forge; point it at the repository\n"
-	if err != nil || printed.stderr != want {
-		t.Errorf("status = %v, stderr %q, want only %q", err, printed.stderr, want)
+	if err != nil || printed.Stderr != want {
+		t.Errorf("status = %v, stderr %q, want only %q", err, printed.Stderr, want)
 	}
 }
 
@@ -117,24 +119,26 @@ func TestStatusSaysTheForgeIsNotSetUpWhenItHasNoToken(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	fakeGh(t, ghResponses{signedOut: true})
 	repo := statusFeatureRepo(t, server.URL)
 	// Not through gh's own transport, so the forge needs a token, and none is
 	// set or signed in.
-	writeFile(t, repo, `{"jira":{"base_url":"`+server.URL+`","token":"t"},"forge":{"kind":"github","host":"github.com"}}`)
+	clitest.WriteFile(
+		t, repo, `{"jira":{"base_url":"`+server.URL+`","token":"t"},"forge":{"kind":"github","host":"github.com"}}`,
+	)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "status")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "status")
 
 	// Assert
-	if err != nil || !strings.Contains(printed.stdout, "CI none") {
-		t.Errorf("status = %v, stdout %q, want the line, CI none", err, printed.stdout)
+	if err != nil || !strings.Contains(printed.Stdout, "CI none") {
+		t.Errorf("status = %v, stdout %q, want the line, CI none", err, printed.Stdout)
 	}
 
-	if strings.Count(printed.stderr, "\n") != 1 || !strings.HasPrefix(printed.stderr, "GitHub is not set up: ") ||
-		!strings.Contains(printed.stderr, "$GITHUB_TOKEN") {
-		t.Errorf("stderr = %q, want one note saying GitHub is not set up and how to set it up", printed.stderr)
+	if strings.Count(printed.Stderr, "\n") != 1 || !strings.HasPrefix(printed.Stderr, "GitHub is not set up: ") ||
+		!strings.Contains(printed.Stderr, "$GITHUB_TOKEN") {
+		t.Errorf("stderr = %q, want one note saying GitHub is not set up and how to set it up", printed.Stderr)
 	}
 }
 
@@ -142,16 +146,16 @@ func TestStatusAcrossLabelsEachNoteWithItsDirectory(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "Fix login"), new(atomic.Bool))
 	fakeGh(t, ghResponses{pulls: "{"})
 	repo := statusFeatureRepo(t, server.URL)
 
 	// Act
-	printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), "status", repo)
+	printed, err := clitest.RunStreams(t, t.TempDir(), clitest.UnusedPrompt(t), "status", repo)
 
 	// Assert
 	want := filepath.Base(repo) + ": GitHub could not be read: "
-	if err != nil || !strings.HasPrefix(printed.stderr, want) {
-		t.Errorf("status DIR = %v, stderr %q, want a note beginning %q", err, printed.stderr, want)
+	if err != nil || !strings.HasPrefix(printed.Stderr, want) {
+		t.Errorf("status DIR = %v, stderr %q, want a note beginning %q", err, printed.Stderr, want)
 	}
 }

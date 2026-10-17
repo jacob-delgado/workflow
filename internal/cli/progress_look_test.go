@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 // unicodeLine is every character the live line draws by default and never in
@@ -70,15 +71,15 @@ func lookCases() map[string]lookCase {
 
 // runWatchedAt runs args at where with stderr a stand-in terminal and stdout
 // piped, and returns what stderr was sent.
-func runWatchedAt(t *testing.T, where place, args ...string) (string, error) {
+func runWatchedAt(t *testing.T, where clitest.Place, args ...string) (string, error) {
 	t.Helper()
 
 	var stdout, stderr bytes.Buffer
 
-	prompt := unusedPrompt(t)
+	prompt := clitest.UnusedPrompt(t)
 	prompt.IsTerminal = func(stream io.Writer) bool { return stream == &stderr }
 
-	err := cli.Execute(args, &stdout, &stderr, prompt, environmentFor(t, where))
+	err := cli.Execute(args, &stdout, &stderr, prompt, clitest.EnvironmentFor(t, where))
 
 	return stderr.String(), err
 }
@@ -95,11 +96,11 @@ func TestASlowCommandDrawsItsLiveLineAsItsLookAsks(t *testing.T) {
 
 			home := t.TempDir()
 			if tt.home != "" {
-				writeFile(t, home, tt.home)
+				clitest.WriteFile(t, home, tt.home)
 			}
 
 			// Act
-			stderr, _ := runWatchedAt(t, place{dir: dir, home: home}, args...)
+			stderr, _ := runWatchedAt(t, clitest.Place{Dir: dir, Home: home}, args...)
 
 			// Assert
 			shown := ansi.Strip(stderr)

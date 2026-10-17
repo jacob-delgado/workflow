@@ -13,6 +13,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 // webhook is a local incoming webhook over https that accepts every post, as
@@ -49,18 +51,18 @@ func TestAnnounceYesDeliversTheAnnouncement(t *testing.T) {
 
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, announcingConfig(webhook(t, &posts)))
+	clitest.WriteFile(t, repo, announcingConfig(webhook(t, &posts)))
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "announce", "--yes")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--yes")
 	// Assert
 	if err != nil {
 		t.Fatalf("announce --yes = %v, want the announcement delivered (%+v)", err, printed)
 	}
 
-	if posts.Load() != 1 || !strings.Contains(printed.stderr, "Announced to the channel its webhook is bound to.\n") {
+	if posts.Load() != 1 || !strings.Contains(printed.Stderr, "Announced to the channel its webhook is bound to.\n") {
 		t.Errorf("announce --yes posted %d times and said:\n%s\nwant one post, and that it was announced",
-			posts.Load(), printed.stderr)
+			posts.Load(), printed.Stderr)
 	}
 }
 
@@ -72,22 +74,22 @@ func TestAnnounceRemembersADeliveredAnnouncement(t *testing.T) {
 
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, announcingConfig(webhook(t, &posts)))
+	clitest.WriteFile(t, repo, announcingConfig(webhook(t, &posts)))
 
-	where := place{dir: repo, home: t.TempDir()}
+	where := clitest.Place{Dir: repo, Home: t.TempDir()}
 
-	_, err := runStreamsAt(t, where, unusedPrompt(t), "announce", "--yes")
+	_, err := clitest.RunStreamsAt(t, where, clitest.UnusedPrompt(t), "announce", "--yes")
 	if err != nil {
 		t.Fatalf("the first announce --yes = %v, want the announcement delivered", err)
 	}
 
 	// Act
-	printed, err := runStreamsAt(t, where, unusedPrompt(t), "announce", "--yes")
+	printed, err := clitest.RunStreamsAt(t, where, clitest.UnusedPrompt(t), "announce", "--yes")
 
 	// Assert
-	if err != nil || posts.Load() != 1 || !strings.Contains(printed.stderr, alreadyAnnounced) {
+	if err != nil || posts.Load() != 1 || !strings.Contains(printed.Stderr, alreadyAnnounced) {
 		t.Errorf("a second announce --yes = %v after %d posts, saying:\n%s\nwant the first remembered and none posted again",
-			err, posts.Load(), printed.stderr)
+			err, posts.Load(), printed.Stderr)
 	}
 }
 
@@ -98,10 +100,10 @@ func TestAnnounceRefusedForItsChannelSaysTheFixAndNoKey(t *testing.T) {
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	fakeSlack(t, map[string]slackAnswer{slackPostMessage: {http.StatusOK, `{"ok":false,"error":"not_in_channel"}`}})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, slackLoggedInConfig())
+	clitest.WriteFile(t, repo, slackLoggedInConfig())
 
 	// Act
-	_, err := run(t, repo, "announce", "--yes")
+	_, err := clitest.Run(t, repo, "announce", "--yes")
 
 	// Assert
 	// The error is what main prints on stderr: the fix, and no key to press,
@@ -121,13 +123,13 @@ func TestAnnounceDeliveredButNotRememberedSucceedsAndSaysSo(t *testing.T) {
 
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	repo := githubRepo(t, "fix/PROJ-2-thing")
-	writeFile(t, repo, announcingConfig(webhook(t, &posts)))
+	clitest.WriteFile(t, repo, announcingConfig(webhook(t, &posts)))
 
-	where := place{dir: repo, home: t.TempDir(), state: t.TempDir()}
-	writeStoreBlocker(t, where.state)
+	where := clitest.Place{Dir: repo, Home: t.TempDir(), State: t.TempDir()}
+	writeStoreBlocker(t, where.State)
 
 	// Act
-	printed, err := runStreamsAt(t, where, unusedPrompt(t), "announce", "--yes")
+	printed, err := clitest.RunStreamsAt(t, where, clitest.UnusedPrompt(t), "announce", "--yes")
 
 	// Assert
 	// The line saying where it went, then the sentence every surface says of
@@ -135,9 +137,9 @@ func TestAnnounceDeliveredButNotRememberedSucceedsAndSaysSo(t *testing.T) {
 	// made.
 	saidSo := regexp.MustCompile(`(?m)^Announced to .+\.\n` +
 		regexp.QuoteMeta("WARN Posted, but not remembered: it may be offered again. creating the store directory: "))
-	if err != nil || posts.Load() != 1 || !saidSo.MatchString(printed.stderr) {
+	if err != nil || posts.Load() != 1 || !saidSo.MatchString(printed.Stderr) {
 		t.Errorf("announce --yes = %v after %d posts, saying:\n%s\nwant the announcement made and the store's "+
-			"failure said", err, posts.Load(), printed.stderr)
+			"failure said", err, posts.Load(), printed.Stderr)
 	}
 }
 

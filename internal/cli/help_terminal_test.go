@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/ptytest"
 )
 
@@ -36,8 +37,8 @@ func TestHelpIsColoredOnATerminal(t *testing.T) {
 	}()
 
 	// Act
-	err := cli.Execute([]string{doctorCommand, "--help"}, terminal, io.Discard, unusedPrompt(t),
-		environmentFor(t, place{dir: t.TempDir(), home: t.TempDir()}))
+	err := cli.Execute([]string{doctorCommand, "--help"}, terminal, io.Discard, clitest.UnusedPrompt(t),
+		clitest.EnvironmentFor(t, clitest.Place{Dir: t.TempDir(), Home: t.TempDir()}))
 
 	// Assert
 	_ = terminal.Close()

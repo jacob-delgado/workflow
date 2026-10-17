@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/store"
 )
 
@@ -29,7 +30,7 @@ func keptLinks(t *testing.T) string {
 	t.Helper()
 
 	home := t.TempDir()
-	env := isolatedEnvironment(place{home: home})
+	env := clitest.IsolatedEnvironment(clitest.Place{Home: home})
 
 	dir, err := store.Dir(runtime.GOOS, home, func(name string) (string, bool) {
 		value, ok := env[name]
@@ -66,18 +67,20 @@ func TestAnnounceTagsNoOneWithoutAWorkspaceToReadLinksIn(t *testing.T) {
 	// workspace it is for, and links kept in any workspace are left alone.
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	repo := ownedRepo(t)
-	writeFile(t, repo, slackUserConfig)
+	clitest.WriteFile(t, repo, slackUserConfig)
 	home := keptLinks(t)
 
 	// Act
-	printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t), "announce", "--dry-run")
+	printed, err := clitest.RunStreamsAt(
+		t, clitest.Place{Dir: repo, Home: home}, clitest.UnusedPrompt(t), "announce", "--dry-run",
+	)
 	// Assert
 	if err != nil {
 		t.Fatalf("announce --dry-run: %v (%+v)", err, printed)
 	}
 
-	if strings.Contains(printed.stdout, "Ana") || strings.Contains(printed.stdout, "api-reviewers") {
-		t.Errorf("announce previewed %q, want no one tagged without a Slack workspace", printed.stdout)
+	if strings.Contains(printed.Stdout, "Ana") || strings.Contains(printed.Stdout, "api-reviewers") {
+		t.Errorf("announce previewed %q, want no one tagged without a Slack workspace", printed.Stdout)
 	}
 }
 
@@ -87,19 +90,21 @@ func TestAnnounceTagsNoOneThroughAWebhook(t *testing.T) {
 	// Arrange
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	repo := ownedRepo(t)
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
 		`"messaging":{"webhook_url":"https://hooks.slack.example/services/x","channel":"#dev"}}`)
 	home := keptLinks(t)
 
 	// Act
-	printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t), "announce", "--dry-run")
+	printed, err := clitest.RunStreamsAt(
+		t, clitest.Place{Dir: repo, Home: home}, clitest.UnusedPrompt(t), "announce", "--dry-run",
+	)
 	// Assert
 	if err != nil {
 		t.Fatalf("announce --dry-run: %v (%+v)", err, printed)
 	}
 
-	if strings.Contains(printed.stdout, "tags ") || strings.Contains(printed.stdout, "not tagged") {
-		t.Errorf("announce through a webhook previewed %q, want no tags", printed.stdout)
+	if strings.Contains(printed.Stdout, "tags ") || strings.Contains(printed.Stdout, "not tagged") {
+		t.Errorf("announce through a webhook previewed %q, want no tags", printed.Stdout)
 	}
 }
 
@@ -110,11 +115,13 @@ func TestAnnounceTagsTheOwnersAndGroupsLinkedInTheWorkspaceInUse(t *testing.T) {
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	slack := fakeSlack(t, nil)
 	repo := ownedRepo(t)
-	writeFile(t, repo, slackLoggedInConfig())
+	clitest.WriteFile(t, repo, slackLoggedInConfig())
 	home := keptLinks(t)
 
 	// Act
-	printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t), "announce", "--yes")
+	printed, err := clitest.RunStreamsAt(
+		t, clitest.Place{Dir: repo, Home: home}, clitest.UnusedPrompt(t), "announce", "--yes",
+	)
 	// Assert
 	if err != nil {
 		t.Fatalf("announce --yes: %v (%+v)", err, printed)
@@ -124,8 +131,8 @@ func TestAnnounceTagsTheOwnersAndGroupsLinkedInTheWorkspaceInUse(t *testing.T) {
 		"tags @Ana Souza @api-reviewers\n",
 		"not tagged: acme/control-plane (not linked — associate in People and groups)\n",
 	} {
-		if !strings.Contains(printed.stdout, line) {
-			t.Errorf("announce previewed %q, want the line %q", printed.stdout, line)
+		if !strings.Contains(printed.Stdout, line) {
+			t.Errorf("announce previewed %q, want the line %q", printed.Stdout, line)
 		}
 	}
 
@@ -143,20 +150,22 @@ func TestAnnounceTagsNoOneLinkedOnlyInAnotherWorkspace(t *testing.T) {
 		slackAuthTest: {http.StatusOK, `{"ok":true,"team":"Other","user":"ana","team_id":"T0OTHER"}`},
 	})
 	repo := ownedRepo(t)
-	writeFile(t, repo, slackLoggedInConfig())
+	clitest.WriteFile(t, repo, slackLoggedInConfig())
 	home := keptLinks(t)
 
 	// Act
-	printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t), "announce", "--dry-run")
+	printed, err := clitest.RunStreamsAt(
+		t, clitest.Place{Dir: repo, Home: home}, clitest.UnusedPrompt(t), "announce", "--dry-run",
+	)
 	// Assert
 	if err != nil {
 		t.Fatalf("announce --dry-run: %v (%+v)", err, printed)
 	}
 
-	if !strings.Contains(printed.stdout, "tags no one\n") ||
-		!strings.Contains(printed.stdout, "not tagged: ana (not linked") {
+	if !strings.Contains(printed.Stdout, "tags no one\n") ||
+		!strings.Contains(printed.Stdout, "not tagged: ana (not linked") {
 		t.Errorf("announce previewed %q, want ana, linked in another workspace, named as not linked here",
-			printed.stdout)
+			printed.Stdout)
 	}
 }
 
@@ -173,18 +182,20 @@ func TestAnnounceWithATokenMissingAScopePostsUntaggedAndNamesIt(t *testing.T) {
 			slack.grant(strings.ReplaceAll(taggingScopes, ","+scope, ""))
 
 			repo := ownedRepo(t)
-			writeFile(t, repo, slackLoggedInConfig())
+			clitest.WriteFile(t, repo, slackLoggedInConfig())
 			home := keptLinks(t)
 
 			// Act
-			printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t), "announce", "--yes")
+			printed, err := clitest.RunStreamsAt(
+				t, clitest.Place{Dir: repo, Home: home}, clitest.UnusedPrompt(t), "announce", "--yes",
+			)
 			// Assert
 			if err != nil {
 				t.Fatalf("announce --yes: %v (%+v)", err, printed)
 			}
 
-			if !strings.Contains(printed.stderr, "WARN Not tagging anyone: the Slack token lacks the "+scope+" scope") {
-				t.Errorf("announce said %q, want the missing %s scope named", printed.stderr, scope)
+			if !strings.Contains(printed.Stderr, "WARN Not tagging anyone: the Slack token lacks the "+scope+" scope") {
+				t.Errorf("announce said %q, want the missing %s scope named", printed.Stderr, scope)
 			}
 
 			if post := slack.post(t); !untagged(post) {
@@ -204,11 +215,13 @@ func TestAnnounceReadsNoDirectoryToTellItsScopes(t *testing.T) {
 	fakeGh(t, ghResponses{pulls: openPull("Add login")})
 	slack := fakeSlack(t, nil)
 	repo := ownedRepo(t)
-	writeFile(t, repo, slackLoggedInConfig())
+	clitest.WriteFile(t, repo, slackLoggedInConfig())
 	home := keptLinks(t)
 
 	// Act
-	printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t), "announce", "--yes")
+	printed, err := clitest.RunStreamsAt(
+		t, clitest.Place{Dir: repo, Home: home}, clitest.UnusedPrompt(t), "announce", "--yes",
+	)
 	// Assert
 	if err != nil {
 		t.Fatalf("announce --yes: %v (%+v)", err, printed)
@@ -258,20 +271,22 @@ func TestAnnounceWhenSlackCannotNameTheWorkspacePostsUntaggedAndSaysWhy(t *testi
 			fakeGh(t, ghResponses{pulls: openPull("Add login")})
 			slack := answering(t)
 			repo := ownedRepo(t)
-			writeFile(t, repo, slackLoggedInConfig())
+			clitest.WriteFile(t, repo, slackLoggedInConfig())
 			home := keptLinks(t)
 
 			// Act
-			printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t), "announce", "--yes")
+			printed, err := clitest.RunStreamsAt(
+				t, clitest.Place{Dir: repo, Home: home}, clitest.UnusedPrompt(t), "announce", "--yes",
+			)
 			// Assert
 			if err != nil {
 				t.Fatalf("announce --yes: %v (%+v)", err, printed)
 			}
 
-			if !strings.Contains(printed.stderr, "can't tell which Slack workspace this token is for") ||
-				!strings.Contains(printed.stderr, "posting untagged") {
+			if !strings.Contains(printed.Stderr, "can't tell which Slack workspace this token is for") ||
+				!strings.Contains(printed.Stderr, "posting untagged") {
 				t.Errorf("announce said %q, want the unknown workspace named and the post said to go untagged",
-					printed.stderr)
+					printed.Stderr)
 			}
 
 			if post := slack.post(t); !untagged(post) {
@@ -303,7 +318,7 @@ func releaseBranchRepo(t *testing.T) string {
 	commit(t, repo, "fix: guard the api")
 	git(t, repo, "remote", "add", "origin", "https://github.com/acme/repo.git")
 	pretendPushed(t, repo)
-	writeFile(t, repo, slackLoggedInConfig())
+	clitest.WriteFile(t, repo, slackLoggedInConfig())
 
 	return repo
 }
@@ -319,14 +334,16 @@ func TestAnnounceReadsTheOwnersAgainstThePullRequestsBase(t *testing.T) {
 	home := keptLinks(t)
 
 	// Act
-	printed, err := runStreamsAt(t, place{dir: repo, home: home}, unusedPrompt(t), "announce", "--dry-run")
+	printed, err := clitest.RunStreamsAt(
+		t, clitest.Place{Dir: repo, Home: home}, clitest.UnusedPrompt(t), "announce", "--dry-run",
+	)
 	// Assert
 	if err != nil {
 		t.Fatalf("announce --dry-run: %v (%+v)", err, printed)
 	}
 
-	if !strings.Contains(printed.stdout, "tags @Ana Souza") || strings.Contains(printed.stdout, "ben") {
+	if !strings.Contains(printed.Stdout, "tags @Ana Souza") || strings.Contains(printed.Stdout, "ben") {
 		t.Errorf("announce previewed %q, want ana tagged and ben, who owns only release's change, not named",
-			printed.stdout)
+			printed.Stdout)
 	}
 }

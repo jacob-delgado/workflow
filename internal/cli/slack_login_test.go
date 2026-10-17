@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/slackauth"
 	"github.com/jacob-delgado/workflow/internal/wiring"
@@ -56,14 +57,14 @@ func TestSlackLoginAsksForTheAppOnScreenAndItsSecretOffIt(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	path := writeFile(t, dir, slackUserTokenFile)
+	path := clitest.WriteFile(t, dir, slackUserTokenFile)
 
 	var askedLine, askedSecret []string
 
 	prompt := asking([]string{slackClientID}, nil, &askedLine, &askedSecret)
 
 	// Act
-	_, err := runGuided(t, dir, prompt, "slack", "login")
+	_, err := clitest.RunGuided(t, dir, prompt, "slack", "login")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "client secret") {
@@ -84,12 +85,12 @@ func TestSlackLoginStopsAtAnEmptyClientID(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	path := writeFile(t, dir, slackUserTokenFile)
+	path := clitest.WriteFile(t, dir, slackUserTokenFile)
 
 	var askedLine, askedSecret []string
 
 	// Act
-	_, err := runGuided(t, dir, asking(nil, nil, &askedLine, &askedSecret), "slack", "login")
+	_, err := clitest.RunGuided(t, dir, asking(nil, nil, &askedLine, &askedSecret), "slack", "login")
 
 	// Assert
 	if err == nil || len(askedSecret) != 0 {
@@ -105,10 +106,10 @@ func TestSlackLoginRefusesASlackPostingThroughAWebhook(t *testing.T) {
 	// Arrange
 	dir := t.TempDir()
 	contents := `{"messaging": {"kind": "slack", "webhook_url": "https://hooks.slack.example/services/not-real"}}`
-	path := writeFile(t, dir, contents)
+	path := clitest.WriteFile(t, dir, contents)
 
 	// Act
-	_, err := run(t, dir, "slack", "login")
+	_, err := clitest.Run(t, dir, "slack", "login")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "webhook_url") {
@@ -123,13 +124,13 @@ func TestSlackLoginUnderDryRunAsksAndWritesNothing(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	path := writeFile(t, dir, slackUserTokenFile)
+	path := clitest.WriteFile(t, dir, slackUserTokenFile)
 
 	// Act
-	printed, err := runStreams(t, dir, unusedPrompt(t), "slack", "login", "--dry-run")
+	printed, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "slack", "login", "--dry-run")
 
 	// Assert
-	if err != nil || !strings.Contains(printed.stderr, "dry run") || printed.stdout != "" {
+	if err != nil || !strings.Contains(printed.Stderr, "dry run") || printed.Stdout != "" {
 		t.Errorf("slack login --dry-run = %v, want it to say on stderr alone what it would do:\n%+v", err, printed)
 	}
 
@@ -143,7 +144,7 @@ func TestSlackLoginNeedsAConfigurationFile(t *testing.T) {
 	dir := t.TempDir()
 
 	// Act
-	_, err := run(t, dir, "slack", "login")
+	_, err := clitest.Run(t, dir, "slack", "login")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "config init") {
@@ -165,7 +166,7 @@ func TestSlackLoginKeepsWhatSlackGivesBackAndSaysWhoseItIs(t *testing.T) {
 	dir := t.TempDir()
 	// The file already keeps the app's secret, so the token is kept there on
 	// every system, never in the keychain of the machine the test runs on.
-	path := writeFile(t, dir, `{"messaging": {"kind": "slack", "client_id": "`+slackClientID+`",`+
+	path := clitest.WriteFile(t, dir, `{"messaging": {"kind": "slack", "client_id": "`+slackClientID+`",`+
 		` "client_secret": "client-secret-old", "channel": "#dev"}}`)
 
 	var askedLine, askedSecret []string
@@ -173,10 +174,10 @@ func TestSlackLoginKeepsWhatSlackGivesBackAndSaysWhoseItIs(t *testing.T) {
 	prompt := asking([]string{slackClientID}, typedLogin(), &askedLine, &askedSecret)
 
 	// Act
-	printed, err := runStreams(t, dir, prompt, "slack", "login")
+	printed, err := clitest.RunStreams(t, dir, prompt, "slack", "login")
 
 	// Assert
-	if err != nil || !strings.Contains(printed.stderr, "Logged in to Slack as ana in Acme.") || printed.stdout != "" {
+	if err != nil || !strings.Contains(printed.Stderr, "Logged in to Slack as ana in Acme.") || printed.Stdout != "" {
 		t.Fatalf("slack login = %v, want it to say on stderr alone whose the token is:\n%+v", err, printed)
 	}
 
@@ -207,12 +208,12 @@ func TestSlackLoginRefusalsExitInTheirFamily(t *testing.T) {
 		prompt   func(t *testing.T) cli.Prompt
 		want     int
 	}{
-		"no configuration file": {want: 3, prompt: unusedPrompt},
+		"no configuration file": {want: 3, prompt: clitest.UnusedPrompt},
 		"slack over a webhook": {
 			contents: `{"messaging": {"kind": "slack", "webhook_url": "https://hooks.slack.example/services/not-real"}}`,
-			want:     3, prompt: unusedPrompt,
+			want:     3, prompt: clitest.UnusedPrompt,
 		},
-		"another service": {contents: `{"messaging": {"kind": "teams"}}`, want: 3, prompt: unusedPrompt},
+		"another service": {contents: `{"messaging": {"kind": "teams"}}`, want: 3, prompt: clitest.UnusedPrompt},
 		"a blank client ID": {
 			contents: slackUserTokenFile, want: 2,
 			prompt: func(*testing.T) cli.Prompt { return asking(nil, nil, new([]string), new([]string)) },
@@ -226,11 +227,11 @@ func TestSlackLoginRefusalsExitInTheirFamily(t *testing.T) {
 			// Arrange
 			dir := t.TempDir()
 			if tt.contents != "" {
-				writeFile(t, dir, tt.contents)
+				clitest.WriteFile(t, dir, tt.contents)
 			}
 
 			// Act
-			_, err := runGuided(t, dir, tt.prompt(t), "slack", "login")
+			_, err := clitest.RunGuided(t, dir, tt.prompt(t), "slack", "login")
 
 			// Assert
 			wantExit(t, err, tt.want)
@@ -255,10 +256,10 @@ func TestSlackLoginWithNoTerminalSaysToRunItAtOne(t *testing.T) {
 
 			// Arrange
 			dir := t.TempDir()
-			path := writeFile(t, dir, slackUserTokenFile)
+			path := clitest.WriteFile(t, dir, slackUserTokenFile)
 
 			// Act
-			_, err := runGuided(t, dir, prompt, "slack", "login")
+			_, err := clitest.RunGuided(t, dir, prompt, "slack", "login")
 
 			// Assert
 			if err == nil || !strings.Contains(err.Error(), "at a terminal") {
@@ -282,12 +283,12 @@ func TestSlackLoginThatSlackRefusesLeavesTheFileAsItWas(t *testing.T) {
 	// from the keychain of the machine the test runs on.
 	contents := `{"messaging": {"kind": "slack", "client_id": "` + slackClientID + `",` +
 		` "client_secret": "client-secret-old", "channel": "#dev"}}`
-	path := writeFile(t, dir, contents)
+	path := clitest.WriteFile(t, dir, contents)
 
 	prompt := asking([]string{"9999.0000"}, typedLogin(), new([]string), new([]string))
 
 	// Act
-	_, err := runGuided(t, dir, prompt, "slack", "login")
+	_, err := clitest.RunGuided(t, dir, prompt, "slack", "login")
 
 	// Assert
 	unchanged(t, path, contents)
@@ -314,7 +315,7 @@ func slackRefreshing(t *testing.T, changed func()) {
 		_, _ = writer.Write([]byte(answer))
 	}))
 	t.Cleanup(server.Close)
-	setVariable(t, wiring.SlackAPIVariable, server.URL)
+	clitest.SetVariable(t, wiring.SlackAPIVariable, server.URL)
 }
 
 // breakFile writes what no configuration parses over the file at path.
@@ -339,11 +340,11 @@ func TestSlackLoginStopsWhenAnAnswerCannotBeRead(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	path := writeFile(t, dir, slackUserTokenFile)
+	path := clitest.WriteFile(t, dir, slackUserTokenFile)
 	broken := func(string) (string, error) { return "", errPromptBroke }
 
 	// Act
-	_, err := runGuided(t, dir, cli.Prompt{Line: broken, Secret: broken}, "slack", "login")
+	_, err := clitest.RunGuided(t, dir, cli.Prompt{Line: broken, Secret: broken}, "slack", "login")
 
 	// Assert
 	if !errors.Is(err, errPromptBroke) {
@@ -358,10 +359,10 @@ func TestSlackLoginWithAFileThatDoesNotParseAsksNothing(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	path := writeFile(t, dir, `{`)
+	path := clitest.WriteFile(t, dir, `{`)
 
 	// Act
-	_, err := runGuided(t, dir, unusedPrompt(t), "slack", "login")
+	_, err := clitest.RunGuided(t, dir, clitest.UnusedPrompt(t), "slack", "login")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), path) {
@@ -378,12 +379,12 @@ func TestSlackLoginThatCannotKeepThePairSaysSo(t *testing.T) {
 	// The file keeps the app's secret, so the pair is kept there; it stops
 	// parsing while Slack answers the refresh.
 	dir := t.TempDir()
-	path := writeFile(t, dir, `{"messaging": {"kind": "slack", "client_id": "`+slackClientID+`",`+
+	path := clitest.WriteFile(t, dir, `{"messaging": {"kind": "slack", "client_id": "`+slackClientID+`",`+
 		` "client_secret": "client-secret-old", "channel": "#dev"}}`)
 	slackRefreshing(t, breakFile(t, path))
 
 	// Act
-	_, err := runGuided(t, dir, loginTyped(), "slack", "login")
+	_, err := clitest.RunGuided(t, dir, loginTyped(), "slack", "login")
 
 	// Assert
 	if !errors.Is(err, slackauth.ErrNotKept) {
@@ -397,20 +398,20 @@ func TestSlackLoginThatCannotNameTheAppSaysSo(t *testing.T) {
 	// Arrange
 	// The pair is kept in the home file, and the repository's file, which
 	// the app is named in, stops parsing while Slack answers the refresh.
-	where := place{dir: t.TempDir(), home: t.TempDir()}
-	writeFile(t, where.home, `{}`)
-	path := writeFile(t, where.dir, slackUserTokenFile)
+	where := clitest.Place{Dir: t.TempDir(), Home: t.TempDir()}
+	clitest.WriteFile(t, where.Home, `{}`)
+	path := clitest.WriteFile(t, where.Dir, slackUserTokenFile)
 	slackRefreshing(t, breakFile(t, path))
 
 	// Act
-	_, err := runStreamsAt(t, where, loginTyped(), "slack", "login")
+	_, err := clitest.RunStreamsAt(t, where, loginTyped(), "slack", "login")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), path) {
 		t.Errorf("slack login = %v, want it to name the file it could not write the app into, %s", err, path)
 	}
 
-	held, readErr := os.ReadFile(filepath.Join(where.home, config.FileName))
+	held, readErr := os.ReadFile(filepath.Join(where.Home, config.FileName))
 	if readErr != nil || !strings.Contains(string(held), "xoxe-1-next") {
 		t.Errorf("the home file holds %q (%v), want the pair Slack gave back kept there", held, readErr)
 	}
@@ -426,20 +427,20 @@ func TestSlackLoginThatCannotWriteTheAppsNameSaysSo(t *testing.T) {
 
 	// The pair is kept in the home file; the repository's file, which the app
 	// is named in, sits in a directory nothing can be written in.
-	where := place{dir: t.TempDir(), home: t.TempDir()}
-	home := writeFile(t, where.home, `{}`)
-	path := writeFile(t, where.dir, slackUserTokenFile)
+	where := clitest.Place{Dir: t.TempDir(), Home: t.TempDir()}
+	home := clitest.WriteFile(t, where.Home, `{}`)
+	path := clitest.WriteFile(t, where.Dir, slackUserTokenFile)
 	slackRefreshing(t, func() {})
 
-	err := os.Chmod(where.dir, 0o500)
+	err := os.Chmod(where.Dir, 0o500)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	t.Cleanup(func() { _ = os.Chmod(where.dir, 0o700) })
+	t.Cleanup(func() { _ = os.Chmod(where.Dir, 0o700) })
 
 	// Act
-	_, err = runStreamsAt(t, where, loginTyped(), "slack", "login")
+	_, err = clitest.RunStreamsAt(t, where, loginTyped(), "slack", "login")
 
 	// Assert
 	if !errors.Is(err, fs.ErrPermission) || !strings.Contains(err.Error(), path) {
@@ -464,15 +465,15 @@ func TestSlackLoginWhoseTokenSlackThenRefusesSaysSoHavingKeptIt(t *testing.T) {
 	})
 
 	dir := t.TempDir()
-	path := writeFile(t, dir, `{"messaging": {"kind": "slack", "client_id": "`+slackClientID+`",`+
+	path := clitest.WriteFile(t, dir, `{"messaging": {"kind": "slack", "client_id": "`+slackClientID+`",`+
 		` "client_secret": "client-secret-old", "channel": "#dev"}}`)
 
 	// Act
-	printed, err := runStreams(t, dir, loginTyped(), "slack", "login")
+	printed, err := clitest.RunStreams(t, dir, loginTyped(), "slack", "login")
 
 	// Assert
-	if err == nil || !strings.Contains(err.Error(), "invalid_auth") || strings.Contains(printed.stderr, "Logged in") {
-		t.Errorf("slack login = %v, said %q; want Slack's refusal, not a login", err, printed.stderr)
+	if err == nil || !strings.Contains(err.Error(), "invalid_auth") || strings.Contains(printed.Stderr, "Logged in") {
+		t.Errorf("slack login = %v, said %q; want Slack's refusal, not a login", err, printed.Stderr)
 	}
 
 	held, readErr := os.ReadFile(path)

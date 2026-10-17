@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/config"
 )
 
@@ -24,11 +25,11 @@ const homeConfig = `{"jira": {"base_url": "https://jira.example.com", "token": "
 
 // homeAndRepository is a home directory holding homeConfig and a repository
 // beside it, with nothing in the repository yet.
-func homeAndRepository(t *testing.T) place {
+func homeAndRepository(t *testing.T) clitest.Place {
 	t.Helper()
 
 	home := t.TempDir()
-	writeFile(t, home, homeConfig)
+	clitest.WriteFile(t, home, homeConfig)
 
 	repo := t.TempDir()
 
@@ -37,7 +38,7 @@ func homeAndRepository(t *testing.T) place {
 		t.Fatalf("making the repository marker: %v", err)
 	}
 
-	return place{dir: repo, home: home}
+	return clitest.Place{Dir: repo, Home: home}
 }
 
 func TestConfigInitTemplateOverAHomeFileWritesAnEmptyLayer(t *testing.T) {
@@ -47,16 +48,16 @@ func TestConfigInitTemplateOverAHomeFileWritesAnEmptyLayer(t *testing.T) {
 	where := homeAndRepository(t)
 
 	// Act
-	printed, err := runStreamsAt(t, where, unusedPrompt(t), "config", "init", "--template")
+	printed, err := clitest.RunStreamsAt(t, where, clitest.UnusedPrompt(t), "config", "init", "--template")
 
 	// Assert
-	written, readErr := os.ReadFile(filepath.Join(where.dir, config.FileName))
+	written, readErr := os.ReadFile(filepath.Join(where.Dir, config.FileName))
 	if err != nil || readErr != nil || strings.TrimSpace(string(written)) != "{}" {
 		t.Fatalf("config init = %v; wrote %q (%v); want an empty layer", err, written, readErr)
 	}
 
-	if !strings.Contains(printed.stderr, filepath.Join(where.home, config.FileName)) {
-		t.Errorf("config init said:\n%s\nwant it to name the home file the layer lies over", printed.stderr)
+	if !strings.Contains(printed.Stderr, filepath.Join(where.Home, config.FileName)) {
+		t.Errorf("config init said:\n%s\nwant it to name the home file the layer lies over", printed.Stderr)
 	}
 }
 
@@ -67,13 +68,13 @@ func TestGuidedInitOverAHomeFileKeepsWhatWasLeftBlank(t *testing.T) {
 	where := homeAndRepository(t)
 
 	// Act
-	_, err := runStreamsAt(t, where, scripted([]string{""}, []string{""}), "config", "init")
+	_, err := clitest.RunStreamsAt(t, where, scripted([]string{""}, []string{""}), "config", "init")
 	// Assert
 	if err != nil {
 		t.Fatalf("config init: %v", err)
 	}
 
-	cfg, err := config.Load(where.dir, where.home)
+	cfg, err := config.Load(where.Dir, where.Home)
 	if err != nil || cfg.Jira.Token != "jira-token-home-1234" || cfg.Messaging.WebhookURL == "" {
 		t.Errorf("loaded %+v, %v; want the home file's Jira and webhook kept", cfg, err)
 	}
@@ -84,15 +85,15 @@ func TestConfigShowNamesEveryFileInEffect(t *testing.T) {
 
 	// Arrange
 	where := homeAndRepository(t)
-	writeFile(t, where.dir, `{"jira": {"project": "OSS"}}`)
+	clitest.WriteFile(t, where.Dir, `{"jira": {"project": "OSS"}}`)
 
 	// Act
-	printed, err := runStreamsAt(t, where, unusedPrompt(t), "config", "show")
+	printed, err := clitest.RunStreamsAt(t, where, clitest.UnusedPrompt(t), "config", "show")
 
 	// Assert
-	home, repo := filepath.Join(where.home, config.FileName), filepath.Join(where.dir, config.FileName)
-	if err != nil || !strings.Contains(printed.stderr, home) || !strings.Contains(printed.stderr, repo) {
-		t.Errorf("config show = %v, said:\n%s\nwant it to name %s and %s", err, printed.stderr, repo, home)
+	home, repo := filepath.Join(where.Home, config.FileName), filepath.Join(where.Dir, config.FileName)
+	if err != nil || !strings.Contains(printed.Stderr, home) || !strings.Contains(printed.Stderr, repo) {
+		t.Errorf("config show = %v, said:\n%s\nwant it to name %s and %s", err, printed.Stderr, repo, home)
 	}
 }
 
@@ -101,10 +102,10 @@ func TestDoctorNamesEveryFileInEffect(t *testing.T) {
 
 	// Arrange
 	where := homeAndRepository(t)
-	writeFile(t, where.dir, `{"jira": {"project": "OSS"}}`)
+	clitest.WriteFile(t, where.Dir, `{"jira": {"project": "OSS"}}`)
 
 	// Act
-	printed, _ := runStreamsAt(t, where, unusedPrompt(t), "doctor", "--json")
+	printed, _ := clitest.RunStreamsAt(t, where, clitest.UnusedPrompt(t), "doctor", "--json")
 
 	// Assert
 	var report struct {
@@ -114,9 +115,9 @@ func TestDoctorNamesEveryFileInEffect(t *testing.T) {
 		} `json:"configuration"`
 	}
 
-	err := json.Unmarshal([]byte(printed.stdout), &report)
+	err := json.Unmarshal([]byte(printed.Stdout), &report)
 
-	home, repo := filepath.Join(where.home, config.FileName), filepath.Join(where.dir, config.FileName)
+	home, repo := filepath.Join(where.Home, config.FileName), filepath.Join(where.Dir, config.FileName)
 	got := report.Configuration
 
 	if err != nil || got.Path != repo || !slices.Equal(got.Files, []string{home, repo}) {
@@ -134,7 +135,7 @@ func TestConfigInitForceOverAHomeFileReplacesTheRepositoryLayer(t *testing.T) {
 		{
 			name:    "template",
 			command: "config init --template --force",
-			prompt:  unusedPrompt,
+			prompt:  clitest.UnusedPrompt,
 		},
 		{
 			name:    "guided",
@@ -149,13 +150,13 @@ func TestConfigInitForceOverAHomeFileReplacesTheRepositoryLayer(t *testing.T) {
 
 			// Arrange
 			where := homeAndRepository(t)
-			writeFile(t, where.dir, `{"jira": {"project": "OSS"}}`)
+			clitest.WriteFile(t, where.Dir, `{"jira": {"project": "OSS"}}`)
 
 			// Act
-			_, err := runStreamsAt(t, where, testCase.prompt(t), strings.Fields(testCase.command)...)
+			_, err := clitest.RunStreamsAt(t, where, testCase.prompt(t), strings.Fields(testCase.command)...)
 
 			// Assert
-			cfg, loadErr := config.Load(where.dir, where.home)
+			cfg, loadErr := config.Load(where.Dir, where.Home)
 			if err != nil || loadErr != nil || cfg.Jira.Project != "" || cfg.Jira.Token != "jira-token-home-1234" {
 				t.Errorf("config init = %v; loaded project %q, %v; want the layer replaced over the home file",
 					err, cfg.Jira.Project, loadErr)
@@ -169,14 +170,14 @@ func TestConfigInitTemplateOverAHomeFileWarnsWhenTheLayerIsNotGitIgnored(t *test
 
 	// Arrange
 	where := homeAndRepository(t)
-	gitInit(t, where.dir)
+	gitInit(t, where.Dir)
 
 	// Act
-	printed, err := runStreamsAt(t, where, unusedPrompt(t), "config", "init", "--template")
+	printed, err := clitest.RunStreamsAt(t, where, clitest.UnusedPrompt(t), "config", "init", "--template")
 
 	// Assert
-	if err != nil || !strings.Contains(printed.stderr, "not ignored by git") {
-		t.Errorf("config init --template = %v, said:\n%s\nwant a git-ignore warning for the layer", err, printed.stderr)
+	if err != nil || !strings.Contains(printed.Stderr, "not ignored by git") {
+		t.Errorf("config init --template = %v, said:\n%s\nwant a git-ignore warning for the layer", err, printed.Stderr)
 	}
 }
 
@@ -196,18 +197,18 @@ func TestConfigInitOverAHomeFileThatDoesNotParseSaysSoAndWritesNothing(t *testin
 			// The repository's file would lie over the home file, which cannot
 			// be read for what it would lie over.
 			where := homeAndRepository(t)
-			writeFile(t, where.home, `{`)
+			clitest.WriteFile(t, where.Home, `{`)
 
 			// Act
-			_, err := runStreamsAt(t, where, unusedPrompt(t), args...)
+			_, err := clitest.RunStreamsAt(t, where, clitest.UnusedPrompt(t), args...)
 
 			// Assert
-			home := filepath.Join(where.home, config.FileName)
+			home := filepath.Join(where.Home, config.FileName)
 			if err == nil || !strings.Contains(err.Error(), home) {
 				t.Errorf("config init over an unreadable home file = %v, want it to name %s", err, home)
 			}
 
-			noConfigWritten(t, where.dir)
+			noConfigWritten(t, where.Dir)
 		})
 	}
 }
@@ -219,7 +220,7 @@ func TestConfigInitOverAHomeFileIntoADirectoryItCannotWriteSaysSo(t *testing.T) 
 		args   []string
 		prompt func(t *testing.T) cli.Prompt
 	}{
-		"the template": {args: strings.Fields("config init --template"), prompt: unusedPrompt},
+		"the template": {args: strings.Fields("config init --template"), prompt: clitest.UnusedPrompt},
 		"the guided setup, every prompt skipped": {
 			args:   strings.Fields("config init"),
 			prompt: func(*testing.T) cli.Prompt { return scripted([]string{""}, []string{""}) },
@@ -237,22 +238,22 @@ func TestConfigInitOverAHomeFileIntoADirectoryItCannotWriteSaysSo(t *testing.T) 
 
 			where := homeAndRepository(t)
 
-			err := os.Chmod(where.dir, 0o500)
+			err := os.Chmod(where.Dir, 0o500)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			t.Cleanup(func() { _ = os.Chmod(where.dir, 0o700) })
+			t.Cleanup(func() { _ = os.Chmod(where.Dir, 0o700) })
 
 			// Act
-			_, err = runStreamsAt(t, where, tt.prompt(t), tt.args...)
+			_, err = clitest.RunStreamsAt(t, where, tt.prompt(t), tt.args...)
 
 			// Assert
 			if !errors.Is(err, fs.ErrPermission) || !strings.Contains(err.Error(), config.FileName) {
 				t.Errorf("config init into a sealed directory = %v, want the file it could not write named", err)
 			}
 
-			noConfigWritten(t, where.dir)
+			noConfigWritten(t, where.Dir)
 		})
 	}
 }

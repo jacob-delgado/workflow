@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 func TestEveryCommandLeadsItsHelpWithExamples(t *testing.T) {
@@ -20,7 +21,7 @@ func TestEveryCommandLeadsItsHelpWithExamples(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			output, err := run(t, t.TempDir(), append(strings.Fields(path)[1:], "--help")...)
+			output, err := clitest.Run(t, t.TempDir(), append(strings.Fields(path)[1:], "--help")...)
 			// Assert
 			if err != nil {
 				t.Fatalf("%s --help: %v", path, err)
@@ -68,7 +69,7 @@ func TestASynopsisThatSaysFailsNamesTheExitStatus(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			output, err := run(t, t.TempDir(), strings.Fields(tt.args)...)
+			output, err := clitest.Run(t, t.TempDir(), strings.Fields(tt.args)...)
 
 			// Assert
 			if err != nil || !strings.Contains(output, tt.want) {

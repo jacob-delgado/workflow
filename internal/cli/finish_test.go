@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
@@ -29,7 +30,7 @@ func finishRepo(t *testing.T, pulls func(head string) string) string {
 
 	repo := githubRepo(t, finishedBranch)
 	fakeGh(t, ghResponses{pulls: pulls(headOf(t, repo))})
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	return repo
 }
@@ -130,7 +131,7 @@ func TestFinishDryRunPrintsTheThreeCommandsAndRunsNone(t *testing.T) {
 	repo := mergedFinishRepo(t)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "finish", "--dry-run")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "finish", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("finish --dry-run: %v (%+v)", err, printed)
@@ -142,14 +143,14 @@ func TestFinishDryRunPrintsTheThreeCommandsAndRunsNone(t *testing.T) {
 		"  git pull --ff-only -- origin main",
 		"  git branch -D -- " + finishedBranch,
 	} {
-		if !strings.Contains(printed.stdout, want) {
-			t.Errorf("stdout = %q, want %q", printed.stdout, want)
+		if !strings.Contains(printed.Stdout, want) {
+			t.Errorf("stdout = %q, want %q", printed.Stdout, want)
 		}
 	}
 
 	dryRun := "dry run: would finish " + finishedBranch + " (switch to main, pull it from origin, delete it)"
-	if !strings.Contains(printed.stderr, dryRun) {
-		t.Errorf("stderr = %q, want %q", printed.stderr, dryRun)
+	if !strings.Contains(printed.Stderr, dryRun) {
+		t.Errorf("stderr = %q, want %q", printed.Stderr, dryRun)
 	}
 
 	if current := currentBranch(t, repo); current != finishedBranch {
@@ -165,7 +166,7 @@ func TestFinishYesDeletesTheMergedBranch(t *testing.T) {
 	originOnDisk(t, repo)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "finish", "--yes")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "finish", "--yes")
 	// Assert
 	if err != nil {
 		t.Fatalf("finish --yes: %v (%+v)", err, printed)
@@ -179,8 +180,8 @@ func TestFinishYesDeletesTheMergedBranch(t *testing.T) {
 		t.Errorf("branches = %q, want %s deleted", listed, finishedBranch)
 	}
 
-	if want := "deleted " + finishedBranch; !strings.Contains(printed.stderr, want) {
-		t.Errorf("stderr = %q, want it to say %q", printed.stderr, want)
+	if want := "deleted " + finishedBranch; !strings.Contains(printed.Stderr, want) {
+		t.Errorf("stderr = %q, want it to say %q", printed.Stderr, want)
 	}
 }
 
@@ -193,7 +194,7 @@ func TestFinishAsksBeforeRunning(t *testing.T) {
 	var asked []string
 
 	// Act
-	printed, err := runStreams(t, repo, answering("n", &asked), "finish")
+	printed, err := clitest.RunStreams(t, repo, answering("n", &asked), "finish")
 	// Assert
 	if err != nil {
 		t.Fatalf("finish declined: %v (%+v)", err, printed)
@@ -204,8 +205,8 @@ func TestFinishAsksBeforeRunning(t *testing.T) {
 		t.Errorf("asked %q, want only %q", asked, want)
 	}
 
-	if !strings.Contains(printed.stderr, "Not finished.") {
-		t.Errorf("stderr = %q, want it to say it was not finished", printed.stderr)
+	if !strings.Contains(printed.Stderr, "Not finished.") {
+		t.Errorf("stderr = %q, want it to say it was not finished", printed.Stderr)
 	}
 
 	requireBranchKept(t, repo)
@@ -219,7 +220,7 @@ func TestFinishWithoutATerminalSaysToPassYes(t *testing.T) {
 	noTerminal := cli.Prompt{Line: func(string) (string, error) { return "", io.EOF }}
 
 	// Act
-	_, err := runStreams(t, repo, noTerminal, "finish")
+	_, err := clitest.RunStreams(t, repo, noTerminal, "finish")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "--yes") {
@@ -261,7 +262,7 @@ func TestFinishRefusesWhatCannotBeFinished(t *testing.T) {
 			}
 
 			// Act
-			_, err := runStreams(t, repo, unusedPrompt(t), "finish", "--yes")
+			_, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "finish", "--yes")
 
 			// Assert
 			if !errors.Is(err, tt.reason) || !strings.Contains(err.Error(), "cannot finish "+finishedBranch+": ") {
@@ -284,7 +285,7 @@ func TestFinishOnTheBaseAsksNoForge(t *testing.T) {
 	git(t, repo, "switch", "--quiet", "main")
 
 	// Act
-	_, err := runStreams(t, repo, unusedPrompt(t), "finish", "--yes")
+	_, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "finish", "--yes")
 
 	// Assert
 	if !errors.Is(err, loop.ErrNotOnFeatureBranch) || !strings.Contains(err.Error(), "cannot finish main") {
@@ -298,7 +299,7 @@ func TestFinishOutsideARepositoryRefuses(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	_, err := runStreams(t, t.TempDir(), unusedPrompt(t), "finish", "--yes")
+	_, err := clitest.RunStreams(t, t.TempDir(), clitest.UnusedPrompt(t), "finish", "--yes")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "reading the branch") {
@@ -314,10 +315,10 @@ func TestFinishSaysWhyThePullRequestCouldNotBeRead(t *testing.T) {
 	// Arrange
 	// A feature branch with no origin: the forge has no repository to read.
 	repo := prRepo(t, finishedBranch)
-	writeFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
 
 	// Act
-	_, err := runStreams(t, repo, unusedPrompt(t), "finish", "--yes")
+	_, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "finish", "--yes")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "reading the pull request of "+finishedBranch) {
@@ -336,7 +337,7 @@ func TestFinishKeepsGitsWordsWhenAStepFails(t *testing.T) {
 	divergedBase(t, repo)
 
 	// Act
-	_, err := runStreams(t, repo, unusedPrompt(t), "finish", "--yes")
+	_, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "finish", "--yes")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "finishing "+finishedBranch+": git pull --ff-only") ||
@@ -357,11 +358,11 @@ func TestFinishNamesAMergeRequestInGitLabsWords(t *testing.T) {
 		`"sha":"`+headOf(t, repo)+`"}]`)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "finish", "--dry-run")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "finish", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("finish --dry-run on GitLab: %v (%+v)", err, printed)
 	}
 
-	requireGitLabWords(t, printed.stdout, "Finish "+finishedBranch+": !7 merged")
+	requireGitLabWords(t, printed.Stdout, "Finish "+finishedBranch+": !7 merged")
 }

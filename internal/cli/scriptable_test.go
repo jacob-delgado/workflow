@@ -7,12 +7,12 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 )
@@ -27,7 +27,7 @@ func TestBranchCommandNeedsATracker(t *testing.T) {
 	// With no Jira configured the forge's issues are the tracker, and with no
 	// repository there is no remote to name the forge, so there is no tracker to
 	// read issue 1 from.
-	_, err := run(t, t.TempDir(), "branch", "1")
+	_, err := clitest.Run(t, t.TempDir(), "branch", "1")
 
 	// Assert
 	if !errors.Is(err, forge.ErrNotARemote) {
@@ -42,7 +42,7 @@ func TestPRCommandReadsTheBranch(t *testing.T) {
 
 	// Act
 	// Outside a repository there is no branch to open a pull request for.
-	_, err := run(t, t.TempDir(), "pr")
+	_, err := clitest.Run(t, t.TempDir(), "pr")
 
 	// Assert
 	if !errors.Is(err, gitrepo.ErrNotARepository) {
@@ -56,7 +56,7 @@ func TestAnnounceCommandNeedsMessaging(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	_, err := run(t, t.TempDir(), "announce")
+	_, err := clitest.Run(t, t.TempDir(), "announce")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "messaging") {
@@ -70,21 +70,21 @@ func TestDeclineNoticeGoesToStderr(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := jiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, issueFixture("PROJ-7", "Bug", "login"), new(atomic.Bool))
 	repo := repoForBranch(t, server.URL)
 
 	// Act
-	printed, err := runStreams(t, repo, scripted([]string{"n"}, nil), "branch", "PROJ-7")
+	printed, err := clitest.RunStreams(t, repo, scripted([]string{"n"}, nil), "branch", "PROJ-7")
 	if err != nil {
 		t.Fatalf("branch: %v (%+v)", err, printed)
 	}
 
 	// Assert
 	// The preview is the artifact a script reads; the decline is said about it.
-	if !strings.Contains(printed.stdout, "Start work on PROJ-7: create fix/PROJ-7-login") ||
-		!strings.Contains(printed.stderr, "Not created.") || strings.Contains(printed.stdout, "Not created.") {
+	if !strings.Contains(printed.Stdout, "Start work on PROJ-7: create fix/PROJ-7-login") ||
+		!strings.Contains(printed.Stderr, "Not created.") || strings.Contains(printed.Stdout, "Not created.") {
 		t.Errorf("the preview or the decline is on the wrong stream:\nstdout:\n%s\nstderr:\n%s",
-			printed.stdout, printed.stderr)
+			printed.Stdout, printed.Stderr)
 	}
 }
 
@@ -95,16 +95,16 @@ func TestDryRunLineGoesToStderr(t *testing.T) {
 	repo := prRepo(t, "fix/PROJ-2-thing")
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--dry-run")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--dry-run")
 	if err != nil {
 		t.Fatalf("pr --dry-run: %v (%+v)", err, printed)
 	}
 
 	// Assert
-	if !strings.HasPrefix(printed.stdout, "Open ") || !strings.Contains(printed.stdout, "fix/PROJ-2-thing → main") ||
-		!strings.Contains(printed.stderr, "dry run: would") || strings.Contains(printed.stdout, "dry run:") {
+	if !strings.HasPrefix(printed.Stdout, "Open ") || !strings.Contains(printed.Stdout, "fix/PROJ-2-thing → main") ||
+		!strings.Contains(printed.Stderr, "dry run: would") || strings.Contains(printed.Stdout, "dry run:") {
 		t.Errorf("the preview or the dry-run line is on the wrong stream:\nstdout:\n%s\nstderr:\n%s",
-			printed.stdout, printed.stderr)
+			printed.Stdout, printed.Stderr)
 	}
 }
 
@@ -117,7 +117,7 @@ func TestConfirmWithoutATerminalNamesYes(t *testing.T) {
 	closed := cli.Prompt{Line: func(string) (string, error) { return "", io.EOF }}
 
 	// Act
-	_, err := runGuided(t, repo, closed, "pr")
+	_, err := clitest.RunGuided(t, repo, closed, "pr")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "pass --yes") {
@@ -134,7 +134,7 @@ func TestConfigInitSaysWhatItWroteOnStderr(t *testing.T) {
 	dir := t.TempDir()
 
 	// Act
-	printed, err := runStreams(t, dir, unusedPrompt(t), "config", "init", "--template")
+	printed, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "config", "init", "--template")
 	if err != nil {
 		t.Fatalf("config init --template: %v (%+v)", err, printed)
 	}
@@ -142,21 +142,10 @@ func TestConfigInitSaysWhatItWroteOnStderr(t *testing.T) {
 	// Assert
 	// The artifact of config init is the file; what it says about the file,
 	// and what to do next, is commentary.
-	if printed.stdout != "" || !strings.Contains(printed.stderr, "Wrote ") || !strings.Contains(printed.stderr, "Next:") {
+	if printed.Stdout != "" || !strings.Contains(printed.Stderr, "Wrote ") || !strings.Contains(printed.Stderr, "Next:") {
 		t.Errorf("config init put its notices on the wrong stream:\nstdout:\n%s\nstderr:\n%s",
-			printed.stdout, printed.stderr)
+			printed.Stdout, printed.Stderr)
 	}
-}
-
-// searchFixture is the Jira body for a search of the issues assigned to you.
-func searchFixture(keys ...string) string {
-	issues := make([]string, 0, len(keys))
-	for _, key := range keys {
-		issues = append(issues, `{"key":"`+key+`","fields":{"summary":"x",`+
-			`"issuetype":{"name":"Bug"},"status":{"name":"To Do","statusCategory":{"key":"new"}}}}`)
-	}
-
-	return `{"total":` + strconv.Itoa(len(keys)) + `,"issues":[` + strings.Join(issues, ",") + `]}`
 }
 
 // completeBranch runs the shell-completion hook for `workflow branch <toComplete>`
@@ -164,7 +153,7 @@ func searchFixture(keys ...string) string {
 func completeBranch(t *testing.T, dir, toComplete string) string {
 	t.Helper()
 
-	output, err := run(t, dir, "__complete", "branch", toComplete)
+	output, err := clitest.Run(t, dir, "__complete", "branch", toComplete)
 	if err != nil {
 		t.Fatalf("__complete branch %q: %v (%s)", toComplete, err, output)
 	}
@@ -176,9 +165,9 @@ func TestBranchCompletionOffersAssignedIssues(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := jiraServer(t, http.StatusOK, searchFixture("PROJ-7", "PROJ-8"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, clitest.SearchFixture("PROJ-7", "PROJ-8"), new(atomic.Bool))
 	dir := t.TempDir()
-	writeConfigFor(t, dir, server.URL)
+	clitest.WriteConfigFor(t, dir, server.URL)
 
 	// Act
 	output := completeBranch(t, dir, "")
@@ -193,9 +182,9 @@ func TestBranchCompletionFiltersByPrefix(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	server := jiraServer(t, http.StatusOK, searchFixture("PROJ-7", "TASK-3"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusOK, clitest.SearchFixture("PROJ-7", "TASK-3"), new(atomic.Bool))
 	dir := t.TempDir()
-	writeConfigFor(t, dir, server.URL)
+	clitest.WriteConfigFor(t, dir, server.URL)
 
 	// Act
 	output := completeBranch(t, dir, "PROJ")
@@ -215,9 +204,9 @@ func TestBranchCompletionOffersNothingWhenTheTrackerCannotBeReached(t *testing.T
 
 	// Arrange
 	// The tracker would have keys to offer, but every request fails.
-	server := jiraServer(t, http.StatusInternalServerError, searchFixture("PROJ-7"), new(atomic.Bool))
+	server := clitest.JiraServer(t, http.StatusInternalServerError, clitest.SearchFixture("PROJ-7"), new(atomic.Bool))
 	dir := t.TempDir()
-	writeConfigFor(t, dir, server.URL)
+	clitest.WriteConfigFor(t, dir, server.URL)
 
 	// Act
 	output := completeBranch(t, dir, "")

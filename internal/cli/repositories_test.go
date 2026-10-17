@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 // repositoriesReport is what `workflow repositories --json` prints, as far as
@@ -70,13 +72,13 @@ func TestRepositoriesAsJSONListsTheWorktrees(t *testing.T) {
 	repo, second := repoWithWorktree(t)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "repositories", "--json")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "repositories", "--json")
 	// Assert
 	if err != nil {
 		t.Fatalf("repositories --json: %v (%+v)", err, printed)
 	}
 
-	report := decodeRepositories(t, printed.stdout)
+	report := decodeRepositories(t, printed.Stdout)
 	if report.Here.Dir != repo || report.Here.Root != repo {
 		t.Errorf("here = %+v, want %s, the repository's root", report.Here, repo)
 	}
@@ -94,13 +96,13 @@ func TestRepositoriesAsJSONSaysFavoritesCanBeKept(t *testing.T) {
 	repo, _ := repoWithWorktree(t)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "repositories", "--json")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "repositories", "--json")
 	// Assert
 	if err != nil {
 		t.Fatalf("repositories --json: %v (%+v)", err, printed)
 	}
 
-	report := decodeRepositories(t, printed.stdout)
+	report := decodeRepositories(t, printed.Stdout)
 	if report.Favorites == nil || len(report.Favorites) != 0 || !report.FavoritesKept {
 		t.Errorf("favorites = %v, kept %v; want an empty list a store keeps", report.Favorites, report.FavoritesKept)
 	}
@@ -113,17 +115,17 @@ func TestRepositoriesListsWhereItWorks(t *testing.T) {
 	repo, second := repoWithWorktree(t)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "repositories")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "repositories")
 	// Assert
 	if err != nil {
 		t.Fatalf("repositories: %v (%+v)", err, printed)
 	}
 
-	lines := strings.Split(strings.TrimSpace(printed.stdout), "\n")
+	lines := strings.Split(strings.TrimSpace(printed.Stdout), "\n")
 	if len(lines) != 3 || !strings.HasPrefix(lines[0], "here") || !strings.Contains(lines[0], repo) ||
 		!strings.HasPrefix(lines[2], "worktree") || !strings.Contains(lines[2], second) ||
 		!strings.Contains(lines[2], "other") {
-		t.Errorf("repositories printed:\n%s\nwant where it works, then each worktree with its branch", printed.stdout)
+		t.Errorf("repositories printed:\n%s\nwant where it works, then each worktree with its branch", printed.Stdout)
 	}
 }
 
@@ -134,16 +136,16 @@ func TestRepositoriesOutsideARepositoryHasNoWorktrees(t *testing.T) {
 	dir := t.TempDir()
 
 	// Act
-	printed, err := runStreams(t, dir, unusedPrompt(t), "repositories", "--json")
+	printed, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "repositories", "--json")
 	// Assert
 	if err != nil {
 		t.Fatalf("repositories --json: %v (%+v)", err, printed)
 	}
 
-	report := decodeRepositories(t, printed.stdout)
+	report := decodeRepositories(t, printed.Stdout)
 	if report.Worktrees == nil || len(report.Worktrees) != 0 || report.Here.Root != "" {
 		t.Errorf("outside a repository repositories --json printed:\n%s\nwant no root and an empty worktree list",
-			printed.stdout)
+			printed.Stdout)
 	}
 }
 
@@ -156,16 +158,16 @@ func TestRepositoriesNotesADetachedLockedWorktree(t *testing.T) {
 	git(t, repo, "worktree", "lock", second)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "repositories")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "repositories")
 	// Assert
 	if err != nil {
 		t.Fatalf("repositories: %v (%+v)", err, printed)
 	}
 
-	lines := strings.Split(strings.TrimSpace(printed.stdout), "\n")
+	lines := strings.Split(strings.TrimSpace(printed.Stdout), "\n")
 	if len(lines) != 3 || !strings.Contains(lines[2], second) || !strings.Contains(lines[2], "(detached)") ||
 		!strings.HasSuffix(lines[2], "locked") {
-		t.Errorf("repositories printed:\n%s\nwant the second worktree detached and locked", printed.stdout)
+		t.Errorf("repositories printed:\n%s\nwant the second worktree detached and locked", printed.Stdout)
 	}
 }
 
@@ -186,16 +188,16 @@ func TestRepositoriesSaysFavoritesAreNotKept(t *testing.T) {
 
 			// Arrange
 			repo, _ := repoWithWorktree(t)
-			writeFile(t, repo, tt.config)
+			clitest.WriteFile(t, repo, tt.config)
 
 			// Act
-			printed, err := runStreams(t, repo, unusedPrompt(t), tt.args...)
+			printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), tt.args...)
 			// Assert
 			if err != nil {
 				t.Fatalf("repositories: %v (%+v)", err, printed)
 			}
 
-			if report := decodeRepositories(t, printed.stdout); report.FavoritesKept {
+			if report := decodeRepositories(t, printed.Stdout); report.FavoritesKept {
 				t.Errorf("favorites_kept = true, want false %s", name)
 			}
 		})
@@ -207,20 +209,20 @@ func TestRepositoriesWithAConfigurationItCannotReadFails(t *testing.T) {
 
 	// Arrange
 	repo, _ := repoWithWorktree(t)
-	writeFile(t, repo, `{`)
+	clitest.WriteFile(t, repo, `{`)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "repositories", "--json")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "repositories", "--json")
 
 	// Assert
-	if err == nil || printed.stdout != "" {
-		t.Errorf("repositories = %v, printed %q; want an error and nothing printed", err, printed.stdout)
+	if err == nil || printed.Stdout != "" {
+		t.Errorf("repositories = %v, printed %q; want an error and nothing printed", err, printed.Stdout)
 	}
 }
 
 // unreadableFavorites is a repository run from a home whose favorites are
 // kept in a file that is not a database.
-func unreadableFavorites(t *testing.T) place {
+func unreadableFavorites(t *testing.T) clitest.Place {
 	t.Helper()
 
 	repo, _ := repoWithWorktree(t)
@@ -237,7 +239,7 @@ func unreadableFavorites(t *testing.T) place {
 		t.Fatal(err)
 	}
 
-	return place{dir: repo, home: home}
+	return clitest.Place{Dir: repo, Home: home}
 }
 
 func TestRepositoriesWithFavoritesItCannotReadListsTheRestAndFails(t *testing.T) {
@@ -247,15 +249,15 @@ func TestRepositoriesWithFavoritesItCannotReadListsTheRestAndFails(t *testing.T)
 	where := unreadableFavorites(t)
 
 	// Act
-	printed, err := runStreamsAt(t, where, unusedPrompt(t), "repositories")
+	printed, err := clitest.RunStreamsAt(t, where, clitest.UnusedPrompt(t), "repositories")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "reading your favorites") {
 		t.Errorf("repositories = %v, want it to say the favorites could not be read", err)
 	}
 
-	if !strings.HasPrefix(printed.stdout, "here") || !strings.Contains(printed.stdout, where.dir) {
-		t.Errorf("repositories printed:\n%s\nwant where it works listed all the same", printed.stdout)
+	if !strings.HasPrefix(printed.Stdout, "here") || !strings.Contains(printed.Stdout, where.Dir) {
+		t.Errorf("repositories printed:\n%s\nwant where it works listed all the same", printed.Stdout)
 	}
 }
 
@@ -266,14 +268,14 @@ func TestRepositoriesAsJSONWithFavoritesItCannotReadPrintsTheRestAndFails(t *tes
 	where := unreadableFavorites(t)
 
 	// Act
-	printed, err := runStreamsAt(t, where, unusedPrompt(t), "repositories", "--json")
+	printed, err := clitest.RunStreamsAt(t, where, clitest.UnusedPrompt(t), "repositories", "--json")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "reading your favorites") {
 		t.Errorf("repositories --json = %v, want it to say the favorites could not be read", err)
 	}
 
-	if report := decodeRepositories(t, printed.stdout); report.Here.Dir != where.dir {
-		t.Errorf("repositories --json printed:\n%s\nwant where it works all the same", printed.stdout)
+	if report := decodeRepositories(t, printed.Stdout); report.Here.Dir != where.Dir {
+		t.Errorf("repositories --json printed:\n%s\nwant where it works all the same", printed.Stdout)
 	}
 }

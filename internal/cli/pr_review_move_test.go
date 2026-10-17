@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 func TestPRReportsAFailedMove(t *testing.T) {
@@ -32,7 +34,7 @@ func TestPRReportsAFailedMove(t *testing.T) {
 				jiraAnswers{link: tt.link, transition: http.StatusInternalServerError})
 
 			// Act
-			_, err := runStreams(t, repo, unusedPrompt(t), "pr", "--yes")
+			_, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes")
 
 			// Assert
 			wantExit(t, err, 1)
@@ -53,7 +55,7 @@ func TestPRMovesTheIssueToTheReviewStatus(t *testing.T) {
 	repo, applied := reviewRepo(t, reviewMoves)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "pr", "--yes")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr --yes: %v (%+v)", err, printed)
@@ -61,10 +63,10 @@ func TestPRMovesTheIssueToTheReviewStatus(t *testing.T) {
 
 	// What was opened is the artifact; the move that follows is said about it.
 	moved := "Moved PROJ-2 to " + statusInReview
-	if !strings.Contains(printed.stdout, "Opened #7") ||
-		!strings.Contains(printed.stderr, moved) || strings.Contains(printed.stdout, moved) {
+	if !strings.Contains(printed.Stdout, "Opened #7") ||
+		!strings.Contains(printed.Stderr, moved) || strings.Contains(printed.Stdout, moved) {
 		t.Errorf("pr did not open on stdout and move the issue on stderr:\nstdout:\n%s\nstderr:\n%s",
-			printed.stdout, printed.stderr)
+			printed.Stdout, printed.Stderr)
 	}
 
 	// The offer is chosen by the destination status name, so the In Review
@@ -83,17 +85,17 @@ func TestPRLeavesTheIssueWhenTheReviewMoveIsDeclined(t *testing.T) {
 
 	// Act
 	// Yes to opening the pull request and to linking it, no to moving the issue.
-	printed, err := runStreams(t, repo, scripted([]string{"y", "y", "n"}, nil), "pr")
+	printed, err := clitest.RunStreams(t, repo, scripted([]string{"y", "y", "n"}, nil), "pr")
 	// Assert
 	if err != nil {
 		t.Fatalf("pr: %v (%+v)", err, printed)
 	}
 
 	const left = "Left PROJ-2 as it is."
-	if !strings.Contains(printed.stdout, "Opened #7") ||
-		!strings.Contains(printed.stderr, left) || strings.Contains(printed.stdout, left) {
+	if !strings.Contains(printed.Stdout, "Opened #7") ||
+		!strings.Contains(printed.Stderr, left) || strings.Contains(printed.Stdout, left) {
 		t.Errorf("pr did not open on stdout and leave the issue on stderr:\nstdout:\n%s\nstderr:\n%s",
-			printed.stdout, printed.stderr)
+			printed.Stdout, printed.Stderr)
 	}
 
 	if applied.applied() != 0 {
@@ -126,7 +128,7 @@ func TestPRDoesNotMoveToAReviewStatusItCannotComplete(t *testing.T) {
 			repo, applied := reviewRepo(t, transitions)
 
 			// Act
-			output, err := run(t, repo, "pr", "--yes")
+			output, err := clitest.Run(t, repo, "pr", "--yes")
 			// Assert
 			if err != nil {
 				t.Fatalf("pr --yes: %v (%s)", err, output)

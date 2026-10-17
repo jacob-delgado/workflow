@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 func TestStatusCountsNoChangesItCannotRead(t *testing.T) {
@@ -31,7 +33,7 @@ func TestStatusCountsNoChangesItCannotRead(t *testing.T) {
 	}
 
 	// Act
-	output, err := run(t, repo, "status")
+	output, err := clitest.Run(t, repo, "status")
 
 	// Assert
 	// The line still comes, with the commit stage not started rather than in

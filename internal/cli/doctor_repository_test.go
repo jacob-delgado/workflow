@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/gittest"
 )
 
@@ -19,7 +20,8 @@ func gitInit(t *testing.T, dir string) {
 }
 
 // git runs one git command in dir, failing the test if it does not succeed. The
-// developer's own git configuration is kept out, as run keeps it out of doctor.
+// developer's own git configuration is kept out, as clitest.Run keeps it out
+// of doctor.
 func git(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	gittest.Run(t, dir, args...)
@@ -38,7 +40,7 @@ func TestDoctorReportsTheRepositoryItIsIn(t *testing.T) {
 	}
 
 	// Act
-	output, err := run(t, dir, "doctor")
+	output, err := clitest.Run(t, dir, "doctor")
 
 	// Assert
 	// The configuration is absent, so doctor exits non-zero. The repository
@@ -67,7 +69,7 @@ func TestDoctorReportsADirectoryOutsideAnyRepository(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	output, _ := run(t, t.TempDir(), "doctor")
+	output, _ := clitest.Run(t, t.TempDir(), "doctor")
 
 	// Assert
 	if got := fieldValue(output, "Repository"); !strings.Contains(got, "not in a git work tree") {
@@ -88,7 +90,7 @@ func TestDoctorReportsADetachedHead(t *testing.T) {
 	git(t, dir, "-c", "advice.detachedHead=false", "checkout", "--quiet", "--detach", "HEAD")
 
 	// Act
-	output, _ := run(t, dir, "doctor")
+	output, _ := clitest.Run(t, dir, "doctor")
 
 	// Assert
 	if got := fieldValue(output, "Branch"); !strings.Contains(got, "detached HEAD") {
@@ -156,7 +158,7 @@ func TestDoctorNamesTheForgeAndItsAPI(t *testing.T) {
 			dir := repoWithRemote(t, tt.remote)
 
 			// Act
-			output, _ := run(t, dir, "doctor")
+			output, _ := clitest.Run(t, dir, "doctor")
 
 			// Assert
 			if got := fieldValue(output, "Forge"); got != tt.want {
@@ -178,7 +180,7 @@ func TestDoctorSaysWhenThereIsNoRemote(t *testing.T) {
 	gitInit(t, dir)
 
 	// Act
-	output, _ := run(t, dir, "doctor")
+	output, _ := clitest.Run(t, dir, "doctor")
 
 	// Assert
 	if got := fieldValue(output, "Forge"); got != "(no remote)" {

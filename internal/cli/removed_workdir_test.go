@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 // workdirUnread is what a command says when it cannot name the directory it was
@@ -32,17 +33,17 @@ var errDirectoryGone = errors.New("getwd: no such file or directory")
 
 // runFromARemovedDirectory runs the command tree from a working directory that
 // cannot be named. The home is the test's, for a configuration put there first.
-func runFromARemovedDirectory(t *testing.T, home string, args ...string) (streams, error) {
+func runFromARemovedDirectory(t *testing.T, home string, args ...string) (clitest.Streams, error) {
 	t.Helper()
 
-	env := environmentFor(t, place{dir: t.TempDir(), home: home})
+	env := clitest.EnvironmentFor(t, clitest.Place{Dir: t.TempDir(), Home: home})
 	env.WorkingDir = func() (string, error) { return "", errDirectoryGone }
 
 	var stdout, stderr bytes.Buffer
 
-	err := cli.Execute(args, &stdout, &stderr, unusedPrompt(t), env)
+	err := cli.Execute(args, &stdout, &stderr, clitest.UnusedPrompt(t), env)
 
-	return streams{stdout: stdout.String(), stderr: stderr.String()}, err
+	return clitest.Streams{Stdout: stdout.String(), Stderr: stderr.String()}, err
 }
 
 func TestACommandFromARemovedDirectorySaysItCannotNameIt(t *testing.T) {
@@ -95,9 +96,9 @@ func TestDoctorFromARemovedDirectoryStillReports(t *testing.T) {
 	// Assert
 	// doctor is what someone runs to find out what is wrong, so the report still
 	// comes, naming the directory it could not read in place of a repository.
-	got := fieldValue(printed.stdout, "Repository")
+	got := fieldValue(printed.Stdout, "Repository")
 	if !strings.HasPrefix(got, "(none — "+workdirUnread) {
-		t.Errorf("Repository = %q, want it to say the working directory cannot be named:\n%s", got, printed.stdout)
+		t.Errorf("Repository = %q, want it to say the working directory cannot be named:\n%s", got, printed.Stdout)
 	}
 
 	if err == nil || !strings.Contains(err.Error(), workdirUnread) {
@@ -112,7 +113,7 @@ func TestDoctorJSONFromARemovedDirectoryReportsNoWorkTree(t *testing.T) {
 	printed, err := runFromARemovedDirectory(t, t.TempDir(), "doctor", "--json")
 
 	// Assert
-	report := decodeReport(t, printed.stdout)
+	report := decodeReport(t, printed.Stdout)
 
 	repository, ok := report["repository"].(map[string]any)
 	if !ok || repository["inside_work_tree"] != false {
@@ -137,7 +138,7 @@ func TestDoctorReportsOnTheOneReadingOfItsDirectory(t *testing.T) {
 	// The directory is removed once doctor has read it: every section reports
 	// on that one reading, so none of them finds it gone.
 	dir := t.TempDir()
-	env := environmentFor(t, place{dir: dir, home: t.TempDir()})
+	env := clitest.EnvironmentFor(t, clitest.Place{Dir: dir, Home: t.TempDir()})
 
 	var reads atomic.Int32
 
@@ -152,7 +153,7 @@ func TestDoctorReportsOnTheOneReadingOfItsDirectory(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 
 	// Act
-	err := cli.Execute([]string{doctorCommand}, &stdout, &stderr, unusedPrompt(t), env)
+	err := cli.Execute([]string{doctorCommand}, &stdout, &stderr, clitest.UnusedPrompt(t), env)
 
 	// Assert
 	want := "(none — " + dir + " is not in a git work tree)"
@@ -172,8 +173,8 @@ func TestBranchCompletionFromARemovedDirectoryOffersNothing(t *testing.T) {
 	// The home's configuration names a tracker with an issue to offer, but with
 	// no directory to start from, completion looks for nothing.
 	home := t.TempDir()
-	server := jiraServer(t, http.StatusOK, searchFixture("PROJ-7"), new(atomic.Bool))
-	writeConfigFor(t, home, server.URL)
+	server := clitest.JiraServer(t, http.StatusOK, clitest.SearchFixture("PROJ-7"), new(atomic.Bool))
+	clitest.WriteConfigFor(t, home, server.URL)
 
 	// Act
 	printed, err := runFromARemovedDirectory(t, home, "__complete", "branch", "")
@@ -181,9 +182,9 @@ func TestBranchCompletionFromARemovedDirectoryOffersNothing(t *testing.T) {
 	// Assert
 	// A failure would spill into the shell; the shell is told only that there is
 	// nothing to offer, not even a file name.
-	if err != nil || printed.stdout != ":4\n" {
+	if err != nil || printed.Stdout != ":4\n" {
 		t.Errorf("completion from a removed directory = %v, offering %q; want nothing offered and no failure",
-			err, printed.stdout)
+			err, printed.Stdout)
 	}
 }
 
@@ -204,7 +205,7 @@ func TestACommandReadsTheDirectoryItWasRunFromOnce(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			env := environmentFor(t, place{dir: t.TempDir(), home: t.TempDir()})
+			env := clitest.EnvironmentFor(t, clitest.Place{Dir: t.TempDir(), Home: t.TempDir()})
 			read := env.WorkingDir
 
 			var reads atomic.Int32
@@ -218,7 +219,7 @@ func TestACommandReadsTheDirectoryItWasRunFromOnce(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 
 			// Act
-			_ = cli.Execute(args, &stdout, &stderr, unusedPrompt(t), env)
+			_ = cli.Execute(args, &stdout, &stderr, clitest.UnusedPrompt(t), env)
 
 			// Assert
 			if got := reads.Load(); got != 1 {

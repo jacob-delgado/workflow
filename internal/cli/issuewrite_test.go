@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 // trackerDir is a directory configured for a fresh trackerJira answering
@@ -17,7 +19,7 @@ func trackerDir(t *testing.T, answers trackerAnswers) (string, *trackerAsked) {
 
 	baseURL, asked := trackerJira(t, answers)
 	dir := t.TempDir()
-	writeFile(t, dir, trackerConfig(baseURL, ""))
+	clitest.WriteFile(t, dir, trackerConfig(baseURL, ""))
 
 	return dir, asked
 }
@@ -29,7 +31,9 @@ func TestTransitionAppliesAFieldlessMove(t *testing.T) {
 	dir, asked := trackerDir(t, trackerAnswers{})
 
 	// Act
-	printed, err := runStreams(t, dir, unusedPrompt(t), "transition", trackedIssue, statusInReview, "--yes")
+	printed, err := clitest.RunStreams(
+		t, dir, clitest.UnusedPrompt(t), "transition", trackedIssue, statusInReview, "--yes",
+	)
 	// Assert
 	if err != nil {
 		t.Fatalf("transition --yes: %v (%+v)", err, printed)
@@ -39,9 +43,9 @@ func TestTransitionAppliesAFieldlessMove(t *testing.T) {
 		t.Errorf("applied %d, last sent %q; want transition 31 once", asked.applied(), asked.sentBody())
 	}
 
-	if !strings.Contains(printed.stdout, "Move PROJ-7 to In Review (Start Review)") ||
-		!strings.Contains(printed.stderr, "Moved PROJ-7 to In Review.") {
-		t.Errorf("transition previewed or reported wrongly:\nstdout:\n%s\nstderr:\n%s", printed.stdout, printed.stderr)
+	if !strings.Contains(printed.Stdout, "Move PROJ-7 to In Review (Start Review)") ||
+		!strings.Contains(printed.Stderr, "Moved PROJ-7 to In Review.") {
+		t.Errorf("transition previewed or reported wrongly:\nstdout:\n%s\nstderr:\n%s", printed.Stdout, printed.Stderr)
 	}
 }
 
@@ -52,7 +56,7 @@ func TestTransitionMatchesTheStatusWhateverItsCase(t *testing.T) {
 	dir, asked := trackerDir(t, trackerAnswers{})
 
 	// Act
-	_, err := runStreams(t, dir, unusedPrompt(t), "transition", trackedIssue, "in REVIEW", "--yes")
+	_, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "transition", trackedIssue, "in REVIEW", "--yes")
 
 	// Assert
 	if err != nil || asked.applied() != 1 || !strings.Contains(asked.sentBody(), `"id":"31"`) {
@@ -67,7 +71,9 @@ func TestTransitionTrimsTheStatus(t *testing.T) {
 	dir, asked := trackerDir(t, trackerAnswers{})
 
 	// Act
-	_, err := runStreams(t, dir, unusedPrompt(t), "transition", trackedIssue, "  "+statusInReview+" ", "--yes")
+	_, err := clitest.RunStreams(
+		t, dir, clitest.UnusedPrompt(t), "transition", trackedIssue, "  "+statusInReview+" ", "--yes",
+	)
 
 	// Assert
 	if err != nil || asked.applied() != 1 || !strings.Contains(asked.sentBody(), `"id":"31"`) {
@@ -80,12 +86,12 @@ func TestTransitionRefusesABlankStatusBeforeAskingJira(t *testing.T) {
 
 	// Arrange
 	reached := new(atomic.Bool)
-	server := jiraServer(t, http.StatusOK, trackerMoves, reached)
+	server := clitest.JiraServer(t, http.StatusOK, trackerMoves, reached)
 	dir := t.TempDir()
-	writeFile(t, dir, trackerConfig(server.URL, ""))
+	clitest.WriteFile(t, dir, trackerConfig(server.URL, ""))
 
 	// Act
-	_, err := runStreams(t, dir, unusedPrompt(t), "transition", trackedIssue, "  ", "--yes")
+	_, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "transition", trackedIssue, "  ", "--yes")
 
 	// Assert
 	wantExit(t, err, 2)
@@ -102,7 +108,7 @@ func TestTransitionRefusesAMoveThatNeedsFieldsNamingThem(t *testing.T) {
 	dir, asked := trackerDir(t, trackerAnswers{})
 
 	// Act
-	_, err := runStreams(t, dir, unusedPrompt(t), "transition", trackedIssue, "Done", "--yes")
+	_, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "transition", trackedIssue, "Done", "--yes")
 
 	// Assert
 	wantExit(t, err, 4)
@@ -120,7 +126,7 @@ func TestTransitionRefusesAStatusNotOfferedNamingThoseThatAre(t *testing.T) {
 	dir, asked := trackerDir(t, trackerAnswers{})
 
 	// Act
-	_, err := runStreams(t, dir, unusedPrompt(t), "transition", trackedIssue, "Blocked", "--yes")
+	_, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "transition", trackedIssue, "Blocked", "--yes")
 
 	// Assert
 	wantExit(t, err, 4)
@@ -139,13 +145,13 @@ func TestTransitionAsksBeforeMoving(t *testing.T) {
 	var questions []string
 
 	// Act
-	printed, err := runStreams(t, dir, answering("n", &questions), "transition", trackedIssue, statusInReview)
+	printed, err := clitest.RunStreams(t, dir, answering("n", &questions), "transition", trackedIssue, statusInReview)
 
 	// Assert
 	if err != nil || len(questions) != 1 || !strings.HasPrefix(questions[0], "Move PROJ-7 to In Review?") ||
-		!strings.Contains(printed.stderr, "Left PROJ-7 as it is.") || asked.applied() != 0 {
+		!strings.Contains(printed.Stderr, "Left PROJ-7 as it is.") || asked.applied() != 0 {
 		t.Errorf("transition = %v, asked %q, said %q, applied %d; want one question, declined, nothing moved",
-			err, questions, printed.stderr, asked.applied())
+			err, questions, printed.Stderr, asked.applied())
 	}
 }
 
@@ -156,12 +162,14 @@ func TestTransitionDryRunMovesNothing(t *testing.T) {
 	dir, asked := trackerDir(t, trackerAnswers{})
 
 	// Act
-	printed, err := runStreams(t, dir, unusedPrompt(t), "transition", trackedIssue, statusInReview, "--dry-run")
+	printed, err := clitest.RunStreams(
+		t, dir, clitest.UnusedPrompt(t), "transition", trackedIssue, statusInReview, "--dry-run",
+	)
 
 	// Assert
-	if err != nil || !strings.Contains(printed.stderr, "dry run: would move PROJ-7 to In Review") ||
+	if err != nil || !strings.Contains(printed.Stderr, "dry run: would move PROJ-7 to In Review") ||
 		asked.applied() != 0 {
-		t.Errorf("transition --dry-run = %v, said %q, applied %d", err, printed.stderr, asked.applied())
+		t.Errorf("transition --dry-run = %v, said %q, applied %d", err, printed.Stderr, asked.applied())
 	}
 }
 
@@ -172,7 +180,7 @@ func TestTransitionSaysWhatJiraRefused(t *testing.T) {
 	dir, _ := trackerDir(t, trackerAnswers{writeCode: http.StatusBadRequest})
 
 	// Act
-	_, err := runStreams(t, dir, unusedPrompt(t), "transition", trackedIssue, statusInReview, "--yes")
+	_, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "transition", trackedIssue, statusInReview, "--yes")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "moving PROJ-7 to In Review") {
@@ -187,7 +195,7 @@ func TestTransitionSaysWhyTheMovesCouldNotBeRead(t *testing.T) {
 	dir, asked := trackerDir(t, trackerAnswers{movesCode: http.StatusInternalServerError})
 
 	// Act
-	_, err := runStreams(t, dir, unusedPrompt(t), "transition", trackedIssue, statusInReview, "--yes")
+	_, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "transition", trackedIssue, statusInReview, "--yes")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "reading the transitions of PROJ-7") || asked.applied() != 0 {
@@ -202,7 +210,7 @@ func TestAssignSetsTheAssignee(t *testing.T) {
 	dir, asked := trackerDir(t, trackerAnswers{})
 
 	// Act
-	printed, err := runStreams(t, dir, unusedPrompt(t), "assign", trackedIssue, "bo", "--yes")
+	printed, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "assign", trackedIssue, "bo", "--yes")
 	// Assert
 	if err != nil {
 		t.Fatalf("assign --yes: %v (%+v)", err, printed)
@@ -213,9 +221,9 @@ func TestAssignSetsTheAssignee(t *testing.T) {
 		t.Errorf("assignments = %+v, want PROJ-7 assigned to bo once", assigned)
 	}
 
-	if !strings.Contains(printed.stdout, "Assign PROJ-7 to bo") ||
-		!strings.Contains(printed.stderr, "Assigned PROJ-7 to bo.") {
-		t.Errorf("assign previewed or reported wrongly:\nstdout:\n%s\nstderr:\n%s", printed.stdout, printed.stderr)
+	if !strings.Contains(printed.Stdout, "Assign PROJ-7 to bo") ||
+		!strings.Contains(printed.Stderr, "Assigned PROJ-7 to bo.") {
+		t.Errorf("assign previewed or reported wrongly:\nstdout:\n%s\nstderr:\n%s", printed.Stdout, printed.Stderr)
 	}
 }
 
@@ -226,7 +234,7 @@ func TestAssignRefusesABlankUsername(t *testing.T) {
 	dir, asked := trackerDir(t, trackerAnswers{})
 
 	// Act
-	_, err := runStreams(t, dir, unusedPrompt(t), "assign", trackedIssue, "  ", "--yes")
+	_, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "assign", trackedIssue, "  ", "--yes")
 
 	// Assert
 	wantExit(t, err, 2)
@@ -245,13 +253,13 @@ func TestAssignAsksBeforeAssigning(t *testing.T) {
 	var questions []string
 
 	// Act
-	printed, err := runStreams(t, dir, answering("n", &questions), "assign", trackedIssue, "bo")
+	printed, err := clitest.RunStreams(t, dir, answering("n", &questions), "assign", trackedIssue, "bo")
 
 	// Assert
 	if err != nil || len(questions) != 1 || !strings.HasPrefix(questions[0], "Assign PROJ-7 to bo?") ||
-		!strings.Contains(printed.stderr, "Not assigned.") || len(asked.of(writeAssign)) != 0 {
+		!strings.Contains(printed.Stderr, "Not assigned.") || len(asked.of(writeAssign)) != 0 {
 		t.Errorf("assign = %v, asked %q, said %q; want one question, declined, nothing assigned",
-			err, questions, printed.stderr)
+			err, questions, printed.Stderr)
 	}
 }
 
@@ -262,7 +270,7 @@ func TestAssignSaysWhatJiraRefused(t *testing.T) {
 	dir, _ := trackerDir(t, trackerAnswers{writeCode: http.StatusBadRequest})
 
 	// Act
-	_, err := runStreams(t, dir, unusedPrompt(t), "assign", trackedIssue, "bo", "--yes")
+	_, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "assign", trackedIssue, "bo", "--yes")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "assigning PROJ-7 to bo") {
@@ -277,12 +285,12 @@ func TestAssignDryRunAssignsNothing(t *testing.T) {
 	dir, asked := trackerDir(t, trackerAnswers{})
 
 	// Act
-	printed, err := runStreams(t, dir, unusedPrompt(t), "assign", trackedIssue, "bo", "--dry-run")
+	printed, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "assign", trackedIssue, "bo", "--dry-run")
 
 	// Assert
-	if err != nil || !strings.Contains(printed.stderr, "dry run: would assign PROJ-7 to bo") ||
+	if err != nil || !strings.Contains(printed.Stderr, "dry run: would assign PROJ-7 to bo") ||
 		len(asked.of(writeAssign)) != 0 {
-		t.Errorf("assign --dry-run = %v, said %q, assigned %+v", err, printed.stderr, asked.of(writeAssign))
+		t.Errorf("assign --dry-run = %v, said %q, assigned %+v", err, printed.Stderr, asked.of(writeAssign))
 	}
 }
 
@@ -293,7 +301,7 @@ func TestWorklogLogsTheDurationWithItsNote(t *testing.T) {
 	dir, asked := trackerDir(t, trackerAnswers{})
 
 	// Act
-	printed, err := runStreams(t, dir, unusedPrompt(t),
+	printed, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t),
 		"worklog", trackedIssue, "2h", "--comment", "pairing", "--yes")
 	// Assert
 	if err != nil {
@@ -306,9 +314,9 @@ func TestWorklogLogsTheDurationWithItsNote(t *testing.T) {
 		t.Errorf("worklogs = %+v, want 2h with its note, once", logged)
 	}
 
-	if !strings.Contains(printed.stdout, "Log 2h on PROJ-7\n  pairing") ||
-		!strings.Contains(printed.stderr, "Logged 2h on PROJ-7.") {
-		t.Errorf("worklog previewed or reported wrongly:\nstdout:\n%s\nstderr:\n%s", printed.stdout, printed.stderr)
+	if !strings.Contains(printed.Stdout, "Log 2h on PROJ-7\n  pairing") ||
+		!strings.Contains(printed.Stderr, "Logged 2h on PROJ-7.") {
+		t.Errorf("worklog previewed or reported wrongly:\nstdout:\n%s\nstderr:\n%s", printed.Stdout, printed.Stderr)
 	}
 }
 
@@ -331,7 +339,7 @@ func TestWorklogRefusesWhatCannotBeLogged(t *testing.T) {
 			dir, asked := trackerDir(t, trackerAnswers{})
 
 			// Act
-			_, err := runStreams(t, dir, unusedPrompt(t), "worklog", tt.issueKey, tt.spent, "--yes")
+			_, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "worklog", tt.issueKey, tt.spent, "--yes")
 
 			// Assert
 			wantExit(t, err, 2)
@@ -348,10 +356,10 @@ func TestWorklogWithoutJiraSaysToSetItUp(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	writeFile(t, dir, `{}`)
+	clitest.WriteFile(t, dir, `{}`)
 
 	// Act
-	_, err := runStreams(t, dir, unusedPrompt(t), "worklog", trackedIssue, "1h", "--yes")
+	_, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "worklog", trackedIssue, "1h", "--yes")
 
 	// Assert
 	wantExit(t, err, 3)
@@ -368,7 +376,7 @@ func TestWorklogSaysWhatJiraRefused(t *testing.T) {
 	dir, _ := trackerDir(t, trackerAnswers{writeCode: http.StatusBadRequest})
 
 	// Act
-	_, err := runStreams(t, dir, unusedPrompt(t), "worklog", trackedIssue, "2h", "--yes")
+	_, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "worklog", trackedIssue, "2h", "--yes")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "logging 2h on PROJ-7") {
@@ -383,11 +391,11 @@ func TestWorklogDryRunLogsNothing(t *testing.T) {
 	dir, asked := trackerDir(t, trackerAnswers{})
 
 	// Act
-	printed, err := runStreams(t, dir, unusedPrompt(t), "worklog", trackedIssue, "2h", "--dry-run")
+	printed, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "worklog", trackedIssue, "2h", "--dry-run")
 
 	// Assert
-	if err != nil || !strings.Contains(printed.stderr, "dry run: would log 2h on PROJ-7") ||
+	if err != nil || !strings.Contains(printed.Stderr, "dry run: would log 2h on PROJ-7") ||
 		len(asked.of(writeWorklog)) != 0 {
-		t.Errorf("worklog --dry-run = %v, said %q, logged %+v", err, printed.stderr, asked.of(writeWorklog))
+		t.Errorf("worklog --dry-run = %v, said %q, logged %+v", err, printed.Stderr, asked.of(writeWorklog))
 	}
 }

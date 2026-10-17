@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
@@ -35,13 +36,13 @@ type rootServing struct {
 func serveRoot(t *testing.T, base string, args ...string) rootServing {
 	t.Helper()
 
-	env := environmentFor(t, place{dir: t.TempDir(), home: t.TempDir()})
+	env := clitest.EnvironmentFor(t, clitest.Place{Dir: t.TempDir(), Home: t.TempDir()})
 
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	notes := &sharedNotes{}
-	root := cli.NewRootCmdOver(unusedPrompt(t), tui.Run, cli.WebServerAt, env)
+	root := cli.NewRootCmdOver(clitest.UnusedPrompt(t), tui.Run, cli.WebServerAt, env)
 	root.SetArgs(args)
 	root.SetOut(io.Discard)
 	root.SetErr(notes)

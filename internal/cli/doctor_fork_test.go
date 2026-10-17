@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 // doctorRepository is the repository section of doctor --json, as a script
@@ -32,7 +34,7 @@ func TestDoctorNamesTheBaseRemoteOfAFork(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	output, _ := run(t, forkClone(t), "doctor")
+	output, _ := clitest.Run(t, forkClone(t), "doctor")
 
 	// Assert
 	if got := fieldValue(output, "Base remote"); got != "upstream (https://github.com/owner/repo.git)" {
@@ -48,8 +50,8 @@ func TestDoctorJSONNamesTheBaseRemoteOfAFork(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	printed, _ := runStreams(t, forkClone(t), unusedPrompt(t), "doctor", "--json")
-	output := printed.stdout
+	printed, _ := clitest.RunStreams(t, forkClone(t), clitest.UnusedPrompt(t), "doctor", "--json")
+	output := printed.Stdout
 
 	// Assert
 	var report doctorRepository
@@ -70,8 +72,8 @@ func TestDoctorJSONNamesNoBaseOutsideAFork(t *testing.T) {
 	git(t, dir, "remote", "add", "origin", "https://github.com/owner/repo.git")
 
 	// Act
-	printed, _ := runStreams(t, dir, unusedPrompt(t), "doctor", "--json")
-	output := printed.stdout
+	printed, _ := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "doctor", "--json")
+	output := printed.Stdout
 
 	// Assert
 	var report doctorRepository

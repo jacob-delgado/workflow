@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/forge"
 )
 
@@ -44,7 +45,7 @@ func reviewsRepo(t *testing.T) string {
 	t.Helper()
 
 	repo := githubRepo(t, "work")
-	writeFile(t, repo, reviewsForgeConfig)
+	clitest.WriteFile(t, repo, reviewsForgeConfig)
 
 	return repo
 }
@@ -54,7 +55,7 @@ func TestReviewsWithoutAForgeReportsSo(t *testing.T) {
 
 	// Act
 	// No repository, so no remote names a forge.
-	_, err := run(t, t.TempDir(), "reviews")
+	_, err := clitest.Run(t, t.TempDir(), "reviews")
 
 	// Assert
 	if !errors.Is(err, forge.ErrNotARemote) {
@@ -72,7 +73,7 @@ func TestReviewsOnAHostThatNamesNoForgeReportsSo(t *testing.T) {
 	repo := repoWithRemote(t, onPremisesRemote)
 
 	// Act
-	_, err := run(t, repo, "reviews")
+	_, err := clitest.Run(t, repo, "reviews")
 
 	// Assert
 	if !errors.Is(err, forge.ErrUnknownForge) {
@@ -92,7 +93,7 @@ func TestReviewsShowsTheAuthorRepositoryCIAndAge(t *testing.T) {
 	repo := reviewsRepo(t)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "reviews")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "reviews")
 	if err != nil {
 		t.Fatalf("reviews: %v (%+v)", err, printed)
 	}
@@ -102,13 +103,13 @@ func TestReviewsShowsTheAuthorRepositoryCIAndAge(t *testing.T) {
 	// paying a request per entry to learn it.
 	wants := []string{"fix: token", "(grp/proj)", "by ben", "CI none", "2d", "https://github.com/ex/repo/pull/7"}
 	for _, want := range wants {
-		if !strings.Contains(printed.stdout, want) {
-			t.Errorf("the review line on stdout is missing %q:\n%s", want, printed.stdout)
+		if !strings.Contains(printed.Stdout, want) {
+			t.Errorf("the review line on stdout is missing %q:\n%s", want, printed.Stdout)
 		}
 	}
 
-	if printed.stderr != "" {
-		t.Errorf("reviews said something beside its lines:\n%s", printed.stderr)
+	if printed.Stderr != "" {
+		t.Errorf("reviews said something beside its lines:\n%s", printed.Stderr)
 	}
 }
 
@@ -122,7 +123,7 @@ func TestReviewsOmitsAnUnknownRepository(t *testing.T) {
 	repo := reviewsRepo(t)
 
 	// Act
-	output, err := run(t, repo, "reviews")
+	output, err := clitest.Run(t, repo, "reviews")
 	if err != nil {
 		t.Fatalf("reviews: %v (%s)", err, output)
 	}
@@ -142,7 +143,7 @@ func TestReviewsWithNothingWaitingSaysSo(t *testing.T) {
 	repo := reviewsRepo(t)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "reviews")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "reviews")
 	if err != nil {
 		t.Fatalf("reviews: %v (%+v)", err, printed)
 	}
@@ -150,9 +151,9 @@ func TestReviewsWithNothingWaitingSaysSo(t *testing.T) {
 	// Assert
 	// An empty queue has no lines to read; saying so is commentary, so a script
 	// counting the lines on stdout counts none.
-	if !strings.Contains(printed.stderr, "No pull requests are waiting on your review.") || printed.stdout != "" {
+	if !strings.Contains(printed.Stderr, "No pull requests are waiting on your review.") || printed.Stdout != "" {
 		t.Errorf("an empty queue was not reported on stderr alone:\nstdout:\n%s\nstderr:\n%s",
-			printed.stdout, printed.stderr)
+			printed.Stdout, printed.Stderr)
 	}
 }
 
@@ -165,7 +166,7 @@ func TestReviewsReportsAForgeFailure(t *testing.T) {
 	repo := reviewsRepo(t)
 
 	// Act
-	_, err := run(t, repo, "reviews")
+	_, err := clitest.Run(t, repo, "reviews")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "review requests") {
@@ -189,7 +190,7 @@ func TestReviewsAsJSONReportsEachOldestFirstWithWhenItWasOpened(t *testing.T) {
 	repo := reviewsRepo(t)
 
 	// Act
-	printed, err := runStreams(t, repo, unusedPrompt(t), "reviews", "--json")
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "reviews", "--json")
 	if err != nil {
 		t.Fatalf("reviews --json: %v (%+v)", err, printed)
 	}
@@ -197,13 +198,13 @@ func TestReviewsAsJSONReportsEachOldestFirstWithWhenItWasOpened(t *testing.T) {
 	// Assert
 	var requests []api.ReviewRequest
 
-	decoder := json.NewDecoder(strings.NewReader(printed.stdout))
+	decoder := json.NewDecoder(strings.NewReader(printed.Stdout))
 	decoder.DisallowUnknownFields()
 
 	err = decoder.Decode(&requests)
-	if err != nil || printed.stderr != "" {
+	if err != nil || printed.Stderr != "" {
 		t.Fatalf("stdout is not GET /api/reviews's requests alone: %v\nstdout:\n%s\nstderr:\n%s",
-			err, printed.stdout, printed.stderr)
+			err, printed.Stdout, printed.Stderr)
 	}
 
 	if len(requests) != 3 || requests[0].Number != 10 || requests[0].Ci != api.CIStateNone {
@@ -255,12 +256,12 @@ func TestReviewsSortsAsAsked(t *testing.T) {
 			}
 
 			// Act
-			printed, err := runStreams(t, repo, unusedPrompt(t), args...)
+			printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), args...)
 
 			// Assert
-			lines := strings.Split(strings.TrimSpace(printed.stdout), "\n")
+			lines := strings.Split(strings.TrimSpace(printed.Stdout), "\n")
 			if err != nil || len(lines) != len(tt.want) {
-				t.Fatalf("reviews = %v, printed:\n%s", err, printed.stdout)
+				t.Fatalf("reviews = %v, printed:\n%s", err, printed.Stdout)
 			}
 
 			for index, want := range tt.want {
@@ -280,7 +281,7 @@ func TestReviewsRefusesASortItDoesNotKnow(t *testing.T) {
 	repo := reviewsRepo(t)
 
 	// Act
-	_, err := run(t, repo, "reviews", "--sort", "loudest")
+	_, err := clitest.Run(t, repo, "reviews", "--sort", "loudest")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "oldest, newest or repo") {

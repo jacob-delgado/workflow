@@ -23,6 +23,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/seams"
@@ -165,9 +166,11 @@ func quittingRoot(t *testing.T, run cli.RunInterface, timeout string, said io.Wr
 	t.Helper()
 
 	dir := t.TempDir()
-	writeFile(t, dir, `{"timing":{"request_timeout":"`+timeout+`"}}`)
+	clitest.WriteFile(t, dir, `{"timing":{"request_timeout":"`+timeout+`"}}`)
 
-	root := cli.NewRootCmdOver(unusedPrompt(t), run, nil, environmentFor(t, place{dir: dir, home: t.TempDir()}))
+	root := cli.NewRootCmdOver(
+		clitest.UnusedPrompt(t), run, nil, clitest.EnvironmentFor(t, clitest.Place{Dir: dir, Home: t.TempDir()}),
+	)
 	root.SetArgs([]string{})
 	root.SetIn(strings.NewReader(""))
 	root.SetOut(io.Discard)
@@ -444,8 +447,8 @@ func TestAQuitWaitsForTheWritesSentBeforeASwitch(t *testing.T) {
 
 		return next, err
 	}
-	env := environmentFor(t, place{dir: start, home: t.TempDir()})
-	root := cli.NewRootCmdOver(unusedPrompt(t), switchingOnce, nil, env)
+	env := clitest.EnvironmentFor(t, clitest.Place{Dir: start, Home: t.TempDir()})
+	root := cli.NewRootCmdOver(clitest.UnusedPrompt(t), switchingOnce, nil, env)
 	root.SetArgs([]string{})
 	root.SetIn(strings.NewReader(""))
 	root.SetOut(io.Discard)

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/store"
 )
 
@@ -24,7 +25,7 @@ import (
 func storeDirIn(t *testing.T, home string) string {
 	t.Helper()
 
-	env := isolatedEnvironment(place{home: home})
+	env := clitest.IsolatedEnvironment(clitest.Place{Home: home})
 
 	dir, err := store.Dir(runtime.GOOS, home, func(name string) (string, bool) {
 		value, ok := env[name]
@@ -40,7 +41,7 @@ func storeDirIn(t *testing.T, home string) string {
 
 // storedHome is a home whose store holds a scope in its cache and a
 // repository's group in its kept file, and the store's directory.
-func storedHome(t *testing.T) (place, string) {
+func storedHome(t *testing.T) (clitest.Place, string) {
 	t.Helper()
 
 	home := t.TempDir()
@@ -58,7 +59,7 @@ func storedHome(t *testing.T) (place, string) {
 		t.Fatalf("seeding the kept file: %v", err)
 	}
 
-	return place{dir: t.TempDir(), home: home}, dir
+	return clitest.Place{Dir: t.TempDir(), Home: home}, dir
 }
 
 // present reports whether name is in the store directory dir.
@@ -75,20 +76,20 @@ func TestDBCleanListsWhatEachFileHolds(t *testing.T) {
 	where, dir := storedHome(t)
 
 	// Act
-	printed, err := runStreamsAt(t, where, answering("n", new([]string)), "db-clean")
+	printed, err := clitest.RunStreamsAt(t, where, answering("n", new([]string)), "db-clean")
 	// Assert
 	if err != nil {
 		t.Fatalf("db-clean: %v (%+v)", err, printed)
 	}
 
 	for _, want := range []string{dir, "workflow.db", "cache", "scopes: 1", "kept.db", "kept", "repository groups: 1"} {
-		if !strings.Contains(printed.stdout, want) {
-			t.Errorf("the listing does not show %q:\n%s", want, printed.stdout)
+		if !strings.Contains(printed.Stdout, want) {
+			t.Errorf("the listing does not show %q:\n%s", want, printed.Stdout)
 		}
 	}
 
-	if !strings.Contains(printed.stdout, "KiB") {
-		t.Errorf("the listing does not give sizes in human units:\n%s", printed.stdout)
+	if !strings.Contains(printed.Stdout, "KiB") {
+		t.Errorf("the listing does not give sizes in human units:\n%s", printed.Stdout)
 	}
 }
 
@@ -101,7 +102,7 @@ func TestDBCleanRemovesTheCacheOnceConfirmed(t *testing.T) {
 	var asked []string
 
 	// Act
-	printed, err := runStreamsAt(t, where, answering("y", &asked), "db-clean")
+	printed, err := clitest.RunStreamsAt(t, where, answering("y", &asked), "db-clean")
 	// Assert
 	if err != nil {
 		t.Fatalf("db-clean: %v (%+v)", err, printed)
@@ -116,7 +117,7 @@ func TestDBCleanRemovesTheCacheOnceConfirmed(t *testing.T) {
 			present(dir, "workflow.db"), present(dir, "kept.db"))
 	}
 
-	if !strings.Contains(printed.stderr, "Removed workflow.db.") || strings.Contains(printed.stdout, "Removed") {
+	if !strings.Contains(printed.Stderr, "Removed workflow.db.") || strings.Contains(printed.Stdout, "Removed") {
 		t.Errorf("the clean is not reported on stderr alone:\n%+v", printed)
 	}
 }
@@ -128,7 +129,7 @@ func TestDBCleanLeavesEverythingWhenDeclined(t *testing.T) {
 	where, dir := storedHome(t)
 
 	// Act
-	printed, err := runStreamsAt(t, where, answering("", new([]string)), "db-clean", "--all")
+	printed, err := clitest.RunStreamsAt(t, where, answering("", new([]string)), "db-clean", "--all")
 	// Assert
 	if err != nil {
 		t.Fatalf("db-clean --all: %v (%+v)", err, printed)
@@ -138,8 +139,8 @@ func TestDBCleanLeavesEverythingWhenDeclined(t *testing.T) {
 		t.Error("a declined clean removed a file")
 	}
 
-	if !strings.Contains(printed.stderr, "Nothing removed.") {
-		t.Errorf("the declined clean is not said:\n%s", printed.stderr)
+	if !strings.Contains(printed.Stderr, "Nothing removed.") {
+		t.Errorf("the declined clean is not said:\n%s", printed.Stderr)
 	}
 }
 
@@ -150,7 +151,7 @@ func TestDBCleanAllWarnsAndRemovesBothWithYes(t *testing.T) {
 	where, dir := storedHome(t)
 
 	// Act
-	printed, err := runStreamsAt(t, where, unusedPrompt(t), "db-clean", "--all", "--yes")
+	printed, err := clitest.RunStreamsAt(t, where, clitest.UnusedPrompt(t), "db-clean", "--all", "--yes")
 	// Assert
 	if err != nil {
 		t.Fatalf("db-clean --all --yes: %v (%+v)", err, printed)
@@ -160,9 +161,9 @@ func TestDBCleanAllWarnsAndRemovesBothWithYes(t *testing.T) {
 		t.Error("db-clean --all --yes left a database file")
 	}
 
-	if !strings.Contains(printed.stderr, "WARN --all also removes kept.db") ||
-		!strings.Contains(printed.stderr, "people and group associations will be asked again") {
-		t.Errorf("--all does not warn that associations are asked again:\n%s", printed.stderr)
+	if !strings.Contains(printed.Stderr, "WARN --all also removes kept.db") ||
+		!strings.Contains(printed.Stderr, "people and group associations will be asked again") {
+		t.Errorf("--all does not warn that associations are asked again:\n%s", printed.Stderr)
 	}
 }
 
@@ -173,7 +174,7 @@ func TestDBCleanDryRunOnlySaysWhatItWouldRemove(t *testing.T) {
 	where, dir := storedHome(t)
 
 	// Act
-	printed, err := runStreamsAt(t, where, unusedPrompt(t), "db-clean", "--all", "--dry-run")
+	printed, err := clitest.RunStreamsAt(t, where, clitest.UnusedPrompt(t), "db-clean", "--all", "--dry-run")
 	// Assert
 	if err != nil {
 		t.Fatalf("db-clean --all --dry-run: %v (%+v)", err, printed)
@@ -183,8 +184,8 @@ func TestDBCleanDryRunOnlySaysWhatItWouldRemove(t *testing.T) {
 		t.Error("a dry run removed a file")
 	}
 
-	if !strings.Contains(printed.stderr, "dry run: would remove workflow.db and kept.db") {
-		t.Errorf("the dry run does not say what it would remove:\n%s", printed.stderr)
+	if !strings.Contains(printed.Stderr, "dry run: would remove workflow.db and kept.db") {
+		t.Errorf("the dry run does not say what it would remove:\n%s", printed.Stderr)
 	}
 }
 
@@ -192,21 +193,21 @@ func TestDBCleanSaysWhenThereIsNothingToRemove(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	where := place{dir: t.TempDir(), home: t.TempDir()}
+	where := clitest.Place{Dir: t.TempDir(), Home: t.TempDir()}
 
 	// Act
-	printed, err := runStreamsAt(t, where, unusedPrompt(t), "db-clean")
+	printed, err := clitest.RunStreamsAt(t, where, clitest.UnusedPrompt(t), "db-clean")
 	// Assert
 	if err != nil {
 		t.Fatalf("db-clean: %v (%+v)", err, printed)
 	}
 
-	if !strings.Contains(printed.stderr, "Nothing to remove.") || strings.Contains(printed.stdout, "Nothing to remove") {
+	if !strings.Contains(printed.Stderr, "Nothing to remove.") || strings.Contains(printed.Stdout, "Nothing to remove") {
 		t.Errorf("an empty store is not said, on stderr alone, to have nothing to remove:\n%+v", printed)
 	}
 
-	if !strings.HasPrefix(printed.stdout, "Local data in ") {
-		t.Errorf("stdout does not carry the listing:\n%s", printed.stdout)
+	if !strings.HasPrefix(printed.Stdout, "Local data in ") {
+		t.Errorf("stdout does not carry the listing:\n%s", printed.Stdout)
 	}
 }
 
@@ -228,7 +229,9 @@ func TestDBCleanRefusesAFileThatIsNotTheStores(t *testing.T) {
 	}
 
 	// Act
-	_, err = runStreamsAt(t, place{dir: t.TempDir(), home: home}, unusedPrompt(t), "db-clean", "--yes")
+	_, err = clitest.RunStreamsAt(
+		t, clitest.Place{Dir: t.TempDir(), Home: home}, clitest.UnusedPrompt(t), "db-clean", "--yes",
+	)
 	// Assert
 	if !errors.Is(err, store.ErrCleanRefused) {
 		t.Fatalf("db-clean over a symlink: %v, want the clean refused", err)
@@ -260,7 +263,7 @@ func TestDBCleanExitsAsRefusedWhenAFileCannotBeRemoved(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
 
 	// Act
-	_, err = runStreamsAt(t, where, unusedPrompt(t), "db-clean", "--yes")
+	_, err = clitest.RunStreamsAt(t, where, clitest.UnusedPrompt(t), "db-clean", "--yes")
 	// Assert
 	if !errors.Is(err, store.ErrNotCleaned) {
 		t.Fatalf("db-clean in a read-only directory: %v, want the file not cleaned", err)
@@ -304,7 +307,7 @@ func TestDBCleanIsSummarizedAsRemovingTheLocalData(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	output, err := run(t, t.TempDir(), "--help")
+	output, err := clitest.Run(t, t.TempDir(), "--help")
 
 	// Assert
 	if err != nil || !strings.Contains(output, "Remove workflow's local data") {
@@ -317,15 +320,15 @@ func TestDBCleanWithNowhereToKeepTheStoreSaysSo(t *testing.T) {
 
 	// Arrange
 	// No home and no $XDG_STATE_HOME leave nowhere the store could be.
-	where := place{dir: t.TempDir(), home: ""}
+	where := clitest.Place{Dir: t.TempDir(), Home: ""}
 
 	// Act
-	printed, err := runStreamsAt(t, where, unusedPrompt(t), "db-clean", "--yes")
+	printed, err := clitest.RunStreamsAt(t, where, clitest.UnusedPrompt(t), "db-clean", "--yes")
 
 	// Assert
-	if err == nil || !strings.Contains(err.Error(), "finding the local data") || printed.stdout != "" {
+	if err == nil || !strings.Contains(err.Error(), "finding the local data") || printed.Stdout != "" {
 		t.Errorf("db-clean with no home = %v, printed %q; want it to say it found no local data to list",
-			err, printed.stdout)
+			err, printed.Stdout)
 	}
 }
 
@@ -352,15 +355,15 @@ func TestDBCleanThatCannotReadTheStoreSaysSo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	where := place{dir: t.TempDir(), home: home}
+	where := clitest.Place{Dir: t.TempDir(), Home: home}
 
 	// Act
-	printed, err := runStreamsAt(t, where, unusedPrompt(t), "db-clean", "--yes")
+	printed, err := clitest.RunStreamsAt(t, where, clitest.UnusedPrompt(t), "db-clean", "--yes")
 
 	// Assert
-	if err == nil || !strings.Contains(err.Error(), "reading the local data") || printed.stdout != "" {
+	if err == nil || !strings.Contains(err.Error(), "reading the local data") || printed.Stdout != "" {
 		t.Errorf("db-clean over an unreadable store = %v, printed %q; want it to say it could not read it",
-			err, printed.stdout)
+			err, printed.Stdout)
 	}
 }
 
@@ -372,7 +375,7 @@ func TestDBCleanWithNoTerminalToAskRemovesNothingAndNamesYes(t *testing.T) {
 	ended := func(string) (string, error) { return "", io.EOF }
 
 	// Act
-	_, err := runStreamsAt(t, where, cli.Prompt{Line: ended, Secret: ended}, "db-clean")
+	_, err := clitest.RunStreamsAt(t, where, cli.Prompt{Line: ended, Secret: ended}, "db-clean")
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "--yes") {

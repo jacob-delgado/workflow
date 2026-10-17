@@ -17,6 +17,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/tui"
 	"github.com/jacob-delgado/workflow/internal/webserver"
@@ -144,11 +145,11 @@ type firstRunOutcome struct {
 // setUpThroughTheInterface runs bare workflow where the test chose, logging
 // requests to logPath, over an interface that answers the first run's form
 // against the Jira at jiraURL, then quits the interface reopened.
-func setUpThroughTheInterface(t *testing.T, where place, jiraURL, logPath string) *firstRunOutcome {
+func setUpThroughTheInterface(t *testing.T, where clitest.Place, jiraURL, logPath string) *firstRunOutcome {
 	t.Helper()
 
 	outcome := &firstRunOutcome{}
-	prompt := unusedPrompt(t)
+	prompt := clitest.UnusedPrompt(t)
 	prompt.StoreSecret = func(_ context.Context, service, secret string) error {
 		outcome.service, outcome.stored = service, secret
 
@@ -167,7 +168,7 @@ func setUpThroughTheInterface(t *testing.T, where place, jiraURL, logPath string
 
 	root := cli.NewRootCmdOver(prompt, runInterface, func(string) cli.RunWeb {
 		return func(context.Context, config.Config, webserver.Deps, webserver.Info, io.Writer) error { return nil }
-	}, environmentFor(t, where))
+	}, clitest.EnvironmentFor(t, where))
 	root.SetArgs([]string{"--request-log=" + logPath})
 	root.SetOut(&bytes.Buffer{})
 	root.SetErr(&bytes.Buffer{})
@@ -181,11 +182,11 @@ func TestTheInterfaceSetsUpAFirstFileAndReopensWithIt(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	where := place{dir: t.TempDir(), home: t.TempDir()}
+	where := clitest.Place{Dir: t.TempDir(), Home: t.TempDir()}
 	logPath := filepath.Join(t.TempDir(), "requests.log")
 
 	// Act
-	outcome := setUpThroughTheInterface(t, where, workingJira(t), logPath)
+	outcome := setUpThroughTheInterface(t, where, clitest.WorkingJira(t), logPath)
 
 	// Assert
 	if outcome.err != nil || len(outcome.opened) != 2 {
@@ -198,7 +199,7 @@ func TestTheInterfaceSetsUpAFirstFileAndReopensWithIt(t *testing.T) {
 		t.Errorf("the interface reopened without the file:\n%s", reopened)
 	}
 
-	contents, err := os.ReadFile(filepath.Join(where.home, config.FileName))
+	contents, err := os.ReadFile(filepath.Join(where.Home, config.FileName))
 	if err != nil || strings.Contains(string(contents), setupToken) || outcome.stored != setupToken ||
 		!strings.HasPrefix(outcome.service, "workflow-jira http") {
 		t.Errorf("wrote %q (%v), keychain %q under %q; want the token in the keychain item for its address alone",
@@ -210,11 +211,11 @@ func TestTheInterfacesFirstRunLogsTheCheckWithoutTheToken(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	where := place{dir: t.TempDir(), home: t.TempDir()}
+	where := clitest.Place{Dir: t.TempDir(), Home: t.TempDir()}
 	logPath := filepath.Join(t.TempDir(), "requests.log")
 
 	// Act
-	outcome := setUpThroughTheInterface(t, where, workingJira(t), logPath)
+	outcome := setUpThroughTheInterface(t, where, clitest.WorkingJira(t), logPath)
 
 	// Assert
 	logged, err := os.ReadFile(logPath)

@@ -22,6 +22,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
@@ -39,10 +40,10 @@ const endingPatience = 250 * time.Millisecond
 
 // interfaceRoot is the root command where the test chose, over run, its input
 // empty and what it says discarded, to execute under a context the test makes.
-func interfaceRoot(t *testing.T, where place, run cli.RunInterface) *cobra.Command {
+func interfaceRoot(t *testing.T, where clitest.Place, run cli.RunInterface) *cobra.Command {
 	t.Helper()
 
-	root := cli.NewRootCmdOver(unusedPrompt(t), run, nil, environmentFor(t, where))
+	root := cli.NewRootCmdOver(clitest.UnusedPrompt(t), run, nil, clitest.EnvironmentFor(t, where))
 	root.SetArgs([]string{})
 	root.SetIn(strings.NewReader(""))
 	root.SetOut(io.Discard)
@@ -104,7 +105,7 @@ func TestTheInterfacesContextGoesOnPastExecutesEndAfterAQuit(t *testing.T) {
 
 		return tui.Next{}, nil
 	}
-	root := interfaceRoot(t, place{dir: t.TempDir(), home: t.TempDir()}, quitting)
+	root := interfaceRoot(t, clitest.Place{Dir: t.TempDir(), Home: t.TempDir()}, quitting)
 	command, stop := signal.NotifyContext(t.Context(), os.Interrupt, syscall.SIGTERM)
 
 	// Act
@@ -138,7 +139,7 @@ func TestASignalEndsTheContextTheInterfaceRunsUnder(t *testing.T) {
 
 		return tui.Next{}, nil
 	}
-	root := interfaceRoot(t, place{dir: t.TempDir(), home: t.TempDir()}, runningUntilSignaled)
+	root := interfaceRoot(t, clitest.Place{Dir: t.TempDir(), Home: t.TempDir()}, runningUntilSignaled)
 	signaled := executing(t, root)
 
 	lifetime := <-handed
@@ -178,7 +179,7 @@ func TestASignalEndsTheContextAnInterfaceLeftBeforeASwitch(t *testing.T) {
 
 		return tui.Next{}, nil
 	}
-	root := interfaceRoot(t, place{dir: start, home: t.TempDir()}, switchingOnce)
+	root := interfaceRoot(t, clitest.Place{Dir: start, Home: t.TempDir()}, switchingOnce)
 	signaled := executing(t, root)
 
 	<-opened

@@ -6,6 +6,8 @@ package cli_test
 import (
 	"strings"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 // gitlabSSHRemote is a GitLab origin written as an SSH remote.
@@ -37,7 +39,7 @@ func TestDoctorReportsGlabBesideGh(t *testing.T) {
 	gitAndGlab(t)
 
 	// Act
-	output, _ := run(t, t.TempDir(), "doctor")
+	output, _ := clitest.Run(t, t.TempDir(), "doctor")
 
 	// Assert
 	if row := toolingRow(output, "glab"); !strings.Contains(row, "found") || strings.Contains(row, "not found") {
@@ -56,7 +58,7 @@ func TestDoctorJSONListsGlab(t *testing.T) {
 	gitAndGlab(t)
 
 	// Act
-	output, _ := run(t, t.TempDir(), "doctor", "--json")
+	output, _ := clitest.Run(t, t.TempDir(), "doctor", "--json")
 
 	// Assert
 	tooling, _ := decodeReport(t, output)["tooling"].([]any)
@@ -81,7 +83,7 @@ func TestDoctorSaysForgeCLIHasNoGlabToGoThrough(t *testing.T) {
 	pathWithOnlyGit(t)
 
 	// Act
-	output, _ := run(t, dir, "doctor")
+	output, _ := clitest.Run(t, dir, "doctor")
 
 	// Assert
 	if row := toolingRow(output, "glab"); !strings.Contains(row, "forge.cli is on") {
@@ -94,11 +96,11 @@ func TestDoctorOnlineSaysGlabsLoginIsNotRead(t *testing.T) {
 
 	// Arrange
 	dir := repoWithRemote(t, gitlabSSHRemote)
-	writeConfigFor(t, dir, workingJira(t))
+	clitest.WriteConfigFor(t, dir, clitest.WorkingJira(t))
 	gitAndGlab(t)
 
 	// Act
-	output, _ := run(t, dir, "doctor", "--online")
+	output, _ := clitest.Run(t, dir, "doctor", "--online")
 
 	// Assert
 	for _, want := range []string{"glab is installed", "$GITLAB_TOKEN", "forge.cli"} {
@@ -116,7 +118,7 @@ func TestDoctorOnlineWarnsATokenThatCannotWriteToGitLab(t *testing.T) {
 	fakeGlabWithScopes(t, `{"scopes":["read_api","read_user"]}`)
 
 	// Act
-	output, err := run(t, dir, "doctor", "--online")
+	output, err := clitest.Run(t, dir, "doctor", "--online")
 	// Assert
 	if err != nil {
 		t.Errorf("doctor --online = %v, want a token that reads to pass with a warning", err)
@@ -145,7 +147,7 @@ func TestDoctorOnlineSaysNothingOfAScopeItCannotRead(t *testing.T) {
 			fakeGlabWithScopes(t, scopes)
 
 			// Act
-			output, err := run(t, dir, "doctor", "--online")
+			output, err := clitest.Run(t, dir, "doctor", "--online")
 			// Assert
 			if err != nil {
 				t.Errorf("doctor --online = %v, want a token whose scopes cannot be read to pass", err)
@@ -167,7 +169,7 @@ func TestDoctorOnlineWarnsAGitLabTokenThatCannotUseTheAPI(t *testing.T) {
 	fakeGlabWithScopes(t, `{"scopes":["read_user"]}`)
 
 	// Act
-	output, _ := run(t, dir, "doctor", "--online")
+	output, _ := clitest.Run(t, dir, "doctor", "--online")
 
 	// Assert
 	if !strings.Contains(output, "cannot use the API: it has read_user, not api") {

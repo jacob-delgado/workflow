@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
@@ -21,18 +22,18 @@ func TestAFailedCommandSaysItsErrorOnceTagged(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), "launch")
+	printed, err := clitest.RunStreams(t, t.TempDir(), clitest.UnusedPrompt(t), "launch")
 
 	// Assert
 	wantExit(t, err, 2)
 
-	if strings.Count(printed.stderr, "ERROR") != 1 ||
-		!strings.HasPrefix(printed.stderr, `ERROR unknown command "launch"`) {
-		t.Errorf("stderr = %q, want the error said once, after its tag", printed.stderr)
+	if strings.Count(printed.Stderr, "ERROR") != 1 ||
+		!strings.HasPrefix(printed.Stderr, `ERROR unknown command "launch"`) {
+		t.Errorf("stderr = %q, want the error said once, after its tag", printed.Stderr)
 	}
 
-	if strings.Contains(printed.stderr, "workflow:") || printed.stdout != "" {
-		t.Errorf("stdout %q, stderr %q; want no workflow: prefix, and nothing on stdout", printed.stdout, printed.stderr)
+	if strings.Contains(printed.Stderr, "workflow:") || printed.Stdout != "" {
+		t.Errorf("stdout %q, stderr %q; want no workflow: prefix, and nothing on stdout", printed.Stdout, printed.Stderr)
 	}
 }
 
@@ -40,11 +41,11 @@ func TestASucceededCommandSaysNoError(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), "--version")
+	printed, err := clitest.RunStreams(t, t.TempDir(), clitest.UnusedPrompt(t), "--version")
 
 	// Assert
-	if err != nil || strings.Contains(printed.stderr, "ERROR") {
-		t.Errorf("--version = %v, stderr %q; want no error said", err, printed.stderr)
+	if err != nil || strings.Contains(printed.Stderr, "ERROR") {
+		t.Errorf("--version = %v, stderr %q; want no error said", err, printed.Stderr)
 	}
 }
 
@@ -52,13 +53,13 @@ func TestQuietAndVerboseTogetherAreAUsageError(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), "--quiet", "--verbose", "doctor")
+	printed, err := clitest.RunStreams(t, t.TempDir(), clitest.UnusedPrompt(t), "--quiet", "--verbose", "doctor")
 
 	// Assert
 	wantExit(t, err, 2)
 
-	if printed.stdout != "" || !strings.Contains(printed.stderr, "--quiet and --verbose") {
-		t.Errorf("stdout %q, stderr %q; want nothing run and the two flags named", printed.stdout, printed.stderr)
+	if printed.Stdout != "" || !strings.Contains(printed.Stderr, "--quiet and --verbose") {
+		t.Errorf("stdout %q, stderr %q; want nothing run and the two flags named", printed.Stdout, printed.Stderr)
 	}
 }
 
@@ -66,13 +67,13 @@ func TestALogFormatItDoesNotKnowIsAUsageError(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), "--log-format", "xml", "doctor")
+	printed, err := clitest.RunStreams(t, t.TempDir(), clitest.UnusedPrompt(t), "--log-format", "xml", "doctor")
 
 	// Assert
 	wantExit(t, err, 2)
 
-	if !strings.Contains(printed.stderr, "text, json or logfmt") {
-		t.Errorf("stderr = %q, want the formats --log-format takes", printed.stderr)
+	if !strings.Contains(printed.Stderr, "text, json or logfmt") {
+		t.Errorf("stderr = %q, want the formats --log-format takes", printed.Stderr)
 	}
 }
 
@@ -81,14 +82,14 @@ func TestQuietDropsANoteAndKeepsTheArtifact(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	writeFile(t, dir, `{}`)
+	clitest.WriteFile(t, dir, `{}`)
 
 	// Act
-	printed, err := runStreams(t, dir, unusedPrompt(t), "-q", "config", "show")
+	printed, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "-q", "config", "show")
 
 	// Assert
-	if err != nil || printed.stderr != "" || !strings.HasPrefix(printed.stdout, "{") {
-		t.Errorf("config show -q = %v, stdout %q, stderr %q; want the JSON alone", err, printed.stdout, printed.stderr)
+	if err != nil || printed.Stderr != "" || !strings.HasPrefix(printed.Stdout, "{") {
+		t.Errorf("config show -q = %v, stdout %q, stderr %q; want the JSON alone", err, printed.Stdout, printed.Stderr)
 	}
 }
 
@@ -96,17 +97,17 @@ func TestJSONLogFormatSaysEachNoteAndTheErrorAsObjects(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), "--log-format", "json", "launch")
+	printed, err := clitest.RunStreams(t, t.TempDir(), clitest.UnusedPrompt(t), "--log-format", "json", "launch")
 
 	// Assert
 	wantExit(t, err, 2)
 
 	var said map[string]any
 
-	decodeErr := json.Unmarshal([]byte(printed.stderr), &said)
+	decodeErr := json.Unmarshal([]byte(printed.Stderr), &said)
 	if decodeErr != nil || said["level"] != "error" || said["exit_status"] != 2.0 ||
 		!strings.HasPrefix(fmt.Sprint(said["msg"]), `unknown command "launch"`) {
-		t.Errorf("stderr = %q (%v), want one object: the error, its message and exit status 2", printed.stderr, decodeErr)
+		t.Errorf("stderr = %q (%v), want one object: the error, its message and exit status 2", printed.Stderr, decodeErr)
 	}
 }
 
@@ -115,18 +116,18 @@ func TestVerboseSaysEachRequestAsADebugLine(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	writeConfigFor(t, dir, workingJira(t))
+	clitest.WriteConfigFor(t, dir, clitest.WorkingJira(t))
 
 	// Act
-	printed, err := runStreams(t, dir, unusedPrompt(t), "--verbose", "doctor", "--online")
+	printed, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "--verbose", "doctor", "--online")
 
 	// Assert
-	if err != nil || !strings.Contains(printed.stderr, "DEBUG jira GET /rest/api/2/myself 200 ") {
-		t.Errorf("doctor --online --verbose = %v, stderr %q; want Jira's request as a debug line", err, printed.stderr)
+	if err != nil || !strings.Contains(printed.Stderr, "DEBUG jira GET /rest/api/2/myself 200 ") {
+		t.Errorf("doctor --online --verbose = %v, stderr %q; want Jira's request as a debug line", err, printed.Stderr)
 	}
 
-	if strings.Contains(printed.stdout, "DEBUG") {
-		t.Errorf("stdout = %q, want the report alone", printed.stdout)
+	if strings.Contains(printed.Stdout, "DEBUG") {
+		t.Errorf("stdout = %q, want the report alone", printed.Stdout)
 	}
 }
 
@@ -135,17 +136,19 @@ func TestVerboseKeepsTheRequestLogItIsGiven(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	writeConfigFor(t, dir, workingJira(t))
+	clitest.WriteConfigFor(t, dir, clitest.WorkingJira(t))
 	logPath := filepath.Join(t.TempDir(), "requests.log")
 
 	// Act
-	printed, err := runStreams(t, dir, unusedPrompt(t), "--verbose", "--request-log", logPath, "doctor", "--online")
+	printed, err := clitest.RunStreams(
+		t, dir, clitest.UnusedPrompt(t), "--verbose", "--request-log", logPath, "doctor", "--online",
+	)
 
 	// Assert
-	logged := readLog(t, logPath)
+	logged := clitest.ReadLog(t, logPath)
 	if err != nil || !strings.Contains(logged, "jira  GET  /rest/api/2/myself") ||
-		!strings.Contains(printed.stderr, "DEBUG jira GET /rest/api/2/myself") {
-		t.Errorf("doctor = %v, logged %q, stderr %q; want the request in the file and on stderr", err, logged, printed.stderr)
+		!strings.Contains(printed.Stderr, "DEBUG jira GET /rest/api/2/myself") {
+		t.Errorf("doctor = %v, logged %q, stderr %q; want the request in the file and on stderr", err, logged, printed.Stderr)
 	}
 }
 
@@ -154,7 +157,7 @@ func TestVerboseWebSaysTheServersRequestsAsDebugLines(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	writeConfigFor(t, dir, workingJira(t))
+	clitest.WriteConfigFor(t, dir, clitest.WorkingJira(t))
 
 	askingJira := func(string) cli.RunWeb {
 		return func(ctx context.Context, _ config.Config, deps webserver.Deps, _ webserver.Info, _ io.Writer) error {
@@ -168,7 +171,7 @@ func TestVerboseWebSaysTheServersRequestsAsDebugLines(t *testing.T) {
 
 	// Act
 	_, stderr, err := executeRoot(
-		t, place{dir: dir, home: t.TempDir()}, ran.runInterface, askingJira, "--verbose", "--web",
+		t, clitest.Place{Dir: dir, Home: t.TempDir()}, ran.runInterface, askingJira, "--verbose", "--web",
 	)
 
 	// Assert
@@ -194,13 +197,13 @@ func TestTheOldLogFlagIsAUsageErrorNamingItsNewName(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), "--log", "requests.log", "doctor")
+	printed, err := clitest.RunStreams(t, t.TempDir(), clitest.UnusedPrompt(t), "--log", "requests.log", "doctor")
 
 	// Assert
 	wantExit(t, err, 2)
 
-	if printed.stdout != "" || !strings.Contains(printed.stderr, "--request-log") {
-		t.Errorf("stdout %q, stderr %q; want nothing run, and the flag's new name", printed.stdout, printed.stderr)
+	if printed.Stdout != "" || !strings.Contains(printed.Stderr, "--request-log") {
+		t.Errorf("stdout %q, stderr %q; want nothing run, and the flag's new name", printed.Stdout, printed.Stderr)
 	}
 }
 
@@ -208,10 +211,10 @@ func TestTheOldLogFlagIsNotInTheHelp(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	printed, err := runStreams(t, t.TempDir(), unusedPrompt(t), "--help")
+	printed, err := clitest.RunStreams(t, t.TempDir(), clitest.UnusedPrompt(t), "--help")
 
 	// Assert
-	if err != nil || strings.Contains(printed.stdout, "--log ") || !strings.Contains(printed.stdout, "--request-log") {
-		t.Errorf("--help = %v:\n%s\nwant --request-log alone", err, printed.stdout)
+	if err != nil || strings.Contains(printed.Stdout, "--log ") || !strings.Contains(printed.Stdout, "--request-log") {
+		t.Errorf("--help = %v:\n%s\nwant --request-log alone", err, printed.Stdout)
 	}
 }

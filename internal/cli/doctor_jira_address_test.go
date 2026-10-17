@@ -6,6 +6,8 @@ package cli_test
 import (
 	"strings"
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
 // The login a jira.base_url carries, each part distinct enough that finding it
@@ -34,10 +36,10 @@ func TestDoctorJSONOnlineAsksNoJiraAtAnAddressItCannotUse(t *testing.T) {
 			// The file does not load, so the run exits 3 for the address it
 			// names; Jira is never asked, so no credential is what is wrong.
 			dir := t.TempDir()
-			writeConfigFor(t, dir, address)
+			clitest.WriteConfigFor(t, dir, address)
 
 			// Act
-			output, err := run(t, dir, "doctor", "--json", "--online")
+			output, err := clitest.Run(t, dir, "doctor", "--json", "--online")
 
 			// Assert
 			wantExit(t, err, 3)
@@ -61,7 +63,7 @@ func TestDoctorRefusesAForgeKindNamingNoForge(t *testing.T) {
 	dir := forgeKindRepository(t, `"kind": "bitbucket", "host": "`+unreachableHost+`"`)
 
 	// Act
-	output, err := run(t, dir, "doctor")
+	output, err := clitest.Run(t, dir, "doctor")
 
 	// Assert
 	wantExit(t, err, 3)
@@ -85,10 +87,10 @@ func TestDoctorOnlinePrintsNoPartOfTheLoginInJiraAddress(t *testing.T) {
 
 			// Arrange
 			dir := t.TempDir()
-			writeConfigFor(t, dir, addressWithLogin)
+			clitest.WriteConfigFor(t, dir, addressWithLogin)
 
 			// Act
-			output, err := run(t, dir, strings.Fields(command)...)
+			output, err := clitest.Run(t, dir, strings.Fields(command)...)
 
 			// Assert
 			wantExit(t, err, 3)
