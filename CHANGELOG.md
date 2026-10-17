@@ -1,5 +1,188 @@
 # Changelog
 
+## [0.12.0](https://github.com/jacob-delgado/workflow/compare/v0.11.0...v0.12.0) (2026-10-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* **cli:** in ASCII (ui.ascii, or status --plain) the live line's mark turns through |, /, - and \ instead of holding a still `*`; under ui.motion: reduce it still holds on `*`. A script reading a terminal's stderr for the mark matches one of those five instead.
+* **api:** GET /api/directories no longer answers truncated. A listing cut short carries truncated_to, the number of directories it was cut to (1000 today), and a whole listing leaves the field out. An API client that read truncated reads whether truncated_to is present instead.
+* **cli:** ui.ascii, and --plain on status, now draw the live line in ASCII (a * that does not turn, and a bar of = and -), and ui.motion: reduce holds its mark still; before, the line was Unicode with a turning mark whatever they said. For the Unicode line, leave ui.ascii and --plain off; for a turning mark, leave ui.motion empty. The line is kept only on a terminal, so stderr read from a pipe is unchanged. The refusal of status --plain --json still exits 2, but its message now reads "--plain draws the status line's marks and --json prints no status line: use one or the other; ui.ascii draws a JSON run's live line in ASCII"; a script that matched the old words tells the refusal by its exit status instead.
+
+### Features
+
+* **api:** report the limit a directory listing was cut short at ([5be0ba9](https://github.com/jacob-delgado/workflow/commit/5be0ba936b216013714cc100efe771121121ccb2))
+* **tui:** mark each refused setting on its own Settings row ([25eb502](https://github.com/jacob-delgado/workflow/commit/25eb502d5f2934749d118174db63fa151acb1d63))
+
+
+### Bug Fixes
+
+* **cli:** draw the live line as ui.ascii, --plain and ui.motion ask ([679ee89](https://github.com/jacob-delgado/workflow/commit/679ee89ad3c5bf78c47dc0f56ddc94a064892785))
+* **cli:** say status's --plain and --json refusal in one sentence ([ed42e51](https://github.com/jacob-delgado/workflow/commit/ed42e51bb7435c7cf6300cdf32b9a00e98ac35d9))
+* **cli:** turn the in-flight mark in ASCII through | / - \ ([0006ad0](https://github.com/jacob-delgado/workflow/commit/0006ad08a8c45741103c9479f3e2cb0009ba469f))
+* **convention:** offer no scope for a directory named by spaces ([3a3cf32](https://github.com/jacob-delgado/workflow/commit/3a3cf32b4f8c4e09d6ba639d23459eaa58ff65cc))
+* **proc:** deliver nothing once a run has abandoned its output ([b30d47e](https://github.com/jacob-delgado/workflow/commit/b30d47e22ade0ca50c5acc0f901f6c3112202479))
+* **proc:** end a failure with no standard error at its cause ([34e29be](https://github.com/jacob-delgado/workflow/commit/34e29be37963556588fc0fb183cce15c0a40d884))
+* **proc:** end a run with a line too long once its program exits ([4ff8643](https://github.com/jacob-delgado/workflow/commit/4ff86436a61347709bab52ad0bf7dde944fcdf18))
+* **quietinput:** complete only what is typed in the field ([30bd2f7](https://github.com/jacob-delgado/workflow/commit/30bd2f769c40f014aee41b3958c01c1674a13c12))
+* **quietinput:** keep a suggestion typed whole in another case ([38477bf](https://github.com/jacob-delgado/workflow/commit/38477bf5106ef9049a22d434ad752433ba16188a))
+* **quietinput:** keep a typed value that is itself a suggestion ([c8ef12d](https://github.com/jacob-delgado/workflow/commit/c8ef12d8445646808df471555d6a1b61c119b863))
+* **quietinput:** match again once a completion taken was refused ([41fe482](https://github.com/jacob-delgado/workflow/commit/41fe482e1122244724e5f72e12c8bfd492a0ab62))
+* **scripts:** refuse a ratcheted budget at or under the default ([2c2b89b](https://github.com/jacob-delgado/workflow/commit/2c2b89b0998b05641a82ca43561a72dd6ec21549))
+* **tasks:** say a directory switch applies a Taskwarrior setting too ([25d7813](https://github.com/jacob-delgado/workflow/commit/25d7813c84aace813804f90f9f5ae6054ea81a54))
+* **tui:** join a listing asked again by name with the whole one ([b267553](https://github.com/jacob-delgado/workflow/commit/b26755396f87030624e126a48cc9716d1371afe7))
+* **tui:** keep Settings' refusals in sight while a form is open ([81544a0](https://github.com/jacob-delgado/workflow/commit/81544a008a93ef6d38ad800238b00236b1d4181d))
+* **web:** say a Taskwarrior setting also applies on a directory switch ([e69e7a5](https://github.com/jacob-delgado/workflow/commit/e69e7a563a2c4e3483b87ad3903ec335c0f70b6c))
+* **web:** say the dialog is reading until the whole listing answers ([7c487e6](https://github.com/jacob-delgado/workflow/commit/7c487e608e5dba97b36497a6ce533c4ea028b2bc))
+* **web:** say when a Jira setting applies ([0e1a071](https://github.com/jacob-delgado/workflow/commit/0e1a071a1f584028f4245f6c8a42a1a938602028))
+* **web:** word an empty list field as the server refuses it ([d11a793](https://github.com/jacob-delgado/workflow/commit/d11a793f6b24cb48c644e22e25347b0a3cf803dc))
+* **workdirs:** match directory names alike on both surfaces ([b1d532c](https://github.com/jacob-delgado/workflow/commit/b1d532c3fb185dd02563427fbab7a3ab0717d26e))
+
+
+### Refactors
+
+* **activity:** hold the calendar's weeks to the shared dates ([15e386a](https://github.com/jacob-delgado/workflow/commit/15e386ae9ac5b46bea545c7285746aaa9fca63c4))
+* **cli:** declare --port beside the root's other flags ([0294ee8](https://github.com/jacob-delgado/workflow/commit/0294ee875dcbf8bfe7974d2becbe948f45c8aa55))
+* **cli:** give the exit statuses a file of their own ([26f9e18](https://github.com/jacob-delgado/workflow/commit/26f9e180d56ec7d6721aac2ae861b816f3d17dda))
+* **cli:** keep the shared connection helpers in connect.go ([2b33745](https://github.com/jacob-delgado/workflow/commit/2b33745db6de06a2e764711b7351041d697c4253))
+* **cli:** lift what every command shares into internal/cli/cmdkit ([76d7c77](https://github.com/jacob-delgado/workflow/commit/76d7c777895271276427af3d6df66f4f6b6f3d0f))
+* **cli:** move the messaging refusal beside postingIn ([5584046](https://github.com/jacob-delgado/workflow/commit/558404681b6bdc0a7c69c275969c60f93ae6dfa3))
+* **cli:** name the clients' unreachable errors on their own ([db7906c](https://github.com/jacob-delgado/workflow/commit/db7906c984062501595f3660ed675312701088c0))
+* **cli:** read the configuration's home in environment.go ([1c93637](https://github.com/jacob-delgado/workflow/commit/1c93637b560e52db78e6adb74266ef56c10ca7d7))
+* **convention:** drop the scope guards ValidateScope already keeps ([32bf3df](https://github.com/jacob-delgado/workflow/commit/32bf3dfd20abc2a8519e8539c0ec5f59fdc4107a))
+* **convention:** move the scope helpers beside convention.Scopes ([dfa05a1](https://github.com/jacob-delgado/workflow/commit/dfa05a1ac4fd147600c90a3cdb7ecdf58e058214))
+* **lifetime:** move the outlasting plumbing out of tui/deps.go ([02fc4d2](https://github.com/jacob-delgado/workflow/commit/02fc4d2801b7905115db7c95809637a5e9bd968c))
+* **proc:** close a run's lines without checking they are open ([c5dae1c](https://github.com/jacob-delgado/workflow/commit/c5dae1cd35eb8e51dfebb808be2786867d2a6348))
+* **proc:** drop the abandonment a waiting send can never meet ([86ee158](https://github.com/jacob-delgado/workflow/commit/86ee1589cc268ddcf7e09e5409c1e6b7e457882f))
+* **proc:** give each left-behind helper mode a function of its own ([ef7a183](https://github.com/jacob-delgado/workflow/commit/ef7a183cb37c8c4e5d633f257ccb373a040dc90d))
+* **proc:** leave closing the pipe past the grace to follow ([ffcf69a](https://github.com/jacob-delgado/workflow/commit/ffcf69ad23502b7bf36bef9444ce1d5bddefb67b))
+* **proc:** move the left-behind helper modes to their own file ([d957ec8](https://github.com/jacob-delgado/workflow/commit/d957ec803c016abcb601e7241c60e54b15fe959d))
+* **proc:** pause the grace by dropping its timer alone ([47c384d](https://github.com/jacob-delgado/workflow/commit/47c384d78838e699f10583dc781345837c56f1f9))
+* **proc:** read a run's exit the same way whichever end comes first ([e2523c5](https://github.com/jacob-delgado/workflow/commit/e2523c5b5b5d747f78a070f41bf5dee9da86c109))
+* **proc:** start the grace's count without asking if it runs ([ba63fe7](https://github.com/jacob-delgado/workflow/commit/ba63fe76a68057f73bed89cf76541ab493a76d71))
+* **progress:** give the in-flight mark's turn one source ([d57f29f](https://github.com/jacob-delgado/workflow/commit/d57f29f5b022299b70d15f5a8c7d588ffbbab580))
+* **quietinput:** read whether suggestions are on from the input ([fbeb111](https://github.com/jacob-delgado/workflow/commit/fbeb1115f5d6b44978b4ee8aaaccd9cb6bd22e92))
+* **scripts:** read the layout block through scripts/lib/layout.sh ([ba62786](https://github.com/jacob-delgado/workflow/commit/ba6278629255ee4d899dc4e12ad4a216596689e0))
+* **tui:** draw a refusal's failure lines in a helper of their own ([70aedb0](https://github.com/jacob-delgado/workflow/commit/70aedb0f7d46f8b92c72c252954334375ac353f6))
+* **tui:** drop the picker's check for a listing not yet asked for ([4c22d3c](https://github.com/jacob-delgado/workflow/commit/4c22d3c0c20d25b318b6a9924ad7824a9edd67d7))
+* **tui:** give the quiet input a package of its own ([fc90104](https://github.com/jacob-delgado/workflow/commit/fc901049bda0d3e92f1667c20fa150408d2fbd07))
+* **tui:** keep the turned-to mark on the kit, not the glyphs ([2436acb](https://github.com/jacob-delgado/workflow/commit/2436acb514b83d8452780310092fd69be5e1e31a))
+* **tui:** name the edited configuration's JSON for what it is ([ff6cb4d](https://github.com/jacob-delgado/workflow/commit/ff6cb4d2dd5fcfe73e1a0a35a6131637ebf86363))
+* **web:** hear the content policy's refusals in one helper ([9e28726](https://github.com/jacob-delgado/workflow/commit/9e28726224f91a76448d82771ff83fabc3705f9b))
+* **web:** move the directory dialog's way up into its own file ([5b4d57d](https://github.com/jacob-delgado/workflow/commit/5b4d57d3fe2d13eecd0cf254aee85162945d087f))
+* **webserver:** dereference an optional value one way ([0c5d238](https://github.com/jacob-delgado/workflow/commit/0c5d238cfb088aa1ed3d139790dd90e276190e3e))
+* **webserver:** gather the shared test helpers ([6109319](https://github.com/jacob-delgado/workflow/commit/610931926f745db5ae740226e1f8e265e16019ed))
+* **webserver:** give the shared test helpers a package of their own ([8d36e0d](https://github.com/jacob-delgado/workflow/commit/8d36e0d0b987729354189c4b8f9d8f8f90b740e1))
+* **webserver:** give webtest's package comment its own file ([2c2b31e](https://github.com/jacob-delgado/workflow/commit/2c2b31ef91369e5b8dd0aa80046a6fd4058718a3))
+* **webserver:** keep fault with the classes it tells apart ([9ea4690](https://github.com/jacob-delgado/workflow/commit/9ea469078333162c71d0a8445bb6a7ad822eeb0e))
+* **webserver:** keep the server's accessors beside it ([4c6996f](https://github.com/jacob-delgado/workflow/commit/4c6996faf9a5c0190edb3ac3477eae6cc67044a3))
+* **webserver:** keep whom an announcement tags in announcetags.go ([a28ee61](https://github.com/jacob-delgado/workflow/commit/a28ee61f9e179cd1cc1367f41891409db5cdf8b1))
+* **webserver:** move the git runs into internal/webserver/runs ([34e240a](https://github.com/jacob-delgado/workflow/commit/34e240a0783e92afcb8e9ea2098bae734e7072f1))
+* **webserver:** move the problem details into their own package ([d4de366](https://github.com/jacob-delgado/workflow/commit/d4de36694e0298a3d3461ff27cd277fb80b3a5e3))
+* **webserver:** move the problem media type into webtest ([7d13724](https://github.com/jacob-delgado/workflow/commit/7d13724396fc3b6af5f6754ed14c1e01137ea2de))
+* **webserver:** move the request boundary to webserver/edge ([688c962](https://github.com/jacob-delgado/workflow/commit/688c962d88b71ed6fc7579e1ae488ead8385a366))
+* **webserver:** move the Taskwarrior handlers to webserver/tasks ([edc25ce](https://github.com/jacob-delgado/workflow/commit/edc25cec6beb1f9189678f137ec62a7841340da6))
+* **webserver:** unexport webtest's canceling flusher ([f17aeaf](https://github.com/jacob-delgado/workflow/commit/f17aeafbce67706a5398f318e8c7b372bd396ba2))
+
+
+### Documentation
+
+* **arch:** give each store file its own reason for no migrations ([271ea43](https://github.com/jacob-delgado/workflow/commit/271ea43b8115899c1b368e7012465fcef97315f0))
+* **claude:** correct fourteen stale facts ([a81150a](https://github.com/jacob-delgado/workflow/commit/a81150ad880ee9180fa8641e0dd53d632a74cc78))
+* **claude:** cut the root to every-session rules and an area index ([4032b51](https://github.com/jacob-delgado/workflow/commit/4032b51ede2a3dc9c0f4ad66c00fee80cb6ac305))
+* **claude:** let cohesive packages shed code with its own reason ([19a05cf](https://github.com/jacob-delgado/workflow/commit/19a05cf00ff1e9c644de1b67f81b9300caddc15b))
+* **claude:** write down what cloud sessions and lanes must know ([a12740a](https://github.com/jacob-delgado/workflow/commit/a12740a6717d2e60ce44428545da7246120d4c93))
+* **cli:** say how the gates treat clitest ([d5d1503](https://github.com/jacob-delgado/workflow/commit/d5d1503da3bc2ee25aea2561a285ce0e0ae80ccf))
+* **cli:** say the live line follows ui.ascii, --plain and ui.motion ([383292e](https://github.com/jacob-delgado/workflow/commit/383292ed35600cd486f8c50ca5251fe20b684601))
+* **cli:** write down the command line's contract beside it ([dc37e53](https://github.com/jacob-delgado/workflow/commit/dc37e535bb644ad65e40eed6a35b9289c769e8dc))
+* **config:** say ui.ascii and ui.motion draw a command's live line ([7978168](https://github.com/jacob-delgado/workflow/commit/79781681802ffff8f454a7c5fef38f16e6bc33fd))
+* **contributing:** write the body and one-change rules down ([8644029](https://github.com/jacob-delgado/workflow/commit/86440290d48a0c0a835ecf23ffdc1b20795d3721))
+* correct what TRADE-24 says is read once ([f1502bf](https://github.com/jacob-delgado/workflow/commit/f1502bfd23dfbc3c62e46af83f392163dd542a0c))
+* **debt:** record cli.go and announce.go past the soft length target ([cdccc56](https://github.com/jacob-delgado/workflow/commit/cdccc566bea6e77d4e539519e1a1726964a8d097))
+* **debt:** record the directory matcher twin as TRADE-52 ([da5ab44](https://github.com/jacob-delgado/workflow/commit/da5ab4405dd8eada80935c1956b7f2c37802c3ad))
+* **debt:** reword the register entries the refresh outdated ([d260ddf](https://github.com/jacob-delgado/workflow/commit/d260ddff9c2d39a95f0fc2cdf9570b3efb35e05e))
+* **docs:** move the site's rules beside the documentation ([17172ab](https://github.com/jacob-delgado/workflow/commit/17172ab3bc08b9bdad87879be16e693c4e98c8da))
+* **hugo:** say only the site's build is Node-free ([2272f1d](https://github.com/jacob-delgado/workflow/commit/2272f1daef10e9fc0861c2a74b03b40c46bd6a5f))
+* name three gates where their rules are written ([70f8610](https://github.com/jacob-delgado/workflow/commit/70f8610e2322248dee09cf5e0133d7b4d9569603))
+* point every surface's area guide to UX.md ([22c2fcb](https://github.com/jacob-delgado/workflow/commit/22c2fcb235968233ec776eb02e439bf513d19321))
+* point UX.md's and FEATURES.md's citations at their symbols ([5ab8229](https://github.com/jacob-delgado/workflow/commit/5ab82297fb00218f1955291eefc863a31cf72628))
+* **proc:** say what ends the output Wait waits for ([1159dcb](https://github.com/jacob-delgado/workflow/commit/1159dcbf7ae546d78d48f90564901fd2ea4adf6f))
+* say when a web save of a Jira setting applies ([fc19de6](https://github.com/jacob-delgado/workflow/commit/fc19de621c8e7c0669e3278522d4add7f499dc6f))
+* **scripts:** move the shell rules beside the gate scripts ([d6acb1f](https://github.com/jacob-delgado/workflow/commit/d6acb1fb7565ad7f934a71ccd2f6bf20c1e1d993))
+* **store:** move the database rules beside the store ([a5267ce](https://github.com/jacob-delgado/workflow/commit/a5267cea557dd4fa8fad05494467a5c76d1232e0))
+* **tech-debt:** point TRADE-19 at CONTRIBUTING.md's error check ([aeec475](https://github.com/jacob-delgado/workflow/commit/aeec47541723e2443a14839e27e84797010f8181))
+* **tech-debt:** sharpen TRADE-24, TRADE-44 and TRADE-46 ([ea599b4](https://github.com/jacob-delgado/workflow/commit/ea599b4ef926b978ee6e85250ee09a10d04adbf5))
+* **tui:** drop the ceiling sentence the budget's ratchet left behind ([fdba64e](https://github.com/jacob-delgado/workflow/commit/fdba64e59104ccaa8b7aba095fece6fea0b5c0ad))
+* **tui:** move the terminal's rules beside the interface ([ba7bb4d](https://github.com/jacob-delgado/workflow/commit/ba7bb4d18233171e23ee0cf34fcd57f1ef104125))
+* **ux:** restamp UX.md at main and say what stays open ([41bcb4b](https://github.com/jacob-delgado/workflow/commit/41bcb4bbe32ee5c30729084a4546ed672623f331))
+* **web:** move the frontend's rules beside it ([1465c68](https://github.com/jacob-delgado/workflow/commit/1465c6849d4d74e2ad0e07a72127d09e52cdc75c))
+* **web:** say the configuration file names the task program ([36a13ee](https://github.com/jacob-delgado/workflow/commit/36a13eea13f9b3fcbc75b020a6a7965a07f59b4c))
+* **webserver:** move the web API's rules beside the server ([408482e](https://github.com/jacob-delgado/workflow/commit/408482e800ef91d3526bae2e40401eed64e394f2))
+* **webserver:** point to the problem details in their own package ([8b83be4](https://github.com/jacob-delgado/workflow/commit/8b83be49b0d328b8af83b23d8038c45c4349894b))
+
+
+### Build & Packaging
+
+* **web:** fail the build when a chunk passes its size limit ([1356398](https://github.com/jacob-delgado/workflow/commit/1356398f0c61ed01a855d4d823d51591870cb2e8))
+* **web:** name the browsers the page supports ([1daf1e1](https://github.com/jacob-delgado/workflow/commit/1daf1e18fc0d256cc01132c5a06184d994e03a87))
+
+
+### CI
+
+* annotate a waiver past its week on the pull request ([205a09c](https://github.com/jacob-delgado/workflow/commit/205a09cb4881f497b44bf85e142e2eaee3e21c03))
+* fail a script under scripts/ that has no sibling test ([510da46](https://github.com/jacob-delgado/workflow/commit/510da4616dbf073d8fed4a25fefca2f24ccc511a))
+* fail a TECH_DEBT.md path that no tracked file has ([a90cafd](https://github.com/jacob-delgado/workflow/commit/a90cafd6afc8c5bb67683c2ce765fd69b3b0a458))
+* hold TypeScript 7 back from Dependabot until its migration ([54421e8](https://github.com/jacob-delgado/workflow/commit/54421e8045dba5b822ee6d87508b958f8b414c9c))
+* leave test-only packages out of the statement total ([92b7cfb](https://github.com/jacob-delgado/workflow/commit/92b7cfb7b9558223a6e259cae28bcc873f07f5b7))
+* vet every release platform's build, tests and all ([c898523](https://github.com/jacob-delgado/workflow/commit/c898523b2c27c7ebbf570f40a14cee21db879a43))
+* warn of a dependency waiver a week past its day ([2f1d9bb](https://github.com/jacob-delgado/workflow/commit/2f1d9bb3e5f0052f70d81cece5088ab990fc45e9))
+
+
+### Tests
+
+* **cli:** drop the root's copies of the command kit's own tests ([5aea82f](https://github.com/jacob-delgado/workflow/commit/5aea82fdc49b2346948896f61a35a29709d576c4))
+* **cli:** gather the shared test fixtures into internal/cli/clitest ([73f26e3](https://github.com/jacob-delgado/workflow/commit/73f26e33a2e8816da90a92e27011bbddeb9afe0f))
+* **cli:** hold a still live line to starting no timer for its mark ([8d8d2b1](https://github.com/jacob-delgado/workflow/commit/8d8d2b136ab09df152949ec1234488d6cba31ebd))
+* **cli:** test the kit's Windows path clauses beside them ([d811de1](https://github.com/jacob-delgado/workflow/commit/d811de1524d482f35abfd00f31d96bf074a08ec1))
+* **cli:** wait on the live line's frames, not on sleeps ([7eec72d](https://github.com/jacob-delgado/workflow/commit/7eec72d782a0cebfc8f987a3ace3225e4aafae2f))
+* **convention:** move the commit tests beside the commit convention's ([5383909](https://github.com/jacob-delgado/workflow/commit/5383909c56bcb0542b5495476fcffc70ed097678))
+* **convention:** offer no scope for files in separate trees ([8e8bdea](https://github.com/jacob-delgado/workflow/commit/8e8bdead787d29fab80960f5ede0f55166c49aa4))
+* **convention:** see every condition both ways ([4a7520b](https://github.com/jacob-delgado/workflow/commit/4a7520b4692c5d8c8490042e6192949bd332f21c))
+* **directory:** split the directory's tests along their behaviors ([71f4492](https://github.com/jacob-delgado/workflow/commit/71f44928fee8ab4efb893d11aa6ec52348479bd9))
+* hold both directory pickers to one shared row cap ([d3b556f](https://github.com/jacob-delgado/workflow/commit/d3b556f09b2bce12b1c533c189cc754b56aa627f))
+* **lifetime:** bound the wait for a detached context's end ([3fffb79](https://github.com/jacob-delgado/workflow/commit/3fffb792ba7d1ff65232d2930ece953a04a51742))
+* **proc:** count the grace from the exit and across every wait ([d420aa9](https://github.com/jacob-delgado/workflow/commit/d420aa9edad656e0b8e9b650843ec09b49374f01))
+* **proc:** count the lines a grace in all lets through ([9691f72](https://github.com/jacob-delgado/workflow/commit/9691f726007826eef6c9698cac91ba2259cf5366))
+* **proc:** end a run whose lines nobody reads once ctx is canceled ([4d72d2d](https://github.com/jacob-delgado/workflow/commit/4d72d2d695ed7a5e8979d3666b3c0b3fab9e42d9))
+* **proc:** end a waiting helper once its test ends, however it ends ([213078e](https://github.com/jacob-delgado/workflow/commit/213078e9136aa1a351c0585356818c99ebacddbd))
+* **proc:** give a reader slow past the grace every line ([05eff94](https://github.com/jacob-delgado/workflow/commit/05eff94554c08c1feac540dbf4ee8d2ad2e32749))
+* **proc:** keep Lines open until a program that ended its output exits ([d994ffb](https://github.com/jacob-delgado/workflow/commit/d994ffb77b103b3a4b23f540392f347ba91aa4e1))
+* **proc:** kill a left-behind helper however its test ends ([0eb566e](https://github.com/jacob-delgado/workflow/commit/0eb566eea69177b6e040b0906992f6d31247d7f7))
+* **proc:** kill what the sh left-behind tests leave however they end ([1369306](https://github.com/jacob-delgado/workflow/commit/136930692104514a2305462a6ce27d4fc5e85ce2))
+* **proc:** leave nothing running once a run has given up its output ([0e1bf78](https://github.com/jacob-delgado/workflow/commit/0e1bf7880defa33a90110619c80e79122c30c8d0))
+* **proc:** make the run itself the Act of the goroutine test ([6e587c1](https://github.com/jacob-delgado/workflow/commit/6e587c1e519a9a5a75c906b3af13d4bcd7ddca59))
+* **proc:** name the line buffer unreadLines has to stay above ([2ba8134](https://github.com/jacob-delgado/workflow/commit/2ba8134ed43e552ba66d9f2e5f5fab57832f4312))
+* **proc:** read a left-behind line only once the run takes the exit ([cc77307](https://github.com/jacob-delgado/workflow/commit/cc7730794b88cb7703cfeaecd59378375670f4a3))
+* **proc:** report an empty stderr and a program that could not run ([fb22664](https://github.com/jacob-delgado/workflow/commit/fb22664407cabb9735590a6ecd5923a72da0bfb4))
+* **proc:** require the goroutine test's run to have given something up ([27ad8ba](https://github.com/jacob-delgado/workflow/commit/27ad8ba7b6c9cf4071b78a8bf70e7cdfa0ac051f))
+* **quietinput:** ask a running form on a terminal through Run ([b29c5a8](https://github.com/jacob-delgado/workflow/commit/b29c5a81d97528e4f2fe9afe36e0f9e54c79291b))
+* **quietinput:** ask for a secret only on a terminal ([910a981](https://github.com/jacob-delgado/workflow/commit/910a98150268b37c81e42871ce4cac59eff5ad2c))
+* **quietinput:** cycle the suggestions from a value typed whole ([a8cf5f2](https://github.com/jacob-delgado/workflow/commit/a8cf5f2f0698ed56ac6f9abcb09e79e87d63cf3f))
+* **quietinput:** hold an untouched value apart from option order ([2be44b7](https://github.com/jacob-delgado/workflow/commit/2be44b7a1c5a57ab8ced11526d58eb094b73b519))
+* **quietinput:** hold two completion tests to what their Act does ([5055d99](https://github.com/jacob-delgado/workflow/commit/5055d99d5f2cea98495d6d19f2a05d23be46ce3d))
+* **quietinput:** leave an untouched value through an empty paste ([b0a6ba1](https://github.com/jacob-delgado/workflow/commit/b0a6ba182dd923db7f24db1110f7f2b0d54b339c))
+* **quietinput:** move the suggestion tests to a file of their own ([73e7152](https://github.com/jacob-delgado/workflow/commit/73e715279def8d34cc179a4492d7345a5c6d0868))
+* **quietinput:** never type the key leaving the field into it ([6e66f53](https://github.com/jacob-delgado/workflow/commit/6e66f53e4d916d376b003fc1af3eae116a2f285b))
+* **tui:** hold the base tests to leaving the base field ([7f1720c](https://github.com/jacob-delgado/workflow/commit/7f1720c3431780a9a12ffeecfeb7b8f74778b628))
+* **tui:** keep a base typed whole in the pull request composer ([086a07f](https://github.com/jacob-delgado/workflow/commit/086a07f4d125af5ef3b6b4c328ee51c66b8e5f52))
+* **tui:** keep the base the pull request composer opens at ([d0ecf00](https://github.com/jacob-delgado/workflow/commit/d0ecf000a7135401300122cb9c9f7d85cb39fbb4))
+* **tui:** list nothing a failed directory read handed back ([888783e](https://github.com/jacob-delgado/workflow/commit/888783e4a87ddc4f81f98fd909521f2290464a4c))
+* **web:** count what both listings hold once the whole one answers ([472ebcb](https://github.com/jacob-delgado/workflow/commit/472ebcb920fe9d7a87c7030c6da88de41d8e6a6f))
+* **web:** launch the Chromium PLAYWRIGHT_CHROMIUM_EXECUTABLE names ([c18a9b4](https://github.com/jacob-delgado/workflow/commit/c18a9b4dc4e2b63d85ddc85bc2490812db4cdfc6))
+* **web:** open Settings' tabs and the tag picker under the policy ([cc5f28f](https://github.com/jacob-delgado/workflow/commit/cc5f28fda2dbd14731328864d32a8bc2a92a00fc))
+* **webserver:** cover the run's index lock and its tail ([7ae940b](https://github.com/jacob-delgado/workflow/commit/7ae940bc918de733a2665ba1dccdad41e4eb3370))
+* **webserver:** split the issue-write and repository tests ([80ee404](https://github.com/jacob-delgado/workflow/commit/80ee404c9b95cd9c3c89e1b114387bd496c71fdb))
+
 ## [0.11.0](https://github.com/jacob-delgado/workflow/compare/v0.10.0...v0.11.0) (2026-10-14)
 
 

@@ -73,7 +73,7 @@ the version instead:
 <!-- x-release-please-start-version -->
 
 ```sh
-go install github.com/jacob-delgado/workflow/cmd/workflow@v0.11.0
+go install github.com/jacob-delgado/workflow/cmd/workflow@v0.12.0
 ```
 
 <!-- x-release-please-end -->
