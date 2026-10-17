@@ -1212,8 +1212,8 @@ the binary. For the same reason the release's SBOM leaves both pin files and
 `tmp/` out (`build/syft.yaml`), and a tool pinned by a file of its own under
 `build/` joins that list. `npm ci` takes what the lock names at any age, so
 the age gate, which runs on a pull request, is the lock's only check of age.
-Dependabot moves neither file, so a bump is `task deps:yamllint` or `task
-deps:markdownlint` by hand. The generator reads no version range a requirement
+Dependabot moves the lock but not the requirements file, whose bumps are `task
+deps:yamllint` by hand. The generator reads no version range a requirement
 names, and pip refusing the tree at install is the only check of one; a hand
 edit that drops `--only-binary` is caught only in review.
 
