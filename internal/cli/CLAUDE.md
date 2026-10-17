@@ -130,7 +130,14 @@ for a client's unreachable service, `cmdkit.ServicesUnreachable` in
   package's does, with a proof of its own. The kit's tests reach each of its
   conditions both ways, since the condition gate measures a package by its
   own tests alone, but for the two Windows clauses of `relativeToWorkingDir`
-  (`cmdkit/environment.go`) that TRADE-35 keeps, which they see one way only.
+  (`cmdkit/environment.go`) that TRADE-35 keeps: only
+  `cmdkit/environment_windows_test.go` sees them false, and only a Windows
+  `go test` runs it. gobco lists the two as seen one way, which fails
+  nothing: the gate fails a condition no test evaluated and an error check
+  whose error arm none reached, and these are neither. On macOS a third is seen
+  one way: the error arm of `closeRequestLog`'s write check
+  (`cmdkit/scriptable.go`), which only Linux's `/dev/full` reaches. It is an
+  error check, so `scripts/gobco-allowlist.txt` keeps it there for TRADE-18.
 - **A terminal** is a pseudo-terminal from `internal/ptytest`, as
   `help_terminal_test.go` and `prompt_terminal_test.go` use it.
 - **Test files near the ceiling.** A test file fails past 700 lines, and
