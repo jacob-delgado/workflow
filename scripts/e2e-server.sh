@@ -7,7 +7,8 @@
 # The fixture is rebuilt under <fixture-dir> on every run, in a directory the
 # script makes private to itself:
 #
-#   home/        the server's home directory, empty but for what it writes
+#   home/        the server's home directory: the .gitconfig this script
+#                writes, and whatever the server writes
 #   origin.git   a bare repository standing in for the remote
 #   repo/        the repository served: main, one commit, pushed to origin;
 #                docs/notes, made from it with no upstream and checked out,
@@ -73,6 +74,15 @@ if ! mkdir -m 700 -- "${fixture_dir}"; then
 fi
 mkdir -- "${home}" "${repo}"
 touch -- "${marker}"
+
+# Every git run with the fixture's home, the server's included, reads this
+# global configuration, which turns git's automatic maintenance off: since git
+# 2.47 a commit, and the receive-pack a push to origin.git starts, return with
+# it detached and still running, which could be writing into the fixture as
+# the run removes it. An older git's receive-pack runs gc instead, which
+# receive.autoGc stops too. It is the script tests' lib/test-gitconfig, which
+# the Go tests' internal/gittest is held to as well.
+cp -- "${repo_root}/scripts/lib/test-gitconfig" "${home}/.gitconfig"
 
 "${hermetic[@]}" git init --quiet --bare --initial-branch=main -- "${origin}"
 "${hermetic[@]}" git init --quiet --initial-branch=main -- "${repo}"

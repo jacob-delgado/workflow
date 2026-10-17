@@ -9,14 +9,18 @@
 # went in, and its own summary line is printed as it passes. This is what
 # `task test:scripts` runs.
 #
-# Each test also runs with every git it starts tracing its events
-# (GIT_TRACE2_EVENT), and without this run's own git configuration, as it
-# would run alone, and none of those gits may start git's automatic
-# maintenance: since git 2.47 a commit, a fetch or the receive-pack of a push
-# leaves it running detached, still able to write into the test's work
-# directory as its exit trap removes it, which fails the test. The reader of
-# those traces is first held to a trace of its own, so a reader that names
-# nothing cannot pass every test.
+# Each test also runs with every git it starts that keeps the test's
+# environment tracing its events (GIT_TRACE2_EVENT), and without this run's
+# own git configuration, as it would run alone, and none of those gits may
+# start git's automatic maintenance: since git 2.47 a commit, a fetch or the
+# receive-pack of a push leaves it running detached, still able to write into
+# the test's work directory as its exit trap removes it, which fails the test.
+# The reader of those traces is first held to a trace of its own, so a reader
+# that names nothing cannot pass every test. A git a test runs under `env -i`
+# drops GIT_TRACE2_EVENT, so this check does not see it: e2e-server_test.sh's
+# own gits, which only read, and the ones e2e-server.sh builds its fixture
+# with, which is why e2e-server_test.sh traces those itself, through a git
+# placed first on PATH (expect_no_maintenance).
 #
 # Usage:
 #   scripts/hook-environment_test.sh

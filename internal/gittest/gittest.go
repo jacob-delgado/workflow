@@ -61,8 +61,9 @@ func ClearLocalVariables() error {
 // receive-pack, in a repository on disk, reads only its own repository's
 // configuration and this one, never a -c the pushing git was handed; an older
 // git's runs gc instead, which receive.autoGc stops too. It is the script
-// tests' scripts/lib/test-gitconfig as well, which Go cannot embed from outside
-// this package, so a test holds the two to each other.
+// tests' and the e2e fixture's scripts/lib/test-gitconfig as well, which Go
+// cannot embed from outside this package, so a test holds the two to each
+// other.
 const configuration = "[maintenance]\n\tauto = false\n[receive]\n\tautoGc = false\n"
 
 // configurationMode is the mode of the file configuration is written to.
