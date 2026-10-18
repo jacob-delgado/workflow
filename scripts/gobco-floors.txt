@@ -20,10 +20,11 @@
 # the store on disk, the file that names them, the transport that carries
 # them — held where its own tests put it.
 #
-# Each floor is floor(measured) - 2 on the day it is set, like the module's,
-# and only ever raised: the gate prints the ratchet each package has
-# available, and a floor is raised once the coverage is already there. The
-# numbers live here and nowhere else; no document restates them.
+# Each floor is floor(measured) - 2 on the day it is set, like the module's.
+# The gate prints the ratchet each package has available, and a floor is
+# raised once the coverage is already there; it is lowered only as CLAUDE.md's
+# *Testing* allows, in the commit that causes the drop. The numbers live here
+# and nowhere else; no document restates them.
 
 # internal/cli/doctor puts every configured credential to its service, and
 # masks the origin and base remote addresses it reports.

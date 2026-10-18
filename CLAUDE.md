@@ -400,8 +400,12 @@ evaluated, or an error check whose error arm no test reached, fails the gate
 unless `scripts/gobco-allowlist.txt` keeps it for a trade-off;
 CONTRIBUTING.md's *Tests* says what counts as an error check. A floor is
 raised only once the coverage is already there, to `floor(measured) − 2`,
-which the gates print. These are minimums, not targets — aim higher where the
-code touches a credential.
+which the gates print. A floor is lowered only for a valid reason, such as
+code nothing else can test (a library's own internal paths), a package
+leaving with its tested code, or a change of metric, and never just to make a
+red run pass: the commit that causes the drop sets it to `floor(measured) − 2`
+and gives the before and after figures and the reason in its body. These are
+minimums, not targets — aim higher where the code touches a credential.
 
 **Exempt** (no TDD ceremony): typo fixes, doc-only edits, formatter and linter
 passes, dependency bumps, configuration-only changes and behavior-free
