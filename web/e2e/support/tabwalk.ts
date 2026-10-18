@@ -215,10 +215,22 @@ async function pressTab(page: Page): Promise<void> {
 // always before the press resolves: read too soon, focus is on a guard outside
 // the dialog. Focus never rests on what assistive technology is told is not
 // there, so a guard that kept it would fail the wait, and a trap that leaks
-// still fails the walk.
+// still fails the walk. It then waits out one rendering update and the task
+// after it: WebKit brings a text field that Tab focuses into view only at the
+// end of the next rendering update (FrameSelection's pending reveal), and a
+// button on a timer of its own, so focus read sooner shows a field where the
+// step before left it.
 async function pressTabToRest(page: Page): Promise<void> {
   await page.keyboard.press('Tab')
   await page.waitForFunction(() => document.activeElement?.closest('[aria-hidden="true"]') == null)
+  await page.evaluate(
+    () =>
+      new Promise<void>((settled) => {
+        requestAnimationFrame(() => {
+          setTimeout(settled, 0)
+        })
+      }),
+  )
 }
 
 // watchForLeaving watches the press about to be made, and gives back a check

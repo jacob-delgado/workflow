@@ -145,3 +145,45 @@ test('a page that keeps its focus events from the walk is still walked to its en
   // Assert
   expect({ reached, missed }).toEqual({ reached: ['Before', 'After'], missed: [] })
 })
+
+test('a field the browser reveals only at its next rendering update is in view as it has focus', async ({
+  page,
+}) => {
+  // Arrange
+  // As WebKit does, the field comes into view only at the rendering update
+  // after Tab gives it focus; the page asks for no frame itself, so the field
+  // is revealed only once the walk waits for one.
+  await page.setContent(`
+    <button>Before</button>
+    <div style="height: 100px; overflow-y: auto">
+      <div style="height: 300px"></div>
+      <label>Late <input id="late"></label>
+    </div>
+    <script>
+      const late = document.getElementById('late')
+      let pending = false
+      const frame = window.requestAnimationFrame.bind(window)
+      window.requestAnimationFrame = (callback) =>
+        frame((time) => {
+          if (pending) {
+            pending = false
+            late.scrollIntoView({ block: 'nearest' })
+          }
+          callback(time)
+        })
+      window.addEventListener('keydown', (event) => {
+        if (event.key === 'Tab' && !event.shiftKey && document.activeElement?.textContent === 'Before') {
+          event.preventDefault()
+          late.focus({ preventScroll: true })
+          pending = true
+        }
+      }, true)
+    </script>
+  `)
+
+  // Act
+  const { hidden } = await walkTabOrder(page)
+
+  // Assert
+  expect(hidden).toEqual([])
+})
