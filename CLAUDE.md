@@ -3,7 +3,10 @@
 Guidance for Claude Code (claude.ai/code) in this repository: the rules every
 session needs, and pointers to the rest. An area with rules of its own keeps
 them in a `CLAUDE.md` beside its code, listed under *Area guides* at the end;
-read the one for a directory before your first edit there.
+read the one for a directory before your first edit there. `AGENTS.md` sends
+any agent other than Claude Code here, and repeats the few of these rules, and
+of the `cloud-lanes` skill's, that such an agent most often misses: a change to
+one of them changes `AGENTS.md` in the same commit.
 
 ## What this project is
 
