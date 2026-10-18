@@ -1215,13 +1215,20 @@ the age gate, which runs on a pull request, is the lock's only check of age.
 Dependabot moves the lock but not the requirements file, whose bumps are `task
 deps:yamllint` by hand. The generator reads no version range a requirement
 names, and pip refusing the tree at install is the only check of one; a hand
-edit that drops `--only-binary` is caught only in review.
+edit that drops `--only-binary` is caught only in review. The lock holds
+braces 3.0.3, which markdownlint-cli2 reaches through micromatch to expand the
+repository's own globs, and GHSA-vfj7-8cjw-p6xm (stack exhaustion through
+deeply nested patterns) covers every braces release, so
+`.github/workflows/dependency-review.yml` allows that advisory by name; the
+same braces was installed, unseen, before the lock.
 
 **Reopen when.** mise can install a Python or npm tool from a lock of its
 whole tree, with hashes and within its age filter, using no tool the
 repository does not already pin; or uv is adopted for another reason, which
 would let mise's own lockfile hold the trees; or either linter is replaced by
-one released as a single binary.
+one released as a single binary. The braces allowance goes as soon as a braces
+release fixes GHSA-vfj7-8cjw-p6xm and the lock can take it, or
+markdownlint-cli2 stops reaching braces.
 
 ### TRADE-54 A cloud session's gate runs zizmor offline and leaves vuln to CI
 
