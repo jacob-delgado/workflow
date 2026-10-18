@@ -4,7 +4,8 @@
 package doctor_test
 
 // `workflow doctor --online` asks Slack, here a fake on this machine
-// (clitest.FakeSlack), whose a Slack user token is.
+// (clitest.FakeSlack), who holds a Slack user token: which user, in which
+// workspace.
 
 import (
 	"net/http"
