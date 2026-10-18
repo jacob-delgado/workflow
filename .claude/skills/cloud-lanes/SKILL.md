@@ -6,7 +6,7 @@ description: What a Claude Code cloud session on this repository has to know to 
 # Cloud lanes
 
 What the cloud container does to this repository's work, and what to do about
-it, learned between October 5 and 17, 2026, at the cost of red CI runs, a full
+it, learned between October 5 and 18, 2026, at the cost of red CI runs, a full
 disk and lanes cut off part way. The root `CLAUDE.md` holds the rules every
 session needs; this holds the detail behind them.
 
@@ -25,6 +25,19 @@ session needs; this holds the detail behind them.
 - **PATH.** The shell commands run in does not read `~/.bashrc`, so a change
   there reaches no command. A tool reaches PATH by a link in `~/.local/bin`,
   or by a line in the session's `CLAUDE_ENV_FILE`, which the hook writes.
+- **A session older than the hook.** A session that started before the hook
+  reached main, or whose hook did not run, has none of the variables it
+  writes, and exports three itself in each shell that needs them:
+  - `PLAYWRIGHT_CHROMIUM_EXECUTABLE`, the image's Chromium (below), without
+    which every e2e test fails to launch a browser;
+  - `COREPACK_NPM_REGISTRY=https://registry.npmjs.org`, without which
+    corepack fetches Yarn from `repo.yarnpkg.com`, which is refused, once its
+    cache does not hold the Yarn `web/package.json` names;
+  - `ZIZMOR_OFFLINE=true`, without which zizmor, in the pre-commit hook and
+    in `task lint`, fails its online audits with a 401.
+
+  `gate-as-dev` is not on its PATH either: it runs the worktree's own
+  `bash scripts/gate-as-dev.sh <worktree>`.
 - **The user.** The session is root. Root reads any file, so the tests that
   make one unreadable skip, and gobco's verdict does not hold. The gate runs
   as the non-root `dev` user (`gate-as-dev`, below), which reaches the tools
@@ -55,6 +68,16 @@ session needs; this holds the detail behind them.
 - **Other engines.** Only Chromium runs in this container. A verdict on
   Firefox or WebKit comes from CI only where the branch's `ci.yml` has a job
   for that engine; main's runs Chromium alone.
+- **Each engine brings focus into view its own way.** Chromium scrolls any
+  element that takes focus and is not wholly in view to the nearest edge.
+  Gecko scrolls only when no more than about a line of it shows
+  (`nsFocusManager::ScrollIntoView`: Center, IfNotVisible), so a control a
+  scrolling list's edge cuts stays cut; the Issues list brings any of its
+  controls that takes focus wholly into its pane for that reason. WebKit
+  reveals a text field that Tab focuses only at the end of the next
+  rendering update, so anything that reads focus sooner, as the Tab walk once
+  did, sees the field where the step before left it. A layout that passes on
+  Chromium alone has not shown it reveals focus on the other two.
 - **Before naming a cause in an engine,** read the revision Playwright ships
   (`web/node_modules/playwright-core/browsers.json`) and that build's base,
   not upstream's main (see *Premises*, below).
@@ -211,7 +234,19 @@ A lane, whether a workflow agent, a subagent or a cloud session, starts with
   or answered with evidence that it is wrong, with nothing left as a
   follow-up. It asks the main session when a decision is the maintainer's.
 - **The gate.** It runs `gate-as-dev <worktree>` before reporting done, and
-  reports what it said.
+  reports what it said. In a session older than the hook it runs the
+  worktree's own `scripts/gate-as-dev.sh`, never another worktree's copy,
+  which goes when that worktree is removed. The gate refuses to start under
+  8 GB free; the lane then reports and stops, since only the main session
+  clears the shared Go build cache.
+- **What the maintainer said last.** A workflow agent sees the maintainer's
+  latest message in the main session as well as its prompt. A lane once took
+  the answer to an unrelated proposal as an order to stop, and refused its
+  fix round and both review rounds after it, each refusal looking like a
+  finished step. When a lane starts or resumes after a message that is not
+  about it, the prompt says what that message answered and that the lane
+  carries on; a lane whose prompt says nothing of a message that could be
+  about its task stops and asks.
 - **The disk.** It checks `df -h /` before a build and stops to report under
   3 GB free, clearing nothing shared (see *The disk*, above).
 - **Refusals.** When the auto-mode classifier refuses a step (a `git reset`,
@@ -247,6 +282,18 @@ A lane, whether a workflow agent, a subagent or a cloud session, starts with
   resume, read the run's journal (`journal.jsonl` in the transcript directory
   the launch names); if a finished stage started again, stop the run at once
   and write a short continuation script that starts at the right round.
+- **A container restart is a cutoff too,** and it can land between a lane's
+  work and its report: a fix round once amended every commit of its branch,
+  then the restart took it before it reported or ran the gate, so the resumed
+  round started again on commits that already held its fixes. A fix round's
+  prompt tells it to read `git reflog -15` for an earlier attempt at itself
+  and redo only what is missing, and the main session checks that round's
+  findings against the branch before it relies on the next review.
+- **A harness warning on an agent is a lead, not a verdict.** A verifier was
+  once flagged for a destructive git action when its transcript held only
+  `git log`, `git show` and `sed`. Read its tool calls (its `agent-*.jsonl`
+  in the run's transcript directory) and the worktrees' `git reflog` before
+  acting on the warning, or on the agent's result.
 - **An empty review is no verdict.** An agent a cutoff stopped returns
   nothing, and a script that read an empty findings list as sound reported
   two cut-off review rounds as sound. A workflow script counts the agents
@@ -283,3 +330,20 @@ settles it, such as a helper that names the source of each refusal.
   which is why the gate above runs first.
 - **Watch, don't poll.** `subscribe_pr_activity` brings CI and reviews to the
   session as events.
+- **Auto-merge, never a direct merge.** Turn on auto-merge (rebase) right
+  after the validated push, while the checks still run. GitHub refuses
+  auto-merge on a pull request that is already clean; merging it directly
+  then is a merge without review, which the classifier flags. Ask the
+  maintainer instead.
+- **An engine's first run is a first look.** A failure early in a spec can
+  hide the ones after it: Firefox's Tab walk stalling at the document's end
+  hid the Issues rows Firefox left cut, which showed only once the walk got
+  past it. Expect another round after a fix that lets an engine run further,
+  and root-cause each failure rather than rerun it: one that fails in one
+  theme and passes in the other, whose geometry is the same, is a race in
+  the test or the page.
+- **A restamp is a claim no gate checks.** UX.md's and FEATURES.md's
+  *Checked against commit* paragraphs say every pointer was read at a
+  commit. A branch rebased past the commit it names redoes that audit (every
+  path, `file:line` pointer and count, with a skeptic on each correction)
+  before it keeps the claim, and names the commit it now stands on.
