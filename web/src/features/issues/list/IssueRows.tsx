@@ -200,17 +200,24 @@ function useSelectedRowInView(
       return
     }
 
-    const top = row.getBoundingClientRect().top - list.getBoundingClientRect().top - list.clientTop
-    const bottom = top + row.offsetHeight
-    const inset = parseFloat(getComputedStyle(list).paddingTop)
-    if (top < 0) {
-      list.scrollTop += top - inset
-    } else if (bottom > list.clientHeight) {
-      list.scrollTop += bottom - list.clientHeight + inset
-    }
+    revealInPane(list, row)
   }, [rowRefs, selected])
 
   return pane
+}
+
+// revealInPane scrolls the list's pane alone, and only as far as it must, to
+// show the whole of a control in it.
+function revealInPane(list: HTMLElement, control: Element) {
+  const box = control.getBoundingClientRect()
+  const top = box.top - list.getBoundingClientRect().top - list.clientTop
+  const bottom = top + box.height
+  const inset = parseFloat(getComputedStyle(list).paddingTop)
+  if (top < 0) {
+    list.scrollTop += top - inset
+  } else if (bottom > list.clientHeight) {
+    list.scrollTop += bottom - list.clientHeight + inset
+  }
 }
 
 interface RowCheckoutProps {
