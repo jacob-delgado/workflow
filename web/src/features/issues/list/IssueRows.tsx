@@ -57,6 +57,7 @@ const selectedEdge =
 export function IssueRows({ issues, facts, rowRefs, outcome }: IssueRowsProps) {
   const selected = useUiStore((state) => state.selectedIssue?.key ?? null)
   const pane = useSelectedRowInView(rowRefs, selected)
+  useFocusedControlInView(pane)
 
   return (
     <ul
@@ -204,6 +205,29 @@ function useSelectedRowInView(
   }, [rowRefs, selected])
 
   return pane
+}
+
+// useFocusedControlInView brings a control of the list that takes focus wholly
+// into the list's pane. Firefox scrolls a control that takes focus only when no
+// more than a line of it shows, so a row the pane's edge cuts would stay cut.
+function useFocusedControlInView(pane: RefObject<HTMLUListElement | null>) {
+  useEffect(() => {
+    const list = pane.current
+    if (list === null) {
+      return
+    }
+
+    const reveal = (event: FocusEvent) => {
+      if (event.target instanceof Element) {
+        revealInPane(list, event.target)
+      }
+    }
+    list.addEventListener('focusin', reveal)
+
+    return () => {
+      list.removeEventListener('focusin', reveal)
+    }
+  }, [pane])
 }
 
 // revealInPane scrolls the list's pane alone, and only as far as it must, to

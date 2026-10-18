@@ -4,8 +4,9 @@ import { expect, issuesOf, problem, snapshotWith, streams, test } from '../suppo
 import { axeViolations, expectReachableAndClean } from '../support/reachable.ts'
 
 // The issue list: its controls and an open issue's detail beside it, a refused
-// switch to an issue's branch, a later page of the view loaded into it, and its
-// rows, each summary on one line and every row at one right edge.
+// switch to an issue's branch, a later page of the view loaded into it, its
+// rows, each summary on one line and every row at one right edge, and a row
+// the list's edge cuts, brought wholly into the list as it takes focus.
 
 // redactTokens is the issue the list opens, in progress.
 const redactTokens = {
@@ -223,6 +224,35 @@ for (const width of [640, 1440]) {
 
       // Assert
       expect(new Set(edges).size, `right edges ${edges.join(', ')}`).toBe(1)
+    },
+  )
+}
+
+// Firefox scrolls a control that takes focus into view only when no more than a
+// line of it shows (nsFocusManager::ScrollIntoView: Center, IfNotVisible), so
+// a row the list's edge cuts would keep its cut part hidden; a focus that does
+// not scroll is what Firefox gives that row.
+for (const [width, key] of [
+  [640, 'PROJ-401'],
+  [1024, 'PROJ-390'],
+] as const) {
+  test(
+    `a row the list's edge cuts comes wholly into the list as it takes focus, at ${String(width)} px`,
+    { tag: '@populated' },
+    async ({ page }) => {
+      // Arrange
+      await openCockpit(page, { width, height }, 'dark')
+      const row = page
+        .getByRole('list', { name: 'Issues' })
+        .getByRole('button', { name: new RegExp(`^${key}`) })
+
+      // Act
+      await row.evaluate((button) => {
+        button.focus({ preventScroll: true })
+      })
+
+      // Assert
+      await expect(row).toBeInViewport({ ratio: 1 })
     },
   )
 }
