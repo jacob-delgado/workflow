@@ -13,12 +13,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
-// The commands the refused-output tests run, each named more than once in the
-// package's tests.
-const (
-	reviewsCommand = "reviews"
-	doctorCommand  = "doctor"
-)
+// doctorCommand is the command the refused-output, help and removed-directory
+// tests run.
+const doctorCommand = "doctor"
 
 func TestProseFailsWhenItsOutputCannotBeWritten(t *testing.T) {
 	t.Parallel()
@@ -26,7 +23,7 @@ func TestProseFailsWhenItsOutputCannotBeWritten(t *testing.T) {
 	// Each command, by name, and where it runs.
 	cases := map[string]func(t *testing.T) string{
 		"status": clitest.FeatureRepo,
-		reviewsCommand: func(t *testing.T) string {
+		"reviews": func(t *testing.T) string {
 			t.Helper()
 			clitest.FakeGh(t, clitest.GhResponses{Search: reviewSearch(reviewItem(1, "ana", "ex/repo", time.Now()))})
 
