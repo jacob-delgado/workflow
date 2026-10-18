@@ -8,7 +8,9 @@ description: What a Claude Code cloud session on this repository has to know to 
 What the cloud container does to this repository's work, and what to do about
 it, learned between October 5 and 18, 2026, at the cost of red CI runs, a full
 disk and lanes cut off part way. The root `CLAUDE.md` holds the rules every
-session needs; this holds the detail behind them.
+session needs; this holds the detail behind them. `AGENTS.md` repeats its
+lane rules in brief for other agents: a change to one of them changes
+`AGENTS.md` in the same commit.
 
 ## The container
 
