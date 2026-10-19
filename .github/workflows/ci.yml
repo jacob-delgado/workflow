@@ -650,25 +650,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The verdict and the skip it allows are scripts/ci-gate.sh's, with its
+      # sibling test, so the rule is tested rather than only read.
       - name: Verify every required job succeeded
         env:
           RESULTS: ${{ toJSON(needs) }}
-        run: |
-          set -euo pipefail
-          echo "${RESULTS}" | jq -r 'to_entries[] | "  \(.key): \(.value.result)"'
-          # Every job must succeed. `skipped` passes for commit-lint alone,
-          # which is pull-request-only by design; a skip anywhere else is an
-          # `if:` added or mistyped on a job that then never ran, and fails the
-          # gate as `failure` and `cancelled` do.
-          if echo "${RESULTS}" | jq -e '
-            to_entries
-            | map(select(.value.result != "success"
-                and (.key != "commit-lint" or .value.result != "skipped")))
-            | length > 0' >/dev/null; then
-            echo "::error::A required job did not succeed — see the list above."
-            exit 1
-          fi
-          echo "All required jobs succeeded."
+        run: scripts/ci-gate.sh
 
   # Deliberately NOT in the gate: Test summary, Coverage comment and Coverage
   # baseline. All three are reporting, not gating — Test summary reports what
