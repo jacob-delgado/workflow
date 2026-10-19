@@ -86,18 +86,18 @@ func morningChanges() []fileChange {
 func morningDiffs() map[string][]string {
 	return map[string][]string{
 		reqlogPath: {
-			"@@ -41,7 +41,7 @@ func (l requestLog) write(request *http.Request) {",
-			"-\tl.out.Printf(\"%s %s %v\", request.Method, request.URL, request.Header)",
-			"+\tl.out.Printf(\"%s %s %v\", request.Method, request.URL, config.Redact(request.Header))",
+			"@@ -44 +44 @@ func (l reqLog) write(r *http.Request) {",
+			"-\tl.out.Printf(\"%s %v\", r.URL, r.Header)",
+			"+\tl.out.Printf(\"%s %v\", r.URL, config.Redact(r.Header))",
 		},
 		redactPath: {
-			"@@ -12,6 +12,8 @@ var sensitive = []string{",
+			"@@ -14 +14,3 @@ var sensitive = []string{",
 			" \t\"Authorization\",",
 			"+\t\"Proxy-Authorization\",",
 			"+\t\"X-Api-Key\",",
 		},
 		reqlogTestPath: {
-			"@@ -0,0 +1,4 @@",
+			"@@ -0,0 +1,3 @@",
 			"+func TestTheRequestLogCarriesNoToken(t *testing.T) {",
 			"+\tt.Parallel()",
 			"+}",

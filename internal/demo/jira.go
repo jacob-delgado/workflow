@@ -17,7 +17,7 @@ import (
 const workedKey jira.Key = "PROJ-412"
 
 // workedSummary is what the worked issue asks for.
-const workedSummary = "Redact tokens before they reach the request log"
+const workedSummary = "Redact tokens in the request log"
 
 // The statuses the demo's issues move through, and the people on them.
 const (

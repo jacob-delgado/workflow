@@ -21,7 +21,7 @@ func TestTheRecordedLoopRunsFromAnIssueToAnAnnouncement(t *testing.T) {
 	demo.press("1", "b", "enter")
 
 	// Assert: the branch is made for it
-	requireScreen(t, demo.screen(), "fix/PROJ-412-redact-tokens")
+	requireScreen(t, demo.screen(), "fix/PROJ-412-redact-tokens-in-the-request-log")
 
 	// Act: stage everything and commit it
 	demo.press("3", "a", "c")
@@ -37,8 +37,14 @@ func TestTheRecordedLoopRunsFromAnIssueToAnAnnouncement(t *testing.T) {
 	// Assert: origin has it
 	requireScreen(t, demo.screen(), "upstream  pushed")
 
-	// Act: open its pull request, base and title as proposed
-	demo.press("4", "n", "enter", "enter")
+	// Act: open its pull request on the base proposed
+	demo.press("4", "n", "enter")
+
+	// Assert: its body starts from the repository's template
+	requireScreen(t, demo.screen(), "template pull_request_template (1 of 1)", "## How it was tested")
+
+	// Act: open it with the title proposed
+	demo.press("enter")
 
 	// Assert: CI runs, and the announcement waits for it
 	requireScreen(t, demo.screen(), "#128 fix(config): redact tokens in the request log", "running (0 of 4 finished)",

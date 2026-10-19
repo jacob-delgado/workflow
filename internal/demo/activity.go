@@ -36,7 +36,7 @@ func during[T any](items []T, at func(T) time.Time, start, end time.Time) []T {
 // refactor, merged into main, and every commit the demo has made since.
 func (w *World) commitsBetween(_ context.Context, start, end time.Time) []loop.RepositoryCommits {
 	refactor := gitrepo.DatedCommit{
-		Hash: "c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f6", Short: "c3d4e5f",
+		Hash: "e5d2b87f05edefb5b1d3e891e49886a82447e515", Short: "e5d2b87",
 		Subject: "refactor(config): route every write through Redact", Authored: yesterday(9, 12),
 	}
 	written := append([]gitrepo.DatedCommit{refactor}, locked(w, func() []gitrepo.DatedCommit {
@@ -63,12 +63,12 @@ func (w *World) jiraActivity(_ context.Context, start, end time.Time) (jira.Acti
 	return jira.Activity{Events: during(events, func(event jira.Event) time.Time { return event.At }, start, end)}, nil
 }
 
-// forgeActivity is what you did on GitHub over a period: Lee's review-queue
+// forgeActivity is what you did on GitHub over a period: Sam's review-queue
 // pull request reviewed yesterday, and every pull request the demo opened.
 func (w *World) forgeActivity(_ context.Context, start, end time.Time) (forge.Activity, error) {
 	reviewed := forge.Event{
-		At: yesterday(14, 20), Kind: forge.EventReviewed, Number: 391, Title: "List the review queue on the web",
-		URL: toolURL + "/pull/391", Repository: toolRepository,
+		At: yesterday(14, 20), Kind: forge.EventReviewed, Number: 377,
+		Title: "Retry the forge search once on a gateway timeout", URL: toolURL + "/pull/377", Repository: toolRepository,
 	}
 	events := append([]forge.Event{reviewed}, w.pullsOpened()...)
 
