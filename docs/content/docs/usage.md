@@ -78,7 +78,7 @@ still under `ui.motion: reduce`.
   starts with where you work, faint — the repository's name and the path
   within it, as `api/cmd` — which gives way first when the row is short; the
   [Repositories](#repositories) pane says it in full. At its right end is the
-  Taskwarrior task you have started and how long it has run. When a stage
+  [Taskwarrior](https://taskwarrior.org) task you have started and how long it has run. When a stage
   completes, its rule fills left to right; `ui.motion: reduce` draws it
   filled at once.
 - **The rail** on the left is the nine panes in one box, a light rule between

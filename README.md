@@ -170,7 +170,7 @@ full.
 Run `workflow` in a repository. Nine panes run down the left — Issues, Branch,
 Commits, Review and your messaging service, named for it, in the order the work
 goes, then Reviews, the pull requests waiting on your review, Tasks, your
-Taskwarrior list, Summary, what you did yesterday or over any range of days,
+[Taskwarrior](https://taskwarrior.org) list, Summary, what you did yesterday or over any range of days,
 and Repositories, where you work and the directories you keep as favorites —
 and the one in focus fills the right. The bottom row shows
 only the keys that do something right now.

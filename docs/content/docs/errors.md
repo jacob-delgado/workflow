@@ -103,7 +103,7 @@ for (the detail names them; the terminal interface's status picker asks for
 them), or a configuration file that changed since Settings read
 it — edited on disk, or saved from another tab — which a save refuses rather
 than overwrite, short of an edit landing between the save's check and its write
-([Web]({{< relref "/docs/web" >}}) names that window). Taskwarrior answers it
+([Web]({{< relref "/docs/web" >}}) names that window). [Taskwarrior](https://taskwarrior.org) answers it
 too, for a task it changed nothing on — already started, not started, or no
 longer pending — and for an undo with nothing to undo. Removing the local data
 in Settings answers it for a database file that could not be removed, as one
