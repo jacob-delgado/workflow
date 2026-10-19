@@ -60,6 +60,8 @@ format that may still change before 1.0.
   interface: exit codes, streams and what standard error says, `--json`,
   `--yes`, `--dry-run`, `--quiet`, `--verbose`, `--log-format` and
   `--request-log`.
+- **[Questions and troubleshooting]({{< relref "/docs/faq" >}})** — what people
+  ask most, and what to do when a setup step, a token or a post does not work.
 - **[Command reference]({{< relref "/docs/reference" >}})** — every command and
   flag, generated from the code.
 - **[Development]({{< relref "/docs/contributing" >}})** — the toolchain, the

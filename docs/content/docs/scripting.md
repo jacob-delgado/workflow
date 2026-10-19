@@ -479,7 +479,9 @@ stops the same way and exits 2, saying to pass `--template`, which writes a
 file to edit by hand without asking. Two
 exceptions say to run it at a terminal instead: `announce` at a moment already
 announced, which `--yes` would leave as it is, and `slack login`, which takes
-no `--yes` because what it asks for are secrets.
+no `--yes` because what it asks for are secrets. [Questions and troubleshooting:
+Scripting and automation]({{< relref "/docs/faq#scripting-and-automation" >}}) answers what
+a run in CI most often meets.
 
 ## Posting elsewhere: `--channel`
 

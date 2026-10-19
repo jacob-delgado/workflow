@@ -782,7 +782,9 @@ or [UX.md](https://github.com/jacob-delgado/workflow/blob/main/UX.md):
 A failed request says why beside the button that made it, in words meant for
 you, and the button is there to try again; a read that fails says why above
 **Try again**. While a section reads, a line beginning *Reading* says what.
-Behind that, the API answers a
+When the words do not say enough, [Questions and
+troubleshooting]({{< relref "/docs/faq" >}}) has what to do for the common ones.
+Behind those words, the API answers a
 failed request with an RFC 9457 problem details object whose `code` a script
 can rely on, a request presenting no session among them (`401`,
 `unauthorized`); only the loopback, same-origin and `--dry-run` guards, which
