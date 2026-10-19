@@ -4,7 +4,8 @@
 # The fixtures gate-as-dev.sh's tests share: stand-ins for df, runuser, curl,
 # task, go and id that record what they were asked, a repository with one
 # commit, the free space each df call reports, and the gate run as root and as
-# the gate user, which gate-as-dev_test.sh tests the run with.
+# the gate user. gate-as-dev_test.sh tests the run itself, and
+# gate-as-dev_docs_test.sh which tasks a run is handed for a docs-only change.
 #
 # Sourced, never run, after lib/testing.sh, which sets ${workdir}; gate is the
 # script beside the sourcing test's ${here}:
