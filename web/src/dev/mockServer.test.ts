@@ -120,6 +120,18 @@ test('the mockup is a writable build', async () => {
   })
 })
 
+test('the mockup reports the version its build was given', async () => {
+  // Arrange
+  vi.stubEnv('VITE_MOCK_VERSION', 'v0.12.0')
+  await installed()
+
+  // Act
+  const { data } = await getHealth({ throwOnError: true })
+
+  // Assert
+  expect(data.version).toBe('v0.12.0')
+})
+
 test.each<[string, () => Promise<{ response: Response }>]>([
   ['the configuration', () => getConfig({ throwOnError: true })],
   ['the views', () => listViews({ throwOnError: true })],
