@@ -18,6 +18,12 @@ are contracts the code is held to, for any change under `docs/`. The root
   the content tree: only a `weight` in its front matter if it should not sort
   alphabetically (`hugo.toml`). Link between pages with
   `{{< relref "/docs/<page>#<anchor>" >}}`.
+- A page shows an image from `docs/assets` with hugo-book's
+  `{{< image src="images/…" alt="…" loading="lazy" >}}` shortcode, never a
+  Markdown image: hugo-book prints a Markdown image's path as written, and the
+  site's `/workflow/` base path breaks a `docs/static` one. The shortcode is
+  experimental in the theme, and it does not escape its alt text, so the text
+  holds no double quote.
 - `unsafe = false` in `hugo.toml`: no raw HTML in a page. The one exception is
   the HTML-comment version markers on the install page
   (`x-release-please-start-version`), which release-please rewrites on each
