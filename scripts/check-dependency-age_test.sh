@@ -111,6 +111,13 @@ versionless_tool() {
   printf 'shellcheck = { os = ["linux"] }\n' >>mise.toml
 }
 
+# docs_media_tools pins the tools the docs' recordings take, VHS released
+# under a v tag and ttyd under a bare one, both a week old.
+docs_media_tools() {
+  pin_tool vhs 0.12.1
+  pin_tool ttyd 1.7.7
+}
+
 # mise_tools pins mise tools of several kinds, all a week old.
 mise_tools() {
   pin_tool node 24.22.0
@@ -166,6 +173,16 @@ expect_exit pass "mise tools of each kind a week old" age "${tools_old}"
 go_package="$(repo go-package pin_tool go:golang.org/x/vuln/cmd/govulncheck 1.9.0)"
 expect_output fail "a Go-built tool whose module is up its package path" \
   "go:golang.org/x/vuln/cmd/govulncheck 1.9.0 was published 1 day(s) ago" age "${go_package}"
+
+answer "https://api.github.com/repos/charmbracelet/vhs/releases/tags/v0.12.1" "{\"published_at\":\"${old}\"}"
+answer "https://api.github.com/repos/tsl0922/ttyd/releases/tags/1.7.7" "{\"published_at\":\"${old}\"}"
+
+docs_media="$(repo docs-media docs_media_tools)"
+expect_output pass "VHS and ttyd, dated by their GitHub releases" "ttyd 1.7.7: published 2026-09-20" age "${docs_media}"
+count_case
+if ! grep -q "^ok    vhs 0.12.1: published 2026-09-20" "${case_output}"; then
+  fail_case "VHS and ttyd, dated by their GitHub releases" "VHS was not dated: $(cat "${case_output}")"
+fi
 
 release_young="$(repo release-young pin_tool jq 1.9.0)"
 expect_output fail "a GitHub release two days old, tagged with its name" "jq 1.9.0" age "${release_young}"
