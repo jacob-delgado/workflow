@@ -20,8 +20,41 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Whether a pull request changes the docs alone (scripts/docs-only.sh): then
+  # Lint runs the docs gates (task lint:docs), Scan its secret scans, and the
+  # Go, web and end-to-end jobs are skipped, which ci-gate accepts for such a
+  # change only. A push to main, and a change the script cannot classify, run
+  # everything. The base branch's copy of the script decides, never the pull
+  # request's own: a change to the classifier is judged by the rules already
+  # reviewed, so one that broke it cannot skip the Script tests that would
+  # catch the break. A base without the script runs everything.
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      docs: ${{ steps.kind.outputs.docs }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # The base branch, to see which files a pull request changes.
+          fetch-depth: 0
+      - name: Decide whether the change is to the docs alone
+        id: kind
+        run: |
+          docs=false
+          classifier="${RUNNER_TEMP}/docs-only.sh"
+          if [ "${GITHUB_EVENT_NAME}" = pull_request ] \
+            && git show "origin/${GITHUB_BASE_REF}:scripts/docs-only.sh" >"${classifier}" \
+            && bash "${classifier}" "origin/${GITHUB_BASE_REF}"; then
+            docs=true
+          fi
+          echo "docs=${docs}" >>"${GITHUB_OUTPUT}"
+
   lint:
     name: Lint
+    needs: [changes]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -60,8 +93,11 @@ jobs:
           fi
           echo "lint=${lint}" >>"${GITHUB_OUTPUT}"
       - run: task lint LINT_MARKDOWN="${LINT_MARKDOWN}"
+        if: needs.changes.outputs.docs != 'true'
         env:
           LINT_MARKDOWN: ${{ steps.markdown.outputs.lint }}
+      - run: task lint:docs
+        if: needs.changes.outputs.docs == 'true'
       # The week-long age gate, for every version a pull request adds to
       # go.mod, docs/go.mod, web/yarn.lock, mise.toml or the two linters' pin
       # files under build/, Dependabot's or not.
@@ -75,6 +111,8 @@ jobs:
 
   test:
     name: Test
+    needs: [changes]
+    if: needs.changes.outputs.docs != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -112,9 +150,10 @@ jobs:
       # gate reads, so CI and a developer's machine cannot disagree about it.
       # The run's events are kept for the test summary's counts. -count=1
       # because the cache is there for compiled packages, never for a test's
-      # pass: every test runs on every change. (internal/tui's pass could not
-      # be reused anyway: go test keys a test's result on the modification
-      # times of the files it opens, and a checkout sets them anew.)
+      # pass: no test's pass is reused from an earlier run. (internal/tui's
+      # pass could not be reused anyway: go test keys a test's result on the
+      # modification times of the files it opens, and a checkout sets them
+      # anew.)
       - run: task test:cover GO_TEST_JSON=tmp/go-events.json
         env:
           GOFLAGS: -count=1
@@ -148,6 +187,8 @@ jobs:
   # task, jq and node are every tool a suite runs; each stubs the rest.
   scripts:
     name: Script tests
+    needs: [changes]
+    if: needs.changes.outputs.docs != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -165,6 +206,8 @@ jobs:
   # Test it added its whole run to the time every change waits for.
   branch-coverage:
     name: Branch coverage
+    needs: [changes]
+    if: needs.changes.outputs.docs != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -202,6 +245,8 @@ jobs:
   # not re-run here) and fails if it and package.json disagree.
   web:
     name: Web
+    needs: [changes]
+    if: needs.changes.outputs.docs != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -231,6 +276,8 @@ jobs:
   # specs that drive a write against a running server are E2E (server)'s.
   e2e:
     name: E2E
+    needs: [changes]
+    if: needs.changes.outputs.docs != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:
@@ -291,6 +338,8 @@ jobs:
   # page.spec.ts's run on each engine with the rest of that job's.
   e2e-engines:
     name: E2E (${{ matrix.browser }})
+    needs: [changes]
+    if: needs.changes.outputs.docs != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -336,6 +385,8 @@ jobs:
   # from Vite preview.
   e2e-server:
     name: E2E (server)
+    needs: [changes]
+    if: needs.changes.outputs.docs != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:
@@ -382,8 +433,8 @@ jobs:
   # never reported as dashes.
   summary:
     name: Test summary
-    needs: [test, branch-coverage, web, e2e, e2e-server]
-    if: ${{ !cancelled() }}
+    needs: [changes, test, branch-coverage, web, e2e, e2e-server]
+    if: ${{ !cancelled() && needs.changes.outputs.docs != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -445,12 +496,14 @@ jobs:
           path: ci-report.md
           retention-days: 7
 
-  # The release build, run on every change so a broken cross-compilation — or a
-  # loop that names every target the same and ships one — is caught on the pull
-  # request rather than at the tag. With E2E (server)'s `task build`, it is
+  # The release build, run on every change but a docs-only pull request so a
+  # broken cross-compilation — or a loop that names every target the same and
+  # ships one — is caught on the pull request rather than at the tag. With E2E (server)'s `task build`, it is
   # also what proves the binary builds, so no job of its own builds it again.
   cross:
     name: Cross-compile
+    needs: [changes]
+    if: needs.changes.outputs.docs != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -486,6 +539,7 @@ jobs:
 
   scan:
     name: Scan
+    needs: [changes]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -502,6 +556,7 @@ jobs:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
           install_args: go task go:golang.org/x/vuln/cmd/govulncheck go:github.com/zricethezav/gitleaks/v8
       - run: task vuln
+        if: needs.changes.outputs.docs != 'true'
       - run: task secrets
       - run: task secrets:history
 
@@ -642,7 +697,7 @@ jobs:
   # of mistake: add a job here, add it to `needs`, and protection keeps working.
   ci-gate:
     name: ci-gate
-    needs: [lint, test, scripts, branch-coverage, web, e2e, e2e-engines, e2e-server, cross, scan, commit-lint]
+    needs: [changes, lint, test, scripts, branch-coverage, web, e2e, e2e-engines, e2e-server, cross, scan, commit-lint]
     # always(), so the gate reports a verdict even when a dependency fails —
     # without it the gate would be skipped, and a skipped required check never
     # goes green.
@@ -653,11 +708,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # The verdict and the skip it allows are scripts/ci-gate.sh's, with its
+      # The verdict and the skips it allows are scripts/ci-gate.sh's, with its
       # sibling test, so the rule is tested rather than only read.
       - name: Verify every required job succeeded
         env:
           RESULTS: ${{ toJSON(needs) }}
+          DOCS_ONLY: ${{ needs.changes.outputs.docs }}
         run: scripts/ci-gate.sh
 
   # Deliberately NOT in the gate: Test summary, Coverage comment and Coverage
