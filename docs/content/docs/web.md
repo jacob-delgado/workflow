@@ -57,7 +57,7 @@ stream's state. Under it runs **the loop**: the checked-out branch's five
 stages — Issue, Branch, Commits, Review and your messaging service — each with
 its state's mark and a rule that fills in its system's color as the stage gets
 done; the Review rule fills as CI's checks finish. A stage not yet begun is
-faint, and a failed one red. The Taskwarrior task you have started, when there
+faint, and a failed one red. The [Taskwarrior](https://taskwarrior.org) task you have started, when there
 is one, ends the loop's row, or takes a row of its own on a narrow window.
 The rail down the left holds the nine sections; the one you are in, and its heading, take the hue of
 the system it belongs to. Below a medium width the rail keeps its icons
