@@ -291,6 +291,12 @@ A lane, whether a workflow agent, a subagent or a cloud session, starts with
   prompt tells it to read `git reflog -15` for an earlier attempt at itself
   and redo only what is missing, and the main session checks that round's
   findings against the branch before it relies on the next review.
+- **Stopping a run is a cutoff too, and it can break what lanes share.** A
+  workflow stopped while one of its agents ran `scripts/cloud-session-setup.sh`
+  left `/opt/workflow-tools` half replaced, and the next commit's hook failed
+  with `markdownlint-cli2: not found`. Before stopping a run, read what its
+  agents are running (the newest `agent-*.jsonl` in its transcript
+  directory); after it, run the setup script again if one was mid-install.
 - **A harness warning on an agent is a lead, not a verdict.** A verifier was
   once flagged for a destructive git action when its transcript held only
   `git log`, `git show` and `sed`. Read its tool calls (its `agent-*.jsonl`
