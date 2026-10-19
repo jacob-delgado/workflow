@@ -1146,6 +1146,10 @@ have them, and so does the live line a command keeps while it waits. See
 
 ## Limits
 
+What follows is what workflow does not do, by design or for now. For what to do
+when something it does goes wrong, see [Questions and
+troubleshooting]({{< relref "/docs/faq" >}}).
+
 - **A push cannot ask for a password.** The interface owns the terminal, so git
   is told not to prompt. Push over SSH, or over HTTPS with a credential helper.
 - **Staging is by whole file.** Staging hunks is lazygit's whole project; use

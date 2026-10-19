@@ -213,8 +213,9 @@ together — the surfaces, the seams, and the two kinds of local state — and
 
 Full documentation is at
 **[jacob-delgado.github.io/workflow](https://jacob-delgado.github.io/workflow/)**
-— install, usage, the web interface, configuration, and a command reference
-generated from the code. The source is in [`docs/`](docs/); `task docs:serve`
+— install, usage, the web interface, configuration,
+[questions and troubleshooting](https://jacob-delgado.github.io/workflow/docs/faq/),
+and a command reference generated from the code. The source is in [`docs/`](docs/); `task docs:serve`
 previews it locally.
 
 ## Releases

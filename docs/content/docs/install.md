@@ -135,7 +135,9 @@ writes a blank file to edit) — [Configuration]({{< relref "/docs/configuration
 explains where to get the tokens — and run `workflow` to open the TUI. Or run
 `workflow`, or `workflow --web`, with no file at all: each offers to set one
 up, asking the same questions.
-[Using workflow]({{< relref "/docs/usage" >}}) walks through it.
+[Using workflow]({{< relref "/docs/usage" >}}) walks through it. If a step
+fails, [Questions and troubleshooting: When something
+fails]({{< relref "/docs/faq#when-something-fails" >}}) says where to start.
 
 ## Shell completion
 

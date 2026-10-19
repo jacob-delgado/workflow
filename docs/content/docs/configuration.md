@@ -137,7 +137,9 @@ the JQL the first view had, so editing that JQL drops them from the first view,
 and putting another view first leaves them leading the view that was first.
 
 `workflow doctor` names every file in effect, and `workflow config show` names
-them on stderr, so there is never a question about which were read.
+them on stderr, so there is never a question about which were read. When a file
+is refused, see [Questions and troubleshooting: When the configuration file is
+refused]({{< relref "/docs/faq#when-the-configuration-file-is-refused" >}}).
 
 ## Fields
 
