@@ -87,6 +87,7 @@ internal/testshape/   the Arrange-Act-Assert check behind cmd/testshape
 internal/docsgen/     the command reference behind cmd/docsgen, from the Cobra tree
 internal/demo/        a made-up day's work the docs' recordings show, faked as tui.Deps
 cmd/docsgen/          the thin main that runs internal/docsgen
+cmd/demo/             the thin main that runs the terminal interface over internal/demo, for the docs' recordings
 cmd/testshape/        the thin main that runs internal/testshape
 api/                  the OpenAPI contract for --web, embedded in the binary
 web/                  the React + TypeScript frontend --web serves

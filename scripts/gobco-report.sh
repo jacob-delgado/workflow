@@ -72,8 +72,9 @@ readonly out_dir="${OUT_DIR:-${repo_root}/tmp/gobco}"
 # conditions by running a package's tests, so a package without any cannot be
 # measured — but it must be named here rather than silently dropped, or a new
 # untested package would shrink what "every package" covers without a trace.
-# These three are thin mains: cmd/workflow wires cli.Execute, and cmd/docsgen
-# and cmd/testshape are the mains behind internal/ packages that carry the tests.
+# These four are thin mains: cmd/workflow wires cli.Execute, and cmd/docsgen,
+# cmd/testshape and cmd/demo are the mains behind internal/ packages that carry
+# the tests.
 # internal/api is the oapi-codegen output — generated types and server surface
 # with no logic of ours; `task gen:verify` guards it. api is package apispec: a
 # single //go:embed of the OpenAPI document, data with no branches to measure.
@@ -84,7 +85,7 @@ readonly out_dir="${OUT_DIR:-${repo_root}/tmp/gobco}"
 # tests serve the API handler and read its answers through it.
 # internal/cli/clitest is one more: the command tree's tests run the command
 # line through it.
-readonly NO_TESTS="cmd/workflow cmd/docsgen cmd/testshape internal/api api internal/rlimit internal/ptytest internal/webserver/webtest internal/cli/clitest"
+readonly NO_TESTS="cmd/workflow cmd/docsgen cmd/testshape cmd/demo internal/api api internal/rlimit internal/ptytest internal/webserver/webtest internal/cli/clitest"
 
 # gobco type-checks the standard library from SOURCE, with the go/types compiled
 # into it: that of the Go that BUILT gobco, not the Go on PATH. One built by Go
