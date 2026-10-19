@@ -368,6 +368,20 @@ tasks:
       - unset $(git rev-parse --local-env-vars); go test -race -timeout {{.GO_TEST_TIMEOUT}} {{.GO_PKGS}}
       - task: test:scripts
 
+  test:docs:
+    desc: Run the Go tests that hold the docs' contract pages to the code
+    cmds:
+      # The tests docs/CLAUDE.md names under Contract pages, so a docs-only
+      # change runs them without the suites around them: errors.md and
+      # scripting.md against the web API's problem codes, scripting.md against
+      # the commands, and configuration.md and usage.md against the terminal's
+      # keys and help groups. Each one's name starts with TestDocs, and the
+      # packages are the ones that hold such a test, so a new contract test
+      # joins by its name alone.
+      - >-
+        unset $(git rev-parse --local-env-vars); go test -count=1 -run '^TestDocs'
+        $(git grep -l -E '^func TestDocs' -- '*_test.go' | xargs -n1 dirname | sort -u | sed 's|^|./|')
+
   test:scripts:
     desc: Run the gate scripts' own tests
     cmds:
@@ -780,6 +794,37 @@ tasks:
       - task: cover:branch
       - task: vuln
       - task: secrets
+
+  check:docs:
+    desc: The gate for a change to the docs alone (scripts/docs-only.sh says which)
+    cmds:
+      - task: lint:docs
+      - task: secrets
+
+  lint:docs:
+    desc: The linters and tests a docs-only change can fail, which CI's Lint job runs for one
+    # Every gate that reads a file a docs-only change can touch: the Markdown
+    # and prose linters and their configuration, the generated command
+    # reference, the gates that read CLAUDE.md, scripts/CLAUDE.md, TECH_DEBT.md,
+    # README.md, CONTRIBUTING.md and the budget history, and the docs' contract
+    # tests. The Go, web and end-to-end suites and the code linters are left
+    # out: no file they read changed. The secret scan is check:docs' own step,
+    # since CI's Scan job runs it for every change.
+    cmds:
+      - task: lint:markdown
+      - task: lint:typos
+      - task: lint:yaml
+      - task: lint:toml
+      - task: lint:headers
+      - task: lint:filelength
+      - task: lint:packagesize
+      - task: lint:goversion
+      - task: lint:tradeoffs
+      - task: lint:techdebtpaths
+      - task: lint:siblingtests
+      - task: lint:layout
+      - task: docs:check
+      - task: test:docs
 
   # The Playwright suites `task check` leaves out: the web frontend alone,
   # served by Vite preview, with the axe scan and the layout spec among its
