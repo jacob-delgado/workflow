@@ -56,10 +56,10 @@ func TestEveryPaneShowsTheDemoWorld(t *testing.T) {
 	}
 }
 
-// The terminal docs/media/terminal.tape films: its 900 by 520 pixels at its
+// The terminal docs/media/terminal.tape films: its 920 by 520 pixels at its
 // font's size.
 const (
-	recordingWidth  = 94
+	recordingWidth  = 96
 	recordingHeight = 30
 )
 
@@ -110,4 +110,20 @@ func TestTheProposedBranchReadsWholeAtTheRecordingsSize(t *testing.T) {
 
 	// Assert
 	requireScreen(t, demo.screen(), "> fix/PROJ-412-redact-tokens-in-the-request-log")
+}
+
+func TestTheNoticeOfTheOpenedPullRequestReadsWholeAtTheRecordingsSize(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	demo := recorded(t)
+	demo.press("1", "b", "enter", "3", "a", "c")
+	demo.typed("redact tokens in the request log")
+	demo.press("enter", "2", "P", "enter")
+
+	// Act
+	demo.press("4", "n", "enter", "enter")
+
+	// Assert
+	requireScreen(t, demo.screen(), "· announces to #dev-workflow once CI passes")
 }
