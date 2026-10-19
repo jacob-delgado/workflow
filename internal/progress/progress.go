@@ -127,7 +127,7 @@ func PullStateOf(state forge.PullState) PullState {
 }
 
 // Work is everything the stages are derived from. The two session fields,
-// IssueSelected and PostPending, are knowledge the terminal interface has and a
+// IssueSelected and AnnouncePending, are knowledge an interface has and a
 // one-shot command does not; a command leaves them false, so neither its Issue
 // stage nor its messaging stage ever reads in-flight.
 type Work struct {
@@ -153,8 +153,9 @@ type Work struct {
 	// remembers, an earlier one — as loop's AnnounceMemory.HoldsNow reads it,
 	// so never while there is no pull request to follow.
 	Announced bool
-	// PostPending is that an announcement is waiting for CI. Session knowledge.
-	PostPending bool
+	// AnnouncePending is that an announcement is waiting for CI or on its
+	// way. Session knowledge.
+	AnnouncePending bool
 }
 
 // Stages is the loop's five stages, in order, each with its system and how far
@@ -225,12 +226,12 @@ func reviewState(work Work) State {
 }
 
 // announceState is done once the pull request is announced, and in flight while
-// an announcement waits for CI.
+// an announcement waits for CI or is on its way.
 func announceState(work Work) State {
 	switch {
 	case work.Announced:
 		return Done
-	case work.PostPending:
+	case work.AnnouncePending:
 		return InFlight
 	default:
 		return NotStarted

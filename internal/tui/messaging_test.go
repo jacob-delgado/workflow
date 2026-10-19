@@ -423,6 +423,34 @@ func TestNothingMorePostsWhileAPostIsOnItsWay(t *testing.T) {
 	}
 }
 
+func TestTheSpineKeepsSlackInFlightWhileTheHeldPostIsOnItsWay(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	slow := newWorld()
+	slow.ci = []forge.CI{{State: forge.CIRunning}, {State: forge.CIPassed}}
+	slow.postParked, slow.postRelease = make(chan struct{}, 1), make(chan struct{})
+
+	t.Cleanup(func() { close(slow.postRelease) })
+
+	checking, check := pressed(t, typing(t, slow.live(t, 120, 40), "5", "p"), "w")
+	sending, post := finish(t, checking, check)
+
+	go post()
+
+	select {
+	case <-slow.postParked:
+	case <-time.After(failsafe):
+		t.Fatalf("the post had not reached Slack after %v: w did not send it", failsafe)
+	}
+
+	// Act
+	view := sending.View().Content
+
+	// Assert
+	requireScreen(t, track(view), "Review ━ ◐ Slack")
+}
+
 func TestPostingWhenCIHasAlreadyPassedPostsNow(t *testing.T) {
 	t.Parallel()
 
