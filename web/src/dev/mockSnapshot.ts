@@ -151,7 +151,7 @@ export const mockSnapshot: Snapshot = {
     announced: false,
     pull: {
       number: 128,
-      url: 'https://github.com/acme/workflow/pull/128',
+      url: 'https://github.com/acme/api/pull/128',
       title: 'fix: redact tokens in the request log',
       state: 'open',
       draft: false,

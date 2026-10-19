@@ -111,7 +111,7 @@ function mockItem(
   return {
     at: `${date}T${at}:00Z`,
     ...fields,
-    repository: fields.source === 'forge' ? 'acme/workflow' : '',
+    repository: fields.source === 'forge' ? 'acme/api' : '',
   }
 }
 
@@ -159,9 +159,9 @@ function workingDay(date: string): ActivityItem[] {
     mockItem(date, '14:20', {
       source: 'forge',
       verb: 'opened',
-      ref: 'acme/workflow#42',
+      ref: 'acme/api#42',
       title: 'fix(config): redact tokens',
-      url: 'https://github.com/acme/workflow/pull/42',
+      url: 'https://github.com/acme/api/pull/42',
     }),
   ]
 }

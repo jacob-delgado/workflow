@@ -132,5 +132,5 @@ test('the mockup links an owner and saves its groups', { tag: '@populated' }, as
   await page.getByRole('button', { name: 'Save groups' }).click()
 
   // Assert
-  await expect(page.getByText('Saved the groups for acme/workflow.')).toBeVisible()
+  await expect(page.getByText('Saved the groups for acme/api.')).toBeVisible()
 })
