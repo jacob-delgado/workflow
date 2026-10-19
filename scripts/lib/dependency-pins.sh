@@ -95,11 +95,14 @@ npm_lock_pins() {
 }
 
 # mise_pins prints "tool version" for each [tools] pin in a mise.toml, and for
-# its min_version as the tool "mise".
+# its min_version as the tool "mise". A [tools.<name>] table, which mise reads
+# as a pin too, prints "! header" instead: this reads none of its keys, so the
+# gate fails it rather than let its version through undated.
 mise_pins() {
   awk '
     function value(line) { sub(/^[^=]*=[ \t]*"/, "", line); sub(/".*/, "", line); return line }
     /^min_version[ \t]*=/ { print "mise", value($0); next }
+    /^\[[ \t]*tools[ \t]*\./ { print "!", $0; tools = 0; next }
     /^\[/ { tools = ($0 == "[tools]"); next }
     tools && /^[^#].*=/ { key = $0; sub(/[ \t]*=.*/, "", key); gsub(/"/, "", key); print key, value($0) }
   '
