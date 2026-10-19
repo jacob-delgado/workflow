@@ -41,12 +41,12 @@ func pendingTasks() []taskwarrior.Task {
 
 	return []taskwarrior.Task{
 		{
-			UUID: "7c1e9a42-3b5d-4f60-8a1c-2d4e6f80a1b3", ID: 1, Description: "PROJ-412: Fix token redaction",
+			UUID: "7c1e9a42-3b5d-4f60-8a1c-2d4e6f80a1b3", ID: 1, Description: string(workedKey) + ": " + workedSummary,
 			Status: taskwarrior.Pending, Project: taskProject, Priority: "H", Tags: []string{taskwarrior.LinkTag},
 			Start: start.Add(-72 * time.Minute), Entry: start.Add(-3 * day), Modified: start.Add(-72 * time.Minute),
 			Urgency: 14.2, IssueKey: string(workedKey), IssueURL: browseURL(workedKey),
 			Annotations: []taskwarrior.Annotation{
-				{Entry: start.Add(-26 * time.Hour), Description: "Ana can review it once CI is green"},
+				{Entry: start.Add(-26 * time.Hour), Description: "Sam can review it once CI is green"},
 			},
 		},
 		{
@@ -73,7 +73,7 @@ func pendingTasks() []taskwarrior.Task {
 // written up yesterday, and any pending task changed since.
 func touchedTasks(_ context.Context, since time.Time) ([]taskwarrior.Task, error) {
 	finished := taskwarrior.Task{
-		UUID: "1d2e3f40-5a6b-4c7d-8e9f-0a1b2c3d4e5f", Description: "Write up the token redaction plan",
+		UUID: "3c8f0a19-e6a8-4544-9dd8-f1888f6f079f", Description: "Write up the token redaction plan",
 		Status: taskwarrior.Completed, Project: taskProject, Entry: epoch().Add(-26 * time.Hour),
 		Modified: yesterday(9, 40), End: yesterday(9, 40),
 	}

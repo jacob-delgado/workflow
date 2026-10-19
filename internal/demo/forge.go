@@ -29,10 +29,20 @@ func (w *World) forgeDeps() seams.Forge {
 		Author:          func(context.Context) (string, error) { return author, nil },
 		Kind:            forge.KindGitHub,
 		Activity:        w.forgeActivity,
+		Templates:       templates,
 		// What the demo does on GitHub.
 		CreatePullRequest: w.createPullRequest,
 		CheckStatus:       w.checkStatus,
 	}
+}
+
+// templates is api's pull request template, which a pull request's body
+// starts from.
+func templates() []forge.Template {
+	return []forge.Template{{
+		Name: "pull_request_template", Path: ".github/pull_request_template.md",
+		Body: "## What\n\n## Why\n\n## How it was tested\n",
+	}}
 }
 
 // findPullRequest is the pull request opened for a branch, if one was.

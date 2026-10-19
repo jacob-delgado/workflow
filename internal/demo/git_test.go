@@ -4,7 +4,9 @@
 package demo_test
 
 import (
+	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -429,5 +431,84 @@ func TestTodaysSummaryHoldsTheCommitsTheDemoMade(t *testing.T) {
 
 	if len(yesterday[0].Commits) != 1 || yesterday[0].Commits[0].Subject == "fix: redact" {
 		t.Errorf("yesterday's commits = %+v, want yesterday's alone", yesterday)
+	}
+}
+
+// hunkHeader is a unified diff's hunk header: where each side starts and, when
+// it is not one, how many lines it spans.
+var hunkHeader = regexp.MustCompile(`^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@`)
+
+// hunkSpan is how many lines a header's side spans: one when it gives none.
+func hunkSpan(t *testing.T, count string) int {
+	t.Helper()
+
+	if count == "" {
+		return 1
+	}
+
+	span, err := strconv.Atoi(count)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return span
+}
+
+// hunkSides is how many lines a hunk spans on its old side and on its new.
+type hunkSides struct {
+	old, new int
+}
+
+// sidesOf is how many of a hunk's lines are on each side of it: context on
+// both, a removal on the old one alone and an addition on the new.
+func sidesOf(hunk []string) hunkSides {
+	var sides hunkSides
+
+	for _, line := range hunk {
+		switch {
+		case strings.HasPrefix(line, " "):
+			sides.old, sides.new = sides.old+1, sides.new+1
+		case strings.HasPrefix(line, "-"):
+			sides.old++
+		case strings.HasPrefix(line, "+"):
+			sides.new++
+		}
+	}
+
+	return sides
+}
+
+func TestEachDemoDiffSpansTheLinesItsHeaderCounts(t *testing.T) {
+	t.Parallel()
+
+	deps := standingStill().Deps()
+
+	changes, err := deps.Git.Changes(t.Context())
+	if err != nil || len(changes) == 0 {
+		t.Fatalf("the demo's changes = %v, %v; want some", changes, err)
+	}
+
+	for _, change := range changes {
+		t.Run(change.Path, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			diff, diffErr := deps.Git.Diff(t.Context(), change)
+
+			// Assert
+			if diffErr != nil || len(diff) == 0 {
+				t.Fatalf("the diff of %s = %q, %v; want one", change.Path, diff, diffErr)
+			}
+
+			header := hunkHeader.FindStringSubmatch(diff[0])
+			if header == nil {
+				t.Fatalf("%q is no hunk header", diff[0])
+			}
+
+			counted := hunkSides{old: hunkSpan(t, header[1]), new: hunkSpan(t, header[2])}
+			if spans := sidesOf(diff[1:]); spans != counted {
+				t.Errorf("%q counts %+v lines; the hunk spans %+v", diff[0], counted, spans)
+			}
+		})
 	}
 }
