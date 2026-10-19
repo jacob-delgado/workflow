@@ -479,9 +479,10 @@ tests are failing — say what's broken and why instead.
   gated, not trusted: Go's version (`scripts/check-go-version.sh`), mise's own
   on each `jdx/mise-action` step and in the dev container
   (`scripts/check-mise-version.sh`), the container's Go patch (the
-  Dockerfile's check after `FROM`), and each downloaded tool's SHA-256 lines
-  in `build/tool-checksums.txt` (`task lint:checksums`). A floating `latest`
-  changes what the gate accepts without anyone deciding to.
+  Dockerfile's check after `FROM`), each downloaded tool's SHA-256 lines
+  in `build/tool-checksums.txt` (`task lint:checksums`), and the docs' ttyd's
+  in `docs/media/tool-checksums.txt` (`task lint:mediachecksums`). A floating
+  `latest` changes what the gate accepts without anyone deciding to.
 
 - **The `--web` API is spec first.** Change `api/openapi.yaml`, then run `task
   gen` (the Go side) and `corepack yarn gen` in `web/` (the web client), so

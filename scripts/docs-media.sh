@@ -40,7 +40,9 @@
 # used, one that does not stops the run, and with none it is downloaded from
 # its release and must match. Both go into tmp/docs-media/bin and are used
 # again by the next run, and a ttyd kept there that no longer matches is
-# downloaded again. ttyd publishes Linux builds alone.
+# downloaded again. ttyd publishes Linux builds alone. check-media-checksums.sh
+# (`task lint`) holds the checksums to mise.toml's pin of ttyd and to the
+# machines provide_ttyd matches below.
 #
 # VHS reads no browser setting: it takes the first Chromium go-rod finds on
 # PATH and, finding none, downloads one, unpinned, into ~/.cache/rod. So this

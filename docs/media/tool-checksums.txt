@@ -4,6 +4,6 @@
 # scripts/verify-download.sh reads it. The hashes are the ones the release's
 # own SHA256SUMS lists. Kept apart from build/tool-checksums.txt, which holds
 # only what the build image downloads; a bump of ttyd in mise.toml brings its
-# lines here, or the run is refused.
+# lines here, which scripts/check-media-checksums.sh (`task lint`) holds it to.
 ttyd 1.7.7 x86_64 8a217c968aba172e0dbf3f34447218dc015bc4d5e59bf51db2f2cd12b7be4f55
 ttyd 1.7.7 aarch64 b38acadd89d1d396a0f5649aa52c539edbad07f4bc7348b27b4f4b7219dd4165
