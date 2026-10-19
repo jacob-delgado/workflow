@@ -261,6 +261,13 @@ A lane, whether a workflow agent, a subagent or a cloud session, starts with
   `web/node_modules` linked in when it needs them), removes it with
   `git worktree remove --force` after, and answers sound only for what it
   confirmed.
+- **No `git config` in a linked worktree.** A worktree shares the clone's
+  config, so `git config user.email t@t` in a reviewer's scratch worktree set
+  that identity for every worktree, and nine of the next lane's commits went
+  out authored by `t <t@t>`. A commit a reviewer or a fixture needs takes its
+  identity on the command line, `git -c user.name=… -c user.email=… commit`;
+  a setting a scratch repository needs goes in a repository of its own made
+  with `git init`, never a worktree of this one.
 
 ## Usage limits and workflow resumes
 
