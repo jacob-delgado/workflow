@@ -95,15 +95,28 @@ npm_lock_pins() {
 }
 
 # mise_pins prints "tool version" for each [tools] pin in a mise.toml, and for
-# its min_version as the tool "mise". A [tools.<name>] table, which mise reads
-# as a pin too, prints "! header" instead: this reads none of its keys, so the
-# gate fails it rather than let its version through undated.
+# its min_version as the tool "mise". A pin is a version string or an inline
+# table holding one, as `ttyd = { version = "1.7.7", os = ["linux"] }`. An
+# inline table naming no version, and a [tools.<name>] table, which mise reads
+# as a pin too, print "! line" instead: this reads no version from either, so
+# the gate fails it rather than let a version through undated.
 mise_pins() {
   awk '
     function value(line) { sub(/^[^=]*=[ \t]*"/, "", line); sub(/".*/, "", line); return line }
+    function inline_version(line) {
+      if (!match(line, /[{,][ \t]*version[ \t]*=[ \t]*"[^"]*"/)) return ""
+      return value(substr(line, RSTART + 1, RLENGTH - 1))
+    }
+    function pin(line,   key, version) {
+      key = line; sub(/[ \t]*=.*/, "", key); gsub(/"/, "", key)
+      if (line !~ /^[^=]*=[ \t]*\{/) { print key, value(line); return }
+      version = inline_version(line)
+      if (version == "") print "!", line
+      else print key, version
+    }
     /^min_version[ \t]*=/ { print "mise", value($0); next }
     /^\[[ \t]*tools[ \t]*\./ { print "!", $0; tools = 0; next }
     /^\[/ { tools = ($0 == "[tools]"); next }
-    tools && /^[^#].*=/ { key = $0; sub(/[ \t]*=.*/, "", key); gsub(/"/, "", key); print key, value($0) }
+    tools && /^[^#].*=/ { pin($0) }
   '
 }
