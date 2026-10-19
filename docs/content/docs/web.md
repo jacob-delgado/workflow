@@ -142,7 +142,11 @@ reaches says so to assistive technology (`aria-keyshortcuts`). See
 
 ### Issues
 
-{{< image src="images/web-issues.png" alt="The Issues section in the dark theme: Ana Lopez's issues, with filter buttons for their statuses and marks, and PROJ-412 selected, its description, actions and work story beside the list" loading="lazy" >}}
+{{< image src="images/web-issues.png" alt="The Issues section in the dark theme: Ana Lopez's issues, with filter buttons for their statuses and marks, and PROJ-412 selected, its detail beside the list scrolled to its reporter and assignee, its actions, and every stage of its work story" loading="lazy" >}}
+
+Here the detail is scrolled past PROJ-412's key, title and type, which the
+selected row beside it shows, to its reporter, its actions and its whole work
+story.
 
 The issues in a view — the default is those assigned to you and not done —
 with a **View** select for the views your configuration defines, each scoped
@@ -248,7 +252,7 @@ are a thread's older comments once the newer ones add up to that many.
 
 ### Branch
 
-{{< image src="images/web-branch.png" alt="The Branch section: fix/PROJ-412-redact-tokens, based on origin/main, three commits ahead of its upstream and one behind, its commits, and the working tree's changes, some staged and some not, each with its own buttons" loading="lazy" >}}
+{{< image src="images/web-branch.png" alt="The Branch section: fix/PROJ-412-redact-tokens-in-the-request-log, based on origin/main, one commit ahead of its upstream, its two commits, the older one pushed, and the working tree's three changes, some staged and some not, each with its own buttons" loading="lazy" >}}
 
 The checked-out branch, its base, its upstream and how far it is ahead or
 behind, and the commits on it; **Push to** names the remote a push goes to when
@@ -365,7 +369,12 @@ false` arms nothing. The open's answer carries the armed announcement as
 
 ### The messaging service
 
-{{< image src="images/web-announcement.png" alt="The Slack section with an announcement composed: the message for pull request #128, the channel to send it to, the code owners and groups it will tag, and the buttons to cancel it, announce when CI passes, or announce now" loading="lazy" >}}
+{{< image src="images/web-announcement.png" alt="The Slack section with an announcement composed: the message for pull request #128, in Slack's markup, the channel to send it to, the code owners and groups it will tag, and the buttons to cancel it, announce when CI passes, or announce now" loading="lazy" >}}
+
+The preview shows the announcement as it will be sent, in the service's own
+markup: with Slack, a link reads `<url|text>` there, and Slack shows it as
+just the text
+([link markup]({{< relref "/docs/configuration#messaging-slack-teams-discord-or-a-plain-webhook" >}})).
 
 Named for the service your configuration uses — Slack, Teams, Discord or
 Webhook. It shows where announcements go and who they are from. **Announce to**
@@ -546,7 +555,7 @@ rather than a claim that no task tracks the issue.
 
 ### Summary
 
-{{< image src="images/web-summary.png" alt="The Summary section: a September 2026 calendar with dots on the days work was done, and the 15th read back hour by hour: a commit, a task completed, PROJ-412 moved to In Review, and a pull request opened" loading="lazy" >}}
+{{< image src="images/web-summary.png" alt="The Summary section: a September 2026 calendar with dots on the days work was done, and the 15th read back hour by hour: a commit, a task completed, PROJ-412 moved to In Progress, and a pull request reviewed" loading="lazy" >}}
 
 What you did, read back each time from where the work left a trace: the
 commits you wrote in the repository the server runs in and in every favorite
