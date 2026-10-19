@@ -31,12 +31,14 @@ type scheduledCheck struct {
 	takes time.Duration
 }
 
-// checkSchedule is the demo's CI: four checks, the last passing four
-// seconds in, so a recording watches it go from running to passed over two
-// of the interface's reads without holding the GIF on a wait.
+// checkSchedule is the demo's CI: four checks, the first passing as its pull
+// request opens, so the Review pane's bar is part filled from its first
+// reading, and the last four seconds in, so a recording watches it go from
+// running to passed over two of the interface's reads without holding the
+// GIF on a wait.
 func checkSchedule() []scheduledCheck {
 	return []scheduledCheck{
-		{name: "lint", takes: time.Second},
+		{name: "lint"},
 		{name: "build", takes: 2 * time.Second},
 		{name: "test", takes: 3 * time.Second},
 		{name: "e2e", takes: 4 * time.Second},
@@ -71,9 +73,15 @@ func (w *World) createPullRequest(_ context.Context, request forge.NewPullReques
 	return pull, nil
 }
 
-// checkStatus is how a pull request's CI stands: each check running until
-// its time since the pull request opened has passed.
-func (w *World) checkStatus(_ context.Context, pull forge.PullRequest, _ string) (forge.CI, error) {
+// checkStatus is how a pull request's CI stands, once the world's read
+// latency has passed: each check running until its time since the pull
+// request opened has passed.
+func (w *World) checkStatus(ctx context.Context, pull forge.PullRequest, _ string) (forge.CI, error) {
+	err := w.slowly(ctx)
+	if err != nil {
+		return forge.CI{}, err
+	}
+
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
