@@ -52,11 +52,15 @@ jobs:
       # cache: false is deliberate. This job builds the artifacts people
       # download, and a restored tool cache is state carried in from an
       # earlier run. Provisioning from scratch costs a minute and keeps the
-      # cache out of what goes into a release.
+      # cache out of what goes into a release. VHS and ttyd, pinned for the
+      # docs' recordings, are left out: this job makes none, and mise knows no
+      # checksum for ttyd, so it would install it unverified.
       - uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
         with:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
           cache: false
+        env:
+          MISE_DISABLE_TOOLS: vhs,ttyd
 
       # The linters mise.toml does not pin, which the gate below runs, from
       # their pin files, as CI's Lint job installs them.

@@ -91,6 +91,18 @@ hugo-extended = "0.167.0"
 # a gate. v1.67.4 was published 2026-08-01, well past the age gate above.
 air = "1.67.4"
 
+# The docs' recordings (`task docs:media`): VHS types a tape into ttyd's web
+# terminal, films it in a headless Chromium and encodes the GIF with ffmpeg. A
+# docs convenience, never a gate. Chromium and ffmpeg are not pinned here: the
+# task takes both from PATH, and refuses to run without a Chromium rather than
+# let VHS download an unpinned one. ttyd publishes no macOS build, so it is
+# pinned for Linux alone, where the task runs, and mise knows no checksum for
+# it, so the release workflows, which install every other pin, leave both out
+# (MISE_DISABLE_TOOLS). VHS v0.12.1 was published 2026-09-24 and ttyd 1.7.7 on
+# 2024-03-30, both past the age gate above.
+vhs = "0.12.1"
+ttyd = { version = "1.7.7", os = ["linux"] }
+
 # Go-source tools, built with the pinned Go above. A prebuilt binary compiled
 # against an older Go can reject a project targeting a newer one.
 "go:golang.org/x/vuln/cmd/govulncheck" = "1.9.0"
