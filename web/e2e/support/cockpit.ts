@@ -147,9 +147,16 @@ export async function openCockpit(
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.setViewportSize(size)
   await page.goto('/')
-  await page.getByRole('button', { name: /redact tokens before/i }).click()
+  await workedIssue(page).click()
   await expect(page.getByRole('link', { name: /open in jira/i })).toBeVisible()
   await expect(page.getByRole('tablist', { name: 'Comment' })).toBeVisible()
+}
+
+// workedIssue is the populated build's checked-out issue, PROJ-412, as its
+// row in the Issues list, named from its key on: the header's chip for the
+// task tracking it carries the issue's summary too.
+export function workedIssue(page: Page): Locator {
+  return page.getByRole('button', { name: /^PROJ-412 .*redact tokens in/i })
 }
 
 // noFile answers the page as a server with no configuration file: the

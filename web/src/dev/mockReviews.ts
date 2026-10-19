@@ -108,23 +108,26 @@ export function mockReviewQueue(): ReviewQueue {
 }
 
 // mockPullDraft is the pull request the mockup would open for its branch,
-// which has yet to be pushed, with no template to start from.
+// which has yet to be pushed, its body from the repository's template, as
+// the terminal demo's is.
 export const mockPullDraft: PullRequestDraft = {
-  title: 'fix: redact tokens before they reach the request log',
-  body: '## Commits\n\n- fix: redact tokens before they reach the request log\n\nPROJ-412',
+  title: 'fix(config): redact tokens in the request log',
+  body:
+    '## What\n\n## Why\n\n## How it was tested\n\n' +
+    'Jira: [PROJ-412](https://jira.example.com/browse/PROJ-412)\n',
   base: 'main',
-  head: 'fix/PROJ-412',
+  head: 'fix/PROJ-412-redact-tokens-in-the-request-log',
   draft: false,
   needs_push: true,
   reviewers: ['ana', 'acme/control-plane'],
-  templates: [],
-  template: '',
+  templates: ['pull_request_template'],
+  template: 'pull_request_template',
 }
 
 // mockPullText is the open pull request's title and description, as the
 // editor reads them afresh.
 export const mockPullText: PullRequestText = {
-  title: 'fix: redact tokens in the request log',
+  title: 'fix(config): redact tokens in the request log',
   body: '## Why\n\nTokens reached the log.',
 }
 

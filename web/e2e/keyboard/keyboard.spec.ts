@@ -1,4 +1,11 @@
-import { height, openCockpit, openSection, themes, widths } from '../support/cockpit.ts'
+import {
+  height,
+  openCockpit,
+  openSection,
+  themes,
+  widths,
+  workedIssue,
+} from '../support/cockpit.ts'
 import { expectReachableAndClean } from '../support/reachable.ts'
 import { expect, test } from '../support/fixtures.ts'
 
@@ -18,7 +25,7 @@ for (const theme of themes) {
       async ({ page }) => {
         // Arrange
         await openCockpit(page, { width, height }, theme)
-        const opener = page.getByRole('button', { name: /redact tokens before/i })
+        const opener = workedIssue(page)
         await opener.focus()
 
         // Act: open the sheet.

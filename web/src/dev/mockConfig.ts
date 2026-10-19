@@ -6,7 +6,7 @@ import type { Config } from '../api/generated/types.gen.ts'
 export const mockConfig: Config = {
   version: '1',
   jira: {
-    base_url: 'https://jira.acme.internal',
+    base_url: 'https://jira.example.com',
     token: '••••••••',
     token_command: '',
     token_env: '',
@@ -28,7 +28,7 @@ export const mockConfig: Config = {
     webhook_url: '',
     channel: '#dev-workflow',
     channels: ['#dev-workflow', '#releases'],
-    announcement: '{author} opened <{url}|{title}> for {key}: {summary}',
+    announcement: '',
     auto_announce: true,
   },
   forge: {

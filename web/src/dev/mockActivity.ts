@@ -22,9 +22,9 @@ const dayLength = 24 * 60 * 60 * 1000
 // mockActivity is what the mockup did over the period asked, or on the last
 // working day when none is: on each weekday up to today, some or all of a
 // working day — a commit, a task finished, an issue moved and a pull request
-// opened — with Jira's comments unread, so every hue and the source note are
-// on screen. It reads the period as the answer names one, so the e2e specs
-// that import it type-check it without the app's own modules.
+// reviewed — so every hue is on screen. It reads the period as the answer
+// names one, so the e2e specs that import it type-check it without the app's
+// own modules.
 export function mockActivity(period: Pick<Activity, 'from' | 'to'> | null): Activity {
   const from = period?.from ?? lastWorkingDay
   const to = period?.to ?? from
@@ -39,14 +39,14 @@ export function mockActivity(period: Pick<Activity, 'from' | 'to'> | null): Acti
     sources: [
       { source: 'git', name: 'Git', state: 'read', truncated: false, detail: '' },
       { source: 'tasks', name: 'Taskwarrior', state: 'read', truncated: false, detail: '' },
-      { source: 'jira', name: 'Jira', state: 'read', truncated: true, detail: '' },
+      { source: 'jira', name: 'Jira', state: 'read', truncated: false, detail: '' },
       { source: 'forge', name: 'The forge', state: 'read', truncated: false, detail: '' },
     ],
     years: byMonth(days),
     text:
       days.length === 0
         ? `# ${from}\n\nNothing was done in this period.\n`
-        : `# ${from}\n\n- committed 4f2c9e1 fix(config): redact tokens before they reach the log\n`,
+        : `# ${from}\n\n- committed e5d2b87 refactor(config): route every write through Redact\n`,
   }
 }
 
@@ -101,23 +101,20 @@ function nameOf(date: string, part: 'month' | 'weekday'): string {
   return noonOf(date).toLocaleDateString('en-US', { [part]: 'long', timeZone: 'UTC' })
 }
 
-// mockItem is one thing done on date at a time of day; only the forge's is in
-// a repository.
+// mockItem is one thing done on date at a time of day, in no repository unless
+// fields name one, as only the forge's are.
 function mockItem(
   date: string,
   at: string,
-  fields: Pick<ActivityItem, 'source' | 'verb' | 'ref' | 'title' | 'url'>,
+  fields: Pick<ActivityItem, 'source' | 'verb' | 'ref' | 'title' | 'url'> &
+    Partial<Pick<ActivityItem, 'repository'>>,
 ): ActivityItem {
-  return {
-    at: `${date}T${at}:00Z`,
-    ...fields,
-    repository: fields.source === 'forge' ? 'acme/api' : '',
-  }
+  return { at: `${date}T${at}:00Z`, repository: '', ...fields }
 }
 
 // mockDay is what was done on date, in the order a working day does it: a
-// commit and a task done at nine, an issue moved and a pull request opened at
-// two, as many of them as the day's amount, each hour with nothing left out.
+// commit and a task done at nine, an issue moved and a pull request reviewed
+// at two, as many of them as the day's amount, each hour with nothing left out.
 function mockDay(date: string): ActivityDay {
   const done = workingDay(date).slice(0, amountOn(date))
   const hours = ['09', '14'].map((hour) => ({
@@ -132,36 +129,40 @@ function mockDay(date: string): ActivityDay {
   }
 }
 
-// workingDay is everything the mockup does on a full working day, in order.
+// workingDay is everything the mockup does on a full working day, in order:
+// the day before the terminal demo's (internal/demo's activity.go), the
+// refactor merged into main, the redaction planned, PROJ-412 picked up and
+// Sam's pull request reviewed.
 function workingDay(date: string): ActivityItem[] {
   return [
     mockItem(date, '09:12', {
       source: 'git',
       verb: 'committed',
-      ref: '4f2c9e1',
-      title: 'fix(config): redact tokens before they reach the log',
+      ref: 'e5d2b87',
+      title: 'refactor(config): route every write through Redact',
       url: '',
     }),
     mockItem(date, '09:40', {
       source: 'tasks',
       verb: 'completed task',
-      ref: '12',
-      title: 'Write the redaction test',
+      ref: '3c8f0a19',
+      title: 'Write up the token redaction plan',
       url: '',
     }),
     mockItem(date, '14:05', {
       source: 'jira',
       verb: 'moved',
       ref: 'PROJ-412',
-      title: 'Redact tokens before they reach the request log, to In Review',
+      title: 'Redact tokens in the request log, to In Progress',
       url: 'https://jira.example.com/browse/PROJ-412',
     }),
     mockItem(date, '14:20', {
       source: 'forge',
-      verb: 'opened',
-      ref: 'acme/api#42',
-      title: 'fix(config): redact tokens',
-      url: 'https://github.com/acme/api/pull/42',
+      verb: 'reviewed',
+      ref: 'acme/workflow#377',
+      title: 'Retry the forge search once on a gateway timeout',
+      url: 'https://github.com/acme/workflow/pull/377',
+      repository: 'acme/workflow',
     }),
   ]
 }

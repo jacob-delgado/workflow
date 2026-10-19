@@ -35,7 +35,7 @@ export const mockSnapshot: Snapshot = {
       {
         key: 'PROJ-412',
         tracker: 'jira',
-        summary: 'Redact tokens before they reach the request log',
+        summary: 'Redact tokens in the request log',
         status: 'In Progress',
         status_category: 'indeterminate',
         type: 'Bug',
@@ -89,30 +89,37 @@ export const mockSnapshot: Snapshot = {
         key: 'PROJ-377',
         tracker: 'jira',
         summary: 'Document the on-prem Jira token flow',
-        status: 'Done',
-        status_category: 'done',
+        status: 'In Review',
+        status_category: 'indeterminate',
         type: 'Task',
         priority: 'Low',
       },
     ],
   },
   branch: {
-    name: 'fix/PROJ-412-redact-tokens',
+    name: 'fix/PROJ-412-redact-tokens-in-the-request-log',
     issue_link: '',
     detached: false,
-    head: 'a1b2c3d',
-    upstream: 'origin/fix/PROJ-412-redact-tokens',
+    head: '7a91c03',
+    upstream: 'origin/fix/PROJ-412-redact-tokens-in-the-request-log',
     push_remote: 'origin',
     base_remote: 'origin',
-    ahead: 3,
-    behind: 1,
+    ahead: 1,
+    behind: 0,
     base: 'origin/main',
+    // Newest first: the terminal demo's commit, which it pushes, and a test
+    // written since.
     commits: [
-      { hash: 'a1b2c3d4', subject: 'fix: redact tokens in the request log', unpushed: true },
-      { hash: 'b2c3d4e5', subject: 'test: prove the log carries no secret', unpushed: true },
-      { hash: 'c3d4e5f6', subject: 'refactor: route every write through Redact', unpushed: true },
+      { hash: '7a91c03e', subject: 'test: prove the log carries no secret', unpushed: true },
+      {
+        hash: '4f2c9e1d',
+        subject: 'fix(config): redact tokens in the request log',
+        unpushed: false,
+      },
     ],
   },
+  // Edits made since the test commit, to files the two commits left in
+  // place: the morning's new test file is committed, so none is new here.
   changes: {
     changes: [
       {
@@ -130,16 +137,8 @@ export const mockSnapshot: Snapshot = {
         conflicted: false,
       },
       {
-        path: 'internal/sanitize/mask.go',
-        original_path: 'internal/config/mask.go',
-        kind: 'renamed',
-        staged: true,
-        has_unstaged: false,
-        conflicted: false,
-      },
-      {
-        path: 'internal/wiring/reqlog_test.go',
-        kind: 'new',
+        path: 'internal/config/redact_test.go',
+        kind: 'modified',
         staged: false,
         has_unstaged: true,
         conflicted: false,
@@ -152,7 +151,7 @@ export const mockSnapshot: Snapshot = {
     pull: {
       number: 128,
       url: 'https://github.com/acme/api/pull/128',
-      title: 'fix: redact tokens in the request log',
+      title: 'fix(config): redact tokens in the request log',
       state: 'open',
       draft: false,
       approvals: 1,
@@ -193,7 +192,7 @@ export const mockSnapshot: Snapshot = {
   // the mockup shows the issues list marking several, and each with its own story.
   branches: [
     {
-      name: 'fix/PROJ-412-redact-tokens',
+      name: 'fix/PROJ-412-redact-tokens-in-the-request-log',
       issue_key: 'PROJ-412',
       current: true,
       stages: checkedOutStages,
@@ -228,7 +227,7 @@ export const mockSnapshot: Snapshot = {
   ],
   subject_limit: 72,
   // The scope the last commit here used, so the mockup's commit form opens on it.
-  suggested_scope: 'wiring',
+  suggested_scope: 'config',
   hooks_unmanaged: 1,
   // The tasks linked to the checked-out issue and another, one of them started,
   // so the header, the Issues rows and the issue's Tasks card each show one.
