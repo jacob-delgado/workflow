@@ -34,6 +34,14 @@ the two disagree, which is what stops a new flag shipping undocumented.
 `reference/_index.md` is hand-written; the drift check copies it in for the
 comparison.
 
+`task docs:media` (`scripts/docs-media.sh`) writes every file in
+`docs/assets/images`, from `docs/media/terminal.tape` over the demo and from
+the web's mock build. Those files are never edited or replaced by hand:
+change the tape, the demo or the screen and commit it, since the task
+refuses to run over changes not committed to what the images show; run the
+task on an idle machine, since it fails a recording that lost time; and look
+at each image before committing it, since nothing compares them (TRADE-56).
+
 ## Contract pages
 
 These pages promise what the code does, and a change to the behavior changes

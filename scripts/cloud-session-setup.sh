@@ -21,8 +21,9 @@
 # itself comes from the golang.org/toolchain module. The Go tools build in a
 # build cache of their own, removed after; the modules they and Go come from
 # stay in the session's module cache. deadcode comes too, for the advisory
-# `task deadcode`; hugo-extended, air and cloc, which no gate runs, are left
-# out.
+# `task deadcode`; hugo-extended, air and cloc, which no gate runs, and vhs
+# and ttyd, which `task docs:media` (scripts/docs-media.sh) provides itself,
+# are left out.
 #
 # yamllint and markdownlint-cli2 are pinned outside mise.toml, each one's
 # whole tree by hash (Trade-off TRADE-53), and are installed from those files

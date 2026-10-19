@@ -98,8 +98,10 @@ air = "1.67.4"
 # let VHS download an unpinned one. ttyd publishes no macOS build, so it is
 # pinned for Linux alone, where the task runs, and mise knows no checksum for
 # it, so the release workflows, which install every other pin, leave both out
-# (MISE_DISABLE_TOOLS). VHS v0.12.1 was published 2026-09-24 and ttyd 1.7.7 on
-# 2024-03-30, both past the age gate above.
+# (MISE_DISABLE_TOOLS), and the task hashes every ttyd it runs, this one
+# included, against docs/media/tool-checksums.txt (TRADE-56). VHS v0.12.1 was
+# published 2026-09-24 and ttyd 1.7.7 on 2024-03-30, both past the age gate
+# above.
 vhs = "0.12.1"
 ttyd = { version = "1.7.7", os = ["linux"] }
 
