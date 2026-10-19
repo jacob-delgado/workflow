@@ -111,7 +111,11 @@ one fails.
   spec among those holds to what every engine does, never to Chromium's own
   console wording or behavior. Everything under `e2e/` counts toward the
   directory budgets, so specs live in per-surface folders; the specs under
-  `e2e/server` drive the real binary instead.
+  `e2e/server` drive the real binary instead, and `e2e/docs/media.spec.ts`
+  takes the docs' screenshots in a run of its own
+  (`playwright.docs.config.ts`, `corepack yarn media`, which
+  `task docs:media` wraps), which `task e2e` and CI leave out and which
+  rewrites the committed images in `docs/assets/images`.
 
 ## Dependencies and trade-offs
 

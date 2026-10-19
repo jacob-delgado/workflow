@@ -26,6 +26,7 @@
     "eslint.config.test.ts",
     "openapi-ts.config.ts",
     "playwright.config.ts",
+    "playwright.docs.config.ts",
     "playwright.server.config.ts",
     "e2e"
   ]

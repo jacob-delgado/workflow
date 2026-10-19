@@ -71,8 +71,14 @@ palette open with nothing the content policy the server sends refuses, on
 Firefox and WebKit too (the `server-firefox` and `server-webkit` projects);
 `policy.spec.ts` opens Settings' tabs, the tag picker and the directory picker
 under that policy and fails on anything it refuses. Nothing else may be
-listening on port 13580. Both runs launch the headless shell of the Chromium
-build Playwright pins, as CI does; where that build cannot be installed,
+listening on port 13580. `corepack yarn media` writes the docs' screenshots
+into `docs/assets/images`: `e2e/docs/media.spec.ts`, in a run of its own
+(`playwright.docs.config.ts`), opens six screens of the VITE_MOCK build in the
+dark theme at 1440 by 900, in UTC and under a held clock, and takes each once
+its heading is up and nothing is still reading. Neither `test:e2e` nor CI runs
+it, nothing compares its images, and nothing else may be listening on
+port 4174. Every run launches the headless shell of the Chromium build
+Playwright pins, as CI does; where that build cannot be installed,
 `PLAYWRIGHT_CHROMIUM_EXECUTABLE` names another to launch, which a Claude Code
 cloud session's start sets to the image's headless shell, the kind of binary CI
 runs.

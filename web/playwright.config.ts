@@ -6,13 +6,26 @@ const isCI = Boolean(process.env.CI)
 // build Playwright pins cannot be installed, as in a Claude Code cloud session,
 // PLAYWRIGHT_CHROMIUM_EXECUTABLE names the Chromium to launch instead; unset,
 // Playwright launches its own.
-const desktopChrome = {
+export const desktopChrome = {
   ...devices['Desktop Chrome'],
   launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE },
 }
 
 const hermeticURL = 'http://localhost:4173'
-const mockURL = 'http://localhost:4174'
+export const mockURL = 'http://localhost:4174'
+
+// mockServer serves the VITE_MOCK build, which fills every section from the
+// mockup's fixtures. It writes web/dist, not the embed directory the
+// production build writes, so the two builds never overwrite each other and
+// the binary never embeds a mockup.
+export const mockServer = {
+  command:
+    'yarn vite build --outDir dist --emptyOutDir && yarn vite preview --outDir dist --port 4174 --strictPort',
+  env: { VITE_MOCK: 'true' },
+  url: mockURL,
+  reuseExistingServer: !isCI,
+  timeout: 120_000,
+}
 
 // smokeSpecs are what Firefox and WebKit run: the layout and axe sweeps, at
 // every width and in both themes, on both builds, and the spec of the Tab walk
@@ -50,10 +63,12 @@ function smokeProjects(name: string, device: (typeof devices)[string]) {
 // what a populated cockpit draws. A spec meant for the populated build carries
 // the @populated tag, and runs only there. The specs under e2e/server drive
 // writes against a running `workflow --web` instead, in a run of their own
-// (playwright.server.config.ts), so this one leaves them out.
+// (playwright.server.config.ts), so this one leaves them out. It leaves out
+// the spec under e2e/docs too, which writes the docs' screenshots in a run of
+// its own (playwright.docs.config.ts).
 export default defineConfig({
   testDir: 'e2e',
-  testIgnore: 'server/**',
+  testIgnore: ['server/**', 'docs/**'],
   fullyParallel: true,
   // Every core on CI, where nothing else runs beside the two preview servers,
   // and they only serve static files. Playwright's default, half the cores,
@@ -92,16 +107,6 @@ export default defineConfig({
       reuseExistingServer: !isCI,
       timeout: 120_000,
     },
-    {
-      // web/dist, not the embed directory the production build writes, so the
-      // two builds never overwrite each other and the binary never embeds a
-      // mockup.
-      command:
-        'yarn vite build --outDir dist --emptyOutDir && yarn vite preview --outDir dist --port 4174 --strictPort',
-      env: { VITE_MOCK: 'true' },
-      url: mockURL,
-      reuseExistingServer: !isCI,
-      timeout: 120_000,
-    },
+    mockServer,
   ],
 })
