@@ -301,6 +301,18 @@ A lane, whether a workflow agent, a subagent or a cloud session, starts with
   two cut-off review rounds as sound. A workflow script counts the agents
   that returned nothing, and retries the round or stops when there are any;
   it calls a round sound only on reports that say so.
+- **One review round per pull request.** The maintainer's rule: a pull
+  request gets one review, a code review and, when the change reaches
+  credentials, input from outside, the network or the `--web` API, a security
+  review beside it, with a skeptic on each finding. Its findings are fixed and
+  the gate run again. A second round only confirms the fixes to blocking
+  findings, and there is never a third. A pull request built in lanes gets the
+  round once, over the whole branch, never once per lane: a cap applied per
+  lane once allowed one pull request twelve rounds. Generated media, the
+  docs' recorded GIF and screenshots, is the exception: a reviewer opens it
+  frame by frame (frames pulled with `ffmpeg`, opened with the Read tool),
+  and it is reviewed again after every change until it reads right, however
+  many rounds that takes.
 - **Review rounds cost the budget a cutoff comes from.** Fix a reviewer's
   last nits in the main session rather than paying for another round.
 

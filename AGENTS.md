@@ -35,6 +35,14 @@ skill (`.claude/skills/cloud-lanes/SKILL.md`) wins.
   commits that feed a release, but never merge the release pull request,
   push a `v*` tag or run the release workflow. A decision that is the
   maintainer's waits for the maintainer.
+- **One review round per pull request.** A code review with a skeptic on
+  each finding, and a security review beside it when the change reaches
+  credentials, input from outside, the network or the `--web` API; fix what
+  it finds and run the gate again. A second round only confirms the fixes to
+  blocking findings; there is never a third. A pull request built in lanes
+  gets the round once, over the whole branch, never once per lane. Generated
+  media (the docs' GIF and screenshots) is the exception: look at it frame by
+  frame, and review it again after every change until it reads right.
 - **Never log or print a secret.** A credential reaches output only through
   `config.Redact`, and the store never holds one.
 
