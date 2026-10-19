@@ -210,7 +210,7 @@ func (s *server) frameStages(branch gitrepo.Branch, read forgeRead, frame api.Sn
 		CI:                 read.ciState(),
 		ChangesRequested:   read.found && read.pull.ChangesRequested,
 		Announced:          frame.Review.Announced,
-		PostPending:        heldForCI(frame.QueuedAnnouncement),
+		AnnouncePending:    heldForCI(frame.QueuedAnnouncement),
 	}
 
 	return s.knownStages(work)

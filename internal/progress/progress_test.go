@@ -107,7 +107,7 @@ func TestStagesDeriveHowFarTheWorkHasGot(t *testing.T) {
 		"a post waiting for CI": {
 			work: progress.Work{
 				OnFeatureBranch: true, IssueNamed: true, Commits: 1,
-				PullRequest: progress.PullRequestOpen, CI: forge.CIPassed, PostPending: true,
+				PullRequest: progress.PullRequestOpen, CI: forge.CIPassed, AnnouncePending: true,
 			},
 			want: []progress.State{done, done, done, done, wip},
 		},

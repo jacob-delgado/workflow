@@ -401,7 +401,7 @@ func (m Model) work() progress.Work {
 		CI:                 m.review.ci.State,
 		ChangesRequested:   m.review.pull.ChangesRequested,
 		Announced:          m.messaging.announced(m.review),
-		PostPending:        m.messaging.pending.waiting(),
+		AnnouncePending:    m.messaging.pending.waiting() || m.messaging.send.sending,
 	}
 }
 
