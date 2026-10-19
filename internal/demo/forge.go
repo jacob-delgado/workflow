@@ -14,6 +14,7 @@ import (
 // The repository on GitHub that api's origin names.
 const (
 	forgeRepository = "acme/api"
+	forgeURL        = "https://" + githubHost + "/" + forgeRepository
 	// toolRepository is the workflow tool's own repository, where the review
 	// queue mostly waits.
 	toolRepository = "acme/workflow"
@@ -28,6 +29,9 @@ func (w *World) forgeDeps() seams.Forge {
 		Author:          func(context.Context) (string, error) { return author, nil },
 		Kind:            forge.KindGitHub,
 		Activity:        w.forgeActivity,
+		// What the demo does on GitHub.
+		CreatePullRequest: w.createPullRequest,
+		CheckStatus:       w.checkStatus,
 	}
 }
 
@@ -36,9 +40,9 @@ func (w *World) findPullRequest(_ context.Context, branch string) (forge.PullReq
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	opened, found := w.pulls[branch]
+	number, found := w.pulls[branch]
 
-	return opened.pull, found, nil
+	return w.opened[number].pull, found, nil
 }
 
 // reviewRequests are the pull requests that ask for your review, oldest

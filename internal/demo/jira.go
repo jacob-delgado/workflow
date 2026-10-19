@@ -24,6 +24,7 @@ const (
 	statusToDo       = "To Do"
 	statusInProgress = "In Progress"
 	statusInReview   = "In Review"
+	statusDone       = "Done"
 	reporter         = "Ana Lopez"
 	reviewer         = "Sam Ortiz"
 	typeBug          = "Bug"
@@ -76,7 +77,65 @@ func (w *World) jiraDeps() seams.Jira {
 		Issue:     w.issue,
 		BrowseURL: browseURL,
 		Activity:  w.jiraActivity,
+		// What the demo does to its issues.
+		Transitions: w.transitions,
+		Transition:  w.transition,
 	}
+}
+
+// workflow is the moves each status offers, as the demo's Jira project
+// allows them: on from to do to in progress, review and done.
+func workflow() map[string][]jira.Transition {
+	return map[string][]jira.Transition{
+		statusToDo: {{
+			ID: "11", Name: "Start Progress", ToStatus: statusInProgress,
+			ToStatusCategory: jira.CategoryIndeterminate,
+		}},
+		statusInProgress: {{
+			ID: "21", Name: "Request Review", ToStatus: statusInReview,
+			ToStatusCategory: jira.CategoryIndeterminate,
+		}},
+		statusInReview: {{ID: "31", Name: "Done", ToStatus: statusDone, ToStatusCategory: jira.CategoryDone}},
+	}
+}
+
+// transitions is the moves an issue's status offers.
+func (w *World) transitions(_ context.Context, key jira.Key) ([]jira.Transition, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	index, err := w.indexOf(key)
+	if err != nil {
+		return nil, err
+	}
+
+	return workflow()[w.issues[index].Status], nil
+}
+
+// transition moves an issue by a move its status offers, refusing any other
+// as Jira does.
+func (w *World) transition(_ context.Context, key jira.Key, move jira.Transition, _ []jira.FieldValue) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	index, err := w.indexOf(key)
+	if err != nil {
+		return err
+	}
+
+	issue := w.issues[index]
+
+	offered := slices.ContainsFunc(workflow()[issue.Status], func(each jira.Transition) bool { return each.ID == move.ID })
+	if !offered {
+		return fmt.Errorf("%s cannot move by %q from %s: %w", key, move.Name, issue.Status, jira.ErrRejected)
+	}
+
+	issue.Status, issue.StatusCategory = move.ToStatus, move.ToStatusCategory
+	w.issues[index] = issue
+	w.moves = append(w.moves,
+		jira.Event{At: w.now(), Kind: jira.EventMoved, Key: key, Summary: issue.Summary, Detail: move.ToStatus})
+
+	return nil
 }
 
 // search lists every issue, a page at a time, whatever the view asks for:
@@ -96,9 +155,9 @@ func (w *World) issue(_ context.Context, key jira.Key) (jira.IssueDetail, error)
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	index, listed := w.position[key]
-	if !listed {
-		return jira.IssueDetail{}, fmt.Errorf("issue %s: %w", key, jira.ErrNotFound)
+	index, err := w.indexOf(key)
+	if err != nil {
+		return jira.IssueDetail{}, err
 	}
 
 	detail := issueNotes()[key]
@@ -122,6 +181,17 @@ func issueNotes() map[jira.Key]jira.IssueDetail {
 		},
 		"PROJ-408": {Description: "Each poll asks the forge again; keep the last answer for the interval."},
 	}
+}
+
+// indexOf is where an issue stands in the list, or not found, as Jira
+// answers an issue it does not have. The caller holds the world's lock.
+func (w *World) indexOf(key jira.Key) (int, error) {
+	index, listed := w.position[key]
+	if !listed {
+		return 0, fmt.Errorf("issue %s: %w", key, jira.ErrNotFound)
+	}
+
+	return index, nil
 }
 
 // browseURL links an issue for someone to click.
