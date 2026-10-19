@@ -23,6 +23,13 @@ announcement posts untagged and says which scope to add. workflow refreshes the
 token before its twelve hours run out, and keeps each new one where this put
 the first.
 
+An app configuration token is not one this takes, nor is the refresh token
+that comes with it, though it too starts xoxe-1-: both only manage apps. A
+configuration token can create the app from a manifest, as you and with no
+more right than you have, and that app gives the three answers this asks for;
+the configuration page says how, under its Slack user token:
+https://jacob-delgado.github.io/workflow/docs/configuration/
+
 ```
 workflow slack login [flags]
 ```

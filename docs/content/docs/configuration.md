@@ -98,7 +98,7 @@ for that address, never the one kept for your home file's.
 **Only your home file may run a program or read the environment.** Three
 settings do: `jira.token_command` runs a program, `jira.token_env` reads an
 environment variable and sends what it holds to Jira, and `taskwarrior.program`
-names the program run as Taskwarrior. A file found in or above the current
+names the program run as [Taskwarrior](https://taskwarrior.org). A file found in or above the current
 directory — a repository's, or the current directory's outside one — that sets
 any of them to anything but empty is refused when it loads, with an error naming
 the file and the setting, and a save that would write one there is refused the
@@ -399,7 +399,9 @@ access token (`xoxe.xoxp-…`) lasts twelve hours, and a refresh token
 for you before it runs out, and keeps each new pair.
 
 1. Create an app at [api.slack.com/apps](https://api.slack.com/apps) in your
-   workspace.
+   workspace, by hand or from a manifest with an app configuration token
+   ([Creating the app from a manifest](#creating-the-app-from-a-manifest),
+   below).
 2. Under **OAuth & Permissions**, add the `chat:write` **user** token scope,
    and turn on **token rotation**. Slack does not let rotation be turned off
    again. Tagging reviewers and user groups in an announcement is optional and
@@ -454,6 +456,83 @@ anywhere. It takes an `https://` address, or `http://` only to this machine
 (`127.0.0.1`, `::1` or `localhost`); anything else is refused with an error
 naming the variable, and nothing is sent. A webhook carries its own address and
 is not affected.
+
+##### Creating the app from a manifest
+
+An app configuration token, from **Your App Configuration Tokens** at
+[api.slack.com/apps](https://api.slack.com/apps), is not a token workflow can
+log in or post with, and neither is the refresh token generated with it, though
+that one starts `xoxe-1-` like the one `workflow slack login` asks for. The pair
+only manages apps, through Slack's App Manifest API, and the configuration
+token lasts twelve hours; once it has expired, generate a new one on the same
+page. What it can do is create the app from a manifest, in place of steps 1
+and 2 above, as **Create New App** → **From an app manifest** does on that
+page, and that app gives the client ID, client secret and refresh token
+`workflow slack login` asks for. It acts as you, with no more right than you
+have: where your workspace approves apps before they are installed, the
+install is a request to its administrators either way.
+
+1. Save the app's manifest as `manifest.json`. The last four scopes are the
+   optional ones for tagging; leave them out to post untagged:
+
+   ```json
+   {
+     "display_information": { "name": "workflow" },
+     "oauth_config": {
+       "redirect_urls": ["https://localhost/slack"],
+       "scopes": {
+         "user": ["chat:write", "users:read", "channels:read", "groups:read", "usergroups:read"]
+       }
+     },
+     "settings": { "token_rotation_enabled": true }
+   }
+   ```
+
+2. Create the app with the configuration token. The `read` line waits, showing
+   nothing, for you to paste the token and press Enter, which keeps it off the
+   screen, out of your shell's history and off curl's command line:
+
+   ```sh
+   read -rs CONFIG_TOKEN
+   printf 'Authorization: Bearer %s\n' "$CONFIG_TOKEN" |
+     curl -s https://slack.com/api/apps.manifest.create -H @- \
+       --data-urlencode manifest@manifest.json
+   unset CONFIG_TOKEN
+   ```
+
+   The answer holds the app's `credentials.client_id` and
+   `credentials.client_secret`, and an `oauth_authorize_url`. Where it says
+   `"ok":false`, its `error` says why: `invalid_auth` or `token_expired` is a
+   configuration token mistyped or past its twelve hours, so generate a new
+   one; `invalid_manifest` names the field at fault. Where that is the
+   redirect address, put an `https://` address you control in the manifest
+   instead: all it has to do is leave the `code` of step 3 in the browser's
+   address bar.
+3. Install the app. It now appears among your apps at
+   [api.slack.com/apps](https://api.slack.com/apps), where **OAuth &
+   Permissions** offers **Install to Workspace** and then shows the refresh
+   token. Or install it from the terminal: open the `oauth_authorize_url` and
+   allow the app. The browser then goes to `https://localhost/slack?code=…`,
+   which does not load; the `code` in its address is good for ten minutes, and
+   is exchanged for the token, the client secret pasted at the `read` line as
+   in step 2:
+
+   ```sh
+   read -rs CLIENT_SECRET
+   printf %s "$CLIENT_SECRET" |
+     curl -s https://slack.com/api/oauth.v2.access \
+       -d client_id=<client id> \
+       --data-urlencode client_secret@- \
+       -d code=<code>
+   unset CLIENT_SECRET
+   ```
+
+   The refresh token is the answer's `authed_user.refresh_token`
+   (`xoxe-1-…`). It works once, so leave it for `workflow slack login` to
+   spend.
+4. Go on from step 4 of the list above: set `messaging.channel` to a channel
+   you are in, and run `workflow slack login` with the client ID, the client
+   secret and the refresh token.
 
 #### Incoming webhook — the two-minute option
 
