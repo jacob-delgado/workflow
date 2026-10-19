@@ -201,6 +201,8 @@ release_repository() {
     jq) echo jqlang/jq ;;
     hugo-extended) echo gohugoio/hugo ;;
     air) echo air-verse/air ;;
+    vhs) echo charmbracelet/vhs ;;
+    ttyd) echo tsl0922/ttyd ;;
     *) ;;
   esac
 }
