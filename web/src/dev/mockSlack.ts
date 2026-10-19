@@ -138,7 +138,7 @@ export function mockForgetPerson(owner: string): People {
 
 // mockRepoGroups is the repository's groups.
 export function mockRepoGroups(): RepoGroups {
-  return { repository: 'acme/workflow', groups: [...held.repoGroups] }
+  return { repository: 'acme/api', groups: [...held.repoGroups] }
 }
 
 // mockSetRepoGroups keeps the groups ids name, labeled from the directory.
