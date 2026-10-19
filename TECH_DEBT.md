@@ -1317,3 +1317,27 @@ slot already does, which writes no attribute for the policy to judge; or it
 sets no such style at all. Or the page stops drawing a native `<select>`,
 which reopening TRADE-50 would mean. Then the hash and `'unsafe-hashes'`
 leave the policy.
+
+### TRADE-57 The demo world and the terminal's test world are two fakes of one world
+
+**Decided.** 2026-10-19 by the maintainer, in the pull request that records
+the terminal for the docs: the recording runs the real interface over a world
+of its own, `internal/demo`, a made-up day's work whose seams keep state, so
+staging moves a change, a commit adds one, a push sets the upstream, opening a
+pull request keeps it and its CI passes on the demo's clock. The terminal's
+tests keep their own world, `internal/tui/world_test.go` and its siblings,
+which answers what each test sets and records every call for the test to read
+back. Moving that world out for the demo to share would have meant exporting
+its fields and rewriting most of the package's test files, and would tie what
+a test expects to what the docs show.
+
+**Cost.** One world is faked twice. A seam that changes shape is changed in
+both, and the compiler names each place. The demo's story is told a third time
+by the web's mock (`web/src/dev`), and nothing checks that the recording and
+the screenshots agree: only the demo's own tests, which drive the real
+interface over it, keep it from rotting when a pane changes what it reads.
+
+**Reopen when.** A seam change has to be made in both worlds for a reason
+other than its shape, the two drift far enough that a reader of one is misled
+by the other, or the maintainer schedules the follow-up that has the test
+world take its fixture data from `internal/demo`.
