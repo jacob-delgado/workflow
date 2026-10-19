@@ -729,6 +729,17 @@ tasks:
     cmds:
       - scripts/check-docs-drift.sh
 
+  # The docs' screenshots and recorded terminal, written into
+  # docs/assets/images by hand and checked by no gate or CI job, since their
+  # bytes differ by machine; scripts/docs-media.sh says what it needs and why.
+  docs:media:
+    desc: Regenerate the docs' web screenshots and terminal recording (Linux, with Chromium and ffmpeg)
+    deps: [web:install]
+    env:
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+    cmds:
+      - scripts/docs-media.sh
+
   vuln:
     desc: Check dependencies for known vulnerabilities
     cmds:

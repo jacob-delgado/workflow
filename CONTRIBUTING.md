@@ -106,6 +106,13 @@ Markdown linter, and not `mise.toml`, which pins the node it runs under, skips
 the Markdown lint (`scripts/markdown-changed.sh` decides); a push to
 `main` always runs it, and `task lint` locally always does.
 
+The documentation's images, the terminal's recording and the web page's
+screenshots, are made by `task docs:media`, on Linux with Chromium and ffmpeg,
+and are left out of the gate and CI; a change to a screen they show runs it
+and commits what it writes, once you have looked at it. The site's
+[Development](https://jacob-delgado.github.io/workflow/docs/contributing/#images)
+page says what it needs and how.
+
 The frontend's production build lives in `internal/web/dist` and is committed,
 because `go install` fetches committed files alone and cannot run the Node
 build. A change under `web/` that changes that build commits the rebuilt bundle

@@ -21,7 +21,8 @@ lane rules in brief for other agents: a change to one of them changes
   the hooks run, and deadcode for the advisory `task deadcode`, into
   `/opt/workflow-tools`, with a copy of `gate-as-dev` that root owns, and
   links them into `~/.local/bin`; hugo-extended, air and cloc, which no gate
-  runs, are left out. Confirm it took: `go version` and
+  runs, and vhs and ttyd, which `task docs:media` (`scripts/docs-media.sh`)
+  provides itself, are left out. Confirm it took: `go version` and
   `golangci-lint --version` name `mise.toml`'s pins. If they name the
   image's, read `~/.cache/cloud-session-setup.log` and rerun the script.
 - **PATH.** The shell commands run in does not read `~/.bashrc`, so a change
