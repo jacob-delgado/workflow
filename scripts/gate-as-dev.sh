@@ -6,14 +6,17 @@
 #
 # Usage:
 #   scripts/gate-as-dev.sh <worktree> [task...]
+#   GATE_BASE=<ref> scripts/gate-as-dev.sh <worktree>
 #
 # A Claude Code cloud session runs as root, and root reads any file: the tests
 # that make one unreadable skip under it, and gobco's verdict does not hold
 # (CLAUDE.md, Testing). So the run is handed to the gate user (GATE_USER, dev),
 # which fetches the worktree's HEAD into ~/gate and runs task there, one task
-# at a time; given no task, the steps of `task check`. The gate checks what is
-# committed: uncommitted changes are left out, and it says so. One run goes at
-# a time, since every run shares that checkout; a second waits for the first
+# at a time; given no task, the steps of `task check`, or `task check:docs`
+# when scripts/docs-only.sh finds the worktree changes the docs alone since
+# GATE_BASE (origin/main by default). The gate checks what is committed:
+# uncommitted changes are left out, and it says so. One run goes at a time,
+# since every run shares that checkout; a second waits for the first
 # (GATE_LOCK_WAIT seconds, an hour by default).
 #
 # The gate user gets an environment of named variables alone, so none of
@@ -45,6 +48,7 @@ readonly gate_home="/home/${gate_user}"
 readonly tools="${GATE_TOOLS:-/opt/workflow-tools}"
 readonly lock_file="${GATE_LOCK:-/tmp/gate-as-dev.lock}"
 readonly lock_wait="${GATE_LOCK_WAIT:-3600}"
+readonly base="${GATE_BASE:-origin/main}"
 readonly need_gb=10 floor_gb=8 step_need_gb=3 step_floor_gb=2
 
 # The variables the gate user's environment is built from, when root has them:
@@ -90,11 +94,23 @@ take_lock() {
   fi
 }
 
+# docs_only_tasks prints check:docs when the worktree changes the docs alone
+# since the base (scripts/docs-only.sh), and nothing otherwise, so a change it
+# cannot classify gets the whole of check.
+#   docs_only_tasks <worktree> <self>
+docs_only_tasks() {
+  if (cd "$1" && "$(dirname "$2")/docs-only.sh" "${base}" >/dev/null 2>&1); then
+    echo "gate-as-dev: the change since ${base} is docs only, so this runs task check:docs" >&2
+    echo check:docs
+  fi
+}
+
 # hand_over names the worktree's HEAD for the gate user to fetch and runs the
-# rest of this script as that user.
+# rest of this script as that user. Given no task, it runs check:docs for a
+# docs-only change and the steps of check for any other.
 #   hand_over <worktree> [task...]
 hand_over() {
-  local src common sha self name
+  local src common sha self name docs
   local -a environment
   if ! id "${gate_user}" >/dev/null 2>&1; then
     echo "gate-as-dev: no user ${gate_user}; scripts/cloud-session-setup.sh makes it" >&2
@@ -111,6 +127,10 @@ hand_over() {
     exit 2
   fi
   self="$(readlink -f "${BASH_SOURCE[0]}")"
+  if (($# == 0)); then
+    docs="$(docs_only_tasks "${src}" "${self}")"
+    if [[ -n "${docs}" ]]; then set -- "${docs}"; fi
+  fi
   if [[ -n "$(git -C "${src}" status --porcelain)" ]]; then
     echo "gate-as-dev: ${src} has uncommitted changes; the gate checks HEAD (${sha:0:8}) only" >&2
   fi
