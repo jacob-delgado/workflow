@@ -14,6 +14,9 @@ declare global {
   interface ImportMetaEnv {
     // Set by `task web:mockup` to run the page against the mockup's server.
     readonly VITE_MOCK?: string
+    // The version the mockup's server reports, set by the docs' screenshot
+    // run (playwright.docs.config.ts); unset, it reports "mockup".
+    readonly VITE_MOCK_VERSION?: string
   }
 }
 

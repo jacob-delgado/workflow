@@ -1,6 +1,17 @@
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { defineConfig } from '@playwright/test'
+import { z } from 'zod'
 import { desktopChrome, mockServer, mockURL } from './playwright.config.ts'
+
+// releasedVersion is the version release-please last released, as a release
+// build of workflow reports it in the header: the tag, with its v.
+function releasedVersion(): string {
+  const manifest = join(import.meta.dirname, '..', '.release-please-manifest.json')
+  const released = z.object({ '.': z.string() }).parse(JSON.parse(readFileSync(manifest, 'utf8')))
+
+  return `v${released['.']}`
+}
 
 // The docs' screenshots: e2e/docs/media.spec.ts opens the populated cockpit on
 // the mock build and writes a PNG of each screen the docs show into
@@ -32,6 +43,12 @@ export default defineConfig({
   ],
   // Never a preview already listening on the mock build's port: one left
   // running by an e2e run would show the build of the moment it started, and
-  // the images would show a cockpit older than the source.
-  webServer: { ...mockServer, reuseExistingServer: false },
+  // the images would show a cockpit older than the source. The build is given
+  // the released version, so the header shows what a user's does, not the
+  // mockup's own word.
+  webServer: {
+    ...mockServer,
+    env: { ...mockServer.env, VITE_MOCK_VERSION: releasedVersion() },
+    reuseExistingServer: false,
+  },
 })
