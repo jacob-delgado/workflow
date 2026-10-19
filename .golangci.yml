@@ -88,6 +88,18 @@ linters:
           deny:
             - pkg: github.com/jacob-delgado/workflow/internal/webserver/webtest
               desc: a test helper; serve the API handler over fixtures only from a _test.go file
+        # internal/demo is a made-up world of canned answers, for the docs'
+        # recordings: a production path that imported it would show the demo's
+        # issues and pull requests as the user's own. So only the demo's main,
+        # cmd/demo, and tests may; release builds compile cmd/workflow alone.
+        demo-only-in-cmd-demo:
+          files:
+            - "$all"
+            - "!$test"
+            - "!**/cmd/demo/**"
+          deny:
+            - pkg: github.com/jacob-delgado/workflow/internal/demo
+              desc: canned answers; only the demo main and tests may import them
         # internal/cli/clitest readies the whole process for the command
         # tree's tests — PATH, HOME, git's configuration, the roots it trusts —
         # and imports testing, which only a test's own process should do: a
@@ -366,6 +378,12 @@ linters:
       # files so several packages' tests can share them: a canned issue's
       # numbers are data, as they were in a test, where mnd does not look.
       - path: internal/webserver/webtest/
+        linters: [mnd]
+      # internal/demo is the made-up world the docs' recordings show: a pull
+      # request's number, a task's urgency, the time of day something was done
+      # are its story's data, each written once where it is told, and naming
+      # every one would only say it twice.
+      - path: internal/demo/
         linters: [mnd]
       # These CLI tests interrupt their own process, as Ctrl+C does, which
       # every run beside them would hear too, so they run alone. Every other
