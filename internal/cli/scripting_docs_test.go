@@ -26,7 +26,7 @@ const (
 	streamsHeader  = "| Command | stdout | stderr |"
 )
 
-func TestTheScriptingPageOpensByNamingEveryCommand(t *testing.T) {
+func TestDocsTheScriptingPageOpensByNamingEveryCommand(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -43,7 +43,7 @@ func TestTheScriptingPageOpensByNamingEveryCommand(t *testing.T) {
 	}
 }
 
-func TestTheScriptingPageSaysWhereEachCommandPrints(t *testing.T) {
+func TestDocsTheScriptingPageSaysWhereEachCommandPrints(t *testing.T) {
 	t.Parallel()
 
 	// Arrange

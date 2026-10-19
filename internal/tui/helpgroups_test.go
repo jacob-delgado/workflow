@@ -76,7 +76,7 @@ func documentedGroups(t *testing.T) map[string][]string {
 	return groups
 }
 
-func TestTheConfigurationPageListsEachPanesActionsUnderThePane(t *testing.T) {
+func TestDocsTheConfigurationPageListsEachPanesActionsUnderThePane(t *testing.T) {
 	t.Parallel()
 
 	// Arrange

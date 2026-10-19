@@ -48,7 +48,7 @@ const (
 	actionListEnds  = "A key is named"
 )
 
-func TestTheConfigurationPageListsEveryRebindableActionAndNoOther(t *testing.T) {
+func TestDocsTheConfigurationPageListsEveryRebindableActionAndNoOther(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -67,7 +67,7 @@ func TestTheConfigurationPageListsEveryRebindableActionAndNoOther(t *testing.T) 
 	}
 }
 
-func TestTheConfigurationPageNamesAsAskingFirstExactlyTheActionsRefusedOnTheApplyKey(t *testing.T) {
+func TestDocsTheConfigurationPageNamesAsAskingFirstExactlyTheActionsRefusedOnTheApplyKey(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -116,7 +116,7 @@ func askingFirstNamed(t *testing.T) []string {
 	return named
 }
 
-func TestTheUsagePagesKeyTablePutsEachKeyOnItsActionsRow(t *testing.T) {
+func TestDocsTheUsagePagesKeyTablePutsEachKeyOnItsActionsRow(t *testing.T) {
 	t.Parallel()
 
 	for _, group := range placedBindings() {
