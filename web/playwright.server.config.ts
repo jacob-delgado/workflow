@@ -2,17 +2,9 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { defineConfig, devices } from '@playwright/test'
+import { desktopChrome } from './playwright.config.ts'
 
 const isCI = Boolean(process.env.CI)
-
-// desktopChrome is the device every Chromium project runs. Where the Chromium
-// build Playwright pins cannot be installed, as in a Claude Code cloud session,
-// PLAYWRIGHT_CHROMIUM_EXECUTABLE names the Chromium to launch instead; unset,
-// Playwright launches its own.
-const desktopChrome = {
-  ...devices['Desktop Chrome'],
-  launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE },
-}
 
 // Beside the default port, 13579, and not on it: the run exercises --port,
 // and never meets a developer's own `workflow --web` or the /api proxy of the
