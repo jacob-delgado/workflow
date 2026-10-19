@@ -12,6 +12,8 @@
 package demo
 
 import (
+	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -65,6 +67,31 @@ type World struct {
 	moves []jira.Event
 	// scope is the commit scope last used.
 	scope string
+	// readLatency is how long the slow reads take; see ReadLatency.
+	readLatency time.Duration
+	// pushLatency is how long a push takes once it has printed; see
+	// PushLatency.
+	pushLatency time.Duration
+}
+
+// Option is a way the world can be made other than its default.
+type Option func(*World)
+
+// ReadLatency makes the reads the interface shows itself waiting on — the
+// branches origin holds, and a pull request's CI — take latency before they
+// answer, as a real remote does, so a recording holds each "reading" state for
+// a beat rather than a frame. Without it they answer at once, as the tests
+// want.
+func ReadLatency(latency time.Duration) Option {
+	return func(w *World) { w.readLatency = latency }
+}
+
+// PushLatency makes a push take latency to end once its hooks' lines and
+// the remote's answer are printed, as a push waits on its remote, so a
+// recording holds the push's output for a beat rather than a frame. Stopping
+// the push ends it sooner. Without it a push ends at once, as the tests want.
+func PushLatency(latency time.Duration) Option {
+	return func(w *World) { w.pushLatency = latency }
 }
 
 // openedPull is a pull request and when it was opened, which its CI counts
@@ -75,9 +102,9 @@ type openedPull struct {
 }
 
 // New is the world at the start of the demo, its clock elapsed on from the
-// demo's epoch: the repository on main with the morning's changes not yet
-// committed, and PROJ-412 in progress.
-func New(elapsed func() time.Duration) *World {
+// demo's epoch and changed by options: the repository on main with the
+// morning's changes not yet committed, and PROJ-412 in progress.
+func New(elapsed func() time.Duration, options ...Option) *World {
 	issues := issueList()
 	position := make(map[jira.Key]int, len(issues))
 
@@ -85,10 +112,15 @@ func New(elapsed func() time.Duration) *World {
 		position[issue.Key] = index
 	}
 
-	return &World{
+	world := &World{
 		elapsed: elapsed, issues: issues, position: position,
 		repo: newRepository(), pulls: map[string]int{}, opened: map[int]openedPull{}, scope: "config",
 	}
+	for _, option := range options {
+		option(world)
+	}
+
+	return world
 }
 
 // Config is the configuration the demo runs under: Jira, Slack and GitHub set
@@ -119,6 +151,21 @@ func (w *World) Deps() tui.Deps {
 // now is the demo's clock: its epoch, moved on by how long it has run.
 func (w *World) now() time.Time {
 	return epoch().Add(w.elapsed())
+}
+
+// slowly waits out the world's read latency before a slow read answers, or
+// until ctx ends. It waits without the lock, so every other seam answers
+// meanwhile.
+func (w *World) slowly(ctx context.Context) error {
+	wait := time.NewTimer(w.readLatency)
+	defer wait.Stop()
+
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("the demo's read: %w", ctx.Err())
+	case <-wait.C:
+		return nil
+	}
 }
 
 // locked runs read under the world's lock.

@@ -22,13 +22,13 @@ func (m *manual) since() time.Duration {
 	return m.elapsed
 }
 
-// pushedFeature is the demo's world with the feature branch committed on and
-// pushed, its clock moved on by hand.
-func pushedFeature(t *testing.T) (tui.Deps, *manual) {
+// committedFeature is the demo's world, made with options, with the feature
+// branch committed on and not yet pushed, its clock moved on by hand.
+func committedFeature(t *testing.T, options ...demo.Option) (tui.Deps, *manual) {
 	t.Helper()
 
 	clock := &manual{}
-	deps := demo.New(clock.since).Deps()
+	deps := demo.New(clock.since, options...).Deps()
 
 	err := deps.Git.CreateBranch(t.Context(), feature, "origin/main")
 	if err != nil {
@@ -37,6 +37,15 @@ func pushedFeature(t *testing.T) (tui.Deps, *manual) {
 
 	staged(t, deps, reqlog)
 	_, _ = ran(t)(deps.Git.Commit(t.Context(), "fix: redact"))
+
+	return deps, clock
+}
+
+// pushedFeature is committedFeature with the feature branch pushed.
+func pushedFeature(t *testing.T, options ...demo.Option) (tui.Deps, *manual) {
+	t.Helper()
+
+	deps, clock := committedFeature(t, options...)
 	_, _ = ran(t)(deps.Git.Push(t.Context(), feature))
 
 	return deps, clock
@@ -108,7 +117,7 @@ func TestASecondPullRequestForOneBranchIsRefused(t *testing.T) {
 	}
 }
 
-func TestCIRunsAsSoonAsThePullRequestOpens(t *testing.T) {
+func TestCIHasOneCheckPassedAsThePullRequestOpens(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -119,8 +128,8 @@ func TestCIRunsAsSoonAsThePullRequestOpens(t *testing.T) {
 	ci, err := deps.Forge.CheckStatus(t.Context(), pull, pull.HeadCommit)
 
 	// Assert
-	if err != nil || ci.State != forge.CIRunning || ci.Done != 0 || ci.Total != len(ci.Checks) || ci.Total == 0 {
-		t.Errorf("CI on opening = %+v, %v; want every check running", ci, err)
+	if err != nil || ci.State != forge.CIRunning || ci.Done != 1 || ci.Total != len(ci.Checks) || ci.Total < 2 {
+		t.Errorf("CI on opening = %+v, %v; want one check passed and the rest running", ci, err)
 	}
 }
 

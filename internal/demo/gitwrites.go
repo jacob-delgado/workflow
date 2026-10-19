@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/proc"
@@ -20,6 +22,7 @@ var (
 	errNothingStaged = errors.New("nothing added to commit")
 	errNoSuchBranch  = errors.New("src refspec does not match any branch")
 	errNoSuchChange  = errors.New("pathspec did not match any changed file")
+	errPushStopped   = errors.New("the push was stopped before the remote answered")
 )
 
 // firstHash is the hash the demo's first commit takes; each one after takes
@@ -43,9 +46,41 @@ func finished(lines []string, err error) proc.Output {
 	return proc.Output{Lines: stream, Wait: func() error { return err }, Stop: func() {}}
 }
 
+// slowRun is a run that prints every line at once and ends latency later, as
+// a push does that has passed its hooks and waits on its remote. Stop ends it
+// sooner, and Wait then reports it stopped; once it has ended, Stop does
+// nothing.
+func slowRun(lines []string, latency time.Duration) proc.Output {
+	output := finished(lines, nil)
+	ends := time.NewTimer(latency)
+	stopped := make(chan struct{})
+
+	output.Wait = sync.OnceValue(func() error {
+		select {
+		case <-ends.C:
+			return nil
+		case <-stopped:
+			return errPushStopped
+		}
+	})
+	output.Stop = func() {
+		if ends.Stop() {
+			close(stopped)
+		}
+	}
+
+	return output
+}
+
 // remoteBranches is the branches origin holds, main and each branch pushed,
-// named without the remote, as gitrepo.RemoteBranches names them.
-func (w *World) remoteBranches(context.Context) ([]string, error) {
+// named without the remote, as gitrepo.RemoteBranches names them, once the
+// world's read latency has passed.
+func (w *World) remoteBranches(ctx context.Context) ([]string, error) {
+	err := w.slowly(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	return locked(w, func() []string {
 		var names []string
 
@@ -141,7 +176,8 @@ func (w *World) commit(_ context.Context, message string) (proc.Output, error) {
 	}, nil), nil
 }
 
-// push sends a branch's commits to origin and sets its upstream there.
+// push sends a branch's commits to origin and sets its upstream there, and
+// takes the world's push latency to end.
 func (w *World) push(_ context.Context, name string) (proc.Output, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -161,9 +197,9 @@ func (w *World) push(_ context.Context, name string) (proc.Output, error) {
 	local.upstream, local.pushed = remote+"/"+name, len(local.commits)
 	w.repo.branches[name] = local
 
-	return finished([]string{
+	return slowRun([]string{
 		"lefthook  pre-push: test", "✔ test", "To " + githubHost + ":" + forgeRepository + ".git", sent,
-	}, nil), nil
+	}, w.pushLatency), nil
 }
 
 // headOf is the commit a branch stands at: its last, or main's head before

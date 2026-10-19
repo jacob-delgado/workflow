@@ -47,7 +47,7 @@ func TestTheRecordedLoopRunsFromAnIssueToAnAnnouncement(t *testing.T) {
 	demo.press("enter")
 
 	// Assert: CI runs, and the announcement waits for it
-	requireScreen(t, demo.screen(), "#128 fix(config): redact tokens in the request log", "running (0 of 4 finished)",
+	requireScreen(t, demo.screen(), "#128 fix(config): redact tokens in the request log", "running (1 of 4 finished)",
 		"announces to #dev-workflow once CI passes")
 
 	// Act: let CI finish
