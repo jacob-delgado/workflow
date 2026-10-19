@@ -60,7 +60,13 @@ read it, so a change to one starts there, red first:
 - `internal/cli/scripting_docs_test.go` fails when `scripting.md` stops
   naming every command, or where each prints.
 - `internal/tui/keys_docs_test.go` holds `configuration.md`'s rebindable
-  actions and `usage.md`'s key table to the terminal's bindings.
+  actions and `usage.md`'s key table to the terminal's bindings, and
+  `internal/tui/helpgroups_test.go` its panes' actions to the help's groups.
+
+`task test:docs` runs these tests, which is how a docs-only change (`task
+check:docs`, and CI for such a pull request) still checks the contract pages.
+It finds them by name: each one's starts with `TestDocs`, and a new contract
+test's must too, or the docs-only gate never runs it.
 
 Add the code, the command or the key with its test, watch that test fail on
 the page, then write the page. Each of those tests is a black-box test marked

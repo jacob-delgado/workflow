@@ -114,6 +114,7 @@ a new package brings its line, saying what it holds.
 | `task lint` | every `lint:*` task plus `docs:check` and `gen:verify`; `task --list` names each |
 | `task fmt` | format everything in place |
 | `task check` | **the full gate**; CONTRIBUTING.md's *Day to day* lists its parts and what each enforces |
+| `task check:docs` | the gate for a change to the docs alone, which `scripts/docs-only.sh` decides: the docs' linters and gates, the contract pages' tests and the secret scan |
 | `task e2e` | the web's Playwright suites, which `task check` leaves out: run it too for a change under `web/` or `internal/webserver`; it builds first, so it rewrites `internal/web/dist` too |
 | `task container:check` | the same gate inside the build container |
 
@@ -416,13 +417,15 @@ scaffolding. A refactor that changes observable behavior needs a test.
 
 **Before declaring any task done**, run `task check`; for a change under `web/`
 or `internal/webserver` also run `task e2e`, since `task check` leaves the
-Playwright suites out. Run the gate as a user, not as root: root reads any
-file, so the tests that make one unreadable skip under it, and `task
-cover:branch` can fail where it passes as a user (`scripts/gobco-report.sh`
-warns when it starts as root). In a session whose `id -u` is 0, run it as
-another user that owns a checkout (the dev container's `vscode`), or, where
-there is none, take CI's Branch coverage job, which runs as a user, as its
-verdict and say so. Never present work as complete while the build is red or
+Playwright suites out. A change to the docs alone, which `scripts/docs-only.sh`
+decides (Markdown outside `web/`, the site's configuration, and the two prose
+linters'), runs `task check:docs` instead, as CI does for such a pull request.
+Run the gate as a user, not as root: root reads any file, so the tests that
+make one unreadable skip under it, and `task cover:branch` can fail where it
+passes as a user (`scripts/gobco-report.sh` warns when it starts as root). In
+a session whose `id -u` is 0, run it as another user that owns a checkout (the
+dev container's `vscode`), or, where there is none, take CI's Branch coverage
+job, which runs as a user, as its verdict and say so. Never present work as complete while the build is red or
 tests are failing — say what's broken and why instead.
 
 ## Secrets, dependencies and contracts

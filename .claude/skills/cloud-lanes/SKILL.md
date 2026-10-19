@@ -170,7 +170,9 @@ Say which host and why, and carry on with what does not need it.
 - **`gate-as-dev <worktree> [task...]`** (`scripts/gate-as-dev.sh`), as root,
   hands the run to dev in dev's own checkout of that worktree's HEAD: what is
   committed, never the uncommitted changes, which it warns of. Given no task
-  it runs all of `task check` but `vuln` while `vuln.go.dev` is refused. It
+  it runs all of `task check` but `vuln` while `vuln.go.dev` is refused, or
+  `task check:docs` when the worktree changes the docs alone since
+  `origin/main` (`scripts/docs-only.sh`; `GATE_BASE` names another base). It
   checks the disk before the run and between steps, and one run goes at a
   time: a second waits for the first. dev gets a temporary directory of its
   own under `~/.cache`, since root's tools keep fixed names in `/tmp`: a

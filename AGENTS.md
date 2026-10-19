@@ -24,10 +24,12 @@ skill (`.claude/skills/cloud-lanes/SKILL.md`) wins.
   web test marks its parts with `// Arrange`, `// Act` and `// Assert`
   (`CLAUDE.md`'s *Testing* says how).
 - **The gate before you say done.** `task check`, as a non-root user, and
-  `task e2e` for a change under `web/` or `internal/webserver`. Where you are
-  root, run it as another user that owns a checkout; where there is none,
-  take CI's Branch coverage job as the verdict and say so. Never call work
-  done while the build is red: say what is broken and why.
+  `task e2e` for a change under `web/` or `internal/webserver`; for a change
+  to the docs alone (`scripts/docs-only.sh` decides), `task check:docs`
+  instead. Where you are root, run it as another user that owns a checkout;
+  where there is none, take CI's Branch coverage job as the verdict and say
+  so. Never call work done while the build is red: say what is broken and
+  why.
 - **Ask, don't assume.** Propose a new dependency, by name and why, and wait
   for approval; never adopt a version published under 7 days ago. For a
   change that would touch more than about three files or restructure a
