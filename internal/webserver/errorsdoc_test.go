@@ -28,7 +28,7 @@ const scriptingPage = "../../docs/content/docs/scripting.md"
 // familiesHeading opens the scripting page's section holding that table.
 const familiesHeading = "### The same families on the web"
 
-func TestEveryProblemCodeHasASectionOnTheErrorsPage(t *testing.T) {
+func TestDocsEveryProblemCodeHasASectionOnTheErrorsPage(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -47,7 +47,7 @@ func TestEveryProblemCodeHasASectionOnTheErrorsPage(t *testing.T) {
 	}
 }
 
-func TestEveryProblemCodeHasAFamilyOnTheScriptingPage(t *testing.T) {
+func TestDocsEveryProblemCodeHasAFamilyOnTheScriptingPage(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -64,7 +64,7 @@ func TestEveryProblemCodeHasAFamilyOnTheScriptingPage(t *testing.T) {
 	}
 }
 
-func TestAProblemsTypeEndsInItsCodesAnchor(t *testing.T) {
+func TestDocsAProblemsTypeEndsInItsCodesAnchor(t *testing.T) {
 	t.Parallel()
 
 	// Act
@@ -78,7 +78,7 @@ func TestAProblemsTypeEndsInItsCodesAnchor(t *testing.T) {
 }
 
 // problemFragment is the anchor a problem's type URI ends in: its code with
-// hyphens for underscores. TestAProblemsTypeEndsInItsCodesAnchor holds the
+// hyphens for underscores. TestDocsAProblemsTypeEndsInItsCodesAnchor holds the
 // server to it, so the errors page is checked against the anchors it sends.
 func problemFragment(code string) string {
 	return strings.ReplaceAll(code, "_", "-")
