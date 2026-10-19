@@ -106,7 +106,10 @@ as its status, so a gate that fails for the wrong reason fails the test.
   under a directory of that name at any depth, which the pattern leaves out
   too (a test helper may import another), and its `list-mode` is unset or
   `original`, since under `lax` or `strict` an allow item longer than the deny
-  item lets the import through. A rule holds only while depguard runs, so the
+  item lets the import through. It holds the other way too: a package of the
+  repository such a rule holds must be marked, read even with no line marked,
+  so no edit to `CLAUDE.md` alone, which CI checks as docs only, changes what
+  the coverage gate counts. A rule holds only while depguard runs, so the
   check also fails a mark when `.golangci.yml` does not make sure it does:
   `linters.disable` lists depguard, `linters.default` is not `all` and
   `linters.enable` does not list it (`standard`, `none` and `fast` each need

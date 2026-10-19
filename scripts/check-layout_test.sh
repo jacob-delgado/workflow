@@ -4,8 +4,9 @@
 # named in CLAUDE.md's layout block, every directory the block names must hold
 # a tracked file, every package the block marks "(tests only)" must be one a
 # depguard rule holds to tests, in a .golangci.yml golangci-lint reads and no
-# file it reads first, and a repository git cannot read, or a CLAUDE.md with
-# no layout block, must not pass on nothing compared. The mark's need of a
+# file it reads first, every package such a rule holds must be marked, and a
+# repository git cannot read, or a CLAUDE.md with no layout block, must not
+# pass on nothing compared. The mark's need of a
 # depguard that runs is check-layout_runs_test.sh's, which rules hold a
 # package check-layout_depguard_test.sh's, and how the gate reads the YAML
 # they are written in check-layout_yaml_test.sh's.
@@ -94,6 +95,33 @@ repo "${unmarked}" "internal/rlimit (tests only)" internal/gittest \
   -- internal/rlimit/rlimit.go internal/gittest/gittest.go
 lint "${unmarked}" internal/rlimit
 expect pass "a package not marked (tests only) needs no rule" "${unmarked}"
+
+# The mark and the rule must agree both ways: coverage-gate.sh reads the
+# marks, so a package a rule holds to tests but the layout leaves unmarked
+# would count against the statement total on a change to CLAUDE.md alone,
+# which runs no coverage. The gate names it and the fix.
+rule_unmarked="${workdir}/rule-unmarked"
+repo "${rule_unmarked}" "internal/rlimit (tests only)" internal/gittest \
+  -- internal/rlimit/rlimit.go internal/gittest/gittest.go
+lint "${rule_unmarked}" internal/rlimit internal/gittest
+expect_output fail "a package a rule holds to tests that the layout does not mark" \
+  $'does not mark (tests only):\n  internal/gittest/ (pkg: example/internal/gittest)\nMark each' \
+  run_in "${rule_unmarked}" "${check}"
+
+# With no line marked at all the rules are still read, so taking every mark
+# off fails too, rather than leaving nothing to compare.
+none_marked="${workdir}/none-marked"
+repo "${none_marked}" internal/rlimit -- internal/rlimit/rlimit.go
+lint "${none_marked}" internal/rlimit
+expect_output fail "every mark taken off a package a rule holds" \
+  "  internal/rlimit/ (pkg: example/internal/rlimit)" run_in "${none_marked}" "${check}"
+
+# A rule for a package the repository does not hold, a module's or one
+# removed, asks for no mark: there is no line to mark.
+elsewhere="${workdir}/elsewhere"
+repo "${elsewhere}" internal/cli -- internal/cli/cli.go
+lint "${elsewhere}" internal/gone
+expect pass "a rule for a package the repository does not hold" "${elsewhere}"
 
 # A rule holds the import path its deny list names and no other, so one that
 # holds internal/webserver/webtest leaves internal/webserver above it unheld.

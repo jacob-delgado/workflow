@@ -98,9 +98,10 @@ docs/                 the Hugo documentation site
 ```
 
 `task lint:layout` fails when a Go package has no line here, a line names a
-directory that holds nothing, or a line marks `(tests only)` a package
-depguard does not hold to tests, for want of a rule or of depguard running:
-a new package brings its line, saying what it holds.
+directory that holds nothing, a line marks `(tests only)` a package depguard
+does not hold to tests, for want of a rule or of depguard running, or a
+package a depguard rule holds to tests goes unmarked: a new package brings its
+line, saying what it holds.
 
 ## Common commands
 

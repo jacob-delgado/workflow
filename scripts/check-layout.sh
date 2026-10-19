@@ -2,7 +2,8 @@
 #
 # Fail unless CLAUDE.md's layout block names every Go package directory, names
 # no directory that holds nothing, and marks "(tests only)" only a package a
-# depguard rule holds to tests, with depguard on.
+# depguard rule holds to tests, with depguard on, and every package of the
+# repository such a rule holds.
 #
 # Usage:
 #   scripts/check-layout.sh
@@ -31,6 +32,13 @@
 # directory of that name at any depth, whose files the pattern leaves out
 # too: a test helper may import another, since only tests reach either.
 #
+# The other way round, a package of the repository a rule holds to tests must
+# be marked, so the marks say what the rules do and no edit to CLAUDE.md alone
+# can change what coverage-gate.sh counts: such an edit is docs only, and CI
+# runs no coverage for one. With no line marked the rules are still read, when
+# .golangci.yml is there and the gate can read it as golangci-lint does, so
+# taking every mark off fails as taking one off does.
+#
 # A rule holds only while depguard runs, so a mark also fails when
 # .golangci.yml does not make sure it does: when linters.disable lists
 # depguard, when linters.default is not all and linters.enable does not list
@@ -38,8 +46,8 @@
 # enable or disable it does not read, as a block scalar. Of golangci-lint's
 # defaults only all is sure to run depguard: standard, the default when none
 # is set, and none leave it out, and fast holds it only while golangci-lint
-# counts depguard fast, which the configuration does not say. The rules, and
-# whether depguard runs, are read only when a line is marked.
+# counts depguard fast, which the configuration does not say. Whether depguard
+# runs is read only when a line is marked.
 # Exclusion rules and //nolint:depguard stay unread, the maintainer's choice,
 # and so do issues.new and new-from-rev, -patch and -merge-base, which hide
 # what depguard finds as they do, and run.issues-exit-code, which set to 0
@@ -374,11 +382,12 @@ fi
 packages="$(printf '%s\n' "${go_files}" | grep -vE '(^|/)testdata/' | sed -n 's|/[^/]*$||p' | sort -u || true)"
 
 marked="$(layout_tests_only_dirs "${guide}")"
+module="$(awk '$1 == "module" { print $2; exit }' go.mod 2>/dev/null || true)"
+held=""
 unheld=""
 depguard_off_because=""
 depguard_on_by=""
 if [[ -n "${marked}" ]]; then
-  module="$(awk '$1 == "module" { print $2; exit }' go.mod 2>/dev/null || true)"
   if [[ -z "${module}" ]]; then
     echo "check-layout: no module path in a go.mod here to find the depguard rule of a package ${guide} marks (tests only) by." >&2
     exit 2
@@ -390,7 +399,6 @@ if [[ -n "${marked}" ]]; then
       exit 2
     fi
   done
-  held=""
   depguard_off_because="there is no ${lint_config}, so linters.default is standard"
   depguard_on_by="Add a ${lint_config} whose linters.enable lists depguard"
   if [[ -f "${lint_config}" ]]; then
@@ -415,7 +423,22 @@ if [[ -n "${marked}" ]]; then
     fi
   done <<<"${marked}"
   unheld="${unheld%$'\n'}"
+elif [[ -n "${module}" && -f "${lint_config}" ]]; then
+  unread="$(unread_line "${lint_config}")"
+  if [[ -z "${unread}" ]]; then
+    held="$(held_to_tests "$(denials "${lint_config}" | LC_ALL=C sort)" "${module}" "${packages}")"
+  fi
 fi
+
+unmarked=""
+while IFS= read -r package; do
+  dir="${package#"${module}/"}"
+  [[ -n "${package}" && "${dir}" != "${package}" ]] || continue
+  if grep -Fqx -- "${dir}" <<<"${packages}" && ! grep -Fqx -- "${dir}" <<<"${marked}"; then
+    unmarked+="${dir}"$'\n'
+  fi
+done <<<"${held}"
+unmarked="${unmarked%$'\n'}"
 
 missing="$(comm -23 <(printf '%s\n' "${packages}") <(printf '%s\n' "${named}") | sed '/^$/d')"
 
@@ -457,13 +480,21 @@ if [[ -n "${unheld}" ]]; then
   echo "Give each a depguard rule in ${lint_config} that denies its pkg to the files \"\$all\" and \"!\$test\" alone, as rlimit-only-in-tests does, or besides them leaves out only a \"!**/<dir>/**\" whose every package such a rule holds, or drop its mark: coverage-gate.sh leaves a marked package out of the statement total." >&2
 fi
 
+if [[ -n "${unmarked}" ]]; then
+  echo "check-layout: packages a depguard rule in ${lint_config} holds to tests that ${guide}'s layout does not mark (tests only):" >&2
+  while IFS= read -r dir; do
+    printf '  %s/ (pkg: %s/%s)\n' "${dir}" "${module}" "${dir}" >&2
+  done <<<"${unmarked}"
+  echo "Mark each line (tests only), or drop its rule: coverage-gate.sh reads the marks, so they must say what the rules do." >&2
+fi
+
 if [[ -n "${depguard_off_because}" ]]; then
   echo "check-layout: a depguard rule holds the packages ${guide}'s layout marks (tests only) to tests only while depguard runs, and ${lint_config} does not make sure it does: ${depguard_off_because}." >&2
   echo "${depguard_on_by}, or drop the marks: coverage-gate.sh leaves a marked package out of the statement total." >&2
 fi
 
-if [[ -n "${missing}" || -n "${stale}" || -n "${unheld}" || -n "${depguard_off_because}" ]]; then
+if [[ -n "${missing}" || -n "${stale}" || -n "${unheld}" || -n "${unmarked}" || -n "${depguard_off_because}" ]]; then
   exit 1
 fi
 
-echo "check-layout: ${guide}'s layout names every Go package, and only directories that hold files; depguard holds each package it marks (tests only) to tests."
+echo "check-layout: ${guide}'s layout names every Go package, and only directories that hold files; depguard holds each package it marks (tests only) to tests, and it marks each one depguard holds."
