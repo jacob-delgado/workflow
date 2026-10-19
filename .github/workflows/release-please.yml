@@ -87,13 +87,16 @@ jobs:
       # a release commit, as the step above decided: any other push to main
       # needs nothing installed here. cache: false for the reason release.yml sets
       # it — a restored cache is attacker-influenceable state, and this gate
-      # decides whether a release ships.
+      # decides whether a release ships. VHS and ttyd are left out for the
+      # reason release.yml leaves them out.
       - name: Provision the toolchain for the gate
         if: steps.release.outputs.version != ''
         uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8 # v5.1.2
         with:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
           cache: false
+        env:
+          MISE_DISABLE_TOOLS: vhs,ttyd
 
       # The linters mise.toml does not pin, which the gate below runs, from
       # their pin files, as CI's Lint job installs them.
