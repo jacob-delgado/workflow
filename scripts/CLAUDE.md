@@ -137,9 +137,9 @@ as its status, so a gate that fails for the wrong reason fails the test.
   twice, as `decide` in its gate job and again in its tag job to push the
   tag; `packages.yml` runs `package-manifests.sh` and `publish-packages.sh`;
   and `ci.yml`'s Cross-compile job runs `package-manifests.sh` and
-  `check-formula.sh` on every pull request. `release.yml` runs none of them;
-  the tasks it runs are `task check`, `task release:binaries` and
-  `task release:verify`.
+  `check-formula.sh` on every pull request that changes code. `release.yml`
+  runs none of them; the tasks it runs are `task check`, `task
+  release:binaries` and `task release:verify`.
 
 ## Data files and their reasons
 

@@ -61,6 +61,7 @@ task run           # run the TUI from source
 task test          # tests with the race detector
 task fmt           # format everything in place
 task check         # the full gate — run this before opening a pull request
+task check:docs    # the gate for a change to the docs alone
 ```
 
 `task check` is the gate, each part a task of its own:
@@ -77,6 +78,18 @@ task check         # the full gate — run this before opening a pull request
 | `task cover:branch` | Condition coverage via gobco: was each condition seen both ways |
 | `task vuln` | `govulncheck` against the dependency graph |
 | `task secrets` | `gitleaks` over the working tree |
+
+A change to the docs alone, which `scripts/docs-only.sh` decides (every file it
+changes is Markdown outside `web/`, whose prettier check reads it, the site's
+configuration and module files under `docs/`, or `.markdownlint-cli2.yaml` or
+`_typos.toml`), runs `task check:docs` instead: `task lint:docs`, every lint
+gate that reads a file such a change can touch plus `docs:check` and
+`test:docs`, the Go tests that hold the contract pages to the code, and then
+`task secrets`. CI does the same for such a pull request: its Changes job asks
+the script, Lint runs `task lint:docs`, Scan its secret scans, and the Go, web
+and end-to-end jobs are skipped, which ci-gate (`scripts/ci-gate.sh`) accepts
+for that change alone. The base branch's copy of the script decides, so a pull
+request that changes it gets every check. A push to main runs everything.
 
 The local gate needs Node, which `mise install` provisions, and installs the
 frontend's dependencies when they are missing. CI runs the same gates, and adds
