@@ -6,14 +6,15 @@
 # lists it with the advisory it fixes or a maintainer's dated waiver; now is
 # 2026-10-08T00:00:00Z, and a version exactly seven days old is adopted. An
 # exception naming neither, or a waiver whose date is no real day, fails. A
-# version whose publish date cannot be learned fails, versions the change
-# leaves alone are not looked up, and a base git cannot resolve is refused with
-# a status of its own. A dated waiver a week past its day is warned of, and its
-# npmPreapprovedPackages entry in web/.yarnrc.yml with it, but fails nothing;
-# one whose week may not be over is not. In GitHub Actions the warning is also
-# a ::warning annotation, which the pull request shows. A pre-approval no line
-# of the exceptions file lists is warned of too, and fails nothing. The
-# linters' pin files are check-dependency-age_pins_test.sh's.
+# version whose publish date cannot be learned fails, as a mise tool pinned in
+# a [tools.<name>] table, which the check does not read, does; versions the
+# change leaves alone are not looked up, and a base git cannot resolve is
+# refused with a status of its own. A dated waiver a week past its day is
+# warned of, and its npmPreapprovedPackages entry in web/.yarnrc.yml with it,
+# but fails nothing; one whose week may not be over is not. In GitHub Actions
+# the warning is also a ::warning annotation, which the pull request shows. A
+# pre-approval no line of the exceptions file lists is warned of too, and fails
+# nothing. The linters' pin files are check-dependency-age_pins_test.sh's.
 #
 # The stand-in curl lib/check-dependency-age-fixtures.sh writes answers each
 # registry URL from a fixture file named for it, and fails as curl -f does for
@@ -92,6 +93,12 @@ npm_waiver_in_its_week() {
   preapprove_npm @scope/widget 2.0.0
 }
 
+# table_tool pins a tool in a [tools.<name>] table of its own, which mise
+# reads as a [tools] pin.
+table_tool() {
+  printf '\n[tools.shellcheck]\nversion = "0.12.0"\n' >>mise.toml
+}
+
 # mise_tools pins mise tools of several kinds, all a week old.
 mise_tools() {
   pin_tool node 24.22.0
@@ -157,6 +164,10 @@ expect_output fail "a version whose publish date cannot be learned" "cannot tell
 
 unlisted="$(repo unlisted pin_tool newtool 1.0.0)"
 expect_output fail "a mise tool with no known source" "newtool" age "${unlisted}"
+
+tool_table="$(repo tool-table table_tool)"
+expect_output fail "a tool pinned in a [tools.<name>] table, which is not read" \
+  "mise.toml: '[tools.shellcheck]' cannot be dated" age "${tool_table}"
 
 untouched="$(repo untouched touch README.md)"
 expect_exit pass "a change that adds no version" age "${untouched}"
