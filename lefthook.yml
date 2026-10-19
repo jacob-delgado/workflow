@@ -127,6 +127,14 @@ pre-commit:
 # locally costs far less than a CI round trip.
 pre-push:
   parallel: false
+  # The files the checked-out branch changes against origin/main, which the
+  # globs below filter: a branch new to the remote gives lefthook no remote ref
+  # to compare with, so without this the range took in changes the branch did
+  # not make, and a docs-only push ran the whole Go and web suites. A push of
+  # some other branch is judged by the checked-out one's changes. When git
+  # cannot compare with origin/main, every tracked file is listed, so
+  # everything runs.
+  files: git diff --name-only --no-renames origin/main...HEAD 2>/dev/null || git ls-files
   commands:
     # The tests as `task test` runs them: the module's own packages, which
     # Taskfile.yml's GO_PKGS names, under the race detector, then the gate

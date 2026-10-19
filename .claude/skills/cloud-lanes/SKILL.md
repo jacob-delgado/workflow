@@ -198,9 +198,9 @@ Say which host and why, and carry on with what does not need it.
   `task test` (unit-go) and golangci-lint when the push carries a Go change,
   the web's lint, client-drift check and unit tests (web) when it carries a
   `web/` or API-spec change, and the file-length, package-size, trade-off
-  and `TECH_DEBT.md` path checks on every push. On a branch new to the
-  remote, the range it checks takes in changes the branch did not make, so
-  unit-go and web run even for a branch that changes only scripts.
+  and `TECH_DEBT.md` path checks on every push. It judges a push by what the
+  checked-out branch changes against `origin/main`, so a branch that changes
+  only the docs or the scripts skips unit-go, golangci-lint and web.
   `task test` alone takes about 15 minutes here, which is why the gate runs
   before the push and not because of it.
 - **A web change** runs `task e2e` too (see *Browsers*).
@@ -211,7 +211,7 @@ Say which host and why, and carry on with what does not need it.
 | a commit subject or body | the commit-msg hook, `scripts/check-commit-message.sh` |
 | typos, markdownlint, shellcheck | the pre-commit hook, `task lint` |
 | the command reference out of date | `task lint` (`docs:check`) |
-| a docs test, any other test | `task test`, which the pre-push hook runs when the push carries a Go change; after a docs-only change, run it yourself |
+| a docs test, any other test | `task test`, which the pre-push hook runs when the branch carries a Go change; a docs-only change's `task check:docs` runs the docs tests (`test:docs`) |
 | a file too long, a package over its budget, a stale trade-off site or `TECH_DEBT.md` path | the pre-push hook on every push, `task lint` |
 | the statement coverage floor | `task test:cover` |
 | a condition no test evaluated | `task cover:branch`, as dev |
