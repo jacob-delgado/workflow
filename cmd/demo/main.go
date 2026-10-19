@@ -34,12 +34,24 @@ func main() {
 // shell's 128 plus SIGINT's 2 and as workflow's own command line.
 const interrupted = 130
 
+// readLatency is how long the world's slow reads take, as a remote's would:
+// long enough that the recording shows each "reading" state for a beat, not
+// a single frame.
+const readLatency = 500 * time.Millisecond
+
+// pushLatency is how long a push takes once it has printed, as a remote's
+// answer would: long enough that the recording shows the push's output, its
+// hooks passing and the branch sent, before the Branch pane says it is
+// pushed.
+const pushLatency = 1200 * time.Millisecond
+
 // run runs the interface over the demo's world until it quits or a signal
 // ends ctx, the world's clock moving on as the program runs, and says how it
 // ended.
 func run(ctx context.Context) int {
 	began := time.Now()
-	world := demo.New(func() time.Duration { return time.Since(began) })
+	world := demo.New(func() time.Duration { return time.Since(began) },
+		demo.ReadLatency(readLatency), demo.PushLatency(pushLatency))
 
 	_, err := tui.Run(ctx, tui.New(world.Config(), nil, world.Deps()), os.Stdin, os.Stdout)
 
