@@ -35,7 +35,7 @@ test.each([
   [
     'the keychain over the other sources',
     { token: '', keychain: true, token_env: 'JIRA_TOKEN', token_command: 'pass show jira' },
-    'Kept in your keychain, for jira.acme.internal',
+    'Kept in your keychain, for jira.example.com',
   ],
   ['a variable', { token: '', token_env: 'JIRA_TOKEN' }, 'Read from $JIRA_TOKEN'],
   ['a command', { token: '', token_command: 'pass show jira' }, 'Printed by a command you set'],
@@ -113,7 +113,7 @@ test('the Jira token is said to be kept in the keychain once that is turned on',
   )
 
   // Assert
-  expect(description(token)).toContain('Kept in your keychain, for jira.acme.internal')
+  expect(description(token)).toContain('Kept in your keychain, for jira.example.com')
 })
 
 test('a token typed over the stored one says it replaces it when saved', async () => {

@@ -81,7 +81,7 @@ test(
 
     // Assert: its heading has scrolled out of view.
     await expect(
-      page.getByRole('heading', { level: 2, name: /redact tokens before/i }),
+      page.getByRole('heading', { level: 2, name: /redact tokens in the request log/i }),
     ).not.toBeInViewport()
 
     // Act: open another issue.

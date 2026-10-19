@@ -8,6 +8,7 @@ import {
   sectionNames,
   sectionsWith,
   themes,
+  workedIssue,
 } from './support/cockpit.ts'
 import { expect, problem, test } from './support/fixtures.ts'
 import { axeViolations } from './support/reachable.ts'
@@ -101,7 +102,7 @@ for (const theme of themes) {
         // scanned beside the list.
         await pinTheme(page, theme)
         await page.goto('/')
-        await page.getByRole('button', { name: /redact tokens before/i }).click()
+        await workedIssue(page).click()
         await expect(page.getByRole('link', { name: /open in jira/i })).toBeVisible()
 
         // Act

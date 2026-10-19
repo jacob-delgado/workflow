@@ -38,12 +38,12 @@ const taggedJira = facet('tag', 'jira', '+jira')
 const untagged = facet('tag', '', 'no tag')
 
 // redacting is the started task, tracking the checked-out issue as tracking
-// it writes one — its key and page, the jira tag, its priority and a note of
-// the page — with its description since shortened by a modify.
+// it writes one — its key and summary, its page, the jira tag, its priority and
+// a note of the page — with a note of its own added since.
 const redacting: Task = {
   uuid: '7c1e9a42-3b5d-4f60-8a1c-2d4e6f80a1b3',
   id: 1,
-  description: 'PROJ-412: Fix token redaction',
+  description: 'PROJ-412: Redact tokens in the request log',
   status: 'pending',
   project: 'workflow',
   priority: 'H',
@@ -54,14 +54,14 @@ const redacting: Task = {
   urgency: 14.2,
   annotations: [
     { entry: at(-3 * days), description: 'https://jira.example.com/browse/PROJ-412' },
-    { entry: at(-26 * hours), description: 'Ana can review it once CI is green' },
+    { entry: at(-26 * hours), description: 'Sam can review it once CI is green' },
   ],
   issue_key: 'PROJ-412',
   issue_url: 'https://jira.example.com/browse/PROJ-412',
   state: 'started',
   facets: [isStarted, atHigh, inWorkflow, linked, taggedJira],
   ranks: { urgency: 0, state: 0, id: 0, tag: 0, issue: 1, priority: 0 },
-  searchable: ['proj-412: fix token redaction', 'workflow', 'proj-412', '+jira', '#1'],
+  searchable: ['proj-412: redact tokens in the request log', 'workflow', 'proj-412', '+jira', '#1'],
 }
 
 // caching is a task still to do for another issue of yours, due in two days.
@@ -189,7 +189,7 @@ const linkedDone = new Map<string, Pick<Task, 'ranks' | 'searchable'>>([
     redacting.uuid,
     {
       ranks: { urgency: 0, state: 1, id: 1, tag: 0, issue: 1, priority: 0 },
-      searchable: ['proj-412: fix token redaction', 'workflow', 'proj-412', '+jira'],
+      searchable: ['proj-412: redact tokens in the request log', 'workflow', 'proj-412', '+jira'],
     },
   ],
   [

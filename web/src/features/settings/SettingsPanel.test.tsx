@@ -68,7 +68,7 @@ test('loads the configuration into the form', async () => {
   const baseUrl = await screen.findByLabelText('Base URL')
 
   // Assert
-  expect((baseUrl as HTMLInputElement).value).toBe('https://jira.acme.internal')
+  expect((baseUrl as HTMLInputElement).value).toBe('https://jira.example.com')
 })
 
 test('loads the configured messaging service into the Service select', async () => {
