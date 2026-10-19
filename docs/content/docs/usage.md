@@ -40,6 +40,14 @@ still under `ui.motion: reduce`.
 
 ## The screen
 
+Here is the whole loop over a made-up day's work: PROJ-412 picked up, its
+branch made, its changes staged, committed and pushed, its pull request
+opened, and Slack announcing it once CI passes.
+
+{{< image src="images/terminal.gif" alt="The terminal interface running the loop: starting work on PROJ-412 creates its branch, the Commits pane stages its three changes and commits them, the Branch pane pushes the branch, the Review pane opens pull request #128 and watches its CI, and the Slack pane announces it to #dev-workflow once the four checks pass" loading="lazy" >}}
+
+Its parts, drawn as text:
+
 ```text
  api/cmd ● Issue ─ ● Branch ─ ● Commits ─ ● Review ─ ○ Slack ◐ PROJ-412: Fix token redaction 1h12m
 ┏━ 1 Issues ━━━━━━━━━━━━━━┓┌─ Issues ──────────────────────────────────────────────────────┐

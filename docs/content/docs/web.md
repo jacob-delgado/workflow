@@ -142,6 +142,8 @@ reaches says so to assistive technology (`aria-keyshortcuts`). See
 
 ### Issues
 
+{{< image src="images/web-issues.png" alt="The Issues section in the dark theme: Ana Lopez's issues, with filter buttons for their statuses and marks, and PROJ-412 selected, its description, actions and work story beside the list" loading="lazy" >}}
+
 The issues in a view — the default is those assigned to you and not done —
 with a **View** select for the views your configuration defines, each scoped
 to your issues unless its query names the assignee, a **Search** over the
@@ -246,6 +248,8 @@ are a thread's older comments once the newer ones add up to that many.
 
 ### Branch
 
+{{< image src="images/web-branch.png" alt="The Branch section: fix/PROJ-412-redact-tokens, based on origin/main, three commits ahead of its upstream and one behind, its commits, and the working tree's changes, some staged and some not, each with its own buttons" loading="lazy" >}}
+
 The checked-out branch, its base, its upstream and how far it is ahead or
 behind, and the commits on it; **Push to** names the remote a push goes to when
 that is not the base remote, as in a fork's clone. **Push branch** publishes it, after a
@@ -298,6 +302,8 @@ script** keeps each hook whole under `.lefthook` instead. lefthook keeps the
 old hooks as `.git/hooks/*.old`.
 
 ### Review
+
+{{< image src="images/web-review.png" alt="The Review section: pull request #128, ready for review with no conflicts and one approval, and its CI checks, three of four passed and e2e still running" loading="lazy" >}}
 
 The branch's pull request — its number, title and state: Draft or Ready for
 review while it is open, Merged or Closed once it is not — and the issue it is
@@ -358,6 +364,8 @@ false` arms nothing. The open's answer carries the armed announcement as
 `announcement` (its `automatic` set), or why none was as `not_armed`.
 
 ### The messaging service
+
+{{< image src="images/web-announcement.png" alt="The Slack section with an announcement composed: the message for pull request #128, the channel to send it to, the code owners and groups it will tag, and the buttons to cancel it, announce when CI passes, or announce now" loading="lazy" >}}
 
 Named for the service your configuration uses — Slack, Teams, Discord or
 Webhook. It shows where announcements go and who they are from. **Announce to**
@@ -461,6 +469,8 @@ forge when you open it, unless it asked within the last 30 seconds, and
 
 ### Tasks
 
+{{< image src="images/web-tasks.png" alt="The Tasks section: Ana's Taskwarrior tasks with the task for PROJ-412 started and selected, its filters, and its state, urgency, issue and annotations beside the list" loading="lazy" >}}
+
 Your pending Taskwarrior tasks, most urgent first unless you sort them — what
 the terminal's Tasks pane lists, in Taskwarrior's violet: those for an issue
 the Issues list holds first, then the rest, under **For my issues** and
@@ -535,6 +545,8 @@ Taskwarrior has answered, and where it could not, none of them is drawn,
 rather than a claim that no task tracks the issue.
 
 ### Summary
+
+{{< image src="images/web-summary.png" alt="The Summary section: a September 2026 calendar with dots on the days work was done, and the 15th read back hour by hour: a commit, a task completed, PROJ-412 moved to In Review, and a pull request opened" loading="lazy" >}}
 
 What you did, read back each time from where the work left a trace: the
 commits you wrote in the repository the server runs in and in every favorite
