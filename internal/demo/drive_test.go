@@ -103,6 +103,22 @@ func (s *session) press(keys ...string) {
 	}
 }
 
+// typed sends text as a paste, as a terminal hands one over.
+func (s *session) typed(text string) {
+	s.t.Helper()
+
+	s.drain(s.deliver(tea.PasteMsg{Content: text}), settleWithin)
+}
+
+// wait lets wait pass on the fake clock, firing every wait due in it.
+func (s *session) wait(wait time.Duration) {
+	s.t.Helper()
+
+	until := s.clock.elapsed + wait
+	s.drain(nil, wait)
+	s.clock.elapsed = until
+}
+
 // screen is the interface as drawn, its color escapes stripped.
 func (s *session) screen() string {
 	return ansi.Strip(s.model.View().Content)

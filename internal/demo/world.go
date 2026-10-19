@@ -23,7 +23,8 @@ import (
 )
 
 // ciInterval is how often the demo's interface asks about CI while it runs:
-// often enough that a recording sees each check pass.
+// twice in the four seconds its checks take, so a recording sees CI move on
+// before it passes.
 const ciInterval = 2 * time.Second
 
 // The people, places and services of the demo's story.
@@ -55,15 +56,22 @@ type World struct {
 	issues   []jira.Issue
 	position map[jira.Key]int
 	repo     repository
-	// pulls are the pull requests opened, by the branch each is for.
-	pulls     map[string]openedPull
+	// pulls are the numbers of the pull requests opened, by the branch each
+	// is for, and opened is each of them, by its number.
+	pulls     map[string]int
+	opened    map[int]openedPull
 	announced []loop.Announced
+	// moves are the issues moved since the demo began, for the Summary.
+	moves []jira.Event
+	// scope is the commit scope last used.
+	scope string
 }
 
 // openedPull is a pull request and when it was opened, which its CI counts
 // from.
 type openedPull struct {
 	pull forge.PullRequest
+	at   time.Time
 }
 
 // New is the world at the start of the demo, its clock elapsed on from the
@@ -79,7 +87,7 @@ func New(elapsed func() time.Duration) *World {
 
 	return &World{
 		elapsed: elapsed, issues: issues, position: position,
-		repo: newRepository(), pulls: map[string]openedPull{},
+		repo: newRepository(), pulls: map[string]int{}, opened: map[int]openedPull{}, scope: "config",
 	}
 }
 

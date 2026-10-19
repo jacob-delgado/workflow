@@ -33,12 +33,15 @@ func during[T any](items []T, at func(T) time.Time, start, end time.Time) []T {
 }
 
 // commitsBetween is the commits you wrote in api over a period: yesterday's
-// refactor, merged into main.
+// refactor, merged into main, and every commit the demo has made since.
 func (w *World) commitsBetween(_ context.Context, start, end time.Time) []loop.RepositoryCommits {
-	written := []gitrepo.DatedCommit{{
+	refactor := gitrepo.DatedCommit{
 		Hash: "c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f6", Short: "c3d4e5f",
 		Subject: "refactor(config): route every write through Redact", Authored: yesterday(9, 12),
-	}}
+	}
+	written := append([]gitrepo.DatedCommit{refactor}, locked(w, func() []gitrepo.DatedCommit {
+		return slices.Clone(w.repo.written)
+	})...)
 
 	shown := during(written, func(commit gitrepo.DatedCommit) time.Time { return commit.Authored }, start, end)
 
@@ -46,26 +49,28 @@ func (w *World) commitsBetween(_ context.Context, start, end time.Time) []loop.R
 }
 
 // jiraActivity is what you did to issues over a period: PROJ-412 moved into
-// progress yesterday, and a comment on PROJ-418.
+// progress yesterday, a comment on PROJ-418, and every move the demo made.
 func (w *World) jiraActivity(_ context.Context, start, end time.Time) (jira.Activity, error) {
-	events := []jira.Event{
-		{
-			At: yesterday(11, 30), Kind: jira.EventCommented, Key: "PROJ-418",
-			Summary: "Refuse to start when the config names an unknown forge",
-		},
-		{At: yesterday(14, 5), Kind: jira.EventMoved, Key: workedKey, Summary: workedSummary, Detail: statusInProgress},
+	commented := jira.Event{
+		At: yesterday(11, 30), Kind: jira.EventCommented, Key: "PROJ-418",
+		Summary: "Refuse to start when the config names an unknown forge",
 	}
+	moved := jira.Event{
+		At: yesterday(14, 5), Kind: jira.EventMoved, Key: workedKey, Summary: workedSummary, Detail: statusInProgress,
+	}
+	events := append([]jira.Event{commented, moved}, locked(w, func() []jira.Event { return slices.Clone(w.moves) })...)
 
 	return jira.Activity{Events: during(events, func(event jira.Event) time.Time { return event.At }, start, end)}, nil
 }
 
 // forgeActivity is what you did on GitHub over a period: Lee's review-queue
-// pull request reviewed yesterday.
+// pull request reviewed yesterday, and every pull request the demo opened.
 func (w *World) forgeActivity(_ context.Context, start, end time.Time) (forge.Activity, error) {
-	events := []forge.Event{{
+	reviewed := forge.Event{
 		At: yesterday(14, 20), Kind: forge.EventReviewed, Number: 391, Title: "List the review queue on the web",
 		URL: toolURL + "/pull/391", Repository: toolRepository,
-	}}
+	}
+	events := append([]forge.Event{reviewed}, w.pullsOpened()...)
 
 	return forge.Activity{Events: during(events, func(event forge.Event) time.Time { return event.At }, start, end)}, nil
 }

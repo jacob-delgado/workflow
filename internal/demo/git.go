@@ -33,6 +33,9 @@ type repository struct {
 	changes []fileChange
 	// diffs are each changed file's diff against HEAD, by its path.
 	diffs map[string][]string
+	// written are the commits made since the demo began, when each was made,
+	// for the Summary.
+	written []gitrepo.DatedCommit
 }
 
 // localBranch is a branch's own history: its commits past main, how many of
@@ -136,6 +139,13 @@ func (w *World) gitDeps() seams.Git {
 		Branches: w.branches,
 		// The Summary's commits.
 		CommitsBetween: w.commitsBetween,
+		// What the demo does to the repository.
+		RemoteBranches: w.remoteBranches,
+		CreateBranch:   w.createBranch,
+		Stage:          w.stage,
+		Unstage:        w.unstage,
+		Commit:         w.commit,
+		Push:           w.push,
 	}
 }
 
@@ -147,15 +157,17 @@ func (w *World) branch(context.Context) (gitrepo.Branch, error) {
 // checkedOut is the branch checked out, as git reads it.
 func (r repository) checkedOut() gitrepo.Branch {
 	local := r.branches[r.current]
-	head := mainHead
 
-	if len(local.commits) > 0 {
-		head = local.commits[len(local.commits)-1].Hash
+	// Git counts a branch ahead of its upstream, so one never pushed is
+	// ahead of nothing.
+	ahead := len(local.commits) - local.pushed
+	if local.upstream == "" {
+		ahead = 0
 	}
 
 	return gitrepo.Branch{
-		Name: r.current, Head: head, Upstream: local.upstream, PushRemote: remote, BaseRemote: remote,
-		Ahead: len(local.commits) - local.pushed, Base: baseRef, BaseUpdated: epoch().Add(-3 * time.Hour),
+		Name: r.current, Head: headOf(local), Upstream: local.upstream, PushRemote: remote, BaseRemote: remote,
+		Ahead: ahead, Base: baseRef, BaseUpdated: epoch().Add(-3 * time.Hour),
 		Commits: slices.Clone(local.commits),
 	}
 }
