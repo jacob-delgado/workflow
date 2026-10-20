@@ -109,13 +109,13 @@ export function CommitForm({ canCommit, waiting, suggestedScope, convention }: C
         commitTypes={commitTypes}
         onScopeTyping={scopeSuggestion.typing}
       />
-      <div className="flex items-center gap-item">
+      <div className="flex flex-wrap items-center gap-item">
         <Button
           variant="primary"
           type="submit"
           disabled={!canCommit}
           held={commit.state === 'running'}
-          className="self-start"
+          className="shrink-0 self-start"
         >
           {commit.state === 'running' ? 'Committing…' : 'Commit staged changes'}
         </Button>
