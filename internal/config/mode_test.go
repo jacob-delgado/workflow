@@ -143,7 +143,7 @@ func TestMissingNamesWhatTheConfigurationStillNeeds(t *testing.T) {
 			cfg: config.Config{
 				Jira:      config.Jira{BaseURL: jiraURL, Token: "t", User: ""},
 				Messaging: config.Messaging{ClientID: "", WebhookURL: webhookURL, Channel: ""},
-				Forge:     config.Forge{Kind: "github", Host: "", Token: ""},
+				Forge:     config.Forge{Kind: forgeGitHub, Host: "", Token: ""},
 				Path:      "",
 			},
 			want: []string{"forge.host"},
@@ -152,7 +152,7 @@ func TestMissingNamesWhatTheConfigurationStillNeeds(t *testing.T) {
 			cfg: config.Config{
 				Jira:      config.Jira{BaseURL: jiraURL, Token: "t", User: ""},
 				Messaging: config.Messaging{ClientID: "", WebhookURL: webhookURL, Channel: ""},
-				Forge:     config.Forge{Kind: "github", Host: "git.example.com", Token: ""},
+				Forge:     config.Forge{Kind: forgeGitHub, Host: "git.example.com", Token: ""},
 				Path:      "",
 			},
 			want: nil,

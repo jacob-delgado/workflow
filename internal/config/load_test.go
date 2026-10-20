@@ -398,6 +398,8 @@ func TestParseRefusesAnAddressOrAForgeItCannotUse(t *testing.T) {
 			body: `{"jira": {"base_url": "jira.example.com"}}`, want: config.ErrInvalidBaseURL,
 		},
 		"a forge kind naming no forge": {body: `{"forge": {"kind": "gitlub"}}`, want: config.ErrUnknownForgeKind},
+		"a forge kind in capitals":     {body: `{"forge": {"kind": "GitHub"}}`, want: config.ErrUnknownForgeKind},
+		"a forge kind spaced out":      {body: `{"forge": {"kind": " gitlab "}}`, want: config.ErrUnknownForgeKind},
 	}
 
 	for name, tt := range cases {
@@ -415,11 +417,14 @@ func TestParseRefusesAnAddressOrAForgeItCannotUse(t *testing.T) {
 	}
 }
 
+// forgeGitHub is GitHub as forge.kind spells it.
+const forgeGitHub = "github"
+
 func TestParseTakesEitherForgeByName(t *testing.T) {
 	t.Parallel()
 
-	// Read as the forge reads it: without case or surrounding space.
-	for _, kind := range []string{"", "GitHub", " gitlab "} {
+	// Spelled as the API's contract spells them, and no other way.
+	for _, kind := range []string{"", forgeGitHub, "gitlab"} {
 		t.Run(kind, func(t *testing.T) {
 			t.Parallel()
 

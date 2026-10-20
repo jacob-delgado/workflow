@@ -198,9 +198,10 @@ func githubAPIBase(host string) string {
 	}
 }
 
-// ParseKind reads a forge named in configuration.
+// ParseKind reads a forge named in configuration, spelled as the
+// configuration requires: github or gitlab, in lowercase.
 func ParseKind(name string) (Kind, error) {
-	switch strings.ToLower(strings.TrimSpace(name)) {
+	switch name {
 	case "":
 		return KindUnknown, nil
 	case "github":
