@@ -79,9 +79,19 @@ own, the real `--web` server over the made-up world `cmd/demo -web` runs
 (`e2e/docs/demo.ts`, on a port the system picks), drives the page to the
 state the docs describe, and takes it in the dark theme at 1440 by 900, in
 UTC and under a held clock, once its heading is up and nothing is still
-reading. It needs the demo built first, `go build -o tmp/demo ./cmd/demo`
-from the repository root, as `task docs:media` does. Neither `test:e2e` nor
-CI runs it, and nothing compares its images. Every run launches the headless shell of the Chromium build
+reading. The same run films the walkthrough (`e2e/docs/walkthrough.spec.ts`,
+the `docs-walkthrough` project): the whole loop at 1280 by 800, at a
+person's pace, a pointer gliding to each control (`e2e/docs/pointer.ts`),
+from an issue picked to its announcement posted once CI passed. It writes
+each frame Chromium draws, every other one, as a PNG with the time it was
+drawn (DevTools' own screencast, since Playwright's gives only JPEG), a
+keyframe for each step, and the ffmpeg list and manifest
+`scripts/docs-media.sh` encodes and checks the WebP by, into
+`tmp/walkthrough` (`e2e/docs/film.ts`), and fails when a glide, typed text
+or scroll goes more than 250 ms without a frame. It needs
+the demo built first, `go build -o tmp/demo ./cmd/demo` from the repository
+root, as `task docs:media` does. Neither `test:e2e` nor CI runs it, and
+nothing compares its images. Every run launches the headless shell of the Chromium build
 Playwright pins, as CI does; where that build cannot be installed,
 `PLAYWRIGHT_CHROMIUM_EXECUTABLE` names another to launch, which a Claude Code
 cloud session's start sets to the image's headless shell, the kind of binary CI
@@ -131,7 +141,8 @@ runs.
   openapi-ts configs and `e2e/` — which call only Node APIs long present on
   24: `node:url`'s `fileURLToPath`, `node:os`'s `tmpdir`, `node:path`'s
   `join`, `node:child_process`'s `execFileSync` and `spawn`, `node:readline`'s
-  `createInterface`, `node:fs`'s `existsSync` and `readFileSync`,
+  `createInterface`, `node:fs`'s `existsSync`, `readFileSync`, `writeFileSync`,
+  `mkdirSync` and `rmSync`,
   `node:fs/promises`' `mkdtemp` and `rm`, and `process.env`. A Node
   26-only call there would type-check and then fail on 24; pinning `^24`, a
   downgrade, would close that.

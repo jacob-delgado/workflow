@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test'
-import { readings } from '../support/cockpit.ts'
+import { readings, workedIssue } from '../support/cockpit.ts'
 
 // The loop's steps on the demo's page, written once for the screenshots,
 // which take them briskly to reach the screen each shows, and for the
@@ -9,11 +9,11 @@ import { readings } from '../support/cockpit.ts'
 
 // Pace is how a step acts on the page: how it clicks a control, how it types
 // into a field, and the beat it holds once the page shows what the step did,
-// captioned with what that is.
+// captioned with what that is, on the element that shows it.
 export interface Pace {
   click: (target: Locator) => Promise<void>
   type: (target: Locator, text: string) => Promise<void>
-  beat: (caption: string) => Promise<void>
+  beat: (caption: string, shown: Locator) => Promise<void>
 }
 
 // brisk is the screenshots' pace: a click as Playwright makes it, a field
@@ -37,6 +37,11 @@ function said(page: Page, text: string | RegExp): Locator {
   return page.getByRole('status').filter({ hasText: text })
 }
 
+// workStory is the selected issue's work story, in its detail.
+export function workStory(page: Page): Locator {
+  return page.getByRole('article').getByRole('region', { name: 'Work story' })
+}
+
 // goTo opens a section from the rail and waits for it to settle: its heading
 // up and none of its own reads in flight.
 export async function goTo(page: Page, pace: Pace, name: string): Promise<void> {
@@ -47,26 +52,46 @@ export async function goTo(page: Page, pace: Pace, name: string): Promise<void> 
   await expect(readings(page)).toHaveCount(0)
 }
 
-// startWork starts work on the issue the detail shows, on a branch of its own.
+// startButton is the selected issue's Start work, on a branch of its own.
+function startButton(page: Page): Locator {
+  return page.getByRole('button', { name: 'Start work', exact: true })
+}
+
+// pickIssue selects PROJ-412 in the Issues list, its detail beside it.
+export async function pickIssue(page: Page, pace: Pace): Promise<void> {
+  await pace.click(workedIssue(page))
+  await expect(page.getByRole('link', { name: /open in jira/i })).toBeVisible()
+  const start = startButton(page)
+  await expect(start).toBeVisible()
+  await pace.beat('PROJ-412 picked, its work not started', start)
+}
+
+// startWork starts work on the issue the detail shows, on a branch of its
+// own, done once its work story's Branch stage names the branch: the status
+// says so a frame of the stream before the story shows it.
 export async function startWork(page: Page, pace: Pace): Promise<void> {
-  await pace.click(page.getByRole('button', { name: 'Start work', exact: true }))
+  await pace.click(startButton(page))
   await expect(said(page, `Started work on ${workedBranch}.`)).toBeVisible()
-  await pace.beat(`Started work on ${workedBranch}`)
+  const stage = workStory(page).getByRole('listitem').filter({ hasText: workedBranch })
+  await expect(stage).toBeVisible()
+  await pace.beat(`Started work on ${workedBranch}`, stage)
 }
 
 // stageAll stages every change in the working tree.
 async function stageAll(page: Page, pace: Pace): Promise<void> {
   await pace.click(page.getByRole('button', { name: 'Stage all', exact: true }))
-  await expect(said(page, 'Staged every change.')).toBeVisible()
-  await pace.beat('Every change staged')
+  const staged = said(page, 'Staged every change.')
+  await expect(staged).toBeVisible()
+  await pace.beat('Every change staged', staged)
 }
 
 // stage stages the one file at path, done once its row offers to unstage it.
 export async function stage(page: Page, pace: Pace, path: string): Promise<void> {
   await pace.click(page.getByRole('button', { name: `Stage ${path}`, exact: true }))
   await expect(said(page, `Staged ${path}.`)).toBeVisible()
-  await expect(page.getByRole('button', { name: `Unstage ${path}`, exact: true })).toBeVisible()
-  await pace.beat(`${path} staged`)
+  const unstage = page.getByRole('button', { name: `Unstage ${path}`, exact: true })
+  await expect(unstage).toBeVisible()
+  await pace.beat(`${path} staged`, unstage)
 }
 
 // commit commits what is staged as a fix, in the scope the form proposes,
@@ -80,13 +105,12 @@ export async function commit(page: Page, pace: Pace, subject: string): Promise<v
   await expect(form.getByRole('status')).toHaveText(
     new RegExp(`^Committed [0-9a-f]{7} fix\\(config\\): ${subject}\\.$`),
   )
-  await expect(
-    page
-      .getByRole('region', { name: 'Commits', exact: true })
-      .getByRole('listitem')
-      .filter({ hasText: `fix(config): ${subject}` }),
-  ).toBeVisible()
-  await pace.beat(`Committed fix(config): ${subject}`)
+  const listed = page
+    .getByRole('region', { name: 'Commits', exact: true })
+    .getByRole('listitem')
+    .filter({ hasText: `fix(config): ${subject}` })
+  await expect(listed).toBeVisible()
+  await pace.beat(`Committed fix(config): ${subject}`, listed)
 }
 
 // push pushes the branch, confirming the push it asks about.
@@ -95,8 +119,9 @@ export async function push(page: Page, pace: Pace): Promise<void> {
   await pace.click(
     page.getByRole('group', { name: /^Push / }).getByRole('button', { name: 'Push', exact: true }),
   )
-  await expect(said(page, `Pushed ${workedBranch}.`)).toBeVisible()
-  await pace.beat(`Pushed ${workedBranch}`)
+  const pushed = said(page, `Pushed ${workedBranch}.`)
+  await expect(pushed).toBeVisible()
+  await pace.beat(`Pushed ${workedBranch}`, pushed)
 }
 
 // openPull opens the branch's pull request from the Review section, with the
@@ -104,11 +129,13 @@ export async function push(page: Page, pace: Pace): Promise<void> {
 async function openPull(page: Page, pace: Pace): Promise<void> {
   await pace.click(page.getByRole('button', { name: 'Open a pull request' }))
   const form = page.getByRole('form', { name: 'Open a pull request' })
-  await expect(form.getByRole('textbox', { name: 'Reviewers' })).toHaveValue(/sam\.ortiz/)
-  await pace.beat('The pull request composed, its reviewers proposed')
+  const reviewers = form.getByRole('textbox', { name: 'Reviewers' })
+  await expect(reviewers).toHaveValue(/sam\.ortiz/)
+  await pace.beat('The pull request composed, its reviewers proposed', reviewers)
   await pace.click(form.getByRole('button', { name: 'Open pull request', exact: true }))
-  await expect(said(page, 'Opened pull request #128.')).toBeVisible()
-  await pace.beat('#128 opened, its announcement waiting for CI')
+  const opened = said(page, 'Opened pull request #128.')
+  await expect(opened).toBeVisible()
+  await pace.beat('#128 opened, its announcement waiting for CI', opened)
 }
 
 // ciChecks is the Review section's CI checks, named for how many are done.
@@ -119,8 +146,9 @@ function ciChecks(page: Page, done: number): Locator {
 // ciReads waits for the Review section's CI to read done of its four checks
 // done.
 export async function ciReads(page: Page, pace: Pace, done: number): Promise<void> {
-  await expect(ciChecks(page, done)).toBeVisible({ timeout: ciTakes })
-  await pace.beat(`CI ${String(done)} of 4 done`)
+  const checks = ciChecks(page, done)
+  await expect(checks).toBeVisible({ timeout: ciTakes })
+  await pace.beat(`CI ${String(done)} of 4 done`, checks)
 }
 
 // toOpenPull takes the loop from the cockpit, PROJ-412 picked, to #128 open
@@ -133,4 +161,30 @@ export async function toOpenPull(page: Page, pace: Pace): Promise<void> {
   await push(page, pace)
   await goTo(page, pace, 'Review')
   await openPull(page, pace)
+}
+
+// armedForCI waits for the Slack section to say the announcement was armed
+// as #128 opened, and waits for its CI to pass.
+export async function armedForCI(page: Page, pace: Pace): Promise<void> {
+  const armed = page.getByText('Armed when #128 opened.', { exact: false })
+  await expect(armed).toBeVisible()
+  await pace.beat('The announcement armed when #128 opened, waiting for CI', armed)
+}
+
+// announcedOnGreen waits for the Slack section to say the announcement went
+// out itself once CI passed.
+export async function announcedOnGreen(page: Page, pace: Pace): Promise<void> {
+  const announced = page.getByText('Announced to #dev-workflow once CI passed.')
+  await expect(announced).toBeVisible({ timeout: ciTakes })
+  await pace.beat('Announced to #dev-workflow once CI passed', announced)
+}
+
+// storyDone waits for PROJ-412's work story to read announced, its last stage
+// done.
+export async function storyDone(page: Page, pace: Pace): Promise<void> {
+  const told = workStory(page)
+    .getByRole('listitem')
+    .filter({ hasText: /Announced/ })
+  await expect(told).toBeVisible()
+  await pace.beat("PROJ-412's work story, every stage done", told)
 }
