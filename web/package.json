@@ -22,7 +22,8 @@
     "test": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:server": "playwright test -c playwright.server.config.ts",
-    "media": "playwright test -c playwright.docs.config.ts",
+    "media": "playwright test -c playwright.docs.config.ts --project docs-media --project docs-walkthrough",
+    "media:check": "playwright test -c playwright.docs.config.ts --project docs-fidelity",
     "preview": "vite preview"
   },
   "dependencies": {
