@@ -52,14 +52,13 @@ and run in CI. `corepack yarn test:e2e` serves two builds with no backend: the
 production one, and a VITE_MOCK one whose populated sections the specs tagged
 `@populated` scan with axe and screenshot at 640, 1024 and 1440 px into
 `test-results/` (CI uploads them as the `screens` artifact). Chromium runs every
-spec. Firefox and WebKit, the engines of the other browsers the page supports,
-run a subset (the `firefox`, `firefox-mock`, `webkit` and `webkit-mock`
-projects): `layout.spec.ts` and `a11y.spec.ts` on both builds, and the Tab
-walk's own `support/tabwalk.spec.ts` on the production build alone. CI runs each
-engine in a job of its own beside E2E. Install the three once with
+spec, and so do Firefox and WebKit, the engines of the other browsers the page
+supports (the `firefox`, `firefox-mock`, `webkit` and `webkit-mock` projects).
+CI runs each of those two engines in three shards, jobs of their own beside
+E2E. Install the three once with
 `corepack yarn playwright install chromium firefox webkit`; `--project=chromium
---project=mock` runs Chromium's alone. The smoke projects are held on Linux,
-where CI runs them: on a Mac, WebKit and Firefox may leave links out of the
+--project=mock` runs Chromium's alone. The other engines' projects are held on
+Linux, where CI runs them: on a Mac, WebKit and Firefox may leave links out of the
 Tab order, as Safari does by default, and the layout spec's Tab walk would
 then fail there for the platform, not the page.
 `corepack yarn test:e2e:server` runs the specs under `e2e/server` against the
@@ -67,10 +66,12 @@ binary `task build` makes: `scripts/e2e-server.sh` serves
 `workflow --web --port 13580` from a throwaway repository with a bare origin,
 and `commit.spec.ts` stages, commits and pushes through the page.
 `page.spec.ts` checks how the page takes its session, and that it and its
-palette open with nothing the content policy the server sends refuses, on
-Firefox and WebKit too (the `server-firefox` and `server-webkit` projects);
+palette open with nothing the content policy the server sends refuses;
 `policy.spec.ts` opens Settings' tabs, the tag picker and the directory picker
-under that policy and fails on anything it refuses. Nothing else may be
+under that policy and fails on anything it refuses. Firefox and WebKit run
+every one of them too (the `server-firefox` and `server-webkit` projects),
+each in a run of its own (`--project=server-firefox`), since `commit.spec.ts`
+writes to the one fixture a run serves. Nothing else may be
 listening on port 13580. `corepack yarn media` writes the docs' screenshots
 into `docs/assets/images`: `e2e/docs/media.spec.ts`, in a run of its own
 (`playwright.docs.config.ts`), opens six screens of the VITE_MOCK build in the

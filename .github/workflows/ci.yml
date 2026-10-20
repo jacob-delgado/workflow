@@ -302,7 +302,8 @@ jobs:
       # against.
       - name: Install the Playwright browser
         run: yarn playwright install --with-deps --only-shell chromium
-      # Chromium's projects alone: E2E (firefox) and E2E (webkit) run theirs.
+      # Chromium's projects alone: E2E (firefox n/3) and E2E (webkit n/3) run
+      # theirs.
       - run: yarn test:e2e --project=chromium --project=mock
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
@@ -325,19 +326,18 @@ jobs:
           path: web/test-results/**/*.png
           retention-days: 7
 
-  # The smoke run on the other two engines of the browsers the page supports:
-  # Firefox and WebKit, Safari's engine, each run the layout and axe specs on
-  # both builds and the Tab walk's own on the production build (smokeSpecs in
-  # web/playwright.config.ts), while E2E runs every spec on Chromium. A job per
-  # engine beside E2E rather than steps in it: the subset is 190 tests an
-  # engine, whose 183 layout and axe tests took 4.3 minutes on Chromium on four
-  # cores, against E2E's six, where inside E2E the two would nearly double the
-  # run's slowest job. Gecko and WebKit run slower than Chromium, so how long
-  # each job takes is for CI's own runs to show. Their counts stay out of the
-  # Test summary, whose E2E row is Chromium's; E2E (server)'s row holds
-  # page.spec.ts's run on each engine with the rest of that job's.
+  # Every spec on the other two engines of the browsers the page supports:
+  # Firefox and WebKit, Safari's engine, each run what E2E runs on Chromium, on
+  # both builds (engineProjects in web/playwright.config.ts). Each engine's run
+  # is split in three shards, jobs of their own beside E2E: Chromium takes about
+  # six minutes for the whole of it on four cores, Gecko and WebKit run slower,
+  # and a third each keeps every shard shorter than E2E. Their counts stay out
+  # of the Test summary, whose E2E row is Chromium's. A failed shard uploads its
+  # report and its test results, whose traces and error-context.md say what the
+  # engine saw, since no other engine than Chromium runs where the change is
+  # written.
   e2e-engines:
-    name: E2E (${{ matrix.browser }})
+    name: E2E (${{ matrix.browser }} ${{ matrix.shard }}/3)
     needs: [changes]
     if: needs.changes.outputs.docs != 'true'
     runs-on: ubuntu-latest
@@ -346,6 +346,7 @@ jobs:
       fail-fast: false
       matrix:
         browser: [firefox, webkit]
+        shard: [1, 2, 3]
     defaults:
       run:
         working-directory: web
@@ -367,14 +368,17 @@ jobs:
         run: yarn playwright install --with-deps "${BROWSER}"
         env:
           BROWSER: ${{ matrix.browser }}
-      - run: yarn test:e2e --project="${BROWSER}" --project="${BROWSER}-mock"
+      - run: yarn test:e2e --project="${BROWSER}" --project="${BROWSER}-mock" --shard="${SHARD}/3"
         env:
           BROWSER: ${{ matrix.browser }}
+          SHARD: ${{ matrix.shard }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
-          name: playwright-report-${{ matrix.browser }}
-          path: web/playwright-report/
+          name: playwright-report-${{ matrix.browser }}-${{ matrix.shard }}
+          path: |
+            web/playwright-report/
+            web/test-results/
           retention-days: 7
 
   # The server-backed end-to-end run: `task build` makes the binary with the web
@@ -382,13 +386,25 @@ jobs:
   # throwaway repository with a bare origin, and the specs under web/e2e/server
   # stage, commit and push through the page, so a write reaches git. A job of
   # its own, not a step of E2E: the page must come from the binary rather than
-  # from Vite preview.
+  # from Vite preview. A leg per engine, each running every server spec:
+  # commit.spec.ts writes to the one fixture a run serves, so the engines
+  # cannot share a run. The Test summary's row is Chromium's leg, as E2E's is.
   e2e-server:
-    name: E2E (server)
+    name: E2E (server, ${{ matrix.browser }})
     needs: [changes]
     if: needs.changes.outputs.docs != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - browser: chromium
+            project: server
+          - browser: firefox
+            project: server-firefox
+          - browser: webkit
+            project: server-webkit
     defaults:
       run:
         working-directory: web
@@ -404,16 +420,25 @@ jobs:
         run: corepack enable
       - name: Install dependencies
         run: yarn install --immutable
-      # Chromium's headless shell, as in E2E, and Firefox and WebKit for
-      # page.spec.ts, which they run too (playwright.server.config.ts).
-      - name: Install the Playwright browsers
-        run: yarn playwright install --with-deps --only-shell chromium firefox webkit
+      # The leg's own engine: Chromium's headless shell, as in E2E, or Firefox
+      # or WebKit.
+      - name: Install the Playwright browser
+        run: |
+          if [ "${BROWSER}" = chromium ]; then
+            yarn playwright install --with-deps --only-shell chromium
+          else
+            yarn playwright install --with-deps "${BROWSER}"
+          fi
+        env:
+          BROWSER: ${{ matrix.browser }}
       - name: Build the binary with the web app embedded
         run: task build
         working-directory: .
-      - run: yarn test:e2e:server
+      - run: yarn test:e2e:server --project="${PROJECT}"
+        env:
+          PROJECT: ${{ matrix.project }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: always()
+        if: always() && matrix.browser == 'chromium'
         with:
           name: report-e2e-server
           path: web/reports/e2e-server.json
@@ -421,8 +446,10 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
-          name: playwright-report-server
-          path: web/playwright-report/
+          name: playwright-report-server-${{ matrix.browser }}
+          path: |
+            web/playwright-report/
+            web/test-results/
           retention-days: 7
 
   # Advisory, not a gate: one table of every suite's counts and the coverage,

@@ -27,27 +27,20 @@ export const mockServer = {
   timeout: 120_000,
 }
 
-// smokeSpecs are what Firefox and WebKit run: the layout and axe sweeps, at
-// every width and in both themes, on both builds, and the spec of the Tab walk
-// the layout sweep leans on, since how Tab wraps differs by engine. Chromium
-// runs every spec; the other two engines of the browsers the page supports
-// (browserslist in package.json), Firefox and desktop Safari's WebKit, run
-// this subset alone, a smoke run that keeps CI's added time modest.
-const smokeSpecs = /\/e2e\/(?:layout|a11y|support\/tabwalk)\.spec\.ts$/
-
-// smokeProjects are an engine's two runs of the subset: on the production
-// build, and on the populated one for the specs tagged @populated.
-function smokeProjects(name: string, device: (typeof devices)[string]) {
+// engineProjects are an engine's two runs of every spec: on the production
+// build, and on the populated one for the specs tagged @populated. Chromium's
+// pair is the one below; Firefox and desktop Safari's WebKit, the other two
+// engines of the browsers the page supports (browserslist in package.json),
+// run the same specs, so what holds in one engine is held in all three.
+function engineProjects(name: string, device: (typeof devices)[string]) {
   return [
     {
       name,
-      testMatch: smokeSpecs,
       grepInvert: /@populated/,
       use: { ...device, baseURL: hermeticURL },
     },
     {
       name: `${name}-mock`,
-      testMatch: smokeSpecs,
       grep: /@populated/,
       use: { ...device, baseURL: mockURL },
     },
@@ -97,8 +90,8 @@ export default defineConfig({
       grep: /@populated/,
       use: { ...desktopChrome, baseURL: mockURL },
     },
-    ...smokeProjects('firefox', devices['Desktop Firefox']),
-    ...smokeProjects('webkit', devices['Desktop Safari']),
+    ...engineProjects('firefox', devices['Desktop Firefox']),
+    ...engineProjects('webkit', devices['Desktop Safari']),
   ],
   webServer: [
     {

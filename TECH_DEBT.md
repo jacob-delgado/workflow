@@ -1102,13 +1102,11 @@ has no configuration, Slack or forge, and opens the directory picker's
 Autocomplete, in its Dialog, three times over the fixture's own directories:
 once listing the directories above the repository, once on the repository,
 whose listing holds none, and once naming a directory that is not there,
-whose list is left empty. `page.spec.ts` runs on Chromium, Firefox and
-WebKit, and `policy.spec.ts` on Chromium alone. WebKit's own shadow tree for
-each native `<select>` writes a style attribute the policy allows by its hash
-alone (TRADE-55). A refusal from a state those specs never reach, such as the
-tag picker's list with no member matching, from a part the page takes up
-later, or one only Gecko or WebKit reports from Settings' Tabs, the tag picker
-or the directory picker, is still heard by no spec.
+whose list is left empty. Both run on Chromium, Firefox and WebKit. WebKit's
+own shadow tree for each native `<select>` writes a style attribute the policy
+allows by its hash alone (TRADE-55). A refusal from a state those specs never
+reach, such as the tag picker's list with no member matching, or from a part
+the page takes up later, is still heard by no spec.
 
 **Reopen when.** A choice needs more than a native `<select>` can draw, or the
 server gains a per-request nonce that the page could hand to `CSPProvider`.
