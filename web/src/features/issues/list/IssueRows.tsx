@@ -5,6 +5,7 @@ import { IssueStatus } from '@/features/issues/IssueStatus.tsx'
 import { shownKey } from '@/features/issues/issuePlaces.ts'
 import { issueTaskMark, linkedTo } from '@/features/tasks/taskWords.ts'
 import { Button } from '@/lib/Button.tsx'
+import { revealInPane } from '@/lib/focus.ts'
 import type { Teller } from '@/lib/Outcome.tsx'
 import { StateMark } from '@/lib/StateMark.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
@@ -57,7 +58,6 @@ const selectedEdge =
 export function IssueRows({ issues, facts, rowRefs, outcome }: IssueRowsProps) {
   const selected = useUiStore((state) => state.selectedIssue?.key ?? null)
   const pane = useSelectedRowInView(rowRefs, selected)
-  useFocusedControlInView(pane)
 
   return (
     <ul
@@ -205,43 +205,6 @@ function useSelectedRowInView(
   }, [rowRefs, selected])
 
   return pane
-}
-
-// useFocusedControlInView brings a control of the list that takes focus wholly
-// into the list's pane. Firefox scrolls a control that takes focus only when no
-// more than a line of it shows, so a row the pane's edge cuts would stay cut.
-function useFocusedControlInView(pane: RefObject<HTMLUListElement | null>) {
-  useEffect(() => {
-    const list = pane.current
-    if (list === null) {
-      return
-    }
-
-    const reveal = (event: FocusEvent) => {
-      if (event.target instanceof Element) {
-        revealInPane(list, event.target)
-      }
-    }
-    list.addEventListener('focusin', reveal)
-
-    return () => {
-      list.removeEventListener('focusin', reveal)
-    }
-  }, [pane])
-}
-
-// revealInPane scrolls the list's pane alone, and only as far as it must, to
-// show the whole of a control in it.
-function revealInPane(list: HTMLElement, control: Element) {
-  const box = control.getBoundingClientRect()
-  const top = box.top - list.getBoundingClientRect().top - list.clientTop
-  const bottom = top + box.height
-  const inset = parseFloat(getComputedStyle(list).paddingTop)
-  if (top < 0) {
-    list.scrollTop += top - inset
-  } else if (bottom > list.clientHeight) {
-    list.scrollTop += bottom - list.clientHeight + inset
-  }
 }
 
 interface RowCheckoutProps {
