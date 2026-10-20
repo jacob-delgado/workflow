@@ -32,25 +32,39 @@ func during[T any](items []T, at func(T) time.Time, start, end time.Time) []T {
 	return slices.DeleteFunc(items, func(item T) bool { return !within(at(item), start, end) })
 }
 
-// commitsBetween is the commits you wrote in api over a period: yesterday's
-// refactor, merged into main, and every commit the demo has made since.
+// commitsBetween is the commits you wrote in api over a period.
 func (w *World) commitsBetween(_ context.Context, start, end time.Time) []loop.RepositoryCommits {
+	return commitsDuring(w.datedCommits(), start, end)
+}
+
+// datedCommits is the commits you wrote in api: yesterday's refactor, merged
+// into main, and every commit the demo has made since.
+func (w *World) datedCommits() []gitrepo.DatedCommit {
 	refactor := gitrepo.DatedCommit{
 		Hash: "e5d2b87f05edefb5b1d3e891e49886a82447e515", Short: "e5d2b87",
 		Subject: "refactor(config): route every write through Redact", Authored: yesterday(9, 12),
 	}
-	written := append([]gitrepo.DatedCommit{refactor}, locked(w, func() []gitrepo.DatedCommit {
+
+	return append([]gitrepo.DatedCommit{refactor}, locked(w, func() []gitrepo.DatedCommit {
 		return slices.Clone(w.repo.written)
 	})...)
+}
 
+// commitsDuring is the commits of written made over a period, as api's.
+func commitsDuring(written []gitrepo.DatedCommit, start, end time.Time) []loop.RepositoryCommits {
 	shown := during(written, func(commit gitrepo.DatedCommit) time.Time { return commit.Authored }, start, end)
 
 	return []loop.RepositoryCommits{{Repository: "", Commits: shown}}
 }
 
-// jiraActivity is what you did to issues over a period: PROJ-412 moved into
-// progress yesterday, a comment on PROJ-418, and every move the demo made.
+// jiraActivity is what you did to issues over a period.
 func (w *World) jiraActivity(_ context.Context, start, end time.Time) (jira.Activity, error) {
+	return jiraDuring(w.jiraEvents(), start, end), nil
+}
+
+// jiraEvents is what you did to issues: PROJ-412 moved into progress
+// yesterday, a comment on PROJ-418, and every move the demo made.
+func (w *World) jiraEvents() []jira.Event {
 	commented := jira.Event{
 		At: yesterday(11, 30), Kind: jira.EventCommented, Key: "PROJ-418",
 		Summary: "Refuse to start when the config names an unknown forge",
@@ -58,19 +72,32 @@ func (w *World) jiraActivity(_ context.Context, start, end time.Time) (jira.Acti
 	moved := jira.Event{
 		At: yesterday(14, 5), Kind: jira.EventMoved, Key: workedKey, Summary: workedSummary, Detail: statusInProgress,
 	}
-	events := append([]jira.Event{commented, moved}, locked(w, func() []jira.Event { return slices.Clone(w.moves) })...)
 
-	return jira.Activity{Events: during(events, func(event jira.Event) time.Time { return event.At }, start, end)}, nil
+	return append([]jira.Event{commented, moved}, locked(w, func() []jira.Event { return slices.Clone(w.moves) })...)
 }
 
-// forgeActivity is what you did on GitHub over a period: Sam's review-queue
-// pull request reviewed yesterday, and every pull request the demo opened.
+// jiraDuring is the events made over a period, as Jira's activity.
+func jiraDuring(events []jira.Event, start, end time.Time) jira.Activity {
+	return jira.Activity{Events: during(events, func(event jira.Event) time.Time { return event.At }, start, end)}
+}
+
+// forgeActivity is what you did on GitHub over a period.
 func (w *World) forgeActivity(_ context.Context, start, end time.Time) (forge.Activity, error) {
+	return forgeDuring(w.forgeEvents(), start, end), nil
+}
+
+// forgeEvents is what you did on GitHub: Sam's review-queue pull request
+// reviewed yesterday, and every pull request the demo opened.
+func (w *World) forgeEvents() []forge.Event {
 	reviewed := forge.Event{
 		At: yesterday(14, 20), Kind: forge.EventReviewed, Number: 377,
 		Title: "Retry the forge search once on a gateway timeout", URL: toolURL + "/pull/377", Repository: toolRepository,
 	}
-	events := append([]forge.Event{reviewed}, w.pullsOpened()...)
 
-	return forge.Activity{Events: during(events, func(event forge.Event) time.Time { return event.At }, start, end)}, nil
+	return append([]forge.Event{reviewed}, w.pullsOpened()...)
+}
+
+// forgeDuring is the events made over a period, as the forge's activity.
+func forgeDuring(events []forge.Event, start, end time.Time) forge.Activity {
+	return forge.Activity{Events: during(events, func(event forge.Event) time.Time { return event.At }, start, end)}
 }

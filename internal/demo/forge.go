@@ -47,17 +47,29 @@ func templates() []forge.Template {
 
 // findPullRequest is the pull request opened for a branch, if one was.
 func (w *World) findPullRequest(_ context.Context, branch string) (forge.PullRequest, bool, error) {
+	pull, found := w.pullFor(branch)
+
+	return pull, found, nil
+}
+
+// pullFor is the pull request opened for a branch, and whether one was.
+func (w *World) pullFor(branch string) (forge.PullRequest, bool) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
 	number, found := w.pulls[branch]
 
-	return w.opened[number].pull, found, nil
+	return w.opened[number].pull, found
 }
 
-// reviewRequests are the pull requests that ask for your review, oldest
-// first, as the web mock lists them (mockReviews.ts).
+// reviewRequests are the pull requests that ask for your review.
 func reviewRequests(context.Context) ([]forge.ReviewRequest, error) {
+	return reviewQueue(), nil
+}
+
+// reviewQueue are the pull requests that ask for your review, oldest first,
+// as the web mock lists them (mockReviews.ts).
+func reviewQueue() []forge.ReviewRequest {
 	const day = 24 * time.Hour
 
 	return []forge.ReviewRequest{
@@ -81,5 +93,5 @@ func reviewRequests(context.Context) ([]forge.ReviewRequest, error) {
 			Title: "Document the release checklist", Repository: "acme/handbook",
 			CI: forge.CINone, OpenedAt: epoch().Add(-30 * time.Minute),
 		},
-	}, nil
+	}
 }

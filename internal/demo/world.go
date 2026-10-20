@@ -35,10 +35,12 @@ const (
 	// githubHost is where every repository of the story lives.
 	githubHost = "github.com"
 	channel    = "#dev-workflow"
-	author     = "ana.lopez"
-	home       = "/home/ana"
-	apiRoot    = home + "/src/api"
-	webRoot    = home + "/src/web"
+	// releases is the other channel the demo's Slack has.
+	releases = "#releases"
+	author   = "ana.lopez"
+	home     = "/home/ana"
+	apiRoot  = home + "/src/api"
+	webRoot  = home + "/src/web"
 )
 
 // epoch is when the demo's day stands at its start: four in the afternoon,
@@ -129,7 +131,7 @@ func (w *World) Config() config.Config {
 	cfg := config.Default()
 	cfg.Jira.BaseURL, cfg.Jira.Token, cfg.Jira.Project = jiraBase, "demo-token", "PROJ"
 	cfg.Messaging.Kind, cfg.Messaging.ClientID, cfg.Messaging.Channel = config.KindSlack, "1234.5678", channel
-	cfg.Messaging.Channels = []string{channel, "#releases"}
+	cfg.Messaging.Channels = []string{channel, releases}
 	cfg.Forge.Kind, cfg.Forge.Host = forge.KindGitHub.String(), githubHost
 	cfg.Path = apiRoot + "/.workflow.json"
 	cfg.Files = config.Files{Repo: cfg.Path, Home: home + "/.workflow.json"}
