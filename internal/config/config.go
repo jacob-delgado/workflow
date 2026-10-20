@@ -482,10 +482,11 @@ func (c Config) validateJira() error {
 	return nil
 }
 
-// validateForge refuses a forge.kind that names neither forge, read as the
-// forge reads it: without case or surrounding space.
+// validateForge refuses a forge.kind that is not spelled as the API's
+// contract spells a forge, in lowercase with nothing around it, so every
+// surface reads the one spelling the file holds.
 func (c Config) validateForge() error {
-	switch strings.ToLower(strings.TrimSpace(c.Forge.Kind)) {
+	switch c.Forge.Kind {
 	case "", "github", "gitlab":
 		return nil
 	default:

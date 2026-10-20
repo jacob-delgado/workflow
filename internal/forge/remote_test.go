@@ -306,8 +306,8 @@ func TestParseKind(t *testing.T) {
 	}{
 		github:              {name: github, want: forge.KindGitHub},
 		gitlab:              {name: gitlab, want: forge.KindGitLab},
-		"case insensitive":  {name: "GitHub", want: forge.KindGitHub},
-		"surrounding space": {name: "  gitlab  ", want: forge.KindGitLab},
+		"capitals":          {name: "GitHub", want: forge.KindUnknown, wantErr: true},
+		"surrounding space": {name: "  gitlab  ", want: forge.KindUnknown, wantErr: true},
 		"empty is unset":    {name: "", want: forge.KindUnknown},
 		"anything else":     {name: "bitbucket", want: forge.KindUnknown, wantErr: true},
 	}
