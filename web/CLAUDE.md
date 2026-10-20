@@ -116,7 +116,11 @@ one fails.
   rewrites the committed images in `docs/assets/images`. It takes its test
   from `e2e/docs/demo.ts`, which serves each screen from a demo of its own
   (`cmd/demo -web`, built into `tmp/demo` first), and its steps from
-  `e2e/docs/loop.ts`, each waiting for what the page shows it did.
+  `e2e/docs/loop.ts`, each waiting for what the page shows it did; so does
+  `e2e/docs/walkthrough.spec.ts`, which films the loop for the WebP through
+  `e2e/docs/film.ts` at the pace that file sets. Every image either takes is
+  held to `e2e/docs/capture.ts`: fonts loaded, no text cut at the window's
+  edge, nothing mid-animation.
 
 ## Dependencies and trade-offs
 

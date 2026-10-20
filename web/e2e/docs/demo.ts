@@ -30,7 +30,7 @@ const stopped = 10_000
 
 // metadataOf is the project's metadata entry named, which the docs config
 // sets: a string, or the run is misconfigured.
-function metadataOf(testInfo: TestInfo, name: string): string {
+export function metadataOf(testInfo: TestInfo, name: string): string {
   const value: unknown = testInfo.project.metadata[name]
   if (typeof value !== 'string') {
     throw new Error(`the docs project names no ${name}`)

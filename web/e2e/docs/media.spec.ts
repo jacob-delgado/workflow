@@ -1,8 +1,19 @@
 import { join } from 'node:path'
 import type { Locator, Page, TestInfo } from '@playwright/test'
 import { height, openAnnouncementPreview, openCockpit, openSection } from '../support/cockpit.ts'
+import { cutAtTheEdge, fontsLoaded, now, stillAnimating } from './capture.ts'
 import { expect, test } from './demo.ts'
-import { brisk, commit, goTo, push, stage, startWork, toOpenPull, ciReads } from './loop.ts'
+import {
+  brisk,
+  ciReads,
+  commit,
+  goTo,
+  push,
+  stage,
+  startWork,
+  toOpenPull,
+  workStory,
+} from './loop.ts'
 
 // The docs' screenshots: each screen the docs show, over the real --web
 // server running the demo's world (cmd/demo -web), in the dark theme the
@@ -11,13 +22,6 @@ import { brisk, commit, goTo, push, stage, startWork, toOpenPull, ciReads } from
 // page to the state the docs describe. Nothing compares them, since their
 // pixels differ by the OS's fonts; each is checked only for what makes it the
 // screen it names before it is taken.
-
-// now is the moment every screenshot's browser holds: the demo's day as it
-// begins, four in the afternoon in UTC (epoch in internal/demo/world.go). The
-// demo dates its reviews and tasks from that moment, so with the browser's
-// clock held there, every age, due date and running timer reads the same on
-// each run.
-const now = new Date('2026-09-16T16:00:00Z')
 
 // size is the window every screenshot is: the widest the specs hold the
 // cockpit to.
@@ -50,11 +54,6 @@ function section(name: string): Screen {
     open: (page) => openSection(page, name),
     whole: (page) => [page.getByRole('heading', { level: 1, name })],
   }
-}
-
-// workStory is the selected issue's work story, in its detail.
-function workStory(page: Page): Locator {
-  return page.getByRole('article').getByRole('region', { name: 'Work story' })
 }
 
 // openedWithCIRunning takes the loop to #128 open, three of its four checks
@@ -158,56 +157,6 @@ function imagePath(testInfo: TestInfo, file: string): string {
   return join(mediaDir, `web-${file}.png`)
 }
 
-// fontsLoaded waits for the page's fonts and says whether its own face is
-// among them, so no screenshot draws its words in a fallback font.
-function fontsLoaded(page: Page): Promise<boolean> {
-  return page.evaluate(async () => {
-    await document.fonts.ready
-
-    return document.fonts.check('16px "Recursive Variable"')
-  })
-}
-
-// cutAtTheEdge is every run of text the window's bottom edge cuts through:
-// a line that begins above the edge and ends below it, shown, and not
-// already clipped above the edge by a pane that scrolls.
-function cutAtTheEdge(page: Page): Promise<string[]> {
-  return page.evaluate(() => {
-    const edge = window.innerHeight
-    // shownBottom is how far down a line of text below the element shows,
-    // once every pane around it that clips its overflow has cut it.
-    const shownBottom = (element: Element, bottom: number): number => {
-      let shown = bottom
-      for (let around: Element | null = element; around !== null; around = around.parentElement) {
-        if (getComputedStyle(around).overflowY !== 'visible') {
-          shown = Math.min(shown, around.getBoundingClientRect().bottom)
-        }
-      }
-
-      return shown
-    }
-    const cut: string[] = []
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
-    for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
-      const text = node.textContent?.trim() ?? ''
-      const holder = node.parentElement
-      if (text === '' || holder?.checkVisibility({ visibilityProperty: true }) !== true) {
-        continue
-      }
-      const range = document.createRange()
-      range.selectNodeContents(node)
-      const crossing = [...range.getClientRects()].some(
-        (line) => line.top < edge && line.bottom > edge && shownBottom(holder, line.bottom) >= edge,
-      )
-      if (crossing) {
-        cut.push(text)
-      }
-    }
-
-    return cut
-  })
-}
-
 // The page's Content-Security-Policy refuses the <style> element addStyleTag
 // adds, and the commit form the Branch screenshot hides is drawn anew as the
 // stream updates, so a style set on the element itself would not last. The
@@ -237,6 +186,7 @@ for (const screen of screens) {
       }
       expect(await cutAtTheEdge(page)).toEqual([])
       expect(await fontsLoaded(page)).toBe(true)
+      await expect.poll(() => stillAnimating(page)).toEqual([])
       await page.mouse.move(0, 0)
       await page.screenshot({ path: imagePath(testInfo, screen.file), animations: 'disabled' })
     })
