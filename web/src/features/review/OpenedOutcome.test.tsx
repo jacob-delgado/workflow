@@ -381,7 +381,9 @@ test('the outcome says the announcement is armed', async () => {
 
   // Assert
   expect(
-    screen.getByText('Announces to #dev once CI passes; Stop waiting under Slack drops it.'),
+    screen.getByText(
+      'Announces to #dev once CI passes. To drop it, press Stop waiting in the Slack section.',
+    ),
   ).toBeTruthy()
 })
 

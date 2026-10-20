@@ -42,7 +42,8 @@ function ArmedLine({ opened, service }: { opened: OpenedPullRequest; service: st
 
     return (
       <p role="status" className="text-sm">
-        Announces to {where} once CI passes; Stop waiting under {service} drops it.
+        Announces to {where} once CI passes. To drop it, press Stop waiting in the {service}{' '}
+        section.
       </p>
     )
   }
