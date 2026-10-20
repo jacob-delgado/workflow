@@ -92,9 +92,10 @@ hugo-extended = "0.167.0"
 air = "1.67.4"
 
 # The docs' recordings (`task docs:media`): VHS types a tape into ttyd's web
-# terminal, films it in a headless Chromium and encodes the GIF with ffmpeg. A
-# docs convenience, never a gate. Chromium and ffmpeg are not pinned here: the
-# task takes both from PATH, and refuses to run without a Chromium rather than
+# terminal, films it in a headless Chromium and encodes the GIF with ffmpeg,
+# and ffmpeg encodes the web walkthrough Playwright films into a WebP. A docs
+# convenience, never a gate. Chromium and ffmpeg are not pinned here: the
+# task takes both from PATH, refuses an ffmpeg with no libwebp_anim, and refuses to run without a Chromium rather than
 # let VHS download an unpinned one. ttyd publishes no macOS build, so it is
 # pinned for Linux alone, where the task runs, and mise knows no checksum for
 # it, so the release workflows, which install every other pin, leave both out

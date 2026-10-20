@@ -88,7 +88,10 @@ drawn (DevTools' own screencast, since Playwright's gives only JPEG), a
 keyframe for each step, and the ffmpeg list and manifest
 `scripts/docs-media.sh` encodes and checks the WebP by, into
 `tmp/walkthrough` (`e2e/docs/film.ts`), and fails when a glide, typed text
-or scroll goes more than 250 ms without a frame. It needs
+or scroll goes more than 250 ms without a frame. Once the WebP is encoded,
+`corepack yarn media:check` (`e2e/docs/fidelity.spec.ts`, the
+`docs-fidelity` project) decodes it with Chromium's `ImageDecoder` and fails
+on any frame a step holds that is not the film's own. It needs
 the demo built first, `go build -o tmp/demo ./cmd/demo` from the repository
 root, as `task docs:media` does. Neither `test:e2e` nor CI runs it, and
 nothing compares its images. Every run launches the headless shell of the Chromium build

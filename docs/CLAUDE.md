@@ -42,7 +42,8 @@ comparison.
 
 `task docs:media` (`scripts/docs-media.sh`) writes every file in
 `docs/assets/images`, from `docs/media/terminal.tape` over the demo and from
-the web page the demo serves (`cmd/demo -web`). Those files are never edited or replaced by hand:
+the web page the demo serves (`cmd/demo -web`), the walkthrough's WebP
+among them. Those files are never edited or replaced by hand:
 change the tape, the demo or the screen and commit it, since the task
 refuses to run over changes not committed to what the images show; run the
 task on an idle machine, since it fails a recording that lost time; and look

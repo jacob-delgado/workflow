@@ -28,6 +28,7 @@ web/.yarn/releases/** -diff linguist-vendored=true
 *.jpg   binary
 *.jpeg  binary
 *.gif   binary
+*.webp  binary
 *.ico   binary
 *.icns  binary
 *.woff  binary

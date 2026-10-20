@@ -1,21 +1,34 @@
 #!/usr/bin/env bash
 #
-# Regenerate the docs' images: a screenshot of each web screen the docs show
-# and the recorded terminal, written into docs/assets/images and each held to
-# a size budget.
+# Regenerate the docs' images: a screenshot of each web screen the docs show,
+# the filmed web walkthrough and the recorded terminal, written into
+# docs/assets/images and each held to a size budget.
 #
 # Usage:
 #   scripts/docs-media.sh
 #
 # `task docs:media` runs this, by hand: no gate and no CI job does. It builds
 # cmd/demo into tmp/demo, has web's `yarn media` screenshot the --web page
-# the demo serves (web/playwright.docs.config.ts), and has VHS play
+# the demo serves and film the loop on it into tmp/walkthrough
+# (web/playwright.docs.config.ts), encodes the film into
+# web-walkthrough.webp with ffmpeg's libwebp_anim, and has VHS play
 # docs/media/terminal.tape over the demo into terminal.gif. VHS types the
 # tape into ttyd's web terminal, in bash, films it in a headless Chromium and
 # encodes it with ffmpeg, so all four must be there, and ffmpeg's ffprobe.
-# Each PNG may be at most 300 KiB and the GIF at most 2 MiB, and every image
-# in docs/assets/images must have been written by this run, so a screen the
-# docs no longer show cannot linger.
+# Each PNG may be at most 300 KiB, the GIF and the WebP at most 2 MiB each,
+# and every image in docs/assets/images must have been written by this run,
+# so a screen the docs no longer show cannot linger.
+#
+# It refuses to film on a busy machine, a load past all but one processor or
+# a gate or Playwright run going, since a late frame is a jump in either
+# recording (lib/walkthrough.sh). The WebP must be the film its manifest
+# describes: animated, 1280 by 800, looping forever, as long as the film
+# within a second, with no frame past 250 ms where the film moves throughout,
+# a glide, typing or a scroll, every frame it holds the film's own as
+# Chromium decodes it (web's media:check), and a keyframe kept for each step
+# to look at. The film is PNG and the WebP lossless: a lossy one left blocks
+# of earlier frames on screen. ffprobe 6.1 cannot read an animated WebP, so
+# lib/webp.sh reads its chunks.
 #
 # It refuses to run while what the images show, under cmd/, internal/, web/
 # or docs/media/ or in go.mod and go.sum, has a change git has not committed,
@@ -56,13 +69,15 @@
 # in) is the checkout it works in.
 #
 # Exits 0 once every image is written within its budget, the GIF as long as
-# its tape; 1 when a step fails, a ttyd does not match its pin, VHS fetched a
-# browser, an image is past its budget or was not written, the GIF runs more
-# than a second longer or shorter than its tape, or a line of the tape has no
-# length to read; and 2 when it is given an argument, a tool it needs is
-# missing, mise.toml pins no VHS or ttyd, ttyd publishes no build for the
-# machine, the checkout is not git's or has changes not committed to what
-# the images show, or the tape waits on the screen while shown.
+# its tape and the WebP the film; 1 when a step fails, a ttyd does not match
+# its pin, VHS fetched a browser, an image is past its budget or was not
+# written, the GIF runs more than a second longer or shorter than its tape, a
+# line of the tape has no length to read, or the WebP is not the film; and 2
+# when it is given an argument, a tool it needs is missing, ffmpeg cannot
+# write an animated WebP, mise.toml pins no VHS or ttyd, ttyd publishes no
+# build for the machine, the checkout is not git's or has changes not
+# committed to what the images show, the tape waits on the screen while
+# shown, or the machine is busy.
 set -euo pipefail
 
 if (($# != 0)); then
@@ -78,10 +93,14 @@ readonly images="${root}/docs/assets/images"
 readonly tape="docs/media/terminal.tape"
 readonly checksums="${root}/docs/media/tool-checksums.txt"
 readonly tools="${root}/tmp/docs-media"
-readonly png_budget=$((300 * 1024)) gif_budget=$((2 * 1024 * 1024))
+readonly png_budget=$((300 * 1024)) gif_budget=$((2 * 1024 * 1024)) webp_budget=$((2 * 1024 * 1024))
 
 # shellcheck source=lib/dependency-pins.sh
 source "${here}/lib/dependency-pins.sh"
+# shellcheck source=lib/webp.sh
+source "${here}/lib/webp.sh"
+# shellcheck source=lib/walkthrough.sh
+source "${here}/lib/walkthrough.sh"
 
 # refuse names what is missing and stops the run with status 2.
 refuse() {
@@ -370,11 +389,14 @@ check_length() {
 check_sizes() {
   local image bytes budget failed=0
   shopt -s nullglob
-  for image in "${images}"/*.png "${images}"/*.gif; do
+  for image in "${images}"/*.png "${images}"/*.gif "${images}"/*.webp; do
     bytes="$(wc -c <"${image}")"
     bytes=$((bytes))
-    budget="${png_budget}"
-    [[ "${image}" == *.gif ]] && budget="${gif_budget}"
+    case "${image}" in
+      *.gif) budget="${gif_budget}" ;;
+      *.webp) budget="${webp_budget}" ;;
+      *) budget="${png_budget}" ;;
+    esac
     if [[ -z "$(find "${image}" -newer "$1" -print)" ]]; then
       echo "FAIL  ${image##*/}: not written by this run; delete it if the docs no longer show it" >&2
       failed=1
@@ -391,21 +413,25 @@ check_sizes() {
   fi
 }
 
-for tool in go corepack bash ffmpeg ffprobe git; do
+for tool in go corepack bash ffmpeg ffprobe git od getconf pgrep; do
   command -v "${tool}" >/dev/null || refuse "no ${tool} on PATH"
 done
+refuse_no_webp
 link_chromium
 PATH="${tools}/bin:${PATH}"
 mkdir -p "${tools}/bin" "${images}"
 provide_vhs
 provide_ttyd
 clean_inputs
+refuse_busy
 shown="$(shown_ms)"
 
 started="${tools}/started"
 touch "${started}"
 (cd "${root}" && go build -o tmp/demo ./cmd/demo) || fail "could not build cmd/demo"
-(cd "${root}/web" && corepack yarn media) || fail "could not take the web screenshots"
+(cd "${root}/web" && corepack yarn media) || fail "could not take the web screenshots and film the walkthrough"
+encode_walkthrough
 record "${started}"
 check_sizes "${started}"
 check_length "${shown}"
+check_walkthrough

@@ -265,10 +265,16 @@ export default tseslint.config(
   // refuses the API a spec leaves unanswered, so no request goes on through
   // Vite preview to a developer's own `workflow --web`. The server-backed specs
   // drive a real server, and fixtures.ts is where that test is made; the docs'
-  // media drive the demo's server, and e2e/docs/demo.ts makes theirs.
+  // media drive the demo's server, and e2e/docs/demo.ts makes theirs; and
+  // e2e/docs/fidelity.spec.ts only decodes a file, and asks no server.
   {
     files: ['e2e/**/*.ts'],
-    ignores: ['e2e/server/**', 'e2e/support/fixtures.ts', 'e2e/docs/demo.ts'],
+    ignores: [
+      'e2e/server/**',
+      'e2e/support/fixtures.ts',
+      'e2e/docs/demo.ts',
+      'e2e/docs/fidelity.spec.ts',
+    ],
     rules: {
       'no-restricted-imports': [
         'error',

@@ -52,7 +52,8 @@ It builds the demo, a made-up day's work the terminal runs over
 (`cmd/demo`), and plays `docs/media/terminal.tape` over it with
 [VHS](https://github.com/charmbracelet/vhs) into `terminal.gif`, and has
 Playwright screenshot each section the web page describes, served over the
-same demo by `cmd/demo -web`. VHS comes from `mise install`, or is built into `tmp/` where mise
+same demo by `cmd/demo -web`, and film the whole loop on it, which ffmpeg
+encodes into `web-walkthrough.webp`. VHS comes from `mise install`, or is built into `tmp/` where mise
 cannot install it. ttyd is checked against the SHA-256 that
 `docs/media/tool-checksums.txt` pins before the task runs it, since mise
 installs it unchecked: the one `mise install` puts on your PATH is used when
@@ -61,16 +62,29 @@ ttyd into `tmp/` and checks that. Chromium, which films the terminal, and
 ffmpeg, which encodes it, must already be on your machine: the task films
 with the Chromium `PLAYWRIGHT_CHROMIUM_EXECUTABLE` names, or else the
 `chromium` on your PATH, and refuses to run without one. It fails when an
-image is past its budget, 300 KiB a screenshot and 2 MiB the recording.
+image is past its budget, 300 KiB a screenshot and 2 MiB each recording,
+and refuses an ffmpeg that cannot write an animated WebP.
 
 Commit the change the images are to show first: the task refuses to run
 while the demo, the interface, the tape or the web page has changes git has
 not committed, so the images committed are of the code committed with them.
-Run it on an idle machine, too. VHS films in real time, and on a machine busy
-with a build it misses frames, so the recording skips past what the tape
-holds on screen; the task fails when the recording runs more than a second
-longer or shorter than the tape's sleeps and typing take, and a tape that
-waits on the screen, which has no such length, is refused.
+Run it on an idle machine, too: the task refuses one whose load is past all
+but one of its processors, or with a gate or a Playwright run going. VHS
+films in real time, and on a machine busy with a build it misses frames, so
+the recording skips past what the tape holds on screen; the task fails when
+the recording runs more than a second longer or shorter than the tape's
+sleeps and typing take, and a tape that waits on the screen, which has no
+such length, is refused. The walkthrough is held the same way: it must run
+as long as its film within a second, no frame may last past 250 ms while
+the pointer glides, text is typed or the page scrolls, and every frame it
+holds on a step must be the film's own, decoded as Chromium shows it. The
+film is captured as PNG and encoded lossless, since a lossy WebP left blocks
+of earlier frames on screen.
+
+Look at the walkthrough's keyframes as well as the WebP: the film keeps an
+image of each step as it stood in `tmp/walkthrough/keys`, and the run fails
+a step whose screen has text cut at the window's edge or something still
+moving.
 
 Look at each image before you commit it. Nothing else will: no gate or CI
 job runs the task or compares the images, since fonts, Chromium and ffmpeg

@@ -119,7 +119,7 @@ line, saying what it holds.
 | `task check` | **the full gate**; CONTRIBUTING.md's *Day to day* lists its parts and what each enforces |
 | `task check:docs` | the gate for a change to the docs alone, which `scripts/docs-only.sh` decides: the docs' linters and gates, the contract pages' tests and the secret scan |
 | `task e2e` | the web's Playwright suites, which `task check` leaves out: run it too for a change under `web/` or `internal/webserver`; it builds first, so it rewrites `internal/web/dist` too |
-| `task docs:media` | the docs' web screenshots and terminal GIF, made again into `docs/assets/images` by hand on Linux (Chromium and ffmpeg on the machine); never part of `task check` or CI, and each image is looked at before it is committed |
+| `task docs:media` | the docs' web screenshots, web walkthrough WebP and terminal GIF, made again into `docs/assets/images` by hand on an idle Linux machine (Chromium and ffmpeg on it); never part of `task check` or CI, and each image, and the walkthrough's keyframes in `tmp/walkthrough/keys`, is looked at before it is committed |
 | `task container:check` | the same gate inside the build container |
 
 The toolchain is pinned in `mise.toml`. After cloning: `mise trust && mise

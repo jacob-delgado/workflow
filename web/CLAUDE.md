@@ -120,7 +120,9 @@ one fails.
   `e2e/docs/walkthrough.spec.ts`, which films the loop for the WebP through
   `e2e/docs/film.ts` at the pace that file sets. Every image either takes is
   held to `e2e/docs/capture.ts`: fonts loaded, no text cut at the window's
-  edge, nothing mid-animation.
+  edge, nothing mid-animation. `e2e/docs/fidelity.spec.ts`
+  (`corepack yarn media:check`) holds the encoded WebP to the film, after
+  `task docs:media` encodes it.
 
 ## Dependencies and trade-offs
 
