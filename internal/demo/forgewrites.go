@@ -24,6 +24,9 @@ var (
 // mock's (mockSnapshot.ts).
 const firstPull = 128
 
+// heldCheck is the check HoldCI keeps running.
+const heldCheck = "e2e"
+
 // scheduledCheck is a CI check and how long after its pull request opens it
 // passes.
 type scheduledCheck struct {
@@ -75,7 +78,7 @@ func (w *World) createPullRequest(_ context.Context, request forge.NewPullReques
 
 // checkStatus is how a pull request's CI stands, once the world's read
 // latency has passed: each check running until its time since the pull
-// request opened has passed.
+// request opened has passed, and the held check, under HoldCI, for good.
 func (w *World) checkStatus(ctx context.Context, pull forge.PullRequest, _ string) (forge.CI, error) {
 	err := w.slowly(ctx)
 	if err != nil {
@@ -95,7 +98,7 @@ func (w *World) checkStatus(ctx context.Context, pull forge.PullRequest, _ strin
 
 	for _, check := range checkSchedule() {
 		state := forge.CIRunning
-		if ran >= check.takes {
+		if ran >= check.takes && (!w.holdCI || check.name != heldCheck) {
 			state, standing.Done = forge.CIPassed, standing.Done+1
 		}
 

@@ -85,7 +85,7 @@ internal/sanitize/    neutralizing terminal controls in server text
 internal/buildinfo/   which build is running, from what the Go toolchain stamps
 internal/testshape/   the Arrange-Act-Assert check behind cmd/testshape
 internal/docsgen/     the command reference behind cmd/docsgen, from the Cobra tree
-internal/demo/        a made-up day's work the docs' recordings show, faked as tui.Deps
+internal/demo/        a made-up day's work the docs' recordings show, as tui.Deps and a web world
 cmd/docsgen/          the thin main that runs internal/docsgen
 cmd/demo/             the thin main that runs the terminal interface over internal/demo, for the docs' recordings
 cmd/testshape/        the thin main that runs internal/testshape
