@@ -184,3 +184,37 @@ for (const theme of themes) {
     })
   }
 }
+
+// heightDrawn is how tall an element is drawn.
+function heightDrawn(element: Element): number {
+  return element.getBoundingClientRect().height
+}
+
+// A long header's commit, the branch the server answers once it lands.
+const subject = 'redact every authorization header before the request log writes it'
+const committed = branchWith({
+  ...workingTreeSnapshot.branch,
+  head: '4f2c9e1d0b7a',
+  commits: [{ hash: '4f2c9e1', subject: `fix(config): ${subject}`, unpushed: true }],
+})
+
+for (const width of widths) {
+  test(`the commit button keeps one line beside what a commit says at ${String(width)} px`, async ({
+    page,
+  }) => {
+    // Arrange
+    await page.route('**/api/commit', (route) => route.fulfill({ json: committed }))
+    await opensBranch(page, { theme: 'dark', width, snapshot: workingTreeSnapshot })
+    const form = page.getByRole('form', { name: 'Commit staged changes' })
+    const button = form.getByRole('button', { name: 'Commit staged changes' })
+    await form.getByLabel('Subject').fill(subject)
+    const before = await button.evaluate(heightDrawn)
+
+    // Act
+    await button.click()
+    await expect(form.getByText(/^Committed 4f2c9e1 /)).toBeVisible()
+
+    // Assert
+    expect(await button.evaluate(heightDrawn)).toBe(before)
+  })
+}
