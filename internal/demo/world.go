@@ -3,8 +3,9 @@
 
 // Package demo is a made-up day's work for the docs' recordings: Jira, the
 // forge, Slack, git, Taskwarrior and the directories faked as one world the
-// real terminal interface runs over, as tui.Deps. It tells the story the
-// web's mock tells (web/src/dev/mock*.ts): Ana Lopez, in acme's api
+// real terminal interface runs over, as tui.Deps, and the real web server
+// over, as a webserver.World with the seams only the page shows. It tells the
+// story the web's mock tells (web/src/dev/mock*.ts): Ana Lopez, in acme's api
 // repository, on PROJ-412, announcing to #dev-workflow.
 //
 // Trade-off TRADE-57: this world and internal/tui's test world are two fakes
@@ -74,6 +75,8 @@ type World struct {
 	// pushLatency is how long a push takes once it has printed; see
 	// PushLatency.
 	pushLatency time.Duration
+	// holdCI keeps the end-to-end check running; see HoldCI.
+	holdCI bool
 }
 
 // Option is a way the world can be made other than its default.
@@ -94,6 +97,14 @@ func ReadLatency(latency time.Duration) Option {
 // the push ends it sooner. Without it a push ends at once, as the tests want.
 func PushLatency(latency time.Duration) Option {
 	return func(w *World) { w.pushLatency = latency }
+}
+
+// HoldCI keeps every pull request's end-to-end check running for good while
+// the others pass on their schedule, so a screenshot finds CI three checks of
+// four through, and an announcement still able to wait for it, however long
+// the page takes to get there.
+func HoldCI() Option {
+	return func(w *World) { w.holdCI = true }
 }
 
 // openedPull is a pull request and when it was opened, which its CI counts
@@ -132,7 +143,7 @@ func (w *World) Config() config.Config {
 	cfg.Jira.BaseURL, cfg.Jira.Token, cfg.Jira.Project = jiraBase, "demo-token", "PROJ"
 	cfg.Messaging.Kind, cfg.Messaging.ClientID, cfg.Messaging.Channel = config.KindSlack, "1234.5678", channel
 	cfg.Messaging.Channels = []string{channel, releases}
-	cfg.Forge.Kind, cfg.Forge.Host = forge.KindGitHub.String(), githubHost
+	cfg.Forge.Kind, cfg.Forge.Host = "github", githubHost
 	cfg.Path = apiRoot + "/.workflow.json"
 	cfg.Files = config.Files{Repo: cfg.Path, Home: home + "/.workflow.json"}
 
