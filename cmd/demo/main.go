@@ -1,38 +1,52 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-// Command demo runs the terminal interface over a made-up day's work, for the
-// docs' recordings:
+// Command demo runs the terminal interface, or the --web server, over a
+// made-up day's work, for the docs' recordings:
 //
 //	go run ./cmd/demo
+//	go run ./cmd/demo -web [-port 0] [-version v0.12.0] [-hold-ci]
 //
-// Nothing it shows is real and nothing it does leaves the process. The world
-// and its tests are internal/demo's; no release builds this command.
+// With -web it serves the web interface on the loopback port -port names, 0
+// for one the system chooses, and says where on stderr as workflow --web
+// does, session and all; -version is what the page names the build, and
+// -hold-ci keeps the end-to-end check running for good. Nothing it shows is
+// real and nothing it does leaves the process. The world and its tests are
+// internal/demo's; no release builds this command.
 package main
 
 import (
 	"context"
+	"errors"
+	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/demo"
 	"github.com/jacob-delgado/workflow/internal/tui"
+	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	status := run(ctx)
+	status := run(ctx, os.Args[1:])
 
 	stop()
 	os.Exit(status)
 }
 
-// interrupted is the status an interrupted program exits with, as the
-// shell's 128 plus SIGINT's 2 and as workflow's own command line.
-const interrupted = 130
+// The statuses the demo exits with besides 0 and 1: the shell's 128 plus
+// SIGINT's 2 when interrupted, as workflow's own command line, and 2 for
+// flags it cannot read, as the flag package's own.
+const (
+	interrupted = 130
+	misused     = 2
+)
 
 // readLatency is how long the world's slow reads take, as a remote's would:
 // long enough that the recording shows each "reading" state for a beat, not
@@ -45,16 +59,73 @@ const readLatency = 500 * time.Millisecond
 // pushed.
 const pushLatency = 1200 * time.Millisecond
 
-// run runs the interface over the demo's world until it quits or a signal
-// ends ctx, the world's clock moving on as the program runs, and says how it
-// ended.
-func run(ctx context.Context) int {
+// flags is what the command line asks of the demo.
+type flags struct {
+	web     bool
+	port    int
+	version string
+	holdCI  bool
+}
+
+// parse reads args into flags, or fails as the flag package does, having
+// said why on stderr.
+func parse(args []string) (flags, error) {
+	var asked flags
+
+	set := flag.NewFlagSet("demo", flag.ContinueOnError)
+	set.BoolVar(&asked.web, "web", false, "serve the web interface instead of the terminal's")
+	set.IntVar(&asked.port, "port", 0, "the loopback port -web serves on; 0 for one the system chooses")
+	set.StringVar(&asked.version, "version", "demo", "the version the web page names the build")
+	set.BoolVar(&asked.holdCI, "hold-ci", false, "keep the end-to-end check running for good")
+
+	err := set.Parse(args)
+	if err != nil {
+		return flags{}, fmt.Errorf("reading the flags: %w", err)
+	}
+
+	return asked, nil
+}
+
+// run runs the interface the flags in args ask for over the demo's world
+// until it quits or a signal ends ctx, the world's clock moving on as the
+// program runs, and says how it ended.
+func run(ctx context.Context, args []string) int {
+	asked, err := parse(args)
+
+	switch {
+	case errors.Is(err, flag.ErrHelp):
+		return 0
+	case err != nil:
+		return misused
+	}
+
+	options := []demo.Option{demo.ReadLatency(readLatency), demo.PushLatency(pushLatency)}
+	if asked.holdCI {
+		options = append(options, demo.HoldCI())
+	}
+
 	began := time.Now()
-	world := demo.New(func() time.Duration { return time.Since(began) },
-		demo.ReadLatency(readLatency), demo.PushLatency(pushLatency))
+	world := demo.New(func() time.Duration { return time.Since(began) }, options...)
 
-	_, err := tui.Run(ctx, tui.New(world.Config(), nil, world.Deps()), os.Stdin, os.Stdout)
+	return ended(ctx, serve(ctx, world, asked, os.Stderr))
+}
 
+// serve runs the web server over world when asked, saying where on notes,
+// and the terminal interface otherwise.
+func serve(ctx context.Context, world *demo.World, asked flags, notes io.Writer) error {
+	if !asked.web {
+		_, err := tui.Run(ctx, tui.New(world.Config(), nil, world.Deps()), os.Stdin, os.Stdout)
+
+		return err
+	}
+
+	web := world.Web(asked.version)
+
+	return cli.WebServerAt(webserver.LoopbackAddr(asked.port))(ctx, web.Config, web.Deps, web.Info, notes)
+}
+
+// ended is the status a run that ended with err exits with.
+func ended(ctx context.Context, err error) int {
 	switch {
 	case ctx.Err() != nil:
 		return interrupted
