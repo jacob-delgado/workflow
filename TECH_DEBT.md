@@ -1322,8 +1322,9 @@ leave the policy.
 them: the docs show six screenshots of the `--web` page and a recording of
 the terminal, committed among the site's assets, and `task docs:media`
 (`scripts/docs-media.sh`) writes them all again: Playwright screenshots the
-mock build (`web/e2e/docs/media.spec.ts`), and VHS films
-`docs/media/terminal.tape` over the demo (`cmd/demo`). Nothing runs it but a
+`--web` page the demo serves (`cmd/demo -web`, `web/e2e/docs/media.spec.ts`),
+and VHS films `docs/media/terminal.tape` over the demo's terminal
+(`cmd/demo`). Nothing runs it but a
 person, and nothing compares what it writes with what is committed. An
 image's bytes depend on the machine's fonts, its Chromium and its ffmpeg, so
 a comparison would fail everywhere but on the machine that wrote the image;
@@ -1373,10 +1374,16 @@ its fields and rewriting most of the package's test files, and would tie what
 a test expects to what the docs show.
 
 **Cost.** One world is faked twice. A seam that changes shape is changed in
-both, and the compiler names each place. The demo's story is told a third time
-by the web's mock (`web/src/dev`), and nothing checks that the recording and
-the screenshots agree: only the demo's own tests, which drive the real
-interface over it, keep it from rotting when a pane changes what it reads.
+both, and the compiler names each place. Every image the docs show comes from
+the demo, the terminal's recording and the web's screenshots alike, but the
+demo's story is told a third time by the web's mock (`web/src/dev`), which the
+web's own tests and `task web:mockup` keep, and nothing holds the mock to the
+demo. The demo's first moment is written twice, in Go (`epoch` in
+`internal/demo/world.go`) and as the clock the web's screenshots and its
+walkthrough both hold (`now` in `web/e2e/docs/capture.ts`), and only an
+image's ages and timers show the two apart. Only the demo's own tests, which
+drive both interfaces over it, keep it from rotting when a pane or a section
+changes what it reads.
 
 **Reopen when.** A seam change has to be made in both worlds for a reason
 other than its shape, the two drift far enough that a reader of one is misled

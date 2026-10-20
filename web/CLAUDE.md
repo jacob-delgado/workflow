@@ -113,7 +113,10 @@ one fails.
   takes the docs' screenshots in a run of its own
   (`playwright.docs.config.ts`, `corepack yarn media`, which
   `task docs:media` wraps), which `task e2e` and CI leave out and which
-  rewrites the committed images in `docs/assets/images`.
+  rewrites the committed images in `docs/assets/images`. It takes its test
+  from `e2e/docs/demo.ts`, which serves each screen from a demo of its own
+  (`cmd/demo -web`, built into `tmp/demo` first), and its steps from
+  `e2e/docs/loop.ts`, each waiting for what the page shows it did.
 
 ## Dependencies and trade-offs
 

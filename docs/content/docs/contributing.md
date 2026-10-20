@@ -51,8 +51,8 @@ task docs:media    # every image in docs/assets/images, written again
 It builds the demo, a made-up day's work the terminal runs over
 (`cmd/demo`), and plays `docs/media/terminal.tape` over it with
 [VHS](https://github.com/charmbracelet/vhs) into `terminal.gif`, and has
-Playwright screenshot each section the web page describes from its mock
-build. VHS comes from `mise install`, or is built into `tmp/` where mise
+Playwright screenshot each section the web page describes, served over the
+same demo by `cmd/demo -web`. VHS comes from `mise install`, or is built into `tmp/` where mise
 cannot install it. ttyd is checked against the SHA-256 that
 `docs/media/tool-checksums.txt` pins before the task runs it, since mise
 installs it unchecked: the one `mise install` puts on your PATH is used when

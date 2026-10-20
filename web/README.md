@@ -74,11 +74,14 @@ each in a run of its own (`--project=server-firefox`), since `commit.spec.ts`
 writes to the one fixture a run serves. Nothing else may be
 listening on port 13580. `corepack yarn media` writes the docs' screenshots
 into `docs/assets/images`: `e2e/docs/media.spec.ts`, in a run of its own
-(`playwright.docs.config.ts`), opens six screens of the VITE_MOCK build in the
-dark theme at 1440 by 900, in UTC and under a held clock, and takes each once
-its heading is up and nothing is still reading. Neither `test:e2e` nor CI runs
-it, nothing compares its images, and nothing else may be listening on
-port 4174. Every run launches the headless shell of the Chromium build
+(`playwright.docs.config.ts`), serves each of six screens from a demo of its
+own, the real `--web` server over the made-up world `cmd/demo -web` runs
+(`e2e/docs/demo.ts`, on a port the system picks), drives the page to the
+state the docs describe, and takes it in the dark theme at 1440 by 900, in
+UTC and under a held clock, once its heading is up and nothing is still
+reading. It needs the demo built first, `go build -o tmp/demo ./cmd/demo`
+from the repository root, as `task docs:media` does. Neither `test:e2e` nor
+CI runs it, and nothing compares its images. Every run launches the headless shell of the Chromium build
 Playwright pins, as CI does; where that build cannot be installed,
 `PLAYWRIGHT_CHROMIUM_EXECUTABLE` names another to launch, which a Claude Code
 cloud session's start sets to the image's headless shell, the kind of binary CI
@@ -127,6 +130,8 @@ runs.
   only what `tsconfig.node.json` includes — the Vite, Vitest, Playwright and
   openapi-ts configs and `e2e/` — which call only Node APIs long present on
   24: `node:url`'s `fileURLToPath`, `node:os`'s `tmpdir`, `node:path`'s
-  `join`, `node:child_process`'s `execFileSync` and `process.env`. A Node
+  `join`, `node:child_process`'s `execFileSync` and `spawn`, `node:readline`'s
+  `createInterface`, `node:fs`'s `existsSync` and `readFileSync`,
+  `node:fs/promises`' `mkdtemp` and `rm`, and `process.env`. A Node
   26-only call there would type-check and then fail on 24; pinning `^24`, a
   downgrade, would close that.

@@ -8,14 +8,14 @@
 #   scripts/docs-media.sh
 #
 # `task docs:media` runs this, by hand: no gate and no CI job does. It builds
-# cmd/demo into tmp/demo, has web's `yarn media` screenshot the mock build
-# (web/playwright.docs.config.ts), and has VHS play docs/media/terminal.tape
-# over the demo into terminal.gif. VHS types the tape into ttyd's web
-# terminal, in bash, films it in a headless Chromium and encodes it with
-# ffmpeg, so all four must be there, and ffmpeg's ffprobe. Each PNG may be at
-# most 300 KiB and the GIF at most 2 MiB, and every image in
-# docs/assets/images must have been written by this run, so a screen the docs
-# no longer show cannot linger.
+# cmd/demo into tmp/demo, has web's `yarn media` screenshot the --web page
+# the demo serves (web/playwright.docs.config.ts), and has VHS play
+# docs/media/terminal.tape over the demo into terminal.gif. VHS types the
+# tape into ttyd's web terminal, in bash, films it in a headless Chromium and
+# encodes it with ffmpeg, so all four must be there, and ffmpeg's ffprobe.
+# Each PNG may be at most 300 KiB and the GIF at most 2 MiB, and every image
+# in docs/assets/images must have been written by this run, so a screen the
+# docs no longer show cannot linger.
 #
 # It refuses to run while what the images show, under cmd/, internal/, web/
 # or docs/media/ or in go.mod and go.sum, has a change git has not committed,

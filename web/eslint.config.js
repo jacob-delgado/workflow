@@ -264,10 +264,11 @@ export default tseslint.config(
   // Every hermetic spec takes test from e2e/support/fixtures.ts, whose page
   // refuses the API a spec leaves unanswered, so no request goes on through
   // Vite preview to a developer's own `workflow --web`. The server-backed specs
-  // drive a real server, and fixtures.ts is where that test is made.
+  // drive a real server, and fixtures.ts is where that test is made; the docs'
+  // media drive the demo's server, and e2e/docs/demo.ts makes theirs.
   {
     files: ['e2e/**/*.ts'],
-    ignores: ['e2e/server/**', 'e2e/support/fixtures.ts'],
+    ignores: ['e2e/server/**', 'e2e/support/fixtures.ts', 'e2e/docs/demo.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
