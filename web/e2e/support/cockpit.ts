@@ -136,8 +136,9 @@ export async function pinTheme(page: Page, choice: string): Promise<void> {
 // with the checked-out issue's detail open beside, or under, the list. The
 // theme is pinned before the app paints, and motion is reduced, so nothing is
 // caught mid-transition. The detail has settled once its comment box has the
-// Markdown bar the mockup's configuration turns on: the box waits for that
-// read behind a Reading status, then draws with its bar.
+// Markdown bar the configuration turns on, the mockup's and the demo's alike:
+// the box waits for that read behind a Reading status, then draws with its
+// bar.
 export async function openCockpit(
   page: Page,
   size: { width: number; height: number },
@@ -209,7 +210,7 @@ export async function openFirstRun(
 // controls it fills in draw only as it ends: Summary's period, Settings' code
 // owners, groups and local data, each after the heading is up. A walk begun
 // before they draw would leave them out of the controls it counts.
-function readings(page: Page): Locator {
+export function readings(page: Page): Locator {
   return page
     .getByRole('main')
     .getByRole('status')
