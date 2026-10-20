@@ -208,11 +208,8 @@ class MockEventSource extends EventTarget {
 
 function allRoutes(): Routes {
   return {
-    // The version a build is given, as the docs' screenshots give theirs the
-    // release's, so the header reads as a released workflow's does; the
-    // mockup's own word otherwise.
     'GET /api/health': () => ({
-      version: import.meta.env.VITE_MOCK_VERSION ?? 'mockup',
+      version: 'mockup',
       dry_run: false,
       forge_kind: 'github',
       forge_noun: 'pull request',
