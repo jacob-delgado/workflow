@@ -8,6 +8,7 @@ import { KeyboardLayer } from '@/features/keyboard/KeyboardLayer.tsx'
 import { CiSettled } from '@/features/review/CiSettled.tsx'
 import { HereBadge } from '@/features/repositories/HereBadge.tsx'
 import { useFollowSwitch } from '@/features/repositories/useFollowSwitch.ts'
+import { useFocusedControlInView } from '@/lib/focus.ts'
 import { cn } from '@/lib/utils.ts'
 import { LoopTrack } from './LoopTrack.tsx'
 import { NavRail } from './NavRail.tsx'
@@ -34,6 +35,7 @@ export function AppShell() {
   const health = useHealthStore((state) => state.health)
   const section = useUiStore((state) => state.section)
   const main = useSectionFocus(section)
+  useFocusedControlInView(main)
   const service = useSnapshotStore((state) => state.snapshot?.messaging.service)
 
   // The shell is the window's height and never scrolls: the header and the
