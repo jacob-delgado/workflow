@@ -1000,10 +1000,10 @@ Limits]({{< relref "/docs/usage#limits" >}}).
 
 The latest two versions of Chrome, Edge, Firefox and desktop Safari. The page is
 only ever served to a browser on the same machine, so mobile Safari is not a
-target. The end-to-end suite runs every spec in Chromium, plus a layout and
-accessibility smoke run in Firefox and WebKit. The page fetches nothing from the
-internet: its font and code come from the workflow binary. See [The web
-interface: The page]({{< relref "/docs/web#the-page" >}}).
+target. The end-to-end suite runs every spec in Chromium, Firefox and WebKit,
+Safari's engine. The page fetches nothing from the internet: its font and code
+come from the workflow binary. See [The web interface: The page]({{< relref
+"/docs/web#the-page" >}}).
 
 ## Taskwarrior
 

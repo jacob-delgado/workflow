@@ -69,8 +69,9 @@ lane rules in brief for other agents: a change to one of them changes
   here), so `task e2e` runs on the image's Chromium. A spec that passes here
   on 141 can still fail in CI on the pinned build: CI's run is the verdict.
 - **Other engines.** Only Chromium runs in this container. A verdict on
-  Firefox or WebKit comes from CI only where the branch's `ci.yml` has a job
-  for that engine; main's runs Chromium alone.
+  Firefox or WebKit comes from CI, whose E2E jobs run every spec on all
+  three engines: read a failed shard's uploaded report and test results,
+  whose traces and `error-context.md` say what the engine saw.
 - **Each engine brings focus into view its own way.** Chromium scrolls any
   element that takes focus and is not wholly in view to the nearest edge.
   Gecko scrolls only when no more than about a line of it shows

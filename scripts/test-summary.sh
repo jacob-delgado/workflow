@@ -90,7 +90,7 @@ vitest_row() {
 
 # playwright_row runs the end-to-end suite on Chromium, every spec, as CI's E2E
 # job does, and records the counts from its json reporter; Firefox's and
-# WebKit's smoke run is left to `task e2e`. A run that cannot start (no
+# WebKit's runs of the same specs are left to `task e2e`. A run that cannot start (no
 # browser) leaves the counts as dashes.
 playwright_row() {
   e2e_pass="-" e2e_skip="-" e2e_fail="-"

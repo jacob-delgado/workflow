@@ -105,11 +105,9 @@ one fails.
   `e2e/support/fixtures.ts`, whose page refuses any API route a spec leaves
   unanswered; themes and widths come from `e2e/support/cockpit.ts`; and
   `expectReachableAndClean` (`e2e/support/reachable.ts`) holds a surface to
-  the layout and axe rules. No raw locator. Chromium runs every spec;
-  Firefox and WebKit run `layout.spec.ts`, `a11y.spec.ts`, the Tab walk's
-  `e2e/support/tabwalk.spec.ts` and `e2e/server/page.spec.ts` alone, so a
-  spec among those holds to what every engine does, never to Chromium's own
-  console wording or behavior. Everything under `e2e/` counts toward the
+  the layout and axe rules. No raw locator. Chromium, Firefox and WebKit
+  each run every spec, so a spec holds to what every engine does, never to
+  Chromium's own console wording or behavior. Everything under `e2e/` counts toward the
   directory budgets, so specs live in per-surface folders; the specs under
   `e2e/server` drive the real binary instead, and `e2e/docs/media.spec.ts`
   takes the docs' screenshots in a run of its own

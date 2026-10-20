@@ -68,15 +68,14 @@ export default defineConfig({
       metadata,
       use: { ...desktopChrome, baseURL: serverURL },
     },
-    // Firefox and WebKit run page.spec.ts alone, the smoke run
-    // playwright.config.ts describes: the page the server serves, its session
-    // and its dialogs, under the content policy each engine enforces.
+    // Firefox and WebKit run every spec Chromium does, under the content
+    // policy each engine enforces. commit.spec.ts writes to the one fixture a
+    // run serves, so each engine's project runs on its own, a run apiece.
     ...[
       { name: 'server-firefox', device: devices['Desktop Firefox'] },
       { name: 'server-webkit', device: devices['Desktop Safari'] },
     ].map(({ name, device }) => ({
       name,
-      testMatch: 'page.spec.ts',
       metadata,
       use: { ...device, baseURL: serverURL },
     })),

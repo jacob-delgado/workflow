@@ -846,11 +846,10 @@ tasks:
   # The Playwright suites `task check` leaves out: the web frontend alone,
   # served by Vite preview, with the axe scan and the layout spec among its
   # specs, then the same page served by the binary `task build` makes,
-  # writing through to git. Chromium runs every spec, and Firefox and WebKit
-  # the layout and axe specs and the server's page.spec.ts, so each needs the
-  # three browsers (`yarn playwright install chromium firefox webkit` in web/
-  # once), and the second port 13580 free. CI's E2E, E2E (firefox),
-  # E2E (webkit) and E2E (server) jobs run the same.
+  # writing through to git. Chromium, Firefox and WebKit each run every spec,
+  # so each needs the three browsers (`yarn playwright install chromium
+  # firefox webkit` in web/ once), and the second port 13580 free. CI's E2E,
+  # E2E (firefox n/3), E2E (webkit n/3) and E2E (server, …) jobs run the same.
   e2e:
     desc: Run the web's Playwright suites, which task check leaves out (needs Chromium, Firefox and WebKit)
     deps: [build]
@@ -859,7 +858,11 @@ tasks:
       COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
     cmds:
       - corepack yarn test:e2e
-      - corepack yarn test:e2e:server
+      # A run per engine: commit.spec.ts writes to the one fixture a run
+      # serves, as in CI's E2E (server) legs.
+      - corepack yarn test:e2e:server --project=server
+      - corepack yarn test:e2e:server --project=server-firefox
+      - corepack yarn test:e2e:server --project=server-webkit
 
   clean:
     desc: Remove build and coverage artifacts
