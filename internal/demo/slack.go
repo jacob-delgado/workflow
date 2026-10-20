@@ -26,7 +26,7 @@ func (w *World) messagingDeps() seams.Messaging {
 // none is named; the message goes nowhere a later read could find it, as no
 // seam reads a channel back.
 func post(_ context.Context, to, _ string) error {
-	channels := []string{"", channel, "#releases"}
+	channels := []string{"", channel, releases}
 	if !slices.Contains(channels, to) {
 		return fmt.Errorf("%s: %w: %w", to, messaging.ErrPostRefused, errNoSuchChannel)
 	}

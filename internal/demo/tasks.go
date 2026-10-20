@@ -69,16 +69,24 @@ func pendingTasks() []taskwarrior.Task {
 	}
 }
 
-// touchedTasks is every task changed since a time: the redaction plan
-// written up yesterday, and any pending task changed since.
+// touchedTasks is every task changed since a time.
 func touchedTasks(_ context.Context, since time.Time) ([]taskwarrior.Task, error) {
+	return changedSince(allTasks(), since), nil
+}
+
+// allTasks is every task: the pending ones and the redaction plan written up
+// yesterday.
+func allTasks() []taskwarrior.Task {
 	finished := taskwarrior.Task{
 		UUID: "3c8f0a19-e6a8-4544-9dd8-f1888f6f079f", Description: "Write up the token redaction plan",
 		Status: taskwarrior.Completed, Project: taskProject, Entry: epoch().Add(-26 * time.Hour),
 		Modified: yesterday(9, 40), End: yesterday(9, 40),
 	}
 
-	touched := append(pendingTasks(), finished)
+	return append(pendingTasks(), finished)
+}
 
-	return slices.DeleteFunc(touched, func(task taskwarrior.Task) bool { return task.Modified.Before(since) }), nil
+// changedSince is the tasks of tasks changed since a time.
+func changedSince(tasks []taskwarrior.Task, since time.Time) []taskwarrior.Task {
+	return slices.DeleteFunc(tasks, func(task taskwarrior.Task) bool { return task.Modified.Before(since) })
 }
