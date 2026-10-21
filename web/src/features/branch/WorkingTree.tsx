@@ -63,10 +63,10 @@ export function WorkingTree({
               <ChangeRow key={change.path} change={change} discards={discards} />
             ))}
           </ul>
-          <div className="flex flex-wrap items-start gap-item">
-            <StageAll anythingToStage={changes.some(offersStage)} />
-            <UnstageAll anythingStaged={anythingStaged} />
-          </div>
+          <BulkStaging
+            anythingToStage={changes.some(offersStage)}
+            anythingStaged={anythingStaged}
+          />
         </>
       )}
       <OutcomeLine said={discards.said} />
@@ -320,67 +320,98 @@ function lineTone(line: string): string | undefined {
   return undefined
 }
 
-// StageAll stages every change the index does not hold yet, as the terminal's
-// `a` does, and says how it went.
-function StageAll({ anythingToStage }: { anythingToStage: boolean }) {
+// BulkWords is what Stage all or Unstage all says: its name, its name while it
+// runs, the line it ends on, its fallback, and the terminal's key it answers.
+interface BulkWords {
+  act: string
+  acting: string
+  done: string
+  fallback: string
+  shortcut: string
+}
+
+// useBulkWrite is Stage all's or Unstage all's write and the outcome it says.
+function useBulkWrite(action: () => Promise<void>, words: BulkWords) {
   const outcome = useOutcome()
-  const { state, error, run } = useAsyncAction(stageEverything, {
-    fallback: 'Nothing was staged. Try again, or stage from a terminal to see why.',
-    done: () => 'Staged every change.',
+  const write = useAsyncAction(action, {
+    fallback: words.fallback,
+    done: () => words.done,
     onStart: outcome.clear,
     onDone: outcome.say,
   })
-  const shortcut = useShortcutProps<HTMLButtonElement>('stage-all')
+
+  return { outcome, write, words }
+}
+
+type BulkWrite = ReturnType<typeof useBulkWrite>
+
+// BulkStaging is Stage all, which stages every change the index does not hold
+// yet as the terminal's `a` does, beside Unstage all, which takes every staged
+// change out of the index at once as its `U` does, staging again undoing it.
+// What each said goes below the pair, so a line wider than its button never
+// pushes the other away.
+function BulkStaging({
+  anythingToStage,
+  anythingStaged,
+}: {
+  anythingToStage: boolean
+  anythingStaged: boolean
+}) {
+  const stageAll = useBulkWrite(stageEverything, {
+    act: 'Stage all',
+    acting: 'Staging…',
+    done: 'Staged every change.',
+    fallback: 'Nothing was staged. Try again, or stage from a terminal to see why.',
+    shortcut: 'stage-all',
+  })
+  const unstageAll = useBulkWrite(unstageEverything, {
+    act: 'Unstage all',
+    acting: 'Unstaging…',
+    done: 'Unstaged every change.',
+    fallback: 'Nothing was unstaged. Try again, or unstage from a terminal to see why.',
+    shortcut: 'unstage-all',
+  })
 
   return (
     <div className="flex flex-col gap-tight">
-      <Button
-        {...shortcut}
-        variant="secondary"
-        disabled={!anythingToStage}
-        held={state === 'running'}
-        onClick={() => {
-          void run()
-        }}
-        className="self-start"
-      >
-        {state === 'running' ? 'Staging…' : 'Stage all'}
-      </Button>
-      <OutcomeLine said={outcome.said} />
-      {state === 'error' ? <Failure>{error}</Failure> : null}
+      <div className="flex flex-wrap items-center gap-item">
+        <BulkButton bulk={stageAll} offered={anythingToStage} />
+        <BulkButton bulk={unstageAll} offered={anythingStaged} />
+      </div>
+      <BulkSaid bulk={stageAll} />
+      <BulkSaid bulk={unstageAll} />
     </div>
   )
 }
 
-// UnstageAll takes every staged change out of the index, as the terminal's `U`
-// does, at once: staging again undoes it. It says how it went.
-function UnstageAll({ anythingStaged }: { anythingStaged: boolean }) {
-  const outcome = useOutcome()
-  const { state, error, run } = useAsyncAction(unstageEverything, {
-    fallback: 'Nothing was unstaged. Try again, or unstage from a terminal to see why.',
-    done: () => 'Unstaged every change.',
-    onStart: outcome.clear,
-    onDone: outcome.say,
-  })
-  const shortcut = useShortcutProps<HTMLButtonElement>('unstage-all')
+// BulkButton starts a bulk write, offered only while there is something for it
+// to do, and held while it runs.
+function BulkButton({ bulk, offered }: { bulk: BulkWrite; offered: boolean }) {
+  const shortcut = useShortcutProps<HTMLButtonElement>(bulk.words.shortcut)
+  const running = bulk.write.state === 'running'
 
   return (
-    <div className="flex flex-col gap-tight">
-      <Button
-        {...shortcut}
-        variant="secondary"
-        disabled={!anythingStaged}
-        held={state === 'running'}
-        onClick={() => {
-          void run()
-        }}
-        className="self-start"
-      >
-        {state === 'running' ? 'Unstaging…' : 'Unstage all'}
-      </Button>
-      <OutcomeLine said={outcome.said} />
-      {state === 'error' ? <Failure>{error}</Failure> : null}
-    </div>
+    <Button
+      {...shortcut}
+      variant="secondary"
+      disabled={!offered}
+      held={running}
+      onClick={() => {
+        void bulk.write.run()
+      }}
+    >
+      {running ? bulk.words.acting : bulk.words.act}
+    </Button>
+  )
+}
+
+// BulkSaid is how a bulk write went: what it did, or why it could not.
+function BulkSaid({ bulk }: { bulk: BulkWrite }) {
+  return (
+    <>
+      <OutcomeLine said={bulk.outcome.said} />
+      {bulk.write.state === 'error' ? <Failure>{bulk.write.error}</Failure> : null}
+    </>
   )
 }
 
