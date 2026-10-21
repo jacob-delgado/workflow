@@ -560,7 +560,9 @@ paths:
         commit not yet pushed is ever rewritten. The answer is
         newline-delimited JSON, one RunEvent a line: the run as it starts,
         then each line of output as the program writes it, then the run as
-        it ended. The run goes on to its end if the page goes away, and the
+        it ended. The event stream is pushed a frame before the run's last
+        event, so a page that reads the end sees the branch the run left. The
+        run goes on to its end if the page goes away, and the
         event stream's run carries it meanwhile. One run goes at a time, and
         it holds the index, so a stage or a commit asked for meanwhile waits
         for it. A conflict leaves a rebase midway, for a terminal to finish.
@@ -2589,8 +2591,9 @@ paths:
     get:
       operationId: streamEvents
       summary: >-
-        A stream of state snapshots, pushed on connect and then every few
-        seconds, after the view's kept issues when the store holds them.
+        A stream of state snapshots, pushed on connect, again as soon as any
+        write here is answered, and every few seconds after, following the
+        view's kept issues when the store holds them.
       description: >-
         A Server-Sent Events stream (text/event-stream). When the store holds
         the view's issues from an earlier read, the first message is a "seed"
@@ -2599,9 +2602,13 @@ paths:
         other message is a "snapshot" event whose data is a Snapshot: the current issues, branch,
         changes, review, messaging destination, the issues in flight, the
         scope a new commit opens on, and a summary of your Taskwarrior tasks.
-        The first is pushed on connect and another every few seconds after,
-        whether or not anything changed: the upstreams send no notice of a
-        change, so the server reads them again on that cadence. The browser
+        The first is pushed on connect, another as soon as any write here is
+        answered, and another every few seconds after, whether or not
+        anything changed: the upstreams send no notice of a change, so the
+        server reads them again on that cadence. A frame whose read a write
+        landed during is read again rather than sent, so every frame sent
+        after a write's answer begins was read after that write landed. The
+        browser
         subscribes once and updates from the pushes rather than polling. Each
         frame reads git and Taskwarrior afresh. The issues are the tracker's
         answer for the view, searched at most once every timing.ci_interval
@@ -2610,8 +2617,9 @@ paths:
         for the next page and session, as the terminal keeps it, never under
         --dry-run. The review is the forge's answer, read at most
         once every timing.ci_interval (twenty seconds unless set) for every
-        stream together, and again at once for another branch or head commit,
-        or after a pull request is opened here. Neither read holds up a frame
+        stream together, and again at once for another branch or head commit;
+        a pull request opened here is held as the forge's answer from its
+        open, its CI unread until the next read. Neither read holds up a frame
         that has an answer held to show while another stream's read is under
         way. A read that fails keeps the last answer
         for the same branch and head commit, and with no answer to keep reports
