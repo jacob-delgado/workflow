@@ -41,10 +41,10 @@ still under `ui.motion: reduce`.
 ## The screen
 
 Here is the whole loop over a made-up day's work: PROJ-412 picked up, its
-branch made, its changes staged, committed and pushed, its pull request
-opened, and Slack announcing it once CI passes.
+branch made and the issue moved into progress, its changes staged, committed
+and pushed, its pull request opened, and Slack announcing it once CI passes.
 
-{{< image src="images/terminal.gif" alt="The terminal interface running the loop: starting work on PROJ-412 creates its branch, the Commits pane stages its three changes and commits them, the Branch pane pushes the branch, the Review pane opens pull request #128, its code owners proposed as its reviewers, and watches its CI, and the Slack pane, its message shown in Slack's markup, announces it to #dev-workflow once the four checks pass, before the Issues pane is focused again" loading="lazy" >}}
+{{< image src="images/terminal.gif" alt="The terminal interface running the loop: starting work on PROJ-412 creates its branch and moves it to In Progress, the Commits pane stages its three changes and commits them, the Branch pane pushes the branch, the Review pane opens pull request #128, its code owners proposed as its reviewers, and watches its CI, and the Slack pane, its message shown in Slack's markup, announces it to #dev-workflow once the four checks pass, before the Issues pane is focused again" loading="lazy" >}}
 
 The Slack pane shows the announcement as it will be sent, in Slack's own
 markup: a link reads `<url|text>` there, and Slack shows it as just the text
@@ -54,29 +54,29 @@ Its parts, drawn as text, as the loop above ends and the Issues pane is
 focused again:
 
 ```text
- api · ● Issue ━━━━━ ● Branch ━━━━━ ● Commits ━━━━━ ● Review ━━━━━ ● Slack ◐ PROJ-412: … · 1h12m
+ api · ● Issue ━━━━━━━━ ● Branch ━━━━━━━━ ● Commits ━━━━━━━━ ● Review ━━━━━━━━ ● Slack
 ┏━ 1 Issues ━━━━━━━━━━━━━━━┓┌─ Issues ─────────────────────────────────────────────────────────┐
-┃ ▸ ◐◐◐ PROJ-412 In Progr… ┃│ PROJ-412 Redact tokens in the request log                        │
+┃ ▸ ◐○◐ PROJ-412 In Progr… ┃│ PROJ-412 Redact tokens in the request log                        │
 ┃   ◐·◐ PROJ-418 In Revie… ┃│ Bug · High · In Progress                                         │
 ┃   ○○◐ PROJ-408 To Do Ca… ┃│                                                                  │
 ┃   ○·· PROJ-401 To Do Sl… ┃│ Tasks                                                            │
-┃   ○·· PROJ-396 Backlog … ┃│   ◐ #1 PROJ-412: Redact tokens in the request log                │
-┃   ◐·· PROJ-390 In Progr… ┃│   started 1h12m ago                                              │
-┃   ◐·· PROJ-377 In Revie… ┃│                                                                  │
-┡━ 2 Branch ━━━━━━━━━━━━━━━┩│ reported by Ana Lopez                                            │
-│ fix/PROJ-412-redact-tok… ││ assigned to Ana Lopez                                            │
-│ pushed                   ││                                                                  │
-├─ 3 Commits ──────────────┤│ The request log records every header, so a bearer token lands in │
-│ 0 of 0 staged            ││ the log file.                                                    │
-│ 1 commit on this branch  ││                                                                  │
-├─ 4 Review ───────────────┤│ Redact the Authorization header before the line is written.      │
-│ #128 fix(config): redac… ││                                                                  │
-├─ 5 Slack ────────────────┤│ Comments 1 of 1                                                  │
-│ #dev-workflow            ││                                                                  │
-├─ 6 Reviews ──────────────┤│ Sam Ortiz · 2h ago                                               │
-│ 4 waiting                ││ Repro'd on main with --log; the token is in the third line.      │
+┃   ○·· PROJ-396 Backlog … ┃│   ○ #1 PROJ-412: Redact tokens in the request log                │
+┃   ◐·· PROJ-390 In Progr… ┃│                                                                  │
+┃   ◐·· PROJ-377 In Revie… ┃│ reported by Ana Lopez                                            │
+┡━ 2 Branch ━━━━━━━━━━━━━━━┩│ assigned to Ana Lopez                                            │
+│ fix/PROJ-412-redact-tok… ││                                                                  │
+│ pushed                   ││ The request log records every header, so a bearer token lands in │
+├─ 3 Commits ──────────────┤│ the log file.                                                    │
+│ 0 of 0 staged            ││                                                                  │
+│ 1 commit on this branch  ││ Redact the Authorization header before the line is written.      │
+├─ 4 Review ───────────────┤│                                                                  │
+│ #128 fix(config): redac… ││ Comments 1 of 1                                                  │
+├─ 5 Slack ────────────────┤│                                                                  │
+│ #dev-workflow            ││ Sam Ortiz · 2h ago                                               │
+├─ 6 Reviews ──────────────┤│ Repro'd on main with --log; the token is in the third line.      │
+│ 4 waiting                ││                                                                  │
 ├─ 7 Tasks ────────────────┤│                                                                  │
-│ 3 pending · 1 active     ││                                                                  │
+│ 3 pending                ││                                                                  │
 ├─ 8 Summary ──────────────┤│                                                                  │
 │ what you did, read when… ││                                                                  │
 ├─ 9 Repositories ─────────┤│                                                                  │
@@ -94,12 +94,13 @@ focused again:
   is done once the branch names an issue, Commits is in flight while a
   feature branch holds changes not yet committed (changes on the base branch
   leave it not started, since no branch has been made for them), and Review
-  follows the pull request's CI. The last stage is named for your messaging service, as its pane is. It
-  starts with where you work, faint — the repository's name, as `api` at its
-  root, and below it the path within it, as `api/cmd` — which gives way first
-  when the row is short; the
-  [Repositories](#repositories) pane says it in full. At its right end is the
-  [Taskwarrior](https://taskwarrior.org) task you have started and how long it has run. When a stage
+  follows the pull request's CI. The last stage is named for your messaging
+  service, as its pane is. It starts with where you work, faint — the
+  repository's name, as `api` at its root, and below it the path within it,
+  as `api/cmd` — which gives way first when the row is short; the
+  [Repositories](#repositories) pane says it in full. At its right end, while
+  you have one started, is the [Taskwarrior](https://taskwarrior.org) task
+  and how long it has run; the drawing above has none. When a stage
   completes, its rule fills left to right; `ui.motion: reduce` draws it
   filled at once.
 - **The rail** on the left is the nine panes in one box, a light rule between

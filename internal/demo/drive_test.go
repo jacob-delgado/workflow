@@ -107,11 +107,12 @@ func (s *session) press(keys ...string) {
 const recordedSubject = "redact tokens in the request log"
 
 // startWork starts work on the issue the demo opens on, from the Issues
-// pane: the branch it proposes, made.
+// pane: the branch it proposes, made, and the issue moved into progress as
+// the status picker then offers.
 func (s *session) startWork() {
 	s.t.Helper()
 
-	s.press("1", "b", "enter")
+	s.press("1", "b", "enter", "enter")
 }
 
 // commitTheRedaction stages every change from the Commits pane and commits

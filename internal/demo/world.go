@@ -116,7 +116,8 @@ type openedPull struct {
 
 // New is the world at the start of the demo, its clock elapsed on from the
 // demo's epoch and changed by options: the repository on main with the
-// morning's changes not yet committed, and PROJ-412 in progress.
+// morning's changes not yet committed, and PROJ-412 still to do, its task not
+// started.
 func New(elapsed func() time.Duration, options ...Option) *World {
 	issues := issueList()
 	position := make(map[jira.Key]int, len(issues))

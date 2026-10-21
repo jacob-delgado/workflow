@@ -62,7 +62,7 @@ func (w *World) jiraActivity(_ context.Context, start, end time.Time) (jira.Acti
 	return jiraDuring(w.jiraEvents(), start, end), nil
 }
 
-// jiraEvents is what you did to issues: PROJ-412 moved into progress
+// jiraEvents is what you did to issues: PROJ-390 moved into progress
 // yesterday, a comment on PROJ-418, and every move the demo made.
 func (w *World) jiraEvents() []jira.Event {
 	commented := jira.Event{
@@ -70,7 +70,8 @@ func (w *World) jiraEvents() []jira.Event {
 		Summary: "Refuse to start when the config names an unknown forge",
 	}
 	moved := jira.Event{
-		At: yesterday(14, 5), Kind: jira.EventMoved, Key: workedKey, Summary: workedSummary, Detail: statusInProgress,
+		At: yesterday(14, 5), Kind: jira.EventMoved, Key: "PROJ-390",
+		Summary: "Flake in the CI-polling test under the race detector", Detail: statusInProgress,
 	}
 
 	return append([]jira.Event{commented, moved}, locked(w, func() []jira.Event { return slices.Clone(w.moves) })...)

@@ -36,7 +36,7 @@ const (
 // them (mockSnapshot.ts).
 func issueList() []jira.Issue {
 	return []jira.Issue{
-		inProgress(workedKey, workedSummary, typeBug, "High"),
+		notStarted(workedKey, workedSummary, typeBug, "High"),
 		{
 			Key: "PROJ-418", Summary: "Refuse to start when the config names an unknown forge", Status: statusInReview,
 			StatusCategory: jira.CategoryIndeterminate, Type: typeBug, Priority: "High",

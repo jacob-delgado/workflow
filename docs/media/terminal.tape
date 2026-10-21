@@ -10,10 +10,10 @@ Output docs/assets/images/terminal.gif
 # the time zone, and the size. 920 by 520 pixels at 14 pixels a character is
 # a terminal of 96 columns by 30 rows (internal/demo's panes test draws the
 # recorded diff, the proposed branch, the proposed reviewers and the opened
-# pull request's notice at that size): roomier than 80 by 24, the smallest size the interface is
-# designed for, which cuts the detail pane's lines short, and wide enough for
-# the notice's whole line; and 920 pixels is about the width of the docs'
-# column, so the GIF shows one pixel to a pixel there.
+# pull request's notice at that size): roomier than 80 by 24, the smallest
+# size the interface is designed for, which cuts the detail pane's lines
+# short, and wide enough for the notice's whole line; and 920 pixels is about
+# the width of the docs' column, so the GIF shows one pixel to a pixel there.
 Set Shell "bash"
 Set Theme "Catppuccin Mocha"
 Set FontFamily "DejaVu Sans Mono"
@@ -39,12 +39,17 @@ Enter
 Sleep 1.5s
 Show
 
-# The issues assigned to Ana, PROJ-412 selected and in progress.
+# The issues assigned to Ana, PROJ-412 selected and still to do.
 Sleep 2.5s
 
 # Start work on it: workflow proposes the branch, and enter makes it.
 Type "b"
 Sleep 2s
+Enter
+Sleep 1.5s
+
+# The issue was not started, so workflow offers to move it into progress,
+# the move preselected, and enter makes it. Its task is left as it was.
 Enter
 Sleep 1.3s
 
