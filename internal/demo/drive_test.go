@@ -103,11 +103,25 @@ func (s *session) press(keys ...string) {
 	}
 }
 
-// typed sends text as a paste, as a terminal hands one over.
-func (s *session) typed(text string) {
+// recordedSubject is the commit subject the recording types.
+const recordedSubject = "redact tokens in the request log"
+
+// startWork starts work on the issue the demo opens on, from the Issues
+// pane: the branch it proposes, made.
+func (s *session) startWork() {
 	s.t.Helper()
 
-	s.drain(s.deliver(tea.PasteMsg{Content: text}), settleWithin)
+	s.press("1", "b", "enter")
+}
+
+// commitTheRedaction stages every change from the Commits pane and commits
+// them with the recorded subject, pasted as a terminal hands a paste over.
+func (s *session) commitTheRedaction() {
+	s.t.Helper()
+
+	s.press("3", "a", "c")
+	s.drain(s.deliver(tea.PasteMsg{Content: recordedSubject}), settleWithin)
+	s.press("enter")
 }
 
 // wait lets wait pass on the fake clock, firing every wait due in it.

@@ -18,15 +18,13 @@ func TestTheRecordedLoopRunsFromAnIssueToAnAnnouncement(t *testing.T) {
 	demo := opened(t)
 
 	// Act: start work on the selected issue
-	demo.press("1", "b", "enter")
+	demo.startWork()
 
 	// Assert: the branch is made for it
 	requireScreen(t, demo.screen(), "fix/PROJ-412-redact-tokens-in-the-request-log")
 
 	// Act: stage everything and commit it
-	demo.press("3", "a", "c")
-	demo.typed("redact tokens in the request log")
-	demo.press("enter")
+	demo.commitTheRedaction()
 
 	// Assert: the commit is on the branch, and nothing is left to stage
 	requireScreen(t, demo.screen(), "4f2c9e1 fix(config): redact tokens in the request log", "Nothing has changed.")
