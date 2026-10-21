@@ -9,8 +9,8 @@ Output docs/assets/images/terminal.gif
 # font by name (DejaVu Sans Mono draws every box and mark the interface uses),
 # the time zone, and the size. 920 by 520 pixels at 14 pixels a character is
 # a terminal of 96 columns by 30 rows (internal/demo's panes test draws the
-# recorded diff, the proposed branch and the opened pull request's notice at
-# that size): roomier than 80 by 24, the smallest size the interface is
+# recorded diff, the proposed branch, the proposed reviewers and the opened
+# pull request's notice at that size): roomier than 80 by 24, the smallest size the interface is
 # designed for, which cuts the detail pane's lines short, and wide enough for
 # the notice's whole line; and 920 pixels is about the width of the docs'
 # column, so the GIF shows one pixel to a pixel there.
@@ -71,13 +71,14 @@ Sleep 1.8s
 Enter
 Sleep 2.8s
 
-# Open the pull request: its base, then its title from the commit.
+# Open the pull request: its base, then its title from the commit and its
+# reviewers from CODEOWNERS.
 Type "4"
 Sleep 1.8s
 Type "n"
 Sleep 1.8s
 Enter
-Sleep 2.5s
+Sleep 3s
 Enter
 Sleep 1.6s
 

@@ -112,6 +112,22 @@ func TestTheProposedBranchReadsWholeAtTheRecordingsSize(t *testing.T) {
 	requireScreen(t, demo.screen(), "> fix/PROJ-412-redact-tokens-in-the-request-log")
 }
 
+func TestTheProposedReviewersReadWholeAtTheRecordingsSize(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	demo := recorded(t)
+	demo.press("1", "b", "enter", "3", "a", "c")
+	demo.typed("redact tokens in the request log")
+	demo.press("enter", "2", "P", "enter")
+
+	// Act
+	demo.press("4", "n", "enter")
+
+	// Assert
+	requireScreen(t, demo.screen(), "lee.chen, sam.ortiz, acme/platform")
+}
+
 func TestTheNoticeOfTheOpenedPullRequestReadsWholeAtTheRecordingsSize(t *testing.T) {
 	t.Parallel()
 

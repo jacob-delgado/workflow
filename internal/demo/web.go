@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
-	"github.com/jacob-delgado/workflow/internal/codeowners"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -22,15 +21,17 @@ import (
 	"github.com/jacob-delgado/workflow/internal/webserver"
 )
 
-// webStreamInterval is how often the demo's page is pushed a snapshot: every
-// second, so a recording sees each write land within a beat of making it.
+// webStreamInterval is how often the demo's page is pushed a snapshot when
+// nothing was written: each write pushes a frame of its own, so this second
+// only paces CI's checks finishing in a recording.
 const webStreamInterval = time.Second
 
 // workspace is the demo's Slack workspace.
 const workspace = "T0ACME"
 
 // Web is the world as the web server asks of it: the seams the terminal runs
-// over, and those only the page shows — whom the code owners are on Slack,
+// over, the code owners its pull request proposes as reviewers among them,
+// and those only the page shows — whom the code owners are on Slack,
 // the groups an announcement may tag, the issue's follow-ups once a pull
 // request is open, Sam's approval of it, and a month of work behind the
 // Summary's calendar — which the terminal's recording leaves out, so its
@@ -66,32 +67,11 @@ func (w *World) webJira(seam *seams.Jira) {
 	}
 }
 
-// webGit names the files a branch changes, once it has commits, for the code
-// owners they reach, and tells the month's commits with the day's.
+// webGit tells the month's commits with the day's.
 func (w *World) webGit(seam *seams.Git) {
-	seam.ChangedPaths = func(context.Context, string) ([]string, error) { return w.changedPaths(), nil }
-	seam.CodeOwnersAt = func(context.Context, string) (codeowners.File, bool, error) {
-		return codeowners.Parse(apiCodeOwners, codeowners.GitHub), true, nil
-	}
 	seam.CommitsBetween = func(_ context.Context, start, end time.Time) []loop.RepositoryCommits {
 		return commitsDuring(append(monthsCommits(), w.datedCommits()...), start, end)
 	}
-}
-
-// apiCodeOwners is api's CODEOWNERS: the api reviewers own everything, Sam
-// the configuration, and Lee with the platform team the wiring.
-const apiCodeOwners = "* @acme/api-reviewers\n/internal/config/ @sam.ortiz\n" +
-	"/internal/wiring/ @lee.chen @acme/platform\n"
-
-// changedPaths is the redaction's files once the branch checked out has a
-// commit past main, and none before.
-func (w *World) changedPaths() []string {
-	committed := locked(w, func() bool { return len(w.repo.branches[w.repo.current].commits) > 0 })
-	if !committed {
-		return nil
-	}
-
-	return []string{reqlogPath, redactPath, reqlogTestPath}
 }
 
 // webForge has Sam approve the pull request opened, and tells the month's

@@ -8,6 +8,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/jacob-delgado/workflow/internal/codeowners"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/seams"
 )
@@ -139,6 +140,10 @@ func (w *World) gitDeps() seams.Git {
 		Branches: w.branches,
 		// The Summary's commits.
 		CommitsBetween: w.commitsBetween,
+		// The code owners of the branch's changes, which a pull request
+		// proposes as its reviewers.
+		ChangedPaths: w.changedPaths,
+		CodeOwnersAt: codeOwnersAt,
 		// What the demo does to the repository.
 		RemoteBranches: w.remoteBranches,
 		CreateBranch:   w.createBranch,
@@ -147,6 +152,27 @@ func (w *World) gitDeps() seams.Git {
 		Commit:         w.commit,
 		Push:           w.push,
 	}
+}
+
+// apiCodeOwners is api's CODEOWNERS: the api reviewers own everything, Sam
+// the configuration, and Lee with the platform team the wiring.
+const apiCodeOwners = "* @acme/api-reviewers\n/internal/config/ @sam.ortiz\n" +
+	"/internal/wiring/ @lee.chen @acme/platform\n"
+
+// codeOwnersAt is api's CODEOWNERS, at any ref.
+func codeOwnersAt(context.Context, string) (codeowners.File, bool, error) {
+	return codeowners.Parse(apiCodeOwners, codeowners.GitHub), true, nil
+}
+
+// changedPaths is the redaction's files once the branch checked out has a
+// commit past main, and none before.
+func (w *World) changedPaths(context.Context, string) ([]string, error) {
+	committed := locked(w, func() bool { return len(w.repo.branches[w.repo.current].commits) > 0 })
+	if !committed {
+		return nil, nil
+	}
+
+	return []string{reqlogPath, redactPath, reqlogTestPath}, nil
 }
 
 // branch is where the checked-out branch stands against main.

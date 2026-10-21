@@ -21,7 +21,7 @@ issue, start a branch for it, open the pull or merge request, and tell the team
 in Slack, Teams or Discord, or through a plain webhook — without leaving the
 keyboard or reconstructing the same context in three browser tabs.
 
-![The terminal interface running the loop: starting work on PROJ-412 creates its branch, its changes are staged, committed and pushed, pull request #128 is opened, and Slack announces it once CI passes](docs/assets/images/terminal.gif)
+![The terminal interface running the loop: starting work on PROJ-412 creates its branch, its changes are staged, committed and pushed, pull request #128 is opened with its code owners proposed as reviewers, and Slack announces it once CI passes](docs/assets/images/terminal.gif)
 
 ## Status
 
