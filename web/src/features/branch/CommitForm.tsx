@@ -127,16 +127,17 @@ export function CommitForm({ canCommit, waiting, suggestedScope, convention }: C
   )
 }
 
-// nextMessage is what the form holds once a commit lands: a type the
-// convention allows, not the static "fix" default, which a team that excludes
-// it would leave selected and the server reject; and the scope just used,
-// which a store that keeps it suggests from now on, or the suggestion a blank
-// scope left standing.
+// nextMessage is what the form holds once a commit lands: the type just
+// committed with, while the convention still allows it, as a run of commits
+// of one kind goes on in it, and else the convention's first, never the
+// static "fix" default, which a team that excludes it would leave selected
+// and the server reject; and the scope just used, which a store that keeps it
+// suggests from now on, or the suggestion a blank scope left standing.
 function nextMessage(used: CommitFields, types: string[], suggested: string): CommitFields {
   const scope = used.scope.trim()
 
   return {
-    type: types[0] ?? 'fix',
+    type: types.includes(used.type) ? used.type : (types[0] ?? 'fix'),
     scope: scope === '' ? suggested : scope,
     subject: '',
     body: '',
@@ -234,12 +235,13 @@ function MessageFields({
   )
 }
 
-// HeaderCount is how long the header the fields make is, against the longest
-// the convention allows, as the terminal's composer counts it while it is
-// typed: the type, scope and breaking mark count with the subject. It is the
-// subject's description, read when the field is, rather than a live region
-// that would speak every keystroke; past the limit, which the server refuses,
-// it takes the failure light.
+// HeaderCount is the header the fields make, and how long it is against the
+// longest the convention allows, as the terminal's composer shows both while
+// it is typed: the type, scope and breaking mark count with the subject, so
+// the header is shown beside the count it makes. It is the subject's
+// description, read when the field is, rather than a live region that would
+// speak every keystroke; past the limit, which the server refuses, it takes
+// the failure light.
 function HeaderCount({
   id,
   control,
@@ -250,18 +252,19 @@ function HeaderCount({
   limit: number
 }) {
   const fields = useWatch({ control })
+  const made = header({ ...blankMessage, ...fields })
   // In code points, as the server counts a header's runes.
-  const length = Array.from(header({ ...blankMessage, ...fields })).length
+  const length = Array.from(made).length
 
   return (
     <p
       id={id}
       className={cn(
-        'text-xs tabular-nums',
+        'text-xs tabular-nums wrap-anywhere',
         length > limit ? 'text-destructive' : 'text-muted-foreground',
       )}
     >
-      {`${String(length)}/${String(limit)}`}
+      {`${made.trimEnd()} ${String(length)}/${String(limit)}`}
     </p>
   )
 }

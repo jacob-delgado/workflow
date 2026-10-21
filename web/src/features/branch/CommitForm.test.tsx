@@ -216,13 +216,13 @@ test('counts the header against the subject limit as the subject is typed', asyn
   await user.type(subject, 'redact')
 
   // Assert: "fix: redact" is 11 of the 20
-  expect(screen.getByText('11/20')).toBeTruthy()
+  expect(screen.getByText('fix: redact 11/20')).toBeTruthy()
 
   // Act: type further
   await user.type(subject, ' tokens')
 
   // Assert: "fix: redact tokens" is 18
-  expect(screen.getByText('18/20')).toBeTruthy()
+  expect(screen.getByText('fix: redact tokens 18/20')).toBeTruthy()
 })
 
 test('an empty subject is refused beside it, and nothing is committed', async () => {
@@ -241,4 +241,34 @@ test('an empty subject is refused beside it, and nothing is committed', async ()
   })
   expect(subject.getAttribute('aria-invalid')).toBe('true')
   expect(mockCommit).not.toHaveBeenCalled()
+})
+
+test('keeps the type just committed with for the next commit', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  render(<CommitForm canCommit suggestedScope="" convention={conventional} />)
+  await user.selectOptions(screen.getByRole('combobox', { name: 'Type' }), 'docs')
+  await user.type(screen.getByLabelText('Subject'), 'say why')
+
+  // Act
+  await user.click(screen.getByRole('button', { name: /commit staged changes/i }))
+
+  // Assert
+  await waitFor(() => {
+    expect(screen.getByLabelText<HTMLInputElement>('Subject').value).toBe('')
+  })
+  expect(screen.getByRole<HTMLSelectElement>('combobox', { name: 'Type' }).value).toBe('docs')
+})
+
+test('shows the header it counts beside the count', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  render(<CommitForm canCommit suggestedScope="" convention={conventional} />)
+
+  // Act
+  await user.type(screen.getByLabelText('Scope (optional)'), 'config')
+
+  // Assert
+  // As the terminal's composer shows it: the header so far, then its length.
+  expect(screen.getByText('fix(config): 13/72')).toBeTruthy()
 })
