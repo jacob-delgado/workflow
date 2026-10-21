@@ -41,6 +41,10 @@ type forgeCache struct {
 	reading map[forgeKey]chan struct{}
 	// dropped counts the drops, so a read that began before one lands due.
 	dropped int
+	// due marks a held answer a drop came during the read of: it says less
+	// than the forge does now, so no frame is served it, even while the next
+	// read is under way.
+	due bool
 }
 
 // forgeKey is what a forge answer was read for: a branch, by name, at a head.
@@ -112,14 +116,14 @@ func (s *server) forgeReview(ctx context.Context, branch gitrepo.Branch) (forgeR
 }
 
 // serve answers what the cache holds for key while it is fresh, and while a
-// read of key is under way; it hands back that read to wait for when nothing
-// is held for key, and otherwise starts the caller's own read, which land
-// ends.
+// read of key is under way, unless a drop came during the read it holds; it
+// hands back that read to wait for when nothing it may serve is held for key,
+// and otherwise starts the caller's own read, which land ends.
 func (c *forgeCache) serve(key forgeKey, now time.Time, interval time.Duration) turn[forgeRead] {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	held := c.held && c.key == key
+	held := c.held && c.key == key && !c.due
 	landing, reading := c.reading[key]
 
 	if held && (reading || now.Sub(c.readAt) < interval) {
@@ -158,11 +162,7 @@ func (c *forgeCache) land(key forgeKey, dropped int, now time.Time, read forgeRe
 		return c.read, c.failed
 	}
 
-	c.readAt, c.failed = now, err
-
-	if c.dropped != dropped {
-		c.readAt = time.Time{}
-	}
+	c.readAt, c.failed, c.due = now, err, c.dropped != dropped
 
 	if err != nil && held {
 		return c.read, err
@@ -196,7 +196,7 @@ func (c *forgeCache) seed(key forgeKey, now time.Time, read forgeRead) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.held, c.key, c.readAt, c.read, c.failed = true, key, now, read, nil
+	c.held, c.key, c.readAt, c.read, c.failed, c.due = true, key, now, read, nil, false
 	c.dropped++
 }
 
@@ -234,6 +234,10 @@ type assignedCache struct {
 	reading chan struct{}
 	// dropped counts the drops, so an ask that began before one lands due.
 	dropped int
+	// due marks a held answer a drop came during the ask of: it says less
+	// than the tracker does now, so no frame is served it, even while the
+	// next ask is under way.
+	due bool
 }
 
 // yours is which of keys are yours by the last answer: those it said are, and
@@ -284,15 +288,16 @@ func (s *server) yourIssues(ctx context.Context, keys []jira.Key) map[jira.Key]b
 }
 
 // serve answers which of asked are yours while the answer held was asked of
-// the same keys within assignedInterval, and while an ask is under way; it
-// hands back that ask to wait for before any has landed, and otherwise
-// starts the caller's own ask, which land ends.
+// the same keys within assignedInterval, and while an ask is under way,
+// unless a drop came during the ask it holds; it hands back that ask to wait
+// for when no answer it may serve is held, and otherwise starts the caller's
+// own ask, which land ends.
 func (c *assignedCache) serve(asked []jira.Key, now time.Time) turn[map[jira.Key]bool] {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	fresh := slices.Equal(c.keys, asked) && now.Sub(c.readAt) < assignedInterval
-	if c.held && (c.reading != nil || fresh) {
+	if c.held && !c.due && (c.reading != nil || fresh) {
 		return turn[map[jira.Key]bool]{answered: true, value: c.yours(asked)}
 	}
 
@@ -322,11 +327,7 @@ func (c *assignedCache) land(asked []jira.Key, dropped int, now time.Time, answe
 
 	close(c.reading)
 	c.reading = nil
-	c.held, c.keys, c.readAt = true, asked, now
-
-	if c.dropped != dropped {
-		c.readAt = time.Time{}
-	}
+	c.held, c.keys, c.readAt, c.due = true, asked, now, c.dropped != dropped
 
 	if answer.failed == nil {
 		c.mine, c.answered = answer.mine, asked
