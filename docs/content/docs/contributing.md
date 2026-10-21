@@ -53,18 +53,17 @@ It builds the demo, a made-up day's work the terminal runs over
 [VHS](https://github.com/charmbracelet/vhs) into `terminal.gif`, and has
 Playwright screenshot each section the web page describes, served over the
 same demo by `cmd/demo -web`, and film the whole loop on it, which ffmpeg
-encodes into `web-walkthrough.webp`. VHS comes from `mise install`, or is built into `tmp/` where mise
-cannot install it. ttyd is checked against the SHA-256 that
-`docs/media/tool-checksums.txt` pins before the task runs it, since mise
-installs it unchecked: the one `mise install` puts on your PATH is used when
-it matches, the task stops on one that does not, and with none it downloads
-ttyd into `tmp/` and checks that. Chromium, which films the terminal, and
-ffmpeg, which encodes it, must already be on your machine: the task films
-with the Chromium `PLAYWRIGHT_CHROMIUM_EXECUTABLE` names, or else the
-`chromium` on your PATH, and refuses to run without one. It fails when an
-image is past its budget, 300 KiB a screenshot, 2 MiB the terminal's GIF and
-4 MiB the walkthrough's WebP, and refuses an ffmpeg that cannot write an
-animated WebP.
+encodes into `web-walkthrough.webp`. VHS comes from `mise install`, or is built
+into `tmp/` where mise cannot install it. ttyd is checked against the SHA-256
+that `docs/media/tool-checksums.txt` pins before the task runs it, since mise
+installs it unchecked: the one `mise install` puts on your PATH is used when it
+matches, the task stops on one that does not, and with none it downloads ttyd
+into `tmp/` and checks that. Chromium, which films the terminal, and ffmpeg,
+which encodes it, must already be on your machine: the task films with the
+Chromium `PLAYWRIGHT_CHROMIUM_EXECUTABLE` names, or else the `chromium` on your
+PATH, and refuses to run without one. It fails when an image is past its budget,
+300 KiB a screenshot, 2 MiB the terminal's GIF and 4 MiB the walkthrough's WebP,
+and refuses an ffmpeg that cannot write an animated WebP.
 
 Commit the change the images are to show first: the task refuses to run
 while the demo, the interface, the tape or the web page has changes git has
