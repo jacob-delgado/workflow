@@ -33,7 +33,7 @@ const (
 )
 
 // issueList is the issues the demo's view lists, as the web's mock lists
-// them (mockSnapshot.ts).
+// them (mockSnapshot.ts), but with PROJ-412 at To Do, not yet started.
 func issueList() []jira.Issue {
 	return []jira.Issue{
 		notStarted(workedKey, workedSummary, typeBug, "High"),
