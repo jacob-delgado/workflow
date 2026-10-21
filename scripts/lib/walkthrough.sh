@@ -18,8 +18,9 @@ readonly stall_ms=250
 # refuse_busy refuses to film while the machine is busy with something else:
 # its load over the last minute past all but one of its processors, or a gate
 # or a Playwright run going. A busy machine draws frames late, and a late
-# frame is a jump in the film. DOCS_MEDIA_LOADAVG names the load average to
-# read, /proc/loadavg by default.
+# frame is a jump in the film. It runs before the script's own setup, whose
+# cold build of VHS would count as the machine being busy. DOCS_MEDIA_LOADAVG
+# names the load average to read, /proc/loadavg by default.
 refuse_busy() {
   local load cpus running
   read -r load _ <"${DOCS_MEDIA_LOADAVG:-/proc/loadavg}" || refuse "cannot read the machine's load"

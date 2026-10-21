@@ -421,10 +421,10 @@ refuse_no_webp
 link_chromium
 PATH="${tools}/bin:${PATH}"
 mkdir -p "${tools}/bin" "${images}"
-provide_vhs
-provide_ttyd
 clean_inputs
 refuse_busy
+provide_vhs
+provide_ttyd
 shown="$(shown_ms)"
 
 started="${tools}/started"

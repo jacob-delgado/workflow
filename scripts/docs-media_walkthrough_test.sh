@@ -115,6 +115,29 @@ printf '3.01 2.00 1.00 1/100 1\n' >"${workdir}/busy-load"
 expect_output 2 "a load past all but one of the machine's processors" \
   "the machine is busy, a load of 3.01 on 4 processors" media "${root}" "${all}" "${with_browser}" \
   "DOCS_MEDIA_LOADAVG=${workdir}/busy-load"
+
+# not_built runs the script and fails when it built VHS, keeping its exit
+# status otherwise.
+#   not_built <root> <dirs> [NAME=value...]
+not_built() {
+  local status out="${workdir}/not-built.out"
+  set +e
+  media "$@" >"${out}" 2>&1
+  status=$?
+  set -e
+  cat "${out}"
+  if grep -q 'go install' "${out}"; then
+    echo "VHS was built before the machine's load was read"
+    exit 9
+  fi
+  exit "${status}"
+}
+
+# The load is read before the script's own setup, building VHS cold among it,
+# so the load refused is other work's, not the script's.
+root="$(fixture busy-no-vhs)"
+expect_output 2 "a busy machine refused before VHS is built" "the machine is busy" \
+  not_built "${root}" "stubs curl ttyd ffmpeg" "${with_browser}" "DOCS_MEDIA_LOADAVG=${workdir}/busy-load"
 printf '3.00 2.00 1.00 1/100 1\n' >"${workdir}/full-load"
 expect_exit pass "a load of all but one of the machine's processors" media "${root}" "${all}" "${with_browser}" \
   "DOCS_MEDIA_LOADAVG=${workdir}/full-load"
