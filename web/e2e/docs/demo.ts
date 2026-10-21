@@ -82,12 +82,35 @@ async function stop(child: ChildProcess): Promise<void> {
   clearTimeout(late)
 }
 
-// launch starts the demo binary the docs config names, on a port the system
-// chooses, in a home of its own with nothing of the machine's but PATH, and
-// in UTC, as the screenshots read the time.
+// World is how a test's demo departs from the demo as it begins: holdCI
+// keeps its end-to-end check running, and autoAnnounce, when false, arms no
+// announcement as a pull request opens.
+interface World {
+  holdCI: boolean
+  autoAnnounce: boolean
+}
+
+// demoArgs are the demo's arguments for a world: the web server on a port
+// the system chooses, naming the build version, and a flag for each way the
+// world departs from the demo as it begins.
+function demoArgs(version: string, world: World): string[] {
+  return [
+    '-web',
+    '-port',
+    '0',
+    '-version',
+    version,
+    ...(world.holdCI ? ['-hold-ci'] : []),
+    ...(world.autoAnnounce ? [] : ['-no-auto-announce']),
+  ]
+}
+
+// launch starts the demo binary the docs config names over a world, in a
+// home of its own with nothing of the machine's but PATH, and in UTC, as the
+// screenshots read the time.
 async function launch(
   testInfo: TestInfo,
-  holdCI: boolean,
+  world: World,
 ): Promise<{ child: ChildProcess; home: string }> {
   const binary = metadataOf(testInfo, 'demo')
   if (!existsSync(binary)) {
@@ -95,8 +118,8 @@ async function launch(
   }
 
   const home = await mkdtemp(join(tmpdir(), 'workflow-demo-'))
-  const args = ['-web', '-port', '0', '-version', metadataOf(testInfo, 'version')]
-  const child = spawn(binary, holdCI ? [...args, '-hold-ci'] : args, {
+  const args = demoArgs(metadataOf(testInfo, 'version'), world)
+  const child = spawn(binary, args, {
     env: { PATH: process.env.PATH, HOME: home, TZ: 'UTC' },
     stdio: ['ignore', 'ignore', 'pipe'],
   })
@@ -117,12 +140,15 @@ async function pinSession(page: Page, session: string): Promise<void> {
 
 // test is Playwright's, with a demo served for each test, the page's base
 // address at it and its session pinned. holdCI keeps the demo's end-to-end
-// check running, for a screen that shows CI part way. Each fixture hands its
-// value on through provide, Playwright's use, named apart from React's.
-export const test = playwright.extend<{ holdCI: boolean; demo: Demo }>({
+// check running, for a screen that shows CI part way, and autoAnnounce false
+// arms no announcement as #128 opens, for a screen of the composer alone.
+// Each fixture hands its value on through provide, Playwright's use, named
+// apart from React's.
+export const test = playwright.extend<World & { demo: Demo }>({
   holdCI: [false, { option: true }],
-  demo: async ({ holdCI }, provide, testInfo) => {
-    const { child, home } = await launch(testInfo, holdCI)
+  autoAnnounce: [true, { option: true }],
+  demo: async ({ holdCI, autoAnnounce }, provide, testInfo) => {
+    const { child, home } = await launch(testInfo, { holdCI, autoAnnounce })
     const said: string[] = []
     try {
       const address = await served(child, said)

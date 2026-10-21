@@ -29,17 +29,18 @@ import {
 const size = { width: 1440, height }
 
 // Screen is a screenshot: what it shows, its file's name, the heading of the
-// section it is in, the state the loop is taken to first from the cockpit,
-// how the screen is then opened, and what must show whole in it, uncut by an
-// edge of the window or of its pane. holdCI keeps the demo's end-to-end check
-// running, for a screen that shows CI part way through.
+// section it is in, the world its demo departs into, the state the loop is
+// taken to first from the cockpit, how the screen is then opened, what it
+// must show for the story the docs tell there, and what must show whole in
+// it, uncut by an edge of the window or of its pane.
 interface Screen {
   name: string
   file: string
   heading: string
-  holdCI: boolean
+  world: { holdCI: boolean; autoAnnounce: boolean }
   arrange: (page: Page) => Promise<void>
   open: (page: Page) => Promise<void>
+  agrees: (page: Page) => Promise<void>
   whole: (page: Page) => Locator[]
 }
 
@@ -50,49 +51,84 @@ function section(name: string): Screen {
     name,
     file: name.toLowerCase(),
     heading: name,
-    holdCI: false,
+    world: { holdCI: false, autoAnnounce: true },
     arrange: () => Promise.resolve(),
     open: (page) => openSection(page, name),
+    agrees: () => Promise.resolve(),
     whole: (page) => [page.getByRole('heading', { level: 1, name })],
   }
 }
 
-// openedWithCIRunning takes the loop to #128 open, three of its four checks
-// passed and the end-to-end one held running.
+// hide takes what matches a selector out of the page, leaving its space to
+// what follows: display, not visibility, since a visibility what it holds
+// inherits would still be mid-transition when the edges are checked.
+async function hide(page: Page, selector: string): Promise<void> {
+  await page.addStyleTag({ content: `${selector} { display: none; }` })
+}
+
+// startedInProgress takes the loop to work started on PROJ-412 and the
+// issue moved into progress, as the story has it once work begins.
+async function startedInProgress(page: Page): Promise<void> {
+  await startWork(page, brisk)
+  await moveIntoProgress(page, brisk)
+}
+
+// openedWithCIRunning takes the loop to #128 open, PROJ-412 in progress,
+// three of its four checks passed and the end-to-end one held running.
 async function openedWithCIRunning(page: Page): Promise<void> {
   await toOpenPull(page, brisk)
   await ciReads(page, brisk, 3)
 }
 
-// issues is the Issues section with the selected issue's detail scrolled to
-// its work story, so the whole of it, the start it offers and every stage
-// with its line, fits the window's height. The key, title, type and people
-// it scrolls past are the selected row's beside it; nothing in the image
+// toTheTop scrolls the pane around an element, the nearest that scrolls,
+// until the element's top meets the pane's own, past the scroll padding
+// scrollIntoView would leave above it.
+async function toTheTop(target: Locator): Promise<void> {
+  await target.evaluate((element) => {
+    let pane = element.parentElement
+    while (pane !== null && !/^(auto|scroll)$/.test(getComputedStyle(pane).overflowY)) {
+      pane = pane.parentElement
+    }
+    pane?.scrollBy({ top: element.getBoundingClientRect().top - pane.getBoundingClientRect().top })
+  })
+}
+
+// issues is the Issues section on the demo as it begins, PROJ-412 at To Do
+// and its work not started, with the detail scrolled until its Open in Jira
+// link meets the pane's top, so its actions, and below them the whole work
+// story, the start it offers and every stage with its line, show whole. The
+// key, title and type it scrolls past are the selected row's beside it; the
+// reporter and assignee are scrolled out of view, and the Tasks card below
+// the story is out of view too: the pane is too short to hold the story whole
+// with either, and the story is what the screen is for. Nothing in the image
 // shows the detail scrolled, so the page's prose beside it says so.
 const issues: Screen = {
   ...section('Issues'),
   open: async (page) => {
     await openSection(page, 'Issues')
-    await workStory(page).evaluate((story) => {
-      story.scrollIntoView({ block: 'start' })
-    })
+    await toTheTop(page.getByRole('article').getByRole('link', { name: /open in jira/i }))
   },
-  whole: (page) => [workStory(page).getByRole('listitem').last()],
+  agrees: async (page) => {
+    const detail = page.getByRole('article')
+    await expect(detail.getByText('To Do', { exact: true }).first()).toBeVisible()
+    await expect(detail.getByRole('button', { name: 'Start work', exact: true })).toBeVisible()
+  },
+  whole: (page) => [
+    page.getByRole('button', { name: 'Change status', exact: true }),
+    workStory(page),
+  ],
 }
 
 // branch is the Branch section from its heading down to the working tree's
-// last change, its Show diff button included, once work on PROJ-412 has two
-// commits, the older pushed, and one change still to commit. The commit form
-// below it, which the page's Branch prose describes, begins just above the
-// window's edge, so it is taken out, leaving the space below blank, rather
-// than shown cut through its labels: display, not visibility, since a
-// visibility the labels inherit would still be mid-transition when the edge
-// is checked.
+// last change, its Show diff button included, once work on PROJ-412, moved
+// into progress, has two commits, the older pushed, and one change still to
+// commit. The commit form below it, which the page's Branch prose describes,
+// begins just above the window's edge, so it is taken out, leaving the space
+// below blank, rather than shown cut through its labels.
 const branch: Screen = {
   ...section('Branch'),
   arrange: async (page) => {
-    await startWork(page, brisk)
-    await moveIntoProgress(page, brisk)
+    await startedInProgress(page)
     await goTo(page, brisk, 'Branch')
     await stage(page, brisk, 'internal/wiring/reqlog.go')
     await commit(page, brisk, 'redact tokens in the request log')
@@ -102,38 +138,90 @@ const branch: Screen = {
   },
   open: async (page) => {
     await openSection(page, 'Branch')
-    await page.addStyleTag({
-      content: 'form[aria-label="Commit staged changes"] { display: none; }',
-    })
+    await hide(page, 'form[aria-label="Commit staged changes"]')
   },
   whole: (page) => [
     page.getByRole('region', { name: 'Working tree' }).getByRole('listitem').last(),
   ],
 }
 
-// review is the Review section once #128 is open, three of its checks passed
-// and the end-to-end one still running.
-const review: Screen = {
-  ...section('Review'),
-  holdCI: true,
-  arrange: openedWithCIRunning,
+// moveToReview is the offer #128 opening leaves on the Review section: move
+// PROJ-412, in progress, on to In Review.
+function moveToReview(page: Page): Locator {
+  return page.getByRole('button', { name: 'Move PROJ-412 to In Review', exact: true })
 }
 
-// announcement is the Slack section with the announcement preview open while
-// CI still runs, the preview whole and, under it, the announcement armed when
-// #128 opened, waiting for CI to pass. The Channels list below begins under
-// the window's edge.
+// review is the Review section once #128 is open, PROJ-412 in progress and
+// offered on to In Review, three of its checks passed and the end-to-end one
+// still running.
+const review: Screen = {
+  ...section('Review'),
+  world: { holdCI: true, autoAnnounce: true },
+  arrange: openedWithCIRunning,
+  whole: (page) => [page.getByRole('heading', { level: 1, name: 'Review' }), moveToReview(page)],
+}
+
+// announcement is the Slack section with the announcement composer open while
+// CI still runs, on a demo that arms no announcement as #128 opens, so the
+// composer is all the section offers: the preview whole, with Announce when
+// CI passes under it. The Channels list below it, which the composer's own
+// channel choice repeats, is taken out, so it cannot straddle the window's
+// edge.
 const announcement: Screen = {
   name: 'the Slack announcement preview',
   file: 'announcement',
   heading: 'Slack',
-  holdCI: true,
+  world: { holdCI: true, autoAnnounce: false },
   arrange: openedWithCIRunning,
-  open: openAnnouncementPreview,
+  open: async (page) => {
+    await openAnnouncementPreview(page)
+    await hide(page, 'section[aria-labelledby="channels-heading"]')
+  },
+  agrees: async (page) => {
+    await expect(page.getByText(/Armed when/)).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Stop waiting' })).toHaveCount(0)
+  },
   whole: (page) => [
     page.getByRole('group', { name: 'Announcement preview' }),
-    page.getByRole('button', { name: 'Stop waiting' }),
+    page.getByRole('button', { name: 'Announce when CI passes', exact: true }),
   ],
+}
+
+// summary is the Summary section once work on PROJ-412 has started and the
+// issue moved into progress.
+const summary: Screen = {
+  ...section('Summary'),
+  arrange: startedInProgress,
+}
+
+// firstTask is the first task the Tasks section lists, under its first
+// heading when it heads its lists.
+function firstTask(page: Page): Locator {
+  return page
+    .getByRole('main')
+    .getByRole('list', { name: /^(For my issues|Tasks)$/ })
+    .first()
+    .getByRole('button')
+    .first()
+}
+
+// tasks is the Tasks section once work on PROJ-412 has started and the issue
+// moved into progress: its task, not started, listed first and selected, its
+// detail beside the list. The lines that annotate and modify it, which the
+// page's Tasks prose describes, end the detail at the pane's bottom, so they
+// are taken out rather than shown cut through.
+const tasks: Screen = {
+  ...section('Tasks'),
+  arrange: startedInProgress,
+  open: async (page) => {
+    await openSection(page, 'Tasks')
+    await hide(page, 'article[aria-labelledby="task-detail-heading"] > div:last-child')
+  },
+  agrees: async (page) => {
+    await expect(firstTask(page)).toHaveAttribute('aria-current', 'true')
+    await expect(firstTask(page)).toHaveAccessibleName(/^pending\b.*PROJ-412/)
+  },
+  whole: (page) => [page.getByRole('heading', { level: 1, name: 'Tasks' }), firstTask(page)],
 }
 
 // screens are the screenshots the docs show.
@@ -144,8 +232,8 @@ const screens: Screen[] = [
   branch,
   review,
   announcement,
-  section('Summary'),
-  section('Tasks'),
+  summary,
+  tasks,
 ]
 
 // imagePath is where the screenshot of a file's name goes: the directory the
@@ -160,14 +248,14 @@ function imagePath(testInfo: TestInfo, file: string): string {
 }
 
 // The page's Content-Security-Policy refuses the <style> element addStyleTag
-// adds, and the commit form the Branch screenshot hides is drawn anew as the
-// stream updates, so a style set on the element itself would not last. The
-// screenshots are of the app's look, which the policy does not change.
+// adds, and what a screenshot hides is drawn anew as the stream updates, so a
+// style set on the element itself would not last. The screenshots are of the
+// app's look, which the policy does not change.
 test.use({ bypassCSP: true })
 
 for (const screen of screens) {
   test.describe(screen.name, () => {
-    test.use({ holdCI: screen.holdCI })
+    test.use(screen.world)
 
     test(`screenshots ${screen.name} for the docs`, async ({ page }, testInfo) => {
       // Arrange
@@ -183,6 +271,7 @@ for (const screen of screens) {
       // and the capture finishes any transition first, as screens.spec.ts
       // says.
       await expect(page.getByRole('heading', { level: 1, name: screen.heading })).toBeInViewport()
+      await screen.agrees(page)
       for (const whole of screen.whole(page)) {
         await expect(whole).toBeInViewport({ ratio: 1 })
       }

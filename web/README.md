@@ -76,22 +76,22 @@ listening on port 13580. `corepack yarn media` writes the docs' screenshots
 into `docs/assets/images`: `e2e/docs/media.spec.ts`, in a run of its own
 (`playwright.docs.config.ts`), serves each of six screens from a demo of its
 own, the real `--web` server over the made-up world `cmd/demo -web` runs
-(`e2e/docs/demo.ts`, on a port the system picks), drives the page to the
+(`e2e/docs/demo.ts`, on a port the system picks, its CI held running or
+its auto-announce off where a screen needs it), drives the page to the
 state the docs describe, and takes it in the dark theme at 1440 by 900, in
 UTC and under a held clock, once its heading is up and nothing is still
 reading. The same run films the walkthrough (`e2e/docs/walkthrough.spec.ts`,
 the `docs-walkthrough` project): the whole loop at 1280 by 800, at a
-person's pace, a pointer gliding to each control, field and choice before
-it presses, types or chooses (`e2e/docs/pointer.ts`) and parked, before each
-step's keyframe, where it covers no text, control or what the step shows
-(`e2e/docs/cover.ts`), from an issue picked to its announcement posted
-once CI passed. It starts recording only once the page is live, the stream
-connected, the header and rail filled in and nothing reading or moving, so
-it never opens on a blank or half-drawn page. It writes each frame Chromium
-draws, every other one, as a PNG with the time it was
-drawn (DevTools' own screencast, since Playwright's gives only JPEG), a
-keyframe for each step, and the ffmpeg list and manifest
-`scripts/docs-media.sh` encodes and checks the WebP by, into
+person's pace, a pointer gliding to each control, field and choice before it
+presses, types or chooses (`e2e/docs/pointer.ts`) and parked, before each step's
+keyframe, where it covers no text, control or what the step shows
+(`e2e/docs/cover.ts`), from an issue picked to its announcement posted once CI
+passed. It starts recording only once the page is live, the stream connected,
+the header and rail filled in and nothing reading or moving, so it never opens
+on a blank or half-drawn page. It writes each frame Chromium draws, every other
+one, as a PNG with the time it was drawn (DevTools' own screencast, since
+Playwright's gives only JPEG), a keyframe for each step, and the ffmpeg list and
+manifest `scripts/docs-media.sh` encodes and checks the WebP by, into
 `tmp/walkthrough` (`e2e/docs/film.ts`), and fails when a glide, typed text
 or scroll goes more than 250 ms without a frame. Once the WebP is encoded,
 `corepack yarn media:check` (`e2e/docs/fidelity.spec.ts`, the
@@ -147,10 +147,10 @@ runs.
 - **`@types/node` 26 over mise's Node 24** is left as is on purpose. It types
   only what `tsconfig.node.json` includes — the Vite, Vitest, Playwright and
   openapi-ts configs and `e2e/` — which call only Node APIs long present on
-  24: `node:url`'s `fileURLToPath`, `node:os`'s `tmpdir`, `node:path`'s
-  `join`, `node:child_process`'s `execFileSync` and `spawn`, `node:readline`'s
-  `createInterface`, `node:fs`'s `existsSync`, `readFileSync`, `writeFileSync`,
-  `mkdirSync` and `rmSync`,
-  `node:fs/promises`' `mkdtemp` and `rm`, and `process.env`. A Node
-  26-only call there would type-check and then fail on 24; pinning `^24`, a
-  downgrade, would close that.
+  24: `node:os`'s `tmpdir`, `node:path`'s `dirname` and `join`,
+  `node:child_process`'s `execFileSync` and `spawn`, `node:readline`'s
+  `createInterface`, `node:fs`'s `existsSync`, `mkdirSync`, `mkdtempSync`,
+  `readFileSync`, `rmSync` and `writeFileSync`, `node:fs/promises`' `mkdtemp`,
+  `readFile` and `rm`, and `process`'s `env`, `on` and `stdin`. A Node 26-only
+  call there would type-check and then fail on 24; pinning `^24`, a downgrade,
+  would close that.

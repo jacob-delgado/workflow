@@ -98,9 +98,10 @@ export async function moveIntoProgress(page: Page, pace: Pace): Promise<void> {
 }
 
 // stageAll stages every change in the working tree, done once no file in it
-// still offers to be staged. Its beat holds the notice under the files it
-// staged, not the whole Working tree, which holds the commit form below and
-// is taller than the window.
+// still offers to be staged. Its beat holds the notice under the files, and
+// the files above it, each marked staged, are held whole in that frame too,
+// since they are what its caption says; not the whole Working tree, which
+// holds the commit form below and is taller than the window.
 async function stageAll(page: Page, pace: Pace): Promise<void> {
   const tree = page.getByRole('region', { name: 'Working tree' })
   await pace.click(tree.getByRole('button', { name: 'Stage all', exact: true }))
@@ -108,6 +109,7 @@ async function stageAll(page: Page, pace: Pace): Promise<void> {
   await expect(staged).toBeVisible()
   await expect(tree.getByRole('button', { name: /^Stage (?!all$)/ })).toHaveCount(0)
   await pace.beat('Every change staged', staged)
+  await expect(tree.getByRole('list').first(), 'the files staged').toBeInViewport({ ratio: 1 })
 }
 
 // stage stages the one file at path, done once its row offers to unstage it.
