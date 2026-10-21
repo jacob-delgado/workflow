@@ -5,6 +5,7 @@ package webserver_test
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
@@ -191,4 +193,69 @@ func TestAFrameOfTheDirectorySwitchedToCountsTheSwitch(t *testing.T) {
 		t.Errorf("the switch is numbered %d and the next frame counts %d writes; want 2, and at least 2",
 			number, frame.Writes)
 	}
+}
+
+func TestARetiredStreamSendsNoFrameCountingTheSwitch(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// The old stream's first read is held on its branch, so the switch
+		// lands while it reads the directory switched from.
+		var reached []string
+
+		held := webtest.NewHeld()
+		deps := reachable(repositoryDeps(favoritesKept()), &reached)
+		branch, holdFirst := deps.Git.Branch, heldOnCall(1, held)
+		deps.Git.Branch = func(ctx context.Context) (gitrepo.Branch, error) {
+			err := holdFirst(ctx)
+			if err != nil {
+				return gitrepo.Branch{}, err
+			}
+
+			return branch(ctx)
+		}
+		handler, stream := streamOver(t, deps, config.Default())
+
+		// Act
+		switched := webtest.Send(t, handler, http.MethodPut, reposPath+"/here", `{"dir":"`+webRoot+`"}`)
+
+		close(held.Release)
+		synctest.Wait()
+
+		// Assert
+		number := writeNumber(t, switched)
+
+		for _, frame := range sentSnapshots(t, stream.Close()) {
+			if frame.Writes >= number && frame.Here != webRoot {
+				t.Errorf("a frame counting %d writes, at least the switch's %d, shows %s; want none but of %s",
+					frame.Writes, number, frame.Here, webRoot)
+			}
+		}
+	})
+}
+
+// sentSnapshots decodes every snapshot event's data from an event-stream
+// body, in the order sent: none, for a stream that sent none.
+func sentSnapshots(t *testing.T, body string) []api.Snapshot {
+	t.Helper()
+
+	var sent []api.Snapshot
+
+	for _, message := range webtest.Messages(body) {
+		if message.Event != webtest.SnapshotMessage {
+			continue
+		}
+
+		var frame api.Snapshot
+
+		err := json.Unmarshal([]byte(message.Data), &frame)
+		if err != nil {
+			t.Fatalf("decoding the snapshot from %q: %v", message.Data, err)
+		}
+
+		sent = append(sent, frame)
+	}
+
+	return sent
 }
