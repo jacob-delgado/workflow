@@ -1,11 +1,19 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import type { PullRequest, QueuedAnnouncement } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import { fakeApi } from '@/test/fakeApi.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
 import { MessagingPanel } from './MessagingPanel.tsx'
 
 // announcedPull streams a configured Slack with pull request #42, announced or
-// not at the moment it is at now, open unless it was closed.
-function announcedPull(announced: boolean, state: 'open' | 'closed' = 'open') {
+// not at the moment it is at now, open unless it was closed or merged, and
+// the announcement held for its CI, if any.
+function announcedPull(
+  announced: boolean,
+  state: PullRequest['state'] = 'open',
+  held?: QueuedAnnouncement,
+) {
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
@@ -31,6 +39,7 @@ function announcedPull(announced: boolean, state: 'open' | 'closed' = 'open') {
           mergeable: 'clean',
         },
       },
+      queued_announcement: held,
     }),
   })
 }
@@ -43,8 +52,59 @@ test('says an announcement already made, from anywhere, and offers no second one
   render(<MessagingPanel />)
 
   // Assert
-  expect(screen.getByText('Announced #42 at this point already.')).toBeTruthy()
+  expect(screen.getByText('Announced #42 as ready for review.')).toBeTruthy()
   expect(screen.queryByRole('button', { name: /^Announce to/ })).toBeNull()
+})
+
+test.each([
+  { state: 'open', said: 'Announced #42 as ready for review.' },
+  { state: 'merged', said: 'Announced the merge of #42.' },
+] as const)(
+  'says an announcement already made by the moment it was made at: $state',
+  ({ state, said }) => {
+    // Arrange
+    announcedPull(true, state)
+
+    // Act
+    render(<MessagingPanel />)
+
+    // Assert
+    expect(screen.getByText(said)).toBeTruthy()
+  },
+)
+
+test('says a held announcement went once, not twice', () => {
+  // Arrange
+  announcedPull(true, 'open', { state: 'announced', channel: '#dev', pull: 42 })
+
+  // Act
+  render(<MessagingPanel />)
+
+  // Assert
+  expect(screen.getByText('Announced to #dev once CI passed.')).toBeTruthy()
+  expect(screen.queryByText(/^Announced #42/)).toBeNull()
+})
+
+test('says an announcement made here once, not twice', async () => {
+  // Arrange
+  fakeApi({
+    '/api/announcement': { text: 'Please review #42', channel: '#dev' },
+    '/api/announce': { text: 'Please review #42', channel: '#dev' },
+  })
+  announcedPull(false)
+  render(<MessagingPanel />)
+  await userEvent.click(screen.getByRole('button', { name: 'Announce to Slack' }))
+  await userEvent.click(await screen.findByRole('button', { name: 'Announce now' }))
+  await screen.findByText('Announced to #dev.')
+
+  // Act
+  act(() => {
+    announcedPull(true)
+  })
+
+  // Assert
+  expect(screen.getByText('Announced to #dev.')).toBeTruthy()
+  expect(screen.queryByText(/^Announced #42/)).toBeNull()
 })
 
 test('offers the announcement while it has not been made', () => {
@@ -84,7 +144,7 @@ test('never says a pull request closed without merging was announced', () => {
   render(<MessagingPanel />)
 
   // Assert
-  expect(screen.queryByText('Announced #42 at this point already.')).toBeNull()
+  expect(screen.queryByText(/^Announced #42/)).toBeNull()
   expect(
     screen.getByText('Open a pull request first — there is nothing to announce yet.'),
   ).toBeTruthy()
