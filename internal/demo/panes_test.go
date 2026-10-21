@@ -117,9 +117,9 @@ func TestTheProposedReviewersReadWholeAtTheRecordingsSize(t *testing.T) {
 
 	// Arrange
 	demo := recorded(t)
-	demo.press("1", "b", "enter", "3", "a", "c")
-	demo.typed("redact tokens in the request log")
-	demo.press("enter", "2", "P", "enter")
+	demo.startWork()
+	demo.commitTheRedaction()
+	demo.press("2", "P", "enter")
 
 	// Act
 	demo.press("4", "n", "enter")
@@ -133,9 +133,9 @@ func TestTheNoticeOfTheOpenedPullRequestReadsWholeAtTheRecordingsSize(t *testing
 
 	// Arrange
 	demo := recorded(t)
-	demo.press("1", "b", "enter", "3", "a", "c")
-	demo.typed("redact tokens in the request log")
-	demo.press("enter", "2", "P", "enter")
+	demo.startWork()
+	demo.commitTheRedaction()
+	demo.press("2", "P", "enter")
 
 	// Act
 	demo.press("4", "n", "enter", "enter")
@@ -149,11 +149,10 @@ func TestTheRailKeepsEverySummaryLineWhileANoticeShows(t *testing.T) {
 
 	// Arrange
 	demo := recorded(t)
-	demo.press("1", "b", "enter", "3", "a", "c")
-	demo.typed("redact tokens in the request log")
+	demo.startWork()
 
 	// Act
-	demo.press("enter")
+	demo.commitTheRedaction()
 
 	// Assert
 	// The notice says the commit was made, and the Branch pane, which has
