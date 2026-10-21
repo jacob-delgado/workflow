@@ -15,12 +15,14 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test'
 // most.
 const heldMs = 1000
 
-// A held frame is the film's when at most allowedShare of its pixels differ
-// from the film's by more than tolerance in any channel: the lossless
-// encoding differs in none, and a lossy one's blocks of earlier frames left
-// on screen differed in four to six hundredths of them.
-const tolerance = 15
-const allowedShare = 0.01
+// A held frame is the film's when none of its pixels differs from the
+// film's by more than tolerance in any channel: the lossless encoding, as
+// Chromium decodes it, differs in none at all, so tolerance allows only the
+// rounding a decoder may do. Any more is a wrong frame: the one before a
+// beat, held in its place, differs in a few hundred pixels, a status line or
+// the pointer's last step, and a lossy encoding's blocks of earlier frames
+// left on screen differed in four to six hundredths of them.
+const tolerance = 2
 
 // Held is a frame the film holds: its file in the film, and the moment
 // halfway through its hold, in film milliseconds.
@@ -40,7 +42,7 @@ function metadataPath(testInfo: TestInfo, name: string): string {
 }
 
 // filmArea is how many pixels a frame of the film has, from its manifest's
-// size line.
+// size line, which a frame's differing pixels are a share of.
 function filmArea(manifest: string): number {
   const [, width = '0', height = '0'] = /^size (\d+) (\d+)$/m.exec(manifest) ?? []
 
@@ -147,13 +149,14 @@ test('the walkthrough WebP shows the film itself wherever it holds a frame', asy
   const counts = await differing(page, webp, held, film)
 
   // Assert
-  const allowed = Math.floor(filmArea(manifest) * allowedShare)
+  const area = filmArea(manifest)
   const unlike = held.flatMap((frame, index) => {
     const differ = counts[index] ?? 0
+    const share = ((differ / area) * 100).toFixed(2)
 
-    return differ > allowed
+    return differ > 0
       ? [
-          `at ${(frame.midway / 1000).toFixed(2)} s it shows not the film's ${frame.file}: ${String(differ)} pixels differ`,
+          `at ${(frame.midway / 1000).toFixed(2)} s it shows not the film's ${frame.file}: ${String(differ)} pixels differ, ${share}% of the frame`,
         ]
       : []
   })
