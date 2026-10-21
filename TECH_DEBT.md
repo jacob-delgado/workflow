@@ -83,20 +83,34 @@ Tasks list, sets a `refetchInterval` that reads it again once the earliest wait
 still ahead has passed (`useTasks`). The stream's connection state
 (`reconnecting`, `stale`) is shown, so a dropped stream is visible. A write's
 answer wakes the stream, so the frame that shows what it did comes at once
-rather than an interval later, and the page hands the answer on only once
-that frame has landed (the write gate in `web/src/api/client.ts`). A
-configuration save checks the file's revision and refuses a changed file with
-409; a change landing between that check and the write is not caught
-(`SaveLayers`, `internal/config/layers.go`), which is accepted for one user's
-local file. Recorded 2026-09-24, in #140, and 2026-10-08, in #227, for the
-Tasks list's interval.
+rather than an interval later, and the page hands the answer on only once a
+frame read after the write landed is on the page: the first whose count of
+writes reaches the number the answer carries (the write gate in
+`web/src/api/client.ts`, `nextFrame` in `web/src/api/snapshot.ts`). That wait
+has no bound of its own, so a write never says it is done beside a page that
+shows it undone while the stream is live; it ends early only when the stream
+goes stale or closes. A configuration save checks the file's revision and
+refuses a changed file with 409; a change landing between that check and the
+write is not caught (`SaveLayers`, `internal/config/layers.go`), which is
+accepted for one user's local file. Recorded 2026-09-24, in #140, and
+2026-10-08, in #227, for the Tasks list's interval, and 2026-10-21 for the
+write gate's unbounded wait.
 
 **Cost.** A connection that stays open but stops sending frames looks live,
-and leaves stale data with no refetch to fall back on.
+and leaves stale data with no refetch to fall back on. And every write's
+answer is coupled to the slowest read the frame after it makes: a frame that
+starts a due forge, tracker or assigned-keys read, or waits on the one a
+write here dropped the cache for, holds the write's answer until that read
+ends, up to `timing.request_timeout` (10 seconds unless set) per call when an
+upstream is slow or unreachable. A local stage made then reads Staging… for
+that long.
 
-**Reopen when.** A stalled-but-open stream is reported, or a panel is reported
+**Reopen when.** A stalled-but-open stream is reported, a panel is reported
 showing stale data that neither the stream, its own `staleTime` nor a save
-reads again.
+reads again, or a write is reported held behind a slow forge or tracker read
+for long enough to matter: then cap the wait at about a stream interval, or
+have the server push a frame of git and Taskwarrior alone for a landing
+rather than one that waits on held network reads.
 
 ### TRADE-5 The progress spine's per-system hue is color-only
 

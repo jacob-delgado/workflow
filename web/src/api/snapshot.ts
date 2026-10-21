@@ -68,6 +68,9 @@ export const useSnapshotStore = create<SnapshotState>(() => ({
 // as the stream goes either way meanwhile. A stream reconnecting is waited
 // out, since a frame it pushes once it is back is the one that agrees, as
 // after a directory switch, whose count goes on.
+//
+// Trade-off TRADE-4: the wait has no bound of its own, so a frame held on a
+// slow forge or tracker read holds the write's answer until that read ends.
 export function nextFrame(write?: number): Promise<void> {
   const { snapshot, status } = useSnapshotStore.getState()
   if (snapshot === null || endsTheWait(status) || shows(snapshot, write)) {
