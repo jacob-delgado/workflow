@@ -9,11 +9,16 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 )
 
-func TestTheMonthBeforeTheDemosDayNeverMovesTheWorkedIssue(t *testing.T) {
+func TestTheMonthBeforeTheDemosDayMovesNoIssueStillToDo(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	demo := servedWeb(t)
+	notStarted := map[string]bool{}
+
+	for _, issue := range demo.frame().Issues.Issues {
+		notStarted[issue.Key] = issue.StatusCategory == api.StatusCategoryNew
+	}
 
 	// Act
 	activity := read[api.Activity](demo, "/api/activity?from=2026-09-01&to=2026-09-15")
@@ -32,8 +37,8 @@ func TestTheMonthBeforeTheDemosDayNeverMovesTheWorkedIssue(t *testing.T) {
 	}
 
 	for _, ref := range moved {
-		if ref == string(worked) {
-			t.Errorf("the month moved %s, which opens the demo's day at To Do; moved %v", ref, moved)
+		if notStarted[ref] {
+			t.Errorf("the month moved %s into review, which the Issues list shows still to do; moved %v", ref, moved)
 		}
 	}
 }
