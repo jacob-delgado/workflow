@@ -68,12 +68,16 @@ manifest_value() {
   awk -v kind="$1" '$1 == kind { $1 = ""; sub(/^ /, ""); print; exit }' "${root}/tmp/walkthrough/walkthrough.txt"
 }
 
-# stalls prints each WebP frame that plays past stall_ms while the film moves
-# throughout, a glide, typing or a scroll: each stretch's frames are mapped
-# from when the browser drew them to when the film plays them, and a frame of
-# the WebP that begins and ends inside one and plays long is time the
-# encoding lost. A frame that runs on past a stretch's end is its last frame
-# merged with the still ones after it, which are the same pixels.
+# stalls prints each WebP frame that plays past stall_ms of a stretch where
+# the film moves throughout, a glide, typing or a scroll, and each such
+# stretch the film has no frame of: each stretch's frames are mapped from when
+# the browser drew them to when the film plays them, from the first one's
+# start to the last one's, and the share of a WebP frame that falls inside
+# that span is time the encoding lost once it plays long. A frame lost into
+# the still frame before a stretch, or into the beat after it, is counted
+# for the part it covers; the last frame running on past a stretch's end, or
+# the first merged with the still frame it matches, is the same pixels and
+# covers none of it, or less than a frame's worth.
 #   stalls <facts>
 stalls() {
   awk -v limit="${stall_ms}" '
@@ -93,15 +97,20 @@ stalls() {
       for (s = 1; s <= m; s++) {
         begins[s] = -1; ends[s] = -1
         for (i = 1; i <= n; i++) {
-          if (at[i] >= from[s] && begins[s] < 0) begins[s] = film[i]
-          if (at[i] <= to[s]) ends[s] = film[i]
+          if (at[i] >= from[s] && at[i] <= to[s]) {
+            if (begins[s] < 0) begins[s] = film[i]
+            ends[s] = film[i]
+          }
         }
+        if (begins[s] < 0) printf "%s drawn at %.2f s has no frame in the film\n", name[s], from[s] / 1000
       }
       w = 0
       for (j = 1; j <= k; j++) {
         for (s = 1; s <= m; s++) {
-          if (begins[s] >= 0 && w >= begins[s] && w + lasts[j] <= ends[s] && lasts[j] > limit) {
-            printf "frame %d at %.2f s plays %d ms inside %s\n", j, w / 1000, lasts[j], name[s]
+          if (begins[s] < 0) continue
+          inside = (w + lasts[j] < ends[s] ? w + lasts[j] : ends[s]) - (w > begins[s] ? w : begins[s])
+          if (inside > limit) {
+            printf "frame %d at %.2f s plays %d ms inside %s\n", j, w / 1000, inside, name[s]
             break
           }
         }

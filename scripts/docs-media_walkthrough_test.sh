@@ -3,10 +3,12 @@
 # Tests for the web walkthrough's half of scripts/docs-media.sh. With the
 # film there it encodes web-walkthrough.webp and passes it, once the WebP is
 # the film its manifest describes: animated, 1280 by 800, looping forever,
-# as long as the film within a second either way, with no frame past 250 ms
-# that begins where the film moves throughout, though a frame held for a
-# step's beat plays as long as it is held, and with each step's keyframe
-# there to look at. A WebP of 4 MiB passes and a byte more fails by name. It
+# as long as the film within a second either way, with no frame playing
+# more than 250 ms of a stretch where the film moves throughout, whether the
+# time is lost inside it or into the frame before or after it, though a
+# frame held for a step's beat plays as long as it is held, with no such
+# stretch the film has no frame of, and with each step's keyframe there to
+# look at. A WebP of 4 MiB passes and a byte more fails by name. It
 # refuses a busy machine, a load past all but one of its processors or a
 # gate or Playwright run going, and an ffmpeg with no libwebp_anim; it fails
 # when the run filmed nothing, or the encoding fails. The stand-ins of
@@ -60,6 +62,34 @@ expect_exit pass "a frame of 250 ms inside a glide" media "${root}" "${all}" "${
 webp "${workdir}/run-on.webp" 1280 800 0 0 100 100 100 2700
 expect_exit pass "a glide's last frame run on into the beat's hold, as lossless encoding merges the same pixels" \
   media "${root}" "${all}" "${with_browser}" "FAKE_WEBP=${workdir}/run-on.webp"
+
+# A film with a still frame before its glide and a beat after it: the still
+# frame plays 600 ms, then twelve glide frames 33 ms apart, the last held
+# 1.4 s for its step's beat. The glide moves from 0.60 s to 0.96 s of it.
+{
+  printf '%s\n' 'size 1280 800' 'length 2396' 'frame frames/00001.png 0 600'
+  for glide in $(seq 0 11); do
+    printf 'frame frames/%05d.png %d %d\n' "$((glide + 2))" "$((600 + glide * 33))" "$((glide == 11 ? 1433 : 33))"
+  done
+  printf '%s\n' 'key keys/01.png 1050 PROJ-412 picked' 'stretch 600 970 a glide'
+} >"${workdir}/edges.txt"
+webp "${workdir}/lost-at-start.webp" 1280 800 0 0 864 33 33 33 1433
+expect_output 1 "a glide's first frames lost into the still frame before it" \
+  "frame 1 at 0.00 s plays 264 ms inside a glide" media "${root}" "${all}" "${with_browser}" \
+  "FAKE_MANIFEST=${workdir}/edges.txt" "FAKE_WEBP=${workdir}/lost-at-start.webp"
+webp "${workdir}/lost-at-end.webp" 1280 800 0 0 600 33 33 33 1697
+expect_output 1 "a glide's last frames lost into the beat after it" \
+  "frame 5 at 0.70 s plays 264 ms inside a glide" media "${root}" "${all}" "${with_browser}" \
+  "FAKE_MANIFEST=${workdir}/edges.txt" "FAKE_WEBP=${workdir}/lost-at-end.webp"
+webp "${workdir}/first-merged.webp" 1280 800 0 0 633 33 33 33 33 33 33 33 33 33 33 1433
+expect_exit pass "a glide's first frame merged with the still frame it matches" \
+  media "${root}" "${all}" "${with_browser}" \
+  "FAKE_MANIFEST=${workdir}/edges.txt" "FAKE_WEBP=${workdir}/first-merged.webp"
+grep -v '^frame frames/0000[2-9]\|^frame frames/0001' "${workdir}/edges.txt" >"${workdir}/unfilmed.txt"
+webp "${workdir}/unfilmed.webp" 1280 800 0 0 2396
+expect_output 1 "a glide the film has no frame of" "a glide drawn at 0.60 s has no frame in the film" \
+  media "${root}" "${all}" "${with_browser}" \
+  "FAKE_MANIFEST=${workdir}/unfilmed.txt" "FAKE_WEBP=${workdir}/unfilmed.webp"
 
 webp "${workdir}/canvas.webp" 1440 900 0 0 100 100 100 100 2600
 expect_output 1 "a WebP whose canvas is not the film's" "its canvas is not the film's 1280 800" \
