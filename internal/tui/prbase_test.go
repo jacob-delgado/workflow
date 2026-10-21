@@ -115,3 +115,19 @@ func TestAFailedRemoteBranchListingStillOpensTheComposer(t *testing.T) {
 	// Assert
 	requireScreen(t, view, "> "+baseName)
 }
+
+// The first field of what the pull request says offers shift+tab back to the
+// base, in the word esc says for a step inside a flow.
+func TestTheTitleFieldOffersShiftTabBackToTheBase(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	model := withoutPull().live(t, 120, 40)
+
+	// Act
+	view := typing(t, model, "4", "n", keyEnter).View().Content
+
+	// Assert
+	requireScreen(t, footerLine(view), "shift+tab back")
+	refuseScreen(t, footerLine(view), "where")
+}
