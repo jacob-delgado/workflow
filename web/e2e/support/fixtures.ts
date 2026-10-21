@@ -32,6 +32,7 @@ const emptyBranch = {
 // emptySnapshot is the stream's frame of a repository with nothing in it: no
 // issues, no branch, no changes, no pull request, and messaging not set up.
 const emptySnapshot = {
+  writes: 0,
   here: '/home/ana/src/api',
   issues: { total: 0, start_at: 0, unavailable: [], issues: [] },
   branch: emptyBranch,

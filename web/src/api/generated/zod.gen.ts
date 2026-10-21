@@ -349,7 +349,8 @@ export const zRun = z.object({
  */
 export const zRunEvent = z.object({
     run: zRun.optional(),
-    line: z.string().optional()
+    line: z.string().optional(),
+    write: z.int().gte(1).optional()
 });
 
 /**
@@ -1042,6 +1043,7 @@ export const zMessagingDestination = z.object({
  * The full read state carried by one event-stream message: everything the cockpit shows, together.
  */
 export const zSnapshot = z.object({
+    writes: z.int().gte(0),
     here: z.string(),
     issues: zIssuesPage,
     branch: zBranch,

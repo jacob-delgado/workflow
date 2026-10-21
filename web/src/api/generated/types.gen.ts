@@ -565,6 +565,10 @@ export type RunEvent = {
      * A line the program wrote, with terminal controls taken out.
      */
     line?: string;
+    /**
+     * On the run's last event alone, the number its end was counted as, among the writes the server has answered: the first event stream frame whose writes is at least it was read after the run ended. Absent on every other event.
+     */
+    write?: number;
 };
 
 /**
@@ -927,6 +931,10 @@ export type ViewList = {
  * The full read state carried by one event-stream message: everything the cockpit shows, together.
  */
 export type Snapshot = {
+    /**
+     * How many writes the server had answered before this frame's read began, a run's end counted among them: every write numbered up to this one, by its answer's Workflow-Write header or a run's last event, landed before anything this frame shows was read. A frame read as a write lands can still go out after that write's answer, with a lower count, so a page waits for a count, never for the next frame to arrive.
+     */
+    writes: number;
     /**
      * The directory the server works in, as an absolute path, so a page notices a switch made elsewhere and reads again.
      */

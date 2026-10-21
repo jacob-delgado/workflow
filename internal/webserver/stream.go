@@ -70,11 +70,12 @@ func (s *server) streamEvents(w http.ResponseWriter, request *http.Request) {
 // whose read a write landed during is read again rather than sent. A write
 // landing after that check, as the frame goes out, is not caught: that frame
 // is sent, and the signal the write closed wakes a fresh one at once, so the
-// last frame sent after a write's answer shows it. Writes landing faster than
-// a frame reads, without end, would starve the stream, which no page's pace
-// comes near. The loop runs on the
-// connection's own goroutine, which the HTTP server provides, so this starts
-// none of its own.
+// last frame sent after a write's answer shows it; each frame counts the
+// writes landed before its read began, which tells the one from the other.
+// Writes landing faster than a frame reads, without end, would starve the
+// stream, which no page's pace comes near. The loop runs on the connection's
+// own goroutine, which the HTTP server provides, so this starts none of its
+// own.
 func (s *server) pushSnapshots(request *http.Request, out *eventStream, view string) {
 	interval := s.info.streamInterval()
 
@@ -102,13 +103,16 @@ func (s *server) pushSnapshots(request *http.Request, out *eventStream, view str
 }
 
 // freshFrame is a frame of view read wholly after the last write to land,
-// and the signal the next write to land closes: a read a write landed during
-// is read again, until ctx ends, when the frame read is the last.
+// counting the writes landed before its read began, and the signal the next
+// write to land closes: a read a write landed during is read again, until ctx
+// ends, when the frame read is the last.
 func (s *server) freshFrame(ctx context.Context, view string) (api.Snapshot, <-chan struct{}) {
 	for {
-		landed := s.landed.next()
+		landed, writes := s.worlds.landed.next()
 
 		frame := s.snapshot(ctx, view)
+		frame.Writes = writes
+
 		if !landedDuring(landed) || ctx.Err() != nil {
 			return frame, landed
 		}

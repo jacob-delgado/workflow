@@ -76,17 +76,18 @@ served beside it, at `/fonts/Recursive-OFL.txt`.
 **The stream** keeps the page current. Every five seconds, and at once after
 anything you do here, the server pushes each open tab what it finds, so
 nothing on the page needs refreshing by hand. What you do says it is done only
-once the next push has landed, so its word comes with a page that shows it done;
-should another push be going out at that instant, the one that shows it follows
-at once. Each push reads the repository afresh — the branch, the working tree,
-the branches and worktrees, the commit scope — and Taskwarrior, all on this
-machine. What it asks over the network is shared by every tab: the issue
-search is made at most once every `timing.ci_interval` (twenty seconds unless
-set) for each view, and again on the next push after a status change or an
-assignment made here, and each search's first page is kept in the store for
-the next session, as the terminal keeps it (never under `--dry-run`); which
-of the branches' issues are yours, once a minute, and again after an
-assignment made here;
+once a push read after it is on the page, so its word comes with a page that
+shows it done: the server numbers what you do, and each push counts what it
+was read after, so a push already going out at that instant, or one that
+arrived first, is told apart from the one that shows it. Each push reads the
+repository afresh — the branch, the working tree, the branches and worktrees,
+the commit scope — and Taskwarrior, all on this machine. What it asks over
+the network is shared by every tab: the issue search is made at most once
+every `timing.ci_interval` (twenty seconds unless set) for each view, and
+again on the next push after a status change or an assignment made here,
+and each search's first page is kept in the store for the next session, as
+the terminal keeps it (never under `--dry-run`); which of the branches'
+issues are yours, once a minute, and again after an assignment made here;
 the forge — the pull request, its reviews and its CI — at most once every
 `timing.ci_interval`, and at once when another branch is checked out or
 its head commit moves, while a pull request the page opens shows from the
@@ -94,8 +95,9 @@ open on, without asking the forge; and who the forge says
 you are, until it answers, at most once every `timing.ci_interval`. A tab
 that has an answer to show is not held up by another tab's read of the
 forge or the tracker, except after an edit, a merge, a finish or a
-re-run of the pull request, or an assignment, made here: the next push
-waits for the read that follows it, so it shows what changed. A forge
+re-run of the pull request, a status change (a move to review among
+them), or an assignment, made here: the next push waits for the read
+that follows it, so it shows what changed. A forge
 read that fails keeps the last answer for the same branch and head
 commit, and says why beside it. A read that fails shows
 as a failure in its section, with the reason, rather than as an empty one:
