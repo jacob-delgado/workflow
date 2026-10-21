@@ -62,41 +62,11 @@ const readLatency = 500 * time.Millisecond
 // pushed.
 const pushLatency = 1200 * time.Millisecond
 
-// flags is what the command line asks of the demo.
-type flags struct {
-	web            bool
-	port           int
-	version        string
-	holdCI         bool
-	noAutoAnnounce bool
-}
-
-// parse reads args into flags, or fails as the flag package does, having
-// said why on stderr.
-func parse(args []string) (flags, error) {
-	var asked flags
-
-	set := flag.NewFlagSet("demo", flag.ContinueOnError)
-	set.BoolVar(&asked.web, "web", false, "serve the web interface instead of the terminal's")
-	set.IntVar(&asked.port, "port", 0, "the loopback port -web serves on; 0 for one the system chooses")
-	set.StringVar(&asked.version, "version", "demo", "the version the web page names the build")
-	set.BoolVar(&asked.holdCI, "hold-ci", false, "keep the end-to-end check running for good")
-	set.BoolVar(&asked.noAutoAnnounce, "no-auto-announce", false,
-		"arm no announcement when a pull request opens (messaging.auto_announce off)")
-
-	err := set.Parse(args)
-	if err != nil {
-		return flags{}, fmt.Errorf("reading the flags: %w", err)
-	}
-
-	return asked, nil
-}
-
 // run runs the interface the flags in args ask for over the demo's world
 // until it quits or a signal ends ctx, the world's clock moving on as the
 // program runs, and says how it ended.
 func run(ctx context.Context, args []string) int {
-	asked, err := parse(args)
+	asked, err := demo.ReadCommandLine(args, os.Stderr)
 
 	switch {
 	case errors.Is(err, flag.ErrHelp):
@@ -113,13 +83,13 @@ func run(ctx context.Context, args []string) int {
 
 // worldOptions is how the flags make the demo's world other than its
 // default, with the latencies a recording wants.
-func worldOptions(asked flags) []demo.Option {
+func worldOptions(asked demo.CommandLine) []demo.Option {
 	options := []demo.Option{demo.ReadLatency(readLatency), demo.PushLatency(pushLatency)}
-	if asked.holdCI {
+	if asked.HoldCI {
 		options = append(options, demo.HoldCI())
 	}
 
-	if asked.noAutoAnnounce {
+	if asked.NoAutoAnnounce {
 		options = append(options, demo.AutoAnnounceOff())
 	}
 
@@ -128,8 +98,8 @@ func worldOptions(asked flags) []demo.Option {
 
 // serve runs the web server over world when asked, saying where on notes,
 // and the terminal interface otherwise.
-func serve(ctx context.Context, world *demo.World, asked flags, notes io.Writer) error {
-	if !asked.web {
+func serve(ctx context.Context, world *demo.World, asked demo.CommandLine, notes io.Writer) error {
+	if !asked.Web {
 		_, err := tui.Run(ctx, tui.New(world.Config(), nil, world.Deps()), os.Stdin, os.Stdout)
 
 		return err
@@ -140,14 +110,14 @@ func serve(ctx context.Context, world *demo.World, asked flags, notes io.Writer)
 
 // serveWeb runs the web server over world, saying where on notes, with its
 // configuration file kept in a directory of its own, removed once it stops.
-func serveWeb(ctx context.Context, world *demo.World, asked flags, notes io.Writer) error {
+func serveWeb(ctx context.Context, world *demo.World, asked demo.CommandLine, notes io.Writer) error {
 	configDir, err := os.MkdirTemp("", "workflow-demo-")
 	if err != nil {
 		return fmt.Errorf("making the web demo's configuration directory: %w", err)
 	}
 
-	web := world.Web(asked.version, configDir)
-	served := cli.WebServerAt(webserver.LoopbackAddr(asked.port))(ctx, web.Config, web.Deps, web.Info, notes)
+	web := world.Web(asked.Version, configDir)
+	served := cli.WebServerAt(webserver.LoopbackAddr(asked.Port))(ctx, web.Config, web.Deps, web.Info, notes)
 
 	return errors.Join(served, os.RemoveAll(configDir))
 }
