@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import {
   useForm,
   useFormState,
@@ -324,10 +324,7 @@ function ProposalFields({
         <Input {...register('labels')} placeholder="Comma-separated labels" />
       </label>
 
-      <label className={labelClass}>
-        Description
-        <TextArea {...register('body')} rows={6} />
-      </label>
+      <DescriptionField register={register} control={control} />
 
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" {...register('draft')} className="size-4" />
@@ -335,6 +332,58 @@ function ProposalFields({
       </label>
     </>
   )
+}
+
+// DescriptionField is the pull request's body, grown to the whole of its text
+// up to a bound, so the template it starts from is never cut through a line.
+function DescriptionField({
+  register,
+  control,
+}: {
+  register: UseFormRegister<PullRequestFields>
+  control: Control<PullRequestFields>
+}) {
+  const field = register('body')
+  const fitted = useFitsItsText(useWatch({ control, name: 'body' }), field.ref)
+
+  return (
+    <label className={labelClass}>
+      Description
+      <TextArea {...field} ref={fitted} rows={6} className="max-h-96" />
+    </label>
+  )
+}
+
+// useFitsItsText grows a text area to the text it holds, measured again each
+// time the text changes or the window does, which can wrap it anew; its rows
+// stay its least height, and its own max-height its most. It answers the ref
+// to put on the text area, which hands the element on to the form's own.
+function useFitsItsText(text: string, formRef: (area: HTMLTextAreaElement | null) => void) {
+  const box = useRef<HTMLTextAreaElement | null>(null)
+
+  useLayoutEffect(() => {
+    const fit = () => {
+      const area = box.current
+      if (area === null) {
+        return
+      }
+
+      area.style.height = 'auto'
+      const borders = area.offsetHeight - area.clientHeight
+      area.style.height = `${String(area.scrollHeight + borders)}px`
+    }
+    fit()
+    window.addEventListener('resize', fit)
+
+    return () => {
+      window.removeEventListener('resize', fit)
+    }
+  }, [text])
+
+  return (area: HTMLTextAreaElement | null) => {
+    formRef(area)
+    box.current = area
+  }
 }
 
 const labelClass = 'flex flex-col gap-tight text-sm text-muted-foreground'
