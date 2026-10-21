@@ -127,7 +127,7 @@ func TestAnEditDuringAForgeReadShowsOnEveryStreamsLastFrame(t *testing.T) {
 		}
 
 		for index, frame := range lastFrames(t, streams) {
-			if frame.Review.Pull == nil || frame.Review.Pull.Title != "retitled" {
+			if frame.Review.Pull == nil || frame.Review.Pull.Title != retitled {
 				t.Errorf("stream %d's last frame shows the pull %+v, want #42 retitled", index, frame.Review.Pull)
 			}
 		}
@@ -244,6 +244,42 @@ func TestAStatusChangeDuringASearchShowsOnEveryStreamsLastFrame(t *testing.T) {
 			if issues := frame.Issues.Issues; len(issues) != 1 || issues[0].Status != blocked {
 				t.Errorf("stream %d's last frame shows the issues %+v, want %s %s", index, issues, webtest.TestKey, blocked)
 			}
+		}
+	})
+}
+
+func TestAPageThatWaitedOnAForgeReadAnEditCameDuringShowsTheEdit(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// A frame's read is under way as the edit lands, so it finds the old
+		// title. A page opened after the edit waits on that read, and its
+		// frame counts the edit, so it asks the forge again rather than take
+		// what that read found.
+		slow := newRetitlingForge()
+		handler := webtest.Serve(t, slow.wire(webtest.FilledDeps()), config.Default())
+
+		slow.slowDown()
+		reading := frameInFlight(t, handler, slow.slowRead)
+
+		edited := webtest.Send(t, handler, http.MethodPatch, "/api/pull-request", `{"title":"retitled","body":""}`)
+		if edited.Code != http.StatusOK {
+			t.Fatalf("the edit answered %d: %s", edited.Code, edited.Body.String())
+		}
+
+		waiting := webtest.OpenStream(t, handler, "/api/events")
+
+		synctest.Wait()
+
+		// Act
+		close(slow.release)
+		<-reading
+		synctest.Wait()
+
+		// Assert
+		if pull := webtest.FirstSnapshot(t, waiting.Close()).Review.Pull; pull == nil || pull.Title != retitled {
+			t.Errorf("the waiting page's first frame shows the pull %+v, want #42 retitled", pull)
 		}
 	})
 }

@@ -27,8 +27,8 @@ import (
 type issuesCache struct {
 	mu    sync.Mutex
 	pages map[string]heldPage
-	// reading is each search under way, by its JQL, closed once it lands.
-	reading map[string]chan struct{}
+	// reading is each search under way, by its JQL.
+	reading map[string]*landing[jira.SearchResult]
 	// dropped counts the drops, so a search that began before one lands due.
 	dropped int
 }
@@ -115,21 +115,21 @@ func (c *issuesCache) serve(jql string, now time.Time, interval time.Duration) t
 	defer c.mu.Unlock()
 
 	page, held := c.pages[jql]
-	landing, reading := c.reading[jql]
+	underWay, reading := c.reading[jql]
 
 	if held && !page.due && (reading || now.Sub(page.readAt) < interval) {
 		return turn[jira.SearchResult]{answered: true, value: page.result, failed: page.failed}
 	}
 
 	if reading {
-		return turn[jira.SearchResult]{landing: landing}
+		return turn[jira.SearchResult]{landing: underWay}
 	}
 
 	if c.reading == nil {
-		c.reading, c.pages = map[string]chan struct{}{}, map[string]heldPage{}
+		c.reading, c.pages = map[string]*landing[jira.SearchResult]{}, map[string]heldPage{}
 	}
 
-	c.reading[jql] = make(chan struct{})
+	c.reading[jql] = newLanding[jira.SearchResult]()
 
 	return turn[jira.SearchResult]{dropped: c.dropped}
 }
@@ -141,7 +141,7 @@ func (c *issuesCache) land(jql string, dropped int, page heldPage) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	close(c.reading[jql])
+	c.reading[jql].end()
 	delete(c.reading, jql)
 
 	page.due = c.dropped != dropped
