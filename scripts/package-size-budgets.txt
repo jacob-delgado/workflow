@@ -62,6 +62,17 @@
 # set joined the credentials a moved section withholds.
 internal/config 17
 
+# internal/demo — the made-up world the docs' recordings run the real
+# interfaces over, spelled one file per service it fakes (Jira, the forge and
+# its writes, Slack, git and its writes, Taskwarrior, the store, the
+# repositories, the activity the Summary reads) beside world.go, which builds
+# the world and its story, and web.go, the seams only the page shows. 13 is
+# commandline.go, the demo's flags and their reading, moved out of cmd/demo so
+# a test can hold it and kept out of world.go, which changes with the story,
+# not with the flags. One responsibility — fake the day the docs show —
+# spelled service-per-file.
+internal/demo 13
+
 # internal/forge — GitHub and GitLab: the client and its transport (client.go,
 # host.go, token.go, reason.go), the remote a repository names (remote.go),
 # pull requests and their templates (pulls.go, templates.go), issues
