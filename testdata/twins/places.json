@@ -8,7 +8,8 @@
     { "key": "PROJ-503", "tracker": "jira", "status": "Fixing", "category": "indeterminate", "marks": ["task active"] },
     { "key": "PROJ-504", "tracker": "jira", "status": "In development", "category": "indeterminate", "marks": ["in flight"] },
     { "key": "PROJ-505", "tracker": "jira", "status": "In development", "category": "indeterminate", "marks": ["tracked"] },
-    { "key": "57", "tracker": "forge", "status": "Open", "category": "new", "marks": ["forge issue"] }
+    { "key": "57", "tracker": "forge", "status": "Open", "category": "new", "marks": ["forge issue"] },
+    { "key": "PROJ-508", "tracker": "jira", "status": "Open", "category": "indeterminate", "marks": [] }
   ],
   "marks": [
     { "name": "an issue nothing marks", "standing": { "in_flight": false, "task": "", "forge": false }, "want": [] },
@@ -24,7 +25,7 @@
     {
       "name": "nothing picked lists every issue",
       "picked": [],
-      "want": ["PROJ-506", "PROJ-507", "PROJ-501", "PROJ-502", "PROJ-503", "PROJ-504", "PROJ-505", "57"]
+      "want": ["PROJ-506", "PROJ-507", "PROJ-501", "PROJ-502", "PROJ-503", "PROJ-504", "PROJ-505", "57", "PROJ-508"]
     },
     {
       "name": "two statuses list either",
@@ -73,6 +74,26 @@
         { "kind": "status", "name": "Fixing", "count": 1 },
         { "kind": "status", "name": "In development", "count": 1 },
         { "kind": "mark", "name": "tracked", "count": 1 },
+        { "kind": "mark", "name": "forge issue", "count": 1 }
+      ]
+    },
+    {
+      "name": "a status in two categories goes with the earlier one, whichever issue comes first",
+      "issues": ["PROJ-508", "57", "PROJ-502"],
+      "picked": [],
+      "want": [
+        { "kind": "status", "name": "Open", "count": 2 },
+        { "kind": "status", "name": "Fixing", "count": 1 },
+        { "kind": "mark", "name": "forge issue", "count": 1 }
+      ]
+    },
+    {
+      "name": "a status in two categories goes with the earlier one, the other issue first",
+      "issues": ["57", "PROJ-508", "PROJ-502"],
+      "picked": [],
+      "want": [
+        { "kind": "status", "name": "Open", "count": 2 },
+        { "kind": "status", "name": "Fixing", "count": 1 },
         { "kind": "mark", "name": "forge issue", "count": 1 }
       ]
     },
