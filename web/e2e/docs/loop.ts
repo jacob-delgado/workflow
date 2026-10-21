@@ -8,19 +8,24 @@ import { readings, workedIssue } from '../support/cockpit.ts'
 // so a slow machine slows a step down but never skips one.
 
 // Pace is how a step acts on the page: how it clicks a control, how it types
-// into a field, and the beat it holds once the page shows what the step did,
-// captioned with what that is, on the element that shows it.
+// into a field, how it chooses an option of a select by its value or label,
+// and the beat it holds once the page shows what the step did, captioned
+// with what that is, on the element that shows it.
 export interface Pace {
   click: (target: Locator) => Promise<void>
   type: (target: Locator, text: string) => Promise<void>
+  choose: (select: Locator, value: string) => Promise<void>
   beat: (caption: string, shown: Locator) => Promise<void>
 }
 
 // brisk is the screenshots' pace: a click as Playwright makes it, a field
-// filled at once, and no beat.
+// filled and an option chosen at once, and no beat.
 export const brisk: Pace = {
   click: (target) => target.click(),
   type: (target, text) => target.fill(text),
+  choose: async (select, value) => {
+    await select.selectOption(value)
+  },
   beat: () => Promise.resolve(),
 }
 
@@ -99,7 +104,7 @@ export async function stage(page: Page, pace: Pace, path: string): Promise<void>
 // the branch shows it.
 export async function commit(page: Page, pace: Pace, subject: string): Promise<void> {
   const form = page.getByRole('form', { name: 'Commit staged changes' })
-  await form.getByLabel('Type').selectOption('fix')
+  await pace.choose(form.getByLabel('Type'), 'fix')
   await pace.type(form.getByLabel('Subject'), subject)
   await pace.click(form.getByRole('button', { name: 'Commit staged changes' }))
   await expect(form.getByRole('status')).toHaveText(

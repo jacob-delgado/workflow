@@ -140,9 +140,9 @@ async function clearSpot(target: Locator): Promise<Point | undefined> {
   }, spots)
 }
 
-// centerOf is the middle of a control once it is scrolled into view.
+// centerOf is the middle of a control, which the film has scrolled into
+// view.
 async function centerOf(target: Locator): Promise<Point> {
-  await target.scrollIntoViewIfNeeded()
   const box = await target.boundingBox()
   if (box === null) {
     throw new Error('the pointer cannot glide to a control that is not shown')
