@@ -14,7 +14,9 @@ package demo
 
 import (
 	"context"
+	"flag"
 	"fmt"
+	"io"
 	"sync"
 	"time"
 
@@ -114,6 +116,41 @@ func HoldCI() Option {
 // nothing yet waiting for CI.
 func AutoAnnounceOff() Option {
 	return func(w *World) { w.autoAnnounceOff = true }
+}
+
+// CommandLine is what the demo's command line asks of it: the web interface
+// rather than the terminal's, served on the loopback Port, 0 for one the
+// system chooses, and naming the build Version, and the world made with
+// HoldCI and AutoAnnounceOff.
+type CommandLine struct {
+	Web            bool
+	Port           int
+	Version        string
+	HoldCI         bool
+	NoAutoAnnounce bool
+}
+
+// ReadCommandLine reads args, the demo's command line, or fails as the flag
+// package does, having said why on said: a flag it does not know, or -h
+// asking for its usage (flag.ErrHelp).
+func ReadCommandLine(args []string, said io.Writer) (CommandLine, error) {
+	var asked CommandLine
+
+	set := flag.NewFlagSet("demo", flag.ContinueOnError)
+	set.SetOutput(said)
+	set.BoolVar(&asked.Web, "web", false, "serve the web interface instead of the terminal's")
+	set.IntVar(&asked.Port, "port", 0, "the loopback port -web serves on; 0 for one the system chooses")
+	set.StringVar(&asked.Version, "version", "demo", "the version the web page names the build")
+	set.BoolVar(&asked.HoldCI, "hold-ci", false, "keep the end-to-end check running for good")
+	set.BoolVar(&asked.NoAutoAnnounce, "no-auto-announce", false,
+		"arm no announcement when a pull request opens (messaging.auto_announce off)")
+
+	err := set.Parse(args)
+	if err != nil {
+		return CommandLine{}, fmt.Errorf("reading the flags: %w", err)
+	}
+
+	return asked, nil
 }
 
 // openedPull is a pull request and when it was opened, which its CI counts
