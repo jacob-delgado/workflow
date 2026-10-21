@@ -25,7 +25,8 @@ import (
 // defaultStreamInterval is how often the event stream re-pushes a snapshot when
 // Info names no interval. The upstreams have no change notification, so the
 // server re-reads on this cadence and pushes the result; the browser never polls.
-// The forge is asked on a slower cadence of its own: see forgeCache.
+// A write here is a change the server knows of, so it pushes a frame at once
+// too. The forge is asked on a slower cadence of its own: see forgeCache.
 const defaultStreamInterval = 5 * time.Second
 
 // streamEvents serves the Server-Sent Events stream for the view the request
@@ -63,14 +64,24 @@ func (s *server) streamEvents(w http.ResponseWriter, request *http.Request) {
 	s.pushSnapshots(request, out, view)
 }
 
-// pushSnapshots pushes a snapshot on connect, then another every interval,
-// until the client disconnects and its request context is canceled, a write
-// fails, or the directory is switched. The loop runs on the connection's own
-// goroutine, which the HTTP server provides, so this starts none of its own.
+// pushSnapshots pushes a snapshot on connect, then another as soon as a write
+// here lands and every interval, until the client disconnects and its request
+// context is canceled, a write fails, or the directory is switched. A frame
+// whose read a write landed during is read again rather than sent, so every
+// frame sent after a write's answer begins was read wholly after the write
+// landed; writes landing faster than a frame reads, without end, would starve
+// the stream, which no page's pace comes near. The loop runs on the
+// connection's own goroutine, which the HTTP server provides, so this starts
+// none of its own.
 func (s *server) pushSnapshots(request *http.Request, out *eventStream, view string) {
 	interval := s.info.streamInterval()
 
-	for sendEvent(out, snapshotEvent, s.snapshot(request.Context(), view)) {
+	for {
+		frame, landed := s.freshFrame(request.Context(), view)
+		if !sendEvent(out, snapshotEvent, frame) || request.Context().Err() != nil {
+			return
+		}
+
 		select {
 		case <-request.Context().Done():
 			return
@@ -82,7 +93,22 @@ func (s *server) pushSnapshots(request *http.Request, out *eventStream, view str
 			out.flusher.Flush()
 
 			return
+		case <-landed:
 		case <-time.After(interval):
+		}
+	}
+}
+
+// freshFrame is a frame of view read wholly after the last write to land,
+// and the signal the next write to land closes: a read a write landed during
+// is read again, until ctx ends, when the frame read is the last.
+func (s *server) freshFrame(ctx context.Context, view string) (api.Snapshot, <-chan struct{}) {
+	for {
+		landed := s.landed.next()
+
+		frame := s.snapshot(ctx, view)
+		if !landedDuring(landed) || ctx.Err() != nil {
+			return frame, landed
 		}
 	}
 }

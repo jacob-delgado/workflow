@@ -97,6 +97,7 @@ func (w *worlds) serve(writer http.ResponseWriter, request *http.Request, switch
 	}
 
 	srv, handler := w.served()
+	writer = landingOn(writer, request, srv)
 
 	if !edge.IsSafeMethod(request.Method) && showsAnother(request, srv.deps.Repositories.Here.Dir) {
 		problem.Write(writer, api.ProblemCodeConflict, "the page shows another directory than the server works in; reload it")
@@ -105,6 +106,107 @@ func (w *worlds) serve(writer http.ResponseWriter, request *http.Request, switch
 	}
 
 	handler.ServeHTTP(writer, request)
+}
+
+// landingOn is writer for request, which, for a write, wakes srv's event
+// streams as the write's answer begins: every operation, and any added later,
+// wakes them with no handler of its own saying so. A read's writer is
+// writer itself.
+func landingOn(writer http.ResponseWriter, request *http.Request, srv *server) http.ResponseWriter {
+	if edge.IsSafeMethod(request.Method) {
+		return writer
+	}
+
+	return &landingWriter{ResponseWriter: writer, land: srv.landed.land, landed: false}
+}
+
+// landings is the signal a server's event streams wait on for a write to
+// land: a channel closed, and replaced, each time one does. Its zero value is
+// ready to use.
+type landings struct {
+	mu     sync.Mutex
+	signal chan struct{}
+}
+
+// next is the channel the next write to land closes.
+func (l *landings) next() <-chan struct{} {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if l.signal == nil {
+		l.signal = make(chan struct{})
+	}
+
+	return l.signal
+}
+
+// land tells every stream waiting that a write has landed, and readies the
+// signal for the next.
+func (l *landings) land() {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if l.signal != nil {
+		close(l.signal)
+	}
+
+	l.signal = make(chan struct{})
+}
+
+// landedDuring reports whether a write has landed since landed was taken.
+func landedDuring(landed <-chan struct{}) bool {
+	select {
+	case <-landed:
+		return true
+	default:
+		return false
+	}
+}
+
+// landingWriter is a write's response writer that calls land once, as the
+// first byte of the answer, its status, is written: the write's effect is
+// done by then, and the page has not yet read that it is. It keeps the
+// writer's flushing, which a git run's stream needs.
+type landingWriter struct {
+	http.ResponseWriter
+
+	land   func()
+	landed bool
+}
+
+var _ http.Flusher = (*landingWriter)(nil)
+
+// WriteHeader lands the write, then writes the status.
+func (l *landingWriter) WriteHeader(status int) {
+	l.landOnce()
+	l.ResponseWriter.WriteHeader(status)
+}
+
+// Write lands the write, then writes body.
+func (l *landingWriter) Write(body []byte) (int, error) {
+	l.landOnce()
+
+	return l.ResponseWriter.Write(body) //nolint:wrapcheck // the write the handler made, as the writer answers it
+}
+
+// Flush flushes the writer underneath, when it can.
+func (l *landingWriter) Flush() {
+	if flusher, ok := l.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+// Unwrap is the writer underneath, for http.ResponseController.
+func (l *landingWriter) Unwrap() http.ResponseWriter {
+	return l.ResponseWriter
+}
+
+// landOnce calls land the first time it is asked.
+func (l *landingWriter) landOnce() {
+	if !l.landed {
+		l.landed = true
+		l.land()
+	}
 }
 
 // outlivingItsPage is request under a context that goes on when its page
@@ -141,7 +243,7 @@ func (w *worlds) install(world World) (*server, error) {
 	}
 	srv.Handlers = srv.taskHandlers()
 	srv.Runner = runs.New(runs.Seams{Git: world.Deps.Git, Hooks: world.Deps.Hooks},
-		srv.unexpected, &srv.indexWrites)
+		srv.unexpected, &srv.indexWrites, srv.landed.land)
 
 	strict := api.NewStrictHandlerWithOptions(srv, nil, api.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  problem.WriteRequestError,

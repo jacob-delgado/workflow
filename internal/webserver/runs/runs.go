@@ -285,8 +285,9 @@ func (r *Runner) freeRun() {
 }
 
 // streamRun writes the run as it starts, each line its program writes as it
-// comes, and the run as it ended. A write that fails — the page went away —
-// stops the writing, never the run: its lines are still read to the end.
+// comes, and, once it has told the event streams it landed, the run as it
+// ended. A write that fails — the page went away — stops the writing, never
+// the run: its lines are still read to the end.
 func (r *Runner) streamRun(w http.ResponseWriter, planned plannedRun, output proc.Output) {
 	w.Header().Set("Content-Type", "application/x-ndjson")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -300,7 +301,9 @@ func (r *Runner) streamRun(w http.ResponseWriter, planned plannedRun, output pro
 		stream.send(api.RunEvent{Line: &shown})
 	}
 
-	stream.send(api.RunEvent{Run: r.runEnded(planned, output.Wait())})
+	ended := r.runEnded(planned, output.Wait())
+	r.landed()
+	stream.send(api.RunEvent{Run: ended})
 }
 
 // runStarted records how to stop the run, stopping it at once if it was asked

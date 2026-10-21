@@ -37,13 +37,17 @@ type Runner struct {
 
 	// run is the git run going, if any.
 	run runSlot
+
+	// landed tells the server's event streams that a run has ended.
+	landed func()
 }
 
 // New is a Runner over given that hands a failure the answer leaves out to
-// unexpected and holds indexWrites, the lock the server's own index writes
-// take, while a run goes.
-func New(given Seams, unexpected func(err error), indexWrites *sync.Mutex) *Runner {
-	return &Runner{seams: given, unexpected: unexpected, indexWrites: indexWrites, run: runSlot{}}
+// unexpected, holds indexWrites, the lock the server's own index writes take,
+// while a run goes, and calls landed once a run's program has ended, before
+// its stream says how, so the page reads the end beside a frame that shows it.
+func New(given Seams, unexpected func(err error), indexWrites *sync.Mutex, landed func()) *Runner {
+	return &Runner{seams: given, unexpected: unexpected, indexWrites: indexWrites, run: runSlot{}, landed: landed}
 }
 
 // orZero dereferences an optional field, or returns its zero value when absent.
