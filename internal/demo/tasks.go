@@ -76,12 +76,12 @@ func touchedTasks(_ context.Context, since time.Time) ([]taskwarrior.Task, error
 	return changedSince(allTasks(), since), nil
 }
 
-// allTasks is every task: the pending ones and the redaction plan written up
-// yesterday.
+// allTasks is every task: the pending ones and the redaction plan, added the
+// day before yesterday and written up yesterday.
 func allTasks() []taskwarrior.Task {
 	finished := taskwarrior.Task{
 		UUID: "3c8f0a19-e6a8-4544-9dd8-f1888f6f079f", Description: "Write up the token redaction plan",
-		Status: taskwarrior.Completed, Project: taskProject, Entry: epoch().Add(-26 * time.Hour),
+		Status: taskwarrior.Completed, Project: taskProject, Entry: epoch().AddDate(0, 0, -2),
 		Modified: yesterday(9, 40), End: yesterday(9, 40),
 	}
 

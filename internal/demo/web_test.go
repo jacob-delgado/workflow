@@ -606,3 +606,52 @@ func TestChoosingTheGroupsOfTheRepositoryKeepsThem(t *testing.T) {
 		t.Errorf("acme/api's groups are %+v, want platform alone", groups)
 	}
 }
+
+// itemsOf is every item an activity holds, in the order it reads.
+func itemsOf(activity api.Activity) []api.ActivityItem {
+	var items []api.ActivityItem
+
+	for _, year := range activity.Years {
+		for _, month := range year.Months {
+			for _, day := range month.Days {
+				for _, hour := range day.Hours {
+					items = append(items, hour.Items...)
+				}
+			}
+		}
+	}
+
+	return items
+}
+
+func TestNoTaskIsAddedAfterItWasCompleted(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	demo := servedWeb(t)
+
+	// Act
+	activity := read[api.Activity](demo, "/api/activity?from=2026-09-01&to=2026-09-16")
+
+	// Assert
+	added, completed := map[string]time.Time{}, map[string]time.Time{}
+
+	for _, item := range itemsOf(activity) {
+		switch item.Verb {
+		case "added task":
+			added[item.Ref] = item.At
+		case "completed task":
+			completed[item.Ref] = item.At
+		}
+	}
+
+	if len(completed) == 0 {
+		t.Fatal("the month shows no task completed, want the redaction plan's")
+	}
+
+	for ref, done := range completed {
+		if entered, isAdded := added[ref]; isAdded && entered.After(done) {
+			t.Errorf("task %s was added at %v, after it was completed at %v", ref, entered, done)
+		}
+	}
+}
