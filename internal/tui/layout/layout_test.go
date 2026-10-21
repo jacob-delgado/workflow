@@ -51,6 +51,40 @@ func TestComputeWithNoticeReservesARowAboveTheFooter(t *testing.T) {
 	}
 }
 
+func TestANoticeTakesItsRowFromTheFocusedPaneAlone(t *testing.T) {
+	t.Parallel()
+
+	const panes = 9
+
+	terminal := layout.Terminal{Width: 96, Height: 30}
+
+	for focused := range panes {
+		t.Run(fmt.Sprintf("focus on pane %d", focused), func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			rail := layout.Rail{Panes: panes, Focused: focused}
+			plain := layout.Compute(terminal, rail)
+
+			// Act
+			shape, _ := layout.ComputeWithNotice(terminal, rail)
+
+			// Assert
+			for index, box := range shape.Rail {
+				want := plain.Rail[index].Height
+				if index == focused {
+					want--
+				}
+
+				if box.Height != want {
+					t.Errorf("rail[%d].Height = %d with a notice, want %d (%d without)",
+						index, box.Height, want, plain.Rail[index].Height)
+				}
+			}
+		})
+	}
+}
+
 func TestEightyColumnsKeepsTheRailBesideTheDetail(t *testing.T) {
 	t.Parallel()
 
