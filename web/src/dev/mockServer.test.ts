@@ -103,6 +103,26 @@ test("the mockup's stream pushes its snapshot, live, for the view asked", async 
   })
 })
 
+test('a write pushes the open stream a frame', async () => {
+  // Arrange
+  await installed()
+  renderHook(() => {
+    useEventStream(null, vi.fn())
+  })
+  await waitFor(() => {
+    expect(useSnapshotStore.getState().status).toBe('live')
+  })
+  const before = useSnapshotStore.getState().snapshot
+
+  // Act
+  await pushBranch()
+
+  // Assert
+  await waitFor(() => {
+    expect(useSnapshotStore.getState().snapshot).not.toBe(before)
+  })
+})
+
 test('the mockup is a writable build', async () => {
   // Arrange
   await installed()

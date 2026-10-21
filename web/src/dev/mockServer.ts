@@ -101,6 +101,9 @@ async function answer(
     : undefined
   try {
     const answered = await found.route({ url, params: found.params, body })
+    if (request.method !== 'GET') {
+      MockEventSource.pushEveryOpen()
+    }
 
     return answered instanceof Response ? answered : Response.json(answered)
   } catch (refused) {
@@ -174,11 +177,15 @@ function nothing(): Response {
 }
 
 // MockEventSource is the mockup's event stream: it opens, then pushes the mock
-// snapshot, for whichever view it is asked for.
+// snapshot, for whichever view it is asked for, and pushes it again after
+// every write, as the server's stream pushes the frame a write woke.
 class MockEventSource extends EventTarget {
   static readonly CONNECTING = 0
   static readonly OPEN = 1
   static readonly CLOSED = 2
+
+  // open is every stream not yet closed, which a write pushes a frame down.
+  private static readonly open = new Set<MockEventSource>()
 
   readonly url: string
   readyState = MockEventSource.CONNECTING
@@ -186,13 +193,26 @@ class MockEventSource extends EventTarget {
   constructor(url: string | URL) {
     super()
     this.url = String(url)
+    MockEventSource.open.add(this)
     queueMicrotask(() => {
       this.push()
     })
   }
 
+  // pushEveryOpen pushes the mock snapshot down every open stream, on a task
+  // after the one that answers the write, as the server's frame arrives after
+  // the answer's headers.
+  static pushEveryOpen(): void {
+    setTimeout(() => {
+      for (const source of MockEventSource.open) {
+        source.push()
+      }
+    }, 0)
+  }
+
   close(): void {
     this.readyState = MockEventSource.CLOSED
+    MockEventSource.open.delete(this)
   }
 
   private push(): void {

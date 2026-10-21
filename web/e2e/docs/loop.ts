@@ -67,8 +67,8 @@ export async function pickIssue(page: Page, pace: Pace): Promise<void> {
 }
 
 // startWork starts work on the issue the detail shows, on a branch of its
-// own, done once its work story's Branch stage names the branch: the status
-// says so a frame of the stream before the story shows it.
+// own, done once its work story's Branch stage names the branch, which the
+// status says only once the story shows it.
 export async function startWork(page: Page, pace: Pace): Promise<void> {
   await pace.click(startButton(page))
   await expect(said(page, `Started work on ${workedBranch}.`)).toBeVisible()
@@ -95,8 +95,8 @@ export async function stage(page: Page, pace: Pace, path: string): Promise<void>
 }
 
 // commit commits what is staged as a fix, in the scope the form proposes,
-// with subject, done once the branch lists it: the form says so a frame of
-// the stream before the branch shows it.
+// with subject, done once the branch lists it, which the form says only once
+// the branch shows it.
 export async function commit(page: Page, pace: Pace, subject: string): Promise<void> {
   const form = page.getByRole('form', { name: 'Commit staged changes' })
   await form.getByLabel('Type').selectOption('fix')

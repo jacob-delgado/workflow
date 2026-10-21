@@ -59,6 +59,34 @@ export const useSnapshotStore = create<SnapshotState>(() => ({
   receivedAt: 0,
 }))
 
+// nextFrame resolves once the stream has pushed its next snapshot, so a write
+// answered now is handed on beside a page that shows it: the server pushes a
+// frame as soon as a write is answered, read wholly after the write landed.
+// It resolves at once when there is no stream to agree with — no snapshot
+// yet, or a stream gone stale or closed — and as soon as the stream goes
+// either way meanwhile. A stream reconnecting is waited out, since its first
+// frame is the one that agrees, as after a directory switch.
+export function nextFrame(): Promise<void> {
+  const { snapshot, status } = useSnapshotStore.getState()
+  if (snapshot === null || endsTheWait(status)) {
+    return Promise.resolve()
+  }
+
+  return new Promise((resolve) => {
+    const unsubscribe = useSnapshotStore.subscribe((state) => {
+      if (state.snapshot !== snapshot || endsTheWait(state.status)) {
+        unsubscribe()
+        resolve()
+      }
+    })
+  })
+}
+
+// endsTheWait reports a stream that will push no frame to wait for.
+function endsTheWait(status: StreamStatus): boolean {
+  return status === 'stale' || status === 'closed'
+}
+
 // useLiveSnapshot is the snapshot for a section that renders only once there is
 // one: SectionPanel says it is connecting until the first frame lands, and no
 // frame ever takes the snapshot back to null, so the section never checks for

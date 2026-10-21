@@ -2,7 +2,7 @@ import { HeldBack } from './apiError.ts'
 import { client } from './generated/client.gen.ts'
 import { useHealthStore } from './health.ts'
 import { adoptSession, useSessionStore } from './session.ts'
-import { useSnapshotStore } from './snapshot.ts'
+import { nextFrame, useSnapshotStore } from './snapshot.ts'
 
 // The session the address the page was opened at carries, or the one kept
 // from before, taken before the first request leaves.
@@ -67,3 +67,27 @@ client.interceptors.request.use((request) => {
 
   return request
 })
+
+// A write's answer is handed on only once the event stream has pushed the
+// frame it woke, which the server reads wholly after the write landed: one
+// gate over every write, present and future, so no write says it is done
+// beside a page that still shows it undone. It waits from the answer's
+// headers, the earliest the server has woken the stream by. A run's own
+// stream (application/x-ndjson) waits at its end instead (gitRunApi.ts), and
+// the edge's plain-text refusals, which never reach the server's writes, wake
+// nothing to wait for.
+client.interceptors.response.use(async (response, request) => {
+  if (!safeMethods.has(request.method) && waitsForFrame(response)) {
+    await nextFrame()
+  }
+
+  return response
+})
+
+// waitsForFrame reports an answer to a write that the server woke the stream
+// for as it began.
+function waitsForFrame(response: Response): boolean {
+  const kind = response.headers.get('Content-Type') ?? ''
+
+  return !kind.startsWith('text/plain') && !kind.startsWith('application/x-ndjson')
+}

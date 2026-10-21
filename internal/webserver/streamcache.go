@@ -216,10 +216,11 @@ const assignedInterval = time.Minute
 // yours, held for every stream alike and asked again when the branches name
 // other issues or assignedInterval has passed. An ask that fails keeps the last
 // answer until the next is due, and an issue that answer never covered counts
-// as yours, as every issue does with no answer yet, or no tracker to ask, so
-// the list never waits on the tracker. One ask runs at a time, outside the
-// lock: a frame that finds one under way is served the answer held at once,
-// or, before any ask has landed, waits for that ask.
+// as yours, as every issue does with no answer yet, or no tracker to ask. One
+// ask runs at a time, outside the lock: a frame that finds one under way is
+// served the answer held at once, or waits for that ask before any has landed
+// and after an assignment here has dropped the answer, so the frame an
+// assignment wakes shows it, as after a drop of the forge's.
 type assignedCache struct {
 	mu     sync.Mutex
 	held   bool

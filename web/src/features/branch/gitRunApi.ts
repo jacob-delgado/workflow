@@ -14,6 +14,7 @@ import type {
   RunRequest,
 } from '@/api/generated/types.gen.ts'
 import { zRunEvent } from '@/api/generated/zod.gen.ts'
+import { nextFrame } from '@/api/snapshot.ts'
 
 // startRun starts a git run — a hook, a rebase, an amend or a fixup — and
 // hands each event it streams to onEvent as it lands: the run as it starts,
@@ -34,15 +35,50 @@ export async function startRun(
 }
 
 // readEvents reads a run's stream, one JSON event a line, to its end, and
-// answers the last run it carried.
+// answers the last run it carried. How the run ended is handed on only once
+// the event stream has pushed the frame that end woke — the server wakes the
+// stream before it sends the end — so the run says how it ended beside a
+// branch that shows it.
 async function readEvents(
   body: ReadableStream<Uint8Array>,
   onEvent: (event: RunEvent) => void,
 ): Promise<Run> {
+  let last: Run | undefined
+  let ending: RunEvent | undefined
+  let shown: Promise<void> = Promise.resolve()
+
+  for await (const line of linesOf(body)) {
+    const event = parsed(line)
+    if (event === null) {
+      continue
+    }
+
+    last = event.run ?? last
+    if (event.run !== undefined && event.run.state !== 'in_progress') {
+      ending = event
+      shown = nextFrame()
+    } else {
+      onEvent(event)
+    }
+  }
+
+  if (last === undefined) {
+    throw new Error('the run ended without saying how')
+  }
+
+  await shown
+  if (ending !== undefined) {
+    onEvent(ending)
+  }
+
+  return last
+}
+
+// linesOf is each whole line of a streamed body as it arrives.
+async function* linesOf(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
   const reader = body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
-  let last: Run | undefined
 
   for (;;) {
     const { done, value } = await reader.read()
@@ -53,20 +89,8 @@ async function readEvents(
     buffer += decoder.decode(value, { stream: true })
     const lines = buffer.split('\n')
     buffer = lines.pop() ?? ''
-    for (const line of lines) {
-      const event = parsed(line)
-      if (event !== null) {
-        last = event.run ?? last
-        onEvent(event)
-      }
-    }
+    yield* lines
   }
-
-  if (last === undefined) {
-    throw new Error('the run ended without saying how')
-  }
-
-  return last
 }
 
 // parsed is one line of the stream as an event, or null when it is blank or

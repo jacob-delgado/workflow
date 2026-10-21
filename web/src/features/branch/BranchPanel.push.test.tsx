@@ -1,6 +1,7 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useSnapshotStore } from '@/api/snapshot.ts'
+import { fakeApi, pushFrame } from '@/test/fakeApi.ts'
 import { makeBranch, makeSnapshot } from '@/test/fixtures.ts'
 import { BranchPanel } from './BranchPanel.tsx'
 
@@ -151,4 +152,34 @@ test("names no push remote when it is the base's", () => {
 
   // Assert
   expect(screen.getAllByRole('term').map((shown) => shown.textContent)).not.toContain('Push to')
+})
+
+test('Pushed is said only once the branch no longer reads ahead', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  const pushed = makeBranch({ ahead: 0 })
+  fakeApi({ '/api/push': pushed }, { frames: 'held' })
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({ branch: makeBranch({ ahead: 1 }) }),
+  })
+  render(<BranchPanel />)
+
+  // Act: push, with the frame the push woke not yet landed
+  await user.click(screen.getByRole('button', { name: 'Push branch' }))
+  await user.click(screen.getByRole('button', { name: /^push$/i }))
+  await new Promise((resolve) => setTimeout(resolve, 0))
+
+  // Assert: nothing says the branch went while it still reads ahead
+  expect(screen.getByText('1 ahead, 0 behind')).toBeTruthy()
+  expect(screen.queryByText('Pushed fix/PROJ-1.')).toBeNull()
+
+  // Act: the frame lands
+  act(() => {
+    pushFrame(makeSnapshot({ branch: pushed }))
+  })
+
+  // Assert: the notice stands beside the branch up to date
+  await screen.findByText('Pushed fix/PROJ-1.')
+  expect(screen.getByText('0 ahead, 0 behind')).toBeTruthy()
 })
