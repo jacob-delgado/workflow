@@ -114,7 +114,7 @@ function AnnounceSection({
           service={messaging.service}
           channels={messaging.channels}
           defaultChannel={messaging.channel}
-          onAnnounced={announcing.say}
+          announcing={announcing}
         />
       ) : null}
       {pull === null ? (
@@ -134,7 +134,15 @@ interface AnnounceControlsProps {
   service: string
   channels: string[]
   defaultChannel: string
-  onAnnounced: (said: string) => void
+  announcing: Announcing
+}
+
+// Announcing is what a send from the section is handed: start as it goes,
+// refuse when it was refused, and say what became of it.
+interface Announcing {
+  start: () => void
+  refuse: () => void
+  say: (said: string) => void
 }
 
 // momentOf names the moment pull stands at, which an announcement is made at:
@@ -144,19 +152,31 @@ function momentOf(pull: PullRequest): string {
 }
 
 // useAnnouncedHere is how the section says where an announcement made here
-// went: say puts it in the section's outcome, at the moment the pull request
-// stands at, and saidHere is whether the outcome says it still, which no
-// later write has cleared, for the moment it stands at now.
+// went: start marks one going out at the moment the pull request stands at,
+// say puts what became of it in the section's outcome, and refuse lets go of
+// one refused. saidHere is whether the section says it already, for the
+// moment the pull request stands at now: it is still going out — its answer
+// handed on after the frame that agrees with it — or the outcome says it
+// still, which no later write has cleared.
 function useAnnouncedHere(outcome: ReturnType<typeof useOutcome>, moment: string) {
-  const [announced, setAnnounced] = useState({ text: '', moment: '' })
+  const [announced, setAnnounced] = useState<{ text: string | null; moment: string }>({
+    text: '',
+    moment: '',
+  })
+  const said = announced.text === null || outcome.said?.text === announced.text
 
   return {
-    say: (said: string) => {
-      setAnnounced({ text: said, moment })
-      outcome.say(said)
+    start: () => {
+      setAnnounced({ text: null, moment })
     },
-    saidHere:
-      outcome.said !== null && outcome.said.text === announced.text && announced.moment === moment,
+    refuse: () => {
+      setAnnounced({ text: '', moment: '' })
+    },
+    say: (text: string) => {
+      setAnnounced({ text, moment })
+      outcome.say(text)
+    },
+    saidHere: announced.moment === moment && said,
   }
 }
 
@@ -206,24 +226,24 @@ function announcedAt(pull: PullRequest, sigil: string): string {
 // the CI passes, as the terminal's w does.
 // The preview and the post are two steps, each its own action; a refused post
 // goes back to the button, with its reason. Once posted or held, the controls
-// step aside, and what became of it is said through onAnnounced. Focus goes to
+// step aside, and what became of it is said through announcing. Focus goes to
 // the preview as it opens, and back to the button when it closes unposted.
 function AnnounceControls({
   pullName,
   service,
   channels,
   defaultChannel,
-  onAnnounced,
+  announcing,
 }: AnnounceControlsProps) {
   const draft = useDraft(defaultChannel, channels)
   const [opener, handBack] = useFocusHandback<HTMLButtonElement>()
   const postKeys = useShortcut('post', opener)
   // A check failed between the preview and the post: preview it again, which
   // offers to announce it once CI passes, and says why.
-  const post = useAnnouncePost(draft.channel, service, onAnnounced, () => {
+  const post = useAnnouncePost(draft.channel, service, announcing, () => {
     void draft.preview.run()
   })
-  const hold = useAnnounceHold(draft.channel, service, onAnnounced)
+  const hold = useAnnounceHold(draft.channel, service, announcing)
 
   if (post.state === 'done' || hold.state === 'done') {
     return null
@@ -386,14 +406,14 @@ function sendingOf(post: AsyncState, hold: AsyncState): 'post' | 'hold' | null {
 }
 
 // useAnnouncePost is the post of a previewed announcement to channel, which
-// says where it went through onAnnounced, and that it may be offered again
+// says where it went through announcing, and that it may be offered again
 // when the store could not remember it. Only an announcement that tags asks
 // for mentions, and only an edited one carries its edit, so one that does
 // neither posts as it always has.
 function useAnnouncePost(
   channel: string,
   service: string,
-  onAnnounced: (said: string) => void,
+  announcing: Announcing,
   onCIFailed: () => void,
 ) {
   const send = (previewed: string, mentions?: AnnounceMentions, edited?: string) => {
@@ -411,6 +431,7 @@ function useAnnouncePost(
       try {
         return await send(previewed, mentions, edited)
       } catch (caught) {
+        announcing.refuse()
         if (problemCode(caught) === 'ci_failed') {
           onCIFailed()
         }
@@ -426,18 +447,25 @@ function useAnnouncePost(
           `Announced to ${posted.channel === '' ? service : posted.channel}.`,
           posted.warning,
         ),
-      onDone: onAnnounced,
+      onStart: announcing.start,
+      onDone: announcing.say,
     },
   )
 }
 
 // useAnnounceHold holds a previewed announcement to channel until the pull
-// request's CI passes, and says so through onAnnounced — or that it went at
+// request's CI passes, and says so through announcing — or that it went at
 // once, when the CI had passed by then, as a post says it.
-function useAnnounceHold(channel: string, service: string, onAnnounced: (said: string) => void) {
+function useAnnounceHold(channel: string, service: string, announcing: Announcing) {
   return useAsyncAction(
-    (previewed: string, mentions?: AnnounceMentions, edited?: string) =>
-      announceWhenCIPasses(channel, previewed, mentions, edited),
+    async (previewed: string, mentions?: AnnounceMentions, edited?: string) => {
+      try {
+        return await announceWhenCIPasses(channel, previewed, mentions, edited)
+      } catch (caught) {
+        announcing.refuse()
+        throw caught
+      }
+    },
     {
       fallback: 'Nothing was held. Try again, or announce it now.',
       done: (answer) => {
@@ -447,7 +475,8 @@ function useAnnounceHold(channel: string, service: string, onAnnounced: (said: s
           ? `Will announce to ${where} once CI passes.`
           : withWarning(`Announced to ${where}.`, answer.warning)
       },
-      onDone: onAnnounced,
+      onStart: announcing.start,
+      onDone: announcing.say,
     },
   )
 }
