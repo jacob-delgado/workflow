@@ -81,8 +81,8 @@ state the docs describe, and takes it in the dark theme at 1440 by 900, in
 UTC and under a held clock, once its heading is up and nothing is still
 reading. The same run films the walkthrough (`e2e/docs/walkthrough.spec.ts`,
 the `docs-walkthrough` project): the whole loop at 1280 by 800, at a
-person's pace, a pointer gliding to each control (`e2e/docs/pointer.ts`),
-from an issue picked to its announcement posted once CI passed. It starts
+person's pace, a pointer gliding to each control, field and choice before
+it presses, types or chooses (`e2e/docs/pointer.ts`), from an issue picked to its announcement posted once CI passed. It starts
 recording only once the page is live, the stream connected, the header and
 rail filled in and nothing reading or moving, so it never opens on a blank
 or half-drawn page. It writes

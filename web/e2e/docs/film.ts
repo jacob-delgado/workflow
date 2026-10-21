@@ -150,28 +150,34 @@ interface Beat {
   shown: Locator
 }
 
-// Scroll is how a beat moves the page to show what it does: what shows it
-// to the bottom of its pane, or the main pane down by a number of pixels.
-type Scroll = { reveal: true } | { reveal: false; by: number }
+// Take is what a step of the film acts through: the page, the reel it adds
+// to, and the film's clock.
+interface Take {
+  page: Page
+  reel: Reel
+  clock: () => number
+}
 
-// scrolled scrolls smoothly, as a person would, and waits, a frame at a
-// time, until the panes have moved and then stood still for two frames, and
+// scrollTops is where every pane on the page stands, as one line to compare.
+function scrollTops(page: Page): Promise<string> {
+  return page.evaluate(() =>
+    [...document.querySelectorAll('*')].map((pane) => pane.scrollTop).join(' '),
+  )
+}
+
+// settled waits, a frame at a time, until the panes have moved from where
+// they stood before a scroll began and then stood still for two frames, and
 // says whether they moved; a scroll that never starts, since the page was
 // already as far as it goes, gives up after a dozen.
-function scrolled(target: Locator, scroll: Scroll): Promise<boolean> {
-  return target.evaluate(
-    (element, how) =>
+function settled(page: Page, before: string): Promise<boolean> {
+  return page.evaluate(
+    (from) =>
       new Promise<boolean>((resolve) => {
         const panes = () =>
           [...document.querySelectorAll('*')].map((pane) => pane.scrollTop).join(' ')
-        let last = panes()
+        let last = from
         let moved = false
         let still = 0
-        if (how.reveal) {
-          element.scrollIntoView({ block: 'end', behavior: 'smooth' })
-        } else {
-          element.scrollBy({ top: how.by, behavior: 'smooth' })
-        }
         const watch = () => {
           const now = panes()
           moved ||= now !== last
@@ -186,8 +192,23 @@ function scrolled(target: Locator, scroll: Scroll): Promise<boolean> {
         }
         requestAnimationFrame(watch)
       }),
-    scroll,
+    before,
   )
+}
+
+// scrollTo starts a smooth scroll, as a person's, that brings target into
+// view: its end at its pane's end, or past whichever edge is nearest.
+async function scrollTo(target: Locator, block: 'end' | 'nearest'): Promise<void> {
+  await target.evaluate((element, to) => {
+    element.scrollIntoView({ block: to, behavior: 'smooth' })
+  }, block)
+}
+
+// scrollBy starts a smooth scroll of pane down by a number of pixels.
+async function scrollBy(pane: Locator, by: number): Promise<void> {
+  await pane.evaluate((element, top) => {
+    element.scrollBy({ top, behavior: 'smooth' })
+  }, by)
 }
 
 // wholeInView says whether shown lies wholly inside the window and every
@@ -207,18 +228,24 @@ function wholeInView(shown: Locator): Promise<boolean> {
   })
 }
 
-// filmedScroll scrolls as scrolled does, and keeps the scroll as a stretch
-// the film moves through when the page moved: one that did not leaves the
-// same frames, which the encoding rightly plays as one.
-async function filmedScroll(
-  reel: Reel,
-  clock: () => number,
-  target: Locator,
-  scroll: Scroll,
-): Promise<void> {
-  const from = clock()
-  if (await scrolled(target, scroll)) {
-    reel.stretches.push({ what: 'a scroll', from, to: clock() })
+// filmedScroll begins a scroll with start and waits until the panes stand
+// still, keeping the scroll as a stretch the film moves through when the
+// page moved: one that did not leaves the same frames, which the encoding
+// rightly plays as one.
+async function filmedScroll(take: Take, start: () => Promise<void>): Promise<void> {
+  const before = await scrollTops(take.page)
+  const from = take.clock()
+  await start()
+  if (await settled(take.page, before)) {
+    take.reel.stretches.push({ what: 'a scroll', from, to: take.clock() })
+  }
+}
+
+// bringIntoView scrolls a control the film is about to act on wholly into
+// view when it is not, as a person scrolls to it before reaching for it.
+async function bringIntoView(take: Take, target: Locator): Promise<void> {
+  if (!(await wholeInView(target))) {
+    await filmedScroll(take, () => scrollTo(target, 'nearest'))
   }
 }
 
@@ -226,22 +253,22 @@ async function filmedScroll(
 // when the window's edge cuts any text, then nudges the page down past each
 // line still cut, a few times at most, scrolling as the film moves through.
 // What it cannot clear is left for the keyframe's checks to name.
-async function reveal(page: Page, reel: Reel, shown: Locator, clock: () => number): Promise<void> {
+async function reveal(take: Take, shown: Locator): Promise<void> {
+  const { page } = take
   if ((await wholeInView(shown)) && (await cutAtTheEdge(page)).length === 0) {
     return
   }
 
-  await filmedScroll(reel, clock, shown, { reveal: true })
+  await filmedScroll(take, () => scrollTo(shown, 'end'))
   for (let nudge = 0; nudge < mostNudges; nudge++) {
     const cuts = await cutAtTheEdge(page)
     if (cuts.length === 0) {
       break
     }
     const deepest = Math.max(...cuts.map((cut) => cut.bottom))
-    await filmedScroll(reel, clock, page.getByRole('main'), {
-      reveal: false,
-      by: deepest - size.height + nudgeGap,
-    })
+    await filmedScroll(take, () =>
+      scrollBy(page.getByRole('main'), deepest - size.height + nudgeGap),
+    )
   }
 }
 
@@ -249,10 +276,11 @@ async function reveal(page: Page, reel: Reel, shown: Locator, clock: () => numbe
 // the beat shows is in view, then keeps an image of it as it stands, named
 // by its place in the film, and the moment on the film's clock it stood so,
 // which the beat holds.
-async function keyframe(page: Page, reel: Reel, clock: () => number, beat: Beat): Promise<void> {
+async function keyframe(take: Take, beat: Beat): Promise<void> {
+  const { page, reel, clock } = take
   const { caption, shown } = beat
   await expect.poll(() => stillAnimating(page), { message: caption }).toEqual([])
-  await reveal(page, reel, shown, clock)
+  await reveal(take, shown)
   expect(await cutAtTheEdge(page), caption).toEqual([])
   await expect(shown, caption).toBeInViewport({ ratio: 1 })
   expect(await fontsLoaded(page), caption).toBe(true)
@@ -328,7 +356,7 @@ async function roll(page: Page, dir: string): Promise<Film> {
   })
 
   return {
-    pace: filmedPace(page, reel, clock, pointer),
+    pace: filmedPace({ page, reel, clock }, pointer),
     captions: () => reel.keys.map((key) => key.caption),
     stalls: () => stallsIn(reel),
     finish: async () => {
@@ -338,13 +366,21 @@ async function roll(page: Page, dir: string): Promise<Film> {
   }
 }
 
-// filmedPace is the walkthrough's pace: each click a glide to the control
-// first, typing a key at a time, and a keyframe for each beat.
-function filmedPace(page: Page, reel: Reel, clock: () => number, pointer: Pointer): Pace {
+// filmedPace is the walkthrough's pace: the pointer glides to each control
+// first, scrolling it into view as it goes; a field is clicked and typed into
+// a key at a time, and a choice clicked and chosen; and each beat is a
+// keyframe.
+function filmedPace(take: Take, pointer: Pointer): Pace {
+  const { reel, clock } = take
+  const glideTo = async (target: Locator) => {
+    await bringIntoView(take, target)
+    const glide = await pointer.glide(target)
+    reel.stretches.push({ what: 'a glide', from: glide.began, to: glide.ended })
+  }
+
   return {
     click: async (target) => {
-      const glide = await pointer.glide(target)
-      reel.stretches.push({ what: 'a glide', from: glide.began, to: glide.ended })
+      await glideTo(target)
       await target.click()
       // A control a press takes away, as Start work, leaves nowhere to
       // park beside, and the pointer stays where it pressed.
@@ -354,10 +390,17 @@ function filmedPace(page: Page, reel: Reel, clock: () => number, pointer: Pointe
       }
     },
     type: async (target, text) => {
+      await glideTo(target)
+      await target.click()
       const from = clock()
       await target.pressSequentially(text, { delay: keyDelay })
       reel.stretches.push({ what: `typing "${text}"`, from, to: clock() })
     },
-    beat: (caption, shown) => keyframe(page, reel, clock, { caption, shown }),
+    choose: async (select, value) => {
+      await glideTo(select)
+      await select.click()
+      await select.selectOption(value)
+    },
+    beat: (caption, shown) => keyframe(take, { caption, shown }),
   }
 }
