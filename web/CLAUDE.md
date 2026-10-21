@@ -122,7 +122,10 @@ one fails.
   held to `e2e/docs/capture.ts`: fonts loaded, no text or control cut by an edge
   of the window or of any pane that clips, nothing mid-animation; and each of
   the walkthrough's keyframes to `e2e/docs/cover.ts` too, the pointer parked
-  where it covers nothing the frame shows. `e2e/docs/fidelity.spec.ts`
+  where it covers nothing the frame shows; and the frame each beat holds to
+  its keyframe by `e2e/docs/held.ts`, every pixel within the rounding a
+  screenshot and the screencast differ by, which fails the film on a keyframe
+  no frame shows. `e2e/docs/fidelity.spec.ts`
   (`corepack yarn media:check`) holds the encoded WebP to the film, after
   `task docs:media` encodes it.
 

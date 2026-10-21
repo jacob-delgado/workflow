@@ -10,16 +10,17 @@ import {
   type Cut,
 } from './capture.ts'
 import { pointerCovers, type Point } from './cover.ts'
+import { heldKeys } from './held.ts'
 import type { Pace } from './loop.ts'
 import { drawPointer, placePointer, type Pointer } from './pointer.ts'
 
 // The walkthrough's film: the page's screencast kept frame by frame with the
 // time each was drawn, and the beats the loop's steps hold, written for
 // scripts/docs-media.sh to encode and check. The browser sends a frame only
-// when it draws one, so a frame lasts until the next; a beat holds the frame
-// it lands on for a beat's length more, so the film can hold a step without
-// the test waiting. A still stretch the page spends waiting on the demo is
-// cut to stillMs, since nothing in it moves.
+// when it draws one, so a frame lasts until the next; a beat holds the first
+// frame that shows its keyframe for a beat's length more (held.ts), so the
+// film can hold a step without the test waiting. A still stretch the page
+// spends waiting on the demo is cut to stillMs, since nothing in it moves.
 
 // size is the film's frame: the window the walkthrough's project opens.
 const size = { width: 1280, height: 800 }
@@ -410,7 +411,9 @@ async function park(take: Take, shown: Locator): Promise<void> {
 // keyframe holds the page to what every docs image is held to, once what
 // the beat shows is in view and the pointer parked clear of it, then keeps
 // an image of it as it stands, named by its place in the film, and the
-// moment on the film's clock it stood so, which the beat holds.
+// moment on the film's clock it stood so, from which the beat holds the
+// first frame that shows it. The image keeps a field's caret, which a
+// screenshot hides unless asked, since the film shows it.
 async function keyframe(take: Take, beat: Beat): Promise<void> {
   const { page, reel, clock } = take
   const { caption, shown } = beat
@@ -423,7 +426,7 @@ async function keyframe(take: Take, beat: Beat): Promise<void> {
   expect(await fontsLoaded(page), caption).toBe(true)
   const at = clock()
   const file = `keys/${String(reel.keys.length + 1).padStart(2, '0')}.png`
-  await page.screenshot({ path: join(reel.dir, file) })
+  await page.screenshot({ path: join(reel.dir, file), caret: 'initial' })
   reel.keys.push({ caption, at, file })
 }
 
@@ -498,6 +501,7 @@ async function roll(page: Page, dir: string): Promise<Film> {
     stalls: () => stallsIn(reel),
     finish: async () => {
       await stop()
+      reel.keys = await heldKeys({ page, dir, frames: reel.frames }, reel.keys)
       writeReel(reel)
     },
   }
