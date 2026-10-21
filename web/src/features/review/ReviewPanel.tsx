@@ -19,7 +19,7 @@ import { StateMark, type MarkState } from '@/lib/StateMark.tsx'
 import { CiChecks } from './Checks.tsx'
 import { OpenedOutcome } from './OpenedOutcome.tsx'
 import { OpenPullRequest } from './OpenPullRequest.tsx'
-import { PullActions } from './PullActions.tsx'
+import { PullActions, type FinishTeller, type Moved } from './PullActions.tsx'
 
 // Whether the pull request merges cleanly, in words and by its mark: clean is
 // done, a conflict failed, and a forge that has not worked it out yet has not
@@ -40,20 +40,50 @@ const stateMark: Record<PullRequest['state'], MarkState> = {
 
 export function ReviewPanel() {
   const snapshot = useLiveSnapshot()
+  const finished = useFinished(snapshot.branch.name)
 
   // Keyed by the branch, so checking out another starts its review afresh: an
   // open's outcome offers to write to its own branch's issue, and it goes
   // rather than offer a link the server would refuse — or, back on its branch,
-  // a second one.
+  // a second one. What a finish said is held above it, since a finish checks
+  // out another branch.
   return (
-    <BranchReview
-      key={snapshot.branch.name}
-      review={snapshot.review}
-      branch={snapshot.branch}
-      service={snapshot.messaging.service}
-      unread={snapshot.problems?.review ?? null}
-    />
+    <div className={cn('flex flex-col gap-section', contentMeasure)}>
+      <OutcomeLine said={finished.said} />
+      <BranchReview
+        key={snapshot.branch.name}
+        review={snapshot.review}
+        branch={snapshot.branch}
+        service={snapshot.messaging.service}
+        unread={snapshot.problems?.review ?? null}
+        finished={finished.teller}
+      />
+    </div>
   )
+}
+
+// useFinished is what the last finish said, held above the branch's review: a
+// finish checks out the base, whose frame can land before the finish answers
+// and starts the review afresh, so a line said inside it would go unheard. It
+// stands while the branch the finish left or the one it checked out is, in
+// whichever order the frame and the answer land, and goes for good once
+// another is.
+function useFinished(checkedOut: string) {
+  const outcome = useOutcome()
+  const [moved, setMoved] = useState<Moved | null>(null)
+  if (moved !== null && checkedOut !== moved.from && checkedOut !== moved.to) {
+    setMoved(null)
+  }
+
+  const teller: FinishTeller = {
+    clear: outcome.clear,
+    say: (text, by) => {
+      setMoved(by)
+      outcome.say(text)
+    },
+  }
+
+  return { said: moved === null ? null : outcome.said, teller }
 }
 
 interface BranchReviewProps {
@@ -63,13 +93,15 @@ interface BranchReviewProps {
   service: string
   // Why the forge could not be read for the branch, or null when it was.
   unread: Problem | null
+  // finished is the panel's line a finish says what it did in.
+  finished: FinishTeller
 }
 
 // BranchReview is the checked-out branch's pull request, or the offer to open
 // one, beneath what the last open answered. A forge that could not be read
 // says so, above the pull request it last answered with, or in place of the
 // offer: a forge that cannot say is not one with no pull request to show.
-function BranchReview({ review, branch, service, unread }: BranchReviewProps) {
+function BranchReview({ review, branch, service, unread, finished }: BranchReviewProps) {
   // What the open answered, and the line that says so, held here — above the
   // switch between offering to open and showing the pull request — so the
   // snapshot that brings the new pull request back leaves the outcome and its
@@ -82,7 +114,7 @@ function BranchReview({ review, branch, service, unread }: BranchReviewProps) {
   const pull = review.found ? (review.pull ?? null) : null
 
   return (
-    <div className={cn('flex flex-col gap-section', contentMeasure)}>
+    <div className="flex flex-col gap-section">
       {/* The line sits close above the offers it introduces. */}
       <OutcomeLine said={outcome.said} className={opened === null ? undefined : '-mb-block'} />
       {opened === null ? null : (
@@ -99,7 +131,9 @@ function BranchReview({ review, branch, service, unread }: BranchReviewProps) {
           problem={unread}
         />
       )}
-      {pull === null ? null : <PullRequestSummary pull={pull} review={review} branch={branch} />}
+      {pull === null ? null : (
+        <PullRequestSummary pull={pull} review={review} branch={branch} finished={finished} />
+      )}
       {pull === null && unread === null ? (
         <OpenPullRequest
           onOpened={(answered, said) => {
@@ -120,10 +154,12 @@ function PullRequestSummary({
   pull,
   review,
   branch,
+  finished,
 }: {
   pull: PullRequest
   review: Review
   branch: Branch
+  finished: FinishTeller
 }) {
   const { sigil } = useForgeWords()
   const mark = `${sigil}${String(pull.number)}`
@@ -149,7 +185,13 @@ function PullRequestSummary({
           <RowValue mark={stateMark[pull.state]}>{stateLabel(pull)}</RowValue>
           {pull.state === 'open' ? <ReviewRows pull={pull} /> : null}
         </dl>
-        <PullActions pull={pull} ci={ci} branch={branch} finishRefusal={review.finish_refusal} />
+        <PullActions
+          pull={pull}
+          ci={ci}
+          branch={branch}
+          finishRefusal={review.finish_refusal}
+          finished={finished}
+        />
       </section>
 
       {ciUnread === null ? null : <ReadFailure unread="CI could not be read" problem={ciUnread} />}
