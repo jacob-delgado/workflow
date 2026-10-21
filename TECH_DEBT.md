@@ -1335,8 +1335,9 @@ image's bytes depend on the machine's fonts, its Chromium and its ffmpeg, so
 a comparison would fail everywhere but on the machine that wrote the image;
 the page's state marks fall outside its own face (TRADE-48) and come from
 whatever font the system has. The script checks only that the run wrote
-each image and kept it within its budget, 300 KiB a PNG and 2 MiB the GIF
-and the WebP each, that the GIF runs as long as its tape and the WebP as its
+each image and kept it within its budget, 300 KiB a PNG, 2 MiB the GIF and
+4 MiB the WebP, whose lossless film of the whole loop is about 3.2 MiB, that
+the GIF runs as long as its tape and the WebP as its
 film, with no frame lost where the film moves, which a busy machine's
 recordings do not, that each frame the WebP holds is the film's own as
 Chromium decodes it, which a lossy encoding's leftover blocks are not, that
@@ -1356,7 +1357,7 @@ copy when PATH has none.
 **Cost.** The images go stale without a word: a pane, a section or the
 demo's story changes, and they show the old screen until someone runs the
 task. Each run writes every image again, on another machine every pixel, so
-it adds the whole set, about 3 MiB, to the repository's history for good,
+it adds the whole set, about 5 MiB, to the repository's history for good,
 and a reviewer tells a changed screen from a changed font only by looking.
 A tampered ttyd 1.7.7 release asset would reach every Linux checkout's
 `mise install` unnoticed, stopped only when `task docs:media` hashes it.
