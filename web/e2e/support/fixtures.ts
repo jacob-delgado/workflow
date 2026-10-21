@@ -1,4 +1,4 @@
-import { test as playwright, type Page } from '@playwright/test'
+import { test as playwright, type Page, type Request, type Route } from '@playwright/test'
 import type {
   Branch,
   Issue,
@@ -91,12 +91,12 @@ export function issuesOf(issues: Issue[], total = issues.length): IssuesPage {
 const reconnectSoon = 'retry: 50\n\n'
 
 // streams answers the event stream with one snapshot, again on each
-// reconnection.
+// reconnection, each time counting the writes the page has been answered.
 export async function streams(page: Page, snapshot: Snapshot): Promise<void> {
   await page.route('**/api/events**', (route) =>
     route.fulfill({
       contentType: 'text/event-stream',
-      body: `${reconnectSoon}event: snapshot\ndata: ${JSON.stringify(snapshot)}\n\n`,
+      body: `${reconnectSoon}event: snapshot\ndata: ${JSON.stringify(counted(page, snapshot))}\n\n`,
     }),
   )
 }
@@ -105,12 +105,96 @@ export async function streams(page: Page, snapshot: Snapshot): Promise<void> {
 // sends them ahead of its first snapshot, then the snapshot when one is given.
 export async function seeds(page: Page, seed: Seed, snapshot?: Snapshot): Promise<void> {
   const first = `${reconnectSoon}id: 1\nevent: seed\ndata: ${JSON.stringify(seed)}\n\n`
-  const then =
-    snapshot === undefined ? '' : `id: 2\nevent: snapshot\ndata: ${JSON.stringify(snapshot)}\n\n`
+  const then = (frame: Snapshot) =>
+    `id: 2\nevent: snapshot\ndata: ${JSON.stringify(counted(page, frame))}\n\n`
 
   await page.route('**/api/events**', (route) =>
-    route.fulfill({ contentType: 'text/event-stream', body: first + then }),
+    route.fulfill({
+      contentType: 'text/event-stream',
+      body: first + (snapshot === undefined ? '' : then(snapshot)),
+    }),
   )
+}
+
+// writesAnswered is how many writes each page has been answered, as the
+// server counts them: what the frame streams sends it next counts.
+const writesAnswered = new WeakMap<Page, number>()
+
+// counted is snapshot as a frame read now, counting the writes page has been
+// answered.
+function counted(page: Page, snapshot: Snapshot): Snapshot {
+  return { ...snapshot, writes: writesAnswered.get(page) ?? 0 }
+}
+
+// refusedByTheContract are the statuses the contract's validator refuses a
+// request with before the server takes it, which no write lands with: a
+// spec's refusal with one is taken for the validator's.
+const refusedByTheContract = new Set([400, 401, 404, 405])
+
+// numberingWrites is page with the answer to every write a spec's route
+// fulfills numbered, in its Workflow-Write header, as the server numbers every
+// write it takes, so the frames streams sends after it count it.
+function numberingWrites(page: Page): Page {
+  const route = page.route.bind(page)
+  page.route = (url, handler, options) =>
+    route(
+      url,
+      (answering, request): unknown =>
+        handler(numbered(page, answering, request), request) as unknown,
+      options,
+    )
+
+  return page
+}
+
+// numbered is answering, for a write, with a fulfill that numbers the answer;
+// for a read, answering itself.
+function numbered(page: Page, answering: Route, request: Request): Route {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(request.method())) {
+    return answering
+  }
+
+  return new Proxy(answering, {
+    get(target, key) {
+      if (key === 'fulfill') {
+        return (answer: Parameters<Route['fulfill']>[0]) =>
+          target.fulfill(numberedAnswer(page, answer))
+      }
+
+      const value: unknown = Reflect.get(target, key)
+
+      return typeof value === 'function' ? (value as () => unknown).bind(target) : value
+    },
+  })
+}
+
+// writeHeader is the header the server numbers a write's answer in.
+const writeHeader = 'Workflow-Write'
+
+// landed counts a write page was answered, and is its number: for a route
+// that numbers its own answer, as a run numbers its start and its end.
+export function landed(page: Page): number {
+  const number = (writesAnswered.get(page) ?? 0) + 1
+  writesAnswered.set(page, number)
+
+  return number
+}
+
+// numberedAnswer is answer with the number the write it answers lands as,
+// counted on page; one the route numbered itself, or a refusal the
+// contract's validator would make, it leaves as it is.
+function numberedAnswer(
+  page: Page,
+  answer: Parameters<Route['fulfill']>[0],
+): Parameters<Route['fulfill']>[0] {
+  if (
+    refusedByTheContract.has(answer?.status ?? 200) ||
+    answer?.headers?.[writeHeader] !== undefined
+  ) {
+    return answer
+  }
+
+  return { ...answer, headers: { ...answer?.headers, [writeHeader]: String(landed(page)) } }
 }
 
 // problemBase is where a problem's type points, as the server's does: a
@@ -167,8 +251,12 @@ export function problem(code: Problem['code'], detail: string): Refusal {
 // any: a read or a write the spec leaves alone is refused as a route the
 // server does not have, rather than going on through Vite preview to the port
 // a developer's own `workflow --web` listens on. A spec's routes come after,
-// so they take precedence, and one that falls back reaches this.
+// so they take precedence, and one that falls back reaches this. Its page
+// numbers every write a spec answers, as the server does.
 export const test = playwright.extend<{ unanswered: undefined }>({
+  page: async ({ page }, provide) => {
+    await provide(numberingWrites(page))
+  },
   unanswered: [
     async ({ page }, use) => {
       await page.route('**/api/**', (route) =>

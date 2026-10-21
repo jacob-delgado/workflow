@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test'
 import type { ConfiguredHooks, HookSetup, RunEvent } from '../../src/api/generated/types.gen.ts'
 import { height, openSection, pinTheme, themes, widths } from '../support/cockpit.ts'
-import { branchWith, expect, snapshotWith, streams, test } from '../support/fixtures.ts'
+import { branchWith, expect, landed, snapshotWith, streams, test } from '../support/fixtures.ts'
 import { expectReachableAndClean } from '../support/reachable.ts'
 
 // The Branch section's git runs — a hook, a rebase, an amend, a fixup —
@@ -41,8 +41,9 @@ const configured: ConfiguredHooks = {
   git_only: [{ name: 'commit-msg', reason: 'git hands it the file holding the commit message' }],
 }
 
-// ndjson is a run's stream: it starts, writes two lines and passes.
-function ndjson(kind: string, title: string, outcome: string): string {
+// ndjson is a run's stream: it starts, writes two lines and passes, its end
+// numbered write, as the server numbers the end it lands.
+function ndjson(kind: string, title: string, outcome: string, write: number): string {
   const events: RunEvent[] = [
     { run: { kind, title, state: 'in_progress', outcome: '', lines: [] } },
     { line: 'lefthook v1.11.0  hook: pre-commit' },
@@ -55,6 +56,7 @@ function ndjson(kind: string, title: string, outcome: string): string {
         outcome,
         lines: ['lefthook v1.11.0  hook: pre-commit', 'go vet ./... passed'],
       },
+      write,
     },
   ] as RunEvent[]
 
@@ -63,20 +65,24 @@ function ndjson(kind: string, title: string, outcome: string): string {
 
 // opensBranch serves the branch, its runs, its diff, the hooks lefthook
 // configures and the lefthook offer, and opens the Branch section. It answers
-// each run asked for.
+// each run asked for, numbering its start and its end as the server does, so
+// the frames streamed after it count both.
 async function opensBranch(page: Page): Promise<unknown[]> {
   const asked: unknown[] = []
   await streams(page, snapshot)
   await page.route('**/api/runs', (route) => {
     const request = route.request().postDataJSON() as { kind: string; hook?: string }
     asked.push(request)
+    const started = landed(page)
 
     return route.fulfill({
       contentType: 'application/x-ndjson',
+      headers: { 'Workflow-Write': String(started) },
       body: ndjson(
         request.kind,
         request.kind === 'hook' ? (request.hook ?? '') : 'git rebase',
         'It went through.',
+        landed(page),
       ),
     })
   })
