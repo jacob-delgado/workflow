@@ -112,3 +112,38 @@ for (const theme of themes) {
     })
   }
 }
+
+// A template's body with the issue's link under it, a line longer than the
+// Description field's six rows hold.
+const templatedBody =
+  '## What\n\n## Why\n\n## How it was tested\n\n' +
+  'Jira: [PROJ-1](https://jira.example.com/browse/PROJ-1)'
+
+// hiddenBelow is how much of a field's text is drawn below what it shows.
+function hiddenBelow(field: HTMLTextAreaElement): number {
+  return field.scrollHeight - field.clientHeight
+}
+
+for (const width of widths) {
+  test(`the Description field shows a template's every line at ${String(width)} px`, async ({
+    page,
+  }) => {
+    // Arrange
+    await pinTheme(page, 'dark')
+    await page.setViewportSize({ width, height })
+    await streams(page, noPullYet)
+    await page.route('**/api/pull-request/draft', (route) =>
+      route.fulfill({ json: { ...pullDraft, body: templatedBody } }),
+    )
+    await page.goto('/')
+    await openSection(page, 'Review')
+
+    // Act
+    await page.getByRole('button', { name: 'Open a pull request' }).click()
+    const description = page.getByRole('textbox', { name: 'Description' })
+    await expect(description).toHaveValue(templatedBody)
+
+    // Assert
+    expect(await description.evaluate(hiddenBelow)).toBeLessThanOrEqual(0)
+  })
+}
