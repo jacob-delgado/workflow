@@ -218,3 +218,38 @@ for (const width of widths) {
     expect(await button.evaluate(heightDrawn)).toBe(before)
   })
 }
+
+// buttonsGap is how far apart two buttons side by side are drawn, beside the
+// column gap the box holding both sets between its items.
+function buttonsGap([left, right]: Element[]): { drawn: number; set: number } {
+  const span = document.createRange()
+  span.setStartBefore(left)
+  span.setEndAfter(right)
+  const row = span.commonAncestorContainer as Element
+
+  return {
+    drawn: right.getBoundingClientRect().left - left.getBoundingClientRect().right,
+    set: parseFloat(getComputedStyle(row).columnGap),
+  }
+}
+
+for (const width of widths) {
+  test(`Stage all keeps Unstage all beside it once it says what it did at ${String(width)} px`, async ({
+    page,
+  }) => {
+    // Arrange
+    await page.route('**/api/stage', (route) =>
+      route.fulfill({ json: workingTreeSnapshot.changes }),
+    )
+    await opensBranch(page, { theme: 'dark', width, snapshot: workingTreeSnapshot })
+    const bulk = page.getByRole('button', { name: /^(Stage all|Unstage all)$/ })
+
+    // Act
+    await page.getByRole('button', { name: 'Stage all', exact: true }).click()
+    await expect(page.getByText('Staged every change.')).toBeVisible()
+
+    // Assert
+    const { drawn, set } = await bulk.evaluateAll(buttonsGap)
+    expect(drawn).toBeCloseTo(set, 0)
+  })
+}
