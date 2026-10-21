@@ -1,6 +1,12 @@
 import { join } from 'node:path'
 import type { Locator, Page, TestInfo } from '@playwright/test'
-import { height, openAnnouncementPreview, openCockpit, openSection } from '../support/cockpit.ts'
+import {
+  height,
+  openAnnouncementPreview,
+  openCockpit,
+  openSection,
+  readings,
+} from '../support/cockpit.ts'
 import { cutAtTheEdge, fontsLoaded, now, stillAnimating } from './capture.ts'
 import { expect, test } from './demo.ts'
 import {
@@ -124,7 +130,10 @@ const issues: Screen = {
 // into progress, has two commits, the older pushed, and one change still to
 // commit. The commit form below it, which the page's Branch prose describes,
 // begins just above the window's edge, so it is taken out, leaving the space
-// below blank, rather than shown cut through its labels.
+// below blank, rather than shown cut through its labels. A write's notice
+// outlives the writes after it, so the push's "Pushed" would stand beside
+// the later commit's 1 ahead; the page is loaded afresh once the branch
+// stands so, and shows none.
 const branch: Screen = {
   ...section('Branch'),
   arrange: async (page) => {
@@ -135,10 +144,19 @@ const branch: Screen = {
     await push(page, brisk)
     await stage(page, brisk, 'internal/config/redact.go')
     await commit(page, brisk, 'mask the token in each logged header')
+    await page.reload()
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await expect(readings(page)).toHaveCount(0)
   },
   open: async (page) => {
     await openSection(page, 'Branch')
     await hide(page, 'form[aria-label="Commit staged changes"]')
+  },
+  agrees: async (page) => {
+    await expect(
+      page.getByRole('definition').filter({ hasText: /^1 ahead, 0 behind/ }),
+    ).toBeVisible()
+    await expect(page.getByRole('status').filter({ hasText: /^Pushed / })).toHaveCount(0)
   },
   whole: (page) => [
     page.getByRole('region', { name: 'Working tree' }).getByRole('listitem').last(),
