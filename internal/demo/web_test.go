@@ -146,6 +146,11 @@ func (d webDemo) opened() api.OpenedPullRequest {
 // and for the server's cached CI, read at most every two seconds, to go stale.
 const ciPassesOnTheWeb = 5 * time.Second
 
+// forgeAskedAgainOnTheWeb is long enough on the demo's clock for the pull
+// request an open put in the server's cache to go stale, so the forge is asked
+// again, and short of the slowest check passing.
+const forgeAskedAgainOnTheWeb = 2500 * time.Millisecond
+
 // branchOf is where a frame's branch stands: its name, its head, its
 // upstream and how many changes are left in the work tree.
 type branchOf struct {
@@ -233,18 +238,28 @@ func TestTheWebLoopRunsFromAnIssueToAnAnnouncement(t *testing.T) {
 	opened := webtest.Decode[api.OpenedPullRequest](t,
 		webtest.Send(t, demo.handler, http.MethodPost, "/api/pull-request", openPull))
 
-	// Assert: #128 is open, and its announcement waits for CI
+	// Assert: #128 is open, and its announcement waits for CI, which the open
+	// does not read
 	if opened.Pull.Number != 128 {
 		t.Fatalf("the open answered #%d, want #128", opened.Pull.Number)
 	}
 
-	waiting := reviewOf{api.CIStateRunning, false, api.QueuedAnnouncementStateWaiting}
+	waiting := reviewOf{api.CIStateNone, false, api.QueuedAnnouncementStateWaiting}
 	if got := reviewing(demo.frame()); got != waiting {
 		t.Fatalf("after the open the review reads %+v, want %+v", got, waiting)
 	}
 
+	// Act: let the forge be asked again
+	demo.clock.pass(forgeAskedAgainOnTheWeb)
+
+	// Assert: CI is running, and the announcement still waits for it
+	running := reviewOf{api.CIStateRunning, false, api.QueuedAnnouncementStateWaiting}
+	if got := reviewing(demo.frame()); got != running {
+		t.Fatalf("once the forge is asked again the review reads %+v, want %+v", got, running)
+	}
+
 	// Act: let CI finish
-	demo.clock.pass(ciPassesOnTheWeb)
+	demo.clock.pass(ciPassesOnTheWeb - forgeAskedAgainOnTheWeb)
 
 	// Assert: CI passed, and the pull request was announced on that frame
 	posted := reviewOf{api.CIStatePassed, true, api.QueuedAnnouncementStateAnnounced}
@@ -407,6 +422,7 @@ func TestTheOpenedPullRequestCarriesSamsApproval(t *testing.T) {
 	// Arrange
 	demo := servedWeb(t)
 	demo.opened()
+	demo.clock.pass(forgeAskedAgainOnTheWeb)
 
 	// Act
 	frame := demo.frame()
