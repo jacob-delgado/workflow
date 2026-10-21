@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { expect, type Locator, type Page } from '@playwright/test'
 import { cutAtTheEdge, fontsLoaded, stillAnimating } from './capture.ts'
 import type { Pace } from './loop.ts'
-import { showPointer } from './pointer.ts'
+import { drawPointer, placePointer, type Pointer } from './pointer.ts'
 
 // The walkthrough's film: the page's screencast kept frame by frame with the
 // time each was drawn, and the beats the loop's steps hold, written for
@@ -60,7 +60,7 @@ interface Stretch {
 
 // Film is the walkthrough's recording: the pace its steps act at, and what
 // to do once they are done.
-export interface Film {
+interface Film {
   pace: Pace
   captions: () => string[]
   stalls: () => string[]
@@ -292,16 +292,35 @@ async function screencast(
   }
 }
 
-// startFilm starts filming the page, which must not have loaded yet, into
-// dir, emptied first, and draws the pointer on it.
-export async function startFilm(page: Page, dir: string): Promise<Film> {
+// Camera is a film made ready before the page loads, the pointer drawn on
+// it, whose roll starts it once the page is live.
+export interface Camera {
+  roll: () => Promise<Film>
+}
+
+// pointerStart is where the pointer stands as the film opens: the middle of
+// its frame.
+const pointerStart = { x: size.width / 2, y: size.height / 2 }
+
+// prepareFilm readies a film of the page, which must not have loaded yet,
+// into dir, emptied first: it draws the pointer on every document the page
+// loads, and records nothing until roll.
+export async function prepareFilm(page: Page, dir: string): Promise<Camera> {
   rmSync(dir, { recursive: true, force: true })
   mkdirSync(join(dir, 'frames'), { recursive: true })
   mkdirSync(join(dir, 'keys'), { recursive: true })
+  await drawPointer(page)
+
+  return { roll: () => roll(page, dir) }
+}
+
+// roll starts the film's clock, places the pointer at its start, so the
+// first frame already shows it there, and then starts the screencast.
+async function roll(page: Page, dir: string): Promise<Film> {
   const reel: Reel = { dir, frames: [], keys: [], stretches: [] }
   const began = Date.now()
   const clock = () => Date.now() - began
-  const pointer = await showPointer(page, { x: size.width / 2, y: size.height / 2 }, clock)
+  const pointer = await placePointer(page, pointerStart, clock)
   const stop = await screencast(page, (data, drawn) => {
     const file = `frames/${String(reel.frames.length + 1).padStart(5, '0')}.png`
     writeFileSync(join(dir, file), data)
@@ -309,30 +328,36 @@ export async function startFilm(page: Page, dir: string): Promise<Film> {
   })
 
   return {
-    pace: {
-      click: async (target) => {
-        const glide = await pointer.glide(target)
-        reel.stretches.push({ what: 'a glide', from: glide.began, to: glide.ended })
-        await target.click()
-        // A control a press takes away, as Start work, leaves nowhere to
-        // park beside, and the pointer stays where it pressed.
-        const parked = (await target.isVisible()) ? await pointer.park(target) : undefined
-        if (parked !== undefined) {
-          reel.stretches.push({ what: 'a glide', from: parked.began, to: parked.ended })
-        }
-      },
-      type: async (target, text) => {
-        const from = clock()
-        await target.pressSequentially(text, { delay: keyDelay })
-        reel.stretches.push({ what: `typing "${text}"`, from, to: clock() })
-      },
-      beat: (caption, shown) => keyframe(page, reel, clock, { caption, shown }),
-    },
+    pace: filmedPace(page, reel, clock, pointer),
     captions: () => reel.keys.map((key) => key.caption),
     stalls: () => stallsIn(reel),
     finish: async () => {
       await stop()
       writeReel(reel)
     },
+  }
+}
+
+// filmedPace is the walkthrough's pace: each click a glide to the control
+// first, typing a key at a time, and a keyframe for each beat.
+function filmedPace(page: Page, reel: Reel, clock: () => number, pointer: Pointer): Pace {
+  return {
+    click: async (target) => {
+      const glide = await pointer.glide(target)
+      reel.stretches.push({ what: 'a glide', from: glide.began, to: glide.ended })
+      await target.click()
+      // A control a press takes away, as Start work, leaves nowhere to
+      // park beside, and the pointer stays where it pressed.
+      const parked = (await target.isVisible()) ? await pointer.park(target) : undefined
+      if (parked !== undefined) {
+        reel.stretches.push({ what: 'a glide', from: parked.began, to: parked.ended })
+      }
+    },
+    type: async (target, text) => {
+      const from = clock()
+      await target.pressSequentially(text, { delay: keyDelay })
+      reel.stretches.push({ what: `typing "${text}"`, from, to: clock() })
+    },
+    beat: (caption, shown) => keyframe(page, reel, clock, { caption, shown }),
   }
 }
