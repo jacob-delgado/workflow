@@ -263,7 +263,7 @@ func (c prComposer) footer(keys keyMap) []key.Binding {
 
 	bindings := formKeys(c.form)
 	if c.stage == prWhat && c.focused() == 0 {
-		bindings = append(bindings, relabel(keys.prevField, "where"))
+		bindings = append(bindings, relabel(keys.prevField, escBack))
 	}
 
 	if c.offersTemplate() {
