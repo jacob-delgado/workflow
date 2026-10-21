@@ -4,15 +4,17 @@
 // Command demo runs the terminal interface, or the --web server, over a
 // made-up day's work, for the docs' recordings:
 //
-//	go run ./cmd/demo
-//	go run ./cmd/demo -web [-port 0] [-version v0.12.0] [-hold-ci]
+//	go run ./cmd/demo [-no-auto-announce]
+//	go run ./cmd/demo -web [-port 0] [-version v0.12.0] [-hold-ci] [-no-auto-announce]
 //
 // With -web it serves the web interface on the loopback port -port names, 0
 // for one the system chooses, and says where on stderr as workflow --web
 // does, session and all; -version is what the page names the build, and
-// -hold-ci keeps the end-to-end check running for good. Nothing it shows is
-// real and nothing it does leaves the process. The world and its tests are
-// internal/demo's; no release builds this command.
+// -hold-ci keeps the end-to-end check running for good. -no-auto-announce,
+// on either interface, turns messaging.auto_announce off, so opening a pull
+// request arms no announcement. Nothing it shows is real and nothing it does
+// leaves the process. The world and its tests are internal/demo's; no
+// release builds this command.
 package main
 
 import (
@@ -61,10 +63,11 @@ const pushLatency = 1200 * time.Millisecond
 
 // flags is what the command line asks of the demo.
 type flags struct {
-	web     bool
-	port    int
-	version string
-	holdCI  bool
+	web            bool
+	port           int
+	version        string
+	holdCI         bool
+	noAutoAnnounce bool
 }
 
 // parse reads args into flags, or fails as the flag package does, having
@@ -77,6 +80,8 @@ func parse(args []string) (flags, error) {
 	set.IntVar(&asked.port, "port", 0, "the loopback port -web serves on; 0 for one the system chooses")
 	set.StringVar(&asked.version, "version", "demo", "the version the web page names the build")
 	set.BoolVar(&asked.holdCI, "hold-ci", false, "keep the end-to-end check running for good")
+	set.BoolVar(&asked.noAutoAnnounce, "no-auto-announce", false,
+		"arm no announcement when a pull request opens (messaging.auto_announce off)")
 
 	err := set.Parse(args)
 	if err != nil {
@@ -99,15 +104,25 @@ func run(ctx context.Context, args []string) int {
 		return misused
 	}
 
+	began := time.Now()
+	world := demo.New(func() time.Duration { return time.Since(began) }, worldOptions(asked)...)
+
+	return ended(ctx, serve(ctx, world, asked, os.Stderr))
+}
+
+// worldOptions is how the flags make the demo's world other than its
+// default, with the latencies a recording wants.
+func worldOptions(asked flags) []demo.Option {
 	options := []demo.Option{demo.ReadLatency(readLatency), demo.PushLatency(pushLatency)}
 	if asked.holdCI {
 		options = append(options, demo.HoldCI())
 	}
 
-	began := time.Now()
-	world := demo.New(func() time.Duration { return time.Since(began) }, options...)
+	if asked.noAutoAnnounce {
+		options = append(options, demo.AutoAnnounceOff())
+	}
 
-	return ended(ctx, serve(ctx, world, asked, os.Stderr))
+	return options
 }
 
 // serve runs the web server over world when asked, saying where on notes,

@@ -88,3 +88,33 @@ func TestTheDemosViewListsNoIssueDone(t *testing.T) {
 		t.Errorf("the view = %+v, %v; want its issues", listed, err)
 	}
 }
+
+func TestTheDemoAnnouncesOnItsOwnByDefault(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	world := standingStill()
+
+	// Act
+	cfg := world.Config()
+
+	// Assert
+	if !cfg.Messaging.AutoAnnounce {
+		t.Error("the demo's messaging.auto_announce is off, want it on by default")
+	}
+}
+
+func TestWithAutoAnnounceOffTheDemoAnnouncesNothingOnItsOwn(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	world := demo.New(func() time.Duration { return 0 }, demo.AutoAnnounceOff())
+
+	// Act
+	cfg := world.Config()
+
+	// Assert
+	if cfg.Messaging.AutoAnnounce {
+		t.Error("the demo's messaging.auto_announce is on with AutoAnnounceOff, want it off")
+	}
+}

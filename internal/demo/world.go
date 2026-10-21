@@ -77,6 +77,8 @@ type World struct {
 	pushLatency time.Duration
 	// holdCI keeps the end-to-end check running; see HoldCI.
 	holdCI bool
+	// autoAnnounceOff arms no announcement on opening; see AutoAnnounceOff.
+	autoAnnounceOff bool
 }
 
 // Option is a way the world can be made other than its default.
@@ -105,6 +107,13 @@ func PushLatency(latency time.Duration) Option {
 // the page takes to get there.
 func HoldCI() Option {
 	return func(w *World) { w.holdCI = true }
+}
+
+// AutoAnnounceOff turns messaging.auto_announce off, so opening a pull
+// request arms no announcement: a screenshot can show the composer with
+// nothing yet waiting for CI.
+func AutoAnnounceOff() Option {
+	return func(w *World) { w.autoAnnounceOff = true }
 }
 
 // openedPull is a pull request and when it was opened, which its CI counts
@@ -138,12 +147,14 @@ func New(elapsed func() time.Duration, options ...Option) *World {
 }
 
 // Config is the configuration the demo runs under: Jira, Slack and GitHub set
-// up, credentials made up, and motion on for the recording.
+// up, credentials made up, motion on for the recording, and an announcement
+// armed on opening unless AutoAnnounceOff says not.
 func (w *World) Config() config.Config {
 	cfg := config.Default()
 	cfg.Jira.BaseURL, cfg.Jira.Token, cfg.Jira.Project = jiraBase, "demo-token", "PROJ"
 	cfg.Messaging.Kind, cfg.Messaging.ClientID, cfg.Messaging.Channel = config.KindSlack, "1234.5678", channel
 	cfg.Messaging.Channels = []string{channel, releases}
+	cfg.Messaging.AutoAnnounce = !w.autoAnnounceOff
 	cfg.Forge.Kind, cfg.Forge.Host = "github", githubHost
 	cfg.Path = apiRoot + "/.workflow.json"
 	cfg.Files = config.Files{Repo: cfg.Path, Home: home + "/.workflow.json"}
