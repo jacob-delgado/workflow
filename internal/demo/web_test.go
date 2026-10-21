@@ -51,7 +51,7 @@ func servedWeb(t *testing.T, options ...demo.Option) webDemo {
 
 	clock := &webClock{}
 	world := demo.New(clock.since, options...)
-	handler := webtest.ServeWorld(t, world.Web(webtest.TestVersion), fstest.MapFS{})
+	handler := webtest.ServeWorld(t, world.Web(webtest.TestVersion, t.TempDir()), fstest.MapFS{})
 	t.Cleanup(func() { webtest.Send(t, handler, http.MethodDelete, "/api/announce/queued", "") })
 
 	return webDemo{t: t, world: world, clock: clock, handler: handler}
