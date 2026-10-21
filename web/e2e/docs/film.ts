@@ -1,8 +1,15 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, type Locator, type Page } from '@playwright/test'
-import { cutAtTheEdge, fontsLoaded, stillAnimating } from './capture.ts'
-import { pointerCovers } from './cover.ts'
+import {
+  cutAtTheEdge,
+  cutBoxes,
+  cutTolerance,
+  fontsLoaded,
+  stillAnimating,
+  type Cut,
+} from './capture.ts'
+import { pointerCovers, type Point } from './cover.ts'
 import type { Pace } from './loop.ts'
 import { drawPointer, placePointer, type Pointer } from './pointer.ts'
 
@@ -32,10 +39,9 @@ const stallMs = 250
 // WebP of every one.
 const everyNthFrame = 2
 
-// mostNudges and nudgeGap bound how a beat clears a line the window's edge
-// cuts: a few nudges at most, each leaving the line this far above the edge.
+// mostNudges bounds how a beat clears a line an edge cuts: a few nudges at
+// most.
 const mostNudges = 4
-const nudgeGap = 12
 
 // Frame is a frame of the film: its file, and when it was drawn.
 interface Frame {
@@ -206,13 +212,6 @@ async function scrollTo(target: Locator, block: 'end' | 'nearest'): Promise<void
   }, block)
 }
 
-// scrollBy starts a smooth scroll of pane down by a number of pixels.
-async function scrollBy(pane: Locator, by: number): Promise<void> {
-  await pane.evaluate((element, top) => {
-    element.scrollBy({ top, behavior: 'smooth' })
-  }, by)
-}
-
 // wholeInView says whether shown lies wholly inside the window and every
 // pane around it that clips what overflows it.
 function wholeInView(shown: Locator): Promise<boolean> {
@@ -232,15 +231,18 @@ function wholeInView(shown: Locator): Promise<boolean> {
 
 // filmedScroll begins a scroll with start and waits until the panes stand
 // still, keeping the scroll as a stretch the film moves through when the
-// page moved: one that did not leaves the same frames, which the encoding
-// rightly plays as one.
-async function filmedScroll(take: Take, start: () => Promise<void>): Promise<void> {
+// page moved, and says whether it did: one that did not leaves the same
+// frames, which the encoding rightly plays as one.
+async function filmedScroll(take: Take, start: () => Promise<void>): Promise<boolean> {
   const before = await scrollTops(take.page)
   const from = take.clock()
   await start()
-  if (await settled(take.page, before)) {
+  const moved = await settled(take.page, before)
+  if (moved) {
     take.reel.stretches.push({ what: 'a scroll', from, to: take.clock() })
   }
+
+  return moved
 }
 
 // bringIntoView scrolls a control the film is about to act on wholly into
@@ -251,26 +253,144 @@ async function bringIntoView(take: Take, target: Locator): Promise<void> {
   }
 }
 
-// reveal brings what a beat shows wholly into the window when it is not, or
-// when the window's edge cuts any text, then nudges the page down past each
-// line still cut, a few times at most, scrolling as the film moves through.
-// What it cannot clear is left for the keyframe's checks to name.
+// middleOf is the middle of what of a cut shows, where the pane it lies in
+// is found.
+function middleOf({ seen }: Cut): Point {
+  return { x: (seen.left + seen.right) / 2, y: (seen.top + seen.bottom) / 2 }
+}
+
+// Clearing is what scrollClear weighs a pane's scroll by: the elements an
+// edge may not cut beside the lines of text, how far past an edge a part may
+// overhang before it counts as cut, and the points the cuts show at.
+interface Clearing {
+  boxes: string
+  tolerance: number
+  points: Point[]
+}
+
+// scrollClear starts a smooth scroll of the pane at the first point it can
+// clear, the nearest pane there that scrolls: the shortest scroll after
+// which its edges, and those of every pane around it that clips, cut no
+// line of text or control in it, and what the beat shows, when it is whole,
+// stays whole. It weighs each scroll on the page as it stands, every part
+// in the pane moving with it, so a scroll that clears one cut by cutting
+// the next line past the other edge is never taken. It says whether it
+// started one; none when no point's pane can scroll clear.
+function scrollClear(shown: Locator, clearing: Clearing): Promise<boolean> {
+  return shown.evaluate((element, { boxes, tolerance, points }) => {
+    const scrolls = (pane: Element) =>
+      /^(auto|scroll)$/.test(getComputedStyle(pane).overflowY) &&
+      pane.scrollHeight > pane.clientHeight
+    const paneAt = ({ x, y }: { x: number; y: number }) => {
+      let pane = document.elementFromPoint(x, y)
+      while (pane !== null && !scrolls(pane)) {
+        pane = pane.parentElement
+      }
+
+      return pane
+    }
+    // span is how far top to bottom runs once every clipping element from
+    // from up to, not including, stop has cut it, or null when one hides it.
+    const span = (top: number, bottom: number, from: Element | null, stop: Element | null) => {
+      const seen = { top, bottom }
+      for (let around = from; around !== null && around !== stop; around = around.parentElement) {
+        const style = getComputedStyle(around)
+        if (style.clipPath !== 'none') {
+          return null
+        }
+        if (style.overflowY !== 'visible') {
+          const clip = around.getBoundingClientRect()
+          seen.top = Math.max(seen.top, clip.top)
+          seen.bottom = Math.min(seen.bottom, clip.bottom)
+        }
+      }
+
+      return seen.bottom > seen.top ? seen : null
+    }
+    const shows = (part: Element) => part.checkVisibility({ visibilityProperty: true })
+    const partsIn = (pane: Element) => {
+      const drawn: { rect: DOMRectReadOnly; from: Element | null }[] = []
+      const walker = document.createTreeWalker(pane, NodeFilter.SHOW_TEXT)
+      for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+        const holder = node.parentElement
+        if (node.textContent?.trim() && holder !== null && shows(holder)) {
+          const range = document.createRange()
+          range.selectNodeContents(node)
+          drawn.push(...[...range.getClientRects()].map((rect) => ({ rect, from: holder })))
+        }
+      }
+      for (const part of [...pane.querySelectorAll(boxes)].filter(shows)) {
+        drawn.push({ rect: part.getBoundingClientRect(), from: part.parentElement })
+      }
+
+      return drawn.flatMap(({ rect, from }) => span(rect.top, rect.bottom, from, pane) ?? [])
+    }
+    const nearestClear = (pane: Element) => {
+      const edge = pane.getBoundingClientRect()
+      const view = span(Math.max(edge.top, 0), Math.min(edge.bottom, innerHeight), pane, null)
+      const parts = partsIn(pane)
+      const box = element.getBoundingClientRect()
+      const whole = (by: number) =>
+        view !== null &&
+        box.top - by >= view.top - tolerance &&
+        box.bottom - by <= view.bottom + tolerance
+      const keeps = (by: number) => !pane.contains(element) || !whole(0) || whole(by)
+      const cuts = (by: number) =>
+        view !== null &&
+        parts.some(
+          ({ top, bottom }) =>
+            Math.min(bottom - by, view.bottom) > Math.max(top - by, view.top) &&
+            (view.top - (top - by) > tolerance || bottom - by - view.bottom > tolerance),
+        )
+      const least = -pane.scrollTop
+      const most = pane.scrollHeight - pane.clientHeight - pane.scrollTop
+      const tries = Array.from({ length: 2 * Math.ceil(Math.max(-least, most)) + 1 }, (_, step) =>
+        step % 2 === 0 ? step / 2 : -(step + 1) / 2,
+      )
+
+      return tries.find((by) => by >= least && by <= most && keeps(by) && !cuts(by))
+    }
+    for (const pane of points.map(paneAt)) {
+      const by = pane === null ? undefined : nearestClear(pane)
+      if (pane !== null && by !== undefined && by !== 0) {
+        pane.scrollBy({ top: by, behavior: 'smooth' })
+
+        return true
+      }
+    }
+
+    return false
+  }, clearing)
+}
+
+// nudge scrolls the pane a cut lies in, the nearest around it that scrolls,
+// the least it can so that nothing in it is cut and what the beat shows
+// stays in view, and says whether one could and the pane moved.
+async function nudge(take: Take, shown: Locator): Promise<boolean> {
+  const points = (await cutAtTheEdge(take.page)).map(middleOf)
+  const nudged = { started: false }
+  const moved = await filmedScroll(take, async () => {
+    nudged.started = await scrollClear(shown, { boxes: cutBoxes, tolerance: cutTolerance, points })
+  })
+
+  return nudged.started && moved
+}
+
+// reveal brings what a beat shows wholly into view when it is not, or when
+// an edge cuts any text or control, then nudges the pane a cut lies in until
+// it clears, a few times at most and never so far that what the beat shows
+// leaves view, scrolling as the film moves through. What it cannot clear is
+// left for the keyframe's checks to name.
 async function reveal(take: Take, shown: Locator): Promise<void> {
-  const { page } = take
-  if ((await wholeInView(shown)) && (await cutAtTheEdge(page)).length === 0) {
+  if ((await wholeInView(shown)) && (await cutAtTheEdge(take.page)).length === 0) {
     return
   }
 
   await filmedScroll(take, () => scrollTo(shown, 'end'))
-  for (let nudge = 0; nudge < mostNudges; nudge++) {
-    const cuts = await cutAtTheEdge(page)
-    if (cuts.length === 0) {
+  for (let nudged = 0; nudged < mostNudges; nudged++) {
+    if (!(await nudge(take, shown))) {
       break
     }
-    const deepest = Math.max(...cuts.map((cut) => cut.bottom))
-    await filmedScroll(take, () =>
-      scrollBy(page.getByRole('main'), deepest - size.height + nudgeGap),
-    )
   }
 }
 

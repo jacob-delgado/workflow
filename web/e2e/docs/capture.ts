@@ -2,8 +2,8 @@ import type { Page } from '@playwright/test'
 
 // What every image the docs show is held to before it is taken, a
 // screenshot's and each of the walkthrough's keyframes alike: the page's own
-// face loaded, no run of text cut by the window's bottom edge, and nothing
-// caught mid-animation.
+// face loaded, no text or control cut by the edge of the window or of a pane,
+// and nothing caught mid-animation.
 
 // now is the moment every image's browser holds: the demo's day as it
 // begins, four in the afternoon in UTC (epoch in internal/demo/world.go). The
@@ -47,9 +47,9 @@ export interface Box {
 }
 
 // Part is a line of text or an element the page draws: what it is, its
-// whole box, and seen, what of it is in view once the window and every pane
-// around it that clips what overflows it have cut it, or null when none of
-// it is.
+// whole box, as far as a pane that ends it with an ellipsis lets it run, and
+// seen, what of it is in view once the window and every pane around it that
+// clips what overflows it have cut it, or null when none of it is.
 export interface Part {
   what: string
   whole: Box
@@ -61,7 +61,9 @@ export interface Part {
 // is left out: an element checkVisibility says is hidden, and text inside a
 // clip path, as a screen reader's own text is, which counts as seen nowhere.
 // A pane that clips along one axis cuts its content along that axis only,
-// and one that ends a line it clips with an ellipsis does not cut it at all.
+// and one that ends a line it clips with an ellipsis ends the line there, so
+// the panes around it judge the line as far as the ellipsis, not the whole
+// text it truncates.
 export function partsShown(page: Page, boxes: string): Promise<Part[]> {
   return page.evaluate((selector) => {
     const boxOf = (rect: DOMRectReadOnly): Box => ({
@@ -70,20 +72,25 @@ export function partsShown(page: Page, boxes: string): Promise<Part[]> {
       right: rect.right,
       bottom: rect.bottom,
     })
-    const seenOf = (from: Element | null, whole: Box): Box | null => {
+    const viewOf = (from: Element | null, drawn: Box): Omit<Part, 'what'> => {
+      const whole = { ...drawn }
       const seen = {
-        left: Math.max(whole.left, 0),
-        top: Math.max(whole.top, 0),
-        right: Math.min(whole.right, window.innerWidth),
-        bottom: Math.min(whole.bottom, window.innerHeight),
+        left: Math.max(drawn.left, 0),
+        top: Math.max(drawn.top, 0),
+        right: Math.min(drawn.right, window.innerWidth),
+        bottom: Math.min(drawn.bottom, window.innerHeight),
       }
       for (let around = from; around !== null; around = around.parentElement) {
         const style = getComputedStyle(around)
         const pane = around.getBoundingClientRect()
         if (style.clipPath !== 'none') {
-          return null
+          return { whole, seen: null }
         }
-        if (style.overflowX !== 'visible' && style.textOverflow !== 'ellipsis') {
+        if (style.overflowX !== 'visible') {
+          if (style.textOverflow === 'ellipsis') {
+            whole.left = Math.max(whole.left, pane.left)
+            whole.right = Math.min(whole.right, pane.right)
+          }
           seen.left = Math.max(seen.left, pane.left)
           seen.right = Math.min(seen.right, pane.right)
         }
@@ -93,18 +100,17 @@ export function partsShown(page: Page, boxes: string): Promise<Part[]> {
         }
       }
 
-      return seen.right > seen.left && seen.bottom > seen.top ? seen : null
+      return { whole, seen: seen.right > seen.left && seen.bottom > seen.top ? seen : null }
     }
     const shown = (element: Element) => element.checkVisibility({ visibilityProperty: true })
     const lines = (node: Node, holder: Element): Part[] => {
       const range = document.createRange()
       range.selectNodeContents(node)
 
-      return [...range.getClientRects()].map((line) => {
-        const whole = boxOf(line)
-
-        return { what: node.textContent?.trim() ?? '', whole, seen: seenOf(holder, whole) }
-      })
+      return [...range.getClientRects()].map((line) => ({
+        what: node.textContent?.trim() ?? '',
+        ...viewOf(holder, boxOf(line)),
+      }))
     }
     const parts: Part[] = []
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
@@ -116,10 +122,12 @@ export function partsShown(page: Page, boxes: string): Promise<Part[]> {
     }
     for (const element of document.body.querySelectorAll(selector)) {
       if (shown(element)) {
-        const whole = boxOf(element.getBoundingClientRect())
         const named = element.getAttribute('aria-label') ?? element.textContent.trim()
         const what = `${element.tagName.toLowerCase()} ${named.slice(0, 60)}`.trim()
-        parts.push({ what, whole, seen: seenOf(element.parentElement, whole) })
+        parts.push({
+          what,
+          ...viewOf(element.parentElement, boxOf(element.getBoundingClientRect())),
+        })
       }
     }
 
@@ -127,51 +135,43 @@ export function partsShown(page: Page, boxes: string): Promise<Part[]> {
   }, boxes)
 }
 
-// Cut is a run of text the window's bottom edge cuts through, and how far
-// down its lowest cut line ends.
+// Cut is a line of text or a control an edge cuts through, the window's or
+// a pane's that clips what overflows it: what it is, its whole box, and what
+// of it shows.
 export interface Cut {
-  text: string
-  bottom: number
+  what: string
+  whole: Box
+  seen: Box
 }
 
-// cutAtTheEdge is every run of text the window's bottom edge cuts through:
-// a line that begins above the edge and ends below it, shown, and not
-// already clipped above the edge by a pane that scrolls.
-export function cutAtTheEdge(page: Page): Promise<Cut[]> {
-  return page.evaluate(() => {
-    const edge = window.innerHeight
-    // shownBottom is how far down a line of text below the element shows,
-    // once every pane around it that clips its overflow has cut it.
-    const shownBottom = (element: Element, bottom: number): number => {
-      let shown = bottom
-      for (let around: Element | null = element; around !== null; around = around.parentElement) {
-        if (getComputedStyle(around).overflowY !== 'visible') {
-          shown = Math.min(shown, around.getBoundingClientRect().bottom)
-        }
-      }
+// cutBoxes are the elements an edge may not cut, beside the lines of text.
+export const cutBoxes = 'input, textarea, select, button, svg, img'
 
-      return shown
-    }
-    const cut: { text: string; bottom: number }[] = []
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
-    for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
-      const text = node.textContent?.trim() ?? ''
-      const holder = node.parentElement
-      if (text === '' || holder?.checkVisibility({ visibilityProperty: true }) !== true) {
-        continue
-      }
-      const range = document.createRange()
-      range.selectNodeContents(node)
-      const crossing = [...range.getClientRects()].filter(
-        (line) => line.top < edge && line.bottom > edge && shownBottom(holder, line.bottom) >= edge,
-      )
-      if (crossing.length > 0) {
-        cut.push({ text, bottom: Math.max(...crossing.map((line) => line.bottom)) })
-      }
-    }
+// cutTolerance is how far, in pixels, an edge may clip a part before it
+// counts as cut: a line's box can overhang its pane by a hair.
+export const cutTolerance = 1
 
-    return cut
-  })
+// partlySeen says whether an edge clips a part that still partly shows.
+function partlySeen(whole: Box, seen: Box): boolean {
+  return (
+    seen.left > whole.left + cutTolerance ||
+    seen.top > whole.top + cutTolerance ||
+    seen.right < whole.right - cutTolerance ||
+    seen.bottom < whole.bottom - cutTolerance
+  )
+}
+
+// cutAtTheEdge is every line of text and every control the page shows only
+// in part, cut by any edge of the window or of a pane around it that clips
+// what overflows it: a row a pane's bottom cuts as much as one the window's
+// does, and a line scrolled up under the top of the main pane. What a pane
+// hides wholly is not cut, only out of view.
+export async function cutAtTheEdge(page: Page): Promise<Cut[]> {
+  const parts = await partsShown(page, cutBoxes)
+
+  return parts.flatMap(({ what, whole, seen }) =>
+    seen !== null && partlySeen(whole, seen) ? [{ what, whole, seen }] : [],
+  )
 }
 
 // stillAnimating names every animation or transition still running on the

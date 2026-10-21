@@ -29,9 +29,9 @@ const size = { width: 1440, height }
 
 // Screen is a screenshot: what it shows, its file's name, the heading of the
 // section it is in, the state the loop is taken to first from the cockpit,
-// how the screen is then opened, and what must show whole in it, uncut by the
-// window's edge. holdCI keeps the demo's end-to-end check running, for a
-// screen that shows CI part way through.
+// how the screen is then opened, and what must show whole in it, uncut by an
+// edge of the window or of its pane. holdCI keeps the demo's end-to-end check
+// running, for a screen that shows CI part way through.
 interface Screen {
   name: string
   file: string
