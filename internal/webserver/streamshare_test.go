@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
@@ -410,6 +411,84 @@ func TestAPullRequestOpenedDuringAForgeReadOutlastsThatRead(t *testing.T) {
 	held := frame.QueuedAnnouncement
 	if held == nil || held.State != api.QueuedAnnouncementStateWaiting || held.Pull != openedPull {
 		t.Errorf("queued announcement = %+v, want #%d's waiting", held, openedPull)
+	}
+}
+
+// movingHead is the checked-out branch, webtest.FilledDeps' until the test
+// checks out another, at a head the test moves, as a commit does.
+type movingHead struct {
+	mu   sync.Mutex
+	name string
+	head string
+}
+
+// branch reads the branch checked out, at its head now.
+func (m *movingHead) branch(
+	ctx context.Context, read func(context.Context) (gitrepo.Branch, error),
+) (gitrepo.Branch, error) {
+	branch, err := read(ctx)
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	branch.Head = m.head
+	if m.name != "" {
+		branch.Name = m.name
+	}
+
+	return branch, err
+}
+
+// commit moves the head on.
+func (m *movingHead) commit(head string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.head = head
+}
+
+// checkout checks out the branch named name, at head.
+func (m *movingHead) checkout(name, head string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.name, m.head = name, head
+}
+
+func TestAPullRequestOpenedAtANewHeadOutlastsAReadOfTheOldOne(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The read under way is for the head before a commit; the pull request
+	// is opened at the head after it, before that read lands. The forge's
+	// list lags behind its opens, so the old head's read finds none, and the
+	// open's answer must not be lost to it.
+	slow, moving := newSlowForge(), &movingHead{head: webtest.FilledHead}
+	deps := slow.wire(laggingForgeDeps())
+	read := deps.Git.Branch
+	deps.Git.Branch = func(ctx context.Context) (gitrepo.Branch, error) { return moving.branch(ctx, read) }
+	handler := webtest.Serve(t, deps, webhookConfig())
+	cancelHeld(t, handler)
+
+	slow.slowDown()
+	reading := frameInFlight(t, handler, slow.slowRead)
+
+	moving.commit("def456")
+
+	opened := webtest.Send(t, handler, http.MethodPost, "/api/pull-request", openRequestBody)
+	if opened.Code != http.StatusOK {
+		t.Fatalf("opening the pull request answered %d, want 200", opened.Code)
+	}
+
+	close(slow.release)
+	<-reading
+
+	// Act
+	frame := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
+
+	// Assert
+	if !frame.Review.Found || frame.Review.Pull.Number != openedPull {
+		t.Errorf("review = %+v, want #%d, opened at the new head", frame.Review, openedPull)
 	}
 }
 

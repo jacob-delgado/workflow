@@ -45,6 +45,12 @@ type forgeCache struct {
 	// than the forge does now, so no frame is served it, even while the next
 	// read is under way.
 	due bool
+	// seeded marks a held answer a write here seeded, while it is fresh: a
+	// read for its branch, even one begun after it, is one a frame read at an
+	// older head asks, and finds what a forge that lags says of that head,
+	// so it does not replace the seed. A frame at a head newer still asks
+	// the forge itself until the seed is no longer fresh.
+	seeded bool
 }
 
 // forgeKey is what a forge answer was read for: a branch, by name, at a head.
@@ -125,6 +131,7 @@ func (c *forgeCache) serve(key forgeKey, now time.Time, interval time.Duration) 
 
 	held := c.held && c.key == key && !c.due
 	landing, reading := c.reading[key]
+	c.seeded = c.seeded && now.Sub(c.readAt) < interval
 
 	if held && (reading || now.Sub(c.readAt) < interval) {
 		return turn[forgeRead]{answered: true, value: c.read, failed: c.failed}
@@ -146,7 +153,9 @@ func (c *forgeCache) serve(key forgeKey, now time.Time, interval time.Duration) 
 // land holds what the read of key began after dropped drops found, and lets
 // go every frame waiting on it. A read a drop came during is held already
 // due, since it may say less than the forge does now, and one a seed came
-// during is not held at all: the seed says more. A read that failed
+// during is not held at all, whatever key it was read for: the seed says
+// more. Nor is a read for the seeded branch while the seed is fresh, as a
+// frame that waited on a read for an older head makes. A read that failed
 // keeps the answer held for key, and a CI read that failed keeps the CI held
 // for the same pull request. It answers what the frame shows.
 func (c *forgeCache) land(key forgeKey, dropped int, now time.Time, read forgeRead, err error) (forgeRead, error) {
@@ -156,11 +165,17 @@ func (c *forgeCache) land(key forgeKey, dropped int, now time.Time, read forgeRe
 	close(c.reading[key])
 	delete(c.reading, key)
 
-	held := c.held && c.key == key
-	if held && c.dropped != dropped {
-		// A write here has held a newer answer for key since this read began.
-		return c.read, c.failed
+	if c.keepsHeld(key, dropped) {
+		// For key, the frame shows the answer held; for another key, this
+		// read is not to replace it, and its own frame shows what it found.
+		if c.key == key {
+			return c.read, c.failed
+		}
+
+		return read, err
 	}
+
+	held := c.held && c.key == key
 
 	c.readAt, c.failed, c.due = now, err, c.dropped != dropped
 
@@ -172,9 +187,18 @@ func (c *forgeCache) land(key forgeKey, dropped int, now time.Time, read forgeRe
 		read.ci, read.ciRead = c.read.ci, c.read.ciRead
 	}
 
-	c.held, c.key, c.read = true, key, read
+	c.held, c.key, c.read, c.seeded = true, key, read, false
 
 	return read, err
+}
+
+// keepsHeld reports an answer held that a read for key, begun after dropped
+// drops, is not to replace: a write here has held it since the read began,
+// or seeded it for key's branch while it is fresh. serve answers a fresh seed
+// itself, so a read of its branch that gets here is for another head. The
+// caller holds the lock.
+func (c *forgeCache) keepsHeld(key forgeKey, dropped int) bool {
+	return c.held && (c.dropped != dropped || c.seeded && key.branch == c.key.branch)
 }
 
 // drop forgets the held answer, so the next frame asks the forge: a write here
@@ -191,12 +215,14 @@ func (c *forgeCache) drop() {
 // seed holds read as the forge's answer for key, read at now: what a write
 // here has just made the forge say, which the next frame shows without asking
 // a forge that may not list it yet. A read under way as it is seeded lands
-// without replacing it.
+// without replacing it, as does a read for its branch at another head while
+// the seed is fresh.
 func (c *forgeCache) seed(key forgeKey, now time.Time, read forgeRead) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	c.held, c.key, c.readAt, c.read, c.failed, c.due = true, key, now, read, nil, false
+	c.seeded = true
 	c.dropped++
 }
 
