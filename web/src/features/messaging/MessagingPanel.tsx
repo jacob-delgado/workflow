@@ -97,8 +97,8 @@ function AnnounceSection({
 }) {
   const { noun, sigil } = useForgeWords()
   const outcome = useOutcome()
-  const announcing = useAnnouncedHere(outcome)
   const pull = review.found && review.pull && review.pull.state !== 'closed' ? review.pull : null
+  const announcing = useAnnouncedHere(outcome, pull === null ? '' : momentOf(pull))
 
   return (
     <section aria-labelledby="announce-heading" className="flex flex-col gap-group">
@@ -137,24 +137,33 @@ interface AnnounceControlsProps {
   onAnnounced: (said: string) => void
 }
 
+// momentOf names the moment pull stands at, which an announcement is made at:
+// its number and its state.
+function momentOf(pull: PullRequest): string {
+  return `${String(pull.number)} ${pull.state}`
+}
+
 // useAnnouncedHere is how the section says where an announcement made here
-// went: say puts it in the section's outcome, and saidHere is whether the
-// outcome says it still, which no later write has cleared.
-function useAnnouncedHere(outcome: ReturnType<typeof useOutcome>) {
-  const [announced, setAnnounced] = useState('')
+// went: say puts it in the section's outcome, at the moment the pull request
+// stands at, and saidHere is whether the outcome says it still, which no
+// later write has cleared, for the moment it stands at now.
+function useAnnouncedHere(outcome: ReturnType<typeof useOutcome>, moment: string) {
+  const [announced, setAnnounced] = useState({ text: '', moment: '' })
 
   return {
     say: (said: string) => {
-      setAnnounced(said)
+      setAnnounced({ text: said, moment })
       outcome.say(said)
     },
-    saidHere: outcome.said !== null && outcome.said.text === announced,
+    saidHere:
+      outcome.said !== null && outcome.said.text === announced.text && announced.moment === moment,
   }
 }
 
 // AnnouncedAlready says pull was announced at its moment already, unless the
-// section says so already: in its own outcome, for one announced here, or in
-// the line of the announcement held for pull's CI, which went once it passed.
+// section says so already: in its own outcome, for one announced here at this
+// moment, or in the line of the announcement held for pull's CI, which went
+// once it passed — a hold is only ever for the moment it is ready for review.
 function AnnouncedAlready({
   pull,
   held,
@@ -165,7 +174,8 @@ function AnnouncedAlready({
   saidHere: boolean
 }) {
   const { sigil } = useForgeWords()
-  if (saidHere || (held?.state === 'announced' && held.pull === pull.number)) {
+  const heldWent = held?.state === 'announced' && held.pull === pull.number
+  if (saidHere || (pull.state === 'open' && heldWent)) {
     return null
   }
 

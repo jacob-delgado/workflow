@@ -149,3 +149,37 @@ test('never says a pull request closed without merging was announced', () => {
     screen.getByText('Open a pull request first — there is nothing to announce yet.'),
   ).toBeTruthy()
 })
+
+test('says the merge was announced though the ready announcement was held for CI', () => {
+  // Arrange
+  // The held post went for the ready moment, and the server keeps saying so
+  // after the merge is announced from the terminal.
+  announcedPull(true, 'merged', { state: 'announced', channel: '#dev', pull: 42 })
+
+  // Act
+  render(<MessagingPanel />)
+
+  // Assert
+  expect(screen.getByText('Announced the merge of #42.')).toBeTruthy()
+})
+
+test('says the merge was announced though the ready one was announced here', async () => {
+  // Arrange
+  fakeApi({
+    '/api/announcement': { text: 'Please review #42', channel: '#dev' },
+    '/api/announce': { text: 'Please review #42', channel: '#dev' },
+  })
+  announcedPull(false)
+  render(<MessagingPanel />)
+  await userEvent.click(screen.getByRole('button', { name: 'Announce to Slack' }))
+  await userEvent.click(await screen.findByRole('button', { name: 'Announce now' }))
+  await screen.findByText('Announced to #dev.')
+
+  // Act
+  act(() => {
+    announcedPull(true, 'merged')
+  })
+
+  // Assert
+  expect(screen.getByText('Announced the merge of #42.')).toBeTruthy()
+})
