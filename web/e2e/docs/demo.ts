@@ -65,18 +65,23 @@ function served(child: ChildProcess, said: string[]): Promise<string> {
   })
 }
 
-// stop ends a demo as Ctrl+C would, and waits for it to go.
-async function stop(child: ChildProcess): Promise<void> {
-  if (child.exitCode !== null) {
-    return
-  }
-
-  const gone = new Promise<void>((resolve) => {
-    child.once('exit', () => {
+// closed is when a demo has gone and its stderr has been read to the end,
+// every line it said among said: Node may fire a child's 'exit' with its
+// output still in the pipe, but 'close' only once every stream has closed.
+function closed(child: ChildProcess): Promise<void> {
+  return new Promise((resolve) => {
+    child.once('close', () => {
       resolve()
     })
   })
-  child.kill('SIGTERM')
+}
+
+// stop ends a demo as Ctrl+C would, unless it has exited already, by its own
+// hand or by a signal from outside, and waits until gone holds that it closed.
+async function stop(child: ChildProcess, gone: Promise<void>): Promise<void> {
+  if (child.exitCode === null && child.signalCode === null) {
+    child.kill('SIGTERM')
+  }
   const late = setTimeout(() => child.kill('SIGKILL'), stopped)
   await gone
   clearTimeout(late)
@@ -107,11 +112,12 @@ function demoArgs(version: string, world: World): string[] {
 
 // launch starts the demo binary the docs config names over a world, in a
 // home of its own with nothing of the machine's but PATH, and in UTC, as the
-// screenshots read the time.
+// screenshots read the time; gone is when it has closed, watched from its
+// start so a demo that closes early is not waited on for good.
 async function launch(
   testInfo: TestInfo,
   world: World,
-): Promise<{ child: ChildProcess; home: string }> {
+): Promise<{ child: ChildProcess; gone: Promise<void>; home: string }> {
   const binary = metadataOf(testInfo, 'demo')
   if (!existsSync(binary)) {
     throw new Error(`no demo at ${binary}: build it with go build -o tmp/demo ./cmd/demo`)
@@ -124,7 +130,7 @@ async function launch(
     stdio: ['ignore', 'ignore', 'pipe'],
   })
 
-  return { child, home }
+  return { child, gone: closed(child), home }
 }
 
 // pinSession keeps the demo's session where the page reads it, before the
@@ -148,14 +154,14 @@ export const test = playwright.extend<World & { demo: Demo }>({
   holdCI: [false, { option: true }],
   autoAnnounce: [true, { option: true }],
   demo: async ({ holdCI, autoAnnounce }, provide, testInfo) => {
-    const { child, home } = await launch(testInfo, { holdCI, autoAnnounce })
+    const { child, gone, home } = await launch(testInfo, { holdCI, autoAnnounce })
     const said: string[] = []
     try {
       const address = await served(child, said)
       const [origin = '', session = ''] = address.split('/#session=')
       await provide({ origin, session, said })
     } finally {
-      await stop(child)
+      await stop(child, gone)
       await rm(home, { recursive: true, force: true })
     }
     expect(said, 'the demo said only where it serves').toEqual([])
