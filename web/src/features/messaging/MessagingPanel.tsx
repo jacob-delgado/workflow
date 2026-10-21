@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { AnnounceMentions, Snapshot } from '@/api/generated/types.gen.ts'
+import type { AnnounceMentions, PullRequest, Snapshot } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
 import { useLiveSnapshot } from '@/api/snapshot.ts'
 import { useShortcut } from '@/features/keyboard/useShortcut.ts'
@@ -81,9 +81,11 @@ function firstNonEmpty(...values: string[]): string {
 // AnnounceSection offers to announce the branch's pull request, once there is
 // one the loop follows and it was not announced at this moment already — from
 // here, the terminal or workflow announce — and says where the announcement
-// went, in a line that stays when the controls step aside. One closed without
-// merging is none the loop follows, as the server reads it: there is nothing
-// to announce until one is open again.
+// went, in a line that stays when the controls step aside. An announcement
+// already made is said by the moment it was made at, once: not again where
+// the section says it went already, in the held announcement's line or in its
+// own outcome. One closed without merging is none the loop follows, as the
+// server reads it: there is nothing to announce until one is open again.
 function AnnounceSection({
   messaging,
   review,
@@ -95,6 +97,7 @@ function AnnounceSection({
 }) {
   const { noun, sigil } = useForgeWords()
   const outcome = useOutcome()
+  const announcing = useAnnouncedHere(outcome)
   const pull = review.found && review.pull && review.pull.state !== 'closed' ? review.pull : null
 
   return (
@@ -103,10 +106,7 @@ function AnnounceSection({
         Announce
       </h2>
       {pull !== null && review.announced ? (
-        <p className="text-sm text-muted-foreground">
-          Announced {sigil}
-          {pull.number} at this point already.
-        </p>
+        <AnnouncedAlready pull={pull} held={held} saidHere={announcing.saidHere} />
       ) : null}
       {pull !== null && !review.announced ? (
         <AnnounceControls
@@ -114,7 +114,7 @@ function AnnounceSection({
           service={messaging.service}
           channels={messaging.channels}
           defaultChannel={messaging.channel}
-          onAnnounced={outcome.say}
+          onAnnounced={announcing.say}
         />
       ) : null}
       {pull === null ? (
@@ -135,6 +135,57 @@ interface AnnounceControlsProps {
   channels: string[]
   defaultChannel: string
   onAnnounced: (said: string) => void
+}
+
+// useAnnouncedHere is how the section says where an announcement made here
+// went: say puts it in the section's outcome, and saidHere is whether the
+// outcome says it still, which no later write has cleared.
+function useAnnouncedHere(outcome: ReturnType<typeof useOutcome>) {
+  const [announced, setAnnounced] = useState('')
+
+  return {
+    say: (said: string) => {
+      setAnnounced(said)
+      outcome.say(said)
+    },
+    saidHere: outcome.said !== null && outcome.said.text === announced,
+  }
+}
+
+// AnnouncedAlready says pull was announced at its moment already, unless the
+// section says so already: in its own outcome, for one announced here, or in
+// the line of the announcement held for pull's CI, which went once it passed.
+function AnnouncedAlready({
+  pull,
+  held,
+  saidHere,
+}: {
+  pull: PullRequest
+  held: Snapshot['queued_announcement']
+  saidHere: boolean
+}) {
+  const { sigil } = useForgeWords()
+  if (saidHere || (held?.state === 'announced' && held.pull === pull.number)) {
+    return null
+  }
+
+  return <p className="text-sm text-muted-foreground">{announcedAt(pull, sigil)}</p>
+}
+
+// announcedAt says pull was announced at the moment it stands at, as the
+// sigil names it: ready for review while it is open, or merged. A pull request
+// closed without merging has no moment to announce, and is never shown here
+// (AnnounceSection), so it reads as one ready for review.
+function announcedAt(pull: PullRequest, sigil: string): string {
+  const name = `${sigil}${String(pull.number)}`
+
+  switch (pull.state) {
+    case 'merged':
+      return `Announced the merge of ${name}.`
+    case 'open':
+    case 'closed':
+      return `Announced ${name} as ready for review.`
+  }
 }
 
 // AnnounceControls posts the pull request's announcement to the configured
