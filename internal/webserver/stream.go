@@ -66,21 +66,28 @@ func (s *server) streamEvents(w http.ResponseWriter, request *http.Request) {
 
 // pushSnapshots pushes a snapshot on connect, then another as soon as a write
 // here lands and every interval, until the client disconnects and its request
-// context is canceled, a write fails, or the directory is switched. A frame
-// whose read a write landed during is read again rather than sent. A write
-// landing after that check, as the frame goes out, is not caught: that frame
-// is sent, and the signal the write closed wakes a fresh one at once, so the
-// last frame sent after a write's answer shows it; each frame counts the
-// writes landed before its read began, which tells the one from the other.
-// Writes landing faster than a frame reads, without end, would starve the
-// stream, which no page's pace comes near. The loop runs on the connection's
-// own goroutine, which the HTTP server provides, so this starts none of its
-// own.
+// context is canceled, a write fails, or the directory is switched, when it
+// sends the stream's retry, and no frame read since: that frame would count
+// the switch and show the directory switched from. A frame whose read a
+// write landed during is read again rather than sent. A write landing after
+// that check, as the frame goes out, is not caught: that frame is sent, and
+// the signal the write closed wakes a fresh one at once, so the last frame
+// sent after a write's answer shows it; each frame counts the writes landed
+// before its read began, which tells the one from the other. Writes landing
+// faster than a frame reads, without end, would starve the stream, which no
+// page's pace comes near. The loop runs on the connection's own goroutine,
+// which the HTTP server provides, so this starts none of its own.
 func (s *server) pushSnapshots(request *http.Request, out *eventStream, view string) {
 	interval := s.info.streamInterval()
 
 	for {
 		frame, landed := s.freshFrame(request.Context(), view)
+		if s.isRetired() {
+			sendRetry(out)
+
+			return
+		}
+
 		if !sendEvent(out, snapshotEvent, frame) || request.Context().Err() != nil {
 			return
 		}
@@ -89,11 +96,7 @@ func (s *server) pushSnapshots(request *http.Request, out *eventStream, view str
 		case <-request.Context().Done():
 			return
 		case <-s.retired:
-			// The directory was switched: the page reconnects in a second,
-			// to the server for the directory switched to.
-			_, _ = fmt.Fprint(out.w, "retry: 1000\n\n")
-
-			out.flusher.Flush()
+			sendRetry(out)
 
 			return
 		case <-landed:
@@ -105,7 +108,7 @@ func (s *server) pushSnapshots(request *http.Request, out *eventStream, view str
 // freshFrame is a frame of view read wholly after the last write to land,
 // counting the writes landed before its read began, and the signal the next
 // write to land closes: a read a write landed during is read again, until ctx
-// ends, when the frame read is the last.
+// ends or the server is retired, when the frame read is the last.
 func (s *server) freshFrame(ctx context.Context, view string) (api.Snapshot, <-chan struct{}) {
 	for {
 		landed, writes := s.worlds.landed.next()
@@ -113,10 +116,31 @@ func (s *server) freshFrame(ctx context.Context, view string) (api.Snapshot, <-c
 		frame := s.snapshot(ctx, view)
 		frame.Writes = writes
 
-		if !landedDuring(landed) || ctx.Err() != nil {
+		if !landedDuring(landed) || ctx.Err() != nil || s.isRetired() {
 			return frame, landed
 		}
 	}
+}
+
+// isRetired reports a server whose directory was switched from. Its
+// retirement comes before the switch lands, so a frame it reads after has a
+// count that takes in the switch, of the directory the switch left: such a
+// frame is never sent.
+func (s *server) isRetired() bool {
+	select {
+	case <-s.retired:
+		return true
+	default:
+		return false
+	}
+}
+
+// sendRetry ends a retired server's stream: the page reconnects in a second,
+// to the server for the directory switched to.
+func sendRetry(out *eventStream) {
+	_, _ = fmt.Fprint(out.w, "retry: 1000\n\n")
+
+	out.flusher.Flush()
 }
 
 // streamEvent names a message's kind on the event stream.

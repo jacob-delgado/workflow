@@ -130,7 +130,9 @@ flight; and refuses, as `conflict`, a write whose `Workflow-Here` header
   frame sent after a write's answer shows it. Each frame counts the writes
   landed before its read began (`Snapshot.writes`), so the page tells the
   frame that shows a write by its count rather than by its arrival. The
-  count is the worlds', so it goes on across a switch. A write whose answer the
+  count is the worlds', so it goes on across a switch, and a server switched
+  from sends no frame once retired, so a frame counting the switch is of the
+  directory switched to. A write whose answer the
   forge or the tracker would lag behind puts what it made into the stream's
   cache, or drops the cache, so the frame it wakes is right.
 - depguard (`.golangci.yml`) keeps the direction: this package imports neither
