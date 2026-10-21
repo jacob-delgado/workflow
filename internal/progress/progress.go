@@ -194,10 +194,13 @@ func branchState(work Work) State {
 }
 
 // commitState is done once the branch has commits, and in flight while there
-// are changes to commit.
+// are changes to commit on it. Changes on the base branch are not yet work the
+// loop follows: no branch has been made for them to be committed on.
 func commitState(work Work) State {
 	switch {
-	case work.OnFeatureBranch && work.Commits > 0:
+	case !work.OnFeatureBranch:
+		return NotStarted
+	case work.Commits > 0:
 		return Done
 	case work.UncommittedChanges > 0:
 		return InFlight

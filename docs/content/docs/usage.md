@@ -91,8 +91,10 @@ focused again:
   rule: filled `━` in the stage's color once it is done, open `─` while it is
   still to come, and after Review filled as far as CI's checks have finished.
   Stages still to come are faint. It is derived, not recorded: the Issue stage
-  is done once the branch names an issue, Review follows the pull request's
-  CI. The last stage is named for your messaging service, as its pane is. It
+  is done once the branch names an issue, Commits is in flight while a
+  feature branch holds changes not yet committed (changes on the base branch
+  leave it not started, since no branch has been made for them), and Review
+  follows the pull request's CI. The last stage is named for your messaging service, as its pane is. It
   starts with where you work, faint — the repository's name, as `api` at its
   root, and below it the path within it, as `api/cmd` — which gives way first
   when the row is short; the
