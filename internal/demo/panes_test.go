@@ -127,3 +127,20 @@ func TestTheNoticeOfTheOpenedPullRequestReadsWholeAtTheRecordingsSize(t *testing
 	// Assert
 	requireScreen(t, demo.screen(), "· announces to #dev-workflow once CI passes")
 }
+
+func TestTheRailKeepsEverySummaryLineWhileANoticeShows(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	demo := recorded(t)
+	demo.press("1", "b", "enter", "3", "a", "c")
+	demo.typed("redact tokens in the request log")
+
+	// Act
+	demo.press("enter")
+
+	// Assert
+	// The notice says the commit was made, and the Branch pane, which has
+	// no focus, still says what its branch has not had done to it yet.
+	requireScreen(t, demo.screen(), "committed", "not pushed yet")
+}

@@ -63,12 +63,12 @@ focused again:
 ┃   ○·· PROJ-396 Backlog … ┃│   ◐ #1 PROJ-412: Redact tokens in the request log                │
 ┃   ◐·· PROJ-390 In Progr… ┃│   started 1h12m ago                                              │
 ┃   ◐·· PROJ-377 In Revie… ┃│                                                                  │
-┃                          ┃│ reported by Ana Lopez                                            │
-┡━ 2 Branch ━━━━━━━━━━━━━━━┩│ assigned to Ana Lopez                                            │
-│ fix/PROJ-412-redact-tok… ││                                                                  │
-│ pushed                   ││ The request log records every header, so a bearer token lands in │
-├─ 3 Commits ──────────────┤│ the log file.                                                    │
-│ 0 of 0 staged            ││                                                                  │
+┡━ 2 Branch ━━━━━━━━━━━━━━━┩│ reported by Ana Lopez                                            │
+│ fix/PROJ-412-redact-tok… ││ assigned to Ana Lopez                                            │
+│ pushed                   ││                                                                  │
+├─ 3 Commits ──────────────┤│ The request log records every header, so a bearer token lands in │
+│ 0 of 0 staged            ││ the log file.                                                    │
+│ 1 commit on this branch  ││                                                                  │
 ├─ 4 Review ───────────────┤│ Redact the Authorization header before the line is written.      │
 │ #128 fix(config): redac… ││                                                                  │
 ├─ 5 Slack ────────────────┤│ Comments 1 of 1                                                  │

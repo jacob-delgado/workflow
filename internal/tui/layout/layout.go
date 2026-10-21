@@ -10,6 +10,8 @@
 // a rendered screen.
 package layout
 
+import "slices"
+
 // Fixed regions and the rail's sizing rules.
 const (
 	spineRows  = 1
@@ -108,15 +110,35 @@ func Compute(terminal Terminal, rail Rail) Layout {
 const noticeRows = 1
 
 // ComputeWithNotice is Compute with a row reserved for a notice above the
-// footer: the body shrinks by that row so the rail and detail stay aligned, the
-// notice takes the row the footer would have had, and the footer moves to the
-// true bottom. It returns the layout and the notice's box.
+// footer: the notice takes the row the footer would have had, the footer stays
+// at the true bottom, and the row comes out of the focused pane and the detail
+// beside it alone, so every pane without focus keeps the lines it shows and the
+// rail does not jump while a notice comes and goes. A caller reserves the row
+// only where NoticeKeepsFocus holds. It returns the layout and the notice's box.
 func ComputeWithNotice(terminal Terminal, rail Rail) (Layout, Box) {
-	result := Compute(Terminal{Width: terminal.Width, Height: terminal.Height - noticeRows}, rail)
-	notice := Box{X: 0, Y: result.Footer.Y, Width: terminal.Width, Height: noticeRows}
-	result.Footer.Y = max(0, terminal.Height-footerRows)
+	result := Compute(terminal, rail)
+	notice := Box{X: 0, Y: max(0, result.Footer.Y-noticeRows), Width: terminal.Width, Height: noticeRows}
+	result.Detail.Height = max(0, result.Detail.Height-noticeRows)
+	result.Rail = yieldNoticeRow(result.Rail, rail.Focused)
 
 	return result, notice
+}
+
+// yieldNoticeRow is the rail with the focused pane a notice's row shorter and
+// every pane below it moved up that row, so the boxes stay contiguous.
+func yieldNoticeRow(boxes []Box, focused int) []Box {
+	yielded := slices.Clone(boxes)
+
+	for index := range yielded {
+		switch {
+		case index == focused:
+			yielded[index].Height = max(0, yielded[index].Height-noticeRows)
+		case index > focused:
+			yielded[index].Y -= noticeRows
+		}
+	}
+
+	return yielded
 }
 
 // Collapsed reports whether the rail was dropped for lack of width.
