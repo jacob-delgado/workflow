@@ -11,9 +11,9 @@ import { expect, test, type Page, type TestInfo } from '@playwright/test'
 // run, naming the moment and the frame.
 
 // heldMs is how long a frame plays before it counts as held: a beat holds
-// its frame 1.8 s more than it showed, and a still frame plays a second at
+// its frame 1.2 s more than it showed, and a still frame plays 0.6 s at
 // most.
-const heldMs = 1500
+const heldMs = 1000
 
 // A held frame is the film's when at most allowedShare of its pixels differ
 // from the film's by more than tolerance in any channel: the lossless
