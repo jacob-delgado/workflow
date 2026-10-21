@@ -69,13 +69,12 @@ client.interceptors.request.use((request) => {
 })
 
 // A write's answer is handed on only once the event stream has pushed the
-// frame it woke, which the server reads wholly after the write landed: one
-// gate over every write, present and future, so no write says it is done
-// beside a page that still shows it undone. It waits from the answer's
-// headers, the earliest the server has woken the stream by. A run's own
-// stream (application/x-ndjson) waits at its end instead (gitRunApi.ts), and
-// the edge's plain-text refusals, which never reach the server's writes, wake
-// nothing to wait for.
+// frame it woke: one gate over every write, present and future, so no write
+// says it is done beside a page that still shows it undone. It waits from the
+// answer's headers, the earliest the server has woken the stream by. A run's
+// own stream (application/x-ndjson) waits at its end instead (gitRunApi.ts).
+// The edge's plain-text refusals and the contract's own, answered before a
+// request reaches the server's writes, wake nothing to wait for.
 client.interceptors.response.use(async (response, request) => {
   if (!safeMethods.has(request.method) && waitsForFrame(response)) {
     await nextFrame()
@@ -84,10 +83,21 @@ client.interceptors.response.use(async (response, request) => {
   return response
 })
 
+// refusedByTheContract are the statuses the contract's validator refuses a
+// request with before the server takes it: a body or parameter that does not
+// fit, no session, no such route, or no such method on it. A write the server
+// itself refuses with one changed nothing either, so its refusal needs no
+// frame beside it.
+const refusedByTheContract = new Set([400, 401, 404, 405])
+
 // waitsForFrame reports an answer to a write that the server woke the stream
 // for as it began.
 function waitsForFrame(response: Response): boolean {
   const kind = response.headers.get('Content-Type') ?? ''
 
-  return !kind.startsWith('text/plain') && !kind.startsWith('application/x-ndjson')
+  return (
+    !refusedByTheContract.has(response.status) &&
+    !kind.startsWith('text/plain') &&
+    !kind.startsWith('application/x-ndjson')
+  )
 }
