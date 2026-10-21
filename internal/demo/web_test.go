@@ -96,6 +96,10 @@ const (
 		`"body":"## What\n","draft":false,"reviewers":[],"assignees":[],"labels":[]}`
 )
 
+// startProgress is the page's request for the move the demo's Jira offers
+// PROJ-412 from To Do.
+const startProgress = `{"transition_id":"11","fields":[]}`
+
 // workedBranch is the branch starting work on PROJ-412 makes.
 const workedBranch = "fix/PROJ-412-redact-tokens-in-the-request-log"
 
@@ -105,11 +109,13 @@ const (
 	lee = "lee.chen"
 )
 
-// committed starts work on PROJ-412 and commits all of it.
+// committed starts work on PROJ-412, moves it into progress, and commits all
+// of it.
 func (d webDemo) committed() {
 	d.t.Helper()
 
 	d.send(http.MethodPost, "/api/branches", startWork)
+	d.send(http.MethodPost, "/api/issues/PROJ-412/transitions", startProgress)
 	d.send(http.MethodPost, "/api/stage", stageAll)
 	d.send(http.MethodPost, "/api/commit", commitWork)
 }
@@ -248,6 +254,25 @@ func TestTheWebLoopRunsFromAnIssueToAnAnnouncement(t *testing.T) {
 
 	if got := announcedPulls(demo); !slices.Equal(got, []int{128}) {
 		t.Errorf("the store holds %v announced, want #128", got)
+	}
+}
+
+func TestTheWebMovesTheWorkedIssueIntoProgressOnceStarted(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	demo := servedWeb(t)
+	demo.send(http.MethodPost, "/api/branches", startWork)
+
+	// Act
+	demo.send(http.MethodPost, "/api/issues/PROJ-412/transitions", startProgress)
+
+	// Assert
+	issues := demo.frame().Issues.Issues
+	at := slices.IndexFunc(issues, func(issue api.Issue) bool { return issue.Key == string(worked) })
+
+	if at < 0 || issues[at].Status != inProgress {
+		t.Errorf("the page lists %+v, want PROJ-412 In Progress", issues)
 	}
 }
 

@@ -15,6 +15,12 @@ import (
 // worked is the issue the demo works on.
 const worked jira.Key = "PROJ-412"
 
+// The statuses the worked issue moves through.
+const (
+	toDo       = "To Do"
+	inProgress = "In Progress"
+)
+
 func TestMovingAnIssueChangesItsStatus(t *testing.T) {
 	t.Parallel()
 
@@ -97,7 +103,7 @@ func TestAnIssueTheDemoDoesNotListCannotBeMoved(t *testing.T) {
 		t.Errorf("moving an issue the demo does not list answered %v, want jira.ErrNotFound", err)
 	}
 
-	if after, _ := deps.Jira.Issue(t.Context(), worked); after.Issue.Status != "In Progress" {
+	if after, _ := deps.Jira.Issue(t.Context(), worked); after.Issue.Status != toDo {
 		t.Errorf("the refused move changed the first issue listed, PROJ-412, to %s", after.Issue.Status)
 	}
 }
@@ -118,5 +124,45 @@ func TestTodaysSummaryHoldsTheMovesTheDemoMade(t *testing.T) {
 	if err != nil || len(today.Events) != 1 || today.Events[0].Kind != jira.EventMoved ||
 		today.Events[0].Detail != moves[0].ToStatus {
 		t.Errorf("today's Jira activity = %+v, %v; want PROJ-412 moved to %s", today, err, moves[0].ToStatus)
+	}
+}
+
+func TestTheWorkedIssueOpensToDo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps := standingStill().Deps()
+
+	// Act
+	detail, err := deps.Jira.Issue(t.Context(), worked)
+
+	// Assert
+	if err != nil || detail.Issue.Status != toDo || detail.Issue.StatusCategory != jira.CategoryNew {
+		t.Errorf("PROJ-412 opens %s (%s), %v; want To Do, not started", detail.Issue.Status,
+			detail.Issue.StatusCategory, err)
+	}
+}
+
+func TestYesterdaysSummaryDoesNotMoveTheWorkedIssue(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps := standingStill().Deps()
+	today := deps.Clock().Truncate(24 * time.Hour)
+
+	// Act
+	yesterday, err := deps.Jira.Activity(t.Context(), today.AddDate(0, 0, -1), today)
+
+	// Assert
+	var moved []jira.Key
+
+	for _, event := range yesterday.Events {
+		if event.Kind == jira.EventMoved {
+			moved = append(moved, event.Key)
+		}
+	}
+
+	if err != nil || slices.Contains(moved, worked) || len(moved) == 0 {
+		t.Errorf("yesterday's Jira activity moved %v, %v; want an issue moved, and not PROJ-412", moved, err)
 	}
 }

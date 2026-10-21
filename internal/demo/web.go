@@ -292,9 +292,10 @@ func monthsTouched(_ context.Context, since time.Time) ([]taskwarrior.Task, erro
 }
 
 // monthsMoves is an issue moved into review on each day of the month that
-// moved one, the demo's issues taken in turn.
+// moved one, the demo's issues taken in turn but for PROJ-412, which no one
+// has started before the demo's day.
 func monthsMoves() []jira.Event {
-	issues := issueList()
+	issues := slices.DeleteFunc(issueList(), func(issue jira.Issue) bool { return issue.Key == workedKey })
 	days := monthDoing(moving)
 	moves := make([]jira.Event, 0, len(days))
 

@@ -154,8 +154,9 @@ export async function openCockpit(
 }
 
 // workedIssue is the populated build's checked-out issue, PROJ-412, as its
-// row in the Issues list, named from its key on: the header's chip for the
-// task tracking it carries the issue's summary too.
+// row in the Issues list, named from its key on: the header's chip for a
+// started task tracking it, as the mock's is, carries the issue's summary
+// too, though the demo's task is never started.
 export function workedIssue(page: Page): Locator {
   return page.getByRole('button', { name: /^PROJ-412 .*redact tokens in/i })
 }

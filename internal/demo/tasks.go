@@ -16,7 +16,8 @@ import (
 const taskProject = "workflow"
 
 // taskDeps is the demo's Taskwarrior: four tasks pending, as the web mock's
-// (mockTasks.ts), and one finished yesterday.
+// (mockTasks.ts) but with none started, and one finished yesterday. It reads
+// and never writes, so PROJ-412's task stays not started all the story long.
 func (w *World) taskDeps() seams.Tasks {
 	return seams.Tasks{
 		Install: func(context.Context) (taskwarrior.Install, error) {
@@ -32,8 +33,9 @@ func (w *World) taskDeps() seams.Tasks {
 	}
 }
 
-// pendingTasks are the tasks still to do: the started one tracking PROJ-412,
-// one for another issue of yours, one no issue tracks, and one waiting.
+// pendingTasks are the tasks still to do: the one tracking PROJ-412, last
+// annotated yesterday, one for another issue of yours, one no issue tracks,
+// and one waiting.
 func pendingTasks() []taskwarrior.Task {
 	const day = 24 * time.Hour
 
@@ -43,7 +45,7 @@ func pendingTasks() []taskwarrior.Task {
 		{
 			UUID: "7c1e9a42-3b5d-4f60-8a1c-2d4e6f80a1b3", ID: 1, Description: string(workedKey) + ": " + workedSummary,
 			Status: taskwarrior.Pending, Project: taskProject, Priority: "H", Tags: []string{taskwarrior.LinkTag},
-			Start: start.Add(-72 * time.Minute), Entry: start.Add(-3 * day), Modified: start.Add(-72 * time.Minute),
+			Entry: start.Add(-3 * day), Modified: start.Add(-26 * time.Hour),
 			Urgency: 14.2, IssueKey: string(workedKey), IssueURL: browseURL(workedKey),
 			Annotations: []taskwarrior.Annotation{
 				{Entry: start.Add(-26 * time.Hour), Description: "Sam can review it once CI is green"},
