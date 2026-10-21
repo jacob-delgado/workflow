@@ -35,9 +35,10 @@ async function enabledNow(target: Locator): Promise<boolean> {
 }
 
 // The binary's stream re-pushes every five seconds; a write wakes it at once,
-// and the page says a write is done only once the frame it woke has landed.
-// So each notice below is checked against the page the moment it shows,
-// with no wait for the page to catch up.
+// and the page says a write is done only once a frame read after it landed
+// is on the page: the first whose count of writes reaches the number the
+// write's answer carries. So each notice below is checked against the page
+// the moment it shows, with no wait for the page to catch up.
 test('each write is said only once the page served shows it', async ({ page }) => {
   // Arrange
   writeAgreed()
