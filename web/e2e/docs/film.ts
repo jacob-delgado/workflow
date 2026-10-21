@@ -19,7 +19,7 @@ import { drawPointer, placePointer, type Pointer } from './pointer.ts'
 // when it draws one, so a frame lasts until the next; a beat holds the frame
 // it lands on for a beat's length more, so the film can hold a step without
 // the test waiting. A still stretch the page spends waiting on the demo is
-// cut to a beat's length, since nothing in it moves.
+// cut to stillMs, since nothing in it moves.
 
 // size is the film's frame: the window the walkthrough's project opens.
 const size = { width: 1280, height: 800 }
@@ -28,8 +28,8 @@ const size = { width: 1280, height: 800 }
 // frame plays, how long the last frame holds, the delay between keys typed,
 // and the most two frames inside a glide or typed text may lie apart before
 // the film counts the stretch as stalled.
-const beatMs = 1800
-const stillMs = 1000
+const beatMs = 1200
+const stillMs = 600
 const lastMs = 3000
 const keyDelay = 45
 const stallMs = 250

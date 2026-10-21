@@ -30,6 +30,10 @@ const pixelsPerStep = 24
 const fewestSteps = 12
 const mostSteps = 36
 
+// parkSteps is how many frames the pointer takes to move off what a beat
+// shows: a short, quick move, since it goes nowhere a viewer follows.
+const parkSteps = 6
+
 // arrow is the pointer's look, the outline of a desktop's arrow, drawn white
 // and edged in black.
 const arrow = 'M1 1 L1 23 L7 17 L11 27 L15 25 L11 15 L20 15 Z'
@@ -135,8 +139,7 @@ export async function placePointer(page: Page, from: Point, clock: () => number)
 
   // glideTo moves the mouse from where it is to a point in eased steps, a
   // frame each, and says when the glide ran.
-  const glideTo = async (to: Point): Promise<Glide> => {
-    const steps = stepsBetween(at, to)
+  const glideTo = async (to: Point, steps: number): Promise<Glide> => {
     const began = clock()
     for (let step = 1; step <= steps; step++) {
       const along = eased(step / steps)
@@ -149,11 +152,15 @@ export async function placePointer(page: Page, from: Point, clock: () => number)
   }
 
   return {
-    glide: async (target) => glideTo(await centerOf(target)),
+    glide: async (target) => {
+      const to = await centerOf(target)
+
+      return glideTo(to, stepsBetween(at, to))
+    },
     clear: async (shown) => {
       const spot = await clearSpot(page, at, shown)
 
-      return spot === undefined ? undefined : glideTo(spot)
+      return spot === undefined ? undefined : glideTo(spot, parkSteps)
     },
     still: () => pointerStill(page),
   }
