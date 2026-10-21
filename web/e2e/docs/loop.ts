@@ -82,11 +82,16 @@ export async function startWork(page: Page, pace: Pace): Promise<void> {
   await pace.beat(`Started work on ${workedBranch}`, stage)
 }
 
-// stageAll stages every change in the working tree.
+// stageAll stages every change in the working tree, done once no file in it
+// still offers to be staged. Its beat holds the notice under the files it
+// staged, not the whole Working tree, which holds the commit form below and
+// is taller than the window.
 async function stageAll(page: Page, pace: Pace): Promise<void> {
-  await pace.click(page.getByRole('button', { name: 'Stage all', exact: true }))
+  const tree = page.getByRole('region', { name: 'Working tree' })
+  await pace.click(tree.getByRole('button', { name: 'Stage all', exact: true }))
   const staged = said(page, 'Staged every change.')
   await expect(staged).toBeVisible()
+  await expect(tree.getByRole('button', { name: /^Stage (?!all$)/ })).toHaveCount(0)
   await pace.beat('Every change staged', staged)
 }
 
@@ -118,7 +123,8 @@ export async function commit(page: Page, pace: Pace, subject: string): Promise<v
   await pace.beat(`Committed fix(config): ${subject}`, listed)
 }
 
-// push pushes the branch, confirming the push it asks about.
+// push pushes the branch, confirming the push it asks about, done once its
+// tracking reads it pushed and nothing ahead of its upstream.
 export async function push(page: Page, pace: Pace): Promise<void> {
   await pace.click(page.getByRole('button', { name: 'Push branch' }))
   await pace.click(
@@ -126,15 +132,20 @@ export async function push(page: Page, pace: Pace): Promise<void> {
   )
   const pushed = said(page, `Pushed ${workedBranch}.`)
   await expect(pushed).toBeVisible()
+  await expect(page.getByRole('definition').filter({ hasText: /^0 ahead, / })).toBeVisible()
+  await expect(page.getByText('not pushed yet', { exact: true })).toHaveCount(0)
   await pace.beat(`Pushed ${workedBranch}`, pushed)
 }
 
 // openPull opens the branch's pull request from the Review section, with the
-// title, base, reviewers and body the form proposes.
+// title, base, reviewers and body the form proposes, held composed once its
+// title, base and reviewers are filled in.
 async function openPull(page: Page, pace: Pace): Promise<void> {
   await pace.click(page.getByRole('button', { name: 'Open a pull request' }))
   const form = page.getByRole('form', { name: 'Open a pull request' })
   const reviewers = form.getByRole('textbox', { name: 'Reviewers' })
+  await expect(form.getByRole('textbox', { name: 'Title', exact: true })).toHaveValue(/\S/)
+  await expect(form.getByRole('textbox', { name: 'Base branch', exact: true })).toHaveValue(/\S/)
   await expect(reviewers).toHaveValue(/sam\.ortiz/)
   await pace.beat('The pull request composed, its reviewers proposed', reviewers)
   await pace.click(form.getByRole('button', { name: 'Open pull request', exact: true }))
@@ -169,10 +180,12 @@ export async function toOpenPull(page: Page, pace: Pace): Promise<void> {
 }
 
 // armedForCI waits for the Slack section to say the announcement was armed
-// as #128 opened, and waits for its CI to pass.
+// as #128 opened, and waits for its CI to pass, never that a pull request
+// is still to be opened.
 export async function armedForCI(page: Page, pace: Pace): Promise<void> {
   const armed = page.getByText('Armed when #128 opened.', { exact: false })
   await expect(armed).toBeVisible()
+  await expect(page.getByText(/^Open a pull request first/)).toHaveCount(0)
   await pace.beat('The announcement armed when #128 opened, waiting for CI', armed)
 }
 
@@ -185,11 +198,10 @@ export async function announcedOnGreen(page: Page, pace: Pace): Promise<void> {
 }
 
 // storyDone waits for PROJ-412's work story to read announced, its last stage
-// done.
+// done, and holds the whole story, every stage of it in view.
 export async function storyDone(page: Page, pace: Pace): Promise<void> {
-  const told = workStory(page)
-    .getByRole('listitem')
-    .filter({ hasText: /Announced/ })
+  const story = workStory(page)
+  const told = story.getByRole('listitem').filter({ hasText: /Announced/ })
   await expect(told).toBeVisible()
-  await pace.beat("PROJ-412's work story, every stage done", told)
+  await pace.beat("PROJ-412's work story, every stage done", story)
 }
