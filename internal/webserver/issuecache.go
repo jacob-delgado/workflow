@@ -34,11 +34,14 @@ type issuesCache struct {
 }
 
 // heldPage is a view's first page as a search answered it, or why the search
-// failed, and when it was made.
+// failed, when it was made, and whether a drop came during it: a page that
+// says less than the tracker does now, which no frame is served, even while
+// the next search is under way.
 type heldPage struct {
 	result jira.SearchResult
 	failed error
 	readAt time.Time
+	due    bool
 }
 
 // frameIssues is the first page of the issues jql finds, from the issues
@@ -104,8 +107,9 @@ func (s *server) viewSeed(ctx context.Context, jql string) (api.Seed, bool) {
 }
 
 // serve answers the page held for jql while it is fresh, and while a search
-// of it is under way; it hands back that search to wait for when nothing is
-// held, and otherwise starts the caller's own search, which land ends.
+// of it is under way, unless a drop came during the search it holds; it hands
+// back that search to wait for when no page it may serve is held, and
+// otherwise starts the caller's own search, which land ends.
 func (c *issuesCache) serve(jql string, now time.Time, interval time.Duration) turn[jira.SearchResult] {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -113,7 +117,7 @@ func (c *issuesCache) serve(jql string, now time.Time, interval time.Duration) t
 	page, held := c.pages[jql]
 	landing, reading := c.reading[jql]
 
-	if held && (reading || now.Sub(page.readAt) < interval) {
+	if held && !page.due && (reading || now.Sub(page.readAt) < interval) {
 		return turn[jira.SearchResult]{answered: true, value: page.result, failed: page.failed}
 	}
 
@@ -140,10 +144,7 @@ func (c *issuesCache) land(jql string, dropped int, page heldPage) {
 	close(c.reading[jql])
 	delete(c.reading, jql)
 
-	if c.dropped != dropped {
-		page.readAt = time.Time{}
-	}
-
+	page.due = c.dropped != dropped
 	c.pages[jql] = page
 }
 
