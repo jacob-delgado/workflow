@@ -2,6 +2,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, type Locator, type Page } from '@playwright/test'
 import { cutAtTheEdge, fontsLoaded, stillAnimating } from './capture.ts'
+import { pointerCovers } from './cover.ts'
 import type { Pace } from './loop.ts'
 import { drawPointer, placePointer, type Pointer } from './pointer.ts'
 
@@ -151,11 +152,12 @@ interface Beat {
 }
 
 // Take is what a step of the film acts through: the page, the reel it adds
-// to, and the film's clock.
+// to, the film's clock and the pointer.
 interface Take {
   page: Page
   reel: Reel
   clock: () => number
+  pointer: Pointer
 }
 
 // scrollTops is where every pane on the page stands, as one line to compare.
@@ -272,15 +274,30 @@ async function reveal(take: Take, shown: Locator): Promise<void> {
   }
 }
 
+// park moves the pointer, once its pulse is done, off what it covers of the
+// page and of what the beat shows, gliding as the film moves through, and
+// waits for what the glide's hover left moving to stand still.
+async function park(take: Take, shown: Locator): Promise<void> {
+  const { page, reel, pointer } = take
+  await pointer.still()
+  const parked = await pointer.clear(shown)
+  if (parked !== undefined) {
+    reel.stretches.push({ what: 'a glide', from: parked.began, to: parked.ended })
+    await expect.poll(() => stillAnimating(page)).toEqual([])
+  }
+}
+
 // keyframe holds the page to what every docs image is held to, once what
-// the beat shows is in view, then keeps an image of it as it stands, named
-// by its place in the film, and the moment on the film's clock it stood so,
-// which the beat holds.
+// the beat shows is in view and the pointer parked clear of it, then keeps
+// an image of it as it stands, named by its place in the film, and the
+// moment on the film's clock it stood so, which the beat holds.
 async function keyframe(take: Take, beat: Beat): Promise<void> {
   const { page, reel, clock } = take
   const { caption, shown } = beat
   await expect.poll(() => stillAnimating(page), { message: caption }).toEqual([])
   await reveal(take, shown)
+  await park(take, shown)
+  expect(await pointerCovers(page, shown), caption).toEqual([])
   expect(await cutAtTheEdge(page), caption).toEqual([])
   await expect(shown, caption).toBeInViewport({ ratio: 1 })
   expect(await fontsLoaded(page), caption).toBe(true)
@@ -356,7 +373,7 @@ async function roll(page: Page, dir: string): Promise<Film> {
   })
 
   return {
-    pace: filmedPace({ page, reel, clock }, pointer),
+    pace: filmedPace({ page, reel, clock, pointer }),
     captions: () => reel.keys.map((key) => key.caption),
     stalls: () => stallsIn(reel),
     finish: async () => {
@@ -367,11 +384,11 @@ async function roll(page: Page, dir: string): Promise<Film> {
 }
 
 // filmedPace is the walkthrough's pace: the pointer glides to each control
-// first, scrolling it into view as it goes; a field is clicked and typed into
-// a key at a time, and a choice clicked and chosen; and each beat is a
-// keyframe.
-function filmedPace(take: Take, pointer: Pointer): Pace {
-  const { reel, clock } = take
+// first, scrolling it into view as it goes, and stays where it pressed until
+// a beat parks it; a field is clicked and typed into a key at a time, and a
+// choice clicked and chosen; and each beat is a keyframe.
+function filmedPace(take: Take): Pace {
+  const { reel, clock, pointer } = take
   const glideTo = async (target: Locator) => {
     await bringIntoView(take, target)
     const glide = await pointer.glide(target)
@@ -382,12 +399,6 @@ function filmedPace(take: Take, pointer: Pointer): Pace {
     click: async (target) => {
       await glideTo(target)
       await target.click()
-      // A control a press takes away, as Start work, leaves nowhere to
-      // park beside, and the pointer stays where it pressed.
-      const parked = (await target.isVisible()) ? await pointer.park(target) : undefined
-      if (parked !== undefined) {
-        reel.stretches.push({ what: 'a glide', from: parked.began, to: parked.ended })
-      }
     },
     type: async (target, text) => {
       await glideTo(target)
