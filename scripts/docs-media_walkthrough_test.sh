@@ -6,7 +6,7 @@
 # as long as the film within a second either way, with no frame past 250 ms
 # that begins where the film moves throughout, though a frame held for a
 # step's beat plays as long as it is held, and with each step's keyframe
-# there to look at. A WebP of 2 MiB passes and a byte more fails by name. It
+# there to look at. A WebP of 4 MiB passes and a byte more fails by name. It
 # refuses a busy machine, a load past all but one of its processors or a
 # gate or Playwright run going, and an ffmpeg with no libwebp_anim; it fails
 # when the run filmed nothing, or the encoding fails. The stand-ins of
@@ -31,13 +31,13 @@ expect_output pass "the walkthrough encoded, as long as its film" \
 expect_output pass "the walkthrough's keyframes counted, to look at" "ok    web-walkthrough.webp: 1 keyframes" \
   media "${root}" "${all}" "${with_browser}"
 expect_output pass "the walkthrough held to its own budget" \
-  "ok    web-walkthrough.webp: 164 bytes, within its budget of 2097152" media "${root}" "${all}" "${with_browser}"
+  "ok    web-walkthrough.webp: 164 bytes, within its budget of 4194304" media "${root}" "${all}" "${with_browser}"
 
-webp "${workdir}/at-budget.webp" 1280 800 0 2096980 100 100 100 100 2600
-expect_output pass "a WebP exactly at its budget" "web-walkthrough.webp: 2097152 bytes, within its budget of 2097152" \
+webp "${workdir}/at-budget.webp" 1280 800 0 4194132 100 100 100 100 2600
+expect_output pass "a WebP exactly at its budget" "web-walkthrough.webp: 4194304 bytes, within its budget of 4194304" \
   media "${root}" "${all}" "${with_browser}" "FAKE_WEBP=${workdir}/at-budget.webp"
-webp "${workdir}/past-budget.webp" 1280 800 0 2096982 100 100 100 100 2600
-expect_output 1 "a WebP past its budget" "web-walkthrough.webp: 2097154 bytes, past its budget of 2097152" \
+webp "${workdir}/past-budget.webp" 1280 800 0 4194134 100 100 100 100 2600
+expect_output 1 "a WebP past its budget" "web-walkthrough.webp: 4194306 bytes, past its budget of 4194304" \
   media "${root}" "${all}" "${with_browser}" "FAKE_WEBP=${workdir}/past-budget.webp"
 
 webp "${workdir}/within.webp" 1280 800 0 0 100 100 100 100 1610

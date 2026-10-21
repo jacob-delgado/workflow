@@ -15,9 +15,10 @@
 # docs/media/terminal.tape over the demo into terminal.gif. VHS types the
 # tape into ttyd's web terminal, in bash, films it in a headless Chromium and
 # encodes it with ffmpeg, so all four must be there, and ffmpeg's ffprobe.
-# Each PNG may be at most 300 KiB, the GIF and the WebP at most 2 MiB each,
-# and every image in docs/assets/images must have been written by this run,
-# so a screen the docs no longer show cannot linger.
+# Each PNG may be at most 300 KiB, the GIF 2 MiB and the WebP 4 MiB, a
+# lossless film of the whole loop, and every image in docs/assets/images must
+# have been written by this run, so a screen the docs no longer show cannot
+# linger.
 #
 # It refuses to film on a busy machine, a load past all but one processor or
 # a gate or Playwright run going, since a late frame is a jump in either
@@ -93,7 +94,7 @@ readonly images="${root}/docs/assets/images"
 readonly tape="docs/media/terminal.tape"
 readonly checksums="${root}/docs/media/tool-checksums.txt"
 readonly tools="${root}/tmp/docs-media"
-readonly png_budget=$((300 * 1024)) gif_budget=$((2 * 1024 * 1024)) webp_budget=$((2 * 1024 * 1024))
+readonly png_budget=$((300 * 1024)) gif_budget=$((2 * 1024 * 1024)) webp_budget=$((4 * 1024 * 1024))
 
 # shellcheck source=lib/dependency-pins.sh
 source "${here}/lib/dependency-pins.sh"

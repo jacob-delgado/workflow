@@ -62,8 +62,9 @@ ttyd into `tmp/` and checks that. Chromium, which films the terminal, and
 ffmpeg, which encodes it, must already be on your machine: the task films
 with the Chromium `PLAYWRIGHT_CHROMIUM_EXECUTABLE` names, or else the
 `chromium` on your PATH, and refuses to run without one. It fails when an
-image is past its budget, 300 KiB a screenshot and 2 MiB each recording,
-and refuses an ffmpeg that cannot write an animated WebP.
+image is past its budget, 300 KiB a screenshot, 2 MiB the terminal's GIF and
+4 MiB the walkthrough's WebP, and refuses an ffmpeg that cannot write an
+animated WebP.
 
 Commit the change the images are to show first: the task refuses to run
 while the demo, the interface, the tape or the web page has changes git has
