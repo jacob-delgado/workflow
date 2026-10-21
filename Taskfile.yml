@@ -735,9 +735,10 @@ tasks:
     cmds:
       - scripts/check-docs-drift.sh
 
-  # The docs' screenshots, filmed web walkthrough and recorded terminal, written into
-  # docs/assets/images by hand and checked by no gate or CI job, since their
-  # bytes differ by machine; scripts/docs-media.sh says what it needs and why.
+  # The docs' screenshots, filmed web walkthrough and recorded terminal, written
+  # into docs/assets/images by hand and checked by no gate or CI job, since
+  # their bytes differ by machine; scripts/docs-media.sh says what it needs and
+  # why.
   docs:media:
     desc: Regenerate the docs' web screenshots, web walkthrough and terminal recording (Linux, with Chromium and ffmpeg, on an idle machine)
     deps: [web:install]

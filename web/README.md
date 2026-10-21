@@ -71,35 +71,34 @@ palette open with nothing the content policy the server sends refuses;
 under that policy and fails on anything it refuses. Firefox and WebKit run
 every one of them too (the `server-firefox` and `server-webkit` projects),
 each in a run of its own (`--project=server-firefox`), since `commit.spec.ts`
-writes to the one fixture a run serves. Nothing else may be
-listening on port 13580. `corepack yarn media` writes the docs' screenshots
-into `docs/assets/images`: `e2e/docs/media.spec.ts`, in a run of its own
+writes to the one fixture a run serves. Nothing else may be listening on
+port 13580. `corepack yarn media` writes the docs' screenshots into
+`docs/assets/images`: `e2e/docs/media.spec.ts`, in a run of its own
 (`playwright.docs.config.ts`), serves each of six screens from a demo of its
 own, the real `--web` server over the made-up world `cmd/demo -web` runs
-(`e2e/docs/demo.ts`, on a port the system picks, its CI held running or
-its auto-announce off where a screen needs it), drives the page to the
-state the docs describe, and takes it in the dark theme at 1440 by 900, in
-UTC and under a held clock, once its heading is up and nothing is still
-reading. The same run films the walkthrough (`e2e/docs/walkthrough.spec.ts`,
-the `docs-walkthrough` project): the whole loop at 1280 by 800, at a
-person's pace, a pointer gliding to each control, field and choice before it
-presses, types or chooses (`e2e/docs/pointer.ts`) and parked, before each step's
-keyframe, where it covers no text, control or what the step shows
-(`e2e/docs/cover.ts`), from an issue picked to its announcement posted once CI
-passed. It starts recording only once the page is live, the stream connected,
-the header and rail filled in and nothing reading or moving, so it never opens
-on a blank or half-drawn page. It writes each frame Chromium draws, every other
-one, as a PNG with the time it was drawn (DevTools' own screencast, since
-Playwright's gives only JPEG), a keyframe for each step, and the ffmpeg list and
-manifest `scripts/docs-media.sh` encodes and checks the WebP by, into
-`tmp/walkthrough` (`e2e/docs/film.ts`), and fails when a glide, typed text
-or scroll goes more than 250 ms without a frame. Once the WebP is encoded,
-`corepack yarn media:check` (`e2e/docs/fidelity.spec.ts`, the
-`docs-fidelity` project) decodes it with Chromium's `ImageDecoder` and fails
-on any frame a step holds that is not the film's own. It needs
-the demo built first, `go build -o tmp/demo ./cmd/demo` from the repository
-root, as `task docs:media` does. Neither `test:e2e` nor CI runs it, and
-nothing compares its images. Every run launches the headless shell of the Chromium build
+(`e2e/docs/demo.ts`, on a port the system picks, its CI held running or its
+auto-announce off where a screen needs it), drives the page to the state the
+docs describe, and takes it in the dark theme at 1440 by 900, in UTC and under a
+held clock, once its heading is up and nothing is still reading. The same run
+films the walkthrough (`e2e/docs/walkthrough.spec.ts`, the `docs-walkthrough`
+project): the whole loop at 1280 by 800, at a person's pace, a pointer gliding
+to each control, field and choice before it presses, types or chooses
+(`e2e/docs/pointer.ts`) and parked, before each step's keyframe, where it covers
+no text, control or what the step shows (`e2e/docs/cover.ts`), from an issue
+picked to its announcement posted once CI passed. It starts recording only once
+the page is live, the stream connected, the header and rail filled in and
+nothing reading or moving, so it never opens on a blank or half-drawn page. It
+writes each frame Chromium draws, every other one, as a PNG with the time it was
+drawn (DevTools' own screencast, since Playwright's gives only JPEG), a keyframe
+for each step, and the ffmpeg list and manifest `scripts/docs-media.sh` encodes
+and checks the WebP by, into `tmp/walkthrough` (`e2e/docs/film.ts`), and fails
+when a glide, typed text or scroll goes more than 250 ms without a frame. Once
+the WebP is encoded, `corepack yarn media:check` (`e2e/docs/fidelity.spec.ts`,
+the `docs-fidelity` project) decodes it with Chromium's `ImageDecoder` and fails
+on any frame a step holds that is not the film's own. It needs the demo built
+first, `go build -o tmp/demo ./cmd/demo` from the repository root, as
+`task docs:media` does. Neither `test:e2e` nor CI runs it, and nothing compares
+its images. Every run launches the headless shell of the Chromium build
 Playwright pins, as CI does; where that build cannot be installed,
 `PLAYWRIGHT_CHROMIUM_EXECUTABLE` names another to launch, which a Claude Code
 cloud session's start sets to the image's headless shell, the kind of binary CI
