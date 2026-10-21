@@ -385,24 +385,14 @@ func TestStreamDropsTheLastForgeAnswerForAnotherBranch(t *testing.T) {
 	}
 }
 
-func TestStreamAsksTheForgeAgainOnceAPullIsOpenedHere(t *testing.T) {
+func TestAFrameAfterAPullIsOpenedHereShowsItBeforeTheForgeListsIt(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// The forge finds no pull request until the page opens one. The frame
-	// before the open has been served; the one after must not be served that
-	// answer for the rest of the interval.
-	opened := false
+	// The forge's list never finds the pull request the page opens, as one
+	// whose list lags behind its opens does; the frame after the open, on a
+	// stream of its own within the interval, shows the pull the open made.
 	deps := openableDeps()
-	create := deps.Forge.CreatePullRequest
-	deps.Forge.CreatePullRequest = func(ctx context.Context, request forge.NewPullRequest) (forge.PullRequest, error) {
-		opened = true
-
-		return create(ctx, request)
-	}
-	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
-		return forge.PullRequest{Number: 7, URL: webtest.PRURL, Title: "opened"}, opened, nil
-	}
 	deps.Clock = webtest.PaceStart
 
 	handler := webtest.Serve(t, deps, config.Default())
@@ -418,6 +408,6 @@ func TestStreamAsksTheForgeAgainOnceAPullIsOpenedHere(t *testing.T) {
 
 	// Assert
 	if !snap.Review.Found || snap.Review.Pull == nil || snap.Review.Pull.Number != 7 {
-		t.Errorf("review after the open = %+v, want #7, the pull just opened", snap.Review)
+		t.Errorf("review after the open = %+v, want #7, the pull just opened, though the forge lists none", snap.Review)
 	}
 }
