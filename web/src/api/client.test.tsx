@@ -294,6 +294,34 @@ test('a refused write is refused once the next frame lands', async () => {
   await expect(staging).rejects.toMatchObject({ detail: 'nope.txt is not a change here' })
 })
 
+test.each([
+  { status: 400, code: 'bad_request' },
+  { status: 401, code: 'unauthorized' },
+  { status: 404, code: 'not_found' },
+  { status: 405, code: 'method_not_allowed' },
+])('a write the contract refused as $code is refused at once', async ({ status, code }) => {
+  // Arrange
+  // The contract's own refusals are answered before the server's writes, so
+  // they wake no frame to wait for.
+  useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
+  fakeApi(
+    {
+      '/api/stage': Response.json(
+        { type: 'about:blank', title: 'Refused', status, detail: 'refused by the contract', code },
+        { status, headers: { 'Content-Type': 'application/problem+json' } },
+      ),
+    },
+    { frames: 'held' },
+  )
+
+  // Act
+  const staging = stage({ body: { path: '' }, throwOnError: true })
+
+  // Assert
+  expect(await settled(staging)).toBe(true)
+  await expect(staging).rejects.toMatchObject({ code })
+})
+
 test('a write waiting on the stream is answered once the stream goes stale', async () => {
   // Arrange
   useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
