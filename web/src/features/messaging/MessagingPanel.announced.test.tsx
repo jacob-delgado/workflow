@@ -2,7 +2,7 @@ import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { PullRequest, QueuedAnnouncement } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
-import { fakeApi } from '@/test/fakeApi.ts'
+import { fakeApi, pushFrame } from '@/test/fakeApi.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
 import { MessagingPanel } from './MessagingPanel.tsx'
 
@@ -183,3 +183,66 @@ test('says the merge was announced though the ready one was announced here', asy
   // Assert
   expect(screen.getByText('Announced the merge of #42.')).toBeTruthy()
 })
+
+test('an announcement made here is said once while its answer lands after the frame', async () => {
+  // Arrange
+  fakeApi(
+    {
+      '/api/announcement': { text: 'Please review #42', channel: '#dev' },
+      '/api/announce': { text: 'Please review #42', channel: '#dev' },
+    },
+    { frames: 'held' },
+  )
+  announcedPull(false)
+  render(<MessagingPanel />)
+  await userEvent.click(screen.getByRole('button', { name: 'Announce to Slack' }))
+  await userEvent.click(await screen.findByRole('button', { name: 'Announce now' }))
+
+  // Act: the frame the post woke, which counts it, lands before its answer
+  // is handed on
+  act(() => {
+    announcedPull(true)
+    pushFrame()
+  })
+
+  // Assert: the section does not say it a first way while the answer lands
+  expect(screen.queryByText(/^Announced #42/)).toBeNull()
+
+  // Act: the answer is handed on
+  await screen.findByText('Announced to #dev.')
+
+  // Assert: it is said once
+  expect(screen.queryByText(/^Announced #42/)).toBeNull()
+})
+
+test.each([
+  { send: 'Announce now', canWait: false },
+  { send: 'Announce when CI passes', canWait: true },
+])(
+  'an announcement made elsewhere is said after $send here was refused',
+  async ({ send, canWait }) => {
+    // Arrange
+    fakeApi({
+      '/api/announcement': {
+        text: 'Please review #42',
+        channel: '#dev',
+        ...(canWait ? { can_wait_for_ci: true } : {}),
+      },
+      '/api/announce': () =>
+        Response.json({ code: 'post_failed', detail: 'Slack refused the post.' }, { status: 502 }),
+    })
+    announcedPull(false)
+    render(<MessagingPanel />)
+    await userEvent.click(screen.getByRole('button', { name: 'Announce to Slack' }))
+    await userEvent.click(await screen.findByRole('button', { name: send }))
+    await screen.findByRole('button', { name: 'Announce to Slack' })
+
+    // Act
+    act(() => {
+      announcedPull(true)
+    })
+
+    // Assert
+    expect(screen.getByText('Announced #42 as ready for review.')).toBeTruthy()
+  },
+)
