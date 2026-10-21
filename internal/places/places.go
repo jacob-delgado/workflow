@@ -137,13 +137,18 @@ func Choices(issues []jira.Issue, marksOf func(jira.Key) []string, picked []Plac
 // statusPlaces is each status the issues are in, once, in the tracker's
 // workflow order: not started first, then in flight, then done, then any in a
 // category Jira does not name (its "No Category", or none), and by name within
-// each, so a status keeps its place however the issues move.
+// each, so a status keeps its place however the issues move. A status named in
+// two categories goes with the earlier one.
 func statusPlaces(issues []jira.Issue) []Place {
 	ranks := map[string]int{}
+
 	for _, issue := range issues {
-		if _, seen := ranks[issue.Status]; !seen {
-			ranks[issue.Status] = categoryRank(issue.StatusCategory)
+		rank := categoryRank(issue.StatusCategory)
+		if earlier, seen := ranks[issue.Status]; seen {
+			rank = min(rank, earlier)
 		}
+
+		ranks[issue.Status] = rank
 	}
 
 	names := slices.Collect(maps.Keys(ranks))
