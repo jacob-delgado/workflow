@@ -20,6 +20,19 @@ import {
 
 type Opened = 'none' | 'edit' | 'merge' | 'finish' | 'rerun'
 
+// Moved is the branch a finish left and the one it checked out.
+export interface Moved {
+  from: string
+  to: string
+}
+
+// FinishTeller is the panel's line a finish says what it did in, above the
+// branch's review: clear, as the finish starts, and say, with where it moved.
+export interface FinishTeller {
+  clear: () => void
+  say: (text: string, moved: Moved) => void
+}
+
 // canMerge is loop.CanMerge: open, ready for review, free of conflicts,
 // approved with no changes asked for, and its CI passed.
 function canMerge(pull: PullRequest, ci: Ci | null): boolean {
@@ -45,17 +58,21 @@ function canFinish(pull: PullRequest, finishRefusal: string | undefined): boolea
 // and re-run its failed CI (R), each offered only when it can go, and each
 // sent from a form that is its last look. One form is open at a time; closing
 // it hands focus back to its button, and what a sent one did is said below.
-// A merged branch that cannot be finished says why, as the terminal does.
+// A merged branch that cannot be finished says why, as the terminal does; one
+// finished says so in finished, the panel's line, since the finish checks out
+// another branch, whose review starts afresh.
 export function PullActions({
   pull,
   ci,
   branch,
   finishRefusal,
+  finished,
 }: {
   pull: PullRequest
   ci: Ci | null
   branch: Branch
   finishRefusal: string | undefined
+  finished: FinishTeller
 }) {
   const [opened, setOpened] = useState<Opened>('none')
   const outcome = useOutcome()
@@ -63,13 +80,11 @@ export function PullActions({
   const buttons = useRef<Partial<Record<Opened, HTMLButtonElement | null>>>({})
   const returnTo = useRef<Opened>('none')
   const name = `${sigil}${String(pull.number)}`
-  const teller: Teller = {
-    clear: outcome.clear,
-    say: (said) => {
-      setOpened('none')
-      outcome.say(said)
-    },
+  const closeForm = () => {
+    setOpened('none')
   }
+  const teller = closingIn(outcome, closeForm)
+  const finishTeller = finishingIn(finished, outcome, closeForm)
   const close = () => {
     returnTo.current = opened
     setOpened('none')
@@ -95,7 +110,7 @@ export function PullActions({
   const forms: Record<Exclude<Opened, 'none'>, ReactNode> = {
     edit: <EditForm name={name} teller={teller} onCancel={close} />,
     merge: <MergeForm name={name} teller={teller} onCancel={close} />,
-    finish: <FinishForm name={name} branch={branch} teller={teller} onCancel={close} />,
+    finish: <FinishForm name={name} branch={branch} teller={finishTeller} onCancel={close} />,
     rerun: <RerunForm name={name} title={pull.title} teller={teller} onCancel={close} />,
   }
 
@@ -127,6 +142,33 @@ export function PullActions({
       <OutcomeLine said={outcome.said} />
     </div>
   )
+}
+
+// closingIn is a teller that says in line, closing the form that said it.
+function closingIn(line: Teller, closeForm: () => void): Teller {
+  return {
+    clear: line.clear,
+    say: (said) => {
+      closeForm()
+      line.say(said)
+    },
+  }
+}
+
+// finishingIn is the teller a finish says through: the panel's line, which
+// outlives the review a finish starts afresh, cleared with this section's own
+// as it starts, so it never stands beside what an earlier write said here.
+function finishingIn(finished: FinishTeller, own: Teller, closeForm: () => void): FinishTeller {
+  return {
+    clear: () => {
+      own.clear()
+      finished.clear()
+    },
+    say: (said, moved) => {
+      closeForm()
+      finished.say(said, moved)
+    },
+  }
 }
 
 // FinishRefusal says why a merged branch cannot be finished, where the offer
@@ -347,12 +389,19 @@ function MergeForm({ name, teller, onCancel }: FormProps) {
 
 // FinishForm is the finish's last look: the git commands it runs, as the
 // server runs them.
-function FinishForm({ name, branch, teller, onCancel }: FormProps & { branch: Branch }) {
+function FinishForm({
+  name,
+  branch,
+  teller,
+  onCancel,
+}: Omit<FormProps, 'teller'> & { branch: Branch; teller: FinishTeller }) {
   const finish = useAsyncAction(finishBranch, {
     fallback: `${branch.name} was not finished. Try again, or finish it with F in the terminal.`,
     done: (now) => `Finished ${branch.name}; now on ${now.name}.`,
     onStart: teller.clear,
-    onDone: teller.say,
+    onDone: (said, now) => {
+      teller.say(said, { from: branch.name, to: now.name })
+    },
   })
 
   return (
