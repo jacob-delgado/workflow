@@ -74,3 +74,22 @@ func TestTheCommandLineAsksForItsUsage(t *testing.T) {
 		t.Errorf("ReadCommandLine(-h) = %v, want flag.ErrHelp", err)
 	}
 }
+
+func TestTheCommandLineRefusesAnArgumentThatIsNoFlag(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var said bytes.Buffer
+
+	// Act
+	_, err := demo.ReadCommandLine([]string{"-hold-ci", "web"}, &said)
+
+	// Assert
+	if !errors.Is(err, demo.ErrStrayArgument) {
+		t.Fatalf("ReadCommandLine(-hold-ci web) = %v, want demo.ErrStrayArgument", err)
+	}
+
+	if !strings.Contains(said.String(), `"web"`) {
+		t.Errorf("ReadCommandLine(-hold-ci web) said %q, want it to name the argument", said.String())
+	}
+}
