@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test'
-import { pointerId } from './capture.ts'
+import { nextFrame, pointerId } from './capture.ts'
 
 // The walkthrough's pointer: an arrow drawn over the page where the mouse is,
 // since a headless browser draws none, that glides to each control before it
@@ -37,8 +37,9 @@ const mostSteps = 36
 const arrow = 'M1 1 L1 23 L7 17 L11 27 L15 25 L11 15 L20 15 Z'
 
 // drawPointer puts the arrow on every document the page loads, at the
-// mouse, and pulses it at each press.
-async function drawPointer(page: Page): Promise<void> {
+// mouse, and pulses it at each press. It is drawn off the window until the
+// mouse first moves, which placePointer makes it do.
+export async function drawPointer(page: Page): Promise<void> {
   await page.addInitScript(
     ({ id, look }) => {
       window.addEventListener('DOMContentLoaded', () => {
@@ -87,18 +88,6 @@ async function drawPointer(page: Page): Promise<void> {
       })
     },
     { id: pointerId, look: arrow },
-  )
-}
-
-// nextFrame resolves once the browser has drawn its next frame.
-function nextFrame(page: Page): Promise<void> {
-  return page.evaluate(
-    () =>
-      new Promise<void>((resolve) => {
-        requestAnimationFrame(() => {
-          resolve()
-        })
-      }),
   )
 }
 
@@ -162,11 +151,12 @@ async function centerOf(target: Locator): Promise<Point> {
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
 }
 
-// showPointer draws the pointer on the page, which must not have loaded yet,
-// starting at from, and returns it with clock, the film's, to time its
-// glides by.
-export async function showPointer(page: Page, from: Point, clock: () => number): Promise<Pointer> {
-  await drawPointer(page)
+// placePointer moves the mouse to from, the arrow drawPointer drew with it,
+// and once a frame shows it there returns the pointer, with clock, the
+// film's, to time its glides by.
+export async function placePointer(page: Page, from: Point, clock: () => number): Promise<Pointer> {
+  await page.mouse.move(from.x, from.y)
+  await nextFrame(page)
   let at = from
 
   // glideTo moves the mouse from where it is to a point in eased steps, a

@@ -16,6 +16,18 @@ export const now = new Date('2026-09-16T16:00:00Z')
 // pulse is the one animation an image may catch running.
 export const pointerId = 'walkthrough-pointer'
 
+// nextFrame resolves once the browser has drawn its next frame.
+export function nextFrame(page: Page): Promise<void> {
+  return page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          resolve()
+        })
+      }),
+  )
+}
+
 // fontsLoaded waits for the page's fonts and says whether its own face is
 // among them, so no image draws its words in a fallback font.
 export function fontsLoaded(page: Page): Promise<boolean> {

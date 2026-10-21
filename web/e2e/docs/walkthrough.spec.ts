@@ -1,7 +1,8 @@
-import { pinTheme } from '../support/cockpit.ts'
-import { now } from './capture.ts'
+import type { Page } from '@playwright/test'
+import { pinTheme, readings } from '../support/cockpit.ts'
+import { fontsLoaded, nextFrame, now, stillAnimating } from './capture.ts'
 import { expect, metadataOf, test } from './demo.ts'
-import { startFilm } from './film.ts'
+import { prepareFilm } from './film.ts'
 import {
   announcedOnGreen,
   armedForCI,
@@ -33,6 +34,27 @@ const captions = [
   "PROJ-412's work story, every stage done",
 ]
 
+// live waits until the page stands as a person first sees it, so the film
+// opens on it rather than on a blank page, the connecting screen or a
+// header and rail still filling in: the stream live, the header naming the
+// build and the repository, the rail naming Slack, the Issues list's View
+// drawn, nothing reading, the page's own face loaded, nothing moving, and
+// two frames drawn since, so what the page last changed is on screen.
+async function live(page: Page, version: string): Promise<void> {
+  const header = page.getByRole('banner')
+  await expect(header.getByRole('status').filter({ hasText: /^Live$/ })).toBeVisible()
+  await expect(header.getByText(version, { exact: true })).toBeVisible()
+  await expect(header.getByRole('button', { name: /^Working in / })).toBeVisible()
+  const rail = page.getByRole('navigation', { name: 'Sections' })
+  await expect(rail.getByRole('button', { name: 'Slack', exact: true })).toBeVisible()
+  await expect(page.getByRole('combobox', { name: 'View' })).toBeVisible()
+  await expect(readings(page)).toHaveCount(0)
+  expect(await fontsLoaded(page)).toBe(true)
+  await expect.poll(() => stillAnimating(page)).toEqual([])
+  await nextFrame(page)
+  await nextFrame(page)
+}
+
 // The page's Content-Security-Policy refuses the inline style the pointer
 // is drawn with; the film is of the app's look, which the policy does not
 // change.
@@ -45,9 +67,11 @@ test('films the loop from an issue to its announcement for the docs', async ({
   test.setTimeout(180_000)
   await page.clock.setFixedTime(now)
   await pinTheme(page, 'dark')
-  const film = await startFilm(page, metadataOf(testInfo, 'walkthroughDir'))
+  const camera = await prepareFilm(page, metadataOf(testInfo, 'walkthroughDir'))
   await page.goto('/')
   await expect(page.getByRole('heading', { level: 1, name: 'Issues' })).toBeVisible()
+  await live(page, metadataOf(testInfo, 'version'))
+  const film = await camera.roll()
 
   // Act
   await pickIssue(page, film.pace)
