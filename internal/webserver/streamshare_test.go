@@ -439,12 +439,15 @@ func (m *movingHead) branch(
 	return branch, err
 }
 
-// commit moves the head on.
-func (m *movingHead) commit(head string) {
+// committedHead is the head a commit in these tests moves the branch to.
+const committedHead = "def456"
+
+// commit moves the head on, to committedHead.
+func (m *movingHead) commit() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.head = head
+	m.head = committedHead
 }
 
 // checkout checks out the branch named name, at head.
@@ -473,7 +476,7 @@ func TestAPullRequestOpenedAtANewHeadOutlastsAReadOfTheOldOne(t *testing.T) {
 	slow.slowDown()
 	reading := frameInFlight(t, handler, slow.slowRead)
 
-	moving.commit("def456")
+	moving.commit()
 
 	opened := webtest.Send(t, handler, http.MethodPost, "/api/pull-request", openRequestBody)
 	if opened.Code != http.StatusOK {
@@ -491,6 +494,9 @@ func TestAPullRequestOpenedAtANewHeadOutlastsAReadOfTheOldOne(t *testing.T) {
 		t.Errorf("review = %+v, want #%d, opened at the new head", frame.Review, openedPull)
 	}
 }
+
+// retitled is the title the edit tests give #42.
+const retitled = "retitled"
 
 // retitlingForge is a forge holding #42 open whose next pull request read,
 // once the test says so, waits until the test lets it go, and then answers
@@ -558,7 +564,7 @@ func TestAnEditMadeDuringAForgeReadShowsOnTheNextFrame(t *testing.T) {
 	review := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String()).Review
 
 	// Assert
-	if review.Pull == nil || review.Pull.Title != "retitled" {
+	if review.Pull == nil || review.Pull.Title != retitled {
 		t.Errorf("review's pull = %+v, want #42 retitled, as the forge says since the edit", review.Pull)
 	}
 }
