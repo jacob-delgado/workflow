@@ -916,13 +916,15 @@ is done once the branch names an issue, by a link you made with `i` or by its
 name; a pull request that names the issue does not count here. Until then it
 reads in flight while an issue is picked: selected in the terminal's Issues
 list, or open on `--web` with no branch yet. The Branch stage is done on any
-branch other than the base. Commits is done once the branch has commits, and in
-flight before that while the working tree holds changes. Review follows the pull
+branch other than the base. Commits is done once a feature branch has commits,
+and in flight before that while the feature branch holds changes not yet
+committed; on the base branch it reads as not started whatever the working tree
+holds, since no branch has been made for those changes. Review follows the pull
 request and its CI. The only thing remembered is whether the pull request was
-already announced, which the store keeps. On the base branch with a clean tree
-and no issue picked, Issue, Branch and Commits read as not started. On a branch
-whose name names no issue and that has no link, Issue is never done. That is
-expected, not an error. See [Using workflow: The
+already announced, which the store keeps. On the base branch with no issue
+picked, Issue, Branch and Commits read as not started, clean tree or not. On a
+branch whose name names no issue and that has no link, Issue is never done. That
+is expected, not an error. See [Using workflow: The
 screen]({{< relref "/docs/usage#the-screen" >}}).
 
 ### How do I switch to another repository, or keep a list of the ones I use?

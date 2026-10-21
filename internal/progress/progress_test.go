@@ -48,6 +48,10 @@ func TestStagesDeriveHowFarTheWorkHasGot(t *testing.T) {
 			work: progress.Work{OnFeatureBranch: true, IssueNamed: true, UncommittedChanges: 2},
 			want: []progress.State{done, done, wip, todo, todo},
 		},
+		"changes on the base branch, not yet work on a branch": {
+			work: progress.Work{UncommittedChanges: 2},
+			want: []progress.State{todo, todo, todo, todo, todo},
+		},
 		"committed, with changes still to commit": {
 			work: progress.Work{OnFeatureBranch: true, IssueNamed: true, Commits: 1, UncommittedChanges: 2},
 			want: []progress.State{done, done, done, todo, todo},
