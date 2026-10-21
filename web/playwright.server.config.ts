@@ -69,8 +69,9 @@ export default defineConfig({
       use: { ...desktopChrome, baseURL: serverURL },
     },
     // Firefox and WebKit run every spec Chromium does, under the content
-    // policy each engine enforces. commit.spec.ts writes to the one fixture a
-    // run serves, so each engine's project runs on its own, a run apiece.
+    // policy each engine enforces. agree.spec.ts and commit.spec.ts write to
+    // the one fixture a run serves, so each engine's project runs on its own,
+    // a run apiece.
     ...[
       { name: 'server-firefox', device: devices['Desktop Firefox'] },
       { name: 'server-webkit', device: devices['Desktop Safari'] },

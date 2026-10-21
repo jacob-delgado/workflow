@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { test, type Page } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
 // refusalHeard names the function the page tells a refusal to.
 const refusalHeard = 'workflowE2ERefusalHeard'
@@ -160,4 +160,13 @@ export function printedAddress(): string {
 // opening it from the terminal does.
 export async function openServed(page: Page): Promise<void> {
   await page.goto(printedAddress())
+}
+
+// openLive opens the served page and waits until a person could use it: the
+// session taken out of the address and the stream live. A click before then
+// can land on a page that is still taking its session in, and be lost.
+export async function openLive(page: Page): Promise<void> {
+  await openServed(page)
+  await expect(page).toHaveURL(new URL('/', printedAddress()).href)
+  await expect(page.getByRole('status').filter({ hasText: /^Live$/ })).toBeVisible()
 }
