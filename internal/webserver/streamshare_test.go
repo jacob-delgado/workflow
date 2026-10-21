@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -368,20 +369,16 @@ func TestASlowAskForYourIssuesHoldsUpNoOtherStream(t *testing.T) {
 	}
 }
 
-func TestAPullRequestOpenedDuringAForgeReadShowsOnTheNextFrame(t *testing.T) {
+func TestAPullRequestOpenedDuringAForgeReadOutlastsThatRead(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// The read under way began before the pull request was opened, so it
-	// finds none; opening it here tells the cache the forge says more now.
+	// The read under way began before the pull request was opened, and the
+	// forge's list lags behind its opens, so that read and every one after it
+	// find none; the pull the open put in the cache must outlast them.
 	slow := newSlowForge()
-	deps := slow.wire(openableDeps())
-	deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.PullRequest, error) {
-		slow.openThePull()
-
-		return forge.PullRequest{Number: 42, URL: pull42, Title: pullTitle}, nil
-	}
-	handler := webtest.Serve(t, deps, config.Default())
+	handler := webtest.Serve(t, slow.wire(laggingForgeDeps()), webhookConfig())
+	cancelHeld(t, handler)
 
 	slow.slowDown()
 	reading := frameInFlight(t, handler, slow.slowRead)
@@ -403,10 +400,86 @@ func TestAPullRequestOpenedDuringAForgeReadShowsOnTheNextFrame(t *testing.T) {
 	<-reading
 
 	// Act
+	frame := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
+
+	// Assert
+	if !frame.Review.Found || frame.Review.Pull.Number != openedPull {
+		t.Errorf("review = %+v, want #%d, opened during the read", frame.Review, openedPull)
+	}
+
+	held := frame.QueuedAnnouncement
+	if held == nil || held.State != api.QueuedAnnouncementStateWaiting || held.Pull != openedPull {
+		t.Errorf("queued announcement = %+v, want #%d's waiting", held, openedPull)
+	}
+}
+
+// retitlingForge is a forge holding #42 open whose next pull request read,
+// once the test says so, waits until the test lets it go, and then answers
+// the title the pull bore as it began; an edit retitles it.
+type retitlingForge struct {
+	*slowRead
+
+	mu    sync.Mutex
+	title string
+}
+
+// newRetitlingForge is a forge that answers at once, #42 titled pullTitle.
+func newRetitlingForge() *retitlingForge {
+	return &retitlingForge{slowRead: newSlowRead(), title: pullTitle}
+}
+
+// wire binds deps' pull request read and edit to the forge.
+func (f *retitlingForge) wire(deps webserver.Deps) webserver.Deps {
+	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
+		f.mu.Lock()
+		title := f.title
+		f.mu.Unlock()
+
+		f.call()
+
+		return forge.PullRequest{Number: 42, URL: pull42, Title: title, State: forge.StateOpen}, true, nil
+	}
+	deps.Forge.EditPullRequest = func(
+		_ context.Context, pull forge.PullRequest, edit forge.PullRequestEdit,
+	) (forge.PullRequest, error) {
+		f.mu.Lock()
+		f.title = edit.Title
+		f.mu.Unlock()
+
+		pull.Title = edit.Title
+
+		return pull, nil
+	}
+
+	return deps
+}
+
+func TestAnEditMadeDuringAForgeReadShowsOnTheNextFrame(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The read under way began before the edit, so it finds the old title;
+	// the edit tells the cache that read is due as it lands, rather than
+	// fresh for the rest of the interval.
+	slow := newRetitlingForge()
+	handler := webtest.Serve(t, slow.wire(webtest.FilledDeps()), config.Default())
+
+	slow.slowDown()
+	reading := frameInFlight(t, handler, slow.slowRead)
+
+	edited := webtest.Send(t, handler, http.MethodPatch, "/api/pull-request", `{"title":"retitled","body":""}`)
+	if edited.Code != http.StatusOK {
+		t.Fatalf("the edit answered %d: %s", edited.Code, edited.Body.String())
+	}
+
+	close(slow.release)
+	<-reading
+
+	// Act
 	review := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String()).Review
 
 	// Assert
-	if !review.Found || review.Pull.Number != 42 {
-		t.Errorf("review = %+v, want the pull request opened during the read", review)
+	if review.Pull == nil || review.Pull.Title != "retitled" {
+		t.Errorf("review's pull = %+v, want #42 retitled, as the forge says since the edit", review.Pull)
 	}
 }
