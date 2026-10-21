@@ -8,6 +8,7 @@ import {
   ciReads,
   commit,
   goTo,
+  moveIntoProgress,
   push,
   stage,
   startWork,
@@ -91,6 +92,7 @@ const branch: Screen = {
   ...section('Branch'),
   arrange: async (page) => {
     await startWork(page, brisk)
+    await moveIntoProgress(page, brisk)
     await goTo(page, brisk, 'Branch')
     await stage(page, brisk, 'internal/wiring/reqlog.go')
     await commit(page, brisk, 'redact tokens in the request log')

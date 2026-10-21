@@ -82,6 +82,21 @@ export async function startWork(page: Page, pace: Pace): Promise<void> {
   await pace.beat(`Started work on ${workedBranch}`, stage)
 }
 
+// moveIntoProgress moves PROJ-412 to In Progress through its detail's Change
+// status, since starting work leaves the issue where it stood, done once the
+// detail reads it In Progress.
+export async function moveIntoProgress(page: Page, pace: Pace): Promise<void> {
+  const detail = page.getByRole('article')
+  await pace.click(detail.getByRole('button', { name: 'Change status', exact: true }))
+  const form = page.getByRole('form', { name: 'Change the status of PROJ-412' })
+  await pace.choose(form.getByLabel('New status'), 'In Progress (Start Progress)')
+  await pace.click(form.getByRole('button', { name: 'Change to In Progress', exact: true }))
+  const moved = said(page, 'Changed PROJ-412 to In Progress.')
+  await expect(moved).toBeVisible()
+  await expect(detail.getByText('In Progress', { exact: true }).first()).toBeVisible()
+  await pace.beat('PROJ-412 moved to In Progress', moved)
+}
+
 // stageAll stages every change in the working tree, done once no file in it
 // still offers to be staged. Its beat holds the notice under the files it
 // staged, not the whole Working tree, which holds the commit form below and
@@ -168,9 +183,11 @@ export async function ciReads(page: Page, pace: Pace, done: number): Promise<voi
 }
 
 // toOpenPull takes the loop from the cockpit, PROJ-412 picked, to #128 open
-// on the Review section: start work, stage every change, commit, push, open.
+// on the Review section: start work, move the issue into progress, stage
+// every change, commit, push, open.
 export async function toOpenPull(page: Page, pace: Pace): Promise<void> {
   await startWork(page, pace)
+  await moveIntoProgress(page, pace)
   await goTo(page, pace, 'Branch')
   await stageAll(page, pace)
   await commit(page, pace, 'redact tokens in the request log')
