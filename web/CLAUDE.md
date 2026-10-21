@@ -119,10 +119,10 @@ one fails.
   `e2e/docs/loop.ts`, each waiting for what the page shows it did; so does
   `e2e/docs/walkthrough.spec.ts`, which films the loop for the WebP through
   `e2e/docs/film.ts` at the pace that file sets. Every image either takes is
-  held to `e2e/docs/capture.ts`: fonts loaded, no text or control cut by an
-  edge of the window or of any pane that clips, nothing mid-animation; and each of the walkthrough's keyframes to
-  `e2e/docs/cover.ts` too, the pointer parked where it covers nothing the
-  frame shows. `e2e/docs/fidelity.spec.ts`
+  held to `e2e/docs/capture.ts`: fonts loaded, no text or control cut by an edge
+  of the window or of any pane that clips, nothing mid-animation; and each of
+  the walkthrough's keyframes to `e2e/docs/cover.ts` too, the pointer parked
+  where it covers nothing the frame shows. `e2e/docs/fidelity.spec.ts`
   (`corepack yarn media:check`) holds the encoded WebP to the film, after
   `task docs:media` encodes it.
 
