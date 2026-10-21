@@ -13,8 +13,9 @@
 // -hold-ci keeps the end-to-end check running for good. -no-auto-announce,
 // on either interface, turns messaging.auto_announce off, so opening a pull
 // request arms no announcement. Nothing it shows is real and nothing it does
-// leaves the process. The world and its tests are internal/demo's; no
-// release builds this command.
+// leaves the process, but for the web page's configuration file, which a
+// Settings save writes into a temporary directory removed on exit. The world
+// and its tests are internal/demo's; no release builds this command.
 package main
 
 import (
@@ -134,9 +135,21 @@ func serve(ctx context.Context, world *demo.World, asked flags, notes io.Writer)
 		return err
 	}
 
-	web := world.Web(asked.version)
+	return serveWeb(ctx, world, asked, notes)
+}
 
-	return cli.WebServerAt(webserver.LoopbackAddr(asked.port))(ctx, web.Config, web.Deps, web.Info, notes)
+// serveWeb runs the web server over world, saying where on notes, with its
+// configuration file kept in a directory of its own, removed once it stops.
+func serveWeb(ctx context.Context, world *demo.World, asked flags, notes io.Writer) error {
+	configDir, err := os.MkdirTemp("", "workflow-demo-")
+	if err != nil {
+		return fmt.Errorf("making the web demo's configuration directory: %w", err)
+	}
+
+	web := world.Web(asked.version, configDir)
+	served := cli.WebServerAt(webserver.LoopbackAddr(asked.port))(ctx, web.Config, web.Deps, web.Info, notes)
+
+	return errors.Join(served, os.RemoveAll(configDir))
 }
 
 // ended is the status a run that ended with err exits with.

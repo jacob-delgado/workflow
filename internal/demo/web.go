@@ -6,12 +6,14 @@ package demo
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -36,11 +38,16 @@ const workspace = "T0ACME"
 // request is open, Sam's approval of it, and a month of work behind the
 // Summary's calendar — which the terminal's recording leaves out, so its
 // story is told as it was. CI is asked about as often as the terminal asks,
-// and version is what the page names the build.
-func (w *World) Web(version string) webserver.World {
+// and version is what the page names the build. The page reads and writes its
+// configuration file itself, not through a seam, so the file is kept in
+// configDir, a directory the caller makes and removes: a Settings save writes
+// there, and nowhere the story's paths name.
+func (w *World) Web(version, configDir string) webserver.World {
 	cfg := w.Config()
 	cfg.Timing.CIInterval = ciInterval.String()
 	cfg.Jira.ReviewStatus = statusInReview
+	cfg.Path = filepath.Join(configDir, config.FileName)
+	cfg.Files = config.Files{Home: cfg.Path}
 
 	deps := cli.WebDeps(w.Deps())
 	w.webJira(&deps.Jira)
