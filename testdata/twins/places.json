@@ -46,7 +46,7 @@
   ],
   "choices": [
     {
-      "name": "statuses by category then as they first appear, then the marks, each with its count",
+      "name": "statuses by category then by name, then the marks, each with its count",
       "issues": ["PROJ-506", "PROJ-507", "PROJ-501", "PROJ-502", "PROJ-503", "PROJ-504", "PROJ-505", "57"],
       "picked": [],
       "want": [
@@ -60,6 +60,19 @@
         { "kind": "mark", "name": "task active", "count": 1 },
         { "kind": "mark", "name": "tracked", "count": 1 },
         { "kind": "mark", "name": "task done", "count": 1 },
+        { "kind": "mark", "name": "forge issue", "count": 1 }
+      ]
+    },
+    {
+      "name": "statuses keep their order whatever order the issues come in",
+      "issues": ["PROJ-505", "57", "PROJ-502", "PROJ-501"],
+      "picked": [],
+      "want": [
+        { "kind": "status", "name": "Intake", "count": 1 },
+        { "kind": "status", "name": "Open", "count": 1 },
+        { "kind": "status", "name": "Fixing", "count": 1 },
+        { "kind": "status", "name": "In development", "count": 1 },
+        { "kind": "mark", "name": "tracked", "count": 1 },
         { "kind": "mark", "name": "forge issue", "count": 1 }
       ]
     },

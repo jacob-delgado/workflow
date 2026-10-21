@@ -6,7 +6,10 @@
 package places
 
 import (
+	"cmp"
+	"maps"
 	"slices"
+	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
 )
@@ -106,9 +109,9 @@ func admitsIn(picked []Place, kind Kind, names []string) bool {
 }
 
 // Choices is every place the issues are in, with how many are in each —
-// statuses by category, not started first, then as they first appear, then the
-// marks in their fixed order — and every picked place no issue is in, at zero,
-// so it can still be unpicked.
+// statuses in workflow order, by category and then by name, then the marks in
+// their fixed order — and every picked place no issue is in, at zero, so it
+// can still be unpicked.
 func Choices(issues []jira.Issue, marksOf func(jira.Key) []string, picked []Place) []Choice {
 	counts := map[Place]int{}
 
@@ -131,29 +134,40 @@ func Choices(issues []jira.Issue, marksOf func(jira.Key) []string, picked []Plac
 	return choices
 }
 
-// statusPlaces is each status the issues are in, once, not started first, then
-// in flight, then done, then any in a category Jira does not name (its "No
-// Category", or none), and within each in the order they first appear.
+// statusPlaces is each status the issues are in, once, in the tracker's
+// workflow order: not started first, then in flight, then done, then any in a
+// category Jira does not name (its "No Category", or none), and by name within
+// each, so a status keeps its place however the issues move.
 func statusPlaces(issues []jira.Issue) []Place {
-	var statuses []Place
-
-	add := func(keep func(jira.StatusCategory) bool) {
-		for _, issue := range issues {
-			status := Place{Kind: Status, Name: issue.Status}
-			if keep(issue.StatusCategory) && !slices.Contains(statuses, status) {
-				statuses = append(statuses, status)
-			}
+	ranks := map[string]int{}
+	for _, issue := range issues {
+		if _, seen := ranks[issue.Status]; !seen {
+			ranks[issue.Status] = categoryRank(issue.StatusCategory)
 		}
 	}
 
-	named := []jira.StatusCategory{jira.CategoryNew, jira.CategoryIndeterminate, jira.CategoryDone}
-	for _, category := range named {
-		add(func(of jira.StatusCategory) bool { return of == category })
+	names := slices.Collect(maps.Keys(ranks))
+	slices.SortFunc(names, func(one, other string) int {
+		return cmp.Or(cmp.Compare(ranks[one], ranks[other]), strings.Compare(one, other))
+	})
+
+	statuses := make([]Place, 0, len(names))
+	for _, name := range names {
+		statuses = append(statuses, Place{Kind: Status, Name: name})
 	}
 
-	add(func(of jira.StatusCategory) bool { return !slices.Contains(named, of) })
-
 	return statuses
+}
+
+// categoryRank is where a status category comes in the workflow: not started,
+// in flight, done, and last any category Jira does not name.
+func categoryRank(category jira.StatusCategory) int {
+	named := []jira.StatusCategory{jira.CategoryNew, jira.CategoryIndeterminate, jira.CategoryDone}
+	if at := slices.Index(named, category); at >= 0 {
+		return at
+	}
+
+	return len(named)
 }
 
 // pickedStatusesGone is each picked status no issue is in any more, in the
