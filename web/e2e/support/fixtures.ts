@@ -83,12 +83,19 @@ export function issuesOf(issues: Issue[], total = issues.length): IssuesPage {
   return { total, start_at: 0, unavailable: [], issues }
 }
 
-// streams answers the event stream with one snapshot.
+// reconnectSoon is how long the browser waits to connect the event stream
+// again once a body ends: a fulfilled route's body ends at once, so each
+// reconnection is the next frame, which a write waits on before the page
+// says it is done; the browser's own wait would be seconds.
+const reconnectSoon = 'retry: 50\n\n'
+
+// streams answers the event stream with one snapshot, again on each
+// reconnection.
 export async function streams(page: Page, snapshot: Snapshot): Promise<void> {
   await page.route('**/api/events**', (route) =>
     route.fulfill({
       contentType: 'text/event-stream',
-      body: `event: snapshot\ndata: ${JSON.stringify(snapshot)}\n\n`,
+      body: `${reconnectSoon}event: snapshot\ndata: ${JSON.stringify(snapshot)}\n\n`,
     }),
   )
 }
@@ -96,7 +103,7 @@ export async function streams(page: Page, snapshot: Snapshot): Promise<void> {
 // seeds answers the event stream with the view's kept issues, as the server
 // sends them ahead of its first snapshot, then the snapshot when one is given.
 export async function seeds(page: Page, seed: Seed, snapshot?: Snapshot): Promise<void> {
-  const first = `id: 1\nevent: seed\ndata: ${JSON.stringify(seed)}\n\n`
+  const first = `${reconnectSoon}id: 1\nevent: seed\ndata: ${JSON.stringify(seed)}\n\n`
   const then =
     snapshot === undefined ? '' : `id: 2\nevent: snapshot\ndata: ${JSON.stringify(snapshot)}\n\n`
 

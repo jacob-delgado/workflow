@@ -67,10 +67,12 @@ func (s *server) streamEvents(w http.ResponseWriter, request *http.Request) {
 // pushSnapshots pushes a snapshot on connect, then another as soon as a write
 // here lands and every interval, until the client disconnects and its request
 // context is canceled, a write fails, or the directory is switched. A frame
-// whose read a write landed during is read again rather than sent, so every
-// frame sent after a write's answer begins was read wholly after the write
-// landed; writes landing faster than a frame reads, without end, would starve
-// the stream, which no page's pace comes near. The loop runs on the
+// whose read a write landed during is read again rather than sent. A write
+// landing after that check, as the frame goes out, is not caught: that frame
+// is sent, and the signal the write closed wakes a fresh one at once, so the
+// last frame sent after a write's answer shows it. Writes landing faster than
+// a frame reads, without end, would starve the stream, which no page's pace
+// comes near. The loop runs on the
 // connection's own goroutine, which the HTTP server provides, so this starts
 // none of its own.
 func (s *server) pushSnapshots(request *http.Request, out *eventStream, view string) {

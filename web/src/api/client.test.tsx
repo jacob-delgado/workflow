@@ -2,9 +2,10 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { BranchPanel } from '@/features/branch/BranchPanel.tsx'
+import { fakeApi, pushFrame } from '@/test/fakeApi.ts'
 import { makeHealth, makeSnapshot } from '@/test/fixtures.ts'
 import { client } from './generated/client.gen.ts'
-import { getHealth } from './generated/sdk.gen.ts'
+import { getBranch, getHealth, stage } from './generated/sdk.gen.ts'
 import { useHealthStore } from './health.ts'
 import { useSessionStore } from './session.ts'
 import { useSnapshotStore } from './snapshot.ts'
@@ -200,4 +201,109 @@ test('an answer refusing the session marks it refused', async () => {
 
   // Assert
   expect(useSessionStore.getState().refused).toBe(true)
+})
+
+// settled reports, after every task already queued has run, whether promise
+// has settled: a write still waiting on the stream has not.
+async function settled(promise: Promise<unknown>): Promise<boolean> {
+  let done = false
+  promise.then(
+    () => (done = true),
+    () => (done = true),
+  )
+  await new Promise((resolve) => setTimeout(resolve, 0))
+
+  return done
+}
+
+// stagedEverything is the server's answer to a stage of every change: the
+// working tree, nothing left unstaged.
+const stagedEverything = { changes: [] }
+
+test('a write is answered only once the stream has pushed its next frame', async () => {
+  // Arrange
+  useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
+  fakeApi({ '/api/stage': stagedEverything }, { frames: 'held' })
+
+  // Act: stage, while the stream has pushed nothing since
+  const staging = stage({ body: { all: true }, throwOnError: true })
+
+  // Assert: the answer is not handed on yet
+  expect(await settled(staging)).toBe(false)
+
+  // Act: the stream pushes the frame the write woke
+  pushFrame()
+
+  // Assert: now it is
+  await expect(staging).resolves.toMatchObject({ data: stagedEverything })
+})
+
+test('a read is answered without waiting for a frame', async () => {
+  // Arrange
+  useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
+  fakeApi({ '/api/branch': makeSnapshot().branch }, { frames: 'held' })
+
+  // Act
+  const reading = getBranch({ throwOnError: true })
+
+  // Assert
+  expect(await settled(reading)).toBe(true)
+})
+
+test('a write is answered at once when the stream is closed', async () => {
+  // Arrange
+  useSnapshotStore.setState({ status: 'closed', snapshot: makeSnapshot() })
+  fakeApi({ '/api/stage': stagedEverything }, { frames: 'held' })
+
+  // Act
+  const staging = stage({ body: { all: true }, throwOnError: true })
+
+  // Assert
+  expect(await settled(staging)).toBe(true)
+})
+
+test('a refused write is refused once the next frame lands', async () => {
+  // Arrange
+  useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
+  fakeApi(
+    {
+      '/api/stage': Response.json(
+        {
+          type: 'about:blank',
+          title: 'Unprocessable Entity',
+          status: 422,
+          detail: 'nope.txt is not a change here',
+          code: 'unprocessable',
+        },
+        { status: 422, headers: { 'Content-Type': 'application/problem+json' } },
+      ),
+    },
+    { frames: 'held' },
+  )
+
+  // Act: stage a path the tree does not list
+  const staging = stage({ body: { path: 'nope.txt' }, throwOnError: true })
+
+  // Assert: the refusal is not handed on yet
+  expect(await settled(staging)).toBe(false)
+
+  // Act: the stream pushes the frame the refusal woke
+  pushFrame()
+
+  // Assert: now it is
+  await expect(staging).rejects.toMatchObject({ detail: 'nope.txt is not a change here' })
+})
+
+test('a write waiting on the stream is answered once the stream goes stale', async () => {
+  // Arrange
+  useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
+  fakeApi({ '/api/stage': stagedEverything }, { frames: 'held' })
+  const staging = stage({ body: { all: true }, throwOnError: true })
+  await settled(staging)
+
+  // Act
+  useSnapshotStore.setState({ status: 'stale', reason: 'unreadable' })
+
+  // Assert
+  await expect(staging).resolves.toMatchObject({ data: stagedEverything })
 })

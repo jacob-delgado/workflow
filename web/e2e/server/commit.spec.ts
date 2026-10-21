@@ -19,9 +19,9 @@ function originSubject(): string {
   }).trim()
 }
 
-// A write's answer says what it did, but the control it enables — Commit once
-// a file is staged — comes with the stream's next frame of the repository, a
-// few seconds on; each click waits for it. Push branch is there from the start,
+// A write's answer says what it did once the stream's next frame of the
+// repository, which the write wakes, shows it too, and with it the control it
+// enables: Commit once a file is staged. Push branch is there from the start,
 // since docs/notes has no upstream, and is clicked once the commit is made, so
 // the push carries it.
 test('stages, commits and pushes a file through the page the server serves', async ({ page }) => {

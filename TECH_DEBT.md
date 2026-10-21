@@ -83,7 +83,9 @@ Tasks list, sets a `refetchInterval` that reads it again once the earliest wait
 still ahead has passed (`useTasks`). The stream's connection state
 (`reconnecting`, `stale`) is shown, so a dropped stream is visible. A write's
 answer wakes the stream, so the frame that shows what it did comes at once
-rather than an interval later. A configuration save checks the file's revision and refuses a changed file with
+rather than an interval later, and the page hands the answer on only once
+that frame has landed (the write gate in `web/src/api/client.ts`). A
+configuration save checks the file's revision and refuses a changed file with
 409; a change landing between that check and the write is not caught
 (`SaveLayers`, `internal/config/layers.go`), which is accepted for one user's
 local file. Recorded 2026-09-24, in #140, and 2026-10-08, in #227, for the
