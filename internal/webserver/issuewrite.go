@@ -394,6 +394,7 @@ func (s *server) AssignIssue(
 	}
 
 	s.issuesHeld.drop()
+	s.assigned.drop()
 
 	return api.AssignIssue200JSONResponse{Key: request.Key, Assignee: assignee}, nil
 }

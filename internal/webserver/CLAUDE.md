@@ -120,6 +120,14 @@ flight; and refuses, as `conflict`, a write whose `Workflow-Here` header
   (`world.go`) and ends with the server. `Serve` drains requests in flight for
   `shutdownGrace`, five seconds, on a stop; the stream re-pushes a snapshot
   every `defaultStreamInterval`, five seconds, unless `Info` sets another.
+- A write's answer wakes the stream: `worlds.serve` hands every write a
+  `landingWriter` (`world.go`) that lands it on `server.landed` as its answer
+  begins, and a git run lands again as its program ends, before its last
+  event. `pushSnapshots` then pushes at once, and reads again rather than
+  sends a frame a write landed during, so no frame sent after a write's
+  answer shows the state before it. A write whose answer the forge or the
+  tracker would lag behind puts what it made into the stream's cache, or
+  drops the cache, so the frame it wakes is right.
 - depguard (`.golangci.yml`) keeps the direction: this package imports neither
   `internal/tui` nor `internal/wiring` (`webserver-not-terminal`), and only
   `internal/cli/web.go` imports it (`cli-serves-the-web-only-from-web-go`);

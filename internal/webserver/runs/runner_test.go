@@ -5,7 +5,9 @@ package runs_test
 
 import (
 	"context"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/hooks"
@@ -25,7 +27,7 @@ func TestARunnerCountsTheUnmanagedHooksItsSeamsFind(t *testing.T) {
 	given := runs.Seams{Hooks: seams.Hooks{
 		Existing: func(context.Context) ([]hooks.GitHook, bool) { return found, false },
 	}}
-	runner := runs.New(given, func(error) {}, &indexWrites)
+	runner := runs.New(given, func(error) {}, &indexWrites, func() {})
 
 	// Act
 	counted := runner.HooksUnmanaged(t.Context())
@@ -47,7 +49,7 @@ func TestARunHoldsTheIndexItIsGivenWhileItGoes(t *testing.T) {
 		Configured: func(context.Context) (hooks.Configured, error) { return configuredHooks(), nil },
 		Run:        func(context.Context, string) (proc.Output, error) { return held.output(), nil },
 	}}
-	runner := runs.New(given, func(error) {}, &indexWrites)
+	runner := runs.New(given, func(error) {}, &indexWrites, func() {})
 	recorder := newSyncRecorder()
 	done := make(chan struct{})
 
@@ -79,5 +81,53 @@ func TestARunHoldsTheIndexItIsGivenWhileItGoes(t *testing.T) {
 	// Assert: the run freed it
 	if !takenAfter {
 		t.Error("the index is still held after the run ended, want it freed")
+	}
+}
+
+func TestARunTellsItLandedBeforeItsLastEvent(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var (
+		indexWrites sync.Mutex
+		ended       atomic.Bool
+		landings    []string
+	)
+
+	output := finished(nil, "lint ok")
+	wait := output.Wait
+	output.Wait = func() error {
+		ended.Store(true)
+
+		return wait()
+	}
+	given := runs.Seams{Hooks: seams.Hooks{
+		Configured: func(context.Context) (hooks.Configured, error) { return configuredHooks(), nil },
+		Run:        func(context.Context, string) (proc.Output, error) { return output, nil },
+	}}
+	recorder := newSyncRecorder()
+	landed := func() {
+		if !ended.Load() {
+			t.Error("the run said it landed before its program ended")
+		}
+
+		landings = append(landings, recorder.body())
+	}
+	runner := runs.New(given, func(error) {}, &indexWrites, landed)
+
+	// Act
+	runner.StartRun(recorder, runRequest(t, preCommitRun))
+
+	// Assert
+	if len(landings) != 1 {
+		t.Fatalf("the run said it landed %d times, want once", len(landings))
+	}
+
+	if strings.Contains(landings[0], `"succeeded"`) || !strings.Contains(landings[0], "lint ok") {
+		t.Errorf("written when it landed: %q; want every line, and not yet the run as it ended", landings[0])
+	}
+
+	if !strings.Contains(recorder.body(), `"succeeded"`) {
+		t.Errorf("the run wrote %q, want it to end with the run succeeded", recorder.body())
 	}
 }

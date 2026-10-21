@@ -141,7 +141,8 @@ func (c *forgeCache) serve(key forgeKey, now time.Time, interval time.Duration) 
 
 // land holds what the read of key began after dropped drops found, and lets
 // go every frame waiting on it. A read a drop came during is held already
-// due, since it may say less than the forge does now. A read that failed
+// due, since it may say less than the forge does now, and one a seed came
+// during is not held at all: the seed says more. A read that failed
 // keeps the answer held for key, and a CI read that failed keeps the CI held
 // for the same pull request. It answers what the frame shows.
 func (c *forgeCache) land(key forgeKey, dropped int, now time.Time, read forgeRead, err error) (forgeRead, error) {
@@ -152,6 +153,11 @@ func (c *forgeCache) land(key forgeKey, dropped int, now time.Time, read forgeRe
 	delete(c.reading, key)
 
 	held := c.held && c.key == key
+	if held && c.dropped != dropped {
+		// A write here has held a newer answer for key since this read began.
+		return c.read, c.failed
+	}
+
 	c.readAt, c.failed = now, err
 
 	if c.dropped != dropped {
@@ -179,6 +185,18 @@ func (c *forgeCache) drop() {
 	defer c.mu.Unlock()
 
 	c.held = false
+	c.dropped++
+}
+
+// seed holds read as the forge's answer for key, read at now: what a write
+// here has just made the forge say, which the next frame shows without asking
+// a forge that may not list it yet. A read under way as it is seeded lands
+// without replacing it.
+func (c *forgeCache) seed(key forgeKey, now time.Time, read forgeRead) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.held, c.key, c.readAt, c.read, c.failed = true, key, now, read, nil
 	c.dropped++
 }
 
@@ -213,6 +231,8 @@ type assignedCache struct {
 	answered []jira.Key
 	// reading is the ask under way, closed once it lands, or nil with none.
 	reading chan struct{}
+	// dropped counts the drops, so an ask that began before one lands due.
+	dropped int
 }
 
 // yours is which of keys are yours by the last answer: those it said are, and
@@ -249,13 +269,13 @@ func (s *server) yourIssues(ctx context.Context, keys []jira.Key) map[jira.Key]b
 
 	yours, _ := sharedRead(ctx,
 		func() turn[map[jira.Key]bool] { return s.assigned.serve(asked, s.now()) },
-		func(int) (map[jira.Key]bool, error) {
+		func(dropped int) (map[jira.Key]bool, error) {
 			shared, release := s.worlds.outliving(ctx)
 			defer release()
 
 			mine, err := loop.AssignedKeys(shared, s.deps.Jira.SearchLenient, asked)
 
-			return s.assigned.land(asked, s.now(), mine, err), nil
+			return s.assigned.land(asked, dropped, s.now(), assignedAnswer{mine: mine, failed: err}), nil
 		},
 	)
 
@@ -281,13 +301,21 @@ func (c *assignedCache) serve(asked []jira.Key, now time.Time) turn[map[jira.Key
 
 	c.reading = make(chan struct{})
 
-	return turn[map[jira.Key]bool]{}
+	return turn[map[jira.Key]bool]{dropped: c.dropped}
 }
 
-// land holds what the ask of asked made at now answered, keeping the last
-// answer when it failed, and lets go every frame waiting on it. It answers
-// which of asked are yours.
-func (c *assignedCache) land(asked []jira.Key, now time.Time, mine map[jira.Key]bool, err error) map[jira.Key]bool {
+// assignedAnswer is what an ask of the tracker answered: which of the keys
+// asked are yours, or why it could not say.
+type assignedAnswer struct {
+	mine   map[jira.Key]bool
+	failed error
+}
+
+// land holds what the ask of asked, begun after dropped drops, answered at
+// now, keeping the last answer when it failed, and lets go every frame
+// waiting on it. An ask a drop came during is held already due, since it may
+// say less than the tracker does now. It answers which of asked are yours.
+func (c *assignedCache) land(asked []jira.Key, dropped int, now time.Time, answer assignedAnswer) map[jira.Key]bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -295,11 +323,27 @@ func (c *assignedCache) land(asked []jira.Key, now time.Time, mine map[jira.Key]
 	c.reading = nil
 	c.held, c.keys, c.readAt = true, asked, now
 
-	if err == nil {
-		c.mine, c.answered = mine, asked
+	if c.dropped != dropped {
+		c.readAt = time.Time{}
+	}
+
+	if answer.failed == nil {
+		c.mine, c.answered = answer.mine, asked
 	}
 
 	return c.yours(asked)
+}
+
+// drop forgets that the answer held is fresh, so the next frame asks the
+// tracker and waits for its answer: an assignment made here shows on the
+// frame it wakes rather than a minute later, even when an ask was under way
+// as it was made.
+func (c *assignedCache) drop() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.held = false
+	c.dropped++
 }
 
 // authorCache is who the forge says a post would come from, kept from its first

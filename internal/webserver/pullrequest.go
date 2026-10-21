@@ -99,9 +99,10 @@ func (s *server) OpenPullRequest(
 		return s.openFailure(err), nil
 	}
 
-	// The stream's held forge answer predates this pull request: the page
-	// shows it from the next frame, not an interval later.
-	s.forgeAnswer.drop()
+	// The pull request just opened is the forge's answer for the branch from
+	// now: the frame its answer wakes shows it without asking a forge whose
+	// list may lag behind its open, its CI unread until the next read.
+	s.forgeAnswer.seed(forgeKey{branch: branch.Name, head: branch.Head}, s.now(), forgeRead{found: true, pull: pull})
 
 	// A pull that opened but whose reviewers, assignees or labels could not all
 	// be added is reported open, with a warning, rather than lost to a failure.
