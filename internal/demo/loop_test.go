@@ -40,8 +40,10 @@ func TestTheRecordedLoopRunsFromAnIssueToAnAnnouncement(t *testing.T) {
 	// Act: open its pull request on the base proposed
 	demo.press("4", "n", "enter")
 
-	// Assert: its body starts from the repository's template
-	requireScreen(t, demo.screen(), "template pull_request_template (1 of 1)", "## How it was tested")
+	// Assert: its body starts from the repository's template, and its
+	// reviewers are the code owners of its changes
+	requireScreen(t, demo.screen(), "template pull_request_template (1 of 1)", "## How it was tested",
+		"lee.chen, sam.ortiz, acme/platform")
 
 	// Act: open it with the title proposed
 	demo.press("enter")

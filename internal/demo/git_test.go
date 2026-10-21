@@ -512,3 +512,18 @@ func TestEachDemoDiffSpansTheLinesItsHeaderCounts(t *testing.T) {
 		})
 	}
 }
+
+func TestABranchWithNoCommitsChangesNoPaths(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps := onFeature(t)
+
+	// Act
+	paths, err := deps.Git.ChangedPaths(t.Context(), "origin/main")
+
+	// Assert
+	if err != nil || len(paths) != 0 {
+		t.Errorf("ChangedPaths before a commit = %v, %v; want none", paths, err)
+	}
+}
