@@ -20,22 +20,30 @@ export interface FakeApiOptions {
 // fakeApi stands in for the server behind fetch, which test-setup otherwise
 // refuses. Each request is answered with the route matching its path as a JSON
 // body — a function route is called with the request's URL — and any path with
-// no route answers 404. Every request is recorded, in order, so a test can say
-// what the page asked the server for. As the server does, every answer to a
-// write wakes the event stream: unless frames are held, the snapshot on the
-// page is pushed again, a frame of its own, once the answer has gone.
+// no route answers 404, as the contract's validator does. Every request is
+// recorded, in order, so a test can say what the page asked the server for. As
+// the server does, every answer to a write it takes is numbered, in its
+// Workflow-Write header, and wakes the event stream: unless frames are held,
+// the snapshot on the page is pushed again, a frame of its own counting the
+// writes answered, once the answer has gone. An answer a route numbered
+// itself, as a run numbers its start and its end (landed), and one marked as
+// the contract's refusal (refusedByTheContract) are not numbered again.
 export function fakeApi(
   routes: Record<string, Answer>,
   options: FakeApiOptions = { frames: 'pushed' },
 ): Request[] {
   const requests: Request[] = []
+  writesAnswered = 0
 
   vi.stubGlobal(
     'fetch',
     vi.fn((request: Request) => {
       requests.push(request)
-      const answer = answerOf(routes, request)
-      if (options.frames === 'pushed' && !readMethods.has(request.method)) {
+      const write = !readMethods.has(request.method)
+      const answer = answerOf(routes, request).then((answered) =>
+        write ? numbered(answered) : answered,
+      )
+      if (options.frames === 'pushed' && write) {
         answer.then(pushTheFrameWoken, () => undefined)
       }
 
@@ -49,11 +57,53 @@ export function fakeApi(
 // The methods that change nothing, as the server counts them.
 const readMethods = new Set(['GET', 'HEAD', 'OPTIONS'])
 
-// answerOf is the route's answer to request, or a 404 for a path with none.
+// writeHeader is the header the server numbers a write's answer in.
+const writeHeader = 'Workflow-Write'
+
+// writesAnswered is how many writes the fake server has answered since the
+// test set it up: what its next frame counts, and one less than the number its
+// next write's answer carries.
+let writesAnswered = 0
+
+// refusals are the answers a test marked as the contract's refusals, which
+// the validator gives before the server takes a request, so no write lands.
+const refusals = new WeakSet<Response>()
+
+// refusedByTheContract marks answer as the contract validator's refusal,
+// which the server never numbers, since it never took the write.
+export function refusedByTheContract(answer: Response): Response {
+  refusals.add(answer)
+
+  return answer
+}
+
+// landed counts a write the fake server answered, and is its number: for a
+// route that numbers its own answer, as a run does its start and its end.
+export function landed(): number {
+  writesAnswered += 1
+
+  return writesAnswered
+}
+
+// numbered is answer with the number it lands as, as the server numbers
+// every write it answers; one the route numbered, or that the contract
+// refused, it leaves as it is.
+function numbered(answer: Response): Response {
+  if (!refusals.has(answer) && !answer.headers.has(writeHeader)) {
+    answer.headers.set(writeHeader, String(landed()))
+  }
+
+  return answer
+}
+
+// answerOf is the route's answer to request, or the contract's 404 for a path
+// with none.
 function answerOf(routes: Record<string, Answer>, request: Request): Promise<Response> {
   const url = new URL(request.url)
   if (!(url.pathname in routes)) {
-    return Promise.resolve(Response.json({ detail: 'no such route' }, { status: 404 }))
+    return Promise.resolve(
+      refusedByTheContract(Response.json({ detail: 'no such route' }, { status: 404 })),
+    )
   }
 
   const route = routes[url.pathname]
@@ -78,14 +128,19 @@ function pushTheFrameWoken(): void {
 
 // pushFrame pushes snapshot as the stream's next frame, as the stream hook
 // keeps one: the snapshot on the page again, as a new frame, when none is
-// given. With no snapshot on the page there is no stream to push to.
+// given. The frame is read after every write the fake has answered, and
+// counts them. With no snapshot on the page there is no stream to push to.
 export function pushFrame(snapshot?: Snapshot): void {
   const shown = snapshot ?? useSnapshotStore.getState().snapshot
   if (shown === null) {
     return
   }
 
-  useSnapshotStore.setState({ snapshot: { ...shown }, status: 'live', receivedAt: Date.now() })
+  useSnapshotStore.setState({
+    snapshot: { ...shown, writes: writesAnswered },
+    status: 'live',
+    receivedAt: Date.now(),
+  })
 }
 
 // Held is an answer a test holds back: the promise a write waits on, and how

@@ -36,9 +36,9 @@ export async function startRun(
 
 // readEvents reads a run's stream, one JSON event a line, to its end, and
 // answers the last run it carried. How the run ended is handed on only once
-// the event stream has pushed the frame that end woke — the server wakes the
-// stream before it sends the end — so the run says how it ended beside a
-// branch that shows it.
+// the event stream holds a frame read after the end landed — the server
+// numbers the end on its last event, and counts it in every frame read after
+// — so the run says how it ended beside a branch that shows it.
 async function readEvents(
   body: ReadableStream<Uint8Array>,
   onEvent: (event: RunEvent) => void,
@@ -56,7 +56,7 @@ async function readEvents(
     last = event.run ?? last
     if (event.run !== undefined && event.run.state !== 'in_progress') {
       ending = event
-      shown = nextFrame()
+      shown = nextFrame(event.write)
     } else {
       onEvent(event)
     }

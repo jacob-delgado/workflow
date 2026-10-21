@@ -68,36 +68,57 @@ client.interceptors.request.use((request) => {
   return request
 })
 
-// A write's answer is handed on only once the event stream has pushed the
-// frame it woke: one gate over every write, present and future, so no write
-// says it is done beside a page that still shows it undone. It waits from the
-// answer's headers, the earliest the server has woken the stream by. A run's
-// own stream (application/x-ndjson) waits at its end instead (gitRunApi.ts).
-// The edge's plain-text refusals and the contract's own, answered before a
-// request reaches the server's writes, wake nothing to wait for.
+// A write's answer is handed on only once the event stream holds a frame read
+// after the write landed: one gate over every write, present and future, so
+// no write says it is done beside a page that still shows it undone, unless
+// the stream goes stale or closes first. The server numbers each write's
+// answer, and counts in each frame the writes landed before its read began,
+// so the gate waits for the first frame whose count reaches the answer's
+// number, one already on the page included. A run's own stream
+// (application/x-ndjson) waits at its end instead, for the number its last
+// event carries (gitRunApi.ts). An answer with no number keeps the rule from
+// before the count: the edge's plain-text refusals and the contract's own,
+// answered before a request reaches the server's writes, wake nothing to wait
+// for, and any other waits for the next frame.
 client.interceptors.response.use(async (response, request) => {
-  if (!safeMethods.has(request.method) && waitsForFrame(response)) {
-    await nextFrame()
+  if (!safeMethods.has(request.method)) {
+    await frameShowing(response)
   }
 
   return response
 })
 
+// frameShowing waits for the frame that shows the write response answers.
+function frameShowing(response: Response): Promise<void> {
+  const kind = response.headers.get('Content-Type') ?? ''
+  if (kind.startsWith('application/x-ndjson')) {
+    return Promise.resolve()
+  }
+
+  const write = writeNumber(response)
+  if (write !== undefined) {
+    return nextFrame(write)
+  }
+
+  return wokeTheStream(response.status, kind) ? nextFrame() : Promise.resolve()
+}
+
+// writeNumber is the number the server gave a write's answer, or undefined
+// for an answer it did not number.
+function writeNumber(response: Response): number | undefined {
+  const number = Number(response.headers.get('Workflow-Write') ?? '')
+
+  return Number.isSafeInteger(number) && number > 0 ? number : undefined
+}
+
 // refusedByTheContract are the statuses the contract's validator refuses a
 // request with before the server takes it: a body or parameter that does not
-// fit, no session, no such route, or no such method on it. A write the server
-// itself refuses with one changed nothing either, so its refusal needs no
-// frame beside it.
+// fit, no session, no such route, or no such method on it.
 const refusedByTheContract = new Set([400, 401, 404, 405])
 
-// waitsForFrame reports an answer to a write that the server woke the stream
-// for as it began.
-function waitsForFrame(response: Response): boolean {
-  const kind = response.headers.get('Content-Type') ?? ''
-
-  return (
-    !refusedByTheContract.has(response.status) &&
-    !kind.startsWith('text/plain') &&
-    !kind.startsWith('application/x-ndjson')
-  )
+// wokeTheStream reports an answer with no number, of status and media kind,
+// that the server may still have woken the stream for: any but a refusal the
+// boundary made before the server took the write.
+function wokeTheStream(status: number, kind: string): boolean {
+  return !refusedByTheContract.has(status) && !kind.startsWith('text/plain')
 }

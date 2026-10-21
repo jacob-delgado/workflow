@@ -123,6 +123,40 @@ test('a write pushes the open stream a frame', async () => {
   })
 })
 
+test("a write's frame counts it, as the server numbers each write", async () => {
+  // Arrange
+  await installed()
+  renderHook(() => {
+    useEventStream(null, vi.fn())
+  })
+  await waitFor(() => {
+    expect(useSnapshotStore.getState().status).toBe('live')
+  })
+
+  // Act
+  await pushBranch()
+
+  // Assert
+  expect(useSnapshotStore.getState().snapshot?.writes).toBe(1)
+})
+
+test("a run's end is counted after its start, and its frame counts both", async () => {
+  // Arrange
+  await installed()
+  renderHook(() => {
+    useEventStream(null, vi.fn())
+  })
+  await waitFor(() => {
+    expect(useSnapshotStore.getState().status).toBe('live')
+  })
+
+  // Act
+  await startRun({ kind: 'rebase' }, vi.fn())
+
+  // Assert
+  expect(useSnapshotStore.getState().snapshot?.writes).toBe(2)
+})
+
 test('the mockup is a writable build', async () => {
   // Arrange
   await installed()
