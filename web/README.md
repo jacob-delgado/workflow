@@ -90,19 +90,20 @@ the page is live, the stream connected, the header and rail filled in and
 nothing reading or moving, so it never opens on a blank or half-drawn page. It
 writes each frame Chromium draws, every other one, as a PNG with the time it was
 drawn (DevTools' own screencast, since Playwright's gives only JPEG), a keyframe
-for each step, and the ffmpeg list and manifest `scripts/docs-media.sh` encodes
-and checks the WebP by, into `tmp/walkthrough` (`e2e/docs/film.ts`), and fails
-when a glide, typed text or scroll goes more than 250 ms without a frame. Once
-the WebP is encoded, `corepack yarn media:check` (`e2e/docs/fidelity.spec.ts`,
-the `docs-fidelity` project) decodes it with Chromium's `ImageDecoder` and fails
-on any frame a step holds that is not the film's own. It needs the demo built
-first, `go build -o tmp/demo ./cmd/demo` from the repository root, as
-`task docs:media` does. Neither `test:e2e` nor CI runs it, and nothing compares
-its images. Every run launches the headless shell of the Chromium build
-Playwright pins, as CI does; where that build cannot be installed,
-`PLAYWRIGHT_CHROMIUM_EXECUTABLE` names another to launch, which a Claude Code
-cloud session's start sets to the image's headless shell, the kind of binary CI
-runs.
+for each step, whose beat holds the first frame that shows it
+(`e2e/docs/held.ts`), and the ffmpeg list and manifest `scripts/docs-media.sh`
+encodes and checks the WebP by, into `tmp/walkthrough` (`e2e/docs/film.ts`), and
+fails when a glide, typed text or scroll goes more than 250 ms without a frame.
+Once the WebP is encoded, `corepack yarn media:check`
+(`e2e/docs/fidelity.spec.ts`, the `docs-fidelity` project) decodes it with
+Chromium's `ImageDecoder` and fails on any frame a step holds that is not the
+film's own. It needs the demo built first, `go build -o tmp/demo ./cmd/demo`
+from the repository root, as `task docs:media` does. Neither `test:e2e` nor CI
+runs it, and nothing compares its images. Every run launches the headless shell
+of the Chromium build Playwright pins, as CI does; where that build cannot be
+installed, `PLAYWRIGHT_CHROMIUM_EXECUTABLE` names another to launch, which a
+Claude Code cloud session's start sets to the image's headless shell, the kind
+of binary CI runs.
 
 ## Conventions
 
@@ -150,6 +151,7 @@ runs.
   `node:child_process`'s `execFileSync` and `spawn`, `node:readline`'s
   `createInterface`, `node:fs`'s `existsSync`, `mkdirSync`, `mkdtempSync`,
   `readFileSync`, `rmSync` and `writeFileSync`, `node:fs/promises`' `mkdtemp`,
-  `readFile` and `rm`, and `process`'s `env`, `on` and `stdin`. A Node 26-only
-  call there would type-check and then fail on 24; pinning `^24`, a downgrade,
-  would close that.
+  `readFile` and `rm`, `process`'s `env`, `on` and `stdin`, the global
+  `Buffer`'s `from` and `toString`, and `import.meta.dirname`, which Node has
+  had since 20.11. A Node 26-only call there would type-check and then fail on
+  24; pinning `^24`, a downgrade, would close that.
