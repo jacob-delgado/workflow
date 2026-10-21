@@ -85,6 +85,45 @@ func TestANoticeTakesItsRowFromTheFocusedPaneAlone(t *testing.T) {
 	}
 }
 
+func TestANoticeKeepsTheRailContiguousAndARowShorter(t *testing.T) {
+	t.Parallel()
+
+	const panes = 9
+
+	terminal := layout.Terminal{Width: 96, Height: 30}
+
+	for focused := range panes {
+		t.Run(fmt.Sprintf("focus on pane %d", focused), func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			rail := layout.Rail{Panes: panes, Focused: focused}
+			plain := layout.Compute(terminal, rail)
+
+			// Act
+			shape, notice := layout.ComputeWithNotice(terminal, rail)
+
+			// Assert
+			if shape.Rail[0].Y != plain.Rail[0].Y {
+				t.Errorf("rail[0].Y = %d with a notice, want %d", shape.Rail[0].Y, plain.Rail[0].Y)
+			}
+
+			for index := 1; index < len(shape.Rail); index++ {
+				above := shape.Rail[index-1]
+				if want := above.Y + above.Height; shape.Rail[index].Y != want {
+					t.Errorf("rail[%d].Y = %d with a notice, want %d, where rail[%d] ends",
+						index, shape.Rail[index].Y, want, index-1)
+				}
+			}
+
+			last, plainLast := shape.Rail[len(shape.Rail)-1], plain.Rail[len(plain.Rail)-1]
+			if end, want := last.Y+last.Height, plainLast.Y+plainLast.Height-notice.Height; end != want {
+				t.Errorf("the rail ends at row %d with a notice, want %d, the notice's row higher", end, want)
+			}
+		})
+	}
+}
+
 func TestEightyColumnsKeepsTheRailBesideTheDetail(t *testing.T) {
 	t.Parallel()
 
