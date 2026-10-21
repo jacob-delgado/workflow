@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { expect, test } from '@playwright/test'
 import { openSection } from '../support/cockpit.ts'
-import { openServed } from './served.ts'
+import { openLive } from './served.ts'
 
 // originSubject is the subject of the newest commit on docs/notes, the branch
 // the served repository publishes, in the bare repository it pushes to, read by
@@ -21,13 +21,13 @@ function originSubject(): string {
 
 // A write's answer says what it did once the stream's next frame of the
 // repository, which the write wakes, shows it too, and with it the control it
-// enables: Commit once a file is staged. Push branch is there from the start,
-// since docs/notes has no upstream, and is clicked once the commit is made, so
-// the push carries it.
+// enables: Commit once a file is staged. Push branch is clicked once the
+// commit is made, which leaves docs/notes with something to push whether or
+// not agree.spec.ts pushed it earlier in the run, so the push carries it.
 test('stages, commits and pushes a file through the page the server serves', async ({ page }) => {
   // Arrange
   // The served repository holds notes.txt untracked.
-  await openServed(page)
+  await openLive(page)
   await openSection(page, 'Branch')
 
   // Act: stage the untracked file.
