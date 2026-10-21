@@ -1,5 +1,6 @@
 import type { Locator, Page } from '@playwright/test'
 import { nextFrame, pointerId } from './capture.ts'
+import { clearSpot, type Point } from './cover.ts'
 
 // The walkthrough's pointer: an arrow drawn over the page where the mouse is,
 // since a headless browser draws none, that glides to each control before it
@@ -7,23 +8,20 @@ import { nextFrame, pointerId } from './capture.ts'
 // takes no pointer events, so the page acts as it would without it, and it
 // sits outside the body, so the edge check never reads it.
 
-// Point is where the mouse is, in the window's CSS pixels.
-interface Point {
-  x: number
-  y: number
-}
-
 // Glide is a glide's span on the film's clock: when it began and ended.
 interface Glide {
   began: number
   ended: number
 }
 
-// Pointer moves the mouse to a control in eased steps, the arrow following,
-// and says when each glide ran.
+// Pointer moves the mouse in eased steps, the arrow following, and says
+// when each glide ran: to a control, or off whatever it covers of the page
+// and of what a beat shows, when it covers anything and a clear spot is to
+// be had. still waits for its pulse to end.
 export interface Pointer {
   glide: (target: Locator) => Promise<Glide>
-  park: (target: Locator) => Promise<Glide | undefined>
+  clear: (shown: Locator) => Promise<Glide | undefined>
+  still: () => Promise<void>
 }
 
 // pixelsPerStep and the step bounds set a glide's pace: a step a frame, each
@@ -37,8 +35,10 @@ const mostSteps = 36
 const arrow = 'M1 1 L1 23 L7 17 L11 27 L15 25 L11 15 L20 15 Z'
 
 // drawPointer puts the arrow on every document the page loads, at the
-// mouse, and pulses it at each press. It is drawn off the window until the
-// mouse first moves, which placePointer makes it do.
+// mouse, and pulses it at each press: the drawing itself, about the arrow's
+// tip, since the box around it is placed by its transform, and scaling that
+// would pull the arrow toward the window's corner. It is drawn off the
+// window until the mouse first moves, which placePointer makes it do.
 export async function drawPointer(page: Page): Promise<void> {
   await page.addInitScript(
     ({ id, look }) => {
@@ -79,8 +79,9 @@ export async function drawPointer(page: Page): Promise<void> {
         window.addEventListener('mousemove', (event) => {
           pointer.style.transform = `translate(${String(event.clientX)}px, ${String(event.clientY)}px)`
         })
+        drawing.style.transformOrigin = '1px 1px'
         window.addEventListener('mousedown', () => {
-          pointer.animate([{ scale: '1' }, { scale: '0.8' }, { scale: '1' }], {
+          drawing.animate([{ scale: '1' }, { scale: '0.8' }, { scale: '1' }], {
             duration: 240,
             easing: 'ease-out',
           })
@@ -104,42 +105,6 @@ function stepsBetween(from: Point, to: Point): number {
   return Math.min(mostSteps, Math.max(fewestSteps, Math.round(distance / pixelsPerStep)))
 }
 
-// parkingGap is how far beside or below a control the pointer rests once it
-// has pressed it.
-const parkingGap = 40
-
-// clearSpot is the first spot beside a control, then below it, where the
-// pointer covers no text and no control, so what the press brings up stays
-// legible while a beat holds it; none when both are taken.
-async function clearSpot(target: Locator): Promise<Point | undefined> {
-  const box = await target.boundingBox()
-  if (box === null) {
-    return undefined
-  }
-
-  const spots = [
-    { x: box.x + box.width + parkingGap, y: box.y + box.height / 2 },
-    { x: box.x + box.width / 2, y: box.y + box.height + parkingGap },
-  ]
-
-  return target.page().evaluate((candidates) => {
-    const clear = (spot: { x: number; y: number }) => {
-      const under = document.elementFromPoint(spot.x, spot.y)
-      if (under === null || spot.x >= window.innerWidth || spot.y >= window.innerHeight) {
-        return false
-      }
-      const control = under.closest('button, a, input, textarea, select, label, [role="status"]')
-      const text = [...under.childNodes].some(
-        (node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim() !== '',
-      )
-
-      return control === null && !text
-    }
-
-    return candidates.find(clear)
-  }, spots)
-}
-
 // centerOf is the middle of a control, which the film has scrolled into
 // view.
 async function centerOf(target: Locator): Promise<Point> {
@@ -149,6 +114,15 @@ async function centerOf(target: Locator): Promise<Point> {
   }
 
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+}
+
+// pointerStill waits for every animation the pointer runs, its pulse, to
+// end, so a beat's checks and keyframe see the arrow at its size.
+async function pointerStill(page: Page): Promise<void> {
+  await page.evaluate(async (id) => {
+    const running = document.getElementById(id)?.getAnimations({ subtree: true }) ?? []
+    await Promise.all(running.map((animation) => animation.finished.catch(() => animation)))
+  }, pointerId)
 }
 
 // placePointer moves the mouse to from, the arrow drawPointer drew with it,
@@ -176,10 +150,11 @@ export async function placePointer(page: Page, from: Point, clock: () => number)
 
   return {
     glide: async (target) => glideTo(await centerOf(target)),
-    park: async (target) => {
-      const spot = await clearSpot(target)
+    clear: async (shown) => {
+      const spot = await clearSpot(page, at, shown)
 
       return spot === undefined ? undefined : glideTo(spot)
     },
+    still: () => pointerStill(page),
   }
 }
