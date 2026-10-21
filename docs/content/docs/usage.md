@@ -328,14 +328,16 @@ unless its query names the assignee itself, as
 Each row shows the issue's status by name, and a second mark once a branch
 names any listed issue: in flight where a local or remote branch names it.
 **Filter** (`f`) narrows the list to places: the statuses the loaded issues are
-in, whatever your Jira workflow calls them, and the marks *in flight*,
-*task active*, *tracked* and *task done*, each with how many issues it holds.
-`space` checks a place and `enter` applies them; `esc` leaves the list as it
-was. Statuses widen each other, as marks do, and the two narrow together, so
-*In development* with *in flight* lists the issues in development that have a
-branch. The places and the `/` search apply together, both over what is loaded,
-and the row above the keys names them while they narrow the list. Switching
-view drops them, as it drops the search.
+in, whatever your Jira workflow calls them, in its order — to do, then in
+progress, then done, and by name within each, so a status keeps its place as
+issues move — and the marks *in flight*, *task active*, *tracked* and
+*task done*, each with how many issues it holds. `space` checks a place and
+`enter` applies them; `esc` leaves the list as it was. Statuses widen each
+other, as marks do, and the two narrow together, so *In development* with
+*in flight* lists the issues in development that have a branch. The places
+and the `/` search apply together, both over what is loaded, and the row
+above the keys names them while they narrow the list. Switching view drops
+them, as it drops the search.
 
 **Change status** (`t`) lists the transitions Jira's workflow offers from the
 issue's status. A transition that needs fields filled in says which. Choosing

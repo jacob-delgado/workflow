@@ -163,8 +163,9 @@ with a **View** select for the views your configuration defines, each scoped
 to your issues unless its query names the assignee, a **Search** over the
 issues loaded so far, by key or summary, **Filter** buttons that narrow them to
 places, and **Load more** while the view holds more. Filter offers the statuses
-the loaded issues are in and the marks *in flight*, *task active*, *tracked*,
-*task done* and *forge issue*, each with how many issues it holds; pressing one narrows the
+the loaded issues are in, in the workflow's order as the terminal lists them,
+and the marks *in flight*, *task active*, *tracked*, *task done* and
+*forge issue*, each with how many issues it holds; pressing one narrows the
 list, and pressing it again undoes that. Statuses widen each other, as marks
 do, and the two narrow together, as the terminal's `f` does. A repository
 that lists its forge's issues beside Jira's (`issues.forge`) numbers them as

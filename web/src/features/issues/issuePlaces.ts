@@ -92,9 +92,9 @@ function admitsIn(picked: Place[], kind: PlaceKind, names: string[]): boolean {
 }
 
 // placeChoices is every place the issues are in, with how many are in each —
-// statuses by category, not started first, then as they first appear, then
-// the marks in their fixed order — and every picked place no issue is in, at
-// zero, so it can still be unpicked.
+// statuses in workflow order, by category and then by name, then the marks in
+// their fixed order — and every picked place no issue is in, at zero, so it
+// can still be unpicked.
 export function placeChoices(
   issues: Issue[],
   marksFor: (issue: Issue) => string[],
@@ -111,16 +111,7 @@ export function placeChoices(
     })
   }
 
-  // A status in a category Jira does not name (its "No Category") comes after
-  // the three it does, so it can still be narrowed to.
-  const statuses = unique([
-    ...categoryOrder.flatMap((category) =>
-      issues.filter((issue) => issue.status_category === category).map((issue) => issue.status),
-    ),
-    ...issues
-      .filter((issue) => !categoryOrder.includes(issue.status_category))
-      .map((issue) => issue.status),
-  ])
+  const statuses = statusNames(issues)
   const gone = picked.filter((place) => place.kind === 'status' && !statuses.includes(place.name))
   const offered: Place[] = [
     ...statuses.map((name): Place => ({ kind: 'status', name })),
@@ -133,6 +124,38 @@ export function placeChoices(
     .filter((choice) => choice.count > 0 || picked.some((place) => samePlace(place, choice.value)))
 }
 
+// statusNames is each status the issues are in, once, in the tracker's
+// workflow order: not started first, then in flight, then done, then any in a
+// category Jira does not name (its "No Category"), and by name within each, so
+// a status keeps its place however the issues move.
+function statusNames(issues: Issue[]): string[] {
+  const ranks = new Map<string, number>()
+  for (const issue of issues) {
+    if (!ranks.has(issue.status)) {
+      ranks.set(issue.status, categoryRank(issue.status_category))
+    }
+  }
+
+  return [...ranks]
+    .sort(([one, oneRank], [other, otherRank]) => oneRank - otherRank || byName(one, other))
+    .map(([name]) => name)
+}
+
+// categoryRank is where a status category comes in the workflow, any category
+// Jira does not name last.
+function categoryRank(category: StatusCategory): number {
+  const at = categoryOrder.indexOf(category)
+
+  return at < 0 ? categoryOrder.length : at
+}
+
+// byName orders two different names by their UTF-16 code units, whatever the
+// locale, which for every name outside the astral planes is internal/places'
+// byte order. The names are a map's keys, so never the same.
+function byName(one: string, other: string): number {
+  return one < other ? -1 : 1
+}
+
 // togglePlace picks a place, or unpicks it when it is already picked.
 export function togglePlace(picked: Place[], place: Place): Place[] {
   return picked.some((chosen) => samePlace(chosen, place))
@@ -142,10 +165,6 @@ export function togglePlace(picked: Place[], place: Place): Place[] {
 
 function placeId(place: Place): string {
   return `${place.kind}:${place.name}`
-}
-
-function unique(names: string[]): string[] {
-  return [...new Set(names)]
 }
 
 // shownKey is an issue's key as the list shows it: a forge issue's number
