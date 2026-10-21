@@ -99,11 +99,16 @@ async function answer(
   const body: unknown = request.headers.get('Content-Type')?.includes('json')
     ? await request.json()
     : undefined
+  const answered = await routeAnswer(found, { url, params: found.params, body })
+
+  return request.method === 'GET' ? answered : landed(answered)
+}
+
+// routeAnswer is what found answers asked, or the server's refusal of what it
+// refuses.
+async function routeAnswer(found: { route: Route }, asked: Asked): Promise<Response> {
   try {
-    const answered = await found.route({ url, params: found.params, body })
-    if (request.method !== 'GET') {
-      MockEventSource.pushEveryOpen()
-    }
+    const answered = await found.route(asked)
 
     return answered instanceof Response ? answered : Response.json(answered)
   } catch (refused) {
@@ -113,6 +118,20 @@ async function answer(
 
     throw refused
   }
+}
+
+// writeHeader is the header the server numbers a write's answer in.
+const writeHeader = 'Workflow-Write'
+
+// landed is a write's answer as the server gives it, a refusal as much as a
+// success: numbered as it lands, with the frame it woke pushed down every
+// open stream. An answer numbered already, as a run's is, is left as it is.
+function landed(answer: Response): Response {
+  if (!answer.headers.has(writeHeader)) {
+    answer.headers.set(writeHeader, String(MockEventSource.land()))
+  }
+
+  return answer
 }
 
 // matched is the route for method on path, with the named parts of its path.
@@ -187,6 +206,10 @@ class MockEventSource extends EventTarget {
   // open is every stream not yet closed, which a write pushes a frame down.
   private static readonly open = new Set<MockEventSource>()
 
+  // writes is how many writes the mockup has answered, which every frame
+  // counts, as the server's do.
+  private static writes = 0
+
   readonly url: string
   readyState = MockEventSource.CONNECTING
 
@@ -199,10 +222,19 @@ class MockEventSource extends EventTarget {
     })
   }
 
+  // land counts a write the mockup answered, pushes the frame it woke down
+  // every open stream, and is the write's number.
+  static land(): number {
+    MockEventSource.writes += 1
+    MockEventSource.pushEveryOpen()
+
+    return MockEventSource.writes
+  }
+
   // pushEveryOpen pushes the mock snapshot down every open stream, on a task
   // after the one that answers the write, as the server's frame arrives after
   // the answer's headers.
-  static pushEveryOpen(): void {
+  private static pushEveryOpen(): void {
     setTimeout(() => {
       for (const source of MockEventSource.open) {
         source.push()
@@ -222,7 +254,8 @@ class MockEventSource extends EventTarget {
 
     this.readyState = MockEventSource.OPEN
     this.dispatchEvent(new Event('open'))
-    this.dispatchEvent(new MessageEvent('snapshot', { data: JSON.stringify(mockSnapshot) }))
+    const frame = { ...mockSnapshot, writes: MockEventSource.writes }
+    this.dispatchEvent(new MessageEvent('snapshot', { data: JSON.stringify(frame) }))
   }
 }
 
@@ -388,8 +421,12 @@ function runRoutes(): Routes {
 
 // streamedRun is the run asked for as the server streams one, an event a
 // line: the run as it starts, each line of its output, and the run as it
-// passed. A hook is titled by its name, as the server titles it.
+// passed. A hook is titled by its name, as the server titles it. Its start
+// and its end each land as a write, numbered as the server numbers them: the
+// start in the answer's header, the end on its last event.
 function streamedRun({ kind, hook }: RunRequest): Response {
+  const started = MockEventSource.land()
+  const ended = MockEventSource.land()
   const lines = ['lefthook v1.11.0  hook: pre-commit', '✔️ golangci-lint (2.31 seconds)']
   const run: Run = {
     kind,
@@ -401,11 +438,11 @@ function streamedRun({ kind, hook }: RunRequest): Response {
   const events: RunEvent[] = [
     { run },
     ...lines.map((line) => ({ line })),
-    { run: { ...run, state: 'succeeded', outcome: 'It went through.', lines } },
+    { run: { ...run, state: 'succeeded', outcome: 'It went through.', lines }, write: ended },
   ]
 
   return new Response(events.map((event) => `${JSON.stringify(event)}\n`).join(''), {
-    headers: { 'Content-Type': 'application/x-ndjson' },
+    headers: { 'Content-Type': 'application/x-ndjson', [writeHeader]: String(started) },
   })
 }
 

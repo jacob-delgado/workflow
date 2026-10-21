@@ -59,27 +59,46 @@ export const useSnapshotStore = create<SnapshotState>(() => ({
   receivedAt: 0,
 }))
 
-// nextFrame resolves once the stream has pushed its next snapshot, so a write
-// answered now is handed on beside a page that shows it: the server pushes a
-// frame as soon as a write is answered, read wholly after the write landed.
-// It resolves at once when there is no stream to agree with — no snapshot
-// yet, or a stream gone stale or closed — and as soon as the stream goes
-// either way meanwhile. A stream reconnecting is waited out, since its first
-// frame is the one that agrees, as after a directory switch.
-export function nextFrame(): Promise<void> {
+// nextFrame resolves once the stream holds a frame that shows the write the
+// server numbered write: the first whose writes is at least it, read wholly
+// after that write landed, the frame already on the page included. With no
+// number, for an answer the server did not number, it resolves on the next
+// frame the stream pushes. It resolves at once when there is no stream to
+// agree with — no snapshot yet, or a stream gone stale or closed — and as soon
+// as the stream goes either way meanwhile. A stream reconnecting is waited
+// out, since a frame it pushes once it is back is the one that agrees, as
+// after a directory switch, whose count goes on.
+export function nextFrame(write?: number): Promise<void> {
   const { snapshot, status } = useSnapshotStore.getState()
-  if (snapshot === null || endsTheWait(status)) {
+  if (snapshot === null || endsTheWait(status) || shows(snapshot, write)) {
     return Promise.resolve()
   }
 
   return new Promise((resolve) => {
     const unsubscribe = useSnapshotStore.subscribe((state) => {
-      if (state.snapshot !== snapshot || endsTheWait(state.status)) {
+      if (endsTheWait(state.status) || agrees(state.snapshot, snapshot, write)) {
         unsubscribe()
         resolve()
       }
     })
   })
+}
+
+// shows reports a frame read after the write numbered write landed; with no
+// number, none is known to.
+function shows(frame: Snapshot, write: number | undefined): boolean {
+  return write !== undefined && frame.writes >= write
+}
+
+// agrees reports a frame that ends the wait for the write numbered write,
+// begun while before was on the page: one that shows it, or, with no number,
+// any frame pushed since.
+function agrees(frame: Snapshot | null, before: Snapshot, write: number | undefined): boolean {
+  if (frame === null || frame === before) {
+    return false
+  }
+
+  return write === undefined || shows(frame, write)
 }
 
 // endsTheWait reports a stream that will push no frame to wait for.

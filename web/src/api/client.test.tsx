@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { BranchPanel } from '@/features/branch/BranchPanel.tsx'
-import { fakeApi, pushFrame } from '@/test/fakeApi.ts'
+import { fakeApi, pushFrame, refusedByTheContract } from '@/test/fakeApi.ts'
 import { makeHealth, makeSnapshot } from '@/test/fixtures.ts'
 import { client } from './generated/client.gen.ts'
 import { getBranch, getHealth, stage } from './generated/sdk.gen.ts'
@@ -306,9 +306,17 @@ test.each([
   useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
   fakeApi(
     {
-      '/api/stage': Response.json(
-        { type: 'about:blank', title: 'Refused', status, detail: 'refused by the contract', code },
-        { status, headers: { 'Content-Type': 'application/problem+json' } },
+      '/api/stage': refusedByTheContract(
+        Response.json(
+          {
+            type: 'about:blank',
+            title: 'Refused',
+            status,
+            detail: 'refused by the contract',
+            code,
+          },
+          { status, headers: { 'Content-Type': 'application/problem+json' } },
+        ),
       ),
     },
     { frames: 'held' },
@@ -333,5 +341,48 @@ test('a write waiting on the stream is answered once the stream goes stale', asy
   useSnapshotStore.setState({ status: 'stale', reason: 'unreadable' })
 
   // Assert
+  await expect(staging).resolves.toMatchObject({ data: stagedEverything })
+})
+
+test('a write is answered at once when a frame counting it landed before its answer was read', async () => {
+  // Arrange
+  // The frame the write woke reached the page before the write's own answer
+  // did, so there is no later frame to wait for.
+  useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot({ writes: 0 }) })
+  fakeApi(
+    {
+      '/api/stage': () => {
+        useSnapshotStore.setState({ snapshot: makeSnapshot({ writes: 1 }) })
+
+        return stagedEverything
+      },
+    },
+    { frames: 'held' },
+  )
+
+  // Act
+  const staging = stage({ body: { all: true }, throwOnError: true })
+
+  // Assert
+  expect(await settled(staging)).toBe(true)
+})
+
+test('a write is not answered beside a frame read before it landed', async () => {
+  // Arrange
+  useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot({ writes: 0 }) })
+  fakeApi({ '/api/stage': stagedEverything }, { frames: 'held' })
+  const staging = stage({ body: { all: true }, throwOnError: true })
+  await settled(staging)
+
+  // Act: a frame read before the stage landed arrives after its answer
+  useSnapshotStore.setState({ snapshot: makeSnapshot({ writes: 0 }) })
+
+  // Assert: the answer is not handed on beside it
+  expect(await settled(staging)).toBe(false)
+
+  // Act: the frame read after the stage arrives
+  pushFrame()
+
+  // Assert: now it is
   await expect(staging).resolves.toMatchObject({ data: stagedEverything })
 })
