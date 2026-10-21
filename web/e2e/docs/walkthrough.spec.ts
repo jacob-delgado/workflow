@@ -23,6 +23,7 @@ import {
 const captions = [
   'PROJ-412 picked, its work not started',
   'Started work on fix/PROJ-412-redact-tokens-in-the-request-log',
+  'PROJ-412 moved to In Progress',
   'Every change staged',
   'Committed fix(config): redact tokens in the request log',
   'Pushed fix/PROJ-412-redact-tokens-in-the-request-log',
