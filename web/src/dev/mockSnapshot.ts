@@ -26,6 +26,7 @@ const branchedStages: Stage[] = [
 // navigate the whole cockpit without a real Jira, forge, or Slack. Dev-only —
 // pushed down the mockup's event stream (mockServer.ts).
 export const mockSnapshot: Snapshot = {
+  writes: 0,
   here: '/home/ana/src/api',
   issues: {
     total: 7,

@@ -222,10 +222,6 @@ type server struct {
 	// so its event streams end and the page reconnects to the next.
 	worlds  *worlds
 	retired chan struct{}
-
-	// landed wakes this server's event streams each time a write here is
-	// answered, so the page shows what it did from the next frame.
-	landed landings
 }
 
 var _ api.StrictServerInterface = (*server)(nil)

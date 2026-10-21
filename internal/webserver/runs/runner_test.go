@@ -27,7 +27,7 @@ func TestARunnerCountsTheUnmanagedHooksItsSeamsFind(t *testing.T) {
 	given := runs.Seams{Hooks: seams.Hooks{
 		Existing: func(context.Context) ([]hooks.GitHook, bool) { return found, false },
 	}}
-	runner := runs.New(given, func(error) {}, &indexWrites, func() {})
+	runner := runs.New(given, func(error) {}, &indexWrites, func() int { return 1 })
 
 	// Act
 	counted := runner.HooksUnmanaged(t.Context())
@@ -49,7 +49,7 @@ func TestARunHoldsTheIndexItIsGivenWhileItGoes(t *testing.T) {
 		Configured: func(context.Context) (hooks.Configured, error) { return configuredHooks(), nil },
 		Run:        func(context.Context, string) (proc.Output, error) { return held.output(), nil },
 	}}
-	runner := runs.New(given, func(error) {}, &indexWrites, func() {})
+	runner := runs.New(given, func(error) {}, &indexWrites, func() int { return 1 })
 	recorder := newSyncRecorder()
 	done := make(chan struct{})
 
@@ -88,6 +88,9 @@ func TestARunTellsItLandedBeforeItsLastEvent(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
+	// landedAs is the number the server counts the run's end as.
+	const landedAs = 7
+
 	var (
 		indexWrites sync.Mutex
 		ended       atomic.Bool
@@ -106,12 +109,14 @@ func TestARunTellsItLandedBeforeItsLastEvent(t *testing.T) {
 		Run:        func(context.Context, string) (proc.Output, error) { return output, nil },
 	}}
 	recorder := newSyncRecorder()
-	landed := func() {
+	landed := func() int {
 		if !ended.Load() {
 			t.Error("the run said it landed before its program ended")
 		}
 
 		landings = append(landings, recorder.body())
+
+		return landedAs
 	}
 	runner := runs.New(given, func(error) {}, &indexWrites, landed)
 
@@ -127,7 +132,7 @@ func TestARunTellsItLandedBeforeItsLastEvent(t *testing.T) {
 		t.Errorf("written when it landed: %q; want every line, and not yet the run as it ended", landings[0])
 	}
 
-	if !strings.Contains(recorder.body(), `"succeeded"`) {
-		t.Errorf("the run wrote %q, want it to end with the run succeeded", recorder.body())
+	if !strings.Contains(recorder.body(), `"succeeded"`) || !strings.Contains(recorder.body(), `"write":7`) {
+		t.Errorf("the run wrote %q, want it to end with the run succeeded, numbered as its end landed", recorder.body())
 	}
 }

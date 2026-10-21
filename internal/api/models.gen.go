@@ -2361,6 +2361,9 @@ type RunEvent struct {
 
 	// Run A git run and how it stands: running, or how it ended, with what it wrote.
 	Run *Run `json:"run,omitempty"`
+
+	// Write On the run's last event alone, the number its end was counted as, among the writes the server has answered: the first event stream frame whose writes is at least it was read after the run ended. Absent on every other event.
+	Write *int `json:"write,omitempty"`
 }
 
 // RunKind A git run: a hook lefthook runs by hand, as GET /api/hooks lists it, a rebase onto the base, an amend of the last commit, or a fixup! of an earlier one.
@@ -2525,6 +2528,9 @@ type Snapshot struct {
 
 	// UnstartedStages The loop's stages for an issue with no branch yet, as its work story shows them while it is open: the issue picked but not yet branched for, as the terminal's spine reads an issue selected, and nothing after it begun. An issue with a branch has that branch's stages instead (TaskBranch.stages).
 	UnstartedStages []Stage `json:"unstarted_stages"`
+
+	// Writes How many writes the server had answered before this frame's read began, a run's end counted among them: every write numbered up to this one, by its answer's Workflow-Write header or a run's last event, landed before anything this frame shows was read. A frame read as a write lands can still go out after that write's answer, with a lower count, so a page waits for a count, never for the next frame to arrive.
+	Writes int `json:"writes"`
 }
 
 // Stage One stage of the loop for an issue's work: the checked-out branch's (Snapshot.stages), another branch's as the server knows it without checking it out (TaskBranch.stages), or an issue's not yet branched for (Snapshot.unstarted_stages).

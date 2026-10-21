@@ -73,6 +73,7 @@ export function makeTaskBranch(overrides: Partial<TaskBranch> = {}): TaskBranch 
 // pushes.
 export function makeSnapshot(overrides: Partial<Snapshot> = {}): Snapshot {
   return {
+    writes: 0,
     here: '/home/ana/src/api',
     issues: { issues: [], total: 0, start_at: 0, unavailable: [] },
     branch: makeBranch(),
