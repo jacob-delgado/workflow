@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { PullRequest, QueuedAnnouncement } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
@@ -266,3 +266,82 @@ test('a held announcement that went, not remembered, says it may be offered agai
   // Assert
   expect(screen.getByText(`Announced to #dev once CI passed. ${notRemembered}`)).toBeTruthy()
 })
+
+// waitingArmed is an announcement armed as pull request 42 opened, waiting for
+// its CI to pass.
+const waitingArmed: QueuedAnnouncement = {
+  state: 'waiting',
+  channel: '#dev',
+  pull: 42,
+  ci: 'running',
+  automatic: true,
+}
+
+test('while one waits, the announce action is Announce now instead, after Stop waiting', () => {
+  // Arrange
+  serverAnswering()
+  withPull(waitingArmed)
+
+  // Act
+  render(<MessagingPanel />)
+
+  // Assert
+  expect(screen.queryByRole('button', { name: 'Announce to Slack' })).toBeNull()
+  const armed = screen.getByText('Armed when #42 opened.', { exact: false })
+  const stop = screen.getByRole('button', { name: 'Stop waiting' })
+  const instead = screen.getByRole('button', { name: 'Announce now instead' })
+  expect(armed.compareDocumentPosition(stop) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(stop.compareDocumentPosition(instead) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+})
+
+test('Announce now instead opens the preview, as Announce to does', async () => {
+  // Arrange
+  serverAnswering()
+  withPull(waitingArmed)
+  render(<MessagingPanel />)
+
+  // Act
+  await userEvent.click(screen.getByRole('button', { name: 'Announce now instead' }))
+
+  // Assert
+  expect(await screen.findByRole('group', { name: 'Announcement preview' })).toBeTruthy()
+})
+
+test('a preview opened instead stays open as the held one stops waiting', async () => {
+  // Arrange
+  serverAnswering()
+  withPull(waitingArmed)
+  render(<MessagingPanel />)
+  await userEvent.click(screen.getByRole('button', { name: 'Announce now instead' }))
+  await screen.findByRole('group', { name: 'Announcement preview' })
+
+  // Act
+  act(() => {
+    withPull()
+  })
+
+  // Assert
+  expect(screen.getByRole('group', { name: 'Announcement preview' })).toBeTruthy()
+})
+
+test.each([
+  { standing: 'none held', held: undefined },
+  {
+    standing: 'the held one dropped',
+    held: { state: 'dropped', channel: '#dev', pull: 42, reason: 'CI failed at 10:00' },
+  },
+] satisfies { standing: string; held: QueuedAnnouncement | undefined }[])(
+  'with nothing waiting, the announce action is Announce to Slack: $standing',
+  ({ held }) => {
+    // Arrange
+    serverAnswering()
+    withPull(held)
+
+    // Act
+    render(<MessagingPanel />)
+
+    // Assert
+    expect(screen.getByRole('button', { name: 'Announce to Slack' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Announce now instead' })).toBeNull()
+  },
+)
