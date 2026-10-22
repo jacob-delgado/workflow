@@ -7,12 +7,15 @@ import { readings, workedIssue } from '../support/cockpit.ts'
 // its pace, then waits for what the page says it did before the next begins,
 // so a slow machine slows a step down but never skips one.
 
-// Pace is how a step acts on the page: how it clicks a control, how it types
-// into a field, how it chooses an option of a select by its value or label,
-// and the beat it holds once the page shows what the step did, captioned
-// with what that is, on the element that shows it.
+// Pace is how a step acts on the page: how it clicks a control, and one whose
+// press turns it off, so the page hands the focus to the line under it that
+// says what the press did; how it types into a field, how it chooses an
+// option of a select by its value or label, and the beat it holds once the
+// page shows what the step did, captioned with what that is, on the element
+// that shows it.
 export interface Pace {
   click: (target: Locator) => Promise<void>
+  clickToLine: (target: Locator) => Promise<void>
   type: (target: Locator, text: string) => Promise<void>
   choose: (select: Locator, value: string) => Promise<void>
   beat: (caption: string, shown: Locator) => Promise<void>
@@ -22,6 +25,7 @@ export interface Pace {
 // filled and an option chosen at once, and no beat.
 export const brisk: Pace = {
   click: (target) => target.click(),
+  clickToLine: (target) => target.click(),
   type: (target, text) => target.fill(text),
   choose: async (select, value) => {
     await select.selectOption(value)
@@ -101,10 +105,11 @@ export async function moveIntoProgress(page: Page, pace: Pace): Promise<void> {
 // still offers to be staged. Its beat holds the notice under the files, and
 // the files above it, each marked staged, are held whole in that frame too,
 // since they are what its caption says; not the whole Working tree, which
-// holds the commit form below and is taller than the window.
+// holds the commit form below and is taller than the window. Stage all is
+// off once nothing is left to stage, so the focus goes to that notice.
 async function stageAll(page: Page, pace: Pace): Promise<void> {
   const tree = page.getByRole('region', { name: 'Working tree' })
-  await pace.click(tree.getByRole('button', { name: 'Stage all', exact: true }))
+  await pace.clickToLine(tree.getByRole('button', { name: 'Stage all', exact: true }))
   const staged = said(page, 'Staged every change.')
   await expect(staged).toBeVisible()
   await expect(tree.getByRole('button', { name: /^Stage (?!all$)/ })).toHaveCount(0)
