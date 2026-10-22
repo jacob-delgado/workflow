@@ -777,8 +777,10 @@ gives up: the terminal and the web say
 if the repository has no CI, announce it by hand with workflow announce`.
 Announcing now (`enter`, or plain `workflow announce`) is allowed while CI is
 running or reports nothing, but never while a check has failed or when CI can't
-be read. `x` on the messaging pane stops the wait. A draft is never armed ([How
-do I stop workflow from announcing every pull request it
+be read. `x` on the messaging pane stops the wait, and `p`, which its footer
+names *announce now instead* while one waits (**Announce now instead** on the
+web, below **Stop waiting**), previews it to announce now in its place. A draft
+is never armed ([How do I stop workflow from announcing every pull request it
 opens?](#how-do-i-stop-workflow-from-announcing-every-pull-request-it-opens)),
 and quitting while it waits drops it ([What happens to a change I made if I
 close the tab, or quit

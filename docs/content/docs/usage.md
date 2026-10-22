@@ -216,7 +216,7 @@ lists, by where it works.
 | | `F` | Finish a merged branch — switch to the base, catch it up, delete the branch — after a preview of the commands |
 | | `o` / `y` | Open the pull request in the browser, or copy its URL |
 | | `r` | Look for the pull request and its CI again |
-| 5, your service | `p` | Preview the announcement of the pull request |
+| 5, your service | `p` | Preview the announcement of the pull request; while one waits for CI, the footer names it *announce now instead*, after `x` |
 | | `P` | People and groups: whom each code owner is on Slack, and the user groups the repository tags; with a Slack user token and a store |
 | | `x` | Stop waiting: drop the announcement waiting for CI to pass, unposted |
 | | `r` | Read what was announced, and the pull request and its CI, again |
@@ -574,18 +574,20 @@ jacob opened a pull request: <https://github.com/…/pull/42|fix(config): redact
 <https://jira.example.com/browse/PROJ-412|PROJ-412> Fix token redaction
 ```
 
-`e` edits it in your editor, `enter` announces it now, and `w` announces it
-once CI passes; with a Slack user token and more than one channel to choose from
+`e` edits it in your editor, `enter` announces it now, and `w` announces it once
+CI passes; with a Slack user token and more than one channel to choose from
 (`messaging.channels` names the others), `←`/`→` change the channel. An
 announcement waiting for CI waits through a failed run: the messaging pane says
-*a check failed; waiting on a fix*, and it goes once a later run passes. While no
-check is reported it says *no checks reported yet*, and after ten minutes with
-none, counted from the last read that saw one, it gives up, saying to announce it
-by hand. `x` on the messaging pane stops waiting, and nothing is announced. One
-armed as `n` opened its pull request waits the same way, and so does
-`workflow announce --when-green` from a shell, in the foreground until CI
-passes or `ctrl+c`.
-Announcing now replaces one that is waiting, so the channel never reads it twice.
+*a check failed; waiting on a fix*, and it goes once a later run passes. While
+no check is reported it says *no checks reported yet*, and after ten minutes
+with none, counted from the last read that saw one, it gives up, saying to
+announce it by hand. `x` on the messaging pane stops waiting, and nothing is
+announced. While one waits, the footer offers `p` after `x`, as *announce now
+instead*: it opens the same preview, and announcing from it replaces the one
+that is waiting, so the channel never reads it twice. One armed as `n` opened
+its pull request waits the same way, and so does
+`workflow announce --when-green` from a shell, in the foreground until CI passes
+or `ctrl+c`.
 
 Nothing is announced while a check has failed on the pull request. The
 announcement reads its CI again as it goes, whatever the pane last read, and a
