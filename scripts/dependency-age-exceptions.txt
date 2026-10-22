@@ -15,3 +15,5 @@
 # Only the maintainer waives a version; a waiver dated on no real day fails the
 # gate. Remove a line once its version is a week old; it has done its job. The
 # gate warns of a waiver still listed a week after the day it names.
+
+go 1.27.3 CVE-2026-111943
