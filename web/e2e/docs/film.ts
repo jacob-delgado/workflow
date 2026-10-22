@@ -12,7 +12,7 @@ import {
 import { pointerCovers, type Point } from './cover.ts'
 import { heldKeys } from './held.ts'
 import type { Pace } from './loop.ts'
-import { drawPointer, placePointer, type Pointer } from './pointer.ts'
+import { drawPointer, placePointer, type Glide, type Pointer } from './pointer.ts'
 import {
   scrollClear,
   scrollRoomBelow,
@@ -333,14 +333,14 @@ async function reveal(take: Take, shown: Locator): Promise<void> {
   }
 }
 
-// park moves the pointer, once its pulse is done, off what it covers of the
-// page and of what the beat shows, or of the control a click pressed,
-// gliding as the film moves through, and waits for what the glide's hover
-// left moving to stand still.
-async function park(take: Take, shown: Locator): Promise<void> {
+// park moves the pointer, once its pulse is done, with move: off what it
+// covers of the page and of what the beat shows, or off the control a click
+// pressed, gliding as the film moves through, and waits for what the glide's
+// hover left moving to stand still.
+async function park(take: Take, move: () => Promise<Glide | undefined>): Promise<void> {
   const { page, reel, pointer } = take
   await pointer.still()
-  const parked = await pointer.clear(shown)
+  const parked = await move()
   if (parked !== undefined) {
     reel.stretches.push({ what: 'a glide', from: parked.began, to: parked.ended })
     await expect.poll(() => stillAnimating(page)).toEqual([])
@@ -358,7 +358,7 @@ async function keyframe(take: Take, beat: Beat): Promise<void> {
   const { caption, shown } = beat
   await expect.poll(() => stillAnimating(page), { message: caption }).toEqual([])
   await reveal(take, shown)
-  await park(take, shown)
+  await park(take, () => take.pointer.clear(shown))
   expect(await pointerCovers(page, shown), caption).toEqual([])
   expect(await cutAtTheEdge(page), caption).toEqual([])
   await expect(shown, caption).toBeInViewport({ ratio: 1 })
@@ -468,8 +468,9 @@ async function roll(page: Page, dir: string): Promise<Film> {
 // filmedPace is the walkthrough's pace: the pointer glides to each control
 // first, scrolling it into view as it goes, and the room for the line under
 // it too when the press hands that line the focus; once it has clicked one it
-// parks clear of it and of the page, so it rests on nothing while the page
-// does what was pressed; a field is clicked and typed into a key at a time,
+// parks where nothing the press brings up can land, beside the main column on
+// the control's row when it can, so it rests on nothing while the page does
+// what was pressed; a field is clicked and typed into a key at a time,
 // and a choice clicked and chosen, the pointer staying where it pressed
 // until a beat parks it; and each beat is a keyframe.
 function filmedPace(take: Take): Pace {
@@ -483,7 +484,7 @@ function filmedPace(take: Take): Pace {
   const click = async (target: Locator) => {
     await glideTo(target)
     await clickInPlace(take, target)
-    await park(take, target)
+    await park(take, () => pointer.leave(target))
     expect(await pointerCovers(take.page, target), 'the pointer rests clear after a click').toEqual(
       [],
     )
