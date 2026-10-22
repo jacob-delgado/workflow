@@ -152,11 +152,11 @@ reaches says so to assistive technology (`aria-keyshortcuts`). See
 
 ### Issues
 
-{{< image src="images/web-issues.png" alt="The Issues section in the dark theme: Ana Lopez's issues, with filter buttons for their statuses and marks, and PROJ-412 selected, its detail beside the list scrolled to its reporter and assignee, its actions, and every stage of its work story" loading="lazy" >}}
+{{< image src="images/web-issues.png" alt="The Issues section in the dark theme: the seven issues in the Assigned to me view, all loaded, with filter buttons for their statuses and marks (Backlog 1, To Do 3, In Progress 1, In Review 2, in flight 2, tracked 2), and PROJ-412, Redact tokens in the request log, selected at To Do and tracked. Its detail beside the list is scrolled to Open in Jira, its Change status, Assign and Log work actions, and its work story: not in progress, with Start work and Start work in a new worktree, the issue picked but not branched for, and no branch, commits, pull request or announcement to #dev-workflow yet" loading="lazy" >}}
 
-Here the detail is scrolled past PROJ-412's key, title and type, which the
-selected row beside it shows, to its reporter, its actions and its whole work
-story.
+Here the detail is scrolled past PROJ-412's key, status, title, type,
+priority, reporter and assignee to its actions and its whole work story; the
+selected row beside it shows its key, status and title.
 
 The issues in a view — the default is those assigned to you and not done —
 with a **View** select for the views your configuration defines, each scoped
@@ -263,7 +263,7 @@ are a thread's older comments once the newer ones add up to that many.
 
 ### Branch
 
-{{< image src="images/web-branch.png" alt="The Branch section: fix/PROJ-412-redact-tokens-in-the-request-log, based on origin/main, one commit ahead of its upstream, its two commits, the older one pushed, and the working tree's three changes, some staged and some not, each with its own buttons" loading="lazy" >}}
+{{< image src="images/web-branch.png" alt="The Branch section: fix/PROJ-412-redact-tokens-in-the-request-log, based on origin/main, with no upstream and not pushed yet, with Push branch, Link an issue and Rebase onto main, its one commit, 4f2c9e1 fix(config): redact tokens in the request log, with Run a hook, Amend last commit and Fix up a commit, and a working tree holding two changes: internal/config/redact.go, modified and staged, with a notice that it was staged, Unstage, Discard… and Show diff, and internal/wiring/reqlog_test.go, untracked and unstaged, with Stage, Discard… and Show diff, above Stage all and Unstage all" loading="lazy" >}}
 
 The checked-out branch, its base, its upstream and how far it is ahead or
 behind, and the commits on it; **Push to** names the remote a push goes to when
@@ -318,7 +318,7 @@ old hooks as `.git/hooks/*.old`.
 
 ### Review
 
-{{< image src="images/web-review.png" alt="The Review section: pull request #128, ready for review with no conflicts and one approval, and its CI checks, three of four passed and e2e still running" loading="lazy" >}}
+{{< image src="images/web-review.png" alt="The Review section just after opening pull request #128: a notice that it opened, a line that it announces to #dev-workflow once CI passes, with Stop waiting in the Slack section to drop it, and offers to link it on PROJ-412 and move PROJ-412 to In Review. Below, #128 fix(config): redact tokens in the request log, for PROJ-412, ready for review with no conflicts, one approval and no changes requested, with Copy URL and Edit pull request, and its CI checks, three of four done: lint, build and test passed and e2e running" loading="lazy" >}}
 
 The branch's pull request — its number, title and state: Draft or Ready for
 review while it is open, Merged or Closed once it is not — and the issue it is
@@ -381,7 +381,7 @@ armed announcement as `announcement` (its `automatic` set), or why none was as
 
 ### The messaging service
 
-{{< image src="images/web-announcement.png" alt="The Slack section with an announcement composed: the message for pull request #128, in Slack's markup, the channel to send it to, the code owners and groups it will tag, and the buttons to cancel it, announce when CI passes, or announce now" loading="lazy" >}}
+{{< image src="images/web-announcement.png" alt="The Slack section, announcing as ana.lopez to #dev-workflow, with an announcement composed and nothing armed: the message for pull request #128 and PROJ-412 in Slack's link markup, with Edit, the channel picker set to #dev-workflow, the code owners to tag (lee.chen not linked yet, with a field to link the handle and Not on Slack; sam.ortiz linked to Sam Ortiz; acme/platform to platform), the groups with @platform checked as owning the changed paths and @api-reviewers unchecked, the line Tags: @Sam Ortiz, @platform, and the buttons Cancel, Announce when CI passes and Announce now" loading="lazy" >}}
 
 The preview shows the announcement as it will be sent, in the service's own
 markup: with Slack, a link reads `<url|text>` there, and Slack shows it as
@@ -492,7 +492,7 @@ forge when you open it, unless it asked within the last 30 seconds, and
 
 ### Tasks
 
-{{< image src="images/web-tasks.png" alt="The Tasks section: Ana's Taskwarrior tasks with the task for PROJ-412 started and selected, its filters, and its state, urgency, issue and annotations beside the list" loading="lazy" >}}
+{{< image src="images/web-tasks.png" alt="The Tasks section: three pending Taskwarrior tasks, most urgent first, with the task add line, Refresh, Undo… and Sync…, the sort and search, and filter chips by state, priority, project, tag and issue. Two tasks under For my issues, PROJ-412 and PROJ-408, and one other task, with one waiting task counted below. Task #1 for PROJ-412, Redact tokens in the request log, is selected and not yet started. Beside the list are its state (pending), project workflow, priority H, tag +jira, urgency 14.2 and issue, a link to PROJ-412 and Open in Issues, Start and Mark done…, and its one annotation from 2026-09-15: Sam can review it once CI is green" loading="lazy" >}}
 
 Your pending Taskwarrior tasks, most urgent first unless you sort them — what
 the terminal's Tasks pane lists, in Taskwarrior's violet: those for an issue
@@ -569,7 +569,7 @@ rather than a claim that no task tracks the issue.
 
 ### Summary
 
-{{< image src="images/web-summary.png" alt="The Summary section: a September 2026 calendar with dots on the days work was done, and the 15th read back hour by hour: a commit, a task completed, PROJ-412 moved to In Progress, and a pull request reviewed" loading="lazy" >}}
+{{< image src="images/web-summary.png" alt="The Summary section: a September 2026 calendar with dots on the days work was done and Tuesday the 15th selected, read back hour by hour. At 09:00 a commit, e5d2b87 refactor(config): route every write through Redact, and a task completed, Write up the token redaction plan. At 11:00 a comment on PROJ-418. At 14:00 task 1 for PROJ-412 annotated, PROJ-390 moved to In Progress, and pull request acme/workflow#377 reviewed. At 16:00 task 4 added, Book a room for the sprint retro. Copy as Markdown and Post… sit above the timeline" loading="lazy" >}}
 
 What you did, read back each time from where the work left a trace: the
 commits you wrote in the repository the server runs in and in every favorite
