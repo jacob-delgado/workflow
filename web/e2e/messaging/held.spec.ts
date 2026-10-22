@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import type {
   Announcement,
   QueuedAnnouncement,
@@ -101,6 +101,37 @@ test('an edited announcement is held until CI passes', async ({ page }) => {
   ])
 })
 
+// drawing is how a control is drawn — its fill, its words' color and its edge
+// — and where its top stands on the page.
+function drawing(control: Locator) {
+  return control.evaluate((element) => {
+    const { backgroundColor, color, borderTopColor } = getComputedStyle(element)
+
+    return {
+      fill: [backgroundColor, color, borderTopColor],
+      top: element.getBoundingClientRect().top,
+    }
+  })
+}
+
+test('while one waits, Announce now instead is drawn as Stop waiting is, below it', async ({
+  page,
+}) => {
+  // Arrange
+  await answersAnnouncement(page, { state: 'waiting', channel: '#dev', pull: 7, automatic: true })
+  await page.goto('/')
+
+  // Act
+  await openSection(page, 'Slack')
+
+  // Assert
+  const stop = await drawing(page.getByRole('button', { name: 'Stop waiting' }))
+  const instead = await drawing(page.getByRole('button', { name: 'Announce now instead' }))
+  expect(instead.fill).toEqual(stop.fill)
+  expect(instead.top).toBeGreaterThan(stop.top)
+  await expect(page.getByRole('button', { name: 'Announce to Slack' })).toHaveCount(0)
+})
+
 for (const theme of themes) {
   for (const width of widths) {
     test(`the edited preview fits ${String(width)} px in the ${theme} theme, reachable and clean`, async ({
@@ -136,7 +167,7 @@ for (const theme of themes) {
     await expect(
       page.getByText('Waiting for CI on #7 to pass, then announcing to #dev.'),
     ).toBeVisible()
-    await expectReachableAndClean(page, { reaches: ['Stop waiting'] })
+    await expectReachableAndClean(page, { reaches: ['Stop waiting', 'Announce now instead'] })
   })
 
   test(`a held announcement waiting on a fix is clean in the ${theme} theme`, async ({ page }) => {
@@ -156,6 +187,6 @@ for (const theme of themes) {
         'A check failed on #7; waiting on a fix, then announcing to #dev once CI passes.',
       ),
     ).toBeVisible()
-    await expectReachableAndClean(page, { reaches: ['Stop waiting'] })
+    await expectReachableAndClean(page, { reaches: ['Stop waiting', 'Announce now instead'] })
   })
 }
