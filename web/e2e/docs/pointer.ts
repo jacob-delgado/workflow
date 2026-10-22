@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test'
 import { nextFrame, pointerId } from './capture.ts'
-import { clearSpot, type Point } from './cover.ts'
+import { clearSpot, pressedSpot, type Point } from './cover.ts'
 
 // The walkthrough's pointer: an arrow drawn over the page where the mouse is,
 // since a headless browser draws none, that glides to each control before it
@@ -9,7 +9,7 @@ import { clearSpot, type Point } from './cover.ts'
 // sits outside the body, so the edge check never reads it.
 
 // Glide is a glide's span on the film's clock: when it began and ended.
-interface Glide {
+export interface Glide {
   began: number
   ended: number
 }
@@ -17,12 +17,14 @@ interface Glide {
 // Pointer moves the mouse in eased steps, the arrow following, and says
 // when each glide ran: to a control, or off whatever it covers of the page
 // and of what a beat shows, when it covers anything and a clear spot is to
-// be had. press presses the control it glided to where it stands, and still
-// waits for its pulse to end.
+// be had, or off a control it pressed to where nothing the press brings up
+// can land. press presses the control it glided to where it stands, and
+// still waits for its pulse to end.
 export interface Pointer {
   glide: (target: Locator) => Promise<Glide>
   press: (target: Locator) => Promise<void>
   clear: (shown: Locator) => Promise<Glide | undefined>
+  leave: (pressed: Locator) => Promise<Glide | undefined>
   still: () => Promise<void>
 }
 
@@ -35,6 +37,19 @@ const mostSteps = 36
 // parkSteps is how many frames the pointer takes to move off what a beat
 // shows: a short, quick move, since it goes nowhere a viewer follows.
 const parkSteps = 6
+
+// mostLeaveSteps is the most frames the pointer takes to leave a control it
+// pressed: fewer than the shortest glide to a control a viewer follows.
+const mostLeaveSteps = 10
+
+// leaveSteps is how many frames the pointer takes to leave a control it
+// pressed: as quick as a park, or a little longer for a longer way, up to
+// mostLeaveSteps.
+function leaveSteps(from: Point, to: Point): number {
+  const distance = Math.hypot(to.x - from.x, to.y - from.y)
+
+  return Math.min(mostLeaveSteps, Math.max(parkSteps, Math.round(distance / (2 * pixelsPerStep))))
+}
 
 // arrow is the pointer's look, the outline of a desktop's arrow, drawn white
 // and edged in black.
@@ -191,6 +206,11 @@ export async function placePointer(page: Page, from: Point, clock: () => number)
       const spot = await clearSpot(page, at, shown)
 
       return spot === undefined ? undefined : glideTo(spot, parkSteps)
+    },
+    leave: async (pressed) => {
+      const spot = await pressedSpot(page, at, pressed)
+
+      return spot === undefined ? undefined : glideTo(spot, leaveSteps(at, spot))
     },
     still: () => pointerStill(page),
   }

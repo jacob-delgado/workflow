@@ -5,7 +5,8 @@ import { partsShown, pointerId, type Box } from './capture.ts'
 // over what a viewer reads in it. The arrow, a few pixels around it, must
 // cover no line of text, no control, icon, image or status line, and
 // nothing of what the beat shows; where it does, it parks at the nearest
-// spot that covers nothing, wholly inside the window.
+// spot that covers nothing, wholly inside the window. After a press it
+// parks where nothing the press brings up can land under it.
 
 // Point is where the mouse is, in the window's CSS pixels.
 export interface Point {
@@ -13,12 +14,19 @@ export interface Point {
   y: number
 }
 
+// Size is the window's, in CSS pixels.
+interface Size {
+  width: number
+  height: number
+}
+
 // arrowPad is how far around the arrow nothing may lie.
 const arrowPad = 4
 
 // ringGap and ringSpots are where a park is looked for: on rings this far
 // apart around the pointer, nearest first, at this many points each; and
-// down the empty rail below its last section, this far apart.
+// down the empty rail below its last section, and along the row beside the
+// main pane's column, this far apart.
 const ringGap = 40
 const ringSpots = 16
 
@@ -149,18 +157,10 @@ async function railSpots(page: Page, at: Point): Promise<Point[]> {
   return Array.from({ length: count }, (_, step) => ({ x: at.x, y: below + step * ringGap }))
 }
 
-// clearSpot is where the pointer, standing at, should park so it covers
-// nothing it may not: the empty rail when it stands on the rail, then the
-// nearest spot around it whose arrow lies wholly inside the window. None
-// when it already covers nothing, or when no spot is clear.
-export async function clearSpot(page: Page, at: Point, shown: Locator): Promise<Point | undefined> {
-  const ground = await groundOf(page, shown)
-  const view = page.viewportSize()
-  if (view === null || covered(ground.arrow, ground.taken).length === 0) {
-    return undefined
-  }
-
-  const clear = (spot: Point) => {
+// fitsAt says of a spot whether the arrow, moved there from at, lies wholly
+// inside the window and covers nothing it may not.
+function fitsAt(ground: Ground, view: Size, at: Point): (spot: Point) => boolean {
+  return (spot) => {
     const { arrow } = ground
     const moved = {
       left: arrow.left + spot.x - at.x,
@@ -173,7 +173,93 @@ export async function clearSpot(page: Page, at: Point, shown: Locator): Promise<
 
     return inside && covered(moved, ground.taken).length === 0
   }
+}
+
+// clearSpot is where the pointer, standing at, should park so it covers
+// nothing it may not: the empty rail when it stands on the rail, then the
+// nearest spot around it whose arrow lies wholly inside the window. None
+// when it already covers nothing, or when no spot is clear.
+export async function clearSpot(page: Page, at: Point, shown: Locator): Promise<Point | undefined> {
+  const ground = await groundOf(page, shown)
+  const view = page.viewportSize()
+  if (view === null || covered(ground.arrow, ground.taken).length === 0) {
+    return undefined
+  }
+
   const spots = [...(await railSpots(page, at)), ...rings(at, Math.hypot(view.width, view.height))]
 
-  return spots.find(clear)
+  return spots.find(fitsAt(ground, view, at))
+}
+
+// measuredEnd is the right edge of the column the main pane sets its
+// content at: the furthest any element in it drawn at a capped width
+// reaches, as a section's content measure is, whatever it draws inside;
+// the pane's left edge when nothing in it is capped.
+function measuredEnd(main: Locator): Promise<number> {
+  return main.evaluate((pane) => {
+    const capped = [...pane.querySelectorAll('*')].filter(
+      (element) =>
+        getComputedStyle(element).maxWidth !== 'none' &&
+        element.checkVisibility() &&
+        element.getBoundingClientRect().width > 0,
+    )
+
+    return Math.max(
+      pane.getBoundingClientRect().left,
+      ...capped.map((element) => element.getBoundingClientRect().right),
+    )
+  })
+}
+
+// columnEnd is how far right the main pane's column reaches: the column its
+// content is set at, or whatever it draws further right, as a list that
+// grows with the window does; none when the pointer stands outside the
+// pane, as on the rail.
+async function columnEnd(page: Page, at: Point, ground: Ground): Promise<number | undefined> {
+  const main = page.getByRole('main')
+  const pane = await main.boundingBox()
+  if (pane === null || at.x < pane.x || at.y < pane.y || at.y > pane.y + pane.height) {
+    return undefined
+  }
+
+  const inMain = ground.taken.filter(({ box }) => box.left >= pane.x && box.top >= pane.y)
+
+  return Math.max(await measuredEnd(main), ...inMain.map(({ box }) => box.right))
+}
+
+// besideSpots are the spots right of the main pane's column on the row the
+// pointer stands on, nearest the column first, raised as far as the arrow
+// needs to fit above the window's foot. Every line a press says is set
+// inside that column, so nothing it says can come up under them; none when
+// the pointer stands outside the pane, or the column reaches its right side.
+async function besideSpots(page: Page, at: Point, ground: Ground, view: Size): Promise<Point[]> {
+  const end = await columnEnd(page, at, ground)
+  if (end === undefined) {
+    return []
+  }
+
+  const y = Math.min(at.y, view.height - (ground.arrow.bottom - at.y))
+  const count = Math.max(0, Math.floor((view.width - end) / ringGap) - 1)
+
+  return Array.from({ length: count }, (_, step) => ({ x: end + (step + 1) * ringGap, y }))
+}
+
+// pressedSpot is where the pointer, standing at on a control it just
+// pressed, should park so that nothing the press brings up lands under it:
+// beside the main pane's column on the control's row when a spot there is
+// clear, and else where clearSpot finds, the rail's empty end for a section
+// opened from the rail.
+export async function pressedSpot(
+  page: Page,
+  at: Point,
+  pressed: Locator,
+): Promise<Point | undefined> {
+  const ground = await groundOf(page, pressed)
+  const view = page.viewportSize()
+  const beside =
+    view === null
+      ? undefined
+      : (await besideSpots(page, at, ground, view)).find(fitsAt(ground, view, at))
+
+  return beside ?? clearSpot(page, at, pressed)
 }
