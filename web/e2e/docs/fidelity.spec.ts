@@ -24,6 +24,13 @@ const heldMs = 1000
 // left on screen differed in four to six hundredths of them.
 const tolerance = 2
 
+// A browser plays a WebP frame of briefMs or less for heldBriefMs, as it
+// does a GIF's, though ImageDecoder reports the frame's own duration; the
+// WebP is stepped through as a browser plays it, so a brief frame shifts
+// every moment after it as it would on the page.
+const briefMs = 10
+const heldBriefMs = 100
+
 // Held is a frame the film holds: its file in the film, and the moment
 // halfway through its hold, in film milliseconds.
 interface Held {
@@ -66,14 +73,14 @@ function heldFrames(manifest: string): Held[] {
     })
 }
 
-// differing decodes, in the page, the WebP frame showing at each held
-// frame's midway moment, and counts its pixels that differ from the film's
-// frame by more than tolerance in a channel.
+// differing decodes, in the page, the WebP frame a browser shows at each
+// held frame's midway moment, and counts its pixels that differ from the
+// film's frame by more than tolerance in a channel.
 function differing(page: Page, webp: Buffer, held: Held[], film: string): Promise<number[]> {
   const sources = held.map((frame) => readFileSync(join(film, frame.file)).toString('base64'))
 
   return page.evaluate(
-    async ({ webp, midways, sources, tolerance }) => {
+    async ({ webp, midways, sources, tolerance, brief }) => {
       const bytes = (base64: string) => Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
       const pixels = (source: CanvasImageSource, width: number, height: number) => {
         const canvas = new OffscreenCanvas(width, height)
@@ -93,7 +100,8 @@ function differing(page: Page, webp: Buffer, held: Held[], film: string): Promis
       for (let index = 0; index < count; index++) {
         const { image } = await decoder.decode({ frameIndex: index })
         starts.push(at)
-        at += (image.duration ?? 0) / 1000
+        const ms = (image.duration ?? 0) / 1000
+        at += ms <= brief.most ? brief.held : ms
         image.close()
       }
 
@@ -126,6 +134,7 @@ function differing(page: Page, webp: Buffer, held: Held[], film: string): Promis
       midways: held.map((frame) => frame.midway),
       sources,
       tolerance,
+      brief: { most: briefMs, held: heldBriefMs },
     },
   )
 }
