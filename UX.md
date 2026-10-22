@@ -162,7 +162,7 @@ them.
 | Re-run CI; merge; finish | not for scripts; `finish` | `R`; `M`; `F` | Re-run failed checks; Merge; Finish the branch |
 | Where the work stands | `status [DIR…] [--json or --plain]` | the top row | the work story, the header |
 | **Messaging** | | | |
-| Announce | `announce [--channel]` | `p` | Announce to SERVICE |
+| Announce | `announce [--channel]` | `p`; after `x` as "announce now instead" while one waits | Announce to SERVICE; Announce now instead, a secondary control below Stop waiting, while one waits |
 | Announce when CI passes | `announce --when-green`, `pr --announce` | `w` in the preview; armed as `n` opens one | Announce when CI passes |
 | Stop waiting for CI | `ctrl+c` while it waits | `x` on the messaging pane | Stop waiting |
 | Edit the announcement first | not for scripts | `e` in the preview | Edit, in the preview |

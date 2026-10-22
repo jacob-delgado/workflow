@@ -425,22 +425,24 @@ nothing is sent, as for an unedited one. An edit emptied of text is refused.
 
 Until the pull request's CI passes, a ready-for-review announcement's preview
 also offers **Announce when CI passes**, the terminal's `w`: the server holds
-the announcement — edited or not, with its tags — and the section says
-*Waiting for CI on #42 to pass, then announcing to #dev.*, with **Stop
-waiting** to drop it unposted. It is posted once the forge reports the CI
-passed, and the section then says it was announced. A failed run does not
-drop it: the section says a check failed and it waits on a fix, and it goes
-once a later run passes. While no check is reported the section says it waits
-for checks; after ten minutes with none, counted from the last read that saw
-one, it is dropped, saying to announce it by hand — a repository with no CI is
-announced by hand. When the branch's pull request is another one, or merged
-first, it is dropped and the section says why in red. **Announce now** drops a held announcement,
-so the channel never reads it twice. The server, not the page, holds it: it
-reads the CI for it every `timing.ci_interval` (twenty seconds unless set)
-whether a page is open or not, and settles it on each frame a page shows. It
-is kept in memory alone, so it is lost, unposted, if `workflow --web` stops
-or switches directory before the CI passes — as one held in the terminal is
-lost when the terminal closes.
+the announcement — edited or not, with its tags — and the section says *Waiting
+for CI on #42 to pass, then announcing to #dev.*, with **Stop waiting** to drop
+it unposted. Below them, while it waits, the announce button reads **Announce
+now instead**, drawn as a secondary control: it opens the same preview, and an
+announcement sent from it takes the held one's place. The held one is posted
+once the forge reports the CI passed, and the section then says it was
+announced. A failed run does not drop it: the section says a check failed and it
+waits on a fix, and it goes once a later run passes. While no check is reported
+the section says it waits for checks; after ten minutes with none, counted from
+the last read that saw one, it is dropped, saying to announce it by hand — a
+repository with no CI is announced by hand. When the branch's pull request is
+another one, or merged first, it is dropped and the section says why in red.
+**Announce now** drops a held announcement, so the channel never reads it twice.
+The server, not the page, holds it: it reads the CI for it every
+`timing.ci_interval` (twenty seconds unless set) whether a page is open or not,
+and settles it on each frame a page shows. It is kept in memory alone, so it is
+lost, unposted, if `workflow --web` stops or switches directory before the CI
+passes — as one held in the terminal is lost when the terminal closes.
 
 With a Slack user token, a ready-for-review announcement's preview also says
 whom it tags. **Tag code owners** lists the code owners of the branch's

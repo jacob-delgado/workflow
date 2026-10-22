@@ -194,8 +194,8 @@ func (m Model) canPost() bool {
 }
 
 // messagingKeys offers composing the post, and managing whom posts tag.
-// While a post waits for CI, stop waiting leads, and composing follows it as
-// announce now instead, since the post it opens takes the waiting one's place.
+// While a post waits for CI, composing follows stop waiting as announce now
+// instead, since the post it opens takes the waiting one's place.
 func (m Model) messagingKeys() []key.Binding {
 	var keys []key.Binding
 
