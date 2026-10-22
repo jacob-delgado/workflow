@@ -1,12 +1,6 @@
 import { join } from 'node:path'
 import type { Locator, Page, TestInfo } from '@playwright/test'
-import {
-  height,
-  openAnnouncementPreview,
-  openCockpit,
-  openSection,
-  readings,
-} from '../support/cockpit.ts'
+import { height, openAnnouncementPreview, openCockpit, openSection } from '../support/cockpit.ts'
 import { cutAtTheEdge, fontsLoaded, now, stillAnimating } from './capture.ts'
 import { expect, test } from './demo.ts'
 import {
@@ -15,7 +9,6 @@ import {
   commit,
   goTo,
   moveIntoProgress,
-  push,
   stage,
   startWork,
   toOpenPull,
@@ -125,38 +118,47 @@ const issues: Screen = {
   ],
 }
 
+// The redaction's three changes, as the demo's work tree holds them: two
+// files it modifies and the test it adds, which git does not track yet.
+const requestLogFile = 'internal/wiring/reqlog.go'
+const redactFile = 'internal/config/redact.go'
+const requestLogTestFile = 'internal/wiring/reqlog_test.go'
+
 // branch is the Branch section from its heading down to the working tree's
-// last change, its Show diff button included, once work on PROJ-412, moved
-// into progress, has two commits, the older pushed, and one change still to
-// commit. The commit form below it, which the page's Branch prose describes,
-// begins just above the window's edge, so it is taken out, leaving the space
-// below blank, rather than shown cut through its labels. A write's notice
-// outlives the writes after it, so the push's "Pushed" would stand beside
-// the later commit's 1 ahead; the page is loaded afresh once the branch
-// stands so, and shows none.
+// last change, its Show diff button included, mid-loop as the film tells
+// it, before the push: work on PROJ-412 started and moved into progress, one
+// of the redaction's three changes committed as 4f2c9e1, the film's own
+// first commit, the branch not pushed yet, a second change staged and the
+// test it adds still untracked, each with its buttons. The commit form below
+// it, which the page's Branch prose describes, begins just above the
+// window's edge, so it is taken out, leaving the space below blank, rather
+// than shown cut through its labels. The staging's notice stands under the
+// file it staged, which it agrees with.
 const branch: Screen = {
   ...section('Branch'),
   arrange: async (page) => {
     await startedInProgress(page)
     await goTo(page, brisk, 'Branch')
-    await stage(page, brisk, 'internal/wiring/reqlog.go')
+    await stage(page, brisk, requestLogFile)
     await commit(page, brisk, 'redact tokens in the request log')
-    await push(page, brisk)
-    await stage(page, brisk, 'internal/config/redact.go')
-    await commit(page, brisk, 'mask the token in each logged header')
-    await page.reload()
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
-    await expect(readings(page)).toHaveCount(0)
+    await stage(page, brisk, redactFile)
   },
   open: async (page) => {
     await openSection(page, 'Branch')
     await hide(page, 'form[aria-label="Commit staged changes"]')
   },
   agrees: async (page) => {
+    const tree = page.getByRole('region', { name: 'Working tree' })
+    await expect(page.getByRole('definition').filter({ hasText: /^not pushed yet$/ })).toBeVisible()
     await expect(
-      page.getByRole('definition').filter({ hasText: /^1 ahead, 0 behind/ }),
+      page.getByRole('region', { name: 'Commits', exact: true }).getByRole('listitem'),
+    ).toHaveText([/^4f2c9e1\s*fix\(config\): redact tokens in the request log$/])
+    await expect(
+      tree.getByRole('button', { name: `Unstage ${redactFile}`, exact: true }),
     ).toBeVisible()
-    await expect(page.getByRole('status').filter({ hasText: /^Pushed / })).toHaveCount(0)
+    await expect(
+      tree.getByRole('button', { name: `Stage ${requestLogTestFile}`, exact: true }),
+    ).toBeVisible()
   },
   whole: (page) => [
     page.getByRole('region', { name: 'Working tree' }).getByRole('listitem').last(),

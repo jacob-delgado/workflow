@@ -142,7 +142,7 @@ export async function commit(page: Page, pace: Pace, subject: string): Promise<v
 
 // push pushes the branch, confirming the push it asks about, done once its
 // tracking reads it pushed and nothing ahead of its upstream.
-export async function push(page: Page, pace: Pace): Promise<void> {
+async function push(page: Page, pace: Pace): Promise<void> {
   await pace.click(page.getByRole('button', { name: 'Push branch' }))
   await pace.click(
     page.getByRole('group', { name: /^Push / }).getByRole('button', { name: 'Push', exact: true }),
