@@ -92,9 +92,16 @@ shows it undone while the stream is live; it ends early only when the stream
 goes stale or closes. A configuration save checks the file's revision and
 refuses a changed file with 409; a change landing between that check and the
 write is not caught (`SaveLayers`, `internal/config/layers.go`), which is
-accepted for one user's local file. Recorded 2026-09-24, in #140, and
-2026-10-08, in #227, for the Tasks list's interval, and 2026-10-21 for the
-write gate's unbounded wait.
+accepted for one user's local file. A pull request opened here is put into the
+stream's forge cache as its seed, which the reads of the forge under way as it
+is made, and the frames waiting on them, do not replace; a read begun after it
+does. So a frame whose git read came before a commit and an open, but which
+reaches the forge cache only after the open's seed, starts a read for the old
+head and replaces the seed with what the forge says of it (`forgeCache.land`,
+`internal/webserver/streamcache.go`). Recorded 2026-09-24, in #140, and
+2026-10-08, in #227, for the Tasks list's interval, 2026-10-21 for the write
+gate's unbounded wait, and 2026-10-22 for the seed a later read of an older
+head replaces.
 
 **Cost.** A connection that stays open but stops sending frames looks live,
 and leaves stale data with no refetch to fall back on. And every write's
@@ -103,14 +110,20 @@ starts a due forge, tracker or assigned-keys read, or waits on the one a
 write here dropped the cache for, holds the write's answer until that read
 ends, up to `timing.request_timeout` (10 seconds unless set) per call when an
 upstream is slow or unreachable. A local stage made then reads Staging… for
-that long.
+that long. And when a frame replaces the seed, a forge whose list lags behind
+its opens finds no pull request at the new head either, so the page shows none
+for the one just opened until the next forge read, `timing.ci_interval`
+(twenty seconds unless set) later; the window to replace it is under a second,
+since a frame reads the forge right after git.
 
 **Reopen when.** A stalled-but-open stream is reported, a panel is reported
 showing stale data that neither the stream, its own `staleTime` nor a save
 reads again, or a write is reported held behind a slow forge or tracker read
 for long enough to matter: then cap the wait at about a stream interval, or
 have the server push a frame of git and Taskwarrior alone for a landing
-rather than one that waits on held network reads.
+rather than one that waits on held network reads. Or a pull request opened here
+is reported vanishing from the page: then hold no read of the seed's branch at
+another head unless a read of that head was under way as it was seeded.
 
 ### TRADE-5 The progress spine's per-system hue is color-only
 

@@ -28,9 +28,9 @@ import (
 // forge is read outside its lock, one read of a branch at a time: a frame that
 // finds one under way is served the answer held for its branch at once, or,
 // with none held, waits for that read rather than show none found, and takes
-// what the frame that began it shows, unless a drop came during it, so one
-// slow forge holds up no other stream that has an answer to show, and a
-// waiter asks the forge again only for what a drop changed.
+// what the frame that began it shows, unless a drop came during it with no
+// seed since, so one slow forge holds up no other stream that has an answer
+// to show, and a waiter asks the forge again only for what a drop changed.
 type forgeCache struct {
 	mu     sync.Mutex
 	held   bool
@@ -182,8 +182,9 @@ func (c *forgeCache) serve(key forgeKey, now time.Time, interval time.Duration) 
 
 // land holds what the read of key began after dropped drops found, and lets
 // go every frame waiting on it, each with what the frame that began it shows,
-// unless a drop came during the read: then each asks again, since the read
-// may say less than the forge does now. It answers what the frame shows.
+// unless a drop came during the read with no seed since: then each asks
+// again, since the read may say less than the forge does now, while a seed
+// after it says more than the drop forgot. It answers what the frame shows.
 func (c *forgeCache) land(key forgeKey, dropped int, now time.Time, read forgeRead, err error) (forgeRead, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -191,8 +192,10 @@ func (c *forgeCache) land(key forgeKey, dropped int, now time.Time, read forgeRe
 	underWay := c.reading[key]
 	delete(c.reading, key)
 
+	// Trade-off TRADE-4: a read begun after a seed, for an older head of its
+	// branch, replaces it, as any later read does.
 	shown, failed := c.hold(key, dropped, now, read, err)
-	if c.forgot > dropped {
+	if c.forgot > dropped && c.dropped == c.forgot {
 		underWay.end()
 	} else {
 		underWay.answer(shown, failed)
@@ -253,7 +256,9 @@ func (c *forgeCache) drop() {
 // here has just made the forge say, which the next frame shows without asking
 // a forge that may not list it yet. A read under way as it is seeded lands
 // without replacing it, and a frame that waited on that read shows what the
-// frame that began it does, rather than ask the forge again for its head.
+// frame that began it does, rather than ask the forge again for its head,
+// even when a drop came during the read before the seed. A read begun after
+// the seed is not kept from it: one for an older head replaces it.
 func (c *forgeCache) seed(key forgeKey, now time.Time, read forgeRead) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
