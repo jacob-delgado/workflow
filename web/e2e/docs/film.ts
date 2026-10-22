@@ -117,30 +117,75 @@ function durations(reel: Reel): number[] {
   })
 }
 
-// writeReel writes what ffmpeg reads to encode the film, walkthrough.ffconcat,
-// and what docs-media.sh checks the encoding against, walkthrough.txt: one
-// line for the film's size and length, then one for each frame, keyframe and
-// stretch that moves throughout.
-function writeReel(reel: Reel): void {
-  const played = durations(reel)
-  const lengthMs = played.reduce((sum, ms) => sum + ms, 0)
-  const last = reel.frames.at(-1)
-  const concat = [
+// briefMs is the most a frame may play and still be played as long: a
+// browser shows a WebP frame of 10 ms or less for 100 ms, as it does a GIF's.
+const briefMs = 10
+
+// Played is a frame as the encoding plays it: the frame, and for how long.
+interface Played {
+  frame: Frame
+  ms: number
+}
+
+// playedFrames is each frame of the film with how long it plays, a frame
+// brief enough that a browser would hold it for 100 ms folded into the frame
+// before it, or into the next when it opens the film. A beat's frame holds
+// for a beat, so none is ever folded away.
+function playedFrames(reel: Reel): Played[] {
+  const lasting = durations(reel)
+  const played: Played[] = []
+  let carried = 0
+  reel.frames.forEach((frame, index) => {
+    const ms = lasting[index] ?? 0
+    const before = played.at(-1)
+    if (ms > briefMs) {
+      played.push({ frame, ms: ms + carried })
+      carried = 0
+    } else if (before === undefined) {
+      carried += ms
+    } else {
+      before.ms += ms
+    }
+  })
+
+  return played
+}
+
+// concatOf is the list ffmpeg's concat demuxer reads, each frame for as long
+// as it plays. The demuxer reads each PNG at an image's own 25 a second and
+// keeps that clock for the whole list, so every start would round to 40 ms
+// and two frames drawn in the same 40 ms would start together, leaving a
+// frame of 0 ms, which a browser plays for 100 ms; framerate 1000 puts each
+// file, and so the film, on a clock of a millisecond.
+function concatOf(played: Played[]): string[] {
+  const clock = 'option framerate 1000'
+  const last = played.at(-1)
+
+  return [
     'ffconcat version 1.0',
-    ...reel.frames.flatMap((frame, index) => [
+    ...played.flatMap(({ frame, ms }) => [
       `file ${frame.file}`,
-      `duration ${((played[index] ?? 0) / 1000).toFixed(3)}`,
+      clock,
+      `duration ${(ms / 1000).toFixed(3)}`,
     ]),
     // The concat demuxer reads a duration only for a file it sees another
     // after, so the last is named twice.
-    ...(last === undefined ? [] : [`file ${last.file}`]),
+    ...(last === undefined ? [] : [`file ${last.frame.file}`, clock]),
   ]
+}
+
+// writeReel writes what ffmpeg reads to encode the film, walkthrough.ffconcat,
+// and what docs-media.sh checks the encoding against, walkthrough.txt: one
+// line for the film's size and length, then one for each frame as it plays,
+// keyframe and stretch that moves throughout.
+function writeReel(reel: Reel): void {
+  const played = playedFrames(reel)
+  const lengthMs = played.reduce((sum, { ms }) => sum + ms, 0)
   const manifest = [
     `size ${String(size.width)} ${String(size.height)}`,
     `length ${String(lengthMs)}`,
-    ...reel.frames.map(
-      (frame, index) =>
-        `frame ${frame.file} ${String(Math.round(frame.at))} ${String(played[index] ?? 0)}`,
+    ...played.map(
+      ({ frame, ms }) => `frame ${frame.file} ${String(Math.round(frame.at))} ${String(ms)}`,
     ),
     ...reel.keys.map((key) => `key ${key.file} ${String(Math.round(key.at))} ${key.caption}`),
     ...reel.stretches.map(
@@ -148,7 +193,7 @@ function writeReel(reel: Reel): void {
         `stretch ${String(Math.round(stretch.from))} ${String(Math.round(stretch.to))} ${stretch.what}`,
     ),
   ]
-  writeFileSync(join(reel.dir, 'walkthrough.ffconcat'), `${concat.join('\n')}\n`)
+  writeFileSync(join(reel.dir, 'walkthrough.ffconcat'), `${concatOf(played).join('\n')}\n`)
   writeFileSync(join(reel.dir, 'walkthrough.txt'), `${manifest.join('\n')}\n`)
 }
 
