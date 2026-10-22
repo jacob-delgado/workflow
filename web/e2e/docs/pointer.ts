@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test'
+import { expect, type Locator, type Page } from '@playwright/test'
 import { nextFrame, pointerId } from './capture.ts'
 import { clearSpot, type Point } from './cover.ts'
 
@@ -17,9 +17,11 @@ interface Glide {
 // Pointer moves the mouse in eased steps, the arrow following, and says
 // when each glide ran: to a control, or off whatever it covers of the page
 // and of what a beat shows, when it covers anything and a clear spot is to
-// be had. still waits for its pulse to end.
+// be had. press presses the control it glided to where it stands, and still
+// waits for its pulse to end.
 export interface Pointer {
   glide: (target: Locator) => Promise<Glide>
+  press: (target: Locator) => Promise<void>
   clear: (shown: Locator) => Promise<Glide | undefined>
   still: () => Promise<void>
 }
@@ -120,6 +122,26 @@ async function centerOf(target: Locator): Promise<Point> {
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
 }
 
+// pressable holds a control to what Playwright's click checks before it
+// presses, short of the scroll that click makes to reach it: shown, enabled,
+// and the topmost element at the point the press lands, or inside it.
+async function pressable(target: Locator, at: Point): Promise<void> {
+  await expect(target, 'the control the pointer presses').toBeVisible()
+  await expect(target, 'the control the pointer presses').toBeEnabled()
+  const over = await target.evaluate((element, { x, y }) => {
+    const hit = document.elementFromPoint(x, y)
+
+    return hit === element || (hit !== null && element.contains(hit))
+      ? null
+      : (hit?.outerHTML.slice(0, 120) ?? 'nothing')
+  }, at)
+  if (over !== null) {
+    throw new Error(
+      `the press at (${String(at.x)}, ${String(at.y)}) lands on ${over}, not on the control`,
+    )
+  }
+}
+
 // pointerStill waits for every animation the pointer runs, its pulse, to
 // end, so a beat's checks and keyframe see the arrow at its size.
 async function pointerStill(page: Page): Promise<void> {
@@ -156,6 +178,14 @@ export async function placePointer(page: Page, from: Point, clock: () => number)
       const to = await centerOf(target)
 
       return glideTo(to, stepsBetween(at, to))
+    },
+    // A person presses where the pointer stands, scrolling nothing to reach
+    // the control, where Playwright's click scrolls one its page counts
+    // partly hidden.
+    press: async (target) => {
+      await pressable(target, at)
+      await page.mouse.down()
+      await page.mouse.up()
     },
     clear: async (shown) => {
       const spot = await clearSpot(page, at, shown)

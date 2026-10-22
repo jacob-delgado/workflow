@@ -276,29 +276,6 @@ function wholeInView(shown: Locator): Promise<boolean> {
   })
 }
 
-// clearOfPadding says whether target lies clear of the scroll padding of
-// every pane around it that scrolls. Playwright's click scrolls a control
-// inside that padding clear of it before it presses, as Chromium counts it
-// partly hidden, which the film would show as a jump a person's click never
-// makes.
-function clearOfPadding(target: Locator): Promise<boolean> {
-  return target.evaluate((element) => {
-    const box = element.getBoundingClientRect()
-    let clear = true
-    for (let around = element.parentElement; around !== null; around = around.parentElement) {
-      const style = getComputedStyle(around)
-      if (/^(auto|scroll)$/.test(style.overflowY)) {
-        const pane = around.getBoundingClientRect()
-        const head = parseFloat(style.scrollPaddingTop) || 0
-        const foot = parseFloat(style.scrollPaddingBottom) || 0
-        clear &&= box.top >= pane.top + head && box.bottom <= pane.bottom - foot
-      }
-    }
-
-    return clear
-  })
-}
-
 // filmedScroll begins a scroll with start and waits until the panes stand
 // still, keeping the scroll as a stretch the film moves through when the
 // page moved, and says whether it did: one that did not leaves the same
@@ -316,11 +293,9 @@ async function filmedScroll(take: Take, start: () => Promise<void>): Promise<boo
 }
 
 // bringIntoView scrolls a control the film is about to act on wholly into
-// view, and clear of its panes' scroll padding, when it is not, as a person
-// scrolls to it before reaching for it; the scroll that brings it into view
-// keeps clear of that padding too.
+// view when it is not, as a person scrolls to it before reaching for it.
 async function bringIntoView(take: Take, target: Locator): Promise<void> {
-  if (!(await wholeInView(target)) || !(await clearOfPadding(target))) {
+  if (!(await wholeInView(target))) {
     await filmedScroll(take, () => scrollTo(target, 'nearest'))
   }
 }
@@ -358,11 +333,12 @@ async function scrolledByPress(page: Page): Promise<() => Promise<string[]>> {
   }
 }
 
-// clickInPlace clicks target, which the film has brought into view, and
-// fails when the click itself scrolled any pane to reach it.
-async function clickInPlace(page: Page, target: Locator): Promise<void> {
-  const scrolled = await scrolledByPress(page)
-  await target.click()
+// clickInPlace presses target where the pointer glided to it, the film
+// having brought it into view, and fails when the press itself scrolled any
+// pane to reach it.
+async function clickInPlace(take: Take, target: Locator): Promise<void> {
+  const scrolled = await scrolledByPress(take.page)
+  await take.pointer.press(target)
   expect(await scrolled(), 'the click scrolled the page').toEqual([])
 }
 
@@ -656,7 +632,7 @@ function filmedPace(take: Take): Pace {
   return {
     click: async (target) => {
       await glideTo(target)
-      await clickInPlace(take.page, target)
+      await clickInPlace(take, target)
       await park(take, target)
       expect(
         await pointerCovers(take.page, target),
@@ -665,14 +641,14 @@ function filmedPace(take: Take): Pace {
     },
     type: async (target, text) => {
       await glideTo(target)
-      await target.click()
+      await pointer.press(target)
       const from = clock()
       await target.pressSequentially(text, { delay: keyDelay })
       reel.stretches.push({ what: `typing "${text}"`, from, to: clock() })
     },
     choose: async (select, value) => {
       await glideTo(select)
-      await select.click()
+      await pointer.press(select)
       await select.selectOption(value)
     },
     beat: (caption, shown) => keyframe(take, { caption, shown }),

@@ -82,9 +82,11 @@ docs describe, and takes it in the dark theme at 1440 by 900, in UTC and under a
 held clock, once its heading is up and nothing is still reading. The same run
 films the walkthrough (`e2e/docs/walkthrough.spec.ts`, the `docs-walkthrough`
 project): the whole loop at 1280 by 800, at a person's pace, a pointer gliding
-to each control, field and choice before it presses, types or chooses
-(`e2e/docs/pointer.ts`) and parked, after each click and before each step's
-keyframe, where it covers no text, control, what it pressed or what the step
+to each control, field and choice before it presses, types or chooses,
+pressing with the mouse where it stands, so a press scrolls nothing
+(`e2e/docs/pointer.ts`), and parked, after each click beside the main column
+on the pressed control's row, where nothing the press says can land, and
+before each step's keyframe where it covers no text, control or what the step
 shows (`e2e/docs/cover.ts`), from an issue picked to its announcement posted
 once CI passed. It starts recording only once the page is live, the stream
 connected, the header and rail filled in and nothing reading or moving, so it
