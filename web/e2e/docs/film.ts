@@ -15,7 +15,8 @@ import type { Pace } from './loop.ts'
 import { drawPointer, placePointer, type Pointer } from './pointer.ts'
 
 // The walkthrough's film: the page's screencast kept frame by frame with the
-// time each was drawn, and the beats the loop's steps hold, written for
+// time each was drawn, closed by a screenshot of the page as it ends (see
+// lastFrame), and the beats the loop's steps hold, written for
 // scripts/docs-media.sh to encode and check. The browser sends a frame only
 // when it draws one, so a frame lasts until the next; a beat holds the first
 // frame that shows its keyframe for a beat's length more (held.ts), so the
@@ -594,6 +595,24 @@ export async function prepareFilm(page: Page, dir: string): Promise<Camera> {
   return { roll: () => roll(page, dir) }
 }
 
+// nextFrameFile is the file the reel's next frame goes in, named by its
+// place in the film.
+function nextFrameFile(reel: Reel): string {
+  return `frames/${String(reel.frames.length + 1).padStart(5, '0')}.png`
+}
+
+// lastFrame keeps the page as it stands once the screencast stops, as the
+// film's last frame. The screencast sends a frame only when the page draws,
+// and only every other one, so the last frame of the last beat's scroll can
+// go unsent with nothing drawn after it, and no frame would show that beat's
+// keyframe; a screenshot differs from a screencast frame by no more than the
+// rounding held.ts allows.
+async function lastFrame(page: Page, reel: Reel, at: number): Promise<void> {
+  const file = nextFrameFile(reel)
+  await page.screenshot({ path: join(reel.dir, file), caret: 'initial' })
+  reel.frames.push({ file, at })
+}
+
 // roll starts the film's clock, places the pointer at its start, so the
 // first frame already shows it there, and then starts the screencast.
 async function roll(page: Page, dir: string): Promise<Film> {
@@ -602,7 +621,7 @@ async function roll(page: Page, dir: string): Promise<Film> {
   const clock = () => Date.now() - began
   const pointer = await placePointer(page, pointerStart, clock)
   const stop = await screencast(page, (data, drawn) => {
-    const file = `frames/${String(reel.frames.length + 1).padStart(5, '0')}.png`
+    const file = nextFrameFile(reel)
     writeFileSync(join(dir, file), data)
     reel.frames.push({ file, at: drawn - began })
   })
@@ -613,6 +632,7 @@ async function roll(page: Page, dir: string): Promise<Film> {
     stalls: () => stallsIn(reel),
     finish: async () => {
       await stop()
+      await lastFrame(page, reel, clock())
       reel.keys = await heldKeys({ page, dir, frames: reel.frames }, reel.keys)
       writeReel(reel)
     },
