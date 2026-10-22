@@ -44,7 +44,7 @@ Here is the whole loop over a made-up day's work: PROJ-412 picked up, its
 branch made and the issue moved into progress, its changes staged, committed
 and pushed, its pull request opened, and Slack announcing it once CI passes.
 
-{{< image src="images/terminal.gif" alt="The terminal interface running the loop: starting work on PROJ-412 creates its branch and moves it to In Progress, the Commits pane stages its three changes and commits them, the Branch pane pushes the branch, the Review pane opens pull request #128, its code owners proposed as its reviewers, and watches its CI, and the Slack pane, its message shown in Slack's markup, announces it to #dev-workflow once the four checks pass, before the Issues pane is focused again" loading="lazy" >}}
+{{< image src="images/terminal.gif" alt="The terminal interface running the loop: starting work on PROJ-412 creates branch fix/PROJ-412-redact-tokens-in-the-request-log and Change status moves it to In Progress, its three changes are staged, committed as fix(config): redact tokens in the request log and pushed, pull request #128 is opened with lee.chen, sam.ortiz and acme/platform proposed as reviewers, the announcement to Slack's #dev-workflow waits for CI and posts itself once all four checks pass, and the film ends back on PROJ-412 with every stage of the loop done." loading="lazy" >}}
 
 The Slack pane shows the announcement as it will be sent, in Slack's own
 markup: a link reads `<url|text>` there, and Slack shows it as just the text
