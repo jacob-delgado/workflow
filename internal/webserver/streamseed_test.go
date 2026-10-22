@@ -58,6 +58,65 @@ func TestAPullRequestOpenedAtANewHeadOutlastsAReadAnotherFrameWaitedOn(t *testin
 	})
 }
 
+func TestAPullRequestOpenedAfterAnEditDuringAReadAnotherFrameWaitedOnOutlastsIt(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// One frame reads the forge for the head before a commit, and an open
+		// page's frame for that head waits on its read. Before the read
+		// lands, #42 is edited and then closed, and #128 is opened at the
+		// head after the commit, on a forge whose list lags behind its opens:
+		// the open came after the edit's drop, so the waiter takes what the
+		// read found rather than read the old head again, a read that would
+		// replace the open's answer.
+		slow, moving := newSlowForge(), &movingHead{head: webtest.FilledHead}
+		deps := slow.wire(laggingForgeDeps())
+		deps.Forge.EditPullRequest = func(
+			_ context.Context, pull forge.PullRequest, edit forge.PullRequestEdit,
+		) (forge.PullRequest, error) {
+			pull.Title = edit.Title
+
+			return pull, nil
+		}
+		read := deps.Git.Branch
+		deps.Git.Branch = func(ctx context.Context) (gitrepo.Branch, error) { return moving.branch(ctx, read) }
+		handler := webtest.Serve(t, deps, webhookConfig())
+		cancelHeld(t, handler)
+
+		slow.slowDown()
+		reading := frameInFlight(t, handler, slow.slowRead)
+		waiting := webtest.OpenStream(t, handler, "/api/events")
+
+		synctest.Wait()
+		slow.openThePull()
+
+		edited := webtest.Send(t, handler, http.MethodPatch, "/api/pull-request", `{"title":"retitled","body":""}`)
+		if edited.Code != http.StatusOK {
+			t.Fatalf("the edit answered %d: %s", edited.Code, edited.Body.String())
+		}
+
+		slow.closeThePull()
+		moving.commit()
+
+		opened := webtest.Send(t, handler, http.MethodPost, "/api/pull-request", openRequestBody)
+		if opened.Code != http.StatusOK {
+			t.Fatalf("opening the pull request answered %d: %s", opened.Code, opened.Body.String())
+		}
+
+		// Act
+		close(slow.release)
+		<-reading
+		synctest.Wait()
+
+		// Assert
+		if frame := lastSnapshot(t, waiting.Close()); !frame.Review.Found || frame.Review.Pull.Number != openedPull {
+			t.Errorf("the waiting page's last review = %+v, want #%d, opened at the new head",
+				frame.Review, openedPull)
+		}
+	})
+}
+
 // seededForge is a forge whose list lags behind its opens, as
 // laggingForgeDeps', counting its pull request reads, which the test may slow
 // down, over a checkout the test moves and a clock that stands still, so no

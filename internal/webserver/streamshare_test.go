@@ -214,6 +214,14 @@ func (f *slowForge) openThePull() {
 	f.pull = true
 }
 
+// closeThePull makes the forge find no pull request from now on.
+func (f *slowForge) closeThePull() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.pull = false
+}
+
 // frameInFlight starts a frame of its own stream on handler, which ends once
 // the slow read it waits on is let go, and waits for that read to start.
 func frameInFlight(t *testing.T, handler http.Handler, read *slowRead) <-chan *httptest.ResponseRecorder {
