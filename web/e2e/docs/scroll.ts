@@ -69,6 +69,32 @@ export function wholeInView(shown: Locator): Promise<boolean> {
   })
 }
 
+// lineRoom is how far below a control the line that says what its press did
+// reaches: the gap above the line and the line on its ground, one row of
+// text tall.
+const lineRoom = 48
+
+// scrollRoomBelow starts a smooth scroll of the pane target lies in, the
+// nearest around it that scrolls, the least that shows lineRoom below target
+// clear of the pane's scroll padding; none when that room already shows.
+export function scrollRoomBelow(target: Locator): Promise<void> {
+  return target.evaluate((element, room) => {
+    let pane = element.parentElement
+    while (pane !== null && !/^(auto|scroll)$/.test(getComputedStyle(pane).overflowY)) {
+      pane = pane.parentElement
+    }
+    if (pane === null) {
+      return
+    }
+    const foot = parseFloat(getComputedStyle(pane).scrollPaddingBottom) || 0
+    const short =
+      element.getBoundingClientRect().bottom + room - (pane.getBoundingClientRect().bottom - foot)
+    if (short > 0) {
+      pane.scrollBy({ top: short, behavior: 'smooth' })
+    }
+  }, lineRoom)
+}
+
 // Clearing is what scrollClear weighs a pane's scroll by: the elements an
 // edge may not cut beside the lines of text, how far past an edge a part may
 // overhang before it counts as cut, and the points the cuts show at.

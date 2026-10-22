@@ -13,7 +13,14 @@ import { pointerCovers, type Point } from './cover.ts'
 import { heldKeys } from './held.ts'
 import type { Pace } from './loop.ts'
 import { drawPointer, placePointer, type Pointer } from './pointer.ts'
-import { scrollClear, scrollTo, scrollTops, settled, wholeInView } from './scroll.ts'
+import {
+  scrollClear,
+  scrollRoomBelow,
+  scrollTo,
+  scrollTops,
+  settled,
+  wholeInView,
+} from './scroll.ts'
 
 // The walkthrough's film: the page's screencast kept frame by frame with the
 // time each was drawn, closed by a screenshot of the page as it ends (see
@@ -238,6 +245,15 @@ async function bringIntoView(take: Take, target: Locator): Promise<void> {
   }
 }
 
+// bringRoomIntoView scrolls the room for the line a press will say under
+// target into view before the press, when it is out of view. The page hands
+// that line the focus when the press turns its control off, and the
+// browser's own scroll to a focused element out of view jumps there at
+// once, to the window's middle, where the film's would glide.
+async function bringRoomIntoView(take: Take, target: Locator): Promise<void> {
+  await filmedScroll(take, () => scrollRoomBelow(target))
+}
+
 // scrolledByPress watches the page until its next press and gives each pane
 // that, when the press came, stood elsewhere than as it stands now: what a
 // click scrolled to reach its control, apart from what the page scrolls
@@ -450,7 +466,8 @@ async function roll(page: Page, dir: string): Promise<Film> {
 }
 
 // filmedPace is the walkthrough's pace: the pointer glides to each control
-// first, scrolling it into view as it goes, and once it has clicked one it
+// first, scrolling it into view as it goes, and the room for the line under
+// it too when the press hands that line the focus; once it has clicked one it
 // parks clear of it and of the page, so it rests on nothing while the page
 // does what was pressed; a field is clicked and typed into a key at a time,
 // and a choice clicked and chosen, the pointer staying where it pressed
@@ -463,15 +480,20 @@ function filmedPace(take: Take): Pace {
     reel.stretches.push({ what: 'a glide', from: glide.began, to: glide.ended })
   }
 
+  const click = async (target: Locator) => {
+    await glideTo(target)
+    await clickInPlace(take, target)
+    await park(take, target)
+    expect(await pointerCovers(take.page, target), 'the pointer rests clear after a click').toEqual(
+      [],
+    )
+  }
+
   return {
-    click: async (target) => {
-      await glideTo(target)
-      await clickInPlace(take, target)
-      await park(take, target)
-      expect(
-        await pointerCovers(take.page, target),
-        'the pointer rests clear after a click',
-      ).toEqual([])
+    click,
+    clickToLine: async (target) => {
+      await bringRoomIntoView(take, target)
+      await click(target)
     },
     type: async (target, text) => {
       await glideTo(target)
