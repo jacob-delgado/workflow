@@ -10,6 +10,8 @@ pull request and announcement the terminal interface shows, read from the same
 repository and services through the same code. It is another way in, not a
 second implementation, and the terminal stays the fuller of the two.
 
+{{< image src="images/web-walkthrough.webp" alt="The web interface running the loop for PROJ-412, Redact tokens in the request log. In the Issues section PROJ-412 is selected at To Do with its work not started; Start work creates fix/PROJ-412-redact-tokens-in-the-request-log, and Change status moves the issue from To Do to In Progress. In the Branch section its three changes are staged with Stage all, committed as 4f2c9e1 fix(config): redact tokens in the request log, and pushed. In the Review section pull request #128 is composed and opened with lee.chen, sam.ortiz and acme/platform proposed as reviewers, and the Slack section shows the announcement to #dev-workflow armed and waiting for CI. Once lint, build, test and e2e pass, the announcement posts itself. The film ends on PROJ-412's work story with every stage done: picked up, branch, working tree clean, #128 with CI passed, and announced" loading="lazy" >}}
+
 ## Start it
 
 ```sh
