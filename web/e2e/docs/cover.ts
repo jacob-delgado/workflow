@@ -60,20 +60,32 @@ async function arrowBox(page: Page): Promise<Box> {
   }
 }
 
+// shownBox is the box of what the beat shows as the page stands, read in one
+// evaluation that waits for nothing; none once the page no longer shows it,
+// or draws it nowhere: a click can take away or rename the control it
+// pressed at any moment the server answers, and a box read by waiting would
+// wait for it.
+async function shownBox(shown: Locator): Promise<Box | null> {
+  return shown.evaluateAll((all) => {
+    const drawn = all.at(0)?.getBoundingClientRect()
+
+    return drawn === undefined || (drawn.width === 0 && drawn.height === 0)
+      ? null
+      : { left: drawn.left, top: drawn.top, right: drawn.right, bottom: drawn.bottom }
+  })
+}
+
 // groundOf is the ground under the pointer as the page stands, what the beat
-// shows taken with the rest.
+// shows taken with the rest while the page still shows it.
 async function groundOf(page: Page, shown: Locator): Promise<Ground> {
   const arrow = await arrowBox(page)
   const parts = await partsShown(page, takenBy)
-  const beat = await shown.boundingBox()
+  const beat = await shownBox(shown)
   const taken = parts.flatMap((part) =>
     part.seen === null ? [] : [{ what: part.what, box: part.seen }],
   )
   if (beat !== null) {
-    taken.push({
-      what: 'what the beat shows',
-      box: { left: beat.x, top: beat.y, right: beat.x + beat.width, bottom: beat.y + beat.height },
-    })
+    taken.push({ what: 'what the beat shows', box: beat })
   }
 
   return { arrow, taken }

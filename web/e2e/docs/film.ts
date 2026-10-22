@@ -507,8 +507,9 @@ async function reveal(take: Take, shown: Locator): Promise<void> {
 }
 
 // park moves the pointer, once its pulse is done, off what it covers of the
-// page and of what the beat shows, gliding as the film moves through, and
-// waits for what the glide's hover left moving to stand still.
+// page and of what the beat shows, or of the control a click pressed,
+// gliding as the film moves through, and waits for what the glide's hover
+// left moving to stand still.
 async function park(take: Take, shown: Locator): Promise<void> {
   const { page, reel, pointer } = take
   await pointer.still()
@@ -619,9 +620,11 @@ async function roll(page: Page, dir: string): Promise<Film> {
 }
 
 // filmedPace is the walkthrough's pace: the pointer glides to each control
-// first, scrolling it into view as it goes, and stays where it pressed until
-// a beat parks it; a field is clicked and typed into a key at a time, and a
-// choice clicked and chosen; and each beat is a keyframe.
+// first, scrolling it into view as it goes, and once it has clicked one it
+// parks clear of it and of the page, so it rests on nothing while the page
+// does what was pressed; a field is clicked and typed into a key at a time,
+// and a choice clicked and chosen, the pointer staying where it pressed
+// until a beat parks it; and each beat is a keyframe.
 function filmedPace(take: Take): Pace {
   const { reel, clock, pointer } = take
   const glideTo = async (target: Locator) => {
@@ -634,6 +637,11 @@ function filmedPace(take: Take): Pace {
     click: async (target) => {
       await glideTo(target)
       await clickInPlace(take.page, target)
+      await park(take, target)
+      expect(
+        await pointerCovers(take.page, target),
+        'the pointer rests clear after a click',
+      ).toEqual([])
     },
     type: async (target, text) => {
       await glideTo(target)
