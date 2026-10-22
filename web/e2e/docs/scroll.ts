@@ -13,6 +13,42 @@ export function scrollTops(page: Page): Promise<string> {
   )
 }
 
+// focusScrolls watches every element the page's script gives the focus
+// from now on and gives a check that stops watching and names each pane
+// the browser scrolled to show one, and how far: where the panes stood as
+// focus() was called against where they stand once it returns, so a pane
+// that moves because the page grew or shrank is not counted.
+export async function focusScrolls(page: Page): Promise<() => Promise<string[]>> {
+  const watch = await page.evaluateHandle(() => {
+    const scrolled: string[] = []
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- called on each element given the focus, as the page calls it
+    const focus = HTMLElement.prototype.focus
+    HTMLElement.prototype.focus = function (this: HTMLElement, options?: FocusOptions) {
+      const panes = [...document.querySelectorAll('*')].map((pane) => ({
+        pane,
+        top: pane.scrollTop,
+      }))
+      focus.call(this, options)
+      for (const { pane, top } of panes.filter(({ pane, top }) => pane.scrollTop !== top)) {
+        scrolled.push(`${pane.tagName} from ${String(top)} to ${String(pane.scrollTop)}`)
+      }
+    }
+
+    return () => {
+      HTMLElement.prototype.focus = focus
+
+      return scrolled
+    }
+  })
+
+  return async () => {
+    const scrolled = await watch.evaluate((stop) => stop())
+    await watch.dispose()
+
+    return scrolled
+  }
+}
+
 // settled waits, a frame at a time, until the panes have moved from where
 // they stood before a scroll began and then stood still for two frames, and
 // says whether they moved; a scroll that never starts, since the page was
@@ -71,7 +107,7 @@ export function wholeInView(shown: Locator): Promise<boolean> {
 
 // lineRoom is how far below a control the line that says what its press did
 // reaches: the gap above the line and the line on its ground, one row of
-// text tall.
+// text tall. The film's click to a line fails when the line takes more.
 const lineRoom = 48
 
 // scrollRoomBelow starts a smooth scroll of the pane target lies in, the

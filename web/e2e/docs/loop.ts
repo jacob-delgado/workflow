@@ -9,13 +9,13 @@ import { readings, workedIssue } from '../support/cockpit.ts'
 
 // Pace is how a step acts on the page: how it clicks a control, and one whose
 // press turns it off, so the page hands the focus to the line under it that
-// says what the press did; how it types into a field, how it chooses an
-// option of a select by its value or label, and the beat it holds once the
-// page shows what the step did, captioned with what that is, on the element
-// that shows it.
+// says what the press did, given that line; how it types into a field, how
+// it chooses an option of a select by its value or label, and the beat it
+// holds once the page shows what the step did, captioned with what that is,
+// on the element that shows it.
 export interface Pace {
   click: (target: Locator) => Promise<void>
-  clickToLine: (target: Locator) => Promise<void>
+  clickToLine: (target: Locator, line: Locator) => Promise<void>
   type: (target: Locator, text: string) => Promise<void>
   choose: (select: Locator, value: string) => Promise<void>
   beat: (caption: string, shown: Locator) => Promise<void>
@@ -109,8 +109,8 @@ export async function moveIntoProgress(page: Page, pace: Pace): Promise<void> {
 // off once nothing is left to stage, so the focus goes to that notice.
 async function stageAll(page: Page, pace: Pace): Promise<void> {
   const tree = page.getByRole('region', { name: 'Working tree' })
-  await pace.clickToLine(tree.getByRole('button', { name: 'Stage all', exact: true }))
   const staged = said(page, 'Staged every change.')
+  await pace.clickToLine(tree.getByRole('button', { name: 'Stage all', exact: true }), staged)
   await expect(staged).toBeVisible()
   await expect(tree.getByRole('button', { name: /^Stage (?!all$)/ })).toHaveCount(0)
   await pace.beat('Every change staged', staged)

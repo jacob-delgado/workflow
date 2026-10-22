@@ -14,6 +14,7 @@ import { heldKeys } from './held.ts'
 import type { Pace } from './loop.ts'
 import { drawPointer, placePointer, type Glide, type Pointer } from './pointer.ts'
 import {
+  focusScrolls,
   scrollClear,
   scrollRoomBelow,
   scrollTo,
@@ -465,46 +466,60 @@ async function roll(page: Page, dir: string): Promise<Film> {
   }
 }
 
+// glideToControl brings target into view and glides the pointer to it,
+// keeping the glide as a stretch the film moves through.
+async function glideToControl(take: Take, target: Locator): Promise<void> {
+  await bringIntoView(take, target)
+  const glide = await take.pointer.glide(target)
+  take.reel.stretches.push({ what: 'a glide', from: glide.began, to: glide.ended })
+}
+
+// filmedClick glides to target and presses it where the pointer stands,
+// then parks where nothing the press brings up can land, beside the main
+// column on the control's row when it can, so the pointer rests on nothing
+// while the page does what was pressed.
+async function filmedClick(take: Take, target: Locator): Promise<void> {
+  await glideToControl(take, target)
+  await clickInPlace(take, target)
+  await park(take, () => take.pointer.leave(target))
+  expect(await pointerCovers(take.page, target), 'the pointer rests clear after a click').toEqual(
+    [],
+  )
+}
+
+// filmedClickToLine clicks target, whose press hands the focus to line,
+// once the room for line shows below it, and fails when that focus scrolled
+// any pane: the browser jumps at once to a focused element out of view,
+// where the film would glide, so the room shown fell short of the line.
+async function filmedClickToLine(take: Take, target: Locator, line: Locator): Promise<void> {
+  await bringRoomIntoView(take, target)
+  const scrolled = await focusScrolls(take.page)
+  await filmedClick(take, target)
+  await expect(line, 'the line the press says takes the focus').toBeFocused()
+  expect(await scrolled(), 'the focus on the line the press says scrolled the page').toEqual([])
+}
+
 // filmedPace is the walkthrough's pace: the pointer glides to each control
 // first, scrolling it into view as it goes, and the room for the line under
-// it too when the press hands that line the focus; once it has clicked one it
-// parks where nothing the press brings up can land, beside the main column on
-// the control's row when it can, so it rests on nothing while the page does
-// what was pressed; a field is clicked and typed into a key at a time,
-// and a choice clicked and chosen, the pointer staying where it pressed
-// until a beat parks it; and each beat is a keyframe.
+// it too when the press hands that line the focus, and parks after a click;
+// a field is clicked and typed into a key at a time, and a choice clicked
+// and chosen, the pointer staying where it pressed until a beat parks it;
+// and each beat is a keyframe.
 function filmedPace(take: Take): Pace {
   const { reel, clock, pointer } = take
-  const glideTo = async (target: Locator) => {
-    await bringIntoView(take, target)
-    const glide = await pointer.glide(target)
-    reel.stretches.push({ what: 'a glide', from: glide.began, to: glide.ended })
-  }
-
-  const click = async (target: Locator) => {
-    await glideTo(target)
-    await clickInPlace(take, target)
-    await park(take, () => pointer.leave(target))
-    expect(await pointerCovers(take.page, target), 'the pointer rests clear after a click').toEqual(
-      [],
-    )
-  }
 
   return {
-    click,
-    clickToLine: async (target) => {
-      await bringRoomIntoView(take, target)
-      await click(target)
-    },
+    click: (target) => filmedClick(take, target),
+    clickToLine: (target, line) => filmedClickToLine(take, target, line),
     type: async (target, text) => {
-      await glideTo(target)
+      await glideToControl(take, target)
       await pointer.press(target)
       const from = clock()
       await target.pressSequentially(text, { delay: keyDelay })
       reel.stretches.push({ what: `typing "${text}"`, from, to: clock() })
     },
     choose: async (select, value) => {
-      await glideTo(select)
+      await glideToControl(take, select)
       await pointer.press(select)
       await select.selectOption(value)
     },
