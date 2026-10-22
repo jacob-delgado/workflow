@@ -23,12 +23,13 @@
 # It refuses to film on a busy machine, a load past all but one processor or
 # a gate or Playwright run going, since a late frame is a jump in either
 # recording (lib/walkthrough.sh). The WebP must be the film its manifest
-# describes: animated, 1280 by 800, looping forever, as long as the film
-# within a second, with no frame past 250 ms where the film moves throughout,
-# a glide, typing or a scroll, every frame it holds the film's own as
-# Chromium decodes it (web's media:check), and a keyframe kept for each step
-# to look at. The film is PNG and the WebP lossless: a lossy one left blocks
-# of earlier frames on screen. ffprobe 6.1 cannot read an animated WebP, so
+# describes: animated, 1280 by 800, looping forever, with no frame of 10 ms
+# or less, which a browser plays for 100 ms, as long as the film within a
+# second, with no frame past 250 ms where the film moves throughout, a
+# glide, typing or a scroll, every frame it holds the film's own as Chromium
+# decodes it (web's media:check), and a keyframe kept for each step to look
+# at. The film is PNG and the WebP lossless: a lossy one left blocks of
+# earlier frames on screen. ffprobe 6.1 cannot read an animated WebP, so
 # lib/webp.sh reads its chunks.
 #
 # It refuses to run while what the images show, under cmd/, internal/, web/

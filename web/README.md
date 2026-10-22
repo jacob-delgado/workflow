@@ -96,8 +96,9 @@ encodes and checks the WebP by, into `tmp/walkthrough` (`e2e/docs/film.ts`), and
 fails when a glide, typed text or scroll goes more than 250 ms without a frame.
 Once the WebP is encoded, `corepack yarn media:check`
 (`e2e/docs/fidelity.spec.ts`, the `docs-fidelity` project) decodes it with
-Chromium's `ImageDecoder` and fails on any frame a step holds that is not the
-film's own. It needs the demo built first, `go build -o tmp/demo ./cmd/demo`
+Chromium's `ImageDecoder`, stepping through its frames as a browser plays them,
+one of 10 ms or less for 100 ms, and fails on any frame a step holds that is not
+the film's own. It needs the demo built first, `go build -o tmp/demo ./cmd/demo`
 from the repository root, as `task docs:media` does. Neither `test:e2e` nor CI
 runs it, and nothing compares its images. Every run launches the headless shell
 of the Chromium build Playwright pins, as CI does; where that build cannot be

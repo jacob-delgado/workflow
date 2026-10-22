@@ -15,6 +15,10 @@
 # throughout before it counts as frames the encoding lost.
 readonly stall_ms=250
 
+# brief_ms is the most a WebP frame may play and still be played as long: a
+# browser shows a frame of 10 ms or less for 100 ms, as it does a GIF's.
+readonly brief_ms=10
+
 # refuse_busy refuses to film while the machine is busy with something else:
 # its load over the last minute past all but one of its processors, or a gate
 # or a Playwright run going. A busy machine draws frames late, and a late
@@ -49,7 +53,9 @@ refuse_no_webp() {
 # PNG, so a frame's unchanged pixels are the last frame's and the encoding
 # keeps only what moved; a lossy encoding left blocks of earlier frames on
 # screen. passthrough keeps every frame at its own time, where ffmpeg would
-# otherwise fit them to 25 a second and drop the frame a step settles on.
+# otherwise fit them to 25 a second and drop the frame a step settles on;
+# the film's list puts each PNG on a clock of a millisecond for the same
+# reason, since the concat demuxer reads an image at 25 a second.
 encode_walkthrough() {
   local film="${root}/tmp/walkthrough"
   [[ -n "$(find "${film}/walkthrough.txt" -newer "${started}" -print 2>/dev/null)" ]] \
@@ -119,6 +125,18 @@ stalls() {
     }' "${root}/tmp/walkthrough/walkthrough.txt" "$1"
 }
 
+# brief prints each WebP frame that plays brief_ms or less, which a browser
+# holds for 100 ms instead, by where it starts in the WebP.
+#   brief <facts>
+brief() {
+  awk -v limit="${brief_ms}" '
+    $1 == "frame" {
+      k++
+      if ($2 <= limit) printf "frame %d at %.2f s plays %d ms, which a browser plays for 100 ms\n", k, w / 1000, $2
+      w += $2
+    }' "$1"
+}
+
 # check_keys stops the run when the film kept no keyframe, or a keyframe its
 # manifest names is not there to look at.
 check_keys() {
@@ -142,11 +160,12 @@ check_fidelity() {
 }
 
 # check_walkthrough stops the run when the WebP is not the film the manifest
-# describes: animated, its canvas the film's size, looping forever, as long
-# as the film within a second, with no frame lost inside a stretch that moves
+# describes: animated, its canvas the film's size, looping forever, with no
+# frame a browser holds for 100 ms however briefly it plays, as long as the
+# film within a second, with no frame lost inside a stretch that moves
 # throughout, and every frame it holds the film's own.
 check_walkthrough() {
-  local webp="${images}/web-walkthrough.webp" facts="${root}/tmp/walkthrough/facts.txt" length runs lost
+  local webp="${images}/web-walkthrough.webp" facts="${root}/tmp/walkthrough/facts.txt" held length runs lost
   webp_facts "${webp}" >"${facts}"
   if grep -qx 'not webp\|not animated' "${facts}"; then
     fail "web-walkthrough.webp: not an animated WebP"
@@ -154,6 +173,9 @@ check_walkthrough() {
   [[ "$(awk '$1 == "canvas" { print $2, $3 }' "${facts}")" == "$(manifest_value size)" ]] \
     || fail "web-walkthrough.webp: its canvas is not the film's $(manifest_value size)"
   [[ "$(awk '$1 == "loop" { print $2 }' "${facts}")" == 0 ]] || fail "web-walkthrough.webp: does not loop forever"
+  held="$(brief "${facts}")"
+  [[ -z "${held}" ]] || fail "web-walkthrough.webp: frames a browser plays longer than the film:
+${held}"
   length="$(manifest_value length)"
   runs="$(awk '$1 == "frame" { total += $2 } END { printf "%d", total }' "${facts}")"
   if ((runs - length > 1000 || length - runs > 1000)); then

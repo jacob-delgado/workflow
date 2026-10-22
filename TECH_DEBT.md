@@ -1364,15 +1364,16 @@ machine that wrote the image; the page's state marks fall outside its own face
 that the run wrote each image and kept it within its budget, 300 KiB a PNG, 2
 MiB the GIF and 4 MiB the WebP, whose lossless film of the whole loop is about
 3.2 MiB, that the GIF runs as long as its tape and the WebP as its film, with no
-frame lost where the film moves, which a busy machine's recordings do not, that
-each frame the WebP holds is the film's own as Chromium decodes it, which a
-lossy encoding's leftover blocks are not, that the machine is not busy when it
-starts, and that what the images show was committed when it ran, and the
-reviewer of the commit that changes them looks at them. Chromium and ffmpeg are
-the machine's, unpinned; VHS and ttyd are mise's pins or, where mise cannot
-install them, built by `go install` and downloaded. mise checks VHS against its
-release's checksums, but its pin of ttyd, `aqua:tsl0922/ttyd`, has no checksum
-to check against, so `mise install`, on a developer's Linux machine or in
+frame lost where the film moves, which a busy machine's recordings do not, and
+none so brief, 10 ms or less, that a browser holds it for 100 ms, that each
+frame the WebP holds is the film's own as Chromium decodes it, which a lossy
+encoding's leftover blocks are not, that the machine is not busy when it starts,
+and that what the images show was committed when it ran, and the reviewer of the
+commit that changes them looks at them. Chromium and ffmpeg are the machine's,
+unpinned; VHS and ttyd are mise's pins or, where mise cannot install them, built
+by `go install` and downloaded. mise checks VHS against its release's checksums,
+but its pin of ttyd, `aqua:tsl0922/ttyd`, has no checksum to check against, so
+`mise install`, on a developer's Linux machine or in
 `.devcontainer/postCreate.sh`, downloads ttyd unchecked; the release workflows
 leave both out with `MISE_DISABLE_TOOLS`. So the script checks every ttyd it
 runs, mise's included, against the SHA-256 in `docs/media/tool-checksums.txt`

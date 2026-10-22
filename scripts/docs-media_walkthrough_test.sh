@@ -3,15 +3,16 @@
 # Tests for the web walkthrough's half of scripts/docs-media.sh. With the
 # film there it encodes web-walkthrough.webp and passes it, once the WebP is
 # the film its manifest describes: animated, 1280 by 800, looping forever,
-# as long as the film within a second either way, with no frame playing
-# more than 250 ms of a stretch where the film moves throughout, whether the
-# time is lost inside it or into the frame before or after it, though a
-# frame held for a step's beat plays as long as it is held, with no such
-# stretch the film has no frame of, and with each step's keyframe there to
-# look at. A WebP of 4 MiB passes and a byte more fails by name. It
-# refuses a busy machine, a load past all but one of its processors or a
-# gate or Playwright run going, and an ffmpeg with no libwebp_anim; it fails
-# when the run filmed nothing, or the encoding fails. The stand-ins of
+# with no frame of 10 ms or less, which a browser plays for 100 ms and the
+# failure names, as long as the film within a second either way, with no
+# frame playing more than 250 ms of a stretch where the film moves
+# throughout, whether the time is lost inside it or into the frame before or
+# after it, though a frame held for a step's beat plays as long as it is
+# held, with no such stretch the film has no frame of, and with each step's
+# keyframe there to look at. A WebP of 4 MiB passes and a byte more fails by
+# name. It refuses a busy machine, a load past all but one of its processors
+# or a gate or Playwright run going, and an ffmpeg with no libwebp_anim; it
+# fails when the run filmed nothing, or the encoding fails. The stand-ins of
 # lib/docs-media-fixtures.sh say what they were asked, so nothing is built,
 # filmed or encoded.
 #
@@ -62,6 +63,14 @@ expect_exit pass "a frame of 250 ms inside a glide" media "${root}" "${all}" "${
 webp "${workdir}/run-on.webp" 1280 800 0 0 100 100 100 2700
 expect_exit pass "a glide's last frame run on into the beat's hold, as lossless encoding merges the same pixels" \
   media "${root}" "${all}" "${with_browser}" "FAKE_WEBP=${workdir}/run-on.webp"
+
+webp "${workdir}/brief.webp" 1280 800 0 0 100 10 190 100 2600
+expect_output 1 "a frame a browser holds for 100 ms, named by where it plays" \
+  "frame 2 at 0.10 s plays 10 ms, which a browser plays for 100 ms" media "${root}" "${all}" "${with_browser}" \
+  "FAKE_WEBP=${workdir}/brief.webp"
+webp "${workdir}/past-brief.webp" 1280 800 0 0 100 11 189 100 2600
+expect_exit pass "a frame of 11 ms, which a browser plays as long" media "${root}" "${all}" "${with_browser}" \
+  "FAKE_WEBP=${workdir}/past-brief.webp"
 
 # A film with a still frame before its glide and a beat after it: the still
 # frame plays 600 ms, then twelve glide frames 33 ms apart, the last held

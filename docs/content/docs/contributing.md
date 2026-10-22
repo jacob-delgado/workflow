@@ -75,11 +75,12 @@ the recording skips past what the tape holds on screen; the task fails when
 the recording runs more than a second longer or shorter than the tape's
 sleeps and typing take, and a tape that waits on the screen, which has no
 such length, is refused. The walkthrough is held the same way: it must run
-as long as its film within a second, no frame may last past 250 ms while
-the pointer glides, text is typed or the page scrolls, and every frame it
-holds on a step must be the film's own, decoded as Chromium shows it. The
-film is captured as PNG and encoded lossless, since a lossy WebP left blocks
-of earlier frames on screen.
+as long as its film within a second, no frame may play 10 ms or less, which
+a browser shows for 100 ms, no frame may last past 250 ms while the pointer
+glides, text is typed or the page scrolls, and every frame it holds on a step
+must be the film's own, decoded as Chromium shows it. The film is captured as
+PNG and encoded lossless, since a lossy WebP left blocks of earlier frames on
+screen.
 
 Look at the walkthrough's keyframes as well as the WebP: the film keeps an
 image of each step as it stood in `tmp/walkthrough/keys`, and the run fails
