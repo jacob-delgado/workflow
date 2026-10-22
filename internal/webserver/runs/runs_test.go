@@ -20,6 +20,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/runs"
 	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
@@ -278,14 +279,15 @@ func TestFixupRecordsAFixupOfTheCommitNamed(t *testing.T) {
 	}
 }
 
-// The contract reads a repeated key's last value and the decoder fails on its
-// first, so a body the contract admits can still fail to decode.
-func TestARunRequestThatDoesNotDecodeIsRefusedAndNothingRuns(t *testing.T) {
+// A repeated key leaves which of its values counts to whoever reads the body,
+// so the contract refuses the body, whichever value comes first.
+func TestARunRequestThatRepeatsAKeyIsRefusedAndNothingRuns(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]string{
 		"a kind that is first a number":   `{"kind":5,"kind":"rebase"}`,
 		"a commit that is first a number": `{"kind":"fixup","commit":7,"commit":"abc123"}`,
+		"a kind that names two runs":      `{"kind":"amend","kind":"rebase"}`,
 	}
 
 	for name, body := range cases {
@@ -298,6 +300,44 @@ func TestARunRequestThatDoesNotDecodeIsRefusedAndNothingRuns(t *testing.T) {
 
 			// Act
 			recorder := startRun(t, handler, body)
+
+			// Assert
+			failure := assertProblem(t, recorder, http.StatusBadRequest, "did not match the API contract")
+			if failure.Code != api.ProblemCodeBadRequest {
+				t.Errorf("code = %q, want %q", failure.Code, api.ProblemCodeBadRequest)
+			}
+
+			if len(calls.asked()) != 0 {
+				t.Errorf("calls = %v, want nothing run", calls.asked())
+			}
+		})
+	}
+}
+
+// StartRun is registered by hand and reads its own body, so it refuses one
+// that does not decode whether or not the contract stands in front of it.
+func TestStartRunRefusesABodyThatDoesNotDecodeAndRunsNothing(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]string{
+		"a kind that is a number":   `{"kind":5}`,
+		"a commit that is a number": `{"kind":"fixup","commit":7}`,
+		"a body cut short":          `{"kind":"rebase"`,
+	}
+
+	for name, body := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			calls := &runCalls{}
+			deps := runDeps(calls, passing)
+			runner := runs.New(runs.Seams{Git: deps.Git, Hooks: deps.Hooks}, func(error) {}, &sync.Mutex{},
+				func() int { return 1 })
+			recorder := httptest.NewRecorder()
+
+			// Act
+			runner.StartRun(recorder, runRequest(t, body))
 
 			// Assert
 			failure := assertProblem(t, recorder, http.StatusBadRequest, "could not be understood")

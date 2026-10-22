@@ -73,8 +73,8 @@ type plannedRun struct {
 func (r *Runner) StartRun(w http.ResponseWriter, request *http.Request) {
 	var asked api.RunRequest
 
-	// A body the contract admitted can still fail to decode: the contract
-	// reads a repeated key's last value, and the decoder fails on its first.
+	// Registered by hand, StartRun reads its own body, and does not lean on
+	// the contract in front of it to have refused one that cannot decode.
 	err := json.NewDecoder(request.Body).Decode(&asked)
 	if err != nil {
 		problem.WriteRequestError(w, request, err)
