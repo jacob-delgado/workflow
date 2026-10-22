@@ -44,12 +44,12 @@ The codes below are the whole set.
 
 ## Bad request
 
-Status 400. The request could not be understood — a malformed body, a query
-or path parameter that did not fit the contract (a task write whose uuid is not
-one, a Summary whose `from` or `to` is not a date written `YYYY-MM-DD`, an
-empty branch to check out or issue to start work on, say), or a configuration
-save whose `If-Match` is not in the form of the `ETag` a read of the
-configuration returns.
+Status 400. The request could not be understood — a malformed body, or one
+with an object that names the same key twice; a query or path parameter that
+did not fit the contract (a task write whose uuid is not one, a Summary whose
+`from` or `to` is not a date written `YYYY-MM-DD`, an empty branch to check out
+or issue to start work on, say); or a configuration save whose `If-Match` is
+not in the form of the `ETag` a read of the configuration returns.
 
 ## Unauthorized
 
