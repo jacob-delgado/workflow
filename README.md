@@ -16,12 +16,14 @@
 [![Code of Conduct](https://img.shields.io/badge/code%20of%20conduct-Contributor%20Covenant-purple)](CODE_OF_CONDUCT.md)
 [![Security policy](https://img.shields.io/badge/security-policy-critical)](SECURITY.md)
 
-A terminal UI for the loop a developer actually runs all day: pick up a Jira
-issue, start a branch for it, open the pull or merge request, and tell the team
-in Slack, Teams or Discord, or through a plain webhook — without leaving the
-keyboard or reconstructing the same context in three browser tabs.
+A terminal UI, and a local web app beside it, for the loop a developer actually
+runs all day: pick up a Jira issue, start a branch for it, open the pull or
+merge request, and tell the team in Slack, Teams or Discord, or through a plain
+webhook — without reconstructing the same context in three browser tabs.
 
-![The terminal interface running the loop: starting work on PROJ-412 creates its branch and moves it to In Progress, its changes are staged, committed and pushed, pull request #128 is opened with its code owners proposed as reviewers, and Slack announces it once CI passes](docs/assets/images/terminal.gif)
+| In the terminal: `workflow` | In the browser: `workflow --web` |
+| --- | --- |
+| ![The terminal interface running the loop: starting work on PROJ-412 creates branch fix/PROJ-412-redact-tokens-in-the-request-log and Change status moves it to In Progress, its three changes are staged, committed as fix(config): redact tokens in the request log and pushed, pull request #128 is opened with lee.chen, sam.ortiz and acme/platform proposed as reviewers, the announcement to Slack's #dev-workflow waits for CI and posts itself once all four checks pass, and the film ends back on PROJ-412 with every stage of the loop done.](docs/assets/images/terminal.gif) | ![The web interface running the loop for PROJ-412, Redact tokens in the request log. In the Issues section PROJ-412 is selected at To Do with its work not started; Start work creates fix/PROJ-412-redact-tokens-in-the-request-log, and Change status moves the issue from To Do to In Progress. In the Branch section its three changes are staged with Stage all, committed as 4f2c9e1 fix(config): redact tokens in the request log, and pushed. In the Review section pull request #128 is composed and opened with lee.chen, sam.ortiz and acme/platform proposed as reviewers, and the Slack section shows the announcement to #dev-workflow armed and waiting for CI. Once lint, build, test and e2e pass, the announcement posts itself. The film ends on PROJ-412's work story with every stage done: picked up, branch, working tree clean, #128 with CI passed, and announced](docs/assets/images/web-walkthrough.webp) |
 
 ## Status
 

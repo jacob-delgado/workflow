@@ -5,8 +5,15 @@ type: docs
 
 # workflow
 
-The [README](https://github.com/jacob-delgado/workflow#readme) says what
-workflow is. Below is what works today, and where to read next.
+The loop a developer runs all day — pick up a Jira issue, branch for it, open
+the pull or merge request, tell the team once CI passes — in the terminal, or
+in a browser with `workflow --web`. The
+[README](https://github.com/jacob-delgado/workflow#readme) says more about what
+workflow is; below is what works today, and where to read next.
+
+{{< image src="images/terminal.gif" alt="The terminal interface running the loop: starting work on PROJ-412 creates branch fix/PROJ-412-redact-tokens-in-the-request-log and Change status moves it to In Progress, its three changes are staged, committed as fix(config): redact tokens in the request log and pushed, pull request #128 is opened with lee.chen, sam.ortiz and acme/platform proposed as reviewers, the announcement to Slack's #dev-workflow waits for CI and posts itself once all four checks pass, and the film ends back on PROJ-412 with every stage of the loop done." loading="lazy" >}}
+
+{{< image src="images/web-walkthrough.webp" alt="The web interface running the loop for PROJ-412, Redact tokens in the request log. In the Issues section PROJ-412 is selected at To Do with its work not started; Start work creates fix/PROJ-412-redact-tokens-in-the-request-log, and Change status moves the issue from To Do to In Progress. In the Branch section its three changes are staged with Stage all, committed as 4f2c9e1 fix(config): redact tokens in the request log, and pushed. In the Review section pull request #128 is composed and opened with lee.chen, sam.ortiz and acme/platform proposed as reviewers, and the Slack section shows the announcement to #dev-workflow armed and waiting for CI. Once lint, build, test and e2e pass, the announcement posts itself. The film ends on PROJ-412's work story with every stage done: picked up, branch, working tree clean, #128 with CI passed, and announced" loading="lazy" >}}
 
 ## Status
 
