@@ -5,6 +5,7 @@ package tui_test
 
 import (
 	"context"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
@@ -223,6 +225,70 @@ func TestStopWaitingIsOfferedOnlyWhileAPostWaits(t *testing.T) {
 
 	// Assert: it can be stopped
 	requireScreen(t, waiting, "x stop waiting")
+}
+
+func TestWhileAPostWaitsAnnouncingIsOfferedAsAnnounceNowInsteadAfterStopWaiting(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	_, waiting := waitingOn(t, forge.CIRunning)
+
+	// Act
+	footer := footerLine(waiting.View().Content)
+
+	// Assert
+	refuseScreen(t, footer, "announce to Slack")
+	requireScreen(t, footer, "x stop waiting", "p announce now instead")
+
+	if strings.Index(footer, "p announce now instead") < strings.Index(footer, "x stop waiting") {
+		t.Errorf("announce now instead comes before stop waiting: %q", footer)
+	}
+}
+
+func TestAnnounceNowInsteadOpensThePreview(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	_, waiting := waitingOn(t, forge.CIRunning)
+
+	// Act
+	preview := typing(t, waiting, "p").View().Content
+
+	// Assert
+	requireScreen(t, preview, "┏━ Announce to Slack", "enter announce now")
+}
+
+func TestAnnounceNowInsteadIsNotOfferedOnceAnotherSessionAnnouncedIt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo, waiting := waitingOn(t, forge.CIRunning)
+	repo.mu.Lock()
+	repo.storedAnnounces = []loop.Announced{{Pull: 42, Moment: messaging.MomentReady}}
+	repo.mu.Unlock()
+
+	// Act
+	reread := typing(t, waiting, "r")
+
+	// Assert
+	footer := footerLine(reread.View().Content)
+	requireScreen(t, footer, "x stop waiting")
+	refuseScreen(t, footer, "announce now instead", "announce to Slack")
+}
+
+func TestOnceAPostStopsWaitingAnnouncingIsOfferedAsAnnounceToTheServiceAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	_, waiting := waitingOn(t, forge.CIRunning)
+
+	// Act
+	stopped := typing(t, waiting, "x")
+
+	// Assert
+	footer := footerLine(stopped.View().Content)
+	requireScreen(t, footer, "p announce to Slack")
+	refuseScreen(t, footer, "announce now instead")
 }
 
 func TestAHeldPostTheGateRefusesKeepsWaiting(t *testing.T) {
