@@ -4,5 +4,8 @@
   "description": "markdownlint-cli2, whose whole tree package-lock.json locks; task tools installs it with npm ci, and task deps:markdownlint re-locks it.",
   "dependencies": {
     "markdownlint-cli2": "0.24.0"
+  },
+  "overrides": {
+    "katex": "0.18.11"
   }
 }

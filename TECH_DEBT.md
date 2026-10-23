@@ -1257,8 +1257,14 @@ edit that drops `--only-binary` is caught only in review. The lock holds
 braces 3.0.3, which markdownlint-cli2 reaches through micromatch to expand the
 repository's own globs, and GHSA-vfj7-8cjw-p6xm (stack exhaustion through
 deeply nested patterns) covers every braces release, so
-`.github/workflows/dependency-review.yml` allows that advisory by name; the
-same braces was installed, unseen, before the lock.
+`.github/workflows/dependency-review.yml` allows that advisory by name, and
+its Dependabot alert is dismissed as a tolerable risk; the same braces was
+installed, unseen, before the lock. markdownlint reaches katex through
+micromark-extension-math, whose every release asks for katex ^0.16.0, which
+GHSA-238p-pmpm-9mq7 covers and 0.18.2 fixes, so
+`build/markdownlint/package.json` overrides it with 0.18.11. markdownlint
+imports katex along with the math syntax it parses but never renders math,
+which the advisory needs, so the override changes no code markdownlint calls.
 
 **Reopen when.** mise can install a Python or npm tool from a lock of its
 whole tree, with hashes and within its age filter, using no tool the
@@ -1266,7 +1272,8 @@ repository does not already pin; or uv is adopted for another reason, which
 would let mise's own lockfile hold the trees; or either linter is replaced by
 one released as a single binary. The braces allowance goes as soon as a braces
 release fixes GHSA-vfj7-8cjw-p6xm and the lock can take it, or
-markdownlint-cli2 stops reaching braces.
+markdownlint-cli2 stops reaching braces. The katex override goes once
+micromark-extension-math takes a fixed katex, or markdownlint stops reaching it.
 
 ### TRADE-54 A cloud session's gate runs zizmor offline and leaves vuln to CI
 
