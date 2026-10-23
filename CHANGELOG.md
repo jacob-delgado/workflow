@@ -1,5 +1,101 @@
 # Changelog
 
+## [0.13.0](https://github.com/jacob-delgado/workflow/compare/v0.12.0...v0.13.0) (2026-10-23)
+
+
+### ⚠ BREAKING CHANGES
+
+* **webserver:** a --web API request whose JSON body names the same key twice in an object is refused with 400 bad_request, "the request did not match the API contract", and nothing it asks for is done; before, the last value counted. A client sends each key once.
+* **config:** a .workflow.json whose forge.kind is not exactly "github" or "gitlab" (in capitals, or with spaces around it) no longer loads; workflow doctor names the setting. Write it in lowercase.
+
+### Bug Fixes
+
+* **config:** refuse a forge.kind not spelled in lowercase ([024fc07](https://github.com/jacob-delgado/workflow/commit/024fc0789c9a23e5a6719bd3804e23aec2f5f044))
+* **places:** keep the status chips in workflow order ([9fef17b](https://github.com/jacob-delgado/workflow/commit/9fef17baf43114696f04b7886ca7adc611cbcd8f))
+* **places:** rank a status named in two categories by the earlier one ([42c6775](https://github.com/jacob-delgado/workflow/commit/42c6775ce23da624631fe1385ba39ebac680d637))
+* **progress:** count changes toward Commits only on a feature branch ([0ef8cd6](https://github.com/jacob-delgado/workflow/commit/0ef8cd601ecee383afd445417e195d6e25987a85))
+* **tui:** keep the Slack stage in flight while an announcement sends ([d21e16c](https://github.com/jacob-delgado/workflow/commit/d21e16c1b7d7474b4b73393b4943485b171274e4))
+* **tui:** label shift+tab on the pull request title "back" ([aa7dcbc](https://github.com/jacob-delgado/workflow/commit/aa7dcbc299d1b826461b4f10768308aa450b4d68))
+* **tui:** name the announce action for what it does while one waits ([06da534](https://github.com/jacob-delgado/workflow/commit/06da534eead63b778788854faee44fef8f38c25d))
+* **tui:** take a notice's row from the focused pane alone ([6edccf6](https://github.com/jacob-delgado/workflow/commit/6edccf665f50a1e616412063a88ea72a3ac8f668))
+* **web:** bring a focused control wholly into view in Firefox ([601b4bd](https://github.com/jacob-delgado/workflow/commit/601b4bd225f3c0856a9268ad20b0d0226c1446fc))
+* **web:** grow the pull request Description to its whole text ([2463ba1](https://github.com/jacob-delgado/workflow/commit/2463ba1d832699537257e86ccc239c8356484e59))
+* **web:** hand a write on beside the first frame that counts it ([054c4bd](https://github.com/jacob-delgado/workflow/commit/054c4bd7ff891030544af9b7ae072b91f8891fc4))
+* **web:** keep the commit button on one line beside its outcome ([b7cbac8](https://github.com/jacob-delgado/workflow/commit/b7cbac878ec88de0c94d0953cc278b944b3eefbc))
+* **web:** keep the commit type used, and show the header it counts ([a981782](https://github.com/jacob-delgado/workflow/commit/a9817821b2fecdff6977f33c7b79001cc9de3b7b))
+* **web:** keep Unstage all beside Stage all once it has spoken ([6dde624](https://github.com/jacob-delgado/workflow/commit/6dde62456125ee38fdb59ef01a6f32d61684b5d7))
+* **web:** name the announce action for what it does while one waits ([46efc6c](https://github.com/jacob-delgado/workflow/commit/46efc6c43f82a7450cea0a3ea3620d57a47e4ad1))
+* **web:** refuse a write the contract refused without a frame ([963a233](https://github.com/jacob-delgado/workflow/commit/963a233e7a0bc53baf0881f7cbf5cf8f1edcc8cc))
+* **web:** say a finish finished above the review it restarts ([6a93af9](https://github.com/jacob-delgado/workflow/commit/6a93af9004ef1d2a317578d1fe68cf7d2075998b))
+* **web:** say a merge announced though the ready one was already said ([7c05bb3](https://github.com/jacob-delgado/workflow/commit/7c05bb3f2f3115d57734a7a82f66aa8f0723b20d))
+* **web:** say a write is done only once the page shows it ([f7db3d4](https://github.com/jacob-delgado/workflow/commit/f7db3d427c79dce5e2e8100de72d478708a5aace))
+* **web:** say an announcement already made by its moment, once ([6f88b70](https://github.com/jacob-delgado/workflow/commit/6f88b70995207b6c19f68af11783bda65347d02b))
+* **web:** say an announcement made here once while its answer lands ([6bf0633](https://github.com/jacob-delgado/workflow/commit/6bf0633ef1117c08f11fe039f1db917924e905e5))
+* **web:** say plainly how to drop an armed announcement ([639a9c3](https://github.com/jacob-delgado/workflow/commit/639a9c36fe6d58f464a7189fbe97e74f0f9ac8f6))
+* **webserver:** keep a seeded pull request from an older head's read ([e05a59e](https://github.com/jacob-delgado/workflow/commit/e05a59e0a9e961e8773e519bf97b46d7614fb6c8))
+* **webserver:** let a frame take the forge read it waited on ([4290c2b](https://github.com/jacob-delgado/workflow/commit/4290c2b3ed56c430b1f09f28ca30f371ea86d56b))
+* **webserver:** let waiters take a read a seed came after a drop during ([c1f58fb](https://github.com/jacob-delgado/workflow/commit/c1f58fbd407516eed09d30a29ba6eec193b4aaa3))
+* **webserver:** number every write, and count them in each frame ([3b3451a](https://github.com/jacob-delgado/workflow/commit/3b3451ada93846304ccb2e35f2a0e0bf9a78c1be))
+* **webserver:** push a frame as a write lands, never one read across it ([14feb0d](https://github.com/jacob-delgado/workflow/commit/14feb0da34e287f48b58d1a0deb801fada1474d3))
+* **webserver:** refuse a request body that repeats a key ([9e78e96](https://github.com/jacob-delgado/workflow/commit/9e78e96db7bbf468a340720bed0889dde06c4c4e))
+* **webserver:** send no frame from a server switched away from ([e4a3152](https://github.com/jacob-delgado/workflow/commit/e4a31527412758a6e0865a63baeb02b1c8c02472))
+* **webserver:** serve no answer a drop came during the read of ([6d9d4fe](https://github.com/jacob-delgado/workflow/commit/6d9d4fe7665e6b12fdba89a9978b1ddd9532829f))
+
+
+### Refactors
+
+* **ci:** move ci-gate's verdict into scripts/ci-gate.sh ([e0d29e6](https://github.com/jacob-delgado/workflow/commit/e0d29e650a8a93b609d5495dadd78b609a0d85e4))
+* **demo:** name the recording's steps the terminal tests repeat ([1993b1a](https://github.com/jacob-delgado/workflow/commit/1993b1a7093e42fe8078d9deab3b8a2d1a588a9d))
+* **demo:** read the demo's command line in internal/demo ([d3d9132](https://github.com/jacob-delgado/workflow/commit/d3d9132f21f460b02028e4ecafe43858af3e897e))
+* **demo:** read the demo's events, tasks and pulls without an error ([4359738](https://github.com/jacob-delgado/workflow/commit/43597387de0a764d33666dd02a905ae36d1667f8))
+* **scripts:** share gate-as-dev's test fixtures from lib ([4456cd1](https://github.com/jacob-delgado/workflow/commit/4456cd12fa3b205fcbb71505c1a07f41d5fc64f7))
+* **web:** drop the mock's released-version override ([e3aba5e](https://github.com/jacob-delgado/workflow/commit/e3aba5eca0e835d54a795e8e9df483d82fbbcd23))
+* **web:** launch the server run's Chromium from the shared device ([87a2388](https://github.com/jacob-delgado/workflow/commit/87a238849ae4c5d5de0c1d80af37c1abb6e4a9fc))
+* **web:** lift the film's glide and click out of filmedPace ([f0de118](https://github.com/jacob-delgado/workflow/commit/f0de118161864e6ed89ac83ba016bb16c71c2000))
+* **web:** move the film's page scrolls into scroll.ts ([d833c16](https://github.com/jacob-delgado/workflow/commit/d833c1663b7fb4940aa9c4ac3ac47859335deba1))
+
+
+### Documentation
+
+* add a page of questions and troubleshooting ([5607650](https://github.com/jacob-delgado/workflow/commit/5607650b8375ba635025650b78f3f4637e48fefe))
+* **api:** say a write's answer wakes the event stream ([f7a341a](https://github.com/jacob-delgado/workflow/commit/f7a341a65c1c8ae92931973cdd7a04acd249882e))
+* **config:** say what a Slack app configuration token is for ([2a533db](https://github.com/jacob-delgado/workflow/commit/2a533db01a7fb3bd5ec47ea0314ded26f2f71f3a))
+* **demo:** say where the demo's issues differ from the web's mock ([4c55223](https://github.com/jacob-delgado/workflow/commit/4c55223167614f1434b742cfecbeb05ab0857ba6))
+* describe the gate for a docs-only change ([3c8b720](https://github.com/jacob-delgado/workflow/commit/3c8b72071b0699f955e38c40a49d39bd323f1ea5))
+* give each pull request one review round ([02164b5](https://github.com/jacob-delgado/workflow/commit/02164b517295fb05c8bd5c6ab9966cefbd13d842))
+* lead with the web walkthrough beside the terminal ([0b45d80](https://github.com/jacob-delgado/workflow/commit/0b45d808bf00950285f1637abe1aa6b6e206e55f))
+* link Taskwarrior's site where each page first names it ([6fd9cd8](https://github.com/jacob-delgado/workflow/commit/6fd9cd81d5fdb5b3f791682c7f5f419863d6cde3))
+* name Announce now instead where the armed state's controls are ([0f2b051](https://github.com/jacob-delgado/workflow/commit/0f2b0516ec4bcae76c5a1e69ff3771f44611cbe3))
+* record the write gate's unbounded wait as kept in TRADE-4 ([017057b](https://github.com/jacob-delgado/workflow/commit/017057bef0b23534e96082adc809beb0d2151bd2))
+* regenerate the images and tell one story under them ([e82b8c3](https://github.com/jacob-delgado/workflow/commit/e82b8c3adfc76d54574bbbd2d7b02f12d010bd85))
+* show the terminal and web interfaces ([89a06d9](https://github.com/jacob-delgado/workflow/commit/89a06d9ff6d0b00ee40d59f0c7a97b0c94462191))
+* **skill:** keep git config out of a linked worktree ([441eee8](https://github.com/jacob-delgado/workflow/commit/441eee88e615cea53bc30bfbad59c2677e6b598c))
+* **skill:** say that stopping a run can break the shared tools ([9c4a678](https://github.com/jacob-delgado/workflow/commit/9c4a678c0712f152027c170efca822c90d014a19))
+* **web:** regenerate the docs' media over the demo world ([2a1cd4d](https://github.com/jacob-delgado/workflow/commit/2a1cd4d71dc218c4778f22a6d307b844d408c9a8))
+
+
+### Build & Packaging
+
+* bump markdownlint-cli2 to 0.24.0 ([de06255](https://github.com/jacob-delgado/workflow/commit/de062557e5d5b61ed3e8c05cc1f24479f46e100e))
+* move Go to 1.27.3 for crypto/x509's fix ([226f016](https://github.com/jacob-delgado/workflow/commit/226f016007cd83a4366a0cf7313309c6f9e04220))
+
+
+### CI
+
+* skip the code jobs for a docs-only pull request ([8dc3351](https://github.com/jacob-delgado/workflow/commit/8dc33517cd12807f2c8f4f683c7c7f80757eddeb))
+* **web:** run every spec on Firefox and WebKit, sharded ([9e58c49](https://github.com/jacob-delgado/workflow/commit/9e58c49bd1e72a25235f616044408eeec16bd2a3))
+
+
+### Tests
+
+* **demo:** hold the month's moves off the worked issue ([734cd46](https://github.com/jacob-delgado/workflow/commit/734cd467beae749cb9f1651f2916ab26724b44c8))
+* **demo:** read the opened pull's CI once the forge is asked again ([2df2181](https://github.com/jacob-delgado/workflow/commit/2df2181b0d3e636e77222ffb52297f0a5396c788))
+* **e2e:** hold each write's notice to the page the binary serves ([61d0481](https://github.com/jacob-delgado/workflow/commit/61d048186eb8598c92637cdc4f5bf35dc87890f0))
+* **e2e:** number the hermetic page's writes, and count them in frames ([1ebe060](https://github.com/jacob-delgado/workflow/commit/1ebe060d236a3ecadc136a250825ed6905b7d96a))
+* start each docs contract test's name with TestDocs ([0f7029e](https://github.com/jacob-delgado/workflow/commit/0f7029efe66d35b36e6638c68696ba726439302c))
+* **tui:** hold the rail contiguous while a notice shows ([701276b](https://github.com/jacob-delgado/workflow/commit/701276b418ada6d714ccc1a0af2089d094545b18))
+* **webserver:** hold the forge cache to writes made during its read ([694aaae](https://github.com/jacob-delgado/workflow/commit/694aaae36d8e6241fef0c396fc4d18b655909371))
+
 ## [0.12.0](https://github.com/jacob-delgado/workflow/compare/v0.11.0...v0.12.0) (2026-10-18)
 
 
