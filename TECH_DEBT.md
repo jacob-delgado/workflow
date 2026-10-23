@@ -1258,10 +1258,7 @@ braces 3.0.3, which markdownlint-cli2 reaches through micromatch to expand the
 repository's own globs, and GHSA-vfj7-8cjw-p6xm (stack exhaustion through
 deeply nested patterns) covers every braces release, so
 `.github/workflows/dependency-review.yml` allows that advisory by name; the
-same braces was installed, unseen, before the lock. markdownlint-cli2 also
-pins smol-toml 1.8.0, which GHSA-r4xh-jqrq-34v2 covers and 1.9.1 fixes, so
-`build/markdownlint/package.json` overrides it with 1.9.1 until
-markdownlint-cli2 takes a fixed release.
+same braces was installed, unseen, before the lock.
 
 **Reopen when.** mise can install a Python or npm tool from a lock of its
 whole tree, with hashes and within its age filter, using no tool the
