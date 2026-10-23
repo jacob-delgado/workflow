@@ -17,5 +17,4 @@
 # gate warns of a waiver still listed a week after the day it names.
 
 go 1.27.3 CVE-2026-111943
-markdown-it 15.0.3 GHSA-gfr2-rv44-r23c
 markdownlint-cli2 0.24.0 waived-2026-10-23
