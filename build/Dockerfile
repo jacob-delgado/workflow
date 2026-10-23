@@ -146,10 +146,13 @@ RUN set -eux; \
 # yamllint is Python, installed from the file that pins it and every package
 # it needs by version and by each wheel's sha256, as `task tools` installs it
 # on the host. The image is not a Python project, so installing into the
-# system environment is what --break-system-packages is for here.
+# system environment is what --break-system-packages is for here. The file
+# already asks for --require-hashes; the command says it too, so a scanner
+# that reads only this line, as OpenSSF Scorecard does, sees the hash check.
 COPY build/yamllint/requirements.txt /usr/local/share/yamllint-requirements.txt
 RUN set -eux; \
-    pip3 install --no-cache-dir --break-system-packages -r /usr/local/share/yamllint-requirements.txt; \
+    pip3 install --no-cache-dir --break-system-packages --require-hashes \
+        -r /usr/local/share/yamllint-requirements.txt; \
     yamllint --version
 
 # typos ships prebuilt binaries per architecture.
