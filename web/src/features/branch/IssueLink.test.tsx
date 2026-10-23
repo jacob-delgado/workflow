@@ -225,7 +225,9 @@ test('canceling the link hands focus back to Link an issue', async () => {
   await user.click(screen.getByRole('button', { name: 'Cancel' }))
 
   // Assert
-  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Link an issue' }))
+  await waitFor(() => {
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Link an issue' }))
+  })
 })
 
 test('once linked, shows the link with focus on Unlink before the stream reports it', async () => {
@@ -245,7 +247,9 @@ test('once linked, shows the link with focus on Unlink before the stream reports
 
   // Assert
   const unlink = await screen.findByRole('button', { name: 'Unlink PROJ-7' })
-  expect(document.activeElement).toBe(unlink)
+  await waitFor(() => {
+    expect(document.activeElement).toBe(unlink)
+  })
   expect(screen.queryByRole('button', { name: 'Link an issue' })).toBeNull()
 })
 
@@ -261,7 +265,9 @@ test('once unlinked, offers Link an issue with focus before the stream reports i
 
   // Assert
   const offer = await screen.findByRole('button', { name: 'Link an issue' })
-  expect(document.activeElement).toBe(offer)
+  await waitFor(() => {
+    expect(document.activeElement).toBe(offer)
+  })
   expect(screen.queryByRole('button', { name: 'Unlink PROJ-7' })).toBeNull()
 })
 
