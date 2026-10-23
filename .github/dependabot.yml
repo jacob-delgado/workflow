@@ -108,6 +108,11 @@ updates:
   # read the line. The digest moves by hand with each Go bump, as
   # build/Dockerfile says.
 
+  # Nor does any entry read the Playwright image the end-to-end jobs in ci.yml
+  # run in: no ecosystem bumps a workflow's container image. It moves by hand
+  # with each @playwright/test bump the npm entry above opens, which
+  # scripts/check-playwright-image.sh fails until it does (TRADE-58).
+
   # The documentation site's Hugo module (docs/go.mod), a separate module the
   # root gomod entry above does not reach.
   - package-ecosystem: gomod

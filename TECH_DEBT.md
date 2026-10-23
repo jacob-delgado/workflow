@@ -1428,3 +1428,34 @@ changes what it reads.
 other than its shape, the two drift far enough that a reader of one is misled
 by the other, or the maintainer schedules the follow-up that has the test
 world take its fixture data from `internal/demo`.
+
+### TRADE-58 The end-to-end jobs run in Playwright's image, moved by hand
+
+**Decided.** 2026-10-23 by the maintainer, after E2E (webkit 2/3) spent its
+whole 30 minutes in `playwright install --with-deps` on two pull requests the
+same day: the step pulls about 120 system packages over apt, and the runners'
+Ubuntu mirror served them a few kilobytes a second. E2E, E2E (firefox and
+webkit n/3) and E2E (server, *) now run in
+`mcr.microsoft.com/playwright`, pinned by its index digest, which holds the
+browsers Playwright's version drives and every library and font they need,
+so none of them installs a browser or a system package. They run as the
+runner's user, since Firefox will not start as root, with a larger /dev/shm
+than a container's default, which Chromium runs out of. mise still installs
+Node, and Go and task for the server legs, at `mise.toml`'s versions.
+
+**Cost.** The image's tag and digest are one more copy of Playwright's version,
+and no Dependabot ecosystem reads a workflow's container image, so a bump of
+`@playwright/test` moves the image by hand: the new tag's index digest, read
+from `mcr.microsoft.com/v2/playwright/manifests/v<version>-noble`, and its
+build date checked against the week the age gate asks, which
+`scripts/check-dependency-age.sh` does not read from an image.
+`scripts/check-playwright-image.sh` (`task lint:playwrightimage`) fails such a
+bump until the image names the version `web/yarn.lock` resolves and is pinned
+by digest. The image is about 2 GB, pulled by each of the ten jobs, and its
+Ubuntu, not the runner's, is what the browsers run on.
+
+**Reopen when.** Dependabot or another bot the repository already runs learns
+to move a workflow's container image, which would take the hand step away; the
+runners' apt mirror is reliable enough that installing over it costs less than
+the image's pull; or Playwright stops publishing the image for a version the
+web app needs.

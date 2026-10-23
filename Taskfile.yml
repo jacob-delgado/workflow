@@ -469,6 +469,7 @@ tasks:
       - task: lint:packagesize
       - task: lint:goversion
       - task: lint:miseversion
+      - task: lint:playwrightimage
       - task: lint:checksums
       - task: lint:mediachecksums
       - task: lint:goroutines
@@ -598,6 +599,11 @@ tasks:
     desc: Check that the mise version agrees across mise.toml, the workflows and the devcontainer
     cmds:
       - scripts/check-mise-version.sh
+
+  lint:playwrightimage:
+    desc: Check that each Playwright image a workflow runs in is web/yarn.lock's Playwright, pinned by digest
+    cmds:
+      - scripts/check-playwright-image.sh
 
   lint:checksums:
     desc: Check that every build-container download is pinned to a SHA-256 at mise.toml's version
