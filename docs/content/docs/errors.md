@@ -21,16 +21,17 @@ responses are not problem details.)
 }
 ```
 
-- **`type`** — a stable URI naming the problem; it points at the matching section
-  below.
+- **`type`** — a stable URI naming the problem; it points at the matching
+  section below.
 - **`title`** — a short, fixed summary of the problem type.
 - **`status`** — the HTTP status code.
-- **`detail`** — what went wrong this time, safe to show. It is curated: it never
-  carries a secret (tokens are redacted before an error is formed) or an internal
-  host. A write that is refused may include the git or forge's own reason so you
-  can act on it; a read failure and an unreachable upstream stay generic.
-- **`code`** — a stable, machine-readable reason, for a client to switch on rather
-  than parsing prose.
+- **`detail`** — what went wrong this time, safe to show. It is curated: it
+  never carries a secret (tokens are redacted before an error is formed) or an
+  internal host. A write that is refused may include the git or forge's own
+  reason so you can act on it; a read failure and an unreachable upstream stay
+  generic.
+- **`code`** — a stable, machine-readable reason, for a client to switch on
+  rather than parsing prose.
 - **`retry_after`** — only on a [Rate limited](#rate-limited) problem, and only
   when the upstream said: how many seconds it asked to wait. The answer's
   `Retry-After` header says the same.
@@ -92,27 +93,27 @@ it (the command line exits 4 there; the event stream shows the branch, changes
 and review empty instead), a working tree with uncommitted changes, a branch
 that already exists, nothing staged to commit, no pull request to announce or
 to link, no branch checked out (a detached `HEAD`) to link to an issue or to
-unlink from one, an announcement that changed since the page previewed it (the pull request
-merged — nothing is posted; preview it again), an
+unlink from one, an announcement that changed since the page previewed it (the
+pull request merged — nothing is posted; preview it again), an
 announcement whose linked code owners are not the people its preview showed
 tagged (a link changed in Settings or a terminal since — nothing is posted;
 preview it again), an
-issue the checked-out branch does not name, a move to the review status that Jira
-does not offer (the detail names the statuses it does) or wants fields filled
-for (the detail names them; the terminal interface's status picker asks for
-them), or a configuration file that changed since Settings read
+issue the checked-out branch does not name, a move to the review status that
+Jira does not offer (the detail names the statuses it does) or wants fields
+filled for (the detail names them; the terminal interface's status picker asks
+for them), or a configuration file that changed since Settings read
 it — edited on disk, or saved from another tab — which a save refuses rather
 than overwrite, short of an edit landing between the save's check and its write
-([Web]({{< relref "/docs/web" >}}) names that window). [Taskwarrior](https://taskwarrior.org) answers it
-too, for a task it changed nothing on — already started, not started, or no
-longer pending — and for an undo with nothing to undo. Removing the local data
-in Settings answers it for a database file that could not be removed, as one
-another program holds open can be on Windows. Every file is set aside before
-any is removed, so a file that cannot be set aside leaves them all in place;
-one that cannot be deleted after that may leave others already gone, so the
-area reads the listing again to show what is left. Close other workflow
-sessions and remove again (the command line's `workflow db-clean` exits 4
-there).
+([Web]({{< relref "/docs/web" >}}) names that window).
+[Taskwarrior](https://taskwarrior.org) answers it too, for a task it changed
+nothing on — already started, not started, or no longer pending — and for an
+undo with nothing to undo. Removing the local data in Settings answers it for a
+database file that could not be removed, as one another program holds open can
+be on Windows. Every file is set aside before any is removed, so a file that
+cannot be set aside leaves them all in place; one that cannot be deleted after
+that may leave others already gone, so the area reads the listing again to show
+what is left. Close other workflow sessions and remove again (the command line's
+`workflow db-clean` exits 4 there).
 
 A git run (`POST /api/runs`) answers it while another run goes, and when
 there is nothing to rebase, amend or fix up; editing, merging, finishing and
@@ -133,12 +134,12 @@ invalid configuration body (a `ui.keys` map the terminal interface would
 refuse to start on among them, or one that changes `jira.token_command`,
 `jira.token_env` or `taskwarrior.program`, which change only in the file
 itself; one the validation refuses names each setting it refused in
-`fields`, never with a credential's value), a configuration file on disk that no longer reads
-as valid (the configuration in effect stands), a request for an issue when no
-tracker is configured, no `jira.review_status` to move an issue to, a change
-Jira refused, a comment with no text or with no tracker to post it to, a
-comment the forge turned down (its own reason, such as a body too long, is in
-the detail), a file git would not stage or unstage, or a branch git would not
+`fields`, never with a credential's value), a configuration file on disk that no
+longer reads as valid (the configuration in effect stands), a request for an
+issue when no tracker is configured, no `jira.review_status` to move an issue
+to, a change Jira refused, a comment with no text or with no tracker to post it
+to, a comment the forge turned down (its own reason, such as a body too long, is
+in the detail), a file git would not stage or unstage, or a branch git would not
 switch to or create (git's own words stay off the wire, since a fetch it
 makes on the way can name the remote; the detail says how to see them), or a
 branch's link to an issue that git could not write to, or remove from, the
@@ -161,30 +162,30 @@ terminal to see them.
 A Jira token that Jira did not accept, a `jira.base_url` that is not a usable
 address, and one with no Jira API behind it are answered here too, pointing at
 `workflow doctor` rather than naming the address. So are a forge token that the
-forge did not accept, a `forge.kind` set without its `forge.host`, a forge address with no
-forge API behind it, and a request the forge refused. A token the forge turned
-down is told in the words the terminal uses: which forge, the scope it asks
-for, and the forge's own reason. A pull request the forge turned down is answered here with
-the forge's own reason, while a reviewer or assignee GitLab does not know
-never stops one opening; any other open that fails is answered as a read's failure is, under
-the code its cause belongs to. An announcement the messaging service refused,
-or one that could not be sent because messaging has no credential (none set, or
-a token its command or variable did not give) or its webhook is not https, is
-answered here too — never with the service's own error, which can name the
-webhook. So is a change to your Taskwarrior tasks when there is no Taskwarrior
-to make it — turned off by `taskwarrior.disabled`, one older than 3.5.0, or
-one whose taskrc has a malformed line — as is an empty task
-line or note, or an issue whose tracker key is not one word. A line Taskwarrior
-refused is answered here too, in Taskwarrior's own words less where its data is
-and any line naming a server; they say what in the line it could not take. A
-sync with no backend named in the taskrc is answered here, and so is a sync
-that failed, in fixed words: Taskwarrior's name the sync server, so the detail
-says to run `task sync` in a terminal to see them.
-The Local data area in Settings answers it when there is no directory to keep
-the store in (no home directory is set), for a server wired with no store, and
-for a removal that finds something other than the store's own plain file — a
-symlink or a directory — where a database file belongs, which it refuses
-without removing anything (`workflow db-clean` exits 1 there).
+forge did not accept, a `forge.kind` set without its `forge.host`, a forge
+address with no forge API behind it, and a request the forge refused. A token
+the forge turned down is told in the words the terminal uses: which forge, the
+scope it asks for, and the forge's own reason. A pull request the forge turned
+down is answered here with the forge's own reason, while a reviewer or assignee
+GitLab does not know never stops one opening; any other open that fails is
+answered as a read's failure is, under the code its cause belongs to. An
+announcement the messaging service refused, or one that could not be sent
+because messaging has no credential (none set, or a token its command or
+variable did not give) or its webhook is not https, is answered here too — never
+with the service's own error, which can name the webhook. So is a change to your
+Taskwarrior tasks when there is no Taskwarrior to make it — turned off by
+`taskwarrior.disabled`, one older than 3.5.0, or one whose taskrc has a
+malformed line — as is an empty task line or note, or an issue whose tracker key
+is not one word. A line Taskwarrior refused is answered here too, in
+Taskwarrior's own words less where its data is and any line naming a server;
+they say what in the line it could not take. A sync with no backend named in the
+taskrc is answered here, and so is a sync that failed, in fixed words:
+Taskwarrior's name the sync server, so the detail says to run `task sync` in a
+terminal to see them. The Local data area in Settings answers it when there is
+no directory to keep the store in (no home directory is set), for a server wired
+with no store, and for a removal that finds something other than the store's own
+plain file — a symlink or a directory — where a database file belongs, which it
+refuses without removing anything (`workflow db-clean` exits 1 there).
 People and groups answers it when the configuration in effect has no Slack
 user token to read the directory with (a webhook, say, or a token Slack holds
 no credential for), or no store to keep people in; for a link that names both a
@@ -195,9 +196,9 @@ checked against the channel the link names, the configured one when it names
 none); for a new repository group, never one already saved, that the
 workspace's user groups do not hold; for a token
 that lacks a scope the read needs, which the detail names; and for kept data
-a build of workflow with another schema wrote, which is left as it is. Nothing is written
-then. (A Slack directory read on its own answers a missing scope with a 200
-naming it, so the preview can still post.) An announcement answers it for
+a build of workflow with another schema wrote, which is left as it is. Nothing
+is written then. (A Slack directory read on its own answers a missing scope with
+a 200 naming it, so the preview can still post.) An announcement answers it for
 mentions that name a user group the announcement did not offer, or that it
 was given where it tags no one — only a ready-for-review announcement with a
 Slack user token in the configuration in effect at the post tags, so a switch
@@ -282,12 +283,12 @@ change them.
 
 Status 409. An announcement was asked to go now, and a check had failed on its
 pull request when the server read its CI again to post it, so nothing was posted
-or remembered. Every surface holds to the same rule: a pull request is announced,
-ready or merged, only while nothing has failed on it, its CI running or passed
-(or reporting no check at all). The way on, for a pull request ready for
-review, is to announce it when CI passes (`"when": "ci_passes"`), which waits
-for a run that passes, or to fix the check. A merge has no CI to wait for: re-run
-its failed checks on the forge, then announce it once they pass.
+or remembered. Every surface holds to the same rule: a pull request is
+announced, ready or merged, only while nothing has failed on it, its CI running
+or passed (or reporting no check at all). The way on, for a pull request ready
+for review, is to announce it when CI passes (`"when": "ci_passes"`), which
+waits for a run that passes, or to fix the check. A merge has no CI to wait for:
+re-run its failed checks on the forge, then announce it once they pass.
 A CI the server cannot read posts nothing either; it is answered as the read
 that failed, an [Unreachable](#unreachable) forge among them.
 
