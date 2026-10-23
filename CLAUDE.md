@@ -480,8 +480,10 @@ tests are failing — say what's broken and why instead.
   on each `jdx/mise-action` step and in the dev container
   (`scripts/check-mise-version.sh`), the container's Go patch (the
   Dockerfile's check after `FROM`), each downloaded tool's SHA-256 lines
-  in `build/tool-checksums.txt` (`task lint:checksums`), and the docs' ttyd's
-  in `docs/media/tool-checksums.txt` (`task lint:mediachecksums`). A floating
+  in `build/tool-checksums.txt` (`task lint:checksums`), the docs' ttyd's
+  in `docs/media/tool-checksums.txt` (`task lint:mediachecksums`), and
+  Playwright's in the image the end-to-end jobs run in
+  (`scripts/check-playwright-image.sh`, TRADE-58). A floating
   `latest` changes what the gate accepts without anyone deciding to.
 
 - **The `--web` API is spec first.** Change `api/openapi.yaml`, then run `task

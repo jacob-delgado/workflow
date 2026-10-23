@@ -280,6 +280,16 @@ jobs:
     if: needs.changes.outputs.docs != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Trade-off TRADE-58: every end-to-end job runs in Playwright's own image,
+    # which holds the browsers @playwright/test drives and every system library
+    # and font they need, so no job installs them over apt, whose mirror has
+    # stalled a job to its timeout. scripts/check-playwright-image.sh holds the
+    # image to the version web/yarn.lock resolves. The runner's user, since
+    # Firefox will not start as root, and a /dev/shm Chromium does not run out
+    # of.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.0-noble@sha256:06a9939e57531807f8d5fd76ce44b53165ffb7d7501d87ab10e285c20b1e971f
+      options: --user 1001 --shm-size=2gb
     defaults:
       run:
         working-directory: web
@@ -295,13 +305,6 @@ jobs:
         run: corepack enable
       - name: Install dependencies
         run: yarn install --immutable
-      # Only the headless shell: neither Playwright config names a channel,
-      # so Chromium's projects drive chromium-headless-shell, and the full
-      # Chrome for Testing it also downloaded went unused. --with-deps stays:
-      # its system packages bring the fonts the layout and axe specs measure
-      # against.
-      - name: Install the Playwright browser
-        run: yarn playwright install --with-deps --only-shell chromium
       # Chromium's projects alone: E2E (firefox n/3) and E2E (webkit n/3) run
       # theirs.
       - run: yarn test:e2e --project=chromium --project=mock
@@ -347,6 +350,10 @@ jobs:
       matrix:
         browser: [firefox, webkit]
         shard: [1, 2, 3]
+    # In Playwright's image, as E2E is.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.0-noble@sha256:06a9939e57531807f8d5fd76ce44b53165ffb7d7501d87ab10e285c20b1e971f
+      options: --user 1001 --shm-size=2gb
     defaults:
       run:
         working-directory: web
@@ -362,12 +369,6 @@ jobs:
         run: corepack enable
       - name: Install dependencies
         run: yarn install --immutable
-      # --with-deps, as in E2E: the fonts the layout and axe specs measure
-      # against, and the engine's own system libraries.
-      - name: Install the Playwright browser
-        run: yarn playwright install --with-deps "${BROWSER}"
-        env:
-          BROWSER: ${{ matrix.browser }}
       - run: yarn test:e2e --project="${BROWSER}" --project="${BROWSER}-mock" --shard="${SHARD}/3"
         env:
           BROWSER: ${{ matrix.browser }}
@@ -405,6 +406,10 @@ jobs:
             project: server-firefox
           - browser: webkit
             project: server-webkit
+    # In Playwright's image, as E2E is.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.0-noble@sha256:06a9939e57531807f8d5fd76ce44b53165ffb7d7501d87ab10e285c20b1e971f
+      options: --user 1001 --shm-size=2gb
     defaults:
       run:
         working-directory: web
@@ -420,17 +425,6 @@ jobs:
         run: corepack enable
       - name: Install dependencies
         run: yarn install --immutable
-      # The leg's own engine: Chromium's headless shell, as in E2E, or Firefox
-      # or WebKit.
-      - name: Install the Playwright browser
-        run: |
-          if [ "${BROWSER}" = chromium ]; then
-            yarn playwright install --with-deps --only-shell chromium
-          else
-            yarn playwright install --with-deps "${BROWSER}"
-          fi
-        env:
-          BROWSER: ${{ matrix.browser }}
       - name: Build the binary with the web app embedded
         run: task build
         working-directory: .
