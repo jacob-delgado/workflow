@@ -10,14 +10,19 @@ import { BranchPanel } from './BranchPanel.tsx'
 const linkPath = '/api/branch/issue'
 const previewPath = '/api/branch/issue/preview'
 
-// onBranch streams a branch begun outside workflow, linked to link in tracker
-// when given.
-function onBranch(link = '', tracker: IssueTracker = 'jira') {
-  const branch = makeBranch({
+// myThing is the branch begun outside workflow, linked to link in
+// tracker when given.
+function myThing(link = '', tracker: IssueTracker = 'jira') {
+  return makeBranch({
     name: 'my-thing',
     issue_link: link,
     ...(link === '' ? {} : { issue_link_tracker: tracker }),
   })
+}
+
+// onBranch streams myThing(link, tracker).
+function onBranch(link = '', tracker: IssueTracker = 'jira') {
+  const branch = myThing(link, tracker)
   useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot({ branch }) })
 }
 
@@ -37,7 +42,7 @@ test('links the branch to the issue typed when no description would change', asy
   onBranch()
   const requests = fakeApi({
     [previewPath]: { key: 'PROJ-7', pull: 0, body: '', changes: false },
-    [linkPath]: makeBranch({ name: 'my-thing', issue_link: 'PROJ-7', issue_link_tracker: 'jira' }),
+    [linkPath]: myThing('PROJ-7'),
   })
   const user = userEvent.setup()
   render(<BranchPanel />)
@@ -57,7 +62,7 @@ test('with a pull request, shows its new description before linking', async () =
   onBranch()
   const requests = fakeApi({
     [previewPath]: { key: '42', pull: 9, body: 'Speeds it up.\n\nCloses #42\n', changes: true },
-    [linkPath]: makeBranch({ name: 'my-thing', issue_link: '42', issue_link_tracker: 'forge' }),
+    [linkPath]: myThing('42', 'forge'),
   })
   const user = userEvent.setup()
   render(<BranchPanel />)
@@ -77,7 +82,7 @@ test('linking and updating sends the description change with the link', async ()
   onBranch()
   const requests = fakeApi({
     [previewPath]: { key: '42', pull: 9, body: 'Speeds it up.\n\nCloses #42\n', changes: true },
-    [linkPath]: makeBranch({ name: 'my-thing', issue_link: '42', issue_link_tracker: 'forge' }),
+    [linkPath]: myThing('42', 'forge'),
   })
   const user = userEvent.setup()
   render(<BranchPanel />)
@@ -97,7 +102,7 @@ test('linking and updating sends the description change with the link', async ()
 test('a linked branch names its issue and can be unlinked', async () => {
   // Arrange
   onBranch('PROJ-7')
-  const requests = fakeApi({ [linkPath]: makeBranch({ name: 'my-thing' }) })
+  const requests = fakeApi({ [linkPath]: myThing() })
   const user = userEvent.setup()
   render(<BranchPanel />)
 
@@ -123,7 +128,7 @@ test('links the issue that was previewed, not one typed while the preview was re
 
       return { key: 'PROJ-7', pull: 12, body: 'Speeds it up.\n\nJira: PROJ-7\n', changes: true }
     },
-    [linkPath]: makeBranch({ name: 'my-thing', issue_link: 'PROJ-7', issue_link_tracker: 'jira' }),
+    [linkPath]: myThing('PROJ-7'),
   })
   const user = userEvent.setup()
   render(<BranchPanel />)
@@ -179,7 +184,7 @@ test('says a forge issue was linked by its number as the forge writes it', async
   onBranch()
   fakeApi({
     [previewPath]: { key: '42', pull: 0, body: '', changes: false },
-    [linkPath]: makeBranch({ name: 'my-thing', issue_link: '42', issue_link_tracker: 'forge' }),
+    [linkPath]: myThing('42', 'forge'),
   })
   const user = userEvent.setup()
   render(<BranchPanel />)
@@ -235,7 +240,7 @@ test('once linked, shows the link with focus on Unlink before the stream reports
   onBranch()
   fakeApi({
     [previewPath]: { key: 'PROJ-7', pull: 0, body: '', changes: false },
-    [linkPath]: makeBranch({ name: 'my-thing', issue_link: 'PROJ-7', issue_link_tracker: 'jira' }),
+    [linkPath]: myThing('PROJ-7'),
   })
   const user = userEvent.setup()
   render(<BranchPanel />)
@@ -256,7 +261,7 @@ test('once linked, shows the link with focus on Unlink before the stream reports
 test('once unlinked, offers Link an issue with focus before the stream reports it', async () => {
   // Arrange
   onBranch('PROJ-7')
-  fakeApi({ [linkPath]: makeBranch({ name: 'my-thing' }) })
+  fakeApi({ [linkPath]: myThing() })
   const user = userEvent.setup()
   render(<BranchPanel />)
 
