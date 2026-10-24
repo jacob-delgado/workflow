@@ -462,9 +462,10 @@ tests are failing — say what's broken and why instead.
   `waived-YYYY-MM-DD` line there. An npm version in `web/yarn.lock` takes a
   second line, in `web/.yarnrc.yml`'s `npmPreapprovedPackages`, which yarn's
   own gate reads.
-  Each line goes once its version is a week old. Dependabot's cooldown exempts
-  `actions/*` and `github/*`, GitHub's own actions, which this rule governs
-  by hand.
+  Each line goes once its version is a week old. Dependabot's own seven-day
+  cooldown holds every ecosystem in `.github/dependabot.yml`, GitHub's own
+  actions included, and its security updates skip it, as a known-CVE fix
+  should.
 
 - **Tool versions are exact, and they live in `mise.toml`**, whose header says
   how `build/Dockerfile` and CI read them. yamllint and markdownlint-cli2 are

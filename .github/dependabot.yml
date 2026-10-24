@@ -85,9 +85,11 @@ updates:
         update-types: ["minor", "patch"]
 
   # The actions used by CI, all of which are SHA-pinned with a version comment;
-  # Dependabot updates both together. Official GitHub actions are a trusted
-  # first-party publisher and skip the cooldown; third-party actions wait the
-  # full seven days.
+  # Dependabot updates both together. Every action waits the full seven days,
+  # GitHub's own (actions/*, github/*) as much as a third party's: a first-party
+  # release can be compromised or broken too, and the week is what lets either
+  # be found first. A fix for a published advisory against one still arrives at
+  # once, as the security update the header describes.
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
@@ -96,9 +98,6 @@ updates:
       prefix: ci
     cooldown:
       default-days: 7
-      exclude:
-        - "actions/*"
-        - "github/*"
     groups:
       actions:
         update-types: ["minor", "patch"]
