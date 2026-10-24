@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.13.1](https://github.com/jacob-delgado/workflow/compare/v0.13.0...v0.13.1) (2026-10-24)
+
+
+### Refactors
+
+* **web:** build IssueLink's test branches in one helper ([48b2d33](https://github.com/jacob-delgado/workflow/commit/48b2d335a54337a0da46ba317fe3f93a676b7ef9))
+
+
+### Build & Packaging
+
+* Bump undici from 8.11.2 to 8.12.2 in /web ([9e48e38](https://github.com/jacob-delgado/workflow/commit/9e48e382cf849aab2b88e9a71230eb10e1bb0c41))
+* **deps:** move kin-openapi to 0.151.0 ([1720061](https://github.com/jacob-delgado/workflow/commit/172006154aae057da327c6c74b17c4fe09b906a8))
+* **deps:** move the web app's ten dependencies Dependabot grouped ([609b13f](https://github.com/jacob-delgado/workflow/commit/609b13fc01c16913050213d9e953d7d0690a2741))
+* say --require-hashes on the image's pip install line ([6b1cdcb](https://github.com/jacob-delgado/workflow/commit/6b1cdcbc6ef53d1f8750d86134f9a141f4a1eb5c))
+* take katex 0.18.11 over micromark-extension-math's 0.16 range ([b304e39](https://github.com/jacob-delgado/workflow/commit/b304e3991156218d4440eb9ddf5c3ff7ee7e5f03))
+
+
+### CI
+
+* Bump the actions group with 5 updates ([3624933](https://github.com/jacob-delgado/workflow/commit/3624933baac152b3a2c317cc3268841e09308822))
+* **deps:** hold GitHub's own actions to Dependabot's week as well ([297b442](https://github.com/jacob-delgado/workflow/commit/297b442b473e9d5b9ee872d29a4502fb39d5eaa0))
+* move mise-action to 5.2.0 and codeql-action to 4.39.1 ([035cfe8](https://github.com/jacob-delgado/workflow/commit/035cfe8da48ca8c71da7f06f032255976bf032f2))
+* run the end-to-end jobs in Playwright's image ([d2f2cea](https://github.com/jacob-delgado/workflow/commit/d2f2ceaecaa1853d0a192ec38a8553e86d5d7400))
+
+
+### Tests
+
+* **web:** wait for focus to land in IssueLink's handback tests ([a26014e](https://github.com/jacob-delgado/workflow/commit/a26014e3f0447c515db0ce3c5e2d20bca4fc5620))
+
 ## [0.13.0](https://github.com/jacob-delgado/workflow/compare/v0.12.0...v0.13.0) (2026-10-23)
 
 
