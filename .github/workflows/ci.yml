@@ -63,7 +63,7 @@ jobs:
           persist-credentials: false
           # The base branch, to see which files a pull request changes.
           fetch-depth: 0
-      - uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
           install_args: go task golangci-lint shellcheck shfmt typos actionlint hadolint taplo zizmor node jq
@@ -120,7 +120,7 @@ jobs:
         with:
           persist-credentials: false
       # lefthook for the wiring tests that run it, jq for go-test-json.sh.
-      - uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
           install_args: go task jq lefthook
@@ -195,7 +195,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
           install_args: go task jq node
@@ -216,7 +216,7 @@ jobs:
           persist-credentials: false
       # lefthook for the wiring tests that run it, which skip without it and
       # leave the arms they reach unseen; jq for scripts/gobco-report.sh.
-      - uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
           install_args: go task jq lefthook go:github.com/rillig/gobco
@@ -253,7 +253,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
           install_args: node task
@@ -297,7 +297,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
           install_args: node
@@ -361,7 +361,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
           install_args: node
@@ -417,7 +417,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
           install_args: go task node
@@ -464,7 +464,7 @@ jobs:
           persist-credentials: false
       # go for the coverage gate's `go tool cover`, jq for the counts and the
       # coverage summary, node for the rendering.
-      - uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
           install_args: go jq node
@@ -531,7 +531,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
           install_args: go task node
@@ -572,7 +572,7 @@ jobs:
           # removed before the tip, which a rebase merge would still carry onto
           # main.
           fetch-depth: 0
-      - uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
           install_args: go task go:golang.org/x/vuln/cmd/govulncheck go:github.com/zricethezav/gitleaks/v8
@@ -593,7 +593,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
           install_args: go jq
