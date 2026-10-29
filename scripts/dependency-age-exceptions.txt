@@ -16,7 +16,4 @@
 # gate. Remove a line once its version is a week old; it has done its job. The
 # gate warns of a waiver still listed a week after the day it names.
 
-go 1.27.3 CVE-2026-111943
-markdownlint-cli2 0.24.0 waived-2026-10-23
 mcr.microsoft.com/playwright v1.64.1-noble waived-2026-10-23
-github/codeql-action v4.39.1 waived-2026-10-23
