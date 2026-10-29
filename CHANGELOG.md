@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.13.2](https://github.com/jacob-delgado/workflow/compare/v0.13.1...v0.13.2) (2026-10-29)
+
+
+### Build & Packaging
+
+* Bump seroval from 1.6.9 to 1.6.12 in /web ([a90180b](https://github.com/jacob-delgado/workflow/commit/a90180be500ead5c892ab7a8a4c071cd6006ce70))
+* **deps:** move the web app's six dependencies Dependabot grouped ([e6850bf](https://github.com/jacob-delgado/workflow/commit/e6850bfd959136b5ace17a5131865eda49e13d07))
+
+
+### CI
+
+* move mise-action to 5.2.2 ([95b5d6b](https://github.com/jacob-delgado/workflow/commit/95b5d6b7a8dbd7a8382566165fa63fdfb6a1c721))
+
+
+### Tests
+
+* **e2e:** wait for the focus ring before reading it ([3507f00](https://github.com/jacob-delgado/workflow/commit/3507f006fc9b03e01610571b2a819f54c6aeb482))
+
 ## [0.13.1](https://github.com/jacob-delgado/workflow/compare/v0.13.0...v0.13.1) (2026-10-24)
 
 
