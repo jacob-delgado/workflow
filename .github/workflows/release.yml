@@ -55,7 +55,7 @@ jobs:
       # cache out of what goes into a release. VHS and ttyd, pinned for the
       # docs' recordings, are left out: this job makes none, and mise knows no
       # checksum for ttyd, so it would install it unverified.
-      - uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
+      - uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
         with:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
           cache: false
