@@ -78,6 +78,9 @@ async function focusDrawing(control: Locator): Promise<{ layers: ShadowLayer[]; 
   await control.press('Shift+Tab')
   await control.page().keyboard.press('Tab')
   await expect(control, 'Tab returns to the control').toBeFocused()
+  // The ring can land a frame after focus does, which WebKit has shown, so
+  // the read waits for a drawn ring rather than taking the first frame.
+  await expect(control, 'Tab draws the focus ring').toHaveCSS('box-shadow', /0px 0px 0px [1-9]/)
 
   return control.evaluate((element) => {
     const shadow = getComputedStyle(element).boxShadow
