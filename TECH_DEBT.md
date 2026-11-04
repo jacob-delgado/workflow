@@ -898,7 +898,10 @@ same day, at the maintainer's request.
 tool versions are exact and live in `mise.toml`: it moves when GitHub rebuilds
 the image, without anyone here deciding it. A rule a newer Homebrew adds can
 turn an unrelated pull request's Cross-compile red until
-`package-manifests.sh` is changed to keep it. Each run also needs the network:
+`package-manifests.sh` is changed to keep it, and a change to how Homebrew
+loads a tap can break the check itself: Homebrew 6's tap trust, reaching the
+runners on 2026-11-04, refused to audit a formula from a tap nobody trusts
+until `check-formula.sh` trusted its own. Each run also needs the network:
 brew downloads its formula API from formulae.brew.sh and, on a runner without
 them, installs the gems its audit and style cops run on from rubygems.org, so
 either one unreachable turns the job red too; brew's own error, above the
