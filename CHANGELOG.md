@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.13.3](https://github.com/jacob-delgado/workflow/compare/v0.13.2...v0.13.3) (2026-11-04)
+
+
+### Bug Fixes
+
+* **ci:** trust the formula check's throwaway tap on Homebrew 6 ([4e8db67](https://github.com/jacob-delgado/workflow/commit/4e8db67174b686194bbbe40b02a2538a6160ce80))
+
+
+### Refactors
+
+* **web:** type a settings refusal by its annotation, not a cast ([3d996b7](https://github.com/jacob-delgado/workflow/commit/3d996b77e90bff6511e09d47eb5482e5173b7150))
+
+
+### Build & Packaging
+
+* Bump lucide-react in /web in the web group across 1 directory ([b3afdbb](https://github.com/jacob-delgado/workflow/commit/b3afdbbf512503cb324fe11f9291ab5f2b57195f))
+* Bump the go group with 4 updates ([9b4758f](https://github.com/jacob-delgado/workflow/commit/9b4758f7dc73a2c8420c856eae652c626c05a33d))
+* **deps:** move the web app's nine dependencies Dependabot grouped ([97d85b1](https://github.com/jacob-delgado/workflow/commit/97d85b18fd208336a60a5fb91985c703e209d1fc))
+
+
+### CI
+
+* move mise-action to 5.2.4 ([434e95f](https://github.com/jacob-delgado/workflow/commit/434e95f098bd87eb4494a49b6baa630ed0bbde30))
+
 ## [0.13.2](https://github.com/jacob-delgado/workflow/compare/v0.13.1...v0.13.2) (2026-10-29)
 
 
