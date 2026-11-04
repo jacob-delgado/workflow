@@ -30,9 +30,16 @@ unset $(compgen -e HOMEBREW_)
 #   BREW_STUB_TAP_NEW_FAILS is set;
 #   --version with two lines, as brew does, or by failing when
 #   BREW_STUB_VERSION_FAILS is set;
-#   audit by keeping the formula its last argument names, <user>/<repo>/<name>,
-#   in BREW_STUB_AUDITED, and failing, saying BREW_STUB_AUDIT_SAYS, when that
-#   is set.
+#   trust and untrust, as Homebrew 6 does, keeping the taps trusted one a line
+#   in BREW_STUB_TRUSTED: trust --help with its usage, trust --tap <user>/<repo>
+#   by adding it, or by failing when BREW_STUB_TRUST_FAILS is set, and
+#   untrust --tap <user>/<repo> by taking it out, or by failing when
+#   BREW_STUB_UNTRUST_FAILS is set; or, when BREW_STUB_NO_TRUST is
+#   set, as a Homebrew older than 6 does, by knowing neither command;
+#   audit by refusing a formula from a tap not trusted, unless
+#   BREW_STUB_NO_TRUST is set, then keeping the formula its last argument
+#   names, <user>/<repo>/<name>, in BREW_STUB_AUDITED, and failing, saying
+#   BREW_STUB_AUDIT_SAYS, when that is set.
 # Anything else is refused, so a call the script should not make fails it.
 mkdir -p "${workdir}/bin"
 cat >"${workdir}/bin/brew" <<'STUB'
@@ -71,8 +78,37 @@ case "$1" in
     mkdir -p "${dir}/Formula"
     echo "==> Created $3"
     ;;
+  trust | untrust)
+    if [[ -n "${BREW_STUB_NO_TRUST:-}" ]]; then
+      echo "Error: Unknown command: $1" >&2
+      exit 1
+    fi
+    if [[ "$1 $2" == "trust --help" ]]; then
+      echo "Usage: brew trust [options] [target ...]"
+      exit 0
+    fi
+    if [[ "$2" != "--tap" || $# -ne 3 ]]; then
+      echo "brew stub: nothing answers '$*'" >&2
+      exit 1
+    fi
+    if [[ -n "${BREW_STUB_TRUST_FAILS:-}" && "$1" == "trust" ]] \
+      || [[ -n "${BREW_STUB_UNTRUST_FAILS:-}" && "$1" == "untrust" ]]; then
+      echo "Error: Permission denied @ rb_sysopen - trust.json" >&2
+      exit 1
+    fi
+    kept="$(grep -v -x -F -e "$3" "${BREW_STUB_TRUSTED}")" || true
+    printf '%s' "${kept:+${kept}$'\n'}" >"${BREW_STUB_TRUSTED}"
+    if [[ "$1" == "trust" ]]; then
+      printf '%s\n' "$3" >>"${BREW_STUB_TRUSTED}"
+    fi
+    echo "${1^}ed tap: $3"
+    ;;
   audit)
     full="${*: -1}"
+    if [[ -z "${BREW_STUB_NO_TRUST:-}" ]] && ! grep -q -x -F -e "${full%/*}" "${BREW_STUB_TRUSTED}"; then
+      echo "Error: Refusing to load formula ${full} from untrusted tap ${full%/*}." >&2
+      exit 1
+    fi
     cp "$(tap_dir "${full%/*}")/Formula/${full##*/}.rb" "${BREW_STUB_AUDITED}"
     if [[ -n "${BREW_STUB_AUDIT_SAYS:-}" ]]; then
       printf '%s\n' "${BREW_STUB_AUDIT_SAYS}"
@@ -91,6 +127,11 @@ readonly taps="${workdir}/taps"
 readonly log="${workdir}/brew.log"
 readonly brew_env="${workdir}/brew.env"
 readonly audited="${workdir}/audited.rb"
+readonly trusted="${workdir}/trusted"
+
+# A tap the developer trusts, there before every case: the script takes back
+# the trust it gave and nothing beside it.
+readonly trusted_before="someone/tools"
 
 # A tap of workflow-check's that is not the script's, there before every case:
 # the script removes the tap it made and nothing beside it.
@@ -104,19 +145,31 @@ readonly said="workflow:
 Error: 1 problem in 1 formula detected."
 
 # check runs the script on a formula with the stand-in brew, which starts
-# with no tap but the other one and passes the audit, unless the case's
-# VAR=value says otherwise.
+# with no tap but the other one, trusting only the developer's tap, and passes
+# the audit, unless the case's VAR=value says otherwise.
 #   check <formula> [VAR=value...]
 check() {
   local file="$1"
   shift
   : >"${log}"
   : >"${brew_env}"
+  printf '%s\n' "${trusted_before}" >"${trusted}"
   rm -rf "${taps}" "${audited}"
   mkdir -p "${other}/Formula"
   printf 'kept\n' >"${other}/Formula/other.rb"
   env PATH="${workdir}/bin:${PATH}" BREW_STUB_LOG="${log}" BREW_STUB_ENV="${brew_env}" \
-    BREW_STUB_TAPS="${taps}" BREW_STUB_AUDITED="${audited}" "$@" "${script}" "${file}"
+    BREW_STUB_TAPS="${taps}" BREW_STUB_AUDITED="${audited}" BREW_STUB_TRUSTED="${trusted}" \
+    "$@" "${script}" "${file}"
+}
+
+# expect_only_developer_trust_left wants the developer's tap to be the only
+# tap the stand-in brew trusts, as a case of its own.
+#   expect_only_developer_trust_left <name>
+expect_only_developer_trust_left() {
+  count_case
+  if [[ "$(<"${trusted}")" != "${trusted_before}" ]]; then
+    fail_case "$1" "brew trusts $(tr '\n' ' ' <"${trusted}")"
+  fi
 }
 
 # calls prints the last case's brew calls whose first argument is a command.
@@ -172,16 +225,42 @@ if ! cmp -s "${formula}" "${audited}"; then
   fail_case "the formula audited is the one given" "brew audited something else, or nothing"
 fi
 expect_only_other_tap_left "the tap made for a formula that passes is removed, and nothing beside it"
+expect_only_developer_trust_left "the trust given the tap of a formula that passes is taken back, and nothing beside it"
 
 expect_output 1 "a formula the audit fails fails, saying what brew said" "${said}" \
   check "${formula}" BREW_STUB_AUDIT_SAYS="${said}"
 expect_said "a formula the audit fails names the likely cause and the script to update" \
   "Homebrew most likely changed a rule, and scripts/release/package-manifests.sh needs updating to keep it"
 expect_only_other_tap_left "the tap made for a formula that fails is removed, and nothing beside it"
+expect_only_developer_trust_left "the trust given the tap of a formula that fails is taken back, and nothing beside it"
+
+expect_output pass "a Homebrew with no tap trust audits all the same" "passes brew audit --strict" \
+  check "${formula}" BREW_STUB_NO_TRUST=1
+trust="$(calls trust)"
+untrust="$(calls untrust)"
+count_case
+if [[ "${trust}" != "trust --help" || -n "${untrust}" ]]; then
+  fail_case "a Homebrew with no tap trust is asked for none" "${trust} ${untrust}"
+fi
+expect_only_other_tap_left "the tap made for a Homebrew with no tap trust is removed"
+
+expect_output 1 "a tap brew cannot trust fails, saying so" "brew trust failed for workflow-check/" \
+  check "${formula}" BREW_STUB_TRUST_FAILS=1
+expect_said "a tap brew cannot trust fails, saying what brew said" "Permission denied"
+expect_no_calls "a tap brew cannot trust is neither audited nor untrusted" --repository tap-new --version trust
+expect_only_other_tap_left "the tap made for a tap brew cannot trust is removed"
+
+expect_output pass "a tap brew cannot untrust leaves the audit's verdict" "passes brew audit --strict" \
+  check "${formula}" BREW_STUB_UNTRUST_FAILS=1
+expect_said "a tap brew cannot untrust says how to take its trust back" \
+  "run brew untrust --tap workflow-check/"
+expect_only_other_tap_left "the tap made for a tap brew cannot untrust is removed"
 
 expect_exit pass "the audit is the only check run" check "${formula}"
 tap="$(made_tap)"
 made="$(calls tap-new)"
+trust="$(calls trust)"
+untrust="$(calls untrust)"
 audit="$(calls audit)"
 count_case
 if [[ ! "${tap}" =~ ^workflow-check/f[0-9]+-[0-9]+$ ]]; then
@@ -195,7 +274,11 @@ count_case
 if [[ "${audit}" != "audit --strict --formula ${tap}/workflow" ]]; then
   fail_case "the audit is strict and names the formula in full" "${audit}"
 fi
-expect_no_calls "the audit is the only check run" --repository tap-new --version audit
+count_case
+if [[ "${trust}" != "trust --help"$'\n'"trust --tap ${tap}" || "${untrust}" != "untrust --tap ${tap}" ]]; then
+  fail_case "the tap alone is trusted for the audit, and untrusted after" "${trust} ${untrust}"
+fi
+expect_no_calls "the audit is the only check run" --repository tap-new --version trust untrust audit
 
 for variable in HOMEBREW_NO_AUTO_UPDATE HOMEBREW_NO_ANALYTICS HOMEBREW_NO_ENV_HINTS HOMEBREW_DEVELOPER; do
   count_case
