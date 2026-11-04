@@ -15,5 +15,3 @@
 # Only the maintainer waives a version; a waiver dated on no real day fails the
 # gate. Remove a line once its version is a week old; it has done its job. The
 # gate warns of a waiver still listed a week after the day it names.
-
-mcr.microsoft.com/playwright v1.64.1-noble waived-2026-10-23
