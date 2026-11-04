@@ -86,7 +86,7 @@ function useEditedList<N extends ListName>(control: Control<SettingsValues>, nam
   const { fields, append, remove } = useFieldArray({ control, name })
   const { errors } = useFormState({ control, name })
   const { clearErrors } = useFormContext<SettingsValues>()
-  const refusal = get(errors, `${name}.root.message`) as string | undefined
+  const refusal: string | undefined = get(errors, `${name}.root.message`)
   // A clear redraws every field that shows a refusal, so a keystroke in a row
   // clears only while there is one to take away.
   const changed = () => {
@@ -153,7 +153,7 @@ export function EntryList<N extends ListName>({
       {list.fields.map((row, index) => {
         // The name is the row's first field, and the one a refusal is about.
         const namePath = `${name}.${String(index)}.${columns[0]?.field ?? ''}`
-        const refusal = get(list.errors, `${namePath}.message`) as string | undefined
+        const refusal: string | undefined = get(list.errors, `${namePath}.message`)
         const refusalId = `${hintId}-${namePath}`
 
         return (

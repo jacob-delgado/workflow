@@ -50,7 +50,7 @@ function refusalId(name: Name): string {
 function useRefusal(name: Name): string | undefined {
   const { errors } = useFormState<SettingsValues>({ name })
 
-  return get(errors, `${name}.message`) as string | undefined
+  return get(errors, `${name}.message`)
 }
 
 // keptId is the id of what says where a credential is kept.
