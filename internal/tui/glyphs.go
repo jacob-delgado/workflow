@@ -4,14 +4,15 @@
 package tui
 
 import (
-	"cmp"
 	"time"
 
 	"charm.land/bubbles/v2/spinner"
 	"charm.land/lipgloss/v2"
 
+	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/progress"
+	"github.com/jacob-delgado/workflow/internal/report"
 	"github.com/jacob-delgado/workflow/internal/tui/frame"
 )
 
@@ -75,14 +76,16 @@ func asciiGlyphs() glyphs {
 	}
 }
 
-// status is the glyph for a Jira status category: not started, in flight, done.
-// A category an instance invented gets a neutral mark rather than a guess.
+// status is the glyph for a Jira status category as report.StatusCategory
+// carries it to every surface: not started, in flight, done, or a neutral mark
+// for one it cannot place, Jira's No Category among them, rather than a guess.
 func (g glyphs) status(category jira.StatusCategory) string {
-	marks := map[jira.StatusCategory]string{
-		jira.CategoryNew: g.notStarted, jira.CategoryIndeterminate: g.inFlight, jira.CategoryDone: g.done,
+	marks := map[api.StatusCategory]string{
+		api.StatusCategoryNew: g.notStarted, api.StatusCategoryIndeterminate: g.inFlight,
+		api.StatusCategoryDone: g.done, api.StatusCategoryUnknown: g.unknown,
 	}
 
-	return cmp.Or(marks[category], g.unknown)
+	return marks[report.StatusCategory(category)]
 }
 
 // marker is what starts a row in a list: a pointer at the selected one.
