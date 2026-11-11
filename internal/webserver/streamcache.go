@@ -417,13 +417,13 @@ func (c *assignedCache) drop() {
 
 // authorCache is who the forge says a post would come from, kept from its first
 // answer for the stream, GET /api/messaging and the announcement alike: the
-// forge connection it comes through is kept once made, so the answer does not
-// change while the server runs, and asking every frame spent a forge request
-// per open page each interval. A read that fails is held with its error until
-// the forge's interval has passed, so a forge that cannot say is asked once an
-// interval too. One ask runs at a time, outside the lock: a frame that finds
-// one under way is served the failure held at once, or, with none held, waits
-// for that ask.
+// answer changes only with the forge settings, which drop it as they are taken
+// up, and asking every frame spent a forge request per open page each
+// interval. A read that fails is held with its error until the forge's
+// interval has passed, so a forge that cannot say is asked once an interval
+// too. One ask runs at a time, outside the lock: a frame that finds one under
+// way is served the failure held at once, or, with none held, waits for that
+// ask.
 type authorCache struct {
 	mu    sync.Mutex
 	name  string
@@ -433,6 +433,8 @@ type authorCache struct {
 	readAt time.Time
 	// reading is the ask under way, or nil with none.
 	reading *landing[string]
+	// dropped counts the drops, so an ask begun before one is not kept.
+	dropped int
 }
 
 // cachedAuthor is who a post would come from: the forge's kept answer once it
@@ -443,16 +445,16 @@ type authorCache struct {
 func (s *server) cachedAuthor(ctx context.Context) (string, error) {
 	return sharedRead(ctx,
 		func() turn[string] { return s.author.serve(s.now(), s.forgeInterval()) },
-		func(int) (string, error) {
+		func(dropped int) (string, error) {
 			shared, release := s.worlds.outliving(ctx)
 			defer release()
 
 			name, err := s.deps.Forge.Author(shared)
 			if err != nil {
-				return s.author.land(s.now(), "", fmt.Errorf("reading the author: %w", err))
+				return s.author.land(s.now(), dropped, "", fmt.Errorf("reading the author: %w", err))
 			}
 
-			return s.author.land(s.now(), name, nil)
+			return s.author.land(s.now(), dropped, name, nil)
 		},
 	)
 }
@@ -475,20 +477,34 @@ func (c *authorCache) serve(now time.Time, interval time.Duration) turn[string] 
 
 	c.reading = newLanding[string]()
 
-	return turn[string]{}
+	return turn[string]{dropped: c.dropped}
 }
 
-// land holds what the ask made at now answered, or why it could not, and lets
-// go every frame waiting on it. It answers what the frame shows.
-func (c *authorCache) land(now time.Time, name string, err error) (string, error) {
+// land holds what the ask made at now answered, or why it could not, unless a
+// drop came since the drops counted as it began, and lets go every frame
+// waiting on it. It answers what the frame shows.
+func (c *authorCache) land(now time.Time, dropped int, name string, err error) (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	c.reading.end()
 	c.reading = nil
-	c.name, c.known, c.failed, c.readAt = name, err == nil, err, now
+
+	if dropped == c.dropped {
+		c.name, c.known, c.failed, c.readAt = name, err == nil, err, now
+	}
 
 	return name, err
+}
+
+// drop forgets the author held and any failure, so the next frame asks the
+// forge again: forge settings newly in effect may name another account.
+func (c *authorCache) drop() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.name, c.known, c.failed = "", false, nil
+	c.dropped++
 }
 
 // scopeCache is the store's last commit scope, read the first time a frame
