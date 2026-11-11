@@ -59,6 +59,22 @@ repository() {
   quiet_git -C "${clone}" add .
 }
 
+# run_tag_step runs the script as the tag job does, in a case's clone, on the
+# message of its head commit: gh's stand-in answers from the pulls given and
+# logs what it was asked to <slug>.log, and what the script says goes to
+# <slug>.out. Its exit status is left in tag_step_status.
+#   run_tag_step <slug> <pulls> [argument]...
+run_tag_step() {
+  local slug="$1" pulls="$2"
+  shift 2
+
+  tag_step_status=0
+  (cd "${workdir}/${slug}" \
+    && PATH="${workdir}/bin:${PATH}" GH_STUB_LOG="${workdir}/${slug}.log" GH_STUB_PULLS="${pulls}" \
+      HEAD_COMMIT_MSG="$(git log -1 --format=%B)" \
+      bash "${script}" "$@" >"${workdir}/${slug}.out" 2>&1) || tag_step_status=$?
+}
+
 # expect commits a subject, runs the script, and compares what happened.
 #   expect <tagged|untagged> <ok|fails> <name> <manifest> <subject> <pulls> [tag]
 expect() {
@@ -70,10 +86,8 @@ expect() {
   quiet_git -C "${workdir}/${slug}" commit -m "${subject}"
   quiet_git -C "${workdir}/${slug}" push origin main
 
-  if ! (cd "${workdir}/${slug}" \
-    && PATH="${workdir}/bin:${PATH}" GH_STUB_LOG="${workdir}/${slug}.log" GH_STUB_PULLS="${pulls}" \
-      HEAD_COMMIT_MSG="${subject}" \
-      bash "${script}" >"${workdir}/${slug}.out" 2>&1); then
+  run_tag_step "${slug}" "${pulls}"
+  if ((tag_step_status != 0)); then
     got_exit="fails"
   fi
 
@@ -131,10 +145,7 @@ quiet_git -C "${workdir}/again" tag v1.4.0
 quiet_git -C "${workdir}/again" push origin v1.4.0
 quiet_git -C "${workdir}/again" tag -d v1.4.0
 
-(cd "${workdir}/again" \
-  && PATH="${workdir}/bin:${PATH}" GH_STUB_LOG="${workdir}/again.log" GH_STUB_PULLS="${released}" \
-    HEAD_COMMIT_MSG="chore(main): release 1.4.0" \
-    bash "${script}" >"${workdir}/again.out" 2>&1) || true
+run_tag_step again "${released}"
 
 if grep -q 'workflow run' "${workdir}/again.log" 2>/dev/null; then
   fail_case "a tag already on the origin" "release.yml was dispatched again"
@@ -161,10 +172,8 @@ repository unknown "1.4.0"
 quiet_git -C "${workdir}/unknown" commit -m "chore(main): release 1.4.0"
 quiet_git -C "${workdir}/unknown" push origin main
 
-if (cd "${workdir}/unknown" \
-  && PATH="${workdir}/bin:${PATH}" GH_STUB_LOG="${workdir}/unknown.log" GH_STUB_PULLS="${released}" \
-    HEAD_COMMIT_MSG="chore(main): release 1.4.0" \
-    bash "${script}" tag >"${workdir}/unknown.out" 2>&1) \
+run_tag_step unknown "${released}" tag
+if ((tag_step_status == 0)) \
   || git -C "${workdir}/unknown.git" rev-parse --verify --quiet refs/tags/v1.4.0 >/dev/null 2>&1; then
   fail_case "an unknown step" "want it refused with nothing tagged"
   sed 's/^/    /' "${workdir}/unknown.out" >&2
