@@ -65,13 +65,14 @@ echo "ffconcat version 1.0" >../tmp/walkthrough/walkthrough.ffconcat
 stub stubs uname 'case "$1" in -s) echo "${FAKE_SYSTEM:-Linux}" ;; -m) echo "${FAKE_MACHINE:-x86_64}" ;; esac'
 # shellcheck disable=SC2016 # the stand-in's own variable, expanded when it runs
 stub stubs id 'echo "${FAKE_UID:-1000}"'
-# getconf counts FAKE_CPUS processors, four by default; pgrep finds the run
-# FAKE_RUNNING names, and none by default.
+# getconf counts FAKE_CPUS processors, four by default; pgrep finds each
+# process line FAKE_RUNNING names that its pattern, its last argument,
+# matches, and none by default.
 # shellcheck disable=SC2016 # the stand-in's own variable, expanded when it runs
 stub stubs getconf 'echo "${FAKE_CPUS:-4}"'
-# shellcheck disable=SC2016 # the stand-in's own variable, expanded when it runs
+# shellcheck disable=SC2016 # the stand-in's own variables, expanded when it runs
 stub stubs pgrep '[[ -n "${FAKE_RUNNING:-}" ]] || exit 1
-echo "${FAKE_RUNNING}"'
+grep -E -- "${*: -1}" <<<"${FAKE_RUNNING}"'
 # curl downloads the ttyd payload, or fails as FAKE_CURL_FAIL asks.
 # shellcheck disable=SC2016 # the stand-in's own arguments, expanded when it runs
 stub curl curl 'echo "curl $2"
