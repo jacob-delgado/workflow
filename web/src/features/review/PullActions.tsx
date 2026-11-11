@@ -17,8 +17,7 @@ import {
   readPullText,
   rerunChecks,
 } from './reviewWritesApi.ts'
-
-type Opened = 'none' | 'edit' | 'merge' | 'finish' | 'rerun'
+import { useOpenedForm, type FormName } from './useOpenedForm.ts'
 
 // Moved is the branch a finish left and the one it checked out.
 export interface Moved {
@@ -56,8 +55,8 @@ function canFinish(pull: PullRequest, finishRefusal: string | undefined): boolea
 // PullActions are the writes on the branch's pull request the terminal's
 // Review pane makes: edit it (e), merge it (M), finish its merged branch (F)
 // and re-run its failed CI (R), each offered only when it can go, and each
-// sent from a form that is its last look. One form is open at a time; closing
-// it hands focus back to its button, and what a sent one did is said below.
+// sent from a form that is its last look, opened as useOpenedForm has it.
+// What a sent one did is said below.
 // A merged branch that cannot be finished says why, as the terminal does; one
 // finished says so in finished, the panel's line, since the finish checks out
 // another branch, whose review starts afresh.
@@ -74,42 +73,27 @@ export function PullActions({
   finishRefusal: string | undefined
   finished: FinishTeller
 }) {
-  const [opened, setOpened] = useState<Opened>('none')
   const outcome = useOutcome()
   const { noun, sigil } = useForgeWords()
-  const buttons = useRef<Partial<Record<Opened, HTMLButtonElement | null>>>({})
-  const returnTo = useRef<Opened>('none')
   const name = `${sigil}${String(pull.number)}`
-  const closeForm = () => {
-    setOpened('none')
-  }
-  const teller = closingIn(outcome, closeForm)
-  const finishTeller = finishingIn(finished, outcome, closeForm)
-  const close = () => {
-    returnTo.current = opened
-    setOpened('none')
-  }
-
-  // A form backed out of hands focus back to the button that opened it.
-  useEffect(() => {
-    if (opened === 'none' && returnTo.current !== 'none') {
-      buttons.current[returnTo.current]?.focus()
-      returnTo.current = 'none'
-    }
-  }, [opened])
   const offers = offersOf(pull, ci, finishRefusal, noun)
-  // A form whose offer has lapsed — CI running again under Merge, say — is
-  // put away, as the server would refuse what it sends, and does not come
-  // back unasked when the offer does. Set while rendering, so the frame that
-  // takes the offer away is the one drawn without it.
-  if (opened !== 'none' && !offers.some((offer) => offer.opens === opened && offer.can)) {
-    setOpened('none')
+  const can = (form: FormName) => offers.some((offer) => offer.opens === form && offer.can)
+  const { opened, open, close, done, sent, button } = useOpenedForm(can)
+  const sending: Teller = {
+    clear: () => {
+      sent()
+      outcome.clear()
+    },
+    say: outcome.say,
   }
-  const forms: Record<Exclude<Opened, 'none'>, ReactNode> = {
-    edit: <EditForm name={name} teller={teller} onCancel={close} />,
-    merge: <MergeForm name={name} teller={teller} onCancel={close} />,
-    finish: <FinishForm name={name} branch={branch} teller={finishTeller} onCancel={close} />,
-    rerun: <RerunForm name={name} title={pull.title} teller={teller} onCancel={close} />,
+  const teller = closingIn(sending, done)
+  const finishTeller = finishingIn(finished, sending, done)
+  const shared = { name, held: opened !== 'none' && !can(opened), onCancel: close }
+  const forms: Record<FormName, ReactNode> = {
+    edit: <EditForm {...shared} teller={teller} />,
+    merge: <MergeForm {...shared} teller={teller} />,
+    finish: <FinishForm {...shared} branch={branch} teller={finishTeller} />,
+    rerun: <RerunForm {...shared} title={pull.title} teller={teller} />,
   }
 
   return (
@@ -123,11 +107,9 @@ export function PullActions({
               <OfferButton
                 key={offer.opens}
                 opens={offer.opens}
-                onButton={(button) => {
-                  buttons.current[offer.opens] = button
-                }}
+                onButton={button(offer.opens)}
                 onOpen={() => {
-                  setOpened(offer.opens)
+                  open(offer.opens)
                 }}
               >
                 {offer.label}
@@ -145,7 +127,7 @@ export function PullActions({
 // Offer is a write on the pull request: the form it opens, the words on the
 // button that opens it, and whether it can go now.
 interface Offer {
-  opens: Exclude<Opened, 'none'>
+  opens: FormName
   label: string
   can: boolean
 }
@@ -211,7 +193,7 @@ function FinishRefusal({ reason }: { reason: string | undefined }) {
 
 // The terminal's action each offer answers to. Edit answers none this page
 // lists: the terminal's e edits in a preview as well as here.
-const offerActions: Record<Exclude<Opened, 'none'>, string | undefined> = {
+const offerActions: Record<FormName, string | undefined> = {
   edit: undefined,
   merge: 'merge',
   finish: 'finish-branch',
@@ -219,7 +201,7 @@ const offerActions: Record<Exclude<Opened, 'none'>, string | undefined> = {
 }
 
 interface OfferButtonProps {
-  opens: Exclude<Opened, 'none'>
+  opens: FormName
   onButton: (button: HTMLButtonElement | null) => void
   onOpen: () => void
   children: ReactNode
@@ -246,9 +228,13 @@ function OfferButton({ opens, onButton, onOpen, children }: OfferButtonProps) {
   )
 }
 
+// FormProps are what every form is handed: the pull request's name, the
+// teller its write says what it did through, whether its send is held — kept
+// to say why a write was refused once its offer has lapsed — and the way back.
 interface FormProps {
   name: string
   teller: Teller
+  held: boolean
   onCancel: () => void
 }
 
@@ -281,7 +267,7 @@ function useReadOnOpen<T>(read: () => Promise<T>, fallback: string) {
 }
 
 // EditForm edits the title and description, read afresh as it opens.
-function EditForm({ name, teller, onCancel }: FormProps) {
+function EditForm({ name, teller, held, onCancel }: FormProps) {
   const read = useReadOnOpen(readPullText, `${name} could not be read. Try again.`)
 
   if (read.error !== '') {
@@ -292,7 +278,9 @@ function EditForm({ name, teller, onCancel }: FormProps) {
     return <Reading>Reading {name}…</Reading>
   }
 
-  return <EditFields name={name} start={read.value} teller={teller} onCancel={onCancel} />
+  return (
+    <EditFields name={name} start={read.value} teller={teller} held={held} onCancel={onCancel} />
+  )
 }
 
 // EditFields are the title and description as they will be saved.
@@ -300,6 +288,7 @@ function EditFields({
   name,
   start,
   teller,
+  held,
   onCancel,
 }: FormProps & { start: { title: string; body: string } }) {
   const [title, setTitle] = useState(start.title)
@@ -317,6 +306,7 @@ function EditFields({
       act="Save"
       busy={save.state === 'running' ? 'Saving…' : null}
       error={save.state === 'error' ? save.error : ''}
+      held={held}
       onSend={() => void save.run(title, body)}
       onCancel={onCancel}
     >
@@ -357,7 +347,7 @@ const methodLabel: Record<MergeMethod, string> = {
 
 // MergeForm is the merge's preview: the methods the repository permits, read
 // as it opens, one chosen, and the merge sent only from here.
-function MergeForm({ name, teller, onCancel }: FormProps) {
+function MergeForm({ name, teller, held, onCancel }: FormProps) {
   const read = useReadOnOpen(
     readMergeOffer,
     `How ${name} may be merged could not be read. Try again.`,
@@ -386,6 +376,7 @@ function MergeForm({ name, teller, onCancel }: FormProps) {
       act="Merge"
       busy={merge.state === 'running' ? 'Merging…' : null}
       error={merge.state === 'error' ? merge.error : ''}
+      held={held}
       onSend={() => void merge.run(method)}
       onCancel={onCancel}
     >
@@ -419,6 +410,7 @@ function FinishForm({
   name,
   branch,
   teller,
+  held,
   onCancel,
 }: Omit<FormProps, 'teller'> & { branch: Branch; teller: FinishTeller }) {
   const finish = useAsyncAction(finishBranch, {
@@ -436,6 +428,7 @@ function FinishForm({
       act="Finish"
       busy={finish.state === 'running' ? 'Finishing…' : null}
       error={finish.state === 'error' ? finish.error : ''}
+      held={held}
       onSend={() => void finish.run()}
       onCancel={onCancel}
     >
@@ -451,7 +444,7 @@ function FinishForm({
 
 // RerunForm is the re-run's last look: the pull request whose failed checks
 // it restarts, a write to the forge.
-function RerunForm({ name, title, teller, onCancel }: FormProps & { title: string }) {
+function RerunForm({ name, title, teller, held, onCancel }: FormProps & { title: string }) {
   const rerun = useAsyncAction(rerunChecks, {
     fallback: `The checks on ${name} were not re-run. Try again, or re-run them on the forge.`,
     done: (answer) =>
@@ -468,6 +461,7 @@ function RerunForm({ name, title, teller, onCancel }: FormProps & { title: strin
       act="Re-run"
       busy={rerun.state === 'running' ? 'Re-running…' : null}
       error={rerun.state === 'error' ? rerun.error : ''}
+      held={held}
       onSend={() => void rerun.run()}
       onCancel={onCancel}
     >

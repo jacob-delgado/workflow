@@ -314,3 +314,79 @@ test('a merge form put away by CI running again does not come back unasked', asy
   expect(screen.queryByRole('form', { name: 'Merge #42' })).toBeNull()
   expect(screen.getByRole('button', { name: 'Merge' })).toBeTruthy()
 })
+
+// holdWrite has the next call of write wait until the function it returns
+// refuses it, saying detail.
+function holdWrite(write: (...args: never[]) => Promise<unknown>): (detail: string) => void {
+  let refuse: (reason: unknown) => void = () => {
+    throw new Error('the write was not sent')
+  }
+  vi.mocked(write).mockImplementationOnce(
+    () =>
+      new Promise((_resolve, reject) => {
+        refuse = reject
+      }),
+  )
+
+  return (detail) => {
+    refuse({ code: 'conflict', detail })
+  }
+}
+
+// merged is #42 once merged.
+const merged: PullRequest = { ...ready, state: 'merged' }
+
+test.each([
+  {
+    opener: 'Merge',
+    form: 'Merge #42',
+    send: 'Merge',
+    write: mergePull,
+    lapse: () => {
+      streamPull(ready, ciOf('running'))
+    },
+  },
+  {
+    opener: 'Finish the branch',
+    form: 'Finish fix/PROJ-1',
+    send: 'Finish',
+    write: finishBranch,
+    lapse: () => {
+      streamPull(merged, undefined, 'fix/PROJ-1 has commits main lacks')
+    },
+  },
+  {
+    opener: 'Edit pull request',
+    form: 'Edit #42',
+    send: 'Save',
+    write: editPull,
+    lapse: () => {
+      streamPull({ ...ready, state: 'closed' }, ciOf('passed'))
+    },
+  },
+])(
+  'says why $opener sent before its offer lapsed was refused, holding its send',
+  async ({ opener, form, send, write, lapse }) => {
+    // Arrange
+    const refuse = holdWrite(write)
+    streamPull(opener === 'Finish the branch' ? merged : ready, ciOf('passed'))
+    const user = userEvent.setup()
+    render(<ReviewPanel />)
+    await user.click(screen.getByRole('button', { name: opener }))
+    const look = await screen.findByRole('form', { name: form })
+    await user.click(within(look).getByRole('button', { name: send }))
+    act(lapse)
+
+    // Act
+    await act(async () => {
+      refuse('the forge refused it')
+      await Promise.resolve()
+    })
+
+    // Assert
+    expect((await within(look).findByRole('alert')).textContent).toContain('the forge refused it')
+    expect(within(look).getByRole('button', { name: send }).getAttribute('aria-disabled')).toBe(
+      'true',
+    )
+  },
+)
