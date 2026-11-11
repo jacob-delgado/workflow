@@ -27,26 +27,23 @@ export function apiErrorMessage(caught: unknown, fallback: string): string {
 // problemReason is a problem details object's detail, else its title — the
 // empty string when it has neither, or is no problem at all.
 function problemReason(caught: unknown): string {
-  if (typeof caught !== 'object' || caught === null) {
-    return ''
+  const detail = problemField(caught, 'detail')
+  if (typeof detail === 'string' && detail !== '') {
+    return detail
   }
 
-  if ('detail' in caught && typeof caught.detail === 'string' && caught.detail !== '') {
-    return caught.detail
-  }
+  const title = problemField(caught, 'title')
 
-  return 'title' in caught && typeof caught.title === 'string' ? caught.title : ''
+  return typeof title === 'string' ? title : ''
 }
 
 // problemCode is a problem details object's machine code — fetch_failed, say —
 // for a control that offers its own way out of one refusal; the empty string
 // for anything else thrown.
 export function problemCode(caught: unknown): string {
-  if (typeof caught !== 'object' || caught === null || caught instanceof Error) {
-    return ''
-  }
+  const code = problemField(caught, 'code')
 
-  return 'code' in caught && typeof caught.code === 'string' ? caught.code : ''
+  return typeof code === 'string' ? code : ''
 }
 
 // mayAnswerAgain reports a failure that asking once more may get past: a
@@ -60,11 +57,17 @@ export function mayAnswerAgain(caught: unknown): boolean {
     return true
   }
 
-  return (
-    typeof caught === 'object' &&
-    caught !== null &&
-    'status' in caught &&
-    typeof caught.status === 'number' &&
-    caught.status >= 500
-  )
+  const status = problemField(caught, 'status')
+
+  return typeof status === 'number' && status >= 500
+}
+
+// problemField is the field of a problem details object named, as the typed
+// client throws one; undefined for anything else thrown, an Error included.
+function problemField(caught: unknown, name: string): unknown {
+  if (typeof caught !== 'object' || caught === null || caught instanceof Error) {
+    return undefined
+  }
+
+  return name in caught ? (caught as Record<string, unknown>)[name] : undefined
 }
