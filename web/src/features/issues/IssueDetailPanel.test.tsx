@@ -151,9 +151,9 @@ test('leaves out a comment date the tracker could not give', async () => {
   expect(comments.textContent).not.toMatch(/·/)
 })
 
-test('shows the reason when the issue cannot be read', async () => {
+test('shows the reason at once when the issue is refused, and asks no more', async () => {
   // Arrange
-  serveIssue(
+  const fetch = serveIssue(
     {
       type: 'https://jacob-delgado.github.io/workflow/docs/errors/#not-found',
       title: 'Not found',
@@ -170,6 +170,7 @@ test('shows the reason when the issue cannot be read', async () => {
   // Assert
   const alert = await screen.findByRole('alert')
   expect(alert.textContent).toMatch(/PROJ-1 was not found/)
+  expect(fetch).toHaveBeenCalledTimes(1)
 })
 
 test('says it is reading the issue until the detail arrives', () => {
