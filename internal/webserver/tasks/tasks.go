@@ -90,11 +90,32 @@ func (h *Handlers) readTaskList(ctx context.Context, said string) (api.TaskList,
 func (h *Handlers) unlessSettingsChanged(
 	ctx context.Context, find func(context.Context) (taskwarrior.Install, error),
 ) (taskwarrior.Install, error) {
-	if h.kit.Config() != h.bound {
+	if h.settingsChanged() {
 		return taskwarrior.Install{}, errSettingsChanged
 	}
 
 	return find(ctx)
+}
+
+// settingsChanged reports taskwarrior settings in effect other than the ones
+// the seams were bound with.
+func (h *Handlers) settingsChanged() bool {
+	return h.kit.Config() != h.bound
+}
+
+// settingsChangedRefusal is the refusal of a write once the taskwarrior
+// settings in effect are not the ones the seams were bound with — the
+// Taskwarrior the seams reach is the one the old settings found — in the words
+// the list says it with, or nil while they stand.
+func (h *Handlers) settingsChangedRefusal() *api.Problem {
+	if !h.settingsChanged() {
+		return nil
+	}
+
+	_, reason := unavailableReason(errSettingsChanged)
+	prob := problem.New(api.ProblemCodeUnprocessable, reason)
+
+	return &prob
 }
 
 // installed is the Taskwarrior that answers, asked under ctx, or why none can

@@ -139,10 +139,14 @@ const lineRequired = "a line is required"
 
 // taskWrite makes act's write on the task uuid names under ctx — act is nil
 // when there is no Taskwarrior to make it — and answers the list after it, or
-// the problem either met.
+// the problem either met. Once the taskwarrior settings changed, it makes none.
 func (h *Handlers) taskWrite(
 	ctx context.Context, uuid string, act func(ctx context.Context, uuid string) error,
 ) (api.TaskList, *api.Problem) {
+	if prob := h.settingsChangedRefusal(); prob != nil {
+		return api.TaskList{}, prob
+	}
+
 	if act == nil {
 		prob := problem.New(api.ProblemCodeUnprocessable, notAvailable)
 
