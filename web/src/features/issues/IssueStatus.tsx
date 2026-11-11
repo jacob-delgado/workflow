@@ -4,11 +4,12 @@ import { StateMark, type MarkState } from '@/lib/StateMark.tsx'
 // The tracker groups every workflow's statuses into three categories, and the
 // mark follows the category, as the interface's issue list does, so "In
 // Progress" and "In Review" read alike without the cockpit knowing a given
-// board's status names.
+// board's status names. A status Jira files under none of them is unknown.
 const mark: Record<StatusCategory, MarkState> = {
   new: 'not-started',
   indeterminate: 'in-flight',
   done: 'done',
+  unknown: 'unknown',
 }
 
 // IssueStatus is an issue's status in the tracker's words, after the mark of

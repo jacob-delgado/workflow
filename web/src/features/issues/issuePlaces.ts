@@ -125,8 +125,8 @@ export function placeChoices(
 }
 
 // statusNames is each status the issues are in, once, in the tracker's
-// workflow order: not started first, then in flight, then done, then any in a
-// category Jira does not name (its "No Category"), and by name within each, so
+// workflow order: not started first, then in flight, then done, then any whose
+// category is unknown (Jira's "No Category"), and by name within each, so
 // a status keeps its place however the issues move. A status named in two
 // categories goes with the earlier one.
 function statusNames(issues: Issue[]): string[] {
@@ -141,8 +141,8 @@ function statusNames(issues: Issue[]): string[] {
     .map(([name]) => name)
 }
 
-// categoryRank is where a status category comes in the workflow, any category
-// Jira does not name last.
+// categoryRank is where a status category comes in the workflow, an unknown
+// one last.
 function categoryRank(category: StatusCategory): number {
   const at = categoryOrder.indexOf(category)
 

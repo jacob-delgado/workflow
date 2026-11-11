@@ -704,6 +704,7 @@ const (
 	StatusCategoryDone          StatusCategory = "done"
 	StatusCategoryIndeterminate StatusCategory = "indeterminate"
 	StatusCategoryNew           StatusCategory = "new"
+	StatusCategoryUnknown       StatusCategory = "unknown"
 )
 
 // Valid indicates whether the value is a known member of the StatusCategory enum.
@@ -714,6 +715,8 @@ func (e StatusCategory) Valid() bool {
 	case StatusCategoryIndeterminate:
 		return true
 	case StatusCategoryNew:
+		return true
+	case StatusCategoryUnknown:
 		return true
 	default:
 		return false
@@ -1626,7 +1629,9 @@ type Issue struct {
 	Priority *string `json:"priority,omitempty"`
 
 	// Status The human status name, such as "In Progress".
-	Status         string         `json:"status"`
+	Status string `json:"status"`
+
+	// StatusCategory Where the status sits in the tracker's progression: not yet started, in progress or done, or unknown for a status Jira files under none of the three, its No Category.
 	StatusCategory StatusCategory `json:"status_category"`
 	Summary        string         `json:"summary"`
 
@@ -1646,12 +1651,14 @@ type IssueDetail struct {
 	CommentTotal int `json:"comment_total"`
 
 	// Comments Oldest first.
-	Comments       []Comment      `json:"comments"`
-	Description    string         `json:"description"`
-	Key            string         `json:"key"`
-	Priority       *string        `json:"priority,omitempty"`
-	Reporter       string         `json:"reporter"`
-	Status         string         `json:"status"`
+	Comments    []Comment `json:"comments"`
+	Description string    `json:"description"`
+	Key         string    `json:"key"`
+	Priority    *string   `json:"priority,omitempty"`
+	Reporter    string    `json:"reporter"`
+	Status      string    `json:"status"`
+
+	// StatusCategory Where the status sits in the tracker's progression: not yet started, in progress or done, or unknown for a status Jira files under none of the three, its No Category.
 	StatusCategory StatusCategory `json:"status_category"`
 	Summary        string         `json:"summary"`
 
@@ -2564,7 +2571,7 @@ type StagingRequest struct {
 	Path *string `json:"path,omitempty"`
 }
 
-// StatusCategory defines model for StatusCategory.
+// StatusCategory Where the status sits in the tracker's progression: not yet started, in progress or done, or unknown for a status Jira files under none of the three, its No Category.
 type StatusCategory string
 
 // StatusChange A status change the tracker offers an issue, and the fields it cannot be made without.
@@ -2583,7 +2590,9 @@ type StatusChange struct {
 	Name string `json:"name"`
 
 	// ToStatus Example: Resolved
-	ToStatus         string         `json:"to_status"`
+	ToStatus string `json:"to_status"`
+
+	// ToStatusCategory Where the status sits in the tracker's progression: not yet started, in progress or done, or unknown for a status Jira files under none of the three, its No Category.
 	ToStatusCategory StatusCategory `json:"to_status_category"`
 }
 

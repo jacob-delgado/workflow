@@ -294,7 +294,8 @@ workflow repositories --json | jq -r '.worktrees[0].dir'
 same view (see [Scripting the API]({{< relref "/docs/web#scripting-the-api" >}})):
 `issues`, each with `key`, `tracker` — `jira`, or `forge` for the forge's
 issues, whose key is the bare number — `summary`, `status`,
-`status_category` (`new`, `indeterminate` or `done`), `type` and, when
+`status_category` (`new`, `indeterminate`, `done`, or `unknown` for a
+status Jira files under none of the three), `type` and, when
 there is one, `priority`; `total`, how many the view holds; `start_at`,
 always `0`; and `unavailable`, each tracker that could not be read. It is
 the view's first page: its first 50 issues and, on the first view when

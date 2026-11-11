@@ -396,7 +396,7 @@ func TestAFrameCarriesAnIssueWhoseStatusIsUnderNoCategory(t *testing.T) {
 		"/api/events").Body.String())
 
 	// Assert
-	if len(frame.Issues.Issues) != 1 || frame.Issues.Issues[0].StatusCategory != api.StatusCategoryNew {
-		t.Errorf("frame issues = %+v, want the issue carried as not yet started", frame.Issues.Issues)
+	if len(frame.Issues.Issues) != 1 || frame.Issues.Issues[0].StatusCategory != api.StatusCategoryUnknown {
+		t.Errorf("frame issues = %+v, want the issue carried as unknown", frame.Issues.Issues)
 	}
 }

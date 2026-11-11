@@ -139,7 +139,7 @@ func TestACommentKeepsItsAuthorBodyAndTime(t *testing.T) {
 	}
 }
 
-func TestAStatusJiraFilesUnderNoCategoryIsCarriedAsNotStarted(t *testing.T) {
+func TestAStatusJiraFilesUnderNoCategoryIsCarriedAsUnknown(t *testing.T) {
 	t.Parallel()
 
 	cases := map[jira.StatusCategory]api.StatusCategory{
@@ -147,10 +147,10 @@ func TestAStatusJiraFilesUnderNoCategoryIsCarriedAsNotStarted(t *testing.T) {
 		jira.CategoryIndeterminate: api.StatusCategoryIndeterminate,
 		jira.CategoryDone:          api.StatusCategoryDone,
 		// Jira's No Category, which a status no one sorted into a category is
-		// filed under; the contract names three categories, and the page
-		// refuses a frame carrying any other.
-		"undefined": api.StatusCategoryNew,
-		"":          api.StatusCategoryNew,
+		// filed under: not a status not yet started, so not new.
+		"undefined": api.StatusCategoryUnknown,
+		"":          api.StatusCategoryUnknown,
+		"invented":  api.StatusCategoryUnknown,
 	}
 
 	for category, want := range cases {
