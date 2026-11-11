@@ -99,6 +99,21 @@ test('no single key reaches a control behind an open confirm', async () => {
   expect(screen.queryByText('Staged every change.')).toBeNull()
 })
 
+test('no single key reaches a control behind an open write form', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  openOn(withIssue, keysWith(true))
+  await keysRead('c')
+  await user.click(screen.getByRole('button', { name: 'Assign' }))
+  const form = screen.getByRole('form', { name: 'Assign PROJ-1' })
+
+  // Act
+  await user.keyboard('c')
+
+  // Assert
+  expect(document.activeElement).toBe(form)
+})
+
 test('no single key reaches a control behind an open dialog', async () => {
   // Arrange
   const user = userEvent.setup()
