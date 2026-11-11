@@ -254,3 +254,44 @@ test('a Try again in flight beside an issue already read keeps its focus and is 
   )
   expect(issueReads).toHaveLength(3)
 })
+
+test('a Try again refused again leaves focus where the user put it once a later read answers', async () => {
+  // Arrange
+  // The issue was read, then read again once stale and refused; its Try again
+  // was refused too. The user then moves on, and a reconnect reads the stale
+  // issue again on its own, which answers.
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date('2026-09-23T12:00:00Z'))
+  const answers = [
+    Response.json(makeIssueDetail()),
+    Response.json({}, { status: 500 }),
+    Response.json({}, { status: 500 }),
+    Response.json(makeIssueDetail({ description: 'Tokens reach the request log and the trace.' })),
+  ]
+  fakeApi({ '/api/issues/PROJ-1': () => answers.shift() })
+  const user = userEvent.setup()
+  renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
+  await screen.findByText('Tokens reach the request log.')
+  const reconnect = () => {
+    act(() => {
+      onlineManager.setOnline(false)
+      onlineManager.setOnline(true)
+    })
+  }
+  vi.setSystemTime(new Date('2026-09-23T12:01:01Z'))
+  reconnect()
+  await user.click(await screen.findByRole('button', { name: 'Try again' }))
+  await waitFor(() => {
+    expect(answers).toHaveLength(1)
+  })
+  await screen.findByRole('button', { name: 'Try again' })
+  const jira = screen.getByRole('link', { name: /open in jira/i })
+  jira.focus()
+
+  // Act
+  reconnect()
+
+  // Assert
+  await screen.findByText('Tokens reach the request log and the trace.')
+  expect(document.activeElement).toBe(jira)
+})
