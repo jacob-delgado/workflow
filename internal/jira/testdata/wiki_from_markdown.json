@@ -117,6 +117,11 @@
       "want": "before\n{code:go}\nx := **notBold**\n{code}\nafter"
     },
     {
+      "name": "a bare fence opens a block with no language",
+      "markdown": "```\nx := **notBold**\n```\nafter **bold**",
+      "want": "{code}\nx := **notBold**\n{code}\nafter *bold*"
+    },
+    {
       "name": "a line ending in a carriage return",
       "markdown": "# Title\r\nsome **bold**\r",
       "want": "h1. Title\r\nsome *bold*\r"
@@ -135,6 +140,11 @@
       "name": "a fence line ending in a byte order mark",
       "markdown": "```go\ufeff\nx := 1\n```",
       "want": "{code:go}\nx := 1\n{code}"
+    },
+    {
+      "name": "a fence line naming a language inside a block does not close it",
+      "markdown": "```md\n```go\nx := **notBold**\n```\nafter **bold**",
+      "want": "{code:md}\n```go\nx := **notBold**\n{code}\nafter *bold*"
     }
   ]
 }

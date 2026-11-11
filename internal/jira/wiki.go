@@ -68,23 +68,46 @@ func WikiFromMarkdown(md string) string {
 	inFence := false
 
 	for _, line := range lines {
-		if fence, ok := fenceLine(line); ok {
-			out = append(out, fence)
-			inFence = !inFence
+		fence, isFence := readFence(line)
 
-			continue
-		}
-
-		if inFence {
+		switch {
+		case inFence && isFence && fence.closes():
+			out = append(out, "{code}")
+			inFence = false
+		case inFence:
 			out = append(out, line)
-
-			continue
+		case isFence:
+			out = append(out, fence.bracket())
+			inFence = true
+		default:
+			out = append(out, convertLine(line))
 		}
-
-		out = append(out, convertLine(line))
 	}
 
 	return strings.Join(out, "\n")
+}
+
+// codeFence is a line that opens or closes a fenced code block: the info
+// string after its backticks, which names the block's language.
+type codeFence struct {
+	info string
+}
+
+// closes reports whether the fence, read inside a block, closes it: a fence
+// with an info string only ever opens one, so a block that quotes a ```go
+// line keeps it.
+func (f codeFence) closes() bool {
+	return f.info == ""
+}
+
+// bracket is the wiki markup that opens a block at the fence: {code:lang}
+// when it names a language, {code} otherwise.
+func (f codeFence) bracket() string {
+	if f.info == "" {
+		return "{code}"
+	}
+
+	return "{code:" + f.info + "}"
 }
 
 // maxFenceIndent is how far a code fence may be indented before Markdown reads
@@ -103,23 +126,18 @@ func trimFence(text string) string {
 	return strings.TrimFunc(text, func(r rune) bool { return unicode.IsSpace(r) || r == byteOrderMark })
 }
 
-// fenceLine turns a ``` fence into its wiki bracket: {code:lang} when it opens
-// with a language, {code} otherwise. It reports whether the line was a fence.
-func fenceLine(line string) (string, bool) {
+// readFence reads a ``` fence line, reporting false for any other line.
+func readFence(line string) (codeFence, bool) {
 	if len(line)-len(strings.TrimLeft(line, " ")) > maxFenceIndent {
-		return "", false
+		return codeFence{}, false
 	}
 
 	trimmed := trimFence(line)
 	if !strings.HasPrefix(trimmed, "```") {
-		return "", false
+		return codeFence{}, false
 	}
 
-	if lang := trimFence(strings.TrimPrefix(trimmed, "```")); lang != "" {
-		return "{code:" + lang + "}", true
-	}
-
-	return "{code}", true
+	return codeFence{info: trimFence(strings.TrimPrefix(trimmed, "```"))}, true
 }
 
 // convertLine rewrites one line outside a code block: its block marker, then the
