@@ -1467,3 +1467,22 @@ to move a workflow's container image, which would take the hand step away; the
 runners' apt mirror is reliable enough that installing over it costs less than
 the image's pull; or Playwright stops publishing the image for a version the
 web app needs.
+
+### TRADE-60 An announcement's claim lives in the discardable workflow.db
+
+**Decided.** 2026-11-11 by the maintainer, approving the one armed
+announcement's design: the claim every post takes before it goes, which makes
+one announcement go once across sessions and processes, is the `announces`
+table of `workflow.db` (`internal/store/store.go`), the file that holds only
+what a session can see again, rather than `kept.db`, which holds what the user
+decided. `kept.db` has no migrations (TRADE-25), so moving the table there
+would cost every user a `workflow db-clean --all` and every answer kept in it.
+
+**Cost.** `workflow db-clean`, and another build's `schemaVersion`, which
+discards the file whole, forget every claim. A pull request announced before
+the wipe can be offered, and posted, again by hand; an automatic post cannot
+follow from it, since an announcement is armed on its own only as its pull
+request opens.
+
+**Reopen when.** A duplicate announcement after a wipe is reported, or
+`kept.db` gains migrations.

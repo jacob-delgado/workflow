@@ -21,7 +21,8 @@ func TestAReadOnlyStoreMakesNothingWhereThereIsNone(t *testing.T) {
 
 	cases := map[string]storeCall{
 		"LastScope": lastScope, "RecordScope": recordScope,
-		"RecordAnnounce": recordAnnounce, "Announces": announces,
+		"ClaimAnnounce": claimAnnounce, "ConfirmAnnounce": confirmAnnounce,
+		"ReleaseAnnounce": releaseAnnounce, "ReclaimAnnounce": reclaimAnnounce, "Announces": announces,
 		"CachedIssues": cachedIssues, "CacheIssues": cacheIssues,
 	}
 
@@ -58,7 +59,7 @@ type keptAndRead struct {
 func eachKind() map[string]keptAndRead {
 	return map[string]keptAndRead{
 		"a scope":         {write: recordScope, read: lastScope},
-		"an announcement": {write: recordAnnounce, read: announces},
+		"an announcement": {write: claimAnnounce, read: announces},
 		"an issue list":   {write: cacheIssues, read: cachedIssues},
 	}
 }
@@ -130,7 +131,7 @@ func TestAReadOnlyStoreReadsADirectoryNamedWithURICharacters(t *testing.T) {
 	// escapes and a hash ends the path, so the name must be escaped to reach it.
 	dir := filepath.Join(t.TempDir(), "50% #1 Support", "workflow")
 
-	_, err := recordAnnounce(t.Context(), store.New(dir, false))
+	_, err := claimAnnounce(t.Context(), store.New(dir, false))
 	if err != nil {
 		t.Fatalf("keeping an announcement: %v", err)
 	}
@@ -152,7 +153,7 @@ func TestAReadOnlyStoreLeavesTheDirectoryAsItFoundIt(t *testing.T) {
 	// one changes nothing it finds, so a looser mode set since stays.
 	dir := filepath.Join(t.TempDir(), "workflow")
 
-	_, err := recordAnnounce(t.Context(), store.New(dir, false))
+	_, err := claimAnnounce(t.Context(), store.New(dir, false))
 	if err != nil {
 		t.Fatalf("keeping an announcement: %v", err)
 	}

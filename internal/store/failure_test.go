@@ -43,8 +43,24 @@ func recordScope(ctx context.Context, kept store.Store) (bool, error) {
 	return false, kept.RecordScope(ctx, repo, recorded, theTime())
 }
 
-func recordAnnounce(ctx context.Context, kept store.Store) (bool, error) {
-	return false, kept.RecordAnnounce(ctx, repo, store.Announce{Pull: 42, Moment: 1}, theTime())
+func claimAnnounce(ctx context.Context, kept store.Store) (bool, error) {
+	claim, err := kept.ClaimAnnounce(ctx, repo, store.Announce{Pull: 42, Moment: 1}, theTime())
+
+	return claim.Kind == store.ClaimHeld && claim.Generation > 0, err
+}
+
+func confirmAnnounce(ctx context.Context, kept store.Store) (bool, error) {
+	return false, kept.ConfirmAnnounce(ctx, repo, store.Announce{Pull: 42, Moment: 1}, 1, theTime())
+}
+
+func releaseAnnounce(ctx context.Context, kept store.Store) (bool, error) {
+	return false, kept.ReleaseAnnounce(ctx, repo, store.Announce{Pull: 42, Moment: 1}, 1)
+}
+
+func reclaimAnnounce(ctx context.Context, kept store.Store) (bool, error) {
+	claim, err := kept.ReclaimAnnounce(ctx, repo, store.Announce{Pull: 42, Moment: 1}, 1, theTime())
+
+	return claim.Kind == store.ClaimHeld && claim.Generation > 0, err
 }
 
 func announces(ctx context.Context, kept store.Store) (bool, error) {
@@ -128,7 +144,7 @@ func cachedView() []statement {
 		) STRICT`),
 		{
 			query: `INSERT INTO issue_cache (instance, view, cached_at) VALUES (?, ?, ?)`,
-			args:  []any{instance, view, "2026-09-22T12:00:00Z"},
+			args:  []any{instance, view, storedTime},
 		},
 	}
 }
@@ -138,7 +154,8 @@ func TestEveryStoreMethodReportsADirectoryItCannotCreate(t *testing.T) {
 
 	cases := map[string]storeCall{
 		"LastScope": lastScope, "RecordScope": recordScope,
-		"RecordAnnounce": recordAnnounce, "Announces": announces,
+		"ClaimAnnounce": claimAnnounce, "ConfirmAnnounce": confirmAnnounce,
+		"ReleaseAnnounce": releaseAnnounce, "ReclaimAnnounce": reclaimAnnounce, "Announces": announces,
 		"CachedIssues": cachedIssues, "CacheIssues": cacheIssues,
 	}
 
@@ -282,18 +299,28 @@ func TestATamperedSchemaIsReportedNotTrusted(t *testing.T) {
 		"a scope written to a table without its columns": {
 			schema: []statement{scopesWithoutColumns}, call: recordScope, step: "recording the scope",
 		},
-		"an announcement written to a table without its columns": {
-			schema: []statement{announcesWithoutColumns}, call: recordAnnounce, step: "recording the announcement",
+		"an announcement claimed in a table without its columns": {
+			schema: []statement{announcesWithoutColumns}, call: claimAnnounce, step: "claiming the announcement",
+		},
+		"an announcement confirmed in a table without its columns": {
+			schema: []statement{announcesWithoutColumns}, call: confirmAnnounce, step: "confirming the announcement",
+		},
+		"an announcement released from a table without its columns": {
+			schema: []statement{announcesWithoutColumns}, call: releaseAnnounce, step: "releasing the announcement",
+		},
+		"an announcement claimed again in a table without its columns": {
+			schema: []statement{announcesWithoutColumns}, call: reclaimAnnounce,
+			step: "claiming the announcement again",
 		},
 		"announcements read from a table without their columns": {
 			schema: []statement{announcesWithoutColumns}, call: announces, step: "reading the announcements",
 		},
 		"an announcement whose pull request is not a number": {
 			schema: []statement{
-				table(`CREATE TABLE announces (repo TEXT, pull, moment, announced_at TEXT)`),
+				table(`CREATE TABLE announces (repo TEXT, pull, moment, claim, claimed_at TEXT, posted_at TEXT)`),
 				{
-					query: `INSERT INTO announces (repo, pull, moment, announced_at) VALUES (?, ?, ?, ?)`,
-					args:  []any{repo, "seven", 1, "2026-09-22T12:00:00Z"},
+					query: `INSERT INTO announces (repo, pull, moment, claim, claimed_at) VALUES (?, ?, ?, ?, ?)`,
+					args:  []any{repo, "seven", 1, 1, storedTime},
 				},
 			},
 			call: announces,
