@@ -204,7 +204,7 @@ is the shortest summary of how far the screen keeps them, re-counted at
 | "the one way the interface says something broke" | `wording`, `internal/tui/errorwords.go:28` | **Yes: every site that renders an error's text.** Each is told through `errorSentence` (`internal/tui/errorwords.go:67`) and drawn by one of nine helpers — those that draw a mark choose it, and its style, through `voice` (`internal/tui/failure.go:79`), the footer's two failure notices through `markOf` (`:67`), which asks the same `loop.NotSetUp`: `failureBlock` at 22 sites, `pinnedOutcome` 18, `pinnedProblem` 2, `failureLine` 19, `failureSummary` 9, `unreadRow` 3, `noticedFailure` 15, `noticedFailureLedBy` 3 and `noticedGuidance` 7 (plain, since red means something broke). They are also the one way the terminal says something was never set up: as guidance, with `○` and no red, in `loop.SetUpAdvice`'s words (`setUp`, `internal/tui/errorwords.go:129`), as principle 4 asks. |
 | "Nothing outward facing is sent without" a last look | `commentPreview`, `internal/tui/comment.go:53` | **Yes, under principle 2.** Every write that leaves the machine or cannot be taken back waits on a preview or a confirmation, most through `lastLook` (`internal/tui/overlay.go:225`): every write to Jira, the forge and the messaging service, every push, Taskwarrior's sync, mark done and undo, forgetting a person and every directory switch. The reversible local toggles principle 2 names act at once. |
 | "a refused change must never go unseen" | `statusPicker`, `internal/tui/picker.go:328` | **Yes: 19 of 19.** Every overlay that sends a request refuses every key while it is in flight and keeps a refusal where it happened until `esc`: `branchCreator`, `branchLinker`, `branchPicker`, `commentPreview`, `finishPreview`, `hookgenOffer`, `issueLinker`, `issueWrite`, `lastLook`, `mergePicker`, `messagingPreview`, `peopleOverlay`, `prComposer`, `prEditor`, `settingsForm` (each refused setting marked under its own row until that setting is edited or a save is sent, and named below a form open over the rows while that form hides them), `setupForm` (`internal/tui/setupform.go:264`, while it writes or checks), `statusPicker` (with its field form), `summaryPost` and `taskLine`. |
-| "Each pane fails on its own" | `docs/content/docs/usage.md:118` | **Yes.** `Init` (`internal/tui/tui.go:215`) batches eight loads, and the Summary and Repositories panes read on first focus (Init reads Repositories too when it starts focused there, `internal/tui/tui.go:224`); each pane holds and renders its own load's error, the Summary per source, and says of a service never set up how to set it up. |
+| "Each pane fails on its own" | `docs/content/docs/usage.md:118` | **Yes.** `Init` (`internal/tui/tui.go:216`) batches eight loads, and the Summary and Repositories panes read on first focus (Init reads Repositories too when it starts focused there, `internal/tui/tui.go:225`); each pane holds and renders its own load's error, the Summary per source, and says of a service never set up how to set it up. |
 | State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:19` | **Yes.** `unicodeGlyphs` and `asciiGlyphs` differ in shape (`internal/tui/glyphs.go:47`, `:63`); `NO_COLOR` keeps bold and faint. Two residues: the progress spine's five system hues are color-only, mitigated by each system's name or initial, and `◐` means both "partly staged" and "announces when CI passes" (see the visual system). |
 
 To re-count rather than trust these numbers: `grep -o '\bfailureBlock('
@@ -256,16 +256,16 @@ always`, which `Config.validateUI` (`internal/config/ui.go:138`) and the
 Impact: low · Effort: large
 
 **Today.** Drafts survive `esc` (the commit, `commitComposer.handleKey`,
-`internal/tui/composer.go:241`; the pull request, `prComposer.handleKey`,
+`internal/tui/composer.go:274`; the pull request, `prComposer.handleKey`,
 `internal/tui/prcomposer.go:294`), a dirty tree blocks a switch instead of
 stashing (`loop.ErrDirtyTree`, `internal/loop/guards.go:18`), and quit is
 guarded while an announcement waits (`quitGuard`,
 `internal/tui/messagingheld.go`). But a posted comment, an applied
 transition, a merge and the `git branch -D` in finish
-(`finishPreview.commands`, `internal/tui/finish.go:94`) have no undo, and
+(`Finishing.Commands`, `internal/gitrepo/branching.go:168`) have no undo, and
 the interface never says which acts are reversible: the finish preview
 lists the three commands and says nothing of what `-D` costs
-(`finishPreview.view`, `internal/tui/finish.go:100`), and a comment's notice
+(`finishPreview.view`, `internal/tui/finish.go:113`), and a comment's notice
 is "commented on KEY" (`commentPosted.apply`,
 `internal/tui/comment.go:140`).
 
@@ -306,7 +306,7 @@ sets (`checkbox`, `internal/tui/glyphs.go`). Three marks are not states
 and take shapes of their own: `★` (`^` in ASCII) for a favorite
 directory, `‹›` (`<>` in ASCII) for the value under a cursor — the
 calendar's and the commit type's (`internal/tui/calendar.go:115`,
-`internal/tui/composer.go:203`), its closing `›` also standing between a
+`internal/tui/composer.go:236`), its closing `›` also standing between a
 section and a setting in it at Settings' foot, as Jira › Project
 (`setting.named`, `internal/tui/settingsrefusals.go`) — and `[]` for the
 value another calendar column stands on (`internal/tui/calendar.go:117`).

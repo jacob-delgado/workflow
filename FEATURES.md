@@ -104,7 +104,7 @@ Impact: low · Effort: small
   hand. `CommitConvention.Message` takes only the subject, body and issue key
   (`internal/convention/commit.go:162`), and the composer's fields are type,
   scope, subject, body and a breaking toggle (`commitComposer`,
-  `internal/tui/composer.go:55`) — no trailer among them.
+  `internal/tui/composer.go:86`) — no trailer among them.
 - Touches: `internal/convention/commit.go` (trailers on `Message`),
   `internal/tui/composer.go` (a co-author picker over recent authors and a
   sign-off toggle), `internal/gitrepo` (the recent authors).
