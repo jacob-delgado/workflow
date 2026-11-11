@@ -179,7 +179,7 @@ func (m Model) pickIssue(line, rows int, inRail bool) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.issues.selected, m.issues.moved = index, true
+	m.issues.selected, m.issues.moved, m.issues.viewing = index, true, false
 	m, page := m.pageIfAtEnd()
 
 	return m, tea.Batch(page, m.soonDetail())
