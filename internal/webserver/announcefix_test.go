@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -113,6 +114,41 @@ func TestAHeldAnnouncementCountsNoQuietTimeAcrossAnOutage(t *testing.T) {
 	// Assert
 	if !sameHold(held, waitingOn(api.CIStateNone)) {
 		t.Errorf("frame's held announcement = %+v, want it still waiting, an outage not counted as quiet", held)
+	}
+}
+
+// step changes w, then moves its clock on by elapsed.
+func (w *forgeWorld) step(elapsed time.Duration, change func(*forgeWorld)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	change(w)
+	w.now = w.now.Add(elapsed)
+}
+
+func TestAHeldAnnouncementCountsNoQuietTimeAcrossAFrameShowingCIHeldFromBefore(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A frame hears no check; the next one's read of CI fails, and the frame
+	// shows the CI read before in its place; half an hour on, a read is heard,
+	// still with no check.
+	world := newForgeWorld()
+	world.ci = forge.CINone
+	handler := webtest.Serve(t, world.deps(), config.Default())
+	announceWhenGreen(t, handler, nil)
+	world.step(time.Minute, func(*forgeWorld) {})
+	heldAnnouncement(t, handler)
+	world.step(time.Minute, func(w *forgeWorld) { w.ciErr = errForgeDown })
+	heldAnnouncement(t, handler)
+	world.step(28*time.Minute, func(w *forgeWorld) { w.ciErr = nil })
+
+	// Act
+	held := heldAnnouncement(t, handler)
+
+	// Assert
+	if !sameHold(held, waitingOn(api.CIStateNone)) {
+		t.Errorf("frame's held announcement = %+v, want it still waiting: a read that failed is not quiet", held)
 	}
 }
 
