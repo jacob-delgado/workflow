@@ -108,11 +108,6 @@ type finishPreview struct {
 
 var _ failable[finishPreview] = finishPreview{}
 
-// commands are the three git commands a finish runs, as gitrepo runs them.
-func (p finishPreview) commands() []string {
-	return p.finishing.Commands()
-}
-
 // view draws the merged pull request and the commands that finish its branch,
 // the finish's outcome pinned under the title.
 func (p finishPreview) view(kit renderKit, width, _ int) (string, string) {
@@ -120,7 +115,7 @@ func (p finishPreview) view(kit renderKit, width, _ int) (string, string) {
 	lines = append(lines,
 		p.vocab.sigil+strconv.Itoa(p.pull.Number)+" merged; finish "+p.finishing.Branch+" by running:", "")
 
-	for _, command := range p.commands() {
+	for _, command := range p.finishing.Commands() {
 		lines = append(lines, "  "+command)
 	}
 
