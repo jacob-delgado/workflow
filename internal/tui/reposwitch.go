@@ -80,6 +80,7 @@ func (m Model) Arrived(next Next) Model {
 		return m.arrivedSetUp(next.saved)
 	}
 
+	m = m.openedOnRepositories()
 	if next.saved.path != "" {
 		return m.noticed(m.marks.done + " saved " + shownDir(m.deps, next.saved.path) + "; reopened with it")
 	}
@@ -90,7 +91,7 @@ func (m Model) Arrived(next Next) Model {
 // StayedAfter is the interface reopened where it was after a switch to
 // next.Dir, or a reopen with a save, could not be made, saying why.
 func (m Model) StayedAfter(next Next, err error) Model {
-	m = m.carryIn(next.carried)
+	m = m.carryIn(next.carried).openedOnRepositories()
 	if next.saved.path != "" {
 		return m.noticedFailureLedBy("saved "+shownDir(m.deps, next.saved.path)+" but could not reopen with it: ", err)
 	}
@@ -109,8 +110,7 @@ func (m Model) arrivedSetUp(saved reopening) Model {
 	return m.focusOn(paneIssues).noticed(said)
 }
 
-// carryIn takes what a switch carried, and focuses the pane it was made from,
-// which Init then reads.
+// carryIn takes what a switch carried.
 func (m Model) carryIn(session carried) Model {
 	if session.jiraURL == m.cfg.Jira.BaseURL {
 		m.commentDrafts = session.commentDrafts
@@ -118,7 +118,13 @@ func (m Model) carryIn(session carried) Model {
 
 	m.tasks.listing = session.listing
 	m.summary.period, m.summary.chosen = session.period, session.periodChosen
-	// Init reads the pane it opens on.
+
+	return m
+}
+
+// openedOnRepositories focuses the pane a switch was made from, marked as
+// read, since Init reads the pane it opens on.
+func (m Model) openedOnRepositories() Model {
 	m.refreshed[paneRepositories] = m.deps.now()
 	m.repositories.loading = true
 

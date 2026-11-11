@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"net/http"
 	"strings"
 	"testing"
 
@@ -189,6 +190,23 @@ func TestArrivingWithAChosenPeriodReadsTheSummaryOnlyOnceLookedAt(t *testing.T) 
 	view := arrived.View().Content
 	requireScreen(t, view, "2026-09-14: read when opened")
 	refuseScreen(t, view, "reading")
+}
+
+func TestArrivingFromSetUpReadsTheRepositoriesPaneWhenLookedAt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	run := newFirstRun(t, http.StatusOK)
+	written, cmd := pressed(t, typing(t, run.model(t, false), throughEveryQuestion()...), keyEnter)
+	written = drain(t, written, cmd)
+	arrived := arrivedOpen(t, reposWorld(), written.Destination())
+
+	// Act
+	view := typing(t, arrived, reposKey).View().Content
+
+	// Assert
+	requireScreen(t, view, "Favorites", "~/src/web")
+	refuseScreen(t, view, "Repositories ◐")
 }
 
 func TestAFailedSwitchStaysAndSaysWhy(t *testing.T) {
