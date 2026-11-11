@@ -346,3 +346,26 @@ test('puts a refused stop away with the run it was for on Close', async () => {
   // Assert
   expect(screen.queryByRole('alert')).toBeNull()
 })
+
+test('shows the run another page started over this page’s ended one, holding the runs', async () => {
+  // Arrange
+  foldable()
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+  await runPreCommit(user)
+  await screen.findByText('The pre-commit hook passed.')
+
+  // Act
+  act(() => {
+    foldable({
+      run: { kind: 'rebase', title: 'git rebase', state: 'in_progress', outcome: '', lines: [] },
+    })
+  })
+
+  // Assert
+  expect(await screen.findByRole('region', { name: 'Output of git rebase' })).toBeTruthy()
+  expect(screen.queryByRole('region', { name: 'Output of pre-commit' })).toBeNull()
+  expect(
+    screen.getByRole('button', { name: 'Rebase onto main' }).getAttribute('aria-disabled'),
+  ).toBe('true')
+})
