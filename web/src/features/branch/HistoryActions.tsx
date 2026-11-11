@@ -139,6 +139,13 @@ export function HistoryActions({
     },
   }
 
+  // A look whose commits went — everything unstaged, or pushed — is put away,
+  // so it never comes back unasked when something is staged again. Set while
+  // rendering, so the frame that takes them away is the one drawn without it.
+  if (asked !== 'none' && last === undefined) {
+    setAsked('none')
+  }
+
   if (asked === 'amend' && last !== undefined) {
     return <AmendLook last={last} {...look} />
   }
