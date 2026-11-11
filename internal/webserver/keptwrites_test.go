@@ -4,7 +4,7 @@
 package webserver_test
 
 // A repository's groups are kept or cleared without Slack's directory, and a
-// kept write and a clean never run at once.
+// kept write, a favorite's included, and a clean never run at once.
 
 import (
 	"context"
@@ -131,6 +131,73 @@ func TestRemoveLocalDataWaitsForAKeptWriteUnderWay(t *testing.T) {
 	if removed.Code != http.StatusOK || overlapped.Load() {
 		t.Errorf("removal = %d, ran while a kept write was under way: %v; want 200, after it",
 			removed.Code, overlapped.Load())
+	}
+}
+
+func TestRemoveLocalDataWaitsForAFavoriteUnderWay(t *testing.T) {
+	t.Parallel()
+
+	// Favorites are kept in kept.db too, which a removal of all local data
+	// sets aside: a favorite written between would be lost with it, or make
+	// the file again halfway through the removal.
+	cases := map[string]struct {
+		method, target, body string
+		wire                 func(deps *webserver.Deps, write func(context.Context, string) error)
+	}{
+		"a favorite marked": {
+			method: http.MethodPut, target: reposPath + "/favorites", body: `{"dir":"/srv/web"}`,
+			wire: func(deps *webserver.Deps, write func(context.Context, string) error) { deps.Store.Favor = write },
+		},
+		"a favorite forgotten": {
+			method: http.MethodDelete, target: reposPath + "/favorites?dir=%2Fsrv%2Fweb",
+			wire: func(deps *webserver.Deps, write func(context.Context, string) error) { deps.Store.Unfavor = write },
+		},
+	}
+
+	for name, change := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			var (
+				writing    atomic.Bool
+				overlapped atomic.Bool
+			)
+
+			favoring := make(chan struct{})
+			deps := webtest.FilledDeps()
+			change.wire(&deps, func(context.Context, string) error {
+				writing.Store(true)
+				close(favoring)
+				time.Sleep(keptWriteHeld)
+				writing.Store(false)
+
+				return nil
+			})
+			deps.Settings.LocalData = func(context.Context) (string, []store.DataFile, error) { return storeDir, nil, nil }
+			deps.Settings.RemoveLocalData = func(store.CleanScope) error {
+				overlapped.Store(writing.Load())
+
+				return nil
+			}
+			handler := webtest.ServeWith(t, deps, slackUserConfig(), webserver.Info{Version: webtest.TestVersion})
+
+			var write sync.WaitGroup
+
+			write.Go(func() { webtest.Send(t, handler, change.method, change.target, change.body) })
+			<-favoring
+
+			// Act
+			removed := webtest.Send(t, handler, http.MethodDelete, "/api/local-data?scope=all", "")
+
+			write.Wait()
+
+			// Assert
+			if removed.Code != http.StatusOK || overlapped.Load() {
+				t.Errorf("removal = %d, ran while a favorite was being written: %v; want 200, after it",
+					removed.Code, overlapped.Load())
+			}
+		})
 	}
 }
 

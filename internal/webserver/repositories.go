@@ -77,7 +77,8 @@ func (s *server) RemoveFavorite(
 }
 
 // changeFavorite marks or forgets dir through change under ctx, refusing a
-// path that is not absolute and a store that keeps nothing.
+// path that is not absolute and a store that keeps nothing. Favorites are kept
+// in the kept file, so the change waits its turn with every other kept write.
 func (s *server) changeFavorite(
 	ctx context.Context, change func(ctx context.Context, dir string) error, dir string,
 ) error {
@@ -87,7 +88,7 @@ func (s *server) changeFavorite(
 	case !filepath.IsAbs(dir):
 		return workdirs.ErrNotAbsolute
 	default:
-		return change(ctx, dir)
+		return s.keptWrite(func() error { return change(ctx, dir) })
 	}
 }
 
