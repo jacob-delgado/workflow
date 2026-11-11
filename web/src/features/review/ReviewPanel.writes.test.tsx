@@ -390,3 +390,45 @@ test.each([
     )
   },
 )
+
+test('backing out of a refused form whose offer lapsed hands focus to the offers left', async () => {
+  // Arrange
+  const refuse = holdWrite(mergePull)
+  streamPull(ready, ciOf('passed'))
+  const user = userEvent.setup()
+  render(<ReviewPanel />)
+  await user.click(screen.getByRole('button', { name: 'Merge' }))
+  const look = await screen.findByRole('form', { name: 'Merge #42' })
+  await user.click(within(look).getByRole('button', { name: 'Merge' }))
+  act(() => {
+    streamPull(ready, ciOf('running'))
+  })
+  await act(async () => {
+    refuse('CI is running on #42')
+    await Promise.resolve()
+  })
+
+  // Act
+  await user.click(within(look).getByRole('button', { name: 'Cancel' }))
+
+  // Assert
+  expect(document.activeElement).toBe(screen.getByRole('group', { name: 'Change #42' }))
+})
+
+test('a form put away by its offer lapsing hands focus to the offers left', async () => {
+  // Arrange
+  streamPull(ready, ciOf('passed'))
+  const user = userEvent.setup()
+  render(<ReviewPanel />)
+  await user.click(screen.getByRole('button', { name: 'Merge' }))
+  const form = await screen.findByRole('form', { name: 'Merge #42' })
+  await user.click(within(form).getByRole('radio', { name: 'Rebase and merge' }))
+
+  // Act
+  act(() => {
+    streamPull(ready, ciOf('running'))
+  })
+
+  // Assert
+  expect(document.activeElement).toBe(screen.getByRole('group', { name: 'Change #42' }))
+})

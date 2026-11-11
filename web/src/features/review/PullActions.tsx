@@ -78,7 +78,7 @@ export function PullActions({
   const name = `${sigil}${String(pull.number)}`
   const offers = offersOf(pull, ci, finishRefusal, noun)
   const can = (form: FormName) => offers.some((offer) => offer.opens === form && offer.can)
-  const { opened, open, close, done, sent, button } = useOpenedForm(can)
+  const { opened, open, close, done, sent, button, group } = useOpenedForm(can)
   const sending: Teller = {
     clear: () => {
       sent()
@@ -100,7 +100,13 @@ export function PullActions({
     <div className="flex flex-col gap-item">
       <FinishRefusal reason={finishRefusal} />
       {opened === 'none' ? (
-        <div role="group" aria-label={`Change ${name}`} className="flex flex-wrap gap-item">
+        <div
+          ref={group}
+          role="group"
+          aria-label={`Change ${name}`}
+          tabIndex={-1}
+          className="flex flex-wrap gap-item"
+        >
           {offers
             .filter((offer) => offer.can)
             .map((offer) => (
