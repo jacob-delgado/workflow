@@ -61,7 +61,7 @@ const dbName = "workflow.db"
 // the file as SQLite's user_version. Bump it whenever a CREATE TABLE changes: a
 // file at another version is discarded whole and made again, so there are no
 // migrations to write.
-const schemaVersion = 1
+const schemaVersion = 2
 
 // ErrNoDir reports that no OS-native data directory could be determined.
 var ErrNoDir = errors.New("could not determine a data directory for the store")
@@ -430,11 +430,20 @@ func createSchema(ctx context.Context, database *sql.DB) error {
 			scope      TEXT NOT NULL,
 			updated_at TEXT NOT NULL
 		) STRICT`,
+		// An announcement is claimed before it is posted, so one key is posted
+		// once whoever asks: claim is the generation, one at first and one more
+		// for each post asked for again, and posted_at is NULL until the post
+		// is confirmed.
+		//
+		// Trade-off TRADE-60: the claim lives in this discardable file, so a
+		// db-clean or another build's schema forgets it.
 		`CREATE TABLE IF NOT EXISTS announces (
-			repo         TEXT NOT NULL,
-			pull         INTEGER NOT NULL,
-			moment       INTEGER NOT NULL,
-			announced_at TEXT NOT NULL,
+			repo       TEXT NOT NULL,
+			pull       INTEGER NOT NULL,
+			moment     INTEGER NOT NULL,
+			claim      INTEGER NOT NULL,
+			claimed_at TEXT NOT NULL,
+			posted_at  TEXT,
 			PRIMARY KEY (repo, pull, moment)
 		) STRICT`,
 		// The cache is a parent row per view — which records that a view was cached

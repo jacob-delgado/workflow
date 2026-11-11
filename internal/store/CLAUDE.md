@@ -8,7 +8,10 @@ holds here alone.
 
 - **`workflow.db`** holds only conveniences a session can see again: the last
   scope, the announcements, the issue cache. Its tables are `createSchema` in
-  `store.go`.
+  `store.go`. The announcements are also the claim each post takes before it
+  goes, so one is posted once across processes; keeping that claim in a file
+  `db-clean` or another build's schema discards is TRADE-60, which says what it
+  costs and when it reopens.
 - **`kept.db`**, beside it, holds what the user decided and cannot be seen
   again: whom a forge owner is on Slack, a repository's groups, the directories
   marked as favorites. Its tables are `ownersSchema` (`owners.go`),

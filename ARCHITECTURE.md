@@ -350,7 +350,9 @@ erDiagram
         TEXT repo PK
         INTEGER pull PK
         INTEGER moment PK
-        TEXT announced_at
+        INTEGER claim
+        TEXT claimed_at
+        TEXT posted_at
     }
     issue_cache ||--o{ cached_issue : "FK (instance, view), cascade delete"
     issue_cache {
@@ -373,8 +375,13 @@ erDiagram
 
 - **`scopes`** — the commit scope last used per repository, so the commit form
   pre-fills what you last chose over the configured default.
-- **`announces`** — one row per `(repo, pull, moment)`, so a previously-announced
-  pull request still shows as posted after a restart. No chat is read back; the
+- **`announces`** — one row per `(repo, pull, moment)`, claimed before the post
+  goes, so of every session and process asking at once exactly one posts, and a
+  previously-announced pull request still shows as posted after a restart.
+  `claim` is the generation (one, then one more for each post asked for again),
+  and `posted_at` stays NULL until the post is confirmed, so a claim whose post
+  began and was never seen to finish reads as unconfirmed rather than posted.
+  The claim lives in this discardable file, TRADE-60. No chat is read back; the
   tool records only its own posts.
 - **`issue_cache` + `cached_issue`** — the repeating group done in normal form.
   A **cached issue list is not a JSON blob in one cell** (a list in a cell fails

@@ -384,16 +384,17 @@ func storeDeps(kept store.Store, cfg config.Config, where Workspace) seams.Store
 	})
 }
 
-// knownAnnouncements are the announcements recorded at a moment this build
-// knows. The store is a file on disk, and a row it holds at any other moment
+// knownAnnouncements are the announcements claimed at a moment this build
+// knows, whether or not their post was confirmed: one claimed is not offered
+// again. The store is a file on disk, and a row it holds at any other moment
 // stands for no announcement this build could make, so it is dropped.
-func knownAnnouncements(recorded []store.Announce) []loop.Announced {
+func knownAnnouncements(recorded []store.AnnounceRecord) []loop.Announced {
 	made := make([]loop.Announced, 0, len(recorded))
 
-	for _, announce := range recorded {
-		moment, known := knownMoment(announce.Moment)
+	for _, record := range recorded {
+		moment, known := knownMoment(record.Moment)
 		if known {
-			made = append(made, loop.Announced{Pull: announce.Pull, Moment: moment})
+			made = append(made, loop.Announced{Pull: record.Pull, Moment: moment})
 		}
 	}
 

@@ -23,7 +23,7 @@ import (
 
 // currentVersion is the schema version this build stamps; it moves with the
 // store's own constant.
-const currentVersion = 1
+const currentVersion = 2
 
 // witness is an application_id the store never writes, so a file that still
 // carries it is the file that was there, not one made in its place.

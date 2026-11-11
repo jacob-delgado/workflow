@@ -47,11 +47,24 @@ func TestEveryTimestampIsWrittenAsRFC3339InUTC(t *testing.T) {
 			},
 			query: `SELECT updated_at FROM scopes`,
 		},
-		"an announcement's announced_at": {
+		"an announcement's claimed_at": {
 			record: func(ctx context.Context, kept store.Store) error {
-				return kept.RecordAnnounce(ctx, repo, store.Announce{Pull: 42, Moment: 1}, stamped)
+				_, err := kept.ClaimAnnounce(ctx, repo, store.Announce{Pull: 42, Moment: 1}, stamped)
+
+				return err
 			},
-			query: `SELECT announced_at FROM announces`,
+			query: `SELECT claimed_at FROM announces`,
+		},
+		"an announcement's posted_at": {
+			record: func(ctx context.Context, kept store.Store) error {
+				claim, err := kept.ClaimAnnounce(ctx, repo, store.Announce{Pull: 42, Moment: 1}, theTime())
+				if err != nil {
+					return err
+				}
+
+				return kept.ConfirmAnnounce(ctx, repo, store.Announce{Pull: 42, Moment: 1}, claim.Generation, stamped)
+			},
+			query: `SELECT posted_at FROM announces`,
 		},
 		"a cached view's cached_at": {
 			record: func(ctx context.Context, kept store.Store) error {
