@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { makeBranch, makeSnapshot, makeTaskBranch } from '@/test/fixtures.ts'
-import { startWorkInWorktree } from './startWorkApi.ts'
+import { startWork, startWorkInWorktree } from './startWorkApi.ts'
 import { WorkStory } from './WorkStory.tsx'
 
 // Work can start in a new worktree beside the repository, which the story
@@ -20,6 +20,7 @@ vi.mock('./startWorkApi.ts', () => ({
     }),
   ),
 }))
+const mockStartWork = vi.mocked(startWork)
 const mockStartInWorktree = vi.mocked(startWorkInWorktree)
 
 const mockSwitchTo = vi.fn((dir: string) =>
@@ -258,4 +259,22 @@ test('the offer to switch gives way to how to free the branch once its worktree 
   // Assert
   expect(screen.getByText(/git worktree prune/)).toBeTruthy()
   expect(screen.queryByRole('button', { name: 'Switch to it' })).toBeNull()
+})
+
+test('one start of work at a time: either start holds the other while it runs', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  mockStartInWorktree.mockImplementationOnce(() => new Promise(() => undefined))
+  useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
+  render(<WorkStory issueKey="PROJ-999" />)
+  await user.click(screen.getByRole('button', { name: 'Start work in a new worktree' }))
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Start work' }))
+
+  // Assert
+  expect(screen.getByRole('button', { name: 'Start work' }).getAttribute('aria-disabled')).toBe(
+    'true',
+  )
+  expect(mockStartWork).not.toHaveBeenCalled()
 })
