@@ -261,6 +261,42 @@ tester.run('arrange-act-assert', arrangeActAssert, {
       errors: [{ messageId: 'emptySection' }],
     },
     {
+      name: 'a single cycle’s empty Assert with a label, both reported as cmd/testshape does',
+      code: `test('t', async ({ page }) => {
+  // Act
+  await page.click('x')
+
+  // Assert: nothing
+})`,
+      errors: [{ messageId: 'labelUnexpected' }, { messageId: 'emptySection' }],
+    },
+    {
+      name: 'a labeled Assert that reaches no expect, both reported as cmd/testshape does',
+      code: `test('t', async ({ page }) => {
+  // Act
+  await page.click('x')
+
+  // Assert: it is clicked
+  const clicked = true
+})`,
+      errors: [{ messageId: 'labelUnexpected' }, { messageId: 'assertWithoutExpect' }],
+    },
+    {
+      name: 'a value checked in a labeled Arrange, both reported',
+      code: `test('t', async ({ page }) => {
+  // Arrange: the home page
+  await page.click('x')
+  expect(sent).toEqual([])
+
+  // Act
+  await page.click('y')
+
+  // Assert
+  expect(sent).toEqual(['y'])
+})`,
+      errors: [{ messageId: 'labelUnexpected' }, { messageId: 'checkOutsideAssert' }],
+    },
+    {
       name: 'a value checked in an Arrange',
       code: `test('t', async ({ page }) => {
   // Arrange
