@@ -181,49 +181,30 @@ func askFor(ask func(string) (string, error), question, what string) (string, er
 	return answer, nil
 }
 
-// nameSlackApp writes the app's client ID, and the Slack kind, into the
-// configuration file a save writes, over the revision it reads.
-func nameSlackApp(cfg config.Config, clientID string) (config.Config, error) {
-	held, revision, err := config.LoadLayersAt(cfg.Layers())
-	if err != nil {
-		return config.Config{}, err
-	}
-
-	held.Messaging.Kind, held.Messaging.ClientID = config.KindSlack, clientID
-
-	_, err = config.SaveLayers(cfg.Layers(), held, revision)
-	if err != nil {
-		return config.Config{}, err
-	}
-
-	return held, nil
-}
-
 // keepFirstToken refreshes the starting credentials once, as the app typed
-// names, keeps what Slack gives back where the configuration keeps a user
-// token, and only then names the app in the file, so a refresh Slack refuses
-// changes nothing; then it says whose token it is. Each request is outlined in
-// conn's request log.
+// names, and keeps what Slack gives back where the configuration keeps a user
+// token with the app named beside it, so a refresh Slack refuses changes
+// nothing; then it says whose token it is. Each request is outlined in conn's
+// request log.
 func keepFirstToken(ctx context.Context, notes console.Notes, conn cmdkit.Connection, answers loginAnswers) error {
 	transport := conn.RequestLog.Wrap("slack", cmdkit.OnlineDoer(conn.Config))
-	store := conn.Process.SlackStore(conn.Config)
 
 	renewed, err := conn.Process.SlackRefresher(answers.clientID, transport).Refresh(ctx, answers.starting)
 	if err != nil {
 		return err
 	}
 
-	err = store.Keep(ctx, renewed)
+	err = conn.Process.SlackStore(conn.Config).KeepLogin(ctx, answers.clientID, renewed)
 	if err != nil {
 		return err
 	}
 
-	named, err := nameSlackApp(conn.Config, answers.clientID)
+	kept, _, err := config.LoadLayersAt(conn.Config.Layers())
 	if err != nil {
 		return err
 	}
 
-	return sayWhoseToken(ctx, notes, conn.Process, named, transport)
+	return sayWhoseToken(ctx, notes, conn.Process, kept, transport)
 }
 
 // sayWhoseToken asks Slack whose the token cfg keeps is, and says so, and

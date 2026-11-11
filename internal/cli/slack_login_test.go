@@ -379,32 +379,7 @@ func TestSlackLoginThatCannotKeepThePairSaysSo(t *testing.T) {
 	}
 }
 
-func TestSlackLoginThatCannotNameTheAppSaysSo(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	// The pair is kept in the home file, and the repository's file, which
-	// the app is named in, stops parsing while Slack answers the refresh.
-	where := clitest.Place{Dir: t.TempDir(), Home: t.TempDir()}
-	clitest.WriteFile(t, where.Home, `{}`)
-	path := clitest.WriteFile(t, where.Dir, slackUserTokenFile)
-	slackRefreshing(t, clitest.BreakFile(t, path))
-
-	// Act
-	_, err := clitest.RunStreamsAt(t, where, loginTyped(), "slack", "login")
-
-	// Assert
-	if err == nil || !strings.Contains(err.Error(), path) {
-		t.Errorf("slack login = %v, want it to name the file it could not write the app into, %s", err, path)
-	}
-
-	held, readErr := os.ReadFile(filepath.Join(where.Home, config.FileName))
-	if readErr != nil || !strings.Contains(string(held), "xoxe-1-next") {
-		t.Errorf("the home file holds %q (%v), want the pair Slack gave back kept there", held, readErr)
-	}
-}
-
-func TestSlackLoginThatCannotWriteTheAppsNameSaysSo(t *testing.T) {
+func TestSlackLoginThatCannotWriteItsFileSaysSoAndKeepsNothing(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -412,33 +387,29 @@ func TestSlackLoginThatCannotWriteTheAppsNameSaysSo(t *testing.T) {
 		t.Skip("root writes into a directory whatever its mode, so the save would succeed")
 	}
 
-	// The pair is kept in the home file; the repository's file, which the app
-	// is named in, sits in a directory nothing can be written in.
+	// The home file, which keeps the pair and the app, sits in a directory
+	// nothing can be written in.
 	where := clitest.Place{Dir: t.TempDir(), Home: t.TempDir()}
 	home := clitest.WriteFile(t, where.Home, `{}`)
 	path := clitest.WriteFile(t, where.Dir, slackUserTokenFile)
 	slackRefreshing(t, func() {})
 
-	err := os.Chmod(where.Dir, 0o500)
+	err := os.Chmod(where.Home, 0o500)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	t.Cleanup(func() { _ = os.Chmod(where.Dir, 0o700) })
+	t.Cleanup(func() { _ = os.Chmod(where.Home, 0o700) })
 
 	// Act
 	_, err = clitest.RunStreamsAt(t, where, loginTyped(), "slack", "login")
 
 	// Assert
-	if !errors.Is(err, fs.ErrPermission) || !strings.Contains(err.Error(), path) {
-		t.Errorf("slack login = %v, want the write to %s refused", err, path)
+	if !errors.Is(err, slackauth.ErrNotKept) || !errors.Is(err, fs.ErrPermission) || !strings.Contains(err.Error(), home) {
+		t.Errorf("slack login = %v, want the pair not kept, the write to %s refused", err, home)
 	}
 
-	held, readErr := os.ReadFile(home)
-	if readErr != nil || !strings.Contains(string(held), "xoxe-1-next") {
-		t.Errorf("the home file holds %q (%v), want the pair Slack gave back kept there", held, readErr)
-	}
-
+	unchanged(t, home, `{}`)
 	unchanged(t, path, slackUserTokenFile)
 }
 
