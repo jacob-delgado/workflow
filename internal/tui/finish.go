@@ -4,6 +4,10 @@
 package tui
 
 import (
+	"cmp"
+	"context"
+	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -13,7 +17,21 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/seams"
 )
+
+// errNoLongerFinishable refuses a confirmed finish when the branch, read
+// again, is no longer one that can be: the preview showed an older read.
+var errNoLongerFinishable = errors.New("the branch cannot be finished now")
+
+// errOtherBranchOut is the branch read again being another than the one the
+// preview named, switched to from another terminal.
+var errOtherBranchOut = errors.New("another branch is checked out")
+
+// errBaseMoved is the branch read again finishing onto another base or from
+// another remote than the preview listed, its upstream reset from another
+// terminal.
+var errBaseMoved = errors.New("its base changed since the preview opened")
 
 // mergedDetail describes a merged pull request: that it merged, how to finish
 // its branch or why it cannot be, and that a new one can still be opened from
@@ -146,10 +164,44 @@ func (p finishPreview) confirm(m Model) (Model, tea.Cmd) {
 
 	p.send = starting()
 	m.overlay = p
-	ctx, finishing, finish := m.session, p.finishing, m.deps.Git.Finish
+	ctx, git := m.session, m.deps.Git
 
 	return m, func() tea.Msg {
-		return finished{branch: finishing.Branch, err: finish(ctx, finishing)}
+		return p.finishAfresh(ctx, git)
+	}
+}
+
+// finishAfresh reads the branch again and finishes it only while it is still
+// the one previewed, onto the base and from the remote the preview listed, and
+// loop.RefuseFinish still finds nothing in the way: a commit made from another
+// terminal since the preview opened would otherwise go with the force delete.
+// The merged pull request is not read again, since a merge is final and the
+// commit it merged never changes.
+func (p finishPreview) finishAfresh(ctx context.Context, git seams.Git) finished {
+	branch, err := git.Branch(ctx)
+	if err != nil {
+		return finished{branch: p.finishing.Branch, err: err}
+	}
+
+	refused := cmp.Or(loop.RefuseFinish(p.pull, true, branch), p.moved(branch.Finishing()))
+	if refused != nil {
+		return finished{branch: p.finishing.Branch, err: fmt.Errorf("%w: %w", errNoLongerFinishable, refused)}
+	}
+
+	return finished{branch: p.finishing.Branch, err: git.Finish(ctx, p.finishing)}
+}
+
+// moved is why the finish read again is not the one the preview listed, or
+// nil when it is the same: the same branch, onto the same base, from the same
+// remote.
+func (p finishPreview) moved(again gitrepo.Finishing) error {
+	switch {
+	case again.Branch != p.finishing.Branch:
+		return errOtherBranchOut
+	case again != p.finishing:
+		return errBaseMoved
+	default:
+		return nil
 	}
 }
 
