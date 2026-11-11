@@ -259,8 +259,7 @@ function useRedraft(
   }
 
   const templated = (body: string) => {
-    setValue('body', body)
-    propose({ ...latest.current, body })
+    fill({ ...latest.current, body })
   }
 
   return { proposed, onto, error, ontoBase, templated }
