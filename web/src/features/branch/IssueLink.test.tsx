@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useHealthStore } from '@/api/health.ts'
 import type { IssueTracker } from '@/api/generated/types.gen.ts'
@@ -291,4 +291,26 @@ test('a refused unlink says so, with focus still on Unlink', async () => {
     'The link was not forgotten. Try again.',
   )
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Unlink PROJ-7' }))
+})
+
+test('once the stream has moved on, a link made again elsewhere shows as linked', async () => {
+  // Arrange
+  onBranch('PROJ-7')
+  fakeApi({ [linkPath]: myThing() })
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+  await user.click(screen.getByRole('button', { name: 'Unlink PROJ-7' }))
+  await screen.findByRole('button', { name: 'Link an issue' })
+  act(() => {
+    onBranch()
+  })
+
+  // Act
+  act(() => {
+    onBranch('PROJ-7')
+  })
+
+  // Assert
+  expect(screen.getByRole('button', { name: 'Unlink PROJ-7' })).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Link an issue' })).toBeNull()
 })

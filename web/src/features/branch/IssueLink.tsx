@@ -25,7 +25,13 @@ export function IssueLink({ branch, outcome }: { branch: Branch; outcome: Teller
     setHeld({ link: linkOf(answered), over: branch.issue_link, branch: branch.name })
     focusNext()
   }
-  const link = linkShown(held, branch)
+  // The held answer goes as the stream moves on from what it showed, so a
+  // later return to that — the link made again elsewhere — shows as the
+  // stream says. Set while rendering, so the frame that moves on draws it.
+  if (held !== undefined && !holding(held, branch)) {
+    setHeld(undefined)
+  }
+  const link = held !== undefined && holding(held, branch) ? held.link : linkOf(branch)
 
   if (link.issue_link !== '') {
     return (
@@ -83,13 +89,12 @@ interface HeldLink {
   branch: string
 }
 
-// linkShown is the branch's link as the last write left it until the stream
-// moves on from what it showed then: the stream can take seconds to report a
-// write, and meanwhile the page would offer to make it again.
-function linkShown(held: HeldLink | undefined, branch: Branch): LinkedIssue {
-  return held?.branch === branch.name && held.over === branch.issue_link
-    ? held.link
-    : linkOf(branch)
+// holding reports the stream still showing what it showed when the write
+// answered, on the same branch: until it moves on, the branch's link is the
+// one the write left, since the stream can take seconds to report a write,
+// and meanwhile the page would offer to make it again.
+function holding(held: HeldLink, branch: Branch): boolean {
+  return held.branch === branch.name && held.over === branch.issue_link
 }
 
 interface LinkedProps {
