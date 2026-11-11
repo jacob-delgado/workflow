@@ -85,8 +85,8 @@ test('a read nobody pressed Try again for keeps the latest refusal beside an iss
   const refusal = (detail: string) =>
     Promise.resolve(
       Response.json(
-        { title: 'Bad gateway', status: 502, detail, code: 'unreachable' },
-        { status: 502, headers: { 'Content-Type': 'application/problem+json' } },
+        { title: 'Forbidden', status: 403, detail, code: 'forbidden' },
+        { status: 403, headers: { 'Content-Type': 'application/problem+json' } },
       ),
     )
   const answers = [refusal('first refusal'), refusal('second refusal')]

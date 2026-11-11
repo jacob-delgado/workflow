@@ -332,6 +332,28 @@ test('shows the reason when more issues cannot be loaded', async () => {
   expect(alert.textContent).toMatch(/no such route/i)
 })
 
+test('a page refused says why at once, and is asked for no more', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  const requests = fakeApi({
+    '/api/issues': () =>
+      Response.json(
+        { title: 'Bad request', status: 400, detail: 'Jira refused the query', code: 'invalid' },
+        { status: 400, headers: { 'Content-Type': 'application/problem+json' } },
+      ),
+  })
+  streamFirstPage(['PROJ-1', 'PROJ-2'], 3)
+  renderWithClient(<IssuesPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: /load more/i }))
+
+  // Assert
+  expect((await screen.findByRole('alert')).textContent).toBe('Jira refused the query')
+  expect(screen.getByRole('button', { name: /load more/i }).textContent).toBe('Load more')
+  expect(issueReads(requests)).toHaveLength(1)
+})
+
 test('stops offering more when a page comes back empty', async () => {
   // Arrange
   // The view shrank after the stream's page was read: its total still promises

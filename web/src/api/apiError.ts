@@ -48,3 +48,23 @@ export function problemCode(caught: unknown): string {
 
   return 'code' in caught && typeof caught.code === 'string' ? caught.code : ''
 }
+
+// mayAnswerAgain reports a failure that asking once more may get past: a
+// request that never reached the server, which fetch fails with a TypeError,
+// or a problem the server answered with a status of 500 or above — it, or
+// the service behind it, failed in passing. A refusal (4xx) stands until
+// something changes, and anything else thrown says nothing a second ask
+// would change.
+export function mayAnswerAgain(caught: unknown): boolean {
+  if (caught instanceof TypeError) {
+    return true
+  }
+
+  return (
+    typeof caught === 'object' &&
+    caught !== null &&
+    'status' in caught &&
+    typeof caught.status === 'number' &&
+    caught.status >= 500
+  )
+}

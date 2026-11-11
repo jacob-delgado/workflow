@@ -317,19 +317,20 @@ test('a forge issue offers no worklog', async () => {
   expect(screen.queryByRole('button', { name: 'Log work' })).toBeNull()
 })
 
-test('status changes that cannot be read say why, with Try again', async () => {
+test('status changes the server fails to read are asked for once more, then say why', async () => {
   // Arrange
-  fakeApi({
+  const requests = fakeApi({
     [issuePath]: detailOf(),
-    [changesPath]: Response.json(
-      {
-        title: 'Bad Gateway',
-        status: 502,
-        detail: 'the service could not be reached',
-        code: 'unreachable',
-      },
-      { status: 502 },
-    ),
+    [changesPath]: () =>
+      Response.json(
+        {
+          title: 'Bad Gateway',
+          status: 502,
+          detail: 'the service could not be reached',
+          code: 'unreachable',
+        },
+        { status: 502 },
+      ),
   })
   renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
 
@@ -337,8 +338,37 @@ test('status changes that cannot be read say why, with Try again', async () => {
   await open('Change status')
 
   // Assert
-  expect((await screen.findByRole('alert')).textContent).toBe('the service could not be reached')
+  const alert = await screen.findByRole('alert', {}, { timeout: 3000 })
+  expect(alert.textContent).toBe('the service could not be reached')
   expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
+  const reads = requests.filter((request) => new URL(request.url).pathname === changesPath)
+  expect(reads).toHaveLength(2)
+})
+
+test('status changes the tracker refuses say why at once, and are asked for no more', async () => {
+  // Arrange
+  const requests = fakeApi({
+    [issuePath]: detailOf(),
+    [changesPath]: () =>
+      Response.json(
+        {
+          title: 'Forbidden',
+          status: 403,
+          detail: 'Jira refused: no permission',
+          code: 'forbidden',
+        },
+        { status: 403, headers: { 'Content-Type': 'application/problem+json' } },
+      ),
+  })
+  renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
+
+  // Act
+  await open('Change status')
+
+  // Assert
+  expect((await screen.findByRole('alert')).textContent).toBe('Jira refused: no permission')
+  const reads = requests.filter((request) => new URL(request.url).pathname === changesPath)
+  expect(reads).toHaveLength(1)
 })
 
 test('an issue the tracker offers no status change says so', async () => {

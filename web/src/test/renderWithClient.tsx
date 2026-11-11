@@ -3,13 +3,12 @@ import { render, type RenderResult } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { queryClient } from '@/queryClient.ts'
 
-// appQueryClient is a client with the app's own query defaults — a query reads
-// again only when its own staleTime says so, never on focus — with retries off,
-// so a failing query surfaces at once.
+// appQueryClient is a client of its own with the app's own query defaults — a
+// query reads again only when its own staleTime says so, never on focus, and
+// retries as the app does — so a test meets the reads, and the retries,
+// production makes.
 export function appQueryClient(): QueryClient {
-  return new QueryClient({
-    defaultOptions: { queries: { ...queryClient.getDefaultOptions().queries, retry: false } },
-  })
+  return new QueryClient({ defaultOptions: queryClient.getDefaultOptions() })
 }
 
 // renderWithClient renders a component that reads the server through TanStack

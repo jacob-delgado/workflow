@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { screen } from '@testing-library/react'
 import { vi } from 'vitest'
-import { renderWithClient } from './renderWithClient.tsx'
+import { queryClient } from '@/queryClient.ts'
+import { appQueryClient, renderWithClient } from './renderWithClient.tsx'
 
 // Reads draws one query, counting each time it reads.
 function Reads({ onRead }: { onRead: () => void }) {
@@ -29,4 +30,12 @@ test('a query drawn again reads nothing again, under the app’s own policy', as
   // Assert
   expect(screen.getByText('read')).toBeTruthy()
   expect(onRead).toHaveBeenCalledTimes(1)
+})
+
+test('the test client reads, and retries, under the app’s own query defaults', () => {
+  // Act
+  const queries = appQueryClient().getDefaultOptions().queries
+
+  // Assert
+  expect(queries).toEqual(queryClient.getDefaultOptions().queries)
 })
