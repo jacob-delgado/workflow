@@ -108,12 +108,7 @@ func (w *world) gitDeps() seams.Git {
 
 			return w.checkoutErr
 		},
-		LinkIssue: func(_ context.Context, branch, issueKey string) error {
-			w.record("link-issue " + branch + " " + issueKey)
-			w.branch.IssueLink = issueKey
-
-			return nil
-		},
+		LinkIssue: w.linkIssue,
 		UnlinkIssue: func(_ context.Context, branch string) error {
 			w.record("unlink-issue " + branch)
 
@@ -189,6 +184,20 @@ func (w *world) gitDeps() seams.Git {
 	}
 
 	return deps
+}
+
+// linkIssue fakes keeping a branch's link to an issue, refused when
+// branchLinkErr is set.
+func (w *world) linkIssue(_ context.Context, branch, issueKey string) error {
+	w.record("link-issue " + branch + " " + issueKey)
+
+	if w.branchLinkErr != nil {
+		return w.branchLinkErr
+	}
+
+	w.branch.IssueLink = issueKey
+
+	return nil
 }
 
 // commit records a commit and runs it: refused before it starts, hanging until

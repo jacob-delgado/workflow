@@ -423,9 +423,10 @@ workflow on a branch whose name names none. It offers the issue selected in the
 Issues list; type over it to name another, a Jira key or a forge number such as
 `#42`. With a pull request open from the branch that workflow can edit, it
 first shows the description with the issue's line added — `Jira: [PROJ-7](…)`, or `Closes #42`
-for a forge issue — and `enter` links the branch and updates the description
-together; a Jira issue is then offered the pull request's link, as opening one
-would. The link is kept in the repository's git configuration, as
+for a forge issue — and `enter` links the branch first and then updates the
+description. If the forge refuses the edit, the branch stays linked and the
+form says so, and `enter` tries again. A Jira issue is then offered the pull
+request's link, as opening one would. The link is kept in the repository's git configuration, as
 `branch.<name>.workflow-issue`, so it goes when git deletes the branch.
 
 On a branch already linked, `i` names the issue instead, and `u` unlinks it at

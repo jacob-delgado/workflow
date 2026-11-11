@@ -139,6 +139,7 @@ type world struct {
 	worktreeErr       error
 	checkoutErr       error
 	finishErr         error
+	branchLinkErr     error
 	unlinkErr         error
 	localFiles        []store.DataFile
 	localDataErr      error
