@@ -98,6 +98,13 @@ export function PullActions({
     }
   }, [opened])
   const offers = offersOf(pull, ci, finishRefusal, noun)
+  // A form whose offer has lapsed — CI running again under Merge, say — is
+  // put away, as the server would refuse what it sends, and does not come
+  // back unasked when the offer does. Set while rendering, so the frame that
+  // takes the offer away is the one drawn without it.
+  if (opened !== 'none' && !offers.some((offer) => offer.opens === opened && offer.can)) {
+    setOpened('none')
+  }
   const forms: Record<Exclude<Opened, 'none'>, ReactNode> = {
     edit: <EditForm name={name} teller={teller} onCancel={close} />,
     merge: <MergeForm name={name} teller={teller} onCancel={close} />,
