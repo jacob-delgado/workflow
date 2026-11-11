@@ -76,8 +76,9 @@ type Model struct {
 	// an answer lands only in the one it was started for, never in a later
 	// one of the same kind.
 	overlaysOpened int
-	// draft is the commit message last composed and not yet committed.
-	draft commitDraft
+	// commitDrafts are the commit messages composed and not yet committed,
+	// one per branch, each kept for the branch it was written on.
+	commitDrafts commitDrafts
 	// prDraft is the pull request last composed and not yet opened, kept per
 	// branch so a failed push or an esc does not lose it.
 	prDraft prDraft

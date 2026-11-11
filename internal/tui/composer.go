@@ -44,15 +44,48 @@ const (
 
 // commitDraft is a commit message being written, kept when the composer closes
 // without a commit made — esc, a refused commit, a dry run — so it opens on it
-// again.
+// again on the branch it was written on, and on no other.
 type commitDraft struct {
-	kind, scope, subject, body string
-	breaking                   bool
+	branch, kind, scope, subject, body string
+	breaking                           bool
+}
+
+// commitDrafts are the commit drafts kept for the session, at most one per
+// branch, so leaving the composer or committing on one branch never touches
+// another branch's draft.
+type commitDrafts []commitDraft
+
+// on is the draft kept for a branch, or a blank one where none is.
+func (d commitDrafts) on(branch string) commitDraft {
+	index := slices.IndexFunc(d, func(draft commitDraft) bool { return draft.branch == branch })
+	if index < 0 {
+		return commitDraft{}
+	}
+
+	return d[index]
+}
+
+// keeping is the drafts with the one for draft's branch replaced by it. It
+// copies rather than change the drafts it was called on.
+func (d commitDrafts) keeping(draft commitDraft) commitDrafts {
+	return append(d.without(draft.branch), draft)
+}
+
+// without is the drafts with a branch's dropped, copied rather than changed.
+func (d commitDrafts) without(branch string) commitDrafts {
+	return slices.DeleteFunc(slices.Clone(d), func(draft commitDraft) bool { return draft.branch == branch })
+}
+
+// written reports whether any draft holds a subject or a body typed.
+func (d commitDrafts) written() bool {
+	return slices.ContainsFunc(d, func(draft commitDraft) bool { return draft.subject != "" || draft.body != "" })
 }
 
 // commitComposer assembles a Conventional Commit subject from its parts, so it
 // is always well-formed, and measures it against the limit as it is typed.
 type commitComposer struct {
+	// branch is the branch the composer opened on, whose draft it keeps.
+	branch   string
 	conv     convention.CommitConvention
 	types    []string
 	kind     int
@@ -77,18 +110,18 @@ var (
 	_ pasteable = commitComposer{}
 )
 
-// openCommitComposer opens the composer on the draft kept, or on a fresh one,
-// at once: the scope last used here and the scopes in the log, which read the
-// store and git, arrive after it opens.
+// openCommitComposer opens the composer on the draft kept for this branch, or
+// on a fresh one, at once: the scope last used here and the scopes in the log,
+// which read the store and git, arrive after it opens.
 func (m Model) openCommitComposer() (Model, tea.Cmd) {
-	draft := m.draft
+	draft := m.commitDrafts.on(m.branch.branch.Name)
 	conv := commitConvention(m.cfg)
 	types := conv.Types()
 	issueKey, _ := m.branch.issue(m.cfg.Jira.Project)
 	m, opened := m.opening()
 
 	composer := commitComposer{
-		conv: conv, types: types, kind: m.branch.startingType(conv, draft),
+		branch: m.branch.branch.Name, conv: conv, types: types, kind: m.branch.startingType(conv, draft),
 		focus: fieldSubject, scope: newInput(cmp.Or(draft.scope, m.cfg.Commit.DefaultScope)),
 		subject: newInput(draft.subject), body: draft.body,
 		issueKey: issueKey, staged: m.changes.staged(), breaking: draft.breaking,
@@ -241,7 +274,7 @@ func (c commitComposer) footer(keys keyMap) []key.Binding {
 func (c commitComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.closeOverlay):
-		m.draft = c.draft()
+		m.commitDrafts = m.commitDrafts.keeping(c.draft())
 
 		return m.closeOverlay().noticedDraftKept(m.keys.commit), nil
 	case key.Matches(msg, m.keys.confirm):
@@ -371,7 +404,8 @@ func (c commitComposer) focusOn(field int) commitComposer {
 // draft is the composer's contents, to open on again.
 func (c commitComposer) draft() commitDraft {
 	return commitDraft{
-		kind: c.types[c.kind], scope: c.scope.Value(), subject: c.subject.Value(), body: c.body, breaking: c.breaking,
+		branch: c.branch, kind: c.types[c.kind], scope: c.scope.Value(), subject: c.subject.Value(),
+		body: c.body, breaking: c.breaking,
 	}
 }
 
@@ -412,7 +446,7 @@ func (c commitComposer) commit(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.draft = c.draft()
+	m.commitDrafts = m.commitDrafts.keeping(c.draft())
 
 	if m.dryRun {
 		return m.closeOverlay().noticed("dry run: would commit " + subject.String()), nil
@@ -422,7 +456,7 @@ func (c commitComposer) commit(m Model) (Model, tea.Cmd) {
 
 	return m.startRun(commitRun(), func() (proc.Output, error) { return commit(ctx, message) },
 		func(done Model) (Model, tea.Cmd) {
-			done.draft = commitDraft{}
+			done.commitDrafts = done.commitDrafts.without(c.branch)
 			committed := done.marks.done + " committed " + subject.String()
 			done = done.closeOverlay().noticed(committed)
 			ctx, record := done.session, done.deps.Store.RecordScope

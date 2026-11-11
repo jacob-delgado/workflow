@@ -274,7 +274,7 @@ func (m Model) writeInFlight() string {
 func (m Model) lostOnLeaving() []string {
 	var lost []string
 
-	if m.draft.subject != "" || m.draft.body != "" {
+	if m.commitDrafts.written() {
 		lost = append(lost, "the commit message you were writing")
 	}
 
