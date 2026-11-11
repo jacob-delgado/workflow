@@ -11,7 +11,7 @@ import type {
 import { useHealthStore } from '@/api/health.ts'
 import { Button } from '@/lib/Button.tsx'
 import { Input } from '@/lib/Field.tsx'
-import { Failure, Reading, Unread } from '@/lib/Status.tsx'
+import { Failure, Reading, Unread, useShownRefusal } from '@/lib/Status.tsx'
 import { type AsyncState, useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { LabeledInput } from '@/lib/WriteForm.tsx'
 import { useSetUp, useSetupOffer } from './setupApi.ts'
@@ -29,15 +29,12 @@ type SetupValues = Omit<SetupRequest, 'keep_unchecked'>
 // `workflow config init` asks, once where the file may go is read.
 export function SetupArea({ onWritten }: { onWritten: (result: SetupResult) => void }) {
   const query = useSetupOffer()
+  const refusal = useShownRefusal(query.error, query.isPending)
 
-  if (query.isPending) {
-    return <Reading>Reading where the file can go…</Reading>
-  }
-
-  if (query.isError) {
+  if (refusal !== null) {
     return (
       <Unread
-        reason={apiErrorMessage(query.error, 'Where the file can go could not be read.')}
+        reason={apiErrorMessage(refusal, 'Where the file can go could not be read.')}
         refusals={query.errorUpdateCount}
         retrying={query.isFetching}
         onRetry={() => {
@@ -45,6 +42,10 @@ export function SetupArea({ onWritten }: { onWritten: (result: SetupResult) => v
         }}
       />
     )
+  }
+
+  if (query.data === undefined) {
+    return <Reading>Reading where the file can go…</Reading>
   }
 
   return <SetupForm offer={query.data} onWritten={onWritten} />

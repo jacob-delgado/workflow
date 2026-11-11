@@ -1,15 +1,16 @@
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useHealthStore } from '@/api/health.ts'
-import { fakeApi } from '@/test/fakeApi.ts'
+import { fakeApi, keptBeside, refusedThenHeld, tryAgainShown } from '@/test/fakeApi.ts'
 import { makeHealth } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { LocalData } from './LocalData.tsx'
 import { PeopleAndGroups } from './PeopleAndGroups.tsx'
 
-// refusing refuses every read of path with a problem naming it, and answers
-// the other reads People and groups makes with nothing.
-function refusing(path: string): void {
+// refusing refuses every read of path with a problem naming it, or answers
+// it as refused says, and answers the other reads People and groups makes
+// with nothing.
+function refusing(path: string, refused?: () => Promise<Response>): void {
   fakeApi({
     '/api/people': { owners: [] },
     '/api/repo-groups': { repository: 'acme/widgets', groups: [] },
@@ -20,17 +21,19 @@ function refusing(path: string): void {
       files: [],
       consequences: { cache: '', all: '' },
     },
-    [path]: () =>
-      Response.json(
-        {
-          type: 'about:blank',
-          title: 'Bad gateway',
-          status: 502,
-          code: 'unreachable',
-          detail: `${path} refused`,
-        },
-        { status: 502 },
-      ),
+    [path]:
+      refused ??
+      (() =>
+        Response.json(
+          {
+            type: 'about:blank',
+            title: 'Bad gateway',
+            status: 502,
+            code: 'unreachable',
+            detail: `${path} refused`,
+          },
+          { status: 502 },
+        )),
   })
 }
 
@@ -53,6 +56,24 @@ test.each([
   expect(alert.textContent).toBe(`${path} refused`)
   const around = alert.parentElement ?? document.body
   expect(within(around).getByRole('button', { name: 'Try again' })).toBeTruthy()
+})
+
+test.each([
+  ['the code owners', '/api/people', <PeopleAndGroups key="people" />],
+  ['the repository’s groups', '/api/repo-groups', <PeopleAndGroups key="groups" />],
+  ['the local data', '/api/local-data', <LocalData key="local" />],
+])('Try again beside %s keeps its place and focus while it reads', async (_, path, area) => {
+  // Arrange
+  refusing(path, refusedThenHeld(`${path} refused`))
+  const user = userEvent.setup()
+  renderWithClient(area)
+  const retry = await screen.findByRole('button', { name: 'Try again' })
+
+  // Act
+  await user.click(retry)
+
+  // Assert
+  expect(await tryAgainShown(retry)).toEqual(keptBeside(`${path} refused`))
 })
 
 test('the local data that cannot be read is an alert, read again on Try again', async () => {

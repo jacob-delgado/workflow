@@ -7,7 +7,7 @@ import type {
 } from '@/api/generated/types.gen.ts'
 import { useHealthStore } from '@/api/health.ts'
 import { Button } from '@/lib/Button.tsx'
-import { Failure, Reading, Unread } from '@/lib/Status.tsx'
+import { Failure, Reading, Unread, useShownRefusal } from '@/lib/Status.tsx'
 import { OutcomeLine, type Teller, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { LastLook } from '@/lib/LastLook.tsx'
@@ -36,15 +36,12 @@ export function LocalData() {
 // LocalDataBody is the listing and its removals, or why it could not be read.
 function LocalDataBody() {
   const query = useLocalData()
+  const refusal = useShownRefusal(query.error, query.isPending)
 
-  if (query.isPending) {
-    return <Reading>Reading the local data…</Reading>
-  }
-
-  if (query.isError) {
+  if (refusal !== null) {
     return (
       <Unread
-        reason={apiErrorMessage(query.error, 'The local data could not be read.')}
+        reason={apiErrorMessage(refusal, 'The local data could not be read.')}
         refusals={query.errorUpdateCount}
         retrying={query.isFetching}
         onRetry={() => {
@@ -52,6 +49,10 @@ function LocalDataBody() {
         }}
       />
     )
+  }
+
+  if (query.data === undefined) {
+    return <Reading>Reading the local data…</Reading>
   }
 
   return (

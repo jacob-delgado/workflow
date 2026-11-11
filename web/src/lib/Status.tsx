@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
 import type { Problem } from '@/api/generated/types.gen.ts'
 import { StateMark } from './StateMark.tsx'
 import { Button } from './Button.tsx'
@@ -111,4 +111,24 @@ export function Reading({ children }: { children: ReactNode }) {
       {children}
     </p>
   )
+}
+
+// useShownRefusal is the refusal a read last met, while it stands. Reading
+// again what was never read clears the error its last read met, and makes the
+// read pending once more, so the last refusal is kept and shown until the
+// read answers: the busy Try again beside it keeps its place, and the focus
+// it was pressed with, rather than giving way to "Reading…". read names what
+// is read, where one control reads one thing and then another — a period —
+// so a refusal is kept only for the read that met it.
+export function useShownRefusal<Refusal>(
+  error: Refusal | null,
+  isPending: boolean,
+  read = '',
+): Refusal | null {
+  const [kept, setKept] = useState<{ read: string; refusal: Refusal } | null>(null)
+  if (error !== null && (kept?.refusal !== error || kept.read !== read)) {
+    setKept({ read, refusal: error })
+  }
+
+  return error ?? (isPending && kept?.read === read ? kept.refusal : null)
 }

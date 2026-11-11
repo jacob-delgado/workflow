@@ -4,7 +4,7 @@ import type { Repositories } from '@/api/generated/types.gen.ts'
 import { useShortcutProps } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
-import { Failure, Reading, Unread } from '@/lib/Status.tsx'
+import { Failure, Reading, Unread, useShownRefusal } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn, contentMeasure } from '@/lib/utils.ts'
 import type { Destination } from './ConfirmSwitch.tsx'
@@ -21,11 +21,12 @@ import { WorktreesList } from './WorktreesList.tsx'
 export function RepositoriesPanel() {
   const read = useRepositories()
   const outcome = useOutcome()
+  const refusal = useShownRefusal(read.error, read.isPending)
 
   if (read.data === undefined) {
-    return read.isError ? (
+    return refusal !== null ? (
       <Unread
-        reason={apiErrorMessage(read.error, 'Where the server works could not be read.')}
+        reason={apiErrorMessage(refusal, 'Where the server works could not be read.')}
         refusals={read.errorUpdateCount}
         retrying={read.isFetching}
         onRetry={() => {

@@ -10,7 +10,7 @@ import type {
 import { useSlackGroups, useSlackMembers } from '@/features/messaging/slackApi.ts'
 import { Button } from '@/lib/Button.tsx'
 import { Select } from '@/lib/Field.tsx'
-import { Failure, Reading, Unread } from '@/lib/Status.tsx'
+import { Failure, Reading, Unread, useShownRefusal } from '@/lib/Status.tsx'
 import { OutcomeLine, type Teller, useOutcome } from '@/lib/Outcome.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { LastLook } from '@/lib/LastLook.tsx'
@@ -25,15 +25,12 @@ const notOnSlack = 'not-on-slack'
 // is chosen — and, once decided, a Forget behind a confirm step.
 export function PeopleTable({ dryRun }: { dryRun: boolean }) {
   const query = usePeople()
+  const refusal = useShownRefusal(query.error, query.isPending)
 
-  if (query.isPending) {
-    return <Reading>Reading the code owners…</Reading>
-  }
-
-  if (query.isError) {
+  if (refusal !== null) {
     return (
       <Unread
-        reason={apiErrorMessage(query.error, 'The code owners could not be read.')}
+        reason={apiErrorMessage(refusal, 'The code owners could not be read.')}
         refusals={query.errorUpdateCount}
         retrying={query.isFetching}
         onRetry={() => {
@@ -41,6 +38,10 @@ export function PeopleTable({ dryRun }: { dryRun: boolean }) {
         }}
       />
     )
+  }
+
+  if (query.data === undefined) {
+    return <Reading>Reading the code owners…</Reading>
   }
 
   if (query.data.owners.length === 0) {

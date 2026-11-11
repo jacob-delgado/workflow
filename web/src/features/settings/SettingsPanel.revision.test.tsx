@@ -2,7 +2,7 @@ import { QueryClient } from '@tanstack/react-query'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { mockConfig } from '@/dev/mockConfig.ts'
-import { fakeApi } from '@/test/fakeApi.ts'
+import { fakeApi, keptBeside, refusedThenHeld, tryAgainShown } from '@/test/fakeApi.ts'
 import { appQueryClient, renderWithClient } from '@/test/renderWithClient.tsx'
 import { anEdit } from '@/test/settings.ts'
 import { SettingsPanel } from './SettingsPanel.tsx'
@@ -275,6 +275,23 @@ test('opening Settings over a file that is not valid says why and offers Try aga
   // Assert
   expect(await screen.findByText(notValidOnDisk)).toBeTruthy()
   expect(screen.getAllByRole('button', { name: 'Try again' })).not.toHaveLength(0)
+})
+
+test('Try again beside a configuration never read keeps its place and focus while it reads', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  fakeApi({ '/api/config': refusedThenHeld(notValidOnDisk) })
+  renderWithClient(<SettingsPanel />)
+  const reason = await screen.findByText(notValidOnDisk)
+  const retry = within(reason.parentElement ?? document.body).getByRole('button', {
+    name: 'Try again',
+  })
+
+  // Act
+  await user.click(retry)
+
+  // Assert
+  expect(await tryAgainShown(retry)).toEqual(keptBeside(notValidOnDisk))
 })
 
 test('Settings says why a read was refused without first trying it again', async () => {

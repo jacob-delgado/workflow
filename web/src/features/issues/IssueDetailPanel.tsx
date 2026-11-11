@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import { useHealthStore } from '@/api/health.ts'
 import type { Comment, Health, Issue, IssueDetail } from '@/api/generated/types.gen.ts'
@@ -7,7 +7,7 @@ import { IssueTasks } from '@/features/tasks/IssueTasks.tsx'
 import { ago, day, writtenMoment } from '@/lib/dates.ts'
 import { Meta } from '@/lib/Meta.tsx'
 import { NewTabLink } from '@/lib/NewTabLink.tsx'
-import { Reading, Unread } from '@/lib/Status.tsx'
+import { Reading, Unread, useShownRefusal } from '@/lib/Status.tsx'
 import { definitionList } from '@/lib/utils.ts'
 import { useIssue } from './issueApi.ts'
 import { IssueStatus } from './IssueStatus.tsx'
@@ -73,20 +73,6 @@ export function IssueDetailPanel({ issueKey, listed }: { issueKey: string; liste
       {data ? <Comments detail={data} /> : null}
     </article>
   )
-}
-
-// useShownRefusal is the refusal the issue's reads last met. Reading again an
-// issue that was never read clears the error its last read met, so the last
-// refusal is kept and shown until the read answers: the busy Try again beside it
-// keeps its place, and the focus it was pressed with, rather than giving way
-// to "Reading…".
-function useShownRefusal<Refusal>(error: Refusal | null, isPending: boolean): Refusal | null {
-  const [lastRefusal, setLastRefusal] = useState<Refusal | null>(null)
-  if (error !== null && error !== lastRefusal) {
-    setLastRefusal(error)
-  }
-
-  return error ?? (isPending ? lastRefusal : null)
 }
 
 interface IssueHeadingProps {
