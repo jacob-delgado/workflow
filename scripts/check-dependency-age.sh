@@ -216,17 +216,21 @@ release_repository() {
 }
 
 # release_published prints when a tool's GitHub release was published, trying
-# the tag spellings releases use: v1.2.3, 1.2.3 and tool-1.2.3.
+# the tag spellings releases use: v1.2.3, 1.2.3 and tool-1.2.3, and nothing
+# for a tool release_repository knows no repository of.
 #   release_published <tool> <version>
 release_published() {
   local repository tag published=""
   local -a auth=()
   repository="$(release_repository "$1")"
+  if [[ -z "${repository}" ]]; then
+    return
+  fi
   if [[ -n "${GITHUB_TOKEN:-}" ]]; then
     auth=(-H "Authorization: Bearer ${GITHUB_TOKEN}")
   fi
   for tag in "v$2" "$2" "$1-$2"; do
-    if [[ -n "${repository}" && -z "${published}" ]]; then
+    if [[ -z "${published}" ]]; then
       published="$("${get[@]}" ${auth[@]+"${auth[@]}"} "${github_api}/repos/${repository}/releases/tags/${tag}" \
         2>/dev/null | jq -r '.published_at // empty' 2>/dev/null || true)"
     fi
