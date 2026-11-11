@@ -43,6 +43,7 @@ interface WriteFormProps {
   busy: string | null
   error: string
   disabled?: boolean
+  held?: boolean
   onSend: () => void
   onCancel: () => void
   children: ReactNode
@@ -53,19 +54,23 @@ interface WriteFormProps {
 // nothing in it can be sent twice while a send is in flight. While it sends, its fields and
 // buttons are held rather than disabled: each keeps the focus it had — the send
 // pressed, or the field Enter was pressed in — and a field's change is stopped
-// before its own handler hears it, so what is shown stays what was sent.
+// before its own handler hears it, so what is shown stays what was sent. Held,
+// the send waits on something going elsewhere — a git run — and is held as
+// while it sends, its fields and Cancel left free.
 export function WriteForm({
   label,
   act,
   busy,
   error,
   disabled = false,
+  held = false,
   onSend,
   onCancel,
   children,
 }: WriteFormProps) {
   const shown = useFocusOnMount<HTMLFormElement>()
   const sending = busy !== null
+  const sendHeld = sending || held
   return (
     <form
       ref={shown}
@@ -73,7 +78,7 @@ export function WriteForm({
       tabIndex={-1}
       onSubmit={(event) => {
         event.preventDefault()
-        if (!sending) {
+        if (!sendHeld) {
           onSend()
         }
       }}
@@ -95,7 +100,7 @@ export function WriteForm({
         <Button variant="secondary" held={sending} onClick={onCancel}>
           Cancel
         </Button>
-        <Button variant="primary" type="submit" held={sending} disabled={disabled}>
+        <Button variant="primary" type="submit" held={sendHeld} disabled={disabled}>
           {busy ?? act}
         </Button>
       </div>
