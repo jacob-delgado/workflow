@@ -20,7 +20,7 @@ import (
 const draftPrefix = "Draft: "
 
 // gitlabMerge is a merge request as GitLab sends one. Its state names itself:
-// "opened", "merged" or "closed".
+// "opened", "locked" while it merges, "merged" or "closed".
 type gitlabMerge struct {
 	IID          int    `json:"iid"`
 	URL          string `json:"web_url"`
@@ -68,14 +68,17 @@ func (g gitlabMerge) pullRequest() PullRequest {
 	}
 }
 
-// state reads whether the merge request is open, merged or closed. GitLab locks
-// a merge request while it merges; that is not yet merged, so it reads as open.
+// state reads whether the merge request is open, merging, merged or closed.
+// GitLab locks a merge request while it merges it: no longer open, and not
+// yet merged.
 func (g gitlabMerge) state() PullState {
 	switch g.State {
 	case "merged":
 		return StateMerged
 	case wireClosed:
 		return StateClosed
+	case "locked":
+		return StateMerging
 	default:
 		return StateOpen
 	}

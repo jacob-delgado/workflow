@@ -192,9 +192,9 @@ function AnnouncedAlready({
 }
 
 // announcedAt says pull was announced at the moment it stands at, as the
-// sigil names it: ready for review while it is open, or merged. A pull request
-// closed without merging has no moment to announce, and is never shown here
-// (AnnounceSection), so it reads as one ready for review.
+// sigil names it: ready for review while it is open or merging, or merged. A
+// pull request closed without merging has no moment to announce, and is never
+// shown here (AnnounceSection), so it reads as one ready for review.
 function announcedAt(pull: PullRequest, sigil: string): string {
   const name = `${sigil}${String(pull.number)}`
 
@@ -202,6 +202,7 @@ function announcedAt(pull: PullRequest, sigil: string): string {
     case 'merged':
       return `Announced the merge of ${name}.`
     case 'open':
+    case 'merging':
     case 'closed':
       return `Announced ${name} as ready for review.`
   }

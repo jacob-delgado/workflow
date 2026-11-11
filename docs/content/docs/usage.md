@@ -554,13 +554,14 @@ one's page; `l` on a failed one shows the end of its log, where a GitHub
 Actions run or a GitLab job keeps one, and `J`/`K` or `pgdn`/`pgup` move
 through a log taller than the pane half a page at a time. `R` re-runs the
 failed ones — on GitHub, none on a commit with more than two thousand workflow
-runs, which it says to re-run on the forge — and `u` on the Branch pane rebases the branch onto its base; like
-a push, each first shows a last look naming what it acts on, and does nothing
-until `enter`. `e` edits the pull request's title and description. Once it is
-green, or no CI reported on it once CI has been read, and approved, `M`
-previews the merge methods the repository permits and merges by the one you
-choose — the preview says when no CI ran, and a forge whose rules require a
-check refuses the merge; once it has merged, `F` previews the three git
+runs, which it says to re-run on the forge — and `u` on the Branch pane
+rebases the branch onto its base; like a push, each first shows a last look
+naming what it acts on, and does nothing until `enter`. `e` edits the pull
+request's title and description. Once it is green, or no CI reported on it
+once CI has been read, and approved, `M` previews the merge methods the
+repository permits and merges by the one you choose — the preview says when no
+CI ran, and a forge whose rules require a check refuses the merge; once it has
+merged, `F` previews the three git
 commands that finish the branch — switch to the base, catch it up from the base
 remote (upstream in a fork's clone, else origin), delete the branch — and runs
 them on `enter` (`workflow finish` does the same from a shell). The delete is a
@@ -568,6 +569,9 @@ force delete, so `F` is offered only when it loses nothing — the branch is at
 the commit that merged, or its upstream holds every commit on it — and the pane
 says why not otherwise. `n` stays on offer after a merge, as `workflow pr`
 allows, so commits made on the branch since can go up in a new pull request.
+While GitLab merges a merge request, which it locks until the merge lands, the
+pane says *merging* and offers nothing on it, and `workflow pr` refuses to
+open another.
 
 ### Announce it
 

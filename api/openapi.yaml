@@ -5276,11 +5276,13 @@ components:
         title: {type: string}
         state:
           type: string
-          enum: [open, merged, closed]
+          enum: [open, merging, merged, closed]
           description: >-
-            Whether it is still open, has merged, or was closed without merging.
-            The branch's pull request is found open or merged; a merged one has
-            no CI to report.
+            Whether it is still open, is merging, has merged, or was closed
+            without merging. Merging is a GitLab merge request it has locked
+            while it merges: no longer open, so nothing is offered on it, and
+            not yet merged. The branch's pull request is found open, merging
+            or merged; only an open one has CI to report.
         draft: {type: boolean}
         approvals: {type: integer}
         changes_requested: {type: boolean}

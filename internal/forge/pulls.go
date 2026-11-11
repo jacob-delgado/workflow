@@ -48,8 +48,8 @@ const (
 	MergeRebase MergeMethod = "rebase"
 )
 
-// PullState is where a pull request stands in its life: open, merged, or
-// closed without merging.
+// PullState is where a pull request stands in its life: open, merging,
+// merged, or closed without merging.
 type PullState int
 
 const (
@@ -59,6 +59,10 @@ const (
 	StateMerged
 	// StateClosed means it was closed without merging.
 	StateClosed
+	// StateMerging means the forge is merging it: a GitLab merge request
+	// locked while it merges. It is no longer open, so nothing is offered on
+	// it, and not yet merged.
+	StateMerging
 )
 
 // PullRequest is a pull request on GitHub, or a merge request on GitLab.
@@ -258,9 +262,10 @@ type stated interface {
 	state() PullState
 }
 
-// pickPull chooses the branch's pull request to show: an open one if there is
-// one, otherwise the merged one that means the branch is done. A pull closed
-// without merging is passed over, so the branch still offers to open a new one.
+// pickPull chooses the branch's pull request to show: an open one, or one
+// merging, if there is one, otherwise the merged one that means the branch is
+// done. A pull closed without merging is passed over, so the branch still
+// offers to open a new one.
 func pickPull[T stated](pulls []T) (T, bool) {
 	var (
 		merged      T
@@ -269,7 +274,7 @@ func pickPull[T stated](pulls []T) (T, bool) {
 
 	for index := range pulls {
 		switch pulls[index].state() {
-		case StateOpen:
+		case StateOpen, StateMerging:
 			return pulls[index], true
 		case StateMerged:
 			if !foundMerged {
@@ -297,10 +302,11 @@ func branchPulls[T any](fetch func(page int) ([]T, error)) ([]T, error) {
 	return listed, err
 }
 
-// FindPullRequest finds the pull request from head: an open one, or the merged
-// one that means the branch is finished. A pull closed without merging is passed
-// over. The returned PullRequest carries its State, so a caller that wants only
-// an open one checks IsOpen rather than trusting found alone.
+// FindPullRequest finds the pull request from head: an open one, or one
+// merging, or the merged one that means the branch is finished. A pull closed
+// without merging is passed over. The returned PullRequest carries its State,
+// so a caller that wants only an open one checks IsOpen rather than trusting
+// found alone.
 func (c Client) FindPullRequest(ctx context.Context, repo Repo, head Head) (PullRequest, bool, error) {
 	speaks, err := dialectFor(repo.Kind)
 	if err != nil {

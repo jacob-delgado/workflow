@@ -101,7 +101,8 @@ type Stage struct {
 }
 
 // PullState is where the branch's pull request stands, as far as the loop is
-// concerned: there is none to follow, it is open for review, or it has merged.
+// concerned: there is none to follow, it is open for review, it is merging, or
+// it has merged.
 type PullState int
 
 const (
@@ -113,6 +114,9 @@ const (
 	// PullRequestMerged is a pull request that has merged, so its review is over
 	// and it has no CI left to pass.
 	PullRequestMerged
+	// PullRequestMerging is a pull request the forge is merging: no longer
+	// open, its merge in flight.
+	PullRequestMerging
 )
 
 // PullStateOf is where a found pull request stands for the loop. One closed
@@ -120,9 +124,10 @@ const (
 // merge. A map, so exhaustive keeps it complete and gobco sees no arm unrun.
 func PullStateOf(state forge.PullState) PullState {
 	return map[forge.PullState]PullState{
-		forge.StateOpen:   PullRequestOpen,
-		forge.StateMerged: PullRequestMerged,
-		forge.StateClosed: NoPullRequest,
+		forge.StateOpen:    PullRequestOpen,
+		forge.StateMerging: PullRequestMerging,
+		forge.StateMerged:  PullRequestMerged,
+		forge.StateClosed:  NoPullRequest,
 	}[state]
 }
 
@@ -214,13 +219,16 @@ func commitState(work Work) State {
 // reviewState follows the pull request, its CI and its review: changes still
 // asked for stop it reading as done, the same as a CI failure, because both are
 // something to go back and address. A merged pull request's review is over,
-// whatever was asked of it before the merge.
+// whatever was asked of it before the merge, and one merging is in flight
+// until the merge lands, whatever its CI last read.
 func reviewState(work Work) State {
 	switch {
 	case work.PullRequest == PullRequestMerged:
 		return Done
 	case work.PullRequest == NoPullRequest:
 		return NotStarted
+	case work.PullRequest == PullRequestMerging:
+		return InFlight
 	case work.CI == forge.CIFailed || work.ChangesRequested:
 		return Failed
 	case work.CI == forge.CIPassed:

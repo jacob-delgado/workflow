@@ -52,12 +52,26 @@ test('shows a merged pull request without the review it no longer waits on', () 
   expect(screen.getByRole('link', { name: `${merged.title} (opens in a new tab)` })).toBeTruthy()
 })
 
+test('offers nothing on a merge request the forge is merging', () => {
+  // Arrange
+  showReview({ ...merged, state: 'merging' })
+
+  // Act
+  render(<ReviewPanel />)
+
+  // Assert
+  const group = screen.getByRole('group', { name: `Change #${String(merged.number)}` })
+  expect(group.childElementCount).toBe(0)
+  expect(screen.queryByRole('heading', { name: /CI checks/ })).toBeNull()
+})
+
 // What the State row says for the other states a pull request can be in on the
-// wire: an open one is a draft or ready for review, and one closed without
-// merging says so.
+// wire: an open one is a draft or ready for review, one the forge is merging
+// says so, and one closed without merging says so.
 const stateWords = [
   { state: 'open', draft: false, says: 'Ready for review' },
   { state: 'open', draft: true, says: 'Draft' },
+  { state: 'merging', draft: false, says: 'Merging' },
   { state: 'closed', draft: false, says: 'Closed' },
 ] as const
 

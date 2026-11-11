@@ -912,6 +912,7 @@ export const zPullRequest = z.object({
     title: z.string(),
     state: z.enum([
         'open',
+        'merging',
         'merged',
         'closed'
     ]),

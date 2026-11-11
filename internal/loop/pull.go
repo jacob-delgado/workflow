@@ -82,8 +82,8 @@ type PullOptions struct {
 // as reviewers — and returns the branch it read. It refuses with
 // ErrNothingToOpen when there is nothing to propose, with ErrNoSuchTemplate
 // when the repository has no template of the name opts gives, and with a
-// PullAlreadyOpenError when an open pull request already stands for the branch.
-// A merged or closed one does not stand in the way, and neither does a forge
+// PullAlreadyOpenError when an open or merging pull request already stands for
+// the branch. A merged or closed one does not stand in the way, and neither does a forge
 // that cannot say: the open is where that forge's own answer lands.
 func ComposePull(
 	ctx context.Context, seams PullSeams, opts PullOptions,
@@ -140,9 +140,10 @@ func branchToOpen(ctx context.Context, read func(context.Context) (gitrepo.Branc
 	return branch, nil
 }
 
-// refuseAnOpenPull refuses a branch whose pull request is open. FindPull also
+// refuseAnOpenPull refuses a branch whose pull request is open, or merging,
+// which the forge still holds open until its merge lands. FindPull also
 // returns a merged one, whose branch may carry new commits worth a fresh pull
-// request, so only the open state refuses.
+// request, so a merged one does not refuse.
 func refuseAnOpenPull(
 	ctx context.Context, find func(ctx context.Context, branch string) (forge.PullRequest, bool, error), name string,
 ) error {
@@ -151,7 +152,7 @@ func refuseAnOpenPull(
 	}
 
 	pull, found, err := find(ctx, name)
-	if err == nil && found && pull.IsOpen() {
+	if err == nil && found && (pull.IsOpen() || pull.State == forge.StateMerging) {
 		return PullAlreadyOpenError{Pull: pull}
 	}
 

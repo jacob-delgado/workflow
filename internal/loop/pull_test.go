@@ -84,6 +84,24 @@ func TestComposePullRefusesAnOpenPull(t *testing.T) {
 	}
 }
 
+func TestComposePullRefusesWhileTheForgeMergesThePull(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	seams := pullSeams()
+	seams.FindPull = func(context.Context, string) (forge.PullRequest, bool, error) {
+		return forge.PullRequest{Number: 9, State: forge.StateMerging}, true, nil
+	}
+
+	// Act
+	_, _, err := loop.ComposePull(t.Context(), seams, options())
+
+	// Assert
+	if !errors.Is(err, loop.ErrPullAlreadyOpen) {
+		t.Errorf("ComposePull returned %v, want ErrPullAlreadyOpen while pull 9 merges", err)
+	}
+}
+
 func TestComposePullRefusesWhatCannotBeOpened(t *testing.T) {
 	t.Parallel()
 

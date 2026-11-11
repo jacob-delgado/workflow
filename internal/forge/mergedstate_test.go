@@ -45,6 +45,26 @@ func TestFindPullRequestReportsAMergedBranch(t *testing.T) {
 	}
 }
 
+func TestFindPullRequestReportsAGitLabMergeRequestBeingMergedAsMerging(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// GitLab locks a merge request while it merges it; an older one on the
+	// branch merged before.
+	client, _ := recordingForge(t, routing(map[string]string{
+		gitlabMergesPath: `[{"iid":7,"web_url":"u","title":"t","state":"merged"},` +
+			`{"iid":8,"web_url":"u","title":"t","state":"locked"}]`,
+	}))
+
+	// Act
+	pull, found, err := client.FindPullRequest(t.Context(), gitlabRepo(), forge.Head{Branch: featureBranch})
+
+	// Assert
+	if err != nil || !found || pull.Number != 8 || pull.State != forge.StateMerging || pull.IsOpen() {
+		t.Errorf("FindPullRequest = %+v, %v, %v; want !8, merging and not open", pull, found, err)
+	}
+}
+
 func TestFindPullRequestReadsTheCommitItsBranchIsAt(t *testing.T) {
 	t.Parallel()
 
