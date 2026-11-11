@@ -69,6 +69,9 @@ interface SaveBarProps {
   unsaved: number
   toFix: ToFix
   saving: boolean
+  // writing says a write to the file is out — a save, or a removal — which
+  // the next save waits for.
+  writing: boolean
   said: Parameters<typeof OutcomeLine>[0]['said']
   // error is why the last save failed, or empty.
   error: string
@@ -80,12 +83,12 @@ interface SaveBarProps {
 
 // SaveBar stays in view below whichever section is shown: how many settings
 // are changed and not saved, Discard and Save — both held while nothing is
-// changed, or while a save goes — and what the last save said: that it saved,
+// changed, or while a save or a removal writes the file — and what the last save said: that it saved,
 // while nothing has changed since, or why it did not. A save refused because
 // the file changed says so, and offers Reload, in place of its own reason.
 export function SaveBar(props: SaveBarProps) {
-  const { form, unsaved, toFix, saving, said, error, reload, onShow, onDiscard } = props
-  const held = saving || unsaved === 0
+  const { form, unsaved, toFix, saving, writing, said, error, reload, onShow, onDiscard } = props
+  const held = saving || writing || unsaved === 0
 
   return (
     <div

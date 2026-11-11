@@ -4,7 +4,7 @@ import type { Config } from '@/api/generated/types.gen.ts'
 import { mockConfig } from '@/dev/mockConfig.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
-import { inSection } from '@/test/settings.ts'
+import { anEdit, inSection } from '@/test/settings.ts'
 import { SettingsPanel } from './SettingsPanel.tsx'
 
 // withHeader is the mock configuration with a Jira header stored.
@@ -128,4 +128,77 @@ test("a removal saves the file as read, and keeps the form's other edits", async
   await waitFor(() => {
     expect(screen.getByRole('textbox', { name: 'Project' })).toHaveProperty('value', 'OSS')
   })
+})
+
+// oneRevision opens Settings over a server that keeps the file at one revision,
+// refusing a save over any other as changed since read, as the server does,
+// and holding each save's answer until let go. It returns the requests the
+// page made, and letGo, which answers the first save still held.
+async function oneRevision() {
+  let revision = 1
+  const held: (() => void)[] = []
+  const requests = fakeApi({
+    '/api/config': async (_at: URL, asked: Request) => {
+      if (asked.method === 'GET') {
+        return Response.json(mockConfig, { headers: { ETag: `"rev-${String(revision)}"` } })
+      }
+      const over = asked.headers.get('If-Match')
+      const body: unknown = await asked.clone().json()
+      await new Promise<void>((answer) => held.push(answer))
+      if (over !== `"rev-${String(revision)}"`) {
+        return Response.json(
+          { title: 'Conflict', status: 409, code: 'conflict', detail: 'changed since read' },
+          { status: 409 },
+        )
+      }
+      revision += 1
+
+      return Response.json(body, { headers: { ETag: `"rev-${String(revision)}"` } })
+    },
+  })
+  renderWithClient(<SettingsPanel />)
+  await screen.findByLabelText('Base URL')
+  const letGo = async () => {
+    await waitFor(() => {
+      expect(held.length).toBeGreaterThan(0)
+    })
+    held.shift()?.()
+  }
+
+  return { requests, letGo }
+}
+
+test('Save is held while a removal writes the file, so it is never refused as changed', async () => {
+  // Arrange
+  const { requests, letGo } = await oneRevision()
+  await confirmRemoving('the Jira token')
+  await anEdit()
+
+  // Act
+  await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+  // Assert
+  await letGo()
+  await screen.findByText('Removed the Jira token.')
+  expect(requests.filter((request) => request.method === 'PUT')).toHaveLength(1)
+  expect(screen.queryByRole('button', { name: 'Reload' })).toBeNull()
+})
+
+test('a removal asked for while a save writes waits for it, and names what it wrote', async () => {
+  // Arrange
+  const { requests, letGo } = await oneRevision()
+  await anEdit()
+  await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+  // Act
+  await confirmRemoving('the Jira token')
+
+  // Assert
+  await letGo()
+  await screen.findByText('Saved.')
+  await letGo()
+  await screen.findByText('Removed the Jira token.')
+  const [, removed] = requests.filter((request) => request.method === 'PUT')
+  expect(removed?.headers.get('If-Match')).toBe('"rev-2"')
+  expect(((await removed?.json()) as Config).jira.user).toBe(`${mockConfig.jira.user ?? ''}x`)
 })
