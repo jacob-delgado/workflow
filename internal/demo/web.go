@@ -173,9 +173,13 @@ func (p *people) keep(seam *seams.Store) {
 }
 
 // link keeps decision for its owner, in place of what was decided before.
+// As the real store does, it keeps the owner in lower case, since both forges
+// read user and team names without regard to case.
 func (p *people) link(decision loop.OwnerLink) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
+	decision.Owner = strings.ToLower(decision.Owner)
 
 	index := slices.IndexFunc(p.links, func(link loop.OwnerLink) bool { return link.Owner == decision.Owner })
 	if index < 0 {
@@ -187,12 +191,12 @@ func (p *people) link(decision loop.OwnerLink) {
 	p.links[index] = decision
 }
 
-// forget drops what was decided for owner.
+// forget drops what was decided for owner, whatever its case.
 func (p *people) forget(owner string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	p.links = slices.DeleteFunc(p.links, func(link loop.OwnerLink) bool { return link.Owner == owner })
+	p.links = slices.DeleteFunc(p.links, func(link loop.OwnerLink) bool { return loop.SameOwner(link.Owner, owner) })
 }
 
 // setGroups makes groups the ones api's announcements may tag.
