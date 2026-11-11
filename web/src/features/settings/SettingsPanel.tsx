@@ -1,4 +1,4 @@
-import { type ReactNode, type SubmitEvent, useEffect, useId, useState } from 'react'
+import { type ReactNode, type SubmitEvent, useEffect, useId, useRef, useState } from 'react'
 import {
   FormProvider,
   type Path,
@@ -206,6 +206,7 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
               unsaved={changed.length}
               toFix={toFix(refused)}
               saving={save.state === 'running'}
+              writing={file.writing}
               said={outcome.said}
               error={save.state === 'error' && !save.marked ? save.error : ''}
               reload={file.changed ? reload : null}
@@ -307,7 +308,7 @@ function useSave(
     async (values: SettingsValues) => {
       setMarked(false)
       try {
-        await file.write(configOf(values), { keepEdits: false })
+        await file.write(() => configOf(values), { keepEdits: false })
       } catch (caught) {
         setMarked(markRefused(refusedSettings(caught), setError))
         throw caught
@@ -369,26 +370,42 @@ interface Seeding {
 // seen, unless that change lands between the server's check and its write —
 // the configuration as last read or written, and whether the last write was
 // refused because the file changed since: the refusal Reload, not another
-// write, answers. A removal writes the file as read without the credential,
-// and takes up what it wrote under the form's edits.
+// write, answers. Its writes go one at a time, each made of the file as the
+// one before it left it and naming the revision that one wrote, so a Save and
+// a removal in one tab never refuse each other as a change the form has not
+// seen; writing says one is out. A removal writes the file as read without
+// the credential, and takes up what it wrote under the form's edits.
 function useFormFile(read: ConfigRead, reset: UseFormReset<SettingsValues>) {
-  const [revision, setRevision] = useState(read.revision)
   const [seeded, setSeeded] = useState(read.config)
   const [changed, setChanged] = useState(false)
+  const [writes, setWrites] = useState(0)
+  const latest = useRef(read)
+  const turn = useRef<Promise<void>>(Promise.resolve())
   const saveConfig = useSaveConfig()
   const seed = (next: ConfigRead, { keepEdits }: Seeding) => {
     reset(formValues(next.config), { keepDirtyValues: keepEdits })
+    latest.current = next
     setSeeded(next.config)
-    setRevision(next.revision)
   }
-  const write = async (config: Config, seeding: Seeding) => {
+  const send = async (config: Config, seeding: Seeding) => {
     try {
-      seed(await saveConfig(config, revision), seeding)
+      seed(await saveConfig(config, latest.current.revision), seeding)
       setChanged(false)
     } catch (caught) {
       setChanged(changedSinceRead(caught))
       throw caught
     }
+  }
+  // write makes the configuration written of the file as the write before it
+  // left it, once that one has answered.
+  const write = (written: (stood: Config) => Config, seeding: Seeding) => {
+    setWrites((out) => out + 1)
+    const sent = turn.current.then(() => send(written(latest.current.config), seeding))
+    turn.current = sent.catch(() => undefined)
+
+    return sent.finally(() => {
+      setWrites((out) => out - 1)
+    })
   }
 
   return {
@@ -396,9 +413,10 @@ function useFormFile(read: ConfigRead, reset: UseFormReset<SettingsValues>) {
     setChanged,
     seed,
     write,
+    writing: writes > 0,
     removals: {
       holds: (removal: Removal) => stored(seeded, removal),
-      remove: (removal: Removal) => write(without(seeded, removal), { keepEdits: true }),
+      remove: (removal: Removal) => write((stood) => without(stood, removal), { keepEdits: true }),
     },
   }
 }
