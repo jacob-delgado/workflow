@@ -112,11 +112,13 @@ func (s *server) adoptMessaging(settings config.Messaging) {
 }
 
 // adoptForge hands forge settings newly in effect — saved, or edited on disk
-// and read — to every forge call after them, and names the forge they point
-// at. It runs under mu, with the configuration it belongs to.
+// and read — to every forge call after them, names the forge they point at,
+// and drops the author held, which they may change. It runs under mu, with
+// the configuration it belongs to.
 func (s *server) adoptForge(settings config.Forge) {
 	if s.deps.UseForgeSettings != nil {
 		s.forgeKind = s.deps.UseForgeSettings(settings)
+		s.author.drop()
 	}
 }
 

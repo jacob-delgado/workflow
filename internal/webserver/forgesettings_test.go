@@ -7,9 +7,11 @@ package webserver_test
 // them, and the page names the forge they point at, with no restart.
 
 import (
+	"context"
 	"net/http"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -21,6 +23,9 @@ import (
 
 // savedHost is the host the saved forge settings name.
 const savedHost = "git.example.com"
+
+// savedAuthor is whom the forge token Settings saves names.
+const savedAuthor = "hubot"
 
 // settingsRecorder is a UseForgeSettings that remembers the settings it was
 // handed and answers kind for them.
@@ -128,5 +133,91 @@ func TestAForgeTokenEditedOnDiskIsHandedOnOnceRead(t *testing.T) {
 	used, ok := recorder.last()
 	if !ok || used.Token.Reveal() != "glpat-edited-on-disk" {
 		t.Errorf("the forge was handed %+v (%t), want the token edited on disk", used, ok)
+	}
+}
+
+func TestAForgeTokenSavedInSettingsNamesItsOwnAuthor(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The forge answers for whichever token its connection holds: the one
+	// the server started with, then the one Settings saved.
+	recorder := &settingsRecorder{kind: forge.KindGitHub}
+	deps := webtest.FilledDeps()
+	deps.UseForgeSettings = recorder.use
+	deps.Forge.Author = func(context.Context) (string, error) {
+		if _, saved := recorder.last(); saved {
+			return savedAuthor, nil
+		}
+
+		return webtest.TestAuthor, nil
+	}
+
+	cfg := config.Default()
+	cfg.Path = filepath.Join(t.TempDir(), config.FileName)
+	handler := webtest.Serve(t, deps, cfg)
+	webtest.Get(t, handler, "/api/messaging")
+
+	next := cfg
+
+	next.Forge = config.Forge{Token: "ghp-another-account", Kind: "github"}
+	if saved := webtest.PutConfig(t, handler, webtest.Marshal(t, next)); saved.Code != http.StatusOK {
+		t.Fatalf("saving the forge token answered %d: %s", saved.Code, saved.Body.String())
+	}
+
+	// Act
+	destination := webtest.Decode[api.MessagingDestination](t, webtest.Get(t, handler, "/api/messaging"))
+
+	// Assert
+	if destination.Author != savedAuthor {
+		t.Errorf("author = %q after a new forge token was saved, want %q, whom it names", destination.Author, savedAuthor)
+	}
+}
+
+func TestAnAuthorAskedForBeforeAForgeTokenWasSavedIsNotKept(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The first ask goes out over the old token and answers after the save;
+	// every later one goes out over the token saved.
+	var asks atomic.Int32
+
+	held := webtest.NewHeld()
+	recorder := &settingsRecorder{kind: forge.KindGitHub}
+	deps := webtest.FilledDeps()
+	deps.UseForgeSettings = recorder.use
+	deps.Forge.Author = func(ctx context.Context) (string, error) {
+		if asks.Add(1) > 1 {
+			return savedAuthor, nil
+		}
+
+		return webtest.TestAuthor, held.Wait(ctx)
+	}
+
+	cfg := config.Default()
+	cfg.Path = filepath.Join(t.TempDir(), config.FileName)
+	handler := webtest.Serve(t, deps, cfg)
+
+	var asking sync.WaitGroup
+
+	asking.Go(func() { webtest.Get(t, handler, "/api/messaging") })
+	<-held.Entered
+
+	next := cfg
+
+	next.Forge = config.Forge{Token: "ghp-another-account", Kind: "github"}
+	if saved := webtest.PutConfig(t, handler, webtest.Marshal(t, next)); saved.Code != http.StatusOK {
+		t.Fatalf("saving the forge token answered %d: %s", saved.Code, saved.Body.String())
+	}
+
+	close(held.Release)
+	asking.Wait()
+
+	// Act
+	destination := webtest.Decode[api.MessagingDestination](t, webtest.Get(t, handler, "/api/messaging"))
+
+	// Assert
+	if destination.Author != savedAuthor {
+		t.Errorf("author = %q, want %q: the ask begun before the save named the old account", destination.Author, savedAuthor)
 	}
 }
