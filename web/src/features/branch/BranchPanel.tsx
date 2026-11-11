@@ -21,7 +21,7 @@ import { WorkingTree } from './WorkingTree.tsx'
 
 export function BranchPanel() {
   const snapshot = useLiveSnapshot()
-  const runner = useGitRun(snapshot.run)
+  const runner = useGitRun(snapshot.run, snapshot.writes)
 
   const { branch, changes } = snapshot
   const unread = snapshot.problems ?? {}

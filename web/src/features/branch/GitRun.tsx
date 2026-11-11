@@ -36,31 +36,39 @@ export interface GitRunner {
 // streams: each line as it is written, then how it ended, which stays until it
 // is put away. A run some other page started, which the stream carries while
 // it goes, stands in when this page has none, and takes the place of one that
-// has ended. A run refused before it ran says why in refusal, as does a stop
-// refused, until the next start or Close.
-export function useGitRun(streamed: Run | undefined): GitRunner {
+// has ended in a frame read after that end, whose writes count it. A run
+// refused before it ran says why in refusal, as does a stop refused, until
+// the next start or Close.
+export function useGitRun(streamed: Run | undefined, writes: number): GitRunner {
   const [run, setRun] = useState<Run | null>(null)
+  const [endWrite, setEndWrite] = useState<number>()
   const [refusal, setRefusal] = useState('')
   const putAway = () => {
     setRun(null)
+    setEndWrite(undefined)
     setRefusal('')
   }
 
-  // The stream carries a run only while it goes, and this page shows its
-  // run's end only beside a frame read after it, so a run the stream carries
-  // past this page's end is another page's: it puts this page's away, as
-  // Close does. Set while rendering, so the frame that carries it draws it.
-  if (run !== null && run.state !== 'in_progress' && streamed !== undefined) {
+  // The stream carries a run only while it goes, so a run a frame read after
+  // this page's run ended carries is another page's: it puts this page's away,
+  // as Close does. A frame read before the end, which a stale or closed
+  // stream keeps, may still carry this page's own run going, and puts nothing
+  // away. Set while rendering, so the frame that carries it draws it.
+  if (endedBefore(run, endWrite, writes) && streamed !== undefined) {
     putAway()
   }
   const shown = run ?? streamed ?? null
 
   const follow = (event: RunEvent) => {
+    if (event.write !== undefined) {
+      setEndWrite(event.write)
+    }
     setRun((previous) => followed(previous, event))
   }
 
   const start = (request: RunRequest) => {
     setRefusal('')
+    setEndWrite(undefined)
     setRun({
       kind: request.kind,
       title: runTitle(request),
@@ -93,6 +101,12 @@ export function useGitRun(streamed: Run | undefined): GitRunner {
     stop,
     close: putAway,
   }
+}
+
+// endedBefore reports this page's run ended in a write numbered endWrite that
+// a frame counting writes was read after.
+function endedBefore(run: Run | null, endWrite: number | undefined, writes: number): boolean {
+  return run !== null && run.state !== 'in_progress' && endWrite !== undefined && writes >= endWrite
 }
 
 // followed is the run after one more of its events: a line added to it, or
