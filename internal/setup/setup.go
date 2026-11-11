@@ -206,14 +206,33 @@ func Keep(
 		return settings, fmt.Errorf("storing the token in the keychain: %w", err)
 	}
 
-	return inKeychain(settings), nil
+	return InKeychain(settings), nil
 }
 
-// inKeychain is settings reading their token from the keychain alone.
-func inKeychain(settings config.Jira) config.Jira {
+// InKeychain is settings reading their token from the keychain alone, as the
+// file a setup writes before the keychain keeps the token (KeepFor) holds
+// them.
+func InKeychain(settings config.Jira) config.Jira {
 	settings.Token, settings.Keychain, settings.TokenCommand, settings.TokenEnv = "", true, "", ""
 
 	return settings
+}
+
+// KeepFor keeps the token answered in the keychain item for its address
+// through store, under ctx, for the file just written at path, which reads it
+// from there. The file goes again when the keychain does not keep the token,
+// so a setup that fails leaves neither behind, and the keychain is touched
+// only once the file is written.
+func KeepFor(
+	ctx context.Context, store func(ctx context.Context, service, secret string) error, path string,
+	answered config.Jira,
+) error {
+	_, err := Keep(ctx, store, answered)
+	if err != nil {
+		return errors.Join(err, os.Remove(path))
+	}
+
+	return nil
 }
 
 // Beneath is the configuration a new file starts from — the home file's, when

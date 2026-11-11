@@ -5,8 +5,6 @@ package setup
 
 import (
 	"context"
-	"errors"
-	"os"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -105,7 +103,7 @@ func (g Guide) Write(ctx context.Context, request Request) (Written, error) {
 
 	cfg := request.Answers.Over(beneath)
 	if keychain {
-		cfg.Jira = inKeychain(cfg.Jira)
+		cfg.Jira = InKeychain(cfg.Jira)
 	}
 
 	err = Create(path, layers, cfg, over)
@@ -114,7 +112,7 @@ func (g Guide) Write(ctx context.Context, request Request) (Written, error) {
 	}
 
 	if keychain {
-		err = g.keepInKeychain(ctx, path, request.Answers.Jira)
+		err = KeepFor(ctx, g.StoreSecret, path, request.Answers.Jira)
 		if err != nil {
 			return Written{}, err
 		}
@@ -136,17 +134,4 @@ func (g Guide) keychainFor(request Request) (bool, error) {
 	}
 
 	return true, nil
-}
-
-// keepInKeychain keeps the token answered in the keychain item for its
-// address, which the file just made at path reads it from. The file goes
-// again when the keychain does not keep the token, so a failed setup leaves
-// neither behind.
-func (g Guide) keepInKeychain(ctx context.Context, path string, answered config.Jira) error {
-	_, err := Keep(ctx, g.StoreSecret, answered)
-	if err != nil {
-		return errors.Join(err, os.Remove(path))
-	}
-
-	return nil
 }
