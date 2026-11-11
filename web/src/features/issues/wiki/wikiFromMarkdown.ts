@@ -9,16 +9,16 @@
 // fails its own tests.
 export function wikiFromMarkdown(markdown: string): string {
   const out: string[] = []
-  let inFence = false
+  let opener: CodeFence | null = null
 
   for (const line of markdown.split('\n')) {
     const fence = readFence(line)
-    if (!inFence) {
+    if (opener === null) {
       out.push(fence === null ? convertLine(line) : bracket(fence))
-      inFence = fence !== null
-    } else if (fence !== null && closes(fence)) {
+      opener = fence
+    } else if (fence !== null && closes(fence, opener)) {
       out.push('{code}')
-      inFence = false
+      opener = null
     } else {
       out.push(line)
     }
@@ -27,9 +27,11 @@ export function wikiFromMarkdown(markdown: string): string {
   return out.join('\n')
 }
 
-// CodeFence is a line that opens or closes a fenced code block: the info
-// string after its backticks, which names the block's language.
+// CodeFence is a line that opens or closes a fenced code block: how many
+// backticks it runs to, and the info string after them, which names the
+// block's language.
 interface CodeFence {
+  length: number
   info: string
 }
 
@@ -40,6 +42,9 @@ const boldSentinel = '\u0000'
 // maxFenceIndent is how far a fence may be indented before Markdown reads it
 // as indented content instead.
 const maxFenceIndent = 3
+
+// fenceRun is the run of backticks a fence line opens with: three at least.
+const fenceRun = /^`{3,}/
 
 // fenceSpace is the white space around a fence line, as both converters read
 // it: JavaScript's, with the byte order mark its trim takes, and the next-line
@@ -68,18 +73,19 @@ const link = /(!?)\[([^\]]*)\]\(([^()]*(?:\([^()]*\)[^()]*)*)\)/g
 function readFence(line: string): CodeFence | null {
   const indent = line.length - line.replace(/^ +/, '').length
   const trimmed = line.replace(fenceSpace, '')
-  if (indent > maxFenceIndent || !trimmed.startsWith('```')) {
+  const [run] = fenceRun.exec(trimmed) ?? []
+  if (indent > maxFenceIndent || run === undefined) {
     return null
   }
 
-  return { info: trimmed.slice(3).replace(fenceSpace, '') }
+  return { length: run.length, info: trimmed.slice(run.length).replace(fenceSpace, '') }
 }
 
-// closes is whether the fence, read inside a block, closes it: a fence with
-// an info string only ever opens one, so a block that quotes a ```go line
-// keeps it.
-function closes(fence: CodeFence): boolean {
-  return fence.info === ''
+// closes is whether the fence, read inside the block opener opened, closes
+// it: only a bare fence at least as long as the opener does, so a block that
+// quotes a ```go line, or a shorter fence, keeps it.
+function closes(fence: CodeFence, opener: CodeFence): boolean {
+  return fence.info === '' && fence.length >= opener.length
 }
 
 // bracket is the wiki markup that opens a block at the fence: {code:lang}
