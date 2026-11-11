@@ -12,16 +12,25 @@ export function wikiFromMarkdown(markdown: string): string {
   let inFence = false
 
   for (const line of markdown.split('\n')) {
-    const fence = fenceLine(line)
-    if (fence !== null) {
-      out.push(fence)
-      inFence = !inFence
+    const fence = readFence(line)
+    if (!inFence) {
+      out.push(fence === null ? convertLine(line) : bracket(fence))
+      inFence = fence !== null
+    } else if (fence !== null && closes(fence)) {
+      out.push('{code}')
+      inFence = false
     } else {
-      out.push(inFence ? line : convertLine(line))
+      out.push(line)
     }
   }
 
   return out.join('\n')
+}
+
+// CodeFence is a line that opens or closes a fenced code block: the info
+// string after its backticks, which names the block's language.
+interface CodeFence {
+  info: string
 }
 
 // boldSentinel stands in for wiki-bold's single asterisk while the emphasis
@@ -55,18 +64,28 @@ const italicStar = new RegExp(`\\*(${notSpaceOrStar}(?:[^*]*?${notSpaceOrStar})?
 const inlineCode = /`([^`]+)`/g
 const link = /(!?)\[([^\]]*)\]\(([^()]*(?:\([^()]*\)[^()]*)*)\)/g
 
-// fenceLine turns a ``` fence into its wiki bracket, or is null for any other
-// line.
-function fenceLine(line: string): string | null {
+// readFence reads a ``` fence line, or is null for any other line.
+function readFence(line: string): CodeFence | null {
   const indent = line.length - line.replace(/^ +/, '').length
   const trimmed = line.replace(fenceSpace, '')
   if (indent > maxFenceIndent || !trimmed.startsWith('```')) {
     return null
   }
 
-  const language = trimmed.slice(3).replace(fenceSpace, '')
+  return { info: trimmed.slice(3).replace(fenceSpace, '') }
+}
 
-  return language === '' ? '{code}' : `{code:${language}}`
+// closes is whether the fence, read inside a block, closes it: a fence with
+// an info string only ever opens one, so a block that quotes a ```go line
+// keeps it.
+function closes(fence: CodeFence): boolean {
+  return fence.info === ''
+}
+
+// bracket is the wiki markup that opens a block at the fence: {code:lang}
+// when it names a language, {code} otherwise.
+function bracket(fence: CodeFence): string {
+  return fence.info === '' ? '{code}' : `{code:${fence.info}}`
 }
 
 // convertLine rewrites one line outside a code block: its block marker, then
