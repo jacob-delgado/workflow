@@ -1259,7 +1259,8 @@ paths:
         asking the page to reconnect, and every read after answers with it.
         No answer carries a credential. Refused with 409 while a configuration
         file applies here or one is at the path chosen, which it never writes
-        over, and with 403 under --dry-run, by the guard every write passes.
+        over, or while another write is in flight, and with 403 under
+        --dry-run, by the guard every write passes.
       tags: [config]
       requestBody:
         required: true
@@ -1277,11 +1278,12 @@ paths:
         "409":
           description: >-
             A configuration file already applies where the server works, or
-            one is at a path setup offers; nothing was written. A file made
-            since the server started (by hand, by config init, or by a setup
-            that could not be taken up) is taken up, so Settings edits it.
-            One setup runs at a time: of two sent at once, one writes and the
-            other is answered 409.
+            one is at a path setup offers, or another write is in flight, which
+            would keep the file from being taken up; nothing was written. A
+            file made since the server started (by hand, by config init, or by
+            a setup that could not be taken up) is taken up, so Settings edits
+            it. One setup runs at a time: of two sent at once, one writes and
+            the other is answered 409.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
