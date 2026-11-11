@@ -67,11 +67,16 @@ stub stubs uname 'case "$1" in -s) echo "${FAKE_SYSTEM:-Linux}" ;; -m) echo "${F
 stub stubs id 'echo "${FAKE_UID:-1000}"'
 # getconf counts FAKE_CPUS processors, four by default; pgrep finds each
 # process line FAKE_RUNNING names that its pattern, its last argument,
-# matches, and none by default.
+# matches, and none by default, and given FAKE_RUNNING_FROM, none before its
+# call of that number, counted in the file FAKE_PGREP_CALLS names.
 # shellcheck disable=SC2016 # the stand-in's own variable, expanded when it runs
 stub stubs getconf 'echo "${FAKE_CPUS:-4}"'
 # shellcheck disable=SC2016 # the stand-in's own variables, expanded when it runs
-stub stubs pgrep '[[ -n "${FAKE_RUNNING:-}" ]] || exit 1
+stub stubs pgrep 'if [[ -n "${FAKE_RUNNING_FROM:-}" ]]; then
+  echo call >>"${FAKE_PGREP_CALLS}"
+  (($(wc -l <"${FAKE_PGREP_CALLS}") >= FAKE_RUNNING_FROM)) || exit 1
+fi
+[[ -n "${FAKE_RUNNING:-}" ]] || exit 1
 grep -E -- "${*: -1}" <<<"${FAKE_RUNNING}"'
 # curl downloads the ttyd payload, or fails as FAKE_CURL_FAIL asks.
 # shellcheck disable=SC2016 # the stand-in's own arguments, expanded when it runs
