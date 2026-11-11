@@ -1,7 +1,7 @@
 # shellcheck shell=bash
 #
 # Reading what each file the age gate dates pins, one pin a line: go.mod's
-# requirements, web/yarn.lock's resolutions, the files
+# requirements and replacements, web/yarn.lock's resolutions, the files
 # build/yamllint/requirements.txt pins by their hashes and the lines it pins
 # what cannot be dated with, build/markdownlint/package-lock.json's entries,
 # and mise.toml's tools. Each reads the file on stdin, so the gate reads it as
@@ -12,13 +12,23 @@
 #   # shellcheck source=lib/dependency-pins.sh
 #   source "${here}/lib/dependency-pins.sh"
 
-# go_requires prints "module version" for each requirement in a go.mod.
-go_requires() {
+# go_module_pins prints "module version" for each requirement in a go.mod,
+# and for each module version a replace directive puts in a module's place,
+# which the build takes instead of the one required. A replacement by a
+# directory names no version and comes from no proxy, so it prints nothing.
+go_module_pins() {
   awk '
-    /^require[ \t]*\(/ { block = 1; next }
-    block && /^\)/ { block = 0; next }
-    block && NF >= 2 && $1 !~ /^\/\// { print $1, $2; next }
+    function replacement(line,   words) {
+      sub(/[ \t]*\/\/.*$/, "", line)
+      if (sub(/^.*=>[ \t]*/, "", line) && split(line, words) >= 2) print words[1], words[2]
+    }
+    /^require[ \t]*\(/ { block = "require"; next }
+    /^replace[ \t]*\(/ { block = "replace"; next }
+    block != "" && /^\)/ { block = ""; next }
+    block == "require" && NF >= 2 && $1 !~ /^\/\// { print $1, $2; next }
+    block == "replace" { replacement($0); next }
     /^require[ \t]+[^ \t(]/ { print $2, $3 }
+    /^replace[ \t]+[^ \t(]/ { replacement($0) }
   '
 }
 
