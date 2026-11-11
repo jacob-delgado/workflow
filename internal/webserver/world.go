@@ -339,6 +339,11 @@ func (w *worlds) switchTo(ctx context.Context, dir string) (*server, error) {
 	}
 	defer w.gate.Unlock()
 
+	return w.switchHeld(ctx, dir)
+}
+
+// switchHeld is switchTo by a caller already holding the gate alone.
+func (w *worlds) switchHeld(ctx context.Context, dir string) (*server, error) {
 	current, _ := w.served()
 
 	reach := current.deps.Reach

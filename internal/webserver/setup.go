@@ -53,13 +53,25 @@ func (s *server) shownFile(path string) string {
 	return workdirs.Shown(path, s.deps.Repositories.Home)
 }
 
+// writeHoldsSetupBack is why a setup sent while a write is in flight wrote
+// nothing: the file could not be taken up until that write ends.
+const writeHoldsSetupBack = "a write is in flight; set up once it has finished, nothing was written"
+
 // SetUp checks the Jira token, writes the first configuration file, and
 // takes it up where the server works. No answer carries a credential. One
 // setup runs at a time, by the server in effect once it may: a setup before it
-// may have put another in place.
+// may have put another in place. It holds the gate alone from the start, as a
+// switch does, so no write begun after it can keep its file from being taken
+// up, and a write in flight refuses it before anything is written.
 func (s *server) SetUp(ctx context.Context, request api.SetUpRequestObject) (api.SetUpResponseObject, error) {
 	s.worlds.setups.Lock()
 	defer s.worlds.setups.Unlock()
+
+	if !s.worlds.gate.TryLock() {
+		return api.SetUp409ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeConflict,
+			writeHoldsSetupBack)), nil
+	}
+	defer s.worlds.gate.Unlock()
 
 	current, _ := s.worlds.served()
 
@@ -161,13 +173,14 @@ func (s *server) setupRefusal(ctx context.Context, err error) api.SetUpResponseO
 }
 
 // takeUp serves the file just written from now on, where the server works,
-// as a switch does under ctx, and reports whether it could.
+// as a switch does under ctx with the gate SetUp holds, and reports whether it
+// could.
 func (s *server) takeUp(ctx context.Context) bool {
 	if s.worlds == nil {
 		return false
 	}
 
-	_, err := s.worlds.switchTo(ctx, s.deps.Repositories.Here.Dir)
+	_, err := s.worlds.switchHeld(ctx, s.deps.Repositories.Here.Dir)
 	if err != nil && !errors.Is(err, errNoSwitching) {
 		s.unexpected(err)
 	}

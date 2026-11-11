@@ -797,7 +797,9 @@ after a switch: the event stream reconnects, every section is read
 again, and Settings shows the file with what was written said above it —
 whom Jira knows the token as, that the keychain keeps it, and, for a file in a
 repository git does not ignore, to add it to `.gitignore`. A file already
-there is never written over. The token and the webhook go only to the server
+there is never written over. A write still running, such as a git run started
+in another tab, holds the setup back: it writes nothing, and says to set up
+again once that write has finished. The token and the webhook go only to the server
 on the loopback address, which takes them from no other page, and no answer
 carries them back. Under `--dry-run` writing is held back, and the form says so.
 
