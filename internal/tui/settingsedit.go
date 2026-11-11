@@ -361,11 +361,28 @@ func (f settingsForm) text(field setting) string {
 }
 
 // with is the form with a setting's value edited, and every refusal of it
-// still standing, a write's or Settings' own check's, taken away.
+// still standing, a write's or Settings' own check's, taken away. A setting
+// turned or moved back to the value read is no longer an edit.
 func (f settingsForm) with(path string, value any) settingsForm {
 	f.edits = maps.Clone(f.edits)
 	f.edits[path] = value
 	f.refusals = f.refusals.without(path)
 
+	if isReadBack(value, valueAt(f.values, path)) {
+		delete(f.edits, path)
+	}
+
 	return f
+}
+
+// isReadBack reports a switch, a choice or a text holding the value read, as
+// one turned on and off again does. Any other value counts as an edit, as
+// before: a collection's entries are told apart by isEdited itself.
+func isReadBack(value, read any) bool {
+	switch value.(type) {
+	case bool, string:
+		return value == read
+	default:
+		return false
+	}
 }
