@@ -121,19 +121,20 @@ func commandFailure(program string, err error) error {
 }
 
 // resolveSetToken finds the token a source the configuration sets gives, and
-// refuses one that gives nothing: sent, an empty credential would only be
-// turned away, for a reason the user could not act on.
+// where it came from, and refuses one that gives nothing: sent, an empty
+// credential would only be turned away, for a reason the user could not act
+// on.
 func (e Environment) resolveSetToken(
 	ctx context.Context, settings config.Jira, system Keychain,
-) (config.Secret, error) {
+) (config.Secret, string, error) {
 	token, source, err := e.ResolveToken(ctx, settings, system)
 	if err != nil {
-		return "", err
+		return "", source, err
 	}
 
 	if token == "" {
-		return "", fmt.Errorf("%w from %s", errNoToken, source)
+		return "", source, fmt.Errorf("%w from %s", errNoToken, source)
 	}
 
-	return token, nil
+	return token, source, nil
 }

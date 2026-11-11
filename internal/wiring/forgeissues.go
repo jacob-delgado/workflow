@@ -38,7 +38,7 @@ var errNotAnIssueNumber = errors.New("not a forge issue number")
 // them — and otherwise the forge's issues alone, so a project without Jira
 // still has a tracker to run the loop against.
 func trackerDeps(
-	cfg config.Config, jiraClient func(context.Context) (jira.Client, error), setup forgeSetup,
+	cfg config.Config, jiraClient *jiraConnection, setup forgeSetup,
 	connect func(context.Context) (forgeConnection, error),
 ) seams.Jira {
 	if !cfg.Jira.Configured() {

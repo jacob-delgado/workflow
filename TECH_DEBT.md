@@ -420,7 +420,8 @@ hold.
 **Decided.** Jira's client settings are read once, when the wiring is built:
 its address, user and headers, and its token with where the token is read
 from (`jira.token`, `jira.keychain`, `jira.token_env`,
-`jira.token_command`). So is the combined tracker
+`jira.token_command`); a token `jira.token_command` printed is fetched
+again, once, when Jira refuses it, but from the same command. So is the combined tracker
 (`internal/wiring/tracker.go`): whether the forge's issues join in, and the
 JQL of the first view they lead, are fixed then. The web makes the forge and
 messaging settings live on save through the wiring's controls, and reads

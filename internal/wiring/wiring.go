@@ -24,7 +24,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/httpx"
-	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/messaging/directory"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/seams"
@@ -55,7 +54,7 @@ func (e Environment) Deps(cfg config.Config, where Workspace, log *RequestLog) (
 	connect := connectedWith(settings.current, func(asked context.Context, current config.Forge) (forgeConnection, error) {
 		return connectForge(asked, setup, current)
 	})
-	jiraClient := onceConnected(func(asked context.Context) (jira.Client, error) {
+	jiraClient := newJiraConnection(func(asked context.Context) (jiraConnected, error) {
 		//nolint:bodyclose // Wrap only relays the response; the jira client reads and closes its body.
 		return e.connectJira(asked, cfg.Jira, e.Keychain(), log.Wrap("jira", httpTransport))
 	})
@@ -70,7 +69,7 @@ func (e Environment) Deps(cfg config.Config, where Workspace, log *RequestLog) (
 	// run for it, so none can ask on the terminal once the interface holds it.
 	resolveAhead := func(ctx context.Context) {
 		if cfg.Jira.Configured() {
-			_, _ = jiraClient(ctx)
+			_, _, _ = jiraClient.current(ctx)
 		}
 	}
 
