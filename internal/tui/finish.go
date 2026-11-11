@@ -55,14 +55,15 @@ func (m Model) mergedDetail(pull forge.PullRequest) string {
 }
 
 // doneWithDetail describes a pull request whose review is done with, merged or
-// merging, and reports whether it is one: an open one has its review to show.
+// merging, and reports whether it is one; any other state gets nothing, as an
+// open one has its review to show.
 func (m Model) doneWithDetail(pull forge.PullRequest) (string, bool) {
-	switch pull.State {
-	case forge.StateMerged:
+	if pull.State == forge.StateMerged {
 		return m.mergedDetail(pull), true
-	case forge.StateMerging:
+	}
+
+	if pull.State == forge.StateMerging {
 		return m.mergingDetail(pull), true
-	case forge.StateOpen, forge.StateClosed:
 	}
 
 	return "", false
