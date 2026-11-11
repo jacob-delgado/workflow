@@ -402,7 +402,7 @@ func TestOnlyARefusalTheForgeExplainsCarriesItsReason(t *testing.T) {
 			want: forge.ErrRefused, wantText: forge.ErrRefused.Error(),
 		},
 		"unexplained": {
-			status: http.StatusUnprocessableEntity, body: `not json`,
+			status: http.StatusUnprocessableEntity, body: notJSON,
 			want: forge.ErrUnexpectedStatus, wantText: forge.ErrUnexpectedStatus.Error() + ": 422",
 		},
 		"explained with nothing": {

@@ -239,13 +239,38 @@ func (g githubReviewItem) repository() string {
 	return repository
 }
 
-// reviewRequest flattens a search item. GitHub's search does not carry CI, so it
-// is left unknown rather than fetched with a request per entry.
-func (g githubReviewItem) reviewRequest() ReviewRequest {
+// reviewRequest flattens a search item, with where its CI stands, which the
+// search does not carry.
+func (g githubReviewItem) reviewRequest(ci CIState) ReviewRequest {
 	return ReviewRequest{
 		Number: g.Number, URL: g.URL, Title: g.Title, Draft: g.Draft,
-		Author: g.User.Login, Repository: g.repository(), CI: CINone, OpenedAt: g.CreatedAt,
+		Author: g.User.Login, Repository: g.repository(), CI: ci, OpenedAt: g.CreatedAt,
 	}
+}
+
+// ci reads where CI stands on the item's pull request, at the commit its
+// branch is at, as the Review pane reads it, so the queue's CI facet means on
+// GitHub what it means on GitLab. It is best effort, as GitLab's listing is:
+// a pull request or checks the token cannot read leave it at CINone rather
+// than failing the whole queue, and an item that names no repository has
+// none to ask.
+func (g githubReviewItem) ci(ctx context.Context, client Client) CIState {
+	repo := Repo{Kind: KindGitHub, Path: g.repository()}
+	if repo.Path == "" {
+		return CINone
+	}
+
+	pull, err := repoCall[githubPull](ctx, client, repo, http.MethodGet, githubPullPath(repo, g.Number), nil)
+	if err != nil {
+		return CINone
+	}
+
+	checks, err := githubStatus(ctx, client, repo, PullRequest{}, pull.Head.SHA)
+	if err != nil {
+		return CINone
+	}
+
+	return checks.State
 }
 
 // githubSearchServes is how many results GitHub's search serves, however many
@@ -284,7 +309,7 @@ func githubReviews(ctx context.Context, client Client) ([]ReviewRequest, error) 
 
 	reviews := make([]ReviewRequest, 0, len(found))
 	for _, item := range found {
-		reviews = append(reviews, item.reviewRequest())
+		reviews = append(reviews, item.reviewRequest(item.ci(ctx, client)))
 	}
 
 	return reviews, nil

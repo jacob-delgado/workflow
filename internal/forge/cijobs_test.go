@@ -56,7 +56,7 @@ func TestGitLabCIKeepsThePipelineWhenItsJobsCannotBeRead(t *testing.T) {
 	// Arrange
 	client, _ := recordingForge(t, routing(map[string]string{
 		failedMergePath: `{"iid":8,"head_pipeline":{"id":77,"status":"failed","web_url":"https://gl/pipelines/77"}}`,
-		failedJobsPath:  `not json`,
+		failedJobsPath:  notJSON,
 	}))
 
 	// Act
