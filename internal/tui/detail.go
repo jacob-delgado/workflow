@@ -167,7 +167,8 @@ func (m Model) soonDetail() tea.Cmd {
 }
 
 // pickIssue selects the issue on a clicked line of the list wherever it is
-// drawn: in the rail, or in the collapsed detail when no issue is read there.
+// drawn: in the rail, or in the collapsed detail when no issue is read there,
+// and pulls the next page when it is the last of a truncated list.
 func (m Model) pickIssue(line, rows int, inRail bool) (Model, tea.Cmd) {
 	if !inRail && (!m.shape().Collapsed() || m.issues.viewing) {
 		return m, nil
@@ -179,8 +180,9 @@ func (m Model) pickIssue(line, rows int, inRail bool) (Model, tea.Cmd) {
 	}
 
 	m.issues.selected, m.issues.moved = index, true
+	m, page := m.pageIfAtEnd()
 
-	return m, m.soonDetail()
+	return m, tea.Batch(page, m.soonDetail())
 }
 
 // issueDetailView describes the selected issue in full, or explains why there

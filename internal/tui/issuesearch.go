@@ -61,9 +61,9 @@ func (m Model) loadMoreIssues() (Model, tea.Cmd) {
 }
 
 // pageIfAtEnd reads the next page once the selection reaches the last loaded
-// issue of a truncated list.
+// issue of a truncated list that the filter and the places admit.
 func (m Model) pageIfAtEnd() (Model, tea.Cmd) {
-	if m.issues.selected < len(m.issues.found.Issues)-1 {
+	if m.issues.selected < len(m.issues.visible())-1 {
 		return m, nil
 	}
 
