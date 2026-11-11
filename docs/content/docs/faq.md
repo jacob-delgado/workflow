@@ -772,8 +772,8 @@ If you pressed `w` (or the pull request was armed when it opened, or you ran
 **passed**. Passed means every check finished as success, neutral or skipped.
 Running checks keep it waiting. A failed check keeps it waiting for a later run
 that passes, and the pane says *a check failed; waiting on a fix*. With no
-checks at all, it says *no checks reported yet*. After ten minutes with none, it
-gives up: the terminal and the web say
+checks at all, it says *no checks reported yet*. After ten minutes of reads
+that heard none (a read that failed does not count), it gives up: the terminal and the web say
 `no checks reported on … within 10m; announce it by hand`, and
 `workflow announce --when-green` says `no checks were reported on … within 10m;
 if the repository has no CI, announce it by hand with workflow announce`.

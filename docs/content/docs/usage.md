@@ -580,8 +580,8 @@ CI passes; with a Slack user token and more than one channel to choose from
 announcement waiting for CI waits through a failed run: the messaging pane says
 *a check failed; waiting on a fix*, and it goes once a later run passes. While
 no check is reported it says *no checks reported yet*, and after ten minutes
-with none, counted from the last read that saw one, it gives up, saying to
-announce it by hand. `x` on the messaging pane stops waiting, and nothing is
+of reads that heard none, counted from the last read that saw one, a read that
+failed not counting, it gives up, saying to announce it by hand. `x` on the messaging pane stops waiting, and nothing is
 announced. While one waits, the footer offers `p` after `x`, as *announce now
 instead*: it opens the same preview, and announcing from it replaces the one
 that is waiting, so the channel never reads it twice. One armed as `n` opened
@@ -1201,8 +1201,9 @@ troubleshooting]({{< relref "/docs/faq" >}}).
   announcement waiting for CI is not yet a write: it is not sent if you quit
   first.
 - **An announcement waits only for CI that reports.** One waiting for a pull
-  request that reports no check gives up after ten minutes, counted from the
-  last read that saw one; announce a repository with no CI by hand. On GitHub,
+  request that reports no check gives up after ten minutes of reads that
+  heard none, counted from the last read that saw one, a read that failed not
+  counting; announce a repository with no CI by hand. On GitHub,
   CI is read at the branch's head here, so a fix pushed from another clone is
   seen once this branch moves to it.
 - **A branch is worked on under the name it shows.** git allows characters in a

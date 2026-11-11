@@ -92,6 +92,30 @@ func TestAHeldAnnouncementGivesUpWhenNoCheckIsReported(t *testing.T) {
 	}
 }
 
+func TestAHeldAnnouncementCountsNoQuietTimeAcrossAnOutage(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// No check is reported; then CI cannot be read for an hour, past the ten
+	// minutes' patience, and a frame reads it so; then an hour on, a read is
+	// heard, still with no check.
+	world := newForgeWorld()
+	world.ci = forge.CINone
+	handler := webtest.Serve(t, world.deps(), config.Default())
+	announceWhenGreen(t, handler, nil)
+	world.turn(func(w *forgeWorld) { w.ciErr = errForgeDown })
+	heldAnnouncement(t, handler)
+	world.turn(func(w *forgeWorld) { w.ciErr = nil })
+
+	// Act
+	held := heldAnnouncement(t, handler)
+
+	// Assert
+	if !sameHold(held, waitingOn(api.CIStateNone)) {
+		t.Errorf("frame's held announcement = %+v, want it still waiting, an outage not counted as quiet", held)
+	}
+}
+
 // failingAtTheGate is a CI read that answers running until it is armed, then
 // passed for the read that lets a held announcement go, and failed for every
 // read after it: a check that failed between the frame and the gate's own

@@ -77,6 +77,42 @@ func TestCIWatchCountsPatienceFromTheLastReportedCheck(t *testing.T) {
 	}
 }
 
+func TestCIWatchCountsNoTimeAcrossAnOutage(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Every read for longer than the patience fails, then one is heard.
+	outage := armedAt().Add(armed.NoCIPatience + time.Minute)
+	watch := armed.WatchFrom(armedAt()).Unheard()
+
+	// Act
+	_, got := watch.Read(forge.CI{State: forge.CINone}, outage)
+
+	// Assert
+	if got != armed.VerdictAwaitingChecks {
+		t.Errorf("Read(none) after an outage past the patience = %v, want it still awaiting checks", got)
+	}
+}
+
+func TestCIWatchCountsTheQuietReadsEitherSideOfAnOutage(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Six quiet minutes are heard, an hour goes unheard, then four more.
+	quietAt := armedAt().Add(6 * time.Minute)
+	watch, _ := armed.WatchFrom(armedAt()).Read(forge.CI{State: forge.CINone}, quietAt)
+	heardAgainAt := quietAt.Add(time.Hour)
+	watch, _ = watch.Unheard().Read(forge.CI{State: forge.CINone}, heardAgainAt)
+
+	// Act
+	_, got := watch.Read(forge.CI{State: forge.CINone}, heardAgainAt.Add(4*time.Minute))
+
+	// Assert
+	if got != armed.VerdictNoCI {
+		t.Errorf("Read(none) after ten heard quiet minutes around an outage = %v, want it out of patience", got)
+	}
+}
+
 func TestStillArmed(t *testing.T) {
 	t.Parallel()
 

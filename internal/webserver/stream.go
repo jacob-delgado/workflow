@@ -208,9 +208,12 @@ func (s *server) snapshot(ctx context.Context, view string) api.Snapshot {
 	read, reviewErr := s.snapshotReview(ctx, branch, branchErr)
 
 	// A queued announcement waits on what the forge says; a read that failed
-	// says nothing of the pull request, so it neither posts nor drops one.
+	// says nothing of the pull request, so it neither posts nor drops one, and
+	// its time is not counted as quiet.
 	if branchErr == nil && reviewErr == nil {
 		s.settleHeld(branch, read)
+	} else {
+		s.heldUnheard()
 	}
 
 	review := s.reviewDTO(branch, read)
