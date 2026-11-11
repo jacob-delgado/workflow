@@ -245,9 +245,13 @@ twin_files() {
   done
 }
 
+# Each package's statistics are named for its path with every slash a %,
+# which no import path holds, so the name reads back as the path: an
+# underscore, which one may hold, read back as a slash would name another
+# package.
 for package in ${packages}; do
   rel="${package#"${module}"/}"
-  slug="${rel//\//_}"
+  slug="${rel//\//%}"
   files="$(twin_files "${rel}")"
 
   # gobco's per-condition output is the worklist — print it, since a percentage
@@ -290,7 +294,7 @@ summary="$(
   for stats in "${out_dir}"/*.json; do
     [[ -e "${stats}" ]] || continue
     slug="$(basename "${stats}" .json)"
-    jq -r --arg pkg "${slug//_//}" '
+    jq -r --arg pkg "${slug//\%//}" '
       (length * 2) as $total
       | ([.[] | (if .TrueCount > 0 then 1 else 0 end)
                + (if .FalseCount > 0 then 1 else 0 end)] | add // 0) as $hit

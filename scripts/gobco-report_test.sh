@@ -20,8 +20,9 @@
 # too; a line whose arm a test now reaches, or that is not shaped as one,
 # fails too; and a boolean seen one way is only listed.
 # Each package the floors file names answers to its own floor beside the
-# module's, a floor without a reason above it fails, and so do a floor for a
-# package that holds no condition and a floors file that is not there.
+# module's, by its path, though it hold an underscore, a floor without a
+# reason above it fails, and so do a floor for a package that holds no
+# condition and a floors file that is not there.
 #
 # A run as root says that the tests skipped under root leave arms unseen.
 #
@@ -405,6 +406,13 @@ GOBCO_FLOORS="${above}" expect fail "a package below its own floor" "${one_way}"
 at="$(floors at "# buildinfo is consequential" "internal/buildinfo 50")"
 GOBCO_FLOORS="${at}" expect pass "a package at its own floor" "${one_way}" "" \
   "Condition coverage 50.0% (floor 50%)." --package "${buildinfo}" 50
+
+# A package whose path holds an underscore is reported, and held to its own
+# floor, by that path, not by one with a slash in its place.
+underscored="$(floors underscored "# a_b is consequential" "internal/a_b 60")"
+GOBCO_FLOORS="${underscored}" expect fail "a package whose path holds an underscore, below its own floor" \
+  "${one_way}" "" "internal/a_b's condition coverage 50.0% is below its 60% floor." \
+  --package "${module}/internal/a_b" 50
 
 # Every floor says why it is there.
 unexplained="$(floors unexplained "internal/buildinfo 50")"
