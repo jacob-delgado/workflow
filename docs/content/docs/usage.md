@@ -1151,7 +1151,9 @@ them:
 - `enter` turns each hook made only of plain commands into lefthook jobs, run
   in order and stopping at the first failure as `set -e` would. A hook that
   reads its arguments, branches, or sets variables is kept whole as a script
-  under `.lefthook/` rather than guessed at.
+  under `.lefthook/` rather than guessed at. A hook that turns `set -e` on
+  only after its first command stays a script too, and the configuration says
+  why above it.
 - `v` keeps every hook whole as a script.
 - `esc` skips it.
 

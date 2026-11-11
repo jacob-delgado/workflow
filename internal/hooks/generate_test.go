@@ -83,6 +83,11 @@ func TestErrexitBesideOptionsAJobListKeepsStillConverts(t *testing.T) {
 		"errexit with nounset and trace": "#!/bin/sh\nset -eux\nmake\n",
 		"errexit by name":                "#!/bin/sh\nset -o errexit\nmake\n",
 		"trace on its own line":          "#!/bin/sh\nset -e\nset -x\nmake\n",
+		// errexit already on, so a later set line turns nothing on late.
+		"errexit repeated past a command": "#!/bin/sh\nset -e\nmake\nset -ex\nmake\n",
+		"errexit from the shebang":        "#!/bin/sh -e\nmake\n",
+		"errexit from the shebang, repeated past a command": "#!/bin/sh -e\nmake\n" +
+			"set -e\nmake\n",
 	}
 
 	for name, script := range cases {
@@ -426,5 +431,46 @@ func TestWriteNeverReplacesAConfiguration(t *testing.T) {
 	// Assert
 	if !errors.Is(err, fs.ErrExist) {
 		t.Errorf("a second Write returned %v, want fs.ErrExist", err)
+	}
+}
+
+func TestAHookThatTurnsErrexitOnPastItsFirstCommandStaysAScriptAndSaysWhy(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The script runs go test after a failing go vet and returns go test's
+	// status; a piped job list would stop at go vet.
+	const lateErrexit = "#!/bin/sh\ngo vet ./...\nset -e\ngo test ./...\n"
+
+	// Act
+	generated := hooks.Structured([]hooks.GitHook{{Name: preCommit, Script: lateErrexit}})
+
+	// Assert
+	if strings.Contains(generated.Config, "commands:") || len(generated.Scripts) != 1 {
+		t.Errorf("a hook that turns errexit on past its first command was turned into jobs:\n%s", generated.Config)
+	}
+
+	const why = "# Kept as a script: it turns set -e on only after its first command, " +
+		"and as jobs every command would stop the rest when it fails.\n"
+	if !strings.Contains(generated.Config, why+"pre-commit:\n  scripts:\n") {
+		t.Errorf("the configuration does not say why pre-commit stays a script; want\n%s\nabove it in\n%s",
+			why, generated.Config)
+	}
+}
+
+func TestAHookKeptWholeByALaterLineDoesNotBlameItsLateErrexit(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The if keeps this hook a script whether set -e came early or late, so
+	// the late set -e is not why, wherever the two lines sit.
+	const lateErrexitThenBranch = "#!/bin/sh\ngo vet ./...\nset -e\nif true; then make; fi\n"
+
+	// Act
+	generated := hooks.Structured([]hooks.GitHook{{Name: preCommit, Script: lateErrexitThenBranch}})
+
+	// Assert
+	if strings.Contains(generated.Config, "Kept as a script") {
+		t.Errorf("a hook a branch keeps whole was said to be kept for its late set -e:\n%s", generated.Config)
 	}
 }

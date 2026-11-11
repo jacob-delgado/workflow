@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"iter"
 	"os"
 	"path"
 	"path/filepath"
@@ -80,21 +81,28 @@ type generation struct {
 
 // generate builds the configuration the way mode says to.
 func generate(hooks []GitHook, mode generation) Generated {
-	document := mapping()
-	document.HeadComment = generatedFrom + "\n" + mode.howHooksRun
+	hooksByName := mapping()
+	document := &yaml.Node{
+		Kind: yaml.DocumentNode, HeadComment: generatedFrom + "\n" + mode.howHooksRun, Content: []*yaml.Node{hooksByName},
+	}
 
 	var scripts []File
 
 	for _, hook := range hooks {
-		commands, plain := plainCommands(hook.Script)
+		commands, verdict := plainCommands(hook.Script)
 
-		if mode.convertsPlainHooks && plain {
-			appendPair(document, hook.Name, commandsHook(commands))
+		if mode.convertsPlainHooks && verdict == asJobs {
+			appendPair(hooksByName, hook.Name, commandsHook(commands))
 
 			continue
 		}
 
-		appendPair(document, hook.Name, scriptHook(hook))
+		name := scalar(hook.Name)
+		if mode.convertsPlainHooks {
+			name.HeadComment = verdict.why()
+		}
+
+		hooksByName.Content = append(hooksByName.Content, name, scriptHook(hook))
 		scripts = append(scripts, File{
 			Path: path.Join(".lefthook", hook.Name, hook.Name), Contents: hook.Script,
 		})
@@ -205,36 +213,105 @@ var errexitSetLine = regexp.MustCompile(`^set\s+(-[ux]*e[eux]*|-o\s+errexit)$`)
 // nonJobName matches a run of what cannot be in a job name.
 var nonJobName = regexp.MustCompile(`[^a-z0-9]+`)
 
+// conversion is what reading a hook decided: that it runs as jobs, or that it
+// stays a script, and when the reason is one its author would not guess, which.
+type conversion int
+
+const (
+	// asJobs is a hook whose every line converts to a job.
+	asJobs conversion = iota
+	// asScript is a hook kept whole for what its lines plainly are: a branch, a
+	// variable, another interpreter, no set -e at all.
+	asScript
+	// asScriptForLateErrexit is a hook of plain commands that turns set -e on
+	// only after its first command, which ran on past a failure as the script
+	// and would stop at it as jobs.
+	asScriptForLateErrexit
+)
+
+// why is the comment a configuration carries above a hook kept as a script:
+// for asScriptForLateErrexit, the reason; for any other conversion, none, since
+// what keeps it whole is on its lines.
+func (c conversion) why() string {
+	if c == asScriptForLateErrexit {
+		return "Kept as a script: it turns set -e on only after its first command, " +
+			"and as jobs every command would stop the rest when it fails."
+	}
+
+	return ""
+}
+
 // plainCommands reads a script's commands, reporting whether it converts to a
 // piped job list without changing what it does. It converts only a script that
-// turns errexit on itself, since the piped list stops at the first failure — a
-// script that did not would run on past a failing command, and converting it
-// would silently start stopping.
-func plainCommands(script string) ([]string, bool) {
-	if strings.Fields(runner(script))[0] != convertibleRunner {
-		return nil, false
+// turns errexit on itself, in its shebang or before its first command, since the
+// piped list stops at the first failure — a script that did not, or did only
+// later, would run on past a failing command, and converting it would silently
+// start stopping.
+func plainCommands(script string) ([]string, conversion) {
+	interpreter := strings.Fields(runner(script))
+	if interpreter[0] != convertibleRunner {
+		return nil, asScript
 	}
 
 	var commands []string
 
-	errexit := false
+	errexit := errexitState{
+		on: errexitSetLine.MatchString(strings.Join(append([]string{"set"}, interpreter[1:]...), " ")),
+	}
 
-	for raw := range strings.SplitSeq(script, "\n") {
-		line := strings.TrimSpace(raw)
-
+	for line := range saying(script) {
 		switch {
-		case line == "" || strings.HasPrefix(line, "#"):
-			continue
+		case errexitSetLine.MatchString(line):
+			errexit.turnOn(len(commands))
 		case jobListSetLine.MatchString(line):
-			errexit = errexit || errexitSetLine.MatchString(line)
+			// nounset or xtrace alone, which change nothing a job does.
 		case !plainCommand(line):
-			return nil, false
+			return nil, asScript
 		default:
 			commands = append(commands, line)
 		}
 	}
 
-	return commands, errexit && len(commands) > 0
+	switch {
+	case errexit.late:
+		return nil, asScriptForLateErrexit
+	case !errexit.on || len(commands) == 0:
+		return nil, asScript
+	}
+
+	return commands, asJobs
+}
+
+// errexitState is how a script stands with errexit as it is read: whether it is
+// on yet, and whether a line turned it on only after a command had run.
+type errexitState struct {
+	on, late bool
+}
+
+// turnOn records a line turning errexit on once ran commands have run.
+func (e *errexitState) turnOn(ran int) {
+	if !e.on && ran > 0 {
+		e.late = true
+	}
+
+	e.on = true
+}
+
+// saying is each line of a script that says something, trimmed: neither blank
+// nor a comment, which leaves the shebang out too.
+func saying(script string) iter.Seq[string] {
+	return func(yield func(string) bool) {
+		for raw := range strings.SplitSeq(script, "\n") {
+			line := strings.TrimSpace(raw)
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+
+			if !yield(line) {
+				return
+			}
+		}
+	}
 }
 
 // plainCommand reports a line that means the same run on its own as it did in
