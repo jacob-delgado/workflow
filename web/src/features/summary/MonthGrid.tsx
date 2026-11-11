@@ -54,7 +54,7 @@ interface MonthGridProps {
 // much was done on it against the month's busiest — in dots, and on a day not
 // picked in a tint too — and every day's name says it in words.
 export function MonthGrid({ year, month, period, done, onPick, onView }: MonthGridProps) {
-  const [focused, setFocused] = useState<CivilDate>(() => inMonth(period.to, year, month))
+  const [focused, setFocused] = useFocusedDay(period, year, month)
   const moved = useRef(false)
   const cells = useRef(new Map<CivilDate, HTMLDivElement>())
   const shown = inMonth(focused, year, month)
@@ -257,6 +257,20 @@ function StepDots({ step }: { step: Step | undefined }) {
       ))}
     </svg>
   )
+}
+
+// useFocusedDay is the day Tab reaches in the grid, and how to move it: the
+// period's last day at first, and again whenever the period comes to end on
+// another day, picked here or stepped to above.
+function useFocusedDay(period: Period, year: number, month: number) {
+  const [focused, setFocused] = useState<CivilDate>(() => inMonth(period.to, year, month))
+  const [endsOn, setEndsOn] = useState(period.to)
+  if (period.to !== endsOn) {
+    setEndsOn(period.to)
+    setFocused(period.to)
+  }
+
+  return [focused, setFocused] as const
 }
 
 // inMonth is date when it falls in the month shown, or that month's day of

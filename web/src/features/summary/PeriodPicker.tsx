@@ -41,9 +41,16 @@ interface PeriodPickerProps {
 // PeriodCalendar picks the period the Summary shows from a month's calendar —
 // a day, a range, the month or its year — the month and year chosen above it.
 // Each day of the month shown says how much was done on it, once that month
-// is read, and a line under the days says when they may say less.
+// is read, and a line under the days says when they may say less. It shows
+// the month the period ends in, and follows the period into another month in
+// place, never drawn anew, so a day picked keeps the focus it was picked with.
 export function PeriodCalendar({ period, today, onPick }: PeriodPickerProps) {
   const [view, setView] = useState<[number, number]>(() => yearMonth(period.to))
+  const [endsIn, setEndsIn] = useState(() => period.to.slice(0, 7))
+  if (period.to.slice(0, 7) !== endsIn) {
+    setEndsIn(period.to.slice(0, 7))
+    setView(yearMonth(period.to))
+  }
   const [year, month] = view
   const shownDay = civilDay(civilNoon(year, month, 1))
   const read = useMonthRead(monthOf(shownDay), today)
