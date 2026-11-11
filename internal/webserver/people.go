@@ -235,8 +235,8 @@ func (s *server) inWorkspace(ctx context.Context, use func(workspace string) err
 	return use(workspace)
 }
 
-// keptWrite runs write, a write to the kept associations or a removal of the
-// local data, after any other under way.
+// keptWrite runs write, a write to the kept associations or favorites or a
+// removal of the local data, after any other under way.
 func (s *server) keptWrite(write func() error) error {
 	s.keptWrites.Lock()
 	defer s.keptWrites.Unlock()
