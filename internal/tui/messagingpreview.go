@@ -98,7 +98,7 @@ func (p messagingPreview) refusal(m Model) error {
 	switch {
 	case m.messaging.send.sending:
 		return errAnnouncementOnItsWay
-	case slices.Contains(m.messaging.posted, loop.Announced{Pull: m.review.pull.Number, Moment: p.moment}):
+	case m.messaging.claimed(loop.Announced{Pull: m.review.pull.Number, Moment: p.moment}):
 		return errAlreadyAnnounced
 	default:
 		return nil
@@ -259,30 +259,31 @@ func (p messagingPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
 	return m.keepPolling(m.checkCI())
 }
 
-// sendToMessaging posts an announcement, and once it has gone out records it
-// in the store, with the groups it tagged when it offered any, the way every
-// surface delivers an announcement. It replaces any post waiting for CI: that
-// one would otherwise follow it once CI passed, and the channel would read it
-// twice.
+// sendToMessaging posts an announcement, claiming it in the store before it
+// goes and confirming the claim once it has, with the groups it tagged when
+// it offered any, the way every surface delivers an announcement. It replaces
+// any post waiting for CI: that one would otherwise follow it once CI passed,
+// and the channel would read it twice.
 func (m Model) sendToMessaging(out outgoingAnnouncement) (Model, tea.Cmd) {
-	return m.sending(out, loop.AnnounceMemory{Recorded: nil, Record: nil, RecordGroups: nil}, m.messaging.pending)
+	return m.sending(out, m.messaging.pending)
 }
 
-// sendHeld posts the announcement that waited for CI, unless the store, read
-// again as it goes, says another session announced the same moment
-// meanwhile: the session's own list was read at its start. One the gate
-// refuses goes back to waiting.
+// sendHeld posts the announcement that waited for CI, unless another session
+// claimed the same moment meanwhile. One the gate refuses goes back to
+// waiting.
 func (m Model) sendHeld(held queuedPost) (Model, tea.Cmd) {
-	return m.sending(held.post, loop.AnnounceMemory{Recorded: m.deps.Store.Announced, Record: nil, RecordGroups: nil},
-		held)
+	return m.sending(held.post, held)
 }
 
-// sending posts out, as sendToMessaging says, once elsewhere, the store's
-// record of other sessions' announcements, holds no announcement of its
-// moment. held is the post that was waiting for CI, if one was — the one it
-// sends, or the one it replaces — to wait again should the gate refuse it.
-func (m Model) sending(out outgoingAnnouncement, elsewhere loop.AnnounceMemory, held queuedPost) (Model, tea.Cmd) {
-	ctx, memory := m.session, loop.AnnounceMemory{Record: m.deps.Store.RecordAnnounce}
+// sending posts out, as sendToMessaging says. held is the post that was
+// waiting for CI, if one was — the one it sends, or the one it replaces — to
+// wait again should the gate refuse it.
+func (m Model) sending(out outgoingAnnouncement, held queuedPost) (Model, tea.Cmd) {
+	ctx, store := m.session, m.deps.Store
+	memory := loop.AnnounceMemory{
+		Recorded: nil, Claim: store.ClaimAnnounce, Confirm: store.ConfirmAnnounce, Release: store.ReleaseAnnounce,
+		Reclaim: nil, RecordGroups: nil,
+	}
 	seams := loop.DeliverSeams{Post: m.deps.Messaging.Post, CheckCI: m.deps.announceCI}
 
 	if record := m.deps.Store.RecordGroups; out.tags.offersGroups && record != nil {
@@ -296,14 +297,7 @@ func (m Model) sending(out outgoingAnnouncement, elsewhere loop.AnnounceMemory, 
 	m.messaging.send, m.messaging.pending, m.messaging.dropped = starting(), queuedPost{}, ""
 
 	return m, func() tea.Msg {
-		posted := messagingPosted{
-			made: delivery.Made(), to: out.to, opened: out.opened, err: nil, elsewhere: false, held: held,
-		}
-		if elsewhere.Holds(ctx, posted.made) {
-			posted.elsewhere = true
-
-			return posted
-		}
+		posted := messagingPosted{made: delivery.Made(), to: out.to, opened: out.opened, err: nil, held: held}
 
 		if tag := held.unasked; tag != nil {
 			delivery.Mentions = tag(ctx)
@@ -348,9 +342,6 @@ type messagingPosted struct {
 	to     string
 	opened int
 	err    error
-	// elsewhere is that it was not posted, another session having announced
-	// the same moment while it waited.
-	elsewhere bool
 	// held is the post waiting for CI it sent, if it was one, to wait again
 	// when the gate refused it.
 	held queuedPost
@@ -373,7 +364,13 @@ func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
 		return m.withBeneath(preview.failed(msg.err)).noticedFailure(msg.err).keepPolling(nil)
 	}
 
-	if _, notKept := loop.NotRememberedReason(msg.err); msg.err != nil && !notKept {
+	if errors.Is(msg.err, loop.ErrAnnouncedAlready) {
+		m.messaging.posted, m.messaging.send = m.messaging.withClaim(msg.made), sendState{}
+
+		return m.noticed(m.marks.done + " already announced from another session; not posted again"), nil
+	}
+
+	if _, unconfirmed := loop.UnconfirmedReason(msg.err); msg.err != nil && !unconfirmed {
 		m.messaging.send = m.messaging.send.failed(msg.err)
 		if open {
 			m = m.withBeneath(preview.failed(msg.err))
@@ -382,29 +379,25 @@ func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
 		return m.noticedFailure(msg.err), nil
 	}
 
-	m.messaging.posted, m.messaging.send = append(slices.Clone(m.messaging.posted), msg.made), sendState{}
-
-	if msg.elsewhere {
-		return m.noticed(m.marks.done + " already announced from another session; not posted again"), nil
-	}
+	m.messaging.posted, m.messaging.send = m.messaging.withClaim(msg.made), sendState{}
 
 	if open {
 		m = m.closeOverlay()
 	}
 
-	return m.noticed(m.marks.done + " announced to " + msg.to + notKept(m.marks, msg.err)), nil
+	return m.noticed(m.marks.done + " announced to " + msg.to + unconfirmedNote(m.marks, msg.err)), nil
 }
 
-// notKept is what the notice adds of an announcement the store could not
-// remember, on its one row: the warning every surface says, then why. It adds
-// nothing when the store remembered it.
-func notKept(marks glyphs, err error) string {
-	why, notRemembered := loop.NotRememberedReason(err)
-	if !notRemembered {
+// unconfirmedNote is what the notice adds of an announcement the store could
+// not confirm, on its one row: the warning every surface says, then why. It
+// adds nothing when the store confirmed it.
+func unconfirmedNote(marks glyphs, err error) string {
+	why, unconfirmed := loop.UnconfirmedReason(err)
+	if !unconfirmed {
 		return ""
 	}
 
-	return marks.separator + loop.NotRememberedWarning + " " + why
+	return marks.separator + loop.UnconfirmedWarning + " " + why
 }
 
 // failed is the preview kept open with the reason the post failed.

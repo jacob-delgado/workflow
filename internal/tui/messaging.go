@@ -5,8 +5,11 @@ package tui
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -23,10 +26,11 @@ import (
 // startup from the store's record of earlier ones, so a restart does not
 // forget them.
 type messagingState struct {
-	// posted is the announcements made this session, each a pull request and the
-	// moment it marked, so one pull request can be announced at each of its
-	// moments — opened, then merged — without a moment being offered twice.
-	posted []loop.Announced
+	// posted is the announcements claimed, this session or from the store,
+	// each a pull request and the moment it marked, so one pull request can be
+	// announced at each of its moments — opened, then merged — without a
+	// moment being offered twice.
+	posted []loop.AnnounceRecord
 	// send is a post the service has not answered yet, which is not offered
 	// again until it does, or why the last one failed.
 	send    sendState
@@ -144,9 +148,26 @@ func (m Model) messagingDetail(width int) string {
 // What it holds was read already and is in memory, so nothing is asked and no
 // context could stop it.
 func (s messagingState) announced(review reviewState) bool {
-	posted := loop.AnnounceMemory{Recorded: func(context.Context) []loop.Announced { return s.posted }}
+	return loop.StandingOf(s.posted, review.pull, review.found) != loop.StandingNone
+}
 
-	return posted.HoldsNow(context.Background(), review.pull, review.found)
+// withClaim is the posted list with made claimed, posted, if it was not
+// already.
+func (s messagingState) withClaim(made loop.Announced) []loop.AnnounceRecord {
+	if s.claimed(made) {
+		return s.posted
+	}
+
+	return append(slices.Clone(s.posted), loop.AnnounceRecord{
+		Made: made, Generation: 1, ClaimedAt: time.Time{}, Posted: true,
+	})
+}
+
+// claimed reports that made was claimed, this session or from the store.
+func (s messagingState) claimed(made loop.Announced) bool {
+	_, known := loop.RecordOf(s.posted, made)
+
+	return known
 }
 
 // loadAnnounces reads what was announced in an earlier session from the store, so
@@ -160,30 +181,43 @@ func loadAnnounces(ctx context.Context, deps Deps) tea.Cmd {
 	read := deps.Store.Announced
 
 	return func() tea.Msg {
-		return announcesLoaded{made: read(ctx)}
+		made, err := read(ctx)
+
+		return announcesLoaded{made: made, err: err}
 	}
 }
 
-// announcesLoaded carries what the store remembers being posted.
+// announcesLoaded carries what the store remembers being claimed, or why it
+// could not be read.
 type announcesLoaded struct {
-	made []loop.Announced
+	made []loop.AnnounceRecord
+	err  error
 }
 
 var _ applier = announcesLoaded{}
 
 // apply seeds the session's posted list from the store, so a restart does not
-// forget what was announced and offer it again.
+// forget what was announced and offer it again. A store that could not be
+// read says so: the claim each post takes still keeps one from going twice.
 func (msg announcesLoaded) apply(m Model) (Model, tea.Cmd) {
 	m.messaging.loading = false
 
+	if msg.err != nil {
+		return m.noticedFailure(fmt.Errorf("%w: %w", errAnnouncedUnread, msg.err)), nil
+	}
+
 	for _, remembered := range msg.made {
-		if !slices.Contains(m.messaging.posted, remembered) {
+		if _, known := loop.RecordOf(m.messaging.posted, remembered.Made); !known {
 			m.messaging.posted = append(m.messaging.posted, remembered)
 		}
 	}
 
 	return m, nil
 }
+
+// errAnnouncedUnread is a store whose record of what was announced could
+// not be read.
+var errAnnouncedUnread = errors.New("could not read what was announced")
 
 // canPost reports a pull request to announce, a way to post it, and no post
 // of it already made or on its way.

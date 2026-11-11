@@ -17,7 +17,7 @@ func TestABranchChangeClearsAStaleSlackError(t *testing.T) {
 	refusing := newWorld()
 	refusing.postErr = errNotInChannel
 	refused := typing(t, refusing.live(t, 120, 40), "5", "p", keyEnter, keyEsc)
-	requireScreen(t, refused.View().Content, "state  ✗ the credential was not accepted")
+	requireScreen(t, refused.View().Content, "state  ✗ the post was refused")
 
 	// Act
 	// The checked-out branch changes under the tool; a refresh reads the new one.
@@ -26,5 +26,5 @@ func TestABranchChangeClearsAStaleSlackError(t *testing.T) {
 
 	// Assert
 	// The error concerned the branch just left, so the new branch's pane is clear.
-	refuseScreen(t, switched.View().Content, "✗ the credential was not accepted")
+	refuseScreen(t, switched.View().Content, "✗ the post was refused")
 }

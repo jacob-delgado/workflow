@@ -169,7 +169,7 @@ func TestARefusedSummaryPostKeepsThePreviewWithWhy(t *testing.T) {
 	view := typing(t, busy.live(t, 120, 40), summaryKey, postSummaryKey, keyEnter).View().Content
 
 	// Assert
-	requireScreen(t, view, "┏━ Post to Slack", "✗ the credential was not accepted: not_in_channel")
+	requireScreen(t, view, "┏━ Post to Slack", "✗ The messaging service refused the post")
 }
 
 func TestADryRunSummaryPostSaysWhereItWouldGoAndPostsNothing(t *testing.T) {

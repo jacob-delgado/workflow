@@ -147,9 +147,12 @@ func announceSeamsOf(cmd *cobra.Command, conn cmdkit.Connection, prompt cmdkit.P
 		Kind:      deps.Forge.Kind,
 		Project:   cfg.Jira.Project,
 		Messaging: cfg.Messaging,
-		Memory:    loop.AnnounceMemory{Recorded: deps.Store.Announced, Record: deps.Store.RecordAnnounce},
-		Confirm:   func(question string) (bool, error) { return cmdkit.Confirm(prompt, question) },
-		Tagging:   taggingFor(cfg.Messaging, deps),
+		Memory: loop.AnnounceMemory{
+			Recorded: deps.Store.Announced, Claim: deps.Store.ClaimAnnounce, Confirm: deps.Store.ConfirmAnnounce,
+			Release: deps.Store.ReleaseAnnounce, Reclaim: deps.Store.ReclaimAnnounce, RecordGroups: nil,
+		},
+		Confirm: func(question string) (bool, error) { return cmdkit.Confirm(prompt, question) },
+		Tagging: taggingFor(cfg.Messaging, deps),
 		Watch: func(wait func(console.Wait) error) error {
 			return cmdkit.Waiting(cmd, prompt, cmdkit.LiveLook(cfg.UI), func(_ cmdkit.Output, live console.Wait) error {
 				return wait(live)
@@ -202,7 +205,7 @@ func runAnnounce(ctx context.Context, out cmdkit.Output, seams announceSeams, fl
 
 	pull := seams.Kind.Sigil() + strconv.Itoa(composed.Pull.Number)
 
-	again := seams.Memory.Holds(ctx, composed.Made())
+	earlier, again := announcedEarlier(ctx, seams.Memory, composed.Made())
 	if again && !offerAgain(out.Notes, pull, opts) {
 		return nil
 	}
@@ -213,6 +216,7 @@ func runAnnounce(ctx context.Context, out cmdkit.Output, seams announceSeams, fl
 	}
 
 	pending := previewAnnouncement(ctx, out, seams, composed)
+	pending.again, pending.seen = again, earlier.Generation
 
 	say := announcePrompt(seams.Messaging.Service(), seams.Messaging.Target(), again, opts)
 	if flags.whenGreen {
@@ -327,10 +331,38 @@ func failedChecks(ci forge.CI) string {
 }
 
 // pendingAnnouncement is an announcement previewed and not yet sent: what
-// delivering it posts, and the memory that records it once it has gone out.
+// delivering it posts, the memory that claims it before it goes, and, for one
+// to post again as asked, the generation of the claim an earlier session
+// took, which posting it again claims from.
 type pendingAnnouncement struct {
 	delivery loop.Delivery
 	memory   loop.AnnounceMemory
+	again    bool
+	seen     int
+}
+
+// deliverPending delivers pending through seams under ctx: again, from the
+// claim an earlier session took, when it is one to post again.
+func deliverPending(ctx context.Context, seams loop.DeliverSeams, pending pendingAnnouncement) error {
+	if pending.again {
+		return loop.Redeliver(ctx, seams, pending.memory, pending.delivery, pending.seen)
+	}
+
+	return loop.Deliver(ctx, seams, pending.memory, pending.delivery)
+}
+
+// announcedEarlier is the claim an earlier session took on made, and whether
+// there is one, as memory reads it under ctx. A store that cannot be read
+// says none: the claim the post takes still keeps it from going twice.
+func announcedEarlier(
+	ctx context.Context, memory loop.AnnounceMemory, made loop.Announced,
+) (loop.AnnounceRecord, bool) {
+	records, err := memory.Records(ctx)
+	if err != nil {
+		return loop.AnnounceRecord{}, false
+	}
+
+	return loop.RecordOf(records, made)
 }
 
 // previewAnnouncement prints the announcement and where it would go, then
@@ -350,23 +382,30 @@ func previewAnnouncement(
 	}
 }
 
-// deliverAnnouncement posts pending under ctx and says where it went, and, for
-// one posted that the store could not remember, the warning every surface
-// says, then why.
+// deliverAnnouncement posts pending under ctx — again, from the claim an
+// earlier session took, when it is one to post again — and says where it
+// went, and, for one posted that the store could not confirm, the warning
+// every surface says, then why. One another session claimed first is not
+// posted, and says so.
 func deliverAnnouncement(
 	ctx context.Context, notes console.Notes, seams announceSeams, pending pendingAnnouncement,
 ) error {
-	err := loop.Deliver(ctx, seams.Deliver, pending.memory, pending.delivery)
+	err := deliverPending(ctx, seams.Deliver, pending)
+	if errors.Is(err, loop.ErrAnnouncedAlready) {
+		notes.Note("Already announced from another session; not posted again.")
 
-	why, notKept := loop.NotRememberedReason(err)
-	if err != nil && !notKept {
+		return nil
+	}
+
+	why, unconfirmed := loop.UnconfirmedReason(err)
+	if err != nil && !unconfirmed {
 		return fmt.Errorf("announcing to %s: %w", seams.Messaging.Service(), err)
 	}
 
 	notes.Note("Announced to " + seams.Messaging.Target() + ".")
 
-	if notKept {
-		notes.Warn(loop.NotRememberedWarning + " " + sanitize.Line(why))
+	if unconfirmed {
+		notes.Warn(loop.UnconfirmedWarning + " " + sanitize.Line(why))
 	}
 
 	return nil

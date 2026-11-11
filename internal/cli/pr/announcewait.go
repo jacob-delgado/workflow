@@ -79,7 +79,7 @@ func onceGreen(prompt cmdkit.WritePrompt, pull string) cmdkit.WritePrompt {
 // pull request, named pull, to pass — through a failed run, saying what it
 // waits on as it changes, above a live line of how many of its checks have
 // finished while a person watches the terminal — and then delivers it,
-// unless the store says another session announced it meanwhile. A post the
+// unless another session claimed it meanwhile. A post the
 // gate refuses, a check having failed since the read that let it go, waits
 // again, an interval on. It gives up on a pull request that reports no check,
 // is no longer the branch's, or merged first; one opened a moment ago, as age
@@ -112,12 +112,6 @@ func awaitThenDeliver(
 		}
 
 		pending.delivery.Pull, pending.delivery.Head = green.Pull, green.Head
-
-		if seams.Memory.Holds(ctx, pending.delivery.Made()) {
-			notes.Note("Already announced from another session; not posted again.")
-
-			return nil
-		}
 
 		err = deliverAnnouncement(ctx, notes, seams, pending)
 		if !errors.Is(err, loop.ErrCIFailed) && !errors.Is(err, loop.ErrCIUnread) {

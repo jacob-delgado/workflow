@@ -99,7 +99,7 @@ func TestAQueuedPostsRefusalIsNotPinnedInAPreviewOpenedSince(t *testing.T) {
 	// Assert
 	// The preview is open, with no refusal pinned under its title.
 	requireScreen(t, refused, "┏━ Announce to Slack")
-	refuseScreen(t, refused, "┃ ✗ the credential was not accepted")
+	refuseScreen(t, refused, "┃ ✗ The messaging service refused the post")
 }
 
 func TestWhenCIPassesRefusesWhatWasAnnouncedWhileThePreviewWasOpen(t *testing.T) {

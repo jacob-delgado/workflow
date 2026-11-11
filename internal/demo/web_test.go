@@ -194,11 +194,15 @@ func reviewing(frame api.Snapshot) reviewOf {
 
 // announcedPulls are the pull requests the store holds announced.
 func announcedPulls(d webDemo) []int {
-	announced := d.world.Deps().Store.Announced(d.t.Context())
+	announced, err := d.world.Deps().Store.Announced(d.t.Context())
+	if err != nil {
+		d.t.Fatalf("reading what was announced: %v", err)
+	}
+
 	pulls := make([]int, 0, len(announced))
 
 	for _, announced := range announced {
-		pulls = append(pulls, announced.Pull)
+		pulls = append(pulls, announced.Made.Pull)
 	}
 
 	return pulls

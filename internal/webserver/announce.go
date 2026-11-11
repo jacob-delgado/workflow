@@ -132,10 +132,8 @@ func (s *server) postFor(ctx context.Context, body api.AnnounceRequest) (announc
 		return announcePost{}, refusal
 	}
 
-	memory.Recorded, memory.Record = s.recordedAnnouncements, s.recordAnnouncement
-
 	return announcePost{
-		delivery: composed.Delivery(s.channelOr(body.Channel), text, mentions), memory: memory,
+		delivery: composed.Delivery(s.channelOr(body.Channel), text, mentions), memory: s.announceMemory(memory),
 		branch: composed.Branch.Name,
 	}, nil
 }
@@ -193,7 +191,7 @@ func (s *server) announceNow(ctx context.Context, post announcePost) api.Announc
 		s.restoreHeld(dropped)
 	}
 
-	if errors.Is(err, errAnnouncedAlready) {
+	if errors.Is(err, loop.ErrAnnouncedAlready) {
 		return api.Announce409ApplicationProblemPlusJSONResponse(s.announcedBefore(post.delivery.Pull.Number))
 	}
 
@@ -283,4 +281,87 @@ func announceUnprocessable(message string) api.Announce422ApplicationProblemPlus
 // named in the forge's own noun.
 func (s *server) nothingToAnnounce() api.Problem {
 	return problem.New(api.ProblemCodeConflict, "there is no "+s.noun()+" to announce")
+}
+
+// announceMemory is the store's claims a post made here goes through, with
+// groups' record of the groups it tagged: claimed before it goes, confirmed
+// once it has, given up when it surely did not.
+func (s *server) announceMemory(groups loop.AnnounceMemory) loop.AnnounceMemory {
+	store := s.deps.Store
+
+	return loop.AnnounceMemory{
+		Recorded: store.Announced, Claim: store.ClaimAnnounce, Confirm: store.ConfirmAnnounce,
+		Release: store.ReleaseAnnounce, Reclaim: nil, RecordGroups: groups.RecordGroups,
+	}
+}
+
+// announcedRecords is every announcement the store holds a claim on, read
+// fresh under a context that goes on when ctx ends and ends when the server
+// stops, or none without a store or under a dry run, and the read's error.
+func (s *server) announcedRecords(ctx context.Context) ([]loop.AnnounceRecord, error) {
+	if s.deps.Store.Announced == nil || s.info.DryRun {
+		return nil, nil
+	}
+
+	shared, release := s.worlds.outliving(ctx)
+	defer release()
+
+	return s.deps.Store.Announced(shared)
+}
+
+// announcedAlready reports that made holds a claim already, from any surface,
+// as read under ctx. A store that cannot be read says none: the claim the
+// post takes is what keeps it from going twice.
+func (s *server) announcedAlready(ctx context.Context, made loop.Announced) bool {
+	records, err := s.announcedRecords(ctx)
+	if err != nil {
+		s.unexpected(err)
+
+		return false
+	}
+
+	_, claimed := loop.RecordOf(records, made)
+
+	return claimed
+}
+
+// reviewAnnounced reports that the pull request the forge read was announced
+// at the moment it is at now, posted or begun, by the rule the terminal and
+// the command line read it by: never for one closed without merging, which
+// the loop does not follow, so the review and the announce stage agree. What
+// was announced is read under ctx.
+func (s *server) reviewAnnounced(ctx context.Context, read forgeRead) bool {
+	records, err := s.announcedRecords(ctx)
+	if err != nil {
+		s.unexpected(err)
+
+		return false
+	}
+
+	return loop.StandingOf(records, read.pull, read.found) != loop.StandingNone
+}
+
+// deliver posts post, claiming it in the store before it goes, so two asks at
+// once — two tabs, two servers, or a held announcement and one made now — post
+// it once and the second learns it was made, answering the warning to say of
+// a post the store could not confirm. Why the store could not goes to the log
+// alone: its error can name the file. It posts under ctx.
+func (s *server) deliver(ctx context.Context, post announcePost) (string, error) {
+	seams := loop.DeliverSeams{Post: s.deps.Messaging.Post, CheckCI: s.deps.Forge.CheckStatus}
+
+	err := loop.Deliver(ctx, seams, post.memory, post.delivery)
+	if _, unconfirmed := loop.UnconfirmedReason(err); unconfirmed {
+		s.unexpected(err)
+
+		return loop.UnconfirmedWarning, nil
+	}
+
+	return "", err
+}
+
+// announcedBefore refuses to announce pull at a moment it was announced at
+// already.
+func (s *server) announcedBefore(pull int) api.Problem {
+	return problem.New(api.ProblemCodeConflict,
+		s.pullName(pull)+" was already announced at this moment, here or from a terminal")
 }

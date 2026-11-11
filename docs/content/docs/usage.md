@@ -679,11 +679,13 @@ and the messaging pane and the top row say whether the one on screen has been.
 One closed without merging is none the loop follows: both read it as not
 announced, whatever was announced of it before, and the messaging pane, like
 `workflow announce` and the `--web` page, has nothing to announce until a pull
-request is open again. The store remembers what was announced, so a later
-session does not offer the same announcement again. One it cannot remember — a
-full disk, say — is posted all the same, and the notice adds *Posted, but not
-remembered: it may be offered again.* and why; `workflow announce` says the
-same, and the `--web` page the sentence alone.
+request is open again. Each announcement is claimed in the store before it is
+posted, so a later session does not offer the same announcement again, and two
+sessions announcing it at once post it once. A store that cannot take the
+claim — a full disk, say — posts nothing and says why. One posted whose claim
+the store cannot then confirm went out all the same, and the notice adds *The
+store did not confirm it; it is not offered again.* and why; `workflow
+announce` says the same, and the `--web` page the sentence alone.
 
 ### Track it in Taskwarrior
 

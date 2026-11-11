@@ -4,7 +4,7 @@
 package tui_test
 
 import (
-	"errors"
+	"fmt"
 	"slices"
 	"testing"
 	"time"
@@ -16,8 +16,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
-// errNotInChannel stands in for Slack refusing a post.
-var errNotInChannel = errors.New("the credential was not accepted: not_in_channel")
+// errNotInChannel stands in for Slack refusing a post, as the messaging
+// client words it: the credential not accepted, which surely did not deliver.
+var errNotInChannel = fmt.Errorf("%w: not_in_channel", messaging.ErrRejected)
 
 // announcement is what the world's pull request is announced as, and
 // mergedAnnouncement is the same pull once merged: the issue line is shared,
@@ -297,14 +298,14 @@ func TestARefusedPostSaysWhy(t *testing.T) {
 
 	// Assert: the post stays open with the reason
 	requireScreen(t, refused.View().Content,
-		"┏━ Announce to Slack", "✗ the credential was not accepted: not_in_channel")
+		"┏━ Announce to Slack", "✗ The messaging service refused the post")
 
 	// Act: close it
 	closed := typing(t, refused, keyEsc)
 
 	// Assert: the pane keeps the reason
 	requireScreen(t, closed.View().Content,
-		"state  ✗ the credential was not accepted")
+		"state  ✗ the post was refused")
 }
 
 func TestPostingWhenCIPassesWaitsForIt(t *testing.T) {

@@ -210,13 +210,6 @@ type server struct {
 	// held is the announcement held until its pull request's CI passes.
 	held heldAnnouncement
 
-	// delivering is held across an announcement's check that it was not made
-	// already, its post and its record, so two asks at once post it once.
-	delivering sync.Mutex
-
-	// announced is what the store remembers announcing, held for an interval.
-	announced announcedCache
-
 	// worlds holds this server, and replaces it on a switch, closing retired
 	// so its event streams end and the page reconnects to the next.
 	worlds  *worlds

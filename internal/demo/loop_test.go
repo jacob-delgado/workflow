@@ -68,9 +68,9 @@ func TestTheRecordedLoopRunsFromAnIssueToAnAnnouncement(t *testing.T) {
 	// Assert: the pull request was announced, and the store remembers it
 	requireScreen(t, demo.screen(), "state  ● announced")
 
-	announced := demo.world.Deps().Store.Announced(t.Context())
-	if len(announced) != 1 || announced[0].Pull != 128 {
-		t.Errorf("the store holds %+v announced, want #128", announced)
+	announced, err := demo.world.Deps().Store.Announced(t.Context())
+	if err != nil || len(announced) != 1 || announced[0].Made.Pull != 128 {
+		t.Errorf("the store holds %+v announced (%v), want #128", announced, err)
 	}
 }
 

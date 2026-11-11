@@ -318,7 +318,7 @@ func (s *server) verdictOnCI(number int, verdict armed.Verdict) (string, heldVer
 }
 
 // postHeld posts the announcement taken to post, and records how it went,
-// with the warning when the store could not remember it: a moment announced
+// with the warning when the store could not confirm it: a moment announced
 // meanwhile, from a page or a terminal, drops it unposted, and one the gate
 // refused — a check failed since the read that let it go, or the CI could not
 // be read — goes back to waiting. It posts under the
@@ -331,7 +331,7 @@ func (s *server) postHeld(post announcePost) {
 	defer s.held.mu.Unlock()
 
 	switch {
-	case errors.Is(err, errAnnouncedAlready):
+	case errors.Is(err, loop.ErrAnnouncedAlready):
 		s.held.settle(heldDropped, s.announcedBefore(post.delivery.Pull.Number).Detail)
 	case errors.Is(err, loop.ErrCIFailed) || errors.Is(err, loop.ErrCIUnread):
 		s.held.waitAgain(err)

@@ -80,10 +80,10 @@ func sharedReads() map[string]func(deps *webserver.Deps, held func(context.Conte
 			}
 		},
 		"the store's read of what was announced": func(deps *webserver.Deps, held func(context.Context) error) {
-			deps.Store.Announced = func(ctx context.Context) []loop.Announced {
+			deps.Store.Announced = func(ctx context.Context) ([]loop.AnnounceRecord, error) {
 				_ = held(ctx)
 
-				return nil
+				return nil, nil
 			}
 		},
 		"the store's read of the last scope": func(deps *webserver.Deps, held func(context.Context) error) {

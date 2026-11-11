@@ -8,7 +8,7 @@ import { MessagingPanel } from './MessagingPanel.tsx'
 
 // Editing the announcement before it goes, and holding it until the pull
 // request's CI passes, as the terminal's e and w in the preview do; and saying
-// of one posted that the store could not remember that it may be offered
+// of one posted that the store could not confirm that it is not offered
 // again, in the sentence the terminal and workflow announce say too.
 
 const pull: PullRequest = {
@@ -24,8 +24,8 @@ const pull: PullRequest = {
 
 const composed = 'octocat opened a pull request: Redact tokens\nhttps://forge.example.com/pull/42'
 
-// notRemembered is the server's warning on a post the store could not remember.
-const notRemembered = 'Posted, but not remembered: it may be offered again.'
+// unconfirmed is the server's warning on a post whose claim the store could not confirm.
+const unconfirmed = 'The store did not confirm it; it is not offered again.'
 
 // withPull is the panel's snapshot: pull request 42 open, and the held
 // announcement given, if any.
@@ -222,10 +222,10 @@ test('a post the server held instead is not taken for posted', async () => {
   )
 })
 
-test('an announcement posted but not remembered says it may be offered again', async () => {
+test('an announcement posted but not confirmed says it is not offered again', async () => {
   // Arrange
   serverAnswering({
-    post: Response.json({ text: composed, channel: '#dev', warning: notRemembered }),
+    post: Response.json({ text: composed, channel: '#dev', warning: unconfirmed }),
   })
   withPull()
   render(<MessagingPanel />)
@@ -235,14 +235,14 @@ test('an announcement posted but not remembered says it may be offered again', a
   await userEvent.click(screen.getByRole('button', { name: 'Announce now' }))
 
   // Assert
-  expect(await screen.findByText(`Announced to #dev. ${notRemembered}`)).toBeTruthy()
+  expect(await screen.findByText(`Announced to #dev. ${unconfirmed}`)).toBeTruthy()
 })
 
-test('an announcement asked to wait that went at once, not remembered, says so', async () => {
+test('an announcement asked to wait that went at once, not confirmed, says so', async () => {
   // Arrange
   serverAnswering({
     canWait: true,
-    post: Response.json({ text: composed, channel: '#dev', warning: notRemembered }),
+    post: Response.json({ text: composed, channel: '#dev', warning: unconfirmed }),
   })
   withPull()
   render(<MessagingPanel />)
@@ -252,19 +252,19 @@ test('an announcement asked to wait that went at once, not remembered, says so',
   await userEvent.click(screen.getByRole('button', { name: 'Announce when CI passes' }))
 
   // Assert
-  expect(await screen.findByText(`Announced to #dev. ${notRemembered}`)).toBeTruthy()
+  expect(await screen.findByText(`Announced to #dev. ${unconfirmed}`)).toBeTruthy()
 })
 
-test('a held announcement that went, not remembered, says it may be offered again', () => {
+test('a held announcement that went, not confirmed, says it is not offered again', () => {
   // Arrange
   serverAnswering()
-  withPull({ state: 'announced', channel: '#dev', pull: 42, warning: notRemembered })
+  withPull({ state: 'announced', channel: '#dev', pull: 42, warning: unconfirmed })
 
   // Act
   render(<MessagingPanel />)
 
   // Assert
-  expect(screen.getByText(`Announced to #dev once CI passed. ${notRemembered}`)).toBeTruthy()
+  expect(screen.getByText(`Announced to #dev once CI passed. ${unconfirmed}`)).toBeTruthy()
 })
 
 // waitingArmed is an announcement armed as pull request 42 opened, waiting for

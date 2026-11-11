@@ -52,7 +52,7 @@ func (s *server) armOnOpen(
 	mentions := s.unaskedMentions(ctx, cmp.Or(pull.Base, branch.Base))
 	post := announcePost{
 		delivery: composed.Delivery(s.channelOr(""), composed.Announcement.Text(), mentions),
-		memory:   loop.AnnounceMemory{Recorded: s.recordedAnnouncements, Record: s.recordAnnouncement},
+		memory:   s.announceMemory(loop.AnnounceMemory{}),
 		branch:   branch.Name, automatic: true,
 	}
 

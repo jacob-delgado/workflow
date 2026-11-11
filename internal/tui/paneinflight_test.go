@@ -73,7 +73,7 @@ func TestARefreshMarksEveryPanesTitleInFlightUntilItsAnswerArrives(t *testing.T)
 			world: newWorld, pane: "5", want: "Slack ◐",
 			wrap: func(deps *tui.Deps, held *hold) {
 				read := deps.Store.Announced
-				deps.Store.Announced = func(ctx context.Context) []loop.Announced {
+				deps.Store.Announced = func(ctx context.Context) ([]loop.AnnounceRecord, error) {
 					held.wait()
 
 					return read(ctx)

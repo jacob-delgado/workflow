@@ -777,8 +777,8 @@ when SIGINT or SIGTERM cancels the command's context, until the command is
 done. When the last interface quits, workflow waits for the writes still in
 flight before it exits (`finishWrites`, `internal/cli/finishwrites.go`): it
 says on stderr how many it is finishing, and exits once none has been in flight
-for a tenth of a second, so a write that follows another (a post's record after
-the post) is waited for too. Every quit settles so, even one that lands with
+for a tenth of a second, so a write that follows another (a post's
+confirmation after the post) is waited for too. Every quit settles so, even one that lands with
 nothing in flight: between those two writes, or after the interface has started
 a write's command and before that write has begun, where a quit would otherwise
 exit under the write. A streamed write (a commit, a push, an amend, a fixup, a
@@ -852,7 +852,8 @@ by hand for want of git's arguments or refs, or lefthook gains a way to run
 **Decided.** `loop.Deliver` (`internal/loop/deliver.go`) reads the pull
 request's CI through `ClearToAnnounce` before it posts, whatever a surface read
 before it: the command line just before it asks, the terminal from its last
-poll, the web from its preview or a frame an interval old. A failed check
+poll, the web from its preview or a frame an interval old, and before it
+claims the post in the store, so a refusal claims nothing. A failed check
 refuses the post, and a CI that cannot be read refuses it too, since nothing
 failing cannot be confirmed. Every path that announces (`workflow announce`,
 the terminal's preview, the web's Announce now, a post held for CI) goes

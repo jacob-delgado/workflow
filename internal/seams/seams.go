@@ -233,12 +233,20 @@ type Store struct {
 	// RecordScope remembers the commit scope just used in this repository,
 	// and says why it could not.
 	RecordScope func(ctx context.Context, scope string) error
-	// Announced is every pull request announced in this repository in an earlier
-	// session, so a surface starts knowing what has already been posted.
-	Announced func(ctx context.Context) []loop.Announced
-	// RecordAnnounce remembers that a pull request was just announced at a
-	// moment, and says why it could not: a later session would offer it again.
-	RecordAnnounce func(ctx context.Context, made loop.Announced) error
+	// Announced is every announcement claimed in this repository, by any
+	// session, posted or begun and never confirmed, so a surface knows what
+	// has already been posted; and why it could not be read.
+	Announced func(ctx context.Context) ([]loop.AnnounceRecord, error)
+	// ClaimAnnounce claims an announcement before it is posted, so of every
+	// session and process asking at once one posts it.
+	ClaimAnnounce func(ctx context.Context, made loop.Announced) (loop.Claim, error)
+	// ConfirmAnnounce records that the post claimed at a generation went out.
+	ConfirmAnnounce func(ctx context.Context, made loop.Announced, generation int) error
+	// ReleaseAnnounce gives up a first claim whose post surely did not go out.
+	ReleaseAnnounce func(ctx context.Context, made loop.Announced, generation int) error
+	// ReclaimAnnounce claims an announcement again, for a post asked for
+	// again, only from the generation seen.
+	ReclaimAnnounce func(ctx context.Context, made loop.Announced, seen int) (loop.Claim, error)
 	// CachedIssues is the issue list last seen for a view, so it can be shown at
 	// once before the tracker answers.
 	CachedIssues func(ctx context.Context, view string) ([]jira.Issue, bool)
