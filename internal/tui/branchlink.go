@@ -157,12 +157,18 @@ func (l branchLinker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.confirm):
 		return l.choose(m)
 	default:
-		l.input, _ = l.input.Update(msg)
-		l.problem, l.body = nil, ""
-		m.overlay = l
-
-		return m, nil
+		return l.retyped(m, msg), nil
 	}
+}
+
+// retyped is the form once the issue typed changes: what was wrong with the
+// last one, the description it needed and the refusal it met no longer hold.
+func (l branchLinker) retyped(m Model, typed tea.Msg) Model {
+	l.input, _ = l.input.Update(typed)
+	l.send, l.problem, l.body = sendState{}, nil, ""
+	m.overlay = l
+
+	return m
 }
 
 // which names the link form.
@@ -215,11 +221,7 @@ func (l branchLinker) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	l.input, _ = l.input.Update(paste)
-	l.problem, l.body = nil, ""
-	m.overlay = l
-
-	return m, nil
+	return l.retyped(m, paste), nil
 }
 
 // choose reads the issue typed, then shows the description it needs adding
