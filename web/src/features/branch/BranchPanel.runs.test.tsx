@@ -419,3 +419,26 @@ test('a second look open as a run starts here cannot start another over it', asy
     'lint ok',
   )
 })
+
+test.each([
+  ['Amend last commit', 'Amend fix: second'],
+  ['Fix up a commit', 'Fix up a commit'],
+])('%s does not come back unasked once what it folds into went', async (opener, look) => {
+  // Arrange
+  foldable()
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+  await user.click(screen.getByRole('button', { name: opener }))
+  act(() => {
+    foldable({ changes: { changes: [] } })
+  })
+
+  // Act
+  act(() => {
+    foldable()
+  })
+
+  // Assert
+  expect(screen.queryByRole('form', { name: look })).toBeNull()
+  expect(screen.getByRole('button', { name: opener })).toBeTruthy()
+})
