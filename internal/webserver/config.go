@@ -78,18 +78,18 @@ func (s *server) reread() (config.Config, basis, error) {
 // placeSlackCredentials is the wiring's keeping of typed Slack user-token
 // secrets, under ctx, with Slack's refusal of them told apart from a refused
 // announcement; nil when none is wired, so the file keeps them.
-func (s *server) placeSlackCredentials(ctx context.Context) func(config.Config) (config.Config, error) {
+func (s *server) placeSlackCredentials(ctx context.Context) func(config.Config) error {
 	if s.deps.PlaceSlackCredentials == nil {
 		return nil
 	}
 
-	return func(incoming config.Config) (config.Config, error) {
-		placed, err := s.deps.PlaceSlackCredentials(ctx, incoming)
+	return func(incoming config.Config) error {
+		err := s.deps.PlaceSlackCredentials(ctx, incoming)
 		if errors.Is(err, messaging.ErrRejected) {
-			return config.Config{}, fmt.Errorf("%w: %w", errSlackRefused, err)
+			return fmt.Errorf("%w: %w", errSlackRefused, err)
 		}
 
-		return placed, err
+		return err
 	}
 }
 

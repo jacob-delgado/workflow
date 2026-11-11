@@ -76,10 +76,10 @@ func TestSaveEditPlacesNoSlackSecretsWhenAnotherCredentialIsRefused(t *testing.T
 	edited.Jira.Token, edited.Messaging.RefreshToken = typedToken, typedRefresh
 
 	placed := false
-	place := func(cfg config.Config) (config.Config, error) {
+	place := func(config.Config) error {
 		placed = true
 
-		return cfg, nil
+		return nil
 	}
 
 	// Act
@@ -102,11 +102,10 @@ func TestSaveEditPlacesNoSlackSecretsWhenAHomeOnlySettingIsRefused(t *testing.T)
 	edited.Messaging.RefreshToken, edited.Taskwarrior.Program = typedRefresh, taskProgram
 
 	placed := false
-	place := func(cfg config.Config) (config.Config, error) {
+	place := func(config.Config) error {
 		placed = true
-		cfg.Messaging.ClientSecret, cfg.Messaging.RefreshToken = "", ""
 
-		return cfg, nil
+		return nil
 	}
 
 	// Act
@@ -130,11 +129,10 @@ func TestSaveEditKeepsTheSlackSecretsPlacedOutsideTheRepositoryFile(t *testing.T
 	edited.Messaging.RefreshToken, edited.Messaging.Channel = typedRefresh, "#releases"
 
 	placed := false
-	keychain := func(cfg config.Config) (config.Config, error) {
+	keychain := func(config.Config) error {
 		placed = true
-		cfg.Messaging.ClientSecret, cfg.Messaging.RefreshToken = "", ""
 
-		return cfg, nil
+		return nil
 	}
 
 	// Act

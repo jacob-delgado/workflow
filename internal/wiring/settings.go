@@ -54,7 +54,7 @@ func SetupDeps(
 // never hands a credential to the interface.
 type configEditor struct {
 	files config.Files
-	place func(ctx context.Context, cfg config.Config) (config.Config, error)
+	place func(ctx context.Context, cfg config.Config) error
 	keep  func(ctx context.Context, service, secret string) error
 
 	mu   sync.Mutex
@@ -93,7 +93,7 @@ func (e *configEditor) save(
 
 	saved, written, err := config.SaveEdit(config.Edit{
 		Files: e.files, Read: e.last, Over: over, Edited: edited, Removed: removed,
-		PlaceSlackCredentials: func(cfg config.Config) (config.Config, error) { return e.place(ctx, cfg) },
+		PlaceSlackCredentials: placeUnder(ctx, e.place),
 		KeepJiraToken:         keepUnder(ctx, e.keep),
 	})
 	if err != nil {
@@ -115,6 +115,18 @@ func keepUnder(
 	}
 
 	return func(service, secret string) error { return keep(ctx, service, secret) }
+}
+
+// placeUnder is place bound to ctx, as config.SaveEdit takes it, or nil where
+// no keychain keeps a Slack user token's secrets and the file does.
+func placeUnder(
+	ctx context.Context, place func(ctx context.Context, cfg config.Config) error,
+) func(cfg config.Config) error {
+	if place == nil {
+		return nil
+	}
+
+	return func(cfg config.Config) error { return place(ctx, cfg) }
 }
 
 // localData is the store's directory and the database files in it, as

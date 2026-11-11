@@ -218,7 +218,7 @@ func TestSettingsTouchesNoKeychainWhenATypedSlackSecretIsRefused(t *testing.T) {
 	edited := read.Redacted()
 	edited.Jira.Token, edited.Messaging.RefreshToken = typedToken, typedRefresh
 	kept := keptTokens{}
-	place := func(cfg config.Config) (config.Config, error) { return cfg, nil }
+	place := func(config.Config) error { return nil }
 
 	// Act
 	_, _, err = config.SaveEdit(config.Edit{

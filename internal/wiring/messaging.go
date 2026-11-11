@@ -240,18 +240,17 @@ func (e Environment) slackLockPath(configPath string) string {
 
 // PlaceSlackCredentials is Controls.PlaceSlackCredentials with system's
 // keychain, refreshing through transport. Where the keychain keeps a Slack
-// user token's secrets, those typed into Settings are spent on a refresh at
-// once and the new pair kept there, and the configuration it answers holds
-// none of them; elsewhere it answers the configuration as it was, for the
-// file to keep them.
+// user token's secrets, those typed into Settings are spent on a refresh and
+// the new pair kept there, once the file that holds none of them is written;
+// elsewhere it is nil, and the file keeps them.
 func (e Environment) PlaceSlackCredentials(
 	transport httpx.Doer, system Keychain,
-) func(context.Context, config.Config) (config.Config, error) {
-	return func(ctx context.Context, cfg config.Config) (config.Config, error) {
-		if system.GOOS != "darwin" {
-			return cfg, nil
-		}
+) func(context.Context, config.Config) error {
+	if system.GOOS != "darwin" {
+		return nil
+	}
 
+	return func(ctx context.Context, cfg config.Config) error {
 		without := cfg
 		without.Messaging.ClientSecret, without.Messaging.RefreshToken = "", ""
 		without.Messaging.AccessToken, without.Messaging.ExpiresAt = "", ""
@@ -265,15 +264,10 @@ func (e Environment) PlaceSlackCredentials(
 
 		renewed, err := e.SlackRefresher(cfg.Messaging.ClientID, transport).Refresh(renewing, starting)
 		if err != nil {
-			return config.Config{}, asMessagingError(err)
+			return asMessagingError(err)
 		}
 
-		err = system.SlackStore(without).Keep(renewing, renewed)
-		if err != nil {
-			return config.Config{}, err
-		}
-
-		return without, nil
+		return system.SlackStore(without).Keep(renewing, renewed)
 	}
 }
 
