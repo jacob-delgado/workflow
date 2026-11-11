@@ -22,22 +22,22 @@ var errNotAJiraKey = errors.New("not a Jira issue key")
 
 // jiraDeps is what a surface asks of Jira, each seam reaching it through
 // jiraClient, which finds the token the first time Jira is asked, under the
-// context the seam is asked under. It needs no guard for a missing or
-// malformed configuration: the client refuses before sending anything, and the
-// pane shows why.
-func jiraDeps(settings config.Jira, jiraClient func(context.Context) (jira.Client, error)) seams.Jira {
+// context the seam is asked under, and again when Jira refuses one a command
+// printed. It needs no guard for a missing or malformed configuration: the
+// client refuses before sending anything, and the pane shows why.
+func jiraDeps(settings config.Jira, jiraClient *jiraConnection) seams.Jira {
 	// A link reads only the address, so it comes from a client that never sends
 	// and so never needs the token.
 	addresses := jira.New(nil, settings)
 
 	return seams.Jira{
 		Search: func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error) {
-			return ask(ctx, jiraClient, func(client jira.Client) (jira.SearchResult, error) {
+			return askJira(ctx, jiraClient, func(client jira.Client) (jira.SearchResult, error) {
 				return client.Search(ctx, jql, startAt)
 			})
 		},
 		SearchLenient: func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error) {
-			return ask(ctx, jiraClient, func(client jira.Client) (jira.SearchResult, error) {
+			return askJira(ctx, jiraClient, func(client jira.Client) (jira.SearchResult, error) {
 				return client.SearchLenient(ctx, jql, startAt)
 			})
 		},
@@ -62,7 +62,7 @@ func jiraDeps(settings config.Jira, jiraClient func(context.Context) (jira.Clien
 			})
 		},
 		Activity: func(ctx context.Context, start, end time.Time) (jira.Activity, error) {
-			return ask(ctx, jiraClient, func(client jira.Client) (jira.Activity, error) {
+			return askJira(ctx, jiraClient, func(client jira.Client) (jira.Activity, error) {
 				return client.Activity(ctx, start, end)
 			})
 		},
@@ -85,23 +85,128 @@ func jiraDeps(settings config.Jira, jiraClient func(context.Context) (jira.Clien
 	}
 }
 
+// jiraConnected is a Jira client, and whether its token came from
+// token_command, which can print another once Jira refuses the one it did.
+type jiraConnected struct {
+	client      jira.Client
+	fromCommand bool
+}
+
 // connectJira finds the Jira token, reading the keychain through system or
 // running its command when either is set, and builds the client that carries
 // it over doer. A token source that gives none is no credential at all, and is
 // reported as such before anything is sent.
 func (e Environment) connectJira(
 	ctx context.Context, settings config.Jira, system Keychain, doer jira.Doer,
-) (jira.Client, error) {
-	if settings.AuthMode() != config.AuthNone {
-		token, err := e.resolveSetToken(ctx, settings, system)
-		if err != nil {
-			return jira.Client{}, fmt.Errorf("%w: %w", jira.ErrNoCredential, err)
-		}
-
-		settings.Token = token
+) (jiraConnected, error) {
+	if settings.AuthMode() == config.AuthNone {
+		return jiraConnected{client: jira.New(doer, settings), fromCommand: false}, nil
 	}
 
-	return jira.New(doer, settings), nil
+	token, source, err := e.resolveSetToken(ctx, settings, system)
+	if err != nil {
+		return jiraConnected{}, fmt.Errorf("%w: %w", jira.ErrNoCredential, err)
+	}
+
+	settings.Token = token
+
+	return jiraConnected{client: jira.New(doer, settings), fromCommand: source == sourceCommand}, nil
+}
+
+// jiraConnection is the Jira client found the first time Jira is asked and
+// held for every call after, as onceConnected holds a connection: a failure
+// is not held, so the next call looks again. Each client found is numbered
+// from one, zero while none has been, so a token refused to several calls at
+// once is found again once, by the first of them, and handed to the rest. One
+// call connects at a time, and the others wait for it only as long as their
+// own contexts last.
+type jiraConnection struct {
+	turn       connecting
+	connect    func(context.Context) (jiraConnected, error)
+	connected  jiraConnected
+	generation int
+}
+
+// newJiraConnection holds no client yet, and finds one with connect.
+func newJiraConnection(connect func(context.Context) (jiraConnected, error)) *jiraConnection {
+	return &jiraConnection{turn: newConnecting(), connect: connect, connected: jiraConnected{}, generation: 0}
+}
+
+// current is the client held, and its number, finding one first when none is.
+func (c *jiraConnection) current(ctx context.Context) (jiraConnected, int, error) {
+	err := c.turn.take(ctx)
+	if err != nil {
+		return jiraConnected{}, 0, err
+	}
+	defer c.turn.give()
+
+	if c.generation > 0 {
+		return c.connected, c.generation, nil
+	}
+
+	return c.connectAgain(ctx)
+}
+
+// renewed is a client whose token was found again, for the one numbered
+// refused, whose token Jira turned away. A client found since that one is
+// handed out as it is, rather than running the token command once more. One
+// not found keeps the refused one held, so the next call is refused and finds
+// it again.
+func (c *jiraConnection) renewed(ctx context.Context, refused int) (jiraConnected, error) {
+	err := c.turn.take(ctx)
+	if err != nil {
+		return jiraConnected{}, err
+	}
+	defer c.turn.give()
+
+	if c.generation != refused {
+		return c.connected, nil
+	}
+
+	connected, _, err := c.connectAgain(ctx)
+
+	return connected, err
+}
+
+// connectAgain finds a client and holds it under the next number. The caller
+// holds the turn.
+func (c *jiraConnection) connectAgain(ctx context.Context) (jiraConnected, int, error) {
+	connected, err := c.connect(ctx)
+	if err != nil {
+		return jiraConnected{}, 0, err
+	}
+
+	c.connected = connected
+	c.generation++
+
+	return connected, c.generation, nil
+}
+
+// askJira asks Jira what question does, through the client jiraClient holds.
+// A token token_command printed can expire while workflow runs, so when Jira
+// refuses one the command runs again, once, and the question is asked again
+// with what it prints: Jira's 401 means it acted on nothing, so a write is as
+// safe to send again as a read. A token from any other source is the same
+// token however often it is read, and its refusal stands.
+func askJira[T any](ctx context.Context, jiraClient *jiraConnection, question func(jira.Client) (T, error)) (T, error) {
+	var none T
+
+	connected, generation, err := jiraClient.current(ctx)
+	if err != nil {
+		return none, err
+	}
+
+	answer, err := question(connected.client)
+	if !connected.fromCommand || !errors.Is(err, jira.ErrUnauthorized) {
+		return answer, err
+	}
+
+	connected, err = jiraClient.renewed(ctx, generation)
+	if err != nil {
+		return none, err
+	}
+
+	return question(connected.client)
 }
 
 // askJiraIssue asks Jira about the issue issueKey names. A key with no project
@@ -111,8 +216,7 @@ func (e Environment) connectJira(
 // not a number the same way, so every surface falls back as it does for an
 // issue the tracker lacks.
 func askJiraIssue[T any](
-	ctx context.Context, jiraClient func(context.Context) (jira.Client, error), issueKey jira.Key,
-	question func(jira.Client) (T, error),
+	ctx context.Context, jiraClient *jiraConnection, issueKey jira.Key, question func(jira.Client) (T, error),
 ) (T, error) {
 	if !isJiraKey(issueKey) {
 		var none T
@@ -120,20 +224,19 @@ func askJiraIssue[T any](
 		return none, notAJiraIssue(issueKey)
 	}
 
-	return ask(ctx, jiraClient, question)
+	return askJira(ctx, jiraClient, question)
 }
 
 // tellJiraIssue has Jira change the issue issueKey names, refusing a key with
 // no project part as askJiraIssue does.
 func tellJiraIssue(
-	ctx context.Context, jiraClient func(context.Context) (jira.Client, error), issueKey jira.Key,
-	change func(jira.Client) error,
+	ctx context.Context, jiraClient *jiraConnection, issueKey jira.Key, change func(jira.Client) error,
 ) error {
-	if !isJiraKey(issueKey) {
-		return notAJiraIssue(issueKey)
-	}
+	_, err := askJiraIssue(ctx, jiraClient, issueKey, func(client jira.Client) (struct{}, error) {
+		return struct{}{}, change(client)
+	})
 
-	return tell(ctx, jiraClient, change)
+	return err
 }
 
 // notAJiraIssue is the refusal of a key with no project part: missing, as an

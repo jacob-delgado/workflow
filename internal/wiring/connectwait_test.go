@@ -179,6 +179,35 @@ func TestATaskwarriorCallStopsWaitingWhenItsContextEnds(t *testing.T) {
 	<-first
 }
 
+func TestAJiraCallStopsWaitingWhenItsContextEnds(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	tokenCommand := newHeldProgram(t, "token")
+	cfg := config.Default()
+	cfg.Jira = config.Jira{BaseURL: "https://jira.invalid", TokenCommand: tokenCommand.path}
+	tracker := wired(t, cfg, onOrigin(t.TempDir(), ""), nil).Jira
+
+	first := begun(func() { _, _ = tracker.Search(t.Context(), "assignee = currentUser()", 0) })
+
+	tokenCommand.waitAsked(t)
+
+	// Act
+	err := answeredInTime(t, func() error {
+		_, err := tracker.Search(leftAsker(t), "assignee = currentUser()", 0)
+
+		return err
+	})
+
+	// Assert
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("Search = %v, want its own context's end while another's token command runs", err)
+	}
+
+	tokenCommand.let()
+	<-first
+}
+
 // A call whose context has ended, finding no other call connecting, is not
 // told it was waiting on one: whatever it answers, it says why truly.
 func TestACallWhoseContextEndedIsNotToldItWaitedWhenNoneWasConnecting(t *testing.T) {
