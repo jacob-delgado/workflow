@@ -4,7 +4,7 @@ import { useSnapshotStore } from '@/api/snapshot.ts'
 import { mockConfig } from '@/dev/mockConfig.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
-import { renderWithClient } from '@/test/renderWithClient.tsx'
+import { appQueryClient, renderWithClient } from '@/test/renderWithClient.tsx'
 import { CiSettled } from './CiSettled.tsx'
 
 // When CI on the branch's pull request settles, the page says so, as the
@@ -112,5 +112,34 @@ test('says nothing of another pull request whose CI is settled', async () => {
 
   // Assert
   await configRead(requests)
+  expect(screen.getByRole('status').textContent).toBe('')
+})
+
+test('says nothing of CI that settled while ui.notify was off once it is turned on', async () => {
+  // Arrange
+  let notify = false
+  const requests = fakeApi({ '/api/config': () => configNotifying(notify) })
+  const client = appQueryClient()
+  streamCi('running')
+  renderWithClient(<CiSettled />, client)
+  act(() => {
+    streamCi('passed')
+  })
+  await configRead(requests)
+  notify = true
+
+  // Act
+  await act(async () => {
+    await client.invalidateQueries()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+
+  // Assert
+  expect(
+    client
+      .getQueryCache()
+      .getAll()
+      .map((query) => query.state.data),
+  ).toContainEqual(expect.objectContaining({ config: configNotifying(true) }))
   expect(screen.getByRole('status').textContent).toBe('')
 })

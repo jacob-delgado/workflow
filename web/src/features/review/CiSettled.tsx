@@ -26,10 +26,8 @@ interface Settled {
 // something to say, and emptied when CI runs again or the branch's pull
 // request changes.
 export function CiSettled() {
-  const settled = useSettledCi()
-  const notify = useConfigRead().data?.config.ui.notify === true
+  const shown = useSettledCi(useConfigRead().data?.config.ui.notify)
   const { sigil } = useForgeWords()
-  const shown = notify ? settled : null
 
   return (
     <p role="status" className="flex items-center gap-1.5 text-xs empty:sr-only">
@@ -44,9 +42,12 @@ export function CiSettled() {
 }
 
 // useSettledCi is the pull request whose CI the stream has just seen settle,
-// or null. It follows the snapshot as each lands, comparing one frame's CI
-// with the last one's, and the same pull request's alone.
-function useSettledCi(): Settled | null {
+// or null, while notify asks to be told. It follows the snapshot as each
+// lands, comparing one frame's CI with the last one's, and the same pull
+// request's alone. CI that settles while notify is off is never told, so
+// turning it on later does not tell an old settle as news; one that settles
+// before the configuration is read is told once it is, if it asks.
+function useSettledCi(notify: boolean | undefined): Settled | null {
   const pull = useSnapshotStore((state) => state.snapshot?.review.pull?.number ?? null)
   const ci = useSnapshotStore((state) => state.snapshot?.review.ci?.state ?? null)
   const [seen, setSeen] = useState<Watched>({ pull, ci })
@@ -58,8 +59,11 @@ function useSettledCi(): Settled | null {
     setSeen({ pull, ci })
     setSettled(justSettled(seen, { pull, ci }))
   }
+  if (notify === false && settled !== null) {
+    setSettled(null)
+  }
 
-  return settled
+  return notify === true ? settled : null
 }
 
 // justSettled is the pull request whose CI went from running, in the last
