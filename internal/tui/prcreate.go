@@ -157,10 +157,10 @@ func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
 // prDraft is a pull request the composer was filled with, kept for the session
 // so a push that fails, or an esc, does not throw the work away.
 type prDraft struct {
-	branch, title, base, body       string
-	reviewers, assignees, labels    string
-	template                        int
-	draft, edited, reviewersSettled bool
+	branch, title, base, body              string
+	reviewers, assignees, labels           string
+	template                               int
+	draft, edited, typed, reviewersSettled bool
 	// draftedOnto, subjects and reviewersProposed are what the composer
 	// proposed from, so a draft reopened onto a base chosen in it proposes
 	// from that base still.
@@ -173,8 +173,9 @@ func (c prComposer) snapshot() prDraft {
 	return prDraft{
 		branch: c.head, title: c.answers.title, base: c.answers.base, body: c.body,
 		reviewers: c.answers.reviewers, assignees: c.answers.assignees, labels: c.answers.labels,
-		template: c.answers.template, draft: c.answers.draft, edited: c.edited, reviewersSettled: c.reviewersSettled,
-		draftedOnto: c.draftedOnto, reviewersProposed: c.reviewersProposed, subjects: c.proposedFrom.Subjects,
+		template: c.answers.template, draft: c.answers.draft, edited: c.edited, typed: c.typed,
+		reviewersSettled: c.reviewersSettled, draftedOnto: c.draftedOnto, reviewersProposed: c.reviewersProposed,
+		subjects: c.proposedFrom.Subjects,
 	}
 }
 
@@ -184,7 +185,7 @@ func (c prComposer) restore(draft prDraft) prComposer {
 		title: draft.title, base: draft.base, reviewers: draft.reviewers, assignees: draft.assignees,
 		labels: draft.labels, template: draft.template, draft: draft.draft,
 	}
-	c.body, c.edited = draft.body, draft.edited
+	c.body, c.edited, c.typed = draft.body, draft.edited, draft.typed
 	c.reviewersSettled = draft.reviewersSettled
 	c.draftedOnto, c.reviewersProposed = draft.draftedOnto, draft.reviewersProposed
 	c.proposedFrom.Subjects = draft.subjects

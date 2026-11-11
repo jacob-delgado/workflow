@@ -112,6 +112,24 @@ func draftingAPullRequest(edited bool) func(*testing.T, *world) tui.Model {
 	}
 }
 
+// lostPullRequest is how a switch's last look names a pull request being
+// written.
+const lostPullRequest = "the pull request you were writing"
+
+// typingIntoAPullRequest is the world's interface with keys typed into a
+// pull request's composer, its body untouched, and the composer closed.
+func typingIntoAPullRequest(keys ...string) func(*testing.T, *world) tui.Model {
+	return func(t *testing.T, repo *world) tui.Model {
+		t.Helper()
+
+		repo.pullFound = false
+
+		opened := append([]string{"4", "n", keyEnter}, keys...)
+
+		return typing(t, repo.live(t, 120, 40), append(opened, keyEsc)...)
+	}
+}
+
 // waitingForCI is the world's interface with a post waiting for CI to pass.
 func waitingForCI(t *testing.T, repo *world) tui.Model {
 	t.Helper()
@@ -128,8 +146,15 @@ func TestASwitchNamesTheWorkItWouldLose(t *testing.T) {
 		started func(*testing.T, *world) tui.Model
 		lost    string
 	}{
-		"a commit body with no subject":  {started: draftingABody, lost: "the commit message you were writing"},
-		"a pull request's edited body":   {started: draftingAPullRequest(true), lost: "the pull request you were writing"},
+		"a commit body with no subject": {started: draftingABody, lost: "the commit message you were writing"},
+		"a pull request's edited body":  {started: draftingAPullRequest(true), lost: lostPullRequest},
+		"a pull request's typed title":  {started: typingIntoAPullRequest(pasted(" now")), lost: lostPullRequest},
+		"a pull request's typed reviewers": {
+			started: typingIntoAPullRequest(keyTab, keyTab, pasted("ana")), lost: lostPullRequest,
+		},
+		"a pull request's typed labels": {
+			started: typingIntoAPullRequest(keyTab, keyTab, keyTab, keyTab, pasted("bug")), lost: lostPullRequest,
+		},
 		"an announcement waiting for CI": {started: waitingForCI, lost: "the announcement waiting for CI"},
 	}
 

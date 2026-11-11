@@ -55,6 +55,11 @@ type prAnswers struct {
 	draft                                     bool
 }
 
+// text is what the composer's text fields hold, in the order they ask.
+func (a prAnswers) text() [4]string {
+	return [4]string{a.title, a.reviewers, a.assignees, a.labels}
+}
+
 // prAwaiting is the reads the composer waits on before its form opens: the
 // templates and remote branches, the issue's title, the code owners, and the
 // branch read again onto a base chosen.
@@ -93,6 +98,9 @@ type prComposer struct {
 	draftedOnto string
 	body        string
 	edited      bool
+	// typed reports text typed into the title, reviewers, assignees or labels,
+	// which a switch to another directory would lose.
+	typed bool
 	// reviewersSettled reports reviewers typed, or filled from the owners,
 	// which a read of the owners then leaves alone. reviewersProposed is what
 	// the owners filled, so a base chosen later reads them again only while
@@ -361,11 +369,12 @@ func (c prComposer) relay(m Model, msg tea.Msg) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	reviewers, template := c.answers.reviewers, c.answers.template
+	before := *c.answers
 	cmd := relayToForm(c.form, msg)
-	c.reviewersSettled = c.reviewersSettled || c.answers.reviewers != reviewers
+	c.reviewersSettled = c.reviewersSettled || c.answers.reviewers != before.reviewers
+	c.typed = c.typed || c.answers.text() != before.text()
 
-	if c.answers.template != template {
+	if c.answers.template != before.template {
 		c = c.withTemplate(c.answers.template)
 	}
 
