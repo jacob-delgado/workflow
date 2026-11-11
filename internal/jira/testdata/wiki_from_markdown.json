@@ -145,6 +145,11 @@
       "name": "a fence line naming a language inside a block does not close it",
       "markdown": "```md\n```go\nx := **notBold**\n```\nafter **bold**",
       "want": "{code:md}\n```go\nx := **notBold**\n{code}\nafter *bold*"
+    },
+    {
+      "name": "a longer fence opens a block that a shorter fence does not close",
+      "markdown": "````md\n```go\nx := **notBold**\n```\n````\nafter **bold**",
+      "want": "{code:md}\n```go\nx := **notBold**\n```\n{code}\nafter *bold*"
     }
   ]
 }

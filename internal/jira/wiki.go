@@ -65,20 +65,20 @@ var starItalicSpan = regexp.MustCompile(`\*([^\s*](?:[^*]*?[^\s*])?)\*`)
 func WikiFromMarkdown(md string) string {
 	lines := strings.Split(md, "\n")
 	out := make([]string, 0, len(lines))
-	inFence := false
+	opener, inFence := codeFence{}, false
 
 	for _, line := range lines {
 		fence, isFence := readFence(line)
 
 		switch {
-		case inFence && isFence && fence.closes():
+		case inFence && isFence && fence.closes(opener):
 			out = append(out, "{code}")
 			inFence = false
 		case inFence:
 			out = append(out, line)
 		case isFence:
 			out = append(out, fence.bracket())
-			inFence = true
+			opener, inFence = fence, true
 		default:
 			out = append(out, convertLine(line))
 		}
@@ -87,17 +87,19 @@ func WikiFromMarkdown(md string) string {
 	return strings.Join(out, "\n")
 }
 
-// codeFence is a line that opens or closes a fenced code block: the info
-// string after its backticks, which names the block's language.
+// codeFence is a line that opens or closes a fenced code block: how many
+// backticks it runs to, and the info string after them, which names the
+// block's language.
 type codeFence struct {
-	info string
+	length int
+	info   string
 }
 
-// closes reports whether the fence, read inside a block, closes it: a fence
-// with an info string only ever opens one, so a block that quotes a ```go
-// line keeps it.
-func (f codeFence) closes() bool {
-	return f.info == ""
+// closes reports whether the fence, read inside the block opener opened,
+// closes it: only a bare fence at least as long as the opener does, so a
+// block that quotes a ```go line, or a shorter fence, keeps it.
+func (f codeFence) closes(opener codeFence) bool {
+	return f.info == "" && f.length >= opener.length
 }
 
 // bracket is the wiki markup that opens a block at the fence: {code:lang}
@@ -126,6 +128,9 @@ func trimFence(text string) string {
 	return strings.TrimFunc(text, func(r rune) bool { return unicode.IsSpace(r) || r == byteOrderMark })
 }
 
+// minFenceLength is the fewest backticks a code fence runs to.
+const minFenceLength = 3
+
 // readFence reads a ``` fence line, reporting false for any other line.
 func readFence(line string) (codeFence, bool) {
 	if len(line)-len(strings.TrimLeft(line, " ")) > maxFenceIndent {
@@ -133,11 +138,13 @@ func readFence(line string) (codeFence, bool) {
 	}
 
 	trimmed := trimFence(line)
-	if !strings.HasPrefix(trimmed, "```") {
-		return codeFence{}, false
+
+	info := strings.TrimLeft(trimmed, "`")
+	if length := len(trimmed) - len(info); length >= minFenceLength {
+		return codeFence{length: length, info: trimFence(info)}, true
 	}
 
-	return codeFence{info: trimFence(strings.TrimPrefix(trimmed, "```"))}, true
+	return codeFence{}, false
 }
 
 // convertLine rewrites one line outside a code block: its block marker, then the
