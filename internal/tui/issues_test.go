@@ -278,6 +278,50 @@ func TestReachingTheEndOfATruncatedListLoadsTheNextPage(t *testing.T) {
 	}
 }
 
+func TestReachingTheEndOfAFilteredTruncatedListLoadsTheNextPage(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The first page holds OPS-1, OPS-2 and OPS-3, and the filter keeps the
+	// first and the last of them.
+	world := newWorld()
+	world.pageSize = 3
+	world.issues = manyIssues(5)
+	world.issues[1].Summary = "other"
+	filtered := typing(t, world.live(t, 120, 40), "/", "w", "o", "r", "k", keyEnter)
+
+	// Act
+	paged := typing(t, filtered, "j")
+
+	// Assert
+	refuseScreen(t, paged.View().Content, "showing 3 of 5")
+
+	if searches := len(world.asked("search")); searches < 2 {
+		t.Errorf("searched %d time(s), want a second page loaded at the end of the filtered list", searches)
+	}
+}
+
+func TestClickingTheLastLoadedIssueLoadsTheNextPage(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	world := newWorld()
+	world.pageSize = 3
+	world.issues = manyIssues(5)
+	listed := world.live(t, 120, 40)
+
+	// Act
+	// The rail's third issue row, OPS-3, is row 4.
+	paged := click(t, listed, 5, 4)
+
+	// Assert
+	refuseScreen(t, paged.View().Content, "showing 3 of 5")
+
+	if searches := len(world.asked("search")); searches < 2 {
+		t.Errorf("searched %d time(s), want a second page loaded on a click at the end", searches)
+	}
+}
+
 func TestIssuesPaneSaysWhenAViewIsEmpty(t *testing.T) {
 	t.Parallel()
 
