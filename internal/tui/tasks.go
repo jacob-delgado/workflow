@@ -51,8 +51,11 @@ type tasksState struct {
 	// listing is how the user has chosen to see the list, kept for the session
 	// across every read.
 	listing taskListing
-	// loading is a refresh begun and not yet answered.
-	loading bool
+	// loading is a refresh begun and not yet answered. refreshes counts the
+	// refreshes begun: only the answer to the last of them ends loading, not
+	// a read another write or an earlier refresh began.
+	loading   bool
+	refreshes int
 }
 
 // trackStub is a task a track added, known from its add's answer and its
@@ -140,6 +143,9 @@ type tasksLoaded struct {
 	err     error
 	tracked int
 	dones   int
+	// refresh is the refresh that began the read, counted from one; zero for
+	// a read no refresh began.
+	refresh int
 }
 
 var _ applier = tasksLoaded{}
@@ -154,7 +160,8 @@ func (msg tasksLoaded) apply(m Model) (Model, tea.Cmd) {
 		install: msg.install, pending: msg.pending.Tasks, linked: linked, context: msg.pending.Context,
 		loaded: true, err: msg.err, selected: m.tasks.selected, writing: m.tasks.writing,
 		tracked: m.tasks.tracked, stubs: stubs, dones: m.tasks.dones, justDone: m.tasks.stillUndescribed(msg.dones),
-		listing: m.tasks.listing,
+		listing: m.tasks.listing, refreshes: m.tasks.refreshes,
+		loading: m.tasks.loading && msg.refresh != m.tasks.refreshes,
 	}
 
 	groups := m.taskGroups()
@@ -170,6 +177,21 @@ func (msg tasksLoaded) apply(m Model) (Model, tea.Cmd) {
 // pending tasks, then the tasks linked to issues, in one command; nil when
 // there is no task program to ask.
 func (s tasksState) load(ctx context.Context, deps Deps) tea.Cmd {
+	return s.read(ctx, deps, 0)
+}
+
+// refreshed is the pane with a refresh begun, in flight until its own read
+// answers, and that read; nil when there is no task program to ask.
+func (s tasksState) refreshed(ctx context.Context, deps Deps) (tasksState, tea.Cmd) {
+	s.refreshes++
+	read := s.read(ctx, deps, s.refreshes)
+	s.loading = read != nil
+
+	return s, read
+}
+
+// read is load's command, its answer marked as the read refresh began.
+func (s tasksState) read(ctx context.Context, deps Deps, refresh int) tea.Cmd {
 	install, pending, linked := deps.Tasks.Install, deps.Tasks.Pending, deps.Tasks.Linked
 	if install == nil {
 		return nil
@@ -180,17 +202,19 @@ func (s tasksState) load(ctx context.Context, deps Deps) tea.Cmd {
 	return func() tea.Msg {
 		found, err := install(ctx)
 		if err != nil {
-			return tasksLoaded{err: err, tracked: tracked, dones: dones}
+			return tasksLoaded{err: err, tracked: tracked, dones: dones, refresh: refresh}
 		}
 
 		list, err := pending(ctx)
 		if err != nil {
-			return tasksLoaded{install: found, err: err, tracked: tracked, dones: dones}
+			return tasksLoaded{install: found, err: err, tracked: tracked, dones: dones, refresh: refresh}
 		}
 
 		tasks, err := linked(ctx)
 
-		return tasksLoaded{install: found, pending: list, linked: tasks, err: err, tracked: tracked, dones: dones}
+		return tasksLoaded{
+			install: found, pending: list, linked: tasks, err: err, tracked: tracked, dones: dones, refresh: refresh,
+		}
 	}
 }
 
@@ -411,8 +435,9 @@ func tasksBehavior() behavior {
 		keys: Model.tasksKeys, handle: Model.handleTasksKey, pick: Model.pickTask, move: commandless(Model.moveTaskBy),
 		// refresh asks Taskwarrior again.
 		refresh: func(m Model) (Model, tea.Cmd) {
-			read := m.tasks.load(m.session, m.deps)
-			m.tasks.loading = read != nil
+			var read tea.Cmd
+
+			m.tasks, read = m.tasks.refreshed(m.session, m.deps)
 
 			return m, read
 		},
