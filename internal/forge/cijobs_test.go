@@ -4,6 +4,7 @@
 package forge_test
 
 import (
+	"net/http"
 	"net/url"
 	"slices"
 	"testing"
@@ -16,6 +17,10 @@ const (
 	failedMergePath = "/projects/group%2Fsub%2Frepo/merge_requests/8"
 	failedJobsPath  = "/projects/group%2Fsub%2Frepo/pipelines/77/jobs"
 )
+
+// canceled is what GitLab calls a job stopped before it finished, as a scope
+// to ask for and as the reason it did not pass.
+const canceled = "canceled"
 
 func TestGitLabCIListsAFailedPipelinesFailedJobsWithWhy(t *testing.T) {
 	t.Parallel()
@@ -39,8 +44,9 @@ func TestGitLabCIListsAFailedPipelinesFailedJobsWithWhy(t *testing.T) {
 		t.Errorf("CheckStatus = %+v, %v; want the failed job, its stage and why", got, err)
 	}
 
-	if query, _ := url.ParseQuery(requestTo(*seen, failedJobsPath).query); query.Get("scope[]") != "failed" {
-		t.Errorf("jobs asked with %q, want only the failed ones", requestTo(*seen, failedJobsPath).query)
+	query, _ := url.ParseQuery(requestTo(*seen, failedJobsPath).query)
+	if !slices.Equal(query["scope[]"], []string{"failed", canceled}) {
+		t.Errorf("jobs asked with %q, want only the failed and canceled ones", requestTo(*seen, failedJobsPath).query)
 	}
 }
 
@@ -82,5 +88,35 @@ func TestGitHubCIKeepsEachCheckRunsIDAndWhyItFailed(t *testing.T) {
 	}}
 	if err != nil || !slices.Equal(got.Checks, want) {
 		t.Errorf("checks = %+v, %v; want %+v", got.Checks, err, want)
+	}
+}
+
+func TestGitLabCIListsACanceledPipelinesCanceledJobs(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	client, _ := recordingForge(t, func(asked recorded) (int, string) {
+		query, _ := url.ParseQuery(asked.query)
+
+		switch {
+		case asked.path == failedMergePath:
+			return http.StatusOK, `{"iid":8,"head_pipeline":{"id":77,"status":"canceled","web_url":"https://gl/pipelines/77"}}`
+		case asked.path == failedJobsPath && slices.Contains(query["scope[]"], canceled):
+			return http.StatusOK, `[{"id":502,"name":"e2e","stage":"test","status":"canceled","web_url":"https://gl/jobs/502"}]`
+		default:
+			return http.StatusOK, "[]"
+		}
+	})
+
+	// Act
+	got, err := client.CheckStatus(t.Context(), gitlabRepo(), forge.PullRequest{Number: 8}, headCommit)
+
+	// Assert
+	want := []forge.Check{{
+		ID: "502", Name: "e2e", Stage: "test", Reason: canceled, State: forge.CIFailed,
+		URL: "https://gl/jobs/502", LogAvailable: true,
+	}}
+	if err != nil || got.State != forge.CIFailed || !slices.Equal(got.Checks, want) {
+		t.Errorf("CheckStatus = %+v, %v; want the canceled job, its stage, and that it was canceled", got, err)
 	}
 }
