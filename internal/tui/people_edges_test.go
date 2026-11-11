@@ -294,3 +294,41 @@ func TestPeopleLinksATeamFromTheUserGroups(t *testing.T) {
 	requireScreen(t, view, "Link "+podTeam+" to Slack", "@"+podName, "@"+apiName)
 	refuseScreen(t, view, carlaName)
 }
+
+func TestReadsAnsweringUnderTheForgetLookReachPeople(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		leave string
+	}{
+		"gone back from": {leave: keyEsc},
+		"forgotten from": {leave: keyEnter},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			// Who was decided is read, and the forget look opens over People
+			// before the groups and the members answer.
+			tagging := taggingWorld()
+			opened, reads := openedPeople(t, tagging)
+			asking := typing(t, drain(t, opened, reads[0]), "d")
+
+			for _, read := range reads[1:] {
+				asking = drain(t, asking, read)
+			}
+
+			left := typing(t, asking, tt.leave)
+
+			// Act
+			typing(t, left, keyTab, keySpace)
+
+			// Assert
+			if calls := tagging.asked("set-repo-groups "); len(calls) != 1 {
+				t.Errorf("saves = %q, want the groups checked saved, as read under the look", calls)
+			}
+		})
+	}
+}

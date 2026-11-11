@@ -325,7 +325,11 @@ func (p peopleOverlay) askToForget(m Model, owner string) Model {
 		title: "Forget a person", verb: "forget", leave: escBack, back: p,
 		body: "Forget " + owner + "?\n\nThe next ready-for-review announcement asks whom they are on Slack again.",
 		proceed: func(m Model) (Model, tea.Cmd) {
-			return p.saving(m, func() tea.Msg {
+			// The People the look went back to, as the reads that answered
+			// under it left it.
+			under, _ := beneath[peopleOverlay](m, opened)
+
+			return under.saving(m, func() tea.Msg {
 				err := inWorkspace(ctx, readWorkspace, func(workspace string) error { return forget(ctx, workspace, owner) })
 
 				return peopleSaved{opened: opened, err: err}
