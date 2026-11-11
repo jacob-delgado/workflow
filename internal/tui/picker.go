@@ -390,12 +390,16 @@ func (p statusPicker) choose(m Model) (Model, tea.Cmd) {
 	return p.apply(m, chosen, nil)
 }
 
-// apply sends a transition with its field values.
+// apply sends a transition with its field values. A dry run sends nothing,
+// but makes the offer the move would, as a preview of what follows it.
 func (p statusPicker) apply(m Model, chosen jira.Transition, values []jira.FieldValue) (Model, tea.Cmd) {
 	issueKey := p.issue.Key
 
 	if m.dryRun {
-		return m.closeOverlay().noticed("dry run: would change " + shownKey(issueKey) + " to " + chosen.ToStatus), nil
+		m = m.closeOverlay().noticed("dry run: would change " + shownKey(issueKey) + " to " + chosen.ToStatus)
+		m.followUp = m.offerForMove(issueKey, chosen)
+
+		return m, nil
 	}
 
 	p.send = starting()
