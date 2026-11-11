@@ -14,11 +14,12 @@ import (
 )
 
 // NoCIPatience is how long an announcement armed to go once CI passes waits
-// for a pull request that reports no check, counted from the last read that
-// reported one, or from arming, before it gives up.
+// for a pull request that reports no check, counted across the reads that were
+// heard since the last that reported one, or since arming, before it gives up.
 //
-// Trade-off TRADE-41: a CI that registers later than this loses its automatic
-// post, so a repository with no CI is not polled for as long as it waits.
+// Trade-off TRADE-41: a CI that registers later than ten minutes of reads that
+// heard no check loses its automatic post, so a repository with no CI is not
+// polled for as long as it waits.
 const NoCIPatience = 10 * time.Minute
 
 // Verdict is how an announcement armed to go once CI passes stands on a read
@@ -38,22 +39,27 @@ const (
 	VerdictNoCI
 )
 
-// CIWatch is the watch over an armed announcement's CI: when a read last
-// reported a check, which its patience with none counts from.
+// CIWatch is the watch over an armed announcement's CI: how long the reads
+// heard since the last that reported a check have reported none, and when the
+// last read was heard, which the next one counts from. A read that failed
+// breaks the span, so an outage is never counted as quiet.
 type CIWatch struct {
-	quietSince time.Time
+	quiet     time.Duration
+	lastHeard time.Time
 }
 
-// WatchFrom is the watch of an announcement armed at armedAt.
+// WatchFrom is the watch of an announcement armed at armedAt, which counts as
+// heard: the first read counts from it.
 func WatchFrom(armedAt time.Time) CIWatch {
-	return CIWatch{quietSince: armedAt}
+	return CIWatch{quiet: 0, lastHeard: armedAt}
 }
 
-// Read is how the armed announcement stands on ci, read at readAt, and the
+// Read is how the armed announcement stands on ci, heard at readAt, and the
 // watch to read the next one with: a check reported, running, failed or
-// passed, starts its patience again.
+// passed, starts its patience again, and none adds the time since the last
+// read heard, if that read was heard too.
 func (w CIWatch) Read(ci forge.CI, readAt time.Time) (CIWatch, Verdict) {
-	reported := CIWatch{quietSince: readAt}
+	reported := CIWatch{quiet: 0, lastHeard: readAt}
 
 	switch ci.State {
 	case forge.CIRunning:
@@ -65,11 +71,24 @@ func (w CIWatch) Read(ci forge.CI, readAt time.Time) (CIWatch, Verdict) {
 	case forge.CINone:
 	}
 
-	if readAt.Sub(w.quietSince) >= NoCIPatience {
-		return w, VerdictNoCI
+	quiet := w.quiet
+	if !w.lastHeard.IsZero() {
+		quiet += readAt.Sub(w.lastHeard)
 	}
 
-	return w, VerdictAwaitingChecks
+	heard := CIWatch{quiet: quiet, lastHeard: readAt}
+	if quiet >= NoCIPatience {
+		return heard, VerdictNoCI
+	}
+
+	return heard, VerdictAwaitingChecks
+}
+
+// Unheard is the watch after a read that failed: the quiet heard so far is
+// kept, and the time since the last read heard is not counted, nor the time
+// until the next one.
+func (w CIWatch) Unheard() CIWatch {
+	return CIWatch{quiet: w.quiet, lastHeard: time.Time{}}
 }
 
 // StillArmed reports whether an announcement armed for pull request number

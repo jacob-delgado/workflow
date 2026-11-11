@@ -444,7 +444,8 @@ flags change that, each spelled the same short way on every command that takes i
   answers the one question before the wait, which reads CI every
   `timing.ci_interval`, through a failed run, and announces once a run
   passes. It exits 4 for a pull request that has merged (no CI to wait for),
-  one that reports no check within ten minutes of the last read that saw one
+  one that reports no check across ten minutes of reads that were heard,
+  counted from the last that saw one, a read that failed not counting
   (announce a repository with no CI by hand), and one that merges first or
   is no longer the branch's; `ctrl+c` stops it, announcing nothing, with 130.
   Its dry run says it would announce once CI passes, and waits for nothing.

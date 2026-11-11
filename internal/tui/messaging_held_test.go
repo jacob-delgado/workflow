@@ -143,6 +143,32 @@ func TestAWaitingPostGivesUpWhenNoCheckIsReported(t *testing.T) {
 	}
 }
 
+func TestAWaitingPostCountsNoQuietTimeAcrossAnOutage(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// No check is reported, and CI cannot be read for longer than the
+	// patience; then a read is heard, still with no check.
+	repo, waiting := waitingOn(t, forge.CINone)
+	repo.mu.Lock()
+	repo.ciErr = errForgeDown
+	repo.elapsed += armed.NoCIPatience + time.Minute
+	repo.mu.Unlock()
+
+	unread := typing(t, waiting, "r")
+
+	repo.mu.Lock()
+	repo.ciErr = nil
+	repo.mu.Unlock()
+
+	// Act
+	heard := typing(t, unread, "r").View().Content
+
+	// Assert
+	requireScreen(t, heard, "announces when CI passes · no checks reported yet")
+	refuseScreen(t, heard, "not announced")
+}
+
 func TestWhenCIPassesIsOfferedWhileACheckFailed(t *testing.T) {
 	t.Parallel()
 

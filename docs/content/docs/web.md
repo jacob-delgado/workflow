@@ -435,8 +435,9 @@ announcement sent from it takes the held one's place. The held one is posted
 once the forge reports the CI passed, and the section then says it was
 announced. A failed run does not drop it: the section says a check failed and it
 waits on a fix, and it goes once a later run passes. While no check is reported
-the section says it waits for checks; after ten minutes with none, counted from
-the last read that saw one, it is dropped, saying to announce it by hand — a
+the section says it waits for checks; after ten minutes of reads that heard
+none, counted from the last read that saw one, a read that failed not counting,
+it is dropped, saying to announce it by hand — a
 repository with no CI is announced by hand. When the branch's pull request is
 another one, or merged first, it is dropped and the section says why in red.
 **Announce now** drops a held announcement, so the channel never reads it twice.

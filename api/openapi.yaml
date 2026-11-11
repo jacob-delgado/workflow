@@ -1847,7 +1847,8 @@ paths:
         CI that could not be read — is held by the server and answered 202;
         it is posted once the forge reports the CI passed, waits on through a
         failed run for a fix, and is dropped, with the reason, when no check
-        is reported within ten minutes of the last read that saw one, or the
+        is reported across ten minutes of reads heard since the last that saw
+        one (a read that failed does not count), or the
         branch's pull request is another one or merged first. One whose CI
         has passed already is posted at once (200), and one not ready for
         review is a 409. The server holds a

@@ -867,20 +867,22 @@ moment before would have let through.
 
 **Reopen when.** A forge's rate limit is found spent on these reads.
 
-### TRADE-41 An armed announcement gives up on a pull request that reports no check for ten minutes
+### TRADE-41 An armed announcement gives up on a pull request whose heard reads report no check for ten minutes
 
 **Decided.** `armed.NoCIPatience` (`internal/armed/watch.go`) bounds how long
 an announcement armed to go once CI passes waits for a pull request that
-reports no check: ten minutes, counted from the last read that reported one,
-or from arming. It then gives up, saying to announce it by hand, the same in
+reports no check: ten minutes of reads that heard no check, counted from the
+last read that reported one, or from arming; a read that failed, and the time
+until one is heard again, do not count, so an outage is never taken for a CI
+that reports nothing. It then gives up, saying to announce it by hand, the same in
 the terminal, on the web and under `workflow announce --when-green`. A
 repository with no CI would otherwise have its pull request read every
 `timing.ci_interval` for as long as the terminal or the server runs. Decided
 2026-10-13 by the maintainer, with the automatic post.
 
-**Cost.** A CI that registers its first check later than ten minutes after
-the last one reported, or after arming, loses its automatic post; it is
-announced by hand.
+**Cost.** A CI that registers its first check later than ten minutes of
+heard reads after the last one reported, or after arming, loses its automatic
+post; it is announced by hand.
 
 **Reopen when.** A CI is met that reports its first check later than that.
 

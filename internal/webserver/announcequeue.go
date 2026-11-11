@@ -199,17 +199,33 @@ func (s *server) checkHeld(round int) {
 
 // settleOnRead settles the held announcement against what the branch and the
 // forge, asked under ctx, say now. A read that failed says nothing of the pull
-// request, so it neither posts the announcement nor drops it.
+// request, so it neither posts the announcement nor drops it, and its time is
+// not counted as quiet.
 func (s *server) settleOnRead(ctx context.Context) {
 	branch, err := s.frameBranch(ctx)
 	if err != nil {
+		s.heldUnheard()
+
 		return
 	}
 
 	read, err := s.forgeReview(ctx, branch)
-	if err == nil {
-		s.settleHeld(branch, read)
+	if err != nil {
+		s.heldUnheard()
+
+		return
 	}
+
+	s.settleHeld(branch, read)
+}
+
+// heldUnheard notes that a read for the held announcement failed, so the time
+// until one is heard again is not counted as quiet.
+func (s *server) heldUnheard() {
+	s.held.mu.Lock()
+	defer s.held.mu.Unlock()
+
+	s.held.watch = s.held.watch.Unheard()
 }
 
 // settleHeld settles the held announcement against what the forge read of
@@ -259,7 +275,7 @@ const (
 // read of branch, and the reason when it is dropped: posted once its CI has
 // passed, kept waiting through a failed run for a fix, and dropped once its
 // pull request is no longer the branch's open one, or no check was reported
-// within armed.NoCIPatience. The caller holds the lock.
+// within armed.NoCIPatience of reads heard. The caller holds the lock.
 func (s *server) verdictOn(branch gitrepo.Branch, read forgeRead) (string, heldVerdict) {
 	number := s.held.post.delivery.Pull.Number
 
@@ -273,7 +289,11 @@ func (s *server) verdictOn(branch gitrepo.Branch, read forgeRead) (string, heldV
 		return s.pullName(number) + " merged before its CI passed", heldDrop
 	case err != nil:
 		return s.pullName(number) + " is no longer this branch's " + s.noun(), heldDrop
-	case !read.ciRead:
+	case !read.ciRead || read.ciErr != nil:
+		// A CI read that failed may show the CI held from an earlier read, but
+		// nothing was heard of it now.
+		s.held.watch = s.held.watch.Unheard()
+
 		return "", heldKeep
 	}
 

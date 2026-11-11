@@ -84,8 +84,9 @@ type awaitState struct {
 
 // round reads the branch, its pull request and its CI once, and says how the
 // armed announcement stands on them. A read that fails is heard and answers
-// VerdictWaiting, to be read again; a pull request no longer armed, and no
-// check reported within patience, end the wait.
+// VerdictWaiting, to be read again, its time not counted as quiet; a pull
+// request no longer armed, and no check reported within patience, end the
+// wait.
 func (s AwaitSeams) round(ctx context.Context, number int, state *awaitState) (Green, Verdict, error) {
 	green, err := s.readPull(ctx, number, &state.listed)
 	if errors.Is(err, ErrPullChanged) || errors.Is(err, ErrMergedFirst) {
@@ -105,6 +106,7 @@ func (s AwaitSeams) round(ctx context.Context, number int, state *awaitState) (G
 		return Green{}, VerdictWaiting, fmt.Errorf("waiting for CI to pass: %w", ctx.Err())
 	}
 
+	state.watch = state.watch.Unheard()
 	s.hear(Heard{CI: forge.CI{}, Verdict: VerdictWaiting, Err: err})
 
 	return Green{}, VerdictWaiting, nil

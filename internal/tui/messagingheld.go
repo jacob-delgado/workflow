@@ -242,11 +242,15 @@ func (m Model) givenUp(reason string) Model {
 // once CI passed, gives up on it once no check was reported for
 // armed.NoCIPatience, and otherwise keeps it waiting — through a failed run,
 // for a fix — saying what it waits on. A read that failed says nothing of the
-// CI, so it is waited past; and a post for a pull request no longer on screen
-// is given up on.
+// CI, so it is waited past, its time not counted as quiet; and a post for a
+// pull request no longer on screen is given up on.
 func (m Model) settleHeld() (Model, tea.Cmd) {
-	if !m.messaging.pending.waiting() || m.review.ciErr != nil {
+	if !m.messaging.pending.waiting() {
 		return m, nil
+	}
+
+	if m.review.ciErr != nil {
+		return m.heldUnheard(), nil
 	}
 
 	if m.messaging.pending.pull != m.review.pull.Number {
@@ -342,12 +346,21 @@ type heldUnread struct {
 
 var _ applier = heldUnread{}
 
-// apply schedules the next read for the post still waiting, unless the
-// review it was asked in has since been replaced.
+// apply schedules the next read for the post still waiting, its time not
+// counted as quiet, unless the review it was asked in has since been
+// replaced.
 func (msg heldUnread) apply(m Model) (Model, tea.Cmd) {
 	if msg.review != m.reviewsBegun {
 		return m, nil
 	}
 
-	return m.keepPolling(nil)
+	return m.heldUnheard().keepPolling(nil)
+}
+
+// heldUnheard is the model once a read for the post waiting for CI failed:
+// the time until a read is heard again is not counted as quiet.
+func (m Model) heldUnheard() Model {
+	m.messaging.pending.watch = m.messaging.pending.watch.Unheard()
+
+	return m
 }

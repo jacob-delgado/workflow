@@ -405,3 +405,25 @@ func TestAwaitGreenEndsWhenAPullRequestFoundBeforeIsNotFound(t *testing.T) {
 		t.Errorf("AwaitGreen = %v after %d finds, want ErrPullChanged on the first", err, world.finds)
 	}
 }
+
+func TestAwaitGreenCountsNoQuietTimeAcrossAnOutage(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// No check is reported, and twelve minutes of reads fail before one is
+	// heard and then one passes.
+	outage := 12
+	cis := slices.Repeat(states(forge.CINone), outage+1)
+	errs := slices.Repeat([]error{errSeam}, outage)
+	world := &awaiting{
+		cis: append(cis, forge.CI{State: forge.CIPassed}), ciErrs: append(errs, nil), now: armedAt(),
+	}
+
+	// Act
+	green, err := armed.AwaitGreen(t.Context(), world.seams(), 9)
+
+	// Assert
+	if err != nil || green.Pull.Number != 9 {
+		t.Errorf("AwaitGreen = #%d, %v; want #9 once CI passed, an outage not counted as quiet", green.Pull.Number, err)
+	}
+}
