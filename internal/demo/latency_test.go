@@ -6,6 +6,7 @@ package demo_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -174,6 +175,35 @@ func TestStoppingASlowPushEndsItAtOnce(t *testing.T) {
 		err := output.Wait()
 		if waited := time.Since(began); err == nil || waited != 0 {
 			t.Errorf("the stopped push ended with %v after %v, want an error at once", err, waited)
+		}
+	})
+}
+
+func TestAStoppedPushLeavesTheBranchUnpushed(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		deps, _ := committedFeature(t, demo.PushLatency(pushLatency))
+
+		output, err := deps.Git.Push(t.Context(), feature)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		linesOf(output)
+
+		// Act
+		output.Stop()
+
+		// Assert
+		ended := output.Wait()
+		branch, _ := deps.Git.Branch(t.Context())
+		remote, _ := deps.Git.RemoteBranches(t.Context())
+
+		if ended == nil || branch.Upstream != "" || slices.Contains(remote, feature) {
+			t.Errorf("the branch after its push was stopped (%v) = %+v, on the remote %v; want no upstream "+
+				"and %s on no remote, as a killed git push leaves it", ended, branch, remote, feature)
 		}
 	})
 }
