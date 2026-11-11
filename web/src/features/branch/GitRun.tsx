@@ -36,7 +36,7 @@ export interface GitRunner {
 // streams: each line as it is written, then how it ended, which stays until it
 // is put away. A run some other page started, which the stream carries while
 // it goes, stands in when this page has none. A run refused before it ran
-// says why in refusal.
+// says why in refusal, as does a stop refused, until the next start or Close.
 export function useGitRun(streamed: Run | undefined): GitRunner {
   const [run, setRun] = useState<Run | null>(null)
   const [refusal, setRefusal] = useState('')
@@ -80,6 +80,7 @@ export function useGitRun(streamed: Run | undefined): GitRunner {
     stop,
     close: () => {
       setRun(null)
+      setRefusal('')
     },
   }
 }

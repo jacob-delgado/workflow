@@ -300,3 +300,49 @@ test.each([
   expect(mockStartRun).not.toHaveBeenCalled()
   expect(document.activeElement).toBe(screen.getByRole('button', { name: opener }))
 })
+
+// holdRun has the next run start, write a line and stay going until the
+// function it returns ends it as succeeded.
+function holdRun(): () => void {
+  let end: () => void = () => {
+    throw new Error('the run was not started')
+  }
+  mockStartRun.mockImplementationOnce((request, onEvent) => {
+    onEvent({ run: { ...ended(request, 'in_progress', '', []), lines: [] } })
+    onEvent({ line: 'lint ok' })
+
+    return new Promise((resolve) => {
+      end = () => {
+        const run = ended(request, 'succeeded', 'The pre-commit hook passed.', ['lint ok'])
+        onEvent({ run })
+        resolve(run)
+      }
+    })
+  })
+
+  return () => {
+    end()
+  }
+}
+
+test('puts a refused stop away with the run it was for on Close', async () => {
+  // Arrange
+  const end = holdRun()
+  mockStopRun.mockRejectedValueOnce({ code: 'not_found', detail: 'no run is going' })
+  foldable()
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+  await runPreCommit(user)
+  await user.click(await screen.findByRole('button', { name: 'Stop pre-commit' }))
+  await screen.findByRole('alert')
+  await act(async () => {
+    end()
+    await Promise.resolve()
+  })
+
+  // Act
+  await user.click(await screen.findByRole('button', { name: 'Close' }))
+
+  // Assert
+  expect(screen.queryByRole('alert')).toBeNull()
+})
