@@ -509,12 +509,24 @@ func (c *authorCache) drop() {
 
 // scopeCache is the store's last commit scope, read the first time a frame
 // asks — opening the store's database on every frame is the cost it avoids —
-// and read again once after a commit here records one, so it holds what the
-// store kept: nothing, when the store is off. Its lock is its own, since the
-// streams read it while a commit clears it.
+// and read again once after a commit here records one or a removal of the
+// local data, so it holds what the store kept: nothing, when the store is off.
+// It is read again, too, once the branch's head has moved since the read, as
+// a commit made outside the server, which records its scope, moves it. Its
+// lock is its own, since the streams read it while a commit clears it.
 type scopeCache struct {
 	mu    sync.Mutex
 	read  bool
 	value string
 	found bool
+	// head is the branch's head the frame that read it saw.
+	head string
+}
+
+// drop forgets the scope held, so the next frame reads the store again.
+func (c *scopeCache) drop() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.read = false
 }
