@@ -1084,7 +1084,10 @@ paths:
         write puts the file back. The ETag names that configuration, even when
         its file is gone, and a write sends it back in If-Match. With no
         configuration file where the server works, it answers 404: a first one
-        is set up through /api/config/setup.
+        is set up through /api/config/setup. A file made where none applied
+        when the server started or switched there — by hand, by config init,
+        or by a setup that could not take it up — is taken up by the read, as
+        a switch does, and read; one the server cannot take up answers 409.
       tags: [config]
       responses:
         "200":
@@ -1100,6 +1103,14 @@ paths:
           description: >-
             No configuration file applies where the server works; set one up
             through /api/config/setup, or with workflow config init.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "409":
+          description: >-
+            A configuration file was made where none applied, and the server
+            could not take it up: a write is in flight, or the directory could
+            not be wired again. Read it again, or restart workflow --web.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -1138,7 +1149,8 @@ paths:
         it. With
         no configuration file where the server works there is none to write
         over, and it answers 404: a first one is set up through
-        /api/config/setup.
+        /api/config/setup. A file made there that the server has not taken up
+        is not written over either, and answers 409: a read takes it up.
       tags: [config]
       parameters:
         - name: If-Match
@@ -1176,8 +1188,9 @@ paths:
         "409":
           description: >-
             The configuration file changed since the revision If-Match names,
-            edited on disk or saved from another tab; nothing was written. Read
-            it again, then make the change again.
+            edited on disk or saved from another tab, or a file was made where
+            none applied, which the server has not taken up; nothing was
+            written. Read it again, then make the change again.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -5441,7 +5454,8 @@ components:
           type: boolean
           description: >-
             The server works with the file now. False when it could not take
-            it up, which a restart of workflow --web does.
+            it up, which the next read of the configuration tries again, and a
+            restart of workflow --web does.
       additionalProperties: false
 
     JiraConfig:

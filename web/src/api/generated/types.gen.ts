@@ -1913,7 +1913,7 @@ export type SetupResult = {
      */
     not_ignored: boolean;
     /**
-     * The server works with the file now. False when it could not take it up, which a restart of workflow --web does.
+     * The server works with the file now. False when it could not take it up, which the next read of the configuration tries again, and a restart of workflow --web does.
      */
     reopened: boolean;
 };
@@ -3340,6 +3340,10 @@ export type GetConfigErrors = {
      */
     404: Problem;
     /**
+     * A configuration file was made where none applied, and the server could not take it up: a write is in flight, or the directory could not be wired again. Read it again, or restart workflow --web.
+     */
+    409: Problem;
+    /**
      * The configuration file on disk is not valid; the configuration in effect is unchanged. workflow doctor says what is wrong with it.
      */
     422: Problem;
@@ -3379,7 +3383,7 @@ export type UpdateConfigErrors = {
      */
     404: Problem;
     /**
-     * The configuration file changed since the revision If-Match names, edited on disk or saved from another tab; nothing was written. Read it again, then make the change again.
+     * The configuration file changed since the revision If-Match names, edited on disk or saved from another tab, or a file was made where none applied, which the server has not taken up; nothing was written. Read it again, then make the change again.
      */
     409: Problem;
     /**

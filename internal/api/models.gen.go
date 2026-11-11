@@ -2538,7 +2538,7 @@ type SetupResult struct {
 	// Path The file written, as an absolute path.
 	Path string `json:"path"`
 
-	// Reopened The server works with the file now. False when it could not take it up, which a restart of workflow --web does.
+	// Reopened The server works with the file now. False when it could not take it up, which the next read of the configuration tries again, and a restart of workflow --web does.
 	Reopened bool `json:"reopened"`
 
 	// Shown The file written from your home.

@@ -2953,6 +2953,20 @@ func (response GetConfig404ApplicationProblemPlusJSONResponse) VisitGetConfigRes
 	return err
 }
 
+type GetConfig409ApplicationProblemPlusJSONResponse Problem
+
+func (response GetConfig409ApplicationProblemPlusJSONResponse) VisitGetConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetConfig422ApplicationProblemPlusJSONResponse Problem
 
 func (response GetConfig422ApplicationProblemPlusJSONResponse) VisitGetConfigResponse(w http.ResponseWriter) error {

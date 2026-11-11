@@ -62,8 +62,9 @@ type worlds struct {
 	current *server
 	handler http.Handler
 
-	// setups lets one first-run setup run at a time, so a second waits for
-	// the first to write and take its file up, then finds a file applies.
+	// setups lets one first-run setup, or take-up of a file made, run at a
+	// time, so a second waits for the first to write and take its file up,
+	// then finds a file applies.
 	setups sync.Mutex
 
 	// landed wakes the event streams each time a write here is answered,

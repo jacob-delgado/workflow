@@ -24,10 +24,65 @@ import (
 const noFileHere = "no " + config.FileName + " applies where the server works; set one up in Settings, " +
 	"or run workflow config init"
 
+// notTakenUp is why there is no configuration to read or write where a file
+// was made since none applied: the server has not taken it up.
+const notTakenUp = "a " + config.FileName + " was made here that the server has not taken up; " +
+	"read the configuration again, or restart workflow --web"
+
 // setupNeeded reports a server with no configuration file to read or write,
 // where a first one can be set up.
 func (s *server) setupNeeded() bool {
 	return s.files == (config.Files{}) && s.deps.Settings.Setup.Write != nil
+}
+
+// configMadeSince is GetConfig by a server where no file applied: a file made
+// since — by hand, by config init, or by a setup that could not take it up —
+// is taken up under ctx, as a switch does, and read by the server taking it
+// up; with none, a first one is set up. A take-up that fails, or that finds
+// no file to serve, as a dangling link at the path leaves, answers conflict.
+func (s *server) configMadeSince(
+	ctx context.Context, request api.GetConfigRequestObject,
+) (api.GetConfigResponseObject, error) {
+	if !s.fileMade() {
+		return api.GetConfig404ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeNotFound, noFileHere)), nil
+	}
+
+	next, served := s.takeUpMade(ctx)
+	if !served {
+		return api.GetConfig409ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeConflict, notTakenUp)), nil
+	}
+
+	return next.GetConfig(ctx, request)
+}
+
+// takeUpMade serves a file made since none applied from now on, where the
+// server works, as a switch does under ctx, and answers the server switched
+// to, and whether it serves a file. One take-up runs at a time, as one setup
+// does: a read that arrives during another's waits for it, then answers by the
+// server it put in place rather than wiring the directory again.
+func (s *server) takeUpMade(ctx context.Context) (*server, bool) {
+	s.worlds.setups.Lock()
+	defer s.worlds.setups.Unlock()
+
+	if current, _ := s.worlds.served(); current != s {
+		return current, !current.setupNeeded()
+	}
+
+	next, err := s.worlds.switchTo(ctx, s.deps.Repositories.Here.Dir)
+	s.noteTakeUp(err)
+
+	return next, err == nil && !next.setupNeeded()
+}
+
+// noConfigToUpdate is UpdateConfig by a server where no file applied: none to
+// write over, or one made since that a read takes up first, which a write
+// would only write over.
+func (s *server) noConfigToUpdate() api.UpdateConfigResponseObject {
+	if s.fileMade() {
+		return api.UpdateConfig409ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeConflict, notTakenUp))
+	}
+
+	return api.UpdateConfig404ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeNotFound, noFileHere))
 }
 
 // GetSetup says whether a first configuration file is needed here, where it
@@ -177,11 +232,17 @@ func (s *server) setupRefusal(ctx context.Context, err error) api.SetUpResponseO
 // could.
 func (s *server) takeUp(ctx context.Context) bool {
 	_, err := s.worlds.switchHeld(ctx, s.deps.Repositories.Here.Dir)
-	if err != nil && !errors.Is(err, errNoSwitching) {
-		s.unexpected(err)
-	}
+	s.noteTakeUp(err)
 
 	return err == nil
+}
+
+// noteTakeUp notes why a take-up failed, but for a server that cannot switch
+// and a write in flight, which are no failure of the server's.
+func (s *server) noteTakeUp(err error) {
+	if err != nil && !errors.Is(err, errNoSwitching) && !errors.Is(err, errWriteInFlight) {
+		s.unexpected(err)
+	}
 }
 
 // checkFailure is why a check did not pass: an address that is no address,
