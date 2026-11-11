@@ -411,7 +411,7 @@ func gitlabStatus(ctx context.Context, client Client, repo Repo, pull PullReques
 	state := pipelineState(merge.HeadPipeline.Status)
 	checks := []Check{{Name: "pipeline", State: state, URL: merge.HeadPipeline.URL}}
 
-	if merge.HeadPipeline.Status == pipelineFailed && merge.HeadPipeline.ID != 0 {
+	if state == CIFailed && merge.HeadPipeline.ID != 0 {
 		checks = gitlabFailedJobs(ctx, client, repo, merge.pipelineAt(repo), checks)
 	}
 
@@ -506,8 +506,8 @@ func pipelineState(status string) CIState {
 	return state
 }
 
-// The pipeline statuses GitLab words alone; succeeded and skipped it shares
-// with GitHub.
+// The pipeline and job statuses GitLab words alone; succeeded and skipped it
+// shares with GitHub.
 const (
 	pipelineFailed   = "failed"
 	pipelineCanceled = "canceled"
