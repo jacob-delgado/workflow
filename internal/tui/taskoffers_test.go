@@ -457,10 +457,10 @@ func TestOffersAreHeldBackUnderDryRun(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			// Every moment of the loop is held back under dry run before it can
-			// offer anything, so dry run is turned on as the branch is created: what
-			// is under test is the offer's own guard. With no base to fetch, enter's
-			// command creates the branch.
+			// Creating a branch under dry run creates none, so it never reaches
+			// this offer; dry run is turned on as the branch is created instead:
+			// what is under test is the offer's own guard. With no base to fetch,
+			// enter's command creates the branch.
 			repo := withAnUntrackedIssue()
 			repo.moves = startTransitions()
 			repo.branch.Base = ""
@@ -479,4 +479,32 @@ func TestOffersAreHeldBackUnderDryRun(t *testing.T) {
 			requireTaskWrites(t, repo)
 		})
 	}
+}
+
+func TestADryRunMoveToDoneStillOffersToCompleteTheTask(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := withTasks()
+	repo.moves = workflowMoves()
+	model := sized(t, dryInterface(repo), 200, 40)
+	model = drain(t, model, model.Init())
+
+	// Act: move PROJ-412 to Done, under a dry run
+	offered := typing(t, model, "t", downAction, keyEnter)
+
+	// Assert: the offer the live move makes is made, and nothing is written
+	requireScreen(t, offered.View().Content, completeLook, "Mark task 12 '"+issueKey+": "+issueSummary+"' done?")
+	requireTaskWrites(t, repo)
+
+	if moves := repo.asked("transition "); len(moves) != 0 {
+		t.Errorf("moved the issue under a dry run: %q", moves)
+	}
+
+	// Act: complete it
+	completed := typing(t, offered, keyEnter)
+
+	// Assert: it says what it would do, and still writes nothing
+	requireScreen(t, completed.View().Content, "dry run: would mark task 12")
+	requireTaskWrites(t, repo)
 }
