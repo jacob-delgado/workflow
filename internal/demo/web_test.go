@@ -591,16 +591,7 @@ func TestRelinkingAnOwnerReplacesWhatWasDecided(t *testing.T) {
 
 	// Assert
 	people := read[api.People](demo, "/api/people")
-
-	var states []api.OwnerTagState
-
-	for _, owner := range people.Owners {
-		if owner.Owner == sam {
-			states = append(states, owner.State)
-		}
-	}
-
-	if !slices.Equal(states, []api.OwnerTagState{api.OwnerTagStateNotOnSlack}) {
+	if states := statesOf(people, sam); !slices.Equal(states, []api.OwnerTagState{api.OwnerTagStateNotOnSlack}) {
 		t.Errorf("sam.ortiz is %v, want only not on Slack", states)
 	}
 }
