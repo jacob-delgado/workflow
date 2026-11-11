@@ -127,14 +127,18 @@ type linksOwners interface {
 }
 
 // beneath is the open overlay a read or a save is for, when it is the T
-// opened as opened: the one on top, or the one the owner picker was opened
-// over, which a read must still reach, or esc would return to it as it was
-// before the read. An answer meant for an overlay since closed finds none,
-// even when another of its kind has opened since.
+// opened as opened: the one on top, or the one the owner picker or a last
+// look was opened over, which a read must still reach, or esc would return
+// to it as it was before the read. An answer meant for an overlay since
+// closed finds none, even when another of its kind has opened since.
 func beneath[T linksOwners](m Model, opened int) (T, bool) {
 	target := m.overlay
-	if picker, picking := m.overlay.(ownerPicker); picking {
-		target = picker.back
+
+	switch over := m.overlay.(type) {
+	case ownerPicker:
+		target = over.back
+	case lastLook:
+		target = over.back
 	}
 
 	open, isOpen := target.(T)
@@ -148,15 +152,18 @@ func beneath[T linksOwners](m Model, opened int) (T, bool) {
 }
 
 // withBeneath puts back the overlay beneath found, changed: under the owner
-// picker when it is open, whose choices it brings up to date.
+// picker when it is open, whose choices it brings up to date, or under the
+// last look that goes back to it.
 func (m Model) withBeneath(changed linksOwners) Model {
-	if picker, picking := m.overlay.(ownerPicker); picking {
-		m.overlay = picker.over(changed)
-
-		return m
+	switch over := m.overlay.(type) {
+	case ownerPicker:
+		m.overlay = over.over(changed)
+	case lastLook:
+		over.back = changed
+		m.overlay = over
+	default:
+		m.overlay = changed
 	}
-
-	m.overlay = changed
 
 	return m
 }
