@@ -311,21 +311,21 @@ func (g gitlabReviewMerge) reviewRequest() ReviewRequest {
 // gitlabReviews lists the merge requests that request the token owner's review.
 // GitLab filters by reviewer username, not a "me" token, so who the token
 // belongs to is asked first.
-func gitlabReviews(ctx context.Context, client Client) ([]ReviewRequest, error) {
+func gitlabReviews(ctx context.Context, client Client) (ReviewQueue, error) {
 	viewer, err := client.Whoami(ctx)
 	if err != nil {
-		return nil, err
+		return ReviewQueue{}, err
 	}
 
 	query := url.Values{"scope": {queryAll}, queryState: {stateOpened}, "reviewer_username": {viewer.Name()}}
 
-	merges, _, err := readPages(func(page int) ([]gitlabReviewMerge, int, error) {
+	merges, truncated, err := readPages(func(page int) ([]gitlabReviewMerge, int, error) {
 		one, err := call[[]gitlabReviewMerge](ctx, client, http.MethodGet, "/merge_requests?"+pageQuery(query, page), nil)
 
 		return one, uncounted, err
 	})
 	if err != nil {
-		return nil, err
+		return ReviewQueue{}, err
 	}
 
 	reviews := make([]ReviewRequest, 0, len(merges))
@@ -333,7 +333,7 @@ func gitlabReviews(ctx context.Context, client Client) ([]ReviewRequest, error) 
 		reviews = append(reviews, merge.reviewRequest())
 	}
 
-	return reviews, nil
+	return ReviewQueue{Requests: reviews, Truncated: truncated}, nil
 }
 
 // gitlabCreate opens a merge request, with its reviewers, assignees and labels

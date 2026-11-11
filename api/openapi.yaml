@@ -4676,7 +4676,7 @@ components:
 
     ReviewQueue:
       type: object
-      required: [available, requests, facet_order]
+      required: [available, requests, truncated, facet_order]
       properties:
         available:
           type: boolean
@@ -4692,6 +4692,13 @@ components:
             longest-waiting first. Empty when none does, or when there is no
             forge to ask.
           items: {$ref: "#/components/schemas/ReviewRequest"}
+        truncated:
+          type: boolean
+          description: >-
+            Whether the forge holds more requests than it listed, so requests
+            is only the first of them: GitHub's search serves its first
+            thousand, and a GitLab listing is read twenty pages deep. False
+            when there is no forge to ask.
         facet_order:
           type: array
           description: >-

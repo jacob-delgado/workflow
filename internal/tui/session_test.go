@@ -78,7 +78,7 @@ func (h *heldRead) tasks() seams.Tasks {
 // forge is a forge with its review requests' read held.
 func (h *heldRead) forge() seams.Forge {
 	return seams.Forge{
-		ReviewRequests: func(ctx context.Context) ([]forge.ReviewRequest, error) { return nil, h.wait(ctx) },
+		ReviewRequests: func(ctx context.Context) (forge.ReviewQueue, error) { return forge.ReviewQueue{}, h.wait(ctx) },
 	}
 }
 

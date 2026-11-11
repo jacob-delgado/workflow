@@ -113,6 +113,30 @@ func TestReviewsShowsTheAuthorRepositoryCIAndAge(t *testing.T) {
 	}
 }
 
+func TestReviewsWarnsWhenTheForgeHoldsMoreThanItListed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The search counts more than it answered, as past the thousand it serves.
+	clitest.FakeGh(t, clitest.GhResponses{
+		Search: `{"total_count":5000,"items":[` + reviewItem(7, "ben", "grp/proj", time.Now()) + `]}`,
+	})
+	repo := reviewsRepo(t)
+
+	// Act
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "reviews")
+	if err != nil {
+		t.Fatalf("reviews: %v (%+v)", err, printed)
+	}
+
+	// Assert
+	const warned = "These are the first 1; the forge holds more pull requests waiting on your review."
+	if !strings.Contains(printed.Stderr, warned) || !strings.Contains(printed.Stdout, "fix: token") {
+		t.Errorf("a queue the forge holds more of was not said on stderr beside its line:\nstdout:\n%s\nstderr:\n%s",
+			printed.Stdout, printed.Stderr)
+	}
+}
+
 func TestReviewsOmitsAnUnknownRepository(t *testing.T) {
 	t.Parallel()
 

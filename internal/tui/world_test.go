@@ -183,6 +183,7 @@ type world struct {
 	editPullErr     error
 	reviewerErr     error
 	reviews         []forge.ReviewRequest
+	reviewsCut      bool
 	reviewsErr      error
 	ci              []forge.CI
 	// jobLog is what the forge keeps of a failed job's log.

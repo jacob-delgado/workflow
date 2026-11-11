@@ -201,11 +201,13 @@ func pullState(state forge.PullState) api.PullRequestState {
 	}[state]
 }
 
-// reviewQueueDTO maps the review queue onto the wire, with the values its
-// filter offers, in order.
-func reviewQueueDTO(requests []forge.ReviewRequest) api.ReviewQueue {
+// reviewQueueDTO maps the review queue onto the wire, the longest-waiting
+// first, with the values its filter offers, in order.
+func reviewQueueDTO(queue forge.ReviewQueue) api.ReviewQueue {
+	requests := forge.OldestFirst(queue.Requests)
+
 	return api.ReviewQueue{
-		Available: true, Requests: report.ReviewRequests(requests),
+		Available: true, Requests: report.ReviewRequests(requests), Truncated: queue.Truncated,
 		FacetOrder: report.ReviewFacets(forge.OfferedReviewFacets(requests)),
 	}
 }
@@ -213,7 +215,9 @@ func reviewQueueDTO(requests []forge.ReviewRequest) api.ReviewQueue {
 // noReviewQueue is the answer where there is no forge to ask: not available,
 // and empty, with nothing for its filter to offer.
 func noReviewQueue() api.ReviewQueue {
-	return api.ReviewQueue{Available: false, Requests: []api.ReviewRequest{}, FacetOrder: []api.ReviewFacet{}}
+	return api.ReviewQueue{
+		Available: false, Requests: []api.ReviewRequest{}, Truncated: false, FacetOrder: []api.ReviewFacet{},
+	}
 }
 
 // ciDTO maps a CI result and its checks.

@@ -301,10 +301,10 @@ func githubSearch[T any](ctx context.Context, client Client, query string) ([]T,
 }
 
 // githubReviews lists the pull requests that request the token owner's review.
-func githubReviews(ctx context.Context, client Client) ([]ReviewRequest, error) {
-	found, _, err := githubSearch[githubReviewItem](ctx, client, githubSearchQuery)
+func githubReviews(ctx context.Context, client Client) (ReviewQueue, error) {
+	found, truncated, err := githubSearch[githubReviewItem](ctx, client, githubSearchQuery)
 	if err != nil {
-		return nil, err
+		return ReviewQueue{}, err
 	}
 
 	reviews := make([]ReviewRequest, 0, len(found))
@@ -312,7 +312,7 @@ func githubReviews(ctx context.Context, client Client) ([]ReviewRequest, error) 
 		reviews = append(reviews, item.reviewRequest(item.ci(ctx, client)))
 	}
 
-	return reviews, nil
+	return ReviewQueue{Requests: reviews, Truncated: truncated}, nil
 }
 
 // githubReview is one review on a pull request: whose it is and where it stands.

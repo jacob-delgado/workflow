@@ -1317,6 +1317,10 @@ export type ReviewQueue = {
      */
     requests: Array<ReviewRequest>;
     /**
+     * Whether the forge holds more requests than it listed, so requests is only the first of them: GitHub's search serves its first thousand, and a GitLab listing is read twenty pages deep. False when there is no forge to ask.
+     */
+    truncated: boolean;
+    /**
      * Every value the queue's filter offers, in the order it lists them, as the terminal's filter lists them: the repositories the requests are in, by name; every CI state and draft then ready, in a fixed order; then who asks, by name. A name is ordered by its code points. A value no request holds is offered only while it is picked.
      */
     facet_order: Array<ReviewFacet>;

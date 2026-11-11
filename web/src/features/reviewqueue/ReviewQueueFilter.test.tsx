@@ -66,6 +66,7 @@ const facetsWorldOrder: ReviewFacet[] = [
 
 const queue: ReviewQueue = {
   available: true,
+  truncated: false,
   facet_order: facetsWorldOrder,
   requests: [
     requestNumbered(
@@ -201,6 +202,7 @@ test('names each value as the server labels it', async () => {
     [reviewsPath]: {
       available: true,
       requests: [named],
+      truncated: false,
       facet_order: [exampleRepo, ciFailed, ciPassed, ciRunning, ciNone, draft, ready, byKwanLee],
     },
   })
@@ -349,9 +351,10 @@ test('unpicking the only value left takes focus to Sort as the filter goes', asy
                 [acmeApi, ciFailed, ready, byKwan],
               ),
             ],
+            truncated: false,
             facet_order: [acmeApi, ...always, byKwan],
           }
-        : { available: true, requests: [], facet_order: always }
+        : { available: true, requests: [], truncated: false, facet_order: always }
     },
   })
   renderWithClient(<ReviewQueuePanel />)

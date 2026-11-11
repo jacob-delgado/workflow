@@ -2397,6 +2397,9 @@ type ReviewQueue struct {
 
 	// Requests The open pull or merge requests that ask for your review, the longest-waiting first. Empty when none does, or when there is no forge to ask.
 	Requests []ReviewRequest `json:"requests"`
+
+	// Truncated Whether the forge holds more requests than it listed, so requests is only the first of them: GitHub's search serves its first thousand, and a GitLab listing is read twenty pages deep. False when there is no forge to ask.
+	Truncated bool `json:"truncated"`
 }
 
 // ReviewRequest defines model for ReviewRequest.

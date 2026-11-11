@@ -26,7 +26,7 @@ const day = 24 * time.Hour
 // reviewsSeams are what `workflow reviews` reads. They are seams so a test can
 // answer without a forge or a clock.
 type reviewsSeams struct {
-	List func(ctx context.Context) ([]forge.ReviewRequest, error)
+	List func(ctx context.Context) (forge.ReviewQueue, error)
 	Now  func() time.Time
 	// Kind is the forge, whose own words — merge requests, each marked "!" on
 	// GitLab — the queue is told in.
@@ -82,7 +82,8 @@ func runReviewsCommand(cmd *cobra.Command, opts reviewsOptions) error {
 	return runReviews(cmd.Context(), cmdkit.OutputOf(cmd), seams, opts)
 }
 
-// runReviews lists the reviews waiting on you, in the order opts asks for.
+// runReviews lists the reviews waiting on you, in the order opts asks for,
+// and warns when the forge holds more than it listed.
 func runReviews(ctx context.Context, out cmdkit.Output, seams reviewsSeams, opts reviewsOptions) error {
 	order, known := map[string]func([]forge.ReviewRequest) []forge.ReviewRequest{
 		"oldest": forge.OldestFirst, "newest": forge.NewestFirst, "repo": forge.ByRepository,
@@ -96,14 +97,19 @@ func runReviews(ctx context.Context, out cmdkit.Output, seams reviewsSeams, opts
 		return fmt.Errorf("reading review requests: %w", err)
 	}
 
-	reviews := order(answered)
+	reviews := order(answered.Requests)
 	if opts.asJSON {
-		return cmdkit.EncodeJSON(out.Artifact, report.ReviewRequests(reviews))
+		err = cmdkit.EncodeJSON(out.Artifact, report.ReviewRequests(reviews))
+	} else {
+		renderReviews(out, reviews, seams.Now(), seams.Kind)
 	}
 
-	renderReviews(out, reviews, seams.Now(), seams.Kind)
+	if answered.Truncated {
+		out.Notes.Warn("These are the first " + strconv.Itoa(len(reviews)) + "; the forge holds more " +
+			seams.Kind.Noun() + "s waiting on your review.")
+	}
 
-	return nil
+	return err
 }
 
 // renderReviews writes one line per review, or says, as commentary, that the

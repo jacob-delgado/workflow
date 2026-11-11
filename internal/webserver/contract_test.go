@@ -114,8 +114,11 @@ func TestAReviewRequestWithNoTimeOpenedCarriesNone(t *testing.T) {
 
 	// Arrange
 	deps := webtest.FilledDeps()
-	deps.Forge.ReviewRequests = func(context.Context) ([]forge.ReviewRequest, error) {
-		return []forge.ReviewRequest{{Number: 7, URL: "https://x/7", Title: "docs", Author: webtest.TestAuthor}}, nil
+	deps.Forge.ReviewRequests = func(context.Context) (forge.ReviewQueue, error) {
+		return forge.ReviewQueue{
+			Requests:  []forge.ReviewRequest{{Number: 7, URL: "https://x/7", Title: "docs", Author: webtest.TestAuthor}},
+			Truncated: false,
+		}, nil
 	}
 
 	// Act
@@ -133,8 +136,11 @@ func TestAReviewRequestCarriesTheTimeItWasOpened(t *testing.T) {
 	// Arrange
 	opened := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
 	deps := webtest.FilledDeps()
-	deps.Forge.ReviewRequests = func(context.Context) ([]forge.ReviewRequest, error) {
-		return []forge.ReviewRequest{{Number: 7, URL: "https://x/7", Title: "docs", OpenedAt: opened}}, nil
+	deps.Forge.ReviewRequests = func(context.Context) (forge.ReviewQueue, error) {
+		return forge.ReviewQueue{
+			Requests:  []forge.ReviewRequest{{Number: 7, URL: "https://x/7", Title: "docs", OpenedAt: opened}},
+			Truncated: false,
+		}, nil
 	}
 
 	// Act

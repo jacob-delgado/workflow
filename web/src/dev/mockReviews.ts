@@ -43,6 +43,7 @@ const byMia = facet('author', 'mia.okafor', 'by mia.okafor')
 export function mockReviewQueue(): ReviewQueue {
   return {
     available: true,
+    truncated: false,
     facet_order: [
       inBuildImages,
       inHandbook,

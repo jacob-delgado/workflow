@@ -109,7 +109,8 @@ focused again:
   work — the fifth is named for your messaging service, Slack above — and the
   sixth, Reviews, is the other side of it: the pull requests on your forge
   that wait on your review, the longest-waiting first until `O` sorts them
-  another way. `f` filters them by repository, CI state, draft or ready, and
+  another way; its count reads `1000+ waiting` where the forge holds more than
+  it lists. `f` filters them by repository, CI state, draft or ready, and
   author — values in one of those widen the list, and the four narrow it
   together, and a value checked stays, at zero, once no request holds it, and
   goes last when it is a repository or author — and a line above the queue

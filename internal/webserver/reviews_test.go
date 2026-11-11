@@ -28,9 +28,29 @@ const reviewsPath = "/api/reviews"
 // fails with err.
 func queueDeps(requests []forge.ReviewRequest, err error) webserver.Deps {
 	deps := webtest.FilledDeps()
-	deps.Forge.ReviewRequests = func(context.Context) ([]forge.ReviewRequest, error) { return requests, err }
+	deps.Forge.ReviewRequests = func(context.Context) (forge.ReviewQueue, error) {
+		return forge.ReviewQueue{Requests: requests, Truncated: false}, err
+	}
 
 	return deps
+}
+
+func TestListReviewsSaysWhenTheForgeHoldsMoreThanItListed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps := webtest.FilledDeps()
+	deps.Forge.ReviewRequests = func(context.Context) (forge.ReviewQueue, error) {
+		return forge.ReviewQueue{Requests: []forge.ReviewRequest{{Number: 7}}, Truncated: true}, nil
+	}
+
+	// Act
+	queue := webtest.Decode[api.ReviewQueue](t, webtest.Get(t, webtest.Serve(t, deps, config.Default()), reviewsPath))
+
+	// Assert
+	if !queue.Truncated || len(queue.Requests) != 1 {
+		t.Errorf("queue = %+v, want the one request listed and the queue truncated", queue)
+	}
 }
 
 func TestListReviewsAnswersTheForgeQueue(t *testing.T) {
@@ -165,13 +185,13 @@ func TestListReviewsSaysThereIsNoForgeToAsk(t *testing.T) {
 
 	// No forge to ask is an answer about where the server runs, not a missing
 	// resource: the queue is not available, and empty, rather than a 404.
-	cases := map[string]func(context.Context) ([]forge.ReviewRequest, error){
+	cases := map[string]func(context.Context) (forge.ReviewQueue, error){
 		webtest.NoForgeSeam: nil,
-		"outside a repository": func(context.Context) ([]forge.ReviewRequest, error) {
-			return nil, fmt.Errorf("reading the base remote: %w", forge.ErrNotARemote)
+		"outside a repository": func(context.Context) (forge.ReviewQueue, error) {
+			return forge.ReviewQueue{}, fmt.Errorf("reading the base remote: %w", forge.ErrNotARemote)
 		},
-		"an origin on no forge it can read": func(context.Context) ([]forge.ReviewRequest, error) {
-			return nil, fmt.Errorf("%s — set forge.kind and forge.host: %w", forgeHost, forge.ErrUnknownForge)
+		"an origin on no forge it can read": func(context.Context) (forge.ReviewQueue, error) {
+			return forge.ReviewQueue{}, fmt.Errorf("%s — set forge.kind and forge.host: %w", forgeHost, forge.ErrUnknownForge)
 		},
 	}
 

@@ -84,7 +84,7 @@ func TestARefreshMarksEveryPanesTitleInFlightUntilItsAnswerArrives(t *testing.T)
 			world: withReviews, pane: "6", want: "Reviews ◐",
 			wrap: func(deps *tui.Deps, held *hold) {
 				read := deps.Forge.ReviewRequests
-				deps.Forge.ReviewRequests = func(ctx context.Context) ([]forge.ReviewRequest, error) {
+				deps.Forge.ReviewRequests = func(ctx context.Context) (forge.ReviewQueue, error) {
 					held.wait()
 
 					return read(ctx)

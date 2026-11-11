@@ -606,7 +606,9 @@ been met or withdrawn drops out, and a fine-grained token sees only the
 repositories it was granted. GitHub's search carries no CI, so each pull
 request's checks are read after it, a few requests for each; one whose checks
 the token cannot read shows `none`. On GitLab it lists open merge requests
-whose reviewers include you, with each one's head pipeline. The web's **Reviews**
+whose reviewers include you, with each one's head pipeline. Where the forge holds
+more than it lists — past the thousand GitHub's search serves, or two thousand
+on GitLab — every surface says these are only the first. The web's **Reviews**
 section and the terminal's queue show the same list. See [The web interface:
 Reviews]({{< relref "/docs/web#reviews" >}}).
 
