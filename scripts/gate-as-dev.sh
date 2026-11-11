@@ -13,10 +13,10 @@
 # (CLAUDE.md, Testing). So the run is handed to the gate user (GATE_USER, dev),
 # which fetches the worktree's HEAD into ~/gate and runs task there, one task
 # at a time; given no task, the steps of `task check`, or `task check:docs`
-# when scripts/docs-only.sh finds the worktree changes the docs alone since
-# GATE_BASE (origin/main by default). The gate checks what is committed:
-# uncommitted changes are left out, and it says so. One run goes at a time,
-# since every run shares that checkout; a second waits for the first
+# when scripts/docs-only.sh, as GATE_BASE holds it, finds the worktree changes
+# the docs alone since GATE_BASE (origin/main by default). The gate checks what
+# is committed: uncommitted changes are left out, and it says so. One run goes
+# at a time, since every run shares that checkout; a second waits for the first
 # (GATE_LOCK_WAIT seconds, an hour by default).
 #
 # The gate user gets an environment of named variables alone, so none of
@@ -95,11 +95,15 @@ take_lock() {
 }
 
 # docs_only_tasks prints check:docs when the worktree changes the docs alone
-# since the base (scripts/docs-only.sh), and nothing otherwise, so a change it
-# cannot classify gets the whole of check.
-#   docs_only_tasks <worktree> <self>
+# since the base, and nothing otherwise, so a change it cannot classify gets
+# the whole of check. It asks scripts/docs-only.sh as the base holds it, as CI
+# does: the gate runs from PATH as setup installed it, with no copy beside it,
+# and a change cannot rewrite the copy that classifies it.
+#   docs_only_tasks <worktree>
 docs_only_tasks() {
-  if (cd "$1" && "$(dirname "$2")/docs-only.sh" "${base}" >/dev/null 2>&1); then
+  local classifier
+  classifier="$(git -C "$1" show "${base}:scripts/docs-only.sh" 2>/dev/null || true)"
+  if [[ -n "${classifier}" ]] && (cd "$1" && bash -c "${classifier}" docs-only.sh "${base}" >/dev/null 2>&1); then
     echo "gate-as-dev: the change since ${base} is docs only, so this runs task check:docs" >&2
     echo check:docs
   fi
@@ -128,7 +132,7 @@ hand_over() {
   fi
   self="$(readlink -f "${BASH_SOURCE[0]}")"
   if (($# == 0)); then
-    docs="$(docs_only_tasks "${src}" "${self}")"
+    docs="$(docs_only_tasks "${src}")"
     if [[ -n "${docs}" ]]; then set -- "${docs}"; fi
   fi
   if [[ -n "$(git -C "${src}" status --porcelain)" ]]; then
