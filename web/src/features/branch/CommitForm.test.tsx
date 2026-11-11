@@ -272,3 +272,70 @@ test('shows the header it counts beside the count', async () => {
   // As the terminal's composer shows it: the header so far, then its length.
   expect(screen.getByText('fix(config): 13/72')).toBeTruthy()
 })
+
+// holdCommit holds the next commit's answer back until the function it
+// returns is called.
+function holdCommit(): () => void {
+  let answer: () => void = () => {
+    throw new Error('the commit was not sent')
+  }
+  mockCommit.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        answer = () => {
+          resolve(makeBranch())
+        }
+      }),
+  )
+
+  return () => {
+    answer()
+  }
+}
+
+test('keeps a subject typed while the commit ran, once it lands', async () => {
+  // Arrange
+  const land = holdCommit()
+  const user = userEvent.setup()
+  render(<CommitForm canCommit suggestedScope="" convention={conventional} />)
+  const subject = screen.getByLabelText<HTMLInputElement>('Subject')
+  await user.type(subject, 'first change')
+  await user.click(screen.getByRole('button', { name: /commit staged changes/i }))
+  await user.clear(subject)
+  await user.type(subject, 'second change')
+
+  // Act
+  await act(async () => {
+    land()
+    await Promise.resolve()
+  })
+
+  // Assert
+  expect(await screen.findByText(/^Committed /)).toBeTruthy()
+  expect(subject.value).toBe('second change')
+})
+
+test('keeps a scope typed while the commit ran, and no suggestion replaces it', async () => {
+  // Arrange
+  const land = holdCommit()
+  const user = userEvent.setup()
+  const { rerender } = render(
+    <CommitForm canCommit suggestedScope="api" convention={conventional} />,
+  )
+  const scope = screen.getByLabelText<HTMLInputElement>('Scope (optional)')
+  await user.type(screen.getByLabelText('Subject'), 'first change')
+  await user.click(screen.getByRole('button', { name: /commit staged changes/i }))
+  await user.clear(scope)
+  await user.type(scope, 'cli')
+  await act(async () => {
+    land()
+    await Promise.resolve()
+  })
+  await screen.findByText(/^Committed /)
+
+  // Act
+  rerender(<CommitForm canCommit suggestedScope="web" convention={conventional} />)
+
+  // Assert
+  expect(scope.value).toBe('cli')
+})

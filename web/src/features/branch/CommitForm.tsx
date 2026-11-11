@@ -79,8 +79,11 @@ export function CommitForm({ canCommit, waiting, suggestedScope, convention }: C
         body: fields.body,
         breaking: fields.breaking,
       })
-      reset(nextMessage(fields, commitTypes, suggestedScope))
-      scopeSuggestion.release()
+      const typed = getValues()
+      reset(keptSince(nextMessage(fields, commitTypes, suggestedScope), fields, typed))
+      if (typed.scope === fields.scope) {
+        scopeSuggestion.release()
+      }
 
       return committed
     },
@@ -142,6 +145,19 @@ function nextMessage(used: CommitFields, types: string[], suggested: string): Co
     subject: '',
     body: '',
     breaking: false,
+  }
+}
+
+// keptSince is the message the form moves on to once a commit lands, but for
+// each field changed since the commit was sent: no field is held while the
+// commit runs, so what was typed meanwhile is the next message, and stays.
+function keptSince(next: CommitFields, sent: CommitFields, typed: CommitFields): CommitFields {
+  return {
+    type: typed.type === sent.type ? next.type : typed.type,
+    scope: typed.scope === sent.scope ? next.scope : typed.scope,
+    subject: typed.subject === sent.subject ? next.subject : typed.subject,
+    body: typed.body === sent.body ? next.body : typed.body,
+    breaking: typed.breaking === sent.breaking ? next.breaking : typed.breaking,
   }
 }
 
