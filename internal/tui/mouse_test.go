@@ -317,6 +317,22 @@ func TestClickingTheIssueBeingReadBelow80ColumnsPicksNothing(t *testing.T) {
 	}
 }
 
+func TestAnIssuePickedInTheRailShowsTheListOnceNarrowAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The first issue is read below 80 columns, the terminal is widened, and
+	// the second issue is clicked in the rail.
+	reading := typing(t, newWorld().live(t, 79, 30), keyEnter)
+	picked := click(t, sized(t, reading, 120, 40), 5, 3)
+
+	// Act
+	view := sized(t, picked, 79, 30).View().Content
+
+	// Assert
+	requireScreen(t, view, "▸ ○ PROJ-388")
+}
+
 func TestClickingPicksATransition(t *testing.T) {
 	t.Parallel()
 
