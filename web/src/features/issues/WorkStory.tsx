@@ -276,13 +276,12 @@ interface StoryActionProps {
 // worktree that has it checked out, since git will not check it out twice,
 // or saying how to free it when that worktree is gone. A worktree just made is
 // offered to switch to, and stays offered when the snapshot then shows its
-// branch, until a switch makes that branch the one checked out.
+// branch, until a switch makes that branch the one checked out or the
+// snapshot shows the worktree gone.
 function StoryAction({ issueKey, branch, outcome }: StoryActionProps) {
   const [made, setMade] = useState<CreatedWorktree | null>(null)
 
-  // Once the switch has made the branch the one checked out, there is nothing
-  // left to offer.
-  if (made !== null && branch?.current !== true) {
+  if (made !== null && switchable(branch)) {
     return <WorktreeMadeOffer issueKey={issueKey} worktree={made} outcome={outcome} />
   }
 
@@ -318,6 +317,13 @@ function StoryAction({ issueKey, branch, outcome }: StoryActionProps) {
   ) : (
     <CheckoutButton branch={branch.name} outcome={outcome} />
   )
+}
+
+// switchable reports a worktree just made for the issue as still worth a
+// switch: once a switch has made its branch the one checked out, there is
+// nothing left to offer, and once the worktree is gone, nothing to switch to.
+function switchable(branch: TaskBranch | undefined): boolean {
+  return branch?.current !== true && branch?.worktree_missing !== true
 }
 
 // WorkStory is an issue's stages, with the start or the check-out that moves it

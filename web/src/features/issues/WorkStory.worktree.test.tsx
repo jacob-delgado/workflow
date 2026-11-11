@@ -227,3 +227,35 @@ test('a worktree that could not be made says why, with focus still on its button
     screen.getByRole('button', { name: 'Start work in a new worktree' }),
   )
 })
+
+test('the offer to switch gives way to how to free the branch once its worktree is gone', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
+  render(<WorkStory issueKey="PROJ-999" />)
+  await user.click(screen.getByRole('button', { name: 'Start work in a new worktree' }))
+  await screen.findByRole('button', { name: 'Switch to it' })
+
+  // Act
+  act(() => {
+    useSnapshotStore.setState({
+      status: 'live',
+      snapshot: makeSnapshot({
+        branches: [
+          makeTaskBranch({
+            name: 'feat/PROJ-999',
+            issue_key: 'PROJ-999',
+            current: false,
+            worktree: '/home/ana/src/api-feat-PROJ-999',
+            worktree_shown: '~/src/api-feat-PROJ-999',
+            worktree_missing: true,
+          }),
+        ],
+      }),
+    })
+  })
+
+  // Assert
+  expect(screen.getByText(/git worktree prune/)).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Switch to it' })).toBeNull()
+})
