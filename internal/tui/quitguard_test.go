@@ -69,3 +69,22 @@ func TestAnyOtherKeyAtTheQuitGuardKeepsAsking(t *testing.T) {
 		t.Errorf("x at the quit guard returned %s, want no command", messageType(cmd))
 	}
 }
+
+func TestQInTheHelpAsksBeforeLosingAWaitingPost(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	waiting := newWorld()
+	waiting.ci = []forge.CI{{State: forge.CIRunning}}
+	help := typing(t, waiting.live(t, 120, 40), "5", "p", "w", "?")
+
+	// Act
+	asked, cmd := pressed(t, help, "q")
+
+	// Assert
+	if got, quit := messageType(cmd), messageType(tea.Quit); got == quit {
+		t.Errorf("q from the help with a post waiting returned %s, want the quit guard first", got)
+	}
+
+	requireScreen(t, asked.View().Content, "An announcement is waiting for CI and will be lost")
+}
