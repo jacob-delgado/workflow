@@ -91,6 +91,7 @@ function Composer({
           <ComposerBar
             ids={ids}
             tab={tab}
+            busy={busy}
             onTab={setTab}
             onFormat={(format) => {
               const edit = formatted(box.current, format)
@@ -252,13 +253,16 @@ const tabs: { tab: Tab; label: string }[] = [
 interface ComposerBarProps {
   ids: Ids
   tab: Tab
+  // busy says the comment is posting, which holds its formatting buttons, as
+  // it holds the box: what is kept after a refusal is what was sent.
+  busy: boolean
   onTab: (tab: Tab) => void
   onFormat: (format: Format) => void
 }
 
 // ComposerBar heads a Markdown comment: Write and Preview as tabs, which the
 // arrow keys move between, and the formatting buttons while writing.
-function ComposerBar({ ids, tab, onTab, onFormat }: ComposerBarProps) {
+function ComposerBar({ ids, tab, busy, onTab, onFormat }: ComposerBarProps) {
   const tabRefs = useRef<Record<Tab, HTMLButtonElement | null>>({ write: null, preview: null })
 
   const onKeyDown = (event: KeyboardEvent) => {
@@ -303,7 +307,7 @@ function ComposerBar({ ids, tab, onTab, onFormat }: ComposerBarProps) {
           </button>
         ))}
       </div>
-      {tab === 'write' ? <FormatButtons onFormat={onFormat} /> : null}
+      {tab === 'write' ? <FormatButtons held={busy} onFormat={onFormat} /> : null}
     </div>
   )
 }
@@ -316,8 +320,9 @@ const formatButtons: { format: Format; label: string; Icon: LucideIcon }[] = [
   { format: 'list', label: 'Bulleted list', Icon: List },
 ]
 
-// FormatButtons write Markdown's marks around the selection.
-function FormatButtons({ onFormat }: { onFormat: (format: Format) => void }) {
+// FormatButtons write Markdown's marks around the selection, except while
+// held: off by aria-disabled, as a held Button is, so a press writes nothing.
+function FormatButtons({ held, onFormat }: { held: boolean; onFormat: (format: Format) => void }) {
   return (
     <div role="group" aria-label="Formatting" className="flex gap-tight">
       {/* Not a Button: a toolbar's icon, which keeps the selection in the box. */}
@@ -326,6 +331,7 @@ function FormatButtons({ onFormat }: { onFormat: (format: Format) => void }) {
           key={format}
           type="button"
           aria-label={label}
+          aria-disabled={held || undefined}
           title={label}
           // Keep the selection in the box: a press that took focus first would
           // leave the selection where the button cannot read it in every browser.
@@ -333,9 +339,11 @@ function FormatButtons({ onFormat }: { onFormat: (format: Format) => void }) {
             event.preventDefault()
           }}
           onClick={() => {
-            onFormat(format)
+            if (!held) {
+              onFormat(format)
+            }
           }}
-          className="grid size-7 place-items-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="grid size-7 place-items-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-disabled:cursor-not-allowed aria-disabled:text-disabled-foreground"
         >
           <Icon aria-hidden className="size-4" />
         </button>

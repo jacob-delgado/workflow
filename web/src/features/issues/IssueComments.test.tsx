@@ -252,6 +252,29 @@ test('Bold wraps what is selected and keeps it selected', async () => {
   expect(document.activeElement).toBe(box)
 })
 
+test('the formatting buttons leave the comment as it is while it posts', async () => {
+  // Arrange
+  fakeApi({
+    [issuePath]: detailWith([]),
+    '/api/config': configWith(true),
+    [commentPath]: () => new Promise(() => undefined),
+  })
+  renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
+  await screen.findByRole('tab', { name: 'Write' })
+  const box = (await commentBox()) as HTMLTextAreaElement
+  await userEvent.type(box, 'ship it now')
+  await userEvent.click(screen.getByRole('button', { name: 'Comment' }))
+  await screen.findByRole('button', { name: 'Commenting…' })
+  box.setSelectionRange(5, 7)
+
+  // Act
+  await userEvent.click(screen.getByRole('button', { name: 'Bold' }))
+
+  // Assert
+  expect(box.value).toBe('ship it now')
+  expect(screen.getByRole('button', { name: 'Bold' }).getAttribute('aria-disabled')).toBe('true')
+})
+
 test('a list marks each line selected', async () => {
   // Arrange
   fakeApi({ [issuePath]: detailWith([]), '/api/config': configWith(true) })
