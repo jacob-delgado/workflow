@@ -112,9 +112,14 @@ func (s summaryState) shownPeriod(now time.Time) activity.Period {
 }
 
 // loading reports a read of the period shown that some source has not
-// answered yet.
+// answered yet. A period carried in from a switch is chosen but not yet read.
 func (s summaryState) loading() bool {
-	return s.chosen && !s.complete
+	return s.begun() && !s.complete
+}
+
+// begun reports a read begun, of this period or one shown before it.
+func (s summaryState) begun() bool {
+	return s.reading > 0
 }
 
 // readInFull reports every source answered for the period shown, and
@@ -320,6 +325,8 @@ func (s summaryState) rail(kit renderKit, now time.Time) string {
 	period := s.shownPeriod(now).String()
 
 	switch items := len(s.items(now)); {
+	case !s.begun():
+		return period + ": read when opened"
 	case !s.complete && items == 0:
 		return period + ": " + kit.reading()
 	case items == 0:

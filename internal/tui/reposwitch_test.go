@@ -159,6 +159,38 @@ func TestArrivingSaysWhereAndKeepsTheSessionsChoices(t *testing.T) {
 	requireScreen(t, arrived.View().Content, "switched to ~/src/web", "2026-09-14")
 }
 
+// arrivedOpen is the interface opened on arriving, wired to arriving and told
+// of next before it starts, as the command line opens it, with everything it
+// loads at start loaded.
+func arrivedOpen(t *testing.T, arriving *world, next tui.Next) tui.Model {
+	t.Helper()
+
+	opened := sized(t, tui.New(arriving.cfg, nil, arriving.deps()), 120, 40).Arrived(next)
+
+	return drain(t, opened, opened.Init())
+}
+
+func TestArrivingWithAChosenPeriodReadsTheSummaryOnlyOnceLookedAt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	moved := typing(t, reposWorld().live(t, 120, 40), summaryKey, "[", reposKey, "j", switchDirKey)
+	left, _ := pressed(t, moved, keyEnter)
+	arriving := newWorld()
+	arriving.dirs = &dirsWorld{here: webPlace()}
+	arriving.done = summaryWorld().done
+
+	// Act
+	arrived := arrivedOpen(t, arriving, left.Destination())
+
+	// Assert
+	// Nothing reads the period carried in until the pane is looked at, so
+	// nothing is drawn as in flight.
+	view := arrived.View().Content
+	requireScreen(t, view, "2026-09-14: read when opened")
+	refuseScreen(t, view, "reading")
+}
+
 func TestAFailedSwitchStaysAndSaysWhy(t *testing.T) {
 	t.Parallel()
 
