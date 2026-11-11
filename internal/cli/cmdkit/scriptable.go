@@ -253,12 +253,31 @@ func (logging requestLogging) open(path string) (*wiring.RequestLog, func(), err
 
 	var out io.Writer = file
 	if logging.echo {
-		out = io.MultiWriter(file, logging.notes.DebugWriter())
+		out = echoedFile{file: file, echo: logging.notes.DebugWriter()}
 	}
 
 	requestLog := wiring.NewRequestLog(out, nil)
 
 	return requestLog, func() { closeRequestLog(requestLog, file, logging.notes) }, nil
+}
+
+// echoedFile writes each outline to the log's file and says it as a debug
+// line too. Unlike io.MultiWriter it offers every outline to both, so a file
+// that refuses its writes does not silence the echo --verbose asked for.
+type echoedFile struct {
+	file io.Writer
+	echo io.Writer
+}
+
+var _ io.Writer = echoedFile{}
+
+// Write writes outline to the file and the echo alike, and reports what
+// either could not write.
+func (out echoedFile) Write(outline []byte) (int, error) {
+	written, fileErr := out.file.Write(outline)
+	_, echoErr := out.echo.Write(outline)
+
+	return written, errors.Join(fileErr, echoErr)
 }
 
 // unfiled is the request log kept with no file: the debug lines alone when

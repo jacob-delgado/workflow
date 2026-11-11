@@ -44,6 +44,37 @@ func TestRequestLogWarnsOnceWhenItCouldNotBeWritten(t *testing.T) {
 	}
 }
 
+func TestARequestLogThatCannotBeWrittenStillEchoesUnderVerbose(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Every write to /dev/full fails as a full disk would; where there is none,
+	// no file can be made to refuse writes from a test.
+	const fullDevice = "/dev/full"
+
+	_, statErr := os.Stat(fullDevice)
+	if statErr != nil {
+		t.Skip("no " + fullDevice + " here to refuse the request log's writes")
+	}
+
+	dir := t.TempDir()
+	clitest.WriteConfigFor(t, dir, clitest.WorkingJira(t))
+
+	// Act
+	printed, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t),
+		"--verbose", "doctor", "--online", "--request-log", fullDevice)
+
+	// Assert
+	// The file refusing its outlines is no reason to lose the debug lines
+	// --verbose asked for: each request is still said on stderr.
+	wantExit(t, err, 0)
+
+	if !strings.Contains(printed.Stderr, "DEBUG jira GET /rest/api/2/myself") {
+		t.Errorf("stderr with --verbose and a request log that cannot be written:\n%s\nwant each request's "+
+			"outline echoed as a debug line all the same", printed.Stderr)
+	}
+}
+
 // requestLogRoot is a tree whose root and probe each open the request log as
 // a command does, keeping whether one was opened and closing it before they
 // end.
