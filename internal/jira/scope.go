@@ -15,6 +15,10 @@ import (
 // it, at the very start of a query too.
 var orderByClause = regexp.MustCompile(`(?i)(?:^|\s)order\s+by\s`)
 
+// assigneeIsMe is the clause that narrows a query to the issues assigned to
+// whoever the credential belongs to.
+const assigneeIsMe = "assignee = currentUser()"
+
 // assigneeField matches the assignee field named whatever its case, as a word
 // of its own.
 var assigneeField = regexp.MustCompile(`(?i)\bassignee\b`)
@@ -89,7 +93,7 @@ func ScopedToMe(jql string) string {
 		return jql
 	}
 
-	scoped := "assignee = currentUser()"
+	scoped := assigneeIsMe
 	if where = strings.TrimSpace(where); where != "" {
 		scoped = "(" + where + ") AND " + scoped
 	}
@@ -279,5 +283,5 @@ func KeysAssignedToMe(keys []Key) string {
 	slices.Sort(names)
 
 	return "key in (" + strings.Join(slices.Compact(names), ", ") +
-		") AND assignee = currentUser() AND statusCategory != done"
+		") AND " + assigneeIsMe + " AND statusCategory != done"
 }

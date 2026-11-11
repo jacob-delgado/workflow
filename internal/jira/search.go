@@ -16,7 +16,7 @@ import (
 // statusCategory rather than resolution, because a workflow can close an issue
 // without ever setting a resolution — and such an issue would otherwise sit in
 // the list forever.
-const AssignedToMe = "assignee = currentUser() AND statusCategory != done ORDER BY updated DESC"
+const AssignedToMe = assigneeIsMe + " AND statusCategory != done ORDER BY updated DESC"
 
 // searchPath is Data Center's search. Cloud replaced it with /search/jql in
 // 2025; Data Center still serves this one and answers 404 to the other.
