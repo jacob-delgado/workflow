@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { useSnapshotStore } from '@/api/snapshot.ts'
@@ -195,4 +195,27 @@ test('counts the scripts it wrote in words', async () => {
   expect(
     await screen.findByText('Wrote lefthook.yml and 1 script, and installed lefthook.'),
   ).toBeTruthy()
+})
+
+test('offers to set lefthook up afresh when hooks lack it again after a write', async () => {
+  // Arrange
+  withHooks(1)
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+  await user.click(screen.getByRole('button', { name: 'Set up lefthook' }))
+  const offer = await screen.findByRole('region', { name: 'Set up lefthook' })
+  await user.click(within(offer).getByRole('button', { name: 'Write lefthook.yml' }))
+  await screen.findByText('Wrote lefthook.yml and installed lefthook.')
+  act(() => {
+    withHooks(0)
+  })
+
+  // Act
+  act(() => {
+    withHooks(1)
+  })
+
+  // Assert
+  expect(screen.queryByRole('region', { name: 'Set up lefthook' })).toBeNull()
+  expect(screen.getByRole('button', { name: 'Set up lefthook' })).toBeTruthy()
 })

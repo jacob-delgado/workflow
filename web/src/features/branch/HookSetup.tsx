@@ -12,17 +12,21 @@ import { readHookSetup, writeHookSetup } from './gitRunApi.ts'
 // HookSetup offers a lefthook configuration for the hooks the repository runs
 // that lefthook does not manage, as the terminal's g does, while the stream
 // counts any. Opening it reads what would be written, which is its own
-// preview; Write lefthook.yml writes it and installs lefthook.
+// preview; Write lefthook.yml writes it and installs lefthook. The offer and
+// what it read go when the stream counts none, so hooks that lack lefthook
+// again later are offered afresh, from a read of their own.
 export function HookSetup({ unmanaged, outcome }: { unmanaged: number; outcome: Teller }) {
+  return unmanaged === 0 ? null : <SetupOffer outcome={outcome} />
+}
+
+// SetupOffer is Set up lefthook, and once its read is done, the look at what
+// it would write.
+function SetupOffer({ outcome }: { outcome: Teller }) {
   const [opener, handBack] = useFocusHandback<HTMLButtonElement>()
   const setUpKeys = useShortcut('set-up-lefthook', opener)
   const read = useAsyncAction(readHookSetup, {
     fallback: 'The hooks could not be read. Try again, or set lefthook up with g in the terminal.',
   })
-
-  if (unmanaged === 0) {
-    return null
-  }
 
   if (read.state === 'done' && read.result !== undefined) {
     return (
