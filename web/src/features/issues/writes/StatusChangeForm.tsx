@@ -3,7 +3,7 @@ import { apiErrorMessage } from '@/api/apiError.ts'
 import type { FieldEntry, StatusChange, StatusChangeField } from '@/api/generated/types.gen.ts'
 import { Input, Select } from '@/lib/Field.tsx'
 import type { Teller } from '@/lib/Outcome.tsx'
-import { Failure, Reading, Unread } from '@/lib/Status.tsx'
+import { Failure, Reading, Unread, useShownRefusal } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { useIssueWrites, useStatusChanges } from './issueWritesApi.ts'
 import { LabeledInput, WriteForm } from '@/lib/WriteForm.tsx'
@@ -96,15 +96,12 @@ function OfferedChanges({
   onChoose: (change: StatusChange) => void
 }) {
   const changes = useStatusChanges(issueKey)
+  const refusal = useShownRefusal(changes.error, changes.isPending)
 
-  if (changes.isPending) {
-    return <Reading>Reading the status changes of {shown}…</Reading>
-  }
-
-  if (changes.isError) {
+  if (refusal !== null) {
     return (
       <Unread
-        reason={apiErrorMessage(changes.error, `The status changes of ${shown} could not be read.`)}
+        reason={apiErrorMessage(refusal, `The status changes of ${shown} could not be read.`)}
         refusals={changes.errorUpdateCount}
         retrying={changes.isFetching}
         onRetry={() => {
@@ -112,6 +109,10 @@ function OfferedChanges({
         }}
       />
     )
+  }
+
+  if (changes.data === undefined) {
+    return <Reading>Reading the status changes of {shown}…</Reading>
   }
 
   if (changes.data.length === 0) {

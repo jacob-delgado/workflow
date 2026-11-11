@@ -4,7 +4,7 @@ import type { DirectoryListing, Repositories } from '@/api/generated/types.gen.t
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { mockDirectories, mockRepositories } from '@/dev/mockRepositories.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
-import { fakeApi } from '@/test/fakeApi.ts'
+import { fakeApi, keptBeside, refusedThenHeld, tryAgainShown } from '@/test/fakeApi.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { RepositoriesPanel } from './RepositoriesPanel.tsx'
 
@@ -262,6 +262,20 @@ test('where the server works that cannot be read says why, and reads again on Tr
 
   // Assert
   expect(await screen.findByRole('region', { name: 'Working in' })).toBeTruthy()
+})
+
+test('Try again beside where the server works keeps its place and focus while it reads', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  fakeApi({ '/api/repositories': refusedThenHeld('the request was refused') })
+  renderWithClient(<RepositoriesPanel />)
+  const retry = await screen.findByRole('button', { name: 'Try again' })
+
+  // Act
+  await user.click(retry)
+
+  // Assert
+  expect(await tryAgainShown(retry)).toEqual(keptBeside('the request was refused'))
 })
 
 test('favorites the server cannot keep offer no change', async () => {

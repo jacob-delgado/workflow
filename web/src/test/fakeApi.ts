@@ -1,3 +1,4 @@
+import { screen, within } from '@testing-library/react'
 import { vi } from 'vitest'
 import type { Snapshot } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
@@ -162,4 +163,53 @@ export function held<T>(): Held<T> {
   })
 
   return { promise, answer, refuse }
+}
+
+// refusedThenHeld is a route that refuses its first read with a problem, as
+// the server refuses a read it cannot make, and holds every read after it, so
+// a test sees what a Try again shows while it reads.
+export function refusedThenHeld(detail: string): () => Promise<Response> {
+  let reads = 0
+
+  return () => {
+    reads += 1
+    if (reads > 1) {
+      return new Promise<Response>(() => undefined)
+    }
+
+    return Promise.resolve(
+      Response.json(
+        { type: 'about:blank', title: 'Forbidden', status: 403, code: 'forbidden', detail },
+        { status: 403, headers: { 'Content-Type': 'application/problem+json' } },
+      ),
+    )
+  }
+}
+
+// TryAgainShown is what stands where a Try again was pressed, while the read
+// it started is out.
+interface TryAgainShown {
+  // kept is whether the Try again pressed is the one still drawn, held.
+  kept: boolean
+  focused: boolean
+  // reason is what the alert beside it says.
+  reason: string | null
+}
+
+// tryAgainShown is what stands where pressed was, once it says it is trying
+// again: kept, focused and beside the refusal it answered, rather than given
+// way to "Reading…", which a test compares with keptBeside.
+export async function tryAgainShown(pressed: HTMLElement): Promise<TryAgainShown> {
+  const shown = await screen.findByRole('button', { name: 'Trying again…' })
+
+  return {
+    kept: shown === pressed && pressed.getAttribute('aria-disabled') === 'true',
+    focused: document.activeElement === pressed,
+    reason: within(pressed.parentElement ?? document.body).getByRole('alert').textContent,
+  }
+}
+
+// keptBeside is a Try again kept, with its focus, beside the reason given.
+export function keptBeside(reason: string): TryAgainShown {
+  return { kept: true, focused: true, reason }
 }

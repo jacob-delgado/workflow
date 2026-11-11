@@ -4,7 +4,7 @@ import type { SetupOffer, SetupRequest, SetupResult } from '@/api/generated/type
 import { useHealthStore } from '@/api/health.ts'
 import { mockConfig } from '@/dev/mockConfig.ts'
 import App from '@/App.tsx'
-import { fakeApi } from '@/test/fakeApi.ts'
+import { fakeApi, keptBeside, refusedThenHeld, tryAgainShown } from '@/test/fakeApi.ts'
 import { FakeEventSource } from '@/test/setup/fakeEventSource.ts'
 import { makeHealth } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
@@ -98,6 +98,26 @@ test('with no file, Settings asks where one goes and what config init asks', asy
   expect(within(form).getByRole('checkbox', { name: /keychain/ })).toHaveProperty('checked', true)
   expect(within(form).getByLabelText('Incoming webhook URL')).toHaveProperty('type', 'password')
   expect(screen.queryByRole('textbox', { name: 'Base URL' })).toBeNull()
+})
+
+test('Try again beside where the file can go keeps its place and focus while it reads', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  fakeApi({
+    '/api/config': noFile,
+    '/api/config/setup': refusedThenHeld('the server could not look'),
+  })
+  renderWithClient(<SettingsPanel />)
+  const reason = await screen.findByText('the server could not look')
+  const retry = within(reason.parentElement ?? document.body).getByRole('button', {
+    name: 'Try again',
+  })
+
+  // Act
+  await user.click(retry)
+
+  // Assert
+  expect(await tryAgainShown(retry)).toEqual(keptBeside('the server could not look'))
 })
 
 test('setting up sends the answers, says what it wrote, and opens the file in Settings', async () => {

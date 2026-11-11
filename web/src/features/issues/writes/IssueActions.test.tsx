@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { IssueDetail } from '@/api/generated/types.gen.ts'
 import { mockStatusChanges } from '@/dev/mockIssues.ts'
-import { fakeApi } from '@/test/fakeApi.ts'
+import { fakeApi, keptBeside, refusedThenHeld, tryAgainShown } from '@/test/fakeApi.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { IssueDetailPanel } from '../IssueDetailPanel.tsx'
 
@@ -369,6 +369,21 @@ test('status changes the tracker refuses say why at once, and are asked for no m
   expect((await screen.findByRole('alert')).textContent).toBe('Jira refused: no permission')
   const reads = requests.filter((request) => new URL(request.url).pathname === changesPath)
   expect(reads).toHaveLength(1)
+})
+
+test('Try again beside status changes never read keeps its place and focus while it reads', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  fakeApi({ [issuePath]: detailOf(), [changesPath]: refusedThenHeld('Jira refused the read') })
+  renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
+  await open('Change status')
+  const retry = await screen.findByRole('button', { name: 'Try again' })
+
+  // Act
+  await user.click(retry)
+
+  // Assert
+  expect(await tryAgainShown(retry)).toEqual(keptBeside('Jira refused the read'))
 })
 
 test('an issue the tracker offers no status change says so', async () => {

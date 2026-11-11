@@ -2,7 +2,7 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import type { Activity } from '@/api/generated/types.gen.ts'
-import { fakeApi } from '@/test/fakeApi.ts'
+import { fakeApi, keptBeside, refusedThenHeld, tryAgainShown } from '@/test/fakeApi.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { SummaryPanel } from './SummaryPanel.tsx'
@@ -110,6 +110,20 @@ test('a first read that fails reads again on Try again', async () => {
 
   // Assert
   expect(await screen.findByRole('list', { name: 'Tuesday, September 15, 2026' })).toBeTruthy()
+})
+
+test('Try again beside a first read refused keeps its place and focus while it reads', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  fakeApi({ '/api/activity': refusedThenHeld('the request was refused') })
+  renderWithClient(<SummaryPanel />)
+  const retry = await screen.findByRole('button', { name: 'Try again' })
+
+  // Act
+  await user.click(retry)
+
+  // Assert
+  expect(await tryAgainShown(retry)).toEqual(keptBeside('the request was refused'))
 })
 
 test('a source that could not be read is an alert, and one cut short a note', async () => {

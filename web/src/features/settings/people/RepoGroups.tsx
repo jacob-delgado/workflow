@@ -4,7 +4,7 @@ import type { RepoGroups as Groups, SlackTarget } from '@/api/generated/types.ge
 import { useSlackGroups } from '@/features/messaging/slackApi.ts'
 import { Button } from '@/lib/Button.tsx'
 import { OutcomeLine, useOutcome } from '@/lib/Outcome.tsx'
-import { Failure, Reading, Unread } from '@/lib/Status.tsx'
+import { Failure, Reading, Unread, useShownRefusal } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { useRepoGroups, useSaveRepoGroups } from './peopleApi.ts'
 
@@ -12,15 +12,12 @@ import { useRepoGroups, useSaveRepoGroups } from './peopleApi.ts'
 // the workspace's groups as checkboxes, saved together.
 export function RepoGroups({ dryRun }: { dryRun: boolean }) {
   const query = useRepoGroups()
+  const refusal = useShownRefusal(query.error, query.isPending)
 
-  if (query.isPending) {
-    return <Reading>Reading the repository’s groups…</Reading>
-  }
-
-  if (query.isError) {
+  if (refusal !== null) {
     return (
       <Unread
-        reason={apiErrorMessage(query.error, 'The repository’s groups could not be read.')}
+        reason={apiErrorMessage(refusal, 'The repository’s groups could not be read.')}
         refusals={query.errorUpdateCount}
         retrying={query.isFetching}
         onRetry={() => {
@@ -28,6 +25,10 @@ export function RepoGroups({ dryRun }: { dryRun: boolean }) {
         }}
       />
     )
+  }
+
+  if (query.data === undefined) {
+    return <Reading>Reading the repository’s groups…</Reading>
   }
 
   return <GroupChoice saved={query.data} dryRun={dryRun} />

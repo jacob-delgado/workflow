@@ -12,7 +12,7 @@ import { apiErrorMessage, problemCode } from '@/api/apiError.ts'
 import type { Config, RefusedSetting, SetupResult } from '@/api/generated/types.gen.ts'
 import { useFocusOnMount } from '@/lib/focus.ts'
 import { resultGround, useOutcome } from '@/lib/Outcome.tsx'
-import { Reading, Unread } from '@/lib/Status.tsx'
+import { Reading, Unread, useShownRefusal } from '@/lib/Status.tsx'
 import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn, contentMeasure } from '@/lib/utils.ts'
 import { sectionHeadingId } from '@/shell/sections.ts'
@@ -62,6 +62,7 @@ function ConfigArea() {
   // Try again had rather than letting it fall to the page.
   const [retried, setRetried] = useState(false)
   const [setUp, setSetUp] = useState<SetupResult | null>(null)
+  const refusal = useShownRefusal(query.error, query.isPending)
 
   if (query.isError && problemCode(query.error) === 'not_found') {
     return (
@@ -71,21 +72,13 @@ function ConfigArea() {
     )
   }
 
-  // Settings opens on a fresh read rather than on the cached one: a form seeded
-  // from a read the file has moved on from would only learn so on its save.
-  if (query.isPending || (query.isFetching && !query.isFetchedAfterMount)) {
-    return (
-      <OwnSaves>
-        <Reading>Reading the configuration…</Reading>
-      </OwnSaves>
-    )
-  }
-
-  if (query.isError) {
+  // A refusal met since Settings opened stands, with its Try again, until a
+  // read answers.
+  if (refusal !== null && query.isFetchedAfterMount) {
     return (
       <OwnSaves>
         <Unread
-          reason={apiErrorMessage(query.error, 'The configuration could not be read.')}
+          reason={apiErrorMessage(refusal, 'The configuration could not be read.')}
           refusals={query.errorUpdateCount}
           retrying={query.isFetching}
           onRetry={() => {
@@ -93,6 +86,16 @@ function ConfigArea() {
             void query.refetch()
           }}
         />
+      </OwnSaves>
+    )
+  }
+
+  // Settings opens on a fresh read rather than on the cached one: a form seeded
+  // from a read the file has moved on from would only learn so on its save.
+  if (query.data === undefined || (query.isFetching && !query.isFetchedAfterMount)) {
+    return (
+      <OwnSaves>
+        <Reading>Reading the configuration…</Reading>
       </OwnSaves>
     )
   }

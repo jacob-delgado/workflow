@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Activity } from '@/api/generated/types.gen.ts'
 import { apiErrorMessage } from '@/api/apiError.ts'
 import { useShortcutProps } from '@/features/keyboard/useShortcut.ts'
-import { Failure, NotSetUp, Reading, Unread } from '@/lib/Status.tsx'
+import { Failure, NotSetUp, Reading, Unread, useShownRefusal } from '@/lib/Status.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { Button } from '@/lib/Button.tsx'
 import { headingDay, writtenDay } from '@/lib/dates.ts'
@@ -24,9 +24,14 @@ export function SummaryPanel() {
   const choose = useUiStore((state) => state.setSummaryPeriod)
   const read = useActivity(chosen)
   const last = useLastAnswer(read.data)
+  const refusal = useShownRefusal(
+    read.error,
+    read.isPending,
+    chosen === null ? '' : `${chosen.from}/${chosen.to}`,
+  )
 
   if (last === undefined) {
-    return <FirstRead read={read} />
+    return <FirstRead read={read} refusal={refusal} />
   }
 
   const period = chosen ?? { from: last.from, to: last.to }
@@ -42,7 +47,7 @@ export function SummaryPanel() {
         <PeriodSteps period={period} today={last.today} onPick={choose} />
       </div>
       <div className={cn('lg:col-start-2 lg:row-span-2 lg:row-start-1', contentMeasure)}>
-        <Shown read={read} period={period} />
+        <Shown read={read} refusal={refusal} period={period} />
       </div>
       <div className={cn('lg:col-start-1 lg:row-start-2', contentMeasure)}>
         <PeriodCalendar
@@ -71,17 +76,24 @@ function useLastAnswer(answer: Activity | undefined): Activity | undefined {
 
 type ActivityRead = ReturnType<typeof useActivity>
 
+interface ReadProps {
+  read: ActivityRead
+  // refusal is the refusal the period's read last met, kept while it is read
+  // again (useShownRefusal), or null.
+  refusal: unknown
+}
+
 // FirstRead is the section before the server has answered once: reading, or
 // why it could not, with another try.
-function FirstRead({ read }: { read: ActivityRead }) {
-  return read.isError ? <Refused read={read} /> : <ReadingPeriod />
+function FirstRead({ read, refusal }: ReadProps) {
+  return refusal === null ? <ReadingPeriod /> : <Refused read={read} refusal={refusal} />
 }
 
 // Refused is why the period could not be read, with another try.
-function Refused({ read }: { read: ActivityRead }) {
+function Refused({ read, refusal }: ReadProps) {
   return (
     <Unread
-      reason={apiErrorMessage(read.error, 'What you did could not be read.')}
+      reason={apiErrorMessage(refusal, 'What you did could not be read.')}
       refusals={read.errorUpdateCount}
       retrying={read.isFetching}
       onRetry={() => {
@@ -96,14 +108,13 @@ function ReadingPeriod() {
   return <Reading>Reading what you did…</Reading>
 }
 
-interface ShownProps {
-  read: ActivityRead
+interface ShownProps extends ReadProps {
   period: Period
 }
 
 // Shown is the period named, then why it could not be read, that it is being
 // read, or what was done in it.
-function Shown({ read, period }: ShownProps) {
+function Shown({ read, refusal, period }: ShownProps) {
   return (
     <div className="flex min-w-0 flex-col gap-group">
       <h2 className="text-lg">
@@ -111,8 +122,8 @@ function Shown({ read, period }: ShownProps) {
           ? headingDay(period.from)
           : `${headingDay(period.from)} to ${headingDay(period.to)}`}
       </h2>
-      {read.isError ? <Refused read={read} /> : null}
-      {!read.isError && read.data === undefined ? <ReadingPeriod /> : null}
+      {refusal === null ? null : <Refused read={read} refusal={refusal} />}
+      {refusal === null && read.data === undefined ? <ReadingPeriod /> : null}
       {read.data === undefined ? null : (
         <Done activity={read.data} period={period} reading={read.isFetching} />
       )}
