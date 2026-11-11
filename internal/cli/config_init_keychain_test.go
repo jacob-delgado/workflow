@@ -6,6 +6,7 @@ package cli_test
 import (
 	"context"
 	"errors"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -110,5 +111,38 @@ func TestGuidedInitLeavesNoFileWhenTheKeychainCannotKeepTheToken(t *testing.T) {
 	_, statErr := os.Stat(filepath.Join(dir, config.FileName))
 	if !errors.Is(statErr, os.ErrNotExist) {
 		t.Errorf("a file reading its token from a keychain that does not hold it was left (stat: %v)", statErr)
+	}
+}
+
+func TestGuidedInitOffersNoKeychainForAnEmptyToken(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The Jira check fails for the empty token, which is saved anyway.
+	badJira := clitest.JiraServer(t, http.StatusUnauthorized, "<html>login</html>", new(atomic.Bool)).URL
+	lines := clitest.Scripted([]string{badJira, "y"}, nil).Line
+
+	var (
+		asked  []string
+		stored atomic.Bool
+	)
+
+	prompt := cmdkit.Prompt{
+		Line: func(question string) (string, error) {
+			asked = append(asked, question)
+
+			return lines(question)
+		},
+		Secret:      clitest.Scripted(nil, []string{"", ""}).Secret,
+		StoreSecret: recordingKeychain(&stored),
+	}
+
+	// Act
+	_, err := clitest.RunGuided(t, t.TempDir(), prompt, "config", "init")
+
+	// Assert
+	if err != nil || stored.Load() || strings.Contains(strings.Join(asked, "\n"), "keychain") {
+		t.Errorf("config init = %v, keychain used %t, asked %q; want no keychain offered with no token to keep",
+			err, stored.Load(), asked)
 	}
 }
