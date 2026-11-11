@@ -108,6 +108,10 @@ func TestStagesDeriveHowFarTheWorkHasGot(t *testing.T) {
 			},
 			want: []progress.State{done, done, done, done, todo},
 		},
+		"merged and fetched, its commits now in the base": {
+			work: progress.Work{OnFeatureBranch: true, IssueNamed: true, PullRequest: progress.PullRequestMerged},
+			want: []progress.State{done, done, done, done, todo},
+		},
 		"a post waiting for CI": {
 			work: progress.Work{
 				OnFeatureBranch: true, IssueNamed: true, Commits: 1,
