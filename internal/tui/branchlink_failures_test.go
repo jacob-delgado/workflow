@@ -71,3 +71,33 @@ func TestTheBranchIsLinkedBeforeTheDescriptionIsRewritten(t *testing.T) {
 		t.Errorf("wrote in the order %q, want the link first and the description after it", order)
 	}
 }
+
+func TestTypingAnotherIssueClearsTheRefusedLink(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := onOffConventionBranch(false)
+	repo.branchLinkErr = errLinkRefused
+	refused := typing(t, repo.live(t, 120, 40), "2", "i", keyEnter)
+
+	// Act
+	retyped := typing(t, refused, keyClearLine, "#", "5")
+
+	// Assert
+	refuseScreen(t, retyped.View().Content, "write the link")
+}
+
+func TestPastingAnotherIssueClearsTheRefusedLink(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := onOffConventionBranch(false)
+	repo.branchLinkErr = errLinkRefused
+	refused := typing(t, repo.live(t, 120, 40), "2", "i", keyEnter)
+
+	// Act
+	repasted := typing(t, refused, keyClearLine, pasted("#57"))
+
+	// Assert
+	refuseScreen(t, repasted.View().Content, "write the link")
+}
