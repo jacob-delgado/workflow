@@ -146,12 +146,12 @@ func (s reviewState) rail(kit renderKit, vocab reviewVocab, onFeatureBranch bool
 
 	// A pull request merged, or merging, has no live CI to poll, so the rail
 	// says where it is rather than sitting forever on "checking".
-	switch s.pull.State {
-	case forge.StateMerged:
+	if s.pull.State == forge.StateMerged {
 		return line + "\n" + kit.marks.done + " merged"
-	case forge.StateMerging:
+	}
+
+	if s.pull.State == forge.StateMerging {
 		return line + "\n" + kit.marks.inFlight + " merging"
-	case forge.StateOpen, forge.StateClosed:
 	}
 
 	return line + "\n" + s.ciSummary(kit)
