@@ -20,7 +20,7 @@ interface Settled {
 
 // CiSettled says, once, that CI on the branch's pull request has just gone from
 // running to passed or failed — the moment the terminal rings for
-// (ciFinishNotice, internal/tui/review.go) — and only when ui.notify asks to be
+// (ciFinishNotice, internal/tui/ci.go) — and only when ui.notify asks to be
 // told. It is a live line, mounted for the page's life whatever section is
 // open, so the moment is heard where the user is: empty until there is
 // something to say, and emptied when CI runs again or the branch's pull
