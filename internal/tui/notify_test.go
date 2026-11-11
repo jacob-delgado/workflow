@@ -4,7 +4,9 @@
 package tui_test
 
 import (
+	"context"
 	"slices"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -120,5 +122,43 @@ func TestNotifyPollsOnALongerBeatWithNoIntervalSet(t *testing.T) {
 	// Assert
 	if want := []time.Duration{3 * time.Minute}; !slices.Equal(timer.waits, want) {
 		t.Errorf("the notification poll waited %v on the timer, want %v", timer.waits, want)
+	}
+}
+
+func TestCIFinishingAfterAFailedReadStillRings(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// CI is running, then the forge fails to answer the poll, and by the
+	// refresh after it CI has passed.
+	repo := newWorld()
+	repo.ciInterval = pollTick
+	cfg := completeConfig()
+	cfg.UI.Notify = true
+	deps := repo.deps()
+
+	var checks atomic.Int32
+
+	deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
+		switch checks.Add(1) {
+		case 1:
+			return forge.CI{State: forge.CIRunning, Total: 1}, nil
+		case 2:
+			return forge.CI{}, errForgeDown
+		default:
+			return forge.CI{State: forge.CIPassed, Total: 1, Done: 1}, nil
+		}
+	}
+
+	model := sized(t, tui.New(cfg, nil, deps), 120, 40)
+	failed := drain(t, model, model.Init())
+
+	// Act
+	typing(t, failed, "4", "r")
+
+	// Assert
+	if rung := repo.asked("notify"); len(rung) != 1 || checks.Load() != 3 {
+		t.Errorf("notify calls = %v after %d checks, want one ring when CI passed past the failed read",
+			rung, checks.Load())
 	}
 }
