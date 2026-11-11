@@ -4,11 +4,13 @@
 package tui_test
 
 import (
+	"context"
 	"errors"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
 // errFinishDiverged is how a finish fails when git cannot fast-forward the
@@ -16,6 +18,10 @@ import (
 // runner folds its standard error into the error.
 var errFinishDiverged = errors.New("git pull --ff-only: git: exit status 128: " +
 	"hint: Diverging branches can't be fast-forwarded.\nfatal: Not possible to fast-forward, aborting")
+
+// errBranchUnread is the branch failing to read again when a finish is
+// confirmed.
+var errBranchUnread = errors.New("fatal: not a git repository")
 
 // mergedBranch is newWorld with the branch's pull request merged, so the branch
 // can be finished.
@@ -261,5 +267,99 @@ func TestADryRunFinishSaysWhatItWouldDo(t *testing.T) {
 
 	if calls := dry.asked("finish"); len(calls) != 0 {
 		t.Errorf("a dry run finished: %q", calls)
+	}
+}
+
+func TestFinishReadsTheBranchAgainBeforeDeletingIt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A commit is made on the branch from another terminal while the preview
+	// is open, so the force delete the preview offered would now lose it.
+	merged := mergedBranch()
+	preview := typing(t, merged.live(t, 120, 40), "4", "F")
+	merged.branch.Ahead, merged.branch.Head = 1, pushedCommit
+
+	// Act
+	confirmed := typing(t, preview, keyEnter)
+
+	// Assert
+	requireScreen(t, confirmed.View().Content, "Finish the branch", "holds commits that neither merged")
+
+	if calls := merged.asked("finish"); len(calls) != 0 {
+		t.Errorf("finished a branch that gained a commit after the preview opened: %q", calls)
+	}
+}
+
+func TestFinishLeavesABranchSwitchedToSinceThePreview(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Another branch is checked out from another terminal while the preview is
+	// open, so finishing now would delete that one instead.
+	merged := mergedBranch()
+	preview := typing(t, merged.live(t, 120, 40), "4", "F")
+	merged.branch.Name = "feat/PROJ-500-other-work"
+
+	// Act
+	confirmed := typing(t, preview, keyEnter)
+
+	// Assert
+	requireScreen(t, confirmed.View().Content, "Finish the branch", "another branch is checked out")
+
+	if calls := merged.asked("finish"); len(calls) != 0 {
+		t.Errorf("finished a branch other than the one previewed: %q", calls)
+	}
+}
+
+func TestFinishStopsWhenTheBranchCannotBeReadAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	merged := mergedBranch()
+	deps := merged.deps()
+	readOnce := deps.Git.Branch
+	reads := 0
+	deps.Git.Branch = func(ctx context.Context) (gitrepo.Branch, error) {
+		reads++
+		if reads > 1 {
+			return gitrepo.Branch{}, errBranchUnread
+		}
+
+		return readOnce(ctx)
+	}
+	model := sized(t, tui.New(merged.cfg, nil, deps), 120, 40)
+	preview := typing(t, drain(t, model, model.Init()), "4", "F")
+
+	// Act
+	confirmed := typing(t, preview, keyEnter)
+
+	// Assert
+	requireScreen(t, confirmed.View().Content, "Finish the branch", "not a git repository")
+
+	if calls := merged.asked("finish"); len(calls) != 0 {
+		t.Errorf("finished a branch that could not be read again: %q", calls)
+	}
+}
+
+func TestFinishLeavesABranchWhoseBaseChangedSinceThePreview(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The branch's upstream is reset from another terminal while the preview
+	// is open, so finishing now would switch to and pull a base it never
+	// showed.
+	merged := mergedBranch()
+	preview := typing(t, merged.live(t, 120, 40), "4", "F")
+	merged.branch.Base = "upstream/release-2"
+
+	// Act
+	confirmed := typing(t, preview, keyEnter)
+
+	// Assert
+	requireScreen(t, confirmed.View().Content, "Finish the branch", "its base changed since")
+
+	if calls := merged.asked("finish"); len(calls) != 0 {
+		t.Errorf("finished onto a base other than the one previewed: %q", calls)
 	}
 }
