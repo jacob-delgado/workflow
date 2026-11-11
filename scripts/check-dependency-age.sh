@@ -39,9 +39,11 @@
 # it fixes passes at any age: a known-vulnerability fix overrides the wait. So
 # does one listed with a maintainer's dated waiver, waived-YYYY-MM-DD: the
 # maintainer may take a version before its week, by name. A waiver dated on no
-# real day fails, as an exception naming neither does. A version whose publish
-# date cannot be learned fails, since a check that could not look must not
-# pass.
+# real day fails, as an exception naming neither does, and so does one dated on
+# a day still to come wherever the maintainer is, more than a day after now's
+# in UTC: such a waiver would excuse its version at any age and never come due.
+# A version whose publish date cannot be learned fails, since a check that
+# could not look must not pass.
 #
 # A waiver has done its job once its version is a week old, and its line is
 # then due out, with the version's npmPreapprovedPackages entry in
@@ -52,9 +54,10 @@
 # ::warning annotation on the waiver's line, so the pull request shows it. The
 # week is counted from that day, with nothing looked up, so the warning is
 # never early, and can come up to a week, or a day more at most, after the
-# version actually turned a week old. A pre-approval no line of the exceptions
-# file lists is warned of too, and fails nothing: its line may have gone out
-# without it.
+# version actually turned a week old. A waiver dated on a day still to come is
+# warned of too, since it excuses nothing. A pre-approval no line of the
+# exceptions file lists is warned of too, and fails nothing: its line may have
+# gone out without it.
 #
 # Exits 0 when every new version is old enough, 1 when one is not or cannot be
 # dated, and 2 when git cannot compare with <base-ref>.
@@ -76,6 +79,10 @@ readonly npm_registry="https://registry.npmjs.org"
 readonly github_api="https://api.github.com"
 now="${DEPENDENCY_AGE_NOW:-$(date -u +%s)}"
 readonly now
+# The latest second a waiver's day may start: the day after now's in UTC is
+# already today east of it, and any later one is still to come wherever the
+# maintainer is.
+readonly last_waiver_start=$((now + day_seconds))
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/dependency-pins.sh
@@ -281,14 +288,15 @@ waived_on() {
 
 # excused prints why an exception lets a version skip the wait: the advisory it
 # fixes, or the day the maintainer waived it. It prints nothing for anything
-# else, a waiver dated on no real day among them.
+# else, a waiver dated on no real day or on a day still to come among them.
 #   excused <exception>
 excused() {
-  local day
+  local day start
   day="$(waived_on "$1")"
+  start="$(day_start "${day}")"
   if [[ "$1" =~ ^(CVE-[0-9]{4}-[0-9]{4,}|GHSA(-[0-9a-z]{4}){3})$ ]]; then
     echo "fixes $1"
-  elif [[ -n "${day}" ]]; then
+  elif [[ -n "${start}" ]] && ((start <= last_waiver_start)); then
     echo "waived on ${day} by the maintainer"
   fi
 }
@@ -362,7 +370,7 @@ check() {
     return
   fi
   if [[ -n "${exception}" ]]; then
-    echo "FAIL  ${what}: its exception names no advisory or dated waiver (want a CVE or GHSA id, or waived-YYYY-MM-DD)" >&2
+    echo "FAIL  ${what}: its exception names no advisory or dated waiver (want a CVE or GHSA id, or waived-YYYY-MM-DD on a real day no later than today)" >&2
     failed=1
     return
   fi
@@ -438,9 +446,9 @@ day_start() {
   fi
 }
 
-# warn_of_waiver warns of a waiver past its week on stderr and, in GitHub
-# Actions, as an annotation on its line too, which the pull request shows where
-# a log line would go unread.
+# warn_of_waiver warns of a waiver on stderr and, in GitHub Actions, as an
+# annotation on its line too, which the pull request shows where a log line
+# would go unread.
 #   warn_of_waiver <line-number> <message>
 warn_of_waiver() {
   echo "warn  $2" >&2
@@ -449,11 +457,12 @@ warn_of_waiver() {
   fi
 }
 
-# warn_past_their_week warns of each dated waiver a week past its day, and of
-# its version's pre-approval in web/.yarnrc.yml, and fails nothing. A version
-# waived on a day was published by that day's end at the latest, so the week
-# is counted from then.
-warn_past_their_week() {
+# warn_of_waivers warns of each dated waiver a week past its day, and of its
+# version's pre-approval in web/.yarnrc.yml, and of each dated on a day still
+# to come, which excuses nothing, and fails nothing. A version waived on a day
+# was published by that day's end at the latest, so the week is counted from
+# then.
+warn_of_waivers() {
   local name version exception day start approved where line=0
   if [[ ! -f "${exceptions}" ]]; then
     return
@@ -463,7 +472,9 @@ warn_past_their_week() {
     line=$((line + 1))
     day="$(waived_on "${exception:-}")"
     start="$(day_start "${day}")"
-    if [[ -n "${start}" ]] && ((now - start >= day_seconds + min_seconds)); then
+    if [[ -n "${start}" ]] && ((start > last_waiver_start)); then
+      warn_of_waiver "${line}" "${name} ${version}: waived on ${day}, a day still to come, so it excuses nothing; date it on the day the maintainer waived it"
+    elif [[ -n "${start}" ]] && ((now - start >= day_seconds + min_seconds)); then
       where="its line from ${exceptions}"
       if grep -qxF -- "${name} ${version}" <<<"${approved}"; then
         where="${where} and its npmPreapprovedPackages entry from ${yarnrc}"
@@ -494,7 +505,7 @@ check_all mise "$(added "$(at "${base}" mise.toml | mise_pins)" "$(at HEAD mise.
 check_all pypi "$(added "$(at "${base}" "${requirements}" | requirements_pins)" \
   "$(at HEAD "${requirements}" | requirements_pins)")"
 check_all npm-lock "$(added "$(at "${base}" "${npm_lock}" | npm_lock_pins)" "$(at HEAD "${npm_lock}" | npm_lock_pins)")"
-warn_past_their_week
+warn_of_waivers
 warn_unlisted_preapprovals
 
 exit "${failed}"

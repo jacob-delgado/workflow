@@ -5,21 +5,23 @@
 # before, and fails, by name, when it is younger, unless the exceptions file
 # lists it with the advisory it fixes or a maintainer's dated waiver; now is
 # 2026-10-08T00:00:00Z, and a version exactly seven days old is adopted. An
-# exception naming neither, or a waiver whose date is no real day, fails. A
-# version whose publish date cannot be learned fails, as a mise tool pinned in
-# a [tools.<name>] table, which the check does not read, or in an inline table
-# naming no version, or by a dotted tools key before any table, does; one
-# pinned in an inline table is dated by its version key, and one under a
-# [tools] header with a comment after it, or quoted and spaced, is dated. A
-# module version a go.mod replace directive adopts, on its own line or in a
-# block, is dated as a requirement is, and a directory one adopts is not looked
-# up. Versions the change leaves alone are not looked up, and a base git cannot
-# resolve is refused with a status of its own. A dated waiver a week past its
-# day is warned of, and its npmPreapprovedPackages entry in web/.yarnrc.yml
-# with it, but fails nothing; one whose week may not be over is not. In GitHub
-# Actions the warning is also a ::warning annotation, which the pull request
-# shows. A pre-approval no line of the exceptions file lists is warned of too,
-# and fails nothing. The linters' pin files are
+# exception naming neither, or a waiver whose date is no real day, or a day
+# still to come, fails, though one dated the day after now's in UTC, already
+# today east of it, passes; a listed waiver dated on a day still to come is
+# warned of. A version whose publish date cannot be learned fails, as a mise
+# tool pinned in a [tools.<name>] table, which the check does not read, or in
+# an inline table naming no version, or by a dotted tools key before any table,
+# does; one pinned in an inline table is dated by its version key, and one
+# under a [tools] header with a comment after it, or quoted and spaced, is
+# dated. A module version a go.mod replace directive adopts, on its own line or
+# in a block, is dated as a requirement is, and a directory one adopts is not
+# looked up. Versions the change leaves alone are not looked up, and a base git
+# cannot resolve is refused with a status of its own. A dated waiver a week
+# past its day is warned of, and its npmPreapprovedPackages entry in
+# web/.yarnrc.yml with it, but fails nothing; one whose week may not be over is
+# not. In GitHub Actions the warning is also a ::warning annotation, which the
+# pull request shows. A pre-approval no line of the exceptions file lists is
+# warned of too, and fails nothing. The linters' pin files are
 # check-dependency-age_pins_test.sh's.
 #
 # The stand-in curl lib/check-dependency-age-fixtures.sh writes answers each
@@ -88,6 +90,20 @@ young_go_waived() {
 young_go_waived_on_no_day() {
   require_go example.com/young v1.3.0
   except example.com/young v1.3.0 waived-2026-02-30
+}
+
+# young_go_waived_ahead requires the young module and lists it as waived two
+# days after now, a day still to come wherever the maintainer is.
+young_go_waived_ahead() {
+  require_go example.com/young v1.3.0
+  except example.com/young v1.3.0 waived-2026-10-10
+}
+
+# young_go_waived_tomorrow requires the young module and lists it as waived
+# the day after now's in UTC, which is already today east of it.
+young_go_waived_tomorrow() {
+  require_go example.com/young v1.3.0
+  except example.com/young v1.3.0 waived-2026-10-09
 }
 
 # preapprove_npm lists an npm version in web/.yarnrc.yml's
@@ -208,6 +224,12 @@ if grep -q 'kept' "${go_replaced_in_block}.curl"; then
     "it looked up the directory: $(cat "${go_replaced_in_block}.curl")"
 fi
 
+go_waived_ahead="$(repo go-waived-ahead young_go_waived_ahead)"
+expect_output fail "a waiver dated on a day still to come" "no later than today" age "${go_waived_ahead}"
+
+go_waived_tomorrow="$(repo go-waived-tomorrow young_go_waived_tomorrow)"
+expect_output pass "a waiver dated today east of UTC" "waived on 2026-10-09" age "${go_waived_tomorrow}"
+
 npm_old="$(repo npm-old resolve_npm @scope/widget 2.0.0)"
 expect_exit pass "a scoped npm package a week old" age "${npm_old}"
 
@@ -303,6 +325,11 @@ count_case
 if grep -q "waived on" "${case_output}"; then
   fail_case "a waiver whose week may not be over" "it was warned of: $(cat "${case_output}")"
 fi
+
+waiver_ahead="$(repo waiver-ahead except example.com/kept v1.0.0 waived-2026-10-10)"
+expect_output pass "a listed waiver dated on a day still to come, warned of" \
+  "example.com/kept v1.0.0: waived on 2026-10-10, a day still to come, so it excuses nothing" \
+  age "${waiver_ahead}"
 
 npm_waiver="$(repo npm-waiver-past-its-week npm_waiver_past_its_week)"
 expect_output pass "a pre-approved npm version past its week, warned of in both files" \
