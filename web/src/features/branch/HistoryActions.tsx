@@ -222,7 +222,10 @@ function AmendLook({ last, runner, onCancel, onSent }: LookProps & { last: Commi
 // those not yet pushed; the choice is the last look.
 function FixupLook({ commits, runner, onCancel, onSent }: LookProps & { commits: Commit[] }) {
   const newestFirst = [...commits].reverse()
-  const [chosen, setChosen] = useState(newestFirst[0]?.hash ?? '')
+  const [picked, setPicked] = useState(newestFirst[0]?.hash ?? '')
+  // A commit chosen that has left the list — pushed from elsewhere — is no
+  // choice: none is checked, and nothing is sent until another is.
+  const chosen = commits.some((commit) => commit.hash === picked) ? picked : ''
 
   return (
     <WriteForm
@@ -251,7 +254,7 @@ function FixupLook({ commits, runner, onCancel, onSent }: LookProps & { commits:
               value={commit.hash}
               checked={chosen === commit.hash}
               onChange={() => {
-                setChosen(commit.hash)
+                setPicked(commit.hash)
               }}
               className="size-4"
             />

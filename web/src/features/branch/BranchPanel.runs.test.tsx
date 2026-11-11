@@ -442,3 +442,32 @@ test.each([
   expect(screen.queryByRole('form', { name: look })).toBeNull()
   expect(screen.getByRole('button', { name: opener })).toBeTruthy()
 })
+
+test('fixes up nothing once the commit chosen is pushed from elsewhere', async () => {
+  // Arrange
+  foldable()
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+  await user.click(screen.getByRole('button', { name: 'Fix up a commit' }))
+  const look = screen.getByRole('form', { name: 'Fix up a commit' })
+  act(() => {
+    foldable({
+      branch: makeBranch({
+        upstream: '',
+        commits: [
+          { hash: 'h1h1h1h1', subject: 'feat: first', unpushed: true },
+          { hash: 'h2h2h2h2', subject: 'fix: second', unpushed: false },
+        ],
+      }),
+    })
+  })
+
+  // Act
+  await user.click(within(look).getByRole('button', { name: 'Fix up' }))
+
+  // Assert
+  expect(mockStartRun).not.toHaveBeenCalled()
+  expect(within(look).getByRole<HTMLInputElement>('radio', { name: /feat: first/ }).checked).toBe(
+    false,
+  )
+})
