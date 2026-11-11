@@ -87,19 +87,21 @@ func WikiFromMarkdown(md string) string {
 	return strings.Join(out, "\n")
 }
 
-// codeFence is a line that opens or closes a fenced code block: how many
-// backticks it runs to, and the info string after them, which names the
-// block's language.
+// codeFence is a line that opens or closes a fenced code block: the marker
+// it runs, a backtick or a tilde, how many it runs to, and the info string
+// after them, which names the block's language.
 type codeFence struct {
+	marker rune
 	length int
 	info   string
 }
 
 // closes reports whether the fence, read inside the block opener opened,
-// closes it: only a bare fence at least as long as the opener does, so a
-// block that quotes a ```go line, or a shorter fence, keeps it.
+// closes it: only a bare fence of the opener's marker, at least as long, does,
+// so a block that quotes a ```go line, a shorter fence or the other marker's
+// keeps it.
 func (f codeFence) closes(opener codeFence) bool {
-	return f.info == "" && f.length >= opener.length
+	return f.marker == opener.marker && f.info == "" && f.length >= opener.length
 }
 
 // bracket is the wiki markup that opens a block at the fence: {code:lang}
@@ -128,10 +130,13 @@ func trimFence(text string) string {
 	return strings.TrimFunc(text, func(r rune) bool { return unicode.IsSpace(r) || r == byteOrderMark })
 }
 
-// minFenceLength is the fewest backticks a code fence runs to.
+// fenceMarkers are the characters a code fence runs: backticks or tildes.
+const fenceMarkers = "`~"
+
+// minFenceLength is the fewest markers a code fence runs to.
 const minFenceLength = 3
 
-// readFence reads a ``` fence line, reporting false for any other line.
+// readFence reads a ``` or ~~~ fence line, reporting false for any other line.
 func readFence(line string) (codeFence, bool) {
 	if len(line)-len(strings.TrimLeft(line, " ")) > maxFenceIndent {
 		return codeFence{}, false
@@ -139,9 +144,11 @@ func readFence(line string) (codeFence, bool) {
 
 	trimmed := trimFence(line)
 
-	info := strings.TrimLeft(trimmed, "`")
-	if length := len(trimmed) - len(info); length >= minFenceLength {
-		return codeFence{length: length, info: trimFence(info)}, true
+	for _, marker := range fenceMarkers {
+		info := strings.TrimLeft(trimmed, string(marker))
+		if length := len(trimmed) - len(info); length >= minFenceLength {
+			return codeFence{marker: marker, length: length, info: trimFence(info)}, true
+		}
 	}
 
 	return codeFence{}, false

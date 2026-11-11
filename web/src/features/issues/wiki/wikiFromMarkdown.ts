@@ -27,11 +27,11 @@ export function wikiFromMarkdown(markdown: string): string {
   return out.join('\n')
 }
 
-// CodeFence is a line that opens or closes a fenced code block: how many
-// backticks it runs to, and the info string after them, which names the
-// block's language.
+// CodeFence is a line that opens or closes a fenced code block: its run of
+// backticks or tildes, and the info string after it, which names the block's
+// language.
 interface CodeFence {
-  length: number
+  run: string
   info: string
 }
 
@@ -43,8 +43,9 @@ const boldSentinel = '\u0000'
 // as indented content instead.
 const maxFenceIndent = 3
 
-// fenceRun is the run of backticks a fence line opens with: three at least.
-const fenceRun = /^`{3,}/
+// fenceRun is the run of backticks or tildes a fence line opens with: three
+// at least.
+const fenceRun = /^(?:`{3,}|~{3,})/
 
 // fenceSpace is the white space around a fence line, as both converters read
 // it: JavaScript's, with the byte order mark its trim takes, and the next-line
@@ -69,7 +70,7 @@ const italicStar = new RegExp(`\\*(${notSpaceOrStar}(?:[^*]*?${notSpaceOrStar})?
 const inlineCode = /`([^`]+)`/g
 const link = /(!?)\[([^\]]*)\]\(([^()]*(?:\([^()]*\)[^()]*)*)\)/g
 
-// readFence reads a ``` fence line, or is null for any other line.
+// readFence reads a ``` or ~~~ fence line, or is null for any other line.
 function readFence(line: string): CodeFence | null {
   const indent = line.length - line.replace(/^ +/, '').length
   const trimmed = line.replace(fenceSpace, '')
@@ -78,14 +79,15 @@ function readFence(line: string): CodeFence | null {
     return null
   }
 
-  return { length: run.length, info: trimmed.slice(run.length).replace(fenceSpace, '') }
+  return { run, info: trimmed.slice(run.length).replace(fenceSpace, '') }
 }
 
 // closes is whether the fence, read inside the block opener opened, closes
-// it: only a bare fence at least as long as the opener does, so a block that
-// quotes a ```go line, or a shorter fence, keeps it.
+// it: only a bare fence of the opener's marker, at least as long, does, so a
+// block that quotes a ```go line, a shorter fence or the other marker's keeps
+// it.
 function closes(fence: CodeFence, opener: CodeFence): boolean {
-  return fence.info === '' && fence.length >= opener.length
+  return fence.info === '' && fence.run.startsWith(opener.run)
 }
 
 // bracket is the wiki markup that opens a block at the fence: {code:lang}

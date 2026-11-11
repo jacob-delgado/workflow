@@ -150,6 +150,11 @@
       "name": "a longer fence opens a block that a shorter fence does not close",
       "markdown": "````md\n```go\nx := **notBold**\n```\n````\nafter **bold**",
       "want": "{code:md}\n```go\nx := **notBold**\n```\n{code}\nafter *bold*"
+    },
+    {
+      "name": "a tilde fence brackets a block that a backtick fence does not close",
+      "markdown": "~~~go\nx := ~~notStruck~~\n```\n~~~\nafter ~~struck~~",
+      "want": "{code:go}\nx := ~~notStruck~~\n```\n{code}\nafter -struck-"
     }
   ]
 }
