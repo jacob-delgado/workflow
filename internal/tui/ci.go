@@ -52,7 +52,10 @@ type ciChecked struct {
 var _ applier = ciChecked{}
 
 // apply records CI, rings the terminal if CI has just finished, and keeps
-// asking while it runs.
+// asking while it runs. A read that failed lists no check, which may have
+// moved on since, but keeps how CI last stood, so the read that answers next
+// rings for a change from it; the pane does not ask again after a failed read,
+// leaving a post that waits to the shared hold's own reads.
 func (msg ciChecked) apply(m Model) (Model, tea.Cmd) {
 	if !m.review.found || msg.number != m.review.pull.Number {
 		return m, nil
@@ -62,6 +65,12 @@ func (msg ciChecked) apply(m Model) (Model, tea.Cmd) {
 	m.review.ci, m.review.ciErr, m.review.checked = msg.ci, msg.err, true
 	m.review.loading = false
 	m.review.checkedAt = m.deps.now()
+
+	if msg.err != nil {
+		m.review.ci = forge.CI{State: was}
+
+		return m, nil
+	}
 
 	return m.keepPolling(ciFinishNotice(m.cfg, m.deps, was, msg.ci.State))
 }
