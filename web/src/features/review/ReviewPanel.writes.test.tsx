@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import type { Ci, PullRequest } from '@/api/generated/types.gen.ts'
@@ -275,4 +275,42 @@ test('says why a finish was refused, keeping its look', async () => {
 
   // Assert
   expect((await within(look).findByRole('alert')).textContent).toContain('git would not finish')
+})
+
+test('puts the merge form away once CI runs again', async () => {
+  // Arrange
+  streamPull(ready, ciOf('passed'))
+  const user = userEvent.setup()
+  render(<ReviewPanel />)
+  await user.click(screen.getByRole('button', { name: 'Merge' }))
+  await screen.findByRole('form', { name: 'Merge #42' })
+
+  // Act
+  act(() => {
+    streamPull(ready, ciOf('running'))
+  })
+
+  // Assert
+  expect(screen.queryByRole('form', { name: 'Merge #42' })).toBeNull()
+})
+
+test('a merge form put away by CI running again does not come back unasked', async () => {
+  // Arrange
+  streamPull(ready, ciOf('passed'))
+  const user = userEvent.setup()
+  render(<ReviewPanel />)
+  await user.click(screen.getByRole('button', { name: 'Merge' }))
+  await screen.findByRole('form', { name: 'Merge #42' })
+  act(() => {
+    streamPull(ready, ciOf('running'))
+  })
+
+  // Act
+  act(() => {
+    streamPull(ready, ciOf('passed'))
+  })
+
+  // Assert
+  expect(screen.queryByRole('form', { name: 'Merge #42' })).toBeNull()
+  expect(screen.getByRole('button', { name: 'Merge' })).toBeTruthy()
 })
