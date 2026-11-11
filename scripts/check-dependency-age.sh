@@ -28,11 +28,12 @@
 # and version, by a sha512, fails, as one whose sha512 the registry does not
 # list does, and so does a lock npm would read other than by its packages map,
 # a lockfileVersion 1 among them, or one that cannot be parsed. A mise tool is
-# read from its version string or an inline table's version key; one pinned in
-# an inline table naming no version, or in a [tools.<name>] table, whose keys
-# this does not read, fails too. A pin that cannot be dated so fails whatever
-# the exceptions file says, which excuses a version's age alone: an excepted
-# pin's hash is still looked up.
+# read from its version string or an inline table's version key, under a
+# [tools] header however it is spaced, quoted or commented; one pinned in an
+# inline table naming no version, in a [tools.<name>] table, or by a tools key
+# before any table, whose keys this does not read, fails too. A pin that cannot
+# be dated so fails whatever the exceptions file says, which excuses a
+# version's age alone: an excepted pin's hash is still looked up.
 #
 # A version listed in scripts/dependency-age-exceptions.txt with the advisory
 # it fixes passes at any age: a known-vulnerability fix overrides the wait. So
