@@ -123,7 +123,7 @@ type ServerInterface interface {
 	// GetKeys The terminal interface's key actions, as its help lists them.
 	// (GET /api/keys)
 	GetKeys(w http.ResponseWriter, r *http.Request)
-	// RemoveLocalData Remove the cache, or with scope all the kept associations too.
+	// RemoveLocalData Remove the cache, or with scope all the kept associations and favorites too.
 	// (DELETE /api/local-data)
 	RemoveLocalData(w http.ResponseWriter, r *http.Request, params RemoveLocalDataParams)
 	// GetLocalData The local databases workflow keeps, each with its size and what it holds.
@@ -6837,7 +6837,7 @@ type StrictServerInterface interface {
 	// GetKeys The terminal interface's key actions, as its help lists them.
 	// (GET /api/keys)
 	GetKeys(ctx context.Context, request GetKeysRequestObject) (GetKeysResponseObject, error)
-	// RemoveLocalData Remove the cache, or with scope all the kept associations too.
+	// RemoveLocalData Remove the cache, or with scope all the kept associations and favorites too.
 	// (DELETE /api/local-data)
 	RemoveLocalData(ctx context.Context, request RemoveLocalDataRequestObject) (RemoveLocalDataResponseObject, error)
 	// GetLocalData The local databases workflow keeps, each with its size and what it holds.

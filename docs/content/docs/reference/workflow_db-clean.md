@@ -15,8 +15,8 @@ List the database files workflow keeps between sessions, with each one's size
 and what it holds, then remove the cache (workflow.db) once confirmed: the last
 scope, what was announced and the cached issue lists, which a session makes
 again. --all also removes kept.db, whom each code owner is on Slack and each
-repository's groups, which are then asked again. Nothing is removed under
---dry-run.
+repository's groups, which are then asked again, and your favorites, which
+are then marked again. Nothing is removed under --dry-run.
 
 ```
 workflow db-clean [flags]
@@ -33,7 +33,7 @@ workflow db-clean [flags]
 ### Options
 
 ```
-      --all    also remove kept.db, so people and group associations are asked again
+      --all    also remove kept.db, so people and group associations are asked again and favorites go
   -h, --help   help for db-clean
   -y, --yes    go ahead without the confirmation
 ```

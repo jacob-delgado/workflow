@@ -26,7 +26,7 @@ export function LocalData() {
       </h2>
       <p className="text-xs text-muted-foreground">
         workflow keeps a cache a session makes again, and the people and group associations you
-        decided, in two files on this machine.
+        decided, and your favorites, in two files on this machine.
       </p>
       <LocalDataBody />
     </section>

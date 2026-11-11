@@ -823,14 +823,15 @@ changes are held back and its controls are off.
 
 **Local data** shows where workflow keeps what it learns between sessions and a
 row for each database file: the cache (`workflow.db`) and the kept associations
-(`kept.db`), each with its size and what it holds. It is read each time Settings
-opens and saved apart from the configuration. **Remove cache…** and **Remove
-everything…** each ask first, in place, with **Cancel** and **Remove**; removing
-everything says that people and group associations will be asked again, and
-People and groups is read again to show them gone. What the removal did is said
-below the buttons, and the listing is read again. A file another program holds
-open fails the removal, and the area says why and reads the listing again, since
-a file that could not be deleted after the rest were set aside may leave others
+and favorites (`kept.db`), each with its size and what it holds. It is read
+each time Settings opens and saved apart from the configuration.
+**Remove cache…** and **Remove everything…** each ask first, in place, with
+**Cancel** and **Remove**; removing everything says that people and group
+associations will be asked again and your favorites go with them, and People
+and groups is read again to show them gone. What the removal did is said below
+the buttons, and the listing is read again. A file another program holds open
+fails the removal, and the area says why and reads the listing again, since a
+file that could not be deleted after the rest were set aside may leave others
 gone. A removal waits for a change to People and groups under way, and the other
 way round. Under `--dry-run` the buttons are replaced by a sentence saying
 removing is held back. It is the web's `workflow db-clean` (see

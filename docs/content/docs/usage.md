@@ -1130,14 +1130,15 @@ Remove workflow.db from /home/ana/.local/state/workflow? [y/N]:
 
 By default it removes only the cache, `workflow.db`, which the next session
 makes again. `--all` removes `kept.db` too, after a warning: whom each code
-owner is on Slack and each repository's groups go with it, and people and group
-associations will be asked again. `--yes` removes without asking; `--dry-run`
-only says what it would remove. A store with nothing in it says there is nothing
-to remove. A database file another program holds open — on Windows, another
-workflow session — fails the clean without removing anything (exit status 4);
-something other than the store's own file where a database belongs, such as a
-symlink, is refused (exit status 1). The web interface's Settings has the same
-two cleans under **Local data**, and so has the terminal: `L` on the
+owner is on Slack, each repository's groups and your favorites go with it, so
+people and group associations will be asked again and favorites marked again.
+`--yes` removes without asking; `--dry-run` only says what it would remove. A
+store with nothing in it says there is nothing to remove. A database file
+another program holds open — on Windows, another workflow session — fails the
+clean without removing anything (exit status 4); something other than the
+store's own file where a database belongs, such as a symlink, is refused (exit
+status 1). The web interface's Settings has the same two cleans under
+**Local data**, and so has the terminal: `L` on the
 Repositories pane lists the same files, and `c` removes the cache, `C`
 everything, each after a last look that says what goes with it, since neither
 can be undone. Under `--dry-run` it says what it would have removed.

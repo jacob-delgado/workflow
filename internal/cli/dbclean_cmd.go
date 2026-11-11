@@ -17,8 +17,9 @@ import (
 
 // keptWarning is what --all says before removing the kept file: what it holds
 // cannot be seen again, only asked for again.
-const keptWarning = "--all also removes kept.db, whom each code owner is on Slack and " +
-	"each repository's groups; people and group associations will be asked again"
+const keptWarning = "--all also removes kept.db, whom each code owner is on Slack, " +
+	"each repository's groups and your favorites; people and group associations will be asked again, " +
+	"and favorites marked again"
 
 // newDBCleanCmd builds `workflow db-clean`.
 func newDBCleanCmd(prompt cmdkit.Prompt) *cobra.Command {
@@ -34,8 +35,8 @@ func newDBCleanCmd(prompt cmdkit.Prompt) *cobra.Command {
 			"and what it holds, then remove the cache (workflow.db) once confirmed: the last\n" +
 			"scope, what was announced and the cached issue lists, which a session makes\n" +
 			"again. --all also removes kept.db, whom each code owner is on Slack and each\n" +
-			"repository's groups, which are then asked again. Nothing is removed under\n" +
-			"--dry-run.",
+			"repository's groups, which are then asked again, and your favorites, which\n" +
+			"are then marked again. Nothing is removed under --dry-run.",
 		Example: cmdkit.Examples(
 			`workflow db-clean --dry-run   # each file and what it holds, nothing removed`,
 			`workflow db-clean --yes       # remove the cache, unattended`,
@@ -57,7 +58,7 @@ func newDBCleanCmd(prompt cmdkit.Prompt) *cobra.Command {
 
 	opts.AddFlags(cmd, cmdkit.ConfirmationHelp)
 	cmd.Flags().BoolVar(&all, "all", false,
-		"also remove kept.db, so people and group associations are asked again")
+		"also remove kept.db, so people and group associations are asked again and favorites go")
 
 	return cmd
 }

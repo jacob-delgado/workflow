@@ -27,6 +27,16 @@ func TestLocalDataListsEachFileWithItsSizeAndWhatItHolds(t *testing.T) {
 	requireScreen(t, view, "Local data", "workflow.db", "92.0 KiB", "scopes: 3", "kept.db", "favorite directories: 2")
 }
 
+func TestLocalDataSaysTheKeptFileHoldsYourFavorites(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	view := typing(t, newWorld().live(t, 120, 40), reposKey, localDataKey).View().Content
+
+	// Assert
+	requireScreen(t, view, "and your favorites")
+}
+
 func TestRemovingTheCacheAsksFirstAndSaysItCannotBeUndone(t *testing.T) {
 	t.Parallel()
 

@@ -17,7 +17,7 @@ import (
 
 // localDataAbout is what Local data holds, said before the files are listed.
 const localDataAbout = "workflow keeps a cache a session makes again, and the people and group " +
-	"associations you decided, in two files on this machine."
+	"associations you decided, and your favorites, in two files on this machine."
 
 // localData is the Local data overlay: where workflow keeps what it learns
 // between sessions, each database file with its size and what it holds, and

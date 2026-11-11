@@ -37,8 +37,8 @@ const (
 // surface's last look warns with before anything is removed.
 func (s CleanScope) Consequence() string {
 	if s == CleanAll {
-		return "Whom each code owner is on Slack and each repository's groups go with it: " +
-			"people and group associations will be asked again."
+		return "Whom each code owner is on Slack, each repository's groups and your favorites go with it: " +
+			"people and group associations will be asked again, and favorites marked again."
 	}
 
 	return "The last scope, what was announced and the cached issue lists are made again as you work."
