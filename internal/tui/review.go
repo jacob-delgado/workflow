@@ -226,18 +226,12 @@ func reviewSummary(marks glyphs, pull forge.PullRequest) string {
 }
 
 // mergeableLabel names whether the branch can merge, or nothing while the forge
-// has not worked it out.
+// has not worked it out. A map, not a switch, so there is no return after the
+// last case that no state reaches; exhaustive keeps it complete.
 func mergeableLabel(mergeable forge.Mergeability) string {
-	switch mergeable {
-	case forge.MergeClean:
-		return "mergeable"
-	case forge.MergeConflicts:
-		return "conflicts"
-	case forge.MergeUnknown:
-		return ""
-	}
-
-	return ""
+	return map[forge.Mergeability]string{
+		forge.MergeClean: "mergeable", forge.MergeConflicts: "conflicts", forge.MergeUnknown: "",
+	}[mergeable]
 }
 
 // canOpenPull reports a branch with commits and no open or merging pull
