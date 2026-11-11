@@ -17,7 +17,6 @@ import (
 	"net/url"
 	"os"
 	"os/user"
-	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -168,18 +167,13 @@ func TestPlacingTypedSlackSecretsKeepsTheRenewedPairInTheKeychain(t *testing.T) 
 	place := processEnvironment().PlaceSlackCredentials(slack.do, onMacOS(security))
 
 	// Act
-	placed, err := place(t.Context(), typedInto(typedSecret, typedRefresh))
+	err := place(t.Context(), typedInto(typedSecret, typedRefresh))
 
 	// Assert
-	if err != nil || placed.Messaging.HoldsUserTokenSecrets() || placed.Messaging.ClientID != placedClientID {
-		t.Fatalf("placed %+v, %v; want the secrets out of the configuration and the rest kept",
-			placed.Redacted().Messaging, err)
-	}
-
-	if !strings.Contains(security.held(), renewedRefresh) || !strings.Contains(security.held(), typedSecret) ||
-		len(slack.spent) != 1 || slack.spent[0] != typedRefresh {
-		t.Errorf("the keychain holds %q after refreshing with %q; want the typed refresh token spent and "+
-			"the renewed pair kept with the client secret", security.held(), slack.spent)
+	if err != nil || !strings.Contains(security.held(), renewedRefresh) ||
+		!strings.Contains(security.held(), typedSecret) || len(slack.spent) != 1 || slack.spent[0] != typedRefresh {
+		t.Errorf("Place = %v, the keychain holds %q after refreshing with %q; want the typed refresh token "+
+			"spent and the renewed pair kept with the client secret", err, security.held(), slack.spent)
 	}
 }
 
@@ -192,7 +186,7 @@ func TestPlacingABlankTypedRefreshTokenTakesTheOneTheKeychainKeeps(t *testing.T)
 	place := processEnvironment().PlaceSlackCredentials(slack.do, onMacOS(security))
 
 	// Act
-	_, err := place(t.Context(), typedInto(typedSecret, ""))
+	err := place(t.Context(), typedInto(typedSecret, ""))
 
 	// Assert
 	if err != nil || len(slack.spent) != 1 || slack.spent[0] != keptRefresh ||
@@ -211,7 +205,7 @@ func TestPlacingSecretsSlackRefusesIsARejectionWithNoSecretInIt(t *testing.T) {
 	place := processEnvironment().PlaceSlackCredentials(slack.do, onMacOS(security))
 
 	// Act
-	_, err := place(t.Context(), typedInto(typedSecret, typedRefresh))
+	err := place(t.Context(), typedInto(typedSecret, typedRefresh))
 
 	// Assert
 	if !errors.Is(err, messaging.ErrRejected) || strings.Contains(err.Error(), typedSecret) ||
@@ -220,25 +214,20 @@ func TestPlacingSecretsSlackRefusesIsARejectionWithNoSecretInIt(t *testing.T) {
 	}
 }
 
-func TestPlacingSlackSecretsOffMacOSLeavesThemInTheConfiguration(t *testing.T) {
+func TestPlacingSlackSecretsOffMacOSIsLeftToTheFile(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	slack := &slackRefreshes{answer: renewedPair}
 	security := &fakeSecurity{}
-	process := processEnvironment()
-
 	system := wiring.Keychain{GOOS: noKeychainOS, Run: security.run, Getenv: os.Getenv}
-	place := process.PlaceSlackCredentials(slack.do, system)
-	typed := typedInto(typedSecret, typedRefresh)
 
 	// Act
-	placed, err := place(t.Context(), typed)
+	place := processEnvironment().PlaceSlackCredentials(slack.do, system)
 
 	// Assert
-	if err != nil || !reflect.DeepEqual(placed.Messaging, typed.Messaging) || len(slack.spent) != 0 {
-		t.Errorf("placed %+v, %v after %d refreshes; want the configuration as it was, nothing spent",
-			placed.Redacted().Messaging, err, len(slack.spent))
+	if place != nil {
+		t.Error("PlaceSlackCredentials off macOS is wired; want none, so the file keeps the secrets typed")
 	}
 }
 
@@ -251,7 +240,7 @@ func TestPlacingABlankTypedClientSecretTakesTheOneTheKeychainKeeps(t *testing.T)
 	place := processEnvironment().PlaceSlackCredentials(slack.do, onMacOS(security))
 
 	// Act
-	_, err := place(t.Context(), typedInto("", typedRefresh))
+	err := place(t.Context(), typedInto("", typedRefresh))
 
 	// Assert
 	if err != nil || !strings.Contains(security.held(), "client-secret-kept") ||
@@ -273,7 +262,7 @@ func TestPlacingAPairTheKeychainWillNotKeepIsReported(t *testing.T) {
 	place := process.PlaceSlackCredentials(slack.do, system)
 
 	// Act
-	_, err := place(t.Context(), typedInto(typedSecret, typedRefresh))
+	err := place(t.Context(), typedInto(typedSecret, typedRefresh))
 
 	// Assert
 	if !errors.Is(err, slackauth.ErrNotKept) || strings.Contains(err.Error(), typedSecret) {
@@ -303,7 +292,7 @@ func TestPlacingSecretsKeepsTheRenewedPairThoughItsAskerLeavesOnceSlackAnswers(t
 	place := processEnvironment().PlaceSlackCredentials(answeredThenLeft, onMacOS(security))
 
 	// Act
-	_, _ = place(asking, typedInto(typedSecret, typedRefresh))
+	_ = place(asking, typedInto(typedSecret, typedRefresh))
 
 	// Assert
 	if !strings.Contains(security.held(), renewedRefresh) {

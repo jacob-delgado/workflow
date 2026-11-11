@@ -112,11 +112,10 @@ func TestSaveEditHandsTypedSlackSecretsToBePlaced(t *testing.T) {
 
 	var handed config.Secret
 
-	place := func(cfg config.Config) (config.Config, error) {
+	place := func(cfg config.Config) error {
 		handed = cfg.Messaging.RefreshToken
-		cfg.Messaging.RefreshToken = ""
 
-		return cfg, nil
+		return nil
 	}
 
 	// Act
@@ -168,10 +167,10 @@ func TestSaveEditPlacesNothingOverFilesChangedSinceTheRead(t *testing.T) {
 	// Act
 	_, _, err = config.SaveEdit(config.Edit{
 		Files: files, Read: read, Over: revision, Edited: edited,
-		PlaceSlackCredentials: func(cfg config.Config) (config.Config, error) {
+		PlaceSlackCredentials: func(config.Config) error {
 			placed = true
 
-			return cfg, nil
+			return nil
 		},
 	})
 
@@ -217,10 +216,10 @@ func TestSaveEditOverAFileKeepingSlackSecretsKeepsTheTypedOnesThere(t *testing.T
 	// Act
 	_, _, err = config.SaveEdit(config.Edit{
 		Files: files, Read: read, Over: revision, Edited: edited,
-		PlaceSlackCredentials: func(cfg config.Config) (config.Config, error) {
+		PlaceSlackCredentials: func(config.Config) error {
 			placed = true
 
-			return cfg, nil
+			return nil
 		},
 	})
 
@@ -254,10 +253,10 @@ func TestSaveEditPlacesNothingOverFilesItCannotRead(t *testing.T) {
 	// Act
 	_, _, err = config.SaveEdit(config.Edit{
 		Files: files, Read: read, Over: revision, Edited: edited,
-		PlaceSlackCredentials: func(cfg config.Config) (config.Config, error) {
+		PlaceSlackCredentials: func(config.Config) error {
 			placed = true
 
-			return cfg, nil
+			return nil
 		},
 	})
 
@@ -373,10 +372,10 @@ func TestSaveEditRemovingTheSlackSecretsPlacesNothing(t *testing.T) {
 	_, _, err = config.SaveEdit(config.Edit{
 		Files: files, Read: read, Over: revision, Edited: read.Redacted(),
 		Removed: []config.Credential{config.CredentialClientSecret, config.CredentialRefreshToken},
-		PlaceSlackCredentials: func(cfg config.Config) (config.Config, error) {
+		PlaceSlackCredentials: func(config.Config) error {
 			placed = true
 
-			return cfg, nil
+			return nil
 		},
 	})
 

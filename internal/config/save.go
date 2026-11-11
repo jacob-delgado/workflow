@@ -312,12 +312,15 @@ type Edit struct {
 	// whatever Edited holds for it.
 	Removed []Credential
 	// PlaceSlackCredentials keeps a Slack user token's secrets, typed into the
-	// editor, where the configuration keeps them, and answers the configuration
-	// to write. Nil keeps them in the file.
-	PlaceSlackCredentials func(Config) (Config, error)
+	// editor and held in the configuration it is handed, outside the file:
+	// spending the refresh token on a refresh and keeping the pair it answers.
+	// It is called only once the file, which holds none of them, is written.
+	// Nil keeps them in the file.
+	PlaceSlackCredentials func(Config) error
 	// KeepJiraToken keeps a Jira token typed into the editor in the OS
 	// keychain, under the item service names, so the file written reads it
-	// from there. Nil, where no keychain is wired, keeps it in the file.
+	// from there. It is called only once that file is written. Nil, where no
+	// keychain is wired, keeps it in the file.
 	KeepJiraToken func(service, secret string) error
 }
 
@@ -327,11 +330,16 @@ type Edit struct {
 // ErrChangedOnDisk, and a credential the files read did not hold that would
 // land in a repository's file with ErrCredentialInRepository; either way
 // nothing is written. A Jira token typed is kept in the keychain item for its
-// address where KeepJiraToken is wired, and so lands in no file. Every
-// credential but those placed elsewhere is checked before any is placed,
-// since placing the Slack secrets spends the refresh token typed, and every
-// one before the keychain is handed the token, which replaces the item it
-// held. Neither is done for a write the files would then refuse.
+// address where KeepJiraToken is wired, and Slack secrets typed are placed
+// where PlaceSlackCredentials is, and so land in no file.
+//
+// The file is written first, so a save the files refuse neither replaces the
+// keychain's item nor spends the refresh token typed. The Jira token is kept
+// next, and the Slack secrets placed last, since that spends the refresh
+// token and nothing may fail after it. A keychain or a Slack that refuses
+// takes the write back, unless the files have changed since; the Jira token a
+// keychain already kept when Slack then refuses stays kept, as the token
+// typed for its address.
 func SaveEdit(edit Edit) (Config, Revision, error) {
 	incoming := KeepStored(edit.Edited, edit.Read, edit.Removed)
 	incoming.Path, incoming.Files = edit.Files.Target(), edit.Files
@@ -341,55 +349,83 @@ func SaveEdit(edit Edit) (Config, Revision, error) {
 		return Config{}, Revision{}, err
 	}
 
-	incoming, err = edit.placeSlackCredentials(incoming)
+	file := edit.fileFor(incoming)
+
+	err = edit.refuseUnheld(file, slackSecretFields())
 	if err != nil {
 		return Config{}, Revision{}, err
 	}
 
-	err = edit.refuseUnheld(incoming, slackSecretFields())
+	before, err := edit.targetAsRead()
 	if err != nil {
 		return Config{}, Revision{}, err
 	}
 
-	incoming, err = edit.keepJiraToken(incoming)
+	written, err := SaveLayers(edit.Files, file, edit.Over)
 	if err != nil {
 		return Config{}, Revision{}, err
 	}
 
-	written, err := SaveLayers(edit.Files, incoming, edit.Over)
+	err = edit.handOff(incoming)
 	if err != nil {
-		return Config{}, Revision{}, err
+		return Config{}, Revision{}, errors.Join(err, restoreLayer(edit.Files, before, written))
 	}
 
-	return incoming, written, nil
+	return file, written, nil
 }
 
-// placeSlackCredentials hands Slack user-token secrets that differ from the
-// ones read — typed into the editor, not sent back as they were shown — to be
-// kept where the configuration keeps them, and answers the configuration to
-// write. A file that already keeps them goes on keeping them, with no access
-// token, so the next post refreshes with what was typed.
-func (edit Edit) placeSlackCredentials(incoming Config) (Config, error) {
-	typed := incoming.Messaging.ClientSecret != edit.Read.Messaging.ClientSecret ||
+// fileFor is what the file holds for incoming: without a Jira token the
+// keychain keeps, reading it from there, and without Slack secrets placed
+// elsewhere. Slack secrets typed drop the access token and its expiry, so the
+// next post refreshes with what was typed.
+func (edit Edit) fileFor(incoming Config) Config {
+	file := incoming
+	if edit.keepsJiraToken(incoming) {
+		file.Jira.Token, file.Jira.Keychain = "", true
+	}
+
+	if edit.typedSlackSecrets(incoming) {
+		file.Messaging.AccessToken, file.Messaging.ExpiresAt = "", ""
+	}
+
+	if edit.placesSlackCredentials(incoming) {
+		file.Messaging.ClientSecret, file.Messaging.RefreshToken = "", ""
+	}
+
+	return file
+}
+
+// handOff hands what the file written does not hold to where it is kept: the
+// Jira token typed to the keychain, then the Slack secrets typed to be
+// placed, which spends the refresh token.
+func (edit Edit) handOff(incoming Config) error {
+	if edit.keepsJiraToken(incoming) {
+		err := edit.KeepJiraToken(incoming.Jira.KeychainService(), incoming.Jira.Token.Reveal())
+		if err != nil {
+			return fmt.Errorf("%w: %w", ErrTokenNotKept, err)
+		}
+	}
+
+	if edit.placesSlackCredentials(incoming) {
+		return edit.PlaceSlackCredentials(incoming)
+	}
+
+	return nil
+}
+
+// typedSlackSecrets reports Slack user-token secrets that differ from the
+// ones read: typed into the editor, not sent back as they were shown.
+func (edit Edit) typedSlackSecrets(incoming Config) bool {
+	return incoming.Messaging.ClientSecret != edit.Read.Messaging.ClientSecret ||
 		incoming.Messaging.RefreshToken != edit.Read.Messaging.RefreshToken
-	if !typed {
-		return incoming, nil
-	}
+}
 
-	if edit.PlaceSlackCredentials == nil || edit.Read.Messaging.HoldsUserTokenSecrets() {
-		incoming.Messaging.AccessToken, incoming.Messaging.ExpiresAt = "", ""
-
-		return incoming, nil
-	}
-
-	// Placing spends the typed refresh token, so it is done only for a write
-	// that will be made.
-	err := edit.writableFor("placing the Slack secrets", incoming)
-	if err != nil {
-		return Config{}, err
-	}
-
-	return edit.PlaceSlackCredentials(incoming)
+// placesSlackCredentials reports Slack secrets typed that are placed outside
+// the file: where PlaceSlackCredentials is wired, unless the file read
+// already keeps them, which goes on keeping them.
+func (edit Edit) placesSlackCredentials(incoming Config) bool {
+	return edit.typedSlackSecrets(incoming) && edit.PlaceSlackCredentials != nil &&
+		!edit.Read.Messaging.HoldsUserTokenSecrets()
 }
 
 // heldSecretFields are the credentials incoming may hold in the file: every
@@ -411,42 +447,38 @@ func (edit Edit) keepsJiraToken(incoming Config) bool {
 	return typed && incoming.Jira.BaseURL != "" && edit.KeepJiraToken != nil
 }
 
-// keepJiraToken keeps a Jira token typed into the editor in the keychain item
-// for its address, and answers the configuration to write: reading it from
-// there, the token out of the file. It is done only for a write that will be
-// made, so a refused save leaves the keychain as it was.
-func (edit Edit) keepJiraToken(incoming Config) (Config, error) {
-	if !edit.keepsJiraToken(incoming) {
-		return incoming, nil
-	}
-
-	written := incoming
-	written.Jira.Token, written.Jira.Keychain = "", true
-
-	err := edit.writableFor("keeping the Jira token", written)
-	if err != nil {
-		return Config{}, err
-	}
-
-	err = edit.KeepJiraToken(incoming.Jira.KeychainService(), incoming.Jira.Token.Reveal())
-	if err != nil {
-		return Config{}, fmt.Errorf("%w: %w", ErrTokenNotKept, err)
-	}
-
-	return written, nil
-}
-
-// writableFor refuses, writing nothing, a write of cfg that SaveLayers would
-// refuse: files no longer at the revision the edit was made over, refused as
-// doing, or a repository's file cfg would make a setting only the home file
-// may, refused as the write would be.
-func (edit Edit) writableFor(doing string, cfg Config) error {
+// targetAsRead is the file the edit saves to as the read found it, for a
+// write handed off and refused to be taken back, refused with
+// ErrChangedOnDisk when the files are no longer at the revision the edit was
+// made over.
+func (edit Edit) targetAsRead() (layer, error) {
 	home, repo, err := readLayers(edit.Files)
 	if err != nil || layersRevision(home, repo) != edit.Over {
-		return fmt.Errorf("%s: %w", doing, ErrChangedOnDisk)
+		return layer{}, fmt.Errorf("%s: %w", edit.Files, ErrChangedOnDisk)
 	}
 
-	_, err = layerContents(edit.Files, home, cfg)
+	if edit.Files.Repo != "" {
+		return repo, nil
+	}
 
-	return err
+	return home, nil
+}
+
+// restoreLayer takes back the write that left files at the revision written:
+// the file it saved to holds what before held again, or, where before was no
+// file, goes from where the write followed its links to. Files changed since
+// are left as they are, refused with ErrChangedOnDisk.
+func restoreLayer(files Files, before layer, written Revision) error {
+	now, err := RevisionOfLayers(files)
+	if err != nil || now != written {
+		return fmt.Errorf("taking the write back: %s: %w", files, ErrChangedOnDisk)
+	}
+
+	if before.exists {
+		return writePrivate(files.Target(), before.contents)
+	}
+
+	made, err := filepath.EvalSymlinks(files.Target())
+
+	return errors.Join(err, os.Remove(made))
 }

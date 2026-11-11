@@ -131,11 +131,11 @@ type Controls struct {
 	// dropping what the directory read under the old ones.
 	UseMessagingSettings func(settings config.Messaging)
 	// PlaceSlackCredentials keeps a Slack user token's secrets, typed into the
-	// web's Settings or the terminal's, where the configuration keeps them: on macOS it refreshes
-	// the token once, saves the pair to the keychain, and answers the
-	// configuration without them; elsewhere the file keeps them, and it answers
-	// the configuration unchanged.
-	PlaceSlackCredentials func(ctx context.Context, cfg config.Config) (config.Config, error)
+	// web's Settings or the terminal's, outside the file: on macOS it
+	// refreshes the token once and saves the pair to the keychain, once the
+	// file that holds none of them is written; nil elsewhere, where the file
+	// keeps them.
+	PlaceSlackCredentials func(ctx context.Context, cfg config.Config) error
 	// KeepJiraToken keeps a Jira token typed into the web's Settings or the
 	// terminal's in the macOS keychain, under the item for its address, so the
 	// file saved reads it from there; nil elsewhere, where the file keeps it.
