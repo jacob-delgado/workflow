@@ -179,8 +179,9 @@ type Forge struct {
 	Merge        func(ctx context.Context, pull forge.PullRequest, method forge.MergeMethod) error
 	MergeMethods func(ctx context.Context) ([]forge.MergeMethod, error)
 	// ReviewRequests lists the pull requests on the forge that ask for your
-	// review, across whichever repositories requested you.
-	ReviewRequests func(ctx context.Context) ([]forge.ReviewRequest, error)
+	// review, across whichever repositories requested you, and whether the
+	// forge holds more than it listed.
+	ReviewRequests func(ctx context.Context) (forge.ReviewQueue, error)
 	Templates      func() []forge.Template
 	// Author is who the forge credential belongs to, to say who opened a pull
 	// request.

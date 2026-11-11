@@ -519,8 +519,10 @@ runs: tagging follows the configuration in effect.
 The pull requests on your forge that wait on your review, the longest-waiting
 first: where each is, who asks, how long it has waited, whether it is a draft,
 and how its CI stands, in the words the filter offers them by — `CI none`
-where the forge's listing reports no CI — each with a link to open it and
-**Copy URL**. **Sort**
+where nothing reports CI, or it could not be read — each with a link to open
+it and **Copy URL**. Where the forge holds more than it lists — GitHub's
+search serves its first thousand, and a GitLab listing is read two thousand
+deep — a line says these are only the first. **Sort**
 lists them **Oldest first**, **Newest first** or **By repository**, which heads
 each repository's requests with its name, the longest-waiting first within it —
 the orders the terminal's `O` cycles through. **Filter** narrows them, as the

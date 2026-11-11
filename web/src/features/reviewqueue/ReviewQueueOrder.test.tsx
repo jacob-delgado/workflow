@@ -66,7 +66,7 @@ const nowhere = inRepository('', 'no repository', {
 // queueOf is an available queue of the requests given, oldest first as the
 // server sends it, with nothing for the filter to offer.
 function queueOf(...requests: ReviewRequest[]): ReviewQueue {
-  return { available: true, requests, facet_order: [] }
+  return { available: true, requests, truncated: false, facet_order: [] }
 }
 
 // linksIn is the address each request listed in container opens, in order.

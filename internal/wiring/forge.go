@@ -88,8 +88,8 @@ func forgeDeps(setup forgeSetup, connect func(context.Context) (forgeConnection,
 				return on.client.MergeMethods(ctx, on.repo)
 			})
 		},
-		ReviewRequests: func(ctx context.Context) ([]forge.ReviewRequest, error) {
-			return ask(ctx, connect, func(on forgeConnection) ([]forge.ReviewRequest, error) {
+		ReviewRequests: func(ctx context.Context) (forge.ReviewQueue, error) {
+			return ask(ctx, connect, func(on forgeConnection) (forge.ReviewQueue, error) {
 				return on.client.ReviewRequests(ctx, on.repo.Kind)
 			})
 		},

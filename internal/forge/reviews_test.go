@@ -95,14 +95,14 @@ func TestReviewRequestsListsWhatEachForgeReturns(t *testing.T) {
 			client, seen := recordingForge(t, routing(tt.routes))
 
 			// Act
-			reviews, err := client.ReviewRequests(t.Context(), tt.kind)
+			queue, err := client.ReviewRequests(t.Context(), tt.kind)
 
 			// Assert
-			if err != nil || len(reviews) != 1 {
-				t.Fatalf("ReviewRequests = %+v, %v, want one review", reviews, err)
+			if err != nil || len(queue.Requests) != 1 || queue.Truncated {
+				t.Fatalf("ReviewRequests = %+v, %v, want one review, all there is", queue, err)
 			}
 
-			if got := reviews[0]; !sameReview(got, tt.want) {
+			if got := queue.Requests[0]; !sameReview(got, tt.want) {
 				t.Errorf("ReviewRequests[0] = %+v, want %+v", got, tt.want)
 			}
 
@@ -117,21 +117,22 @@ func TestReviewRequestsReadsEveryPage(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
-		kind  forge.Kind
-		pages map[string][]string
-		want  int
+		kind      forge.Kind
+		pages     map[string][]string
+		want      int
+		truncated bool
 	}{
 		"GitHub reads on past a full page": {
 			kind:  forge.KindGitHub,
 			pages: map[string][]string{githubSearchPath: {searchPage(1, 100, 101), searchPage(101, 1, 101)}},
 			want:  101,
 		},
-		"GitHub stops where its search stops serving": {
+		"GitHub stops where its search stops serving, and says it found more": {
 			kind: forge.KindGitHub,
 			pages: map[string][]string{githubSearchPath: fullPages(10, func(first int) string {
 				return searchPage(first, 100, 5000)
 			})},
-			want: 1000,
+			want: 1000, truncated: true,
 		},
 		"GitLab reads on until a short page": {
 			kind: forge.KindGitLab,
@@ -140,6 +141,16 @@ func TestReviewRequestsReadsEveryPage(t *testing.T) {
 				gitlabReviewsPath: {listingOf(1, 100, gitlabNumbered), listingOf(101, 1, gitlabNumbered)},
 			},
 			want: 101,
+		},
+		"GitLab stops twenty full pages in, and says there may be more": {
+			kind: forge.KindGitLab,
+			pages: map[string][]string{
+				userPath: {gitlabWhoami},
+				gitlabReviewsPath: fullPages(20, func(first int) string {
+					return listingOf(first, 100, gitlabNumbered)
+				}),
+			},
+			want: 2000, truncated: true,
 		},
 	}
 
@@ -151,12 +162,17 @@ func TestReviewRequestsReadsEveryPage(t *testing.T) {
 			client := forgePaging(t, tt.pages)
 
 			// Act
-			reviews, err := client.ReviewRequests(t.Context(), tt.kind)
+			queue, err := client.ReviewRequests(t.Context(), tt.kind)
 
 			// Assert
+			reviews := queue.Requests
 			if err != nil || len(reviews) != tt.want || reviews[len(reviews)-1].Number != tt.want {
 				t.Errorf("ReviewRequests read %d reviews, %v; want %d, the last numbered %d",
 					len(reviews), err, tt.want, tt.want)
+			}
+
+			if queue.Truncated != tt.truncated {
+				t.Errorf("ReviewRequests said truncated %v, want %v", queue.Truncated, tt.truncated)
 			}
 		})
 	}

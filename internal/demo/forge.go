@@ -63,8 +63,8 @@ func (w *World) pullFor(branch string) (forge.PullRequest, bool) {
 }
 
 // reviewRequests are the pull requests that ask for your review.
-func reviewRequests(context.Context) ([]forge.ReviewRequest, error) {
-	return reviewQueue(), nil
+func reviewRequests(context.Context) (forge.ReviewQueue, error) {
+	return forge.ReviewQueue{Requests: reviewQueue(), Truncated: false}, nil
 }
 
 // reviewQueue are the pull requests that ask for your review, oldest first,

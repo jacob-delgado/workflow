@@ -209,7 +209,7 @@ type dialect struct {
 	rerun      func(ctx context.Context, c Client, repo Repo, pull PullRequest, head string) (bool, error)
 	merge      func(ctx context.Context, c Client, repo Repo, pull PullRequest, method MergeMethod) error
 	methods    func(ctx context.Context, c Client, repo Repo) ([]MergeMethod, error)
-	reviews    func(ctx context.Context, c Client) ([]ReviewRequest, error)
+	reviews    func(ctx context.Context, c Client) (ReviewQueue, error)
 	issues     func(ctx context.Context, c Client, repo Repo) ([]Issue, error)
 	readIssue  func(ctx context.Context, c Client, repo Repo, number int) (IssueDetail, error)
 	closeIssue func(ctx context.Context, c Client, repo Repo, number int) error
@@ -440,10 +440,10 @@ func (c Client) MergeMethods(ctx context.Context, repo Repo) ([]MergeMethod, err
 // ReviewRequests lists the open pull or merge requests on the forge that ask
 // the token's owner for a review. The kind chooses how to ask; the client can
 // only reach the one forge its base URL points at.
-func (c Client) ReviewRequests(ctx context.Context, kind Kind) ([]ReviewRequest, error) {
+func (c Client) ReviewRequests(ctx context.Context, kind Kind) (ReviewQueue, error) {
 	speaks, err := dialectFor(kind)
 	if err != nil {
-		return nil, err
+		return ReviewQueue{}, err
 	}
 
 	return speaks.reviews(ctx, c)

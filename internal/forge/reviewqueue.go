@@ -28,6 +28,14 @@ type ReviewRequest struct {
 	OpenedAt time.Time
 }
 
+// ReviewQueue is the requests that ask for your review, as far as the forge
+// lists them, and whether it holds more than it listed: GitHub's search
+// serves its first thousand, and a listing is read twenty pages deep.
+type ReviewQueue struct {
+	Requests  []ReviewRequest
+	Truncated bool
+}
+
 // OldestFirst is the review queue in the order it is worked through, the
 // longest-waiting request first — the order every surface lists it in. Requests
 // opened at the same moment keep the forge's order, and the forge's answer is

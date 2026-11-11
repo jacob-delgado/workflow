@@ -75,11 +75,11 @@ func TestGitHubReviewRequestsCarryWhereTheirCIStands(t *testing.T) {
 			client, _ := recordingForge(t, routing(tt.routes))
 
 			// Act
-			reviews, err := client.ReviewRequests(t.Context(), forge.KindGitHub)
+			queue, err := client.ReviewRequests(t.Context(), forge.KindGitHub)
 
 			// Assert
-			if err != nil || len(reviews) != 1 || reviews[0].CI != tt.want {
-				t.Errorf("ReviewRequests = %+v, %v; want the one request with CI %s", reviews, err, tt.want.Word())
+			if err != nil || len(queue.Requests) != 1 || queue.Requests[0].CI != tt.want {
+				t.Errorf("ReviewRequests = %+v, %v; want the one request with CI %s", queue, err, tt.want.Word())
 			}
 		})
 	}

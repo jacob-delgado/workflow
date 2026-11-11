@@ -25,7 +25,7 @@ function hoursAgo(hours: number): string {
 // queueOf is an available queue of the requests given, oldest first as the
 // server sends it, with nothing for the filter to offer.
 function queueOf(...requests: ReturnType<typeof makeReviewRequest>[]): ReviewQueue {
-  return { available: true, requests, facet_order: [] }
+  return { available: true, requests, truncated: false, facet_order: [] }
 }
 
 // statusSaying is the live status line that says text, if one does: the
@@ -62,6 +62,32 @@ const waitingLess = describedReviewRequest(
     { kind: 'author', value: 'sam', label: 'by sam' },
   ],
 )
+
+test('a queue the forge holds more of says these are only the first', async () => {
+  // Arrange
+  fakeApi({ [reviewsPath]: { ...queueOf(waitingLongest, waitingLess), truncated: true } })
+
+  // Act
+  renderWithClient(<ReviewQueuePanel />)
+
+  // Assert
+  const note = await screen.findByRole('note')
+  expect(note.textContent).toBe(
+    'These are the first 2; the forge holds more pull requests waiting on your review.',
+  )
+})
+
+test('a queue the forge listed whole says nothing of more', async () => {
+  // Arrange
+  fakeApi({ [reviewsPath]: queueOf(waitingLongest, waitingLess) })
+
+  // Act
+  renderWithClient(<ReviewQueuePanel />)
+
+  // Assert
+  await screen.findByRole('list', { name: 'Waiting on your review' })
+  expect(screen.queryByRole('note')).toBeNull()
+})
 
 test('the Reviews section lists requests by role and name', async () => {
   // Arrange

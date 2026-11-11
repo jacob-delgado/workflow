@@ -48,6 +48,7 @@ function requestNumbered(
 // server offers its filter, in its order.
 const queue = {
   available: true,
+  truncated: false,
   facet_order: [
     noRepository,
     exampleOther,

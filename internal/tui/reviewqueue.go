@@ -21,15 +21,17 @@ import (
 // pane's detail is scrolled.
 type reviewQueueState struct {
 	// all is the queue as the forge answered it; requests is what the pane
-	// lists of it, narrowed to the picked facets and in order.
-	all      []forge.ReviewRequest
-	order    reviewOrder
-	facets   []forge.ReviewFacet
-	requests []forge.ReviewRequest
-	loaded   bool
-	err      error
-	selected int
-	scroll   int
+	// lists of it, narrowed to the picked facets and in order. truncated is
+	// a queue the forge holds more of than it answered.
+	all       []forge.ReviewRequest
+	truncated bool
+	order     reviewOrder
+	facets    []forge.ReviewFacet
+	requests  []forge.ReviewRequest
+	loaded    bool
+	err       error
+	selected  int
+	scroll    int
 	// loading is a refresh begun and not yet answered.
 	loading bool
 }
@@ -37,9 +39,9 @@ type reviewQueueState struct {
 // reviewsLoaded carries the forge's answer about the review queue, as the
 // read counted read found it.
 type reviewsLoaded struct {
-	requests []forge.ReviewRequest
-	err      error
-	read     int
+	queue forge.ReviewQueue
+	err   error
+	read  int
 }
 
 var _ applier = reviewsLoaded{}
@@ -56,7 +58,8 @@ func (msg reviewsLoaded) apply(m Model) (Model, tea.Cmd) {
 	previous, _ := m.reviewQueue.current()
 
 	m.reviewQueue = reviewQueueState{
-		all: msg.requests, order: m.reviewQueue.order, facets: m.reviewQueue.facets, loaded: true, err: msg.err,
+		all: msg.queue.Requests, truncated: msg.queue.Truncated, order: m.reviewQueue.order,
+		facets: m.reviewQueue.facets, loaded: true, err: msg.err,
 	}
 	m.reviewQueue = m.reviewQueue.listed(previous, m.detailRows())
 
@@ -81,9 +84,9 @@ func loadReviewQueue(ctx context.Context, deps Deps, read int) tea.Cmd {
 	}
 
 	return func() tea.Msg {
-		requests, err := list(ctx)
+		queue, err := list(ctx)
 
-		return reviewsLoaded{requests: requests, err: err, read: read}
+		return reviewsLoaded{queue: queue, err: err, read: read}
 	}
 }
 
@@ -169,8 +172,8 @@ func (m Model) reviewsView() reviewsView {
 	return reviewsView{kit: m.kit(), now: m.deps.now(), vocab: m.vocab, listed: m.deps.Forge.ReviewRequests != nil}
 }
 
-// rail summarizes the queue: how many pull requests wait, or why the queue
-// could not be read.
+// rail summarizes the queue: how many pull requests wait, marked + when the
+// forge holds more than it answered, or why the queue could not be read.
 func (s reviewQueueState) rail(view reviewsView) string {
 	switch {
 	case !view.listed:
@@ -181,6 +184,10 @@ func (s reviewQueueState) rail(view reviewsView) string {
 		return view.kit.failureSummary(s.err)
 	case len(s.all) == 0:
 		return "none waiting on you"
+	}
+
+	if s.truncated {
+		return strconv.Itoa(len(s.all)) + "+ waiting"
 	}
 
 	return strconv.Itoa(len(s.all)) + " waiting"

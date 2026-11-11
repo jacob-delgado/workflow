@@ -149,10 +149,10 @@ func (w *world) forgeCalls() seams.Forge {
 
 			return w.mergeMethods, w.mergeMethodsErr
 		},
-		ReviewRequests: func(context.Context) ([]forge.ReviewRequest, error) {
+		ReviewRequests: func(context.Context) (forge.ReviewQueue, error) {
 			w.record("reviews")
 
-			return w.reviews, w.reviewsErr
+			return forge.ReviewQueue{Requests: w.reviews, Truncated: w.reviewsCut}, w.reviewsErr
 		},
 		Templates: func() []forge.Template { return w.templates },
 		Author:    func(context.Context) (string, error) { return w.author, w.authorErr },

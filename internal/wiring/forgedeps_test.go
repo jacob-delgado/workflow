@@ -67,9 +67,9 @@ func TestTheForgeSeamsReturnTheForgesAnswerThroughTheCLI(t *testing.T) {
 		{
 			seam: "ReviewRequests",
 			act: func(forgeSeams seams.Forge) (string, error) {
-				reviews, err := forgeSeams.ReviewRequests(t.Context())
+				queue, err := forgeSeams.ReviewRequests(t.Context())
 
-				return fmt.Sprintf("%d requests", len(reviews)), err
+				return fmt.Sprintf("%d requests", len(queue.Requests)), err
 			},
 			want: "0 requests",
 		},

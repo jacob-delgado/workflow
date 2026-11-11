@@ -1,6 +1,6 @@
 import { useRef, type ReactElement, type ReactNode, type RefObject } from 'react'
 import { apiErrorMessage } from '@/api/apiError.ts'
-import type { ReviewRequest } from '@/api/generated/types.gen.ts'
+import type { ReviewQueue, ReviewRequest } from '@/api/generated/types.gen.ts'
 import { useForgeWords } from '@/api/health.ts'
 import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
@@ -53,8 +53,7 @@ export function ReviewQueuePanel() {
 
   return (
     <Queue
-      requests={query.data?.requests}
-      facetOrder={query.data?.facet_order}
+      {...listedIn(query.data)}
       readAt={query.dataUpdatedAt}
       failure={
         query.isError
@@ -70,9 +69,23 @@ export function ReviewQueuePanel() {
   )
 }
 
+// listedIn is what a read of the queue listed, as Queue takes it: nothing,
+// before any read has landed.
+function listedIn(
+  queue: ReviewQueue | undefined,
+): Pick<QueueProps, 'requests' | 'truncated' | 'facetOrder'> {
+  if (queue === undefined) {
+    return { requests: undefined, truncated: false, facetOrder: undefined }
+  }
+
+  return { requests: queue.requests, truncated: queue.truncated, facetOrder: queue.facet_order }
+}
+
 interface QueueProps {
   // requests is the queue as last read, or undefined when no read has landed.
   requests: ReviewRequest[] | undefined
+  // truncated is that the forge holds more requests than that read listed.
+  truncated: boolean
   // facetOrder is every value the filter offers, in the server's order, as
   // the same read answered it.
   facetOrder: Facet[] | undefined
@@ -96,6 +109,7 @@ interface QueueProps {
 // filter chosen hold across reads, and across visits to other sections.
 function Queue({
   requests,
+  truncated,
   facetOrder,
   readAt,
   failure,
@@ -121,6 +135,7 @@ function Queue({
               : queueSummary(requests.length, shown.length, noun, order)}
           </p>
           {failure === null ? null : <Failure>{failure}</Failure>}
+          <MoreOnTheForge requests={requests} truncated={truncated} noun={noun} />
         </div>
         <Button variant="secondary" held={reading} onClick={onReadAgain} className="shrink-0">
           {readAgainLabel(failed, reading)}
@@ -153,6 +168,27 @@ function Queue({
         />
       )}
     </div>
+  )
+}
+
+interface MoreOnTheForgeProps {
+  requests: ReviewRequest[] | undefined
+  truncated: boolean
+  noun: string
+}
+
+// MoreOnTheForge says, of a queue the forge holds more of than it listed, as
+// GitHub's search serves its first thousand, that these are only the first,
+// in the words `workflow reviews` warns with; of any other, nothing.
+function MoreOnTheForge({ requests, truncated, noun }: MoreOnTheForgeProps) {
+  if (!truncated || requests === undefined) {
+    return null
+  }
+
+  return (
+    <p role="note" className="text-sm text-muted-foreground">
+      {`These are the first ${String(requests.length)}; the forge holds more ${noun}s waiting on your review.`}
+    </p>
   )
 }
 

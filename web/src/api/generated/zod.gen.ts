@@ -1001,6 +1001,7 @@ export const zReviewRequest = z.object({
 export const zReviewQueue = z.object({
     available: z.boolean(),
     requests: z.array(zReviewRequest),
+    truncated: z.boolean(),
     facet_order: z.array(zReviewFacet)
 });
 

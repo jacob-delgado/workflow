@@ -276,7 +276,7 @@ func (s *server) ListReviews(
 		return api.ListReviews200JSONResponse(noReviewQueue()), nil
 	}
 
-	requests, err := s.deps.Forge.ReviewRequests(ctx)
+	queue, err := s.deps.Forge.ReviewRequests(ctx)
 	if noForgeToAsk(err) {
 		return api.ListReviews200JSONResponse(noReviewQueue()), nil
 	}
@@ -285,7 +285,7 @@ func (s *server) ListReviews(
 		return problem.Answer[api.ListReviewsdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
-	return api.ListReviews200JSONResponse(reviewQueueDTO(forge.OldestFirst(requests))), nil
+	return api.ListReviews200JSONResponse(reviewQueueDTO(queue)), nil
 }
 
 // noForgeToAsk reports a review read that found no forge to ask: no remote —
