@@ -133,7 +133,7 @@ Impact: medium · Effort: medium
   from chat.postMessage's `verdict` and returns only an error, so it must
   return the timestamp), the post seam that carries it to the record on
   every surface (`loop.DeliverSeams.Post` and `loop.Delivery`, in
-  `internal/loop/announce.go`, which the interface's
+  `internal/loop/deliver.go`, which the interface's
   `seams.Messaging.Post`, `announceSeams.Deliver` in
   `internal/cli/pr/announce.go` and the web server's `Deps.Messaging.Post`,
   through `server.Announce`, all post through), and the *Each announcement
@@ -339,7 +339,7 @@ Impact: medium · Effort: medium
   costs a `channels:history` scope and a request, and it cannot work with a
   webhook.
 - Touches: `internal/messaging` (a history read on the user-token client),
-  `internal/loop/announce.go`.
+  `internal/loop/deliver.go`.
 - Done when: a later post about the same pull request arrives as a reply.
 
 ### FEAT-65 A queued post that survives quitting

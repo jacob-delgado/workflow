@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/jacob-delgado/workflow/internal/armed"
 	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/cli/doctor"
 	"github.com/jacob-delgado/workflow/internal/cli/issues"
@@ -133,6 +134,6 @@ func refusalErrors() []error {
 		pr.ErrPullAlreadyOpen, pr.ErrNoCommitsToOpen, pr.ErrNoPullRequest,
 		errBranchExists, setup.ErrExists, gitrepo.ErrNotARepository, store.ErrNotCleaned,
 		messaging.ErrTooLong, loop.ErrNoTransition, loop.ErrNeedsFields,
-		loop.ErrCIFailed, loop.ErrNoCI, loop.ErrPullChanged, loop.ErrMergedFirst, pr.ErrOnlyReadyWaits,
+		loop.ErrCIFailed, armed.ErrNoCI, armed.ErrPullChanged, armed.ErrMergedFirst, pr.ErrOnlyReadyWaits,
 	}
 }

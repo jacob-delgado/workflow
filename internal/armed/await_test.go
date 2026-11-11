@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package loop_test
+package armed_test
 
 import (
 	"context"
@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jacob-delgado/workflow/internal/armed"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
-	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
 // awaitInterval is how long each fake pause takes on the fake clock.
@@ -27,7 +27,7 @@ type awaiting struct {
 	pulls    []forge.PullRequest
 	rounds   int
 	now      time.Time
-	heard    []loop.Heard
+	heard    []armed.Heard
 	heads    []string
 	cancel   func()
 	pauses   int
@@ -54,8 +54,8 @@ func pick[T any](answers []T, round int) T {
 }
 
 // seams are the reads and the pause AwaitGreen is handed.
-func (a *awaiting) seams() loop.AwaitSeams {
-	return loop.AwaitSeams{
+func (a *awaiting) seams() armed.AwaitSeams {
+	return armed.AwaitSeams{
 		Branch: func(context.Context) (gitrepo.Branch, error) {
 			a.tries++
 
@@ -98,7 +98,7 @@ func (a *awaiting) seams() loop.AwaitSeams {
 		},
 		Now:      func() time.Time { return a.now },
 		Interval: awaitInterval,
-		Heard:    func(heard loop.Heard) { a.heard = append(a.heard, heard) },
+		Heard:    func(heard armed.Heard) { a.heard = append(a.heard, heard) },
 	}
 }
 
@@ -119,7 +119,7 @@ func TestAwaitGreenAnswersOnceCIPasses(t *testing.T) {
 	world := &awaiting{cis: states(forge.CIRunning, forge.CIRunning, forge.CIPassed), now: armedAt()}
 
 	// Act
-	green, err := loop.AwaitGreen(t.Context(), world.seams(), 9)
+	green, err := armed.AwaitGreen(t.Context(), world.seams(), 9)
 
 	// Assert
 	if err != nil || green.Pull.Number != 9 || world.rounds != 3 {
@@ -135,10 +135,10 @@ func TestAwaitGreenWaitsThroughAFailedRun(t *testing.T) {
 	world := &awaiting{cis: states(forge.CIFailed, forge.CIRunning, forge.CIPassed), now: armedAt()}
 
 	// Act
-	_, err := loop.AwaitGreen(t.Context(), world.seams(), 9)
+	_, err := armed.AwaitGreen(t.Context(), world.seams(), 9)
 
 	// Assert
-	if err != nil || len(world.heard) == 0 || world.heard[0].Armed != loop.ArmedAwaitingFix {
+	if err != nil || len(world.heard) == 0 || world.heard[0].Verdict != armed.VerdictAwaitingFix {
 		t.Errorf("AwaitGreen = %v, heard %+v; want it to wait on a fix, then pass", err, world.heard)
 	}
 }
@@ -150,7 +150,7 @@ func TestAwaitGreenReadsTheHeadAgainEachRound(t *testing.T) {
 	world := &awaiting{cis: states(forge.CIRunning, forge.CIPassed), now: armedAt()}
 
 	// Act
-	green, err := loop.AwaitGreen(t.Context(), world.seams(), 9)
+	green, err := armed.AwaitGreen(t.Context(), world.seams(), 9)
 
 	// Assert
 	if err != nil || !slices.Equal(world.heads, []string{"head0", "head1"}) || green.Head != "head1" {
@@ -166,11 +166,11 @@ func TestAwaitGreenGivesUpWithNoCheckReported(t *testing.T) {
 	world := &awaiting{cis: states(forge.CINone), now: armedAt()}
 
 	// Act
-	_, err := loop.AwaitGreen(t.Context(), world.seams(), 9)
+	_, err := armed.AwaitGreen(t.Context(), world.seams(), 9)
 
 	// Assert
-	if !errors.Is(err, loop.ErrNoCI) || world.now.Sub(armedAt()) != loop.NoCIPatience {
-		t.Errorf("AwaitGreen = %v after %v, want ErrNoCI after %v", err, world.now.Sub(armedAt()), loop.NoCIPatience)
+	if !errors.Is(err, armed.ErrNoCI) || world.now.Sub(armedAt()) != armed.NoCIPatience {
+		t.Errorf("AwaitGreen = %v after %v, want ErrNoCI after %v", err, world.now.Sub(armedAt()), armed.NoCIPatience)
 	}
 }
 
@@ -185,10 +185,10 @@ func TestAwaitGreenEndsWhenThePullRequestChanges(t *testing.T) {
 	}
 
 	// Act
-	_, err := loop.AwaitGreen(t.Context(), world.seams(), 9)
+	_, err := armed.AwaitGreen(t.Context(), world.seams(), 9)
 
 	// Assert
-	if !errors.Is(err, loop.ErrPullChanged) {
+	if !errors.Is(err, armed.ErrPullChanged) {
 		t.Errorf("AwaitGreen = %v, want ErrPullChanged", err)
 	}
 }
@@ -202,10 +202,10 @@ func TestAwaitGreenEndsWhenItMergesFirst(t *testing.T) {
 	world := &awaiting{cis: states(forge.CIRunning), pulls: []forge.PullRequest{openPull(), merged}, now: armedAt()}
 
 	// Act
-	_, err := loop.AwaitGreen(t.Context(), world.seams(), 9)
+	_, err := armed.AwaitGreen(t.Context(), world.seams(), 9)
 
 	// Assert
-	if !errors.Is(err, loop.ErrMergedFirst) {
+	if !errors.Is(err, armed.ErrMergedFirst) {
 		t.Errorf("AwaitGreen = %v, want ErrMergedFirst", err)
 	}
 }
@@ -218,7 +218,7 @@ func TestAwaitGreenEndsWithItsContext(t *testing.T) {
 	world := &awaiting{cis: states(forge.CIRunning), now: armedAt(), cancel: cancel}
 
 	// Act
-	_, err := loop.AwaitGreen(ctx, world.seams(), 9)
+	_, err := armed.AwaitGreen(ctx, world.seams(), 9)
 
 	// Assert
 	if !errors.Is(err, context.Canceled) {
@@ -235,7 +235,7 @@ func TestAwaitGreenWaitsOnThroughAFailedRead(t *testing.T) {
 	}
 
 	// Act
-	_, err := loop.AwaitGreen(t.Context(), world.seams(), 9)
+	_, err := armed.AwaitGreen(t.Context(), world.seams(), 9)
 
 	// Assert
 	if err != nil || len(world.heard) == 0 || !errors.Is(world.heard[0].Err, errSeam) {
@@ -250,7 +250,7 @@ func TestAwaitGreenReadsAtOnceBeforeItPauses(t *testing.T) {
 	world := &awaiting{cis: states(forge.CIPassed), now: armedAt()}
 
 	// Act
-	_, err := loop.AwaitGreen(t.Context(), world.seams(), 9)
+	_, err := armed.AwaitGreen(t.Context(), world.seams(), 9)
 
 	// Assert
 	if err != nil || world.readsAt0 != 1 || world.pauses != 0 {
@@ -271,7 +271,7 @@ func TestAwaitGreenWaitsOnThroughAFailedReadOfTheBranchOrItsPullRequest(t *testi
 			t.Parallel()
 
 			// Act
-			_, err := loop.AwaitGreen(t.Context(), world.seams(), 9)
+			_, err := armed.AwaitGreen(t.Context(), world.seams(), 9)
 
 			// Assert
 			if err != nil || len(world.heard) == 0 || !errors.Is(world.heard[0].Err, errSeam) || world.pauses != 1 {
@@ -291,7 +291,7 @@ func TestAwaitGreenNeedsNoListener(t *testing.T) {
 	seams.Heard = nil
 
 	// Act
-	_, err := loop.AwaitGreen(t.Context(), seams, 9)
+	_, err := armed.AwaitGreen(t.Context(), seams, 9)
 	// Assert
 	if err != nil {
 		t.Errorf("AwaitGreen with no listener = %v, want it to answer once CI passes", err)
@@ -308,7 +308,7 @@ func TestAwaitGreenEndsWhenAReadIsCutOffWithItsContext(t *testing.T) {
 	world := &awaiting{cis: states(forge.CIRunning), ciErrs: []error{context.Canceled}, now: armedAt()}
 
 	// Act
-	_, err := loop.AwaitGreen(ctx, world.seams(), 9)
+	_, err := armed.AwaitGreen(ctx, world.seams(), 9)
 
 	// Assert
 	if !errors.Is(err, context.Canceled) || len(world.heard) != 0 {
@@ -325,7 +325,7 @@ func TestAwaitGreenWaitsItsDelayBeforeItsFirstRead(t *testing.T) {
 	seams.Delay = time.Minute
 
 	// Act
-	_, err := loop.AwaitGreen(t.Context(), seams, 9)
+	_, err := armed.AwaitGreen(t.Context(), seams, 9)
 
 	// Assert
 	if err != nil || world.pauses != 1 || world.readsAt0 != 0 {
@@ -346,7 +346,7 @@ func TestAwaitGreenEndsWithItsContextDuringItsDelay(t *testing.T) {
 	seams.Delay = time.Minute
 
 	// Act
-	_, err := loop.AwaitGreen(ctx, seams, 9)
+	_, err := armed.AwaitGreen(ctx, seams, 9)
 
 	// Assert
 	if !errors.Is(err, context.Canceled) || world.rounds != 0 {
@@ -364,11 +364,11 @@ func TestAwaitGreenWaitsForAPullRequestJustOpenedToBeListed(t *testing.T) {
 	seams.Opened = true
 
 	// Act
-	green, err := loop.AwaitGreen(t.Context(), seams, 9)
+	green, err := armed.AwaitGreen(t.Context(), seams, 9)
 
 	// Assert
 	if err != nil || green.Pull.Number != 9 || len(world.heard) == 0 ||
-		!errors.Is(world.heard[0].Err, loop.ErrNotListedYet) {
+		!errors.Is(world.heard[0].Err, armed.ErrNotListedYet) {
 		t.Errorf("AwaitGreen = #%d, %v, heard %+v; want #9, after a read that did not list it yet",
 			green.Pull.Number, err, world.heard)
 	}
@@ -383,10 +383,10 @@ func TestAwaitGreenEndsWhenAPullRequestJustOpenedIsGoneOnceListed(t *testing.T) 
 	seams.Opened = true
 
 	// Act
-	_, err := loop.AwaitGreen(t.Context(), seams, 9)
+	_, err := armed.AwaitGreen(t.Context(), seams, 9)
 
 	// Assert
-	if !errors.Is(err, loop.ErrPullChanged) {
+	if !errors.Is(err, armed.ErrPullChanged) {
 		t.Errorf("AwaitGreen = %v, want ErrPullChanged once a find that saw it no longer does", err)
 	}
 }
@@ -398,10 +398,10 @@ func TestAwaitGreenEndsWhenAPullRequestFoundBeforeIsNotFound(t *testing.T) {
 	world := &awaiting{cis: states(forge.CIRunning), missing: []bool{true}, now: armedAt()}
 
 	// Act
-	_, err := loop.AwaitGreen(t.Context(), world.seams(), 9)
+	_, err := armed.AwaitGreen(t.Context(), world.seams(), 9)
 
 	// Assert
-	if !errors.Is(err, loop.ErrPullChanged) || world.finds != 1 {
+	if !errors.Is(err, armed.ErrPullChanged) || world.finds != 1 {
 		t.Errorf("AwaitGreen = %v after %d finds, want ErrPullChanged on the first", err, world.finds)
 	}
 }

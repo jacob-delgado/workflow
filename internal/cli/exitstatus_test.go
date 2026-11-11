@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jacob-delgado/workflow/internal/armed"
 	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -77,9 +78,9 @@ func TestExitStatusDistinguishesFailureKinds(t *testing.T) {
 		"no such move offered":        {err: loop.NoTransitionError{Status: "Done"}, want: 4},
 		"a move that asks for fields": {err: loop.NeedsFieldsError{}, want: 4},
 		"a check failed":              {err: loop.ErrCIFailed, want: 4},
-		"no check reported":           {err: loop.ErrNoCI, want: 4},
-		"another pull request":        {err: loop.ErrPullChanged, want: 4},
-		"merged before CI passed":     {err: loop.ErrMergedFirst, want: 4},
+		"no check reported":           {err: armed.ErrNoCI, want: 4},
+		"another pull request":        {err: armed.ErrPullChanged, want: 4},
+		"merged before CI passed":     {err: armed.ErrMergedFirst, want: 4},
 		"CI unread, the forge away": {
 			err: fmt.Errorf("%w: %w", loop.ErrCIUnread, forge.ErrUnreachable), want: 5,
 		},

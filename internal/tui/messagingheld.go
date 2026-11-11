@@ -13,6 +13,7 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/jacob-delgado/workflow/internal/armed"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
@@ -33,8 +34,8 @@ var errAnnouncementDropped = errors.New("dropped the announcement")
 type queuedPost struct {
 	pull     int
 	post     outgoingAnnouncement
-	watch    loop.CIWatch
-	standing loop.Armed
+	watch    armed.CIWatch
+	standing armed.Verdict
 	unasked  func(ctx context.Context) messaging.Mentions
 }
 
@@ -48,12 +49,12 @@ func (q queuedPost) waiting() bool {
 func (q queuedPost) waitingOn(kit renderKit) string {
 	// A map, not a switch, so there is no arm for the states a waiting post
 	// is never left standing in.
-	return map[loop.Armed]string{
-		loop.ArmedAwaitingChecks: kit.marks.separator + "no checks reported yet",
-		loop.ArmedAwaitingFix:    kit.marks.separator + "a check failed; waiting on a fix",
-		loop.ArmedWaiting:        "",
-		loop.ArmedDue:            "",
-		loop.ArmedNoCI:           "",
+	return map[armed.Verdict]string{
+		armed.VerdictAwaitingChecks: kit.marks.separator + "no checks reported yet",
+		armed.VerdictAwaitingFix:    kit.marks.separator + "a check failed; waiting on a fix",
+		armed.VerdictWaiting:        "",
+		armed.VerdictDue:            "",
+		armed.VerdictNoCI:           "",
 	}[q.standing]
 }
 
@@ -61,7 +62,7 @@ func (q queuedPost) waitingOn(kit renderKit) string {
 // and standing on the CI as last read, when it was read.
 func (m Model) queued(out outgoingAnnouncement) queuedPost {
 	held := queuedPost{
-		pull: m.review.pull.Number, post: out, watch: loop.WatchFrom(m.deps.now()), standing: loop.ArmedWaiting,
+		pull: m.review.pull.Number, post: out, watch: armed.WatchFrom(m.deps.now()), standing: armed.VerdictWaiting,
 	}
 
 	if m.review.checked && m.review.ciErr == nil {
@@ -216,8 +217,8 @@ func (m Model) withoutStrandedPost(pull forge.PullRequest, found bool) Model {
 
 	number := m.messaging.pending.pull
 
-	err := loop.StillArmed(number, pull, found)
-	if errors.Is(err, loop.ErrMergedFirst) {
+	err := armed.StillArmed(number, pull, found)
+	if errors.Is(err, armed.ErrMergedFirst) {
 		return m.givenUp(fmt.Sprintf("%s%d merged before its CI passed", m.vocab.sigil, number))
 	}
 
@@ -239,7 +240,7 @@ func (m Model) givenUp(reason string) Model {
 
 // settleHeld settles the post waiting for CI on the CI just read: posts it
 // once CI passed, gives up on it once no check was reported for
-// loop.NoCIPatience, and otherwise keeps it waiting — through a failed run,
+// armed.NoCIPatience, and otherwise keeps it waiting — through a failed run,
 // for a fix — saying what it waits on. A read that failed says nothing of the
 // CI, so it is waited past; and a post for a pull request no longer on screen
 // is given up on.
@@ -257,12 +258,12 @@ func (m Model) settleHeld() (Model, tea.Cmd) {
 
 	// A map, not a switch, so there is no last-case arm gobco can never see;
 	// exhaustive keeps it complete.
-	settle := map[loop.Armed]func() (Model, tea.Cmd){
-		loop.ArmedDue:            m.postQueued,
-		loop.ArmedNoCI:           m.giveUpOnQuietCI,
-		loop.ArmedWaiting:        m.keepQueued,
-		loop.ArmedAwaitingChecks: m.keepQueued,
-		loop.ArmedAwaitingFix:    m.keepQueued,
+	settle := map[armed.Verdict]func() (Model, tea.Cmd){
+		armed.VerdictDue:            m.postQueued,
+		armed.VerdictNoCI:           m.giveUpOnQuietCI,
+		armed.VerdictWaiting:        m.keepQueued,
+		armed.VerdictAwaitingChecks: m.keepQueued,
+		armed.VerdictAwaitingFix:    m.keepQueued,
 	}[pending.standing]
 
 	return settle()
@@ -274,9 +275,9 @@ func (m Model) postQueued() (Model, tea.Cmd) {
 }
 
 // giveUpOnQuietCI gives up on the post that waited for a pull request that
-// reported no check for loop.NoCIPatience, saying to announce it by hand.
+// reported no check for armed.NoCIPatience, saying to announce it by hand.
 func (m Model) giveUpOnQuietCI() (Model, tea.Cmd) {
-	patience := strconv.Itoa(int(loop.NoCIPatience.Minutes())) + "m"
+	patience := strconv.Itoa(int(armed.NoCIPatience.Minutes())) + "m"
 
 	return m.givenUp(fmt.Sprintf("no checks reported on %s%d within %s; announce it by hand",
 		m.vocab.sigil, m.messaging.pending.pull, patience)), nil
@@ -292,7 +293,7 @@ func (m Model) keepQueued() (Model, tea.Cmd) {
 // failed, or the CI could not be read: it waits on.
 func (m Model) waitingAgain(held queuedPost, err error) Model {
 	if errors.Is(err, loop.ErrCIFailed) {
-		held.standing = loop.ArmedAwaitingFix
+		held.standing = armed.VerdictAwaitingFix
 	}
 
 	m.messaging.pending, m.messaging.send = held, sendState{}

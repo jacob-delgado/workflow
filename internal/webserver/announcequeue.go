@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/armed"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
@@ -57,7 +58,7 @@ type heldAnnouncement struct {
 	check *time.Timer
 	// watch is how long its CI has reported no check, and ci how it stood on
 	// the last read, when ciRead says one answered.
-	watch  loop.CIWatch
+	watch  armed.CIWatch
 	ci     forge.CIState
 	ciRead bool
 }
@@ -151,7 +152,7 @@ func (s *server) hold(post announcePost, branch string, reading ciReading) (api.
 	}
 
 	s.held.replace(post, branch, heldWaiting)
-	s.held.watch = loop.WatchFrom(s.now())
+	s.held.watch = armed.WatchFrom(s.now())
 
 	if reading.read {
 		s.held.watched(reading.ci, s.now())
@@ -258,17 +259,17 @@ const (
 // read of branch, and the reason when it is dropped: posted once its CI has
 // passed, kept waiting through a failed run for a fix, and dropped once its
 // pull request is no longer the branch's open one, or no check was reported
-// within loop.NoCIPatience. The caller holds the lock.
+// within armed.NoCIPatience. The caller holds the lock.
 func (s *server) verdictOn(branch gitrepo.Branch, read forgeRead) (string, heldVerdict) {
 	number := s.held.post.delivery.Pull.Number
 
-	err := loop.StillArmed(number, read.pull, read.found)
+	err := armed.StillArmed(number, read.pull, read.found)
 	if branch.Name != s.held.branch {
-		err = loop.ErrPullChanged
+		err = armed.ErrPullChanged
 	}
 
 	switch {
-	case errors.Is(err, loop.ErrMergedFirst):
+	case errors.Is(err, armed.ErrMergedFirst):
 		return s.pullName(number) + " merged before its CI passed", heldDrop
 	case err != nil:
 		return s.pullName(number) + " is no longer this branch's " + s.noun(), heldDrop
@@ -280,16 +281,17 @@ func (s *server) verdictOn(branch gitrepo.Branch, read forgeRead) (string, heldV
 }
 
 // verdictOnCI is what becomes of the held announcement for pull request
-// number, standing as armed on a read of its CI. The caller holds the lock.
-func (s *server) verdictOnCI(number int, armed loop.Armed) (string, heldVerdict) {
-	switch armed {
-	case loop.ArmedDue:
+// number, standing as verdict says on a read of its CI. The caller holds the
+// lock.
+func (s *server) verdictOnCI(number int, verdict armed.Verdict) (string, heldVerdict) {
+	switch verdict {
+	case armed.VerdictDue:
 		return "", heldPost
-	case loop.ArmedNoCI:
-		patience := strconv.Itoa(int(loop.NoCIPatience.Minutes())) + "m"
+	case armed.VerdictNoCI:
+		patience := strconv.Itoa(int(armed.NoCIPatience.Minutes())) + "m"
 
 		return "no checks reported on " + s.pullName(number) + " within " + patience + "; announce it by hand", heldDrop
-	case loop.ArmedWaiting, loop.ArmedAwaitingChecks, loop.ArmedAwaitingFix:
+	case armed.VerdictWaiting, armed.VerdictAwaitingChecks, armed.VerdictAwaitingFix:
 	}
 
 	return "", heldKeep
@@ -328,7 +330,7 @@ type droppedHold struct {
 	waiting bool
 	post    announcePost
 	branch  string
-	watch   loop.CIWatch
+	watch   armed.CIWatch
 	ci      forge.CIState
 	ciRead  bool
 	round   int
@@ -416,13 +418,13 @@ func (h *heldAnnouncement) replace(post announcePost, branch string, state heldS
 
 // watched is how the held announcement stands on ci, read at readAt, noting
 // the read. The caller holds the lock.
-func (h *heldAnnouncement) watched(ci forge.CI, readAt time.Time) loop.Armed {
-	var armed loop.Armed
+func (h *heldAnnouncement) watched(ci forge.CI, readAt time.Time) armed.Verdict {
+	var verdict armed.Verdict
 
-	h.watch, armed = h.watch.Read(ci, readAt)
+	h.watch, verdict = h.watch.Read(ci, readAt)
 	h.ci, h.ciRead = ci.State, true
 
-	return armed
+	return verdict
 }
 
 // waitAgain puts the announcement taken to post back to waiting, the gate

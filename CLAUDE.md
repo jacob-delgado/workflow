@@ -42,6 +42,7 @@ internal/setup/       the first run: where the file goes, the Jira check, the ke
 internal/seams/       the seams every surface shares, over domain and loop types
 internal/wiring/      connects every surface's seams to the real clients
 internal/loop/        the loop composed once for every surface, over their seams
+internal/armed/       an announcement armed until CI passes: one hold, its watch and its reads, which every surface drives
 internal/progress/    how far along the loop the work is, derived each time
 internal/activity/    what was done over a period, grouped by year, month, day and hour
 internal/places/      where an issue can be, for narrowing the Issues list on both surfaces
