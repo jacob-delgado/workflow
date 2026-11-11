@@ -4,7 +4,9 @@
 package tui
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -16,17 +18,27 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
 // errNotAnIssue is text typed into the link form that names no issue.
 var errNotAnIssue = errors.New("name an issue: a Jira key like PROJ-7, or a forge number like #42")
 
+// errNotLinkedNorDescribed is a refused link, with the description shown as
+// about to change left as it was.
+var errNotLinkedNorDescribed = errors.New("the branch was not linked, and the description was left as it was")
+
+// errLinkedNotDescribed is the forge refusing the description's edit once the
+// branch was linked.
+var errLinkedNotDescribed = errors.New("the branch is linked, but the description was not updated")
+
 // branchLinker links the checked-out branch to an issue by hand, for work
 // begun outside workflow on a branch whose name names none. With a pull
 // request open from the branch, it shows the description with the issue's
-// line added before anything is sent, and sends both together. On a branch
-// already linked it names the issue instead, and unlinks it at once: the
-// description is left as it is, so nothing leaves the machine.
+// line added before anything is sent, then links the branch and edits the
+// description, in that order. On a branch already linked it names the issue
+// instead, and unlinks it at once: the description is left as it is, so
+// nothing leaves the machine.
 type branchLinker struct {
 	vocab  reviewVocab
 	branch string
@@ -236,11 +248,8 @@ func (l branchLinker) choose(m Model) (Model, tea.Cmd) {
 	return l.link(m)
 }
 
-// link adds the issue's line to the pull request's description when it was
-// shown, then keeps the link, holding both back in a dry run. The line is
-// added to the description as the forge holds it, not to the one shown, whose
-// controls and marks are neutralized, so nothing else of it changes. The edit
-// goes first so a forge that refuses it leaves the branch as it was.
+// link keeps the link, then adds the issue's line to the pull request's
+// description when it was shown, holding both back in a dry run.
 func (l branchLinker) link(m Model) (Model, tea.Cmd) {
 	if m.dryRun {
 		return m.closeOverlay().noticed("dry run: would link " + l.branch + " to " + shownKey(l.chosen)), nil
@@ -248,28 +257,54 @@ func (l branchLinker) link(m Model) (Model, tea.Cmd) {
 
 	l.send = starting()
 	m.overlay = l
-	ctx, linkIssue, rewrite := m.session, m.deps.Git.LinkIssue, m.deps.Forge.RewriteDescription
-	branch, issueKey, pull, describe := l.branch, l.chosen, l.pull, l.body != ""
-	issueURL := issueBrowseURL(m.deps, issueKey)
+	ctx, git, forgeDeps := m.session, m.deps.Git, m.deps.Forge
+	issueURL := issueBrowseURL(m.deps, l.chosen)
 
 	return m, func() tea.Msg {
-		var (
-			described bool
-			err       error
-		)
-
-		if describe {
-			described, err = rewrite(ctx, pull, func(body string) (string, bool) {
-				return convention.WithIssueLine(body, string(issueKey), issueURL)
-			})
-		}
-
-		if err == nil {
-			err = linkIssue(ctx, branch, string(issueKey))
-		}
-
-		return branchLinked{branch: branch, issueKey: issueKey, pull: pull, described: described, err: err}
+		return l.sendLink(ctx, git, forgeDeps, issueURL)
 	}
+}
+
+// sendLink links the branch first and edits the description only once it is
+// linked, so a refused edit leaves a linked branch, which the form says,
+// never a description naming an issue the branch is not linked to. The line
+// is added to the description as the forge holds it, not to the one shown,
+// whose controls and marks are neutralized, so nothing else of it changes.
+func (l branchLinker) sendLink(
+	ctx context.Context, git seams.Git, forgeDeps seams.Forge, issueURL string,
+) branchLinked {
+	sent := branchLinked{branch: l.branch, issueKey: l.chosen, pull: l.pull}
+
+	err := git.LinkIssue(ctx, l.branch, string(l.chosen))
+	if err != nil {
+		sent.err = l.notLinked(err)
+
+		return sent
+	}
+
+	sent.linked = true
+	if l.body == "" {
+		return sent
+	}
+
+	sent.described, err = forgeDeps.RewriteDescription(ctx, l.pull, func(body string) (string, bool) {
+		return convention.WithIssueLine(body, string(l.chosen), issueURL)
+	})
+	if err != nil {
+		sent.err = fmt.Errorf("%w: %w", errLinkedNotDescribed, err)
+	}
+
+	return sent
+}
+
+// notLinked is a refused link, saying the description shown was left as it
+// was when there was one to change.
+func (l branchLinker) notLinked(err error) error {
+	if l.body == "" {
+		return err
+	}
+
+	return fmt.Errorf("%w: %w", errNotLinkedNorDescribed, err)
 }
 
 // failed pins a refusal in the form, so it is read before the form closes.
@@ -294,6 +329,7 @@ type branchLinked struct {
 	branch    string
 	issueKey  jira.Key
 	pull      forge.PullRequest
+	linked    bool
 	described bool
 	err       error
 }
@@ -305,7 +341,7 @@ var _ applier = branchLinked{}
 // offers to link the pull request on the issue, as opening one would have.
 func (msg branchLinked) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
-		return keepOpenWith[branchLinker](m, msg.err), nil
+		return msg.keptOpen(m)
 	}
 
 	m = m.closeOverlay().noticed(m.marks.done + " " + msg.said(m.vocab.sigil))
@@ -313,6 +349,18 @@ func (msg branchLinked) apply(m Model) (Model, tea.Cmd) {
 	ref, _ := convention.RefOf(string(msg.issueKey))
 	if ref.Tracker == convention.TrackerJira && msg.pull.Number != 0 && m.deps.Jira.LinkPullRequest != nil {
 		m.overlay = issueLinker{vocab: m.vocab, issueKey: msg.issueKey, pull: msg.pull}
+	}
+
+	return m, loadBranch(m.session, m.deps)
+}
+
+// keptOpen keeps the form open with the reason the link or the edit failed,
+// so enter tries again, and reads the branch again when it was linked all the
+// same, so the panes name its issue.
+func (msg branchLinked) keptOpen(m Model) (Model, tea.Cmd) {
+	m = keepOpenWith[branchLinker](m, msg.err)
+	if !msg.linked {
+		return m, nil
 	}
 
 	return m, loadBranch(m.session, m.deps)
