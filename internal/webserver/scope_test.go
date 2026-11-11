@@ -11,10 +11,13 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/proc"
+	storefiles "github.com/jacob-delgado/workflow/internal/store"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
@@ -61,6 +64,16 @@ func (s *scopeStore) wire(deps *webserver.Deps) {
 
 		return nil
 	}
+}
+
+// keep has the store hold scope as the last one used, as a commit made
+// outside the server, in the terminal or by workflow commit, records it, and
+// forget has it hold none, as a removal of the local data leaves it.
+func (s *scopeStore) keep(scope string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.scope, s.holds = scope, scope != ""
 }
 
 // readCount is how often the store was read.
@@ -334,5 +347,64 @@ func TestACommitWhoseScopeTheStoreCannotKeepLandsAndIsNoted(t *testing.T) {
 
 	if len(noted) != 1 || !errors.Is(noted[0], webtest.ErrSeam) {
 		t.Errorf("noted %v, want the store's failure noted once", noted)
+	}
+}
+
+func TestTheScopeOfACommitMadeOutsideTheServerIsSuggested(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A commit the terminal makes records its scope in the store, and moves
+	// the branch's head, which the stream reads every frame.
+	var head atomic.Pointer[string]
+
+	before, after := webtest.FilledHead, "def456"
+	head.Store(&before)
+
+	store := &scopeStore{scope: learnedScope, holds: true}
+	deps := webtest.FilledDeps()
+	store.wire(&deps)
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
+		return gitrepo.Branch{Name: webtest.TestBranchName, Base: webtest.TestBase, Head: *head.Load()}, nil
+	}
+	handler := webtest.Serve(t, deps, config.Default())
+	webtest.StreamOnce(t, handler, "/api/events")
+
+	store.keep(committedScope)
+	head.Store(&after)
+
+	// Act
+	recorder := webtest.StreamOnce(t, handler, "/api/events")
+
+	// Assert
+	if got := webtest.FirstSnapshot(t, recorder.Body.String()).SuggestedScope; got != committedScope {
+		t.Errorf("suggested %q after a commit outside the server recorded %q, want it", got, committedScope)
+	}
+}
+
+func TestARemovalOfTheLocalDataForgetsTheScopeLearned(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	store := &scopeStore{scope: learnedScope, holds: true}
+	deps := webtest.FilledDeps()
+	store.wire(&deps)
+	deps.Settings.LocalData = func(context.Context) (string, []storefiles.DataFile, error) { return storeDir, nil, nil }
+	deps.Settings.RemoveLocalData = func(storefiles.CleanScope) error {
+		store.keep("")
+
+		return nil
+	}
+	handler := webtest.Serve(t, deps, withDefaultScope(configuredScope))
+	webtest.StreamOnce(t, handler, "/api/events")
+
+	// Act
+	removed := webtest.Send(t, handler, http.MethodDelete, "/api/local-data?scope=cache", "")
+
+	// Assert
+	next := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
+	if removed.Code != http.StatusOK || next.SuggestedScope != configuredScope {
+		t.Errorf("removal = %d, then suggested %q; want 200, then the configured %q",
+			removed.Code, next.SuggestedScope, configuredScope)
 	}
 }

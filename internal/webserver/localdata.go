@@ -54,6 +54,9 @@ func (s *server) RemoveLocalData(
 	}[request.Params.Scope]
 
 	err := s.keptWrite(func() error { return s.deps.Settings.RemoveLocalData(scope) })
+	// A removal that failed may have taken some files all the same.
+	s.scope.drop()
+
 	if err == nil {
 		var data api.LocalData
 

@@ -166,9 +166,10 @@ func (s *server) issueKeyOf(branch gitrepo.Branch) string {
 
 // suggestedScope is the scope a new commit opens on — the terminal composer's
 // rule: the scope last used in this repository, else commit.default_scope,
-// else none. The store is read under ctx.
-func (s *server) suggestedScope(ctx context.Context) string {
-	learned, found := s.learnedScope(ctx)
+// else none. The store is read under ctx, by a frame that saw the branch at
+// head.
+func (s *server) suggestedScope(ctx context.Context, head string) string {
+	learned, found := s.learnedScope(ctx, head)
 	if found {
 		return learned
 	}
@@ -177,20 +178,29 @@ func (s *server) suggestedScope(ctx context.Context) string {
 }
 
 // learnedScope is the scope last used in this repository, read from the store
-// the first time it is asked for. A dry run reads nothing from the cache, only
-// kept.db, read-only, so it never reads the learned scope and suggests the
-// configured default. Every stream reads the one held, and the store's read
-// takes a failure for none, so it runs to its end whoever asked it leaves, and
-// ends when the server stops.
-func (s *server) learnedScope(ctx context.Context) (string, bool) {
+// the first time it is asked for, and again once the branch's head is not the
+// head it was read at. A dry run reads nothing from the cache, only kept.db,
+// read-only, so it never reads the learned scope and suggests the configured
+// default. Every stream reads the one held, and the store's read takes a
+// failure for none, so it runs to its end whoever asked it leaves, and ends
+// when the server stops.
+//
+// The head stands in for the store's own change, which no frame can see
+// without opening the store, the read the cache saves. The terminal records a
+// commit's scope only once its commit has moved the head and the commit's
+// post-commit hooks have run, so a frame read between the two holds the scope
+// before it, until the head moves again, a commit here records one, or the
+// local data is removed.
+func (s *server) learnedScope(ctx context.Context, head string) (string, bool) {
 	s.scope.mu.Lock()
 	defer s.scope.mu.Unlock()
 
-	if !s.scope.read && s.deps.Store.LastScope != nil && !s.info.DryRun {
+	stale := !s.scope.read || s.scope.head != head
+	if stale && s.deps.Store.LastScope != nil && !s.info.DryRun {
 		s.scope.value, s.scope.found = s.readLastScope(ctx)
 	}
 
-	s.scope.read = true
+	s.scope.read, s.scope.head = true, head
 
 	return s.scope.value, s.scope.found
 }
@@ -221,9 +231,7 @@ func (s *server) rememberScope(ctx context.Context, scope string) {
 		return
 	}
 
-	s.scope.mu.Lock()
-	s.scope.read = false
-	s.scope.mu.Unlock()
+	s.scope.drop()
 }
 
 // commitUnprocessable is the 422 response for a commit the server will not make.

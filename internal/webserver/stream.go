@@ -229,7 +229,7 @@ func (s *server) snapshot(ctx context.Context, view string) api.Snapshot {
 
 		CommitTypes:    commit.Types(),
 		SubjectLimit:   commit.SubjectLimit(),
-		SuggestedScope: s.suggestedScope(ctx),
+		SuggestedScope: s.suggestedScope(ctx, branch.Head),
 
 		Tasks: s.Summary(ctx),
 		Here:  s.deps.Repositories.Here.Dir,
