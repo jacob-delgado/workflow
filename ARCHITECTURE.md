@@ -152,7 +152,9 @@ through seams; the command line and the web keep `loop.ComposeAnnouncement` and
 surface posts an announcement through `loop.Deliver`, which reads the pull
 request's CI as it posts and refuses one a check has failed on, then
 remembers what it posted; and every surface that waits for CI to pass —
-the terminal, the web and `--when-green` — waits by `loop.CIWatch`.
+the terminal, the web and `--when-green` — waits by `armed.CIWatch`, in
+`internal/armed`, which sits above `internal/loop` and below the surfaces, and
+which an `armed-below-the-surfaces` rule in `.golangci.yml` holds there.
 
 Each surface hands `loop` the seams it holds and words the answer in its own
 terms: a refusal comes back as a `loop.Err…` sentinel, and the command line,

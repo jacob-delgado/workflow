@@ -1,7 +1,7 @@
 // Copyright 2026 Jacob Delgado
 // SPDX-License-Identifier: Apache-2.0
 
-package loop
+package armed
 
 import (
 	"context"
@@ -12,95 +12,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 )
-
-// NoCIPatience is how long an announcement armed to go once CI passes waits
-// for a pull request that reports no check, counted from the last read that
-// reported one, or from arming, before it gives up.
-//
-// Trade-off TRADE-41: a CI that registers later than this loses its automatic
-// post, so a repository with no CI is not polled for as long as it waits.
-const NoCIPatience = 10 * time.Minute
-
-var (
-	// ErrNoCI gives up on an armed announcement whose pull request reported no
-	// check within NoCIPatience: it is announced by hand.
-	ErrNoCI = errors.New("no checks were reported on the pull request")
-	// ErrPullChanged gives up on an armed announcement whose branch's pull
-	// request is another one, or none.
-	ErrPullChanged = errors.New("the branch's pull request is no longer the one announced")
-	// ErrMergedFirst gives up on an armed announcement whose pull request
-	// merged before its CI passed.
-	ErrMergedFirst = errors.New("the pull request merged before its CI passed")
-	// ErrNotListedYet is a find that does not see a pull request just opened,
-	// which a forge may list only a moment later: a read to make again.
-	ErrNotListedYet = errors.New("the forge does not list the pull request yet")
-)
-
-// Armed is how an announcement armed to go once CI passes stands on a read of
-// its pull request's CI.
-type Armed int
-
-const (
-	// ArmedWaiting waits while CI runs.
-	ArmedWaiting Armed = iota
-	// ArmedAwaitingChecks waits for the pull request to report a check.
-	ArmedAwaitingChecks
-	// ArmedAwaitingFix waits for a run that passes, a check having failed.
-	ArmedAwaitingFix
-	// ArmedDue is to post now: CI passed.
-	ArmedDue
-	// ArmedNoCI gives up: no check was reported within NoCIPatience.
-	ArmedNoCI
-)
-
-// CIWatch is the watch over an armed announcement's CI: when a read last
-// reported a check, which its patience with none counts from.
-type CIWatch struct {
-	quietSince time.Time
-}
-
-// WatchFrom is the watch of an announcement armed at armedAt.
-func WatchFrom(armedAt time.Time) CIWatch {
-	return CIWatch{quietSince: armedAt}
-}
-
-// Read is how the armed announcement stands on ci, read at readAt, and the
-// watch to read the next one with: a check reported, running, failed or
-// passed, starts its patience again.
-func (w CIWatch) Read(ci forge.CI, readAt time.Time) (CIWatch, Armed) {
-	reported := CIWatch{quietSince: readAt}
-
-	switch ci.State {
-	case forge.CIRunning:
-		return reported, ArmedWaiting
-	case forge.CIFailed:
-		return reported, ArmedAwaitingFix
-	case forge.CIPassed:
-		return reported, ArmedDue
-	case forge.CINone:
-	}
-
-	if readAt.Sub(w.quietSince) >= NoCIPatience {
-		return w, ArmedNoCI
-	}
-
-	return w, ArmedAwaitingChecks
-}
-
-// StillArmed reports whether an announcement armed for pull request number
-// still stands, given the branch's pull request now: ErrPullChanged when it is
-// another one, or none — one closed without merging counts as none — and
-// ErrMergedFirst when it merged before its CI passed.
-func StillArmed(number int, pull forge.PullRequest, found bool) error {
-	switch {
-	case !found || pull.Number != number || pull.State == forge.StateClosed:
-		return ErrPullChanged
-	case pull.State == forge.StateMerged:
-		return ErrMergedFirst
-	default:
-		return nil
-	}
-}
 
 // AwaitSeams are what AwaitGreen reads and waits through. Pause waits wait
 // under ctx, answering ctx's error once it ends; Now tells the time patience
@@ -124,9 +35,9 @@ type AwaitSeams struct {
 // Heard is one read of an armed announcement's CI: what it said and how the
 // announcement stands on it, or why the read failed.
 type Heard struct {
-	CI    forge.CI
-	Armed Armed
-	Err   error
+	CI      forge.CI
+	Verdict Verdict
+	Err     error
 }
 
 // Green is the pull request whose CI passed, and the head it passed at.
@@ -153,12 +64,12 @@ func AwaitGreen(ctx context.Context, seams AwaitSeams, number int) (Green, error
 			}
 		}
 
-		green, armed, err := seams.round(ctx, number, &state)
+		green, verdict, err := seams.round(ctx, number, &state)
 		if err != nil {
 			return Green{}, err
 		}
 
-		if armed == ArmedDue {
+		if verdict == VerdictDue {
 			return green, nil
 		}
 	}
@@ -173,12 +84,12 @@ type awaitState struct {
 
 // round reads the branch, its pull request and its CI once, and says how the
 // armed announcement stands on them. A read that fails is heard and answers
-// ArmedWaiting, to be read again; a pull request no longer armed, and no
+// VerdictWaiting, to be read again; a pull request no longer armed, and no
 // check reported within patience, end the wait.
-func (s AwaitSeams) round(ctx context.Context, number int, state *awaitState) (Green, Armed, error) {
+func (s AwaitSeams) round(ctx context.Context, number int, state *awaitState) (Green, Verdict, error) {
 	green, err := s.readPull(ctx, number, &state.listed)
 	if errors.Is(err, ErrPullChanged) || errors.Is(err, ErrMergedFirst) {
-		return Green{}, ArmedWaiting, err
+		return Green{}, VerdictWaiting, err
 	}
 
 	if err == nil {
@@ -191,12 +102,12 @@ func (s AwaitSeams) round(ctx context.Context, number int, state *awaitState) (G
 	}
 
 	if ctx.Err() != nil {
-		return Green{}, ArmedWaiting, fmt.Errorf("waiting for CI to pass: %w", ctx.Err())
+		return Green{}, VerdictWaiting, fmt.Errorf("waiting for CI to pass: %w", ctx.Err())
 	}
 
-	s.hear(Heard{CI: forge.CI{}, Armed: ArmedWaiting, Err: err})
+	s.hear(Heard{CI: forge.CI{}, Verdict: VerdictWaiting, Err: err})
 
-	return Green{}, ArmedWaiting, nil
+	return Green{}, VerdictWaiting, nil
 }
 
 // readPull reads the branch afresh, for its head, and its pull request,
@@ -230,17 +141,17 @@ func (s AwaitSeams) readPull(ctx context.Context, number int, listed *bool) (Gre
 
 // settle is how the armed announcement stands on ci, heard: ErrNoCI once no
 // check was reported within patience.
-func (s AwaitSeams) settle(green Green, ci forge.CI, watch *CIWatch) (Green, Armed, error) {
-	var armed Armed
+func (s AwaitSeams) settle(green Green, ci forge.CI, watch *CIWatch) (Green, Verdict, error) {
+	var verdict Verdict
 
-	*watch, armed = watch.Read(ci, s.Now())
-	s.hear(Heard{CI: ci, Armed: armed, Err: nil})
+	*watch, verdict = watch.Read(ci, s.Now())
+	s.hear(Heard{CI: ci, Verdict: verdict, Err: nil})
 
-	if armed == ArmedNoCI {
-		return Green{}, armed, ErrNoCI
+	if verdict == VerdictNoCI {
+		return Green{}, verdict, ErrNoCI
 	}
 
-	return green, armed, nil
+	return green, verdict, nil
 }
 
 // hear tells Heard of a read, when it listens.

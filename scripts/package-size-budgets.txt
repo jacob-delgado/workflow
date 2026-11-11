@@ -172,10 +172,14 @@ internal/cli 13
 # own, transition.go, an issue's move to a status found by its name — the
 # review status pr and the interfaces offer once a pull request is open, and
 # any status workflow transition names — out of pull.go once it was no longer
-# the pull request's alone, and armed.go, when an announcement may go: the
-# gate Deliver keeps and the watch over an armed one's CI, which the terminal,
-# the web and the command line's waits share. One responsibility — say what
-# the loop means, over the seams' answers — spelled concern-per-file.
+# the pull request's alone, and deliver.go, how an announcement goes out: the
+# gate, the post and the record of what was made, which every surface's post,
+# immediate, armed or merged, goes through, out of announce.go, which the
+# claim taken before each post would have carried past the 500-line target,
+# and which composes what is said rather than sending it. The watch over an armed
+# announcement's CI left for internal/armed in the same change, so the count
+# stays. One responsibility — say what the loop means, over the seams'
+# answers — spelled concern-per-file.
 internal/loop 16
 
 # internal/wiring — connects every surface's seams to the real clients: one

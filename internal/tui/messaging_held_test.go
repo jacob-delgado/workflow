@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jacob-delgado/workflow/internal/armed"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
@@ -128,7 +129,7 @@ func TestAWaitingPostGivesUpWhenNoCheckIsReported(t *testing.T) {
 	// Arrange
 	repo, waiting := waitingOn(t, forge.CINone)
 	repo.mu.Lock()
-	repo.elapsed += loop.NoCIPatience
+	repo.elapsed += armed.NoCIPatience
 	repo.mu.Unlock()
 
 	// Act

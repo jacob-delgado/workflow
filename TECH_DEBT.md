@@ -849,7 +849,7 @@ by hand for want of git's arguments or refs, or lefthook gains a way to run
 
 ### TRADE-40 Every announcement reads its CI again as it goes
 
-**Decided.** `loop.Deliver` (`internal/loop/announce.go`) reads the pull
+**Decided.** `loop.Deliver` (`internal/loop/deliver.go`) reads the pull
 request's CI through `ClearToAnnounce` before it posts, whatever a surface read
 before it: the command line just before it asks, the terminal from its last
 poll, the web from its preview or a frame an interval old. A failed check
@@ -869,7 +869,7 @@ moment before would have let through.
 
 ### TRADE-41 An armed announcement gives up on a pull request that reports no check for ten minutes
 
-**Decided.** `loop.NoCIPatience` (`internal/loop/armed.go`) bounds how long
+**Decided.** `armed.NoCIPatience` (`internal/armed/watch.go`) bounds how long
 an announcement armed to go once CI passes waits for a pull request that
 reports no check: ten minutes, counted from the last read that reported one,
 or from arming. It then gives up, saying to announce it by hand, the same in

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jacob-delgado/workflow/internal/armed"
 	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/cli/console"
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -105,7 +106,7 @@ func awaitThenDeliver(
 	live.Doing("CI on " + pull)
 
 	for {
-		green, err := loop.AwaitGreen(ctx, await, pending.delivery.Pull.Number)
+		green, err := armed.AwaitGreen(ctx, await, pending.delivery.Pull.Number)
 		if err != nil {
 			return gaveUp(notes, err, pull)
 		}
@@ -129,8 +130,8 @@ func awaitThenDeliver(
 
 // awaitSeams are what a wait for the CI to pass reads through: the branch,
 // its pull request and its CI, every Interval, telling heard of each read.
-func (s announceSeams) awaitSeams(heard func(loop.Heard)) loop.AwaitSeams {
-	return loop.AwaitSeams{
+func (s announceSeams) awaitSeams(heard func(armed.Heard)) armed.AwaitSeams {
+	return armed.AwaitSeams{
 		Branch: s.Compose.Branch, FindPull: s.Compose.FindPull, CheckCI: s.Deliver.CheckCI,
 		Pause: pause, Now: time.Now, Interval: s.Interval, Heard: heard,
 	}
@@ -152,20 +153,20 @@ func pause(ctx context.Context, wait time.Duration) error {
 // gaveUp words why a wait for CI ended without announcing: stopped, no check
 // reported, or the pull request no longer the one to announce.
 func gaveUp(notes console.Notes, err error, pull string) error {
-	patience := strconv.Itoa(int(loop.NoCIPatience.Minutes())) + "m"
+	patience := strconv.Itoa(int(armed.NoCIPatience.Minutes())) + "m"
 
 	switch {
 	case errors.Is(err, context.Canceled):
 		notes.Note("Stopped waiting; nothing was announced.")
 
 		return err
-	case errors.Is(err, loop.ErrNoCI):
-		return forgeWordedError{loop.ErrNoCI, "no checks were reported on " + pull + " within " + patience +
+	case errors.Is(err, armed.ErrNoCI):
+		return forgeWordedError{armed.ErrNoCI, "no checks were reported on " + pull + " within " + patience +
 			"; if the repository has no CI, announce it by hand with workflow announce"}
-	case errors.Is(err, loop.ErrMergedFirst):
-		return forgeWordedError{loop.ErrMergedFirst, pull + " merged before its CI passed, so it was not announced"}
-	case errors.Is(err, loop.ErrPullChanged):
-		return forgeWordedError{loop.ErrPullChanged, pull + " is no longer this branch's, so it was not announced"}
+	case errors.Is(err, armed.ErrMergedFirst):
+		return forgeWordedError{armed.ErrMergedFirst, pull + " merged before its CI passed, so it was not announced"}
+	case errors.Is(err, armed.ErrPullChanged):
+		return forgeWordedError{armed.ErrPullChanged, pull + " is no longer this branch's, so it was not announced"}
 	default:
 		return err
 	}
@@ -182,7 +183,7 @@ type waitLines struct {
 
 // hear tells of a read: how many of the checks it found finished, and, when
 // what it says differs from the last, what it says.
-func (w *waitLines) hear(heard loop.Heard) {
+func (w *waitLines) hear(heard armed.Heard) {
 	w.live.Counted(heard.CI.Done, heard.CI.Total)
 
 	line := w.line(heard)
@@ -195,21 +196,22 @@ func (w *waitLines) hear(heard loop.Heard) {
 }
 
 // line is what a read says of the wait, or "" when it says nothing new.
-func (w *waitLines) line(heard loop.Heard) string {
+func (w *waitLines) line(heard armed.Heard) string {
 	if heard.Err != nil {
 		return "Could not read CI on " + w.pull + " (" + sanitize.Line(heard.Err.Error()) + "); trying again."
 	}
 
 	// A map, not a switch, so there is no last-case arm gobco can never see:
 	// a pass and giving up say nothing here.
-	return map[loop.Armed]string{
-		loop.ArmedWaiting: "Waiting for CI on " + w.pull + " to pass" + finished(heard.CI) + ", then announcing to " +
+	return map[armed.Verdict]string{
+		armed.VerdictWaiting: "Waiting for CI on " + w.pull + " to pass" + finished(heard.CI) + ", then announcing to " +
 			w.target + "; ctrl+c stops without announcing.",
-		loop.ArmedAwaitingFix:    "A check failed on " + w.pull + failedChecks(heard.CI) + "; waiting for a run that passes.",
-		loop.ArmedAwaitingChecks: "No checks reported on " + w.pull + " yet; waiting for them.",
-		loop.ArmedDue:            "",
-		loop.ArmedNoCI:           "",
-	}[heard.Armed]
+		armed.VerdictAwaitingFix: "A check failed on " + w.pull + failedChecks(heard.CI) +
+			"; waiting for a run that passes.",
+		armed.VerdictAwaitingChecks: "No checks reported on " + w.pull + " yet; waiting for them.",
+		armed.VerdictDue:            "",
+		armed.VerdictNoCI:           "",
+	}[heard.Verdict]
 }
 
 // finished is how many of ci's checks finished, in brackets after a space, or

@@ -135,6 +135,22 @@ linters:
             - github.com/jacob-delgado/workflow/internal/proc
             - github.com/jacob-delgado/workflow/internal/progress
             - github.com/jacob-delgado/workflow/internal/taskwarrior
+        # internal/armed is an announcement armed until CI passes, which the
+        # command line, the terminal and the web each drive, so it sits below
+        # all three and above internal/loop, whose delivery it hands on. strict
+        # mode allows only the domain packages it reads and internal/loop, so
+        # no surface, and no terminal or web library, drifts into it.
+        armed-below-the-surfaces:
+          list-mode: strict
+          files:
+            - "**/internal/armed/**"
+            - "!$test"
+          allow:
+            - $gostd
+            - github.com/jacob-delgado/workflow/internal/forge
+            - github.com/jacob-delgado/workflow/internal/gitrepo
+            - github.com/jacob-delgado/workflow/internal/loop
+            - github.com/jacob-delgado/workflow/internal/messaging
         # internal/activity groups and words what was done over a period from
         # what each source read, which a caller hands it: it holds no clock and
         # does no I/O, so a test can pin any day and any zone. strict mode
