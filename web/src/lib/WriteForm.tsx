@@ -1,6 +1,7 @@
 import { useId, type ReactNode } from 'react'
 import { Button } from './Button.tsx'
 import { useFocusOnMount } from './focus.ts'
+import { useHoldShortcuts } from './LastLook.tsx'
 import { Failure } from './Status.tsx'
 
 // LabeledInput is a field with its label above it and, given one, a hint
@@ -51,6 +52,8 @@ interface WriteFormProps {
 
 // WriteForm is a form that is the last look at a write: what will be sent, a
 // refusal beside it, and its send and Cancel. It takes focus as it opens, and
+// holds the single-key shortcuts while it is drawn, as every last look does,
+// so a key pressed in it never presses a control behind it or takes it away;
 // nothing in it can be sent twice while a send is in flight. While it sends, its fields and
 // buttons are held rather than disabled: each keeps the focus it had — the send
 // pressed, or the field Enter was pressed in — and a field's change is stopped
@@ -69,8 +72,10 @@ export function WriteForm({
   children,
 }: WriteFormProps) {
   const shown = useFocusOnMount<HTMLFormElement>()
+  useHoldShortcuts()
   const sending = busy !== null
   const sendHeld = sending || held
+
   return (
     <form
       ref={shown}
