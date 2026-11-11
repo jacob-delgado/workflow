@@ -138,6 +138,18 @@ func TestMissingNamesWhatTheConfigurationStillNeeds(t *testing.T) {
 			},
 			want: []string{"messaging.channel"},
 		},
+		// Secrets with no app to refresh them for are a login that did not
+		// finish, never a working user token.
+		"a user token's secrets need the app they are for": {
+			cfg: config.Config{
+				Jira: config.Jira{BaseURL: jiraURL, Token: "t", User: ""},
+				Messaging: config.Messaging{
+					ClientID: "", ClientSecret: "client-secret-unnamed", RefreshToken: "xoxe-1-unnamed", Channel: devChannel,
+				},
+				Path: "",
+			},
+			want: []string{"messaging.client_id (workflow slack login again)"},
+		},
 		// forge.kind describes a host, so by itself it describes nothing.
 		"a forge kind needs the host it describes": {
 			cfg: config.Config{

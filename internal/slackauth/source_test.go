@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -238,5 +239,24 @@ func TestARefreshedPairIsKeptThoughItsAskerLeavesOnceSlackAnswers(t *testing.T) 
 	// Assert
 	if held.held.RefreshToken != newRefresh || held.saves != 1 {
 		t.Errorf("kept %+v after %d saves, want the new pair kept though its asker left", held.held, held.saves)
+	}
+}
+
+func TestSecretsWithNoAppToRefreshThemForSayToLogInAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	server, seen := fakeSlack(t, rotated)
+	held := &memory{held: pairExpiringIn(time.Hour)}
+	unnamed := refresherFor(server)
+	unnamed.ClientID = ""
+
+	// Act
+	_, err := sourceOver(t, held, unnamed).Token(t.Context(), "")
+
+	// Assert
+	if !errors.Is(err, slackauth.ErrNotLoggedIn) || !strings.Contains(err.Error(), "client ID") || len(seen()) != 0 {
+		t.Errorf("Token = %v after %d refreshes; want none, and to be told the app's client ID is missing and "+
+			"to log in again", err, len(seen()))
 	}
 }

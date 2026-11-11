@@ -5,6 +5,8 @@ package slackauth
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -15,6 +17,12 @@ import (
 // that a post made just before is not refused, and late enough that a token is
 // used for most of its twelve hours.
 const refreshAhead = 10 * time.Minute
+
+// ErrNoClientID reports a user token's secrets kept with no app named to
+// refresh them for: a login writes the two together, so only a login made
+// again names it.
+var ErrNoClientID = errors.New(
+	"the Slack app's client ID, messaging.client_id, is not set beside the user token's secrets")
 
 // Source hands out the user token to post with: the one kept in Store while it
 // has time left, otherwise a new one from Refresher, kept in its place. A
@@ -29,9 +37,14 @@ type Source struct {
 
 // Token is a user token with more than refreshAhead left on it, and other than
 // expired — the token Slack just answered token_expired for, or empty when
-// none was. A process that waited on the lock re-reads what the one before it
+// none was. With no app named to refresh it for, it is ErrNoClientID, which
+// is also ErrNotLoggedIn. A process that waited on the lock re-reads what the one before it
 // kept, and refreshes only when that is still not good enough.
 func (s Source) Token(ctx context.Context, expired config.Secret) (config.Secret, error) {
+	if s.Refresher.ClientID == "" {
+		return "", fmt.Errorf("%w: %w", ErrNoClientID, ErrNotLoggedIn)
+	}
+
 	held, err := s.Store.Load(ctx)
 	if err != nil {
 		return "", err

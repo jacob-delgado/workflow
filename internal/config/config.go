@@ -374,15 +374,30 @@ func (m Messaging) missing() []string {
 
 		return []string{"messaging.client_id (workflow slack login) or messaging.webhook_url"}
 	case MessagingUser:
-		if m.Channel == "" {
-			return []string{"messaging.channel"}
-		}
+		return m.missingForUserToken()
 	case MessagingWebhook:
 		// A webhook is bound to its channel when it is created, so asking for
 		// messaging.channel as well would be asking for something with no effect.
 	}
 
 	return nil
+}
+
+// missingForUserToken names what a user token still needs: the app its
+// secrets are for, which a login writes beside them, so secrets without it
+// are a login to make again; and the channel it posts to.
+func (m Messaging) missingForUserToken() []string {
+	var missing []string
+
+	if m.ClientID == "" {
+		missing = append(missing, "messaging.client_id (workflow slack login again)")
+	}
+
+	if m.Channel == "" {
+		missing = append(missing, "messaging.channel")
+	}
+
+	return missing
 }
 
 // Problems reports settings that load but are unwise — a webhook sent over
