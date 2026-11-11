@@ -9,9 +9,11 @@
 # version whose publish date cannot be learned fails, as a mise tool pinned in
 # a [tools.<name>] table, which the check does not read, or in an inline table
 # naming no version, does; one pinned in an inline table is dated by its
-# version key. Versions the change leaves alone are not looked up, and a base
-# git cannot resolve is refused with a status of its own. A dated waiver a week
-# past its day is warned of, and its npmPreapprovedPackages entry in
+# version key. A module version a go.mod replace directive adopts, on its own
+# line or in a block, is dated as a requirement is, and a directory one adopts
+# is not looked up. Versions the change leaves alone are not looked up, and a
+# base git cannot resolve is refused with a status of its own. A dated waiver a
+# week past its day is warned of, and its npmPreapprovedPackages entry in
 # web/.yarnrc.yml with it, but fails nothing; one whose week may not be over is
 # not. In GitHub Actions the warning is also a ::warning annotation, which the
 # pull request shows. A pre-approval no line of the exceptions file lists is
@@ -36,6 +38,19 @@ source "${here}/lib/check-dependency-age-fixtures.sh"
 # require_go adds a requirement to go.mod.
 require_go() {
   sed -i.bak "s|^)|\t$1 $2\n)|" go.mod && rm go.mod.bak
+}
+
+# replace_go adds a replace directive to go.mod, on a line of its own.
+#   replace_go <directive...>
+replace_go() {
+  printf '\nreplace %s\n' "$*" >>go.mod
+}
+
+# replace_go_block replaces example.com/kept in a replace block, first with a
+# directory, then with the young module.
+replace_go_block() {
+  printf '\nreplace (\n\texample.com/kept => ../kept\n\texample.com/kept v1.0.0 => example.com/young v1.3.0 // a fork\n)\n' \
+    >>go.mod
 }
 
 # resolve_npm adds a resolution to web/yarn.lock.
@@ -155,6 +170,19 @@ expect_output pass "a young Go module the maintainer waived" "waived on 2026-10-
 
 go_waived_on_no_day="$(repo go-waived-on-no-day young_go_waived_on_no_day)"
 expect_output fail "a waiver dated on no real day" "names no advisory" age "${go_waived_on_no_day}"
+
+go_replaced="$(repo go-replaced replace_go example.com/kept "=>" example.com/young v1.3.0)"
+expect_output fail "a Go module two days old a replace directive adopts" \
+  "example.com/young v1.3.0 was published 1 day(s) ago" age "${go_replaced}"
+
+go_replaced_in_block="$(repo go-replaced-in-block replace_go_block)"
+expect_output fail "a Go module two days old a replace block adopts beside a directory" \
+  "example.com/young v1.3.0 was published 1 day(s) ago" age "${go_replaced_in_block}"
+count_case
+if grep -q 'kept' "${go_replaced_in_block}.curl"; then
+  fail_case "a Go module two days old a replace block adopts beside a directory" \
+    "it looked up the directory: $(cat "${go_replaced_in_block}.curl")"
+fi
 
 npm_old="$(repo npm-old resolve_npm @scope/widget 2.0.0)"
 expect_exit pass "a scoped npm package a week old" age "${npm_old}"

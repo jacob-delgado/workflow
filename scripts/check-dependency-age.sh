@@ -12,27 +12,27 @@
 # rest — a hand-run `go get` or `yarn add`, and mise.toml and
 # build/yamllint/requirements.txt, which Dependabot does not read. It compares
 # the versions go.mod, docs/go.mod, web/yarn.lock, mise.toml and
-# build/markdownlint/package-lock.json name, and the files
-# build/yamllint/requirements.txt pins by their sha256, at HEAD with those at
-# the merge base with <base-ref>, and asks where each new one came from when it
-# was published: proxy.golang.org for Go modules and the Go toolchain, the npm
-# registry, PyPI, nodejs.org, and the GitHub release for every other mise
-# tool. A PyPI release takes files for days after its first, so each file is
-# dated by its own upload; a requirement pinned by no hash, whose file cannot
-# be told, fails, and so does any line of the requirements file but a comment,
-# the two options scripts/pin-yamllint.sh writes and a name==version
-# requirement pinned by --hash=sha256 alone, an include or a direct URL among
-# them. A lock entry is read with the tarball it resolves to and its
-# integrity, so a change to either alone is checked as a new pin is: one that
-# does not come from the npm registry under its own name and version, by a
-# sha512, fails, as one whose sha512 the registry does not list does, and so
-# does a lock npm would read other than by its packages map, a lockfileVersion
-# 1 among them, or one that cannot be parsed. A mise tool is read from its
-# version string or an inline table's version key; one pinned in an inline
-# table naming no version, or in a [tools.<name>] table, whose keys this does
-# not read, fails too. A pin that cannot be dated so fails whatever the
-# exceptions file says, which excuses a version's age alone: an excepted pin's
-# hash is still looked up.
+# build/markdownlint/package-lock.json name, a go.mod's replace directives
+# among them, and the files build/yamllint/requirements.txt pins by their
+# sha256, at HEAD with those at the merge base with <base-ref>, and asks where
+# each new one came from when it was published: proxy.golang.org for Go modules
+# and the Go toolchain, the npm registry, PyPI, nodejs.org, and the GitHub
+# release for every other mise tool. A PyPI release takes files for days after
+# its first, so each file is dated by its own upload; a requirement pinned by
+# no hash, whose file cannot be told, fails, and so does any line of the
+# requirements file but a comment, the two options scripts/pin-yamllint.sh
+# writes and a name==version requirement pinned by --hash=sha256 alone, an
+# include or a direct URL among them. A lock entry is read with the tarball it
+# resolves to and its integrity, so a change to either alone is checked as a
+# new pin is: one that does not come from the npm registry under its own name
+# and version, by a sha512, fails, as one whose sha512 the registry does not
+# list does, and so does a lock npm would read other than by its packages map,
+# a lockfileVersion 1 among them, or one that cannot be parsed. A mise tool is
+# read from its version string or an inline table's version key; one pinned in
+# an inline table naming no version, or in a [tools.<name>] table, whose keys
+# this does not read, fails too. A pin that cannot be dated so fails whatever
+# the exceptions file says, which excuses a version's age alone: an excepted
+# pin's hash is still looked up.
 #
 # A version listed in scripts/dependency-age-exceptions.txt with the advisory
 # it fixes passes at any age: a known-vulnerability fix overrides the wait. So
@@ -486,8 +486,8 @@ warn_unlisted_preapprovals() {
   done < <(preapproved)
 }
 
-check_all go "$(added "$(at "${base}" go.mod | go_requires)" "$(at HEAD go.mod | go_requires)")"
-check_all go "$(added "$(at "${base}" docs/go.mod | go_requires)" "$(at HEAD docs/go.mod | go_requires)")"
+check_all go "$(added "$(at "${base}" go.mod | go_module_pins)" "$(at HEAD go.mod | go_module_pins)")"
+check_all go "$(added "$(at "${base}" docs/go.mod | go_module_pins)" "$(at HEAD docs/go.mod | go_module_pins)")"
 check_all npm "$(added "$(at "${base}" web/yarn.lock | yarn_resolutions)" "$(at HEAD web/yarn.lock | yarn_resolutions)")"
 check_all mise "$(added "$(at "${base}" mise.toml | mise_pins)" "$(at HEAD mise.toml | mise_pins)")"
 check_all pypi "$(added "$(at "${base}" "${requirements}" | requirements_pins)" \
