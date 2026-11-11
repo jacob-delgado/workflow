@@ -128,7 +128,9 @@ type githubRunList struct {
 // githubRerun re-runs the failed jobs of every failed workflow run on the head
 // commit, and reports whether any run was re-run. A failure that is a status
 // reported by something other than Actions has no run to re-run, so nothing is,
-// which is why the caller is told rather than left to assume one started.
+// which is why the caller is told rather than left to assume one started. A
+// commit with more runs than are read is refused with ErrTooManyRuns before
+// any is re-run, rather than re-running only the failed ones among those read.
 func githubRerun(ctx context.Context, client Client, repo Repo, _ PullRequest, head string) (bool, error) {
 	runs, err := githubWorkflowRuns(ctx, client, repo, head)
 	if err != nil {
@@ -155,16 +157,20 @@ func githubRerun(ctx context.Context, client Client, repo Repo, _ PullRequest, h
 	return reran, nil
 }
 
-// githubWorkflowRuns reads every workflow run on a commit.
+// githubWorkflowRuns reads every workflow run on a commit, and refuses one
+// with more than are read, with ErrTooManyRuns.
 func githubWorkflowRuns(ctx context.Context, client Client, repo Repo, head string) ([]githubRun, error) {
 	path := githubRepoPath(repo) + "/actions/runs?"
 	query := url.Values{"head_sha": {head}}
 
-	runs, _, err := readPages(func(page int) ([]githubRun, int, error) {
+	runs, truncated, err := readPages(func(page int) ([]githubRun, int, error) {
 		list, err := repoCall[githubRunList](ctx, client, repo, http.MethodGet, path+pageQuery(query, page), nil)
 
 		return list.Runs, list.TotalCount, err
 	})
+	if err == nil && truncated {
+		return nil, ErrTooManyRuns
+	}
 
 	return runs, err
 }
