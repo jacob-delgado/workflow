@@ -448,11 +448,11 @@ jobs:
           retention-days: 7
 
   # Advisory, not a gate: one table of every suite's counts and the coverage,
-  # with its change against main's last baseline, written to the run summary
-  # and handed to the coverage comment. It runs no suite: it reads what the
-  # Test, Branch coverage, Web, E2E and E2E (server) jobs uploaded, whether
-  # they passed or not, so a failed suite shows as its counts and one that
-  # never reported as dashes.
+  # with its change against the baseline of the commit it builds on, written
+  # to the run summary and handed to the coverage comment. It runs no suite: it
+  # reads what the Test, Branch coverage, Web, E2E and E2E (server) jobs
+  # uploaded, whether they passed or not, so a failed suite shows as its counts
+  # and one that never reported as dashes.
   summary:
     name: Test summary
     needs: [changes, test, branch-coverage, web, e2e, e2e-server]
@@ -485,14 +485,15 @@ jobs:
         with:
           name: branch-coverage
           path: tmp/gobco
-      # On a pull request the exact-SHA key never hits, so the prefix
-      # restore-key resolves to the most recent baseline cached from main.
-      - name: Restore main's baseline
+      # The baseline of the commit this run builds on: a pull request's base,
+      # which its merge commit is made against, or the main a push moved on
+      # from. Only that commit's own, never the newest by prefix, which on a
+      # branch behind main would credit or charge it with changes it does not
+      # have; a base whose run saved none reads as n/a.
+      - name: Restore the base commit's baseline
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          key: coverage-baseline-${{ github.sha }}
-          restore-keys: |
-            coverage-baseline-
+          key: coverage-baseline-${{ github.event.pull_request.base.sha || github.event.before }}
           path: coverage-baseline.json
       - name: Count each suite's tests
         run: |
@@ -582,8 +583,9 @@ jobs:
       - run: task secrets
       - run: task secrets:history
 
-  # Cache main's coverage numbers so a PR has something to compare against. Push
-  # to main only; the PR job restores whatever this last wrote.
+  # Cache main's coverage numbers, keyed by commit, so a PR has something to
+  # compare against. Push to main only; the summary job restores the one saved
+  # for the commit its run builds on.
   coverage-baseline:
     name: Coverage baseline
     needs: [test, branch-coverage]
