@@ -206,9 +206,12 @@ func (p dirPicker) typed(m Model, msg tea.Msg) (Model, tea.Cmd) {
 }
 
 // retyped is the picker once its field has changed: its first row
-// highlighted, any refusal forgotten, and where it now points read.
+// highlighted, any refusal forgotten, and where it now points read, a
+// listing that failed asked for again.
 func (p dirPicker) retyped(m Model) (Model, tea.Cmd) {
 	p.problem, p.cursor = nil, 0
+	p.reads = maps.Clone(p.reads)
+	maps.DeleteFunc(p.reads, func(_ string, read dirRead) bool { return read.err != nil })
 
 	return p.reading(m)
 }

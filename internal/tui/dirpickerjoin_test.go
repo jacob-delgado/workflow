@@ -244,3 +244,24 @@ func TestANarrowedListingOfAnotherDirectoryNeverStandsIn(t *testing.T) {
 			configName, plain(view))
 	}
 }
+
+func TestAListingThatFailedIsAskedForAgainOnTheNextKey(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Your home's listing fails once, and answers by the next key.
+	working := pickingWorld()
+	working.dirs.wholeErr = errListingCutOff
+	failed := picking(t, working, "~/")
+	working.dirs.wholeErr = nil
+
+	// Act
+	view := typing(t, failed, "s").View().Content
+
+	// Assert
+	refuseScreen(t, view, errListingCutOff.Error())
+
+	if pickerLine(pickerText(t, view), srcName) == "" {
+		t.Errorf("%s is not listed once the listing that failed could be read:\n%s", srcName, plain(view))
+	}
+}
