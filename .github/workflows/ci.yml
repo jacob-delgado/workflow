@@ -184,7 +184,8 @@ jobs:
   # The gate scripts' own tests, every scripts/*_test.sh and
   # scripts/release/*_test.sh, in a job of their own so that they run beside
   # Test rather than after its Go race run, which they used to wait on. go,
-  # task, jq and node are every tool a suite runs; each stubs the rest.
+  # task, jq, node and lefthook are every tool a suite runs; each stubs the
+  # rest.
   scripts:
     name: Script tests
     needs: [changes]
@@ -198,7 +199,7 @@ jobs:
       - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
         with:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
-          install_args: go task jq node
+          install_args: go task jq node lefthook
       - run: task test:scripts
 
   # Condition coverage, in a job of its own so that it runs beside Test rather

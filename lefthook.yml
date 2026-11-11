@@ -10,9 +10,10 @@
 # lint-go-all (golangci-lint) when the push carries a Go change, web (the web's
 # lint, client-drift check and unit tests) when it carries a web/ or API-spec
 # change, and file-length, package-size, tradeoffs and tech-debt-paths on every
-# push. The rest of `task check` — the Go coverage floors, the whole-tree
-# linters and secret scan, govulncheck — and CI's end-to-end suites run only
-# there.
+# push; and an eighth, push-is-head, refuses a push of a branch at any commit
+# but the one checked out, which those seven judge. The rest of `task check` —
+# the Go coverage floors, the whole-tree linters and secret scan, govulncheck —
+# and CI's end-to-end suites run only there.
 #
 # DO NOT reach for `LEFTHOOK=0` to get past a blocked commit. A failing hook is
 # the hook working — fix the underlying issue. The only legitimate bypass is a
@@ -121,20 +122,22 @@ pre-commit:
       run: gitleaks git --staged --redact --no-banner
 
 # Pre-push: the tests (unit-go), golangci-lint over every Go file
-# (lint-go-all), the web's gates (web), and the four whole-tree checks a
+# (lint-go-all), the web's gates (web), the four whole-tree checks a
 # staged-diff hook cannot see (file-length, package-size, tradeoffs,
-# tech-debt-paths). A red result here is a guaranteed red CI, and learning that
+# tech-debt-paths), and push-is-head, which holds a push to the commit they
+# judge. A red result here is a guaranteed red CI, and learning that
 # locally costs far less than a CI round trip.
 pre-push:
   parallel: false
   # The files the checked-out branch changes against origin/main, which the
   # globs below filter: a branch new to the remote gives lefthook no remote ref
   # to compare with, so without this the range took in changes the branch did
-  # not make, and a docs-only push ran the whole Go and web suites. A push of
-  # some other branch is judged by the checked-out one's changes. When git
+  # not make, and a docs-only push ran the whole Go and web suites. When git
   # cannot compare with origin/main, every tracked file is listed, so
-  # everything runs.
-  files: git diff --name-only --no-renames origin/main...HEAD 2>/dev/null || git ls-files
+  # everything runs. lefthook.yml is always listed too: lefthook skips every
+  # command, a glob or none, when the list is empty, and push-is-head, below,
+  # must run on every push.
+  files: (git diff --name-only --no-renames origin/main...HEAD 2>/dev/null || git ls-files) && echo lefthook.yml
   commands:
     # The tests as `task test` runs them: the module's own packages, which
     # Taskfile.yml's GO_PKGS names, under the race detector, then the gate
@@ -190,6 +193,14 @@ pre-push:
     # TECH_DEBT.md, and only the whole tree shows the path gone.
     tech-debt-paths:
       run: scripts/check-tech-debt-paths.sh
+
+    # The checks above run over the working tree and are picked by what HEAD
+    # changes, so they judge the commit checked out: this refuses a push of a
+    # branch at any other, as `git push origin feat/x` from main, which they
+    # would otherwise pass on HEAD's account. git hands it the refs pushed.
+    push-is-head:
+      use_stdin: true
+      run: scripts/check-push-is-head.sh
 
 # Commit-message format check: Conventional Commits, e.g.
 #   feat(jira): add issue transition command

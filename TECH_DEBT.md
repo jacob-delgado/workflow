@@ -838,11 +838,14 @@ off Git LFS's upload, which lefthook skips when it is given none. Decided
 2026-10-13 by the maintainer, when `h` came to run any hook.
 
 **Cost.** A `pre-push` job that reads `{1}`, `{2}` or `use_stdin` sees nothing
-when run by hand, so it can pass or fail where a real push would not.
+when run by hand, so it can pass or fail where a real push would not. This
+repository's own `push-is-head` reads the refs (`use_stdin`) and, handed none,
+passes by design (`scripts/check-push-is-head.sh`): a run by hand has no branch
+to push but HEAD's, which the other jobs judge, as this entry intends.
 
-**Reopen when.** A repository's `pre-push` job is found reading git's arguments
-or refs, or lefthook gains a way to run `pre-push` for a named remote without
-pushing.
+**Reopen when.** A repository's `pre-push` job is found judging wrongly when run
+by hand for want of git's arguments or refs, or lefthook gains a way to run
+`pre-push` for a named remote without pushing.
 
 ### TRADE-40 Every announcement reads its CI again as it goes
 
