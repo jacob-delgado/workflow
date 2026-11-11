@@ -51,10 +51,9 @@ type reopening struct {
 
 // carried is the session's own state, kept across a switch: the comments
 // written on Jira issues, which are the same issues wherever the same Jira
-// is configured; how
-// the Tasks list is seen; and the Summary's period. A forge issue's comment,
-// a commit message or a pull request belongs to the repository left, and
-// switchGuard names it as lost.
+// is configured; how the Tasks list is seen; and the Summary's period. A
+// forge issue's comment, a commit message or a pull request belongs to the
+// repository left, and lostOnLeaving names it as lost.
 type carried struct {
 	// commentDrafts are for issues on jiraURL's instance, and dropped on
 	// arriving where another is configured: there a key names someone
