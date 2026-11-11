@@ -253,7 +253,7 @@ func (m Model) previewPush() (Model, tea.Cmd) {
 	m.overlay = lastLook{
 		title: "Push branch",
 		body:  "Push " + m.branch.branch.Name + " to " + m.branch.branch.PushRemote + "?", verb: "push",
-		proceed: func(m Model) (Model, tea.Cmd) { return m.startPush(nil) },
+		proceed: func(m Model) (Model, tea.Cmd) { return m.startPush() },
 	}
 
 	return m, nil
