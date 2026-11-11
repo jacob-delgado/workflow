@@ -21,22 +21,47 @@ readonly brief_ms=10
 
 # refuse_busy refuses to film while the machine is busy with something else:
 # its load over the last minute past all but one of its processors, or a gate
-# or a Playwright run going: a gate is gate-as-dev.sh, or the gate-as-dev setup
-# installs on PATH, run as root or as the gate user, whose own runs of task
-# name a step of check, not check. A busy machine draws frames late, and a late
-# frame is a jump in the film. It runs before the script's own setup, whose
-# cold build of VHS would count as the machine being busy. DOCS_MEDIA_LOADAVG
-# names the load average to read, /proc/loadavg by default.
+# or a Playwright run going (refuse_running). A busy machine draws frames
+# late, and a late frame is a jump in the film. It runs before the script's
+# own setup, whose cold build of VHS would count as the machine being busy.
+# DOCS_MEDIA_LOADAVG names the load average to read, /proc/loadavg by default.
 refuse_busy() {
-  local load cpus running
+  local load cpus
   read -r load _ <"${DOCS_MEDIA_LOADAVG:-/proc/loadavg}" || refuse "cannot read the machine's load"
   cpus="$(getconf _NPROCESSORS_ONLN)"
   if awk -v average="${load}" -v cpus="${cpus}" 'BEGIN { exit !(average > cpus - 1) }'; then
     refuse "the machine is busy, a load of ${load} on ${cpus} processors, and would film the walkthrough late: run it again once the machine is idle"
   fi
-  running="$(pgrep -fa -- 'gate-as-dev([.]sh)?( |$)|task (check|e2e)|playwright test' || true)"
+  refuse_running
+}
+
+# running_gates prints each gate or Playwright run going: a gate is
+# gate-as-dev.sh, or the gate-as-dev setup installs on PATH, run as root or as
+# the gate user, whose own runs of task name a step of check, not check.
+running_gates() {
+  pgrep -fa -- 'gate-as-dev([.]sh)?( |$)|task (check|e2e)|playwright test' || true
+}
+
+# refuse_running refuses to film while a gate or a Playwright run is going. It
+# runs again once the script's own builds are done, just before the filming,
+# since a gate started while they ran is as busy as one started before.
+refuse_running() {
+  local running
+  running="$(running_gates)"
   if [[ -n "${running}" ]]; then
     refuse "a gate or a Playwright run is going, and would film the walkthrough late: run it again once it ends:
+${running}"
+  fi
+}
+
+# fail_if_overlapped fails a run once the recordings end with a gate or a
+# Playwright run going, which started while they were filmed, so they may be
+# late.
+fail_if_overlapped() {
+  local running
+  running="$(running_gates)"
+  if [[ -n "${running}" ]]; then
+    fail "a gate or a Playwright run started while the recordings were filmed, so they may be late: run it again once it ends:
 ${running}"
   fi
 }

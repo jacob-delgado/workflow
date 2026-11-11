@@ -22,15 +22,17 @@
 #
 # It refuses to film on a busy machine, a load past all but one processor or
 # a gate or Playwright run going, since a late frame is a jump in either
-# recording (lib/walkthrough.sh). The WebP must be the film its manifest
-# describes: animated, 1280 by 800, looping forever, with no frame of 10 ms
-# or less, which a browser plays for 100 ms, as long as the film within a
-# second, with no frame past 250 ms where the film moves throughout, a
-# glide, typing or a scroll, every frame it holds the film's own as Chromium
-# decodes it (web's media:check), and a keyframe kept for each step to look
-# at. The film is PNG and the WebP lossless: a lossy one left blocks of
-# earlier frames on screen. ffprobe 6.1 cannot read an animated WebP, so
-# lib/webp.sh reads its chunks.
+# recording (lib/walkthrough.sh); it looks for a gate again once its own
+# builds are done, just before it films, and fails a run that ends its
+# recordings with one going, which started while they were filmed. The WebP
+# must be the film its manifest describes: animated, 1280 by 800, looping
+# forever, with no frame of 10 ms or less, which a browser plays for 100 ms,
+# as long as the film within a second, with no frame past 250 ms where the
+# film moves throughout, a glide, typing or a scroll, every frame it holds
+# the film's own as Chromium decodes it (web's media:check), and a keyframe
+# kept for each step to look at. The film is PNG and the WebP lossless: a
+# lossy one left blocks of earlier frames on screen. ffprobe 6.1 cannot read
+# an animated WebP, so lib/webp.sh reads its chunks.
 #
 # It refuses to run while what the images show, under cmd/, internal/, web/
 # or docs/media/ or in go.mod and go.sum, has a change git has not committed,
@@ -74,7 +76,8 @@
 # its tape and the WebP the film; 1 when a step fails, a ttyd does not match
 # its pin, VHS fetched a browser, an image is past its budget or was not
 # written, the GIF runs more than a second longer or shorter than its tape, a
-# line of the tape has no length to read, or the WebP is not the film; and 2
+# line of the tape has no length to read, the WebP is not the film, or a gate
+# or a Playwright run is going as the recordings end; and 2
 # when it is given an argument, a tool it needs is missing, ffmpeg cannot
 # write an animated WebP, mise.toml pins no VHS or ttyd, ttyd publishes no
 # build for the machine, the checkout is not git's or has changes not
@@ -431,9 +434,11 @@ shown="$(shown_ms)"
 started="${tools}/started"
 touch "${started}"
 (cd "${root}" && go build -o tmp/demo ./cmd/demo) || fail "could not build cmd/demo"
+refuse_running
 (cd "${root}/web" && corepack yarn media) || fail "could not take the web screenshots and film the walkthrough"
 encode_walkthrough
 record "${started}"
+fail_if_overlapped
 check_sizes "${started}"
 check_length "${shown}"
 check_walkthrough

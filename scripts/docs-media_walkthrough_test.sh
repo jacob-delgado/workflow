@@ -12,8 +12,9 @@
 # keyframe there to look at. A WebP of 4 MiB passes and a byte more fails by
 # name. It refuses a busy machine, a load past all but one of its processors
 # or a gate or Playwright run going, the gate setup installs on PATH among
-# them, and an ffmpeg with no libwebp_anim; it fails when the run filmed
-# nothing, or the encoding fails. The stand-ins of lib/docs-media-fixtures.sh
+# them, and one started while the script built too, and an ffmpeg with no
+# libwebp_anim; it fails when the run filmed nothing, the encoding fails, or a
+# gate started while it filmed. The stand-ins of lib/docs-media-fixtures.sh
 # say what they were asked, so nothing is built, filmed or encoded.
 #
 # Usage:
@@ -189,6 +190,14 @@ expect_output 2 "the gate setup installs going, as the gate user runs it" "a gat
   "FAKE_RUNNING=4243 bash /opt/workflow-tools/bin/gate-as-dev --as-gate-user /home/user/workflow/.git 0123abcd"
 expect_exit pass "a process that only names the gate's test" media "${root}" "${all}" "${with_browser}" \
   "FAKE_RUNNING=4244 less scripts/gate-as-dev_test.sh"
+# A gate started once the busy check passed is seen before the filming, once
+# the script's own builds are done, or as the recordings end.
+expect_output 2 "a gate started while the script built" "a gate or a Playwright run is going" \
+  media "${root}" "${all}" "${with_browser}" "FAKE_RUNNING=4245 bash scripts/gate-as-dev.sh ." \
+  FAKE_RUNNING_FROM=2 "FAKE_PGREP_CALLS=${workdir}/built.calls"
+expect_output 1 "a gate started while the script filmed" "a gate or a Playwright run started while" \
+  media "${root}" "${all}" "${with_browser}" "FAKE_RUNNING=4246 bash scripts/gate-as-dev.sh ." \
+  FAKE_RUNNING_FROM=3 "FAKE_PGREP_CALLS=${workdir}/filmed.calls"
 expect_output 2 "no load to read" "cannot read the machine's load" \
   media "${root}" "${all}" "${with_browser}" "DOCS_MEDIA_LOADAVG=${workdir}/missing-load"
 
