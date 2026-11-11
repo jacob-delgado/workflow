@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import type { PullRequestDraft } from '@/api/generated/types.gen.ts'
@@ -65,6 +65,30 @@ test('keeps an edited description: the template no longer changes it', async () 
 
   // Assert
   expect(within(form).getByRole('combobox', { name: 'Template' })).toHaveProperty('disabled', true)
+})
+
+test('keeps a description typed while the template chosen is read', async () => {
+  // Arrange
+  const { user, form } = await composed()
+  let answer: (draft: PullRequestDraft) => void = () => undefined
+  mockPreview.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        answer = resolve
+      }),
+  )
+  await user.selectOptions(within(form).getByRole('combobox', { name: 'Template' }), 'bugfix')
+  const description = within(form).getByRole('textbox', { name: 'Description' })
+  await user.type(description, 'mine')
+
+  // Act
+  await act(async () => {
+    answer(drafted('bugfix'))
+    await Promise.resolve()
+  })
+
+  // Assert
+  expect(description).toHaveProperty('value', '## feature\nmine')
 })
 
 test('the people and labels boxes show their hints in sentence case', async () => {
