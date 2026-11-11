@@ -254,3 +254,23 @@ test('a period the server refuses keeps the steps and says why', async () => {
   expect(screen.getByRole('heading', { level: 2, name: 'Monday, September 14, 2026' })).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Later' })).toBeTruthy()
 })
+
+test('picking a day in a month paged to keeps the focus on that day', async () => {
+  // Arrange
+  servingActivity((from, to) => tuesday(from ?? '2026-09-15', to ?? '2026-09-15'))
+  const user = userEvent.setup()
+  renderWithClient(<SummaryPanel />)
+  await user.click(await screen.findByRole('gridcell', { name: /^Tuesday, September 15, 2026/ }))
+  await user.keyboard('{PageUp}')
+  const august = screen.getByRole('gridcell', { name: /^Saturday, August 15, 2026/ })
+
+  // Act
+  await user.keyboard('{Enter}')
+
+  // Assert
+  await screen.findByRole('heading', { name: 'Saturday, August 15, 2026' })
+  expect(document.activeElement).toBe(
+    screen.getByRole('gridcell', { name: /^Saturday, August 15, 2026/ }),
+  )
+  expect(august.isConnected).toBe(true)
+})

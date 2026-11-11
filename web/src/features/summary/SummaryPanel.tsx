@@ -50,12 +50,7 @@ export function SummaryPanel() {
         <Shown read={read} refusal={refusal} period={period} />
       </div>
       <div className={cn('lg:col-start-1 lg:row-start-2', contentMeasure)}>
-        <PeriodCalendar
-          key={period.to.slice(0, 7)}
-          period={period}
-          today={last.today}
-          onPick={choose}
-        />
+        <PeriodCalendar period={period} today={last.today} onPick={choose} />
       </div>
     </div>
   )
