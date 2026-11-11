@@ -149,10 +149,15 @@ type taskChange struct {
 // taskCommand runs a write that names no task under ctx — run is nil when
 // there is no Taskwarrior to make it — and answers the list after it with what
 // the write changed, or the problem either met, the write's as fault words it.
+// Once the taskwarrior settings changed, it runs none.
 func (h *Handlers) taskCommand(
 	ctx context.Context, run func(context.Context) (taskChange, error),
 	fault func(ctx context.Context, err error) api.Problem,
 ) (api.TaskList, *api.Problem) {
+	if prob := h.settingsChangedRefusal(); prob != nil {
+		return api.TaskList{}, prob
+	}
+
 	if run == nil {
 		prob := problem.New(api.ProblemCodeUnprocessable, notAvailable)
 

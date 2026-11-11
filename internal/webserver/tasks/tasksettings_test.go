@@ -149,3 +149,39 @@ func TestSettingsSavedBackAsTheyWereAtStartApply(t *testing.T) {
 		t.Errorf("answer = %d %+v, want Taskwarrior available with no reason", recorder.Code, list)
 	}
 }
+
+func TestATaskWriteIsRefusedOnceTaskwarriorSettingsChanged(t *testing.T) {
+	t.Parallel()
+
+	// The Taskwarrior the server holds is the one the settings it was bound
+	// with found, so a write would reach the Taskwarrior the settings saved
+	// have turned off.
+	cases := map[string]struct {
+		path, body, verb string
+	}{
+		"a write on a task":      {path: taskPath(webtest.PlainUUID, doneVerb), verb: doneVerb},
+		"an add":                 {path: webtest.TasksPath, body: addBody, verb: addVerb},
+		"the last change undone": {path: undoPath, verb: undoVerb},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			fake := webtest.FakeTaskwarrior()
+			handler := savedSettings(t, fake.Seams(), config.Taskwarrior{},
+				func(settings *config.Taskwarrior) { settings.Disabled = true })
+
+			// Act
+			recorder := webtest.Send(t, handler, http.MethodPost, tt.path, tt.body)
+
+			// Assert
+			detail := webtest.Decode[api.Problem](t, recorder).Detail
+			if recorder.Code != http.StatusUnprocessableEntity || detail != settingsChanged || fake.Count(tt.verb) != 0 {
+				t.Errorf("answer = %d %q after %d %s calls; want 422 %q and no %s made",
+					recorder.Code, detail, fake.Count(tt.verb), tt.verb, settingsChanged, tt.verb)
+			}
+		})
+	}
+}
