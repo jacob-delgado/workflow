@@ -33,13 +33,21 @@
 # failing the job where a maintainer will see it, because a published release
 # cannot be taken back.
 #
+# A rerun picks up where a run was cut off. The tag alone does not say the
+# release is under way: a run can push it and then fail, or be canceled, before
+# it dispatches release.yml, and that tag, pushed with GITHUB_TOKEN, starts no
+# build of its own. So a tag already on the remote is done with only once
+# release.yml has a run for it; until then the rerun checks the commit as the
+# first run did and dispatches the build and flips the label itself.
+#
 # Environment:
 #   HEAD_COMMIT_MSG  the pushed commit's message, passed as an env var rather
 #                    than interpolated into the workflow's run: line, because its
 #                    content is attacker-influenceable.
 #   GITHUB_OUTPUT    the file the decide step appends its answer to.
-#   GH_TOKEN         needs actions:write (workflow run) and pull-requests:write
-#                    (label flip); only the tag step reads it.
+#   GH_TOKEN         needs actions:write (workflow run, and run list for a tag
+#                    already pushed) and pull-requests:write (label flip); only
+#                    the tag step reads it.
 set -euo pipefail
 
 readonly manifest=".release-please-manifest.json"
@@ -73,15 +81,22 @@ fi
 
 readonly tag="v${version}"
 
+tag_pushed=false
 if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
-  echo "Tag ${tag} already exists on the remote; nothing to do."
-  exit 0
+  tag_pushed=true
+  # Any run, dispatched or started by a tag pushed by hand, whatever its result:
+  # one that failed is the maintainer's to rerun, not a reason to start another.
+  release_runs="$(gh run list --workflow release.yml --branch "${tag}" --limit 1 --json databaseId --jq 'length')"
+  if [[ "${release_runs}" != "0" ]]; then
+    echo "Tag ${tag} is on the remote and release.yml has run for it; nothing to do."
+    exit 0
+  fi
 fi
 
 released="$(sed -n -E 's/.*"\."[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' "${manifest}")"
 
 if [[ "${released}" != "${version}" ]]; then
-  echo "The subject names ${version} and ${manifest} holds '${released}'; not tagging." >&2
+  echo "The subject names ${version} and ${manifest} holds '${released}'; not releasing." >&2
   exit 1
 fi
 
@@ -91,13 +106,17 @@ pr_number="$(gh api "repos/{owner}/{repo}/commits/$(git rev-parse HEAD)/pulls" \
   --jq "[.[] | select(.merged_at != null) | select(any(.labels[]; .name == \"${pending_label}\")) | .number] | first // empty")"
 
 if [[ -z "${pr_number}" ]]; then
-  echo "No merged pull request labeled '${pending_label}' holds this commit; not tagging." >&2
+  echo "No merged pull request labeled '${pending_label}' holds this commit; not releasing." >&2
   exit 1
 fi
 
-echo "Tagging $(git rev-parse --short HEAD) as ${tag}, released by pull request #${pr_number}"
-git tag "${tag}"
-git push origin "${tag}"
+if [[ "${tag_pushed}" == true ]]; then
+  echo "Tag ${tag} is on the remote with no run of release.yml; finishing the release of pull request #${pr_number}"
+else
+  echo "Tagging $(git rev-parse --short HEAD) as ${tag}, released by pull request #${pr_number}"
+  git tag "${tag}"
+  git push origin "${tag}"
+fi
 
 echo "Dispatching release.yml for ${tag}"
 gh workflow run release.yml --ref "${tag}"

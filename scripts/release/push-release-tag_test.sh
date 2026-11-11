@@ -14,20 +14,28 @@ readonly script="${here}/push-release-tag.sh"
 # shellcheck source=../lib/testing.sh
 source "${here}/../lib/testing.sh"
 
-# A gh that records what it was asked and answers the one question the script
-# puts to it, which pull requests a commit came from, as gh api does: the pulls
-# in GH_STUB_PULLS go through the script's own --jq filter, so the filter is
-# what decides which of them released the commit.
+# A gh that records what it was asked and answers the two questions the script
+# puts to it as gh does, through the script's own --jq filter: which pull
+# requests a commit came from (gh api), from GH_STUB_PULLS, and which runs of
+# release.yml a tag has (gh run list), from GH_STUB_RUNS. A command line that
+# holds GH_STUB_FAIL fails, as gh does when GitHub refuses it.
 mkdir -p "${workdir}/bin"
 cat >"${workdir}/bin/gh" <<'STUB'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >>"${GH_STUB_LOG}"
-if [[ "$1" == "api" ]]; then
-  while (($# > 0)) && [[ "$1" != "--jq" ]]; do
-    shift
-  done
-  jq -r "${2:-.}" <<<"${GH_STUB_PULLS:-[]}"
+if [[ -n "${GH_STUB_FAIL:-}" && "$*" == *"${GH_STUB_FAIL}"* ]]; then
+  echo "HTTP 500: ${GH_STUB_FAIL} refused" >&2
+  exit 1
 fi
+case "$1" in
+  api) answer="${GH_STUB_PULLS:-[]}" ;;
+  run) answer="${GH_STUB_RUNS:-[]}" ;;
+  *) exit 0 ;;
+esac
+while (($# > 0)) && [[ "$1" != "--jq" ]]; do
+  shift
+done
+jq -r "${2:-.}" <<<"${answer}"
 STUB
 chmod +x "${workdir}/bin/gh"
 
@@ -36,6 +44,9 @@ readonly released='[{"number":42,"merged_at":"2026-09-20T12:00:00Z","labels":[{"
 readonly unlabeled='[{"number":42,"merged_at":"2026-09-20T12:00:00Z","labels":[{"name":"autorelease: tagged"}]}]'
 readonly unmerged='[{"number":42,"merged_at":null,"labels":[{"name":"autorelease: pending"}]}]'
 readonly no_pulls='[]'
+
+# The runs of release.yml a tag can have, as gh run list lists them.
+readonly one_run='[{"databaseId":7}]'
 
 # quiet_git runs git, keeping what it says out of the test's output. It reads
 # the harness's git configuration, as the script does: the developer's is kept
@@ -136,7 +147,11 @@ expect untagged fails "a labeled pull request not merged" "1.4.0" "chore(main): 
 expect untagged ok "words after the version" "1.4.0" "chore(main): release 1.4.0 and more" "${released}"
 expect untagged ok "a version that is a path" "1.4.0" "chore(main): release 1.4.0/nested" "${released}" "v1.4.0/nested"
 
-# A tag already on the origin is left alone, and nothing is dispatched twice.
+# A tag already on the origin that release.yml has run for is left alone, and
+# nothing is dispatched twice. gh's stand-in answers runs whatever it is asked,
+# so the case also holds the script to asking about release.yml's runs for
+# this tag: another workflow or branch would find runs no build of it made, or
+# miss the ones it did.
 count_case
 repository again "1.4.0"
 quiet_git -C "${workdir}/again" commit -m "chore(main): release 1.4.0"
@@ -144,10 +159,14 @@ quiet_git -C "${workdir}/again" push origin main
 quiet_git -C "${workdir}/again" tag v1.4.0
 quiet_git -C "${workdir}/again" push origin v1.4.0
 quiet_git -C "${workdir}/again" tag -d v1.4.0
+: >"${workdir}/again.log"
 
-run_tag_step again "${released}"
+GH_STUB_RUNS="${one_run}" run_tag_step again "${released}"
 
-if grep -q 'workflow run' "${workdir}/again.log" 2>/dev/null; then
+if ! grep -q -- 'run list --workflow release.yml --branch v1.4.0 ' "${workdir}/again.log"; then
+  fail_case "a tag already on the origin" "want release.yml's runs for v1.4.0 asked about, got:"
+  sed 's/^/    /' "${workdir}/again.log" >&2
+elif grep -q 'workflow run' "${workdir}/again.log"; then
   fail_case "a tag already on the origin" "release.yml was dispatched again"
 fi
 
@@ -157,6 +176,44 @@ if ! grep -q 'workflow run release.yml --ref v1.4.0' "${workdir}/case1.log" \
   || ! grep -q 'pr edit 42' "${workdir}/case1.log"; then
   fail_case "a release" "want release.yml dispatched and pull request 42 relabeled, got:"
   sed 's/^/    /' "${workdir}/case1.log" >&2
+fi
+
+# A tag pushed by a run whose dispatch then failed is not a release: the rerun
+# finds the tag with no run of release.yml behind it, dispatches the build the
+# first run never started, and relabels the pull request.
+count_case
+repository interrupted "1.4.0"
+quiet_git -C "${workdir}/interrupted" commit -m "chore(main): release 1.4.0"
+quiet_git -C "${workdir}/interrupted" push origin main
+GH_STUB_FAIL="workflow run" run_tag_step interrupted "${released}"
+: >"${workdir}/interrupted.log"
+
+run_tag_step interrupted "${released}"
+
+if ((tag_step_status != 0)) \
+  || ! grep -q 'workflow run release.yml --ref v1.4.0' "${workdir}/interrupted.log" \
+  || ! grep -q 'pr edit 42' "${workdir}/interrupted.log"; then
+  fail_case "a rerun after a failed dispatch" \
+    "want release.yml dispatched and pull request 42 relabeled, got exit ${tag_step_status} and:"
+  sed 's/^/    /' "${workdir}/interrupted.log" "${workdir}/interrupted.out" >&2
+fi
+
+# The rerun checks the commit as the first run did: a tag with no run behind it
+# is no reason to dispatch a build for a commit no pending pull request holds.
+count_case
+repository stray "1.4.0"
+quiet_git -C "${workdir}/stray" commit -m "chore(main): release 1.4.0"
+quiet_git -C "${workdir}/stray" push origin main
+quiet_git -C "${workdir}/stray" tag v1.4.0
+quiet_git -C "${workdir}/stray" push origin v1.4.0
+: >"${workdir}/stray.log"
+
+run_tag_step stray "${unlabeled}"
+
+if ((tag_step_status == 0)) || grep -q 'workflow run' "${workdir}/stray.log"; then
+  fail_case "a pushed tag whose commit no pending pull request holds" \
+    "want it refused with nothing dispatched, got exit ${tag_step_status} and:"
+  sed 's/^/    /' "${workdir}/stray.log" "${workdir}/stray.out" >&2
 fi
 
 decides "decide: a release commit" "chore(main): release 1.4.0" "version=v1.4.0"

@@ -333,6 +333,11 @@ commit messages above, so a well-formed commit is also a changelog entry:
    deprecated a call, and `scripts/release/package-manifests.sh` needs
    updating.
 
+   A tag job in `release-please.yml` that pushed the tag and then failed, or
+   was canceled, before `.github/workflows/release.yml` started is finished by
+   rerunning it: the rerun finds the tag with no run of `release.yml` behind
+   it, dispatches the build and flips the pull request's label.
+
 **Before 1.0, the minor digit is reserved for breaking changes.** Both `feat`
 and `fix` bump the patch; only a breaking change — marked with `!`, as in
 `feat!` — bumps the minor:

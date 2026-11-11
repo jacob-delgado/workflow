@@ -131,7 +131,7 @@ jobs:
     permissions:
       contents: write # push the tag
       pull-requests: write # flip the release PR's label
-      actions: write # dispatch release.yml after tagging
+      actions: write # dispatch release.yml after tagging, and see its runs on a rerun
     steps:
       # fetch-depth: 0 because the tag script reads local history. The checkout
       # keeps no credential: the push step gets the token through its own env.
