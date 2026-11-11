@@ -232,9 +232,10 @@ type world struct {
 	// unresolved are the places the fake editor cannot find a file for, the way
 	// go test prints one relative to its package.
 	unresolved []string
-	// runBlocks makes a streamed run stream nothing and never finish until it is
-	// stopped, standing in for a hook that hangs; runStop is set to a flag that
-	// records whether that run's own Stop was called.
+	// runBlocks makes a streamed run stream commitLines, then nothing more, and
+	// never finish until it is stopped, standing in for a hook that hangs;
+	// runStop is set to a flag that records whether that run's own Stop was
+	// called.
 	runBlocks bool
 	runStop   *bool
 	// stopExitsClean has a blocking run, once stopped, exit as if it had
@@ -275,7 +276,11 @@ func gitExited(code int) error {
 // open, and Wait reports it killed, until Stop closes them. Stop records that it
 // was called, so a test can prove a stop key reached the run.
 func (w *world) blockingOutput() proc.Output {
-	lines := make(chan string)
+	lines := make(chan string, len(w.commitLines))
+	for _, line := range w.commitLines {
+		lines <- line
+	}
+
 	stopped := false
 	w.runStop = &stopped
 

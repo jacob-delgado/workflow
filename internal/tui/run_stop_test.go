@@ -53,3 +53,22 @@ func TestAStoppedCommitThatExitsCleanlyIsNotTakenForCommitted(t *testing.T) {
 	requireScreen(t, view, "stopped")
 	refuseScreen(t, view, "committed fix: x")
 }
+
+func TestAJobStillRunningWhenItsRunIsStoppedIsNoLongerShownAsGoing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The hook starts a lint job and hangs inside it, so lefthook never reports it.
+	w := newWorld()
+	w.runBlocks, w.commitLines = true, []string{lintJobStarts}
+	starting, start := pressed(t, typing(t, w.live(t, 100, 40), "3", "h"), keyEnter)
+	running, readOutput := finish(t, starting, start)
+	streamed, _ := finish(t, running, readOutput)
+
+	// Act
+	stopped := typing(t, streamed, "s").View().Content
+
+	// Assert
+	requireScreen(t, stopped, "○ stopped", "○ lint")
+	refuseScreen(t, stopped, "◐ lint")
+}

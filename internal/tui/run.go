@@ -261,13 +261,20 @@ func (r commandRun) failureHeadline(kit renderKit) string {
 }
 
 // jobs is lefthook's jobs, each with its glyph, when the output is lefthook's.
+// A job lefthook never reported on once the run is over — stopped, or ended
+// before lefthook's summary — is going no longer, and nothing said how it
+// ended: it takes the mark a stopped run does.
 func (r commandRun) jobs(kit renderKit) string {
-	parsed := r.jobList
-	parts := make([]string, 0, len(parsed))
+	unreported := kit.marks.inFlight
+	if r.done {
+		unreported = kit.marks.notStarted
+	}
 
-	for _, job := range parsed {
+	parts := make([]string, 0, len(r.jobList))
+
+	for _, job := range r.jobList {
 		glyph := map[hooks.JobState]string{
-			hooks.JobRunning: kit.marks.inFlight, hooks.JobPassed: kit.marks.done,
+			hooks.JobRunning: unreported, hooks.JobPassed: kit.marks.done,
 			hooks.JobFailed: kit.failedGlyph(), hooks.JobSkipped: kit.marks.notStarted,
 		}[job.State]
 		parts = append(parts, glyph+" "+job.Name)

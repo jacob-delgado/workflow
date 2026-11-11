@@ -140,3 +140,20 @@ func TestAFailedPreCommitRunLeadsWithTheHook(t *testing.T) {
 	// Assert
 	requireScreen(t, view, "┏━ pre-commit", "✗ the pre-commit hook failed")
 }
+
+func TestAJobARunEndedInsideBeforeLefthooksSummaryIsNoLongerShownAsGoing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// lefthook dies inside the lint job, so no summary ever reports it.
+	crashed := newWorld()
+	crashed.commitErr = errHookFailed
+	crashed.commitLines = []string{lintJobStarts, firstFailureLine}
+
+	// Act
+	failed := typing(t, crashed.live(t, 120, 40), commitKeys("x")...).View().Content
+
+	// Assert
+	requireScreen(t, failed, "✗ the commit was refused", "○ lint")
+	refuseScreen(t, failed, "◐ lint")
+}
