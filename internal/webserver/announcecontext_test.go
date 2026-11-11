@@ -5,6 +5,7 @@ package webserver_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -61,12 +62,15 @@ func TestAFrameWhosePageLeftDoesNotLetAnAnnouncementPostTwice(t *testing.T) {
 	world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
 
 	deps := world.deps()
-	deps.Store.Announced = func(ctx context.Context) []loop.Announced {
-		if ctx.Err() != nil {
-			return nil
+	deps.Store.Announced = func(ctx context.Context) ([]loop.AnnounceRecord, error) {
+		err := ctx.Err()
+		if err != nil {
+			return nil, fmt.Errorf("reading what was announced: %w", err)
 		}
 
-		return []loop.Announced{{Pull: 42, Moment: messaging.MomentReady}}
+		ready := loop.Announced{Pull: 42, Moment: messaging.MomentReady}
+
+		return []loop.AnnounceRecord{{Made: ready, Generation: 1, Posted: true}}, nil
 	}
 	handler := webtest.Serve(t, deps, config.Default())
 	webtest.StreamOnce(t, handler, "/api/events")

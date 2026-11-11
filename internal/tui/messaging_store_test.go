@@ -32,3 +32,17 @@ func TestAHeldPostIsNotSentWhenAnotherSessionAnnouncedIt(t *testing.T) {
 
 	requireScreen(t, passed, "already announced from another session; not posted again", "● announced")
 }
+
+func TestAStoreWhoseAnnouncementsCannotBeReadSaysSo(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	unread := newWorld()
+	unread.announcedErr = errStoreFull
+
+	// Act
+	view := unread.live(t, 120, 40).View().Content
+
+	// Assert
+	requireScreen(t, view, "could not read what was announced", "database or disk is full")
+}

@@ -125,17 +125,14 @@ func TestADryRunReadsWhatALiveSessionAnnounced(t *testing.T) {
 	where := onOrigin(t.TempDir(), "https://github.com/org/repo.git")
 	merged := loop.Announced{Pull: 7, Moment: messaging.MomentMerged}
 
-	err := wired(t, config.Default(), where, nil).Store.RecordAnnounce(t.Context(), merged)
-	if err != nil {
-		t.Fatalf("recording the announcement: %v", err)
-	}
+	announce(t, wired(t, config.Default(), where, nil).Store, merged)
 
 	// Act
-	posts := processEnvironment().ReadOnlyStore(config.Default(), where).Announced(t.Context())
+	posts, err := processEnvironment().ReadOnlyStore(config.Default(), where).Announced(t.Context())
 
 	// Assert
-	if len(posts) != 1 || posts[0] != merged {
-		t.Errorf("the dry run read %+v, want the one announcement the live session recorded", posts)
+	if err != nil || len(posts) != 1 || posts[0].Made != merged || !posts[0].Posted {
+		t.Errorf("the dry run read %+v, %v; want the one announcement the live session posted", posts, err)
 	}
 }
 
@@ -152,19 +149,16 @@ func TestAnOriginNamingNoRepositoryKeysTheStoreByTheWorkingTree(t *testing.T) {
 	noRepository := onOrigin(root, "https://alice:"+token+"@github.com/repo.git")
 	merged := loop.Announced{Pull: 7, Moment: messaging.MomentMerged}
 
-	err := wired(t, config.Default(), noRepository, nil).Store.RecordAnnounce(t.Context(), merged)
-	if err != nil {
-		t.Fatalf("recording the announcement: %v", err)
-	}
+	announce(t, wired(t, config.Default(), noRepository, nil).Store, merged)
 
 	// Act
 	process := processEnvironment()
 
-	posts := process.ReadOnlyStore(config.Default(), onOrigin(root, "")).Announced(t.Context())
+	posts, err := process.ReadOnlyStore(config.Default(), onOrigin(root, "")).Announced(t.Context())
 
 	// Assert
-	if len(posts) != 1 || posts[0] != merged {
-		t.Errorf("the working tree read %+v, want the one announcement recorded under it", posts)
+	if err != nil || len(posts) != 1 || posts[0].Made != merged {
+		t.Errorf("the working tree read %+v, %v; want the one announcement recorded under it", posts, err)
 	}
 
 	dir, err := store.DefaultDir()

@@ -400,14 +400,17 @@ merged, say — nothing is sent, the page says so, and **Announce to** shows
 the new one. Once a pull request was announced at the moment it is at now —
 ready for review, or merged — from here, the terminal or `workflow
 announce`, the section says so in place of the offer, as the terminal offers
-no announcement it has made; each announcement made here is remembered for
-the terminal and `workflow announce` too. A pull request closed without
-merging is none to announce: the section asks for one to be opened, as it
-does with none at all. One the store cannot remember — a
-full disk, say — is posted all the same, and the line saying where it went
-adds *Posted, but not remembered: it may be offered again.*, as a held one
-does once it goes, and as the terminal and `workflow announce` say it; the
-server's log says why, which those two print after the sentence.
+no announcement it has made; each announcement made here is claimed in the
+store for the terminal and `workflow announce` too. A pull request closed
+without merging is none to announce: the section asks for one to be opened, as
+it does with none at all. Each announcement is claimed in the store before it is
+posted, so two pages, a page and a terminal, or two servers asking at once
+post it once, and the second is answered 409. One posted whose claim the store
+then cannot confirm — a full disk, say — went out all the same, and the line
+saying where it went adds *The store did not confirm it; it is not offered
+again.*, as a held one does once it goes, and as the terminal and `workflow
+announce` say it; the server's log says why, which those two print after the
+sentence.
 
 Nothing is announced while a check has failed on the pull request. The server
 reads its CI again as it posts, whatever the preview showed, and a failed

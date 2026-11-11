@@ -232,9 +232,13 @@ func writeFlows() map[string]writeFlow {
 			name: "setting up lefthook",
 		},
 		"Store.RecordScope": {start: fromWorld(newWorld), keys: scoped, name: "remembering the commit scope"},
-		"Store.RecordAnnounce": {
+		"Store.ClaimAnnounce": {
 			start: fromWorld(newWorld), keys: []string{"5", "p", keyEnter},
-			name: "remembering an announcement",
+			name: "claiming an announcement",
+		},
+		"Store.ConfirmAnnounce": {
+			start: fromWorld(newWorld), keys: []string{"5", "p", keyEnter},
+			name: "confirming an announcement",
 		},
 		"Store.CacheIssues": {start: fromWorld(newWorld), keys: nil, name: "caching the issue list"},
 		"Store.LinkOwner":   {start: fromWorld(onlyBen), keys: []string{"5", "P", "x"}, name: "linking a code owner"},

@@ -118,7 +118,7 @@ func TestTheAnnouncementPreviewedIsTheOneLoopComposes(t *testing.T) {
 	}
 }
 
-func TestAnAnnouncementTheServiceRefusedIsNotRemembered(t *testing.T) {
+func TestAnAnnouncementTheServiceRefusedIsNotConfirmed(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -130,6 +130,6 @@ func TestAnAnnouncementTheServiceRefusedIsNotRemembered(t *testing.T) {
 
 	// Assert
 	if posts, recorded := refusing.asked("post "), refusing.asked("announce"); len(posts) != 1 || len(recorded) != 0 {
-		t.Errorf("posted %q and recorded %q, want the one refused post and nothing remembered", posts, recorded)
+		t.Errorf("posted %q and confirmed %q, want the one refused post and nothing confirmed", posts, recorded)
 	}
 }

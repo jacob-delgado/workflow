@@ -4,17 +4,18 @@
 package pr_test
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"sync/atomic"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
+	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
 // webhook is a local incoming webhook over https that accepts every post, as
@@ -116,11 +117,12 @@ func TestAnnounceRefusedForItsChannelSaysTheFixAndNoKey(t *testing.T) {
 	}
 }
 
-func TestAnnounceDeliveredButNotRememberedSucceedsAndSaysSo(t *testing.T) {
+func TestAnnounceTheStoreCannotClaimPostsNothingAndSaysWhy(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// A file stands where the store's directory goes, so nothing is kept.
+	// A file stands where the store's directory goes, so no claim can be
+	// taken, and an announcement unclaimed could go twice.
 	var posts atomic.Int32
 
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login")})
@@ -131,17 +133,13 @@ func TestAnnounceDeliveredButNotRememberedSucceedsAndSaysSo(t *testing.T) {
 	writeStoreBlocker(t, where.State)
 
 	// Act
-	printed, err := clitest.RunStreamsAt(t, where, clitest.UnusedPrompt(t), "announce", "--yes")
+	_, err := clitest.RunStreamsAt(t, where, clitest.UnusedPrompt(t), "announce", "--yes")
 
 	// Assert
-	// The line saying where it went, then the sentence every surface says of
-	// it, then why, straight after it: the store's directory could not be
-	// made.
-	saidSo := regexp.MustCompile(`(?m)^Announced to .+\.\n` +
-		regexp.QuoteMeta("WARN Posted, but not remembered: it may be offered again. creating the store directory: "))
-	if err != nil || posts.Load() != 1 || !saidSo.MatchString(printed.Stderr) {
-		t.Errorf("announce --yes = %v after %d posts, saying:\n%s\nwant the announcement made and the store's "+
-			"failure said", err, posts.Load(), printed.Stderr)
+	if !errors.Is(err, loop.ErrNotClaimed) || !strings.Contains(err.Error(), "creating the store directory") ||
+		posts.Load() != 0 {
+		t.Errorf("announce --yes = %v after %d posts, want nothing posted and why the claim could not be taken",
+			err, posts.Load())
 	}
 }
 

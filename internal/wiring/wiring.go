@@ -7,8 +7,6 @@ package wiring
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/url"
@@ -27,13 +25,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/httpx"
 	"github.com/jacob-delgado/workflow/internal/jira"
-	"github.com/jacob-delgado/workflow/internal/loop"
-	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/messaging/directory"
 	"github.com/jacob-delgado/workflow/internal/proc"
-	"github.com/jacob-delgado/workflow/internal/sanitize"
 	"github.com/jacob-delgado/workflow/internal/seams"
-	"github.com/jacob-delgado/workflow/internal/store"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
@@ -322,108 +316,6 @@ func (e Environment) commitWith(ctx context.Context, root, message string) (proc
 	}
 
 	return output, nil
-}
-
-// ReadOnlyStore is the store's seams for a dry run: they read what an earlier
-// session kept, when the store is already on disk, and never create or write it.
-func (e Environment) ReadOnlyStore(cfg config.Config, where Workspace) seams.Store {
-	return storeDeps(e.onDisk(cfg).ReadOnly(), cfg, where)
-}
-
-// onDisk is the store in the environment's state directory, as the
-// configuration keeps it or disables it.
-func (e Environment) onDisk(cfg config.Config) store.Store {
-	dir, _ := e.StateDir()
-
-	return store.New(dir, cfg.Store.Disabled)
-}
-
-// storeDeps binds the on-disk store to this repository, so the interface can open
-// on what was done here before. A store with nowhere to keep its file, or one the
-// configuration disabled, no-ops through the same seams, so the interface simply
-// learns nothing.
-func storeDeps(kept store.Store, cfg config.Config, where Workspace) seams.Store {
-	repo := repoKey(where)
-	instance := instanceKey(cfg.Jira.BaseURL)
-
-	return bindKept(kept, where, seams.Store{
-		LastScope: func(ctx context.Context) (string, bool) {
-			scope, found, _ := kept.LastScope(ctx, repo)
-
-			// The store is a file on disk: what it reads back is untrusted, so
-			// neutralize any terminal control it may carry before the composer shows it.
-			return sanitize.Line(scope), found
-		},
-		RecordScope: func(ctx context.Context, scope string) error {
-			return kept.RecordScope(ctx, repo, sanitize.Line(scope), time.Now())
-		},
-		Announced: func(ctx context.Context) []loop.Announced {
-			recorded, _ := kept.Announces(ctx, repo)
-
-			return knownAnnouncements(recorded)
-		},
-		RecordAnnounce: func(ctx context.Context, made loop.Announced) error {
-			return kept.RecordAnnounce(ctx, repo, store.Announce{Pull: made.Pull, Moment: int(made.Moment)}, time.Now())
-		},
-		CachedIssues: func(ctx context.Context, view string) ([]jira.Issue, bool) {
-			cached, found, _ := kept.CachedIssues(ctx, instance, view)
-			if !found {
-				return nil, false
-			}
-
-			return cacheableRows(fromCachedIssues(cached))
-		},
-		CacheIssues: func(ctx context.Context, view string, issues []jira.Issue) error {
-			rows, keep := cacheableRows(issues)
-			if !keep {
-				return nil
-			}
-
-			return kept.CacheIssues(ctx, instance, view, toCachedIssues(rows), time.Now())
-		},
-	})
-}
-
-// knownAnnouncements are the announcements claimed at a moment this build
-// knows, whether or not their post was confirmed: one claimed is not offered
-// again. The store is a file on disk, and a row it holds at any other moment
-// stands for no announcement this build could make, so it is dropped.
-func knownAnnouncements(recorded []store.AnnounceRecord) []loop.Announced {
-	made := make([]loop.Announced, 0, len(recorded))
-
-	for _, record := range recorded {
-		moment, known := knownMoment(record.Moment)
-		if known {
-			made = append(made, loop.Announced{Pull: record.Pull, Moment: moment})
-		}
-	}
-
-	return made
-}
-
-// knownMoment is the moment a stored one stands for, and whether this build
-// knows it.
-func knownMoment(stored int) (messaging.Moment, bool) {
-	moment := messaging.Moment(stored)
-
-	switch moment {
-	case messaging.MomentReady, messaging.MomentMerged:
-		return moment, true
-	}
-
-	return 0, false
-}
-
-// instanceKey identifies a Jira instance for the store without keeping its URL:
-// a hash of the base URL, empty when none is configured.
-func instanceKey(baseURL string) string {
-	if baseURL == "" {
-		return ""
-	}
-
-	sum := sha256.Sum256([]byte(baseURL))
-
-	return hex.EncodeToString(sum[:])
 }
 
 // hookDeps is what a surface asks of lefthook — nothing at all when lefthook

@@ -214,7 +214,7 @@ func AnnouncedEarlier(t *testing.T, moment messaging.Moment) string {
 }
 
 // RecordAnnounced records, in the store under home, the fake forge's pull
-// request 7 announced at moment.
+// request 7 announced at moment: claimed, and its post confirmed.
 func RecordAnnounced(ctx context.Context, home string, moment messaging.Moment) error {
 	env := IsolatedEnvironment(Place{Home: home})
 
@@ -227,9 +227,19 @@ func RecordAnnounced(ctx context.Context, home string, moment messaging.Moment) 
 		return fmt.Errorf("finding the store under %s: %w", home, err)
 	}
 
-	return store.New(dir, false).RecordAnnounce(ctx, "github.com/owner/repo",
-		store.Announce{Pull: fakePull, Moment: int(moment)}, time.Now())
+	kept, announced := store.New(dir, false), store.Announce{Pull: fakePull, Moment: int(moment)}
+
+	claim, err := kept.ClaimAnnounce(ctx, fakeRepoKey, announced, time.Now())
+	if err != nil {
+		return fmt.Errorf("claiming the announcement: %w", err)
+	}
+
+	return kept.ConfirmAnnounce(ctx, fakeRepoKey, announced, claim.Generation, time.Now())
 }
+
+// fakeRepoKey is the key the store keeps the fake forge's repository under:
+// its host and path.
+const fakeRepoKey = "github.com/owner/repo"
 
 // CapturingWebhook is a local https webhook that accepts every post and keeps
 // each body's text.

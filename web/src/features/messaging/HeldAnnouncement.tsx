@@ -14,7 +14,7 @@ interface HeldAnnouncementProps {
 
 // HeldAnnouncement says how the announcement held until CI passes stands, as
 // the server's stream tells it: waiting, with Stop waiting; going; gone, and
-// that it may be offered again when the store could not remember it; or
+// that it is not offered again when the store could not confirm it; or
 // dropped, with why, as a failure. The server holds it while it runs, so it
 // stands whether or not this page was open when it was held.
 export function HeldAnnouncement({ held, service, onSaid }: HeldAnnouncementProps) {

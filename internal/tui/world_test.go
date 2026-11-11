@@ -198,8 +198,15 @@ type world struct {
 	// learnedScope is the commit scope the store reports as last used here; empty
 	// means nothing was recorded.
 	learnedScope string
-	// storedAnnounces is what the store reports being posted in earlier sessions.
+	// storedAnnounces is what the store reports being posted in earlier
+	// sessions, and what it holds the claim on; announcedErr fails its read.
 	storedAnnounces []loop.Announced
+	announcedErr    error
+	// claimedAnnounces is what this session claimed, which the store holds
+	// as a claim another session would meet, and confirmedAnnounces those of
+	// them whose post was confirmed.
+	claimedAnnounces   []loop.Announced
+	confirmedAnnounces []loop.Announced
 	// cachedIssues is the issue list the store reports for the active view.
 	cachedIssues []jira.Issue
 
@@ -415,16 +422,15 @@ func (w *world) storeDeps() seams.Store {
 
 			return w.storeErr
 		},
-		Announced: func(context.Context) []loop.Announced {
+		Announced: func(context.Context) ([]loop.AnnounceRecord, error) {
 			w.record("history")
 
-			return w.storedAnnounces
+			return w.announceRecords(), w.announcedErr
 		},
-		RecordAnnounce: func(_ context.Context, made loop.Announced) error {
-			w.record("announce " + strconv.Itoa(made.Pull) + " " + strconv.Itoa(int(made.Moment)))
-
-			return w.storeErr
-		},
+		ClaimAnnounce:   w.claimAnnounce,
+		ConfirmAnnounce: w.confirmAnnounce,
+		ReleaseAnnounce: w.releaseAnnounce,
+		ReclaimAnnounce: nil,
 		CachedIssues: func(_ context.Context, _ string) ([]jira.Issue, bool) {
 			return w.cachedIssues, len(w.cachedIssues) > 0
 		},
@@ -434,6 +440,71 @@ func (w *world) storeDeps() seams.Store {
 			return w.storeErr
 		},
 	})
+}
+
+// announceRecords is every announcement the store holds a claim on: those
+// of earlier sessions posted, and this session's posted once confirmed.
+func (w *world) announceRecords() []loop.AnnounceRecord {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	records := make([]loop.AnnounceRecord, 0, len(w.storedAnnounces)+len(w.claimedAnnounces))
+	for _, made := range w.storedAnnounces {
+		records = append(records, loop.AnnounceRecord{Made: made, Generation: 1, ClaimedAt: testNow(), Posted: true})
+	}
+
+	for _, made := range w.claimedAnnounces {
+		posted := slices.Contains(w.confirmedAnnounces, made)
+		records = append(records, loop.AnnounceRecord{Made: made, Generation: 1, ClaimedAt: testNow(), Posted: posted})
+	}
+
+	return records
+}
+
+// claimAnnounce takes the claim on made, as the store does: held when the
+// store already holds one.
+func (w *world) claimAnnounce(_ context.Context, made loop.Announced) (loop.Claim, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if slices.Contains(w.storedAnnounces, made) || slices.Contains(w.claimedAnnounces, made) {
+		posted := !slices.Contains(w.claimedAnnounces, made) || slices.Contains(w.confirmedAnnounces, made)
+
+		return loop.Claim{Kind: loop.ClaimHeld, Generation: 1, ClaimedAt: testNow(), Posted: posted}, nil
+	}
+
+	w.claimedAnnounces = append(w.claimedAnnounces, made)
+
+	return loop.Claim{Kind: loop.ClaimTaken, Generation: 1, ClaimedAt: testNow(), Posted: false}, nil
+}
+
+// confirmAnnounce records made's post confirmed, answering storeErr, which
+// leaves it claimed and unconfirmed.
+func (w *world) confirmAnnounce(_ context.Context, made loop.Announced, _ int) error {
+	w.record("announce " + strconv.Itoa(made.Pull) + " " + strconv.Itoa(int(made.Moment)))
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if w.storeErr == nil {
+		w.confirmedAnnounces = append(w.confirmedAnnounces, made)
+	}
+
+	return w.storeErr
+}
+
+// releaseAnnounce gives up this session's claim on made, never confirmed.
+func (w *world) releaseAnnounce(_ context.Context, made loop.Announced, _ int) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if !slices.Contains(w.confirmedAnnounces, made) {
+		w.claimedAnnounces = slices.DeleteFunc(w.claimedAnnounces, func(claimed loop.Announced) bool {
+			return claimed == made
+		})
+	}
+
+	return nil
 }
 
 // jiraDeps fakes Jira.

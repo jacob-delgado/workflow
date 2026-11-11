@@ -87,9 +87,7 @@ func TestAHeldAnnouncementMadeMeanwhileElsewhereIsDroppedUnposted(t *testing.T) 
 	// A terminal announces the same moment while this one waits for its CI.
 	world := newForgeWorld()
 	memory := &announceMemory{}
-	deps := world.deps()
-	remembering := memory.wire(deps)
-	deps.Store.Announced, deps.Store.RecordAnnounce = remembering.Store.Announced, remembering.Store.RecordAnnounce
+	deps := memory.bind(world.deps())
 	handler := webtest.Serve(t, deps, config.Default())
 
 	if recorder := askToWait(t, handler); recorder.Code != http.StatusAccepted {

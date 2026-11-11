@@ -136,8 +136,11 @@ internal/tui 91
 # for security's reasons. It answered to a cohesive ceiling of 40 until then;
 # once they had left, the maintainer's budget decision (a split leaves its
 # parent a ratcheted budget at the count it leaves) made it 30, the files it
-# holds. So the next operation is a bump with its reason written here.
-internal/webserver 30
+# holds. So the next operation is a bump with its reason written here. 29
+# since announcememory.go left, the server's cache of what the store
+# remembered announcing, once the claim each post takes made the store the
+# only authority on what was announced.
+internal/webserver 29
 
 # internal/cli — the Cobra command tree, spelled one file per command, or per
 # family of commands over one seam that share their checks (or per section of a
@@ -193,9 +196,13 @@ internal/loop 16
 # is environment.go, what the wiring reads of the process — the home, the
 # variables, the store's directory and where a program is found — handed over
 # by the command line rather than read from the process, and the runs of a
-# program found there. One responsibility — build the seams over the real
-# clients — spelled service-per-file.
-internal/wiring 14
+# program found there. 15 is store.go, the binding of workflow.db to the
+# repository — the scope, the issue cache and the claims each announcement
+# takes before it is posted — out of wiring.go, which the claim's seams would
+# have carried past the 500-line target, beside kept.go, kept.db's. One
+# responsibility — build the seams over the real clients — spelled
+# service-per-file.
+internal/wiring 15
 
 # web/src/lib — the web's shared drawing primitives, each drawn in one place
 # so every section draws it alike (UX.md's visual system): a button, a field, a

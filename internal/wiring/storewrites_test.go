@@ -47,8 +47,28 @@ func brokenStore(t *testing.T) wiring.Workspace {
 
 func TestEveryStoreWriteReportsAStoreThatCannotKeepIt(t *testing.T) {
 	cases := map[string]func(deps seams.Store) error{
-		"a scope":     func(deps seams.Store) error { return deps.RecordScope(t.Context(), "api") },
-		"an announce": func(deps seams.Store) error { return deps.RecordAnnounce(t.Context(), loop.Announced{Pull: 7}) },
+		"a scope": func(deps seams.Store) error { return deps.RecordScope(t.Context(), "api") },
+		"an announcement's claim": func(deps seams.Store) error {
+			_, err := deps.ClaimAnnounce(t.Context(), loop.Announced{Pull: 7, Moment: messaging.MomentReady})
+
+			return err
+		},
+		"an announcement's confirmation": func(deps seams.Store) error {
+			return deps.ConfirmAnnounce(t.Context(), loop.Announced{Pull: 7, Moment: messaging.MomentReady}, 1)
+		},
+		"an announcement's release": func(deps seams.Store) error {
+			return deps.ReleaseAnnounce(t.Context(), loop.Announced{Pull: 7, Moment: messaging.MomentReady}, 1)
+		},
+		"an announcement claimed again": func(deps seams.Store) error {
+			_, err := deps.ReclaimAnnounce(t.Context(), loop.Announced{Pull: 7, Moment: messaging.MomentReady}, 1)
+
+			return err
+		},
+		"the read of what was announced": func(deps seams.Store) error {
+			_, err := deps.Announced(t.Context())
+
+			return err
+		},
 		"an issue list": func(deps seams.Store) error {
 			return deps.CacheIssues(t.Context(), "assigned", []jira.Issue{{Key: "PROJ-9", Summary: "a"}})
 		},
@@ -82,17 +102,14 @@ func TestAnAnnouncementOfAMomentNoBuildKnowsIsNotReadBack(t *testing.T) {
 	known := loop.Announced{Pull: 7, Moment: messaging.MomentMerged}
 
 	for _, made := range []loop.Announced{known, {Pull: 7, Moment: messaging.Moment(9)}} {
-		err := deps.RecordAnnounce(t.Context(), made)
-		if err != nil {
-			t.Fatalf("recording %+v: %v", made, err)
-		}
+		announce(t, deps, made)
 	}
 
 	// Act
-	announced := deps.Announced(t.Context())
+	announced, err := deps.Announced(t.Context())
 
 	// Assert
-	if !slices.Equal(announced, []loop.Announced{known}) {
-		t.Errorf("Announced = %+v, want only the moment this build knows", announced)
+	if err != nil || !slices.Equal(madeOf(announced), []loop.Announced{known}) {
+		t.Errorf("Announced = %+v, %v; want only the moment this build knows", announced, err)
 	}
 }

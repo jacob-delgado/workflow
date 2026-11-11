@@ -315,6 +315,20 @@ func TestATamperedSchemaIsReportedNotTrusted(t *testing.T) {
 		"announcements read from a table without their columns": {
 			schema: []statement{announcesWithoutColumns}, call: announces, step: "reading the announcements",
 		},
+		"an announcement held whose claim is not a number": {
+			schema: []statement{
+				table(`CREATE TABLE announces (
+					repo TEXT, pull INTEGER, moment INTEGER, claim, claimed_at TEXT, posted_at TEXT,
+					PRIMARY KEY (repo, pull, moment)
+				)`),
+				{
+					query: `INSERT INTO announces (repo, pull, moment, claim, claimed_at) VALUES (?, ?, ?, ?, ?)`,
+					args:  []any{repo, 42, 1, "first", storedTime},
+				},
+			},
+			call: claimAnnounce,
+			step: "reading the claim held",
+		},
 		"an announcement whose pull request is not a number": {
 			schema: []statement{
 				table(`CREATE TABLE announces (repo TEXT, pull, moment, claim, claimed_at TEXT, posted_at TEXT)`),

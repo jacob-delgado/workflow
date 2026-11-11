@@ -395,3 +395,15 @@ func refusedRead(_ int, reason string) error {
 func webhookCredentialCodes() []string {
 	return []string{"invalid_token", "no_service", "no_service_id", "no_team", "team_disabled"}
 }
+
+// Undelivered reports whether err, a post's failure, says for sure that the
+// message did not reach the service: refused for itself or its credential,
+// rate limited, or never sent, for want of a credential or of an https
+// webhook. A post with no answer, a status no service documents, or an
+// answer that could not be read may have gone out all the same, so it is not
+// undelivered.
+func Undelivered(err error) bool {
+	surely := []error{ErrPostRefused, ErrRejected, ErrNoCredential, ErrInsecureWebhook, httpx.ErrRateLimited}
+
+	return slices.ContainsFunc(surely, func(sentinel error) bool { return errors.Is(err, sentinel) })
+}

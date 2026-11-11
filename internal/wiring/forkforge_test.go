@@ -163,19 +163,16 @@ func TestAForkCloneKeepsItsStoreUnderOrigin(t *testing.T) {
 	fork, _ := forkWorkspace(t)
 	merged := loop.Announced{Pull: 7, Moment: messaging.MomentMerged}
 
-	err := wired(t, config.Default(), fork, nil).Store.RecordAnnounce(t.Context(), merged)
-	if err != nil {
-		t.Fatalf("recording the announcement: %v", err)
-	}
+	announce(t, wired(t, config.Default(), fork, nil).Store, merged)
 
 	sameOrigin := wiring.Workspace{Root: t.TempDir(), Remote: forkOrigin, Base: gitrepo.Remote{}}
 
 	// Act
-	posts := processEnvironment().ReadOnlyStore(config.Default(), sameOrigin).Announced(t.Context())
+	posts, err := processEnvironment().ReadOnlyStore(config.Default(), sameOrigin).Announced(t.Context())
 
 	// Assert
-	if len(posts) != 1 || posts[0] != merged {
-		t.Errorf("a clone of the same origin read %+v, want the one announcement the fork's clone kept", posts)
+	if err != nil || len(posts) != 1 || posts[0].Made != merged {
+		t.Errorf("a clone of the same origin read %+v, %v; want the one announcement the fork's clone kept", posts, err)
 	}
 }
 

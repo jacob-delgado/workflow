@@ -244,8 +244,8 @@ function sendingOf(post: AsyncState, hold: AsyncState): 'post' | 'hold' | null {
 }
 
 // useAnnouncePost is the post of a previewed announcement to channel, which
-// says where it went through announcing, and that it may be offered again
-// when the store could not remember it. Only an announcement that tags asks
+// says where it went through announcing, and that it is not offered again
+// when the store could not confirm it. Only an announcement that tags asks
 // for mentions, and only an edited one carries its edit, so one that does
 // neither posts as it always has.
 function useAnnouncePost(

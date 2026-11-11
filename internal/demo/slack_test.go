@@ -42,19 +42,44 @@ func TestAPostIsAcceptedOnlyOnAChannelTheDemosSlackHas(t *testing.T) {
 	}
 }
 
-func TestAnAnnouncementIsRemembered(t *testing.T) {
+func TestAnAnnouncementIsClaimedOnce(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	deps := standingStill().Deps()
 	made := loop.Announced{Pull: 128, Moment: messaging.MomentReady}
 
+	first, err := deps.Store.ClaimAnnounce(t.Context(), made)
+	if err != nil || first.Kind != loop.ClaimTaken {
+		t.Fatalf("the first claim = %+v, %v; want it taken", first, err)
+	}
+
 	// Act
-	err := deps.Store.RecordAnnounce(t.Context(), made)
+	second, err := deps.Store.ClaimAnnounce(t.Context(), made)
 
 	// Assert
-	if announced := deps.Store.Announced(t.Context()); err != nil || len(announced) != 1 || announced[0] != made {
-		t.Errorf("the announcements after recording one = %+v, %v; want %+v", announced, err, made)
+	announced, readErr := deps.Store.Announced(t.Context())
+	if err != nil || second.Kind != loop.ClaimHeld || readErr != nil || len(announced) != 1 || announced[0].Made != made {
+		t.Errorf("a second claim = %+v, %v, the announcements %+v, %v; want it held and %+v kept once",
+			second, err, announced, readErr, made)
+	}
+}
+
+func TestAnAnnouncementWhosePostDidNotGoIsGivenUp(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps := standingStill().Deps()
+	made := loop.Announced{Pull: 128, Moment: messaging.MomentReady}
+	_, _ = deps.Store.ClaimAnnounce(t.Context(), made)
+
+	// Act
+	err := deps.Store.ReleaseAnnounce(t.Context(), made, 1)
+
+	// Assert
+	announced, readErr := deps.Store.Announced(t.Context())
+	if err != nil || readErr != nil || len(announced) != 0 {
+		t.Errorf("the announcements after giving one up = %+v, %v, %v; want none", announced, err, readErr)
 	}
 }
 

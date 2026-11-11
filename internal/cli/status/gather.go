@@ -56,11 +56,13 @@ func gather(ctx context.Context, seams statusSeams, branch gitrepo.Branch) statu
 	onFeature := branch.Name != "" && branch.Name != branch.BaseName()
 	review := gatherReview(ctx, seams, branch, onFeature)
 	changes, changesErr := seams.Changes(ctx)
+	announced, announcedErr := seams.Memory.Records(ctx)
 	facts.ci = review.ci
 	facts.notes = serviceNotes([]serviceRead{
 		{name: seams.Tracker, err: issueErr},
 		{name: forgeName(seams.Forge), err: review.err},
 		{name: "The working tree", err: changesErr},
+		{name: "The store", err: announcedErr},
 	})
 
 	facts.stages = progress.Stages(progress.Work{
@@ -71,7 +73,7 @@ func gather(ctx context.Context, seams statusSeams, branch gitrepo.Branch) statu
 		PullRequest:        review.state,
 		CI:                 review.ci,
 		ChangesRequested:   review.pull.ChangesRequested,
-		Announced:          seams.Memory.HoldsNow(ctx, review.pull, review.found),
+		Announced:          loop.StandingOf(announced, review.pull, review.found) != loop.StandingNone,
 	}, seams.Service)
 
 	return facts

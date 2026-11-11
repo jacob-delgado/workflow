@@ -174,7 +174,9 @@ func (s *server) mentions(ctx context.Context, asked *api.AnnounceMentions, mome
 		return messaging.Mentions{}, loop.AnnounceMemory{}, err
 	}
 
-	memory := loop.AnnounceMemory{Recorded: nil, Record: nil, RecordGroups: nil}
+	memory := loop.AnnounceMemory{
+		Recorded: nil, Claim: nil, Confirm: nil, Release: nil, Reclaim: nil, RecordGroups: nil,
+	}
 	if len(tags.Groups) > 0 && s.deps.Store.RecordGroups != nil {
 		memory.RecordGroups = func(ctx context.Context, ids []string) error {
 			return s.keptWrite(func() error { return s.deps.Store.RecordGroups(ctx, workspace, ids) })

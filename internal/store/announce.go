@@ -6,6 +6,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -69,9 +70,13 @@ func (s Store) ClaimAnnounce(ctx context.Context, repo string, announce Announce
 		return notKept(), nil
 	}
 
-	return s.inAnnounceTx(ctx, "claiming the announcement", func(transaction *sql.Tx) (Claim, error) {
-		return claimIn(ctx, transaction, repo, announce, now)
-	})
+	database, err := s.open(ctx)
+	if err != nil {
+		return Claim{}, err
+	}
+	defer func() { _ = database.Close() }()
+
+	return claimIn(ctx, database, repo, announce, now)
 }
 
 // ReclaimAnnounce claims announce in repo again, to post it again as asked,
@@ -86,21 +91,28 @@ func (s Store) ReclaimAnnounce(
 		return notKept(), nil
 	}
 
-	return s.inAnnounceTx(ctx, "claiming the announcement again", func(transaction *sql.Tx) (Claim, error) {
-		swapped, err := affected(transaction.ExecContext(ctx,
-			`UPDATE announces SET claim = claim + 1, claimed_at = ?
-				WHERE repo = ? AND pull = ? AND moment = ? AND claim = ?`,
-			timestamp(now), repo, announce.Pull, announce.Moment, seen))
-		if err != nil {
-			return Claim{}, err
-		}
+	database, err := s.open(ctx)
+	if err != nil {
+		return Claim{}, err
+	}
+	defer func() { _ = database.Close() }()
 
-		if swapped {
-			return Claim{Kind: ClaimTaken, Generation: seen + 1, ClaimedAt: now.UTC(), Posted: false}, nil
-		}
+	var generation int
 
-		return claimIn(ctx, transaction, repo, announce, now)
-	})
+	err = database.QueryRowContext(ctx,
+		`UPDATE announces SET claim = claim + 1, claimed_at = ?
+			WHERE repo = ? AND pull = ? AND moment = ? AND claim = ? RETURNING claim`,
+		timestamp(now), repo, announce.Pull, announce.Moment, seen,
+	).Scan(&generation)
+
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return claimIn(ctx, database, repo, announce, now)
+	case err != nil:
+		return Claim{}, fmt.Errorf("claiming the announcement again: %w", err)
+	default:
+		return Claim{Kind: ClaimTaken, Generation: generation, ClaimedAt: now.UTC(), Posted: false}, nil
+	}
 }
 
 // ConfirmAnnounce records that the post claimed at generation went out. A
@@ -131,17 +143,6 @@ func (s Store) ReleaseAnnounce(ctx context.Context, repo string, announce Announ
 		`DELETE FROM announces WHERE repo = ? AND pull = ? AND moment = ? AND claim = ? AND claim = 1
 			AND posted_at IS NULL`,
 		repo, announce.Pull, announce.Moment, generation)
-}
-
-// RecordAnnounce remembers that a pull request was announced at a moment: it
-// claims it and confirms the claim, whoever took it.
-func (s Store) RecordAnnounce(ctx context.Context, repo string, announce Announce, now time.Time) error {
-	claim, err := s.ClaimAnnounce(ctx, repo, announce, now)
-	if err != nil {
-		return err
-	}
-
-	return s.ConfirmAnnounce(ctx, repo, announce, claim.Generation, now)
 }
 
 // Announces are every announcement claimed for a repository, posted or not,
@@ -205,53 +206,52 @@ func scanRecord(rows *sql.Rows) (AnnounceRecord, error) {
 	return record, nil
 }
 
-// claimIn takes the first claim on announce within transaction, or reads the
-// one another took.
-func claimIn(
-	ctx context.Context, transaction *sql.Tx, repo string, announce Announce, now time.Time,
-) (Claim, error) {
-	inserted, err := affected(transaction.ExecContext(ctx,
+// claimIn takes the first claim on announce in database — one statement, so
+// of every connection asking at once exactly one inserts it — or reads the one
+// another took.
+func claimIn(ctx context.Context, database *sql.DB, repo string, announce Announce, now time.Time) (Claim, error) {
+	var generation int
+
+	err := database.QueryRowContext(ctx,
 		`INSERT INTO announces (repo, pull, moment, claim, claimed_at, posted_at) VALUES (?, ?, ?, 1, ?, NULL)
-			ON CONFLICT (repo, pull, moment) DO NOTHING`,
-		repo, announce.Pull, announce.Moment, timestamp(now)))
-	if err != nil {
-		return Claim{}, err
+			ON CONFLICT (repo, pull, moment) DO NOTHING RETURNING claim`,
+		repo, announce.Pull, announce.Moment, timestamp(now),
+	).Scan(&generation)
+
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return heldIn(ctx, database, repo, announce)
+	case err != nil:
+		return Claim{}, fmt.Errorf("claiming the announcement: %w", err)
+	default:
+		return Claim{Kind: ClaimTaken, Generation: generation, ClaimedAt: now.UTC(), Posted: false}, nil
 	}
+}
 
-	if inserted {
-		return Claim{Kind: ClaimTaken, Generation: 1, ClaimedAt: now.UTC(), Posted: false}, nil
-	}
+// heldIn is the claim another took on announce, as it stands. One given up
+// since the claim met it reads as held all the same, its generation unknown:
+// erring toward not posting, the caller does not post it this time.
+func heldIn(ctx context.Context, database *sql.DB, repo string, announce Announce) (Claim, error) {
+	var (
+		held      = Claim{Kind: ClaimHeld, Generation: 0, ClaimedAt: time.Time{}, Posted: false}
+		claimedAt string
+	)
 
-	held := Claim{Kind: ClaimHeld, Generation: 0, ClaimedAt: time.Time{}, Posted: false}
-
-	var claimedAt string
-
-	err = transaction.QueryRowContext(ctx,
+	err := database.QueryRowContext(ctx,
 		`SELECT claim, claimed_at, posted_at IS NOT NULL FROM announces WHERE repo = ? AND pull = ? AND moment = ?`,
 		repo, announce.Pull, announce.Moment,
 	).Scan(&held.Generation, &claimedAt, &held.Posted)
-	if err != nil {
+
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return held, nil
+	case err != nil:
 		return Claim{}, fmt.Errorf("reading the claim held: %w", err)
 	}
 
 	held.ClaimedAt = parsedTime(claimedAt)
 
 	return held, nil
-}
-
-// affected reports whether the statement whose result and error are given
-// changed a row.
-func affected(result sql.Result, err error) (bool, error) {
-	if err != nil {
-		return false, err
-	}
-
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return false, fmt.Errorf("counting the rows changed: %w", err)
-	}
-
-	return rows == 1, nil
 }
 
 // parsedTime is the time a stored _at column holds, or the zero time for one
@@ -263,36 +263,6 @@ func parsedTime(stored string) time.Time {
 	}
 
 	return parsed
-}
-
-// inAnnounceTx runs claim in one transaction on the store, so a claim and the
-// read of the one it met see the same row, saying what was being done when it
-// fails.
-func (s Store) inAnnounceTx(ctx context.Context, doing string, claim func(*sql.Tx) (Claim, error)) (Claim, error) {
-	database, err := s.open(ctx)
-	if err != nil {
-		return Claim{}, err
-	}
-	defer func() { _ = database.Close() }()
-
-	transaction, err := database.BeginTx(ctx, nil)
-	if err != nil {
-		return Claim{}, fmt.Errorf("%s: %w", doing, err)
-	}
-
-	got, err := claim(transaction)
-	if err != nil {
-		_ = transaction.Rollback()
-
-		return Claim{}, fmt.Errorf("%s: %w", doing, err)
-	}
-
-	err = transaction.Commit()
-	if err != nil {
-		return Claim{}, fmt.Errorf("%s: %w", doing, err)
-	}
-
-	return got, nil
 }
 
 // announceWrite runs one statement on the announcements, saying what was

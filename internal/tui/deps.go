@@ -223,7 +223,10 @@ func outlastingForge(outlive lifetime.Outliving, forge seams.Forge, noun string)
 // outlastingStore is the store with its records outlasting the session.
 func outlastingStore(outlive lifetime.Outliving, store seams.Store) seams.Store {
 	store.RecordScope = lifetime.Outlasting1(outlive, "remembering the commit scope", store.RecordScope)
-	store.RecordAnnounce = lifetime.Outlasting1(outlive, "remembering an announcement", store.RecordAnnounce)
+	store.ClaimAnnounce = lifetime.OutlastingAnswer1(outlive, "claiming an announcement", store.ClaimAnnounce)
+	store.ConfirmAnnounce = lifetime.Outlasting2(outlive, "confirming an announcement", store.ConfirmAnnounce)
+	store.ReleaseAnnounce = lifetime.Outlasting2(outlive, "giving up an announcement's claim", store.ReleaseAnnounce)
+	store.ReclaimAnnounce = lifetime.OutlastingAnswer2(outlive, "claiming an announcement again", store.ReclaimAnnounce)
 	store.CacheIssues = lifetime.Outlasting2(outlive, "caching the issue list", store.CacheIssues)
 	store.LinkOwner = lifetime.Outlasting2(outlive, "linking a code owner", store.LinkOwner)
 	store.ForgetOwner = lifetime.Outlasting2(outlive, "forgetting a code owner's link", store.ForgetOwner)

@@ -107,6 +107,7 @@ func (s AwaitSeams) round(ctx context.Context, number int, state *awaitState) (G
 	}
 
 	state.watch = state.watch.Unheard()
+
 	s.hear(Heard{CI: forge.CI{}, Verdict: VerdictWaiting, Err: err})
 
 	return Green{}, VerdictWaiting, nil

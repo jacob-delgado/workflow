@@ -15,7 +15,7 @@ import (
 // errStoreFull is a store that could not write.
 var errStoreFull = errors.New("database or disk is full")
 
-func TestAnAnnouncementTheStoreCannotKeepIsPostedAndSaysSo(t *testing.T) {
+func TestAnAnnouncementTheStoreCannotConfirmIsPostedAndSaysSo(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -27,7 +27,7 @@ func TestAnAnnouncementTheStoreCannotKeepIsPostedAndSaysSo(t *testing.T) {
 
 	// Assert
 	requireScreen(t, posted.View().Content, "announced to",
-		"Posted, but not remembered: it may be offered again. database or disk is full")
+		"The store did not confirm it; it is not offered again. database or disk is full")
 }
 
 func TestACommitWhoseScopeTheStoreCannotKeepSaysSo(t *testing.T) {

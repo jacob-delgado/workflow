@@ -1123,9 +1123,9 @@ type Announcement struct {
 	// Text The message that would be posted.
 	Text string `json:"text"`
 
-	// Warning Set only on a post that went out but that the store could not remember, so a later session may offer it again; the post is not a failure. Left out on a preview.
+	// Warning Set only on a post that went out but whose claim the store could not confirm; the claim still keeps it from going again, and the post is not a failure. Left out on a preview.
 	//
-	// Example: Posted, but not remembered: it may be offered again.
+	// Example: The store did not confirm it; it is not offered again.
 	Warning *string `json:"warning,omitempty"`
 }
 
@@ -2202,9 +2202,9 @@ type QueuedAnnouncement struct {
 	Reason *string                 `json:"reason,omitempty"`
 	State  QueuedAnnouncementState `json:"state"`
 
-	// Warning Set only on one announced that the store could not remember, so a later session may offer it again.
+	// Warning Set only on one announced whose claim the store could not confirm; the claim still keeps it from going again.
 	//
-	// Example: Posted, but not remembered: it may be offered again.
+	// Example: The store did not confirm it; it is not offered again.
 	Warning *string `json:"warning,omitempty"`
 }
 
@@ -2263,7 +2263,7 @@ type Rerun struct {
 
 // Review defines model for Review.
 type Review struct {
-	// Announced Whether the pull request was already announced at the moment it is at now — ready for review, or merged — from the browser, the terminal or workflow announce, as the store remembers. Always false for one closed without merging, which the loop no longer follows, whatever was announced of it before: it is none to announce, as the announce stage reads it, until one is open again. The store is read at most once every timing.ci_interval, and never under --dry-run, when this is always false.
+	// Announced Whether the pull request was already announced at the moment it is at now — ready for review, or merged — from the browser, the terminal or workflow announce, as the store holds a claim on it, its post confirmed or begun. Always false for one closed without merging, which the loop no longer follows, whatever was announced of it before: it is none to announce, as the announce stage reads it, until one is open again. The store is read for each frame, and never under --dry-run, when this is always false.
 	Announced bool `json:"announced"`
 
 	// Ci The pull request's CI; absent when none is found, the pull request is not open, or its CI cannot be read — unless the event stream holds the CI last read for the same pull request at the same head.

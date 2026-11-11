@@ -12,10 +12,10 @@ import (
 	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
-// A post that has gone out is remembered whatever becomes of its asker: a
-// record a canceled context stopped would offer the announcement again, and
-// a later session or page would post it twice.
-func TestAPostThatWentOutIsRememberedThoughItsAskerLeft(t *testing.T) {
+// A post that has gone out is confirmed whatever becomes of its asker: a
+// confirmation a canceled context stopped would leave the post reading as one
+// begun and never seen to finish.
+func TestAPostThatWentOutIsConfirmedThoughItsAskerLeft(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -29,8 +29,10 @@ func TestAPostThatWentOutIsRememberedThoughItsAskerLeft(t *testing.T) {
 	var recordedUnder, groupsUnder []error
 
 	memory := loop.AnnounceMemory{
-		Recorded: nil,
-		Record: func(ctx context.Context, _ loop.Announced) error {
+		Claim: func(context.Context, loop.Announced) (loop.Claim, error) {
+			return loop.Claim{Kind: loop.ClaimTaken, Generation: 1}, nil
+		},
+		Confirm: func(ctx context.Context, _ loop.Announced, _ int) error {
 			recordedUnder = append(recordedUnder, ctx.Err())
 
 			return nil
@@ -53,7 +55,7 @@ func TestAPostThatWentOutIsRememberedThoughItsAskerLeft(t *testing.T) {
 	}
 
 	if len(recordedUnder) != 1 || recordedUnder[0] != nil || len(groupsUnder) != 1 || groupsUnder[0] != nil {
-		t.Errorf("recorded under contexts ended %v and the groups under %v, want each once under a live one",
+		t.Errorf("confirmed under contexts ended %v and the groups under %v, want each once under a live one",
 			recordedUnder, groupsUnder)
 	}
 }

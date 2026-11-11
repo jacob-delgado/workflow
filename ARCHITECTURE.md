@@ -150,8 +150,9 @@ request's proposal are made from, so it hands them to the value-level
 through seams; the command line and the web keep `loop.ComposeAnnouncement` and
 `loop.ComposePull`, which read them through seams and delegate to those two. Every
 surface posts an announcement through `loop.Deliver`, which reads the pull
-request's CI as it posts and refuses one a check has failed on, then
-remembers what it posted; and every surface that waits for CI to pass —
+request's CI as it posts and refuses one a check has failed on, then claims
+it in the store, so one announcement is posted once across sessions and
+processes, posts it, and confirms the claim; and every surface that waits for CI to pass —
 the terminal, the web and `--when-green` — waits by `armed.CIWatch`, in
 `internal/armed`, which sits above `internal/loop` and below the surfaces, and
 which an `armed-below-the-surfaces` rule in `.golangci.yml` holds there.

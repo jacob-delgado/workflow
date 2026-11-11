@@ -683,7 +683,7 @@ export type Announcement = {
      */
     ci?: CiState;
     /**
-     * Set only on a post that went out but that the store could not remember, so a later session may offer it again; the post is not a failure. Left out on a preview.
+     * Set only on a post that went out but whose claim the store could not confirm; the claim still keeps it from going again, and the post is not a failure. Left out on a preview.
      */
     warning?: string;
 };
@@ -737,7 +737,7 @@ export type QueuedAnnouncement = {
      */
     automatic?: boolean;
     /**
-     * Set only on one announced that the store could not remember, so a later session may offer it again.
+     * Set only on one announced whose claim the store could not confirm; the claim still keeps it from going again.
      */
     warning?: string;
 };
@@ -1267,7 +1267,7 @@ export type Review = {
      */
     finish_refusal?: string;
     /**
-     * Whether the pull request was already announced at the moment it is at now — ready for review, or merged — from the browser, the terminal or workflow announce, as the store remembers. Always false for one closed without merging, which the loop no longer follows, whatever was announced of it before: it is none to announce, as the announce stage reads it, until one is open again. The store is read at most once every timing.ci_interval, and never under --dry-run, when this is always false.
+     * Whether the pull request was already announced at the moment it is at now — ready for review, or merged — from the browser, the terminal or workflow announce, as the store holds a claim on it, its post confirmed or begun. Always false for one closed without merging, which the loop no longer follows, whatever was announced of it before: it is none to announce, as the announce stage reads it, until one is open again. The store is read for each frame, and never under --dry-run, when this is always false.
      */
     announced: boolean;
 };

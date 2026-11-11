@@ -242,73 +242,6 @@ func TestComposeAnnouncementNamesNoIssueForAKeylessBranch(t *testing.T) {
 	}
 }
 
-// remembering is a memory that recorded made in an earlier session.
-func remembering(made ...loop.Announced) loop.AnnounceMemory {
-	return loop.AnnounceMemory{Recorded: func(context.Context) []loop.Announced { return made }}
-}
-
-func TestAnnounceMemoryHoldsWhatAnEarlierSessionAnnounced(t *testing.T) {
-	t.Parallel()
-
-	opened := loop.Announced{Pull: 9, Moment: messaging.MomentReady}
-
-	cases := map[string]struct {
-		memory loop.AnnounceMemory
-		made   loop.Announced
-		want   bool
-	}{
-		"the pull request at the same moment": {memory: remembering(opened), made: opened, want: true},
-		"the pull request at a later moment": {
-			memory: remembering(opened), made: loop.Announced{Pull: 9, Moment: messaging.MomentMerged},
-		},
-		"another pull request":         {memory: remembering(opened), made: loop.Announced{Pull: 10}},
-		"no way to read what was made": {made: opened},
-	}
-
-	for name, tt := range cases {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			// Act & Assert
-			if got := tt.memory.Holds(t.Context(), tt.made); got != tt.want {
-				t.Errorf("Holds(%+v) = %t, want %t", tt.made, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestAnnounceMemoryHoldsNowOnlyAPullRequestTheLoopFollows(t *testing.T) {
-	t.Parallel()
-
-	ready := loop.Announced{Pull: 9, Moment: messaging.MomentReady}
-	closed := openPull()
-	closed.State = forge.StateClosed
-
-	cases := map[string]struct {
-		pull  forge.PullRequest
-		found bool
-		want  bool
-	}{
-		"an open pull request announced as ready": {pull: openPull(), found: true, want: true},
-		"an open pull request merged since": {
-			pull: forge.PullRequest{Number: 9, State: forge.StateMerged}, found: true,
-		},
-		"a pull request closed without merging, announced before": {pull: closed, found: true},
-		"no pull request found":                                   {pull: openPull()},
-	}
-
-	for name, tt := range cases {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			// Act & Assert
-			if got := remembering(ready).HoldsNow(t.Context(), tt.pull, tt.found); got != tt.want {
-				t.Errorf("HoldsNow(%+v, %t) = %t, want %t", tt.pull, tt.found, got, tt.want)
-			}
-		})
-	}
-}
-
 // deliveries records what a Post seam was asked to send.
 type deliveries struct {
 	posted   []string
@@ -324,13 +257,18 @@ func (d *deliveries) post(err error) func(ctx context.Context, channel, text str
 	}
 }
 
-// memory records every announcement made.
+// memory claims every announcement, and records each confirmed.
 func (d *deliveries) memory() loop.AnnounceMemory {
-	return loop.AnnounceMemory{Record: func(_ context.Context, made loop.Announced) error {
-		d.recorded = append(d.recorded, made)
+	return loop.AnnounceMemory{
+		Claim: func(context.Context, loop.Announced) (loop.Claim, error) {
+			return loop.Claim{Kind: loop.ClaimTaken, Generation: 1}, nil
+		},
+		Confirm: func(_ context.Context, made loop.Announced, _ int) error {
+			d.recorded = append(d.recorded, made)
 
-		return nil
-	}}
+			return nil
+		},
+	}
 }
 
 // merged is the delivery these tests send: the pull request's merge, to #dev.
@@ -405,22 +343,5 @@ func TestDeliverPostsWithNothingToRememberItIn(t *testing.T) {
 	// Assert
 	if err != nil || len(sent.posted) != 1 {
 		t.Errorf("Deliver = %v, posted %q; want it posted though nothing records it", err, sent.posted)
-	}
-}
-
-func TestDeliverPostedButNotRememberedSaysSo(t *testing.T) {
-	t.Parallel()
-
-	// Arrange
-	var sent deliveries
-
-	forgetting := loop.AnnounceMemory{Record: func(context.Context, loop.Announced) error { return errSeam }}
-
-	// Act
-	err := loop.Deliver(t.Context(), passing(sent.post(nil)), forgetting, merged())
-
-	// Assert
-	if !errors.Is(err, loop.ErrNotRemembered) || !errors.Is(err, errSeam) || len(sent.posted) != 1 {
-		t.Errorf("Deliver = %v, posted %q; want it posted, then ErrNotRemembered with why", err, sent.posted)
 	}
 }
