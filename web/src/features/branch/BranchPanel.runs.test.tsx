@@ -369,3 +369,53 @@ test('shows the run another page started over this page’s ended one, holding t
     screen.getByRole('button', { name: 'Rebase onto main' }).getAttribute('aria-disabled'),
   ).toBe('true')
 })
+
+test.each([
+  ['Run a hook', 'Run a hook', 'Run'],
+  ['Rebase onto main', 'Rebase fix/PROJ-1 onto main', 'Rebase'],
+  ['Amend last commit', 'Amend fix: second', 'Amend'],
+  ['Fix up a commit', 'Fix up a commit', 'Fix up'],
+])('a look open as a run starts elsewhere, from %s, holds its send', async (opener, name, send) => {
+  // Arrange
+  foldable()
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+  await user.click(screen.getByRole('button', { name: opener }))
+  const look = await screen.findByRole('form', { name })
+  act(() => {
+    foldable({
+      run: { kind: 'rebase', title: 'git rebase', state: 'in_progress', outcome: '', lines: [] },
+    })
+  })
+
+  // Act
+  await user.click(within(look).getByRole('button', { name: send }))
+
+  // Assert
+  expect(mockStartRun).not.toHaveBeenCalled()
+  expect(within(look).getByRole('button', { name: send }).getAttribute('aria-disabled')).toBe(
+    'true',
+  )
+})
+
+test('a second look open as a run starts here cannot start another over it', async () => {
+  // Arrange
+  holdRun()
+  foldable()
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+  await user.click(screen.getByRole('button', { name: 'Run a hook' }))
+  const chooser = await screen.findByRole('form', { name: 'Run a hook' })
+  await user.click(screen.getByRole('button', { name: 'Rebase onto main' }))
+  const look = screen.getByRole('form', { name: 'Rebase fix/PROJ-1 onto main' })
+  await user.click(within(look).getByRole('button', { name: 'Rebase' }))
+
+  // Act
+  await user.click(within(chooser).getByRole('button', { name: 'Run' }))
+
+  // Assert
+  expect(mockStartRun).toHaveBeenCalledTimes(1)
+  expect(screen.getByRole('region', { name: 'Output of git rebase' }).textContent).toContain(
+    'lint ok',
+  )
+})

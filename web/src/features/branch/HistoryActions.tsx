@@ -65,6 +65,7 @@ export function RebaseAction({ branch, runner }: { branch: Branch; runner: GitRu
           act="Rebase"
           busy={null}
           error=""
+          held={runner.going}
           onSend={() => {
             setAsking(false)
             runner.start({ kind: 'rebase' })
@@ -194,6 +195,7 @@ function AmendLook({ last, runner, onCancel, onSent }: LookProps & { last: Commi
       act="Amend"
       busy={null}
       error=""
+      held={runner.going}
       onSend={() => {
         onSent()
         runner.start({ kind: 'amend' })
@@ -221,6 +223,7 @@ function FixupLook({ commits, runner, onCancel, onSent }: LookProps & { commits:
       act="Fix up"
       busy={null}
       error=""
+      held={runner.going}
       disabled={chosen === ''}
       onSend={() => {
         onSent()
@@ -288,6 +291,7 @@ function HookAction({ runner }: { runner: GitRunner }) {
       ) : (
         <HookLook
           hooks={hooks}
+          held={runner.going}
           onCancel={putAway}
           onRun={(hook) => {
             putAway()
@@ -309,6 +313,8 @@ function firstChoice(runnable: string[]): string {
 
 interface HookLookProps {
   hooks: ConfiguredHooks
+  // held is a run going, which the one chosen waits on.
+  held: boolean
   onCancel: () => void
   onRun: (hook: string) => void
 }
@@ -316,7 +322,7 @@ interface HookLookProps {
 // HookLook chooses the hook to run among those a run by hand can stand in
 // for, and lists those only git runs, with what git hands each, which cannot
 // be chosen. A radio group is one Tab stop, and the arrow keys move within it.
-function HookLook({ hooks, onCancel, onRun }: HookLookProps) {
+function HookLook({ hooks, held, onCancel, onRun }: HookLookProps) {
   const [chosen, setChosen] = useState(firstChoice(hooks.runnable))
 
   return (
@@ -325,6 +331,7 @@ function HookLook({ hooks, onCancel, onRun }: HookLookProps) {
       act="Run"
       busy={null}
       error=""
+      held={held}
       disabled={chosen === ''}
       onSend={() => {
         onRun(chosen)
