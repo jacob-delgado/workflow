@@ -54,6 +54,34 @@ func (m Model) mergedDetail(pull forge.PullRequest) string {
 	return strings.Join(lines, "\n")
 }
 
+// doneWithDetail describes a pull request whose review is done with, merged or
+// merging, and reports whether it is one: an open one has its review to show.
+func (m Model) doneWithDetail(pull forge.PullRequest) (string, bool) {
+	switch pull.State {
+	case forge.StateMerged:
+		return m.mergedDetail(pull), true
+	case forge.StateMerging:
+		return m.mergingDetail(pull), true
+	case forge.StateOpen, forge.StateClosed:
+	}
+
+	return "", false
+}
+
+// mergingDetail describes a pull request the forge is merging: that it is,
+// and, since it is no longer open and not yet merged, that nothing waits on
+// it here until it has.
+func (m Model) mergingDetail(pull forge.PullRequest) string {
+	return strings.Join([]string{
+		m.styles.strong.Render(m.vocab.sigil+strconv.Itoa(pull.Number)) + " " + pull.Title,
+		pull.URL,
+		"",
+		m.marks.inFlight + " merging",
+		"",
+		"The forge is merging it; once it has, the branch can be finished.",
+	}, "\n")
+}
+
 // finishOffer is what the merged detail says about finishing the branch: F
 // and what it runs when it can be finished, plainly why not when something is
 // in the way, and nothing where the repository can finish no branch at all.

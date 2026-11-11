@@ -1740,9 +1740,9 @@ export type PullRequest = {
     url: string;
     title: string;
     /**
-     * Whether it is still open, has merged, or was closed without merging. The branch's pull request is found open or merged; a merged one has no CI to report.
+     * Whether it is still open, is merging, has merged, or was closed without merging. Merging is a GitLab merge request it has locked while it merges: no longer open, so nothing is offered on it, and not yet merged. The branch's pull request is found open, merging or merged; only an open one has CI to report.
      */
-    state: 'open' | 'merged' | 'closed';
+    state: 'open' | 'merging' | 'merged' | 'closed';
     draft: boolean;
     approvals: number;
     changes_requested: boolean;

@@ -199,9 +199,10 @@ func TestGetReviewCarriesThePullRequestsState(t *testing.T) {
 		state forge.PullState
 		want  api.PullRequestState
 	}{
-		"open":   {state: forge.StateOpen, want: api.PullRequestStateOpen},
-		"merged": {state: forge.StateMerged, want: api.PullRequestStateMerged},
-		"closed": {state: forge.StateClosed, want: api.PullRequestStateClosed},
+		"open":    {state: forge.StateOpen, want: api.PullRequestStateOpen},
+		"merging": {state: forge.StateMerging, want: api.PullRequestStateMerging},
+		"merged":  {state: forge.StateMerged, want: api.PullRequestStateMerged},
+		"closed":  {state: forge.StateClosed, want: api.PullRequestStateClosed},
 	}
 
 	for name, tt := range cases {

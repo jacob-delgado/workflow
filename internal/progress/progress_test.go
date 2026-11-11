@@ -108,6 +108,13 @@ func TestStagesDeriveHowFarTheWorkHasGot(t *testing.T) {
 			},
 			want: []progress.State{done, done, done, done, todo},
 		},
+		"merging, its CI last read green": {
+			work: progress.Work{
+				OnFeatureBranch: true, IssueNamed: true, Commits: 1,
+				PullRequest: progress.PullRequestMerging, CI: forge.CIPassed,
+			},
+			want: []progress.State{done, done, done, wip, todo},
+		},
 		"merged and fetched, its commits now in the base": {
 			work: progress.Work{OnFeatureBranch: true, IssueNamed: true, PullRequest: progress.PullRequestMerged},
 			want: []progress.State{done, done, done, done, todo},
@@ -201,6 +208,7 @@ func TestPullStateOfFollowsTheReviewAFoundPullRequestHas(t *testing.T) {
 		"open, under review":           {state: forge.StateOpen, want: progress.PullRequestOpen},
 		"merged, its review over":      {state: forge.StateMerged, want: progress.PullRequestMerged},
 		"closed without merging, none": {state: forge.StateClosed, want: progress.NoPullRequest},
+		"merging, its merge in flight": {state: forge.StateMerging, want: progress.PullRequestMerging},
 	}
 
 	for name, tt := range cases {

@@ -521,9 +521,10 @@ func (e PullRequestMergeable) Valid() bool {
 
 // Defines values for PullRequestState.
 const (
-	PullRequestStateClosed PullRequestState = "closed"
-	PullRequestStateMerged PullRequestState = "merged"
-	PullRequestStateOpen   PullRequestState = "open"
+	PullRequestStateClosed  PullRequestState = "closed"
+	PullRequestStateMerged  PullRequestState = "merged"
+	PullRequestStateMerging PullRequestState = "merging"
+	PullRequestStateOpen    PullRequestState = "open"
 )
 
 // Valid indicates whether the value is a known member of the PullRequestState enum.
@@ -532,6 +533,8 @@ func (e PullRequestState) Valid() bool {
 	case PullRequestStateClosed:
 		return true
 	case PullRequestStateMerged:
+		return true
+	case PullRequestStateMerging:
 		return true
 	case PullRequestStateOpen:
 		return true
@@ -2194,7 +2197,7 @@ type PullRequest struct {
 	// Number The GitHub number or GitLab IID.
 	Number int `json:"number"`
 
-	// State Whether it is still open, has merged, or was closed without merging. The branch's pull request is found open or merged; a merged one has no CI to report.
+	// State Whether it is still open, is merging, has merged, or was closed without merging. Merging is a GitLab merge request it has locked while it merges: no longer open, so nothing is offered on it, and not yet merged. The branch's pull request is found open, merging or merged; only an open one has CI to report.
 	State PullRequestState `json:"state"`
 	Title string           `json:"title"`
 	URL   string           `json:"url"`
@@ -2203,7 +2206,7 @@ type PullRequest struct {
 // PullRequestMergeable defines model for PullRequest.Mergeable.
 type PullRequestMergeable string
 
-// PullRequestState Whether it is still open, has merged, or was closed without merging. The branch's pull request is found open or merged; a merged one has no CI to report.
+// PullRequestState Whether it is still open, is merging, has merged, or was closed without merging. Merging is a GitLab merge request it has locked while it merges: no longer open, so nothing is offered on it, and not yet merged. The branch's pull request is found open, merging or merged; only an open one has CI to report.
 type PullRequestState string
 
 // PullRequestConfig defines model for PullRequestConfig.

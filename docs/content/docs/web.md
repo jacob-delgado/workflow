@@ -329,7 +329,8 @@ old hooks as `.git/hooks/*.old`.
 {{< image src="images/web-review.png" alt="The Review section just after opening pull request #128: a notice that it opened, a line that it announces to #dev-workflow once CI passes, with Stop waiting in the Slack section to drop it, and offers to link it on PROJ-412 and move PROJ-412 to In Review. Below, #128 fix(config): redact tokens in the request log, for PROJ-412, ready for review with no conflicts, one approval and no changes requested, with Copy URL and Edit pull request, and its CI checks, three of four done: lint, build and test passed and e2e running" loading="lazy" >}}
 
 The branch's pull request — its number, title and state: Draft or Ready for
-review while it is open, Merged or Closed once it is not — and the issue it is
+review while it is open, Merging while GitLab merges it, when nothing is
+offered on it, Merged or Closed once it is done — and the issue it is
 for, linked to its page. While it is open, the section also shows its
 mergeability, approvals and requested changes, and its CI checks, headed by
 how many are done when the forge counts them and by how CI stands when it does

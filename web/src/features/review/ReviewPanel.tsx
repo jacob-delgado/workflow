@@ -31,9 +31,11 @@ const mergeable: Record<PullRequest['mergeable'], { label: string; mark: MarkSta
 }
 
 // How far the pull request has come, by its mark: open is in flight, whether a
-// draft or ready; merged is done; closed unmerged never got there.
+// draft or ready, and so is merging; merged is done; closed unmerged never got
+// there.
 const stateMark: Record<PullRequest['state'], MarkState> = {
   open: 'in-flight',
+  merging: 'in-flight',
   merged: 'done',
   closed: 'not-started',
 }
@@ -201,16 +203,18 @@ function PullRequestSummary({
 }
 
 // stateLabel is what the State row says: an open pull request is a draft or
-// ready for review, and one that is no longer open says how it ended.
+// ready for review, and one that is no longer open says where it is: merging,
+// or how it ended.
 function stateLabel(pull: PullRequest): string {
   if (pull.state === 'open') {
     return pull.draft ? 'Draft' : 'Ready for review'
   }
 
-  return endedLabel[pull.state]
+  return notOpenLabel[pull.state]
 }
 
-const endedLabel: Record<Exclude<PullRequest['state'], 'open'>, string> = {
+const notOpenLabel: Record<Exclude<PullRequest['state'], 'open'>, string> = {
+  merging: 'Merging',
   merged: 'Merged',
   closed: 'Closed',
 }

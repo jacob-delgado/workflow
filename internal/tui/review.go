@@ -143,10 +143,15 @@ func (s reviewState) rail(kit renderKit, vocab reviewVocab, onFeatureBranch bool
 	}
 
 	line := vocab.sigil + strconv.Itoa(s.pull.Number) + " " + s.pull.Title
-	if s.pull.State == forge.StateMerged {
-		// A merged pull request has no live CI to poll, so the rail says it merged
-		// rather than sitting forever on "checking".
+
+	// A pull request merged, or merging, has no live CI to poll, so the rail
+	// says where it is rather than sitting forever on "checking".
+	switch s.pull.State {
+	case forge.StateMerged:
 		return line + "\n" + kit.marks.done + " merged"
+	case forge.StateMerging:
+		return line + "\n" + kit.marks.inFlight + " merging"
+	case forge.StateOpen, forge.StateClosed:
 	}
 
 	return line + "\n" + s.ciSummary(kit)
@@ -175,8 +180,8 @@ func (m Model) reviewDetail(width int) string {
 
 	pull := m.review.pull
 
-	if pull.State == forge.StateMerged {
-		return wrap(m.mergedDetail(pull), width)
+	if done, ok := m.doneWithDetail(pull); ok {
+		return wrap(done, width)
 	}
 
 	lines := []string{m.styles.strong.Render(m.vocab.sigil+strconv.Itoa(pull.Number)) + " " + pull.Title, pull.URL}
@@ -235,20 +240,25 @@ func mergeableLabel(mergeable forge.Mergeability) string {
 	return ""
 }
 
-// canOpenPull reports a branch with commits and no open pull request —
-// none found, or only a merged one, whose branch may carry commits worth a new
-// one — as loop's refuseAnOpenPull allows. A failed find offers it all the
+// canOpenPull reports a branch with commits and no open or merging pull
+// request — none found, or only a merged one, whose branch may carry commits
+// worth a new one — as loop's refuseAnOpenPull allows. A failed find offers it all the
 // same, leaving the open to answer with the forge's reason, except for a
 // missing forge token, which no open gets past.
 func (s reviewState) canOpenPull(deps Deps, branch branchState) bool {
 	return branch.onFeatureBranch() && len(branch.branch.Commits) > 0 && s.loaded &&
-		!errors.Is(s.err, forge.ErrNoToken) && !s.hasOpenPull() && deps.Forge.CreatePullRequest != nil
+		!errors.Is(s.err, forge.ErrNoToken) && !s.hasOpenPull() && !s.merging() && deps.Forge.CreatePullRequest != nil
 }
 
 // hasOpenPull reports a pull request found open on the branch. A find
 // also returns a merged one, so found alone does not say so.
 func (s reviewState) hasOpenPull() bool {
 	return s.found && s.pull.IsOpen()
+}
+
+// merging reports a pull request found that the forge is merging.
+func (s reviewState) merging() bool {
+	return s.found && s.pull.State == forge.StateMerging
 }
 
 // canEditPull reports an open pull request whose title and body can be

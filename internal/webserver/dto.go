@@ -195,9 +195,10 @@ func pullDTO(pull forge.PullRequest) api.PullRequest {
 // exhaustive keeps it complete.
 func pullState(state forge.PullState) api.PullRequestState {
 	return map[forge.PullState]api.PullRequestState{
-		forge.StateOpen:   api.PullRequestStateOpen,
-		forge.StateMerged: api.PullRequestStateMerged,
-		forge.StateClosed: api.PullRequestStateClosed,
+		forge.StateOpen:    api.PullRequestStateOpen,
+		forge.StateMerging: api.PullRequestStateMerging,
+		forge.StateMerged:  api.PullRequestStateMerged,
+		forge.StateClosed:  api.PullRequestStateClosed,
 	}[state]
 }
 
