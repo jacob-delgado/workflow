@@ -9,17 +9,15 @@ import { type AsyncState, useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { startWorkInWorktree } from './startWorkApi.ts'
 import { Failure } from '@/lib/Status.tsx'
 
-interface StartInWorktreeProps {
-  issueKey: string
-  outcome: Teller
-  onMade: (worktree: CreatedWorktree) => void
-}
-
-// StartInWorktreeButton starts work on a not-started issue in a new worktree
-// beside the repository, leaving the checkout here as it is, and hands the
-// worktree made to onMade, for the switch to it to be offered.
-export function StartInWorktreeButton({ issueKey, outcome, onMade }: StartInWorktreeProps) {
-  const start = useAsyncAction((fetch: boolean) => startWorkInWorktree(issueKey, fetch), {
+// useStartInWorktree is the start of work on a not-started issue in a new
+// worktree beside the repository, leaving the checkout here as it is, which
+// hands the worktree made to onMade, for the switch to it to be offered.
+export function useStartInWorktree(
+  issueKey: string,
+  outcome: Teller,
+  onMade: (worktree: CreatedWorktree) => void,
+) {
+  return useAsyncAction((fetch: boolean) => startWorkInWorktree(issueKey, fetch), {
     fallback: `No worktree was made for ${issueKey}. Try again, or make it from the terminal with ctrl+w.`,
     done: () => '',
     onStart: outcome.clear,
@@ -27,12 +25,23 @@ export function StartInWorktreeButton({ issueKey, outcome, onMade }: StartInWork
       onMade(worktree)
     },
   })
+}
 
+interface StartButtonProps {
+  start: StartAttempt
+  // held is whether a start of work is running, this one or the other: one
+  // goes at a time, or the two would race to make the one branch.
+  held: boolean
+}
+
+// StartInWorktreeButton starts work in a new worktree, as useStartInWorktree
+// makes it.
+export function StartInWorktreeButton({ start, held }: StartButtonProps) {
   return (
     <div className="flex flex-col gap-tight">
       <Button
         variant="secondary"
-        held={start.state === 'running'}
+        held={held}
         onClick={() => {
           void start.run(true)
         }}
@@ -40,12 +49,12 @@ export function StartInWorktreeButton({ issueKey, outcome, onMade }: StartInWork
       >
         {start.state === 'running' ? 'Starting work…' : 'Start work in a new worktree'}
       </Button>
-      <StartRefusal start={start} />
+      <StartRefusal start={start} held={held} />
     </div>
   )
 }
 
-interface StartAttempt {
+export interface StartAttempt {
   state: AsyncState
   error: string
   code: string
@@ -54,8 +63,8 @@ interface StartAttempt {
 
 // StartRefusal says why a start of work made nothing, and when it was the
 // fetch of origin that failed, offers to branch from what you have instead,
-// as the terminal's branch creator does.
-export function StartRefusal({ start }: { start: StartAttempt }) {
+// as the terminal's branch creator does — held while a start runs.
+export function StartRefusal({ start, held }: StartButtonProps) {
   if (start.state !== 'error') {
     return null
   }
@@ -66,6 +75,7 @@ export function StartRefusal({ start }: { start: StartAttempt }) {
       {start.code === 'fetch_failed' ? (
         <Button
           variant="secondary"
+          held={held}
           onClick={() => {
             void start.run(false)
           }}

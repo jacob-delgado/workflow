@@ -13,9 +13,11 @@ import { StateMark, type MarkState } from '@/lib/StateMark.tsx'
 import { useUiStore, type Section } from '@/shell/uiStore.ts'
 import { checkoutBranch } from './checkoutApi.ts'
 import {
+  type StartAttempt,
   StartInWorktreeButton,
   StartRefusal,
   SwitchToWorktreeButton,
+  useStartInWorktree,
   WorktreeMadeOffer,
 } from './StartInWorktree.tsx'
 import { startWork } from './startWorkApi.ts'
@@ -286,12 +288,7 @@ function StoryAction({ issueKey, branch, outcome }: StoryActionProps) {
   }
 
   if (branch === undefined) {
-    return (
-      <div className="flex flex-wrap items-start gap-item">
-        <StartWorkButton issueKey={issueKey} outcome={outcome} />
-        <StartInWorktreeButton issueKey={issueKey} outcome={outcome} onMade={setMade} />
-      </div>
-    )
+    return <StartButtons issueKey={issueKey} outcome={outcome} onMade={setMade} />
   }
 
   if (branch.current) {
@@ -444,22 +441,48 @@ function CheckoutButton({ branch, outcome }: { branch: string; outcome: Teller }
   )
 }
 
-// StartWorkButton creates and switches to a branch for a not-started issue. The
-// branch it made is said in the story's outcome; a refusal (a branch already
-// exists) is shown inline.
-function StartWorkButton({ issueKey, outcome }: { issueKey: string; outcome: Teller }) {
-  const start = useAsyncAction((fetch: boolean) => startWork(issueKey, fetch), {
+interface StartButtonsProps {
+  issueKey: string
+  outcome: Teller
+  onMade: (worktree: CreatedWorktree) => void
+}
+
+// StartButtons are the two ways to start work on a not-started issue: here,
+// or in a new worktree. One start goes at a time: while either runs, both are
+// held, since each makes the issue's branch and the second would be refused
+// for the branch the first made.
+function StartButtons({ issueKey, outcome, onMade }: StartButtonsProps) {
+  const here = useStartWork(issueKey, outcome)
+  const inWorktree = useStartInWorktree(issueKey, outcome, onMade)
+  const held = here.state === 'running' || inWorktree.state === 'running'
+
+  return (
+    <div className="flex flex-wrap items-start gap-item">
+      <StartWorkButton start={here} held={held} />
+      <StartInWorktreeButton start={inWorktree} held={held} />
+    </div>
+  )
+}
+
+// useStartWork creates and switches to a branch for a not-started issue. The
+// branch it made is said in the story's outcome.
+function useStartWork(issueKey: string, outcome: Teller) {
+  return useAsyncAction((fetch: boolean) => startWork(issueKey, fetch), {
     fallback: `No branch was made for ${issueKey}. Try again, or run workflow branch ${issueKey} from a terminal.`,
     done: (started) => `Started work on ${started.name}.`,
     onStart: outcome.clear,
     onDone: outcome.say,
   })
+}
 
+// StartWorkButton starts work here, as useStartWork makes it; a refusal (a
+// branch already exists) is shown inline.
+function StartWorkButton({ start, held }: { start: StartAttempt; held: boolean }) {
   return (
     <div className="flex flex-col gap-tight">
       <Button
         variant="primary"
-        held={start.state === 'running'}
+        held={held}
         onClick={() => {
           void start.run(true)
         }}
@@ -467,7 +490,7 @@ function StartWorkButton({ issueKey, outcome }: { issueKey: string; outcome: Tel
       >
         {start.state === 'running' ? 'Starting…' : 'Start work'}
       </Button>
-      <StartRefusal start={start} />
+      <StartRefusal start={start} held={held} />
     </div>
   )
 }
