@@ -8,16 +8,18 @@
 # exception naming neither, or a waiver whose date is no real day, fails. A
 # version whose publish date cannot be learned fails, as a mise tool pinned in
 # a [tools.<name>] table, which the check does not read, or in an inline table
-# naming no version, does; one pinned in an inline table is dated by its
-# version key. A module version a go.mod replace directive adopts, on its own
-# line or in a block, is dated as a requirement is, and a directory one adopts
-# is not looked up. Versions the change leaves alone are not looked up, and a
-# base git cannot resolve is refused with a status of its own. A dated waiver a
-# week past its day is warned of, and its npmPreapprovedPackages entry in
-# web/.yarnrc.yml with it, but fails nothing; one whose week may not be over is
-# not. In GitHub Actions the warning is also a ::warning annotation, which the
-# pull request shows. A pre-approval no line of the exceptions file lists is
-# warned of too, and fails nothing. The linters' pin files are
+# naming no version, or by a dotted tools key before any table, does; one
+# pinned in an inline table is dated by its version key, and one under a
+# [tools] header with a comment after it, or quoted and spaced, is dated. A
+# module version a go.mod replace directive adopts, on its own line or in a
+# block, is dated as a requirement is, and a directory one adopts is not looked
+# up. Versions the change leaves alone are not looked up, and a base git cannot
+# resolve is refused with a status of its own. A dated waiver a week past its
+# day is warned of, and its npmPreapprovedPackages entry in web/.yarnrc.yml
+# with it, but fails nothing; one whose week may not be over is not. In GitHub
+# Actions the warning is also a ::warning annotation, which the pull request
+# shows. A pre-approval no line of the exceptions file lists is warned of too,
+# and fails nothing. The linters' pin files are
 # check-dependency-age_pins_test.sh's.
 #
 # The stand-in curl lib/check-dependency-age-fixtures.sh writes answers each
@@ -126,6 +128,28 @@ versionless_tool() {
   printf 'shellcheck = { os = ["linux"] }\n' >>mise.toml
 }
 
+# commented_tools_header writes the [tools] header with a comment after it, as
+# TOML allows, and pins the young jq under it.
+commented_tools_header() {
+  sed -i.bak 's/^\[tools\]$/[tools] # pinned/' mise.toml && rm mise.toml.bak
+  pin_tool jq 1.9.0
+}
+
+# spaced_tools_header writes the [tools] header quoted and spaced, with
+# whitespace after it, as TOML allows, and pins the young jq under it.
+spaced_tools_header() {
+  sed -i.bak 's/^\[tools\]$/[ "tools" ] /' mise.toml && rm mise.toml.bak
+  pin_tool jq 1.9.0
+}
+
+# dotted_tools_key pins the young jq by a dotted key before any table, which
+# mise reads as a [tools] pin.
+dotted_tools_key() {
+  sed -i.bak '1a\
+tools.jq = "1.9.0"
+' mise.toml && rm mise.toml.bak
+}
+
 # docs_media_tools pins the tools the docs' recordings take, VHS released
 # under a v tag and ttyd under a bare one, both a week old.
 docs_media_tools() {
@@ -225,6 +249,17 @@ expect_output fail "a mise tool with no known source" "newtool" age "${unlisted}
 tool_table="$(repo tool-table table_tool)"
 expect_output fail "a tool pinned in a [tools.<name>] table, which is not read" \
   "mise.toml: '[tools.shellcheck]' cannot be dated" age "${tool_table}"
+
+tools_commented="$(repo tools-commented commented_tools_header)"
+expect_output fail "a tool pinned under a [tools] header with a comment after it" "jq 1.9.0" \
+  age "${tools_commented}"
+
+tools_spaced="$(repo tools-spaced spaced_tools_header)"
+expect_output fail "a tool pinned under a quoted and spaced [tools] header" "jq 1.9.0" age "${tools_spaced}"
+
+tools_dotted="$(repo tools-dotted dotted_tools_key)"
+expect_output fail "a tool pinned by a dotted key before any table, which is not read" \
+  "mise.toml: 'tools.jq = \"1.9.0\"' cannot be dated" age "${tools_dotted}"
 
 tool_inline="$(repo tool-inline inline_tool)"
 expect_output pass "a tool pinned in an inline table, by its version" \
