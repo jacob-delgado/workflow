@@ -176,10 +176,6 @@ func (s *server) setupRefusal(ctx context.Context, err error) api.SetUpResponseO
 // as a switch does under ctx with the gate SetUp holds, and reports whether it
 // could.
 func (s *server) takeUp(ctx context.Context) bool {
-	if s.worlds == nil {
-		return false
-	}
-
 	_, err := s.worlds.switchHeld(ctx, s.deps.Repositories.Here.Dir)
 	if err != nil && !errors.Is(err, errNoSwitching) {
 		s.unexpected(err)
