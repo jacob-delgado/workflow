@@ -47,10 +47,11 @@ func finished(lines []string, err error) proc.Output {
 }
 
 // slowRun is a run that prints every line at once and ends latency later, as
-// a push does that has passed its hooks and waits on its remote. Stop ends it
-// sooner, and Wait then reports it stopped; once it has ended, Stop does
-// nothing.
-func slowRun(lines []string, latency time.Duration) proc.Output {
+// a push does that has passed its hooks and waits on its remote; landed is
+// what the remote took, done once Wait sees the run end in time. Stop ends it
+// sooner, landing nothing, and Wait then reports it stopped; once it has
+// ended, Stop does nothing.
+func slowRun(lines []string, latency time.Duration, landed func()) proc.Output {
 	output := finished(lines, nil)
 	ends := time.NewTimer(latency)
 	stopped := make(chan struct{})
@@ -58,6 +59,8 @@ func slowRun(lines []string, latency time.Duration) proc.Output {
 	output.Wait = sync.OnceValue(func() error {
 		select {
 		case <-ends.C:
+			landed()
+
 			return nil
 		case <-stopped:
 			return errPushStopped
@@ -177,7 +180,8 @@ func (w *World) commit(_ context.Context, message string) (proc.Output, error) {
 }
 
 // push sends a branch's commits to origin and sets its upstream there, and
-// takes the world's push latency to end.
+// takes the world's push latency to end. Like git's, a push stopped before
+// its remote answers leaves the branch as it was.
 func (w *World) push(_ context.Context, name string) (proc.Output, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -194,12 +198,20 @@ func (w *World) push(_ context.Context, name string) (proc.Output, error) {
 		sent = " * [new branch]      " + name + " -> " + name
 	}
 
-	local.upstream, local.pushed = remote+"/"+name, len(local.commits)
-	w.repo.branches[name] = local
-
 	return slowRun([]string{
 		"lefthook  pre-push: test", "✔ test", "To " + githubHost + ":" + forgeRepository + ".git", sent,
-	}, w.pushLatency), nil
+	}, w.pushLatency, func() { w.landPush(name, len(local.commits)) }), nil
+}
+
+// landPush records that origin took a branch's first commits, as many as
+// the push sent, and that the branch now tracks its copy there.
+func (w *World) landPush(name string, sent int) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	local := w.repo.branches[name]
+	local.upstream, local.pushed = remote+"/"+name, sent
+	w.repo.branches[name] = local
 }
 
 // headOf is the commit a branch stands at: its last, or main's head before
