@@ -5,6 +5,7 @@ import type {
   Run,
   RunEvent,
   RunRequest,
+  Snapshot,
 } from '@/api/generated/types.gen.ts'
 import {
   zActivityPostRequest,
@@ -81,13 +82,35 @@ type Routes = Record<string, Route>
 // Where a problem's type points, as the server's do: one anchor per code.
 const problemBase = 'https://jacob-delgado.github.io/workflow/docs/errors/'
 
+// MockStream is how a spec on the mockup scripts its event stream, as the
+// server's stream reports what changed without the page asking: show puts
+// the parts given in place of the frame's own, in the frame it pushes down
+// every open stream now and in each frame after — a hold armed, waiting, then
+// announced; a directory switched.
+interface MockStream {
+  show: (parts: Partial<Snapshot>) => void
+}
+
+declare global {
+  interface Window {
+    // mockStream scripts the mockup's event stream; only the mockup's build
+    // installs it.
+    mockStream?: MockStream
+  }
+}
+
 // installMockServer stands the mockup's server in for the network and the
-// event stream.
+// event stream, and lets a spec script the stream.
 export function installMockServer(): void {
   const network = globalThis.fetch.bind(globalThis)
   const routes = Object.entries(allRoutes())
   globalThis.fetch = (input, init) => answer(routes, new Request(input, init), network)
   globalThis.EventSource = MockEventSource as unknown as typeof EventSource
+  window.mockStream = {
+    show: (parts) => {
+      MockEventSource.show(parts)
+    },
+  }
 }
 
 // answer is the mockup's answer to request, or the network's where no route
@@ -213,9 +236,10 @@ function nothing(): Response {
   return new Response(null, { status: 204 })
 }
 
-// MockEventSource is the mockup's event stream: it opens, then pushes the mock
-// snapshot, for whichever view it is asked for, and pushes it again after
-// every write, as the server's stream pushes the frame a write woke.
+// MockEventSource is the mockup's event stream: it opens, then pushes its
+// frame, the mock snapshot with whatever a spec has shown in it, for whichever
+// view it is asked for, and pushes it again after every write and every part
+// shown, as the server's stream pushes the frame a change woke.
 class MockEventSource extends EventTarget {
   static readonly CONNECTING = 0
   static readonly OPEN = 1
@@ -227,6 +251,10 @@ class MockEventSource extends EventTarget {
   // writes is how many writes the mockup has answered, which every frame
   // counts, as the server's do.
   private static writes = 0
+
+  // frame is what every frame shows but the writes it counts: the mock
+  // snapshot, with each part a spec has shown in place of its own.
+  private static frame: Snapshot = mockSnapshot
 
   readonly url: string
   readyState = MockEventSource.CONNECTING
@@ -249,7 +277,14 @@ class MockEventSource extends EventTarget {
     return MockEventSource.writes
   }
 
-  // pushEveryOpen pushes the mock snapshot down every open stream, on a task
+  // show puts parts in place of the frame's own, and pushes the frame they
+  // make down every open stream.
+  static show(parts: Partial<Snapshot>): void {
+    MockEventSource.frame = { ...MockEventSource.frame, ...parts }
+    MockEventSource.pushEveryOpen()
+  }
+
+  // pushEveryOpen pushes the frame down every open stream, on a task
   // after the one that answers the write, as the server's frame arrives after
   // the answer's headers.
   private static pushEveryOpen(): void {
@@ -273,8 +308,8 @@ class MockEventSource extends EventTarget {
     this.readyState = MockEventSource.OPEN
     this.dispatchEvent(new Event('open'))
     const frame = {
-      ...mockSnapshot,
-      queued_announcement: mockHeld() ?? mockSnapshot.queued_announcement,
+      ...MockEventSource.frame,
+      queued_announcement: mockHeld() ?? MockEventSource.frame.queued_announcement,
       writes: MockEventSource.writes,
     }
     this.dispatchEvent(new MessageEvent('snapshot', { data: JSON.stringify(frame) }))
