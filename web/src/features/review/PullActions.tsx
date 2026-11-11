@@ -97,16 +97,7 @@ export function PullActions({
       returnTo.current = 'none'
     }
   }, [opened])
-  const offers: { opens: Exclude<Opened, 'none'>; label: string; can: boolean }[] = [
-    { opens: 'edit', label: `Edit ${noun}`, can: pull.state === 'open' },
-    { opens: 'merge', label: 'Merge', can: canMerge(pull, ci) },
-    { opens: 'finish', label: 'Finish the branch', can: canFinish(pull, finishRefusal) },
-    {
-      opens: 'rerun',
-      label: 'Re-run failed checks',
-      can: pull.state === 'open' && ci?.state === 'failed',
-    },
-  ]
+  const offers = offersOf(pull, ci, finishRefusal, noun)
   const forms: Record<Exclude<Opened, 'none'>, ReactNode> = {
     edit: <EditForm name={name} teller={teller} onCancel={close} />,
     merge: <MergeForm name={name} teller={teller} onCancel={close} />,
@@ -142,6 +133,34 @@ export function PullActions({
       <OutcomeLine said={outcome.said} />
     </div>
   )
+}
+
+// Offer is a write on the pull request: the form it opens, the words on the
+// button that opens it, and whether it can go now.
+interface Offer {
+  opens: Exclude<Opened, 'none'>
+  label: string
+  can: boolean
+}
+
+// offersOf are the writes on pull, each with whether it can go as CI and why
+// a finish is refused stand, the edit named by the forge's noun.
+function offersOf(
+  pull: PullRequest,
+  ci: Ci | null,
+  finishRefusal: string | undefined,
+  noun: string,
+): Offer[] {
+  return [
+    { opens: 'edit', label: `Edit ${noun}`, can: pull.state === 'open' },
+    { opens: 'merge', label: 'Merge', can: canMerge(pull, ci) },
+    { opens: 'finish', label: 'Finish the branch', can: canFinish(pull, finishRefusal) },
+    {
+      opens: 'rerun',
+      label: 'Re-run failed checks',
+      can: pull.state === 'open' && ci?.state === 'failed',
+    },
+  ]
 }
 
 // closingIn is a teller that says in line, closing the form that said it.
