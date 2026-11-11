@@ -55,9 +55,17 @@ function issueOf(issue: CaseIssue): Issue {
     tracker: issue.tracker,
     summary: `Summary of ${issue.key}`,
     status: issue.status,
-    status_category: issue.category as Issue['status_category'],
+    status_category: statusCategoryOf(issue.category),
     type: 'Task',
   }
+}
+
+// statusCategoryOf is a case's Jira category as the API carries it, as
+// report.StatusCategory maps it: Jira's three as they are, any other unknown.
+function statusCategoryOf(category: string): Issue['status_category'] {
+  const named: Issue['status_category'][] = ['new', 'indeterminate', 'done']
+
+  return named.find((known) => known === category) ?? 'unknown'
 }
 
 function caseIssue(key: string): CaseIssue {

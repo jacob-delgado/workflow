@@ -381,7 +381,7 @@ func TestStreamSendsNoSeed(t *testing.T) {
 	}
 }
 
-func TestASeedCarriesAStatusUnderNoCategoryAsNotStarted(t *testing.T) {
+func TestASeedCarriesAStatusUnderNoCategoryAsUnknown(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -400,8 +400,8 @@ func TestASeedCarriesAStatusUnderNoCategoryAsNotStarted(t *testing.T) {
 
 	// Assert
 	seed := seedOf(t, sent[0])
-	if len(seed.Issues.Issues) != 1 || seed.Issues.Issues[0].StatusCategory != api.StatusCategoryNew {
-		t.Errorf("seed = %+v, want the kept row carried as not yet started", seed)
+	if len(seed.Issues.Issues) != 1 || seed.Issues.Issues[0].StatusCategory != api.StatusCategoryUnknown {
+		t.Errorf("seed = %+v, want the kept row carried as unknown", seed)
 	}
 }
 

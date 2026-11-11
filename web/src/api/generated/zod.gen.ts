@@ -553,10 +553,14 @@ export const zTaskBranch = z.object({
     worktree_missing: z.boolean().optional().default(false)
 });
 
+/**
+ * Where the status sits in the tracker's progression: not yet started, in progress or done, or unknown for a status Jira files under none of the three, its No Category.
+ */
 export const zStatusCategory = z.enum([
     'new',
     'indeterminate',
-    'done'
+    'done',
+    'unknown'
 ]);
 
 /**

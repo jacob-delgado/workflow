@@ -1104,7 +1104,10 @@ export type Issue = {
     priority?: string;
 };
 
-export type StatusCategory = 'new' | 'indeterminate' | 'done';
+/**
+ * Where the status sits in the tracker's progression: not yet started, in progress or done, or unknown for a status Jira files under none of the three, its No Category.
+ */
+export type StatusCategory = 'new' | 'indeterminate' | 'done' | 'unknown';
 
 /**
  * Where the issue lives: Jira, keyed like PROJ-412, or the repository's own forge, GitHub or GitLab, keyed by its number.
