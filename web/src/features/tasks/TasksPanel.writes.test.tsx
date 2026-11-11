@@ -486,6 +486,31 @@ test('a refused line says why and keeps what was typed', async () => {
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Modify' }))
 })
 
+test('a line takes no typing while it sends, as the terminal’s does', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  let answer: (list: TaskList) => void = () => undefined
+  serveTasks(makeTaskList([tokenLeak]), {
+    [`${taskPath}/modify`]: () =>
+      new Promise<TaskList>((resolve) => {
+        answer = resolve
+      }),
+  })
+  renderWithClient(<TasksPanel />)
+  const line = await screen.findByRole('textbox', { name: 'task 1 modify' })
+  await user.type(line, 'due:friday')
+  await user.click(screen.getByRole('button', { name: 'Modify' }))
+  await screen.findByRole('button', { name: 'Modifying…' })
+
+  // Act
+  await user.type(line, ' +urgent')
+
+  // Assert
+  expect((line as HTMLInputElement).value).toBe('due:friday')
+  answer(makeTaskList([tokenLeak]))
+  await screen.findByText('Modified task 1.')
+})
+
 test('a write the dry run holds back says so, and sends nothing', async () => {
   // Arrange
   useHealthStore.setState({ health: makeHealth({ dry_run: true }) })

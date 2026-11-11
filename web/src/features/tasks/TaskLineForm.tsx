@@ -26,8 +26,9 @@ interface TaskLineFormProps {
 // TaskLineForm is one line in Taskwarrior's own grammar — words, and attributes
 // such as project:web, due:friday or +tag among them — sent after its command:
 // an add, a note or a modify. An empty line is refused where it is typed, as
-// Taskwarrior would refuse it; a line Taskwarrior refuses stays in the field
-// beside its reason, and one it takes is cleared.
+// Taskwarrior would refuse it; the line is held while it sends, as the
+// terminal's is, so what it clears is what was sent; a line Taskwarrior
+// refuses stays in the field beside its reason, and one it takes is cleared.
 export function TaskLineForm({
   shortcut,
   command,
@@ -73,6 +74,7 @@ export function TaskLineForm({
         {...input}
         id={field}
         value={line}
+        held={write.state === 'running'}
         onChange={(event) => {
           setLine(event.target.value)
           setEmpty(false)
