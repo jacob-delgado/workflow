@@ -21,9 +21,9 @@ type ReviewRequest struct {
 	// is in, since a review queue spans repositories.
 	Repository string
 	Draft      bool
-	// CI is best effort: the forge's own summary where the listing carries one,
-	// and CINone where it does not, since the queue is read without a follow-up
-	// request per entry.
+	// CI is best effort: GitLab's listing carries each request's head
+	// pipeline, and GitHub's CI is read for each request after its search;
+	// CINone where none reports, or where it could not be read.
 	CI       CIState
 	OpenedAt time.Time
 }

@@ -304,8 +304,8 @@ interface RequestRowProps {
 // its CI stands; a link to open it and a control to copy its URL; and, under
 // them, what the last copy said, in the row whose URL it copied. Who asks,
 // draft and how CI stands are said in the labels the server gives the
-// request's facets, the words the filter offers them by; a forge whose
-// listing carries no CI summary reports none.
+// request's facets, the words the filter offers them by; a request whose CI
+// nothing reports, or the forge could not read, reports none.
 function RequestRow({ request, readAt }: RequestRowProps) {
   const { sigil } = useForgeWords()
   const copied = useOutcome()

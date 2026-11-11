@@ -99,8 +99,8 @@ func TestReviewsShowsTheAuthorRepositoryCIAndAge(t *testing.T) {
 	}
 
 	// Assert
-	// GitHub's search carries no CI, so the forge reports it as none rather than
-	// paying a request per entry to learn it.
+	// The fake forge reports no check on the request's pull request, so its CI
+	// reads as none.
 	wants := []string{"fix: token", "(grp/proj)", "by ben", "CI none", "2d", "https://github.com/ex/repo/pull/7"}
 	for _, want := range wants {
 		if !strings.Contains(printed.Stdout, want) {
