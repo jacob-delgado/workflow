@@ -265,7 +265,7 @@ func TestTheKeychainStoreSaysWhyItHoldsNoPair(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			_, err := slackauth.KeychainStore(tt.item(t)).Load(t.Context())
+			_, err := slackauth.KeychainStore(tt.item(t), config.Files{}).Load(t.Context())
 
 			// Assert
 			if !errors.Is(err, tt.want) {
@@ -282,7 +282,7 @@ func TestTheKeychainStoreReportsAKeychainItCannotRead(t *testing.T) {
 	item := keychainAnswering(t, "", 1)
 
 	// Act
-	_, err := slackauth.KeychainStore(item).Load(t.Context())
+	_, err := slackauth.KeychainStore(item, config.Files{}).Load(t.Context())
 
 	// Assert
 	if err == nil || errors.Is(err, slackauth.ErrNotLoggedIn) {

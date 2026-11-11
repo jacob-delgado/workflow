@@ -421,8 +421,8 @@ for you before it runs out, and keeps each new pair.
    ```
 
    It asks for the client ID, then the client secret and refresh token without
-   echoing them, refreshes the token once to prove them, writes
-   `messaging.client_id` into the file, and says whose token it is.
+   echoing them, refreshes the token once to prove them, keeps the token with
+   `messaging.client_id` beside it, and says whose token it is.
 
 Where the token is kept:
 
@@ -431,6 +431,15 @@ Where the token is kept:
 - **Linux and Windows**: in the configuration file, which workflow rewrites
   after every refresh — the file is written readable only by you, as `config
   init` writes it.
+
+The client ID goes in the same file as the secrets, in the same write: the
+file that already holds them, or else your home directory's where you have
+one, which every directory reads, so a login run inside a repository with a
+file of its own works from every other directory too. Where the keychain keeps
+the secrets, the client ID goes in your home directory's file all the same.
+Secrets with no client ID
+beside them are a login that did not finish: `workflow doctor` names
+`messaging.client_id`, and a post says to run `workflow slack login` again.
 
 Every post asks for the token anew and refreshes it when it has less than ten
 minutes left, and once more if Slack still calls it expired. Two workflows

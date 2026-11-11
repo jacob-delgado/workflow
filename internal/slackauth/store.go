@@ -37,14 +37,18 @@ type Store struct {
 	where string
 	load  func(ctx context.Context) (Credentials, error)
 	save  func(ctx context.Context, credentials Credentials) error
+	login func(ctx context.Context, clientID string, credentials Credentials) error
 }
 
 // NewStore is a Store that keeps credentials through load and save, described
-// as where.
+// as where. It names no app: a login keeps the credentials alone.
 func NewStore(
 	where string, load func(context.Context) (Credentials, error), save func(context.Context, Credentials) error,
 ) Store {
-	return Store{where: where, load: load, save: save}
+	return Store{
+		where: where, load: load, save: save,
+		login: func(ctx context.Context, _ string, credentials Credentials) error { return save(ctx, credentials) },
+	}
 }
 
 // Load reads the credentials, or ErrNotLoggedIn when none are kept.
@@ -60,21 +64,36 @@ func (s Store) Save(ctx context.Context, credentials Credentials) error {
 // Keep saves a pair Slack just gave, trying again where a save fails, since
 // the refresh token it replaced is already spent; ErrNotKept says it could not.
 func (s Store) Keep(ctx context.Context, renewed Credentials) error {
+	return s.keepTrying(func() error { return s.Save(ctx, renewed) })
+}
+
+// KeepLogin keeps the pair a login's first refresh gave, as Keep does, with
+// the app it is for, clientID, and Slack as the kind, named in the
+// configuration file the secrets are read from: in the same write where that
+// file keeps the pair, and once the keychain keeps it where it does. So the
+// secrets are never in a file without the app they are for, and every
+// directory that reads them reads the app too.
+func (s Store) KeepLogin(ctx context.Context, clientID string, renewed Credentials) error {
+	return s.keepTrying(func() error { return s.login(ctx, clientID, renewed) })
+}
+
+// Where says where the credentials are kept, for doctor and the login to say.
+func (s Store) Where() string {
+	return s.where
+}
+
+// keepTrying runs save until it succeeds, keepTries times at most.
+func (s Store) keepTrying(save func() error) error {
 	var err error
 
 	for range keepTries {
-		err = s.Save(ctx, renewed)
+		err = save()
 		if err == nil {
 			return nil
 		}
 	}
 
 	return fmt.Errorf("%w (in %s): %w", ErrNotKept, s.where, err)
-}
-
-// Where says where the credentials are kept, for doctor and the login to say.
-func (s Store) Where() string {
-	return s.where
 }
 
 // Choose is where the configuration keeps a user token's credentials: in the
@@ -85,7 +104,7 @@ func Choose(goos string, cfg config.Config, item keychain.Item) Store {
 		return FileStore(cfg.Layers())
 	}
 
-	return KeychainStore(item)
+	return KeychainStore(item, cfg.Layers())
 }
 
 // FileStore keeps the credentials in one of the configuration files: the one
@@ -95,9 +114,18 @@ func Choose(goos string, cfg config.Config, item keychain.Item) Store {
 func FileStore(files config.Files) Store {
 	path := secretsFile(files)
 
-	return NewStore("the configuration file "+path,
-		func(context.Context) (Credentials, error) { return loadFile(path) },
-		func(_ context.Context, credentials Credentials) error { return saveFile(files, path, credentials) })
+	return Store{
+		where: "the configuration file " + path,
+		load:  func(context.Context) (Credentials, error) { return loadFile(path) },
+		save: func(_ context.Context, credentials Credentials) error {
+			return saveFile(files, path, holding(credentials))
+		},
+		login: func(_ context.Context, clientID string, credentials Credentials) error {
+			return saveFile(files, path, func(messaging config.Messaging) config.Messaging {
+				return naming(clientID)(holding(credentials)(messaging))
+			})
+		},
+	}
 }
 
 // secretsFile is the file of files the credentials are kept in.
@@ -160,11 +188,11 @@ func loadFile(path string) (Credentials, error) {
 	}, nil
 }
 
-// saveFile writes credentials into path, one of files, over the revision it
-// read, so an edit landing between the read and the write is refused rather
-// than lost. The repository's file is written as the layer it is; the home
-// file is written whole, as itself.
-func saveFile(files config.Files, path string, credentials Credentials) error {
+// saveFile writes the messaging settings change makes into path, one of
+// files, over the revision it read, so an edit landing between the read and
+// the write is refused rather than lost. The repository's file is written as
+// the layer it is; the home file is written whole, as itself.
+func saveFile(files config.Files, path string, change func(config.Messaging) config.Messaging) error {
 	layers := files
 	if path == files.Home {
 		layers = config.Files{Home: path}
@@ -175,14 +203,31 @@ func saveFile(files config.Files, path string, credentials Credentials) error {
 		return err
 	}
 
-	cfg.Messaging.ClientSecret = credentials.ClientSecret
-	cfg.Messaging.RefreshToken = credentials.RefreshToken
-	cfg.Messaging.AccessToken = credentials.AccessToken
-	cfg.Messaging.ExpiresAt = stamp(credentials.ExpiresAt)
+	cfg.Messaging = change(cfg.Messaging)
 
 	_, err = config.SaveLayers(layers, cfg, revision)
 
 	return err
+}
+
+// holding is messaging settings holding credentials in place of their own.
+func holding(credentials Credentials) func(config.Messaging) config.Messaging {
+	return func(messaging config.Messaging) config.Messaging {
+		messaging.ClientSecret, messaging.RefreshToken = credentials.ClientSecret, credentials.RefreshToken
+		messaging.AccessToken, messaging.ExpiresAt = credentials.AccessToken, stamp(credentials.ExpiresAt)
+
+		return messaging
+	}
+}
+
+// naming is messaging settings naming the Slack app clientID as the one its
+// user token is for.
+func naming(clientID string) func(config.Messaging) config.Messaging {
+	return func(messaging config.Messaging) config.Messaging {
+		messaging.Kind, messaging.ClientID = config.KindSlack, clientID
+
+		return messaging
+	}
 }
 
 // stored is the credentials as the keychain holds them: one line of JSON.
@@ -194,11 +239,23 @@ type stored struct {
 }
 
 // KeychainStore keeps the credentials in item, one line of JSON in the macOS
-// keychain.
-func KeychainStore(item keychain.Item) Store {
-	return NewStore("the macOS keychain ("+KeychainService+")",
-		func(ctx context.Context) (Credentials, error) { return loadKeychain(ctx, item) },
-		func(ctx context.Context, credentials Credentials) error { return saveKeychain(ctx, item, credentials) })
+// keychain, and a login's app in the one of files the secrets would be read
+// from were the file to keep them: the home directory's where there is one,
+// which every directory reads, as every directory reads the keychain.
+func KeychainStore(item keychain.Item, files config.Files) Store {
+	return Store{
+		where: "the macOS keychain (" + KeychainService + ")",
+		load:  func(ctx context.Context) (Credentials, error) { return loadKeychain(ctx, item) },
+		save:  func(ctx context.Context, credentials Credentials) error { return saveKeychain(ctx, item, credentials) },
+		login: func(ctx context.Context, clientID string, credentials Credentials) error {
+			err := saveKeychain(ctx, item, credentials)
+			if err != nil {
+				return err
+			}
+
+			return saveFile(files, secretsFile(files), naming(clientID))
+		},
+	}
 }
 
 // loadKeychain reads the credentials item holds.

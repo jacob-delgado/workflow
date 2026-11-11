@@ -111,7 +111,7 @@ func TestTheKeychainStoreKeepsThePair(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	store := slackauth.KeychainStore(keychainHolding(t))
+	store := slackauth.KeychainStore(keychainHolding(t), config.Files{})
 	pair := pairExpiringIn(0)
 
 	// Act
@@ -131,7 +131,7 @@ func TestThePairKeptWithNoExpiryReadsBackWithNone(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	store := slackauth.KeychainStore(keychainHolding(t))
+	store := slackauth.KeychainStore(keychainHolding(t), config.Files{})
 	pair := startingPair()
 	pair.ExpiresAt = time.Time{}
 
@@ -209,7 +209,7 @@ func TestAKeychainEntryMissingItsSecretsSaysToLogIn(t *testing.T) {
 			}
 
 			// Act
-			_, err = slackauth.KeychainStore(item).Load(t.Context())
+			_, err = slackauth.KeychainStore(item, config.Files{}).Load(t.Context())
 
 			// Assert
 			if !errors.Is(err, slackauth.ErrNotLoggedIn) {
