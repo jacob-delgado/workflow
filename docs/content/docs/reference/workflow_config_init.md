@@ -37,20 +37,20 @@ workflow config init [flags]
 ### Options
 
 ```
-      --force      overwrite an existing file
-      --global     write to the home directory instead of here
-  -h, --help       help for init
-      --template   write a blank file to edit by hand instead of being asked
+      --force[=true|false]      overwrite an existing file
+      --global[=true|false]     write to the home directory instead of here
+  -h, --help[=true|false]       help for init
+      --template[=true|false]   write a blank file to edit by hand instead of being asked
 ```
 
 ### Options inherited from parent commands
 
 ```
-  -n, --dry-run             hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, and say what it would have done
-      --log-format FORMAT   say what goes to stderr as FORMAT: text, or json or logfmt, an entry a line stamped with its time (default text)
-  -q, --quiet               say only warnings, errors and questions on stderr, leaving every note out
-      --request-log FILE    append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
-      --verbose             also say each request's outline on stderr, as a debug line (not while the terminal interface draws)
+  -n, --dry-run[=true|false]   hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, and say what it would have done
+      --log-format FORMAT      say what goes to stderr as FORMAT: text, or json or logfmt, an entry a line stamped with its time (default text)
+  -q, --quiet[=true|false]     say only warnings, errors and questions on stderr, leaving every note out
+      --request-log FILE       append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
+      --verbose[=true|false]   also say each request's outline on stderr, as a debug line (not while the terminal interface draws)
 ```
 
 ### SEE ALSO

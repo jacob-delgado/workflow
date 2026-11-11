@@ -35,20 +35,20 @@ workflow branch <issue> [flags]
 ### Options
 
 ```
-      --fetch      fetch the base remote first (upstream in a fork's clone, else origin), to start from what it holds now
-  -h, --help       help for branch
-      --worktree   create the branch in a new worktree beside the repository, and print its directory
-  -y, --yes        go ahead without the confirmation
+      --fetch[=true|false]      fetch the base remote first (upstream in a fork's clone, else origin), to start from what it holds now
+  -h, --help[=true|false]       help for branch
+      --worktree[=true|false]   create the branch in a new worktree beside the repository, and print its directory
+  -y, --yes[=true|false]        go ahead without the confirmation
 ```
 
 ### Options inherited from parent commands
 
 ```
-  -n, --dry-run             hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, and say what it would have done
-      --log-format FORMAT   say what goes to stderr as FORMAT: text, or json or logfmt, an entry a line stamped with its time (default text)
-  -q, --quiet               say only warnings, errors and questions on stderr, leaving every note out
-      --request-log FILE    append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
-      --verbose             also say each request's outline on stderr, as a debug line (not while the terminal interface draws)
+  -n, --dry-run[=true|false]   hold back every write to Jira, the forge, the messaging service, Taskwarrior, git and files, and say what it would have done
+      --log-format FORMAT      say what goes to stderr as FORMAT: text, or json or logfmt, an entry a line stamped with its time (default text)
+  -q, --quiet[=true|false]     say only warnings, errors and questions on stderr, leaving every note out
+      --request-log FILE       append a one-line outline of each request (method, path, status, duration) to FILE, for a bug report
+      --verbose[=true|false]   also say each request's outline on stderr, as a debug line (not while the terminal interface draws)
 ```
 
 ### SEE ALSO
