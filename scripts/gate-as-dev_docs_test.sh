@@ -2,11 +2,12 @@
 #
 # Tests for which tasks scripts/gate-as-dev.sh hands the gate user when it is
 # asked for none: for a change to the docs alone, which scripts/docs-only.sh
-# decides against GATE_BASE, task check:docs, said so; for any other change,
-# and for one it cannot compare with its base, nothing, so the gate user runs
-# the steps of task check; and tasks named on the command line as named. The
-# stand-ins lib/gate-as-dev-fixtures.sh writes record what they were asked, so
-# no user is switched and no gate runs.
+# decides as GATE_BASE holds it, task check:docs, said so, from the copy setup
+# installs on PATH too; for any other change, one that rewrites docs-only.sh to
+# call itself docs only among them, and for one it cannot compare with its
+# base, nothing, so the gate user runs the steps of task check; and tasks named
+# on the command line as named. The stand-ins lib/gate-as-dev-fixtures.sh
+# writes record what they were asked, so no user is switched and no gate runs.
 #
 # Usage:
 #   scripts/gate-as-dev_docs_test.sh
@@ -27,15 +28,18 @@ command -v flock >/dev/null || {
 # shellcheck source=lib/gate-as-dev-fixtures.sh
 source "${here}/lib/gate-as-dev-fixtures.sh"
 
-# changed_repo makes a repository whose main holds a page and some code, then a
-# branch commit that changes the path named, and prints nothing.
+# changed_repo makes a repository whose main holds a page, some code,
+# scripts/docs-only.sh and a copy of the gate beside it, then a branch commit
+# that changes the path named, and prints nothing.
 #   changed_repo <dir> <path>
 changed_repo() {
   repo "$1"
   git -C "$1" branch -q -M main
-  mkdir -p "$1/docs" "$1/internal"
+  mkdir -p "$1/docs" "$1/internal" "$1/scripts"
   printf 'page\n' >"$1/docs/page.md"
   printf 'code\n' >"$1/internal/code.go"
+  cp "${here}/docs-only.sh" "$1/scripts/docs-only.sh"
+  cp "${gate}" "$1/scripts/gate-as-dev.sh"
   git -C "$1" add -A
   git -C "$1" -c user.email=t@example.com -c user.name=t commit -q -m base
   git -C "$1" switch -q -c work
@@ -66,6 +70,15 @@ if [[ "${tasks}" != " check:docs" ]]; then
   fail_case "a docs-only change" "dev was not handed check:docs: ${tasks}"
 fi
 
+# Setup installs the gate alone, as gate-as-dev on PATH, with no docs-only.sh
+# beside it.
+installed="${workdir}/installed/gate-as-dev"
+mkdir -p "${installed%/*}"
+cp "${gate}" "${installed}"
+expect_output pass "a docs-only change, gated by the installed copy" "docs only, so this runs task check:docs" \
+  env PATH="${stub_bin}:${PATH}" GATE_TOOLS="${workdir}/tools" GATE_LOCK="${workdir}/gate.lock" \
+  "${installed}" "${docs_repo}"
+
 expect_exit pass "a code change" as_root "${code_repo}"
 tasks="$(handed_tasks "$(git -C "${code_repo}" rev-parse HEAD)")"
 count_case
@@ -78,6 +91,24 @@ tasks="$(handed_tasks "$(git -C "${docs_repo}" rev-parse HEAD)")"
 count_case
 if [[ "${tasks}" != " lint" ]]; then
   fail_case "a docs-only change with tasks named" "the tasks named were not the ones handed: ${tasks}"
+fi
+
+# A change that rewrites the classifier beside the gate to call it docs only
+# is classified by the base's copy, as CI classifies one, and gets the whole
+# of check, though the gate run is the copy beside the rewritten one.
+rewriting_repo="${workdir}/rewriting-change"
+changed_repo "${rewriting_repo}" docs/page.md
+printf '#!/usr/bin/env bash\necho "Docs only."\n' >"${rewriting_repo}/scripts/docs-only.sh"
+git -C "${rewriting_repo}" add -A
+git -C "${rewriting_repo}" -c user.email=t@example.com -c user.name=t commit -q -m rewrite
+: >"${log}"
+expect_exit pass "a change that rewrites the classifier to call it docs only" \
+  env PATH="${stub_bin}:${PATH}" GATE_TOOLS="${workdir}/tools" GATE_LOCK="${workdir}/gate.lock" \
+  "${rewriting_repo}/scripts/gate-as-dev.sh" "${rewriting_repo}"
+tasks="$(handed_tasks "$(git -C "${rewriting_repo}" rev-parse HEAD)")"
+count_case
+if [[ -n "${tasks}" ]]; then
+  fail_case "a change that rewrites the classifier to call it docs only" "it ran less than the whole of check: ${tasks}"
 fi
 
 export GATE_BASE=no-such-branch
