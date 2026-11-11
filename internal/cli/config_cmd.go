@@ -418,7 +418,7 @@ func collectJira(ctx context.Context, out io.Writer, prompt cmdkit.Prompt, doer 
 
 	settings := config.Jira{BaseURL: baseURL, Token: config.Secret(strings.TrimSpace(token))}
 
-	kept, err := keepIfChecked(prompt, "jira", checkTyped(ctx, out, doer, settings))
+	kept, err := keepIfChecked(prompt, checkTyped(ctx, out, doer, settings))
 	if err != nil || !kept {
 		return config.Jira{}, false, err
 	}
@@ -478,11 +478,11 @@ func collectMessaging(out io.Writer, prompt cmdkit.Prompt) (config.Secret, error
 	return config.Secret(webhook), nil
 }
 
-// keepIfChecked decides whether to keep a credential: a passing check keeps it,
-// and a failing one asks, so a service that is merely unreachable right now can
-// still be saved. An address that is no address is never kept, so it is not
-// asked about: the setup stops on it.
-func keepIfChecked(prompt cmdkit.Prompt, what string, checkErr error) (bool, error) {
+// keepIfChecked decides whether to keep the Jira address and token: a passing
+// check keeps them, and a failing one asks, so a Jira that is merely
+// unreachable right now can still be saved. An address that is no address is
+// never kept, so it is not asked about: the setup stops on it.
+func keepIfChecked(prompt cmdkit.Prompt, checkErr error) (bool, error) {
 	if checkErr == nil {
 		return true, nil
 	}
@@ -491,7 +491,7 @@ func keepIfChecked(prompt cmdkit.Prompt, what string, checkErr error) (bool, err
 		return false, checkErr
 	}
 
-	return cmdkit.Confirm(prompt, "The "+what+" check did not pass. Save it anyway?")
+	return cmdkit.Confirm(prompt, "The Jira check did not pass. Save it anyway?")
 }
 
 // warnIfNotIgnored says so when the file is inside a repository but not ignored
