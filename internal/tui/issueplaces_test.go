@@ -323,6 +323,27 @@ func TestAStatusOutsideTheThreeCategoriesIsStillOffered(t *testing.T) {
 	requireScreen(t, view, "Parked  1")
 }
 
+func TestAStatusUnderNoCategoryDrawsTheUnknownMark(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := placesWorld()
+	repo.issues = append(repo.issues, jira.Issue{
+		Key: "PROJ-506", Summary: "Park the idea", Status: "Parked", StatusCategory: "undefined",
+	})
+
+	// Act
+	view := repo.live(t, placesViewWidth, placesViewHeight).View().Content
+
+	// Assert
+	row := railLine(view, "PROJ-506")
+
+	before, _, _ := strings.Cut(row, " PROJ-506")
+	if marks := strings.Fields(before); !strings.HasPrefix(marks[len(marks)-1], "·") {
+		t.Errorf("the rail row %q does not open its marks with the unknown mark", row)
+	}
+}
+
 func TestAFailedBranchRelistingKeepsWhatWasInFlight(t *testing.T) {
 	t.Parallel()
 

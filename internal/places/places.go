@@ -11,7 +11,9 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/report"
 )
 
 // Trade-off TRADE-21: these words and the place rules below are written again
@@ -135,8 +137,8 @@ func Choices(issues []jira.Issue, marksOf func(jira.Key) []string, picked []Plac
 }
 
 // statusPlaces is each status the issues are in, once, in the tracker's
-// workflow order: not started first, then in flight, then done, then any in a
-// category Jira does not name (its "No Category", or none), and by name within
+// workflow order: not started first, then in flight, then done, then any whose
+// category is unknown (Jira's "No Category", or none), and by name within
 // each, so a status keeps its place however the issues move. A status named in
 // two categories goes with the earlier one.
 func statusPlaces(issues []jira.Issue) []Place {
@@ -164,15 +166,15 @@ func statusPlaces(issues []jira.Issue) []Place {
 	return statuses
 }
 
-// categoryRank is where a status category comes in the workflow: not started,
-// in flight, done, and last any category Jira does not name.
+// categoryRank is where a status category comes in the workflow, as
+// report.StatusCategory carries it to every surface: not started, in flight,
+// done, and last one it cannot place.
 func categoryRank(category jira.StatusCategory) int {
-	named := []jira.StatusCategory{jira.CategoryNew, jira.CategoryIndeterminate, jira.CategoryDone}
-	if at := slices.Index(named, category); at >= 0 {
-		return at
+	workflowOrder := []api.StatusCategory{
+		api.StatusCategoryNew, api.StatusCategoryIndeterminate, api.StatusCategoryDone, api.StatusCategoryUnknown,
 	}
 
-	return len(named)
+	return slices.Index(workflowOrder, report.StatusCategory(category))
 }
 
 // pickedStatusesGone is each picked status no issue is in any more, in the
