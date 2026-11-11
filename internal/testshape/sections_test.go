@@ -380,6 +380,15 @@ func TestEmptySectionsAndLabelsAreReported(t *testing.T) {
 `),
 			want: []found{at(6, testshape.LabelUnexpected)},
 		},
+		"a single cycle's empty Assert with a label, both reported": {
+			source: test(`	// Act
+	x := 1
+	_ = x
+
+	// Assert: nothing
+`),
+			want: []found{at(10, testshape.LabelUnexpected), at(10, testshape.EmptySection)},
+		},
 		"a labeled Arrange": {
 			source: test(`	// Arrange: a counter
 	x := 0

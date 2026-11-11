@@ -294,24 +294,36 @@ function labelProblem(marker, cycles) {
   return marker.labeled ? undefined : 'labelRequired'
 }
 
+// contentProblem names what a section holds wrongly: nothing at all, an
+// Assert that reaches no expect, or a value checked outside an Assert, at the
+// statement that checks it.
+function contentProblem({ marker, statements }) {
+  const loc = marker.comment.loc
+  const asserting = ['assert', 'actAndAssert'].includes(marker.kind)
+  const checked = asserting ? undefined : statements.find(checks)
+  if (statements.length === 0) {
+    return { loc, messageId: 'emptySection' }
+  }
+  if (asserting && !statements.some(expects)) {
+    return { loc, messageId: 'assertWithoutExpect' }
+  }
+
+  return checked === undefined ? undefined : { node: checked, messageId: 'checkOutsideAssert' }
+}
+
 // checkSections reports labels where they do not belong or missing where they
-// do, sections with nothing in them, Asserts that reach no expect, and a value
-// checked outside an Assert.
+// do, and what each section holds wrongly. A marker can earn one of each, as
+// cmd/testshape reports them, so fixing one never reveals the other.
 function checkSections(context, owned) {
   const cycles = owned.filter(({ marker }) => ['act', 'actAndAssert'].includes(marker.kind)).length
-  for (const { marker, statements } of owned) {
-    const loc = marker.comment.loc
-    const asserting = ['assert', 'actAndAssert'].includes(marker.kind)
-    const checked = asserting ? undefined : statements.find(checks)
-    const label = labelProblem(marker, cycles)
+  for (const section of owned) {
+    const label = labelProblem(section.marker, cycles)
     if (label !== undefined) {
-      context.report({ loc, messageId: label })
-    } else if (statements.length === 0) {
-      context.report({ loc, messageId: 'emptySection' })
-    } else if (asserting && !statements.some(expects)) {
-      context.report({ loc, messageId: 'assertWithoutExpect' })
-    } else if (checked !== undefined) {
-      context.report({ node: checked, messageId: 'checkOutsideAssert' })
+      context.report({ loc: section.marker.comment.loc, messageId: label })
+    }
+    const content = contentProblem(section)
+    if (content !== undefined) {
+      context.report(content)
     }
   }
 }
