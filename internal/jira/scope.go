@@ -15,6 +15,14 @@ import (
 // it, at the very start of a query too.
 var orderByClause = regexp.MustCompile(`(?i)(?:^|\s)order\s+by\s`)
 
+// assigneeField matches the assignee field named whatever its case, as a word
+// of its own.
+var assigneeField = regexp.MustCompile(`(?i)\bassignee\b`)
+
+// assigneeFieldName is the assignee field's name, which a query may also quote
+// whole, as `"assignee" = bob`.
+const assigneeFieldName = "assignee"
+
 // DefaultViewName titles the one built-in view a configuration naming none
 // gets: the open issues assigned to you.
 const DefaultViewName = "Assigned to me"
@@ -63,13 +71,16 @@ func ViewNamed(configured []config.JiraView, name string) (View, bool) {
 
 // ScopedToMe narrows a view's JQL to the issues assigned to whoever the
 // credential belongs to, unless the query already speaks of the assignee — a
-// triage view of unassigned issues stays what it is. An ORDER BY stays last;
-// one inside a quoted string or a parenthesis is the string's or the
-// function's, not the query's. A query whose quotes or parentheses do not
-// balance is left as it is too: where its ORDER BY begins cannot be told, and
-// Jira refuses it whatever is added.
+// triage view of unassigned issues stays what it is, and so does one that
+// quotes the field's name whole, as `"assignee" = bob`. The word among other
+// text in a quoted string, as text a summary is searched for or a field named
+// "Assignee Group", does not count. An ORDER BY stays last; one inside a quoted string
+// or a parenthesis is the string's or the function's, not the query's. A
+// query whose quotes or parentheses do not balance is left as it is too:
+// where its ORDER BY begins cannot be told, and Jira refuses it whatever is
+// added.
 func ScopedToMe(jql string) string {
-	if strings.Contains(strings.ToLower(jql), "assignee") {
+	if namesAssignee(jql) {
 		return jql
 	}
 
@@ -109,22 +120,86 @@ func cutOrderBy(jql string) (string, string, bool) {
 	return jql[:last[0]], strings.TrimSpace(jql[last[1]:]), true
 }
 
+// namesAssignee reports a query that speaks of the assignee field: by its name
+// as a word of the query's own, or in a quoted string that holds the name
+// alone, whatever its case.
+func namesAssignee(jql string) bool {
+	if assigneeField.MatchString(unquoted(jql)) {
+		return true
+	}
+
+	return slices.ContainsFunc(quotedStrings(jql), func(text string) bool {
+		return strings.EqualFold(text, assigneeFieldName)
+	})
+}
+
+// quotedStrings is the text of each quoted string jql closes, as written
+// between its quotes.
+func quotedStrings(jql string) []string {
+	var (
+		scan  jqlScan
+		texts []string
+		start int
+	)
+
+	for index := range len(jql) {
+		wasQuoted := scan.quote != 0
+		scan.place(jql[index])
+
+		switch isQuoted := scan.quote != 0; {
+		case !wasQuoted && isQuoted:
+			start = index + 1
+		case wasQuoted && !isQuoted:
+			texts = append(texts, jql[start:index])
+		}
+	}
+
+	return texts
+}
+
+// unquoted is jql with every byte of a quoted string, its quotes too, made an
+// underscore, so what is left is the query's own words, a function's
+// arguments and a parenthesized clause's among them.
+func unquoted(jql string) string {
+	words, _ := masked(jql, func(place jqlPlace) bool { return place == inString })
+
+	return words
+}
+
 // topLevel is jql with every byte inside a quoted string or a parenthesis —
 // the quotes and parentheses too — made an underscore, so what is left is the
 // query's own words at the offsets jql has them; and whether every string and
 // parenthesis closed, in order.
 func topLevel(jql string) (string, bool) {
+	return masked(jql, func(place jqlPlace) bool { return place != atTopLevel })
+}
+
+// masked is jql with every byte whose place hide picks made an underscore, at
+// the offsets jql has them, and whether every string and parenthesis closed,
+// in order.
+func masked(jql string, hide func(jqlPlace) bool) (string, bool) {
 	var scan jqlScan
 
 	words := []byte(jql)
 	for index, char := range words {
-		if !scan.outside(char) {
+		if hide(scan.place(char)) {
 			words[index] = '_'
 		}
 	}
 
 	return string(words), scan.balanced()
 }
+
+// jqlPlace is where a byte of a query sits: in the query's own words, inside
+// a parenthesis, or inside a quoted string; a quote or a parenthesis sits
+// inside what it opens or closes.
+type jqlPlace int
+
+const (
+	atTopLevel jqlPlace = iota
+	inParentheses
+	inString
+)
 
 // jqlScan follows a query a byte at a time: the quote that closes the string
 // it is in, if any, and whether the next byte is escaped; how many
@@ -136,26 +211,29 @@ type jqlScan struct {
 	overshot bool
 }
 
-// outside advances past char and reports whether it sits outside every quoted
-// string and parenthesis.
-func (s *jqlScan) outside(char byte) bool {
+// place advances past char and reports where it sits.
+func (s *jqlScan) place(char byte) jqlPlace {
 	if s.quoted(char) {
-		return false
+		return inString
 	}
 
 	switch char {
 	case '"', '\'':
 		s.quote = char
+
+		return inString
 	case '(':
 		s.depth++
 	case ')':
 		s.depth--
 		s.overshot = s.overshot || s.depth < 0
 	default:
-		return s.depth == 0
+		if s.depth == 0 {
+			return atTopLevel
+		}
 	}
 
-	return false
+	return inParentheses
 }
 
 // quoted advances past char when it is inside a quoted string, a backslash
