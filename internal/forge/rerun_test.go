@@ -81,6 +81,28 @@ func TestRerunChecksReRunsAFailedRunPastTheFirstPage(t *testing.T) {
 	}
 }
 
+func TestRerunChecksReRunsNoneWhenTheCommitHasMoreRunsThanAreRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Every page is full of failed runs and the forge counts more than twenty
+	// pages hold. No re-run is served, so one asked for would fail the test.
+	const runsPath = "/repos/example/repo/actions/runs"
+
+	failedRun := func(number int) string { return `{"id":` + strconv.Itoa(number) + `,"conclusion":"failure"}` }
+	client := forgePaging(t, map[string][]string{runsPath: fullPages(20, func(first int) string {
+		return `{"total_count":2500,"workflow_runs":` + listingOf(first, 100, failedRun) + `}`
+	})})
+
+	// Act
+	reran, err := client.RerunChecks(t.Context(), githubRepo(), forge.PullRequest{Number: 42}, "abc123")
+
+	// Assert
+	if !errors.Is(err, forge.ErrTooManyRuns) || reran {
+		t.Errorf("RerunChecks = %v, %v; want nothing re-run and ErrTooManyRuns", reran, err)
+	}
+}
+
 func TestRerunChecksRetriesGitLabsPipeline(t *testing.T) {
 	t.Parallel()
 

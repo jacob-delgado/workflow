@@ -88,6 +88,10 @@ var (
 	ErrUnexpectedStatus = errors.New("unexpected response status")
 	// ErrUnreachable reports a request that never got an answer.
 	ErrUnreachable = errors.New("could not reach the forge")
+	// ErrTooManyRuns refuses a re-run on a commit with more workflow runs
+	// than are read, whose failed ones cannot all be found, so none is re-run.
+	ErrTooManyRuns = errors.New("the commit has more workflow runs than workflow reads, so none was re-run; " +
+		"re-run the failed ones on the forge")
 )
 
 // Doer is the HTTP seam this client accepts; see httpx.Doer.

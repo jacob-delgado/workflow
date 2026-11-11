@@ -344,9 +344,10 @@ does; **Merge**, once it is ready for review, free of conflicts, approved with
 no changes asked for, and green or with no CI reported — the form then says no
 CI ran, and a forge that requires checks refuses it — reads the methods the
 repository permits and merges by the one chosen, as `M` does; **Re-run failed
-checks**, while its CI has failed, restarts the failed jobs, as `R` does, and
-says when a failure had no job to restart; and once it has merged, **Finish
-the branch** shows the
+checks**, while its CI has failed, restarts the failed jobs, as `R` does, says
+when a failure had no job to restart, and restarts none on a GitHub commit with
+more workflow runs than workflow reads, two thousand, saying to re-run them on
+the forge; and once it has merged, **Finish the branch** shows the
 three git commands it runs — switch to the base, pull it from the base remote,
 delete the branch — as `F` does, when deleting the branch loses nothing: it is
 at the commit that merged, or its upstream holds every commit on it. When

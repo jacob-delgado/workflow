@@ -427,6 +427,22 @@ func TestARefusedRerunNamesTheScopeAndNoHost(t *testing.T) {
 	}
 }
 
+func TestARerunOnMoreRunsThanAreReadSaysToRerunOnTheForge(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps := failedCI(reviewDeps(&reviewWrites{}))
+	deps.Forge.Rerun = func(context.Context, forge.PullRequest, string) (bool, error) {
+		return false, forge.ErrTooManyRuns
+	}
+
+	// Act
+	recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPost, rerunAt, "")
+
+	// Assert
+	assertProblem(t, recorder, http.StatusUnprocessableEntity, "re-run the failed ones on the forge")
+}
+
 func TestReviewWritesWithoutTheirSeamAreNotAvailable(t *testing.T) {
 	t.Parallel()
 
