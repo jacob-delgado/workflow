@@ -90,6 +90,30 @@ func TestScopedToMeWrapsTheQueryAndKeepsOrderByLast(t *testing.T) {
 			jql:  "Assignee = bob",
 			want: "Assignee = bob",
 		},
+		"a query that names the assignee inside parentheses": {
+			jql:  "project = A AND (assignee is EMPTY OR assignee = bob)",
+			want: "project = A AND (assignee is EMPTY OR assignee = bob)",
+		},
+		"the word assignee inside a quoted string": {
+			jql:  `summary ~ "assignee missing"`,
+			want: `(summary ~ "assignee missing") AND assignee = currentUser()`,
+		},
+		"a quoted field whose name holds the word assignee": {
+			jql:  `"Assignee Group" = Backend`,
+			want: `("Assignee Group" = Backend) AND assignee = currentUser()`,
+		},
+		"the assignee field named in double quotes": {
+			jql:  `"assignee" = bob`,
+			want: `"assignee" = bob`,
+		},
+		"the assignee field named in single quotes and capitals": {
+			jql:  `project = A AND ('Assignee' is EMPTY)`,
+			want: `project = A AND ('Assignee' is EMPTY)`,
+		},
+		"a field whose name begins with assignee": {
+			jql:  "AssigneeTeam = Backend",
+			want: "(AssigneeTeam = Backend) AND assignee = currentUser()",
+		},
 		"the built-in list": {
 			jql:  jira.AssignedToMe,
 			want: jira.AssignedToMe,
