@@ -29,14 +29,18 @@ export function IssueDetailPanel({ issueKey, listed }: { issueKey: string; liste
   const { data, error, errorUpdateCount, isPending, isFetching, refetch } = useIssue(issueKey)
   // A Try again goes once the issue it reads again arrives, so its focus follows to
   // the issue's heading rather than falling to the page — once, so a later read
-  // of the issue leaves focus wherever the user has put it since.
+  // of the issue leaves focus wherever the user has put it since. A Try again
+  // refused again stays, with its focus, so it hands nothing on.
   const retried = useRef(false)
   const heading = useRef<HTMLHeadingElement>(null)
   const refusal = useShownRefusal(error, isPending)
 
   useEffect(() => {
-    if (retried.current && data && !error) {
-      retried.current = false
+    if (!retried.current || (!data && !error)) {
+      return
+    }
+    retried.current = false
+    if (!error) {
       heading.current?.focus()
     }
   }, [data, error])
