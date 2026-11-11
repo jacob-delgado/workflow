@@ -420,21 +420,24 @@ func (msg editorClosed) apply(m Model) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// startPush pushes the branch, then does what comes next once it is pushed —
-// by default, says so and reads the branch again.
-func (m Model) startPush(succeeded func(Model) (Model, tea.Cmd)) (Model, tea.Cmd) {
+// startPush pushes the branch, then says so and reads the branch again.
+func (m Model) startPush() (Model, tea.Cmd) {
+	name, session := m.branch.branch.Name, m.session
+
+	return m.startPushThen(func(done Model) (Model, tea.Cmd) {
+		done = done.closeOverlay().noticed(done.marks.done + " pushed " + name)
+
+		return done, loadBranch(session, done.deps)
+	})
+}
+
+// startPushThen pushes the branch, then does what succeeded says once it is
+// pushed.
+func (m Model) startPushThen(succeeded func(Model) (Model, tea.Cmd)) (Model, tea.Cmd) {
 	name := m.branch.branch.Name
 
 	if m.dryRun {
 		return m.closeOverlay().noticed("dry run: would push " + name), nil
-	}
-
-	if succeeded == nil {
-		succeeded = func(done Model) (Model, tea.Cmd) {
-			done = done.closeOverlay().noticed(done.marks.done + " pushed " + name)
-
-			return done, loadBranch(m.session, done.deps)
-		}
 	}
 
 	ctx, push := m.session, m.deps.Git.Push

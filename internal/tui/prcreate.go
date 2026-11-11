@@ -58,7 +58,7 @@ func (c prComposer) open(m Model) (Model, tea.Cmd) {
 	default:
 		m.prDraft = c.snapshot()
 
-		return m.startPush(func(pushed Model) (Model, tea.Cmd) {
+		return m.startPushThen(func(pushed Model) (Model, tea.Cmd) {
 			reload := loadBranch(m.session, pushed.deps)
 			pushed, create := c.create(pushed)
 
