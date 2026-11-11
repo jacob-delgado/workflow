@@ -288,15 +288,20 @@ func runGuidedInit(cmd *cobra.Command, path string, opts initOptions, prompt cmd
 }
 
 // guidedFile is the configuration the guided setup's answers make over the
-// home file beneath, and the revision of that home file it was made over.
+// home file beneath, the revision of that home file it was made over, and
+// what was asked, whose Jira token the keychain keeps, through store, once the
+// file is written, when that was chosen.
 type guidedFile struct {
-	cfg  config.Config
-	over config.Revision
+	cfg   config.Config
+	over  config.Revision
+	asked guidedAsked
+	store func(ctx context.Context, service, secret string) error
 }
 
 // guidedAnswers asks setup's questions for the file at path, checking the Jira
-// token over the request log, and lays the answers over the home file beneath.
-// With nothing to answer them, it says to write the template instead.
+// token over the request log, and lays the answers over the home file beneath,
+// reading the token from the keychain when it was chosen. With nothing to
+// answer them, it says to write the template instead.
 func guidedAnswers(cmd *cobra.Command, path string, opts initOptions, prompt cmdkit.Prompt) (guidedFile, error) {
 	requestLog, closeLog, err := cmdkit.RequestLogFor(cmd)
 	if err != nil {
@@ -312,13 +317,13 @@ func guidedAnswers(cmd *cobra.Command, path string, opts initOptions, prompt cmd
 		return guidedFile{}, err
 	}
 
-	answers, err := askAnswers(cmd.Context(), out, guidedPrompt(prompt, opts.dryRun),
+	asked, err := askAnswers(cmd.Context(), out, guidedPrompt(prompt, opts.dryRun),
 		requestLog.Wrap("jira", cmdkit.OnlineDoer(config.Config{})))
 	if errors.Is(err, io.EOF) || errors.Is(err, cmdkit.ErrNoTerminal) {
 		return guidedFile{}, fmt.Errorf("%w; pass --template to write a file to edit by hand", cmdkit.ErrNoTerminal)
 	}
 
-	return guidedFile{cfg: answers.Over(beneath), over: over}, err
+	return guidedFile{cfg: asked.over(beneath), over: over, asked: asked, store: prompt.StoreSecret}, err
 }
 
 // guidedPrompt is prompt as the guided setup asks with it: offering no keychain
@@ -331,8 +336,10 @@ func guidedPrompt(prompt cmdkit.Prompt, dryRun bool) cmdkit.Prompt {
 	return prompt
 }
 
-// writeGuided writes the file the guided setup made at path, and says what to
-// do next.
+// writeGuided writes the file the guided setup made at path, then keeps the
+// token in the keychain when that was chosen, so a setup refused before the
+// file is written leaves the keychain as it was, and one the keychain refuses
+// leaves no file reading a token it does not hold. It says what to do next.
 func writeGuided(cmd *cobra.Command, path string, opts initOptions, guided guidedFile) error {
 	err := opts.write(path, guided.cfg, guided.over)
 	if err != nil {
@@ -340,53 +347,85 @@ func writeGuided(cmd *cobra.Command, path string, opts initOptions, guided guide
 	}
 
 	notes := cmdkit.NotesOf(cmd)
+
+	if guided.asked.keychain {
+		err = setup.KeepFor(cmd.Context(), guided.store, path, guided.asked.answers.Jira)
+		if err != nil {
+			return err
+		}
+
+		notes.Note(fmt.Sprintf("Stored the Jira token in the keychain as %q; the file reads it from there.",
+			guided.cfg.Jira.KeychainService()))
+	}
+
 	notes.Note(fmt.Sprintf("\nWrote %s (mode %#o). Run `workflow doctor` to check it again.", path, config.FileMode))
 	warnIfNotIgnored(cmd.Context(), notes, path)
 
 	return nil
 }
 
+// guidedAsked is what the guided setup's questions answered: the answers, and
+// whether the keychain is to keep the Jira token once the file is written.
+type guidedAsked struct {
+	answers  setup.Answers
+	keychain bool
+}
+
+// over is cfg with the answers in place of its own, reading the Jira token
+// from the keychain when the keychain is to keep it.
+func (a guidedAsked) over(cfg config.Config) config.Config {
+	cfg = a.answers.Over(cfg)
+	if a.keychain {
+		cfg.Jira = setup.InKeychain(cfg.Jira)
+	}
+
+	return cfg
+}
+
 // askAnswers asks setup's questions in turn: Jira's, then messaging's.
-func askAnswers(ctx context.Context, out io.Writer, prompt cmdkit.Prompt, doer jira.Doer) (setup.Answers, error) {
-	asked, err := collectJira(ctx, out, prompt, doer)
+func askAnswers(ctx context.Context, out io.Writer, prompt cmdkit.Prompt, doer jira.Doer) (guidedAsked, error) {
+	asked, keychain, err := collectJira(ctx, out, prompt, doer)
 	if err != nil {
-		return setup.Answers{}, err
+		return guidedAsked{}, err
 	}
 
 	webhook, err := collectMessaging(out, prompt)
 	if err != nil {
-		return setup.Answers{}, err
+		return guidedAsked{}, err
 	}
 
-	return setup.Answers{Jira: asked, Webhook: webhook}, nil
+	return guidedAsked{answers: setup.Answers{Jira: asked, Webhook: webhook}, keychain: keychain}, nil
 }
 
 // collectJira asks for the Jira address and token, checks them over doer, and
-// keeps them only if the check passed or the user chose to save them regardless.
-func collectJira(ctx context.Context, out io.Writer, prompt cmdkit.Prompt, doer jira.Doer) (config.Jira, error) {
+// keeps them only if the check passed or the user chose to save them
+// regardless, and whether the keychain is to keep the token.
+func collectJira(ctx context.Context, out io.Writer, prompt cmdkit.Prompt, doer jira.Doer) (config.Jira, bool, error) {
 	baseURL, err := prompt.Line("Jira base URL (e.g. https://jira.example.com), blank to skip: ")
 	if err != nil {
-		return config.Jira{}, err
+		return config.Jira{}, false, err
 	}
 
 	baseURL = strings.TrimSpace(baseURL)
 	if baseURL == "" {
-		return config.Jira{}, nil
+		return config.Jira{}, false, nil
 	}
 
 	token, err := prompt.Secret("Jira personal access token: ")
 	if err != nil {
-		return config.Jira{}, err
+		return config.Jira{}, false, err
 	}
 
 	settings := config.Jira{BaseURL: baseURL, Token: config.Secret(strings.TrimSpace(token))}
 
 	kept, err := keepIfChecked(prompt, "jira", checkTyped(ctx, out, doer, settings))
 	if err != nil || !kept {
-		return config.Jira{}, err
+		return config.Jira{}, false, err
 	}
 
-	return keepTokenSafe(ctx, out, prompt, settings)
+	keychain, err := offerKeychain(prompt, settings)
+
+	return settings, keychain, err
 }
 
 // checkTyped checks the address and token typed, saying how it went.
@@ -403,31 +442,17 @@ func checkTyped(ctx context.Context, out io.Writer, doer jira.Doer, settings con
 	return nil
 }
 
-// keepTokenSafe offers to move the token into the OS keychain, under the item
+// offerKeychain offers to keep the token in the OS keychain, under the item
 // for its address, so the file reads it from there rather than holding the
-// secret, keeping it under ctx. It is a no-op where the keychain is not wired
-// for the platform.
-func keepTokenSafe(
-	ctx context.Context, out io.Writer, prompt cmdkit.Prompt, settings config.Jira,
-) (config.Jira, error) {
-	if prompt.StoreSecret == nil {
-		return settings, nil
+// secret. It asks nothing where the keychain is not wired for the platform or
+// there is no token to keep. Nothing is stored yet: writeGuided keeps the
+// token once the file is written.
+func offerKeychain(prompt cmdkit.Prompt, settings config.Jira) (bool, error) {
+	if prompt.StoreSecret == nil || settings.Token == "" {
+		return false, nil
 	}
 
-	store, err := cmdkit.Confirm(prompt, "Store the Jira token in your keychain, keeping it out of the file?")
-	if err != nil || !store {
-		return settings, err
-	}
-
-	settings, err = setup.Keep(ctx, prompt.StoreSecret, settings)
-	if err != nil {
-		return settings, err
-	}
-
-	fmt.Fprintf(out, "  %-10s stored in the keychain as %q; the file reads it from there\n", "jira",
-		settings.KeychainService())
-
-	return settings, nil
+	return cmdkit.Confirm(prompt, "Store the Jira token in your keychain, keeping it out of the file?")
 }
 
 // collectMessaging asks for a Slack incoming webhook, the setup with nothing to
