@@ -116,6 +116,22 @@ export async function seeds(page: Page, seed: Seed, snapshot?: Snapshot): Promis
   )
 }
 
+// showsInTheMockup has the mockup's event stream show the parts given in
+// place of its frame's own, now and in every frame after, as the server's
+// stream reports what changed with no request of the page's: a hold armed,
+// waiting, then announced. It is for a spec tagged @populated, whose page
+// runs the mockup's own stream, which no route of the spec's answers.
+export async function showsInTheMockup(page: Page, parts: Partial<Snapshot>): Promise<void> {
+  await page.evaluate((shown) => {
+    // The mockup declares mockStream on the page's window (src/dev/mockServer.ts).
+    const { mockStream } = window as { mockStream?: { show: (parts: Partial<Snapshot>) => void } }
+    if (mockStream === undefined) {
+      throw new Error('the page runs no mockup whose stream a spec can script')
+    }
+    mockStream.show(shown)
+  }, parts)
+}
+
 // writesAnswered is how many writes each page has been answered, as the
 // server counts them: what the frame streams sends it next counts.
 const writesAnswered = new WeakMap<Page, number>()

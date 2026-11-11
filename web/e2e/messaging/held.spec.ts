@@ -12,12 +12,20 @@ import {
   themes,
   widths,
 } from '../support/cockpit.ts'
-import { branchWith, expect, snapshotWith, streams, test } from '../support/fixtures.ts'
+import {
+  branchWith,
+  expect,
+  showsInTheMockup,
+  snapshotWith,
+  streams,
+  test,
+} from '../support/fixtures.ts'
 import { expectReachableAndClean } from '../support/reachable.ts'
 
 // The announcement edited before it goes, and held until the pull request's
 // CI passes, as the terminal's e and w in the preview do. The flows run on
-// the hermetic build, whose answers this spec gives and records.
+// the hermetic build, whose answers this spec gives and records, but for one
+// on the mockup, whose stream the spec scripts through the hold's lifecycle.
 
 const pull = {
   number: 7,
@@ -189,6 +197,28 @@ test('while one waits, Announce now instead is drawn as Stop waiting is, below i
   expect(instead.top).toBeGreaterThan(stop.top)
   await expect(page.getByRole('button', { name: 'Announce to Slack' })).toHaveCount(0)
 })
+
+test(
+  "the mockup's stream carries a held announcement from waiting to announced",
+  { tag: '@populated' },
+  async ({ page }) => {
+    // Arrange
+    const heldOn128 = { id: 1, channel: '#dev-workflow', pull: 128 } as const
+    await page.goto('/')
+    await openSection(page, 'Slack')
+    await showsInTheMockup(page, { queued_announcement: { ...heldOn128, state: 'waiting' } })
+    await expect(
+      page.getByText('Waiting for CI on #128 to pass, then announcing to #dev-workflow.'),
+    ).toBeVisible()
+
+    // Act
+    await showsInTheMockup(page, { queued_announcement: { ...heldOn128, state: 'announced' } })
+
+    // Assert
+    await expect(page.getByText('Announced to #dev-workflow once CI passed.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Stop waiting' })).toHaveCount(0)
+  },
+)
 
 for (const theme of themes) {
   for (const width of widths) {

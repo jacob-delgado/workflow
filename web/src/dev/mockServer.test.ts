@@ -229,6 +229,37 @@ test('the mockup refuses to stop an announcement when none waits', async () => {
   await expect(stopped).rejects.toMatchObject({ code: 'conflict', status: 409 })
 })
 
+// held is an announcement held until CI passes on the mockup's pull request.
+const held = { id: 1, state: 'waiting', channel: '#dev-workflow', pull: 128 } as const
+
+test("a spec scripts what the mockup's stream shows next", async () => {
+  // Arrange
+  await installed()
+  await liveStream()
+
+  // Act
+  window.mockStream?.show({ queued_announcement: held })
+
+  // Assert
+  await waitFor(() => {
+    expect(useSnapshotStore.getState().snapshot?.queued_announcement).toEqual(held)
+  })
+})
+
+test('what a spec scripted stays in the frame a later write pushes', async () => {
+  // Arrange
+  await installed()
+  await liveStream()
+  window.mockStream?.show({ queued_announcement: held })
+
+  // Act
+  await pushBranch()
+
+  // Assert
+  const frame = useSnapshotStore.getState().snapshot
+  expect({ held: frame?.queued_announcement, writes: frame?.writes }).toEqual({ held, writes: 1 })
+})
+
 test('the mockup is a writable build', async () => {
   // Arrange
   await installed()

@@ -51,7 +51,10 @@ dependencies first when they are missing. The Playwright suites stay outside it
 and run in CI. `corepack yarn test:e2e` serves two builds with no backend: the
 production one, and a VITE_MOCK one whose populated sections the specs tagged
 `@populated` scan with axe and screenshot at 640, 1024 and 1440 px into
-`test-results/` (CI uploads them as the `screens` artifact). Chromium runs every
+`test-results/` (CI uploads them as the `screens` artifact). The mockup's own
+event stream pushes its fixtures' frame, and such a spec scripts what that
+stream shows next, as the server's reports a change, with `showsInTheMockup`
+(`e2e/support/fixtures.ts`): a hold waiting, then announced. Chromium runs every
 spec, and so do Firefox and WebKit, the engines of the other browsers the page
 supports (the `firefox`, `firefox-mock`, `webkit` and `webkit-mock` projects).
 CI runs each of those two engines in three shards, jobs of their own beside
