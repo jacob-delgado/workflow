@@ -105,8 +105,10 @@ function ConfigArea() {
   )
 }
 
-// SetUpSaid says what a setup wrote, and what is left to do about it. It takes
-// the focus the setup's write had, which went with the setup.
+// SetUpSaid says what a setup wrote, and what is left to do about it. It shows
+// only above the file read, which the server answers once it works with the
+// file — taking up, on the read, one the setup could not — so it asks for no
+// restart. It takes the focus the setup's write had, which went with the setup.
 function SetUpSaid({ result }: { result: SetupResult }) {
   const said = useFocusOnMount<HTMLParagraphElement>()
   const parts = [`Wrote ${result.shown}.`]
@@ -118,9 +120,6 @@ function SetUpSaid({ result }: { result: SetupResult }) {
   }
   if (result.not_ignored) {
     parts.push('git does not ignore it, and it holds credentials: add it to .gitignore.')
-  }
-  if (!result.reopened) {
-    parts.push('Restart workflow --web to work with it.')
   }
 
   return (

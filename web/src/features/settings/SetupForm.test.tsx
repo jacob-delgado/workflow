@@ -126,6 +126,23 @@ test('setting up sends the answers, says what it wrote, and opens the file in Se
   ])
 })
 
+test('a file the setup could not take up, which the read takes up, asks for no restart', async () => {
+  // Arrange
+  // The server reads the configuration by taking the file up, so a read that
+  // answers with it means the server works with it.
+  const user = userEvent.setup()
+  firstRun(() => Response.json({ ...written, reopened: false }))
+  renderWithClient(<SettingsPanel />)
+  await answerJira(user)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Write ~/src/api/.workflow.json' }))
+
+  // Assert
+  const said = await screen.findByText(/Wrote ~\/src\/api\/\.workflow\.json/)
+  expect(said.textContent).not.toMatch(/Restart/)
+})
+
 test('the defaults in a repository keep its token in the keychain', async () => {
   // Arrange
   const user = userEvent.setup()

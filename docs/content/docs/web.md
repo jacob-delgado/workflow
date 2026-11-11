@@ -796,12 +796,15 @@ which is never kept. Once written, the server works with the file as it does
 after a switch: the event stream reconnects, every section is read
 again, and Settings shows the file with what was written said above it —
 whom Jira knows the token as, that the keychain keeps it, and, for a file in a
-repository git does not ignore, to add it to `.gitignore`. A file already
+repository git does not ignore, to add it to `.gitignore`. A server that could
+not take the file up at once takes it up as Settings reads it again, or, when
+it still cannot, says so and to restart `workflow --web`. A file already
 there is never written over. A write still running, such as a git run started
 in another tab, holds the setup back: it writes nothing, and says to set up
-again once that write has finished. The token and the webhook go only to the server
-on the loopback address, which takes them from no other page, and no answer
-carries them back. Under `--dry-run` writing is held back, and the form says so.
+again once that write has finished. The token and the webhook go only to the
+server on the loopback address, which takes them from no other page, and no
+answer carries them back. Under `--dry-run` writing is held back, and the form
+says so.
 
 **People and groups** keeps what the announcement preview asks: a table of every
 code owner decided on this repository's forge host, then the branch's owners not

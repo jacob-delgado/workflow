@@ -19,10 +19,13 @@ import (
 
 // GetConfig reads the configuration file, taking up an edit made to it since
 // the server last read or wrote it, and returns the configuration in effect with
-// secrets masked, and what it stands for as its ETag.
-func (s *server) GetConfig(_ context.Context, _ api.GetConfigRequestObject) (api.GetConfigResponseObject, error) {
+// secrets masked, and what it stands for as its ETag. Where no file applied,
+// one made since is taken up first (configMadeSince).
+func (s *server) GetConfig(
+	ctx context.Context, request api.GetConfigRequestObject,
+) (api.GetConfigResponseObject, error) {
 	if s.setupNeeded() {
-		return api.GetConfig404ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeNotFound, noFileHere)), nil
+		return s.configMadeSince(ctx, request)
 	}
 
 	cfg, read, err := s.reread()
@@ -137,7 +140,7 @@ func (s *server) UpdateConfig(
 	ctx context.Context, request api.UpdateConfigRequestObject,
 ) (api.UpdateConfigResponseObject, error) {
 	if s.setupNeeded() {
-		return api.UpdateConfig404ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeNotFound, noFileHere)), nil
+		return s.noConfigToUpdate(), nil
 	}
 
 	if request.Params.IfMatch == nil {
