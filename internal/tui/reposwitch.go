@@ -278,7 +278,7 @@ func (m Model) lostOnLeaving() []string {
 		lost = append(lost, "the commit message you were writing")
 	}
 
-	if m.prDraft.branch != "" && m.prDraft.edited {
+	if m.prDraft.branch != "" && (m.prDraft.edited || m.prDraft.typed) {
 		lost = append(lost, "the "+m.vocab.noun+" you were writing")
 	}
 
