@@ -302,8 +302,8 @@ test.each([
 })
 
 // holdRun has the next run start, write a line and stay going until the
-// function it returns ends it as succeeded.
-function holdRun(): () => void {
+// function it returns ends it as succeeded, its end numbered write.
+function holdRun(write?: number): () => void {
   let end: () => void = () => {
     throw new Error('the run was not started')
   }
@@ -314,7 +314,7 @@ function holdRun(): () => void {
     return new Promise((resolve) => {
       end = () => {
         const run = ended(request, 'succeeded', 'The pre-commit hook passed.', ['lint ok'])
-        onEvent({ run })
+        onEvent({ run, write })
         resolve(run)
       }
     })
@@ -349,15 +349,21 @@ test('puts a refused stop away with the run it was for on Close', async () => {
 
 test('shows the run another page started over this page’s ended one, holding the runs', async () => {
   // Arrange
+  const end = holdRun(1)
   foldable()
   const user = userEvent.setup()
   render(<BranchPanel />)
   await runPreCommit(user)
+  await act(async () => {
+    end()
+    await Promise.resolve()
+  })
   await screen.findByText('The pre-commit hook passed.')
 
   // Act
   act(() => {
     foldable({
+      writes: 1,
       run: { kind: 'rebase', title: 'git rebase', state: 'in_progress', outcome: '', lines: [] },
     })
   })
@@ -470,4 +476,32 @@ test('fixes up nothing once the commit chosen is pushed from elsewhere', async (
   expect(within(look).getByRole<HTMLInputElement>('radio', { name: /feat: first/ }).checked).toBe(
     false,
   )
+})
+
+test('keeps this page’s ended run over a stale frame that still shows it going', async () => {
+  // Arrange
+  const end = holdRun(1)
+  foldable()
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+  await runPreCommit(user)
+  act(() => {
+    foldable({
+      run: { kind: 'hook', title: 'pre-commit', state: 'in_progress', outcome: '', lines: [] },
+    })
+    useSnapshotStore.setState({ status: 'stale' })
+  })
+
+  // Act
+  await act(async () => {
+    end()
+    await Promise.resolve()
+  })
+
+  // Assert
+  expect(await screen.findByText('The pre-commit hook passed.')).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Stop pre-commit' })).toBeNull()
+  expect(
+    screen.getByRole('button', { name: 'Rebase onto main' }).getAttribute('aria-disabled'),
+  ).not.toBe('true')
 })
