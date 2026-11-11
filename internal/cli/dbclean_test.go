@@ -162,8 +162,9 @@ func TestDBCleanAllWarnsAndRemovesBothWithYes(t *testing.T) {
 	}
 
 	if !strings.Contains(printed.Stderr, "WARN --all also removes kept.db") ||
-		!strings.Contains(printed.Stderr, "people and group associations will be asked again") {
-		t.Errorf("--all does not warn that associations are asked again:\n%s", printed.Stderr)
+		!strings.Contains(printed.Stderr, "people and group associations will be asked again") ||
+		!strings.Contains(printed.Stderr, "your favorites") {
+		t.Errorf("--all does not warn that associations are asked again and favorites go:\n%s", printed.Stderr)
 	}
 }
 

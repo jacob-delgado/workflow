@@ -43,8 +43,8 @@ const consequences = {
   cache:
     'The last scope, what was announced and the cached issue lists are made again as you work.',
   all:
-    "Whom each code owner is on Slack and each repository's groups go with it: " +
-    'people and group associations will be asked again.',
+    "Whom each code owner is on Slack, each repository's groups and your favorites go with it: " +
+    'people and group associations will be asked again, and favorites marked again.',
 }
 
 // mockLocalData is the mockup's store as it stands.

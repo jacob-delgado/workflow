@@ -31,13 +31,15 @@ func TestEachCleanSaysWhatGoesWithIt(t *testing.T) {
 	t.Parallel()
 
 	// Removing the cache loses only what a session makes again; removing
-	// everything loses what was decided, which is asked for again.
+	// everything loses what was decided, which is asked for again, and the
+	// favorites kept beside it.
 	cases := map[string]struct {
 		scope store.CleanScope
 		says  string
 	}{
-		"the cache":  {scope: store.CleanCache, says: "made again as you work"},
-		"everything": {scope: store.CleanAll, says: "will be asked again"},
+		"the cache":                 {scope: store.CleanCache, says: "made again as you work"},
+		"everything":                {scope: store.CleanAll, says: "will be asked again"},
+		"everything, favorites too": {scope: store.CleanAll, says: "your favorites"},
 	}
 
 	for name, tt := range cases {

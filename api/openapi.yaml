@@ -1321,9 +1321,10 @@ paths:
       description: >-
         Lists the directory the store keeps its files in and each database
         file there: the cache (workflow.db), which a session makes again, and
-        the kept file (kept.db), whom each code owner is on Slack and each
-        repository's groups. A file is read without being written, and one
-        that is not there is left out. Reading works under --dry-run.
+        the kept file (kept.db), whom each code owner is on Slack, each
+        repository's groups and your favorite directories. A file is read
+        without being written, and one that is not there is left out. Reading
+        works under --dry-run.
       tags: [local-data]
       responses:
         "200":
@@ -1340,13 +1341,14 @@ paths:
         default: {$ref: "#/components/responses/Problem"}
     delete:
       operationId: removeLocalData
-      summary: Remove the cache, or with scope all the kept associations too.
+      summary: Remove the cache, or with scope all the kept associations and favorites too.
       description: >-
         Removes the cache's database with its -wal and -shm companions, and
         with scope all the kept file's too, so people and group associations
-        are asked again. Every file is set aside before any is removed, so a
-        file that cannot be removed leaves the rest in place. Refused with 403
-        under --dry-run, by the guard every write passes.
+        are asked again and favorites are gone. Every file is set aside before
+        any is removed, so a file that cannot be removed leaves the rest in
+        place. Refused with 403 under --dry-run, by the guard every write
+        passes.
       tags: [local-data]
       parameters:
         - name: scope

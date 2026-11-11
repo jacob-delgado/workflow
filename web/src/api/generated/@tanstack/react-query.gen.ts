@@ -388,7 +388,7 @@ export const getLocalDataQueryKey = (options?: Options<GetLocalDataData>) => cre
 /**
  * The local databases workflow keeps, each with its size and what it holds.
  *
- * Lists the directory the store keeps its files in and each database file there: the cache (workflow.db), which a session makes again, and the kept file (kept.db), whom each code owner is on Slack and each repository's groups. A file is read without being written, and one that is not there is left out. Reading works under --dry-run.
+ * Lists the directory the store keeps its files in and each database file there: the cache (workflow.db), which a session makes again, and the kept file (kept.db), whom each code owner is on Slack, each repository's groups and your favorite directories. A file is read without being written, and one that is not there is left out. Reading works under --dry-run.
  */
 export const getLocalDataOptions = (options?: Options<GetLocalDataData>) => queryOptions<GetLocalDataResponse, GetLocalDataError, GetLocalDataResponse, ReturnType<typeof getLocalDataQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {

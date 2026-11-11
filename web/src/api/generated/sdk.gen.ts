@@ -472,9 +472,9 @@ export const setUp = <ThrowOnError extends boolean = false>(options: Options<Set
 });
 
 /**
- * Remove the cache, or with scope all the kept associations too.
+ * Remove the cache, or with scope all the kept associations and favorites too.
  *
- * Removes the cache's database with its -wal and -shm companions, and with scope all the kept file's too, so people and group associations are asked again. Every file is set aside before any is removed, so a file that cannot be removed leaves the rest in place. Refused with 403 under --dry-run, by the guard every write passes.
+ * Removes the cache's database with its -wal and -shm companions, and with scope all the kept file's too, so people and group associations are asked again and favorites are gone. Every file is set aside before any is removed, so a file that cannot be removed leaves the rest in place. Refused with 403 under --dry-run, by the guard every write passes.
  */
 export const removeLocalData = <ThrowOnError extends boolean = false>(options: Options<RemoveLocalDataData, ThrowOnError>): RequestResult<RemoveLocalDataResponses, RemoveLocalDataErrors, ThrowOnError> => (options.client ?? client).delete<RemoveLocalDataResponses, RemoveLocalDataErrors, ThrowOnError>({
     responseValidator: async (data) => await zRemoveLocalDataResponse.parseAsync(data),
@@ -486,7 +486,7 @@ export const removeLocalData = <ThrowOnError extends boolean = false>(options: O
 /**
  * The local databases workflow keeps, each with its size and what it holds.
  *
- * Lists the directory the store keeps its files in and each database file there: the cache (workflow.db), which a session makes again, and the kept file (kept.db), whom each code owner is on Slack and each repository's groups. A file is read without being written, and one that is not there is left out. Reading works under --dry-run.
+ * Lists the directory the store keeps its files in and each database file there: the cache (workflow.db), which a session makes again, and the kept file (kept.db), whom each code owner is on Slack, each repository's groups and your favorite directories. A file is read without being written, and one that is not there is left out. Reading works under --dry-run.
  */
 export const getLocalData = <ThrowOnError extends boolean = false>(options?: Options<GetLocalDataData, ThrowOnError>): RequestResult<GetLocalDataResponses, GetLocalDataErrors, ThrowOnError> => (options?.client ?? client).get<GetLocalDataResponses, GetLocalDataErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetLocalDataResponse.parseAsync(data),

@@ -82,6 +82,18 @@ test('lists the directory and each file with its kind, size and what it holds', 
   ])
 })
 
+test('says the kept file holds your favorites too', async () => {
+  // Arrange
+  storeHolding([cache, kept])
+
+  // Act
+  renderWithClient(<LocalData />)
+
+  // Assert
+  const area = (await screen.findByRole('heading', { name: 'Local data' })).closest('section')
+  expect(area?.textContent).toMatch(/people and group associations you decided, and your favorites/)
+})
+
 test('says when there is no local data', async () => {
   // Arrange
   storeHolding([])
