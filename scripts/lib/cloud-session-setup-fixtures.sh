@@ -117,16 +117,21 @@ digest_of() {
   printf '%s' "${digest%% *}"
 }
 
+printf '[tools]\n%s\n' "${pins}" >"${workdir}/mise.toml"
 printf '%s\n' "${requirements}" >"${workdir}/requirements.txt"
 printf '%s\n' "${package_lock}" >"${workdir}/package-lock.json"
+cat "${workdir}/mise.toml" "${workdir}/requirements.txt" "${workdir}/package-lock.json" >"${workdir}/pin-files"
 requirements_digest="$(digest_of "${workdir}/requirements.txt")"
 lock_digest="$(digest_of "${workdir}/package-lock.json")"
-readonly requirements_digest lock_digest
+pins_digest="$(digest_of "${workdir}/pin-files")"
+readonly requirements_digest lock_digest pins_digest
 
 # Every stamp a finished setup holds at those pins. A Go tool's names the Go it
 # was built with, yamllint's its requirements file, and markdownlint's its lock
-# and the node it was installed under.
-readonly stamps="go@1.27.2 node@24.21.0 shellcheck@0.11.0 jq@1.8.2 lefthook@2.2.1
+# and the node it was installed under; the toolchain's own, which the gate
+# reads, names mise.toml, the requirements file and the lock, read in that
+# order.
+readonly stamps="pins@${pins_digest} go@1.27.2 node@24.21.0 shellcheck@0.11.0 jq@1.8.2 lefthook@2.2.1
 typos@1.51.1 hadolint@2.15.1 taplo@0.10.0 zizmor@1.30.1 yamllint@${requirements_digest}
 task@3.54.0+go1.27.2 golangci-lint@2.14.0+go1.27.2 shfmt@3.14.1+go1.27.2
 actionlint@1.7.12+go1.27.2 govulncheck@1.9.0+go1.27.2 gitleaks@8.30.1+go1.27.2

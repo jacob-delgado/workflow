@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
 # Tests for scripts/gate-as-dev.sh. As root it refuses a path that is no
-# worktree, or a worktree with no commit, waits for any gate run already going,
+# worktree, or a worktree with no commit, or a commit whose pin files are not
+# the ones the toolchain was set up from, waits for any gate run already going,
 # root's half or a gate user's half that outlived it, checks the disk has room
 # for a race-and-coverage build, clearing the gate user's Go build cache with
 # the pinned Go alone when it is short and stopping when that is not enough,
@@ -143,6 +144,25 @@ unset RUNUSER_STATUS
 export MISSING_USER=dev
 expect_output 2 "no gate user" "no user dev" as_root "${source_repo}" lint
 unset MISSING_USER
+
+# A commit whose pins are not the ones the toolchain was set up from, as a
+# lane's that bumps a tool, or one that no longer has a pin file.
+repinned="${workdir}/repinned"
+repo "${repinned}"
+printf 'node = "24.22.0"\n' >>"${repinned}/mise.toml"
+git -C "${repinned}" -c user.email=t@example.com -c user.name=t commit -q -am repin
+expect_output 2 "a toolchain set up from other pins" "run setup for this worktree" as_root "${repinned}" lint
+count_case
+if grep -q -- "--as-gate-user" "${log}"; then
+  fail_case "a toolchain set up from other pins" "the gate ran anyway"
+fi
+count_case
+if grep -q "after the run" "${case_output}"; then
+  fail_case "a toolchain set up from other pins" "it reported the disk after a run that never started"
+fi
+git -C "${repinned}" rm -q build/yamllint/requirements.txt
+git -C "${repinned}" -c user.email=t@example.com -c user.name=t commit -q -m unpin
+expect_output 2 "a commit with a pin file missing" "run setup for this worktree" as_root "${repinned}" lint
 
 exec {lock}>"${workdir}/gate.lock"
 flock "${lock}"
