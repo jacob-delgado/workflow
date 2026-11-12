@@ -460,7 +460,9 @@ func (msg taskSwitched) apply(m Model) (Model, tea.Cmd) {
 		m.followUp = m.offerStart(m.issues.listedIssue(jira.Key(issueKey.Key)))
 	}
 
-	return m, tea.Batch(loadBranch(m.session, m.deps), loadChanges(m.session, m.deps))
+	m, status := m.readingChanges()
+
+	return m, tea.Batch(loadBranch(m.session, m.deps), status)
 }
 
 // failed is the switcher kept open with the reason it could not switch.

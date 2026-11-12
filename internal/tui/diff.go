@@ -171,5 +171,5 @@ func (msg discarded) apply(m Model) (Model, tea.Cmd) {
 		m = m.noticed(m.marks.done + " discarded " + sanitize.Line(msg.path))
 	}
 
-	return m, loadChanges(m.session, m.deps)
+	return m.readingChanges()
 }

@@ -78,6 +78,10 @@ type Model struct {
 	// begun, so a further page of the list as it stood before one reaches
 	// nothing.
 	issueSearches int
+	// changesReads counts the reads of the work tree's status begun, so the
+	// answer to one a later read superseded is dropped rather than shown over
+	// the later one's.
+	changesReads int
 	// overlaysOpened counts the overlays opened whose reads answer later — the
 	// announcement preview, People and groups, the pull request composer — so
 	// an answer lands only in the one it was started for, never in a later
@@ -223,7 +227,7 @@ func keysFrom(input io.Reader) []tea.ProgramOption {
 func (m Model) Init() tea.Cmd {
 	loads := []tea.Cmd{
 		m.searchIssues(), listIssueBranches(m.session, m.cfg, m.deps), loadBranch(m.session, m.deps),
-		loadChanges(m.session, m.deps), findHooks(m.session, m.deps),
+		loadChanges(m.session, m.deps, m.changesReads), findHooks(m.session, m.deps),
 		loadReviewQueue(m.session, m.deps), loadAnnounces(m.session, m.deps), m.tasks.load(m.session, m.deps),
 	}
 

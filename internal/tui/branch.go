@@ -293,8 +293,9 @@ func branchBehavior() behavior {
 		refresh: func(m Model) (Model, tea.Cmd) {
 			read := loadBranch(m.session, m.deps)
 			m.branch.loading = read != nil
+			m, status := m.readingChanges()
 
-			return m, tea.Batch(read, loadChanges(m.session, m.deps))
+			return m, tea.Batch(read, status)
 		},
 		loading: func(m Model) bool { return m.branch.loading },
 		scroll:  func(m *Model) *int { return &m.branch.scroll }, readsBranch: true,
