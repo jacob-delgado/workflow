@@ -129,8 +129,10 @@ func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
 	m, armed, readHold := m.armOnOpen(msg.pull)
 	m = m.noticed(notice + armed)
 
-	m, readCI := m.checkCI()
-	cmds := tea.Batch(readCI, m.messaging.loadAuthor(m.session, m.deps), readHold)
+	// A Review refresh begun before it opened answers for the review it
+	// replaced, so only this one's CI read ends it; with none to read, it ends
+	// here.
+	m, cmds := m.checkingCI(tea.Batch(m.messaging.loadAuthor(m.session, m.deps), readHold))
 
 	// With a Jira issue, offer to link the pull request on it — so the team that
 	// watches Jira learns of it — and then to move it to the review status. When
