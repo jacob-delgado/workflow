@@ -64,6 +64,9 @@ type Model struct {
 	// replaced ends its chain rather than polling beside the new one's. It lives
 	// here, not in reviewState, where each new review's literal would reset it.
 	reviewsBegun int
+	// ciReads counts the reads of CI begun, so the answer to one a later read
+	// superseded is dropped rather than shown over the later one's.
+	ciReads int
 	// refreshed is when each pane last began loading, so switching to one
 	// loaded moments ago does not spend the tracker's or the forge's requests
 	// loading it again.

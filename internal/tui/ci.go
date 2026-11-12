@@ -20,7 +20,7 @@ const ciCheckedFormat = "15:04"
 // checkingCI asks how CI stands, with then; with no CI to read, a Review
 // refresh waits on nothing more.
 func (m Model) checkingCI(then tea.Cmd) (Model, tea.Cmd) {
-	check := m.checkCI()
+	m, check := m.checkCI()
 	if check == nil {
 		m.review.loading = false
 	}
@@ -28,23 +28,28 @@ func (m Model) checkingCI(then tea.Cmd) (Model, tea.Cmd) {
 	return m, tea.Batch(check, then)
 }
 
-// checkCI is the command that asks how CI stands on the pull request.
-func (m Model) checkCI() tea.Cmd {
+// checkCI counts a read of CI begun, and is the command that asks how CI
+// stands on the pull request.
+func (m Model) checkCI() (Model, tea.Cmd) {
 	ctx, check, pull, head := m.session, m.deps.Forge.CheckStatus, m.review.pull, m.branch.branch.Head
 	if check == nil || !m.review.found || pull.State != forge.StateOpen {
-		return nil
+		return m, nil
 	}
 
-	return func() tea.Msg {
+	m.ciReads++
+	read := m.ciReads
+
+	return m, func() tea.Msg {
 		ci, err := check(ctx, pull, head)
 
-		return ciChecked{number: pull.Number, ci: ci, err: err}
+		return ciChecked{number: pull.Number, read: read, ci: ci, err: err}
 	}
 }
 
-// ciChecked carries how CI stands.
+// ciChecked carries how CI stands, as the read counted read found it.
 type ciChecked struct {
 	number int
+	read   int
 	ci     forge.CI
 	err    error
 }
@@ -55,9 +60,11 @@ var _ applier = ciChecked{}
 // asking while it runs. A read that failed lists no check, which may have
 // moved on since, but keeps how CI last stood, so the read that answers next
 // rings for a change from it; the pane does not ask again after a failed read,
-// leaving a post that waits to the shared hold's own reads.
+// leaving a post that waits to the shared hold's own reads. A read a later one
+// has superseded says nothing: its answer may land after the later one's, and
+// would show CI as it stood before.
 func (msg ciChecked) apply(m Model) (Model, tea.Cmd) {
-	if !m.review.found || msg.number != m.review.pull.Number {
+	if !m.review.found || msg.number != m.review.pull.Number || msg.read != m.ciReads {
 		return m, nil
 	}
 
@@ -145,7 +152,7 @@ func (msg ciPoll) apply(m Model) (Model, tea.Cmd) {
 
 	m.review.polling = false
 
-	return m, m.checkCI()
+	return m.checkCI()
 }
 
 // ciGlyph is how the branch's CI stands, by shape.
