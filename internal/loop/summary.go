@@ -71,6 +71,9 @@ func CommitsRead(
 		}
 	}
 
+	// Trade-off TRADE-63: one repository that cannot be read marks the whole
+	// source failed, or not set up, beside the others' commits; a source has
+	// one outcome, and no partial one.
 	return unanswered(activity.Read{Source: activity.SourceGit, Items: items}, repositoryErrors(failures))
 }
 
