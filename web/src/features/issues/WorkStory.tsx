@@ -190,7 +190,7 @@ function onHeadDetail(stage: SnapshotStage, snapshot: Snapshot, words: ForgeWord
     case 'branch':
       return branch.name === ''
         ? ['Not on a branch yet']
-        : [<BranchName key="branch" name={branch.name} />, `${String(branch.ahead)} ahead`]
+        : [<BranchName key="branch" name={branch.name} />, aheadDetail(branch)]
     case 'commits':
       return [changesDetail(snapshot)]
     case 'review':
@@ -198,6 +198,14 @@ function onHeadDetail(stage: SnapshotStage, snapshot: Snapshot, words: ForgeWord
     case 'announce':
       return [stage.state === 'done' ? 'Announced' : announceDetail(snapshot.messaging)]
   }
+}
+
+// aheadDetail is how far the branch is ahead of its upstream, or that git
+// could not count it against that upstream at all.
+function aheadDetail(branch: Snapshot['branch']): string {
+  return branch.uncounted
+    ? `not counted against ${branch.upstream}`
+    : `${String(branch.ahead)} ahead`
 }
 
 // announceDetail describes the Announce stage not yet done: not announced, to
