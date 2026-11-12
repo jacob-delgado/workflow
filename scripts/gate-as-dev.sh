@@ -24,6 +24,11 @@
 # run off its checkout. scripts/cloud-session-setup.sh waits for both before it
 # changes the toolchain.
 #
+# The toolchain is one, installed from the pins of whichever checkout ran the
+# setup last, so before a run the gate checks the commit's pins are the ones
+# it was installed from: the setup stamps the toolchain with the SHA-256 of
+# its checkout's pin files, which pins_digest reads from the commit.
+#
 # The gate user gets an environment of named variables alone, so none of
 # root's credentials reach the code under test, and not the descriptors the
 # locks are held on, so nothing it leaves running holds a lock past the run.
@@ -44,8 +49,9 @@
 # (trust the repository, clone it, or fetch, check out or clean the commit);
 # 1 when the disk has no room or another run holds the lock too long; and 2
 # when no worktree is named or the path named is none or has no commit, the
-# gate user does not exist or cannot find task, or `task check` has a step that
-# is not a task of its own.
+# gate user does not exist or cannot find task, the toolchain was not set up
+# from the commit's pins, or `task check` has a step that is not a task of its
+# own.
 set -euo pipefail
 
 readonly gate_user="${GATE_USER:-dev}"
@@ -56,6 +62,9 @@ readonly run_lock_file="${GATE_RUN_LOCK:-/tmp/gate-as-dev-run.lock}"
 readonly lock_wait="${GATE_LOCK_WAIT:-3600}"
 readonly base="${GATE_BASE:-origin/main}"
 readonly need_gb=10 floor_gb=8 step_need_gb=3 step_floor_gb=2
+# The files that pin the toolchain, in the order scripts/cloud-session-setup.sh
+# digests them for its stamp.
+readonly pin_files=(mise.toml build/yamllint/requirements.txt build/markdownlint/package-lock.json)
 
 # The variables the gate user's environment is built from, when root has them:
 # the PATH that reaches the toolchain, the locale and terminal, the proxy the
@@ -112,6 +121,28 @@ take_lock() {
   wait_for "${run_lock}" "${run_lock_file}"
 }
 
+# pins_digest prints the SHA-256 of the pin files as a commit holds them; one
+# the commit lacks reads as empty, which no setup stamps, since a setup stops
+# on a missing pin file.
+#   pins_digest <worktree> <sha>
+pins_digest() {
+  local file digest
+  digest="$(for file in "${pin_files[@]}"; do git -C "$1" show "$2:${file}" 2>/dev/null || true; done | sha256sum)"
+  printf '%s' "${digest%% *}"
+}
+
+# check_pins stops the run when the toolchain was not set up from the commit's
+# pins: a run would judge the commit with tools it does not pin.
+#   check_pins <worktree> <sha>
+check_pins() {
+  local digest
+  digest="$(pins_digest "$1" "$2")"
+  [[ -e "${tools}/stamps/pins@${digest}" ]] && return 0
+  echo "gate-as-dev: the toolchain in ${tools} was not set up from the pins ${2:0:8} holds;" \
+    "run setup for this worktree: bash $1/scripts/cloud-session-setup.sh" >&2
+  exit 2
+}
+
 # docs_only_tasks prints check:docs when the worktree changes the docs alone
 # since the base, and nothing otherwise, so a change it cannot classify gets
 # the whole of check. It asks scripts/docs-only.sh as the base holds it, as CI
@@ -157,6 +188,7 @@ hand_over() {
     echo "gate-as-dev: ${src} has uncommitted changes; the gate checks HEAD (${sha:0:8}) only" >&2
   fi
   take_lock
+  check_pins "${src}" "${sha}"
   make_room
   trap 'echo "gate-as-dev: $(free_gb) GB free on / after the run"' EXIT
   # A detached HEAD is no ref the gate user can fetch, so name the commit.

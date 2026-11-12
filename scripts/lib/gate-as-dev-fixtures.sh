@@ -3,8 +3,8 @@
 #
 # The fixtures gate-as-dev.sh's tests share: stand-ins for df, runuser, curl,
 # task, go and id that record what they were asked, a repository with one
-# commit, the free space each df call reports, and the gate run as root and as
-# the gate user. gate-as-dev_test.sh tests the run itself, and
+# commit and the toolchain stamped as set up from its pins, the free space each
+# df call reports, and the gate run as root and as the gate user. gate-as-dev_test.sh tests the run itself, and
 # gate-as-dev_docs_test.sh which tasks a run is handed for a docs-only change.
 #
 # Sourced, never run, after lib/testing.sh, which sets ${workdir}; gate is the
@@ -64,15 +64,35 @@ stub id '[[ "$*" == "${MISSING_USER:-}" ]] && exit 1
 [[ "$*" == "-un" ]] && echo dev
 exit 0'
 
-# repo makes a repository with one commit, which ignores what the real one's
-# .gitignore does that a run keeps or clears, and prints nothing.
+# The files that pin the toolchain, in the order whose digest names the pins
+# stamp setup leaves.
+readonly pin_files=(mise.toml build/yamllint/requirements.txt build/markdownlint/package-lock.json)
+
+# set_up_for stamps the toolchain as installed from a checkout's pins, as a
+# setup run from it leaves it.
+#   set_up_for <dir>
+set_up_for() {
+  local digest
+  digest="$(cd "$1" && cat "${pin_files[@]}" | sha256sum)"
+  mkdir -p "${workdir}/tools/stamps"
+  : >"${workdir}/tools/stamps/pins@${digest%% *}"
+}
+
+# repo makes a repository with one commit, holding the pin files, which
+# ignores what the real one's .gitignore does that a run keeps or clears, and
+# stamps the toolchain as installed from its pins. It prints nothing.
 #   repo <dir>
 repo() {
   git init -q "$1"
+  mkdir -p "$1/build/yamllint" "$1/build/markdownlint"
   printf 'one\n' >"$1/file"
   printf 'coverage.out\nweb/node_modules\ntmp/\n' >"$1/.gitignore"
-  git -C "$1" add file .gitignore
+  printf '[tools]\ngo = "1.27.2"\n' >"$1/mise.toml"
+  printf 'yamllint==1.38.0\n' >"$1/build/yamllint/requirements.txt"
+  printf '{"lockfileVersion": 3}\n' >"$1/build/markdownlint/package-lock.json"
+  git -C "$1" add -A
   git -C "$1" -c user.email=t@example.com -c user.name=t commit -q -m one
+  set_up_for "$1"
 }
 
 # disk queues the free space each df call in a case reports, in GB.

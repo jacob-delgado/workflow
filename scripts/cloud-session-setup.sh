@@ -36,7 +36,11 @@
 # and for a Go tool the Go that built it and for markdownlint-cli2 the node it
 # runs under, so a bump of either rebuilds what depends on it; a tool whose
 # stamp is in place is left alone, and a run with nothing to install takes a
-# moment. The links go into ~/.local/bin, which is on the session's PATH
+# moment. Once every tool is in, the toolchain is stamped with the SHA-256 of
+# mise.toml and the two pin files, the pins it was set up from, and
+# scripts/gate-as-dev.sh refuses a commit whose pins are other: there is one
+# toolchain, set up from whichever checkout ran this last, not one for each set
+# of pins. The links go into ~/.local/bin, which is on the session's PATH
 # already: the shell the session runs commands in does not read ~/.bashrc.
 # Every run copies scripts/gate-as-dev.sh into the prefix beside the tools, so
 # the gate on PATH is root's own and outlives the checkout that ran the setup.
@@ -89,19 +93,22 @@ pin() {
   printf '%s' "${value}"
 }
 
-# pin_digest prints the SHA-256 of a pin file under build/, or stops the setup.
-# sha256sum is GNU's; stock macOS has only shasum.
-#   pin_digest <file>
+# pin_digest prints the SHA-256 of pin files read one after another, or stops
+# the setup when one is missing. sha256sum is GNU's; stock macOS has only
+# shasum.
+#   pin_digest <file>...
 pin_digest() {
-  local digest
-  if [[ ! -f "$1" ]]; then
-    echo "cloud-session-setup: no pin file ${1#"${repo}/"}" >&2
-    exit 2
-  fi
+  local file digest
+  for file in "$@"; do
+    if [[ ! -f "${file}" ]]; then
+      echo "cloud-session-setup: no pin file ${file#"${repo}/"}" >&2
+      exit 2
+    fi
+  done
   if command -v sha256sum >/dev/null; then
-    digest="$(sha256sum "$1")"
+    digest="$(cat "$@" | sha256sum)"
   else
-    digest="$(shasum -a 256 "$1")"
+    digest="$(cat "$@" | shasum -a 256)"
   fi
   printf '%s' "${digest%% *}"
 }
@@ -136,6 +143,9 @@ yamllint_pins="$(pin_digest "${requirements}")"
 # substitution, so that one missing stops the setup with 2 too.
 markdownlint_pins="$(pin_digest "${npm_pins}/package-lock.json")"
 pin_digest "${npm_pins}/package.json" >/dev/null
+# The toolchain's own stamp: scripts/gate-as-dev.sh reads the same three files,
+# in this order, from the commit it gates.
+toolchain_pins="$(pin_digest "${repo}/mise.toml" "${requirements}" "${npm_pins}/package-lock.json")"
 
 mkdir -p "${prefix}/bin" "${prefix}/stamps" "${link_dir}"
 exec {lock}>"${prefix}/.setup.lock"
@@ -205,7 +215,8 @@ hold_gate() {
 }
 
 # ensure runs an installer unless the tool's stamp for this version is in
-# place. Before installing it drops the tool's other stamps, and it writes
+# place. Before installing it drops the tool's other stamps and the
+# toolchain's pins stamp, which no pins name while it changes, and it writes
 # this one only once the installer has succeeded, so a failed install is
 # retried on the next run. The installer runs as a plain command, so set -e
 # stops the setup at the first step that fails.
@@ -217,7 +228,7 @@ ensure() {
   hold_gate
   installing="$1 $2"
   shift 2
-  rm -f "${prefix}/stamps/${tool}@"*
+  rm -f "${prefix}/stamps/${tool}@"* "${prefix}/stamps/pins@"*
   "$@"
   : >"${stamp}"
   installing=""
@@ -366,6 +377,17 @@ link_tools() {
   done
 }
 
+# stamp_pins stamps the toolchain with the digest of the pin files it was set
+# up from, which the gate checks a commit's against, and removes the stamp of
+# any other: there is one toolchain, whichever checkout set it up last.
+stamp_pins() {
+  local stamp="${prefix}/stamps/pins@${toolchain_pins}" other
+  : >"${stamp}"
+  for other in "${prefix}/stamps/pins@"*; do
+    if [[ "${other}" != "${stamp}" ]]; then rm -f "${other}"; fi
+  done
+}
+
 readonly built_by="go${go_version}"
 ensure go "${go_version}" install_go
 ensure node "${node_version}" install_node
@@ -392,6 +414,7 @@ ensure markdownlint-cli2 "${markdownlint_pins}+node${node_version}" install_mark
 install -m 0755 "${repo}/scripts/gate-as-dev.sh" "${prefix}/bin/gate-as-dev"
 chmod -R a+rX "${prefix}"
 link_tools
+stamp_pins
 
 if ! id "${gate_user}" >/dev/null 2>&1; then
   useradd --create-home --shell /bin/bash "${gate_user}" || {
