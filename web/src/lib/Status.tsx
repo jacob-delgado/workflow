@@ -117,18 +117,44 @@ export function Reading({ children }: { children: ReactNode }) {
 // again what was never read clears the error its last read met, and makes the
 // read pending once more, so the last refusal is kept and shown until the
 // read answers: the busy Try again beside it keeps its place, and the focus
-// it was pressed with, rather than giving way to "Reading…". read names what
-// is read, where one control reads one thing and then another — a period —
-// so a refusal is kept only for the read that met it.
+// it was pressed with, rather than giving way to "Reading…". Once the read
+// answers, its refusal is let go, so a read made afresh later — a directory
+// switch resets every read — says it reads rather than bring back a refusal
+// already got past. read names what is read, where one control reads one
+// thing and then another — a period — so a refusal is kept only for the read
+// that met it.
 export function useShownRefusal<Refusal>(
   error: Refusal | null,
   isPending: boolean,
   read = '',
 ): Refusal | null {
-  const [kept, setKept] = useState<{ read: string; refusal: Refusal } | null>(null)
-  if (error !== null && (kept?.refusal !== error || kept.read !== read)) {
-    setKept({ read, refusal: error })
+  const [kept, setKept] = useState<Kept<Refusal> | null>(null)
+  const keeping = keptAfter(kept, error, isPending, read)
+  if (keeping !== kept) {
+    setKept(keeping)
   }
 
-  return error ?? (isPending && kept?.read === read ? kept.refusal : null)
+  return error ?? (isPending && keeping?.read === read ? keeping.refusal : null)
+}
+
+// Kept is a refusal kept, with the read that met it.
+interface Kept<Refusal> {
+  read: string
+  refusal: Refusal
+}
+
+// keptAfter is what useShownRefusal keeps once a read stands as it does now:
+// the refusal it just met, the one kept while it reads again, and none once
+// it has answered.
+function keptAfter<Refusal>(
+  kept: Kept<Refusal> | null,
+  error: Refusal | null,
+  isPending: boolean,
+  read: string,
+): Kept<Refusal> | null {
+  if (error !== null) {
+    return kept?.refusal === error && kept.read === read ? kept : { read, refusal: error }
+  }
+
+  return isPending ? kept : null
 }
