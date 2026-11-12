@@ -223,6 +223,50 @@ func TestAProgramSilentPastTheGraceBeforeItExitsKeepsItsOutput(t *testing.T) {
 	}
 }
 
+// linesAfterTheStop is how many lines a process left behind writes once its
+// run is stopped: fewer than a run holds, so the reader has room for each.
+const linesAfterTheStop = 32
+
+// A stop ends what a run delivers: a line its output carries once the run is
+// stopped is dropped though the reader has room for it, so which lines arrive
+// after a stop never turns on chance.
+func TestALineWrittenOnceTheRunIsStoppedIsNeverDelivered(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The helper leaves behind, in a process group of its own that the stop
+	// does not kill, a process holding the output that writes once cued, and
+	// prints its pid once that process has started.
+	dir := t.TempDir()
+	cue := filepath.Join(dir, "cue")
+
+	output, err := proc.Start(t.Context(), child(dir, "escaping", helperCue+"="+cue,
+		helperCuedLines+"="+strconv.Itoa(linesAfterTheStop), helperPIDFile+"="+killedAtCleanup(t)))
+	if err != nil {
+		t.Fatalf("Start returned %v, want nil", err)
+	}
+
+	if _, open := <-output.Lines; !open {
+		t.Fatal("Lines closed before the helper said its writer had started")
+	}
+
+	// Act
+	output.Stop()
+
+	err = os.WriteFile(cue, nil, 0o600)
+	if err != nil {
+		t.Fatalf("cueing the process left behind: %v", err)
+	}
+
+	lines, err := collect(t, output)
+
+	// Assert
+	if delivered := slices.Index(lines, cuedLine); delivered >= 0 {
+		t.Errorf("a stopped run delivered %d lines written after the stop, %q, and ended with %v; want none",
+			len(lines)-delivered, lines[delivered:], err)
+	}
+}
+
 // linesInTheGrace bounds how many lines a process left behind gets through the
 // two-second grace start.go's outputGrace gives, writing one every quarter
 // second from once the program is reaped: seven, eight at most, since a write

@@ -4,6 +4,7 @@
 package proc_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -18,6 +19,7 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/proc"
+	"github.com/jacob-delgado/workflow/internal/proc/pgroup"
 )
 
 // helperParent names, to a helper left behind, the pid of the helper that
@@ -96,6 +98,8 @@ func actAroundTheExit(mode string) {
 		leaveACuedWriter()
 	case "cued":
 		writeOnceCued()
+	case "escaping":
+		leaveACuedWriterOutsideTheGroup()
 	}
 }
 
@@ -174,6 +178,29 @@ func leaveACuedWriter() {
 	cued.Stdout, cued.Stderr = os.Stdout, os.Stderr
 
 	complain("starting the cued writer", cued.Start())
+}
+
+// leaveACuedWriterOutsideTheGroup leaves behind, in a process group of its
+// own that a run's stop does not kill, a copy of this binary holding standard
+// output, which writes once cued, notes and prints its pid, and waits to be
+// killed with its run.
+func leaveACuedWriterOutsideTheGroup() {
+	cued := exec.CommandContext(context.Background(), os.Args[0], "-test.run=^$")
+
+	cued.Env = append(os.Environ(), helperMode+"=cued")
+	cued.Stdout, cued.Stderr = os.Stdout, os.Stderr
+	pgroup.Isolate(cued)
+
+	err := cued.Start()
+	if err != nil {
+		complain("starting the cued writer", err)
+
+		return
+	}
+
+	notePID(cued.Process.Pid)
+	fmt.Fprintln(os.Stdout, cued.Process.Pid)
+	time.Sleep(time.Minute)
 }
 
 // writeOnceCued writes cuedLine once cued, as many times as helperCuedLines
