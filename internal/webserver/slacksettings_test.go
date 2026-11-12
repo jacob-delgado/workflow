@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -274,4 +275,56 @@ func TestAFrameGoesOutWhileSlackTakesItsTimeOverASave(t *testing.T) {
 	close(held.Release)
 	<-saved
 	<-framed
+}
+
+func TestASaveTakesUpNoneOfItsOwnOverAnEditReadWhileSlackAnswered(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// While Slack answers a save, the file is edited by hand after the save
+	// wrote it, and a page reads that edit; the page's save over it is made
+	// over the configuration in effect.
+	held := webtest.NewHeld()
+	cfg := keychainKept(t)
+
+	var first atomic.Bool
+
+	placing := func(ctx context.Context, _ config.Config) error {
+		if first.CompareAndSwap(false, true) {
+			return held.Wait(ctx)
+		}
+
+		return nil
+	}
+	handler := webtest.ServeWith(t, webserver.Deps{PlaceSlackCredentials: placing}, cfg,
+		webserver.Info{Version: webtest.TestVersion})
+	body, etag := webtest.Marshal(t, typingRefresh(cfg)), webtest.Get(t, handler, "/api/config").Header().Get("ETag")
+	saved := make(chan struct{})
+
+	go func() {
+		defer close(saved)
+
+		webtest.PutConfigOver(t, handler, body, etag)
+	}()
+
+	<-held.Entered
+
+	written, err := os.ReadFile(cfg.Path)
+	if err != nil {
+		t.Fatalf("reading what the save wrote: %v", err)
+	}
+
+	webtest.Rewrite(t, cfg.Path, string(written)+"\n")
+	edited := webtest.Get(t, handler, "/api/config").Header().Get("ETag")
+
+	close(held.Release)
+	<-saved
+
+	// Act
+	again := webtest.PutConfigOver(t, handler, body, edited)
+
+	// Assert
+	if again.Code != http.StatusOK {
+		t.Errorf("the save over the edit read answered %d: %s; want 200", again.Code, again.Body.String())
+	}
 }
