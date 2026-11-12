@@ -1,4 +1,4 @@
-import { renderHook, screen } from '@testing-library/react'
+import { act, renderHook, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import App from '@/App.tsx'
@@ -129,3 +129,24 @@ test.each([
     expect({ beforePaint, onceLoaded }).toEqual({ beforePaint: theme, onceLoaded: theme })
   },
 )
+
+test('a choice made in another tab is followed here', () => {
+  // Arrange
+  renderWithClient(<App />)
+
+  // Act
+  act(() => {
+    localStorage.setItem(themeStorageKey, 'dark')
+    window.dispatchEvent(
+      new StorageEvent('storage', {
+        key: themeStorageKey,
+        newValue: 'dark',
+        storageArea: localStorage,
+      }),
+    )
+  })
+
+  // Assert
+  expect(screen.getByRole('button', { name: /theme: dark/i })).toBeTruthy()
+  expect(document.documentElement.dataset.theme).toBe('dark')
+})
