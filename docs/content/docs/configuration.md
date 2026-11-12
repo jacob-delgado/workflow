@@ -438,9 +438,12 @@ one, which every directory reads, so a login run inside a repository with a
 file of its own works from every other directory too. Where the keychain keeps
 the secrets, the client ID goes in your home directory's file all the same,
 just before the keychain keeps them, and comes out again if the keychain
-refuses. Secrets with no client ID beside them are a login that did not
-finish: `workflow doctor` names `messaging.client_id`, and a post says to run
-`workflow slack login` again.
+refuses. A repository whose own file names another app's
+`messaging.client_id` would override the one the login names there, so the
+login refuses before it refreshes anything and names that file. Secrets with
+no client ID beside them are a login that did not finish: `workflow doctor`
+names `messaging.client_id`, and a post says to run `workflow slack login`
+again.
 
 Every post asks for the token anew and refreshes it when it has less than ten
 minutes left, and once more if Slack still calls it expired. Two workflows

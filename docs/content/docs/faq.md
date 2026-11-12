@@ -652,12 +652,14 @@ yet? See [I have an app configuration
 token](#i-have-an-app-configuration-token-from-your-app-configuration-tokens-can-workflow-use-it)
 for the manifest route. The refresh token (`xoxe-1-…`) appears under **OAuth &
 Permissions** once the app is installed with token rotation on. workflow
-refreshes the token once to check what you typed, keeps the new pair, writes
-`messaging.client_id` to the file, and prints `Logged in to Slack as <you> in
-<workspace>. The token is kept in … and refreshed before it expires.` It needs a
-terminal, and it needs a `.workflow.json` to exist first
-(`workflow config init`). See [Configuration: Slack: a user token or a
-webhook]({{< relref "/docs/configuration#slack-a-user-token-or-a-webhook" >}}).
+refreshes the token once to check what you typed, keeps the new pair with
+`messaging.client_id` beside it, in the file that holds the secrets or else
+your home directory's, and prints `Logged in to Slack as <you> in <workspace>.
+The token is kept in … and refreshed before it expires.` It needs a terminal,
+and it needs a `.workflow.json` to exist first (`workflow config init`). See
+[Configuration: Slack: a user token or a
+webhook]({{< relref "/docs/configuration#slack-a-user-token-or-a-webhook" >}}),
+which says where each piece is kept.
 
 ### I have an app configuration token (from "Your App Configuration Tokens"). Can workflow use it?
 
