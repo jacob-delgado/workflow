@@ -296,20 +296,23 @@ type lineSender struct {
 	abandoned chan struct{}
 }
 
-// send hands a line on unless the output is abandoned, or ctx is done while
-// it waits for a reader, so the program is never left writing to a pipe
-// nobody empties. A line read once the output was abandoned is dropped: the
-// line a program began and never ended is one, finished by the read the run
-// gave up on as it fails. The output is never abandoned while a send waits,
-// since the grace that abandons it counts only while the run waits on the
-// pipe; and Lines closes only once the output is abandoned or deliver is done
-// with it, so a send never meets it closed.
+// send hands a line on unless the output is abandoned or ctx is done, before
+// or while it waits for a reader, so the program is never left writing to a
+// pipe nobody empties, and no line read once the run is stopped arrives,
+// whether or not the reader has room for it. A line read once the output was
+// abandoned is dropped: the line a program began and never ended is one,
+// finished by the read the run gave up on as it fails. The output is never
+// abandoned while a send waits, since the grace that abandons it counts only
+// while the run waits on the pipe; and Lines closes only once the output is
+// abandoned or deliver is done with it, so a send never meets it closed.
 func (s *lineSender) send(ctx context.Context, line string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	select {
 	case <-s.abandoned:
+		return
+	case <-ctx.Done():
 		return
 	default:
 	}
