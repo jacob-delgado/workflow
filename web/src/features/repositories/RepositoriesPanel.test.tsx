@@ -1,11 +1,11 @@
-import { screen, within } from '@testing-library/react'
+import { act, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { DirectoryListing, Repositories } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { mockDirectories, mockRepositories } from '@/dev/mockRepositories.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
 import { fakeApi, keptBeside, refusedThenHeld, tryAgainShown } from '@/test/fakeApi.ts'
-import { renderWithClient } from '@/test/renderWithClient.tsx'
+import { appQueryClient, renderWithClient } from '@/test/renderWithClient.tsx'
 import { RepositoriesPanel } from './RepositoriesPanel.tsx'
 
 // serving answers the section's reads as the mockup does, keeps each write
@@ -276,6 +276,36 @@ test('Try again beside where the server works keeps its place and focus while it
 
   // Assert
   expect(await tryAgainShown(retry)).toEqual(keptBeside('the request was refused'))
+})
+
+test('a read again after a refusal answered says it reads, not the refusal it got past', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  let reads = 0
+  fakeApi({
+    '/api/repositories': () => {
+      reads++
+      if (reads === 1) {
+        return refusedThenHeld('the request was refused')()
+      }
+
+      return reads === 2 ? mockRepositories() : new Promise<Response>(() => undefined)
+    },
+    '/api/directories': mockDirectories('/home/ana/src/api/cmd'),
+  })
+  const client = appQueryClient()
+  renderWithClient(<RepositoriesPanel />, client)
+  await user.click(await screen.findByRole('button', { name: 'Try again' }))
+  await screen.findByRole('region', { name: 'Working in' })
+
+  // Act
+  act(() => {
+    void client.resetQueries()
+  })
+
+  // Assert
+  expect(await screen.findByText('Reading where the server works…')).toBeTruthy()
+  expect(screen.queryByRole('alert')).toBeNull()
 })
 
 test('favorites the server cannot keep offer no change', async () => {
