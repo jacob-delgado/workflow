@@ -309,7 +309,8 @@ once across every session and process, and the store could not take the
 claim — busy with another write past its wait, or its file not writable.
 Nothing was posted. Try again in a moment; one held for CI tries again on its
 own, for ten minutes. Turning the store off (`store.disabled`) posts without a
-claim, so two sessions may then post the same announcement.
+claim, so the same announcement may then be posted twice, from two sessions or
+from one.
 
 ## Internal
 

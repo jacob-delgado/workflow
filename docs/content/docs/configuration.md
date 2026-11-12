@@ -1271,7 +1271,10 @@ set, workflow keeps nothing you decide and works the conveniences out afresh
 each time. No announcement tags anyone, since who is whom cannot be kept: the
 terminal's ready-for-review preview lists each code owner it proposes as not
 linked and offers no link, and `workflow announce` and the web tag no one. No
-favorites are kept:
+announcement is claimed, so nothing keeps one from going twice: not from two
+sessions, and not from one, since once it is posted the interface and the
+`--web` page offer it again and post it again if asked, and `workflow
+announce` posts it again without asking. No favorites are kept:
 
 ```json
 {
