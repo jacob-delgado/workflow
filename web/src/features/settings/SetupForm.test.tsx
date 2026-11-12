@@ -260,6 +260,27 @@ test('a write anyway that is refused says why, with focus still on Write it anyw
   expect(document.activeElement).toBe(anyway)
 })
 
+test('an answer changed after the check is not offered to be written anyway', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  firstRun(() =>
+    problem(422, 'check_failed', 'Jira did not accept the token; check it, or keep it anyway'),
+  )
+  renderWithClient(<SettingsPanel />)
+  await answerJira(user)
+  await user.click(screen.getByRole('button', { name: 'Write ~/src/api/.workflow.json' }))
+  await screen.findByRole('button', { name: 'Write it anyway' })
+
+  // Act
+  await user.type(screen.getByLabelText('Personal access token'), '-fixed')
+
+  // Assert
+  // The refusal was of answers the form no longer holds, and its offer to
+  // keep them anyway is gone with them.
+  expect(screen.queryByRole('button', { name: 'Write it anyway' })).toBeNull()
+  expect(screen.queryByText(/keep it anyway/)).toBeNull()
+})
+
 test('an address that is no address is never offered to be written anyway', async () => {
   // Arrange
   const user = userEvent.setup()
