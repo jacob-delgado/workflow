@@ -211,12 +211,14 @@ type ownerIn struct {
 // LinkOwner records what was decided for a forge owner on a host in a Slack
 // workspace, and whether they are a person or a team, as the caller tells:
 // whom they are on Slack there, or that they are not on Slack there, replacing
-// only that workspace's decision. It refuses an owner of the wrong shape for
-// its kind with ErrInvalidOwner, a Slack ID of the wrong shape or kind — a
-// user group for a team, a user for a person — with ErrInvalidSlackID, and a
-// decision under no workspace with ErrNoWorkspace. The owner is kept in lower case, since
-// both forges read user and team names without regard to case. A disabled or
-// read-only store records nothing.
+// only that workspace's decision, but for a change of kind, which drops their
+// Slack links in every other workspace so they are asked again there. It
+// refuses an owner of the wrong shape for its kind with ErrInvalidOwner, a
+// Slack ID of the wrong shape or kind — a user group for a team, a user for a
+// person — with ErrInvalidSlackID, and a decision under no workspace with
+// ErrNoWorkspace. The owner is kept in lower case, since both forges read user
+// and team names without regard to case. A disabled or read-only store records
+// nothing.
 func (s Store) LinkOwner(ctx context.Context, forgeHost, workspace string, decision OwnerLink, now time.Time) error {
 	switch {
 	case forgeHost == "":
@@ -232,7 +234,12 @@ func (s Store) LinkOwner(ctx context.Context, forgeHost, workspace string, decis
 	where := ownerIn{forgeHost: forgeHost, workspace: workspace, owner: strings.ToLower(decision.Owner)}
 
 	return s.keptWithin(ctx, func(transaction *sql.Tx) error {
-		err := writeOwnerLink(ctx, transaction, where, decision, now)
+		err := unlinkElsewhereIfKindChanges(ctx, transaction, where, kindOf(decision.Team))
+		if err != nil {
+			return err
+		}
+
+		err = writeOwnerLink(ctx, transaction, where, decision, now)
 		if err != nil {
 			return err
 		}
@@ -278,6 +285,21 @@ func (s Store) ForgetOwner(ctx context.Context, forgeHost, workspace, owner stri
 // kindOf is the kind an owner is kept as.
 func kindOf(team bool) string {
 	return map[bool]string{false: kindUser, true: kindTeam}[team]
+}
+
+// unlinkElsewhereIfKindChanges drops the owner's Slack links in every other
+// workspace when the decision changes their kind, since each linked a Slack
+// ID of the old kind: they are asked again there rather than kept as a link
+// that reads as nothing and would come back if the kind changed back. That
+// they are not on Slack elsewhere holds whatever their kind, so it stays.
+func unlinkElsewhereIfKindChanges(ctx context.Context, transaction *sql.Tx, where ownerIn, kind string) error {
+	_, err := transaction.ExecContext(ctx,
+		`DELETE FROM owner_slack WHERE forge_host = ? AND owner = ? AND slack_team <> ?
+			AND EXISTS (SELECT 1 FROM owner_decision AS decision
+				WHERE decision.forge_host = ? AND decision.owner = ? AND decision.owner_kind <> ?)`,
+		where.forgeHost, where.owner, where.workspace, where.forgeHost, where.owner, kind)
+
+	return wrapIfFailed("dropping the owner's links of their former kind", err)
 }
 
 // writeOwnerLink upserts the decision and replaces what was decided in the
