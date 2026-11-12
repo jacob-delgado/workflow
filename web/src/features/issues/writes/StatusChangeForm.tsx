@@ -52,9 +52,13 @@ export function StatusChangeForm({ issueKey, shown, teller, onCancel }: StatusCh
       error={change.state === 'error' ? change.error : ''}
       disabled={chosen === null || blocked !== undefined}
       onSend={() => {
-        const empty = chosen === null ? [] : emptyOf(chosen, filled)
+        if (chosen === null) {
+          return
+        }
+
+        const empty = emptyOf(chosen, filled)
         setUnfilled(empty)
-        if (chosen !== null && empty.length === 0) {
+        if (empty.length === 0) {
           void change.run(chosen, entriesOf(chosen, filled))
         }
       }}
