@@ -120,7 +120,22 @@ test('says when there is nothing left to set up', async () => {
   await user.click(screen.getByRole('button', { name: 'Set up lefthook' }))
 
   // Assert
-  expect(await screen.findByText(/Nothing to set up/)).toBeTruthy()
+  expect(await screen.findByText(/found nothing to set up/)).toBeTruthy()
+})
+
+test('a read that finds nothing to set up keeps the offer to read again', async () => {
+  // Arrange
+  mockRead.mockResolvedValueOnce({ offered: false, hooks: [], config: '', scripts: 0 })
+  withHooks(1)
+  const user = userEvent.setup()
+  render(<BranchPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Set up lefthook' }))
+
+  // Assert
+  await screen.findByText(/found nothing to set up/)
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Set up lefthook' }))
 })
 
 test('says why the hooks could not be read', async () => {
