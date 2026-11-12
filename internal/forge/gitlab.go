@@ -203,10 +203,12 @@ func gitlabMergePath(repo Repo, number int) string {
 // gitlabFind finds the branch's merge request: an open one, or the merged one
 // that means the branch is finished.
 func gitlabFind(ctx context.Context, client Client, repo Repo, head Head) (PullRequest, bool, error) {
-	query := url.Values{"source_branch": {head.Branch}, queryState: {queryAll}}.Encode()
+	query := url.Values{"source_branch": {head.Branch}, queryState: {queryAll}}
 
-	merges, err := repoCall[[]gitlabMerge](ctx, client, repo, http.MethodGet,
-		gitlabProjectPath(repo)+"/merge_requests?"+query, nil)
+	merges, err := branchPulls(func(page int) ([]gitlabMerge, error) {
+		return repoCall[[]gitlabMerge](ctx, client, repo, http.MethodGet,
+			gitlabProjectPath(repo)+"/merge_requests?"+pageQuery(query, page), nil)
+	})
 	if err != nil {
 		return PullRequest{}, false, err
 	}
