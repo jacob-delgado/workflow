@@ -98,27 +98,28 @@ for that address, never the one kept for your home file's.
 **Only your home file may run a program or read the environment.** Three
 settings do: `jira.token_command` runs a program, `jira.token_env` reads an
 environment variable and sends what it holds to Jira, and `taskwarrior.program`
-names the program run as [Taskwarrior](https://taskwarrior.org). A file found in or above the current
-directory — a repository's, or the current directory's outside one — that sets
-any of them to anything but empty is refused when it loads, with an error naming
-the file and the setting, and a save that would write one there is refused the
-same way. Set them in `~/.workflow.json`, which the repository's file layers over.
+names the program run as [Taskwarrior](https://taskwarrior.org). A file found in
+or above the current directory — a repository's, or the current directory's
+outside one — that sets any of them to anything but empty is refused when it
+loads, with an error naming the file and the setting, and a save that would
+write one there is refused the same way. Set them in `~/.workflow.json`, which
+the repository's file layers over.
 
 A save writes the repository's file when there is one: Settings, the web's or
-the terminal's, writes only what differs from your home file, so a token inherited from home is
-never copied into a file in a working tree, and a later change at home still
-reaches the repository. Nor is a credential you type there — a token, a
-header's value, a webhook URL, a Slack secret not kept in the keychain — or a
-setting only your home file may make: the save is refused, writing nothing, and
-you set it in your home file instead. A Jira token you type is the exception
-where workflow drives the keychain (macOS): it goes to the keychain item for
-the Jira address, never into a file, and the file saved reads it from there,
-so a repository that points Jira at another address takes a token of its own
-from Settings. A credential already in the repository's
-file is kept, and can be removed. `workflow config init` in a repository, over a home
-file, starts from the home file's settings — a question left blank keeps the
-home file's answer — and `--template` writes an empty layer rather than blanks
-that would hide them. `--global` writes the home file.
+the terminal's, writes only what differs from your home file, so a token
+inherited from home is never copied into a file in a working tree, and a later
+change at home still reaches the repository. Nor is a credential you type there
+— a token, a header's value, a webhook URL, a Slack secret not kept in the
+keychain — or a setting only your home file may make: the save is refused,
+writing nothing, and you set it in your home file instead. A Jira token you type
+is the exception where workflow drives the keychain (macOS): it goes to the
+keychain item for the Jira address, never into a file, and the file saved reads
+it from there, so a repository that points Jira at another address takes a token
+of its own from Settings. A credential already in the repository's file is kept,
+and can be removed. `workflow config init` in a repository, over a home file,
+starts from the home file's settings — a question left blank keeps the home
+file's answer — and `--template` writes an empty layer rather than blanks that
+would hide them. `--global` writes the home file.
 
 The terminal's Settings reopens workflow to apply a save. While a write is in
 flight, or when reopening would lose something, such as a commit message being
