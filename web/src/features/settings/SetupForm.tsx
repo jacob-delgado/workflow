@@ -63,7 +63,7 @@ function SetupForm({
   onWritten: (result: SetupResult) => void
 }) {
   const headingId = useId()
-  const { register, handleSubmit, control, getValues } = useForm<SetupValues>({
+  const { register, handleSubmit, control } = useForm<SetupValues>({
     defaultValues: {
       place: offer.places[0]?.place ?? 'repository',
       jira_base_url: '',
@@ -73,11 +73,18 @@ function SetupForm({
     },
   })
   const chosen = useWatch({ control, name: 'place' })
+  const answers = useWatch({ control })
   const setUp = useSetUp()
-  // Whether Write it anyway is offered: from a write Jira's check refused until
-  // a write is refused for another reason. A refused write anyway leaves it
-  // offered, so it keeps the focus it was pressed with beside the reason.
-  const [anyway, setAnyway] = useState(false)
+  // The answers Jira's check refused, which Write it anyway writes unchecked:
+  // from a write the check refused until a write is refused for another
+  // reason. It is offered only while the form still holds them, since an
+  // answer changed since was never checked, and the refusal goes with the
+  // offer, being of answers the form no longer holds; a refused write anyway
+  // leaves it offered, so it keeps the focus it was pressed with beside the
+  // reason.
+  const [refused, setRefused] = useState<SetupValues | null>(null)
+  const anyway = refused !== null && sameAnswers(refused, answers) ? refused : null
+  const outdated = refused !== null && anyway === null
   const write = useAsyncAction(
     async (values: SetupValues, keepUnchecked: boolean) => {
       const keychain = offersKeychain(offer.places, values.place) && values.keychain
@@ -85,7 +92,7 @@ function SetupForm({
         onWritten(await setUp({ ...values, keychain, keep_unchecked: keepUnchecked }))
       } catch (caught) {
         if (!keepUnchecked) {
-          setAnyway(problemCode(caught) === 'check_failed')
+          setRefused(problemCode(caught) === 'check_failed' ? values : null)
         }
         throw caught
       }
@@ -118,10 +125,12 @@ function SetupForm({
           places={offer.places}
           control={control}
           state={write.state}
-          error={write.error}
-          anyway={anyway}
+          error={outdated ? '' : write.error}
+          anyway={anyway !== null}
           onKeepAnyway={() => {
-            void write.run(getValues(), true)
+            if (anyway !== null) {
+              void write.run(anyway, true)
+            }
           }}
         />
       </form>
@@ -132,6 +141,13 @@ function SetupForm({
 // Register is the setup form's own register, which each part is handed to
 // put its fields in the form.
 type Register = UseFormRegister<SetupValues>
+
+// sameAnswers reports that the form's answers are still those checked.
+function sameAnswers(checked: SetupValues, answers: Partial<SetupValues>): boolean {
+  return (Object.keys(checked) as (keyof SetupValues)[]).every(
+    (question) => answers[question] === checked[question],
+  )
+}
 
 // offersKeychain reports whether the keychain can keep the token for the file
 // at place, in the item for Jira's address, which any file may read: wherever
