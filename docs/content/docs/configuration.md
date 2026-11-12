@@ -136,6 +136,20 @@ and `issues.forge`. So does which view the forge's issues lead: they stay with
 the JQL the first view had, so editing that JQL drops them from the first view,
 and putting another view first leaves them leading the view that was first.
 
+**Which files apply is decided as workflow starts or switches directory**, and
+in the terminal also as Settings reopens it after a save. A repository's
+`.workflow.json` made while the terminal or `workflow --web` is running — by
+hand, or by `workflow config init` in another terminal — is not read until
+then: Settings goes on reading and saving the files it found, so a save still
+writes your home file, and the new file's settings take no effect. In the
+terminal that save goes to your home file all the same, but the reopen after it
+takes the new file up, so from then on what the repository's file sets wins
+over what was just saved. Restart workflow, or switch to another directory and
+back, to take it up. The one exception is a directory where no file applied at
+all: there the web's Settings takes up a file made since as it reads the
+configuration again, and serves it from then on
+([Web: setting up]({{< relref "/docs/web#setting-up" >}})).
+
 `workflow doctor` names every file in effect, and `workflow config show` names
 them on stderr, so there is never a question about which were read. When a file
 is refused, see [Questions and troubleshooting: When the configuration file is
