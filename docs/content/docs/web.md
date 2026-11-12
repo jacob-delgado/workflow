@@ -307,8 +307,8 @@ pushed — the terminal's `A` and `f` — each after a last look at the commit i
 rewrites. A rebase, a hook, an amend and a fixup each show their output as it
 is written, with **Stop**, which stops the program and all it started, then
 how it ended, with **Close**. One goes at a time, and it holds the index, so a
-stage, a commit or a setup of lefthook's hooks asked for meanwhile waits for
-it. It goes on to its end if
+stage, a commit, a checkout or a setup of lefthook's hooks asked for meanwhile
+waits for it. It goes on to its end if
 the page is closed, and a page opened meanwhile shows it running with its last
 lines. A conflict stops a rebase midway, for a terminal to finish.
 

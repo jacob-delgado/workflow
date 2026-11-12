@@ -581,14 +581,14 @@ paths:
         the branch the run left. The
         run goes on to its end if the page goes away, and the
         event stream's run carries it meanwhile. One run goes at a time, and
-        it holds the index, so a stage, a commit or a setup of lefthook's
-        hooks asked for meanwhile waits for it. A conflict leaves a rebase
-        midway, for a terminal to finish. Refused before anything runs, as
-        a problem: 409 when a run is going already, or there is nothing to
-        rebase, amend or fix up; 422 when the run is not available here, the
-        hook named is not one lefthook runs by hand here, lefthook's
-        configuration cannot be read, the commit named cannot be fixed up,
-        or the program could not start.
+        it holds the index, so a stage, a commit, a checkout or a setup of
+        lefthook's hooks asked for meanwhile waits for it. A conflict leaves
+        a rebase midway, for a terminal to finish. Refused before anything
+        runs, as a problem: 409 when a run is going already, or there is
+        nothing to rebase, amend or fix up; 422 when the run is not available
+        here, the hook named is not one lefthook runs by hand here,
+        lefthook's configuration cannot be read, the commit named cannot be
+        fixed up, or the program could not start.
       tags: [repository]
       requestBody:
         required: true
@@ -1682,7 +1682,9 @@ paths:
         issues. It is refused with 409 when the working tree has uncommitted
         changes, the same guard the terminal interface applies, so switching
         never carries work in progress onto another branch, and when the server
-        is not running in a git repository.
+        is not running in a git repository. It waits for a git run going, a
+        stage or a commit to end first, so the branch never switches under
+        one.
       tags: [repository]
       requestBody:
         required: true
