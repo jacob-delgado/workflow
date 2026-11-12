@@ -9,7 +9,10 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
+	"testing/synctest"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -371,18 +374,42 @@ func requireGone(t *testing.T, path string) {
 	}
 }
 
-// collected is what Collect reports for a draft once the editor exits with
+// handedDraft is the draft every collect test handed the editor.
+func handedDraft() string { return editor.Draft("handed text", "help") }
+
+// slowEditor is how long an editor someone wrote in stays open: far longer
+// than one that returned without waiting for them.
+const slowEditor = 5 * time.Second
+
+// windowEditor is an editor that opens a window and returns at once unless
+// told to wait.
+const windowEditor = "code"
+
+// collectedAfter is what Collect reports for a draft that held handedDraft
+// when the editor named in getenv started, once it exits after open with
 // editorErr.
 //
 //nolint:ireturn // tea.Msg is Bubble Tea's type for any message at all
-func collected(path string, editorErr error) tea.Msg {
-	return editor.Collect(path, func(text string, err error) tea.Msg {
+func collectedAfter(getenv editor.Getenv, path string, open time.Duration, editorErr error) tea.Msg {
+	finish := editor.Collect(getenv, path, handedDraft(), func(text string, err error) tea.Msg {
 		if err != nil {
 			return failure{err: err}
 		}
 
 		return saved{text: text}
-	})(editorErr)
+	})
+
+	time.Sleep(open)
+
+	return finish(editorErr)
+}
+
+// collected is what Collect reports for a draft once an editor that returned
+// at once exits with editorErr.
+//
+//nolint:ireturn // tea.Msg is Bubble Tea's type for any message at all
+func collected(path string, editorErr error) tea.Msg {
+	return collectedAfter(environment(nil), path, 0, editorErr)
 }
 
 // writtenDraft is a saved draft of text, in a directory of its own.
@@ -445,5 +472,95 @@ func TestCollectOfAVanishedDraftReportsTheReadError(t *testing.T) {
 	// Assert
 	if !ok || !errors.Is(got.err, fs.ErrNotExist) {
 		t.Errorf("Collect of a vanished draft = %+v, want the read's not-exist error", got)
+	}
+}
+
+func TestCollectOfAnUntouchedDraftFromAnEditorThatReturnedAtOnceSaysToWait(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		path := filepath.Join(t.TempDir(), "draft.md")
+
+		err := os.WriteFile(path, []byte(handedDraft()), 0o600)
+		if err != nil {
+			t.Fatalf("writing the draft: %v", err)
+		}
+
+		// Act
+		got, ok := collectedAfter(environment(nil), path, 0, nil).(failure)
+
+		// Assert
+		if !ok || !errors.Is(got.err, editor.ErrEditorDidNotWait) || !strings.Contains(got.err.Error(), "--wait") {
+			t.Errorf("Collect of an untouched draft the editor returned at once = %+v, "+
+				"want ErrEditorDidNotWait naming --wait", got)
+		}
+
+		requireGone(t, path)
+	})
+}
+
+func TestCollectOfAnUntouchedDraftKeptOpenAWhileKeepsItsText(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		path := filepath.Join(t.TempDir(), "draft.md")
+
+		err := os.WriteFile(path, []byte(handedDraft()), 0o600)
+		if err != nil {
+			t.Fatalf("writing the draft: %v", err)
+		}
+
+		// Act
+		got, ok := collectedAfter(environment(nil), path, slowEditor, nil).(saved)
+
+		// Assert
+		if !ok || got.text != "handed text" {
+			t.Errorf("Collect of an untouched draft kept open a while = %+v, want its text kept", got)
+		}
+	})
+}
+
+func TestCollectOfAnEditorThatReturnedAtOnceNamesTheVariableThatChoseIt(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		settings map[string]string
+		want     string
+	}{
+		{name: "none set", settings: nil, want: editorVariable + `="code --wait"`},
+		{name: "visual", settings: map[string]string{visualVariable: windowEditor}, want: visualVariable + `="code --wait"`},
+		{
+			name:     "git editor over editor",
+			settings: map[string]string{gitEditorVariable: windowEditor, editorVariable: vim},
+			want:     gitEditorVariable + `="code --wait"`,
+		},
+	}
+
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			synctest.Test(t, func(t *testing.T) {
+				// Arrange
+				path := filepath.Join(t.TempDir(), "draft.md")
+
+				err := os.WriteFile(path, []byte(handedDraft()), 0o600)
+				if err != nil {
+					t.Fatalf("writing the draft: %v", err)
+				}
+
+				// Act
+				got, ok := collectedAfter(environment(test.settings), path, 0, nil).(failure)
+
+				// Assert
+				if !ok || !strings.Contains(got.err.Error(), test.want) {
+					t.Errorf("Collect of an editor that returned at once with %v = %+v, want it to name %s",
+						test.settings, got, test.want)
+				}
+			})
+		})
 	}
 }
