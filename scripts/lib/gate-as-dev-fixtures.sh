@@ -91,14 +91,22 @@ readonly handed_on=(LANG=C.UTF-8 TERM=dumb
   CURL_CA_BUNDLE=/test/ca.pem REQUESTS_CA_BUNDLE=/test/ca.pem PIP_CERT=/test/ca.pem
   PLAYWRIGHT_BROWSERS_PATH=/test/browsers PLAYWRIGHT_CHROMIUM_EXECUTABLE=/test/chromium)
 
-# as_root runs the gate as root would, with the stand-ins, a lock of its own
-# and the variables root hands on.
-#   as_root <gate arg>...
-as_root() {
+# run_gate runs the copy of the gate named as root would, with the stand-ins,
+# both locks of its own, never the session's, and the variables root hands on.
+#   run_gate <gate copy> <gate arg>...
+run_gate() {
+  local copy="$1"
+  shift
   : >"${log}"
   : >"${handed_files}"
   env PATH="${stub_bin}:${PATH}" GATE_TOOLS="${workdir}/tools" GATE_LOCK="${workdir}/gate.lock" \
-    "${handed_on[@]}" GITHUB_TOKEN=secret-for-the-test "${gate}" "$@"
+    GATE_RUN_LOCK="${workdir}/gate-run.lock" "${handed_on[@]}" GITHUB_TOKEN=secret-for-the-test "${copy}" "$@"
+}
+
+# as_root runs the gate under test as root would.
+#   as_root <gate arg>...
+as_root() {
+  run_gate "${gate}" "$@"
 }
 
 # as_gate_user runs the gate's second half, as the gate user would, against a
