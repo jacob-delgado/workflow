@@ -1,4 +1,4 @@
-import { onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { onlineManager, QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { mockConfig } from '@/dev/mockConfig.ts'
@@ -37,7 +37,7 @@ test('saving the configuration reads the issue views again', async () => {
     '/api/views': { views: [{ name: 'Assigned to me', jql: 'assignee = currentUser()' }] },
     '/api/config': mockConfig,
   })
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const client = appQueryClient()
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   )
@@ -63,7 +63,7 @@ test('reloading the configuration reads the issue views again', async () => {
     '/api/views': { views: [{ name: 'Assigned to me', jql: 'assignee = currentUser()' }] },
     '/api/config': mockConfig,
   })
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const client = appQueryClient()
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   )

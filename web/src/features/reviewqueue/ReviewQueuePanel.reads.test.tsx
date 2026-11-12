@@ -1,4 +1,3 @@
-import { QueryClient } from '@tanstack/react-query'
 import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
@@ -269,7 +268,7 @@ test.each([
 ])('opening the section %s', async (_, readAt, reads) => {
   // Arrange
   const requests = fakeApi({ [reviewsPath]: queueOf(waiting) })
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const client = appQueryClient()
   client.setQueryData(listReviewsQueryKey(), queueOf(waiting), { updatedAt: readAt })
 
   // Act

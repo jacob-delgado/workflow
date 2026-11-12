@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
@@ -6,7 +6,7 @@ import { useHealthStore } from '@/api/health.ts'
 import { mockConfig } from '@/dev/mockConfig.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { gitLabWords, makeHealth } from '@/test/fixtures.ts'
-import { renderWithClient } from '@/test/renderWithClient.tsx'
+import { appQueryClient, renderWithClient } from '@/test/renderWithClient.tsx'
 import { anEdit, inSection } from '@/test/settings.ts'
 import { AppShell } from '@/shell/AppShell.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
@@ -146,7 +146,7 @@ test('editing the commit types saves them as a trimmed list', async () => {
   // Arrange
   servesSettings()
   const user = userEvent.setup()
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const client = appQueryClient()
   const view = render(
     <QueryClientProvider client={client}>
       <SettingsPanel />
@@ -176,7 +176,7 @@ test('an emptied subject limit saves as 0, which keeps the default', async () =>
   // Arrange
   servesSettings()
   const user = userEvent.setup()
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const client = appQueryClient()
   const view = render(
     <QueryClientProvider client={client}>
       <SettingsPanel />
@@ -207,7 +207,7 @@ test('offers turning the store off and rides it back through a save', async () =
   // Arrange
   servesSettings()
   const user = userEvent.setup()
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const client = appQueryClient()
 
   // Act: open Settings
   const view = render(
@@ -259,7 +259,7 @@ test("the Taskwarrior fieldset's switch rides back through a save, and its progr
   // Arrange
   servesSettings()
   const user = userEvent.setup()
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const client = appQueryClient()
   const view = render(
     <QueryClientProvider client={client}>
       <SettingsPanel />
@@ -359,7 +359,7 @@ test('toggling Markdown comments rides back through a save', async () => {
   // Arrange
   servesSettings()
   const user = userEvent.setup()
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const client = appQueryClient()
 
   // Act: open Settings
   const view = render(
@@ -392,7 +392,7 @@ test('a save updates the cache so reopening Settings shows the change', async ()
   // Arrange
   servesSettings()
   const user = userEvent.setup()
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const client = appQueryClient()
   const view = render(
     <QueryClientProvider client={client}>
       <SettingsPanel />
@@ -548,7 +548,7 @@ test("the switch that lists this repository's forge issues rides back through a 
   // Arrange
   servesSettings()
   const user = userEvent.setup()
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const client = appQueryClient()
   const view = render(
     <QueryClientProvider client={client}>
       <SettingsPanel />

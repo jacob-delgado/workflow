@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { act, render, screen, within, type RenderResult } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactElement } from 'react'
@@ -13,7 +13,7 @@ import {
   taskStanding,
 } from '@/test/fixtures.ts'
 import { drawnMark, markShape } from '@/test/marks.tsx'
-import { renderWithClient } from '@/test/renderWithClient.tsx'
+import { appQueryClient, renderWithClient } from '@/test/renderWithClient.tsx'
 import {
   firstInEveryOrder,
   ranked,
@@ -50,7 +50,7 @@ function streamLinked(...linked: Task[]) {
 // oneClient renders each of its calls' trees under one query client, as the
 // page does, so what one tree's write caches another reads.
 function oneClient(): (ui: ReactElement) => RenderResult {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const client = appQueryClient()
 
   return (ui) => render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
 }
