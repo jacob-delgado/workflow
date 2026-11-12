@@ -62,22 +62,30 @@ var _ applier = ciChecked{}
 // rings for a change from it; the pane does not ask again after a failed read,
 // leaving a post that waits to the shared hold's own reads. A read a later one
 // has superseded says nothing: its answer may land after the later one's, and
-// would show CI as it stood before.
+// would show CI as it stood before. A read that still lists a run a re-run was
+// asked for keeps CI running, for a while: the forge has not started the
+// re-run yet.
 func (msg ciChecked) apply(m Model) (Model, tea.Cmd) {
 	if !m.review.found || msg.number != m.review.pull.Number || msg.read != m.ciReads {
 		return m, nil
 	}
 
-	was := m.review.ci.State
-	m.review.ci, m.review.ciErr, m.review.checked = msg.ci, msg.err, true
 	m.review.loading = false
 	m.review.checkedAt = m.deps.now()
 
 	if msg.err != nil {
-		m.review.ci = forge.CI{State: was}
+		m.review.ci = forge.CI{State: m.review.ci.State}
+		m.review.ciErr, m.review.checked = msg.err, true
 
 		return m, nil
 	}
+
+	if m.review.awaitingRerun(msg.ci, m.review.checkedAt) {
+		return m.keepPolling(nil)
+	}
+
+	was := m.review.ci.State
+	m.review.ci, m.review.ciErr, m.review.checked, m.review.reran = msg.ci, nil, true, nil
 
 	return m.keepPolling(ciFinishNotice(m.cfg, m.deps, was, msg.ci.State))
 }
