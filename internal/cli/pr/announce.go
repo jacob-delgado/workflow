@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -86,8 +85,10 @@ func NewAnnounceCmd(prompt cmdkit.Prompt) *cobra.Command {
 			"in another channel than messaging.channel, which only a Slack user token can.\n\n" +
 			"Nothing is announced while a check has failed on the pull request. With\n" +
 			"--when-green, announce waits in the foreground for its CI to pass, through a\n" +
-			"failed run, then announces it; ctrl+c stops waiting without announcing, and a\n" +
-			"pull request that reports no check for ten minutes is given up on.",
+			"failed run, then announces it; ctrl+c stops waiting without announcing. It\n" +
+			"waits on the branch it started on, whatever is checked out meanwhile, and gives\n" +
+			"up on a pull request that reports no check for ten minutes, or whose CI cannot\n" +
+			"be read, or announcement posted, for ten minutes.",
 		Example: cmdkit.Examples(
 			`workflow --dry-run announce            # the announcement, and where it would go`,
 			`workflow announce --yes                # announce it, unattended`,
@@ -205,7 +206,7 @@ func runAnnounce(ctx context.Context, out cmdkit.Output, seams announceSeams, fl
 
 	pull := seams.Kind.Sigil() + strconv.Itoa(composed.Pull.Number)
 
-	earlier, again := announcedEarlier(ctx, seams.Memory, composed.Made())
+	earlier, again := announcedEarlier(ctx, out.Notes, seams.Memory, composed.Made())
 	if again && !offerAgain(out.Notes, pull, opts) {
 		return nil
 	}
@@ -232,7 +233,7 @@ func runAnnounce(ctx context.Context, out cmdkit.Output, seams announceSeams, fl
 		return deliverWhenGreen(ctx, seams, pending, pull, pullFoundBefore)
 	}
 
-	return deliverAnnouncement(ctx, out.Notes, seams, pending)
+	return deliverAnnouncement(ctx, out.Notes, seams, pending, pull)
 }
 
 // readyToAnnounce refuses composed's pull request, named pull, that cannot be
@@ -289,8 +290,7 @@ func clearToAnnounce(
 
 	switch {
 	case errors.Is(err, loop.ErrCIFailed):
-		return forgeWordedError{loop.ErrCIFailed, "a check failed on " + pull + failedChecks(ci) +
-			checkFailedWayOn(composed.Announcement.Moment)}
+		return checkFailed(pull, ci, composed.Announcement.Moment)
 	case err != nil:
 		return fmt.Errorf("%s was not announced: %w", pull, err)
 	default:
@@ -298,67 +298,31 @@ func clearToAnnounce(
 	}
 }
 
-// checkFailedWayOn is the rest of the refusal of an announcement at moment a
-// check failed on, saying the way on: a pull request ready for review can
-// wait for a run that passes; a merge, the other moment, has no CI to wait
-// for, so its failed checks are re-run.
-func checkFailedWayOn(moment messaging.Moment) string {
-	if moment == messaging.MomentReady {
-		return ", so it was not announced; workflow announce --when-green announces it once a run passes"
-	}
-
-	return ", so its merge was not announced; re-run the failed checks on the forge, then announce it once they pass"
-}
-
-// failedChecks names the checks that failed in ci, in brackets after a space,
-// or nothing where the forge named none as failed. No forge does that today for
-// CI that failed: GitHub fails CI only by a failed check, and GitLab names its
-// pipeline when it can read no failed job.
-func failedChecks(ci forge.CI) string {
-	var names []string
-
-	for _, check := range ci.Checks {
-		if check.State == forge.CIFailed {
-			names = append(names, sanitize.Line(check.Name))
-		}
-	}
-
-	if len(names) == 0 {
-		return ""
-	}
-
-	return " (" + strings.Join(names, ", ") + ")"
-}
-
 // pendingAnnouncement is an announcement previewed and not yet sent: what
-// delivering it posts, the memory that claims it before it goes, and, for one
-// to post again as asked, the generation of the claim an earlier session
-// took, which posting it again claims from.
+// delivering it posts, the branch its pull request is found by while it waits
+// for CI, the memory that claims it before it goes, and, for one to post
+// again as asked, the generation of the claim an earlier session took, which
+// posting it again claims from.
 type pendingAnnouncement struct {
 	delivery loop.Delivery
+	branch   string
 	memory   loop.AnnounceMemory
 	again    bool
 	seen     int
 }
 
-// deliverPending delivers pending through seams under ctx: again, from the
-// claim an earlier session took, when it is one to post again.
-func deliverPending(ctx context.Context, seams loop.DeliverSeams, pending pendingAnnouncement) error {
-	if pending.again {
-		return loop.Redeliver(ctx, seams, pending.memory, pending.delivery, pending.seen)
-	}
-
-	return loop.Deliver(ctx, seams, pending.memory, pending.delivery)
-}
-
 // announcedEarlier is the claim an earlier session took on made, and whether
 // there is one, as memory reads it under ctx. A store that cannot be read
-// says none: the claim the post takes still keeps it from going twice.
+// says none, and says so on notes: the claim the post takes still keeps it
+// from going twice.
 func announcedEarlier(
-	ctx context.Context, memory loop.AnnounceMemory, made loop.Announced,
+	ctx context.Context, notes console.Notes, memory loop.AnnounceMemory, made loop.Announced,
 ) (loop.AnnounceRecord, bool) {
 	records, err := memory.Records(ctx)
 	if err != nil {
+		notes.Warn("Could not read what was announced (" + sanitize.Line(err.Error()) +
+			"); the store's claim still keeps it from posting twice.")
+
 		return loop.AnnounceRecord{}, false
 	}
 
@@ -378,37 +342,11 @@ func previewAnnouncement(
 
 	return pendingAnnouncement{
 		delivery: composed.Delivery(seams.Messaging.Channel, text, mentions),
+		branch:   composed.Branch.Name,
 		memory:   memory,
+		again:    false,
+		seen:     0,
 	}
-}
-
-// deliverAnnouncement posts pending under ctx — again, from the claim an
-// earlier session took, when it is one to post again — and says where it
-// went, and, for one posted that the store could not confirm, the warning
-// every surface says, then why. One another session claimed first is not
-// posted, and says so.
-func deliverAnnouncement(
-	ctx context.Context, notes console.Notes, seams announceSeams, pending pendingAnnouncement,
-) error {
-	err := deliverPending(ctx, seams.Deliver, pending)
-	if errors.Is(err, loop.ErrAnnouncedAlready) {
-		notes.Note("Already announced from another session; not posted again.")
-
-		return nil
-	}
-
-	why, unconfirmed := loop.UnconfirmedReason(err)
-	if err != nil && !unconfirmed {
-		return fmt.Errorf("announcing to %s: %w", seams.Messaging.Service(), err)
-	}
-
-	notes.Note("Announced to " + seams.Messaging.Target() + ".")
-
-	if unconfirmed {
-		notes.Warn(loop.UnconfirmedWarning + " " + sanitize.Line(why))
-	}
-
-	return nil
 }
 
 // offerAgain says that an earlier session already made this announcement, and

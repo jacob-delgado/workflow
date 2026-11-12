@@ -214,8 +214,9 @@ func TestAHoldUnheardForItsPatienceSaysWhyAndWhatFailed(t *testing.T) {
 	})
 
 	// Assert
-	if !errors.Is(got.Reason(), armed.ErrUnheard) || !errors.Is(got.Reason(), errSeam) {
-		t.Errorf("reason = %v, want ErrUnheard wrapping the last failure", got.Reason())
+	unheard, ok := errors.AsType[armed.UnheardError](got.Reason())
+	if !ok || !errors.Is(got.Reason(), armed.ErrUnheard) || !errors.Is(unheard.Last, errSeam) {
+		t.Errorf("reason = %v, want an UnheardError carrying the last failure", got.Reason())
 	}
 }
 
@@ -321,6 +322,11 @@ func deliveredRows() map[string]stepCase {
 		"refused by the service": {
 			from: due, event: delivering(refused, 2*time.Minute),
 			stage: armed.StageDropped, next: armed.NextNothing, reason: loop.ErrNotDelivered,
+		},
+		"rate limited, its claim kept for want of a release": {
+			from: due, event: delivering(fmt.Errorf("%w: %w; giving up its claim: busy", loop.ErrPostUncertain,
+				httpx.ErrRateLimited), 2*time.Minute),
+			stage: armed.StageDropped, next: armed.NextNothing, reason: loop.ErrPostUncertain,
 		},
 		"may have gone out": {
 			from: due, event: delivering(fmt.Errorf("%w: %w", loop.ErrPostUncertain, messaging.ErrUnreachable), 0),

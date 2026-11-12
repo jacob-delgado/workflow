@@ -4,6 +4,7 @@
 package clitest
 
 import (
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -28,7 +29,13 @@ type GhResponses struct {
 	PullsSequence  []string
 	// StatusGate, when set, is a directory: each status read touches its read
 	// file, and answers running until its release file is there, then passed.
-	StatusGate  string
+	StatusGate string
+	// StatusRateLimited, when set, answers every status read with GitHub's
+	// 429, asking to wait, as a forge whose rate limit is spent does.
+	StatusRateLimited bool
+	// PullsBranch, when set, answers the pull request lists only of that
+	// branch, and every other branch's with none.
+	PullsBranch string
 	Checks      string // GET .../commits/{sha}/check-runs
 	Search      string // GET .../search/issues?...      — a {"items":[...]} object
 	UserError   bool   // when set, GET .../user answers unreadably, so Whoami fails
@@ -62,24 +69,28 @@ const (
 // not.
 const GhHang = 10 * time.Second
 
-// OpenPull is a forge pull request array with one open pull request.
+// PullHead is the commit the fake forge's pull request 7 is at.
+const PullHead = "a1b2c3d4e5f6"
+
+// OpenPull is a forge pull request array with one open pull request, at
+// PullHead.
 func OpenPull(title string) string {
 	return `[{"number":7,"html_url":"https://github.com/owner/repo/pull/7","title":"` +
-		title + `","state":"open","draft":false}]`
+		title + `","state":"open","draft":false,"head":{"sha":"` + PullHead + `"}}]`
 }
 
 // MergedPull is a forge pull request array with one merged pull request — GitHub
 // tells a merge from a plain close by a non-null merged_at.
 func MergedPull(title string) string {
 	return `[{"number":7,"html_url":"https://github.com/owner/repo/pull/7","title":"` +
-		title + `","state":"closed","merged_at":"2026-01-01T00:00:00Z"}]`
+		title + `","state":"closed","merged_at":"2026-01-01T00:00:00Z","head":{"sha":"` + PullHead + `"}}]`
 }
 
 // ClosedPull is a forge pull request array with one pull request closed
 // without merging: its merged_at is null.
 func ClosedPull(title string) string {
 	return `[{"number":7,"html_url":"https://github.com/owner/repo/pull/7","title":"` +
-		title + `","state":"closed","merged_at":null}]`
+		title + `","state":"closed","merged_at":null,"head":{"sha":"` + PullHead + `"}}]`
 }
 
 // FailingStatus is a commit status with a failed context.
@@ -127,6 +138,7 @@ func writeGhBodies(t *testing.T, dir string, responses GhResponses) {
 		"checks":         orDefault(responses.Checks, `{"total_count":0,"check_runs":[]}`),
 		"search":         orDefault(responses.Search, `{"items":[]}`),
 		"user":           user,
+		"none":           "[]",
 		"default":        `{}`,
 		"status-running": RunningStatus(),
 		"status-passed":  PassingStatus(),
@@ -185,11 +197,40 @@ func ghScript(dir string, responses GhResponses) string {
 		"  *) f=default ;;\n" +
 		"esac\n" +
 		interrupt +
+		onlyBranch(responses.PullsBranch) +
 		gated(responses.StatusGate) +
 		sequenced(dir, statusRoute, len(responses.StatusSequence)) +
 		sequenced(dir, pullsRoute, len(responses.PullsSequence)) +
+		rateLimited(responses.StatusRateLimited) +
 		"printf 'HTTP/1.1 200 OK\\r\\nContent-Type: application/json\\r\\n\\r\\n'\n" +
 		"cat \"" + dir + "/resp-$f\"\n"
+}
+
+// onlyBranch is the fake gh's step that answers the pull request list of any
+// branch but branch with none; nothing when every branch's is answered alike.
+func onlyBranch(branch string) string {
+	if branch == "" {
+		return ""
+	}
+
+	return "if [ \"$f\" = " + pullsRoute + " ]; then\n" +
+		"  case \"$url\" in *\"" + url.QueryEscape(":"+branch) + "&\"*) ;; *) f=none ;; esac\n" +
+		"fi\n"
+}
+
+// rateLimited is the fake gh's step that answers a status read with a 429,
+// as gh api does, exiting 1 with the answer printed; nothing when limited is
+// unset.
+func rateLimited(limited bool) string {
+	if !limited {
+		return ""
+	}
+
+	return "if [ \"$f\" = " + statusRoute + " ]; then\n" +
+		"  printf 'HTTP/1.1 429 Too Many Requests\\r\\nContent-Type: application/json\\r\\n\\r\\n'\n" +
+		"  printf '{\"message\":\"API rate limit exceeded\"}'\n" +
+		"  exit 1\n" +
+		"fi\n"
 }
 
 // gated is the fake gh's step that answers the status reads by gate's
@@ -367,6 +408,7 @@ const gitlabForgeConfig = `{"forge":{"cli":true,"kind":"gitlab","host":"gitlab.c
 // it to both the branch's lookup and the review queue.
 func OpenMergeRequest() string {
 	return `[{"iid":7,"web_url":"` + GitlabMergeRequest + `","title":"fix: token","state":"opened",` +
+		`"sha":"` + PullHead + `",` +
 		`"created_at":"` + time.Now().Add(-50*time.Hour).UTC().Format(time.RFC3339) + `",` +
 		`"author":{"username":"ben"},"references":{"full":"grp/proj!7"}}]`
 }

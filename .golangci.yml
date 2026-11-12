@@ -149,7 +149,6 @@ linters:
           allow:
             - $gostd
             - github.com/jacob-delgado/workflow/internal/forge
-            - github.com/jacob-delgado/workflow/internal/gitrepo
             - github.com/jacob-delgado/workflow/internal/httpx
             - github.com/jacob-delgado/workflow/internal/loop
             - github.com/jacob-delgado/workflow/internal/messaging

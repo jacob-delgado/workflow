@@ -12,6 +12,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/armed"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/httpx"
 )
 
 // driveInterval is how often the driven holds read.
@@ -110,6 +111,37 @@ func TestDriveGivesUpOnCIItCannotReadForItsPatience(t *testing.T) {
 
 	if waited := clock.now.Sub(armedAt()); waited != armed.UnheardPatience {
 		t.Errorf("Drive gave up after %v, want %v", waited, armed.UnheardPatience)
+	}
+}
+
+func TestDriveGivesUpOnAPostAskedToWaitEachTimeForItsPatience(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Every read hears CI pass, and every post is asked to wait: the reads
+	// between the posts do not start the patience again.
+	posts := 0
+	scripted := &scriptedForge{finds: []forge.PullRequest{heldPull()}, cis: []forge.CI{{State: forge.CIPassed}}}
+	clock := &fakeClock{now: armedAt()}
+	asksToWait := func(context.Context, string, string) error {
+		posts++
+
+		return fmt.Errorf("posting: %w", httpx.ErrRateLimited)
+	}
+
+	// Act
+	got, err := armed.Drive(t.Context(), scripted.seams(asksToWait), armedNow(t, arming()), clock.clock(),
+		new(stages).told)
+
+	// Assert
+	if err != nil || got.Stage() != armed.StageDropped || !errors.Is(got.Reason(), armed.ErrUnheard) ||
+		!errors.Is(got.Reason(), httpx.ErrRateLimited) {
+		t.Errorf("Drive = %s (%v), %v; want it dropped, unheard, asked to wait", stageName(got.Stage()), got.Reason(), err)
+	}
+
+	if waited := clock.now.Sub(armedAt()); waited != armed.UnheardPatience || posts != 11 {
+		t.Errorf("Drive gave up after %v and %d posts, want %v and a post a minute", waited, posts,
+			armed.UnheardPatience)
 	}
 }
 

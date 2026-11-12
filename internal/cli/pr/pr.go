@@ -40,9 +40,10 @@ var ErrNoCommitsToOpen = errors.New("no branch with commits to open a pull reque
 // noun.
 var ErrPullAlreadyOpen = errors.New("an open pull request already exists for this branch")
 
-// forgeWordedError is a refusal told in the forge's own words — a merge request on
-// GitLab — that still answers errors.Is for its sentinel, so its exit status
-// is the same on every forge.
+// forgeWordedError is a failure told in the command's own words — the forge's,
+// a merge request on GitLab, or the messaging service's name — that still
+// answers errors.Is for its sentinel, so its exit status is the same on every
+// forge and service.
 type forgeWordedError struct {
 	sentinel error
 	words    string

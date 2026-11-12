@@ -73,13 +73,16 @@ const (
 // read finds its pull request by, whether that pull request was opened a
 // moment ago, which a forge may not list yet, whether its tags are proposed
 // as it posts, asked of no one, and whether it was armed on its own rather
-// than asked for.
+// than asked for. Seen, above zero, is the generation of the claim an
+// announcement asked for again re-claims, as loop.Redeliver does; zero claims
+// it afresh.
 type Arming struct {
 	Delivery  loop.Delivery
 	Branch    string
 	Opened    bool
 	Unasked   bool
 	Automatic bool
+	Seen      int
 }
 
 // Hold is one announcement armed to go once its pull request's CI passes: a

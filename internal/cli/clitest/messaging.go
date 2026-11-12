@@ -216,15 +216,9 @@ func AnnouncedEarlier(t *testing.T, moment messaging.Moment) string {
 // RecordAnnounced records, in the store under home, the fake forge's pull
 // request 7 announced at moment: claimed, and its post confirmed.
 func RecordAnnounced(ctx context.Context, home string, moment messaging.Moment) error {
-	env := IsolatedEnvironment(Place{Home: home})
-
-	dir, err := store.Dir(runtime.GOOS, home, func(name string) (string, bool) {
-		value, ok := env[name]
-
-		return value, ok
-	})
+	dir, err := StoreDir(home)
 	if err != nil {
-		return fmt.Errorf("finding the store under %s: %w", home, err)
+		return err
 	}
 
 	kept, announced := store.New(dir, false), store.Announce{Pull: fakePull, Moment: int(moment)}
@@ -235,6 +229,23 @@ func RecordAnnounced(ctx context.Context, home string, moment messaging.Moment) 
 	}
 
 	return kept.ConfirmAnnounce(ctx, fakeRepoKey, announced, claim.Generation, time.Now())
+}
+
+// StoreDir is the directory a run with home as its home, and no
+// $XDG_STATE_HOME of the test's choosing, keeps its store in.
+func StoreDir(home string) (string, error) {
+	env := IsolatedEnvironment(Place{Home: home})
+
+	dir, err := store.Dir(runtime.GOOS, home, func(name string) (string, bool) {
+		value, ok := env[name]
+
+		return value, ok
+	})
+	if err != nil {
+		return "", fmt.Errorf("finding the store under %s: %w", home, err)
+	}
+
+	return dir, nil
 }
 
 // fakeRepoKey is the key the store keeps the fake forge's repository under:
