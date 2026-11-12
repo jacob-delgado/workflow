@@ -1213,6 +1213,10 @@ export type Branch = {
     ahead: number;
     behind: number;
     /**
+     * Whether the branch has an upstream git could not count it against: ahead and behind are then zero for want of an answer, not because nothing differs, so the upstream is not known to hold every commit and the branch can be pushed. False with no upstream.
+     */
+    uncounted: boolean;
+    /**
      * The base branch, such as origin/main, or upstream/main in a fork's clone.
      */
     base: string;

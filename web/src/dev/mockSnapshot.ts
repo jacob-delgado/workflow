@@ -107,6 +107,7 @@ export const mockSnapshot: Snapshot = {
     base_remote: 'origin',
     ahead: 1,
     behind: 0,
+    uncounted: false,
     base: 'origin/main',
     // Newest first: the terminal demo's commit, which it pushes, and a test
     // written since.

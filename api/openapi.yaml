@@ -4487,7 +4487,7 @@ components:
 
     Branch:
       type: object
-      required: [name, detached, head, upstream, push_remote, base_remote, ahead, behind, base, commits, issue_link]
+      required: [name, detached, head, upstream, push_remote, base_remote, ahead, behind, uncounted, base, commits, issue_link]
       properties:
         name: {type: string}
         issue_link:
@@ -4535,6 +4535,13 @@ components:
             pulls the base from it.
         ahead: {type: integer}
         behind: {type: integer}
+        uncounted:
+          type: boolean
+          description: >-
+            Whether the branch has an upstream git could not count it against:
+            ahead and behind are then zero for want of an answer, not because
+            nothing differs, so the upstream is not known to hold every commit
+            and the branch can be pushed. False with no upstream.
         base:
           type: string
           description: The base branch, such as origin/main, or upstream/main in a fork's clone.

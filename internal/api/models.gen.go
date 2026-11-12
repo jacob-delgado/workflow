@@ -1258,6 +1258,9 @@ type Branch struct {
 	// PushRemote The remote a push of the branch goes to, as git decides it: branch.<name>.pushRemote, else remote.pushDefault, else the remote the branch tracks (branch.<name>.remote), else origin.
 	PushRemote string `json:"push_remote"`
 
+	// Uncounted Whether the branch has an upstream git could not count it against: ahead and behind are then zero for want of an answer, not because nothing differs, so the upstream is not known to hold every commit and the branch can be pushed. False with no upstream.
+	Uncounted bool `json:"uncounted"`
+
 	// Upstream The tracking branch; empty if never pushed.
 	Upstream string `json:"upstream"`
 }

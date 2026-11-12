@@ -26,6 +26,7 @@ const emptyBranch = {
   base_remote: '',
   ahead: 0,
   behind: 0,
+  uncounted: false,
   base: '',
   commits: [],
 } satisfies Branch

@@ -26,6 +26,7 @@ export function makeBranch(overrides: Partial<Branch> = {}): Branch {
     base_remote: 'origin',
     ahead: 2,
     behind: 0,
+    uncounted: false,
     base: 'origin/main',
     commits: [],
     ...overrides,

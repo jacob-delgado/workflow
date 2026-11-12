@@ -75,12 +75,12 @@ function BranchSummary({ branch, runner }: { branch: Branch; runner: GitRunner }
   const outcome = useOutcome()
   const heading = branch.name === '' ? `Detached HEAD at ${shortHash(branch.head)}` : branch.name
   // There is something to push on a branch of its own (not a detached HEAD, not
-  // the base) that has no upstream on the remote its push goes to, or that is
-  // ahead of the one it has: nothingToPush, the other way round. Commit count is
-  // not used — an undiscoverable base can leave it unknowable even for an ahead
-  // branch.
+  // the base) that has no upstream on the remote its push goes to, or one that
+  // upstream is not known to hold: ahead of it, or not counted against it at
+  // all. That is nothingToPush, the other way round. Commit count is not used —
+  // an undiscoverable base can leave it unknowable even for an ahead branch.
   const published = onPushRemote(branch)
-  const canPush = onFeatureBranch(branch) && (!published || branch.ahead > 0)
+  const canPush = onFeatureBranch(branch) && (!published || branch.uncounted || branch.ahead > 0)
 
   return (
     <section aria-labelledby="branch-heading" className="flex flex-col gap-group">
@@ -107,11 +107,7 @@ function BranchSummary({ branch, runner }: { branch: Branch; runner: GitRunner }
           </>
         )}
         <dt className="text-muted-foreground">Tracking</dt>
-        <dd>
-          {published
-            ? `${String(branch.ahead)} ahead, ${String(branch.behind)} behind`
-            : 'not pushed yet'}
-        </dd>
+        <dd>{tracking(branch, published)}</dd>
       </dl>
       <div className="flex flex-wrap items-start gap-item">
         {canPush ? <PushButton branch={branch} outcome={outcome} /> : null}
@@ -121,6 +117,19 @@ function BranchSummary({ branch, runner }: { branch: Branch; runner: GitRunner }
       <OutcomeLine said={outcome.said} />
     </section>
   )
+}
+
+// tracking is how the branch stands against its upstream: not pushed yet with
+// none on its push remote, not counted where git gave no count, and otherwise
+// how far ahead and behind it is.
+function tracking(branch: Branch, published: boolean): string {
+  if (!published) {
+    return 'not pushed yet'
+  }
+  if (branch.uncounted) {
+    return `not counted against ${branch.upstream}`
+  }
+  return `${String(branch.ahead)} ahead, ${String(branch.behind)} behind`
 }
 
 // onPushRemote reports an upstream on the remote the branch's push goes to: the

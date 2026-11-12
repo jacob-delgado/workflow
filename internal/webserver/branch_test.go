@@ -128,3 +128,24 @@ func TestTheBranchMarksTheCommitsNotYetPushed(t *testing.T) {
 		t.Errorf("unpushed = %v, want only the commit the upstream lacks", marked)
 	}
 }
+
+func TestGetBranchSaysABranchGitCouldNotCountIsUncounted(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps := webtest.FilledDeps()
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
+		return gitrepo.Branch{
+			Name: webtest.TestBranchName, Upstream: gitrepo.DefaultRemote + "/" + webtest.TestBranchName,
+			PushRemote: gitrepo.DefaultRemote, Uncounted: true,
+		}, nil
+	}
+
+	// Act
+	branch := webtest.Decode[api.Branch](t, webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/branch"))
+
+	// Assert
+	if !branch.Uncounted {
+		t.Errorf("uncounted = false for a branch git could not count against %s, want true", branch.Upstream)
+	}
+}
