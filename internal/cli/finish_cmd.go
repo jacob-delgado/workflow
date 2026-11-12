@@ -6,6 +6,7 @@ package cli
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -30,6 +31,12 @@ type finishSeams struct {
 	Confirm func(question string) (bool, error)
 }
 
+// errFinishMoved refuses a confirmed finish whose branch, read again, would
+// finish another branch, or onto another base or from another remote, than
+// the one asked about: another was checked out, or its base reset, from
+// another terminal while the prompt waited.
+var errFinishMoved = errors.New("what is checked out changed while the finish was asked about")
+
 // finishPlan is a finish that can go: the merged branch it deletes, the base
 // it returns to and the remote it pulls that base from, and the pull request
 // that merged it.
@@ -49,7 +56,8 @@ func newFinishCmd(prompt cmdkit.Prompt) *cobra.Command {
 			"to its base, fast-forward the base from the base remote — upstream in a fork's\n" +
 			"clone, else origin — with git pull --ff-only, and delete the branch: the three\n" +
 			"git commands the interface's F runs. They are printed and confirmed before any\n" +
-			"runs, and a step git refuses stops the rest, keeping the branch.\n\n" +
+			"runs, and a step git refuses stops the rest, keeping the branch. Once confirmed,\n" +
+			"the branch is read again, and refused if it changed meanwhile.\n\n" +
 			"A branch that cannot be finished is refused with the reason, and exits 4: its\n" +
 			"pull or merge request has not merged, it is the base itself or a detached\n" +
 			"HEAD, there is no base to return to, or it holds commits that neither merged\n" +
@@ -113,6 +121,11 @@ func runFinish(ctx context.Context, out cmdkit.Output, seams finishSeams, opts c
 		return err
 	}
 
+	err = plan.stillFinishable(ctx, seams)
+	if err != nil {
+		return err
+	}
+
 	err = seams.Finish(ctx, finishing)
 	if err != nil {
 		return fmt.Errorf("finishing %s: %w", finishing.Branch, err)
@@ -151,6 +164,30 @@ func planFinish(ctx context.Context, seams finishSeams) (finishPlan, error) {
 	}
 
 	return finishPlan{finishing: branch.Finishing(), pull: pull}, nil
+}
+
+// stillFinishable reads the branch again once the finish is confirmed, and
+// refuses it unless it still finishes as planned and loop.RefuseFinish still
+// finds nothing in the way: a commit made from another terminal while the
+// prompt waited would otherwise go with the force delete. The merged pull
+// request is not read again, since a merge is final and the commit it took
+// never changes.
+func (p finishPlan) stillFinishable(ctx context.Context, seams finishSeams) error {
+	branch, err := seams.Branch(ctx)
+	if err != nil {
+		return fmt.Errorf("reading the branch: %w", err)
+	}
+
+	refused := loop.RefuseFinish(p.pull, true, branch)
+	if branch.Finishing() != p.finishing {
+		refused = errFinishMoved
+	}
+
+	if refused != nil {
+		return fmt.Errorf("cannot finish %s: %w", p.finishing.Branch, refused)
+	}
+
+	return nil
 }
 
 // preview prints the merged pull request, in the forge's own mark, and the
