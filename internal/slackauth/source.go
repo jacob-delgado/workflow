@@ -38,8 +38,8 @@ type Source struct {
 // Token is a user token with more than refreshAhead left on it, and other than
 // expired — the token Slack just answered token_expired for, or empty when
 // none was. With no app named to refresh it for, it is ErrNoClientID, which
-// is also ErrNotLoggedIn. A process that waited on the lock re-reads what the one before it
-// kept, and refreshes only when that is still not good enough.
+// is also ErrNotLoggedIn. A process that waited on the lock re-reads what the
+// one before it kept, and refreshes only when that is still not good enough.
 func (s Source) Token(ctx context.Context, expired config.Secret) (config.Secret, error) {
 	if s.Refresher.ClientID == "" {
 		return "", fmt.Errorf("%w: %w", ErrNoClientID, ErrNotLoggedIn)
