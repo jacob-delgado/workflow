@@ -34,17 +34,25 @@ type reviewQueueState struct {
 	loading bool
 }
 
-// reviewsLoaded carries the forge's answer about the review queue.
+// reviewsLoaded carries the forge's answer about the review queue, as the
+// read counted read found it.
 type reviewsLoaded struct {
 	requests []forge.ReviewRequest
 	err      error
+	read     int
 }
 
 var _ applier = reviewsLoaded{}
 
 // apply records the queue in the order and under the filter chosen, keeping
-// the selection on the same request across a refresh.
+// the selection on the same request across a refresh. A read a later one has
+// superseded says nothing: its answer may land after the later one's, and
+// would list the queue as it stood before.
 func (msg reviewsLoaded) apply(m Model) (Model, tea.Cmd) {
+	if msg.read != m.reviewQueueReads {
+		return m, nil
+	}
+
 	previous, _ := m.reviewQueue.current()
 
 	m.reviewQueue = reviewQueueState{
@@ -64,8 +72,9 @@ func (s reviewQueueState) listed(previous forge.ReviewRequest, rows int) reviewQ
 	return s.following(rows)
 }
 
-// loadReviewQueue is the command that reads the review queue from the forge.
-func loadReviewQueue(ctx context.Context, deps Deps) tea.Cmd {
+// loadReviewQueue is the command that reads the review queue from the forge,
+// as the read counted read.
+func loadReviewQueue(ctx context.Context, deps Deps, read int) tea.Cmd {
 	list := deps.Forge.ReviewRequests
 	if list == nil {
 		return nil
@@ -74,7 +83,7 @@ func loadReviewQueue(ctx context.Context, deps Deps) tea.Cmd {
 	return func() tea.Msg {
 		requests, err := list(ctx)
 
-		return reviewsLoaded{requests: requests, err: err}
+		return reviewsLoaded{requests: requests, err: err, read: read}
 	}
 }
 
@@ -409,7 +418,8 @@ func reviewQueueBehavior() behavior {
 		},
 		// refresh reads the review queue again.
 		refresh: func(m Model) (Model, tea.Cmd) {
-			read := loadReviewQueue(m.session, m.deps)
+			m.reviewQueueReads++
+			read := loadReviewQueue(m.session, m.deps, m.reviewQueueReads)
 			m.reviewQueue.loading = read != nil
 
 			return m, read
