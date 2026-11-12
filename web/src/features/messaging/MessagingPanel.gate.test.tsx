@@ -29,7 +29,7 @@ function withPull(held?: QueuedAnnouncement) {
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
-      review: { found: true, announced: false, pull },
+      review: { found: true, announced: 'none', pull },
       queued_announcement: held,
     }),
   })
@@ -73,7 +73,7 @@ test('a preview of a merge a check failed on says to re-run the checks, offering
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
-      review: { found: true, announced: false, pull: { ...pull, state: 'merged' } },
+      review: { found: true, announced: 'none', pull: { ...pull, state: 'merged' } },
     }),
   })
   render(<MessagingPanel />)
@@ -132,7 +132,7 @@ test('a post refused because a check failed offers to wait', async () => {
 test('a held announcement waiting on a fix says so', () => {
   // Arrange
   previewing('failed')
-  withPull({ state: 'waiting', channel: '#dev', pull: 42, ci: 'failed' })
+  withPull({ id: 1, state: 'waiting', channel: '#dev', pull: 42, ci: 'failed' })
 
   // Act
   render(<MessagingPanel />)
@@ -148,7 +148,7 @@ test('a held announcement waiting on a fix says so', () => {
 test('one waiting for checks says a repository with no CI is announced by hand', () => {
   // Arrange
   previewing('none')
-  withPull({ state: 'waiting', channel: '#dev', pull: 42, ci: 'none' })
+  withPull({ id: 1, state: 'waiting', channel: '#dev', pull: 42, ci: 'none' })
 
   // Act
   render(<MessagingPanel />)
@@ -165,7 +165,7 @@ test('one waiting for checks says a repository with no CI is announced by hand',
 test('an armed announcement says it was armed as the pull request opened', () => {
   // Arrange
   previewing('running')
-  withPull({ state: 'waiting', channel: '#dev', pull: 42, ci: 'running', automatic: true })
+  withPull({ id: 1, state: 'waiting', channel: '#dev', pull: 42, ci: 'running', automatic: true })
 
   // Act
   render(<MessagingPanel />)

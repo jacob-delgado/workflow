@@ -85,6 +85,10 @@ func newWorlds(serving context.Context, first World) (*worlds, error) {
 		return nil, err
 	}
 
+	// The announcement held for CI is lost, unposted, as the server stops,
+	// as it is on a switch, so no read is set past its lifetime.
+	context.AfterFunc(serving, held.retireServed)
+
 	return held, nil
 }
 
@@ -289,11 +293,19 @@ func (w *worlds) install(world World) (*server, error) {
 
 	if w.current != nil {
 		close(w.current.retired)
+		w.current.held.retire()
 	}
 
 	w.current, w.handler = srv, apiHandler
 
 	return srv, nil
+}
+
+// retireServed retires the announcement the server for the directory worked
+// in holds for CI.
+func (w *worlds) retireServed() {
+	current, _ := w.served()
+	current.held.retire()
 }
 
 // served is the server for the directory worked in, and its handler.

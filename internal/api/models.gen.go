@@ -437,6 +437,7 @@ func (e PostLengthUnit) Valid() bool {
 
 // Defines values for ProblemCode.
 const (
+	ProblemCodeAnnouncedUnconfirmed ProblemCode = "announced_unconfirmed"
 	ProblemCodeBadRequest           ProblemCode = "bad_request"
 	ProblemCodeCheckFailed          ProblemCode = "check_failed"
 	ProblemCodeCiFailed             ProblemCode = "ci_failed"
@@ -444,6 +445,7 @@ const (
 	ProblemCodeFetchFailed          ProblemCode = "fetch_failed"
 	ProblemCodeInternal             ProblemCode = "internal"
 	ProblemCodeMethodNotAllowed     ProblemCode = "method_not_allowed"
+	ProblemCodeNotClaimed           ProblemCode = "not_claimed"
 	ProblemCodeNotFound             ProblemCode = "not_found"
 	ProblemCodeNotSetUp             ProblemCode = "not_set_up"
 	ProblemCodePreconditionRequired ProblemCode = "precondition_required"
@@ -457,6 +459,8 @@ const (
 // Valid indicates whether the value is a known member of the ProblemCode enum.
 func (e ProblemCode) Valid() bool {
 	switch e {
+	case ProblemCodeAnnouncedUnconfirmed:
+		return true
 	case ProblemCodeBadRequest:
 		return true
 	case ProblemCodeCheckFailed:
@@ -470,6 +474,8 @@ func (e ProblemCode) Valid() bool {
 	case ProblemCodeInternal:
 		return true
 	case ProblemCodeMethodNotAllowed:
+		return true
+	case ProblemCodeNotClaimed:
 		return true
 	case ProblemCodeNotFound:
 		return true
@@ -539,6 +545,8 @@ const (
 	QueuedAnnouncementStateAnnounced  QueuedAnnouncementState = "announced"
 	QueuedAnnouncementStateAnnouncing QueuedAnnouncementState = "announcing"
 	QueuedAnnouncementStateDropped    QueuedAnnouncementState = "dropped"
+	QueuedAnnouncementStateElsewhere  QueuedAnnouncementState = "elsewhere"
+	QueuedAnnouncementStateStopped    QueuedAnnouncementState = "stopped"
 	QueuedAnnouncementStateWaiting    QueuedAnnouncementState = "waiting"
 )
 
@@ -551,7 +559,62 @@ func (e QueuedAnnouncementState) Valid() bool {
 		return true
 	case QueuedAnnouncementStateDropped:
 		return true
+	case QueuedAnnouncementStateElsewhere:
+		return true
+	case QueuedAnnouncementStateStopped:
+		return true
 	case QueuedAnnouncementStateWaiting:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for QueuedAnnouncementWaitingOn.
+const (
+	QueuedAnnouncementWaitingOnChecks  QueuedAnnouncementWaitingOn = "checks"
+	QueuedAnnouncementWaitingOnCi      QueuedAnnouncementWaitingOn = "ci"
+	QueuedAnnouncementWaitingOnFix     QueuedAnnouncementWaitingOn = "fix"
+	QueuedAnnouncementWaitingOnListing QueuedAnnouncementWaitingOn = "listing"
+	QueuedAnnouncementWaitingOnUnread  QueuedAnnouncementWaitingOn = "unread"
+)
+
+// Valid indicates whether the value is a known member of the QueuedAnnouncementWaitingOn enum.
+func (e QueuedAnnouncementWaitingOn) Valid() bool {
+	switch e {
+	case QueuedAnnouncementWaitingOnChecks:
+		return true
+	case QueuedAnnouncementWaitingOnCi:
+		return true
+	case QueuedAnnouncementWaitingOnFix:
+		return true
+	case QueuedAnnouncementWaitingOnListing:
+		return true
+	case QueuedAnnouncementWaitingOnUnread:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReviewAnnounced.
+const (
+	ReviewAnnouncedNone        ReviewAnnounced = "none"
+	ReviewAnnouncedPosted      ReviewAnnounced = "posted"
+	ReviewAnnouncedUnconfirmed ReviewAnnounced = "unconfirmed"
+	ReviewAnnouncedUnknown     ReviewAnnounced = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the ReviewAnnounced enum.
+func (e ReviewAnnounced) Valid() bool {
+	switch e {
+	case ReviewAnnouncedNone:
+		return true
+	case ReviewAnnouncedPosted:
+		return true
+	case ReviewAnnouncedUnconfirmed:
+		return true
+	case ReviewAnnouncedUnknown:
 		return true
 	default:
 		return false
@@ -1114,7 +1177,7 @@ type Announcement struct {
 	// Channel The channel it posts to, or empty for a webhook's own channel.
 	Channel string `json:"channel"`
 
-	// Ci How the pull request's CI stands as the preview was composed; a failed check means announcing now is refused. Left out when the CI could not be read, and on a post.
+	// Ci How the pull request's CI stands as the preview was composed, read at the commit the forge says the pull request is at. It never refuses a post: announcing now reads the CI again as it posts. Left out when the CI could not be read, and on a post.
 	Ci *CIState `json:"ci,omitempty"`
 
 	// Tagging Whom a ready-for-review announcement proposes to tag on Slack: the code owners of the branch's changes, and the user groups it offers.
@@ -1965,13 +2028,13 @@ type OpenPullRequestRequest struct {
 
 // OpenedPullRequest A pull request that was just opened, with a warning when it opened but its reviewers, assignees or labels could not all be added, and what can be offered next.
 type OpenedPullRequest struct {
-	// Announcement The announcement armed to post once the pull request's CI passes, when messaging is set up and messaging.auto_announce is on; the frame's queued_announcement goes on saying how it stands, and DELETE /api/announce/queued drops it unposted. Left out when none was armed.
+	// Announcement The announcement armed to post once the pull request's CI passes, when messaging is set up and messaging.auto_announce is on; the frame's queued_announcement goes on saying how it stands, and DELETE /api/announce/queued stops it unposted. Left out when none was armed.
 	Announcement *QueuedAnnouncement `json:"announcement,omitempty"`
 
 	// FollowUps What the browser can offer now that the pull request is open, in the order the terminal offers them — the link, then the move. Empty when the branch names no Jira issue, or neither applies.
 	FollowUps []FollowUp `json:"follow_ups"`
 
-	// NotArmed Why no announcement was armed where one would have been: a draft is not announced until it is ready. Left out otherwise.
+	// NotArmed Why no announcement was armed where one would have been: a draft is not announced until it is ready, and one armed on its own never replaces another pull request's announcement that waits or is being posted. Left out otherwise.
 	NotArmed *string     `json:"not_armed,omitempty"`
 	Pull     PullRequest `json:"pull"`
 
@@ -2091,7 +2154,7 @@ type PostLengthUnit string
 
 // Problem An RFC 9457 problem details object. The detail is safe to show and never carries a secret; code is a stable, machine-readable reason.
 type Problem struct {
-	// Code A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the base remote names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is; rate_limited is an upstream asking to be asked again later, unreachable one that could not be reached at all; unauthorized is a request that presented no session, or another run's; ci_failed is an announcement refused because a check failed on its pull request.
+	// Code A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the base remote names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is; rate_limited is an upstream asking to be asked again later, unreachable one that could not be reached at all; unauthorized is a request that presented no session, or another run's; ci_failed is an announcement refused because a check failed on its pull request; announced_unconfirmed is an announcement whose post began, here or elsewhere, and was never confirmed, so it may have gone out and is not posted again unasked; not_claimed is an announcement the store could not claim, so nothing was posted.
 	Code ProblemCode `json:"code"`
 
 	// Detail A human-readable explanation specific to this occurrence.
@@ -2115,7 +2178,7 @@ type Problem struct {
 	Type string `json:"type"`
 }
 
-// ProblemCode A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the base remote names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is; rate_limited is an upstream asking to be asked again later, unreachable one that could not be reached at all; unauthorized is a request that presented no session, or another run's; ci_failed is an announcement refused because a check failed on its pull request.
+// ProblemCode A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the base remote names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is; rate_limited is an upstream asking to be asked again later, unreachable one that could not be reached at all; unauthorized is a request that presented no session, or another run's; ci_failed is an announcement refused because a check failed on its pull request; announced_unconfirmed is an announcement whose post began, here or elsewhere, and was never confirmed, so it may have gone out and is not posted again unasked; not_claimed is an announcement the store could not claim, so nothing was posted.
 type ProblemCode string
 
 // PullRequest defines model for PullRequest.
@@ -2184,7 +2247,7 @@ type PullRequestText struct {
 	Title string `json:"title"`
 }
 
-// QueuedAnnouncement An announcement held until a pull request's CI passes, and how it stands: waiting for the CI, being posted, posted, or dropped unposted with the reason.
+// QueuedAnnouncement An announcement held until a pull request's CI passes, and how it stands: waiting, being posted, posted, claimed elsewhere first, dropped unposted with the reason, or stopped before it was posted. The server holds it bound to the branch it was armed on and reads that branch's pull request and its CI on its own, so a branch checked out meanwhile neither posts nor drops it.
 type QueuedAnnouncement struct {
 	// Automatic Set true only on one armed as its pull request opened here, rather than asked for with when ci_passes.
 	Automatic *bool `json:"automatic,omitempty"`
@@ -2192,24 +2255,38 @@ type QueuedAnnouncement struct {
 	// Channel The channel it posts to, or empty for a webhook's own channel.
 	Channel string `json:"channel"`
 
-	// Ci How the pull request's CI stood on the last read while it waits; failed means it waits on a fix, none that no check is reported yet. Left out until the CI is read.
+	// Ci How the pull request's CI stood on the last read heard while it waits on CI, checks or a fix; failed means it waits on a fix, none that no check is reported yet. Left out otherwise.
 	Ci *CIState `json:"ci,omitempty"`
+
+	// ID Which hold this is: a new one each time an announcement is armed afresh, the same while one waits, so a page can tell a new hold from the one it showed.
+	ID int `json:"id"`
 
 	// Pull The number of the pull request whose CI it waits on.
 	Pull int `json:"pull"`
 
-	// Reason Why a dropped announcement was not posted: no check was reported on the pull request within ten minutes, so it is announced by hand; the branch's pull request is another one, or merged before its CI passed; or the post failed. A failed check does not drop it: it waits on, for a run that passes.
-	Reason *string                 `json:"reason,omitempty"`
-	State  QueuedAnnouncementState `json:"state"`
+	// Reason Why it stands where it does: why a dropped announcement was not posted — the forge did not list the pull request, or nothing could be heard of it, for ten minutes; no check was reported on it across ten minutes of reads heard; the branch's pull request is another one, or merged before its CI passed; the service refused the post; or the post may have gone out, which workflow announce asks before posting again — why one is elsewhere, why one was stopped, and, while it waits unread, what failed. A failed check does not drop it: it waits on, for a run that passes.
+	Reason *string `json:"reason,omitempty"`
 
-	// Warning Set only on one announced whose claim the store could not confirm; the claim still keeps it from going again.
+	// ReplacedPull Set only on the answer to POST /api/announce with when ci_passes that replaced another pull request's waiting announcement, which is stopped: that pull request's number.
+	ReplacedPull *int `json:"replaced_pull,omitempty"`
+
+	// State waiting for its CI; announcing, being posted once CI passed; announced, posted; elsewhere, not posted here because another session or process claimed it first; dropped, given up on for the reason; stopped, by DELETE /api/announce/queued, or replaced by another asked for.
+	State QueuedAnnouncementState `json:"state"`
+
+	// WaitingOn Set only while it waits, saying on what: listing, the forge to list a pull request just opened; ci, a run under way; checks, the pull request to report a check; fix, a run that passes, a check having failed; unread, a read or a post that failed, tried again on the CI interval, with the reason.
+	WaitingOn *QueuedAnnouncementWaitingOn `json:"waiting_on,omitempty"`
+
+	// Warning Set only on one announced whose post the store did not confirm; its claim still keeps it from going again.
 	//
 	// Example: The store did not confirm it; it is not offered again.
 	Warning *string `json:"warning,omitempty"`
 }
 
-// QueuedAnnouncementState defines model for QueuedAnnouncement.State.
+// QueuedAnnouncementState waiting for its CI; announcing, being posted once CI passed; announced, posted; elsewhere, not posted here because another session or process claimed it first; dropped, given up on for the reason; stopped, by DELETE /api/announce/queued, or replaced by another asked for.
 type QueuedAnnouncementState string
+
+// QueuedAnnouncementWaitingOn Set only while it waits, saying on what: listing, the forge to list a pull request just opened; ci, a run under way; checks, the pull request to report a check; fix, a run that passes, a check having failed; unread, a read or a post that failed, tried again on the CI interval, with the reason.
+type QueuedAnnouncementWaitingOn string
 
 // RefusedSetting A setting a configuration save refused, and why.
 type RefusedSetting struct {
@@ -2263,8 +2340,8 @@ type Rerun struct {
 
 // Review defines model for Review.
 type Review struct {
-	// Announced Whether the pull request was already announced at the moment it is at now — ready for review, or merged — from the browser, the terminal or workflow announce, as the store holds a claim on it, its post confirmed or begun. Always false for one closed without merging, which the loop no longer follows, whatever was announced of it before: it is none to announce, as the announce stage reads it, until one is open again. The store is read for each frame, and never under --dry-run, when this is always false.
-	Announced bool `json:"announced"`
+	// Announced Whether the pull request was already announced at the moment it is at now — ready for review, or merged — from the browser, the terminal or workflow announce, as the store holds a claim on it: posted, its post confirmed; unconfirmed, a post that began and was never confirmed, which may have gone out, so it is not posted again unasked (workflow announce asks before posting it again); unknown, the store could not be read, when the claim a post takes still keeps it from going twice; or none. Always none for one closed without merging, which the loop no longer follows, whatever was announced of it before: it is none to announce, as the announce stage reads it, until one is open again. The store is read for each frame, and never under --dry-run, when this is always none.
+	Announced ReviewAnnounced `json:"announced"`
 
 	// Ci The pull request's CI; absent when none is found, the pull request is not open, or its CI cannot be read — unless the event stream holds the CI last read for the same pull request at the same head.
 	Ci *CI `json:"ci,omitempty"`
@@ -2284,6 +2361,9 @@ type Review struct {
 	// Pull The branch's pull request; absent when none is found.
 	Pull *PullRequest `json:"pull,omitempty"`
 }
+
+// ReviewAnnounced Whether the pull request was already announced at the moment it is at now — ready for review, or merged — from the browser, the terminal or workflow announce, as the store holds a claim on it: posted, its post confirmed; unconfirmed, a post that began and was never confirmed, which may have gone out, so it is not posted again unasked (workflow announce asks before posting it again); unknown, the store could not be read, when the claim a post takes still keeps it from going twice; or none. Always none for one closed without merging, which the loop no longer follows, whatever was announced of it before: it is none to announce, as the announce stage reads it, until one is open again. The store is read for each frame, and never under --dry-run, when this is always none.
+type ReviewAnnounced string
 
 // ReviewFacet One value a review request holds in one of the four facets the queue is narrowed by. Values picked in one facet widen the queue, and the facets narrow it together.
 type ReviewFacet struct {
@@ -2510,7 +2590,7 @@ type Snapshot struct {
 	// Problems Why each panel whose read failed was not read, so a failed read is shown as a failure rather than as the panel's empty state; absent when every panel read. A failed panel still carries its empty answer — or, for the review, the answer the forge last gave for the branch at its head — beside its problem. A service that is not set up — no credential, no forge the base remote names — carries a problem whose code is not_set_up, with how to set it up, to be shown as guidance rather than as a failure; no repository is no problem. Each detail is the curated one an error answer carries, never a host, a path or a credential.
 	Problems *PanelProblems `json:"problems,omitempty"`
 
-	// QueuedAnnouncement An announcement held until a pull request's CI passes, and how it stands: waiting for the CI, being posted, posted, or dropped unposted with the reason.
+	// QueuedAnnouncement An announcement held until a pull request's CI passes, and how it stands: waiting, being posted, posted, claimed elsewhere first, dropped unposted with the reason, or stopped before it was posted. The server holds it bound to the branch it was armed on and reads that branch's pull request and its CI on its own, so a branch checked out meanwhile neither posts nor drops it.
 	QueuedAnnouncement *QueuedAnnouncement `json:"queued_announcement,omitempty"`
 	Review             Review              `json:"review"`
 

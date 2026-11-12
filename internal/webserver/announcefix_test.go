@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -42,79 +43,89 @@ func ciOf(state *api.CIState) string {
 func TestAHeldAnnouncementWaitsOnAFix(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	world := newForgeWorld()
-	handler := webtest.Serve(t, world.deps(), config.Default())
-	announceWhenGreen(t, handler, nil)
-	world.turn(func(w *forgeWorld) { w.ci = forge.CIFailed })
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		world := newForgeWorld()
+		handler := heldServer(t, world.deps(), config.Default())
+		announceWhenGreen(t, handler, nil)
+		world.turn(func(w *forgeWorld) { w.ci = forge.CIFailed })
 
-	// Act: a frame after a check failed
-	failed := heldAnnouncement(t, handler)
+		// Act: a read after a check failed
+		advance(ciTick)
 
-	// Assert: it waits, on a fix
-	if !sameHold(failed, waitingOn(api.CIStateFailed)) {
-		t.Errorf("frame's held announcement = %+v, want it waiting with CI failed", failed)
-	}
+		// Assert: it waits, on a fix
+		if failed := heldAnnouncement(t, handler); !sameHold(failed, waitingOn(api.CIStateFailed)) ||
+			failed.WaitingOn == nil || *failed.WaitingOn != api.QueuedAnnouncementWaitingOnFix {
+			t.Errorf("frame's held announcement = %+v, want it waiting on a fix", failed)
+		}
 
-	// Act: a frame once a run passes
-	world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
+		// Act: a read once a run passes
+		world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
+		advance(ciTick)
 
-	passed := heldAnnouncement(t, handler)
-
-	// Assert: it went
-	if passed == nil || passed.State != api.QueuedAnnouncementStateAnnounced || len(world.posted()) != 1 {
-		t.Errorf("frame's held announcement = %+v, posted %q; want it announced once", passed, world.posted())
-	}
+		// Assert: it went
+		passed := heldAnnouncement(t, handler)
+		if passed == nil || passed.State != api.QueuedAnnouncementStateAnnounced || len(world.posted()) != 1 {
+			t.Errorf("frame's held announcement = %+v, posted %q; want it announced once", passed, world.posted())
+		}
+	})
 }
 
 func TestAHeldAnnouncementGivesUpWhenNoCheckIsReported(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	// No check is reported, and an hour passes, past the ten minutes'
-	// patience.
-	world := newForgeWorld()
-	world.ci = forge.CINone
-	handler := webtest.Serve(t, world.deps(), config.Default())
-	announceWhenGreen(t, handler, nil)
-	world.turn(func(*forgeWorld) {})
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// No check is reported, and an hour passes, past the ten minutes'
+		// patience.
+		world := newForgeWorld()
+		world.ci = forge.CINone
+		handler := heldServer(t, world.deps(), config.Default())
+		announceWhenGreen(t, handler, nil)
+		world.turn(func(*forgeWorld) {})
 
-	// Act
-	held := heldAnnouncement(t, handler)
+		// Act
+		advance(ciTick)
 
-	// Assert
-	reason := "no checks reported on #42 within 10m; announce it by hand"
-	if held == nil || held.State != api.QueuedAnnouncementStateDropped || orEmpty(held.Reason) != reason {
-		t.Errorf("frame's held announcement = %+v, want it dropped because %q", held, reason)
-	}
+		// Assert
+		held := heldAnnouncement(t, handler)
+		reason := "no checks reported on #42 within 10m; announce it by hand"
 
-	if posts := world.posted(); len(posts) != 0 {
-		t.Errorf("posted %q, want nothing", posts)
-	}
+		if held == nil || held.State != api.QueuedAnnouncementStateDropped || orEmpty(held.Reason) != reason {
+			t.Errorf("frame's held announcement = %+v, want it dropped because %q", held, reason)
+		}
+
+		if posts := world.posted(); len(posts) != 0 {
+			t.Errorf("posted %q, want nothing", posts)
+		}
+	})
 }
 
 func TestAHeldAnnouncementCountsNoQuietTimeAcrossAnOutage(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	// No check is reported; then CI cannot be read for an hour, past the ten
-	// minutes' patience, and a frame reads it so; then an hour on, a read is
-	// heard, still with no check.
-	world := newForgeWorld()
-	world.ci = forge.CINone
-	handler := webtest.Serve(t, world.deps(), config.Default())
-	announceWhenGreen(t, handler, nil)
-	world.turn(func(w *forgeWorld) { w.ciErr = errForgeDown })
-	heldAnnouncement(t, handler)
-	world.turn(func(w *forgeWorld) { w.ciErr = nil })
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// No check is reported; then CI cannot be read for an hour, past the
+		// ten minutes' patience, and a read finds it so; then an hour on, a
+		// read is heard, still with no check.
+		world := newForgeWorld()
+		world.ci = forge.CINone
+		handler := heldServer(t, world.deps(), config.Default())
+		cancelHeld(t, handler)
+		announceWhenGreen(t, handler, nil)
+		world.turn(func(w *forgeWorld) { w.ciErr = errForgeDown })
+		advance(ciTick)
+		world.turn(func(w *forgeWorld) { w.ciErr = nil })
 
-	// Act
-	held := heldAnnouncement(t, handler)
+		// Act
+		advance(ciTick)
 
-	// Assert
-	if !sameHold(held, waitingOn(api.CIStateNone)) {
-		t.Errorf("frame's held announcement = %+v, want it still waiting, an outage not counted as quiet", held)
-	}
+		// Assert
+		if held := heldAnnouncement(t, handler); !sameHold(held, waitingOn(api.CIStateNone)) {
+			t.Errorf("frame's held announcement = %+v, want it still waiting, an outage not counted as quiet", held)
+		}
+	})
 }
 
 // step changes w, then moves its clock on by elapsed.
@@ -129,27 +140,32 @@ func (w *forgeWorld) step(elapsed time.Duration, change func(*forgeWorld)) {
 func TestAHeldAnnouncementCountsNoQuietTimeAcrossAFrameShowingCIHeldFromBefore(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	// A frame hears no check; the next one's read of CI fails, and the frame
-	// shows the CI read before in its place; half an hour on, a read is heard,
-	// still with no check.
-	world := newForgeWorld()
-	world.ci = forge.CINone
-	handler := webtest.Serve(t, world.deps(), config.Default())
-	announceWhenGreen(t, handler, nil)
-	world.step(time.Minute, func(*forgeWorld) {})
-	heldAnnouncement(t, handler)
-	world.step(time.Minute, func(w *forgeWorld) { w.ciErr = errForgeDown })
-	heldAnnouncement(t, handler)
-	world.step(28*time.Minute, func(w *forgeWorld) { w.ciErr = nil })
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// A read hears no check; the next one's read of CI fails, while a
+		// frame shows the CI read before in its place; half an hour on, a
+		// read is heard, still with no check.
+		world := newForgeWorld()
+		world.ci = forge.CINone
+		handler := heldServer(t, world.deps(), config.Default())
+		cancelHeld(t, handler)
+		announceWhenGreen(t, handler, nil)
+		world.step(time.Minute, func(*forgeWorld) {})
+		advance(ciTick)
+		heldAnnouncement(t, handler)
+		world.step(time.Minute, func(w *forgeWorld) { w.ciErr = errForgeDown })
+		heldAnnouncement(t, handler)
+		advance(ciTick)
+		world.step(28*time.Minute, func(w *forgeWorld) { w.ciErr = nil })
 
-	// Act
-	held := heldAnnouncement(t, handler)
+		// Act
+		advance(ciTick)
 
-	// Assert
-	if !sameHold(held, waitingOn(api.CIStateNone)) {
-		t.Errorf("frame's held announcement = %+v, want it still waiting: a read that failed is not quiet", held)
-	}
+		// Assert
+		if held := heldAnnouncement(t, handler); !sameHold(held, waitingOn(api.CIStateNone)) {
+			t.Errorf("frame's held announcement = %+v, want it still waiting: a read that failed is not quiet", held)
+		}
+	})
 }
 
 // failingAtTheGate is a CI read that answers running until it is armed, then
@@ -190,24 +206,27 @@ func (g *failingAtTheGate) arm() {
 func TestAHeldAnnouncementTheGateRefusesKeepsWaiting(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	world, gate := newForgeWorld(), &failingAtTheGate{}
-	deps := world.deps()
-	deps.Forge.CheckStatus = gate.check
-	handler := webtest.Serve(t, deps, config.Default())
-	cancelHeld(t, handler)
-	announceWhenGreen(t, handler, nil)
-	gate.arm()
-	world.turn(func(*forgeWorld) {})
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		world, gate := newForgeWorld(), &failingAtTheGate{}
+		deps := world.deps()
+		deps.Forge.CheckStatus = gate.check
+		handler := heldServer(t, deps, config.Default())
+		cancelHeld(t, handler)
+		announceWhenGreen(t, handler, nil)
+		gate.arm()
+		world.turn(func(*forgeWorld) {})
 
-	// Act
-	held := heldAnnouncement(t, handler)
+		// Act
+		advance(ciTick)
 
-	// Assert
-	if !sameHold(held, waitingOn(api.CIStateFailed)) || len(world.posted()) != 0 {
-		t.Errorf("frame's held announcement = %+v, posted %q; want it waiting again, nothing posted",
-			held, world.posted())
-	}
+		// Assert
+		if held := heldAnnouncement(t, handler); !sameHold(held, waitingOn(api.CIStateFailed)) ||
+			len(world.posted()) != 0 {
+			t.Errorf("frame's held announcement = %+v, posted %q; want it waiting again, nothing posted",
+				held, world.posted())
+		}
+	})
 }
 
 func TestAnnouncingWhenCIPassesHoldsAnythingShortOfPassing(t *testing.T) {
@@ -301,35 +320,39 @@ func TestAPreviewSaysHowCIStands(t *testing.T) {
 func TestARefusedPostNowKeepsTheHeldAnnouncement(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	// An announcement is held for CI; a check fails, and Announce now is asked.
-	world := newForgeWorld()
-	handler := webtest.Serve(t, world.deps(), config.Default())
-	cancelHeld(t, handler)
-	announceWhenGreen(t, handler, nil)
-	world.turn(func(w *forgeWorld) { w.ci = forge.CIFailed })
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// An announcement is held for CI; a check fails, and Announce now is
+		// asked.
+		world := newForgeWorld()
+		handler := heldServer(t, world.deps(), config.Default())
+		cancelHeld(t, handler)
+		announceWhenGreen(t, handler, nil)
+		world.turn(func(w *forgeWorld) { w.ci = forge.CIFailed })
+		advance(ciTick)
 
-	// Act: announce now
-	refused := postAnnounce(t, handler, map[string]string{channelField: slackChannel})
+		// Act: announce now
+		refused := postAnnounce(t, handler, map[string]string{channelField: slackChannel})
 
-	// Assert: refused, and the held one still waits
-	if refused.Code != http.StatusConflict {
-		t.Fatalf("status = %d (%s), want 409 for a failed check", refused.Code, refused.Body.String())
-	}
+		// Assert: refused, and the held one still waits
+		if refused.Code != http.StatusConflict {
+			t.Fatalf("status = %d (%s), want 409 for a failed check", refused.Code, refused.Body.String())
+		}
 
-	if held := heldAnnouncement(t, handler); !sameHold(held, waitingOn(api.CIStateFailed)) {
-		t.Fatalf("frame's held announcement = %+v, want the held one still waiting on a fix", held)
-	}
+		if held := heldAnnouncement(t, handler); !sameHold(held, waitingOn(api.CIStateFailed)) {
+			t.Fatalf("frame's held announcement = %+v, want the held one still waiting on a fix", held)
+		}
 
-	// Act: a run passes
-	world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
+		// Act: a run passes
+		world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
+		advance(ciTick)
 
-	held := heldAnnouncement(t, handler)
-
-	// Assert: it goes, once
-	if held == nil || held.State != api.QueuedAnnouncementStateAnnounced || len(world.posted()) != 1 {
-		t.Errorf("frame's held announcement = %+v, posted %q; want it announced once", held, world.posted())
-	}
+		// Assert: it goes, once
+		held := heldAnnouncement(t, handler)
+		if held == nil || held.State != api.QueuedAnnouncementStateAnnounced || len(world.posted()) != 1 {
+			t.Errorf("frame's held announcement = %+v, posted %q; want it announced once", held, world.posted())
+		}
+	})
 }
 
 // fixedHead is the commit a fix for a check failed at webtest.FilledHead is
@@ -353,20 +376,23 @@ func fixedOnANewHead(deps webserver.Deps) webserver.Deps {
 func TestAHeldAnnouncementGoesOnceAFixLandsOnANewHead(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	// A check failed where it was held, and the fix was pushed as a new
-	// commit whose run passes.
-	world := newForgeWorld()
-	handler := webtest.Serve(t, fixedOnANewHead(world.deps()), config.Default())
-	cancelHeld(t, handler)
-	announceWhenGreen(t, handler, nil)
-	world.turn(func(w *forgeWorld) { w.head = fixedHead })
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// A check failed where it was held, and the fix was pushed as a new
+		// commit whose run passes.
+		world := newForgeWorld()
+		handler := heldServer(t, fixedOnANewHead(world.deps()), config.Default())
+		cancelHeld(t, handler)
+		announceWhenGreen(t, handler, nil)
+		world.turn(func(w *forgeWorld) { w.head = fixedHead })
 
-	// Act
-	held := heldAnnouncement(t, handler)
+		// Act
+		advance(ciTick)
 
-	// Assert
-	if held == nil || held.State != api.QueuedAnnouncementStateAnnounced || len(world.posted()) != 1 {
-		t.Errorf("frame's held announcement = %+v, posted %q; want it announced once", held, world.posted())
-	}
+		// Assert
+		held := heldAnnouncement(t, handler)
+		if held == nil || held.State != api.QueuedAnnouncementStateAnnounced || len(world.posted()) != 1 {
+			t.Errorf("frame's held announcement = %+v, posted %q; want it announced once", held, world.posted())
+		}
+	})
 }

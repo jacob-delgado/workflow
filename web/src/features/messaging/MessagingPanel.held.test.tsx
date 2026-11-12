@@ -33,7 +33,7 @@ function withPull(held?: QueuedAnnouncement) {
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
-      review: { found: true, announced: false, pull },
+      review: { found: true, announced: 'none', pull },
       queued_announcement: held,
     }),
   })
@@ -104,7 +104,7 @@ test('an announcement that can wait is held until CI passes', async () => {
   // Arrange
   const sent = serverAnswering({
     canWait: true,
-    post: Response.json({ state: 'waiting', channel: '#dev', pull: 42 }, { status: 202 }),
+    post: Response.json({ id: 1, state: 'waiting', channel: '#dev', pull: 42 }, { status: 202 }),
   })
   withPull()
   render(<MessagingPanel />)
@@ -136,7 +136,7 @@ test('an announcement that cannot wait offers no wait', async () => {
 test('a held announcement says it waits, and stops waiting on asking', async () => {
   // Arrange
   const sent = serverAnswering()
-  withPull({ state: 'waiting', channel: '#dev', pull: 42 })
+  withPull({ id: 1, state: 'waiting', channel: '#dev', pull: 42 })
   render(<MessagingPanel />)
 
   // Act
@@ -156,7 +156,7 @@ test('a refused Stop waiting says why, with focus still on it', async () => {
     '/api/announce/queued': () =>
       Response.json({ code: 'unprocessable', detail: 'nothing is waiting' }, { status: 422 }),
   })
-  withPull({ state: 'waiting', channel: '#dev', pull: 42 })
+  withPull({ id: 1, state: 'waiting', channel: '#dev', pull: 42 })
   render(<MessagingPanel />)
   const stop = screen.getByRole('button', { name: 'Stop waiting' })
 
@@ -171,7 +171,7 @@ test('a refused Stop waiting says why, with focus still on it', async () => {
 test('a held announcement that went says so', () => {
   // Arrange
   serverAnswering()
-  withPull({ state: 'announced', channel: '#dev', pull: 42 })
+  withPull({ id: 1, state: 'announced', channel: '#dev', pull: 42 })
 
   // Act
   render(<MessagingPanel />)
@@ -183,7 +183,7 @@ test('a held announcement that went says so', () => {
 test('a held announcement that was dropped says why, as a failure', () => {
   // Arrange
   serverAnswering()
-  withPull({ state: 'dropped', channel: '#dev', pull: 42, reason: 'CI failed at 10:00' })
+  withPull({ id: 1, state: 'dropped', channel: '#dev', pull: 42, reason: 'CI failed at 10:00' })
 
   // Act
   render(<MessagingPanel />)
@@ -195,7 +195,7 @@ test('a held announcement that was dropped says why, as a failure', () => {
 test('a held announcement going out says so', () => {
   // Arrange
   serverAnswering()
-  withPull({ state: 'announcing', channel: '', pull: 42 })
+  withPull({ id: 1, state: 'announcing', channel: '', pull: 42 })
 
   // Act
   render(<MessagingPanel />)
@@ -207,7 +207,7 @@ test('a held announcement going out says so', () => {
 test('a post the server held instead is not taken for posted', async () => {
   // Arrange
   serverAnswering({
-    post: Response.json({ state: 'waiting', channel: '#dev', pull: 42 }, { status: 202 }),
+    post: Response.json({ id: 1, state: 'waiting', channel: '#dev', pull: 42 }, { status: 202 }),
   })
   withPull()
   render(<MessagingPanel />)
@@ -258,7 +258,7 @@ test('an announcement asked to wait that went at once, not confirmed, says so', 
 test('a held announcement that went, not confirmed, says it is not offered again', () => {
   // Arrange
   serverAnswering()
-  withPull({ state: 'announced', channel: '#dev', pull: 42, warning: unconfirmed })
+  withPull({ id: 1, state: 'announced', channel: '#dev', pull: 42, warning: unconfirmed })
 
   // Act
   render(<MessagingPanel />)
@@ -270,6 +270,7 @@ test('a held announcement that went, not confirmed, says it is not offered again
 // waitingArmed is an announcement armed as pull request 42 opened, waiting for
 // its CI to pass.
 const waitingArmed: QueuedAnnouncement = {
+  id: 1,
   state: 'waiting',
   channel: '#dev',
   pull: 42,
@@ -328,7 +329,7 @@ test.each([
   { standing: 'none held', held: undefined },
   {
     standing: 'the held one dropped',
-    held: { state: 'dropped', channel: '#dev', pull: 42, reason: 'CI failed at 10:00' },
+    held: { id: 1, state: 'dropped', channel: '#dev', pull: 42, reason: 'CI failed at 10:00' },
   },
 ] satisfies { standing: string; held: QueuedAnnouncement | undefined }[])(
   'with nothing waiting, the announce action is Announce to Slack: $standing',

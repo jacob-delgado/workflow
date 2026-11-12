@@ -37,7 +37,7 @@ function withPull(pull: PullRequest, ci: 'passed' | 'failed'): Snapshot {
     }),
     review: {
       found: true,
-      announced: false,
+      announced: 'none',
       pull,
       ci: {
         state: ci,

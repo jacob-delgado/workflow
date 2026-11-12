@@ -9,11 +9,14 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"testing/synctest"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/codeowners"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
@@ -74,32 +77,105 @@ func armedAndWaiting(armed *api.QueuedAnnouncement) bool {
 func TestOpeningAPullRequestArmsItsAnnouncement(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	world := newForgeWorld()
-	handler := webtest.Serve(t, openingDeps(world, false), webhookConfig())
-	cancelHeld(t, handler)
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		world := newForgeWorld()
+		handler := heldServer(t, openingDeps(world, false), webhookConfig())
+		cancelHeld(t, handler)
 
-	// Act: open the pull request
-	answer := opened(t, handler)
+		// Act: open the pull request
+		answer := opened(t, handler)
 
-	// Assert: its announcement is armed, and waits
-	if !armedAndWaiting(answer.Announcement) {
-		t.Fatalf("announcement = %+v, want #42 armed and waiting", answer.Announcement)
-	}
+		// Assert: its announcement is armed, and waits
+		if !armedAndWaiting(answer.Announcement) {
+			t.Fatalf("announcement = %+v, want #42 armed and waiting", answer.Announcement)
+		}
 
-	if held := heldAnnouncement(t, handler); held == nil || held.State != api.QueuedAnnouncementStateWaiting {
-		t.Errorf("frame's held announcement = %+v, want it waiting", held)
-	}
+		if held := heldAnnouncement(t, handler); held == nil || held.State != api.QueuedAnnouncementStateWaiting {
+			t.Errorf("frame's held announcement = %+v, want it waiting", held)
+		}
 
-	// Act: CI passes
-	world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
+		// Act: CI passes
+		world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
+		advance(ciTick)
 
-	held := heldAnnouncement(t, handler)
+		// Assert: it went, once
+		held := heldAnnouncement(t, handler)
+		if held == nil || held.State != api.QueuedAnnouncementStateAnnounced || len(world.posted()) != 1 {
+			t.Errorf("frame's held announcement = %+v, posted %q; want it announced once", held, world.posted())
+		}
+	})
+}
 
-	// Assert: it went, once
-	if held == nil || held.State != api.QueuedAnnouncementStateAnnounced || len(world.posted()) != 1 {
-		t.Errorf("frame's held announcement = %+v, posted %q; want it announced once", held, world.posted())
-	}
+func TestAnAnnouncementArmedAsItsPullRequestOpenedWaitsForTheForgeToListIt(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// The forge does not list the pull request just opened at first.
+		world := newForgeWorld()
+		deps := openingDeps(world, false)
+		create := deps.Forge.CreatePullRequest
+		deps.Forge.CreatePullRequest = func(ctx context.Context, request forge.NewPullRequest) (forge.PullRequest, error) {
+			pull, err := create(ctx, request)
+
+			world.turn(func(w *forgeWorld) { w.gone = true })
+
+			return pull, err
+		}
+		handler := heldServer(t, deps, webhookConfig())
+		cancelHeld(t, handler)
+
+		// Act: open the pull request
+		answer := opened(t, handler)
+
+		// Assert: it waits for the forge to list it
+		if armed := answer.Announcement; armed == nil || armed.WaitingOn == nil ||
+			*armed.WaitingOn != api.QueuedAnnouncementWaitingOnListing {
+			t.Fatalf("announcement = %+v, want it waiting for the forge to list #42", armed)
+		}
+
+		// Act: the forge lists it, its CI passed
+		world.turn(func(w *forgeWorld) { w.gone, w.ci = false, forge.CIPassed })
+		advance(ciTick)
+
+		// Assert: it went
+		if posts := world.posted(); len(posts) != 1 {
+			t.Errorf("posted %q, want #42 announced once the forge listed it", posts)
+		}
+	})
+}
+
+func TestAnAnnouncementArmedAsItsPullRequestOpenedGivesUpWhenTheForgeNeverListsIt(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// The forge never lists the pull request just opened, for an hour.
+		world := newForgeWorld()
+		deps := openingDeps(world, false)
+		create := deps.Forge.CreatePullRequest
+		deps.Forge.CreatePullRequest = func(ctx context.Context, request forge.NewPullRequest) (forge.PullRequest, error) {
+			pull, err := create(ctx, request)
+
+			world.turn(func(w *forgeWorld) { w.gone = true })
+
+			return pull, err
+		}
+		handler := heldServer(t, deps, webhookConfig())
+		opened(t, handler)
+		world.turn(func(*forgeWorld) {})
+
+		// Act
+		advance(ciTick)
+
+		// Assert
+		held := heldAnnouncement(t, handler)
+		if held == nil || held.State != api.QueuedAnnouncementStateDropped ||
+			orEmpty(held.Reason) != "the forge did not list #42 within 10m" {
+			t.Errorf("frame's held announcement = %+v, want it dropped, the forge not listing #42", held)
+		}
+	})
 }
 
 func TestOpeningArmsNothingWithAutoAnnounceOff(t *testing.T) {
@@ -133,6 +209,25 @@ func TestOpeningArmsNothingWithoutMessaging(t *testing.T) {
 	// Assert
 	if answer.Announcement != nil || answer.NotArmed != nil {
 		t.Errorf("announcement = %+v, not armed %q; want neither", answer.Announcement, orEmpty(answer.NotArmed))
+	}
+}
+
+func TestOpeningAPullRequestAnnouncedAlreadyArmsNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The store holds #42 announced as ready already.
+	world := newForgeWorld()
+	deps := (&announceMemory{held: []loop.Announced{readyAt42()}}).bind(openingDeps(world, false))
+	handler := webtest.Serve(t, deps, webhookConfig())
+
+	// Act
+	answer := opened(t, handler)
+
+	// Assert
+	if answer.Announcement != nil || answer.NotArmed != nil || heldAnnouncement(t, handler) != nil {
+		t.Errorf("announcement = %+v, not armed %q; want none armed and nothing said",
+			answer.Announcement, orEmpty(answer.NotArmed))
 	}
 }
 
@@ -176,35 +271,38 @@ func TestStopWaitingDropsAnArmedAnnouncement(t *testing.T) {
 func TestARefusedPostNowKeepsTheArmedAnnouncement(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	// The armed announcement waits; a check fails, and Announce now is asked.
-	world := newForgeWorld()
-	handler := webtest.Serve(t, openingDeps(world, false), webhookConfig())
-	cancelHeld(t, handler)
-	opened(t, handler)
-	world.turn(func(w *forgeWorld) { w.ci = forge.CIFailed })
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// The armed announcement waits; a check fails, and Announce now is
+		// asked.
+		world := newForgeWorld()
+		handler := heldServer(t, openingDeps(world, false), webhookConfig())
+		cancelHeld(t, handler)
+		opened(t, handler)
+		world.turn(func(w *forgeWorld) { w.ci = forge.CIFailed })
 
-	// Act: announce now
-	refused := postAnnounce(t, handler, map[string]string{channelField: ""})
+		// Act: announce now
+		refused := postAnnounce(t, handler, map[string]string{channelField: ""})
 
-	// Assert: refused, and the armed one still waits
-	if refused.Code != http.StatusConflict {
-		t.Fatalf("status = %d (%s), want 409 for a failed check", refused.Code, refused.Body.String())
-	}
+		// Assert: refused, and the armed one still waits
+		if refused.Code != http.StatusConflict {
+			t.Fatalf("status = %d (%s), want 409 for a failed check", refused.Code, refused.Body.String())
+		}
 
-	if held := heldAnnouncement(t, handler); held == nil || held.State != api.QueuedAnnouncementStateWaiting {
-		t.Fatalf("frame's held announcement = %+v, want the armed one still waiting", held)
-	}
+		if held := heldAnnouncement(t, handler); held == nil || held.State != api.QueuedAnnouncementStateWaiting {
+			t.Fatalf("frame's held announcement = %+v, want the armed one still waiting", held)
+		}
 
-	// Act: a run passes
-	world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
+		// Act: a run passes
+		world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
+		advance(ciTick)
 
-	held := heldAnnouncement(t, handler)
-
-	// Assert: it goes, once
-	if held == nil || held.State != api.QueuedAnnouncementStateAnnounced || len(world.posted()) != 1 {
-		t.Errorf("frame's held announcement = %+v, posted %q; want it announced once", held, world.posted())
-	}
+		// Assert: it goes, once
+		held := heldAnnouncement(t, handler)
+		if held == nil || held.State != api.QueuedAnnouncementStateAnnounced || len(world.posted()) != 1 {
+			t.Errorf("frame's held announcement = %+v, posted %q; want it announced once", held, world.posted())
+		}
+	})
 }
 
 func TestAnArmedAnnouncementTagsAsAnnounceYesDoes(t *testing.T) {
@@ -222,24 +320,27 @@ func TestAnArmedAnnouncementTagsAsAnnounceYesDoes(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			// Arrange
-			world := newForgeWorld()
-			deps := openingDeps(world, false)
-			kept := newFakeKept()
-			kept.workspaceErr = tt.workspaceErr
-			kept.wire(&deps)
-			handler := webtest.Serve(t, deps, slackUserConfig())
-			opened(t, handler)
+			synctest.Test(t, func(t *testing.T) {
+				// Arrange
+				world := newForgeWorld()
+				world.base = webtest.TestBase
+				deps := openingDeps(world, false)
+				kept := newFakeKept()
+				kept.workspaceErr = tt.workspaceErr
+				kept.wire(&deps)
+				handler := heldServer(t, deps, slackUserConfig())
+				opened(t, handler)
+				world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
 
-			// Act
-			world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
-			heldAnnouncement(t, handler)
+				// Act
+				advance(ciTick)
 
-			// Assert
-			posts := world.posted()
-			if len(posts) != 1 || strings.Contains(posts[0], "<@"+carla().ID+">") != tt.tagged {
-				t.Errorf("posted %q, want one, tagging the linked owner: %t", posts, tt.tagged)
-			}
+				// Assert
+				posts := world.posted()
+				if len(posts) != 1 || strings.Contains(posts[0], "<@"+carla().ID+">") != tt.tagged {
+					t.Errorf("posted %q, want one, tagging the linked owner: %t", posts, tt.tagged)
+				}
+			})
 		})
 	}
 }
@@ -247,99 +348,96 @@ func TestAnArmedAnnouncementTagsAsAnnounceYesDoes(t *testing.T) {
 func TestOpeningWhileAHeldAnnouncementIsPostedArmsNothing(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	// #42's announcement, held for its CI, is being posted when a new pull
-	// request opens on the branch.
-	world, held := newForgeWorld(), newHeldPost()
-	deps := openingDeps(world, false)
-	world.gone = false
-	deps.Messaging.Post = held.post
-	handler := webtest.Serve(t, deps, webhookConfig())
-	announceWhenGreen(t, handler, nil)
-	world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// #42's announcement, held for its CI, is being posted when a new
+		// pull request opens on the branch.
+		world, held := newForgeWorld(), newHeldPost()
+		deps := openingDeps(world, false)
+		world.gone = false
+		deps.Messaging.Post = held.post
+		handler := heldServer(t, deps, webhookConfig())
+		announceWhenGreen(t, handler, nil)
+		world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
+		time.Sleep(ciTick)
+		held.awaitStart(t)
+		world.turn(func(w *forgeWorld) { w.gone, w.pull = true, 43 })
 
-	posting := make(chan struct{})
+		// Act
+		answer := opened(t, handler)
 
-	go func() {
-		defer close(posting)
+		// Assert
+		close(held.release)
+		synctest.Wait()
 
-		heldAnnouncement(t, handler)
-	}()
-
-	held.awaitStart(t)
-	world.turn(func(w *forgeWorld) { w.gone, w.pull = true, 43 })
-
-	// Act
-	answer := opened(t, handler)
-
-	// Assert
-	close(held.release)
-	<-posting
-
-	if answer.Announcement != nil {
-		t.Errorf("announcement = %+v, want none armed while #42's is being posted", answer.Announcement)
-	}
+		notArmed := "#42's announcement is being posted, so #43's was not armed"
+		if answer.Announcement != nil || orEmpty(answer.NotArmed) != notArmed {
+			t.Errorf("announcement = %+v, not armed %q; want none armed, saying %q",
+				answer.Announcement, orEmpty(answer.NotArmed), notArmed)
+		}
+	})
 }
 
 func TestAnArmedAnnouncementGoesOnceAFixLandsOnANewHead(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	// A check failed on the commit it opened at, and the fix was pushed as a
-	// new commit whose run passes.
-	world := newForgeWorld()
-	handler := webtest.Serve(t, fixedOnANewHead(openingDeps(world, false)), webhookConfig())
-	cancelHeld(t, handler)
-	opened(t, handler)
-	world.turn(func(w *forgeWorld) { w.head = fixedHead })
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// A check failed on the commit it opened at, and the fix was pushed as
+		// a new commit whose run passes.
+		world := newForgeWorld()
+		handler := heldServer(t, fixedOnANewHead(openingDeps(world, false)), webhookConfig())
+		cancelHeld(t, handler)
+		opened(t, handler)
+		world.turn(func(w *forgeWorld) { w.head = fixedHead })
 
-	// Act
-	held := heldAnnouncement(t, handler)
+		// Act
+		advance(ciTick)
 
-	// Assert
-	if held == nil || held.State != api.QueuedAnnouncementStateAnnounced || len(world.posted()) != 1 {
-		t.Errorf("frame's held announcement = %+v, posted %q; want it announced once", held, world.posted())
-	}
+		// Assert
+		held := heldAnnouncement(t, handler)
+		if held == nil || held.State != api.QueuedAnnouncementStateAnnounced || len(world.posted()) != 1 {
+			t.Errorf("frame's held announcement = %+v, posted %q; want it announced once", held, world.posted())
+		}
+	})
 }
 
 func TestAnArmedAnnouncementTagsTheOwnersAgainstTheBaseItOpenedInto(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	// It opens into release, where carla owns the changes; against the
-	// branch's own base nobody does.
-	const release = "release"
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// It opens into release, where carla owns the changes; against the
+		// branch's own base nobody does.
+		const release = "release"
 
-	world := newForgeWorld()
-	deps := openingDeps(world, false)
-	newFakeKept().wire(&deps)
-	deps.Git.CodeOwnersAt = func(_ context.Context, base string) (codeowners.File, bool, error) {
-		if base != release {
-			return codeowners.File{}, false, nil
+		world := newForgeWorld()
+		world.base = release
+		deps := openingDeps(world, false)
+		newFakeKept().wire(&deps)
+		deps.Git.CodeOwnersAt = func(_ context.Context, base string) (codeowners.File, bool, error) {
+			if base != release {
+				return codeowners.File{}, false, nil
+			}
+
+			return codeowners.Parse("internal/ @carla\n", codeowners.GitHub), true, nil
+		}
+		handler := heldServer(t, deps, slackUserConfig())
+		body := `{"title":"` + webtest.PRTitle + `","base":"` + release + `","body":"why"}`
+
+		if recorder := webtest.Send(t, handler, http.MethodPost, "/api/pull-request", body); recorder.Code !=
+			http.StatusOK {
+			t.Fatalf("status = %d (%s), want the pull request opened", recorder.Code, recorder.Body.String())
 		}
 
-		return codeowners.Parse("internal/ @carla\n", codeowners.GitHub), true, nil
-	}
-	create := deps.Forge.CreatePullRequest
-	deps.Forge.CreatePullRequest = func(ctx context.Context, request forge.NewPullRequest) (forge.PullRequest, error) {
-		pull, err := create(ctx, request)
-		pull.Base = request.Base
+		world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
 
-		return pull, err
-	}
-	handler := webtest.Serve(t, deps, slackUserConfig())
-	body := `{"title":"` + webtest.PRTitle + `","base":"` + release + `","body":"why"}`
+		// Act
+		advance(ciTick)
 
-	if recorder := webtest.Send(t, handler, http.MethodPost, "/api/pull-request", body); recorder.Code != http.StatusOK {
-		t.Fatalf("status = %d (%s), want the pull request opened", recorder.Code, recorder.Body.String())
-	}
-
-	// Act
-	world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
-	heldAnnouncement(t, handler)
-
-	// Assert
-	if posts := world.posted(); len(posts) != 1 || !strings.Contains(posts[0], "<@"+carla().ID+">") {
-		t.Errorf("posted %q, want one tagging carla, who owns the changes against release", posts)
-	}
+		// Assert
+		if posts := world.posted(); len(posts) != 1 || !strings.Contains(posts[0], "<@"+carla().ID+">") {
+			t.Errorf("posted %q, want one tagging carla, who owns the changes against release", posts)
+		}
+	})
 }

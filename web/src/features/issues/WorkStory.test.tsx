@@ -115,7 +115,7 @@ test('reads a committed clean tree and a green pull request', () => {
       changes: { changes: [] },
       review: {
         found: true,
-        announced: false,
+        announced: 'none',
         pull: {
           number: 128,
           url: 'https://x/128',
@@ -163,7 +163,7 @@ test('says no checks reported for a pull request whose forge reports none', () =
       changes: { changes: [] },
       review: {
         found: true,
-        announced: false,
+        announced: 'none',
         pull: {
           number: 128,
           url: 'https://x/128',
@@ -195,7 +195,7 @@ test('reads a fresh branch as nothing-committed and a pull request with no CI', 
       branches: onHead,
       review: {
         found: true,
-        announced: false,
+        announced: 'none',
         pull: {
           number: 42,
           url: 'https://x/42',
@@ -334,7 +334,7 @@ test('marks the open merge request with its !number on GitLab', () => {
       branches: onHead,
       review: {
         found: true,
-        announced: false,
+        announced: 'none',
         pull: {
           number: 7,
           url: 'https://x/7',

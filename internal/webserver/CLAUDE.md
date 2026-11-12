@@ -116,8 +116,11 @@ flight; and refuses, as `conflict`, a write whose `Workflow-Here` header
   when the branch read or the pull request find is missing (the `Deps` doc
   comment says each case).
 - A read others share — the Slack directory, the stream's caches, the
-  announcement memory — detaches from its page through `worlds.outliving`
-  (`world.go`) and ends with the server. `Serve` drains requests in flight for
+  store's read of what was announced — detaches from its page through
+  `worlds.outliving` (`world.go`) and ends with the server. The announcement
+  held for CI (`heldSlot`, `announcequeue.go`) is one `armed.Hold` the server
+  steps on its own reads, set on a timer and made under the server's
+  lifetime; a frame only shows it, and a switch or a stop retires it. `Serve` drains requests in flight for
   `shutdownGrace`, five seconds, on a stop; the stream re-pushes a snapshot
   every `defaultStreamInterval`, five seconds, unless `Info` sets another.
 - A write's answer wakes the stream: `worlds.serve` hands every write a

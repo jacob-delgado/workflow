@@ -41,6 +41,7 @@ export function mockArmedOn(
     ? { not_armed: 'a draft is not announced; announce it once it is ready' }
     : {
         announcement: {
+          id: 1,
           state: 'waiting',
           channel: mockSnapshot.messaging.channel,
           pull: number,

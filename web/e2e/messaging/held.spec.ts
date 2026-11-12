@@ -44,7 +44,7 @@ function snapshotHolding(held?: QueuedAnnouncement): Snapshot {
     }),
     review: {
       found: true,
-      announced: false,
+      announced: 'none',
       pull,
       ci: { state: 'running', total: 2, done: 1, failed: 0, checks: [] },
     },
@@ -75,7 +75,7 @@ async function answersAnnouncement(page: Page, held?: QueuedAnnouncement): Promi
     posts.push(post)
 
     return post.when === 'ci_passes'
-      ? route.fulfill({ status: 202, json: { state: 'waiting', channel: '#dev', pull: 7 } })
+      ? route.fulfill({ status: 202, json: { id: 1, state: 'waiting', channel: '#dev', pull: 7 } })
       : route.fulfill({ json: { text: post.edited_text ?? text, channel: '#dev' } })
   })
 
@@ -118,7 +118,13 @@ test('while one waits, Announce now instead is drawn as Stop waiting is, below i
   page,
 }) => {
   // Arrange
-  await answersAnnouncement(page, { state: 'waiting', channel: '#dev', pull: 7, automatic: true })
+  await answersAnnouncement(page, {
+    id: 1,
+    state: 'waiting',
+    channel: '#dev',
+    pull: 7,
+    automatic: true,
+  })
   await page.goto('/')
 
   // Act
@@ -157,7 +163,7 @@ for (const theme of themes) {
     await pinTheme(page, theme)
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.setViewportSize({ width: widths[0], height })
-    await answersAnnouncement(page, { state: 'waiting', channel: '#dev', pull: 7 })
+    await answersAnnouncement(page, { id: 1, state: 'waiting', channel: '#dev', pull: 7 })
     await page.goto('/')
 
     // Act
@@ -175,7 +181,13 @@ for (const theme of themes) {
     await pinTheme(page, theme)
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.setViewportSize({ width: widths[0], height })
-    await answersAnnouncement(page, { state: 'waiting', channel: '#dev', pull: 7, ci: 'failed' })
+    await answersAnnouncement(page, {
+      id: 1,
+      state: 'waiting',
+      channel: '#dev',
+      pull: 7,
+      ci: 'failed',
+    })
     await page.goto('/')
 
     // Act

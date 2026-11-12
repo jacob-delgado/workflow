@@ -32,7 +32,7 @@ function snapshotFailing(): Snapshot {
     }),
     review: {
       found: true,
-      announced: false,
+      announced: 'none',
       pull,
       ci: { state: 'failed', total: 2, done: 2, failed: 1, checks: [] },
     },

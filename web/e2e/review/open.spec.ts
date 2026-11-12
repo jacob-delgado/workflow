@@ -93,7 +93,7 @@ for (const theme of themes) {
               { action: 'link', issue_key: 'PROJ-1' },
               { action: 'transition', issue_key: 'PROJ-1', status: 'In Review' },
             ],
-            announcement: { state: 'waiting', channel: '#dev', pull: 7, automatic: true },
+            announcement: { id: 1, state: 'waiting', channel: '#dev', pull: 7, automatic: true },
           },
         }),
       )

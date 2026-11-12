@@ -24,7 +24,7 @@ const open: PullRequest = {
 function showing(pull: PullRequest) {
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ review: { found: true, announced: false, pull } }),
+    snapshot: makeSnapshot({ review: { found: true, announced: 'none', pull } }),
   })
 }
 

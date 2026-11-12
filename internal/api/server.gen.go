@@ -27,7 +27,7 @@ type ServerInterface interface {
 	// Announce Post the pull request announcement to the configured service.
 	// (POST /api/announce)
 	Announce(w http.ResponseWriter, r *http.Request)
-	// CancelQueuedAnnouncement Drop the announcement waiting for CI to pass, unposted.
+	// CancelQueuedAnnouncement Stop the announcement waiting for CI to pass, unposted.
 	// (DELETE /api/announce/queued)
 	CancelQueuedAnnouncement(w http.ResponseWriter, r *http.Request)
 	// GetAnnouncement The announcement message that would be posted, for a preview.
@@ -6727,7 +6727,7 @@ type StrictServerInterface interface {
 	// Announce Post the pull request announcement to the configured service.
 	// (POST /api/announce)
 	Announce(ctx context.Context, request AnnounceRequestObject) (AnnounceResponseObject, error)
-	// CancelQueuedAnnouncement Drop the announcement waiting for CI to pass, unposted.
+	// CancelQueuedAnnouncement Stop the announcement waiting for CI to pass, unposted.
 	// (DELETE /api/announce/queued)
 	CancelQueuedAnnouncement(ctx context.Context, request CancelQueuedAnnouncementRequestObject) (CancelQueuedAnnouncementResponseObject, error)
 	// GetAnnouncement The announcement message that would be posted, for a preview.

@@ -371,8 +371,11 @@ gets neither offer here.
 With messaging set up, the page also arms the pull request's announcement as
 it opens: a line says *Announces to #dev once CI passes. To drop it, press
 Stop waiting in the Slack section.*, and the messaging section shows it
-waiting, as one held with **Announce when CI passes** does — through a failed
-run, and up to ten minutes with no check reported. It tags those
+waiting, as one held with **Announce when CI passes** does — for the forge to
+list the pull request just opened, through a failed run, and up to ten
+minutes with no check reported. One armed as it opens never replaces another
+pull request's announcement that waits or is being posted: none is armed, and
+the line says which one still waits. It tags those
 `workflow announce --yes` would propose, the linked code owners of its changes
 against the base it opens into and the groups that start checked, and, as a post
 from the preview does, whom it can when the Slack token lacks a scope. A draft
@@ -401,7 +404,13 @@ the new one. Once a pull request was announced at the moment it is at now —
 ready for review, or merged — from here, the terminal or `workflow
 announce`, the section says so in place of the offer, as the terminal offers
 no announcement it has made; each announcement made here is claimed in the
-store for the terminal and `workflow announce` too. A pull request closed
+store for the terminal and `workflow announce` too. One whose post began and
+was never confirmed — a session that stopped mid-post, or a service that never
+said whether it took the post — may have gone out, so it is not offered again
+either: posting it again here is refused with `announced_unconfirmed`, saying
+when the post began, and `workflow announce` asks before posting it again. A
+store that cannot take the claim posts nothing (`not_claimed`), and a post the
+service did not say it took keeps its claim, saying so. A pull request closed
 without merging is none to announce: the section asks for one to be opened, as
 it does with none at all. Each announcement is claimed in the store before it is
 posted, so two pages, a page and a terminal, or two servers asking at once
@@ -431,24 +440,36 @@ nothing is sent, as for an unedited one. An edit emptied of text is refused.
 Until the pull request's CI passes, a ready-for-review announcement's preview
 also offers **Announce when CI passes**, the terminal's `w`: the server holds
 the announcement — edited or not, with its tags — and the section says *Waiting
-for CI on #42 to pass, then announcing to #dev.*, with **Stop waiting** to drop
+for CI on #42 to pass, then announcing to #dev.*, with **Stop waiting** to stop
 it unposted. Below them, while it waits, the announce button reads **Announce
 now instead**, drawn as a secondary control: it opens the same preview, and an
 announcement sent from it takes the held one's place. The held one is posted
 once the forge reports the CI passed, and the section then says it was
 announced. A failed run does not drop it: the section says a check failed and it
-waits on a fix, and it goes once a later run passes. While no check is reported
+waits on a fix, and it goes once a later run passes; nor does a read of the
+forge, or a post, that failed — the section says what failed and that it tries
+again — until nothing has been heard for ten minutes, when it is dropped
+saying what failed last. A post the service refused drops it with the
+service's reason; one it did not say it took drops it too, since it may have
+gone out, and only `workflow announce` posts that one again, after asking. While no check is reported
 the section says it waits for checks; after ten minutes of reads that heard
 none, counted from the last read that saw one, a read that failed not counting,
 it is dropped, saying to announce it by hand — a
 repository with no CI is announced by hand. When the branch's pull request is
-another one, or merged first, it is dropped and the section says why in red.
-**Announce now** drops a held announcement, so the channel never reads it twice.
-The server, not the page, holds it: it reads the CI for it every
-`timing.ci_interval` (twenty seconds unless set) whether a page is open or not,
-and settles it on each frame a page shows. It is kept in memory alone, so it is
-lost, unposted, if `workflow --web` stops or switches directory before the CI
-passes — as one held in the terminal is lost when the terminal closes.
+another one, closed, or merged first, it is dropped and the section says why
+in red. It is bound to the branch it was asked for on: checking out another
+branch meanwhile neither posts it nor drops it, and **Stop waiting** is the
+way to stop it. **Announce when CI passes** over another pull request's
+waiting announcement replaces it, and the section says so. An announcement
+sent now leaves the held one waiting until the post has gone, then reads it as
+announced, so the channel never reads it twice; one that fails leaves it
+waiting. The server, not the page, holds it: it reads the branch's pull
+request and its CI for it every `timing.ci_interval` (twenty seconds unless
+set), straight from the forge, whether a page is open or not, and a frame only
+shows how it stands. It is kept in memory alone, so it is lost, unposted, if
+`workflow --web` stops or switches directory before the CI passes — as one
+held in the terminal is lost when the terminal closes — and a post under way
+then finishes, its claim keeping it from going twice.
 
 With a Slack user token, a ready-for-review announcement's preview also says
 whom it tags. **Tag code owners** lists the code owners of the branch's
@@ -932,11 +953,15 @@ takes `mentions`: `users`, the people the preview showed tagged, and
 what is kept, never from the request, and a post whose linked owners are not
 `users` is a `409`. It also takes `edited_text`, posted in place of the
 composed announcement beside `text`, the one the edit began from, and
-`when: ci_passes`, which holds it until the CI passes and answers `202`;
-`DELETE /api/announce/queued` drops a held one, and each frame of
-`GET /api/events` carries it as `queued_announcement`. Two announcements asked
-at once post once, the other answered `409`; while a held one is being posted,
-announcing, holding another or dropping it is a `409` too.
+`when: ci_passes`, which holds it until the CI passes and answers `202`, with
+`replaced_pull` when it replaced another pull request's;
+`DELETE /api/announce/queued` stops a held one, and each frame of
+`GET /api/events` carries it as `queued_announcement`, with its `id`, a new
+one each time one is held afresh, its `state` and, while it waits,
+`waiting_on`. The frame's `review.announced` reads `posted`, `unconfirmed`,
+`unknown` or `none`. Two announcements asked at once post once, the other
+answered `409`; while a held one is being posted, announcing, holding another
+or stopping it is a `409` too, and a stop refused changes nothing.
 
 The issue writes sit under `/api/issues/{key}/`: `GET` and `POST transitions`
 list the status changes with the fields each needs and make one,

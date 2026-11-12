@@ -22,7 +22,7 @@ function streamCi(state: CiState, number = 128) {
     snapshot: makeSnapshot({
       review: {
         found: true,
-        announced: false,
+        announced: 'none',
         pull: {
           number,
           url: `https://forge.example.com/pull/${String(number)}`,

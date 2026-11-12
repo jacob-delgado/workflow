@@ -33,7 +33,7 @@ const pushFirst = 'The branch is not pushed yet; opening will push it first.'
 async function composeThePullRequest() {
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ review: { found: false, announced: false } }),
+    snapshot: makeSnapshot({ review: { found: false, announced: 'none' } }),
   })
   render(<ReviewPanel />)
   await userEvent.setup().click(screen.getByRole('button', { name: 'Open a pull request' }))

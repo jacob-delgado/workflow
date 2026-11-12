@@ -102,7 +102,9 @@ func FilledDeps() webserver.Deps {
 		},
 		Forge: seams.Forge{
 			FindPullRequest: func(context.Context, string) (forge.PullRequest, bool, error) {
-				pull := forge.PullRequest{Number: 42, URL: "https://x/42", Title: "redact", Mergeable: forge.MergeClean}
+				pull := forge.PullRequest{
+					Number: 42, URL: "https://x/42", Title: "redact", Mergeable: forge.MergeClean, HeadCommit: FilledHead,
+				}
 
 				return pull, true, nil
 			},

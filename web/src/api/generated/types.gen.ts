@@ -183,9 +183,9 @@ export type Problem = {
      */
     detail: string;
     /**
-     * A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the base remote names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is; rate_limited is an upstream asking to be asked again later, unreachable one that could not be reached at all; unauthorized is a request that presented no session, or another run's; ci_failed is an announcement refused because a check failed on its pull request.
+     * A stable, machine-readable reason. not_set_up is a service with nothing set up to ask — no credential, no forge the base remote names, no Taskwarrior installed, no git user.email — whose detail says how to set it up; unprocessable is a request or a setting that cannot be used as it is; rate_limited is an upstream asking to be asked again later, unreachable one that could not be reached at all; unauthorized is a request that presented no session, or another run's; ci_failed is an announcement refused because a check failed on its pull request; announced_unconfirmed is an announcement whose post began, here or elsewhere, and was never confirmed, so it may have gone out and is not posted again unasked; not_claimed is an announcement the store could not claim, so nothing was posted.
      */
-    code: 'bad_request' | 'unauthorized' | 'not_found' | 'method_not_allowed' | 'conflict' | 'unprocessable' | 'not_set_up' | 'too_long' | 'precondition_required' | 'unreachable' | 'rate_limited' | 'fetch_failed' | 'check_failed' | 'ci_failed' | 'internal';
+    code: 'bad_request' | 'unauthorized' | 'not_found' | 'method_not_allowed' | 'conflict' | 'unprocessable' | 'not_set_up' | 'too_long' | 'precondition_required' | 'unreachable' | 'rate_limited' | 'fetch_failed' | 'check_failed' | 'ci_failed' | 'announced_unconfirmed' | 'not_claimed' | 'internal';
     /**
      * For rate_limited, how many seconds the upstream asked to wait, when it said; the answer's Retry-After header says the same.
      */
@@ -679,7 +679,7 @@ export type Announcement = {
      */
     can_wait_for_ci?: boolean;
     /**
-     * How the pull request's CI stands as the preview was composed; a failed check means announcing now is refused. Left out when the CI could not be read, and on a post.
+     * How the pull request's CI stands as the preview was composed, read at the commit the forge says the pull request is at. It never refuses a post: announcing now reads the CI again as it posts. Left out when the CI could not be read, and on a post.
      */
     ci?: CiState;
     /**
@@ -712,10 +712,21 @@ export type AnnounceRequest = {
 };
 
 /**
- * An announcement held until a pull request's CI passes, and how it stands: waiting for the CI, being posted, posted, or dropped unposted with the reason.
+ * An announcement held until a pull request's CI passes, and how it stands: waiting, being posted, posted, claimed elsewhere first, dropped unposted with the reason, or stopped before it was posted. The server holds it bound to the branch it was armed on and reads that branch's pull request and its CI on its own, so a branch checked out meanwhile neither posts nor drops it.
  */
 export type QueuedAnnouncement = {
-    state: 'waiting' | 'announcing' | 'announced' | 'dropped';
+    /**
+     * Which hold this is: a new one each time an announcement is armed afresh, the same while one waits, so a page can tell a new hold from the one it showed.
+     */
+    id: number;
+    /**
+     * waiting for its CI; announcing, being posted once CI passed; announced, posted; elsewhere, not posted here because another session or process claimed it first; dropped, given up on for the reason; stopped, by DELETE /api/announce/queued, or replaced by another asked for.
+     */
+    state: 'waiting' | 'announcing' | 'announced' | 'elsewhere' | 'dropped' | 'stopped';
+    /**
+     * Set only while it waits, saying on what: listing, the forge to list a pull request just opened; ci, a run under way; checks, the pull request to report a check; fix, a run that passes, a check having failed; unread, a read or a post that failed, tried again on the CI interval, with the reason.
+     */
+    waiting_on?: 'listing' | 'ci' | 'checks' | 'fix' | 'unread';
     /**
      * The channel it posts to, or empty for a webhook's own channel.
      */
@@ -725,11 +736,11 @@ export type QueuedAnnouncement = {
      */
     pull: number;
     /**
-     * Why a dropped announcement was not posted: no check was reported on the pull request within ten minutes, so it is announced by hand; the branch's pull request is another one, or merged before its CI passed; or the post failed. A failed check does not drop it: it waits on, for a run that passes.
+     * Why it stands where it does: why a dropped announcement was not posted — the forge did not list the pull request, or nothing could be heard of it, for ten minutes; no check was reported on it across ten minutes of reads heard; the branch's pull request is another one, or merged before its CI passed; the service refused the post; or the post may have gone out, which workflow announce asks before posting again — why one is elsewhere, why one was stopped, and, while it waits unread, what failed. A failed check does not drop it: it waits on, for a run that passes.
      */
     reason?: string;
     /**
-     * How the pull request's CI stood on the last read while it waits; failed means it waits on a fix, none that no check is reported yet. Left out until the CI is read.
+     * How the pull request's CI stood on the last read heard while it waits on CI, checks or a fix; failed means it waits on a fix, none that no check is reported yet. Left out otherwise.
      */
     ci?: CiState;
     /**
@@ -737,7 +748,11 @@ export type QueuedAnnouncement = {
      */
     automatic?: boolean;
     /**
-     * Set only on one announced whose claim the store could not confirm; the claim still keeps it from going again.
+     * Set only on the answer to POST /api/announce with when ci_passes that replaced another pull request's waiting announcement, which is stopped: that pull request's number.
+     */
+    replaced_pull?: number;
+    /**
+     * Set only on one announced whose post the store did not confirm; its claim still keeps it from going again.
      */
     warning?: string;
 };
@@ -1267,9 +1282,9 @@ export type Review = {
      */
     finish_refusal?: string;
     /**
-     * Whether the pull request was already announced at the moment it is at now — ready for review, or merged — from the browser, the terminal or workflow announce, as the store holds a claim on it, its post confirmed or begun. Always false for one closed without merging, which the loop no longer follows, whatever was announced of it before: it is none to announce, as the announce stage reads it, until one is open again. The store is read for each frame, and never under --dry-run, when this is always false.
+     * Whether the pull request was already announced at the moment it is at now — ready for review, or merged — from the browser, the terminal or workflow announce, as the store holds a claim on it: posted, its post confirmed; unconfirmed, a post that began and was never confirmed, which may have gone out, so it is not posted again unasked (workflow announce asks before posting it again); unknown, the store could not be read, when the claim a post takes still keeps it from going twice; or none. Always none for one closed without merging, which the loop no longer follows, whatever was announced of it before: it is none to announce, as the announce stage reads it, until one is open again. The store is read for each frame, and never under --dry-run, when this is always none.
      */
-    announced: boolean;
+    announced: 'none' | 'posted' | 'unconfirmed' | 'unknown';
 };
 
 export type LinkedIssue = {
@@ -1563,11 +1578,11 @@ export type OpenedPullRequest = {
      */
     follow_ups: Array<FollowUp>;
     /**
-     * The announcement armed to post once the pull request's CI passes, when messaging is set up and messaging.auto_announce is on; the frame's queued_announcement goes on saying how it stands, and DELETE /api/announce/queued drops it unposted. Left out when none was armed.
+     * The announcement armed to post once the pull request's CI passes, when messaging is set up and messaging.auto_announce is on; the frame's queued_announcement goes on saying how it stands, and DELETE /api/announce/queued stops it unposted. Left out when none was armed.
      */
     announcement?: QueuedAnnouncement;
     /**
-     * Why no announcement was armed where one would have been: a draft is not announced until it is ready. Left out otherwise.
+     * Why no announcement was armed where one would have been: a draft is not announced until it is ready, and one armed on its own never replaces another pull request's announcement that waits or is being posted. Left out otherwise.
      */
     not_armed?: string;
 };
@@ -3997,7 +4012,7 @@ export type AnnounceData = {
 
 export type AnnounceErrors = {
     /**
-     * There is no pull request to announce, the server is not running in a git repository, or the announcement changed since the given text was previewed, or whom it tags did since the mentions' users were; or it was already announced at this moment; or, to post when CI passes, it is not ready for review; or, code ci_failed, a check failed on the pull request, so it was not announced now.
+     * There is no pull request to announce, the server is not running in a git repository, or the announcement changed since the given text was previewed, or whom it tags did since the mentions' users were; or it was already announced at this moment, or, code announced_unconfirmed, a post of it began and was never confirmed; or, to post when CI passes, it is not ready for review; or a held announcement is being posted; or, code ci_failed, a check failed on the pull request, so it was not announced now.
      */
     409: Problem;
     /**
@@ -4047,7 +4062,7 @@ export type CancelQueuedAnnouncementError = CancelQueuedAnnouncementErrors[keyof
 
 export type CancelQueuedAnnouncementResponses = {
     /**
-     * The waiting announcement was dropped; nothing was posted.
+     * The waiting announcement was stopped; nothing was posted.
      */
     204: void;
 };

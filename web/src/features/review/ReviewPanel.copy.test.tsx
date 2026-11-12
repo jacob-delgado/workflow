@@ -16,7 +16,7 @@ function showingTheBranchPull() {
     snapshot: makeSnapshot({
       review: {
         found: true,
-        announced: false,
+        announced: 'none',
         pull: {
           number: 128,
           url,

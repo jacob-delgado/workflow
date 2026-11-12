@@ -292,6 +292,25 @@ re-run its failed checks on the forge, then announce it once they pass.
 A CI the server cannot read posts nothing either; it is answered as the read
 that failed, an [Unreachable](#unreachable) forge among them.
 
+## Announced unconfirmed
+
+Status 409. An announcement was asked for — now, or to wait for CI — at a
+moment a post of it already began, here, in the terminal or from
+`workflow announce`, and was never confirmed: the session posting it stopped
+before the store heard back, or the messaging service never said whether it
+took the post. It may have gone out, so nothing was posted. The detail says
+when the post began. Look in the channel; `workflow announce` asks before
+posting it again.
+
+## Not claimed
+
+Status 503. An announcement is claimed in the store before it goes, so it goes
+once across every session and process, and the store could not take the
+claim — busy with another write past its wait, or its file not writable.
+Nothing was posted. Try again in a moment; one held for CI tries again on its
+own, for ten minutes. Turning the store off (`store.disabled`) posts without a
+claim, so two sessions may then post the same announcement.
+
 ## Internal
 
 Status 500. An unexpected failure the caller cannot act on — among them a

@@ -148,7 +148,7 @@ export const mockSnapshot: Snapshot = {
   },
   review: {
     found: true,
-    announced: false,
+    announced: 'none',
     pull: {
       number: 128,
       url: 'https://github.com/acme/api/pull/128',

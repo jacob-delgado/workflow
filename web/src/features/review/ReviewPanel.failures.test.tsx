@@ -26,7 +26,7 @@ test('says why each failed check failed, and the stage it ran in', () => {
     snapshot: makeSnapshot({
       review: {
         found: true,
-        announced: false,
+        announced: 'none',
         pull,
         ci: {
           state: 'failed',
@@ -68,7 +68,7 @@ test("shows a failed check's log on demand", async () => {
     snapshot: makeSnapshot({
       review: {
         found: true,
-        announced: false,
+        announced: 'none',
         pull,
         ci: {
           state: 'failed',
@@ -104,7 +104,7 @@ function onFailedJob() {
     snapshot: makeSnapshot({
       review: {
         found: true,
-        announced: false,
+        announced: 'none',
         pull,
         ci: {
           state: 'failed',

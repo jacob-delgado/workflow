@@ -25,11 +25,22 @@ export function HeldAnnouncement({ held, service, onSaid }: HeldAnnouncementProp
 
   const where = held.channel === '' ? service : held.channel
 
+  if (held.state === 'waiting') {
+    return (
+      <Waiting said={armedSaying(held, `${sigil}${String(held.pull)}`, where)} onSaid={onSaid} />
+    )
+  }
+
+  return <Settled held={held} where={where} />
+}
+
+// Settled says how a held announcement no longer waiting stands: going; gone,
+// and that it is not offered again when the store could not confirm it; not
+// posted here, another session having claimed it first; or dropped, with why,
+// as a failure. One stopped says nothing: Stop waiting says so in the
+// section's outcome where it was pressed.
+function Settled({ held, where }: { held: QueuedAnnouncement; where: string }) {
   switch (held.state) {
-    case 'waiting':
-      return (
-        <Waiting said={armedSaying(held, `${sigil}${String(held.pull)}`, where)} onSaid={onSaid} />
-      )
     case 'announcing':
       return <p className="text-sm text-muted-foreground">Announcing to {where}…</p>
     case 'announced':
@@ -38,8 +49,17 @@ export function HeldAnnouncement({ held, service, onSaid }: HeldAnnouncementProp
           {withWarning(`Announced to ${where} once CI passed.`, held.warning)}
         </p>
       )
+    case 'elsewhere':
+      return (
+        <p className="text-sm text-muted-foreground">
+          Not posted here: {held.reason ?? 'it was announced from another session'}.
+        </p>
+      )
     case 'dropped':
       return <Failure>Not announced: {held.reason ?? 'it was dropped'}.</Failure>
+    case 'waiting':
+    case 'stopped':
+      return null
   }
 }
 

@@ -206,16 +206,6 @@ func (s *server) seedFirst(ctx context.Context, out *eventStream, jql string) bo
 func (s *server) snapshot(ctx context.Context, view string) api.Snapshot {
 	branch, branchErr := s.frameBranch(ctx)
 	read, reviewErr := s.snapshotReview(ctx, branch, branchErr)
-
-	// A queued announcement waits on what the forge says; a read that failed
-	// says nothing of the pull request, so it neither posts nor drops one, and
-	// its time is not counted as quiet.
-	if branchErr == nil && reviewErr == nil {
-		s.settleHeld(branch, read)
-	} else {
-		s.heldUnheard()
-	}
-
 	review := s.reviewDTO(branch, read)
 	review.Announced = s.reviewAnnounced(ctx, read)
 	issues, issuesErr := s.snapshotIssues(ctx, view)
@@ -268,7 +258,7 @@ func (s *server) frameStages(branch gitrepo.Branch, read forgeRead, frame api.Sn
 		PullRequest:        read.pullState(),
 		CI:                 read.ciState(),
 		ChangesRequested:   read.found && read.pull.ChangesRequested,
-		Announced:          frame.Review.Announced,
+		Announced:          announcedAtItsMoment(frame.Review.Announced),
 		AnnouncePending:    heldForCI(frame.QueuedAnnouncement),
 	}
 
@@ -299,6 +289,13 @@ func (r forgeRead) ciState() forge.CIState {
 	}
 
 	return r.ci.State
+}
+
+// announcedAtItsMoment reports that a review's pull request was announced at
+// its moment, its post confirmed or begun, as the announce stage reads it: a
+// store that could not be read says none.
+func announcedAtItsMoment(announced api.ReviewAnnounced) bool {
+	return announced == api.ReviewAnnouncedPosted || announced == api.ReviewAnnouncedUnconfirmed
 }
 
 // heldForCI reports an announcement waiting for its CI, or being posted once

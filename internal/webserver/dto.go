@@ -241,20 +241,6 @@ func ciState(state forge.CIState) api.CIState {
 	return api.CIState(state.Word())
 }
 
-// queuedState maps how a held announcement stands onto its wire word. A map,
-// not a switch, so there is no last-case arm gobco can never see; exhaustive
-// keeps it complete. heldNone has no word, since a frame then shows no held
-// announcement at all.
-func queuedState(state heldState) api.QueuedAnnouncementState {
-	return map[heldState]api.QueuedAnnouncementState{
-		heldNone:       "",
-		heldWaiting:    api.QueuedAnnouncementStateWaiting,
-		heldAnnouncing: api.QueuedAnnouncementStateAnnouncing,
-		heldAnnounced:  api.QueuedAnnouncementStateAnnounced,
-		heldDropped:    api.QueuedAnnouncementStateDropped,
-	}[state]
-}
-
 // messagingDTO maps the messaging destination: the service in use, the channel,
 // its alternates (an empty list rather than null on the wire), and who a post
 // would come from.
