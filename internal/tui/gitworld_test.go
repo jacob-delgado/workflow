@@ -14,14 +14,22 @@ import (
 	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
+// readBranch is the checked-out branch, or no branch with branchErr, as
+// git's read answers.
+func (w *world) readBranch(context.Context) (gitrepo.Branch, error) {
+	w.record("branch")
+
+	if w.branchErr != nil {
+		return gitrepo.Branch{}, w.branchErr
+	}
+
+	return w.branch, nil
+}
+
 // gitDeps fakes the repository.
 func (w *world) gitDeps() seams.Git {
 	deps := seams.Git{
-		Branch: func(context.Context) (gitrepo.Branch, error) {
-			w.record("branch")
-
-			return w.branch, nil
-		},
+		Branch: w.readBranch,
 		BranchOnto: func(_ context.Context, base string) (gitrepo.Branch, error) {
 			w.record("branch-onto " + base)
 
