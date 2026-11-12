@@ -11,9 +11,24 @@ import { IssueDetailPanel } from './IssueDetailPanel.tsx'
 // Try again beside an issue that could not be read: it reads the issue again,
 // and where focus goes while it does, whether or not the issue was read before.
 
+// refused is Jira's refusal of the issue, as the server words a read it
+// cannot make: a problem, which is said at once rather than asked again.
+function refused(): Response {
+  return Response.json(
+    {
+      type: 'about:blank',
+      title: 'Forbidden',
+      status: 403,
+      code: 'forbidden',
+      detail: 'Jira refused PROJ-1',
+    },
+    { status: 403, headers: { 'Content-Type': 'application/problem+json' } },
+  )
+}
+
 test('Try again reads a refused issue again', async () => {
   // Arrange
-  const answers = [Response.json({}, { status: 500 }), Response.json(makeIssueDetail())]
+  const answers = [refused(), Response.json(makeIssueDetail())]
   const requests = fakeApi({ '/api/issues/PROJ-1': () => answers.shift() })
   const user = userEvent.setup()
   renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
@@ -43,7 +58,7 @@ test('a Try again beside an issue never read keeps its focus through a read refu
   const held = new Promise<Response>((resolve) => {
     answer = resolve
   })
-  const answers = [Promise.resolve(Response.json({}, { status: 500 })), held]
+  const answers = [Promise.resolve(refused()), held]
   vi.stubGlobal(
     'fetch',
     vi.fn(() => answers.shift() ?? new Promise<Response>(() => undefined)),
@@ -60,11 +75,11 @@ test('a Try again beside an issue never read keeps its focus through a read refu
   expect(retry.getAttribute('aria-disabled')).toBe('true')
   expect(document.activeElement).toBe(retry)
   const keptAlert = screen.getByRole('alert')
-  expect(keptAlert.textContent).toBe('PROJ-1 could not be read. Press Try again.')
+  expect(keptAlert.textContent).toBe('Jira refused PROJ-1')
   expect(screen.queryByText(/reading PROJ-1/i)).toBeNull()
 
   // Act: the held read is refused too
-  answer(Response.json({}, { status: 500 }))
+  answer(refused())
 
   // Assert: the same Try again, ready again, still has focus, and the refusal is
   // told again in an alert of its own, since an alert that keeps its words is
@@ -74,7 +89,7 @@ test('a Try again beside an issue never read keeps its focus through a read refu
   expect(document.activeElement).toBe(retry)
   const refusedAgain = screen.getByRole('alert')
   expect(refusedAgain).not.toBe(keptAlert)
-  expect(refusedAgain.textContent).toBe('PROJ-1 could not be read. Press Try again.')
+  expect(refusedAgain.textContent).toBe('Jira refused PROJ-1')
 })
 
 test('a read nobody pressed Try again for keeps the latest refusal beside an issue never read', async () => {
@@ -119,7 +134,7 @@ test('a retried issue read again later leaves focus where the user put it', asyn
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(new Date('2026-09-23T12:00:00Z'))
   const answers = [
-    Response.json({}, { status: 500 }),
+    refused(),
     Response.json(makeIssueDetail()),
     Response.json(makeIssueDetail({ description: 'Tokens reach the request log and the trace.' })),
   ]
@@ -150,11 +165,7 @@ test('Try again beside an issue already read hands focus to its heading', async 
   // same issue.
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(new Date('2026-09-23T12:00:00Z'))
-  const answers = [
-    Response.json(makeIssueDetail()),
-    Response.json({}, { status: 500 }),
-    Response.json(makeIssueDetail()),
-  ]
+  const answers = [Response.json(makeIssueDetail()), refused(), Response.json(makeIssueDetail())]
   fakeApi({ '/api/issues/PROJ-1': () => answers.shift() })
   const user = userEvent.setup()
   renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
@@ -182,11 +193,7 @@ test('a Try again refused again beside an issue already read keeps its focus', a
   // Arrange
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(new Date('2026-09-23T12:00:00Z'))
-  const answers = [
-    Response.json(makeIssueDetail()),
-    Response.json({}, { status: 500 }),
-    Response.json({}, { status: 500 }),
-  ]
+  const answers = [Response.json(makeIssueDetail()), refused(), refused()]
   fakeApi({ '/api/issues/PROJ-1': () => answers.shift() })
   const user = userEvent.setup()
   renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
@@ -218,10 +225,7 @@ test('a Try again in flight beside an issue already read keeps its focus and is 
   // while busy starts nothing.
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(new Date('2026-09-23T12:00:00Z'))
-  const answers = [
-    Promise.resolve(Response.json(makeIssueDetail())),
-    Promise.resolve(Response.json({}, { status: 500 })),
-  ]
+  const answers = [Promise.resolve(Response.json(makeIssueDetail())), Promise.resolve(refused())]
   // The comment composer reads the configuration beside the issue; only the
   // issue's reads are scripted.
   const fetch = vi.fn((request: Request) =>
@@ -264,8 +268,8 @@ test('a Try again refused again leaves focus where the user put it once a later 
   vi.setSystemTime(new Date('2026-09-23T12:00:00Z'))
   const answers = [
     Response.json(makeIssueDetail()),
-    Response.json({}, { status: 500 }),
-    Response.json({}, { status: 500 }),
+    refused(),
+    refused(),
     Response.json(makeIssueDetail({ description: 'Tokens reach the request log and the trace.' })),
   ]
   fakeApi({ '/api/issues/PROJ-1': () => answers.shift() })
