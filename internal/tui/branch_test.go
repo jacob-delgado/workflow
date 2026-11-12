@@ -134,6 +134,13 @@ func pushedTo(remote string, ahead, behind int) gitrepo.Branch {
 	}
 }
 
+// uncounted is branch with an ahead count git could not give.
+func uncounted(branch gitrepo.Branch) gitrepo.Branch {
+	branch.Uncounted = true
+
+	return branch
+}
+
 func TestTheBranchPaneSaysWhereTheBranchStands(t *testing.T) {
 	t.Parallel()
 
@@ -157,6 +164,11 @@ func TestTheBranchPaneSaysWhereTheBranchStands(t *testing.T) {
 		"ahead of the push default": {
 			branch: pushedTo(forkRemote, 2, 1),
 			want:   []string{"↑2 ↓1 against " + forkRemote + "/" + featureName},
+		},
+		// A count git could not give is not drawn as level with the upstream.
+		"pushed but not counted": {
+			branch: uncounted(pushedTo(gitrepo.DefaultRemote, 0, 0)),
+			want:   []string{"upstream  not counted against origin/" + featureName},
 		},
 		"never pushed": {
 			branch: gitrepo.Branch{Name: featureName, Base: baseRef},
