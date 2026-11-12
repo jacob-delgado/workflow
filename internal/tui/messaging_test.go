@@ -97,6 +97,29 @@ func TestAMergeIsAnnouncedOnlyOnce(t *testing.T) {
 	}
 }
 
+func TestAStoreTurnedOffOffersAndPostsAMergeAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// store.disabled claims nothing and keeps nothing, so nothing tells the
+	// session the merge went out: configuration.md's store section says so.
+	merged := mergedBranch()
+	deps := merged.deps()
+	deps.Store.Announced, deps.Store.ClaimAnnounce, deps.Store.ConfirmAnnounce = nil, nil, nil
+	deps.Store.ReleaseAnnounce, deps.Store.ReclaimAnnounce = nil, nil
+	model := sized(t, tui.New(merged.cfg, nil, deps), 120, 40)
+	model = drain(t, model, model.Init())
+	posted := typing(t, model, "5", "p", keyEnter)
+
+	// Act
+	typing(t, posted, "j", "p", keyEnter)
+
+	// Assert
+	if calls := merged.asked("post "); len(calls) != 2 {
+		t.Errorf("post calls = %q, want the merge offered and posted again, unguarded", calls)
+	}
+}
+
 func TestPostWhenCIPassesIsInertOnAMerge(t *testing.T) {
 	t.Parallel()
 

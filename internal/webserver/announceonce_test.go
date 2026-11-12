@@ -310,3 +310,27 @@ func TestAFrameWhileTheHeldAnnouncementIsPostedShowsItAnnouncing(t *testing.T) {
 		}
 	})
 }
+
+func TestAStoreThatKeepsNothingPostsTheSameAnnouncementAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// store.disabled claims nothing, so nothing keeps a second Announce from
+	// posting again: configuration.md's store section and web.md say so.
+	deps, posts := webtest.FilledDeps(), 0
+	deps.Messaging.Post = func(context.Context, string, string) error {
+		posts++
+
+		return nil
+	}
+	handler := webtest.Serve(t, deps, config.Default())
+	postAnnounce(t, handler, map[string]string{channelField: ""})
+
+	// Act
+	again := postAnnounce(t, handler, map[string]string{channelField: ""})
+
+	// Assert
+	if again.Code != http.StatusOK || posts != 2 {
+		t.Errorf("second announce = %d, posted %d; want it posted again, unguarded", again.Code, posts)
+	}
+}
