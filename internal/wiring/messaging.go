@@ -304,16 +304,16 @@ func (e Environment) renewTyped(ctx context.Context, transport httpx.Doer, syste
 }
 
 // keptUnlessTyped is the secrets typed into settings, each one left blank
-// taken from those keychain already keeps, so changing one leaves the other.
+// taken from those inKeychain already keeps, so changing one leaves the other.
 // A keychain that keeps none is the secrets typed; one that cannot be read
 // is its failure, before anything is spent, since it would not keep the pair
 // a refresh gave either.
 func keptUnlessTyped(
-	ctx context.Context, keychain slackauth.Store, settings config.Messaging,
+	ctx context.Context, inKeychain slackauth.Store, settings config.Messaging,
 ) (slackauth.Credentials, error) {
 	starting := slackauth.Credentials{ClientSecret: settings.ClientSecret, RefreshToken: settings.RefreshToken}
 
-	kept, err := keychain.Load(ctx)
+	kept, err := inKeychain.Load(ctx)
 	if errors.Is(err, slackauth.ErrNotLoggedIn) {
 		return starting, nil
 	}
