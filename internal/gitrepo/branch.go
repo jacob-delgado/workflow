@@ -62,6 +62,10 @@ type Branch struct {
 	BaseRemote string
 	// Ahead and Behind count commits against the upstream.
 	Ahead, Behind int
+	// Uncounted is set when the branch has an upstream git could not count it
+	// against: Ahead and Behind are then zero for want of an answer, not
+	// because nothing differs, so nothing is taken to be on the upstream.
+	Uncounted bool
 	// Base is the branch this one would merge into — the base remote's
 	// default branch wherever that can be found, origin/main or, in a fork's
 	// clone, upstream/main.
@@ -90,7 +94,7 @@ func (b Branch) PushTarget() string {
 // origin/main without --no-track tracks origin/main, is ahead of it by nothing,
 // and is not on the remote at all.
 func (b Branch) Pushed() bool {
-	return b.Name != "" && b.Upstream == b.PushTarget() && b.Ahead == 0
+	return b.Name != "" && b.Upstream == b.PushTarget() && b.levelWithUpstream()
 }
 
 // Unpushed are the commits on this branch that have not reached the upstream,
@@ -114,12 +118,12 @@ func (b Branch) Unpushed() []Commit {
 }
 
 // UpstreamHoldsAll reports an upstream that holds every commit on this branch:
-// it has one and is not ahead of it. It is one of the two things that make a
-// force delete safe. With no upstream — never pushed under its own name, or
+// it has one and git counted it no commits ahead of it. It is one of the two
+// things that make a force delete safe. With no upstream — never pushed under its own name, or
 // one the forge deleted after a merge and a prune then dropped — nothing is
 // known to hold the commits, so it reports false.
 func (b Branch) UpstreamHoldsAll() bool {
-	return b.Upstream != "" && b.Ahead == 0
+	return b.Upstream != "" && b.levelWithUpstream()
 }
 
 // Finishing is what finishing the branch acts on: the branch, the base it
@@ -143,6 +147,12 @@ func (b Branch) BaseName() string {
 	}
 
 	return b.Base
+}
+
+// levelWithUpstream reports a branch git counted no commits ahead of its
+// upstream: a count it could not give is not taken for none.
+func (b Branch) levelWithUpstream() bool {
+	return !b.Uncounted && b.Ahead == 0
 }
 
 // ReadBranch reads where the checked-out branch stands. Only failing to read the
@@ -205,7 +215,10 @@ func (r Repository) readBranch(
 	}
 
 	if branch.Upstream != "" {
-		branch.Behind, branch.Ahead = counts(git("rev-list", "--left-right", "--count", "@{upstream}...HEAD"))
+		var counted bool
+
+		branch.Behind, branch.Ahead, counted = counts(git("rev-list", "--left-right", "--count", "@{upstream}...HEAD"))
+		branch.Uncounted = !counted
 	}
 
 	return withCommits(git, branch), nil
@@ -316,21 +329,22 @@ func base(git func(...string) string, remote string) string {
 }
 
 // counts reads rev-list --left-right --count: the left side's count, a tab, the
-// right side's. Anything else reads as zero and zero.
-func counts(out string) (int, int) {
+// right side's, and whether it read both. Anything else reads as zero and
+// zero, not counted.
+func counts(out string) (int, int, bool) {
 	left, right, found := strings.Cut(out, "\t")
 	if !found {
-		return 0, 0
+		return 0, 0, false
 	}
 
 	leftCount, leftErr := strconv.Atoi(left)
 	rightCount, rightErr := strconv.Atoi(right)
 
 	if leftErr != nil || rightErr != nil {
-		return 0, 0
+		return 0, 0, false
 	}
 
-	return leftCount, rightCount
+	return leftCount, rightCount, true
 }
 
 // parseLog reads commits written as logFormat under -z: a hash, a subject, a

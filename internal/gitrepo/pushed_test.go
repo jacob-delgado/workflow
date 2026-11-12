@@ -4,9 +4,11 @@
 package gitrepo_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
 // forkRemote is a remote a repository can name in remote.pushDefault.
@@ -100,5 +102,35 @@ func TestABranchIsPushedToItsOwnPushRemote(t *testing.T) {
 	// Assert
 	if err != nil || branch.PushRemote != forkRemote || !branch.Pushed() {
 		t.Errorf("ReadBranch = %+v, %v; want it pushed to %q", branch, err, forkRemote)
+	}
+}
+
+// A count git could not give — a rev-list over a long history that ran past
+// its bound, or one that answered nothing it can read — says nothing of what
+// the upstream holds, so neither the push nor a finish's force delete takes
+// the branch to be on it.
+func TestACountGitCouldNotGiveKeepsNothingKnownPushed(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]reply{
+		"a count that timed out":       {err: fmt.Errorf("git: %w after 30s", proc.ErrTimedOut)},
+		"a count that is not a number": {out: []byte("garbage\n")},
+	}
+
+	for name, count := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			replies := with(featureBranch(), map[string]reply{countAhead: count})
+
+			// Act
+			branch, err := gitrepo.At(fakeRunner(t, replies), workDir).ReadBranch(t.Context())
+
+			// Assert
+			if err != nil || branch.Pushed() || branch.UpstreamHoldsAll() {
+				t.Errorf("ReadBranch = %+v, %v; want it neither pushed nor held by its upstream", branch, err)
+			}
+		})
 	}
 }
