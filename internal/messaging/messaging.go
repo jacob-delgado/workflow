@@ -54,6 +54,10 @@ var (
 	// words name no verb, because an announcement and the Summary both post
 	// through here.
 	ErrPostRefused = errors.New("the message was refused")
+	// ErrServiceFailed reports a post Slack answered with a failure of its
+	// own — internal_error, fatal_error, service_unavailable or
+	// request_timeout — which Slack says may have delivered it all the same.
+	ErrServiceFailed = errors.New("the messaging service failed while taking the post")
 	// ErrUnexpectedStatus reports a response status the API does not document.
 	ErrUnexpectedStatus = errors.New("unexpected response status")
 	// ErrUnreachable reports a request that never got an answer.

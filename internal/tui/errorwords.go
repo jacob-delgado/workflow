@@ -255,6 +255,11 @@ func messagingErrors() []knownError {
 			brief: "an unexpected service answer",
 			full:  "The messaging service answered with a status it does not document. Try the post again.",
 		}},
+		{messaging.ErrServiceFailed, wording{
+			brief: "the post may have gone out",
+			full: "The messaging service failed while taking the post, which may have gone out. " +
+				"Check the channel before posting again.",
+		}},
 		{messaging.ErrUnreachable, wording{
 			brief: "could not reach messaging",
 			full:  "The messaging service did not answer. Check the network, then try the announcement again.",

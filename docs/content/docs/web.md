@@ -406,7 +406,7 @@ announce`, the section says so in place of the offer, as the terminal offers
 no announcement it has made; each announcement made here is claimed in the
 store for the terminal and `workflow announce` too. One whose post began and
 was never confirmed — a session that stopped mid-post, or a service that never
-said whether it took the post — may have gone out, so it is not offered again
+said whether it took the post or failed while taking it — may have gone out, so it is not offered again
 either: posting it again here is refused with `announced_unconfirmed`, saying
 when the post began, and `workflow announce` asks before posting it again. A
 store that cannot take the claim posts nothing (`not_claimed`), and a post the

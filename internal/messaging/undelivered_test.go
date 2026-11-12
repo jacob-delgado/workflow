@@ -95,8 +95,20 @@ func TestUndeliveredTellsASlackUserPostSurelyNotDelivered(t *testing.T) {
 		"a token refused": {
 			answer: postAnswer{status: http.StatusOK, body: `{"ok":false,"error":"token_revoked"}`}, undelivered: true,
 		},
-		"a rate limit":         {answer: postAnswer{status: http.StatusTooManyRequests}, undelivered: true},
-		"a server error":       {answer: postAnswer{status: http.StatusInternalServerError}, undelivered: false},
+		"a rate limit":   {answer: postAnswer{status: http.StatusTooManyRequests}, undelivered: true},
+		"a server error": {answer: postAnswer{status: http.StatusInternalServerError}, undelivered: false},
+		"Slack failing within": {
+			answer: postAnswer{status: http.StatusOK, body: `{"ok":false,"error":"internal_error"}`}, undelivered: false,
+		},
+		"Slack failing fatally": {
+			answer: postAnswer{status: http.StatusOK, body: `{"ok":false,"error":"fatal_error"}`}, undelivered: false,
+		},
+		"Slack unavailable": {
+			answer: postAnswer{status: http.StatusOK, body: `{"ok":false,"error":"service_unavailable"}`}, undelivered: false,
+		},
+		"Slack timing out": {
+			answer: postAnswer{status: http.StatusOK, body: `{"ok":false,"error":"request_timeout"}`}, undelivered: false,
+		},
 		"no answer":            {answer: postAnswer{lost: true}, undelivered: false},
 		"an answer unreadable": {answer: postAnswer{status: http.StatusOK, body: "ok"}, undelivered: false},
 	}

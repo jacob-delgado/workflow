@@ -140,10 +140,15 @@ func (c Client) postMessage(ctx context.Context, token config.Secret, channel, t
 }
 
 // refusal is Slack's ok:false to a post: a credential it would not take, which
-// is ErrRejected as auth.test's own no is, or a message it would not deliver.
+// is ErrRejected as auth.test's own no is, a failure of Slack's own, which is
+// ErrServiceFailed, or a message it would not deliver.
 func refusal(code, channel string) error {
 	if slices.Contains(credentialCodes(), code) {
 		return credentialRefusal(code)
+	}
+
+	if slices.Contains(serviceFailureCodes(), code) {
+		return fmt.Errorf("%w: %s", ErrServiceFailed, code)
 	}
 
 	return PostRefusedError{Reason: rejectionReason(code, channel)}
@@ -184,6 +189,13 @@ func credentialRefusal(code string) error {
 // is the token or the app it belongs to, not the message or its channel.
 func credentialCodes() []string {
 	return []string{"not_authed", "invalid_auth", "account_inactive", "token_revoked", "token_expired", "missing_scope"}
+}
+
+// serviceFailureCodes are chat.postMessage's ok:false codes for a failure of
+// Slack's own, which its documentation says may have come after part of the
+// post succeeded: the message may be in the channel.
+func serviceFailureCodes() []string {
+	return []string{"internal_error", "fatal_error", "service_unavailable", "request_timeout"}
 }
 
 // postToWebhook posts to an incoming webhook. Each kind answers a delivered post
@@ -399,9 +411,9 @@ func webhookCredentialCodes() []string {
 // Undelivered reports whether err, a post's failure, says for sure that the
 // message did not reach the service: refused for itself or its credential,
 // rate limited, or never sent, for want of a credential or of an https
-// webhook. A post with no answer, a status no service documents, or an
-// answer that could not be read may have gone out all the same, so it is not
-// undelivered.
+// webhook. A post with no answer, a status no service documents, an answer
+// that could not be read, or a failure of Slack's own (ErrServiceFailed) may
+// have gone out all the same, so it is not undelivered.
 func Undelivered(err error) bool {
 	surely := []error{ErrPostRefused, ErrRejected, ErrNoCredential, ErrInsecureWebhook, httpx.ErrRateLimited}
 
