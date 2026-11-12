@@ -308,36 +308,61 @@ func (s *server) paneSections() []api.PaneSection {
 // and then put back is at the revision named, but not at the configuration
 // read, and two reads that found no file stand for different configurations
 // when another file came and went between them. The settings heldSettings
-// names it keeps as the configuration in effect holds them, too.
+// names it keeps as the configuration in effect holds them, too. Saves run one
+// at a time, but mu is held only to check the basis and to take the save up,
+// not while Slack or the keychain is asked to keep a secret typed.
 func (s *server) save(
 	ctx context.Context, posted api.Config, incoming config.Config, over basis,
 ) (config.Config, config.Revision, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.saves.Lock()
+	defer s.saves.Unlock()
 
-	if over != (basis{seen: s.seen, gone: s.gone}) {
-		return config.Config{}, config.Revision{}, fmt.Errorf(
-			"the configuration in effect is not the one read at %s: %w", over.etag(), config.ErrChangedOnDisk)
+	read, err := s.inEffectAt(over)
+	if err != nil {
+		return config.Config{}, config.Revision{}, err
 	}
 
-	held, err := holdSettings(posted, incoming, s.cfg)
+	held, err := holdSettings(posted, incoming, read)
 	if err != nil {
 		return config.Config{}, config.Revision{}, err
 	}
 
 	saved, written, err := config.SaveEdit(config.Edit{
-		Files: s.files, Read: s.cfg, Over: over.file(), Edited: held, Removed: removedIn(posted),
+		Files: s.files, Read: read, Over: over.file(), Edited: held, Removed: removedIn(posted),
 		PlaceSlackCredentials: s.placeSlackCredentials(ctx), KeepJiraToken: s.keepJiraToken(ctx),
 	})
 	if err != nil {
 		return config.Config{}, config.Revision{}, err
 	}
 
+	s.takeUpSaved(saved, written)
+
+	return saved, written, nil
+}
+
+// inEffectAt is the configuration in effect when it is the one the read over
+// stood for, and config.ErrChangedOnDisk when it is not.
+func (s *server) inEffectAt(over basis) (config.Config, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if over != (basis{seen: s.seen, gone: s.gone}) {
+		return config.Config{}, fmt.Errorf(
+			"the configuration in effect is not the one read at %s: %w", over.etag(), config.ErrChangedOnDisk)
+	}
+
+	return s.cfg, nil
+}
+
+// takeUpSaved makes what a save wrote the configuration in effect, at the
+// revision it was written as.
+func (s *server) takeUpSaved(saved config.Config, written config.Revision) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	s.cfg, s.seen, s.gone = saved, written, false
 	s.adoptForge(saved.Forge)
 	s.adoptMessaging(saved.Messaging)
-
-	return saved, written, nil
 }
 
 // basis is what a read of the configuration stood for: the revision of the

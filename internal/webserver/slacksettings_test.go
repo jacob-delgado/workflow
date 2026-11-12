@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/messaging"
@@ -233,4 +234,44 @@ func TestSlackSecretsAreNotPlacedOverAFileChangedSinceTheRead(t *testing.T) {
 	if saved.Code != http.StatusConflict {
 		t.Errorf("status %d: %s; want 409 before the refresh token is spent", saved.Code, saved.Body.String())
 	}
+}
+
+func TestAFrameGoesOutWhileSlackTakesItsTimeOverASave(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Slack is slow to answer the refresh token a save typed; a page's frame
+	// read meanwhile does not wait for it.
+	held := webtest.NewHeld()
+	cfg := keychainKept(t)
+	placing := func(ctx context.Context, _ config.Config) error { return held.Wait(ctx) }
+	deps := webserver.Deps{PlaceSlackCredentials: placing}
+	handler := webtest.ServeWith(t, deps, cfg, webserver.Info{Version: webtest.TestVersion})
+	body, etag := webtest.Marshal(t, typingRefresh(cfg)), webtest.Get(t, handler, "/api/config").Header().Get("ETag")
+	saved := make(chan struct{})
+
+	go func() {
+		defer close(saved)
+
+		webtest.PutConfigOver(t, handler, body, etag)
+	}()
+
+	<-held.Entered
+
+	frameOnly, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	// Act
+	framed := webtest.Asking(frameOnly, handler, http.MethodGet, "/api/events")
+
+	// Assert
+	select {
+	case <-framed:
+	case <-time.After(webtest.EndsWithin):
+		t.Error("the frame waited for Slack to answer the save, want it sent meanwhile")
+	}
+
+	close(held.Release)
+	<-saved
+	<-framed
 }
