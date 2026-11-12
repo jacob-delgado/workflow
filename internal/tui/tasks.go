@@ -37,6 +37,11 @@ type tasksState struct {
 	// time: Taskwarrior commits writes in the order they finish, so an undo sent
 	// while a done waits on a hook would revert the change before the done.
 	writing bool
+	// writes counts the writes that have answered, and shownAfter how many had
+	// when the read shown was begun: a read begun before a write the read
+	// shown follows lists the tasks as they stood before it.
+	writes     int
+	shownAfter int
 	// tracked counts the tracks whose add has answered. stubs are the tasks
 	// those adds made that no read begun since has replaced, each linked from
 	// its add's answer.
@@ -70,6 +75,15 @@ type trackStub struct {
 type doneMark struct {
 	uuid string
 	done int
+}
+
+// answeredWrite is s once the write out has answered, so the next may go, and
+// a read begun since lists what it left.
+func (s tasksState) answeredWrite() tasksState {
+	s.writing = false
+	s.writes++
+
+	return s
 }
 
 // markedDone is s with the task a done has just marked, as the next done.
@@ -146,6 +160,8 @@ type tasksLoaded struct {
 	// refresh is the refresh that began the read, counted from one; zero for
 	// a read no refresh began.
 	refresh int
+	// writes is how many writes had answered when the read was begun.
+	writes int
 }
 
 var _ applier = tasksLoaded{}
@@ -153,12 +169,22 @@ var _ applier = tasksLoaded{}
 // apply records Taskwarrior's answer, keeping the selection on the same task
 // across a refresh, as the Reviews pane keeps its pull request — or on the first
 // task, where that one is no longer listed — and each task a track added, or a
-// done marked, since the read was begun.
+// done marked, since the read was begun. A read begun before a write the read
+// shown follows says nothing: it lists the tasks as they stood before it,
+// and a refresh it answers is in flight no longer, the read shown having
+// begun after it.
 func (msg tasksLoaded) apply(m Model) (Model, tea.Cmd) {
+	if msg.writes < m.tasks.shownAfter {
+		m.tasks.loading = m.tasks.loading && msg.refresh != m.tasks.refreshes
+
+		return m, nil
+	}
+
 	linked, stubs := m.tasks.relinked(msg.tracked, msg.linked)
 	m.tasks = tasksState{
 		install: msg.install, pending: msg.pending.Tasks, linked: linked, context: msg.pending.Context,
 		loaded: true, err: msg.err, selected: m.tasks.selected, writing: m.tasks.writing,
+		writes: m.tasks.writes, shownAfter: msg.writes,
 		tracked: m.tasks.tracked, stubs: stubs, dones: m.tasks.dones, justDone: m.tasks.stillUndescribed(msg.dones),
 		listing: m.tasks.listing, refreshes: m.tasks.refreshes,
 		loading: m.tasks.loading && msg.refresh != m.tasks.refreshes,
@@ -197,24 +223,24 @@ func (s tasksState) read(ctx context.Context, deps Deps, refresh int) tea.Cmd {
 		return nil
 	}
 
-	tracked, dones := s.tracked, s.dones
+	begun := tasksLoaded{tracked: s.tracked, dones: s.dones, refresh: refresh, writes: s.writes}
 
 	return func() tea.Msg {
-		found, err := install(ctx)
-		if err != nil {
-			return tasksLoaded{err: err, tracked: tracked, dones: dones, refresh: refresh}
+		answer := begun
+
+		answer.install, answer.err = install(ctx)
+		if answer.err != nil {
+			return answer
 		}
 
-		list, err := pending(ctx)
-		if err != nil {
-			return tasksLoaded{install: found, err: err, tracked: tracked, dones: dones, refresh: refresh}
+		answer.pending, answer.err = pending(ctx)
+		if answer.err != nil {
+			return answer
 		}
 
-		tasks, err := linked(ctx)
+		answer.linked, answer.err = linked(ctx)
 
-		return tasksLoaded{
-			install: found, pending: list, linked: tasks, err: err, tracked: tracked, dones: dones, refresh: refresh,
-		}
+		return answer
 	}
 }
 

@@ -295,7 +295,7 @@ var _ applier = nothingToUndo{}
 
 // apply closes the undo's look and says there was nothing to undo.
 func (nothingToUndo) apply(m Model) (Model, tea.Cmd) {
-	m.tasks.writing = false
+	m.tasks = m.tasks.answeredWrite()
 
 	return m.answerLook(nil).noticed("nothing to undo in Taskwarrior"), nil
 }
@@ -335,7 +335,7 @@ var _ applier = taskActed{}
 // apply says what was done, or why it failed, then reads the tasks again, which
 // the change may have moved. The write has answered, so the next may go.
 func (msg taskActed) apply(m Model) (Model, tea.Cmd) {
-	m.tasks.writing = false
+	m.tasks = m.tasks.answeredWrite()
 
 	if msg.err != nil {
 		return m.noticedFailure(msg.err), m.tasks.load(m.session, m.deps)

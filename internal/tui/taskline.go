@@ -249,7 +249,7 @@ var _ applier = taskLineSent{}
 // follows, reads the tasks again.
 func (msg taskLineSent) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
-		m.tasks.writing = false
+		m.tasks = m.tasks.answeredWrite()
 
 		return keepOpenWith[taskLine](m, msg.err), nil
 	}
@@ -266,7 +266,7 @@ func (msg taskLineSent) apply(m Model) (Model, tea.Cmd) {
 		return m, msg.after(msg.uuid)
 	}
 
-	m.tasks.writing = false
+	m.tasks = m.tasks.answeredWrite()
 
 	return m, m.tasks.load(m.session, m.deps)
 }
