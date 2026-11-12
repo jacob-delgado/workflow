@@ -177,7 +177,8 @@ func (msg repoGroupsSaved) apply(m Model) (Model, tea.Cmd) {
 func (p peopleOverlay) refreshed(m Model) (Model, tea.Cmd) {
 	refresh, readGroups, readMembers := m.deps.Messaging.RefreshDirectory, m.deps.Messaging.UserGroups,
 		m.deps.Messaging.ChannelMembers
-	ctx, channel, opened := m.session, p.channel, p.opened
+	p.refreshes++
+	ctx, channel, opened, number := m.session, p.channel, p.opened, p.refreshes
 	p.groups.reading, p.members.reading = true, true
 	m.overlay = p
 
@@ -186,7 +187,7 @@ func (p peopleOverlay) refreshed(m Model) (Model, tea.Cmd) {
 		// with one there are all three.
 		refresh()
 
-		again := directoryRefreshed{opened: opened, groups: directory{}, members: directory{}}
+		again := directoryRefreshed{opened: opened, refresh: number, groups: directory{}, members: directory{}}
 
 		again.groups.entries, again.groups.err = readGroups(ctx)
 		again.members.entries, again.members.err = readMembers(ctx, channel)
@@ -195,19 +196,21 @@ func (p peopleOverlay) refreshed(m Model) (Model, tea.Cmd) {
 	}
 }
 
-// directoryRefreshed is the directory read again after a refresh.
+// directoryRefreshed is the directory read again after the refresh counted
+// refresh.
 type directoryRefreshed struct {
 	opened  int
+	refresh int
 	groups  directory
 	members directory
 }
 
 var _ applier = directoryRefreshed{}
 
-// apply shows what was read.
+// apply shows what was read, unless a later refresh has begun since.
 func (msg directoryRefreshed) apply(m Model) (Model, tea.Cmd) {
 	open, isOpen := beneath[peopleOverlay](m, msg.opened)
-	if !isOpen {
+	if !isOpen || msg.refresh != open.refreshes {
 		return m, nil
 	}
 
