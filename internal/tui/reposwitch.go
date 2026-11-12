@@ -154,8 +154,8 @@ const verbSwitch = "switch"
 // nothing is being written: a switch changes what every pane reads and writes,
 // and the look names what it would lose.
 func (m Model) leaveFor(dir string) (Model, tea.Cmd) {
-	if busy := m.writeInFlight(); busy != "" {
-		return m.noticed("wait for " + busy + " to finish before switching"), nil
+	if waiting, held := m.heldBackBy(switching); held {
+		return waiting, nil
 	}
 
 	m.overlay = m.switchLook(dir)
@@ -172,8 +172,8 @@ func (m Model) switchLook(dir string) lastLook {
 			"Switching", m.lostOnLeaving()),
 		proceed: func(m Model) (Model, tea.Cmd) {
 			m = m.closeOverlay()
-			if busy := m.writeInFlight(); busy != "" {
-				return m.noticed("wait for " + busy + " to finish before switching"), nil
+			if waiting, held := m.heldBackBy(switching); held {
+				return waiting, nil
 			}
 
 			return m.leave(dir)
@@ -237,8 +237,8 @@ func (m Model) reopenLook(dir string, saved reopening) lastLook {
 		body: leaveQuestion(question, "Reopening", m.lostOnLeaving()),
 		proceed: func(m Model) (Model, tea.Cmd) {
 			m = m.closeOverlay()
-			if busy := m.writeInFlight(); busy != "" {
-				return m.noticed("wait for " + busy + " to finish before reopening"), nil
+			if waiting, held := m.heldBackBy("reopening"); held {
+				return waiting, nil
 			}
 
 			return m.reopen(dir, saved)
@@ -268,6 +268,20 @@ func (m Model) reopen(dir string, saved reopening) (Model, tea.Cmd) {
 type paneWrites struct {
 	staging int
 	links   int
+}
+
+// switching is what a directory switch is called while it waits for a write.
+const switching = "switching"
+
+// heldBackBy is the interface saying that acting waits for a write still on
+// its way, and whether one is.
+func (m Model) heldBackBy(acting string) (Model, bool) {
+	busy := m.writeInFlight()
+	if busy == "" {
+		return m, false
+	}
+
+	return m.noticed("wait for " + busy + " to finish before " + acting), true
 }
 
 // writeInFlight names a write a pane has sent and not had answered, which a
