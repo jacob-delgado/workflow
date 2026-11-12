@@ -20,7 +20,7 @@ import {
   WorktreeMadeOffer,
 } from './StartInWorktree.tsx'
 import { startWork } from './startWorkApi.ts'
-import { useBranchSwitch } from './useBranchSwitch.ts'
+import { movingTheTree, useBranchSwitch, useTreeHeld } from './treeMoves.ts'
 import { Failure } from '@/lib/Status.tsx'
 import { StreamWait } from '@/shell/StreamStatus.tsx'
 
@@ -446,28 +446,37 @@ interface StartButtonsProps {
 // or in a new worktree. One start goes at a time: while either runs, both are
 // held, since each makes the issue's branch and the second would be refused
 // for the branch the first made.
+//
+// Starting work here also moves the working tree, so any move of it from the
+// page, a row's branch switch or this start itself, holds it too
+// (treeMoves.ts); a start in a new worktree moves no working tree here.
 function StartButtons({ issueKey, outcome, onMade }: StartButtonsProps) {
   const here = useStartWork(issueKey, outcome)
   const inWorktree = useStartInWorktree(issueKey, outcome, onMade)
-  const held = here.state === 'running' || inWorktree.state === 'running'
+  const treeHeld = useTreeHeld()
+  const starting = here.state === 'running' || inWorktree.state === 'running'
 
   return (
     <div className="flex flex-wrap items-start gap-item">
-      <StartWorkButton start={here} held={held} />
-      <StartInWorktreeButton start={inWorktree} held={held} />
+      <StartWorkButton start={here} held={starting || treeHeld} />
+      <StartInWorktreeButton start={inWorktree} held={starting} />
     </div>
   )
 }
 
-// useStartWork creates and switches to a branch for a not-started issue. The
-// branch it made is said in the story's outcome.
+// useStartWork creates and switches to a branch for a not-started issue,
+// marked as a move of the working tree while it runs. The branch it made is
+// said in the story's outcome.
 function useStartWork(issueKey: string, outcome: Teller) {
-  return useAsyncAction((fetch: boolean) => startWork(issueKey, fetch), {
-    fallback: `No branch was made for ${issueKey}. Try again, or run workflow branch ${issueKey} from a terminal.`,
-    done: (started) => `Started work on ${started.name}.`,
-    onStart: outcome.clear,
-    onDone: outcome.say,
-  })
+  return useAsyncAction(
+    (fetch: boolean) => movingTheTree(issueKey, () => startWork(issueKey, fetch)),
+    {
+      fallback: `No branch was made for ${issueKey}. Try again, or run workflow branch ${issueKey} from a terminal.`,
+      done: (started) => `Started work on ${started.name}.`,
+      onStart: outcome.clear,
+      onDone: outcome.say,
+    },
+  )
 }
 
 // StartWorkButton starts work here, as useStartWork makes it; a refusal (a

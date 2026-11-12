@@ -7,6 +7,7 @@ import { makeBranch, makeSnapshot, makeTaskBranch } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import { checkoutBranch } from './checkoutApi.ts'
 import { IssuesPanel } from './IssuesPanel.tsx'
+import { startWork } from './startWorkApi.ts'
 
 // How an issue's row offers to switch to its branch, and what the switch says
 // and holds while it runs.
@@ -16,6 +17,12 @@ vi.mock('./checkoutApi.ts', async (importOriginal) => ({
   checkoutBranch: vi.fn(() => Promise.resolve(makeBranch())),
 }))
 const mockCheckout = vi.mocked(checkoutBranch)
+
+vi.mock('./startWorkApi.ts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./startWorkApi.ts')>()),
+  startWork: vi.fn(() => Promise.resolve(makeBranch())),
+}))
+const mockStartWork = vi.mocked(startWork)
 
 const tokenLeak: Issue = {
   key: 'PROJ-1',
@@ -203,4 +210,75 @@ test('checks out the most recent branch when several name one issue', async () =
 
   // Assert
   expect(mockCheckout).toHaveBeenCalledWith('feat/PROJ-1-redo')
+})
+
+// withSetupDocsOpen lists PROJ-1, whose branch is not on HEAD, beside PROJ-2,
+// not started, and opens PROJ-2's story, which offers to start work on it.
+async function withSetupDocsOpen(user: ReturnType<typeof userEvent.setup>) {
+  withIssues()
+  useSnapshotStore.setState((state) => ({
+    snapshot: state.snapshot && {
+      ...state.snapshot,
+      branches: [makeTaskBranch({ name: 'fix/PROJ-1-leak', issue_key: 'PROJ-1', current: false })],
+    },
+  }))
+  renderWithClient(<IssuesPanel />)
+  await user.click(screen.getByRole('button', { name: /write the setup docs/i }))
+}
+
+test("while a row switches, the story's Start work moves nothing", async () => {
+  // Arrange
+  // Starting work here makes a branch and switches to it: two moves of the
+  // one working tree would race, and the last to land, not the last said,
+  // would stand.
+  const user = userEvent.setup()
+  mockCheckout.mockReturnValueOnce(new Promise(() => {}))
+  await withSetupDocsOpen(user)
+  await user.click(screen.getByRole('button', { name: 'Switch branch for PROJ-1' }))
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Start work' }))
+
+  // Assert
+  expect(mockStartWork).not.toHaveBeenCalled()
+  expect(screen.getByRole('button', { name: 'Start work' }).getAttribute('aria-disabled')).toBe(
+    'true',
+  )
+})
+
+test('while the story starts work, no row sends its switch', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  mockStartWork.mockReturnValueOnce(new Promise(() => {}))
+  await withSetupDocsOpen(user)
+  await user.click(screen.getByRole('button', { name: 'Start work' }))
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Switch branch for PROJ-1' }))
+
+  // Assert
+  expect(mockCheckout).not.toHaveBeenCalled()
+  expect(
+    screen.getByRole('button', { name: 'Switch branch for PROJ-1' }).getAttribute('aria-disabled'),
+  ).toBe('true')
+})
+
+test('while a row switches, branching from what you have moves nothing', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  mockStartWork.mockRejectedValueOnce({
+    code: 'fetch_failed',
+    detail: 'the base remote could not be fetched, so nothing was made for PROJ-2',
+  })
+  mockCheckout.mockReturnValueOnce(new Promise(() => {}))
+  await withSetupDocsOpen(user)
+  await user.click(screen.getByRole('button', { name: 'Start work' }))
+  const branchFromHere = await screen.findByRole('button', { name: 'Branch from what you have' })
+  await user.click(screen.getByRole('button', { name: 'Switch branch for PROJ-1' }))
+
+  // Act
+  await user.click(branchFromHere)
+
+  // Assert
+  expect(mockStartWork.mock.calls).toEqual([['PROJ-2', true]])
 })
