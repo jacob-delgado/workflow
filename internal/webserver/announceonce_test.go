@@ -286,3 +286,27 @@ func TestHoldingAnotherWhileTheHeldAnnouncementIsPostedIsAConflict(t *testing.T)
 		}
 	})
 }
+
+func TestAFrameWhileTheHeldAnnouncementIsPostedShowsItAnnouncing(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		handler, service := postingHeld(t, newForgeWorld())
+
+		// Act
+		frame := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
+
+		close(service.release)
+		synctest.Wait()
+
+		// Assert
+		if held := frame.QueuedAnnouncement; held == nil || held.State != api.QueuedAnnouncementStateAnnouncing {
+			t.Errorf("frame's held announcement = %+v, want it announcing", held)
+		}
+
+		if announce := frame.Stages[len(frame.Stages)-1]; announce.State != api.StageStateInFlight {
+			t.Errorf("announce stage = %+v, want it in flight while the post goes", announce)
+		}
+	})
+}
