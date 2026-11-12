@@ -112,6 +112,49 @@ test('removing a stored header asks first, then saves without it', async () => {
   expect((await sent(requests)).jira.headers).toBeNull()
 })
 
+test("a removal keeps the server's refusal of an edit it kept", async () => {
+  // Arrange
+  let saves = 0
+  fakeApi({
+    '/api/config': async (_at: URL, asked: Request) => {
+      if (asked.method !== 'PUT') {
+        return Response.json(mockConfig, { headers: { ETag: '"read-1"' } })
+      }
+
+      saves += 1
+      if (saves > 1) {
+        return Response.json(await asked.clone().json())
+      }
+
+      return Response.json(
+        {
+          code: 'unprocessable',
+          status: 422,
+          title: 'Unprocessable content',
+          detail: 'the configuration is not valid: no project OSS',
+          fields: [{ key: 'jira.project', detail: 'no project OSS' }],
+        },
+        { status: 422 },
+      )
+    },
+  })
+  renderWithClient(<SettingsPanel />)
+  const project = await screen.findByRole('textbox', { name: 'Project' })
+  await userEvent.clear(project)
+  await userEvent.type(project, 'OSS')
+  await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+  await screen.findByRole('textbox', { name: 'Project', description: /no project OSS/ })
+
+  // Act
+  await confirmRemoving('the Jira token')
+
+  // Assert
+  await screen.findByText('Removed the Jira token.')
+  expect(
+    screen.getByRole('textbox', { name: 'Project', description: /no project OSS/ }),
+  ).toHaveProperty('value', 'OSS')
+})
+
 test("a removal saves the file as read, and keeps the form's other edits", async () => {
   // Arrange
   const requests = await opened()

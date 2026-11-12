@@ -362,7 +362,7 @@ function markRefused(settings: RefusedSetting[], setError: UseFormSetError<Setti
 }
 
 // Seeding is how a read or a write is taken up: in place of the form's edits,
-// or under them, leaving them as they are.
+// or under them, leaving them as they are, and so each refusal of them too.
 interface Seeding {
   keepEdits: boolean
 }
@@ -386,7 +386,7 @@ function useFormFile(read: ConfigRead, reset: UseFormReset<SettingsValues>) {
   const turn = useRef<Promise<void>>(Promise.resolve())
   const saveConfig = useSaveConfig()
   const seed = (next: ConfigRead, { keepEdits }: Seeding) => {
-    reset(formValues(next.config), { keepDirtyValues: keepEdits })
+    reset(formValues(next.config), { keepDirtyValues: keepEdits, keepErrors: keepEdits })
     latest.current = next
     setSeeded(next.config)
   }
