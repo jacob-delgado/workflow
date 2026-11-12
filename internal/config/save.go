@@ -450,10 +450,14 @@ func (edit Edit) keepsJiraToken(incoming Config) bool {
 // targetAsRead is the file the edit saves to as the read found it, for a
 // write handed off and refused to be taken back, refused with
 // ErrChangedOnDisk when the files are no longer at the revision the edit was
-// made over.
+// made over, and with the reason when they cannot be read.
 func (edit Edit) targetAsRead() (layer, error) {
 	home, repo, err := readLayers(edit.Files)
-	if err != nil || layersRevision(home, repo) != edit.Over {
+	if err != nil {
+		return layer{}, err
+	}
+
+	if layersRevision(home, repo) != edit.Over {
 		return layer{}, fmt.Errorf("%s: %w", edit.Files, ErrChangedOnDisk)
 	}
 

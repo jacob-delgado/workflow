@@ -231,3 +231,29 @@ func TestSaveEditLeavesAFileItCannotReadSinceItsWrite(t *testing.T) {
 		t.Errorf("SaveEdit = %v, %v; want the write not taken back over what replaced the file", err, statErr)
 	}
 }
+
+func TestSaveEditSaysWhyFilesItCannotReadAreRefused(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The repository's file became a link after the read.
+	files, read, revision := readHome(t)
+	dir := t.TempDir()
+	files.Repo = filepath.Join(dir, config.FileName)
+
+	err := os.Symlink(files.Home, files.Repo)
+	if err != nil {
+		t.Fatalf("linking the repository's file: %v", err)
+	}
+
+	edited := read.Redacted()
+	edited.Jira.Project = "ELSE"
+
+	// Act
+	_, _, err = config.SaveEdit(config.Edit{Files: files, Read: read, Over: revision, Edited: edited})
+
+	// Assert
+	if !errors.Is(err, config.ErrLinkedFile) || errors.Is(err, config.ErrChangedOnDisk) {
+		t.Errorf("SaveEdit = %v, want the linked file named as the reason, not a change on disk", err)
+	}
+}
