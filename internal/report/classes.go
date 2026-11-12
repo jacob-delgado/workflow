@@ -161,8 +161,7 @@ func forgeFaults() []Class {
 		{
 			Causes: []error{forge.ErrTooManyRuns},
 			Code:   api.ProblemCodeUnprocessable,
-			Detail: "the commit has more workflow runs than workflow reads, so none was re-run; " +
-				"re-run the failed ones on the forge",
+			Detail: forge.ErrTooManyRuns.Error(),
 		},
 		{
 			Causes: []error{forge.ErrNoAPI, forge.ErrNotJSON},
