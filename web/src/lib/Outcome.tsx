@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { cn } from './utils.ts'
 
 // Said is what a write said, the element that had focus as it said it — the
@@ -55,14 +55,17 @@ export const resultGround =
 // hold it — gone from the page, or disabled — or focus had already fallen to
 // the page, focus follows to the line rather than staying lost; focus the user
 // has moved on to, before the write was said or since, even to the page itself
-// while that control stands, stays where they put it.
+// while that control stands, stays where they put it. Focus follows in the
+// commit that shows the words, never a task later: a passive effect runs once
+// the scheduler gets to it, and a loaded machine yields to the page first,
+// showing the words while focus is still on the page.
 export function OutcomeLine({ said, className }: { said: Said | null; className?: string }) {
   const line = useRef<HTMLParagraphElement>(null)
   // The last outcome whose focus is settled: handed to the line, or left with
   // the user.
   const settled = useRef<Said | null>(null)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (said === null || settled.current === said) {
       return
     }

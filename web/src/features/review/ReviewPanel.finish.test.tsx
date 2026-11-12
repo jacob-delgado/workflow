@@ -1,5 +1,6 @@
 import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { onTestFinished, vi } from 'vitest'
 import type { PullRequest } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import { fakeApi, pushFrame } from '@/test/fakeApi.ts'
@@ -47,6 +48,32 @@ async function finishing() {
   await user.click(within(form).getByRole('button', { name: 'Finish' }))
 }
 
+// onALoadedMachine has every read of the clock find a frame's time already
+// spent, as on a machine under load, so React's scheduler yields to the page
+// between each of its tasks rather than running the next in the same one.
+function onALoadedMachine() {
+  let now = performance.now()
+  const clock = vi.spyOn(performance, 'now').mockImplementation(() => (now += 10))
+  onTestFinished(() => {
+    clock.mockRestore()
+  })
+}
+
+// focusAsShown is what has focus the moment text is first shown on the page,
+// before anything later has run.
+function focusAsShown(text: string): Promise<{ shown: Element; focused: Element | null }> {
+  return new Promise((resolve) => {
+    const observer = new MutationObserver(() => {
+      const shown = screen.queryByText(text)
+      if (shown !== null) {
+        observer.disconnect()
+        resolve({ shown, focused: document.activeElement })
+      }
+    })
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true })
+  })
+}
+
 test('a finish says it finished once the frame showing the base has landed', async () => {
   // Arrange
   await finishing()
@@ -60,9 +87,11 @@ test('a finish says it finished once the frame showing the base has landed', asy
   expect(await screen.findByText('Finished fix/PROJ-1; now on main.')).toBeTruthy()
 })
 
-test('a finish hands focus to what it said, its button gone with the branch', async () => {
+test('a finish hands focus to what it said as it says it, its button gone with the branch', async () => {
   // Arrange
   await finishing()
+  onALoadedMachine()
+  const said = focusAsShown('Finished fix/PROJ-1; now on main.')
 
   // Act
   act(() => {
@@ -70,8 +99,8 @@ test('a finish hands focus to what it said, its button gone with the branch', as
   })
 
   // Assert
-  const said = await screen.findByText('Finished fix/PROJ-1; now on main.')
-  expect(document.activeElement).toBe(said)
+  const { shown, focused } = await said
+  expect(focused).toBe(shown)
 })
 
 test('what a finish said goes once another branch is checked out', async () => {
