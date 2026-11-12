@@ -419,7 +419,8 @@ function NeededField({ label, field, control }: NeededFieldProps) {
 // TemplateChoice starts the description from another of the repository's
 // templates, as the terminal's ctrl+t does, while there are several and the
 // description is not yet edited — a template never overwrites an edit. The
-// template is read past the base the form drafts onto.
+// template is read past the base the form drafts onto, and only the last
+// choice's read is heard.
 function TemplateChoice({
   templates,
   chosen,
@@ -436,6 +437,9 @@ function TemplateChoice({
   onBody: (body: string) => void
 }) {
   const [error, setError] = useState('')
+  // The choice last made: only its read's answer is heard, so a template
+  // chosen before another and read after it never fills the description.
+  const latest = useRef(0)
 
   if (templates.length < 2) {
     return null
@@ -451,16 +455,22 @@ function TemplateChoice({
           aria-describedby={edited ? 'template-kept' : undefined}
           onChange={(event) => {
             const name = event.target.value
+            latest.current += 1
+            const choice = latest.current
             onChoose(name)
             setError('')
             previewPullRequest(name, base).then(
               (composed) => {
-                onBody(composed.body)
+                if (choice === latest.current) {
+                  onBody(composed.body)
+                }
               },
               (caught: unknown) => {
-                setError(
-                  apiErrorMessage(caught, `The ${name} template could not be read. Try again.`),
-                )
+                if (choice === latest.current) {
+                  setError(
+                    apiErrorMessage(caught, `The ${name} template could not be read. Try again.`),
+                  )
+                }
               },
             )
           }}

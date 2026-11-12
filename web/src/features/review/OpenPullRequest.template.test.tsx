@@ -106,3 +106,36 @@ test('the people and labels boxes show their hints in sentence case', async () =
     'Comma-separated labels',
   ])
 })
+
+test('a template chosen before another and read after it never fills the description', async () => {
+  // Arrange
+  const { user, form } = await composed()
+  const answers: Record<string, () => void> = {}
+  const held = (template?: string) =>
+    new Promise<PullRequestDraft>((resolve) => {
+      answers[template ?? ''] = () => {
+        resolve(drafted(template ?? 'feature'))
+      }
+    })
+  mockPreview.mockImplementationOnce(held).mockImplementationOnce(held)
+  const choice = within(form).getByRole('combobox', { name: 'Template' })
+  await user.selectOptions(choice, 'bugfix')
+  await user.selectOptions(choice, 'feature')
+  await act(async () => {
+    answers.feature?.()
+    await Promise.resolve()
+  })
+
+  // Act
+  await act(async () => {
+    answers.bugfix?.()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+
+  // Assert
+  expect(choice).toHaveProperty('value', 'feature')
+  expect(within(form).getByRole('textbox', { name: 'Description' })).toHaveProperty(
+    'value',
+    '## feature\n',
+  )
+})
