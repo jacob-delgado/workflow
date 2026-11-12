@@ -184,9 +184,15 @@ func askFor(ask func(string) (string, error), question, what string) (string, er
 // keepFirstToken refreshes the starting credentials once, as the app typed
 // names, and keeps what Slack gives back where the configuration keeps a user
 // token with the app named beside it, so a refresh Slack refuses changes
-// nothing; then it says whose token it is. Each request is outlined in conn's
-// request log.
+// nothing; then it says whose token it is. A repository's own file naming
+// another app is refused before the refresh, since its app would win there.
+// Each request is outlined in conn's request log.
 func keepFirstToken(ctx context.Context, notes console.Notes, conn cmdkit.Connection, answers loginAnswers) error {
+	err := slackauth.RefuseAppOverride(conn.Config.Layers(), answers.clientID)
+	if err != nil {
+		return err
+	}
+
 	transport := conn.RequestLog.Wrap("slack", cmdkit.OnlineDoer(conn.Config))
 
 	renewed, err := conn.Process.SlackRefresher(answers.clientID, transport).Refresh(ctx, answers.starting)

@@ -169,3 +169,58 @@ func TestAKeychainLoginTheKeychainRefusesLeavesTheAppNamedBefore(t *testing.T) {
 		t.Errorf("KeepLogin = %v, the home file names %q; want ErrNotKept and the app named before", err, home.ClientID)
 	}
 }
+
+func TestALoginIsRefusedOnlyWhereTheRepositoryNamesAnotherApp(t *testing.T) {
+	t.Parallel()
+
+	held := `{"messaging": {"client_secret": "s", "refresh_token": "r"}}`
+	cases := map[string]struct {
+		home, repository string
+		refused          bool
+	}{
+		"no repository file":               {home: `{}`},
+		"the repository's file holds them": {home: `{}`, repository: held},
+		"the repository names no app":      {home: `{}`, repository: `{"messaging": {"channel": "#dev"}}`},
+		"the repository names this app": {
+			home: `{}`, repository: `{"messaging": {"client_id": "` + clientID + `"}}`,
+		},
+		"the repository names another app": {
+			home: `{}`, repository: `{"messaging": {"client_id": "9999.0000"}}`, refused: true,
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			files := config.Files{Home: configFile(t, tt.home)}
+			if tt.repository != "" {
+				files.Repo = configFile(t, tt.repository)
+			}
+
+			// Act
+			err := slackauth.RefuseAppOverride(files, clientID)
+
+			// Assert
+			if errors.Is(err, slackauth.ErrAppOverridden) != tt.refused || (!tt.refused && err != nil) {
+				t.Errorf("RefuseAppOverride = %v, want refused %t", err, tt.refused)
+			}
+		})
+	}
+}
+
+func TestALoginOverAnUnreadableRepositoryFileSaysWhy(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	files := config.Files{Home: configFile(t, `{}`), Repo: configFile(t, `{"messaging": `)}
+
+	// Act
+	err := slackauth.RefuseAppOverride(files, clientID)
+
+	// Assert
+	if err == nil || errors.Is(err, slackauth.ErrAppOverridden) {
+		t.Errorf("RefuseAppOverride = %v, want the file's own failure", err)
+	}
+}

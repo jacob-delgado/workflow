@@ -23,6 +23,11 @@ var ErrNotLoggedIn = errors.New("no Slack user token is set up; run `workflow sl
 // token it replaced is spent, so only a fresh login brings posting back.
 var ErrNotKept = errors.New("slack gave a new token that could not be kept; run `workflow slack login` again")
 
+// ErrAppOverridden reports a login whose app a repository's own file would
+// override with another app's client ID, so the secrets kept would be refreshed
+// for the wrong app there.
+var ErrAppOverridden = errors.New("the repository's own configuration file names another Slack app")
+
 // keepTries is how many times a new pair is saved before it is given up: the
 // file's save is refused when an edit lands between its read and its write,
 // and a try after that reads the file again.
@@ -126,6 +131,31 @@ func FileStore(files config.Files) Store {
 			})
 		},
 	}
+}
+
+// RefuseAppOverride refuses, with ErrAppOverridden, a login for the app
+// clientID that would name it in the home file, beside the secrets or the
+// keychain that keeps them, while the repository's own file names another app,
+// whose client ID wins wherever that file is read. A login checks this before
+// spending the refresh token typed.
+func RefuseAppOverride(files config.Files, clientID string) error {
+	named := secretsFile(files)
+	if files.Repo == "" || named == files.Repo {
+		return nil
+	}
+
+	own, err := readSecrets(files.Repo)
+	if err != nil {
+		return err
+	}
+
+	if own.ClientID == "" || own.ClientID == clientID {
+		return nil
+	}
+
+	return fmt.Errorf("%w: %s sets messaging.client_id to %q, which wins there over the app %q a login names in %s; "+
+		"remove it from that file, or set it to %q, then run the login again", ErrAppOverridden, files.Repo, own.ClientID,
+		clientID, named, clientID)
 }
 
 // secretsFile is the file of files the credentials are kept in.

@@ -10,6 +10,7 @@ package cli_test
 import (
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
@@ -77,4 +78,33 @@ func TestSlackLoginNeverKeepsTheSecretsWithoutTheApp(t *testing.T) {
 		t.Errorf("the home file keeps the refresh token Slack gave back %t with the client ID %q; want both kept "+
 			"there together", held.RefreshToken.Reveal() == renewedRefresh, held.ClientID)
 	}
+}
+
+func TestSlackLoginRefusesARepositoryNamingAnotherApp(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The repository's own client ID would win over the one the login names
+	// beside the secrets at home.
+	const otherApp = `{"messaging": {"kind": "slack", "client_id": "9999.0000", "channel": "#dev"}}`
+
+	where := clitest.Place{Dir: t.TempDir(), Home: t.TempDir()}
+	home := clitest.WriteFile(t, where.Home, `{}`)
+	repository := clitest.WriteFile(t, where.Dir, otherApp)
+
+	var refreshed atomic.Bool
+
+	slackRefreshing(t, func() { refreshed.Store(true) })
+
+	// Act
+	_, err := clitest.RunStreamsAt(t, where, loginTyped(), "slack", "login")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), repository) || refreshed.Load() {
+		t.Errorf("slack login = %v, refreshing the token typed %t; want it refused before any refresh, "+
+			"naming %s, whose client ID would win over the one logged in to", err, refreshed.Load(), repository)
+	}
+
+	wantExit(t, err, 3)
+	unchanged(t, home, `{}`)
 }
