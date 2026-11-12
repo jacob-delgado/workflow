@@ -243,17 +243,25 @@ function useRedraft(
     if (base === '' || base === onto) {
       return
     }
+    // Only a read for the base the field still names is heard: one for a
+    // base since left behind says nothing, answered or refused.
+    const named = () => getValues('base').trim() === base
     previewPullRequest(template === '' ? undefined : template, base).then(
       (composed) => {
-        if (getValues('base').trim() === base) {
+        if (named()) {
           fill(proposedBy(composed))
           setOnto(base)
         }
       },
       (caught: unknown) => {
-        setError(
-          apiErrorMessage(caught, `The commits past ${base} could not be read; the draft is kept.`),
-        )
+        if (named()) {
+          setError(
+            apiErrorMessage(
+              caught,
+              `The commits past ${base} could not be read; the draft is kept.`,
+            ),
+          )
+        }
       },
     )
   }
