@@ -53,6 +53,9 @@ type branchesListed struct {
 	worktrees map[string]gitrepo.Worktree
 	notAsked  error
 	err       error
+	// opened is the count of overlays opened when the switcher that asked
+	// opened.
+	opened int
 }
 
 var _ applier = branchesListed{}
@@ -80,11 +83,12 @@ func (msg branchesListed) candidates() []taskBranch {
 	return branches
 }
 
-// apply records the branches on the open switcher, or does nothing when it has
-// since closed.
+// apply records the branches on the switcher that asked, or does nothing when
+// it has since closed, even when another has opened: that one asks for its
+// own, and a choice made from these would be listed over.
 func (msg branchesListed) apply(m Model) (Model, tea.Cmd) {
 	picker, open := m.overlay.(branchPicker)
-	if !open {
+	if !open || picker.opened != msg.opened {
 		return m, nil
 	}
 
@@ -129,6 +133,9 @@ type branchPicker struct {
 	notAsked error
 	settled  bool
 	send     sendState
+	// opened is the count of overlays opened when it opened, which its
+	// listing carries back.
+	opened int
 }
 
 var (
@@ -138,7 +145,8 @@ var (
 
 // openBranchPicker opens the task switcher and starts listing the branches.
 func (m Model) openBranchPicker() (Model, tea.Cmd) {
-	m.overlay = branchPicker{}
+	m, opened := m.opening()
+	m.overlay = branchPicker{opened: opened}
 	lister := branchLister{
 		local: m.deps.Git.Branches, remote: m.deps.Git.RemoteBranches, links: m.deps.Git.IssueLinks,
 		search: m.deps.Jira.SearchLenient, project: m.cfg.Jira.Project,
@@ -148,7 +156,7 @@ func (m Model) openBranchPicker() (Model, tea.Cmd) {
 
 	return m, func() tea.Msg {
 		listed := lister.list(ctx)
-		listed.worktrees = lister.otherWorktrees(ctx)
+		listed.worktrees, listed.opened = lister.otherWorktrees(ctx), opened
 
 		return listed
 	}
