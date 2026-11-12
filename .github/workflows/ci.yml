@@ -521,8 +521,9 @@ jobs:
 
   # The release build, run on every change but a docs-only pull request so a
   # broken cross-compilation — or a loop that names every target the same and
-  # ships one — is caught on the pull request rather than at the tag. With E2E (server)'s `task build`, it is
-  # also what proves the binary builds, so no job of its own builds it again.
+  # ships one — is caught on the pull request rather than at the tag. With E2E
+  # (server)'s `task build`, it is also what proves the binary builds, so no
+  # job of its own builds it again.
   cross:
     name: Cross-compile
     needs: [changes]
