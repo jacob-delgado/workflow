@@ -284,7 +284,11 @@ func (s Store) ForgetOwner(ctx context.Context, forgeHost, workspace, owner stri
 
 // kindOf is the kind an owner is kept as.
 func kindOf(team bool) string {
-	return map[bool]string{false: kindUser, true: kindTeam}[team]
+	if team {
+		return kindTeam
+	}
+
+	return kindUser
 }
 
 // unlinkElsewhereIfKindChanges drops the owner's Slack links in every other
@@ -401,7 +405,11 @@ func isUpperOrDigit(character rune) bool {
 // isSlackIDFor reports a Slack ID of the kind an owner links to: a user
 // group's for a team, a user's for a person.
 func isSlackIDFor(team bool, slackID string) bool {
-	return isSlackID(slackID, map[bool]string{false: userIDPrefixes, true: groupIDPrefixes}[team])
+	if team {
+		return isSlackID(slackID, groupIDPrefixes)
+	}
+
+	return isSlackID(slackID, userIDPrefixes)
 }
 
 // isSlackID reports an ID that starts with one of prefixes and goes on with at
