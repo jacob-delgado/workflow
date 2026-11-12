@@ -198,8 +198,16 @@ func TestAStoppedPushLeavesTheBranchUnpushed(t *testing.T) {
 
 		// Assert
 		ended := output.Wait()
-		branch, _ := deps.Git.Branch(t.Context())
-		remote, _ := deps.Git.RemoteBranches(t.Context())
+
+		branch, err := deps.Git.Branch(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		remote, err := deps.Git.RemoteBranches(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		if ended == nil || branch.Upstream != "" || slices.Contains(remote, feature) {
 			t.Errorf("the branch after its push was stopped (%v) = %+v, on the remote %v; want no upstream "+
