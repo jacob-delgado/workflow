@@ -34,40 +34,27 @@ export function TasksPanel() {
     return <Reading>Reading your tasks…</Reading>
   }
 
-  if (query.data?.available === false) {
-    return <Unavailable list={query.data} />
+  const readAgain: ReadAgainProps = {
+    failure: query.isError
+      ? apiErrorMessage(query.error, 'Your tasks could not be read. Press Try again.')
+      : null,
+    failed: query.isError || retrying,
+    reading: query.isFetching,
+    onReadAgain: () => {
+      void query.refetch()
+    },
   }
 
-  return (
-    <Board
-      list={query.data}
-      failure={
-        query.isError
-          ? apiErrorMessage(query.error, 'Your tasks could not be read. Press Try again.')
-          : null
-      }
-      failed={query.isError || retrying}
-      reading={query.isFetching}
-      onReadAgain={() => {
-        void query.refetch()
-      }}
-    />
-  )
+  if (query.data?.available === false) {
+    return <Unavailable list={query.data} {...readAgain} />
+  }
+
+  return <Board list={query.data} {...readAgain} />
 }
 
-// Unavailable says why there is no Taskwarrior to ask, in the server's words,
-// which say how to set it up in the words every surface shares.
-function Unavailable({ list }: { list: Tasks }) {
-  return (
-    <EmptyState>
-      <span>{list.reason}</span>
-    </EmptyState>
-  )
-}
-
-interface BoardProps {
-  // list is the tasks as last read, or undefined when no read has landed.
-  list: Tasks | undefined
+// ReadAgainProps are how the last read of the list stands, and the control
+// that reads it again.
+interface ReadAgainProps {
   // failure is why the last read failed, while it stands.
   failure: string | null
   // failed is whether the last read failed, still so while a retry is in
@@ -75,6 +62,34 @@ interface BoardProps {
   failed: boolean
   reading: boolean
   onReadAgain: () => void
+}
+
+// Unavailable says why there is no Taskwarrior to ask, in the server's words,
+// which say how to set it up in the words every surface shares, beside the
+// control that reads the list again once it is set up or answers again.
+function Unavailable({
+  list,
+  failure,
+  failed,
+  reading,
+  onReadAgain,
+}: { list: Tasks } & ReadAgainProps) {
+  return (
+    <EmptyState>
+      <div className="flex flex-col items-center gap-item">
+        <span>{list.reason}</span>
+        {failure === null ? null : <Failure>{failure}</Failure>}
+        <Button variant="secondary" held={reading} onClick={onReadAgain}>
+          {readAgainLabel(failed, reading)}
+        </Button>
+      </div>
+    </EmptyState>
+  )
+}
+
+interface BoardProps extends ReadAgainProps {
+  // list is the tasks as last read, or undefined when no read has landed.
+  list: Tasks | undefined
 }
 
 // Board is the add line and the controls over the list and the selected task's
