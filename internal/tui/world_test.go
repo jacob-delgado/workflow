@@ -103,7 +103,10 @@ type world struct {
 	// unavailable names the trackers a search says it could not read.
 	unavailable []string
 
-	branch            gitrepo.Branch
+	branch gitrepo.Branch
+	// branchErr fails the read of the branch, which then answers none, as git's
+	// does.
+	branchErr         error
 	branchesOnto      map[string]gitrepo.Branch
 	branches          []string
 	branchesErr       error

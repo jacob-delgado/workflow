@@ -37,8 +37,16 @@ type branchLoaded struct {
 var _ applier = branchLoaded{}
 
 // apply records the branch, selects the issue it is for, and looks for its pull
-// request.
+// request. A read that failed once the branch was read says nothing of it —
+// git answers no branch with its error — so the branch, and all that hangs
+// off it, stays, beside the failure.
 func (msg branchLoaded) apply(m Model) (Model, tea.Cmd) {
+	if msg.err != nil && m.branch.read() {
+		m.branch.loading, m.review.loading = false, false
+
+		return m.noticedFailureLedBy("could not read the branch: ", msg.err), nil
+	}
+
 	previous := m.branch.branch.Name
 	m.branch = branchState{branch: msg.branch, loaded: true, err: msg.err, scroll: m.branch.scroll}
 
@@ -79,9 +87,14 @@ func loadBranch(ctx context.Context, deps Deps) tea.Cmd {
 	}
 }
 
+// read reports a branch read, and not failing.
+func (s branchState) read() bool {
+	return s.loaded && s.err == nil
+}
+
 // onFeatureBranch reports a named branch other than the one work merges into.
 func (s branchState) onFeatureBranch() bool {
-	return s.loaded && s.err == nil && loop.OnFeatureBranch(s.branch)
+	return s.read() && loop.OnFeatureBranch(s.branch)
 }
 
 // rail is the branch's name and where it stands against its upstream.
