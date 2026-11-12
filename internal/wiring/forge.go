@@ -274,17 +274,23 @@ func (e Environment) ForgeResolver(settings config.Forge) forge.Resolver {
 // failure rather than remembering it: a token added, or gh signed in, in another
 // terminal is found on the next attempt instead of only on a restart. A connect
 // its asker's context ended is a failure like any other, so the next asker
-// connects again under its own.
+// connects again under its own. One asker connects at a time, and the others
+// wait for it only as long as their own contexts last.
 func onceConnected[T any](connect func(context.Context) (T, error)) func(context.Context) (T, error) {
 	var (
-		lock   sync.Mutex
+		turn   = newConnecting()
 		cached T
 		ok     bool
 	)
 
 	return func(ctx context.Context) (T, error) {
-		lock.Lock()
-		defer lock.Unlock()
+		err := turn.take(ctx)
+		if err != nil {
+			var none T
+
+			return none, err
+		}
+		defer turn.give()
 
 		if ok {
 			return cached, nil
@@ -364,20 +370,26 @@ func useForgeSettings(live *liveForge, where Workspace) func(config.Forge) forge
 // connectedWith caches a connection made with the settings in effect, and makes
 // a new one once they change — a token, host or kind saved in the web's
 // Settings reaches the next call rather than the next start. Like
-// onceConnected, it retries after a failure rather than remembering it.
+// onceConnected, it retries after a failure rather than remembering it, and
+// lets an asker stop waiting on another's connect when its context ends.
 func connectedWith[T any](
 	current func() config.Forge, connect func(context.Context, config.Forge) (T, error),
 ) func(context.Context) (T, error) {
 	var (
-		lock      sync.Mutex
+		turn      = newConnecting()
 		cached    T
 		ok        bool
 		cachedFor config.Forge
 	)
 
 	return func(ctx context.Context) (T, error) {
-		lock.Lock()
-		defer lock.Unlock()
+		err := turn.take(ctx)
+		if err != nil {
+			var none T
+
+			return none, err
+		}
+		defer turn.give()
 
 		settings := current()
 		if ok && settings == cachedFor {
@@ -397,6 +409,40 @@ func connectedWith[T any](
 
 		return cached, nil
 	}
+}
+
+// connecting is the one connect a client found on first use makes at a
+// time: a lock held across the connect, which may run a token command, so an
+// asker waiting for it must be able to stop when its own context ends, as a
+// mutex would never let it.
+type connecting chan struct{}
+
+// newConnecting is a turn no one holds.
+func newConnecting() connecting {
+	return make(connecting, 1)
+}
+
+// take waits for the turn to connect, or until ctx ends. A free turn is taken
+// whatever ctx says, so only an asker that did wait on another's connect is
+// told it did.
+func (c connecting) take(ctx context.Context) error {
+	select {
+	case c <- struct{}{}:
+		return nil
+	default:
+	}
+
+	select {
+	case c <- struct{}{}:
+		return nil
+	case <-ctx.Done():
+		return fmt.Errorf("waiting on a connection another call is making: %w", ctx.Err())
+	}
+}
+
+// give hands the turn on.
+func (c connecting) give() {
+	<-c
 }
 
 // connectForge finds the forge the workspace's base remote points at and the
