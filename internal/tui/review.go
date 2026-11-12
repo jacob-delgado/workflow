@@ -29,6 +29,9 @@ type reviewState struct {
 	checkedAt time.Time
 	ciErr     error
 	polling   bool
+	// opened is when this session opened the pull request; zero for one it
+	// found.
+	opened time.Time
 	// reran are the ids of the failed runs a re-run was asked for, until a
 	// read shows the re-run begun; reranAt is when it was asked for.
 	reran   []string
