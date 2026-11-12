@@ -473,8 +473,10 @@ session and pays up to 20 pages on its first read. One over the cap pays those
 20 pages every ten minutes to learn it is too large, then one `users.info` per
 member, so a large channel's first read is slow. A Tier 4 limit is waited out
 for at most a minute in all, then the read fails while keeping who was
-labeled. A member who joins within the ten minutes is not offered until a
-refresh.
+labeled. A Tier 2 limit on `users.list` is not waited out at all: the read
+fails at once with Slack's rate limit, nothing is held, and the next asker
+reads the whole list again. A member who joins within the ten minutes is not
+offered until a refresh.
 
 **Reopen when.** Slack's rate limits are hit below the cap, or a large
 channel's first read through `users.info` is too slow to wait for; then lower
