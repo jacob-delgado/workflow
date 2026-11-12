@@ -7,7 +7,8 @@
 #   scripts/check-tradeoffs.sh
 #
 # The register is every `### ` heading under TECH_DEBT.md's
-# `## The trade-off register`, up to the next `## ` heading. Each entry's
+# `## The trade-off register`, up to the next `## ` heading, and a heading
+# inside a fenced code block is neither. Each entry's
 # heading starts with its ID, TRADE-<number>, and no two entries share one.
 # Each entry carries three paragraphs with text in them: **Decided.** (when,
 # and in which pull request), **Cost.** and **Reopen when.** (the concrete
@@ -65,10 +66,36 @@ if [[ -f "${backlog}" ]]; then
       for (i = 1; i <= 3; i++) if (index(line, labels[i]) == 1) return labels[i]
       return ""
     }
+    # fence_run gives the run of three or more backticks or tildes a line
+    # starts with after at most three spaces, setting fence_rest to what
+    # follows it, or "" for a line that starts with none.
+    function fence_run(line) {
+      if (!match(line, /^ ? ? ?(```+|~~~+)/)) return ""
+      sub(/^ */, "", line)
+      match(line, /^(`+|~+)/)
+      fence_rest = substr(line, RLENGTH + 1)
+      return substr(line, 1, RLENGTH)
+    }
     BEGIN {
       labels[1] = "**Decided.**"
       labels[2] = "**Cost.**"
       labels[3] = "**Reopen when.**"
+    }
+    # A fenced block is code, so a heading in it is no section or entry. It
+    # closes at a run of its own character at least as long, alone on its
+    # line; a backtick run with a backtick after it opens no block.
+    fence != "" {
+      run = fence_run($0)
+      if (substr(run, 1, 1) == substr(fence, 1, 1) && length(run) >= length(fence) && fence_rest ~ /^[ \t]*$/) {
+        fence = ""
+        paragraph = 0
+      }
+      next
+    }
+    (run = fence_run($0)) != "" && !(run ~ /^`/ && index(fence_rest, "`")) {
+      fence = run
+      paragraph = 0
+      next
     }
     /^## / { finish(); inside = ($0 == section); next }
     !inside { next }
