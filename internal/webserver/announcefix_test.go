@@ -101,6 +101,35 @@ func TestAHeldAnnouncementGivesUpWhenNoCheckIsReported(t *testing.T) {
 	})
 }
 
+func TestAHeldAnnouncementGivesUpOnCIThatRunsUnchangedForTwoHours(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// CI runs, and reads the same for two hours (P033).
+		world := newForgeWorld()
+		handler := heldServer(t, world.deps(), config.Default())
+		announceWhenGreen(t, handler, nil)
+		world.turn(func(*forgeWorld) {})
+		world.turn(func(*forgeWorld) {})
+
+		// Act
+		advance(ciTick)
+
+		// Assert
+		held := heldAnnouncement(t, handler)
+		reason := "CI on #42 has been running for 2h"
+
+		if held == nil || held.State != api.QueuedAnnouncementStateDropped || orEmpty(held.Reason) != reason {
+			t.Errorf("frame's held announcement = %+v, want it dropped because %q", held, reason)
+		}
+
+		if posts := world.posted(); len(posts) != 0 {
+			t.Errorf("posted %q, want nothing", posts)
+		}
+	})
+}
+
 func TestAHeldAnnouncementCountsNoQuietTimeAcrossAnOutage(t *testing.T) {
 	t.Parallel()
 

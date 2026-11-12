@@ -134,7 +134,8 @@ func refusalErrors() []error {
 		pr.ErrPullAlreadyOpen, pr.ErrNoCommitsToOpen, pr.ErrNoPullRequest,
 		errBranchExists, setup.ErrExists, gitrepo.ErrNotARepository, store.ErrNotCleaned,
 		messaging.ErrTooLong, loop.ErrNoTransition, loop.ErrNeedsFields,
-		loop.ErrCIFailed, armed.ErrNoCI, armed.ErrPullChanged, armed.ErrMergedFirst, armed.ErrUnheard,
+		loop.ErrCIFailed, armed.ErrNoCI, armed.ErrRunningTooLong, armed.ErrPullChanged, armed.ErrMergedFirst,
+		armed.ErrUnheard,
 		pr.ErrOnlyReadyWaits,
 	}
 }

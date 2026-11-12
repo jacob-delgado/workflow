@@ -12,6 +12,10 @@ var (
 	// ErrNoCI gives up on an armed announcement whose pull request reported no
 	// check within NoCIPatience: it is announced by hand.
 	ErrNoCI = errors.New("no checks were reported on the pull request")
+	// ErrRunningTooLong gives up on an armed announcement whose pull
+	// request's CI ran, unchanged, for RunningPatience: it is announced by
+	// hand.
+	ErrRunningTooLong = errors.New("the pull request's CI has been running, unchanged, for too long")
 	// ErrPullChanged gives up on an armed announcement whose branch's pull
 	// request is another one, or none.
 	ErrPullChanged = errors.New("the branch's pull request is no longer the one announced")

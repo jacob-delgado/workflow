@@ -582,7 +582,9 @@ announcement waiting for CI waits through a failed run: the messaging pane says
 *a check failed; waiting on a fix*, and it goes once a later run passes. While
 no check is reported it says *no checks reported yet*, and after ten minutes
 of reads that heard none, counted from the last read that saw one, a read that
-failed not counting, it gives up, saying to announce it by hand. `x` on the
+failed not counting, it gives up, saying to announce it by hand. CI that runs
+and reads the same — no check finished, failed or started — for two hours is
+given up on too, as *CI on #42 has been running for 2h*. `x` on the
 messaging pane stops waiting, and nothing is announced. While one waits, the
 footer offers `p` after `x`, as *announce now instead*: it opens the same
 preview, and once the post made from it has gone, the one that waited goes no
@@ -1225,10 +1227,12 @@ troubleshooting]({{< relref "/docs/faq" >}}).
 - **An announcement waits only for CI that reports.** One waiting for a pull
   request that reports no check gives up after ten minutes of reads that
   heard none, counted from the last read that saw one, a read that failed not
-  counting; announce a repository with no CI by hand. On GitHub, the Review
-  pane reads CI at the branch's head here, so a fix pushed from another clone
-  shows there once this branch moves to it; an announcement, and the read of
-  CI it makes as it posts, go by the commit the forge says the pull request is
+  counting; announce a repository with no CI by hand. One whose CI runs
+  unchanged for two hours — a status a CI service left pending, say — gives
+  up too. On GitHub, the Review pane reads CI at the branch's head here, so a
+  fix pushed from another clone shows there once this branch moves to it; an
+  announcement, and the read of CI it makes as it posts, go by the commit the
+  forge says the pull request is
   at.
 - **A branch is worked on under the name it shows.** git allows characters in a
   branch's name that cannot be drawn as they are, such as one with no width or

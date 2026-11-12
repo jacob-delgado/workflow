@@ -87,8 +87,9 @@ func NewAnnounceCmd(prompt cmdkit.Prompt) *cobra.Command {
 			"--when-green, announce waits in the foreground for its CI to pass, through a\n" +
 			"failed run, then announces it; ctrl+c stops waiting without announcing. It\n" +
 			"waits on the branch it started on, whatever is checked out meanwhile, and gives\n" +
-			"up on a pull request that reports no check for ten minutes, or whose CI cannot\n" +
-			"be read, or announcement posted, for ten minutes.",
+			"up on a pull request that reports no check for ten minutes, whose CI runs\n" +
+			"unchanged for two hours, or whose CI cannot be read, or announcement posted,\n" +
+			"for ten minutes.",
 		Example: cmdkit.Examples(
 			`workflow --dry-run announce            # the announcement, and where it would go`,
 			`workflow announce --yes                # announce it, unattended`,

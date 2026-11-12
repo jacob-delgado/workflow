@@ -303,12 +303,13 @@ func (m Model) droppedWords(hold armed.Hold) string {
 
 // droppedCause is why the hold was given up on while it waited, and whether
 // it was: the forge never listed its pull request, nothing was heard of it
-// for too long, no check was reported, or it merged first or is no longer its
-// branch's. Any other reason is a post's failure.
+// for too long, no check was reported, CI ran unchanged for too long, or it
+// merged first or is no longer its branch's. Any other reason is a post's failure.
 func (m Model) droppedCause(hold armed.Hold) (string, bool) {
 	name, reason := m.pullName(hold.Pull()), hold.Reason()
 	patience := strconv.Itoa(int(armed.UnheardPatience.Minutes())) + "m"
 	quiet := strconv.Itoa(int(armed.NoCIPatience.Minutes())) + "m"
+	running := strconv.Itoa(int(armed.RunningPatience.Hours())) + "h"
 
 	// In order: an UnheardError matches ErrNotListedYet when the forge never
 	// listed it, which says more.
@@ -325,6 +326,7 @@ func (m Model) droppedCause(hold armed.Hold) (string, bool) {
 		{armed.ErrNoCI, func() string {
 			return "no checks reported on " + name + " within " + quiet + "; announce it by hand"
 		}},
+		{armed.ErrRunningTooLong, func() string { return "CI on " + name + " has been running for " + running }},
 		{armed.ErrMergedFirst, func() string { return name + " merged before its CI passed" }},
 		{armed.ErrPullChanged, func() string { return name + " is no longer its branch's " + m.vocab.noun }},
 	}

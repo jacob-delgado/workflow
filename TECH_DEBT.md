@@ -1533,3 +1533,29 @@ added.
 
 **Reopen when.** Either forge offers a conditional update of a pull or merge
 request's description.
+
+### TRADE-62 An armed announcement gives up on CI that runs unchanged for two hours
+
+**Decided.** 2026-11-12 by the maintainer, on wave-2 lead P033:
+`armed.RunningPatience` (`internal/armed/watch.go`) bounds how long an
+announcement armed to go once CI passes waits on CI that runs and reads the
+same — its state, its counts and each check as they were, no check finishing,
+failing or starting — at two hours, counted from the read that first saw it
+so. A read that failed does not break the span, since CI that reads the same
+either side of an outage ran unchanged through it. It then gives up: `workflow
+announce --when-green` says *CI on #N has been running for 2h; not announced*
+and exits 4, while the terminal's messaging pane and the web's held
+announcement, which each lead a dropped hold's reason with their own *not
+announced*, say *not announced: CI on #N has been running for 2h* and *Not
+announced: CI on #N has been running for 2h.* A status a CI service set to
+pending and never finished would otherwise have its pull request read every
+`timing.ci_interval` for as long as the terminal or the server runs, and the
+command line wait forever.
+
+**Cost.** A run that takes longer than two hours with no check changing — one
+long job, say — loses its automatic post; it is announced by hand. A forge
+that lists the same checks in another order reads as a change, and starts the
+two hours again.
+
+**Reopen when.** A CI is met whose runs regularly sit unchanged for longer
+than that, or a forge reports how long a run has left.

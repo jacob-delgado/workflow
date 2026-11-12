@@ -80,7 +80,8 @@ func (h Hold) Hear(reading Reading, failure Failure) (Hold, Next) {
 // found is waited for within UnheardPatience. Once found, a pull request
 // that is another, none, closed or merged drops it; otherwise its CI says
 // how it waits, or that it is due, its delivery's pull request and head
-// taken from the read, or, no check reported within NoCIPatience, drops it.
+// taken from the read, or drops it: no check reported within NoCIPatience,
+// or CI that ran unchanged for RunningPatience.
 func (h Hold) Heard(reading Reading) (Hold, Next) {
 	if !h.current(reading.Round) {
 		return h, NextNothing
@@ -106,8 +107,9 @@ func (h Hold) readCI(reading Reading) (Hold, Next) {
 	watch, verdict := h.watch.Read(reading.CI, reading.At)
 	h.watch, h.ci, h.reason = watch, reading.CI, nil
 
-	if verdict == VerdictNoCI {
-		return h.ended(StageDropped, ErrNoCI), NextNothing
+	givenUp := givenUpOn(verdict)
+	if givenUp != nil {
+		return h.ended(StageDropped, givenUp), NextNothing
 	}
 
 	h.stage = stageOn(verdict)
@@ -123,8 +125,8 @@ func (h Hold) readCI(reading Reading) (Hold, Next) {
 }
 
 // stageOn is the stage a hold stands at on a verdict: no check within
-// patience drops it. A map, not a switch, so there is no last arm gobco can
-// never see false.
+// patience, or CI unchanged past its own, drops it. A map, not a switch, so
+// there is no last arm gobco can never see false.
 func stageOn(verdict Verdict) Stage {
 	return map[Verdict]Stage{
 		VerdictWaiting:        StageRunning,
@@ -132,6 +134,20 @@ func stageOn(verdict Verdict) Stage {
 		VerdictAwaitingChecks: StageAwaitingChecks,
 		VerdictDue:            StageDue,
 		VerdictNoCI:           StageDropped,
+		VerdictRunningTooLong: StageDropped,
+	}[verdict]
+}
+
+// givenUpOn is why a hold is given up on a verdict, or nil for one it waits
+// or posts on. A map, not a switch, for the reason stageOn's is.
+func givenUpOn(verdict Verdict) error {
+	return map[Verdict]error{
+		VerdictWaiting:        nil,
+		VerdictAwaitingChecks: nil,
+		VerdictAwaitingFix:    nil,
+		VerdictDue:            nil,
+		VerdictNoCI:           ErrNoCI,
+		VerdictRunningTooLong: ErrRunningTooLong,
 	}[verdict]
 }
 
