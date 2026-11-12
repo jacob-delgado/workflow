@@ -63,6 +63,25 @@ test.each([
   expect(screen.queryByRole('textbox', { name: 'task add' })).toBeNull()
 })
 
+test('with no Taskwarrior to ask, Refresh reads again and lists the tasks once there is', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  const reason = 'Taskwarrior could not start; workflow doctor says why.'
+  const answers = [
+    makeTaskList([], { available: false, reason, reason_code: 'unavailable' }),
+    makeTaskList([certificate]),
+  ]
+  fakeApi({ [tasksPath]: () => answers.shift() })
+  renderWithClient(<TasksPanel />)
+  await screen.findByText(reason)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Refresh' }))
+
+  // Assert
+  expect(await screen.findByRole('list', { name: 'Tasks' })).toBeTruthy()
+})
+
 test('a failed read says why, and Try again reads again, one request each', async () => {
   // Arrange
   const user = userEvent.setup()
