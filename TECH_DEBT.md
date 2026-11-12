@@ -440,13 +440,28 @@ was: editing that JQL drops them from the first view, and putting another
 view first leaves them leading the view that was first. The web's Jira
 section, `configuration.md` and `web.md` say so. The terminal's Settings
 reopens workflow to apply a save, asking first while a write is in flight or
-reopening would lose something. Two tabs paging the first view while the
-forge's open issues change can skip or repeat one Jira row on a later page.
+reopening would lose something. A later page of the first view — the web's
+**Load more**, or `GET /api/issues` with a `start_at` — asks Jira from its
+offset less the shared count, which every read of the first view's first page
+sets: another tab's, the web's event stream rereading it every
+`timing.ci_interval`, and one whose forge read fails, which sets it to zero.
+When the count differs from the forge issues that led the page's own first
+page, the later page skips or repeats the difference in Jira rows, and its
+total is that many short or over. Two tabs paging while the forge's open
+issues change can be off by a row; a first page that led with N forge issues,
+read again since with the forge unreadable, skips N Jira rows on its later
+page, with a total N short; and a list whose own first page found the forge
+unreadable repeats N rows, with a total N over, once another first page reads
+it again. Reading the list again from its first page puts it right. A paging
+token that carries the Jira offset would end it, at the cost of a breaking
+change to `GET /api/issues`'s paging (wave-2 lead P066, kept 2026-11-12 by the
+maintainer).
 
 **Reopen when.** Jira's client settings become live on save, or someone is
 seen toggling `issues.forge` from Settings and expecting it to apply at once,
 or editing the first view's JQL from Settings and expecting the forge's issues
-to follow it.
+to follow it, or a user reports Jira issues missing from, or listed twice in,
+a later page of the first view: then the paging token carries the Jira offset.
 
 ### TRADE-25 Kept data has one schema and is never migrated
 
