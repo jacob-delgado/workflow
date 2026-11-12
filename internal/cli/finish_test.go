@@ -6,6 +6,7 @@ package cli_test
 import (
 	"errors"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -346,6 +347,92 @@ func TestFinishKeepsGitsWordsWhenAStepFails(t *testing.T) {
 	}
 
 	wantExit(t, err, 1)
+	requireBranchKept(t, repo)
+}
+
+// answeringYesAfter is a prompt that does meanwhile what another terminal
+// does while the finish asks, then answers yes.
+func answeringYesAfter(meanwhile func()) cmdkit.Prompt {
+	return cmdkit.Prompt{Line: func(string) (string, error) {
+		meanwhile()
+
+		return "y", nil
+	}}
+}
+
+// A commit made from another terminal while the finish asks is one its
+// preview never saw, which the force delete would lose.
+func TestFinishRefusesABranchCommittedToWhileItAsked(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := mergedFinishRepo(t)
+	originOnDisk(t, repo)
+
+	committing := answeringYesAfter(func() { clitest.Commit(t, repo, "while asked") })
+
+	// Act
+	_, err := clitest.RunStreams(t, repo, committing, "finish")
+
+	// Assert
+	if !errors.Is(err, loop.ErrUnpushedWork) || !strings.Contains(err.Error(), "cannot finish "+finishedBranch+": ") {
+		t.Errorf("finish of a branch committed to while it asked = %v, want %v", err, loop.ErrUnpushedWork)
+	}
+
+	wantExit(t, err, 4)
+	requireBranchKept(t, repo)
+}
+
+// Another branch checked out while the finish asks is not the one confirmed.
+func TestFinishRefusesWhenAnotherBranchIsCheckedOutWhileItAsked(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := mergedFinishRepo(t)
+	originOnDisk(t, repo)
+
+	switching := answeringYesAfter(func() { clitest.Git(t, repo, "switch", "--quiet", "--create", "other") })
+
+	// Act
+	_, err := clitest.RunStreams(t, repo, switching, "finish")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "cannot finish "+finishedBranch+": ") {
+		t.Errorf("finish once another branch is checked out = %v, want it refused", err)
+	}
+
+	wantExit(t, err, 4)
+	requireBranchKept(t, repo)
+}
+
+// A branch that cannot be read again once the finish is confirmed is not
+// finished on what was read before asking.
+func TestFinishRefusesABranchItCannotReadAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := mergedFinishRepo(t)
+	gitDir, away := filepath.Join(repo, ".git"), filepath.Join(t.TempDir(), "git")
+	movingAway := answeringYesAfter(func() {
+		moved := os.Rename(gitDir, away)
+		if moved != nil {
+			t.Errorf("moving the repository away: %v", moved)
+		}
+	})
+
+	// Act
+	_, err := clitest.RunStreams(t, repo, movingAway, "finish")
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "reading the branch") {
+		t.Errorf("finish of a branch it cannot read again = %v, want the read's failure", err)
+	}
+
+	back := os.Rename(away, gitDir)
+	if back != nil {
+		t.Fatalf("moving the repository back: %v", back)
+	}
+
 	requireBranchKept(t, repo)
 }
 
