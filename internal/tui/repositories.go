@@ -30,6 +30,10 @@ type repositoriesState struct {
 	loading  bool
 	selected int
 	scroll   int
+	// reads counts the reads begun after the first, which each answer
+	// carries, so only the last begun is kept: one begun before a favorite
+	// changed would show it as it was.
+	reads int
 	// changing is a favorite marked or forgotten and not yet answered: until
 	// it is, the rows show the favorites as before it, so another f would
 	// make the same change again rather than undo it.
@@ -63,6 +67,7 @@ var errWorktreeGone = errors.New("the worktree's directory is gone")
 // repositoriesRead is the worktrees as git answered, and the favorites as the
 // store and the disk did.
 type repositoriesRead struct {
+	asked        int
 	worktrees    []gitrepo.Worktree
 	worktreesErr error
 	favorites    []favoritePlace
@@ -71,8 +76,13 @@ type repositoriesRead struct {
 
 var _ applier = repositoriesRead{}
 
-// apply keeps the favorites read, the cursor kept on a row there still is.
+// apply keeps the favorites read, the cursor kept on a row there still is,
+// unless a read was begun after this one.
 func (msg repositoriesRead) apply(m Model) (Model, tea.Cmd) {
+	if msg.asked != m.repositories.reads {
+		return m, nil
+	}
+
 	m.repositories.favorites, m.repositories.err, m.repositories.read = msg.favorites, msg.err, true
 	m.repositories.loading = false
 	m.repositories.worktrees, m.repositories.worktreesErr = msg.worktrees, msg.worktreesErr
@@ -85,9 +95,10 @@ func (msg repositoriesRead) apply(m Model) (Model, tea.Cmd) {
 // place, off the update loop: both are on disk, read again each time.
 func (m Model) loadRepositories() tea.Cmd {
 	ctx, worktrees, favorites := m.session, m.deps.Repositories.Worktrees, favoritePlaces(m.session, m.deps)
+	asked := m.repositories.reads
 
 	return func() tea.Msg {
-		read := repositoriesRead{}
+		read := repositoriesRead{asked: asked}
 		if worktrees != nil {
 			read.worktrees, read.worktreesErr = worktrees(ctx)
 		}
@@ -126,6 +137,14 @@ func favoritePlaces(ctx context.Context, deps Deps) func() ([]favoritePlace, err
 // refreshRepositories reads the favorites again.
 func (m Model) refreshRepositories() (Model, tea.Cmd) {
 	m.repositories.loading = true
+
+	return m.rereadRepositories()
+}
+
+// rereadRepositories begins a read after the first, which every read begun
+// before it gives way to.
+func (m Model) rereadRepositories() (Model, tea.Cmd) {
+	m.repositories.reads++
 
 	return m, m.loadRepositories()
 }
@@ -280,7 +299,7 @@ func (msg favoriteToggled) apply(m Model) (Model, tea.Cmd) {
 		words = " added " + shownDir(m.deps, msg.dir) + " to favorites"
 	}
 
-	return m.noticed(m.marks.done + words), m.loadRepositories()
+	return m.noticed(m.marks.done + words).rereadRepositories()
 }
 
 // favoriteChanging is why f waits: a favorite changed is shown only once

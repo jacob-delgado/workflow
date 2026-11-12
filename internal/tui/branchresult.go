@@ -144,7 +144,10 @@ func (msg worktreeCreated) apply(m Model) (Model, tea.Cmd) {
 
 	reload := listIssueBranches(m.session, m.cfg, m.deps)
 	if m.repositories.read {
-		reload = tea.Batch(reload, m.loadRepositories())
+		var reread tea.Cmd
+
+		m, reread = m.rereadRepositories()
+		reload = tea.Batch(reload, reread)
 	}
 
 	return m.offeringInProgress(msg.issue, msg.forIssue, reload)
