@@ -70,9 +70,9 @@ func (s Store) Keep(ctx context.Context, renewed Credentials) error {
 // KeepLogin keeps the pair a login's first refresh gave, as Keep does, with
 // the app it is for, clientID, and Slack as the kind, named in the
 // configuration file the secrets are read from: in the same write where that
-// file keeps the pair, and once the keychain keeps it where it does. So the
-// secrets are never in a file without the app they are for, and every
-// directory that reads them reads the app too.
+// file keeps the pair, and just before the keychain keeps it where it does,
+// taken back if the keychain refuses. So the secrets are never kept without
+// the app they are for, and every directory that reads them reads the app too.
 func (s Store) KeepLogin(ctx context.Context, clientID string, renewed Credentials) error {
 	return s.keepTrying(func() error { return s.login(ctx, clientID, renewed) })
 }
@@ -230,6 +230,16 @@ func naming(clientID string) func(config.Messaging) config.Messaging {
 	}
 }
 
+// renaming is messaging settings naming the kind and app before named, as
+// they were before a login named its own.
+func renaming(before config.Messaging) func(config.Messaging) config.Messaging {
+	return func(messaging config.Messaging) config.Messaging {
+		messaging.Kind, messaging.ClientID = before.Kind, before.ClientID
+
+		return messaging
+	}
+}
+
 // stored is the credentials as the keychain holds them: one line of JSON.
 type stored struct {
 	ClientSecret string `json:"client_secret"`
@@ -247,14 +257,35 @@ func KeychainStore(item keychain.Item, files config.Files) Store {
 		where: "the macOS keychain (" + KeychainService + ")",
 		load:  func(ctx context.Context) (Credentials, error) { return loadKeychain(ctx, item) },
 		save:  func(ctx context.Context, credentials Credentials) error { return saveKeychain(ctx, item, credentials) },
-		login: func(ctx context.Context, clientID string, credentials Credentials) error {
-			err := saveKeychain(ctx, item, credentials)
-			if err != nil {
-				return err
-			}
+		login: keychainLogin(item, files),
+	}
+}
 
-			return saveFile(files, secretsFile(files), naming(clientID))
-		},
+// keychainLogin is a login that names its app in the one of files the secrets
+// would be read from, then keeps its credentials in item, and takes the naming
+// back when the keychain refuses them: so a pair is never kept without its
+// app, and an app is left named only for the pair it is for.
+func keychainLogin(item keychain.Item, files config.Files) func(context.Context, string, Credentials) error {
+	return func(ctx context.Context, clientID string, credentials Credentials) error {
+		path := secretsFile(files)
+
+		var before config.Messaging
+
+		err := saveFile(files, path, func(messaging config.Messaging) config.Messaging {
+			before = messaging
+
+			return naming(clientID)(messaging)
+		})
+		if err != nil {
+			return err
+		}
+
+		err = saveKeychain(ctx, item, credentials)
+		if err != nil {
+			return errors.Join(err, saveFile(files, path, renaming(before)))
+		}
+
+		return nil
 	}
 }
 
