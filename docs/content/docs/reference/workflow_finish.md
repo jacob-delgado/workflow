@@ -15,7 +15,8 @@ Finish the checked-out branch once its pull or merge request has merged: switch
 to its base, fast-forward the base from the base remote — upstream in a fork's
 clone, else origin — with git pull --ff-only, and delete the branch: the three
 git commands the interface's F runs. They are printed and confirmed before any
-runs, and a step git refuses stops the rest, keeping the branch.
+runs, and a step git refuses stops the rest, keeping the branch. Once confirmed,
+the branch is read again, and refused if it changed meanwhile.
 
 A branch that cannot be finished is refused with the reason, and exits 4: its
 pull or merge request has not merged, it is the base itself or a detached
