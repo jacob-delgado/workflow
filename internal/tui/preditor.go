@@ -166,28 +166,33 @@ func (p prEditor) save(m Model) (Model, tea.Cmd) {
 	return m, func() tea.Msg {
 		updated, err := edit(ctx, pull, request)
 
-		return pullEdited{pull: updated, err: err}
+		return pullEdited{number: pull.Number, pull: updated, err: err}
 	}
 }
 
-// pullEdited reports how saving the edit went.
+// pullEdited reports how saving the edit of the pull request numbered number
+// went.
 type pullEdited struct {
-	pull forge.PullRequest
-	err  error
+	number int
+	pull   forge.PullRequest
+	err    error
 }
 
 var _ applier = pullEdited{}
 
 // apply shows the updated pull request, or keeps the editor open with why the
-// forge turned the change down.
+// forge turned the change down. The Review pane may show another pull request
+// by now, which keeps its own title and description.
 func (msg pullEdited) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
 		return keepOpenWith[prEditor](m, msg.err), nil
 	}
 
-	m.review.pull.Title, m.review.pull.Body = msg.pull.Title, msg.pull.Body
+	if m.review.pull.Number == msg.number {
+		m.review.pull.Title, m.review.pull.Body = msg.pull.Title, msg.pull.Body
+	}
 
-	return m.closeOverlay().noticed(m.marks.done + " saved " + m.vocab.sigil + strconv.Itoa(msg.pull.Number)), nil
+	return m.closeOverlay().noticed(m.marks.done + " saved " + m.vocab.sigil + strconv.Itoa(msg.number)), nil
 }
 
 // failed is the editor kept open with the reason the change was turned down.
