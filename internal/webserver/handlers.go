@@ -195,16 +195,17 @@ type forgeRead struct {
 
 // readForge is the branch's pull request and its CI, or none found when no
 // forge is configured: the one read behind GET /api/review and the event
-// stream's forge cache, which hands it the branch its frame read. A merged
-// pull request has no live CI, so it is not asked about, as the terminal does
-// not ask; a CI read that fails leaves the pull request without it rather than
-// failing the whole read.
+// stream's forge cache, which hands it the branch its frame read. A pull
+// request opened here is read by its number until the forge's list includes
+// it (findPull). A merged pull request has no live CI, so it is not asked
+// about, as the terminal does not ask; a CI read that fails leaves the pull
+// request without it rather than failing the whole read.
 func (s *server) readForge(ctx context.Context, branch gitrepo.Branch) (forgeRead, error) {
 	if s.deps.Forge.FindPullRequest == nil {
 		return forgeRead{}, nil
 	}
 
-	pull, found, err := s.deps.Forge.FindPullRequest(ctx, branch.Name)
+	pull, found, err := s.findPull(ctx, branch.Name)
 	if err != nil || !found {
 		return forgeRead{}, err
 	}

@@ -231,6 +231,22 @@ func gitlabFind(ctx context.Context, client Client, repo Repo, head Head) (PullR
 	return pull, true, nil
 }
 
+// gitlabRead reads the merge request of this number, with its approvals
+// while it is open.
+func gitlabRead(ctx context.Context, client Client, repo Repo, number int) (PullRequest, error) {
+	read, err := repoCall[gitlabMerge](ctx, client, repo, http.MethodGet, gitlabMergePath(repo, number), nil)
+	if err != nil {
+		return PullRequest{}, err
+	}
+
+	pull := read.pullRequest()
+	if pull.State == StateOpen {
+		gitlabReviewState(ctx, client, repo, &pull)
+	}
+
+	return pull, nil
+}
+
 // fromHead keeps the merge requests whose branch is on head's project. A
 // fork's branch can share the name of one on the base: on the base, only a
 // merge request whose source is its target is the head's; on a fork, only one

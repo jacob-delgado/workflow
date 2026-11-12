@@ -201,6 +201,7 @@ type PullRequestEdit struct {
 // for one.
 type dialect struct {
 	find       func(ctx context.Context, c Client, repo Repo, head Head) (PullRequest, bool, error)
+	read       func(ctx context.Context, c Client, repo Repo, number int) (PullRequest, error)
 	create     func(ctx context.Context, c Client, repo Repo, request NewPullRequest) (PullRequest, error)
 	update     func(ctx context.Context, c Client, repo Repo, pull PullRequest, edit PullRequestEdit) (PullRequest, error)
 	rewrite    func(ctx context.Context, c Client, repo Repo, number int, by func(string) (string, bool)) (bool, error)
@@ -226,7 +227,7 @@ func dialectFor(kind Kind) (dialect, error) {
 	//nolint:exhaustive // KindUnknown has no dialect on purpose; its lookup miss is the ErrUnknownForge below.
 	dialects := map[Kind]dialect{
 		KindGitHub: {
-			find: githubFind, create: githubCreate, update: githubUpdate, rewrite: githubRewrite,
+			find: githubFind, read: githubRead, create: githubCreate, update: githubUpdate, rewrite: githubRewrite,
 			status: githubStatus, rerun: githubRerun,
 			merge: githubMergePull, methods: githubMergeMethods,
 			reviews: githubReviews, issues: githubIssues, readIssue: githubReadIssue, closeIssue: githubCloseIssue,
@@ -234,7 +235,7 @@ func dialectFor(kind Kind) (dialect, error) {
 			activity: githubActivity,
 		},
 		KindGitLab: {
-			find: gitlabFind, create: gitlabCreate, update: gitlabUpdate, rewrite: gitlabRewrite,
+			find: gitlabFind, read: gitlabRead, create: gitlabCreate, update: gitlabUpdate, rewrite: gitlabRewrite,
 			status: gitlabStatus, rerun: gitlabRerun,
 			merge: gitlabMergePull, methods: gitlabMergeMethods,
 			reviews: gitlabReviews, issues: gitlabIssues, readIssue: gitlabReadIssue, closeIssue: gitlabCloseIssue,
@@ -292,6 +293,19 @@ func (c Client) FindPullRequest(ctx context.Context, repo Repo, head Head) (Pull
 	}
 
 	return speaks.find(ctx, c, repo, head)
+}
+
+// ReadPullRequest reads the pull request of this number, whatever its state:
+// one just opened, before the forge's list of its branch's pulls, which
+// FindPullRequest reads, includes it. Its review state is read too while it
+// is open, as FindPullRequest reads it.
+func (c Client) ReadPullRequest(ctx context.Context, repo Repo, number int) (PullRequest, error) {
+	speaks, err := dialectFor(repo.Kind)
+	if err != nil {
+		return PullRequest{}, err
+	}
+
+	return speaks.read(ctx, c, repo, number)
 }
 
 // CreatePullRequest opens a pull request.
