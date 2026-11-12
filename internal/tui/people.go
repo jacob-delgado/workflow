@@ -311,7 +311,9 @@ func (p peopleOverlay) handlePersonKey(m Model, msg tea.KeyPressMsg) (Model, tea
 
 		return m, nil
 	case key.Matches(msg, m.keys.notOnSlack):
-		return p.saving(m, saveLink(m.session, m.deps, decided(selected.owner, selected.team, nil), p.opened))
+		linking, save := m.savingLink(decided(selected.owner, selected.team, nil), p.opened)
+
+		return p.saving(linking, save)
 	case key.Matches(msg, m.keys.forgetOwner):
 		return p.askToForget(m, selected.owner), nil
 	default:
