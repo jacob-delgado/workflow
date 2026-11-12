@@ -1,4 +1,5 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { onlineManager } from '@tanstack/react-query'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { IssueDetail } from '@/api/generated/types.gen.ts'
 import { mockStatusChanges } from '@/dev/mockIssues.ts'
@@ -104,6 +105,38 @@ test('a status change that needs nothing is made from the form', async () => {
   expect(await screen.findByText('Changed PROJ-1 to Blocked.')).toBeTruthy()
   expect(sent).toEqual([{ to: `POST ${changesPath}`, body: { transition_id: '11', fields: [] } }])
   expect(screen.queryByRole('form', { name: 'Change the status of PROJ-1' })).toBeNull()
+})
+
+test('a status change no longer offered once the changes are read again is no longer chosen', async () => {
+  // Arrange
+  // The changes are read again as the browser comes back online, and by then
+  // the issue has moved on: Block is no longer among them.
+  let reads = 0
+  fakeApi({
+    [issuePath]: detailOf(),
+    [changesPath]: () => {
+      reads += 1
+
+      return Response.json(reads === 1 ? mockStatusChanges : mockStatusChanges.slice(1))
+    },
+  })
+  renderWithClient(<IssueDetailPanel issueKey="PROJ-1" />)
+  await open('Change status')
+  await choose('11')
+
+  // Act
+  act(() => {
+    onlineManager.setOnline(false)
+    onlineManager.setOnline(true)
+  })
+
+  // Assert
+  await waitFor(() => {
+    expect(reads).toBe(2)
+  })
+  const fields = form('Change the status of PROJ-1')
+  expect(await within(fields).findByRole('button', { name: 'Change status' })).toBeTruthy()
+  expect(within(fields).queryByRole('button', { name: 'Change to Blocked' })).toBeNull()
 })
 
 test('a status change with fields shows its form and sends what is filled', async () => {
