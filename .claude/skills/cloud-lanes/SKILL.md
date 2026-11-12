@@ -176,10 +176,11 @@ Say which host and why, and carry on with what does not need it.
   `task check:docs` when the worktree changes the docs alone since
   `origin/main` (`scripts/docs-only.sh`; `GATE_BASE` names another base). It
   checks the disk before the run and between steps, and one run goes at a
-  time: a second waits for the first. dev gets a temporary directory of its
-  own under `~/.cache`, since root's tools keep fixed names in `/tmp`: a
-  root golangci-lint's lock there would fail dev's `lint:go` with "parallel
-  golangci-lint is running".
+  time: a second waits for the first, and so does a setup with a tool to
+  install, since a run uses the toolchain from start to end. dev gets a
+  temporary directory of its own under `~/.cache`, since root's tools keep
+  fixed names in `/tmp`: a root golangci-lint's lock there would fail dev's
+  `lint:go` with "parallel golangci-lint is running".
 - **A worktree is not a clone.** A lane's worktree has a `.git` file; dev's
   gate checkout and CI's checkout have a `.git` directory, of objects and
   git's own sample hooks. So a check that walks hidden files can pass in a
