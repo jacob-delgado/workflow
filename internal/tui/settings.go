@@ -453,12 +453,15 @@ func (f settingsForm) written(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 }
 
 // savedRefusal is a write's refusal in Settings' own words, where it has them.
+// Slack's refusal comes first: a save it refused whose write could not be
+// taken back, the files having changed since, was still refused for Slack's
+// reason.
 func savedRefusal(err error) error {
 	switch {
-	case errors.Is(err, config.ErrChangedOnDisk):
-		return errSettingsChanged
 	case errors.Is(err, messaging.ErrRejected):
 		return errSlackSecretsRefused
+	case errors.Is(err, config.ErrChangedOnDisk):
+		return errSettingsChanged
 	default:
 		return err
 	}
