@@ -13,7 +13,9 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/keychain"
 	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/slackauth"
 	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 )
 
@@ -212,8 +214,11 @@ func (s *server) writeOver(ctx context.Context, posted api.Config, over basis) a
 	}
 }
 
-// unsavable says why a save was refused for what it carried, in words that
-// name no credential, and false for a save refused for anything else.
+// unsavable says why a save was refused for what it carried, or for a
+// keychain or a Slack refresh lock that could not take it then, in words that
+// name no credential, and false for a save refused for anything else. A lock
+// another workflow holds is no conflict with the read the save was made
+// over: saving again, not reading again, answers it.
 func unsavable(err error) (string, bool) {
 	switch {
 	case errors.Is(err, errHeldSetting):
@@ -222,6 +227,10 @@ func unsavable(err error) (string, bool) {
 		return "Slack refused the client ID, client secret or refresh token; check them, then save again", true
 	case errors.Is(err, config.ErrTokenNotKept):
 		return "the keychain did not keep the Jira token typed, so nothing was saved; unlock it, then save again", true
+	case errors.Is(err, keychain.ErrNotRead):
+		return "the keychain could not be read, so nothing was saved; unlock it, then save again", true
+	case errors.Is(err, slackauth.ErrLocked):
+		return "another workflow is refreshing the Slack token, so nothing was saved; save again in a minute", true
 	case errors.Is(err, config.ErrCredentialInRepository) || errors.Is(err, config.ErrHomeOnly):
 		return "a credential, a token command or variable, or a task program is kept in the home " +
 			"directory's file, never in the repository's; set it there", true
