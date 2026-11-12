@@ -221,3 +221,49 @@ func TestAnAuthorAskedForBeforeAForgeTokenWasSavedIsNotKept(t *testing.T) {
 		t.Errorf("author = %q, want %q: the ask begun before the save named the old account", destination.Author, savedAuthor)
 	}
 }
+
+func TestSavedForgeSettingsAreAskedAtOnceForThePullRequest(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The settings saved name another account, which the forge shows the
+	// branch's pull request to under the title it has now.
+	const retitled = "fix: redact tokens everywhere"
+
+	var title atomic.Pointer[string]
+
+	title.Store(new(webtest.PRTitle))
+
+	recorder := &settingsRecorder{kind: forge.KindGitHub}
+	deps := webtest.FilledDeps()
+	deps.UseForgeSettings = recorder.use
+	find := deps.Forge.FindPullRequest
+	deps.Forge.FindPullRequest = func(ctx context.Context, branch string) (forge.PullRequest, bool, error) {
+		pull, found, err := find(ctx, branch)
+		pull.Title = *title.Load()
+
+		return pull, found, err
+	}
+	cfg := config.Default()
+	cfg.Path = filepath.Join(t.TempDir(), config.FileName)
+	handler := webtest.ServeWith(t, deps, cfg, webserver.Info{Version: webtest.TestVersion, ForgeKind: forge.KindGitHub})
+	webtest.StreamOnce(t, handler, "/api/events")
+
+	title.Store(new(retitled))
+
+	next := cfg
+	next.Forge = config.Forge{Token: "ghp-saved-in-settings", Host: savedHost}
+
+	if saved := webtest.PutConfig(t, handler, webtest.Marshal(t, next)); saved.Code != http.StatusOK {
+		t.Fatalf("the save answered %d, want 200: %s", saved.Code, saved.Body.String())
+	}
+
+	// Act
+	frame := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
+
+	// Assert
+	if frame.Review.Pull == nil || frame.Review.Pull.Title != retitled {
+		t.Errorf("the frame after the save shows the pull request %+v, want it as the saved settings read it, %q",
+			frame.Review.Pull, retitled)
+	}
+}
