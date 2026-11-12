@@ -6,9 +6,11 @@
 # container with no copy here. `task setup` decides whether there is a
 # repository to install the git hooks in. Before it, a container whose Python
 # has no venv, which `task tools` builds yamllint's in, gets python3-venv from
-# apt, and one whose Python has it asks apt for nothing. Stand-ins for mise,
-# python3 and sudo record what they were asked and do nothing, so no toolchain
-# or package is installed.
+# apt, and one whose Python has it asks apt for nothing. A mise on PATH that
+# is not the pinned release, as an image may bring, is replaced by that
+# release, fetched before anything runs, and the pinned one is kept as it is.
+# Stand-ins for mise, curl, python3 and sudo record what they were asked and
+# do nothing, so no toolchain or package is installed.
 #
 # Usage:
 #   scripts/postcreate_test.sh
@@ -22,11 +24,28 @@ source "${here}/lib/testing.sh"
 
 readonly stub_bin="${workdir}/bin"
 mkdir -p "${stub_bin}"
+# The mise the script pins, which the stand-in reports itself as unless a case
+# says otherwise.
+mise_pin="$(sed -n -E 's/^readonly mise_version="([^"]+)"$/\1/p' "${postcreate}")"
+readonly mise_pin
+# mise answers --version as the release a case names, MISE_STUB_VERSION, as
+# the real one does, and logs whatever else it is asked.
 cat >"${stub_bin}/mise" <<'STUB'
 #!/usr/bin/env bash
+if [[ "$*" == --version ]]; then
+  printf '%s linux-x64 (2026-01-01)\n' "${MISE_STUB_VERSION}"
+  exit 0
+fi
 printf '%s\n' "$*" >>"${MISE_STUB_LOG}"
 STUB
-chmod +x "${stub_bin}/mise"
+# curl logs the download it was asked for and fails as curl -f does, so no
+# mise is fetched.
+cat >"${stub_bin}/curl" <<'STUB'
+#!/usr/bin/env bash
+printf 'curl %s\n' "$*" >>"${MISE_STUB_LOG}"
+exit 22
+STUB
+chmod +x "${stub_bin}/mise" "${stub_bin}/curl"
 # python3 answers whether it has ensurepip, which a venv needs, as
 # PYTHON3_STATUS says; sudo logs into the same file as mise, so the order of
 # the two shows.
@@ -64,7 +83,8 @@ provision() {
   local dir="$1"
   shift
   mkdir -p "${dir}.home"
-  env PATH="${stub_bin}:${PATH}" HOME="${dir}.home" MISE_STUB_LOG="${dir}.mise" "$@" \
+  env PATH="${stub_bin}:${PATH}" HOME="${dir}.home" MISE_STUB_LOG="${dir}.mise" \
+    MISE_STUB_VERSION="${mise_pin}" "$@" \
     "${dir}/.devcontainer/postCreate.sh"
 }
 
@@ -112,6 +132,21 @@ apt_line="$(grep -n '^sudo .*apt-get install .*python3-venv' "${novenv}.mise" | 
 setup_line="$(grep -nx "${task_setup}" "${novenv}.mise" | cut -d: -f1 || true)"
 if [[ -z "${apt_line}" || -z "${setup_line}" ]] || ((apt_line > setup_line)); then
   fail_case "a Python with no venv" "python3-venv was not installed before task setup: $(cat "${novenv}.mise")"
+fi
+
+count_case
+if grep -q '^curl ' "${clone}.mise"; then
+  fail_case "the pinned mise on PATH" "it was downloaded again: $(grep '^curl ' "${clone}.mise")"
+fi
+
+other="${workdir}/other-mise"
+workspace "${other}"
+commit "${other}"
+expect_output fail "another mise on PATH" "Installing mise ${mise_pin}" \
+  provision "${other}" MISE_STUB_VERSION=2025.1.0
+count_case
+if ! grep -q "^curl .*/v${mise_pin}/" "${other}.mise" || grep -qx "${task_setup}" "${other}.mise"; then
+  fail_case "another mise on PATH" "the pinned mise was not fetched before anything ran: $(cat "${other}.mise")"
 fi
 
 finish_tests
