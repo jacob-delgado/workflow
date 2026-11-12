@@ -283,6 +283,22 @@ func TestSlackRefusingTypedSecretsSaysWhichToCheck(t *testing.T) {
 	requireScreen(t, view, "refresh token")
 }
 
+func TestSlackRefusingTypedSecretsIsSaidOverAFailedTakeBack(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Slack refused, and the write could not be taken back since the file
+	// changed after it.
+	repo := newWorld()
+	repo.saveSettingsErr = errors.Join(messaging.ErrRejected, config.ErrChangedOnDisk)
+
+	// Act
+	view := typing(t, repo.live(t, 120, 40), editing(projectRow, editedProject)...).View().Content
+
+	// Assert
+	requireScreen(t, view, "refresh token")
+}
+
 func TestARefusedSaveStaysInSettingsWithItsReason(t *testing.T) {
 	t.Parallel()
 
