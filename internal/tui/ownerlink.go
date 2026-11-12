@@ -371,15 +371,25 @@ func (p ownerPicker) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// choose saves the chosen link and goes back.
+// choose saves the chosen link and goes back: to People and groups marked
+// saving, as its own saves mark it, so no other write of it goes beside this
+// one.
 func (p ownerPicker) choose(m Model) (Model, tea.Cmd) {
 	// "Not on Slack" is always a row, so one is always chosen.
 	chosen, _ := p.list.chosen()
-	m.overlay = p.back
 
-	if chosen.notOnSlack {
-		return m, saveLink(m.session, m.deps, decided(p.owner, p.team, nil), p.back.openedAs())
+	var target *loop.SlackTarget
+	if !chosen.notOnSlack {
+		target = &chosen.target
 	}
 
-	return m, saveLink(m.session, m.deps, decided(p.owner, p.team, &chosen.target), p.back.openedAs())
+	save := saveLink(m.session, m.deps, decided(p.owner, p.team, target), p.back.openedAs())
+
+	if people, fromPeople := p.back.(peopleOverlay); fromPeople {
+		return people.saving(m, save)
+	}
+
+	m.overlay = p.back
+
+	return m, save
 }
