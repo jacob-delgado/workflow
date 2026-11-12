@@ -73,7 +73,7 @@ var _ applier = membersRead{}
 
 // apply hands the members to the overlay that asked for them: the preview,
 // unless its channel has changed since, or People and groups, whose channel
-// never does.
+// never does, unless a refresh of its directory has begun since.
 func (msg membersRead) apply(m Model) (Model, tea.Cmd) {
 	if preview, open := beneath[messagingPreview](m, msg.opened); open && preview.channel == msg.channel {
 		preview.tagging.members = msg.found
@@ -81,7 +81,7 @@ func (msg membersRead) apply(m Model) (Model, tea.Cmd) {
 		return m.withBeneath(preview), nil
 	}
 
-	if people, open := beneath[peopleOverlay](m, msg.opened); open {
+	if people, open := beneath[peopleOverlay](m, msg.opened); open && people.refreshes == 0 {
 		people.members = msg.found
 
 		return m.withBeneath(people), nil
@@ -98,7 +98,8 @@ type userGroupsRead struct {
 
 var _ applier = userGroupsRead{}
 
-// apply hands the groups to the preview, or to People and groups.
+// apply hands the groups to the preview, or to People and groups, unless a
+// refresh of its directory has begun since.
 func (msg userGroupsRead) apply(m Model) (Model, tea.Cmd) {
 	if preview, open := beneath[messagingPreview](m, msg.opened); open {
 		preview.tagging.groups = msg.found
@@ -107,7 +108,7 @@ func (msg userGroupsRead) apply(m Model) (Model, tea.Cmd) {
 		return m.withBeneath(preview), nil
 	}
 
-	if people, open := beneath[peopleOverlay](m, msg.opened); open {
+	if people, open := beneath[peopleOverlay](m, msg.opened); open && people.refreshes == 0 {
 		people.groups = msg.found
 
 		return m.withBeneath(people.withChoices()), nil
