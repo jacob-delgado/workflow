@@ -47,6 +47,12 @@ func TestPushRemoteReadsTheBranchKeyBeforeTheDefault(t *testing.T) {
 			own: none, pushDefault: none, tracked: reply{out: []byte(forkRemote + "\n")}, want: forkRemote,
 		},
 		"none of them": {own: none, pushDefault: none, tracked: none, want: gitrepo.DefaultRemote},
+		// git switch --track main, or branch.autoSetupMerge=always, records
+		// remote "." for a branch started from a local one: the repository
+		// itself, which publishes nothing to the forge.
+		"a local branch it tracks": {
+			own: none, pushDefault: none, tracked: reply{out: []byte(".\n")}, want: gitrepo.DefaultRemote,
+		},
 	}
 
 	for name, tt := range cases {
