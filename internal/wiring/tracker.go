@@ -114,6 +114,11 @@ func jiraOnly[T any](issueKey jira.Key, ask func() (T, error)) (T, error) {
 // forgeRows remembers how many forge issues led a list's first page, so a
 // later page asks Jira for its own rows from where its share of the list
 // left off.
+//
+// Trade-off TRADE-24: the count is the last first page's, whoever read it, and
+// zero after a first page whose forge read failed, so a later page under an
+// earlier first page can skip or repeat the difference in Jira rows, its total
+// that many short or over.
 type forgeRows struct {
 	lock  sync.Mutex
 	count int
