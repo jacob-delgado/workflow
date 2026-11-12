@@ -20,7 +20,9 @@ export function HookSetup({ unmanaged, outcome }: { unmanaged: number; outcome: 
 }
 
 // SetupOffer is Set up lefthook, and once its read is done, the look at what
-// it would write.
+// it would write. A read that finds nothing to set up says so beside the
+// offer, which stays to read again: the stream still counts hooks to set up,
+// and the next read may find them.
 function SetupOffer({ outcome }: { outcome: Teller }) {
   const [opener, handBack] = useFocusHandback<HTMLButtonElement>()
   const setUpKeys = useShortcut('set-up-lefthook', opener)
@@ -28,7 +30,7 @@ function SetupOffer({ outcome }: { outcome: Teller }) {
     fallback: 'The hooks could not be read. Try again, or set lefthook up with g in the terminal.',
   })
 
-  if (read.state === 'done' && read.result !== undefined) {
+  if (read.state === 'done' && read.result?.offered === true) {
     return (
       <SetupLook
         offer={read.result}
@@ -57,12 +59,17 @@ function SetupOffer({ outcome }: { outcome: Teller }) {
       </Button>
       {read.state === 'running' ? <Reading>Reading the hooks…</Reading> : null}
       {read.state === 'error' ? <Failure>{read.error}</Failure> : null}
+      {read.state === 'done' ? (
+        <p className="text-sm text-muted-foreground">
+          The last read found nothing to set up; read again if hooks still lack lefthook.
+        </p>
+      ) : null}
     </div>
   )
 }
 
-// SetupLook is the offer: the hooks found, the lefthook.yml that runs them,
-// and the two ways to write it, or neither.
+// SetupLook is the offer read: the hooks found, the lefthook.yml that runs
+// them, and the two ways to write it, or neither.
 function SetupLook({
   offer,
   outcome,
@@ -89,14 +96,6 @@ function SetupLook({
 
   if (write.state === 'done') {
     return null
-  }
-
-  if (!offer.offered) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Nothing to set up: lefthook is configured, or no hook lacks it.
-      </p>
-    )
   }
 
   return (
