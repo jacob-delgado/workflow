@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import type { PullRequestDraft } from '@/api/generated/types.gen.ts'
@@ -168,6 +168,35 @@ test('leaving the base as it was drafted onto clears what a failed read said', a
 
   // Act
   await rebased(user, form, 'main')
+
+  // Assert
+  expect(within(form).queryByText(/could not be read/)).toBeNull()
+})
+
+test('a base read refused after another base was drafted onto says nothing of it', async () => {
+  // Arrange
+  let refuse: (reason: Error) => void = () => undefined
+  const { user, form } = await composed()
+  mockPreview.mockImplementationOnce(
+    () =>
+      new Promise((_, reject) => {
+        refuse = reject
+      }),
+  )
+  await rebased(user, form, 'nonesuch')
+  await rebased(user, form, 'release')
+  await vi.waitFor(() => {
+    expect(within(form).getByRole('textbox', { name: 'Title' })).toHaveProperty(
+      'value',
+      'fix: only past release',
+    )
+  })
+
+  // Act
+  await act(async () => {
+    refuse(new Error('no branch'))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
 
   // Assert
   expect(within(form).queryByText(/could not be read/)).toBeNull()
