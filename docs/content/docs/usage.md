@@ -276,7 +276,7 @@ lists, by where it works.
 | | `h`/`l` or `←`/`→`, `j`/`k` or `↓`/`↑` | Move the cursor |
 | | `esc` | Back to normal mode; in normal mode, close the box and keep the draft |
 | | `enter` | Preview the comment |
-| While a command runs | `s` | Stop it |
+| While a command runs | `s` | Stop it and all it started: it shows stopping until the program ends, then stopped, or done if it finished first |
 | | `r` | Run it again, once it has ended |
 | | `o` | Show its full output, or every place a failed hook reported |
 | On every pane | `m` | Turn mouse capture off or on, for this session |

@@ -48,8 +48,10 @@ type commandRun struct {
 	// printed before the tail the run keeps is still offered.
 	placeScan hooks.FailureScan
 	done      bool
-	// stopped records that the user ended the run, so its killed exit is shown as
-	// stopped rather than as a failure, and what would come next is not run.
+	// stopped records that the user asked the run to stop: it shows as stopping
+	// until its exit arrives. A failing exit is then shown as stopped rather than
+	// as a failure, and what would come next is not run; a clean one means the
+	// program finished before the kill reached it, and counts as done.
 	stopped    bool
 	err        error
 	failures   pickList[hooks.Location]
@@ -162,16 +164,13 @@ func (msg runFinished) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// A run the user stopped is already shown as stopped; its killed exit
-	// arriving afterward is that stop taking effect, not a failure to report.
-	if run.stopped {
-		return m, nil
-	}
-
 	run.done, run.err = true, msg.err
 	m.overlay = run
 
 	switch {
+	case run.stopped && msg.err != nil:
+		// The stop taking effect, not a failure to report.
+		return m, nil
 	case msg.err != nil:
 		deps, found := m.deps, run.placeScan.Places()
 
@@ -238,9 +237,11 @@ func (r commandRun) header(kit renderKit, width int) []string {
 // what step failed rather than the exit code the step happened to end with.
 func (r commandRun) state(kit renderKit) string {
 	switch {
+	case !r.done && r.stopped:
+		return kit.marks.inFlight + " stopping" + kit.marks.ellipsis
 	case !r.done:
 		return kit.marks.inFlight + " running" + kit.marks.ellipsis
-	case r.stopped:
+	case r.stopped && r.err != nil:
 		return kit.marks.notStarted + " stopped"
 	case r.err != nil:
 		return r.failureHeadline(kit)
@@ -313,6 +314,8 @@ func capLines(lines []string) []string {
 // footer offers what works on the run as it stands.
 func (r commandRun) footer(keys keyMap) []key.Binding {
 	switch {
+	case !r.done && r.stopped:
+		return []key.Binding{keys.interrupt}
 	case !r.done:
 		return []key.Binding{keys.stopRun, keys.interrupt}
 	case len(r.failures.items) > 0 && !r.showOutput:
@@ -362,16 +365,17 @@ func (r commandRun) step(m Model, delta int) Model {
 	return m
 }
 
-// stopRun kills a running program when the stop key is pressed, and ends the
-// run at once so the screen says so rather than waiting on the killed exit to
-// arrive. Any other key while it runs is ignored — the run is not abandoned.
+// stopRun kills a running program when the stop key is pressed. The run shows
+// as stopping until the exit arrives, which decides how it ended, as a run on
+// the web does. Any other key while it runs is ignored — the run is not
+// abandoned.
 func (r commandRun) stopRun(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	if !key.Matches(msg, m.keys.stopRun) || r.stop == nil {
 		return m, nil
 	}
 
 	r.stop()
-	r.stopped, r.done = true, true
+	r.stopped = true
 	m.overlay = r
 
 	return m, nil

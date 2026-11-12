@@ -238,8 +238,8 @@ type world struct {
 	// called.
 	runBlocks bool
 	runStop   *bool
-	// stopExitsClean has a blocking run, once stopped, exit as if it had
-	// finished, as a program that traps the signal does.
+	// stopExitsClean has a blocking run, once stopped, exit cleanly, as a
+	// program that finished before the stop reached it does.
 	stopExitsClean bool
 	tasks          *taskWorld
 	// slack is the Slack directory and the kept associations; nil has neither.
