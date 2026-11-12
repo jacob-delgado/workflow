@@ -138,8 +138,9 @@ linters:
         # internal/armed is an announcement armed until CI passes, which the
         # command line, the terminal and the web each drive, so it sits below
         # all three and above internal/loop, whose delivery it hands on. strict
-        # mode allows only the domain packages it reads and internal/loop, so
-        # no surface, and no terminal or web library, drifts into it.
+        # mode allows only the domain packages it reads, internal/loop, and
+        # internal/httpx for the rate limit a post that waits again is told by,
+        # so no surface, and no terminal or web library, drifts into it.
         armed-below-the-surfaces:
           list-mode: strict
           files:
@@ -149,6 +150,7 @@ linters:
             - $gostd
             - github.com/jacob-delgado/workflow/internal/forge
             - github.com/jacob-delgado/workflow/internal/gitrepo
+            - github.com/jacob-delgado/workflow/internal/httpx
             - github.com/jacob-delgado/workflow/internal/loop
             - github.com/jacob-delgado/workflow/internal/messaging
         # internal/activity groups and words what was done over a period from

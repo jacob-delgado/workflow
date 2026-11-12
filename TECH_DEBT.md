@@ -1469,6 +1469,25 @@ runners' apt mirror is reliable enough that installing over it costs less than
 the image's pull; or Playwright stops publishing the image for a version the
 web app needs.
 
+### TRADE-59 An armed announcement gives up after ten minutes unheard
+
+**Decided.** 2026-11-11 by the maintainer, approving the one armed
+announcement's design: `armed.UnheardPatience` (`internal/armed/watch.go`)
+bounds how long an announcement armed to go once CI passes waits past reads,
+and posts, that failed — a forge, a store or a messaging service that cannot
+be reached, is busy, or asks it to wait — and for the forge to list a pull
+request just opened: ten minutes from the first such failure since a read was
+heard. It then gives up with `armed.ErrUnheard`, saying what failed last, the
+same in the terminal, on the web and under `workflow announce --when-green`,
+which exits as that failure's family does. One patience covers all of them,
+with no configuration key. Before, a wait whose reads always failed polled for
+as long as its session ran, and `--when-green` in a script never ended.
+
+**Cost.** An outage longer than ten minutes loses the automatic post; the
+announcement is made again by hand, or armed again, once the service is back.
+
+**Reopen when.** A user asks for an armed post to outlast longer outages.
+
 ### TRADE-60 An announcement's claim lives in the discardable workflow.db
 
 **Decided.** 2026-11-11 by the maintainer, approving the one armed
