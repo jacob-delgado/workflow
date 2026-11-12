@@ -168,6 +168,14 @@ func (m Model) withBeneath(changed linksOwners) Model {
 	return m
 }
 
+// savingLink saves link, counted on its way until it answers, for the
+// overlay opened as opened.
+func (m Model) savingLink(link loop.OwnerLink, opened int) (Model, tea.Cmd) {
+	m.paneWrites.links++
+
+	return m, saveLink(m.session, m.deps, link, opened)
+}
+
 // saveLink saves link under ctx, whom an owner is on Slack or that they are
 // not on it, for the overlay opened as opened.
 func saveLink(ctx context.Context, deps Deps, link loop.OwnerLink, opened int) tea.Cmd {
@@ -216,6 +224,8 @@ var _ applier = ownerLinked{}
 // apply shows the link where it was made: in the preview's tags, or in
 // People and groups.
 func (msg ownerLinked) apply(m Model) (Model, tea.Cmd) {
+	m.paneWrites.links--
+
 	if preview, open := beneath[messagingPreview](m, msg.opened); open {
 		preview.tagging = preview.tagging.relinked(msg.link, msg.err)
 
@@ -377,8 +387,8 @@ func (p ownerPicker) choose(m Model) (Model, tea.Cmd) {
 	m.overlay = p.back
 
 	if chosen.notOnSlack {
-		return m, saveLink(m.session, m.deps, decided(p.owner, p.team, nil), p.back.openedAs())
+		return m.savingLink(decided(p.owner, p.team, nil), p.back.openedAs())
 	}
 
-	return m, saveLink(m.session, m.deps, decided(p.owner, p.team, &chosen.target), p.back.openedAs())
+	return m.savingLink(decided(p.owner, p.team, &chosen.target), p.back.openedAs())
 }

@@ -113,6 +113,9 @@ type Model struct {
 	summary     summaryState
 	// repositories is the Repositories pane's favorites and cursor.
 	repositories repositoriesState
+	// paneWrites are the writes sent from a pane or a preview that keeps the
+	// keyboard, and not yet answered, which a switch waits for.
+	paneWrites paneWrites
 	// next is where the interface was asked to go when it ends.
 	next Next
 	// commentDrafts are the comments written and not posted, one per issue,

@@ -283,6 +283,8 @@ func (m Model) toggleStaged() (Model, tea.Cmd) {
 		return m.noticed("dry run: would " + verb + sanitize.Line(change.Path)), nil
 	}
 
+	m.paneWrites.staging++
+
 	return m, func() tea.Msg { return staged{err: act(ctx, change)} }
 }
 
@@ -295,6 +297,7 @@ func (m Model) stageAll() (Model, tea.Cmd) {
 	}
 
 	ctx, stage := m.session, m.deps.Git.Stage
+	m.paneWrites.staging++
 
 	return m, func() tea.Msg { return staged{err: loop.StageAll(ctx, pending, stage)} }
 }
@@ -308,6 +311,7 @@ func (m Model) unstageAll() (Model, tea.Cmd) {
 	}
 
 	ctx, changes, unstage := m.session, m.changes.changes, m.deps.Git.Unstage
+	m.paneWrites.staging++
 
 	return m, func() tea.Msg { return staged{err: loop.UnstageAll(ctx, changes, unstage)} }
 }
@@ -322,6 +326,8 @@ var _ applier = staged{}
 // apply reads the status again, which is the only way to know what the index
 // now holds.
 func (msg staged) apply(m Model) (Model, tea.Cmd) {
+	m.paneWrites.staging--
+
 	if msg.err != nil {
 		m = m.noticedFailure(msg.err)
 	}

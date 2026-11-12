@@ -260,15 +260,32 @@ func (m Model) reopen(dir string, saved reopening) (Model, tea.Cmd) {
 	return m, tea.Quit
 }
 
+// paneWrites counts the writes sent without an overlay held until they
+// answer: staging from the Commits pane, and an owner's link to Slack, beside
+// which the announcement's preview goes on taking keys. People and groups
+// holds the keyboard while its link saves, and is counted all the same, so
+// every link is counted one way.
+type paneWrites struct {
+	staging int
+	links   int
+}
+
 // writeInFlight names a write a pane has sent and not had answered, which a
-// switch would leave unknown; "" when there is none. A write sent from an
-// overlay holds the keyboard until it answers, so it never gets this far.
+// switch would leave unknown; "" when there is none. Any other write sent
+// from an overlay holds the keyboard until it answers, so it never gets this
+// far.
 func (m Model) writeInFlight() string {
 	switch {
 	case m.messaging.onItsWay():
 		return "the announcement"
 	case m.tasks.writing:
 		return "the change to a task"
+	case m.paneWrites.staging > 0:
+		return "staging"
+	case m.repositories.changing:
+		return "the change to your favorites"
+	case m.paneWrites.links > 0:
+		return "the link to Slack"
 	default:
 		return ""
 	}

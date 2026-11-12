@@ -960,8 +960,9 @@ the same Jira, how the Tasks list is sorted and narrowed, and the Summary's
 period. What belongs to the repository left — a
 commit message or a pull request being written, a comment on one of its forge
 issues, an announcement waiting for CI — would be lost, so the switch's last
-look names it too; and while an announcement or a change to a task is being sent,
-the switch waits for it.
+look names it too; and while an announcement, a change to a task, staging, a
+change to your favorites or an owner's link to Slack is being sent, the switch
+waits for it.
 
 ## Working from a fork
 
