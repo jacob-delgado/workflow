@@ -247,8 +247,12 @@ func ownerTampers() map[string]tamperedKept {
 			},
 			call: ownerLinks, step: "reading an owner link",
 		},
-		"an owner decided in a table that is gone": {
+		"an owner's links of another kind dropped beside a decision table that is gone": {
 			before: made, tamper: []statement{gone("owner_decision")}, call: linkAnaOnSlack,
+			step: "dropping the owner's links of their former kind",
+		},
+		"an owner decided in a table that refuses it": {
+			before: made, tamper: []statement{refusing("INSERT", "owner_decision")}, call: linkAnaOnSlack,
 			step: "recording the owner decision",
 		},
 		"an owner's decision cleared from a table that is gone": {
