@@ -4,7 +4,6 @@
 package tui
 
 import (
-	"context"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -25,42 +24,49 @@ type diffState struct {
 	err   error
 }
 
-// load reads the selected file's diff through the repository seam, unless it
-// is already the one loaded. A stale answer for a file no longer selected is
-// dropped when it arrives, so it is safe to call on every move. git is asked
-// under ctx.
-func (d diffState) load(
-	ctx context.Context, read func(context.Context, gitrepo.Change) ([]string, error), changes changeList,
-) tea.Cmd {
-	change, ok := changes.current()
-	if read == nil || !ok || d.path == change.Path {
-		return nil
+// loadDiff reads the selected file's diff through the repository seam,
+// counted among the reads of a diff begun, unless it is already the one
+// loaded. A stale answer for a file no longer selected is dropped when it
+// arrives, so it is safe to call on every move.
+func (m Model) loadDiff() (Model, tea.Cmd) {
+	ctx, read := m.session, m.deps.Git.Diff
+
+	change, ok := m.changes.current()
+	if read == nil || !ok || m.diff.path == change.Path {
+		return m, nil
 	}
 
-	return func() tea.Msg {
+	m.diffReads++
+	number := m.diffReads
+
+	return m, func() tea.Msg {
 		lines, err := read(ctx, change)
 
-		return diffLoaded{path: change.Path, lines: lines, err: err}
+		return diffLoaded{path: change.Path, lines: lines, err: err, read: number}
 	}
 }
 
-// diffLoaded is a file's diff back from git.
+// diffLoaded is a file's diff back from git, as the read counted read found
+// it.
 type diffLoaded struct {
 	path  string
 	lines []string
 	err   error
+	read  int
 }
 
 var _ applier = diffLoaded{}
 
+// apply shows the diff, if it is still the selected file's — a faster key may
+// have moved the selection on — and no later read has begun since: a stage
+// changes a file's diff without changing its path, and a diff read before it
+// may answer after the one read since.
 func (msg diffLoaded) apply(m Model) (Model, tea.Cmd) {
-	// A faster key may have moved the selection on; keep the diff only if it is
-	// still the selected file's.
-	if change, ok := m.changes.current(); !ok || change.Path != msg.path {
+	if change, ok := m.changes.current(); !ok || change.Path != msg.path || msg.read != m.diffReads {
 		return m, nil
 	}
 
-	m.diff = diffState(msg)
+	m.diff = diffState{path: msg.path, lines: msg.lines, err: msg.err}
 
 	return m, nil
 }
