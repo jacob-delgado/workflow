@@ -60,7 +60,7 @@ func (msg changesLoaded) apply(m Model) (Model, tea.Cmd) {
 	// read rather than trust loadDiff's path guard.
 	m.diff = diffState{}
 
-	return m, m.diff.load(m.session, m.deps.Git.Diff, m.changes)
+	return m.loadDiff()
 }
 
 // readingChanges counts a read of the work tree's status begun, and is the
@@ -271,7 +271,7 @@ func (m Model) moveChangeBy(delta int) (Model, tea.Cmd) {
 
 	m.changes = m.changes.following(m.detailRows())
 
-	return m, m.diff.load(m.session, m.deps.Git.Diff, m.changes)
+	return m.loadDiff()
 }
 
 // pickChange selects the file on a clicked line of the detail.
@@ -283,7 +283,7 @@ func (m Model) pickChange(line, _ int, inRail bool) (Model, tea.Cmd) {
 
 	m.changes.selected = index
 
-	return m, m.diff.load(m.session, m.deps.Git.Diff, m.changes)
+	return m.loadDiff()
 }
 
 // toggleStaged stages the selected file, or unstages it if it is wholly staged.
