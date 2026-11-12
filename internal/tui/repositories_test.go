@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
@@ -341,4 +343,24 @@ func TestFPressedAgainBeforeTheFirstAnswersChangesTheFavoritesOnce(t *testing.T)
 	if marked := working.asked("favor "); len(marked) != 1 {
 		t.Errorf("marked %q, want one change while the first was on its way", marked)
 	}
+}
+
+func TestAReadBegunBeforeAFavoriteChangedDoesNotBringItBack(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// r reads the favorites with ~/src/web still among them, and that read
+	// answers only once f has forgotten it and the read after has answered.
+	working := reposWorld()
+	refreshing, read := pressed(t, typing(t, working.live(t, 120, 40), reposKey, "j"), "r")
+	readBefore := answersOf(t, refreshing, read)
+	forgotten := typing(t, refreshing, "f")
+
+	// Act
+	for _, answer := range readBefore {
+		forgotten = deliver(t, forgotten, func() tea.Msg { return answer })
+	}
+
+	// Assert
+	refuseScreen(t, forgotten.View().Content, "★ ~/src/web")
 }
