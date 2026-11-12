@@ -186,6 +186,11 @@ func (w *world) withRepositories(deps tui.Deps) tui.Deps {
 	deps.Store.Unfavor = func(_ context.Context, dir string) error {
 		w.record("unfavor " + dir)
 
+		w.mu.Lock()
+		defer w.mu.Unlock()
+
+		dirs.favorites = slices.DeleteFunc(dirs.favorites, func(kept string) bool { return kept == dir })
+
 		return nil
 	}
 
