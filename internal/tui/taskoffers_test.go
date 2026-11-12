@@ -508,3 +508,27 @@ func TestADryRunMoveToDoneStillOffersToCompleteTheTask(t *testing.T) {
 	requireScreen(t, completed.View().Content, "dry run: would mark task 12")
 	requireTaskWrites(t, repo)
 }
+
+func TestAnOfferWaitingBehindThePickerIsMadeFromTheTasksAsTheyStandWhenItOpens(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The Tasks pane's read is asked before the branch is made, and lands while
+	// the status picker is open, once task 12 was stopped in another terminal.
+	repo := withTasksToStart()
+	refreshing, read := pressed(t, typing(t, repo.live(t, 200, 40), tasksPane), "r")
+	branched := typing(t, refreshing, append([]string{"1"}, branchTheSecondIssue()...)...)
+
+	stopTheStartedTask(repo)
+
+	reread := drain(t, branched, read)
+
+	// Task 12 is no longer started, so the offer is only to start task 3.
+
+	// Act
+	offered := typing(t, reread, keyEsc)
+
+	// Assert
+	requireScreen(t, offered.View().Content, startLook)
+	refuseScreen(t, offered.View().Content, switchLook)
+}
