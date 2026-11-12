@@ -17,11 +17,16 @@
 # the docs alone since GATE_BASE (origin/main by default). The gate checks what
 # is committed: uncommitted changes are left out, and it says so. One run goes
 # at a time, since every run shares that checkout; a second waits for the first
-# (GATE_LOCK_WAIT seconds, an hour by default).
+# (GATE_LOCK_WAIT seconds, an hour by default). Two locks say a run is going:
+# GATE_LOCK, which root's half holds, and GATE_RUN_LOCK, which root's half
+# holds until it hands over and the gate user's half from then on, through
+# flock, so a gate user's half that outlives root's, killed, still holds the
+# run off its checkout. scripts/cloud-session-setup.sh waits for both before it
+# changes the toolchain.
 #
 # The gate user gets an environment of named variables alone, so none of
-# root's credentials reach the code under test, and not the descriptor the
-# lock is held on, so nothing it leaves running holds the lock past the run.
+# root's credentials reach the code under test, and not the descriptors the
+# locks are held on, so nothing it leaves running holds a lock past the run.
 # It gets a temporary directory of its own too, made fresh under ~/.cache, so
 # the fixed names tools keep in /tmp are never root's. It reaches the tools
 # through root's PATH, whose ~/.local/bin links into the toolchain; /root is
@@ -47,6 +52,7 @@ readonly gate_user="${GATE_USER:-dev}"
 readonly gate_home="/home/${gate_user}"
 readonly tools="${GATE_TOOLS:-/opt/workflow-tools}"
 readonly lock_file="${GATE_LOCK:-/tmp/gate-as-dev.lock}"
+readonly run_lock_file="${GATE_RUN_LOCK:-/tmp/gate-as-dev-run.lock}"
 readonly lock_wait="${GATE_LOCK_WAIT:-3600}"
 readonly base="${GATE_BASE:-origin/main}"
 readonly need_gb=10 floor_gb=8 step_need_gb=3 step_floor_gb=2
@@ -74,7 +80,7 @@ make_room() {
   ((free >= need_gb)) && return 0
   echo "gate-as-dev: under ${need_gb} GB free, so clearing ${gate_user}'s Go build cache" >&2
   runuser -u "${gate_user}" -- env -i HOME="${gate_home}" GOCACHE="${gate_home}/.cache/go-build" \
-    GOTOOLCHAIN=local "${tools}/go/bin/go" clean -cache {lock}>&-
+    GOTOOLCHAIN=local "${tools}/go/bin/go" clean -cache {lock}>&- {run_lock}>&-
   free="$(free_gb)"
   if ((free < floor_gb)); then
     echo "gate-as-dev: still only ${free} GB free; free space before running the gate" >&2
@@ -82,16 +88,28 @@ make_room() {
   fi
 }
 
-# take_lock waits for any gate run already going, and holds the lock for this
-# one until the script exits.
-take_lock() {
-  exec {lock}>"${lock_file}"
-  flock -n "${lock}" && return 0
+# wait_for waits for a lock on an open descriptor, saying so when another run
+# holds it, and stops the run when it is held too long.
+#   wait_for <descriptor> <file>
+wait_for() {
+  flock -n "$1" && return 0
   echo "gate-as-dev: waiting for another gate run to finish" >&2
-  if ! flock -w "${lock_wait}" "${lock}"; then
-    echo "gate-as-dev: another gate run has held ${lock_file} for ${lock_wait} s" >&2
+  if ! flock -w "${lock_wait}" "$1"; then
+    echo "gate-as-dev: another gate run has held $2 for ${lock_wait} s" >&2
     exit 1
   fi
+}
+
+# take_lock waits for any gate run already going, root's half or the gate
+# user's, and holds both locks for this one: the first until the script exits,
+# the run lock until the gate user's half takes it over. The run lock can be
+# read by all, which is all flock needs of it.
+take_lock() {
+  exec {lock}>"${lock_file}"
+  wait_for "${lock}" "${lock_file}"
+  exec {run_lock}>"${run_lock_file}"
+  chmod 0644 "${run_lock_file}"
+  wait_for "${run_lock}" "${run_lock_file}"
 }
 
 # docs_only_tasks prints check:docs when the worktree changes the docs alone
@@ -146,6 +164,7 @@ hand_over() {
   for name in "${passed_on[@]}"; do
     if [[ -n "${!name:-}" ]]; then environment+=("${name}=${!name}"); fi
   done
+  exec {run_lock}>&-
   # Trade-off TRADE-54: zizmor runs offline here, as it would anyway with no
   # GitHub token handed on; its online audits read each third-party action's
   # tags from github.com, which refuses a session's token. CI's zizmor has no
@@ -156,7 +175,7 @@ hand_over() {
     XDG_CACHE_HOME="${gate_home}/.cache" COREPACK_HOME="${gate_home}/.cache/node/corepack" \
     COREPACK_NPM_REGISTRY=https://registry.npmjs.org COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
     NPM_CONFIG_USERCONFIG="${gate_home}/.npmrc" ZIZMOR_OFFLINE=true \
-    bash "${self}" --as-gate-user "${common}" "${sha}" "$@" {lock}>&-
+    flock -o -w "${lock_wait}" "${run_lock_file}" bash "${self}" --as-gate-user "${common}" "${sha}" "$@" {lock}>&-
 }
 
 # check_steps prints the steps of `task check`, one per line, but vuln when

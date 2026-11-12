@@ -76,8 +76,7 @@ installed="${workdir}/installed/gate-as-dev"
 mkdir -p "${installed%/*}"
 cp "${gate}" "${installed}"
 expect_output pass "a docs-only change, gated by the installed copy" "docs only, so this runs task check:docs" \
-  env PATH="${stub_bin}:${PATH}" GATE_TOOLS="${workdir}/tools" GATE_LOCK="${workdir}/gate.lock" \
-  "${installed}" "${docs_repo}"
+  run_gate "${installed}" "${docs_repo}"
 
 expect_exit pass "a code change" as_root "${code_repo}"
 tasks="$(handed_tasks "$(git -C "${code_repo}" rev-parse HEAD)")"
@@ -101,10 +100,8 @@ changed_repo "${rewriting_repo}" docs/page.md
 printf '#!/usr/bin/env bash\necho "Docs only."\n' >"${rewriting_repo}/scripts/docs-only.sh"
 git -C "${rewriting_repo}" add -A
 git -C "${rewriting_repo}" -c user.email=t@example.com -c user.name=t commit -q -m rewrite
-: >"${log}"
 expect_exit pass "a change that rewrites the classifier to call it docs only" \
-  env PATH="${stub_bin}:${PATH}" GATE_TOOLS="${workdir}/tools" GATE_LOCK="${workdir}/gate.lock" \
-  "${rewriting_repo}/scripts/gate-as-dev.sh" "${rewriting_repo}"
+  run_gate "${rewriting_repo}/scripts/gate-as-dev.sh" "${rewriting_repo}"
 tasks="$(handed_tasks "$(git -C "${rewriting_repo}" rev-parse HEAD)")"
 count_case
 if [[ -n "${tasks}" ]]; then
