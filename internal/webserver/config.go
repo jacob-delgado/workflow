@@ -337,7 +337,7 @@ func (s *server) save(
 		return config.Config{}, config.Revision{}, err
 	}
 
-	s.takeUpSaved(saved, written)
+	s.takeUpSaved(saved, written, over)
 
 	return saved, written, nil
 }
@@ -356,11 +356,18 @@ func (s *server) inEffectAt(over basis) (config.Config, error) {
 	return s.cfg, nil
 }
 
-// takeUpSaved makes what a save wrote the configuration in effect, at the
-// revision it was written as.
-func (s *server) takeUpSaved(saved config.Config, written config.Revision) {
+// takeUpSaved makes what a save made over the read over wrote the
+// configuration in effect, at the revision it was written as. A reread that
+// took up an edit on disk while the save was being made stands, as the newer
+// of the two: mu is not held across the save, so that reread can follow the
+// write.
+func (s *server) takeUpSaved(saved config.Config, written config.Revision, over basis) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if over != (basis{seen: s.seen, gone: s.gone}) {
+		return
+	}
 
 	s.putInEffect(saved, written)
 }
