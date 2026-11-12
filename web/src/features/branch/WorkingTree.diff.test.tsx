@@ -68,9 +68,7 @@ test('reads a changed file’s diff when asked, and not before', async () => {
 test('hides the diff again, handing focus back to its button', async () => {
   // Arrange
   const user = userEvent.setup()
-  render(<BranchPanel />)
-  await user.click(screen.getByRole('button', { name: 'Show diff of a.go' }))
-  await screen.findByRole('region', { name: 'Diff of a.go' })
+  await openDiff(user)
 
   // Act
   await user.click(screen.getByRole('button', { name: 'Hide diff of a.go' }))
