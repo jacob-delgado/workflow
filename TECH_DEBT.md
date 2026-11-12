@@ -1510,3 +1510,26 @@ request opens.
 
 **Reopen when.** A duplicate announcement after a wipe is reported, or
 `kept.db` gains migrations.
+
+### TRADE-61 A description rewrite can lose an edit made on the forge meanwhile
+
+**Decided.** 2026-11-12 by the maintainer, on wave-2 lead P006: linking a
+branch to an issue adds the issue's line to its pull request's description by
+reading the description and writing it back whole (`forge.rewritten`,
+`internal/forge/pulls.go`). Neither forge offers a conditional write that
+would refuse one made over a newer description: GitHub's `PATCH
+/repos/{owner}/{repo}/pulls/{number}` takes none, and GitLab's `PUT
+/projects/:id/merge_requests/:merge_request_iid` lists no `lock_version`,
+nor any other precondition, among its attributes. The window is narrowed
+instead by reading the description again just before the write: the rewrite
+never writes a description read earlier — the one a surface showed, or the
+pull request it was handed, whose number alone it takes — but reads it afresh
+and writes at once, with nothing between them but the rewrite itself, so the
+window is the two requests' round trip.
+
+**Cost.** A description edited on the forge between that read and that write
+loses the edit, overwritten by the description as read with the issue's line
+added.
+
+**Reopen when.** Either forge offers a conditional update of a pull or merge
+request's description.

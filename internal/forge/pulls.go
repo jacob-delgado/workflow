@@ -336,6 +336,10 @@ func (c Client) RewriteDescription(
 
 // rewritten reads the description at path as the forge holds it, through
 // held, and writes rewrite's, through write, when rewrite changed it.
+//
+// Trade-off TRADE-61: neither forge takes a conditional write, so an edit made
+// on the forge between the read and the write is lost; the write follows the
+// read at once to keep that window to their round trip.
 func rewritten[T any](
 	ctx context.Context, client Client, repo Repo, path string, held func(T) string,
 	rewrite func(string) (string, bool), write func(body string) error,
