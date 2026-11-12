@@ -125,10 +125,10 @@ type RepositoryError struct {
 }
 
 // Error is the failure prefixed by the repository's name.
-func (f RepositoryError) Error() string { return f.Repository + ": " + f.Err.Error() }
+func (e RepositoryError) Error() string { return e.Repository + ": " + e.Err.Error() }
 
 // Unwrap is the failure itself, so errors.Is still classifies it.
-func (f RepositoryError) Unwrap() error { return f.Err }
+func (e RepositoryError) Unwrap() error { return e.Err }
 
 // RepositoryErrors is why each repository of a read could not be read, one
 // failure apiece. It is its own type, rather than errors.Join's, so Failures
