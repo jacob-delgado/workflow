@@ -138,6 +138,11 @@ func everySeamFailure() map[string]spoken {
 			fmt.Errorf("%w: 418", messaging.ErrUnexpectedStatus), "an unexpected service answer",
 			"The messaging service answered with a status it does not document. Try the post again.",
 		},
+		"messaging failed within": {
+			fmt.Errorf("%w: internal_error", messaging.ErrServiceFailed), "the post may have gone out",
+			"The messaging service failed while taking the post, which may have gone out. " +
+				"Check the channel before posting again.",
+		},
 		"messaging unreachable": {
 			fmt.Errorf("%w: i/o timeout", messaging.ErrUnreachable), "could not reach messaging",
 			"The messaging service did not answer. Check the network, then try the announcement again.",

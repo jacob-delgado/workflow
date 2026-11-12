@@ -298,7 +298,7 @@ Status 409. An announcement was asked for — now, or to wait for CI — at a
 moment a post of it already began, here, in the terminal or from
 `workflow announce`, and was never confirmed: the session posting it stopped
 before the store heard back, or the messaging service never said whether it
-took the post. It may have gone out, so nothing was posted. The detail says
+took the post, or failed while taking it. It may have gone out, so nothing was posted. The detail says
 when the post began. Look in the channel; `workflow announce` asks before
 posting it again.
 

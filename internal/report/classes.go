@@ -215,6 +215,12 @@ func messagingFaults() []Class {
 			Code:   api.ProblemCodeUnreachable,
 			Detail: "the messaging service answered with a status it does not document; try again",
 		},
+		{
+			Causes: []error{messaging.ErrServiceFailed},
+			Code:   api.ProblemCodeUnreachable,
+			Detail: "the messaging service failed while taking the post, which may have gone out; " +
+				"check the channel before posting again",
+		},
 	}
 }
 

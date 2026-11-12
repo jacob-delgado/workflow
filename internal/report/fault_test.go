@@ -164,6 +164,21 @@ func TestAMessageSlackWouldNotDeliverIsToldWithItsReason(t *testing.T) {
 	}
 }
 
+func TestAFailureOfSlacksOwnIsToldAsAPostThatMayHaveGoneOut(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	failed := fmt.Errorf("%w: internal_error", messaging.ErrServiceFailed)
+
+	// Act
+	told, classified := report.Classify(failed, report.SharedFaults().All())
+
+	// Assert
+	if !classified || told.Code != api.ProblemCodeUnreachable || !strings.Contains(told.Detail, "may have gone out") {
+		t.Errorf("Classify(%v) = %+v, %v; want unreachable, saying the post may have gone out", failed, told, classified)
+	}
+}
+
 func TestAFailureNoClassExplainsIsAnInternalOneWithoutItsWords(t *testing.T) {
 	t.Parallel()
 
