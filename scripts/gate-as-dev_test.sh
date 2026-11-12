@@ -2,23 +2,25 @@
 #
 # Tests for scripts/gate-as-dev.sh. As root it refuses a path that is no
 # worktree, or a worktree with no commit, waits for any gate run already going,
-# checks the disk has room for a race-and-coverage build, clearing the gate
-# user's Go build cache with the pinned Go alone when it is short and stopping
-# when that is not enough, names the commit for the gate user to fetch, says so
-# only when the worktree has uncommitted changes, and hands the run to that user
-# with an environment of named variables alone, each of them handed on, and
-# without the lock's descriptor. As the gate user it refuses to run without
-# task, trusts root's repository once, checks out the commit refs/gate/head
-# names, whichever commit it last named, clean but for web/node_modules and
-# tmp/, in a checkout of its own and runs the tasks asked for there, one at a
-# time, with a temporary directory of its own made fresh, even of a directory a
-# test sealed, or, asked for none, the steps of `task check`, leaving out vuln
-# only when vuln.go.dev cannot be reached; between steps, a step named twice
-# included, but not after the last, it clears its cache when the disk runs short
-# and stops when that is not enough, and it exits with the failing step's
-# status, with task's own when check's steps cannot be listed, or with git's own
-# when it cannot ready its checkout. Stand-ins for df, runuser, curl, task, go
-# and id record what they were asked, so no user is switched and no gate runs.
+# root's half or a gate user's half that outlived it, checks the disk has room
+# for a race-and-coverage build, clearing the gate user's Go build cache with
+# the pinned Go alone when it is short and stopping when that is not enough,
+# names the commit for the gate user to fetch, says so only when the worktree
+# has uncommitted changes, and hands the run to that user with an environment
+# of named variables alone, each of them handed on, under flock on the run
+# lock, and without either lock's descriptor. As the gate user it refuses to
+# run without task, trusts root's repository once, checks out the commit
+# refs/gate/head names, whichever commit it last named, clean but for
+# web/node_modules and tmp/, in a checkout of its own and runs the tasks asked
+# for there, one at a time, with a temporary directory of its own made fresh,
+# even of a directory a test sealed, or, asked for none, the steps of `task
+# check`, leaving out vuln only when vuln.go.dev cannot be reached; between
+# steps, a step named twice included, but not after the last, it clears its
+# cache when the disk runs short and stops when that is not enough, and it
+# exits with the failing step's status, with task's own when check's steps
+# cannot be listed, or with git's own when it cannot ready its checkout.
+# Stand-ins for df, runuser, curl, task, go and id record what they were asked,
+# so no user is switched and no gate runs.
 #
 # Usage:
 #   scripts/gate-as-dev_test.sh
@@ -95,6 +97,12 @@ count_case
 if [[ "${handed}" == *GITHUB_TOKEN* ]]; then
   fail_case "the gate user's environment" "root's GitHub token reached it"
 fi
+# The gate user's half holds the run lock itself, through flock, for as long
+# as it runs, and closes it to everything it starts.
+count_case
+if [[ "${handed}" != *" flock -o -w 3600 ${workdir}/gate-run.lock bash "*" --as-gate-user "* ]]; then
+  fail_case "the gate user's run lock" "its half does not run under it: ${handed}"
+fi
 count_case
 if [[ "$(git -C "${source_repo}" rev-parse refs/gate/head)" != "${sha}" ]]; then
   fail_case "the commit to fetch" "refs/gate/head does not name HEAD"
@@ -107,12 +115,12 @@ if ! grep -qxF "runuser -u dev -- env -i HOME=/home/dev GOCACHE=/home/dev/.cache
   || grep -q '^go ' "${log}"; then
   fail_case "short of room" "dev's build cache was not the one cleared: $(grep 'clean -cache' "${log}" || true)"
 fi
-# The lock's descriptor is not among the files runuser is handed open. Linux
-# lists a process's open files under /proc; elsewhere nothing is noted.
+# The locks' descriptors are not among the files runuser is handed open.
+# Linux lists a process's open files under /proc; elsewhere nothing is noted.
 if [[ -d /proc/self/fd ]]; then
   count_case
-  if grep -qF "${workdir}/gate.lock" "${handed_files}"; then
-    fail_case "the gate's lock" "it was handed the lock, which it would hold past the run"
+  if grep -qF -e "${workdir}/gate.lock" -e "${workdir}/gate-run.lock" "${handed_files}"; then
+    fail_case "the gate's lock" "it was handed a lock, which it would hold past the run"
   fi
 fi
 
@@ -142,6 +150,19 @@ export GATE_LOCK_WAIT=1
 expect_output 1 "another gate run going" "another gate run" as_root "${source_repo}" lint
 unset GATE_LOCK_WAIT
 exec {lock}>&-
+
+# The gate user's half of a run whose root half was killed holds the run
+# lock on, still using its checkout, so the next run waits for it too.
+exec {lock}>"${workdir}/gate-run.lock"
+flock "${lock}"
+export GATE_LOCK_WAIT=1
+expect_output 1 "a gate user's half still going" "another gate run" as_root "${source_repo}" lint
+unset GATE_LOCK_WAIT
+exec {lock}>&-
+count_case
+if grep -q -- "--as-gate-user" "${log}"; then
+  fail_case "a gate user's half still going" "a second run was handed over beside it"
+fi
 
 # The lock is taken here first, so the gate is sure to find it held, and let
 # go of a second later.
