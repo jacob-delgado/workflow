@@ -57,7 +57,7 @@ func jiraDeps(settings config.Jira, jiraClient *jiraConnection) seams.Jira {
 			})
 		},
 		Comment: func(ctx context.Context, issueKey jira.Key, text string) (jira.Comment, error) {
-			return askJiraIssue(ctx, jiraClient, issueKey, func(client jira.Client) (jira.Comment, error) {
+			return changeJiraIssue(ctx, jiraClient, issueKey, func(client jira.Client) (jira.Comment, error) {
 				return client.AddComment(ctx, issueKey, text)
 			})
 		},
@@ -72,7 +72,7 @@ func jiraDeps(settings config.Jira, jiraClient *jiraConnection) seams.Jira {
 			})
 		},
 		AddWorklog: func(ctx context.Context, issueKey jira.Key, timeSpent, comment string) (jira.Worklog, error) {
-			return askJiraIssue(ctx, jiraClient, issueKey, func(client jira.Client) (jira.Worklog, error) {
+			return changeJiraIssue(ctx, jiraClient, issueKey, func(client jira.Client) (jira.Worklog, error) {
 				return client.AddWorklog(ctx, issueKey, timeSpent, comment)
 			})
 		},
@@ -182,13 +182,37 @@ func (c *jiraConnection) connectAgain(ctx context.Context) (jiraConnected, int, 
 	return connected, c.generation, nil
 }
 
-// askJira asks Jira what question does, through the client jiraClient holds.
+// askJira asks Jira what question reads, through the client jiraClient holds.
 // A token token_command printed can expire while workflow runs, so when Jira
 // refuses one the command runs again, once, and the question is asked again
-// with what it prints: Jira's 401 means it acted on nothing, so a write is as
-// safe to send again as a read. A token from any other source is the same
-// token however often it is read, and its refusal stands.
+// with what it prints: a read changes nothing however Jira served it. A token
+// from any other source is the same token however often it is read, and its
+// refusal stands.
 func askJira[T any](ctx context.Context, jiraClient *jiraConnection, question func(jira.Client) (T, error)) (T, error) {
+	return renewingJira(ctx, jiraClient, question, func(err error) bool {
+		return errors.Is(err, jira.ErrUnauthorized)
+	})
+}
+
+// changeJira has Jira make the change asks for, renewing a refused
+// token_command token as askJira does, but only when Jira did nothing: a
+// write it served anonymously and answered as a success is done, and sending
+// it again would make it twice.
+func changeJira[T any](
+	ctx context.Context, jiraClient *jiraConnection, change func(jira.Client) (T, error),
+) (T, error) {
+	return renewingJira(ctx, jiraClient, change, func(err error) bool {
+		return errors.Is(err, jira.ErrUnauthorized) && !errors.Is(err, jira.ErrServedAnonymously)
+	})
+}
+
+// renewingJira sends request through the client jiraClient holds and, when
+// its token came from token_command and askAgain takes Jira's refusal for one
+// that changed nothing, sends it once more with the token the command prints
+// next.
+func renewingJira[T any](
+	ctx context.Context, jiraClient *jiraConnection, request func(jira.Client) (T, error), askAgain func(error) bool,
+) (T, error) {
 	var none T
 
 	connected, generation, err := jiraClient.current(ctx)
@@ -196,8 +220,8 @@ func askJira[T any](ctx context.Context, jiraClient *jiraConnection, question fu
 		return none, err
 	}
 
-	answer, err := question(connected.client)
-	if !connected.fromCommand || !errors.Is(err, jira.ErrUnauthorized) {
+	answer, err := request(connected.client)
+	if !connected.fromCommand || !askAgain(err) {
 		return answer, err
 	}
 
@@ -206,7 +230,7 @@ func askJira[T any](ctx context.Context, jiraClient *jiraConnection, question fu
 		return none, err
 	}
 
-	return question(connected.client)
+	return request(connected.client)
 }
 
 // askJiraIssue asks Jira about the issue issueKey names. A key with no project
@@ -227,12 +251,25 @@ func askJiraIssue[T any](
 	return askJira(ctx, jiraClient, question)
 }
 
-// tellJiraIssue has Jira change the issue issueKey names, refusing a key with
-// no project part as askJiraIssue does.
+// changeJiraIssue has Jira change the issue issueKey names, through
+// changeJira, refusing a key with no project part as askJiraIssue does.
+func changeJiraIssue[T any](
+	ctx context.Context, jiraClient *jiraConnection, issueKey jira.Key, change func(jira.Client) (T, error),
+) (T, error) {
+	if !isJiraKey(issueKey) {
+		var none T
+
+		return none, notAJiraIssue(issueKey)
+	}
+
+	return changeJira(ctx, jiraClient, change)
+}
+
+// tellJiraIssue is changeJiraIssue for a change Jira answers with nothing.
 func tellJiraIssue(
 	ctx context.Context, jiraClient *jiraConnection, issueKey jira.Key, change func(jira.Client) error,
 ) error {
-	_, err := askJiraIssue(ctx, jiraClient, issueKey, func(client jira.Client) (struct{}, error) {
+	_, err := changeJiraIssue(ctx, jiraClient, issueKey, func(client jira.Client) (struct{}, error) {
 		return struct{}{}, change(client)
 	})
 

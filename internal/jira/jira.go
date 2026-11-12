@@ -43,6 +43,10 @@ var (
 	ErrNoCredential = errors.New("no Jira token to send")
 	// ErrUnauthorized reports a credential the instance did not accept.
 	ErrUnauthorized = errors.New("the credential was not accepted")
+	// ErrServedAnonymously comes with ErrUnauthorized when Jira answered a
+	// request it served anonymously with success: a write anyone may make was
+	// then done, and sending it again would do it twice.
+	ErrServedAnonymously = errors.New("served anonymously as a success")
 	// ErrForbidden reports a 403: a credential the instance refused to consider,
 	// or would not let do this. A 403 Jira explained carries it alongside
 	// ErrRejected, so a caller can tell a refused token from any other rejection.

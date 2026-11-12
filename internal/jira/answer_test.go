@@ -182,3 +182,35 @@ func TestAStatusWithoutAReasonKeepsItsOwnError(t *testing.T) {
 		})
 	}
 }
+
+func TestAnAnonymousSuccessSaysItWasServedAnonymously(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A write anyone may make is done when served anonymously, so its caller
+	// must be able to tell it from a refusal that did nothing.
+	client := serve(t, failWith(http.StatusNoContent, "", "anonymous"))
+
+	// Act
+	err := client.Assign(t.Context(), "PROJ-1", "someone")
+
+	// Assert
+	if !errors.Is(err, jira.ErrUnauthorized) || !errors.Is(err, jira.ErrServedAnonymously) {
+		t.Errorf("Assign returned %v, want ErrUnauthorized with ErrServedAnonymously", err)
+	}
+}
+
+func TestAnAnonymousFailureIsNotServedAnonymously(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	client := serve(t, failWith(http.StatusUnauthorized, `{}`, "anonymous"))
+
+	// Act
+	err := client.Assign(t.Context(), "PROJ-1", "someone")
+
+	// Assert
+	if !errors.Is(err, jira.ErrUnauthorized) || errors.Is(err, jira.ErrServedAnonymously) {
+		t.Errorf("Assign returned %v, want ErrUnauthorized alone: a failure did nothing", err)
+	}
+}

@@ -47,7 +47,7 @@ type reasons struct {
 // says it and callers test for ErrUnauthorized by identity.
 func (c Client) answerError(response *http.Response, requested *url.URL) error {
 	if response.Header.Get("X-Ausername") == anonymousUser {
-		return ErrUnauthorized
+		return anonymousError(response.StatusCode)
 	}
 
 	// Handled here, where the header is in reach: a 429 may carry a JSON body,
@@ -80,6 +80,17 @@ func (c Client) answerError(response *http.Response, requested *url.URL) error {
 	default:
 		return rejected
 	}
+}
+
+// anonymousError is the refusal of an answer Jira served anonymously. One
+// below 400 is a success, as an anonymous write anyone may make is, so it says
+// it may have been done; redirects never reach here, refused by the transport.
+func anonymousError(status int) error {
+	if status < http.StatusBadRequest {
+		return fmt.Errorf("%w: %w", ErrUnauthorized, ErrServedAnonymously)
+	}
+
+	return ErrUnauthorized
 }
 
 // alsoError marks an explained answer with what its status says as well — a

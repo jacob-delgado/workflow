@@ -208,3 +208,37 @@ func TestJiraRefusingTwoCallsAtOnceRunsTheTokenCommandOnceMore(t *testing.T) {
 		t.Errorf("two calls refused at once ran the token command %d times, want twice: once, then once more", runs)
 	}
 }
+
+func TestAJiraWriteServedAnonymouslyAsDoneIsNotSentAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	tokens := countingTokenCommand(t)
+
+	var writes atomic.Int32
+
+	// A token Data Center does not accept is served anonymously, and a write
+	// anyone may make is then done: answered 204 with X-Ausername anonymous.
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writes.Add(1)
+		writer.Header().Set("X-Ausername", "anonymous")
+		writer.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(server.Close)
+
+	cfg := config.Default()
+	cfg.Jira = config.Jira{BaseURL: server.URL, TokenCommand: tokens.command}
+	tracker := wired(t, cfg, onOrigin(t.TempDir(), ""), nil).Jira
+
+	// Act
+	err := tracker.Assign(t.Context(), "PROJ-1", "someone")
+
+	// Assert
+	if !errors.Is(err, jira.ErrUnauthorized) {
+		t.Errorf("Assign = %v, want jira.ErrUnauthorized", err)
+	}
+
+	if sent := writes.Load(); sent != 1 {
+		t.Errorf("Jira was sent the write %d times, want once: served anonymously, it may have been done", sent)
+	}
+}
