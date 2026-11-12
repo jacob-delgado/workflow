@@ -5,6 +5,7 @@ import { useHealthStore } from '@/api/health.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import {
   gitLabWords,
+  makeBranch,
   makeHealth,
   makeSnapshot,
   makeStages,
@@ -187,6 +188,24 @@ test('says no checks reported for a pull request whose forge reports none', () =
   // Assert
   expect(screen.getByText('No checks reported')).toBeTruthy()
   expect(screen.queryByText('CI none')).toBeNull()
+})
+
+test('says a branch git could not count is not counted, not 0 ahead', () => {
+  // Arrange
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      branches: onHead,
+      branch: makeBranch({ upstream: 'origin/fix/PROJ-1', ahead: 0, uncounted: true }),
+    }),
+  })
+
+  // Act
+  render(<WorkStory issueKey="PROJ-1" />)
+
+  // Assert
+  expect(screen.getByText('not counted against origin/fix/PROJ-1')).toBeTruthy()
+  expect(screen.queryByText('0 ahead')).toBeNull()
 })
 
 test('reads a fresh branch as nothing-committed and a pull request with no CI', () => {
