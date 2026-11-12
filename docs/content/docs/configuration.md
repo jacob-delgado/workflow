@@ -611,6 +611,12 @@ So if you already use `gh auth login`, there is nothing to configure and no
 second copy of a credential to keep safe. `workflow doctor --online` reports
 which of the three it used, which is what answers "why is it using that one?".
 
+A `gh` that is stopped before it answers, at its own 30-second limit or when
+whatever asked gives up, as one waiting on a keyring that never unlocks is, has
+not said it holds no token. `forge.token` still gets its turn after it, and
+with none there the forge is reported as not reached, exit status 5 on the
+command line, rather than as no token found.
+
 There is no `glab` step. `glab` reports its token through `auth status`, whose
 output is prose on standard error, and parsing prose is not something to put a
 credential behind — GitLab users set `$GITLAB_TOKEN` or `forge.token` instead.

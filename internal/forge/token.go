@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
 // ErrNoToken reports that no source supplied a credential.
@@ -144,6 +146,9 @@ type Resolver struct {
 //
 // Every source answers for a host, as the forges' own tools have theirs do, and
 // a token is offered to the host it is for and to no other.
+//
+// Finding none is ErrNoToken, unless the forge's CLI was cut short before it
+// answered: then it is that run's error, wrapping ErrUnreachable.
 func (r Resolver) Resolve(ctx context.Context, kind Kind, host string) (Token, Source, error) {
 	for _, name := range r.environmentNames(kind, host) {
 		value := r.Getenv(name)
@@ -152,7 +157,7 @@ func (r Resolver) Resolve(ctx context.Context, kind Kind, host string) (Token, S
 		}
 	}
 
-	token, ok := r.fromCLI(ctx, kind, host)
+	token, ok, unanswered := r.fromCLI(ctx, kind, host)
 	if ok {
 		return token, SourceCLI, nil
 	}
@@ -161,34 +166,53 @@ func (r Resolver) Resolve(ctx context.Context, kind Kind, host string) (Token, S
 		return configured, SourceConfiguration, nil
 	}
 
+	if unanswered != nil {
+		return "", SourceNone, unanswered
+	}
+
 	return "", SourceNone, fmt.Errorf("%w: %s", ErrNoToken, Sources(kind, host))
 }
 
-// fromCLI asks the forge's own tool. Any failure is a miss rather than an
-// error: the tool exits non-zero when it simply holds no credential for the
-// host, which is not a problem, only a reason to try the next source.
-func (r Resolver) fromCLI(ctx context.Context, kind Kind, host string) (Token, bool) {
+// fromCLI asks the forge's own tool, and reports whether it gave a token. A
+// failure is a miss rather than an error: the tool exits non-zero when it
+// simply holds no credential for the host, which is not a problem, only a
+// reason to try the next source. A run cut short before the tool answered —
+// its asker's context ended, or it outlasted its own time limit — is the one
+// failure it also returns, wrapping ErrUnreachable: such a tool has not said it
+// holds none, so finding no other token is the forge not reached, not no token
+// found.
+func (r Resolver) fromCLI(ctx context.Context, kind Kind, host string) (Token, bool, error) {
 	program, args, ok := cliCommand(kind, host)
-	if !ok {
-		return "", false
-	}
-
-	_, err := r.Look(program)
-	if err != nil {
-		return "", false
+	if !ok || !r.installed(program) {
+		return "", false, nil
 	}
 
 	output, err := r.Run(ctx, program, args...)
 	if err != nil {
-		return "", false
+		return "", false, cutShort(ctx, program, err)
 	}
 
 	token := strings.TrimSpace(string(output))
-	if token == "" {
-		return "", false
+
+	return Token(token), token != "", nil
+}
+
+// installed reports whether program is on PATH, so there is a CLI to ask.
+func (r Resolver) installed(program string) bool {
+	_, err := r.Look(program)
+
+	return err == nil
+}
+
+// cutShort is a run of program that failed with err, as ErrUnreachable when
+// it was stopped before program answered, or nil when program answered with
+// its failure.
+func cutShort(ctx context.Context, program string, err error) error {
+	if ctx.Err() == nil && !errors.Is(err, proc.ErrTimedOut) {
+		return nil
 	}
 
-	return Token(token), true
+	return fmt.Errorf("%w: %s gave no token before it was stopped: %w", ErrUnreachable, program, err)
 }
 
 // environmentNames lists the variables that may hold a token for a host, in
