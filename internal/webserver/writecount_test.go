@@ -17,6 +17,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
@@ -258,4 +259,40 @@ func sentSnapshots(t *testing.T, body string) []api.Snapshot {
 	}
 
 	return sent
+}
+
+func TestARetiredStreamSendsNoSeedOfTheDirectorySwitchedFrom(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// The old stream's read of the issues the store kept is held, so the
+		// switch lands before it sends them.
+		var reached []string
+
+		held := webtest.NewHeld()
+		deps := reachable(repositoryDeps(favoritesKept()), &reached)
+		holdFirst := heldOnCall(1, held)
+		deps.Store.CachedIssues = func(ctx context.Context, _ string) ([]jira.Issue, bool) {
+			if holdFirst(ctx) != nil {
+				return nil, false
+			}
+
+			return []jira.Issue{{Key: webtest.TestKey, Summary: webtest.TestSummary}}, true
+		}
+		handler, stream := streamOver(t, deps, config.Default())
+
+		// Act
+		webtest.Send(t, handler, http.MethodPut, reposPath+"/here", `{"dir":"`+webRoot+`"}`)
+
+		close(held.Release)
+		synctest.Wait()
+
+		// Assert
+		for _, message := range webtest.Messages(stream.Close()) {
+			if message.Event == webtest.SeedMessage {
+				t.Errorf("the stream of the directory switched from sent its kept issues %s, want none", message.Data)
+			}
+		}
+	})
 }

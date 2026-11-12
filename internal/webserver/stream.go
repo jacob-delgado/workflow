@@ -190,10 +190,18 @@ func sendEvent[P streamPayload](out *eventStream, event streamEvent, payload P) 
 }
 
 // seedFirst sends the view's kept issues ahead of the first snapshot when the
-// store holds them, reporting whether the stream should go on: false only
-// for a seed that could not be written.
+// store holds them, reporting whether the stream should go on: false for a
+// seed that could not be written, and for a server retired as the seed was
+// read, whose stream it ends with its retry instead, as it does a frame: the
+// seed is of the directory switched from.
 func (s *server) seedFirst(ctx context.Context, out *eventStream, jql string) bool {
 	seed, kept := s.viewSeed(ctx, jql)
+
+	if s.isRetired() {
+		sendRetry(out)
+
+		return false
+	}
 
 	return !kept || sendEvent(out, seedEvent, seed)
 }
