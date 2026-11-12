@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -128,6 +129,63 @@ func TestFindPullRequestWithNoneOpen(t *testing.T) {
 			// Assert
 			if err != nil || ok {
 				t.Errorf("FindPullRequest on %v = %v, %v, want none found and no error", repo.Kind, ok, err)
+			}
+		})
+	}
+}
+
+// A branch name many pull requests have come from — GitLab lists every
+// fork's of that name, and a fork's own is kept only after — can put the one
+// that is the branch's past the first page of the listing.
+func TestFindPullRequestReadsPastTheFirstPage(t *testing.T) {
+	t.Parallel()
+
+	githubClosed := func(number int) string {
+		return `{"number":` + strconv.Itoa(number) + `,"state":"closed"}`
+	}
+	gitlabOthers := func(number int) string {
+		return `{"iid":` + strconv.Itoa(number) + `,"state":"opened","source_project_id":99,"target_project_id":7}`
+	}
+
+	cases := map[string]struct {
+		repo  forge.Repo
+		head  forge.Head
+		pages map[string][]string
+	}{
+		"GitHub, past a page of pulls closed unmerged": {
+			repo: githubRepo(),
+			head: forge.Head{Branch: featureBranch},
+			pages: map[string][]string{githubPullsPath: {
+				listingOf(1, 100, githubClosed),
+				`[{"number":101,"state":"closed","merged_at":"2026-01-01T00:00:00Z"}]`,
+			}},
+		},
+		"GitLab, past a page of other forks' merge requests": {
+			repo: gitlabRepo(),
+			head: forkHead(),
+			pages: map[string][]string{
+				gitlabForkProject: {`{"id":42}`},
+				gitlabMergesPath: {
+					listingOf(1, 100, gitlabOthers),
+					`[{"iid":101,"state":"merged","source_project_id":42,"target_project_id":7}]`,
+				},
+			},
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			client := forgePaging(t, tt.pages)
+
+			// Act
+			pull, found, err := client.FindPullRequest(t.Context(), tt.repo, tt.head)
+
+			// Assert
+			if err != nil || !found || pull.Number != 101 || pull.State != forge.StateMerged {
+				t.Errorf("FindPullRequest = %+v, %v, %v; want the merged 101 on the second page", pull, found, err)
 			}
 		})
 	}

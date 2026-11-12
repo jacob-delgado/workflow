@@ -165,9 +165,12 @@ func githubFind(ctx context.Context, client Client, repo Repo, head Head) (PullR
 		owner = githubOwner(head.Fork)
 	}
 
-	query := url.Values{"head": {owner + ":" + head.Branch}, queryState: {queryAll}}.Encode()
+	query := url.Values{"head": {owner + ":" + head.Branch}, queryState: {queryAll}}
 
-	pulls, err := repoCall[[]githubPull](ctx, client, repo, http.MethodGet, githubRepoPath(repo)+"/pulls?"+query, nil)
+	pulls, err := branchPulls(func(page int) ([]githubPull, error) {
+		return repoCall[[]githubPull](ctx, client, repo, http.MethodGet,
+			githubRepoPath(repo)+"/pulls?"+pageQuery(query, page), nil)
+	})
 	if err != nil {
 		return PullRequest{}, false, err
 	}
