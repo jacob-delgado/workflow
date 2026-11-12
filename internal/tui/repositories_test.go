@@ -323,3 +323,22 @@ func TestADirectoryNotWrittenFromItsRepositoryIsShownAsTheRoot(t *testing.T) {
 	requireScreen(t, spineLine(view), "api ")
 	refuseScreen(t, spineLine(view), "api/")
 }
+
+func TestFPressedAgainBeforeTheFirstAnswersChangesTheFavoritesOnce(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	working := reposWorld()
+	marking, first := pressed(t, typing(t, working.live(t, 120, 40), reposKey), "f")
+
+	// Act
+	again, second := pressed(t, marking, "f")
+	drain(t, drain(t, again, first), second)
+
+	// Assert
+	requireScreen(t, again.View().Content, "still being changed")
+
+	if marked := working.asked("favor "); len(marked) != 1 {
+		t.Errorf("marked %q, want one change while the first was on its way", marked)
+	}
+}

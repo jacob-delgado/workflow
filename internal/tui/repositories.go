@@ -30,6 +30,10 @@ type repositoriesState struct {
 	loading  bool
 	selected int
 	scroll   int
+	// changing is a favorite marked or forgotten and not yet answered: until
+	// it is, the rows show the favorites as before it, so another f would
+	// make the same change again rather than undo it.
+	changing bool
 }
 
 // favoritePlace is a favorite directory and what is there now: the place, or
@@ -265,6 +269,8 @@ var _ applier = favoriteToggled{}
 
 // apply says what changed and reads the favorites again.
 func (msg favoriteToggled) apply(m Model) (Model, tea.Cmd) {
+	m.repositories.changing = false
+
 	if msg.err != nil {
 		return m.noticedFailure(msg.err), nil
 	}
@@ -277,7 +283,12 @@ func (msg favoriteToggled) apply(m Model) (Model, tea.Cmd) {
 	return m.noticed(m.marks.done + words), m.loadRepositories()
 }
 
-// toggleFavorite forgets a row that is a favorite, and marks one that is not.
+// favoriteChanging is why f waits: a favorite changed is shown only once
+// the change answers.
+const favoriteChanging = "a favorite is still being changed; try again once it is"
+
+// toggleFavorite forgets a row that is a favorite, and marks one that is not,
+// once no other change of the favorites is on its way.
 func (m Model) toggleFavorite(row repositoryRow) (Model, tea.Cmd) {
 	change, verb := m.deps.Store.Favor, "add "+shownDir(m.deps, row.dir)+" to favorites"
 	if row.favorite {
@@ -289,9 +300,12 @@ func (m Model) toggleFavorite(row repositoryRow) (Model, tea.Cmd) {
 		return m.noticed("dry run: would " + verb), nil
 	case change == nil:
 		return m.noticed("favorites are not kept: the store is turned off"), nil
+	case m.repositories.changing:
+		return m.noticed(favoriteChanging), nil
 	}
 
 	ctx := m.session
+	m.repositories.changing = true
 
 	return m, func() tea.Msg { return favoriteToggled{dir: row.dir, added: !row.favorite, err: change(ctx, row.dir)} }
 }
