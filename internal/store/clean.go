@@ -326,20 +326,31 @@ func plainFilesAmong(paths []string) ([]string, error) {
 }
 
 // setAside renames each file aside, putting back those already moved when one
-// cannot be.
+// cannot be, and reporting any it could not put back with the reason it stopped.
 func setAside(paths []string) error {
 	for index, path := range paths {
 		err := os.Rename(path, path+asideSuffix)
 		if err != nil {
-			for _, moved := range paths[:index] {
-				_ = os.Rename(moved+asideSuffix, moved)
-			}
-
-			return fmt.Errorf("%w: %w", ErrNotCleaned, err)
+			return fmt.Errorf("%w: %w", ErrNotCleaned, errors.Join(err, putBack(paths[:index])))
 		}
 	}
 
 	return nil
+}
+
+// putBack renames each of moved back from aside, joining every rename that
+// failed.
+func putBack(moved []string) error {
+	failed := make([]error, 0, len(moved))
+
+	for _, path := range moved {
+		// Trade-off TRADE-16: each file was just renamed aside, so putting it
+		// back fails only when another program changes it in between, which no
+		// test can hold open: the failure is joined, not checked.
+		failed = append(failed, os.Rename(path+asideSuffix, path))
+	}
+
+	return errors.Join(failed...)
 }
 
 // removeEach removes every one of paths it can, reporting the first it could
