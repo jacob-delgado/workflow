@@ -12,6 +12,7 @@ import { cn, contentMeasure } from '@/lib/utils.ts'
 import { ActivityList } from './ActivityList.tsx'
 import type { Period } from './civilDate.ts'
 import { PeriodCalendar, PeriodSteps } from './PeriodPicker.tsx'
+import { periodWords } from './periodWords.ts'
 import { useActivity } from './summaryApi.ts'
 import { SummaryPost } from './SummaryPost.tsx'
 
@@ -119,11 +120,7 @@ interface ShownProps extends ReadProps {
 function Shown({ read, refusal, period, outcome }: ShownProps) {
   return (
     <div className="flex min-w-0 flex-col gap-group">
-      <h2 className="text-lg">
-        {period.from === period.to
-          ? headingDay(period.from)
-          : `${headingDay(period.from)} to ${headingDay(period.to)}`}
-      </h2>
+      <h2 className="text-lg">{periodWords(period, headingDay)}</h2>
       {refusal === null ? null : <Refused read={read} refusal={refusal} />}
       {refusal === null && read.data === undefined ? <ReadingPeriod /> : null}
       {read.data === undefined ? (
@@ -145,10 +142,7 @@ interface DoneProps {
 // Done is the summary to copy or post, what each source could not say, and
 // the period's timeline or that nothing was done.
 function Done({ activity, period, reading, outcome }: DoneProps) {
-  const written =
-    period.from === period.to
-      ? writtenDay(period.from)
-      : `${writtenDay(period.from)} to ${writtenDay(period.to)}`
+  const written = periodWords(period, writtenDay)
   const empty = activity.years.length === 0
   const copy = useAsyncAction((text: string) => navigator.clipboard.writeText(text), {
     fallback: 'The summary could not be copied.',
