@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Activity, MessagingDestination, PostLength } from '@/api/generated/types.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
-import { writtenCount } from '@/lib/dates.ts'
+import { writtenCount, writtenDay } from '@/lib/dates.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback } from '@/lib/focus.ts'
 import type { Teller } from '@/lib/Outcome.tsx'
@@ -79,7 +79,7 @@ function PostPreview({ activity, messaging, teller, onClose }: PostPreviewProps)
     (text: string) => postSummary(activity.from, activity.to, text, channel),
     {
       fallback: 'Nothing was posted. Try again, or run workflow summary --post from a terminal.',
-      done: (posted) => `Posted to ${posted.destination}.`,
+      done: (posted) => `Posted the summary of ${writtenPeriod(posted)} to ${posted.destination}.`,
       onStart: teller.clear,
       onDone: (said) => {
         teller.say(said)
@@ -125,6 +125,12 @@ function PostPreview({ activity, messaging, teller, onClose }: PostPreviewProps)
       )}
     </LastLook>
   )
+}
+
+// writtenPeriod is the period a post was of, as the outcome line names it: a
+// post can be answered once another period is shown.
+function writtenPeriod({ from, to }: { from: string; to: string }): string {
+  return from === to ? writtenDay(from) : `${writtenDay(from)} to ${writtenDay(to)}`
 }
 
 // PostLengthLine says how long the summary is, rendered for the service,

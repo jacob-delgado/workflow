@@ -112,7 +112,7 @@ test('Post sends the period, the text and the channel chosen, and says where it 
   await user.click(screen.getByRole('button', { name: 'Post' }))
 
   // Assert
-  expect(await screen.findByText('Posted to #team.')).toBeTruthy()
+  expect(await screen.findByText('Posted the summary of 2026-09-15 to #team.')).toBeTruthy()
   expect(await posts(requests)[0]?.json()).toEqual({
     from: '2026-09-15',
     to: '2026-09-15',
@@ -138,7 +138,7 @@ test('an edited summary is posted as it was edited', async () => {
   await user.click(screen.getByRole('button', { name: 'Post' }))
 
   // Assert
-  await screen.findByText('Posted to #dev.')
+  await screen.findByText('Posted the summary of 2026-09-15 to #dev.')
   expect(await posts(requests)[0]?.json()).toMatchObject({ text: 'Shipped the fix' })
 })
 
@@ -262,4 +262,37 @@ test('the preview of a summary too long for the service says so before it is pos
       'Too long for Discord: 2,517 of 2,000 characters. Pick a shorter period, or edit it down.',
     ),
   ).toBeTruthy()
+})
+
+test('a post still going as another period is picked says where it went', async () => {
+  // Arrange
+  messagingTo({})
+  let answerPost: (answer: unknown) => void = () => undefined
+  const monday: Activity = { ...tuesday, from: '2026-09-14', to: '2026-09-14', years: [] }
+  fakeApi({
+    '/api/activity': (url: URL) =>
+      url.searchParams.get('from') === '2026-09-14' ? monday : tuesday,
+    '/api/activity/post': () =>
+      new Promise((resolve) => {
+        answerPost = resolve
+      }),
+  })
+  const user = userEvent.setup()
+  renderWithClient(<SummaryPanel />)
+  await user.click(await screen.findByRole('button', { name: 'Post…' }))
+  await user.click(screen.getByRole('button', { name: 'Post' }))
+  await user.click(screen.getByRole('button', { name: 'Earlier' }))
+  await screen.findByText('Nothing done in this period. Pick another day or range.')
+
+  // Act
+  answerPost({
+    from: '2026-09-15',
+    to: '2026-09-15',
+    channel: '',
+    destination: '#dev',
+    text: markdown,
+  })
+
+  // Assert
+  expect(await screen.findByText('Posted the summary of 2026-09-15 to #dev.')).toBeTruthy()
 })
