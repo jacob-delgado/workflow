@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { create } from 'zustand'
 import {
   addTask,
   annotateTask,
@@ -98,6 +99,51 @@ export function useDoneSinceListed(uuid: string): boolean {
   return doneAt !== undefined && doneAt > answeredAt
 }
 
+// WriteTurns are the task writes the page has sent, in order: the last turn
+// handed out, the turn of the write whose list is cached, how many are in
+// flight, and whether any two were in flight at once since none last was.
+interface WriteTurns {
+  sent: number
+  shown: number
+  going: number
+  crossed: boolean
+}
+
+// The page's task writes, in the order sent, kept outside any one component,
+// since every control that writes holds writes of its own.
+const writeTurns = create<WriteTurns>(() => ({ sent: 0, shown: 0, going: 0, crossed: false }))
+
+// sendTurn hands a write sent now its turn, noting whether it crosses one
+// still in flight.
+function sendTurn(): number {
+  const { sent, going, crossed } = writeTurns.getState()
+  writeTurns.setState({ sent: sent + 1, going: going + 1, crossed: crossed || going > 0 })
+
+  return sent + 1
+}
+
+// shownTurn reports whether the list a write in turn answered is to be
+// cached: no write sent after it has been, and notes that it is.
+function shownTurn(turn: number): boolean {
+  if (turn < writeTurns.getState().shown) {
+    return false
+  }
+
+  writeTurns.setState({ shown: turn })
+
+  return true
+}
+
+// endTurn notes a write answered, or refused, and reports whether it was the
+// last of writes that crossed, whose lists may have landed out of order.
+function endTurn(): boolean {
+  const { going, crossed } = writeTurns.getState()
+  const settled = going === 1 && crossed
+  writeTurns.setState({ going: going - 1, crossed: crossed && !settled })
+
+  return settled
+}
+
 // A task write's request: the SDK call, answered with the list after it. A
 // refusal throws the API error, whose message is safe to show.
 type Send = () => Promise<{ data: TaskList }>
@@ -127,7 +173,12 @@ interface TaskWrites {
 // canceled first rather than let land after and put that list back. A write
 // that landed but whose list the server could not read again answers it
 // unavailable, saying why; the list shown stays, and is read once more,
-// rather than give way to a Taskwarrior that is there. A done and a track are
+// rather than give way to a Taskwarrior that is there. Writes sent while
+// another is in flight may be answered in any order, each with the list as
+// its own handler read it: an answer is cached only when no write sent after
+// it has been, and once the last of them is answered the list is read again,
+// so the section ends on what Taskwarrior holds after them all, as the
+// terminal's one write at a time does. A done and a track are
 // remembered too, for what the list cannot say of them until the stream
 // catches up: the task done, as the done's answer describes it, and which task
 // tracks the issue where the active context leaves it out; and a done for when
@@ -137,17 +188,27 @@ interface TaskWrites {
 // answered before it always is.
 export function useTaskWrites(): TaskWrites {
   const queryClient = useQueryClient()
+  const readAgain = () => {
+    void queryClient.invalidateQueries({ queryKey: listTasksQueryKey() })
+  }
   const write = async (send: Send, heard?: Heard): Promise<TaskList> => {
-    const { data: answered } = await send()
-    await queryClient.cancelQueries({ queryKey: listTasksQueryKey() })
-    heard?.(answered)
-    if (answered.available) {
-      queryClient.setQueryData(listTasksQueryKey(), answered)
-    } else {
-      void queryClient.invalidateQueries({ queryKey: listTasksQueryKey() })
-    }
+    const turn = sendTurn()
+    try {
+      const { data: answered } = await send()
+      await queryClient.cancelQueries({ queryKey: listTasksQueryKey() })
+      heard?.(answered)
+      if (!answered.available) {
+        readAgain()
+      } else if (shownTurn(turn)) {
+        queryClient.setQueryData(listTasksQueryKey(), answered)
+      }
 
-    return answered
+      return answered
+    } finally {
+      if (endTurn()) {
+        readAgain()
+      }
+    }
   }
 
   return {
