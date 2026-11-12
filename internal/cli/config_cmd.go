@@ -55,7 +55,7 @@ type initOptions struct {
 // refusal was checked is still never written through.
 func (opts initOptions) write(path string, cfg config.Config, over config.Revision) error {
 	if opts.force {
-		return opts.where.Save(opts.place, cfg, over)
+		return opts.where.Save(opts.place, opts.layers, cfg, over)
 	}
 
 	return opts.where.Create(path, opts.layers, cfg, over)

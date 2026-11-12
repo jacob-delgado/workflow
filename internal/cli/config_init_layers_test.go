@@ -204,3 +204,58 @@ func TestConfigInitOverAHomeFileIntoADirectoryItCannotWriteSaysSo(t *testing.T) 
 		})
 	}
 }
+
+func TestGuidedInitForceOverAHomeFileRemovedWhileItAsksCopiesNoHomeCredential(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	where := clitest.HomeAndRepository(t)
+	clitest.WriteFile(t, where.Dir, `{"jira": {"project": "OSS"}}`)
+
+	home := filepath.Join(where.Home, config.FileName)
+	prompt := clitest.Scripted(nil, []string{""})
+	prompt.Line = func(string) (string, error) { return "", os.Remove(home) }
+
+	// Act
+	_, err := clitest.RunStreamsAt(t, where, prompt, "config", "init", "--force")
+
+	// Assert
+	written, readErr := os.ReadFile(filepath.Join(where.Dir, config.FileName))
+	if !errors.Is(err, config.ErrChangedOnDisk) || readErr != nil || strings.Contains(string(written), "home") {
+		t.Errorf("config init --force = %v, and the repository's file holds %q (%v); want it refused, "+
+			"with none of the home file's settings copied into it", err, written, readErr)
+	}
+}
+
+func TestGuidedInitForceRefusesAHomeFileMadeWhileItAsks(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	where := clitest.HomeAndRepository(t)
+	repository := clitest.WriteFile(t, where.Dir, `{"jira": {"project": "OSS"}}`)
+
+	home := filepath.Join(where.Home, config.FileName)
+
+	made, err := os.ReadFile(home)
+	if err != nil {
+		t.Fatalf("reading the home file: %v", err)
+	}
+
+	err = os.Remove(home)
+	if err != nil {
+		t.Fatalf("removing the home file: %v", err)
+	}
+
+	prompt := clitest.Scripted(nil, []string{""})
+	prompt.Line = func(string) (string, error) { return "", os.WriteFile(home, made, config.FileMode) }
+
+	// Act
+	_, err = clitest.RunStreamsAt(t, where, prompt, "config", "init", "--force")
+
+	// Assert
+	written, readErr := os.ReadFile(repository)
+	if !errors.Is(err, config.ErrChangedOnDisk) || readErr != nil || string(written) != `{"jira": {"project": "OSS"}}` {
+		t.Errorf("config init --force = %v, and the repository's file holds %q (%v); want it refused, "+
+			"leaving the file as it was over the home file made since", err, written, readErr)
+	}
+}
