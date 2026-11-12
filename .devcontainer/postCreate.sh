@@ -69,9 +69,15 @@ install_mise() {
   rm -rf "${download}"
 }
 
-if ! command -v mise >/dev/null 2>&1; then
+# Any mise but the pinned release is replaced, whatever put it on PATH: one an
+# image or a feature brings is neither that version nor checked against its
+# checksum. The shell forgets where it found the old one, so the next call
+# finds the one installed into ~/.local/bin, which comes first on PATH.
+read -r installed_mise _ < <(mise --version 2>/dev/null || true) || true
+if [[ "${installed_mise:-}" != "${mise_version}" ]]; then
   log "Installing mise ${mise_version}, checksum-verified…"
   install_mise
+  hash -r
 fi
 
 log "mise trust && mise install — the toolchain pinned in mise.toml"
