@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Change, FileDiff, Problem } from '@/api/generated/types.gen.ts'
 import { useChangedByStream } from '@/api/snapshot.ts'
 import { useShortcutProps } from '@/features/keyboard/useShortcut.ts'
@@ -27,11 +27,14 @@ import {
 // a clean tree says so under the heading, before the form.
 // What a discard did is said below the list, which outlives the file's row.
 export function WorkingTree({
+  head,
   changes,
   unread,
   suggestedScope,
   convention,
 }: {
+  // The branch's head commit, which a shown diff is read again when it moves.
+  head: string
   changes: Change[]
   // Why the changes could not be read, or null when they were.
   unread: Problem | null
@@ -60,7 +63,7 @@ export function WorkingTree({
         <>
           <ul className="flex flex-col gap-item">
             {changes.map((change) => (
-              <ChangeRow key={change.path} change={change} discards={discards} />
+              <ChangeRow key={change.path} change={change} head={head} discards={discards} />
             ))}
           </ul>
           <BulkStaging
@@ -122,7 +125,7 @@ function stagedTag(change: Change): { word: string; mark: MarkState } {
 // outlives the snapshot that shows the file moved — it is keyed by the path —
 // so what it said stays, and says what was done then, not what the button
 // offers now; a snapshot that moves its stage plays the row's brief highlight.
-function ChangeRow({ change, discards }: { change: Change; discards: Teller }) {
+function ChangeRow({ change, head, discards }: { change: Change; head: string; discards: Teller }) {
   const [asking, setAsking] = useState(false)
   const [discardOpener, handBack] = useFocusHandback<HTMLButtonElement>()
   const stage = offersStage(change)
@@ -187,7 +190,7 @@ function ChangeRow({ change, discards }: { change: Change; discards: Teller }) {
       ) : null}
       <OutcomeLine said={outcome.said} />
       {state === 'error' ? <Failure>{error}</Failure> : null}
-      <ChangeDiff path={change.path} />
+      <ChangeDiff change={change} head={head} />
     </li>
   )
 }
@@ -228,8 +231,11 @@ function StagedTag({ change }: { change: Change }) {
 
 // ChangeDiff reads a changed file's diff when asked, never before, as the
 // terminal shows the selected file's: the diff takes the focus as it opens,
-// and Hide diff hands it back to the control that asked.
-function ChangeDiff({ path }: { path: string }) {
+// and Hide diff hands it back to the control that asked. A shown diff follows
+// the file: it is read again when the branch head moves or the file's change
+// moves, and the diff it replaces stays on screen while it reads.
+function ChangeDiff({ change, head }: { change: Change; head: string }) {
+  const { path } = change
   const [shown, setShown] = useState(false)
   const [opener, handBack] = useFocusHandback<HTMLButtonElement>()
   const read = useAsyncAction(readDiff, {
@@ -238,6 +244,15 @@ function ChangeDiff({ path }: { path: string }) {
       setShown(true)
     },
   })
+  const standing = diffStanding(change, head)
+  const readAt = useRef(standing)
+
+  useEffect(() => {
+    if (shown && readAt.current !== standing) {
+      readAt.current = standing
+      void read.run(path)
+    }
+  }, [shown, standing, path, read])
 
   if (shown && read.result !== undefined) {
     return (
@@ -248,6 +263,7 @@ function ChangeDiff({ path }: { path: string }) {
           aria-label={`Hide diff of ${path}`}
           onClick={() => {
             handBack()
+            read.reset()
             setShown(false)
           }}
           className="self-start"
@@ -255,6 +271,7 @@ function ChangeDiff({ path }: { path: string }) {
           Hide diff
         </Button>
         <DiffText diff={read.result} />
+        {read.state === 'error' ? <Failure>{read.error}</Failure> : null}
       </div>
     )
   }
@@ -270,6 +287,7 @@ function ChangeDiff({ path }: { path: string }) {
         }
         held={read.state === 'running'}
         onClick={() => {
+          readAt.current = standing
           void read.run(path)
         }}
         className="self-start"
@@ -279,6 +297,18 @@ function ChangeDiff({ path }: { path: string }) {
       {read.state === 'error' ? <Failure>{read.error}</Failure> : null}
     </div>
   )
+}
+
+// diffStanding is what a file's diff was read against: the branch head, and
+// how the file's change stands in the working tree and the index.
+function diffStanding(change: Change, head: string): string {
+  return JSON.stringify([
+    head,
+    change.kind,
+    change.staged,
+    change.has_unstaged,
+    change.original_path ?? '',
+  ])
 }
 
 // DiffText is a diff, scrolled by the keyboard once Tab reaches it. Each

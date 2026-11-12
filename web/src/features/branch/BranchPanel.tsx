@@ -58,6 +58,7 @@ export function BranchPanel() {
         unmanagedHooks={snapshot.hooks_unmanaged}
       />
       <WorkingTree
+        head={branch.head}
         changes={changes.changes}
         unread={unread.changes ?? null}
         suggestedScope={snapshot.suggested_scope}

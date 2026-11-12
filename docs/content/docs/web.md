@@ -294,8 +294,9 @@ box, with the scope the terminal would suggest already filled in; **Commit
 staged changes** commits, adds the trailer naming the branch's issue (`Refs:`
 unless `commit.refs_trailer` relabels it), and runs the repository's own
 hooks. A hook that refuses the commit says why. **Show diff** under a changed
-file reads its diff against HEAD, staged and unstaged together, and **Hide
-diff** puts it away.
+file reads its diff against HEAD, staged and unstaged together, and reads it
+again when a commit moves HEAD or the file is staged, unstaged or renamed,
+showing the old diff until the new one comes; **Hide diff** puts it away.
 
 Under the commits, **Run a hook** reads the hooks lefthook configures and
 offers the ones a run by hand can stand in for, as the terminal's `h` does,
