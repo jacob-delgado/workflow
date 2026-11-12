@@ -13,6 +13,7 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/jacob-delgado/workflow/internal/armed"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
@@ -25,7 +26,7 @@ import (
 const messagingHelp = "Edit the message above this line."
 
 // Why a preview opened over another post does not post: that one, waiting for
-// CI, went while the preview was open.
+// CI, is being posted, or went while the preview was open.
 var (
 	errAnnouncementOnItsWay = errors.New("an announcement is on its way; wait for it before posting another")
 	errAlreadyAnnounced     = errors.New("this was announced while the preview was open; esc closes it")
@@ -50,10 +51,7 @@ type messagingPreview struct {
 	moment messaging.Moment
 	// service names the messaging service, for the preview title.
 	service string
-	// ci is how the pull request's CI stood on the last read that answered
-	// when the preview opened, and whether there was one.
-	ci   ciRead
-	send sendState
+	send    sendState
 	// tagging is whom a ready-for-review announcement tags; the zero value
 	// tags no one.
 	tagging tagSection
@@ -91,18 +89,25 @@ func (p messagingPreview) outgoing() outgoingAnnouncement {
 	}
 }
 
-// refusal is why the preview cannot post now: a post waiting for CI went while
-// it was open and has not answered, or has, announcing the moment this one
-// marks.
+// refusal is why the preview cannot post now: the announcement waiting for
+// CI is being posted, or the moment this one marks was announced while it
+// was open.
 func (p messagingPreview) refusal(m Model) error {
-	switch {
-	case m.messaging.send.sending:
+	if m.messaging.hold.Stage() == armed.StageDue {
 		return errAnnouncementOnItsWay
-	case m.messaging.claimed(loop.Announced{Pull: m.review.pull.Number, Moment: p.moment}):
-		return errAlreadyAnnounced
-	default:
-		return nil
 	}
+
+	return p.announcedRefusal(m)
+}
+
+// announcedRefusal is errAlreadyAnnounced once the moment this preview marks
+// was announced while it was open, as the store last said; nil otherwise.
+func (p messagingPreview) announcedRefusal(m Model) error {
+	if m.messaging.claimed(loop.Announced{Pull: m.review.pull.Number, Moment: p.moment}) {
+		return errAlreadyAnnounced
+	}
+
+	return nil
 }
 
 var (
@@ -110,33 +115,25 @@ var (
 	_ failable[messagingPreview] = messagingPreview{}
 )
 
-// view shows the message as it will be posted, where, and how CI stands, its
-// outcome pinned under the title so a long refusal is seen, not clipped.
+// view shows the message as it will be posted, and where, its outcome pinned
+// under the title so a long refusal is seen, not clipped.
 func (p messagingPreview) view(kit renderKit, width, _ int) (string, string) {
 	lines := kit.pinnedOutcome(p.send, "announcing", width)
 	lines = append(lines, wrap(p.text, width), "", "to  "+p.destination())
-
-	if p.ci.failed() {
-		lines = append(lines, "", wrap(kit.failedGlyph()+" A check failed, so it is not announced now; "+
-			"announcing once CI passes waits for a fix.", width))
-	}
-
 	lines = append(lines, p.tagging.lines(kit, width)...)
 
 	return "Announce to " + p.service, strings.Join(lines, "\n")
 }
 
-// footer offers announcing now or when CI passes, changing the channel where
-// there is a choice, another edit, or leaving.
+// footer offers announcing now — whatever CI was last seen to do, since the
+// gate reads it again as it posts — or when CI passes, changing the channel
+// where there is a choice, another edit, or leaving.
 func (p messagingPreview) footer(keys keyMap) []key.Binding {
 	if p.send.sending {
 		return []key.Binding{keys.interrupt}
 	}
 
-	var buttons []key.Binding
-	if !p.ci.failed() {
-		buttons = append(buttons, relabel(keys.confirm, "announce now"))
-	}
+	buttons := []key.Binding{relabel(keys.confirm, "announce now")}
 
 	if p.waitsForCI() {
 		buttons = append(buttons, relabel(keys.postWhenGreen, "when CI passes"))
@@ -198,15 +195,11 @@ func (p messagingPreview) cycleChannel(m Model, step int) (Model, tea.Cmd) {
 	return m, readMembers
 }
 
-// post posts the message now.
+// post posts the message now: the gate's own read of CI alone refuses it.
 func (p messagingPreview) post(m Model) (Model, tea.Cmd) {
 	refusal := p.refusal(m)
 	if refusal != nil {
 		return m.noticedGuidance(refusal), nil
-	}
-
-	if p.ci.failed() {
-		return m.noticedGuidance(loop.ErrCIFailed), nil
 	}
 
 	if strings.TrimSpace(p.text) == "" {
@@ -232,20 +225,17 @@ func (p messagingPreview) waitsForCI() bool {
 	return p.moment == messaging.MomentReady && !p.tagging.reading
 }
 
-// postWhenGreen posts once CI passes: now, if it already has. Where the post
-// cannot wait for CI, the preview does not offer the key, and it does nothing.
+// postWhenGreen arms the post to go once CI passes: at once, if a read finds
+// it has. Where the post cannot wait for CI, the preview does not offer the
+// key, and it does nothing.
 func (p messagingPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
 	if !p.waitsForCI() {
 		return m, nil
 	}
 
-	refusal := p.refusal(m)
+	refusal := p.announcedRefusal(m)
 	if refusal != nil {
 		return m.noticedGuidance(refusal), nil
-	}
-
-	if m.review.ci.State == forge.CIPassed {
-		return p.post(m)
 	}
 
 	if m.dryRun {
@@ -253,60 +243,96 @@ func (p messagingPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
 			p.tagging.dryRunNote()), nil
 	}
 
-	m = m.closeOverlay().noticed(m.marks.inFlight + " will announce to " + p.destination() + " once CI passes")
-	m.messaging.pending, m.messaging.send.err, m.messaging.dropped = m.queued(p.outgoing()), nil, ""
-
-	return m.keepPolling(m.checkCI())
+	return m.armAsked(p.outgoing())
 }
 
-// sendToMessaging posts an announcement, claiming it in the store before it
-// goes and confirming the claim once it has, with the groups it tagged when
-// it offered any, the way every surface delivers an announcement. It replaces
-// any post waiting for CI: that one would otherwise follow it once CI passed,
-// and the channel would read it twice.
+// sendToMessaging posts an announcement now, the way every surface delivers
+// one: the gate first, then the store's claim, the post and the claim's
+// confirmation, with the groups it tagged when it offered any. One waiting
+// for CI is left waiting until this one has gone, and then is posted in its
+// place.
 func (m Model) sendToMessaging(out outgoingAnnouncement) (Model, tea.Cmd) {
-	return m.sending(out, m.messaging.pending)
+	ctx, seams, memory, delivery := m.session, m.deliverSeams(), m.announceMemory(out.tags), m.deliveryOf(out)
+	m.messaging.send = starting()
+
+	return m, func() tea.Msg {
+		err := withFailedChecks(loop.Deliver(ctx, seams, memory, delivery))
+
+		return messagingPosted{made: delivery.Made(), to: out.to, opened: out.opened, err: refusedAt(delivery.Moment, err)}
+	}
 }
 
-// sendHeld posts the announcement that waited for CI, unless another session
-// claimed the same moment meanwhile. One the gate refuses goes back to
-// waiting.
-func (m Model) sendHeld(held queuedPost) (Model, tea.Cmd) {
-	return m.sending(held.post, held)
+// deliverSeams are what a post goes through: the service, and the read of CI
+// its gate makes first, both going on past a quit.
+func (m Model) deliverSeams() loop.DeliverSeams {
+	return loop.DeliverSeams{Post: m.deps.Messaging.Post, CheckCI: m.deps.announceCI}
 }
 
-// sending posts out, as sendToMessaging says. held is the post that was
-// waiting for CI, if one was — the one it sends, or the one it replaces — to
-// wait again should the gate refuse it.
-func (m Model) sending(out outgoingAnnouncement, held queuedPost) (Model, tea.Cmd) {
-	ctx, store := m.session, m.deps.Store
+// announceMemory is the store's claim a post takes before it goes, its
+// confirmation and its release, and, for one whose tags offered groups, the
+// groups it tagged, remembered as the workspace's last choice.
+func (m Model) announceMemory(tags postTags) loop.AnnounceMemory {
+	store := m.deps.Store
 	memory := loop.AnnounceMemory{
 		Recorded: nil, Claim: store.ClaimAnnounce, Confirm: store.ConfirmAnnounce, Release: store.ReleaseAnnounce,
 		Reclaim: nil, RecordGroups: nil,
 	}
-	seams := loop.DeliverSeams{Post: m.deps.Messaging.Post, CheckCI: m.deps.announceCI}
 
-	if record := m.deps.Store.RecordGroups; out.tags.offersGroups && record != nil {
-		memory.RecordGroups = func(ctx context.Context, ids []string) error { return record(ctx, out.tags.workspace, ids) }
+	if record := store.RecordGroups; tags.offersGroups && record != nil {
+		memory.RecordGroups = func(ctx context.Context, ids []string) error { return record(ctx, tags.workspace, ids) }
 	}
 
-	delivery := loop.Delivery{
-		Channel: out.channel, Text: out.text, Pull: m.review.pull, Head: m.branch.branch.Head, Moment: out.moment,
-		Mentions: out.tags.mentions,
+	return memory
+}
+
+// withFailedChecks is err, a post's outcome, naming the checks the gate saw
+// fail where it refused the post for them.
+func withFailedChecks(err error) error {
+	refusal, _ := errors.AsType[loop.GateRefusalError](err)
+
+	names := failedCheckNames(refusal.CI)
+	if names == "" {
+		return err
 	}
-	m.messaging.send, m.messaging.pending, m.messaging.dropped = starting(), queuedPost{}, ""
 
-	return m, func() tea.Msg {
-		posted := messagingPosted{made: delivery.Made(), to: out.to, opened: out.opened, err: nil, held: held}
+	return failedChecksError{err: err, names: names}
+}
 
-		if tag := held.unasked; tag != nil {
-			delivery.Mentions = tag(ctx)
+// failedChecksError is a refusal for a failed check that names the checks
+// that failed.
+type failedChecksError struct {
+	err   error
+	names string
+}
+
+var _ error = failedChecksError{}
+
+// Error is the refusal's own words, then the checks that failed.
+func (e failedChecksError) Error() string {
+	return e.err.Error() + e.names
+}
+
+// Unwrap lets errors.Is match what the refusal does.
+func (e failedChecksError) Unwrap() error {
+	return e.err
+}
+
+// failedCheckNames names the checks that failed in ci, in brackets after a
+// space, or nothing where the forge named none as failed.
+func failedCheckNames(ci forge.CI) string {
+	var names []string
+
+	for _, check := range ci.Checks {
+		if check.State == forge.CIFailed {
+			names = append(names, sanitize.Line(check.Name))
 		}
-
-		posted.err = refusedAt(delivery.Moment, loop.Deliver(ctx, seams, memory, delivery))
-
-		return posted
 	}
+
+	if len(names) == 0 {
+		return ""
+	}
+
+	return " (" + strings.Join(names, ", ") + ")"
 }
 
 // refusedAt is err, how an announcement at moment went, with a merge's
@@ -342,32 +368,22 @@ type messagingPosted struct {
 	to     string
 	opened int
 	err    error
-	// held is the post waiting for CI it sent, if it was one, to wait again
-	// when the gate refused it.
-	held queuedPost
 }
 
 var _ applier = messagingPosted{}
 
 // apply records the post, or why it failed, in the pane, and in the preview it
-// was written in while that is still open. A post that waited for CI was
-// written in a preview long closed, so it leaves one opened since as it is.
+// was written in while that is still open, and reads what was announced
+// again, which its claim changed. One that went out is posted in place of the
+// announcement waiting for CI of the same moment, which then goes no more;
+// one that failed leaves that one waiting.
 func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
 	preview, open := beneath[messagingPreview](m, msg.opened)
-
-	if refusedByGate(msg.err) && msg.held.waiting() {
-		m = m.waitingAgain(msg.held, msg.err)
-		if !open {
-			return m.heldBack(msg.err)
-		}
-
-		return m.withBeneath(preview.failed(msg.err)).noticedFailure(msg.err).keepPolling(nil)
-	}
+	m.messaging.send = sendState{}
+	reread := loadAnnounces(m.session, m.deps)
 
 	if errors.Is(msg.err, loop.ErrAnnouncedAlready) {
-		m.messaging.posted, m.messaging.send = m.messaging.withClaim(msg.made), sendState{}
-
-		return m.noticed(m.marks.done + " already announced from another session; not posted again"), nil
+		return m.noticed(m.marks.done + " already announced from another session; not posted again"), reread
 	}
 
 	if _, unconfirmed := loop.UnconfirmedReason(msg.err); msg.err != nil && !unconfirmed {
@@ -376,16 +392,16 @@ func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
 			m = m.withBeneath(preview.failed(msg.err))
 		}
 
-		return m.noticedFailure(msg.err), nil
+		return m.noticedFailure(msg.err), reread
 	}
 
-	m.messaging.posted, m.messaging.send = m.messaging.withClaim(msg.made), sendState{}
+	m.messaging.hold = m.messaging.hold.Superseded(msg.made)
 
 	if open {
 		m = m.closeOverlay()
 	}
 
-	return m.noticed(m.marks.done + " announced to " + msg.to + unconfirmedNote(m.marks, msg.err)), nil
+	return m.noticed(m.marks.done + " announced to " + msg.to + unconfirmedNote(m.marks, msg.err)), reread
 }
 
 // unconfirmedNote is what the notice adds of an announcement the store could

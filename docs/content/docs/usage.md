@@ -219,7 +219,7 @@ lists, by where it works.
 | 5, your service | `p` | Preview the announcement of the pull request; while one waits for CI, the footer names it *announce now instead*, after `x` |
 | | `P` | People and groups: whom each code owner is on Slack, and the user groups the repository tags; with a Slack user token and a store |
 | | `x` | Stop waiting: drop the announcement waiting for CI to pass, unposted |
-| | `r` | Read what was announced, and the pull request and its CI, again |
+| | `r` | Read what was announced, the pull request and its CI, and the announcement waiting for CI, again |
 | 6 Reviews | `o` / `y` | Open the selected request in the browser, or copy its URL |
 | | `O` | Sort them oldest first, newest first, or by repository |
 | | `f` | Filter them by repository, CI state, draft or ready, and author |
@@ -581,22 +581,29 @@ announcement waiting for CI waits through a failed run: the messaging pane says
 *a check failed; waiting on a fix*, and it goes once a later run passes. While
 no check is reported it says *no checks reported yet*, and after ten minutes
 of reads that heard none, counted from the last read that saw one, a read that
-failed not counting, it gives up, saying to announce it by hand. `x` on the messaging pane stops waiting, and nothing is
-announced. While one waits, the footer offers `p` after `x`, as *announce now
-instead*: it opens the same preview, and announcing from it replaces the one
-that is waiting, so the channel never reads it twice. One armed as `n` opened
-its pull request waits the same way, and so does
+failed not counting, it gives up, saying to announce it by hand. `x` on the
+messaging pane stops waiting, and nothing is announced. While one waits, the
+footer offers `p` after `x`, as *announce now instead*: it opens the same
+preview, and once the post made from it has gone, the one that waited goes no
+more, so the channel never reads it twice; one that fails leaves it waiting. One
+armed as `n` opened its pull request waits the same way, and so does
 `workflow announce --when-green` from a shell, in the foreground until CI passes
-or `ctrl+c`: it reads the pull request of the branch it started on, whatever is
-checked out meanwhile, and gives up when it hears nothing for ten minutes — CI
-it can't read, a forge that doesn't list a pull request just opened, posts asked
-to wait — saying what failed last.
+or `ctrl+c`. Each reads the pull request of the branch it was armed on, whatever
+is checked out meanwhile — the messaging pane names it while another is on
+screen — and gives up when it hears nothing for ten minutes — CI it can't read,
+a forge that doesn't list a pull request just opened, posts asked to wait —
+saying what failed last. `w` over another pull request's waiting announcement
+replaces it, saying so; one armed as a pull request opens never replaces
+another, and the opened notice says which still waits. A post the messaging
+service may have taken — it did not answer, or answered with an error of its
+own — is never posted again unasked: the messaging pane says *a post began at …
+and was not confirmed; workflow announce posts it again*.
 
 Nothing is announced while a check has failed on the pull request. The
 announcement reads its CI again as it goes, whatever the pane last read, and a
 failed check keeps it from going, ready or merged alike: the preview stays open
-saying why. While the last read found a check failed, the preview offers only
-`w`, which waits for a fix. A merge has no CI to wait for: its refusal says to
+saying why, naming the checks that failed. The preview offers announcing now
+whatever the pane last read, since that read is what decides. A merge has no CI to wait for: its refusal says to
 re-run its failed checks on the forge, then announce it once they pass. A CI
 that cannot be read keeps it from going too, since nothing failing cannot be
 confirmed. `workflow announce` and the `--web` page hold to the same rule.
@@ -1204,13 +1211,16 @@ troubleshooting]({{< relref "/docs/faq" >}}).
   the keychain keeps the new token can lose the token, since Slack retires the
   old one as it answers; `workflow slack login` then sets it up again. An
   announcement waiting for CI is not yet a write: it is not sent if you quit
-  first.
+  first. `q` asks first while one waits, from the help as anywhere else;
+  `ctrl+c` quits at once, and says on the terminal that it stopped waiting.
 - **An announcement waits only for CI that reports.** One waiting for a pull
   request that reports no check gives up after ten minutes of reads that
   heard none, counted from the last read that saw one, a read that failed not
-  counting; announce a repository with no CI by hand. On GitHub,
-  CI is read at the branch's head here, so a fix pushed from another clone is
-  seen once this branch moves to it.
+  counting; announce a repository with no CI by hand. On GitHub, the Review
+  pane reads CI at the branch's head here, so a fix pushed from another clone
+  shows there once this branch moves to it; an announcement, and the read of
+  CI it makes as it posts, go by the commit the forge says the pull request is
+  at.
 - **A branch is worked on under the name it shows.** git allows characters in a
   branch's name that cannot be drawn as they are, such as one with no width or
   one that reverses the text after it. A branch, upstream or base named with

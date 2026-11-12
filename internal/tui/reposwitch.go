@@ -27,6 +27,17 @@ type Next struct {
 	// saved is the configuration file a save in Settings or a first run's
 	// setup wrote, when that is why the interface ended.
 	saved reopening
+	// stoppedWaiting names the pull request whose announcement waited for
+	// CI when the interface quit, which quitting stopped; empty when none
+	// waited.
+	stoppedWaiting string
+}
+
+// StoppedWaiting is what to say, once the terminal is back, of the
+// announcement waiting for CI that quitting the interface stopped, unposted,
+// and whether one was.
+func (n Next) StoppedWaiting() (string, bool) {
+	return "Stopped waiting for CI on " + n.stoppedWaiting + "; nothing was announced.", n.stoppedWaiting != ""
 }
 
 // reopening is a configuration file written that workflow reopens with: a
@@ -184,7 +195,7 @@ func leaveQuestion(question, acting string, lost []string) string {
 
 // leave ends the interface for dir.
 func (m Model) leave(dir string) (Model, tea.Cmd) {
-	m.next = Next{Dir: dir, carried: m.carryOut()}
+	m.next = Next{Dir: dir, carried: m.carryOut(), saved: reopening{}, stoppedWaiting: ""}
 
 	return m, tea.Quit
 }
@@ -239,7 +250,7 @@ func (m Model) savedForLater(path string) string {
 // reopen ends the interface for dir, the directory it works in, saying the
 // configuration was saved.
 func (m Model) reopen(dir string, saved reopening) (Model, tea.Cmd) {
-	m.next = Next{Dir: dir, carried: m.carryOut(), saved: saved}
+	m.next = Next{Dir: dir, carried: m.carryOut(), saved: saved, stoppedWaiting: ""}
 
 	return m, tea.Quit
 }
@@ -249,7 +260,7 @@ func (m Model) reopen(dir string, saved reopening) (Model, tea.Cmd) {
 // overlay holds the keyboard until it answers, so it never gets this far.
 func (m Model) writeInFlight() string {
 	switch {
-	case m.messaging.send.sending:
+	case m.messaging.onItsWay():
 		return "the announcement"
 	case m.tasks.writing:
 		return "the change to a task"
@@ -271,7 +282,7 @@ func (m Model) lostOnLeaving() []string {
 		lost = append(lost, "the "+m.vocab.noun+" you were writing")
 	}
 
-	if m.messaging.pending.waiting() {
+	if m.messaging.hold.Stage().Waiting() {
 		lost = append(lost, "the announcement waiting for CI")
 	}
 

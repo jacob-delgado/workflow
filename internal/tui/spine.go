@@ -401,7 +401,7 @@ func (m Model) work() progress.Work {
 		CI:                 m.review.ci.State,
 		ChangesRequested:   m.review.pull.ChangesRequested,
 		Announced:          m.messaging.announced(m.review),
-		AnnouncePending:    m.messaging.pending.waiting() || m.messaging.send.sending,
+		AnnouncePending:    m.messaging.hold.Stage().Waiting() || m.messaging.onItsWay(),
 	}
 }
 

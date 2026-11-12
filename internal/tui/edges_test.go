@@ -338,7 +338,8 @@ func TestAPostWaitingForCIThatFailsToPostSaysWhy(t *testing.T) {
 	failed := typing(t, refusing.live(t, 120, 40), "5", "p", "w")
 
 	// Assert
-	requireScreen(t, failed.View().Content, "✗ The messaging service refused the post")
+	requireScreen(t, failed.View().Content,
+		"✗ dropped the announcement to Slack waiting for #42: The messaging service refused the post")
 }
 
 func TestACommitThatCannotStartSaysWhy(t *testing.T) {

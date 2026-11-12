@@ -343,7 +343,9 @@ func inputFor(cmd *cobra.Command, conn cmdkit.Connection, dryRun bool) interface
 // reopens the interface where it was, saying why, so it never exits. Every
 // interface counts the writes it sends in one lifetime.InFlight, and once the
 // last has quit, runInterfaces waits for those still in flight to land: a
-// switch does not wait, and its writes are waited for at the quit.
+// switch does not wait, and its writes are waited for at the quit. A quit
+// that stopped an announcement waiting for CI says so once the terminal is
+// back.
 //
 // Trade-off TRADE-34: a switch ends one program and starts the next, wired
 // afresh, rather than rewiring the one running.
@@ -358,6 +360,10 @@ func runInterfaces(cmd *cobra.Command, run RunInterface, conn cmdkit.Connection,
 	for {
 		next, err := openInterface(program, run, input)
 		if err != nil || next.Dir == "" {
+			if line, stopped := next.StoppedWaiting(); stopped {
+				cmdkit.NotesOf(cmd).Note(line)
+			}
+
 			return errors.Join(err, finishWrites(cmd, writes, cmdkit.RequestTimeout(conn.Config)))
 		}
 

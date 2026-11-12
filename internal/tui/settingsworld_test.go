@@ -84,7 +84,23 @@ func (w *world) settingsDeps() seams.Settings {
 		RemoveLocalData: func(scope store.CleanScope) error {
 			w.record("remove-local-data " + map[store.CleanScope]string{store.CleanCache: "cache", store.CleanAll: "all"}[scope])
 
-			return w.removeErr
+			return w.removeLocalData()
 		},
 	}
+}
+
+// removeLocalData removes what the store keeps, as removing either scope
+// removes workflow.db and the claims on announcements in it, or fails with
+// removeErr, removing nothing.
+func (w *world) removeLocalData() error {
+	if w.removeErr != nil {
+		return w.removeErr
+	}
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	w.storedAnnounces, w.claimedAnnounces, w.confirmedAnnounces = nil, nil, nil
+
+	return nil
 }

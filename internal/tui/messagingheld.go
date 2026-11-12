@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -22,106 +23,347 @@ import (
 )
 
 // errAnnouncementDropped is an announcement that waited for CI and was given
-// up on: a failure, told with the service it was for.
+// up on: a failure, told with the service it was for and why.
 var errAnnouncementDropped = errors.New("dropped the announcement")
 
-// queuedPost is a message waiting for one pull request's CI to pass. It names
-// the pull request it was written for, because the one on screen can change
-// while it waits, and a message is only ever sent for the one its writer saw.
-// watch is how long its CI has reported no check, and standing how it stood
-// on the last read. unasked, set for one armed as its pull request opened,
-// reads whom it tags as it goes, since no preview asked.
-type queuedPost struct {
-	pull     int
-	post     outgoingAnnouncement
-	watch    armed.CIWatch
-	standing armed.Verdict
-	unasked  func(ctx context.Context) messaging.Mentions
-}
-
-// waiting reports a post that has not been sent or given up on.
-func (q queuedPost) waiting() bool {
-	return q.post.text != ""
-}
-
-// waitingOn is what the standing line adds of what the post waits on: checks
-// to be reported, or a fix for one that failed; nothing while CI runs.
-func (q queuedPost) waitingOn(kit renderKit) string {
-	// A map, not a switch, so there is no arm for the states a waiting post
-	// is never left standing in.
-	return map[armed.Verdict]string{
-		armed.VerdictAwaitingChecks: kit.marks.separator + "no checks reported yet",
-		armed.VerdictAwaitingFix:    kit.marks.separator + "a check failed; waiting on a fix",
-		armed.VerdictWaiting:        "",
-		armed.VerdictDue:            "",
-		armed.VerdictNoCI:           "",
-	}[q.standing]
-}
-
-// queued is the post out waits for its pull request's CI to pass, armed now
-// and standing on the CI as last read, when it was read.
-func (m Model) queued(out outgoingAnnouncement) queuedPost {
-	held := queuedPost{
-		pull: m.review.pull.Number, post: out, watch: armed.WatchFrom(m.deps.now()), standing: armed.VerdictWaiting,
-	}
-
-	if m.review.checked && m.review.ciErr == nil {
-		held.watch, held.standing = held.watch.Read(m.review.ci, m.deps.now())
-	}
-
-	return held
-}
-
 // armOnOpen arms the announcement of pull, just opened, to post once its CI
-// passes, as a preview's w would, and answers what the opened notice adds of
-// it: where it goes, or why a draft is not announced. Nothing is armed, and
-// nothing said, with messaging.auto_announce off, nowhere to post, or for one
-// announced already. A dry run opens nothing, so it arms nothing either.
-func (m Model) armOnOpen(pull forge.PullRequest) (Model, string) {
+// passes, as a preview's w would, tagging whom announce --yes would, and
+// answers what the opened notice adds of it and the read arming starts: where
+// it goes, why a draft is not announced, or that another pull request's
+// announcement still waits, which one armed on its own never replaces.
+// Nothing is armed, and nothing said, with messaging.auto_announce off,
+// nowhere to post, or for one announced already. A dry run opens nothing, so
+// it arms nothing either.
+func (m Model) armOnOpen(pull forge.PullRequest) (Model, string, tea.Cmd) {
 	armable := m.cfg.Messaging.AutoAnnounce && m.cfg.Messaging.Mode() != config.MessagingNone &&
 		m.deps.Messaging.Post != nil && !m.messaging.announced(m.review)
 	if !armable {
-		return m, ""
+		return m, "", nil
 	}
 
 	if pull.Draft {
-		return m, m.marks.separator + "a draft is not announced; announce it once it is ready"
+		return m, m.marks.separator + "a draft is not announced; announce it once it is ready", nil
 	}
 
 	channel := defaultChannel(m.cfg)
-	where := sanitize.Line(cmp.Or(channel, m.cfg.Messaging.Target()))
 	out := outgoingAnnouncement{
-		channel: channel, to: where, text: m.announcement(messaging.MomentReady),
-		moment: messaging.MomentReady, tags: postTags{}, opened: 0,
+		channel: channel, to: sanitize.Line(cmp.Or(channel, m.cfg.Messaging.Target())),
+		text: m.announcement(messaging.MomentReady), moment: messaging.MomentReady, tags: postTags{}, opened: 0,
 	}
 
-	m.messaging.pending, m.messaging.send.err, m.messaging.dropped = m.queued(out), nil, ""
-	m.messaging.pending.unasked = m.unaskedTags(pull, channel)
+	started, err := m.messaging.hold.Arm(m.deps.now(), armed.Arming{
+		Delivery: m.deliveryOf(out), Branch: m.branch.branch.Name, Opened: true, Unasked: true, Automatic: true,
+		Seen: 0,
+	})
+	if err != nil {
+		return m, m.marks.separator + m.pullName(m.messaging.hold.Pull()) + " is still waiting, so " +
+			m.pullName(pull.Number) + " was not armed", nil
+	}
 
-	return m, m.marks.separator + "announces to " + where + " once CI passes"
+	m.messaging.send.err = nil
+	m, read := m.held(started, postTags{})
+
+	return m, m.marks.separator + "announces to " + out.to + " once CI passes", read
 }
 
-// unaskedTags is whom the announcement of pull, armed as it opened to post to
-// channel, tags, asked of no one, as workflow announce --yes proposes: the
-// linked owners of the changes against the base pull merges into, where the
-// forge says, and the groups that start checked, read under ctx as it goes. A
-// read that fails tags fewer, no workspace tags no one, and the token's scopes
-// limit it as they limit a preview's. It is nil without a Slack user token and
-// its directory, which alone tag anyone.
-func (m Model) unaskedTags(pull forge.PullRequest, channel string) func(ctx context.Context) messaging.Mentions {
+// armAsked arms out, as its preview asked, to post once CI passes — at once,
+// if a read finds it has — and closes the preview. One armed over another
+// pull request's waiting announcement replaces it, saying so; one asked for
+// while another is being posted is refused, the preview left open.
+func (m Model) armAsked(out outgoingAnnouncement) (Model, tea.Cmd) {
+	started, err := m.messaging.hold.Arm(m.deps.now(), armed.Arming{
+		Delivery: m.deliveryOf(out), Branch: m.branch.branch.Name, Opened: false, Unasked: false, Automatic: false,
+		Seen: 0,
+	})
+	if err != nil {
+		return m.noticedGuidance(err), nil
+	}
+
+	notice := m.marks.inFlight + " will announce to " + out.to + " once CI passes"
+	if replaced := started.Replaced; replaced != nil {
+		notice += m.marks.separator + "replaced the announcement waiting for " + m.pullName(replaced.Pull())
+	}
+
+	m.messaging.send.err = nil
+
+	return m.closeOverlay().noticed(notice).held(started, out.tags)
+}
+
+// deliveryOf is out, the announcement of the pull request on screen, as it is
+// delivered: its CI gated at the commit the forge says it is at.
+func (m Model) deliveryOf(out outgoingAnnouncement) loop.Delivery {
+	return loop.Delivery{
+		Channel: out.channel, Text: out.text, Pull: m.review.pull, Head: m.review.pull.HeadCommit, Moment: out.moment,
+		Mentions: out.tags.mentions,
+	}
+}
+
+// held is the model holding the announcement just armed, which tags whom tags
+// say, and doing what arming it asks first.
+func (m Model) held(started armed.Armed, tags postTags) (Model, tea.Cmd) {
+	m.messaging.hold, m.messaging.holdTags = started.Hold, tags
+
+	return m.afterNext(started.Next)
+}
+
+// afterNext does what a step of the hold asks: a read now, a read once the CI
+// interval has passed, the post, or nothing.
+func (m Model) afterNext(next armed.Next) (Model, tea.Cmd) {
+	return map[armed.Next]func() (Model, tea.Cmd){
+		armed.NextNothing:   func() (Model, tea.Cmd) { return m, nil },
+		armed.NextRead:      func() (Model, tea.Cmd) { return m, m.readHold() },
+		armed.NextReadLater: m.readHoldLater,
+		armed.NextDeliver:   func() (Model, tea.Cmd) { return m, m.deliverHold() },
+	}[next]()
+}
+
+// readHoldLater schedules the next read of the hold once the CI interval has
+// passed, on a beat of its own whatever the Review pane polls at. Only the
+// read last scheduled is made, so a read asked for meanwhile, which
+// schedules its own, leaves one beat going.
+func (m Model) readHoldLater() (Model, tea.Cmd) {
+	m.messaging.tick++
+	tick := holdTick{tick: m.messaging.tick}
+
+	return m, m.deps.after(m.deps.ciInterval(), func(time.Time) tea.Msg { return tick })
+}
+
+// holdTick is time to read the hold again, as the read scheduled tick-th.
+type holdTick struct {
+	tick int
+}
+
+var _ applier = holdTick{}
+
+// apply reads the hold again, unless another read has been scheduled since.
+func (msg holdTick) apply(m Model) (Model, tea.Cmd) {
+	if msg.tick != m.messaging.tick {
+		return m, nil
+	}
+
+	return m, m.rereadHold()
+}
+
+// rereadHold is the read of the hold now, while it waits; nothing otherwise.
+func (m Model) rereadHold() tea.Cmd {
+	if !m.messaging.hold.Stage().Waiting() {
+		return nil
+	}
+
+	return m.readHold()
+}
+
+// readHold reads the held pull request, found by the branch it was armed on,
+// never the checkout's, and its CI, under the session.
+func (m Model) readHold() tea.Cmd {
+	ctx, seams, hold, now := m.session, m.holdSeams(), m.messaging.hold, m.deps.now
+
+	return func() tea.Msg {
+		reading, failure := seams.Read(ctx, hold, now)
+
+		return holdRead{reading: reading, failure: failure}
+	}
+}
+
+// holdRead is a read of the hold: what it heard, or how it failed.
+type holdRead struct {
+	reading armed.Reading
+	failure armed.Failure
+}
+
+var _ applier = holdRead{}
+
+// apply steps the hold on the read.
+func (msg holdRead) apply(m Model) (Model, tea.Cmd) {
+	return m.steppedTo(m.messaging.hold.Hear(msg.reading, msg.failure))
+}
+
+// deliverHold posts the held announcement, its gate, claim and post going on
+// past a quit as every write does, so a claim is never left mid-post.
+func (m Model) deliverHold() tea.Cmd {
+	ctx, seams, hold, now := m.session, m.holdSeams(), m.messaging.hold, m.deps.now
+
+	return func() tea.Msg {
+		return holdDelivered{outcome: seams.DeliverHeld(ctx, hold, now)}
+	}
+}
+
+// holdDelivered is how the post of the held announcement went.
+type holdDelivered struct {
+	outcome armed.Outcome
+}
+
+var _ applier = holdDelivered{}
+
+// apply steps the hold on the post's outcome, and reads what was announced
+// again, which the post's claim changed.
+func (msg holdDelivered) apply(m Model) (Model, tea.Cmd) {
+	m, next := m.steppedTo(m.messaging.hold.Delivered(msg.outcome))
+
+	return m, tea.Batch(next, loadAnnounces(m.session, m.deps))
+}
+
+// holdSeams are what the hold reads and posts through: the forge's reads
+// under the session, and the post, its gate and the store's claim, which go
+// on past it.
+func (m Model) holdSeams() armed.Seams {
+	return armed.Seams{
+		FindPull: m.deps.Forge.FindPullRequest, CheckCI: m.deps.Forge.CheckStatus, Deliver: m.deliverSeams(),
+		Memory: m.announceMemory(m.messaging.holdTags), UnaskedTags: m.unaskedTags(),
+	}
+}
+
+// steppedTo is the model holding hold, a step on from the one it held, having
+// said what the step changed, and doing what it asks next.
+func (m Model) steppedTo(hold armed.Hold, next armed.Next) (Model, tea.Cmd) {
+	was := m.messaging.hold
+	m.messaging.hold = hold
+
+	return m.toldOf(was, hold).afterNext(next)
+}
+
+// toldOf says what a step from was to now changed that the rail alone would
+// not: how a post went, or that a waiting announcement was given up on. A
+// read that leaves it waiting, or one answering for a hold since ended, says
+// nothing.
+func (m Model) toldOf(was, now armed.Hold) Model {
+	switch {
+	case was.Stage() == armed.StageDue:
+		return m.toldOfPost(now)
+	case was.Stage().Waiting() && now.Stage() == armed.StageDropped:
+		return m.droppedNotice(now)
+	default:
+		return m
+	}
+}
+
+// toldOfPost says how the post of the held announcement went, now the hold
+// after it: posted; claimed by another session first; a check the gate saw
+// fail, which it waits on a fix past; a failure it tries again past; or given
+// up on.
+func (m Model) toldOfPost(now armed.Hold) Model {
+	stay := func() Model { return m }
+	name := m.pullName(now.Pull())
+	// A map, not a switch, so there is no arm for the stages a post never
+	// leaves a hold at.
+	told := map[armed.Stage]func() Model{
+		armed.StagePosted: func() Model {
+			m.messaging.send.err = nil
+
+			return m.noticed(m.marks.done + " announced to " + m.destinationOf(now.Delivery()) +
+				unconfirmedNote(m.marks, now.Reason()))
+		},
+		armed.StageElsewhere: func() Model {
+			return m.noticed(m.marks.done + " already announced from another session; not posted again")
+		},
+		armed.StageDropped: func() Model { return m.droppedNotice(now) },
+		armed.StageAwaitingFix: func() Model {
+			return m.noticed(m.marks.inFlight + " not announced yet: a check failed on " + name +
+				failedCheckNames(now.CI()) + " as it was to be posted; it waits for a run that passes")
+		},
+		armed.StageUnheard: func() Model {
+			return m.noticed(m.marks.inFlight + " not announced yet: " + briefly(now.Reason()) + "; trying again")
+		},
+		armed.StageDue: stay, armed.StageIdle: stay, armed.StageListing: stay, armed.StageAwaitingChecks: stay,
+		armed.StageRunning: stay, armed.StageStopped: stay,
+	}
+
+	return told[now.Stage()]()
+}
+
+// destinationOf is where delivery goes, as a notice names it: its channel, or
+// the webhook's own.
+func (m Model) destinationOf(delivery loop.Delivery) string {
+	return sanitize.Line(cmp.Or(delivery.Channel, m.cfg.Messaging.Target()))
+}
+
+// droppedNotice says, as a failure, that the hold was given up on: the
+// service it was for, the pull request it waited for, and why — a reason of
+// its own in its words, and a post's failure in the words every failure of
+// its kind is told in.
+func (m Model) droppedNotice(hold armed.Hold) Model {
+	if words, waited := m.droppedCause(hold); waited {
+		return m.noticedFailure(fmt.Errorf("%w to %s waiting for %s: %s", errAnnouncementDropped,
+			m.cfg.Messaging.Service(), m.pullName(hold.Pull()), words))
+	}
+
+	return m.noticedFailureLedBy(errAnnouncementDropped.Error()+" to "+m.cfg.Messaging.Service()+" waiting for "+
+		m.pullName(hold.Pull())+": ", hold.Reason())
+}
+
+// droppedWords is why the hold was given up on, in brief.
+func (m Model) droppedWords(hold armed.Hold) string {
+	words, waited := m.droppedCause(hold)
+	if !waited {
+		return briefly(hold.Reason())
+	}
+
+	return words
+}
+
+// droppedCause is why the hold was given up on while it waited, and whether
+// it was: the forge never listed its pull request, nothing was heard of it
+// for too long, no check was reported, or it merged first or is no longer its
+// branch's. Any other reason is a post's failure.
+func (m Model) droppedCause(hold armed.Hold) (string, bool) {
+	name, reason := m.pullName(hold.Pull()), hold.Reason()
+	patience := strconv.Itoa(int(armed.UnheardPatience.Minutes())) + "m"
+	quiet := strconv.Itoa(int(armed.NoCIPatience.Minutes())) + "m"
+
+	// In order: an UnheardError matches ErrNotListedYet when the forge never
+	// listed it, which says more.
+	causes := []struct {
+		cause error
+		words func() string
+	}{
+		{armed.ErrNotListedYet, func() string { return "the forge did not list " + name + " within " + patience }},
+		{armed.ErrUnheard, func() string {
+			unheard, _ := errors.AsType[armed.UnheardError](reason)
+
+			return "tried for " + patience + " and failed: " + briefly(unheard.Last)
+		}},
+		{armed.ErrNoCI, func() string {
+			return "no checks reported on " + name + " within " + quiet + "; announce it by hand"
+		}},
+		{armed.ErrMergedFirst, func() string { return name + " merged before its CI passed" }},
+		{armed.ErrPullChanged, func() string { return name + " is no longer its branch's " + m.vocab.noun }},
+	}
+
+	for _, known := range causes {
+		if errors.Is(reason, known.cause) {
+			return known.words(), true
+		}
+	}
+
+	return "", false
+}
+
+// pullName is pull request number as the forge writes it: #42, or !42.
+func (m Model) pullName(number int) string {
+	return m.vocab.sigil + strconv.Itoa(number)
+}
+
+// unaskedTags is whom an announcement armed as its pull request opened tags,
+// asked of no one, as workflow announce --yes proposes: the linked owners of
+// the changes against the base its pull request merges into, where the forge
+// says, and the groups that start checked, read under ctx as it goes. A read
+// that fails tags fewer, no workspace tags no one, and the token's scopes
+// limit it as they limit a preview's. It is nil without a Slack user token
+// and its directory, which alone tag anyone.
+func (m Model) unaskedTags() func(ctx context.Context, delivery loop.Delivery) messaging.Mentions {
 	if m.cfg.Messaging.Mode() != config.MessagingUser || m.deps.Messaging.ChannelMembers == nil {
 		return nil
 	}
 
-	deps, base := m.deps, cmp.Or(pull.Base, m.branch.branch.BaseName())
+	deps, branchBase := m.deps, m.branch.branch.BaseName()
 
-	return func(ctx context.Context) messaging.Mentions {
-		read := readTagProposal(ctx, deps, base)
+	return func(ctx context.Context, delivery loop.Delivery) messaging.Mentions {
+		read := readTagProposal(ctx, deps, cmp.Or(delivery.Pull.Base, branchBase))
 		if read.workspaceErr != nil {
 			return messaging.Mentions{}
 		}
 
-		tags, tagging := scopedTags(ctx, deps, channel, read.proposal.tags())
+		tags, tagging := scopedTags(ctx, deps, delivery.Channel, read.proposal.tags())
 		if !tagging {
 			return messaging.Mentions{}
 		}
@@ -154,6 +396,42 @@ func scopedTags(ctx context.Context, deps Deps, channel string, tags loop.Tags) 
 	return tags, true
 }
 
+// stopWaiting stops the announcement waiting for CI, unposted, at the user's
+// word; with none waiting, it says why it did nothing.
+func (m Model) stopWaiting() (Model, tea.Cmd) {
+	stopped, err := m.messaging.hold.Stop()
+	if err != nil {
+		return m.noticedGuidance(err), nil
+	}
+
+	m.messaging.hold = stopped
+
+	return m.noticed("stopped waiting; nothing was announced"), nil
+}
+
+// quitOrGuard quits, unless a post is waiting for CI, in which case it asks
+// first: quitting would lose the post without a word.
+func (m Model) quitOrGuard() (Model, tea.Cmd) {
+	if m.messaging.hold.Stage().Waiting() {
+		m.overlay = quitGuard{}
+
+		return m, nil
+	}
+
+	return m.quit()
+}
+
+// quit ends the interface, stopping the announcement waiting for CI, if one
+// is, which the Next it ends with names so it is said once the terminal is
+// back.
+func (m Model) quit() (Model, tea.Cmd) {
+	if m.messaging.hold.Stage().Waiting() {
+		m.next.stoppedWaiting = m.pullName(m.messaging.hold.Pull())
+	}
+
+	return m, tea.Quit
+}
+
 // quitGuard asks before quitting while a post is waiting for CI, which quitting
 // would silently lose.
 type quitGuard struct{}
@@ -174,7 +452,7 @@ func (quitGuard) footer(keys keyMap) []key.Binding {
 func (quitGuard) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.confirm):
-		return m, tea.Quit
+		return m.quit()
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
 	default:
@@ -184,183 +462,3 @@ func (quitGuard) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 // which names the quit guard.
 func (quitGuard) which() overlayKind { return overlayQuitGuard }
-
-// stopWaiting drops the post waiting for CI, unposted, at the user's word.
-func (m Model) stopWaiting() (Model, tea.Cmd) {
-	m.messaging.pending = queuedPost{}
-
-	return m.noticed("stopped waiting; nothing was announced"), nil
-}
-
-// withoutQueuedPost gives up on a post waiting for CI, saying so, because the
-// pull request it was written for is no longer the one on screen.
-func (m Model) withoutQueuedPost() Model {
-	if !m.messaging.pending.waiting() {
-		return m
-	}
-
-	dropped := m.messaging.pending.pull
-	m.messaging.pending = queuedPost{}
-
-	return m.noticedFailure(fmt.Errorf("%w to %s waiting for %s%d, which is no longer this branch's %s",
-		errAnnouncementDropped, m.cfg.Messaging.Service(), m.vocab.sigil, dropped, m.vocab.noun))
-}
-
-// withoutStrandedPost gives up on the post waiting for CI, saying why, once
-// the branch's pull request, as found, is no longer the one it was written
-// for: another, none, one closed without merging, or the same one merged
-// first, whose CI is never read again.
-func (m Model) withoutStrandedPost(pull forge.PullRequest, found bool) Model {
-	if !m.messaging.pending.waiting() {
-		return m
-	}
-
-	number := m.messaging.pending.pull
-
-	err := armed.StillArmed(number, pull, found)
-	if errors.Is(err, armed.ErrMergedFirst) {
-		return m.givenUp(fmt.Sprintf("%s%d merged before its CI passed", m.vocab.sigil, number))
-	}
-
-	if err != nil {
-		return m.withoutQueuedPost()
-	}
-
-	return m
-}
-
-// givenUp drops the post waiting for CI, unposted, for reason, which the
-// messaging pane goes on showing.
-func (m Model) givenUp(reason string) Model {
-	m.messaging.pending = queuedPost{}
-	m.messaging.dropped = reason
-
-	return m.noticedFailure(fmt.Errorf("%w to %s: %s", errAnnouncementDropped, m.cfg.Messaging.Service(), reason))
-}
-
-// settleHeld settles the post waiting for CI on the CI just read: posts it
-// once CI passed, gives up on it once no check was reported for
-// armed.NoCIPatience, and otherwise keeps it waiting — through a failed run,
-// for a fix — saying what it waits on. A read that failed says nothing of the
-// CI, so it is waited past, its time not counted as quiet; and a post for a
-// pull request no longer on screen is given up on.
-func (m Model) settleHeld() (Model, tea.Cmd) {
-	if !m.messaging.pending.waiting() {
-		return m, nil
-	}
-
-	if m.review.ciErr != nil {
-		return m.heldUnheard(), nil
-	}
-
-	if m.messaging.pending.pull != m.review.pull.Number {
-		return m.withoutQueuedPost(), nil
-	}
-
-	pending := &m.messaging.pending
-	pending.watch, pending.standing = pending.watch.Read(m.review.ci, m.deps.now())
-
-	// A map, not a switch, so there is no last-case arm gobco can never see;
-	// exhaustive keeps it complete.
-	settle := map[armed.Verdict]func() (Model, tea.Cmd){
-		armed.VerdictDue:            m.postQueued,
-		armed.VerdictNoCI:           m.giveUpOnQuietCI,
-		armed.VerdictWaiting:        m.keepQueued,
-		armed.VerdictAwaitingChecks: m.keepQueued,
-		armed.VerdictAwaitingFix:    m.keepQueued,
-	}[pending.standing]
-
-	return settle()
-}
-
-// postQueued sends the post that waited for CI.
-func (m Model) postQueued() (Model, tea.Cmd) {
-	return m.sendHeld(m.messaging.pending)
-}
-
-// giveUpOnQuietCI gives up on the post that waited for a pull request that
-// reported no check for armed.NoCIPatience, saying to announce it by hand.
-func (m Model) giveUpOnQuietCI() (Model, tea.Cmd) {
-	patience := strconv.Itoa(int(armed.NoCIPatience.Minutes())) + "m"
-
-	return m.givenUp(fmt.Sprintf("no checks reported on %s%d within %s; announce it by hand",
-		m.vocab.sigil, m.messaging.pending.pull, patience)), nil
-}
-
-// keepQueued leaves the post waiting while CI has not passed.
-func (m Model) keepQueued() (Model, tea.Cmd) {
-	return m, nil
-}
-
-// waitingAgain puts back the post that waited for CI, the gate having refused
-// a post — it, as it went, or one made now in its place — since a check
-// failed, or the CI could not be read: it waits on.
-func (m Model) waitingAgain(held queuedPost, err error) Model {
-	if errors.Is(err, loop.ErrCIFailed) {
-		held.standing = armed.VerdictAwaitingFix
-	}
-
-	m.messaging.pending, m.messaging.send = held, sendState{}
-
-	return m
-}
-
-// heldBack says why the post that waited for CI, put back, did not go, and
-// keeps reading CI for it.
-func (m Model) heldBack(err error) (Model, tea.Cmd) {
-	return m.noticed(m.marks.inFlight + " not announced yet: " + m.kit().failureSummary(err) +
-		"; it waits for CI to pass").keepPolling(nil)
-}
-
-// refusedByGate reports a post the gate refused: a check failed, or CI could
-// not be read.
-func refusedByGate(err error) bool {
-	return errors.Is(err, loop.ErrCIFailed) || errors.Is(err, loop.ErrCIUnread)
-}
-
-// rereadForHeld reads the branch again for the post waiting for CI, so the
-// pull request and the head its CI is read at are the ones there are now — a
-// push, a merge or another pull request is seen — and the find and the CI read
-// follow. A read that fails keeps the post waiting, to be read for again.
-func (m Model) rereadForHeld() tea.Cmd {
-	ctx, read, review := m.session, m.deps.Git.Branch, m.reviewsBegun
-	if read == nil {
-		return m.checkCI()
-	}
-
-	return func() tea.Msg {
-		branch, err := read(ctx)
-		if err != nil {
-			return heldUnread{review: review}
-		}
-
-		return branchLoaded{branch: branch, err: nil}
-	}
-}
-
-// heldUnread is a read of the branch for the post waiting for CI that failed,
-// for the review it was asked in.
-type heldUnread struct {
-	review int
-}
-
-var _ applier = heldUnread{}
-
-// apply schedules the next read for the post still waiting, its time not
-// counted as quiet, unless the review it was asked in has since been
-// replaced.
-func (msg heldUnread) apply(m Model) (Model, tea.Cmd) {
-	if msg.review != m.reviewsBegun {
-		return m, nil
-	}
-
-	return m.heldUnheard().keepPolling(nil)
-}
-
-// heldUnheard is the model once a read for the post waiting for CI failed:
-// the time until a read is heard again is not counted as quiet.
-func (m Model) heldUnheard() Model {
-	m.messaging.pending.watch = m.messaging.pending.watch.Unheard()
-
-	return m
-}

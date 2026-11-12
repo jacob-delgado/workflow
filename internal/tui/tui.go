@@ -317,7 +317,7 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 	switch {
 	case key.Matches(msg, m.keys.interrupt):
-		return m, tea.Quit
+		return m.quit()
 	case m.overlay != nil:
 		return m.overlay.handleKey(m, msg)
 	case m.filteringIssues():
@@ -333,18 +333,6 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // filter, which takes every key — q and the digits included — until it closes.
 func (m Model) filteringIssues() bool {
 	return m.focus == paneIssues && m.issues.filtering
-}
-
-// quitOrGuard quits, unless a post is waiting for CI, in which case it asks
-// first: quitting would lose the post without a word.
-func (m Model) quitOrGuard() (Model, tea.Cmd) {
-	if m.messaging.pending.waiting() {
-		m.overlay = quitGuard{}
-
-		return m, nil
-	}
-
-	return m, tea.Quit
 }
 
 // handleGlobalKey answers the keys that work in every pane, and hands the rest

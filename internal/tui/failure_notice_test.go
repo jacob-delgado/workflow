@@ -52,14 +52,15 @@ func TestARefusalNoticeWearsTheFailureStyle(t *testing.T) {
 			keys: []string{"4", "R", keyEnter},
 			want: "re-run failed: the forge rejected the request",
 		},
-		"a queued post the service would not take once CI passed": {
+		"a queued post that may have gone out once CI passed": {
 			prepare: func(w *world) {
 				w.ciInterval = time.Millisecond
 				w.ci = []forge.CI{{State: forge.CIRunning}, {State: forge.CIRunning}, {State: forge.CIPassed}}
 				w.postErr = fmt.Errorf("%w: i/o timeout", messaging.ErrUnreachable)
 			},
 			keys: []string{"5", "p", "w"},
-			want: "The messaging service did not answer.",
+			want: "dropped the announcement to Slack waiting for #42: " +
+				"The messaging service did not say whether it took the post",
 		},
 		"a link with no browser to open it": {
 			prepare: func(w *world) {
@@ -142,10 +143,10 @@ func TestADroppedPostIsNoticedAsAFailure(t *testing.T) {
 	switching.ci = []forge.CI{{State: forge.CIRunning}}
 	waiting := typing(t, switching.live(t, 200, 40), "5", "p", "w")
 
-	switchToOtherWork(switching)
+	anotherPull(switching)
 
 	// Act
-	view := typing(t, waiting, "2", "r").View().Content
+	view := typing(t, waiting, "r").View().Content
 
 	// Assert
 	requireFailureNotice(t, view, strings.TrimPrefix(droppedPost, failGlyph+" "))

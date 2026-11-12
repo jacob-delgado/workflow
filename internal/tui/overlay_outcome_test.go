@@ -150,6 +150,6 @@ func TestAFailureAfterItsOverlayClosedOpensNothing(t *testing.T) {
 	view := typing(t, refusing.live(t, 120, 40), "5", "p", "w").View().Content
 
 	// Assert
-	requireScreen(t, view, "✗ The messaging service refused the post")
+	requireScreen(t, view, "✗ dropped the announcement to Slack waiting for #42: The messaging service refused the post")
 	refuseScreen(t, view, "Announce to")
 }
