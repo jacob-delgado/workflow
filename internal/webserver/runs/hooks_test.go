@@ -10,12 +10,15 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/hooks"
+	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/webserver"
+	"github.com/jacob-delgado/workflow/internal/webserver/runs"
 	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
@@ -275,5 +278,44 @@ func TestListHooksThatCannotReadTheConfigurationKeepsLefthooksWordsOff(t *testin
 
 	if len(*heard) != 1 || !errors.Is((*heard)[0], errUnreadableHere) {
 		t.Errorf("Unexpected heard %v, want lefthook's refusal", *heard)
+	}
+}
+
+func TestSettingUpHooksHoldsTheIndexWhileItReplacesThem(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A run and a commit hold the index while git runs the hooks, so a setup
+	// that holds it too never replaces them under one.
+	var (
+		indexWrites sync.Mutex
+		heldWhile   []bool
+	)
+
+	given := runs.Seams{Hooks: seams.Hooks{
+		Existing: func(context.Context) ([]hooks.GitHook, bool) { return webtest.OldHooks(), false },
+		Write: func(context.Context, hooks.Generated) error {
+			free := indexWrites.TryLock()
+			if free {
+				indexWrites.Unlock()
+			}
+
+			heldWhile = append(heldWhile, !free)
+
+			return nil
+		},
+	}}
+	runner := runs.New(given, func(error) {}, &indexWrites, func() int { return 1 })
+
+	// Act
+	_, err := runner.SetUpHooks(t.Context(), api.SetUpHooksRequestObject{Body: &api.SetUpHooksJSONRequestBody{}})
+	// Assert
+	if err != nil {
+		t.Fatalf("SetUpHooks: %v", err)
+	}
+
+	if !slices.Equal(heldWhile, []bool{true}) {
+		t.Errorf("the hooks were written %d times, the index held each time: %v; want once, held",
+			len(heldWhile), heldWhile)
 	}
 }

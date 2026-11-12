@@ -32,7 +32,7 @@ type Runner struct {
 	unexpected func(err error)
 
 	// indexWrites is the server's queue of index writes, which a run holds
-	// while it goes.
+	// while it goes, and a setup of lefthook's hooks while it replaces them.
 	indexWrites *sync.Mutex
 
 	// run is the git run going, if any.
