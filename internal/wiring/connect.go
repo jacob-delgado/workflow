@@ -49,8 +49,8 @@ func onceConnected[T any](connect func(context.Context) (T, error)) func(context
 
 // ask connects with connect under ctx, then asks the connection what question
 // does: the one shape every seam over a client found on first use takes,
-// Taskwarrior's and the forge's alike. Jira's is askJira, which also asks
-// once more when Jira refuses a token its command printed.
+// Taskwarrior's and the forge's alike. Jira's are askJira and changeJira,
+// which also ask once more when Jira refuses a token its command printed.
 func ask[C, T any](
 	ctx context.Context, connect func(context.Context) (C, error), question func(C) (T, error),
 ) (T, error) {
