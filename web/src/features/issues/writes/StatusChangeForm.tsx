@@ -27,7 +27,11 @@ type Filled = Record<string, string | string[]>
 // is. What is sent is checked by the server, whose refusal stays beside the
 // form.
 export function StatusChangeForm({ issueKey, shown, teller, onCancel }: StatusChangeFormProps) {
-  const [chosen, setChosen] = useState<StatusChange | null>(null)
+  const [picked, setPicked] = useState<StatusChange | null>(null)
+  const offered = useStatusChanges(issueKey)
+  // The change chosen, as the changes last read offer it: none once a read
+  // finds the issue moved on and offering it no more.
+  const chosen = stillOffered(picked, offered.data)
   const [filled, setFilled] = useState<Filled>({})
   // The fields the last send found empty, refused until they are filled.
   const [unfilled, setUnfilled] = useState<string[]>([])
@@ -61,7 +65,7 @@ export function StatusChangeForm({ issueKey, shown, teller, onCancel }: StatusCh
         shown={shown}
         chosen={chosen}
         onChoose={(next) => {
-          setChosen(next)
+          setPicked(next)
           setFilled({})
           setUnfilled([])
           change.reset()
@@ -80,6 +84,15 @@ export function StatusChangeForm({ issueKey, shown, teller, onCancel }: StatusCh
       )}
     </WriteForm>
   )
+}
+
+// stillOffered is the change picked, as offered among the changes read, or
+// null when they offer it no more.
+function stillOffered(
+  picked: StatusChange | null,
+  offered: StatusChange[] | undefined,
+): StatusChange | null {
+  return offered?.find((change) => change.id === picked?.id) ?? null
 }
 
 // OfferedChanges reads the changes the tracker offers the issue and offers
