@@ -27,6 +27,13 @@ export const mockServer = {
   timeout: 120_000,
 }
 
+// engineTimeout is a spec's budget in Firefox and WebKit. A "reachable and
+// clean" spec Tabs round the page and runs axe over it, and on a CI runner
+// WebKit spends 20 to 30 seconds of Playwright's default 30 on one at 1440 px:
+// such a spec timed out inside axe on a pull request that changed no web code.
+// Chromium keeps the default.
+const engineTimeout = 60_000
+
 // engineProjects are an engine's two runs of every spec: on the production
 // build, and on the populated one for the specs tagged @populated. Chromium's
 // pair is the one below; Firefox and desktop Safari's WebKit, the other two
@@ -37,11 +44,13 @@ function engineProjects(name: string, device: (typeof devices)[string]) {
     {
       name,
       grepInvert: /@populated/,
+      timeout: engineTimeout,
       use: { ...device, baseURL: hermeticURL },
     },
     {
       name: `${name}-mock`,
       grep: /@populated/,
+      timeout: engineTimeout,
       use: { ...device, baseURL: mockURL },
     },
   ]
