@@ -799,7 +799,9 @@ again, and Settings shows the file with what was written said above it —
 whom Jira knows the token as, that the keychain keeps it, and, for a file in a
 repository git does not ignore, to add it to `.gitignore`. A server that could
 not take the file up at once takes it up as Settings reads it again, or, when
-it still cannot, says so and to restart `workflow --web`. A file already
+it still cannot, says so and to restart `workflow --web`. So does a file made
+there since, by hand or by `workflow config init`: reading the configuration
+takes it up, and Settings shows it rather than the setup. A file already
 there is never written over. A write still running, such as a git run started
 in another tab, holds the setup back: it writes nothing, and says to set up
 again once that write has finished. The token and the webhook go only to the
