@@ -55,13 +55,13 @@ client.interceptors.request.use((request) => {
   return request
 })
 
-// Every write names the directory the page shows, so a write made before the
-// page has noticed a switch is refused rather than made in the directory
-// switched to. A header carries bytes, not text, so the path goes escaped and
-// the server unescapes it.
+// Every write names the directory the page last heard the server works in, so
+// a write made before the page has noticed a switch is refused rather than
+// made in the directory switched to. A header carries bytes, not text, so the
+// path goes escaped and the server unescapes it.
 client.interceptors.request.use((request) => {
-  const here = useSnapshotStore.getState().snapshot?.here
-  if (here !== undefined && here !== '' && !safeMethods.has(request.method)) {
+  const { here } = useSnapshotStore.getState()
+  if (here !== '' && !safeMethods.has(request.method)) {
     request.headers.set('Workflow-Here', encodeURIComponent(here))
   }
 

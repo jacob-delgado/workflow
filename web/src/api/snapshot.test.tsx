@@ -23,6 +23,20 @@ test('stores a snapshot the stream pushes and marks the stream live', () => {
   expect(useSnapshotStore.getState().status).toBe('live')
 })
 
+test('keeps where the server works, as a frame says, for the writes to name', () => {
+  // Arrange
+  useSnapshotStore.setState({ here: '/home/ana/src/web' })
+  renderHook(() => {
+    useEventStream(null, vi.fn())
+  })
+
+  // Act
+  FakeEventSource.latest().emit('snapshot', JSON.stringify(makeSnapshot({ here: '/home/ana/api' })))
+
+  // Assert
+  expect(useSnapshotStore.getState().here).toBe('/home/ana/api')
+})
+
 test('records when each frame landed, by the page clock', () => {
   // Arrange
   vi.useFakeTimers({ now: Date.parse('2026-09-28T10:00:00Z'), toFake: ['Date'] })

@@ -31,6 +31,10 @@ interface SeededIssues {
 
 interface SnapshotState {
   snapshot: Snapshot | null
+  // Where the server works, as the page last heard: from the latest frame,
+  // or at once from a switch made here, which outlasts a snapshot let go
+  // (useSwitchTo); empty before either. Every write names it (client.ts).
+  here: string
   // The view's kept issues the stream sent before its first snapshot, until a
   // snapshot takes their place; null when none was sent, or once one has.
   seed: SeededIssues | null
@@ -49,9 +53,12 @@ interface SnapshotState {
 
 // The latest full read state the event stream has pushed, which view it was
 // read for, and whether the stream is connected. The panels read from here;
-// useEventStream is the only writer.
+// useEventStream writes it, but for a switch made here, which writes where the
+// server works at once and, over a stream gone stale or closed, lets the
+// snapshot go (useSwitchTo).
 export const useSnapshotStore = create<SnapshotState>(() => ({
   snapshot: null,
+  here: '',
   seed: null,
   view: null,
   status: 'connecting',
@@ -110,10 +117,11 @@ function endsTheWait(status: StreamStatus): boolean {
 }
 
 // useLiveSnapshot is the snapshot for a section that renders only once there is
-// one: SectionPanel says it is connecting until the first frame lands, and no
-// frame ever takes the snapshot back to null, so the section never checks for
-// null itself. Rendering one before the first frame is a mistake in the shell,
-// and throws rather than draw an empty section.
+// one: SectionPanel says it is connecting until the first frame lands, and
+// waits again whenever the snapshot goes back to null — which no frame does,
+// but a switch over a stream gone stale or closed does (useSwitchTo) — so the
+// section never checks for null itself. Rendering one without a snapshot is a
+// mistake in the shell, and throws rather than draw an empty section.
 export function useLiveSnapshot(): Snapshot {
   const snapshot = useSnapshotStore((state) => state.snapshot)
   if (snapshot === null) {
@@ -192,6 +200,7 @@ function onSnapshot(view: string | null, event: MessageEvent<string>): void {
   if (parsed.success) {
     useSnapshotStore.setState({
       snapshot: parsed.data,
+      here: parsed.data.here,
       seed: null,
       view,
       status: 'live',
