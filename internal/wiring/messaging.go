@@ -285,7 +285,10 @@ func (e Environment) renewTyped(ctx context.Context, transport httpx.Doer, syste
 	without.Messaging.ClientSecret, without.Messaging.RefreshToken = "", ""
 	without.Messaging.AccessToken, without.Messaging.ExpiresAt = "", ""
 
-	starting := keptUnlessTyped(ctx, system.SlackStore(without), cfg.Messaging)
+	starting, err := keptUnlessTyped(ctx, system.SlackStore(without), cfg.Messaging)
+	if err != nil {
+		return err
+	}
 
 	// Slack spends the refresh token as it answers, so the refresh and the
 	// keep run whatever becomes of the caller: one who left between them
@@ -302,12 +305,21 @@ func (e Environment) renewTyped(ctx context.Context, transport httpx.Doer, syste
 
 // keptUnlessTyped is the secrets typed into settings, each one left blank
 // taken from those keychain already keeps, so changing one leaves the other.
-func keptUnlessTyped(ctx context.Context, keychain slackauth.Store, settings config.Messaging) slackauth.Credentials {
+// A keychain that keeps none is the secrets typed; one that cannot be read
+// is its failure, before anything is spent, since it would not keep the pair
+// a refresh gave either.
+func keptUnlessTyped(
+	ctx context.Context, keychain slackauth.Store, settings config.Messaging,
+) (slackauth.Credentials, error) {
 	starting := slackauth.Credentials{ClientSecret: settings.ClientSecret, RefreshToken: settings.RefreshToken}
 
 	kept, err := keychain.Load(ctx)
+	if errors.Is(err, slackauth.ErrNotLoggedIn) {
+		return starting, nil
+	}
+
 	if err != nil {
-		return starting
+		return slackauth.Credentials{}, fmt.Errorf("reading what the keychain keeps: %w", err)
 	}
 
 	if starting.ClientSecret == "" {
@@ -318,7 +330,7 @@ func keptUnlessTyped(ctx context.Context, keychain slackauth.Store, settings con
 		starting.RefreshToken = kept.RefreshToken
 	}
 
-	return starting
+	return starting, nil
 }
 
 // slackUserClient is the client a directory reads with: built from the

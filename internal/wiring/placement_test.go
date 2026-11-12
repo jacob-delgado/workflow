@@ -265,10 +265,17 @@ func TestPlacingAPairTheKeychainWillNotKeepIsReported(t *testing.T) {
 
 	// Arrange
 	slack := &slackRefreshes{answer: renewedPair}
-	refusing := func(context.Context, proc.Command, []byte) ([]byte, error) { return nil, errKeychainLocked }
+	// The keychain reads what it keeps, then refuses to keep the new pair.
+	refusingStores := func(_ context.Context, program proc.Command, _ []byte) ([]byte, error) {
+		if program.Args[0] == "-i" {
+			return nil, errKeychainLocked
+		}
+
+		return []byte(keptPair + "\n"), nil
+	}
 	process := placing(t)
 
-	system := onMacOSRunning(refusing)
+	system := onMacOSRunning(refusingStores)
 	place := process.PlaceSlackCredentials(slack.do, system)
 
 	// Act
@@ -277,6 +284,26 @@ func TestPlacingAPairTheKeychainWillNotKeepIsReported(t *testing.T) {
 	// Assert
 	if !errors.Is(err, slackauth.ErrNotKept) || strings.Contains(err.Error(), typedSecret) {
 		t.Errorf("Place = %v; want ErrNotKept with no secret in it", err)
+	}
+}
+
+func TestPlacingSecretsIntoAKeychainThatCannotBeReadSpendsNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A locked keychain refuses a read as it would the store after it.
+	slack := &slackRefreshes{answer: renewedPair}
+	refusing := func(context.Context, proc.Command, []byte) ([]byte, error) { return nil, errKeychainLocked }
+	place := placing(t).PlaceSlackCredentials(slack.do, onMacOSRunning(refusing))
+
+	// Act
+	err := place(t.Context(), typedInto(typedSecret, typedRefresh))
+
+	// Assert
+	if !errors.Is(err, errKeychainLocked) || errors.Is(err, slackauth.ErrNotKept) || len(slack.spent) != 0 ||
+		strings.Contains(err.Error(), typedSecret) || strings.Contains(err.Error(), typedRefresh) {
+		t.Errorf("Place = %v after refreshing with %q; want the keychain's refusal, naming no secret, "+
+			"before the typed refresh token is spent", err, slack.spent)
 	}
 }
 
