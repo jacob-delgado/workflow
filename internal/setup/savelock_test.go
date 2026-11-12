@@ -81,7 +81,7 @@ func TestSavingOverTheHomeFileIsRefusedWhileAnotherWorkflowHoldsTheSaveLock(t *t
 		}
 
 		// Act
-		err = where.Save(setup.Repository, config.Default(), over)
+		err = where.Save(setup.Repository, layers, config.Default(), over)
 
 		// Assert
 		_, statErr := os.Lstat(layers.Repo)

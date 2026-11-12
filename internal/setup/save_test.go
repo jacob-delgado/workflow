@@ -58,7 +58,7 @@ func TestSaveRefusesARepositoryFileThatIsALink(t *testing.T) {
 	target := linkedTo(t, where, setup.Repository)
 
 	// Act
-	err := where.Save(setup.Repository, config.Default(), config.Revision{})
+	err := where.Save(setup.Repository, where.Layers(setup.Repository), config.Default(), config.Revision{})
 
 	// Assert
 	if !errors.Is(err, config.ErrLinkedFile) || contentsOf(t, target) != outsideContents {
@@ -77,13 +77,36 @@ func TestSaveFollowsAHomeFileThatIsALink(t *testing.T) {
 	cfg.Jira.BaseURL = jiraAddress
 
 	// Act
-	err := where.Save(setup.Home, cfg, config.Revision{})
+	err := where.Save(setup.Home, where.Layers(setup.Home), cfg, config.Revision{})
 
 	// Assert
 	saved, _, loadErr := config.LoadLayersAt(config.Files{Home: target})
 	if err != nil || loadErr != nil || saved.Jira.BaseURL != jiraAddress {
 		t.Errorf("Save through a linked home file = %v; the file it names loads %+v (%v); want it written there",
 			err, saved.Jira, loadErr)
+	}
+}
+
+func TestSaveRefusesAHomeFileMadeSinceTheLayersWereRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	where := setup.Where{WorkDir: t.TempDir(), HomeDir: t.TempDir()}
+	layers := where.Layers(setup.Repository)
+
+	err := os.WriteFile(where.Path(setup.Home), []byte(`{"jira": {"project": "OSS"}}`), config.FileMode)
+	if err != nil {
+		t.Fatalf("writing the home file: %v", err)
+	}
+
+	// Act
+	err = where.Save(setup.Repository, layers, config.Default(), config.Revision{})
+
+	// Assert
+	_, statErr := os.Stat(where.Path(setup.Repository))
+	if !errors.Is(err, config.ErrChangedOnDisk) || !errors.Is(statErr, os.ErrNotExist) {
+		t.Errorf("Save over a home file made since = %v, and the repository's file stats %v; "+
+			"want ErrChangedOnDisk and no file written", err, statErr)
 	}
 }
 

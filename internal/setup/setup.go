@@ -258,17 +258,22 @@ func Beneath(layers config.Files) (config.Config, config.Revision, error) {
 	return beneath, over, nil
 }
 
-// Save writes cfg to the file for place, replacing whatever is there: over a
-// home file, the layer that differs from it, while the pair is at the
-// revision over, and otherwise a file of its own. A file other than the home
-// file that is a link is refused, as RefuseLinked refuses it, and nothing is
-// written.
-func (w Where) Save(place Place, cfg config.Config, over config.Revision) error {
-	layers := w.Layers(place)
+// Save writes cfg to the file for place, replacing whatever is there: over
+// the home file layers names, the layer that differs from it, while the pair
+// is at the revision over, and otherwise a file of its own. The layers are
+// those cfg was made over, so a home file gone since is a change on disk
+// rather than a file of its own holding what was read from it, and so is one
+// made since where there was none. A file other than the home file that is a
+// link is refused, as RefuseLinked refuses it, and nothing is written.
+func (w Where) Save(place Place, layers config.Files, cfg config.Config, over config.Revision) error {
 	if layers.Home != "" {
 		_, err := config.SaveLayers(w.Locks, layers, cfg, over)
 
 		return err
+	}
+
+	if made := w.Layers(place).Home; made != "" {
+		return fmt.Errorf("%s: %w", made, config.ErrChangedOnDisk)
 	}
 
 	err := w.RefuseLinked(place)
