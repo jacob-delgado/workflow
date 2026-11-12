@@ -90,7 +90,7 @@ var (
 	ErrUnreachable = errors.New("could not reach the forge")
 	// ErrTooManyRuns refuses a re-run on a commit with more workflow runs
 	// than are read, whose failed ones cannot all be found, so none is re-run.
-	ErrTooManyRuns = errors.New("the commit has more workflow runs than workflow reads, so none was re-run; " +
+	ErrTooManyRuns = errors.New("the commit has more workflow runs than are read, so none was re-run; " +
 		"re-run the failed ones on the forge")
 )
 

@@ -553,8 +553,8 @@ by default (`timing.ci_interval`). `c` lists the checks and opens the selected
 one's page; `l` on a failed one shows the end of its log, where a GitHub
 Actions run or a GitLab job keeps one, and `J`/`K` or `pgdn`/`pgup` move
 through a log taller than the pane half a page at a time. `R` re-runs the
-failed ones — on GitHub, none on a commit with more than two thousand workflow
-runs, which it says to re-run on the forge — and `u` on the Branch pane
+failed ones — on GitHub, none on a commit with more workflow runs than it
+reads, which it says to re-run on the forge — and `u` on the Branch pane
 rebases the branch onto its base; like a push, each first shows a last look
 naming what it acts on, and does nothing until `enter`. `e` edits the pull
 request's title and description. Once it is green, or no CI reported on it
