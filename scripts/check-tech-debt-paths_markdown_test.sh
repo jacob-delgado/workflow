@@ -17,8 +17,10 @@
 # fence, a heading, a bare one too, a setext underline of = or -, indented or
 # not, or a thematic break, at the top of the file, after a list has ended,
 # after a line of spaces) but not where a list item or a paragraph goes on, and
-# spans of two or more backticks, a wrapped one too; and it reads a span
-# holding a backtick or wrapped with a space as no path.
+# spans of two or more backticks, a wrapped one too, and HTML comments, inline
+# or a block running past a blank line; it reads a backtick after a backslash
+# as text, though a span closes on one; and it reads a span holding a backtick
+# or wrapped with a space as no path.
 # check-tech-debt-paths_test.sh tests what reads as a repository path and how
 # one is looked up.
 #
@@ -421,6 +423,30 @@ expect_backlog fail "an ordered list item's paragraph, read" "TECH_DEBT.md:3: in
 1. An item.
 
     It lives in `internal/tui/spine.go`.
+EOF
+
+expect_backlog fail "a backslash-escaped backtick, no span" "TECH_DEBT.md:2: internal/gone.go" <<'EOF'
+Write \` alone, and
+then `internal/gone.go` is read.
+EOF
+
+expect_backlog fail "an escaped backtick opening a run, text before a span" "TECH_DEBT.md:1: internal/gone.go" <<'EOF'
+A run \``internal/gone.go` opens a span after its first backtick.
+EOF
+
+expect_backlog fail "a span closed by a backtick after a backslash, read" "TECH_DEBT.md:1: internal/tui/spine.go" <<'EOF'
+A span ends at `a\` and then `internal/tui/spine.go` is one.
+EOF
+
+expect_backlog pass "an HTML comment, skipped" "1 repository path(s)" <<'EOF'
+Text <!-- `internal/gone.go` --> and `scripts/gate.sh`.
+
+<!-- A note
+holding `internal/gone.go`
+
+and a blank line before `internal/gone.go` -->
+
+  <!-- `internal/gone.go` -->
 EOF
 
 # shellcheck disable=SC2016 # the backticks are Markdown, not a command
