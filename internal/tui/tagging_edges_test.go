@@ -318,3 +318,22 @@ func TestADirectoryWithNoCredentialLeavesTaggingOut(t *testing.T) {
 		})
 	}
 }
+
+func TestALinkThatTakesAwayTheGroupUnderTheCursorLeavesItOnARow(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The team is marked not on Slack, and before that is saved the cursor
+	// moves past the API reviewers to the team's group, which the saved link
+	// then no longer offers: one row fewer.
+	preview := typing(t, taggingWorld().live(t, 140, 40), "5", "p", "down", "down", "down")
+	marking, save := pressed(t, preview, "x")
+	moved := typing(t, marking, "down", "down")
+	relinked, _ := finish(t, moved, save)
+
+	// Act
+	view := typing(t, relinked, keySpace).View().Content
+
+	// Assert
+	requireScreen(t, view, "tags  @Carla Diaz @api-reviewers")
+}
