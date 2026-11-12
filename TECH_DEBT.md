@@ -270,21 +270,31 @@ release.
 
 ### TRADE-16 Failures only a change between two calls can cause
 
-Two calls follow one that has just read or made the same file, so they fail
-only when the file system changes between the two, a race no test can hold
-open without a seam. Opening the store at this build's schema version:
+Three calls follow one that has just read, made or moved the same file, so
+they fail only when the file system changes between the two, a race no test
+can hold open without a seam. Opening the store at this build's schema version:
 `removeDatabase` removes the files the open that just read the version held
 (`internal/store/store.go`, checked in `remakeDatabase`), and `stamp` writes
 the version into a file the open just made or read (checked in
-`openCurrent`).
+`openCurrent`). Cleaning the store: when `setAside`
+(`internal/store/clean.go`) cannot rename a file aside, `putBack` renames
+back each one it has just moved, which fails only when another program moves
+the aside file away, or puts what a rename cannot replace, such as a
+directory, at its name, in between.
 
-**Decided.** 2026-09-26, in #146.
+**Decided.** 2026-09-26, in #146, and on 2026-11-12, in #373, for the
+clean's put-back.
 
 **Cost.** Five error arms no test runs: `removeDatabase`'s own, a removal
 that fails for any reason but the file being gone already; `stamp`'s own
 check; `remakeDatabase`'s check of `removeDatabase`; and the two in
 `openCurrent` that pass them on. What each says when the race is lost is read
-rather than checked.
+rather than checked. A put-back that fails is joined into the
+`ErrNotCleaned` the clean returns, with the rename that stopped it, and no
+test sees one: what it says is read rather than checked. When the aside file
+was moved away, nothing stays aside. Otherwise it stays at its aside name,
+which `Files` lists, and the store opens without it, so a `kept.db` left aside
+reads as empty, until a clean whose scope covers that file removes it first.
 
 **Reopen when.** One of these failures is reported, or a change to the calls
 lets a test fail the second without the first.
