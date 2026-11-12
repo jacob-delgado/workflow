@@ -314,6 +314,25 @@ test('a waiting task still tracks the issue', () => {
   expect(screen.queryByRole('button', { name: 'Track in Taskwarrior' })).toBeNull()
 })
 
+test("a recurring task's template still tracks the issue, with nothing to do on it", () => {
+  // Arrange
+  // A template is what its instances are made from, never started or done
+  // itself; tracking the issue again would track it twice.
+  streamLinked(taskStanding(tracking, { status: 'recurring' }, standing.recurring))
+
+  // Act
+  renderWithClient(<IssueTasks issueKey={issueKey} />)
+
+  // Assert
+  const card = screen.getByRole('region', { name: 'Tasks' })
+  expect(within(card).getByRole('listitem').textContent).toMatch(/Redact tokens.*recurring/)
+  expect(
+    within(card)
+      .queryAllByRole('button')
+      .map((button) => button.textContent),
+  ).toEqual([])
+})
+
 test("a pending task whose wait is still ahead says the server's state, waiting", () => {
   // Arrange
   streamLinked(
