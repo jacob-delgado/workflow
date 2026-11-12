@@ -29,6 +29,7 @@ export function SummaryPanel() {
     read.isPending,
     chosen === null ? '' : `${chosen.from}/${chosen.to}`,
   )
+  const outcome = useOutcome()
 
   if (last === undefined) {
     return <FirstRead read={read} refusal={refusal} />
@@ -47,7 +48,7 @@ export function SummaryPanel() {
         <PeriodSteps period={period} today={last.today} onPick={choose} />
       </div>
       <div className={cn('lg:col-start-2 lg:row-span-2 lg:row-start-1', contentMeasure)}>
-        <Shown read={read} refusal={refusal} period={period} />
+        <Shown read={read} refusal={refusal} period={period} outcome={outcome} />
       </div>
       <div className={cn('lg:col-start-1 lg:row-start-2', contentMeasure)}>
         <PeriodCalendar period={period} today={last.today} onPick={choose} />
@@ -103,13 +104,19 @@ function ReadingPeriod() {
   return <Reading>Reading what you did…</Reading>
 }
 
+// PanelOutcome is the section's outcome line, which outlives the period a
+// write was started on: a post still going as another period is picked says
+// where it went once it has gone.
+type PanelOutcome = ReturnType<typeof useOutcome>
+
 interface ShownProps extends ReadProps {
   period: Period
+  outcome: PanelOutcome
 }
 
 // Shown is the period named, then why it could not be read, that it is being
 // read, or what was done in it.
-function Shown({ read, refusal, period }: ShownProps) {
+function Shown({ read, refusal, period, outcome }: ShownProps) {
   return (
     <div className="flex min-w-0 flex-col gap-group">
       <h2 className="text-lg">
@@ -119,8 +126,10 @@ function Shown({ read, refusal, period }: ShownProps) {
       </h2>
       {refusal === null ? null : <Refused read={read} refusal={refusal} />}
       {refusal === null && read.data === undefined ? <ReadingPeriod /> : null}
-      {read.data === undefined ? null : (
-        <Done activity={read.data} period={period} reading={read.isFetching} />
+      {read.data === undefined ? (
+        <OutcomeLine said={outcome.said} />
+      ) : (
+        <Done activity={read.data} period={period} reading={read.isFetching} outcome={outcome} />
       )}
     </div>
   )
@@ -130,12 +139,12 @@ interface DoneProps {
   activity: Activity
   period: Period
   reading: boolean
+  outcome: PanelOutcome
 }
 
 // Done is the summary to copy or post, what each source could not say, and
 // the period's timeline or that nothing was done.
-function Done({ activity, period, reading }: DoneProps) {
-  const outcome = useOutcome()
+function Done({ activity, period, reading, outcome }: DoneProps) {
   const written =
     period.from === period.to
       ? writtenDay(period.from)
