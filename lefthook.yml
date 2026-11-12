@@ -29,97 +29,117 @@
 # later `task check` cannot undo — by then it is in the history.
 
 pre-commit:
-  parallel: true
-  commands:
-    # golangci-lint owns formatting (gofmt, gofumpt, goimports, gci per
-    # .golangci.yml); `fmt` applies it, then `run --fix` lints and autofixes.
-    golangci-lint-fmt:
-      glob: "*.go"
-      run: golangci-lint fmt {staged_files}
-      stage_fixed: true
+  # Two stages, one after the other. The fixers rewrite the staged files and
+  # stage them again, so nothing reads a file while one of them may be writing
+  # it: they run first, side by side but for golangci-lint's two, which write
+  # the same Go files and so run in turn, and the checks run once they are
+  # done, side by side, reading what the fixers left.
+  jobs:
+    - name: fixers
+      group:
+        parallel: true
+        jobs:
+          - name: go-fixers
+            group:
+              jobs:
+                # golangci-lint owns formatting (gofmt, gofumpt, goimports,
+                # gci per .golangci.yml); `fmt` applies it, then `run --fix`
+                # lints and autofixes.
+                - name: golangci-lint-fmt
+                  glob: "*.go"
+                  run: golangci-lint fmt {staged_files}
+                  stage_fixed: true
 
-    # --new-from-rev=HEAD keeps the hook scoped to what this commit changes: at
-    # pre-commit the commit is not made yet, so its change is the difference
-    # from HEAD, and an issue already in HEAD does not fail an unrelated
-    # commit. Before the first commit there is no HEAD to compare with, and a
-    # hook that errors out there teaches --no-verify on day one, so it lints
-    # everything instead.
-    golangci-lint:
-      glob: "*.go"
-      run: |
-        if git rev-parse --verify --quiet HEAD >/dev/null; then
-          golangci-lint run --new-from-rev=HEAD --fix
-        else
-          golangci-lint run --fix
-        fi
-      stage_fixed: true
+                # --new-from-rev=HEAD keeps the hook scoped to what this
+                # commit changes: at pre-commit the commit is not made yet, so
+                # its change is the difference from HEAD, and an issue already
+                # in HEAD does not fail an unrelated commit. Before the first
+                # commit there is no HEAD to compare with, and a hook that
+                # errors out there teaches --no-verify on day one, so it lints
+                # everything instead.
+                - name: golangci-lint
+                  glob: "*.go"
+                  run: |
+                    if git rev-parse --verify --quiet HEAD >/dev/null; then
+                      golangci-lint run --new-from-rev=HEAD --fix
+                    else
+                      golangci-lint run --fix
+                    fi
+                  stage_fixed: true
 
-    license-headers:
-      glob: "*.go"
-      run: scripts/check-license-headers.sh {staged_files}
+          - name: shfmt
+            glob: "*.sh"
+            run: shfmt -i 2 -ci -bn -w {staged_files}
+            stage_fixed: true
 
-    # Arrange-Act-Assert markers. Each staged test file's whole package is
-    # checked: a helper edited in one file decides whether an Assert in another
-    # still reaches a failure.
-    testshape:
-      glob: "*_test.go"
-      run: go run ./cmd/testshape {staged_files}
+          - name: markdownlint
+            glob: "*.md"
+            run: markdownlint-cli2 --fix {staged_files}
+            stage_fixed: true
 
-    shfmt:
-      glob: "*.sh"
-      run: shfmt -i 2 -ci -bn -w {staged_files}
-      stage_fixed: true
+          - name: taplo
+            glob: "*.toml"
+            run: taplo fmt {staged_files}
+            stage_fixed: true
 
-    shellcheck:
-      glob: "*.sh"
-      run: shellcheck {staged_files}
+    - name: checks
+      group:
+        parallel: true
+        jobs:
+          - name: license-headers
+            glob: "*.go"
+            run: scripts/check-license-headers.sh {staged_files}
 
-    # The whole of scripts/ rather than the staged files: a script staged
-    # without its test shows only against what the index holds. A commit that
-    # only deletes a test may stage no file the glob matches; task lint, which
-    # CI runs, still catches that.
-    sibling-tests:
-      glob: "scripts/**"
-      run: scripts/check-sibling-tests.sh
+          # Arrange-Act-Assert markers. Each staged test file's whole package
+          # is checked: a helper edited in one file decides whether an Assert
+          # in another still reaches a failure.
+          - name: testshape
+            glob: "*_test.go"
+            run: go run ./cmd/testshape {staged_files}
 
-    yamllint:
-      glob: "*.{yml,yaml}"
-      run: yamllint --strict {staged_files}
+          - name: shellcheck
+            glob: "*.sh"
+            run: shellcheck {staged_files}
 
-    hadolint:
-      glob: "*Dockerfile*"
-      run: hadolint {staged_files}
+          # The whole of scripts/ rather than the staged files: a script
+          # staged without its test shows only against what the index holds. A
+          # commit that only deletes a test may stage no file the glob
+          # matches; task lint, which CI runs, still catches that.
+          - name: sibling-tests
+            glob: "scripts/**"
+            run: scripts/check-sibling-tests.sh
 
-    actionlint:
-      glob: ".github/workflows/*.{yml,yaml}"
-      run: actionlint
+          - name: yamllint
+            glob: "*.{yml,yaml}"
+            run: yamllint --strict {staged_files}
 
-    # American English, repo-wide. --force-exclude keeps _typos.toml's excludes
-    # effective even though lefthook passes files as explicit arguments.
-    typos:
-      run: typos --force-exclude {staged_files}
+          - name: hadolint
+            glob: "*Dockerfile*"
+            run: hadolint {staged_files}
 
-    markdownlint:
-      glob: "*.md"
-      run: markdownlint-cli2 --fix {staged_files}
-      stage_fixed: true
+          - name: actionlint
+            glob: ".github/workflows/*.{yml,yaml}"
+            run: actionlint
 
-    taplo:
-      glob: "*.toml"
-      run: taplo fmt {staged_files}
-      stage_fixed: true
+          # American English, repo-wide. --force-exclude keeps _typos.toml's
+          # excludes effective even though lefthook passes files as explicit
+          # arguments.
+          - name: typos
+            run: typos --force-exclude {staged_files}
 
-    # actionlint (above) checks that a workflow is valid; zizmor checks that it
-    # is safe — script injection, over-broad permissions, mutable action refs.
-    zizmor:
-      glob: ".github/workflows/*.{yml,yaml}"
-      run: zizmor --no-progress {staged_files}
+          # actionlint (above) checks that a workflow is valid; zizmor checks
+          # that it is safe — script injection, over-broad permissions,
+          # mutable action refs.
+          - name: zizmor
+            glob: ".github/workflows/*.{yml,yaml}"
+            run: zizmor --no-progress {staged_files}
 
-    # Secret scan of the staged diff. This repo's whole subject is API tokens,
-    # so catching one before it enters a commit is worth the second it costs;
-    # `task secrets` still sweeps the working tree, and CI still sweeps history.
-    gitleaks:
-      run: gitleaks git --staged --redact --no-banner
+          # Secret scan of the staged diff. This repo's whole subject is API
+          # tokens, so catching one before it enters a commit is worth the
+          # second it costs; `task secrets` still sweeps the working tree, and
+          # CI still sweeps history.
+          - name: gitleaks
+            run: gitleaks git --staged --redact --no-banner
 
 # Pre-push: the tests (unit-go), golangci-lint over every Go file
 # (lint-go-all), the web's gates (web), the four whole-tree checks a
