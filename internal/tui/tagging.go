@@ -447,7 +447,9 @@ func (s tagSection) toggled() tagSection {
 
 // relinked is the section once a link was saved, or with why it was not. A
 // group the link newly offers starts as proposed; the others keep their
-// check.
+// check. The cursor, which may have moved on while the link was saved, is
+// held to the rows there are now: a group the link no longer offers is a
+// row fewer.
 func (s tagSection) relinked(link loop.OwnerLink, err error) tagSection {
 	s.linkErr = err
 	if err != nil {
@@ -469,5 +471,5 @@ func (s tagSection) relinked(link loop.OwnerLink, err error) tagSection {
 
 	s.checked = checked
 
-	return s.withGroupsReadable()
+	return s.withGroupsReadable().moved(0)
 }
