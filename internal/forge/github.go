@@ -160,8 +160,9 @@ func githubRewrite(
 		})
 }
 
-// githubFind finds the open pull request from a branch. GitHub filters by head
-// as owner:branch; the branch alone matches nothing.
+// githubFind finds the branch's pull request: an open one, or the merged one
+// that means the branch is finished, as its GitLab twin does. GitHub filters
+// by head as owner:branch; the branch alone matches nothing.
 func githubFind(ctx context.Context, client Client, repo Repo, head Head) (PullRequest, bool, error) {
 	owner := githubOwner(repo.Path)
 	if head.forkOf(repo) {
