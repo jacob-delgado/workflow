@@ -120,10 +120,10 @@ if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; t
   fi
 fi
 
-released="$(sed -n -E 's/.*"\."[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' "${manifest}")"
+manifest_version="$(sed -n -E 's/.*"\."[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' "${manifest}")"
 
-if [[ "${released}" != "${version}" ]]; then
-  echo "The subject names ${version} and ${manifest} holds '${released}'; not releasing." >&2
+if [[ "${manifest_version}" != "${version}" ]]; then
+  echo "The subject names ${version} and ${manifest} holds '${manifest_version}'; not releasing." >&2
   exit 1
 fi
 
