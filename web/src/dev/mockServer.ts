@@ -26,7 +26,14 @@ import {
   zWorklogRequest,
 } from '@/api/generated/zod.gen.ts'
 import { mockActivity } from './mockActivity.ts'
-import { mockAnnouncement, mockArmedOn } from './mockAnnouncement.ts'
+import {
+  mockAnnouncedNow,
+  mockAnnouncement,
+  mockArmedOn,
+  mockHeld,
+  mockHold,
+  mockStop,
+} from './mockAnnouncement.ts'
 import { mockConfig } from './mockConfig.ts'
 import { mockIssueDetail, mockStatusChanges, mockViews } from './mockIssues.ts'
 import { mockKeys } from './mockKeys.ts'
@@ -189,6 +196,17 @@ function unprocessable(detail: string): Response {
   )
 }
 
+// conflict is the server's refusal of a write the state on its side does not
+// allow, worded as it words one.
+function conflict(detail: string): Response {
+  const status = 409
+
+  return Response.json(
+    { type: `${problemBase}#conflict`, title: 'Conflict', status, detail, code: 'conflict' },
+    { status, headers: { 'Content-Type': 'application/problem+json' } },
+  )
+}
+
 // nothing is an answer with no body, as the server gives one for a write that
 // has nothing to say.
 function nothing(): Response {
@@ -254,7 +272,11 @@ class MockEventSource extends EventTarget {
 
     this.readyState = MockEventSource.OPEN
     this.dispatchEvent(new Event('open'))
-    const frame = { ...mockSnapshot, writes: MockEventSource.writes }
+    const frame = {
+      ...mockSnapshot,
+      queued_announcement: mockHeld() ?? mockSnapshot.queued_announcement,
+      writes: MockEventSource.writes,
+    }
     this.dispatchEvent(new MessageEvent('snapshot', { data: JSON.stringify(frame) }))
   }
 }
@@ -490,17 +512,20 @@ function messagingRoutes(): Routes {
     'POST /api/announce': ({ body }) => {
       const { channel, edited_text: edited, when } = zAnnounceRequest.parse(body)
       if (when === 'ci_passes') {
-        return Response.json(
-          { id: 1, state: 'waiting', channel, pull: mockPull().number, ci: mockAnnouncement.ci },
-          { status: 202 },
-        )
+        return Response.json(mockHold(mockPull().number, channel), { status: 202 })
       }
 
+      mockAnnouncedNow()
       const preview = previewed()
 
       return { ...preview, text: edited ?? preview.text, channel }
     },
-    'DELETE /api/announce/queued': nothing,
+    'DELETE /api/announce/queued': () =>
+      mockStop()
+        ? nothing()
+        : conflict(
+            'no announcement is waiting for CI; it was posted, dropped, stopped, or never held',
+          ),
   }
 }
 

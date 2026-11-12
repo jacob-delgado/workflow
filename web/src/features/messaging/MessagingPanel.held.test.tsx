@@ -274,6 +274,7 @@ const waitingArmed: QueuedAnnouncement = {
   state: 'waiting',
   channel: '#dev',
   pull: 42,
+  waiting_on: 'ci',
   ci: 'running',
   automatic: true,
 }

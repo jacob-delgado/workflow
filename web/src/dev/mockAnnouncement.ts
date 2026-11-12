@@ -1,4 +1,8 @@
-import type { Announcement, OpenedPullRequest } from '@/api/generated/types.gen.ts'
+import type {
+  Announcement,
+  OpenedPullRequest,
+  QueuedAnnouncement,
+} from '@/api/generated/types.gen.ts'
 import { mockConfig } from './mockConfig.ts'
 import { mockSnapshot } from './mockSnapshot.ts'
 
@@ -31,21 +35,74 @@ export const mockAnnouncement: Announcement = {
   can_wait_for_ci: mockSnapshot.review.ci?.state !== 'passed',
 }
 
+// held is the announcement the mockup holds until CI passes, as the server
+// holds one, which every frame carries once one was held; the mock's CI never
+// passes, so it waits until it is stopped or announced now instead.
+let held: QueuedAnnouncement | undefined
+
+// mockHeld is the announcement the mockup holds, as a frame shows it.
+export function mockHeld(): QueuedAnnouncement | undefined {
+  return held
+}
+
+// mockHold holds the announcement of pull request number to channel until
+// CI passes, afresh with the next id, armed as it opened when automatic says
+// so, and answers it as held.
+export function mockHold(number: number, channel: string, automatic = false): QueuedAnnouncement {
+  held = {
+    id: (held?.id ?? 0) + 1,
+    state: 'waiting',
+    waiting_on: 'ci',
+    channel,
+    pull: number,
+    ...(mockAnnouncement.ci === undefined ? {} : { ci: mockAnnouncement.ci }),
+    ...(automatic ? { automatic } : {}),
+  }
+
+  return held
+}
+
+// mockAnnouncedNow settles a waiting held announcement as announced, one
+// asked for now having gone out in its place.
+export function mockAnnouncedNow(): void {
+  if (held?.state === 'waiting') {
+    held = settled(held, 'announced')
+  }
+}
+
+// mockStop stops the waiting held announcement, reporting whether one was
+// waiting to stop; with none, nothing changes.
+export function mockStop(): boolean {
+  if (held?.state !== 'waiting') {
+    return false
+  }
+
+  held = {
+    ...settled(held, 'stopped'),
+    reason: 'the announcement was stopped before it was posted',
+  }
+
+  return true
+}
+
+// settled is held at state, waiting no more.
+function settled(
+  waiting: QueuedAnnouncement,
+  state: QueuedAnnouncement['state'],
+): QueuedAnnouncement {
+  const { id, channel, pull, automatic } = waiting
+
+  return { id, state, channel, pull, ...(automatic === undefined ? {} : { automatic }) }
+}
+
 // mockArmedOn is what opening pull request number says of its announcement:
-// armed to post once CI passes, or, for a draft, why it is not.
+// armed to post once CI passes, which the mockup then holds, or, for a draft,
+// why it is not.
 export function mockArmedOn(
   number: number,
   draft: boolean,
 ): Pick<OpenedPullRequest, 'announcement' | 'not_armed'> {
   return draft
     ? { not_armed: 'a draft is not announced; announce it once it is ready' }
-    : {
-        announcement: {
-          id: 1,
-          state: 'waiting',
-          channel: mockSnapshot.messaging.channel,
-          pull: number,
-          automatic: true,
-        },
-      }
+    : { announcement: mockHold(number, mockSnapshot.messaging.channel, true) }
 }

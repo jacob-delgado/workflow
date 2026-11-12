@@ -441,9 +441,12 @@ Until the pull request's CI passes, a ready-for-review announcement's preview
 also offers **Announce when CI passes**, the terminal's `w`: the server holds
 the announcement — edited or not, with its tags — and the section says *Waiting
 for CI on #42 to pass, then announcing to #dev.*, with **Stop waiting** to stop
-it unposted. Below them, while it waits, the announce button reads **Announce
-now instead**, drawn as a secondary control: it opens the same preview, and an
-announcement sent from it takes the held one's place. The held one is posted
+it unposted, after which the section offers to announce it again. Below them,
+while a frame shows it waiting — whichever page held it — the
+announce button reads **Announce now instead**, drawn as a secondary control:
+it opens the same preview, and an announcement sent from it settles the held
+one as announced once it goes. A pull request just opened waits first for the
+forge to list it, and the section says so. The held one is posted
 once the forge reports the CI passed, and the section then says it was
 announced. A failed run does not drop it: the section says a check failed and it
 waits on a fix, and it goes once a later run passes; nor does a read of the

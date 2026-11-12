@@ -157,6 +157,78 @@ test("a run's end is counted after its start, and its frame counts both", async 
   expect(useSnapshotStore.getState().snapshot?.writes).toBe(2)
 })
 
+// liveStream opens the mockup's stream, live once its first frame came.
+async function liveStream() {
+  renderHook(() => {
+    useEventStream(null, vi.fn())
+  })
+  await waitFor(() => {
+    expect(useSnapshotStore.getState().status).toBe('live')
+  })
+}
+
+// heldShown is the held announcement the last frame shows: its id and state.
+function heldShown() {
+  const held = useSnapshotStore.getState().snapshot?.queued_announcement
+
+  return held === undefined ? undefined : { id: held.id, state: held.state }
+}
+
+test("the mockup's frames show an announcement held for CI waiting", async () => {
+  // Arrange
+  await installed()
+  await liveStream()
+
+  // Act
+  await announceWhenCIPasses('#releases', 'octocat opened #7')
+
+  // Assert
+  await waitFor(() => {
+    expect(heldShown()).toEqual({ id: 1, state: 'waiting' })
+  })
+})
+
+test("the mockup's frames show a held announcement stopped", async () => {
+  // Arrange
+  await installed()
+  await liveStream()
+  await announceWhenCIPasses('#releases', 'octocat opened #7')
+
+  // Act
+  await stopWaiting()
+
+  // Assert
+  await waitFor(() => {
+    expect(heldShown()).toEqual({ id: 1, state: 'stopped' })
+  })
+})
+
+test("the mockup's frames show a held announcement announced once one goes now", async () => {
+  // Arrange
+  await installed()
+  await liveStream()
+  await announceWhenCIPasses('#releases', 'octocat opened #7')
+
+  // Act
+  await announce('#releases', 'octocat opened #7')
+
+  // Assert
+  await waitFor(() => {
+    expect(heldShown()).toEqual({ id: 1, state: 'announced' })
+  })
+})
+
+test('the mockup refuses to stop an announcement when none waits', async () => {
+  // Arrange
+  await installed()
+
+  // Act
+  const stopped = stopWaiting()
+
+  // Assert
+  await expect(stopped).rejects.toMatchObject({ code: 'conflict', status: 409 })
+})
+
 test('the mockup is a writable build', async () => {
   // Arrange
   await installed()
@@ -320,7 +392,6 @@ test.each<[string, () => Promise<void>]>([
   ['staging everything', () => stageEverything()],
   ['a discard', () => discardFile('internal/a.go')],
   ['a stop', () => stopRun()],
-  ['dropping a held announcement', () => stopWaiting()],
   ['a link on the issue', () => linkOnIssue('PROJ-412')],
   ['a move to review', () => moveToReview('PROJ-412')],
 ])('the mockup takes %s', async (_, write) => {

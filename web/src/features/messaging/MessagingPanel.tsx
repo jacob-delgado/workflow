@@ -92,8 +92,14 @@ function AnnounceSection({
         waiting={waiting}
       />
     ) : null
+  // Each hold is keyed by its id, so one held afresh is drawn afresh.
   const heldLine = (
-    <HeldAnnouncement key="held" held={held} service={messaging.service} onSaid={outcome.say} />
+    <HeldAnnouncement
+      key={held === undefined ? 'held' : `held-${String(held.id)}`}
+      held={held}
+      service={messaging.service}
+      onSaid={outcome.say}
+    />
   )
 
   return (

@@ -50,11 +50,13 @@ export async function announce(
 }
 
 // Held says whether an announcement asked to wait for CI is held, or went at
-// once because its CI had passed by then, where it goes, and the server's
-// warning when it went but could not be confirmed.
+// once because its CI had passed by then, where it goes, the number of the
+// pull request whose waiting announcement it replaced, if it did, and the
+// server's warning when it went but could not be confirmed.
 export interface Held {
   held: boolean
   channel: string
+  replaced?: number | undefined
   warning?: string | undefined
 }
 
@@ -73,14 +75,17 @@ export async function announceWhenCIPasses(
     throwOnError: true,
   })
 
+  const answer = result.data
+
   return {
     held: result.response.status === 202,
-    channel: result.data.channel,
-    warning: result.data.warning,
+    channel: answer.channel,
+    replaced: 'replaced_pull' in answer ? answer.replaced_pull : undefined,
+    warning: answer.warning,
   }
 }
 
-// stopWaiting drops the announcement held for CI, unposted.
+// stopWaiting stops the announcement held for CI, unposted.
 export async function stopWaiting(): Promise<void> {
   await cancelQueuedAnnouncement({ throwOnError: true })
 }

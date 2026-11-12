@@ -101,6 +101,58 @@ test('an edited announcement is held until CI passes', async ({ page }) => {
   ])
 })
 
+// holdsAndStops answers the preview, holds a post asked to wait for CI and
+// stops it as asked, the stream's next frames showing each as the server's
+// would.
+async function holdsAndStops(page: Page): Promise<void> {
+  const waiting = {
+    id: 1,
+    state: 'waiting',
+    waiting_on: 'ci',
+    channel: '#dev',
+    pull: 7,
+  } satisfies QueuedAnnouncement
+  const stopped = { id: 1, state: 'stopped', channel: '#dev', pull: 7 } satisfies QueuedAnnouncement
+
+  await streams(page, snapshotHolding())
+  await page.route('**/api/announcement**', (route) => route.fulfill({ json: announcement }))
+  await page.route('**/api/announce', async (route) => {
+    await streams(page, snapshotHolding(waiting))
+    await route.fulfill({ status: 202, json: waiting })
+  })
+  await page.route('**/api/announce/queued', async (route) => {
+    await streams(page, snapshotHolding(stopped))
+    await route.fulfill({ status: 204 })
+  })
+}
+
+test('once one is held, Announce now instead is offered, and once stopped, Announce to again', async ({
+  page,
+}) => {
+  // Arrange
+  await holdsAndStops(page)
+  await openAnnouncementPreview(page)
+
+  // Act: hold it until CI passes
+  await page.getByRole('button', { name: 'Announce when CI passes' }).click()
+
+  // Assert: it waits, and announcing it now instead is offered
+  await expect(
+    page.getByText('Waiting for CI on #7 to pass, then announcing to #dev.'),
+  ).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Announce now instead' })).toBeVisible()
+
+  // Act: stop waiting
+  await page.getByRole('button', { name: 'Stop waiting' }).click()
+
+  // Assert: nothing waits, and announcing is offered again
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Stopped waiting; nothing was announced.' }),
+  ).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Announce to Slack' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Stop waiting' })).toHaveCount(0)
+})
+
 // drawing is how a control is drawn — its fill, its words' color and its edge
 // — and where its top stands on the page.
 function drawing(control: Locator) {
@@ -186,6 +238,7 @@ for (const theme of themes) {
       state: 'waiting',
       channel: '#dev',
       pull: 7,
+      waiting_on: 'fix',
       ci: 'failed',
     })
     await page.goto('/')

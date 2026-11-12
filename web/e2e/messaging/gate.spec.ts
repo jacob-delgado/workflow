@@ -1,5 +1,9 @@
 import type { Page } from '@playwright/test'
-import type { Announcement, Snapshot } from '../../src/api/generated/types.gen.ts'
+import type {
+  Announcement,
+  QueuedAnnouncement,
+  Snapshot,
+} from '../../src/api/generated/types.gen.ts'
 import { height, openAnnouncementPreview, pinTheme, themes, widths } from '../support/cockpit.ts'
 import { branchWith, expect, snapshotWith, streams, test } from '../support/fixtures.ts'
 import { expectReachableAndClean } from '../support/reachable.ts'
@@ -20,8 +24,8 @@ const pull = {
 } as const
 
 // snapshotFailing is the cockpit with pull request 7 open, a check on it
-// failed.
-function snapshotFailing(): Snapshot {
+// failed, and the held announcement given, if any.
+function snapshotFailing(held?: QueuedAnnouncement): Snapshot {
   return snapshotWith({
     branch: branchWith({
       name: 'fix/PROJ-7-redact',
@@ -44,6 +48,7 @@ function snapshotFailing(): Snapshot {
       channels: [],
       author: 'ana',
     },
+    queued_announcement: held,
   })
 }
 
@@ -78,6 +83,35 @@ test('a preview of a pull request a check failed on offers only to wait for a fi
       .getByRole('status')
       .filter({ hasText: 'A check failed on #7, so it is not announced now.' }),
   ).toBeVisible()
+})
+
+test('one held for a fix waits on it, and Announce now instead is offered', async ({ page }) => {
+  // Arrange
+  const waiting = {
+    id: 1,
+    state: 'waiting',
+    waiting_on: 'fix',
+    channel: '#dev',
+    pull: 7,
+    ci: 'failed',
+  } satisfies QueuedAnnouncement
+  await answersAFailedCheck(page)
+  await page.route('**/api/announce', async (route) => {
+    await streams(page, snapshotFailing(waiting))
+    await route.fulfill({ status: 202, json: waiting })
+  })
+  await openAnnouncementPreview(page)
+
+  // Act
+  await page.getByRole('button', { name: 'Announce when CI passes' }).click()
+
+  // Assert
+  await expect(
+    page.getByText(
+      'A check failed on #7; waiting on a fix, then announcing to #dev once CI passes.',
+    ),
+  ).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Announce now instead' })).toBeVisible()
 })
 
 for (const theme of themes) {
