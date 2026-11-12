@@ -70,6 +70,7 @@ type plannedRun struct {
 // one-response interface cannot stream. A refusal is a problem written before
 // anything runs. The run holds the index while it goes, and goes on to its end
 // on this connection's goroutine whether or not the page stays to read it.
+// What it works on is read again once it holds the index.
 func (r *Runner) StartRun(w http.ResponseWriter, request *http.Request) {
 	var asked api.RunRequest
 
@@ -99,8 +100,23 @@ func (r *Runner) StartRun(w http.ResponseWriter, request *http.Request) {
 
 	defer r.freeRun()
 
+	r.runHoldingTheIndex(ctx, w, asked)
+}
+
+// runHoldingTheIndex takes the index, plans the run asked for again — a write
+// queued ahead of it for the index, a finish or a new branch, may have moved
+// the branch it was first planned on — and starts and streams it, holding the
+// index until its program has ended.
+func (r *Runner) runHoldingTheIndex(ctx context.Context, w http.ResponseWriter, asked api.RunRequest) {
 	r.indexWrites.Lock()
 	defer r.indexWrites.Unlock()
+
+	planned, err := r.planRun(ctx, asked)
+	if err != nil {
+		writeRunRefusal(w, err)
+
+		return
+	}
 
 	output, err := planned.start(ctx)
 	if err != nil {
