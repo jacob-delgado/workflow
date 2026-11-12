@@ -51,7 +51,12 @@ export function problemCode(caught: unknown): string {
 // or a problem the server answered with a status of 500 or above — it, or
 // the service behind it, failed in passing. A refusal (4xx) stands until
 // something changes, and anything else thrown says nothing a second ask
-// would change.
+// would change. The status read is the problem's own, since the typed client
+// throws the body and not the response: the server answers every failure
+// with a problem that carries its status, so an answer whose body is no
+// problem — empty, text, or JSON with no status — is not asked again,
+// whatever its HTTP status. A TypeError thrown by a read's own code, not by
+// fetch, is asked again too: once, to the same end.
 export function mayAnswerAgain(caught: unknown): boolean {
   if (caught instanceof TypeError) {
     return true
