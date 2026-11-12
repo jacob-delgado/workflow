@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 #
 # Tests for check-tradeoffs.sh: it passes when every register entry carries its
-# ID and its three paragraphs and every site comment names an entry, and fails,
-# naming the file and line, on a heading that is not an ID or whose ID is
-# malformed, an ID used twice, a missing or empty paragraph, a site naming an
-# ID the register does not hold, and a line of the condition coverage
-# allowlist naming no ID, or one the register does not hold.
+# ID and its three paragraphs and every site comment names an entry, reading
+# no heading inside a fenced block as the register's, and fails, naming the
+# file and line, on a heading that is not an ID or whose ID is malformed, an ID
+# used twice, a missing or empty paragraph, a site naming an ID the register
+# does not hold, and a line of the condition coverage allowlist naming no ID,
+# or one the register does not hold.
 #
 # Usage:
 #   scripts/check-tradeoffs_test.sh
@@ -176,6 +177,15 @@ backlog "${costless}"
 edit "${costless}" 19 "**Cost.**"
 expect_named "an entry with an empty Cost" "${costless}" \
   "TECH_DEBT.md:13: TRADE-1 has an empty **Cost.** paragraph"
+
+# A heading inside a fenced block is code, not the register's structure: it
+# neither ends the register nor opens an entry, of either fence's kind.
+for fence in '```' '~~~'; do
+  fenced="${workdir}/fenced-${fence:0:1}"
+  backlog "${fenced}"
+  edit "${fenced}" 20 "\n${fence}text\n## An example heading\n### TRADE-9 Not an entry\n${fence}\n"
+  expect pass "headings in a ${fence} fenced block" "${fenced}"
+done
 
 # A site naming an ID the register does not hold.
 unregistered="${workdir}/unregistered"
