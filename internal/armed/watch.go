@@ -22,6 +22,17 @@ import (
 // polled for as long as it waits.
 const NoCIPatience = 10 * time.Minute
 
+// UnheardPatience is how long an announcement armed to go once CI passes
+// waits past reads, and posts, that failed — a forge, store or messaging
+// service unreachable, busy or asking it to wait — and for the forge to list a
+// pull request just opened, counted from the first such failure since a read
+// was heard, before it gives up with ErrUnheard.
+//
+// Trade-off TRADE-59: an outage longer than ten minutes loses the automatic
+// post, so a wait whose reads always fail ends, on every surface, rather than
+// polling for as long as its session runs.
+const UnheardPatience = 10 * time.Minute
+
 // Verdict is how an announcement armed to go once CI passes stands on a read
 // of its pull request's CI.
 type Verdict int
@@ -59,16 +70,8 @@ func WatchFrom(armedAt time.Time) CIWatch {
 // passed, starts its patience again, and none adds the time since the last
 // read heard, if that read was heard too.
 func (w CIWatch) Read(ci forge.CI, readAt time.Time) (CIWatch, Verdict) {
-	reported := CIWatch{quiet: 0, lastHeard: readAt}
-
-	switch ci.State {
-	case forge.CIRunning:
-		return reported, VerdictWaiting
-	case forge.CIFailed:
-		return reported, VerdictAwaitingFix
-	case forge.CIPassed:
-		return reported, VerdictDue
-	case forge.CINone:
+	if ci.State != forge.CINone {
+		return CIWatch{quiet: 0, lastHeard: readAt}, verdictOn(ci.State)
 	}
 
 	quiet := w.quiet
@@ -82,6 +85,18 @@ func (w CIWatch) Read(ci forge.CI, readAt time.Time) (CIWatch, Verdict) {
 	}
 
 	return heard, VerdictAwaitingChecks
+}
+
+// verdictOn is the verdict on a read of CI at state, its patience aside: none
+// reported awaits checks. A map, not a switch, so there is no last arm gobco
+// can never see false.
+func verdictOn(state forge.CIState) Verdict {
+	return map[forge.CIState]Verdict{
+		forge.CIRunning: VerdictWaiting,
+		forge.CIFailed:  VerdictAwaitingFix,
+		forge.CIPassed:  VerdictDue,
+		forge.CINone:    VerdictAwaitingChecks,
+	}[state]
 }
 
 // Unheard is the watch after a read that failed: the quiet heard so far is

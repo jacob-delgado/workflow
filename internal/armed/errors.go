@@ -3,7 +3,10 @@
 
 package armed
 
-import "errors"
+import (
+	"errors"
+	"strconv"
+)
 
 var (
 	// ErrNoCI gives up on an armed announcement whose pull request reported no
@@ -18,4 +21,43 @@ var (
 	// ErrNotListedYet is a find that does not see a pull request just opened,
 	// which a forge may list only a moment later: a read to make again.
 	ErrNotListedYet = errors.New("the forge does not list the pull request yet")
+	// ErrNoHead is a find that answered a pull request without the commit its
+	// branch is at, whose CI cannot be read: a read that failed.
+	ErrNoHead = errors.New("the forge did not say which commit the pull request is at")
+	// ErrUnheard gives up on an armed announcement whose reads, or posts,
+	// failed for UnheardPatience, or whose pull request the forge did not
+	// list within it. It wraps the last failure.
+	ErrUnheard = errors.New("nothing could be heard of the pull request for too long")
+	// ErrStopped is an armed announcement stopped as asked, or replaced by
+	// another asked for.
+	ErrStopped = errors.New("the announcement was stopped before it was posted")
+	// ErrLost is an armed announcement whose session or server ended while it
+	// waited.
+	ErrLost = errors.New("the announcement was lost, unposted, when its session ended")
+	// ErrBeingPosted refuses to arm, or to stop, an announcement while its
+	// post is under way.
+	ErrBeingPosted = errors.New("the announcement is being posted")
+	// ErrNothingWaiting refuses to stop an announcement that is not waiting.
+	ErrNothingWaiting = errors.New("no announcement is waiting")
+	// ErrArmedOther refuses to arm an announcement on its own over another
+	// pull request's that waits.
+	ErrArmedOther = errors.New("another pull request's announcement is waiting")
 )
+
+// OtherHeldError is ErrArmedOther, naming the pull request whose
+// announcement waits.
+type OtherHeldError struct {
+	Held int
+}
+
+var _ error = OtherHeldError{}
+
+// Error says which pull request's announcement waits.
+func (e OtherHeldError) Error() string {
+	return ErrArmedOther.Error() + " (" + strconv.Itoa(e.Held) + ")"
+}
+
+// Unwrap lets errors.Is match ErrArmedOther.
+func (OtherHeldError) Unwrap() error {
+	return ErrArmedOther
+}

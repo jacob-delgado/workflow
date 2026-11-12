@@ -26,6 +26,11 @@
 # *Testing* allows, in the commit that causes the drop. The numbers live here
 # and nowhere else; no document restates them.
 
+# internal/armed decides when an announcement armed until CI passes is
+# posted, on every surface: an arm it misses posts on a failed check, posts
+# twice or waits forever.
+internal/armed 98
+
 # internal/cli/doctor puts every configured credential to its service, and
 # masks the origin and base remote addresses it reports.
 internal/cli/doctor 98
