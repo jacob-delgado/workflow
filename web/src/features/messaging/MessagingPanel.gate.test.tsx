@@ -91,9 +91,12 @@ test('a preview of a merge a check failed on says to re-run the checks, offering
   expect(screen.queryByRole('button', { name: 'Announce when CI passes' })).toBeNull()
 })
 
-test('a post refused because a check failed offers to wait', async () => {
-  // Arrange
+// failingBeforePost previews with CI running, then has a check fail before
+// the post, which the server refuses for it, while it holds one until CI
+// passes; it returns the body of each announcement sent.
+function failingBeforePost(): unknown[] {
   let previews = 0
+  const sent: unknown[] = []
   fakeApi({
     '/api/announcement': () => {
       previews += 1
@@ -105,18 +108,31 @@ test('a post refused because a check failed offers to wait', async () => {
         can_wait_for_ci: true,
       })
     },
-    '/api/announce': () =>
-      Response.json(
-        {
-          type: 'https://jacob-delgado.github.io/workflow/docs/errors/#ci-failed',
-          title: 'CI failed',
-          status: 409,
-          detail: 'a check failed on #42, so nothing was announced',
-          code: 'ci_failed',
-        },
-        { status: 409, headers: { 'Content-Type': 'application/problem+json' } },
-      ),
+    '/api/announce': async (_at: URL, asked: Request) => {
+      const body = (await asked.json()) as { when?: string }
+      sent.push(body)
+
+      return body.when === 'ci_passes'
+        ? Response.json({ id: 1, state: 'waiting', channel: '#dev', pull: 42 }, { status: 202 })
+        : Response.json(
+            {
+              type: 'https://jacob-delgado.github.io/workflow/docs/errors/#ci-failed',
+              title: 'CI failed',
+              status: 409,
+              detail: 'a check failed on #42, so nothing was announced',
+              code: 'ci_failed',
+            },
+            { status: 409, headers: { 'Content-Type': 'application/problem+json' } },
+          )
+    },
   })
+
+  return sent
+}
+
+test('a post refused because a check failed offers to wait', async () => {
+  // Arrange
+  failingBeforePost()
   withPull()
   render(<MessagingPanel />)
   await userEvent.click(screen.getByRole('button', { name: 'Announce to Slack' }))
@@ -127,6 +143,31 @@ test('a post refused because a check failed offers to wait', async () => {
   // Assert
   expect(await screen.findByRole('button', { name: 'Announce when CI passes' })).toBeTruthy()
   expect(screen.queryByRole('button', { name: 'Announce now' })).toBeNull()
+})
+
+test('a post refused because a check failed keeps the edit for the wait', async () => {
+  // Arrange
+  const sent = failingBeforePost()
+  withPull()
+  render(<MessagingPanel />)
+  await userEvent.click(screen.getByRole('button', { name: 'Announce to Slack' }))
+  await userEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+  const box = screen.getByRole('textbox', { name: 'Announcement text' })
+  await userEvent.clear(box)
+  await userEvent.type(box, 'Please review #42')
+  await userEvent.click(screen.getByRole('button', { name: 'Announce now' }))
+
+  // Act
+  await userEvent.click(await screen.findByRole('button', { name: 'Announce when CI passes' }))
+
+  // Assert
+  await screen.findByText('Will announce to #dev once CI passes.')
+  expect(sent.at(-1)).toEqual({
+    channel: '#dev',
+    text: composed,
+    edited_text: 'Please review #42',
+    when: 'ci_passes',
+  })
 })
 
 test('a held announcement waiting on a fix says so', () => {
