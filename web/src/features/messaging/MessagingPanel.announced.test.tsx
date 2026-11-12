@@ -134,6 +134,22 @@ test('offers nothing to announce for a pull request closed without merging', () 
   expect(screen.queryByRole('button', { name: /^Announce to/ })).toBeNull()
 })
 
+test('offers nothing to announce for a pull request the forge is merging', () => {
+  // Arrange
+  // Merging, it is no longer ready for review and not yet merged: it is at
+  // no moment to announce, as the server refuses one.
+  announcedPull('none', 'merging')
+
+  // Act
+  render(<MessagingPanel />)
+
+  // Assert
+  expect(
+    screen.getByText('The pull request is merging — announce it once it has merged.'),
+  ).toBeTruthy()
+  expect(screen.queryByRole('button', { name: /^Announce to/ })).toBeNull()
+})
+
 test('never says a pull request closed without merging was announced', () => {
   // Arrange
   // The page reads the pull request's state itself, so even a frame that read

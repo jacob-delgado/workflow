@@ -148,6 +148,24 @@ func TestComposeAnnouncementRefusesWithoutAPullRequest(t *testing.T) {
 	}
 }
 
+func TestComposeAnnouncementRefusesWhileTheForgeMergesThePull(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	merging := openPull()
+	merging.State = forge.StateMerging
+	seams := announceSeams()
+	seams.FindPull = func(context.Context, string) (forge.PullRequest, bool, error) { return merging, true, nil }
+
+	// Act
+	_, _, err := compose(t, seams)
+
+	// Assert
+	if !errors.Is(err, loop.ErrPullMerging) {
+		t.Errorf("ComposeAnnouncement returned %v, want ErrPullMerging: not ready for review, not yet merged", err)
+	}
+}
+
 func TestComposeAnnouncementReportsWhatCannotBeRead(t *testing.T) {
 	t.Parallel()
 

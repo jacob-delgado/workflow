@@ -424,7 +424,9 @@ service did not say it took keeps its claim, saying so. With `store.disabled`
 nothing is claimed or kept, so once posted the section offers the
 announcement again and posts it again if asked. A pull request closed
 without merging is none to announce: the section asks for one to be opened, as
-it does with none at all. Each announcement is claimed in the store before it is
+it does with none at all. One GitLab is merging is at no moment to announce:
+the section says to announce it once it has merged, and offers nothing until
+then. Each announcement is claimed in the store before it is
 posted, so two pages, a page and a terminal, or two servers asking at once
 post it once, and the second is answered 409. One posted whose claim the store
 then cannot confirm — a full disk, say — went out all the same, and the line

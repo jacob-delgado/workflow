@@ -68,6 +68,7 @@ func TestExitStatusDistinguishesFailureKinds(t *testing.T) {
 		"a pull request is open":      {err: loop.PullAlreadyOpenError{}, want: 4},
 		"nothing to open":             {err: loop.ErrNothingToOpen, want: 4},
 		"no pull request":             {err: loop.ErrNoPullRequest, want: 4},
+		"a pull request merging":      {err: loop.ErrPullMerging, want: 4},
 		"a dirty tree":                {err: loop.ErrDirtyTree, want: 4},
 		"nothing staged":              {err: loop.ErrNothingStaged, want: 4},
 		"not a repository":            {err: gitrepo.ErrNotARepository, want: 4},

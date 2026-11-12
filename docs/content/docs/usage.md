@@ -571,8 +571,10 @@ says why not otherwise. `n` stays on offer after a merge, as `workflow pr`
 allows, so commits made on the branch since can go up in a new pull request.
 While GitLab merges a merge request, which it locks until the merge lands, the
 pane says *merging* and offers nothing on it, `workflow pr` refuses to open
-another, and an announcement waiting for its CI is dropped, as it is when one
-merges first.
+another, and nothing announces it: the messaging pane says to announce it once
+it has merged, `workflow announce` refuses with exit status 4, saying the same,
+and an announcement waiting for its CI is dropped, as it is when one merges
+first.
 
 ### Announce it
 

@@ -3995,7 +3995,7 @@ export type GetAnnouncementData = {
 
 export type GetAnnouncementErrors = {
     /**
-     * There is no pull request to announce, or the server is not running in a git repository.
+     * There is no pull request to announce, or one the forge is merging, or the server is not running in a git repository.
      */
     409: Problem;
     /**
@@ -4024,7 +4024,7 @@ export type AnnounceData = {
 
 export type AnnounceErrors = {
     /**
-     * There is no pull request to announce, the server is not running in a git repository, or the announcement changed since the given text was previewed, or whom it tags did since the mentions' users were; or it was already announced at this moment, or, code announced_unconfirmed, a post of it began and was never confirmed; or, to post when CI passes, it is not ready for review; or a held announcement is being posted; or, code ci_failed, a check failed on the pull request, so it was not announced now.
+     * There is no pull request to announce, the forge is merging it, the server is not running in a git repository, or the announcement changed since the given text was previewed, or whom it tags did since the mentions' users were; or it was already announced at this moment, or, code announced_unconfirmed, a post of it began and was never confirmed; or, to post when CI passes, it is not ready for review; or a held announcement is being posted; or, code ci_failed, a check failed on the pull request, so it was not announced now.
      */
     409: Problem;
     /**

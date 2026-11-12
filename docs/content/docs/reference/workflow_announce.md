@@ -27,13 +27,15 @@ request already announced at the moment it is at is said to be, and asked about
 again rather than repeated — with --yes, it is left as it is. --channel announces
 in another channel than messaging.channel, which only a Slack user token can.
 
-Nothing is announced while a check has failed on the pull request. With
+Nothing is announced while a check has failed on the pull request, or while
+GitLab is merging the merge request: announce it once it has merged. With
 --when-green, announce waits in the foreground for its CI to pass, through a
 failed run, then announces it; ctrl+c stops waiting without announcing. It
 waits on the branch it started on, whatever is checked out meanwhile, and gives
-up on a pull request that reports no check for ten minutes, whose CI runs
-unchanged for two hours, or whose CI cannot be read, or announcement posted,
-for ten minutes.
+up on a pull request that is closed, replaced, merged or begins merging before
+its CI passes, that reports no check for ten minutes, whose CI runs unchanged
+for two hours, or whose CI cannot be read, or announcement posted, for ten
+minutes.
 
 ```
 workflow announce [flags]

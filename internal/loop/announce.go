@@ -20,6 +20,10 @@ var (
 	// ErrNoPullRequest refuses an announcement when the branch has no pull
 	// request to announce, or there is no way to find one.
 	ErrNoPullRequest = errors.New("there is no pull request to announce")
+	// ErrPullMerging refuses an announcement while the forge merges its pull
+	// request: no longer ready for review and not yet merged, it is at no
+	// moment to announce.
+	ErrPullMerging = errors.New("the pull request is merging; announce it once it has merged")
 	// ErrEmptyAnnouncement refuses an announcement edited down to nothing:
 	// guidance, not a failure.
 	ErrEmptyAnnouncement = errors.New("nothing to announce: the message was empty")
@@ -60,8 +64,9 @@ type Composed struct {
 // request — its title and link, the branch's issue, who opened it and the moment
 // it is at — rendered for the configured service and template, with the pull
 // request it announces and the branch it read, reading under ctx. It refuses
-// with ErrNoPullRequest when there is none, and says which read failed when the
-// branch or the pull request cannot be read.
+// with ErrNoPullRequest when there is none, and ErrPullMerging while the forge
+// merges it, and says which read failed when the branch or the pull request
+// cannot be read.
 func ComposeAnnouncement(
 	ctx context.Context, seams AnnounceSeams, cfg config.Messaging, project string, kind forge.Kind,
 ) (Composed, error) {
@@ -130,7 +135,8 @@ func Announcement(facts AnnouncementFacts, cfg config.Messaging, kind forge.Kind
 }
 
 // pullToAnnounce reads the checked-out branch and the pull request found for it,
-// open or merged: one closed without merging is none to announce.
+// open or merged: one closed without merging is none to announce, and one the
+// forge is merging is refused with ErrPullMerging.
 func pullToAnnounce(ctx context.Context, seams AnnounceSeams) (gitrepo.Branch, forge.PullRequest, error) {
 	if seams.Branch == nil || seams.FindPull == nil {
 		return gitrepo.Branch{}, forge.PullRequest{}, ErrNoPullRequest
@@ -148,6 +154,10 @@ func pullToAnnounce(ctx context.Context, seams AnnounceSeams) (gitrepo.Branch, f
 
 	if !followed(pull, found) {
 		return gitrepo.Branch{}, forge.PullRequest{}, ErrNoPullRequest
+	}
+
+	if pull.State == forge.StateMerging {
+		return gitrepo.Branch{}, forge.PullRequest{}, ErrPullMerging
 	}
 
 	return branch, pull, nil

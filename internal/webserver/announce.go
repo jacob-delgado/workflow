@@ -18,14 +18,14 @@ import (
 // GetAnnouncement composes the announcement for the checked-out branch's pull
 // request without posting it, for a preview — to the channel asked, or the
 // configured one — saying whether it can wait for the pull request's CI. It
-// is a 409 when there is no pull request to announce; a branch or a pull
-// request that cannot be read is classified by fault.
+// is a 409 when there is no pull request to announce, or the forge is merging
+// it; a branch or a pull request that cannot be read is classified by fault.
 func (s *server) GetAnnouncement(
 	ctx context.Context, request api.GetAnnouncementRequestObject,
 ) (api.GetAnnouncementResponseObject, error) {
 	composed, err := s.announcement(ctx)
-	if errors.Is(err, loop.ErrNoPullRequest) {
-		return api.GetAnnouncement409ApplicationProblemPlusJSONResponse(s.nothingToAnnounce()), nil
+	if refusal, refused := s.noMomentToAnnounce(err); refused {
+		return api.GetAnnouncement409ApplicationProblemPlusJSONResponse(refusal), nil
 	}
 
 	if err != nil {
@@ -73,14 +73,15 @@ type announcePost struct {
 // Announce posts the composed announcement to the configured service — to the
 // requested channel, or the configured one when none is given — or holds it
 // until the pull request's CI passes when asked to. It is a 409 when there is
-// no pull request to announce, and when the request carries the text a
-// preview showed and the announcement composed now reads differently, so what
-// is posted is only ever what was shown, or an edit of it. Given mentions, it
-// tags the linked user owners and the groups named, each one the announcement
-// offers, on a line after the text — and is a 409 too when the linked owners
-// are not the ones the preview showed. A read that fails while composing it,
-// and a post that fails, are classified by fault, whose details never carry
-// the error's own text, which can name the forge or the webhook.
+// no pull request to announce, or the forge is merging it, and when the
+// request carries the text a preview showed and the announcement composed now
+// reads differently, so what is posted is only ever what was shown, or an
+// edit of it. Given mentions, it tags the linked user owners and the groups
+// named, each one the announcement offers, on a line after the text — and is
+// a 409 too when the linked owners are not the ones the preview showed. A
+// read that fails while composing it, and a post that fails, are classified
+// by fault, whose details never carry the error's own text, which can name
+// the forge or the webhook.
 func (s *server) Announce(ctx context.Context, request api.AnnounceRequestObject) (api.AnnounceResponseObject, error) {
 	if s.deps.Messaging.Post == nil {
 		return announceUnprocessable("announcing is not available"), nil
@@ -103,8 +104,8 @@ func (s *server) Announce(ctx context.Context, request api.AnnounceRequestObject
 // asked under ctx.
 func (s *server) postFor(ctx context.Context, body api.AnnounceRequest) (announcePost, api.AnnounceResponseObject) {
 	composed, err := s.announcement(ctx)
-	if errors.Is(err, loop.ErrNoPullRequest) {
-		return announcePost{}, api.Announce409ApplicationProblemPlusJSONResponse(s.nothingToAnnounce())
+	if refusal, refused := s.noMomentToAnnounce(err); refused {
+		return announcePost{}, api.Announce409ApplicationProblemPlusJSONResponse(refusal)
 	}
 
 	if err != nil {
@@ -256,8 +257,9 @@ func (s *server) ciFailed(delivery loop.Delivery) api.Problem {
 // composed from the pull request, the branch's issue, and the configured
 // template, with the pull request it announces and the branch it read. It
 // fails with loop.ErrNoPullRequest when there is no pull request to announce,
-// and with the read's own error when the branch or the pull request cannot be
-// read. The tracker is asked under ctx.
+// loop.ErrPullMerging while the forge merges it, and with the read's own
+// error when the branch or the pull request cannot be read. The tracker is
+// asked under ctx.
 func (s *server) announcement(ctx context.Context) (loop.Composed, error) {
 	cfg := s.config()
 
@@ -309,6 +311,20 @@ func announceUnprocessable(message string) api.Announce422ApplicationProblemPlus
 // named in the forge's own noun.
 func (s *server) nothingToAnnounce() api.Problem {
 	return problem.New(api.ProblemCodeConflict, "there is no "+s.noun()+" to announce")
+}
+
+// noMomentToAnnounce is the conflict refusing an announcement err says there
+// is no moment for — no pull request, or one the forge is merging — and
+// whether err is one.
+func (s *server) noMomentToAnnounce(err error) (api.Problem, bool) {
+	switch {
+	case errors.Is(err, loop.ErrNoPullRequest):
+		return s.nothingToAnnounce(), true
+	case errors.Is(err, loop.ErrPullMerging):
+		return problem.New(api.ProblemCodeConflict, "the "+s.noun()+" is merging; announce it once it has merged"), true
+	default:
+		return api.Problem{}, false
+	}
 }
 
 // announceMemory is the store's claims a post made here goes through, with

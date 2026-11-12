@@ -121,14 +121,14 @@ func configurationErrors() []error {
 }
 
 // refusalErrors are a command that would not go ahead because of the state it
-// found: an open pull request, nothing to open, a dirty tree, a branch or file
-// already there, a branch that cannot be finished, a directory that is no
-// repository, a store file another program holds open, a summary too long for
-// the messaging service, a move to a status the tracker does not offer or one
-// that asks for fields.
+// found: an open pull request, or one merging, nothing to open, a dirty tree,
+// a branch or file already there, a branch that cannot be finished, a
+// directory that is no repository, a store file another program holds open,
+// a summary too long for the messaging service, a move to a status the
+// tracker does not offer or one that asks for fields.
 func refusalErrors() []error {
 	return []error{
-		loop.ErrPullAlreadyOpen, loop.ErrNothingToOpen, loop.ErrNoPullRequest,
+		loop.ErrPullAlreadyOpen, loop.ErrNothingToOpen, loop.ErrNoPullRequest, loop.ErrPullMerging,
 		loop.ErrDirtyTree, loop.ErrNothingStaged,
 		loop.ErrNotOnFeatureBranch, loop.ErrNotMerged, loop.ErrNoBase, loop.ErrUnpushedWork,
 		pr.ErrPullAlreadyOpen, pr.ErrNoCommitsToOpen, pr.ErrNoPullRequest,
