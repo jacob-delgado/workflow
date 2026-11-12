@@ -135,10 +135,14 @@ func (s *server) isRetired() bool {
 	}
 }
 
-// sendRetry ends a retired server's stream: the page reconnects in a second,
-// to the server for the directory switched to.
+// reconnectAfter is how long the page waits to reconnect once a retired
+// server's stream has ended.
+const reconnectAfter = time.Second
+
+// sendRetry ends a retired server's stream: the page reconnects after
+// reconnectAfter, to the server for the directory switched to.
 func sendRetry(out *eventStream) {
-	_, _ = fmt.Fprint(out.w, "retry: 1000\n\n")
+	_, _ = fmt.Fprintf(out.w, "retry: %d\n\n", reconnectAfter.Milliseconds())
 
 	out.flusher.Flush()
 }
