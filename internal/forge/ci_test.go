@@ -193,7 +193,7 @@ func TestGitLabCIReadsTheMergeRequestsPipeline(t *testing.T) {
 		"waiting":      {pipeline: `{"status":"waiting_for_resource"}`, want: forge.CIRunning},
 		"manual":       {pipeline: `{"status":"manual"}`, want: forge.CINone},
 		"success":      {pipeline: `{"status":"success"}`, want: forge.CIPassed},
-		"skipped":      {pipeline: `{"status":"skipped"}`, want: forge.CIPassed},
+		"skipped":      {pipeline: `{"status":"skipped"}`, want: forge.CINone},
 		"failed":       {pipeline: `{"status":"failed"}`, want: forge.CIFailed},
 		"canceled":     {pipeline: `{"status":"canceled"}`, want: forge.CIFailed},
 		"unrecognized": {pipeline: `{"status":"something-new"}`, want: forge.CIRunning},

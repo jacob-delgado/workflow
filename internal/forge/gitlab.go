@@ -469,12 +469,15 @@ func gitlabMergeMethods(ctx context.Context, client Client, repo Repo) ([]MergeM
 // pipelineState reads a GitLab pipeline status. A status this does not know is
 // running rather than passed: announcing green on a guess is the worse mistake.
 // A pipeline blocked on a manual job is not running — it never finishes on its
-// own — so it reads as no result rather than a poll that never ends.
+// own — so it reads as no result rather than a poll that never ends, and so
+// does one whose every job was skipped: nothing ran, and GitLab itself does
+// not count a skipped pipeline as one that succeeded unless the project says
+// to.
 func pipelineState(status string) CIState {
 	states := map[string]CIState{
-		succeeded: CIPassed, skipped: CIPassed,
-		"failed": CIFailed, "canceled": CIFailed,
-		"manual": CINone,
+		succeeded: CIPassed,
+		"failed":  CIFailed, "canceled": CIFailed,
+		"manual": CINone, skipped: CINone,
 	}
 
 	state, known := states[status]
