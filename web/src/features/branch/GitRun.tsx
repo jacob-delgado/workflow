@@ -37,8 +37,9 @@ export interface GitRunner {
 // is put away. A run some other page started, which the stream carries while
 // it goes, stands in when this page has none, and takes the place of one that
 // has ended in a frame read after that end, whose writes count it. A run
-// refused before it ran says why in refusal, as does a stop refused, until
-// the next start or Close.
+// refused before it ran says why in refusal, as does a stop refused, and a
+// run whose stream broke once it began says so there, never that it did not
+// run, until the next start or Close.
 export function useGitRun(streamed: Run | undefined, writes: number): GitRunner {
   const [run, setRun] = useState<Run | null>(null)
   const [endWrite, setEndWrite] = useState<number>()
@@ -76,14 +77,14 @@ export function useGitRun(streamed: Run | undefined, writes: number): GitRunner 
       outcome: '',
       lines: [],
     })
-    startRun(request, follow).then(setRun, (caught: unknown) => {
+    let begun: Run | null = null
+    const followBegun = (event: RunEvent) => {
+      begun = event.run ?? begun
+      follow(event)
+    }
+    startRun(request, followBegun).then(setRun, (caught: unknown) => {
       setRun(null)
-      setRefusal(
-        apiErrorMessage(
-          caught,
-          `${runTitle(request)} did not run. Try again, or run it from a terminal.`,
-        ),
-      )
+      setRefusal(begun === null ? notRun(request, caught) : cutOff(begun))
     })
   }
 
@@ -101,6 +102,20 @@ export function useGitRun(streamed: Run | undefined, writes: number): GitRunner 
     stop,
     close: putAway,
   }
+}
+
+// notRun says why a run refused before it began did not run.
+function notRun(request: RunRequest, caught: unknown): string {
+  return apiErrorMessage(
+    caught,
+    `${runTitle(request)} did not run. Try again, or run it from a terminal.`,
+  )
+}
+
+// cutOff says a run's stream broke after the run began: it ran, in part or
+// to its end, or goes on, and the stream shows it while it does.
+function cutOff(begun: Run): string {
+  return `${begun.title} stopped answering before it said how it ended. It may have run in part, or still be running; the branch shows where it stands.`
 }
 
 // endedBefore reports this page's run ended in a write numbered endWrite that
