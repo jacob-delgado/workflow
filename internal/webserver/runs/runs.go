@@ -39,8 +39,9 @@ var (
 )
 
 // runSlot is the one git run going, if any: POST /api/runs claims it before it
-// starts a program and frees it once the program has ended. Its lock is its
-// own, since the stream reads it while the run writes to it.
+// starts a program and frees it once the run has said how it ended, unless
+// the next run has taken it by then. Its lock is its own, since the stream
+// reads it while the run writes to it.
 type runSlot struct {
 	mu    sync.Mutex
 	going *goingRun
@@ -92,13 +93,14 @@ func (r *Runner) StartRun(w http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	if !r.claimRun(planned) {
+	claimed := r.claimRun(planned)
+	if claimed == nil {
 		problem.Write(w, api.ProblemCodeConflict, errRunGoing.Error())
 
 		return
 	}
 
-	defer r.freeRun()
+	defer r.freeRun(claimed)
 
 	r.runHoldingTheIndex(ctx, w, asked)
 }
@@ -276,28 +278,39 @@ func (r *Runner) foldable(ctx context.Context) ([]gitrepo.Commit, error) {
 	return foldable, nil
 }
 
-// claimRun makes planned the run going, unless one is going already.
-func (r *Runner) claimRun(planned plannedRun) bool {
+// claimRun makes planned the run going and answers it, or nil when one is
+// going already. A run that has ended is going no longer, though it holds the
+// slot until it has said so, so the next run a page asks for the moment it
+// reads that end takes the slot from it, and waits for the index.
+func (r *Runner) claimRun(planned plannedRun) *goingRun {
 	r.run.mu.Lock()
 	defer r.run.mu.Unlock()
 
-	if r.run.going != nil {
-		return false
+	if r.run.going.isGoing() {
+		return nil
 	}
 
 	r.run.going = &goingRun{run: api.Run{
 		Kind: planned.kind, Title: planned.title, State: api.RunStateInProgress, Lines: []string{}, Outcome: "",
 	}}
 
-	return true
+	return r.run.going
 }
 
-// freeRun lets the next run start.
-func (r *Runner) freeRun() {
+// isGoing reports a run that has not ended; nil is none.
+func (g *goingRun) isGoing() bool {
+	return g != nil && g.run.State == api.RunStateInProgress
+}
+
+// freeRun lets the next run start, unless claimed, the run ending, has had
+// the slot taken from it already.
+func (r *Runner) freeRun(claimed *goingRun) {
 	r.run.mu.Lock()
 	defer r.run.mu.Unlock()
 
-	r.run.going = nil
+	if r.run.going == claimed {
+		r.run.going = nil
+	}
 }
 
 // streamRun writes the run as it starts, each line its program writes as it
@@ -389,13 +402,13 @@ func (r *Runner) RunShown() *api.Run {
 
 // StopRun stops the run going — its program's whole process group — as the
 // terminal's interrupt does; its stream then ends with it stopped. With none
-// going it is a 404.
+// going it is a 404, as it is once the run has ended, while it says so.
 func (r *Runner) StopRun(context.Context, api.StopRunRequestObject) (api.StopRunResponseObject, error) {
 	r.run.mu.Lock()
 	defer r.run.mu.Unlock()
 
 	going := r.run.going
-	if going == nil {
+	if !going.isGoing() {
 		return api.StopRun404ApplicationProblemPlusJSONResponse(
 			problem.New(api.ProblemCodeNotFound, errNoRunGoing.Error())), nil
 	}
