@@ -271,14 +271,14 @@ func (r commandRun) jobs(kit renderKit) string {
 		unreported = kit.marks.notStarted
 	}
 
+	glyphs := map[hooks.JobState]string{
+		hooks.JobRunning: unreported, hooks.JobPassed: kit.marks.done,
+		hooks.JobFailed: kit.failedGlyph(), hooks.JobSkipped: kit.marks.notStarted,
+	}
 	parts := make([]string, 0, len(r.jobList))
 
 	for _, job := range r.jobList {
-		glyph := map[hooks.JobState]string{
-			hooks.JobRunning: unreported, hooks.JobPassed: kit.marks.done,
-			hooks.JobFailed: kit.failedGlyph(), hooks.JobSkipped: kit.marks.notStarted,
-		}[job.State]
-		parts = append(parts, glyph+" "+job.Name)
+		parts = append(parts, glyphs[job.State]+" "+job.Name)
 	}
 
 	return strings.Join(parts, kit.marks.separator)
