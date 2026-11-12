@@ -57,11 +57,13 @@ if [[ -z "$(git ls-files -- "${backlog}")" ]]; then
 fi
 
 # Every tracked file is read first: each one, the directories above it and its
-# name are what a path may name. Then the backlog is read a paragraph at a
-# time, outside code blocks, and each code span of a paragraph is classified
-# and, when it reads as a repository path, looked up and numbered by the line
-# it opens on. A paragraph ends at a blank line, a heading, which is a
-# paragraph of its own, a new list item, a fence, a setext underline or a
+# name are what a path may name. Then the backlog is read a paragraph at a time,
+# outside code blocks and HTML comments, and each code span of a paragraph is
+# classified and, when it reads as a repository path, looked up and numbered by
+# the line it opens on. A backtick after an odd run of backslashes opens no
+# span, and a comment, inline or a block running to the line that closes it,
+# holds none. A paragraph ends at a blank line, a heading, which is a paragraph
+# of its own, a new list item, a fence, a comment block, a setext underline or a
 # thematic break. A fence closes only with a run of its own character at least
 # as long and nothing but spaces or tabs after it. A line indented four spaces
 # or a tab opens an indented block where no paragraph or list item goes on: at
@@ -127,17 +129,28 @@ report="$(git ls-files | awk -v backlog="${backlog}" -v extensions="${extensions
   # flush reads the code spans of the paragraph and starts the next. A run of
   # backticks opens a span only when a run as long follows in the paragraph,
   # and only a run as long closes it, so another run inside, or one nothing
-  # closes, is text. Only a span of one backtick is checked: a longer one
-  # quotes backticks.
-  function flush(   rest, offset, opened, wanted, span) {
+  # closes, is text; an escaped backtick opening a run is text too, and an
+  # HTML comment met before a span opens is passed over whole. Only a span of
+  # one backtick is checked: a longer one quotes backticks.
+  function flush(   rest, offset, opened, wanted, span, ends) {
     rest = paragraph
     offset = 1
-    while (match(rest, /`+/)) {
+    while (match(rest, /`+|<!--/)) {
+      if (substr(rest, RSTART, 1) == "<") {
+        ends = index(substr(rest, RSTART + 4), "-->")
+        offset += RSTART + (ends ? ends + 5 : 3)
+        rest = substr(rest, RSTART + (ends ? ends + 6 : 4))
+        continue
+      }
       opened = offset + RSTART - 1
       wanted = RLENGTH
       rest = substr(rest, RSTART + RLENGTH)
       offset = opened + wanted
-      if (!closes(rest, wanted)) continue
+      if (escaped(opened)) {
+        opened++
+        wanted--
+      }
+      if (!wanted || !closes(rest, wanted)) continue
       span = ""
       while (match(rest, /`+/) && RLENGTH != wanted) {
         span = span substr(rest, 1, RSTART + RLENGTH - 1)
@@ -151,6 +164,12 @@ report="$(git ls-files | awk -v backlog="${backlog}" -v extensions="${extensions
     }
     paragraph = ""
     lines = 0
+  }
+  # escaped says whether an odd run of backslashes comes before an offset of
+  # the paragraph, which makes the character there text.
+  function escaped(offset,   before) {
+    for (before = offset - 1; before > 0 && substr(paragraph, before, 1) == "\\"; before--) {}
+    return (offset - 1 - before) % 2
   }
   # closes says whether a run of exactly so many backticks follows in text.
   function closes(text, length_wanted) {
@@ -188,6 +207,22 @@ report="$(git ls-files | awk -v backlog="${backlog}" -v extensions="${extensions
     flush()
     fence_char = run_char
     fence_length = run_length
+    if ($0 !~ /^[ \t]/) listed = 0
+    next
+  }
+  # An HTML comment block runs to the line that closes it, blank lines and
+  # all, and nothing in it is read.
+  comment {
+    if (index($0, "-->")) {
+      comment = 0
+      blank = 1
+    }
+    next
+  }
+  /^ ? ? ?<!--/ {
+    flush()
+    comment = !index(substr($0, index($0, "<!--") + 4), "-->")
+    blank = 1
     if ($0 !~ /^[ \t]/) listed = 0
     next
   }
