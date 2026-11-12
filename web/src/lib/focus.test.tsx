@@ -207,6 +207,27 @@ test('a control a key gives focus after a press that never clicked is scrolled i
   expect(root.scrolled()).toBe(44)
 })
 
+test.each([
+  ['released off the control', 'pointerUp'],
+  ['taken back by the browser', 'pointerCancel'],
+] as const)(
+  'a control given focus by the page after a press %s is scrolled into view',
+  (_, ended) => {
+    // Arrange
+    render(<Page />)
+    const root = laidOut(screen.getByRole('region', { name: 'Root' }))
+    fireEvent.pointerDown(screen.getByRole('group', { name: 'Plain' }), { pointerType: 'mouse' })
+    fireEvent[ended](document.body, { pointerType: 'mouse' })
+    const control = placed('In the root', 80)
+
+    // Act
+    control.focus()
+
+    // Assert
+    expect(root.scrolled()).toBe(44)
+  },
+)
+
 test('a control taking focus back as the window does is left where it was scrolled', () => {
   // Arrange
   render(<Page />)
@@ -288,4 +309,20 @@ test('a control a key gives focus after the window left is scrolled into view', 
 
   // Assert
   expect(root.scrolled()).toBe(44)
+})
+
+test('a control a tap gives focus as the finger lifts is left under it', () => {
+  // Arrange
+  // A touch gives focus only after the finger lifts, ahead of the tap's click.
+  render(<Page />)
+  const root = laidOut(screen.getByRole('region', { name: 'Root' }))
+  const control = placed('In the root', 80)
+  fireEvent.pointerDown(control, { pointerType: 'touch' })
+  fireEvent.pointerUp(control, { pointerType: 'touch' })
+
+  // Act
+  control.focus()
+
+  // Assert
+  expect(root.scrolled()).toBe(0)
 })

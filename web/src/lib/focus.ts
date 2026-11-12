@@ -66,6 +66,8 @@ function revealFocusIn(outermost: HTMLElement): () => void {
   }
   const stops = [
     listen(outermost, 'pointerdown', cues.press, { capture: true }),
+    listen(window, 'pointerup', cues.release, { capture: true }),
+    listen(window, 'pointercancel', cues.act, { capture: true }),
     listen(window, 'click', cues.act, { capture: true }),
     listen(window, 'keydown', cues.act, { capture: true }),
     listen(window, 'blur', cues.leave),
@@ -80,9 +82,12 @@ function revealFocusIn(outermost: HTMLElement): () => void {
 }
 
 // focusCues keeps what says how focus is moving inside outermost: a press
-// holds until it clicks, and the window's leaving, with focus inside, until
-// the one focus that comes back with it; a click or a key ends either, since
-// any focus after one is the user's own.
+// holds until it clicks — or, when it never will, until a mouse or a pen is
+// released, since they give focus as they press, or the browser takes the
+// press back — and the window's leaving, with focus inside, until the one
+// focus that comes back with it; a click or a key ends either, since any
+// focus after one is the user's own. A finger is not released early: a tap
+// gives its focus only as it lifts, ahead of its click.
 function focusCues(outermost: HTMLElement) {
   let pressing = false
   let away = false
@@ -90,6 +95,11 @@ function focusCues(outermost: HTMLElement) {
   return {
     press: () => {
       pressing = true
+    },
+    release: (event: PointerEvent) => {
+      if (event.pointerType !== 'touch') {
+        pressing = false
+      }
     },
     act: () => {
       pressing = false
