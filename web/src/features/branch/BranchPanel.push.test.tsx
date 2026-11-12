@@ -100,6 +100,41 @@ test('a published branch counts how far it is ahead and behind its upstream', ()
   expect(screen.getByText('2 ahead, 1 behind')).toBeTruthy()
 })
 
+// uncounted is a branch on its push target whose ahead count git could not
+// give: the zeros are no answer, not a level branch.
+function uncounted() {
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({
+      branch: makeBranch({ upstream: 'origin/fix/PROJ-1', ahead: 0, behind: 0, uncounted: true }),
+    }),
+  })
+}
+
+test('offers a push for a branch git could not count against its upstream', () => {
+  // Arrange
+  uncounted()
+
+  // Act
+  render(<BranchPanel />)
+
+  // Assert
+  expect(screen.getByRole('button', { name: 'Push branch' })).toBeTruthy()
+})
+
+test('a branch git could not count says so, with no counts it never gave', () => {
+  // Arrange
+  uncounted()
+
+  // Act
+  render(<BranchPanel />)
+
+  // Assert
+  const summary = screen.getByRole('region', { name: 'fix/PROJ-1' })
+  expect(within(summary).getByText('not counted against origin/fix/PROJ-1')).toBeTruthy()
+  expect(within(summary).queryByText(/ahead/)).toBeNull()
+})
+
 test('offers no push on the base branch itself, however far ahead it is', () => {
   // Arrange
   useSnapshotStore.setState({

@@ -271,7 +271,9 @@ The checked-out branch, its base, its upstream and how far it is ahead or
 behind, and the commits on it; **Push to** names the remote a push goes to when
 that is not the base remote, as in a fork's clone. **Push branch** publishes it, after a
 confirmation naming the branch and the remote it goes to; it is not offered
-on the base branch itself. **Link an issue** ties a branch begun outside workflow, whose
+on the base branch itself. A branch git could not count against its upstream
+says it is not counted against it, and is offered the push, since that
+upstream is not known to hold its commits. **Link an issue** ties a branch begun outside workflow, whose
 name names no issue, to one: a Jira key or a forge number such as `#42`. When
 its pull request's description does not name the issue yet, it is shown with
 the issue's line added first, with **Link and update** or **Link only**. A

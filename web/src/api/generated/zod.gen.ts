@@ -641,6 +641,7 @@ export const zBranch = z.object({
     base_remote: z.string(),
     ahead: z.int(),
     behind: z.int(),
+    uncounted: z.boolean(),
     base: z.string(),
     commits: z.array(zCommit)
 });
