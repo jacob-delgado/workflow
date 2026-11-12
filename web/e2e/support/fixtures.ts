@@ -7,6 +7,7 @@ import type {
   Seed,
   Snapshot,
 } from '../../src/api/generated/types.gen.ts'
+import type { MockStream } from '../../src/dev/mockStream.ts'
 
 // The answers the hermetic specs give the page: the event stream's frame, built
 // from one empty frame so each spec names only the parts it varies; a
@@ -123,8 +124,7 @@ export async function seeds(page: Page, seed: Seed, snapshot?: Snapshot): Promis
 // runs the mockup's own stream, which no route of the spec's answers.
 export async function showsInTheMockup(page: Page, parts: Partial<Snapshot>): Promise<void> {
   await page.evaluate((shown) => {
-    // The mockup declares mockStream on the page's window (src/dev/mockServer.ts).
-    const { mockStream } = window as { mockStream?: { show: (parts: Partial<Snapshot>) => void } }
+    const mockStream: MockStream | undefined = window.mockStream
     if (mockStream === undefined) {
       throw new Error('the page runs no mockup whose stream a spec can script')
     }

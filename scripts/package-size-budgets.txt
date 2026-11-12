@@ -218,6 +218,18 @@ internal/wiring 15
 # before a write, with the hold it puts on the single-key shortcuts.
 web/src/lib 16
 
+# web/src/dev — the mockup's stand-in server (`task web:mockup`): the routes
+# that answer the API and the event stream (mockServer.ts), and the data they
+# answer from, one file per section of the page it fills — activity, the
+# announcement, configuration, issues, keys, local data, repositories,
+# reviews, Slack, the snapshot and tasks. One responsibility (serve the page
+# what workflow would, with no backend) spelled section-per-file; it grows
+# when the page gains a section. 13 is mockStream.ts, the type a spec scripts
+# the mockup's stream through, apart from mockServer.ts because the e2e
+# helper reads it too and cannot resolve the `@/` imports mockServer.ts
+# makes, so the shape lives in one place.
+web/src/dev 13
+
 # web/src/api/generated — the @hey-api client generated from api/openapi.yaml by
 # `yarn gen`. Never hand-edited, regenerated wholesale, and gated for drift by
 # gen:check; its file count is the code generator's business, not a concern
