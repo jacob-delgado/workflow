@@ -228,3 +228,19 @@ func TestALogThatFitsOffersNoScrollKeys(t *testing.T) {
 	requireScreen(t, footerLine(view), "esc back")
 	refuseScreen(t, footerLine(view), "scroll")
 }
+
+func TestALogReadForAChecksListSinceClosedStaysOutOfTheOneOpenedAfter(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	failing := withAFailedJob(true)
+	reading, read := pressed(t, typing(t, failing.live(t, 120, 40), "4", "c", downAction), "l")
+	reopened := typing(t, reading, keyEsc, "c")
+
+	// Act
+	answered, _ := finish(t, reopened, read)
+
+	// Assert
+	requireScreen(t, answered.View().Content, "Open a check's page")
+	refuseScreen(t, answered.View().Content, "--- FAIL: TestRetry")
+}
