@@ -348,7 +348,9 @@ func (r *Runner) addRunLine(line string) {
 }
 
 // runEnded records how the run ended — stopped, refused or passed — and
-// answers it whole.
+// answers it whole. A run asked to stop was stopped only when its program did
+// not pass: a stop kills it, which no program passes through, so one that
+// passed had ended before the stop reached it.
 func (r *Runner) runEnded(planned plannedRun, exit error) *api.Run {
 	r.run.mu.Lock()
 	defer r.run.mu.Unlock()
@@ -356,7 +358,7 @@ func (r *Runner) runEnded(planned plannedRun, exit error) *api.Run {
 	going := r.run.going
 
 	switch {
-	case going.stopped:
+	case going.stopped && exit != nil:
 		going.run.State, going.run.Outcome = api.RunStateStopped, "Stopped "+planned.title+"."
 	case exit != nil:
 		going.run.State, going.run.Outcome = api.RunStateRefused, planned.refused
