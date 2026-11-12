@@ -139,13 +139,20 @@ type Git struct {
 
 // Forge is what a surface asks of GitHub or GitLab.
 type Forge struct {
+	// FindPullRequest finds the branch's pull request in the forge's list of
+	// its pull requests: an open one, or the merged one that means the branch
+	// is finished, passing over one closed unmerged. Nil when there is no
+	// forge.
 	FindPullRequest func(ctx context.Context, branch string) (forge.PullRequest, bool, error)
 	// ReadPullRequest reads the pull request of this number, whatever its
 	// state: one just opened, which the forge's list of its branch's pulls,
 	// what FindPullRequest reads, may not include yet. Nil when there is no
 	// forge, or no read by number, as in a fake: a pull request opened then
 	// stands as its open answered until the list includes it.
-	ReadPullRequest   func(ctx context.Context, number int) (forge.PullRequest, error)
+	ReadPullRequest func(ctx context.Context, number int) (forge.PullRequest, error)
+	// CreatePullRequest opens the pull request that request describes, from
+	// where its branch's push remote put the branch, and EditPullRequest
+	// changes an open one's title and description. Nil when there is no forge.
 	CreatePullRequest func(ctx context.Context, request forge.NewPullRequest) (forge.PullRequest, error)
 	EditPullRequest   func(
 		ctx context.Context, pull forge.PullRequest, edit forge.PullRequestEdit,
