@@ -60,16 +60,17 @@ func (s *server) Push(ctx context.Context, _ api.PushRequestObject) (api.PushRes
 
 // nothingToPush reports whether the branch has nothing to send: the tree is not
 // on a feature branch (a detached HEAD, which cannot be pushed, or the base,
-// which work merges into rather than publishes), or the branch is not ahead of
-// an upstream on the remote a push goes to. A branch with no upstream there can
-// always be published, so its commit count — which the base may make
-// unknowable — is not consulted.
+// which work merges into rather than publishes), or the branch has an upstream
+// on the remote a push goes to that holds every commit on it. A branch with no
+// upstream there can always be published, so its commit count — which the base
+// may make unknowable — is not consulted, and an ahead count git could not give
+// is not taken for none.
 func nothingToPush(branch gitrepo.Branch) bool {
 	if !loop.OnFeatureBranch(branch) {
 		return true
 	}
 
-	return strings.HasPrefix(branch.Upstream, branch.PushRemote+"/") && branch.Ahead == 0
+	return strings.HasPrefix(branch.Upstream, branch.PushRemote+"/") && branch.UpstreamHoldsAll()
 }
 
 // pushFailure words a push that did not publish the branch: the push's own

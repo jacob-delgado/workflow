@@ -19,6 +19,9 @@ import (
 	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
+// doneSubject is the subject of the one commit a pushed branch carries.
+const doneSubject = "feat: done"
+
 // doPush posts a push against a server over deps. Push takes no body.
 func doPush(t *testing.T, deps webserver.Deps) *httptest.ResponseRecorder {
 	t.Helper()
@@ -77,7 +80,38 @@ func TestPushSendsABranchWhoseUpstreamIsOffItsPushRemote(t *testing.T) {
 	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
 		return gitrepo.Branch{
 			Name: webtest.TestBranchName, Upstream: "origin/" + webtest.TestBranchName, PushRemote: forkRemote,
-			Ahead: 0, Commits: []gitrepo.Commit{{Hash: webtest.TestCommitHash, Subject: "feat: done"}},
+			Ahead: 0, Commits: []gitrepo.Commit{{Hash: webtest.TestCommitHash, Subject: doneSubject}},
+		}, nil
+	}
+	deps.Git.Push = func(_ context.Context, branch string) (proc.Output, error) {
+		pushed = branch
+
+		return fakeOutput(nil, nil), nil
+	}
+
+	// Act
+	recorder := doPush(t, deps)
+
+	// Assert
+	if recorder.Code != http.StatusOK || pushed != webtest.TestBranchName {
+		t.Errorf("status = %d, pushed %q; want 200 with %q pushed", recorder.Code, pushed, webtest.TestBranchName)
+	}
+}
+
+// An ahead count git could not give says nothing of what the upstream holds,
+// so the branch is pushed rather than taken to be level with it.
+func TestPushSendsABranchGitCouldNotCount(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var pushed string
+
+	deps := webtest.FilledDeps()
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
+		return gitrepo.Branch{
+			Name: webtest.TestBranchName, Upstream: "origin/" + webtest.TestBranchName,
+			PushRemote: gitrepo.DefaultRemote, Ahead: 0, Uncounted: true,
+			Commits: []gitrepo.Commit{{Hash: webtest.TestCommitHash, Subject: doneSubject}},
 		}, nil
 	}
 	deps.Git.Push = func(_ context.Context, branch string) (proc.Output, error) {
@@ -98,7 +132,7 @@ func TestPushSendsABranchWhoseUpstreamIsOffItsPushRemote(t *testing.T) {
 func TestPushRefusesWhenThereIsNothingToPush(t *testing.T) {
 	t.Parallel()
 
-	commit := []gitrepo.Commit{{Hash: webtest.TestCommitHash, Subject: "feat: done"}}
+	commit := []gitrepo.Commit{{Hash: webtest.TestCommitHash, Subject: doneSubject}}
 	cases := map[string]gitrepo.Branch{
 		"already up to date": {
 			Name: webtest.TestBranchName, Upstream: "origin/" + webtest.TestBranchName, PushRemote: gitrepo.DefaultRemote,
