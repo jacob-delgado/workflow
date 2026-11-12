@@ -353,3 +353,20 @@ func TestTheSwitcherChecksOutTheBranchMovedTo(t *testing.T) {
 		t.Errorf("checkout calls = %v, want one for the branch moved to", got)
 	}
 }
+
+func TestBranchesListedForASwitcherSinceClosedStayOutOfTheOneOpenedAfter(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Were they let in, the reopened switcher's own listing would list them
+	// again over whatever was chosen meanwhile.
+	listing, listedFirst := pressed(t, press(t, cleanSwitcher().live(t, 120, 40), "2"), "s")
+	reopened, _ := pressed(t, press(t, listing, keyEsc), "s")
+
+	// Act
+	answered, _ := finish(t, reopened, listedFirst)
+
+	// Assert
+	requireScreen(t, answered.View().Content, switchIntro)
+	refuseScreen(t, answered.View().Content, otherTaskBranch)
+}
