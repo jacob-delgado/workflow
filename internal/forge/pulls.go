@@ -282,6 +282,21 @@ func pickPull[T stated](pulls []T) (T, bool) {
 	return merged, foundMerged
 }
 
+// branchPulls reads a branch's pull requests, a page at a time through fetch,
+// to the end of the listing: a name many pulls have come from — GitLab lists
+// every fork's of that name, before the head's own are kept — can put the
+// branch's own past the first page. Past readPages' bound only the newest are
+// read, which both forges list first.
+func branchPulls[T any](fetch func(page int) ([]T, error)) ([]T, error) {
+	listed, _, err := readPages(func(page int) ([]T, int, error) {
+		items, err := fetch(page)
+
+		return items, uncounted, err
+	})
+
+	return listed, err
+}
+
 // FindPullRequest finds the pull request from head: an open one, or the merged
 // one that means the branch is finished. A pull closed without merging is passed
 // over. The returned PullRequest carries its State, so a caller that wants only
