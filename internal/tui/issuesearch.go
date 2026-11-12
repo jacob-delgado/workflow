@@ -18,9 +18,12 @@ func (m Model) searchIssues() tea.Cmd {
 }
 
 // searching marks the Issues list in flight for a search of its first page
-// about to start, when there is a tracker to search.
+// about to start, when there is a tracker to search, and counts it begun: the
+// search is made from the model it returns, and a page of the list as it
+// stood before answers to nothing.
 func (m Model) searching() Model {
 	m.issues.loading = m.deps.Jira.Search != nil
+	m.issueSearches++
 
 	return m
 }
@@ -39,12 +42,12 @@ func (m Model) searchPage(startAt int) tea.Cmd {
 		return nil
 	}
 
-	ctx, jql := m.session, m.activeView().JQL
+	ctx, jql, list := m.session, m.activeView().JQL, m.issueSearches
 
 	return func() tea.Msg {
 		found, err := search(ctx, jql, startAt)
 
-		return issuesLoaded{found: found, err: err, startAt: startAt, jql: jql}
+		return issuesLoaded{found: found, err: err, startAt: startAt, jql: jql, list: list}
 	}
 }
 
@@ -81,6 +84,10 @@ type issuesLoaded struct {
 	// view is active, but the answer reaches the list only while jql is still the
 	// active view's: a reader who has moved on is waiting for another answer.
 	jql string
+	// list is the search of a first page the list was read from, counted among
+	// those begun: a page of a list read afresh since, by a refresh or by its
+	// view left and come back to, reaches nothing.
+	list int
 }
 
 var _ applier = issuesLoaded{}
@@ -90,7 +97,7 @@ var _ applier = issuesLoaded{}
 func (msg issuesLoaded) apply(m Model) (Model, tea.Cmd) {
 	cache := cacheIssues(m.session, m.deps, msg)
 
-	if msg.jql != m.activeView().JQL {
+	if msg.jql != m.activeView().JQL || msg.list != m.issueSearches {
 		return m, cache
 	}
 
