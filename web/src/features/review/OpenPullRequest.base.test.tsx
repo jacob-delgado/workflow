@@ -118,47 +118,6 @@ test('says so, and keeps the draft, for a base whose commits cannot be read', as
   )
 })
 
-test('a template chosen while the base is read again is not taken for an edit', async () => {
-  // Arrange
-  const templated = (base?: string, template = 'feature'): PullRequestDraft => ({
-    ...drafted(base),
-    body: `## ${template}\n${drafted(base).body}`,
-    templates: ['feature', 'bugfix'],
-    template,
-  })
-  let answer: (draft: PullRequestDraft) => void = () => undefined
-  mockPreview
-    .mockImplementationOnce(() => Promise.resolve(templated()))
-    .mockImplementationOnce(
-      () =>
-        new Promise((resolve) => {
-          answer = resolve
-        }),
-    )
-    .mockImplementationOnce((template?: string) => Promise.resolve(templated('main', template)))
-  const { user, form } = await composed()
-  await rebased(user, form, 'release')
-  await user.selectOptions(within(form).getByRole('combobox', { name: 'Template' }), 'bugfix')
-  await vi.waitFor(() => {
-    expect(within(form).getByRole('textbox', { name: 'Description' })).toHaveProperty(
-      'value',
-      '## bugfix\n- fix: redact tokens\n',
-    )
-  })
-
-  // Act
-  answer(templated('release', 'bugfix'))
-
-  // Assert
-  await vi.waitFor(() => {
-    expect(within(form).getByRole('textbox', { name: 'Description' })).toHaveProperty(
-      'value',
-      '## bugfix\n- fix: only past release\n',
-    )
-  })
-  expect(within(form).getByRole('combobox', { name: 'Template' })).toHaveProperty('disabled', false)
-})
-
 test('leaving the base as it was drafted onto clears what a failed read said', async () => {
   // Arrange
   const { user, form } = await composed()
@@ -200,4 +159,44 @@ test('a base read refused after another base was drafted onto says nothing of it
 
   // Assert
   expect(within(form).queryByText(/could not be read/)).toBeNull()
+})
+
+test('a base read answered after a template is chosen never fills the template left behind', async () => {
+  // Arrange
+  const templated = (base?: string, template = 'feature'): PullRequestDraft => ({
+    ...drafted(base),
+    body: `## ${template}\n${drafted(base).body}`,
+    templates: ['feature', 'bugfix'],
+    template,
+  })
+  let answer: (draft: PullRequestDraft) => void = () => undefined
+  mockPreview
+    .mockImplementationOnce(() => Promise.resolve(templated()))
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          answer = resolve
+        }),
+    )
+    .mockImplementationOnce((template?: string, base?: string) =>
+      Promise.resolve(templated(base, template)),
+    )
+  const { user, form } = await composed()
+  await rebased(user, form, 'release')
+  const choice = within(form).getByRole('combobox', { name: 'Template' })
+  await user.selectOptions(choice, 'bugfix')
+
+  // Act
+  await act(async () => {
+    answer(templated('release', 'feature'))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+
+  // Assert
+  expect(choice).toHaveProperty('value', 'bugfix')
+  expect(within(form).getByRole('textbox', { name: 'Description' })).toHaveProperty(
+    'value',
+    '## bugfix\n- fix: only past release\n',
+  )
+  expect(choice).toHaveProperty('disabled', false)
 })

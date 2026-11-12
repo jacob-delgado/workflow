@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef } from 'react'
 import {
   useForm,
   useFormState,
@@ -7,7 +7,6 @@ import {
   type UseFormRegister,
   type UseFormRegisterReturn,
 } from 'react-hook-form'
-import { apiErrorMessage } from '@/api/apiError.ts'
 import { useForgeWords } from '@/api/health.ts'
 import type {
   OpenedPullRequest,
@@ -124,8 +123,7 @@ function PullRequestForm({
         labels: '',
       },
     })
-  const [template, setTemplate] = useState(draft.template)
-  const redraft = useRedraft(draft, template, getValues, setValue)
+  const redraft = useRedraft(draft, getValues, setValue)
 
   // The form appears only because it was asked for, so focus goes with the
   // person asking to its first field.
@@ -153,11 +151,10 @@ function PullRequestForm({
 
       <TemplateChoice
         templates={draft.templates}
-        chosen={template}
-        base={redraft.onto}
+        chosen={redraft.template}
         edited={body !== redraft.proposed.body}
-        onChoose={setTemplate}
-        onBody={redraft.templated}
+        error={redraft.templateError}
+        onChoose={redraft.choose}
       />
 
       {draft.needs_push ? (
@@ -333,29 +330,20 @@ function NeededField({ label, field, control }: NeededFieldProps) {
 
 // TemplateChoice starts the description from another of the repository's
 // templates, as the terminal's ctrl+t does, while there are several and the
-// description is not yet edited — a template never overwrites an edit. The
-// template is read past the base the form drafts onto, and only the last
-// choice's read is heard.
+// description is not yet edited — a template never overwrites an edit.
 function TemplateChoice({
   templates,
   chosen,
-  base,
   edited,
+  error,
   onChoose,
-  onBody,
 }: {
   templates: string[]
   chosen: string
-  base: string
   edited: boolean
+  error: string
   onChoose: (template: string) => void
-  onBody: (body: string) => void
 }) {
-  const [error, setError] = useState('')
-  // The choice last made: only its read's answer is heard, so a template
-  // chosen before another and read after it never fills the description.
-  const latest = useRef(0)
-
   if (templates.length < 2) {
     return null
   }
@@ -369,25 +357,7 @@ function TemplateChoice({
           disabled={edited}
           aria-describedby={edited ? 'template-kept' : undefined}
           onChange={(event) => {
-            const name = event.target.value
-            latest.current += 1
-            const choice = latest.current
-            onChoose(name)
-            setError('')
-            previewPullRequest(name, base).then(
-              (composed) => {
-                if (choice === latest.current) {
-                  onBody(composed.body)
-                }
-              },
-              (caught: unknown) => {
-                if (choice === latest.current) {
-                  setError(
-                    apiErrorMessage(caught, `The ${name} template could not be read. Try again.`),
-                  )
-                }
-              },
-            )
+            onChoose(event.target.value)
           }}
         >
           {templates.map((name) => (

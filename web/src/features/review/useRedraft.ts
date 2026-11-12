@@ -30,27 +30,30 @@ export function proposedBy(draft: PullRequestDraft): Proposed {
 }
 
 // useRedraft drafts the form again past the base its field names once that
-// field is left naming another branch, filling only the fields still holding
-// what was proposed before; a template chosen fills the description the same
-// way. It answers what was last proposed, the base it was read past, and why
-// a base could not be read.
+// field is left naming another branch, and with the template chosen once one
+// is, filling only the fields still holding what was proposed before. Only
+// the read begun last is heard, base or template alike, and a template is
+// read past the base the last base read went to, so no read fills the form
+// from a choice since left behind. It answers what was last proposed, the
+// base it was read past, the template chosen, and why a base or a template
+// could not be read.
 export function useRedraft(
   draft: PullRequestDraft,
-  template: string,
   getValues: UseFormGetValues<PullRequestFields>,
   setValue: UseFormSetValue<PullRequestFields>,
 ) {
   const [proposed, setProposed] = useState(() => proposedBy(draft))
   // latest is what was last proposed as an answer lands, which a read begun
-  // before a template was chosen must compare against, not what it saw.
+  // before another landed must compare against, not what it saw.
   const latest = useRef(proposed)
   const [onto, setOnto] = useState(draft.base)
+  const [template, setTemplate] = useState(draft.template)
   const [error, setError] = useState('')
-
-  const propose = (next: Proposed) => {
-    latest.current = next
-    setProposed(next)
-  }
+  const [templateError, setTemplateError] = useState('')
+  // reads numbers every read begun, so only the last one's answer is heard;
+  // aim is the base that read goes past.
+  const reads = useRef(0)
+  const aim = useRef(draft.base)
 
   const fill = (next: Proposed) => {
     const now = getValues()
@@ -59,41 +62,54 @@ export function useRedraft(
         setValue(field, next[field])
       }
     }
-    propose(next)
+    latest.current = next
+    setProposed(next)
   }
 
-  const ontoBase = () => {
-    const base = getValues('base').trim()
-    setError('')
-    if (base === '' || base === onto) {
-      return
-    }
-    // Only a read for the base the field still names is heard: one for a
-    // base since left behind says nothing, answered or refused.
-    const named = () => getValues('base').trim() === base
-    previewPullRequest(template === '' ? undefined : template, base).then(
+  const read = (chosen: string, base: string, refused: (caught: unknown) => void) => {
+    reads.current += 1
+    const turn = reads.current
+    aim.current = base
+    previewPullRequest(chosen === '' ? undefined : chosen, base).then(
       (composed) => {
-        if (named()) {
+        if (turn === reads.current) {
           fill(proposedBy(composed))
           setOnto(base)
         }
       },
       (caught: unknown) => {
-        if (named()) {
-          setError(
-            apiErrorMessage(
-              caught,
-              `The commits past ${base} could not be read; the draft is kept.`,
-            ),
-          )
+        if (turn === reads.current) {
+          aim.current = onto
+          refused(caught)
         }
       },
     )
   }
 
-  const templated = (body: string) => {
-    fill({ ...latest.current, body })
+  // ontoBase reads again past the base the field names, or past the base
+  // drafted onto when it is left blank, unless the last read goes there.
+  const ontoBase = () => {
+    const base = getValues('base').trim() || onto
+    setError('')
+    if (base === aim.current) {
+      return
+    }
+    read(template, base, (caught) => {
+      setError(
+        apiErrorMessage(caught, `The commits past ${base} could not be read; the draft is kept.`),
+      )
+    })
   }
 
-  return { proposed, onto, error, ontoBase, templated }
+  const choose = (name: string) => {
+    setTemplate(name)
+    setTemplateError('')
+    read(name, aim.current, (caught) => {
+      setTemplateError(
+        apiErrorMessage(caught, `The ${name} template could not be read. Try again.`),
+      )
+    })
+  }
+
+  return { proposed, onto, template, error, templateError, ontoBase, choose }
 }
