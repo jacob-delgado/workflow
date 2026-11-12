@@ -6,12 +6,15 @@ package forge
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/url"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/jacob-delgado/workflow/internal/httpx"
 )
 
 // githubPull is a pull request as GitHub sends one. A merged pull is closed
@@ -239,38 +242,71 @@ func (g githubReviewItem) repository() string {
 	return repository
 }
 
-// reviewRequest flattens a search item, with where its CI stands, which the
-// search does not carry.
-func (g githubReviewItem) reviewRequest(ci CIState) ReviewRequest {
+// reviewRequest flattens a search item. The search does not carry CI, so it
+// is CINone until githubReviews reads it.
+func (g githubReviewItem) reviewRequest() ReviewRequest {
 	return ReviewRequest{
 		Number: g.Number, URL: g.URL, Title: g.Title, Draft: g.Draft,
-		Author: g.User.Login, Repository: g.repository(), CI: ci, OpenedAt: g.CreatedAt,
+		Author: g.User.Login, Repository: g.repository(), CI: CINone, OpenedAt: g.CreatedAt,
 	}
 }
+
+// githubReviewCIReads is how many review requests' CI is read after the
+// search, the longest-waiting first, the rest left at CINone. Each read is a
+// few requests of its own, sent one after another, so a queue of hundreds
+// would hold every surface for minutes and spend the token's hourly allowance.
+const githubReviewCIReads = 100
 
 // ci reads where CI stands on the item's pull request, at the commit its
 // branch is at, as the Review pane reads it, so the queue's CI facet means on
 // GitHub what it means on GitLab. It is best effort, as GitLab's listing is:
-// a pull request or checks the token cannot read leave it at CINone rather
+// a pull request or checks the token may not read leave it at CINone rather
 // than failing the whole queue, and an item that names no repository has
-// none to ask.
-func (g githubReviewItem) ci(ctx context.Context, client Client) CIState {
+// none to ask. A rate limit or a token not accepted is returned instead, as
+// every read after it would meet it too.
+func (g githubReviewItem) ci(ctx context.Context, client Client) (CIState, error) {
 	repo := Repo{Kind: KindGitHub, Path: g.repository()}
 	if repo.Path == "" {
-		return CINone
+		return CINone, nil
 	}
 
 	pull, err := repoCall[githubPull](ctx, client, repo, http.MethodGet, githubPullPath(repo, g.Number), nil)
 	if err != nil {
-		return CINone
+		return CINone, stopsEveryRead(err)
 	}
 
 	checks, err := githubStatus(ctx, client, repo, PullRequest{}, pull.Head.SHA)
 	if err != nil {
-		return CINone
+		return CINone, stopsEveryRead(err)
 	}
 
-	return checks.State
+	return checks.State, nil
+}
+
+// stopsEveryRead is err when it would refuse every request after it too, a
+// rate limit or a token the forge did not accept, and nil for one that
+// refuses only this request.
+func stopsEveryRead(err error) error {
+	if errors.Is(err, httpx.ErrRateLimited) || errors.Is(err, ErrUnauthorized) {
+		return err
+	}
+
+	return nil
+}
+
+// longestWaiting is the indexes of the at most limit items opened first,
+// those at the same moment in the search's order.
+func longestWaiting(items []githubReviewItem, limit int) []int {
+	indexes := make([]int, len(items))
+	for index := range indexes {
+		indexes[index] = index
+	}
+
+	slices.SortStableFunc(indexes, func(left, right int) int {
+		return items[left].CreatedAt.Compare(items[right].CreatedAt)
+	})
+
+	return indexes[:min(limit, len(indexes))]
 }
 
 // githubSearchServes is how many results GitHub's search serves, however many
@@ -309,7 +345,14 @@ func githubReviews(ctx context.Context, client Client) (ReviewQueue, error) {
 
 	reviews := make([]ReviewRequest, 0, len(found))
 	for _, item := range found {
-		reviews = append(reviews, item.reviewRequest(item.ci(ctx, client)))
+		reviews = append(reviews, item.reviewRequest())
+	}
+
+	for _, index := range longestWaiting(found, githubReviewCIReads) {
+		reviews[index].CI, err = found[index].ci(ctx, client)
+		if err != nil {
+			return ReviewQueue{}, err
+		}
 	}
 
 	return ReviewQueue{Requests: reviews, Truncated: truncated}, nil

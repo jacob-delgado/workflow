@@ -22,8 +22,9 @@ type ReviewRequest struct {
 	Repository string
 	Draft      bool
 	// CI is best effort: GitLab's listing carries each request's head
-	// pipeline, and GitHub's CI is read for each request after its search;
-	// CINone where none reports, or where it could not be read.
+	// pipeline, and GitHub's CI is read after its search for the hundred
+	// requests waiting longest; CINone where none reports, where it could not
+	// be read, and on GitHub past those hundred.
 	CI       CIState
 	OpenedAt time.Time
 }

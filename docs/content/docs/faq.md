@@ -603,9 +603,10 @@ longest-waiting first; `--sort newest` or `--sort repo` changes the order, and
 `--json` prints data. On GitHub it searches
 `is:pr is:open review-requested:@me`, so a pull request whose review request has
 been met or withdrawn drops out, and a fine-grained token sees only the
-repositories it was granted. GitHub's search carries no CI, so each pull
-request's checks are read after it, a few requests for each; one whose checks
-the token cannot read shows `none`. On GitLab it lists open merge requests
+repositories it was granted. GitHub's search carries no CI, so the checks of
+the hundred pull requests waiting longest are read after it, a few requests for
+each; one whose checks the token cannot read, and any past those hundred, shows
+`none`, and a rate limit met on the way fails the list, as it would the search. On GitLab it lists open merge requests
 whose reviewers include you, with each one's head pipeline. Where the forge holds
 more than it lists — past the thousand GitHub's search serves, or two thousand
 on GitLab — every surface says these are only the first. The web's **Reviews**
