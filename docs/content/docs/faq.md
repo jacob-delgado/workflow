@@ -955,7 +955,10 @@ Repositories]({{< relref "/docs/usage#repositories" >}}).
 workflow picks the editor in git's order: `$GIT_EDITOR`, then `$VISUAL`, then
 `$EDITOR`, and finally `vi` (`notepad` on Windows). git's `core.editor` setting
 is not read, so set one of those variables. A GUI editor that returns before you
-close the file needs to be told to wait, such as `EDITOR="code --wait"`.
+close the file needs to be told to wait, in the first of those variables that
+is set, such as `EDITOR="code --wait"`; one that returns within about a second
+and leaves the draft untouched is reported as not having waited, naming that
+variable.
 Anything below the scissors line (`>8`) is help text and is not kept. See [Using
 workflow: Editor]({{< relref "/docs/usage#editor" >}}).
 

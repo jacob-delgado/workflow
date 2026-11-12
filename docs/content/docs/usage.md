@@ -1171,7 +1171,11 @@ Commit bodies, pull request descriptions and announcements — and a comment,
 when `ctrl+o` hands it over — are written in `$GIT_EDITOR`, else `$VISUAL`, else `$EDITOR`, else `vi` (`notepad`
 on Windows) — git's own order, though git's `core.editor` setting is not read.
 Everything below the scissors line (a `>8` cut mark) is help and is not kept.
-An editor that has to be told to wait needs saying so: `EDITOR="code --wait"`.
+An editor that has to be told to wait needs saying so, in whichever of those
+variables names it: `EDITOR="code --wait"`, or `VISUAL="code --wait"` when
+`$VISUAL` is set. One that returns within about a second and leaves the draft
+as it was handed over is reported as not having waited, naming that variable,
+rather than the untouched draft being kept as the text.
 
 Opening a hook failure at its line works for vi, Vim, Neovim, nano, Emacs,
 micro, Kakoune, mg, VS Code, VSCodium, Cursor, Helix, Sublime Text and Zed.

@@ -23,6 +23,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -87,13 +88,23 @@ func split(setting string) (string, []string) {
 // then $VISUAL and $EDITOR. core.editor is not consulted — reading it would have
 // the editor package run git, and the environment covers the common case.
 func chosen(getenv Getenv) string {
-	for _, variable := range []string{"GIT_EDITOR", "VISUAL", "EDITOR"} {
-		if value := strings.TrimSpace(getenv(variable)); value != "" {
-			return value
-		}
+	if value := strings.TrimSpace(getenv(chosenVariable(getenv))); value != "" {
+		return value
 	}
 
 	return defaultEditor(runtime.GOOS)
+}
+
+// chosenVariable is the variable that names the editor, in chosen's order, or
+// $EDITOR, the one most people set, when none does.
+func chosenVariable(getenv Getenv) string {
+	for _, variable := range []string{"GIT_EDITOR", "VISUAL", "EDITOR"} {
+		if strings.TrimSpace(getenv(variable)) != "" {
+			return variable
+		}
+	}
+
+	return "EDITOR"
 }
 
 // defaultEditor is what opens when none of $GIT_EDITOR, $VISUAL and $EDITOR is
@@ -150,7 +161,9 @@ func Parse(raw string) string {
 // is written to $TMPDIR, or the system's temporary directory, never into the
 // repository, where it would show up as an untracked file.
 func Edit(getenv Getenv, dir, text, help string, done func(string, error) tea.Msg) tea.Cmd {
-	path, err := writeDraft(getenv("TMPDIR"), Draft(text, help))
+	draft := Draft(text, help)
+
+	path, err := writeDraft(getenv("TMPDIR"), draft)
 	if err != nil {
 		return report(done("", err))
 	}
@@ -162,21 +175,40 @@ func Edit(getenv Getenv, dir, text, help string, done func(string, error) tea.Ms
 		return report(done("", err))
 	}
 
-	return tea.ExecProcess(command, Collect(path, done))
+	return tea.ExecProcess(command, Collect(getenv, path, draft, done))
 }
 
-// Collect is what happens once the editor closes: the draft at path is read
-// back, parsed, reported through done, and removed.
-func Collect(path string, done func(string, error) tea.Msg) func(error) tea.Msg {
+// Collect is what happens once the editor getenv names closes: the draft at
+// path, which held draft when Collect was called, is read back, parsed,
+// reported through done, and removed.
+func Collect(getenv Getenv, path, draft string, done func(string, error) tea.Msg) func(error) tea.Msg {
+	sent := handedOver{draft: draft, variable: chosenVariable(getenv), at: time.Now()}
+
 	return func(editorErr error) tea.Msg {
-		return done(readBack(path, editorErr))
+		return done(readBack(path, sent, editorErr))
 	}
 }
 
+// handedOver is the draft as the editor was handed it: its text, the variable
+// that chose the editor, and when.
+type handedOver struct {
+	draft    string
+	variable string
+	at       time.Time
+}
+
+// waitedFor is how long an editor stays open, at the least, once someone
+// writes in it: one that returns sooner with the draft untouched did not wait
+// for them.
+const waitedFor = time.Second
+
 // readBack is what the editor left in the draft at path, parsed, once it has
 // closed; the draft is removed either way. An editor that exited with an error
-// keeps nothing, the way git treats an aborted commit message.
-func readBack(path string, editorErr error) (string, error) {
+// keeps nothing, the way git treats an aborted commit message, and one that
+// returned at once with the draft as sent is reported, naming the variable to
+// tell it to wait in, since what was written in its window would otherwise be
+// lost.
+func readBack(path string, sent handedOver, editorErr error) (string, error) {
 	defer func() { _ = os.Remove(path) }()
 
 	if editorErr != nil {
@@ -188,8 +220,18 @@ func readBack(path string, editorErr error) (string, error) {
 		return "", fmt.Errorf("reading the draft back: %w", err)
 	}
 
+	if time.Since(sent.at) < waitedFor && string(saved) == sent.draft {
+		return "", fmt.Errorf("%w: an editor that opens a window has to be told to wait, "+
+			`as with %s="code --wait"`, ErrEditorDidNotWait, sent.variable)
+	}
+
 	return Parse(string(saved)), nil
 }
+
+// ErrEditorDidNotWait reports an editor that returned at once and left the
+// draft as it was handed over: one that opens a window and has to be told to
+// wait for it to close.
+var ErrEditorDidNotWait = errors.New("the editor returned at once and left the draft untouched")
 
 // ErrNoSuchFile reports a place to open that names no file.
 var ErrNoSuchFile = errors.New("no such file")
