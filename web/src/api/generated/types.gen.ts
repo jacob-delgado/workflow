@@ -736,7 +736,7 @@ export type QueuedAnnouncement = {
      */
     pull: number;
     /**
-     * Why it stands where it does: why a dropped announcement was not posted — the forge did not list the pull request, or nothing could be heard of it, for ten minutes; no check was reported on it across ten minutes of reads heard; the branch's pull request is another one, or merged before its CI passed; the service refused the post; or the post may have gone out, which workflow announce asks before posting again — why one is elsewhere, why one was stopped, and, while it waits unread, what failed. A failed check does not drop it: it waits on, for a run that passes.
+     * Why it stands where it does: why a dropped announcement was not posted — the forge did not list the pull request, or nothing could be heard of it, for ten minutes; no check was reported on it across ten minutes of reads heard; the branch's pull request is another one, or merged, or began merging, before its CI passed; the service refused the post; or the post may have gone out, which workflow announce asks before posting again — why one is elsewhere, why one was stopped, and, while it waits unread, what failed. A failed check does not drop it: it waits on, for a run that passes.
      */
     reason?: string;
     /**

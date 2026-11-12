@@ -103,6 +103,7 @@ func TestAReadOfAPullRequestNotToWaitOnReadsNoCI(t *testing.T) {
 		"none":    {},
 		"closed":  with(heldPull(), forge.StateClosed),
 		"merged":  with(heldPull(), forge.StateMerged),
+		"merging": with(heldPull(), forge.StateMerging),
 		"another": otherPull(),
 	}
 

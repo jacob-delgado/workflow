@@ -78,10 +78,10 @@ func (h Hold) Hear(reading Reading, failure Failure) (Hold, Next) {
 
 // Heard steps a waiting hold on a read of its pull request. Listing, one not
 // found is waited for within UnheardPatience. Once found, a pull request
-// that is another, none, closed or merged drops it; otherwise its CI says
-// how it waits, or that it is due, its delivery's pull request and head
-// taken from the read, or drops it: no check reported within NoCIPatience,
-// or CI that ran unchanged for RunningPatience.
+// that is another, none, closed, merged or merging drops it; otherwise its
+// CI says how it waits, or that it is due, its delivery's pull request and
+// head taken from the read, or drops it: no check reported within
+// NoCIPatience, or CI that ran unchanged for RunningPatience.
 func (h Hold) Heard(reading Reading) (Hold, Next) {
 	if !h.current(reading.Round) {
 		return h, NextNothing

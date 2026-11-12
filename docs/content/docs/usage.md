@@ -570,8 +570,9 @@ the commit that merged, or its upstream holds every commit on it — and the pan
 says why not otherwise. `n` stays on offer after a merge, as `workflow pr`
 allows, so commits made on the branch since can go up in a new pull request.
 While GitLab merges a merge request, which it locks until the merge lands, the
-pane says *merging* and offers nothing on it, and `workflow pr` refuses to
-open another.
+pane says *merging* and offers nothing on it, `workflow pr` refuses to open
+another, and an announcement waiting for its CI is dropped, as it is when one
+merges first.
 
 ### Announce it
 

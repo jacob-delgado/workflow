@@ -205,6 +205,8 @@ func TestStillArmed(t *testing.T) {
 	merged.State = forge.StateMerged
 	closed := openPull()
 	closed.State = forge.StateClosed
+	merging := openPull()
+	merging.State = forge.StateMerging
 	other := openPull()
 	other.Number = 10
 
@@ -218,6 +220,7 @@ func TestStillArmed(t *testing.T) {
 		"none found":                 {pull: openPull(), found: false, want: armed.ErrPullChanged},
 		"closed without merging":     {pull: closed, found: true, want: armed.ErrPullChanged},
 		"merged first":               {pull: merged, found: true, want: armed.ErrMergedFirst},
+		"merging first":              {pull: merging, found: true, want: armed.ErrMergingFirst},
 	}
 
 	for name, tt := range cases {

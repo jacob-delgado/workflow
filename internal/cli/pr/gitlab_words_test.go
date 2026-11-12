@@ -5,6 +5,7 @@ package pr_test
 
 import (
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
@@ -75,5 +76,31 @@ func TestAnnounceRefusesABranchWithNoMergeRequestInGitLabsWords(t *testing.T) {
 	}
 
 	requireGitLabWords(t, err.Error(), "there is no merge request on this branch to announce")
+	wantExit(t, err, 4)
+}
+
+func TestAnnounceWhenGreenGivesUpOnAMergeRequestGitLabStartsMerging(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Open as it is composed, GitLab has locked it to merge by the wait's
+	// first read.
+	var posts atomic.Int32
+
+	locked := strings.Replace(clitest.OpenMergeRequest(), `"opened"`, `"locked"`, 1)
+	clitest.FakeGlabListings(t, clitest.OpenMergeRequest(), locked)
+	repo := clitest.GitlabRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"gitlab","host":"gitlab.com"},`+
+		`"messaging":{"webhook_url":"`+webhook(t, &posts)+`"},"timing":{"ci_interval":"10ms"}}`)
+
+	// Act
+	_, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--when-green", "--yes")
+
+	// Assert
+	if err == nil || posts.Load() != 0 {
+		t.Fatalf("announce --when-green = %v, posted %d; want it given up, nothing posted", err, posts.Load())
+	}
+
+	requireGitLabWords(t, err.Error(), "!7 began merging before its CI passed, so it was not announced")
 	wantExit(t, err, 4)
 }
