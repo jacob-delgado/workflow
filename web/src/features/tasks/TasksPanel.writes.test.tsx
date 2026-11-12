@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import type { Task, TaskList } from '@/api/generated/types.gen.ts'
 import { useHealthStore } from '@/api/health.ts'
-import { fakeApi } from '@/test/fakeApi.ts'
+import { fakeApi, held } from '@/test/fakeApi.ts'
 import { describedTask, makeHealth, makeTaskList, taskFacet } from '@/test/fixtures.ts'
 import { renderWithClient } from '@/test/renderWithClient.tsx'
 import {
@@ -526,4 +526,82 @@ test('a write the dry run holds back says so, and sends nothing', async () => {
     'Held back by --dry-run: nothing was sent.',
   )
   expect(requests.filter((request) => request.method === 'POST')).toEqual([])
+})
+
+// listReads are the reads of the task list among requests.
+function listReads(requests: Request[]): Request[] {
+  return requests.filter(
+    (request) => request.method === 'GET' && new URL(request.url).pathname === tasksPath,
+  )
+}
+
+test('a write answered after a later one never puts back the older list it read', async () => {
+  // Arrange
+  // Start is answered last, with the list Taskwarrior held before the
+  // annotation landed. Every read after the first is held, so no read again
+  // can mend what the late answer shows.
+  const user = userEvent.setup()
+  const annotated = { ...started, annotations: [{ entry: started.entry, description: 'Ana' }] }
+  const start = held<TaskList>()
+  let listed = false
+  fakeApi({
+    [tasksPath]: () => {
+      if (listed) {
+        return held<TaskList>().promise
+      }
+      listed = true
+
+      return makeTaskList([tokenLeak])
+    },
+    [`${taskPath}/start`]: () => start.promise,
+    [`${taskPath}/annotations`]: makeTaskList([annotated]),
+  })
+  renderWithClient(<TasksPanel />)
+  await user.click(await screen.findByRole('button', { name: 'Start' }))
+  await user.type(screen.getByRole('textbox', { name: 'task 1 annotate' }), 'Ana')
+  await user.click(screen.getByRole('button', { name: 'Annotate' }))
+  await screen.findByRole('list', { name: 'Annotations' })
+
+  // Act
+  await act(async () => {
+    start.answer(makeTaskList([started]))
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  })
+
+  // Assert
+  expect(screen.getByRole('list', { name: 'Annotations' })).toBeTruthy()
+})
+
+test('writes answered out of order read the list again once the last lands', async () => {
+  // Arrange
+  // Each write's handler read the list before the other's landed: the
+  // annotation, sent second and answered first, lacks the start, and the
+  // start, answered last, lacks the annotation. Only a read after both holds
+  // both.
+  const user = userEvent.setup()
+  const annotation = [{ entry: started.entry, description: 'Ana' }]
+  const start = held<TaskList>()
+  const lists = [makeTaskList([tokenLeak]), makeTaskList([{ ...started, annotations: annotation }])]
+  const requests = fakeApi({
+    [tasksPath]: () => lists.shift(),
+    [`${taskPath}/start`]: () => start.promise,
+    [`${taskPath}/annotations`]: makeTaskList([{ ...tokenLeak, annotations: annotation }]),
+  })
+  renderWithClient(<TasksPanel />)
+  await user.click(await screen.findByRole('button', { name: 'Start' }))
+  await user.type(screen.getByRole('textbox', { name: 'task 1 annotate' }), 'Ana')
+  await user.click(screen.getByRole('button', { name: 'Annotate' }))
+  await screen.findByRole('list', { name: 'Annotations' })
+  const readsBefore = listReads(requests).length
+
+  // Act
+  await act(async () => {
+    start.answer(makeTaskList([started]))
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  })
+
+  // Assert
+  expect(listReads(requests).length - readsBefore).toBe(1)
+  expect(await screen.findByRole('button', { name: 'Stop' })).toBeTruthy()
+  expect(screen.getByRole('list', { name: 'Annotations' })).toBeTruthy()
 })
