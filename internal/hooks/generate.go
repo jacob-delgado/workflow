@@ -279,52 +279,61 @@ type repository struct {
 }
 
 // writeAll creates each script and then the configuration, and on any failure
-// removes what it created, directories too, so a write that stops part-way leaves no
-// lefthook.yml naming scripts it never wrote — which would otherwise block the
-// offer from ever being tried again. The configuration comes last for a write
-// stopped where nothing can remove what it made, workflow killed or crashing:
-// it leaves scripts no configuration names, which a later write refuses by
-// name, rather than a configuration that hides the offer. Nothing is synced,
-// so a machine that loses power mid-write keeps no such order.
+// removes what it created, directories too, so a write that stops part-way
+// leaves no lefthook.yml naming scripts it never wrote — which would otherwise
+// block the offer from ever being tried again. The configuration comes last for
+// a write stopped where nothing can remove what it made, workflow killed or
+// crashing: it leaves scripts no configuration names, which a later write
+// refuses by name, rather than a configuration that hides the offer. Nothing is
+// synced, so a machine that loses power mid-write keeps no such order.
 func (r repository) writeAll(generated Generated) error {
 	var written []string
 
-	remove := func() {
-		for _, name := range slices.Backward(written) {
-			_ = r.root.Remove(name)
-		}
-	}
-
 	for _, script := range generated.Scripts {
-		name := filepath.FromSlash(script.Path)
-
-		made, err := r.makeDirs(filepath.Dir(name))
+		made, err := r.createScript(script)
 		written = append(written, made...)
 
 		if err != nil {
-			remove()
+			r.remove(written)
 
 			return err
 		}
-
-		err = r.create(name, script.Contents, scriptMode)
-		if err != nil {
-			remove()
-
-			return err
-		}
-
-		written = append(written, name)
 	}
 
 	err := r.create(configFileName, generated.Config, configMode)
 	if err != nil {
-		remove()
+		r.remove(written)
 
 		return err
 	}
 
 	return nil
+}
+
+// createScript creates a script and each directory above it the repository
+// lacks, and reports what it created, outermost first, failing or not.
+func (r repository) createScript(script File) ([]string, error) {
+	name := filepath.FromSlash(script.Path)
+
+	made, err := r.makeDirs(filepath.Dir(name))
+	if err != nil {
+		return made, err
+	}
+
+	err = r.create(name, script.Contents, scriptMode)
+	if err != nil {
+		return made, err
+	}
+
+	return append(made, name), nil
+}
+
+// remove removes what a write created, innermost first, so each directory is
+// empty by the time its turn comes.
+func (r repository) remove(created []string) {
+	for _, name := range slices.Backward(created) {
+		_ = r.root.Remove(name)
+	}
 }
 
 // makeDirs creates dir and each parent it lacks, as MkdirAll would, and reports
