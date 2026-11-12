@@ -226,3 +226,33 @@ func TestSwitchingToACachedViewMarksItInFlightUntilItsSearchAnswers(t *testing.T
 	// Assert: the mark is gone
 	refuseScreen(t, searched.View().Content, "Sprint board ◐")
 }
+
+func TestAPullRequestOpenedDuringAReviewRefreshEndsItsMarkWithNoCIToRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The forge reads no CI, and the refresh's look for a pull request is
+	// held: if it ever answers, it answers for the review the one opened
+	// here replaced.
+	opening := newWorld()
+	opening.pullFound = false
+	held := newHold(t)
+	started := heldLive(t, held, opening, func(deps *tui.Deps, held *hold) {
+		deps.Forge.CheckStatus = nil
+		find := deps.Forge.FindPullRequest
+		deps.Forge.FindPullRequest = func(ctx context.Context, branch string) (forge.PullRequest, bool, error) {
+			held.wait()
+
+			return find(ctx, branch)
+		}
+	})
+	held.armed.Store(true)
+	refreshing := holding(t, held, started, "4", "r")
+
+	// Act
+	opened := holding(t, held, refreshing, "n", keyEnter, keyEnter, keyEsc, keyEsc)
+
+	// Assert
+	requireScreen(t, opened.View().Content, "#42 fix(config): redact tokens")
+	refuseScreen(t, opened.View().Content, "Review ◐")
+}
