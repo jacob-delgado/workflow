@@ -88,8 +88,10 @@ gate that reads a file such a change can touch plus `docs:check` and
 `task secrets`. CI does the same for such a pull request: its Changes job asks
 the script, Lint runs `task lint:docs`, Scan its secret scans, and the Go, web
 and end-to-end jobs are skipped, which ci-gate (`scripts/ci-gate.sh`) accepts
-for that change alone. The base branch's copy of the script decides, so a pull
-request that changes it gets every check. A push to main runs everything.
+for that change alone. With nothing measured, the pull request's coverage
+comment becomes a note that coverage was not measured for that head, naming
+the head last measured. The base branch's copy of the script decides, so a
+pull request that changes it gets every check. A push to main runs everything.
 
 The local gate needs Node, which `mise install` provisions, and installs the
 frontend's dependencies when they are missing. CI runs the same gates, and adds
