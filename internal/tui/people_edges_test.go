@@ -44,19 +44,21 @@ func TestPeopleReadsArrivingAfterItClosedChangeNothing(t *testing.T) {
 	refuseScreen(t, closed.View().Content, peopleTitle)
 }
 
-func TestALinkSavedAfterPeopleClosedChangesNothing(t *testing.T) {
+func TestALinkChosenInThePickerFreesPeopleOnceSaved(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	ben := onlyBen()
 	chosen, save := pressed(t, typing(t, openPeople(t, ben), keyEnter), keyEnter)
-	closed := typing(t, chosen, keyEsc)
 
 	// Act
-	after := drain(t, closed, save)
+	saved := drain(t, chosen, save)
 
 	// Assert
-	refuseScreen(t, after.View().Content, peopleTitle)
+	view := saved.View().Content
+	requireScreen(t, view, peopleTitle)
+	refuseScreen(t, view, "saving")
+	requireScreen(t, footerLine(view), "forget")
 
 	if calls := ben.asked("link-owner "); len(calls) != 1 {
 		t.Errorf("links = %q, want the one chosen", calls)
@@ -330,5 +332,24 @@ func TestReadsAnsweringUnderTheForgetLookReachPeople(t *testing.T) {
 				t.Errorf("saves = %q, want the groups checked saved, as read under the look", calls)
 			}
 		})
+	}
+}
+
+func TestPeopleTakesNoKeyWhileALinkChosenInThePickerSaves(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// ben is linked from the picker, and the save is still out.
+	ben := onlyBen()
+	saving, _ := pressed(t, typing(t, openPeople(t, ben), keyEnter), keyEnter)
+
+	// Act
+	still := typing(t, saving, "x")
+
+	// Assert
+	requireScreen(t, still.View().Content, peopleTitle, "saving")
+
+	if calls := ben.asked("link-owner "); len(calls) != 0 {
+		t.Errorf("saved %q while the link chosen was out", calls)
 	}
 }
