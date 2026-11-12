@@ -39,6 +39,32 @@ function streamCi(state: CiState, number = 128) {
   })
 }
 
+// streamCiUnread has the stream push #128 with its CI unread: the read
+// failed, with why, and no CI held for it.
+function streamCiUnread() {
+  streamCi('running')
+  useSnapshotStore.setState((state) =>
+    state.snapshot === null
+      ? state
+      : {
+          snapshot: {
+            ...state.snapshot,
+            review: {
+              ...state.snapshot.review,
+              ci: null,
+              ci_error: {
+                type: 'about:blank',
+                title: 'Bad Gateway',
+                status: 502,
+                detail: 'the forge did not answer',
+                code: 'unreachable',
+              },
+            },
+          },
+        },
+  )
+}
+
 // configRead waits for the configuration to be read, and what it decides to be
 // drawn.
 async function configRead(requests: Request[]) {
@@ -142,4 +168,24 @@ test('says nothing of CI that settled while ui.notify was off once it is turned 
       .map((query) => query.state.data),
   ).toContainEqual(expect.objectContaining({ config: configNotifying(true) }))
   expect(screen.getByRole('status').textContent).toBe('')
+})
+
+test('a frame whose CI could not be read between running and passed keeps the notice', async () => {
+  // Arrange
+  fakeApi({ '/api/config': configNotifying(true) })
+  streamCi('running')
+  renderWithClient(<CiSettled />)
+  act(() => {
+    streamCiUnread()
+  })
+
+  // Act
+  act(() => {
+    streamCi('passed')
+  })
+
+  // Assert
+  await waitFor(() => {
+    expect(screen.getByRole('status').textContent).toBe('CI passed on #128.')
+  })
 })
