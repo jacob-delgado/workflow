@@ -53,6 +53,7 @@ import {
   mockTagging,
 } from './mockSlack.ts'
 import { mockSnapshot } from './mockSnapshot.ts'
+import type { MockStream } from './mockStream.ts'
 import { taskRoutes } from './mockTasks.ts'
 
 // The mockup's server: `task web:mockup` installs it as the page loads, in
@@ -82,23 +83,6 @@ type Routes = Record<string, Route>
 // Where a problem's type points, as the server's do: one anchor per code.
 const problemBase = 'https://jacob-delgado.github.io/workflow/docs/errors/'
 
-// MockStream is how a spec on the mockup scripts its event stream, as the
-// server's stream reports what changed without the page asking: show puts
-// the parts given in place of the frame's own, in the frame it pushes down
-// every open stream now and in each frame after — a hold armed, waiting, then
-// announced; a directory switched.
-interface MockStream {
-  show: (parts: Partial<Snapshot>) => void
-}
-
-declare global {
-  interface Window {
-    // mockStream scripts the mockup's event stream; only the mockup's build
-    // installs it.
-    mockStream?: MockStream
-  }
-}
-
 // installMockServer stands the mockup's server in for the network and the
 // event stream, and lets a spec script the stream.
 export function installMockServer(): void {
@@ -106,11 +90,12 @@ export function installMockServer(): void {
   const routes = Object.entries(allRoutes())
   globalThis.fetch = (input, init) => answer(routes, new Request(input, init), network)
   globalThis.EventSource = MockEventSource as unknown as typeof EventSource
-  window.mockStream = {
+  const stream: MockStream = {
     show: (parts) => {
       MockEventSource.show(parts)
     },
   }
+  window.mockStream = stream
 }
 
 // answer is the mockup's answer to request, or the network's where no route
