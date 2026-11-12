@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
@@ -323,4 +325,25 @@ func TestADryRunWritesNoConfiguration(t *testing.T) {
 	if calls := dry.asked("write"); len(calls) != 0 {
 		t.Errorf("a dry run wrote: %q", calls)
 	}
+}
+
+func TestALookBegunBeforeTheConfigurationWasWrittenDoesNotOfferItAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A Commits refresh looks for the hooks before lefthook.yml is written,
+	// and answers only once it has been.
+	offering := newWorld()
+	offering.gitHooks = legacyHooks()
+	refreshing, refresh := pressed(t, typing(t, offering.live(t, 200, 50), "3"), "r")
+	foundBefore := answersOf(t, refreshing, refresh)
+	written := typing(t, refreshing, "g", keyEnter)
+
+	// Act
+	for _, answer := range foundBefore {
+		written = deliver(t, written, func() tea.Msg { return answer })
+	}
+
+	// Assert
+	refuseLefthookOffered(t, written)
 }

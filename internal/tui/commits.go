@@ -365,7 +365,7 @@ func commitsBehavior() behavior {
 			m, read := m.readingChanges()
 			m.changes.loading = read != nil
 
-			return m, tea.Batch(read, loadBranch(m.session, m.deps), findHooks(m.session, m.deps))
+			return m, tea.Batch(read, loadBranch(m.session, m.deps), m.hookgen.find(m.session, m.deps))
 		},
 		loading: func(m Model) bool { return m.changes.loading },
 		scroll:  func(m *Model) *int { return &m.changes.scroll }, listInDetail: true, readsBranch: true,
