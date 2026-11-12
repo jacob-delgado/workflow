@@ -26,7 +26,10 @@ script under `scripts/` that has none. `pr-comment.mjs`'s test is
 `pr-comment_test.sh`, `.devcontainer/postCreate.sh`'s is
 `postcreate_test.sh`, and `.claude/hooks/session-start.sh`'s is
 `session-start_test.sh`; the libraries in `lib/` are driven through their
-callers' tests.
+callers' tests. Two tests drive no script here: `lefthook_test.sh` runs
+`lefthook.yml`'s pre-commit hook with stand-in tools, and
+`coverage-comment_test.sh` reads the script `ci.yml`'s Coverage comment job
+runs out of the workflow and runs it under node.
 
 - **The harness is `lib/testing.sh`**, sourced after the test's own
   `set -euo pipefail`. It makes a work directory removed on exit
