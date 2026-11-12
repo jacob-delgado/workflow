@@ -1593,6 +1593,30 @@ two hours again.
 **Reopen when.** A CI is met whose runs regularly sit unchanged for longer
 than that, or a forge reports how long a run has left.
 
+### TRADE-63 One unreadable repository marks the Summary's git source failed
+
+**Decided.** 2026-11-12 by the maintainer, on wave-2 lead P106: when the
+Summary reads more than one repository — the worktrees and the favorites — and
+one cannot be read, `loop.CommitsRead` (`internal/loop/summary.go`) lists the
+others' commits and marks the whole git source failed, naming each repository
+that failed. A source has one outcome, `activity.Read`'s `Failed` or
+`NotSetUp`, which the API says as `read`, `not_set_up` or `failed`, so a read
+that is partly answered is told as a failure beside the commits it did read,
+and `internal/loop/summary_test.go` pins it. A `partial` outcome would change
+the API's enum, the web's and the terminal's source lines, and what
+`workflow summary`'s exit status says of a source.
+
+**Cost.** One favorite that cannot be read — moved, deleted, or refused by
+git — makes `workflow summary` exit non-zero, as that failure's family does,
+after printing a summary that holds every other repository's commits, and the
+web and the terminal show git as failed above them. When every repository that
+failed has nothing set up to ask, a repository with no `user.email`, git reads
+as not set up and left out, while the other repositories' commits are listed.
+
+**Reopen when.** A user asks for a Summary that exits 0 with one repository
+unread, or is misled by git shown as failed or left out above commits it
+listed.
+
 ### TRADE-64 A configuration save takes no lock where workflow has no state directory
 
 **Decided.** 2026-11-13 by the maintainer, on wave-2 lead P007: a save of the
