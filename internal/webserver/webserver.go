@@ -167,6 +167,11 @@ type server struct {
 	mu  sync.RWMutex
 	cfg config.Config
 
+	// saves lets one save of the configuration run at a time, from its check
+	// of the basis to its take-up, while mu is held only for those two: Slack
+	// or the keychain, which a save may ask, is no reason for a frame to wait.
+	saves sync.Mutex
+
 	// forgeKind is the forge the remote is on under the settings in effect,
 	// under mu with cfg: info's until a save of the forge settings changes it.
 	forgeKind forge.Kind
