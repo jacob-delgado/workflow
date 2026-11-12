@@ -66,11 +66,12 @@ const (
 )
 
 // The routes a fake gh answers from a sequence as well as from one body, and
-// the one a fake glab does.
+// the ones a fake glab does.
 const (
 	statusRoute = "status"
 	pullsRoute  = "pulls"
 	mergeRoute  = "merge"
+	listRoute   = "list"
 )
 
 // GhHang is how long a fake gh whose api hangs takes to give up on its own:
@@ -318,7 +319,7 @@ func FakeGlab(t *testing.T) {
 func FakeGlabWithScopes(t *testing.T, scopes string) {
 	t.Helper()
 
-	fakeGlabAnswering(t, "[]", scopes)
+	fakeGlabAnswering(t, []string{"[]"}, scopes)
 }
 
 // FakeGlabListing is FakeGlab whose merge-request listings — the branch's own
@@ -326,7 +327,16 @@ func FakeGlabWithScopes(t *testing.T, scopes string) {
 func FakeGlabListing(t *testing.T, list string) {
 	t.Helper()
 
-	fakeGlabAnswering(t, list, `{}`)
+	fakeGlabAnswering(t, []string{list}, `{}`)
+}
+
+// FakeGlabListings is FakeGlab whose merge-request listings answer each of
+// lists in turn, the last repeated, so a merge request can change between
+// one read of it and the next.
+func FakeGlabListings(t *testing.T, lists ...string) {
+	t.Helper()
+
+	fakeGlabAnswering(t, lists, `{}`)
 }
 
 // FakeGlabMerging is FakeGlab whose merge-request listings answer list and
@@ -335,19 +345,20 @@ func FakeGlabListing(t *testing.T, list string) {
 func FakeGlabMerging(t *testing.T, list string, merges ...string) {
 	t.Helper()
 
-	fakeGlabAnswering(t, list, `{}`, merges...)
+	fakeGlabAnswering(t, []string{list}, `{}`, merges...)
 }
 
-// fakeGlabAnswering is FakeGlab whose listings answer list, whose token, asked
-// about, answers scopes, and whose merge request 7, read on its own, answers
-// merges in turn, or nothing it knows of when there are none.
-func fakeGlabAnswering(t *testing.T, list, scopes string, merges ...string) {
+// fakeGlabAnswering is FakeGlab whose listings answer each of lists in turn,
+// the last repeated, whose token, asked about, answers scopes, and whose merge
+// request 7, read on its own, answers merges in turn, or nothing it knows of
+// when there are none.
+func fakeGlabAnswering(t *testing.T, lists []string, scopes string, merges ...string) {
 	t.Helper()
 
 	dir := t.TempDir()
 	bodies := map[string]string{
 		mergeRoute: `{}`,
-		"list":     list,
+		listRoute:  lists[0],
 		"create":   `{"iid":7,"web_url":"` + GitlabMergeRequest + `","title":"work","state":"opened"}`,
 		"user":     `{"username":"tanuki"}`,
 		"users":    "[]",
@@ -359,14 +370,17 @@ func fakeGlabAnswering(t *testing.T, list, scopes string, merges ...string) {
 		writeData(t, filepath.Join(dir, "resp-"+name), body)
 	}
 
-	for index, body := range merges {
-		writeData(t, filepath.Join(dir, "resp-"+mergeRoute+"-"+strconv.Itoa(index)), body)
+	sequences := map[string][]string{mergeRoute: merges, listRoute: lists}
+	for route, sequence := range sequences {
+		for index, body := range sequence {
+			writeData(t, filepath.Join(dir, "resp-"+route+"-"+strconv.Itoa(index)), body)
+		}
 	}
 
 	script := "#!/bin/sh\n" +
 		"for a in \"$@\"; do path=\"$a\"; done\n" +
 		"case \"$path\" in\n" +
-		"  *\"/merge_requests?\"* | \"merge_requests?\"*) f=list ;;\n" +
+		"  *\"/merge_requests?\"* | \"merge_requests?\"*) f=" + listRoute + " ;;\n" +
 		"  *\"/merge_requests\") f=create ;;\n" +
 		"  *\"/merge_requests/7\") f=" + mergeRoute + " ;;\n" +
 		"  user) f=user ;;\n" +
@@ -375,6 +389,7 @@ func fakeGlabAnswering(t *testing.T, list, scopes string, merges ...string) {
 		"  *) f=default ;;\n" +
 		"esac\n" +
 		sequenced(dir, mergeRoute, len(merges)) +
+		sequenced(dir, listRoute, len(lists)) +
 		"printf 'HTTP/1.1 200 OK\\r\\nContent-Type: application/json\\r\\n\\r\\n'\n" +
 		"cat \"" + dir + "/resp-$f\"\n"
 

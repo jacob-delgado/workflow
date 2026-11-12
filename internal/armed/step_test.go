@@ -100,6 +100,10 @@ func heardRows() map[string]stepCase {
 			from: awaitingFix, event: hearing(with(heldPull(), forge.StateMerged), true, forge.CINone, 2*time.Minute),
 			stage: armed.StageDropped, next: armed.NextNothing, reason: armed.ErrMergedFirst,
 		},
+		"the forge merging it first": {
+			from: running, event: hearing(with(heldPull(), forge.StateMerging), true, forge.CINone, 2*time.Minute),
+			stage: armed.StageDropped, next: armed.NextNothing, reason: armed.ErrMergingFirst,
+		},
 		"CI running": {
 			from: awaitingChecks, event: hearing(heldPull(), true, forge.CIRunning, time.Minute),
 			stage: armed.StageRunning, next: armed.NextReadLater,

@@ -22,6 +22,10 @@ var (
 	// ErrMergedFirst gives up on an armed announcement whose pull request
 	// merged before its CI passed.
 	ErrMergedFirst = errors.New("the pull request merged before its CI passed")
+	// ErrMergingFirst gives up on an armed announcement whose pull request
+	// the forge began merging before its CI passed: no longer ready for
+	// review, it is announced, if at all, once it has merged.
+	ErrMergingFirst = errors.New("the forge began merging the pull request before its CI passed")
 	// ErrNotListedYet is a find that does not see a pull request just opened,
 	// which a forge may list only a moment later: a read to make again.
 	ErrNotListedYet = errors.New("the forge does not list the pull request yet")

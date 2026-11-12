@@ -166,17 +166,19 @@ func heldOutcome(notes console.Notes, seams announceSeams, pull string, final ar
 
 // gaveUpWaiting reports whether reason, why a hold was dropped, is one the
 // wait gave up on before anything was posted: no check reported, CI that ran
-// unchanged for too long, the pull request no longer the one, or nothing
-// heard for too long.
+// unchanged for too long, the pull request no longer the one, merged or
+// merging first, or nothing heard for too long.
 func gaveUpWaiting(reason error) bool {
 	return errors.Is(reason, armed.ErrNoCI) || errors.Is(reason, armed.ErrRunningTooLong) ||
 		errors.Is(reason, armed.ErrPullChanged) || errors.Is(reason, armed.ErrMergedFirst) ||
+		errors.Is(reason, armed.ErrMergingFirst) ||
 		errors.Is(reason, armed.ErrUnheard)
 }
 
 // gaveUp words why a wait for the CI of pull gave up without announcing to
 // service: no check reported, CI that ran unchanged for too long, the pull
-// request no longer the one to announce, or nothing heard of it for too long.
+// request merged or merging first or no longer the one to announce, or
+// nothing heard of it for too long.
 func gaveUp(reason error, pull, service string) error {
 	patience := strconv.Itoa(int(armed.NoCIPatience.Minutes())) + "m"
 
@@ -189,6 +191,10 @@ func gaveUp(reason error, pull, service string) error {
 			strconv.Itoa(int(armed.RunningPatience.Hours())) + "h; not announced"}
 	case errors.Is(reason, armed.ErrMergedFirst):
 		return forgeWordedError{armed.ErrMergedFirst, pull + " merged before its CI passed, so it was not announced"}
+	case errors.Is(reason, armed.ErrMergingFirst):
+		return forgeWordedError{
+			armed.ErrMergingFirst, pull + " began merging before its CI passed, so it was not announced",
+		}
 	case errors.Is(reason, armed.ErrPullChanged):
 		return forgeWordedError{armed.ErrPullChanged, pull + " is no longer this branch's, so it was not announced"}
 	default:

@@ -82,6 +82,7 @@ func TestExitStatusDistinguishesFailureKinds(t *testing.T) {
 		"CI running unchanged":        {err: armed.ErrRunningTooLong, want: 4},
 		"another pull request":        {err: armed.ErrPullChanged, want: 4},
 		"merged before CI passed":     {err: armed.ErrMergedFirst, want: 4},
+		"merging before CI passed":    {err: armed.ErrMergingFirst, want: 4},
 		"CI unread, the forge away": {
 			err: fmt.Errorf("%w: %w", loop.ErrCIUnread, forge.ErrUnreachable), want: 5,
 		},

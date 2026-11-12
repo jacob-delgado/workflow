@@ -2270,7 +2270,7 @@ type QueuedAnnouncement struct {
 	// Pull The number of the pull request whose CI it waits on.
 	Pull int `json:"pull"`
 
-	// Reason Why it stands where it does: why a dropped announcement was not posted — the forge did not list the pull request, or nothing could be heard of it, for ten minutes; no check was reported on it across ten minutes of reads heard; the branch's pull request is another one, or merged before its CI passed; the service refused the post; or the post may have gone out, which workflow announce asks before posting again — why one is elsewhere, why one was stopped, and, while it waits unread, what failed. A failed check does not drop it: it waits on, for a run that passes.
+	// Reason Why it stands where it does: why a dropped announcement was not posted — the forge did not list the pull request, or nothing could be heard of it, for ten minutes; no check was reported on it across ten minutes of reads heard; the branch's pull request is another one, or merged, or began merging, before its CI passed; the service refused the post; or the post may have gone out, which workflow announce asks before posting again — why one is elsewhere, why one was stopped, and, while it waits unread, what failed. A failed check does not drop it: it waits on, for a run that passes.
 	Reason *string `json:"reason,omitempty"`
 
 	// ReplacedPull Set only on the answer to POST /api/announce with when ci_passes that replaced another pull request's waiting announcement, which is stopped: that pull request's number.

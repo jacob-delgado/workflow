@@ -472,12 +472,13 @@ none, counted from the last read that saw one, a read that failed not counting,
 it is dropped, saying to announce it by hand — a
 repository with no CI is announced by hand. CI that runs and reads the same —
 no check finished, failed or started — for two hours drops it too, saying *CI
-on #42 has been running for 2h*. When the branch's pull request is
-another one, closed, or merged first, it is dropped and the section says why
-in red. It is bound to the branch it was asked for on: checking out another
-branch meanwhile neither posts it nor drops it, and **Stop waiting** is the
-way to stop it. **Announce when CI passes** over another pull request's
-waiting announcement replaces it, and the section says so. An announcement
+on #42 has been running for 2h*. When, before its CI passes, the branch's pull
+request is another one, closed, merged, or one GitLab began merging, it is
+dropped and the section says why in red. It is bound to the branch it was
+asked for on: checking out another branch meanwhile neither posts it nor drops
+it, and **Stop waiting** is the way to stop it. **Announce when CI passes**
+over another pull request's waiting announcement replaces it, and the section
+says so. An announcement
 sent now leaves the held one waiting until the post has gone, then reads it as
 announced, so the channel never reads it twice; one that fails leaves it
 waiting. The server, not the page, holds it: it reads the branch's pull

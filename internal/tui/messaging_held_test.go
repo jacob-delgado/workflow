@@ -35,6 +35,26 @@ func TestAWaitingPostIsDroppedWhenItsPullRequestMerges(t *testing.T) {
 	requireScreen(t, merged, "not announced: #42 merged before its CI passed")
 }
 
+func TestAWaitingPostIsDroppedWhenTheForgeStartsMergingItsPullRequest(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := newWorld()
+	repo.ci = []forge.CI{{State: forge.CIRunning}}
+	waiting := typing(t, repo.live(t, 120, 40), "5", "p", "w")
+	repo.pull.State = forge.StateMerging
+
+	// Act
+	merging := typing(t, waiting, "r").View().Content
+
+	// Assert
+	if calls := repo.asked("post "); len(calls) != 0 {
+		t.Errorf("posted %q for a pull request the forge began merging before its CI passed", calls)
+	}
+
+	requireScreen(t, merging, "not announced: #42 began merging before its CI passed")
+}
+
 func TestAWaitingPostIsDroppedWhenItsPullRequestCloses(t *testing.T) {
 	t.Parallel()
 

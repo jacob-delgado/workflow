@@ -154,14 +154,18 @@ func sameRun(before, now forge.CI) bool {
 
 // StillArmed reports whether an announcement armed for pull request number
 // still stands, given the branch's pull request now: ErrPullChanged when it is
-// another one, or none — one closed without merging counts as none — and
-// ErrMergedFirst when it merged before its CI passed.
+// another one, or none — one closed without merging counts as none —
+// ErrMergedFirst when it merged before its CI passed, and ErrMergingFirst
+// when the forge began merging it before then: either way it is past being
+// ready for review.
 func StillArmed(number int, pull forge.PullRequest, found bool) error {
 	switch {
 	case !found || pull.Number != number || pull.State == forge.StateClosed:
 		return ErrPullChanged
 	case pull.State == forge.StateMerged:
 		return ErrMergedFirst
+	case pull.State == forge.StateMerging:
+		return ErrMergingFirst
 	default:
 		return nil
 	}

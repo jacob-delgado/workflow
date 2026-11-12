@@ -416,7 +416,8 @@ func (s *server) heldReason(hold armed.Hold) string {
 
 // droppedWords is why hold was dropped: the forge never listed its pull
 // request, or nothing was heard of it, for too long; no check was reported;
-// it merged first or is no longer its branch's; or how its post failed.
+// it merged, or began merging, first or is no longer its branch's; or how its
+// post failed.
 func (s *server) droppedWords(hold armed.Hold) string {
 	name, reason := s.pullName(hold.Pull()), hold.Reason()
 	patience := minutes(armed.UnheardPatience)
@@ -440,6 +441,7 @@ func (s *server) droppedWords(hold armed.Hold) string {
 			return "CI on " + name + " has been running for " + hours(armed.RunningPatience)
 		}},
 		{armed.ErrMergedFirst, func() string { return name + " merged before its CI passed" }},
+		{armed.ErrMergingFirst, func() string { return name + " began merging before its CI passed" }},
 		{armed.ErrPullChanged, func() string { return name + " is no longer its branch's " + s.noun() }},
 		{loop.ErrPostUncertain, func() string { return postUncertain }},
 	}

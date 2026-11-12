@@ -261,6 +261,10 @@ func TestAHeldAnnouncementIsDroppedWithTheReason(t *testing.T) {
 			change:     func(w *forgeWorld) { w.state = forge.StateMerged },
 			wantReason: "#42 merged before its CI passed",
 		},
+		"merging first": {
+			change:     func(w *forgeWorld) { w.state = forge.StateMerging },
+			wantReason: "#42 began merging before its CI passed",
+		},
 		"closed": {
 			change:     func(w *forgeWorld) { w.state = forge.StateClosed },
 			wantReason: notTheBranchesPull,

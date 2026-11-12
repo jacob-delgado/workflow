@@ -1878,12 +1878,12 @@ paths:
         ten minutes of reads heard (a read that failed does not count), when
         the forge does not list a pull request just opened, or nothing can be
         heard of it, for ten minutes, or when the branch's pull request is
-        another one or merged first. One asked for over another pull
-        request's waiting announcement replaces it, stopping it, and the 202
-        names it in replaced_pull. One not ready for review is a 409. The
-        server holds a waiting announcement in memory: it is lost, unposted,
-        if the server stops or switches directory first. Announcing now
-        leaves a waiting one waiting until the post goes out, and then
+        another one, or merged, or began merging, first. One asked for over
+        another pull request's waiting announcement replaces it, stopping it,
+        and the 202 names it in replaced_pull. One not ready for review is a
+        409. The server holds a waiting announcement in memory: it is lost,
+        unposted, if the server stops or switches directory first. Announcing
+        now leaves a waiting one waiting until the post goes out, and then
         settles it as announced, so the channel never reads it twice; a post
         now that fails leaves it waiting. A post is claimed in the store
         before it goes, as the terminal's are, and a moment the store holds a
@@ -3872,11 +3872,12 @@ components:
             posted — the forge did not list the pull request, or nothing could
             be heard of it, for ten minutes; no check was reported on it
             across ten minutes of reads heard; the branch's pull request is
-            another one, or merged before its CI passed; the service refused
-            the post; or the post may have gone out, which workflow announce
-            asks before posting again — why one is elsewhere, why one was
-            stopped, and, while it waits unread, what failed. A failed check
-            does not drop it: it waits on, for a run that passes.
+            another one, or merged, or began merging, before its CI passed;
+            the service refused the post; or the post may have gone out, which
+            workflow announce asks before posting again — why one is
+            elsewhere, why one was stopped, and, while it waits unread, what
+            failed. A failed check does not drop it: it waits on, for a run
+            that passes.
         ci:
           allOf: [{$ref: "#/components/schemas/CIState"}]
           description: >-
