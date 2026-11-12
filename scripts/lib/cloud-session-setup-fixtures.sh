@@ -47,15 +47,21 @@ stub go 'if [[ "$*" == "env GOROOT" ]]; then
   printf "toolchain %s\n" "${GOTOOLCHAIN:-}" >>"'"${log}"'"
   printf "%s\n" "${GO_ROOT}"
 fi'
-# python3 -m venv makes a venv whose pip is a stand-in too.
-stub pip
+# python3 -m venv makes a venv whose pip is a stand-in too, which exits
+# PIP_STATUS and, when that is 0, puts yamllint in the venv, as installing the
+# requirements does.
+# shellcheck disable=SC2016 # the stand-in's own variable, expanded when it runs
+stub pip '((${PIP_STATUS:-0} == 0)) || exit "${PIP_STATUS}"
+: >"$(dirname "$0")/yamllint"'
 # shellcheck disable=SC2016 # the stand-in's own variables, expanded when it runs
 stub python3 'if [[ "$1 $2" == "-m venv" ]]; then
-  mkdir -p "$3/bin" && cp "'"${stub_bin}"'/pip" "$3/bin/pip" && : >"$3/bin/yamllint"
+  mkdir -p "$3/bin" && cp "'"${stub_bin}"'/pip" "$3/bin/pip"
 fi'
-# npm ci puts a markdownlint-cli2 where the lock it is given installs one.
+# npm ci exits NPM_STATUS and, when that is 0, puts a markdownlint-cli2 where
+# the lock it is given installs one.
 # shellcheck disable=SC2016 # the stand-in's own variables, expanded when it runs
 stub npm 'if [[ "$1" == ci ]]; then
+  ((${NPM_STATUS:-0} == 0)) || exit "${NPM_STATUS}"
   while (($#)); do if [[ "$1" == --prefix ]]; then dir="$2"; fi; shift; done
   mkdir -p "${dir}/node_modules/.bin" && : >"${dir}/node_modules/.bin/markdownlint-cli2"
 fi'
