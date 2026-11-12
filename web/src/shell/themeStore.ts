@@ -9,8 +9,9 @@ export type ThemeChoice = (typeof themeChoices)[number]
 
 // readStoredChoice recovers the saved choice, defaulting to "system" when there
 // is none or storage is blocked (a private window, cleared site data). The
-// store reads it once, at load, and index.html's pre-paint script applies the
-// same rules; theme.test.tsx holds the two to one theme for every value.
+// store reads it at load, and again as another tab saves one, and index.html's
+// pre-paint script applies the same rules; theme.test.tsx holds the two to one
+// theme for every value.
 function readStoredChoice(): ThemeChoice {
   try {
     const stored = localStorage.getItem(themeStorageKey)
@@ -37,6 +38,8 @@ function persistChoice(choice: ThemeChoice): void {
 interface ThemeState {
   choice: ThemeChoice
   cycleChoice: () => void
+  // readSaved takes up the choice saved now, as another tab saved it.
+  readSaved: () => void
 }
 
 // The theme preference, persisted to localStorage and shared by the toggle and
@@ -48,5 +51,8 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     const next = themeChoices[nextIndex] ?? 'system'
     persistChoice(next)
     set({ choice: next })
+  },
+  readSaved: () => {
+    set({ choice: readStoredChoice() })
   },
 }))
