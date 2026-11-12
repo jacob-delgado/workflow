@@ -175,19 +175,19 @@ func (msg repoGroupsSaved) apply(m Model) (Model, tea.Cmd) {
 
 // refreshed drops the directory read so far and reads it again.
 func (p peopleOverlay) refreshed(m Model) (Model, tea.Cmd) {
-	refresh, readGroups, readMembers := m.deps.Messaging.RefreshDirectory, m.deps.Messaging.UserGroups,
+	refreshDirectory, readGroups, readMembers := m.deps.Messaging.RefreshDirectory, m.deps.Messaging.UserGroups,
 		m.deps.Messaging.ChannelMembers
 	p.refreshes++
-	ctx, channel, opened, number := m.session, p.channel, p.opened, p.refreshes
+	ctx, channel, opened, refresh := m.session, p.channel, p.opened, p.refreshes
 	p.groups.reading, p.members.reading = true, true
 	m.overlay = p
 
 	return m, func() tea.Msg {
 		// The directory reads are bound together, for a Slack user token, so
 		// with one there are all three.
-		refresh()
+		refreshDirectory()
 
-		again := directoryRefreshed{opened: opened, refresh: number, groups: directory{}, members: directory{}}
+		again := directoryRefreshed{opened: opened, refresh: refresh, groups: directory{}, members: directory{}}
 
 		again.groups.entries, again.groups.err = readGroups(ctx)
 		again.members.entries, again.members.err = readMembers(ctx, channel)
