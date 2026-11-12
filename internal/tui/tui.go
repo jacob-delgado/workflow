@@ -74,6 +74,10 @@ type Model struct {
 	// detailReads counts the issue reads started, so the answer to one a later
 	// read superseded is dropped rather than shown over the later one's.
 	detailReads int
+	// issueSearches counts the searches of the Issues list's first page
+	// begun, so a further page of the list as it stood before one reaches
+	// nothing.
+	issueSearches int
 	// overlaysOpened counts the overlays opened whose reads answer later — the
 	// announcement preview, People and groups, the pull request composer — so
 	// an answer lands only in the one it was started for, never in a later
