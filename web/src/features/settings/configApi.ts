@@ -33,10 +33,7 @@ async function readConfig(signal?: AbortSignal): Promise<ConfigRead> {
 // can change on disk, which no event reports, and a form seeded from an older
 // read only learns so when its save is refused. It reads again at no other
 // time — a reconnect says nothing about the file, and a read that failed then
-// would take an open form, and the edits in it, away — and a failed read is
-// not retried on its own: a problem answer, such as a file on disk that is not
-// valid, stands until the file changes, and retrying would only hide its
-// reason behind "Reading…" for seconds. Try again is the user's to press.
+// would take an open form, and the edits in it, away.
 function configQuery() {
   return queryOptions({
     queryKey: getConfigQueryKey(),
@@ -55,7 +52,6 @@ function configQuery() {
     },
     staleTime: 0,
     refetchOnReconnect: false,
-    retry: false,
   })
 }
 

@@ -7,13 +7,11 @@ import type { CivilDate, Period } from './civilDate.ts'
 
 // useActivity reads back what you did over period, or the previous working day
 // the server picks when period is null. What was done changes as you work, so
-// the read is not kept fresh between visits; a failed one is not retried on its
-// own, since each source has already said why it failed.
+// the read is not kept fresh between visits.
 export function useActivity(period: Period | null) {
   return useQuery({
     ...getActivityOptions(period === null ? {} : { query: { from: period.from, to: period.to } }),
     staleTime: 0,
-    retry: false,
   })
 }
 
@@ -46,7 +44,6 @@ export function useMonthRead(month: Period, today: CivilDate): MonthRead {
     ...options,
     queryKey: [{ ...options.queryKey[0], tags: ['calendar'] }],
     staleTime: freshFor,
-    retry: false,
     enabled: month.from <= today,
   })
 

@@ -19,14 +19,12 @@ import { rememberCompleted, rememberTrack, useTaskMemo, type RememberedDone } fr
 // terminal, a hook, a sync — and nothing pushes the list, so it is read again
 // each time the section opens. A wait passing changes where a task stands
 // with no write at all, so the list is read again, too, once the earliest wait
-// still ahead has passed. A failed read is not retried on its own: the server
-// has already said what went wrong, and a Taskwarrior that timed out would
-// only be kept waiting again — Try again is the user's to press.
+// still ahead has passed. A failed read is retried as every read is
+// (queryClient): once, and only when the server failed in passing.
 export function useTasks() {
   return useQuery({
     ...listTasksOptions(),
     staleTime: 0,
-    retry: false,
     refetchInterval: (query) => untilNextWait(query.state.data, Date.now()),
   })
 }

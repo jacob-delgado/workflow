@@ -206,12 +206,12 @@ test('a first read that fails says why and reads again on Try again', async () =
         ? Response.json(
             {
               type: 'about:blank',
-              title: 'Internal',
-              status: 500,
-              code: 'internal',
+              title: 'Unprocessable',
+              status: 422,
+              code: 'unprocessable',
               detail: 'the request failed',
             },
-            { status: 500 },
+            { status: 422 },
           )
         : tuesday()
     },

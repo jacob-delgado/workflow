@@ -8,14 +8,12 @@ import {
 import type { SetupRequest, SetupResult } from '@/api/generated/types.gen.ts'
 
 // useSetupOffer reads where a first configuration file may go, and whether the
-// keychain can keep the token, each time Settings offers a setup. A failed
-// read is not retried on its own; the page offers to read again.
+// keychain can keep the token, each time Settings offers a setup.
 export function useSetupOffer() {
   return useQuery({
     queryKey: getSetupQueryKey(),
     queryFn: async ({ signal }) => (await getSetup({ signal, throwOnError: true })).data,
     staleTime: 0,
-    retry: false,
   })
 }
 

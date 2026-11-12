@@ -27,12 +27,12 @@ function refusing(path: string, refused?: () => Promise<Response>): void {
         Response.json(
           {
             type: 'about:blank',
-            title: 'Bad gateway',
-            status: 502,
-            code: 'unreachable',
+            title: 'Unprocessable',
+            status: 422,
+            code: 'unprocessable',
             detail: `${path} refused`,
           },
-          { status: 502 },
+          { status: 422 },
         )),
   })
 }

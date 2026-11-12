@@ -70,16 +70,27 @@ test('a queue that could not be read says why', async () => {
   expect((await screen.findByRole('alert')).textContent).toBe(detail)
 })
 
-test("a failed read is said at once, never retried behind the user's back", async () => {
+test("a refused read is said at once, never asked again behind the user's back", async () => {
   // Arrange
-  // The app's own client, whose queries retry by default: the queue is a
-  // search under the forge's rate limits, and the server's answer is already
-  // its verdict, so asking again is the user's call — Try again.
-  const requests = fakeApi({ [reviewsPath]: () => refused({ detail: 'wait and try again' }, 502) })
-  const client = new QueryClient()
+  // The queue is a search under the forge's rate limits, and a refusal is
+  // already the server's verdict, so asking again is the user's call — Try
+  // again.
+  const requests = fakeApi({
+    [reviewsPath]: () =>
+      refused(
+        {
+          type: 'about:blank',
+          title: 'Too Many Requests',
+          status: 429,
+          code: 'rate_limited',
+          detail: 'wait and try again',
+        },
+        429,
+      ),
+  })
 
   // Act
-  renderWithClient(<ReviewQueuePanel />, client)
+  renderWithClient(<ReviewQueuePanel />)
 
   // Assert
   expect((await screen.findByRole('alert')).textContent).toBe('wait and try again')

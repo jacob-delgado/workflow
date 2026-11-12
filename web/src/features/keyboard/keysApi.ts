@@ -43,7 +43,6 @@ export function useReadKeys(): void {
   const { data } = useQuery({
     queryKey: getKeysQueryKey(),
     queryFn: ({ signal }) => readKeys(signal),
-    retry: false,
   })
 
   useEffect(() => {

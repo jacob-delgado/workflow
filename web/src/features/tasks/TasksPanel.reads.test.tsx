@@ -1,4 +1,3 @@
-import { QueryClient } from '@tanstack/react-query'
 import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { fakeApi } from '@/test/fakeApi.ts'
@@ -109,19 +108,27 @@ test('a failed Refresh keeps the list last read in view, beside why, and offers 
   expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
 })
 
-test("a failed read is said at once, never retried behind the user's back", async () => {
+test("a refused read is said at once, never asked again behind the user's back", async () => {
   // Arrange
-  // The app's own client, whose queries retry by default.
-  const requests = fakeApi({ [tasksPath]: () => refused({}, 502) })
-  const client = new QueryClient()
+  const requests = fakeApi({
+    [tasksPath]: () =>
+      refused(
+        {
+          type: 'about:blank',
+          title: 'Forbidden',
+          status: 403,
+          code: 'forbidden',
+          detail: 'Taskwarrior refused the read',
+        },
+        403,
+      ),
+  })
 
   // Act
-  renderWithClient(<TasksPanel />, client)
+  renderWithClient(<TasksPanel />)
 
   // Assert
-  expect((await screen.findByRole('alert')).textContent).toBe(
-    'Your tasks could not be read. Press Try again.',
-  )
+  expect((await screen.findByRole('alert')).textContent).toBe('Taskwarrior refused the read')
   expect(readsOf(requests)).toBe(1)
 })
 
