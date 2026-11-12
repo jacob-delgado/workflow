@@ -12,8 +12,8 @@ name: Release
 #            so what it attests and publishes is exactly what build verified.
 #   docs     dispatches pages.yml on main once the release is out, so the site
 #            describes the version people just got.
-#   packages dispatches packages.yml on main with the tag once the release is
-#            out, so the tap installs the version people just got.
+#   packages dispatches packages.yml on main once the release is out, so the
+#            tap installs the version people just got, the latest.
 #
 # Normally dispatched by release-please.yml right after it pushes the tag; the
 # push trigger is the manual path, for a tag pushed by hand. The release and its
@@ -204,8 +204,8 @@ jobs:
         run: gh workflow run pages.yml --ref main --repo "${GITHUB_REPOSITORY}"
 
   # A dispatch for the reason docs is one. packages.yml writes and commits the
-  # formula, holding the one token that can, and can be run alone for a release
-  # already out.
+  # formula for the latest release, holding the one token that can, and can be
+  # run alone for a release already out.
   packages:
     name: Update the Homebrew tap
     needs: release
@@ -217,5 +217,4 @@ jobs:
       - name: Dispatch the Packages workflow on main
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
-        run: gh workflow run packages.yml --ref main --repo "${GITHUB_REPOSITORY}" -f tag="${TAG}"
+        run: gh workflow run packages.yml --ref main --repo "${GITHUB_REPOSITORY}"

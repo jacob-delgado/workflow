@@ -325,13 +325,13 @@ commit messages above, so a well-formed commit is also a changelog entry:
    attached, and then republishes the documentation site and dispatches
    `.github/workflows/packages.yml`, which points the Homebrew tap at the
    release. That workflow can also be run alone, for a release already out;
-   either way it writes the formula with the generator on main at the time,
-   and changes the tap only for the latest release. CI publishes nothing: its
-   Cross-compile job writes, as v0.0.0, the formula a release of each change
-   would get, and runs `brew audit --strict`, style cops included, on it in
-   developer mode. A failure there usually means Homebrew changed a rule or
-   deprecated a call, and `scripts/release/package-manifests.sh` needs
-   updating.
+   either way it takes no tag and points the tap at whichever release is the
+   latest when it runs, writing the formula with the generator on main at the
+   time. CI publishes nothing: its Cross-compile job writes, as v0.0.0, the
+   formula a release of each change would get, and runs `brew audit
+   --strict`, style cops included, on it in developer mode. A failure there
+   usually means Homebrew changed a rule or deprecated a call, and
+   `scripts/release/package-manifests.sh` needs updating.
 
    A tag job in `release-please.yml` that pushed the tag and then failed, or
    was canceled, before `.github/workflows/release.yml` started is finished by
