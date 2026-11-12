@@ -3,11 +3,20 @@
 # Fail if a commit message does not follow Conventional Commits.
 #
 # Usage:
-#   scripts/check-commit-message.sh <message-file>
+#   scripts/check-commit-message.sh [--stored] <message-file>
 #
 # lefthook's commit-msg hook and CI's commit check both run this, so a
 # LEFTHOOK=0 bypass cannot land a message the hook would have refused. The
 # first line it prints on a refusal is the reason, for CI's annotation.
+#
+# The hook hands it the message before git cleans it up, so it drops what
+# git's default cleanup drops: everything from a `git commit -v` scissors
+# line, and every comment line, a comment being a line that starts with the
+# repository's core.commentString or core.commentChar, or # (for auto, too,
+# the character git picks unless a line of the message starts with it).
+# Otherwise the diff below the scissors, or a commented example, is read as
+# part of the body. CI passes --stored, for a message as git stored it, whose
+# comments are gone already: every line of it is the message.
 #
 # A breaking change is marked in the subject with "!", and a body may only say
 # so as well. release-please (17.6.0, checked against its parser) also marks a
@@ -91,16 +100,40 @@ overlong_prose() {
   ' <<<"$1"
 }
 
+# comment_string prints what starts a comment line in a message git cleans
+# up: core.commentString, or core.commentChar, or # when neither is set or
+# git picks one itself.
+comment_string() {
+  local comment
+  comment="$(git config --get core.commentString || git config --get core.commentChar || true)"
+  if [[ -z "${comment}" || "${comment}" == auto ]]; then comment="#"; fi
+  printf '%s' "${comment}"
+}
+
+# uncommented prints a message without its comment lines, and without
+# anything from a comment line that is a scissors line on, given what starts a
+# comment; given none, the message whole.
+#   uncommented <comment> <message>
+uncommented() {
+  awk -v comment="$1" '
+    comment != "" && index($0, comment) == 1 { if ($0 ~ />8/) exit; next }
+    { print }
+  ' <<<"$2"
+}
+
+comment=""
+if [[ "${1:-}" == --stored ]]; then
+  shift
+else
+  comment="$(comment_string)"
+fi
 if [[ $# -ne 1 || ! -f "$1" ]]; then
   usage
   exit 2
 fi
 
-# Drop what git's default cleanup drops before it stores the message: everything
-# from a `git commit -v` scissors line, and every comment line. Otherwise the
-# diff below the scissors, or a commented example, is read as part of the body.
 raw="$(tr '\r' '\n' <"$1")"
-message="$(printf '%s\n' "${raw}" | sed '/^#.*>8/,$d' | sed '/^#/d')"
+message="$(uncommented "${comment}" "${raw}")"
 subject="${message%%$'\n'*}"
 body=""
 if [[ "${message}" == *$'\n'* ]]; then

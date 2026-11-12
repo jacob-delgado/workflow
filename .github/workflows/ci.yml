@@ -700,7 +700,9 @@ jobs:
               continue
             fi
             git log -1 --format=%B "${sha}" >"${message}"
-            if ! reason="$(scripts/check-commit-message.sh "${message}" 2>&1)"; then
+            # --stored: the message as git keeps it, so a line starting with #
+            # is part of it, as it is to release-please.
+            if ! reason="$(scripts/check-commit-message.sh --stored "${message}" 2>&1)"; then
               echo "::error::${sha:0:12}: ${reason%%$'\n'*}"
               echo "${reason}"
               failed=1
