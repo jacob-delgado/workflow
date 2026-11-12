@@ -5,6 +5,7 @@ import { useSnapshotStore } from '@/api/snapshot.ts'
 import { useUiStore, type IssueRef } from '@/shell/uiStore.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
 import { useFollowSwitch } from './useFollowSwitch.ts'
+import { appQueryClient } from '@/test/renderWithClient.tsx'
 
 // Following is a page that follows the server's switches.
 function Following() {
@@ -19,7 +20,7 @@ const jiraIssue: IssueRef = { key: 'PROJ-1', tracker: 'jira' }
 // following renders a page working in api with issue shown, and the client
 // whose reads a switch resets.
 function following(issue: IssueRef): QueryClient {
-  const client = new QueryClient()
+  const client = appQueryClient()
   useSnapshotStore.setState({ snapshot: makeSnapshot({ here: '/home/ana/src/api' }) })
   useUiStore.setState({ selectedIssue: issue })
   render(
