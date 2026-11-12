@@ -114,6 +114,31 @@ test('offers no merge until the pull request can be merged', () => {
   expect(screen.queryByRole('button', { name: 'Merge' })).toBeNull()
 })
 
+test('offers the merge of a pull request no CI reported on, saying none ran', async () => {
+  // Arrange
+  streamPull(ready, { state: 'none', total: 0, done: 0, failed: 0, checks: [] })
+  const user = userEvent.setup()
+  render(<ReviewPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Merge' }))
+
+  // Assert
+  const form = await screen.findByRole('form', { name: 'Merge #42' })
+  expect(within(form).getByText(/No CI ran on #42/)).toBeTruthy()
+})
+
+test('offers no merge before the CI is read', () => {
+  // Arrange
+  streamPull(ready)
+
+  // Act
+  render(<ReviewPanel />)
+
+  // Assert
+  expect(screen.queryByRole('button', { name: 'Merge' })).toBeNull()
+})
+
 test('finishes a merged branch after a look at the commands it runs', async () => {
   // Arrange
   streamPull({ ...ready, state: 'merged' })

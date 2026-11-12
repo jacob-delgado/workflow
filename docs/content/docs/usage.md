@@ -212,7 +212,7 @@ lists, by where it works.
 | | `e` | Edit the open one's title and description |
 | | `c` | List its CI checks, and open one's page in the browser |
 | | `R` | Re-run failed CI, after a last look at the pull request |
-| | `M` | Merge a green, approved pull request, after a preview of the methods the repository permits |
+| | `M` | Merge an approved pull request, green or with no CI, after a preview of the methods the repository permits |
 | | `F` | Finish a merged branch — switch to the base, catch it up, delete the branch — after a preview of the commands |
 | | `o` / `y` | Open the pull request in the browser, or copy its URL |
 | | `r` | Look for the pull request and its CI again |
@@ -555,8 +555,10 @@ through a log taller than the pane half a page at a time. `R` re-runs the
 failed ones, and `u` on the Branch pane rebases the branch onto its base; like
 a push, each first shows a last look naming what it acts on, and does nothing
 until `enter`. `e` edits the pull request's title and description. Once it is
-green and approved, `M` previews the merge methods the repository permits and
-merges by the one you choose; once it has merged, `F` previews the three git
+green, or no CI reported on it once CI has been read, and approved, `M`
+previews the merge methods the repository permits and merges by the one you
+choose — the preview says when no CI ran, and a forge whose rules require a
+check refuses the merge; once it has merged, `F` previews the three git
 commands that finish the branch — switch to the base, catch it up from the base
 remote (upstream in a fork's clone, else origin), delete the branch — and runs
 them on `enter` (`workflow finish` does the same from a shell). The delete is a

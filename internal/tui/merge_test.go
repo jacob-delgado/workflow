@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
 // readingMethods is the merge picker while the methods it offers are read.
@@ -77,6 +78,54 @@ func TestTheMergePreviewOffersEachPermittedMethod(t *testing.T) {
 	if calls := reviewing.asked("merge 42 squash"); len(calls) != 1 {
 		t.Errorf("merge calls = %q, want a squash", reviewing.asked("merge 42"))
 	}
+}
+
+func TestTheMergePreviewOfAPullWithNoCISaysNoneRan(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// P065: approved and clean, on a repository that reports no CI.
+	reviewing := mergeable()
+	reviewing.ci = []forge.CI{{State: forge.CINone}}
+	model := reviewing.live(t, 120, 40)
+
+	// Act
+	preview := typing(t, model, "4", "M")
+
+	// Assert
+	requireScreen(t, preview.View().Content, "Merge by:", "no CI ran on #42")
+}
+
+func TestMergeIsNotOfferedBeforeCIIsRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// CI not read yet reads as none reported, which is not a repository
+	// with no CI.
+	reviewing := mergeable()
+	unread := reviewing.deps()
+	unread.Forge.CheckStatus = nil
+	model := sized(t, tui.New(completeConfig(), nil, unread), 120, 40)
+
+	// Act
+	view := typing(t, drain(t, model, model.Init()), "4", "M").View().Content
+
+	// Assert
+	refuseScreen(t, view, "Merge by:")
+}
+
+func TestMergeIsNotOfferedPastAFailedReadOfCI(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	reviewing := mergeable()
+	reviewing.ciErr = errUnreachable
+
+	// Act
+	view := typing(t, reviewing.live(t, 120, 40), "4", "M").View().Content
+
+	// Assert
+	refuseScreen(t, view, "Merge by:")
 }
 
 func TestMergeIsNotOfferedWithoutApproval(t *testing.T) {

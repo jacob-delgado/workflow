@@ -268,6 +268,26 @@ func TestMergeOffersTheMethodsTheRepositoryPermits(t *testing.T) {
 	}
 }
 
+func TestMergeOffersAPullRequestNoCIReportedOn(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// P065: a repository with no CI reports none on the pull request.
+	deps := reviewDeps(&reviewWrites{})
+	deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
+		return forge.CI{State: forge.CINone}, nil
+	}
+
+	// Act
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), mergeAt)
+
+	// Assert
+	offer := webtest.Decode[api.MergeOffer](t, recorder)
+	if offer.Pull.Number != 42 || len(offer.Methods) == 0 {
+		t.Errorf("offer = %+v, want #42 offered with its methods", offer)
+	}
+}
+
 func TestMergeOffersNothingWhenTheRepositoryPermitsNothing(t *testing.T) {
 	t.Parallel()
 

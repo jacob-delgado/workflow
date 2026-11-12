@@ -290,7 +290,7 @@ set-up-lefthook     Set up lefthook
 open-pull-request   Open a pull or merge request
 checks              List its CI checks
 rerun-checks        Re-run failed CI
-merge               Merge a green
+merge               Merge an approved
 finish-branch       Finish a merged branch
 post                Preview the announcement
 people-and-groups   People and groups

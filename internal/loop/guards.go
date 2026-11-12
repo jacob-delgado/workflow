@@ -63,14 +63,16 @@ func Foldable(changes []gitrepo.Change, branch gitrepo.Branch) []gitrepo.Commit 
 }
 
 // CanMerge reports a pull request ready to merge: open, not a draft, free of
-// conflicts, approved with no changes asked for, and its CI green.
+// conflicts, approved with no changes asked for, and its CI green or none
+// reported. A repository with no CI could otherwise never merge here; one
+// whose rules require a check refuses the merge on the forge.
 func CanMerge(pull forge.PullRequest, checks forge.CI) bool {
 	return pull.State == forge.StateOpen &&
 		!pull.Draft &&
 		pull.Mergeable == forge.MergeClean &&
 		pull.Approvals > 0 &&
 		!pull.ChangesRequested &&
-		checks.State == forge.CIPassed
+		(checks.State == forge.CIPassed || checks.State == forge.CINone)
 }
 
 // Why a merged branch cannot be finished, each worded to follow "cannot
