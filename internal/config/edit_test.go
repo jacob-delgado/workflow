@@ -261,8 +261,8 @@ func TestSaveEditPlacesNothingOverFilesItCannotRead(t *testing.T) {
 	})
 
 	// Assert
-	if !errors.Is(err, config.ErrChangedOnDisk) || placed {
-		t.Errorf("err = %v, placed %t; want ErrChangedOnDisk and the typed token unspent", err, placed)
+	if err == nil || errors.Is(err, config.ErrChangedOnDisk) || placed {
+		t.Errorf("err = %v, placed %t; want the read's own failure and the typed token unspent", err, placed)
 	}
 }
 
