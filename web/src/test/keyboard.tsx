@@ -119,10 +119,15 @@ export function commentBox(): Promise<HTMLElement> {
 }
 
 // keysRead waits for the server's keys to reach the page: the comment box names
-// its key once they have.
+// its key once they have. The box is waited for first, on a wait of its own,
+// since a wait inside another shares the outer one's time, which a first test
+// drawing the whole page can spend before the box is there.
 export async function keysRead(key: string): Promise<void> {
-  await waitFor(async () => {
-    expect((await commentBox()).getAttribute('aria-keyshortcuts')).toBe(key)
+  await commentBox()
+  await waitFor(() => {
+    expect(
+      screen.getByRole('textbox', { name: 'Comment on PROJ-1' }).getAttribute('aria-keyshortcuts'),
+    ).toBe(key)
   })
 }
 
