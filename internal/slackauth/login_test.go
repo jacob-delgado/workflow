@@ -33,6 +33,22 @@ func homeAndRepository(t *testing.T) config.Files {
 	}
 }
 
+// refusingKeychain is a macOS keychain item whose security refuses to keep
+// anything.
+func refusingKeychain(t *testing.T) keychain.Item {
+	t.Helper()
+
+	refusing := func(context.Context, proc.Command, []byte) ([]byte, error) { return nil, errSecurityRefused }
+
+	item, ok := keychain.Open("darwin", slackauth.KeychainService, refusing,
+		func() (*user.User, error) { return &user.User{Username: "jacob"}, nil }, func(string) string { return "" })
+	if !ok {
+		t.Fatal("no keychain item on darwin")
+	}
+
+	return item
+}
+
 // messagingIn is the messaging block the one file at path holds.
 func messagingIn(t *testing.T, path string) config.Messaging {
 	t.Helper()
@@ -92,13 +108,7 @@ func TestAKeychainLoginTheKeychainRefusesNamesNoApp(t *testing.T) {
 
 	// Arrange
 	files := homeAndRepository(t)
-	refusing := func(context.Context, proc.Command, []byte) ([]byte, error) { return nil, errSecurityRefused }
-
-	item, ok := keychain.Open("darwin", slackauth.KeychainService, refusing,
-		func() (*user.User, error) { return &user.User{Username: "jacob"}, nil }, func(string) string { return "" })
-	if !ok {
-		t.Fatal("no keychain item on darwin")
-	}
+	item := refusingKeychain(t)
 
 	// Act
 	err := slackauth.KeychainStore(item, files).KeepLogin(t.Context(), clientID, pairExpiringIn(0))
@@ -123,5 +133,39 @@ func TestALoginOverAStoreOfItsOwnKeepsThePair(t *testing.T) {
 	// Assert
 	if err != nil || held.held != pair {
 		t.Errorf("KeepLogin = %v, holding %+v; want the pair kept", err, held.held)
+	}
+}
+
+func TestAKeychainLoginThatCannotNameTheAppKeepsNoPair(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	files := config.Files{Home: configFile(t, `{"messaging": `)}
+	store := slackauth.KeychainStore(keychainHolding(t), files)
+
+	// Act
+	err := store.KeepLogin(t.Context(), clientID, pairExpiringIn(0))
+
+	// Assert
+	_, loadErr := store.Load(t.Context())
+	if !errors.Is(err, slackauth.ErrNotKept) || !errors.Is(loadErr, slackauth.ErrNotLoggedIn) {
+		t.Errorf("KeepLogin = %v, then the keychain reads %v; want ErrNotKept and no pair kept without its app",
+			err, loadErr)
+	}
+}
+
+func TestAKeychainLoginTheKeychainRefusesLeavesTheAppNamedBefore(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	files := config.Files{Home: configFile(t, `{"messaging": {"kind": "slack", "client_id": "0000.1111"}}`)}
+	item := refusingKeychain(t)
+
+	// Act
+	err := slackauth.KeychainStore(item, files).KeepLogin(t.Context(), clientID, pairExpiringIn(0))
+
+	// Assert
+	if home := messagingIn(t, files.Home); !errors.Is(err, slackauth.ErrNotKept) || home.ClientID != "0000.1111" {
+		t.Errorf("KeepLogin = %v, the home file names %q; want ErrNotKept and the app named before", err, home.ClientID)
 	}
 }
