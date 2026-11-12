@@ -339,8 +339,9 @@ func TestAnnounceWhenGreenWaitsAgainWhenTheGateRefuses(t *testing.T) {
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--when-green", "--yes")
 
 	// Assert
-	if err != nil || posts.Load() != 1 {
-		t.Errorf("announce --when-green = %v, posted %d, said %q; want it to wait again, then announce once",
+	if err != nil || posts.Load() != 1 ||
+		!strings.Contains(printed.Stderr, "A check failed on #7 (ci) as it was to be posted; waiting for a run") {
+		t.Errorf("announce --when-green = %v, posted %d, said %q; want the refusal told, then announced once",
 			err, posts.Load(), printed.Stderr)
 	}
 }

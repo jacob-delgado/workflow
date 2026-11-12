@@ -587,7 +587,10 @@ instead*: it opens the same preview, and announcing from it replaces the one
 that is waiting, so the channel never reads it twice. One armed as `n` opened
 its pull request waits the same way, and so does
 `workflow announce --when-green` from a shell, in the foreground until CI passes
-or `ctrl+c`.
+or `ctrl+c`: it reads the pull request of the branch it started on, whatever is
+checked out meanwhile, and gives up when it hears nothing for ten minutes — CI
+it can't read, a forge that doesn't list a pull request just opened, posts asked
+to wait — saying what failed last.
 
 Nothing is announced while a check has failed on the pull request. The
 announcement reads its CI again as it goes, whatever the pane last read, and a

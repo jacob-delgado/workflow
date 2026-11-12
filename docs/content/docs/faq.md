@@ -777,6 +777,13 @@ that heard none (a read that failed does not count), it gives up: the terminal a
 `no checks reported on … within 10m; announce it by hand`, and
 `workflow announce --when-green` says `no checks were reported on … within 10m;
 if the repository has no CI, announce it by hand with workflow announce`.
+`workflow announce --when-green` and `pr --announce` also give up when they
+hear nothing for ten minutes — CI that can't be read, a forge that doesn't list
+a pull request just opened, or posts the messaging service keeps asking to
+wait — saying, for instance, `could not read CI on … for 10m (…), so it was not
+announced`, and exit as what failed last does: 5 for a service they could not
+reach. They read the pull request of the branch they started on, so checking
+out another branch meanwhile changes nothing.
 Announcing now (`enter`, or plain `workflow announce`) is allowed while CI is
 running or reports nothing, but never while a check has failed or when CI can't
 be read. `x` on the messaging pane stops the wait, and `p`, which its footer

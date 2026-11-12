@@ -78,6 +78,27 @@ func TestArmingAnIdleOrEndedHoldStartsARound(t *testing.T) {
 	}
 }
 
+func TestStartingArmsAsAnIdleHoldIsArmed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	want, err := armed.Hold{}.Arm(armedAt(), opening())
+	if err != nil {
+		t.Fatalf("arming an idle hold: %v", err)
+	}
+
+	// Act
+	got := armed.Start(armedAt(), opening())
+
+	// Assert
+	if got.Hold.Stage() != want.Hold.Stage() || got.Hold.Round() != want.Hold.Round() || got.Next != want.Next ||
+		got.Replaced != nil || got.Hold.Branch() != branchName {
+		t.Errorf("Start = %s in round %d asking for %s; want %s in round %d asking for %s, as Arm does",
+			stageName(got.Hold.Stage()), got.Hold.Round(), nextName(got.Next),
+			stageName(want.Hold.Stage()), want.Hold.Round(), nextName(want.Next))
+	}
+}
+
 func TestArmingTheHeldAnnouncementAgainRetellsIt(t *testing.T) {
 	t.Parallel()
 

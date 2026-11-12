@@ -56,15 +56,22 @@ func (s Seams) Read(ctx context.Context, hold Hold, now func() time.Time) (Readi
 }
 
 // DeliverHeld posts the held delivery under ctx through loop.Deliver — its
-// tags proposed first, asked of no one, for a hold armed so — and answers
-// its outcome, as the hold's round, at the time now tells once it is done.
+// tags proposed first, asked of no one, for a hold armed so, and through
+// loop.Redeliver, from the claim it saw, for one asked for again — and
+// answers its outcome, as the hold's round, at the time now tells once it is
+// done.
 func (s Seams) DeliverHeld(ctx context.Context, hold Hold, now func() time.Time) Outcome {
 	delivery := hold.Delivery()
 	if hold.arming.Unasked && s.UnaskedTags != nil {
 		delivery.Mentions = s.UnaskedTags(ctx, delivery)
 	}
 
-	err := loop.Deliver(ctx, s.Deliver, s.Memory, delivery)
+	var err error
+	if seen := hold.arming.Seen; seen > 0 {
+		err = loop.Redeliver(ctx, s.Deliver, s.Memory, delivery, seen)
+	} else {
+		err = loop.Deliver(ctx, s.Deliver, s.Memory, delivery)
+	}
 
 	return Outcome{Round: hold.Round(), Err: err, At: now()}
 }

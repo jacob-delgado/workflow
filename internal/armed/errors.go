@@ -26,7 +26,7 @@ var (
 	ErrNoHead = errors.New("the forge did not say which commit the pull request is at")
 	// ErrUnheard gives up on an armed announcement whose reads, or posts,
 	// failed for UnheardPatience, or whose pull request the forge did not
-	// list within it. It wraps the last failure.
+	// list within it. An UnheardError carries it with the last failure.
 	ErrUnheard = errors.New("nothing could be heard of the pull request for too long")
 	// ErrStopped is an armed announcement stopped as asked, or replaced by
 	// another asked for.
@@ -60,4 +60,22 @@ func (e OtherHeldError) Error() string {
 // Unwrap lets errors.Is match ErrArmedOther.
 func (OtherHeldError) Unwrap() error {
 	return ErrArmedOther
+}
+
+// UnheardError is ErrUnheard with the last failure before it gave up: a read
+// or a post that failed, or ErrNotListedYet.
+type UnheardError struct {
+	Last error
+}
+
+var _ error = UnheardError{}
+
+// Error says that nothing was heard for too long, and what failed last.
+func (e UnheardError) Error() string {
+	return ErrUnheard.Error() + ": " + e.Last.Error()
+}
+
+// Unwrap lets errors.Is match ErrUnheard and the last failure.
+func (e UnheardError) Unwrap() []error {
+	return []error{ErrUnheard, e.Last}
 }

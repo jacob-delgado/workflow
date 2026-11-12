@@ -296,8 +296,9 @@ func TestAnnounceReportsAFailedPost(t *testing.T) {
 	_, err := clitest.Run(t, repo, "announce", "--yes")
 
 	// Assert
-	if err == nil || !strings.Contains(err.Error(), "announcing to Slack") {
-		t.Errorf("announce = %v, want the failed announcement reported", err)
+	if err == nil || !strings.Contains(err.Error(), "Slack did not say whether it took the post") ||
+		!strings.Contains(err.Error(), "workflow announce asks before posting it again") {
+		t.Errorf("announce = %v, want a post that may have gone out reported, and the way on", err)
 	}
 
 	wantExit(t, err, 5)

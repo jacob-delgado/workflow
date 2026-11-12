@@ -5,7 +5,6 @@ package armed
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -35,6 +34,12 @@ func (h Hold) Arm(armedAt time.Time, arming Arming) (Armed, error) {
 
 		return Armed{Hold: h.armedAfresh(armedAt, arming), Next: NextRead, Replaced: &replaced}, nil
 	}
+}
+
+// Start is an idle hold armed with arming at armedAt, asking for a read at
+// once: what Arm answers for a hold never armed, which it never refuses.
+func Start(armedAt time.Time, arming Arming) Armed {
+	return Armed{Hold: Hold{}.armedAfresh(armedAt, arming), Next: NextRead, Replaced: nil}
 }
 
 // armedAfresh is the hold armed with arming at armedAt, in the next round.
@@ -93,10 +98,13 @@ func (h Hold) Heard(reading Reading) (Hold, Next) {
 	return h.readCI(reading)
 }
 
-// readCI steps the hold on the CI reading heard.
+// readCI steps the hold on the CI reading heard. A read that leaves it waiting
+// starts its UnheardPatience again; one that makes it due does not, so a post
+// tried again past failures, each after a read that heard CI pass, is still
+// given up on once the patience has passed since the first failure.
 func (h Hold) readCI(reading Reading) (Hold, Next) {
 	watch, verdict := h.watch.Read(reading.CI, reading.At)
-	h.watch, h.ci, h.unheardSince, h.reason = watch, reading.CI, time.Time{}, nil
+	h.watch, h.ci, h.reason = watch, reading.CI, nil
 
 	if verdict == VerdictNoCI {
 		return h.ended(StageDropped, ErrNoCI), NextNothing
@@ -104,6 +112,8 @@ func (h Hold) readCI(reading Reading) (Hold, Next) {
 
 	h.stage = stageOn(verdict)
 	if verdict != VerdictDue {
+		h.unheardSince = time.Time{}
+
 		return h, NextReadLater
 	}
 
@@ -145,7 +155,7 @@ func (h Hold) unheard(err error, at time.Time) (Hold, Next) {
 	}
 
 	if at.Sub(h.unheardSince) >= UnheardPatience {
-		return h.ended(StageDropped, fmt.Errorf("%w: %w", ErrUnheard, err)), NextNothing
+		return h.ended(StageDropped, UnheardError{Last: err}), NextNothing
 	}
 
 	h.watch, h.reason = h.watch.Unheard(), err
@@ -177,7 +187,7 @@ func (h Hold) Delivered(outcome Outcome) (Hold, Next) {
 	case refused && errors.Is(err, loop.ErrCIFailed):
 		return h.refusedByGate(refusal, outcome.At), NextReadLater
 	case toTryAgain(err):
-		return h.unheard(err, outcome.At)
+		return h.reclaimedFrom(err).unheard(err, outcome.At)
 	case errors.Is(err, loop.ErrAnnouncedAlready):
 		return h.ended(StageElsewhere, err), NextNothing
 	default:
@@ -187,10 +197,28 @@ func (h Hold) Delivered(outcome Outcome) (Hold, Next) {
 
 // toTryAgain reports whether err, a post's outcome, is one to try again
 // past: the gate could not read CI, the store could not take the claim, or
-// the service asked the post to wait.
+// the service asked the post to wait. A post that may have gone out never is,
+// whatever else it wraps: a rate limit whose claim could not be given up
+// keeps it, so a second try would only find it held.
 func toTryAgain(err error) bool {
+	if errors.Is(err, loop.ErrPostUncertain) {
+		return false
+	}
+
 	return errors.Is(err, loop.ErrCIUnread) || errors.Is(err, loop.ErrNotClaimed) ||
 		errors.Is(err, httpx.ErrRateLimited)
+}
+
+// reclaimedFrom is a hold asked for again whose post, which failed with err,
+// re-claimed it: its next post re-claims from the generation that one took.
+// A post refused by the service is the one way it tries again having taken
+// the claim, which loop.Redeliver keeps; any other hold is unchanged.
+func (h Hold) reclaimedFrom(err error) Hold {
+	if h.arming.Seen > 0 && errors.Is(err, loop.ErrNotDelivered) {
+		h.arming.Seen++
+	}
+
+	return h
 }
 
 // refusedByGate is the hold waiting on a fix the gate's refusal, at at, says

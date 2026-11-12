@@ -76,15 +76,14 @@ func onceGreen(prompt cmdkit.WritePrompt, pull string) cmdkit.WritePrompt {
 }
 
 // deliverWhenGreen waits in the foreground, under ctx, for the CI of pending's
-// pull request, named pull, to pass — through a failed run, saying what it
-// waits on as it changes, above a live line of how many of its checks have
-// finished while a person watches the terminal — and then delivers it,
-// unless another session claimed it meanwhile. A post the
-// gate refuses, a check having failed since the read that let it go, waits
-// again, an interval on. It gives up on a pull request that reports no check,
-// is no longer the branch's, or merged first; one opened a moment ago, as age
-// says, is waited for until the forge lists it. ctrl+c stops it, announcing
-// nothing.
+// pull request, named pull, to pass, and then delivers it, through one
+// armed.Hold: the pull request found by the branch it was armed on, never the
+// checkout's; through a failed run, and a post the gate refuses as a check
+// fails meanwhile; past reads and posts that fail, for armed.UnheardPatience;
+// and, for one opened a moment ago, as age says, until the forge lists it. It
+// says what it waits on as that changes, above a live line of how many of its
+// checks have finished while a person watches the terminal, and how the hold
+// ended. ctrl+c stops it, announcing nothing.
 func deliverWhenGreen(
 	ctx context.Context, seams announceSeams, pending pendingAnnouncement, pull string, age pullAge,
 ) error {
@@ -98,36 +97,45 @@ func awaitThenDeliver(
 	ctx context.Context, live console.Wait, seams announceSeams, pending pendingAnnouncement, pull string,
 	age pullAge,
 ) error {
-	notes := live.Notes()
-	heard := &waitLines{live: live, pull: pull, target: seams.Messaging.Target()}
-	await := seams.awaitSeams(heard.hear)
-	await.Opened = age == pullOpenedNow
+	lines := &waitLines{live: live, pull: pull, target: seams.Messaging.Target(), last: ""}
 
 	live.Doing("CI on " + pull)
 
-	for {
-		green, err := armed.AwaitGreen(ctx, await, pending.delivery.Pull.Number)
-		if err != nil {
-			return gaveUp(notes, err, pull)
-		}
+	clock := armed.Clock{Now: time.Now, Pause: pause, Interval: seams.Interval}
 
-		pending.delivery.Pull, pending.delivery.Head = green.Pull, green.Head
+	final, err := armed.Drive(ctx, seams.armedSeams(pending), armed.Start(time.Now(), pending.arming(age)), clock,
+		lines.tell)
+	if err != nil {
+		live.Notes().Note("Stopped waiting; nothing was announced.")
 
-		err = deliverAnnouncement(ctx, notes, seams, pending)
-		if !errors.Is(err, loop.ErrCIFailed) && !errors.Is(err, loop.ErrCIUnread) {
-			return err
-		}
-
-		heard.last, await.Delay = "", seams.Interval
+		return err
 	}
+
+	return heldOutcome(live.Notes(), seams, pull, final)
 }
 
-// awaitSeams are what a wait for the CI to pass reads through: the branch,
-// its pull request and its CI, every Interval, telling heard of each read.
-func (s announceSeams) awaitSeams(heard func(armed.Heard)) armed.AwaitSeams {
-	return armed.AwaitSeams{
-		Branch: s.Compose.Branch, FindPull: s.Compose.FindPull, CheckCI: s.Deliver.CheckCI,
-		Pause: pause, Now: time.Now, Interval: s.Interval, Heard: heard,
+// arming is what pending is armed with: asked for, its tags its own, found by
+// the branch it was composed for, listed already or opened a moment ago as
+// age says, and, asked for again, re-claimed from the claim an earlier session
+// took.
+func (p pendingAnnouncement) arming(age pullAge) armed.Arming {
+	arming := armed.Arming{
+		Delivery: p.delivery, Branch: p.branch, Opened: age == pullOpenedNow, Unasked: false, Automatic: false, Seen: 0,
+	}
+	if p.again {
+		arming.Seen = p.seen
+	}
+
+	return arming
+}
+
+// armedSeams are what a hold of pending reads and posts through: the forge's
+// find of a branch's pull request and its read of CI, the post and its gate,
+// and the memory that claims the post.
+func (s announceSeams) armedSeams(pending pendingAnnouncement) armed.Seams {
+	return armed.Seams{
+		FindPull: s.Compose.FindPull, CheckCI: s.Deliver.CheckCI, Deliver: s.Deliver, Memory: pending.memory,
+		UnaskedTags: nil,
 	}
 }
 
@@ -144,68 +152,150 @@ func pause(ctx context.Context, wait time.Duration) error {
 	}
 }
 
-// gaveUp words why a wait for CI ended without announcing: stopped, no check
-// reported, or the pull request no longer the one to announce.
-func gaveUp(notes console.Notes, err error, pull string) error {
+// heldOutcome says how final, the hold of pull's announcement, ended as the
+// wait for its CI did: posted, posted from elsewhere, or a post that failed,
+// each as a post asked for now says it; given up on, for why. Drive ends a
+// hold only so.
+func heldOutcome(notes console.Notes, seams announceSeams, pull string, final armed.Hold) error {
+	if final.Stage() == armed.StageDropped && gaveUpWaiting(final.Reason()) {
+		return gaveUp(final.Reason(), pull, seams.Messaging.Service())
+	}
+
+	return postOutcome(notes, seams, pull, final.Delivery().Moment, final.Reason())
+}
+
+// gaveUpWaiting reports whether reason, why a hold was dropped, is one the
+// wait gave up on before anything was posted: no check reported, the pull
+// request no longer the one, or nothing heard for too long.
+func gaveUpWaiting(reason error) bool {
+	return errors.Is(reason, armed.ErrNoCI) || errors.Is(reason, armed.ErrPullChanged) ||
+		errors.Is(reason, armed.ErrMergedFirst) || errors.Is(reason, armed.ErrUnheard)
+}
+
+// gaveUp words why a wait for the CI of pull gave up without announcing to
+// service: no check reported, the pull request no longer the one to announce,
+// or nothing heard of it for too long.
+func gaveUp(reason error, pull, service string) error {
 	patience := strconv.Itoa(int(armed.NoCIPatience.Minutes())) + "m"
 
 	switch {
-	case errors.Is(err, context.Canceled):
-		notes.Note("Stopped waiting; nothing was announced.")
-
-		return err
-	case errors.Is(err, armed.ErrNoCI):
+	case errors.Is(reason, armed.ErrNoCI):
 		return forgeWordedError{armed.ErrNoCI, "no checks were reported on " + pull + " within " + patience +
 			"; if the repository has no CI, announce it by hand with workflow announce"}
-	case errors.Is(err, armed.ErrMergedFirst):
+	case errors.Is(reason, armed.ErrMergedFirst):
 		return forgeWordedError{armed.ErrMergedFirst, pull + " merged before its CI passed, so it was not announced"}
-	case errors.Is(err, armed.ErrPullChanged):
+	case errors.Is(reason, armed.ErrPullChanged):
 		return forgeWordedError{armed.ErrPullChanged, pull + " is no longer this branch's, so it was not announced"}
 	default:
-		return err
+		return unheardFor(reason, pull, service)
 	}
 }
 
+// unheardFor words a wait for the CI of pull that heard nothing for
+// armed.UnheardPatience, by what failed last: the forge not listing it, a
+// post to service, or a read of CI. It exits as that failure's family does,
+// and as a refused precondition where it is in none a script can try again
+// on: a forge it could not reach, or one that asked it to wait, is not
+// refused.
+func unheardFor(reason error, pull, service string) error {
+	unheard, _ := errors.AsType[armed.UnheardError](reason)
+	patience := strconv.Itoa(int(armed.UnheardPatience.Minutes())) + "m"
+	last := sanitize.Line(unheard.Last.Error())
+
+	var sentinel error = unheard
+	if cmdkit.IsAny(unheard.Last, cmdkit.ServicesUnreachable()...) {
+		sentinel = unheard.Last
+	}
+
+	switch {
+	case errors.Is(unheard.Last, armed.ErrNotListedYet):
+		return forgeWordedError{sentinel, "the forge did not list " + pull + " within " + patience +
+			", so it was not announced"}
+	case postFailed(unheard.Last):
+		return forgeWordedError{sentinel, "could not post to " + service + " for " + patience + " (" + last +
+			"), so it was not announced"}
+	default:
+		return forgeWordedError{sentinel, "could not read CI on " + pull + " for " + patience + " (" + last +
+			"), so it was not announced"}
+	}
+}
+
+// postFailed reports whether err is a post's failure that a hold tries again
+// past: the store could not take its claim, or the service refused it for
+// now.
+func postFailed(err error) bool {
+	return errors.Is(err, loop.ErrNotClaimed) || errors.Is(err, loop.ErrNotDelivered)
+}
+
 // waitLines tells what a wait for the CI of pull to pass waits on: in its
-// notes, a line each time it changes, and on its live line, how many of the
-// checks have finished.
+// notes, a line each time where it stands, or why, changes, and on its live
+// line, how many of the checks have finished.
 type waitLines struct {
 	live         console.Wait
 	pull, target string
 	last         string
 }
 
-// hear tells of a read: how many of the checks it found finished, and, when
-// what it says differs from the last, what it says.
-func (w *waitLines) hear(heard armed.Heard) {
-	w.live.Counted(heard.CI.Done, heard.CI.Total)
+// tell tells of the hold after a step: how many of the checks it last heard
+// finished, and, when where it stands differs from the last it told, what it
+// waits on.
+func (w *waitLines) tell(hold armed.Hold) {
+	w.live.Counted(hold.CI().Done, hold.CI().Total)
 
-	line := w.line(heard)
-	if line == "" || line == w.last {
+	line := w.line(hold)
+	key := strconv.Itoa(int(hold.Stage())) + " " + fmt.Sprint(hold.Reason())
+
+	if line == "" || key == w.last {
 		return
 	}
 
-	w.last = line
+	w.last = key
 	w.live.Notes().Note(line)
 }
 
-// line is what a read says of the wait, or "" when it says nothing new.
-func (w *waitLines) line(heard armed.Heard) string {
-	if heard.Err != nil {
-		return "Could not read CI on " + w.pull + " (" + sanitize.Line(heard.Err.Error()) + "); trying again."
+// line is what the hold waits on, or "" for a hold that waits on nothing:
+// being posted, or ended, which the wait's end says.
+func (w *waitLines) line(hold armed.Hold) string {
+	heard, reason := hold.CI(), hold.Reason()
+	failed := w.failedLine(reason)
+
+	listing := "Waiting for the forge to list " + w.pull + "…"
+	if reason != nil && !errors.Is(reason, armed.ErrNotListedYet) {
+		listing = failed
 	}
 
-	// A map, not a switch, so there is no last-case arm gobco can never see:
-	// a pass and giving up say nothing here.
-	return map[armed.Verdict]string{
-		armed.VerdictWaiting: "Waiting for CI on " + w.pull + " to pass" + finished(heard.CI) + ", then announcing to " +
+	fix := "A check failed on " + w.pull + failedChecks(heard) + "; waiting for a run that passes."
+	if _, refused := errors.AsType[loop.GateRefusalError](reason); refused {
+		fix = "A check failed on " + w.pull + failedChecks(heard) + " as it was to be posted; " +
+			"waiting for a run that passes."
+	}
+
+	// A map, not a switch, so there is no last-case arm gobco can never see.
+	return map[armed.Stage]string{
+		armed.StageListing: listing,
+		armed.StageRunning: "Waiting for CI on " + w.pull + " to pass" + finished(heard) + ", then announcing to " +
 			w.target + "; ctrl+c stops without announcing.",
-		armed.VerdictAwaitingFix: "A check failed on " + w.pull + failedChecks(heard.CI) +
-			"; waiting for a run that passes.",
-		armed.VerdictAwaitingChecks: "No checks reported on " + w.pull + " yet; waiting for them.",
-		armed.VerdictDue:            "",
-		armed.VerdictNoCI:           "",
-	}[heard.Verdict]
+		armed.StageAwaitingFix:    fix,
+		armed.StageAwaitingChecks: "No checks reported on " + w.pull + " yet; waiting for them.",
+		armed.StageUnheard:        failed,
+		armed.StageIdle:           "",
+		armed.StageDue:            "",
+		armed.StagePosted:         "",
+		armed.StageElsewhere:      "",
+		armed.StageDropped:        "",
+		armed.StageStopped:        "",
+	}[hold.Stage()]
+}
+
+// failedLine says that a read, or a post, failed with reason, and is tried
+// again.
+func (w *waitLines) failedLine(reason error) string {
+	why := sanitize.Line(fmt.Sprint(reason))
+	if postFailed(reason) {
+		return "Could not post to " + w.target + " (" + why + "); trying again."
+	}
+
+	return "Could not read CI on " + w.pull + " (" + why + "); trying again."
 }
 
 // finished is how many of ci's checks finished, in brackets after a space, or
