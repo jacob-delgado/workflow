@@ -64,16 +64,17 @@ func lineShapes() map[string]lineArgs {
 // "code --wait" is common and works, while shell syntax in $EDITOR is rare and
 // is not something to hand to sh on the user's behalf.
 func Invocation(getenv Getenv, dir, file string, line int) proc.Command {
-	name, own := split(chosen(getenv))
+	name, own := programAndArgs(chosen(getenv))
 
 	return proc.Command{Dir: dir, Name: name, Args: append(own, fileArgs(name, file, line)...), Env: nil}
 }
 
-// split separates the editor setting into a program and its own arguments. A
-// setting that is itself the path of an existing file — an editor whose path
-// contains a space — is one program with no arguments; anything else is split on
-// spaces, so "code --wait" still works without handing the setting to a shell.
-func split(setting string) (string, []string) {
+// programAndArgs separates the editor setting into a program and its own
+// arguments. A setting that is itself the path of an existing file — an editor
+// whose path contains a space — is one program with no arguments; anything else
+// is split on spaces, so "code --wait" still works without handing the setting
+// to a shell.
+func programAndArgs(setting string) (string, []string) {
 	info, err := os.Stat(setting)
 	if err == nil && info.Mode().IsRegular() {
 		return setting, nil
