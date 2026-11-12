@@ -38,7 +38,11 @@
 # it dispatches release.yml, and that tag, pushed with GITHUB_TOKEN, starts no
 # build of its own. So a tag already on the remote is done with only once
 # release.yml has a run for it; until then the rerun checks the commit as the
-# first run did and dispatches the build and flips the label itself.
+# first run did and dispatches the build and flips the label itself. A run
+# whose relabel GitHub refuses fails, since release-please offers no next
+# release while a merged pull request is labeled pending, and its rerun, with
+# the build under way, flips the label of the pending pull request that holds
+# the commit, if one still does.
 #
 # Environment:
 #   HEAD_COMMIT_MSG  the pushed commit's message, passed as an env var rather
@@ -81,6 +85,25 @@ fi
 
 readonly tag="v${version}"
 
+# pending_pull prints the number of the pull request a commit on main came
+# from, rebased or not, if release-please labeled it pending, and nothing
+# otherwise.
+pending_pull() {
+  gh api "repos/{owner}/{repo}/commits/$(git rev-parse HEAD)/pulls" \
+    --jq "[.[] | select(.merged_at != null) | select(any(.labels[]; .name == \"${pending_label}\")) | .number] | first // empty"
+}
+
+# relabel flips release-please's own bookkeeping label on a pull request, so
+# its next run sees this release as handled rather than still pending.
+#   relabel <pull request number>
+relabel() {
+  echo "Marking PR #$1 as tagged"
+  if ! gh pr edit "$1" --remove-label "${pending_label}" --add-label 'autorelease: tagged'; then
+    echo "Could not relabel PR #$1, so release-please offers no next release; rerun this job." >&2
+    exit 1
+  fi
+}
+
 tag_pushed=false
 if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
   tag_pushed=true
@@ -88,7 +111,11 @@ if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; t
   # one that failed is the maintainer's to rerun, not a reason to start another.
   release_runs="$(gh run list --workflow release.yml --branch "${tag}" --limit 1 --json databaseId --jq 'length')"
   if [[ "${release_runs}" != "0" ]]; then
-    echo "Tag ${tag} is on the remote and release.yml has run for it; nothing to do."
+    pr_number="$(pending_pull)"
+    if [[ -n "${pr_number}" ]]; then
+      relabel "${pr_number}"
+    fi
+    echo "Tag ${tag} is on the remote and release.yml has run for it; nothing more to do."
     exit 0
   fi
 fi
@@ -100,10 +127,7 @@ if [[ "${released}" != "${version}" ]]; then
   exit 1
 fi
 
-# The pull requests a commit on main came from, rebased or not, narrowed to the
-# one release-please labeled.
-pr_number="$(gh api "repos/{owner}/{repo}/commits/$(git rev-parse HEAD)/pulls" \
-  --jq "[.[] | select(.merged_at != null) | select(any(.labels[]; .name == \"${pending_label}\")) | .number] | first // empty")"
+pr_number="$(pending_pull)"
 
 if [[ -z "${pr_number}" ]]; then
   echo "No merged pull request labeled '${pending_label}' holds this commit; not releasing." >&2
@@ -121,9 +145,6 @@ fi
 echo "Dispatching release.yml for ${tag}"
 gh workflow run release.yml --ref "${tag}"
 
-# Flip release-please's own bookkeeping label, so its next run sees this release
-# as handled rather than still pending. The release is already on its way, so a
-# failure here is said out loud and does not undo it.
-echo "Marking PR #${pr_number} as tagged"
-gh pr edit "${pr_number}" --remove-label "${pending_label}" --add-label 'autorelease: tagged' \
-  || echo "Could not relabel PR #${pr_number}; release-please may offer this release again." >&2
+# The release is already on its way, so a refused relabel fails the run
+# without undoing it, and the rerun flips the label.
+relabel "${pr_number}"
