@@ -120,6 +120,8 @@ func (s branchState) upstream(kit renderKit) string {
 		return "pushed"
 	case branch.Upstream != branch.PushTarget():
 		return "not pushed yet"
+	case branch.Uncounted:
+		return "not counted against " + branch.Upstream
 	default:
 		return kit.marks.ahead + strconv.Itoa(branch.Ahead) + " " + kit.marks.behind + strconv.Itoa(branch.Behind) +
 			" against " + branch.Upstream
