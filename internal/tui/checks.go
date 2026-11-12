@@ -32,6 +32,9 @@ type checkList struct {
 	err     error
 	// openKey is the key apply is bound to, which opens a check's page.
 	openKey string
+	// opened is the count of overlays opened when the list opened, which a
+	// log read from it carries back, so it opens in no list opened after.
+	opened int
 }
 
 var (
@@ -42,9 +45,10 @@ var (
 // openChecks lists the checks reported on the pull request. Its caller offers it
 // only when canOpenChecks reports there are checks and an opener for their pages.
 func (m Model) openChecks() (Model, tea.Cmd) {
+	m, opened := m.opening()
 	m.overlay = checkList{
 		checks:  pickList[forge.Check]{items: m.review.ci.Checks},
-		openKey: m.keys.confirm.Help().Key,
+		openKey: m.keys.confirm.Help().Key, opened: opened,
 	}
 
 	return m, nil
@@ -308,29 +312,32 @@ func (c checkList) readLog(m Model) (Model, tea.Cmd) {
 
 	c.err, c.outcome = nil, "reading the log"+m.marks.ellipsis
 	m.overlay = c
-	ctx, read := m.session, m.deps.Forge.JobLog
+	ctx, read, opened := m.session, m.deps.Forge.JobLog, c.opened
 
 	return m, func() tea.Msg {
 		log, err := read(ctx, check)
 
-		return logRead{check: check, log: log, err: err}
+		return logRead{opened: opened, check: check, log: log, err: err}
 	}
 }
 
-// logRead carries a check's log back into the update loop.
+// logRead carries a check's log back into the update loop, for the list
+// opened as opened.
 type logRead struct {
-	check forge.Check
-	log   forge.JobLog
-	err   error
+	opened int
+	check  forge.Check
+	log    forge.JobLog
+	err    error
 }
 
 var _ applier = logRead{}
 
 // apply shows the log in place of the checks, or the reason it could not be
-// read beneath them; nothing when the checks have since closed.
+// read beneath them; nothing when the checks it was read from have since
+// closed, even when others have opened.
 func (msg logRead) apply(m Model) (Model, tea.Cmd) {
 	list, open := m.overlay.(checkList)
-	if !open {
+	if !open || list.opened != msg.opened {
 		return m, nil
 	}
 
