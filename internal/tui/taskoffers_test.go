@@ -334,6 +334,12 @@ func TestNothingIsOfferedWhereNoTaskWouldChange(t *testing.T) {
 		"a branch for an issue another of whose tasks is started": {
 			arrange: startASecondTaskOnTheSecondIssue, keys: append(branchTheSecondIssue(), keyEsc), reached: "create ",
 		},
+		// A recurring task's template is what its instances are made from, never
+		// a task to start; tracking the issue again would track it twice.
+		"a branch for an issue only a recurring template tracks": {
+			arrange: trackTheUntrackedIssueByATemplate,
+			keys:    append(selectTheUntrackedIssue(), "b", keyEnter, keyEsc), reached: "transitions " + untrackedIssue,
+		},
 	}
 
 	for name, tt := range cases {
@@ -357,6 +363,14 @@ func TestNothingIsOfferedWhereNoTaskWouldChange(t *testing.T) {
 			requireTaskWrites(t, repo)
 		})
 	}
+}
+
+// trackTheUntrackedIssueByATemplate lists PROJ-500, which a recurring task's
+// template alone tracks, with the moves that start it.
+func trackTheUntrackedIssueByATemplate(repo *world) {
+	repo.issues = withAnUntrackedIssue().issues
+	repo.moves = startTransitions()
+	repo.tasks.linked = append(repo.tasks.linked, untrackedTask(taskwarrior.Recurring))
 }
 
 // startASecondTaskOnTheSecondIssue stops task 12 and starts task 45, which
