@@ -172,10 +172,10 @@ pin_checksum() {
   printf '%s %s amd64 %s\n' "$2" "$3" "$(digest_of "$4")" >>"$1/build/tool-checksums.txt"
 }
 
-# setup runs a checkout's setup script with the stand-ins, a prefix and a
-# link directory of its own, and a fresh call log. GOTOOLCHAIN, GOBIN,
-# GOFLAGS and GOCACHE are set to what a Go tool must not be built with, so a
-# build that leaves one to the environment shows.
+# setup runs a checkout's setup script with the stand-ins, a prefix, a link
+# directory and the gate's two locks of its own, and a fresh call log.
+# GOTOOLCHAIN, GOBIN, GOFLAGS and GOCACHE are set to what a Go tool must not
+# be built with, so a build that leaves one to the environment shows.
 #   setup <dir> [VAR=value...]
 setup() {
   local dir="$1"
@@ -183,6 +183,7 @@ setup() {
   : >"${log}"
   env PATH="${stub_bin}:${PATH}" HOME="${dir}.home" GO_ROOT="${dir}.goroot" \
     GOTOOLCHAIN=auto GOBIN="${dir}.gobin" GOFLAGS=-mod=vendor GOCACHE="${dir}.gocache" \
-    CLOUD_SETUP_PREFIX="${dir}.prefix" CLOUD_SETUP_BIN="${dir}.bin" "$@" \
+    CLOUD_SETUP_PREFIX="${dir}.prefix" CLOUD_SETUP_BIN="${dir}.bin" \
+    GATE_LOCK="${dir}.gate.lock" GATE_RUN_LOCK="${dir}.gate-run.lock" "$@" \
     "${dir}/scripts/cloud-session-setup.sh"
 }

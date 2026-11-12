@@ -47,12 +47,17 @@
 # CLOUD_SETUP_GATE_USER (dev) the user it makes for the gate, which
 # scripts/gate-as-dev.sh runs as when its GATE_USER names the same user (both
 # default to dev), and CLOUD_SETUP_LOCK_WAIT (900) how many seconds to wait
-# for another setup.
+# for another setup, or for a gate run. A gate run uses the toolchain from its
+# start to its end, so a setup with a tool to install first waits for the
+# gate's two locks, GATE_LOCK and GATE_RUN_LOCK, read as scripts/gate-as-dev.sh
+# reads them, and holds both until it exits; one with nothing to install does
+# not wait.
 #
 # Exits 0 once the toolchain is in; 1 when an install fails, the disk has no
-# room, another setup holds the lock, or the gate user or the git hooks cannot
-# be set up; and 2 when mise.toml does not pin a tool this installs, a pin file
-# under build/ is missing, or the machine is not x86_64.
+# room, another setup or a gate run holds its lock too long, or the gate user
+# or the git hooks cannot be set up; and 2 when mise.toml does not pin a tool
+# this installs, a pin file under build/ is missing, or the machine is not
+# x86_64.
 set -euo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -61,6 +66,8 @@ readonly prefix="${CLOUD_SETUP_PREFIX:-/opt/workflow-tools}"
 readonly link_dir="${CLOUD_SETUP_BIN:-${HOME}/.local/bin}"
 readonly gate_user="${CLOUD_SETUP_GATE_USER:-dev}"
 readonly lock_wait="${CLOUD_SETUP_LOCK_WAIT:-900}"
+readonly gate_lock="${GATE_LOCK:-/tmp/gate-as-dev.lock}"
+readonly gate_run_lock="${GATE_RUN_LOCK:-/tmp/gate-as-dev-run.lock}"
 readonly checksums="${repo}/build/tool-checksums.txt"
 readonly requirements="${repo}/build/yamllint/requirements.txt"
 readonly npm_pins="${repo}/build/markdownlint"
@@ -143,6 +150,8 @@ readonly work
 installing=""
 # Whether this run has checked the disk has room for an install.
 room_checked=""
+# Whether this run holds the gate off the toolchain.
+gate_held=""
 
 # finish removes the downloads and, when an installer stopped the setup, says
 # which tool it was.
@@ -170,6 +179,31 @@ check_room() {
   room_checked=yes
 }
 
+# wait_for_gate waits for a gate lock on an open descriptor, saying so when a
+# run holds it, and stops the setup when it is held too long.
+#   wait_for_gate <descriptor> <file>
+wait_for_gate() {
+  flock -n "$1" && return 0
+  echo "cloud-session-setup: waiting for a gate run to finish" >&2
+  if ! flock -w "${lock_wait}" "$1"; then
+    echo "cloud-session-setup: a gate run has held $2 for ${lock_wait} s; run this again once it is done" >&2
+    exit 1
+  fi
+}
+
+# hold_gate waits, before the first install, for any gate run going, root's
+# half and then the gate user's, and keeps the next off until the setup exits.
+# The run lock can be read by all, which is all the gate user's flock needs.
+hold_gate() {
+  [[ -n "${gate_held}" ]] && return 0
+  exec {gate}>"${gate_lock}"
+  wait_for_gate "${gate}" "${gate_lock}"
+  exec {gate_run}>"${gate_run_lock}"
+  chmod 0644 "${gate_run_lock}"
+  wait_for_gate "${gate_run}" "${gate_run_lock}"
+  gate_held=yes
+}
+
 # ensure runs an installer unless the tool's stamp for this version is in
 # place. Before installing it drops the tool's other stamps, and it writes
 # this one only once the installer has succeeded, so a failed install is
@@ -180,6 +214,7 @@ ensure() {
   local tool="$1" stamp="${prefix}/stamps/$1@$2"
   [[ -e "${stamp}" ]] && return 0
   check_room
+  hold_gate
   installing="$1 $2"
   shift 2
   rm -f "${prefix}/stamps/${tool}@"*
