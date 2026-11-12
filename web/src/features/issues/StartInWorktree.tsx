@@ -12,6 +12,8 @@ import { Failure } from '@/lib/Status.tsx'
 // useStartInWorktree is the start of work on a not-started issue in a new
 // worktree beside the repository, leaving the checkout here as it is, which
 // hands the worktree made to onMade, for the switch to it to be offered.
+// Since it moves no working tree here, no move of one holds it
+// (treeMoves.ts); only the other start of work does.
 export function useStartInWorktree(
   issueKey: string,
   outcome: Teller,
