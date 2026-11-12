@@ -5,8 +5,10 @@ package tui
 
 import (
 	"errors"
+	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
@@ -260,12 +262,48 @@ func (msg rerunRequested) apply(m Model) (Model, tea.Cmd) {
 		return m.noticedFailure(errNothingToRerun), nil
 	}
 
+	m.review.reran, m.review.reranAt = failedRuns(m.review.ci), m.deps.now()
 	m.review.ci = forge.CI{State: forge.CIRunning}
 	m.review.ciErr = nil
 
 	// The re-run has only just started, so a check now would still read the old
 	// failure; let the poll the set-to-running schedules read it once it moves.
 	return m.keepPolling(nil)
+}
+
+// failedRuns are the ids of CI's failed checks that a re-run re-runs: the
+// forge's own runs and jobs, whose logs it serves. A status reported by
+// something else has no run to re-run, and fails on as it did.
+func failedRuns(ci forge.CI) []string {
+	var ids []string
+
+	for _, check := range ci.Checks {
+		if check.State == forge.CIFailed && check.LogAvailable {
+			ids = append(ids, check.ID)
+		}
+	}
+
+	return ids
+}
+
+// rerunPatience is how long a re-run is waited for while a read still lists a
+// run it was asked for: the forge starts one within seconds, and a failed run
+// it leaves alone — a job of a run still going, or one allowed to fail — would
+// otherwise keep CI running for as long as the head stands.
+const rerunPatience = time.Minute
+
+// awaitingRerun reports a read of CI, made at now within rerunPatience of the
+// re-run, that still lists, failed, a run the re-run was asked for: each run
+// re-run is listed under an id of its own once the forge starts it, so the
+// read is of the failure re-run, not of the re-run.
+func (s reviewState) awaitingRerun(ci forge.CI, now time.Time) bool {
+	if now.Sub(s.reranAt) >= rerunPatience {
+		return false
+	}
+
+	return slices.ContainsFunc(ci.Checks, func(check forge.Check) bool {
+		return check.State == forge.CIFailed && slices.Contains(s.reran, check.ID)
+	})
 }
 
 // failedChecks are the review's failed checks under its CI line: the stage

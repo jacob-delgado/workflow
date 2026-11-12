@@ -29,7 +29,11 @@ type reviewState struct {
 	checkedAt time.Time
 	ciErr     error
 	polling   bool
-	scroll    int
+	// reran are the ids of the failed runs a re-run was asked for, until a
+	// read shows the re-run begun; reranAt is when it was asked for.
+	reran   []string
+	reranAt time.Time
+	scroll  int
 	// loading is a refresh begun and not yet answered: the branch read, its
 	// pull request looked for, and CI read for the one found.
 	loading bool
