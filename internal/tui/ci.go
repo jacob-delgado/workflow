@@ -10,6 +10,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/jacob-delgado/workflow/internal/armed"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 )
@@ -70,6 +71,7 @@ func (msg ciChecked) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
+	awaited := m.review.awaitedFinish()
 	m.review.loading = false
 	m.review.checkedAt = m.deps.now()
 
@@ -84,19 +86,25 @@ func (msg ciChecked) apply(m Model) (Model, tea.Cmd) {
 		return m.keepPolling(nil)
 	}
 
-	was := m.review.ci.State
 	m.review.ci, m.review.ciErr, m.review.checked, m.review.reran = msg.ci, nil, true, nil
 
-	return m.keepPolling(ciFinishNotice(m.cfg, m.deps, was, msg.ci.State))
+	return m.keepPolling(ciFinishNotice(m.cfg, m.deps, awaited, msg.ci.State))
 }
 
-// ciFinishNotice rings the terminal once when CI has just gone from running to a
-// settled result, if the developer asked to be told and the interface can reach
-// the terminal to ring it. It fires only on the change, not on later checks that
-// find CI already finished.
-func ciFinishNotice(cfg config.Config, deps Deps, was, now forge.CIState) tea.Cmd {
+// awaitedFinish reports CI the last read, or a re-run since, left still to
+// come: running, or reporting no check yet for a pull request just opened. A
+// read that then finds it settled is CI finishing.
+func (s reviewState) awaitedFinish() bool {
+	return s.checked && s.ciToCome(s.checkedAt)
+}
+
+// ciFinishNotice rings the terminal once when CI awaited has just settled, if
+// the developer asked to be told and the interface can reach the terminal to
+// ring it. It fires only on the change, not on later checks that find CI
+// already finished, nor on the first read, which finds CI as it already was.
+func ciFinishNotice(cfg config.Config, deps Deps, awaited bool, now forge.CIState) tea.Cmd {
 	settled := now == forge.CIPassed || now == forge.CIFailed
-	if !cfg.UI.Notify || deps.Notify == nil || was != forge.CIRunning || !settled {
+	if !cfg.UI.Notify || deps.Notify == nil || !awaited || !settled {
 		return nil
 	}
 
@@ -109,12 +117,13 @@ func ciFinishNotice(cfg config.Config, deps Deps, was, now forge.CIState) tea.Cm
 	}
 }
 
-// keepPolling schedules the next check while CI runs, unless one is already
-// scheduled. A failed check stops it: it would fail again at the same rate,
-// so it stops until the next refresh rather than asking for as long as the
-// program runs. An announcement waiting for CI reads it on a beat of its own.
+// keepPolling schedules the next check while CI is still to come, unless one
+// is already scheduled. A failed check stops it: it would fail again at the
+// same rate, so it stops until the next refresh rather than asking for as long
+// as the program runs. An announcement waiting for CI reads it on a beat of
+// its own.
 func (m Model) keepPolling(then tea.Cmd) (Model, tea.Cmd) {
-	if m.review.ci.State != forge.CIRunning || m.review.polling {
+	if !m.review.ciToCome(m.deps.now()) || m.review.polling {
 		return m, then
 	}
 
@@ -124,6 +133,18 @@ func (m Model) keepPolling(then tea.Cmd) (Model, tea.Cmd) {
 	wait := pollInterval(m.cfg.UI, m.deps)
 
 	return m, tea.Batch(then, m.deps.after(wait, func(time.Time) tea.Msg { return poll }))
+}
+
+// ciToCome reports CI still to come: running, or, read cleanly, reporting no
+// check for a pull request this session opened within armed.NoCIPatience — a
+// forge lists a new pull request's checks a moment after it opens, and an
+// announcement armed as it opened waits that long for them too.
+func (s reviewState) ciToCome(now time.Time) bool {
+	if s.ci.State == forge.CIRunning {
+		return true
+	}
+
+	return s.ci.State == forge.CINone && s.ciErr == nil && !s.opened.IsZero() && now.Sub(s.opened) < armed.NoCIPatience
 }
 
 // notifyPollInterval is how often CI is asked about when the developer only

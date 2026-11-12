@@ -123,7 +123,7 @@ func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
 		notice += "; could not add every reviewer, assignee or label: " + briefly(refusal)
 	}
 
-	m = m.beginReview(reviewState{pull: msg.pull, found: true, loaded: true})
+	m = m.beginReview(reviewState{pull: msg.pull, found: true, loaded: true, opened: m.deps.now()})
 	m.prDraft = prDraft{}
 
 	m, armed, readHold := m.armOnOpen(msg.pull)
