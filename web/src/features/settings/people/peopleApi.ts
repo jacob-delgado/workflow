@@ -15,14 +15,12 @@ async function readPeople(signal?: AbortSignal): Promise<People> {
 }
 
 // usePeople reads the owners each time Settings opens: an announcement in a
-// terminal links owners too, and nothing pushes the change. A failed read is
-// not retried on its own; the page offers to read again.
+// terminal links owners too, and nothing pushes the change.
 export function usePeople() {
   return useQuery({
     queryKey: getPeopleQueryKey(),
     queryFn: ({ signal }) => readPeople(signal),
     staleTime: 0,
-    retry: false,
   })
 }
 
@@ -63,7 +61,6 @@ export function useRepoGroups() {
     queryKey: getRepoGroupsQueryKey(),
     queryFn: ({ signal }) => readRepoGroups(signal),
     staleTime: 0,
-    retry: false,
   })
 }
 

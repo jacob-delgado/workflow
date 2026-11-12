@@ -243,12 +243,12 @@ test('where the server works that cannot be read says why, and reads again on Tr
         ? Response.json(
             {
               type: 'about:blank',
-              title: 'Internal',
-              status: 500,
-              code: 'internal',
-              detail: 'the request failed',
+              title: 'Forbidden',
+              status: 403,
+              code: 'forbidden',
+              detail: 'the request was refused',
             },
-            { status: 500 },
+            { status: 403 },
           )
         : mockRepositories()
     },

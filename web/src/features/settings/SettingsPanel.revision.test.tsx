@@ -1,4 +1,3 @@
-import { QueryClient } from '@tanstack/react-query'
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { mockConfig } from '@/dev/mockConfig.ts'
@@ -296,12 +295,10 @@ test('Try again beside a configuration never read keeps its place and focus whil
 
 test('Settings says why a read was refused without first trying it again', async () => {
   // Arrange
-  // A client with the library's own retries, which the app's client keeps.
   fakeApi({ '/api/config': () => refusal(422, 'unprocessable', notValidOnDisk) })
-  const client = new QueryClient()
 
   // Act
-  renderWithClient(<SettingsPanel />, client)
+  renderWithClient(<SettingsPanel />)
 
   // Assert
   expect(await screen.findByText(notValidOnDisk)).toBeTruthy()

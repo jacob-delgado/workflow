@@ -113,12 +113,12 @@ test('a month the server refuses to read says so, and names each day by its date
       Response.json(
         {
           type: 'about:blank',
-          title: 'Upstream unreachable',
-          status: 502,
-          code: 'unreachable',
-          detail: 'the request failed',
+          title: 'Unprocessable',
+          status: 422,
+          code: 'unprocessable',
+          detail: 'the request was refused',
         },
-        { status: 502 },
+        { status: 422 },
       ),
   })
 

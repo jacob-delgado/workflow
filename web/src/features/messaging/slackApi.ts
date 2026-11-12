@@ -28,7 +28,6 @@ export function useSlackMembers(channel: string, enabled: boolean) {
     queryFn: ({ signal }) => readMembers(channel, signal),
     enabled,
     staleTime: directoryHold,
-    retry: false,
   })
 }
 
@@ -47,7 +46,6 @@ export function useSlackGroups(enabled: boolean) {
     queryFn: ({ signal }) => readGroups(signal),
     enabled,
     staleTime: directoryHold,
-    retry: false,
   })
 }
 

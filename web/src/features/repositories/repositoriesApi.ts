@@ -24,7 +24,6 @@ export function useRepositories() {
     queryKey: getRepositoriesQueryKey(),
     queryFn: ({ signal }) => readRepositories(signal),
     staleTime: 0,
-    retry: false,
   })
 }
 
@@ -53,7 +52,6 @@ export function useDirectories(path: string, prefix = '', narrowing = true) {
     queryKey: ['directories', path, prefix],
     queryFn: ({ signal }) => readDirectories(path, prefix, signal),
     enabled: narrowing,
-    retry: false,
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[1] === path ? previous : undefined,
   })

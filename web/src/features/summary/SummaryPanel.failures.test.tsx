@@ -65,7 +65,7 @@ function quietDay(): Activity {
   }
 }
 
-// refusedOnce refuses the first read with a 500 and answers every later one.
+// refusedOnce refuses the first read with a problem and answers every later one.
 function refusedOnce(): void {
   let answers = 0
   fakeApi({
@@ -76,12 +76,12 @@ function refusedOnce(): void {
         ? Response.json(
             {
               type: 'about:blank',
-              title: 'Internal',
-              status: 500,
-              code: 'internal',
+              title: 'Unprocessable',
+              status: 422,
+              code: 'unprocessable',
               detail: 'the request failed',
             },
-            { status: 500 },
+            { status: 422 },
           )
         : quietDay()
     },

@@ -19,14 +19,12 @@ async function readLocalData(signal?: AbortSignal): Promise<LocalData> {
 }
 
 // useLocalData reads the store's files each time Settings opens: a session in
-// a terminal, or db-clean, changes them, and nothing pushes the change. A
-// failed read is not retried on its own; the page offers to read again.
+// a terminal, or db-clean, changes them, and nothing pushes the change.
 export function useLocalData() {
   return useQuery({
     queryKey: getLocalDataQueryKey(),
     queryFn: ({ signal }) => readLocalData(signal),
     staleTime: 0,
-    retry: false,
   })
 }
 
