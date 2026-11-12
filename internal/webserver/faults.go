@@ -11,6 +11,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/report"
 	"github.com/jacob-delgado/workflow/internal/webserver/problem"
 	"github.com/jacob-delgado/workflow/internal/webserver/tasks"
@@ -73,7 +74,8 @@ func faultProblem(err error) (api.Problem, bool) {
 func faultClasses() []report.Class {
 	shared := report.SharedFaults()
 
-	return slices.Concat(endedFaults(), repositoryFaults(), shared.Git, branchFaults(), shared.Transport,
+	return slices.Concat(endedFaults(), announceFaults(), repositoryFaults(), shared.Git, branchFaults(),
+		shared.Transport,
 		shared.Jira, shared.Forge, shared.Messaging, taskWriteFaults(), shared.Taskwarrior, shared.Directory,
 		switchFaults(), localDataFaults(), peopleFaults())
 }
@@ -86,6 +88,19 @@ func endedFaults() []report.Class {
 		{
 			Causes: []error{context.Canceled}, Code: api.ProblemCodeInternal,
 			Detail: "the request ended before it was answered; " + report.TryAgain,
+		},
+	}
+}
+
+// announceFaults are an announcement's failures the server words itself: a
+// store that could not take the claim a post needs first, whose own error,
+// which it wraps and which can name the store's file, no class tells.
+func announceFaults() []report.Class {
+	return []report.Class{
+		{
+			Causes: []error{loop.ErrNotClaimed}, Code: api.ProblemCodeNotClaimed,
+			Detail: "the store could not claim the announcement, so nothing was posted; try again in a moment, " +
+				"or turn the store off with store.disabled to post without a claim",
 		},
 	}
 }

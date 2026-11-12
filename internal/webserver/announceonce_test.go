@@ -10,6 +10,7 @@ import (
 	"slices"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -163,42 +164,40 @@ func TestTwoAnnouncementsAskedAtOnceArePostedOnce(t *testing.T) {
 	}
 }
 
-// postingHeld is a server over world whose held announcement has been taken
-// to post, its post held open by service, and the frame that took it, which
-// ends once the post is let go.
-func postingHeld(t *testing.T, world *forgeWorld) (http.Handler, *heldPost, <-chan *httptest.ResponseRecorder) {
+// postingHeld is a server over world, on a fake clock, whose held
+// announcement has been taken to post on its read once CI passed, its post
+// held open by service.
+func postingHeld(t *testing.T, world *forgeWorld) (http.Handler, *heldPost) {
 	t.Helper()
 
 	deps := world.deps()
 	service := newHeldPost()
 	deps.Messaging.Post = service.post
-	handler := webtest.Serve(t, deps, config.Default())
+	handler := heldServer(t, deps, config.Default())
 
 	if recorder := announceWhenGreen(t, handler, nil); recorder.Code != http.StatusAccepted {
 		t.Fatalf("holding the announcement answered %d: %s", recorder.Code, recorder.Body.String())
 	}
 
 	world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
-
-	frame := make(chan *httptest.ResponseRecorder, 1)
-
-	go func() { frame <- webtest.StreamOnce(t, handler, "/api/events") }()
-
+	time.Sleep(ciTick)
 	service.awaitStart(t)
 
-	return handler, service, frame
+	return handler, service
 }
 
 // whilePosting asks while a post is held open, waits for its answer, then
-// lets every post go, and answers what the ask was answered and whether it
-// started a post of its own. An ask that started a post, or waited on the one
-// held, is not answered while it is held, which fails the test. The ask goes
-// on its own goroutine, so it does not hold the test up.
+// lets every post go and waits for them to end, and answers what the ask was
+// answered and whether it started a post of its own. An ask that started a
+// post, or waited on the one held, is not answered while it is held, which
+// fails the test. The ask goes on its own goroutine, so it does not hold the
+// test up.
 func whilePosting(
 	t *testing.T, service *heldPost, ask func() *httptest.ResponseRecorder,
 ) (*httptest.ResponseRecorder, bool) {
 	t.Helper()
 
+	defer synctest.Wait()
 	defer close(service.release)
 
 	answer := make(chan *httptest.ResponseRecorder, 1)
@@ -218,69 +217,72 @@ func whilePosting(
 func TestAnnouncingNowWhileTheHeldAnnouncementIsPostedIsAConflict(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	handler, service, frame := postingHeld(t, newForgeWorld())
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		handler, service := postingHeld(t, newForgeWorld())
 
-	// Act
-	recorder, again := whilePosting(t, service, func() *httptest.ResponseRecorder {
-		return postAnnounce(t, handler, map[string]string{channelField: slackChannel})
+		// Act
+		recorder, again := whilePosting(t, service, func() *httptest.ResponseRecorder {
+			return postAnnounce(t, handler, map[string]string{channelField: slackChannel})
+		})
+
+		// Assert
+		assertProblem(t, recorder, http.StatusConflict, "being posted")
+
+		if again || len(service.posted()) != 1 {
+			t.Errorf("a second post started: %v, and %d posted; want the held one alone", again,
+				len(service.posted()))
+		}
+
+		if held := heldAnnouncement(t, handler); held == nil || held.State != api.QueuedAnnouncementStateAnnounced {
+			t.Errorf("held announcement = %+v, want it announced", held)
+		}
 	})
-
-	<-frame
-
-	// Assert
-	assertProblem(t, recorder, http.StatusConflict, "being posted")
-
-	if again || len(service.posted()) != 1 {
-		t.Errorf("a second post started: %v, and %d posted; want the held one alone", again, len(service.posted()))
-	}
-
-	if held := heldAnnouncement(t, handler); held == nil || held.State != api.QueuedAnnouncementStateAnnounced {
-		t.Errorf("held announcement = %+v, want it announced", held)
-	}
 }
 
-func TestDroppingTheHeldAnnouncementWhileItIsPostedIsAConflict(t *testing.T) {
+func TestStoppingTheHeldAnnouncementWhileItIsPostedIsAConflict(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	handler, service, frame := postingHeld(t, newForgeWorld())
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		handler, service := postingHeld(t, newForgeWorld())
 
-	// Act
-	recorder := webtest.Send(t, handler, http.MethodDelete, queuedPath, "")
+		// Act
+		recorder := webtest.Send(t, handler, http.MethodDelete, queuedPath, "")
 
-	close(service.release)
-	<-frame
+		close(service.release)
+		synctest.Wait()
 
-	// Assert
-	assertProblem(t, recorder, http.StatusConflict, "being posted")
+		// Assert
+		assertProblem(t, recorder, http.StatusConflict, "being posted")
 
-	if held := heldAnnouncement(t, handler); held == nil || held.State != api.QueuedAnnouncementStateAnnounced {
-		t.Errorf("held announcement = %+v, want it announced, as it was", held)
-	}
+		if held := heldAnnouncement(t, handler); held == nil || held.State != api.QueuedAnnouncementStateAnnounced {
+			t.Errorf("held announcement = %+v, want it announced, as it was", held)
+		}
+	})
 }
 
 func TestHoldingAnotherWhileTheHeldAnnouncementIsPostedIsAConflict(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	// The CI is running again by the time the next is asked to wait for it,
-	// so it is held rather than posted at once.
-	world := newForgeWorld()
-	handler, service, frame := postingHeld(t, world)
-	world.turn(func(w *forgeWorld) { w.ci = forge.CIRunning })
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// The CI is running again by the time the next is asked to wait for
+		// it, so it is held rather than posted at once.
+		world := newForgeWorld()
+		handler, service := postingHeld(t, world)
+		world.turn(func(w *forgeWorld) { w.ci = forge.CIRunning })
 
-	// Act
-	recorder, again := whilePosting(t, service, func() *httptest.ResponseRecorder {
-		return announceWhenGreen(t, handler, nil)
+		// Act
+		recorder, again := whilePosting(t, service, func() *httptest.ResponseRecorder {
+			return announceWhenGreen(t, handler, nil)
+		})
+
+		// Assert
+		assertProblem(t, recorder, http.StatusConflict, "being posted")
+
+		if again {
+			t.Error("a second post started, want the held one alone")
+		}
 	})
-
-	<-frame
-
-	// Assert
-	assertProblem(t, recorder, http.StatusConflict, "being posted")
-
-	if again {
-		t.Error("a second post started, want the held one alone")
-	}
 }

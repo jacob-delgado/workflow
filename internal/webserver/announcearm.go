@@ -4,10 +4,11 @@
 package webserver
 
 import (
-	"cmp"
 	"context"
+	"errors"
 
 	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/armed"
 	"github.com/jacob-delgado/workflow/internal/codeowners"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -20,13 +21,15 @@ import (
 const draftNotArmed = "a draft is not announced; announce it once it is ready"
 
 // armOnOpen arms the announcement of pull, just opened from branch, to post
-// once its CI passes, as asking to announce when CI passes holds one, and
-// answers it as held, or why a draft was not armed. Nothing is armed, and
-// nothing said, with messaging.auto_announce off in the configuration in
-// effect, nothing to post with, for a pull request announced already, or
-// while a held announcement is being posted. Whom it tags is read as workflow
-// announce --yes proposes them, the linked owners of the changes against the
-// base pull merges into and the groups that start checked, under ctx.
+// once its CI passes, as asking to announce when CI passes holds one, reads
+// it at once under ctx, and answers it as it stands, or why it was not armed:
+// a draft is not announced, and one armed on its own never replaces another
+// pull request's announcement that waits or is being posted. Nothing is
+// armed, and nothing said, with messaging.auto_announce off in the
+// configuration in effect, nothing to post with, or for a pull request
+// announced already. Whom it tags is read as it posts, as workflow announce
+// --yes proposes them: the linked owners of the changes against the base pull
+// merges into and the groups that start checked.
 func (s *server) armOnOpen(
 	ctx context.Context, branch gitrepo.Branch, pull forge.PullRequest,
 ) (*api.QueuedAnnouncement, *string) {
@@ -45,23 +48,32 @@ func (s *server) armOnOpen(
 		}, branch, pull, cfg.Messaging, cfg.Jira.Project, s.forgeKindNow()),
 		Pull: pull, Branch: branch,
 	}
-	if s.announcedAlready(ctx, composed.Made()) {
+	if _, claimed := s.claimOn(ctx, composed.Made()); claimed {
 		return nil, nil
 	}
 
-	mentions := s.unaskedMentions(ctx, cmp.Or(pull.Base, branch.Base))
-	post := announcePost{
-		delivery: composed.Delivery(s.channelOr(""), composed.Announcement.Text(), mentions),
-		memory:   s.announceMemory(loop.AnnounceMemory{}),
-		branch:   branch.Name, automatic: true,
-	}
-
-	queued, err := s.hold(post, branch.Name, ciReading{ci: forge.CI{}, read: false})
+	started, err := s.arm(announcePost{
+		delivery: composed.Delivery(s.channelOr(""), composed.Announcement.Text(), messaging.Mentions{}),
+		memory:   s.announceMemory(loop.AnnounceMemory{}), branch: branch.Name, automatic: true,
+	})
 	if err != nil {
-		return nil, nil
+		return nil, new(s.notArmed(err, started.Hold.Pull(), pull.Number))
 	}
 
-	return &queued, nil
+	s.advance(ctx, started.Next)
+
+	return s.heldStatus(), nil
+}
+
+// notArmed says why the announcement of pull request opened was not armed:
+// held's, armed before it, waits, or is being posted, as err says.
+func (s *server) notArmed(err error, held, opened int) string {
+	standing := " is still waiting"
+	if errors.Is(err, armed.ErrBeingPosted) {
+		standing = " is being posted"
+	}
+
+	return s.pullName(held) + "'s announcement" + standing + ", so " + s.pullName(opened) + "'s was not armed"
 }
 
 // unaskedMentions is whom an announcement armed with no preview to ask tags:

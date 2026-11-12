@@ -116,6 +116,8 @@ export const zProblem = z.object({
         'fetch_failed',
         'check_failed',
         'ci_failed',
+        'announced_unconfirmed',
+        'not_claimed',
         'internal'
     ]),
     retry_after: z.int().gte(1).optional(),
@@ -955,20 +957,31 @@ export const zAnnouncement = z.object({
 });
 
 /**
- * An announcement held until a pull request's CI passes, and how it stands: waiting for the CI, being posted, posted, or dropped unposted with the reason.
+ * An announcement held until a pull request's CI passes, and how it stands: waiting, being posted, posted, claimed elsewhere first, dropped unposted with the reason, or stopped before it was posted. The server holds it bound to the branch it was armed on and reads that branch's pull request and its CI on its own, so a branch checked out meanwhile neither posts nor drops it.
  */
 export const zQueuedAnnouncement = z.object({
+    id: z.int(),
     state: z.enum([
         'waiting',
         'announcing',
         'announced',
-        'dropped'
+        'elsewhere',
+        'dropped',
+        'stopped'
     ]),
+    waiting_on: z.enum([
+        'listing',
+        'ci',
+        'checks',
+        'fix',
+        'unread'
+    ]).optional(),
     channel: z.string(),
     pull: z.int(),
     reason: z.string().optional(),
     ci: zCiState.optional(),
     automatic: z.boolean().optional(),
+    replaced_pull: z.int().optional(),
     warning: z.string().optional()
 });
 
@@ -1026,7 +1039,12 @@ export const zReview = z.object({
     ci_error: zProblem.nullish(),
     issue: zLinkedIssue.nullish(),
     finish_refusal: z.string().optional(),
-    announced: z.boolean()
+    announced: z.enum([
+        'none',
+        'posted',
+        'unconfirmed',
+        'unknown'
+    ])
 });
 
 export const zMessagingDestination = z.object({
@@ -1730,7 +1748,7 @@ export const zAnnounceResponse = z.union([
 ]);
 
 /**
- * The waiting announcement was dropped; nothing was posted.
+ * The waiting announcement was stopped; nothing was posted.
  */
 export const zCancelQueuedAnnouncementResponse = z.void();
 

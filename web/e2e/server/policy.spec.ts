@@ -65,7 +65,7 @@ const announcing = snapshotWith({
   }),
   review: {
     found: true,
-    announced: false,
+    announced: 'none',
     pull: {
       number: 7,
       url: 'https://forge.example.com/pull/7',

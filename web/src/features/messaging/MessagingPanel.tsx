@@ -81,7 +81,7 @@ function AnnounceSection({
   const announcing = useAnnouncedHere(outcome, pull === null ? '' : momentOf(pull))
   const waiting = held?.state === 'waiting'
   const controls =
-    pull !== null && !review.announced ? (
+    pull !== null && !announcedAtItsMoment(review) ? (
       <AnnounceControls
         key="controls"
         pullName={`${sigil}${String(pull.number)}`}
@@ -101,7 +101,7 @@ function AnnounceSection({
       <h2 id="announce-heading" className="text-base font-semibold">
         Announce
       </h2>
-      {pull !== null && review.announced ? (
+      {pull !== null && announcedAtItsMoment(review) ? (
         <AnnouncedAlready pull={pull} held={held} saidHere={announcing.saidHere} />
       ) : null}
       {pull === null ? (
@@ -113,6 +113,13 @@ function AnnounceSection({
       <OutcomeLine said={outcome.said} />
     </section>
   )
+}
+
+// announcedAtItsMoment reports whether the review's pull request was announced
+// at the moment it stands at, its post confirmed or begun: either way it is
+// not offered again here. A store that could not be read says it was not.
+function announcedAtItsMoment(review: Snapshot['review']): boolean {
+  return review.announced === 'posted' || review.announced === 'unconfirmed'
 }
 
 // pullFollowed is the branch's pull request the loop follows: one found and

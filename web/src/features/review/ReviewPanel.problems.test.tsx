@@ -36,7 +36,7 @@ function streamReview(review: Review, problem?: Problem) {
 
 test('says the forge could not be read, rather than offer to open a pull request', () => {
   // Arrange
-  streamReview({ found: false, announced: false }, unreachable)
+  streamReview({ found: false, announced: 'none' }, unreachable)
 
   // Act
   render(<ReviewPanel />)
@@ -52,7 +52,7 @@ test('says the forge could not be read, rather than offer to open a pull request
 
 test('keeps the pull request last read beside why it could not be read again', () => {
   // Arrange
-  streamReview({ found: true, announced: false, pull: openPull }, unreachable)
+  streamReview({ found: true, announced: 'none', pull: openPull }, unreachable)
 
   // Act
   render(<ReviewPanel />)
@@ -66,7 +66,7 @@ test('keeps the pull request last read beside why it could not be read again', (
 
 test('says why the CI could not be read when the review carries no CI', () => {
   // Arrange
-  streamReview({ found: true, announced: false, pull: openPull, ci: null, ci_error: unreachable })
+  streamReview({ found: true, announced: 'none', pull: openPull, ci: null, ci_error: unreachable })
 
   // Act
   render(<ReviewPanel />)
@@ -81,7 +81,7 @@ test('says why the CI could not be read when the review carries no CI', () => {
 
 test('says nothing failed when the forge answered no pull request', () => {
   // Arrange
-  streamReview({ found: false, announced: false })
+  streamReview({ found: false, announced: 'none' })
 
   // Act
   render(<ReviewPanel />)
@@ -100,7 +100,7 @@ test('says the forge is not set up, and how, as guidance rather than a failure',
     detail: 'no forge token was found; for GitHub set $GITHUB_TOKEN or sign in with gh',
     code: 'not_set_up',
   }
-  streamReview({ found: false, announced: false }, noToken)
+  streamReview({ found: false, announced: 'none' }, noToken)
 
   // Act
   render(<ReviewPanel />)

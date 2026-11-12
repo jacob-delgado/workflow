@@ -208,7 +208,7 @@ type server struct {
 	assigned assignedCache
 
 	// held is the announcement held until its pull request's CI passes.
-	held heldAnnouncement
+	held heldSlot
 
 	// worlds holds this server, and replaces it on a switch, closing retired
 	// so its event streams end and the page reconnects to the next.

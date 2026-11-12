@@ -11,8 +11,10 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -48,12 +50,12 @@ func askToWait(t *testing.T, handler http.Handler) *httptest.ResponseRecorder {
 	return postAnnounce(t, handler, map[string]string{channelField: slackChannel, whenField: whenCIPasses})
 }
 
-func TestAnAnnouncementWhoseBranchCannotBeReadAsItIsAskedToWaitIsHeld(t *testing.T) {
+func TestAnAnnouncementWhoseBranchCannotBeReadAgainAsItIsAskedToWaitIsHeldForTheBranchComposed(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// The branch is read to compose the announcement, and cannot be read again
-	// to hold it.
+	// The branch is read to compose the announcement, and cannot be read
+	// again.
 	world := newForgeWorld()
 	deps := world.deps()
 	checkedOut := deps.Git.Branch
@@ -72,44 +74,78 @@ func TestAnAnnouncementWhoseBranchCannotBeReadAsItIsAskedToWaitIsHeld(t *testing
 	recorder := askToWait(t, handler)
 
 	// Assert
-	// Its CI could not be read, so nothing failing could not be confirmed:
-	// it waits for a read that says CI passed.
+	// The hold reads the branch it was composed for, not the checkout.
 	held := webtest.Decode[api.QueuedAnnouncement](t, recorder)
-	if recorder.Code != http.StatusAccepted || held.State != api.QueuedAnnouncementStateWaiting || held.Ci != nil {
-		t.Errorf("status = %d, held %+v; want 202 and it waiting, its CI unread", recorder.Code, held)
+	if recorder.Code != http.StatusAccepted || !sameHold(&held, waitingOn(api.CIStateRunning)) {
+		t.Errorf("status = %d, held %+v; want 202 and it waiting on #42's CI", recorder.Code, held)
 	}
 }
 
-func TestAHeldAnnouncementMadeMeanwhileElsewhereIsDroppedUnposted(t *testing.T) {
+func TestAHeldAnnouncementMadeMeanwhileElsewhereIsNotPostedHere(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	// A terminal announces the same moment while this one waits for its CI.
-	world := newForgeWorld()
-	memory := &announceMemory{}
-	deps := memory.bind(world.deps())
-	handler := webtest.Serve(t, deps, config.Default())
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// A terminal announces the same moment while this one waits for its
+		// CI.
+		world := newForgeWorld()
+		memory := &announceMemory{}
+		deps := memory.bind(world.deps())
+		handler := heldServer(t, deps, config.Default())
 
-	if recorder := askToWait(t, handler); recorder.Code != http.StatusAccepted {
-		t.Fatalf("holding the announcement answered %d: %s", recorder.Code, recorder.Body.String())
-	}
+		if recorder := askToWait(t, handler); recorder.Code != http.StatusAccepted {
+			t.Fatalf("holding the announcement answered %d: %s", recorder.Code, recorder.Body.String())
+		}
 
-	memory.mu.Lock()
-	memory.held = append(memory.held, readyAt42())
-	memory.mu.Unlock()
+		memory.mu.Lock()
+		memory.held = append(memory.held, readyAt42())
+		memory.mu.Unlock()
 
-	world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
+		world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
 
-	// Act
-	held := heldAnnouncement(t, handler)
+		// Act
+		advance(ciTick)
 
-	// Assert
-	if held == nil || held.State != api.QueuedAnnouncementStateDropped ||
-		orEmpty(held.Reason) != "#42 was already announced at this moment, here or from a terminal" {
-		t.Errorf("held announcement = %+v, want it dropped as announced already", held)
-	}
+		// Assert
+		held := heldAnnouncement(t, handler)
+		if held == nil || held.State != api.QueuedAnnouncementStateElsewhere ||
+			orEmpty(held.Reason) != "#42 was already announced at this moment, here or from a terminal" {
+			t.Errorf("held announcement = %+v, want it announced elsewhere already", held)
+		}
 
-	if posts := world.posted(); len(posts) != 0 {
-		t.Errorf("posted %q, want nothing posted twice", posts)
-	}
+		if posts := world.posted(); len(posts) != 0 {
+			t.Errorf("posted %q, want nothing posted twice", posts)
+		}
+	})
+}
+
+func TestAHeldAnnouncementWhosePostBeganElsewhereSaysWhen(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// Another session's post of the same moment began, and was never
+		// confirmed, while this one waits for its CI.
+		world := newForgeWorld()
+		memory := &announceMemory{}
+		deps := memory.bind(world.deps())
+		handler := heldServer(t, deps, config.Default())
+		askToWait(t, handler)
+
+		memory.mu.Lock()
+		memory.claimed = append(memory.claimed, readyAt42())
+		memory.mu.Unlock()
+
+		world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
+
+		// Act
+		advance(ciTick)
+
+		// Assert
+		held := heldAnnouncement(t, handler)
+		if held == nil || held.State != api.QueuedAnnouncementStateElsewhere ||
+			!strings.Contains(orEmpty(held.Reason), "was not confirmed") {
+			t.Errorf("held announcement = %+v, want it elsewhere, a post begun and not confirmed", held)
+		}
+	})
 }

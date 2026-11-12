@@ -26,7 +26,7 @@ const merged: PullRequest = {
 // no pull request of its own.
 const onBase = makeSnapshot({
   branch: makeBranch({ name: 'main' }),
-  review: { found: false, announced: false },
+  review: { found: false, announced: 'none' },
 })
 
 // finishing opens the finish's last look on fix/PROJ-1, whose pull request
@@ -38,7 +38,7 @@ async function finishing() {
     status: 'live',
     snapshot: makeSnapshot({
       branch: makeBranch({ name: 'fix/PROJ-1', ahead: 0, finish_commands: ['git switch main'] }),
-      review: { found: true, announced: false, pull: merged },
+      review: { found: true, announced: 'none', pull: merged },
     }),
   })
   render(<ReviewPanel />)

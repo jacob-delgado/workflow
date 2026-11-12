@@ -83,7 +83,7 @@ test.each<{ state: Stage['state']; drawn: string; mark: MarkState }>([
     checks: [],
   }
   streamOnHead({
-    review: { found: true, announced: false, pull: openPull, ci },
+    review: { found: true, announced: 'none', pull: openPull, ci },
     stages: makeStages({ issue: 'done', branch: 'done', commits: 'done', review: state }),
   })
 

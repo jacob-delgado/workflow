@@ -67,7 +67,7 @@ test('a review in flight says how many of its checks have finished', () => {
       stages: makeStages({ issue: 'done', branch: 'done', commits: 'done', review: 'in_flight' }),
       review: {
         found: true,
-        announced: false,
+        announced: 'none',
         ci: { state: 'running', total: 7, done: 5, failed: 0, checks: [] },
       },
     }),

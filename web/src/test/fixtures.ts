@@ -78,7 +78,7 @@ export function makeSnapshot(overrides: Partial<Snapshot> = {}): Snapshot {
     issues: { issues: [], total: 0, start_at: 0, unavailable: [] },
     branch: makeBranch(),
     changes: { changes: [] },
-    review: { found: false, announced: false },
+    review: { found: false, announced: 'none' },
     stages: makeStages({ issue: 'done', branch: 'done' }),
     unstarted_stages: makeStages({ issue: 'in_flight' }),
     messaging: {

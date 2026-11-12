@@ -37,7 +37,7 @@ const emptySnapshot = {
   issues: { total: 0, start_at: 0, unavailable: [], issues: [] },
   branch: emptyBranch,
   changes: { changes: [] },
-  review: { found: false, announced: false },
+  review: { found: false, announced: 'none' },
   stages: [
     { step: 'issue', name: 'Issue', state: 'not_started' },
     { step: 'branch', name: 'Branch', state: 'not_started' },
@@ -218,6 +218,8 @@ const meanings: Record<Problem['code'], { status: number; title: string }> = {
   fetch_failed: { status: 502, title: 'Fetch failed' },
   check_failed: { status: 422, title: 'Check failed' },
   ci_failed: { status: 409, title: 'CI failed' },
+  announced_unconfirmed: { status: 409, title: 'Announced, unconfirmed' },
+  not_claimed: { status: 503, title: 'Not claimed' },
   internal: { status: 500, title: 'Internal error' },
 }
 

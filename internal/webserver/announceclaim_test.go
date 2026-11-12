@@ -10,6 +10,7 @@ import (
 	"slices"
 	"sync"
 	"testing"
+	"testing/synctest"
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -174,16 +175,16 @@ func TestSnapshotSaysWhetherThePullWasAnnouncedAtItsMoment(t *testing.T) {
 
 	cases := map[string]struct {
 		held []loop.Announced
-		want bool
+		want api.ReviewAnnounced
 	}{
-		"announced as ready": {held: []loop.Announced{readyAt42()}, want: true},
+		"announced as ready": {held: []loop.Announced{readyAt42()}, want: api.ReviewAnnouncedPosted},
 		"announced only once it had merged": {
-			held: []loop.Announced{{Pull: 42, Moment: messaging.MomentMerged}}, want: false,
+			held: []loop.Announced{{Pull: 42, Moment: messaging.MomentMerged}}, want: api.ReviewAnnouncedNone,
 		},
 		"another pull request announced": {
-			held: []loop.Announced{{Pull: 41, Moment: messaging.MomentReady}}, want: false,
+			held: []loop.Announced{{Pull: 41, Moment: messaging.MomentReady}}, want: api.ReviewAnnouncedNone,
 		},
-		"nothing announced": {held: nil, want: false},
+		"nothing announced": {held: nil, want: api.ReviewAnnouncedNone},
 	}
 
 	for name, tt := range cases {
@@ -199,7 +200,7 @@ func TestSnapshotSaysWhetherThePullWasAnnouncedAtItsMoment(t *testing.T) {
 
 			// Assert
 			if got := snap.Review.Announced; got != tt.want {
-				t.Errorf("review.announced = %t, want %t", got, tt.want)
+				t.Errorf("review.announced = %q, want %q", got, tt.want)
 			}
 		})
 	}
@@ -223,8 +224,8 @@ func TestSnapshotReadsAPullRequestClosedWithoutMergingAsNotAnnounced(t *testing.
 		"/api/events").Body.String())
 
 	// Assert
-	if snap.Review.Announced {
-		t.Error("review.announced reads a pull request closed without merging as announced")
+	if snap.Review.Announced != api.ReviewAnnouncedNone {
+		t.Errorf("review.announced = %q for a pull request closed without merging, want none", snap.Review.Announced)
 	}
 }
 
@@ -260,8 +261,8 @@ func TestSnapshotSeesAnAnnouncementMadeHereAtOnce(t *testing.T) {
 
 	// Assert
 	snap := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
-	if !snap.Review.Announced {
-		t.Error("the frame after an announcement does not say it was made")
+	if snap.Review.Announced != api.ReviewAnnouncedPosted {
+		t.Errorf("review.announced = %q after an announcement, want posted", snap.Review.Announced)
 	}
 }
 
@@ -297,8 +298,9 @@ func TestAPullRequestAnnouncedReadyStaysAnnouncedWhileACheckFails(t *testing.T) 
 		"/api/events").Body.String())
 
 	// Assert
-	if !snap.Review.Announced {
-		t.Error("a pull request announced as ready, whose check has failed since, does not read as announced")
+	if snap.Review.Announced != api.ReviewAnnouncedPosted {
+		t.Errorf("review.announced = %q for a pull request announced as ready whose check has failed since, "+
+			"want posted", snap.Review.Announced)
 	}
 }
 
@@ -324,11 +326,16 @@ func TestAPostTheStoreCouldNotConfirmIsNeverOfferedAgain(t *testing.T) {
 	again := postAnnounce(t, handler, map[string]string{channelField: ""})
 
 	// Assert
-	if !snap.Review.Announced {
-		t.Error("the frame after a post the store could not confirm offers to announce it again")
+	if snap.Review.Announced != api.ReviewAnnouncedUnconfirmed {
+		t.Errorf("review.announced = %q after a post the store could not confirm, want unconfirmed",
+			snap.Review.Announced)
 	}
 
-	assertProblem(t, again, http.StatusConflict, "already announced")
+	assertProblem(t, again, http.StatusConflict, "was not confirmed")
+
+	if code := webtest.Decode[api.Problem](t, again).Code; code != api.ProblemCodeAnnouncedUnconfirmed {
+		t.Errorf("code = %q, want announced_unconfirmed", code)
+	}
 
 	if posted != 1 {
 		t.Errorf("posted %d times, want once: a post not confirmed may have gone out", posted)
@@ -393,20 +400,32 @@ func TestAnnounceWarnsOnlyOfAPostTheStoreCannotConfirm(t *testing.T) {
 func TestAHeldAnnouncementTheStoreCannotConfirmWarnsSo(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	world := newForgeWorld()
-	deps := (&announceMemory{confirmErr: errStoreFull}).bind(world.deps())
-	handler := webtest.Serve(t, deps, config.Default())
-	announceWhenGreen(t, handler, nil)
-	world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		world := newForgeWorld()
+		deps := (&announceMemory{confirmErr: errStoreFull}).bind(world.deps())
 
-	// Act
-	held := heldAnnouncement(t, handler)
+		var noted []string
 
-	// Assert
-	if held == nil || held.State != api.QueuedAnnouncementStateAnnounced || orEmpty(held.Warning) != unconfirmed {
-		t.Errorf("frame's held announcement = %+v, want it announced with the warning %q", held, unconfirmed)
-	}
+		deps.Unexpected = func(_ config.Config, err error) { noted = append(noted, err.Error()) }
+		handler := heldServer(t, deps, config.Default())
+		announceWhenGreen(t, handler, nil)
+		world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
+
+		// Act
+		advance(ciTick)
+
+		// Assert
+		held := heldAnnouncement(t, handler)
+		if held == nil || held.State != api.QueuedAnnouncementStateAnnounced || orEmpty(held.Warning) != unconfirmed {
+			t.Errorf("frame's held announcement = %+v, want it announced with the warning %q", held, unconfirmed)
+		}
+
+		wantNoted := []string{"posted, but the store did not confirm it: " + errStoreFull.Error()}
+		if !slices.Equal(noted, wantNoted) {
+			t.Errorf("noted %q, want the store's failure noted as %q", noted, wantNoted)
+		}
+	})
 }
 
 func TestTheNextHoldSaysNothingOfTheLastOnesWarning(t *testing.T) {
@@ -428,31 +447,34 @@ func TestTheNextHoldSaysNothingOfTheLastOnesWarning(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			// Arrange
-			world := newForgeWorld()
-			deps := (&announceMemory{confirmErr: errStoreFull}).bind(world.deps())
-			handler := webtest.Serve(t, deps, config.Default())
-			cancelHeld(t, handler)
-			announceWhenGreen(t, handler, nil)
-			world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
-			// A frame settles the hold: this one posts #42, and warns of it.
-			heldAnnouncement(t, handler)
-			world.turn(func(w *forgeWorld) { w.pull, w.ci = 43, forge.CIRunning })
-			announceWhenGreen(t, handler, nil)
-			world.turn(tt.change)
+			synctest.Test(t, func(t *testing.T) {
+				// Arrange
+				world := newForgeWorld()
+				deps := (&announceMemory{confirmErr: errStoreFull}).bind(world.deps())
+				handler := heldServer(t, deps, config.Default())
+				cancelHeld(t, handler)
+				announceWhenGreen(t, handler, nil)
+				world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
+				// This read posts #42, and warns of it.
+				advance(ciTick)
+				world.turn(func(w *forgeWorld) { w.pull, w.ci = 43, forge.CIRunning })
+				announceWhenGreen(t, handler, nil)
+				world.turn(tt.change)
 
-			// Act
-			held := heldAnnouncement(t, handler)
+				// Act
+				advance(ciTick)
 
-			// Assert
-			if held == nil {
-				t.Fatalf("the frame holds no announcement, want #43 %s", tt.want)
-			}
+				// Assert
+				held := heldAnnouncement(t, handler)
+				if held == nil {
+					t.Fatalf("the frame holds no announcement, want #43 %s", tt.want)
+				}
 
-			if held.Pull != 43 || held.State != tt.want || held.Warning != nil {
-				t.Errorf("frame's held announcement is #%d %s, warning %q; want #43 %s with no warning: "+
-					"the store failed to confirm #42, not it", held.Pull, held.State, orEmpty(held.Warning), tt.want)
-			}
+				if held.Pull != 43 || held.State != tt.want || held.Warning != nil {
+					t.Errorf("frame's held announcement is #%d %s, warning %q; want #43 %s with no warning: "+
+						"the store failed to confirm #42, not it", held.Pull, held.State, orEmpty(held.Warning), tt.want)
+				}
+			})
 		})
 	}
 }
@@ -492,7 +514,7 @@ func TestAStoreThatCannotBeReadLeavesTheClaimToDecide(t *testing.T) {
 	}
 }
 
-func TestAFrameOverAStoreThatCannotBeReadSaysNotAnnounced(t *testing.T) {
+func TestAFrameOverAStoreThatCannotBeReadSaysItIsUnknown(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -508,8 +530,8 @@ func TestAFrameOverAStoreThatCannotBeReadSaysNotAnnounced(t *testing.T) {
 		"/api/events").Body.String())
 
 	// Assert
-	if snap.Review.Announced || !slices.Contains(noted, errStoreFull.Error()) {
-		t.Errorf("review.announced = %t, noted %q; want it not announced and the store's failure noted",
+	if snap.Review.Announced != api.ReviewAnnouncedUnknown || !slices.Contains(noted, errStoreFull.Error()) {
+		t.Errorf("review.announced = %q, noted %q; want it unknown and the store's failure noted",
 			snap.Review.Announced, noted)
 	}
 }

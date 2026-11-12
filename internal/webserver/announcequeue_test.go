@@ -4,6 +4,7 @@
 package webserver_test
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -39,19 +40,24 @@ const (
 	whenField    = "when"
 	whenCIPasses = "ci_passes"
 	// notTheBranchesPull is why a held announcement is dropped once its pull
-	// request is not the branch's open one.
-	notTheBranchesPull = "#42 is no longer this branch's pull request"
+	// request is not its branch's open one.
+	notTheBranchesPull = "#42 is no longer its branch's pull request"
 )
 
 // forgeWorld is a forge and a messaging service a test can change under a
-// running server, each read behind a lock, since a held announcement is
-// settled on a goroutine of the server's own as well as on a frame.
+// running server, each read behind a lock, since a held announcement is read
+// on a goroutine of the server's own.
 type forgeWorld struct {
-	mu     sync.Mutex
-	branch string
-	// head, when set, is the commit the branch is at, in place of
-	// webtest.FilledDeps'.
+	mu sync.Mutex
+	// branch is the branch checked out, and pullBranch the branch the pull
+	// request is for, which a find of any other finds none for.
+	branch     string
+	pullBranch string
+	// head, when set, is the commit the branch and its pull request are at,
+	// in place of webtest.FilledDeps'.
 	head string
+	// base is the branch the pull request merges into.
+	base string
 	// pullErr, when set, is how the forge fails to find the pull request.
 	pullErr error
 	// branchErr, when set, is how git fails to read the branch.
@@ -69,8 +75,9 @@ type forgeWorld struct {
 // newForgeWorld is pull request 42, open, its CI running, at a fixed time.
 func newForgeWorld() *forgeWorld {
 	return &forgeWorld{
-		branch: webtest.TestBranchName, ci: forge.CIRunning, pull: 42, state: forge.StateOpen,
-		now: time.Date(2026, 10, 6, 9, 0, 0, 0, time.UTC),
+		branch: webtest.TestBranchName, pullBranch: webtest.TestBranchName, ci: forge.CIRunning, pull: 42,
+		state: forge.StateOpen,
+		now:   time.Date(2026, 10, 6, 9, 0, 0, 0, time.UTC),
 	}
 }
 
@@ -96,13 +103,16 @@ func (w *forgeWorld) deps() webserver.Deps {
 
 		return branch, err
 	}
-	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
+	deps.Forge.FindPullRequest = func(_ context.Context, branch string) (forge.PullRequest, bool, error) {
 		w.mu.Lock()
 		defer w.mu.Unlock()
 
-		url := fmt.Sprintf("https://x/%d", w.pull)
+		pull := forge.PullRequest{
+			Number: w.pull, URL: fmt.Sprintf("https://x/%d", w.pull), Title: "Redact tokens", State: w.state,
+			HeadCommit: cmp.Or(w.head, webtest.FilledHead), Base: w.base,
+		}
 
-		return forge.PullRequest{Number: w.pull, URL: url, Title: "Redact tokens", State: w.state}, !w.gone, w.pullErr
+		return pull, !w.gone && branch == w.pullBranch, w.pullErr
 	}
 	deps.Forge.CheckStatus = func(context.Context, forge.PullRequest, string) (forge.CI, error) {
 		w.mu.Lock()
@@ -208,30 +218,32 @@ func TestAnnouncingWhenCIPassesHoldsItWhileCIRuns(t *testing.T) {
 	}
 }
 
-func TestAHeldAnnouncementGoesOnTheFirstFrameWithGreenCI(t *testing.T) {
+func TestAHeldAnnouncementGoesOnTheFirstReadWithGreenCI(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	world := newForgeWorld()
-	handler := webtest.Serve(t, world.deps(), config.Default())
-	announceWhenGreen(t, handler, map[string]string{editedTextField: "Ready for review: #42"})
-	world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		world := newForgeWorld()
+		handler := heldServer(t, world.deps(), config.Default())
+		announceWhenGreen(t, handler, map[string]string{editedTextField: "Ready for review: #42"})
+		world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
 
-	// Act: the first frame with green CI
-	held := heldAnnouncement(t, handler)
+		// Act: the first read with green CI
+		advance(ciTick)
 
-	// Assert: it went
-	if held == nil || held.State != api.QueuedAnnouncementStateAnnounced {
-		t.Errorf("frame's held announcement = %+v, want it announced", held)
-	}
+		// Assert: it went
+		if held := heldAnnouncement(t, handler); held == nil || held.State != api.QueuedAnnouncementStateAnnounced {
+			t.Errorf("frame's held announcement = %+v, want it announced", held)
+		}
 
-	// Act: another frame
-	heldAnnouncement(t, handler)
+		// Act: another interval
+		advance(ciTick)
 
-	// Assert: it went once
-	if posts := world.posted(); !slices.Equal(posts, []string{"Ready for review: #42"}) {
-		t.Errorf("posted %q, want the edited text once", posts)
-	}
+		// Assert: it went once
+		if posts := world.posted(); !slices.Equal(posts, []string{"Ready for review: #42"}) {
+			t.Errorf("posted %q, want the edited text once", posts)
+		}
+	})
 }
 
 func TestAHeldAnnouncementIsDroppedWithTheReason(t *testing.T) {
@@ -249,8 +261,8 @@ func TestAHeldAnnouncementIsDroppedWithTheReason(t *testing.T) {
 			change:     func(w *forgeWorld) { w.state = forge.StateMerged },
 			wantReason: "#42 merged before its CI passed",
 		},
-		"another branch checked out": {
-			change:     func(w *forgeWorld) { w.branch = "feat/PROJ-500" },
+		"closed": {
+			change:     func(w *forgeWorld) { w.state = forge.StateClosed },
 			wantReason: notTheBranchesPull,
 		},
 		"no pull request any more": {
@@ -263,51 +275,95 @@ func TestAHeldAnnouncementIsDroppedWithTheReason(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			// Arrange
-			world := newForgeWorld()
-			handler := webtest.Serve(t, world.deps(), config.Default())
-			announceWhenGreen(t, handler, nil)
-			world.turn(tt.change)
+			synctest.Test(t, func(t *testing.T) {
+				// Arrange
+				world := newForgeWorld()
+				handler := heldServer(t, world.deps(), config.Default())
+				announceWhenGreen(t, handler, nil)
+				world.turn(tt.change)
 
-			// Act
-			held := heldAnnouncement(t, handler)
+				// Act
+				advance(ciTick)
 
-			// Assert
-			if held == nil || held.State != api.QueuedAnnouncementStateDropped || orEmpty(held.Reason) != tt.wantReason {
-				t.Errorf("frame's held announcement = %+v, want it dropped because %q", held, tt.wantReason)
-			}
+				// Assert
+				held := heldAnnouncement(t, handler)
+				if held == nil || held.State != api.QueuedAnnouncementStateDropped ||
+					orEmpty(held.Reason) != tt.wantReason {
+					t.Errorf("frame's held announcement = %+v, want it dropped because %q", held, tt.wantReason)
+				}
 
-			if posts := world.posted(); len(posts) != 0 {
-				t.Errorf("posted %q, want nothing", posts)
-			}
+				if posts := world.posted(); len(posts) != 0 {
+					t.Errorf("posted %q, want nothing", posts)
+				}
+			})
 		})
 	}
+}
+
+func TestAHeldAnnouncementWaitsOnThoughAnotherBranchIsCheckedOut(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// #42's announcement waits for CI; another branch is checked out,
+		// and then #42's CI passes.
+		world := newForgeWorld()
+		handler := heldServer(t, world.deps(), config.Default())
+		announceWhenGreen(t, handler, nil)
+		world.turn(func(w *forgeWorld) { w.branch = "feat/PROJ-500" })
+
+		// Act: a read with the other branch checked out
+		advance(ciTick)
+
+		// Assert: it still waits for #42
+		if held := heldAnnouncement(t, handler); !sameHold(held, waitingOn(api.CIStateRunning)) {
+			t.Fatalf("frame's held announcement = %+v, want #42's still waiting", held)
+		}
+
+		// Act: #42's CI passes
+		world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
+		advance(ciTick)
+
+		// Assert: it goes for #42, once
+		if held := heldAnnouncement(t, handler); held == nil || held.State != api.QueuedAnnouncementStateAnnounced ||
+			held.Pull != 42 || len(world.posted()) != 1 {
+			t.Errorf("frame's held announcement = %+v, posted %q; want #42 announced once", held, world.posted())
+		}
+	})
 }
 
 func TestAHeldAnnouncementThatCannotBePostedSaysWhyWithoutTheWebhook(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	world := newForgeWorld()
-	handler := webtest.Serve(t, world.deps(), config.Default())
-	announceWhenGreen(t, handler, nil)
-	world.turn(func(w *forgeWorld) {
-		w.ci = forge.CIPassed
-		w.fail = fmt.Errorf("%w: https://hooks.slack.com/services/%s", messaging.ErrUnreachable, webhookSecret)
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// The post's claim is taken, and the service cannot be reached.
+		world := newForgeWorld()
+		handler := heldServer(t, (&announceMemory{}).bind(world.deps()), config.Default())
+		announceWhenGreen(t, handler, nil)
+		world.turn(func(w *forgeWorld) {
+			w.ci = forge.CIPassed
+			w.fail = fmt.Errorf("%w: https://hooks.slack.com/services/%s", messaging.ErrUnreachable, webhookSecret)
+		})
+
+		// Act
+		advance(ciTick)
+
+		// Assert
+		held := heldAnnouncement(t, handler)
+		if held == nil || held.State != api.QueuedAnnouncementStateDropped || orEmpty(held.Reason) != mayHaveGoneOut {
+			t.Fatalf("frame's held announcement = %+v, want it dropped as one that may have gone out", held)
+		}
+
+		if strings.Contains(*held.Reason, webhookSecret) || strings.Contains(*held.Reason, "hooks.slack.com") {
+			t.Errorf("reason = %q, carries the webhook", *held.Reason)
+		}
 	})
-
-	// Act
-	held := heldAnnouncement(t, handler)
-
-	// Assert
-	if held == nil || held.State != api.QueuedAnnouncementStateDropped || orEmpty(held.Reason) == "" {
-		t.Fatalf("frame's held announcement = %+v, want it dropped with why", held)
-	}
-
-	if strings.Contains(*held.Reason, webhookSecret) || strings.Contains(*held.Reason, "hooks.slack.com") {
-		t.Errorf("reason = %q, carries the webhook", *held.Reason)
-	}
 }
+
+// mayHaveGoneOut is what is said of a post the service did not say it took.
+const mayHaveGoneOut = "the messaging service did not say whether it took the post, so it may have gone out; " +
+	"workflow announce asks before posting it again"
 
 // ciTick is the CI interval a held announcement is read on in a synctest
 // bubble, where its length costs nothing.
@@ -358,83 +414,121 @@ func TestAnnouncingWhenCIPassesPostsAtOnceWhenItHasPassed(t *testing.T) {
 func TestAHeldAnnouncementWaitsOnWhileItsCICannotBeRead(t *testing.T) {
 	t.Parallel()
 
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		world := newForgeWorld()
+		handler := heldServer(t, world.deps(), config.Default())
+		cancelHeld(t, handler)
+		announceWhenGreen(t, handler, nil)
+		world.turn(func(w *forgeWorld) { w.ciErr = forge.ErrUnreachable })
+
+		// Act
+		advance(ciTick)
+
+		// Assert
+		held := heldAnnouncement(t, handler)
+		unread := api.QueuedAnnouncementWaitingOnUnread
+		reason := "the service could not be reached; check the network, then try again"
+
+		if held == nil || held.State != api.QueuedAnnouncementStateWaiting || held.WaitingOn == nil ||
+			*held.WaitingOn != unread || orEmpty(held.Reason) != reason {
+			t.Errorf("frame's held announcement = %+v, want it waiting on a read, saying %q", held, reason)
+		}
+
+		if posts := world.posted(); len(posts) != 0 {
+			t.Errorf("posted %q, want nothing", posts)
+		}
+	})
+}
+
+func TestAHeldAnnouncementWithNoWayToReadCIWaitsOnUnread(t *testing.T) {
+	t.Parallel()
+
 	// Arrange
 	world := newForgeWorld()
-	handler := webtest.Serve(t, world.deps(), config.Default())
+	deps := world.deps()
+	deps.Forge.CheckStatus = nil
+	handler := webtest.Serve(t, deps, config.Default())
 	cancelHeld(t, handler)
-	announceWhenGreen(t, handler, nil)
-	world.turn(func(w *forgeWorld) { w.ciErr = forge.ErrUnreachable })
 
 	// Act
-	held := heldAnnouncement(t, handler)
+	recorder := announceWhenGreen(t, handler, nil)
 
 	// Assert
-	if held == nil || held.State != api.QueuedAnnouncementStateWaiting {
-		t.Errorf("frame's held announcement = %+v, want it still waiting", held)
-	}
-
-	if posts := world.posted(); len(posts) != 0 {
-		t.Errorf("posted %q, want nothing", posts)
+	held := webtest.Decode[api.QueuedAnnouncement](t, recorder)
+	if recorder.Code != http.StatusAccepted || held.WaitingOn == nil ||
+		*held.WaitingOn != api.QueuedAnnouncementWaitingOnUnread {
+		t.Errorf("status = %d, held %+v; want 202 and it waiting on a read of CI", recorder.Code, held)
 	}
 }
 
-func TestAnnouncingNowDropsTheHeldAnnouncement(t *testing.T) {
+func TestAnnouncingNowSettlesTheHeldAnnouncementAsAnnounced(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	world := newForgeWorld()
-	handler := webtest.Serve(t, world.deps(), config.Default())
-	announceWhenGreen(t, handler, nil)
-	previewed := previewAnnouncement(t, handler)
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		world := newForgeWorld()
+		handler := heldServer(t, world.deps(), config.Default())
+		announceWhenGreen(t, handler, nil)
+		previewed := previewAnnouncement(t, handler)
 
-	// Act: announce now
-	recorder := postAnnounce(t, handler, map[string]string{channelField: slackChannel, textField: previewed})
+		// Act: announce now
+		recorder := postAnnounce(t, handler, map[string]string{channelField: slackChannel, textField: previewed})
 
-	// Assert: it went
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200", recorder.Code)
-	}
+		// Assert: it went, and the held one reads as announced
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", recorder.Code)
+		}
 
-	// Act: CI passes
-	world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
+		if held := heldAnnouncement(t, handler); held == nil || held.State != api.QueuedAnnouncementStateAnnounced {
+			t.Errorf("held = %+v, want it announced", held)
+		}
 
-	// Assert: nothing is held, and the held one never follows
-	if held := heldAnnouncement(t, handler); held != nil {
-		t.Errorf("held = %+v, want nothing held", held)
-	}
+		// Act: CI passes
+		world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
+		advance(ciTick)
 
-	if posts := world.posted(); len(posts) != 1 {
-		t.Errorf("posted %d times, want once: the channel never reads it twice", len(posts))
-	}
+		// Assert: the held one never follows
+		if posts := world.posted(); len(posts) != 1 {
+			t.Errorf("posted %d times, want once: the channel never reads it twice", len(posts))
+		}
+	})
 }
 
-func TestCancelingDropsTheHeldAnnouncementUnposted(t *testing.T) {
+func TestCancelingStopsTheHeldAnnouncementUnposted(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	world := newForgeWorld()
-	handler := webtest.Serve(t, world.deps(), config.Default())
-	announceWhenGreen(t, handler, nil)
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		world := newForgeWorld()
+		handler := heldServer(t, world.deps(), config.Default())
+		announceWhenGreen(t, handler, nil)
 
-	// Act: drop it
-	recorder := webtest.Send(t, handler, http.MethodDelete, queuedPath, "")
+		// Act: stop it
+		recorder := webtest.Send(t, handler, http.MethodDelete, queuedPath, "")
 
-	// Assert: it was dropped
-	if recorder.Code != http.StatusNoContent {
-		t.Fatalf("status = %d, want 204", recorder.Code)
-	}
+		// Assert: it was stopped
+		if recorder.Code != http.StatusNoContent {
+			t.Fatalf("status = %d, want 204", recorder.Code)
+		}
 
-	// Act: CI passes
-	world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
+		stopped := api.QueuedAnnouncement{
+			State: api.QueuedAnnouncementStateStopped, Channel: slackChannel, Pull: 42,
+			Reason: new("the announcement was stopped before it was posted"),
+		}
+		if held := heldAnnouncement(t, handler); !sameHold(held, stopped) {
+			t.Errorf("held = %+v, want it stopped", held)
+		}
 
-	// Assert: nothing is held, and nothing goes
-	if held := heldAnnouncement(t, handler); held != nil {
-		t.Errorf("held = %+v, want nothing held", held)
-	}
+		// Act: CI passes
+		world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
+		advance(ciTick)
 
-	if posts := world.posted(); len(posts) != 0 {
-		t.Errorf("posted %q, want nothing", posts)
-	}
+		// Assert: nothing goes
+		if posts := world.posted(); len(posts) != 0 {
+			t.Errorf("posted %q, want nothing", posts)
+		}
+	})
 }
 
 func TestCancelingWithNothingHeldIsAConflict(t *testing.T) {

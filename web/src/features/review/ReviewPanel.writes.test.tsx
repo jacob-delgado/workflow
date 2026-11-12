@@ -57,7 +57,7 @@ function streamPull(pull: PullRequest, ci?: Ci, finishRefusal?: string) {
     status: 'live',
     snapshot: makeSnapshot({
       branch: makeBranch({ name: 'fix/PROJ-1', ahead: 0, finish_commands: finishCommands }),
-      review: { found: true, announced: false, pull, ci, finish_refusal: finishRefusal },
+      review: { found: true, announced: 'none', pull, ci, finish_refusal: finishRefusal },
     }),
   })
 }

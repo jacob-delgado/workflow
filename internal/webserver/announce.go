@@ -6,6 +6,7 @@ package webserver
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -36,7 +37,7 @@ func (s *server) GetAnnouncement(
 	preview := announcementDTO(composed.Announcement.Text(), s.channelOr(channel))
 	preview.Tagging = s.tagging(ctx, moment, channel)
 
-	_, ci, read := s.readCI(ctx, composed.Pull)
+	ci, read := s.previewCI(ctx, composed.Pull)
 	if read {
 		preview.Ci = new(ciState(ci.State))
 	}
@@ -122,9 +123,9 @@ func (s *server) postFor(ctx context.Context, body api.AnnounceRequest) (announc
 		return announcePost{}, announceUnprocessable(err.Error())
 	}
 
-	if s.announcedAlready(ctx, composed.Made()) {
+	if claim, claimed := s.claimOn(ctx, composed.Made()); claimed {
 		return announcePost{}, api.Announce409ApplicationProblemPlusJSONResponse(
-			s.announcedBefore(composed.Pull.Number))
+			s.claimedBefore(composed.Pull.Number, claim))
 	}
 
 	mentions, memory, refusal := s.postMentions(ctx, body.Mentions, announcement.Moment)
@@ -174,40 +175,67 @@ func (s *server) postMentions(
 	return mentions, memory, nil
 }
 
-// announceNow posts the announcement at once, dropping any held for CI, which
-// would otherwise follow it once CI passed, and the channel would read it
-// twice; one the gate refuses puts the held one back to wait. It is a 409
-// while the held one is being posted, and when the announcement was made
-// meanwhile; one posted that the store could not remember is answered as
-// posted, with the warning. It is posted under ctx.
+// announceNow posts the announcement at once, under ctx, claimed in the
+// store before it goes. A held one of the same pull request and moment waits
+// on until the post has gone, and is then settled as announced, so the
+// channel never reads it twice; a post that fails leaves it waiting. It is a
+// 409 while the held one is being posted, and when the announcement was
+// claimed meanwhile; one posted that the store could not confirm is answered
+// as posted, with the warning.
 func (s *server) announceNow(ctx context.Context, post announcePost) api.AnnounceResponseObject {
-	dropped, err := s.dropHeld()
-	if err != nil {
-		return api.Announce409ApplicationProblemPlusJSONResponse(problem.New(api.ProblemCodeConflict, err.Error()))
+	if s.heldBeingPosted() {
+		return api.Announce409ApplicationProblemPlusJSONResponse(
+			problem.New(api.ProblemCodeConflict, errHeldAnnouncing.Error()))
 	}
 
-	warning, err := s.deliver(ctx, post)
-	if errors.Is(err, loop.ErrCIFailed) || errors.Is(err, loop.ErrCIUnread) {
-		s.restoreHeld(dropped)
-	}
+	var warning string
 
-	if errors.Is(err, loop.ErrAnnouncedAlready) {
-		return api.Announce409ApplicationProblemPlusJSONResponse(s.announcedBefore(post.delivery.Pull.Number))
-	}
-
-	if errors.Is(err, loop.ErrCIFailed) {
-		return api.Announce409ApplicationProblemPlusJSONResponse(s.ciFailed(post.delivery))
+	err := loop.Deliver(ctx, s.deliverSeams(), post.memory, post.delivery)
+	if _, unconfirmed := loop.UnconfirmedReason(err); unconfirmed {
+		// Why the store could not goes to the log alone: its error can name
+		// the file.
+		s.unexpected(err)
+		warning, err = loop.UnconfirmedWarning, nil
 	}
 
 	if err != nil {
-		return s.announceFault(err)
+		return s.notPostedNow(post.delivery, err)
 	}
+
+	s.supersede(post.delivery.Made())
 
 	posted := announcementDTO(post.delivery.Text, post.delivery.Channel)
 	posted.Warning = optional(warning)
 
 	return api.Announce200JSONResponse(posted)
 }
+
+// notPostedNow answers a post of delivery asked for now that err kept from
+// going, or that may have gone: claimed already, a check failed, or a post
+// the service did not say it took, each in words of its own, and any other
+// through fault.
+func (s *server) notPostedNow(delivery loop.Delivery, err error) api.AnnounceResponseObject {
+	if already, claimed := errors.AsType[loop.AnnouncedAlreadyError](err); claimed {
+		return api.Announce409ApplicationProblemPlusJSONResponse(
+			s.claimedBefore(delivery.Pull.Number, already.Claim))
+	}
+
+	if errors.Is(err, loop.ErrCIFailed) {
+		return api.Announce409ApplicationProblemPlusJSONResponse(s.ciFailed(delivery))
+	}
+
+	told := s.fault(err)
+	if errors.Is(err, loop.ErrPostUncertain) {
+		told.Detail = postUncertain
+	}
+
+	return problem.Answer[api.AnnouncedefaultApplicationProblemPlusJSONResponse](told)
+}
+
+// postUncertain is what is said of a post the service did not say it took:
+// it may have gone out, so it is not posted again here.
+const postUncertain = "the messaging service did not say whether it took the post, so it may have gone out; " +
+	"workflow announce asks before posting it again"
 
 // ciFailed refuses to post delivery now, since a check failed on its pull
 // request, saying the way on: a pull request ready for review can wait for a
@@ -309,59 +337,64 @@ func (s *server) announcedRecords(ctx context.Context) ([]loop.AnnounceRecord, e
 	return s.deps.Store.Announced(shared)
 }
 
-// announcedAlready reports that made holds a claim already, from any surface,
-// as read under ctx. A store that cannot be read says none: the claim the
-// post takes is what keeps it from going twice.
-func (s *server) announcedAlready(ctx context.Context, made loop.Announced) bool {
+// claimOn is the claim the store holds on made, from any surface, as read
+// under ctx, and whether it holds one. A store that cannot be read says none:
+// the claim the post takes is what keeps it from going twice.
+func (s *server) claimOn(ctx context.Context, made loop.Announced) (loop.Claim, bool) {
 	records, err := s.announcedRecords(ctx)
 	if err != nil {
 		s.unexpected(err)
 
-		return false
+		return loop.Claim{}, false
 	}
 
-	_, claimed := loop.RecordOf(records, made)
+	record, claimed := loop.RecordOf(records, made)
 
-	return claimed
+	return loop.Claim{
+		Kind: loop.ClaimHeld, Generation: record.Generation, ClaimedAt: record.ClaimedAt, Posted: record.Posted,
+	}, claimed
 }
 
-// reviewAnnounced reports that the pull request the forge read was announced
-// at the moment it is at now, posted or begun, by the rule the terminal and
-// the command line read it by: never for one closed without merging, which
-// the loop does not follow, so the review and the announce stage agree. What
-// was announced is read under ctx.
-func (s *server) reviewAnnounced(ctx context.Context, read forgeRead) bool {
+// reviewAnnounced is how the pull request the forge read stands, announced
+// at the moment it is at now, by the rule the terminal and the command line
+// read it by: posted, its post confirmed; unconfirmed, a post begun and never
+// confirmed; or none, as for one closed without merging, which the loop does
+// not follow, so the review and the announce stage agree. A store that cannot
+// be read, read under ctx, is unknown: the claim a post takes decides.
+func (s *server) reviewAnnounced(ctx context.Context, read forgeRead) api.ReviewAnnounced {
 	records, err := s.announcedRecords(ctx)
 	if err != nil {
 		s.unexpected(err)
 
-		return false
+		return api.ReviewAnnouncedUnknown
 	}
 
-	return loop.StandingOf(records, read.pull, read.found) != loop.StandingNone
+	return map[loop.Standing]api.ReviewAnnounced{
+		loop.StandingNone:        api.ReviewAnnouncedNone,
+		loop.StandingPosted:      api.ReviewAnnouncedPosted,
+		loop.StandingUnconfirmed: api.ReviewAnnouncedUnconfirmed,
+	}[loop.StandingOf(records, read.pull, read.found)]
 }
 
-// deliver posts post, claiming it in the store before it goes, so two asks at
-// once — two tabs, two servers, or a held announcement and one made now — post
-// it once and the second learns it was made, answering the warning to say of
-// a post the store could not confirm. Why the store could not goes to the log
-// alone: its error can name the file. It posts under ctx.
-func (s *server) deliver(ctx context.Context, post announcePost) (string, error) {
-	seams := loop.DeliverSeams{Post: s.deps.Messaging.Post, CheckCI: s.deps.Forge.CheckStatus}
-
-	err := loop.Deliver(ctx, seams, post.memory, post.delivery)
-	if _, unconfirmed := loop.UnconfirmedReason(err); unconfirmed {
-		s.unexpected(err)
-
-		return loop.UnconfirmedWarning, nil
+// claimedBefore refuses to announce pull at a moment claim holds already:
+// announced, or a post of it that began at the claim's time and was never
+// confirmed, which may have gone out, so only workflow announce posts it
+// again, having asked.
+func (s *server) claimedBefore(pull int, claim loop.Claim) api.Problem {
+	if claim.Posted {
+		return problem.New(api.ProblemCodeConflict,
+			s.pullName(pull)+" was already announced at this moment, here or from a terminal")
 	}
 
-	return "", err
+	return problem.New(api.ProblemCodeAnnouncedUnconfirmed, "a post of "+s.pullName(pull)+" began at "+
+		claim.ClaimedAt.UTC().Format(claimTime)+" and was not confirmed, so it may have gone out; "+
+		"workflow announce asks before posting it again")
 }
 
-// announcedBefore refuses to announce pull at a moment it was announced at
-// already.
-func (s *server) announcedBefore(pull int) api.Problem {
-	return problem.New(api.ProblemCodeConflict,
-		s.pullName(pull)+" was already announced at this moment, here or from a terminal")
+// claimTime is how a claim's time is written: to the minute, in UTC.
+const claimTime = "2006-01-02 15:04 UTC"
+
+// pullName names a pull request by its number, in the forge's own sigil.
+func (s *server) pullName(number int) string {
+	return s.forgeKindNow().Sigil() + strconv.Itoa(number)
 }

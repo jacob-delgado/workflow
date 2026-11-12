@@ -76,7 +76,7 @@ test('shows the pull request and its CI checks', () => {
     snapshot: makeSnapshot({
       review: {
         found: true,
-        announced: false,
+        announced: 'none',
         pull,
         ci: {
           state: 'running',
@@ -121,7 +121,7 @@ test.each(ciCounts)(
       snapshot: makeSnapshot({
         review: {
           found: true,
-          announced: false,
+          announced: 'none',
           pull,
           ci: {
             state: failed > 0 ? 'failed' : 'passed',
@@ -161,7 +161,7 @@ test('draws each check as the mark of how it stands, beside the words', () => {
     snapshot: makeSnapshot({
       review: {
         found: true,
-        announced: false,
+        announced: 'none',
         pull,
         ci: {
           state: 'failed',
@@ -192,7 +192,7 @@ test('shows a pull request that has no CI', () => {
   // Arrange
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ review: { found: true, announced: false, pull } }),
+    snapshot: makeSnapshot({ review: { found: true, announced: 'none', pull } }),
   })
 
   // Act
@@ -206,7 +206,7 @@ test('says when there is no open pull request', () => {
   // Arrange
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ review: { found: false, announced: false } }),
+    snapshot: makeSnapshot({ review: { found: false, announced: 'none' } }),
   })
 
   // Act
@@ -221,7 +221,7 @@ test('opens a pull request from the composed form on confirm', async () => {
   const user = userEvent.setup()
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ review: { found: false, announced: false } }),
+    snapshot: makeSnapshot({ review: { found: false, announced: 'none' } }),
   })
   render(<ReviewPanel />)
 
@@ -242,7 +242,7 @@ test('opens a pull request with reviewers, assignees and labels', async () => {
   const user = userEvent.setup()
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ review: { found: false, announced: false } }),
+    snapshot: makeSnapshot({ review: { found: false, announced: 'none' } }),
   })
   render(<ReviewPanel />)
 
@@ -280,7 +280,7 @@ test('pre-fills the reviewers with the code owners the draft proposes', async ()
   })
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ review: { found: false, announced: false } }),
+    snapshot: makeSnapshot({ review: { found: false, announced: 'none' } }),
   })
   render(<ReviewPanel />)
 
@@ -302,7 +302,7 @@ test('hints that a reviewer can be a team', async () => {
   const user = userEvent.setup()
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ review: { found: false, announced: false } }),
+    snapshot: makeSnapshot({ review: { found: false, announced: 'none' } }),
   })
   render(<ReviewPanel />)
 
@@ -323,7 +323,7 @@ test('shows the warning when a pull opens but its reviewers could not be added',
   })
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ review: { found: false, announced: false } }),
+    snapshot: makeSnapshot({ review: { found: false, announced: 'none' } }),
   })
   render(<ReviewPanel />)
 
@@ -353,7 +353,7 @@ test('locks the confirm while the pull request is opening', async () => {
   const user = userEvent.setup()
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ review: { found: false, announced: false } }),
+    snapshot: makeSnapshot({ review: { found: false, announced: 'none' } }),
   })
   render(<ReviewPanel />)
 
@@ -380,7 +380,7 @@ test('keeps the form, the focus and the reason when opening is refused', async (
   const user = userEvent.setup()
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ review: { found: false, announced: false } }),
+    snapshot: makeSnapshot({ review: { found: false, announced: 'none' } }),
   })
   render(<ReviewPanel />)
   await user.click(screen.getByRole('button', { name: /open a pull request/i }))
@@ -411,7 +411,7 @@ test('a form opened again after a refused open and a cancel starts without the o
   const user = userEvent.setup()
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ review: { found: false, announced: false } }),
+    snapshot: makeSnapshot({ review: { found: false, announced: 'none' } }),
   })
   render(<ReviewPanel />)
   await user.click(screen.getByRole('button', { name: /open a pull request/i }))
@@ -434,7 +434,7 @@ test('names a merge request, marked with its !number, on GitLab', () => {
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
-      review: { found: true, announced: false, pull: { ...pull, number: 7 } },
+      review: { found: true, announced: 'none', pull: { ...pull, number: 7 } },
     }),
   })
 
@@ -452,7 +452,7 @@ test('offers and opens a merge request in GitLab words throughout', async () => 
   useHealthStore.setState({ health: makeHealth(gitLabWords) })
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ review: { found: false, announced: false } }),
+    snapshot: makeSnapshot({ review: { found: false, announced: 'none' } }),
   })
 
   // Act: draw the panel
@@ -485,7 +485,7 @@ test('says a merge request could not be composed, on GitLab, with focus still on
   useHealthStore.setState({ health: makeHealth(gitLabWords) })
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ review: { found: false, announced: false } }),
+    snapshot: makeSnapshot({ review: { found: false, announced: 'none' } }),
   })
   render(<ReviewPanel />)
 
@@ -508,7 +508,7 @@ test('says a merge request could not be opened, on GitLab, when the forge gives 
   useHealthStore.setState({ health: makeHealth(gitLabWords) })
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ review: { found: false, announced: false } }),
+    snapshot: makeSnapshot({ review: { found: false, announced: 'none' } }),
   })
   render(<ReviewPanel />)
   await user.click(screen.getByRole('button', { name: 'Open a merge request' }))
@@ -530,7 +530,7 @@ test('the form opens on its title, and Cancel hands focus back', async () => {
   const user = userEvent.setup()
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ review: { found: false, announced: false } }),
+    snapshot: makeSnapshot({ review: { found: false, announced: 'none' } }),
   })
   render(<ReviewPanel />)
 
@@ -555,7 +555,7 @@ test('names the issue the pull request is for, with a link to its page', () => {
     snapshot: makeSnapshot({
       review: {
         found: true,
-        announced: false,
+        announced: 'none',
         pull,
         ci: null,
         issue: {

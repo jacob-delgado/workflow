@@ -9,6 +9,7 @@ import (
 	"sync"
 	"testing"
 	"testing/fstest"
+	"testing/synctest"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -36,6 +37,11 @@ func (c *webClock) pass(d time.Duration) {
 
 	c.elapsed += d
 }
+
+// heldReadDue is longer than the demo's CI interval, on which the server reads
+// for the announcement it holds: in a synctest bubble, sleeping it brings
+// that read due at no cost.
+const heldReadDue = time.Minute
 
 // webDemo is the demo's world served over the web API, on a clock the test
 // moves.
@@ -184,7 +190,7 @@ func heldOf(frame api.Snapshot) api.QueuedAnnouncementState {
 // announced, and the state of an announcement waiting for CI.
 type reviewOf struct {
 	ci        api.CIState
-	announced bool
+	announced api.ReviewAnnounced
 	held      api.QueuedAnnouncementState
 }
 
@@ -211,69 +217,73 @@ func announcedPulls(d webDemo) []int {
 func TestTheWebLoopRunsFromAnIssueToAnAnnouncement(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	demo := servedWeb(t)
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		demo := servedWeb(t)
 
-	// Act: open the page
-	first := demo.frame()
+		// Act: open the page
+		first := demo.frame()
 
-	// Assert: PROJ-412 leads the list, on main
-	if got := [2]string{first.Branch.Name, first.Issues.Issues[0].Key}; got != [2]string{"main", string(worked)} {
-		t.Fatalf("the page opens on %s with %s first, want main with %s", got[0], got[1], worked)
-	}
+		// Assert: PROJ-412 leads the list, on main
+		if got := [2]string{first.Branch.Name, first.Issues.Issues[0].Key}; got != [2]string{"main", string(worked)} {
+			t.Fatalf("the page opens on %s with %s first, want main with %s", got[0], got[1], worked)
+		}
 
-	// Act: start work, stage everything and commit it
-	demo.committed()
+		// Act: start work, stage everything and commit it
+		demo.committed()
 
-	// Assert: the commit is on the issue's branch, and nothing is left to stage
-	if got, want := standing(demo.frame()), (branchOf{workedBranch, "4f2c9e1", "", 0}); got != want {
-		t.Fatalf("after the commit the branch stands at %+v, want %+v", got, want)
-	}
+		// Assert: the commit is on the issue's branch, and nothing is left to stage
+		if got, want := standing(demo.frame()), (branchOf{workedBranch, "4f2c9e1", "", 0}); got != want {
+			t.Fatalf("after the commit the branch stands at %+v, want %+v", got, want)
+		}
 
-	// Act: push it
-	demo.send(http.MethodPost, "/api/push", "")
+		// Act: push it
+		demo.send(http.MethodPost, "/api/push", "")
 
-	// Assert: origin has it
-	if got := standing(demo.frame()).upstream; got != "origin/"+workedBranch {
-		t.Fatalf("after the push the upstream is %q, want origin/%s", got, workedBranch)
-	}
+		// Assert: origin has it
+		if got := standing(demo.frame()).upstream; got != "origin/"+workedBranch {
+			t.Fatalf("after the push the upstream is %q, want origin/%s", got, workedBranch)
+		}
 
-	// Act: open its pull request
-	opened := webtest.Decode[api.OpenedPullRequest](t,
-		webtest.Send(t, demo.handler, http.MethodPost, "/api/pull-request", openPull))
+		// Act: open its pull request
+		opened := webtest.Decode[api.OpenedPullRequest](t,
+			webtest.Send(t, demo.handler, http.MethodPost, "/api/pull-request", openPull))
 
-	// Assert: #128 is open, and its announcement waits for CI, which the open
-	// does not read
-	if opened.Pull.Number != 128 {
-		t.Fatalf("the open answered #%d, want #128", opened.Pull.Number)
-	}
+		// Assert: #128 is open, and its announcement waits for CI, which the open
+		// does not read
+		if opened.Pull.Number != 128 {
+			t.Fatalf("the open answered #%d, want #128", opened.Pull.Number)
+		}
 
-	waiting := reviewOf{api.CIStateNone, false, api.QueuedAnnouncementStateWaiting}
-	if got := reviewing(demo.frame()); got != waiting {
-		t.Fatalf("after the open the review reads %+v, want %+v", got, waiting)
-	}
+		waiting := reviewOf{api.CIStateNone, api.ReviewAnnouncedNone, api.QueuedAnnouncementStateWaiting}
+		if got := reviewing(demo.frame()); got != waiting {
+			t.Fatalf("after the open the review reads %+v, want %+v", got, waiting)
+		}
 
-	// Act: let the forge be asked again
-	demo.clock.pass(forgeAskedAgainOnTheWeb)
+		// Act: let the forge be asked again
+		demo.clock.pass(forgeAskedAgainOnTheWeb)
 
-	// Assert: CI is running, and the announcement still waits for it
-	running := reviewOf{api.CIStateRunning, false, api.QueuedAnnouncementStateWaiting}
-	if got := reviewing(demo.frame()); got != running {
-		t.Fatalf("once the forge is asked again the review reads %+v, want %+v", got, running)
-	}
+		// Assert: CI is running, and the announcement still waits for it
+		running := reviewOf{api.CIStateRunning, api.ReviewAnnouncedNone, api.QueuedAnnouncementStateWaiting}
+		if got := reviewing(demo.frame()); got != running {
+			t.Fatalf("once the forge is asked again the review reads %+v, want %+v", got, running)
+		}
 
-	// Act: let CI finish
-	demo.clock.pass(ciPassesOnTheWeb - forgeAskedAgainOnTheWeb)
+		// Act: let CI finish, and the server's next read of it come due
+		demo.clock.pass(ciPassesOnTheWeb - forgeAskedAgainOnTheWeb)
+		time.Sleep(heldReadDue)
+		synctest.Wait()
 
-	// Assert: CI passed, and the pull request was announced on that frame
-	posted := reviewOf{api.CIStatePassed, true, api.QueuedAnnouncementStateAnnounced}
-	if got := reviewing(demo.frame()); got != posted {
-		t.Fatalf("once CI has had time to pass the review reads %+v, want %+v", got, posted)
-	}
+		// Assert: CI passed, and the pull request was announced on that read
+		posted := reviewOf{api.CIStatePassed, api.ReviewAnnouncedPosted, api.QueuedAnnouncementStateAnnounced}
+		if got := reviewing(demo.frame()); got != posted {
+			t.Fatalf("once CI has had time to pass the review reads %+v, want %+v", got, posted)
+		}
 
-	if got := announcedPulls(demo); !slices.Equal(got, []int{128}) {
-		t.Errorf("the store holds %v announced, want #128", got)
-	}
+		if got := announcedPulls(demo); !slices.Equal(got, []int{128}) {
+			t.Errorf("the store holds %v announced, want #128", got)
+		}
+	})
 }
 
 func TestTheWebMovesTheWorkedIssueIntoProgressOnceStarted(t *testing.T) {

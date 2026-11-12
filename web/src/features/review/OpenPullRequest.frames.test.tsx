@@ -38,7 +38,7 @@ const opened: PullRequest = {
 test('Opened pull request #128 is said only once the page shows it open', async () => {
   // Arrange
   const user = userEvent.setup()
-  const armed = { state: 'waiting', channel: '#dev', pull: 128, automatic: true } as const
+  const armed = { id: 1, state: 'waiting', channel: '#dev', pull: 128, automatic: true } as const
   fakeApi(
     {
       '/api/pull-request/draft': draft,
@@ -68,7 +68,7 @@ test('Opened pull request #128 is said only once the page shows it open', async 
   act(() => {
     pushFrame(
       makeSnapshot({
-        review: { found: true, announced: false, pull: opened },
+        review: { found: true, announced: 'none', pull: opened },
         queued_announcement: armed,
       }),
     )

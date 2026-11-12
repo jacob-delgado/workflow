@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"testing/synctest"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -17,38 +18,39 @@ import (
 )
 
 // The tests here hold the context an announcement is posted and remembered
-// under: a held one goes once whatever page's frame takes it to post.
+// under: a held one goes under the server's lifetime, whatever page asked.
 
-func TestAHeldAnnouncementAFrameTakesToPostGoesOnThoughThatPageLeft(t *testing.T) {
+func TestAHeldAnnouncementPostedOnItsOwnReadGoesUnderTheServersLifetime(t *testing.T) {
 	t.Parallel()
 
-	// Arrange
-	world := newForgeWorld()
-	deps := world.deps()
-	posted := deps.Messaging.Post
-	ended := make(chan error, 1)
-	deps.Messaging.Post = func(ctx context.Context, channel, text string) error {
-		ended <- ctx.Err()
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		world := newForgeWorld()
+		deps := world.deps()
+		posted := deps.Messaging.Post
+		ended := make(chan error, 1)
+		deps.Messaging.Post = func(ctx context.Context, channel, text string) error {
+			ended <- ctx.Err()
 
-		return posted(ctx, channel, text)
-	}
-	handler := webtest.Serve(t, deps, config.Default())
-	announceWhenGreen(t, handler, nil)
-	world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
-
-	// Act
-	// A frame whose page has already left.
-	webtest.StreamOnce(t, handler, "/api/events")
-
-	// Assert
-	select {
-	case err := <-ended:
-		if err != nil {
-			t.Errorf("the held announcement was posted under a context that ended with %v, want the server's", err)
+			return posted(ctx, channel, text)
 		}
-	default:
-		t.Fatal("the frame with green CI did not post the held announcement")
-	}
+		handler := heldServer(t, deps, config.Default())
+		announceWhenGreen(t, handler, nil)
+		world.turn(func(w *forgeWorld) { w.ci = forge.CIPassed })
+
+		// Act
+		advance(ciTick)
+
+		// Assert
+		select {
+		case err := <-ended:
+			if err != nil {
+				t.Errorf("the held announcement was posted under a context that ended with %v, want the server's", err)
+			}
+		default:
+			t.Fatal("the read with green CI did not post the held announcement")
+		}
+	})
 }
 
 // The store's read of what was announced swallows its error, as the wiring's

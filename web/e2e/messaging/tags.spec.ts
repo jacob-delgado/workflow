@@ -28,7 +28,7 @@ const snapshot = snapshotWith({
     base_remote: 'origin',
     base: 'origin/main',
   }),
-  review: { found: true, announced: false, pull },
+  review: { found: true, announced: 'none', pull },
   messaging: {
     kind: 'slack',
     service: 'Slack',
