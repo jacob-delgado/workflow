@@ -853,9 +853,11 @@ by hand for want of git's arguments or refs, or lefthook gains a way to run
 request's CI through `ClearToAnnounce` before it posts, whatever a surface read
 before it: the command line just before it asks, the terminal from its last
 poll, the web from its preview or a frame an interval old, and before it
-claims the post in the store, so a refusal claims nothing. A failed check
-refuses the post, and a CI that cannot be read refuses it too, since nothing
-failing cannot be confirmed. Every path that announces (`workflow announce`,
+claims the post in the store, so a refusal claims nothing. It reads the CI at
+the commit the forge says the pull request is at, never the checkout's own,
+which may be unpushed or behind. A failed check refuses the post, and a CI
+that cannot be read, or a pull request the forge named no commit for, refuses
+it too, since nothing failing cannot be confirmed. Every path that announces (`workflow announce`,
 the terminal's preview, the web's Announce now, a post held for CI) goes
 through it, so none can let a failed check through on a stale reading. Decided
 2026-10-13 by the maintainer, gating every announcement on "nothing failed".

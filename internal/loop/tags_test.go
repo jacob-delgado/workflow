@@ -398,8 +398,8 @@ func tagged(t *testing.T) loop.Delivery {
 	}
 
 	return loop.Delivery{
-		Channel: devChannel, Text: readyText, Pull: forge.PullRequest{Number: 9}, Moment: messaging.MomentReady,
-		Mentions: mentions,
+		Channel: devChannel, Text: readyText, Pull: forge.PullRequest{Number: 9}, Head: headCommit,
+		Moment: messaging.MomentReady, Mentions: mentions,
 	}
 }
 

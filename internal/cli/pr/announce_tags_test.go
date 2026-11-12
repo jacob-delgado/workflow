@@ -363,7 +363,8 @@ func TestAnnounceReadsTheOwnersAgainstThePullRequestsBase(t *testing.T) {
 
 	// Arrange
 	clitest.FakeGh(t, clitest.GhResponses{Pulls: `[{"number":7,"html_url":"https://github.com/acme/repo/pull/7",` +
-		`"title":"Add login","state":"open","draft":false,"base":{"ref":"release"}}]`})
+		`"title":"Add login","state":"open","draft":false,"base":{"ref":"release"},` +
+		`"head":{"sha":"` + clitest.PullHead + `"}}]`})
 	clitest.FakeSlack(t, nil)
 	repo := releaseBranchRepo(t)
 	home := keptLinks(t)

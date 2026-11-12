@@ -286,7 +286,7 @@ func clearToAnnounce(
 	ctx context.Context, check func(context.Context, forge.PullRequest, string) (forge.CI, error),
 	composed loop.Composed, pull string,
 ) error {
-	ci, err := loop.ClearToAnnounce(ctx, check, composed.Pull, composed.Branch.Head)
+	ci, err := loop.ClearToAnnounce(ctx, check, composed.Pull, composed.Pull.HeadCommit)
 
 	switch {
 	case errors.Is(err, loop.ErrCIFailed):

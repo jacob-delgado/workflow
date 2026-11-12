@@ -223,7 +223,7 @@ func (c Composed) Made() Announced {
 // tagging mentions.
 func (c Composed) Delivery(channel, text string, mentions messaging.Mentions) Delivery {
 	return Delivery{
-		Channel: channel, Text: text, Pull: c.Pull, Head: c.Branch.Head, Moment: c.Announcement.Moment,
+		Channel: channel, Text: text, Pull: c.Pull, Head: c.Pull.HeadCommit, Moment: c.Announcement.Moment,
 		Mentions: mentions,
 	}
 }
@@ -434,14 +434,14 @@ func UnconfirmedReason(err error) (string, bool) {
 
 // ClearToAnnounce reads pull's CI at head under ctx and answers it when
 // nothing has failed on it: none reported, running or passed. A failed check
-// is ErrCIFailed; a CI that cannot be read, or no way to read it, is
-// ErrCIUnread, wrapping the read's error, since nothing failing cannot be
-// confirmed.
+// is ErrCIFailed; a CI that cannot be read, no way to read it, or no head to
+// read it at, is ErrCIUnread, wrapping the read's error, since nothing failing
+// cannot be confirmed.
 func ClearToAnnounce(
 	ctx context.Context, check func(context.Context, forge.PullRequest, string) (forge.CI, error),
 	pull forge.PullRequest, head string,
 ) (forge.CI, error) {
-	if check == nil {
+	if check == nil || head == "" {
 		return forge.CI{}, ErrCIUnread
 	}
 

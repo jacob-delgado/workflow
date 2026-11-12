@@ -44,7 +44,8 @@ func TestAPostThatWentOutIsConfirmedThoughItsAskerLeft(t *testing.T) {
 		},
 	}
 	delivery := loop.Delivery{
-		Channel: devChannel, Text: readyText, Pull: forge.PullRequest{Number: 9}, Moment: messaging.MomentReady,
+		Channel: devChannel, Text: readyText, Pull: forge.PullRequest{Number: 9}, Head: headCommit,
+		Moment: messaging.MomentReady,
 	}
 
 	// Act

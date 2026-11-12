@@ -83,6 +83,25 @@ func TestDeliverRefusesWhatItCannotConfirm(t *testing.T) {
 	}
 }
 
+func TestDeliverRefusesAPullRequestTheForgeNamedNoHeadFor(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var sent deliveries
+
+	seams := loop.DeliverSeams{Post: sent.post(nil), CheckCI: ciReading(forge.CI{State: forge.CIPassed}, nil)}
+	headless := ready()
+	headless.Head = ""
+
+	// Act
+	err := loop.Deliver(t.Context(), seams, sent.memory(), headless)
+
+	// Assert
+	if !errors.Is(err, loop.ErrCIUnread) || len(sent.posted) != 0 {
+		t.Errorf("Deliver = %v, posted %q; want ErrCIUnread with no head to read CI at, nothing posted", err, sent.posted)
+	}
+}
+
 func TestDeliverPostsWhileNothingHasFailed(t *testing.T) {
 	t.Parallel()
 

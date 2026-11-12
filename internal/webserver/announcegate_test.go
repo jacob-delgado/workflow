@@ -57,6 +57,37 @@ func TestAnnouncingNowWithAFailedCheckAnswersCIFailed(t *testing.T) {
 	}
 }
 
+func TestAnnouncingNowReadsCIAtThePullRequestsHeadNotTheCheckouts(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The checkout is at webtest.FilledHead, which reads green; the pull
+	// request is at a commit pushed since, whose check failed.
+	const pushedHead = "pushedhead"
+
+	memory, posts := &announceMemory{}, 0
+	deps := gatedDeps(memory, &posts, forge.CI{}, nil)
+	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
+		return forge.PullRequest{Number: 42, URL: "https://x/42", Title: "redact", HeadCommit: pushedHead}, true, nil
+	}
+	deps.Forge.CheckStatus = func(_ context.Context, _ forge.PullRequest, head string) (forge.CI, error) {
+		if head == pushedHead {
+			return forge.CI{State: forge.CIFailed, Checks: []forge.Check{{Name: "lint", State: forge.CIFailed}}}, nil
+		}
+
+		return forge.CI{State: forge.CIPassed}, nil
+	}
+
+	// Act
+	recorder := postAnnounce(t, webtest.Serve(t, deps, config.Default()), map[string]string{channelField: ""})
+
+	// Assert
+	failure := webtest.Decode[api.Problem](t, recorder)
+	if recorder.Code != http.StatusConflict || failure.Code != api.ProblemCodeCiFailed || posts != 0 {
+		t.Errorf("status %d, problem %+v, posted %d; want 409 ci_failed and nothing posted", recorder.Code, failure, posts)
+	}
+}
+
 func TestAnnouncingNowWhenCICannotBeReadPostsNothing(t *testing.T) {
 	t.Parallel()
 
