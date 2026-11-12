@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"slices"
 	"sync"
 	"testing"
@@ -246,6 +247,49 @@ func TestAnnounceRefusesAPullRequestClosedWithoutMergingAsNoneToAnnounce(t *test
 
 	// Assert
 	assertProblem(t, recorder, http.StatusConflict, "there is no pull request to announce")
+}
+
+func TestAPullRequestTheForgeIsMergingIsNotAnnounced(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]func(*testing.T, http.Handler) *httptest.ResponseRecorder{
+		"its preview": func(t *testing.T, handler http.Handler) *httptest.ResponseRecorder {
+			t.Helper()
+
+			return webtest.Get(t, handler, "/api/announcement")
+		},
+		"its post": func(t *testing.T, handler http.Handler) *httptest.ResponseRecorder {
+			t.Helper()
+
+			return postAnnounce(t, handler, map[string]string{channelField: ""})
+		},
+	}
+
+	for name, ask := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			memory := &announceMemory{}
+			deps := memory.wire(webtest.FilledDeps())
+			deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
+				return inState(forge.StateMerging, false), true, nil
+			}
+
+			// Act
+			recorder := ask(t, webtest.Serve(t, deps, config.Default()))
+
+			// Assert
+			assertProblem(t, recorder, http.StatusConflict, "is merging; announce it once it has merged")
+
+			memory.mu.Lock()
+			defer memory.mu.Unlock()
+
+			if len(memory.claimed) != 0 {
+				t.Errorf("claimed %v for a pull request the forge is merging, want nothing", memory.claimed)
+			}
+		})
+	}
 }
 
 func TestSnapshotSeesAnAnnouncementMadeHereAtOnce(t *testing.T) {

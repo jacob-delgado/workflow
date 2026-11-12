@@ -79,6 +79,41 @@ func TestAnnounceRefusesABranchWithNoMergeRequestInGitLabsWords(t *testing.T) {
 	wantExit(t, err, 4)
 }
 
+func TestAnnounceRefusesAMergeRequestBeingMergedInGitLabsWords(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string][]string{
+		"now":            {"announce", "--yes"},
+		"once CI passes": {"announce", "--when-green", "--yes"},
+	}
+
+	for name, args := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			var posts atomic.Int32
+
+			clitest.FakeGlabListing(t, strings.Replace(clitest.OpenMergeRequest(), `"opened"`, `"locked"`, 1))
+			repo := clitest.GitlabRepo(t, "fix/PROJ-2-thing")
+			clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"gitlab","host":"gitlab.com"},`+
+				`"messaging":{"webhook_url":"`+webhook(t, &posts)+`"}}`)
+
+			// Act
+			_, err := clitest.Run(t, repo, args...)
+
+			// Assert
+			if err == nil || posts.Load() != 0 {
+				t.Fatalf("announce = %v, posted %d; want a merge request being merged refused, nothing posted",
+					err, posts.Load())
+			}
+
+			requireGitLabWords(t, err.Error(), "the merge request is merging; announce it once it has merged")
+			wantExit(t, err, 4)
+		})
+	}
+}
+
 func TestAnnounceWhenGreenGivesUpOnAMergeRequestGitLabStartsMerging(t *testing.T) {
 	t.Parallel()
 

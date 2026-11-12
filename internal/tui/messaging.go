@@ -193,7 +193,9 @@ func (m Model) waitingLine() string {
 }
 
 // messagingDetail previews the announcement, or says what it needs first: a
-// pull request the loop follows, which one closed without merging is not.
+// pull request the loop follows, which one closed without merging is not, and
+// one the forge is not merging, which is at no moment to announce. A post that
+// failed stays shown under either.
 func (m Model) messagingDetail(width int) string {
 	if m.cfg.Messaging.Mode() == config.MessagingNone {
 		return wrap(m.marks.notStarted+" "+inFull(messaging.ErrNoCredential)+".\n\n`workflow doctor` checks "+
@@ -207,6 +209,12 @@ func (m Model) messagingDetail(width int) string {
 			m.messagingRail(), width)
 	}
 
+	if m.review.pullState() == progress.PullRequestMerging {
+		merging := []string{"The " + m.vocab.noun + " is merging; announce it once it has merged.", "", m.messagingRail()}
+
+		return wrap(strings.Join(m.withPostFailure(merging, width), "\n"), width)
+	}
+
 	lines := []string{
 		m.announcement(loop.AnnounceMoment(m.review.pull)),
 		"",
@@ -215,11 +223,16 @@ func (m Model) messagingDetail(width int) string {
 		m.styles.label.Render("state  ") + m.announceStanding(),
 	}
 
-	if m.messaging.send.err != nil {
-		lines = append(lines, "", m.kit().failureBlock(m.messaging.send.err, width))
+	return wrap(strings.Join(m.withPostFailure(lines, width), "\n"), width)
+}
+
+// withPostFailure is lines, followed by why the last post failed when it did.
+func (m Model) withPostFailure(lines []string, width int) []string {
+	if m.messaging.send.err == nil {
+		return lines
 	}
 
-	return wrap(strings.Join(lines, "\n"), width)
+	return append(lines, "", m.kit().failureBlock(m.messaging.send.err, width))
 }
 
 // announced reports that the pull request on screen was claimed at its
@@ -290,10 +303,13 @@ func (msg announcesLoaded) apply(m Model) (Model, tea.Cmd) {
 // not be read.
 var errAnnouncedUnread = errors.New("could not read what was announced")
 
-// canPost reports a pull request to announce, a way to post it, and no post
-// of it already made or on its way.
+// canPost reports a pull request to announce, not one the forge is merging,
+// a way to post it, and no post of it already made or on its way.
 func (m Model) canPost() bool {
-	return m.review.pullState() != progress.NoPullRequest && m.deps.Messaging.Post != nil &&
+	pullState := m.review.pullState()
+
+	return pullState != progress.NoPullRequest && pullState != progress.PullRequestMerging &&
+		m.deps.Messaging.Post != nil &&
 		m.cfg.Messaging.Mode() != config.MessagingNone && !m.messaging.announced(m.review) &&
 		!m.messaging.onItsWay()
 }

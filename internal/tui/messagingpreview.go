@@ -17,6 +17,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
+	"github.com/jacob-delgado/workflow/internal/progress"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
@@ -25,11 +26,13 @@ import (
 // one.
 const messagingHelp = "Edit the message above this line."
 
-// Why a preview opened over another post does not post: that one, waiting for
-// CI, is being posted, or went while the preview was open.
+// Why a preview does not post: another, waiting for CI, is being posted, or
+// went while the preview was open; or the forge began merging the pull request
+// while it was open.
 var (
 	errAnnouncementOnItsWay = errors.New("an announcement is on its way; wait for it before posting another")
 	errAlreadyAnnounced     = errors.New("this was announced while the preview was open; esc closes it")
+	errBeganMerging         = errors.New("this began merging while the preview was open; announce it once it has merged")
 )
 
 // errMergeCheckFailed is the gate's refusal of a merge a check failed on,
@@ -90,19 +93,25 @@ func (p messagingPreview) outgoing() outgoingAnnouncement {
 }
 
 // refusal is why the preview cannot post now: the announcement waiting for
-// CI is being posted, or the moment this one marks was announced while it
-// was open.
+// CI is being posted, the forge began merging the pull request, or the moment
+// this one marks was announced while it was open.
 func (p messagingPreview) refusal(m Model) error {
 	if m.messaging.hold.Stage() == armed.StageDue {
 		return errAnnouncementOnItsWay
 	}
 
-	return p.announcedRefusal(m)
+	return p.changedRefusal(m)
 }
 
-// announcedRefusal is errAlreadyAnnounced once the moment this preview marks
-// was announced while it was open, as the store last said; nil otherwise.
-func (p messagingPreview) announcedRefusal(m Model) error {
+// changedRefusal is why what this preview marks changed while it was open:
+// errBeganMerging once the forge began merging the pull request, then
+// errAlreadyAnnounced once its moment was announced, as the store last said;
+// nil otherwise.
+func (p messagingPreview) changedRefusal(m Model) error {
+	if m.review.pullState() == progress.PullRequestMerging {
+		return errBeganMerging
+	}
+
 	if m.messaging.claimed(loop.Announced{Pull: m.review.pull.Number, Moment: p.moment}) {
 		return errAlreadyAnnounced
 	}
@@ -233,7 +242,7 @@ func (p messagingPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	refusal := p.announcedRefusal(m)
+	refusal := p.changedRefusal(m)
 	if refusal != nil {
 		return m.noticedGuidance(refusal), nil
 	}

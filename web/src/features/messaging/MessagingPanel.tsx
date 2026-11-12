@@ -62,7 +62,9 @@ export function MessagingPanel() {
 // already made is said by the moment it was made at, once: not again where
 // the section says it went already, in the held announcement's line or in its
 // own outcome. One closed without merging is none the loop follows, as the
-// server reads it: there is nothing to announce until one is open again.
+// server reads it: there is nothing to announce until one is open again. One
+// the forge is merging is at no moment to announce, as the server refuses it:
+// not ready for review any more, and not yet merged.
 // While a held announcement waits, its line leads and the controls follow it,
 // as the other way to announce; the two are keyed, so the controls keep an
 // open preview as the held one stops waiting and they change places.
@@ -81,7 +83,7 @@ function AnnounceSection({
   const announcing = useAnnouncedHere(outcome, pull === null ? '' : momentOf(pull))
   const waiting = held?.state === 'waiting'
   const controls =
-    pull !== null && !announcedAtItsMoment(review) ? (
+    pull !== null && pull.state !== 'merging' && !announcedAtItsMoment(review) ? (
       <AnnounceControls
         key="controls"
         pullName={`${sigil}${String(pull.number)}`}
@@ -110,15 +112,34 @@ function AnnounceSection({
       {pull !== null && announcedAtItsMoment(review) ? (
         <AnnouncedAlready pull={pull} held={held} saidHere={announcing.saidHere} />
       ) : null}
-      {pull === null ? (
-        <p className="text-sm text-muted-foreground">
-          Open a {noun} first — there is nothing to announce yet.
-        </p>
-      ) : null}
+      <NothingToAnnounceYet pull={pull} noun={noun} />
       {waiting ? [heldLine, controls] : [controls, heldLine]}
       <OutcomeLine said={outcome.said} />
     </section>
   )
+}
+
+// NothingToAnnounceYet says why there is no moment to announce yet: no pull
+// request the loop follows, or one the forge is merging, no longer ready for
+// review and not yet merged. Any other pull request says nothing here.
+function NothingToAnnounceYet({ pull, noun }: { pull: PullRequest | null; noun: string }) {
+  if (pull === null) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Open a {noun} first — there is nothing to announce yet.
+      </p>
+    )
+  }
+
+  if (pull.state === 'merging') {
+    return (
+      <p className="text-sm text-muted-foreground">
+        The {noun} is merging — announce it once it has merged.
+      </p>
+    )
+  }
+
+  return null
 }
 
 // announcedAtItsMoment reports whether the review's pull request was announced

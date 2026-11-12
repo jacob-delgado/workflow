@@ -83,13 +83,15 @@ func NewAnnounceCmd(prompt cmdkit.Prompt) *cobra.Command {
 			"request already announced at the moment it is at is said to be, and asked about\n" +
 			"again rather than repeated — with --yes, it is left as it is. --channel announces\n" +
 			"in another channel than messaging.channel, which only a Slack user token can.\n\n" +
-			"Nothing is announced while a check has failed on the pull request. With\n" +
+			"Nothing is announced while a check has failed on the pull request, or while\n" +
+			"GitLab is merging the merge request: announce it once it has merged. With\n" +
 			"--when-green, announce waits in the foreground for its CI to pass, through a\n" +
 			"failed run, then announces it; ctrl+c stops waiting without announcing. It\n" +
 			"waits on the branch it started on, whatever is checked out meanwhile, and gives\n" +
-			"up on a pull request that reports no check for ten minutes, whose CI runs\n" +
-			"unchanged for two hours, or whose CI cannot be read, or announcement posted,\n" +
-			"for ten minutes.",
+			"up on a pull request that is closed, replaced, merged or begins merging before\n" +
+			"its CI passes, that reports no check for ten minutes, whose CI runs unchanged\n" +
+			"for two hours, or whose CI cannot be read, or announcement posted, for ten\n" +
+			"minutes.",
 		Example: cmdkit.Examples(
 			`workflow --dry-run announce            # the announcement, and where it would go`,
 			`workflow announce --yes                # announce it, unattended`,
@@ -257,19 +259,25 @@ func readyToAnnounce(
 }
 
 // composeFor composes the announcement seams can post, refusing where nothing
-// can post it or the branch has no pull request to announce.
+// can post it, the branch has no pull request to announce, or the forge is
+// merging it.
 func composeFor(ctx context.Context, seams announceSeams) (loop.Composed, error) {
 	if seams.Deliver.Post == nil {
 		return loop.Composed{}, cmdkit.MessagingNotConfigured()
 	}
 
 	composed, err := loop.ComposeAnnouncement(ctx, seams.Compose, seams.Messaging, seams.Project, seams.Kind)
-	if errors.Is(err, loop.ErrNoPullRequest) {
+
+	switch {
+	case errors.Is(err, loop.ErrNoPullRequest):
 		return loop.Composed{}, forgeWordedError{ErrNoPullRequest, "there is no " + seams.Kind.Noun() +
 			" on this branch to announce; open one with `workflow pr`"}
+	case errors.Is(err, loop.ErrPullMerging):
+		return loop.Composed{}, forgeWordedError{loop.ErrPullMerging, "the " + seams.Kind.Noun() +
+			" is merging; announce it once it has merged"}
+	default:
+		return composed, err
 	}
-
-	return composed, err
 }
 
 // ownersBase is the branch the owners of composed's changes are read against:
