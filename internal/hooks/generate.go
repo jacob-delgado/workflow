@@ -278,10 +278,14 @@ type repository struct {
 	dir  string
 }
 
-// writeAll creates the configuration and then each script, and on any failure
+// writeAll creates each script and then the configuration, and on any failure
 // removes what it created, directories too, so a write that stops part-way leaves no
 // lefthook.yml naming scripts it never wrote — which would otherwise block the
-// offer from ever being tried again.
+// offer from ever being tried again. The configuration comes last for a write
+// stopped where nothing can remove what it made, workflow killed or crashing:
+// it leaves scripts no configuration names, which a later write refuses by
+// name, rather than a configuration that hides the offer. Nothing is synced,
+// so a machine that loses power mid-write keeps no such order.
 func (r repository) writeAll(generated Generated) error {
 	var written []string
 
@@ -290,13 +294,6 @@ func (r repository) writeAll(generated Generated) error {
 			_ = r.root.Remove(name)
 		}
 	}
-
-	err := r.create(configFileName, generated.Config, configMode)
-	if err != nil {
-		return err
-	}
-
-	written = append(written, configFileName)
 
 	for _, script := range generated.Scripts {
 		name := filepath.FromSlash(script.Path)
@@ -318,6 +315,13 @@ func (r repository) writeAll(generated Generated) error {
 		}
 
 		written = append(written, name)
+	}
+
+	err := r.create(configFileName, generated.Config, configMode)
+	if err != nil {
+		remove()
+
+		return err
 	}
 
 	return nil
