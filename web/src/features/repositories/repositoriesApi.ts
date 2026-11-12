@@ -62,17 +62,22 @@ export function useDirectories(path: string, prefix = '', narrowing = true) {
 // then its writes would name the directory left, which the server refuses.
 // useFollowSwitch, hearing the change, reads every section again; before the
 // stream's first frame there is no page state to follow, so they are read
-// again here.
+// again here. Over a stream gone stale or closed no frame the page can read
+// is coming, so the snapshot of the directory left is let go rather than
+// named for the new one, and the sections wait, saying why, as they do
+// before the first frame; the writes still name the directory switched to.
 export function useSwitchTo(): (dir: string) => Promise<Repositories> {
   const client = useQueryClient()
 
   return async (dir) => {
     const { data } = await switchRepository({ body: { dir }, throwOnError: true })
-    const snapshot = useSnapshotStore.getState().snapshot
-    if (snapshot === null) {
+    const { snapshot, status } = useSnapshotStore.getState()
+    const here = data.here.dir
+    if (snapshot === null || status === 'stale' || status === 'closed') {
+      useSnapshotStore.setState({ snapshot: null, here })
       await client.resetQueries()
     } else {
-      useSnapshotStore.setState({ snapshot: { ...snapshot, here: data.here.dir } })
+      useSnapshotStore.setState({ snapshot: { ...snapshot, here }, here })
     }
 
     return data

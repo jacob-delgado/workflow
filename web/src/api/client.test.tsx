@@ -30,7 +30,8 @@ function fakeServer() {
 // confirms the push, as a user would.
 async function pushTheBranch() {
   const user = userEvent.setup()
-  useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
+  const snapshot = makeSnapshot()
+  useSnapshotStore.setState({ status: 'live', snapshot, here: snapshot.here })
   render(<BranchPanel />)
   await user.click(screen.getByRole('button', { name: /push branch/i }))
   await user.click(screen.getByRole('button', { name: /^push$/i }))
@@ -123,7 +124,8 @@ test('a directory named outside ASCII still names itself on a write', async () =
     }),
   )
   useHealthStore.setState({ health: makeHealth({ dry_run: false }) })
-  useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot({ here: '/home/josé/日本' }) })
+  const here = '/home/josé/日本'
+  useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot({ here }), here })
   const user = userEvent.setup()
   render(<BranchPanel />)
 

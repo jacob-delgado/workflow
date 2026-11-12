@@ -232,6 +232,61 @@ test('a switch made here tells the page where it works at once', async () => {
   expect(useSnapshotStore.getState().snapshot?.here).toBe('/home/ana/src/web')
 })
 
+test.each(['stale', 'closed'] as const)(
+  'a switch made over a stream gone %s keeps nothing of the directory left',
+  async (status) => {
+    // Arrange
+    // No frame the page can read will come to show where it works now, so
+    // the snapshot of the directory left must not stand for it.
+    serving()
+    useSnapshotStore.setState({ status, snapshot: makeSnapshot({ here: '/home/ana/src/api/cmd' }) })
+    const user = userEvent.setup()
+    renderWithClient(<RepositoriesPanel />)
+    await user.click(await screen.findByRole('button', { name: 'Switch to ~/src/web' }))
+
+    // Act
+    await user.click(
+      within(await screen.findByRole('group', { name: 'Switch to ~/src/web?' })).getByRole(
+        'button',
+        { name: 'Switch' },
+      ),
+    )
+
+    // Assert
+    await screen.findByText('Switched to ~/src/web.')
+    expect(useSnapshotStore.getState().snapshot).toBeNull()
+  },
+)
+
+test('a write after a switch over a stream gone stale names the directory switched to', async () => {
+  // Arrange
+  // The server refuses a write naming another directory than it works in;
+  // one naming none it takes wherever it works, which a switch made
+  // elsewhere since, which this stream cannot show, may have moved.
+  const asked = serving()
+  useSnapshotStore.setState({
+    status: 'stale',
+    snapshot: makeSnapshot({ here: '/home/ana/src/api/cmd' }),
+  })
+  const user = userEvent.setup()
+  renderWithClient(<RepositoriesPanel />)
+  await user.click(await screen.findByRole('button', { name: 'Switch to ~/src/web' }))
+  await user.click(
+    within(await screen.findByRole('group', { name: 'Switch to ~/src/web?' })).getByRole('button', {
+      name: 'Switch',
+    }),
+  )
+  await screen.findByText('Switched to ~/src/web.')
+
+  // Act
+  await user.click(await screen.findByRole('button', { name: 'Add to favorites' }))
+
+  // Assert
+  await screen.findByText(/to favorites\.$/)
+  const write = asked.find((request) => request.url.endsWith('/api/repositories/favorites'))
+  expect(write?.headers.get('Workflow-Here')).toBe(encodeURIComponent('/home/ana/src/web'))
+})
+
 test('where the server works that cannot be read says why, and reads again on Try again', async () => {
   // Arrange
   let answers = 0
