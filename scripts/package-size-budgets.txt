@@ -199,10 +199,14 @@ internal/loop 16
 # program found there. 15 is store.go, the binding of workflow.db to the
 # repository — the scope, the issue cache and the claims each announcement
 # takes before it is posted — out of wiring.go, which the claim's seams would
-# have carried past the 500-line target, beside kept.go, kept.db's. One
+# have carried past the 500-line target, beside kept.go, kept.db's. 16 is
+# connect.go, how a client found on first use is connected — once, one asker
+# at a time, each waiting only while its own context lasts — and asked, which
+# Jira, Taskwarrior and the forge share, out of forge.go, which the turn an
+# asker can stop waiting on carried past the 500-line target. One
 # responsibility — build the seams over the real clients — spelled
 # service-per-file.
-internal/wiring 15
+internal/wiring 16
 
 # web/src/lib — the web's shared drawing primitives, each drawn in one place
 # so every section draws it alike (UX.md's visual system): a button, a field, a
