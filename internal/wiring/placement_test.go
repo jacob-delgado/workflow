@@ -17,9 +17,11 @@ import (
 	"net/url"
 	"os"
 	"os/user"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/keychain"
@@ -138,6 +140,14 @@ const keptPair = `{"client_secret":"client-secret-kept","refresh_token":"` + kep
 // build container runs them as a uid with no passwd entry and no $USER.
 const keychainAccount = "tester"
 
+// placing is the wiring's environment a placement runs in: its refresh lock
+// in a store directory of the test's own, never the developer's.
+func placing(t *testing.T) wiring.Environment {
+	t.Helper()
+
+	return stateIn(stateDirAt(t.TempDir()))
+}
+
 // testUser is the user running the tests, as the keychain looks them up.
 func testUser() (*user.User, error) {
 	return &user.User{Username: keychainAccount}, nil
@@ -164,7 +174,7 @@ func TestPlacingTypedSlackSecretsKeepsTheRenewedPairInTheKeychain(t *testing.T) 
 	// Arrange
 	slack := &slackRefreshes{answer: renewedPair}
 	security := &fakeSecurity{}
-	place := processEnvironment().PlaceSlackCredentials(slack.do, onMacOS(security))
+	place := placing(t).PlaceSlackCredentials(slack.do, onMacOS(security))
 
 	// Act
 	err := place(t.Context(), typedInto(typedSecret, typedRefresh))
@@ -183,7 +193,7 @@ func TestPlacingABlankTypedRefreshTokenTakesTheOneTheKeychainKeeps(t *testing.T)
 	// Arrange
 	slack := &slackRefreshes{answer: renewedPair}
 	security := &fakeSecurity{kept: keptPair}
-	place := processEnvironment().PlaceSlackCredentials(slack.do, onMacOS(security))
+	place := placing(t).PlaceSlackCredentials(slack.do, onMacOS(security))
 
 	// Act
 	err := place(t.Context(), typedInto(typedSecret, ""))
@@ -202,7 +212,7 @@ func TestPlacingSecretsSlackRefusesIsARejectionWithNoSecretInIt(t *testing.T) {
 	// Arrange
 	slack := &slackRefreshes{answer: `{"ok":false,"error":"invalid_refresh_token"}`}
 	security := &fakeSecurity{}
-	place := processEnvironment().PlaceSlackCredentials(slack.do, onMacOS(security))
+	place := placing(t).PlaceSlackCredentials(slack.do, onMacOS(security))
 
 	// Act
 	err := place(t.Context(), typedInto(typedSecret, typedRefresh))
@@ -223,7 +233,7 @@ func TestPlacingSlackSecretsOffMacOSIsLeftToTheFile(t *testing.T) {
 	system := wiring.Keychain{GOOS: noKeychainOS, Run: security.run, Getenv: os.Getenv}
 
 	// Act
-	place := processEnvironment().PlaceSlackCredentials(slack.do, system)
+	place := placing(t).PlaceSlackCredentials(slack.do, system)
 
 	// Assert
 	if place != nil {
@@ -237,7 +247,7 @@ func TestPlacingABlankTypedClientSecretTakesTheOneTheKeychainKeeps(t *testing.T)
 	// Arrange
 	slack := &slackRefreshes{answer: renewedPair}
 	security := &fakeSecurity{kept: keptPair}
-	place := processEnvironment().PlaceSlackCredentials(slack.do, onMacOS(security))
+	place := placing(t).PlaceSlackCredentials(slack.do, onMacOS(security))
 
 	// Act
 	err := place(t.Context(), typedInto("", typedRefresh))
@@ -256,7 +266,7 @@ func TestPlacingAPairTheKeychainWillNotKeepIsReported(t *testing.T) {
 	// Arrange
 	slack := &slackRefreshes{answer: renewedPair}
 	refusing := func(context.Context, proc.Command, []byte) ([]byte, error) { return nil, errKeychainLocked }
-	process := processEnvironment()
+	process := placing(t)
 
 	system := onMacOSRunning(refusing)
 	place := process.PlaceSlackCredentials(slack.do, system)
@@ -289,7 +299,7 @@ func TestPlacingSecretsKeepsTheRenewedPairThoughItsAskerLeavesOnceSlackAnswers(t
 	}
 
 	security := &fakeSecurity{}
-	place := processEnvironment().PlaceSlackCredentials(answeredThenLeft, onMacOS(security))
+	place := placing(t).PlaceSlackCredentials(answeredThenLeft, onMacOS(security))
 
 	// Act
 	_ = place(asking, typedInto(typedSecret, typedRefresh))
@@ -297,5 +307,36 @@ func TestPlacingSecretsKeepsTheRenewedPairThoughItsAskerLeavesOnceSlackAnswers(t
 	// Assert
 	if !strings.Contains(security.held(), renewedRefresh) {
 		t.Errorf("the keychain holds %q, want the renewed pair kept though its asker left", security.held())
+	}
+}
+
+func TestPlacingSecretsWaitsForARefreshAnotherWorkflowIsMaking(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Another workflow holds the refresh lock while it spends the pair the
+	// keychain keeps and keeps the one Slack gives back.
+	dir := t.TempDir()
+
+	unlock, err := slackauth.FileLock(filepath.Join(dir, slackLockFile))(t.Context())
+	if err != nil {
+		t.Fatalf("holding the lock: %v", err)
+	}
+	defer unlock()
+
+	ctx, cancel := context.WithTimeout(t.Context(), 300*time.Millisecond)
+	defer cancel()
+
+	slack := &slackRefreshes{answer: renewedPair}
+	security := &fakeSecurity{kept: keptPair}
+	place := stateIn(stateDirAt(dir)).PlaceSlackCredentials(slack.do, onMacOS(security))
+
+	// Act
+	err = place(ctx, typedInto(typedSecret, ""))
+
+	// Assert
+	if !errors.Is(err, slackauth.ErrLocked) || len(slack.spent) != 0 || security.held() != keptPair {
+		t.Errorf("Place = %v after refreshing with %q, keychain %q; want it to wait on the lock, "+
+			"spending and keeping nothing while another workflow refreshes", err, slack.spent, security.held())
 	}
 }
