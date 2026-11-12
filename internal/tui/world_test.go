@@ -65,8 +65,12 @@ const (
 	pullURL               = "https://github.com/example/repo/pull/42"
 	pullTitle             = "fix(config): redact tokens"
 	slackChannel          = "#dev"
-	shortComment          = "a short comment"
-	untrackedNotes        = "notes.txt"
+	// headCommit is the commit the branch is at, here and on the forge, and
+	// pushedCommit the one a later push moves it to.
+	headCommit     = "abc123"
+	pushedCommit   = "def4567"
+	shortComment   = "a short comment"
+	untrackedNotes = "notes.txt"
 )
 
 // world is everything outside the interface, faked, and a record of what the
@@ -166,6 +170,9 @@ type world struct {
 	authorErr       error
 
 	pull forge.PullRequest
+	// pullsOf is the pull request of each branch it names, found whatever the
+	// checkout; any other branch's is pull.
+	pullsOf map[string]forge.PullRequest
 	// heldDescription is the pull request's description as the forge holds it,
 	// before what is shown of it is neutralized; empty holds the shown one.
 	heldDescription string
@@ -307,12 +314,12 @@ func newWorld() *world {
 			CommentTotal: 1,
 		},
 		branch: gitrepo.Branch{
-			Name: featureName, Head: "abc123", Base: baseRef,
+			Name: featureName, Head: headCommit, Base: baseRef,
 			Upstream: "origin/" + featureName, PushRemote: gitrepo.DefaultRemote, BaseRemote: gitrepo.DefaultRemote,
 			Commits: []gitrepo.Commit{{Hash: "1a2b3c4", Subject: pullTitle}},
 		},
 		changes:   []gitrepo.Change{{Path: redactPath, Staged: 'M', Unstaged: ' '}},
-		pull:      forge.PullRequest{Number: 42, URL: pullURL, Title: pullTitle, Draft: false},
+		pull:      forge.PullRequest{Number: 42, URL: pullURL, Title: pullTitle, Draft: false, HeadCommit: headCommit},
 		pullFound: true,
 		ci:        []forge.CI{{State: forge.CIPassed, Total: 1, Done: 1, Failed: 0}},
 		author:    "jacob",

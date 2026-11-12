@@ -52,11 +52,11 @@ func (msg branchLoaded) apply(m Model) (Model, tea.Cmd) {
 
 	if previous != msg.branch.Name {
 		m = m.beginReview(reviewState{})
-		m = m.withoutQueuedPost()
-		// The failed-post error, its author and its dropped reason belonged to
-		// the branch just left; on a new branch they are stale, and so is how far
-		// the Branch and messaging details were scrolled into it.
-		m.messaging.send.err, m.messaging.author, m.messaging.dropped = nil, "", ""
+		// The failed-post error and its author belonged to the branch just
+		// left; on a new branch they are stale, and so is how far the Branch
+		// and messaging details were scrolled into it. An announcement waiting
+		// for CI is bound to the branch it was armed on, and waits on.
+		m.messaging.send.err, m.messaging.author = nil, ""
 		m.branch.scroll, m.messaging.scroll = 0, 0
 	}
 

@@ -25,7 +25,7 @@ func onOffConventionBranch(withPull bool) *world {
 	repo := newWorld()
 	repo.pullFound = withPull
 	repo.branch = gitrepo.Branch{
-		Name: offConvention, Head: "abc123", Base: baseRef,
+		Name: offConvention, Head: headCommit, Base: baseRef,
 		Upstream: "origin/" + offConvention, PushRemote: gitrepo.DefaultRemote,
 	}
 

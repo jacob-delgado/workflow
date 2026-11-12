@@ -814,11 +814,11 @@ be told rather than checking back. On a terminal that understands the OSC 9
 notification sequence it also raises a desktop notification; the rest just ring.
 Under `--web` the page says it instead, in its header beside the stream's state —
 "CI passed on #128." — whichever section is open.
-While it is on, no [`timing.ci_interval`](#timing) is set and no announcement
-is waiting for CI to pass, CI is polled every three minutes rather than every
-twenty seconds, since a notification you stepped away for is not in a hurry.
-An announcement waiting for CI keeps the twenty-second beat, so it goes out
-soon after CI passes.
+While it is on and no [`timing.ci_interval`](#timing) is set, the Review pane
+polls CI every three minutes rather than every twenty seconds, since a
+notification you stepped away for is not in a hurry. An announcement waiting
+for CI reads it on a beat of its own, every twenty seconds, so it goes out soon
+after CI passes.
 
 A setting left out of the file keeps its default.
 

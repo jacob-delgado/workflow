@@ -69,6 +69,10 @@ func (w *world) forgeCalls() seams.Forge {
 		FindPullRequest: func(_ context.Context, branch string) (forge.PullRequest, bool, error) {
 			w.record("find " + branch)
 
+			if pull, other := w.pullsOf[branch]; other {
+				return pull, true, w.pullErr
+			}
+
 			return w.pull, w.pullFound, w.pullErr
 		},
 		CreatePullRequest: func(_ context.Context, request forge.NewPullRequest) (forge.PullRequest, error) {

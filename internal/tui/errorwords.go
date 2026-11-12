@@ -113,6 +113,12 @@ func localErrors() []knownError {
 			brief: "nothing is staged",
 			full:  "nothing is staged: stage a file, then commit",
 		}},
+		// Before the messaging service's failures, which it wraps.
+		{loop.ErrPostUncertain, wording{
+			brief: "may have gone out",
+			full: "The messaging service did not say whether it took the post, so it may have gone out; " +
+				"`workflow announce` asks before posting it again.",
+		}},
 		// Before loop.ErrCIFailed, which it wraps, and saying all it does.
 		{errMergeCheckFailed, wording{
 			brief: "a check failed",

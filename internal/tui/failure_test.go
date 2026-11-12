@@ -293,10 +293,10 @@ func TestAFailureRowSpeaksTheSentence(t *testing.T) {
 			keys:    []string{"4"},
 			want:    "CI     ✗ the forge refused the request",
 		},
-		"an unreachable service, in brief on the Messaging rail": {
+		"an unreachable service, which may have taken the post, in brief on the Messaging rail": {
 			prepare: func(w *world) { w.postErr = fmt.Errorf("%w: dial tcp: i/o timeout", messaging.ErrUnreachable) },
 			keys:    []string{"5", "p", keyEnter, keyEsc},
-			want:    "✗ could not reach messaging",
+			want:    "✗ may have gone out",
 		},
 		"a refused assignment, in full on the form's row": {
 			prepare: func(w *world) { w.assignErr = fmt.Errorf("assigning PROJ-412: %w", jira.ErrForbidden) },

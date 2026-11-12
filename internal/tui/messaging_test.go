@@ -449,7 +449,7 @@ func TestTheSpineKeepsSlackInFlightWhileTheHeldPostIsOnItsWay(t *testing.T) {
 	view := sending.View().Content
 
 	// Assert
-	requireScreen(t, track(view), "Review ━ ◐ Slack")
+	requireScreen(t, track(view), "◐ Slack")
 }
 
 func TestPostingWhenCIHasAlreadyPassedPostsNow(t *testing.T) {

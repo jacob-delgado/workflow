@@ -219,11 +219,12 @@ type localDataRemoved struct {
 var _ applier = localDataRemoved{}
 
 // apply keeps the last look open with the refusal, or closes it saying what
-// was removed.
+// was removed, and reads what was announced again, which the store's claims
+// went with.
 func (msg localDataRemoved) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
 		return keepOpenWith[lastLook](m, msg.err), nil
 	}
 
-	return m.closeOverlay().noticed(m.marks.done + " removed " + msg.names), nil
+	return m.closeOverlay().noticed(m.marks.done + " removed " + msg.names), loadAnnounces(m.session, m.deps)
 }

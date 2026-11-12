@@ -39,19 +39,30 @@ func (r *recordingTimer) after(wait time.Duration, fire func(time.Time) tea.Msg)
 type heldTimer struct {
 	mu    sync.Mutex
 	fires []func(time.Time) tea.Msg
+	// asked is how long each wait was asked for, in the order asked.
+	asked []time.Duration
 }
 
 // after holds the wait once its command runs. The command yields nothing, so the
 // drain that asked for the wait finishes without it.
-func (h *heldTimer) after(_ time.Duration, fire func(time.Time) tea.Msg) tea.Cmd {
+func (h *heldTimer) after(wait time.Duration, fire func(time.Time) tea.Msg) tea.Cmd {
 	return func() tea.Msg {
 		h.mu.Lock()
 		defer h.mu.Unlock()
 
 		h.fires = append(h.fires, fire)
+		h.asked = append(h.asked, wait)
 
 		return nil
 	}
+}
+
+// waits is how long each wait was asked for so far, in the order asked.
+func (h *heldTimer) waits() []time.Duration {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	return slices.Clone(h.asked)
 }
 
 // waiting is how many waits are held.

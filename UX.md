@@ -296,8 +296,8 @@ The shapes now mark more than a status, and stay on one axis while they
 do: `○` not begun, `◐` under way or partway, `●` done, `✗` broke. `◐`
 means both "partly staged" on the Commits pane (`stageGlyph`,
 `internal/tui/commits.go:174`) and "announces when CI passes" on the
-Messaging pane (`messagingState.standing`, `internal/tui/messaging.go:94`,
-with `queuedPost.waitingOn` in `internal/tui/messagingheld.go`);
+Messaging pane (`Model.waitingLine`, `internal/tui/messaging.go`, over the
+held announcement's `armed.Stage`);
 that is not a conflict, since each is the halfway point of its own
 progression and words stand beside it. The rule a new use must keep: a
 state glyph says how far something has got, never anything else. A

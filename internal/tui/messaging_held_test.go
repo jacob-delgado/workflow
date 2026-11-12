@@ -4,15 +4,12 @@
 package tui_test
 
 import (
-	"context"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/armed"
 	"github.com/jacob-delgado/workflow/internal/forge"
-	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/tui"
@@ -28,7 +25,7 @@ func TestAWaitingPostIsDroppedWhenItsPullRequestMerges(t *testing.T) {
 	merging.pull.State = forge.StateMerged
 
 	// Act
-	merged := typing(t, waiting, "2", "r", "5").View().Content
+	merged := typing(t, waiting, "r").View().Content
 
 	// Assert
 	if calls := merging.asked("post "); len(calls) != 0 {
@@ -48,7 +45,7 @@ func TestAWaitingPostIsDroppedWhenItsPullRequestCloses(t *testing.T) {
 	closing.pull.State = forge.StateClosed
 
 	// Act
-	closed := typing(t, waiting, "2", "r").View().Content
+	closed := typing(t, waiting, "r").View().Content
 
 	// Assert
 	if calls := closing.asked("post "); len(calls) != 0 {
@@ -197,10 +194,12 @@ func TestWhenCIPassesIsOfferedWithNoCheckReported(t *testing.T) {
 	requireScreen(t, footerLine(view), "w when CI passes")
 }
 
-func TestAnnounceNowIsNotOfferedWhileACheckFailed(t *testing.T) {
+func TestAnnounceNowIsOfferedWhileACheckFailed(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
+	// What the pane last read is not what the post goes by: the gate reads CI
+	// again as it posts.
 	red := newWorld()
 	red.ci = []forge.CI{failedCI()}
 
@@ -208,8 +207,7 @@ func TestAnnounceNowIsNotOfferedWhileACheckFailed(t *testing.T) {
 	view := typing(t, red.live(t, 140, 40), "5", "p").View().Content
 
 	// Assert
-	refuseScreen(t, footerLine(view), "announce now")
-	requireScreen(t, view, "A check failed, so it is not announced now; announcing once CI passes waits for a fix.")
+	requireScreen(t, footerLine(view), "enter announce now")
 }
 
 func TestStopWaitingDropsTheWaitingPostUnposted(t *testing.T) {
@@ -348,15 +346,16 @@ func TestAWaitingPostSeesAHeadMovedByAPush(t *testing.T) {
 	timer := &heldTimer{}
 	waiting := typing(t, timed(t, repo, timer.after), "5", "p", "w")
 	repo.mu.Lock()
-	repo.branch.Head = "def4567"
+	repo.pull.HeadCommit = pushedCommit
 	repo.mu.Unlock()
 
 	// Act
 	timer.release(t, waiting)
 
 	// Assert
-	if asked := repo.asked("ci def4567"); len(asked) == 0 {
-		t.Errorf("CI was read at %q, want the poll to read it at the head the push moved to", repo.asked("ci "))
+	if asked := repo.asked("ci " + pushedCommit); len(asked) == 0 {
+		t.Errorf("CI was read at %q, want the read to be at the head the forge says the push moved to",
+			repo.asked("ci "))
 	}
 }
 
@@ -411,34 +410,35 @@ func TestAPostWaitsForCIThePaneCouldNotRead(t *testing.T) {
 	refuseScreen(t, waiting, "waiting on a fix", "no checks reported yet")
 }
 
-func TestAWaitingPostWaitsPastABranchItCouldNotRead(t *testing.T) {
+func TestAWaitingPostWaitsPastAFindThatFails(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// A post waits; the poll's read of the branch fails.
-	repo := newWorld()
-	repo.ci = []forge.CI{{State: forge.CIRunning}}
-	timer := &heldTimer{}
-	deps := repo.deps()
-	deps.After = timer.after
-	read, unreadable := deps.Git.Branch, atomic.Bool{}
-	deps.Git.Branch = func(ctx context.Context) (gitrepo.Branch, error) {
-		if unreadable.Load() {
-			return gitrepo.Branch{}, errForgeDown
-		}
+	// A post waits; the forge's find of its pull request fails.
+	repo, waiting := waitingOn(t, forge.CIRunning)
+	repo.mu.Lock()
+	repo.pullErr = errForgeDown
+	repo.mu.Unlock()
 
-		return read(ctx)
+	// Act: read again
+	unheard := typing(t, waiting, "r")
+
+	// Assert: it waits to try again, having posted nothing
+	requireScreen(t, unheard.View().Content, "◐ announces when CI passes · the forge is down; trying again")
+
+	if calls := repo.asked("post "); len(calls) != 0 {
+		t.Errorf("posted %q with its pull request unread", calls)
 	}
-	model := sized(t, tui.New(repo.cfg, nil, deps), 140, 40)
-	waiting := typing(t, drain(t, model, model.Init()), "5", "p", "w")
 
-	unreadable.Store(true)
+	// Act: the forge answers again, CI having passed, and it is read again
+	repo.mu.Lock()
+	repo.pullErr = nil
+	repo.mu.Unlock()
+	passesNow(repo)
+	typing(t, unheard, "r")
 
-	// Act
-	timer.release(t, waiting)
-
-	// Assert
-	if polls := timer.waiting(); polls != 1 {
-		t.Errorf("%d polls are scheduled after the branch could not be read, want the next one", polls)
+	// Assert: it went, once
+	if calls := repo.asked("post "); len(calls) != 1 {
+		t.Errorf("post calls = %q, want one once the forge answered", calls)
 	}
 }

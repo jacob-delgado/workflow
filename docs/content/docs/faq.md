@@ -1005,7 +1005,8 @@ keeps running to its end. Pressing `ctrl+c` in the terminal stops the server,
 and anything still in flight is cut short. In the terminal interface, quitting
 stops reads but waits for your writes to land, showing `finishing 2 writes…`,
 and gives up after `timing.request_timeout`. An announcement waiting for CI is
-not sent yet, so quitting first drops it. See [The web interface: Start
+not sent yet, so quitting first drops it: `q` asks before it does, and `ctrl+c`
+says so on the terminal once it has. See [The web interface: Start
 it]({{< relref "/docs/web#start-it" >}}) and [Using workflow:
 Limits]({{< relref "/docs/usage#limits" >}}).
 

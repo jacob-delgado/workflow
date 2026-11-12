@@ -46,7 +46,7 @@ func TestAMergedBranchSaysWhyItCannotBeFinished(t *testing.T) {
 	// A commit was made on the merged branch after it was pushed, so F is left
 	// out, and the pane says why rather than leaving it out without a word.
 	merged := mergedBranch()
-	merged.branch.Ahead = 1
+	merged.branch.Ahead, merged.branch.Head = 1, pushedCommit
 
 	// Act
 	view := typing(t, merged.live(t, 120, 40), "4").View().Content
@@ -93,7 +93,7 @@ func TestFinishIsNotOfferedWithUnpushedCommits(t *testing.T) {
 	// A commit was made on the merged branch after it was pushed, so a force
 	// delete would lose it.
 	merged := mergedBranch()
-	merged.branch.Ahead = 1
+	merged.branch.Ahead, merged.branch.Head = 1, pushedCommit
 	model := merged.live(t, 120, 40)
 
 	// Act

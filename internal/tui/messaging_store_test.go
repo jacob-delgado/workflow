@@ -33,6 +33,29 @@ func TestAHeldPostIsNotSentWhenAnotherSessionAnnouncedIt(t *testing.T) {
 	requireScreen(t, passed, "already announced from another session; not posted again", "● announced")
 }
 
+func TestAPostAnnouncedFromAnotherSessionWhileItsPreviewWasOpenIsNotSent(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The preview is open when workflow announce, or the web, announces the
+	// same moment, and the store records it.
+	repo := newWorld()
+	preview := typing(t, repo.live(t, 120, 40), "5", "p")
+	repo.mu.Lock()
+	repo.storedAnnounces = []loop.Announced{{Pull: 42, Moment: messaging.MomentReady}}
+	repo.mu.Unlock()
+
+	// Act
+	view := typing(t, preview, keyEnter).View().Content
+
+	// Assert
+	if calls := repo.asked("post "); len(calls) != 0 {
+		t.Errorf("post calls = %q, want nothing posted a second time", calls)
+	}
+
+	requireScreen(t, view, "already announced from another session; not posted again", "● announced")
+}
+
 func TestAStoreWhoseAnnouncementsCannotBeReadSaysSo(t *testing.T) {
 	t.Parallel()
 

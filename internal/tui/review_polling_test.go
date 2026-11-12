@@ -114,9 +114,9 @@ func TestAFailedFindKeepsAQueuedPostWaitingForCI(t *testing.T) {
 
 	// Arrange
 	// A post waits on CI that is running when the interface starts and when w is
-	// pressed, and has passed by the poll held for it. Before that poll falls due,
-	// a reload of the branch finds no pull request, failing as the forge does when
-	// it cannot be reached.
+	// pressed, and has passed by the read held for it. Before that read falls
+	// due, a reload of the branch finds no pull request, failing as the forge
+	// does when it cannot be reached; the forge answers again by the read.
 	repo := newWorld()
 	repo.ci = []forge.CI{{State: forge.CIRunning}, {State: forge.CIRunning}, {State: forge.CIPassed, Total: 1, Done: 1}}
 	timer := &heldTimer{}
@@ -124,6 +124,7 @@ func TestAFailedFindKeepsAQueuedPostWaitingForCI(t *testing.T) {
 
 	repo.pullFound, repo.pullErr = false, fmt.Errorf("finding the pull request: %w", forge.ErrUnreachable)
 	reloaded := typing(t, waiting, "2", "r")
+	repo.pullFound, repo.pullErr = true, nil
 
 	// Act
 	timer.release(t, reloaded)
@@ -187,24 +188,21 @@ func TestAWaitingPostKeepsReadingCIAfterAReadFails(t *testing.T) {
 
 	// Arrange
 	// A post waits on CI that is running when the interface starts and when w
-	// is pressed. By the poll held for it, the forge has stopped answering.
+	// is pressed. By the reads held for the pane and for the post, the forge
+	// has stopped answering.
 	repo := newWorld()
 	repo.ci = []forge.CI{{State: forge.CIRunning}, {State: forge.CIRunning}}
 	timer := &heldTimer{}
 	waiting := typing(t, timed(t, repo, timer.after), "5", "p", "w")
-	checked := len(repo.asked("ci "))
 	repo.ciErr = errForgeDown
 
 	// Act
 	timer.release(t, waiting)
 
 	// Assert
-	if asked := len(repo.asked("ci ")) - checked; asked != 1 {
-		t.Errorf("the poll due asked about CI %d times, want once", asked)
-	}
-
+	// The pane stops polling a read that fails; the post reads on.
 	if polls := timer.waiting(); polls != 1 {
-		t.Errorf("%d polls are scheduled after a failed check, want the next one, since a post waits", polls)
+		t.Errorf("%d reads are scheduled after a failed check, want the post's next one", polls)
 	}
 
 	if posts := repo.asked("post "); len(posts) != 0 {

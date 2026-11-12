@@ -98,7 +98,7 @@ func (helpOverlay) footer(keys keyMap) []key.Binding {
 func (h helpOverlay) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.quit):
-		return m, tea.Quit
+		return m.quitOrGuard()
 	case key.Matches(msg, m.keys.toggleHelp, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
 	case key.Matches(msg, m.keys.scrollDown):

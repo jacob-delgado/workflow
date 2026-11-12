@@ -18,12 +18,14 @@ const secondPullURL = "https://github.com/example/repo/pull/43"
 
 // droppedPost is what the interface says when it gives up on an announcement
 // that was waiting for the world's first pull request.
-const droppedPost = "✗ dropped the announcement to Slack waiting for #42, which is no longer this branch's pull request"
+const droppedPost = "✗ dropped the announcement to Slack waiting for #42: #42 is no longer its branch's pull request"
 
 // anotherPull makes the world's pull request a different one, whose CI has
 // passed.
 func anotherPull(w *world) {
-	w.pull = forge.PullRequest{Number: 43, URL: secondPullURL, Title: "feat(jira): add retries", Draft: false}
+	w.pull = forge.PullRequest{
+		Number: 43, URL: secondPullURL, Title: "feat(jira): add retries", Draft: false, HeadCommit: "fed9876",
+	}
 	w.ci = []forge.CI{{State: forge.CIPassed, Total: 1, Done: 1, Failed: 0}}
 }
 
@@ -56,24 +58,20 @@ func TestAPostWaitingForCIIsNotSentForAnotherPullRequest(t *testing.T) {
 	// Assert: it waits
 	requireScreen(t, waiting.View().Content, "◐ will announce to "+slackChannel+" once CI passes")
 
-	// Act: switch to other work, whose CI has passed
-	switchToOtherWork(switching)
+	// Act: switch to other work, whose CI has passed, and look at the Slack
+	// pane
+	keptOn(switching)
 
-	switched := typing(t, waiting, "2", "r")
+	pane := typing(t, waiting, "2", "r", "5").View().Content
 
-	// Assert: what was written for the first is not posted for the second, and
-	// the interface says it gave up on it
+	// Assert: what was written for the first is not posted for the second; it
+	// waits on for the first
 	if calls := switching.asked("post "); len(calls) != 0 {
 		t.Errorf("posted %q for a pull request it was not written for", calls)
 	}
 
-	requireScreen(t, switched.View().Content, droppedPost)
-
-	// Act: look at the Slack pane
-	pane := typing(t, switched, "5").View().Content
-
-	// Assert: nothing is waiting any more
-	requireScreen(t, pane, "state  ○ nothing announced")
+	requireScreen(t, pane, "state  ◐ announces #42 when CI passes")
+	requireScreen(t, footerLine(pane), "x stop waiting", "p announce to Slack")
 }
 
 func TestAPostWaitingForCIIsDroppedWhenThePullRequestIsReplaced(t *testing.T) {
@@ -89,7 +87,7 @@ func TestAPostWaitingForCIIsDroppedWhenThePullRequestIsReplaced(t *testing.T) {
 	anotherPull(replaced)
 
 	// Act
-	refreshed := typing(t, waiting, "4", "r")
+	refreshed := typing(t, waiting, "r")
 
 	// Assert
 	if calls := replaced.asked("post "); len(calls) != 0 {
@@ -154,32 +152,34 @@ func TestAPullRequestClosedWithoutMergingIsNothingToAnnounce(t *testing.T) {
 	refuseScreen(t, footerLine(view), "p announce")
 }
 
-func TestAPostWaitingForCIDoesNotOutliveABranchSwitch(t *testing.T) {
+func TestAPostWaitingForCIOutlivesABranchSwitch(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
+	// The post is bound to the branch it was armed on, which keeps its pull
+	// request whatever the checkout; x stops it.
 	away := newWorld()
 	away.ci = []forge.CI{{State: forge.CIRunning}}
 	waiting := typing(t, away.live(t, 120, 40), "5", "p", "w")
 
 	// Act: switch to a branch with no pull request
+	away.pullsOf = map[string]forge.PullRequest{away.branch.Name: away.pull}
 	away.branch.Name, away.pullFound = "feat/"+secondIssue+"-add-retries", false
 
-	elsewhere := typing(t, waiting, "2", "r")
+	elsewhere := typing(t, waiting, "2", "r", "5")
 
-	// Assert: the interface gives up on the post there and then, and says so
-	requireScreen(t, elsewhere.View().Content, droppedPost)
+	// Assert: it waits on, saying for which pull request
+	requireScreen(t, elsewhere.View().Content, "◐ announces #42 when CI passes")
+	refuseScreen(t, elsewhere.View().Content, "dropped the announcement")
 
-	// Act: come back once CI has passed
-	switchBack(away)
+	// Act: its CI passes, and it is read again
+	away.ci = []forge.CI{{State: forge.CIPassed, Total: 1, Done: 1, Failed: 0}}
 
-	away.pullFound, away.ci = true, []forge.CI{{State: forge.CIPassed, Total: 1, Done: 1, Failed: 0}}
+	typing(t, elsewhere, "r")
 
-	typing(t, elsewhere, "2", "r")
-
-	// Assert: it does not post on its own long after it was asked to
-	if calls := away.asked("post "); len(calls) != 0 {
-		t.Errorf("posted %q on coming back to the branch", calls)
+	// Assert: it is posted, once
+	if calls := away.asked("post "); len(calls) != 1 {
+		t.Errorf("post calls = %q, want the waiting post sent once its CI passed", calls)
 	}
 }
 
@@ -192,11 +192,11 @@ func TestAnAnnouncementDroppedForAnotherPullRequestNamesTheServiceItWasFor(t *te
 	switching.ci = []forge.CI{{State: forge.CIRunning}}
 	waiting := typing(t, switching.live(t, 200, 40), "5", "p", "w")
 
-	switchToOtherWork(switching)
+	anotherPull(switching)
 
 	// Act
-	switched := typing(t, waiting, "2", "r")
+	replaced := typing(t, waiting, "r")
 
 	// Assert
-	requireScreen(t, switched.View().Content, "✗ dropped the announcement to Teams waiting for #42")
+	requireScreen(t, replaced.View().Content, "✗ dropped the announcement to Teams waiting for #42")
 }
