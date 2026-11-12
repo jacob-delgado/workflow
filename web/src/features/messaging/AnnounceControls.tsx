@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { AnnounceMentions } from '@/api/generated/types.gen.ts'
 import { problemCode } from '@/api/apiError.ts'
+import { useForgeWords } from '@/api/health.ts'
 import { useShortcut } from '@/features/keyboard/useShortcut.ts'
 import { Button } from '@/lib/Button.tsx'
 import { useFocusHandback } from '@/lib/focus.ts'
@@ -38,12 +39,14 @@ export interface Announcing {
 // undone. An announcement that can wait for CI is offered to be held until
 // the CI passes, as the terminal's w does.
 // The preview and the post are two steps, each its own action; a refused post
-// goes back to the button, with its reason. Once posted or held, the controls
-// step aside, and what became of it is said through announcing. Focus goes to
-// the preview as it opens, and back to the button when it closes unposted.
-// While a held announcement waits, the button is Announce now instead, a
-// control beside Stop waiting rather than the section's act: the same preview,
-// whose post takes the place of the waiting one.
+// goes back to the button, with its reason. Once posted or held, the preview
+// closes and the button is drawn again, and what became of it is said through
+// announcing; the section steps the controls aside once a frame shows the
+// pull request announced. Focus goes to the preview as it opens, and back to
+// the button when it closes. While the frame shows a held announcement
+// waiting, the button is Announce now instead, a control beside Stop waiting
+// rather than the section's act: the same preview, whose post, once it goes,
+// settles the waiting one as announced.
 export function AnnounceControls({
   pullName,
   service,
@@ -55,16 +58,26 @@ export function AnnounceControls({
   const draft = useDraft(defaultChannel, channels)
   const [opener, handBack] = useFocusHandback<HTMLButtonElement>()
   const postKeys = useShortcut('post', opener)
+  // A send that went closes the preview, drawing the button again, and hands
+  // focus to the line that says where it went; one refused hands it back to
+  // the button.
+  const sent: Announcing = {
+    start: announcing.start,
+    refuse: () => {
+      handBack()
+      announcing.refuse()
+    },
+    say: (said) => {
+      draft.preview.reset()
+      announcing.say(said)
+    },
+  }
   // A check failed between the preview and the post: preview it again, which
   // offers to announce it once CI passes, and says why.
-  const post = useAnnouncePost(draft.channel, service, announcing, () => {
+  const post = useAnnouncePost(draft.channel, service, sent, () => {
     void draft.preview.run()
   })
-  const hold = useAnnounceHold(draft.channel, service, announcing)
-
-  if (post.state === 'done' || hold.state === 'done') {
-    return null
-  }
+  const hold = useAnnounceHold(draft.channel, service, sent)
 
   const refused = refusedSend(post, hold)
   if (draft.preview.state === 'done' && !refused) {
@@ -181,9 +194,6 @@ function PreviewStep({
   const shown = draft.preview.result?.text ?? ''
   const tagging = draft.preview.result?.tagging
   const send = (via: Send) => {
-    // Back to the button if the post is refused; a posted announcement hands
-    // focus to the line that says where it went instead.
-    onBack()
     const mentions = tagging?.available === true ? mentionsOf(draft.pick) : undefined
     void via.run(shown, mentions, editOf(shown, draft.edited))
   }
@@ -292,9 +302,12 @@ function useAnnouncePost(
 }
 
 // useAnnounceHold holds a previewed announcement to channel until the pull
-// request's CI passes, and says so through announcing — or that it went at
+// request's CI passes, and says so through announcing — and which pull
+// request's waiting announcement it replaced, if it did — or that it went at
 // once, when the CI had passed by then, as a post says it.
 function useAnnounceHold(channel: string, service: string, announcing: Announcing) {
+  const { sigil } = useForgeWords()
+
   return useAsyncAction(
     async (previewed: string, mentions?: AnnounceMentions, edited?: string) => {
       try {
@@ -309,9 +322,16 @@ function useAnnounceHold(channel: string, service: string, announcing: Announcin
       done: (answer) => {
         const where = answer.channel === '' ? service : answer.channel
 
-        return answer.held
-          ? `Will announce to ${where} once CI passes.`
-          : withWarning(`Announced to ${where}.`, answer.warning)
+        if (!answer.held) {
+          return withWarning(`Announced to ${where}.`, answer.warning)
+        }
+
+        const replaced =
+          answer.replaced === undefined
+            ? ''
+            : ` It replaced the announcement waiting for ${sigil}${String(answer.replaced)}.`
+
+        return `Will announce to ${where} once CI passes.${replaced}`
       },
       onStart: announcing.start,
       onDone: announcing.say,

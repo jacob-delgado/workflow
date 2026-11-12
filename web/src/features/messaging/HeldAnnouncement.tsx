@@ -27,7 +27,11 @@ export function HeldAnnouncement({ held, service, onSaid }: HeldAnnouncementProp
 
   if (held.state === 'waiting') {
     return (
-      <Waiting said={armedSaying(held, `${sigil}${String(held.pull)}`, where)} onSaid={onSaid} />
+      <Waiting
+        key={held.id}
+        said={armedSaying(held, `${sigil}${String(held.pull)}`, where)}
+        onSaid={onSaid}
+      />
     )
   }
 
@@ -71,28 +75,37 @@ function armedSaying(held: QueuedAnnouncement, pull: string, where: string): str
   return held.automatic === true ? `Armed when ${pull} opened. ${waits}` : waits
 }
 
-// waitingOn says what the held announcement of pull, to where, waits on, by
-// its CI as last read: a fix for a check that failed, checks to be reported —
-// a repository with no CI is announced by hand — or the CI to pass.
+// waitingOn says what the held announcement of pull, to where, waits on, as
+// the server says: the forge to list a pull request just opened; a fix for a
+// check that failed; checks to be reported — a repository with no CI is
+// announced by hand; a read or a post that failed, tried again, and why; or
+// the CI to pass.
 function waitingOn(held: QueuedAnnouncement, pull: string, where: string): string {
-  switch (held.ci) {
-    case 'failed':
+  switch (held.waiting_on) {
+    case 'listing':
+      return `Waiting for the forge to list ${pull}, then announcing to ${where} once CI passes.`
+    case 'fix':
       return `A check failed on ${pull}; waiting on a fix, then announcing to ${where} once CI passes.`
-    case 'none':
+    case 'checks':
       return (
         `Waiting for checks to be reported on ${pull}, then announcing to ${where} once CI passes. ` +
         'A repository with no CI is announced by hand.'
       )
-    case 'running':
-    case 'passed':
+    case 'unread':
+      return (
+        `Not announced yet: ${held.reason ?? 'a read failed'}. Trying again, then announcing to ` +
+        `${where} once CI passes.`
+      )
+    case 'ci':
     case undefined:
       return `Waiting for CI on ${pull} to pass, then announcing to ${where}.`
   }
 }
 
 // Waiting is a held announcement still waiting for CI, with Stop waiting,
-// which drops it unposted. Stop waiting stays off once pressed, until the
-// stream no longer shows it waiting.
+// which stops it unposted. Stop waiting stays off once pressed, until the
+// stream no longer shows it waiting; keyed by the hold's id, one held afresh
+// meanwhile offers it again.
 function Waiting({ said, onSaid }: { said: string; onSaid: (said: string) => void }) {
   const stop = useAsyncAction(stopWaiting, {
     fallback: 'The announcement is still waiting. Try again.',

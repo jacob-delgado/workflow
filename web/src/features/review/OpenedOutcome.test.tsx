@@ -403,3 +403,22 @@ test('the outcome says a draft is not announced', async () => {
   // Assert
   expect(screen.getByText('A draft is not announced; announce it once it is ready.')).toBeTruthy()
 })
+
+test('the outcome says another announcement still waiting kept this one from being armed', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  const notArmed: OpenedPullRequest = {
+    pull,
+    follow_ups: [],
+    not_armed: "#6's announcement is still waiting, so #7's was not armed",
+  }
+  serveTheOpen([], { '/api/pull-request': notArmed })
+
+  // Act
+  await openThePullRequest(user)
+
+  // Assert
+  expect(
+    screen.getByText("#6's announcement is still waiting, so #7's was not armed."),
+  ).toBeTruthy()
+})
