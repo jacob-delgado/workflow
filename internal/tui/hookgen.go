@@ -18,11 +18,15 @@ import (
 // each Commits refresh, so that pane can offer a configuration for them.
 type hookgenState struct {
 	hooks []hooks.GitHook
+	// writes counts the configurations written, which a look for the hooks
+	// carries, so one begun before a write says nothing after it.
+	writes int
 }
 
-// findHooks is the command that looks for hooks lefthook does not manage.
-func findHooks(ctx context.Context, deps Deps) tea.Cmd {
-	existing := deps.Hooks.Existing
+// find is the command that looks for hooks lefthook does not manage, under
+// ctx.
+func (s hookgenState) find(ctx context.Context, deps Deps) tea.Cmd {
+	existing, writes := deps.Hooks.Existing, s.writes
 	if existing == nil || deps.Hooks.Write == nil {
 		return nil
 	}
@@ -30,22 +34,30 @@ func findHooks(ctx context.Context, deps Deps) tea.Cmd {
 	return func() tea.Msg {
 		found, configured := existing(ctx)
 
-		return hooksFound{hooks: found, configured: configured}
+		return hooksFound{hooks: found, configured: configured, writes: writes}
 	}
 }
 
-// hooksFound is what the hooks directory holds.
+// hooksFound is what the hooks directory holds, as looked at after writes
+// configurations were written.
 type hooksFound struct {
 	hooks      []hooks.GitHook
 	configured bool
+	writes     int
 }
 
 var _ applier = hooksFound{}
 
 // apply stores hooks that predate lefthook, so the Commits pane can offer to
 // generate a configuration for them — rather than seizing the first screen —
-// and forgets them once lefthook is configured, however that came about.
+// and forgets them once lefthook is configured, however that came about. A
+// look begun before a configuration was written read the hooks as they were
+// before it, and is dropped.
 func (msg hooksFound) apply(m Model) (Model, tea.Cmd) {
+	if msg.writes != m.hookgen.writes {
+		return m, nil
+	}
+
 	m.hookgen.hooks = msg.hooks
 	if msg.configured {
 		m.hookgen.hooks = nil
@@ -171,6 +183,7 @@ func (msg hooksWritten) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	m.hookgen.hooks = nil
+	m.hookgen.writes++
 	m = m.closeOverlay()
 
 	if msg.err != nil {
