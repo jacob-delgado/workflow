@@ -70,22 +70,14 @@ export function OutcomeLine({ said, className }: { said: Said | null; className?
       return
     }
 
-    const focused = document.activeElement
-    if (said.movedOn || (focused !== document.body && focused !== said.from)) {
-      settled.current = said
-
+    const settles = settling(said)
+    if (settles === 'wait') {
       return
     }
 
-    // Follow to the line only once the control that said it is gone or off; a
-    // control still standing whose focus the user dropped to the page leaves
-    // it there, and one still holding focus may yet be taken away.
-    const gone = said.from === document.body || !canHoldFocus(said.from)
-    if (gone) {
-      settled.current = said
+    settled.current = said
+    if (settles === 'follow') {
       line.current?.focus()
-    } else if (focused !== said.from) {
-      settled.current = said
     }
   })
 
@@ -99,6 +91,27 @@ export function OutcomeLine({ said, className }: { said: Said | null; className?
       {said?.text ?? ''}
     </p>
   )
+}
+
+// Settling is where an outcome's focus goes: followed to the line, left where
+// the user put it, or waited on while the control that said it still holds it.
+type Settling = 'follow' | 'leave' | 'wait'
+
+// settling is where said's focus goes now. It follows to the line only once
+// the control that said it is gone or off; a control still standing whose
+// focus the user dropped to the page leaves it there, and one still holding
+// focus may yet be taken away.
+function settling(said: Said): Settling {
+  const focused = document.activeElement
+  if (said.movedOn || (focused !== document.body && focused !== said.from)) {
+    return 'leave'
+  }
+
+  if (said.from === document.body || !canHoldFocus(said.from)) {
+    return 'follow'
+  }
+
+  return focused === said.from ? 'wait' : 'leave'
 }
 
 // canHoldFocus reports whether an element can still have focus: it is on the
