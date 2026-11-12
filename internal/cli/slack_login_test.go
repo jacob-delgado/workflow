@@ -388,8 +388,9 @@ func TestSlackLoginThatCannotWriteItsFileSaysSoAndKeepsNothing(t *testing.T) {
 	}
 
 	// The home file, which keeps the pair and the app, sits in a directory
-	// nothing can be written in.
-	where := clitest.Place{Dir: t.TempDir(), Home: t.TempDir()}
+	// nothing can be written in; the state directory the locks are taken in
+	// stays writable, so it is the file's write that is refused.
+	where := clitest.Place{Dir: t.TempDir(), Home: t.TempDir(), State: t.TempDir()}
 	home := clitest.WriteFile(t, where.Home, `{}`)
 	path := clitest.WriteFile(t, where.Dir, slackUserTokenFile)
 	slackRefreshing(t, func() {})

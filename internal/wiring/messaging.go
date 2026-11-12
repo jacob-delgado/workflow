@@ -202,7 +202,7 @@ func (e Environment) SlackRefresher(clientID string, do httpx.Doer) slackauth.Re
 func (e Environment) SlackToken(cfg config.Config, do httpx.Doer) messaging.TokenSource {
 	source := slackauth.Source{
 		Store: e.SlackStore(cfg), Refresher: e.SlackRefresher(cfg.Messaging.ClientID, do),
-		Lock: slackauth.FileLock(e.slackLockPath(cfg.Path)), Now: time.Now,
+		Lock: e.SlackRefreshLock(cfg.Path), Now: time.Now,
 	}
 
 	return func(ctx context.Context, expired config.Secret) (config.Secret, error) {
@@ -233,6 +233,14 @@ func asMessagingError(err error) error {
 	}
 }
 
+// SlackRefreshLock is the lock a Slack user token of the configuration at
+// configPath is refreshed and kept under: a post's refresh takes it, and so do
+// a login and Settings, which spend a refresh token too, so two workflows
+// never spend the same one, nor keep a pair over the one another just kept.
+func (e Environment) SlackRefreshLock(configPath string) func(ctx context.Context) (func(), error) {
+	return slackauth.FileLock(e.slackLockPath(configPath))
+}
+
 // slackLockPath is where the refresh lock lives: beside the store, or beside
 // the configuration file where the store has no directory.
 func (e Environment) slackLockPath(configPath string) string {
@@ -247,8 +255,9 @@ func (e Environment) slackLockPath(configPath string) string {
 // PlaceSlackCredentials is Controls.PlaceSlackCredentials with system's
 // keychain, refreshing through transport. Where the keychain keeps a Slack
 // user token's secrets, those typed into Settings are spent on a refresh and
-// the new pair kept there, once the file that holds none of them is written;
-// elsewhere it is nil, and the file keeps them.
+// the new pair kept there, once the file that holds none of them is written,
+// under the refresh lock, which a wait on gives up as ctx ends; elsewhere it
+// is nil, and the file keeps them.
 func (e Environment) PlaceSlackCredentials(
 	transport httpx.Doer, system Keychain,
 ) func(context.Context, config.Config) error {
@@ -257,24 +266,38 @@ func (e Environment) PlaceSlackCredentials(
 	}
 
 	return func(ctx context.Context, cfg config.Config) error {
-		without := cfg
-		without.Messaging.ClientSecret, without.Messaging.RefreshToken = "", ""
-		without.Messaging.AccessToken, without.Messaging.ExpiresAt = "", ""
-
-		starting := keptUnlessTyped(ctx, system.SlackStore(without), cfg.Messaging)
-
-		// Slack spends the refresh token as it answers, so the refresh and the
-		// keep run whatever becomes of the caller: one who left between them
-		// would lose the only pair that still works.
-		renewing := context.WithoutCancel(ctx)
-
-		renewed, err := e.SlackRefresher(cfg.Messaging.ClientID, transport).Refresh(renewing, starting)
+		unlock, err := e.SlackRefreshLock(cfg.Path)(ctx)
 		if err != nil {
-			return asMessagingError(err)
+			return err
 		}
+		defer unlock()
 
-		return system.SlackStore(without).Keep(renewing, renewed)
+		return e.renewTyped(ctx, transport, system, cfg)
 	}
+}
+
+// renewTyped spends the Slack secrets typed into cfg, each left blank taken
+// from those system's keychain keeps, on a refresh through transport, and
+// keeps the pair Slack gives back there. It runs under the refresh lock, so
+// the pair it reads is not one another workflow is spending.
+func (e Environment) renewTyped(ctx context.Context, transport httpx.Doer, system Keychain, cfg config.Config) error {
+	without := cfg
+	without.Messaging.ClientSecret, without.Messaging.RefreshToken = "", ""
+	without.Messaging.AccessToken, without.Messaging.ExpiresAt = "", ""
+
+	starting := keptUnlessTyped(ctx, system.SlackStore(without), cfg.Messaging)
+
+	// Slack spends the refresh token as it answers, so the refresh and the
+	// keep run whatever becomes of the caller: one who left between them
+	// would lose the only pair that still works.
+	renewing := context.WithoutCancel(ctx)
+
+	renewed, err := e.SlackRefresher(cfg.Messaging.ClientID, transport).Refresh(renewing, starting)
+	if err != nil {
+		return asMessagingError(err)
+	}
+
+	return system.SlackStore(without).Keep(renewing, renewed)
 }
 
 // keptUnlessTyped is the secrets typed into settings, each one left blank
