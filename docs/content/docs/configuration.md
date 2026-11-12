@@ -469,8 +469,10 @@ Every post asks for the token anew and refreshes it when it has less than ten
 minutes left, and once more if Slack still calls it expired. Two workflows
 running at once — the terminal and `--web`, say — take turns through a lock
 the system holds on a file beside the store, so they never spend the same
-refresh token twice. The system lets the lock go when its holder ends, so one
-left by a workflow that stopped mid-refresh never holds the next one up.
+refresh token twice. `workflow slack login` and a Settings save that
+refreshes take the same lock, so a post never keeps its pair over the one they
+just kept. The system lets the lock go when its holder ends, so one left by a
+workflow that stopped mid-refresh never holds the next one up.
 `workflow doctor --online` refreshes it if it is due, and says whose it is,
 where it is kept and when it expires. Under `--dry-run` it uses the token as
 held, and leaves one due a refresh unchecked rather than write a new one.
@@ -478,7 +480,9 @@ held, and leaves one due a refresh unchecked rather than write a new one.
 The web's Settings takes the same three answers. Where the keychain keeps the
 token, a save refreshes it once with what you typed — a field left blank keeps
 the keychain's — and keeps the new pair there, never in the file; Slack
-refusing them is said at once, and nothing is written. Where the file keeps
+refusing them is said at once, and nothing is written. A keychain that cannot
+be read, a locked one say, refuses the save before anything is spent: unlock
+it, then save again. Where the file keeps
 the token, what you type is written to it, and the next post refreshes with
 it, which is when a refusal shows.
 

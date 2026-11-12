@@ -729,11 +729,13 @@ the other copy holds. A refusal like this exits with status 3. See
 [Configuration: Slack: a user token or a
 webhook]({{< relref "/docs/configuration#slack-a-user-token-or-a-webhook" >}}).
 
-### Posting says `another workflow is refreshing the Slack token`. What do I do?
+### workflow says `another workflow is refreshing the Slack token`. What do I do?
 
 `another workflow is refreshing the Slack token; try again in a minute` means
 another workflow on this machine (say, the terminal and `--web` running at once)
-held the refresh lock for more than ten seconds. The lock is
+held the refresh lock for more than ten seconds. A post, `workflow slack login`
+and a Settings save that refreshes the token all take that lock, and each one
+that gives up on it spends and saves nothing. The lock is
 `slack-refresh.lock`, next to the store. The operating system releases the lock
 when the program holding it exits, so a lock left behind by a crash never blocks
 you. Just try again. See [Configuration: Slack: a user token or a
