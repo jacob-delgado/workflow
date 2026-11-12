@@ -180,9 +180,9 @@ func (s tasksState) load(ctx context.Context, deps Deps) tea.Cmd {
 	return s.read(ctx, deps, 0)
 }
 
-// refreshed is the pane with a refresh begun, in flight until its own read
+// refreshing is the pane with a refresh begun, in flight until its own read
 // answers, and that read; nil when there is no task program to ask.
-func (s tasksState) refreshed(ctx context.Context, deps Deps) (tasksState, tea.Cmd) {
+func (s tasksState) refreshing(ctx context.Context, deps Deps) (tasksState, tea.Cmd) {
 	s.refreshes++
 	read := s.read(ctx, deps, s.refreshes)
 	s.loading = read != nil
@@ -437,7 +437,7 @@ func tasksBehavior() behavior {
 		refresh: func(m Model) (Model, tea.Cmd) {
 			var read tea.Cmd
 
-			m.tasks, read = m.tasks.refreshed(m.session, m.deps)
+			m.tasks, read = m.tasks.refreshing(m.session, m.deps)
 
 			return m, read
 		},
