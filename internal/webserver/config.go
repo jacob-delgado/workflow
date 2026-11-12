@@ -70,9 +70,7 @@ func (s *server) reread() (config.Config, basis, error) {
 	case !current.Exists():
 		s.gone = true
 	default:
-		s.cfg, s.seen, s.gone = cfg, current, false
-		s.adoptForge(cfg.Forge)
-		s.adoptMessaging(cfg.Messaging)
+		s.putInEffect(cfg, current)
 	}
 
 	return s.cfg, basis{seen: s.seen, gone: s.gone}, nil
@@ -115,13 +113,17 @@ func (s *server) adoptMessaging(settings config.Messaging) {
 }
 
 // adoptForge hands forge settings newly in effect — saved, or edited on disk
-// and read — to every forge call after them, names the forge they point at,
-// and drops what was read with the settings before: the author held, and the
-// forge's answer the frames hold. It runs under mu, with the configuration it
-// belongs to.
-func (s *server) adoptForge(settings config.Forge) {
-	if s.deps.UseForgeSettings != nil {
-		s.forgeKind = s.deps.UseForgeSettings(settings)
+// and read — to every forge call after them, and names the forge they point
+// at. When they differ from the settings before them, it drops what those
+// read: the author held, and the forge's answer the frames hold. It runs under
+// mu, with the configuration it belongs to.
+func (s *server) adoptForge(before, settings config.Forge) {
+	if s.deps.UseForgeSettings == nil {
+		return
+	}
+
+	s.forgeKind = s.deps.UseForgeSettings(settings)
+	if settings != before {
 		s.author.drop()
 		s.forgeAnswer.drop()
 	}
@@ -360,9 +362,17 @@ func (s *server) takeUpSaved(saved config.Config, written config.Revision) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.cfg, s.seen, s.gone = saved, written, false
-	s.adoptForge(saved.Forge)
-	s.adoptMessaging(saved.Messaging)
+	s.putInEffect(saved, written)
+}
+
+// putInEffect makes cfg, read or written at revision, the configuration in effect,
+// and hands its forge and messaging settings to every call after it. It runs
+// under mu.
+func (s *server) putInEffect(cfg config.Config, revision config.Revision) {
+	before := s.cfg.Forge
+	s.cfg, s.seen, s.gone = cfg, revision, false
+	s.adoptForge(before, cfg.Forge)
+	s.adoptMessaging(cfg.Messaging)
 }
 
 // basis is what a read of the configuration stood for: the revision of the
