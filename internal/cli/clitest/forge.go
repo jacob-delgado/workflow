@@ -22,6 +22,9 @@ const OnPremisesRemote = "git@git.example.com:acme/thing.git"
 type GhResponses struct {
 	Pulls  string // GET .../pulls?...              — a JSON array
 	Status string // GET .../commits/{sha}/status
+	// StatusElsewhere, when set, answers the status read of any commit but
+	// PullHead, so a test tells the pull request's head from the checkout's.
+	StatusElsewhere string
 	// StatusSequence and PullsSequence, when set, answer the status reads and
 	// the pull request lists in turn, the last one repeated, in place of
 	// Status and Pulls.
@@ -133,19 +136,20 @@ func writeGhBodies(t *testing.T, dir string, responses GhResponses) {
 	}
 
 	bodies := map[string]string{
-		pullsRoute:       orDefault(responses.Pulls, "[]"),
-		"create":         create,
-		"pull":           `{"mergeable":true}`,
-		"reviews":        `[]`,
-		statusRoute:      orDefault(responses.Status, `{"total_count":0,"statuses":[]}`),
-		"checks":         orDefault(responses.Checks, `{"total_count":0,"check_runs":[]}`),
-		"search":         orDefault(responses.Search, `{"items":[]}`),
-		"user":           user,
-		"none":           "[]",
-		"reviewers-ask":  `{}`,
-		"default":        `{}`,
-		"status-running": RunningStatus(),
-		"status-passed":  PassingStatus(),
+		pullsRoute:         orDefault(responses.Pulls, "[]"),
+		"create":           create,
+		"pull":             `{"mergeable":true}`,
+		"reviews":          `[]`,
+		statusRoute:        orDefault(responses.Status, `{"total_count":0,"statuses":[]}`),
+		"checks":           orDefault(responses.Checks, `{"total_count":0,"check_runs":[]}`),
+		"search":           orDefault(responses.Search, `{"items":[]}`),
+		"user":             user,
+		"none":             "[]",
+		"reviewers-ask":    `{}`,
+		"default":          `{}`,
+		"status-running":   RunningStatus(),
+		"status-passed":    PassingStatus(),
+		"status-elsewhere": responses.StatusElsewhere,
 	}
 	for name, body := range bodies {
 		writeData(t, filepath.Join(dir, "resp-"+name), body)
@@ -203,6 +207,7 @@ func ghScript(dir string, responses GhResponses) string {
 		"esac\n" +
 		interrupt +
 		onlyBranch(responses.PullsBranch) +
+		elsewhere(responses.StatusElsewhere) +
 		gated(responses.StatusGate) +
 		sequenced(dir, statusRoute, len(responses.StatusSequence)) +
 		sequenced(dir, pullsRoute, len(responses.PullsSequence)) +
@@ -221,6 +226,19 @@ func onlyBranch(branch string) string {
 
 	return "if [ \"$f\" = " + pullsRoute + " ]; then\n" +
 		"  case \"$url\" in *\"" + url.QueryEscape(":"+branch) + "&\"*) ;; *) f=none ;; esac\n" +
+		"fi\n"
+}
+
+// elsewhere is the fake gh's step that answers the status read of any commit
+// but PullHead from its own body; nothing when every commit's is answered
+// alike.
+func elsewhere(body string) string {
+	if body == "" {
+		return ""
+	}
+
+	return "if [ \"$f\" = " + statusRoute + " ]; then\n" +
+		"  case \"$url\" in *\"/commits/" + PullHead + "/\"*) ;; *) f=status-elsewhere ;; esac\n" +
 		"fi\n"
 }
 

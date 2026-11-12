@@ -274,7 +274,8 @@ func (d *deliveries) memory() loop.AnnounceMemory {
 // merged is the delivery these tests send: the pull request's merge, to #dev.
 func merged() loop.Delivery {
 	return loop.Delivery{
-		Channel: devChannel, Text: "merged", Pull: forge.PullRequest{Number: 9}, Moment: messaging.MomentMerged,
+		Channel: devChannel, Text: "merged", Pull: forge.PullRequest{Number: 9}, Head: headCommit,
+		Moment: messaging.MomentMerged,
 	}
 }
 

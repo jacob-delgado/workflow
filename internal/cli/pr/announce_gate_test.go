@@ -34,6 +34,28 @@ func TestAnnounceRefusesAPullRequestACheckFailedOn(t *testing.T) {
 	}
 }
 
+func TestAnnounceReadsCIAtThePullRequestsHeadNotTheCheckouts(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The check failed on the commit the pull request is at, and the
+	// checkout's own commit, never pushed, reads green.
+	clitest.FakeGh(t, clitest.GhResponses{
+		Pulls: clitest.OpenPull("Add login"), Status: clitest.FailingStatus(), StatusElsewhere: clitest.PassingStatus(),
+	})
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.WriteFile(t, repo, clitest.ForgeCLIConfig)
+
+	// Act
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "announce", "--yes")
+
+	// Assert
+	if got := cli.ExitStatus(err); got != 4 || strings.Contains(printed.Stderr, "Announced") {
+		t.Errorf("announce --yes exited %d (%v), said %q; want 4: the check failed at the pull request's head",
+			got, err, printed.Stderr)
+	}
+}
+
 func TestAnnounceNamesOnlyTheChecksThatFailed(t *testing.T) {
 	t.Parallel()
 
