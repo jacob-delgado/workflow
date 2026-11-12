@@ -469,7 +469,9 @@ func (c commitComposer) commit(m Model) (Model, tea.Cmd) {
 				return nil
 			}
 
-			return done, tea.Batch(loadChanges(ctx, done.deps), loadBranch(ctx, done.deps), remember)
+			done, status := done.readingChanges()
+
+			return done, tea.Batch(status, loadBranch(ctx, done.deps), remember)
 		})
 }
 

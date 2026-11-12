@@ -337,7 +337,9 @@ func (r commandRun) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case !r.done:
 		return r.stopRun(m, msg)
 	case key.Matches(msg, m.keys.closeOverlay):
-		return m.closeOverlay(), tea.Batch(loadChanges(m.session, m.deps), loadBranch(m.session, m.deps))
+		m, status := m.closeOverlay().readingChanges()
+
+		return m, tea.Batch(status, loadBranch(m.session, m.deps))
 	case key.Matches(msg, m.keys.retry):
 		return m.startRun(r.kind, r.start, r.succeeded)
 	case key.Matches(msg, m.keys.confirm):

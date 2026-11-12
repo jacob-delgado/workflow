@@ -39,9 +39,9 @@ func (m Model) applyAmend(subject string) (Model, tea.Cmd) {
 	ctx, amend := m.session, m.deps.Git.Amend
 
 	return m.startRun(amendRun(), func() (proc.Output, error) { return amend(ctx) }, func(done Model) (Model, tea.Cmd) {
-		done = done.closeOverlay().noticed(done.marks.done + " amended " + subject)
+		done, status := done.closeOverlay().noticed(done.marks.done + " amended " + subject).readingChanges()
 
-		return done, tea.Batch(loadChanges(m.session, done.deps), loadBranch(m.session, done.deps))
+		return done, tea.Batch(status, loadBranch(m.session, done.deps))
 	})
 }
 
@@ -60,9 +60,9 @@ func (m Model) applyFixup(hash, subject string) (Model, tea.Cmd) {
 
 	return m.startRun(fixupRun(), func() (proc.Output, error) { return fixup(ctx, hash) },
 		func(done Model) (Model, tea.Cmd) {
-			done = done.closeOverlay().noticed(done.marks.done + " recorded a fixup! of " + subject)
+			done, status := done.closeOverlay().noticed(done.marks.done + " recorded a fixup! of " + subject).readingChanges()
 
-			return done, tea.Batch(loadChanges(ctx, done.deps), loadBranch(ctx, done.deps))
+			return done, tea.Batch(status, loadBranch(ctx, done.deps))
 		})
 }
 

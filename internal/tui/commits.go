@@ -30,16 +30,24 @@ type changeList struct {
 	loading bool
 }
 
-// changesLoaded carries the work tree's status.
+// changesLoaded carries the work tree's status, as the read counted read
+// found it.
 type changesLoaded struct {
 	changes []gitrepo.Change
 	err     error
+	read    int
 }
 
 var _ applier = changesLoaded{}
 
-// apply records the changes, keeping the selection on the same file.
+// apply records the changes, keeping the selection on the same file. A read
+// a later one has superseded says nothing: its answer may land after the
+// later one's, and would show the work tree as it stood before.
 func (msg changesLoaded) apply(m Model) (Model, tea.Cmd) {
+	if msg.read != m.changesReads {
+		return m, nil
+	}
+
 	previous, _ := m.changes.current()
 	m.changes = changeList{changes: msg.changes, loaded: true, err: msg.err, selected: 0}
 
@@ -55,17 +63,26 @@ func (msg changesLoaded) apply(m Model) (Model, tea.Cmd) {
 	return m, m.diff.load(m.session, m.deps.Git.Diff, m.changes)
 }
 
-// loadChanges is the command that reads the work tree's status.
-func loadChanges(ctx context.Context, deps Deps) tea.Cmd {
-	read := deps.Git.Changes
-	if read == nil {
+// readingChanges counts a read of the work tree's status begun, and is the
+// command that reads it.
+func (m Model) readingChanges() (Model, tea.Cmd) {
+	m.changesReads++
+
+	return m, loadChanges(m.session, m.deps, m.changesReads)
+}
+
+// loadChanges is the command that reads the work tree's status, as the read
+// counted read.
+func loadChanges(ctx context.Context, deps Deps, read int) tea.Cmd {
+	status := deps.Git.Changes
+	if status == nil {
 		return nil
 	}
 
 	return func() tea.Msg {
-		changes, err := read(ctx)
+		changes, err := status(ctx)
 
-		return changesLoaded{changes: changes, err: err}
+		return changesLoaded{changes: changes, err: err, read: read}
 	}
 }
 
@@ -326,7 +343,7 @@ func (msg staged) apply(m Model) (Model, tea.Cmd) {
 		m = m.noticedFailure(msg.err)
 	}
 
-	return m, loadChanges(m.session, m.deps)
+	return m.readingChanges()
 }
 
 // commitsBehavior is the Commits pane's behavior.
@@ -339,7 +356,7 @@ func commitsBehavior() behavior {
 		// refresh reads the work tree again, and the branch and the hooks with
 		// it.
 		refresh: func(m Model) (Model, tea.Cmd) {
-			read := loadChanges(m.session, m.deps)
+			m, read := m.readingChanges()
 			m.changes.loading = read != nil
 
 			return m, tea.Batch(read, loadBranch(m.session, m.deps), findHooks(m.session, m.deps))
