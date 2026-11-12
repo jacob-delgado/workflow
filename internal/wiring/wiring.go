@@ -40,8 +40,10 @@ import (
 // ResolveAhead finds it now instead, for the interface and the web server to
 // call before they start: once either holds the terminal, a token command that
 // asks on it could not be answered. A token not found then is looked for again
-// on first use, where its failure is reported. The Slack user token is asked
-// for on every post, refreshed as it runs out.
+// on first use, where its failure is reported. A token_command token Jira
+// refuses is fetched again while the interface runs, so a command that would
+// ask on the terminal then cannot be answered, as configuration.md warns. The
+// Slack user token is asked for on every post, refreshed as it runs out.
 //
 // Every seam and control does its I/O under the context it is called with,
 // and none holds one of its own: what asks decides how long it waits.

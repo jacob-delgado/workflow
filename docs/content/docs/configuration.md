@@ -332,7 +332,10 @@ of its own, below):
   split on spaces and run directly — no shell — so wrap a pipeline in a script
   if you need one. When Jira refuses the token it printed, as once a
   short-lived one expires, workflow runs it once more and asks again with what
-  it prints then.
+  it prints then; a change Jira made all the same, served anonymously, is not
+  sent twice. That run can come while the interface or `--web` holds the
+  terminal, so the command must not ask on it then: keep `pass`'s passphrase
+  in gpg-agent's cache, say, or use a command that needs none.
 - `token_env` reads the token from an environment variable, e.g. `WORKFLOW_JIRA_TOKEN`.
 
 The file's own `token` wins when set, then the `keychain`, then `token_env`,
