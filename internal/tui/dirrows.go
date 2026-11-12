@@ -310,10 +310,10 @@ func (msg dirLooked) apply(m Model) (Model, tea.Cmd) {
 		return m.closeOverlay().noticed("you already work in " + shownDir(m.deps, msg.dir)), nil
 	}
 
-	if busy := m.writeInFlight(); busy != "" {
-		m.overlay = picker
+	if waiting, held := m.heldBackBy(switching); held {
+		waiting.overlay = picker
 
-		return m.noticed("wait for " + busy + " to finish before switching"), nil
+		return waiting, nil
 	}
 
 	look := m.switchLook(msg.dir)
