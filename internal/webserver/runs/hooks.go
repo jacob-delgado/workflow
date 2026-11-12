@@ -85,7 +85,9 @@ func (r *Runner) GetHookSetup(
 // whole as a script — and installs lefthook, as the terminal's offer does.
 // With nothing offered it is a 409; a write or an install that fails is a 422
 // whose words stay off the wire, since they name where the repository is;
-// the unexpected New is handed hears them.
+// the unexpected New is handed hears them. It holds the index, as a run and a
+// commit do while git runs the hooks, so it waits for them rather than
+// replace the hooks under one.
 func (r *Runner) SetUpHooks(
 	ctx context.Context, request api.SetUpHooksRequestObject,
 ) (api.SetUpHooksResponseObject, error) {
@@ -93,6 +95,9 @@ func (r *Runner) SetUpHooks(
 		return api.SetUpHooks422ApplicationProblemPlusJSONResponse(
 			problem.New(api.ProblemCodeUnprocessable, errHookSetupUnavailable.Error())), nil
 	}
+
+	r.indexWrites.Lock()
+	defer r.indexWrites.Unlock()
 
 	found := r.unmanagedHooks(ctx)
 	if len(found) == 0 {

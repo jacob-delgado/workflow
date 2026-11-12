@@ -581,13 +581,14 @@ paths:
         the branch the run left. The
         run goes on to its end if the page goes away, and the
         event stream's run carries it meanwhile. One run goes at a time, and
-        it holds the index, so a stage or a commit asked for meanwhile waits
-        for it. A conflict leaves a rebase midway, for a terminal to finish.
-        Refused before anything runs, as a problem: 409 when a run is going
-        already, or there is nothing to rebase, amend or fix up; 422 when
-        the run is not available here, the hook named is not one lefthook
-        runs by hand here, lefthook's configuration cannot be read, the
-        commit named cannot be fixed up, or the program could not start.
+        it holds the index, so a stage, a commit or a setup of lefthook's
+        hooks asked for meanwhile waits for it. A conflict leaves a rebase
+        midway, for a terminal to finish. Refused before anything runs, as
+        a problem: 409 when a run is going already, or there is nothing to
+        rebase, amend or fix up; 422 when the run is not available here, the
+        hook named is not one lefthook runs by hand here, lefthook's
+        configuration cannot be read, the commit named cannot be fixed up,
+        or the program could not start.
       tags: [repository]
       requestBody:
         required: true
@@ -683,9 +684,11 @@ paths:
         with verbatim, one that keeps every hook whole as a script, the
         terminal's other choice — with its scripts under .lefthook, then
         installs lefthook, which keeps the old hooks as .git/hooks/*.old. A
-        change on this machine alone, which the offer itself previews.
-        Refused with 409 when nothing is offered any more, and 422 when it
-        is not available or the write or the install fails.
+        change on this machine alone, which the offer itself previews. It
+        holds the index, so it waits for a git run going, a stage or a commit
+        to end, and git's hooks are never replaced while git runs them.
+        Refused with 409 when nothing is offered any more, and 422 when it is
+        not available or the write or the install fails.
       tags: [repository]
       requestBody:
         required: true
