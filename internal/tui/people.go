@@ -326,7 +326,9 @@ func (p peopleOverlay) askToForget(m Model, owner string) Model {
 		body: "Forget " + owner + "?\n\nThe next ready-for-review announcement asks whom they are on Slack again.",
 		proceed: func(m Model) (Model, tea.Cmd) {
 			// The People the look went back to, as the reads that answered
-			// under it left it.
+			// under it left it. It is always found: handleKey puts this look
+			// on top before proceed, and its back is this People, opened as
+			// opened, which withBeneath keeps current.
 			under, _ := beneath[peopleOverlay](m, opened)
 
 			return under.saving(m, func() tea.Msg {
