@@ -14,12 +14,13 @@
 # setup's own, removed after, and markdownlint-cli2 installed again by the
 # pinned node's own npm; run as root, no archive's owner is kept; the setup
 # stops before it fetches on a disk without room and on a machine it has no
-# downloads for, waits for another setup and stops when that one holds the
-# lock too long; and the gate user is made, with a home, only when it is
-# missing, a gate user or git hooks that cannot be set up exiting 1 too,
-# without blaming a tool the run installed first; and git hooks are installed
-# only in a checkout that is a repository. What the setup reads its pins from,
-# and how it installs the linters pinned under build/, are
+# downloads for, waits for another setup and stops when that one holds the lock
+# too long, and, with a tool to install and only then, does the same for a gate
+# run, root's half or the gate user's; and the gate user is made, with a home,
+# only when it is missing, a gate user or git hooks that cannot be set up
+# exiting 1 too, without blaming a tool the run installed first; and git hooks
+# are installed only in a checkout that is a repository. What the setup reads
+# its pins from, and how it installs the linters pinned under build/, are
 # cloud-session-setup_pins_test.sh's. The stand-ins
 # lib/cloud-session-setup-fixtures.sh writes record what they were asked, and
 # curl serves only the files a case puts in place, by name, so nothing is
@@ -321,6 +322,33 @@ flock "${lock}"
 holder=$!
 expect_output pass "a setup waits for another" "toolchain ready" setup "${waited}" CLOUD_SETUP_LOCK_WAIT=20
 wait "${holder}"
+exec {lock}>&-
+
+# A gate run uses the toolchain from start to end, so a setup with a tool to
+# install waits for it, root's half or the gate user's, and stops when it
+# runs too long, having changed nothing; one with nothing to install does not
+# wait.
+for gate_lock in gate.lock gate-run.lock; do
+  gated="${workdir}/gated-${gate_lock%.lock}"
+  repo "${gated}"
+  installed "${gated}.prefix"
+  rm "${gated}.prefix/stamps/yamllint@${requirements_digest}"
+  exec {lock}>"${gated}.${gate_lock}"
+  flock "${lock}"
+  expect_output 1 "a gate run holding ${gate_lock}" "a gate run" setup "${gated}" CLOUD_SETUP_LOCK_WAIT=1
+  count_case
+  if grep -q '^python3 ' "${log}"; then
+    fail_case "a gate run holding ${gate_lock}" "yamllint was installed under it"
+  fi
+  exec {lock}>&-
+done
+idle="${workdir}/gated-idle"
+repo "${idle}"
+installed "${idle}.prefix"
+exec {lock}>"${idle}.gate-run.lock"
+flock "${lock}"
+expect_output pass "a gate run going, nothing to install" "toolchain ready" \
+  setup "${idle}" CLOUD_SETUP_LOCK_WAIT=1
 exec {lock}>&-
 
 newuser="${workdir}/newuser"
