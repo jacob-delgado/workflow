@@ -73,9 +73,10 @@ export function AnnounceControls({
     },
   }
   // A check failed between the preview and the post: preview it again, which
-  // offers to announce it once CI passes, and says why.
+  // offers to announce it once CI passes, and says why, keeping the channel,
+  // the tags and the edit chosen for the post.
   const post = useAnnouncePost(draft.channel, service, sent, () => {
-    void draft.preview.run()
+    void draft.preview.run('keeping the choices')
   })
   const hold = useAnnounceHold(draft.channel, service, sent)
 
@@ -98,7 +99,7 @@ export function AnnounceControls({
         onClick={() => {
           post.reset()
           hold.reset()
-          void draft.preview.run()
+          void draft.preview.run('afresh')
         }}
         className="self-start"
       >
@@ -130,6 +131,11 @@ function firstNonEmpty(...values: string[]): string {
   return ''
 }
 
+// Redraft is what a preview read again keeps of the draft: nothing, for a new
+// one, or the channel, the tags and the edit chosen, for one previewed again
+// because its post was refused.
+type Redraft = 'afresh' | 'keeping the choices'
+
 // useDraft is the announcement being prepared: its preview, read for the
 // channel it opens on — so a scope that channel needs is the one it names —
 // the channel it goes to, whom it tags, whether a link is being saved, and the
@@ -140,11 +146,13 @@ function useDraft(defaultChannel: string, channels: string[]) {
   const [linking, setLinking] = useState(false)
   const [edited, setEdited] = useState<string | null>(null)
   const preview = useAsyncAction(
-    async () => {
+    async (redraft: Redraft) => {
       const composed = await previewAnnouncement(channel)
-      setChannel(firstNonEmpty(composed.channel, defaultChannel, channels[0] ?? ''))
-      setPick(pickFrom(composed.tagging))
-      setEdited(null)
+      if (redraft === 'afresh') {
+        setChannel(firstNonEmpty(composed.channel, defaultChannel, channels[0] ?? ''))
+        setPick(pickFrom(composed.tagging))
+        setEdited(null)
+      }
 
       return composed
     },
