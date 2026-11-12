@@ -121,6 +121,27 @@ and a second prose line."
 expect pass "a diff below the scissors line is ignored" "$(printf 'feat: add a thing\n\nA real body.\n# ------------------------ >8 ------------------------\ndiff --git a/x b/x\n+BREAKING-CHANGE: in the diff, not the message')"
 expect pass "a commented example is ignored" "$(printf 'feat: add a thing\n\nReal body.\n# BREAKING-CHANGE: only an example in a comment')"
 
+# A repository whose git comments with another character keeps a line
+# starting with # in the commit, and drops one starting with its own.
+semicolon="${workdir}/semicolon"
+git init -q "${semicolon}"
+git -C "${semicolon}" config core.commentChar ';'
+printf 'feat: add a thing\n\nReal body.\n; BEGIN_NESTED_COMMIT in a comment\n' >"${workdir}/semicolon-comment"
+expect_exit pass "a line commented with core.commentChar is ignored" \
+  run_in "${semicolon}" "${check}" "${workdir}/semicolon-comment"
+printf 'feat: add a thing\n\nReal body.\n# BEGIN_NESTED_COMMIT kept by git\n' >"${workdir}/semicolon-kept"
+expect_output fail "a # line git keeps under core.commentChar is read" "BEGIN_NESTED_COMMIT" \
+  run_in "${semicolon}" "${check}" "${workdir}/semicolon-kept"
+
+# A message as git stored it has no comment left in it, so --stored, as CI
+# checks a commit, reads a line starting with # as the body it is.
+printf 'feat: add a thing\n\nReal body.\n# BEGIN_NESTED_COMMIT stored\n' >"${workdir}/stored"
+expect_output fail "a stored # line is read" "BEGIN_NESTED_COMMIT" "${check}" --stored "${workdir}/stored"
+printf 'fix: a\n\n#12 is fixed by this.\n# ------------------------ >8 ------------------------\n%s\n' \
+  "${prose90}" >"${workdir}/stored-scissors"
+expect_output fail "a stored scissors line ends nothing" "line 5 is" \
+  "${check}" --stored "${workdir}/stored-scissors"
+
 # The message that made release-please propose 0.1.0 for a docs change: a
 # wrapped sentence left "BREAKING CHANGE:" at the start of a line.
 expect fail "a wrapped sentence that reads as a breaking footer" "docs: correct the pre-1.0 version bump rules
