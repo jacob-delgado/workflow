@@ -102,3 +102,41 @@ test('a rebase does not say how it ended beside a frame read before it ended', a
   // Assert: now it does
   expect(await screen.findByText('Rebased onto main.')).toBeTruthy()
 })
+
+// cutOff is a rebase's stream that starts, writes a line, and breaks before
+// it says how the run ended.
+function cutOff(): Response {
+  const encoder = new TextEncoder()
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(encoder.encode(JSON.stringify({ run: rebase('in_progress') }) + '\n'))
+      controller.enqueue(encoder.encode(JSON.stringify({ line: 'Rebasing (1/2)' }) + '\n'))
+    },
+    pull(controller) {
+      controller.error(new TypeError('network error'))
+    },
+  })
+
+  return new Response(body, { headers: { 'Content-Type': 'application/x-ndjson' } })
+}
+
+test('a rebase whose stream breaks once it has begun is never said not to have run', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  fakeApi({ '/api/runs': () => cutOff() })
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({ branch: makeBranch({ upstream: '', behind: 1 }) }),
+  })
+  render(<BranchPanel />)
+  await user.click(screen.getByRole('button', { name: 'Rebase onto main' }))
+  const look = screen.getByRole('form', { name: 'Rebase fix/PROJ-1 onto main' })
+
+  // Act
+  await user.click(within(look).getByRole('button', { name: 'Rebase' }))
+
+  // Assert
+  const said = await screen.findByRole('alert')
+  expect(said.textContent).not.toMatch(/did not run/)
+  expect(said.textContent).toMatch(/may have run in part/)
+})
