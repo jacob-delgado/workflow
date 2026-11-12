@@ -140,6 +140,26 @@ func TestAWaitingPostGivesUpWhenNoCheckIsReported(t *testing.T) {
 	}
 }
 
+func TestAWaitingPostGivesUpOnCIThatRunsUnchangedForTwoHours(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo, waiting := waitingOn(t, forge.CIRunning)
+	repo.mu.Lock()
+	repo.elapsed += armed.RunningPatience
+	repo.mu.Unlock()
+
+	// Act
+	gaveUp := typing(t, waiting, "r").View().Content
+
+	// Assert
+	requireScreen(t, gaveUp, "not announced: CI on #42 has been running for 2h")
+
+	if calls := repo.asked("post "); len(calls) != 0 {
+		t.Errorf("posted %q on CI that never finished", calls)
+	}
+}
+
 func TestAWaitingPostCountsNoQuietTimeAcrossAnOutage(t *testing.T) {
 	t.Parallel()
 

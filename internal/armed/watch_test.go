@@ -113,6 +113,91 @@ func TestCIWatchCountsTheQuietReadsEitherSideOfAnOutage(t *testing.T) {
 	}
 }
 
+// runningCI is CI still running, with done of its three checks finished.
+func runningCI(done int) forge.CI {
+	return forge.CI{State: forge.CIRunning, Total: 3, Done: done, Failed: 0, Checks: nil}
+}
+
+func TestCIWatchGivesUpOnCIThatRunsUnchangedForItsPatience(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	watch, _ := armed.WatchFrom(armedAt()).Read(runningCI(1), armedAt())
+
+	// Act
+	_, got := watch.Read(runningCI(1), armedAt().Add(armed.RunningPatience))
+
+	// Assert
+	if got != armed.VerdictRunningTooLong {
+		t.Errorf("Read(running) unchanged for %v = %v, want it running too long", armed.RunningPatience, got)
+	}
+}
+
+func TestCIWatchWaitsOnCIThatRunsUnchangedWithinItsPatience(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	watch, _ := armed.WatchFrom(armedAt()).Read(runningCI(1), armedAt())
+
+	// Act
+	_, got := watch.Read(runningCI(1), armedAt().Add(armed.RunningPatience-time.Second))
+
+	// Assert
+	if got != armed.VerdictWaiting {
+		t.Errorf("Read(running) unchanged for just under %v = %v, want it waiting", armed.RunningPatience, got)
+	}
+}
+
+func TestCIWatchCountsRunningPatienceFromTheLastChange(t *testing.T) {
+	t.Parallel()
+
+	job := forge.Check{ID: "1", Name: "test", State: forge.CIRunning}
+	cases := map[string]forge.CI{
+		"a check finished":      runningCI(2),
+		"a check rerun, failed": {State: forge.CIRunning, Total: 3, Done: 1, Failed: 1, Checks: nil},
+		"a check started":       {State: forge.CIRunning, Total: 4, Done: 1, Failed: 0, Checks: nil},
+		"a job listed":          {State: forge.CIRunning, Total: 3, Done: 1, Failed: 0, Checks: []forge.Check{job}},
+	}
+
+	for name, changed := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			// The run changes an hour in, so its patience starts again there.
+			watch, _ := armed.WatchFrom(armedAt()).Read(runningCI(1), armedAt())
+			watch, _ = watch.Read(changed, armedAt().Add(time.Hour))
+
+			// Act
+			_, got := watch.Read(changed, armedAt().Add(armed.RunningPatience))
+
+			// Assert
+			if got != armed.VerdictWaiting {
+				t.Errorf("Read(running) %v after arming, an hour after %s = %v, want it waiting",
+					armed.RunningPatience, name, got)
+			}
+		})
+	}
+}
+
+func TestCIWatchKeepsCountingRunningPatienceAcrossAnOutage(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// CI reads the same either side of an hour of reads that failed.
+	watch, _ := armed.WatchFrom(armedAt()).Read(runningCI(1), armedAt())
+	watch, _ = watch.Unheard().Read(runningCI(1), armedAt().Add(time.Hour))
+
+	// Act
+	_, got := watch.Read(runningCI(1), armedAt().Add(armed.RunningPatience))
+
+	// Assert
+	if got != armed.VerdictRunningTooLong {
+		t.Errorf("Read(running) unchanged for %v around an outage = %v, want it running too long",
+			armed.RunningPatience, got)
+	}
+}
+
 func TestStillArmed(t *testing.T) {
 	t.Parallel()
 

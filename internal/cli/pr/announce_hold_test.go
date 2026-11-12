@@ -350,6 +350,29 @@ func TestAnnounceWhenGreenGivesUpOnAPullRequestThatReportsNoCheck(t *testing.T) 
 	}
 }
 
+func TestAnnounceWhenGreenGivesUpOnCIThatRunsUnchangedForTwoHours(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// On a fake clock, every read hears the same status left pending (P033).
+	var posts atomic.Int32
+
+	world := clockedWorld{
+		responses: clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: clitest.RunningStatus()},
+		hook:      webhook(t, &posts),
+	}
+
+	// Act
+	run := onAFakeClock(t, world, "announce", "--when-green", "--yes")
+
+	// Assert
+	if got := cli.ExitStatus(run.err); got != 4 ||
+		!strings.Contains(fmt.Sprint(run.err), "CI on #7 has been running for 2h; not announced") || posts.Load() != 0 {
+		t.Errorf("announce --when-green exited %d (%v), posted %d; want 4, running for 2h, nothing posted",
+			got, run.err, posts.Load())
+	}
+}
+
 // storeInTheWay is a home where a file stands where its store goes, so the
 // store can neither be read nor take a claim.
 func storeInTheWay(t *testing.T) string {

@@ -8,6 +8,7 @@
 package armed
 
 import (
+	"slices"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -33,6 +34,16 @@ const NoCIPatience = 10 * time.Minute
 // polling for as long as its session runs.
 const UnheardPatience = 10 * time.Minute
 
+// RunningPatience is how long an announcement armed to go once CI passes waits
+// on CI that runs and does not change — no check finishing, failing or
+// starting — counted from the read that first saw it as it stands, before it
+// gives up with ErrRunningTooLong.
+//
+// Trade-off TRADE-62: CI whose run reads the same for two hours loses its
+// automatic post, so a status a CI service left pending for good is not
+// polled for as long as the session runs.
+const RunningPatience = 2 * time.Hour
+
 // Verdict is how an announcement armed to go once CI passes stands on a read
 // of its pull request's CI.
 type Verdict int
@@ -48,30 +59,41 @@ const (
 	VerdictDue
 	// VerdictNoCI gives up: no check was reported within NoCIPatience.
 	VerdictNoCI
+	// VerdictRunningTooLong gives up: CI ran, unchanged, for RunningPatience.
+	VerdictRunningTooLong
 )
 
 // CIWatch is the watch over an armed announcement's CI: how long the reads
 // heard since the last that reported a check have reported none, and when the
 // last read was heard, which the next one counts from. A read that failed
-// breaks the span, so an outage is never counted as quiet.
+// breaks the span, so an outage is never counted as quiet. It also keeps the
+// running CI last read and since when it has read so, which an outage does not
+// break: CI that reads the same either side of one ran unchanged through it.
 type CIWatch struct {
 	quiet     time.Duration
 	lastHeard time.Time
+	running   forge.CI
+	steady    time.Time
 }
 
 // WatchFrom is the watch of an announcement armed at armedAt, which counts as
 // heard: the first read counts from it.
 func WatchFrom(armedAt time.Time) CIWatch {
-	return CIWatch{quiet: 0, lastHeard: armedAt}
+	return CIWatch{quiet: 0, lastHeard: armedAt, running: forge.CI{}, steady: time.Time{}}
 }
 
-// Read is how the armed announcement stands on ci, heard at readAt, and the
+// Read is how the armed announcement stands on run, heard at readAt, and the
 // watch to read the next one with: a check reported, running, failed or
 // passed, starts its patience again, and none adds the time since the last
-// read heard, if that read was heard too.
-func (w CIWatch) Read(ci forge.CI, readAt time.Time) (CIWatch, Verdict) {
-	if ci.State != forge.CINone {
-		return CIWatch{quiet: 0, lastHeard: readAt}, verdictOn(ci.State)
+// read heard, if that read was heard too. CI that runs is given up on once it
+// has read the same for RunningPatience.
+func (w CIWatch) Read(run forge.CI, readAt time.Time) (CIWatch, Verdict) {
+	if run.State == forge.CIRunning {
+		return w.readRunning(run, readAt)
+	}
+
+	if run.State != forge.CINone {
+		return CIWatch{quiet: 0, lastHeard: readAt, running: forge.CI{}, steady: time.Time{}}, verdictOn(run.State)
 	}
 
 	quiet := w.quiet
@@ -79,7 +101,7 @@ func (w CIWatch) Read(ci forge.CI, readAt time.Time) (CIWatch, Verdict) {
 		quiet += readAt.Sub(w.lastHeard)
 	}
 
-	heard := CIWatch{quiet: quiet, lastHeard: readAt}
+	heard := CIWatch{quiet: quiet, lastHeard: readAt, running: forge.CI{}, steady: time.Time{}}
 	if quiet >= NoCIPatience {
 		return heard, VerdictNoCI
 	}
@@ -103,7 +125,31 @@ func verdictOn(state forge.CIState) Verdict {
 // kept, and the time since the last read heard is not counted, nor the time
 // until the next one.
 func (w CIWatch) Unheard() CIWatch {
-	return CIWatch{quiet: w.quiet, lastHeard: time.Time{}}
+	return CIWatch{quiet: w.quiet, lastHeard: time.Time{}, running: w.running, steady: w.steady}
+}
+
+// readRunning is how the armed announcement stands on run, which runs, heard
+// at readAt: waiting, unless it reads as the running CI last read did and has
+// since RunningPatience ago.
+func (w CIWatch) readRunning(run forge.CI, readAt time.Time) (CIWatch, Verdict) {
+	steady := w.steady
+	if steady.IsZero() || !sameRun(w.running, run) {
+		steady = readAt
+	}
+
+	heard := CIWatch{quiet: 0, lastHeard: readAt, running: run, steady: steady}
+	if readAt.Sub(steady) >= RunningPatience {
+		return heard, VerdictRunningTooLong
+	}
+
+	return heard, VerdictWaiting
+}
+
+// sameRun reports running CI that reads as it did before: no check finished,
+// failed, started or went.
+func sameRun(before, now forge.CI) bool {
+	return before.Total == now.Total && before.Done == now.Done && before.Failed == now.Failed &&
+		slices.Equal(before.Checks, now.Checks)
 }
 
 // StillArmed reports whether an announcement armed for pull request number

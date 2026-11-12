@@ -461,7 +461,9 @@ gone out, and only `workflow announce` posts that one again, after asking. While
 the section says it waits for checks; after ten minutes of reads that heard
 none, counted from the last read that saw one, a read that failed not counting,
 it is dropped, saying to announce it by hand — a
-repository with no CI is announced by hand. When the branch's pull request is
+repository with no CI is announced by hand. CI that runs and reads the same —
+no check finished, failed or started — for two hours drops it too, saying *CI
+on #42 has been running for 2h*. When the branch's pull request is
 another one, closed, or merged first, it is dropped and the section says why
 in red. It is bound to the branch it was asked for on: checking out another
 branch meanwhile neither posts it nor drops it, and **Stop waiting** is the

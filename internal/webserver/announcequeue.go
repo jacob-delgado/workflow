@@ -436,6 +436,9 @@ func (s *server) droppedWords(hold armed.Hold) string {
 		{armed.ErrNoCI, func() string {
 			return "no checks reported on " + name + " within " + minutes(armed.NoCIPatience) + "; announce it by hand"
 		}},
+		{armed.ErrRunningTooLong, func() string {
+			return "CI on " + name + " has been running for " + hours(armed.RunningPatience)
+		}},
 		{armed.ErrMergedFirst, func() string { return name + " merged before its CI passed" }},
 		{armed.ErrPullChanged, func() string { return name + " is no longer its branch's " + s.noun() }},
 		{loop.ErrPostUncertain, func() string { return postUncertain }},
@@ -461,4 +464,9 @@ func briefly(err error) string {
 // minutes is patience in whole minutes, as "10m".
 func minutes(patience time.Duration) string {
 	return strconv.Itoa(int(patience.Minutes())) + "m"
+}
+
+// hours is patience in whole hours, as "2h".
+func hours(patience time.Duration) string {
+	return strconv.Itoa(int(patience.Hours())) + "h"
 }

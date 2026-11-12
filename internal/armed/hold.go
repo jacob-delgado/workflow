@@ -20,7 +20,8 @@ const (
 	StageListing
 	// StageAwaitingChecks waits for the pull request to report a check.
 	StageAwaitingChecks
-	// StageRunning waits while CI runs.
+	// StageRunning waits while CI runs, for RunningPatience at most while
+	// it runs unchanged.
 	StageRunning
 	// StageAwaitingFix waits for a run that passes, a check having failed.
 	StageAwaitingFix

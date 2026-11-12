@@ -124,6 +124,14 @@ func heardRows() map[string]stepCase {
 			from: awaitingChecks, event: hearing(heldPull(), true, forge.CINone, armed.NoCIPatience),
 			stage: armed.StageDropped, next: armed.NextNothing, reason: armed.ErrNoCI,
 		},
+		"CI running unchanged within patience": {
+			from: running, event: hearing(heldPull(), true, forge.CIRunning, time.Minute+armed.RunningPatience-time.Second),
+			stage: armed.StageRunning, next: armed.NextReadLater,
+		},
+		"CI running unchanged for its patience (P033)": {
+			from: running, event: hearing(heldPull(), true, forge.CIRunning, time.Minute+armed.RunningPatience),
+			stage: armed.StageDropped, next: armed.NextNothing, reason: armed.ErrRunningTooLong,
+		},
 		"CI passed": {
 			from: running, event: hearing(heldPull(), true, forge.CIPassed, 2*time.Minute),
 			stage: armed.StageDue, next: armed.NextDeliver,

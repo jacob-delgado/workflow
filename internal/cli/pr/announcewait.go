@@ -165,16 +165,18 @@ func heldOutcome(notes console.Notes, seams announceSeams, pull string, final ar
 }
 
 // gaveUpWaiting reports whether reason, why a hold was dropped, is one the
-// wait gave up on before anything was posted: no check reported, the pull
-// request no longer the one, or nothing heard for too long.
+// wait gave up on before anything was posted: no check reported, CI that ran
+// unchanged for too long, the pull request no longer the one, or nothing
+// heard for too long.
 func gaveUpWaiting(reason error) bool {
-	return errors.Is(reason, armed.ErrNoCI) || errors.Is(reason, armed.ErrPullChanged) ||
-		errors.Is(reason, armed.ErrMergedFirst) || errors.Is(reason, armed.ErrUnheard)
+	return errors.Is(reason, armed.ErrNoCI) || errors.Is(reason, armed.ErrRunningTooLong) ||
+		errors.Is(reason, armed.ErrPullChanged) || errors.Is(reason, armed.ErrMergedFirst) ||
+		errors.Is(reason, armed.ErrUnheard)
 }
 
 // gaveUp words why a wait for the CI of pull gave up without announcing to
-// service: no check reported, the pull request no longer the one to announce,
-// or nothing heard of it for too long.
+// service: no check reported, CI that ran unchanged for too long, the pull
+// request no longer the one to announce, or nothing heard of it for too long.
 func gaveUp(reason error, pull, service string) error {
 	patience := strconv.Itoa(int(armed.NoCIPatience.Minutes())) + "m"
 
@@ -182,6 +184,9 @@ func gaveUp(reason error, pull, service string) error {
 	case errors.Is(reason, armed.ErrNoCI):
 		return forgeWordedError{armed.ErrNoCI, "no checks were reported on " + pull + " within " + patience +
 			"; if the repository has no CI, announce it by hand with workflow announce"}
+	case errors.Is(reason, armed.ErrRunningTooLong):
+		return forgeWordedError{armed.ErrRunningTooLong, "CI on " + pull + " has been running for " +
+			strconv.Itoa(int(armed.RunningPatience.Hours())) + "h; not announced"}
 	case errors.Is(reason, armed.ErrMergedFirst):
 		return forgeWordedError{armed.ErrMergedFirst, pull + " merged before its CI passed, so it was not announced"}
 	case errors.Is(reason, armed.ErrPullChanged):

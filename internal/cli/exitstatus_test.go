@@ -79,6 +79,7 @@ func TestExitStatusDistinguishesFailureKinds(t *testing.T) {
 		"a move that asks for fields": {err: loop.NeedsFieldsError{}, want: 4},
 		"a check failed":              {err: loop.ErrCIFailed, want: 4},
 		"no check reported":           {err: armed.ErrNoCI, want: 4},
+		"CI running unchanged":        {err: armed.ErrRunningTooLong, want: 4},
 		"another pull request":        {err: armed.ErrPullChanged, want: 4},
 		"merged before CI passed":     {err: armed.ErrMergedFirst, want: 4},
 		"CI unread, the forge away": {
