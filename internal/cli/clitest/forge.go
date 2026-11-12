@@ -48,6 +48,9 @@ type GhResponses struct {
 	CreateError bool   // when set, POST .../pulls answers unreadably, so the open fails
 	SignedOut   bool   // when set, `gh auth token` exits 1, so no token resolves through gh
 	APIHangs    bool   // when set, `gh api` answers nothing for GhHang, as behind a stalled gateway
+	// TokenHangs, when set, has `gh auth token` answer nothing for GhHang, as
+	// a gh waiting on a keyring that never unlocks does.
+	TokenHangs bool
 	// InterruptsStatus, when set, has each status read press ctrl+c on the
 	// process that asked, as a person would mid-wait, and then hang.
 	InterruptsStatus bool
@@ -172,11 +175,13 @@ func ghScript(dir string, responses GhResponses) string {
 		signIn = "if [ \"$1\" = auth ]; then exit 1; fi\n"
 	}
 
-	// exec hands the pipes to sleep itself, so killing the hung gh closes them
-	// rather than leaving a child that holds them open.
 	hang := ""
 	if responses.APIHangs {
-		hang = "if [ \"$1\" = api ]; then exec sleep " + strconv.Itoa(int(GhHang/time.Second)) + "; fi\n"
+		hang = hangingOn("api")
+	}
+
+	if responses.TokenHangs {
+		hang += hangingOn("auth")
 	}
 
 	// The parent is the test's own process, which runs the command in it.
@@ -215,6 +220,13 @@ func ghScript(dir string, responses GhResponses) string {
 		rateLimited("reviewers-ask", responses.ReviewersRateLimited) +
 		"printf 'HTTP/1.1 200 OK\\r\\nContent-Type: application/json\\r\\n\\r\\n'\n" +
 		"cat \"" + dir + "/resp-$f\"\n"
+}
+
+// hangingOn is the fake gh's step that answers its command nothing for
+// GhHang. exec hands the pipes to sleep itself, so killing the hung gh closes
+// them rather than leaving a child that holds them open.
+func hangingOn(command string) string {
+	return "if [ \"$1\" = " + command + " ]; then exec sleep " + strconv.Itoa(int(GhHang/time.Second)) + "; fi\n"
 }
 
 // onlyBranch is the fake gh's step that answers the pull request list of any

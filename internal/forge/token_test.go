@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
 // secret is the token these fakes hand back.
@@ -303,5 +304,86 @@ func TestSourceString(t *testing.T) {
 				t.Errorf("Source(%d).String() = %q, want %q", tt.source, got, tt.want)
 			}
 		})
+	}
+}
+
+// waitingOnItsAsker is a Run that answers nothing until its context ends, as
+// a gh waiting on a keyring that never unlocks does, and then fails as
+// proc.Run does: with the program and why its context ended.
+func waitingOnItsAsker(ctx context.Context, name string, _ ...string) ([]byte, error) {
+	<-ctx.Done()
+
+	return nil, fmt.Errorf("%s: %w", name, context.Cause(ctx))
+}
+
+// outlastingItsBound is a Run stopped at its own time limit, as proc.Run
+// stops a gh that never answers within proc.DefaultRunTimeout.
+func outlastingItsBound(_ context.Context, name string, _ ...string) ([]byte, error) {
+	return nil, fmt.Errorf("%s: %w after 30s", name, proc.ErrTimedOut)
+}
+
+// A CLI cut short before it answered has not said it holds no token: the
+// lookup is reported as the forge not reached, never as no token found.
+func TestResolveTokenCallsACLICutShortUnreachable(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		run     forge.Run
+		asker   func(t *testing.T) context.Context
+		wantErr error
+	}{
+		"its asker gone": {
+			run: waitingOnItsAsker, wantErr: context.Canceled,
+			asker: func(t *testing.T) context.Context {
+				t.Helper()
+
+				ctx, cancel := context.WithCancel(t.Context())
+				cancel()
+
+				return ctx
+			},
+		},
+		"its own time limit reached": {
+			run: outlastingItsBound, wantErr: proc.ErrTimedOut,
+			asker: func(t *testing.T) context.Context {
+				t.Helper()
+
+				return t.Context()
+			},
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			resolver := forge.Resolver{Getenv: noEnv, Look: programAt("gh"), Run: tt.run, Configured: inFile("")}
+
+			// Act
+			_, _, err := resolver.Resolve(tt.asker(t), forge.KindGitHub, githubHost)
+
+			// Assert
+			if !errors.Is(err, forge.ErrUnreachable) || !errors.Is(err, tt.wantErr) || errors.Is(err, forge.ErrNoToken) {
+				t.Errorf("Resolve = %v, want the forge unreachable because of %v, not %v", err, tt.wantErr, forge.ErrNoToken)
+			}
+		})
+	}
+}
+
+// A CLI cut short leaves forge.token its turn: a token the configuration
+// holds is used, as after a CLI that said it held none.
+func TestResolveTokenTakesTheConfigurationAfterACLICutShort(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	resolver := forge.Resolver{Getenv: noEnv, Look: programAt("gh"), Run: outlastingItsBound, Configured: inFile(secret)}
+
+	// Act
+	token, source, err := resolver.Resolve(t.Context(), forge.KindGitHub, githubHost)
+
+	// Assert
+	if err != nil || token.Secret() != secret || source != forge.SourceConfiguration {
+		t.Errorf("Resolve = %v from %v, %v; want the token from %v", token, source, err, forge.SourceConfiguration)
 	}
 }

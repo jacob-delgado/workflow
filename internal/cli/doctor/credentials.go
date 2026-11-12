@@ -207,12 +207,26 @@ func checkForge(ctx context.Context, run doctorRun, remote string) (credentialLi
 
 	access, err := process.ReachForge(ctx, run.cfg.Forge, repo, base, requests)
 	if err != nil {
-		return credentialMissing("forge", noForgeTokenMessage(process.Available, repo.Kind, repo.Host))
+		return noForgeToken(ctx, process.Available, repo, err)
 	}
 
 	client := forge.New(run.log.Wrap("forge", access.Doer), base, access.Token).On(repo.Kind)
 
 	return askForge(ctx, client, repo.Kind, access.Via)
+}
+
+// noForgeToken is the forge's line when the lookup of a token for repo failed
+// with err: missing when no source held one, and otherwise the forge not
+// reached, as when gh was stopped before it answered. A lookup cut short says
+// nothing of whether there is a token to find.
+func noForgeToken(
+	ctx context.Context, available func(string) bool, repo forge.Repo, err error,
+) (credentialLine, error) {
+	if errors.Is(err, forge.ErrNoToken) {
+		return credentialMissing("forge", noForgeTokenMessage(available, repo.Kind, repo.Host))
+	}
+
+	return credentialFailed("forge", unansweredBecause(ctx, err)+" (looking for a token)", err)
 }
 
 // noForgeTokenMessage explains why no forge token resolved. When gh is the

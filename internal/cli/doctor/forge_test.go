@@ -265,6 +265,30 @@ func TestDoctorOnlineGivesUpOnAForgeCLIThatNeverAnswers(t *testing.T) {
 	}
 }
 
+// A gh that never answers for a token, as one waiting on a keyring that never
+// unlocks does, has not said it holds none: the forge was not reached, which
+// is what the row and the exit status say.
+func TestDoctorOnlineCallsAForgeWhoseGhNeverGivesATokenUnreachable(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := clitest.RepoWithRemote(t, githubSSHRemote)
+	clitest.WriteFile(t, dir, `{"jira": {"base_url": "`+clitest.WorkingJira(t)+`", "token": "t"}, `+
+		clitest.SlackWebhook+`, "timing": {"request_timeout": "`+onlineRequestTimeout+`"}}`)
+	clitest.FakeGh(t, clitest.GhResponses{TokenHangs: true})
+
+	// Act
+	output, err := clitest.Run(t, dir, "doctor", "--online")
+
+	// Assert
+	wantExit(t, err, 5)
+
+	want := "could not reach the forge: gave up after " + onlineRequestTimeout + " (looking for a token)"
+	if row := credentialRow(output, "forge"); row != want {
+		t.Errorf("doctor's forge row = %q, want %q:\n%s", row, want, output)
+	}
+}
+
 func TestLogReachesDoctorOnlinesForgeCheckThroughItsCLI(t *testing.T) {
 	t.Parallel()
 
