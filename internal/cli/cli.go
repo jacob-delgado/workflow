@@ -329,11 +329,12 @@ type interfaceInput struct {
 
 // inputFor is what opening the interface wired by conn needs.
 func inputFor(cmd *cobra.Command, conn cmdkit.Connection, dryRun bool) interfaceInput {
+	variables := cmdkit.EnvironmentOf(cmd).Process.Getenv
+
 	return interfaceInput{
 		cfg: conn.Config, loadErr: conn.LoadErr, deps: conn.Deps, resolveAhead: conn.Controls.ResolveAhead,
-		dryRun: dryRun, noColorEnv: cmdkit.EnvironmentOf(cmd).Process.Getenv("NO_COLOR"),
-		accessibleEnv: cmdkit.EnvironmentOf(cmd).Process.Getenv("ACCESSIBLE"), in: cmd.InOrStdin(),
-		out:    cmdkit.TerminalOut(cmd),
+		dryRun: dryRun, noColorEnv: variables("NO_COLOR"), accessibleEnv: variables("ACCESSIBLE"),
+		in: cmd.InOrStdin(), out: cmdkit.TerminalOut(cmd),
 		arrive: func(model tui.Model) tui.Model { return model },
 	}
 }
