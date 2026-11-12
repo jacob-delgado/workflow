@@ -33,7 +33,8 @@ export interface FinishTeller {
 }
 
 // canMerge is loop.CanMerge: open, ready for review, free of conflicts,
-// approved with no changes asked for, and its CI passed.
+// approved with no changes asked for, and its CI passed or none reported. CI
+// not read yet is null, never none.
 function canMerge(pull: PullRequest, ci: Ci | null): boolean {
   return (
     pull.state === 'open' &&
@@ -41,7 +42,7 @@ function canMerge(pull: PullRequest, ci: Ci | null): boolean {
     pull.mergeable === 'clean' &&
     pull.approvals > 0 &&
     !pull.changes_requested &&
-    ci?.state === 'passed'
+    (ci?.state === 'passed' || ci?.state === 'none')
   )
 }
 
@@ -91,7 +92,7 @@ export function PullActions({
   const shared = { name, held: opened !== 'none' && !can(opened), onCancel: close }
   const forms: Record<FormName, ReactNode> = {
     edit: <EditForm {...shared} teller={teller} />,
-    merge: <MergeForm {...shared} teller={teller} />,
+    merge: <MergeForm {...shared} noCI={ci?.state === 'none'} teller={teller} />,
     finish: <FinishForm {...shared} branch={branch} teller={finishTeller} />,
     rerun: <RerunForm {...shared} title={pull.title} teller={teller} />,
   }
@@ -352,8 +353,9 @@ const methodLabel: Record<MergeMethod, string> = {
 }
 
 // MergeForm is the merge's preview: the methods the repository permits, read
-// as it opens, one chosen, and the merge sent only from here.
-function MergeForm({ name, teller, held, onCancel }: FormProps) {
+// as it opens, one chosen, and the merge sent only from here. It says when no
+// CI ran, which the forge's own rules refuse where they require a check.
+function MergeForm({ name, noCI, teller, held, onCancel }: FormProps & { noCI: boolean }) {
   const read = useReadOnOpen(
     readMergeOffer,
     `How ${name} may be merged could not be read. Try again.`,
@@ -386,6 +388,11 @@ function MergeForm({ name, teller, held, onCancel }: FormProps) {
       onSend={() => void merge.run(method)}
       onCancel={onCancel}
     >
+      {noCI ? (
+        <p className="text-sm">
+          No CI ran on {name}; a forge that requires checks refuses the merge.
+        </p>
+      ) : null}
       <fieldset className="flex flex-col gap-tight">
         <legend className="mb-tight text-sm">
           Merge {name} {read.value.pull.title} by:

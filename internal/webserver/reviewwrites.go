@@ -22,7 +22,7 @@ var (
 	errReviewWriteUnavailable = errors.New("that is not available here")
 	errNoOpenPull             = errors.New("the branch has no open pull request")
 	errNotMergeable           = errors.New("it cannot be merged yet: it must be open, ready for review, " +
-		"free of conflicts, approved with no changes asked for, and its CI passed")
+		"free of conflicts, approved with no changes asked for, and its CI passed or none reported")
 	errNotFinishable  = errors.New("this branch cannot be finished")
 	errNothingToRerun = errors.New("there is nothing to re-run: only failed CI on an open pull request is")
 	errNoMergeMethod  = errors.New("the repository permits no merge method")
@@ -166,7 +166,9 @@ func (s *server) mergeablePull(ctx context.Context) (forge.PullRequest, error) {
 		return forge.PullRequest{}, err
 	}
 
-	if !read.found || !loop.CanMerge(read.pull, read.ci) {
+	// CI it cannot read is the zero CI, which reports none, as a repository
+	// with no CI does: CanMerge would take one for the other.
+	if !read.found || s.deps.Forge.CheckStatus == nil || !loop.CanMerge(read.pull, read.ci) {
 		return forge.PullRequest{}, errNotMergeable
 	}
 

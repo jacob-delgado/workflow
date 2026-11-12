@@ -76,6 +76,8 @@ func TestCanMergeHoldsTheTerminalsRule(t *testing.T) {
 			return p
 		}, ci: passedCI(), want: false},
 		"CI still running": {pull: same, ci: forge.CI{State: forge.CIRunning}, want: false},
+		"a check failed":   {pull: same, ci: forge.CI{State: forge.CIFailed}, want: false},
+		"no CI (P065)":     {pull: same, ci: forge.CI{State: forge.CINone}, want: true},
 	}
 
 	for name, tt := range cases {

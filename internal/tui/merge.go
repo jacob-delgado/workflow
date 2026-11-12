@@ -20,9 +20,17 @@ import (
 var errNoMergeMethod = errors.New("cannot merge: the repository permits no merge method")
 
 // canMerge reports a pull request that can be merged here: found, mergeable,
-// green and approved, with a forge that can merge it.
+// green or with no CI reported, and approved, with a forge that can merge it.
 func (s reviewState) canMerge(deps Deps) bool {
-	return s.found && deps.Forge.Merge != nil && loop.CanMerge(s.pull, s.ci)
+	return s.found && deps.Forge.Merge != nil && s.ciReported() && loop.CanMerge(s.pull, s.ci)
+}
+
+// ciReported reports CI that says what the forge reported: anything but none,
+// or none from a read that answered. Before the first read answers, and past
+// one that failed, CI reads as none, which CanMerge would take for a
+// repository with no CI.
+func (s reviewState) ciReported() bool {
+	return s.ci.State != forge.CINone || (s.checked && s.ciErr == nil)
 }
 
 // startMerge opens the merge preview at once and reads which merge methods the
@@ -33,7 +41,7 @@ func (m Model) startMerge() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.overlay = mergePicker{vocab: m.vocab, pull: m.review.pull}
+	m.overlay = mergePicker{vocab: m.vocab, pull: m.review.pull, noCI: m.review.ci.State == forge.CINone}
 	ctx, methods := m.session, m.deps.Forge.MergeMethods
 
 	return m, func() tea.Msg {
@@ -120,10 +128,11 @@ func mergeMethodLabel(method forge.MergeMethod) string {
 }
 
 // mergePicker previews merging a pull request: which of the permitted methods
-// to use, sent only once it is confirmed.
+// to use, sent only once it is confirmed, and whether no CI ran on it.
 type mergePicker struct {
 	vocab    reviewVocab
 	pull     forge.PullRequest
+	noCI     bool
 	methods  []forge.MergeMethod
 	listErr  error
 	settled  bool
@@ -136,11 +145,16 @@ var (
 	_ steppable             = mergePicker{}
 )
 
-// view draws the pull request and the methods it may be merged by, the merge's
-// outcome pinned under the title.
+// view draws the pull request, that no CI ran on it where none did, and the
+// methods it may be merged by, the merge's outcome pinned under the title.
 func (p mergePicker) view(kit renderKit, width, _ int) (string, string) {
 	lines := kit.pinnedOutcome(p.send, "merging", width)
-	lines = append(lines, p.vocab.sigil+strconv.Itoa(p.pull.Number)+" "+p.pull.Title, "")
+	name := p.vocab.sigil + strconv.Itoa(p.pull.Number)
+	lines = append(lines, name+" "+p.pull.Title, "")
+
+	if p.noCI {
+		lines = append(lines, "no CI ran on "+name+"; a forge that requires checks refuses the merge", "")
+	}
 
 	switch {
 	case !p.settled:

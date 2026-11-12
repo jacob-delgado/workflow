@@ -336,10 +336,12 @@ Under the state, the terminal's Review pane's writes, each offered only when
 it can go and each sent from a form that is its last look: **Edit pull
 request** reads its title and description afresh and **Save**s them, as `e`
 does; **Merge**, once it is ready for review, free of conflicts, approved with
-no changes asked for and green, reads the methods the repository permits and
-merges by the one chosen, as `M` does; **Re-run failed checks**, while its CI
-has failed, restarts the failed jobs, as `R` does, and says when a failure had
-no job to restart; and once it has merged, **Finish the branch** shows the
+no changes asked for, and green or with no CI reported — the form then says no
+CI ran, and a forge that requires checks refuses it — reads the methods the
+repository permits and merges by the one chosen, as `M` does; **Re-run failed
+checks**, while its CI has failed, restarts the failed jobs, as `R` does, and
+says when a failure had no job to restart; and once it has merged, **Finish
+the branch** shows the
 three git commands it runs — switch to the base, pull it from the base remote,
 delete the branch — as `F` does, when deleting the branch loses nothing: it is
 at the commit that merged, or its upstream holds every commit on it. When
