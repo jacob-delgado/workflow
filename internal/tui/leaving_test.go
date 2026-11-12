@@ -49,6 +49,34 @@ func writingATask(t *testing.T, repo *world) tui.Model {
 	return writing
 }
 
+// pressedOn is the world's interface with pane focused and key pressed
+// there, whatever it sent not yet answered.
+func pressedOn(pane, key string) func(*testing.T, *world) tui.Model {
+	return func(t *testing.T, repo *world) tui.Model {
+		t.Helper()
+
+		sent, write := pressed(t, typing(t, repo.live(t, 120, 40), pane), key)
+		if write == nil {
+			t.Fatalf("%s on pane %s sent nothing", key, pane)
+		}
+
+		return sent
+	}
+}
+
+// linkingAnOwner is the world's interface with ben marked not on Slack from
+// the announcement's preview, not yet answered, and the preview closed.
+func linkingAnOwner(t *testing.T, repo *world) tui.Model {
+	t.Helper()
+
+	linking, write := pressed(t, typing(t, repo.live(t, 140, 40), "5", "p"), "x")
+	if write == nil {
+		t.Fatal("x on ben sent nothing")
+	}
+
+	return typing(t, linking, keyEsc)
+}
+
 func TestASwitchWaitsForAWriteStillOnItsWay(t *testing.T) {
 	t.Parallel()
 
@@ -64,6 +92,18 @@ func TestASwitchWaitsForAWriteStillOnItsWay(t *testing.T) {
 		"a task's change": {
 			world: withTasks, started: writingATask,
 			want: "wait for the change to a task to finish before switching",
+		},
+		"staging": {
+			world: newWorld, started: pressedOn("3", keySpace),
+			want: "wait for staging to finish before switching",
+		},
+		"a favorite's change": {
+			world: newWorld, started: pressedOn(reposKey, "f"),
+			want: "wait for the change to your favorites to finish before switching",
+		},
+		"an owner's link to Slack": {
+			world: taggingWorld, started: linkingAnOwner,
+			want: "wait for the link to Slack to finish before switching",
 		},
 	}
 

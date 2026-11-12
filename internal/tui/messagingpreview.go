@@ -480,5 +480,5 @@ func (p messagingPreview) markNotOnSlack(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m, saveLink(m.session, m.deps, decided(owner.Owner, owner.Team, nil), p.opened)
+	return m.savingLink(decided(owner.Owner, owner.Team, nil), p.opened)
 }
