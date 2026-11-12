@@ -33,6 +33,9 @@ type GhResponses struct {
 	// StatusRateLimited, when set, answers every status read with GitHub's
 	// 429, asking to wait, as a forge whose rate limit is spent does.
 	StatusRateLimited bool
+	// ReviewersRateLimited, when set, answers every request for reviewers
+	// with GitHub's 429, so a pull request opens without them.
+	ReviewersRateLimited bool
 	// PullsBranch, when set, answers the pull request lists only of that
 	// branch, and every other branch's with none.
 	PullsBranch string
@@ -139,6 +142,7 @@ func writeGhBodies(t *testing.T, dir string, responses GhResponses) {
 		"search":         orDefault(responses.Search, `{"items":[]}`),
 		"user":           user,
 		"none":           "[]",
+		"reviewers-ask":  `{}`,
 		"default":        `{}`,
 		"status-running": RunningStatus(),
 		"status-passed":  PassingStatus(),
@@ -188,6 +192,7 @@ func ghScript(dir string, responses GhResponses) string {
 		"case \"$url\" in\n" +
 		"  *\"/pulls?\"*) f=pulls ;;\n" +
 		"  *\"/pulls/\"*\"/reviews\"*) f=reviews ;;\n" +
+		"  *\"/requested_reviewers\"*) f=reviewers-ask ;;\n" +
 		"  *\"/pulls/\"*) f=pull ;;\n" +
 		"  *\"/pulls\") f=create ;;\n" +
 		"  *\"/commits/\"*\"/status\"*) f=status ;;\n" +
@@ -201,7 +206,8 @@ func ghScript(dir string, responses GhResponses) string {
 		gated(responses.StatusGate) +
 		sequenced(dir, statusRoute, len(responses.StatusSequence)) +
 		sequenced(dir, pullsRoute, len(responses.PullsSequence)) +
-		rateLimited(responses.StatusRateLimited) +
+		rateLimited(statusRoute, responses.StatusRateLimited) +
+		rateLimited("reviewers-ask", responses.ReviewersRateLimited) +
 		"printf 'HTTP/1.1 200 OK\\r\\nContent-Type: application/json\\r\\n\\r\\n'\n" +
 		"cat \"" + dir + "/resp-$f\"\n"
 }
@@ -218,15 +224,15 @@ func onlyBranch(branch string) string {
 		"fi\n"
 }
 
-// rateLimited is the fake gh's step that answers a status read with a 429,
-// as gh api does, exiting 1 with the answer printed; nothing when limited is
-// unset.
-func rateLimited(limited bool) string {
+// rateLimited is the fake gh's step that answers a request on route with a
+// 429, as gh api does, exiting 1 with the answer printed; nothing when
+// limited is unset.
+func rateLimited(route string, limited bool) string {
 	if !limited {
 		return ""
 	}
 
-	return "if [ \"$f\" = " + statusRoute + " ]; then\n" +
+	return "if [ \"$f\" = " + route + " ]; then\n" +
 		"  printf 'HTTP/1.1 429 Too Many Requests\\r\\nContent-Type: application/json\\r\\n\\r\\n'\n" +
 		"  printf '{\"message\":\"API rate limit exceeded\"}'\n" +
 		"  exit 1\n" +

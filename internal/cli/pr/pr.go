@@ -216,7 +216,8 @@ func reportPR(ctx context.Context, out cmdkit.Output, seams prSeams, opts prOpti
 }
 
 // prReport is what `workflow pr --json` prints: the web's OpenedPullRequest
-// shape — the pull request, a warning when it opened without everyone asked,
+// shape — the pull request, a warning when it opened without every reviewer,
+// assignee or label asked,
 // and the offers that followed — with the branches it joins, and whether each
 // offer was taken, since here they are answered rather than offered. ready is
 // set once there is something to report: a pull request opened, or under a dry
@@ -346,7 +347,7 @@ func openPull(
 	}
 
 	pull, err := seams.CreatePull(ctx, request)
-	if err != nil && !errors.Is(err, forge.ErrSomePeopleNotAdded) {
+	if err != nil && !pull.Opened() {
 		return prReport{}, fmt.Errorf("opening the %s: %w", seams.Kind.Noun(), err)
 	}
 
@@ -356,9 +357,10 @@ func openPull(
 	report.branch = branch
 
 	if err != nil {
-		// The pull request is open; who could not be added is a warning, as
-		// the interface and the web give it, not a failure to open.
-		out.Notes.Warn(fmt.Sprintf("Opened without everyone asked: %v", err))
+		// The pull request is open; whom or what could not be added to it is
+		// a warning, as the interface and the web give it, not a failure to
+		// open.
+		out.Notes.Warn(fmt.Sprintf("Opened, but could not add every reviewer, assignee or label: %v", err))
 		report.Warning = err.Error()
 	}
 

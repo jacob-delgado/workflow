@@ -11,17 +11,21 @@ import (
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 )
 
-func TestPRReportsAFailedMove(t *testing.T) {
+func TestPRWarnsOfAFailedMove(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
-		link    int
-		reports []string
+		link     int
+		warnings []string
 	}{
-		"the move fails": {link: http.StatusCreated, reports: []string{"moving PROJ-2 to " + clitest.StatusInReview}},
+		"the move fails": {
+			link: http.StatusCreated, warnings: []string{"WARN Could not move PROJ-2 to " + clitest.StatusInReview},
+		},
 		"both fail": {
-			link:    http.StatusInternalServerError,
-			reports: []string{"linking #7 on PROJ-2", "moving PROJ-2 to " + clitest.StatusInReview},
+			link: http.StatusInternalServerError,
+			warnings: []string{
+				"WARN Could not link #7 on PROJ-2", "WARN Could not move PROJ-2 to " + clitest.StatusInReview,
+			},
 		},
 	}
 
@@ -34,14 +38,15 @@ func TestPRReportsAFailedMove(t *testing.T) {
 				jiraAnswers{link: tt.link, transition: http.StatusInternalServerError})
 
 			// Act
-			_, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes")
+			printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes")
 
 			// Assert
-			wantExit(t, err, 1)
+			// The pull request is open, so what failed after it is a warning.
+			wantExit(t, err, 0)
 
-			for _, report := range tt.reports {
-				if err == nil || !strings.Contains(err.Error(), report) {
-					t.Errorf("pr = %v, want it to report %q", err, report)
+			for _, warning := range tt.warnings {
+				if !strings.Contains(printed.Stderr, warning) {
+					t.Errorf("stderr = %q, want %q", printed.Stderr, warning)
 				}
 			}
 		})
