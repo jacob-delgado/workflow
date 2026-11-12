@@ -155,8 +155,9 @@ What a command says on standard error is a log of entries, each a level:
 - A **note** — a done, declined or dry-run line, guidance, what was left out —
   is the bare sentence, as it has always been.
 - A **warning** — something asked for that did not happen, while the command
-  goes on: a post sent untagged, a pull request opened without everyone asked,
-  a request log not fully written — starts with the tag `WARN`.
+  goes on: a post sent untagged, a pull request opened without every reviewer,
+  assignee or label asked, a link or a move after it that failed, a request
+  log not fully written — starts with the tag `WARN`.
 - The **error** a command ends with starts with `ERROR`, and is said once.
 - A **debug** line, only with `--verbose`, starts with `DEBUG`.
 
@@ -372,10 +373,11 @@ body, and with whether each offer that followed was taken:
 }
 ```
 
-`warning` is added when the pull request opened but some of its reviewers
-or assignees could not be. `follow_ups` lists the offers made — none when
-the branch names no Jira issue — and `done` is false for one declined or
-one that failed, which also fails the command after the JSON is printed.
+`warning` is added when the pull request opened but some of its reviewers,
+assignees or labels could not be added. `follow_ups` lists the offers made —
+none when the branch names no Jira issue — and `done` is false for one
+declined or one that failed; one that failed is warned of on stderr, and the
+command still exits 0, since the pull request is open.
 Under `--dry-run` it prints the pull request it would open, with `number`
 `0`, `url` empty and every offer not done. A pull request that was not
 opened — declined, refused or failed — prints nothing.
@@ -428,9 +430,10 @@ flags change that, each spelled the same short way on every command that takes i
 - **`--yes`** (`-y`) goes ahead without asking. On `pr` it answers every
   question: the push, the open, and the offers that follow it — to link the
   pull request on the branch's issue and to move the issue to the review
-  status. A link
-  that fails is said on stderr, the move is still made, and the command exits
-  non-zero. On `announce` it never repeats an announcement: when the store
+  status. Once the pull request is open, what fails after it is a warning on
+  stderr and the command exits 0: a reviewer, assignee or label that could not
+  be added, and a link or a move that failed — a link that fails still leaves
+  the move to be made. On `announce` it never repeats an announcement: when the store
   says this pull request was already announced at the moment it is at, it
   says so on stderr, announces nothing, and exits 0 — run without `--yes` to be
   asked. With `--dry-run` as well, it still prints the announcement, and its
@@ -459,9 +462,10 @@ flags change that, each spelled the same short way on every command that takes i
   `announce`, asked whether to announce it again, posts it again. `ctrl+c`
   stops it, announcing nothing, with 130.
   Its dry run says it would announce once CI passes, and waits for nothing.
-  `pr --announce` does the same once the pull request is open, asking nothing
-  more, after printing the `--json` report when asked for one, and reads the
-  forge again until it lists the pull request it just opened; without
+  `pr --announce` does the same once the pull request is open, whatever
+  failed after it, asking nothing more, after printing the `--json` report
+  when asked for one, and reads the forge again until it lists the pull
+  request it just opened, for up to ten minutes; without
   messaging set up it opens nothing and exits 3, and beside `--draft`, a pull
   request never announced, it opens nothing and exits 2.
   On `summary` it answers

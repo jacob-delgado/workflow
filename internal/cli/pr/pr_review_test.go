@@ -138,14 +138,11 @@ func TestPRReportsAFailedLinkAndStillMovesTheIssue(t *testing.T) {
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes")
 
 	// Assert
-	wantExit(t, err, 1)
+	// The pull request is open, so the link failing is a warning, said as it
+	// happens, and the status move is still made.
+	wantExit(t, err, 0)
 
-	if err == nil || !strings.Contains(err.Error(), "linking #7 on PROJ-2") {
-		t.Errorf("pr = %v, want the failed link reported", err)
-	}
-
-	// The link failing is said as it happens, and the status move is still made.
-	if !strings.Contains(printed.Stderr, "WARN Could not link #7 on PROJ-2") ||
+	if !strings.Contains(printed.Stderr, "WARN Could not link #7 on PROJ-2 (unexpected response status: 500).") ||
 		!strings.Contains(printed.Stderr, "Moved PROJ-2 to "+clitest.StatusInReview+".\n") || writes.Applied() != 1 {
 		t.Errorf("pr did not say the link failed and still move the issue (%d moves):\nstderr:\n%s",
 			writes.Applied(), printed.Stderr)
@@ -298,12 +295,12 @@ func TestPRYesHelpNamesEverythingItAnswers(t *testing.T) {
 	}
 }
 
-func TestPRNamesNoNextStepAfterAFailedLink(t *testing.T) {
+func TestPRNamesTheNextStepAfterAFailedLink(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// Messaging is set up, but the open's follow-up failed, so the command
-	// fails rather than pointing on to the announcement.
+	// Messaging is set up, and the open's follow-up failed: the pull request
+	// is open all the same, so the command points on to the announcement.
 	clitest.FakeGh(t, clitest.GhResponses{})
 	baseURL, _ := reviewJiraAnswering(t, reviewMoves,
 		jiraAnswers{link: http.StatusInternalServerError, transition: http.StatusNoContent})
@@ -318,8 +315,8 @@ func TestPRNamesNoNextStepAfterAFailedLink(t *testing.T) {
 	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "pr", "--yes")
 
 	// Assert
-	if err == nil || strings.Contains(printed.Stderr, "Announce it with workflow announce") {
-		t.Errorf("pr with a failed link = %v, said %q; want it to fail without naming the next step",
+	if err != nil || !strings.Contains(printed.Stderr, "Announce it with workflow announce") {
+		t.Errorf("pr with a failed link = %v, said %q; want it to exit 0 naming the next step",
 			err, printed.Stderr)
 	}
 }

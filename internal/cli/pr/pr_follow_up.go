@@ -6,20 +6,21 @@ package pr
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 
 	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
 	"github.com/jacob-delgado/workflow/internal/cli/console"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
 // followUp makes the interface's two offers once the pull request is open: to
 // link it on the branch's issue, then to move the issue to the review status,
-// adding each offer made to report. A link that fails does not keep the move
-// from being offered, and the command still fails with it; a question nothing
-// can answer stops both.
+// adding each offer made to report. A link or a move that fails is a warning,
+// not the command's failure: the pull request is open. A link that fails does
+// not keep the move from being offered; a question nothing can answer stops
+// both, and is the command's failure.
 func followUp(
 	ctx context.Context, notes console.Notes, seams prSeams, opened openedPull, opts cmdkit.WriteOptions, report prReport,
 ) (prReport, error) {
@@ -39,8 +40,8 @@ func followUp(
 // offerLink offers to add the just-opened pull request's link to the branch's
 // issue, so the team that watches Jira sees it, and reports the offer made. A
 // branch that names no Jira issue, or a tracker that cannot take a link — the
-// forge's own issues — is offered nothing. A failed link is said at once,
-// before the move is offered.
+// forge's own issues — is offered nothing. A failed link is warned of at once,
+// before the move is offered, and reported not done.
 func offerLink(
 	ctx context.Context, notes console.Notes, seams prSeams, opened openedPull, opts cmdkit.WriteOptions,
 ) ([]followUpReport, error) {
@@ -62,9 +63,9 @@ func offerLink(
 
 	err = seams.LinkPull(ctx, opened.issueKey, opened.pull.URL, opened.pull.Title)
 	if err != nil {
-		notes.Warn("Could not link " + pull + " on " + issue + ".")
+		notes.Warn("Could not link " + pull + " on " + issue + " (" + sanitize.Line(err.Error()) + ").")
 
-		return []followUpReport{offer}, fmt.Errorf("linking %s on %s: %w", pull, issue, err)
+		return []followUpReport{offer}, nil
 	}
 
 	notes.Note("Linked " + pull + " on " + issue + ".")
@@ -79,8 +80,8 @@ func offerLink(
 // a category with "in progress", and reports the offer made. No Jira issue, a
 // read that fails, a status Jira does not offer, or one whose transition needs
 // fields this command cannot fill, is passed over quietly — the pull request is
-// already open. Everything it says is commentary on the open, so it goes to
-// notes.
+// already open — and a move that fails is warned of and reported not done.
+// Everything it says is commentary on the open, so it goes to notes.
 func offerReviewStatus(
 	ctx context.Context, notes console.Notes, seams prSeams, issueKey jira.Key, opts cmdkit.WriteOptions,
 ) ([]followUpReport, error) {
@@ -102,7 +103,10 @@ func offerReviewStatus(
 
 	err = seams.Transition(ctx, issueKey, target, nil)
 	if err != nil {
-		return []followUpReport{offer}, fmt.Errorf("moving %s to %s: %w", issueKey, target.ToStatus, err)
+		notes.Warn("Could not move " + string(issueKey) + " to " + target.ToStatus + " (" +
+			sanitize.Line(err.Error()) + ").")
+
+		return []followUpReport{offer}, nil
 	}
 
 	notes.Note("Moved " + string(issueKey) + " to " + target.ToStatus + ".")
