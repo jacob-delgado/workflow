@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Config } from '@/api/generated/types.gen.ts'
 import { mockConfig } from '@/dev/mockConfig.ts'
@@ -59,11 +59,15 @@ test('a header named as a stored one in another case is refused at its name, and
   await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
   // Assert
+  // The refusal is drawn as the first check runs, and the focus follows once
+  // the save's own check has judged it, a render or more later.
   const name = await row('Header 2').findByRole('textbox', {
     name: 'Name',
     description: headerTaken,
   })
-  expect(document.activeElement).toBe(name)
+  await waitFor(() => {
+    expect(document.activeElement).toBe(name)
+  })
   expect(requests.some((request) => request.method === 'PUT')).toBe(false)
 })
 
