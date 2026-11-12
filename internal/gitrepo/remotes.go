@@ -22,6 +22,10 @@ const (
 	ghBase         = "base"
 )
 
+// thisRepository is the remote git records for a branch that tracks another
+// branch of the same repository.
+const thisRepository = "."
+
 // remoteBranch is a branch on remote, "origin/main".
 func remoteBranch(remote, name string) string {
 	return remote + "/" + name
@@ -90,8 +94,10 @@ func (found remotes) base() string {
 // remote.pushDefault — a fork's clone pushes to its own remote — then the
 // remote the branch tracks, branch.<name>.remote, then DefaultRemote. git
 // exits non-zero for a key that is unset, which optional reads as the empty
-// string, so each unset key falls through cleanly. A detached HEAD, with no
-// branch to keep a key under, asks only for the default.
+// string, so each unset key falls through cleanly, and so does one naming
+// thisRepository, as a branch started from a local one with --track records:
+// a push there publishes nothing. A detached HEAD, with no branch to keep a
+// key under, asks only for the default.
 func (r Repository) PushRemote(ctx context.Context, branch string) string {
 	keys := []string{"remote.pushDefault"}
 	if branch != "" {
@@ -99,7 +105,7 @@ func (r Repository) PushRemote(ctx context.Context, branch string) string {
 	}
 
 	for _, key := range keys {
-		if remote := optional(ctx, r.run, "-C", r.dir, "config", "--get", key); remote != "" {
+		if remote := optional(ctx, r.run, "-C", r.dir, "config", "--get", key); remote != "" && remote != thisRepository {
 			return remote
 		}
 	}
