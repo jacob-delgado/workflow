@@ -11,7 +11,6 @@ import { cn, plural } from '@/lib/utils.ts'
 import { sectionMeta, sectionOf } from '@/shell/sections.ts'
 import { StateMark, type MarkState } from '@/lib/StateMark.tsx'
 import { useUiStore, type Section } from '@/shell/uiStore.ts'
-import { checkoutBranch } from './checkoutApi.ts'
 import {
   type StartAttempt,
   StartInWorktreeButton,
@@ -21,6 +20,7 @@ import {
   WorktreeMadeOffer,
 } from './StartInWorktree.tsx'
 import { startWork } from './startWorkApi.ts'
+import { useBranchSwitch } from './useBranchSwitch.ts'
 import { Failure } from '@/lib/Status.tsx'
 import { StreamWait } from '@/shell/StreamStatus.tsx'
 
@@ -414,21 +414,16 @@ function StoryStage({ stage, current, last, onOpen }: StoryStageProps) {
 
 // CheckoutButton switches the working tree to a branch that is not on HEAD.
 // Where it went is said in the story's outcome; a refusal — a dirty tree — is
-// shown inline for the user to act on.
+// shown inline for the user to act on. It is held while any switch the page
+// sent runs, the issue rows' included.
 function CheckoutButton({ branch, outcome }: { branch: string; outcome: Teller }) {
-  const { state, error, run } = useAsyncAction(() => checkoutBranch(branch), {
-    fallback:
-      'The branch was not switched to. Try again, or switch to it from a terminal to see why.',
-    done: (switched) => `Switched to ${switched.name}.`,
-    onStart: outcome.clear,
-    onDone: outcome.say,
-  })
+  const { state, error, run, held } = useBranchSwitch(branch, outcome)
 
   return (
     <div className="flex flex-col gap-tight">
       <Button
         variant="secondary"
-        held={state === 'running'}
+        held={held}
         onClick={() => {
           void run()
         }}

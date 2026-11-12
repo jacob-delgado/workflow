@@ -1,14 +1,13 @@
 import { useEffect, useRef, type ReactElement, type RefObject } from 'react'
 import type { Issue, TaskBranch, TasksSummary } from '@/api/generated/types.gen.ts'
-import { checkoutBranch } from '@/features/issues/checkoutApi.ts'
 import { IssueStatus } from '@/features/issues/IssueStatus.tsx'
 import { shownKey } from '@/features/issues/issuePlaces.ts'
+import { useBranchSwitch } from '@/features/issues/useBranchSwitch.ts'
 import { issueTaskMark, linkedTo } from '@/features/tasks/taskWords.ts'
 import { Button } from '@/lib/Button.tsx'
 import { revealInPane } from '@/lib/focus.ts'
 import type { Teller } from '@/lib/Outcome.tsx'
 import { StateMark } from '@/lib/StateMark.tsx'
-import { useAsyncAction } from '@/lib/useAsyncAction.ts'
 import { cn } from '@/lib/utils.ts'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { Failure } from '@/lib/Status.tsx'
@@ -218,14 +217,9 @@ interface RowCheckoutProps {
 // the panel's outcome; a refusal — a dirty tree — is shown inline. It is the
 // row's bottom line, inside the row's box and under its summary, so a row that
 // offers it is as wide as one that does not and the list keeps one right edge.
+// It is held while any switch the page sent runs.
 function RowCheckout({ branch, issueKey, outcome }: RowCheckoutProps) {
-  const { state, error, run } = useAsyncAction(() => checkoutBranch(branch), {
-    fallback:
-      'The branch was not switched to. Try again, or switch to it from a terminal to see why.',
-    done: (switched) => `Switched to ${switched.name}.`,
-    onStart: outcome.clear,
-    onDone: outcome.say,
-  })
+  const { state, error, run, held } = useBranchSwitch(branch, outcome)
 
   return (
     <div className="flex flex-col items-start gap-tight px-3 pb-2">
@@ -237,7 +231,7 @@ function RowCheckout({ branch, issueKey, outcome }: RowCheckoutProps) {
             ? `Switching branch for ${issueKey}…`
             : `Switch branch for ${issueKey}`
         }
-        held={state === 'running'}
+        held={held}
         onClick={() => {
           void run()
         }}

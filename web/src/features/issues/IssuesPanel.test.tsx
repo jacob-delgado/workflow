@@ -328,6 +328,33 @@ test('the row names its switch by what it is doing while it runs', async () => {
   expect(screen.getByRole('button', { name: /switching/i }).textContent).toBe('Switching…')
 })
 
+test('one switch goes at a time: while a row switches, no other row sends its own', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  mockCheckout.mockReturnValueOnce(new Promise(() => {}))
+  withIssues()
+  useSnapshotStore.setState((state) => ({
+    snapshot: state.snapshot && {
+      ...state.snapshot,
+      branches: [
+        makeTaskBranch({ name: 'fix/PROJ-1-leak', issue_key: 'PROJ-1', current: false }),
+        makeTaskBranch({ name: 'docs/PROJ-2-setup', issue_key: 'PROJ-2', current: false }),
+      ],
+    },
+  }))
+  renderWithClient(<IssuesPanel />)
+  await user.click(screen.getByRole('button', { name: 'Switch branch for PROJ-1' }))
+
+  // Act
+  await user.click(screen.getByRole('button', { name: 'Switch branch for PROJ-2' }))
+
+  // Assert
+  expect(mockCheckout.mock.calls).toEqual([['fix/PROJ-1-leak']])
+  expect(
+    screen.getByRole('button', { name: 'Switch branch for PROJ-2' }).getAttribute('aria-disabled'),
+  ).toBe('true')
+})
+
 test('does not offer to switch to the branch already on HEAD', () => {
   // Arrange
   withIssues()
