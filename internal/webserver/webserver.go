@@ -180,9 +180,10 @@ type server struct {
 	gone bool
 
 	// indexWrites queues the page's index writes (a stage, a commit, a new
-	// branch): git lets one process write the index at a time, and one that
-	// finds it taken fails rather than waits. A checkout needs no place in the
-	// queue: it refuses the dirty tree any stage leaves.
+	// branch, a checkout): git lets one process write the index at a time,
+	// and one that finds it taken fails rather than waits. A checkout queues
+	// though it refuses the dirty tree any stage leaves: a git run works over
+	// the tree it started on, which may be clean.
 	indexWrites sync.Mutex
 
 	// keptWrites queues every write to the kept file — the associations and

@@ -50,8 +50,12 @@ func (s *server) Checkout(
 }
 
 // switchTo refuses a dirty working tree, then checks out name and returns the
-// branch now in effect.
+// branch now in effect. It takes its place in the index's queue, so it waits
+// for a git run, which works over the tree it started on, clean or not.
 func (s *server) switchTo(ctx context.Context, name string) (gitrepo.Branch, error) {
+	s.indexWrites.Lock()
+	defer s.indexWrites.Unlock()
+
 	err := s.refuseADirtyTree(ctx)
 	if err != nil {
 		return gitrepo.Branch{}, err
