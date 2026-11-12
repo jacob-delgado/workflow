@@ -6,12 +6,17 @@ package proc_test
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/proc"
 )
+
+// errCallerGone is the cause a test's caller ends its context with.
+var errCallerGone = errors.New("the caller went away")
 
 // script describes a run of sh with one command line.
 func script(line string) proc.Command {
@@ -94,6 +99,25 @@ func TestCaptureWithinAnswersACallersCancelAsCanceled(t *testing.T) {
 	}
 }
 
+// A context that ended before the program could start reports its cause too,
+// though no kill reached a program: exec's Start answers with the context's
+// error alone.
+func TestCaptureAnswersAContextEndedBeforeTheStartWithItsCause(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	ctx, cancel := context.WithCancelCause(t.Context())
+	cancel(errCallerGone)
+
+	// Act
+	_, err := proc.Capture(ctx, script("exit 0"), nil)
+
+	// Assert
+	if !errors.Is(err, errCallerGone) {
+		t.Errorf("Capture under a context ended before the start returned %v, want its cause %v", err, errCallerGone)
+	}
+}
+
 func TestCaptureWithinKeepsTheOutputOfAFailedProgram(t *testing.T) {
 	t.Parallel()
 
@@ -107,5 +131,61 @@ func TestCaptureWithinKeepsTheOutputOfAFailedProgram(t *testing.T) {
 
 	if got := strings.TrimSpace(string(output)); got != "[]" {
 		t.Errorf("CaptureWithin output = %q, want %q", got, "[]")
+	}
+}
+
+// A program that exits with a status of its own reports that status, though
+// the context ends before the run returns: the context is canceled only once
+// the program has been reaped, while a process it left behind still holds its
+// output open, so the exit came first every run.
+func TestCaptureReportsAnExitThatCameBeforeTheContextEnded(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dir := t.TempDir()
+	reaped, released := filepath.Join(dir, "reaped"), filepath.Join(dir, "released")
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	go func() {
+		awaitFile(t, reaped)
+		cancel()
+
+		err := os.WriteFile(released, nil, 0o600)
+		if err != nil {
+			t.Errorf("releasing the process left behind: %v", err)
+		}
+	}()
+
+	// Act
+	_, err := proc.Capture(ctx, script(`(while kill -0 $$ 2>/dev/null; do sleep 0.01; done; : > '`+reaped+`'; `+
+		`while [ ! -e '`+released+`' ] && [ -d '`+dir+`' ]; do sleep 0.01; done) & exit 3`), nil)
+
+	// Assert
+	if code, _, exited := proc.Failure(err); !exited || code != 3 {
+		t.Errorf("Capture of a program that exited 3 before its context ended returned %v, want exit status 3", err)
+	}
+}
+
+// awaitFile waits until path is there, for a minute at most.
+func awaitFile(t *testing.T, path string) {
+	t.Helper()
+
+	deadline := time.Now().Add(time.Minute)
+
+	for {
+		_, err := os.Stat(path)
+		if err == nil {
+			return
+		}
+
+		if time.Now().After(deadline) {
+			t.Errorf("waiting for %s: %v", path, err)
+
+			return
+		}
+
+		time.Sleep(time.Millisecond)
 	}
 }

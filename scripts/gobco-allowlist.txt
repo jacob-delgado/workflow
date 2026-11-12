@@ -67,6 +67,9 @@ internal/store/store.go openCurrent TRADE-16 any 3 err != nil
 internal/store/store.go remakeDatabase TRADE-16 any 1 err != nil
 internal/store/store.go removeDatabase TRADE-16 any 1 errors.Is(err, fs.ErrNotExist)
 internal/store/store.go stamp TRADE-16 any 1 err != nil
+# A context's kill that fails because the program exited and was reaped
+# after os/exec asked for it.
+internal/proc/proc.go recordStop TRADE-16 any 1 err == nil
 
 # TRADE-18: only Linux's tests write to /dev/full, so a run on macOS never
 # sees the request log fail to be written.
