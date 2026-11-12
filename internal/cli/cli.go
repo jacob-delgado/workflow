@@ -397,13 +397,24 @@ func whileOpen(ctx context.Context) (context.Context, func() bool) {
 // errKeysRefused is a directory whose ui.keys the interface would refuse.
 var errKeysRefused = errors.New("the configuration there binds keys workflow refuses")
 
+// errConfigurationUnread is a directory whose configuration file is there but
+// did not load.
+var errConfigurationUnread = errors.New("the configuration there did not load")
+
 // switchTo wires the directory a switch asked for, and moves there once its
-// configuration is one the interface can open on: a directory not there, or
-// keys the interface would refuse, leave the working directory as it was.
+// configuration is one the interface can open on: a directory not there, a
+// configuration that did not load, or keys the interface would refuse, leave
+// the working directory as it was. The web's switch refuses the same: opened
+// there, the interface would run on the defaults, settings nobody chose.
 func switchTo(cmd *cobra.Command, from cmdkit.Connection, dir string) (cmdkit.Connection, error) {
 	conn, err := wireAt(cmd.Context(), cmd, from, dir)
 	if err != nil {
 		return cmdkit.Connection{}, err
+	}
+
+	err = conn.UnreadConfiguration()
+	if err != nil {
+		return cmdkit.Connection{}, fmt.Errorf("%w: %w", errConfigurationUnread, err)
 	}
 
 	return conn, moveTo(cmd, dir)
