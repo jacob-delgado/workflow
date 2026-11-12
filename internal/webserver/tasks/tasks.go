@@ -35,9 +35,10 @@ var errSettingsChanged = errors.New(
 	"the taskwarrior settings changed since workflow started in or switched to this directory")
 
 // detectionCache is the event stream's last search for Taskwarrior when it
-// found none, held for taskwarriorHold so a frame does not search again; a
-// search that finds Taskwarrior holds nothing. Its lock is held across the
-// search, so streams that find one due together make one.
+// found none, held for taskwarriorHold so a frame does not search again,
+// unless the list finds Taskwarrior meanwhile; a search that finds Taskwarrior
+// holds nothing. Its lock is held across the search, so streams that find one
+// due together make one.
 type detectionCache struct {
 	mu     sync.Mutex
 	failed error
@@ -62,7 +63,7 @@ func (h *Handlers) ListTasks(ctx context.Context, _ api.ListTasksRequestObject) 
 // once, so the tasks' states and the values the filter offers describe one
 // moment.
 func (h *Handlers) readTaskList(ctx context.Context, said string) (api.TaskList, error) {
-	install, err := h.unlessSettingsChanged(ctx, h.installed)
+	install, err := h.unlessSettingsChanged(ctx, h.listDetection)
 	if err != nil {
 		code, reason := unavailableReason(err)
 
@@ -197,6 +198,28 @@ func (h *Handlers) Summary(ctx context.Context) api.TasksSummary {
 	}
 
 	return h.tasksSummaryDTO(pending.Tasks, linked, h.kit.Now())
+}
+
+// listDetection is which Taskwarrior answers, for the list, which asks each
+// time it is read: one found lets go of a search that found none the stream
+// holds, so the next frame's summary says Taskwarrior is there, as the list
+// does, rather than say otherwise for the rest of taskwarriorHold.
+func (h *Handlers) listDetection(ctx context.Context) (taskwarrior.Install, error) {
+	install, err := h.installed(ctx)
+	if err == nil {
+		h.detection.forget()
+	}
+
+	return install, err
+}
+
+// forget lets go of a search that found none, so the next frame searches
+// again.
+func (c *detectionCache) forget() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.failed = nil
 }
 
 // heldDetection is which Taskwarrior answers, for the stream: a search that
