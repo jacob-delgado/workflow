@@ -951,8 +951,9 @@ to it. `enter` on a row switches nothing, so a double press cannot ask and then
 switch at once. A switch ends the interface and opens it again in that
 directory, wired to it as if workflow had been started there: its repository,
 its forge, the configuration files that apply there and the store's keys all
-follow. A directory not there, or a configuration whose `ui.keys` the interface
-would refuse, leaves it where it was, saying why.
+follow. A directory not there, a configuration file there that did not load,
+or one whose `ui.keys` the interface would refuse, leaves it where it was,
+saying why, as the web's switch does.
 
 What belongs to the session rather than the repository goes with you: the
 comments you were writing on Jira issues, when the directory switched to uses

@@ -106,6 +106,16 @@ func TestASwitchThatCannotBeMadeStaysWhereItWasAndSaysWhy(t *testing.T) {
 
 			return other
 		},
+		"a configuration that does not load there": func(t *testing.T, other string) string {
+			t.Helper()
+
+			err := os.WriteFile(filepath.Join(other, ".workflow.json"), []byte(`{"jira": `), 0o600)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			return other
+		},
 	}
 
 	for name, target := range cases {
