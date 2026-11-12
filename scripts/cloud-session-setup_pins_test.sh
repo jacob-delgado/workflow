@@ -3,7 +3,8 @@
 # Tests for where scripts/cloud-session-setup.sh reads its pins from and how
 # it installs the two linters pinned under build/: yamllint is installed again
 # from the committed requirements file, into a venv in the prefix, when its
-# stamp is gone; markdownlint-cli2 is installed again by npm ci, with no
+# stamp is gone, the one in use kept until the new one is whole;
+# markdownlint-cli2 is installed again by npm ci, with no
 # install script, from a copy of the committed package.json and lock, its link
 # winning over a node's tool of the same name; each linter is installed again
 # when its pin file changes, under a stamp naming the new file alone; and a
@@ -34,14 +35,50 @@ yamllint_repo="${workdir}/yamllint"
 repo "${yamllint_repo}"
 installed "${yamllint_repo}.prefix"
 rm "${yamllint_repo}.prefix/stamps/yamllint@${requirements_digest}"
+mkdir -p "${yamllint_repo}.prefix/venv/bin" "${yamllint_repo}.prefix/yamllint.older/bin"
 expect_exit pass "yamllint, installed again" setup "${yamllint_repo}"
+count_case
+if [[ -e "${yamllint_repo}.prefix/venv" || -e "${yamllint_repo}.prefix/yamllint.older" ]]; then
+  fail_case "yamllint, installed again" "the venvs it replaced are still there: $(ls "${yamllint_repo}.prefix")"
+fi
 count_case
 if ! grep -qxF "pip install --quiet --no-cache-dir --disable-pip-version-check -r ${yamllint_repo}/build/yamllint/requirements.txt" "${log}"; then
   fail_case "yamllint, installed again" "yamllint is not installed from its requirements file: $(grep '^pip ' "${log}" || true)"
 fi
 count_case
-if [[ "$(readlink "${yamllint_repo}.prefix/bin/yamllint")" != "${yamllint_repo}.prefix/venv/bin/yamllint" ]]; then
-  fail_case "yamllint, installed again" "the prefix does not link the venv's yamllint"
+linked="$(readlink "${yamllint_repo}.prefix/bin/yamllint")"
+if [[ "${linked}" != "${yamllint_repo}.prefix/yamllint."*/bin/yamllint || ! -e "${linked}" ]]; then
+  fail_case "yamllint, installed again" "the prefix does not link the venv's yamllint: ${linked}"
+fi
+
+# A yamllint installed by a setup that stops at a later step is one the gate
+# user can run, though the setup never reaches its last chmod.
+stopped_later="${workdir}/stopped-later"
+repo "${stopped_later}"
+installed "${stopped_later}.prefix"
+rm "${stopped_later}.prefix/stamps/yamllint@${requirements_digest}" \
+  "${stopped_later}.prefix/stamps/markdownlint-cli2@${lock_digest}+node24.21.0"
+expect_exit 1 "yamllint, installed by a setup stopped later" setup "${stopped_later}" NPM_STATUS=1
+count_case
+venv="$(readlink "${stopped_later}.prefix/bin/yamllint")"
+venv="${venv%/bin/yamllint}"
+if [[ "$(stat -c %A "${venv}")" != d???r-xr-x ]]; then
+  fail_case "yamllint, installed by a setup stopped later" "its venv is not open to the gate user: $(stat -c %A "${venv}")"
+fi
+
+# An install of yamllint cut short leaves the one in use linked and whole: a
+# venv names its own path, so the new one is built beside it, not in its place.
+cut_short="${workdir}/cut-short"
+repo "${cut_short}"
+installed "${cut_short}.prefix"
+mkdir -p "${cut_short}.prefix/venv/bin"
+: >"${cut_short}.prefix/venv/bin/yamllint"
+ln -s "${cut_short}.prefix/venv/bin/yamllint" "${cut_short}.prefix/bin/yamllint"
+printf 'pyyaml==6.0.3 --hash=sha256:bbbb\n' >>"${cut_short}/build/yamllint/requirements.txt"
+expect_output 1 "a yamllint install cut short" "yamllint" setup "${cut_short}" PIP_STATUS=1
+count_case
+if [[ ! -e "${cut_short}.prefix/bin/yamllint" ]]; then
+  fail_case "a yamllint install cut short" "the yamllint in use is gone: $(ls -l "${cut_short}.prefix/bin/yamllint")"
 fi
 
 # A pin file that changes installs its linter again, under a stamp naming the

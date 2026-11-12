@@ -285,12 +285,23 @@ go_install() {
 }
 
 # install_yamllint installs yamllint and its tree into a venv of its own, from
-# the requirements file that pins every package by each wheel's sha256.
+# the requirements file that pins every package by each wheel's sha256. A venv
+# names its own path, so it cannot be built aside and moved into place as Go
+# and node are: each install makes a new one beside the one in use, links it
+# once it is whole, and only then removes the others, so one cut short leaves
+# the yamllint in use as it was. mktemp makes the venv for root alone, so it is
+# opened to the gate user at once, not left to a last chmod a later step can
+# stop the setup short of.
 install_yamllint() {
-  rm -rf "${prefix}/venv"
-  python3 -m venv "${prefix}/venv"
-  "${prefix}/venv/bin/pip" install --quiet --no-cache-dir --disable-pip-version-check -r "${requirements}"
-  ln -sfn "${prefix}/venv/bin/yamllint" "${prefix}/bin/yamllint"
+  local venv old
+  venv="$(mktemp -d "${prefix}/yamllint.XXXXXX")"
+  chmod 0755 "${venv}"
+  python3 -m venv "${venv}"
+  "${venv}/bin/pip" install --quiet --no-cache-dir --disable-pip-version-check -r "${requirements}"
+  ln -sfn "${venv}/bin/yamllint" "${prefix}/bin/yamllint"
+  for old in "${prefix}"/yamllint.* "${prefix}/venv"; do
+    if [[ "${old}" != "${venv}" ]]; then rm -rf "${old}"; fi
+  done
 }
 
 # install_markdownlint installs markdownlint-cli2 with the pinned node's own
