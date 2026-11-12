@@ -44,12 +44,18 @@ type Location struct {
 	Message string
 }
 
+// hookBanner matches the line of the box lefthook opens each hook's run with,
+// naming the hook: a commit runs pre-commit and then commit-msg, and each
+// gets one.
+var hookBanner = regexp.MustCompile(`^│.*\blefthook\b.*\bhook:\s*\S`)
+
 // NextJob folds one more output line into the jobs seen so far, returning the
-// updated jobs and whether the summary has begun: a job is running from its
-// header until the summary reports it. It does not modify the jobs it is given,
-// so a caller streaming output can keep the running set on its own value and
-// never re-read the whole output — a chatty hook would otherwise cost a full
-// re-parse on every line, and again on every redraw.
+// updated jobs and whether a summary has begun: a job is running from its
+// header until the summary reports it, and the next hook's banner ends that
+// summary, its jobs starting as the first hook's did. It does not modify the
+// jobs it is given, so a caller streaming output can keep the running set on
+// its own value and never re-read the whole output — a chatty hook would
+// otherwise cost a full re-parse on every line, and again on every redraw.
 func NextJob(jobs []Job, inSummary bool, raw string) ([]Job, bool) {
 	line := strings.TrimSpace(raw)
 	next := slices.Clone(jobs)
@@ -57,6 +63,8 @@ func NextJob(jobs []Job, inSummary bool, raw string) ([]Job, bool) {
 	switch {
 	case strings.HasPrefix(line, "summary:"):
 		return next, true
+	case hookBanner.MatchString(line):
+		return next, false
 	case inSummary:
 		return reported(next, line), true
 	default:

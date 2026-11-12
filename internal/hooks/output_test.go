@@ -41,6 +41,15 @@ summary: (done in 0.06 seconds)
 🥊 fails (0.01 seconds)`, "\n")
 }
 
+// lefthookRunJobs are the jobs of lefthookRun, as its summary reports them.
+func lefthookRunJobs() []hooks.Job {
+	return []hooks.Job{
+		{Name: "skipped", State: hooks.JobSkipped, Duration: ""},
+		{Name: "passes", State: hooks.JobPassed, Duration: "0.01 seconds"},
+		{Name: "fails", State: hooks.JobFailed, Duration: "0.01 seconds"},
+	}
+}
+
 func TestNextJobReadsHowEachJobEnded(t *testing.T) {
 	t.Parallel()
 
@@ -48,14 +57,7 @@ func TestNextJobReadsHowEachJobEnded(t *testing.T) {
 		lines []string
 		want  []hooks.Job
 	}{
-		"a finished run": {
-			lines: lefthookRun(),
-			want: []hooks.Job{
-				{Name: "skipped", State: hooks.JobSkipped, Duration: ""},
-				{Name: "passes", State: hooks.JobPassed, Duration: "0.01 seconds"},
-				{Name: "fails", State: hooks.JobFailed, Duration: "0.01 seconds"},
-			},
-		},
+		"a finished run": {lines: lefthookRun(), want: lefthookRunJobs()},
 		// Streamed output arrives a line at a time; a job has started when its
 		// header has, and has not finished until the summary says so.
 		"a run before its summary": {
@@ -73,6 +75,17 @@ func TestNextJobReadsHowEachJobEnded(t *testing.T) {
 				{Name: "lint", State: hooks.JobPassed, Duration: "1.1 seconds"},
 				{Name: "test", State: hooks.JobFailed, Duration: "0.1 second"},
 			},
+		},
+		// A commit runs pre-commit and then commit-msg, and lefthook reports
+		// each hook in turn: the second hook's jobs start after the first's
+		// summary.
+		"a second hook after the first's summary": {
+			lines: append(lefthookRun(),
+				"╭─────────────────────────────────────────╮",
+				"│ 🥊 lefthook  v2.2.1   hook:  commit-msg │",
+				"╰─────────────────────────────────────────╯",
+				"┃  conventional ❯ "),
+			want: append(lefthookRunJobs(), hooks.Job{Name: "conventional", State: hooks.JobRunning, Duration: ""}),
 		},
 		"output that is not lefthook's": {lines: []string{"On branch main", "nothing to commit"}, want: nil},
 	}
