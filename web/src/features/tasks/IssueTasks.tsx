@@ -25,16 +25,18 @@ import {
 import { Failure } from '@/lib/Status.tsx'
 
 // IssueTasks is the Tasks card of an issue's detail: each task linked to the
-// issue, with its mark and how it stands, and — for one still to do — the
-// buttons that start or stop it and mark it done; and, while no linked task is
-// still to do and the page has not just tracked the issue, the button that
-// tracks it in Taskwarrior. It reads the stream, with the task list a write
-// last answered laid over it and each task the page has just marked done as
-// that done's answer described it, so a write shows at once rather than a
-// frame later; a task just marked done that the answer could not describe
-// stands as the stream has it, with nothing to do on it, until a frame or a
-// list describes it again. Nothing is drawn until the stream says Taskwarrior
-// has answered, as the terminal draws no Tasks block until it has.
+// issue, with its mark and how it stands, and — for one still to do that is
+// not a recurring task's template, which its instances are made from and which
+// is never started or done itself — the buttons that start or stop it and mark
+// it done; and, while no linked task is still to do and the page has not just
+// tracked the issue, the button that tracks it in Taskwarrior. It reads the
+// stream, with the task list a write last answered laid over it and each task
+// the page has just marked done as that done's answer described it, so a write
+// shows at once rather than a frame later; a task just marked done that the
+// answer could not describe stands as the stream has it, with nothing to do on
+// it, until a frame or a list describes it again. Nothing is drawn until the
+// stream says Taskwarrior has answered, as the terminal draws no Tasks block
+// until it has.
 export function IssueTasks({ issueKey }: { issueKey: string }) {
   const tasks = useSnapshotStore((state) => state.snapshot?.tasks)
   const streamedAt = useSnapshotStore((state) => state.receivedAt)
@@ -67,7 +69,7 @@ export function IssueTasks({ issueKey }: { issueKey: string }) {
             <LinkedTask
               key={task.uuid}
               task={task}
-              writable={stillToDo(task) && !justDone.has(task.uuid)}
+              writable={stillToDo(task) && task.status !== 'recurring' && !justDone.has(task.uuid)}
               now={now}
               teller={outcome}
             />
@@ -104,7 +106,7 @@ function newestOf(streamed: Task[], listed: Task[], listNewer: boolean): Task[] 
 interface LinkedTaskProps {
   task: Task
   // writable is whether the writes on the task are offered: it is still to do,
-  // and the page has not just marked it done.
+  // not a recurring task's template, and the page has not just marked it done.
   writable: boolean
   now: number
   teller: Teller
