@@ -617,19 +617,22 @@ jobs:
   # Post the summary's report on the PR itself. Informational: the floors in the
   # Test and Branch coverage jobs are what fail a build, and this job is
   # deliberately not something to gate on. It checks nothing out and installs
-  # nothing: it posts the markdown the summary job rendered.
+  # nothing: it posts the markdown the summary job rendered, marked with the
+  # head it measured. A docs-only run measures nothing, so it edits the comment,
+  # if there is one, to a note naming its own head and the head last measured,
+  # rather than leave a report that reads as this head's.
   coverage-comment:
     name: Coverage comment
     # Not for a run a newer push cancelled: that run's partial counts would
     # overwrite the comment until the newer one lands.
-    needs: [summary]
+    needs: [changes, summary]
     # Same-repository pull requests only. A fork's PR runs with a read-only token,
     # so the pull-requests: write this job asks for is not granted and it would
     # fail rather than comment — and it is reporting, never a gate, so skipping it
     # on forks costs nothing.
     if: >-
       !cancelled() &&
-      needs.summary.result == 'success' &&
+      (needs.summary.result == 'success' || needs.changes.outputs.docs == 'true') &&
       github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
@@ -639,17 +642,21 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: needs.changes.outputs.docs != 'true'
         with:
           name: ci-report
       - name: Upsert the comment
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           COMMENT: ci-report.md
+          DOCS_ONLY: ${{ needs.changes.outputs.docs }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         with:
           script: |
             const fs = require('fs')
             const marker = '<!-- coverage-report -->'
-            const body = fs.readFileSync(process.env.COMMENT, 'utf8')
+            const head = process.env.HEAD_SHA
+            const headMarker = (sha) => `<!-- coverage-head: ${sha} -->`
             const { owner, repo } = context.repo
             const issue_number = context.issue.number
             // Every page, so a pull request with a long discussion updates its
@@ -662,6 +669,18 @@ jobs:
             const existing = comments.find(
               (c) => c.user?.login === 'github-actions[bot]' && c.body?.includes(marker),
             )
+            if (process.env.DOCS_ONLY === 'true') {
+              // Nothing measured, and no report to leave stale.
+              if (!existing) return
+              const measured = existing.body.match(/<!-- coverage-head: (\w+) -->/)?.[1]
+              const note =
+                `Coverage was not measured for ${head}, which changes the docs alone; ` +
+                `the last report, for ${measured ?? 'an earlier head'}, is in this comment's edit history.`
+              const body = [marker, ...(measured ? [headMarker(measured)] : []), note].join('\n')
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body })
+              return
+            }
+            const body = `${fs.readFileSync(process.env.COMMENT, 'utf8')}\n${headMarker(head)}\n`
             if (existing) {
               await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body })
             } else {
