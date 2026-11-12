@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/sanitize"
@@ -116,7 +117,11 @@ func CaptureWithin(ctx context.Context, timeout time.Duration, program Command, 
 // The bound travels as the context's cause because Wait reports the killed
 // process's own "signal: killed" over the context's error; the cause is what
 // tells a run this bound stopped from one the caller's context ended, whose own
-// error, context.Canceled or context.DeadlineExceeded, is returned instead.
+// error, context.Canceled or context.DeadlineExceeded, is returned instead. It
+// is returned only when the context's kill reached a running program, or the
+// context ended before the program started: a program that exited first, with
+// a status of its own, reports that status, though the context ended before
+// the run returned.
 func captureWithin(ctx context.Context, timeout time.Duration, program Command, input []byte) ([]byte, error) {
 	if timeout > 0 {
 		var cancel context.CancelFunc
@@ -130,6 +135,8 @@ func captureWithin(ctx context.Context, timeout time.Duration, program Command, 
 		return nil, err
 	}
 
+	stopped := recordStop(command)
+
 	var stdout, stderr bytes.Buffer
 
 	command.Stdout, command.Stderr = &stdout, &stderr
@@ -139,21 +146,44 @@ func captureWithin(ctx context.Context, timeout time.Duration, program Command, 
 	}
 
 	err = command.Run()
-	if err != nil {
-		return stdout.Bytes(), failed(ctx, program.Name, err, &stderr)
-	}
 
-	return stdout.Bytes(), nil
+	switch {
+	case err == nil:
+		return stdout.Bytes(), nil
+	case stopped.Load(), command.Process == nil && ctx.Err() != nil:
+		return stdout.Bytes(), fmt.Errorf("%s: %w", program.Name, context.Cause(ctx))
+	default:
+		return stdout.Bytes(), failed(program.Name, err, &stderr)
+	}
 }
 
-// failed is how a run that returned err ended: the context's cause once ctx is
-// done, an ExitError for a program that exited with a status of its own, and
-// otherwise exec's error, a signal say, with what the program wrote to stderr.
-func failed(ctx context.Context, name string, err error, stderr *bytes.Buffer) error {
-	if ctx.Err() != nil {
-		return fmt.Errorf("%s: %w", name, context.Cause(ctx))
+// recordStop reports whether the context's kill reached command's program
+// while it ran, which is what tells a stopped program from one that exited by
+// itself on every platform: on Windows a killed program reads as one that
+// exited with status 1. A kill that lands as the program exits, before it is
+// reaped, counts as the stop.
+func recordStop(command *exec.Cmd) *atomic.Bool {
+	var stopped atomic.Bool
+
+	kill := command.Cancel
+	command.Cancel = func() error {
+		err := kill()
+		// Trade-off TRADE-16: exec asks for the kill only before it has reaped
+		// the program, so the kill fails only when the program exits and is
+		// reaped in between, a race no test can hold open; the run then reports
+		// how the program ended, as one that exited first does.
+		stopped.Store(err == nil)
+
+		return err
 	}
 
+	return &stopped
+}
+
+// failed is how a run nothing stopped ended: an ExitError for a program that
+// exited with a status of its own, and otherwise exec's error, a signal say,
+// with what the program wrote to stderr.
+func failed(name string, err error, stderr *bytes.Buffer) error {
 	reason := strings.TrimSpace(sanitize.Text(stderr.String()))
 
 	exit, ok := errors.AsType[*exec.ExitError](err)

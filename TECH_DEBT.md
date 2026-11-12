@@ -280,10 +280,14 @@ the version into a file the open just made or read (checked in
 (`internal/store/clean.go`) cannot rename a file aside, `putBack` renames
 back each one it has just moved, which fails only when another program moves
 the aside file away, or puts what a rename cannot replace, such as a
-directory, at its name, in between.
+directory, at its name, in between. Stopping a program at its context's
+end: `recordStop` (`internal/proc/proc.go`) counts a run as stopped only when
+the context's kill reached it, and `os/exec` asks for that kill only before
+it has reaped the program, so the kill fails only when the program exits and
+is reaped between the two.
 
-**Decided.** 2026-09-26, in #146, and on 2026-11-12, in #373, for the
-clean's put-back.
+**Decided.** 2026-09-26, in #146; on 2026-11-12, in #373, for the clean's
+put-back; and on 2026-11-13, in #373, for the kill that comes too late.
 
 **Cost.** Five error arms no test runs: `removeDatabase`'s own, a removal
 that fails for any reason but the file being gone already; `stamp`'s own
@@ -295,6 +299,9 @@ test sees one: what it says is read rather than checked. When the aside file
 was moved away, nothing stays aside. Otherwise it stays at its aside name,
 which `Files` lists, and the store opens without it, so a `kept.db` left aside
 reads as empty, until a clean whose scope covers that file removes it first.
+A kill that comes too late is one more arm no test runs, `recordStop`'s
+`err == nil` seen false; the run then reports how the program ended, as one
+that exited before its context did.
 
 **Reopen when.** One of these failures is reported, or a change to the calls
 lets a test fail the second without the first.
