@@ -216,6 +216,41 @@ if ((tag_step_status == 0)) || grep -q 'workflow run' "${workdir}/stray.log"; th
   sed 's/^/    /' "${workdir}/stray.log" "${workdir}/stray.out" >&2
 fi
 
+# A relabel GitHub refuses fails the run once the build is dispatched, and
+# the rerun, finding the tag and release.yml's run behind it, still flips the
+# label a pending release keeps: release-please offers no next release while
+# a merged pull request is labeled pending.
+count_case
+repository unlabeled "1.4.0"
+quiet_git -C "${workdir}/unlabeled" commit -m "chore(main): release 1.4.0"
+quiet_git -C "${workdir}/unlabeled" push origin main
+GH_STUB_FAIL="pr edit" run_tag_step unlabeled "${released}"
+if ((tag_step_status == 0)) || ! grep -q 'workflow run release.yml --ref v1.4.0' "${workdir}/unlabeled.log"; then
+  fail_case "a relabel refused" "want the build dispatched and the run failed, got exit ${tag_step_status} and:"
+  sed 's/^/    /' "${workdir}/unlabeled.log" "${workdir}/unlabeled.out" >&2
+fi
+count_case
+: >"${workdir}/unlabeled.log"
+
+GH_STUB_RUNS="${one_run}" run_tag_step unlabeled "${released}"
+
+if ((tag_step_status != 0)) || ! grep -q 'pr edit 42' "${workdir}/unlabeled.log" \
+  || grep -q 'workflow run' "${workdir}/unlabeled.log"; then
+  fail_case "a rerun after a relabel refused" \
+    "want pull request 42 relabeled and nothing dispatched, got exit ${tag_step_status} and:"
+  sed 's/^/    /' "${workdir}/unlabeled.log" "${workdir}/unlabeled.out" >&2
+fi
+
+# A rerun whose label was flipped already finds no pending pull request, and
+# leaves it alone.
+count_case
+: >"${workdir}/unlabeled.log"
+GH_STUB_RUNS="${one_run}" run_tag_step unlabeled "${unlabeled}"
+if ((tag_step_status != 0)) || grep -q 'pr edit' "${workdir}/unlabeled.log"; then
+  fail_case "a rerun of a release relabeled already" "want nothing done, got exit ${tag_step_status} and:"
+  sed 's/^/    /' "${workdir}/unlabeled.log" "${workdir}/unlabeled.out" >&2
+fi
+
 decides "decide: a release commit" "chore(main): release 1.4.0" "version=v1.4.0"
 decides "decide: a prerelease" "chore(main): release 1.4.0-rc.1" "version=v1.4.0-rc.1"
 decides "decide: a release subject above a body" $'chore(main): release 1.4.0\n\nnotes' "version=v1.4.0"
