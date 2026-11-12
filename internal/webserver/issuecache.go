@@ -31,6 +31,13 @@ type issuesCache struct {
 	reading map[string]*landing[jira.SearchResult]
 	// dropped counts the drops, so a search that began before one lands due.
 	dropped int
+	// unkept is each view's newest page a search answered that the store has
+	// not been asked to keep yet, and keeping each view whose page a frame is
+	// putting in the store now. That frame keeps a page landing meanwhile
+	// after its own, so the store never ends on an older page than a newer
+	// one it was asked to keep.
+	unkept  map[string][]jira.Issue
+	keeping map[string]bool
 }
 
 // heldPage is a view's first page as a search answered it, or why the search
@@ -62,7 +69,7 @@ func (s *server) frameIssues(ctx context.Context, jql string) (jira.SearchResult
 			s.issuesHeld.land(jql, dropped, heldPage{result: result, failed: err, readAt: s.now()})
 
 			if err == nil {
-				s.keepFirstPage(shared, jql, result.Issues)
+				s.keepFirstPage(shared, jql)
 			}
 
 			return result, err
@@ -75,15 +82,23 @@ func (s *server) frameIssues(ctx context.Context, jql string) (jira.SearchResult
 // either surface opens on the list the other last saw. A dry run keeps
 // nothing. A store that could not keep the list is noted, since the list is
 // shown all the same. It runs under the shared search's context, so it
-// outlives the page that searched and ends with the server.
-func (s *server) keepFirstPage(ctx context.Context, jql string, issues []jira.Issue) {
+// outlives the page that searched and ends with the server. While another
+// frame keeps the view's page it returns at once, leaving its newer page to
+// that frame, and the frame keeping one keeps every page landing meanwhile in
+// turn, so the last the store is asked to keep is the newest.
+func (s *server) keepFirstPage(ctx context.Context, jql string) {
 	if s.deps.Store.CacheIssues == nil || s.info.DryRun {
 		return
 	}
 
-	err := s.deps.Store.CacheIssues(ctx, jql, issues)
-	if err != nil {
-		s.unexpected(fmt.Errorf("keeping the issue list for the next session: %w", err))
+	issues, ours := s.issuesHeld.startKeeping(jql)
+	for ours {
+		err := s.deps.Store.CacheIssues(ctx, jql, issues)
+		if err != nil {
+			s.unexpected(fmt.Errorf("keeping the issue list for the next session: %w", err))
+		}
+
+		issues, ours = s.issuesHeld.nextToKeep(jql)
 	}
 }
 
@@ -127,6 +142,7 @@ func (c *issuesCache) serve(jql string, now time.Time, interval time.Duration) t
 
 	if c.reading == nil {
 		c.reading, c.pages = map[string]*landing[jira.SearchResult]{}, map[string]heldPage{}
+		c.unkept, c.keeping = map[string][]jira.Issue{}, map[string]bool{}
 	}
 
 	c.reading[jql] = newLanding[jira.SearchResult]()
@@ -146,6 +162,46 @@ func (c *issuesCache) land(jql string, dropped int, page heldPage) {
 
 	page.due = c.dropped != dropped
 	c.pages[jql] = page
+
+	if page.failed == nil {
+		c.unkept[jql] = page.result.Issues
+	}
+}
+
+// startKeeping hands the caller the newest page of jql the store has not
+// been asked to keep, for it to keep, unless another frame is keeping the
+// view's page, which then keeps this one after its own: ours is false then,
+// and when there is none to keep.
+func (c *issuesCache) startKeeping(jql string) ([]jira.Issue, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.keeping[jql] {
+		return nil, false
+	}
+
+	return c.takeUnkept(jql)
+}
+
+// nextToKeep is the page of jql that landed while the caller kept the one
+// before, for it to keep next, or false once none did, when the view is left
+// for the next frame to keep.
+func (c *issuesCache) nextToKeep(jql string) ([]jira.Issue, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return c.takeUnkept(jql)
+}
+
+// takeUnkept takes the newest page of jql the store has not been asked to
+// keep, and marks the view as being kept while there is one. It runs under
+// mu.
+func (c *issuesCache) takeUnkept(jql string) ([]jira.Issue, bool) {
+	issues, waiting := c.unkept[jql]
+	delete(c.unkept, jql)
+	c.keeping[jql] = waiting
+
+	return issues, waiting
 }
 
 // drop forgets every view's page, so the next frame searches again: a change
