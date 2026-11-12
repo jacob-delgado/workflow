@@ -327,6 +327,22 @@ func (m Model) offerForMove(issueKey jira.Key, to jira.Transition) func(Model) (
 	return m.followUp
 }
 
+// offeredOnOpening is a follow-up that asks offer for its offer once it
+// opens, from the tasks as they stand then, rather than as they stood when
+// it was queued: it waits behind whatever is asked first, the status picker
+// or the issue linker, while the tasks may be read again. It opens nothing
+// when there is then nothing to offer.
+func offeredOnOpening(offer func(Model) func(Model) (Model, tea.Cmd)) func(Model) (Model, tea.Cmd) {
+	return func(m Model) (Model, tea.Cmd) {
+		open := offer(m)
+		if open == nil {
+			return m, nil
+		}
+
+		return open(m)
+	}
+}
+
 // offering is a follow-up that opens a last look at a change of a task, asking
 // as asking does.
 func offering(look lastLook, wouldDo string, change func() taskActed) func(Model) (Model, tea.Cmd) {
