@@ -38,6 +38,15 @@ func TestTheForgeSeamsReturnTheForgesAnswerThroughTheCLI(t *testing.T) {
 			want: "found=false",
 		},
 		{
+			seam: "ReadPullRequest",
+			act: func(forgeSeams seams.Forge) (string, error) {
+				read, err := forgeSeams.ReadPullRequest(t.Context(), 43)
+
+				return fmt.Sprintf("mergeable=%t", read.Mergeable == forge.MergeClean), err
+			},
+			want: "mergeable=true",
+		},
+		{
 			seam: "CreatePullRequest",
 			act: func(forgeSeams seams.Forge) (string, error) {
 				created, err := forgeSeams.CreatePullRequest(t.Context(), forge.NewPullRequest{Title: "fix: token"})

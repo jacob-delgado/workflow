@@ -24,7 +24,10 @@ type githubPull struct {
 	Draft    bool       `json:"draft"`
 	State    string     `json:"state"`
 	MergedAt *time.Time `json:"merged_at"`
-	Base     struct {
+	// Mergeable is carried only by the read of one pull request, not the
+	// list, and is null while GitHub is still working the merge out.
+	Mergeable *bool `json:"mergeable"`
+	Base      struct {
 		Ref string `json:"ref"`
 	} `json:"base"`
 	// Head.Repo is the repository the head branch is on, nil once that
@@ -189,6 +192,23 @@ func githubFind(ctx context.Context, client Client, repo Repo, head Head) (PullR
 	return pull, true, nil
 }
 
+// githubRead reads the pull request of this number, with its review state
+// while it is open.
+func githubRead(ctx context.Context, client Client, repo Repo, number int) (PullRequest, error) {
+	read, err := repoCall[githubPull](ctx, client, repo, http.MethodGet, githubPullPath(repo, number), nil)
+	if err != nil {
+		return PullRequest{}, err
+	}
+
+	pull := read.pullRequest()
+	if pull.State == StateOpen {
+		pull.Mergeable = mergeability(read.Mergeable)
+		githubReviewTally(ctx, client, repo, &pull)
+	}
+
+	return pull, nil
+}
+
 // githubSearchQuery finds the open pull requests that request the token owner's
 // review. @me is GitHub's own name for whoever the token belongs to, so the
 // user's own name is never needed.
@@ -266,12 +286,6 @@ func githubReviews(ctx context.Context, client Client) ([]ReviewRequest, error) 
 	return reviews, nil
 }
 
-// githubDetail is the single-pull-request read, for the mergeable flag the list
-// does not carry. GitHub returns null while it is still working the merge out.
-type githubDetail struct {
-	Mergeable *bool `json:"mergeable"`
-}
-
 // githubReview is one review on a pull request: whose it is and where it stands.
 type githubReview struct {
 	State       string                 `json:"state"`
@@ -280,17 +294,22 @@ type githubReview struct {
 }
 
 // githubReviewState fills in a pull request's approvals, requested changes and
-// mergeability. It is best effort: a call the token cannot make leaves the
-// fields as they are rather than failing the whole find.
+// mergeability, which the list does not carry. It is best effort: a call the
+// token cannot make leaves the fields as they are rather than failing the
+// whole find.
 func githubReviewState(ctx context.Context, client Client, repo Repo, pull *PullRequest) {
-	base := githubPullPath(repo, pull.Number)
-
-	detail, err := repoCall[githubDetail](ctx, client, repo, http.MethodGet, base, nil)
+	detail, err := repoCall[githubPull](ctx, client, repo, http.MethodGet, githubPullPath(repo, pull.Number), nil)
 	if err == nil {
 		pull.Mergeable = mergeability(detail.Mergeable)
 	}
 
-	reviews, err := githubPullReviews(ctx, client, repo, base)
+	githubReviewTally(ctx, client, repo, pull)
+}
+
+// githubReviewTally fills in a pull request's approvals and requested
+// changes, best effort as githubReviewState is.
+func githubReviewTally(ctx context.Context, client Client, repo Repo, pull *PullRequest) {
+	reviews, err := githubPullReviews(ctx, client, repo, githubPullPath(repo, pull.Number))
 	if err == nil {
 		pull.Approvals, pull.ChangesRequested = tallyReviews(reviews)
 	}

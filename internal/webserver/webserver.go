@@ -207,6 +207,10 @@ type server struct {
 	// interval.
 	forgeAnswer forgeCache
 
+	// opened is each pull request opened here that the forge's list has not
+	// yet been seen to include, which a read of its branch reads by number.
+	opened *openedPulls
+
 	// issuesHeld is each view's first page of issues, held for an interval.
 	issuesHeld issuesCache
 

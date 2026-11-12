@@ -45,7 +45,12 @@ type forgeSetup struct {
 // forge it is under the settings in effect at each call, as connect does.
 func forgeDeps(setup forgeSetup, connect func(context.Context) (forgeConnection, error)) seams.Forge {
 	return seams.Forge{
-		FindPullRequest:   findSeam(setup, connect),
+		FindPullRequest: findSeam(setup, connect),
+		ReadPullRequest: func(ctx context.Context, number int) (forge.PullRequest, error) {
+			return ask(ctx, connect, func(on forgeConnection) (forge.PullRequest, error) {
+				return on.client.ReadPullRequest(ctx, on.repo, number)
+			})
+		},
 		CreatePullRequest: createSeam(setup, connect),
 		Activity: func(ctx context.Context, start, end time.Time) (forge.Activity, error) {
 			return ask(ctx, connect, func(on forgeConnection) (forge.Activity, error) {

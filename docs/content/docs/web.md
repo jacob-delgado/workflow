@@ -93,28 +93,28 @@ issues are yours, once a minute, and again after an assignment made here;
 the forge — the pull request, its reviews and its CI — at most once every
 `timing.ci_interval`, and at once when another branch is checked out or
 its head commit moves, while a pull request the page opens shows from the
-open on, without asking the forge; and who the forge says
-you are, until it answers, at most once every `timing.ci_interval`. A tab
-that has an answer to show is not held up by another tab's read of the
-forge or the tracker, except after an edit, a merge, a finish or a
-re-run of the pull request, a status change (a move to review among
-them), or an assignment, made here: the next push waits for the read
-that follows it, so it shows what changed. A forge
-read that fails keeps the last answer for the same branch and head
-commit, and says why beside it. A read that fails shows
-as a failure in its section, with the reason, rather than as an empty one:
-the Issues list does not say no issue matches, the Branch section does not
-say the directory is no repository, and the Review section does not offer to
-open a pull request, while Jira, git or the forge cannot be read. A service
-that is not set up — no Jira or forge token, a base remote that names no forge —
-is no failure: the section says, in the muted color beside the not-started
-mark, that it is not set up and how to set it up, in place of what it would
-have shown. When the store holds the view's issues from an earlier read —
-the terminal's or this page's — the server sends them first, read from disk
-before anything is asked of the network, so Issues lists them at once while
-every other section waits for the first update; `--dry-run` neither reads nor
-keeps them. The stream's state is beside the theme, and a section waiting on
-its first update says the same word:
+open on, without asking the forge, and until the forge's list of the
+branch's pull requests includes it, each read asks for it by its number; and
+who the forge says you are, until it answers, at most once every
+`timing.ci_interval`. A tab that has an answer to show is not held up by
+another tab's read of the forge or the tracker, except after an edit, a merge,
+a finish or a re-run of the pull request, a status change (a move to review
+among them), or an assignment, made here: the next push waits for the read
+that follows it, so it shows what changed. A forge read that fails keeps the
+last answer for the same branch and head commit, and says why beside it. A
+read that fails shows as a failure in its section, with the reason, rather
+than as an empty one: the Issues list does not say no issue matches, the
+Branch section does not say the directory is no repository, and the Review
+section does not offer to open a pull request, while Jira, git or the forge
+cannot be read. A service that is not set up — no Jira or forge token, a base
+remote that names no forge — is no failure: the section says, in the muted
+color beside the not-started mark, that it is not set up and how to set it up,
+in place of what it would have shown. When the store holds the view's issues
+from an earlier read — the terminal's or this page's — the server sends them
+first, read from disk before anything is asked of the network, so Issues lists
+them at once while every other section waits for the first update; `--dry-run`
+neither reads nor keeps them. The stream's state is beside the theme, and a
+section waiting on its first update says the same word:
 
 - **Connecting** — the page has not had its first update yet.
 - **Live** — updates are arriving.

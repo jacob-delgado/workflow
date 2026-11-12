@@ -115,8 +115,9 @@ func (s *server) adoptMessaging(settings config.Messaging) {
 // adoptForge hands forge settings newly in effect — saved, or edited on disk
 // and read — to every forge call after them, and names the forge they point
 // at. When they differ from the settings before them, it drops what those
-// read: the author held, and the forge's answer the frames hold. It runs under
-// mu, with the configuration it belongs to.
+// read: the author held, the forge's answer the frames hold, and the pull
+// requests opened here, whose numbers name pull requests on the forge they
+// pointed at. It runs under mu, with the configuration it belongs to.
 func (s *server) adoptForge(before, settings config.Forge) {
 	if s.deps.UseForgeSettings == nil {
 		return
@@ -126,6 +127,7 @@ func (s *server) adoptForge(before, settings config.Forge) {
 	if settings != before {
 		s.author.drop()
 		s.forgeAnswer.drop()
+		s.opened.forget()
 	}
 }
 

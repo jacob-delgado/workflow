@@ -8,6 +8,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/convention"
@@ -101,7 +102,11 @@ func (s *server) OpenPullRequest(
 
 	// The pull request just opened is the forge's answer for the branch from
 	// now: the frame its answer wakes shows it without asking a forge whose
-	// list may lag behind its open, its CI unread until the next read.
+	// list may lag behind its open, its CI unread until the next read, and
+	// each read after it reads it by its number until the list includes it.
+	// It is held first, so a read that starts between the two cannot replace
+	// the seed with the lagging list's answer.
+	s.opened.open(branch.Name, pull)
 	s.forgeAnswer.seed(forgeKey{branch: branch.Name, head: branch.Head}, s.now(), forgeRead{found: true, pull: pull})
 
 	// A pull that opened but whose reviewers, assignees or labels could not all
@@ -280,4 +285,106 @@ func (s *server) openFailure(err error) api.OpenPullRequestResponseObject {
 	default:
 		return problem.Answer[api.OpenPullRequestdefaultApplicationProblemPlusJSONResponse](s.fault(err))
 	}
+}
+
+// openedPulls is each pull request opened here that the forge's list of its
+// branch's pull requests has not yet been seen to include, by its branch's
+// name: a forge answers an open at once, but its list can lag behind the
+// open, so until the list includes the pull request, a read of its branch
+// reads it by its number. A server switched to starts with none.
+type openedPulls struct {
+	mu    sync.Mutex
+	pulls map[string]forge.PullRequest
+}
+
+// newOpenedPulls holds no pull request opened here yet.
+func newOpenedPulls() *openedPulls {
+	return &openedPulls{pulls: map[string]forge.PullRequest{}}
+}
+
+// open holds pull as opened here for branch, in place of any held for it.
+func (o *openedPulls) open(branch string, pull forge.PullRequest) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	o.pulls[branch] = pull
+}
+
+// awaited is the pull request opened here for branch that the forge's list
+// has not yet been seen to include, if there is one.
+func (o *openedPulls) awaited(branch string) (forge.PullRequest, bool) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	pull, held := o.pulls[branch]
+
+	return pull, held
+}
+
+// settle stops reading the pull request of this number by its number, for
+// the list now includes it or it closed: one opened for branch since, which
+// has another number, is still held.
+func (o *openedPulls) settle(branch string, number int) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	if o.pulls[branch].Number == number {
+		delete(o.pulls, branch)
+	}
+}
+
+// forget holds none: forge settings newly in effect may point at another
+// repository, where a number held names another pull request, or none.
+func (o *openedPulls) forget() {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	clear(o.pulls)
+}
+
+// findPull is the branch's pull request as the forge's list has it, unless a
+// pull request opened here is awaited for the branch and the list does not
+// include it: then it is that pull request as the forge reads it by its
+// number, or, once it has closed unmerged, what the list says, as for any pull
+// request the list passes over. When the read by its number fails, so does
+// the whole read, and the answer held for the branch, the open's own, stands.
+// When the list cannot be read but the read by number answers, that answer is
+// whole, so the list's failure is not reported: it shows once the hold
+// settles, as with no pull request opened here.
+func (s *server) findPull(ctx context.Context, branch string) (forge.PullRequest, bool, error) {
+	listed, found, listErr := s.deps.Forge.FindPullRequest(ctx, branch)
+
+	opened, awaited := s.opened.awaited(branch)
+	if !awaited {
+		return listed, found, listErr
+	}
+
+	if listErr == nil && found && listed.Number == opened.Number {
+		s.opened.settle(branch, opened.Number)
+
+		return listed, found, nil
+	}
+
+	pull, err := s.readOpened(ctx, opened)
+	if err != nil {
+		return forge.PullRequest{}, false, err
+	}
+
+	if pull.State == forge.StateClosed {
+		s.opened.settle(branch, opened.Number)
+
+		return listed, found, listErr
+	}
+
+	return pull, true, nil
+}
+
+// readOpened is the pull request opened here as the forge reads it by its
+// number, or as its open answered when there is no such read to make.
+func (s *server) readOpened(ctx context.Context, opened forge.PullRequest) (forge.PullRequest, error) {
+	if s.deps.Forge.ReadPullRequest == nil {
+		return opened, nil
+	}
+
+	return s.deps.Forge.ReadPullRequest(ctx, opened.Number)
 }
