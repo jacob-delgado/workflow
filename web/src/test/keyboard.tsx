@@ -140,6 +140,22 @@ export async function openPalette(user: UserEvent): Promise<void> {
   })
 }
 
+// openDiscardConfirm draws Branch with b.go changed, single keys on, and
+// opens the last look before discarding b.go, which holds the shortcuts while
+// it is drawn; and returns every request the page sends.
+export async function openDiscardConfirm(user: UserEvent): Promise<Request[]> {
+  const requests = openOn(withChanges, keysWith(true), 'branch')
+  await waitFor(() => {
+    expect(
+      screen.getByRole('button', { name: 'Stage all' }).getAttribute('aria-keyshortcuts'),
+    ).toBe('a')
+  })
+  await user.click(screen.getByRole('button', { name: 'Discard b.go…' }))
+  screen.getByRole('group', { name: 'Discard the changes to b.go?' })
+
+  return requests
+}
+
 // openDirectoryDialog draws Repositories on the mockup's keys, single keys
 // on, opens the directory dialog and puts the focus on its Cancel, where a
 // key pressed types no letter of a path; and returns every request the page

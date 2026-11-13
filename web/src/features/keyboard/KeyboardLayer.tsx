@@ -94,9 +94,10 @@ function paletteEntries(section: Section, service: string | undefined): PaletteE
 // KeyboardLayer is the page's keyboard beyond Tab: ? opens the sheet of keys,
 // Control+K or Command+K the palette, and — while single-key shortcuts are on
 // — a key the terminal binds does here what it does there. No key acts while
-// a dialog is open — the sheet, the palette or any other — and no single key
-// while a field, a select or the comment composer has the focus, or while a
-// confirm or a preview is drawn.
+// a dialog is open — the sheet, the palette or any other — or while a confirm,
+// a preview or a write form holds the keys, since the palette could leave
+// what it asks; and no single key while a field, a select or the comment
+// composer has the focus. The nav stays a click away for a deliberate leave.
 export function KeyboardLayer() {
   useReadKeys()
   const [open, setOpen] = useState<Open>(null)
@@ -107,7 +108,7 @@ export function KeyboardLayer() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || dialogOpen()) {
+      if (event.defaultPrevented || dialogOpen() || shortcutsHeld()) {
         return
       }
 
@@ -126,7 +127,7 @@ export function KeyboardLayer() {
       if (key === helpKey) {
         event.preventDefault()
         setOpen('sheet')
-      } else if (useKeysStore.getState().shortcuts && !shortcutsHeld() && answerKey(key)) {
+      } else if (useKeysStore.getState().shortcuts && answerKey(key)) {
         event.preventDefault()
       }
     }
