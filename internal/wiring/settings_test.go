@@ -133,9 +133,12 @@ func TestRemoveLocalDataRefusesWhatIsNotTheStoresOwnFile(t *testing.T) {
 const settingsToken = "jira-settings-token-7777"
 
 // settingsFile writes a configuration holding settingsToken and wires the
-// interface to it.
+// interface to it, with a state directory of the test's own for the save
+// locks a save takes.
 func settingsFile(t *testing.T) (string, tui.Deps) {
 	t.Helper()
+
+	isolatedStoreDir(t)
 
 	path := filepath.Join(t.TempDir(), config.FileName)
 
