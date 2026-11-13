@@ -47,10 +47,7 @@ func (m Model) noticedFailureLedBy(lead string, err error) Model {
 		words = append(words, ownText(err))
 	}
 
-	m = m.noticed(strings.Join(words, "\n"))
-	m.notice.failed = !loop.NotSetUp(err)
-
-	return m
+	return m.reported(notice{text: m.oneRow(strings.Join(words, "\n")), failed: !loop.NotSetUp(err)})
 }
 
 // noticedGuidance tells, plainly, why a key did nothing and what would. The

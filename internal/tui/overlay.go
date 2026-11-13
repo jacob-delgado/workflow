@@ -164,7 +164,7 @@ type storeNotKept struct{ words string }
 var _ applier = storeNotKept{}
 
 // apply says what was done, and what of it the store lost.
-func (msg storeNotKept) apply(m Model) (Model, tea.Cmd) { return m.noticed(msg.words), nil }
+func (msg storeNotKept) apply(m Model) (Model, tea.Cmd) { return m.noticedUnrepeated(msg.words), nil }
 
 // noticedDraftKept says a closed composer kept what was written, and the key
 // that picks it up again.
@@ -175,12 +175,39 @@ func (m Model) noticedDraftKept(reopen key.Binding) Model {
 // noticed sets the footer's report of what just happened, plainly: a result,
 // or guidance on what a key needs.
 func (m Model) noticed(text string) Model {
-	// A notice is one row, so any newline — a joined staging error, a program's
-	// stderr — is folded onto it, or the footer grows past the terminal.
-	lines := strings.FieldsFunc(text, func(r rune) bool { return r == '\n' || r == '\r' })
-	m.notice = notice{text: strings.Join(lines, m.marks.separator), failed: false}
+	return m.reported(notice{text: m.oneRow(text), failed: false})
+}
+
+// noticedUnrepeated sets a plain notice no pane repeats, such as what the store
+// lost. Unlike noticed, it takes the slot even from a failure no key has
+// cleared yet, since dropping it would leave its words shown nowhere.
+func (m Model) noticedUnrepeated(text string) Model {
+	m.notice = notice{text: m.oneRow(text), failed: false}
 
 	return m
+}
+
+// reported puts report in the footer's one notice slot. A failure no key has
+// cleared yet keeps the slot from a plain report, which is dropped: the
+// failure is the one notice that asks the user to act, and what a plain
+// report says can be seen again in its pane. A later failure replaces it.
+func (m Model) reported(report notice) Model {
+	if m.notice.failed && !report.failed {
+		return m
+	}
+
+	m.notice = report
+
+	return m
+}
+
+// oneRow is text folded onto the one row a notice has: any newline — a joined
+// staging error, a program's stderr — becomes the separator, or the footer
+// grows past the terminal.
+func (m Model) oneRow(text string) string {
+	lines := strings.FieldsFunc(text, func(r rune) bool { return r == '\n' || r == '\r' })
+
+	return strings.Join(lines, m.marks.separator)
 }
 
 // closeOverlay closes whatever overlay is open.
