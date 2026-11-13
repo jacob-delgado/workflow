@@ -171,11 +171,12 @@ func TestTextFieldsAreSanitizedOnTheWayIn(t *testing.T) {
 	}
 }
 
-func TestActiveAndWaitingReadTheDates(t *testing.T) {
+func TestActiveWaitingAndStartedReadTheDates(t *testing.T) {
 	t.Parallel()
 
 	now := time.Date(2026, 9, 28, 12, 0, 0, 0, time.UTC)
 	waiting := func(task taskwarrior.Task) bool { return task.Waiting(now) }
+	started := func(task taskwarrior.Task) bool { return task.Started(now) }
 
 	tests := []struct {
 		name string
@@ -199,6 +200,24 @@ func TestActiveAndWaitingReadTheDates(t *testing.T) {
 			name: "a completed task that was started is not active",
 			task: taskwarrior.Task{Status: taskwarrior.Completed, Start: now.Add(-time.Hour)},
 			read: taskwarrior.Task.Active,
+			want: false,
+		},
+		{
+			name: "a started pending task is started as the lists show it",
+			task: taskwarrior.Task{Status: taskwarrior.Pending, Start: now.Add(-time.Hour)},
+			read: started,
+			want: true,
+		},
+		{
+			name: "a started task waiting until tomorrow is active",
+			task: taskwarrior.Task{Status: taskwarrior.Pending, Start: now.Add(-time.Hour), Wait: now.AddDate(0, 0, 1)},
+			read: taskwarrior.Task.Active,
+			want: true,
+		},
+		{
+			name: "a started task waiting until tomorrow is not started as the lists show it",
+			task: taskwarrior.Task{Status: taskwarrior.Pending, Start: now.Add(-time.Hour), Wait: now.AddDate(0, 0, 1)},
+			read: started,
 			want: false,
 		},
 		{

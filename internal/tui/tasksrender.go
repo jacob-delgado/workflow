@@ -81,7 +81,7 @@ func (s tasksState) rail(view tasksView) string {
 	active := 0
 
 	for _, task := range listed {
-		if task.Active() {
+		if task.Started(view.now) {
 			active++
 		}
 	}
@@ -175,7 +175,7 @@ func waitingRow(kit renderKit, groups taskGroups) []string {
 // is, then a faint tail of the issue it is for, when it is due and how urgent
 // it is. Taskwarrior's client has already neutralized every value.
 func (s tasksState) row(kit renderKit, task taskwarrior.Task, selected bool, now time.Time) string {
-	head := kit.marks.marker(selected) + taskGlyph(kit.marks, task) + " " + fmt.Sprintf("%3s", taskNumber(task)) +
+	head := kit.marks.marker(selected) + taskGlyph(kit.marks, task, now) + " " + fmt.Sprintf("%3s", taskNumber(task)) +
 		" " + task.Description
 
 	var tail []string
@@ -255,7 +255,7 @@ func (s tasksState) selectedDetail(view tasksView, groups taskGroups, width int)
 func taskFacts(marks glyphs, task taskwarrior.Task, now time.Time) string {
 	var facts []string
 
-	if task.Active() {
+	if task.Started(now) {
 		facts = append(facts, "started "+elapsed(task.Start, now)+" ago")
 	}
 
@@ -330,11 +330,11 @@ func taskAnnotations(kit renderKit, task taskwarrior.Task, zone *time.Location) 
 	return lines
 }
 
-// taskGlyph is how far a task has got, by shape: started, completed, or not
-// started yet.
-func taskGlyph(marks glyphs, task taskwarrior.Task) string {
+// taskGlyph is how far a task has got at now, by shape: started, completed, or
+// not started yet.
+func taskGlyph(marks glyphs, task taskwarrior.Task, now time.Time) string {
 	switch {
-	case task.Active():
+	case task.Started(now):
 		return marks.inFlight
 	case task.Status == taskwarrior.Completed:
 		return marks.done

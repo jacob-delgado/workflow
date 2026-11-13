@@ -80,10 +80,11 @@ func (m Model) withTaskWords() Model {
 
 	if m.tasks.answered() {
 		words = map[jira.Key]string{}
+		now := m.deps.now()
 
 		for _, task := range m.tasks.linked {
 			issueKey := jira.Key(task.IssueKey)
-			words[issueKey] = m.tasks.issueWord(m.kit(), issueKey)
+			words[issueKey] = m.tasks.issueWord(m.kit(), issueKey, now)
 		}
 	}
 
