@@ -1670,3 +1670,42 @@ stream's page's `total`. The terminal's Issues pane still pages by offset
 
 **Reopen when.** A user reports an issue missing from, or listed twice by,
 **Load more**, or Jira Data Center offers a search that pages by key.
+
+### TRADE-67 A merge under no CI waits ten minutes of each surface's own reads
+
+**Decided.** 2026-11-13 by the maintainer, on wave-2 decision Q34: a pull
+request whose CI reports no check is offered its merge only once its head has
+reported none for `armed.NoCIPatience`, ten minutes, as `armed.HeadWatch`
+(`internal/armed/headwatch.go`) counts the reads its surface heard — the
+terminal's Review pane, and the web server's reads, a frame's or a merge's.
+No forge says when a head was pushed in a form every forge keeps, so the time
+is the reads' own: a new head starts it again, and a read that failed counts
+nothing across it.
+
+**Cost.** A head quiet for days still waits ten minutes after each terminal
+session or web server starts before Merge is offered under no CI, and the
+terminal keeps reading CI meanwhile for a pull request ready in every other
+way.
+
+**Reopen when.** A forge offers a reliable time for when a head was pushed, or
+a user reports waiting on a merge whose repository has no CI at all.
+
+### TRADE-68 A merged commit this clone lacks is fetched on every look
+
+**Decided.** 2026-11-13 by the maintainer, on wave-2 decision Q27: where the
+commit a merged pull request merged at is not in this clone, the finish's
+check fetches it from the forge's own ref for the pull request
+(`gitrepo.FetchRefCommand`, `internal/gitrepo/merged.go`) within
+`gitrepo.FetchRefTimeout`, a minute, wherever the check is made: `workflow
+finish`, `--dry-run` too, the terminal's Review pane each time it finds the
+merged pull request, and the web server's every forge read. Nothing is kept of
+a fetch that failed, so the next look tries again, and the pull request is
+shown only once the check is done.
+
+**Cost.** A fetch that keeps failing is tried again on every web forge refresh
+and every terminal branch load, each time for up to a minute, and the review
+of a merged pull request waits on it, in the terminal and on the web, before
+it is shown.
+
+**Reopen when.** A user reports a slow review of a merged pull request, or a
+remote that refuses the forge's pull request refs.
