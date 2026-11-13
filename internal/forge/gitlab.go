@@ -393,7 +393,7 @@ func gitlabStatus(ctx context.Context, client Client, repo Repo, pull PullReques
 	state := pipelineState(merge.HeadPipeline.Status)
 	checks := []Check{{Name: "pipeline", State: state, URL: merge.HeadPipeline.URL}}
 
-	if merge.HeadPipeline.Status == "failed" && merge.HeadPipeline.ID != 0 {
+	if merge.HeadPipeline.Status == pipelineFailed && merge.HeadPipeline.ID != 0 {
 		checks = gitlabFailedJobs(ctx, client, repo, merge.pipelineAt(repo), checks)
 	}
 
@@ -475,9 +475,9 @@ func gitlabMergeMethods(ctx context.Context, client Client, repo Repo) ([]MergeM
 // to.
 func pipelineState(status string) CIState {
 	states := map[string]CIState{
-		succeeded: CIPassed,
-		"failed":  CIFailed, "canceled": CIFailed,
-		"manual": CINone, skipped: CINone,
+		succeeded:      CIPassed,
+		pipelineFailed: CIFailed, pipelineCanceled: CIFailed,
+		pipelineManual: CINone, skipped: CINone,
 	}
 
 	state, known := states[status]
@@ -487,3 +487,11 @@ func pipelineState(status string) CIState {
 
 	return state
 }
+
+// The pipeline statuses GitLab words alone; succeeded and skipped it shares
+// with GitHub.
+const (
+	pipelineFailed   = "failed"
+	pipelineCanceled = "canceled"
+	pipelineManual   = "manual"
+)
