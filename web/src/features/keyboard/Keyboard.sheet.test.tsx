@@ -8,6 +8,7 @@ import {
   commentBox,
   keysRead,
   openDirectoryDialog,
+  openDiscardConfirm,
 } from '@/test/keyboard.tsx'
 
 // The page's ? sheet, as a user meets it: it lists the terminal's keys the
@@ -140,4 +141,17 @@ test('? opens no sheet over an open dialog', async () => {
   // Assert
   expect(screen.getByRole('dialog', { name: 'Go to a directory' })).toBeTruthy()
   expect(screen.queryByRole('dialog', { name: 'Keyboard shortcuts' })).toBeNull()
+})
+
+test('? opens no sheet over a confirm, which holds the keys', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  await openDiscardConfirm(user)
+
+  // Act
+  await user.keyboard('?')
+
+  // Assert
+  expect(screen.queryByRole('dialog', { name: 'Keyboard shortcuts' })).toBeNull()
+  expect(screen.getByRole('group', { name: 'Discard the changes to b.go?' })).toBeTruthy()
 })

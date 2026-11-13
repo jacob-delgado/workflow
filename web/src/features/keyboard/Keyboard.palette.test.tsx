@@ -7,6 +7,7 @@ import {
   openOn,
   commentBox,
   openPalette,
+  openDiscardConfirm,
 } from '@/test/keyboard.tsx'
 
 // The page's command palette, as a user meets it: Ctrl+K or ⌘K finds an
@@ -149,4 +150,17 @@ test('the palette says when nothing is called what was typed', async () => {
   // Assert
   const palette = screen.getByRole('dialog', { name: 'Command palette' })
   expect(within(palette).getByRole('status').textContent).toMatch(/Nothing here is called that/)
+})
+
+test('Ctrl+K opens no palette over a confirm, which holds the keys', async () => {
+  // Arrange
+  const user = userEvent.setup()
+  await openDiscardConfirm(user)
+
+  // Act
+  await user.keyboard('{Control>}k{/Control}')
+
+  // Assert
+  expect(screen.queryByRole('dialog', { name: 'Command palette' })).toBeNull()
+  expect(screen.getByRole('group', { name: 'Discard the changes to b.go?' })).toBeTruthy()
 })
