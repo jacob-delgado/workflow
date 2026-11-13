@@ -1737,28 +1737,3 @@ it is shown.
 
 **Reopen when.** A user reports a slow review of a merged pull request, or a
 remote that refuses the forge's pull request refs.
-
-### TRADE-69 Settings keeps its edits over a switch to a copy of the file
-
-**Decided.** 2026-11-13 by the maintainer, on wave-2 lead P002 (Q30): a
-switch made in another tab or the terminal while Settings is open reads the
-configuration again in place, and the form keeps its unsaved edits when the
-read comes back at the same revision (`useReadAfterSwitch`,
-`web/src/features/settings/SwitchedAway.tsx`). A revision is a keyed digest of
-the files' bytes (`config.Revision`, `internal/config/save.go`), sent as the
-read's ETag, and names no path, so it is how the page tells the same file
-from another without a change to the API's contract; a home file every
-repository shares reads at one revision wherever the server works, and keeps
-the edits as it should.
-
-**Cost.** Two directories whose repository files are byte-for-byte copies,
-over the same home file, as two worktrees or clones with a copied
-`.workflow.json` are, read at one revision: the edits stay over a switch
-between them, and **Save**, whose If-Match matches, writes them into the
-file of the directory switched to, while the one they were made for keeps
-what it had.
-
-**Reopen when.** A read of the configuration names the files it stands for,
-or the page reads them beside it, so Settings can compare the files as well
-as their bytes; or copied configuration files between worktrees prove common
-enough that an edit landing in the other one is met.
