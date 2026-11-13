@@ -251,7 +251,7 @@ func TestWhoamiReportsAnUnreachableAPI(t *testing.T) {
 	base := server.URL
 	server.Close()
 
-	client := forge.New(httpx.Client(2*time.Second).Do, base, secret)
+	client := forge.New(httpx.ClientOver(server.Client().Transport, 2*time.Second).Do, base, secret)
 
 	// Act
 	_, err := client.Whoami(t.Context())
@@ -295,7 +295,7 @@ func TestWhoamiRefusesARedirect(t *testing.T) {
 	}))
 	t.Cleanup(first.Close)
 
-	client := forge.New(httpx.Client(5*time.Second).Do, first.URL, secret)
+	client := forge.New(httpx.ClientOver(first.Client().Transport, 5*time.Second).Do, first.URL, secret)
 
 	// Act
 	_, err := client.Whoami(t.Context())

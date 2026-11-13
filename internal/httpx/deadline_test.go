@@ -23,7 +23,7 @@ const clientTimeout = 200 * time.Millisecond
 
 // trickling answers parts parts, each a pause after the last; a pause is cut
 // short once the client goes.
-func trickling(t *testing.T, parts int, pause time.Duration) string {
+func trickling(t *testing.T, parts int, pause time.Duration) *httptest.Server {
 	t.Helper()
 
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
@@ -43,18 +43,20 @@ func trickling(t *testing.T, parts int, pause time.Duration) string {
 	}))
 	t.Cleanup(server.Close)
 
-	return server.URL
+	return server
 }
 
-// readAll asks address under ctx through a client bounded by clientTimeout and
-// reads the whole answer.
-func readAll(ctx context.Context, address string) (string, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, address, nil)
+// readAll asks server under ctx through a client bounded by clientTimeout and
+// reads the whole answer. It sends over the server's own transport: every
+// httptest server's Close closes http.DefaultTransport's idle connections, which
+// can break a request another parallel test is making through it.
+func readAll(ctx context.Context, server *httptest.Server) (string, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL, nil)
 	if err != nil {
 		return "", fmt.Errorf("building the request: %w", err)
 	}
 
-	response, err := httpx.Client(clientTimeout).Do(request)
+	response, err := httpx.ClientOver(server.Client().Transport, clientTimeout).Do(request)
 	if err != nil {
 		return "", fmt.Errorf("asking: %w", err)
 	}
@@ -73,10 +75,10 @@ func TestAStreamedAnswerIsReadPastTheTimeoutWhileItKeepsComing(t *testing.T) {
 
 	// Arrange
 	// Ten parts a fifth of the timeout apart: twice the timeout in all.
-	address := trickling(t, 10, clientTimeout/5)
+	server := trickling(t, 10, clientTimeout/5)
 
 	// Act
-	body, err := readAll(httpx.Streaming(t.Context()), address)
+	body, err := readAll(httpx.Streaming(t.Context()), server)
 
 	// Assert
 	if err != nil || strings.Count(body, "part\n") != 10 {
@@ -88,10 +90,10 @@ func TestAStreamedAnswerThatStallsTimesOut(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	address := trickling(t, 2, 3*clientTimeout)
+	server := trickling(t, 2, 3*clientTimeout)
 
 	// Act
-	_, err := readAll(httpx.Streaming(t.Context()), address)
+	_, err := readAll(httpx.Streaming(t.Context()), server)
 
 	// Assert
 	if !errors.Is(err, httpx.ErrTimedOut) {
@@ -103,10 +105,10 @@ func TestAnOrdinaryAnswerIsBoundedWhole(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	address := trickling(t, 10, clientTimeout/5)
+	server := trickling(t, 10, clientTimeout/5)
 
 	// Act
-	_, err := readAll(t.Context(), address)
+	_, err := readAll(t.Context(), server)
 
 	// Assert
 	if !errors.Is(err, httpx.ErrTimedOut) {
@@ -127,7 +129,7 @@ func TestAnAnswerSlowToStartTimesOut(t *testing.T) {
 	t.Cleanup(server.Close)
 
 	// Act
-	_, err := readAll(httpx.Streaming(t.Context()), server.URL)
+	_, err := readAll(httpx.Streaming(t.Context()), server)
 
 	// Assert
 	if !errors.Is(err, httpx.ErrTimedOut) {
@@ -139,13 +141,13 @@ func TestACallersOwnCancelIsNotATimeout(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	address := trickling(t, 10, clientTimeout/5)
+	server := trickling(t, 10, clientTimeout/5)
 
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	// Act
-	_, err := readAll(ctx, address)
+	_, err := readAll(ctx, server)
 
 	// Assert
 	if !errors.Is(err, context.Canceled) || errors.Is(err, httpx.ErrTimedOut) {

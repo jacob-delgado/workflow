@@ -76,8 +76,7 @@ func logServersAnswering(
 	}))
 	t.Cleanup(server.Close)
 
-	client := httpx.Client(10 * time.Second)
-	client.Transport = server.Client().Transport
+	client := httpx.ClientOver(server.Client().Transport, 10*time.Second)
 
 	return forge.New(client.Do, server.URL, secret), api, stored
 }
@@ -274,7 +273,7 @@ func TestJobLogReadsASlowLongLogToItsEnd(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	client := forge.New(httpx.Client(time.Second).Do, server.URL, secret)
+	client := forge.New(httpx.ClientOver(server.Client().Transport, time.Second).Do, server.URL, secret)
 
 	// Act
 	log, err := client.JobLog(t.Context(), gitlabRepo(), forge.Check{ID: "501", LogAvailable: true})

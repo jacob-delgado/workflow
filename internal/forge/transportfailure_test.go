@@ -36,7 +36,7 @@ func TestAWriteThatNeverReachesTheForgeSaysSo(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client := forge.New(httpx.Client(2*time.Second).Do, base, secret)
+			client := forge.New(httpx.ClientOver(gone.Client().Transport, 2*time.Second).Do, base, secret)
 
 			// Act
 			err := client.Merge(t.Context(), githubRepo(), forge.PullRequest{Number: 42}, forge.MergeCommit)

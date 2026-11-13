@@ -130,7 +130,10 @@ func TestServeEndsTheContextOfARequestInFlightWhenItStops(t *testing.T) {
 }
 
 // askOnce sends one GET to url and reads the answer whole, whatever it is: the
-// server's drain, not the answer, is what the caller looks at.
+// server's drain, not the answer, is what the caller looks at. It sends over a
+// transport of its own that keeps no connection open: every httptest server's
+// Close closes http.DefaultTransport's idle connections, which can break a
+// request another parallel test is making through it.
 func askOnce(t *testing.T, url string) {
 	t.Helper()
 
@@ -141,7 +144,9 @@ func askOnce(t *testing.T, url string) {
 		return
 	}
 
-	response, err := http.DefaultClient.Do(request)
+	client := &http.Client{Transport: &http.Transport{DisableKeepAlives: true}}
+
+	response, err := client.Do(request)
 	if err != nil {
 		return
 	}

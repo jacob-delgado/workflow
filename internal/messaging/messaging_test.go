@@ -239,7 +239,8 @@ func TestAuthTestReportsAnUnreachableAPI(t *testing.T) {
 	base := server.URL
 	server.Close()
 
-	client := messaging.New(httpx.Client(2*time.Second).Do, base, userCredentials()).WithToken(heldToken)
+	doer := httpx.ClientOver(server.Client().Transport, 2*time.Second).Do
+	client := messaging.New(doer, base, userCredentials()).WithToken(heldToken)
 
 	// Act
 	_, err := client.AuthTest(t.Context())
@@ -285,7 +286,8 @@ func TestAuthTestRefusesARedirect(t *testing.T) {
 	}))
 	t.Cleanup(first.Close)
 
-	client := messaging.New(httpx.Client(5*time.Second).Do, first.URL, userCredentials()).WithToken(heldToken)
+	doer := httpx.ClientOver(first.Client().Transport, 5*time.Second).Do
+	client := messaging.New(doer, first.URL, userCredentials()).WithToken(heldToken)
 
 	// Act
 	_, err := client.AuthTest(t.Context())
