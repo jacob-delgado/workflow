@@ -30,7 +30,17 @@ export type IssueRef = Pick<Issue, 'key' | 'tracker'>
 
 interface UiState {
   section: Section
+  // setSection goes to a section, or, while the section shown holds unsaved
+  // edits, asks first: it holds the section asked for in leaving.
   setSection: (section: Section) => void
+  // Whether the section shown holds edits a change of section would drop.
+  unsaved: boolean
+  setUnsaved: (unsaved: boolean) => void
+  // The section asked for while the edits were unsaved, or null when none is.
+  leaving: Section | null
+  // leave goes to the section asked for, dropping the edits; stay keeps them.
+  leave: () => void
+  stay: () => void
   // The issue whose detail the Issues section shows, or null for none.
   selectedIssue: IssueRef | null
   selectIssue: (issue: IssueRef | null) => void
@@ -55,14 +65,32 @@ interface UiState {
   setSummaryPeriod: (period: Period | null) => void
 }
 
-// Client UI state — which section is showing, which issue is selected, which
-// view the list is of, how the review queue and the Tasks list are sorted and
-// narrowed, and the period the Summary shows — shared by the nav rail and the
-// content panes without threading props between them.
+// Client UI state — which section is showing, and the one asked for while it
+// holds unsaved edits, which issue is selected, which view the list is of, how
+// the review queue and the Tasks list are sorted and narrowed, and the period
+// the Summary shows — shared by the nav rail and the content panes without
+// threading props between them.
 export const useUiStore = create<UiState>((set) => ({
   section: 'issues',
   setSection: (section) => {
-    set({ section })
+    set((state) =>
+      state.unsaved && section !== state.section
+        ? { leaving: section }
+        : { section, leaving: null },
+    )
+  },
+  unsaved: false,
+  setUnsaved: (unsaved) => {
+    set(unsaved ? { unsaved } : { unsaved, leaving: null })
+  },
+  leaving: null,
+  leave: () => {
+    set((state) =>
+      state.leaving === null ? {} : { section: state.leaving, leaving: null, unsaved: false },
+    )
+  },
+  stay: () => {
+    set({ leaving: null })
   },
   selectedIssue: null,
   selectIssue: (issue) => {

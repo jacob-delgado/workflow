@@ -24,6 +24,7 @@ import {
   useReloadConfig,
   useSaveConfig,
 } from './configApi.ts'
+import { LeaveUnsaved } from './LeaveUnsaved.tsx'
 import { LocalData } from './people/LocalData.tsx'
 import { PeopleAndGroups } from './people/PeopleAndGroups.tsx'
 import { configOf, formValues, type SettingsValues } from './formValues.ts'
@@ -137,6 +138,7 @@ function SetUpSaid({ result }: { result: SetupResult }) {
 // again, or a Reload — and otherwise leaves focus where the section change put
 // it. A save refused before it is sent, or by the server, marks each setting
 // refused beside itself; Show opens the first one's section and focuses it.
+// While it holds unsaved edits, a change of section asks first.
 function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolean }) {
   // The whole config seeds the form, so every key no fieldset registers — the
   // token commands, the Slack access token and its expiry — rides back
@@ -193,23 +195,26 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
             onSubmit,
           }}
           bar={
-            <SaveBar
-              form={formId}
-              unsaved={changed.length}
-              toFix={toFix(refused)}
-              saving={save.state === 'running'}
-              writing={file.writing}
-              said={outcome.said}
-              error={save.state === 'error' && !save.marked ? save.error : ''}
-              reload={file.changed ? reload : null}
-              onShow={() => {
-                view.show(refused[0] ?? 'jira.base_url')
-              }}
-              onDiscard={() => {
-                reset()
-                save.reset()
-              }}
-            />
+            <>
+              <LeaveUnsaved unsaved={changed.length} />
+              <SaveBar
+                form={formId}
+                unsaved={changed.length}
+                toFix={toFix(refused)}
+                saving={save.state === 'running'}
+                writing={file.writing}
+                said={outcome.said}
+                error={save.state === 'error' && !save.marked ? save.error : ''}
+                reload={file.changed ? reload : null}
+                onShow={() => {
+                  view.show(refused[0] ?? 'jira.base_url')
+                }}
+                onDiscard={() => {
+                  reset()
+                  save.reset()
+                }}
+              />
+            </>
           }
         />
       </FormProvider>

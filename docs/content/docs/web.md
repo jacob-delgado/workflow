@@ -745,7 +745,9 @@ it refused, which are marked the same way. The bar then says how many are
 left to fix and in which sections, and **Show** opens the first one's section
 with the focus on it. A save held back by those first checks goes to the setting
 it was held back for, and leaves what the server refused marked. Changing a
-refused setting takes its refusal away.
+refused setting takes its refusal away. Going to another section of the page
+while settings are changed and not saved asks *Leave without saving?* first:
+**Leave** drops the changes and goes, **Stay** keeps them.
 
 Jira's views and headers, messaging's channels and the branch prefixes are
 lists: **Add a view** (or a header, a channel, a prefix) puts a row in, and each
