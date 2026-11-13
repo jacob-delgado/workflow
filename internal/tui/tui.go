@@ -115,6 +115,10 @@ type Model struct {
 	// notice is the footer's one-line report of something that just happened.
 	// The next key press clears it.
 	notice notice
+	// noticesWaiting are the notices no pane repeats that could not be read
+	// when they came, oldest first: each takes the notice in turn as keys
+	// clear it.
+	noticesWaiting []notice
 
 	// views are the Issues pane's lists, and viewIndex the one it shows now.
 	views     []jira.View
@@ -328,10 +332,8 @@ func (m Model) settled(cmd tea.Cmd) (Model, tea.Cmd) {
 	return opened.nextFrame(tea.Batch(cmd, more))
 }
 
-// handleKey answers a key press. ctrl+c always quits. Otherwise an open overlay
-// — the help among them — has the keyboard, including q, which a text field
-// needs to type; then the Issues filter while it is open; then the keys that
-// work on every pane, which fall through to the focused pane's own.
+// handleKey answers a key press, which clears the notice unless it only moves
+// the view, and then gives the notice to one waiting for it.
 func (m Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	// A notice is cleared when the next action starts, not by moving around, so
 	// looking about after a result does not erase the record of it.
@@ -339,6 +341,17 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		m.notice = notice{}
 	}
 
+	answered, cmd := m.answerKey(msg)
+
+	return answered.nextNoticeWaiting(), cmd
+}
+
+// answerKey hands a key press to whatever has the keyboard. ctrl+c always
+// quits. Otherwise an open overlay — the help among them — has the keyboard,
+// including q, which a text field needs to type; then the Issues filter while
+// it is open; then the keys that work on every pane, which fall through to the
+// focused pane's own.
+func (m Model) answerKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.interrupt):
 		return m.quit()
@@ -469,7 +482,13 @@ func (m Model) showsNotice() bool {
 // hasNotice reports something for the notice row to say: a notice, or a search
 // or filter narrowing the list.
 func (m Model) hasNotice() bool {
-	return m.notice.text != "" || m.showsFilter() || m.filteringTasks()
+	return m.notice.text != "" || m.noticeCovered()
+}
+
+// noticeCovered reports the notice row given over to a search or filter
+// narrowing the list, which hides whatever notice there is.
+func (m Model) noticeCovered() bool {
+	return m.showsFilter() || m.filteringTasks()
 }
 
 // showsFilter reports that the Issues pane's filter should be shown on its own
