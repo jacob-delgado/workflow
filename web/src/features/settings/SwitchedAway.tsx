@@ -84,7 +84,10 @@ function sameFiles(before: string[] | undefined, after: string[] | undefined): b
 
 // switched is where Settings stands once the server works in here: awaiting
 // the reads again of the configuration and of where the server works, unless
-// it worked nowhere before, or works nowhere now.
+// it worked nowhere before, or works nowhere now. A switch made while another
+// is still awaited keeps the directory, revision and files the form was over,
+// since the reads that answered between the two were of a directory it never
+// showed.
 function switched(followed: Followed, here: string | undefined, read: Reads): Followed {
   const left = followed.here
   if (left === undefined || here === undefined) {
@@ -92,10 +95,15 @@ function switched(followed: Followed, here: string | undefined, read: Reads): Fo
   }
 
   const { query, place } = read
-  const awaited = {
+  const over = followed.awaited ?? {
     left,
     revision: query.data?.revision,
     files: filesOf(place),
+  }
+  const awaited = {
+    left: over.left,
+    revision: over.revision,
+    files: over.files,
     answered: answeredAt(query),
     placed: answeredAt(place),
   }
