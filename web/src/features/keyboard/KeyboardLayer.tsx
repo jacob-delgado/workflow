@@ -163,10 +163,12 @@ export function KeyboardLayer() {
         entries={paletteEntries(section, service)}
         onClose={close}
         onRun={(entry) => {
-          // The palette closes, handing the focus back, before the choice runs,
-          // so a step it opens takes the focus from there.
+          // The palette closes, and the choice runs once it has handed the
+          // focus back, which it does a microtask after it goes, so a step it
+          // opens takes the focus from there rather than losing it to the
+          // hand-back.
           flushSync(close)
-          entry.run()
+          queueMicrotask(entry.run)
         }}
       />
     )
