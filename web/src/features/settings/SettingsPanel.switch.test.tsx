@@ -129,11 +129,54 @@ async function openSettings(after: Where, before: Files = apiFiles): Promise<Ope
   return { client, requests }
 }
 
-// switchedElsewhere has the stream say the server works in web now, and waits
-// until the configuration and where the server works, read again there, have
-// each answered, with what is there or a refusal, and nothing more is being
-// read.
-async function switchedElsewhere({ client, requests }: Opened): Promise<void> {
+// openSettingsAcross draws Settings working in api, as openSettings does, and
+// answers every read after with left's file and with the files filesIn says
+// apply where the server works when the read goes: where the server works a
+// moment later, and the configuration a while after that.
+async function openSettingsAcross(filesIn: Record<string, Files>): Promise<Opened> {
+  let switched = false
+  const filesHere = () => filesIn[useSnapshotStore.getState().snapshot?.here ?? ''] ?? unread
+  const requests = fakeApi({
+    '/api/keys': mockKeys,
+    '/api/config': () => (switched ? later(answer(left), 250) : answer(left)),
+    '/api/repositories': () => (switched ? later(placed(filesHere()), 5) : placed(apiFiles)),
+  })
+  const client = appQueryClient()
+  useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
+  useUiStore.setState({ section: 'settings' })
+  renderWithClient(<App />, client)
+  await screen.findByLabelText('User')
+  await waitFor(() => {
+    expect(client.isFetching()).toBe(0)
+  })
+  switched = true
+
+  return { client, requests }
+}
+
+// switchedMidway has the stream say the server works in here now, and waits
+// until where the server works, read again there, has answered while the
+// configuration read again is still out.
+async function switchedMidway({ client }: Opened, here: string): Promise<void> {
+  const placedAt = () => client.getQueryState(getRepositoriesQueryKey())?.dataUpdatedAt ?? 0
+  const placedBefore = placedAt()
+  act(() => {
+    useSnapshotStore.setState({ snapshot: makeSnapshot({ here }) })
+  })
+  await waitFor(() => {
+    expect(placedAt()).toBeGreaterThan(placedBefore)
+  })
+  expect(client.getQueryState(getConfigQueryKey())?.fetchStatus).toBe('fetching')
+}
+
+// switchedElsewhere has the stream say the server works in here now, web
+// unless said, and waits until the configuration and where the server works,
+// read again there, have each answered, with what is there or a refusal, and
+// nothing more is being read.
+async function switchedElsewhere(
+  { client, requests }: Opened,
+  here = '/home/ana/src/web',
+): Promise<void> {
   const before = configReads(requests)
   const keys = [getConfigQueryKey(), getRepositoriesQueryKey()]
   const answered = () =>
@@ -144,7 +187,7 @@ async function switchedElsewhere({ client, requests }: Opened): Promise<void> {
     })
   const answeredBefore = answered()
   act(() => {
-    useSnapshotStore.setState({ snapshot: makeSnapshot({ here: '/home/ana/src/web' }) })
+    useSnapshotStore.setState({ snapshot: makeSnapshot({ here }) })
   })
   await waitFor(() => {
     expect(configReads(requests)).toBeGreaterThan(before)
@@ -273,4 +316,43 @@ test('a switch elsewhere to where no file applies says the unsaved edits were fo
     ),
   ).toBeTruthy()
   expect(screen.queryByLabelText('User')).toBeNull()
+})
+
+test('a switch elsewhere and back before the first is read keeps the unsaved edits', async () => {
+  // Arrange
+  const opened = await openSettingsAcross({
+    '/home/ana/src/api': apiFiles,
+    '/home/ana/src/web': webFiles,
+  })
+  await anEdit()
+  await switchedMidway(opened, '/home/ana/src/web')
+
+  // Act
+  await switchedElsewhere(opened, '/home/ana/src/api')
+
+  // Assert
+  await waitFor(() => {
+    expect(screen.getByLabelText<HTMLInputElement>('User').value).toBe('x')
+  })
+  expect(screen.queryByText(/were for/)).toBeNull()
+})
+
+test('a switch elsewhere and on to a copy before the first is read says the unsaved edits were for the directory left first', async () => {
+  // Arrange
+  const opened = await openSettingsAcross({
+    '/home/ana/src/web': webFiles,
+    '/home/ana/src/web/sub': webFiles,
+  })
+  await anEdit()
+  await switchedMidway(opened, '/home/ana/src/web')
+
+  // Act
+  await switchedElsewhere(opened, '/home/ana/src/web/sub')
+
+  // Assert
+  expect(
+    await screen.findByText(
+      'Your unsaved changes were for /home/ana/src/api, which the server has left, so they were dropped.',
+    ),
+  ).toBeTruthy()
 })
