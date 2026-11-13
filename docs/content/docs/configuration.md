@@ -1220,6 +1220,19 @@ associations, and your favorite directories — and is never thrown away on its
 own. A favorite is kept as the directory's path alone; whether it is still
 there, and whether it is a repository, is read from the disk each time.
 
+Beside them are empty lock files, which hold nothing and are never a secret:
+`slack-refresh.lock`, which a Slack token's refresh takes, and one
+`config-<hash>.lock` for each configuration file workflow has saved, named
+from the file's path. A save of the configuration — Settings, `workflow config
+init`, a Slack login — holds the lock of each file it reads from its check
+that the files are as they were read through its write, so two workflows
+saving at once never both write over the same revision: the second waits, then
+finds the file changed. It waits ten seconds at most, then refuses with
+`another workflow is saving the configuration; try again in a moment`. On a
+system that names no state directory, a save takes no lock. `workflow
+db-clean` leaves the lock files where they are; they are safe to delete while
+no workflow runs.
+
 An announcement is claimed in the store before it is posted, so of every
 session and process announcing the same pull request at the same moment, one
 posts it. A store that cannot take the claim — a full disk, a file another
