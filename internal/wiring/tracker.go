@@ -37,19 +37,25 @@ func combinedTracker(settings config.Jira, jiraSide, forgeSide seams.Jira) seams
 	listed := &forgeRows{}
 	asked := &forgeRows{}
 
+	search := func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error) {
+		if jql != first {
+			return jiraSide.Search(ctx, jql, startAt)
+		}
+
+		return listed.search(ctx, jiraSide.Search, forgeSide.Search, jql, startAt)
+	}
+
 	return seams.Jira{
-		Search: func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error) {
-			return listed.search(ctx, jiraSide.Search, forgeSide.Search, jql == first, jql, startAt)
-		},
+		Search: search,
 		SearchAfter: func(ctx context.Context, jql string, after jira.Cursor) (jira.SearchResult, error) {
 			if !after.More() {
-				return listed.search(ctx, jiraSide.Search, forgeSide.Search, jql == first, jql, 0)
+				return search(ctx, jql, 0)
 			}
 
 			return jiraSide.SearchAfter(ctx, jql, after)
 		},
 		SearchLenient: func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error) {
-			return asked.search(ctx, jiraSide.SearchLenient, forgeSide.Search, true, jql, startAt)
+			return asked.search(ctx, jiraSide.SearchLenient, forgeSide.Search, jql, startAt)
 		},
 		Issue:       byTracker(jiraSide.Issue, forgeSide.Issue),
 		Transitions: byTracker(jiraSide.Transitions, forgeSide.Transitions),
@@ -132,20 +138,16 @@ type forgeRows struct {
 	count int
 }
 
-// search is one page of a list, asked under ctx: Jira's alone, or, with
-// withForge, the forge's issues ahead of Jira's first page and Jira's own rows
-// after it. A forge that cannot be read leaves Jira's list, naming the forge
+// search is one page of a list the forge's issues join, asked under ctx: the
+// forge's issues ahead of Jira's first page, and Jira's own rows after it. A
+// forge that cannot be read leaves Jira's list, naming the forge
 // unavailable; a Jira that cannot be read fails the list, as it always has.
 // A first page whose ctx ended leaves the count every later page reads as it
 // was: its forge list was cut short by a page that left, not found empty.
 func (f *forgeRows) search(
 	ctx context.Context, jiraSearch, forgeList func(context.Context, string, int) (jira.SearchResult, error),
-	withForge bool, jql string, startAt int,
+	jql string, startAt int,
 ) (jira.SearchResult, error) {
-	if !withForge {
-		return jiraSearch(ctx, jql, startAt)
-	}
-
 	if startAt > 0 {
 		return f.laterPage(ctx, jiraSearch, jql, startAt)
 	}
