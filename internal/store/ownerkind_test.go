@@ -29,7 +29,7 @@ func TestABareNamedTeamLinksToAUserGroup(t *testing.T) {
 
 	// Arrange
 	kept := store.New(t.TempDir(), false)
-	team := store.OwnerLink{Owner: acme, Team: true, OnSlack: true, Slack: *podGroup()}
+	team := acmeAsThePodsTeam()
 
 	// Act
 	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, team, theTime())
@@ -61,6 +61,11 @@ func TestTheSameBareNameAsAPersonLinksOnlyToAUser(t *testing.T) {
 	}
 }
 
+// acmeAsThePodsTeam decides acme a team, linked to the pod's user group.
+func acmeAsThePodsTeam() store.OwnerLink {
+	return store.OwnerLink{Owner: acme, Team: true, OnSlack: true, Slack: *podGroup()}
+}
+
 // linkAcmeAsAnaInA links acme, as a person, to the Slack user Ana in
 // workspace A.
 func linkAcmeAsAnaInA(t *testing.T, kept store.Store) {
@@ -81,9 +86,7 @@ func TestALinkVoidedByAKindChangeElsewhereStaysGoneWhenTheKindChangesBack(t *tes
 	kept := store.New(t.TempDir(), false)
 	linkAcmeAsAnaInA(t, kept)
 
-	team := store.OwnerLink{Owner: acme, Team: true, OnSlack: true, Slack: *podGroup()}
-
-	err := kept.LinkOwner(t.Context(), forgeHost, workspaceB, team, theTime())
+	err := kept.LinkOwner(t.Context(), forgeHost, workspaceB, acmeAsThePodsTeam(), theTime())
 	if err != nil {
 		t.Fatalf("linking the team acme in workspace B: %v", err)
 	}
@@ -110,10 +113,8 @@ func TestALinkVoidedByAKindChangeElsewhereFreesItsSlackUser(t *testing.T) {
 	kept := store.New(dir, false)
 	linkAcmeAsAnaInA(t, kept)
 
-	team := store.OwnerLink{Owner: acme, Team: true, OnSlack: true, Slack: *podGroup()}
-
 	// Act
-	err := kept.LinkOwner(t.Context(), forgeHost, workspaceB, team, theTime())
+	err := kept.LinkOwner(t.Context(), forgeHost, workspaceB, acmeAsThePodsTeam(), theTime())
 	// Assert
 	if err != nil {
 		t.Fatalf("linking the team acme in workspace B: %v", err)
@@ -135,10 +136,8 @@ func TestAKindChangeElsewhereAsksAgainWhetherTheOwnerIsOnSlack(t *testing.T) {
 		t.Fatalf("deciding the person acme is not on Slack in workspace A: %v", err)
 	}
 
-	team := store.OwnerLink{Owner: acme, Team: true, OnSlack: true, Slack: *podGroup()}
-
 	// Act
-	err = kept.LinkOwner(t.Context(), forgeHost, workspaceB, team, theTime())
+	err = kept.LinkOwner(t.Context(), forgeHost, workspaceB, acmeAsThePodsTeam(), theTime())
 	if err != nil {
 		t.Fatalf("linking the team acme in workspace B: %v", err)
 	}
@@ -189,10 +188,8 @@ func TestAKindChangeOnOneForgeHostKeepsTheOwnersLinksOnAnother(t *testing.T) {
 		t.Fatalf("linking the person acme on %s in workspace B: %v", otherForgeHost, err)
 	}
 
-	team := store.OwnerLink{Owner: acme, Team: true, OnSlack: true, Slack: *podGroup()}
-
 	// Act
-	err = kept.LinkOwner(t.Context(), otherForgeHost, workspaceB, team, theTime())
+	err = kept.LinkOwner(t.Context(), otherForgeHost, workspaceB, acmeAsThePodsTeam(), theTime())
 	if err != nil {
 		t.Fatalf("linking the team acme on %s in workspace B: %v", otherForgeHost, err)
 	}
@@ -222,10 +219,8 @@ func TestAKindChangeOnOneForgeHostKeepsThatTheOwnerIsNotOnSlackOnAnother(t *test
 		t.Fatalf("linking the person acme on %s in workspace B: %v", otherForgeHost, err)
 	}
 
-	team := store.OwnerLink{Owner: acme, Team: true, OnSlack: true, Slack: *podGroup()}
-
 	// Act
-	err = kept.LinkOwner(t.Context(), otherForgeHost, workspaceB, team, theTime())
+	err = kept.LinkOwner(t.Context(), otherForgeHost, workspaceB, acmeAsThePodsTeam(), theTime())
 	if err != nil {
 		t.Fatalf("linking the team acme on %s in workspace B: %v", otherForgeHost, err)
 	}
@@ -253,10 +248,8 @@ func TestAKindOnAnotherForgeHostKeepsThatTheOwnerIsNotOnSlack(t *testing.T) {
 		t.Fatalf("deciding the team acme is not on Slack on %s in workspace A: %v", otherForgeHost, err)
 	}
 
-	team := store.OwnerLink{Owner: acme, Team: true, OnSlack: true, Slack: *podGroup()}
-
 	// Act
-	err = kept.LinkOwner(t.Context(), otherForgeHost, workspaceB, team, theTime())
+	err = kept.LinkOwner(t.Context(), otherForgeHost, workspaceB, acmeAsThePodsTeam(), theTime())
 	if err != nil {
 		t.Fatalf("linking the team acme on %s in workspace B: %v", otherForgeHost, err)
 	}
