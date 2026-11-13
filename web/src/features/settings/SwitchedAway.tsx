@@ -27,10 +27,14 @@ interface Followed {
 
 // useReadAfterSwitch follows a switch made in another tab or the terminal's
 // interface while Settings is open, whose configuration is read again in
-// place. A read of the same revision, the same file, keeps the form and its
-// edits; one of another file, or a read refused, ends the form, and says so
-// when it held unsaved edits, which were for the directory left. form keys the
-// form, and left is the directory whose edits were dropped.
+// place. A read of the same revision keeps the form and its edits; one of
+// another revision, or a read refused, ends the form, and says so when it held
+// unsaved edits, which were for the directory left. form keys the form, and
+// left is the directory whose edits were dropped.
+//
+// Trade-off TRADE-69: a revision is a digest of the files' bytes, not of their
+// paths, so a byte-for-byte copy in the directory switched to keeps the edits,
+// and a save writes them there.
 export function useReadAfterSwitch(query: UseQueryResult<ConfigRead>) {
   const here = useSnapshotStore((state) => state.snapshot?.here)
   const unsaved = useUiStore((state) => state.unsaved)
