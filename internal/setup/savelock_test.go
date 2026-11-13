@@ -4,7 +4,8 @@
 package setup_test
 
 // A file written over a home file holds the save locks Where carries, so a
-// save another workflow makes meanwhile is waited for, never written over.
+// save another workflow holds them for is waited on, and refused once it
+// holds them longer than a save waits.
 
 import (
 	"errors"
@@ -44,7 +45,7 @@ func overAHomeFile(t *testing.T) (setup.Where, config.Files) {
 	return where, layers
 }
 
-func TestCreatingAFileOverTheHomeFileWaitsOutAnotherWorkflowsSave(t *testing.T) {
+func TestCreatingAFileOverTheHomeFileIsRefusedWhileAnotherWorkflowHoldsTheSaveLock(t *testing.T) {
 	t.Parallel()
 
 	synctest.Test(t, func(t *testing.T) {
@@ -67,7 +68,7 @@ func TestCreatingAFileOverTheHomeFileWaitsOutAnotherWorkflowsSave(t *testing.T) 
 	})
 }
 
-func TestSavingOverTheHomeFileWaitsOutAnotherWorkflowsSave(t *testing.T) {
+func TestSavingOverTheHomeFileIsRefusedWhileAnotherWorkflowHoldsTheSaveLock(t *testing.T) {
 	t.Parallel()
 
 	synctest.Test(t, func(t *testing.T) {
