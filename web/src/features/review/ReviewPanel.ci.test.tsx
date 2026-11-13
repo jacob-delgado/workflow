@@ -34,6 +34,7 @@ test('heads a pipeline the forge counts no checks in by how it stands, not "0 of
   // A GitLab pipeline: one check for the whole pipeline, and no counts.
   reviewing({
     state: 'running',
+    no_ci: false,
     total: 0,
     done: 0,
     failed: 0,
@@ -50,9 +51,22 @@ test('heads a pipeline the forge counts no checks in by how it stands, not "0 of
   expect(screen.queryByText(/0 of 0/)).toBeNull()
 })
 
-test('says no checks are reported, beside the unknown mark, rather than draw an empty list', () => {
+test('says no checks are reported yet before the wait, rather than draw an empty list', () => {
   // Arrange
-  reviewing({ state: 'none', total: 0, done: 0, failed: 0, checks: [] })
+  // Q34: a forge lists a pushed head's checks a moment after the push.
+  reviewing({ state: 'none', no_ci: false, total: 0, done: 0, failed: 0, checks: [] })
+
+  // Act
+  render(<ReviewPanel />)
+
+  // Assert
+  const section = screen.getByRole('region', { name: /^CI checks/ })
+  expect(within(section).getByText('No checks reported yet.')).toBeTruthy()
+})
+
+test('says no checks are reported, beside the unknown mark, once the wait is over', () => {
+  // Arrange
+  reviewing({ state: 'none', no_ci: true, total: 0, done: 0, failed: 0, checks: [] })
 
   // Act
   render(<ReviewPanel />)

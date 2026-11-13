@@ -68,7 +68,7 @@ test('a review in flight says how many of its checks have finished', () => {
       review: {
         found: true,
         announced: 'none',
-        ci: { state: 'running', total: 7, done: 5, failed: 0, checks: [] },
+        ci: { state: 'running', no_ci: false, total: 7, done: 5, failed: 0, checks: [] },
       },
     }),
   })

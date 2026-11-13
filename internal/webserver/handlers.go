@@ -207,7 +207,8 @@ func (s *server) readReview(ctx context.Context) (api.Review, error) {
 // own terms: whether it has a pull request, which one, and its CI. The CI is
 // read only for an open pull request; when it is not read, or its read fails,
 // ciRead is false and the CI is the zero CI, which reports none, and a read
-// that failed leaves its error in ciErr. For a merged one whose branch
+// that failed leaves its error in ciErr. noCI is the read's head reported no
+// check for as long as armed.HeadWatch waits. For a merged one whose branch
 // loop.RefuseFinish finds nothing in the way of, madeAfter is what
 // madeAfterWords says of the commits made on it after it merged.
 type forgeRead struct {
@@ -216,6 +217,7 @@ type forgeRead struct {
 	ci        forge.CI
 	ciRead    bool
 	ciErr     error
+	noCI      bool
 	madeAfter error
 }
 
@@ -248,8 +250,11 @@ func (s *server) readForge(ctx context.Context, branch gitrepo.Branch) (forgeRea
 	}
 
 	status, ciErr := s.deps.Forge.CheckStatus(ctx, pull, branch.Head)
-	if ciErr == nil {
+	if ciErr != nil {
+		s.quiet.unheard()
+	} else {
 		read.ci, read.ciRead = status, true
+		read.noCI = s.quiet.heard(pull, status, s.now()).NoCI(pull)
 	}
 
 	read.ciErr = ciErr
@@ -272,6 +277,7 @@ func (s *server) reviewDTO(branch gitrepo.Branch, read forgeRead) api.Review {
 
 	if read.ciRead {
 		ci := ciDTO(read.ci)
+		ci.NoCi = read.noCI
 		result.Ci = &ci
 	}
 

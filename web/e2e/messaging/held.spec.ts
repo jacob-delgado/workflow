@@ -54,7 +54,7 @@ function snapshotHolding(held?: QueuedAnnouncement): Snapshot {
       found: true,
       announced: 'none',
       pull,
-      ci: { state: 'running', total: 2, done: 1, failed: 0, checks: [] },
+      ci: { state: 'running', no_ci: false, total: 2, done: 1, failed: 0, checks: [] },
     },
     messaging: {
       kind: 'slack',

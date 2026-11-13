@@ -80,6 +80,7 @@ test('shows the pull request and its CI checks', () => {
         pull,
         ci: {
           state: 'running',
+          no_ci: false,
           total: 2,
           done: 1,
           failed: 1,
@@ -125,6 +126,7 @@ test.each(ciCounts)(
           pull,
           ci: {
             state: failed > 0 ? 'failed' : 'passed',
+            no_ci: false,
             total: 2,
             done,
             failed,
@@ -165,6 +167,7 @@ test('draws each check as the mark of how it stands, beside the words', () => {
         pull,
         ci: {
           state: 'failed',
+          no_ci: false,
           total: 4,
           done: 3,
           failed: 1,

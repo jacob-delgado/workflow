@@ -38,7 +38,7 @@ function snapshotFailing(held?: QueuedAnnouncement): Snapshot {
       found: true,
       announced: 'none',
       pull,
-      ci: { state: 'failed', total: 2, done: 2, failed: 1, checks: [] },
+      ci: { state: 'failed', no_ci: false, total: 2, done: 2, failed: 1, checks: [] },
     },
     messaging: {
       kind: 'slack',

@@ -12,17 +12,18 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/jacob-delgado/workflow/internal/armed"
 	"github.com/jacob-delgado/workflow/internal/forge"
-	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
 // errNoMergeMethod reports a repository that permits no way to merge.
 var errNoMergeMethod = errors.New("cannot merge: the repository permits no merge method")
 
 // canMerge reports a pull request that can be merged here: found, mergeable,
-// green or with no CI reported, and approved, with a forge that can merge it.
+// green or with no check reported on its head for armed.NoCIPatience, and
+// approved, with a forge that can merge it.
 func (s reviewState) canMerge(deps Deps) bool {
-	return s.found && deps.Forge.Merge != nil && s.ciReported() && loop.CanMerge(s.pull, s.ci)
+	return s.found && deps.Forge.Merge != nil && s.ciReported() && s.quiet.CanMerge(s.pull, s.ci)
 }
 
 // ciReported reports CI that says what the forge reported: anything but none,
@@ -127,8 +128,15 @@ func mergeMethodLabel(method forge.MergeMethod) string {
 	return cmp.Or(labels[method], string(method))
 }
 
+// patienceWords is armed.NoCIPatience as the merge preview says it: "10
+// minutes".
+func patienceWords() string {
+	return strconv.Itoa(int(armed.NoCIPatience.Minutes())) + " minutes"
+}
+
 // mergePicker previews merging a pull request: which of the permitted methods
-// to use, sent only once it is confirmed, and whether no CI ran on it.
+// to use, sent only once it is confirmed, and whether no CI was reported on
+// it in armed.NoCIPatience.
 type mergePicker struct {
 	vocab    reviewVocab
 	pull     forge.PullRequest
@@ -145,15 +153,17 @@ var (
 	_ steppable             = mergePicker{}
 )
 
-// view draws the pull request, that no CI ran on it where none did, and the
-// methods it may be merged by, the merge's outcome pinned under the title.
+// view draws the pull request, that no CI was reported on it where none was,
+// and the methods it may be merged by, the merge's outcome pinned under the
+// title.
 func (p mergePicker) view(kit renderKit, width, _ int) (string, string) {
 	lines := kit.pinnedOutcome(p.send, "merging", width)
 	name := p.vocab.sigil + strconv.Itoa(p.pull.Number)
 	lines = append(lines, name+" "+p.pull.Title, "")
 
 	if p.noCI {
-		lines = append(lines, "no CI ran on "+name+"; a forge that requires checks refuses the merge", "")
+		lines = append(lines, "no CI was reported on "+name+" in "+patienceWords()+
+			"; a forge that requires checks refuses the merge", "")
 	}
 
 	switch {

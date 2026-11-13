@@ -14,7 +14,7 @@ import { Failure } from '@/lib/Status.tsx'
 // done when the forge counts them and by the state alone when it does not — a
 // GitLab pipeline, or checks not started — as the terminal's ciSummary words
 // it; with no checks at all it says none are reported rather than draw an empty
-// list.
+// list, and none reported yet until the server has waited on the head (no_ci).
 export function CiChecks({ ci }: { ci: Ci }) {
   const standing = ciStanding(ci)
 
@@ -31,7 +31,7 @@ export function CiChecks({ ci }: { ci: Ci }) {
       {ci.checks.length === 0 ? (
         <p className="flex items-center gap-item text-sm text-muted-foreground">
           <StateMark state="unknown" />
-          No checks reported.
+          {ci.state === 'none' && !ci.no_ci ? 'No checks reported yet.' : 'No checks reported.'}
         </p>
       ) : (
         <ul className="flex flex-col gap-item">

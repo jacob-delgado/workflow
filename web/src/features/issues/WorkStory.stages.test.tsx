@@ -77,6 +77,7 @@ test.each<{ state: Stage['state']; drawn: string; mark: MarkState }>([
   // Arrange
   const ci: Ci = {
     state: state === 'done' ? 'failed' : 'passed',
+    no_ci: false,
     total: 1,
     done: 1,
     failed: 0,

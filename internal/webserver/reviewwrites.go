@@ -9,8 +9,11 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/armed"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
@@ -22,7 +25,8 @@ var (
 	errReviewWriteUnavailable = errors.New("that is not available here")
 	errNoOpenPull             = errors.New("the branch has no open pull request")
 	errNotMergeable           = errors.New("it cannot be merged yet: it must be open, ready for review, " +
-		"free of conflicts, approved with no changes asked for, and its CI passed or none reported")
+		"free of conflicts, approved with no changes asked for, and its CI passed, " +
+		"or no check reported on its head for " + minutes(armed.NoCIPatience))
 	errNotFinishable  = errors.New("this branch cannot be finished")
 	errNothingToRerun = errors.New("there is nothing to re-run: only failed CI on an open pull request is")
 	errNoMergeMethod  = errors.New("the repository permits no merge method")
@@ -155,7 +159,9 @@ func (s *server) editPull(ctx context.Context, edit forge.PullRequestEdit) (forg
 var errMethodNotPermitted = errors.New("the repository does not permit merging by that method")
 
 // mergeablePull is the branch's pull request, read afresh with its CI, when it
-// can be merged by loop.CanMerge — the terminal's own rule — or errNotMergeable.
+// can be merged by armed.HeadWatch's CanMerge over the server's reads — the
+// terminal's own rule — or errNotMergeable. A read that fails counts no quiet
+// across it.
 func (s *server) mergeablePull(ctx context.Context) (forge.PullRequest, error) {
 	if s.deps.Forge.Merge == nil || s.deps.Forge.MergeMethods == nil {
 		return forge.PullRequest{}, errReviewWriteUnavailable
@@ -163,16 +169,48 @@ func (s *server) mergeablePull(ctx context.Context) (forge.PullRequest, error) {
 
 	read, err := s.readPull(ctx, true)
 	if err != nil {
+		s.quiet.unheard()
+
 		return forge.PullRequest{}, err
 	}
 
 	// CI it cannot read is the zero CI, which reports none, as a repository
 	// with no CI does: CanMerge would take one for the other.
-	if !read.found || s.deps.Forge.CheckStatus == nil || !loop.CanMerge(read.pull, read.ci) {
+	if !read.found || s.deps.Forge.CheckStatus == nil {
+		return forge.PullRequest{}, errNotMergeable
+	}
+
+	if !s.quiet.heard(read.pull, read.ci, s.now()).CanMerge(read.pull, read.ci) {
 		return forge.PullRequest{}, errNotMergeable
 	}
 
 	return read.pull, nil
+}
+
+// headQuiet is an armed.HeadWatch every read of CI adds to, however many
+// requests read at once.
+type headQuiet struct {
+	mu    sync.Mutex
+	watch armed.HeadWatch
+}
+
+// heard adds a read of pull's CI heard at readAt, which reported run, and
+// answers the watch it leaves.
+func (q *headQuiet) heard(pull forge.PullRequest, run forge.CI, readAt time.Time) armed.HeadWatch {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	q.watch = q.watch.Read(pull, run, readAt)
+
+	return q.watch
+}
+
+// unheard adds a read of CI that failed, which counts no quiet across it.
+func (q *headQuiet) unheard() {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	q.watch = q.watch.Unheard()
 }
 
 // permittedMethods is the merge methods the repository permits, or
@@ -211,7 +249,9 @@ func (s *server) GetMergeMethods(
 		offered = append(offered, api.MergeMethod(method))
 	}
 
-	return api.GetMergeMethods200JSONResponse(api.MergeOffer{Pull: pullDTO(pull), Methods: offered}), nil
+	return api.GetMergeMethods200JSONResponse(api.MergeOffer{
+		Pull: pullDTO(pull), Methods: offered, NoCiWaitMinutes: int(armed.NoCIPatience.Minutes()),
+	}), nil
 }
 
 // MergePullRequest merges the branch's pull request by the method asked, once

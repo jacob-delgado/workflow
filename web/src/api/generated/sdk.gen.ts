@@ -310,7 +310,7 @@ export const discard = <ThrowOnError extends boolean = false>(options: Options<D
 /**
  * How the branch's pull request may be merged, for the merge's preview.
  *
- * The merge methods the repository permits — a merge commit, a squash, a rebase — for the checked-out branch's pull request, once it can be merged as the terminal's M asks: open, not a draft, free of conflicts, approved with no changes asked for, and its CI passed or none reported, where the forge's own rules refuse a merge they require a check for. A read, so it answers under --dry-run too. Refused with 409 when the pull request cannot be merged yet, and 422 when merging is not available or the repository permits no method.
+ * The merge methods the repository permits — a merge commit, a squash, a rebase — for the checked-out branch's pull request, once it can be merged as the terminal's M asks: open, not a draft, free of conflicts, approved with no changes asked for, and its CI passed, or no check reported on its head for ten minutes of the server's reads (CI's no_ci), where the forge's own rules refuse a merge they require a check for. A read, so it answers under --dry-run too. Refused with 409 when the pull request cannot be merged yet, and 422 when merging is not available or the repository permits no method.
  */
 export const getMergeMethods = <ThrowOnError extends boolean = false>(options?: Options<GetMergeMethodsData, ThrowOnError>): RequestResult<GetMergeMethodsResponses, GetMergeMethodsErrors, ThrowOnError> => (options?.client ?? client).get<GetMergeMethodsResponses, GetMergeMethodsErrors, ThrowOnError>({
     responseValidator: async (data) => await zGetMergeMethodsResponse.parseAsync(data),

@@ -32,9 +32,9 @@ export interface FinishTeller {
   say: (text: string, moved: Moved) => void
 }
 
-// canMerge is loop.CanMerge: open, ready for review, free of conflicts,
-// approved with no changes asked for, and its CI passed or none reported. CI
-// not read yet is null, never none.
+// canMerge is armed.HeadWatch's CanMerge: open, ready, conflict-free, approved
+// with no changes asked for, its CI passed, or none reported on its head for
+// the server's wait (no_ci). CI not read yet is null, never none.
 function canMerge(pull: PullRequest, ci: Ci | null): boolean {
   return (
     pull.state === 'open' &&
@@ -42,7 +42,7 @@ function canMerge(pull: PullRequest, ci: Ci | null): boolean {
     pull.mergeable === 'clean' &&
     pull.approvals > 0 &&
     !pull.changes_requested &&
-    (ci?.state === 'passed' || ci?.state === 'none')
+    (ci?.state === 'passed' || (ci?.state === 'none' && ci.no_ci))
   )
 }
 
@@ -57,10 +57,10 @@ function canFinish(pull: PullRequest, finishRefusal: string | undefined): boolea
 // Review pane makes: edit it (e), merge it (M), finish its merged branch (F)
 // and re-run its failed CI (R), each offered only when it can go, and each
 // sent from a form that is its last look, opened as useOpenedForm has it.
-// What a sent one did is said below.
-// A merged branch that cannot be finished says why, as the terminal does; one
-// finished says so in finished, the panel's line, since the finish checks out
-// another branch, whose review starts afresh.
+// What a sent one did is said below. A merged branch that cannot be finished
+// says why, as the terminal does; one finished says so in finished, the
+// panel's line, since the finish checks out another branch, whose review
+// starts afresh.
 export function PullActions({
   pull,
   ci,
@@ -354,7 +354,8 @@ const methodLabel: Record<MergeMethod, string> = {
 
 // MergeForm is the merge's preview: the methods the repository permits, read
 // as it opens, one chosen, and the merge sent only from here. It says when no
-// CI ran, which the forge's own rules refuse where they require a check.
+// CI was reported in the server's wait, which the forge's own rules refuse
+// where they require a check.
 function MergeForm({ name, noCI, teller, held, onCancel }: FormProps & { noCI: boolean }) {
   const read = useReadOnOpen(
     readMergeOffer,
@@ -390,7 +391,8 @@ function MergeForm({ name, noCI, teller, held, onCancel }: FormProps & { noCI: b
     >
       {noCI ? (
         <p className="text-sm">
-          No CI ran on {name}; a forge that requires checks refuses the merge.
+          No CI was reported on {name} in {read.value.no_ci_wait_minutes} minutes; a forge that
+          requires checks refuses the merge.
         </p>
       ) : null}
       <fieldset className="flex flex-col gap-tight">

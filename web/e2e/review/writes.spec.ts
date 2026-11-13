@@ -41,6 +41,7 @@ function withPull(pull: PullRequest, ci: 'passed' | 'failed'): Snapshot {
       pull,
       ci: {
         state: ci,
+        no_ci: false,
         total: 1,
         done: 1,
         failed: ci === 'failed' ? 1 : 0,
@@ -66,7 +67,9 @@ async function opensReview(page: Page, snapshot: Snapshot): Promise<string[]> {
   })
   await page.route('**/api/pull-request/merge', (route) => {
     if (route.request().method() === 'GET') {
-      return route.fulfill({ json: { pull: ready, methods: ['squash', 'rebase'] } })
+      return route.fulfill({
+        json: { pull: ready, methods: ['squash', 'rebase'], no_ci_wait_minutes: 10 },
+      })
     }
 
     sent.push(`POST merge ${route.request().postData() ?? ''}`)

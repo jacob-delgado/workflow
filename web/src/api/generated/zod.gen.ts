@@ -931,7 +931,8 @@ export const zPullRequest = z.object({
  */
 export const zMergeOffer = z.object({
     pull: zPullRequest,
-    methods: z.array(zMergeMethod)
+    methods: z.array(zMergeMethod),
+    no_ci_wait_minutes: z.int()
 });
 
 export const zJobLog = z.object({
@@ -1029,6 +1030,7 @@ export const zCheck = z.object({
 
 export const zCi = z.object({
     state: zCiState,
+    no_ci: z.boolean(),
     total: z.int(),
     done: z.int(),
     failed: z.int(),
