@@ -72,14 +72,16 @@ function switched(
 
 // afterRead is where Settings stands once the read awaited answers: the same
 // form over the same file, or a new one over another file or a refusal, saying
-// so when the form held unsaved edits. Until it answers, nothing changes.
+// so when the form held unsaved edits. Until it answers, nothing changes: the
+// first answer after the switch is the read it sent, which cancels any read
+// still out when it went.
 function afterRead(
   followed: Followed,
   query: UseQueryResult<ConfigRead>,
   unsaved: boolean,
 ): Followed {
   const { awaited } = followed
-  if (awaited === null || query.isFetching || answeredAt(query) <= awaited.answered) {
+  if (awaited === null || answeredAt(query) <= awaited.answered) {
     return followed
   }
 
