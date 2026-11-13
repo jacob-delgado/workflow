@@ -183,7 +183,7 @@ func sendJSON(t *testing.T, served servingAddress, method, path, body, etag stri
 		request.Header.Set("If-Match", etag)
 	}
 
-	response, err := http.DefaultClient.Do(request)
+	response, err := ownClient().Do(request)
 	if err != nil {
 		t.Fatalf("sending %s %s: %v", method, path, err)
 	}

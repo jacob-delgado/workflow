@@ -157,7 +157,7 @@ func TestJobLogReportsAForgeItCannotReach(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			client := forge.New(httpx.Client(time.Second).Do, base, secret)
+			client := forge.New(httpx.ClientOver(gone.Client().Transport, time.Second).Do, base, secret)
 
 			// Act
 			_, err := client.JobLog(t.Context(), gitlabRepo(), forge.Check{ID: "501", LogAvailable: true})

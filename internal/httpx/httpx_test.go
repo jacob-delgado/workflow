@@ -28,11 +28,31 @@ func TestClientRefusesARedirect(t *testing.T) {
 
 	// Act
 	//nolint:noctx,bodyclose // the redirect is refused before a response body exists.
-	_, err := httpx.Client(time.Second).Get(server.URL)
+	_, err := httpx.ClientOver(server.Client().Transport, time.Second).Get(server.URL)
 
 	// Assert
 	if !errors.Is(err, httpx.ErrRedirected) {
 		t.Errorf("Get followed the redirect (err = %v), want it refused with ErrRedirected", err)
+	}
+}
+
+// The tests that send here send over their own server's transport, through
+// ClientOver: Client sends over http.DefaultTransport, whose idle connections
+// every httptest server's Close closes, which can break a request another
+// parallel test is making through it. Client's own refusal is read without
+// sending anything.
+func TestClientOverTheDefaultTransportRefusesARedirect(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	redirect := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "http://elsewhere.invalid/", nil)
+
+	// Act
+	err := httpx.Client(time.Second).CheckRedirect(redirect, nil)
+
+	// Assert
+	if !errors.Is(err, httpx.ErrRedirected) {
+		t.Errorf("CheckRedirect = %v, want the redirect refused with ErrRedirected", err)
 	}
 }
 
@@ -47,7 +67,7 @@ func TestClientReturnsANonRedirectResponse(t *testing.T) {
 
 	// Act
 	//nolint:noctx // a test against a local server needs no deadline of its own.
-	response, err := httpx.Client(time.Second).Get(server.URL)
+	response, err := httpx.ClientOver(server.Client().Transport, time.Second).Get(server.URL)
 
 	// Assert
 	if err != nil || response.StatusCode != http.StatusNoContent {
@@ -183,7 +203,7 @@ func TestARequestThatAsksIsShownItsRedirectRatherThanFollowingIt(t *testing.T) {
 	}
 
 	// Act
-	response, err := httpx.Client(time.Second).Do(request)
+	response, err := httpx.ClientOver(server.Client().Transport, time.Second).Do(request)
 
 	// Assert
 	if err != nil || response.StatusCode != http.StatusFound ||

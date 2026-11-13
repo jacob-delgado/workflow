@@ -121,29 +121,39 @@ func TestExitStatusDistinguishesFailureKinds(t *testing.T) {
 	}
 }
 
-// askJira asks the Jira at base who the token belongs to, over the
-// redirect-refusing transport the commands use, and returns what failed.
-func askJira(ctx context.Context, base string) error {
-	settings := config.Jira{BaseURL: base, Token: "jira-token-for-tests"}
-	_, err := jira.New(httpx.Client(time.Second).Do, settings).Myself(ctx)
+// overItsOwnTransport is the redirect-refusing client the commands use,
+// sending through server's own transport: every httptest server's Close
+// closes http.DefaultTransport's idle connections, which can break a request
+// another parallel test is making through it.
+func overItsOwnTransport(server *httptest.Server) httpx.Doer {
+	return httpx.ClientOver(server.Client().Transport, time.Second).Do
+}
+
+// askJira asks the Jira that server stands in for who the token belongs to,
+// over the redirect-refusing client the commands use, and returns what failed.
+func askJira(ctx context.Context, server *httptest.Server) error {
+	settings := config.Jira{BaseURL: server.URL, Token: "jira-token-for-tests"}
+	_, err := jira.New(overItsOwnTransport(server), settings).Myself(ctx)
 
 	return err
 }
 
-// postToSlack posts with a Slack user token through the API at base, over the
-// redirect-refusing transport the commands use, and returns what failed.
-func postToSlack(ctx context.Context, base string) error {
+// postToSlack posts with a Slack user token through the API that server stands
+// in for, over the redirect-refusing client the commands use, and returns what
+// failed.
+func postToSlack(ctx context.Context, server *httptest.Server) error {
 	creds := config.Messaging{ClientID: "1234.5678", Channel: "#dev"}
 	token := func(context.Context, config.Secret) (config.Secret, error) { return "slack-token-for-tests", nil }
 
-	return messaging.New(httpx.Client(time.Second).Do, base, creds).WithToken(token).
+	return messaging.New(overItsOwnTransport(server), server.URL, creds).WithToken(token).
 		Post(ctx, "", "a pull request is ready")
 }
 
-// askForge asks the forge API at base who the token belongs to, over the
-// redirect-refusing transport the commands use, and returns what failed.
-func askForge(ctx context.Context, base string) error {
-	_, err := forge.New(httpx.Client(time.Second).Do, base, "forge-token-for-tests").Whoami(ctx)
+// askForge asks the forge API that server stands in for who the token belongs
+// to, over the redirect-refusing client the commands use, and returns what
+// failed.
+func askForge(ctx context.Context, server *httptest.Server) error {
+	_, err := forge.New(overItsOwnTransport(server), server.URL, "forge-token-for-tests").Whoami(ctx)
 
 	return err
 }
@@ -180,7 +190,7 @@ func TestAServiceAnswerExitsInItsFamily(t *testing.T) {
 	// the family is the one a command meeting it exits with.
 	cases := map[string]struct {
 		answer http.HandlerFunc
-		ask    func(context.Context, string) error
+		ask    func(context.Context, *httptest.Server) error
 		want   int
 	}{
 		"jira refused the token for this, and said why": {
@@ -216,7 +226,7 @@ func TestAServiceAnswerExitsInItsFamily(t *testing.T) {
 			t.Cleanup(server.Close)
 
 			// Act
-			err := tt.ask(t.Context(), server.URL)
+			err := tt.ask(t.Context(), server)
 
 			// Assert
 			wantExit(t, err, tt.want)

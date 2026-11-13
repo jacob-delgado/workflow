@@ -192,7 +192,15 @@ func getURLPresenting(t *testing.T, target, authorization string) (*http.Respons
 		request.Header.Set("Authorization", authorization)
 	}
 
-	return http.DefaultClient.Do(request) //nolint:wrapcheck // the caller reports it whole
+	return ownClient().Do(request) //nolint:wrapcheck // the caller reports it whole
+}
+
+// ownClient sends over a transport of its own that keeps no connection open:
+// every httptest server's Close closes http.DefaultTransport's idle
+// connections, which can break a request another parallel test is making
+// through it.
+func ownClient() *http.Client {
+	return &http.Client{Transport: &http.Transport{DisableKeepAlives: true}}
 }
 
 // sharedNotes is a notes writer the server's request goroutines and the test
