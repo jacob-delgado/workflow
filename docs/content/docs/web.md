@@ -819,7 +819,8 @@ same, byte for byte, and the same files apply where the server works now, as
 **Repositories** lists them, your unsaved edits stay in the form. Otherwise,
 a copy of the file in another worktree or clone included, the form shows the
 file where the server works now, and says your unsaved edits were for the
-directory left.
+directory left. Until both reads have answered, **Save changes** is held, so
+a save never writes your edits over a file they were not made for.
 
 #### Setting up
 

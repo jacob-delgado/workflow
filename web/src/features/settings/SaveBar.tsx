@@ -72,6 +72,9 @@ interface SaveBarProps {
   // writing says a write to the file is out — a save, or a removal — which
   // the next save waits for.
   writing: boolean
+  // checking says the reads after a switch made elsewhere, which settle
+  // whether the edits are for the file the server now works with, are out.
+  checking: boolean
   said: Parameters<typeof OutcomeLine>[0]['said']
   // error is why the last save failed, or empty.
   error: string
@@ -83,11 +86,25 @@ interface SaveBarProps {
 
 // SaveBar stays in view below whichever section is shown: how many settings
 // are changed and not saved, Discard and Save — both held while nothing is
-// changed, or while a save or a removal writes the file — and what the last save said: that it saved,
-// while nothing has changed since, or why it did not. A save refused because
-// the file changed says so, and offers Reload, in place of its own reason.
+// changed, or while a save or a removal writes the file, and Save while a
+// switch made elsewhere is checking — and what the last save said: that it
+// saved, while nothing has changed since, or why it did not. A save refused
+// because the file changed says so, and offers Reload, in place of its own
+// reason.
 export function SaveBar(props: SaveBarProps) {
-  const { form, unsaved, toFix, saving, writing, said, error, reload, onShow, onDiscard } = props
+  const {
+    form,
+    unsaved,
+    toFix,
+    saving,
+    writing,
+    checking,
+    said,
+    error,
+    reload,
+    onShow,
+    onDiscard,
+  } = props
   const held = saving || writing || unsaved === 0
 
   return (
@@ -108,7 +125,7 @@ export function SaveBar(props: SaveBarProps) {
         <Button variant="secondary" held={held} onClick={onDiscard}>
           Discard
         </Button>
-        <Button variant="primary" type="submit" form={form} held={held}>
+        <Button variant="primary" type="submit" form={form} held={held || checking}>
           {saving ? 'Saving…' : 'Save changes'}
         </Button>
       </div>

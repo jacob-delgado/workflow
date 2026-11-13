@@ -37,8 +37,10 @@ interface Followed {
 // paths, so a copy of the file reads the same, and the files where the server
 // works tell the two apart. A read of another revision, or of other files, or
 // either read refused, ends the form, and says so when it held unsaved edits,
-// which were for the directory left. form keys the form, and left is the
-// directory whose edits were dropped.
+// which were for the directory left. form keys the form, left is the
+// directory whose edits were dropped, and checking says the reads that settle
+// it are still out, which a save waits for, since it would write the form's
+// edits over a file they may not have been made for.
 export function useReadAfterSwitch(query: UseQueryResult<ConfigRead>) {
   const here = useSnapshotStore((state) => state.snapshot?.here)
   const unsaved = useUiStore((state) => state.unsaved)
@@ -54,7 +56,7 @@ export function useReadAfterSwitch(query: UseQueryResult<ConfigRead>) {
     setFollowed(next)
   }
 
-  return { form: next.form, left: next.left }
+  return { form: next.form, left: next.left, checking: next.awaited !== null }
 }
 
 // Reads are the reads a switch is followed by: the configuration, and where

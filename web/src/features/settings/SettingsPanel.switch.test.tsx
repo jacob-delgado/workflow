@@ -106,15 +106,16 @@ interface Opened {
 
 // openSettings draws Settings working in api, where the files before apply,
 // answering the first read of the configuration with left's file and of where
-// the server works with before, and every read after with after's, a moment
-// later, where the server works the later of the two; and returns the page's
+// the server works with before, and every read after with after's: the
+// configuration a moment later, and where the server works a while after
+// that, long enough for a check to see it still out; and returns the page's
 // client and requests once the form is drawn.
 async function openSettings(after: Where, before: Files = apiFiles): Promise<Opened> {
   let switched = false
   const requests = fakeApi({
     '/api/keys': mockKeys,
     '/api/config': () => (switched ? later(answer(after.read), 20) : answer(left)),
-    '/api/repositories': () => (switched ? later(placed(after.files), 40) : placed(before)),
+    '/api/repositories': () => (switched ? later(placed(after.files), 250) : placed(before)),
   })
   const client = appQueryClient()
   useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
@@ -154,19 +155,46 @@ async function openSettingsAcross(filesIn: Record<string, Files>): Promise<Opene
   return { client, requests }
 }
 
+// Midway is a point between the two reads after a switch: the one read again
+// that has answered, and the one still out.
+interface Midway {
+  answered: readonly unknown[]
+  out: readonly unknown[]
+}
+
+// placeAnswered is where the server works read again, with the configuration
+// still out.
+const placeAnswered: Midway = { answered: getRepositoriesQueryKey(), out: getConfigQueryKey() }
+
+// configAnswered is the configuration read again, with where the server works
+// still out.
+const configAnswered: Midway = { answered: getConfigQueryKey(), out: getRepositoriesQueryKey() }
+
 // switchedMidway has the stream say the server works in here now, and waits
-// until where the server works, read again there, has answered while the
-// configuration read again is still out.
-async function switchedMidway({ client }: Opened, here: string): Promise<void> {
-  const placedAt = () => client.getQueryState(getRepositoriesQueryKey())?.dataUpdatedAt ?? 0
-  const placedBefore = placedAt()
+// until one read again there has answered while the other is still out: where
+// the server works, unless midway says otherwise.
+async function switchedMidway(
+  { client }: Opened,
+  here: string,
+  midway: Midway = placeAnswered,
+): Promise<void> {
+  const answeredAt = () => client.getQueryState(midway.answered)?.dataUpdatedAt ?? 0
+  const answeredBefore = answeredAt()
   act(() => {
     useSnapshotStore.setState({ snapshot: makeSnapshot({ here }) })
   })
   await waitFor(() => {
-    expect(placedAt()).toBeGreaterThan(placedBefore)
+    expect(answeredAt()).toBeGreaterThan(answeredBefore)
   })
-  expect(client.getQueryState(getConfigQueryKey())?.fetchStatus).toBe('fetching')
+  expect(client.getQueryState(midway.out)?.fetchStatus).toBe('fetching')
+}
+
+// saveHeld says whether Save is held, as a user's assistive technology hears
+// it.
+function saveHeld(): boolean {
+  return (
+    screen.getByRole('button', { name: 'Save changes' }).getAttribute('aria-disabled') === 'true'
+  )
 }
 
 // switchedElsewhere has the stream say the server works in here now, web
@@ -335,6 +363,45 @@ test('a switch elsewhere and back before the first is read keeps the unsaved edi
     expect(screen.getByLabelText<HTMLInputElement>('User').value).toBe('x')
   })
   expect(screen.queryByText(/were for/)).toBeNull()
+})
+
+test('Save is held while where the server works after a switch elsewhere is still being read', async () => {
+  // Arrange
+  const opened = await openSettings({ read: left, files: homeOnly }, homeOnly)
+  await anEdit()
+
+  // Act
+  await switchedMidway(opened, '/home/ana/src/web', configAnswered)
+
+  // Assert
+  expect(saveHeld(), 'Save was not held while where the server works was read').toBe(true)
+})
+
+test('Save is held while the configuration after a switch elsewhere is still being read', async () => {
+  // Arrange
+  const opened = await openSettingsAcross({ '/home/ana/src/web': apiFiles })
+  await anEdit()
+
+  // Act
+  await switchedMidway(opened, '/home/ana/src/web')
+
+  // Assert
+  expect(saveHeld(), 'Save was not held while the configuration was read').toBe(true)
+})
+
+test('Save is no longer held once the reads after a switch elsewhere keep the unsaved edits', async () => {
+  // Arrange
+  const opened = await openSettings({ read: left, files: homeOnly }, homeOnly)
+  await anEdit()
+
+  // Act
+  await switchedElsewhere(opened)
+
+  // Assert
+  await waitFor(() => {
+    expect(screen.getByLabelText<HTMLInputElement>('User').value).toBe('x')
+  })
+  expect(saveHeld(), 'Save stayed held after the reads kept the edits').toBe(false)
 })
 
 test('a switch elsewhere and on to a copy before the first is read says the unsaved edits were for the directory left first', async () => {
