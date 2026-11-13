@@ -15,6 +15,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/proc"
+	"github.com/jacob-delgado/workflow/internal/taskwarrior"
 )
 
 // requireFailureNotice fails the test unless the notice row, the one above the
@@ -27,6 +28,18 @@ func requireFailureNotice(t *testing.T, view, want string) {
 
 	if !strings.Contains(ansi.Strip(notice), failGlyph+" "+want) || !strings.Contains(notice, redOpen()+failGlyph) {
 		t.Errorf("the notice does not show %q after a red %q:\n%s", want, failGlyph, ansi.Strip(view))
+	}
+}
+
+// requireNotice fails the test unless the notice row, the one above the footer,
+// shows want.
+func requireNotice(t *testing.T, view, want string) {
+	t.Helper()
+
+	lines := strings.Split(view, "\n")
+
+	if notice := ansi.Strip(lines[len(lines)-2]); !strings.Contains(notice, want) {
+		t.Errorf("the notice does not show %q:\n%s", want, ansi.Strip(view))
 	}
 }
 
@@ -169,4 +182,50 @@ func TestAShortTerminalsFooterDrawsAFailureInRed(t *testing.T) {
 		!strings.Contains(lines[len(lines)-1], redOpen()+failGlyph) {
 		t.Errorf("the footer does not stand in with a red failure:\n%s", ansi.Strip(view))
 	}
+}
+
+// taskwarriorLocked is the reason a task's stop fails: Taskwarrior refused the write.
+func taskwarriorLocked() error {
+	return fmt.Errorf("%w: database is locked", taskwarrior.ErrRefused)
+}
+
+// noOpener is the reason opening the selected task's issue fails: no browser
+// opener on PATH.
+func noOpener() error {
+	return fmt.Errorf("opening the issue: %w", fmt.Errorf("%w: xdg-open", proc.ErrNotFound))
+}
+
+func TestAFailureNoticeOutlastsAPlainOneThatLandsBeforeAKey(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The stop is sent and its answer kept back, the open then fails, and the
+	// stop's plain result lands after the failure with no key between them.
+	repo := withTasks()
+	repo.openURLErr = noOpener()
+	stopping, stopped := typing(t, repo.live(t, 200, 40), tasksPane).Update(keyMsg("s"))
+	failed := typing(t, concrete(t, stopping), "o")
+
+	// Act
+	view := drain(t, failed, stopped).View().Content
+
+	// Assert
+	requireFailureNotice(t, view, "A program workflow runs is not on PATH.")
+}
+
+func TestALaterFailureNoticeReplacesAnEarlierOne(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := withTasks()
+	repo.openURLErr = noOpener()
+	repo.tasks.writeErr = taskwarriorLocked()
+	stopping, stopped := typing(t, repo.live(t, 200, 40), tasksPane).Update(keyMsg("s"))
+	failed := typing(t, concrete(t, stopping), "o")
+
+	// Act
+	view := drain(t, failed, stopped).View().Content
+
+	// Assert
+	requireFailureNotice(t, view, "taskwarrior refused the command: database is locked")
 }

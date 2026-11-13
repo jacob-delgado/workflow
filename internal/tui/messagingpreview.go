@@ -410,7 +410,20 @@ func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
 		m = m.closeOverlay()
 	}
 
-	return m.noticed(m.marks.done + " announced to " + msg.to + unconfirmedNote(m.marks, msg.err)), reread
+	return m.noticedAnnounced(msg.to, msg.err), reread
+}
+
+// noticedAnnounced says an announcement went out to where it went. One the
+// store could not confirm says so too, in words no pane repeats.
+func (m Model) noticedAnnounced(to string, err error) Model {
+	posted := m.marks.done + " announced to " + to
+
+	note := unconfirmedNote(m.marks, err)
+	if note == "" {
+		return m.noticed(posted)
+	}
+
+	return m.noticedUnrepeated(posted + note)
 }
 
 // unconfirmedNote is what the notice adds of an announcement the store could

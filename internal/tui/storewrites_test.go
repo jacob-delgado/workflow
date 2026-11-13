@@ -61,3 +61,46 @@ func TestAnIssueListTheStoreCannotKeepSaysSo(t *testing.T) {
 	// Assert
 	requireScreen(t, listed.View().Content, "issue list was not kept", "disk is full")
 }
+
+// What the store lost is said in the notice and nowhere else, so it takes the
+// notice even from a failure no key has cleared yet.
+
+func TestAnAnnouncementTheStoreCannotConfirmSaysSoOverAnUnreadFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The stop is sent and its failure kept back, the announcement is sent and
+	// its answer kept back too; the stop's failure lands, then the post's
+	// answer, with no key between them.
+	repo := withTasks()
+	repo.tasks.writeErr = taskwarriorLocked()
+	repo.storeErr = errStoreFull
+	stopping, stopFailed := typing(t, repo.live(t, 200, 40), tasksPane).Update(keyMsg("s"))
+	posting, posted := typing(t, concrete(t, stopping), "5", "p").Update(keyMsg(keyEnter))
+	failed := drain(t, concrete(t, posting), stopFailed)
+
+	// Act
+	view := drain(t, failed, posted).View().Content
+
+	// Assert
+	requireNotice(t, view, "The store did not confirm it; it is not offered again. database or disk is full")
+}
+
+func TestAnIssueListTheStoreCannotKeepSaysSoOverAnUnreadFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The refresh is sent and its answer kept back, the open then fails, and
+	// the store's loss lands after the failure with no key between them.
+	repo := withTasks()
+	repo.openURLErr = noOpener()
+	repo.storeErr = errStoreFull
+	refreshing, refreshed := repo.live(t, 200, 40).Update(keyMsg("r"))
+	failed := typing(t, concrete(t, refreshing), tasksPane, "o")
+
+	// Act
+	view := drain(t, failed, refreshed).View().Content
+
+	// Assert
+	requireNotice(t, view, "the issue list was not kept for the next session: database or disk is full")
+}

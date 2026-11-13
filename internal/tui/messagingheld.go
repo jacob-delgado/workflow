@@ -250,8 +250,7 @@ func (m Model) toldOfPost(now armed.Hold) Model {
 		armed.StagePosted: func() Model {
 			m.messaging.send.err = nil
 
-			return m.noticed(m.marks.done + " announced to " + m.destinationOf(now.Delivery()) +
-				unconfirmedNote(m.marks, now.Reason()))
+			return m.noticedAnnounced(m.destinationOf(now.Delivery()), now.Reason())
 		},
 		armed.StageElsewhere: func() Model {
 			return m.noticed(m.marks.done + " already announced from another session; not posted again")
