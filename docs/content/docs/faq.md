@@ -735,6 +735,19 @@ when the program holding it exits, so a lock left behind by a crash never blocks
 you. Just try again. See [Configuration: Slack: a user token or a
 webhook]({{< relref "/docs/configuration#slack-a-user-token-or-a-webhook" >}}).
 
+### workflow says `another workflow is saving the configuration`. What do I do?
+
+`another workflow is saving the configuration; try again in a moment` means
+another workflow on this machine (say, the terminal's Settings and `--web`'s at
+once) held the configuration file's save lock for more than ten seconds, so
+nothing was saved. Every save of the configuration takes that lock, a
+`config-<hash>.lock` file in workflow's state directory, so two never both
+write over the same revision. The operating system releases the lock when the
+program holding it exits. Save again; if the other save went through first,
+Settings then says the file changed since it was read, and **Reload** (`r` in
+the terminal) reads it again. See [Configuration: What is kept between
+sessions]({{< relref "/docs/configuration#what-is-kept-between-sessions" >}}).
+
 ### Where is my Slack token kept?
 
 On macOS, it is kept in the login keychain as a generic password named
@@ -1135,7 +1148,9 @@ It keeps two small SQLite files in your platform's data directory:
 `workflow.db` is a cache (the last commit scope, what you have announced, the
 last issue list of each view) that a session rebuilds. `kept.db` holds what you
 decided: whom each code owner is on Slack, the Slack user groups each repository
-offers, and your favorite directories. The store **never holds a secret** and is
+offers, and your favorite directories. Beside them are empty lock files that
+hold nothing: `slack-refresh.lock`, and a `config-<hash>.lock` for each
+configuration file workflow has saved. The store **never holds a secret** and is
 never keyed by a credential or by a raw remote or Jira URL. Tokens live in
 `.workflow.json`, the keychain or your environment ([Where can each token come
 from, and which one wins?](#where-can-each-token-come-from-and-which-one-wins)).
