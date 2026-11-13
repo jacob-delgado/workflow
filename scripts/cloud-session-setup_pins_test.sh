@@ -10,10 +10,11 @@
 # when its pin file changes, under a stamp naming the new file alone; and a
 # tool mise.toml does not pin, or a pin file under build/ that is missing,
 # stops the setup with 2, by name, though every stamp is in place; and the
-# toolchain is stamped with the digest of the pin files once a setup from them
-# finishes, the stamp of any other pins removed, and with none while an
-# install is under way. The stand-ins lib/cloud-session-setup-fixtures.sh
-# writes record what they were asked, so nothing is installed for real.
+# toolchain is stamped with the digest of its pins, read as the gate reads a
+# commit's, once a setup from them finishes, the stamp of any other pins
+# removed, and with none while an install is under way. The stand-ins
+# lib/cloud-session-setup-fixtures.sh writes record what they were asked, so
+# nothing is installed for real.
 #
 # Usage:
 #   scripts/cloud-session-setup_pins_test.sh
@@ -147,10 +148,11 @@ installed "${unpinned}.prefix"
 repin "${unpinned}" '/^jq = /d'
 expect_output 2 "a tool mise.toml does not pin" "no pin for 'jq'" setup "${unpinned}"
 
-# The toolchain is stamped with the digest of the pin files it was set up
-# from, which the gate checks a commit's against, and a stamp of another
-# checkout's pins goes, though nothing was installed: there is one toolchain,
-# set up from whichever checkout ran the setup last.
+# The toolchain is stamped with the digest of the pins it was set up from, as
+# lib/toolchain-pins.sh reads them for the gate too, which checks a commit's
+# against it, and a stamp of another checkout's pins goes, though nothing was
+# installed: there is one toolchain, set up from whichever checkout ran the
+# setup last.
 restamped="${workdir}/restamped"
 repo "${restamped}"
 installed "${restamped}.prefix"

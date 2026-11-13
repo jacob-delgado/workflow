@@ -2,7 +2,8 @@
 #
 # Tests for scripts/cloud-session-setup.sh: a finished setup fetches nothing
 # again and leaves the tools, the gate's own copy among them, linked and
-# readable, and the run after an install fetches nothing either; every download
+# readable, the library the gate reads pins with copied beside it but not
+# linked, and the run after an install fetches nothing either; every download
 # lands where the setup links it from, runnable by anyone, and a tool installed
 # again while it runs is replaced; a download that fails or misses its pinned
 # SHA-256 is not installed, and the setup names the tool and exits 1; a Go
@@ -63,6 +64,14 @@ count_case
 if [[ "$(readlink "${done_repo}.bin/gate-as-dev")" != "${done_repo}.prefix/bin/gate-as-dev" ]] \
   || ! cmp -s "${done_repo}/scripts/gate-as-dev.sh" "${done_repo}.prefix/bin/gate-as-dev"; then
   fail_case "the gate onto PATH" "gate-as-dev is not linked to a copy of scripts/gate-as-dev.sh in the prefix"
+fi
+count_case
+if ! cmp -s "${done_repo}/scripts/lib/toolchain-pins.sh" "${done_repo}.prefix/bin/lib/toolchain-pins.sh"; then
+  fail_case "the gate's library" "the library the gate reads pins with is not copied beside its copy"
+fi
+count_case
+if [[ -e "${done_repo}.bin/lib" ]]; then
+  fail_case "the gate's library" "the directory it is in is linked onto PATH as a tool"
 fi
 count_case
 if [[ -z "$(find "${done_repo}.prefix/bin/task" -perm -o=rx)" ]]; then

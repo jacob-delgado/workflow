@@ -26,8 +26,9 @@
 #
 # The toolchain is one, installed from the pins of whichever checkout ran the
 # setup last, so before a run the gate checks the commit's pins are the ones
-# it was installed from: the setup stamps the toolchain with the SHA-256 of
-# its checkout's pin files, which pins_digest reads from the commit.
+# it was installed from: the setup stamps the toolchain with the digest of its
+# checkout's pins, which lib/toolchain-pins.sh reads from the commit for both,
+# and a commit that moves nothing the setup installs from is gated as it is.
 #
 # The gate user gets an environment of named variables alone, so none of
 # root's credentials reach the code under test, and not the descriptors the
@@ -62,9 +63,6 @@ readonly run_lock_file="${GATE_RUN_LOCK:-/tmp/gate-as-dev-run.lock}"
 readonly lock_wait="${GATE_LOCK_WAIT:-3600}"
 readonly base="${GATE_BASE:-origin/main}"
 readonly need_gb=10 floor_gb=8 step_need_gb=3 step_floor_gb=2
-# The files that pin the toolchain, in the order scripts/cloud-session-setup.sh
-# digests them for its stamp.
-readonly pin_files=(mise.toml build/yamllint/requirements.txt build/markdownlint/package-lock.json)
 
 # The variables the gate user's environment is built from, when root has them:
 # the PATH that reaches the toolchain, the locale and terminal, the proxy the
@@ -121,22 +119,23 @@ take_lock() {
   wait_for "${run_lock}" "${run_lock_file}"
 }
 
-# pins_digest prints the SHA-256 of the pin files as a commit holds them; one
-# the commit lacks reads as empty, which no setup stamps, since a setup stops
-# on a missing pin file.
-#   pins_digest <worktree> <sha>
-pins_digest() {
-  local file digest
-  digest="$(for file in "${pin_files[@]}"; do git -C "$1" show "$2:${file}" 2>/dev/null || true; done | sha256sum)"
-  printf '%s' "${digest%% *}"
+# commit_file prints a file as a commit holds it.
+#   commit_file <worktree> <sha> <path>
+commit_file() {
+  git -C "$1" show "$2:$3" 2>/dev/null
 }
 
 # check_pins stops the run when the toolchain was not set up from the commit's
-# pins: a run would judge the commit with tools it does not pin.
+# pins: a run would judge the commit with tools it does not pin. It reads them
+# with the library the setup installs beside its copy of this script, found
+# through the link on PATH; the gate user's half, whose PATH may reach no
+# readlink, never sources it.
 #   check_pins <worktree> <sha>
 check_pins() {
   local digest
-  digest="$(pins_digest "$1" "$2")"
+  # shellcheck source=lib/toolchain-pins.sh
+  source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/toolchain-pins.sh"
+  digest="$(toolchain_digest commit_file "$1" "$2")"
   [[ -e "${tools}/stamps/pins@${digest}" ]] && return 0
   echo "gate-as-dev: the toolchain in ${tools} was not set up from the pins ${2:0:8} holds;" \
     "run setup for this worktree: bash $1/scripts/cloud-session-setup.sh" >&2

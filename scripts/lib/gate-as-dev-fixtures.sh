@@ -3,9 +3,10 @@
 #
 # The fixtures gate-as-dev.sh's tests share: stand-ins for df, runuser, curl,
 # task, go and id that record what they were asked, a repository with one
-# commit and the toolchain stamped as set up from its pins, the free space each
-# df call reports, and the gate run as root and as the gate user. gate-as-dev_test.sh tests the run itself, and
-# gate-as-dev_docs_test.sh which tasks a run is handed for a docs-only change.
+# commit and the toolchain stamped as set up from its pins, the free space
+# each df call reports, and the gate run as root and as the gate user.
+# gate-as-dev_test.sh tests the run itself, and gate-as-dev_docs_test.sh
+# which tasks a run is handed for a docs-only change.
 #
 # Sourced, never run, after lib/testing.sh, which sets ${workdir}; gate is the
 # script beside the sourcing test's ${here}:
@@ -64,18 +65,21 @@ stub id '[[ "$*" == "${MISSING_USER:-}" ]] && exit 1
 [[ "$*" == "-un" ]] && echo dev
 exit 0'
 
-# The files that pin the toolchain, in the order whose digest names the pins
-# stamp setup leaves.
-readonly pin_files=(mise.toml build/yamllint/requirements.txt build/markdownlint/package-lock.json)
+# shellcheck source=toolchain-pins.sh
+source "${here}/lib/toolchain-pins.sh"
 
-# set_up_for stamps the toolchain as installed from a checkout's pins, as a
-# setup run from it leaves it.
+# read_from prints a file of a checkout.
+#   read_from <dir> <path>
+read_from() {
+  cat "$1/$2"
+}
+
+# set_up_for stamps the toolchain as installed from a checkout's pins, read
+# with the library the setup reads them with, as a setup run from it leaves it.
 #   set_up_for <dir>
 set_up_for() {
-  local digest
-  digest="$(cd "$1" && cat "${pin_files[@]}" | sha256sum)"
   mkdir -p "${workdir}/tools/stamps"
-  : >"${workdir}/tools/stamps/pins@${digest%% *}"
+  : >"${workdir}/tools/stamps/pins@$(toolchain_digest read_from "$1")"
 }
 
 # repo makes a repository with one commit, holding the pin files, which

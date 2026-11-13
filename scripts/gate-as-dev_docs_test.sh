@@ -29,17 +29,18 @@ command -v flock >/dev/null || {
 source "${here}/lib/gate-as-dev-fixtures.sh"
 
 # changed_repo makes a repository whose main holds a page, some code,
-# scripts/docs-only.sh and a copy of the gate beside it, then a branch commit
-# that changes the path named, and prints nothing.
+# scripts/docs-only.sh and a copy of the gate and its library beside it, then
+# a branch commit that changes the path named, and prints nothing.
 #   changed_repo <dir> <path>
 changed_repo() {
   repo "$1"
   git -C "$1" branch -q -M main
-  mkdir -p "$1/docs" "$1/internal" "$1/scripts"
+  mkdir -p "$1/docs" "$1/internal" "$1/scripts/lib"
   printf 'page\n' >"$1/docs/page.md"
   printf 'code\n' >"$1/internal/code.go"
   cp "${here}/docs-only.sh" "$1/scripts/docs-only.sh"
   cp "${gate}" "$1/scripts/gate-as-dev.sh"
+  cp "${here}/lib/toolchain-pins.sh" "$1/scripts/lib/toolchain-pins.sh"
   git -C "$1" add -A
   git -C "$1" -c user.email=t@example.com -c user.name=t commit -q -m base
   git -C "$1" switch -q -c work
@@ -70,11 +71,12 @@ if [[ "${tasks}" != " check:docs" ]]; then
   fail_case "a docs-only change" "dev was not handed check:docs: ${tasks}"
 fi
 
-# Setup installs the gate alone, as gate-as-dev on PATH, with no docs-only.sh
-# beside it.
+# Setup installs the gate as gate-as-dev on PATH, with the library it reads
+# pins with and no docs-only.sh beside it.
 installed="${workdir}/installed/gate-as-dev"
-mkdir -p "${installed%/*}"
+mkdir -p "${installed%/*}/lib"
 cp "${gate}" "${installed}"
+cp "${here}/lib/toolchain-pins.sh" "${installed%/*}/lib/toolchain-pins.sh"
 expect_output pass "a docs-only change, gated by the installed copy" "docs only, so this runs task check:docs" \
   run_gate "${installed}" "${docs_repo}"
 
