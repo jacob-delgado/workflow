@@ -131,6 +131,41 @@ test('reads a shown diff again when the branch head moves', async () => {
   })
 })
 
+const partlyStaged: Change = { ...unstagedEdit, staged: true }
+const renamedFromOld: Change = { ...unstagedEdit, kind: 'renamed', original_path: 'old.go' }
+
+test.each([
+  { field: 'kind', from: unstagedEdit, to: { ...unstagedEdit, kind: 'deleted' } },
+  { field: 'staged', from: unstagedEdit, to: partlyStaged },
+  { field: 'has_unstaged', from: partlyStaged, to: { ...partlyStaged, has_unstaged: false } },
+  {
+    field: 'original_path',
+    from: renamedFromOld,
+    to: { ...renamedFromOld, original_path: 'older.go' },
+  },
+] satisfies { field: keyof Change; from: Change; to: Change }[])(
+  'reads a shown diff again when its change’s $field alone moves',
+  async ({ from, to }) => {
+    // Arrange
+    showWith(from)
+    const user = userEvent.setup()
+    await openDiff(user)
+    mockReadDiff.mockResolvedValueOnce({ path: 'a.go', lines: ['+read again'] })
+
+    // Act
+    act(() => {
+      showWith(to)
+    })
+
+    // Assert
+    await vi.waitFor(() => {
+      expect(screen.getByRole('region', { name: 'Diff of a.go' }).textContent).toContain(
+        '+read again',
+      )
+    })
+  },
+)
+
 test('keeps the old diff on screen while it reads again', async () => {
   // Arrange
   const user = userEvent.setup()
