@@ -6,22 +6,23 @@ import type { MarkState } from '@/lib/StateMark.tsx'
 // uuids do.
 const shortUUID = 8
 
-// Started is a task that is started: its start is always there.
-type Started = Task & { start: string }
+// WithStart is a task Taskwarrior has started, so its start is there, whether
+// or not it stands started.
+type WithStart = Task & { start: string }
 
 // isActive reports a task Taskwarrior counts started, whatever its wait:
 // pending, with a start. Its clock runs until it is stopped, so what writes —
 // a start or a stop — asks this; what the page shows asks isStarted.
 // Trade-off TRADE-65: a started task with a wait still ahead shows waiting
 // while its clock runs, so its detail offers to stop it.
-export function isActive(task: Task): task is Started {
+export function isActive(task: Task): task is WithStart {
   return task.status === 'pending' && task.start !== undefined
 }
 
 // isStarted reports a task that stands started, as the server words it: one
 // active and not waiting. A started task with a wait still ahead stands
 // waiting.
-export function isStarted(task: Task): task is Started {
+export function isStarted(task: Task): task is WithStart {
   return task.state === 'started' && isActive(task)
 }
 
