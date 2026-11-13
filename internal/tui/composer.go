@@ -463,7 +463,7 @@ func (c commitComposer) commit(m Model) (Model, tea.Cmd) {
 			remember := func() tea.Msg {
 				_, err := loop.RememberScope(ctx, record, subject.Scope)
 				if err != nil {
-					return storeNotKept{notice: committed + "; its scope was not remembered: " + err.Error()}
+					return storeNotKept{words: committed + "; its scope was not remembered: " + err.Error()}
 				}
 
 				return nil

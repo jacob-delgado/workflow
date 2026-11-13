@@ -120,7 +120,7 @@ func cacheIssues(ctx context.Context, deps Deps, msg issuesLoaded) tea.Cmd {
 	return func() tea.Msg {
 		err := write(ctx, msg.jql, msg.found.Issues)
 		if err != nil {
-			return storeNotKept{notice: "the issue list was not kept for the next session: " + err.Error()}
+			return storeNotKept{words: "the issue list was not kept for the next session: " + err.Error()}
 		}
 
 		return nil

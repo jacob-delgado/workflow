@@ -157,14 +157,14 @@ type notice struct {
 }
 
 // storeNotKept reports a write the store could not keep, made off the update
-// loop once what it records was done: notice is what the footer says then, the
+// loop once what it records was done: words are what the footer says then, the
 // deed and why the next session will not remember it.
-type storeNotKept struct{ notice string }
+type storeNotKept struct{ words string }
 
 var _ applier = storeNotKept{}
 
 // apply says what was done, and what of it the store lost.
-func (msg storeNotKept) apply(m Model) (Model, tea.Cmd) { return m.noticed(msg.notice), nil }
+func (msg storeNotKept) apply(m Model) (Model, tea.Cmd) { return m.noticed(msg.words), nil }
 
 // noticedDraftKept says a closed composer kept what was written, and the key
 // that picks it up again.
