@@ -815,11 +815,11 @@ that names no state directory, is still written over. When the file on disk is
 not valid, Settings says so in place of the form, and `workflow doctor` says
 what is wrong with it. A switch made while Settings is open, from another tab
 or the terminal, reads the configuration again in place: when it reads the
-same, byte for byte, your unsaved edits stay in the form; otherwise the form
-shows the file where the server works now, and says your unsaved edits were
-for the directory left. The same bytes are usually the same file, but a copy
-of it in another worktree or clone reads the same too: the edits stay, and
-**Save** writes them to the file where the server works now.
+same, byte for byte, and the same files apply where the server works now, as
+**Repositories** lists them, your unsaved edits stay in the form. Otherwise,
+a copy of the file in another worktree or clone included, the form shows the
+file where the server works now, and says your unsaved edits were for the
+directory left.
 
 #### Setting up
 
