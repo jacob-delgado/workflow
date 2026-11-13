@@ -149,7 +149,7 @@ Impact: medium · Effort: medium
 Impact: medium · Effort: large
 
 - Why: Every write workflow makes is told once, in a notice that the next
-  action clears (`Model.noticed`, `internal/tui/overlay.go:177`) or an
+  action clears (`Model.noticed`, `internal/tui/overlay.go:180`) or an
   outcome line beside a button, and then is gone. After a burst — a
   branch, three stages, a commit, a push, a pull request, a link, a move,
   an announcement — nothing shows what was done or where, and nothing
