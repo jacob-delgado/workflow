@@ -50,7 +50,13 @@ type Task struct {
 	IssueURL                    string // the jiraurl UDA
 }
 
-// Active reports a pending task that has been started.
+// Active reports a pending task that has been started, as Taskwarrior counts
+// it whatever its wait: its clock runs until it is stopped, so what writes to
+// Taskwarrior — a start or stop, a switch — asks this. What a list shows asks
+// Started.
+//
+// Trade-off TRADE-65: a started task with a wait still ahead shows waiting
+// while its clock runs; only a write, a switch's stop among them, reads this.
 func (t Task) Active() bool {
 	return t.Status == Pending && !t.Start.IsZero()
 }

@@ -378,6 +378,48 @@ func activeUUID(summary api.TasksSummary) string {
 	return summary.Active.UUID
 }
 
+func TestTheSnapshotsActiveTaskIsNeverOneThatWaits(t *testing.T) {
+	t.Parallel()
+
+	// A started task whose wait is still ahead is waiting, as the list words
+	// it, though Taskwarrior still counts it started.
+	now := webtest.TaskDay().Add(2 * time.Hour)
+	startedWaits := webtest.PlainTask()
+	startedWaits.Start, startedWaits.Wait = webtest.TaskDay(), now.Add(48*time.Hour)
+	cases := map[string]struct {
+		pending, linked []taskwarrior.Task
+		wantActive      string
+	}{
+		"the only started task waits": {
+			pending: []taskwarrior.Task{startedWaits}, linked: []taskwarrior.Task{webtest.DoneTask()}, wantActive: "",
+		},
+		"a started task that waits gives way to one that does not": {
+			pending:    []taskwarrior.Task{startedWaits},
+			linked:     []taskwarrior.Task{webtest.StartedTask(), webtest.DoneTask()},
+			wantActive: webtest.StartedUUID,
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			deps := webtest.FilledDeps()
+			deps.Tasks = withTasks(tt.pending, tt.linked)
+			deps.Clock = func() time.Time { return now }
+
+			// Act
+			body := webtest.StreamOnce(t, webtest.Serve(t, deps, config.Default()), "/api/events").Body.String()
+
+			// Assert
+			if got := activeUUID(webtest.FirstSnapshot(t, body).Tasks); got != tt.wantActive {
+				t.Errorf("active = %q, want %q: a started task that waits is not the active one", got, tt.wantActive)
+			}
+		})
+	}
+}
+
 func TestTheSnapshotIsUnavailableUntilTaskwarriorHasAnsweredBothReads(t *testing.T) {
 	t.Parallel()
 

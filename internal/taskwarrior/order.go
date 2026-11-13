@@ -55,6 +55,12 @@ func (t Task) State(now time.Time) State {
 	}
 }
 
+// Started reports a task the lists show started at now: one Active and not
+// waiting. A started task with a wait still ahead is waiting there.
+func (t Task) Started(now time.Time) bool {
+	return t.State(now) == StateStarted
+}
+
 // pendingState is where a pending task stands at now: hidden until a date
 // still ahead, started, or neither.
 func (t Task) pendingState(now time.Time) State {
