@@ -19,20 +19,11 @@ function pushable() {
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
-      branch: {
-        name: 'fix/PROJ-1',
-        issue_link: '',
-        detached: false,
-        head: 'abc1234',
+      branch: makeBranch({
         upstream: '',
-        push_remote: 'origin',
-        base_remote: 'origin',
         ahead: 0,
-        behind: 0,
-        uncounted: false,
-        base: 'origin/main',
         commits: [{ hash: 'c0ffee1', subject: 'fix: redact tokens', unpushed: false }],
-      },
+      }),
     }),
   })
 }
@@ -57,20 +48,14 @@ test('shows the current branch, its commits, and its changes', () => {
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
-      branch: {
+      branch: makeBranch({
         name: 'feat/web',
-        issue_link: '',
-        detached: false,
         head: 'deadbee',
         upstream: 'origin/feat/web',
-        push_remote: 'origin',
-        base_remote: 'origin',
         ahead: 3,
         behind: 1,
-        uncounted: false,
-        base: 'origin/main',
         commits: [{ hash: 'deadbeef1', subject: 'feat: build the shell', unpushed: false }],
-      },
+      }),
       changes: {
         changes: [
           {
@@ -214,20 +199,10 @@ test('offers no push for a fully published branch', () => {
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
-      branch: {
-        name: 'fix/PROJ-1',
-        issue_link: '',
-        detached: false,
-        head: 'abc1234',
-        upstream: 'origin/fix/PROJ-1',
-        push_remote: 'origin',
-        base_remote: 'origin',
+      branch: makeBranch({
         ahead: 0,
-        behind: 0,
-        uncounted: false,
-        base: 'origin/main',
         commits: [{ hash: 'c0ffee1', subject: 'fix: redact tokens', unpushed: false }],
-      },
+      }),
     }),
   })
 
@@ -244,20 +219,15 @@ test('offers no push in a detached HEAD', () => {
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
-      branch: {
+      branch: makeBranch({
         name: '',
-        issue_link: '',
         detached: true,
         head: 'abcdef1234',
         upstream: '',
-        push_remote: 'origin',
-        base_remote: 'origin',
         ahead: 0,
-        behind: 0,
-        uncounted: false,
         base: '',
         commits: [{ hash: 'c0ffee1', subject: 'fix: redact tokens', unpushed: false }],
-      },
+      }),
     }),
   })
 
@@ -384,20 +354,7 @@ test('shows placeholders for an unpublished branch with a clean tree', () => {
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
-      branch: {
-        name: 'wip',
-        issue_link: '',
-        detached: false,
-        head: 'aaa',
-        upstream: '',
-        push_remote: 'origin',
-        base_remote: 'origin',
-        ahead: 0,
-        behind: 0,
-        uncounted: false,
-        base: 'origin/main',
-        commits: [],
-      },
+      branch: makeBranch({ name: 'wip', head: 'aaa', upstream: '', ahead: 0 }),
       changes: { changes: [] },
     }),
   })
@@ -416,20 +373,14 @@ test('shows a detached HEAD rather than calling it not a repository', () => {
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
-      branch: {
+      branch: makeBranch({
         name: '',
-        issue_link: '',
         detached: true,
         head: 'abcdef1234',
         upstream: '',
-        push_remote: 'origin',
-        base_remote: 'origin',
         ahead: 0,
-        behind: 0,
-        uncounted: false,
         base: '',
-        commits: [],
-      },
+      }),
     }),
   })
 
@@ -445,20 +396,15 @@ test('says so when the workspace is not a Git repository, and what one would sho
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
-      branch: {
+      branch: makeBranch({
         name: '',
-        issue_link: '',
-        detached: false,
         head: '',
         upstream: '',
         push_remote: '',
         base_remote: '',
         ahead: 0,
-        behind: 0,
-        uncounted: false,
         base: '',
-        commits: [],
-      },
+      }),
     }),
   })
 
@@ -542,20 +488,7 @@ test('a missing base and a missing upstream read the same word', () => {
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
-      branch: {
-        name: 'wip',
-        issue_link: '',
-        detached: false,
-        head: 'aaa',
-        upstream: '',
-        push_remote: 'origin',
-        base_remote: 'origin',
-        ahead: 0,
-        behind: 0,
-        uncounted: false,
-        base: '',
-        commits: [],
-      },
+      branch: makeBranch({ name: 'wip', head: 'aaa', upstream: '', ahead: 0, base: '' }),
     }),
   })
 

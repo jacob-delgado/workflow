@@ -100,20 +100,11 @@ test('reads a committed clean tree and a green pull request', () => {
     status: 'live',
     snapshot: makeSnapshot({
       branches: onHead,
-      branch: {
-        name: 'fix/PROJ-1',
-        issue_link: '',
-        detached: false,
+      branch: makeBranch({
         head: 'h1h2h3h',
-        upstream: 'origin/fix/PROJ-1',
-        push_remote: 'origin',
-        base_remote: 'origin',
         ahead: 1,
-        behind: 0,
-        uncounted: false,
-        base: 'origin/main',
         commits: [{ hash: 'h1h2h3h4', subject: 'do the work', unpushed: false }],
-      },
+      }),
       changes: { changes: [] },
       review: {
         found: true,
@@ -149,20 +140,11 @@ test('says no checks reported for a pull request whose forge reports none', () =
     status: 'live',
     snapshot: makeSnapshot({
       branches: onHead,
-      branch: {
-        name: 'fix/PROJ-1',
-        issue_link: '',
-        detached: false,
+      branch: makeBranch({
         head: 'h1h2h3h',
-        upstream: 'origin/fix/PROJ-1',
-        push_remote: 'origin',
-        base_remote: 'origin',
         ahead: 1,
-        behind: 0,
-        uncounted: false,
-        base: 'origin/main',
         commits: [{ hash: 'h1h2h3h4', subject: 'do the work', unpushed: false }],
-      },
+      }),
       changes: { changes: [] },
       review: {
         found: true,
