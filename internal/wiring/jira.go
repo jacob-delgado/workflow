@@ -134,17 +134,13 @@ func newJiraConnection(connect func(context.Context) (jiraConnected, error)) *ji
 
 // current is the client held, and its number, finding one first when none is.
 func (c *jiraConnection) current(ctx context.Context) (jiraConnected, int, error) {
-	err := c.turn.take(ctx)
-	if err != nil {
-		return jiraConnected{}, 0, err
-	}
-	defer c.turn.give()
+	return c.holdingTurn(ctx, func() (jiraConnected, int, error) {
+		if c.generation > 0 {
+			return c.connected, c.generation, nil
+		}
 
-	if c.generation > 0 {
-		return c.connected, c.generation, nil
-	}
-
-	return c.connectAgain(ctx)
+		return c.connectAgain(ctx)
+	})
 }
 
 // renewed is a client whose token was found again, for the one numbered
@@ -153,19 +149,30 @@ func (c *jiraConnection) current(ctx context.Context) (jiraConnected, int, error
 // not found keeps the refused one held, so the next call is refused and finds
 // it again.
 func (c *jiraConnection) renewed(ctx context.Context, refused int) (jiraConnected, error) {
+	connected, _, err := c.holdingTurn(ctx, func() (jiraConnected, int, error) {
+		if c.generation != refused {
+			return c.connected, c.generation, nil
+		}
+
+		return c.connectAgain(ctx)
+	})
+
+	return connected, err
+}
+
+// holdingTurn runs use while holding the connecting turn, which it waits for
+// only as long as ctx lasts: a call whose context ends while another
+// connects gives up with that context's end.
+func (c *jiraConnection) holdingTurn(
+	ctx context.Context, use func() (jiraConnected, int, error),
+) (jiraConnected, int, error) {
 	err := c.turn.take(ctx)
 	if err != nil {
-		return jiraConnected{}, err
+		return jiraConnected{}, 0, err
 	}
 	defer c.turn.give()
 
-	if c.generation != refused {
-		return c.connected, nil
-	}
-
-	connected, _, err := c.connectAgain(ctx)
-
-	return connected, err
+	return use()
 }
 
 // connectAgain finds a client and holds it under the next number. The caller
