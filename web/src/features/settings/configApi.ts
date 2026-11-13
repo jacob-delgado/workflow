@@ -1,4 +1,11 @@
-import { type QueryClient, queryOptions, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  hashKey,
+  type Query,
+  type QueryClient,
+  queryOptions,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { getConfig, updateConfig } from '@/api/generated'
 import {
   getConfigQueryKey,
@@ -31,9 +38,10 @@ async function readConfig(signal?: AbortSignal): Promise<ConfigRead> {
 // configQuery is the one read of the configuration every surface shares. It is
 // the one query that reads again whenever a surface showing it opens: the file
 // can change on disk, which no event reports, and a form seeded from an older
-// read only learns so when its save is refused. It reads again at no other
-// time — a reconnect says nothing about the file, and a read that failed then
-// would take an open form, and the edits in it, away.
+// read only learns so when its save is refused. Otherwise it reads again only
+// in place after a switch (readConfigAgain) — a reconnect says nothing about
+// the file, and a read that failed then would take an open form, and the
+// edits in it, away.
 function configQuery() {
   return queryOptions({
     queryKey: getConfigQueryKey(),
@@ -53,6 +61,19 @@ function configQuery() {
     staleTime: 0,
     refetchOnReconnect: false,
   })
+}
+
+// isConfigQuery says whether a query is the read of the configuration.
+export function isConfigQuery(query: Query): boolean {
+  return query.queryHash === hashKey(configQuery().queryKey)
+}
+
+// readConfigAgain reads the configuration again in place once the server works
+// in another directory: the read it had stays while the new one is out, so a
+// Settings form open on it keeps its edits until that read says whether they
+// are for the same file.
+export function readConfigAgain(client: QueryClient): Promise<void> {
+  return client.invalidateQueries({ queryKey: configQuery().queryKey })
 }
 
 // useConfigRead reads the configuration with the revision a save names.

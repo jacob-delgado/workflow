@@ -25,6 +25,7 @@ import {
   useSaveConfig,
 } from './configApi.ts'
 import { LeaveUnsaved } from './LeaveUnsaved.tsx'
+import { EditsLeft, useReadAfterSwitch } from './SwitchedAway.tsx'
 import { LocalData } from './people/LocalData.tsx'
 import { PeopleAndGroups } from './people/PeopleAndGroups.tsx'
 import { configOf, formValues, type SettingsValues } from './formValues.ts'
@@ -56,7 +57,8 @@ function OwnSaves({ children }: { children: ReactNode }) {
 
 // ConfigArea is the configuration form, once the file is read, or why it is
 // not — or, where no file applies, the setup that writes a first one, and once
-// it has, what it wrote above the form.
+// it has, what it wrote above the form. A switch made elsewhere that brings
+// another file ends the form, saying so over any unsaved edits it held.
 function ConfigArea() {
   const query = useConfigRead()
   // A Try again is swapped for the form it loads, so the form takes the focus the
@@ -64,10 +66,12 @@ function ConfigArea() {
   const [retried, setRetried] = useState(false)
   const [setUp, setSetUp] = useState<SetupResult | null>(null)
   const refusal = useShownRefusal(query.error, query.isPending)
+  const switched = useReadAfterSwitch(query)
 
   if (query.isError && problemCode(query.error) === 'not_found') {
     return (
       <OwnSaves>
+        <EditsLeft left={switched.left} />
         <SetupArea onWritten={setSetUp} />
       </OwnSaves>
     )
@@ -78,6 +82,7 @@ function ConfigArea() {
   if (refusal !== null && query.isFetchedAfterMount) {
     return (
       <OwnSaves>
+        <EditsLeft left={switched.left} />
         <Unread
           reason={apiErrorMessage(refusal, 'The configuration could not be read.')}
           refusals={query.errorUpdateCount}
@@ -104,7 +109,8 @@ function ConfigArea() {
   return (
     <div className="flex flex-col gap-section">
       {setUp === null ? null : <SetUpSaid result={setUp} />}
-      <ConfigForm read={query.data} takesFocus={retried} />
+      <EditsLeft left={switched.left} />
+      <ConfigForm key={switched.form} read={query.data} takesFocus={retried} />
     </div>
   )
 }
