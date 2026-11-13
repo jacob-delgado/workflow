@@ -296,7 +296,9 @@ unless `commit.refs_trailer` relabels it), and runs the repository's own
 hooks. A hook that refuses the commit says why. **Show diff** under a changed
 file reads its diff against HEAD, staged and unstaged together, and reads it
 again when a commit moves HEAD or the file is staged, unstaged or renamed,
-showing the old diff until the new one comes; **Hide diff** puts it away.
+showing the old diff until the new one comes. An edit to the file's contents
+alone does not read it again: **Hide diff** puts it away, and **Show diff**
+reads it afresh.
 
 Under the commits, **Run a hook** reads the hooks lefthook configures and
 offers the ones a run by hand can stand in for, as the terminal's `h` does,
