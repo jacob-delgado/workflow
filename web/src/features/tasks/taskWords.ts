@@ -9,9 +9,20 @@ const shortUUID = 8
 // Started is a task that is started: its start is always there.
 type Started = Task & { start: string }
 
-// isActive reports a task that is started: pending, with a start.
+// isActive reports a task Taskwarrior counts started, whatever its wait:
+// pending, with a start. Its clock runs until it is stopped, so what writes —
+// a start or a stop — asks this; what the page shows asks isStarted.
+// Trade-off TRADE-65: a started task with a wait still ahead shows waiting
+// while its clock runs, so its detail offers to stop it.
 export function isActive(task: Task): task is Started {
   return task.status === 'pending' && task.start !== undefined
+}
+
+// isStarted reports a task that stands started, as the server words it: one
+// active and not waiting. A started task with a wait still ahead stands
+// waiting.
+export function isStarted(task: Task): task is Started {
+  return task.state === 'started' && isActive(task)
 }
 
 // stillToDo reports a task not completed — pending, waiting or recurring — which
@@ -29,7 +40,7 @@ export function linkedTo(tasks: Task[], issueKey: string): Task[] {
 // markOf is how far a task has got, by shape — started, completed, or not
 // started yet — as the terminal's glyph for it is.
 export function markOf(task: Task): MarkState {
-  if (isActive(task)) {
+  if (isStarted(task)) {
     return 'in-flight'
   }
 
@@ -47,7 +58,7 @@ interface IssueTaskMark {
 // rows mark it: active while a linked task is started, tracked while one is
 // still to do, done once every one is completed — or none, with no task linked.
 export function issueTaskMark(linked: Task[]): IssueTaskMark | undefined {
-  if (linked.some(isActive)) {
+  if (linked.some(isStarted)) {
     return { state: 'in-flight', words: 'task active' }
   }
 
