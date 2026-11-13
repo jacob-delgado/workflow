@@ -29,7 +29,9 @@ const ready: PullRequest = {
 vi.mock('./reviewWritesApi.ts', () => ({
   readPullText: vi.fn(() => Promise.resolve({ title: 'Redact tokens', body: 'Why: they leak.' })),
   editPull: vi.fn((title: string) => Promise.resolve({ ...ready, title })),
-  readMergeOffer: vi.fn(() => Promise.resolve({ pull: ready, methods: ['squash', 'rebase'] })),
+  readMergeOffer: vi.fn(() =>
+    Promise.resolve({ pull: ready, methods: ['squash', 'rebase'], no_ci_wait_minutes: 10 }),
+  ),
   mergePull: vi.fn(() => Promise.resolve({ ...ready, state: 'merged' })),
   finishBranch: vi.fn(() => Promise.resolve(makeBranch({ name: 'main' }))),
   rerunChecks: vi.fn(() => Promise.resolve({ reran: true })),
@@ -39,6 +41,7 @@ vi.mock('./reviewWritesApi.ts', () => ({
 function ciOf(state: Ci['state']): Ci {
   return {
     state,
+    no_ci: false,
     total: 1,
     done: 1,
     failed: state === 'failed' ? 1 : 0,
@@ -114,9 +117,15 @@ test('offers no merge until the pull request can be merged', () => {
   expect(screen.queryByRole('button', { name: 'Merge' })).toBeNull()
 })
 
-test('offers the merge of a pull request no CI reported on, saying none ran', async () => {
+test('offers the merge of a pull request no CI was reported on in the wait, saying so', async () => {
   // Arrange
-  streamPull(ready, { state: 'none', total: 0, done: 0, failed: 0, checks: [] })
+  // The wait is the server's, as its offer says it.
+  streamPull(ready, { state: 'none', no_ci: true, total: 0, done: 0, failed: 0, checks: [] })
+  vi.mocked(readMergeOffer).mockResolvedValueOnce({
+    pull: ready,
+    methods: ['squash'],
+    no_ci_wait_minutes: 15,
+  })
   const user = userEvent.setup()
   render(<ReviewPanel />)
 
@@ -125,7 +134,19 @@ test('offers the merge of a pull request no CI reported on, saying none ran', as
 
   // Assert
   const form = await screen.findByRole('form', { name: 'Merge #42' })
-  expect(within(form).getByText(/No CI ran on #42/)).toBeTruthy()
+  expect(within(form).getByText(/No CI was reported on #42 in 15 minutes/)).toBeTruthy()
+})
+
+test('offers no merge while no check is reported yet on the head', () => {
+  // Arrange
+  // Q34: a forge lists a pushed head's checks a moment after the push.
+  streamPull(ready, { state: 'none', no_ci: false, total: 0, done: 0, failed: 0, checks: [] })
+
+  // Act
+  render(<ReviewPanel />)
+
+  // Assert
+  expect(screen.queryByRole('button', { name: 'Merge' })).toBeNull()
 })
 
 test('offers no merge before the CI is read', () => {

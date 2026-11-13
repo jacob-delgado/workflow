@@ -337,30 +337,34 @@ offered on it, Merged or Closed once it is done — and the issue it is
 for, linked to its page. While it is open, the section also shows its
 mergeability, approvals and requested changes, and its CI checks, headed by
 how many are done when the forge counts them and by how CI stands when it does
-not, as for a GitLab pipeline, or "No checks reported." when there are none: a
-failed one names the stage it ran in and why it failed, and **Show log** reads the end of
-any check's log the forge keeps one for, passed or failed.
+not, as for a GitLab pipeline, or "No checks reported." when there are none —
+"No checks reported yet." until the head has reported none through ten minutes
+of the server's reads: a failed one names the stage it ran in and why it
+failed, and **Show log** reads the end of any check's log the forge keeps one
+for, passed or failed.
 
-Under the state, the terminal's Review pane's writes, each offered only when
-it can go and each sent from a form that is its last look: **Edit pull
-request** reads its title and description afresh and **Save**s them, as `e`
-does; **Merge**, once it is ready for review, free of conflicts, approved with
-no changes asked for, and green or with no CI reported — the form then says no
-CI ran, and a forge that requires checks refuses it — reads the methods the
-repository permits and merges by the one chosen, as `M` does; **Re-run failed
-checks**, while its CI has failed, restarts the failed jobs, as `R` does, says
-when a failure had no job to restart, and restarts none on a GitHub commit with
-more workflow runs than it reads, saying to re-run them on the forge; and once
-it has merged, **Finish the branch** shows the
-three git commands it runs — switch to the base, pull it from the base remote,
-delete the branch — as `F` does, when deleting the branch loses nothing: it is
-at the commit that merged, or its upstream holds every commit on it, and it
-has no commit made after the one that merged, which the server fetches first
-when this clone lacks it; a fetch that fails is in the way too. When
-something is in the way, the section says what in its place, as the terminal
-does. The server reads the pull request and its CI again before each, so
-nothing goes on what the page showed a moment ago. A token without the scope a
-write needs is told in the forge's own words, naming the scope.
+Under the state, the terminal's Review pane's writes, each offered only when it
+can go and each sent from a form that is its last look: **Edit pull request**
+reads its title and description afresh and **Save**s them, as `e` does;
+**Merge**, once it is ready for review, free of conflicts, approved with no
+changes asked for, and green or with no check reported on its head through ten
+minutes of the server's reads, from its start and from each new head — until
+then its CI checks say none are reported yet, and the form then says no CI was
+reported in those ten minutes, and a forge that requires checks refuses it —
+reads the methods the repository permits and merges by the one chosen, as `M`
+does; **Re-run failed checks**, while its CI has failed, restarts the failed
+jobs, as `R` does, says when a failure had no job to restart, and restarts none
+on a GitHub commit with more workflow runs than it reads, saying to re-run them
+on the forge; and once it has merged, **Finish the branch** shows the three git
+commands it runs — switch to the base, pull it from the base remote, delete the
+branch — as `F` does, when deleting the branch loses nothing: it is at the
+commit that merged, or its upstream holds every commit on it, and it has no
+commit made after the one that merged, which the server fetches first when this
+clone lacks it; a fetch that fails is in the way too. When something is in the
+way, the section says what in its place, as the terminal does. The server reads
+the pull request and its CI again before each, so nothing goes on what the page
+showed a moment ago. A token without the scope a write needs is told in the
+forge's own words, naming the scope.
 
 With no pull request for the branch, **Open a pull request**
 composes one as `workflow pr` would and shows it as a form: the title, the

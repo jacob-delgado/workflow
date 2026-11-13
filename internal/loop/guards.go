@@ -69,7 +69,9 @@ func Foldable(changes []gitrepo.Change, branch gitrepo.Branch) []gitrepo.Commit 
 // CanMerge reports a pull request ready to merge: open, not a draft, free of
 // conflicts, approved with no changes asked for, and its CI green or none
 // reported. A repository with no CI could otherwise never merge here; one
-// whose rules require a check refuses the merge on the forge.
+// whose rules require a check refuses the merge on the forge. None reported
+// is taken for no CI only once the head has been quiet for a while, which
+// armed.HeadWatch's CanMerge, the rule every surface offers a merge by, adds.
 func CanMerge(pull forge.PullRequest, checks forge.CI) bool {
 	return pull.State == forge.StateOpen &&
 		!pull.Draft &&

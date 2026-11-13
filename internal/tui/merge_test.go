@@ -4,9 +4,13 @@
 package tui_test
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"testing"
+	"time"
 
+	"github.com/jacob-delgado/workflow/internal/armed"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
@@ -80,20 +84,149 @@ func TestTheMergePreviewOffersEachPermittedMethod(t *testing.T) {
 	}
 }
 
-func TestTheMergePreviewOfAPullWithNoCISaysNoneRan(t *testing.T) {
+// quietDeps is mergeable with CI that reports no check on every read, each
+// read heard step after the last, polled fast enough to see the reads that
+// follow within the test, and its deps.
+func quietDeps(step time.Duration) (*world, tui.Deps) {
+	reviewing := mergeable()
+	reviewing.ci = []forge.CI{{State: forge.CINone}}
+	reviewing.ciInterval = pollTick
+
+	deps := reviewing.deps()
+	check := deps.Forge.CheckStatus
+	deps.Forge.CheckStatus = func(ctx context.Context, pull forge.PullRequest, head string) (forge.CI, error) {
+		reviewing.mu.Lock()
+		reviewing.elapsed += step
+		reviewing.mu.Unlock()
+
+		return check(ctx, pull, head)
+	}
+
+	return reviewing, deps
+}
+
+// quietFor is quietDeps and the interface over them, not yet started.
+func quietFor(t *testing.T, step time.Duration) (*world, tui.Model) {
+	t.Helper()
+
+	reviewing, deps := quietDeps(step)
+
+	return reviewing, sized(t, tui.New(reviewing.cfg, nil, deps), 120, 40)
+}
+
+func TestTheMergePreviewOfAPullWithNoCISaysNoneWasReportedInTheWait(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// P065: approved and clean, on a repository that reports no CI.
-	reviewing := mergeable()
-	reviewing.ci = []forge.CI{{State: forge.CINone}}
-	model := reviewing.live(t, 120, 40)
+	// Q34: approved and clean, on a repository that reports no CI, read
+	// until its head has reported no check for armed.NoCIPatience.
+	_, model := quietFor(t, armed.NoCIPatience/2)
+	started := drain(t, model, model.Init())
 
 	// Act
-	preview := typing(t, model, "4", "M")
+	preview := typing(t, started, "4", "M")
 
 	// Assert
-	requireScreen(t, preview.View().Content, "Merge by:", "no CI ran on #42")
+	requireScreen(t, preview.View().Content, "Merge by:", "no CI was reported on #42 in 10 minutes")
+}
+
+func TestMergeUnderNoCIIsNotOfferedBeforeTheHeadWasQuietForTheWait(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Q34: a forge lists a pushed head's checks a moment after the push, so
+	// none reported yet is not taken for no CI.
+	reviewing := mergeable()
+	reviewing.ci = []forge.CI{{State: forge.CINone}}
+
+	// Act
+	view := typing(t, reviewing.live(t, 120, 40), "4", "M").View().Content
+
+	// Assert
+	refuseScreen(t, view, "Merge by:")
+}
+
+func TestNoCIOnAPullReadyToMergeReadsAsNotReportedYetBeforeTheWait(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Q34: before the wait, none reported reads as checks not reported yet.
+	reviewing := mergeable()
+	reviewing.ci = []forge.CI{{State: forge.CINone}}
+
+	// Act
+	view := typing(t, reviewing.live(t, 120, 40), "4").View().Content
+
+	// Assert
+	requireScreen(t, view, "no checks reported yet")
+}
+
+func TestNoCIOnAPullReadyToMergeReadsAsNoneReportedOnceTheWaitIsOver(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	_, model := quietFor(t, armed.NoCIPatience/2)
+
+	// Act
+	view := typing(t, drain(t, model, model.Init()), "4").View().Content
+
+	// Assert
+	requireScreen(t, view, "no checks reported")
+	refuseScreen(t, view, "no checks reported yet")
+}
+
+func TestNoCIOnAPullReadyToMergeIsReadAgainUntilTheWaitIsOver(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	reviewing, model := quietFor(t, armed.NoCIPatience/2)
+
+	// Act
+	drain(t, model, model.Init())
+
+	// Assert
+	// Heard at 5, 10 and 15 minutes in: the third has heard ten minutes of
+	// none, and the reads stop there.
+	if reads := reviewing.asked("ci "); len(reads) != 3 {
+		t.Errorf("CI reads = %q, want three, the last once ten minutes of none were heard", reads)
+	}
+}
+
+// errChecksUnread is a read of CI that failed.
+var errChecksUnread = errors.New("the forge did not answer for the checks")
+
+func TestNoCIOnAPullReadyToMergeCountsNoQuietAcrossAReadThatFailed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Heard at 5 minutes in, failed at 10, so the pane stops asking; then
+	// refreshed, which reads at 15 and, for the pull request found again, at
+	// 20, the first superseded.
+	reviewing, deps := quietDeps(armed.NoCIPatience / 2)
+	check := deps.Forge.CheckStatus
+	deps.Forge.CheckStatus = func(ctx context.Context, pull forge.PullRequest, head string) (forge.CI, error) {
+		answer, err := check(ctx, pull, head)
+
+		if len(reviewing.asked("ci ")) == 2 {
+			return forge.CI{}, errChecksUnread
+		}
+
+		return answer, err
+	}
+
+	model := sized(t, tui.New(reviewing.cfg, nil, deps), 120, 40)
+	started := typing(t, drain(t, model, model.Init()), "4")
+
+	// Act
+	typing(t, started, "r")
+
+	// Assert
+	// Nothing counted from 5 minutes to 20: heard again at 25 and 30, the
+	// last having heard ten minutes of none. Counting across the failure
+	// would have stopped at 20.
+	if reads := reviewing.asked("ci "); len(reads) != 6 {
+		t.Errorf("CI reads = %d, want six: no quiet counted across the read that failed", len(reads))
+	}
 }
 
 func TestMergeIsNotOfferedBeforeCIIsRead(t *testing.T) {

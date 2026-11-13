@@ -33,7 +33,7 @@ function streamCi(state: CiState, number = 128) {
           changes_requested: false,
           mergeable: 'clean',
         },
-        ci: { state, total: 0, done: 0, failed: 0, checks: [] },
+        ci: { state, no_ci: false, total: 0, done: 0, failed: 0, checks: [] },
       },
     }),
   })

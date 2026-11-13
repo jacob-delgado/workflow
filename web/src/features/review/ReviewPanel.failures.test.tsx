@@ -30,6 +30,7 @@ test('says why each failed check failed, and the stage it ran in', () => {
         pull,
         ci: {
           state: 'failed',
+          no_ci: false,
           total: 0,
           done: 0,
           failed: 0,
@@ -72,6 +73,7 @@ test("shows a failed check's log on demand", async () => {
         pull,
         ci: {
           state: 'failed',
+          no_ci: false,
           total: 0,
           done: 0,
           failed: 0,
@@ -108,6 +110,7 @@ function onFailedJob() {
         pull,
         ci: {
           state: 'failed',
+          no_ci: false,
           total: 1,
           done: 1,
           failed: 1,

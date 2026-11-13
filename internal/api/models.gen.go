@@ -1311,7 +1311,10 @@ type CI struct {
 	Checks []Check `json:"checks"`
 	Done   int     `json:"done"`
 	Failed int     `json:"failed"`
-	State  CIState `json:"state"`
+
+	// NoCi Whether the pull request's head has reported no check for ten minutes of the server's reads, as long as an announcement waits for one, so it is taken as having no CI and its merge is offered. False while a check is reported, and while none has been for less: a forge lists a pushed head's checks a moment after the push. The server counts only the reads it made, from its own start and from each new head.
+	NoCi  bool    `json:"no_ci"`
+	State CIState `json:"state"`
 
 	// Total Total checks; 0 on a forge that reports the pipeline whole.
 	Total int `json:"total"`
@@ -1931,7 +1934,10 @@ type MergeMethod string
 // MergeOffer The pull request a merge would merge, and the methods its repository permits.
 type MergeOffer struct {
 	Methods []MergeMethod `json:"methods"`
-	Pull    PullRequest   `json:"pull"`
+
+	// NoCiWaitMinutes How many minutes the server waits on a head that reports no check before its merge is offered under no CI (CI's no_ci): what a preview of that merge says no CI was reported in.
+	NoCiWaitMinutes int         `json:"no_ci_wait_minutes"`
+	Pull            PullRequest `json:"pull"`
 }
 
 // MergeRequest defines model for MergeRequest.

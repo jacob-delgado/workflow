@@ -826,6 +826,10 @@ export type MergeMethod = 'merge' | 'squash' | 'rebase';
 export type MergeOffer = {
     pull: PullRequest;
     methods: Array<MergeMethod>;
+    /**
+     * How many minutes the server waits on a head that reports no check before its merge is offered under no CI (CI's no_ci): what a preview of that merge says no CI was reported in.
+     */
+    no_ci_wait_minutes: number;
 };
 
 export type MergeRequest = {
@@ -1751,6 +1755,10 @@ export type PullRequest = {
 
 export type Ci = {
     state: CiState;
+    /**
+     * Whether the pull request's head has reported no check for ten minutes of the server's reads, as long as an announcement waits for one, so it is taken as having no CI and its merge is offered. False while a check is reported, and while none has been for less: a forge lists a pushed head's checks a moment after the push. The server counts only the reads it made, from its own start and from each new head.
+     */
+    no_ci: boolean;
     /**
      * Total checks; 0 on a forge that reports the pipeline whole.
      */

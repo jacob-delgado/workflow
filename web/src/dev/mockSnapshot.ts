@@ -162,6 +162,7 @@ export const mockSnapshot: Snapshot = {
     },
     ci: {
       state: 'running',
+      no_ci: false,
       total: 4,
       done: 3,
       failed: 0,

@@ -514,7 +514,11 @@ function reviewRoutes(): Routes {
       ...mockPull(),
       title: zPullRequestText.parse(body).title,
     }),
-    'GET /api/pull-request/merge': () => ({ pull: mockPull(), methods: ['squash', 'merge'] }),
+    'GET /api/pull-request/merge': () => ({
+      pull: mockPull(),
+      methods: ['squash', 'merge'],
+      no_ci_wait_minutes: 10,
+    }),
     'POST /api/pull-request/merge': () => ({ ...mockPull(), state: 'merged' }),
     'POST /api/branch/finish': () => ({ ...mockSnapshot.branch, name: 'main', commits: [] }),
     'POST /api/review/rerun': () => ({ reran: true }),

@@ -150,7 +150,7 @@ test.each<[string, () => Promise<unknown>, string, object]>([
     '/api/pull-request': (_: URL, request: Request) =>
       request.method === 'GET' ? { title: 'Redact', body: '' } : pull,
     '/api/pull-request/merge': (_: URL, request: Request) =>
-      request.method === 'GET' ? { pull, methods: ['squash'] } : pull,
+      request.method === 'GET' ? { pull, methods: ['squash'], no_ci_wait_minutes: 10 } : pull,
     '/api/branch/finish': makeBranch({ name: 'main' }),
     '/api/review/rerun': { reran: true },
     '/api/worktrees': { dir: '/home/ana/src/api-x', shown: '~/src/api-x', branch: 'feat/PROJ-7' },

@@ -13,6 +13,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/armed"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
 // ciCheckedFormat stamps the CI line with when it was last read.
@@ -77,7 +78,7 @@ func (msg ciChecked) apply(m Model) (Model, tea.Cmd) {
 
 	if msg.err != nil {
 		m.review.ci = forge.CI{State: m.review.ci.State}
-		m.review.ciErr, m.review.checked = msg.err, true
+		m.review.ciErr, m.review.checked, m.review.quiet = msg.err, true, m.review.quiet.Unheard()
 
 		return m, nil
 	}
@@ -87,6 +88,7 @@ func (msg ciChecked) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	m.review.ci, m.review.ciErr, m.review.checked, m.review.reran = msg.ci, nil, true, nil
+	m.review.quiet = m.review.quiet.Read(m.review.pull, msg.ci, m.review.checkedAt)
 
 	return m.keepPolling(ciFinishNotice(m.cfg, m.deps, awaited, msg.ci.State))
 }
@@ -138,13 +140,27 @@ func (m Model) keepPolling(then tea.Cmd) (Model, tea.Cmd) {
 // ciToCome reports CI still to come: running, or, read cleanly, reporting no
 // check for a pull request this session opened within armed.NoCIPatience — a
 // forge lists a new pull request's checks a moment after it opens, and an
-// announcement armed as it opened waits that long for them too.
+// announcement armed as it opened waits that long for them too — or for one
+// whose merge waits on its head's quiet to be offered.
 func (s reviewState) ciToCome(now time.Time) bool {
 	if s.ci.State == forge.CIRunning {
 		return true
 	}
 
-	return s.ci.State == forge.CINone && s.ciErr == nil && !s.opened.IsZero() && now.Sub(s.opened) < armed.NoCIPatience
+	if s.ci.State != forge.CINone || s.ciErr != nil {
+		return false
+	}
+
+	justOpened := !s.opened.IsZero() && now.Sub(s.opened) < armed.NoCIPatience
+
+	return justOpened || s.mergeAwaitsQuiet()
+}
+
+// mergeAwaitsQuiet reports a pull request ready to merge in every way but
+// its head's quiet: no check reported on it, for less than armed.NoCIPatience
+// of the reads heard.
+func (s reviewState) mergeAwaitsQuiet() bool {
+	return loop.CanMerge(s.pull, s.ci) && !s.quiet.CanMerge(s.pull, s.ci)
 }
 
 // notifyPollInterval is how often CI is asked about when the developer only
@@ -189,7 +205,8 @@ func (s reviewState) ciGlyph(kit renderKit) string {
 	return kit.ciGlyph(s.ci.State)
 }
 
-// ciSummary says how CI stands in words.
+// ciSummary says how CI stands in words: none reported, on a pull request
+// whose merge waits on its head's quiet, as checks not reported yet.
 func (s reviewState) ciSummary(kit renderKit) string {
 	reported := s.ci
 
@@ -198,6 +215,8 @@ func (s reviewState) ciSummary(kit renderKit) string {
 		return kit.failureSummary(s.ciErr)
 	case !s.checked:
 		return "reading" + kit.marks.ellipsis
+	case reported.State == forge.CINone && s.mergeAwaitsQuiet():
+		return s.ciGlyph(kit) + " no checks reported yet" + s.checkedAtSuffix(kit)
 	case reported.State == forge.CINone:
 		return s.ciGlyph(kit) + " no checks reported" + s.checkedAtSuffix(kit)
 	}

@@ -13,6 +13,7 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/jacob-delgado/workflow/internal/armed"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
 )
@@ -33,7 +34,10 @@ type reviewState struct {
 	// a merged pull request: the commits made on it after it merged, or why
 	// they could not be read.
 	madeAfter error
-	polling   bool
+	// quiet is how long the pull request's head has reported no check, as
+	// the reads heard count it: a merge under no CI waits on it.
+	quiet   armed.HeadWatch
+	polling bool
 	// opened is when this session opened the pull request; zero for one it
 	// found.
 	opened time.Time

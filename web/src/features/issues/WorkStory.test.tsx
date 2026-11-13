@@ -119,7 +119,7 @@ test('reads a committed clean tree and a green pull request', () => {
           changes_requested: false,
           mergeable: 'clean',
         },
-        ci: { state: 'passed', total: 1, done: 1, failed: 0, checks: [] },
+        ci: { state: 'passed', no_ci: false, total: 1, done: 1, failed: 0, checks: [] },
       },
     }),
   })
@@ -159,7 +159,7 @@ test('says no checks reported for a pull request whose forge reports none', () =
           changes_requested: false,
           mergeable: 'clean',
         },
-        ci: { state: 'none', total: 0, done: 0, failed: 0, checks: [] },
+        ci: { state: 'none', no_ci: false, total: 0, done: 0, failed: 0, checks: [] },
       },
     }),
   })
