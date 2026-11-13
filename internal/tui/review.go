@@ -281,8 +281,9 @@ func (s reviewState) canEditPull(deps Deps) bool {
 	return s.hasOpenPull() && deps.Forge.EditPullRequest != nil
 }
 
-// reviewKeys offers opening a pull request, listing its checks, or checking
-// again.
+// reviewKeys are the Review pane's keys that can go now: open or edit a pull
+// request, list, re-run or merge on its checks, finish its merged branch,
+// open or copy its link, and read it again.
 func (m Model) reviewKeys() []key.Binding {
 	if m.branch.outsideRepository() {
 		return nil
