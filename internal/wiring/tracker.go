@@ -41,6 +41,13 @@ func combinedTracker(settings config.Jira, jiraSide, forgeSide seams.Jira) seams
 		Search: func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error) {
 			return listed.search(ctx, jiraSide.Search, forgeSide.Search, jql == first, jql, startAt)
 		},
+		SearchAfter: func(ctx context.Context, jql string, after jira.Cursor) (jira.SearchResult, error) {
+			if !after.More() {
+				return listed.search(ctx, jiraSide.Search, forgeSide.Search, jql == first, jql, 0)
+			}
+
+			return jiraSide.SearchAfter(ctx, jql, after)
+		},
 		SearchLenient: func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error) {
 			return asked.search(ctx, jiraSide.SearchLenient, forgeSide.Search, true, jql, startAt)
 		},
@@ -112,13 +119,14 @@ func jiraOnly[T any](issueKey jira.Key, ask func() (T, error)) (T, error) {
 }
 
 // forgeRows remembers how many forge issues led a list's first page, so a
-// later page asks Jira for its own rows from where its share of the list
-// left off.
+// later page asked by its offset asks Jira for its own rows from where its
+// share of the list left off. A page asked after a cursor needs no count, the
+// cursor carrying Jira's own offset (SearchAfter); the terminal's Issues list
+// and the key check's walk (loop.AssignedKeys) still page by offset.
 //
 // Trade-off TRADE-24: the count is the last first page's, whoever read it, and
-// zero after a first page whose forge read failed, so a later page under an
-// earlier first page can skip or repeat the difference in Jira rows, its total
-// that many short or over.
+// zero after a first page whose forge read failed; in the terminal, the first
+// view's first page is read by its list alone, so the count is that list's.
 type forgeRows struct {
 	lock  sync.Mutex
 	count int
@@ -160,7 +168,7 @@ func (f *forgeRows) search(
 
 	return jira.SearchResult{
 		Issues: append(forge.Issues, page.Issues...), Total: page.Total + len(forge.Issues),
-		Unavailable: forge.Unavailable,
+		Unavailable: forge.Unavailable, Next: page.Next,
 	}, nil
 }
 

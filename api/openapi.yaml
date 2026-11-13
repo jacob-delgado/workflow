@@ -125,11 +125,18 @@ paths:
           description: The configured view's name; the default view when omitted.
           required: false
           schema: {type: string}
-        - name: start_at
+        - name: after
           in: query
-          description: The zero-based index of the first issue to return.
+          description: >-
+            The next of the page before: this page lists the issues the view
+            holds after the issue it names, from where that issue is now, so
+            issues joining or leaving the view ahead of it neither skip nor
+            repeat a row. One that has left the view starts the page where it
+            was. Omitted for the view's first page, which on the first view
+            leads with the forge's issues when issues.forge is on; text no page
+            gave as its next is refused as bad_request.
           required: false
-          schema: {type: integer, minimum: 0, default: 0}
+          schema: {type: string, example: PROJ-412@49}
       responses:
         "200":
           description: A page of issues.
@@ -4256,8 +4263,8 @@ components:
           allOf: [{$ref: "#/components/schemas/IssuesPage"}]
           description: >-
             The view's first page as last kept: Jira's issues only, in Jira's
-            order. total counts only those, start_at is 0 and unavailable is
-            empty; a view kept with no issues is an empty page.
+            order. total counts only those, next and unavailable are empty;
+            a view kept with no issues is an empty page.
       additionalProperties: false
 
     Stage:
@@ -4376,7 +4383,7 @@ components:
 
     IssuesPage:
       type: object
-      required: [issues, total, start_at, unavailable]
+      required: [issues, total, next, unavailable]
       properties:
         issues:
           type: array
@@ -4390,10 +4397,16 @@ components:
             every tracker answered.
         total:
           type: integer
-          description: How many issues the view matches in all.
-        start_at:
-          type: integer
-          description: The index of the first issue in this page.
+          description: >-
+            How many issues the view matches in all. A page asked with after
+            counts Jira's alone: the forge's issues lead only the first page.
+        next:
+          type: string
+          description: >-
+            Where the page after this one starts, to ask for it with as after:
+            the last Jira issue this page lists and where Jira listed it, as
+            its key and offset. Empty when this page ends the view.
+          example: PROJ-412@49
       additionalProperties: false
 
     Issue:

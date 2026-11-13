@@ -23,7 +23,7 @@ func TestIssuesPageListsNoneAsEmptyArrays(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	page := report.IssuesPage(jira.SearchResult{}, 50)
+	page := report.IssuesPage(jira.SearchResult{})
 
 	// Assert
 	if page.Issues == nil || len(page.Issues) != 0 {
@@ -34,8 +34,25 @@ func TestIssuesPageListsNoneAsEmptyArrays(t *testing.T) {
 		t.Errorf("Unavailable = %#v, want an empty list", page.Unavailable)
 	}
 
-	if page.StartAt != 50 {
-		t.Errorf("StartAt = %d, want the caller's 50", page.StartAt)
+	if page.Next != "" {
+		t.Errorf("Next = %q, want none for a page that ends its list", page.Next)
+	}
+}
+
+func TestIssuesPageNamesWhereTheNextPageStartsAsText(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	result := jira.SearchResult{
+		Issues: []jira.Issue{{Key: issueKey}}, Total: 90, Next: jira.Cursor{After: issueKey, At: 49},
+	}
+
+	// Act
+	page := report.IssuesPage(result)
+
+	// Assert
+	if page.Next != issueKey+"@49" {
+		t.Errorf("Next = %q, want %q", page.Next, issueKey+"@49")
 	}
 }
 
@@ -53,7 +70,7 @@ func TestIssuesPageMapsEachIssue(t *testing.T) {
 	}
 
 	// Act
-	page := report.IssuesPage(result, 0)
+	page := report.IssuesPage(result)
 
 	// Assert
 	high := "High"
@@ -161,7 +178,7 @@ func TestAStatusJiraFilesUnderNoCategoryIsCarriedAsUnknown(t *testing.T) {
 			issue := jira.Issue{Key: issueKey, Summary: issueSummary, Status: "Triage", StatusCategory: category}
 
 			// Act
-			page := report.IssuesPage(jira.SearchResult{Issues: []jira.Issue{issue}, Total: 1}, 0)
+			page := report.IssuesPage(jira.SearchResult{Issues: []jira.Issue{issue}, Total: 1})
 			detail := report.IssueDetail(jira.IssueDetail{Issue: issue}, "")
 
 			// Assert

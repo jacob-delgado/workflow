@@ -1752,10 +1752,12 @@ type IssuesConfig struct {
 type IssuesPage struct {
 	Issues []Issue `json:"issues"`
 
-	// StartAt The index of the first issue in this page.
-	StartAt int `json:"start_at"`
+	// Next Where the page after this one starts, to ask for it with as after: the last Jira issue this page lists and where Jira listed it, as its key and offset. Empty when this page ends the view.
+	//
+	// Example: PROJ-412@49
+	Next string `json:"next"`
 
-	// Total How many issues the view matches in all.
+	// Total How many issues the view matches in all. A page asked with after counts Jira's alone: the forge's issues lead only the first page.
 	Total int `json:"total"`
 
 	// Unavailable Each tracker a list drawing on Jira and the forge together could not read, so what is listed is not taken for all there is. Empty when every tracker answered.
@@ -2481,7 +2483,7 @@ type RunRequest struct {
 
 // Seed The view's issues as the store last kept them, carried by a "seed" event sent first, at most once, ahead of any snapshot: only when the store holds a list for the view, there is a tracker to ask again, and the server is not under --dry-run. It is read from disk before anything is asked of the network; nothing else of the snapshot is known until the first one lands, which takes its place.
 type Seed struct {
-	// Issues The view's first page as last kept: Jira's issues only, in Jira's order. total counts only those, start_at is 0 and unavailable is empty; a view kept with no issues is an empty page.
+	// Issues The view's first page as last kept: Jira's issues only, in Jira's order. total counts only those, next and unavailable are empty; a view kept with no issues is an empty page.
 	Issues IssuesPage `json:"issues"`
 }
 
@@ -3093,8 +3095,8 @@ type ListIssuesParams struct {
 	// View The configured view's name; the default view when omitted.
 	View *string `form:"view,omitempty" json:"view,omitempty"`
 
-	// StartAt The zero-based index of the first issue to return.
-	StartAt *int `form:"start_at,omitempty" json:"start_at,omitempty"`
+	// After The next of the page before: this page lists the issues the view holds after the issue it names, from where that issue is now, so issues joining or leaving the view ahead of it neither skip nor repeat a row. One that has left the view starts the page where it was. Omitted for the view's first page, which on the first view leads with the forge's issues when issues.forge is on; text no page gave as its next is refused as bad_request.
+	After *string `form:"after,omitempty" json:"after,omitempty"`
 }
 
 // RemoveLocalDataParams defines parameters for RemoveLocalData.

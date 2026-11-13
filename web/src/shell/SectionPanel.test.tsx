@@ -120,7 +120,7 @@ test('the Issues section opens on the seed while the others wait for the first u
           },
         ],
         total: 1,
-        start_at: 0,
+        next: '',
         unavailable: [],
       },
     },

@@ -73,10 +73,11 @@ func notStarted(key jira.Key, summary, kind, priority string) jira.Issue {
 // jiraDeps is the demo's Jira.
 func (w *World) jiraDeps() seams.Jira {
 	return seams.Jira{
-		Search:    w.search,
-		Issue:     w.issue,
-		BrowseURL: browseURL,
-		Activity:  w.jiraActivity,
+		Search:      w.search,
+		SearchAfter: w.searchAfter,
+		Issue:       w.issue,
+		BrowseURL:   browseURL,
+		Activity:    w.jiraActivity,
 		// What the demo does to its issues.
 		Transitions: w.transitions,
 		Transition:  w.transition,
@@ -142,10 +143,29 @@ func (w *World) transition(_ context.Context, key jira.Key, move jira.Transition
 // the demo has one view's worth of issues.
 func (w *World) search(_ context.Context, _ string, startAt int) (jira.SearchResult, error) {
 	return locked(w, func() jira.SearchResult {
-		start := min(max(startAt, 0), len(w.issues))
-
-		return jira.SearchResult{Issues: slices.Clone(w.issues[start:]), Total: len(w.issues)}
+		return w.listedFrom(startAt)
 	}), nil
+}
+
+// searchAfter lists the issues after the one after names, or from where it
+// was when the demo no longer lists it, as a later page of Jira's starts.
+func (w *World) searchAfter(_ context.Context, _ string, after jira.Cursor) (jira.SearchResult, error) {
+	return locked(w, func() jira.SearchResult {
+		index, err := w.indexOf(after.After)
+		if err != nil {
+			return w.listedFrom(after.At)
+		}
+
+		return w.listedFrom(index + 1)
+	}), nil
+}
+
+// listedFrom is the issues listed from startAt on, held to the list; the
+// caller holds the world's lock.
+func (w *World) listedFrom(startAt int) jira.SearchResult {
+	start := min(max(startAt, 0), len(w.issues))
+
+	return jira.SearchResult{Issues: slices.Clone(w.issues[start:]), Total: len(w.issues)}
 }
 
 // issue reads an issue in full: the issue as it stands, and what was written

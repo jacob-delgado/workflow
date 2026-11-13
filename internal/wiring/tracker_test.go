@@ -136,29 +136,6 @@ func TestBothTrackersListTheFirstViewTogether(t *testing.T) {
 	}
 }
 
-func TestALaterPageAsksJiraPastItsOwnRows(t *testing.T) {
-	// Arrange
-	installForgeCLI(t, "gh", forgeReplies{search: theBugList})
-
-	stand := &fakeJira{}
-	tracker := bothTrackers(t, stand)
-
-	_, err := tracker.Search(t.Context(), jira.AssignedToMe, 0)
-	if err != nil {
-		t.Fatalf("the first page: %v", err)
-	}
-
-	// Act
-	// Two rows are listed, one of them the forge's, so Jira has given one.
-	_, err = tracker.Search(t.Context(), jira.AssignedToMe, 2)
-
-	// Assert
-	asked := stand.requests()
-	if err != nil || !strings.Contains(asked[len(asked)-1], "startAt=1") {
-		t.Errorf("Search = %v; Jira was last asked %q, want from its second row", err, asked[len(asked)-1])
-	}
-}
-
 func TestAnotherViewListsJiraAlone(t *testing.T) {
 	// Arrange
 	ghStub := installForgeCLI(t, "gh", forgeReplies{search: theBugList})

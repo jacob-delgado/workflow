@@ -158,7 +158,7 @@ test('a loaded page hands focus to its first issue, in view in the list, at 640 
     route.fulfill({
       json: {
         total: issuesTotal,
-        start_at: 8,
+        next: '',
         unavailable: [],
         issues: [9, 10, 11, 12].map(streamedIssue),
       },

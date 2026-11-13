@@ -34,31 +34,30 @@ export function useRefreshViews(): () => void {
 }
 
 // useMoreIssues pages through a view's issues past the page the stream pushes.
-// Nothing is read until fetchNextPage asks: the first read starts where the
-// stream's page ends, and each after it where the last one ended. The pages are
-// kept per view, so another view starts with none of this one's.
+// Nothing is read until fetchNextPage asks: the first read follows the last
+// issue of the stream's page as it is then, and each after it the last issue of
+// the page before, wherever the view has moved it since, so an issue joining or
+// leaving the view ahead of a page neither skips nor repeats a row. The pages
+// are kept per view, so another view starts with none of this one's.
 export function useMoreIssues(view: string | null, streamed: IssuesPage) {
   return useInfiniteQuery({
     queryKey: ['moreIssues', view],
     queryFn: async ({ pageParam, signal }): Promise<IssuesPage> => {
-      const query = view === null ? { start_at: pageParam } : { view, start_at: pageParam }
+      const query = view === null ? { after: pageParam } : { view, after: pageParam }
       const result = await listIssues({ query, signal, throwOnError: true })
 
       return result.data
     },
-    initialPageParam: streamed.start_at + streamed.issues.length,
-    getNextPageParam: nextStart,
+    initialPageParam: streamed.next,
+    getNextPageParam: nextAfter,
     enabled: false,
   })
 }
 
-// nextStart is where the page after this one starts, or undefined when this
-// one reached the end of the view.
-function nextStart(page: IssuesPage): number | undefined {
-  const next = page.start_at + page.issues.length
-  if (page.issues.length === 0 || next >= page.total) {
-    return undefined
-  }
-
-  return next
+// nextAfter is the cursor the page after this one is asked with, or undefined
+// when this one reached the end of the view. A page can come back empty and
+// still name one: its cursor's issue moved to the end of the page read after
+// it, and the view goes on past that page.
+function nextAfter(page: IssuesPage): string | undefined {
+  return page.next === '' ? undefined : page.next
 }

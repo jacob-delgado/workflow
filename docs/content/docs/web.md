@@ -163,28 +163,31 @@ selected row beside it shows its key, status and title.
 The issues in a view — the default is those assigned to you and not done —
 with a **View** select for the views your configuration defines, each scoped
 to your issues unless its query names the assignee, a **Search** over the
-issues loaded so far, by key or summary, **Filter** buttons that narrow them to
-places, and **Load more** while the view holds more. Filter offers the statuses
-the loaded issues are in, in the workflow's order as the terminal lists them,
-and the marks *in flight*, *task active*, *tracked*, *task done* and
-*forge issue*, each with how many issues it holds; pressing one narrows the
-list, and pressing it again undoes that. Statuses widen each other, as marks
-do, and the two narrow together, as the terminal's `f` does. A repository
-that lists its forge's issues beside Jira's (`issues.forge`) numbers them as
-the forge does, `#57`, links each to its page with **Open in GitHub** or
-**Open in GitLab**, and says so above the list, among its controls, when the
-forge's issues could not be read. An issue with a branch is marked *in
-flight*, with **Switch branch** beside it when that branch is not the one checked out — a local branch, or one
-only the remote has, which checking out creates here. The branches counted are
-those naming an issue assigned to you and not done, so a branch whose issue
-was finished or reassigned no longer marks it; while the tracker cannot be
-asked, its last answer stands, and a branch it has not answered for yet counts
-until it does. Once Taskwarrior has answered, a row also marks how its issue's
-tasks stand: *tracked*, *task active* or *task done*. Until the first update,
-the list is the one last kept for the view, saying *Reading Jira… these are
-the issues it listed last time.*, with no row marks and no **Load more** until
-Jira answers; a switch of view does the same for the view switched to, its
-rows marked from the last update.
+issues loaded so far, by key or summary, **Filter** buttons that narrow them
+to places, and **Load more** while the view holds more, which reads on from
+the last issue loaded, wherever the view has moved it, so an issue joining or
+leaving the view above it neither skips nor repeats a row. Filter offers the
+statuses the loaded issues are in, in the workflow's order as the terminal
+lists them, and the marks *in flight*, *task active*, *tracked*, *task done*
+and *forge issue*, each with how many issues it holds; pressing one narrows
+the list, and pressing it again undoes that. Statuses widen each other, as
+marks do, and the two narrow together, as the terminal's `f` does. A
+repository that lists its forge's issues beside Jira's (`issues.forge`)
+numbers them as the forge does, `#57`, links each to its page with **Open in
+GitHub** or **Open in GitLab**, and says so above the list, among its
+controls, when the forge's issues could not be read. An issue with a branch is
+marked *in flight*, with **Switch branch** beside it when that branch is not
+the one checked out — a local branch, or one only the remote has, which
+checking out creates here. The branches counted are those naming an issue
+assigned to you and not done, so a branch whose issue was finished or
+reassigned no longer marks it; while the tracker cannot be asked, its last
+answer stands, and a branch it has not answered for yet counts until it does.
+Once Taskwarrior has answered, a row also marks how its issue's tasks stand:
+*tracked*, *task active* or *task done*. Until the first update, the list is
+the one last kept for the view, saying *Reading Jira… these are the issues it
+listed last time.*, with no row marks and no **Load more** until Jira answers;
+a switch of view does the same for the view switched to, its rows marked from
+the last update.
 
 The selected issue's detail shows its type, priority, reporter and assignee, a
 link to open it in Jira, its description and its comments, and its **work

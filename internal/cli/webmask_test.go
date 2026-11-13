@@ -100,7 +100,9 @@ func TestTheWebServerMasksACredentialSavedInSettings(t *testing.T) {
 func failingSearch(cause error) webserver.Deps {
 	return webserver.Deps{
 		Jira: seams.Jira{
-			Search: func(context.Context, string, int) (jira.SearchResult, error) { return jira.SearchResult{}, cause },
+			SearchAfter: func(context.Context, string, jira.Cursor) (jira.SearchResult, error) {
+				return jira.SearchResult{}, cause
+			},
 		},
 	}
 }

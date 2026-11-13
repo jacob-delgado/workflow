@@ -71,7 +71,7 @@ export const issue: IssueDetail = {
 export const withIssue = makeSnapshot({
   issues: {
     total: 1,
-    start_at: 0,
+    next: '',
     unavailable: [],
     issues: [
       {

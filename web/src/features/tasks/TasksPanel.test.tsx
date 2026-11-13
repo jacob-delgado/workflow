@@ -54,7 +54,7 @@ function streamIssues(...issues: Issue[]) {
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
-      issues: { total: issues.length, start_at: 0, unavailable: [], issues },
+      issues: { total: issues.length, next: '', unavailable: [], issues },
     }),
   })
 }
@@ -282,7 +282,7 @@ test("Open in Issues opens the Issues section on the task's issue", async () => 
       'snapshot',
       JSON.stringify(
         makeSnapshot({
-          issues: { total: 1, start_at: 0, unavailable: [], issues: [tokenLeakIssue] },
+          issues: { total: 1, next: '', unavailable: [], issues: [tokenLeakIssue] },
         }),
       ),
     )

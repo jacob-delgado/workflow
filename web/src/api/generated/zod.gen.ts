@@ -584,7 +584,7 @@ export const zIssuesPage = z.object({
     issues: z.array(zIssue),
     unavailable: z.array(z.string()),
     total: z.int(),
-    start_at: z.int()
+    next: z.string()
 });
 
 /**
@@ -1395,7 +1395,7 @@ export const zListViewsResponse = zViewList;
 
 export const zListIssuesQuery = z.object({
     view: z.string().optional(),
-    start_at: z.int().gte(0).optional().default(0)
+    after: z.string().optional()
 });
 
 /**

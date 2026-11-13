@@ -20,7 +20,7 @@ const views = {
 const oneIssue = makeSnapshot({
   issues: {
     total: 1,
-    start_at: 0,
+    next: '',
     unavailable: [],
     issues: [
       {
@@ -38,7 +38,7 @@ const oneIssue = makeSnapshot({
 const aBug = makeSnapshot({
   issues: {
     total: 1,
-    start_at: 0,
+    next: '',
     unavailable: [],
     issues: [
       {
@@ -225,7 +225,7 @@ test('goes back to the default view on another section too', async () => {
 const twoIssues = makeSnapshot({
   issues: {
     total: 2,
-    start_at: 0,
+    next: '',
     unavailable: [],
     issues: [
       {

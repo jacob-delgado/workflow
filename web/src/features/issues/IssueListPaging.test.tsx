@@ -22,19 +22,28 @@ function issue(key: string): Issue {
 }
 
 // streamFirstPage puts the page the stream pushes on screen: the first issues
-// of the chosen view, which holds total in all.
+// of the chosen view, which holds total in all, naming its last issue as where
+// the next page starts while the view holds more.
 function streamFirstPage(keys: string[], total: number) {
   useSnapshotStore.setState({
     status: 'live',
     view: useUiStore.getState().view,
     snapshot: makeSnapshot({
-      issues: { issues: keys.map(issue), total, start_at: 0, unavailable: [] },
+      issues: { issues: keys.map(issue), total, next: nextAfter(keys, total), unavailable: [] },
     }),
   })
 }
 
-// servePages answers listIssues with the page that starts where the request
-// asks, cut from keys, and answers the views list.
+// nextAfter is the cursor of a page that ends with the last of keys, listed
+// from the view's start, or none when the view holds no more.
+function nextAfter(keys: string[], total: number): string {
+  return keys.length < total ? `${keys.at(-1) ?? ''}@${String(keys.length - 1)}` : ''
+}
+
+// servePages answers listIssues as the server pages the view keys lists:
+// after the issue the request's cursor names, wherever it is now from where it
+// was, or from where it was when it has left the view; and answers the views
+// list.
 function servePages(keys: string[], pageSize: number) {
   return fakeApi({
     '/api/views': {
@@ -44,16 +53,25 @@ function servePages(keys: string[], pageSize: number) {
       ],
     },
     '/api/issues': (url: URL): IssuesPage => {
-      const startAt = Number(url.searchParams.get('start_at'))
+      const [key = '', at = '0'] = (url.searchParams.get('after') ?? '').split('@')
+      const found = keys.indexOf(key, Number(at))
+      const start = found === -1 ? Number(at) : found + 1
+      const rows = keys.slice(start, start + pageSize)
+      const end = start + rows.length
 
       return {
-        issues: keys.slice(startAt, startAt + pageSize).map(issue),
+        issues: rows.map(issue),
         total: keys.length,
-        start_at: startAt,
+        next: rows.length > 0 && end < keys.length ? `${rows.at(-1) ?? ''}@${String(end - 1)}` : '',
         unavailable: [],
       }
     },
   })
+}
+
+// cursorsAsked is the after of each listIssues request among requests.
+function cursorsAsked(requests: Request[]): (string | null)[] {
+  return issueReads(requests).map((url) => url.searchParams.get('after'))
 }
 
 // issueReads is the listIssues requests among those the page made.
@@ -90,7 +108,24 @@ test('load more reads the page after the loaded issues and appends it', async ()
   // Assert
   expect(await screen.findByText('Summary of PROJ-4')).toBeTruthy()
   expect(listedKeys()).toEqual(['PROJ-1', 'PROJ-2', 'PROJ-3', 'PROJ-4'])
-  expect(issueReads(requests).map((url) => url.searchParams.get('start_at'))).toEqual(['2'])
+  expect(cursorsAsked(requests)).toEqual(['PROJ-2@1'])
+})
+
+test('load more skips no issue when one ahead of the page left the view', async () => {
+  // Arrange
+  // PROJ-1 left the view after the stream's page was read, so the rest moved
+  // up a row: what follows PROJ-2 now starts where it used to be.
+  const user = userEvent.setup()
+  servePages(['PROJ-2', 'PROJ-3', 'PROJ-4'], 2)
+  streamFirstPage(['PROJ-1', 'PROJ-2'], 4)
+  renderWithClient(<IssuesPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: /load more/i }))
+
+  // Assert
+  await screen.findByText('Summary of PROJ-4')
+  expect(listedKeys()).toEqual(['PROJ-1', 'PROJ-2', 'PROJ-3', 'PROJ-4'])
 })
 
 test('load more goes on from the last page it read', async () => {
@@ -107,7 +142,7 @@ test('load more goes on from the last page it read', async () => {
 
   // Assert
   expect(await screen.findByText('Summary of PROJ-5')).toBeTruthy()
-  expect(issueReads(requests).map((url) => url.searchParams.get('start_at'))).toEqual(['2', '4'])
+  expect(cursorsAsked(requests)).toEqual(['PROJ-2@1', 'PROJ-4@3'])
   expect(screen.queryByRole('button', { name: /load more/i })).toBeNull()
 })
 
@@ -202,7 +237,7 @@ test("offers no load more between a view switch and the new view's first frame",
   })
 
   // Assert
-  // The last view's page would read the new view from its own offset.
+  // The last view's page would read the new view after its own last issue.
   expect(screen.queryByRole('button', { name: /load more/i })).toBeNull()
 })
 
@@ -229,19 +264,18 @@ test('holds load more while a page is being read', async () => {
   // Arrange
   // The second page never answers, so it is still in flight when pressed again.
   const user = userEvent.setup()
-  const starts: string[] = []
+  const cursors: string[] = []
   vi.stubGlobal(
     'fetch',
     vi.fn((request: Request) => {
-      const url = new URL(request.url)
-      const startAt = url.searchParams.get('start_at') ?? ''
-      starts.push(startAt)
-      if (startAt !== '2') {
+      const after = new URL(request.url).searchParams.get('after') ?? ''
+      cursors.push(after)
+      if (after !== 'PROJ-2@1') {
         return new Promise<Response>(() => undefined)
       }
 
       return Promise.resolve(
-        Response.json({ issues: [issue('PROJ-3')], total: 5, start_at: 2, unavailable: [] }),
+        Response.json({ issues: [issue('PROJ-3')], total: 5, next: 'PROJ-3@2', unavailable: [] }),
       )
     }),
   )
@@ -260,7 +294,7 @@ test('holds load more while a page is being read', async () => {
   // waits on the read in flight instead of starting it over.
   expect(button.getAttribute('aria-disabled')).toBe('true')
   expect(document.activeElement).toBe(button)
-  expect(starts.filter((start) => start === '3')).toHaveLength(1)
+  expect(cursors.filter((after) => after === 'PROJ-3@2')).toHaveLength(1)
 })
 
 test("says how many of the view's issues are loaded", async () => {
@@ -360,7 +394,7 @@ test('stops offering more when a page comes back empty', async () => {
   // more, but the next page holds none.
   const user = userEvent.setup()
   const requests = fakeApi({
-    '/api/issues': { issues: [], total: 3, start_at: 2, unavailable: [] },
+    '/api/issues': { issues: [], total: 3, next: '', unavailable: [] },
   })
   streamFirstPage(['PROJ-1', 'PROJ-2'], 3)
   renderWithClient(<IssuesPanel />)
@@ -373,6 +407,26 @@ test('stops offering more when a page comes back empty', async () => {
     expect(screen.queryByRole('button', { name: /load more/i })).toBeNull()
   })
   expect(issueReads(requests)).toHaveLength(1)
+})
+
+test('goes on offering more when a page comes back empty but names where the next starts', async () => {
+  // Arrange
+  // PROJ-2 moved to the end of the page its cursor reads, so what follows it
+  // there is nothing, though the view goes on past that page.
+  const user = userEvent.setup()
+  fakeApi({
+    '/api/issues': { issues: [], total: 4, next: 'PROJ-2@3', unavailable: [] },
+  })
+  streamFirstPage(['PROJ-1', 'PROJ-2'], 4)
+  renderWithClient(<IssuesPanel />)
+
+  // Act
+  await user.click(screen.getByRole('button', { name: /load more/i }))
+
+  // Assert
+  await waitFor(() => {
+    expect(screen.getByRole('button', { name: /load more/i }).textContent).toBe('Load more')
+  })
 })
 
 test('says to press Load more again when a page is refused with no reason', async () => {

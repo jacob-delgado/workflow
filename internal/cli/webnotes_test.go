@@ -90,7 +90,9 @@ func notesAfterAFailedSearch(t *testing.T, cfg config.Config, cause error) strin
 
 	deps := webserver.Deps{
 		Jira: seams.Jira{
-			Search: func(context.Context, string, int) (jira.SearchResult, error) { return jira.SearchResult{}, cause },
+			SearchAfter: func(context.Context, string, jira.Cursor) (jira.SearchResult, error) {
+				return jira.SearchResult{}, cause
+			},
 		},
 	}
 

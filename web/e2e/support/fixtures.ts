@@ -36,7 +36,7 @@ const emptyBranch = {
 const emptySnapshot = {
   writes: 0,
   here: '/home/ana/src/api',
-  issues: { total: 0, start_at: 0, unavailable: [], issues: [] },
+  issues: { total: 0, next: '', unavailable: [], issues: [] },
   branch: emptyBranch,
   changes: { changes: [] },
   review: { found: false, announced: 'none' },
@@ -81,9 +81,14 @@ export function branchWith(parts: Partial<Branch>): Branch {
 }
 
 // issuesOf is the stream's page of issues holding those given, of a view
-// holding total in all.
+// holding total in all, naming its last issue as where the next page starts
+// while the view holds more.
 export function issuesOf(issues: Issue[], total = issues.length): IssuesPage {
-  return { total, start_at: 0, unavailable: [], issues }
+  const last = issues.at(-1)
+  const next =
+    last !== undefined && issues.length < total ? `${last.key}@${String(issues.length - 1)}` : ''
+
+  return { total, next, unavailable: [], issues }
 }
 
 // reconnectSoon is how long the browser waits to connect the event stream

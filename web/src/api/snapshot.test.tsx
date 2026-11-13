@@ -6,7 +6,7 @@ import { useSessionStore } from './session.ts'
 import { useEventStream, useLiveSnapshot, useSnapshotStore } from './snapshot.ts'
 
 const validSnapshot = makeSnapshot({
-  issues: { issues: [], total: 3, start_at: 0, unavailable: [] },
+  issues: { issues: [], total: 3, next: '', unavailable: [] },
 })
 
 test('stores a snapshot the stream pushes and marks the stream live', () => {

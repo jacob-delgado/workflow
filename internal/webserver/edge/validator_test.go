@@ -5,6 +5,7 @@ package edge_test
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -17,11 +18,11 @@ func TestABadQueryParameterIsRejected(t *testing.T) {
 	ops := &operations{}
 
 	// Act
-	recorder := get(t, serveOver(t, ops), "/api/issues?start_at=notanumber")
+	recorder := get(t, serveOver(t, ops), "/api/slack/members?channel="+strings.Repeat("c", 201))
 
 	// Assert
 	if recorder.Code != http.StatusBadRequest || ops.reached.Load() != 0 {
-		t.Errorf("status = %d and reached %d times, want 400 and none for an unparsable parameter",
+		t.Errorf("status = %d and reached %d times, want 400 and none for a parameter past its bound",
 			recorder.Code, ops.reached.Load())
 	}
 }

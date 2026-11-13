@@ -36,6 +36,11 @@ func jiraDeps(settings config.Jira, jiraClient *jiraConnection) seams.Jira {
 				return client.Search(ctx, jql, startAt)
 			})
 		},
+		SearchAfter: func(ctx context.Context, jql string, after jira.Cursor) (jira.SearchResult, error) {
+			return askJira(ctx, jiraClient, func(client jira.Client) (jira.SearchResult, error) {
+				return client.SearchAfter(ctx, jql, after)
+			})
+		},
 		SearchLenient: func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error) {
 			return askJira(ctx, jiraClient, func(client jira.Client) (jira.SearchResult, error) {
 				return client.SearchLenient(ctx, jql, startAt)

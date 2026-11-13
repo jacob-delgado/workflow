@@ -118,7 +118,7 @@ func (s *server) viewSeed(ctx context.Context, jql string) (api.Seed, bool) {
 		return api.Seed{}, false
 	}
 
-	return api.Seed{Issues: report.IssuesPage(jira.SearchResult{Issues: kept, Total: len(kept)}, 0)}, true
+	return api.Seed{Issues: report.IssuesPage(jira.SearchResult{Issues: kept, Total: len(kept)})}, true
 }
 
 // serve answers the page held for jql while it is fresh, and while a search

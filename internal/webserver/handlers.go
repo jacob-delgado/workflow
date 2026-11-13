@@ -49,11 +49,12 @@ func (s *server) ListViews(_ context.Context, _ api.ListViewsRequestObject) (api
 	return api.ListViews200JSONResponse{Views: viewsDTO(s.config())}, nil
 }
 
-// ListIssues returns one page of the issues a view matches.
+// ListIssues returns one page of the issues a view matches: its first, or the
+// one after the issue the request's cursor names.
 func (s *server) ListIssues(
 	ctx context.Context, request api.ListIssuesRequestObject,
 ) (api.ListIssuesResponseObject, error) {
-	startAt, view := orZero(request.Params.StartAt), orZero(request.Params.View)
+	view := orZero(request.Params.View)
 
 	listed, ok := jira.ViewNamed(s.config().Jira.Views, view)
 	if !ok {
@@ -61,16 +62,37 @@ func (s *server) ListIssues(
 			problem.New(api.ProblemCodeNotFound, unknownView(view))), nil
 	}
 
-	if s.deps.Jira.Search == nil {
-		return api.ListIssues200JSONResponse(report.IssuesPage(jira.SearchResult{}, startAt)), nil
+	after, err := cursorOf(request.Params.After)
+	if err != nil {
+		return problem.Answer[api.ListIssuesdefaultApplicationProblemPlusJSONResponse](
+			problem.New(api.ProblemCodeBadRequest, err.Error())), nil
 	}
 
-	result, err := s.deps.Jira.Search(ctx, listed.JQL, startAt)
+	if s.deps.Jira.SearchAfter == nil {
+		return api.ListIssues200JSONResponse(report.IssuesPage(jira.SearchResult{})), nil
+	}
+
+	result, err := s.deps.Jira.SearchAfter(ctx, listed.JQL, after)
 	if err != nil {
 		return problem.Answer[api.ListIssuesdefaultApplicationProblemPlusJSONResponse](s.fault(err)), nil
 	}
 
-	return api.ListIssues200JSONResponse(report.IssuesPage(result, startAt)), nil
+	return api.ListIssues200JSONResponse(report.IssuesPage(result)), nil
+}
+
+// cursorOf is the cursor a request's after names, or the zero Cursor, which
+// asks for the first page, when it names none.
+func cursorOf(after *string) (jira.Cursor, error) {
+	if after == nil {
+		return jira.Cursor{}, nil
+	}
+
+	cursor, err := jira.ParseCursor(*after)
+	if err != nil {
+		return jira.Cursor{}, fmt.Errorf("after: %w", err)
+	}
+
+	return cursor, nil
 }
 
 // GetIssue returns one issue in full.

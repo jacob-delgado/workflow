@@ -49,7 +49,7 @@ function withIssues() {
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
-      issues: { total: issues.length, start_at: 0, unavailable: [], issues },
+      issues: { total: issues.length, next: '', unavailable: [], issues },
     }),
   })
 }

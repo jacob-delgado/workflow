@@ -93,7 +93,7 @@ function taskMarkRows(available: boolean) {
     snapshot: makeSnapshot({
       issues: {
         total: 4,
-        start_at: 0,
+        next: '',
         unavailable: [],
         issues: [tokenLeak, setupDocs, shipped, untracked],
       },
@@ -155,7 +155,7 @@ test.each([
   useSnapshotStore.setState({
     status: 'live',
     snapshot: makeSnapshot({
-      issues: { total: 1, start_at: 0, unavailable: [], issues: [tokenLeak] },
+      issues: { total: 1, next: '', unavailable: [], issues: [tokenLeak] },
       tasks: { available: true, reason: '', linked: [task] },
     }),
   })

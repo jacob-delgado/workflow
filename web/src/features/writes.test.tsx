@@ -101,7 +101,7 @@ const published = makeBranch({ upstream: 'origin/fix/PROJ-1', ahead: 0 })
 const inFlight = makeSnapshot({
   issues: {
     total: 1,
-    start_at: 0,
+    next: '',
     unavailable: [],
     issues: [
       {

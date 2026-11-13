@@ -48,10 +48,10 @@ func TrackerOf(issueKey jira.Key) api.IssueTracker {
 	return api.IssueTrackerJira
 }
 
-// IssuesPage is a page of search results in the API's shape, keeping the
-// caller's start index. Its issues and its unavailable trackers are empty
-// lists, never null.
-func IssuesPage(result jira.SearchResult, startAt int) api.IssuesPage {
+// IssuesPage is a page of search results in the API's shape, naming where the
+// page after it starts as its cursor's text, or nothing when it ends its list.
+// Its issues and its unavailable trackers are empty lists, never null.
+func IssuesPage(result jira.SearchResult) api.IssuesPage {
 	issues := make([]api.Issue, 0, len(result.Issues))
 	for _, issue := range result.Issues {
 		issues = append(issues, Issue(issue))
@@ -62,7 +62,12 @@ func IssuesPage(result jira.SearchResult, startAt int) api.IssuesPage {
 		unavailable = []string{}
 	}
 
-	return api.IssuesPage{Issues: issues, Total: result.Total, StartAt: startAt, Unavailable: unavailable}
+	next := ""
+	if result.Next.More() {
+		next = result.Next.String()
+	}
+
+	return api.IssuesPage{Issues: issues, Total: result.Total, Next: next, Unavailable: unavailable}
 }
 
 // Comment is a comment on an issue in the API's shape.

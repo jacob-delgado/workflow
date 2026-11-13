@@ -17,7 +17,7 @@ const views = {
 const snapshot = makeSnapshot({
   issues: {
     total: 3,
-    start_at: 0,
+    next: '',
     unavailable: [],
     issues: [
       {

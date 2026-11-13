@@ -1001,7 +1001,7 @@ export type Snapshot = {
  */
 export type Seed = {
     /**
-     * The view's first page as last kept: Jira's issues only, in Jira's order. total counts only those, start_at is 0 and unavailable is empty; a view kept with no issues is an empty page.
+     * The view's first page as last kept: Jira's issues only, in Jira's order. total counts only those, next and unavailable are empty; a view kept with no issues is an empty page.
      */
     issues: IssuesPage;
 };
@@ -1091,13 +1091,13 @@ export type IssuesPage = {
      */
     unavailable: Array<string>;
     /**
-     * How many issues the view matches in all.
+     * How many issues the view matches in all. A page asked with after counts Jira's alone: the forge's issues lead only the first page.
      */
     total: number;
     /**
-     * The index of the first issue in this page.
+     * Where the page after this one starts, to ask for it with as after: the last Jira issue this page lists and where Jira listed it, as its key and offset. Empty when this page ends the view.
      */
-    start_at: number;
+    next: string;
 };
 
 export type Issue = {
@@ -2417,9 +2417,9 @@ export type ListIssuesData = {
          */
         view?: string;
         /**
-         * The zero-based index of the first issue to return.
+         * The next of the page before: this page lists the issues the view holds after the issue it names, from where that issue is now, so issues joining or leaving the view ahead of it neither skip nor repeat a row. One that has left the view starts the page where it was. Omitted for the view's first page, which on the first view leads with the forge's issues when issues.forge is on; text no page gave as its next is refused as bad_request.
          */
-        start_at?: number;
+        after?: string;
     };
     url: '/api/issues';
 };
