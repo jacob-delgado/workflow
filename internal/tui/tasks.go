@@ -282,40 +282,41 @@ func (m Model) pickTask(line, _ int, inRail bool) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// issueMarks is how the Issues rows mark each issue's task state, or nil, so the
-// column is not drawn, until Taskwarrior has answered: without one, while it is
-// asked, and where it could not answer — go-task on PATH, a failed read — a
-// column of "no task" would claim what is not known.
-func (s tasksState) issueMarks(kit renderKit) func(jira.Key) string {
+// issueMarks is how the Issues rows mark each issue's task state at now, or
+// nil, so the column is not drawn, until Taskwarrior has answered: without one,
+// while it is asked, and where it could not answer — go-task on PATH, a failed
+// read — a column of "no task" would claim what is not known.
+func (s tasksState) issueMarks(kit renderKit, now time.Time) func(jira.Key) string {
 	if !s.answered() {
 		return nil
 	}
 
-	return func(issueKey jira.Key) string { return s.issueMark(kit, issueKey) }
+	return func(issueKey jira.Key) string { return s.issueMark(kit, issueKey, now) }
 }
 
 // issueMark is an issue's task state by shape: nothing (·), tracked (○) while a
 // linked task is still to do, active (◐), or every linked task completed (●).
-func (s tasksState) issueMark(kit renderKit, issueKey jira.Key) string {
-	glyph, _ := s.standing(kit, issueKey)
+func (s tasksState) issueMark(kit renderKit, issueKey jira.Key, now time.Time) string {
+	glyph, _ := s.standing(kit, issueKey, now)
 
 	return glyph
 }
 
 // issueWord is an issue's task state in the words its place goes by, or empty
 // with no task linked to it.
-func (s tasksState) issueWord(kit renderKit, issueKey jira.Key) string {
-	_, word := s.standing(kit, issueKey)
+func (s tasksState) issueWord(kit renderKit, issueKey jira.Key, now time.Time) string {
+	_, word := s.standing(kit, issueKey, now)
 
 	return word
 }
 
-// standing is how an issue's linked tasks stand, by shape and in words.
-func (s tasksState) standing(kit renderKit, issueKey jira.Key) (string, string) {
+// standing is how an issue's linked tasks stand at now, by shape and in words:
+// a started task that waits is still to do, as the Tasks list shows it.
+func (s tasksState) standing(kit renderKit, issueKey jira.Key, now time.Time) (string, string) {
 	linked := s.linkedTo(issueKey)
 
 	switch {
-	case slices.ContainsFunc(linked, taskwarrior.Task.Active):
+	case slices.ContainsFunc(linked, startedAt(now)):
 		return kit.marks.inFlight, places.TaskActive
 	case slices.ContainsFunc(linked, stillToDo):
 		return kit.marks.notStarted, places.Tracked
@@ -385,7 +386,7 @@ func issueTaskRows(kit renderKit, task taskwarrior.Task, now time.Time, width in
 		number = "#" + number + " "
 	}
 
-	rows := strings.Split(wrap(taskGlyph(kit.marks, task)+" "+number+task.Description, room), "\n")
+	rows := strings.Split(wrap(taskGlyph(kit.marks, task, now)+" "+number+task.Description, room), "\n")
 	rows = withNote(kit.styles, rows, linkedTaskNote(task, now), room)
 
 	for index, row := range rows {
@@ -416,7 +417,7 @@ func withNote(sty styles, rows []string, note string, width int) []string {
 // due, or nothing.
 func linkedTaskNote(task taskwarrior.Task, now time.Time) string {
 	switch {
-	case task.Active():
+	case task.Started(now):
 		return "started " + elapsed(task.Start, now) + " ago"
 	case task.Status != taskwarrior.Completed && !task.Due.IsZero():
 		return dueIn(task.Due, now)
@@ -435,22 +436,29 @@ func (s tasksState) suffix(kit renderKit, p pane) string {
 	return kit.marks.separator + s.context
 }
 
-// active is the first started task, pending or linked, if one is — and none
-// until Taskwarrior has answered, as the task marks and an issue's Tasks block
-// have it: after a failed read the Tasks pane shows the failure, not the task.
-func (s tasksState) active() (taskwarrior.Task, bool) {
+// active is the first task started at now, pending or linked, if one is — and
+// none until Taskwarrior has answered, as the task marks and an issue's Tasks
+// block have it: after a failed read the Tasks pane shows the failure, not the
+// task.
+func (s tasksState) active(now time.Time) (taskwarrior.Task, bool) {
 	if !s.answered() {
 		return taskwarrior.Task{}, false
 	}
 
 	tasks := slices.Concat(s.pending, s.linked)
 
-	index := slices.IndexFunc(tasks, taskwarrior.Task.Active)
+	index := slices.IndexFunc(tasks, startedAt(now))
 	if index < 0 {
 		return taskwarrior.Task{}, false
 	}
 
 	return tasks[index], true
+}
+
+// startedAt is whether a task is started as the lists show it at now, for
+// finding one among many.
+func startedAt(now time.Time) func(taskwarrior.Task) bool {
+	return func(task taskwarrior.Task) bool { return task.Started(now) }
 }
 
 // tasksBehavior is the Tasks pane's behavior.

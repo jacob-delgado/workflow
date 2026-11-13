@@ -332,7 +332,9 @@ func issueRelations(kit renderKit, detail jira.IssueDetail) []string {
 // issuesBehavior is the Issues pane's behavior.
 func issuesBehavior() behavior {
 	// The rail is the list, its rows marked by how their issues' tasks stand.
-	rail := func(m Model, rows int) string { return m.issues.render(m.kit(), rows, m.tasks.issueMarks(m.kit())) }
+	rail := func(m Model, rows int) string {
+		return m.issues.render(m.kit(), rows, m.tasks.issueMarks(m.kit(), m.deps.now()))
+	}
 
 	return behavior{
 		rail: rail, detail: Model.issueDetailView,

@@ -827,14 +827,19 @@ issue's, or one that tracks no issue — the offer is to **Switch the task**: it
 names each task it stops first and the one it then starts, or, for an issue no
 task tracks, stops them and then opens the track line. `s` in the Tasks pane,
 and **Start** on the web, start a task without stopping any other; with more
-than one started, the top row shows the first. No start is offered for an issue
-whose own task is already started, and nothing is offered before Taskwarrior
-has answered, or without it. Until the read after a done answers, the task
-just marked done is offered nothing — no start, no note, no done again — and
-is not counted as started, so a switch made meanwhile stops nothing on its
-account. An offer for its issue goes to another task that still tracks the
-issue, where one does, and otherwise nothing is offered, not even a new track.
-An offer that comes while something else is being
+than one started, the top row shows the first. A started task whose wait is
+still ahead is shown waiting, as the Tasks list words it: its issue is not
+marked started, the top row leaves it out, and the list and the detail mark it
+not started. Taskwarrior still counts it started, its clock running, so `s` on
+it stops it, and a switch stops it too, naming it and the date it waits until:
+`Stop task 12 'PROJ-412: Fix token redaction' (waiting until 2026-09-18)`. No
+start is offered for an issue whose own task is already started, and nothing is
+offered before Taskwarrior has answered, or without it. Until the read after a
+done answers, the task just marked done is offered nothing — no start, no note,
+no done again — and is not counted as started, so a switch made meanwhile stops
+nothing on its account. An offer for its issue goes to another task that still
+tracks the issue, where one does, and otherwise nothing is offered, not even a
+new track. An offer that comes while something else is being
 asked — the status picker after a new branch, the link and review-status offers
 after a pull request — opens once that closes. Starting a task runs
 Taskwarrior's hooks, as `task start` in a shell does, so a Timewarrior hook

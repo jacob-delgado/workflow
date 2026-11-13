@@ -50,12 +50,13 @@ type spineView struct {
 
 // spineView is the spine's view of the rest of the interface.
 func (m Model) spineView() spineView {
-	task, active := m.tasks.active()
+	now := m.deps.now()
+	task, active := m.tasks.active(now)
 
 	return spineView{
 		kit: m.kit(), dryRun: m.dryRun, place: placeLabel(m.deps), work: m.work(),
 		service: m.cfg.Messaging.Service(), checked: checksFinished(m.review.ci), shown: m.motion.shown(),
-		task: task, active: active, now: m.deps.now(),
+		task: task, active: active, now: now,
 	}
 }
 

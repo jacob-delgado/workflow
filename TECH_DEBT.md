@@ -1576,3 +1576,31 @@ two hours again.
 
 **Reopen when.** A CI is met whose runs regularly sit unchanged for longer
 than that, or a forge reports how long a run has left.
+
+### TRADE-65 A started task with a wait still ahead shows waiting while its clock runs
+
+**Decided.** 2026-11-13 by the maintainer, on wave-2 lead P099 (decision Q26,
+option (a) of the question in jacob-delgado/workflow#370): every display reads
+where a task stands at now, `taskwarrior.Task.Started`, which words a started
+task whose wait is still ahead waiting, as the Tasks list words it. That is
+the terminal's issue mark, spine, list and detail, the places the Issues list
+narrows by, and on the web the active chip, which the server's `activeTask`
+picks, and the marks, list and detail (`isStarted`, `taskWords.ts`). What
+writes to Taskwarrior keeps reading `Task.Active`, as Taskwarrior counts the
+task started whatever its wait: the start/stop key and button, and the switch
+offer, which stops every other started task before an issue's own starts, so
+a switch still stops the hidden one, and its last look names it and the date
+it waits until, as *(waiting until 2026-09-18)*.
+
+**Cost.** Taskwarrior's clock, and a timewarrior hook's, keep running for a
+task no surface shows running, until a switch stops it, its wait passes, or
+it is stopped by hand. Where the task is reachable (narrowed to the waiting
+tasks, or among an issue's linked tasks) it is marked not started yet offers
+*stop*, not *start*; and a switch's last look names a task no list shows by
+default. Once the wait passes, the issue's mark turns started at the next
+render, while the word the Issues list narrows by (*task active*) stays
+*tracked* until Taskwarrior is next read, as the list's waiting group does.
+
+**Reopen when.** Taskwarrior stops a started task when it is made to wait, or
+a user is caught out by a clock left running on a task workflow showed
+waiting.
