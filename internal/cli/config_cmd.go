@@ -58,7 +58,7 @@ func (opts initOptions) write(path string, cfg config.Config, over config.Revisi
 		return opts.where.Save(opts.place, cfg, over)
 	}
 
-	return setup.Create(path, opts.layers, cfg, over)
+	return opts.where.Create(path, opts.layers, cfg, over)
 }
 
 // newConfigInitCmd builds `workflow config init`. It asks for each credential
@@ -160,7 +160,7 @@ func whereInit(cmd *cobra.Command, global bool) (setup.Where, error) {
 			return setup.Where{}, errNoHome
 		}
 
-		return setup.Where{HomeDir: home}, nil
+		return setup.Where{HomeDir: home, Locks: cmdkit.EnvironmentOf(cmd).Process.SaveLocks()}, nil
 	}
 
 	workDir, err := cmdkit.WorkingDir(cmd)
@@ -168,7 +168,9 @@ func whereInit(cmd *cobra.Command, global bool) (setup.Where, error) {
 		return setup.Where{}, err
 	}
 
-	return setup.Where{WorkDir: workDir, HomeDir: cmdkit.ConfigHome(cmd)}, nil
+	return setup.Where{
+		WorkDir: workDir, HomeDir: cmdkit.ConfigHome(cmd), Locks: cmdkit.EnvironmentOf(cmd).Process.SaveLocks(),
+	}, nil
 }
 
 // placeFor is where --global says the file goes.

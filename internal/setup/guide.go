@@ -106,7 +106,7 @@ func (g Guide) Write(ctx context.Context, request Request) (Written, error) {
 		cfg.Jira = InKeychain(cfg.Jira)
 	}
 
-	err = Create(path, layers, cfg, over)
+	err = g.Where.Create(path, layers, cfg, over)
 	if err != nil {
 		return Written{}, err
 	}

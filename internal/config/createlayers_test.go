@@ -47,7 +47,7 @@ func TestCreateLayersWritesTheNewFileAsTheLayerOverHome(t *testing.T) {
 	cfg, over := overNewLayer(t, files)
 
 	// Act
-	err := config.CreateLayers(files, cfg, over)
+	err := config.CreateLayers(config.SaveLocks{}, files, cfg, over)
 
 	// Assert
 	written, readErr := os.ReadFile(files.Repo)
@@ -71,7 +71,7 @@ func TestCreateLayersOverAHomeFileChangedSinceItsReadWritesNothing(t *testing.T)
 	}
 
 	// Act
-	err = config.CreateLayers(files, cfg, over)
+	err = config.CreateLayers(config.SaveLocks{}, files, cfg, over)
 
 	// Assert
 	_, statErr := os.Lstat(files.Repo)
@@ -96,7 +96,7 @@ func TestCreateLayersWritesNothingOverAFileAlreadyThere(t *testing.T) {
 	}
 
 	// Act
-	err = config.CreateLayers(files, cfg, over)
+	err = config.CreateLayers(config.SaveLocks{}, files, cfg, over)
 
 	// Assert
 	kept, readErr := os.ReadFile(files.Repo)
@@ -143,7 +143,7 @@ func TestCreateLayersRefusesWhatItCouldNotWriteSafely(t *testing.T) {
 			tt.arrange(t, files, &cfg)
 
 			// Act
-			err := config.CreateLayers(files, cfg, over)
+			err := config.CreateLayers(config.SaveLocks{}, files, cfg, over)
 
 			// Assert
 			if !errors.Is(err, tt.want) {

@@ -163,6 +163,7 @@ func webWorld(cmd *cobra.Command, conn cmdkit.Connection, dryRun bool) webserver
 	deps.UseMessagingSettings = conn.Controls.UseMessagingSettings
 	deps.PlaceSlackCredentials = conn.Controls.PlaceSlackCredentials
 	deps.KeepJiraToken = conn.Controls.KeepJiraToken
+	deps.SaveLocks = conn.Controls.SaveLocks
 	deps.Reach = func(ctx context.Context, dir string) (webserver.World, error) {
 		return reachFrom(ctx, cmd, conn, dir, dryRun)
 	}

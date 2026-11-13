@@ -18,9 +18,11 @@ import (
 // settingsDeps reads and changes the configuration files and the local data,
 // for the terminal's Settings and Local data. Slack user-token secrets and a
 // Jira token typed into Settings are kept where controls keep them, under the
-// context the save is made under.
+// context the save is made under, and a save holds the save locks they name.
 func (e Environment) settingsDeps(files config.Files, controls Controls) seams.Settings {
-	editor := &configEditor{files: files, place: controls.PlaceSlackCredentials, keep: controls.KeepJiraToken}
+	editor := &configEditor{
+		files: files, locks: controls.SaveLocks, place: controls.PlaceSlackCredentials, keep: controls.KeepJiraToken,
+	}
 
 	return seams.Settings{
 		Read:            editor.read,
@@ -54,6 +56,7 @@ func SetupDeps(
 // never hands a credential to the interface.
 type configEditor struct {
 	files config.Files
+	locks config.SaveLocks
 	place func(ctx context.Context, cfg config.Config) error
 	keep  func(ctx context.Context, service, secret string) error
 
@@ -92,7 +95,7 @@ func (e *configEditor) save(
 	}
 
 	saved, written, err := config.SaveEdit(config.Edit{
-		Files: e.files, Read: e.last, Over: over, Edited: edited, Removed: removed,
+		Files: e.files, Locks: e.locks, Read: e.last, Over: over, Edited: edited, Removed: removed,
 		PlaceSlackCredentials: placeUnder(ctx, e.place),
 		KeepJiraToken:         keepUnder(ctx, e.keep),
 	})

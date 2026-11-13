@@ -50,10 +50,12 @@ const (
 	Home Place = "home"
 )
 
-// Where is where setup runs: the working directory and the home directory.
+// Where is where setup runs: the working directory and the home directory,
+// with the save locks a write over a home file holds.
 type Where struct {
 	WorkDir string
 	HomeDir string
+	Locks   config.SaveLocks
 }
 
 // Path is the file setup writes for place.
@@ -264,7 +266,7 @@ func Beneath(layers config.Files) (config.Config, config.Revision, error) {
 func (w Where) Save(place Place, cfg config.Config, over config.Revision) error {
 	layers := w.Layers(place)
 	if layers.Home != "" {
-		_, err := config.SaveLayers(layers, cfg, over)
+		_, err := config.SaveLayers(w.Locks, layers, cfg, over)
 
 		return err
 	}
@@ -299,12 +301,12 @@ func (w Where) RefuseLinked(place Place) error {
 // already there, a link included, is refused with ErrExists and nothing is
 // written, so a file made between RefuseExisting and the write is never
 // replaced and a link is never followed.
-func Create(path string, layers config.Files, cfg config.Config, over config.Revision) error {
+func (w Where) Create(path string, layers config.Files, cfg config.Config, over config.Revision) error {
 	var err error
 	if layers.Home == "" {
 		err = config.Create(path, cfg)
 	} else {
-		err = config.CreateLayers(layers, cfg, over)
+		err = config.CreateLayers(w.Locks, layers, cfg, over)
 	}
 
 	if errors.Is(err, fs.ErrExist) {

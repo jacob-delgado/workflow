@@ -284,7 +284,7 @@ func TestCreateWritesNothingThroughALink(t *testing.T) {
 	}
 
 	// Act
-	err = setup.Create(path, config.Files{}, config.Default(), config.Revision{})
+	err = setup.Where{}.Create(path, config.Files{}, config.Default(), config.Revision{})
 
 	// Assert
 	_, statErr := os.Lstat(elsewhere)
@@ -301,7 +301,7 @@ func TestCreateWritesAPrivateFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), config.FileName)
 
 	// Act
-	err := setup.Create(path, config.Files{}, config.Default(), config.Revision{})
+	err := setup.Where{}.Create(path, config.Files{}, config.Default(), config.Revision{})
 
 	// Assert
 	info, statErr := os.Lstat(path)

@@ -84,6 +84,7 @@ func (e Environment) Deps(cfg config.Config, where Workspace, log *RequestLog) (
 		//nolint:bodyclose // Wrap only relays the response; the refresh reads and closes its body.
 		PlaceSlackCredentials: e.PlaceSlackCredentials(log.Wrap("slack", httpTransport), e.Keychain()),
 		KeepJiraToken:         e.Keychain().JiraTokenKeeper(),
+		SaveLocks:             e.SaveLocks(),
 	}
 
 	deps := tui.Deps{
@@ -134,6 +135,9 @@ type Controls struct {
 	// terminal's in the macOS keychain, under the item for its address, so the
 	// file saved reads it from there; nil elsewhere, where the file keeps it.
 	KeepJiraToken func(ctx context.Context, service, secret string) error
+	// SaveLocks are the locks a save of the configuration, the web's Settings
+	// or the terminal's, holds from its revision check through its rename.
+	SaveLocks config.SaveLocks
 }
 
 // ciFinished is a terminal bell followed by an OSC 9 desktop notification. A
