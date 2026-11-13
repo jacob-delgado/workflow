@@ -1001,7 +1001,9 @@ turn them on, in Settings or here:
 }
 ```
 
-`?` and the palette work either way. With the shortcuts on, a key still types
+`?` and the palette work either way, except while a confirm, a preview or a
+form that writes in place waits on your answer, which holds every key the
+page binds until it is answered. With the shortcuts on, a key still types
 into the field that has the focus — a search box, a form, the comment box —
 and acts only outside one. The page binds a key it can tell apart from the
 browser's own: one character, such as `c`, `C` or `/`. An action moved onto a
