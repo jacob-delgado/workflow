@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/codeowners"
+	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/seams"
@@ -119,6 +120,11 @@ func (w *world) gitDeps() seams.Git {
 			w.branch.IssueLink = ""
 
 			return nil
+		},
+		MadeAfter: func(_ context.Context, merged forge.PullRequest) (gitrepo.AfterMerge, error) {
+			w.record("made-after " + merged.HeadCommit)
+
+			return w.madeAfter, w.madeAfterErr
 		},
 		Finish: func(_ context.Context, finishing gitrepo.Finishing) error {
 			w.record("finish " + finishing.Branch + " onto " + finishing.Base + " from " + finishing.Remote)

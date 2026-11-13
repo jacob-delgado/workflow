@@ -4,8 +4,12 @@
 package loop
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"slices"
+	"strconv"
+	"strings"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
@@ -92,12 +96,58 @@ var (
 	// commit that merged, and it has no upstream or is ahead of the one it has.
 	ErrUnpushedWork = errors.New(
 		"it holds commits that neither merged nor are on its upstream, which deleting it would lose; push them first")
+	// ErrMadeAfterMerge refuses finishing a branch with commits made after
+	// the commit its pull request merged, which no pull request has carried:
+	// its name reused, or work gone on past the merge. A MadeAfterMergeError
+	// names them.
+	ErrMadeAfterMerge = errors.New("it has commits made after it merged")
 )
+
+// MadeAfterMergeError is ErrMadeAfterMerge, naming the commits made after the
+// merge.
+type MadeAfterMergeError struct {
+	After gitrepo.AfterMerge
+}
+
+var _ error = MadeAfterMergeError{}
+
+// Error says that commits were made after the merge and names the newest of
+// those the base does not hold, newest first, then counts the rest of them
+// and those the base already holds: after a squash merge, a branch moved onto
+// the newer base holds the squash and every commit the base took since.
+func (e MadeAfterMergeError) Error() string {
+	after := e.After
+	if after.Own == 0 {
+		return ErrMadeAfterMerge.Error() + ": " + strconv.Itoa(after.OnBase) + ", all already on " + after.Base
+	}
+
+	named := make([]string, 0, len(after.Latest)+1)
+	for _, commit := range after.Latest {
+		named = append(named, commit.Hash+" "+commit.Subject)
+	}
+
+	if more := after.Own - len(after.Latest); more > 0 {
+		named = append(named, "and "+strconv.Itoa(more)+" more")
+	}
+
+	message := ErrMadeAfterMerge.Error() + ", which a new pull request would carry: " + strings.Join(named, "; ")
+	if after.OnBase > 0 {
+		message += ", beside " + strconv.Itoa(after.OnBase) + " already on " + after.Base
+	}
+
+	return message
+}
+
+// Unwrap lets errors.Is match ErrMadeAfterMerge.
+func (MadeAfterMergeError) Unwrap() error {
+	return ErrMadeAfterMerge
+}
 
 // RefuseFinish says why a branch cannot be finished, or nil when it can: it is
 // checked out as a branch of its own, its pull request — found says whether
 // there is one — has merged, it has a base to return to, and the force delete
-// would lose nothing (see keptElsewhere).
+// would lose nothing (see keptElsewhere). What git alone can tell, the commits
+// made after the merge, RefuseMadeAfter says.
 func RefuseFinish(pull forge.PullRequest, found bool, branch gitrepo.Branch) error {
 	switch {
 	case !OnFeatureBranch(branch):
@@ -111,6 +161,32 @@ func RefuseFinish(pull forge.PullRequest, found bool, branch gitrepo.Branch) err
 	default:
 		return nil
 	}
+}
+
+// RefuseMadeAfter says why a branch RefuseFinish finds nothing in the way of
+// still cannot be finished, reading through madeAfter the commits made on it
+// after the one its merged pull request, pull, merged at: a
+// MadeAfterMergeError naming them, or why they could not be read,
+// gitrepo.ErrNotFetched among the reasons. Nil when there are none, for a pull
+// request not merged, and with no repository to ask.
+func RefuseMadeAfter(
+	ctx context.Context, madeAfter func(context.Context, forge.PullRequest) (gitrepo.AfterMerge, error),
+	pull forge.PullRequest,
+) error {
+	if pull.State != forge.StateMerged || madeAfter == nil {
+		return nil
+	}
+
+	after, err := madeAfter(ctx, pull)
+	if err != nil {
+		return fmt.Errorf("reading the commits made after it merged: %w", err)
+	}
+
+	if after.Any() {
+		return MadeAfterMergeError{After: after}
+	}
+
+	return nil
 }
 
 // keptElsewhere reports a merged branch whose every commit something else

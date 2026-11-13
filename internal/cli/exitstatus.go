@@ -122,7 +122,8 @@ func configurationErrors() []error {
 
 // refusalErrors are a command that would not go ahead because of the state it
 // found: an open pull request, or one merging, nothing to open, a dirty tree,
-// a branch or file already there, a branch that cannot be finished, a
+// a branch or file already there, a branch that cannot be finished, the
+// commit it merged at that could not be fetched among the reasons, a
 // directory that is no repository, a store file another program holds open,
 // a summary too long for the messaging service, a move to a status the
 // tracker does not offer or one that asks for fields.
@@ -130,9 +131,10 @@ func refusalErrors() []error {
 	return []error{
 		loop.ErrPullAlreadyOpen, loop.ErrNothingToOpen, loop.ErrNoPullRequest, loop.ErrPullMerging,
 		loop.ErrDirtyTree, loop.ErrNothingStaged,
-		loop.ErrNotOnFeatureBranch, loop.ErrNotMerged, loop.ErrNoBase, loop.ErrUnpushedWork,
+		loop.ErrNotOnFeatureBranch, loop.ErrNotMerged, loop.ErrNoBase, loop.ErrUnpushedWork, loop.ErrMadeAfterMerge,
 		pr.ErrPullAlreadyOpen, pr.ErrNoCommitsToOpen, pr.ErrNoPullRequest,
-		errBranchExists, errFinishMoved, setup.ErrExists, gitrepo.ErrNotARepository, store.ErrNotCleaned,
+		errBranchExists, errFinishMoved, gitrepo.ErrNotFetched,
+		setup.ErrExists, gitrepo.ErrNotARepository, store.ErrNotCleaned,
 		messaging.ErrTooLong, loop.ErrNoTransition, loop.ErrNeedsFields,
 		loop.ErrCIFailed, armed.ErrNoCI, armed.ErrRunningTooLong, armed.ErrPullChanged, armed.ErrMergedFirst,
 		armed.ErrMergingFirst,

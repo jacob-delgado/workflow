@@ -20,10 +20,17 @@ the branch is read again, and refused if it changed meanwhile.
 
 A branch that cannot be finished is refused with the reason, and exits 4: its
 pull or merge request has not merged, it is the base itself or a detached
-HEAD, there is no base to return to, or it holds commits that neither merged
-nor are on its upstream, which deleting it would lose. The delete is a force
-delete, so it goes ahead only for a branch at the very commit that merged, or
-one whose upstream holds every commit on it.
+HEAD, there is no base to return to, it holds commits that neither merged nor
+are on its upstream, which deleting it would lose, or it has commits made after
+the commit that merged, pushed or not: the refusal names the newest five the
+base remote's branch lacks, and counts the rest. The delete is a
+force delete, so it goes ahead only for a branch at the very commit that
+merged, or one whose upstream holds every commit on it, and only while the
+branch is that commit or behind it. A commit that merged which this clone lacks
+is fetched first, from the forge's own ref for the pull or merge request
+(refs/pull/N/head, or refs/merge-requests/N/head on GitLab) on the base remote,
+and a fetch that fails refuses the finish too. That fetch writes no ref, and
+--dry-run makes it as well, to say whether the finish would go ahead.
 
 ```
 workflow finish [flags]

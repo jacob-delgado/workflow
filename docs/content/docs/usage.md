@@ -567,7 +567,14 @@ remote (upstream in a fork's clone, else origin), delete the branch — and runs
 them on `enter` (`workflow finish` does the same from a shell). The delete is a
 force delete, so `F` is offered only when it loses nothing — the branch is at
 the commit that merged, or its upstream holds every commit on it — and the pane
-says why not otherwise. `n` stays on offer after a merge, as `workflow pr`
+says why not otherwise. A branch with commits made after the commit that
+merged is not finished either, even with them pushed — its name reused, or work
+gone on past the merge — and the pane names the newest five the base remote's
+branch lacks, counting the rest. A commit the forge merged
+that this clone lacks, pushed from elsewhere, is fetched first from the forge's
+own ref for the pull request (`refs/pull/N/head`, or
+`refs/merge-requests/N/head` on GitLab), and a fetch that fails leaves `F` out
+too, saying so. `n` stays on offer after a merge, as `workflow pr`
 allows, so commits made on the branch since can go up in a new pull request.
 While GitLab merges a merge request, which it locks until the merge lands, the
 pane says *merging* and offers nothing on it, `workflow pr` refuses to open

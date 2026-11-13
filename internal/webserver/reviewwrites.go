@@ -272,8 +272,11 @@ func (s *server) FinishBranch(
 // errFinishRefused is git declining a step of the finish.
 var errFinishRefused = errors.New("git refused the finish")
 
-// finish runs the finish once loop.RefuseFinish finds nothing in the way,
-// and answers the branch now checked out; a refusal says what was in the way.
+// finish runs the finish once neither loop.RefuseFinish nor
+// loop.RefuseMadeAfter finds anything in the way, and answers the branch now
+// checked out; a refusal says what was in the way, in madeAfterWords' words,
+// and a read of what was made after the merge that failed is its own error,
+// for fault to classify.
 func (s *server) finish(ctx context.Context) (gitrepo.Branch, error) {
 	if s.deps.Git.Finish == nil {
 		return gitrepo.Branch{}, errReviewWriteUnavailable
@@ -285,6 +288,15 @@ func (s *server) finish(ctx context.Context) (gitrepo.Branch, error) {
 	}
 
 	refused := loop.RefuseFinish(read.pull, read.found, read.branch)
+	if refused == nil {
+		refused = loop.RefuseMadeAfter(ctx, s.deps.Git.MadeAfter, read.pull)
+		if madeAfterUnread(refused) {
+			return gitrepo.Branch{}, refused
+		}
+
+		refused = madeAfterWords(refused)
+	}
+
 	if refused != nil {
 		return gitrepo.Branch{}, fmt.Errorf("%w: %w", errNotFinishable, refused)
 	}

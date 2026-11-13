@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -73,6 +74,18 @@ func (k Kind) Sigil() string {
 	}
 
 	return "#"
+}
+
+// HeadRef is the ref this forge keeps a proposed change's head at, by its
+// number, which a fetch from the repository reads even once the branch is
+// gone: refs/merge-requests/N/head on GitLab, and refs/pull/N/head everywhere
+// else, as GitHub keeps it.
+func (k Kind) HeadRef(number int) string {
+	if k == KindGitLab {
+		return "refs/merge-requests/" + strconv.Itoa(number) + "/head"
+	}
+
+	return "refs/pull/" + strconv.Itoa(number) + "/head"
 }
 
 // Repo identifies a repository on a forge.

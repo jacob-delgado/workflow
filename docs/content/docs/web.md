@@ -354,7 +354,9 @@ more workflow runs than it reads, saying to re-run them on the forge; and once
 it has merged, **Finish the branch** shows the
 three git commands it runs — switch to the base, pull it from the base remote,
 delete the branch — as `F` does, when deleting the branch loses nothing: it is
-at the commit that merged, or its upstream holds every commit on it. When
+at the commit that merged, or its upstream holds every commit on it, and it
+has no commit made after the one that merged, which the server fetches first
+when this clone lacks it; a fetch that fails is in the way too. When
 something is in the way, the section says what in its place, as the terminal
 does. The server reads the pull request and its CI again before each, so
 nothing goes on what the page showed a moment ago. A token without the scope a

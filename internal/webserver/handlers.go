@@ -4,6 +4,7 @@
 package webserver
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -206,13 +207,16 @@ func (s *server) readReview(ctx context.Context) (api.Review, error) {
 // own terms: whether it has a pull request, which one, and its CI. The CI is
 // read only for an open pull request; when it is not read, or its read fails,
 // ciRead is false and the CI is the zero CI, which reports none, and a read
-// that failed leaves its error in ciErr.
+// that failed leaves its error in ciErr. For a merged one whose branch
+// loop.RefuseFinish finds nothing in the way of, madeAfter is what
+// madeAfterWords says of the commits made on it after it merged.
 type forgeRead struct {
-	found  bool
-	pull   forge.PullRequest
-	ci     forge.CI
-	ciRead bool
-	ciErr  error
+	found     bool
+	pull      forge.PullRequest
+	ci        forge.CI
+	ciRead    bool
+	ciErr     error
+	madeAfter error
 }
 
 // readForge is the branch's pull request and its CI, or none found when no
@@ -220,8 +224,10 @@ type forgeRead struct {
 // stream's forge cache, which hands it the branch its frame read. A pull
 // request opened here is read by its number until the forge's list includes
 // it (findPull). A merged pull request has no live CI, so it is not asked
-// about, as the terminal does not ask; a CI read that fails leaves the pull
-// request without it rather than failing the whole read.
+// about, as the terminal does not ask, but the commits made on its branch
+// since are, fetching the commit it merged at where this clone lacks it; a CI
+// read that fails leaves the pull request without it rather than failing the
+// whole read.
 func (s *server) readForge(ctx context.Context, branch gitrepo.Branch) (forgeRead, error) {
 	if s.deps.Forge.FindPullRequest == nil {
 		return forgeRead{}, nil
@@ -233,6 +239,10 @@ func (s *server) readForge(ctx context.Context, branch gitrepo.Branch) (forgeRea
 	}
 
 	read := forgeRead{found: true, pull: pull}
+	if loop.RefuseFinish(pull, true, branch) == nil {
+		read.madeAfter = madeAfterWords(loop.RefuseMadeAfter(ctx, s.deps.Git.MadeAfter, pull))
+	}
+
 	if s.deps.Forge.CheckStatus == nil || !pull.IsOpen() {
 		return read, nil
 	}
@@ -258,7 +268,7 @@ func (s *server) reviewDTO(branch gitrepo.Branch, read forgeRead) api.Review {
 
 	pull := pullDTO(read.pull)
 	result.Pull, result.Issue, result.CiError = &pull, s.linkedIssue(branch, read.pull), panelProblem(read.ciErr)
-	result.FinishRefusal = finishRefusal(read.pull, branch)
+	result.FinishRefusal = finishRefusal(read, branch)
 
 	if read.ciRead {
 		ci := ciDTO(read.ci)
@@ -268,15 +278,50 @@ func (s *server) reviewDTO(branch gitrepo.Branch, read forgeRead) api.Review {
 	return result
 }
 
-// finishRefusal is why a merged pull request's branch cannot be finished, in
-// loop.RefuseFinish's words, or nil when it can be or the pull request has
-// not merged, where there is nothing to finish yet.
-func finishRefusal(pull forge.PullRequest, branch gitrepo.Branch) *string {
-	if pull.State != forge.StateMerged {
+// What madeAfterWords says in place of a read of the commits made after a
+// merge that failed: git's own words name the remote, and stay off the wire.
+var (
+	// errMadeAfterUnread is a merged branch whose commits made since the
+	// merge could not be read, so nothing says a finish would lose none.
+	errMadeAfterUnread = errors.New("the commits made after it merged could not be read; try again")
+	// errMergedUnfetched is a merged branch whose pull request merged at a
+	// commit this clone lacks and could not fetch.
+	errMergedUnfetched = errors.New("the commit it merged at is not in this clone, and could not be fetched; " +
+		"finish it with F in the terminal's Review pane to see git's reason")
+)
+
+// madeAfterWords is refused, loop.RefuseMadeAfter's refusal of finishing a
+// merged branch, in words the wire may carry: the commits made after the
+// merge, named, and errMergedUnfetched or errMadeAfterUnread for a read that
+// failed. Nil when nothing was made after it.
+func madeAfterWords(refused error) error {
+	switch {
+	case madeAfterUnread(refused):
+		return errMadeAfterUnread
+	case errors.Is(refused, gitrepo.ErrNotFetched):
+		return errMergedUnfetched
+	default:
+		return refused
+	}
+}
+
+// madeAfterUnread reports refused, loop.RefuseMadeAfter's, a read that failed
+// rather than a branch in the way: neither commits made after the merge nor a
+// merged commit that could not be fetched.
+func madeAfterUnread(refused error) bool {
+	return refused != nil && !errors.Is(refused, loop.ErrMadeAfterMerge) && !errors.Is(refused, gitrepo.ErrNotFetched)
+}
+
+// finishRefusal is why the read's merged pull request's branch cannot be
+// finished, in loop.RefuseFinish's words, then madeAfterWords', or nil
+// when it can be or the pull request has not merged, where there is nothing
+// to finish yet.
+func finishRefusal(read forgeRead, branch gitrepo.Branch) *string {
+	if read.pull.State != forge.StateMerged {
 		return nil
 	}
 
-	refused := loop.RefuseFinish(pull, true, branch)
+	refused := cmp.Or(loop.RefuseFinish(read.pull, true, branch), read.madeAfter)
 	if refused == nil {
 		return nil
 	}

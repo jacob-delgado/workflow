@@ -1282,7 +1282,7 @@ export type Review = {
      */
     issue?: LinkedIssue | null;
     /**
-     * Why the merged pull request's branch cannot be finished, in the words that follow "cannot finish BRANCH: " — it holds commits that neither merged nor are on its upstream, there is no base to return to, or it is not a branch of its own — the same check a finish makes before it runs. Absent when the pull request has not merged, and when its branch can be finished.
+     * Why the merged pull request's branch cannot be finished, in the words that follow "cannot finish BRANCH: " — it holds commits that neither merged nor are on its upstream, it has commits made after the commit that merged, named, that commit is not in this clone and could not be fetched, there is no base to return to, or it is not a branch of its own — the same check a finish makes before it runs. Absent when the pull request has not merged, and when its branch can be finished.
      */
     finish_refusal?: string;
     /**

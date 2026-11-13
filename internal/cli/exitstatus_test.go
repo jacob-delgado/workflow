@@ -76,6 +76,8 @@ func TestExitStatusDistinguishesFailureKinds(t *testing.T) {
 		"not merged":                  {err: loop.ErrNotMerged, want: 4},
 		"no base to return to":        {err: loop.ErrNoBase, want: 4},
 		"commits not pushed":          {err: loop.ErrUnpushedWork, want: 4},
+		"commits since the merge":     {err: loop.ErrMadeAfterMerge, want: 4},
+		"the merged commit unfetched": {err: gitrepo.ErrNotFetched, want: 4},
 		"no such move offered":        {err: loop.NoTransitionError{Status: "Done"}, want: 4},
 		"a move that asks for fields": {err: loop.NeedsFieldsError{}, want: 4},
 		"a check failed":              {err: loop.ErrCIFailed, want: 4},

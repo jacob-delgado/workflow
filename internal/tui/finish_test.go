@@ -6,6 +6,7 @@ package tui_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -361,5 +362,115 @@ func TestFinishLeavesABranchWhoseBaseChangedSinceThePreview(t *testing.T) {
 
 	if calls := merged.asked("finish"); len(calls) != 0 {
 		t.Errorf("finished onto a base other than the one previewed: %q", calls)
+	}
+}
+
+// madeSince is a commit made on the branch after its pull request merged.
+func madeSince() gitrepo.AfterMerge {
+	return gitrepo.AfterMerge{Latest: []gitrepo.Commit{{Hash: "c0ffee1", Subject: "feat: after the merge"}}, Own: 1}
+}
+
+func TestAMergedBranchCommittedToSinceItMergedCannotBeFinished(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// P005: its name reused, or work gone on past the merge, and pushed.
+	merged := mergedBranch()
+	merged.madeAfter = madeSince()
+
+	// Act
+	view := typing(t, merged.live(t, 120, 40), "4", "F").View().Content
+
+	// Assert
+	requireScreen(t, view, "cannot be finished", "commits made after it merged", "c0ffee1 feat: after the merge")
+	refuseScreen(t, view, "F finishes the branch", "git branch -D")
+}
+
+func TestAMergedBranchWhoseCommitsSinceCannotBeReadCannotBeFinished(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	merged := mergedBranch()
+	merged.madeAfterErr = errBranchUnread
+
+	// Act
+	view := typing(t, merged.live(t, 120, 40), "4").View().Content
+
+	// Assert
+	requireScreen(t, view, "cannot be finished", "reading the commits made after it merged")
+	refuseScreen(t, view, "F finishes the branch")
+}
+
+func TestFinishLeavesABranchCommittedToSinceThePreview(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	merged := mergedBranch()
+	preview := typing(t, merged.live(t, 120, 40), "4", "F")
+	merged.madeAfter = madeSince()
+
+	// Act
+	confirmed := typing(t, preview, keyEnter)
+
+	// Assert
+	requireScreen(t, confirmed.View().Content, "Finish the branch", "commits made after it merged")
+
+	if calls := merged.asked("finish"); len(calls) != 0 {
+		t.Errorf("finished a branch committed to since the preview: %q", calls)
+	}
+}
+
+func TestFinishStopsWhenTheCommitsSinceCannotBeReadAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	merged := mergedBranch()
+	preview := typing(t, merged.live(t, 120, 40), "4", "F")
+	merged.madeAfterErr = errBranchUnread
+
+	// Act
+	confirmed := typing(t, preview, keyEnter)
+
+	// Assert
+	requireScreen(t, confirmed.View().Content, "Finish the branch", "not a git repository")
+
+	if calls := merged.asked("finish"); len(calls) != 0 {
+		t.Errorf("finished a branch whose commits since could not be read: %q", calls)
+	}
+}
+
+func TestAMergedBranchWhoseMergedCommitCannotBeFetchedCannotBeFinished(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Q27: the commit it merged at was pushed from elsewhere, and the fetch
+	// of the forge's ref for it failed.
+	merged := mergedBranch()
+	merged.madeAfterErr = fmt.Errorf("the commit it merged at, c0ffee2, %w: fetching refs/pull/7/head from origin",
+		gitrepo.ErrNotFetched)
+
+	// Act
+	view := typing(t, merged.live(t, 120, 40), "4").View().Content
+
+	// Assert
+	requireScreen(t, view, "cannot be finished", "could not be fetched", "refs/pull/7/head")
+	refuseScreen(t, view, "F finishes the branch")
+}
+
+func TestAMergedBranchSomethingElseRefusesIsNotLookedPast(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Committed to since it was pushed: refused as it stands, so nothing is
+	// fetched to count what was made after the merge.
+	merged := mergedBranch()
+	merged.branch.Ahead, merged.branch.Head = 1, pushedCommit
+
+	// Act
+	typing(t, merged.live(t, 120, 40), "4")
+
+	// Assert
+	if calls := merged.asked("made-after"); len(calls) != 0 {
+		t.Errorf("read what was made after the merge of a branch refused already: %q", calls)
 	}
 }

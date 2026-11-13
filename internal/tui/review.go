@@ -14,6 +14,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
 // reviewState is the branch's pull request and its CI, as far as they have
@@ -28,6 +29,10 @@ type reviewState struct {
 	checked   bool
 	checkedAt time.Time
 	ciErr     error
+	// madeAfter is loop.RefuseMadeAfter's refusal of finishing the branch of
+	// a merged pull request: the commits made on it after it merged, or why
+	// they could not be read.
+	madeAfter error
 	polling   bool
 	// opened is when this session opened the pull request; zero for one it
 	// found.
@@ -66,28 +71,37 @@ func forgeVocab(kind forge.Kind) reviewVocab {
 }
 
 // findPull is the command that looks for the branch's open pull request,
-// for the review begun as review.
+// for the review begun as review, and for a merged one whose branch
+// loop.RefuseFinish finds nothing in the way of, reads what
+// loop.RefuseMadeAfter says of the commits made on it since.
 func (s branchState) findPull(ctx context.Context, deps Deps, review int) tea.Cmd {
-	find, branch := deps.Forge.FindPullRequest, s.branch.Name
+	find, madeAfter, branch := deps.Forge.FindPullRequest, deps.Git.MadeAfter, s.branch
 	if find == nil || !s.onFeatureBranch() {
 		return nil
 	}
 
 	return func() tea.Msg {
-		pull, found, err := find(ctx, branch)
+		pull, found, err := find(ctx, branch.Name)
 
-		return pullFound{branch: branch, review: review, pull: pull, found: found, err: err}
+		var refused error
+		if loop.RefuseFinish(pull, found, branch) == nil {
+			refused = loop.RefuseMadeAfter(ctx, madeAfter, pull)
+		}
+
+		return pullFound{branch: branch.Name, review: review, pull: pull, found: found, err: err, madeAfter: refused}
 	}
 }
 
 // pullFound carries what the forge said about the branch's pull request, for
-// the review begun as review.
+// the review begun as review, and, for one merged, loop.RefuseMadeAfter's
+// refusal of finishing its branch.
 type pullFound struct {
-	branch string
-	review int
-	pull   forge.PullRequest
-	found  bool
-	err    error
+	branch    string
+	review    int
+	pull      forge.PullRequest
+	found     bool
+	err       error
+	madeAfter error
 }
 
 var _ applier = pullFound{}
@@ -119,6 +133,8 @@ func (msg pullFound) apply(m Model) (Model, tea.Cmd) {
 	} else {
 		m = m.beginReview(reviewState{pull: msg.pull, found: msg.found, loaded: true, err: msg.err})
 	}
+
+	m.review.madeAfter = msg.madeAfter
 
 	if !m.review.found {
 		m.review.loading = false
