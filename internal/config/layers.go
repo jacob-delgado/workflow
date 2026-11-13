@@ -363,7 +363,7 @@ func mergeValues(base, over any) any {
 // a setting only the home file may.
 func layerContents(files Files, home layer, cfg Config) ([]byte, error) {
 	if files.Repo == "" {
-		return encode(cfg), nil
+		return indented(cfg), nil
 	}
 
 	beneath, err := decodeLayer(home)
@@ -377,7 +377,7 @@ func layerContents(files Files, home layer, cfg Config) ([]byte, error) {
 	}
 
 	if !home.exists {
-		return encode(cfg), nil
+		return indented(cfg), nil
 	}
 
 	return overlay(cfg, beneath.config), nil
