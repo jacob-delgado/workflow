@@ -1,5 +1,7 @@
 import { act, screen, waitFor } from '@testing-library/react'
+import type { QueryClient } from '@tanstack/react-query'
 import App from '@/App.tsx'
+import { getConfigQueryKey } from '@/api/generated/@tanstack/react-query.gen.ts'
 import { useSnapshotStore } from '@/api/snapshot.ts'
 import type { Config } from '@/api/generated/types.gen.ts'
 import { mockConfig } from '@/dev/mockConfig.ts'
@@ -7,7 +9,7 @@ import { mockKeys } from '@/dev/mockKeys.ts'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { fakeApi } from '@/test/fakeApi.ts'
 import { makeSnapshot } from '@/test/fixtures.ts'
-import { renderWithClient } from '@/test/renderWithClient.tsx'
+import { appQueryClient, renderWithClient } from '@/test/renderWithClient.tsx'
 import { anEdit } from '@/test/settings.ts'
 
 // Settings open while the server switches directory from another tab or the
@@ -43,11 +45,18 @@ function answer(read: Read | typeof noFile): Response {
   return Response.json(read.config, { headers: { ETag: read.revision } })
 }
 
+// Opened is Settings drawn: the page's query client, and the requests the
+// page made.
+interface Opened {
+  client: QueryClient
+  requests: Request[]
+}
+
 // openSettings draws Settings working in api, answering the first read of
 // the configuration with left's file and every read after with after, a
-// moment later, as a read over the network answers; and returns the requests
-// the page made once the form is drawn.
-async function openSettings(after: Read | typeof noFile): Promise<Request[]> {
+// moment later, as a read over the network answers; and returns the page's
+// client and requests once the form is drawn.
+async function openSettings(after: Read | typeof noFile): Promise<Opened> {
   let reads = 0
   const requests = fakeApi({
     '/api/keys': mockKeys,
@@ -61,25 +70,34 @@ async function openSettings(after: Read | typeof noFile): Promise<Request[]> {
       return answer(after)
     },
   })
+  const client = appQueryClient()
   useSnapshotStore.setState({ status: 'live', snapshot: makeSnapshot() })
   useUiStore.setState({ section: 'settings' })
-  renderWithClient(<App />)
+  renderWithClient(<App />, client)
   await screen.findByLabelText('User')
 
-  return requests
+  return { client, requests }
 }
 
 // switchedElsewhere has the stream say the server works in web now, and waits
-// for the configuration to be read again there and the read to answer.
-async function switchedElsewhere(requests: Request[]): Promise<void> {
+// until the configuration read again there has answered, with the file or a
+// refusal, and nothing more is being read.
+async function switchedElsewhere({ client, requests }: Opened): Promise<void> {
   const before = configReads(requests)
+  const answered = () => {
+    const state = client.getQueryState(getConfigQueryKey())
+
+    return Math.max(state?.dataUpdatedAt ?? 0, state?.errorUpdatedAt ?? 0)
+  }
+  const answeredBefore = answered()
   act(() => {
     useSnapshotStore.setState({ snapshot: makeSnapshot({ here: '/home/ana/src/web' }) })
   })
   await waitFor(() => {
     expect(configReads(requests)).toBeGreaterThan(before)
+    expect(answered()).toBeGreaterThan(answeredBefore)
+    expect(client.getQueryState(getConfigQueryKey())?.fetchStatus).toBe('idle')
   })
-  await act(() => new Promise((resolve) => setTimeout(resolve, 100)))
 }
 
 // configReads counts the reads of the configuration among requests.
@@ -91,11 +109,11 @@ function configReads(requests: Request[]): number {
 
 test('a switch elsewhere keeps the unsaved edits when the file read back is the same', async () => {
   // Arrange
-  const requests = await openSettings(left)
+  const opened = await openSettings(left)
   await anEdit()
 
   // Act
-  await switchedElsewhere(requests)
+  await switchedElsewhere(opened)
 
   // Assert
   await waitFor(() => {
@@ -107,11 +125,11 @@ test('a switch elsewhere keeps the unsaved edits when the file read back is the 
 
 test('a switch elsewhere to another file says the unsaved edits were for the directory left', async () => {
   // Arrange
-  const requests = await openSettings(elsewhere)
+  const opened = await openSettings(elsewhere)
   await anEdit()
 
   // Act
-  await switchedElsewhere(requests)
+  await switchedElsewhere(opened)
 
   // Assert
   expect(
@@ -124,10 +142,10 @@ test('a switch elsewhere to another file says the unsaved edits were for the dir
 
 test('a switch elsewhere to another file shows that file in a form with nothing unsaved', async () => {
   // Arrange
-  const requests = await openSettings(elsewhere)
+  const opened = await openSettings(elsewhere)
 
   // Act
-  await switchedElsewhere(requests)
+  await switchedElsewhere(opened)
 
   // Assert
   await waitFor(() => {
@@ -138,11 +156,11 @@ test('a switch elsewhere to another file shows that file in a form with nothing 
 
 test('a switch elsewhere to where no file applies says the unsaved edits were for the directory left', async () => {
   // Arrange
-  const requests = await openSettings(noFile)
+  const opened = await openSettings(noFile)
   await anEdit()
 
   // Act
-  await switchedElsewhere(requests)
+  await switchedElsewhere(opened)
 
   // Assert
   expect(
