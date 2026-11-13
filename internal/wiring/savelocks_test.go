@@ -49,7 +49,7 @@ func savedElsewhere(t *testing.T, contents string) (wiring.Environment, config.C
 	return env, cfg, over
 }
 
-func TestTheTerminalsSettingsSaveWaitsOutAnotherWorkflowsSave(t *testing.T) {
+func TestTheTerminalsSettingsSaveIsRefusedWhileAnotherWorkflowHoldsTheSaveLock(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		// Arrange
 		env, cfg, over := savedElsewhere(t, `{"jira": {"project": "PROJ"}}`)
@@ -75,7 +75,7 @@ func TestTheTerminalsSettingsSaveWaitsOutAnotherWorkflowsSave(t *testing.T) {
 	})
 }
 
-func TestASlackPairTheFileKeepsWaitsOutAnotherWorkflowsSave(t *testing.T) {
+func TestASlackPairTheFileKeepsIsRefusedWhileAnotherWorkflowHoldsTheSaveLock(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		// Arrange
 		env, cfg, over := savedElsewhere(t, `{"messaging": {"kind": "slack", "client_id": "1234.5678", `+

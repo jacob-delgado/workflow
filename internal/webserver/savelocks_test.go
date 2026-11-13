@@ -13,7 +13,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
 
-func TestASettingsSaveWaitsOutAnotherWorkflowsSave(t *testing.T) {
+func TestASettingsSaveIsRefusedWhileAnotherWorkflowHoldsTheSaveLock(t *testing.T) {
 	t.Parallel()
 
 	synctest.Test(t, func(t *testing.T) {
@@ -36,9 +36,10 @@ func TestASettingsSaveWaitsOutAnotherWorkflowsSave(t *testing.T) {
 
 		// Assert
 		onDisk, _, readErr := config.LoadLayersAt(cfg.Layers())
-		if recorder.Code == http.StatusOK || readErr != nil || onDisk.Jira.Project == "OSS" {
-			t.Errorf("status %d (%s); the file names %q (%v); want the save refused while another workflow held "+
-				"the lock, and the file as it was", recorder.Code, recorder.Body.String(), onDisk.Jira.Project, readErr)
+		if recorder.Code != http.StatusInternalServerError || readErr != nil || onDisk.Jira.Project == "OSS" {
+			t.Errorf("status %d (%s); the file names %q (%v); want %d, the save refused while another workflow "+
+				"held the lock for longer than a save waits, and the file as it was", recorder.Code,
+				recorder.Body.String(), onDisk.Jira.Project, readErr, http.StatusInternalServerError)
 		}
 	})
 }
