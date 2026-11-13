@@ -151,18 +151,7 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
   const formId = useId()
   const outcome = useOutcome()
   const save = useSave(file, form.setError, outcome)
-  // Reload swaps the edits for the file as it is now and clears the refusal,
-  // taking the Reload button away, so the focus it had goes to the form.
-  const reloadConfig = useReloadConfig()
-  const reload = useAsyncAction(
-    async () => {
-      file.seed(await reloadConfig(), { keepEdits: false })
-      file.setChanged(false)
-      save.reset()
-      view.show('jira.base_url')
-    },
-    { fallback: 'The configuration could not be read. Try Reload again.' },
-  )
+  const reload = useReload(file, save.reset, view.show)
   const refused = refusedPaths(formState.errors)
   const changed = changedPaths(formState.dirtyFields)
   // Only the server refuses a list as a whole, and no rule here judges one
@@ -295,6 +284,27 @@ function focusSetting(path: string, setFocus: UseFormSetFocus<SettingsValues>) {
   }
 
   document.getElementById(list)?.querySelector<HTMLElement>('input, button')?.focus()
+}
+
+// useReload is Reload: it swaps the edits for the file as it is now and clears
+// the refusal, taking the Reload button away, so the focus it had goes to the
+// form, at show.
+function useReload(
+  file: ReturnType<typeof useFormFile>,
+  clearRefusal: () => void,
+  show: (path: string) => void,
+) {
+  const reloadConfig = useReloadConfig()
+
+  return useAsyncAction(
+    async () => {
+      file.seed(await reloadConfig(), { keepEdits: false })
+      file.setChanged(false)
+      clearRefusal()
+      show('jira.base_url')
+    },
+    { fallback: 'The configuration could not be read. Try Reload again.' },
+  )
 }
 
 // useSave is Save: it writes the form's values over the file, and marks each
