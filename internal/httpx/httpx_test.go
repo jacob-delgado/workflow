@@ -5,10 +5,13 @@ package httpx_test
 
 import (
 	"errors"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -36,12 +39,8 @@ func TestClientRefusesARedirect(t *testing.T) {
 	}
 }
 
-// The tests that send here send over their own server's transport, through
-// ClientOver: Client sends over http.DefaultTransport, whose idle connections
-// every httptest server's Close closes, which can break a request another
-// parallel test is making through it. Client's own refusal is read without
-// sending anything.
-func TestClientOverTheDefaultTransportRefusesARedirect(t *testing.T) {
+// Client's own refusal is read without sending anything.
+func TestClientOverACopyOfTheDefaultTransportRefusesARedirect(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -53,6 +52,99 @@ func TestClientOverTheDefaultTransportRefusesARedirect(t *testing.T) {
 	// Assert
 	if !errors.Is(err, httpx.ErrRedirected) {
 		t.Errorf("CheckRedirect = %v, want the redirect refused with ErrRedirected", err)
+	}
+}
+
+func TestClientKeepsItsConnectionWhenTheDefaultTransportClosesItsIdleOnes(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Every httptest server's Close closes http.DefaultTransport's idle
+	// connections; one a Client still meant to use must not go with them.
+	var opened atomic.Int32
+
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(writer, "answered")
+	}))
+	server.Config.ConnState = func(_ net.Conn, state http.ConnState) {
+		if state == http.StateNew {
+			opened.Add(1)
+		}
+	}
+	server.Start()
+	t.Cleanup(server.Close)
+
+	client := httpx.Client(time.Second)
+	readWhole(t, client, server.URL)
+
+	shared, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		t.Fatalf("http.DefaultTransport is a %T, not the *http.Transport Client copies", http.DefaultTransport)
+	}
+
+	// Act
+	shared.CloseIdleConnections()
+	readWhole(t, client, server.URL)
+
+	// Assert
+	if got := opened.Load(); got != 1 {
+		t.Errorf("the server saw %d connections, want 1, the second request sent over the first one's connection", got)
+	}
+}
+
+//nolint:paralleltest // it replaces http.DefaultTransport, which every client in the process reads, so it runs alone.
+func TestClientSendsThroughADefaultTransportReplacedByAnotherKind(t *testing.T) {
+	// Arrange
+	replacement := &answeredHere{}
+	original := http.DefaultTransport
+	http.DefaultTransport = replacement
+
+	t.Cleanup(func() { http.DefaultTransport = original })
+
+	// Act
+	//nolint:noctx // the replacement answers without sending anything.
+	response, err := httpx.Client(time.Second).Get("http://elsewhere.invalid/")
+
+	// Assert
+	if err != nil || replacement.answered != 1 {
+		t.Errorf("Get = %v, %d answered by the replacement; want it sent through the replacement", err, replacement.answered)
+	}
+
+	if response != nil {
+		_ = response.Body.Close()
+	}
+}
+
+// answeredHere is a transport of another kind than *http.Transport, which
+// answers every request itself with a 204, counting them.
+type answeredHere struct {
+	answered int
+}
+
+var _ http.RoundTripper = (*answeredHere)(nil)
+
+func (a *answeredHere) RoundTrip(request *http.Request) (*http.Response, error) {
+	a.answered++
+
+	return &http.Response{StatusCode: http.StatusNoContent, Body: http.NoBody, Request: request}, nil
+}
+
+// readWhole sends a GET to target and reads its answer to the end, which hands
+// the connection back to the client's idle pool before it returns.
+func readWhole(t *testing.T, client *http.Client, target string) {
+	t.Helper()
+
+	//nolint:noctx // a test against a local server needs no deadline of its own.
+	response, err := client.Get(target)
+	if err != nil {
+		t.Fatalf("Get(%s): %v", target, err)
+	}
+
+	defer func() { _ = response.Body.Close() }()
+
+	_, err = io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("reading the answer from %s: %v", target, err)
 	}
 }
 
