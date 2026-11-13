@@ -147,9 +147,11 @@ palette work either way. Even with them on, a key types into the field that
 has the focus, a search box or the comment box among them, and acts only
 outside one; and while a dialog is open — the sheet, the palette, the
 directory dialog — no key reaches the page behind it. Nor does any key, `?`
-and the palette included, while a confirm, a preview or a form waits on your
-answer: the navigation stays a click away for a deliberate leave. Each control a key
-reaches says so to assistive technology (`aria-keyshortcuts`). See
+and the palette included, while a confirm, a preview or a form that writes
+in place — an assignment, a status change, logged work, an amend, a merge —
+waits on your answer; Settings' own form holds none. The navigation stays a
+click away for a deliberate leave. Each control a key reaches says so to
+assistive technology (`aria-keyshortcuts`). See
 [Keys on the web]({{< relref "/docs/configuration#keys-on-the-web" >}}).
 
 ## The sections

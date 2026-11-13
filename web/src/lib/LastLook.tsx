@@ -5,14 +5,16 @@ import { Failure } from './Status.tsx'
 import type { AsyncState } from './useAsyncAction.ts'
 import { cn } from './utils.ts'
 
-// How many questions drawn now hold the single-key shortcuts: a last look, or
-// a preview of what is about to be sent.
+// How many questions drawn now hold the page's keys: a last look, a preview
+// of what is about to be sent, or a form that writes in place.
 const useHolds = create<{ holds: number }>(() => ({ holds: 0 }))
 
-// useHoldShortcuts holds every single-key shortcut while the question calling
-// it is drawn — a last look, a preview — since it asks something of its own,
-// and a key pressed while it is open would otherwise press a control behind
-// it. LastLook holds them itself; a preview that is no last look calls this.
+// useHoldShortcuts holds every key the page binds — the single keys, the
+// palette's Ctrl+K or Command+K, and the help key — while the question calling
+// it is drawn, since it asks something of its own, and a key pressed while it
+// is open would otherwise press a control behind it, or leave it through the
+// palette. LastLook holds them itself; a preview that is no last look, or a
+// write form, calls this.
 export function useHoldShortcuts(): void {
   useEffect(() => {
     useHolds.setState(({ holds }) => ({ holds: holds + 1 }))
@@ -23,7 +25,7 @@ export function useHoldShortcuts(): void {
   }, [])
 }
 
-// shortcutsHeld reports a question drawn now that holds the single keys.
+// shortcutsHeld reports a question drawn now that holds the page's keys.
 export function shortcutsHeld(): boolean {
   return useHolds.getState().holds > 0
 }
