@@ -1591,11 +1591,26 @@ directory (`Environment.SaveLocks`, `internal/wiring/environment.go`: no home
 directory, or `%AppData%` unset on Windows), there is nowhere outside the
 working tree to keep one, and a save takes none: it is still refused when the
 files changed before its revision check, as every save was before the lock.
+Where there is one, a save waits on another holder for at most ten seconds
+whatever becomes of its caller (`waitForSaveLock`): `config.SaveLayers` is no
+seam and takes no context, and a holder keeps the lock only to read, compare
+and rename a small file. A lock is named for the path the links lead to as the
+file system spells it, case and all, and its empty file is left in the state
+directory once the save is done.
 
 **Cost.** Without a state directory, two workflows saving the same file at
 once can each pass the revision check, and the later rename wins: a rotated
-Slack pair or an edit made in Settings can be lost.
+Slack pair or an edit made in Settings can be lost. Where there is one, a
+canceled web request or a Ctrl-C still waits out a stuck holder, up to ten
+seconds, and the Slack file store, which tries a save three times, up to about
+thirty while it holds the refresh lock. On a file system that ignores case,
+as macOS's does by default, two workflows reaching one file through paths
+spelled in different case take different locks and have the revision check
+alone. One empty `config-<hash>.lock` stays for each configuration file ever
+saved, and `workflow db-clean` leaves them.
 
 **Reopen when.** A user runs workflow with no state directory and saves from
 two workflows at once, or the store takes a directory of its own where the
-system names none.
+system names none; a save is reported waiting on a holder after its caller
+left, or lost between two workflows that spelled one path in different case;
+or the lock files left in the state directory are reported.
