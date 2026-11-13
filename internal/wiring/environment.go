@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
@@ -26,6 +27,19 @@ type Environment struct {
 	// LookPath finds a program on the environment's PATH, or answers
 	// proc.ErrNotFound, as proc.LookPath does.
 	LookPath func(name string) (string, error)
+}
+
+// SaveLocks are the locks every save of the configuration holds, kept in the
+// directory the store keeps its files in, so none lands beside a file in a
+// working tree.
+func (e Environment) SaveLocks() config.SaveLocks {
+	dir, err := e.StateDir()
+	if err != nil {
+		// Trade-off TRADE-64: with no such directory, a save takes no lock.
+		return config.SaveLocksIn("")
+	}
+
+	return config.SaveLocksIn(dir)
 }
 
 // Available reports whether name can be found on the environment's PATH.

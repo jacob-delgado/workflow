@@ -99,6 +99,9 @@ type Deps struct {
 	// keychain, under the item for its address, so the file saved reads it
 	// from there. Nil writes it into the file as it came.
 	KeepJiraToken func(ctx context.Context, service, secret string) error
+	// SaveLocks are the locks a save from Settings holds from its revision
+	// check through its rename. The zero value takes none.
+	SaveLocks config.SaveLocks
 	// Reach wires another directory as this one was wired, for a switch; nil
 	// where switching is not offered. A setup takes the file up through it,
 	// where the server works.

@@ -1576,3 +1576,26 @@ two hours again.
 
 **Reopen when.** A CI is met whose runs regularly sit unchanged for longer
 than that, or a forge reports how long a run has left.
+
+### TRADE-64 A configuration save takes no lock where workflow has no state directory
+
+**Decided.** 2026-11-13 by the maintainer, on wave-2 lead P007: a save of the
+configuration files (`config.SaveLayers` and `config.CreateLayers`, a write
+`config.SaveEdit` takes back, and the Slack file store's pair) holds a
+cross-process lock from its revision check through its rename, so two
+workflows saving over one revision never both write. The locks live in
+workflow's state directory, one for each file a save reads, named for the
+path its links lead to (`config.SaveLocks`, `internal/config/lock.go`), so
+none lands beside a file in a working tree. Where the system names no state
+directory (`Environment.SaveLocks`, `internal/wiring/environment.go`: no home
+directory, or `%AppData%` unset on Windows), there is nowhere outside the
+working tree to keep one, and a save takes none: it is still refused when the
+files changed before its revision check, as every save was before the lock.
+
+**Cost.** Without a state directory, two workflows saving the same file at
+once can each pass the revision check, and the later rename wins: a rotated
+Slack pair or an edit made in Settings can be lost.
+
+**Reopen when.** A user runs workflow with no state directory and saves from
+two workflows at once, or the store takes a directory of its own where the
+system names none.

@@ -145,18 +145,24 @@ func slackAPIBase(value string) (string, error) {
 // Keychain is the operating system's keychain as the wiring reaches it: the
 // system workflow runs on, how security is run there, and how the account a
 // secret is kept under is found: the current user, or the environment
-// variables it reads the user's name from where the system cannot say.
+// variables it reads the user's name from where the system cannot say. Where
+// the configuration file keeps a Slack user token's secrets instead, they are
+// written under SaveLocks.
 type Keychain struct {
 	GOOS        string
 	Run         keychain.Runner
 	CurrentUser keychain.UserLookup
 	Getenv      func(name string) string
+	SaveLocks   config.SaveLocks
 }
 
 // Keychain is the keychain of the system workflow runs on, its security
-// found on the environment's PATH, for the user running it.
+// found on the environment's PATH, for the user running it, beside the
+// configuration's save locks.
 func (e Environment) Keychain() Keychain {
-	return Keychain{GOOS: runtime.GOOS, Run: e.capture, CurrentUser: user.Current, Getenv: e.Getenv}
+	return Keychain{
+		GOOS: runtime.GOOS, Run: e.capture, CurrentUser: user.Current, Getenv: e.Getenv, SaveLocks: e.SaveLocks(),
+	}
 }
 
 // SlackStore is where cfg keeps its Slack user token's credentials on the
@@ -171,7 +177,7 @@ func (e Environment) SlackStore(cfg config.Config) slackauth.Store {
 func (k Keychain) SlackStore(cfg config.Config) slackauth.Store {
 	item, _ := k.item(slackauth.KeychainService)
 
-	return slackauth.Choose(k.GOOS, cfg, item)
+	return slackauth.Choose(k.GOOS, cfg, item, k.SaveLocks)
 }
 
 // item is the keychain item for service, and false where no keychain is

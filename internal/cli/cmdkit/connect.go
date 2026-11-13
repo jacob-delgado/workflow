@@ -120,7 +120,7 @@ func (c Connection) WithSetup(
 		keychain = nil
 	}
 
-	where := setup.Where{WorkDir: c.Where.Dir, HomeDir: ConfigHome(cmd)}
+	where := setup.Where{WorkDir: c.Where.Dir, HomeDir: ConfigHome(cmd), Locks: c.Controls.SaveLocks}
 	c.Keychain = keychain
 	c.Deps.Settings.Setup = wiring.SetupDeps(where, c.RequestLog, keychain)
 

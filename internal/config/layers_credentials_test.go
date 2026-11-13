@@ -183,7 +183,7 @@ func TestMovingJiraInTheRepositoryNeverCopiesTheHomeCredentialsThere(t *testing.
 	cfg.Jira.BaseURL = "https://other.example"
 
 	// Act
-	_, err = config.SaveLayers(files, cfg, over)
+	_, err = config.SaveLayers(config.SaveLocks{}, files, cfg, over)
 
 	// Assert
 	written, readErr := os.ReadFile(files.Repo)

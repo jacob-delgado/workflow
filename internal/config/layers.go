@@ -140,8 +140,16 @@ func RevisionOfLayers(files Files) (Revision, error) {
 // ErrChangedOnDisk. Written over a home file, the repository's file holds only
 // what differs from it, so a setting inherited — a token among them — is never
 // copied into a file in a working tree, and a later change at home still
-// reaches it. It returns the revision of the pair it leaves.
-func SaveLayers(files Files, cfg Config, over Revision) (Revision, error) {
+// reaches it. It holds locks from the revision check through the rename, so
+// a save another workflow makes meanwhile is waited for, then seen. It
+// returns the revision of the pair it leaves.
+func SaveLayers(locks SaveLocks, files Files, cfg Config, over Revision) (Revision, error) {
+	unlock, err := locks.Hold(files)
+	if err != nil {
+		return Revision{}, err
+	}
+	defer unlock()
+
 	home, repo, err := readLayers(files)
 	if err != nil {
 		return Revision{}, err
@@ -166,8 +174,14 @@ func SaveLayers(files Files, cfg Config, over Revision) (Revision, error) {
 
 // CreateLayers writes the configuration as SaveLayers does, but only as a new
 // file: like Create, it writes nothing when anything — a link included — is
-// already where the file goes.
-func CreateLayers(files Files, cfg Config, over Revision) error {
+// already where the file goes. It holds locks as SaveLayers does.
+func CreateLayers(locks SaveLocks, files Files, cfg Config, over Revision) error {
+	unlock, err := locks.Hold(files)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+
 	home, repo, err := readLayers(files)
 	if err != nil {
 		return err

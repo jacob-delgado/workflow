@@ -59,8 +59,10 @@
 # repository files and reads and saves the repository's as a layer over home;
 # 17 is trust.go, what a repository's file may take from the home file and set
 # itself, which layers.go carried until the settings only the home file may
-# set joined the credentials a moved section withholds.
-internal/config 17
+# set joined the credentials a moved section withholds; 18 is lock.go, the
+# lock a save holds from its revision check through its rename, which is how
+# the configuration is saved and changes with nothing else.
+internal/config 18
 
 # internal/demo — the made-up world the docs' recordings run the real
 # interfaces over, spelled one file per service it fakes (Jira, the forge and

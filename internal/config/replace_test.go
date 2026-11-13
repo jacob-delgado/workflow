@@ -30,7 +30,7 @@ func TestASaveIntoADirectoryItCannotWriteKeepsThePreviousFile(t *testing.T) {
 	sealDirectory(t, dir)
 
 	// Act
-	_, err := config.SaveLayers(config.Files{Home: path}, savedConfig(), read)
+	_, err := config.SaveLayers(config.SaveLocks{}, config.Files{Home: path}, savedConfig(), read)
 
 	// Assert
 	if err == nil {
@@ -51,7 +51,7 @@ func TestASaveReplacesTheFileRatherThanWritingIntoIt(t *testing.T) {
 	before := lstat(t, path)
 
 	// Act
-	_, err := config.SaveLayers(config.Files{Home: path}, savedConfig(), read)
+	_, err := config.SaveLayers(config.SaveLocks{}, config.Files{Home: path}, savedConfig(), read)
 	// Assert
 	if err != nil {
 		t.Fatalf("SaveLayers: %v", err)
@@ -115,7 +115,7 @@ func TestASaveThroughALinkReplacesTheFileItPointsAt(t *testing.T) {
 			read := revisionOf(t, path)
 
 			// Act
-			_, err := config.SaveLayers(config.Files{Home: path}, savedConfig(), read)
+			_, err := config.SaveLayers(config.SaveLocks{}, config.Files{Home: path}, savedConfig(), read)
 			// Assert
 			if err != nil {
 				t.Fatalf("SaveLayers: %v", err)
@@ -140,7 +140,7 @@ func TestSaveToAnEmptyPathWritesNothing(t *testing.T) {
 			return config.Save("", cfg)
 		},
 		"SaveLayers": func(cfg config.Config) error {
-			_, err := config.SaveLayers(config.Files{Home: ""}, cfg, config.Revision{})
+			_, err := config.SaveLayers(config.SaveLocks{}, config.Files{Home: ""}, cfg, config.Revision{})
 
 			return err
 		},

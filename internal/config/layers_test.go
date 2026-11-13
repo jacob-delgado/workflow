@@ -145,7 +145,7 @@ func TestASaveToTheRepositoryFileWritesOnlyWhatDiffersFromHome(t *testing.T) {
 	cfg.Messaging.Channel = "#oss"
 
 	// Act
-	_, err = config.SaveLayers(files, cfg, over)
+	_, err = config.SaveLayers(config.SaveLocks{}, files, cfg, over)
 	// Assert
 	if err != nil {
 		t.Fatalf("SaveLayers: %v", err)
@@ -173,7 +173,7 @@ func TestAnEditToTheHomeFileRefusesASaveOverTheLayers(t *testing.T) {
 	write(t, filepath.Dir(files.Home), `{"ui": {"ascii": false}}`)
 
 	// Act
-	_, err = config.SaveLayers(files, cfg, over)
+	_, err = config.SaveLayers(config.SaveLocks{}, files, cfg, over)
 
 	// Assert
 	if !errors.Is(err, config.ErrChangedOnDisk) {
@@ -193,7 +193,7 @@ func TestWithNoHomeFileTheRepositoryFileIsWrittenWhole(t *testing.T) {
 	}
 
 	// Act
-	_, err = config.SaveLayers(files, cfg, over)
+	_, err = config.SaveLayers(config.SaveLocks{}, files, cfg, over)
 
 	// Assert
 	if _, whole := readJSON(t, files.Repo)["timing"]; err != nil || !whole {
@@ -254,7 +254,7 @@ func TestASaveOverAHomeFileValidOnlyWithItsLayerSucceeds(t *testing.T) {
 	cfg.Jira.Project = ossProject
 
 	// Act
-	_, err = config.SaveLayers(files, cfg, over)
+	_, err = config.SaveLayers(config.SaveLocks{}, files, cfg, over)
 
 	// Assert
 	saved, _, loadErr := config.LoadLayersAt(config.Files{Home: files.Repo})
@@ -277,7 +277,7 @@ func TestASaveOverAHomeFileThatIsNoConfigurationWritesNothing(t *testing.T) {
 	}
 
 	// Act
-	_, err = config.SaveLayers(files, savedConfig(), over)
+	_, err = config.SaveLayers(config.SaveLocks{}, files, savedConfig(), over)
 
 	// Assert
 	if !errors.Is(err, config.ErrInvalid) || !strings.Contains(err.Error(), files.Home) {

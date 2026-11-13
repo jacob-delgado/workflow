@@ -54,7 +54,7 @@ func TestASaveWritesOverTheRevisionItWasGiven(t *testing.T) {
 	read := revisionOf(t, path)
 
 	// Act
-	written, err := config.SaveLayers(config.Files{Home: path}, savedConfig(), read)
+	written, err := config.SaveLayers(config.SaveLocks{}, config.Files{Home: path}, savedConfig(), read)
 	// Assert
 	if err != nil {
 		t.Fatalf("SaveLayers: %v", err)
@@ -77,7 +77,7 @@ func TestASaveWritesAFileThatIsStillMissing(t *testing.T) {
 	path := filepath.Join(t.TempDir(), config.FileName)
 
 	// Act
-	written, err := config.SaveLayers(config.Files{Home: path}, savedConfig(), config.Revision{})
+	written, err := config.SaveLayers(config.SaveLocks{}, config.Files{Home: path}, savedConfig(), config.Revision{})
 	// Assert
 	if err != nil {
 		t.Fatalf("SaveLayers: %v", err)
@@ -104,7 +104,7 @@ func TestASaveLeavesAnExistingFileOwnerOnly(t *testing.T) {
 	read := revisionOf(t, path)
 
 	// Act
-	_, err = config.SaveLayers(config.Files{Home: path}, config.Default(), read)
+	_, err = config.SaveLayers(config.SaveLocks{}, config.Files{Home: path}, config.Default(), read)
 	// Assert
 	if err != nil {
 		t.Fatalf("SaveLayers: %v", err)
@@ -141,7 +141,7 @@ func TestASaveRefusesAFileThatChangedSinceItsRevision(t *testing.T) {
 			putFile(t, path, tt.after)
 
 			// Act
-			_, err := config.SaveLayers(config.Files{Home: path}, savedConfig(), read)
+			_, err := config.SaveLayers(config.SaveLocks{}, config.Files{Home: path}, savedConfig(), read)
 
 			// Assert
 			if !errors.Is(err, config.ErrChangedOnDisk) {
@@ -173,7 +173,7 @@ func TestASaveReportsAPathItCannotUse(t *testing.T) {
 			path := pathIn(t.TempDir())
 
 			// Act
-			_, err := config.SaveLayers(config.Files{Home: path}, config.Default(), config.Revision{})
+			_, err := config.SaveLayers(config.SaveLocks{}, config.Files{Home: path}, config.Default(), config.Revision{})
 
 			// Assert
 			if err == nil || errors.Is(err, config.ErrChangedOnDisk) {

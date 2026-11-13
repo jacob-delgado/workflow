@@ -67,7 +67,7 @@ func TestASaveNeverWritesThroughARepositoryFileThatIsALink(t *testing.T) {
 			over, _ := config.RevisionOfLayers(files)
 
 			// Act
-			_, err := config.SaveLayers(files, cfg, over)
+			_, err := config.SaveLayers(config.SaveLocks{}, files, cfg, over)
 
 			// Assert
 			kept, readErr := os.ReadFile(target)

@@ -53,7 +53,7 @@ func fileKeepingSlack(t *testing.T) config.Config {
 		ExpiresAt: "2026-09-30T20:00:00Z",
 	}
 
-	_, err := config.SaveLayers(config.Files{Home: cfg.Path}, cfg, config.Revision{})
+	_, err := config.SaveLayers(config.SaveLocks{}, config.Files{Home: cfg.Path}, cfg, config.Revision{})
 	if err != nil {
 		t.Fatalf("writing the configuration: %v", err)
 	}

@@ -143,7 +143,7 @@ func TestASaveRefusesToWriteAHomeOnlyKeyIntoTheRepositoryFile(t *testing.T) {
 	cfg.Taskwarrior.Program = taskProgram
 
 	// Act
-	_, err = config.SaveLayers(files, cfg, over)
+	_, err = config.SaveLayers(config.SaveLocks{}, files, cfg, over)
 
 	// Assert
 	written, readErr := os.ReadFile(files.Repo)
@@ -169,7 +169,7 @@ func TestASaveOverAHomeFileLeavesItsHomeOnlyKeysWithIt(t *testing.T) {
 	cfg.Jira.Project = "DOCS"
 
 	// Act
-	_, err = config.SaveLayers(files, cfg, over)
+	_, err = config.SaveLayers(config.SaveLocks{}, files, cfg, over)
 
 	// Assert
 	written := fileContents(t, files.Repo)
@@ -193,7 +193,7 @@ func TestASaveWritesAHomeOnlyKeyIntoTheHomeFile(t *testing.T) {
 	cfg.Jira.TokenCommand = jiraTokenCommand
 
 	// Act
-	_, err = config.SaveLayers(files, cfg, over)
+	_, err = config.SaveLayers(config.SaveLocks{}, files, cfg, over)
 
 	// Assert
 	reloaded, _, loadErr := config.LoadLayersAt(files)

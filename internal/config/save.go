@@ -301,6 +301,9 @@ func SharedMode(path string) (os.FileMode, bool) {
 type Edit struct {
 	// Files are the configuration files the read was made from.
 	Files Files
+	// Locks are the locks the write, and a write taken back, hold from the
+	// revision check through the rename.
+	Locks SaveLocks
 	// Read is the configuration the editor was seeded from, unmasked.
 	Read Config
 	// Over is the revision of the files the read found.
@@ -361,14 +364,14 @@ func SaveEdit(edit Edit) (Config, Revision, error) {
 		return Config{}, Revision{}, err
 	}
 
-	written, err := SaveLayers(edit.Files, file, edit.Over)
+	written, err := SaveLayers(edit.Locks, edit.Files, file, edit.Over)
 	if err != nil {
 		return Config{}, Revision{}, err
 	}
 
 	err = edit.handOff(incoming)
 	if err != nil {
-		return Config{}, Revision{}, errors.Join(err, restoreLayer(edit.Files, before, written))
+		return Config{}, Revision{}, errors.Join(err, restoreLayer(edit.Locks, edit.Files, before, written))
 	}
 
 	return file, written, nil
@@ -471,8 +474,15 @@ func (edit Edit) targetAsRead() (layer, error) {
 // restoreLayer takes back the write that left files at the revision written:
 // the file it saved to holds what before held again, or, where before was no
 // file, goes from where the write followed its links to. Files changed since
-// are left as they are, refused with ErrChangedOnDisk.
-func restoreLayer(files Files, before layer, written Revision) error {
+// are left as they are, refused with ErrChangedOnDisk. It holds locks from
+// the revision check through the write, as SaveLayers does.
+func restoreLayer(locks SaveLocks, files Files, before layer, written Revision) error {
+	unlock, err := locks.Hold(files)
+	if err != nil {
+		return fmt.Errorf("taking the write back: %w", err)
+	}
+	defer unlock()
+
 	now, err := RevisionOfLayers(files)
 	if err != nil || now != written {
 		return fmt.Errorf("taking the write back: %s: %w", files, ErrChangedOnDisk)

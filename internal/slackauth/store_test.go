@@ -42,7 +42,7 @@ func TestTheFileStoreKeepsThePairAndEverythingElse(t *testing.T) {
 	// Arrange
 	path := configFile(t, `{"jira": {"base_url": "https://jira.example.com"},`+
 		` "messaging": {"kind": "slack", "client_id": "`+clientID+`", "channel": "#dev"}}`)
-	store := slackauth.FileStore(config.Files{Repo: path})
+	store := slackauth.FileStore(config.SaveLocks{}, config.Files{Repo: path})
 	pair := pairExpiringIn(0)
 
 	// Act
@@ -71,7 +71,7 @@ func TestAFileStoreWithNothingSavedSaysToLogIn(t *testing.T) {
 	path := configFile(t, `{"messaging": {"kind": "slack", "client_id": "`+clientID+`"}}`)
 
 	// Act
-	_, err := slackauth.FileStore(config.Files{Repo: path}).Load(t.Context())
+	_, err := slackauth.FileStore(config.SaveLocks{}, config.Files{Repo: path}).Load(t.Context())
 
 	// Assert
 	if !errors.Is(err, slackauth.ErrNotLoggedIn) {
@@ -111,7 +111,7 @@ func TestTheKeychainStoreKeepsThePair(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	store := slackauth.KeychainStore(keychainHolding(t), config.Files{})
+	store := slackauth.KeychainStore(keychainHolding(t), config.SaveLocks{}, config.Files{})
 	pair := pairExpiringIn(0)
 
 	// Act
@@ -131,7 +131,7 @@ func TestThePairKeptWithNoExpiryReadsBackWithNone(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	store := slackauth.KeychainStore(keychainHolding(t), config.Files{})
+	store := slackauth.KeychainStore(keychainHolding(t), config.SaveLocks{}, config.Files{})
 	pair := startingPair()
 	pair.ExpiresAt = time.Time{}
 
@@ -178,7 +178,7 @@ func TestChooseKeepsThePairWhereItBelongs(t *testing.T) {
 			cfg := config.Config{Messaging: tt.messaging, Path: "/home/example/.workflow.json"}
 
 			// Act
-			store := slackauth.Choose(tt.goos, cfg, item)
+			store := slackauth.Choose(tt.goos, cfg, item, config.SaveLocks{})
 
 			// Assert
 			if got := store.Where(); !strings.Contains(got, tt.want) {
@@ -209,7 +209,7 @@ func TestAKeychainEntryMissingItsSecretsSaysToLogIn(t *testing.T) {
 			}
 
 			// Act
-			_, err = slackauth.KeychainStore(item, config.Files{}).Load(t.Context())
+			_, err = slackauth.KeychainStore(item, config.SaveLocks{}, config.Files{}).Load(t.Context())
 
 			// Assert
 			if !errors.Is(err, slackauth.ErrNotLoggedIn) {
@@ -247,7 +247,7 @@ func TestTheUserTokenStaysInTheHomeFileBeneathARepositoryFile(t *testing.T) {
 			files := homeHolding(t, held)
 
 			// Act
-			err := slackauth.FileStore(files).Save(t.Context(), pairExpiringIn(0))
+			err := slackauth.FileStore(config.SaveLocks{}, files).Save(t.Context(), pairExpiringIn(0))
 
 			// Assert
 			home, homeErr := os.ReadFile(files.Home)
@@ -274,7 +274,7 @@ func TestSecretsTheRepositoryFileHoldsStayThereAndItStaysAnOverlay(t *testing.T)
 	}
 
 	// Act
-	err := slackauth.FileStore(files).Save(t.Context(), pairExpiringIn(0))
+	err := slackauth.FileStore(config.SaveLocks{}, files).Save(t.Context(), pairExpiringIn(0))
 
 	// Assert
 	repo, readErr := os.ReadFile(files.Repo)
@@ -298,7 +298,7 @@ func TestAHomeFileNamingATokenCommandStillKeepsThePair(t *testing.T) {
 	}
 
 	// Act
-	err := slackauth.FileStore(files).Save(t.Context(), pairExpiringIn(0))
+	err := slackauth.FileStore(config.SaveLocks{}, files).Save(t.Context(), pairExpiringIn(0))
 
 	// Assert
 	cfg, _, loadErr := config.LoadLayersAt(files)
@@ -320,7 +320,7 @@ func TestAFileStoreReportsAFileThatIsNoConfiguration(t *testing.T) {
 	path := configFile(t, notAConfiguration)
 
 	// Act
-	_, err := slackauth.FileStore(config.Files{Home: path}).Load(t.Context())
+	_, err := slackauth.FileStore(config.SaveLocks{}, config.Files{Home: path}).Load(t.Context())
 
 	// Assert
 	if err == nil || errors.Is(err, slackauth.ErrNotLoggedIn) || !strings.Contains(err.Error(), path) {
@@ -335,7 +335,7 @@ func TestAFileStoreHoldingARefreshTokenWithoutItsSecretSaysToLogIn(t *testing.T)
 	path := configFile(t, `{"messaging": {"kind": "slack", "client_id": "`+clientID+`", "refresh_token": "xoxe-1-x"}}`)
 
 	// Act
-	_, err := slackauth.FileStore(config.Files{Home: path}).Load(t.Context())
+	_, err := slackauth.FileStore(config.SaveLocks{}, config.Files{Home: path}).Load(t.Context())
 
 	// Assert
 	if !errors.Is(err, slackauth.ErrNotLoggedIn) {
@@ -350,7 +350,7 @@ func TestAFileStoreWritesNothingOverAFileThatIsNoConfiguration(t *testing.T) {
 	path := configFile(t, notAConfiguration)
 
 	// Act
-	err := slackauth.FileStore(config.Files{Home: path}).Save(t.Context(), pairExpiringIn(0))
+	err := slackauth.FileStore(config.SaveLocks{}, config.Files{Home: path}).Save(t.Context(), pairExpiringIn(0))
 
 	// Assert
 	if !errors.Is(err, config.ErrInvalid) {

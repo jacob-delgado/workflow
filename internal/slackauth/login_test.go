@@ -69,7 +69,7 @@ func TestAFileLoginNamesTheAppBesideThePairItKeeps(t *testing.T) {
 	pair := pairExpiringIn(0)
 
 	// Act
-	err := slackauth.FileStore(files).KeepLogin(t.Context(), clientID, pair)
+	err := slackauth.FileStore(config.SaveLocks{}, files).KeepLogin(t.Context(), clientID, pair)
 
 	// Assert
 	home, repository := messagingIn(t, files.Home), messagingIn(t, files.Repo)
@@ -86,7 +86,7 @@ func TestAKeychainLoginNamesTheAppInTheHomeFile(t *testing.T) {
 
 	// Arrange
 	files := homeAndRepository(t)
-	store := slackauth.KeychainStore(keychainHolding(t), files)
+	store := slackauth.KeychainStore(keychainHolding(t), config.SaveLocks{}, files)
 	pair := pairExpiringIn(0)
 
 	// Act
@@ -111,7 +111,7 @@ func TestAKeychainLoginTheKeychainRefusesNamesNoApp(t *testing.T) {
 	item := refusingKeychain(t)
 
 	// Act
-	err := slackauth.KeychainStore(item, files).KeepLogin(t.Context(), clientID, pairExpiringIn(0))
+	err := slackauth.KeychainStore(item, config.SaveLocks{}, files).KeepLogin(t.Context(), clientID, pairExpiringIn(0))
 
 	// Assert
 	if !errors.Is(err, slackauth.ErrNotKept) || messagingIn(t, files.Home).ClientID != "" {
@@ -141,7 +141,7 @@ func TestAKeychainLoginThatCannotNameTheAppKeepsNoPair(t *testing.T) {
 
 	// Arrange
 	files := config.Files{Home: configFile(t, `{"messaging": `)}
-	store := slackauth.KeychainStore(keychainHolding(t), files)
+	store := slackauth.KeychainStore(keychainHolding(t), config.SaveLocks{}, files)
 
 	// Act
 	err := store.KeepLogin(t.Context(), clientID, pairExpiringIn(0))
@@ -162,7 +162,7 @@ func TestAKeychainLoginTheKeychainRefusesLeavesTheAppNamedBefore(t *testing.T) {
 	item := refusingKeychain(t)
 
 	// Act
-	err := slackauth.KeychainStore(item, files).KeepLogin(t.Context(), clientID, pairExpiringIn(0))
+	err := slackauth.KeychainStore(item, config.SaveLocks{}, files).KeepLogin(t.Context(), clientID, pairExpiringIn(0))
 
 	// Assert
 	if home := messagingIn(t, files.Home); !errors.Is(err, slackauth.ErrNotKept) || home.ClientID != "0000.1111" {

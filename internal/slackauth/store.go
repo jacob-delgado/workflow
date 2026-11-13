@@ -104,29 +104,30 @@ func (s Store) keepTrying(save func() error) error {
 // Choose is where the configuration keeps a user token's credentials: in the
 // configuration file when it already holds them, or on any system but macOS,
 // which has no keychain workflow drives; otherwise in item, the macOS keychain.
-func Choose(goos string, cfg config.Config, item keychain.Item) Store {
+func Choose(goos string, cfg config.Config, item keychain.Item, locks config.SaveLocks) Store {
 	if goos != "darwin" || cfg.Messaging.HoldsUserTokenSecrets() {
-		return FileStore(cfg.Layers())
+		return FileStore(locks, cfg.Layers())
 	}
 
-	return KeychainStore(item, cfg.Layers())
+	return KeychainStore(item, locks, cfg.Layers())
 }
 
 // FileStore keeps the credentials in one of the configuration files: the one
 // that already holds them, or else the home directory's, so a first login
 // puts no secret in a file in a working tree that can do without one. It
-// rewrites only their fields and keeps every other setting as it is.
-func FileStore(files config.Files) Store {
+// rewrites only their fields and keeps every other setting as it is, under
+// locks, as config.SaveLayers holds them.
+func FileStore(locks config.SaveLocks, files config.Files) Store {
 	path := secretsFile(files)
 
 	return Store{
 		where: "the configuration file " + path,
 		load:  func(context.Context) (Credentials, error) { return loadFile(path) },
 		save: func(_ context.Context, credentials Credentials) error {
-			return saveFile(files, path, holding(credentials))
+			return saveFile(locks, files, path, holding(credentials))
 		},
 		login: func(_ context.Context, clientID string, credentials Credentials) error {
-			return saveFile(files, path, func(messaging config.Messaging) config.Messaging {
+			return saveFile(locks, files, path, func(messaging config.Messaging) config.Messaging {
 				return naming(clientID)(holding(credentials)(messaging))
 			})
 		},
@@ -221,8 +222,11 @@ func loadFile(path string) (Credentials, error) {
 // saveFile writes the messaging settings change makes into path, one of
 // files, over the revision it read, so an edit landing between the read and
 // the write is refused rather than lost. The repository's file is written as
-// the layer it is; the home file is written whole, as itself.
-func saveFile(files config.Files, path string, change func(config.Messaging) config.Messaging) error {
+// the layer it is; the home file is written whole, as itself. The write holds
+// locks, as config.SaveLayers does.
+func saveFile(
+	locks config.SaveLocks, files config.Files, path string, change func(config.Messaging) config.Messaging,
+) error {
 	layers := files
 	if path == files.Home {
 		layers = config.Files{Home: path}
@@ -235,7 +239,7 @@ func saveFile(files config.Files, path string, change func(config.Messaging) con
 
 	cfg.Messaging = change(cfg.Messaging)
 
-	_, err = config.SaveLayers(layers, cfg, revision)
+	_, err = config.SaveLayers(locks, layers, cfg, revision)
 
 	return err
 }
@@ -281,13 +285,14 @@ type stored struct {
 // KeychainStore keeps the credentials in item, one line of JSON in the macOS
 // keychain, and a login's app in the one of files the secrets would be read
 // from were the file to keep them: the home directory's where there is one,
-// which every directory reads, as every directory reads the keychain.
-func KeychainStore(item keychain.Item, files config.Files) Store {
+// which every directory reads, as every directory reads the keychain. A
+// login's naming holds locks, as config.SaveLayers does.
+func KeychainStore(item keychain.Item, locks config.SaveLocks, files config.Files) Store {
 	return Store{
 		where: "the macOS keychain (" + KeychainService + ")",
 		load:  func(ctx context.Context) (Credentials, error) { return loadKeychain(ctx, item) },
 		save:  func(ctx context.Context, credentials Credentials) error { return saveKeychain(ctx, item, credentials) },
-		login: keychainLogin(item, files),
+		login: keychainLogin(item, locks, files),
 	}
 }
 
@@ -295,13 +300,15 @@ func KeychainStore(item keychain.Item, files config.Files) Store {
 // would be read from, then keeps its credentials in item, and takes the naming
 // back when the keychain refuses them: so a pair is never kept without its
 // app, and an app is left named only for the pair it is for.
-func keychainLogin(item keychain.Item, files config.Files) func(context.Context, string, Credentials) error {
+func keychainLogin(
+	item keychain.Item, locks config.SaveLocks, files config.Files,
+) func(context.Context, string, Credentials) error {
 	return func(ctx context.Context, clientID string, credentials Credentials) error {
 		path := secretsFile(files)
 
 		var before config.Messaging
 
-		err := saveFile(files, path, func(messaging config.Messaging) config.Messaging {
+		err := saveFile(locks, files, path, func(messaging config.Messaging) config.Messaging {
 			before = messaging
 
 			return naming(clientID)(messaging)
@@ -312,7 +319,7 @@ func keychainLogin(item keychain.Item, files config.Files) func(context.Context,
 
 		err = saveKeychain(ctx, item, credentials)
 		if err != nil {
-			return errors.Join(err, saveFile(files, path, renaming(before)))
+			return errors.Join(err, saveFile(locks, files, path, renaming(before)))
 		}
 
 		return nil

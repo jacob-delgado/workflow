@@ -332,7 +332,7 @@ func (s *server) save(
 	}
 
 	saved, written, err := config.SaveEdit(config.Edit{
-		Files: s.files, Read: read, Over: over.file(), Edited: held, Removed: removedIn(posted),
+		Files: s.files, Locks: s.deps.SaveLocks, Read: read, Over: over.file(), Edited: held, Removed: removedIn(posted),
 		PlaceSlackCredentials: s.placeSlackCredentials(ctx), KeepJiraToken: s.keepJiraToken(ctx),
 	})
 	if err != nil {
