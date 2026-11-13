@@ -110,7 +110,12 @@ function ConfigArea() {
     <div className="flex flex-col gap-section">
       {setUp === null ? null : <SetUpSaid result={setUp} />}
       <EditsLeft left={switched.left} />
-      <ConfigForm key={switched.form} read={query.data} takesFocus={retried} />
+      <ConfigForm
+        key={switched.form}
+        read={query.data}
+        takesFocus={retried}
+        checking={switched.checking}
+      />
     </div>
   )
 }
@@ -144,8 +149,9 @@ function SetUpSaid({ result }: { result: SetupResult }) {
 // again, or a Reload — and otherwise leaves focus where the section change put
 // it. A save refused before it is sent, or by the server, marks each setting
 // refused beside itself; Show opens the first one's section and focuses it.
-// While it holds unsaved edits, a change of section asks first.
-function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolean }) {
+// While it holds unsaved edits, a change of section asks first. While a switch
+// made elsewhere is checking, Save is held.
+function ConfigForm({ read, takesFocus, checking }: ConfigFormProps) {
   // The whole config seeds the form, so every key no fieldset registers — the
   // token commands, the Slack access token and its expiry — rides back
   // unchanged on save rather than being dropped.
@@ -209,6 +215,7 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
                 toFix={toFix(refused)}
                 saving={save.state === 'running'}
                 writing={file.writing}
+                checking={checking}
                 said={outcome.said}
                 error={save.state === 'error' && !save.marked ? save.error : ''}
                 reload={file.changed ? reload : null}
@@ -226,6 +233,13 @@ function ConfigForm({ read, takesFocus }: { read: ConfigRead; takesFocus: boolea
       </FormProvider>
     </RemovalsContext>
   )
+}
+
+interface ConfigFormProps {
+  read: ConfigRead
+  takesFocus: boolean
+  // checking says the reads after a switch made elsewhere are still out.
+  checking: boolean
 }
 
 // heldBack marks what a save held back before it was sent leaves refused:
