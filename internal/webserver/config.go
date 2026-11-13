@@ -137,9 +137,13 @@ var errSlackRefused = errors.New("slack refused the typed user token")
 
 // UpdateConfig writes the configuration file, but only over the revision
 // If-Match names, so a change made since that read, on disk or by another
-// tab's save, is refused with 409. Saves from this server are serialized, but
-// the check and the write to disk are not one step (config.SaveLayers), so an
-// edit landing on disk between the two is written over. A stored secret is
+// tab's save, is refused with 409. Saves from this server are serialized, and
+// a save holds the save locks from its check through its write
+// (config.SaveLayers), so one another workflow makes meanwhile is waited for
+// and then refused; a hand edit landing on disk between the two, or any
+// change where there is no state directory to keep the locks in (TRADE-64),
+// is still written over. A save another workflow keeps waiting longer than a
+// save waits is refused with 500, in words that say so. A stored secret is
 // kept when its field comes back masked or empty. It returns the result with
 // secrets masked, and the revision it wrote as its ETag.
 func (s *server) UpdateConfig(

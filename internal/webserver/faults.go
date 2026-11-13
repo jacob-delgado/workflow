@@ -10,6 +10,7 @@ import (
 	"slices"
 
 	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/report"
@@ -74,7 +75,8 @@ func faultProblem(err error) (api.Problem, bool) {
 func faultClasses() []report.Class {
 	shared := report.SharedFaults()
 
-	return slices.Concat(endedFaults(), announceFaults(), repositoryFaults(), shared.Git, branchFaults(),
+	return slices.Concat(endedFaults(), announceFaults(), saveLockFaults(), repositoryFaults(), shared.Git,
+		branchFaults(),
 		shared.Transport,
 		shared.Jira, shared.Forge, shared.Messaging, taskWriteFaults(), shared.Taskwarrior, shared.Directory,
 		switchFaults(), localDataFaults(), peopleFaults())
@@ -101,6 +103,20 @@ func announceFaults() []report.Class {
 			Causes: []error{loop.ErrNotClaimed}, Code: api.ProblemCodeNotClaimed,
 			Detail: "the store could not claim the announcement, so nothing was posted; try again in a moment, " +
 				"or turn the store off with store.disabled to post without a claim",
+		},
+	}
+}
+
+// saveLockFaults are a configuration save that another workflow kept from
+// the file for longer than a save waits: nothing went wrong to hear of, and
+// saving again in a moment answers it, so it keeps the internal code a
+// refusal the page has no answer for takes, in words that never name the
+// lock's path, which the error itself carries.
+func saveLockFaults() []report.Class {
+	return []report.Class{
+		{
+			Causes: []error{config.ErrSaveLocked}, Code: api.ProblemCodeInternal,
+			Detail: "another workflow is saving the configuration, so nothing was saved; save again in a moment",
 		},
 	}
 }
