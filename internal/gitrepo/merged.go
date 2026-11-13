@@ -22,6 +22,9 @@ var ErrNotFetched = errors.New("is not in this clone, and could not be fetched")
 // FetchRefTimeout bounds the fetch of the one ref a pull request's head is
 // kept at: a few commits at most, so a remote that has not sent them in a
 // minute is not waited on for as long as a finish would stand still.
+//
+// Trade-off TRADE-68: nothing is kept of a fetch that failed, so every look at
+// the merged pull request tries again, and waits up to this bound.
 const FetchRefTimeout = time.Minute
 
 // FetchRefCommand fetches ref from remote into this clone's objects, and

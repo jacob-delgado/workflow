@@ -20,6 +20,9 @@ import (
 // It counts only the reads its surface heard, so a head quiet since long
 // before the surface started is offered the merge once it has been quiet for
 // NoCIPatience of them. The zero HeadWatch has heard nothing.
+//
+// Trade-off TRADE-67: no forge says when a head was pushed, so a head quiet
+// for days waits NoCIPatience of each new session's reads.
 type HeadWatch struct {
 	head    string
 	watch   CIWatch
