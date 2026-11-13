@@ -110,10 +110,28 @@ func retryAfter(value string) (time.Duration, bool) {
 type Doer func(*http.Request) (*http.Response, error)
 
 // Client is the transport a credential may travel over, each request bounded
-// by timeout: whole, or part by part for a Streaming one. It sends through
-// Go's default transport; see ClientOver.
+// by timeout: whole, or part by part for a Streaming one; see ClientOver.
+//
+// Each Client sends through a transport of its own, a copy of Go's default
+// with its proxy, dial and TLS settings, so that nothing outside it can close
+// the connections it keeps: anything may call CloseIdleConnections on the
+// shared default, as every httptest server's Close does, which breaks a request
+// about to reuse one. So a caller builds one Client per connection it keeps,
+// not one per request. Were http.DefaultTransport replaced by something other
+// than an *http.Transport, which workflow never does, Client would send
+// through that replacement itself.
 func Client(timeout time.Duration) *http.Client {
-	return ClientOver(http.DefaultTransport, timeout)
+	return ClientOver(ownTransport(), timeout)
+}
+
+// ownTransport is a copy of http.DefaultTransport no other client shares.
+func ownTransport() http.RoundTripper {
+	shared, ok := http.DefaultTransport.(*http.Transport)
+	if !ok {
+		return http.DefaultTransport
+	}
+
+	return shared.Clone()
 }
 
 // ClientOver is Client sending through next, for a caller that sends some
