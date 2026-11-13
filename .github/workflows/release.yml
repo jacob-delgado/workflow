@@ -55,7 +55,7 @@ jobs:
       # cache out of what goes into a release. VHS and ttyd, pinned for the
       # docs' recordings, are left out: this job makes none, and mise knows no
       # checksum for ttyd, so it would install it unverified.
-      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           version: 2026.10.8 # the mise binary itself; see min_version in mise.toml
           cache: false
@@ -152,7 +152,7 @@ jobs:
         # Kept over a `gh release` script step: this uploads the binaries,
         # their checksums and the provenance in ONE publish call, which is
         # what the header above explains GitHub requires.
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3 # zizmor: ignore[superfluous-actions]
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3.0.3 # zizmor: ignore[superfluous-actions]
         with:
           # A tag carrying a hyphen (v0.1.0-rc1) is a prerelease.
           prerelease: ${{ contains(github.ref_name, '-') }}
