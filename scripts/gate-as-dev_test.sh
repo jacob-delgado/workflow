@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 #
 # Tests for scripts/gate-as-dev.sh. As root it refuses a path that is no
-# worktree, or a worktree with no commit, or a commit whose pin files are not
-# the ones the toolchain was set up from, waits for any gate run already going,
-# root's half or a gate user's half that outlived it, checks the disk has room
-# for a race-and-coverage build, clearing the gate user's Go build cache with
+# worktree, or a worktree with no commit, or a commit whose pins are not the
+# ones the toolchain was set up from, though not one that moves only what the
+# setup installs nothing from, waits for any gate run already going, root's
+# half or a gate user's half that outlived it, checks the disk has room for a
+# race-and-coverage build, clearing the gate user's Go build cache with
 # the pinned Go alone when it is short and stopping when that is not enough,
 # names the commit for the gate user to fetch, says so only when the worktree
 # has uncommitted changes, and hands the run to that user with an environment
@@ -160,6 +161,15 @@ count_case
 if grep -q "after the run" "${case_output}"; then
   fail_case "a toolchain set up from other pins" "it reported the disk after a run that never started"
 fi
+# A commit that moves only what the setup installs nothing from, a tool
+# mise.toml pins that the setup leaves alone and the file's other lines, as a
+# Dependabot bump of one does, is gated with the toolchain its base set up.
+unmoved="${workdir}/unmoved"
+repo "${unmoved}"
+printf '# a comment\n[env]\nGOFLAGS = "-mod=mod"\n[tools]\nhugo-extended = "0.168.0"\n' >>"${unmoved}/mise.toml"
+git -C "${unmoved}" -c user.email=t@example.com -c user.name=t commit -q -am bump
+expect_exit pass "a commit moving no pin the setup installs from" as_root "${unmoved}" lint
+
 git -C "${repinned}" rm -q build/yamllint/requirements.txt
 git -C "${repinned}" -c user.email=t@example.com -c user.name=t commit -q -m unpin
 expect_output 2 "a commit with a pin file missing" "run setup for this worktree" as_root "${repinned}" lint

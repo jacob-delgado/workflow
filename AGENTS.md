@@ -71,7 +71,9 @@ worktree of its own. The `cloud-lanes` skill holds the detail; in brief:
   `COREPACK_NPM_REGISTRY` and `ZIZMOR_OFFLINE=true` yourself in each shell
   that builds, tests or commits (the skill gives their values and why).
   Report the gate's last lines as they are; when it refuses to start under
-  8 GB free, report and stop.
+  8 GB free, report and stop. When it refuses with "run setup for this
+  worktree", your commit pins tools other than the ones installed: run your
+  worktree's `bash scripts/cloud-session-setup.sh`, then the gate again.
 - **Mind the disk.** Check `df -h /` before a build; under 3 GB free, stop and
   report, clearing nothing shared.
 - **A refusal stops you.** When the auto-mode classifier or a permission

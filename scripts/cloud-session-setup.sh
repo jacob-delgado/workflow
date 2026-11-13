@@ -37,14 +37,15 @@
 # runs under, so a bump of either rebuilds what depends on it; a tool whose
 # stamp is in place is left alone, and a run with nothing to install takes a
 # moment. Once every tool is in, the toolchain is stamped with the SHA-256 of
-# mise.toml and the two pin files, the pins it was set up from, and
-# scripts/gate-as-dev.sh refuses a commit whose pins are other: there is one
-# toolchain, set up from whichever checkout ran this last, not one for each set
-# of pins. The links go into ~/.local/bin, which is on the session's PATH
-# already: the shell the session runs commands in does not read ~/.bashrc.
-# Every run copies scripts/gate-as-dev.sh into the prefix beside the tools, so
-# the gate on PATH is root's own and outlives the checkout that ran the setup.
-# One setup runs at a time.
+# the pins it was set up from, each tool's version and each pin file's digest
+# as lib/toolchain-pins.sh reads them, and scripts/gate-as-dev.sh refuses a
+# commit whose pins are other: there is one toolchain, set up from whichever
+# checkout ran this last, not one for each set of pins. The links go into
+# ~/.local/bin, which is on the session's PATH already: the shell the session
+# runs commands in does not read ~/.bashrc. Every run copies
+# scripts/gate-as-dev.sh into the prefix beside the tools, with the library it
+# reads pins with, so the gate on PATH is root's own and outlives the checkout
+# that ran the setup. One setup runs at a time.
 #
 # The environment is the seam: CLOUD_SETUP_PREFIX (/opt/workflow-tools) is
 # where the tools go, CLOUD_SETUP_BIN (~/.local/bin) where they are linked,
@@ -80,37 +81,26 @@ readonly arch=amd64
 # Go tools' build cache while they build.
 readonly need_gb=3
 
-# pin prints the version mise.toml pins for a [tools] key, or stops the setup.
-#   pin <key>
+# shellcheck source=lib/toolchain-pins.sh
+source "${repo}/scripts/lib/toolchain-pins.sh"
+
+# read_checkout prints a file of the checkout this setup runs from.
+#   read_checkout <path>
+read_checkout() {
+  cat "${repo}/$1"
+}
+
+# pin prints the pin toolchain_pins reads for a tool or a pin file, or stops
+# the setup when mise.toml pins no version for it.
+#   pin <name>
 pin() {
-  local key="$1" escaped value
-  escaped="${key//\//\\/}"
-  value="$(sed -n -E "s/^\"?${escaped}\"?[[:space:]]*=[[:space:]]*\"([^\"]+)\".*/\1/p" "${repo}/mise.toml" | head -1)"
+  local value
+  value="$(awk -v name="$1" '$1 == name { print $2; exit }' <<<"${pins}")"
   if [[ -z "${value}" ]]; then
-    echo "cloud-session-setup: no pin for '${key}' in mise.toml" >&2
+    echo "cloud-session-setup: no pin for '$1' in mise.toml" >&2
     exit 2
   fi
   printf '%s' "${value}"
-}
-
-# pin_digest prints the SHA-256 of pin files read one after another, or stops
-# the setup when one is missing. sha256sum is GNU's; stock macOS has only
-# shasum.
-#   pin_digest <file>...
-pin_digest() {
-  local file digest
-  for file in "$@"; do
-    if [[ ! -f "${file}" ]]; then
-      echo "cloud-session-setup: no pin file ${file#"${repo}/"}" >&2
-      exit 2
-    fi
-  done
-  if command -v sha256sum >/dev/null; then
-    digest="$(cat "$@" | sha256sum)"
-  else
-    digest="$(cat "$@" | shasum -a 256)"
-  fi
-  printf '%s' "${digest%% *}"
 }
 
 machine="$(uname -m)"
@@ -118,6 +108,21 @@ if [[ "${machine}" != x86_64 ]]; then
   echo "cloud-session-setup: this setup fetches only the x86_64 builds, not ${machine}" >&2
   exit 2
 fi
+
+# Each pin file stops the setup with 2, by name, when it is missing, before
+# toolchain_pins reads it as the digest of nothing. npm ci refuses a
+# package.json its lock does not match, so the lock changes whenever what
+# package.json asks for does, and its digest names the stamp alone;
+# package.json is checked all the same.
+for pin_file in build/yamllint/requirements.txt build/markdownlint/package.json \
+  build/markdownlint/package-lock.json; do
+  if [[ ! -f "${repo}/${pin_file}" ]]; then
+    echo "cloud-session-setup: no pin file ${pin_file}" >&2
+    exit 2
+  fi
+done
+pins="$(toolchain_pins read_checkout)"
+readonly pins
 
 go_version="$(pin go)"
 node_version="$(pin node)"
@@ -136,16 +141,12 @@ govulncheck_version="$(pin 'go:golang.org/x/vuln/cmd/govulncheck')"
 gitleaks_version="$(pin 'go:github.com/zricethezav/gitleaks/v8')"
 gobco_version="$(pin 'go:github.com/rillig/gobco')"
 deadcode_version="$(pin 'go:golang.org/x/tools/cmd/deadcode')"
-yamllint_pins="$(pin_digest "${requirements}")"
-# npm ci refuses a package.json its lock does not match, so the lock changes
-# whenever what package.json asks for does, and its digest names the stamp
-# alone. package.json is checked here all the same, outside a command
-# substitution, so that one missing stops the setup with 2 too.
-markdownlint_pins="$(pin_digest "${npm_pins}/package-lock.json")"
-pin_digest "${npm_pins}/package.json" >/dev/null
-# The toolchain's own stamp: scripts/gate-as-dev.sh reads the same three files,
-# in this order, from the commit it gates.
-toolchain_pins="$(pin_digest "${repo}/mise.toml" "${requirements}" "${npm_pins}/package-lock.json")"
+yamllint_pins="$(pin build/yamllint/requirements.txt)"
+markdownlint_pins="$(pin build/markdownlint/package-lock.json)"
+# The toolchain's own stamp, which scripts/gate-as-dev.sh reads the same
+# library for from the commit it gates.
+pins_stamp="$(toolchain_digest read_checkout)"
+readonly pins_stamp
 
 mkdir -p "${prefix}/bin" "${prefix}/stamps" "${link_dir}"
 exec {lock}>"${prefix}/.setup.lock"
@@ -365,23 +366,24 @@ install_markdownlint() {
 }
 
 # link_tools links every installed tool, the gate's copy among them, into the
-# link directory. The prefix's own bin comes last, so a tool installed there
-# wins over one of the same name a runtime's bin holds, as an older setup's
-# markdownlint-cli2 in node's.
+# link directory, but not the library the gate sources from beside it. The
+# prefix's own bin comes last, so a tool installed there wins over one of the
+# same name a runtime's bin holds, as an older setup's markdownlint-cli2 in
+# node's.
 link_tools() {
   local tool
   for tool in "${prefix}"/go/bin/* "${prefix}"/node/bin/* "${prefix}"/bin/*; do
-    if [[ -e "${tool}" ]]; then
+    if [[ -f "${tool}" ]]; then
       ln -sfn "${tool}" "${link_dir}/$(basename "${tool}")"
     fi
   done
 }
 
-# stamp_pins stamps the toolchain with the digest of the pin files it was set
-# up from, which the gate checks a commit's against, and removes the stamp of
+# stamp_pins stamps the toolchain with the digest of the pins it was set up
+# from, which the gate checks a commit's against, and removes the stamp of
 # any other: there is one toolchain, whichever checkout set it up last.
 stamp_pins() {
-  local stamp="${prefix}/stamps/pins@${toolchain_pins}" other
+  local stamp="${prefix}/stamps/pins@${pins_stamp}" other
   : >"${stamp}"
   for other in "${prefix}/stamps/pins@"*; do
     if [[ "${other}" != "${stamp}" ]]; then rm -f "${other}"; fi
@@ -412,6 +414,7 @@ ensure deadcode "${deadcode_version}+${built_by}" go_install "golang.org/x/tools
 ensure yamllint "${yamllint_pins}" install_yamllint
 ensure markdownlint-cli2 "${markdownlint_pins}+node${node_version}" install_markdownlint
 install -m 0755 "${repo}/scripts/gate-as-dev.sh" "${prefix}/bin/gate-as-dev"
+install -D -m 0644 "${repo}/scripts/lib/toolchain-pins.sh" "${prefix}/bin/lib/toolchain-pins.sh"
 chmod -R a+rX "${prefix}"
 link_tools
 stamp_pins

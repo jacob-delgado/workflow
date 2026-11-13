@@ -104,6 +104,17 @@ yamllint==1.38.0 --hash=sha256:aaaa'
 readonly package_json='{"dependencies": {"markdownlint-cli2": "0.23.3"}}'
 readonly package_lock='{"lockfileVersion": 3}'
 
+# fixture_pin_file prints a pin file of the checkout every case starts from.
+#   fixture_pin_file <path>
+fixture_pin_file() {
+  case "$1" in
+    mise.toml) printf '[tools]\n%s\n' "${pins}" ;;
+    build/yamllint/requirements.txt) printf '%s\n' "${requirements}" ;;
+    build/markdownlint/package-lock.json) printf '%s\n' "${package_lock}" ;;
+    *) return 1 ;;
+  esac
+}
+
 # digest_of prints a file's SHA-256, with GNU's sha256sum or, as on stock
 # macOS, shasum.
 #   digest_of <file>
@@ -117,20 +128,24 @@ digest_of() {
   printf '%s' "${digest%% *}"
 }
 
-printf '[tools]\n%s\n' "${pins}" >"${workdir}/mise.toml"
 printf '%s\n' "${requirements}" >"${workdir}/requirements.txt"
 printf '%s\n' "${package_lock}" >"${workdir}/package-lock.json"
-cat "${workdir}/mise.toml" "${workdir}/requirements.txt" "${workdir}/package-lock.json" >"${workdir}/pin-files"
 requirements_digest="$(digest_of "${workdir}/requirements.txt")"
 lock_digest="$(digest_of "${workdir}/package-lock.json")"
-pins_digest="$(digest_of "${workdir}/pin-files")"
-readonly requirements_digest lock_digest pins_digest
+readonly requirements_digest lock_digest
+
+# shellcheck source=toolchain-pins.sh
+source "${here}/lib/toolchain-pins.sh"
+
+# The toolchain's own stamp at those pins, the digest of every pin the setup
+# installs from as the library the gate reads a commit with reads them: the
+# tests hold the setup to it, so the gate and the setup read pins alike.
+pins_digest="$(toolchain_digest fixture_pin_file)"
+readonly pins_digest
 
 # Every stamp a finished setup holds at those pins. A Go tool's names the Go it
 # was built with, yamllint's its requirements file, and markdownlint's its lock
-# and the node it was installed under; the toolchain's own, which the gate
-# reads, names mise.toml, the requirements file and the lock, read in that
-# order.
+# and the node it was installed under.
 readonly stamps="pins@${pins_digest} go@1.27.2 node@24.21.0 shellcheck@0.11.0 jq@1.8.2 lefthook@2.2.1
 typos@1.51.1 hadolint@2.15.1 taplo@0.10.0 zizmor@1.30.1 yamllint@${requirements_digest}
 task@3.54.0+go1.27.2 golangci-lint@2.14.0+go1.27.2 shfmt@3.14.1+go1.27.2
@@ -138,12 +153,13 @@ actionlint@1.7.12+go1.27.2 govulncheck@1.9.0+go1.27.2 gitleaks@8.30.1+go1.27.2
 gobco@1.3.4+go1.27.2 deadcode@0.52.0+go1.27.2 markdownlint-cli2@${lock_digest}+node24.21.0"
 
 # repo lays out a checkout with the setup script, the download check it calls,
-# the gate it installs, a mise.toml, an empty checksums file, and the linters'
-# pin files.
+# the library it reads pins with, the gate it installs, a mise.toml, an empty
+# checksums file, and the linters' pin files.
 #   repo <dir>
 repo() {
-  mkdir -p "$1/scripts" "$1/build/yamllint" "$1/build/markdownlint"
+  mkdir -p "$1/scripts/lib" "$1/build/yamllint" "$1/build/markdownlint"
   cp "${here}/cloud-session-setup.sh" "${here}/verify-download.sh" "$1/scripts/"
+  cp "${here}/lib/toolchain-pins.sh" "$1/scripts/lib/"
   printf '#!/usr/bin/env bash\n# the gate\n' >"$1/scripts/gate-as-dev.sh"
   printf '[tools]\n%s\n' "${pins}" >"$1/mise.toml"
   : >"$1/build/tool-checksums.txt"
