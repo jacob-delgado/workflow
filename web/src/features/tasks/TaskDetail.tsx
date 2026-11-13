@@ -13,7 +13,7 @@ import { LastLook } from '@/lib/LastLook.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
 import { useDoneSinceListed, useTaskWrites } from './tasksApi.ts'
 import { TaskLineForm } from './TaskLineForm.tsx'
-import { dueWords, elapsedWords, isActive, taskName, taskNumber } from './taskWords.ts'
+import { dueWords, elapsedWords, isActive, isStarted, taskName, taskNumber } from './taskWords.ts'
 import { Failure } from '@/lib/Status.tsx'
 
 const partHeading = 'text-base font-semibold'
@@ -102,7 +102,7 @@ function TaskFacts({ task, issue, now }: Omit<TaskDetailProps, 'teller'>) {
   return (
     <dl className={definitionList}>
       <Fact term="State">
-        {isActive(task) ? `started ${elapsedWords(task.start, now)} ago` : task.state}
+        {isStarted(task) ? `started ${elapsedWords(task.start, now)} ago` : task.state}
       </Fact>
       {task.project === '' ? null : <Fact term="Project">{task.project}</Fact>}
       {task.priority === '' ? null : <Fact term="Priority">{task.priority}</Fact>}

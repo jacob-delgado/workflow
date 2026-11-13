@@ -164,10 +164,10 @@ test("marks each state's chip as the rows mark its tasks, and no other value's",
   ).toEqual([drawnMark('in-flight'), drawnMark('not-started'), ''])
 })
 
-test("draws no mark on a state's chip whose tasks the rows mark differently", async () => {
+test('marks a started task whose wait is still ahead on the waiting chip, as its row does', async () => {
   // Arrange
   // started is held, as the server words a started task whose wait is still
-  // ahead, so its row draws it in flight beside the held one not started.
+  // ahead, so its row draws it not started, as it does the held one.
   const started = describedTask(
     { ...held, uuid: 'e', id: 5, description: 'Chase the vendor', start: '2026-09-28T09:00:00Z' },
     {
@@ -190,7 +190,9 @@ test("draws no mark on a state's chip whose tasks the rows mark differently", as
 
   // Assert
   const narrow = await screen.findByRole('group', { name: 'Filter' })
-  expect(markShape(within(narrow).getByRole('button', { name: 'waiting 2' }))).toBe('')
+  expect(markShape(within(narrow).getByRole('button', { name: 'waiting 2' }))).toBe(
+    drawnMark('not-started'),
+  )
 })
 
 test('a narrow chip narrows the list to the value it names', async () => {
@@ -255,6 +257,29 @@ test("a pending task picked as waiting has the server's state in its detail", as
 
   // Assert
   expect(factOf(screen.getByRole('article'), 'State')).toBe('waiting')
+})
+
+test('a started task with a wait still ahead is waiting in its detail, and can still be stopped', async () => {
+  // Arrange
+  // Taskwarrior still counts it started, its clock running, so its detail
+  // offers to stop it, though the server words it waiting.
+  const startedHeld = describedTask({ ...held, start: '2026-09-20T10:00:00Z' }, held)
+  fakeApi({
+    '/api/tasks': makeTaskList(
+      [ranked(leak, firstInEveryOrder), ranked(startedHeld, secondInEveryOrder)],
+      { facet_order: offered },
+    ),
+  })
+  renderWithClient(<TasksPanel />)
+  const narrow = await screen.findByRole('group', { name: 'Filter' })
+
+  // Act
+  await userEvent.click(within(narrow).getByRole('button', { name: 'waiting 1' }))
+
+  // Assert
+  const detail = screen.getByRole('article')
+  expect(factOf(detail, 'State')).toBe('waiting')
+  expect(within(detail).getByRole('button', { name: 'Stop' })).toBeTruthy()
 })
 
 test('the filter offers its chips in the order the server offers them, as it labels them', async () => {
