@@ -124,7 +124,7 @@ func TestALinkVoidedByAKindChangeElsewhereFreesItsSlackUser(t *testing.T) {
 	}
 }
 
-func TestAKindChangeElsewhereKeepsThatTheOwnerIsNotOnSlack(t *testing.T) {
+func TestAKindChangeElsewhereAsksAgainWhetherTheOwnerIsOnSlack(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
@@ -146,7 +146,32 @@ func TestAKindChangeElsewhereKeepsThatTheOwnerIsNotOnSlack(t *testing.T) {
 	links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
-	want := []store.OwnerLink{{Owner: acme, Team: true, OnSlack: false, Slack: store.SlackTarget{}}}
+	if err != nil || len(links) != 0 {
+		t.Errorf("OwnerLinks in A = %+v, %v; want none, so the team acme is asked about again there", links, err)
+	}
+}
+
+func TestADecisionOfTheSameKindElsewhereKeepsThatTheOwnerIsNotOnSlack(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	kept := store.New(t.TempDir(), false)
+
+	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, decided(acme, nil), theTime())
+	if err != nil {
+		t.Fatalf("deciding the person acme is not on Slack in workspace A: %v", err)
+	}
+
+	// Act
+	err = kept.LinkOwner(t.Context(), forgeHost, workspaceB, decided(acme, bea()), theTime())
+	if err != nil {
+		t.Fatalf("linking the person acme in workspace B: %v", err)
+	}
+
+	links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
+
+	// Assert
+	want := []store.OwnerLink{{Owner: acme, Team: false, OnSlack: false, Slack: store.SlackTarget{}}}
 	if err != nil || !slices.Equal(links, want) {
 		t.Errorf("OwnerLinks in A = %+v, %v; want %+v, acme still not on Slack there", links, err, want)
 	}
@@ -178,5 +203,69 @@ func TestAKindChangeOnOneForgeHostKeepsTheOwnersLinksOnAnother(t *testing.T) {
 	want := []store.OwnerLink{{Owner: acme, Team: false, OnSlack: true, Slack: *ana()}}
 	if err != nil || !slices.Equal(links, want) {
 		t.Errorf("OwnerLinks on %s in A = %+v, %v; want %+v", forgeHost, links, err, want)
+	}
+}
+
+func TestAKindChangeOnOneForgeHostKeepsThatTheOwnerIsNotOnSlackOnAnother(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	kept := store.New(t.TempDir(), false)
+
+	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, decided(acme, nil), theTime())
+	if err != nil {
+		t.Fatalf("deciding the person acme is not on Slack on %s in workspace A: %v", forgeHost, err)
+	}
+
+	err = kept.LinkOwner(t.Context(), otherForgeHost, workspaceB, decided(acme, bea()), theTime())
+	if err != nil {
+		t.Fatalf("linking the person acme on %s in workspace B: %v", otherForgeHost, err)
+	}
+
+	team := store.OwnerLink{Owner: acme, Team: true, OnSlack: true, Slack: *podGroup()}
+
+	// Act
+	err = kept.LinkOwner(t.Context(), otherForgeHost, workspaceB, team, theTime())
+	if err != nil {
+		t.Fatalf("linking the team acme on %s in workspace B: %v", otherForgeHost, err)
+	}
+
+	links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
+
+	// Assert
+	want := []store.OwnerLink{{Owner: acme, Team: false, OnSlack: false, Slack: store.SlackTarget{}}}
+	if err != nil || !slices.Equal(links, want) {
+		t.Errorf("OwnerLinks on %s in A = %+v, %v; want %+v", forgeHost, links, err, want)
+	}
+}
+
+func TestAKindOnAnotherForgeHostKeepsThatTheOwnerIsNotOnSlack(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	kept := store.New(t.TempDir(), false)
+	linkAcmeAsAnaInA(t, kept)
+
+	teamNotOnSlack := store.OwnerLink{Owner: acme, Team: true, OnSlack: false, Slack: store.SlackTarget{}}
+
+	err := kept.LinkOwner(t.Context(), otherForgeHost, workspaceA, teamNotOnSlack, theTime())
+	if err != nil {
+		t.Fatalf("deciding the team acme is not on Slack on %s in workspace A: %v", otherForgeHost, err)
+	}
+
+	team := store.OwnerLink{Owner: acme, Team: true, OnSlack: true, Slack: *podGroup()}
+
+	// Act
+	err = kept.LinkOwner(t.Context(), otherForgeHost, workspaceB, team, theTime())
+	if err != nil {
+		t.Fatalf("linking the team acme on %s in workspace B: %v", otherForgeHost, err)
+	}
+
+	links, err := kept.OwnerLinks(t.Context(), otherForgeHost, workspaceA)
+
+	// Assert
+	if err != nil || !slices.Equal(links, []store.OwnerLink{teamNotOnSlack}) {
+		t.Errorf("OwnerLinks on %s in A = %+v, %v; want %+v: acme is a person only on %s, so no kind changed here",
+			otherForgeHost, links, err, teamNotOnSlack, forgeHost)
 	}
 }

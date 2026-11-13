@@ -1265,9 +1265,10 @@ Enterprise Grid user, a Slack Connect member, an org-wide user group. That an
 owner is not on Slack is kept per workspace as well, since a person may be in
 one workspace and not another. Whether an owner is a person or a team is
 kept once per forge host, so deciding it the other way in one workspace drops
-the owner's Slack links in every other, which then ask again; that they are
-not on Slack there stays. When Slack cannot say which workspace the
-token is for, nobody is tagged: the announcement posts untagged and says why.
+what was decided for the owner in every other, a Slack link or that they are
+not on Slack, and each of those workspaces asks again. When Slack cannot say
+which workspace the token is for, nobody is tagged: the announcement posts
+untagged and says why.
 The terminal's announcement preview and the web's ask whom an owner not yet
 decided is, and the web's Settings and the terminal's `P` overlay change or
 forget a decision; `workflow announce` tags only whom is already decided, and
