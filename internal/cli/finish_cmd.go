@@ -25,6 +25,9 @@ type finishSeams struct {
 	Branch   func(ctx context.Context) (gitrepo.Branch, error)
 	FindPull func(ctx context.Context, branch string) (forge.PullRequest, bool, error)
 	Finish   func(ctx context.Context, finishing gitrepo.Finishing) error
+	// MadeAfter is the commits on the branch past the one its merged pull
+	// request merged at, which a finish refuses to delete.
+	MadeAfter func(ctx context.Context, merged forge.PullRequest) (gitrepo.AfterMerge, error)
 	// Kind is the forge, whose own words — a merge request, marked "!" on
 	// GitLab — the preview and a failed read use.
 	Kind    forge.Kind
@@ -60,10 +63,17 @@ func newFinishCmd(prompt cmdkit.Prompt) *cobra.Command {
 			"the branch is read again, and refused if it changed meanwhile.\n\n" +
 			"A branch that cannot be finished is refused with the reason, and exits 4: its\n" +
 			"pull or merge request has not merged, it is the base itself or a detached\n" +
-			"HEAD, there is no base to return to, or it holds commits that neither merged\n" +
-			"nor are on its upstream, which deleting it would lose. The delete is a force\n" +
-			"delete, so it goes ahead only for a branch at the very commit that merged, or\n" +
-			"one whose upstream holds every commit on it.",
+			"HEAD, there is no base to return to, it holds commits that neither merged nor\n" +
+			"are on its upstream, which deleting it would lose, or it has commits made after\n" +
+			"the commit that merged, pushed or not: the refusal names the newest five the\n" +
+			"base remote's branch lacks, and counts the rest. The delete is a\n" +
+			"force delete, so it goes ahead only for a branch at the very commit that\n" +
+			"merged, or one whose upstream holds every commit on it, and only while the\n" +
+			"branch is that commit or behind it. A commit that merged which this clone lacks\n" +
+			"is fetched first, from the forge's own ref for the pull or merge request\n" +
+			"(refs/pull/N/head, or refs/merge-requests/N/head on GitLab) on the base remote,\n" +
+			"and a fetch that fails refuses the finish too. That fetch writes no ref, and\n" +
+			"--dry-run makes it as well, to say whether the finish would go ahead.",
 		Example: cmdkit.Examples(
 			"workflow finish --dry-run   # the three git commands, none run",
 			"workflow finish --yes       # finish a merged branch, unattended",
@@ -88,11 +98,12 @@ func runFinishCommand(cmd *cobra.Command, prompt cmdkit.Prompt, opts cmdkit.Writ
 	defer conn.CloseLog()
 
 	seams := finishSeams{
-		Branch:   conn.Deps.Git.Branch,
-		FindPull: conn.Deps.Forge.FindPullRequest,
-		Finish:   conn.Deps.Git.Finish,
-		Kind:     conn.Deps.Forge.Kind,
-		Confirm:  func(question string) (bool, error) { return cmdkit.Confirm(prompt, question) },
+		Branch:    conn.Deps.Git.Branch,
+		FindPull:  conn.Deps.Forge.FindPullRequest,
+		Finish:    conn.Deps.Git.Finish,
+		MadeAfter: conn.Deps.Git.MadeAfter,
+		Kind:      conn.Deps.Forge.Kind,
+		Confirm:   func(question string) (bool, error) { return cmdkit.Confirm(prompt, question) },
 	}
 
 	return runFinish(cmd.Context(), cmdkit.OutputOf(cmd), seams, opts)
@@ -138,8 +149,10 @@ func runFinish(ctx context.Context, out cmdkit.Output, seams finishSeams, opts c
 }
 
 // planFinish reads the branch and, for a branch of its own, its pull request,
-// and refuses a finish loop.RefuseFinish finds something in the way of. The
-// base or a detached HEAD is refused before the forge is asked anything.
+// and refuses a finish loop.RefuseFinish, then loop.RefuseMadeAfter, finds
+// something in the way of. The base or a detached HEAD is refused before the
+// forge is asked anything, and a merged commit is fetched only for a branch
+// nothing else refuses.
 func planFinish(ctx context.Context, seams finishSeams) (finishPlan, error) {
 	branch, err := seams.Branch(ctx)
 	if err != nil {
@@ -159,6 +172,10 @@ func planFinish(ctx context.Context, seams finishSeams) (finishPlan, error) {
 	}
 
 	refused := loop.RefuseFinish(pull, found, branch)
+	if refused == nil {
+		refused = loop.RefuseMadeAfter(ctx, seams.MadeAfter, pull)
+	}
+
 	if refused != nil {
 		return finishPlan{}, fmt.Errorf("cannot finish %s: %w", cmp.Or(branch.Name, "a detached HEAD"), refused)
 	}
@@ -167,9 +184,10 @@ func planFinish(ctx context.Context, seams finishSeams) (finishPlan, error) {
 }
 
 // stillFinishable reads the branch again once the finish is confirmed, and
-// refuses it unless it still finishes as planned and loop.RefuseFinish still
-// finds nothing in the way: a commit made from another terminal while the
-// prompt waited would otherwise go with the force delete. The merged pull
+// refuses it unless it still finishes as planned and neither
+// loop.RefuseFinish nor loop.RefuseMadeAfter finds anything in the way: a
+// commit made from another terminal while the prompt waited, pushed or not,
+// would otherwise go with the force delete. The merged pull
 // request is not read again, since a merge is final and the commit it took
 // never changes.
 func (p finishPlan) stillFinishable(ctx context.Context, seams finishSeams) error {
@@ -181,6 +199,10 @@ func (p finishPlan) stillFinishable(ctx context.Context, seams finishSeams) erro
 	refused := loop.RefuseFinish(p.pull, true, branch)
 	if branch.Finishing() != p.finishing {
 		refused = errFinishMoved
+	}
+
+	if refused == nil {
+		refused = loop.RefuseMadeAfter(ctx, seams.MadeAfter, p.pull)
 	}
 
 	if refused != nil {

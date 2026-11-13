@@ -139,27 +139,31 @@ type world struct {
 	worktreeErr       error
 	checkoutErr       error
 	finishErr         error
-	branchLinkErr     error
-	unlinkErr         error
-	localFiles        []store.DataFile
-	localDataErr      error
-	removeErr         error
-	settings          config.Config
-	readSettingsErr   error
-	saveSettingsErr   error
-	fetchErr          error
-	commitLines       []string
-	commitErr         error
-	pushLines         []string
-	pushErr           error
-	amendLines        []string
-	amendErr          error
-	noAmend           bool
-	fixupLines        []string
-	fixupErr          error
-	noFixup           bool
-	rebaseLines       []string
-	rebaseErr         error
+	// madeAfter and madeAfterErr answer the read of the commits made on the
+	// branch after its pull request merged.
+	madeAfter       gitrepo.AfterMerge
+	madeAfterErr    error
+	branchLinkErr   error
+	unlinkErr       error
+	localFiles      []store.DataFile
+	localDataErr    error
+	removeErr       error
+	settings        config.Config
+	readSettingsErr error
+	saveSettingsErr error
+	fetchErr        error
+	commitLines     []string
+	commitErr       error
+	pushLines       []string
+	pushErr         error
+	amendLines      []string
+	amendErr        error
+	noAmend         bool
+	fixupLines      []string
+	fixupErr        error
+	noFixup         bool
+	rebaseLines     []string
+	rebaseErr       error
 
 	commitStartErr  error
 	ciErr           error

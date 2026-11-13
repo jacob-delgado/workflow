@@ -255,6 +255,13 @@ func (e Environment) gitDeps(root string, kind func() forge.Kind) seams.Git {
 				return e.streamToEnd(ctx, gitrepo.PullCommand(root, finishing.Remote, finishing.Base))
 			})
 		},
+		MadeAfter: func(ctx context.Context, merged forge.PullRequest) (gitrepo.AfterMerge, error) {
+			remote := repo.BaseRemote(ctx)
+
+			return repo.MadeAfter(ctx, merged.HeadCommit, remoteBranch(remote, merged.Base), func(ctx context.Context) error {
+				return e.fetchRef(ctx, root, remote, kind().HeadRef(merged.Number))
+			})
+		},
 		IssueLinks:  repo.IssueLinks,
 		LinkIssue:   repo.SetIssueLink,
 		UnlinkIssue: repo.ClearIssueLink,
@@ -269,6 +276,28 @@ func codeOwnersDialect(kind forge.Kind) codeowners.Dialect {
 	}
 
 	return codeowners.GitHub
+}
+
+// remoteBranch is branch on remote as remote/branch, or empty for a branch
+// the forge did not name.
+func remoteBranch(remote, branch string) string {
+	if branch == "" {
+		return ""
+	}
+
+	return remote + "/" + branch
+}
+
+// fetchRef fetches ref from remote into the repository at root, within
+// gitrepo.FetchRefTimeout. A failure names the ref and keeps git's reason, as
+// streamToEnd's does.
+func (e Environment) fetchRef(ctx context.Context, root, remote, ref string) error {
+	_, err := e.CaptureWithin(ctx, gitrepo.FetchRefTimeout, gitrepo.FetchRefCommand(root, remote, ref), nil)
+	if err != nil {
+		return fmt.Errorf("fetching %s from %s: %w", ref, remote, err)
+	}
+
+	return nil
 }
 
 // streamToEnd runs a network git command unbounded and waits for it to exit. A

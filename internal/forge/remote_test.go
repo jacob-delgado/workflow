@@ -219,6 +219,33 @@ func TestKindSigil(t *testing.T) {
 	}
 }
 
+func TestKindHeadRefIsWhereTheForgeKeepsAPullRequestsHead(t *testing.T) {
+	t.Parallel()
+
+	const githubs = "refs/pull/42/head"
+
+	cases := map[string]struct {
+		kind forge.Kind
+		want string
+	}{
+		unknown:        {kind: forge.KindUnknown, want: githubs},
+		github:         {kind: forge.KindGitHub, want: githubs},
+		gitlab:         {kind: forge.KindGitLab, want: "refs/merge-requests/42/head"},
+		outsideTheEnum: {kind: forge.Kind(99), want: githubs},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := tt.kind.HeadRef(42); got != tt.want {
+				t.Errorf("Kind(%d).HeadRef(42) = %q, want %q", tt.kind, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRepoAPIBase(t *testing.T) {
 	t.Parallel()
 

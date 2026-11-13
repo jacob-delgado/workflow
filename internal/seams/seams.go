@@ -132,6 +132,12 @@ type Git struct {
 	// fast-forward it from the base remote, delete the branch. Nil when there
 	// is no repository.
 	Finish func(ctx context.Context, finishing gitrepo.Finishing) error
+	// MadeAfter is what HEAD holds past the commit merged, the branch's
+	// merged pull request, merged at, told apart by what the base remote's
+	// branch holds, fetching that commit from the base remote first where
+	// this clone lacks it; gitrepo.ErrNotFetched where it cannot. Nil when
+	// there is no repository.
+	MadeAfter func(ctx context.Context, merged forge.PullRequest) (gitrepo.AfterMerge, error)
 	// IssueLinks is every branch linked to an issue by hand, by branch name;
 	// LinkIssue links a branch to an issue, and UnlinkIssue forgets its link.
 	// Nil when there is no repository.

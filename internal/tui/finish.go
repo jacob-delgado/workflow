@@ -109,9 +109,15 @@ func (s reviewState) canFinish(deps Deps, branch branchState) bool {
 }
 
 // finishRefusal is what loop.RefuseFinish finds in the way of finishing the
-// branch, or nil when nothing is.
+// branch, then what loop.RefuseMadeAfter found when the pull request was
+// read, or nil when nothing is.
 func (s reviewState) finishRefusal(branch branchState) error {
-	return loop.RefuseFinish(s.pull, s.found, branch.branch)
+	refused := loop.RefuseFinish(s.pull, s.found, branch.branch)
+	if refused != nil {
+		return refused
+	}
+
+	return s.madeAfter
 }
 
 // startFinish opens the finish preview: the three git commands that switch to
@@ -195,10 +201,12 @@ func (p finishPreview) confirm(m Model) (Model, tea.Cmd) {
 	}
 }
 
-// finishAfresh reads the branch again and finishes it only while it is still
-// the one previewed, onto the base and from the remote the preview listed, and
-// loop.RefuseFinish still finds nothing in the way: a commit made from another
-// terminal since the preview opened would otherwise go with the force delete.
+// finishAfresh reads the branch, and the commits made on it since it merged,
+// again and finishes it only while it is still the one previewed, onto the
+// base and from the remote the preview listed, and neither loop.RefuseFinish
+// nor loop.RefuseMadeAfter finds anything in the way: a commit made from
+// another terminal since the preview opened, pushed or not, would otherwise
+// go with the force delete.
 // The merged pull request is not read again, since a merge is final and the
 // commit it merged never changes.
 func (p finishPreview) finishAfresh(ctx context.Context, git seams.Git) finished {
@@ -208,6 +216,10 @@ func (p finishPreview) finishAfresh(ctx context.Context, git seams.Git) finished
 	}
 
 	refused := cmp.Or(loop.RefuseFinish(p.pull, true, branch), p.moved(branch.Finishing()))
+	if refused == nil {
+		refused = loop.RefuseMadeAfter(ctx, git.MadeAfter, p.pull)
+	}
+
 	if refused != nil {
 		return finished{branch: p.finishing.Branch, err: fmt.Errorf("%w: %w", errNoLongerFinishable, refused)}
 	}

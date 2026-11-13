@@ -375,8 +375,27 @@ func TestGetReviewSaysWhyAMergedBranchCannotBeFinished(t *testing.T) {
 		want  string
 	}{
 		"merged at the commit the branch is at": {shape: merged, want: ""},
-		"merged, then committed to":             {shape: committedSince, want: "neither merged nor are on its upstream"},
-		"still open":                            {shape: func(deps webserver.Deps) webserver.Deps { return deps }, want: ""},
+		"merged, then committed to and pushed": {
+			shape: func(deps webserver.Deps) webserver.Deps { return madeSince(merged(deps)) },
+			want:  "made after it merged, which a new pull request would carry: c0ffee1 feat: after the merge",
+		},
+		"merged, what was made since unread": {
+			shape: func(deps webserver.Deps) webserver.Deps {
+				deps = merged(deps)
+				deps.Git.MadeAfter = func(context.Context, forge.PullRequest) (gitrepo.AfterMerge, error) {
+					return gitrepo.AfterMerge{}, errForgeDown
+				}
+
+				return deps
+			},
+			want: "the commits made after it merged could not be read",
+		},
+		"merged at a commit that could not be fetched (Q27)": {
+			shape: func(deps webserver.Deps) webserver.Deps { return unfetched(merged(deps)) },
+			want:  "the commit it merged at is not in this clone, and could not be fetched",
+		},
+		"merged, then committed to": {shape: committedSince, want: "neither merged nor are on its upstream"},
+		"still open":                {shape: func(deps webserver.Deps) webserver.Deps { return deps }, want: ""},
 	}
 
 	for name, tt := range cases {
@@ -395,8 +414,9 @@ func TestGetReviewSaysWhyAMergedBranchCannotBeFinished(t *testing.T) {
 				refusal = *review.FinishRefusal
 			}
 
-			if (tt.want == "") != (refusal == "") || !strings.Contains(refusal, tt.want) {
-				t.Errorf("finish refusal = %q, want %q", refusal, tt.want)
+			if (tt.want == "") != (refusal == "") || !strings.Contains(refusal, tt.want) ||
+				strings.Contains(refusal, unfetchedHost) {
+				t.Errorf("finish refusal = %q, want %q, and git's words off the wire", refusal, tt.want)
 			}
 		})
 	}

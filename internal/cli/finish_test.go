@@ -5,6 +5,7 @@ package cli_test
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
+	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
 )
 
@@ -63,17 +65,67 @@ func mergedFinishRepo(t *testing.T) string {
 }
 
 // originOnDisk moves origin to a bare repository on disk holding main, at a
-// file:// address on github.com: git reads such an address by its path alone,
-// so the finish's pull catches main up from disk, while the forge is still
-// found at github.com.
-func originOnDisk(t *testing.T, repo string) {
+// file:// address on github.com, and returns that address: git reads such an
+// address by its path alone, so the finish's pull catches main up from disk,
+// while the forge is still found at github.com.
+func originOnDisk(t *testing.T, repo string) string {
 	t.Helper()
 
 	bare := t.TempDir()
+	address := "file://github.com" + filepath.ToSlash(bare)
 	clitest.Git(t, bare, "init", "--bare", "--quiet")
-	clitest.Git(t, repo, "remote", "set-url", "origin", "file://github.com"+filepath.ToSlash(bare))
+	clitest.Git(t, repo, "remote", "set-url", "origin", address)
 	clitest.Git(t, repo, "push", "--quiet", "origin", "main")
 	clitest.Git(t, repo, "fetch", "--quiet", "origin")
+
+	return address
+}
+
+// The forge's own ref for pull request 7's head, and a branch no fetch of it
+// reads.
+const (
+	pullRef      = "refs/pull/7/head"
+	elsewhereRef = "refs/heads/elsewhere"
+)
+
+// pullHeadElsewhere is a repository on finishedBranch, pushed to an origin
+// on disk, whose pull request 7 merged at a commit made from another clone
+// and pushed only to pushedTo there: this clone never fetched it. shape makes
+// that commit in the other clone, where the branch is as pushed; the pull
+// request is answered at it.
+func pullHeadElsewhere(t *testing.T, shape func(t *testing.T, other string), pushedTo string) string {
+	t.Helper()
+
+	repo := clitest.GithubRepo(t, finishedBranch)
+	origin := originOnDisk(t, repo)
+	clitest.Git(t, repo, "push", "--quiet", "--set-upstream", "origin", finishedBranch)
+
+	other := t.TempDir()
+	clitest.Git(t, other, "clone", "--quiet", "--branch", finishedBranch, origin, ".")
+	shape(t, other)
+	clitest.Git(t, other, "push", "--quiet", "origin", "HEAD:"+pushedTo)
+
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: mergedPullAt("work", headOf(t, other))})
+	clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"}}`)
+
+	return repo
+}
+
+// fixedOnTheForge makes a commit on top of the branch, as a review's
+// suggestion applied on the forge is: the branch here is an ancestor of it.
+func fixedOnTheForge(t *testing.T, other string) {
+	t.Helper()
+
+	clitest.Commit(t, other, "fix: a suggestion applied on the forge")
+}
+
+// rewrittenOnTheForge replaces the branch's last commit with another, as a
+// force-push from elsewhere does: the branch here holds a commit it lacks.
+func rewrittenOnTheForge(t *testing.T, other string) {
+	t.Helper()
+
+	clitest.Git(t, other, "reset", "--quiet", "--hard", "HEAD~1")
+	clitest.Commit(t, other, "feat: the work, rewritten")
 }
 
 // divergedBase is originOnDisk with main and origin's main each holding a
@@ -97,6 +149,15 @@ func committedSincePushed(t *testing.T, repo string) {
 
 	clitest.PretendPushed(t, repo)
 	clitest.Commit(t, repo, "after the merge")
+}
+
+// committedAndPushedSince has the branch committed to after what merged, and
+// pushed: its upstream holds every commit, the one made since among them (P005).
+func committedAndPushedSince(t *testing.T, repo string) {
+	t.Helper()
+
+	clitest.Commit(t, repo, "feat: after the merge")
+	clitest.PretendPushed(t, repo)
 }
 
 // committedSinceMerged has the branch committed to after what merged, with no
@@ -276,6 +337,104 @@ func TestFinishRefusesWhatCannotBeFinished(t *testing.T) {
 	}
 }
 
+func TestFinishRefusesABranchCommittedToAndPushedSinceItMerged(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := finishRepo(t, mergedAtHead)
+	committedAndPushedSince(t, repo)
+	made := clitest.GitOutput(t, repo, "rev-parse", "--short", "HEAD")
+
+	// Act
+	_, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "finish", "--yes")
+
+	// Assert
+	if !errors.Is(err, loop.ErrMadeAfterMerge) || !strings.Contains(err.Error(), made+" feat: after the merge") {
+		t.Errorf("finish = %v, want it refused, naming %s feat: after the merge", err, made)
+	}
+
+	wantExit(t, err, 4)
+	requireBranchKept(t, repo)
+}
+
+func TestFinishFetchesTheMergedCommitThisCloneLacksAndFinishesABranchBehindIt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := pullHeadElsewhere(t, fixedOnTheForge, pullRef)
+
+	// Act
+	printed, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "finish", "--yes")
+	// Assert
+	if err != nil {
+		t.Fatalf("finish --yes: %v (%+v)", err, printed)
+	}
+
+	if listed := clitest.GitOutput(t, repo, "branch", "--list", finishedBranch); listed != "" {
+		t.Errorf("branches = %q, want %s deleted", listed, finishedBranch)
+	}
+}
+
+func TestFinishFetchesTheMergedCommitThisCloneLacksAndRefusesWhatCameAfterIt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := pullHeadElsewhere(t, rewrittenOnTheForge, pullRef)
+	made := clitest.GitOutput(t, repo, "log", "-1", "--format=%h %s")
+
+	// Act
+	_, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "finish", "--yes")
+
+	// Assert
+	if !errors.Is(err, loop.ErrMadeAfterMerge) || !strings.Contains(fmt.Sprint(err), made) {
+		t.Errorf("finish = %v, want it refused, naming %s", err, made)
+	}
+
+	wantExit(t, err, 4)
+	requireBranchKept(t, repo)
+}
+
+func TestFinishRefusesWhenTheMergedCommitCannotBeFetched(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := pullHeadElsewhere(t, fixedOnTheForge, elsewhereRef)
+
+	// Act
+	_, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "finish", "--yes")
+
+	// Assert
+	if !errors.Is(err, gitrepo.ErrNotFetched) || !strings.Contains(fmt.Sprint(err), pullRef) {
+		t.Errorf("finish = %v, want it refused, saying %s could not be fetched", err, pullRef)
+	}
+
+	wantExit(t, err, 4)
+	requireBranchKept(t, repo)
+}
+
+// A branch refused already is not worth a fetch of the commit that merged.
+func TestFinishFetchesNothingForABranchRefusedAlready(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := pullHeadElsewhere(t, fixedOnTheForge, pullRef)
+	committedSinceMerged(t, repo)
+	merged, _, _ := strings.Cut(clitest.GitOutput(t, repo, "ls-remote", "origin", pullRef), "\t")
+
+	// Act
+	_, err := clitest.RunStreams(t, repo, clitest.UnusedPrompt(t), "finish", "--yes")
+
+	// Assert
+	if !errors.Is(err, loop.ErrUnpushedWork) {
+		t.Errorf("finish = %v, want %v", err, loop.ErrUnpushedWork)
+	}
+
+	if objects := clitest.GitOutput(t, repo, "cat-file", "--batch-all-objects", "--batch-check"); merged == "" ||
+		strings.Contains(objects, merged) {
+		t.Errorf("the merged commit %q is in this clone, want nothing fetched for a branch refused already", merged)
+	}
+}
+
 func TestFinishOnTheBaseAsksNoForge(t *testing.T) {
 	t.Parallel()
 
@@ -377,6 +536,31 @@ func TestFinishRefusesABranchCommittedToWhileItAsked(t *testing.T) {
 	// Assert
 	if !errors.Is(err, loop.ErrUnpushedWork) || !strings.Contains(err.Error(), "cannot finish "+finishedBranch+": ") {
 		t.Errorf("finish of a branch committed to while it asked = %v, want %v", err, loop.ErrUnpushedWork)
+	}
+
+	wantExit(t, err, 4)
+	requireBranchKept(t, repo)
+}
+
+// A commit made and pushed from another terminal while the finish asks is
+// held by the upstream, so only the read of what was made after the merge,
+// made again once confirmed, keeps the force delete from taking it.
+func TestFinishRefusesABranchCommittedToAndPushedWhileItAsked(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := mergedFinishRepo(t)
+	originOnDisk(t, repo)
+
+	committing := answeringYesAfter(func() { committedAndPushedSince(t, repo) })
+
+	// Act
+	_, err := clitest.RunStreams(t, repo, committing, "finish")
+
+	// Assert
+	if !errors.Is(err, loop.ErrMadeAfterMerge) || !strings.Contains(err.Error(), "feat: after the merge") {
+		t.Errorf("finish of a branch committed to and pushed while it asked = %v, want %v naming the commit",
+			err, loop.ErrMadeAfterMerge)
 	}
 
 	wantExit(t, err, 4)
