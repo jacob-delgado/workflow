@@ -10,6 +10,7 @@ import {
   sectionNames,
   themes,
   widths,
+  workedIssue,
 } from './support/cockpit.ts'
 import { expectReachableAndClean, pageScrolls } from './support/reachable.ts'
 import { expect, test } from './support/fixtures.ts'
@@ -197,6 +198,10 @@ test(
     // Arrange
     await page.setViewportSize({ width: 640, height: 240 })
     await page.goto('/')
+    // The header's chips come with the snapshot and wrap it taller at this
+    // width, shrinking the rail: a focus made before they land is scrolled
+    // into a rail that then moves it out of view.
+    await expect(workedIssue(page)).toBeVisible()
     const rail = page.getByRole('navigation', { name: 'Sections' })
     const settings = rail.getByRole('button', { name: 'Settings', exact: true })
 
