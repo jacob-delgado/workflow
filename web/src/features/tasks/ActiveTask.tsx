@@ -4,7 +4,7 @@ import { useSnapshotStore } from '@/api/snapshot.ts'
 import { minute } from '@/lib/dates.ts'
 import { StateMark } from '@/lib/StateMark.tsx'
 import { useUiStore } from '@/shell/uiStore.ts'
-import { elapsedWords, isActive } from './taskWords.ts'
+import { elapsedWords, isStarted } from './taskWords.ts'
 
 // useNow is the time the task words count from — how long a task has run, how
 // soon one is due — read as the component mounts and again each minute, since
@@ -37,7 +37,7 @@ export function ActiveTask() {
   const tasks = useSnapshotStore((state) => state.snapshot?.tasks)
   const active = tasks?.available === true ? tasks.active : undefined
 
-  if (active === undefined || !isActive(active)) {
+  if (active === undefined || !isStarted(active)) {
     return null
   }
 

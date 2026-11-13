@@ -15,7 +15,7 @@ import {
   addedName,
   dueWords,
   elapsedWords,
-  isActive,
+  isStarted,
   linkedTo,
   markOf,
   stillToDo,
@@ -159,7 +159,7 @@ function markedDoneWords(name: string, answered: TaskList): string {
 // linkedNote is how a linked task stands: how long ago it was started, or its
 // state and — for one still to do — when it is due.
 function linkedNote(task: Task, now: number): string[] {
-  if (isActive(task)) {
+  if (isStarted(task)) {
     return [`started ${elapsedWords(task.start, now)} ago`]
   }
 

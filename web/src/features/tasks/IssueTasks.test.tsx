@@ -83,6 +83,32 @@ test('a started task says how long ago it was started, and offers to stop it', (
   expect(within(card).getByRole('button', { name: 'Stop task 12' })).toBeTruthy()
 })
 
+test('a started task with a wait still ahead stands waiting, and still offers to stop it', () => {
+  // Arrange
+  // Taskwarrior still counts it started, its clock running, though the server
+  // words it waiting.
+  streamLinked(
+    taskStanding(
+      tracking,
+      {
+        start: new Date(Date.now() - 1.2 * hour).toISOString(),
+        wait: new Date(Date.now() + 48 * hour).toISOString(),
+      },
+      standing.waiting,
+    ),
+  )
+
+  // Act
+  renderWithClient(<IssueTasks issueKey={issueKey} />)
+
+  // Assert
+  const card = screen.getByRole('region', { name: 'Tasks' })
+  expect(card.textContent).not.toContain('started 1h12m ago')
+  expect(card.textContent).toContain('waiting')
+  expect(markShape(within(card).getByRole('listitem'))).toBe(drawnMark('not-started'))
+  expect(within(card).getByRole('button', { name: 'Stop task 12' })).toBeTruthy()
+})
+
 test('a task still to do says when it is due', () => {
   // Arrange
   streamLinked({ ...tracking, due: new Date(Date.now() + 27.5 * hour).toISOString() })

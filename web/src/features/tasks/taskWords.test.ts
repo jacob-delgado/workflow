@@ -1,6 +1,6 @@
 import type { Task, TaskFacet } from '@/api/generated/types.gen.ts'
 import { describedTask, makeTask, standing, taskStanding } from '@/test/fixtures.ts'
-import { dueWords, elapsedWords, markOf } from './taskWords.ts'
+import { dueWords, elapsedWords, issueTaskMark, markOf } from './taskWords.ts'
 
 const minute = 60_000
 const now = Date.parse('2026-09-28T12:00:00Z')
@@ -61,6 +61,11 @@ test.each([
     taskStanding(makeTask(), { start: before(10) }, standing.started),
     'in-flight',
   ],
+  [
+    'a started task with a wait still ahead',
+    taskStanding(makeTask(), { start: before(10), wait: before(-60) }, standing.waiting),
+    'not-started',
+  ],
   ['a task not started', makeTask(), 'not-started'],
   [
     'a waiting task',
@@ -77,4 +82,19 @@ test.each([
 ])('marks %s by shape', (_, task, mark) => {
   // Act & Assert
   expect(markOf(task)).toBe(mark)
+})
+
+test('marks an issue whose only started task waits as tracked, not active', () => {
+  // Arrange
+  const startedWaits = taskStanding(
+    makeTask(),
+    { start: before(10), wait: before(-60) },
+    standing.waiting,
+  )
+
+  // Act
+  const mark = issueTaskMark([startedWaits])
+
+  // Assert
+  expect(mark).toEqual({ state: 'not-started', words: 'tracked' })
 })

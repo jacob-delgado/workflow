@@ -10,7 +10,6 @@ import {
   type TaskFacet,
 } from './taskFacets.ts'
 import { TaskMark } from './TaskList.tsx'
-import { markOf } from './taskWords.ts'
 import { taskOrderWords, type TaskOrder } from './taskOrder.ts'
 
 interface TaskListControlsProps {
@@ -95,18 +94,14 @@ export function TaskListControls({
   )
 }
 
-// stateMark is the mark the rows draw for a state, when every task in it is
-// drawn alike. A started task whose wait is still ahead is waiting to the
-// server but in flight to its row, beside the waiting ones not started, so a
-// state can hold tasks marked differently, and then its chip draws none. The
-// rows mark nothing else a task holds, so no other value has one, nor a state
-// no task is in.
+// stateMark is the mark the rows draw for a state's tasks, every one alike: a
+// row marks a task by where the server says it stands, so a started task whose
+// wait is still ahead is marked waiting, as the rest of its state is. The rows
+// mark nothing else a task holds, so no other value has one, nor a state no
+// task is in.
 function stateMark(facet: TaskFacet, tasks: Task[]): ReactElement | undefined {
-  const inState = facet.kind === 'state' ? tasks.filter((task) => task.state === facet.value) : []
-  const [first] = inState
-  if (first === undefined || inState.some((task) => markOf(task) !== markOf(first))) {
-    return undefined
-  }
+  const first =
+    facet.kind === 'state' ? tasks.find((task) => task.state === facet.value) : undefined
 
-  return <TaskMark task={first} />
+  return first === undefined ? undefined : <TaskMark task={first} />
 }
