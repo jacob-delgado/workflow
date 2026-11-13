@@ -63,15 +63,16 @@ function useArrivalFocus(
 }
 
 // MoreIssues offers the next page while the view holds issues past those
-// loaded — judged from the stream's page until a page has been read, then from
-// the last page read — says how many are loaded, and says why when a read
-// fails. While a page is in flight the button holds rather than going
-// disabled, so it keeps focus, and a second press waits on the same read
-// (loadMore asks with cancelRefetch off) rather than starting it over.
+// loaded — while the stream's page names where the next starts until a page
+// has been read, then while the last page read does — says how many are
+// loaded, and says why when a read fails. While a page is in flight the button
+// holds rather than going disabled, so it keeps focus, and a second press
+// waits on the same read (loadMore asks with cancelRefetch off) rather than
+// starting it over.
 export function MoreIssues({ paging }: { paging: IssuePaging }) {
   const { streamed, loaded, more, statusLine, loadMore } = paging
   const paged = more.data !== undefined
-  const remain = paged ? more.hasNextPage : streamed.issues.length < streamed.total
+  const remain = paged ? more.hasNextPage : streamed.next !== ''
   const shortcut = useShortcutProps<HTMLButtonElement>('load-more')
 
   return (

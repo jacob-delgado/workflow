@@ -76,7 +76,7 @@ export function makeSnapshot(overrides: Partial<Snapshot> = {}): Snapshot {
   return {
     writes: 0,
     here: '/home/ana/src/api',
-    issues: { issues: [], total: 0, start_at: 0, unavailable: [] },
+    issues: { issues: [], total: 0, next: '', unavailable: [] },
     branch: makeBranch(),
     changes: { changes: [] },
     review: { found: false, announced: 'none' },

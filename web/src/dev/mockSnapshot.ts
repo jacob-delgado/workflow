@@ -30,7 +30,7 @@ export const mockSnapshot: Snapshot = {
   here: '/home/ana/src/api',
   issues: {
     total: 7,
-    start_at: 0,
+    next: '',
     unavailable: [],
     issues: [
       {

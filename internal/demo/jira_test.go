@@ -166,3 +166,35 @@ func TestYesterdaysSummaryDoesNotMoveTheWorkedIssue(t *testing.T) {
 		t.Errorf("yesterday's Jira activity moved %v, %v; want an issue moved, and not PROJ-412", moved, err)
 	}
 }
+
+func TestAPageAfterAnIssueListsWhatFollowsIt(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps := standingStill().Deps()
+	listed, _ := deps.Jira.Search(t.Context(), "", 0)
+
+	// Act
+	page, err := deps.Jira.SearchAfter(t.Context(), "", jira.Cursor{After: listed.Issues[0].Key, At: 0})
+
+	// Assert
+	if err != nil || !slices.Equal(page.Issues, listed.Issues[1:]) {
+		t.Errorf("the page after %s = %+v, %v; want the rest of the list", listed.Issues[0].Key, page.Issues, err)
+	}
+}
+
+func TestAPageAfterAnIssueTheDemoDoesNotListStartsWhereItWas(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps := standingStill().Deps()
+	listed, _ := deps.Jira.Search(t.Context(), "", 0)
+
+	// Act
+	page, err := deps.Jira.SearchAfter(t.Context(), "", jira.Cursor{After: "PROJ-9999", At: 1})
+
+	// Assert
+	if err != nil || !slices.Equal(page.Issues, listed.Issues[1:]) {
+		t.Errorf("the page after a gone issue = %+v, %v; want the list from where it was", page.Issues, err)
+	}
+}

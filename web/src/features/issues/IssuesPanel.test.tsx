@@ -32,7 +32,7 @@ const setupDocs: Issue = {
 function streamIssues(issues: Issue[], unavailable: string[] = []) {
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ issues: { total: issues.length, start_at: 0, unavailable, issues } }),
+    snapshot: makeSnapshot({ issues: { total: issues.length, next: '', unavailable, issues } }),
   })
 }
 
@@ -284,7 +284,7 @@ test('says when no issues match the view', () => {
   // Arrange
   useSnapshotStore.setState({
     status: 'live',
-    snapshot: makeSnapshot({ issues: { total: 0, start_at: 0, unavailable: [], issues: [] } }),
+    snapshot: makeSnapshot({ issues: { total: 0, next: '', unavailable: [], issues: [] } }),
   })
 
   // Act

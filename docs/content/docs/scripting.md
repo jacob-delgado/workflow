@@ -297,12 +297,14 @@ same view (see [Scripting the API]({{< relref "/docs/web#scripting-the-api" >}})
 issues, whose key is the bare number — `summary`, `status`,
 `status_category` (`new`, `indeterminate`, `done`, or `unknown` for a
 status Jira files under none of the three), `type` and, when
-there is one, `priority`; `total`, how many the view holds; `start_at`,
-always `0`; and `unavailable`, each tracker that could not be read. It is
-the view's first page: its first 50 issues and, on the first view when
-`issues.forge` is on, the issues assigned to you on the repository's forge
-ahead of them, which `total` counts too. A longer view's `total` says how
-many more there are.
+there is one, `priority`; `total`, how many the view holds; `next`, where
+the page after this one starts, which `GET /api/issues` takes as `after`:
+the last Jira issue listed and where Jira listed it, as `PROJ-7@49`, empty
+when the page holds the whole view; and `unavailable`, each tracker that
+could not be read. It is the view's first page: its first 50 issues and, on
+the first view when `issues.forge` is on, the issues assigned to you on the
+repository's forge ahead of them, which `total` counts too. A longer view's
+`total` says how many more there are.
 
 ```json
 {
@@ -310,7 +312,7 @@ many more there are.
     {"key": "PROJ-7", "tracker": "jira", "summary": "Fix login", "status": "In Progress",
      "status_category": "indeterminate", "type": "Bug", "priority": "High"}
   ],
-  "start_at": 0,
+  "next": "",
   "total": 1,
   "unavailable": []
 }

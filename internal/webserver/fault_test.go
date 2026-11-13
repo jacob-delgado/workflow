@@ -199,7 +199,7 @@ func TestARateLimitAsksTheCallerToWait(t *testing.T) {
 
 			// Arrange
 			deps := webtest.FilledDeps()
-			deps.Jira.Search = func(context.Context, string, int) (jira.SearchResult, error) {
+			deps.Jira.SearchAfter = func(context.Context, string, jira.Cursor) (jira.SearchResult, error) {
 				return jira.SearchResult{}, tt.err
 			}
 
@@ -334,7 +334,7 @@ func TestOnlyAFailureNoClassExplainsIsHandedToUnexpected(t *testing.T) {
 			var heard []error
 
 			deps := webtest.FilledDeps()
-			deps.Jira.Search = func(context.Context, string, int) (jira.SearchResult, error) {
+			deps.Jira.SearchAfter = func(context.Context, string, jira.Cursor) (jira.SearchResult, error) {
 				return jira.SearchResult{}, fmt.Errorf("searching: %w", tt.cause)
 			}
 			deps.Unexpected = func(_ config.Config, err error) { heard = append(heard, err) }

@@ -41,6 +41,9 @@ import (
 // Jira is what a surface asks of the issue tracker.
 type Jira struct {
 	Search func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error)
+	// SearchAfter is the page of a list that follows the issue after names, as
+	// a page's Next names it, or the list's first page for the zero Cursor.
+	SearchAfter func(ctx context.Context, jql string, after jira.Cursor) (jira.SearchResult, error)
 	// SearchLenient is Search for a query naming issue keys the tracker may not
 	// know — a branch's issue since deleted or hidden — which it skips rather
 	// than refusing the whole query.

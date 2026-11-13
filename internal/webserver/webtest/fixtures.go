@@ -61,19 +61,28 @@ const (
 // FilledHead is the head commit of FilledDeps' branch, its one commit.
 const FilledHead = "abc123"
 
+// filledPage is FilledDeps' one page of issues: the test issue, the whole of
+// its view.
+func filledPage() jira.SearchResult {
+	return jira.SearchResult{
+		Issues: []jira.Issue{{
+			Key: TestKey, Summary: TestSummary, Status: "In Progress",
+			StatusCategory: "indeterminate", Type: "Bug", Priority: "High",
+		}},
+		Total: 1,
+	}
+}
+
 // FilledDeps is a Deps with every seam populated with canned answers. A test
 // nils a seam to exercise the not-configured path, or replaces one to fail.
 func FilledDeps() webserver.Deps {
 	return webserver.Deps{
 		Jira: seams.Jira{
 			Search: func(context.Context, string, int) (jira.SearchResult, error) {
-				return jira.SearchResult{
-					Issues: []jira.Issue{{
-						Key: TestKey, Summary: TestSummary, Status: "In Progress",
-						StatusCategory: "indeterminate", Type: "Bug", Priority: "High",
-					}},
-					Total: 1,
-				}, nil
+				return filledPage(), nil
+			},
+			SearchAfter: func(context.Context, string, jira.Cursor) (jira.SearchResult, error) {
+				return filledPage(), nil
 			},
 			Issue: func(_ context.Context, key jira.Key) (jira.IssueDetail, error) {
 				return jira.IssueDetail{

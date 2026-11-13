@@ -22,7 +22,7 @@ func TestListIssuesReturnsAPage(t *testing.T) {
 
 	// Act
 	page := webtest.Decode[api.IssuesPage](t, webtest.Get(t, webtest.Serve(t, webtest.FilledDeps(), config.Default()),
-		"/api/issues?start_at=0"))
+		"/api/issues"))
 
 	// Assert
 	if page.Total != 1 || len(page.Issues) != 1 || page.Issues[0].Key != webtest.TestKey {
@@ -39,7 +39,7 @@ func TestListIssuesIsEmptyWhenTheTrackerIsNotConfigured(t *testing.T) {
 
 	// Arrange
 	deps := webtest.FilledDeps()
-	deps.Jira.Search = nil
+	deps.Jira.SearchAfter = nil
 
 	// Act
 	page := webtest.Decode[api.IssuesPage](t, webtest.Get(t, webtest.Serve(t, deps, config.Default()), "/api/issues"))
@@ -55,7 +55,7 @@ func TestListIssuesReportsASeamFailure(t *testing.T) {
 
 	// Arrange
 	deps := webtest.FilledDeps()
-	deps.Jira.Search = func(context.Context, string, int) (jira.SearchResult, error) {
+	deps.Jira.SearchAfter = func(context.Context, string, jira.Cursor) (jira.SearchResult, error) {
 		return jira.SearchResult{}, webtest.ErrSeam
 	}
 
@@ -80,7 +80,7 @@ func TestListIssuesRefusesAnUnknownView(t *testing.T) {
 	// A typo in the view must not quietly answer with the default view's issues.
 	searched := false
 	deps := webtest.FilledDeps()
-	deps.Jira.Search = func(context.Context, string, int) (jira.SearchResult, error) {
+	deps.Jira.SearchAfter = func(context.Context, string, jira.Cursor) (jira.SearchResult, error) {
 		searched = true
 
 		return jira.SearchResult{}, nil
@@ -107,7 +107,7 @@ func TestListIssuesUsesTheNamedView(t *testing.T) {
 	var gotJQL string
 
 	deps := webtest.FilledDeps()
-	deps.Jira.Search = func(_ context.Context, jql string, _ int) (jira.SearchResult, error) {
+	deps.Jira.SearchAfter = func(_ context.Context, jql string, _ jira.Cursor) (jira.SearchResult, error) {
 		gotJQL = jql
 
 		return jira.SearchResult{}, nil
@@ -289,7 +289,7 @@ func TestListIssuesSaysEachIssuesTrackerAndWhichCouldNotBeRead(t *testing.T) {
 
 	// Arrange
 	deps := webtest.FilledDeps()
-	deps.Jira.Search = func(context.Context, string, int) (jira.SearchResult, error) {
+	deps.Jira.SearchAfter = func(context.Context, string, jira.Cursor) (jira.SearchResult, error) {
 		return jira.SearchResult{
 			Issues:      []jira.Issue{{Key: "57", Summary: "Typo"}, {Key: webtest.TestKey, Summary: "Leak"}},
 			Total:       2,
@@ -299,7 +299,7 @@ func TestListIssuesSaysEachIssuesTrackerAndWhichCouldNotBeRead(t *testing.T) {
 
 	// Act
 	page := webtest.Decode[api.IssuesPage](t, webtest.Get(t, webtest.Serve(t, deps, config.Default()),
-		"/api/issues?start_at=0"))
+		"/api/issues"))
 
 	// Assert
 	if len(page.Issues) != 2 || page.Issues[0].Tracker != api.IssueTrackerForge ||

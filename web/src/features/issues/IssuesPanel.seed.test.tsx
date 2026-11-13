@@ -22,7 +22,7 @@ const liveIssue: Issue = { ...keptIssue, key: 'PROJ-2', summary: 'Found just now
 
 // pageOf is a first page holding issues, all there is of the view.
 function pageOf(issues: Issue[]): IssuesPage {
-  return { issues, total: issues.length, start_at: 0, unavailable: [] }
+  return { issues, total: issues.length, next: '', unavailable: [] }
 }
 
 // seeded puts the stream's seed for view on screen, before any snapshot.

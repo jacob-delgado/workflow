@@ -235,7 +235,7 @@ test('a work-story stage moves focus to the section it opens', async () => {
     FakeEventSource.latest().emit(
       'snapshot',
       JSON.stringify(
-        makeSnapshot({ issues: { issues: [issue], total: 1, start_at: 0, unavailable: [] } }),
+        makeSnapshot({ issues: { issues: [issue], total: 1, next: '', unavailable: [] } }),
       ),
     )
   })

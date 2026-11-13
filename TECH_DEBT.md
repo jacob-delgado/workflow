@@ -429,8 +429,13 @@ Jira's project, review status, views and Markdown comments from the
 configuration at each use. Making the tracker's two live would mean always
 building the combined tracker and threading another control through every
 tracker seam, while Jira's client settings would still wait for the next
-wiring. The forge-row count that offsets later pages is one per tracker,
-shared by every tab paging that view. Decided 2026-10-01, in #164.
+wiring. The forge-row count that offsets a later page asked by its offset is
+one per tracker, and only the terminal's Issues pane pages a view by offset;
+in the terminal, the first view's first page is read by that list alone, so
+the count is always its own first page's. The web's **Load more** and
+`GET /api/issues` page by a cursor carrying Jira's own offset, which no forge
+row shifts (TRADE-66, wave-2 lead P085, which settled the skew lead P066
+found). Decided 2026-10-01, in #164.
 
 **Cost.** A save from the web's Settings that turns `issues.forge` on or
 off waits for `workflow --web` to restart or switch directory, as one that
@@ -440,28 +445,12 @@ was: editing that JQL drops them from the first view, and putting another
 view first leaves them leading the view that was first. The web's Jira
 section, `configuration.md` and `web.md` say so. The terminal's Settings
 reopens workflow to apply a save, asking first while a write is in flight or
-reopening would lose something. A later page of the first view — the web's
-**Load more**, or `GET /api/issues` with a `start_at` — asks Jira from its
-offset less the shared count, which every read of the first view's first page
-sets: another tab's, the web's event stream rereading it every
-`timing.ci_interval`, and one whose forge read fails, which sets it to zero.
-When the count differs from the forge issues that led the page's own first
-page, the later page skips or repeats the difference in Jira rows, and its
-total is that many short or over. Two tabs paging while the forge's open
-issues change can be off by a row; a first page that led with N forge issues,
-read again since with the forge unreadable, skips N Jira rows on its later
-page, with a total N short; and a list whose own first page found the forge
-unreadable repeats N rows, with a total N over, once another first page reads
-it again. Reading the list again from its first page puts it right. A paging
-token that carries the Jira offset would end it, at the cost of a breaking
-change to `GET /api/issues`'s paging (wave-2 lead P066, kept 2026-11-12 by the
-maintainer).
+reopening would lose something.
 
 **Reopen when.** Jira's client settings become live on save, or someone is
 seen toggling `issues.forge` from Settings and expecting it to apply at once,
 or editing the first view's JQL from Settings and expecting the forge's issues
-to follow it, or a user reports Jira issues missing from, or listed twice in,
-a later page of the first view: then the paging token carries the Jira offset.
+to follow it.
 
 ### TRADE-25 Kept data has one schema and is never migrated
 
@@ -1654,3 +1643,30 @@ two workflows at once, or the store takes a directory of its own where the
 system names none; a save is reported waiting on a holder after its caller
 left, or lost between two workflows that spelled one path in different case;
 or the lock files left in the state directory are reported.
+
+### TRADE-66 A later page of issues follows its issue from where Jira had it
+
+**Decided.** 2026-11-13 by the maintainer, on wave-2 lead P085: the web's
+**Load more** and `GET /api/issues` page by key. Each page names its last Jira
+issue and where Jira listed it as its `next` (`PROJ-9@49`), and the page asked
+`after` it is read from that offset and starts after that issue wherever in
+the page it is now (`jira.Client.SearchAfter`, `internal/jira/search.go`), so
+issues joining or leaving the view ahead of it neither skip nor repeat a row,
+and the forge's issues leading the first page shift nothing. Jira Data Center
+pages only by offset, and its query cannot say "after this issue" in a view's
+own order, so the offset is where the page is read from; finding the issue
+from the view's start instead would read every page before it again.
+
+**Cost.** Issues leaving the view ahead of the issue a page follows move it up
+out of the page read from its offset. The issue's own leaving costs nothing,
+nor does one other issue's, since the page then starts where it was, which is
+where what followed it moved to; but each further issue that left skips a row.
+One moved more than a page further down is not found either, and its page
+starts where it was, repeating rows the list then shows once. A page asked
+`after` counts Jira's issues alone in its `total`, without the forge's that
+lead only the first page, so the web says how many are loaded against the
+stream's page's `total`. The terminal's Issues pane still pages by offset
+(TRADE-24).
+
+**Reopen when.** A user reports an issue missing from, or listed twice by,
+**Load more**, or Jira Data Center offers a search that pages by key.

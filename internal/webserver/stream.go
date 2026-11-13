@@ -506,15 +506,15 @@ func issueKeys(names []string, links map[string]string, project string) []jira.K
 func (s *server) snapshotIssues(ctx context.Context, view string) (api.IssuesPage, error) {
 	listed, known := jira.ViewNamed(s.config().Jira.Views, view)
 	if s.deps.Jira.Search == nil || !known {
-		return report.IssuesPage(jira.SearchResult{}, 0), nil
+		return report.IssuesPage(jira.SearchResult{}), nil
 	}
 
 	result, err := s.frameIssues(ctx, listed.JQL)
 	if err != nil {
-		return report.IssuesPage(jira.SearchResult{}, 0), err
+		return report.IssuesPage(jira.SearchResult{}), err
 	}
 
-	return report.IssuesPage(result, 0), nil
+	return report.IssuesPage(result), nil
 }
 
 // snapshotChanges is the working tree's changes, or none outside a repository or

@@ -106,7 +106,7 @@ func runIssues(
 	}
 
 	if asJSON {
-		return cmdkit.EncodeJSON(out.Artifact, report.IssuesPage(result, 0))
+		return cmdkit.EncodeJSON(out.Artifact, report.IssuesPage(result))
 	}
 
 	renderIssueList(out, view, result)

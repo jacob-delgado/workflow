@@ -15,7 +15,7 @@ export interface ListedIssues {
 }
 
 // emptyPage is the page listed before any is known.
-const emptyPage: IssuesPage = { issues: [], total: 0, start_at: 0, unavailable: [] }
+const emptyPage: IssuesPage = { issues: [], total: 0, next: '', unavailable: [] }
 
 // unmarked is what the marks read before the first snapshot: no branch in
 // flight, and no task asked about, so no row is marked.

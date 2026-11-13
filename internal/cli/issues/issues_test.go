@@ -260,6 +260,26 @@ func TestIssuesNotesAListCutShort(t *testing.T) {
 	}
 }
 
+func TestIssuesJSONNamesWhereTheNextPageStarts(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	baseURL, _ := trackerJira(t, trackerAnswers{search: searchOf(120, "PROJ-7", "PROJ-8")})
+	dir := t.TempDir()
+	clitest.WriteFile(t, dir, trackerConfig(baseURL, sprintAndTriage))
+
+	// Act
+	printed, err := clitest.RunStreams(t, dir, clitest.UnusedPrompt(t), "issues", "--json")
+	// Assert
+	if err != nil {
+		t.Fatalf("issues --json: %v (%+v)", err, printed)
+	}
+
+	if page := decoded[api.IssuesPage](t, printed.Stdout); page.Next != "PROJ-8@1" {
+		t.Errorf("issues --json's next = %q, want PROJ-8@1: after the page's last issue, at its offset", page.Next)
+	}
+}
+
 func TestIssuesNotesNothingOfAListShownWhole(t *testing.T) {
 	t.Parallel()
 

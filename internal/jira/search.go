@@ -5,9 +5,12 @@ package jira
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 )
 
 // AssignedToMe is the working list: open issues assigned to whoever the
@@ -30,6 +33,12 @@ const searchFields = "summary,status,issuetype,priority"
 // regardless; Total says how many matched in all, so the interface can page
 // through them.
 const searchLimit = 50
+
+// cursorSeparator parts a cursor's key from its offset in the cursor's text.
+const cursorSeparator = "@"
+
+// ErrNotACursor is text that is no cursor a page of issues gave.
+var ErrNotACursor = errors.New("not a cursor a page of issues gave, such as PROJ-9@49")
 
 // StatusCategory is Jira's coarse grouping of a status — where it sits in the
 // to-do / in-progress / done progression — named the same on every instance
@@ -72,6 +81,79 @@ type SearchResult struct {
 	// Unavailable names each tracker whose issues a list drawing on more than
 	// one could not read, so what is listed is not taken for all there is.
 	Unavailable []string
+	// Next is where the page after this one starts, which a page that ends
+	// the list does not name.
+	Next Cursor
+}
+
+// Cursor is where a later page of a list starts: after the issue After, which
+// the list held at offset At when its page was read. The zero Cursor names
+// no issue, and starts a list at its first page.
+type Cursor struct {
+	After Key
+	At    int
+}
+
+// More reports that the cursor names an issue for a page to follow, which a
+// page that ends its list leaves unnamed.
+func (c Cursor) More() bool {
+	return c.After != ""
+}
+
+// String is the cursor as text, its issue's key and offset as PROJ-9@49,
+// which ParseCursor reads back.
+func (c Cursor) String() string {
+	return string(c.After) + cursorSeparator + strconv.Itoa(c.At)
+}
+
+// ParseCursor reads a cursor back from the text String made of it, refusing
+// any other text with ErrNotACursor. A key holds no @, but the offset after it
+// is the cursor's last part, written as String writes it: no sign and no
+// leading zero.
+func ParseCursor(text string) (Cursor, error) {
+	key, offset, found := strings.CutLast(text, cursorSeparator)
+
+	at, err := strconv.Atoi(offset)
+	if !found || key == "" || err != nil || at < 0 || strconv.Itoa(at) != offset {
+		return Cursor{}, fmt.Errorf("%w: %q", ErrNotACursor, text)
+	}
+
+	return Cursor{After: Key(key), At: at}, nil
+}
+
+// rest is what of issues follows the cursor's issue: everything after it when
+// the page holds it, and the whole page when it does not, since an issue gone
+// from the list leaves what followed it moved up into its place.
+func (c Cursor) rest(issues []Issue) []Issue {
+	for index, issue := range issues {
+		if issue.Key == c.After {
+			return issues[index+1:]
+		}
+	}
+
+	return issues
+}
+
+// SearchAfter is the page of a JQL query that follows the issue after names,
+// or the first page for the zero Cursor. It reads the list from where the
+// issue was, and starts after it wherever in that page it is now, so issues
+// joining or leaving the list ahead of it since neither skip nor repeat a
+// row.
+//
+// Trade-off TRADE-66: Jira pages only by offset, so the page is read from the
+// offset the issue had. Once it, or one issue ahead of it, has left the list,
+// the page starts where it was, where what followed it moved to, but each
+// further issue ahead of it that left skips a row; and one moved more than a
+// page further down is not found, its page starting where it was.
+func (c Client) SearchAfter(ctx context.Context, jql string, after Cursor) (SearchResult, error) {
+	page, err := c.Search(ctx, jql, after.At)
+	if err != nil {
+		return SearchResult{}, err
+	}
+
+	page.Issues = after.rest(page.Issues)
+
+	return page, nil
 }
 
 // searchAnswer is the wire shape, decoded and then flattened into Issues.
@@ -176,7 +258,7 @@ func (w wireIssue) issue() Issue {
 // Search runs a JQL query, returning one page of results from startAt. The
 // result's Total says how many matched, so a caller can page to the end.
 func (c Client) Search(ctx context.Context, jql string, startAt int) (SearchResult, error) {
-	return c.search(ctx, searchQuery(jql, startAt))
+	return c.search(ctx, searchQuery(jql, startAt), startAt)
 }
 
 // SearchLenient is Search for a query naming values Jira need not know: an
@@ -192,16 +274,16 @@ func (c Client) SearchLenient(ctx context.Context, jql string, startAt int) (Sea
 	query := searchQuery(jql, startAt)
 	query.Set("validateQuery", "false")
 
-	return c.search(ctx, query)
+	return c.search(ctx, query, startAt)
 }
 
-// search asks for the page query names.
-func (c Client) search(ctx context.Context, query url.Values) (SearchResult, error) {
+// search asks for the page query names, which starts at startAt.
+func (c Client) search(ctx context.Context, query url.Values, startAt int) (SearchResult, error) {
 	request, err := c.newRequest(ctx, http.MethodGet, searchPath+"?"+query.Encode(), nil)
 
 	answer, err := decode[searchAnswer](c, request, err)
 
-	return answer.result(), err
+	return answer.result(startAt), err
 }
 
 // searchQuery is a search's query for the page starting at startAt.
@@ -214,13 +296,20 @@ func searchQuery(jql string, startAt int) url.Values {
 	}
 }
 
-// result flattens the wire shape.
-func (a searchAnswer) result() SearchResult {
+// result flattens the wire shape of the page that starts at startAt, naming
+// its last issue as the cursor of the page after it unless it ends the list.
+func (a searchAnswer) result(startAt int) SearchResult {
 	issues := make([]Issue, 0, len(a.Issues))
 
 	for _, wire := range a.Issues {
 		issues = append(issues, wire.issue())
 	}
 
-	return SearchResult{Issues: issues, Total: a.Total}
+	result := SearchResult{Issues: issues, Total: a.Total}
+
+	if last := startAt + len(issues); len(issues) > 0 && last < a.Total {
+		result.Next = Cursor{After: issues[len(issues)-1].Key, At: last - 1}
+	}
+
+	return result
 }

@@ -286,7 +286,7 @@ func TestStreamSendsTheKeptIssuesBeforeAskingJira(t *testing.T) {
 			Key: keptKey, Tracker: api.IssueTrackerJira, Summary: "Kept from last time", Status: "To Do",
 			StatusCategory: api.StatusCategoryNew, Type: "Task",
 		}},
-		Total: 1, StartAt: 0, Unavailable: []string{},
+		Total: 1, Next: "", Unavailable: []string{},
 	}
 	if got := seedOf(t, before[0]).Issues; !reflect.DeepEqual(got, want) {
 		t.Errorf("seed = %+v, want %+v", got, want)
