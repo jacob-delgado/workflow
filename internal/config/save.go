@@ -102,22 +102,17 @@ func Save(path string, cfg Config) error {
 // planted where the file goes cannot steer its credentials elsewhere. The
 // refusal wraps fs.ErrExist.
 func Create(path string, cfg Config) error {
-	return createPrivate(path, encode(cfg))
+	return createPrivate(path, indented(cfg))
 }
 
 // write encodes the configuration into path.
 func write(path string, cfg Config) error {
-	err := writePrivate(path, encode(cfg))
+	err := writePrivate(path, indented(cfg))
 	if err != nil {
 		return fmt.Errorf("writing %s: %w", path, err)
 	}
 
 	return nil
-}
-
-// encode is the configuration as a file holds it.
-func encode(cfg Config) []byte {
-	return indented(cfg)
 }
 
 // indented is value, a Config or plain JSON values, as JSON a person can
