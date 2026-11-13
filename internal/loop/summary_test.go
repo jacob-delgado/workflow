@@ -158,6 +158,22 @@ func TestARepositoryThatCannotBeReadIsNamedAndTheOthersStillRead(t *testing.T) {
 	}
 }
 
+func TestARepositoryWithNoIdentityLeavesGitNotSetUpBesideTheOthersCommits(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	start := summaryStart()
+	read := twoRepositories(start, loop.RepositoryCommits{Repository: webRepository, Failed: gitrepo.ErrNoIdentity})
+
+	// Act
+	got := loop.CommitsRead(t.Context(), read, start, start.Add(24*time.Hour))
+
+	// Assert
+	if got.Failed != nil || !errors.Is(got.NotSetUp, gitrepo.ErrNoIdentity) || len(got.Items) != 1 {
+		t.Errorf("CommitsRead = %+v, want git not set up beside acme/api's commit", got)
+	}
+}
+
 func TestEachRepositoryThatFailedIsNamedInItsOwnFailure(t *testing.T) {
 	t.Parallel()
 
