@@ -4,7 +4,9 @@
 package tui_test
 
 import (
+	"fmt"
 	"slices"
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -352,4 +354,44 @@ func TestPeopleTakesNoKeyWhileALinkChosenInThePickerSaves(t *testing.T) {
 	if calls := ben.asked("link-owner "); len(calls) != 0 {
 		t.Errorf("saved %q while the link chosen was out", calls)
 	}
+}
+
+func TestAFailedRereadOfThePeopleKeepsThemListed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// carla is marked not on Slack, and reading the people again fails
+	refusing := taggingWorld()
+	opened := openPeople(t, refusing)
+	refusing.mu.Lock()
+	refusing.slack.linksErr = errDirectoryDown
+	refusing.mu.Unlock()
+
+	// Act
+	view := typing(t, opened, "x").View().Content
+
+	// Assert
+	requireScreen(t, view, "slack is down", "acme/control-plane   → @control-plane-pod", "? not asked yet")
+}
+
+func TestAFailedRereadOfThePeopleKeepsTheSelectedOneInSight(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// More owners than a short terminal has rows for, the cursor on the last;
+	// it is marked not on Slack, and reading the people again fails in more
+	// words than fit on one line.
+	refusing := taggingWorld()
+	more := strings.Fields("erin finn gail hugo iris jack kate liam mona nils olga pete zoe")
+	refusing.codeOwners = append(refusing.codeOwners, more...)
+	selected := typing(t, refusing.live(t, 80, 24), append([]string{"5", "P"}, slices.Repeat([]string{keyDown}, 20)...)...)
+	refusing.mu.Lock()
+	refusing.slack.linksErr = fmt.Errorf("%w: %s", errDirectoryDown, strings.Repeat("and it says so at length ", 6))
+	refusing.mu.Unlock()
+
+	// Act
+	view := typing(t, selected, "x").View().Content
+
+	// Assert
+	requireScreen(t, view, "slack is down", "▸ zoe")
 }
