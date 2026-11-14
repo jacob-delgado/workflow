@@ -55,7 +55,7 @@ func (m Model) spineView() spineView {
 
 	return spineView{
 		kit: m.kit(), dryRun: m.dryRun, place: placeLabel(m.deps), work: m.work(),
-		service: m.cfg.Messaging.Service(), checked: checksFinished(m.review.ci), shown: m.motion.shown(),
+		service: m.cfg.Messaging.Service(), checked: checksFinished(m.review.listed()), shown: m.motion.shown(),
 		task: task, active: active, now: now,
 	}
 }
@@ -399,7 +399,7 @@ func (m Model) work() progress.Work {
 		Commits:            len(m.branch.checkedOut().Commits),
 		UncommittedChanges: len(m.changes.files()),
 		PullRequest:        m.review.pullState(),
-		CI:                 m.review.ci.State,
+		CI:                 m.review.listed().State,
 		ChangesRequested:   m.review.pull().ChangesRequested,
 		Announced:          m.messaging.announced(m.review),
 		AnnouncePending:    m.messaging.hold.Stage().Waiting() || m.messaging.onItsWay(),

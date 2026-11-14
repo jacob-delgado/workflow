@@ -14,6 +14,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/armed"
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/tui/latest"
 )
 
 // errNoMergeMethod reports a repository that permits no way to merge.
@@ -23,7 +24,7 @@ var errNoMergeMethod = errors.New("cannot merge: the repository permits no merge
 // green or with no check reported on its head for armed.NoCIPatience, and
 // approved, with a forge that can merge it.
 func (s reviewState) canMerge(deps Deps) bool {
-	return s.found() && deps.Forge.Merge != nil && s.ciReported() && s.quiet.CanMerge(s.pull(), s.ci)
+	return s.found() && deps.Forge.Merge != nil && s.ciReported() && s.quiet.CanMerge(s.pull(), s.listed())
 }
 
 // ciReported reports CI that says what the forge reported: anything but none,
@@ -31,7 +32,7 @@ func (s reviewState) canMerge(deps Deps) bool {
 // one that failed, CI reads as none, which CanMerge would take for a
 // repository with no CI.
 func (s reviewState) ciReported() bool {
-	return s.ci.State != forge.CINone || (s.checked && s.ciErr == nil)
+	return s.listed().State != forge.CINone || s.ci.Stage() == latest.StageShown
 }
 
 // startMerge opens the merge preview at once and reads which merge methods the
@@ -42,7 +43,7 @@ func (m Model) startMerge() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.overlay = mergePicker{vocab: m.vocab, pull: m.review.pull(), noCI: m.review.ci.State == forge.CINone}
+	m.overlay = mergePicker{vocab: m.vocab, pull: m.review.pull(), noCI: m.review.listed().State == forge.CINone}
 	ctx, methods := m.session, m.deps.Forge.MergeMethods
 
 	return m, func() tea.Msg {

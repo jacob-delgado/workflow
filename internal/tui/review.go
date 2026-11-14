@@ -24,12 +24,8 @@ import (
 // scrolled — which another pull request starts at the top.
 type reviewState struct {
 	find      latest.Read[pullFind]
-	ci        forge.CI
-	checked   bool
+	ci        latest.Read[forge.CI]
 	checkedAt time.Time
-	ciErr     error
-	// ciOut is a read of CI begun and not yet answered.
-	ciOut bool
 	// quiet is how long the pull request's head has reported no check, as
 	// the reads heard count it: a merge under no CI waits on it.
 	quiet   armed.HeadWatch
@@ -59,7 +55,7 @@ type pullFind struct {
 // replaced ends its chain. Every new review goes through here.
 func (m Model) beginReview(find latest.Read[pullFind]) Model {
 	m.reviewsBegun++
-	m.review = reviewState{find: find}
+	m.review = reviewState{find: find, ci: m.review.ci.Cleared()}
 
 	return m
 }
@@ -98,7 +94,7 @@ func (s reviewState) looked() bool {
 // reviewRefreshing reports a read the Review pane's mark turns for: the
 // branch's, the find's or CI's, out over what the pane already shows.
 func (m Model) reviewRefreshing() bool {
-	return m.branch.read.Refreshing() || m.review.find.Refreshing() || (m.review.ciOut && m.review.checked)
+	return m.branch.read.Refreshing() || m.review.find.Refreshing() || m.review.ci.Refreshing()
 }
 
 // reviewVocab is what a change is called on this forge: a pull request on
@@ -300,7 +296,7 @@ func (m Model) reviewDetail(width int) string {
 
 	// A failed read of CI, or a failed find of the pull request held, is
 	// said beneath what it kept.
-	lines = append(lines, m.kit().failureBlocks(width, m.review.ciErr, m.review.find.Err())...)
+	lines = append(lines, m.kit().failureBlocks(width, m.review.ci.Err(), m.review.find.Err())...)
 
 	if m.review.canEditPull(m.deps) {
 		lines = append(lines, "", m.keys.edit.Help().Key+" edits its title and description.")

@@ -211,7 +211,7 @@ func (m Model) moving() bool {
 // frame is asked for yet. Only while: a screen at rest asks for nothing, so
 // the program sleeps until a key or an answer wakes it.
 func (m Model) nextFrame(cmd tea.Cmd) (Model, tea.Cmd) {
-	m.motion = m.motion.aimed(m.spineView().targets(), checksFinished(m.review.ci))
+	m.motion = m.motion.aimed(m.spineView().targets(), checksFinished(m.review.listed()))
 	m.motion.opened = m.motion.opened || !m.reading() && m.deps.now().Sub(m.motion.began) >= openingGrace
 
 	if m.motion.asked || !m.moving() {

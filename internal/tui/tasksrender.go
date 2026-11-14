@@ -308,7 +308,7 @@ func (m Model) branchAndPull() []string {
 	parts := []string{m.branch.checkedOut().Name}
 
 	if m.review.found() {
-		parts = append(parts, m.vocab.sigil+strconv.Itoa(m.review.pull().Number)+" "+m.kit().ciGlyph(m.review.ci.State))
+		parts = append(parts, m.vocab.sigil+strconv.Itoa(m.review.pull().Number)+" "+m.kit().ciGlyph(m.review.listed().State))
 	}
 
 	return parts
