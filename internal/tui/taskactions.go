@@ -26,15 +26,16 @@ var errTaskWriteInFlight = errors.New("another Taskwarrior change is still being
 
 // tasksKeys offers what the Tasks pane answers right now: the verbs on the
 // selected task, adding and undoing, going to its issue and opening its page,
-// reading again, and syncing where the taskrc names a backend. Until Taskwarrior
-// has answered, only reading again; while a write is on its way, no verb.
+// reading again, and syncing where the taskrc names a backend. Until a read
+// has found the tasks, only reading again; while a write is on its way, or
+// after a refresh failed, no verb.
 // Moving through the list is a global affordance, shown in the help rather than
 // the footer, as the other list panes have it.
 func (m Model) tasksKeys() []key.Binding {
 	switch {
 	case m.deps.Tasks.Install == nil:
 		return nil
-	case !m.tasks.answered():
+	case !m.tasks.holdsList():
 		return []key.Binding{m.keys.refresh}
 	}
 
@@ -52,11 +53,11 @@ func (m Model) tasksKeys() []key.Binding {
 }
 
 // verbKeys are the keys that change tasks: those on the selected task where
-// one is, and adding and undoing; none while a write is on its way, and
-// neither a start nor a done on a task just marked done.
+// one is, and adding and undoing; none while a write is on its way or after
+// a read failed, and neither a start nor a done on a task just marked done.
 func (s tasksState) verbKeys(keys keyMap, task taskwarrior.Task, selected bool) []key.Binding {
 	switch {
-	case s.writing:
+	case s.writing || !s.answered():
 		return nil
 	case !selected:
 		return []key.Binding{keys.addTask, keys.undoTask}
@@ -84,10 +85,10 @@ func startOrStop(task taskwarrior.Task) string {
 // run's notice alike.
 const verbStart = "start"
 
-// syncKeys offers syncing, where the taskrc names a backend to sync with and no
-// write is on its way.
+// syncKeys offers syncing, where the taskrc names a backend to sync with, no
+// write is on its way and the latest read did not fail.
 func (s tasksState) syncKeys(keys keyMap) []key.Binding {
-	if !s.install.SyncConfigured || s.writing {
+	if !s.answered() || !s.install().SyncConfigured || s.writing {
 		return nil
 	}
 
@@ -149,7 +150,7 @@ func (m Model) handleTaskVerbKey(msg tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 		}
 	case key.Matches(msg, m.keys.undoTask):
 		act = m.undoTasks
-	case key.Matches(msg, m.keys.syncTasks) && m.tasks.install.SyncConfigured:
+	case key.Matches(msg, m.keys.syncTasks) && m.tasks.install().SyncConfigured:
 		act = m.syncTasks
 	default:
 		return m, nil, false
@@ -160,11 +161,12 @@ func (m Model) handleTaskVerbKey(msg tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 	return next, cmd, true
 }
 
-// currentTask is the task the cursor is on, once Taskwarrior has answered and
-// lists one.
+// currentTask is the task the cursor is on, once a read has found the tasks
+// and lists one: after a failed refresh too, to go to and open, though no
+// verb acts on it then.
 func (m Model) currentTask() (taskwarrior.Task, bool) {
 	groups := m.taskGroups()
-	if !m.tasks.answered() || len(groups.listed()) == 0 {
+	if !m.tasks.holdsList() || len(groups.listed()) == 0 {
 		return taskwarrior.Task{}, false
 	}
 
@@ -338,7 +340,7 @@ func (msg taskActed) apply(m Model) (Model, tea.Cmd) {
 	m.tasks = m.tasks.answeredWrite()
 
 	if msg.err != nil {
-		return m.noticedFailure(msg.err), m.tasks.load(m.session, m.deps)
+		return m.noticedFailure(msg.err).readingTasks()
 	}
 
 	note := taskNote(msg.verb, msg.id, msg.uuid) + msg.after
@@ -346,7 +348,7 @@ func (msg taskActed) apply(m Model) (Model, tea.Cmd) {
 		note += ": " + msg.said
 	}
 
-	return m.noticed(m.marks.done + " " + note), m.tasks.load(m.session, m.deps)
+	return m.noticed(m.marks.done + " " + note).readingTasks()
 }
 
 // taskNote says what was done to a task: by its id, or by the start of its uuid

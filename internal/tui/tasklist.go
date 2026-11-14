@@ -146,7 +146,7 @@ func (m Model) taskGroups() taskGroups {
 func (s tasksState) groupsBy(listing taskListing, issues issueList, now time.Time) taskGroups {
 	var groups taskGroups
 
-	for _, task := range s.pending {
+	for _, task := range s.pending() {
 		_, listed := issues.find(jira.Key(task.IssueKey))
 
 		switch {
@@ -319,10 +319,10 @@ func (s tasksState) unlistedBecause(keys keyMap, unnarrowed taskGroups, task tas
 		return "a recurring template"
 	case s.stubbed(task.UUID):
 		return "just added; " + keys.refresh.Help().Key + " in the Tasks pane reads it"
-	case s.context == "":
+	case s.context() == "":
 		return "not among the tasks just read; " + keys.refresh.Help().Key + " in the Tasks pane reads them again"
 	default:
-		return "outside context " + s.context
+		return "outside context " + s.context()
 	}
 }
 
@@ -350,21 +350,22 @@ func (m Model) sortTasks() Model {
 }
 
 // handleTaskListKey answers the keys that change how the list is listed, once
-// Taskwarrior has answered: none of them writes, so a write on its way does
-// not hold them back. It reports whether it claimed the key.
+// a read has found the tasks, even if a refresh failed since: none of them
+// writes, so neither a write on its way nor a failed read holds them back. It
+// reports whether it claimed the key.
 func (m Model) handleTaskListKey(msg tea.KeyPressMsg) (Model, bool) {
-	if !m.tasks.answered() {
+	if !m.tasks.holdsList() {
 		return m, false
 	}
 
 	switch {
 	case key.Matches(msg, m.keys.sortTasks):
 		return m.sortTasks(), true
-	case key.Matches(msg, m.keys.searchTasks) && len(m.tasks.pending) > 0:
+	case key.Matches(msg, m.keys.searchTasks) && len(m.tasks.pending()) > 0:
 		m.tasks.listing = m.tasks.listing.beginFilter()
 
 		return m.relistTasks(), true
-	case key.Matches(msg, m.keys.filterTasks) && len(m.tasks.pending) > 0:
+	case key.Matches(msg, m.keys.filterTasks) && len(m.tasks.pending()) > 0:
 		return m.openTaskNarrowing(), true
 	default:
 		return m, false
@@ -373,7 +374,7 @@ func (m Model) handleTaskListKey(msg tea.KeyPressMsg) (Model, bool) {
 
 // listKeys are the footer's keys that change how the list is listed.
 func (s tasksState) listKeys(keys keyMap) []key.Binding {
-	if len(s.pending) == 0 {
+	if len(s.pending()) == 0 {
 		return []key.Binding{keys.sortTasks}
 	}
 
@@ -431,7 +432,7 @@ var (
 // those already picked checked.
 func (m Model) openTaskNarrowing() Model {
 	picked := m.tasks.listing.narrowing.Picked
-	choices := taskwarrior.Choices(m.tasks.pending, picked, m.deps.now())
+	choices := taskwarrior.Choices(m.tasks.pending(), picked, m.deps.now())
 	offers := make([]offered[taskwarrior.Facet], 0, len(choices))
 
 	for _, choice := range choices {

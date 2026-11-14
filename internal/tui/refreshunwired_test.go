@@ -34,6 +34,10 @@ func TestARefreshWithNoSeamToReadAsksNothingAndMarksNothing(t *testing.T) {
 			world: withLegacyHooks, unwire: func(deps *tui.Deps) { deps.Hooks.Write = nil },
 			pane: "3", title: commitsGroup, asked: "existing",
 		},
+		"Tasks, with no task program": {
+			world: withTasks, unwire: func(deps *tui.Deps) { deps.Tasks.Install = nil },
+			pane: tasksPane, title: tasksTitle, asked: "tasks",
+		},
 	}
 
 	for name, tt := range tests {

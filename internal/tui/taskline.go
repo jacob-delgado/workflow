@@ -268,5 +268,5 @@ func (msg taskLineSent) apply(m Model) (Model, tea.Cmd) {
 
 	m.tasks = m.tasks.answeredWrite()
 
-	return m, m.tasks.load(m.session, m.deps)
+	return m.readingTasks()
 }

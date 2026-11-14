@@ -74,15 +74,16 @@ func listIssueBranches(ctx context.Context, cfg config.Config, deps Deps) tea.Cm
 }
 
 // withTaskWords is the model with the list told how each issue's tasks stand,
-// once Taskwarrior has answered, so the places filter by what the rows show.
+// as the tasks held have it once a read has found them, so the places filter
+// by what the rows show.
 func (m Model) withTaskWords() Model {
 	var words map[jira.Key]string
 
-	if m.tasks.answered() {
+	if m.tasks.holdsList() {
 		words = map[jira.Key]string{}
 		now := m.deps.now()
 
-		for _, task := range m.tasks.linked {
+		for _, task := range m.tasks.linked() {
 			issueKey := jira.Key(task.IssueKey)
 			words[issueKey] = m.tasks.issueWord(m.kit(), issueKey, now)
 		}
