@@ -39,13 +39,12 @@ type issueList struct {
 	// what is already loaded; filtering records that keystrokes are building it.
 	filter    string
 	filtering bool
-	// places narrows the list to the issues in them; branchKeys and taskWords
-	// are what an issue's marks are read from, and branchesKnown whether the
-	// branches could be listed at all.
-	places        []places.Place
-	branchKeys    map[jira.Key]bool
-	branchesKnown bool
-	taskWords     map[jira.Key]string
+	// places narrows the list to the issues in them; branches, which issues
+	// a branch names as the latest listing found them, and taskWords are what
+	// an issue's marks are read from.
+	places    []places.Place
+	branches  latest.Read[map[jira.Key]bool]
+	taskWords map[jira.Key]string
 }
 
 // found is the list held: what the latest search found, or the cache that

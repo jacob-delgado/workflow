@@ -37,8 +37,9 @@ func (m Model) readingIssues() (Model, tea.Cmd) {
 // that mark its issues in flight, which may have changed since.
 func (m Model) relistingIssues() (Model, tea.Cmd) {
 	m, search := m.readingIssues()
+	m, branches := m.readingIssueBranches()
 
-	return m, tea.Batch(search, listIssueBranches(m.session, m.cfg, m.deps))
+	return m, tea.Batch(search, branches)
 }
 
 // searchPage is the command that reads one page of issues, from startAt, for

@@ -82,7 +82,8 @@ func (msg branchCreated) apply(m Model) (Model, tea.Cmd) {
 	m = m.closeOverlay().noticed(m.marks.done + " created and switched to " + msg.name)
 	m, status := m.readingChanges()
 	m, read := m.readingBranch()
-	reload := tea.Batch(read, status, listIssueBranches(m.session, m.cfg, m.deps))
+	m, branches := m.readingIssueBranches()
+	reload := tea.Batch(read, status, branches)
 
 	// Set before the status picker opens, so the offer waits behind it.
 	if msg.forIssue {
@@ -143,8 +144,9 @@ func (msg worktreeCreated) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	m, reread := m.readingRepositoriesAgain()
+	m, branches := m.readingIssueBranches()
 
-	return m.offeringInProgress(msg.issue, msg.forIssue, tea.Batch(listIssueBranches(m.session, m.cfg, m.deps), reread))
+	return m.offeringInProgress(msg.issue, msg.forIssue, tea.Batch(branches, reread))
 }
 
 // failed is the creator kept open with the reason it could not create what was
