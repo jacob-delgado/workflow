@@ -16,11 +16,11 @@
 #
 # The tap is workflow-check/f<pid>-<random>, refused if Homebrew already has a
 # directory for it or cannot say where one would go as an absolute path, and
-# is made with tap-new --no-git. Homebrew 6 audits no formula from a tap
-# nobody trusts, named in full or not, so where brew has `brew trust` the tap
-# is trusted before the audit, and untrusted on exit: a run killed before then
-# leaves the entry in the trust store, which `brew untrust --tap` takes back.
-# An older brew, which has no tap trust, is asked for none. Once made, the
+# is made with tap-new --no-git. Homebrew 7.0.11 and later load no formula
+# from a tap nobody trusts, even named in full, so where brew has `brew trust`
+# the tap is trusted before the audit, and untrusted on exit: a run killed
+# before then leaves the entry in the trust store, which `brew untrust --tap`
+# takes back. A brew with no tap trust is asked for none. Once made, the
 # tap's directory is removed on exit, directly: brew untap can refuse a tap
 # that is not trusted. Nothing else is removed, and no other trust is changed.
 #
