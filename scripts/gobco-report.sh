@@ -3,6 +3,7 @@
 #
 # Usage: gobco-report.sh <floor> <package root>...
 #        gobco-report.sh --package <import path> [--package <import path>]... <floor>
+#        GATE_BASE=<ref> gobco-report.sh ...
 #
 # The roots are the caller's: `task cover:branch` passes Taskfile.yml's
 # GO_PKGS, the one place they are written. Every package under them is
@@ -21,13 +22,24 @@
 # The score is arms observed / arms present: every condition has two arms, and a
 # condition seen only one way scores 1 of 2.
 #
-# Beside the module's floor, two more checks fail the run:
+# Beside the module's floor, three more checks fail the run:
 #
 #   - AN ARM NO TEST REACHED. A condition never evaluated, and an error check
 #     whose error arm was never seen, are named by file, line and function,
 #     and fail unless a line of scripts/gobco-allowlist.txt keeps that arm for
-#     a kept trade-off in TECH_DEBT.md. Any other condition seen one way is
-#     only listed: that is the worklist.
+#     a kept trade-off in TECH_DEBT.md.
+#   - A CONDITION SEEN ONE WAY ON A LINE THE CHANGE TOUCHED. One on a line the
+#     working tree adds or modifies since its merge base with GATE_BASE
+#     (origin/main when unset) fails the same way, since a defect once
+#     shipped behind one the report listed (TRADE-19). Any other condition
+#     seen one way is only listed: that is the worklist. GATE_BASE set empty,
+#     as CI sets it on a push to main, names no base, and the run says so and
+#     skips this check alone; so does a clone that holds no origin/main, or
+#     no merge base with it, as a shallow one may, while GATE_BASE is unset.
+#     A base GATE_BASE names that the clone does not hold, or shares no
+#     commit with, fails the run instead, so a pull request whose checkout
+#     lost its base's history cannot pass unjudged. CI fetches the whole
+#     history for a pull request, and names its base branch.
 #   - A PACKAGE BELOW ITS OWN FLOOR. Each package scripts/gobco-floors.txt
 #     names answers to the floor there as well as to the module's, since a
 #     small package's gaps barely move a share internal/tui dominates.
@@ -158,6 +170,19 @@ readonly ratchet_slack=2
 # report reads the files committed beside it.
 readonly allowlist_file="${GOBCO_ALLOWLIST:-${repo_root}/scripts/gobco-allowlist.txt}"
 readonly floors_file="${GOBCO_FLOORS:-${repo_root}/scripts/gobco-floors.txt}"
+# GATE_BASE is the branch a change is judged against: origin/main when it is
+# unset, and none when it is set empty, as CI sets it on a push to main and
+# scripts/gate-as-dev.sh hands it on when its worktree holds no base.
+# GOBCO_CHANGES_ROOT is one more seam for the test harness: the repository
+# whose changes are judged, and under which a condition's relative path lies,
+# this one unset.
+readonly base="${GATE_BASE-origin/main}"
+named_base=0
+if [[ -n "${GATE_BASE:-}" ]]; then
+  named_base=1
+fi
+readonly named_base
+readonly changes_root="${GOBCO_CHANGES_ROOT:-${repo_root}}"
 
 # A floors file that is not there would hold no package to a floor of its
 # own, and pass as one whose packages all hold to theirs.
@@ -257,8 +282,9 @@ for package in ${packages}; do
   # gobco's per-condition output is the worklist — print it, since a percentage
   # alone tells nobody which test to write next. Trade-off TRADE-19: a
   # condition it lists as seen one way stays the worklist here, not an entry
-  # in TECH_DEBT.md, unless it is an error check whose error arm went unseen;
-  # that, and a condition never evaluated, fail below.
+  # in TECH_DEBT.md, unless it is an error check whose error arm went unseen
+  # or it lies on a line this change touched; those, and a condition never
+  # evaluated, fail below.
   if [[ -z "${files}" ]]; then
     gobco -stats "${out_dir}/${slug}.json" -test=-vet=off "./${rel}" 2>&1 || unexpected="${unexpected} ${rel}"
     continue
@@ -387,10 +413,68 @@ conditions="$(
     | map(tostring) | join("\t")' "${out_dir}"/*.json
 )"
 
-# An arm no test reached fails, unless a line of the allowlist keeps it for a
+# changed_lines prints each line of a Go file that the working tree adds or
+# modifies since a commit, "<absolute path>\t<line>": a line replaced counts
+# as modified, a renamed file only for the lines it changed, and a deleted
+# line for nothing, since no condition is left on it. The working tree, not
+# HEAD, since that is what gobco measured; a file counts once git tracks it.
+#   changed_lines <commit>
+changed_lines() {
+  git -C "${changes_root}" -c core.quotePath=false diff --no-color --no-ext-diff --no-textconv \
+    --find-renames --unified=0 --src-prefix=a/ --dst-prefix=b/ "$1" -- '*.go' \
+    | awk -v root="${changes_root}" '
+      /^\\/ { next }
+      left > 0 { left--; next }
+      /^\+\+\+ / { file = ($2 == "/dev/null") ? "" : substr($0, 7); next }
+      /^@@ / {
+        old = split(substr($2, 2), from, ",") > 1 ? from[2] : 1
+        new = split(substr($3, 2), to, ",") > 1 ? to[2] : 1
+        left = old + new
+        for (line = to[1] + 0; line < to[1] + new; line++) printf "%s/%s\t%d\n", root, file, line
+      }'
+}
+
+# The lines this change touched, judged from its merge base with the base, so
+# a line the base changed after the fork is none of them. Trade-off TRADE-19:
+# a condition seen one way fails on such a line alone; elsewhere it stays the
+# worklist above. Where no base can be found, that check alone is skipped, and
+# the run says so rather than pass a change it could not judge; where the base
+# GATE_BASE names cannot be found, the run fails, since a pull request's run
+# that lost its base would otherwise pass every change unjudged.
+skipped="no condition seen one way fails for its line; the floors and the arms no test reached hold as ever."
+changed=""
+since=""
+# unjudged says why no line can be judged changed: as a note where the base
+# is origin/main by default, and as a failure where GATE_BASE names it.
+#   unjudged <why>
+unjudged() {
+  if ((named_base)); then
+    printf 'GATE_BASE names %s. %s, so the lines this change touched cannot be judged.\n' "${base}" "$1" >&2
+    printf "Fetch the base and its history, as CI's checkout does with fetch-depth: 0.\n" >&2
+    failed=1
+  else
+    printf '%s, so %s\n' "$1" "${skipped}"
+  fi
+}
+if [[ -z "${base}" ]]; then
+  printf "GATE_BASE is empty, so this change's lines are judged against no base: %s\n" "${skipped}"
+elif ! git -C "${changes_root}" rev-parse --verify --quiet "${base}^{commit}" >/dev/null 2>&1; then
+  unjudged "This clone holds no ${base}"
+elif ! fork="$(git -C "${changes_root}" merge-base "${base}" HEAD 2>/dev/null)"; then
+  unjudged "${base} shares no commit with HEAD here, as in a shallow clone"
+else
+  since="${base} (merge base ${fork:0:8})"
+  changed="${out_dir}/changed-lines.txt"
+  changed_lines "${fork}" >"${changed}"
+  printf 'A condition seen one way fails on a line changed since %s.\n' "${since}"
+fi
+
+# An arm no test reached fails, and so does a condition seen one way on a line
+# this change touched, unless a line of the allowlist keeps it for a
 # trade-off: scripts/lib/gobco-arms.awk says which arms those are, and how a
 # line keeps one. Columns count bytes, as Go's do, so it reads in the C locale.
 LC_ALL=C awk -F'\t' -v allowlist="${allowlist_file}" -v whole="${whole_module}" -v goos="$(go env GOOS)" \
+  -v root="${changes_root}" -v changed="${changed}" -v since="${since}" \
   -f "${repo_root}/scripts/lib/gobco-arms.awk" <<<"${conditions}" || failed=1
 
 if ((failed)); then

@@ -156,11 +156,12 @@ as its status, so a gate that fails for the wrong reason fails the test.
   number, a ratchet as much as a bump, appends a row to
   `package-size-budget-history.md`; an earlier row is never rewritten.
 - `gobco-allowlist.txt`: each line keeps one arm for the `TRADE-n` it names,
-  which `check-tradeoffs.sh` holds to the register; a line whose arm a test
-  comes to reach fails until it goes. `gobco-floors.txt` holds a package to a
-  condition floor of its own, raised only once the coverage is there, to
-  floor(measured) − 2, and lowered only as the root `CLAUDE.md`'s *Testing*
-  allows.
+  which `check-tradeoffs.sh` holds to the register; a line whose condition a
+  test comes to see both ways fails until it goes, and one kept for an arm a
+  test comes to reach stays while the other arm goes unseen (TRADE-19).
+  `gobco-floors.txt` holds a package to a condition floor of its own, raised
+  only once the coverage is there, to floor(measured) − 2, and lowered only as
+  the root `CLAUDE.md`'s *Testing* allows.
 - `dependency-age-exceptions.txt`: a version younger than a week, with the
   CVE or GHSA it fixes or the maintainer's dated waiver; an npm version
   `web/yarn.lock` resolves also needs its line in `web/.yarnrc.yml`, which

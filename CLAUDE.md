@@ -406,11 +406,13 @@ condition floor in `scripts/gobco-floors.txt`. Statement coverage says a line
 ran; condition coverage (gobco, `task cover:branch`) says whether an
 `if a && b` was ever seen with `b` false, and its per-condition output is a
 worklist of missing test cases, not a percentage to chase. A condition no test
-evaluated, or an error check whose error arm no test reached, fails the gate
-unless `scripts/gobco-allowlist.txt` keeps it for a trade-off;
-CONTRIBUTING.md's *Tests* says what counts as an error check. A floor is
-raised only once the coverage is already there, to `floor(measured) − 2`,
-which the gates print. A floor is lowered only for a valid reason, such as
+evaluated, an error check whose error arm no test reached, and a condition
+seen one way on a line the change adds or modifies (judged against the merge
+base with `GATE_BASE`, `origin/main` by default) fail the gate unless
+`scripts/gobco-allowlist.txt` keeps it for a trade-off; an untouched one seen
+one way stays on the worklist. CONTRIBUTING.md's *Tests* says what counts as
+an error check. A floor is raised only once the coverage is already there, to
+`floor(measured) − 2`, which the gates print. A floor is lowered only for a valid reason, such as
 code nothing else can test (a library's own internal paths), a package
 leaving with its tested code, or a change of metric, and never just to make a
 red run pass: the commit that causes the drop sets it to `floor(measured) − 2`

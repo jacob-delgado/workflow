@@ -17,8 +17,12 @@
 # number, for a trade-off (a new arm added above a kept arm a test came to
 # reach takes its number, a limit TRADE-19 keeps and a case below pins); a
 # line keeps one arm, on the systems it names, and no other line may keep it
-# too; a line whose arm a test now reaches, or that is not shaped as one,
-# fails too; and a boolean seen one way is only listed.
+# too; a line whose condition a test now sees both ways, or that is not shaped
+# as one, fails too, though one kept for an arm a test now reaches stays while
+# the other arm goes unseen, a second limit TRADE-19 keeps and a case pins; and
+# a boolean seen one way on a line the change left as it was is only listed.
+# gobco-report_changes_test.sh holds one on a line the change touched.
+#
 # Each package the floors file names answers to its own floor beside the
 # module's, by its path, though it hold an underscore, a floor without a
 # reason above it fails, and so do a floor for a package that holds no
@@ -26,19 +30,8 @@
 #
 # A run as root says that the tests skipped under root leave arms unseen.
 #
-# The stand-in gobco says which package or file it measured, writes
-# GOBCO_STUB_STATS to the file after -stats, or nothing when that is empty, or
-# no condition at all for the package GOBCO_STUB_EMPTY names, ignores its other
-# flags, and fails as gobco does on a package it cannot read when its package
-# or file is GOBCO_STUB_UNREADABLE. A go ahead of the real one answers `go
-# version -m`, which cannot read a script, with the Go this project builds with
-# or GO_STUB_BUILT_BY, and adds GO_STUB_UNTESTED to the packages listed without
-# tests; everything else reaches the real go, so the untested packages checked
-# are the module's own. An id ahead of the real one answers `id -u` with
-# ID_STUB_UID, or a user's by default. OUT_DIR is always a temporary directory,
-# because the report empties the directory it writes to. GOBCO_ALLOWLIST and
-# GOBCO_FLOORS name an empty file unless a case writes its own, so the
-# repository's own lines play no part.
+# lib/gobco-report-fixtures.sh says what the stand-ins do, and which seams
+# every case sets.
 #
 # Usage:
 #   scripts/gobco-report_test.sh
@@ -49,71 +42,16 @@ readonly report="${here}/gobco-report.sh"
 
 # shellcheck source=lib/testing.sh
 source "${here}/lib/testing.sh"
+# shellcheck source=lib/gobco-report-fixtures.sh
+source "${here}/lib/gobco-report-fixtures.sh"
 
-real_go="$(command -v go)"
-readonly real_go
-module="$(cd "${here}/.." && "${real_go}" list -m)"
-readonly module
 go_pkgs="$(sed -n 's/^  GO_PKGS: //p' "${here}/../Taskfile.yml")"
 readonly go_pkgs
-
-mkdir -p "${workdir}/bin"
-cat >"${workdir}/bin/gobco" <<'STUB'
-#!/usr/bin/env bash
-package="${*: -1}"
-if [[ -n "${GOBCO_STUB_UNREADABLE:-}" && "${package}" == "${GOBCO_STUB_UNREADABLE}" ]]; then
-  echo "gobco: ${package}: cannot load the package" >&2
-  exit 1
-fi
-echo "gobco: measured ${package}"
-stats="${GOBCO_STUB_STATS:-}"
-if [[ "${package}" == "${GOBCO_STUB_EMPTY:-}" ]]; then
-  stats='[]'
-fi
-while (($# > 0)); do
-  if [[ "$1" == "-stats" && -n "${stats}" ]]; then
-    printf '%s\n' "${stats}" >"$2"
-  fi
-  shift
-done
-STUB
-cat >"${workdir}/bin/go" <<'STUB'
-#!/usr/bin/env bash
-if [[ "$1" == "version" && "$2" == "-m" ]]; then
-  printf '%s: %s\n' "$3" "${GO_STUB_BUILT_BY:-$("${REAL_GO}" env GOVERSION)}"
-  exit 0
-fi
-"${REAL_GO}" "$@" || exit
-if [[ "$1" == "list" && "$3" == "{{if not"* && -n "${GO_STUB_UNTESTED:-}" ]]; then
-  printf '%s\n' "${GO_STUB_UNTESTED}"
-fi
-STUB
-cat >"${workdir}/bin/id" <<'STUB'
-#!/usr/bin/env bash
-if [[ "$*" == "-u" ]]; then
-  echo "${ID_STUB_UID:-1000}"
-  exit 0
-fi
-exec /usr/bin/id "$@"
-STUB
-chmod +x "${workdir}/bin/gobco" "${workdir}/bin/go" "${workdir}/bin/id"
 
 # Statistics for one condition seen both ways: two arms of two. And for one
 # seen only one way: one arm of two, 50%.
 readonly both_ways='[{"TrueCount":1,"FalseCount":1}]'
 readonly one_way='[{"TrueCount":1,"FalseCount":0}]'
-
-readonly no_lines="${workdir}/no-lines.txt"
-: >"${no_lines}"
-
-# expect runs the report with the stand-ins, and compares its exit and output.
-#   expect <pass|fail> <name> <stats> <untested> <want in output> [arg...]
-expect() {
-  expect_output "$1" "$2" "$5" env PATH="${workdir}/bin:${PATH}" REAL_GO="${real_go}" \
-    OUT_DIR="${workdir}/out" GOBCO_STUB_STATS="$3" GO_STUB_UNTESTED="$4" \
-    GOBCO_ALLOWLIST="${GOBCO_ALLOWLIST:-${no_lines}}" GOBCO_FLOORS="${GOBCO_FLOORS:-${no_lines}}" \
-    "${report}" "${@:6}"
-}
 
 expect fail "no floor argument" "${both_ways}" "" "usage: gobco-report.sh <floor>"
 expect fail "a gobco that wrote no statistics" "" "" \
@@ -153,7 +91,7 @@ ID_STUB_UID=0 expect pass "a run as root" "${both_ways}" "" \
   "This runs as root" --package "${module}/internal/buildinfo" 50
 run_case env PATH="${workdir}/bin:${PATH}" REAL_GO="${real_go}" OUT_DIR="${workdir}/out" \
   GOBCO_STUB_STATS="${both_ways}" GOBCO_ALLOWLIST="${no_lines}" GOBCO_FLOORS="${no_lines}" \
-  "${report}" --package "${module}/internal/buildinfo" 50
+  GOBCO_CHANGES_ROOT="${fixture_repo}" GATE_BASE=base "${report}" --package "${module}/internal/buildinfo" 50
 if ((case_status != 0)) || [[ "$(<"${case_output}")" == *"as root"* ]]; then
   fail_case "a run as a user" "want it to pass saying nothing of root, got exit ${case_status}:"
   show_output
@@ -175,103 +113,12 @@ expect fail "no package roots" "${both_ways}" "" "usage: gobco-report.sh <floor>
 expect fail "roots and packages both" "${both_ways}" "" "usage: gobco-report.sh <floor> <package root>..." \
   --package "${module}/internal/buildinfo" 50 ./internal/...
 
-# The arms no test reached. A fixture of Go source gives the conditions a
-# file to stand in, so the report can name the function each lies in; its
-# lines are the ones the statistics below point at.
-readonly fixture="${workdir}/fixture/reader.go"
-mkdir -p "$(dirname "${fixture}")"
-cat >"${fixture}" <<'GO'
-package fixture
-
-func (r *reader[T]) read() error {
-	err := r.open()
-	if err != nil {
-		return err
-	}
-
-	return r.close()
-}
-
-func ready(open bool, err error) bool {
-	return open && err == nil
-}
-
-func (w *watcher) wait(ctx context.Context) error {
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
-
-	if context.Background().Err() != nil {
-		return nil
-	}
-
-	if _, errParse := strconv.Atoi(w.text); errParse != nil {
-		return errParse
-	}
-
-	return w.handle(w.errorHandler != nil)
-}
-
-func (c *cache[K, V]) get(key K) error {
-	if err := c.read(key); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func remove(path string) error {
-	if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return err
-	}
-
-	if err := os.Remove(path); err != nil &&
-		errors.Is(err, fs.ErrPermission) {
-		return nil
-	}
-
-	if ok := exists(path); ok && errors.Is(lastErr, fs.ErrExist) {
-		return nil
-	}
-
-	return nil
-}
-
-func (f *file) close() error {
-	if closeErr := f.handle.Close(); closeErr != nil {
-		return closeErr
-	}
-
-	if err2 := f.sync(); err2 != nil {
-		return err2
-	}
-
-	return nil
-}
-GO
-
-# condition writes the statistics of one condition at a line and column of
-# the fixture: its code, and how often it was seen true and false.
-#   condition <line:col> <code> <true count> <false count>
-condition() {
-  printf '{"Start":"%s:%s","Code":"%s","TrueCount":%s,"FalseCount":%s}' "${fixture}" "$1" "$2" "$3" "$4"
-}
-
+# The arms no test reached, at the lines of the fixture's Go source.
 error_arm_unseen="[$(condition 5:5 'err != nil' 0 3),$(condition 13:17 'err == nil' 2 0)]"
 never_evaluated="[$(condition 13:9 'open' 0 0)]"
 boolean_one_way="[$(condition 13:9 'open' 4 0)]"
 seen_both_ways="[$(condition 5:5 'err != nil' 1 3),$(condition 13:17 'err == nil' 2 1)]"
 twice_unseen="[$(condition 5:5 'err != nil' 0 3),$(condition 9:9 'err != nil' 0 1)]"
-buildinfo="${module}/internal/buildinfo"
-
-# allowlist writes an allowlist holding the given lines, and names it.
-#   allowlist <name> [line...]
-allowlist() {
-  local file="${workdir}/allowlist-$1.txt"
-  shift
-  printf '%s\n' "# kept arms" "$@" >"${file}"
-  printf '%s' "${file}"
-}
 
 # An error check whose error arm no test reached fails the run, by file, line
 # and function, as does one spelled the other way round.
@@ -327,7 +174,8 @@ expect pass "a name that only begins with err" "[$(condition 29:18 'w.errorHandl
 expect fail "a condition never evaluated" "${never_evaluated}" "" \
   "${fixture}:13:9 in ready: \"open\", number 1 there, was never evaluated" --package "${buildinfo}" 50
 
-# A boolean seen one way is the worklist's, not the gate's.
+# A boolean seen one way on a line the change left as it was is the
+# worklist's, not the gate's.
 expect pass "a boolean seen one way" "${boolean_one_way}" "" \
   "Condition coverage 50.0% (floor 50%)." --package "${buildinfo}" 50
 
@@ -371,10 +219,18 @@ twice="$(allowlist twice "${fixture} reader.read TRADE-1 any 1 err != nil" \
 GOBCO_ALLOWLIST="${twice}" expect fail "two lines keeping one arm" "${error_arm_unseen}" "" \
   "${twice}:3: keeps the arm line 2 keeps already" --package "${buildinfo}" 50
 
-# A line whose arm a test now reaches keeps nothing, and goes.
+# A line whose condition a test now sees both ways keeps nothing, and goes.
 GOBCO_ALLOWLIST="${kept}" expect fail "a line whose arm a test now reaches" "${seen_both_ways}" "" \
   "${kept}:2: no unseen arm is left for \"${fixture} reader.read TRADE-1 any 1 err != nil\"" \
   --package "${buildinfo}" 50
+
+# The second limit TRADE-19 names: a line does not say which arm it keeps, and
+# may keep a condition seen one way, so one kept for a condition never
+# evaluated stays once a test reaches it one way, the other arm unseen. This
+# case pins what the gate cannot catch, so a change to the matching changes it.
+unevaluated="$(allowlist unevaluated "${fixture} ready TRADE-1 any 1 open")"
+GOBCO_ALLOWLIST="${unevaluated}" expect pass "the known limit: a line kept for a condition never evaluated, now seen one way" \
+  "[$(condition 13:9 'open' 0 3)]" "" "Condition coverage 50.0% (floor 50%)." --package "${buildinfo}" 50
 
 # A line names the systems it holds on; elsewhere it neither keeps its arm nor
 # is missed.
