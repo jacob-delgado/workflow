@@ -88,7 +88,7 @@ func (m Model) announcement(moment messaging.Moment) string {
 	issue, _ := m.issues.find(issueKey)
 
 	return loop.Announcement(loop.AnnouncementFacts{
-		Author: m.messaging.author, Pull: m.review.pull, IssueKey: issueKey,
+		Author: m.messaging.author, Pull: m.review.pull(), IssueKey: issueKey,
 		IssueSummary: issue.Summary, IssueURL: browseURL(m.deps, issueKey), Moment: moment,
 	}, m.cfg.Messaging, m.deps.Forge.Kind).Text()
 }
@@ -118,7 +118,7 @@ func (m Model) announceStanding() string {
 		loop.StandingPosted:      func() string { return kit.marks.done + " announced" },
 		loop.StandingUnconfirmed: m.unconfirmedLine,
 		loop.StandingNone:        m.holdLine,
-	}[loop.StandingOf(m.messaging.claims, m.review.pull, m.review.found)]()
+	}[loop.StandingOf(m.messaging.claims, m.review.pull(), m.review.found())]()
 }
 
 // unconfirmedLine says that the post of the pull request on screen began and
@@ -126,7 +126,7 @@ func (m Model) announceStanding() string {
 // asking first, posts it again.
 func (m Model) unconfirmedLine() string {
 	record, _ := loop.RecordOf(m.messaging.claims,
-		loop.Announced{Pull: m.review.pull.Number, Moment: loop.AnnounceMoment(m.review.pull)})
+		loop.Announced{Pull: m.review.pull().Number, Moment: loop.AnnounceMoment(m.review.pull())})
 
 	began := record.ClaimedAt.In(m.deps.now().Location()).Format(claimedFormat)
 
@@ -216,7 +216,7 @@ func (m Model) messagingDetail(width int) string {
 	}
 
 	lines := []string{
-		m.announcement(loop.AnnounceMoment(m.review.pull)),
+		m.announcement(loop.AnnounceMoment(m.review.pull())),
 		"",
 		m.styles.label.Render("to     ") + sanitize.Line(m.cfg.Messaging.Target()),
 		m.styles.label.Render("CI     ") + m.review.ciSummary(m.kit()),
@@ -242,13 +242,13 @@ func (m Model) withPostFailure(lines []string, width int) []string {
 // holds was read already and is in memory, so nothing is asked and no
 // context could stop it.
 func (s messagingState) announced(review reviewState) bool {
-	return loop.StandingOf(s.claims, review.pull, review.found) != loop.StandingNone
+	return loop.StandingOf(s.claims, review.pull(), review.found()) != loop.StandingNone
 }
 
 // onScreen reports that the pull request numbered number is the one on
 // screen: the branch's, found.
 func (m Model) onScreen(number int) bool {
-	return m.review.found && m.review.pull.Number == number
+	return m.review.found() && m.review.pull().Number == number
 }
 
 // claimed reports that made was claimed, as the store last said.
@@ -370,7 +370,7 @@ func (m Model) handleMessagingKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // request's current moment, and starts reading whom it tags.
 func (m Model) previewAnnouncement() (Model, tea.Cmd) {
 	channels, channel := m.cfg.Messaging.ChannelChoices(), defaultChannel(m.cfg)
-	moment := loop.AnnounceMoment(m.review.pull)
+	moment := loop.AnnounceMoment(m.review.pull())
 	m, opened := m.opening()
 
 	preview, readTags := m.withTagging(messagingPreview{

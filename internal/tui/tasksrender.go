@@ -307,8 +307,8 @@ func (v tasksView) issueLine(task taskwarrior.Task) string {
 func (m Model) branchAndPull() []string {
 	parts := []string{m.branch.checkedOut().Name}
 
-	if m.review.found {
-		parts = append(parts, m.vocab.sigil+strconv.Itoa(m.review.pull.Number)+" "+m.kit().ciGlyph(m.review.ci.State))
+	if m.review.found() {
+		parts = append(parts, m.vocab.sigil+strconv.Itoa(m.review.pull().Number)+" "+m.kit().ciGlyph(m.review.ci.State))
 	}
 
 	return parts

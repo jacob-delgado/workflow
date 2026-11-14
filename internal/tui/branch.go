@@ -53,13 +53,11 @@ func (msg branchLoaded) apply(m Model) (Model, tea.Cmd) {
 	m.branch.read = read
 
 	if msg.err != nil && held {
-		m.review.loading = false
-
 		return m.noticedFailureLedBy("could not read the branch: ", msg.err), nil
 	}
 
 	if previous.Name != msg.branch.Name {
-		m = m.beginReview(reviewState{})
+		m = m.beginReview(m.review.find.Cleared())
 		// The failed-post error and its author belonged to the branch just
 		// left; on a new branch they are stale, and so is how far the Branch
 		// and messaging details were scrolled into it. An announcement waiting
@@ -69,12 +67,7 @@ func (msg branchLoaded) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	m, detail := m.resumeIssue().loadDetail()
-
-	find := m.branch.findPull(m.session, m.deps, m.reviewsBegun)
-	if find == nil {
-		// No pull request is looked for, so a Review refresh waits on nothing more.
-		m.review.loading = false
-	}
+	m, find := m.findingPull()
 
 	// Your forge name is asked for here, not only once a pull request is
 	// found, because assigning a forge issue starts from it on any branch.

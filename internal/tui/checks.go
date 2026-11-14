@@ -196,7 +196,7 @@ func (msg checkOpened) apply(m Model) (Model, tea.Cmd) {
 // request that has merged is left alone even if a stale CI read still reads as
 // failed: there is nothing to re-run once it is in.
 func (s reviewState) canRerun(deps Deps) bool {
-	return s.found && deps.Forge.Rerun != nil && loop.CanRerun(s.pull, s.ci)
+	return s.found() && deps.Forge.Rerun != nil && loop.CanRerun(s.pull(), s.ci)
 }
 
 // previewRerun holds the re-run of the failed checks for a last look, naming the
@@ -206,7 +206,7 @@ func (m Model) previewRerun() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	pull, head := m.review.pull, m.branch.checkedOut().Head
+	pull, head := m.review.pull(), m.branch.checkedOut().Head
 	m.overlay = lastLook{
 		title: "Re-run checks",
 		body:  "Re-run the failed checks on " + m.vocab.sigil + strconv.Itoa(pull.Number) + " " + pull.Title + "?",

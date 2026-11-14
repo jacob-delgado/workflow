@@ -112,7 +112,7 @@ func (p messagingPreview) changedRefusal(m Model) error {
 		return errBeganMerging
 	}
 
-	if m.messaging.claimed(loop.Announced{Pull: m.review.pull.Number, Moment: p.moment}) {
+	if m.messaging.claimed(loop.Announced{Pull: m.review.pull().Number, Moment: p.moment}) {
 		return errAlreadyAnnounced
 	}
 

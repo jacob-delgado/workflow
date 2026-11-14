@@ -36,3 +36,27 @@ func TestAnEditSavedAfterTheReviewMovedOnLeavesTheOtherPullRequestAsItIs(t *test
 	requireScreen(t, view, "#43 "+otherPullTitle)
 	refuseScreen(t, view, pullTitle+" refined")
 }
+
+func TestAnEditSavedAfterTheReviewFoundNoPullRequestBringsNoneBack(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A refresh looks for the branch's pull request, slowly, and finds none
+	// now; #42's title is edited and saved, and the save answers once the
+	// pane shows no pull request.
+	repo := newWorld()
+	pane := typing(t, repo.live(t, 120, 40), "4")
+	repo.pullFound = false
+	finding, found := withheldKeys(t, pane, repo.counting("find "), "r")
+
+	editKeys := append([]string{"e"}, append(letters(" refined"), keyEnter)...)
+	saving, saved := withheldKeys(t, finding, repo.counting("edit "), editKeys...)
+	moved := handedOver(t, saving, found)
+
+	// Act
+	view := handedOver(t, moved, saved).View().Content
+
+	// Assert
+	requireScreen(t, view, "no pull request yet")
+	refuseScreen(t, view, pullTitle+" refined")
+}

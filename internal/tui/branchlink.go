@@ -81,9 +81,9 @@ func (m Model) openBranchLink() (Model, tea.Cmd) {
 	// branch neither edits its description nor offers it on the issue.
 	var pull forge.PullRequest
 
-	hasPull := m.review.found && m.review.pull.IsOpen()
+	hasPull := m.review.found() && m.review.pull().IsOpen()
 	if hasPull {
-		pull = m.review.pull
+		pull = m.review.pull()
 	}
 
 	m.overlay = branchLinker{

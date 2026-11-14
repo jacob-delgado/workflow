@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"slices"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -138,6 +139,25 @@ func (kit renderKit) unreadRow(err error, failed string) string {
 // error in full, on the one row.
 func (kit renderKit) failureLine(err error) string {
 	return kit.voicedMark(err) + " " + inFull(err)
+}
+
+// failureBlocks says each failure among errs that is not nil, beneath what
+// comes before it, after a blank line; two reads that failed in the same
+// words are said once.
+func (kit renderKit) failureBlocks(width int, errs ...error) []string {
+	var lines []string
+
+	for _, err := range errs {
+		if err == nil {
+			continue
+		}
+
+		if block := kit.failureBlock(err, width); !slices.Contains(lines, block) {
+			lines = append(lines, "", block)
+		}
+	}
+
+	return lines
 }
 
 // failureBlock is a failure given room of its own — a pane, an overlay's pinned
