@@ -135,8 +135,8 @@ func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 	proposed := m.proposePullRequest(branch, issueKey, issue.Summary)
 
 	m, proposed.opened = m.opening()
-	if m.prDraft.branch == branch.Name {
-		proposed = proposed.restore(m.prDraft)
+	if kept, drafted := m.prDrafts.on(branch.Name); drafted {
+		proposed = proposed.restore(kept)
 	}
 
 	var reviewers, title tea.Cmd
@@ -304,7 +304,7 @@ func (c prComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case c.send.sending:
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
-		m.prDraft = c.snapshot()
+		m.prDrafts = m.prDrafts.keeping(c.snapshot())
 
 		return m.closeOverlay().noticedDraftKept(m.keys.newPullRequest), nil
 	case c.stage == prReading:

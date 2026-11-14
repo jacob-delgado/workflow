@@ -79,9 +79,10 @@ type Model struct {
 	// commitDrafts are the commit messages composed and not yet committed,
 	// one per branch, each kept for the branch it was written on.
 	commitDrafts commitDrafts
-	// prDraft is the pull request last composed and not yet opened, kept per
-	// branch so a failed push or an esc does not lose it.
-	prDraft prDraft
+	// prDrafts are the pull requests composed and not yet opened, one per
+	// branch, each kept for the branch it was written on, so a failed push
+	// or an esc does not lose it.
+	prDrafts prDrafts
 	// vocab is what a change is called on this forge, pull request or merge
 	// request, fixed for the session by the forge the remote points at.
 	vocab reviewVocab
