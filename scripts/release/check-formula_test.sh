@@ -30,12 +30,13 @@ unset $(compgen -e HOMEBREW_)
 #   BREW_STUB_TAP_NEW_FAILS is set;
 #   --version with two lines, as brew does, or by failing when
 #   BREW_STUB_VERSION_FAILS is set;
-#   trust and untrust, as Homebrew 6 does, keeping the taps trusted one a line
-#   in BREW_STUB_TRUSTED: trust --help with its usage, trust --tap <user>/<repo>
-#   by adding it, or by failing when BREW_STUB_TRUST_FAILS is set, and
+#   trust and untrust, as Homebrew 7.0.11 does, keeping the taps trusted one
+#   a line in BREW_STUB_TRUSTED: trust --help with its usage, trust --tap
+#   <user>/<repo> by adding it, or by failing when BREW_STUB_TRUST_FAILS is
+#   set, and
 #   untrust --tap <user>/<repo> by taking it out, or by failing when
 #   BREW_STUB_UNTRUST_FAILS is set; or, when BREW_STUB_NO_TRUST is
-#   set, as a Homebrew older than 6 does, by knowing neither command;
+#   set, as a Homebrew without tap trust does, by knowing neither command;
 #   audit by refusing a formula from a tap not trusted, unless
 #   BREW_STUB_NO_TRUST is set, then keeping the formula its last argument
 #   names, <user>/<repo>/<name>, in BREW_STUB_AUDITED, and failing, saying
