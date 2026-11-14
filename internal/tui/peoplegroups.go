@@ -11,6 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/tui/latest"
 )
 
 // readRepoGroups reads the user groups this repository tags, in the Slack
@@ -57,7 +58,7 @@ func (msg repoGroupsListed) apply(m Model) (Model, tea.Cmd) {
 // withChoices is the checklist rebuilt from Slack's groups and the
 // repository's, the cursor held in range.
 func (p peopleOverlay) withChoices() peopleOverlay {
-	choices := slices.Clone(p.groups.entries)
+	choices := slices.Clone(p.groups.entries())
 
 	for _, group := range p.chosen {
 		if !slices.ContainsFunc(choices, func(listed loop.SlackTarget) bool { return listed.ID == group.ID }) {
@@ -74,13 +75,13 @@ func (p peopleOverlay) withChoices() peopleOverlay {
 func (p peopleOverlay) groupLines(kit renderKit, width, rows int) []string {
 	var lines []string
 
-	for _, err := range []error{p.groups.err, p.repoErr} {
+	for _, err := range []error{p.groups.err(), p.repoErr} {
 		if err != nil {
 			lines = append(lines, kit.failureBlock(err, width))
 		}
 	}
 
-	if p.groups.reading {
+	if p.groups.reading() {
 		lines = append(lines, kit.marks.inFlight+" reading the user groups"+kit.marks.ellipsis)
 	}
 
@@ -173,13 +174,17 @@ func (msg repoGroupsSaved) apply(m Model) (Model, tea.Cmd) {
 	return m.withBeneath(open).noticed(m.marks.done + " saved the groups this repository tags"), nil
 }
 
-// refreshed drops the directory read so far and reads it again.
+// refreshed reads the directory again, superseding every read of it still on
+// its way, and shows what it read until then.
 func (p peopleOverlay) refreshed(m Model) (Model, tea.Cmd) {
 	refreshDirectory, readGroups, readMembers := m.deps.Messaging.RefreshDirectory, m.deps.Messaging.UserGroups,
 		m.deps.Messaging.ChannelMembers
-	p.refreshes++
-	ctx, channel, opened, refresh := m.session, p.channel, p.opened, p.refreshes
-	p.groups.reading, p.members.reading = true, true
+	ctx, channel, opened := m.session, p.channel, p.opened
+
+	var groupsRound, membersRound latest.Round
+
+	p.groups, groupsRound = p.groups.begun()
+	p.members, membersRound = p.members.begun()
 	m.overlay = p
 
 	return m, func() tea.Msg {
@@ -187,36 +192,32 @@ func (p peopleOverlay) refreshed(m Model) (Model, tea.Cmd) {
 		// with one there are all three.
 		refreshDirectory()
 
-		again := directoryRefreshed{opened: opened, refresh: refresh, groups: directory{}, members: directory{}}
+		groups, groupsErr := readGroups(ctx)
+		members, membersErr := readMembers(ctx, channel)
 
-		again.groups.entries, again.groups.err = readGroups(ctx)
-		again.members.entries, again.members.err = readMembers(ctx, channel)
-
-		return again
+		return directoryRefreshed{
+			groups:  userGroupsRead{opened: opened, round: groupsRound, found: groups, err: groupsErr},
+			members: membersRead{opened: opened, round: membersRound, found: members, err: membersErr},
+		}
 	}
 }
 
-// directoryRefreshed is the directory read again after the refresh counted
-// refresh.
+// directoryRefreshed is the directory read again, after Slack's was asked
+// for afresh: the user groups and the channel's members.
 type directoryRefreshed struct {
-	opened  int
-	refresh int
-	groups  directory
-	members directory
+	groups  userGroupsRead
+	members membersRead
 }
 
 var _ applier = directoryRefreshed{}
 
-// apply shows what was read, unless a later refresh has begun since.
+// apply shows each read, unless a later refresh has begun since, and runs
+// what either asks for next.
 func (msg directoryRefreshed) apply(m Model) (Model, tea.Cmd) {
-	open, isOpen := beneath[peopleOverlay](m, msg.opened)
-	if !isOpen || msg.refresh != open.refreshes {
-		return m, nil
-	}
+	m, membersNext := msg.members.apply(m)
+	m, groupsNext := msg.groups.apply(m)
 
-	open.groups, open.members = msg.groups, msg.members
-
-	return m.withBeneath(open.withChoices()), nil
+	return m, tea.Batch(membersNext, groupsNext)
 }
 
 // directoryFor is the directory the owner picker chooses from: the default

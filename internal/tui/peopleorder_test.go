@@ -4,8 +4,10 @@
 package tui_test
 
 // People and groups reads Slack's directory as it opens, and again on a
-// refresh, which may be asked for before the first read answers. What it
-// shows is what the read begun last found.
+// refresh, which may be asked for before the first read answers; the
+// announcement preview reads a channel's members as it opens, and again each
+// time the channel changes. What either shows is what the read begun last
+// found.
 
 import (
 	"testing"
@@ -54,4 +56,28 @@ func TestAnEarlierRefreshOfTheDirectoryAnsweringLateIsNotShown(t *testing.T) {
 
 	// Assert
 	requireScreen(t, view, "@release-team")
+}
+
+func TestAnEarlierReadOfAChannelChosenAgainAnsweringLateIsNotShown(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// #dev's members, read as the preview opened, fail, slowly; #team-b is
+	// chosen, then #dev again, whose second read answers first.
+	ben := onlyBen()
+	ben.cfg.Messaging.Channels = []string{teamChannel}
+	ben.slack.membersErr = errDirectoryDown
+	opened, reads := openedPreview(t, ben)
+	failed := reads[1]()
+
+	ben.slack.membersErr = nil
+	cycled := typing(t, drain(t, drain(t, opened, reads[0]), reads[2]), keyRight, keyLeft)
+
+	// Act
+	late := drain(t, cycled, func() tea.Msg { return failed })
+
+	// Assert
+	view := typing(t, late, "a").View().Content
+	requireScreen(t, view, "Link ben to Slack", benName)
+	refuseScreen(t, view, "slack is down")
 }

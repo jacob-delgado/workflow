@@ -196,7 +196,7 @@ func (p messagingPreview) cycleChannel(m Model, step int) (Model, tea.Cmd) {
 
 	var readMembers tea.Cmd
 	if p.tagging.offered {
-		p.tagging.members, readMembers = readChannelMembers(m.session, m.deps, p.channel, p.opened)
+		p.tagging.members, readMembers = p.tagging.members.cleared().readingMembers(m.session, m.deps, p.channel, p.opened)
 	}
 
 	m.overlay = p

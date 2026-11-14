@@ -81,8 +81,9 @@ func (m Model) withTagging(preview messagingPreview) (messagingPreview, tea.Cmd)
 	var readMembers, readGroups tea.Cmd
 
 	preview.tagging = tagSection{offered: true, canLink: m.deps.Store.LinkOwner != nil, reading: true}
-	preview.tagging.members, readMembers = readChannelMembers(m.session, m.deps, preview.channel, preview.opened)
-	preview.tagging.groups, readGroups = readUserGroups(m.session, m.deps, preview.opened)
+	preview.tagging.members, readMembers = preview.tagging.members.readingMembers(
+		m.session, m.deps, preview.channel, preview.opened)
+	preview.tagging.groups, readGroups = preview.tagging.groups.readingGroups(m.session, m.deps, preview.opened)
 
 	return preview, tea.Batch(m.branch.readTags(m.session, m.deps, preview.opened), readMembers, readGroups)
 }
@@ -224,8 +225,8 @@ func (s tagSection) missingScope() string {
 // directory with no credential to read it with means no tagging, said
 // nowhere, as for a webhook.
 func (s tagSection) shown() bool {
-	noCredential := errors.Is(s.members.err, messaging.ErrNoCredential) ||
-		errors.Is(s.groups.err, messaging.ErrNoCredential) || errors.Is(s.workspaceErr, messaging.ErrNoCredential)
+	noCredential := errors.Is(s.members.err(), messaging.ErrNoCredential) ||
+		errors.Is(s.groups.err(), messaging.ErrNoCredential) || errors.Is(s.workspaceErr, messaging.ErrNoCredential)
 
 	return s.offered && !noCredential
 }
@@ -264,14 +265,14 @@ func (s tagSection) lines(kit renderKit, width int) []string {
 func (s tagSection) failureLines(kit renderKit, width int) []string {
 	var lines []string
 
-	groupsErr := s.groups.err
+	groupsErr := s.groups.err()
 	if scope := s.groups.missingScope(); scope != "" {
 		groupsErr = nil
 
 		lines = append(lines, kit.failedGlyph()+" tagging groups needs the "+scope+" scope")
 	}
 
-	for _, err := range []error{s.readErr, s.members.err, groupsErr, s.linkErr} {
+	for _, err := range []error{s.readErr, s.members.err(), groupsErr, s.linkErr} {
 		if err != nil && !errors.Is(err, messaging.ErrNoUserGroups) {
 			lines = append(lines, kit.failureBlock(err, width))
 		}

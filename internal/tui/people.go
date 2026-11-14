@@ -68,10 +68,6 @@ type peopleOverlay struct {
 	// opened is the count of overlays opened when this one opened, so a read
 	// or save started for it lands in it alone.
 	opened int
-	// refreshes counts the refreshes of the directory begun, so a read of it
-	// a later refresh superseded — the one begun as it opened, or an earlier
-	// refresh's — lands in it no more.
-	refreshes int
 }
 
 var (
@@ -97,8 +93,8 @@ func (m Model) openPeople() (Model, tea.Cmd) {
 		reading: true, repoReading: true, channel: defaultChannel(m.cfg),
 		opened: opened,
 	}
-	people.members, readMembers = readChannelMembers(m.session, m.deps, people.channel, opened)
-	people.groups, readGroups = readUserGroups(m.session, m.deps, opened)
+	people.members, readMembers = people.members.readingMembers(m.session, m.deps, people.channel, opened)
+	people.groups, readGroups = people.groups.readingGroups(m.session, m.deps, opened)
 	m.overlay = people
 
 	return m, tea.Batch(
