@@ -206,7 +206,7 @@ func (m Model) previewRerun() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	pull, head := m.review.pull, m.branch.branch.Head
+	pull, head := m.review.pull, m.branch.checkedOut().Head
 	m.overlay = lastLook{
 		title: "Re-run checks",
 		body:  "Re-run the failed checks on " + m.vocab.sigil + strconv.Itoa(pull.Number) + " " + pull.Title + "?",

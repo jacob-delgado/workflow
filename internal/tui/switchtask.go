@@ -102,7 +102,7 @@ func (msg branchesListed) apply(m Model) (Model, tea.Cmd) {
 // taskBranches keeps the branches that name one of your issues, other than the
 // one checked out, and names each by its issue.
 func (m Model) taskBranches(listed branchesListed) []taskBranch {
-	current := m.branch.branch.Name
+	current := m.branch.checkedOut().Name
 
 	var branches []taskBranch
 
@@ -469,8 +469,9 @@ func (msg taskSwitched) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	m, status := m.readingChanges()
+	m, read := m.readingBranch()
 
-	return m, tea.Batch(loadBranch(m.session, m.deps), status)
+	return m, tea.Batch(read, status)
 }
 
 // failed is the switcher kept open with the reason it could not switch.

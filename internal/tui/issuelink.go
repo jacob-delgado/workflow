@@ -32,7 +32,7 @@ var _ failable[issueLinker] = issueLinker{}
 // one: never the bare forge issue number a branch can carry instead, which is
 // what a pull request's follow-ups on Jira must not reach.
 func (s branchState) jiraIssue(project string) (jira.Key, bool) {
-	return loop.JiraIssue(s.branch, project)
+	return loop.JiraIssue(s.checkedOut(), project)
 }
 
 // pullOffers are what opening a pull request goes on to offer, in order, for a

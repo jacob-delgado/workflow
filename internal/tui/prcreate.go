@@ -52,14 +52,14 @@ func (c prComposer) open(m Model) (Model, tea.Cmd) {
 	case request.Base == "":
 		c.send.err = errNoBase
 	case m.dryRun:
-		return m.closeOverlay().noticed(c.dryRunNotice(request, m.branch.branch.Pushed(), m.pullOffers())), nil
-	case m.branch.branch.Pushed():
+		return m.closeOverlay().noticed(c.dryRunNotice(request, m.branch.checkedOut().Pushed(), m.pullOffers())), nil
+	case m.branch.checkedOut().Pushed():
 		return c.create(m)
 	default:
 		m.prDraft = c.snapshot()
 
 		return m.startPushThen(func(pushed Model) (Model, tea.Cmd) {
-			reload := loadBranch(m.session, pushed.deps)
+			pushed, reload := pushed.readingBranch()
 			pushed, create := c.create(pushed)
 
 			return pushed, tea.Batch(reload, create)

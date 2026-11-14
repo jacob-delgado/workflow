@@ -305,7 +305,7 @@ func (v tasksView) issueLine(task taskwarrior.Task) string {
 // branchAndPull is the checked-out branch and, when the Review pane holds one,
 // its pull request's number and how its CI stands.
 func (m Model) branchAndPull() []string {
-	parts := []string{m.branch.branch.Name}
+	parts := []string{m.branch.checkedOut().Name}
 
 	if m.review.found {
 		parts = append(parts, m.vocab.sigil+strconv.Itoa(m.review.pull.Number)+" "+m.kit().ciGlyph(m.review.ci.State))

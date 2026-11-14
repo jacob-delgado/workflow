@@ -396,7 +396,7 @@ func (m Model) work() progress.Work {
 		OnFeatureBranch:    m.branch.onFeatureBranch(),
 		IssueNamed:         named,
 		IssueSelected:      selected,
-		Commits:            len(m.branch.branch.Commits),
+		Commits:            len(m.branch.checkedOut().Commits),
 		UncommittedChanges: len(m.changes.files()),
 		PullRequest:        m.review.pullState(),
 		CI:                 m.review.ci.State,

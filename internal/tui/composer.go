@@ -114,14 +114,14 @@ var (
 // on a fresh one, at once: the scope last used here and the scopes in the log,
 // which read the store and git, arrive after it opens.
 func (m Model) openCommitComposer() (Model, tea.Cmd) {
-	draft := m.commitDrafts.on(m.branch.branch.Name)
+	draft := m.commitDrafts.on(m.branch.checkedOut().Name)
 	conv := commitConvention(m.cfg)
 	types := conv.Types()
 	issueKey, _ := m.branch.issue(m.cfg.Jira.Project)
 	m, opened := m.opening()
 
 	composer := commitComposer{
-		branch: m.branch.branch.Name, conv: conv, types: types, kind: m.branch.startingType(conv, draft),
+		branch: m.branch.checkedOut().Name, conv: conv, types: types, kind: m.branch.startingType(conv, draft),
 		focus: fieldSubject, scope: newInput(cmp.Or(draft.scope, m.cfg.Commit.DefaultScope)),
 		subject: newInput(draft.subject), body: draft.body,
 		issueKey: issueKey, staged: m.changes.staged(), breaking: draft.breaking,
@@ -151,7 +151,7 @@ func (s branchState) startingType(conv convention.CommitConvention, draft commit
 		return max(0, slices.Index(types, draft.kind))
 	}
 
-	if branchType, ok := conv.BranchType(s.branch.Name); ok {
+	if branchType, ok := conv.BranchType(s.checkedOut().Name); ok {
 		return max(0, slices.Index(types, branchType))
 	}
 
@@ -470,8 +470,9 @@ func (c commitComposer) commit(m Model) (Model, tea.Cmd) {
 			}
 
 			done, status := done.readingChanges()
+			done, read := done.readingBranch()
 
-			return done, tea.Batch(status, loadBranch(ctx, done.deps), remember)
+			return done, tea.Batch(status, read, remember)
 		})
 }
 

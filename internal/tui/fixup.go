@@ -24,7 +24,7 @@ func (l changeList) canFold(branch gitrepo.Branch) bool {
 
 // startAmend previews folding the staged changes into the last commit.
 func (m Model) startAmend() (Model, tea.Cmd) {
-	unpushed := m.branch.branch.Unpushed()
+	unpushed := m.branch.checkedOut().Unpushed()
 	m.overlay = amendPreview{subject: unpushed[len(unpushed)-1].Subject}
 
 	return m, nil
@@ -40,8 +40,9 @@ func (m Model) applyAmend(subject string) (Model, tea.Cmd) {
 
 	return m.startRun(amendRun(), func() (proc.Output, error) { return amend(ctx) }, func(done Model) (Model, tea.Cmd) {
 		done, status := done.closeOverlay().noticed(done.marks.done + " amended " + subject).readingChanges()
+		done, read := done.readingBranch()
 
-		return done, tea.Batch(status, loadBranch(m.session, done.deps))
+		return done, tea.Batch(status, read)
 	})
 }
 
@@ -61,8 +62,9 @@ func (m Model) applyFixup(hash, subject string) (Model, tea.Cmd) {
 	return m.startRun(fixupRun(), func() (proc.Output, error) { return fixup(ctx, hash) },
 		func(done Model) (Model, tea.Cmd) {
 			done, status := done.closeOverlay().noticed(done.marks.done + " recorded a fixup! of " + subject).readingChanges()
+			done, read := done.readingBranch()
 
-			return done, tea.Batch(status, loadBranch(ctx, done.deps))
+			return done, tea.Batch(status, read)
 		})
 }
 
@@ -119,7 +121,7 @@ var (
 // openFixupPicker offers the branch's unpushed commits, the most recent first so
 // the likeliest target is the default selection.
 func (m Model) openFixupPicker() (Model, tea.Cmd) {
-	newestFirst := slices.Clone(m.branch.branch.Unpushed())
+	newestFirst := slices.Clone(m.branch.checkedOut().Unpushed())
 	slices.Reverse(newestFirst)
 	m.overlay = fixupPicker{commits: pickList[gitrepo.Commit]{items: newestFirst}}
 

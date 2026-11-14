@@ -81,7 +81,8 @@ func (msg branchCreated) apply(m Model) (Model, tea.Cmd) {
 
 	m = m.closeOverlay().noticed(m.marks.done + " created and switched to " + msg.name)
 	m, status := m.readingChanges()
-	reload := tea.Batch(loadBranch(m.session, m.deps), status, listIssueBranches(m.session, m.cfg, m.deps))
+	m, read := m.readingBranch()
+	reload := tea.Batch(read, status, listIssueBranches(m.session, m.cfg, m.deps))
 
 	// Set before the status picker opens, so the offer waits behind it.
 	if msg.forIssue {

@@ -79,7 +79,7 @@ func forgeVocab(kind forge.Kind) reviewVocab {
 // loop.RefuseFinish finds nothing in the way of, reads what
 // loop.RefuseMadeAfter says of the commits made on it since.
 func (s branchState) findPull(ctx context.Context, deps Deps, review int) tea.Cmd {
-	find, madeAfter, branch := deps.Forge.FindPullRequest, deps.Git.MadeAfter, s.branch
+	find, madeAfter, branch := deps.Forge.FindPullRequest, deps.Git.MadeAfter, s.checkedOut()
 	if find == nil || !s.onFeatureBranch() {
 		return nil
 	}
@@ -117,7 +117,7 @@ var _ applier = pullFound{}
 // forge before a pull request opened here would otherwise blank the review
 // and drop the announcement armed as it opened.
 func (msg pullFound) apply(m Model) (Model, tea.Cmd) {
-	if msg.branch != m.branch.branch.Name || msg.review != m.reviewsBegun {
+	if msg.branch != m.branch.checkedOut().Name || msg.review != m.reviewsBegun {
 		return m, nil
 	}
 
@@ -180,7 +180,7 @@ func (s reviewState) rail(kit renderKit, vocab reviewVocab, onFeatureBranch bool
 // reviewDetail describes the pull request, or what opening one needs.
 func (m Model) reviewDetail(width int) string {
 	if m.branch.outsideRepository() {
-		return m.kit().failureBlock(m.branch.err, width)
+		return m.kit().failureBlock(m.branch.read.Err(), width)
 	}
 
 	if !m.review.found {
@@ -260,7 +260,7 @@ func mergeableLabel(mergeable forge.Mergeability) string {
 // same, leaving the open to answer with the forge's reason, except for a
 // missing forge token, which no open gets past.
 func (s reviewState) canOpenPull(deps Deps, branch branchState) bool {
-	return branch.onFeatureBranch() && len(branch.branch.Commits) > 0 && s.loaded &&
+	return branch.onFeatureBranch() && len(branch.checkedOut().Commits) > 0 && s.loaded &&
 		!errors.Is(s.err, forge.ErrNoToken) && !s.hasOpenPull() && !s.merging() && deps.Forge.CreatePullRequest != nil
 }
 
@@ -385,7 +385,7 @@ func reviewBehavior() behavior {
 		// the find reads CI for the one it finds: so a refresh picks up a branch
 		// switched in a shell, and never reads CI for a pull request since replaced.
 		refresh: func(m Model) (Model, tea.Cmd) {
-			read := loadBranch(m.session, m.deps)
+			m, read := m.readingBranch()
 			m.review.loading = read != nil
 
 			return m, read

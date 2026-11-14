@@ -33,7 +33,7 @@ func (m Model) checkingCI(then tea.Cmd) (Model, tea.Cmd) {
 // checkCI counts a read of CI begun, and is the command that asks how CI
 // stands on the pull request.
 func (m Model) checkCI() (Model, tea.Cmd) {
-	ctx, check, pull, head := m.session, m.deps.Forge.CheckStatus, m.review.pull, m.branch.branch.Head
+	ctx, check, pull, head := m.session, m.deps.Forge.CheckStatus, m.review.pull, m.branch.checkedOut().Head
 	if check == nil || !m.review.found || pull.State != forge.StateOpen {
 		return m, nil
 	}
