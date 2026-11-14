@@ -199,8 +199,9 @@ var _ applier = holdDelivered{}
 // again, which the post's claim changed.
 func (msg holdDelivered) apply(m Model) (Model, tea.Cmd) {
 	m, next := m.steppedTo(m.messaging.hold.Delivered(msg.outcome))
+	m, reread := m.readingAnnounces()
 
-	return m, tea.Batch(next, loadAnnounces(m.session, m.deps))
+	return m, tea.Batch(next, reread)
 }
 
 // holdSeams are what the hold reads and posts through: the forge's reads

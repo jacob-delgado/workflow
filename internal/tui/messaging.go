@@ -18,6 +18,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/progress"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
+	"github.com/jacob-delgado/workflow/internal/tui/latest"
 )
 
 // claimedFormat is when a post whose claim was never confirmed began, as the
@@ -27,12 +28,13 @@ const claimedFormat = "Jan 2 15:04"
 // messagingState is what has been announced, the announcement waiting for CI,
 // and how far the messaging pane's detail is scrolled.
 type messagingState struct {
-	// claims is every announcement the store holds a claim on, by any
+	// announces is every announcement the store holds a claim on, by any
 	// session, each a pull request and the moment it marked, so one pull
 	// request can be announced at each of its moments — opened, then merged —
-	// without a moment being offered twice. It is replaced at each read of the
-	// store, never added to, so what the store forgot is offered again.
-	claims []loop.AnnounceRecord
+	// without a moment being offered twice. It is what the store's latest
+	// read answered, never added to, so what the store forgot is offered
+	// again; a read that failed keeps the claims read before.
+	announces latest.Read[[]loop.AnnounceRecord]
 	// send is a post the service has not answered yet, which is not offered
 	// again until it does, or why the last one failed.
 	send sendState
@@ -44,8 +46,6 @@ type messagingState struct {
 	tick     int
 	author   string
 	scroll   int
-	// loading is a refresh begun and not yet answered.
-	loading bool
 }
 
 // loadAuthor is the command that asks the forge whose credential it holds:
@@ -118,14 +118,14 @@ func (m Model) announceStanding() string {
 		loop.StandingPosted:      func() string { return kit.marks.done + " announced" },
 		loop.StandingUnconfirmed: m.unconfirmedLine,
 		loop.StandingNone:        m.holdLine,
-	}[loop.StandingOf(m.messaging.claims, m.review.pull(), m.review.found())]()
+	}[loop.StandingOf(m.messaging.claims(), m.review.pull(), m.review.found())]()
 }
 
 // unconfirmedLine says that the post of the pull request on screen began and
 // was never confirmed, so it may have gone out: only workflow announce,
 // asking first, posts it again.
 func (m Model) unconfirmedLine() string {
-	record, _ := loop.RecordOf(m.messaging.claims,
+	record, _ := loop.RecordOf(m.messaging.claims(),
 		loop.Announced{Pull: m.review.pull().Number, Moment: loop.AnnounceMoment(m.review.pull())})
 
 	began := record.ClaimedAt.In(m.deps.now().Location()).Format(claimedFormat)
@@ -242,7 +242,7 @@ func (m Model) withPostFailure(lines []string, width int) []string {
 // holds was read already and is in memory, so nothing is asked and no
 // context could stop it.
 func (s messagingState) announced(review reviewState) bool {
-	return loop.StandingOf(s.claims, review.pull(), review.found()) != loop.StandingNone
+	return loop.StandingOf(s.claims(), review.pull(), review.found()) != loop.StandingNone
 }
 
 // onScreen reports that the pull request numbered number is the one on
@@ -251,16 +251,39 @@ func (m Model) onScreen(number int) bool {
 	return m.review.found() && m.review.pull().Number == number
 }
 
+// claims is every announcement the store held a claim on when it was last
+// read, or none before it is.
+func (s messagingState) claims() []loop.AnnounceRecord {
+	claims, _ := s.announces.Value()
+
+	return claims
+}
+
 // claimed reports that made was claimed, as the store last said.
 func (s messagingState) claimed(made loop.Announced) bool {
-	_, known := loop.RecordOf(s.claims, made)
+	_, known := loop.RecordOf(s.claims(), made)
 
 	return known
 }
 
-// loadAnnounces reads what every session announced from the store, so a pull
-// request already posted is not offered again. The store is read under ctx.
-func loadAnnounces(ctx context.Context, deps Deps) tea.Cmd {
+// readingAnnounces begins a read of what was announced, superseding any
+// still out, and is the command that reads it; with no store to ask, as in a
+// dry run, it begins nothing.
+func (m Model) readingAnnounces() (Model, tea.Cmd) {
+	if m.deps.Store.Announced == nil {
+		return m, nil
+	}
+
+	read, round := m.messaging.announces.Begin()
+	m.messaging.announces = read
+
+	return m, loadAnnounces(m.session, m.deps, round)
+}
+
+// loadAnnounces reads what every session announced from the store, in round,
+// so a pull request already posted is not offered again. The store is read
+// under ctx.
+func loadAnnounces(ctx context.Context, deps Deps, round latest.Round) tea.Cmd {
 	if deps.Store.Announced == nil {
 		return nil
 	}
@@ -270,31 +293,37 @@ func loadAnnounces(ctx context.Context, deps Deps) tea.Cmd {
 	return func() tea.Msg {
 		made, err := read(ctx)
 
-		return announcesLoaded{made: made, err: err}
+		return announcesLoaded{made: made, err: err, round: round}
 	}
 }
 
 // announcesLoaded carries what the store holds a claim on, or why it could
-// not be read.
+// not be read, as the read begun in round found it.
 type announcesLoaded struct {
-	made []loop.AnnounceRecord
-	err  error
+	made  []loop.AnnounceRecord
+	err   error
+	round latest.Round
 }
 
 var _ applier = announcesLoaded{}
 
 // apply replaces what the session knows was announced with what the store
-// says, so what it forgot is offered again. A store that could not be read
-// says so, and what was read before stands: the claim each post takes still
-// keeps one from going twice.
+// says, so what it forgot is offered again. The answer of a read a later one
+// superseded is dropped: begun before a post or a removal, it would bring
+// back the claims as they stood before. A store that could not be read says
+// so, and what was read before stands: the claim each post takes still keeps
+// one from going twice.
 func (msg announcesLoaded) apply(m Model) (Model, tea.Cmd) {
-	m.messaging.loading = false
+	read, taken := m.messaging.announces.Answered(msg.round, msg.made, msg.err)
+	if !taken {
+		return m, nil
+	}
+
+	m.messaging.announces = read
 
 	if msg.err != nil {
 		return m.noticedFailure(fmt.Errorf("%w: %w", errAnnouncedUnread, msg.err)), nil
 	}
-
-	m.messaging.claims = msg.made
 
 	return m, nil
 }
@@ -404,13 +433,12 @@ func messagingBehavior() behavior {
 		// refresh reads what was announced again, the pull request and its CI
 		// the announcement is written from, and the one held for CI.
 		refresh: func(m Model) (Model, tea.Cmd) {
-			read := loadAnnounces(m.session, m.deps)
-			m.messaging.loading = read != nil
+			m, read := m.readingAnnounces()
 			m, branch := m.readingBranch()
 
 			return m, tea.Batch(read, branch, m.rereadHold())
 		},
-		loading: func(m Model) bool { return m.messaging.loading },
+		loading: func(m Model) bool { return m.messaging.announces.Refreshing() },
 		scroll:  func(m *Model) *int { return &m.messaging.scroll }, readsBranch: true,
 		answers: []string{"post", "people-and-groups", "stop-waiting", actionRefresh},
 	}

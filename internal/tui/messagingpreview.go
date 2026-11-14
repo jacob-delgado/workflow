@@ -389,7 +389,7 @@ var _ applier = messagingPosted{}
 func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
 	preview, open := beneath[messagingPreview](m, msg.opened)
 	m.messaging.send = sendState{}
-	reread := loadAnnounces(m.session, m.deps)
+	m, reread := m.readingAnnounces()
 
 	if errors.Is(msg.err, loop.ErrAnnouncedAlready) {
 		return m.noticed(m.marks.done + " already announced from another session; not posted again"), reread
