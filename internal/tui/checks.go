@@ -15,6 +15,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/tui/latest"
 )
 
 // checksTitle titles the detail pane while the checks are listed.
@@ -49,7 +50,7 @@ var (
 func (m Model) openChecks() (Model, tea.Cmd) {
 	m, opened := m.opening()
 	m.overlay = checkList{
-		checks:  pickList[forge.Check]{items: m.review.ci.Checks},
+		checks:  pickList[forge.Check]{items: m.review.listed().Checks},
 		openKey: m.keys.confirm.Help().Key, opened: opened,
 	}
 
@@ -59,7 +60,7 @@ func (m Model) openChecks() (Model, tea.Cmd) {
 // canOpenChecks reports that there are checks to list and an opener to reach
 // their pages.
 func (s reviewState) canOpenChecks(deps Deps) bool {
-	return len(s.ci.Checks) > 0 && deps.OpenURL != nil
+	return len(s.listed().Checks) > 0 && deps.OpenURL != nil
 }
 
 // view lists the checks, each by its state and name.
@@ -196,7 +197,7 @@ func (msg checkOpened) apply(m Model) (Model, tea.Cmd) {
 // request that has merged is left alone even if a stale CI read still reads as
 // failed: there is nothing to re-run once it is in.
 func (s reviewState) canRerun(deps Deps) bool {
-	return s.found() && deps.Forge.Rerun != nil && loop.CanRerun(s.pull(), s.ci)
+	return s.found() && deps.Forge.Rerun != nil && s.ci.Stage() == latest.StageShown && loop.CanRerun(s.pull(), s.listed())
 }
 
 // previewRerun holds the re-run of the failed checks for a last look, naming the
@@ -266,9 +267,10 @@ func (msg rerunRequested) apply(m Model) (Model, tea.Cmd) {
 		return m.noticedFailure(errNothingToRerun), nil
 	}
 
-	m.review.reran, m.review.reranAt = failedRuns(m.review.ci), m.deps.now()
-	m.review.ci = forge.CI{State: forge.CIRunning}
-	m.review.ciErr = nil
+	// Told, not read: a read begun before the re-run would list the failure
+	// re-run, and is dropped.
+	m.review.reran, m.review.reranAt = failedRuns(m.review.listed()), m.deps.now()
+	m.review.ci = m.review.ci.Told(forge.CI{State: forge.CIRunning})
 
 	// The re-run has only just started, so a check now would still read the old
 	// failure; let the poll the set-to-running schedules read it once it moves.
@@ -316,7 +318,7 @@ func (s reviewState) awaitingRerun(ci forge.CI, now time.Time) bool {
 func (s reviewState) failedChecks(kit renderKit) []string {
 	var lines []string
 
-	for _, check := range s.ci.Checks {
+	for _, check := range s.listed().Checks {
 		if check.State != forge.CIFailed {
 			continue
 		}
