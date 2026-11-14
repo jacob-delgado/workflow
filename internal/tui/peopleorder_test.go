@@ -10,6 +10,7 @@ package tui_test
 // found.
 
 import (
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -80,4 +81,25 @@ func TestAnEarlierReadOfAChannelChosenAgainAnsweringLateIsNotShown(t *testing.T)
 	view := typing(t, late, "a").View().Content
 	requireScreen(t, view, "Link ben to Slack", benName)
 	refuseScreen(t, view, "slack is down")
+}
+
+func TestAnEarlierRereadOfThePeopleAnsweringLateIsNotShown(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// carla is marked not on Slack, and the people read again after that,
+	// slowly; ben is marked too, and the read after his answers first.
+	opened := openPeople(t, taggingWorld())
+	marking, save := pressed(t, opened, "x")
+	saved, reread := finish(t, marking, save)
+	slow := reread()
+	marked := typing(t, saved, "down", "down", "down", "x")
+
+	// Act
+	view := drain(t, marked, func() tea.Msg { return slow }).View().Content
+
+	// Assert
+	if line := lineShowing(t, view, ownerBen+" "); !strings.Contains(line, "not on Slack") {
+		t.Errorf("ben is listed as %q, want him not on Slack:\n%s", line, plain(view))
+	}
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/codeowners"
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/tui/latest"
 )
 
 // peopleTitle titles the People and groups overlay.
@@ -46,10 +47,11 @@ type person struct {
 // on Slack, and which user groups this repository tags. Its writes are saved
 // at once, and a refusal stays pinned under its title until the next one.
 type peopleOverlay struct {
-	tab     peopleTab
-	people  pickList[person]
-	reading bool
-	readErr error
+	tab peopleTab
+	// listed is everyone the read begun last found, and people what the
+	// tab lists of them, the cursor on one.
+	listed latest.Read[[]person]
+	people pickList[person]
 	// channel is the channel a post goes to by default, whose members a
 	// person is linked to.
 	channel string
@@ -86,26 +88,32 @@ func managesPeople(cfg config.Config, deps Deps) bool {
 
 // openPeople opens People and groups and starts reading everything it shows.
 func (m Model) openPeople() (Model, tea.Cmd) {
-	var readMembers, readGroups tea.Cmd
+	var readPeople, readMembers, readGroups tea.Cmd
 
 	m, opened := m.opening()
-	people := peopleOverlay{
-		reading: true, repoReading: true, channel: defaultChannel(m.cfg),
-		opened: opened,
-	}
+	people := peopleOverlay{repoReading: true, channel: defaultChannel(m.cfg), opened: opened}
+	people, readPeople = people.readingPeople(m)
 	people.members, readMembers = people.members.readingMembers(m.session, m.deps, people.channel, opened)
 	people.groups, readGroups = people.groups.readingGroups(m.session, m.deps, opened)
 	m.overlay = people
 
-	return m, tea.Batch(
-		m.branch.readPeople(m.session, m.deps, opened), readRepoGroups(m.session, m.deps, opened), readMembers, readGroups,
-	)
+	return m, tea.Batch(readPeople, readRepoGroups(m.session, m.deps, opened), readMembers, readGroups)
+}
+
+// readingPeople is the overlay reading everyone it lists again, superseding
+// any read of them still on its way, and the command that reads them.
+func (p peopleOverlay) readingPeople(m Model) (peopleOverlay, tea.Cmd) {
+	var round latest.Round
+
+	p.listed, round = p.listed.Begin()
+
+	return p, m.branch.readPeople(m.session, m.deps, p.opened, round)
 }
 
 // readPeople reads who was decided on this forge host, and the owners of this
 // branch's changes, who may not have been asked about yet, for the overlay
-// opened as opened. The Slack workspace is read under ctx.
-func (s branchState) readPeople(ctx context.Context, deps Deps, opened int) tea.Cmd {
+// opened as opened, in round. The Slack workspace is read under ctx.
+func (s branchState) readPeople(ctx context.Context, deps Deps, opened int, round latest.Round) tea.Cmd {
 	owners := taggedOwnerSeams(deps)
 	links, base, readWorkspace := deps.Store.OwnerLinks, s.checkedOut().BaseName(), deps.Messaging.Workspace
 
@@ -121,7 +129,9 @@ func (s branchState) readPeople(ctx context.Context, deps Deps, opened int) tea.
 		})
 		found, ownersErr := loop.OwnersOf(ctx, owners, base)
 
-		return peopleListed{opened: opened, people: peopleFrom(decided, found), err: errors.Join(linksErr, ownersErr)}
+		return peopleListed{
+			opened: opened, round: round, people: peopleFrom(decided, found), err: errors.Join(linksErr, ownersErr),
+		}
 	}
 }
 
@@ -156,34 +166,51 @@ func peopleFrom(decided []loop.OwnerLink, owners codeowners.Owners) []person {
 	return people
 }
 
-// peopleListed is everyone People lists, and why some could not be read.
+// peopleListed is everyone People lists, as the read begun in round found
+// them, and why some could not be read.
 type peopleListed struct {
 	opened int
+	round  latest.Round
 	people []person
 	err    error
 }
 
 var _ applier = peopleListed{}
 
-// apply lists them, the selection held on the owner it was on, or, where
-// they are no longer listed, on the one after.
+// apply lists them, unless a later read of them has begun since: begun after
+// a save, it would list them as they were before the next. A read that
+// failed keeps everyone listed beside its failure.
 func (msg peopleListed) apply(m Model) (Model, tea.Cmd) {
 	open, isOpen := beneath[peopleOverlay](m, msg.opened)
 	if !isOpen {
 		return m, nil
 	}
 
-	selected := open.people.selected
-	if was, listed := open.people.chosen(); listed {
-		if index := slices.IndexFunc(msg.people, func(row person) bool { return row.owner == was.owner }); index >= 0 {
+	listed, taken := open.listed.Answered(msg.round, msg.people, msg.err)
+	if !taken {
+		return m, nil
+	}
+
+	open.listed = listed
+
+	return m.withBeneath(open.relisted()), nil
+}
+
+// relisted lists everyone held, the selection held on the owner it was on,
+// or, where they are no longer listed, on the one after.
+func (p peopleOverlay) relisted() peopleOverlay {
+	people, _ := p.listed.Value()
+
+	selected := p.people.selected
+	if was, listed := p.people.chosen(); listed {
+		if index := slices.IndexFunc(people, func(row person) bool { return row.owner == was.owner }); index >= 0 {
 			selected = index
 		}
 	}
 
-	open.people = pickList[person]{items: msg.people, selected: selected}.moved(0)
-	open.reading, open.readErr = false, msg.err
+	p.people = pickList[person]{items: people, selected: selected}.moved(0)
 
-	return m.withBeneath(open), nil
+	return p
 }
 
 // view draws the refusal pinned under the title, the tabs, and the tab shown.
@@ -205,18 +232,38 @@ func (p peopleOverlay) tabs(kit renderKit) string {
 	return names[tabPeople] + "  " + names[tabGroups]
 }
 
-// peopleLines is the People tab.
+// peopleLines is the People tab: reading until the first read answers, then
+// everyone listed, beneath why the latest read failed when it did.
 func (p peopleOverlay) peopleLines(kit renderKit, width, rows int) []string {
-	switch {
-	case p.reading:
-		return []string{kit.marks.inFlight + " reading who was decided" + kit.marks.ellipsis}
-	case p.readErr != nil:
-		return []string{kit.failureBlock(p.readErr, width)}
-	case len(p.people.items) == 0:
-		return []string{"nobody decided yet, and no code owner of this branch's changes to ask about"}
-	default:
-		return p.people.rows(kit.marks, rows, func(row person) string { return personRow(kit, row) })
+	reading := func() []string { return []string{kit.marks.inFlight + " reading who was decided" + kit.marks.ellipsis} }
+
+	return map[latest.Stage]func() []string{
+		latest.StageNeverRead: reading,
+		latest.StageReading:   reading,
+		latest.StageShown:     func() []string { return p.listLines(kit, rows) },
+		latest.StageFailed:    func() []string { return p.failedLines(kit, width, rows) },
+	}[p.listed.Stage()]()
+}
+
+// failedLines are why the latest read of the people failed, above everyone
+// still listed from an earlier read, when one answered, in the rows the
+// failure leaves, however many it wraps to.
+func (p peopleOverlay) failedLines(kit renderKit, width, rows int) []string {
+	failure := strings.Split(kit.failureBlock(p.listed.Err(), width), "\n")
+	if _, held := p.listed.Value(); !held {
+		return failure
 	}
+
+	return append(failure, p.listLines(kit, rows-len(failure))...)
+}
+
+// listLines are everyone listed, or that there is nobody to list.
+func (p peopleOverlay) listLines(kit renderKit, rows int) []string {
+	if len(p.people.items) == 0 {
+		return []string{"nobody decided yet, and no code owner of this branch's changes to ask about"}
+	}
+
+	return p.people.rows(kit.marks, rows, func(row person) string { return personRow(kit, row) })
 }
 
 // personRow is an owner and what is known of them on Slack.
@@ -372,8 +419,9 @@ func (msg peopleSaved) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	open.send = sendState{}
+	open, reread := open.readingPeople(m)
 
-	return m.withBeneath(open), m.branch.readPeople(m.session, m.deps, open.opened)
+	return m.withBeneath(open), reread
 }
 
 // openedAs is the count of overlays opened when People and groups opened.
