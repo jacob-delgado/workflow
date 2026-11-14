@@ -52,7 +52,7 @@ func (m Model) armOnOpen(pull forge.PullRequest) (Model, string, tea.Cmd) {
 	}
 
 	started, err := m.messaging.hold.Arm(m.deps.now(), armed.Arming{
-		Delivery: m.deliveryOf(out), Branch: m.branch.branch.Name, Opened: true, Unasked: true, Automatic: true,
+		Delivery: m.deliveryOf(out), Branch: m.branch.checkedOut().Name, Opened: true, Unasked: true, Automatic: true,
 		Seen: 0,
 	})
 	if err != nil {
@@ -72,7 +72,7 @@ func (m Model) armOnOpen(pull forge.PullRequest) (Model, string, tea.Cmd) {
 // while another is being posted is refused, the preview left open.
 func (m Model) armAsked(out outgoingAnnouncement) (Model, tea.Cmd) {
 	started, err := m.messaging.hold.Arm(m.deps.now(), armed.Arming{
-		Delivery: m.deliveryOf(out), Branch: m.branch.branch.Name, Opened: false, Unasked: false, Automatic: false,
+		Delivery: m.deliveryOf(out), Branch: m.branch.checkedOut().Name, Opened: false, Unasked: false, Automatic: false,
 		Seen: 0,
 	})
 	if err != nil {
@@ -358,7 +358,7 @@ func (m Model) unaskedTags() func(ctx context.Context, delivery loop.Delivery) m
 		return nil
 	}
 
-	deps, branchBase := m.deps, m.branch.branch.BaseName()
+	deps, branchBase := m.deps, m.branch.checkedOut().BaseName()
 
 	return func(ctx context.Context, delivery loop.Delivery) messaging.Mentions {
 		read := readTagProposal(ctx, deps, cmp.Or(delivery.Pull.Base, branchBase))

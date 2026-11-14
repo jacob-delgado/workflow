@@ -338,8 +338,9 @@ func (r commandRun) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return r.stopRun(m, msg)
 	case key.Matches(msg, m.keys.closeOverlay):
 		m, status := m.closeOverlay().readingChanges()
+		m, read := m.readingBranch()
 
-		return m, tea.Batch(status, loadBranch(m.session, m.deps))
+		return m, tea.Batch(status, read)
 	case key.Matches(msg, m.keys.retry):
 		return m.startRun(r.kind, r.start, r.succeeded)
 	case key.Matches(msg, m.keys.confirm):
@@ -428,19 +429,17 @@ func (msg editorClosed) apply(m Model) (Model, tea.Cmd) {
 
 // startPush pushes the branch, then says so and reads the branch again.
 func (m Model) startPush() (Model, tea.Cmd) {
-	name, session := m.branch.branch.Name, m.session
+	name := m.branch.checkedOut().Name
 
 	return m.startPushThen(func(done Model) (Model, tea.Cmd) {
-		done = done.closeOverlay().noticed(done.marks.done + " pushed " + name)
-
-		return done, loadBranch(session, done.deps)
+		return done.closeOverlay().noticed(done.marks.done + " pushed " + name).readingBranch()
 	})
 }
 
 // startPushThen pushes the branch, then does what succeeded says once it is
 // pushed.
 func (m Model) startPushThen(succeeded func(Model) (Model, tea.Cmd)) (Model, tea.Cmd) {
-	name := m.branch.branch.Name
+	name := m.branch.checkedOut().Name
 
 	if m.dryRun {
 		return m.closeOverlay().noticed("dry run: would push " + name), nil
@@ -458,7 +457,7 @@ func pushRun() runKind { return runKind{title: "git push", refusal: "the push wa
 // rebase says so and reads the branch again; a conflict leaves git's output on
 // screen and the repository mid-rebase, which is the shell's to finish.
 func (m Model) startRebase() (Model, tea.Cmd) {
-	base := m.branch.branch.Base
+	base := m.branch.checkedOut().Base
 
 	if m.dryRun {
 		return m.closeOverlay().noticed("dry run: would rebase onto " + base), nil
@@ -466,9 +465,7 @@ func (m Model) startRebase() (Model, tea.Cmd) {
 
 	ctx, rebase := m.session, m.deps.Git.Rebase
 	succeeded := func(done Model) (Model, tea.Cmd) {
-		done = done.closeOverlay().noticed(done.marks.done + " rebased onto " + base)
-
-		return done, loadBranch(ctx, done.deps)
+		return done.closeOverlay().noticed(done.marks.done + " rebased onto " + base).readingBranch()
 	}
 
 	return m.startRun(rebaseRun(), func() (proc.Output, error) { return rebase(ctx, base) }, succeeded)

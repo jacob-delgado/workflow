@@ -129,7 +129,7 @@ var (
 // reviews. Its form opens once every read has answered, so nothing it reads
 // changes a field under the cursor.
 func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
-	branch := m.branch.branch
+	branch := m.branch.checkedOut()
 	issueKey, _ := m.branch.issue(m.cfg.Jira.Project)
 	issue, listed := m.issues.find(issueKey)
 	proposed := m.proposePullRequest(branch, issueKey, issue.Summary)

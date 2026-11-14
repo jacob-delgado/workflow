@@ -111,7 +111,7 @@ func (m Model) openPeople() (Model, tea.Cmd) {
 // opened as opened. The Slack workspace is read under ctx.
 func (s branchState) readPeople(ctx context.Context, deps Deps, opened int) tea.Cmd {
 	owners := taggedOwnerSeams(deps)
-	links, base, readWorkspace := deps.Store.OwnerLinks, s.branch.BaseName(), deps.Messaging.Workspace
+	links, base, readWorkspace := deps.Store.OwnerLinks, s.checkedOut().BaseName(), deps.Messaging.Workspace
 
 	return func() tea.Msg {
 		var decided []loop.OwnerLink

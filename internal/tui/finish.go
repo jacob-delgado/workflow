@@ -96,7 +96,7 @@ func (m Model) finishOffer() []string {
 		return []string{"", "The branch cannot be finished yet: " + refusal.Error() + "."}
 	}
 
-	finishing := m.branch.branch.Finishing()
+	finishing := m.branch.checkedOut().Finishing()
 
 	return []string{"", m.keys.finish.Help().Key + " finishes the branch: switch to " +
 		finishing.Base + ", pull it from " + finishing.Remote + ", delete it."}
@@ -112,7 +112,7 @@ func (s reviewState) canFinish(deps Deps, branch branchState) bool {
 // branch, then what loop.RefuseMadeAfter found when the pull request was
 // read, or nil when nothing is.
 func (s reviewState) finishRefusal(branch branchState) error {
-	refused := loop.RefuseFinish(s.pull, s.found, branch.branch)
+	refused := loop.RefuseFinish(s.pull, s.found, branch.checkedOut())
 	if refused != nil {
 		return refused
 	}
@@ -127,7 +127,7 @@ func (m Model) startFinish() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.overlay = finishPreview{vocab: m.vocab, pull: m.review.pull, finishing: m.branch.branch.Finishing()}
+	m.overlay = finishPreview{vocab: m.vocab, pull: m.review.pull, finishing: m.branch.checkedOut().Finishing()}
 
 	return m, nil
 }
@@ -257,9 +257,7 @@ func (msg finished) apply(m Model) (Model, tea.Cmd) {
 		return keepOpenWith[finishPreview](m, msg.err), nil
 	}
 
-	done := m.closeOverlay().noticed(m.marks.done + " finished " + msg.branch)
-
-	return done, loadBranch(m.session, done.deps)
+	return m.closeOverlay().noticed(m.marks.done + " finished " + msg.branch).readingBranch()
 }
 
 // failed is the preview kept open with the reason the finish failed.

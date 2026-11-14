@@ -92,7 +92,7 @@ func (m Model) withTagging(preview messagingPreview) (messagingPreview, tea.Cmd)
 // the Slack workspace the token is for, read under ctx, for the preview opened
 // as opened.
 func (s branchState) readTags(ctx context.Context, deps Deps, opened int) tea.Cmd {
-	base := s.branch.BaseName()
+	base := s.checkedOut().BaseName()
 
 	return func() tea.Msg {
 		read := readTagProposal(ctx, deps, base)

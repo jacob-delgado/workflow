@@ -153,7 +153,7 @@ func (l changeList) counts() string {
 // read of the status is said beneath the files it kept.
 func (m Model) commitsDetail(width int) string {
 	if m.branch.outsideRepository() {
-		return m.kit().failureBlock(m.branch.err, width)
+		return m.kit().failureBlock(m.branch.read.Err(), width)
 	}
 
 	failure := func() string { return m.kit().failureBlock(m.changes.read.Err(), width) }
@@ -176,7 +176,7 @@ func (m Model) commitsListing(width int, failure []string) string {
 
 	lines = append(lines, failure...)
 
-	commits := m.branch.branch.Commits
+	commits := m.branch.checkedOut().Commits
 	if len(commits) > 0 {
 		lines = append(lines, "", m.styles.strong.Render("On this branch"))
 	}
@@ -280,7 +280,7 @@ func (m Model) committingOffers() []offer {
 		commit.refusal = loop.RefuseNothingStaged(m.changes.files())
 	}
 
-	foldable := writable && m.changes.canFold(m.branch.branch)
+	foldable := writable && m.changes.canFold(m.branch.checkedOut())
 
 	return []offer{
 		commit,
@@ -391,7 +391,7 @@ func (msg staged) apply(m Model) (Model, tea.Cmd) {
 // commitsBehavior is the Commits pane's behavior.
 func commitsBehavior() behavior {
 	return behavior{
-		rail:   func(m Model, _ int) string { return m.changes.rail(m.kit(), len(m.branch.branch.Commits)) },
+		rail:   func(m Model, _ int) string { return m.changes.rail(m.kit(), len(m.branch.checkedOut().Commits)) },
 		detail: Model.commitsDetail, narrow: nil,
 		keys:   func(m Model) []key.Binding { return liveKeys(m.commitsOffers()) },
 		handle: Model.handleCommitsKey, pick: Model.pickChange, move: Model.moveChangeBy,
@@ -400,8 +400,9 @@ func commitsBehavior() behavior {
 		refresh: func(m Model) (Model, tea.Cmd) {
 			m, status := m.readingChanges()
 			m, look := m.lookingForHooks()
+			m, read := m.readingBranch()
 
-			return m, tea.Batch(status, loadBranch(m.session, m.deps), look)
+			return m, tea.Batch(status, read, look)
 		},
 		loading: func(m Model) bool { return m.changes.read.Refreshing() },
 		scroll:  func(m *Model) *int { return &m.changes.scroll }, listInDetail: true, readsBranch: true,

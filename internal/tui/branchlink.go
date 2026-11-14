@@ -64,7 +64,9 @@ var (
 // canLinkIssue reports a checked-out branch and a repository that can keep a
 // link for it.
 func (s branchState) canLinkIssue(deps Deps) bool {
-	return deps.Git.LinkIssue != nil && s.loaded && !s.branch.Detached && s.branch.Name != ""
+	branch := s.checkedOut()
+
+	return deps.Git.LinkIssue != nil && !branch.Detached && branch.Name != ""
 }
 
 // openBranchLink opens the link form on the checked-out branch, holding the
@@ -85,8 +87,8 @@ func (m Model) openBranchLink() (Model, tea.Cmd) {
 	}
 
 	m.overlay = branchLinker{
-		vocab: m.vocab, branch: m.branch.branch.Name,
-		linked: jira.Key(m.branch.branch.IssueLink), pull: pull, hasPull: hasPull, input: newInput(start),
+		vocab: m.vocab, branch: m.branch.checkedOut().Name,
+		linked: jira.Key(m.branch.checkedOut().IssueLink), pull: pull, hasPull: hasPull, input: newInput(start),
 	}
 
 	return m, nil
@@ -212,7 +214,7 @@ func (msg branchUnlinked) apply(m Model) (Model, tea.Cmd) {
 
 	m = m.closeOverlay().noticed(m.marks.done + " unlinked " + msg.branch + " from " + shownKey(msg.issueKey))
 
-	return m, loadBranch(m.session, m.deps)
+	return m.readingBranch()
 }
 
 // pasted types a paste into the issue key, as typing it would.
@@ -353,7 +355,7 @@ func (msg branchLinked) apply(m Model) (Model, tea.Cmd) {
 		m.overlay = issueLinker{vocab: m.vocab, issueKey: msg.issueKey, pull: msg.pull}
 	}
 
-	return m, loadBranch(m.session, m.deps)
+	return m.readingBranch()
 }
 
 // keptOpen keeps the form open with the reason the link or the edit failed,
@@ -365,7 +367,7 @@ func (msg branchLinked) keptOpen(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m, loadBranch(m.session, m.deps)
+	return m.readingBranch()
 }
 
 // said is what the link did, in the words its key offered: the branch linked,
@@ -385,7 +387,7 @@ func (msg branchLinked) said(sigil string) string {
 // named.
 func (m Model) reviewIssue(pull forge.PullRequest) string {
 	ref, _, found := loop.BranchIssue(loop.IssueSource{
-		Branch: m.branch.branch.Name, Link: m.branch.branch.IssueLink, Pull: &pull, Project: m.cfg.Jira.Project,
+		Branch: m.branch.checkedOut().Name, Link: m.branch.checkedOut().IssueLink, Pull: &pull, Project: m.cfg.Jira.Project,
 	})
 	if !found {
 		return ""
