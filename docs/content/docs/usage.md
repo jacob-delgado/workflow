@@ -170,7 +170,11 @@ its pull request and CI, so reading one of them again counts for all four;
 the Issues list is left as it is while it holds further pages, which a reload
 would drop. `r` reads the pane again whenever you press it. While a read is
 out, the pane's title carries `◐` until its answer arrives, and a pane read
-for the first time says `◐ reading…`.
+for the first time says `◐ reading…`. Only the read begun last is shown: an
+earlier one answering late is dropped. A read again that fails keeps what the
+pane showed and says why beside it, rather than emptying the pane; the keys
+that change what it showed, such as staging, committing, a task's keys and a
+re-run, wait for a read that succeeds.
 `j`/`k` or the arrow keys move within a list, `home` and `end` or `G` jump
 to its first and last row — or, on a pane with no list, to the top and the
 bottom of the detail — and `J`/`K` or `pgdn`/`pgup` scroll the detail pane.
