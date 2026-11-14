@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -56,7 +57,7 @@ func (c prComposer) open(m Model) (Model, tea.Cmd) {
 	case m.branch.checkedOut().Pushed():
 		return c.create(m)
 	default:
-		m.prDraft = c.snapshot()
+		m.prDrafts = m.prDrafts.keeping(c.snapshot())
 
 		return m.startPushThen(func(pushed Model) (Model, tea.Cmd) {
 			pushed, reload := pushed.readingBranch()
@@ -97,12 +98,14 @@ func (c prComposer) create(m Model) (Model, tea.Cmd) {
 	return m, func() tea.Msg {
 		pull, err := create(ctx, request)
 
-		return pullCreated{pull: pull, err: err}
+		return pullCreated{head: request.Head.Branch, pull: pull, err: err}
 	}
 }
 
 // pullCreated reports how opening a pull request went.
 type pullCreated struct {
+	// head is the branch it was opened from, whose kept draft it drops.
+	head string
 	pull forge.PullRequest
 	err  error
 }
@@ -125,7 +128,7 @@ func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
 
 	m = m.beginReview(m.review.find.Told(pullFind{pull: msg.pull, found: true, madeAfter: nil}))
 	m.review.opened = m.deps.now()
-	m.prDraft = prDraft{}
+	m.prDrafts = m.prDrafts.without(msg.head)
 
 	m, armed, readHold := m.armOnOpen(msg.pull)
 	m = m.noticed(notice + armed)
@@ -174,6 +177,38 @@ type prDraft struct {
 	// from that base still.
 	draftedOnto, reviewersProposed string
 	subjects                       []string
+}
+
+// prDrafts are the pull request drafts kept for the session, at most one per
+// branch, so leaving the composer on one branch never touches another
+// branch's draft.
+type prDrafts []prDraft
+
+// on is the draft kept for a branch, and whether one is.
+func (d prDrafts) on(branch string) (prDraft, bool) {
+	index := slices.IndexFunc(d, func(draft prDraft) bool { return draft.branch == branch })
+	if index < 0 {
+		return prDraft{}, false
+	}
+
+	return d[index], true
+}
+
+// keeping is the drafts with the one for draft's branch replaced by it. It
+// copies rather than change the drafts it was called on.
+func (d prDrafts) keeping(draft prDraft) prDrafts {
+	return append(d.without(draft.branch), draft)
+}
+
+// without is the drafts with a branch's dropped, copied rather than changed.
+func (d prDrafts) without(branch string) prDrafts {
+	return slices.DeleteFunc(slices.Clone(d), func(draft prDraft) bool { return draft.branch == branch })
+}
+
+// written reports whether any draft holds what was typed or edited, more
+// than the composer proposed.
+func (d prDrafts) written() bool {
+	return slices.ContainsFunc(d, func(draft prDraft) bool { return draft.edited || draft.typed })
 }
 
 // snapshot is the composer's editable state, to reopen on.
