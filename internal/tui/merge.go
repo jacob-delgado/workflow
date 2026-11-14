@@ -23,7 +23,7 @@ var errNoMergeMethod = errors.New("cannot merge: the repository permits no merge
 // green or with no check reported on its head for armed.NoCIPatience, and
 // approved, with a forge that can merge it.
 func (s reviewState) canMerge(deps Deps) bool {
-	return s.found && deps.Forge.Merge != nil && s.ciReported() && s.quiet.CanMerge(s.pull, s.ci)
+	return s.found() && deps.Forge.Merge != nil && s.ciReported() && s.quiet.CanMerge(s.pull(), s.ci)
 }
 
 // ciReported reports CI that says what the forge reported: anything but none,
@@ -42,7 +42,7 @@ func (m Model) startMerge() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.overlay = mergePicker{vocab: m.vocab, pull: m.review.pull, noCI: m.review.ci.State == forge.CINone}
+	m.overlay = mergePicker{vocab: m.vocab, pull: m.review.pull(), noCI: m.review.ci.State == forge.CINone}
 	ctx, methods := m.session, m.deps.Forge.MergeMethods
 
 	return m, func() tea.Msg {
@@ -107,7 +107,7 @@ func (msg mergeRequested) apply(m Model) (Model, tea.Cmd) {
 		merged.followUp = merged.offerMarkDone(issueKey)
 	}
 
-	return merged, merged.branch.findPull(merged.session, merged.deps, merged.reviewsBegun)
+	return merged.findingPull()
 }
 
 // failed is the preview kept open with the reason the merge was refused.

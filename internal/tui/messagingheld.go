@@ -93,7 +93,7 @@ func (m Model) armAsked(out outgoingAnnouncement) (Model, tea.Cmd) {
 // delivered: its CI gated at the commit the forge says it is at.
 func (m Model) deliveryOf(out outgoingAnnouncement) loop.Delivery {
 	return loop.Delivery{
-		Channel: out.channel, Text: out.text, Pull: m.review.pull, Head: m.review.pull.HeadCommit, Moment: out.moment,
+		Channel: out.channel, Text: out.text, Pull: m.review.pull(), Head: m.review.pull().HeadCommit, Moment: out.moment,
 		Mentions: out.tags.mentions,
 	}
 }

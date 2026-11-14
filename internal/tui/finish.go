@@ -105,19 +105,19 @@ func (m Model) finishOffer() []string {
 // canFinish reports a merged branch that can be finished: the repository can
 // finish it, and nothing is in its way.
 func (s reviewState) canFinish(deps Deps, branch branchState) bool {
-	return s.found && deps.Git.Finish != nil && s.finishRefusal(branch) == nil
+	return s.found() && deps.Git.Finish != nil && s.finishRefusal(branch) == nil
 }
 
 // finishRefusal is what loop.RefuseFinish finds in the way of finishing the
 // branch, then what loop.RefuseMadeAfter found when the pull request was
 // read, or nil when nothing is.
 func (s reviewState) finishRefusal(branch branchState) error {
-	refused := loop.RefuseFinish(s.pull, s.found, branch.checkedOut())
+	refused := loop.RefuseFinish(s.pull(), s.found(), branch.checkedOut())
 	if refused != nil {
 		return refused
 	}
 
-	return s.madeAfter
+	return s.madeAfter()
 }
 
 // startFinish opens the finish preview: the three git commands that switch to
@@ -127,7 +127,7 @@ func (m Model) startFinish() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.overlay = finishPreview{vocab: m.vocab, pull: m.review.pull, finishing: m.branch.checkedOut().Finishing()}
+	m.overlay = finishPreview{vocab: m.vocab, pull: m.review.pull(), finishing: m.branch.checkedOut().Finishing()}
 
 	return m, nil
 }

@@ -19,26 +19,19 @@ import (
 // ciCheckedFormat stamps the CI line with when it was last read.
 const ciCheckedFormat = "15:04"
 
-// checkingCI asks how CI stands, with then; with no CI to read, a Review
-// refresh waits on nothing more.
-func (m Model) checkingCI(then tea.Cmd) (Model, tea.Cmd) {
-	m, check := m.checkCI()
-	if check == nil {
-		m.review.loading = false
-	}
-
-	return m, tea.Batch(check, then)
-}
-
 // checkCI counts a read of CI begun, and is the command that asks how CI
-// stands on the pull request.
+// stands on the pull request; with no forge to ask, or a pull request held
+// that is not open, it reads nothing. Every caller holds a pull request
+// found: a find's answer that found one, one opened here, and a poll, whose
+// review a find finding none replaces.
 func (m Model) checkCI() (Model, tea.Cmd) {
-	ctx, check, pull, head := m.session, m.deps.Forge.CheckStatus, m.review.pull, m.branch.checkedOut().Head
-	if check == nil || !m.review.found || pull.State != forge.StateOpen {
+	ctx, check, pull, head := m.session, m.deps.Forge.CheckStatus, m.review.pull(), m.branch.checkedOut().Head
+	if check == nil || pull.State != forge.StateOpen {
 		return m, nil
 	}
 
 	m.ciReads++
+	m.review.ciOut = true
 	read := m.ciReads
 
 	return m, func() tea.Msg {
@@ -68,12 +61,12 @@ var _ applier = ciChecked{}
 // asked for keeps CI running, for a while: the forge has not started the
 // re-run yet.
 func (msg ciChecked) apply(m Model) (Model, tea.Cmd) {
-	if !m.review.found || msg.number != m.review.pull.Number || msg.read != m.ciReads {
+	if !m.review.found() || msg.number != m.review.pull().Number || msg.read != m.ciReads {
 		return m, nil
 	}
 
 	awaited := m.review.awaitedFinish()
-	m.review.loading = false
+	m.review.ciOut = false
 	m.review.checkedAt = m.deps.now()
 
 	if msg.err != nil {
@@ -88,7 +81,7 @@ func (msg ciChecked) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	m.review.ci, m.review.ciErr, m.review.checked, m.review.reran = msg.ci, nil, true, nil
-	m.review.quiet = m.review.quiet.Read(m.review.pull, msg.ci, m.review.checkedAt)
+	m.review.quiet = m.review.quiet.Read(m.review.pull(), msg.ci, m.review.checkedAt)
 
 	return m.keepPolling(ciFinishNotice(m.cfg, m.deps, awaited, msg.ci.State))
 }
@@ -160,7 +153,7 @@ func (s reviewState) ciToCome(now time.Time) bool {
 // its head's quiet: no check reported on it, for less than armed.NoCIPatience
 // of the reads heard.
 func (s reviewState) mergeAwaitsQuiet() bool {
-	return loop.CanMerge(s.pull, s.ci) && !s.quiet.CanMerge(s.pull, s.ci)
+	return loop.CanMerge(s.pull(), s.ci) && !s.quiet.CanMerge(s.pull(), s.ci)
 }
 
 // notifyPollInterval is how often CI is asked about when the developer only

@@ -123,16 +123,18 @@ func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
 		notice += "; could not add every reviewer, assignee or label: " + briefly(refusal)
 	}
 
-	m = m.beginReview(reviewState{pull: msg.pull, found: true, loaded: true, opened: m.deps.now()})
+	m = m.beginReview(m.review.find.Told(pullFind{pull: msg.pull, found: true, madeAfter: nil}))
+	m.review.opened = m.deps.now()
 	m.prDraft = prDraft{}
 
 	m, armed, readHold := m.armOnOpen(msg.pull)
 	m = m.noticed(notice + armed)
 
-	// A Review refresh begun before it opened answers for the review it
-	// replaced, so only this one's CI read ends it; with none to read, it ends
-	// here.
-	m, cmds := m.checkingCI(tea.Batch(m.messaging.loadAuthor(m.session, m.deps), readHold))
+	// The pull request opened is told the review, superseding a find a
+	// Review refresh began before it opened, so only this one's CI read is
+	// left for the refresh's mark to wait on.
+	m, check := m.checkCI()
+	cmds := tea.Batch(check, m.messaging.loadAuthor(m.session, m.deps), readHold)
 
 	// With a Jira issue, offer to link the pull request on it — so the team that
 	// watches Jira learns of it — and then to move it to the review status. When

@@ -41,7 +41,7 @@ var (
 // openPullRequestEditor opens the editor on the branch's pull request, seeded
 // with its current title and description.
 func (m Model) openPullRequestEditor() (Model, tea.Cmd) {
-	pull := m.review.pull
+	pull := m.review.pull()
 
 	editor := prEditor{
 		title: newInput(pull.Title), body: pull.Body, pull: pull, vocab: m.vocab,
@@ -188,8 +188,8 @@ func (msg pullEdited) apply(m Model) (Model, tea.Cmd) {
 		return keepOpenWith[prEditor](m, msg.err), nil
 	}
 
-	if m.review.pull.Number == msg.number {
-		m.review.pull.Title, m.review.pull.Body = msg.pull.Title, msg.pull.Body
+	if m.review.found() && m.review.pull().Number == msg.number {
+		m.review = m.review.edited(msg.pull)
 	}
 
 	return m.closeOverlay().noticed(m.marks.done + " saved " + m.vocab.sigil + strconv.Itoa(msg.number)), nil
