@@ -226,7 +226,8 @@ func (msg localDataRemoved) apply(m Model) (Model, tea.Cmd) {
 		return keepOpenWith[lastLook](m, msg.err), nil
 	}
 
-	m, reread := m.closeOverlay().noticed(m.marks.done + " removed " + msg.names).readingRepositoriesAgain()
+	m, favorites := m.closeOverlay().noticed(m.marks.done + " removed " + msg.names).readingRepositoriesAgain()
+	m, announces := m.readingAnnounces()
 
-	return m, tea.Batch(loadAnnounces(m.session, m.deps), reread)
+	return m, tea.Batch(announces, favorites)
 }
