@@ -186,7 +186,12 @@ own:
   — was each condition seen both ways, each operand of an `a && b` on its own.
   Its output names every condition observed only one way, which is a worklist of
   the tests still missing. A condition no test evaluated, or an error check
-  whose error arm no test reached, fails it outright, unless
+  whose error arm no test reached, fails it outright, and so does a condition
+  observed only one way on a line the change adds or modifies, judged by
+  `git diff` against the merge base with `GATE_BASE` (`origin/main` by
+  default; CI names a pull request's base branch, and on a push to main names
+  none, so the report says it skips that check, while a base `GATE_BASE`
+  names that the clone cannot find fails the run), each unless
   `scripts/gobco-allowlist.txt` keeps that arm for a trade-off `TECH_DEBT.md`
   records. An error check is a name ending in `err` or `Err`, perhaps with a
   capitalized or numbered rest (`err`, `readErr`, `closeErr`, `err2`,

@@ -1,8 +1,9 @@
 # The condition arms no test reaches that a kept trade-off keeps. The gate is
 # scripts/gobco-report.sh (task cover:branch), which fails on any condition
-# never evaluated and on any error check whose error arm was never seen,
-# unless a line here keeps it; the format and the matching are in that
-# script's header.
+# never evaluated, on any error check whose error arm was never seen, and on
+# any condition seen one way on a line the change touched, unless a line here
+# keeps it; the format and the matching are in scripts/lib/gobco-arms.awk's
+# header.
 #
 # ONE LINE PER ARM:
 #
@@ -17,9 +18,13 @@
 # and <condition> is the code gobco prints for it.
 #
 # Every other arm the gate names is a test to write, not a line to add. A line
-# whose arm a test has come to reach fails the gate until it is removed, so
-# this list only shrinks as tests arrive. Source lines are not named here:
-# they drift, and the gate matches on file, function, number and condition.
+# keeps any arm of its condition, since one only another system sees both
+# ways may be kept on a line a change touches, so a line fails the gate until
+# it is removed once a test sees its condition both ways, and this list
+# shrinks as tests arrive; one kept for an arm a test comes to reach stays
+# while the other arm goes unseen, a limit TRADE-19 keeps. Source lines are
+# not named here: they drift, and the gate matches on file, function, number
+# and condition.
 # The number keeps a kept arm that a test comes to reach from being traded for
 # a new one no test reaches that reads the same, added below it. A condition
 # that reads the same added above a kept arm moves its number on, and the gate

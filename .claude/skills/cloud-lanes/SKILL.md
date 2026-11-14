@@ -225,7 +225,7 @@ Say which host and why, and carry on with what does not need it.
 | a docs test, any other test | `task test`, which the pre-push hook runs when the branch carries a Go change; a docs-only change's `task check:docs` runs the docs tests (`test:docs`) |
 | a file too long, a package over its budget, a stale trade-off site or `TECH_DEBT.md` path | the pre-push hook on every push, `task lint` |
 | the statement coverage floor | `task test:cover` |
-| a condition no test evaluated | `task cover:branch`, as dev |
+| a condition no test evaluated, or one seen one way on a line the change touched | `task cover:branch`, as dev |
 | golangci-lint against a new Go | the pinned pair from the setup, `task lint:go` |
 | a timing flake | `go test -race -count=20 -run <test> ./<pkg>`; `--repeat-each` for a spec |
 | a dependency under a week old | `task deps:age` in the lane's own worktree, for an npm or Go module, for a `mise.toml` pin of go, node or a `go:` or `npm:` tool, and for each pin a linter's file under `build/` adds; a GitHub-released mise tool, or mise's `min_version`, is dated only in CI; no script dates an Action bump, so check its release date by hand |

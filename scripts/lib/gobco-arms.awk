@@ -2,10 +2,18 @@
 # has measured every package and read every condition:
 #
 #   LC_ALL=C awk -F'\t' -v allowlist=<file> -v whole=<1 or 0> -v goos=<GOOS> \
+#     -v root=<repository root> -v changed=<file or ""> -v since=<base> \
 #     -f scripts/lib/gobco-arms.awk <<<"<conditions>"
 #
 # An arm no test reached fails: a condition never evaluated, and an error
-# check whose error arm was never seen. What an error check is, and which arm
+# check whose error arm was never seen. So does a condition seen only one way
+# on a line the change touched: changed names a file of those lines,
+# "<absolute path>\t<line>" each, which gobco-report.sh writes from git diff
+# against the merge base with the base branch since names. A condition's
+# file, unless absolute, is under root, where it is read and matched: gobco
+# names a file by its path from the repository's root. With changed empty, as
+# where no base was found, no condition fails for its line, and one seen one
+# way elsewhere is the report's worklist, not the gate's. What an error check is, and which arm
 # is the error's, is CONTRIBUTING.md's rule (*Tests*). This file matches it by
 # the condition's text: error_check is the pattern for the name compared with
 # nil, and errors_is_arm finds an errors.Is that follows "<name> != nil &&" on
@@ -29,16 +37,24 @@
 # follows it, with one exception it cannot see: when a test comes to reach the
 # kept arm in the same change, the new arm takes the kept one's number, the
 # line keeps it, and the gate passes. Trade-off TRADE-19: without source lines
-# the two cannot be told apart. A line whose arm is no longer unseen fails
-# too, so the list only shrinks as tests arrive. A run over named packages
-# misses only lines for files it did not measure.
+# the two cannot be told apart. A run over named packages misses only lines
+# for files it did not measure.
+#
+# A line may keep any arm of a condition seen at most one way, so a condition
+# only another system sees both ways, kept for a trade-off, passes on a line a
+# change touches. So a line keeps its condition while either arm of it goes
+# unseen, and fails once a test reaches both: a line kept for a condition never
+# evaluated, or for an error's arm, stays once a test reaches that arm but
+# leaves the other unseen. Trade-off TRADE-19: a line does not name which arm
+# it keeps, and a scripts/gobco-report_test.sh case pins that it passes.
 #
 # It reads the conditions a line each, "<file>:<line>:<column>", the code, and
 # how often each was seen true and false, apart by tabs and sorted by file,
-# line and column, and fails naming each arm no test reached that no line of
-# the allowlist keeps, and each line of the allowlist that keeps none. whole is
-# 1 for a run over the module's roots, which answers for every line of the
-# allowlist, and 0 for one over named packages.
+# line and column, and fails naming each arm no test reached, and each
+# condition seen one way on a changed line, that no line of the allowlist
+# keeps, and each line of the allowlist that keeps none. whole is 1 for a run
+# over the module's roots, which answers for every line of the allowlist, and
+# 0 for one over named packages.
 
 # enclosing is the function file holds at line, read on from where the call
 # before left it, since the conditions come in order. It leaves that line
@@ -129,24 +145,32 @@ BEGIN {
     text[arm] = field[1] " " field[2] " " field[3] " " field[4] " " field[5] " " condition
   }
   allowlist_lines = number
+  if (changed != "") while ((getline line < changed) > 0) touched[line] = 1
 }
 {
   path = $1
   sub(/:[0-9]+:[0-9]+$/, "", path)
   measured[path] = 1
+  located = (path ~ /^\// ? path : root "/" path)
   split($1, position, ":")
-  function_at = enclosing(path, position[2] + 0)
+  function_at = enclosing(located, position[2] + 0)
   nth = ++written[path SUBSEP function_at SUBSEP $2]
   if ($3 == 0 && $4 == 0) why = "was never evaluated"
   else if ($2 ~ (error_check " != nil$") && $3 == 0) why = "was never seen true, the error's arm"
   else if ($2 ~ (error_check " == nil$") && $4 == 0) why = "was never seen false, the error's arm"
   else if (($3 == 0 || $4 == 0) && (errors_arm = errors_is_arm(position[3] + 0, $2)) != "" &&
     (errors_arm == "true" ? $3 : $4) == 0) why = "was never seen " errors_arm ", the error's arm"
-  else next
+  else if ($3 != 0 && $4 != 0) next
+  else why = ""
   arm = path SUBSEP function_at SUBSEP nth SUBSEP $2
   unseen[arm] = 1
   if (arm in allowed) next
-  missed[++misses] = sprintf("  %s in %s: \"%s\", number %d there, %s", $1, function_at, $2, nth, why)
+  if (why != "") {
+    missed[++misses] = sprintf("  %s in %s: \"%s\", number %d there, %s", $1, function_at, $2, nth, why)
+  } else if ((located "\t" position[2] + 0) in touched) {
+    why = "was seen only " ($3 > 0 ? "true" : "false") ", on a line this change touched"
+    one_way[++one_ways] = sprintf("  %s in %s: \"%s\", number %d there, %s", $1, function_at, $2, nth, why)
+  }
 }
 END {
   for (arm in allowed) {
@@ -163,6 +187,16 @@ END {
     for (i = 1; i <= misses; i++) print missed[i] > "/dev/stderr"
     print "Each is a test to write. One a kept trade-off in TECH_DEBT.md keeps goes in" > "/dev/stderr"
     print "the allowlist instead, a line an arm, naming that trade-off." > "/dev/stderr"
+    bad = 1
+  }
+  if (one_ways > 0) {
+    print "Conditions seen only one way on a line this change touched, since " since ":" > "/dev/stderr"
+    for (i = 1; i <= one_ways; i++) print one_way[i] > "/dev/stderr"
+    print "A condition a change adds or rewrites is seen both ways before it lands: a" > "/dev/stderr"
+    print "defect once shipped behind one this report listed as seen one way" > "/dev/stderr"
+    print "(TRADE-19). Each is a test to write. In a package whose tests run in" > "/dev/stderr"
+    print "parallel, gobco's counts can lose an increment (gobco-report.sh's sharp" > "/dev/stderr"
+    print "edge 1), so run that package again to confirm one before writing its test." > "/dev/stderr"
     bad = 1
   }
   exit bad

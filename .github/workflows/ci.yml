@@ -215,6 +215,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # The base branch, for the merge base a pull request's changed
+          # lines are judged from.
+          fetch-depth: 0
       # lefthook for the wiring tests that run it, which skip without it and
       # leave the arms they reach unseen; jq for scripts/gobco-report.sh.
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
@@ -224,8 +227,14 @@ jobs:
       # Condition coverage. gobco reads every package with tests, a package of
       # build-tagged twins a file at a time, and scripts/gobco-report.sh fails
       # on any it cannot read rather than drop it from the report. Its floor
-      # comes from the same Taskfile variable the local gate reads.
+      # comes from the same Taskfile variable the local gate reads. A pull
+      # request also fails on a condition seen one way on a line it adds or
+      # modifies, judged against its base branch. A push to main names no
+      # base, since what it changes has passed that check as a pull request,
+      # so the report says it skips that check, and that check alone.
       - run: task cover:branch
+        env:
+          GATE_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
       # Consumed by the summary and coverage-baseline jobs below. An upload of
       # one directory holds its contents at the artifact's root, so each of
       # them downloads it into tmp/gobco, where scripts/coverage-summary.sh
