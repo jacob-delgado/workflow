@@ -961,11 +961,13 @@ removed since shows.
 Then come your favorites: every other directory you marked, each with what is
 there now — a repository and its origin, a directory that is not a repository,
 or one that is not there any more. A favorite that is one of the worktrees is
-starred there rather than listed twice. `f` adds the directory the cursor is on to your favorites, or removes
-it. Favorites are kept in the store's `kept.db`, by path alone; whether one is
-still there is read from the disk each time the pane is opened, and they are
-not read at startup. Under `--dry-run` the pane lists them and says what `f`
-would have done; with `store.disabled` there are none to keep.
+starred there rather than listed twice. `f` adds the directory the cursor is
+on to your favorites, or removes it. It waits while a change to them is on its
+way, or a read of them is out: until that answers, the rows can show them as
+they stood before. Favorites are kept in the store's `kept.db`, by path alone;
+whether one is still there is read from the disk each time the pane is opened,
+and they are not read at startup. Under `--dry-run` the pane lists them and
+says what `f` would have done; with `store.disabled` there are none to keep.
 
 `s` switches to the worktree or directory the cursor is on — not to a worktree
 whose directory is gone — and `g` opens a picker to browse for one. Its field

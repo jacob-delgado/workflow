@@ -307,8 +307,14 @@ func (msg favoriteToggled) apply(m Model) (Model, tea.Cmd) {
 // the change answers.
 const favoriteChanging = "a favorite is still being changed; try again once it is"
 
+// favoritesReading is why f waits once a change has answered: the rows show
+// the favorites as the read before it found them until the read after it
+// answers, so f would make the same change again rather than undo it.
+const favoritesReading = "the favorites are being read; try again once they are"
+
 // toggleFavorite forgets a row that is a favorite, and marks one that is not,
-// once no other change of the favorites is on its way.
+// once no other change of the favorites is on its way and no read of them is
+// out.
 func (m Model) toggleFavorite(row repositoryRow) (Model, tea.Cmd) {
 	change, verb := m.deps.Store.Favor, "add "+shownDir(m.deps, row.dir)+" to favorites"
 	if row.favorite {
@@ -322,6 +328,8 @@ func (m Model) toggleFavorite(row repositoryRow) (Model, tea.Cmd) {
 		return m.noticed("favorites are not kept: the store is turned off"), nil
 	case m.repositories.changing:
 		return m.noticed(favoriteChanging), nil
+	case m.repositories.read.Out():
+		return m.noticed(favoritesReading), nil
 	}
 
 	ctx := m.session

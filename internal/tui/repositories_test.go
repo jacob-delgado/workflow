@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	tea "charm.land/bubbletea/v2"
-
 	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
@@ -345,22 +343,23 @@ func TestFPressedAgainBeforeTheFirstAnswersChangesTheFavoritesOnce(t *testing.T)
 	}
 }
 
-func TestAReadBegunBeforeAFavoriteChangedDoesNotBringItBack(t *testing.T) {
+func TestFDuringARefreshWaitsForItsRead(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// r reads the favorites with ~/src/web still among them, and that read
-	// answers only once f has forgotten it and the read after has answered.
+	// r reads the favorites with ~/src/web still among them; until that read
+	// answers, the rows may not show them as they are, so f on ~/src/web
+	// waits rather than act on what the rows show.
 	working := reposWorld()
-	refreshing, read := pressed(t, typing(t, working.live(t, 120, 40), reposKey, "j"), "r")
-	readBefore := answersOf(t, refreshing, read)
-	forgotten := typing(t, refreshing, "f")
+	refreshing, _ := pressed(t, typing(t, working.live(t, 120, 40), reposKey, "j"), "r")
 
 	// Act
-	for _, answer := range readBefore {
-		forgotten = deliver(t, forgotten, func() tea.Msg { return answer })
-	}
+	view := typing(t, refreshing, "f").View().Content
 
 	// Assert
-	refuseScreen(t, forgotten.View().Content, "★ ~/src/web")
+	requireScreen(t, view, "the favorites are being read")
+
+	if forgotten := working.asked("unfavor "); len(forgotten) != 0 {
+		t.Errorf("forgot %q while a read of the favorites was out, want nothing", forgotten)
+	}
 }
