@@ -70,7 +70,8 @@ func (s tasksState) rail(view tasksView) string {
 
 	failed := func() string { return view.kit.failureSummary(s.read.Err()) }
 
-	return drawRead(view.kit, s.read, drawnRead{
+	return drawRead(s.read, drawnRead[string]{
+		reading: view.kit.reading,
 		shown: func() string {
 			if s.writing {
 				return view.kit.marks.inFlight + " sending" + view.kit.marks.ellipsis
@@ -140,7 +141,8 @@ func (s tasksState) detail(view tasksView, width int) string {
 
 	failed := func() string { return view.kit.failureBlock(s.read.Err(), width) }
 
-	return drawRead(view.kit, s.read, drawnRead{
+	return drawRead(s.read, drawnRead[string]{
+		reading:    view.kit.reading,
 		shown:      func() string { return s.listingDetail(view, width, nil) },
 		failed:     failed,
 		failedOver: func() string { return s.listingDetail(view, width, []string{"", failed()}) },

@@ -286,25 +286,18 @@ func (d issueDetail) lines(view readView, issueKey jira.Key, width int) []string
 		return reading()
 	}
 
-	detail, held := d.read.Value()
+	detail, _ := d.read.Value()
 	shown := func() []string { return fullLines(view, detail, width) }
 	failed := func() []string {
 		retry := "press " + view.keys.refresh.Help().Key + " to try again"
-		lines := []string{"", kit.failureBlock(d.read.Err(), width), retry}
 
-		if !held {
-			return lines
-		}
-
-		return append(shown(), lines...)
+		return []string{"", kit.failureBlock(d.read.Err(), width), retry}
 	}
 
-	return map[latest.Stage]func() []string{
-		latest.StageNeverRead: reading,
-		latest.StageReading:   reading,
-		latest.StageShown:     shown,
-		latest.StageFailed:    failed,
-	}[d.read.Stage()]()
+	return drawRead(d.read, drawnRead[[]string]{
+		reading: reading, shown: shown, failed: failed,
+		failedOver: func() []string { return append(shown(), failed()...) },
+	})
 }
 
 // fullLines is what a full read of an issue found: the reporter, the

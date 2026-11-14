@@ -90,13 +90,14 @@ func (msg diffLoaded) apply(m Model) (Model, tea.Cmd) {
 // list. An added line keeps its leading + and a removed line its -, so the mark
 // reads without color too.
 func (d diffState) section(kit renderKit, change gitrepo.Change, width int) []string {
-	reading := func() []string { return []string{kit.styles.label.Render("reading the diff" + kit.marks.ellipsis)} }
-	body := map[latest.Stage]func() []string{
-		latest.StageNeverRead: reading,
-		latest.StageReading:   reading,
-		latest.StageShown:     func() []string { return d.marked(kit, width) },
-		latest.StageFailed:    func() []string { return []string{kit.failureLine(d.read.Err())} },
-	}[d.read.Stage()]()
+	// Every read begins cleared, so a failed one holds no diff.
+	failed := func() []string { return []string{kit.failureLine(d.read.Err())} }
+	body := drawRead(d.read, drawnRead[[]string]{
+		reading:    func() []string { return []string{kit.styles.label.Render("reading the diff" + kit.marks.ellipsis)} },
+		shown:      func() []string { return d.marked(kit, width) },
+		failed:     failed,
+		failedOver: failed,
+	})
 
 	return append([]string{"", kit.styles.strong.Render("diff: " + sanitize.Line(change.Path))}, body...)
 }

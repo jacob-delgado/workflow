@@ -232,9 +232,10 @@ func (l issueList) move(step int) issueList {
 func (l issueList) render(kit renderKit, rows int, mark func(jira.Key) string) string {
 	failed := func() string { return kit.unreadRow(l.read.Err(), "failed") }
 
-	return drawRead(kit, l.read, drawnRead{
-		shown:  func() string { return l.shown(kit, rows, mark) },
-		failed: failed,
+	return drawRead(l.read, drawnRead[string]{
+		reading: kit.reading,
+		shown:   func() string { return l.shown(kit, rows, mark) },
+		failed:  failed,
 		failedOver: func() string {
 			switch {
 			case len(l.found().Issues) == 0:
