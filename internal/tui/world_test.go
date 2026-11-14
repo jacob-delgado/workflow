@@ -626,7 +626,7 @@ func (w *world) hookDeps() seams.Hooks {
 
 			return output(w.commitLines, w.commitErr), nil
 		},
-		Existing: func(context.Context) ([]hooks.GitHook, bool) { return w.gitHooks, w.configured },
+		Existing: w.existingHooks,
 		Write: func(_ context.Context, generated hooks.Generated) error {
 			w.record("write " + generated.Config)
 

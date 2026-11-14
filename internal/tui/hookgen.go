@@ -12,21 +12,41 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/hooks"
+	"github.com/jacob-delgado/workflow/internal/tui/latest"
 )
 
-// hookgenState holds the hooks lefthook does not manage, read at start and on
-// each Commits refresh, so that pane can offer a configuration for them.
+// hookgenState holds the hooks lefthook does not manage, as the latest look
+// at them found them, at start and on each Commits refresh, so that pane can
+// offer a configuration for them.
 type hookgenState struct {
-	hooks []hooks.GitHook
-	// writes counts the configurations written, which a look for the hooks
-	// carries, so one begun before a write says nothing after it.
-	writes int
+	read latest.Read[[]hooks.GitHook]
 }
 
-// find is the command that looks for hooks lefthook does not manage, under
-// ctx.
-func (s hookgenState) find(ctx context.Context, deps Deps) tea.Cmd {
-	existing, writes := deps.Hooks.Existing, s.writes
+// unmanaged is the hooks lefthook does not manage, as last found or told.
+func (s hookgenState) unmanaged() []hooks.GitHook {
+	found, _ := s.read.Value()
+
+	return found
+}
+
+// lookingForHooks begins a look for hooks lefthook does not manage,
+// superseding any still out, and is the command that looks; with nothing to
+// look or to write with, it begins nothing.
+func (m Model) lookingForHooks() (Model, tea.Cmd) {
+	if m.deps.Hooks.Existing == nil || m.deps.Hooks.Write == nil {
+		return m, nil
+	}
+
+	read, round := m.hookgen.read.Begin()
+	m.hookgen.read = read
+
+	return m, findHooks(m.session, m.deps, round)
+}
+
+// findHooks is the command that looks for hooks lefthook does not manage,
+// under ctx, in round.
+func findHooks(ctx context.Context, deps Deps, round latest.Round) tea.Cmd {
+	existing := deps.Hooks.Existing
 	if existing == nil || deps.Hooks.Write == nil {
 		return nil
 	}
@@ -34,16 +54,16 @@ func (s hookgenState) find(ctx context.Context, deps Deps) tea.Cmd {
 	return func() tea.Msg {
 		found, configured := existing(ctx)
 
-		return hooksFound{hooks: found, configured: configured, writes: writes}
+		return hooksFound{hooks: found, configured: configured, round: round}
 	}
 }
 
-// hooksFound is what the hooks directory holds, as looked at after writes
-// configurations were written.
+// hooksFound is what the hooks directory holds, as the look begun in round
+// found it.
 type hooksFound struct {
 	hooks      []hooks.GitHook
 	configured bool
-	writes     int
+	round      latest.Round
 }
 
 var _ applier = hooksFound{}
@@ -51,16 +71,16 @@ var _ applier = hooksFound{}
 // apply stores hooks that predate lefthook, so the Commits pane can offer to
 // generate a configuration for them — rather than seizing the first screen —
 // and forgets them once lefthook is configured, however that came about. A
-// look begun before a configuration was written read the hooks as they were
-// before it, and is dropped.
+// look a later one superseded, or one begun before a configuration was
+// written, read the hooks as they were before, and is dropped.
 func (msg hooksFound) apply(m Model) (Model, tea.Cmd) {
-	if msg.writes != m.hookgen.writes {
-		return m, nil
+	found := msg.hooks
+	if msg.configured {
+		found = nil
 	}
 
-	m.hookgen.hooks = msg.hooks
-	if msg.configured {
-		m.hookgen.hooks = nil
+	if read, taken := m.hookgen.read.Answered(msg.round, found, nil); taken {
+		m.hookgen.read = read
 	}
 
 	return m, nil
@@ -69,9 +89,8 @@ func (msg hooksFound) apply(m Model) (Model, tea.Cmd) {
 // openHookgen opens the lefthook offer, rebuilt from the stored hooks so it
 // reopens after a skip.
 func (m Model) openHookgen() (Model, tea.Cmd) {
-	m.overlay = hookgenOffer{
-		hooks: m.hookgen.hooks, generated: hooks.Structured(m.hookgen.hooks),
-	}
+	found := m.hookgen.unmanaged()
+	m.overlay = hookgenOffer{hooks: found, generated: hooks.Structured(found)}
 
 	return m, nil
 }
@@ -182,8 +201,7 @@ func (msg hooksWritten) apply(m Model) (Model, tea.Cmd) {
 		return keepOpenWith[hookgenOffer](m, msg.err), nil
 	}
 
-	m.hookgen.hooks = nil
-	m.hookgen.writes++
+	m.hookgen.read = m.hookgen.read.Told(nil)
 	m = m.closeOverlay()
 
 	if msg.err != nil {

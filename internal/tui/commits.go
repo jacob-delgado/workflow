@@ -185,7 +185,7 @@ func (m Model) commitsListing(width int, failure []string) string {
 		lines = append(lines, m.styles.label.Render(commit.Hash)+" "+commit.Subject)
 	}
 
-	if len(m.hookgen.hooks) > 0 {
+	if len(m.hookgen.unmanaged()) > 0 {
 		lines = append(lines, "", m.styles.label.Render("A hook is not managed by lefthook. Press "+
 			m.keys.hookConfig.Help().Key+" to set up lefthook."))
 	}
@@ -243,7 +243,7 @@ func (m Model) commitsOffers() []offer {
 
 	return slices.Concat(m.stagingOffers(), m.committingOffers(), []offer{
 		{binding: m.keys.runHook, can: m.deps.Hooks.Run != nil && m.deps.Hooks.Configured != nil, act: m.openHookPicker},
-		{binding: m.keys.hookConfig, can: len(m.hookgen.hooks) > 0, act: m.openHookgen},
+		{binding: m.keys.hookConfig, can: len(m.hookgen.unmanaged()) > 0, act: m.openHookgen},
 		{binding: m.keys.refresh, can: true, act: func() (Model, tea.Cmd) { return m.refreshPane(paneCommits) }},
 	})
 }
@@ -398,9 +398,10 @@ func commitsBehavior() behavior {
 		// refresh reads the work tree again, and the branch and the hooks with
 		// it.
 		refresh: func(m Model) (Model, tea.Cmd) {
-			m, read := m.readingChanges()
+			m, status := m.readingChanges()
+			m, look := m.lookingForHooks()
 
-			return m, tea.Batch(read, loadBranch(m.session, m.deps), m.hookgen.find(m.session, m.deps))
+			return m, tea.Batch(status, loadBranch(m.session, m.deps), look)
 		},
 		loading: func(m Model) bool { return m.changes.read.Refreshing() },
 		scroll:  func(m *Model) *int { return &m.changes.scroll }, listInDetail: true, readsBranch: true,

@@ -230,7 +230,7 @@ func keysFrom(input io.Reader) []tea.ProgramOption {
 func (m Model) Init() tea.Cmd {
 	loads := []tea.Cmd{
 		m.searchIssues(), listIssueBranches(m.session, m.cfg, m.deps), loadBranch(m.session, m.deps),
-		loadChanges(m.session, m.deps, 0), m.hookgen.find(m.session, m.deps),
+		loadChanges(m.session, m.deps, 0), findHooks(m.session, m.deps, 0),
 		loadReviewQueue(m.session, m.deps, 0), loadAnnounces(m.session, m.deps),
 		m.tasks.load(m.session, m.deps),
 	}
