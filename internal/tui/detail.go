@@ -13,6 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/tui/latest"
 )
 
 // detailDelay is how long the selection must rest on an issue before it is read
@@ -30,21 +31,26 @@ const (
 // when ui.comments_shown is not set.
 const defaultCommentsShown = 5
 
-// issueDetail is the selected issue in full, as far as it has loaded, and how
+// issueDetail is the issue read in full, as its latest read found it, and how
 // far the Issues pane's detail is scrolled — which another issue starts at the
 // top.
 type issueDetail struct {
 	key    jira.Key
-	loaded bool
-	err    error
-	detail jira.IssueDetail
+	read   latest.Read[jira.IssueDetail]
 	scroll int
 }
 
-// detailLoaded carries an issue read in full, and which read it answers.
+// shows reports that issueKey is the issue read, with a read of it out or
+// one that did not fail: one that failed is read again when the selection
+// comes back to it.
+func (d issueDetail) shows(issueKey jira.Key) bool {
+	return d.key == issueKey && (d.read.Out() || d.read.Stage() != latest.StageFailed)
+}
+
+// detailLoaded carries an issue read in full, as the read begun in round
+// found it.
 type detailLoaded struct {
-	key    jira.Key
-	read   int
+	round  latest.Round
 	detail jira.IssueDetail
 	err    error
 }
@@ -53,13 +59,13 @@ var _ applier = detailLoaded{}
 
 // apply records the issue, unless the selection has moved on from it or a later
 // read has started — a load and then a reload after a comment, say — whose
-// answer is the one to show, whichever of the two arrives last.
+// answer is the one to show, whichever of the two arrives last. A reload that
+// failed keeps the issue shown, beside its failure.
 func (msg detailLoaded) apply(m Model) (Model, tea.Cmd) {
-	if msg.key != m.detail.key || msg.read != m.detailReads {
-		return m, nil
+	read, taken := m.detail.read.Answered(msg.round, msg.detail, msg.err)
+	if taken {
+		m.detail.read = read
 	}
-
-	m.detail.loaded, m.detail.err, m.detail.detail = true, msg.err, msg.detail
 
 	return m, nil
 }
@@ -81,14 +87,41 @@ func (msg detailDue) apply(m Model) (Model, tea.Cmd) {
 	return m.loadDetail()
 }
 
-// loadDetail reads the selected issue in full, unless it already is.
+// loadDetail reads the selected issue in full, unless it already is, for a
+// move of the selection or a key that acts on it: another issue starts
+// unread, and an issue whose read failed is read again.
 func (m Model) loadDetail() (Model, tea.Cmd) {
 	selected, ok := m.issues.current()
-	if !ok || m.deps.Jira.Issue == nil || m.detail.key == selected.Key {
+	if !ok || m.detail.shows(selected.Key) {
 		return m, nil
 	}
 
-	m.detail = issueDetail{key: selected.Key, loaded: false, err: nil, detail: jira.IssueDetail{}}
+	return m.readSelected(selected.Key)
+}
+
+// followDetail reads the selected issue in full when an answer moved the
+// selection onto another issue. An issue whose read failed stays as it is
+// until a move or r reads it again, so an issue Jira refuses is not asked
+// for on every answer that leaves the selection on it.
+func (m Model) followDetail() (Model, tea.Cmd) {
+	selected, ok := m.issues.current()
+	if !ok || m.detail.key == selected.Key {
+		return m, nil
+	}
+
+	return m.readSelected(selected.Key)
+}
+
+// readSelected reads the selected issue, issueKey, in full: another issue
+// than the one read starts unread, in a cleared round.
+func (m Model) readSelected(issueKey jira.Key) (Model, tea.Cmd) {
+	if m.deps.Jira.Issue == nil {
+		return m, nil
+	}
+
+	if m.detail.key != issueKey {
+		m.detail = issueDetail{key: issueKey, read: m.detail.read.Cleared(), scroll: 0}
+	}
 
 	return m.readDetail()
 }
@@ -103,16 +136,17 @@ func (m Model) reloadDetail(issueKey jira.Key) (Model, tea.Cmd) {
 	return m.readDetail()
 }
 
-// readDetail starts a read of the issue shown, numbered so that only the latest
-// read's answer is shown. Every read goes through here.
+// readDetail begins a read of the issue shown, superseding any still out, so
+// that only the latest read's answer is shown. Every read goes through here.
 func (m Model) readDetail() (Model, tea.Cmd) {
-	m.detailReads++
-	ctx, read, issueKey, number := m.session, m.deps.Jira.Issue, m.detail.key, m.detailReads
+	read, round := m.detail.read.Begin()
+	m.detail.read = read
+	ctx, issue, issueKey := m.session, m.deps.Jira.Issue, m.detail.key
 
 	return m, func() tea.Msg {
-		detail, err := read(ctx, issueKey)
+		detail, err := issue(ctx, issueKey)
 
-		return detailLoaded{key: issueKey, read: number, detail: detail, err: err}
+		return detailLoaded{round: round, detail: detail, err: err}
 	}
 }
 
@@ -156,10 +190,10 @@ func (m Model) moveIssue(step int) (Model, tea.Cmd) {
 }
 
 // soonDetail reads the selected issue after detailDelay, unless it is already
-// shown.
+// shown or being read.
 func (m Model) soonDetail() tea.Cmd {
 	selected, ok := m.issues.current()
-	if !ok || m.detail.key == selected.Key {
+	if !ok || m.detail.shows(selected.Key) {
 		return nil
 	}
 
@@ -231,18 +265,43 @@ func issueFacts(kit renderKit, issue jira.Issue) string {
 }
 
 // lines is the part of an issue only a full read has: the reporter, the
-// description, and the most recent comments.
+// description, and the most recent comments; beneath them, why the latest
+// read failed, if it did.
 func (d issueDetail) lines(view readView, issueKey jira.Key, width int) []string {
 	kit := view.kit
-
-	switch {
-	case d.key != issueKey || !d.loaded:
+	reading := func() []string {
 		return []string{"", kit.styles.label.Render("reading the description and comments" + kit.marks.ellipsis)}
-	case d.err != nil:
-		return []string{"", kit.failureBlock(d.err, width), "press " + view.keys.refresh.Help().Key + " to try again"}
 	}
 
-	detail := d.detail
+	if d.key != issueKey {
+		return reading()
+	}
+
+	detail, held := d.read.Value()
+	shown := func() []string { return fullLines(view, detail, width) }
+	failed := func() []string {
+		retry := "press " + view.keys.refresh.Help().Key + " to try again"
+		lines := []string{"", kit.failureBlock(d.read.Err(), width), retry}
+
+		if !held {
+			return lines
+		}
+
+		return append(shown(), lines...)
+	}
+
+	return map[latest.Stage]func() []string{
+		latest.StageNeverRead: reading,
+		latest.StageReading:   reading,
+		latest.StageShown:     shown,
+		latest.StageFailed:    failed,
+	}[d.read.Stage()]()
+}
+
+// fullLines is what a full read of an issue found: the reporter, the
+// description, and the most recent comments.
+func fullLines(view readView, detail jira.IssueDetail, width int) []string {
+	kit := view.kit
 	lines := []string{kit.styles.label.Render("reported by " + detail.Reporter)}
 	lines = append(lines, issuePeopleAndTags(kit.styles, detail)...)
 	lines = append(lines, "")

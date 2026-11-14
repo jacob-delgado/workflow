@@ -66,7 +66,7 @@ func (msg branchLoaded) apply(m Model) (Model, tea.Cmd) {
 		m.branch.scroll, m.messaging.scroll = 0, 0
 	}
 
-	m, detail := m.resumeIssue().loadDetail()
+	m, detail := m.resumeIssue().followDetail()
 	m, find := m.findingPull()
 
 	// Your forge name is asked for here, not only once a pull request is

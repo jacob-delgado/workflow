@@ -41,7 +41,7 @@ func (msg issueBranchesListed) apply(m Model) (Model, tea.Cmd) {
 		return l
 	})
 
-	return m.loadDetail()
+	return m.followDetail()
 }
 
 // listIssueBranches is the command that lists the local and remote branches and
