@@ -149,6 +149,17 @@ func (m Model) readingRepositories() (Model, tea.Cmd) {
 	return m, m.loadRepositories(round)
 }
 
+// readingRepositoriesAgain begins a read of the worktrees and the favorites
+// once something has changed them, unless the pane has never been read: it
+// is read when first looked at, and that read finds the change.
+func (m Model) readingRepositoriesAgain() (Model, tea.Cmd) {
+	if m.repositories.read.Stage() == latest.StageNeverRead {
+		return m, nil
+	}
+
+	return m.readingRepositories()
+}
+
 // rows are where you work, then the repository's other worktrees as git
 // lists them, then every other favorite, as kept.
 func (s repositoriesState) rows(here seams.Place) []repositoryRow {

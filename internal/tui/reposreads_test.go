@@ -76,3 +76,20 @@ func TestAnOlderRepositoriesReadAnsweringLateIsNotShown(t *testing.T) {
 	// Assert
 	refuseScreen(t, view, "★ ~/src/web")
 }
+
+func TestRemovingEverythingReadsTheFavoritesAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The pane lists ~/src/web as a favorite; kept.db, which keeps it, is
+	// removed with everything else.
+	working := reposWorld()
+	listed := typing(t, working.live(t, 120, 40), reposKey)
+
+	// Act
+	view := typing(t, listed, localDataKey, "C", keyEnter).View().Content
+
+	// Assert
+	requireScreen(t, view, "removed workflow.db and kept.db", "No favorites yet")
+	refuseScreen(t, view, "~/src/web")
+}
