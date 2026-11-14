@@ -212,9 +212,10 @@ func (s reviewState) rail(kit renderKit, vocab reviewVocab, onFeatureBranch bool
 
 	failed := func() string { return kit.failureSummary(s.find.Err()) }
 
-	return drawRead(kit, s.find, drawnRead{
-		shown:  func() string { return s.pulled(kit, vocab) },
-		failed: failed,
+	return drawRead(s.find, drawnRead[string]{
+		reading: kit.reading,
+		shown:   func() string { return s.pulled(kit, vocab) },
+		failed:  failed,
 		failedOver: func() string {
 			if !s.found() {
 				return failed()

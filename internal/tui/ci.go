@@ -237,12 +237,11 @@ func (s reviewState) ciSummary(kit renderKit) string {
 	// Beside "CI", reading needs no mark of its own.
 	reading := func() string { return "reading" + kit.marks.ellipsis }
 
-	return map[latest.Stage]func() string{
-		latest.StageNeverRead: reading,
-		latest.StageReading:   reading,
-		latest.StageShown:     func() string { return s.ciShown(kit) },
-		latest.StageFailed:    func() string { return kit.failureSummary(s.ci.Err()) },
-	}[s.ci.Stage()]()
+	failed := func() string { return kit.failureSummary(s.ci.Err()) }
+
+	return drawRead(s.ci, drawnRead[string]{
+		reading: reading, shown: func() string { return s.ciShown(kit) }, failed: failed, failedOver: failed,
+	})
 }
 
 // ciShown says how CI stands as the latest read found it: none reported, on

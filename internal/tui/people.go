@@ -236,25 +236,19 @@ func (p peopleOverlay) tabs(kit renderKit) string {
 // everyone listed, beneath why the latest read failed when it did.
 func (p peopleOverlay) peopleLines(kit renderKit, width, rows int) []string {
 	reading := func() []string { return []string{kit.marks.inFlight + " reading who was decided" + kit.marks.ellipsis} }
+	failure := func() []string { return strings.Split(kit.failureBlock(p.listed.Err(), width), "\n") }
 
-	return map[latest.Stage]func() []string{
-		latest.StageNeverRead: reading,
-		latest.StageReading:   reading,
-		latest.StageShown:     func() []string { return p.listLines(kit, rows) },
-		latest.StageFailed:    func() []string { return p.failedLines(kit, width, rows) },
-	}[p.listed.Stage()]()
-}
+	return drawRead(p.listed, drawnRead[[]string]{
+		reading: reading,
+		shown:   func() []string { return p.listLines(kit, rows) },
+		failed:  failure,
+		// The list takes the rows the failure leaves, however many it wraps to.
+		failedOver: func() []string {
+			lines := failure()
 
-// failedLines are why the latest read of the people failed, above everyone
-// still listed from an earlier read, when one answered, in the rows the
-// failure leaves, however many it wraps to.
-func (p peopleOverlay) failedLines(kit renderKit, width, rows int) []string {
-	failure := strings.Split(kit.failureBlock(p.listed.Err(), width), "\n")
-	if _, held := p.listed.Value(); !held {
-		return failure
-	}
-
-	return append(failure, p.listLines(kit, rows-len(failure))...)
+			return append(lines, p.listLines(kit, rows-len(lines))...)
+		},
+	})
 }
 
 // listLines are everyone listed, or that there is nobody to list.

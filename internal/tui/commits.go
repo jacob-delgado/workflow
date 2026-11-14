@@ -135,7 +135,8 @@ func (l changeList) staged() int {
 func (l changeList) rail(kit renderKit, commits int) string {
 	failed := func() string { return kit.unreadRow(l.read.Err(), "status failed") }
 
-	return drawRead(kit, l.read, drawnRead{
+	return drawRead(l.read, drawnRead[string]{
+		reading: kit.reading,
 		shown: func() string {
 			return l.counts() + "\n" + kit.styles.label.Render(plural(commits, "commit")+" on this branch")
 		},
@@ -158,7 +159,8 @@ func (m Model) commitsDetail(width int) string {
 
 	failure := func() string { return m.kit().failureBlock(m.changes.read.Err(), width) }
 
-	return drawRead(m.kit(), m.changes.read, drawnRead{
+	return drawRead(m.changes.read, drawnRead[string]{
+		reading:    m.kit().reading,
 		shown:      func() string { return m.commitsListing(width, nil) },
 		failed:     failure,
 		failedOver: func() string { return m.commitsListing(width, []string{failure()}) },

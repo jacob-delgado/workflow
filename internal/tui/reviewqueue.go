@@ -195,7 +195,8 @@ func (s reviewQueueState) rail(view reviewsView) string {
 
 	failed := func() string { return view.kit.failureSummary(s.read.Err()) }
 
-	return drawRead(view.kit, s.read, drawnRead{
+	return drawRead(s.read, drawnRead[string]{
+		reading:    view.kit.reading,
 		shown:      s.waiting,
 		failed:     failed,
 		failedOver: func() string { return failed() + "\n" + s.waiting() },
@@ -227,7 +228,8 @@ func (s reviewQueueState) detail(view reviewsView, width int) string {
 	listing := func() string { return s.listing(view) }
 	failed := func() string { return view.kit.failureBlock(s.read.Err(), width) }
 
-	return drawRead(view.kit, s.read, drawnRead{
+	return drawRead(s.read, drawnRead[string]{
+		reading:    view.kit.reading,
 		shown:      listing,
 		failed:     failed,
 		failedOver: func() string { return listing() + "\n" + failed() },

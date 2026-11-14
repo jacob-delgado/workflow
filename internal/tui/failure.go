@@ -101,23 +101,24 @@ func (kit renderKit) failureSummary(err error) string {
 	return kit.voicedMark(err) + " " + briefly(err)
 }
 
-// drawnRead is how a pane draws its read once it has answered: as shown, as
-// failed with nothing held, and as failed over a value still held.
-type drawnRead struct {
-	shown, failed, failedOver func() string
+// drawnRead is how a pane draws its read, as Out: while no answer is taken,
+// as shown, as failed with nothing held, and as failed over a value still
+// held.
+type drawnRead[Out any] struct {
+	reading, shown, failed, failedOver func() Out
 }
 
 // drawRead is read as it stands: reading until a read answers, then as draw
-// draws it.
-func drawRead[T any](kit renderKit, read latest.Read[T], draw drawnRead) string {
+// draws it. The map holds every stage, so exhaustive checks each is drawn.
+func drawRead[T, Out any](read latest.Read[T], draw drawnRead[Out]) Out {
 	failed := draw.failed
 	if _, held := read.Value(); held {
 		failed = draw.failedOver
 	}
 
-	return map[latest.Stage]func() string{
-		latest.StageNeverRead: kit.reading,
-		latest.StageReading:   kit.reading,
+	return map[latest.Stage]func() Out{
+		latest.StageNeverRead: draw.reading,
+		latest.StageReading:   draw.reading,
 		latest.StageShown:     draw.shown,
 		latest.StageFailed:    failed,
 	}[read.Stage()]()

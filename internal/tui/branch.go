@@ -123,7 +123,8 @@ func (s branchState) onFeatureBranch() bool {
 func (s branchState) rail(kit renderKit) string {
 	failed := func() string { return kit.unreadRow(s.read.Err(), "could not read the branch") }
 
-	return drawRead(kit, s.read, drawnRead{
+	return drawRead(s.read, drawnRead[string]{
+		reading:    kit.reading,
 		shown:      func() string { return s.named(kit) },
 		failed:     failed,
 		failedOver: func() string { return failed() + "\n" + s.heading(kit) },
@@ -207,8 +208,9 @@ func (s branchState) detail(view branchView, width int) string {
 
 	failure := func() string { return kit.failureBlock(s.read.Err(), width) }
 
-	return drawRead(kit, s.read, drawnRead{
-		shown: func() string { return s.described(view, width) },
+	return drawRead(s.read, drawnRead[string]{
+		reading: kit.reading,
+		shown:   func() string { return s.described(view, width) },
 		// Why, in the words of whatever refused: a directory that is no
 		// repository is one reason among several, and only the reason says
 		// what to do about it.
