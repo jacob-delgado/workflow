@@ -32,6 +32,11 @@ const (
 	tabGroups
 )
 
+// other is the tab the next-field key shows from t.
+func (t peopleTab) other() peopleTab {
+	return map[peopleTab]peopleTab{tabPeople: tabGroups, tabGroups: tabPeople}[t]
+}
+
 // person is a forge owner as People and groups lists them: decided, with what
 // was decided, or one of this branch's owners not asked about yet; and
 // whether they are a team (org/team, a GitLab group), which links to a user
@@ -308,7 +313,7 @@ func (p peopleOverlay) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) 
 
 	switch {
 	case key.Matches(msg, m.keys.nextField):
-		p.tab = 1 - p.tab
+		p.tab = p.tab.other()
 	case p.tab == tabGroups:
 		return p.handleGroupKey(m, msg)
 	default:
