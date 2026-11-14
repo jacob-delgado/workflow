@@ -54,6 +54,7 @@ func TestAPostAnnouncedFromAnotherSessionWhileItsPreviewWasOpenIsNotSent(t *test
 	}
 
 	requireScreen(t, view, "already announced from another session; not posted again", "● announced")
+	refuseScreen(t, view, "announcing…")
 }
 
 func TestAStoreWhoseAnnouncementsCannotBeReadSaysSo(t *testing.T) {
