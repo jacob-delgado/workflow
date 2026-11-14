@@ -169,7 +169,7 @@ func (m Model) issueListOffers() []offer {
 		}},
 		{binding: m.keys.filterIssues, can: filterable, act: m.openPlacePicker},
 		{binding: m.keys.nextView, can: len(m.views) > 1, act: m.nextIssueView},
-		{binding: m.keys.loadMore, can: m.issues.hasMore(), act: m.loadMoreIssues},
+		{binding: m.keys.loadMore, can: m.issues.canPage(), act: m.loadMoreIssues},
 		{binding: m.keys.refresh, can: true, act: func() (Model, tea.Cmd) { return m.refreshPane(paneIssues) }},
 	}
 }

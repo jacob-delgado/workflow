@@ -216,14 +216,15 @@ func TestSwitchingToACachedViewMarksItInFlightUntilItsSearchAnswers(t *testing.T
 	model := sized(t, tui.New(twoViewConfig(), nil, repo.deps()), 120, 40)
 	started := drain(t, model, model.Init())
 
-	// Act: switch to the second view, its search not yet answered
-	switched, search := pressed(t, started, "v")
+	// Act: switch to the second view; its cache read answers, its search
+	// not yet
+	switched, search := withheldKeys(t, started, repo.counting("search "), "v")
 
 	// Assert: yesterday's list shows, marked as being read again
-	requireScreen(t, switched.View().Content, "Sprint board ◐")
+	requireScreen(t, switched.View().Content, "OLD-1", "Sprint board ◐")
 
 	// Act: the search answers
-	searched := drain(t, switched, search)
+	searched := handedOver(t, switched, search)
 
 	// Assert: the mark is gone
 	refuseScreen(t, searched.View().Content, "Sprint board ◐")

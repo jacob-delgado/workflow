@@ -55,6 +55,14 @@ func TestAReadTakesTheAnswerOfTheRoundItAwaits(t *testing.T) {
 			round: initRound, err: errRead,
 			want: view{stage: latest.StageFailed, err: errRead},
 		},
+		"an answer replaces the seed standing in for it": {
+			steps: []step{begin(), seed(1)}, round: 1, value: "a",
+			want: view{stage: latest.StageShown, value: "a", held: true},
+		},
+		"a failure keeps the seed standing in for it": {
+			steps: []step{begin(), seed(1)}, round: 1, err: errRead,
+			want: view{stage: latest.StageFailed, value: cached, held: true, err: errRead},
+		},
 	}
 
 	for name, tt := range cases {

@@ -112,6 +112,38 @@ func (r Read[T]) Cleared() Read[T] {
 	return Read[T]{round: r.round + 1, closed: true}
 }
 
+// Seeded holds value as a stand-in for round's answer, a value kept from
+// before (a list cached in an earlier session) shown until the answer comes,
+// and reports whether it was taken. It is taken for the current round with
+// nothing held: still out, a first read then Shown and still Refreshing until
+// its answer, which replaces the value; or failed, staying Failed with the
+// value now held beside the error. Any other round, a Read never read (round
+// 0 before Init's answer, which nothing here began to stand in for, a first
+// read settled, or a Read cleared), and a Read holding a value already leave
+// r unchanged.
+func (r Read[T]) Seeded(round Round, value T) (Read[T], bool) {
+	if round != r.round || r.held || r.stage == StageNeverRead {
+		return r, false
+	}
+
+	if r.stage == StageReading {
+		r.stage = StageShown
+	}
+
+	r.value, r.held = value, true
+
+	return r, true
+}
+
+// WithValue is r holding value, for a change a pane makes to what it shows
+// (a further page of a list appended). It neither begins nor answers a round:
+// the stage, the error and any round out stay as they are.
+func (r Read[T]) WithValue(value T) Read[T] {
+	r.value, r.held = value, true
+
+	return r
+}
+
 // Stage is where the read stands.
 func (r Read[T]) Stage() Stage {
 	return r.stage

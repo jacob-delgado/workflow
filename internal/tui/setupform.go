@@ -63,7 +63,7 @@ func (m Model) offersSetup() bool {
 func (m Model) setupShown() bool {
 	_, selected := m.issues.current()
 
-	return m.offersSetup() && (m.issues.err != nil || !selected)
+	return m.offersSetup() && (m.issues.read.Err() != nil || !selected)
 }
 
 // openSetup opens the first run's form on its first question.

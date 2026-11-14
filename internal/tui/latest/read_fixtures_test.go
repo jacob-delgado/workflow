@@ -60,13 +60,19 @@ const (
 	moveSettle
 	moveTell
 	moveClear
+	moveSeed
 )
 
-// told is the value a script tells a read.
-const told = "told"
+// told is the value a script tells a read, and cached the value it seeds
+// one with.
+const (
+	told   = "told"
+	cached = "cached"
+)
 
-// step is one move of a script a read is played through: an answer or a
-// settling names its round, and an answer carries its value and error.
+// step is one move of a script a read is played through: an answer, a
+// settling or a seed names its round, and an answer carries its value and
+// error.
 type step struct {
 	move  move
 	round nth
@@ -86,14 +92,16 @@ func tell() step { return step{move: moveTell} }
 
 func clearRead() step { return step{move: moveClear} }
 
+func seed(round nth) step { return step{move: moveSeed, round: round} }
+
 // script is a read and the rounds its Begins started, in order.
 type script struct {
 	read  text
 	begun []latest.Round
 }
 
-// played is the zero read played through steps. An answer or a settling the
-// read does not take fails the test: a script arranges only what it means to.
+// played is the zero read played through steps. An answer, a settling or a
+// seed the read does not take fails the test: a script arranges only what it means to.
 func played(t *testing.T, steps ...step) script {
 	t.Helper()
 
@@ -124,6 +132,8 @@ func (scripted script) played(t *testing.T, next step) script {
 		scripted.read = scripted.read.Told(told)
 	case moveClear:
 		scripted.read = scripted.read.Cleared()
+	case moveSeed:
+		scripted.read, taken = scripted.read.Seeded(scripted.round(next.round), cached)
 	}
 
 	if !taken {

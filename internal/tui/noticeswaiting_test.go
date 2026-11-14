@@ -76,16 +76,17 @@ func TestALossWaitingBehindAFailureOutlastsTheNoticeOfTheKeyThatClearsIt(t *test
 	t.Parallel()
 
 	// Arrange
-	// Two refreshes and the stop are sent, each answer kept back; the stop's
-	// failure lands, then the first refresh's loss, with no key between them.
+	// The refresh, the stop and the announcement are sent, each answer kept
+	// back; the stop's failure lands, then the announcement's loss, with no
+	// key between them.
 	repo := withTasks()
 	repo.tasks.writeErr = taskwarriorLocked()
 	repo.storeErr = errStoreFull
 	repo.changes = []gitrepo.Change{{Path: untrackedNotes, Staged: '?', Unstaged: '?'}}
 	refreshing, refreshed := repo.live(t, 200, 40).Update(keyMsg("r"))
-	refreshingAgain, refreshedAgain := concrete(t, refreshing).Update(keyMsg("r"))
-	stopping, stopFailed := typing(t, concrete(t, refreshingAgain), tasksPane).Update(keyMsg("s"))
-	waiting := drain(t, drain(t, concrete(t, stopping), stopFailed), refreshed)
+	stopping, stopFailed := typing(t, concrete(t, refreshing), tasksPane).Update(keyMsg("s"))
+	posting, posted := typing(t, concrete(t, stopping), "5", "p").Update(keyMsg(keyEnter))
+	waiting := drain(t, drain(t, concrete(t, posting), stopFailed), posted)
 
 	// Act: a key clears the failure and says what it needs
 	guided := typing(t, waiting, "3", "c")
@@ -93,8 +94,8 @@ func TestALossWaitingBehindAFailureOutlastsTheNoticeOfTheKeyThatClearsIt(t *test
 	// Assert: the key's own guidance takes the notice
 	requireNotice(t, guided.View().Content, "nothing is staged: stage a file, then commit")
 
-	// Act: the second refresh's loss lands
-	landed := drain(t, guided, refreshedAgain)
+	// Act: the refresh's loss lands
+	landed := drain(t, guided, refreshed)
 
 	// Assert: it waits behind the first, and the guidance keeps the notice
 	requireNotice(t, landed.View().Content, "nothing is staged: stage a file, then commit")
@@ -103,7 +104,7 @@ func TestALossWaitingBehindAFailureOutlastsTheNoticeOfTheKeyThatClearsIt(t *test
 	first := typing(t, landed, letterTyped)
 
 	// Assert: the first loss takes the notice
-	requireNotice(t, first.View().Content, issueListNotKept)
+	requireNotice(t, first.View().Content, announcementNotConfirmed)
 
 	// Act: the next key clears it
 	second := typing(t, first, letterTyped)
@@ -115,7 +116,7 @@ func TestALossWaitingBehindAFailureOutlastsTheNoticeOfTheKeyThatClearsIt(t *test
 	cleared := typing(t, second, letterTyped)
 
 	// Assert: nothing more was waiting
-	refuseScreen(t, cleared.View().Content, issueListNotKept)
+	refuseScreen(t, cleared.View().Content, issueListNotKept, announcementNotConfirmed)
 }
 
 func TestALossLandingOverAnUnreadLossWaitsBehindIt(t *testing.T) {

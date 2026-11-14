@@ -166,10 +166,12 @@ func TestAnAnswerForAViewNoLongerShownIsDropped(t *testing.T) {
 	refuseScreen(t, view, "Add retries")
 }
 
-func TestAnAnswerForAViewNoLongerShownIsStillCached(t *testing.T) {
+func TestAnAnswerForAViewNoLongerShownIsNotCached(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
+	// A search the switch superseded is cached no more than it is shown: a
+	// later search of its view may have answered first.
 	repo, model, firstViewsAnswer := switchedWhileTheFirstSearchIsOut(t)
 
 	// Act
@@ -178,8 +180,8 @@ func TestAnAnswerForAViewNoLongerShownIsStillCached(t *testing.T) {
 
 	// Assert
 	// Only the first view lists two issues; the sprint's one was cached as "cache 1".
-	if calls := repo.asked("cache 2"); len(calls) != 1 {
-		t.Errorf("the first view's two issues were cached %d times, want once; cache calls were %q",
+	if calls := repo.asked("cache 2"); len(calls) != 0 {
+		t.Errorf("the first view's two issues were cached %d times, want never; cache calls were %q",
 			len(calls), repo.asked("cache"))
 	}
 }

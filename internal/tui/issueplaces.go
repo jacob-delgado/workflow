@@ -129,7 +129,7 @@ var (
 // with those already picked checked. Applying it keeps the selection on the
 // issue it was on while that issue is still listed.
 func (m Model) openPlacePicker() (Model, tea.Cmd) {
-	choices := places.Choices(m.issues.found.Issues, m.issues.marksOf, m.issues.places)
+	choices := places.Choices(m.issues.found().Issues, m.issues.marksOf, m.issues.places)
 	offers := make([]offered[places.Place], 0, len(choices))
 
 	for _, choice := range choices {
@@ -193,7 +193,7 @@ func (l issueList) inFlightColumn(kit renderKit, issueKey jira.Key) string {
 
 // anyInFlight reports that a branch names at least one listed issue.
 func (l issueList) anyInFlight() bool {
-	return slices.ContainsFunc(l.found.Issues, func(issue jira.Issue) bool { return l.branchKeys[issue.Key] })
+	return slices.ContainsFunc(l.found().Issues, func(issue jira.Issue) bool { return l.branchKeys[issue.Key] })
 }
 
 // nothingAdmitted says what emptied the list — the filter, the places, or both —

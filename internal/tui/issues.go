@@ -12,18 +12,21 @@ import (
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/places"
+	"github.com/jacob-delgado/workflow/internal/tui/latest"
 )
 
-// issueList is the Issues pane's state. Loading, failed, empty and listing are
-// derived from these fields by guard clauses rather than held as an enum, so
-// there is no switch with a final arm that can never be taken.
+// issueList is the Issues pane's state: the list as its latest search found
+// it, drawn by that read's stage, and how it is narrowed, selected and
+// marked.
 type issueList struct {
-	found   jira.SearchResult
-	err     error
-	settled bool
-	loading bool
-	// paged records more than the first page loaded, which a reload of the
-	// first page would drop.
+	// read is the first page as the search begun last found it, or the list
+	// the store cached standing in for it, with each further page appended
+	// since.
+	read latest.Read[jira.SearchResult]
+	// paging is a further page asked for and not yet answered; paged records
+	// more than the first page loaded, which a reload of the first page would
+	// drop.
+	paging   bool
 	paged    bool
 	selected int
 	// moved records that someone chose an issue, after which nothing selects
@@ -45,20 +48,28 @@ type issueList struct {
 	taskWords     map[jira.Key]string
 }
 
+// found is the list held: what the latest search found, or the cache that
+// stands in for it, with the pages appended since; or none.
+func (l issueList) found() jira.SearchResult {
+	found, _ := l.read.Value()
+
+	return found
+}
+
 // visible is the issues the filter and the places admit, or all of them when
 // neither narrows the list. The
 // selection and every row operation work over this, so filtering narrows what
 // can be scanned without touching what was loaded.
 func (l issueList) visible() []jira.Issue {
 	if l.filter == "" && len(l.places) == 0 {
-		return l.found.Issues
+		return l.found().Issues
 	}
 
 	needle := strings.ToLower(l.filter)
 
 	var matching []jira.Issue
 
-	for _, issue := range l.found.Issues {
+	for _, issue := range l.found().Issues {
 		if strings.Contains(strings.ToLower(shownKey(issue.Key)+" "+issue.Summary), needle) &&
 			places.Admits(l.places, issue.Status, l.marksOf(issue.Key)) {
 			matching = append(matching, issue)
@@ -68,44 +79,50 @@ func (l issueList) visible() []jira.Issue {
 	return matching
 }
 
-// settle records the search's answer. The selection follows its issue rather
-// than its row: the list is ordered by update time, so a refresh after changing
-// an issue's status brings that issue to the top.
-func (l issueList) settle(answer issuesLoaded) issueList {
-	l.settled, l.loading = true, false
-
-	// A further page appends to the list; a failed page leaves what is already
-	// there rather than replacing the pane with an error.
-	if answer.startAt > 0 {
-		if answer.err == nil {
-			l.found.Issues = append(l.found.Issues, answer.found.Issues...)
-			l.found.Total, l.paged = answer.found.Total, true
-		}
-
-		return l
-	}
-
-	// A failed first page keeps what is listed, marked beside the failure, rather
-	// than emptying the pane until the tracker answers again.
+// settled is the list once read has taken a first page's answer, which ends
+// any further page asked of the list before it. The selection follows its
+// issue rather than its row: the list is ordered by update time, so a refresh
+// after changing an issue's status brings that issue to the top. A failed
+// first page keeps what is listed, its pages too, marked beside the failure,
+// rather than emptying the pane until the tracker answers again.
+func (l issueList) settled(read latest.Read[jira.SearchResult]) issueList {
 	previous, _ := l.current()
-	l.err = answer.err
+	l.read, l.paging = read, false
 
-	if answer.err == nil {
-		l.found, l.paged = answer.found, false
+	if read.Err() == nil {
+		l.paged = false
 	}
 
 	return l.selectKey(previous.Key)
 }
 
+// appended is the list with a further page's issues after its own.
+func (l issueList) appended(page jira.SearchResult) issueList {
+	found := l.found()
+	found.Issues, found.Total = slices.Concat(found.Issues, page.Issues), page.Total
+	l.read, l.paged = l.read.WithValue(found), true
+
+	return l
+}
+
 // hasMore reports that the list is truncated: fewer issues are loaded than
 // matched, so there is a further page to read.
 func (l issueList) hasMore() bool {
-	return len(l.found.Issues) < l.found.Total
+	return len(l.found().Issues) < l.found().Total
+}
+
+// canPage reports a further page to ask for, of a list its latest search
+// found, with no search and no page out: a page asks from where the list
+// stands, which a search out may change, and a page of the cache, which
+// stands in for a search, or of a list whose refresh failed, would start
+// from a list the tracker no longer says.
+func (l issueList) canPage() bool {
+	return l.read.Stage() == latest.StageShown && !l.read.Out() && !l.paging && l.hasMore()
 }
 
 // filterable reports issues loaded for a filter to narrow.
 func (l issueList) filterable() bool {
-	return len(l.found.Issues) > 0
+	return len(l.found().Issues) > 0
 }
 
 // selectKey selects the issue with a key, or keeps the row, clamped, when the
@@ -188,14 +205,16 @@ func (l issueList) current() (jira.Issue, bool) {
 
 // find is the listed issue with a key, if it is listed.
 func (l issueList) find(issueKey jira.Key) (jira.Issue, bool) {
-	index := slices.IndexFunc(l.found.Issues, func(candidate jira.Issue) bool {
+	issues := l.found().Issues
+
+	index := slices.IndexFunc(issues, func(candidate jira.Issue) bool {
 		return candidate.Key == issueKey
 	})
 	if index < 0 {
 		return jira.Issue{}, false
 	}
 
-	return l.found.Issues[index], true
+	return issues[index], true
 }
 
 // move shifts the selection, stopping at either end rather than wrapping: in a
@@ -212,21 +231,36 @@ func (l issueList) move(step int) issueList {
 // and marks a failed search beneath the issues it kept. mark, when there is
 // one, is a column after each issue's status glyph.
 func (l issueList) render(kit renderKit, rows int, mark func(jira.Key) string) string {
-	failed := kit.unreadRow(l.err, "failed")
+	failed := func() string { return kit.unreadRow(l.read.Err(), "failed") }
+
+	return drawRead(kit, l.read, drawnRead{
+		shown:  func() string { return l.shown(kit, rows, mark) },
+		failed: failed,
+		failedOver: func() string {
+			switch {
+			case len(l.found().Issues) == 0:
+				return failed()
+			case len(l.visible()) == 0:
+				return l.nothingAdmitted() + "\n" + failed()
+			}
+
+			return l.listing(kit, l.listRows(rows), mark) + "\n" + failed()
+		},
+	})
+}
+
+// shown draws the list its latest search found, marking a tracker it could
+// not read beneath the issues.
+func (l issueList) shown(kit renderKit, rows int, mark func(jira.Key) string) string {
+	found := l.found()
 
 	switch {
-	case !l.settled:
-		return kit.reading()
-	case l.err != nil && len(l.found.Issues) == 0:
-		return failed
-	case len(l.found.Issues) == 0:
+	case len(found.Issues) == 0:
 		return "no issues in this view"
 	case len(l.visible()) == 0:
 		return l.nothingAdmitted()
-	case l.err != nil:
-		return l.listing(kit, l.listRows(rows), mark) + "\n" + failed
-	case len(l.found.Unavailable) > 0:
-		missing := kit.failedGlyph() + " not read: " + strings.Join(l.found.Unavailable, ", ")
+	case len(found.Unavailable) > 0:
+		missing := kit.failedGlyph() + " not read: " + strings.Join(found.Unavailable, ", ")
 
 		return l.listing(kit, l.listRows(rows), mark) + "\n" + missing
 	}
@@ -279,7 +313,7 @@ func (l issueList) listing(kit renderKit, rows int, mark func(jira.Key) string) 
 // one a failed search's mark, or a tracker it could not read, takes beneath
 // them.
 func (l issueList) listRows(rows int) int {
-	if l.err != nil || len(l.found.Unavailable) > 0 {
+	if l.read.Err() != nil || len(l.found().Unavailable) > 0 {
 		return rows - 1
 	}
 
@@ -296,11 +330,12 @@ func (l issueList) rowAt(line, rows int) (int, bool) {
 
 // capped says how much of a capped list is shown, or nothing for a whole one.
 func (l issueList) capped() string {
-	if l.found.Total <= len(l.found.Issues) {
+	found := l.found()
+	if found.Total <= len(found.Issues) {
 		return ""
 	}
 
-	return fmt.Sprintf("showing %d of %d", len(l.found.Issues), l.found.Total)
+	return fmt.Sprintf("showing %d of %d", len(found.Issues), found.Total)
 }
 
 // window is the slice of a list of count rows that fits in rows lines, scrolled
