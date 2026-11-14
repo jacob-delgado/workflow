@@ -36,12 +36,12 @@ type tasksState struct {
 	// its add's answer.
 	tracked int
 	stubs   []trackStub
-	// dones counts the dones that have answered. justDone are the tasks those
-	// dones marked that no read begun since has answered: each is still listed
-	// as the read before its done had it, and offers neither a start nor a
-	// done until a read describes it again.
-	dones    int
-	justDone []doneMark
+	// justDone are the uuids of the tasks dones have marked since the latest
+	// read that succeeded: each is still listed as the read before its done had
+	// it, and offers neither a start nor a done until a read describes it
+	// again. A done's answer begins the read after it, so the next read whose
+	// answer is taken was begun after every done, and describes them all.
+	justDone []string
 	// listing is how the user has chosen to see the list, kept for the session
 	// across every read.
 	listing taskListing
@@ -62,13 +62,6 @@ type taskList struct {
 type trackStub struct {
 	task  taskwarrior.Task
 	track int
-}
-
-// doneMark is a task a done marked, by its uuid, and which done it was,
-// counting from the first.
-type doneMark struct {
-	uuid string
-	done int
 }
 
 // held is the tasks the latest successful read found, kept across a read
@@ -121,10 +114,9 @@ func (s tasksState) answeredWrite() tasksState {
 	return s
 }
 
-// markedDone is s with the task a done has just marked, as the next done.
+// markedDone is s with the task a done has just marked.
 func (s tasksState) markedDone(uuid string) tasksState {
-	s.dones++
-	s.justDone = append(slices.Clip(s.justDone), doneMark{uuid: uuid, done: s.dones})
+	s.justDone = append(slices.Clip(s.justDone), uuid)
 
 	return s
 }
@@ -132,7 +124,7 @@ func (s tasksState) markedDone(uuid string) tasksState {
 // justMarkedDone reports whether a done has marked the task with a uuid that
 // no read begun since has answered.
 func (s tasksState) justMarkedDone(uuid string) bool {
-	return slices.ContainsFunc(s.justDone, func(mark doneMark) bool { return mark.uuid == uuid })
+	return slices.Contains(s.justDone, uuid)
 }
 
 // justAdded is s with a task a track has just added, linked as the next track.
@@ -150,16 +142,18 @@ func (s tasksState) stubbed(uuid string) bool {
 }
 
 // described is s once a read has found linked, begun when the count of
-// tracks answered was tracked and that of dones was dones: the stubs it
-// cannot have held — a later track's, not among its linked tasks — stay, as
-// do the later dones' marks.
-func (s tasksState) described(tracked, dones int, linked []taskwarrior.Task) tasksState {
+// tracks answered was tracked: the stubs it cannot have held — a later
+// track's, not among its linked tasks — stay, and every done's mark goes,
+// since the read was begun after every done. A track's add, unlike a done,
+// can answer before the read after it is begun: its line may annotate or
+// start the task first.
+func (s tasksState) described(tracked int, linked []taskwarrior.Task) tasksState {
 	s.stubs = slices.DeleteFunc(slices.Clone(s.stubs), func(stub trackStub) bool {
 		held := slices.ContainsFunc(linked, func(task taskwarrior.Task) bool { return task.UUID == stub.task.UUID })
 
 		return stub.track <= tracked || held
 	})
-	s.justDone = slices.DeleteFunc(slices.Clone(s.justDone), func(mark doneMark) bool { return mark.done <= dones })
+	s.justDone = nil
 
 	return s
 }
@@ -173,12 +167,11 @@ func (s tasksState) answered() bool {
 
 // tasksLoaded carries Taskwarrior's answer to the read begun in round: the
 // install, the pending list and the linked tasks, or why one of them could
-// not be read; and how many tracks and dones had answered when it was begun.
+// not be read; and how many tracks had answered when it was begun.
 type tasksLoaded struct {
 	list    taskList
 	err     error
 	tracked int
-	dones   int
 	round   latest.Round
 }
 
@@ -186,8 +179,8 @@ var _ applier = tasksLoaded{}
 
 // apply records Taskwarrior's answer, keeping the selection on the same task
 // across a refresh, as the Reviews pane keeps its pull request — or on the first
-// task, where that one is no longer listed — and each task a track added, or a
-// done marked, since the read was begun. The answer of a read a later one
+// task, where that one is no longer listed — and each task a track added
+// since the read was begun. The answer of a read a later one
 // superseded is dropped: a write's answer begins the read after it, so an
 // earlier read would list the tasks as they stood before the write. A failed
 // refresh keeps the tasks listed, beside its failure.
@@ -199,7 +192,7 @@ func (msg tasksLoaded) apply(m Model) (Model, tea.Cmd) {
 
 	m.tasks.read = read
 	if msg.err == nil {
-		m.tasks = m.tasks.described(msg.tracked, msg.dones, msg.list.linked)
+		m.tasks = m.tasks.described(msg.tracked, msg.list.linked)
 	}
 
 	groups := m.taskGroups()
@@ -234,7 +227,7 @@ func (s tasksState) load(ctx context.Context, deps Deps, round latest.Round) tea
 		return nil
 	}
 
-	begun := tasksLoaded{tracked: s.tracked, dones: s.dones, round: round}
+	begun := tasksLoaded{tracked: s.tracked, round: round}
 
 	return func() tea.Msg {
 		answer := begun
