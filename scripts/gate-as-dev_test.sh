@@ -7,13 +7,16 @@
 # half or a gate user's half that outlived it, checks the disk has room for a
 # race-and-coverage build, clearing the gate user's Go build cache with
 # the pinned Go alone when it is short and stopping when that is not enough,
-# names the commit for the gate user to fetch, says so only when the worktree
-# has uncommitted changes, and hands the run to that user with an environment
-# of named variables alone, each of them handed on, under flock on the run
-# lock, and without either lock's descriptor. As the gate user it refuses to
+# names the commit for the gate user to fetch, and the base GATE_BASE names,
+# or none where the worktree holds no such base, which it says, both under
+# the lock, says so only when the worktree has uncommitted changes, and hands
+# the run to that user with an environment of named variables alone, each of
+# them handed on, under flock on the run lock, and without either lock's
+# descriptor. As the gate user it refuses to
 # run without task, trusts root's repository once, checks out the commit
 # refs/gate/head names, whichever commit it last named, clean but for
-# web/node_modules and tmp/, in a checkout of its own and runs the tasks asked
+# web/node_modules and tmp/, in a checkout of its own, with the base handed
+# on fetched and named to task, or none, and runs the tasks asked
 # for there, one at a time, with a temporary directory of its own made fresh,
 # even of a directory a test sealed, or, asked for none, the steps of `task
 # check`, leaving out vuln only when vuln.go.dev cannot be reached; between
@@ -42,6 +45,9 @@ command -v flock >/dev/null || {
 
 # shellcheck source=lib/gate-as-dev-fixtures.sh
 source "${here}/lib/gate-as-dev-fixtures.sh"
+
+# A gate run hands its base on, so a case names its own or none.
+unset GATE_BASE
 
 source_repo="${workdir}/source"
 repo "${source_repo}"
@@ -110,6 +116,24 @@ if [[ "$(git -C "${source_repo}" rev-parse refs/gate/head)" != "${sha}" ]]; then
   fail_case "the commit to fetch" "refs/gate/head does not name HEAD"
 fi
 
+# The base a change is judged against is root's to name: the gate user's
+# checkout has only the origin/main of the day it was cloned. So the commit
+# GATE_BASE names is named for the gate user to fetch too, and handed on,
+# and a base the worktree does not hold is handed on as none, which the
+# condition gate says it cannot judge against.
+count_case
+if [[ " ${handed} " != *" GATE_BASE= "* ]] || ! grep -q "holds no origin/main" "${case_output}"; then
+  fail_case "a base the worktree does not hold" "it was not handed on as none: ${handed}"
+fi
+disk 10
+GATE_BASE=HEAD expect_exit pass "a base the worktree holds" as_root "${source_repo}" lint
+handed="$(grep -- "--as-gate-user" "${log}" || true)"
+count_case
+if [[ " ${handed} " != *" GATE_BASE=refs/gate/base "* ]] \
+  || [[ "$(git -C "${source_repo}" rev-parse refs/gate/base)" != "${sha}" ]]; then
+  fail_case "a base the worktree holds" "refs/gate/base was not named and handed on: ${handed}"
+fi
+
 disk 9 8
 expect_exit pass "short of room until the cache is cleared" as_root "${source_repo}" lint
 count_case
@@ -174,12 +198,20 @@ git -C "${repinned}" rm -q build/yamllint/requirements.txt
 git -C "${repinned}" -c user.email=t@example.com -c user.name=t commit -q -m unpin
 expect_output 2 "a commit with a pin file missing" "run setup for this worktree" as_root "${repinned}" lint
 
+# A run that waits on another names no base until it holds the lock, so the
+# base the run going has yet to fetch stays as that run named it, though this
+# one would take it back.
+git -C "${source_repo}" update-ref refs/gate/base "${sha}"
 exec {lock}>"${workdir}/gate.lock"
 flock "${lock}"
 export GATE_LOCK_WAIT=1
 expect_output 1 "another gate run going" "another gate run" as_root "${source_repo}" lint
 unset GATE_LOCK_WAIT
 exec {lock}>&-
+count_case
+if [[ "$(git -C "${source_repo}" rev-parse --verify --quiet refs/gate/base)" != "${sha}" ]]; then
+  fail_case "another gate run going" "it moved the base the run going names before it held the lock"
+fi
 
 # The gate user's half of a run whose root half was killed holds the run
 # lock on, still using its checkout, so the next run waits for it too.
@@ -232,6 +264,21 @@ fi
 count_case
 if [[ "$(grep '^pwd ' "${log}" | sort -u)" != "pwd ${home}/gate" ]]; then
   fail_case "the gate user's checkout" "task did not run in it: $(grep '^pwd ' "${log}" || true)"
+fi
+count_case
+if [[ "$(grep '^base ' "${log}" | sort -u)" != "base " ]]; then
+  fail_case "no base handed on" "task was not told of none: $(grep '^base ' "${log}" || true)"
+fi
+
+# A base named as hand_over names it.
+git -C "${source_repo}" update-ref refs/gate/base "${sha}"
+disk 12
+GATE_BASE=refs/gate/base expect_exit pass "a base handed on" \
+  as_gate_user "${workdir}/home-based" "${common}" "${sha}" lint
+count_case
+if [[ "$(grep '^base ' "${log}" | sort -u)" != "base refs/gate/base" ]] \
+  || [[ "$(git -C "${workdir}/home-based/gate" rev-parse refs/gate/base)" != "${sha}" ]]; then
+  fail_case "a base handed on" "it was not fetched and handed to task: $(grep '^base ' "${log}" || true)"
 fi
 
 # Root's own tools keep fixed names in /tmp, golangci-lint's lock among them,
