@@ -100,8 +100,8 @@ type commitComposer struct {
 	// editBodyKey is the key edit-body is bound to, which the offer of a body
 	// names.
 	editBodyKey string
-	// opened is the count of overlays opened when this one opened, so the
-	// scopes read for it land in it alone.
+	// opened is the round this one opened in, so the scopes read for it
+	// land in it alone.
 	opened int
 }
 
@@ -118,7 +118,7 @@ func (m Model) openCommitComposer() (Model, tea.Cmd) {
 	conv := commitConvention(m.cfg)
 	types := conv.Types()
 	issueKey, _ := m.branch.issue(m.cfg.Jira.Project)
-	m, opened := m.opening()
+	m, opened := m.nextRound()
 
 	composer := commitComposer{
 		branch: m.branch.checkedOut().Name, conv: conv, types: types, kind: m.branch.startingType(conv, draft),

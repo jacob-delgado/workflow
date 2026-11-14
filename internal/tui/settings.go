@@ -89,7 +89,7 @@ func canEditSettings(deps Deps) bool {
 
 // openSettings opens Settings and starts reading the configuration files.
 func (m Model) openSettings() (Model, tea.Cmd) {
-	m, opened := m.opening()
+	m, opened := m.nextRound()
 	m.overlay = settingsForm{
 		noun: m.vocab.noun, opened: opened, reading: true,
 		actions: KeyActions(m.vocab.noun, m.cfg.Messaging.Service(), nil),

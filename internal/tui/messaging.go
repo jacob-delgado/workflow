@@ -400,7 +400,7 @@ func (m Model) handleMessagingKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 func (m Model) previewAnnouncement() (Model, tea.Cmd) {
 	channels, channel := m.cfg.Messaging.ChannelChoices(), defaultChannel(m.cfg)
 	moment := loop.AnnounceMoment(m.review.pull())
-	m, opened := m.opening()
+	m, opened := m.nextRound()
 
 	preview, readTags := m.withTagging(messagingPreview{
 		text: m.announcement(moment), fallback: m.cfg.Messaging.Target(),

@@ -72,8 +72,8 @@ type peopleOverlay struct {
 	repoErr     error
 	choices     pickList[loop.SlackTarget]
 	send        sendState
-	// opened is the count of overlays opened when this one opened, so a read
-	// or save started for it lands in it alone.
+	// opened is the round this one opened in, so a read or save started
+	// for it lands in it alone.
 	opened int
 }
 
@@ -95,7 +95,7 @@ func managesPeople(cfg config.Config, deps Deps) bool {
 func (m Model) openPeople() (Model, tea.Cmd) {
 	var readPeople, readMembers, readGroups tea.Cmd
 
-	m, opened := m.opening()
+	m, opened := m.nextRound()
 	people := peopleOverlay{repoReading: true, channel: defaultChannel(m.cfg), opened: opened}
 	people, readPeople = people.readingPeople(m)
 	people.members, readMembers = people.members.readingMembers(m.session, m.deps, people.channel, opened)
@@ -423,7 +423,7 @@ func (msg peopleSaved) apply(m Model) (Model, tea.Cmd) {
 	return m.withBeneath(open), reread
 }
 
-// openedAs is the count of overlays opened when People and groups opened.
+// openedAs is the round People and groups opened in.
 func (p peopleOverlay) openedAs() int {
 	return p.opened
 }

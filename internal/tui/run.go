@@ -66,13 +66,13 @@ var (
 
 // startRun opens a run and starts its program.
 func (m Model) startRun(kind runKind, start starter, succeeded func(Model) (Model, tea.Cmd)) (Model, tea.Cmd) {
-	m.runs++
+	m, round := m.nextRound()
 	m.overlay = commandRun{
-		kind: kind, id: m.runs, start: start, succeeded: succeeded,
+		kind: kind, id: round, start: start, succeeded: succeeded,
 		placeScan: hooks.NewFailureScan(runtime.GOOS),
 	}
 
-	return m, launch(m.runs, start)
+	return m, launch(round, start)
 }
 
 // launch is the command that starts a run's program.
