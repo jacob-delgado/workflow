@@ -70,6 +70,43 @@ stays, as the commit scopes offered did for `internal/convention`
   (`errorwords.go`) finds for it; a service not set up is guidance
   (`noticedGuidance`), not a failure.
 
+## Reads: only the latest answer counts
+
+A pane reads the world again and again, and a service answers two reads out
+at once in whatever order it likes. These rules keep a slow answer from
+putting back what a later read replaced.
+
+- **A pane's read is a `latest.Read`** (`latest/`), never a counter, a key
+  or a flag of its own: an answer is taken only for the round begun last.
+- **Every read begins in a helper that begins nothing without its seam**
+  (`readingTasks`, `readingIssues`, `lookingForHooks`, `checkCI` and the
+  rest, each beside its pane), so a missing seam never leaves a read out
+  or a mark turning. `Init` reads in round 0, which any `Begin` supersedes.
+  Nothing is begun in `New` but the Issues list, whose cache stands in from
+  the start; Repositories begins its round as it opens on the pane
+  (`openedOnRepositories`).
+- **A write's answer begins the read after it, or tells its value**
+  (`Told`), so every read begun before the write is superseded, with no
+  watermark. A change of what is read (another issue, file or review)
+  carries the Read through `Cleared`, never a fresh literal: rounds never
+  restart.
+- **A view switches on the Stage through `drawRead`** (`failure.go`), whose
+  map `exhaustive` checks. A view that draws in every stage (Messaging, the
+  Slack directory) or never fails (Repositories) says so beside its own.
+- **A failed refresh keeps what was shown, and says why beside it.** In a
+  pane's detail the failure goes beneath what is held, so each line of a
+  list stays the row a click picks; in a rail it goes first, so a rail of
+  one row still says it. The Issues detail heads the selected issue with
+  the list's failure, as it headed the configuration before, and an overlay
+  (People and its groups) heads its list with its reading and failure
+  lines, the list taking the rows they leave.
+- **A key that writes from what a read found waits on `StageShown`**: over
+  a failure, what is held is moved through, sorted and filtered, not acted
+  on. People's decisions are the exception: they name an owner, whom an
+  earlier read named as surely as a later one.
+- **The in-flight mark is `Refreshing()`**: a read out over a value or an
+  error held. A first read says it is reading, with no mark.
+
 ## Keys, drawing and motion
 
 - **Every binding goes through `helpBuilder`** (`keys.go`), so the `?` help
@@ -113,6 +150,11 @@ stays, as the commit scopes offered did for `internal/convention`
   at once, `click` clicks; `plain`, `footerLine` and `lineShowing` read the
   screen, `requireScreen` and `refuseScreen` assert on it; `newHold` and
   `holding` keep a seam from answering, for a write still in flight.
+- **Late answers** (`withhold_test.go`): `withheldKeys` types keys and
+  keeps back the answer of each command during which a seam's count grew
+  (`w.counting(prefix)`), and `handedOver` delivers them later, as a slow
+  answer arrives. It fails a test that kept nothing back, which would
+  assert on an answer never delivered.
 - **Test files near the ceiling.** A test file fails past 700 lines, and
   `tasks_test.go`, `setupform_test.go`, `help_test.go`, `world_test.go` and
   `tasksrender_test.go` are at 600 or more (`scripts/check-file-length.sh
