@@ -72,9 +72,14 @@ func withheldKeys(t *testing.T, model tui.Model, calls func() int, keys ...strin
 }
 
 // handedOver delivers each answer a test kept back, and every command each
-// leads to, in order.
+// leads to, in order. With none kept back it fails the test: a test that
+// hands nothing over would assert on a late answer never delivered.
 func handedOver(t *testing.T, model tui.Model, answers []tea.Msg) tui.Model {
 	t.Helper()
+
+	if len(answers) == 0 {
+		t.Fatal("no answer was kept back to hand over")
+	}
 
 	for _, answer := range answers {
 		model = drain(t, model, func() tea.Msg { return answer })
