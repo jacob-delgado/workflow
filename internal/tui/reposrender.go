@@ -14,6 +14,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 	"github.com/jacob-delgado/workflow/internal/seams"
+	"github.com/jacob-delgado/workflow/internal/tui/latest"
 )
 
 // repositoriesView is what the Repositories pane draws with beside its own
@@ -45,18 +46,24 @@ func (s repositoriesState) rail(view repositoriesView, rows int) string {
 }
 
 // favoritesCount says how many favorites there are, or that they are read
-// when the pane is opened.
+// when the pane is opened. A read's failures are part of what it found, so
+// it never stands failed.
 func (s repositoriesState) favoritesCount(view repositoriesView) string {
-	switch count := len(s.rows(view.here)) - 1 - len(s.worktreeRows(view.here.Root)); {
-	case !s.read && s.loading:
-		return view.kit.reading()
-	case !s.read:
-		return "favorites, read when opened"
-	case count == 1:
-		return "1 other favorite"
-	default:
+	counted := func() string {
+		count := len(s.rows(view.here)) - 1 - len(s.worktreeRows(view.here.Root))
+		if count == 1 {
+			return "1 other favorite"
+		}
+
 		return strconv.Itoa(count) + " other favorites"
 	}
+
+	return map[latest.Stage]func() string{
+		latest.StageNeverRead: func() string { return "favorites, read when opened" },
+		latest.StageReading:   view.kit.reading,
+		latest.StageShown:     counted,
+		latest.StageFailed:    counted,
+	}[s.read.Stage()]()
 }
 
 // detail is where you work, in full, then the other worktrees and the
@@ -66,12 +73,14 @@ func (s repositoriesState) detail(view repositoriesView, width int) string {
 	rows, worktrees := s.rows(view.here), len(s.worktreeRows(view.here.Root))
 	line := func(index int) string { return view.line(rows[index], index == s.selected, width) }
 
+	found, _ := s.read.Value()
+
 	lines := append(view.workingIn(view.here), "", line(0))
 
-	if worktrees > 0 || s.worktreesErr != nil {
+	if worktrees > 0 || found.worktreesErr != nil {
 		lines = append(lines, "", kit.styles.strong.Render("Worktrees"))
-		if s.worktreesErr != nil {
-			lines = append(lines, kit.failureSummary(s.worktreesErr))
+		if found.worktreesErr != nil {
+			lines = append(lines, kit.failureSummary(found.worktreesErr))
 		}
 
 		for index := 1; index <= worktrees; index++ {
@@ -80,21 +89,38 @@ func (s repositoriesState) detail(view repositoriesView, width int) string {
 	}
 
 	lines = append(lines, "", kit.styles.strong.Render("Favorites"))
-
-	switch {
-	case s.err != nil:
-		lines = append(lines, kit.failureSummary(s.err))
-	case !s.read:
-		lines = append(lines, kit.reading())
-	case len(rows) == 1+worktrees:
-		lines = append(lines, "No favorites yet; "+view.keys.favoriteDir.Help().Key+" marks the directory under the cursor.")
-	}
+	lines = append(lines, s.favoritesNote(view, found, len(rows) == 1+worktrees)...)
 
 	for index := 1 + worktrees; index < len(rows); index++ {
 		lines = append(lines, line(index))
 	}
 
 	return wrap(strings.Join(lines, "\n"), width)
+}
+
+// favoritesNote is what the Favorites heading says before the favorites
+// listed, as found has them: that they are being read, why they could not
+// be, or, with none, how to mark one. A read's failures are part of what it
+// found, so it never stands failed.
+func (s repositoriesState) favoritesNote(view repositoriesView, found repositoriesFound, none bool) []string {
+	reading := func() []string { return []string{view.kit.reading()} }
+	answered := func() []string {
+		switch {
+		case found.favoritesErr != nil:
+			return []string{view.kit.failureSummary(found.favoritesErr)}
+		case none:
+			return []string{"No favorites yet; " + view.keys.favoriteDir.Help().Key + " marks the directory under the cursor."}
+		default:
+			return nil
+		}
+	}
+
+	return map[latest.Stage]func() []string{
+		latest.StageNeverRead: reading,
+		latest.StageReading:   reading,
+		latest.StageShown:     answered,
+		latest.StageFailed:    answered,
+	}[s.read.Stage()]()
 }
 
 // workingIn is a place in full: the directory, the repository it is in and

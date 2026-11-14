@@ -8,6 +8,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
+	"github.com/jacob-delgado/workflow/internal/tui/latest"
 )
 
 // createCommand is the command that creates the branch: in a worktree beside the
@@ -143,10 +144,10 @@ func (msg worktreeCreated) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	reload := listIssueBranches(m.session, m.cfg, m.deps)
-	if m.repositories.read {
+	if m.repositories.read.Stage() != latest.StageNeverRead {
 		var reread tea.Cmd
 
-		m, reread = m.rereadRepositories()
+		m, reread = m.readingRepositories()
 		reload = tea.Batch(reload, reread)
 	}
 
