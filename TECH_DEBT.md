@@ -332,64 +332,104 @@ the terminal check as never false.
 **Cost.** `task cover:branch` on macOS reads one arm fewer than CI does, and
 every report lists `keysFrom`'s terminal check as never false, though a test
 fails when either arm breaks; a reader of the report could take either for
-untested.
+untested. Since the gate fails a condition seen one way on a line a change
+touches (TRADE-19), a change that touches the terminal check's line fails on
+every system until a line of `scripts/gobco-allowlist.txt` keeps it for this
+entry.
 
 **Reopen when.** CI measures condition coverage on another system, a test
 stops reaching either condition, or gobco comes to count what a child process
 runs.
 
-### TRADE-19 A condition seen one way stays the report's worklist
+### TRADE-19 A condition seen one way on a line no change touches stays the report's worklist
 
-`task cover:branch` fails on an arm no test reached of two kinds: a condition
-no test evaluated, and the error arm of an error check, each unless a line of
+`task cover:branch` fails on an arm no test reached of two kinds, a
+condition no test evaluated and the error arm of an error check, and on a
+condition seen only one way on a line the change adds or modifies, judged by
+`git diff` against the merge base with the base branch (`GATE_BASE`,
+`origin/main` by default), each unless a line of
 `scripts/gobco-allowlist.txt` keeps it for a kept entry in this register. An
-error check is one the gate can tell by its name, as CONTRIBUTING.md's *Tests*
-defines it, where that rule is written once. Every other condition seen only
-one way, a boolean, a comparison, any other `errors.Is` or an `ok`, fails
-nothing: the report lists it on every run, by file, line and how many times it
-was seen each way, and it stays out of this file and out of the allowlist.
-CLAUDE.md reads that list as "a worklist of missing test cases, not a
-percentage to chase", so a test for one is written when the code around it next
-changes, and two floors keep the share seen from falling: `BRANCH_COVERAGE_MIN`
-in `Taskfile.yml` for the module, and `scripts/gobco-floors.txt` for each
+error check is one the gate can tell by its name, as CONTRIBUTING.md's
+*Tests* defines it, where that rule is written once. Every other condition
+seen only one way, a boolean, a comparison, any other `errors.Is` or an
+`ok`, on a line the change leaves as it was, fails nothing: the report lists
+it on every run, by file, line and how many times it was seen each way, and
+it stays out of this file and out of the allowlist, with no list of its own
+kept anywhere but the report. CLAUDE.md reads that list as "a worklist of
+missing test cases, not a percentage to chase", so a test for one is written
+when a change next touches its line, which the gate now holds it to, and two
+floors keep the share seen from falling: `BRANCH_COVERAGE_MIN` in
+`Taskfile.yml` for the module, and `scripts/gobco-floors.txt` for each
 package it names.
 
-Measured on Linux on 2026-10-12, as the dev user, not root, over the code as
-the commit that last wrote these figures has it: of 6,176 conditions, 5,645
-were seen both ways and 531 one way, and none never ran, so 11,821 of 12,352
-arms were seen, 95.7% against `BRANCH_COVERAGE_MIN` 93. Of the 531, the
-allowlist keeps 29 error arms for TRADE-13, TRADE-14, TRADE-16 and TRADE-36 (a
-30th line, TRADE-18's, holds only on macOS), and the other 502 are the
-worklist this entry keeps. Two runs of the same code can differ by an arm or
-two: gobco's counters are plain increments, which a package's parallel tests
-can lose (`scripts/gobco-report.sh` says so), and two runs of the same
-`internal/config` code, this one and CI's, saw 500 and 501 of its 520 arms.
-Since then CI's coverage comment, on the pull requests merged on 2026-10-14
-(#268, #269 and #270), has read 95.6%. These figures are measured again on
-2026-11-14, the day TRADE-42 is looked at again too.
+Measured in CI on 2026-11-13, by the Branch coverage job (132066536802) of
+run 43477897900 over main at the 0.14.0 release commit, which runs as the
+runner's user, not root: of 7,203 conditions, 6,668 were seen both ways and
+535 one way, and none never ran, so 13,871 of 14,406 arms were seen, 96.3%
+against `BRANCH_COVERAGE_MIN` 93. Of the 535, the allowlist keeps 30 error
+arms for TRADE-13, TRADE-14, TRADE-16 and TRADE-36 (a 31st line, TRADE-18's,
+holds only on macOS), and the other 505 are the worklist this entry keeps.
+Two runs of the same code can differ by an arm or two: gobco's counters are
+plain increments, which a package's parallel tests can lose
+(`scripts/gobco-report.sh` says so), and on 2026-10-12 two runs of the same
+`internal/config` code saw 500 and 501 of its 520 arms; the run before this
+one, over the same Go code, saw the same 535 one way.
 
 **Decided.** 2026-09-26, in #146, and 2026-10-12, in #238, for which
 conditions the gate fails: a condition seen one way that the gate does not
-fail is left to the report.
+fail is left to the report. 2026-11-14, by the maintainer, when a trigger
+below fired: the gate also fails a condition seen one way on a line the
+change adds or modifies, so no new one lands, while the worklist of those
+already there is kept, and shrinks as changes reach their lines. CI's
+Branch coverage job fetches the whole history and names a pull request's
+base branch; on a push to main it names none, since what lands there passed
+the check as a pull request, and the report says it skips that check, the
+floors and the arms no test reached holding as ever. A clone that holds no
+base, or no merge base with it, as a shallow one may, is skipped the same
+way, saying so, while `GATE_BASE` is unset; a base `GATE_BASE` names that the
+clone cannot find fails the run, so a pull request whose checkout lost its
+base's history cannot pass unjudged.
 
-**Cost.** A change that breaks one of the worklist's unseen arms fails no test,
-and the floors notice only when enough of them add up to move a share; an
-error check under a name the gate does not read, or one held in a variable
-first, is read as a boolean. The allowlist names a kept arm by its number among
-its function's conditions that read the same rather than by its line, so a
-condition added above it that reads the same moves the number on, and the gate
-fails until the line is changed to follow it, but for one change it cannot
-see: when a test comes to reach a kept arm in the same change that adds an
-untested condition reading the same above it in that function, the new arm
-takes the kept one's number, the line keeps it, and the gate passes. Without
-source lines the gate cannot tell the two apart, and
+**Cost.** A change that breaks one of the worklist's unseen arms on a line it
+does not touch fails no test, and the floors notice only when enough of them
+add up to move a share; an error check under a name the gate does not read, or
+one held in a variable first, is read as a boolean. A change that touches a
+line holding an old one-way condition, to rename, reformat or comment on it,
+now writes that condition's test or fails, so a small change can grow by a
+test for code it did not mean to change, and a line moved is a line added. A
+condition only another system sees both ways, as TRADE-35's Windows clauses
+are seen on Linux, fails when its line is touched until an allowlist line
+keeps it for its trade-off; so an allowlist line keeps any arm of a condition
+seen one way, and names no arm, which leaves a line kept for a condition never
+evaluated, or for an error's arm, in place once a test reaches that arm one
+way while the other goes unseen, rather than failing until it goes, and
+`scripts/gobco-report_test.sh` pins that case as one that passes. A condition
+seen one way in a package whose tests run in parallel can be a lost increment,
+so the check can fail a change for a count it lost, and a second run settles
+it. Only lines count: a condition whose line stays while the code it guards
+changes on another is not judged. The allowlist names a kept arm by its number
+among its function's conditions that read the same rather than by its line, so
+a condition added above it that reads the same moves the number on, and the
+gate fails until the line is changed to follow it, but for one change it
+cannot see: when a test comes to reach a kept arm in the same change that adds
+an untested condition reading the same above it in that function, the new arm
+takes the kept one's number, the line keeps it, and the gate passes. The
+allowlist matches without source lines, so it cannot tell the two apart, and
 `scripts/gobco-report_test.sh` pins that case as one that passes.
 
 **Reopen when.** The measured figure comes within one point of
-`BRANCH_COVERAGE_MIN`, a defect ships through a condition the report listed
-as seen only one way, or a kept arm is found traded for a new one as the cost
-above describes. Whether or not one has, the entry is read again on
-2026-11-14 against the figures measured that day.
+`BRANCH_COVERAGE_MIN`, a defect ships through a condition the report listed as
+seen only one way, a kept arm is found traded for a new one as the cost above
+describes, or the changed-lines check fails a pull request for a lost
+increment more than rarely. The re-check of 2026-11-14 found the second had
+fired: b30d47e2 fixed, on 2026-10-17, before 0.12.0, a defect that shipped in
+0.11.0, in which `internal/proc/start.go`'s `lineSender` handed on a line of a
+run that had abandoned its output about half the time, behind its `closed`
+flag, the one condition gobco saw only one way in the package; a test reaching
+that flag's other arm runs the case the fix's test runs. The decision of
+2026-11-14 above answers it. Whether or not another has fired, the entry is
+read again, against figures measured that day, when `BRANCH_COVERAGE_MIN` is
+next raised.
 
 ### TRADE-21 The place rules are written twice
 
@@ -931,9 +971,10 @@ tool versions are exact and live in `mise.toml`: it moves when GitHub rebuilds
 the image, without anyone here deciding it. A rule a newer Homebrew adds can
 turn an unrelated pull request's Cross-compile red until
 `package-manifests.sh` is changed to keep it, and a change to how Homebrew
-loads a tap can break the check itself: Homebrew 6's tap trust, reaching the
-runners on 2026-11-04, refused to audit a formula from a tap nobody trusts
-until `check-formula.sh` trusted its own. Each run also needs the network:
+loads a tap can break the check itself: Homebrew 7.0.11's refusal to load a
+formula from a tap nobody trusts, even named in full, reaching the runners
+on 2026-11-04, failed the audit until `check-formula.sh` trusted its own
+tap. Each run also needs the network:
 brew downloads its formula API from formulae.brew.sh and, on a runner without
 them, installs the gems its audit and style cops run on from rubygems.org, so
 either one unreachable turns the job red too; brew's own error, above the
@@ -952,9 +993,15 @@ script by hand where Homebrew is installed, or leaves it to CI.
 **Reopen when.** The audit fails a pull request over a Homebrew change more
 than rarely, or a pinned `Homebrew/actions/setup-homebrew` becomes worth
 approving as a new action. The audit had run for about a day when this was
-written, and no Cross-compile job failed in the 80 CI runs up to 2026-10-14,
-so "more than rarely" is judged on 2026-11-14, over the month of runs since,
-the day TRADE-19's figures are measured again too.
+written, and no Cross-compile job failed in the 80 CI runs up to 2026-10-14.
+Over the month from then to 2026-11-13, the Cross-compile jobs of 326 CI
+runs, 108 of them pushes to main, ran the audit 337 times, and it failed
+once: on 2026-11-04 Homebrew 7.0.11's refusal to load a formula from a tap
+nobody trusts, even named in full, failed #335 until #337 trusted the
+throwaway tap the same day. No audit failed for the network or over the
+formula a change wrote, and the runners' Homebrew moved from 7.0.9 to
+7.0.13. One failure in a month is rare, so "more than rarely" is judged again
+on 2027-02-14, over the runs since 2026-11-14.
 
 ### TRADE-43 A wait on a terminal prints its artifact on stderr
 
