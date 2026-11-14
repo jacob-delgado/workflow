@@ -219,12 +219,14 @@ type localDataRemoved struct {
 var _ applier = localDataRemoved{}
 
 // apply keeps the last look open with the refusal, or closes it saying what
-// was removed, and reads what was announced again, which the store's claims
-// went with.
+// was removed, and reads again what was announced, which the store's claims
+// went with, and the favorites, which kept.db's removal takes with it.
 func (msg localDataRemoved) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
 		return keepOpenWith[lastLook](m, msg.err), nil
 	}
 
-	return m.closeOverlay().noticed(m.marks.done + " removed " + msg.names), loadAnnounces(m.session, m.deps)
+	m, reread := m.closeOverlay().noticed(m.marks.done + " removed " + msg.names).readingRepositoriesAgain()
+
+	return m, tea.Batch(loadAnnounces(m.session, m.deps), reread)
 }
