@@ -20,6 +20,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/lifetime"
+	"github.com/jacob-delgado/workflow/internal/tui/latest"
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
 )
 
@@ -235,9 +236,10 @@ func (m Model) Init() tea.Cmd {
 	}
 
 	// Opened on the Repositories pane, after a switch made from it, that pane
-	// is looked at from the start, so it is read with the rest.
-	if m.focus == paneRepositories {
-		loads = append(loads, m.loadRepositories())
+	// is looked at from the start, its read begun, so it is read with the
+	// rest.
+	if m.repositories.read.Stage() == latest.StageReading {
+		loads = append(loads, m.loadRepositories(m.repositories.read.Round()))
 	}
 
 	return tea.Batch(loads...)

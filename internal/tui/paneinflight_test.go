@@ -131,12 +131,14 @@ func TestARefreshMarksEveryPanesTitleInFlightUntilItsAnswerArrives(t *testing.T)
 			t.Parallel()
 
 			// Arrange
+			// The pane is looked at, and read if it was not at start, before
+			// the refresh is held: a first read says "reading" instead.
 			held := newHold(t)
-			started := heldLive(t, held, tt.world(), tt.wrap)
+			opened := typing(t, heldLive(t, held, tt.world(), tt.wrap), tt.pane)
 			held.armed.Store(true)
 
 			// Act
-			view := holding(t, held, started, tt.pane, "r").View().Content
+			view := holding(t, held, opened, "r").View().Content
 
 			// Assert
 			requireScreen(t, view, tt.want)

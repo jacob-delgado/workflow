@@ -121,11 +121,11 @@ func (m Model) carryIn(session carried) Model {
 	return m
 }
 
-// openedOnRepositories focuses the pane a switch was made from, marked as
-// read, since Init reads the pane it opens on.
+// openedOnRepositories focuses the pane a switch was made from, its read
+// begun, since Init reads the pane it opens on.
 func (m Model) openedOnRepositories() Model {
 	m.refreshed[paneRepositories] = m.deps.now()
-	m.repositories.loading = true
+	m.repositories.read, _ = m.repositories.read.Begin()
 
 	return m.focusOn(paneRepositories)
 }

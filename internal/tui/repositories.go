@@ -13,27 +13,18 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/seams"
+	"github.com/jacob-delgado/workflow/internal/tui/latest"
 	"github.com/jacob-delgado/workflow/internal/workdirs"
 )
 
 // repositoriesState is the Repositories pane: the worktrees and favorites as
-// last read, each favorite with what is there now, and the row the cursor is
-// on, where you work first.
+// the latest read found them, each favorite with what is there now, and the
+// row the cursor is on, where you work first. They are not read at startup,
+// but when the pane is first looked at.
 type repositoriesState struct {
-	worktrees    []gitrepo.Worktree
-	worktreesErr error
-	favorites    []favoritePlace
-	err          error
-	// read reports the favorites read at least once, as they are not at
-	// startup; loading, a read begun and not yet answered.
-	read     bool
-	loading  bool
+	read     latest.Read[repositoriesFound]
 	selected int
 	scroll   int
-	// reads counts the reads begun after the first, which each answer
-	// carries, so only the last begun is kept: one begun before a favorite
-	// changed would show it as it was.
-	reads int
 	// changing is a favorite marked or forgotten and not yet answered: until
 	// it is, the rows show the favorites as before it, so another f would
 	// make the same change again rather than undo it.
@@ -64,46 +55,60 @@ type repositoryRow struct {
 // errWorktreeGone is a worktree git still lists whose directory is gone.
 var errWorktreeGone = errors.New("the worktree's directory is gone")
 
-// repositoriesRead is the worktrees as git answered, and the favorites as the
-// store and the disk did.
-type repositoriesRead struct {
-	asked        int
+// repositoriesFound is what one read found: the worktrees as git answered,
+// and the favorites as the store and the disk did, each beside why it could
+// not be read. Either can fail while the other lists, so a read always
+// answers, its failures part of what it found.
+type repositoriesFound struct {
 	worktrees    []gitrepo.Worktree
 	worktreesErr error
 	favorites    []favoritePlace
-	err          error
+	favoritesErr error
+}
+
+// repositoriesRead is what the read begun in round found.
+type repositoriesRead struct {
+	round latest.Round
+	found repositoriesFound
 }
 
 var _ applier = repositoriesRead{}
 
-// apply keeps the favorites read, the cursor kept on a row there still is,
-// unless a read was begun after this one.
+// apply keeps what the read found, the cursor kept on a row there still is,
+// unless a read was begun after this one: one begun before a favorite
+// changed, or a worktree was made, would show them as they were.
 func (msg repositoriesRead) apply(m Model) (Model, tea.Cmd) {
-	if msg.asked != m.repositories.reads {
+	read, taken := m.repositories.read.Answered(msg.round, msg.found, nil)
+	if !taken {
 		return m, nil
 	}
 
-	m.repositories.favorites, m.repositories.err, m.repositories.read = msg.favorites, msg.err, true
-	m.repositories.loading = false
-	m.repositories.worktrees, m.repositories.worktreesErr = msg.worktrees, msg.worktreesErr
+	m.repositories.read = read
 	m.repositories.selected = min(m.repositories.selected, len(m.repositories.rows(m.deps.Repositories.Here))-1)
 
 	return m, nil
 }
 
-// loadRepositories reads the worktrees, then the favorites and each one's
-// place, off the update loop: both are on disk, read again each time.
-func (m Model) loadRepositories() tea.Cmd {
+// found is what the latest read found; nothing before one has answered.
+func (s repositoriesState) found() repositoriesFound {
+	found, _ := s.read.Value()
+
+	return found
+}
+
+// loadRepositories reads, as the read begun in round, the worktrees, then
+// the favorites and each one's place, off the update loop: both are on disk,
+// read again each time.
+func (m Model) loadRepositories(round latest.Round) tea.Cmd {
 	ctx, worktrees, favorites := m.session, m.deps.Repositories.Worktrees, favoritePlaces(m.session, m.deps)
-	asked := m.repositories.reads
 
 	return func() tea.Msg {
-		read := repositoriesRead{asked: asked}
+		read := repositoriesRead{round: round}
 		if worktrees != nil {
-			read.worktrees, read.worktreesErr = worktrees(ctx)
+			read.found.worktrees, read.found.worktreesErr = worktrees(ctx)
 		}
 
-		read.favorites, read.err = favorites()
+		read.found.favorites, read.found.favoritesErr = favorites()
 
 		return read
 	}
@@ -134,19 +139,14 @@ func favoritePlaces(ctx context.Context, deps Deps) func() ([]favoritePlace, err
 	}
 }
 
-// refreshRepositories reads the favorites again.
-func (m Model) refreshRepositories() (Model, tea.Cmd) {
-	m.repositories.loading = true
+// readingRepositories begins a read of the worktrees and the favorites,
+// which every read begun before it gives way to, and is the command that
+// reads them.
+func (m Model) readingRepositories() (Model, tea.Cmd) {
+	read, round := m.repositories.read.Begin()
+	m.repositories.read = read
 
-	return m.rereadRepositories()
-}
-
-// rereadRepositories begins a read after the first, which every read begun
-// before it gives way to.
-func (m Model) rereadRepositories() (Model, tea.Cmd) {
-	m.repositories.reads++
-
-	return m, m.loadRepositories()
+	return m, m.loadRepositories(round)
 }
 
 // rows are where you work, then the repository's other worktrees as git
@@ -154,7 +154,7 @@ func (m Model) rereadRepositories() (Model, tea.Cmd) {
 func (s repositoriesState) rows(here seams.Place) []repositoryRow {
 	rows := append([]repositoryRow{{dir: here.Dir, place: here, here: true}}, s.worktreeRows(here.Root)...)
 
-	for _, favorite := range s.favorites {
+	for _, favorite := range s.found().favorites {
 		if s.isOtherWorktree(favorite.dir, here.Root) {
 			// Listed, starred, among the worktrees.
 			continue
@@ -179,12 +179,13 @@ func (s repositoriesState) rows(here seams.Place) []repositoryRow {
 func (s repositoriesState) worktreeRows(hereRoot string) []repositoryRow {
 	var rows []repositoryRow
 
-	for at, worktree := range s.worktrees {
+	worktrees := s.found().worktrees
+	for at, worktree := range worktrees {
 		if worktree.Dir == hereRoot {
 			continue
 		}
 
-		row := repositoryRow{dir: worktree.Dir, worktree: &s.worktrees[at], favorite: s.isFavorite(worktree.Dir)}
+		row := repositoryRow{dir: worktree.Dir, worktree: &worktrees[at], favorite: s.isFavorite(worktree.Dir)}
 		if worktree.Missing {
 			row.err = errWorktreeGone
 		}
@@ -199,12 +200,12 @@ func (s repositoriesState) worktreeRows(hereRoot string) []repositoryRow {
 // work, at hereRoot.
 func (s repositoriesState) isOtherWorktree(dir, hereRoot string) bool {
 	return dir != hereRoot &&
-		slices.ContainsFunc(s.worktrees, func(worktree gitrepo.Worktree) bool { return worktree.Dir == dir })
+		slices.ContainsFunc(s.found().worktrees, func(worktree gitrepo.Worktree) bool { return worktree.Dir == dir })
 }
 
 // isFavorite reports a favorite kept by exactly dir.
 func (s repositoriesState) isFavorite(dir string) bool {
-	return slices.ContainsFunc(s.favorites, func(favorite favoritePlace) bool { return favorite.dir == dir })
+	return slices.ContainsFunc(s.found().favorites, func(favorite favoritePlace) bool { return favorite.dir == dir })
 }
 
 // selectedRow is the row the cursor is on.
@@ -254,7 +255,7 @@ func (m Model) handleRepositoriesKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.switchDir):
 		return m.switchToSelected()
 	case key.Matches(msg, m.keys.refresh):
-		return m.refreshRepositories()
+		return m.readingRepositories()
 	default:
 		return m.openFromRepositories(msg)
 	}
@@ -299,7 +300,7 @@ func (msg favoriteToggled) apply(m Model) (Model, tea.Cmd) {
 		words = " added " + shownDir(m.deps, msg.dir) + " to favorites"
 	}
 
-	return m.noticed(m.marks.done + words).rereadRepositories()
+	return m.noticed(m.marks.done + words).readingRepositories()
 }
 
 // favoriteChanging is why f waits: a favorite changed is shown only once
@@ -340,8 +341,8 @@ func repositoriesBehavior() behavior {
 
 			return m, nil
 		},
-		refresh: Model.refreshRepositories,
-		loading: func(m Model) bool { return m.repositories.loading },
+		refresh: Model.readingRepositories,
+		loading: func(m Model) bool { return m.repositories.read.Refreshing() },
 		scroll:  func(m *Model) *int { return &m.repositories.scroll }, listInDetail: true,
 		answers: []string{
 			actionSwitchDirectory, "favorite-directory", "go-to-directory", "settings", "local-data", actionRefresh,
