@@ -385,17 +385,15 @@ var _ applier = messagingPosted{}
 // was written in while that is still open, and reads what was announced
 // again, which its claim changed. One that went out is posted in place of the
 // announcement waiting for CI of the same moment, which then goes no more;
-// one that failed leaves that one waiting.
+// one that failed leaves that one waiting. One another session announced
+// first closes the preview as one that went out does, saying so.
 func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
 	preview, open := beneath[messagingPreview](m, msg.opened)
 	m.messaging.send = sendState{}
 	m, reread := m.readingAnnounces()
 
-	if errors.Is(msg.err, loop.ErrAnnouncedAlready) {
-		return m.noticed(m.marks.done + " already announced from another session; not posted again"), reread
-	}
-
-	if _, unconfirmed := loop.UnconfirmedReason(msg.err); msg.err != nil && !unconfirmed {
+	elsewhere := errors.Is(msg.err, loop.ErrAnnouncedAlready)
+	if _, unconfirmed := loop.UnconfirmedReason(msg.err); msg.err != nil && !unconfirmed && !elsewhere {
 		m.messaging.send = m.messaging.send.failed(msg.err)
 		if open {
 			m = m.withBeneath(preview.failed(msg.err))
@@ -404,11 +402,15 @@ func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
 		return m.noticedFailure(msg.err), reread
 	}
 
-	m.messaging.hold = m.messaging.hold.Superseded(msg.made)
-
 	if open {
 		m = m.closeOverlay()
 	}
+
+	if elsewhere {
+		return m.noticed(m.marks.done + " already announced from another session; not posted again"), reread
+	}
+
+	m.messaging.hold = m.messaging.hold.Superseded(msg.made)
 
 	return m.noticedAnnounced(msg.to, msg.err), reread
 }
