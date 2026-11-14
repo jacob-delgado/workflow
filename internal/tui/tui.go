@@ -71,10 +71,6 @@ type Model struct {
 	// loaded moments ago does not spend the tracker's or the forge's requests
 	// loading it again.
 	refreshed [paneCount]time.Time
-	// issueSearches counts the searches of the Issues list's first page
-	// begun, so a further page of the list as it stood before one reaches
-	// nothing.
-	issueSearches int
 	// overlaysOpened counts the overlays opened whose reads answer later — the
 	// announcement preview, People and groups, the pull request composer — so
 	// an answer lands only in the one it was started for, never in a later
@@ -159,8 +155,7 @@ func New(cfg config.Config, loadErr error, deps Deps) Model {
 		motion: newMotion(marks.turn, marks.inFlight, deps.now(), cfg.UI.ReducedMotion()),
 	}
 	// Init always searches, so a list seeded from the cache is in flight.
-	model.issues = model.seededIssues()
-	model = model.searching()
+	model = model.searchingFromCache()
 
 	// Init loads every pane but the Summary and Repositories, so each starts
 	// fresh; those two are read the first time they are looked at, which

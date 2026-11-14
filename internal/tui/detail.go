@@ -221,17 +221,26 @@ func (m Model) pickIssue(line, rows int, inRail bool) (Model, tea.Cmd) {
 
 // issueDetailView describes the selected issue in full, or explains why there
 // is nothing to describe — keeping the configuration summary on screen through a
-// failure.
+// failure. A failed search of the list says why above either.
 func (m Model) issueDetailView(width int) string {
-	if m.issues.err != nil {
-		return m.kit().failureBlock(m.issues.err, width) + "\n\n" + m.configStatus().block(width)
+	var failure string
+
+	err := m.issues.read.Err()
+	if err != nil {
+		failure = m.kit().failureBlock(err, width) + "\n\n"
 	}
 
 	selected, ok := m.issues.current()
 	if !ok {
-		return m.configStatus().block(width)
+		return failure + m.configStatus().block(width)
 	}
 
+	return failure + m.selectedIssueView(selected, width)
+}
+
+// selectedIssueView describes the selected issue: what the list knows of it,
+// its tasks, and what its full read found.
+func (m Model) selectedIssueView(selected jira.Issue, width int) string {
 	lines := []string{
 		m.styles.strong.Render(shownKey(selected.Key)) + " " + selected.Summary, issueFacts(m.kit(), selected),
 	}
@@ -412,18 +421,18 @@ func issuesBehavior() behavior {
 		// it changed, so r retries a detail load that failed. An issue the selection has
 		// only just reached is left to the read its rest will start.
 		refresh: func(m Model) (Model, tea.Cmd) {
-			m = m.searching()
+			m, list := m.relistingIssues()
 
 			selected, ok := m.issues.current()
 			if !ok {
-				return m, m.relistIssues()
+				return m, list
 			}
 
 			m, detail := m.reloadDetail(selected.Key)
 
-			return m, tea.Batch(m.relistIssues(), detail)
+			return m, tea.Batch(list, detail)
 		},
-		loading: func(m Model) bool { return m.issues.loading },
+		loading: func(m Model) bool { return m.issues.read.Refreshing() || m.issues.paging },
 		scroll:  func(m *Model) *int { return &m.detail.scroll },
 		answers: []string{
 			"change-status", "comment", "assign", "log-work", "start-work", "track-issue", actionOpenLink,

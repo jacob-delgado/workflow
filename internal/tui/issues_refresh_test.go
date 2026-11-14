@@ -163,3 +163,31 @@ func TestAFailedFurtherPageKeepsTheIssuesListed(t *testing.T) {
 	// Assert
 	requireScreen(t, view, "OPS-1", "OPS-3", "showing 3 of 5")
 }
+
+func TestAFailedRefreshOverAListTheFilterEmptiesStillSaysItFailed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	listed := issuesScreen(t, listsThenFails(issue(issueKey, issueSummary, "indeterminate")))
+	filtered := typing(t, listed, "/", "z", "z", keyEnter)
+
+	// Act
+	view := typing(t, filtered, "r").View().Content
+
+	// Assert
+	requireScreen(t, view, "no issue matches the filters", failedMark)
+}
+
+func TestAFailedRefreshOverAnEmptyListSaysItFailed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	listed := issuesScreen(t, listsThenFails())
+
+	// Act
+	view := typing(t, listed, "r").View().Content
+
+	// Assert
+	requireScreen(t, view, failedMark)
+	refuseScreen(t, view, "no issues in this view")
+}

@@ -38,6 +38,10 @@ func TestARefreshWithNoSeamToReadAsksNothingAndMarksNothing(t *testing.T) {
 			world: withTasks, unwire: func(deps *tui.Deps) { deps.Tasks.Install = nil },
 			pane: tasksPane, title: tasksTitle, asked: "tasks",
 		},
+		"Issues, with no tracker to search": {
+			world: newWorld, unwire: func(deps *tui.Deps) { deps.Jira.Search = nil },
+			pane: "1", title: issuesGroup, asked: "search",
+		},
 	}
 
 	for name, tt := range tests {
