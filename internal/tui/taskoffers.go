@@ -88,7 +88,7 @@ func (m Model) offerStart(issue jira.Issue) func(Model) (Model, tea.Cmd) {
 func (s tasksState) started() []taskwarrior.Task {
 	var started []taskwarrior.Task
 
-	for _, task := range slices.Concat(s.pending, s.linked) {
+	for _, task := range slices.Concat(s.pending(), s.linked()) {
 		counted := slices.ContainsFunc(started, func(each taskwarrior.Task) bool { return each.UUID == task.UUID })
 		if s.stillStarted(task) && !counted {
 			started = append(started, task)

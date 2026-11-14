@@ -121,3 +121,36 @@ func TestAClickSelectsOnlyATaskDrawnOnItsRow(t *testing.T) {
 		})
 	}
 }
+
+func TestAClickOffTheTasksListSelectsNothing(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		column int
+		// below is how far below the screen's first row showing phrase the
+		// click lands.
+		phrase string
+		below  int
+	}{
+		// The rail's second row, where the detail's second row is task 3.
+		"the Tasks rail": {column: 5, phrase: "7 Tasks", below: 2},
+		// The detail's top border, above the list's first row.
+		"the detail's border": {column: 60, phrase: "━ Tasks ━", below: 0},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			model := typing(t, withTasks().live(t, 120, 40), tasksPane)
+			row := screenRow(t, model.View().Content, tt.phrase) + tt.below
+
+			// Act
+			view := click(t, model, tt.column, row).View().Content
+
+			// Assert
+			requireScreen(t, view, "▸ ◐  12 "+issueKey)
+		})
+	}
+}

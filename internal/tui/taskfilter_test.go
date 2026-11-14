@@ -276,3 +276,30 @@ func TestLeavingTheTasksPaneDropsItsFilter(t *testing.T) {
 		})
 	}
 }
+
+func TestFilterAndNarrowDoNothingWithNoTaskListed(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]string{"filtering": filterTasksKey, "narrowing": narrowTasksKey}
+
+	for name, pressedKey := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			// Taskwarrior answered, with no task pending.
+			repo := withTasks()
+			repo.tasks.pending, repo.tasks.linked = nil, nil
+			model := typing(t, repo.live(t, 120, 40), tasksPane)
+			before := model.View().Content
+
+			// Act
+			view := typing(t, model, pressedKey).View().Content
+
+			// Assert
+			if view != before {
+				t.Errorf("%s with no task listed changed the screen:\n%s", pressedKey, plain(view))
+			}
+		})
+	}
+}

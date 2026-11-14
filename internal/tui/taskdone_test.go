@@ -82,12 +82,16 @@ func TestAKeyOnATaskJustMarkedDoneWaitsForTheReadAfterIt(t *testing.T) {
 	requireScreen(t, again.View().Content, completeLook, "Mark task 3 '"+secondIssue+": Add retries' done?")
 }
 
-func TestAReadBegunBeforeADoneKeepsStartAndDoneOffTheTask(t *testing.T) {
+func TestARefreshBegunBeforeADoneIsDroppedAndKeepsStartAndDoneOff(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	// A refresh is on its way as the done is sent; it reads Taskwarrior once a
-	// task has been added there, so the pane shows when it has landed.
+	// task has been added there, so the pane would show it had it landed. The
+	// done's answer begins the read after it, which supersedes the refresh, so
+	// no read begun before a done can answer after it: the task stays as the
+	// read before the done had it, without a start or a done, until the read
+	// after the done answers.
 	repo := withTasks()
 	refreshing, refresh := pressed(t, typing(t, repo.live(t, 120, 40), tasksPane, downAction), "r")
 	sending, send := pressed(t, typing(t, refreshing, "d"), keyEnter)
@@ -103,7 +107,7 @@ func TestAReadBegunBeforeADoneKeepsStartAndDoneOffTheTask(t *testing.T) {
 
 	// Assert
 	view := read.View().Content
-	requireScreen(t, view, "Book the venue")
+	refuseScreen(t, view, "Book the venue")
 	requireNoStartOrDone(t, view)
 }
 

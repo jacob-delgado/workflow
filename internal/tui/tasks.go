@@ -15,19 +15,13 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/places"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
+	"github.com/jacob-delgado/workflow/internal/tui/latest"
 )
 
-// tasksState is the Tasks pane: the pending tasks of the active context, most
-// urgent first, every task linked to an issue whatever its context, the
-// Taskwarrior that answered, the task the cursor is on, and how far the detail
-// is scrolled.
+// tasksState is the Tasks pane: what the latest read of Taskwarrior found,
+// the task the cursor is on, and how far the detail is scrolled.
 type tasksState struct {
-	install taskwarrior.Install
-	pending []taskwarrior.Task
-	linked  []taskwarrior.Task
-	context string
-	loaded  bool
-	err     error
+	read latest.Read[taskList]
 	// selected is the uuid of the task the cursor is on, not its row: the rows
 	// regroup whenever the Issues pane's list changes, and the cursor stays on
 	// the task.
@@ -37,11 +31,6 @@ type tasksState struct {
 	// time: Taskwarrior commits writes in the order they finish, so an undo sent
 	// while a done waits on a hook would revert the change before the done.
 	writing bool
-	// writes counts the writes that have answered, and shownAfter how many had
-	// when the read shown was begun: a read begun before a write the read
-	// shown follows lists the tasks as they stood before it.
-	writes     int
-	shownAfter int
 	// tracked counts the tracks whose add has answered. stubs are the tasks
 	// those adds made that no read begun since has replaced, each linked from
 	// its add's answer.
@@ -56,11 +45,16 @@ type tasksState struct {
 	// listing is how the user has chosen to see the list, kept for the session
 	// across every read.
 	listing taskListing
-	// loading is a refresh begun and not yet answered. refreshes counts the
-	// refreshes begun: only the answer to the last of them ends loading, not
-	// a read another write or an earlier refresh began.
-	loading   bool
-	refreshes int
+}
+
+// taskList is what one read of Taskwarrior found: which Taskwarrior
+// answered, the pending tasks of the active context, most urgent first, every
+// task linked to an issue whatever its context, and that context.
+type taskList struct {
+	install taskwarrior.Install
+	pending []taskwarrior.Task
+	linked  []taskwarrior.Task
+	context string
 }
 
 // trackStub is a task a track added, known from its add's answer and its
@@ -77,11 +71,52 @@ type doneMark struct {
 	done int
 }
 
-// answeredWrite is s once the write out has answered, so the next may go, and
-// a read begun since lists what it left.
+// held is the tasks the latest successful read found, kept across a read
+// that failed since; none before one has.
+func (s tasksState) held() taskList {
+	list, _ := s.read.Value()
+
+	return list
+}
+
+// holdsList reports whether a read has found the tasks, to list and move
+// through even after a refresh that failed.
+func (s tasksState) holdsList() bool {
+	_, held := s.read.Value()
+
+	return held
+}
+
+// pending is the pending tasks held.
+func (s tasksState) pending() []taskwarrior.Task {
+	return s.held().pending
+}
+
+// linked is every task held linked to an issue, then each a track added that
+// no read begun since has held.
+func (s tasksState) linked() []taskwarrior.Task {
+	linked := slices.Clip(s.held().linked)
+
+	for _, stub := range s.stubs {
+		linked = append(linked, stub.task)
+	}
+
+	return linked
+}
+
+// install is the Taskwarrior that answered the read held.
+func (s tasksState) install() taskwarrior.Install {
+	return s.held().install
+}
+
+// context is the context that narrowed the pending tasks held, or empty.
+func (s tasksState) context() string {
+	return s.held().context
+}
+
+// answeredWrite is s once the write out has answered, so the next may go.
 func (s tasksState) answeredWrite() tasksState {
 	s.writing = false
-	s.writes++
 
 	return s
 }
@@ -100,18 +135,10 @@ func (s tasksState) justMarkedDone(uuid string) bool {
 	return slices.ContainsFunc(s.justDone, func(mark doneMark) bool { return mark.uuid == uuid })
 }
 
-// stillUndescribed is the dones a read begun once dones had answered cannot
-// have described: the later dones'. A read that failed describes none, but
-// leaves no task to start or mark done either.
-func (s tasksState) stillUndescribed(dones int) []doneMark {
-	return slices.DeleteFunc(slices.Clone(s.justDone), func(mark doneMark) bool { return mark.done <= dones })
-}
-
 // justAdded is s with a task a track has just added, linked as the next track.
 func (s tasksState) justAdded(task taskwarrior.Task) tasksState {
 	s.tracked++
 	s.stubs = append(slices.Clip(s.stubs), trackStub{task: task, track: s.tracked})
-	s.linked = append(slices.Clip(s.linked), task)
 
 	return s
 }
@@ -122,46 +149,37 @@ func (s tasksState) stubbed(uuid string) bool {
 	return slices.ContainsFunc(s.stubs, func(stub trackStub) bool { return stub.task.UUID == uuid })
 }
 
-// relinked is what a read begun once tracked tracks had answered links, with
-// the stubs it cannot have held — a later track's, not among its linked tasks
-// — and those stubs, which stay until a later read replaces them.
-func (s tasksState) relinked(tracked int, linked []taskwarrior.Task) ([]taskwarrior.Task, []trackStub) {
-	all := slices.Clip(linked)
-
-	var kept []trackStub
-
-	for _, stub := range s.stubs {
+// described is s once a read has found linked, begun when the count of
+// tracks answered was tracked and that of dones was dones: the stubs it
+// cannot have held — a later track's, not among its linked tasks — stay, as
+// do the later dones' marks.
+func (s tasksState) described(tracked, dones int, linked []taskwarrior.Task) tasksState {
+	s.stubs = slices.DeleteFunc(slices.Clone(s.stubs), func(stub trackStub) bool {
 		held := slices.ContainsFunc(linked, func(task taskwarrior.Task) bool { return task.UUID == stub.task.UUID })
-		if stub.track > tracked && !held {
-			kept = append(kept, stub)
-			all = append(all, stub.task)
-		}
-	}
 
-	return all, kept
+		return stub.track <= tracked || held
+	})
+	s.justDone = slices.DeleteFunc(slices.Clone(s.justDone), func(mark doneMark) bool { return mark.done <= dones })
+
+	return s
 }
 
-// answered reports whether Taskwarrior has told what it holds: it has been
-// asked, and did not fail.
+// answered reports whether Taskwarrior has told what it holds: the latest
+// read answered, and did not fail. Only then does the pane write from the
+// tasks it lists.
 func (s tasksState) answered() bool {
-	return s.loaded && s.err == nil
+	return s.read.Stage() == latest.StageShown
 }
 
-// tasksLoaded carries Taskwarrior's answer: the install, the pending list and
-// the linked tasks, or why one of them could not be read; and how many tracks
-// and dones had answered when the read was begun.
+// tasksLoaded carries Taskwarrior's answer to the read begun in round: the
+// install, the pending list and the linked tasks, or why one of them could
+// not be read; and how many tracks and dones had answered when it was begun.
 type tasksLoaded struct {
-	install taskwarrior.Install
-	pending taskwarrior.List
-	linked  []taskwarrior.Task
+	list    taskList
 	err     error
 	tracked int
 	dones   int
-	// refresh is the refresh that began the read, counted from one; zero for
-	// a read no refresh began.
-	refresh int
-	// writes is how many writes had answered when the read was begun.
-	writes int
+	round   latest.Round
 }
 
 var _ applier = tasksLoaded{}
@@ -169,25 +187,19 @@ var _ applier = tasksLoaded{}
 // apply records Taskwarrior's answer, keeping the selection on the same task
 // across a refresh, as the Reviews pane keeps its pull request — or on the first
 // task, where that one is no longer listed — and each task a track added, or a
-// done marked, since the read was begun. A read begun before a write the read
-// shown follows says nothing: it lists the tasks as they stood before it,
-// and a refresh it answers is in flight no longer, the read shown having
-// begun after it.
+// done marked, since the read was begun. The answer of a read a later one
+// superseded is dropped: a write's answer begins the read after it, so an
+// earlier read would list the tasks as they stood before the write. A failed
+// refresh keeps the tasks listed, beside its failure.
 func (msg tasksLoaded) apply(m Model) (Model, tea.Cmd) {
-	if msg.writes < m.tasks.shownAfter {
-		m.tasks.loading = m.tasks.loading && msg.refresh != m.tasks.refreshes
-
+	read, taken := m.tasks.read.Answered(msg.round, msg.list, msg.err)
+	if !taken {
 		return m, nil
 	}
 
-	linked, stubs := m.tasks.relinked(msg.tracked, msg.linked)
-	m.tasks = tasksState{
-		install: msg.install, pending: msg.pending.Tasks, linked: linked, context: msg.pending.Context,
-		loaded: true, err: msg.err, selected: m.tasks.selected, writing: m.tasks.writing,
-		writes: m.tasks.writes, shownAfter: msg.writes,
-		tracked: m.tasks.tracked, stubs: stubs, dones: m.tasks.dones, justDone: m.tasks.stillUndescribed(msg.dones),
-		listing: m.tasks.listing, refreshes: m.tasks.refreshes,
-		loading: m.tasks.loading && msg.refresh != m.tasks.refreshes,
+	m.tasks.read = read
+	if msg.err == nil {
+		m.tasks = m.tasks.described(msg.tracked, msg.dones, msg.list.linked)
 	}
 
 	groups := m.taskGroups()
@@ -199,46 +211,49 @@ func (msg tasksLoaded) apply(m Model) (Model, tea.Cmd) {
 	return m.withTaskWords().loadDetail()
 }
 
+// readingTasks begins a read of Taskwarrior, superseding any still out, and
+// is the command that reads it; with no task program to ask, it begins
+// nothing.
+func (m Model) readingTasks() (Model, tea.Cmd) {
+	if m.deps.Tasks.Install == nil {
+		return m, nil
+	}
+
+	read, round := m.tasks.read.Begin()
+	m.tasks.read = read
+
+	return m, m.tasks.load(m.session, m.deps, round)
+}
+
 // load is the command that asks Taskwarrior, under ctx, which it is, then its
-// pending tasks, then the tasks linked to issues, in one command; nil when
-// there is no task program to ask.
-func (s tasksState) load(ctx context.Context, deps Deps) tea.Cmd {
-	return s.read(ctx, deps, 0)
-}
-
-// refreshing is the pane with a refresh begun, in flight until its own read
-// answers, and that read; nil when there is no task program to ask.
-func (s tasksState) refreshing(ctx context.Context, deps Deps) (tasksState, tea.Cmd) {
-	s.refreshes++
-	read := s.read(ctx, deps, s.refreshes)
-	s.loading = read != nil
-
-	return s, read
-}
-
-// read is load's command, its answer marked as the read refresh began.
-func (s tasksState) read(ctx context.Context, deps Deps, refresh int) tea.Cmd {
+// pending tasks, then the tasks linked to issues, in one command, as the read
+// begun in round; nil when there is no task program to ask.
+func (s tasksState) load(ctx context.Context, deps Deps, round latest.Round) tea.Cmd {
 	install, pending, linked := deps.Tasks.Install, deps.Tasks.Pending, deps.Tasks.Linked
 	if install == nil {
 		return nil
 	}
 
-	begun := tasksLoaded{tracked: s.tracked, dones: s.dones, refresh: refresh, writes: s.writes}
+	begun := tasksLoaded{tracked: s.tracked, dones: s.dones, round: round}
 
 	return func() tea.Msg {
 		answer := begun
 
-		answer.install, answer.err = install(ctx)
+		answer.list.install, answer.err = install(ctx)
 		if answer.err != nil {
 			return answer
 		}
 
-		answer.pending, answer.err = pending(ctx)
+		var list taskwarrior.List
+
+		list, answer.err = pending(ctx)
+		answer.list.pending, answer.list.context = list.Tasks, list.Context
+
 		if answer.err != nil {
 			return answer
 		}
 
-		answer.linked, answer.err = linked(ctx)
+		answer.list.linked, answer.err = linked(ctx)
 
 		return answer
 	}
@@ -263,10 +278,10 @@ func (m Model) moveTaskBy(delta int) Model {
 }
 
 // pickTask selects the task on a clicked line of the detail. The heading over
-// the other tasks, and a failure drawn where the list would be, select nothing.
+// the other tasks, and a failure drawn where no list is held, select nothing.
 func (m Model) pickTask(line, _ int, inRail bool) (Model, tea.Cmd) {
 	drawn, onScreen := m.detailLineAt(line)
-	if inRail || !onScreen || m.tasks.err != nil {
+	if inRail || !onScreen {
 		return m, nil
 	}
 
@@ -282,12 +297,14 @@ func (m Model) pickTask(line, _ int, inRail bool) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// issueMarks is how the Issues rows mark each issue's task state at now, or
-// nil, so the column is not drawn, until Taskwarrior has answered: without one,
-// while it is asked, and where it could not answer — go-task on PATH, a failed
-// read — a column of "no task" would claim what is not known.
+// issueMarks is how the Issues rows mark each issue's task state at now, as
+// the tasks held have it, or nil, so the column is not drawn, until a read has
+// found them: without Taskwarrior, while it is first asked, and where it could
+// not answer — go-task on PATH, a first read that failed — a column of "no
+// task" would claim what is not known. A refresh that fails since keeps the
+// marks, as the Tasks pane keeps the tasks listed.
 func (s tasksState) issueMarks(kit renderKit, now time.Time) func(jira.Key) string {
-	if !s.answered() {
+	if !s.holdsList() {
 		return nil
 	}
 
@@ -338,7 +355,7 @@ func stillToDo(task taskwarrior.Task) bool {
 func (s tasksState) linkedTo(issueKey jira.Key) []taskwarrior.Task {
 	var linked []taskwarrior.Task
 
-	for _, task := range s.linked {
+	for _, task := range s.linked() {
 		if task.IssueKey == string(issueKey) {
 			linked = append(linked, task)
 		}
@@ -348,13 +365,14 @@ func (s tasksState) linkedTo(issueKey jira.Key) []taskwarrior.Task {
 }
 
 // issueTasksBlock is the Tasks block of an issue's detail, wrapped to width:
-// each linked task with its glyph, id, description and started/due note, or the
-// one line that names the key that tracks it. Nothing until Taskwarrior has
-// answered, or where it could not: the Tasks pane says why; nor for an issue
-// with no task where no task can be added.
+// each linked task held with its glyph, id, description and started/due note,
+// or the one line that names the key that tracks it. Nothing until a read has
+// found the tasks, or where it could not: the Tasks pane says why; nor for an
+// issue with no task where none can be added now — no task program to add
+// one, or a refresh that failed since, which holds the track key back.
 func (m Model) issueTasksBlock(issueKey jira.Key, width int) []string {
 	linked := m.tasks.linkedTo(issueKey)
-	if !m.tasks.answered() || (len(linked) == 0 && m.deps.Tasks.Add == nil) {
+	if !m.tasks.holdsList() || (len(linked) == 0 && (m.deps.Tasks.Add == nil || !m.tasks.answered())) {
 		return nil
 	}
 
@@ -429,23 +447,24 @@ func linkedTaskNote(task taskwarrior.Task, now time.Time) string {
 // suffix names the active context beside the Tasks pane's title, when one
 // narrows the list.
 func (s tasksState) suffix(kit renderKit, p pane) string {
-	if p != paneTasks || s.context == "" {
+	if p != paneTasks || s.context() == "" {
 		return ""
 	}
 
-	return kit.marks.separator + s.context
+	return kit.marks.separator + s.context()
 }
 
-// active is the first task started at now, pending or linked, if one is — and
-// none until Taskwarrior has answered, as the task marks and an issue's Tasks
-// block have it: after a failed read the Tasks pane shows the failure, not the
-// task.
+// active is the first task held started at now, pending or linked, if one is
+// — and none until a read has found the tasks, as the task marks and an
+// issue's Tasks block have it. A refresh that fails since keeps it, as the
+// Tasks pane keeps the task listed: only the verbs wait for a read that
+// succeeds.
 func (s tasksState) active(now time.Time) (taskwarrior.Task, bool) {
-	if !s.answered() {
+	if !s.holdsList() {
 		return taskwarrior.Task{}, false
 	}
 
-	tasks := slices.Concat(s.pending, s.linked)
+	tasks := slices.Concat(s.pending(), s.linked())
 
 	index := slices.IndexFunc(tasks, startedAt(now))
 	if index < 0 {
@@ -468,14 +487,8 @@ func tasksBehavior() behavior {
 		detail: func(m Model, width int) string { return m.tasks.detail(m.tasksView(), width) }, narrow: nil,
 		keys: Model.tasksKeys, handle: Model.handleTasksKey, pick: Model.pickTask, move: commandless(Model.moveTaskBy),
 		// refresh asks Taskwarrior again.
-		refresh: func(m Model) (Model, tea.Cmd) {
-			var read tea.Cmd
-
-			m.tasks, read = m.tasks.refreshing(m.session, m.deps)
-
-			return m, read
-		},
-		loading: func(m Model) bool { return m.tasks.loading },
+		refresh: Model.readingTasks,
+		loading: func(m Model) bool { return m.tasks.read.Refreshing() },
 		scroll:  func(m *Model) *int { return &m.tasks.scroll }, listInDetail: true,
 		answers: []string{
 			"start-stop", actionMarkDone, "add-task", "annotate-task", "modify-task", actionUndoTask, actionSyncTasks,

@@ -329,17 +329,18 @@ func onTheUntrackedIssue(keys ...string) []string {
 	return slices.Concat([]string{"1"}, selectTheUntrackedIssue(), keys)
 }
 
-func TestARefreshStaysInFlightWhileAWritesReadAnswersFirst(t *testing.T) {
+func TestAWritesReadSupersedesARefreshAndEndsItsMark(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
 	// The tasks are refreshed, and before that read answers, task 3 is
-	// started, which reads the tasks again once it answers.
+	// started, which reads the tasks again once it answers: that read, begun
+	// later, supersedes the refresh's, so the mark ends when it answers.
 	refreshing, _ := pressed(t, typing(t, withTasks().live(t, 120, 40), tasksPane, downAction), "r")
 
 	// Act
 	started := typing(t, refreshing, "s")
 
 	// Assert
-	requireScreen(t, started.View().Content, "Tasks ◐")
+	refuseScreen(t, started.View().Content, "Tasks ◐")
 }

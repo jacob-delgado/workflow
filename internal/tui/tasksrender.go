@@ -5,6 +5,7 @@ package tui
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -60,19 +61,31 @@ func (s tasksState) groups(view tasksView) taskGroups {
 
 // rail summarizes the pane: how many tasks are pending and active, and the
 // context that narrows them, or why there are none to count, or that a write
-// is on its way.
+// is on its way; after a failed refresh, the failure first, so a rail of one
+// row still says it, then the counts of the tasks still listed.
 func (s tasksState) rail(view tasksView) string {
-	switch {
-	case !view.installed:
+	if !view.installed {
 		return view.unavailable()
-	case !s.loaded:
-		return view.kit.reading()
-	case s.err != nil:
-		return view.kit.failureSummary(s.err)
-	case s.writing:
-		return view.kit.marks.inFlight + " sending" + view.kit.marks.ellipsis
 	}
 
+	failed := func() string { return view.kit.failureSummary(s.read.Err()) }
+
+	return drawRead(view.kit, s.read, drawnRead{
+		shown: func() string {
+			if s.writing {
+				return view.kit.marks.inFlight + " sending" + view.kit.marks.ellipsis
+			}
+
+			return s.counts(view)
+		},
+		failed:     failed,
+		failedOver: func() string { return failed() + "\n" + s.counts(view) },
+	})
+}
+
+// counts is how many of the tasks held are pending and active, and the
+// context that narrows them.
+func (s tasksState) counts(view tasksView) string {
 	// The rail counts the pane's tasks whatever narrows the list, as the Reviews
 	// rail counts the whole queue.
 	listed := s.groupsBy(taskListing{}, view.issues, view.now).listed()
@@ -90,8 +103,8 @@ func (s tasksState) rail(view tasksView) string {
 		counts = append(counts, strconv.Itoa(active)+" active")
 	}
 
-	if s.context != "" {
-		counts = append(counts, "ctx "+s.context)
+	if s.context() != "" {
+		counts = append(counts, "ctx "+s.context())
 	}
 
 	return strings.Join(counts, view.kit.marks.separator)
@@ -117,24 +130,40 @@ func (v tasksView) unavailableDetail(width int) string {
 	return wrap(v.kit.failureLine(taskwarrior.ErrNotInstalled), width)
 }
 
-// detail lists the pending tasks, then describes the selected one.
+// detail lists the pending tasks, then describes the selected one; a failed
+// refresh is said beneath the tasks it kept, so a row's task is the one drawn
+// on it.
 func (s tasksState) detail(view tasksView, width int) string {
-	groups := s.groups(view)
-
-	switch {
-	case !view.installed:
+	if !view.installed {
 		return view.unavailableDetail(width)
-	case !s.loaded:
-		return view.kit.reading()
-	case s.err != nil:
-		return view.kit.failureBlock(s.err, width)
-	case len(groups.listed()) == 0 && len(s.pending) > 0 && s.listing.narrows():
-		return strings.Join(append(s.rows(view, groups, width), "No task matches the filters."), "\n")
-	case len(groups.listed()) == 0:
-		return strings.Join(append([]string{"No pending tasks."}, waitingRow(view.kit, groups)...), "\n")
 	}
 
-	return strings.Join(append(s.rows(view, groups, width), "", s.selectedDetail(view, groups, width)), "\n")
+	failed := func() string { return view.kit.failureBlock(s.read.Err(), width) }
+
+	return drawRead(view.kit, s.read, drawnRead{
+		shown:      func() string { return s.listingDetail(view, width, nil) },
+		failed:     failed,
+		failedOver: func() string { return s.listingDetail(view, width, []string{"", failed()}) },
+	})
+}
+
+// listingDetail is the tasks held, failure beneath them when a refresh
+// failed since, then the selected task described.
+func (s tasksState) listingDetail(view tasksView, width int, failure []string) string {
+	groups := s.groups(view)
+
+	var lines []string
+
+	switch {
+	case len(groups.listed()) == 0 && len(s.pending()) > 0 && s.listing.narrows():
+		lines = slices.Concat(s.rows(view, groups, width), []string{"No task matches the filters."}, failure)
+	case len(groups.listed()) == 0:
+		lines = slices.Concat([]string{"No pending tasks."}, waitingRow(view.kit, groups), failure)
+	default:
+		lines = slices.Concat(s.rows(view, groups, width), failure, []string{"", s.selectedDetail(view, groups, width)})
+	}
+
+	return strings.Join(lines, "\n")
 }
 
 // rows draws the listed tasks one a row: how the list is listed, when that

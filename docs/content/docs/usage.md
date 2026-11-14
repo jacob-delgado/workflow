@@ -782,6 +782,12 @@ branch and its pull request when the checked-out branch names that issue — and
 its annotations. The rail counts what is pending and started, and names the
 active context, as the pane's title does.
 
+A read that fails once the tasks are listed keeps them listed, says why below
+them and in the rail, and keeps their marks on the issues and the started task
+on the top row. Moving, `enter`, `o`, `y`, `/`, `f`, `O` and `r` still work,
+but the keys that change a task — `s`, `d`, `a`, `A`, `e`, `u` and `S` — and
+`T` wait for a read that succeeds, since the tasks may have changed meanwhile.
+
 `O` sorts the tasks within each group, cycling from most urgent first through
 by state (started, then pending, then waiting), by id, by tag, by issue (in
 natural order, so `PROJ-2` comes before `PROJ-10`, with unlinked tasks last)
@@ -827,9 +833,10 @@ a second glyph after its status: `◐` a task for the issue is started, `○` on
 is still to do, `●` every task for it is done, and `·` none tracks it. The
 issue's detail gains a **Tasks** block that lists each of its tasks — started
 how long ago, or when it is due — or says that `T` tracks it. Until
-Taskwarrior answers, and wherever it cannot — go-task on `PATH`, a read that
-failed — there is no column and no block, rather than a claim that no task
-tracks the issue.
+Taskwarrior answers, and wherever it cannot — go-task on `PATH`, a first read
+that failed — there is no column and no block, rather than a claim that no task
+tracks the issue. A later read that fails keeps both as the tasks listed have
+them.
 
 **The started task** ends the top row, in cyan:
 `◐ PROJ-412: Fix token redaction · 1h12m`. Short of room the description is
