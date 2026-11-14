@@ -11,62 +11,76 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
+	"github.com/jacob-delgado/workflow/internal/tui/latest"
 )
 
 // diffTab is the spaces a tab is drawn as, so a tab-indented diff line keeps a
 // steady width to truncate against.
 const diffTab = "    "
 
-// diffState is the diff of the file the Commits pane has selected.
+// diffState is the diff of the file the Commits pane has selected: the file
+// its latest read is of, and what that read found.
 type diffState struct {
-	path  string
-	lines []string
-	err   error
+	path string
+	read latest.Read[[]string]
 }
 
-// loadDiff reads the selected file's diff through the repository seam,
-// counted among the reads of a diff begun, unless it is already the one
-// loaded. A stale answer for a file no longer selected is dropped when it
-// arrives, so it is safe to call on every move.
+// rereadDiff forgets the diff held, and any read of it still out, and reads
+// the selected file's again: the status answered, and a stage or an edit
+// behind a refresh changes a file's diff without changing its path.
+func (m Model) rereadDiff() (Model, tea.Cmd) {
+	m.diff = diffState{read: m.diff.read.Cleared()}
+
+	return m.loadDiff()
+}
+
+// loadDiff begins a read of the selected file's diff through the repository
+// seam, superseding any still out, unless the read held or out is already
+// that file's and has not failed; so it is safe to call on every move, and a
+// move back onto a file whose diff failed reads it again. A read begins from
+// nothing held, so the pane says it is reading, not the failure it retries.
 func (m Model) loadDiff() (Model, tea.Cmd) {
-	ctx, read := m.session, m.deps.Git.Diff
+	ctx, diff := m.session, m.deps.Git.Diff
 
 	change, ok := m.changes.current()
-	if read == nil || !ok || m.diff.path == change.Path {
+	if diff == nil || !ok || m.diff.standsFor(change.Path) {
 		return m, nil
 	}
 
-	m.diffReads++
-	number := m.diffReads
+	read, round := m.diff.read.Cleared().Begin()
+	m.diff = diffState{path: change.Path, read: read}
 
 	return m, func() tea.Msg {
-		lines, err := read(ctx, change)
+		lines, err := diff(ctx, change)
 
-		return diffLoaded{path: change.Path, lines: lines, err: err, read: number}
+		return diffLoaded{lines: lines, err: err, round: round}
 	}
 }
 
-// diffLoaded is a file's diff back from git, as the read counted read found
-// it.
+// standsFor reports a read of path's diff out, or answered and shown: one a
+// read begun now would only repeat.
+func (d diffState) standsFor(path string) bool {
+	return d.path == path && (d.read.Out() || d.read.Stage() == latest.StageShown)
+}
+
+// diffLoaded is a file's diff back from git, as the read begun in round
+// found it.
 type diffLoaded struct {
-	path  string
 	lines []string
 	err   error
-	read  int
+	round latest.Round
 }
 
 var _ applier = diffLoaded{}
 
-// apply shows the diff, if it is still the selected file's — a faster key may
-// have moved the selection on — and no later read has begun since: a stage
-// changes a file's diff without changing its path, and a diff read before it
-// may answer after the one read since.
+// apply shows the diff unless a later read has begun since: a move to another
+// file, or a status answered, which a stage brings, begins one, so the answer
+// of a read for a file no longer selected, or of one read before the stage,
+// is dropped.
 func (msg diffLoaded) apply(m Model) (Model, tea.Cmd) {
-	if change, ok := m.changes.current(); !ok || change.Path != msg.path || msg.read != m.diffReads {
-		return m, nil
+	if read, taken := m.diff.read.Answered(msg.round, msg.lines, msg.err); taken {
+		m.diff.read = read
 	}
-
-	m.diff = diffState{path: msg.path, lines: msg.lines, err: msg.err}
 
 	return m, nil
 }
@@ -76,20 +90,29 @@ func (msg diffLoaded) apply(m Model) (Model, tea.Cmd) {
 // list. An added line keeps its leading + and a removed line its -, so the mark
 // reads without color too.
 func (d diffState) section(kit renderKit, change gitrepo.Change, width int) []string {
-	lines := []string{"", kit.styles.strong.Render("diff: " + sanitize.Line(change.Path))}
+	reading := func() []string { return []string{kit.styles.label.Render("reading the diff" + kit.marks.ellipsis)} }
+	body := map[latest.Stage]func() []string{
+		latest.StageNeverRead: reading,
+		latest.StageReading:   reading,
+		latest.StageShown:     func() []string { return d.marked(kit, width) },
+		latest.StageFailed:    func() []string { return []string{kit.failureLine(d.read.Err())} },
+	}[d.read.Stage()]()
 
-	switch {
-	case d.path != change.Path:
-		return append(lines, kit.styles.label.Render("reading the diff"+kit.marks.ellipsis))
-	case d.err != nil:
-		return append(lines, kit.failureLine(d.err))
-	case len(d.lines) == 0:
-		return append(lines, kit.styles.label.Render("no textual change"))
+	return append([]string{"", kit.styles.strong.Render("diff: " + sanitize.Line(change.Path))}, body...)
+}
+
+// marked is the diff held, each line marked as markDiffLine marks it, or
+// what says it holds no textual change.
+func (d diffState) marked(kit renderKit, width int) []string {
+	diff, _ := d.read.Value()
+	if len(diff) == 0 {
+		return []string{kit.styles.label.Render("no textual change")}
 	}
 
+	lines := make([]string, 0, len(diff))
 	inHunk := false
 
-	for _, line := range d.lines {
+	for _, line := range diff {
 		if strings.HasPrefix(line, "@@") {
 			inHunk = true
 		}
@@ -133,8 +156,8 @@ func (m Model) previewDiscard() (Model, tea.Cmd) {
 	path := sanitize.Line(change.Path)
 	body := "Discard the " + change.Kind() + " file " + path + ", staged and not?"
 
-	if m.diff.path == change.Path {
-		body += "\n\n" + strings.Join(m.diff.lines[:min(len(m.diff.lines), discardPreviewLines)], "\n")
+	if diff, held := m.diff.read.Value(); held {
+		body += "\n\n" + strings.Join(diff[:min(len(diff), discardPreviewLines)], "\n")
 	}
 
 	m.overlay = lastLook{
