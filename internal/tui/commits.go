@@ -55,12 +55,7 @@ func (msg changesLoaded) apply(m Model) (Model, tea.Cmd) {
 	m.changes.selected = max(0, min(index, len(files)-1))
 	m.changes = m.changes.following(m.detailRows())
 
-	// Staging an untracked file, or an edit behind a refresh, changes a file's
-	// diff without changing its path, so drop the loaded one to force a fresh
-	// read rather than trust loadDiff's path guard.
-	m.diff = diffState{}
-
-	return m.loadDiff()
+	return m.rereadDiff()
 }
 
 // readingChanges begins a read of the work tree's status, superseding any

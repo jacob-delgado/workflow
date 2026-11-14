@@ -128,3 +128,94 @@ func TestWithoutADiffSeamNoDiffShows(t *testing.T) {
 	// Assert
 	refuseScreen(t, view, "diff:", "should not show")
 }
+
+func TestBackOnAFileWhoseDiffFailedReadsItAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The first file's diff fails to read. The selection moves on, and back
+	// before the next file's diff answers.
+	world := newWorld()
+	world.changes = staged("a.go", "b.go")
+	world.diffErr = errDiffRead
+	failed := typing(t, world.live(t, 120, 40), "3")
+	world.diffErr = nil
+	world.diff = []string{"+read again"}
+	moved, late := withheldKeys(t, failed, world.counting("diff "), "j")
+	back := typing(t, moved, "k")
+
+	// Act
+	view := handedOver(t, back, late).View().Content
+
+	// Assert
+	requireScreen(t, view, "diff: a.go", "+read again")
+	refuseScreen(t, view, errDiffRead.Error())
+}
+
+func TestStayingOnAShownDiffReadsItNoMore(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The default world has one file changed, so j stays on it.
+	world := newWorld()
+	shown := typing(t, world.live(t, 120, 40), "3")
+
+	// Act
+	typing(t, shown, "j")
+
+	// Assert
+	if calls := world.asked("diff "); len(calls) != 1 {
+		t.Errorf("diff reads = %q, want the one that showed it", calls)
+	}
+}
+
+func TestStayingOnADiffStillReadingReadsItNoMore(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A refresh reads the file's diff again, slowly.
+	world := newWorld()
+	reading, _ := withheldKeys(t, typing(t, world.live(t, 120, 40), "3"), world.counting("diff "), "r")
+
+	// Act
+	typing(t, reading, "j")
+
+	// Assert
+	if calls := world.asked("diff "); len(calls) != 2 {
+		t.Errorf("diff reads = %q, want the first and the refresh's, still out", calls)
+	}
+}
+
+func TestStayingOnAFailedDiffReadsItAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	world := newWorld()
+	world.diffErr = errDiffRead
+	failed := typing(t, world.live(t, 120, 40), "3")
+	world.diffErr = nil
+	world.diff = []string{"+read again"}
+
+	// Act
+	view := typing(t, failed, "j").View().Content
+
+	// Assert
+	requireScreen(t, view, "diff: "+redactPath, "+read again")
+	refuseScreen(t, view, errDiffRead.Error())
+}
+
+func TestAFailedDiffReadAgainSaysItIsReading(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	world := newWorld()
+	world.diffErr = errDiffRead
+	failed := typing(t, world.live(t, 120, 40), "3")
+
+	// Act
+	reading, _ := withheldKeys(t, failed, world.counting("diff "), "j")
+
+	// Assert
+	requireScreen(t, reading.View().Content, "reading the diff")
+	refuseScreen(t, reading.View().Content, errDiffRead.Error())
+}
