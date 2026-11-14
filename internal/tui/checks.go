@@ -35,8 +35,8 @@ type checkList struct {
 	err     error
 	// openKey is the key apply is bound to, which opens a check's page.
 	openKey string
-	// opened is the count of overlays opened when the list opened, which a
-	// log read from it carries back, so it opens in no list opened after.
+	// opened is the round the list opened in, which a log read from it
+	// carries back, so it opens in no list opened after.
 	opened int
 }
 
@@ -48,7 +48,7 @@ var (
 // openChecks lists the checks reported on the pull request. Its caller offers it
 // only when canOpenChecks reports there are checks and an opener for their pages.
 func (m Model) openChecks() (Model, tea.Cmd) {
-	m, opened := m.opening()
+	m, opened := m.nextRound()
 	m.overlay = checkList{
 		checks:  pickList[forge.Check]{items: m.review.listed().Checks},
 		openKey: m.keys.confirm.Help().Key, opened: opened,

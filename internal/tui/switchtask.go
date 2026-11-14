@@ -53,8 +53,7 @@ type branchesListed struct {
 	worktrees map[string]gitrepo.Worktree
 	notAsked  error
 	err       error
-	// opened is the count of overlays opened when the switcher that asked
-	// opened.
+	// opened is the round the switcher that asked opened in.
 	opened int
 }
 
@@ -133,8 +132,7 @@ type branchPicker struct {
 	notAsked error
 	settled  bool
 	send     sendState
-	// opened is the count of overlays opened when it opened, which its
-	// listing carries back.
+	// opened is the round it opened in, which its listing carries back.
 	opened int
 }
 
@@ -145,7 +143,7 @@ var (
 
 // openBranchPicker opens the task switcher and starts listing the branches.
 func (m Model) openBranchPicker() (Model, tea.Cmd) {
-	m, opened := m.opening()
+	m, opened := m.nextRound()
 	m.overlay = branchPicker{opened: opened}
 	lister := branchLister{
 		local: m.deps.Git.Branches, remote: m.deps.Git.RemoteBranches, links: m.deps.Git.IssueLinks,

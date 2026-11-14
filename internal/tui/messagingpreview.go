@@ -58,8 +58,8 @@ type messagingPreview struct {
 	// tagging is whom a ready-for-review announcement tags; the zero value
 	// tags no one.
 	tagging tagSection
-	// opened is the count of overlays opened when this one opened, so a read
-	// started for it lands in it alone.
+	// opened is the round this one opened in, so a read started for it
+	// lands in it alone.
 	opened int
 }
 
@@ -75,8 +75,8 @@ func (p messagingPreview) destination() string {
 
 // outgoingAnnouncement is an announcement as it leaves: the channel it is sent
 // to, empty for a webhook's own, and where that is as the notice names it; what
-// it says and the moment it marks; whom it tags; and the count of overlays
-// opened when its preview opened, so its answer reaches that preview alone.
+// it says and the moment it marks; whom it tags; and the round its preview
+// opened in, so its answer reaches that preview alone.
 type outgoingAnnouncement struct {
 	channel, to, text string
 	moment            messaging.Moment
@@ -370,8 +370,8 @@ func (p messagingPreview) applyEdit(m Model, text string, err error) (Model, tea
 }
 
 // messagingPosted reports how posting went, the announcement it made — a pull
-// request and the moment it marked — where it went, and the count of overlays
-// opened when the preview it was written in opened.
+// request and the moment it marked — where it went, and the round the
+// preview it was written in opened in.
 type messagingPosted struct {
 	made   loop.Announced
 	to     string
@@ -482,7 +482,7 @@ func (p messagingPreview) pickLink(m Model) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// openedAs is the count of overlays opened when the preview opened.
+// openedAs is the round the preview opened in.
 func (p messagingPreview) openedAs() int {
 	return p.opened
 }

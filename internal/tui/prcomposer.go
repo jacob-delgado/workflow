@@ -107,8 +107,8 @@ type prComposer struct {
 	// they still stand untyped over.
 	reviewersSettled  bool
 	reviewersProposed string
-	// opened is the count of overlays opened when this one opened, so the
-	// reads made for it land in it alone.
+	// opened is the round this one opened in, so the reads made for it
+	// land in it alone.
 	opened int
 	vocab  reviewVocab
 	send   sendState
@@ -134,7 +134,7 @@ func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 	issue, listed := m.issues.find(issueKey)
 	proposed := m.proposePullRequest(branch, issueKey, issue.Summary)
 
-	m, proposed.opened = m.opening()
+	m, proposed.opened = m.nextRound()
 	if kept, drafted := m.prDrafts.on(branch.Name); drafted {
 		proposed = proposed.restore(kept)
 	}

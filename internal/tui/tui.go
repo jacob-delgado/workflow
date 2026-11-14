@@ -58,9 +58,6 @@ type Model struct {
 	// accessibleForms asks a form's questions as plain prompts instead of
 	// drawing it.
 	accessibleForms bool
-	// runs counts the programs started, so the output of one run is never
-	// shown in another.
-	runs int
 	// reviewsBegun counts the reviews begun: the key of CI's poll chain, so a
 	// poll scheduled in one since replaced ends its chain rather than polling
 	// beside the new one's. CI's round would not do: a read begun while a poll
@@ -71,11 +68,11 @@ type Model struct {
 	// loaded moments ago does not spend the tracker's or the forge's requests
 	// loading it again.
 	refreshed [paneCount]time.Time
-	// overlaysOpened counts the overlays opened whose reads answer later — the
-	// announcement preview, People and groups, the pull request composer — so
-	// an answer lands only in the one it was started for, never in a later
-	// one of the same kind.
-	overlaysOpened int
+	// rounds counts the rounds drawn for an overlay as it opens and for a
+	// command run as it starts: each answer carries the round of the one
+	// that asked, so it lands only there, never in a later one of the same
+	// kind, and the output of one run is never shown in another.
+	rounds int
 	// commitDrafts are the commit messages composed and not yet committed,
 	// one per branch, each kept for the branch it was written on.
 	commitDrafts commitDrafts

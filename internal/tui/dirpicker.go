@@ -40,8 +40,8 @@ type dirPicker struct {
 	// be gone to.
 	looking bool
 	problem error
-	// opened is the count of overlays opened when this one opened, so an
-	// answer arriving after esc finds no picker, even one opened since.
+	// opened is the round this one opened in, so an answer arriving after
+	// esc finds no picker, even one opened since.
 	opened int
 }
 
@@ -74,7 +74,7 @@ func (m Model) openDirPicker() (Model, tea.Cmd) {
 	input := newInput("")
 	input.Prompt = m.marks.prompt
 	input.Placeholder = shownDir(m.deps, m.deps.Repositories.Here.Dir)
-	m, opened := m.opening()
+	m, opened := m.nextRound()
 
 	picker := dirPicker{
 		input: input, base: m.deps.Repositories.Here.Dir, home: m.deps.Repositories.Home, opened: opened,

@@ -257,12 +257,12 @@ func (m Model) closeOverlay() Model {
 	return m
 }
 
-// opening counts one more overlay opened whose reads answer later, and is
-// the count it is opened as.
-func (m Model) opening() (Model, int) {
-	m.overlaysOpened++
+// nextRound draws the next round, for an overlay as it opens or a run as it
+// starts, which every answer for it carries back.
+func (m Model) nextRound() (Model, int) {
+	m.rounds++
 
-	return m, m.overlaysOpened
+	return m, m.rounds
 }
 
 // failable is an overlay that stays open when the request it sent fails, and

@@ -183,8 +183,8 @@ func (msg userGroupsRead) apply(m Model) (Model, tea.Cmd) {
 // directory the picker chooses from.
 type linksOwners interface {
 	overlay
-	// openedAs is the count of overlays opened when it opened, which every
-	// read and save it starts carries back.
+	// openedAs is the round it opened in, which every read and save it
+	// starts carries back.
 	openedAs() int
 	directoryFor(team bool) directory
 }

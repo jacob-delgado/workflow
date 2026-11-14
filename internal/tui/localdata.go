@@ -41,7 +41,7 @@ func canSeeLocalData(deps Deps) bool {
 
 // openLocalData opens Local data and starts reading the store's files.
 func (m Model) openLocalData() (Model, tea.Cmd) {
-	m, opened := m.opening()
+	m, opened := m.nextRound()
 	m.overlay = localData{opened: opened, reading: true}
 
 	return m, readLocalData(m.session, m.deps, opened)

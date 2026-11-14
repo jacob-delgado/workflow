@@ -43,7 +43,7 @@ var (
 // openHookPicker opens the picker and starts reading the hooks lefthook
 // configures.
 func (m Model) openHookPicker() (Model, tea.Cmd) {
-	m, opened := m.opening()
+	m, opened := m.nextRound()
 	m.overlay = hookPicker{opened: opened}
 	ctx, list := m.session, m.deps.Hooks.Configured
 
