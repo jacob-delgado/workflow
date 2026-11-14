@@ -16,43 +16,43 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
+	"github.com/jacob-delgado/workflow/internal/tui/latest"
 )
 
-// changeList is the work tree's changed files, as far as they have loaded, and
-// how far the Commits pane's detail is scrolled.
+// changeList is the work tree's changed files, as the latest read of its
+// status found them, and how far the Commits pane's detail is scrolled.
 type changeList struct {
-	changes  []gitrepo.Change
-	loaded   bool
-	err      error
+	read     latest.Read[[]gitrepo.Change]
 	selected int
 	scroll   int
-	// loading is a refresh begun and not yet answered.
-	loading bool
 }
 
-// changesLoaded carries the work tree's status, as the read counted read
+// changesLoaded carries the work tree's status, as the read begun in round
 // found it.
 type changesLoaded struct {
 	changes []gitrepo.Change
 	err     error
-	read    int
+	round   latest.Round
 }
 
 var _ applier = changesLoaded{}
 
-// apply records the changes, keeping the selection on the same file. A read
-// a later one has superseded says nothing: its answer may land after the
-// later one's, and would show the work tree as it stood before.
+// apply records the changes, keeping the selection on the same file. The
+// answer of a read a later one superseded is dropped: it would show the work
+// tree as it stood before. A failed refresh keeps the files listed, beside
+// its failure.
 func (msg changesLoaded) apply(m Model) (Model, tea.Cmd) {
-	if msg.read != m.changesReads {
+	read, taken := m.changes.read.Answered(msg.round, msg.changes, msg.err)
+	if !taken {
 		return m, nil
 	}
 
 	previous, _ := m.changes.current()
-	m.changes = changeList{changes: msg.changes, loaded: true, err: msg.err, selected: 0}
+	m.changes.read = read
+	files := m.changes.files()
 
-	index := slices.IndexFunc(msg.changes, func(change gitrepo.Change) bool { return change.Path == previous.Path })
-	m.changes.selected = max(0, min(index, len(msg.changes)-1))
+	index := slices.IndexFunc(files, func(change gitrepo.Change) bool { return change.Path == previous.Path })
+	m.changes.selected = max(0, min(index, len(files)-1))
 	m.changes = m.changes.following(m.detailRows())
 
 	// Staging an untracked file, or an edit behind a refresh, changes a file's
@@ -63,17 +63,22 @@ func (msg changesLoaded) apply(m Model) (Model, tea.Cmd) {
 	return m.loadDiff()
 }
 
-// readingChanges counts a read of the work tree's status begun, and is the
-// command that reads it.
+// readingChanges begins a read of the work tree's status, superseding any
+// still out, and is the command that reads it; with no git to ask, it begins
+// nothing.
 func (m Model) readingChanges() (Model, tea.Cmd) {
-	m.changesReads++
+	if m.deps.Git.Changes == nil {
+		return m, nil
+	}
 
-	return m, loadChanges(m.session, m.deps, m.changesReads)
+	read, round := m.changes.read.Begin()
+	m.changes.read = read
+
+	return m, loadChanges(m.session, m.deps, round)
 }
 
-// loadChanges is the command that reads the work tree's status, as the read
-// counted read.
-func loadChanges(ctx context.Context, deps Deps, read int) tea.Cmd {
+// loadChanges is the command that reads the work tree's status, in round.
+func loadChanges(ctx context.Context, deps Deps, round latest.Round) tea.Cmd {
 	status := deps.Git.Changes
 	if status == nil {
 		return nil
@@ -82,31 +87,46 @@ func loadChanges(ctx context.Context, deps Deps, read int) tea.Cmd {
 	return func() tea.Msg {
 		changes, err := status(ctx)
 
-		return changesLoaded{changes: changes, err: err, read: read}
+		return changesLoaded{changes: changes, err: err, round: round}
 	}
+}
+
+// files is the changed files held: the latest successful read's, or none.
+func (l changeList) files() []gitrepo.Change {
+	files, _ := l.read.Value()
+
+	return files
+}
+
+// writable reports files listed as the latest read found them, which a write
+// can act on: none while a first read is out, and none after a read failed,
+// since the files still listed may have changed since.
+func (l changeList) writable() bool {
+	return l.read.Stage() == latest.StageShown
 }
 
 // following is the list scrolled so its selection shows in rows lines.
 func (l changeList) following(rows int) changeList {
-	l.scroll, _ = window(l.selected, len(l.changes), rows)
+	l.scroll, _ = window(l.selected, len(l.files()), rows)
 
 	return l
 }
 
 // current is the selected change, if there is one.
 func (l changeList) current() (gitrepo.Change, bool) {
-	if len(l.changes) == 0 {
+	files := l.files()
+	if len(files) == 0 {
 		return gitrepo.Change{}, false
 	}
 
-	return l.changes[l.selected], true
+	return files[l.selected], true
 }
 
 // staged counts the changes in the index.
 func (l changeList) staged() int {
 	count := 0
 
-	for _, change := range l.changes {
+	for _, change := range l.files() {
 		if change.IsStaged() {
 			count++
 		}
@@ -115,38 +135,51 @@ func (l changeList) staged() int {
 	return count
 }
 
-// rail counts what is staged and changed, and the branch's commits.
+// rail counts what is staged and changed, and the branch's commits; after a
+// failed read, the failure, then the counts of the files still held.
 func (l changeList) rail(kit renderKit, commits int) string {
-	switch {
-	case !l.loaded:
-		return kit.reading()
-	case l.err != nil:
-		return kit.unreadRow(l.err, "status failed")
-	}
+	failed := func() string { return kit.unreadRow(l.read.Err(), "status failed") }
 
-	counts := strconv.Itoa(l.staged()) + " of " + strconv.Itoa(len(l.changes)) + " staged"
-
-	return counts + "\n" + kit.styles.label.Render(plural(commits, "commit")+" on this branch")
+	return drawRead(kit, l.read, drawnRead{
+		shown: func() string {
+			return l.counts() + "\n" + kit.styles.label.Render(plural(commits, "commit")+" on this branch")
+		},
+		failed:     failed,
+		failedOver: func() string { return failed() + "\n" + l.counts() },
+	})
 }
 
-// commitsDetail lists the changed files, then the branch's commits.
+// counts is how many of the files held are staged.
+func (l changeList) counts() string {
+	return strconv.Itoa(l.staged()) + " of " + strconv.Itoa(len(l.files())) + " staged"
+}
+
+// commitsDetail lists the changed files, then the branch's commits; a failed
+// read of the status is said beneath the files it kept.
 func (m Model) commitsDetail(width int) string {
 	if m.branch.outsideRepository() {
 		return m.kit().failureBlock(m.branch.err, width)
 	}
 
-	if !m.changes.loaded {
-		return m.changes.rail(m.kit(), len(m.branch.branch.Commits))
-	}
+	failure := func() string { return m.kit().failureBlock(m.changes.read.Err(), width) }
 
-	if m.changes.err != nil {
-		return m.kit().failureBlock(m.changes.err, width)
-	}
+	return drawRead(m.kit(), m.changes.read, drawnRead{
+		shown:      func() string { return m.commitsListing(width, nil) },
+		failed:     failure,
+		failedOver: func() string { return m.commitsListing(width, []string{failure()}) },
+	})
+}
 
+// commitsListing is the changed files held, failure under them when a read
+// of them failed since, then the branch's commits, the lefthook offer and the
+// selected file's diff.
+func (m Model) commitsListing(width int, failure []string) string {
 	lines := m.changes.rows(m.marks)
 	if len(lines) == 0 {
 		lines = []string{"Nothing has changed."}
 	}
+
+	lines = append(lines, failure...)
 
 	commits := m.branch.branch.Commits
 	if len(commits) > 0 {
@@ -172,9 +205,10 @@ func (m Model) commitsDetail(width int) string {
 // rows draws each changed file: where it stands, git's two letters, and its
 // path — neutralized, because a file name can hold an escape sequence.
 func (l changeList) rows(marks glyphs) []string {
-	rows := make([]string, 0, len(l.changes))
+	files := l.files()
+	rows := make([]string, 0, len(files))
 
-	for index, change := range l.changes {
+	for index, change := range files {
 		path := sanitize.Line(change.Path)
 		if change.OriginalPath != "" {
 			path = sanitize.Line(change.OriginalPath) + marks.arrow + path
@@ -223,28 +257,35 @@ func (m Model) commitsOffers() []offer {
 // dropping the selected one.
 func (m Model) stagingOffers() []offer {
 	_, hasChange := m.changes.current()
+	hasChange = hasChange && m.changes.writable()
 	stage, unstage := m.deps.Git.Stage, m.deps.Git.Unstage
+	stageable := m.changes.writable() && len(loop.Stageable(m.changes.files())) > 0
+	unstageable := m.changes.writable() && m.changes.staged() > 0
 
 	return []offer{
 		{binding: m.keys.stage, can: hasChange && stage != nil && unstage != nil, act: m.toggleStaged},
-		{binding: m.keys.stageAll, can: len(loop.Stageable(m.changes.changes)) > 0 && stage != nil, act: m.stageAll},
-		{binding: m.keys.unstageAll, can: m.changes.staged() > 0 && unstage != nil, act: m.unstageAll},
+		{binding: m.keys.stageAll, can: stageable && stage != nil, act: m.stageAll},
+		{binding: m.keys.unstageAll, can: unstageable && unstage != nil, act: m.unstageAll},
 		{binding: m.keys.discard, can: hasChange && m.deps.Git.Discard != nil, act: m.previewDiscard},
 	}
 }
 
 // committingOffers are turning the staged changes into a new commit, which
-// says what it needs when nothing is staged, or folding them into an unpushed
-// one: amended into the last, or fixed up into a chosen one.
+// says what it needs when the files listed are current and none is staged,
+// or folding them into an unpushed one: amended into the last, or fixed up
+// into a chosen one.
 func (m Model) committingOffers() []offer {
+	writable := m.changes.writable()
+
 	commit := offer{
-		binding: m.keys.commit, can: m.changes.staged() > 0 && m.deps.Git.Commit != nil, act: m.openCommitComposer,
+		binding: m.keys.commit, can: writable && m.changes.staged() > 0 && m.deps.Git.Commit != nil,
+		act: m.openCommitComposer,
 	}
-	if m.deps.Git.Commit != nil {
-		commit.refusal = loop.RefuseNothingStaged(m.changes.changes)
+	if writable && m.deps.Git.Commit != nil {
+		commit.refusal = loop.RefuseNothingStaged(m.changes.files())
 	}
 
-	foldable := m.changes.canFold(m.branch.branch)
+	foldable := writable && m.changes.canFold(m.branch.branch)
 
 	return []offer{
 		commit,
@@ -267,7 +308,7 @@ func (m Model) handleCommitsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // delta, stopping at either end, keeps it on screen, and reads the newly
 // selected file's diff.
 func (m Model) moveChangeBy(delta int) (Model, tea.Cmd) {
-	m.changes.selected = max(0, min(m.changes.selected+delta, len(m.changes.changes)-1))
+	m.changes.selected = max(0, min(m.changes.selected+delta, len(m.changes.files())-1))
 
 	m.changes = m.changes.following(m.detailRows())
 
@@ -277,7 +318,7 @@ func (m Model) moveChangeBy(delta int) (Model, tea.Cmd) {
 // pickChange selects the file on a clicked line of the detail.
 func (m Model) pickChange(line, _ int, inRail bool) (Model, tea.Cmd) {
 	index, drawn := m.detailLineAt(line)
-	if inRail || !drawn || index >= len(m.changes.changes) {
+	if inRail || !drawn || index >= len(m.changes.files()) {
 		return m, nil
 	}
 
@@ -308,7 +349,7 @@ func (m Model) toggleStaged() (Model, tea.Cmd) {
 // stageAll stages every file with changes not yet staged, by loop's rule, so
 // every surface that stages all takes the same files.
 func (m Model) stageAll() (Model, tea.Cmd) {
-	pending := loop.Stageable(m.changes.changes)
+	pending := loop.Stageable(m.changes.files())
 	if m.dryRun {
 		return m.noticed("dry run: would stage " + plural(len(pending), "file")), nil
 	}
@@ -327,7 +368,7 @@ func (m Model) unstageAll() (Model, tea.Cmd) {
 		return m.noticed("dry run: would unstage " + plural(count, "file")), nil
 	}
 
-	ctx, changes, unstage := m.session, m.changes.changes, m.deps.Git.Unstage
+	ctx, changes, unstage := m.session, m.changes.files(), m.deps.Git.Unstage
 	m.paneWrites.staging++
 
 	return m, func() tea.Msg { return staged{err: loop.UnstageAll(ctx, changes, unstage)} }
@@ -363,11 +404,10 @@ func commitsBehavior() behavior {
 		// it.
 		refresh: func(m Model) (Model, tea.Cmd) {
 			m, read := m.readingChanges()
-			m.changes.loading = read != nil
 
 			return m, tea.Batch(read, loadBranch(m.session, m.deps), m.hookgen.find(m.session, m.deps))
 		},
-		loading: func(m Model) bool { return m.changes.loading },
+		loading: func(m Model) bool { return m.changes.read.Refreshing() },
 		scroll:  func(m *Model) *int { return &m.changes.scroll }, listInDetail: true, readsBranch: true,
 		answers: []string{
 			"stage", "stage-all", "unstage-all", "discard-change", "commit", "amend", "fixup", "run-hook",

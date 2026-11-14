@@ -86,7 +86,7 @@ func (read scopesRead) apply(m Model) (Model, tea.Cmd) {
 func (l changeList) stagedPaths() []string {
 	var paths []string
 
-	for _, change := range l.changes {
+	for _, change := range l.files() {
 		if change.IsStaged() {
 			paths = append(paths, change.Path)
 		}

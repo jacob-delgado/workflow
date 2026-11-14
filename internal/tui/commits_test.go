@@ -411,3 +411,21 @@ func TestANoticeWithANewlineDoesNotOverflowTheScreen(t *testing.T) {
 		t.Errorf("View is %d rows for a %d-row terminal; a multi-line notice overflowed:\n%q", rows, 40, view)
 	}
 }
+
+func TestAClickInTheCommitsRailPicksNoFile(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Focused, the Commits pane lists the files in its detail; its rail
+	// summarizes them, and the rail's second row is no file's.
+	choosing := newWorld()
+	choosing.changes = workTree()
+	model := typing(t, choosing.live(t, 120, 40), "3")
+	row := screenRow(t, model.View().Content, "1 commit on this branch")
+
+	// Act
+	view := click(t, model, 5, row).View().Content
+
+	// Assert
+	requireScreen(t, view, "▸ ● modified   internal/config/redact.go")
+}

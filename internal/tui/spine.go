@@ -397,7 +397,7 @@ func (m Model) work() progress.Work {
 		IssueNamed:         named,
 		IssueSelected:      selected,
 		Commits:            len(m.branch.branch.Commits),
-		UncommittedChanges: len(m.changes.changes),
+		UncommittedChanges: len(m.changes.files()),
 		PullRequest:        m.review.pullState(),
 		CI:                 m.review.ci.State,
 		ChangesRequested:   m.review.pull.ChangesRequested,
