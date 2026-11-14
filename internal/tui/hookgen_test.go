@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -31,6 +32,22 @@ func legacyHooks() []hooks.GitHook {
 		{Name: preCommitHook, Script: "#!/bin/sh\nset -e\ngofmt -l .\ngo vet ./...\n"},
 		{Name: commitMsgHook, Script: "#!/usr/bin/env bash\ngrep -q '^feat' \"$1\"\n"},
 	}
+}
+
+// withLegacyHooks is the world with legacyHooks in .git/hooks.
+func withLegacyHooks() *world {
+	repo := newWorld()
+	repo.gitHooks = legacyHooks()
+
+	return repo
+}
+
+// existingHooks fakes looking in .git/hooks, recording each look, so a test
+// can count the looks and hold one back.
+func (w *world) existingHooks(context.Context) ([]hooks.GitHook, bool) {
+	w.record("existing")
+
+	return w.gitHooks, w.configured
 }
 
 // lefthookHint is the Commits detail's line offering to set up lefthook, and
@@ -346,4 +363,23 @@ func TestALookBegunBeforeTheConfigurationWasWrittenDoesNotOfferItAgain(t *testin
 
 	// Assert
 	refuseLefthookOffered(t, written)
+}
+
+func TestAnOlderLookAtTheHooksAnsweringLateDoesNotOfferLefthook(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A Commits refresh looks at the hooks, slowly; they are removed in a
+	// shell meanwhile, and a second refresh finds none and answers first.
+	offering := newWorld()
+	offering.gitHooks = legacyHooks()
+	slow, late := withheldKeys(t, typing(t, offering.live(t, 200, 50), "3"), offering.counting("existing"), "r")
+	offering.gitHooks = nil
+	newer := typing(t, slow, "r")
+
+	// Act
+	shown := handedOver(t, newer, late)
+
+	// Assert
+	refuseLefthookOffered(t, shown)
 }

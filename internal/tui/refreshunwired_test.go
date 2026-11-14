@@ -26,6 +26,14 @@ func TestARefreshWithNoSeamToReadAsksNothingAndMarksNothing(t *testing.T) {
 			world: withReviews, unwire: func(deps *tui.Deps) { deps.Forge.ReviewRequests = nil },
 			pane: "6", title: reviewsGroup, asked: "reviews",
 		},
+		"Commits, with nothing to look for hooks with": {
+			world: withLegacyHooks, unwire: func(deps *tui.Deps) { deps.Hooks.Existing = nil },
+			pane: "3", title: commitsGroup, asked: "existing",
+		},
+		"Commits, with nothing to write hooks with": {
+			world: withLegacyHooks, unwire: func(deps *tui.Deps) { deps.Hooks.Write = nil },
+			pane: "3", title: commitsGroup, asked: "existing",
+		},
 	}
 
 	for name, tt := range tests {
