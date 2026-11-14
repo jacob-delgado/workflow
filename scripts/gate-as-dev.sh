@@ -15,8 +15,13 @@
 # at a time; given no task, the steps of `task check`, or `task check:docs`
 # when scripts/docs-only.sh, as GATE_BASE holds it, finds the worktree changes
 # the docs alone since GATE_BASE (origin/main by default). The gate checks what
-# is committed: uncommitted changes are left out, and it says so. One run goes
-# at a time, since every run shares that checkout; a second waits for the first
+# is committed: uncommitted changes are left out, and it says so. The gate
+# user's checkout keeps only the origin/main it was cloned with, so the commit
+# GATE_BASE names in the worktree is named for it to fetch as refs/gate/base,
+# and handed on as GATE_BASE, which scripts/gobco-report.sh judges a change's
+# lines against; a worktree that holds no such base hands on none, and the
+# gate says so. One run goes at a time, since every run shares that checkout,
+# and refs/gate/base and refs/gate/head with it; a second waits for the first
 # (GATE_LOCK_WAIT seconds, an hour by default). Two locks say a run is going:
 # GATE_LOCK, which root's half holds, and GATE_RUN_LOCK, which root's half
 # holds until it hands over and the gate user's half from then on, through
@@ -157,12 +162,27 @@ docs_only_tasks() {
   fi
 }
 
+# name_base names the commit the base is at in a worktree as refs/gate/base,
+# for the gate user to fetch, and prints that ref; where the worktree holds no
+# such base it takes back any earlier one, says so, and prints nothing.
+#   name_base <worktree>
+name_base() {
+  local base_sha
+  if base_sha="$(git -C "$1" rev-parse --verify --quiet "${base}^{commit}")"; then
+    git -C "$1" update-ref refs/gate/base "${base_sha}"
+    echo refs/gate/base
+    return
+  fi
+  git -C "$1" update-ref -d refs/gate/base
+  echo "gate-as-dev: $1 holds no ${base}, so no line is judged changed against a base" >&2
+}
+
 # hand_over names the worktree's HEAD for the gate user to fetch and runs the
 # rest of this script as that user. Given no task, it runs check:docs for a
 # docs-only change and the steps of check for any other.
 #   hand_over <worktree> [task...]
 hand_over() {
-  local src common sha self name docs
+  local src common sha self name docs handed_base
   local -a environment
   if ! id "${gate_user}" >/dev/null 2>&1; then
     echo "gate-as-dev: no user ${gate_user}; scripts/cloud-session-setup.sh makes it" >&2
@@ -187,6 +207,9 @@ hand_over() {
     echo "gate-as-dev: ${src} has uncommitted changes; the gate checks HEAD (${sha:0:8}) only" >&2
   fi
   take_lock
+  # Named under the lock, as refs/gate/head is, so a run waiting on it
+  # cannot move the base a run going has yet to fetch.
+  handed_base="$(name_base "${src}")"
   check_pins "${src}" "${sha}"
   make_room
   trap 'echo "gate-as-dev: $(free_gb) GB free on / after the run"' EXIT
@@ -205,7 +228,7 @@ hand_over() {
     GOPATH="${gate_home}/go" GOCACHE="${gate_home}/.cache/go-build" GOFLAGS="" GOTOOLCHAIN=local \
     XDG_CACHE_HOME="${gate_home}/.cache" COREPACK_HOME="${gate_home}/.cache/node/corepack" \
     COREPACK_NPM_REGISTRY=https://registry.npmjs.org COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
-    NPM_CONFIG_USERCONFIG="${gate_home}/.npmrc" ZIZMOR_OFFLINE=true \
+    NPM_CONFIG_USERCONFIG="${gate_home}/.npmrc" ZIZMOR_OFFLINE=true GATE_BASE="${handed_base}" \
     flock -o -w "${lock_wait}" "${run_lock_file}" bash "${self}" --as-gate-user "${common}" "${sha}" "$@" {lock}>&-
 }
 
@@ -280,6 +303,10 @@ run_tasks() {
     git clone --quiet --no-checkout "${common}" "${checkout}"
   fi
   git -C "${checkout}" fetch --quiet --no-tags "${common}" "+refs/gate/head:refs/gate/head"
+  if [[ -n "${GATE_BASE:-}" ]]; then
+    git -C "${checkout}" fetch --quiet --no-tags "${common}" "+${GATE_BASE}:${GATE_BASE}"
+  fi
+  export GATE_BASE="${GATE_BASE:-}"
   git -C "${checkout}" checkout --quiet --force --detach "${sha}"
   git -C "${checkout}" clean -ffdxq -e web/node_modules -e tmp/
   cd "${checkout}"

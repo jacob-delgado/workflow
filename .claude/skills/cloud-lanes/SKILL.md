@@ -174,10 +174,16 @@ Say which host and why, and carry on with what does not need it.
   committed, never the uncommitted changes, which it warns of. Given no task
   it runs all of `task check` but `vuln` while `vuln.go.dev` is refused, or
   `task check:docs` when the worktree changes the docs alone since
-  `origin/main` (`scripts/docs-only.sh`; `GATE_BASE` names another base). It
-  checks the disk before the run and between steps, and one run goes at a
-  time: a second waits for the first, and so does a setup with a tool to
-  install, since a run uses the toolchain from start to end. There is one
+  `origin/main` (`scripts/docs-only.sh`; `GATE_BASE` names another base,
+  which it hands dev's run for `task cover:branch` to judge changed lines
+  by). A copy installed before it handed `GATE_BASE` on leaves dev's run to
+  judge them by dev's clone's own `origin/main`, as old as that clone, so a
+  line main changed since counts as the change's and can fail it, never pass
+  it: until the setup runs again from a checkout that has it, run the
+  worktree's own `bash scripts/gate-as-dev.sh <worktree>`. It checks the disk
+  before the run and between steps, and one run goes at a time: a second
+  waits for the first, and so does a setup with a tool to install, since a
+  run uses the toolchain from start to end. There is one
   toolchain, set up from whichever checkout ran the setup last, so the gate
   refuses, with "run setup for this worktree", a commit whose pins are not
   the ones it was set up from (a version in `mise.toml` of a tool the setup

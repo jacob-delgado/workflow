@@ -45,11 +45,11 @@ exit "${RUNUSER_STATUS:-0}"'
 # shellcheck disable=SC2016 # the stand-in's own variable, expanded when it runs
 stub curl 'exit "${CURL_STATUS:-0}"'
 stub go
-# task notes the temporary directory it was given and the directory it runs
-# in, and lists check's steps, or fails to as a Taskfile that does not load
-# does, with SUMMARY_STATUS.
+# task notes the temporary directory it was given, the directory it runs in
+# and the base it was handed, and lists check's steps, or fails to as a
+# Taskfile that does not load does, with SUMMARY_STATUS.
 # shellcheck disable=SC2016 # the stand-in's own variables, expanded when it runs
-stub task 'printf "tmpdir %s\npwd %s\n" "${TMPDIR:-}" "${PWD}" >>"'"${log}"'"
+stub task 'printf "tmpdir %s\npwd %s\nbase %s\n" "${TMPDIR:-}" "${PWD}" "${GATE_BASE-unset}" >>"'"${log}"'"
 if [[ "$*" == "--summary check" ]]; then
   if [[ -n "${SUMMARY_STATUS:-}" ]]; then
     echo "task: Failed to parse Taskfile.yml" >&2
