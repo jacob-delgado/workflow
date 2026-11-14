@@ -57,6 +57,11 @@ internal/slackauth 97
 # never trusted, and kept.db holds what the user decided and cannot see again.
 internal/store 90
 
+# internal/tui/latest decides which answer each pane of the terminal shows:
+# an arm it misses shows a superseded read's answer over the latest one, or
+# drops the answer a pane waits for and leaves it reading forever.
+internal/tui/latest 98
+
 # internal/webserver/edge is the request boundary of --web: the loopback and
 # same-origin guards, dry-run's refusal of every write, and the session and
 # contract check that stand between any program on this machine and the

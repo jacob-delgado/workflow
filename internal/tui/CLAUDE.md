@@ -38,12 +38,13 @@ a row to `scripts/package-size-budget-history.md`. The package is not split to
 chase a number. A pane or an overlay takes and returns `Model`, and so cannot
 leave without carrying `Model` across a package boundary Go does not allow.
 What may leave is a leaf with a reason to change of its own and no `Model` in
-it, as `layout/` and `frame/` did, and as `quietinput/` did when
-`quietinput.go`, which changes as `huh.Field` does, left. Code with no `Model`
-in it leaves for the package whose concern it is even when its file stays, as
-the commit scopes offered did for `internal/convention` (`ScopeSuggestions`)
-and the outlasting plumbing for `internal/lifetime` (`lifetime.Outlasting0`
-and the rest).
+it, as `layout/` and `frame/` did, as `quietinput/` did when `quietinput.go`,
+which changes as `huh.Field` does, left, and as `latest/` was born a leaf: a
+pane's read, whose answer counts only if no later read has begun. Code with no
+`Model` in it leaves for the package whose concern it is even when its file
+stays, as the commit scopes offered did for `internal/convention`
+(`ScopeSuggestions`) and the outlasting plumbing for `internal/lifetime`
+(`lifetime.Outlasting0` and the rest).
 
 ## Deps: the world outside the terminal
 
