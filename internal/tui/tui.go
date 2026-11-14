@@ -86,10 +86,6 @@ type Model struct {
 	// answer to one a later read superseded is dropped rather than shown over
 	// the later one's.
 	diffReads int
-	// reviewQueueReads counts the reads of the review queue begun after the
-	// first, so the answer to one a later read superseded is dropped rather
-	// than shown over the later one's.
-	reviewQueueReads int
 	// overlaysOpened counts the overlays opened whose reads answer later — the
 	// announcement preview, People and groups, the pull request composer — so
 	// an answer lands only in the one it was started for, never in a later
@@ -243,7 +239,7 @@ func (m Model) Init() tea.Cmd {
 	loads := []tea.Cmd{
 		m.searchIssues(), listIssueBranches(m.session, m.cfg, m.deps), loadBranch(m.session, m.deps),
 		loadChanges(m.session, m.deps, m.changesReads), m.hookgen.find(m.session, m.deps),
-		loadReviewQueue(m.session, m.deps, m.reviewQueueReads), loadAnnounces(m.session, m.deps),
+		loadReviewQueue(m.session, m.deps, 0), loadAnnounces(m.session, m.deps),
 		m.tasks.load(m.session, m.deps),
 	}
 
