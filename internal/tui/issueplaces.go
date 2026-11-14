@@ -14,29 +14,40 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/places"
+	"github.com/jacob-delgado/workflow/internal/tui/latest"
 )
 
 // issueBranchesListed carries which issues a local or remote branch names back
-// into the update loop. A listing git could not make leaves in flight unknown
-// rather than failing the list.
+// into the update loop, as the listing begun in round found them. A listing
+// git could not make leaves in flight unknown rather than failing the list.
 type issueBranchesListed struct {
-	keys map[jira.Key]bool
-	err  error
+	keys  map[jira.Key]bool
+	err   error
+	round latest.Round
 }
 
 var _ applier = issueBranchesListed{}
 
 // apply records which issues have a branch, and reads the selected issue when
-// the change moved the selection. A listing that failed changes nothing: the
-// branches last listed still stand, rather than every issue dropping out of
-// flight at once.
+// the change moved the selection. The answer of a listing a later one
+// superseded is dropped: begun before a branch was made, it would take that
+// branch's issue out of flight. A listing that failed changes nothing on
+// screen: the branches last listed still stand, rather than every issue
+// dropping out of flight at once.
 func (msg issueBranchesListed) apply(m Model) (Model, tea.Cmd) {
+	read, taken := m.issues.branches.Answered(msg.round, msg.keys, msg.err)
+	if !taken {
+		return m, nil
+	}
+
 	if msg.err != nil {
+		m.issues.branches = read
+
 		return m, nil
 	}
 
 	m.issues = m.issues.keepingSelection(func(l issueList) issueList {
-		l.branchKeys, l.branchesKnown = msg.keys, true
+		l.branches = read
 
 		return l
 	})
@@ -44,9 +55,29 @@ func (msg issueBranchesListed) apply(m Model) (Model, tea.Cmd) {
 	return m.followDetail()
 }
 
+// readingIssueBranches begins a listing of the branches that mark the
+// issues in flight, superseding any still out, and is the command that lists
+// them; with no git to ask, it begins nothing.
+func (m Model) readingIssueBranches() (Model, tea.Cmd) {
+	if m.deps.Git.Branches == nil {
+		return m, nil
+	}
+
+	read, round := m.issues.branches.Begin()
+	m.issues.branches = read
+
+	return m, listIssueBranches(m.session, m.cfg, m.deps, round)
+}
+
+// branchKeys is which issues a branch names, as the latest listing that
+// succeeded found them, and whether one has.
+func (l issueList) branchKeys() (map[jira.Key]bool, bool) {
+	return l.branches.Value()
+}
+
 // listIssueBranches is the command that lists the local and remote branches and
-// reads the issue each names, under ctx; nil with no git to ask.
-func listIssueBranches(ctx context.Context, cfg config.Config, deps Deps) tea.Cmd {
+// reads the issue each names, under ctx, in round; nil with no git to ask.
+func listIssueBranches(ctx context.Context, cfg config.Config, deps Deps, round latest.Round) tea.Cmd {
 	lister := branchLister{
 		local: deps.Git.Branches, remote: deps.Git.RemoteBranches, links: deps.Git.IssueLinks,
 		project: cfg.Jira.Project,
@@ -58,7 +89,7 @@ func listIssueBranches(ctx context.Context, cfg config.Config, deps Deps) tea.Cm
 	return func() tea.Msg {
 		listed := lister.list(ctx)
 		if listed.err != nil {
-			return issueBranchesListed{err: listed.err}
+			return issueBranchesListed{err: listed.err, round: round}
 		}
 
 		keys := map[jira.Key]bool{}
@@ -69,7 +100,7 @@ func listIssueBranches(ctx context.Context, cfg config.Config, deps Deps) tea.Cm
 			}
 		}
 
-		return issueBranchesListed{keys: keys}
+		return issueBranchesListed{keys: keys, round: round}
 	}
 }
 
@@ -101,8 +132,10 @@ func (m Model) withTaskWords() Model {
 // marksOf is the marks an issue is in: in flight when a branch names it, and
 // how its tasks stand when one is linked.
 func (l issueList) marksOf(issueKey jira.Key) []string {
+	keys, _ := l.branchKeys()
+
 	return places.Standing{
-		InFlight: l.branchesKnown && l.branchKeys[issueKey], Task: l.taskWords[issueKey], Forge: isForgeKey(issueKey),
+		InFlight: keys[issueKey], Task: l.taskWords[issueKey], Forge: isForgeKey(issueKey),
 	}.Marks()
 }
 
@@ -181,19 +214,22 @@ func (l issueList) narrowingLine(marks glyphs) string {
 // of "no branch" would claim what is not known, nor while no listed issue has a
 // branch, when it would say nothing.
 func (l issueList) inFlightColumn(kit renderKit, issueKey jira.Key) string {
+	keys, known := l.branchKeys()
+
 	switch {
-	case !l.branchesKnown || !l.anyInFlight():
+	case !known || !l.anyInFlight(keys):
 		return ""
-	case l.branchKeys[issueKey]:
+	case keys[issueKey]:
 		return kit.styles.git.Render(kit.marks.inFlight)
 	default:
 		return kit.marks.unknown
 	}
 }
 
-// anyInFlight reports that a branch names at least one listed issue.
-func (l issueList) anyInFlight() bool {
-	return slices.ContainsFunc(l.found().Issues, func(issue jira.Issue) bool { return l.branchKeys[issue.Key] })
+// anyInFlight reports that a branch, among keys, names at least one listed
+// issue.
+func (l issueList) anyInFlight(keys map[jira.Key]bool) bool {
+	return slices.ContainsFunc(l.found().Issues, func(issue jira.Issue) bool { return keys[issue.Key] })
 }
 
 // nothingAdmitted says what emptied the list — the filter, the places, or both —
