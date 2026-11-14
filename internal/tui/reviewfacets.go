@@ -57,9 +57,10 @@ var (
 // those already picked checked. Applying it keeps the selection on the request
 // it was on while that is still listed.
 func (m Model) openFacetPicker() (Model, tea.Cmd) {
+	held := m.reviewQueue.queue().Requests
 	m.overlay = checklist[forge.ReviewFacet]{
 		title: filterTitle, none: "no request to filter",
-		choices: pickList[offered[forge.ReviewFacet]]{items: facetChoices(m.reviewQueue.all, m.reviewQueue.facets)},
+		choices: pickList[offered[forge.ReviewFacet]]{items: facetChoices(held, m.reviewQueue.facets)},
 		chosen:  slices.Clone(m.reviewQueue.facets),
 		label:   forge.ReviewFacet.Label,
 		apply: func(m Model, chosen []forge.ReviewFacet) (Model, tea.Cmd) {

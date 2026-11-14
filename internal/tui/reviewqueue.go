@@ -14,70 +14,83 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
+	"github.com/jacob-delgado/workflow/internal/tui/latest"
 )
 
 // reviewQueueState is the pull requests on the forge that ask for your review —
-// the queue the Reviews pane shows, as far as it has loaded, and how far that
-// pane's detail is scrolled.
+// the queue the Reviews pane shows, as its latest read found it, and how far
+// that pane's detail is scrolled.
 type reviewQueueState struct {
-	// all is the queue as the forge answered it; requests is what the pane
-	// lists of it, narrowed to the picked facets and in order. truncated is
-	// a queue the forge holds more of than it answered.
-	all       []forge.ReviewRequest
-	truncated bool
-	order     reviewOrder
-	facets    []forge.ReviewFacet
-	requests  []forge.ReviewRequest
-	loaded    bool
-	err       error
-	selected  int
-	scroll    int
-	// loading is a refresh begun and not yet answered.
-	loading bool
+	// read is the queue as the forge last answered it; requests is what the
+	// pane lists of it, narrowed to the picked facets and in order.
+	read     latest.Read[forge.ReviewQueue]
+	order    reviewOrder
+	facets   []forge.ReviewFacet
+	requests []forge.ReviewRequest
+	selected int
+	scroll   int
 }
 
 // reviewsLoaded carries the forge's answer about the review queue, as the
-// read counted read found it.
+// read begun in round found it.
 type reviewsLoaded struct {
 	queue forge.ReviewQueue
 	err   error
-	read  int
+	round latest.Round
 }
 
 var _ applier = reviewsLoaded{}
 
 // apply records the queue in the order and under the filter chosen, keeping
-// the selection on the same request across a refresh. A read a later one has
-// superseded says nothing: its answer may land after the later one's, and
-// would list the queue as it stood before.
+// the selection on the same request across a refresh. The answer of a read a
+// later one superseded is dropped: it would list the queue as it stood
+// before. A failed refresh keeps the queue listed, beside its failure.
 func (msg reviewsLoaded) apply(m Model) (Model, tea.Cmd) {
-	if msg.read != m.reviewQueueReads {
+	read, taken := m.reviewQueue.read.Answered(msg.round, msg.queue, msg.err)
+	if !taken {
 		return m, nil
 	}
 
 	previous, _ := m.reviewQueue.current()
-
-	m.reviewQueue = reviewQueueState{
-		all: msg.queue.Requests, truncated: msg.queue.Truncated, order: m.reviewQueue.order,
-		facets: m.reviewQueue.facets, loaded: true, err: msg.err,
-	}
+	m.reviewQueue.read = read
 	m.reviewQueue = m.reviewQueue.listed(previous, m.detailRows())
 
 	return m, nil
 }
 
+// queue is the queue held: the latest read's that succeeded, or none.
+func (s reviewQueueState) queue() forge.ReviewQueue {
+	queue, _ := s.read.Value()
+
+	return queue
+}
+
 // listed is the queue listed again, narrowed and in its order, with the
 // selection held on previous where it is still listed.
 func (s reviewQueueState) listed(previous forge.ReviewRequest, rows int) reviewQueueState {
-	s.requests = s.order.sorted(filteredReviews(s.facets, s.all))
+	s.requests = s.order.sorted(filteredReviews(s.facets, s.queue().Requests))
 	s.selected = s.indexOf(previous)
 
 	return s.following(rows)
 }
 
+// readingReviewQueue begins a read of the review queue, superseding any still
+// out, and is the command that reads it; with no forge to ask, it begins
+// nothing.
+func (m Model) readingReviewQueue() (Model, tea.Cmd) {
+	if m.deps.Forge.ReviewRequests == nil {
+		return m, nil
+	}
+
+	read, round := m.reviewQueue.read.Begin()
+	m.reviewQueue.read = read
+
+	return m, loadReviewQueue(m.session, m.deps, round)
+}
+
 // loadReviewQueue is the command that reads the review queue from the forge,
-// as the read counted read.
-func loadReviewQueue(ctx context.Context, deps Deps, read int) tea.Cmd {
+// in round.
+func loadReviewQueue(ctx context.Context, deps Deps, round latest.Round) tea.Cmd {
 	list := deps.Forge.ReviewRequests
 	if list == nil {
 		return nil
@@ -86,7 +99,7 @@ func loadReviewQueue(ctx context.Context, deps Deps, read int) tea.Cmd {
 	return func() tea.Msg {
 		queue, err := list(ctx)
 
-		return reviewsLoaded{queue: queue, err: err, read: read}
+		return reviewsLoaded{queue: queue, err: err, round: round}
 	}
 }
 
@@ -173,36 +186,57 @@ func (m Model) reviewsView() reviewsView {
 }
 
 // rail summarizes the queue: how many pull requests wait, marked + when the
-// forge holds more than it answered, or why the queue could not be read.
+// forge holds more than it answered; after a failed read, the failure first,
+// so a rail of one row still says it.
 func (s reviewQueueState) rail(view reviewsView) string {
-	switch {
-	case !view.listed:
+	if !view.listed {
 		return "no forge for reviews"
-	case !s.loaded:
-		return view.kit.reading()
-	case s.err != nil:
-		return view.kit.failureSummary(s.err)
-	case len(s.all) == 0:
-		return "none waiting on you"
 	}
 
-	if s.truncated {
-		return strconv.Itoa(len(s.all)) + "+ waiting"
-	}
+	failed := func() string { return view.kit.failureSummary(s.read.Err()) }
 
-	return strconv.Itoa(len(s.all)) + " waiting"
+	return drawRead(view.kit, s.read, drawnRead{
+		shown:      s.waiting,
+		failed:     failed,
+		failedOver: func() string { return failed() + "\n" + s.waiting() },
+	})
 }
 
-// detail lists the queue, oldest-first, one request to a line.
-func (s reviewQueueState) detail(view reviewsView, width int) string {
+// waiting counts the pull requests in the queue held.
+func (s reviewQueueState) waiting() string {
+	queue := s.queue()
+
 	switch {
-	case !view.listed:
+	case len(queue.Requests) == 0:
+		return "none waiting on you"
+	case queue.Truncated:
+		return strconv.Itoa(len(queue.Requests)) + "+ waiting"
+	default:
+		return strconv.Itoa(len(queue.Requests)) + " waiting"
+	}
+}
+
+// detail lists the queue, oldest-first, one request to a line, and beneath
+// it why the latest read failed, if it did: beneath, so a line's request is
+// the one drawn on it.
+func (s reviewQueueState) detail(view reviewsView, width int) string {
+	if !view.listed {
 		return wrap("This forge does not list the "+view.vocab.noun+"s waiting on your review.", width)
-	case !s.loaded:
-		return view.kit.reading()
-	case s.err != nil:
-		return view.kit.failureBlock(s.err, width)
-	case len(s.all) == 0:
+	}
+
+	listing := func() string { return s.listing(view) }
+	failed := func() string { return view.kit.failureBlock(s.read.Err(), width) }
+
+	return drawRead(view.kit, s.read, drawnRead{
+		shown:      listing,
+		failed:     failed,
+		failedOver: func() string { return listing() + "\n" + failed() },
+	})
+}
+
+// listing is the queue held, line by line, or what says none waits.
+func (s reviewQueueState) listing(view reviewsView) string {
+	if len(s.queue().Requests) == 0 {
 		return "No " + view.vocab.noun + "s are waiting on your review."
 	}
 
@@ -304,15 +338,18 @@ func (m Model) reviewQueueKeys() []key.Binding {
 	return append(keys, m.keys.refresh)
 }
 
-// sortable reports a queue read back, which an order chosen now holds for.
+// sortable reports a queue held, which an order chosen now holds for, even
+// when a refresh of it failed since.
 func (s reviewQueueState) sortable() bool {
-	return s.loaded && s.err == nil
+	_, held := s.read.Value()
+
+	return held
 }
 
-// narrowable reports a queue read back holding requests to narrow, even when
-// the facets already picked leave none of them listed.
+// narrowable reports a queue held with requests to narrow, even when the
+// facets already picked leave none of them listed.
 func (s reviewQueueState) narrowable() bool {
-	return s.sortable() && len(s.all) > 0
+	return s.sortable() && len(s.queue().Requests) > 0
 }
 
 // selectedURL is the selected request's URL, or empty when none is.
@@ -424,14 +461,8 @@ func reviewQueueBehavior() behavior {
 			return m, nil
 		},
 		// refresh reads the review queue again.
-		refresh: func(m Model) (Model, tea.Cmd) {
-			m.reviewQueueReads++
-			read := loadReviewQueue(m.session, m.deps, m.reviewQueueReads)
-			m.reviewQueue.loading = read != nil
-
-			return m, read
-		},
-		loading: func(m Model) bool { return m.reviewQueue.loading },
+		refresh: Model.readingReviewQueue,
+		loading: func(m Model) bool { return m.reviewQueue.read.Refreshing() },
 		scroll:  func(m *Model) *int { return &m.reviewQueue.scroll }, listInDetail: true,
 		answers: []string{"sort-reviews", "filter-reviews", actionOpenLink, actionCopyLink, actionRefresh},
 	}

@@ -9,6 +9,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/tui/latest"
 )
 
 // sendState is an outbound request: whether it is in flight, and the error it
@@ -97,6 +98,28 @@ func (kit renderKit) failedGlyph() string {
 // repeats from it: the red mark and the error in brief.
 func (kit renderKit) failureSummary(err error) string {
 	return kit.voicedMark(err) + " " + briefly(err)
+}
+
+// drawnRead is how a pane draws its read once it has answered: as shown, as
+// failed with nothing held, and as failed over a value still held.
+type drawnRead struct {
+	shown, failed, failedOver func() string
+}
+
+// drawRead is read as it stands: reading until a read answers, then as draw
+// draws it.
+func drawRead[T any](kit renderKit, read latest.Read[T], draw drawnRead) string {
+	failed := draw.failed
+	if _, held := read.Value(); held {
+		failed = draw.failedOver
+	}
+
+	return map[latest.Stage]func() string{
+		latest.StageNeverRead: kit.reading,
+		latest.StageReading:   kit.reading,
+		latest.StageShown:     draw.shown,
+		latest.StageFailed:    failed,
+	}[read.Stage()]()
 }
 
 // unreadRow is a rail's row for a load that did not answer, pointing at the
