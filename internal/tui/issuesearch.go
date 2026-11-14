@@ -102,7 +102,7 @@ func (msg issuesLoaded) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	m.issues = m.issues.settle(msg)
-	m, detail := m.resumeIssue().loadDetail()
+	m, detail := m.resumeIssue().followDetail()
 
 	return m, tea.Batch(cache, detail)
 }

@@ -201,7 +201,7 @@ func (msg tasksLoaded) apply(m Model) (Model, tea.Cmd) {
 
 	// Marks that changed can move the selection off an issue the list no longer
 	// admits, onto one whose detail is not read yet.
-	return m.withTaskWords().loadDetail()
+	return m.withTaskWords().followDetail()
 }
 
 // readingTasks begins a read of Taskwarrior, superseding any still out, and
