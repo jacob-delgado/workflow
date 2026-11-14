@@ -48,6 +48,7 @@ internal/activity/    what was done over a period, grouped by year, month, day a
 internal/places/      where an issue can be, for narrowing the Issues list on both surfaces
 internal/tui/         the Bubble Tea interface; every outside call is a Deps seam
 internal/tui/frame/   a titled, bordered box of an exact size
+internal/tui/latest/  a read whose answer is shown only if no later read has begun
 internal/tui/layout/  where each region of the interface goes, per terminal size
 internal/tui/quietinput/ the Huh field typed text goes through, whose cursor never blinks
 internal/webserver/   the --web REST API and event stream, bound to 127.0.0.1
