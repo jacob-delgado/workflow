@@ -15,74 +15,133 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
+	"github.com/jacob-delgado/workflow/internal/tui/latest"
 )
 
-// directory is a read of Slack's directory — a channel's members, or the
-// workspace's user groups — still on its way, or what it found, or why not.
+// directory is what the read of Slack's directory begun last — a channel's
+// members, or the workspace's user groups — found, or why not, and whether
+// a read of it is still on its way.
 type directory struct {
-	entries []loop.SlackTarget
-	err     error
-	reading bool
+	read latest.Read[[]loop.SlackTarget]
+}
+
+// entries is who the directory lists: what its latest read that succeeded
+// found, kept across a failure since, or nobody.
+func (d directory) entries() []loop.SlackTarget {
+	entries, _ := d.read.Value()
+
+	return entries
+}
+
+// err is why the latest read of the directory to answer failed, or nil.
+func (d directory) err() error {
+	return d.read.Err()
+}
+
+// reading reports a read of the directory still on its way.
+func (d directory) reading() bool {
+	return d.read.Out()
 }
 
 // missingScope is the scope the read said the token lacks, or "" when it
 // lacked none.
 func (d directory) missingScope() string {
-	if missing, found := errors.AsType[*messaging.MissingScopeError](d.err); found {
+	return missingScopeOf(d.err())
+}
+
+// missingScopeOf is the scope err says the Slack token lacks, or "" when it
+// says none.
+func missingScopeOf(err error) string {
+	if missing, found := errors.AsType[*messaging.MissingScopeError](err); found {
 		return missing.Needed
 	}
 
 	return ""
 }
 
-// readChannelMembers starts reading a channel's members under ctx, for linking
-// a user owner in the overlay opened as opened.
-func readChannelMembers(ctx context.Context, deps Deps, channel string, opened int) (directory, tea.Cmd) {
+// begun is the directory with a read of it begun, superseding any still on
+// its way, and the round the read answers in.
+func (d directory) begun() (directory, latest.Round) {
+	var round latest.Round
+
+	d.read, round = d.read.Begin()
+
+	return d, round
+}
+
+// cleared is the directory never read, for a channel that changed: a read
+// of the channel before it, still on its way, lands in it no more.
+func (d directory) cleared() directory {
+	d.read = d.read.Cleared()
+
+	return d
+}
+
+// answered is the directory with found, or why it could not be read, as the
+// read begun in round answered; a read a later one superseded leaves it as
+// it was.
+func (d directory) answered(round latest.Round, found []loop.SlackTarget, err error) directory {
+	d.read, _ = d.read.Answered(round, found, err)
+
+	return d
+}
+
+// readingMembers is the directory reading a channel's members under ctx, for
+// linking a user owner in the overlay opened as opened, and the command that
+// reads them. It supersedes any read of the directory still on its way.
+func (d directory) readingMembers(ctx context.Context, deps Deps, channel string, opened int) (directory, tea.Cmd) {
 	read := deps.Messaging.ChannelMembers
 
-	return directory{reading: true}, func() tea.Msg {
+	d, round := d.begun()
+
+	return d, func() tea.Msg {
 		found, err := read(ctx, channel)
 
-		return membersRead{opened: opened, channel: channel, found: directory{entries: found, err: err}}
+		return membersRead{opened: opened, round: round, found: found, err: err}
 	}
 }
 
-// readUserGroups starts reading the workspace's user groups under ctx, for
-// linking a team owner, where Slack can list them.
-func readUserGroups(ctx context.Context, deps Deps, opened int) (directory, tea.Cmd) {
+// readingGroups is the directory reading the workspace's user groups under
+// ctx, for linking a team owner, where Slack can list them, and the command
+// that reads them. It supersedes any read of the directory still on its way.
+func (d directory) readingGroups(ctx context.Context, deps Deps, opened int) (directory, tea.Cmd) {
 	read := deps.Messaging.UserGroups
 	if read == nil {
-		return directory{}, nil
+		return d, nil
 	}
 
-	return directory{reading: true}, func() tea.Msg {
+	d, round := d.begun()
+
+	return d, func() tea.Msg {
 		found, err := read(ctx)
 
-		return userGroupsRead{opened: opened, found: directory{entries: found, err: err}}
+		return userGroupsRead{opened: opened, round: round, found: found, err: err}
 	}
 }
 
-// membersRead is a channel's members, read for linking.
+// membersRead is a channel's members, read for linking, as the read begun in
+// round found them.
 type membersRead struct {
-	opened  int
-	channel string
-	found   directory
+	opened int
+	round  latest.Round
+	found  []loop.SlackTarget
+	err    error
 }
 
 var _ applier = membersRead{}
 
-// apply hands the members to the overlay that asked for them: the preview,
-// unless its channel has changed since, or People and groups, whose channel
-// never does, unless a refresh of its directory has begun since.
+// apply hands the members to the overlay that asked for them, the preview or
+// People and groups, unless a later read of them has begun since: the
+// preview's, of a channel chosen since, or chosen again; People's, a refresh.
 func (msg membersRead) apply(m Model) (Model, tea.Cmd) {
-	if preview, open := beneath[messagingPreview](m, msg.opened); open && preview.channel == msg.channel {
-		preview.tagging.members = msg.found
+	if preview, open := beneath[messagingPreview](m, msg.opened); open {
+		preview.tagging.members = preview.tagging.members.answered(msg.round, msg.found, msg.err)
 
 		return m.withBeneath(preview), nil
 	}
 
-	if people, open := beneath[peopleOverlay](m, msg.opened); open && people.refreshes == 0 {
-		people.members = msg.found
+	if people, open := beneath[peopleOverlay](m, msg.opened); open {
+		people.members = people.members.answered(msg.round, msg.found, msg.err)
 
 		return m.withBeneath(people), nil
 	}
@@ -90,26 +149,29 @@ func (msg membersRead) apply(m Model) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// userGroupsRead is the workspace's user groups, read for linking a team.
+// userGroupsRead is the workspace's user groups, read for linking a team, as
+// the read begun in round found them.
 type userGroupsRead struct {
 	opened int
-	found  directory
+	round  latest.Round
+	found  []loop.SlackTarget
+	err    error
 }
 
 var _ applier = userGroupsRead{}
 
 // apply hands the groups to the preview, or to People and groups, unless a
-// refresh of its directory has begun since.
+// later read of them, a refresh, has begun since.
 func (msg userGroupsRead) apply(m Model) (Model, tea.Cmd) {
 	if preview, open := beneath[messagingPreview](m, msg.opened); open {
-		preview.tagging.groups = msg.found
+		preview.tagging.groups = preview.tagging.groups.answered(msg.round, msg.found, msg.err)
 		preview.tagging = preview.tagging.withGroupsReadable()
 
 		return m.withBeneath(preview), nil
 	}
 
-	if people, open := beneath[peopleOverlay](m, msg.opened); open && people.refreshes == 0 {
-		people.groups = msg.found
+	if people, open := beneath[peopleOverlay](m, msg.opened); open {
+		people.groups = people.groups.answered(msg.round, msg.found, msg.err)
 
 		return m.withBeneath(people.withChoices()), nil
 	}
@@ -295,9 +357,9 @@ func (p ownerPicker) over(back linksOwners) ownerPicker {
 // with "not on Slack" always last.
 func (p ownerPicker) filtered(filter string) ownerPicker {
 	needle := strings.ToLower(filter)
-	choices := make([]linkChoice, 0, len(p.from.entries)+1)
+	choices := make([]linkChoice, 0, len(p.from.entries())+1)
 
-	for _, target := range p.from.entries {
+	for _, target := range p.from.entries() {
 		if strings.Contains(strings.ToLower(target.Label), needle) {
 			choices = append(choices, linkChoice{target: target, notOnSlack: false})
 		}
@@ -316,10 +378,10 @@ func (p ownerPicker) view(kit renderKit, width, rows int) (string, string) {
 	lines = append(lines, p.list.rows(kit.marks, rows-len(lines)-outcomeRows, p.choiceRow)...)
 
 	switch {
-	case p.from.reading:
+	case p.from.reading():
 		lines = append(lines, "", kit.marks.inFlight+" still reading Slack's directory"+kit.marks.ellipsis)
-	case p.from.err != nil:
-		lines = append(lines, "", kit.failureBlock(p.from.err, width))
+	case p.from.err() != nil:
+		lines = append(lines, "", kit.failureBlock(p.from.err(), width))
 	}
 
 	return "Link " + p.owner + " to Slack", strings.Join(lines, "\n")

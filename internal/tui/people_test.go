@@ -228,6 +228,21 @@ func TestGroupsRefreshesTheDirectory(t *testing.T) {
 	}
 }
 
+func TestAFailedRefreshOfTheDirectoryKeepsItsGroupsListed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	tagging := taggingWorld()
+	groups := typing(t, openPeople(t, tagging), keyTab)
+	tagging.slack.groupsErr = errDirectoryDown
+
+	// Act
+	view := typing(t, groups, "r").View().Content
+
+	// Assert
+	requireScreen(t, view, "slack is down", "[ ] @control-plane-pod", "[x] @api-reviewers")
+}
+
 func TestGroupsSaysWhatTheTokenLacks(t *testing.T) {
 	t.Parallel()
 

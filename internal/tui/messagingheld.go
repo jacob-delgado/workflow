@@ -384,7 +384,7 @@ func (m Model) unaskedTags() func(ctx context.Context, delivery loop.Delivery) m
 // user groups need. It reports false when it tags no one.
 func scopedTags(ctx context.Context, deps Deps, channel string, tags loop.Tags) (loop.Tags, bool) {
 	_, err := deps.Messaging.ChannelMembers(ctx, channel)
-	if (directory{err: err}).missingScope() != "" {
+	if missingScopeOf(err) != "" {
 		return loop.Tags{}, false
 	}
 
@@ -393,7 +393,7 @@ func scopedTags(ctx context.Context, deps Deps, channel string, tags loop.Tags) 
 		_, groupsErr = read(ctx)
 	}
 
-	if (directory{err: groupsErr}).missingScope() != "" {
+	if missingScopeOf(groupsErr) != "" {
 		tags.Groups = nil
 	}
 
