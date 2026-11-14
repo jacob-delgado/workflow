@@ -173,8 +173,15 @@ type holdRead struct {
 
 var _ applier = holdRead{}
 
-// apply steps the hold on the read.
+// apply steps the hold on the read, unless a post made now is out: that post
+// goes in the waiting one's place, so the read is not heard, lest the hold
+// post too, and the hold reads again on its beat, waiting still should that
+// post fail.
 func (msg holdRead) apply(m Model) (Model, tea.Cmd) {
+	if m.messaging.send.sending {
+		return m.readHoldLater()
+	}
+
 	return m.steppedTo(m.messaging.hold.Hear(msg.reading, msg.failure))
 }
 
