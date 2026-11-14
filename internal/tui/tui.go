@@ -78,10 +78,6 @@ type Model struct {
 	// begun, so a further page of the list as it stood before one reaches
 	// nothing.
 	issueSearches int
-	// changesReads counts the reads of the work tree's status begun, so the
-	// answer to one a later read superseded is dropped rather than shown over
-	// the later one's.
-	changesReads int
 	// diffReads counts the reads of the selected file's diff begun, so the
 	// answer to one a later read superseded is dropped rather than shown over
 	// the later one's.
@@ -238,7 +234,7 @@ func keysFrom(input io.Reader) []tea.ProgramOption {
 func (m Model) Init() tea.Cmd {
 	loads := []tea.Cmd{
 		m.searchIssues(), listIssueBranches(m.session, m.cfg, m.deps), loadBranch(m.session, m.deps),
-		loadChanges(m.session, m.deps, m.changesReads), m.hookgen.find(m.session, m.deps),
+		loadChanges(m.session, m.deps, 0), m.hookgen.find(m.session, m.deps),
 		loadReviewQueue(m.session, m.deps, 0), loadAnnounces(m.session, m.deps),
 		m.tasks.load(m.session, m.deps),
 	}

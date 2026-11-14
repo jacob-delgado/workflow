@@ -19,7 +19,7 @@ import (
 // commit — amended into the last, or fixed up into a chosen one — which is safe
 // only while those commits are local.
 func (l changeList) canFold(branch gitrepo.Branch) bool {
-	return len(loop.Foldable(l.changes, branch)) > 0
+	return len(loop.Foldable(l.files(), branch)) > 0
 }
 
 // startAmend previews folding the staged changes into the last commit.
