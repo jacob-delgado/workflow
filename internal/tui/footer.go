@@ -10,6 +10,8 @@ import (
 	"charm.land/bubbles/v2/key"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/jacob-delgado/workflow/internal/tui/notice"
 )
 
 // footer draws the keys that matter right now. A notice normally has its own
@@ -19,8 +21,8 @@ func (m Model) footer(width int) string {
 	switch {
 	case m.showsNotice() || !m.hasNotice():
 		return ansi.Truncate(" "+m.footerRow(width-1), width, "")
-	case m.notice.text != "":
-		return m.notice.row(m.kit(), width)
+	case m.notice.Stage() != notice.StageNone:
+		return m.noticeRow(width)
 	}
 
 	return m.narrowingFooter(width)

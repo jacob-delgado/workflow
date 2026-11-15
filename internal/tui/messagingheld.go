@@ -79,14 +79,14 @@ func (m Model) armAsked(out outgoingAnnouncement) (Model, tea.Cmd) {
 		return m.noticedGuidance(err), nil
 	}
 
-	notice := m.marks.inFlight + " will announce to " + out.to + " once CI passes"
+	armedFor := m.marks.inFlight + " will announce to " + out.to + " once CI passes"
 	if replaced := started.Replaced; replaced != nil {
-		notice += m.marks.separator + "replaced the announcement waiting for " + m.pullName(replaced.Pull())
+		armedFor += m.marks.separator + "replaced the announcement waiting for " + m.pullName(replaced.Pull())
 	}
 
 	m.messaging.send.err = nil
 
-	return m.closeOverlay().noticed(notice).held(started, out.tags)
+	return m.closeOverlay().noticed(armedFor).held(started, out.tags)
 }
 
 // deliveryOf is out, the announcement of the pull request on screen, as it is

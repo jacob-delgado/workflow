@@ -22,6 +22,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/lifetime"
 	"github.com/jacob-delgado/workflow/internal/tui/latest"
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
+	"github.com/jacob-delgado/workflow/internal/tui/notice"
 )
 
 // defaultWidth and defaultHeight stand in until the terminal reports its real
@@ -88,13 +89,10 @@ type Model struct {
 	overlay overlay
 	// followUp is the offer waiting for the overlay open to close.
 	followUp waitingOffer
-	// notice is the footer's one-line report of something that just happened.
-	// The next key press clears it.
-	notice notice
-	// noticesWaiting are the notices no pane repeats that could not be read
-	// when they came, oldest first: each takes the notice in turn as keys
-	// clear it.
-	noticesWaiting []notice
+	// notice is the footer's one-line report of something that just happened,
+	// which the next key press clears, and the notices no pane repeats that
+	// wait for it, each taking it in turn as keys clear it.
+	notice notice.Footer
 
 	// views are the Issues pane's lists, and viewIndex the one it shows now.
 	views     []jira.View
@@ -314,7 +312,7 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	// A notice is cleared when the next action starts, not by moving around, so
 	// looking about after a result does not erase the record of it.
 	if !m.navigates(msg) {
-		m.notice = notice{}
+		m.notice = m.notice.Cleared()
 	}
 
 	answered, cmd := m.answerKey(msg)
@@ -485,7 +483,7 @@ func (m Model) showsNotice() bool {
 // hasNotice reports something for the notice row to say: a notice, or a search
 // or filter narrowing the list.
 func (m Model) hasNotice() bool {
-	return m.notice.text != "" || m.noticeCovered()
+	return m.notice.Stage() != notice.StageNone || m.noticeCovered()
 }
 
 // noticeCovered reports the notice row given over to a search or filter

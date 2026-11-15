@@ -68,6 +68,11 @@ internal/tui/latest 98
 # taking every key.
 internal/tui/send 98
 
+# internal/tui/notice decides what the terminal's notice row reports: an arm
+# it misses drops a failure under a plain report, loses what no pane repeats
+# unread, or shows it under a search that clears it unseen.
+internal/tui/notice 98
+
 # internal/webserver/edge is the request boundary of --web: the loopback and
 # same-origin guards, dry-run's refusal of every write, and the session and
 # contract check that stand between any program on this machine and the

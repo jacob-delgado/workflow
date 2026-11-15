@@ -161,16 +161,6 @@ type applier interface {
 	apply(m Model) (Model, tea.Cmd)
 }
 
-// notice is the footer's one-line report of something that just happened, and
-// whether what happened is a failure, which it then draws in the failure style,
-// or a plain report no pane repeats, which is never lost unread. It is never
-// both.
-type notice struct {
-	text       string
-	failed     bool
-	unrepeated bool
-}
-
 // storeNotKept reports a write the store could not keep, made off the update
 // loop once what it records was done: words are what the footer says then, the
 // deed and why the next session will not remember it.
@@ -188,35 +178,22 @@ func (m Model) noticedDraftKept(reopen key.Binding) Model {
 }
 
 // noticed sets the footer's report of what just happened, plainly: a result,
-// or guidance on what a key needs.
+// or guidance on what a key needs. A failure no key has cleared yet keeps the
+// row, and the report is dropped (notice.Footer's Reported).
 func (m Model) noticed(text string) Model {
-	return m.reported(notice{text: m.oneRow(text), failed: false})
-}
-
-// noticedUnrepeated sets a plain notice no pane repeats, such as what the store
-// lost. Unlike noticed, it is never dropped, since its words would then be
-// shown nowhere: when it cannot be read now, it waits its turn.
-func (m Model) noticedUnrepeated(text string) Model {
-	report := notice{text: m.oneRow(text), failed: false, unrepeated: true}
-	if m.unrepeatedWaits() {
-		// Clipped, so the append never writes into an array another copy of the
-		// model still holds.
-		m.noticesWaiting = append(slices.Clip(m.noticesWaiting), report)
-
-		return m
-	}
-
-	m.notice = report
+	m.notice = m.notice.Reported(m.oneRow(text))
 
 	return m
 }
 
-// unrepeatedWaits reports that a notice no pane repeats cannot take the notice
-// now: a failure or another such notice holds it unread, others wait before
-// it, or a search covers the row and the keys typed into it would clear the
-// notice unseen.
-func (m Model) unrepeatedWaits() bool {
-	return m.notice.failed || m.notice.unrepeated || len(m.noticesWaiting) > 0 || m.noticeCovered()
+// noticedUnrepeated sets a plain notice no pane repeats, such as what the store
+// lost. Unlike noticed, it is never dropped, since its words would then be
+// shown nowhere: when it cannot be read now, a search over its row among the
+// reasons, it waits its turn.
+func (m Model) noticedUnrepeated(text string) Model {
+	m.notice = m.notice.Unrepeated(m.oneRow(text), m.noticeCovered())
+
+	return m
 }
 
 // nextNoticeWaiting gives the notice, once nothing holds it and nothing covers
@@ -224,31 +201,7 @@ func (m Model) unrepeatedWaits() bool {
 // answer, so a notice that answer gives keeps the slot and the waiting one is
 // not lost under it.
 func (m Model) nextNoticeWaiting() Model {
-	if m.notice.text != "" || len(m.noticesWaiting) == 0 || m.noticeCovered() {
-		return m
-	}
-
-	m.notice, m.noticesWaiting = m.noticesWaiting[0], m.noticesWaiting[1:]
-
-	return m
-}
-
-// reported puts report in the footer's one notice slot. A failure no key has
-// cleared yet keeps the slot from a plain report, which is dropped: the
-// failure is the one notice that asks the user to act, and what a plain
-// report says can be seen again in its pane. A later failure replaces it. A
-// notice no pane repeats gives the slot up to any report, a later answer to
-// the key that showed it among them, and waits first in line to show again.
-func (m Model) reported(report notice) Model {
-	if m.notice.failed && !report.failed {
-		return m
-	}
-
-	if m.notice.unrepeated {
-		m.noticesWaiting = append([]notice{m.notice}, m.noticesWaiting...)
-	}
-
-	m.notice = report
+	m.notice = m.notice.Next(m.noticeCovered())
 
 	return m
 }
