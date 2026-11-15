@@ -134,16 +134,16 @@ var _ applier = membersRead{}
 // People and groups, unless a later read of them has begun since: the
 // preview's, of a channel chosen since, or chosen again; People's, a refresh.
 func (msg membersRead) apply(m Model) (Model, tea.Cmd) {
-	if preview, open := beneath[messagingPreview](m, msg.opened); open {
+	if preview, open := answerFor[messagingPreview](m, msg.opened); open {
 		preview.tagging.members = preview.tagging.members.answered(msg.round, msg.found, msg.err)
 
-		return m.withBeneath(preview), nil
+		return m.withAnswered(preview), nil
 	}
 
-	if people, open := beneath[peopleOverlay](m, msg.opened); open {
+	if people, open := answerFor[peopleOverlay](m, msg.opened); open {
 		people.members = people.members.answered(msg.round, msg.found, msg.err)
 
-		return m.withBeneath(people), nil
+		return m.withAnswered(people), nil
 	}
 
 	return m, nil
@@ -163,17 +163,17 @@ var _ applier = userGroupsRead{}
 // apply hands the groups to the preview, or to People and groups, unless a
 // later read of them, a refresh, has begun since.
 func (msg userGroupsRead) apply(m Model) (Model, tea.Cmd) {
-	if preview, open := beneath[messagingPreview](m, msg.opened); open {
+	if preview, open := answerFor[messagingPreview](m, msg.opened); open {
 		preview.tagging.groups = preview.tagging.groups.answered(msg.round, msg.found, msg.err)
 		preview.tagging = preview.tagging.withGroupsReadable()
 
-		return m.withBeneath(preview), nil
+		return m.withAnswered(preview), nil
 	}
 
-	if people, open := beneath[peopleOverlay](m, msg.opened); open {
+	if people, open := answerFor[peopleOverlay](m, msg.opened); open {
 		people.groups = people.groups.answered(msg.round, msg.found, msg.err)
 
-		return m.withBeneath(people.withChoices()), nil
+		return m.withAnswered(people.withChoices()), nil
 	}
 
 	return m, nil
@@ -182,53 +182,8 @@ func (msg userGroupsRead) apply(m Model) (Model, tea.Cmd) {
 // linksOwners is an overlay the owner picker opens over, holding the
 // directory the picker chooses from.
 type linksOwners interface {
-	overlay
-	// openedAs is the round it opened in, which every read and save it
-	// starts carries back.
-	openedAs() int
+	opened
 	directoryFor(team bool) directory
-}
-
-// beneath is the open overlay a read or a save is for, when it is the T
-// opened as opened: the one on top, or the one the owner picker or a last
-// look was opened over, which a read must still reach, or esc would return
-// to it as it was before the read. An answer meant for an overlay since
-// closed finds none, even when another of its kind has opened since.
-func beneath[T linksOwners](m Model, opened int) (T, bool) {
-	target := m.overlay
-
-	switch over := m.overlay.(type) {
-	case ownerPicker:
-		target = over.back
-	case lastLook:
-		target = over.back
-	}
-
-	open, isOpen := target.(T)
-	if !isOpen || open.openedAs() != opened {
-		var none T
-
-		return none, false
-	}
-
-	return open, true
-}
-
-// withBeneath puts back the overlay beneath found, changed: under the owner
-// picker when it is open, whose choices it brings up to date, or under the
-// last look that goes back to it.
-func (m Model) withBeneath(changed linksOwners) Model {
-	switch over := m.overlay.(type) {
-	case ownerPicker:
-		m.overlay = over.over(changed)
-	case lastLook:
-		over.back = changed
-		m.overlay = over
-	default:
-		m.overlay = changed
-	}
-
-	return m
 }
 
 // savingLink saves link, counted on its way until it answers, for the
@@ -289,10 +244,10 @@ var _ applier = ownerLinked{}
 func (msg ownerLinked) apply(m Model) (Model, tea.Cmd) {
 	m.paneWrites.links--
 
-	if preview, open := beneath[messagingPreview](m, msg.opened); open {
+	if preview, open := answerFor[messagingPreview](m, msg.opened); open {
 		preview.tagging = preview.tagging.relinked(msg.link, msg.err)
 
-		return m.withBeneath(preview), nil
+		return m.withAnswered(preview), nil
 	}
 
 	return peopleSaved{opened: msg.opened, err: msg.err}.apply(m)

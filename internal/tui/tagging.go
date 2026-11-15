@@ -175,7 +175,7 @@ var _ applier = tagsRead{}
 
 // apply fills the preview's tag section, when the preview is still open.
 func (msg tagsRead) apply(m Model) (Model, tea.Cmd) {
-	preview, open := beneath[messagingPreview](m, msg.opened)
+	preview, open := answerFor[messagingPreview](m, msg.opened)
 	if !open {
 		return m, nil
 	}
@@ -183,7 +183,7 @@ func (msg tagsRead) apply(m Model) (Model, tea.Cmd) {
 	preview.tagging = preview.tagging.proposed(msg.proposal, msg.err)
 	preview.tagging.workspace, preview.tagging.workspaceErr = msg.workspace, msg.workspaceErr
 
-	return m.withBeneath(preview), nil
+	return m.withAnswered(preview), nil
 }
 
 // proposed is the section once its proposal is read, with the groups the

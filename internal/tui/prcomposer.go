@@ -116,6 +116,7 @@ type prComposer struct {
 
 var (
 	_ editable             = prComposer{}
+	_ opened               = prComposer{}
 	_ failable[prComposer] = prComposer{}
 	_ pasteable            = prComposer{}
 	_ relaying             = prComposer{}
@@ -385,6 +386,9 @@ func (c prComposer) relay(m Model, msg tea.Msg) (Model, tea.Cmd) {
 
 // which names the pull request composer.
 func (prComposer) which() overlayKind { return overlayPRComposer }
+
+// openedAs is the round the composer opened in.
+func (c prComposer) openedAs() int { return c.opened }
 
 // pasted types a paste into the field with focus, as typing it would.
 func (c prComposer) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {

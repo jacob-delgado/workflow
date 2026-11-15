@@ -107,6 +107,7 @@ type commitComposer struct {
 
 var (
 	_ editable  = commitComposer{}
+	_ opened    = commitComposer{}
 	_ pasteable = commitComposer{}
 )
 
@@ -300,6 +301,9 @@ func (c commitComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd)
 
 // which names the commit composer.
 func (commitComposer) which() overlayKind { return overlayCommitComposer }
+
+// openedAs is the round the composer opened in.
+func (c commitComposer) openedAs() int { return c.opened }
 
 // cycledType is the composer with its commit type moved one along, the way
 // the cycle key pressed goes.

@@ -265,6 +265,70 @@ func (m Model) nextRound() (Model, int) {
 	return m, m.rounds
 }
 
+// opened is an overlay an answer finds by the round it opened in.
+type opened interface {
+	overlay
+	// openedAs is the round it opened in, which every read and write it
+	// starts carries back.
+	openedAs() int
+}
+
+// answerFor is the open overlay an answer for round is for, when it is the T
+// opened in that round: the one on top, or the one the owner picker or a
+// last look floats over, which an answer must still reach, or esc would
+// return to it as it was before the answer. An answer for an overlay since
+// closed finds none, even when another of its kind has opened since.
+//
+// Not every success goes back through withAnswered: the directory look
+// closes its picker, opens over it or puts it back on top, the check log
+// opens in place of the checks, and the pull request composer's reads put
+// it back through settled. Each holds only while nothing floats over that
+// overlay; a float added over one of them sends these through withAnswered
+// too.
+func answerFor[T opened](m Model, round int) (T, bool) {
+	target := m.overlay
+
+	switch over := m.overlay.(type) {
+	case ownerPicker:
+		target = over.back
+	case lastLook:
+		target = over.back
+	}
+
+	open, isOpen := target.(T)
+	if !isOpen || open.openedAs() != round {
+		var none T
+
+		return none, false
+	}
+
+	return open, true
+}
+
+// withAnswered puts back the overlay answerFor found, changed: under the
+// owner picker floating over it, whose choices it brings up to date, under
+// the last look that goes back to it, or on top.
+func (m Model) withAnswered(changed opened) Model {
+	if links, linking := changed.(linksOwners); linking {
+		if picker, picking := m.overlay.(ownerPicker); picking {
+			m.overlay = picker.over(links)
+
+			return m
+		}
+	}
+
+	if look, looking := m.overlay.(lastLook); looking {
+		look.back = changed
+		m.overlay = look
+
+		return m
+	}
+
+	m.overlay = changed
+
+	return m
+}
+
 // failable is an overlay that stays open when the request it sent fails, and
 // says why. T is the overlay's own type, so a failure lands only in the kind of
 // overlay that sent the request.

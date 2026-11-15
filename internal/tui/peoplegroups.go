@@ -45,14 +45,14 @@ var _ applier = repoGroupsListed{}
 
 // apply checks them in the groups checklist.
 func (msg repoGroupsListed) apply(m Model) (Model, tea.Cmd) {
-	open, isOpen := beneath[peopleOverlay](m, msg.opened)
+	open, isOpen := answerFor[peopleOverlay](m, msg.opened)
 	if !isOpen {
 		return m, nil
 	}
 
 	open.chosen, open.repoErr, open.repoReading = msg.groups, msg.err, false
 
-	return m.withBeneath(open.withChoices()), nil
+	return m.withAnswered(open.withChoices()), nil
 }
 
 // withChoices is the checklist rebuilt from Slack's groups and the
@@ -157,7 +157,7 @@ var _ applier = repoGroupsSaved{}
 // apply says the groups were saved, or pins the refusal and reads them
 // again, so the checklist shows what is kept rather than the change refused.
 func (msg repoGroupsSaved) apply(m Model) (Model, tea.Cmd) {
-	open, isOpen := beneath[peopleOverlay](m, msg.opened)
+	open, isOpen := answerFor[peopleOverlay](m, msg.opened)
 	if !isOpen {
 		return m, nil
 	}
@@ -166,12 +166,12 @@ func (msg repoGroupsSaved) apply(m Model) (Model, tea.Cmd) {
 		open = open.failed(msg.err)
 		open.repoReading = true
 
-		return m.withBeneath(open), readRepoGroups(m.session, m.deps, open.opened)
+		return m.withAnswered(open), readRepoGroups(m.session, m.deps, open.opened)
 	}
 
 	open.send = sendState{}
 
-	return m.withBeneath(open).noticed(m.marks.done + " saved the groups this repository tags"), nil
+	return m.withAnswered(open).noticed(m.marks.done + " saved the groups this repository tags"), nil
 }
 
 // refreshed reads the directory again, superseding every read of it still on

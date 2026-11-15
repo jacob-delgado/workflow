@@ -49,8 +49,8 @@ var _ applier = branchOntoRead{}
 // forge says what is wrong with it on open. Nothing changes once the composer
 // has closed.
 func (read branchOntoRead) apply(m Model) (Model, tea.Cmd) {
-	composer, open := m.overlay.(prComposer)
-	if !open || composer.opened != read.opened {
+	composer, open := answerFor[prComposer](m, read.opened)
+	if !open {
 		return m, nil
 	}
 

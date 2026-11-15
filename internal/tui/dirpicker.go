@@ -63,7 +63,7 @@ const (
 )
 
 var (
-	_ overlay   = dirPicker{}
+	_ opened    = dirPicker{}
 	_ floating  = dirPicker{}
 	_ pasteable = dirPicker{}
 )
@@ -91,6 +91,9 @@ func (dirPicker) wants(renderKit, layout.Size) layout.Size {
 
 // which names the directory picker.
 func (dirPicker) which() overlayKind { return overlayDirPicker }
+
+// openedAs is the round the picker opened in.
+func (p dirPicker) openedAs() int { return p.opened }
 
 // footer offers what the field or the list answers now.
 func (p dirPicker) footer(keys keyMap) []key.Binding {
@@ -320,29 +323,14 @@ var _ applier = dirListed{}
 // directory narrowed by what was typed, when the listing stopped short of
 // everything in it or the name typed starts with a dot.
 func (msg dirListed) apply(m Model) (Model, tea.Cmd) {
-	list := m.deps.Repositories.Subdirectories
-
-	switch open := m.overlay.(type) {
-	case dirPicker:
-		if open.opened == msg.opened {
-			var next tea.Cmd
-
-			m.overlay, next = open.kept(msg).asking(list)
-
-			return m, next
-		}
-	case lastLook:
-		if picker, under := open.back.(dirPicker); under && picker.opened == msg.opened {
-			var next tea.Cmd
-
-			open.back, next = picker.kept(msg).asking(list)
-			m.overlay = open
-
-			return m, next
-		}
+	picker, open := answerFor[dirPicker](m, msg.opened)
+	if !open {
+		return m, nil
 	}
 
-	return m, nil
+	picker, next := picker.kept(msg).asking(m.deps.Repositories.Subdirectories)
+
+	return m.withAnswered(picker), next
 }
 
 // kept is the picker with a listing it asked for kept, and one narrowed by

@@ -68,8 +68,8 @@ var _ applier = scopesRead{}
 // it still holds the configured default it opened on, unless the composer they
 // were read for has closed — even if another has opened since.
 func (read scopesRead) apply(m Model) (Model, tea.Cmd) {
-	composer, open := m.overlay.(commitComposer)
-	if !open || composer.opened != read.opened {
+	composer, open := answerFor[commitComposer](m, read.opened)
+	if !open {
 		return m, nil
 	}
 
@@ -77,9 +77,7 @@ func (read scopesRead) apply(m Model) (Model, tea.Cmd) {
 		composer.scope.SetValue(read.learned)
 	}
 
-	m.overlay = composer.withScopeSuggestions(read.suggestions)
-
-	return m, nil
+	return m.withAnswered(composer.withScopeSuggestions(read.suggestions)), nil
 }
 
 // stagedPaths are the paths of the files staged for the next commit.

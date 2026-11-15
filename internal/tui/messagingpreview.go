@@ -122,6 +122,7 @@ func (p messagingPreview) changedRefusal(m Model) error {
 var (
 	_ editable                   = messagingPreview{}
 	_ failable[messagingPreview] = messagingPreview{}
+	_ linksOwners                = messagingPreview{}
 )
 
 // view shows the message as it will be posted, and where, its outcome pinned
@@ -388,7 +389,7 @@ var _ applier = messagingPosted{}
 // one that failed leaves that one waiting. One another session announced
 // first closes the preview as one that went out does, saying so.
 func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
-	preview, open := beneath[messagingPreview](m, msg.opened)
+	preview, open := answerFor[messagingPreview](m, msg.opened)
 	m.messaging.send = sendState{}
 	m, reread := m.readingAnnounces()
 
@@ -396,7 +397,7 @@ func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
 	if _, unconfirmed := loop.UnconfirmedReason(msg.err); msg.err != nil && !unconfirmed && !elsewhere {
 		m.messaging.send = m.messaging.send.failed(msg.err)
 		if open {
-			m = m.withBeneath(preview.failed(msg.err))
+			m = m.withAnswered(preview.failed(msg.err))
 		}
 
 		return m.noticedFailure(msg.err), reread
