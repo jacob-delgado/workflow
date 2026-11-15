@@ -73,6 +73,11 @@ internal/tui/send 98
 # unread, or shows it under a search that clears it unseen.
 internal/tui/notice 98
 
+# internal/tui/listsearch decides what a list's search narrows it by and
+# whether keys type into it: an arm it misses takes keys into a search no
+# longer typed, keeps a search no one sees, or cuts a character in half.
+internal/tui/listsearch 98
+
 # internal/webserver/edge is the request boundary of --web: the loopback and
 # same-origin guards, dry-run's refusal of every write, and the session and
 # contract check that stand between any program on this machine and the

@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/jacob-delgado/workflow/internal/convention"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/places"
 	"github.com/jacob-delgado/workflow/internal/tui/latest"
+	"github.com/jacob-delgado/workflow/internal/tui/listsearch"
 )
 
 // issueList is the Issues pane's state: the list as its latest search found
@@ -35,10 +35,9 @@ type issueList struct {
 	// viewing records that, in the collapsed layout, the selected issue is being
 	// read in full rather than the list being scanned.
 	viewing bool
-	// filter narrows the list to issues whose key or summary contains it, over
-	// what is already loaded; filtering records that keystrokes are building it.
-	filter    string
-	filtering bool
+	// search narrows the list to issues whose key or summary contains its
+	// text, over what is already loaded, as it is typed and once it is kept.
+	search listsearch.Typed
 	// places narrows the list to the issues in them; branches, which issues
 	// a branch names as the latest listing found them, and taskWords are what
 	// an issue's marks are read from.
@@ -60,11 +59,11 @@ func (l issueList) found() jira.SearchResult {
 // selection and every row operation work over this, so filtering narrows what
 // can be scanned without touching what was loaded.
 func (l issueList) visible() []jira.Issue {
-	if l.filter == "" && len(l.places) == 0 {
+	if l.search.Text() == "" && len(l.places) == 0 {
 		return l.found().Issues
 	}
 
-	needle := strings.ToLower(l.filter)
+	needle := strings.ToLower(l.search.Text())
 
 	var matching []jira.Issue
 
@@ -139,44 +138,41 @@ func (l issueList) selectKey(issueKey jira.Key) issueList {
 	return l
 }
 
-// beginFilter starts a fresh filter, capturing keystrokes until it is confirmed
-// or canceled.
+// beginFilter starts a fresh search, capturing keystrokes until it is kept
+// or cleared.
 func (l issueList) beginFilter() issueList {
-	l.filter, l.filtering = "", true
+	l.search = l.search.Begun()
 
 	return l
 }
 
-// extendFilter adds typed text to the filter and keeps the selection in range.
+// extendFilter adds typed text to the search and keeps the selection in range.
 func (l issueList) extendFilter(text string) issueList {
-	l.filter += text
+	l.search = l.search.Typed(text)
 
 	return l.clampSelection()
 }
 
-// trimFilter removes the last character of the filter.
+// trimFilter removes the last character of the search.
 func (l issueList) trimFilter() issueList {
-	if l.filter != "" {
-		_, size := utf8.DecodeLastRuneInString(l.filter)
-		l.filter = l.filter[:len(l.filter)-size]
-	}
+	l.search = l.search.Trimmed()
 
 	return l.clampSelection()
 }
 
-// confirmFilter stops capturing keystrokes but keeps the filter applied, so the
+// confirmFilter stops capturing keystrokes but keeps the search applied, so the
 // narrowed list can be navigated.
 func (l issueList) confirmFilter() issueList {
-	l.filtering = false
+	l.search = l.search.Kept()
 
 	return l
 }
 
-// clearFilter cancels the filter and restores the whole list, keeping the
+// clearFilter cancels the search and restores the whole list, keeping the
 // selection on the issue that was selected.
 func (l issueList) clearFilter() issueList {
 	selected, ok := l.current()
-	l.filter, l.filtering = "", false
+	l.search = l.search.Cleared()
 
 	if ok {
 		return l.selectKey(selected.Key)

@@ -22,6 +22,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/lifetime"
 	"github.com/jacob-delgado/workflow/internal/tui/latest"
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
+	"github.com/jacob-delgado/workflow/internal/tui/listsearch"
 	"github.com/jacob-delgado/workflow/internal/tui/notice"
 )
 
@@ -367,7 +368,7 @@ func (m Model) inputRoute() inputRoute {
 // keys every pane takes.
 func (m Model) paneRoute() inputRoute {
 	switch {
-	case m.focus == paneIssues && m.issues.filtering:
+	case m.focus == paneIssues && m.issues.search.Stage() == listsearch.StageTyping:
 		return routeIssueFilter
 	case m.focus == paneTasks && m.tasks.listing.filtering:
 		return routeTaskFilter
@@ -501,7 +502,7 @@ func (m Model) noticeCovered() bool {
 // row, which is whenever it is being typed or it or the places still narrow
 // the list.
 func (m Model) showsFilter() bool {
-	return m.focus == paneIssues && (m.issues.filtering || m.issues.filter != "" || len(m.issues.places) > 0)
+	return m.focus == paneIssues && (m.issues.search.Stage() != listsearch.StageOff || len(m.issues.places) > 0)
 }
 
 // shape is the layout for the terminal as it is now, a row shorter when a notice

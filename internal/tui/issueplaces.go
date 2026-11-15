@@ -15,6 +15,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/places"
 	"github.com/jacob-delgado/workflow/internal/tui/latest"
+	"github.com/jacob-delgado/workflow/internal/tui/listsearch"
 )
 
 // issueBranchesListed carries which issues a local or remote branch names back
@@ -202,8 +203,8 @@ func (l issueList) narrowingLine(marks glyphs) string {
 		parts = append(parts, "places: "+strings.Join(names, ", "))
 	}
 
-	if l.filtering || l.filter != "" {
-		parts = append(parts, "search: "+l.filter)
+	if l.search.Stage() != listsearch.StageOff {
+		parts = append(parts, "search: "+l.search.Text())
 	}
 
 	return strings.Join(parts, marks.separator)
@@ -238,7 +239,7 @@ func (l issueList) nothingAdmitted() string {
 	switch {
 	case len(l.places) == 0:
 		return "no issue matches the filters"
-	case l.filter == "":
+	case l.search.Text() == "":
 		return "no issue in those places"
 	default:
 		return "no match for filter and places"
