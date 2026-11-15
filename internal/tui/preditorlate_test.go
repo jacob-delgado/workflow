@@ -3,7 +3,8 @@
 
 package tui_test
 
-// An edit of a pull request is saved for the pull request it was opened on.
+// An edit of a pull request is saved for the pull request it was opened on,
+// and a body edited for it lands in no editor opened since.
 // The Review pane can move on to another while the save is out.
 
 import (
@@ -59,4 +60,24 @@ func TestAnEditSavedAfterTheReviewFoundNoPullRequestBringsNoneBack(t *testing.T)
 	// Assert
 	requireScreen(t, view, "no pull request yet")
 	refuseScreen(t, view, pullTitle+" refined")
+}
+
+func TestAnEditAnsweringAfterItsPullRequestEditorClosedChangesNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := newWorld()
+	repo.pull.Body, repo.edited = "keep this description", "A body edited too late."
+	// The editor's answer is held back while the pull request editor that
+	// asked closes and another opens.
+	editing, edit := pressed(t, typing(t, repo.live(t, 120, 40), "4", "e"), keyCtrlO)
+	reopened := typing(t, editing, keyEsc, "e")
+
+	// Act
+	answered, _ := finish(t, reopened, edit)
+
+	// Assert
+	view := answered.View().Content
+	requireScreen(t, view, "Edit pull request", "keep this description")
+	refuseScreen(t, view, "A body edited too late.")
 }

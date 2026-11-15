@@ -114,26 +114,37 @@ func (m Model) overlayKeys() []key.Binding {
 }
 
 // editable is an overlay that has handed its body to $EDITOR and takes the
-// result back. One textEdited message serves them all: the open overlay is the
-// one that asked, so it updates whichever overlay is editing rather than each
-// carrying a message type of its own.
+// result back. One textEdited message serves them all, carrying the round the
+// overlay that asked opened in, rather than each carrying a message type of
+// its own.
 type editable interface {
-	overlay
+	opened
 	applyEdit(m Model, text string, err error) (Model, tea.Cmd)
 }
 
-// textEdited is a body back from the editor, for whichever overlay is editing.
+// editedFor is the command an editor's done callback answers with: the text
+// back from the editor, for the overlay opened in round opened.
+func editedFor(opened int) func(text string, err error) tea.Msg {
+	return func(text string, err error) tea.Msg {
+		return textEdited{opened: opened, text: text, err: err}
+	}
+}
+
+// textEdited is a body back from the editor, for the overlay opened in round
+// opened.
 type textEdited struct {
-	text string
-	err  error
+	opened int
+	text   string
+	err    error
 }
 
 var _ applier = textEdited{}
 
-// apply hands the edited text to the open overlay, or drops it if the overlay
-// that asked has since closed.
+// apply hands the edited text to the overlay that asked for it, and nothing
+// once that overlay has closed, even when another that edits has opened
+// since.
 func (msg textEdited) apply(m Model) (Model, tea.Cmd) {
-	editing, open := m.overlay.(editable)
+	editing, open := answerFor[editable](m, msg.opened)
 	if !open {
 		return m, nil
 	}

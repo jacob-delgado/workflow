@@ -33,6 +33,9 @@ type summaryPost struct {
 	// kind is the service's, which the length is measured for.
 	kind config.MessagingKind
 	send sendState
+	// opened is the round the preview opened in, which an edit carries back,
+	// so it lands in no preview opened after.
+	opened int
 }
 
 var (
@@ -51,7 +54,9 @@ func (m Model) canPostSummary() bool {
 // the first channel there is a choice of. Every value in it is a source's to
 // write, so it is neutralized before the terminal or the editor sees it.
 func (m Model) previewSummaryPost() (Model, tea.Cmd) {
+	m, opened := m.nextRound()
 	m.overlay = summaryPost{
+		opened:   opened,
 		text:     sanitize.Text(m.summary.shown(m.deps.now()).Text(m.deps.now().Location())),
 		fallback: m.cfg.Messaging.Target(), channel: defaultChannel(m.cfg), channels: m.cfg.Messaging.ChannelChoices(),
 		service: m.cfg.Messaging.Service(), kind: m.cfg.Messaging.Kind,
@@ -108,9 +113,7 @@ func (p summaryPost) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.cycleLeft):
 		return p.cycleChannel(m, -1), nil
 	case key.Matches(msg, m.keys.edit) && m.deps.Editor.Edit != nil:
-		return m, m.deps.Editor.Edit(p.text, summaryPostHelp, func(text string, err error) tea.Msg {
-			return textEdited{text: text, err: err}
-		})
+		return m, m.deps.Editor.Edit(p.text, summaryPostHelp, editedFor(p.opened))
 	case key.Matches(msg, m.keys.confirm):
 		return p.post(m)
 	}
@@ -120,6 +123,9 @@ func (p summaryPost) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 // which names the summary's post preview.
 func (summaryPost) which() overlayKind { return overlaySummaryPost }
+
+// openedAs is the round the preview opened in.
+func (p summaryPost) openedAs() int { return p.opened }
 
 // cycleChannel moves the destination to the next configured channel,
 // wrapping.
@@ -164,9 +170,7 @@ func (p summaryPost) applyEdit(m Model, text string, err error) (Model, tea.Cmd)
 		p.text = text
 	}
 
-	m.overlay = p
-
-	return m, nil
+	return m.withAnswered(p), nil
 }
 
 // failed is the preview kept open with the reason the post failed.

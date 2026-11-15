@@ -95,6 +95,9 @@ type commentComposer struct {
 	// typing, as ui.keys binds it.
 	hint string
 	send sendState
+	// opened is the round the composer opened in, which an edit carries
+	// back, so it lands in no composer opened after.
+	opened int
 }
 
 var (
@@ -107,8 +110,10 @@ var (
 func (m Model) startComment() (Model, tea.Cmd) {
 	selected, _ := m.issues.current()
 	markup := loop.CommentMarkupOf(m.cfg.Jira, selected.Key)
+	m, opened := m.nextRound()
 	m.overlay = commentComposer{
-		issue: selected, mode: modeNormal,
+		opened: opened,
+		issue:  selected, mode: modeNormal,
 		text:   newCommentText(m.commentDrafts.on(selected.Key)),
 		markup: markup, quickActions: markup == loop.MarkupForgeMarkdown && m.deps.Forge.Kind == forge.KindGitLab,
 		editor: m.deps.Editor.Edit != nil,
@@ -260,6 +265,9 @@ func (c commentComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd
 // which names the comment composer.
 func (commentComposer) which() overlayKind { return overlayCommentComposer }
 
+// openedAs is the round the composer opened in.
+func (c commentComposer) openedAs() int { return c.opened }
+
 // typed answers a key in insert mode: esc leaves it, its cursor stepping back
 // onto the last character typed as vim's does, and every other key types.
 // It reads esc itself, so a printable key ui.keys moved onto close still types.
@@ -293,9 +301,7 @@ func (c commentComposer) handleNormalKey(m Model, msg tea.KeyPressMsg) (Model, t
 	case key.Matches(msg, m.keys.editBody) && c.editor:
 		m.overlay = c
 
-		return m, m.deps.Editor.Edit(c.text.Value(), commentHelp(c.markup), func(text string, err error) tea.Msg {
-			return textEdited{text: text, err: err}
-		})
+		return m, m.deps.Editor.Edit(c.text.Value(), commentHelp(c.markup), editedFor(c.opened))
 	}
 
 	m.overlay = c.moved(m.keys, msg)
@@ -364,9 +370,7 @@ func (c commentComposer) applyEdit(m Model, text string, err error) (Model, tea.
 		c.mode, c.send.err = modeNormal, nil
 	}
 
-	m.overlay = c
-
-	return m, nil
+	return m.withAnswered(c), nil
 }
 
 // lastColumn is the column of the cursor line's last character, where vim's l
