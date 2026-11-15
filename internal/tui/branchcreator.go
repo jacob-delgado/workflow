@@ -234,8 +234,7 @@ func (c branchCreator) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) 
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
 	case key.Matches(msg, m.keys.worktree) && c.canWorktree:
-		c.worktree = !c.worktree
-		m.overlay = c
+		m.overlay = c.toggledWorktree()
 
 		return m, nil
 	case key.Matches(msg, m.keys.confirm):
@@ -250,11 +249,26 @@ func (c branchCreator) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) 
 
 // renamed is the creator once the name typed changes: checked as it is
 // typed, so a name git would refuse says so before enter is pressed, and
-// rid of git's refusal of the create, which was of the name before. A
-// fetch's refusal stays, with its offer to branch from what is there.
+// rid of git's refusal of the create, which was of the name before.
 func (c branchCreator) renamed() branchCreator {
 	c.problem = convention.ValidateBranchName(c.input.Value())
 
+	return c.withoutCreateRefusal()
+}
+
+// toggledWorktree is the creator making the other of a branch here and a
+// worktree beside the repository, rid of git's refusal to create the one it
+// no longer makes.
+func (c branchCreator) toggledWorktree() branchCreator {
+	c.worktree = !c.worktree
+
+	return c.withoutCreateRefusal()
+}
+
+// withoutCreateRefusal is the creator rid of git's refusal of its create,
+// once what it would create has changed. A fetch's refusal stays, with its
+// offer to branch from what is there, which still holds.
+func (c branchCreator) withoutCreateRefusal() branchCreator {
 	if c.step == stepCreate {
 		c.send = c.send.Cleared()
 	}
