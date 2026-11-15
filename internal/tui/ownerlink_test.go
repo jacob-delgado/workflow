@@ -120,3 +120,51 @@ func TestPeopleLinksFromTheFirstChannelPostsCanGoTo(t *testing.T) {
 
 	requireScreen(t, picking.View().Content, benName)
 }
+
+func TestALinkAnsweredAfterItsPreviewClosedLandsInNoneOpenedSince(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// ben is marked not on Slack, which is refused once the preview it was
+	// marked in has closed and another has opened.
+	ben := withDirectories(onlyBen())
+	ben.slack.linkErr = errDirectoryDown
+	preview := typing(t, ben.live(t, 140, 40), "5", "p")
+	marked, kept := withheldKeys(t, preview, ben.counting("link-owner "), "x")
+	reopened := typing(t, marked, keyEsc, "p")
+
+	// Act: the refusal is handed over
+	answered := handedOver(t, reopened, kept)
+
+	// Assert: the preview opened since shows none of it
+	view := answered.View().Content
+	requireScreen(t, view, "Announce to Slack", "? not linked")
+	refuseScreen(t, view, "slack is down")
+
+	// Act: close the preview and switch directory
+	switched := switchingToWeb(t, typing(t, answered, keyEsc))
+
+	// Assert: the link was answered, so the switch waits for nothing
+	refuseScreen(t, switched, "wait for the link to Slack")
+}
+
+func TestARefusedLinksReasonGoesOnceTheNextLinkIsSent(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// ben's link is refused; carla is then marked not on Slack, her link
+	// still being saved.
+	tagging := taggingWorld()
+	tagging.slack.linkErr = errDirectoryDown
+	refused := typing(t, tagging.live(t, 140, 40), "5", "p", "x")
+
+	// Act
+	marked, _ := withheldKeys(t, refused, tagging.counting("link-owner "), "down", "x")
+
+	// Assert
+	refuseScreen(t, marked.View().Content, "slack is down")
+
+	if links := tagging.asked("link-owner "); len(links) != 2 {
+		t.Errorf("link calls = %q, want ben's refused, then carla's", links)
+	}
+}

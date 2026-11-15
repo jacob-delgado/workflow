@@ -18,6 +18,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/seams"
+	"github.com/jacob-delgado/workflow/internal/tui/send"
 )
 
 // ownerColumn is how wide an owner's name is padded, so their states line up.
@@ -47,24 +48,42 @@ func (p tagProposal) relinked(link loop.OwnerLink) tagProposal {
 	return p
 }
 
+// tagStage is where whom an announcement tags stands: not offered, its
+// proposal being read, read and proposed, or read with no Slack workspace to
+// tag in.
+type tagStage int
+
+const (
+	// tagsNotOffered tags no one: the announcement offers no tags. It is the
+	// zero stage.
+	tagsNotOffered tagStage = iota
+	// tagsReading waits on the read of whom to propose.
+	tagsReading
+	// tagsProposed holds the proposal read, in the workspace it was read in.
+	tagsProposed
+	// tagsNoWorkspace holds why the Slack workspace could not be read, so
+	// nobody is tagged.
+	tagsNoWorkspace
+)
+
 // tagSection is whom a ready-for-review announcement tags: the code owners of
 // its changes and the user groups it offers, which of those are checked, and
 // the row the cursor is on — the owners first, then the groups.
 type tagSection struct {
-	offered  bool
+	stage    tagStage
 	canLink  bool
-	reading  bool
 	proposal tagProposal
 	tags     loop.Tags
 	checked  []string
 	readErr  error
-	linkErr  error
-	members  directory
-	groups   directory
-	cursor   int
+	// link is the owner link saved from the preview, out or refused.
+	link    send.State
+	members directory
+	groups  directory
+	cursor  int
 	// workspace is the Slack workspace the tags were read under, which a
 	// post's choice of groups is kept under too, and workspaceErr why it
-	// could not be read, when nobody is tagged.
+	// could not be read, at tagsNoWorkspace.
 	workspace    string
 	workspaceErr error
 }
@@ -80,7 +99,7 @@ func (m Model) withTagging(preview messagingPreview) (messagingPreview, tea.Cmd)
 
 	var readMembers, readGroups tea.Cmd
 
-	preview.tagging = tagSection{offered: true, canLink: m.deps.Store.LinkOwner != nil, reading: true}
+	preview.tagging = tagSection{stage: tagsReading, canLink: m.deps.Store.LinkOwner != nil}
 	preview.tagging.members, readMembers = preview.tagging.members.readingMembers(
 		m.session, m.deps, preview.channel, preview.opened)
 	preview.tagging.groups, readGroups = preview.tagging.groups.readingGroups(m.session, m.deps, preview.opened)
@@ -180,16 +199,21 @@ func (msg tagsRead) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	preview.tagging = preview.tagging.proposed(msg.proposal, msg.err)
-	preview.tagging.workspace, preview.tagging.workspaceErr = msg.workspace, msg.workspaceErr
+	preview.tagging = preview.tagging.proposed(msg)
 
 	return m.withAnswered(preview), nil
 }
 
-// proposed is the section once its proposal is read, with the groups the
-// proposal checks checked.
-func (s tagSection) proposed(proposal tagProposal, err error) tagSection {
-	s.reading, s.readErr, s.proposal, s.tags = false, err, proposal, proposal.tags()
+// proposed is the section once read found whom to propose, with the groups
+// the proposal checks checked, or found no workspace to tag them in.
+func (s tagSection) proposed(read tagsRead) tagSection {
+	s.stage = tagsProposed
+	if read.workspaceErr != nil {
+		s.stage = tagsNoWorkspace
+	}
+
+	s.readErr, s.proposal, s.tags = read.err, read.proposal, read.proposal.tags()
+	s.workspace, s.workspaceErr = read.workspace, read.workspaceErr
 	s.checked = nil
 
 	for _, group := range s.tags.Groups {
@@ -221,45 +245,6 @@ func (s tagSection) missingScope() string {
 	return s.members.missingScope()
 }
 
-// shown reports a section offered whose directory could be asked at all: a
-// directory with no credential to read it with means no tagging, said
-// nowhere, as for a webhook.
-func (s tagSection) shown() bool {
-	noCredential := errors.Is(s.members.err(), messaging.ErrNoCredential) ||
-		errors.Is(s.groups.err(), messaging.ErrNoCredential) || errors.Is(s.workspaceErr, messaging.ErrNoCredential)
-
-	return s.offered && !noCredential
-}
-
-// tags reports a section that tags anyone: one shown, whose Slack workspace
-// was read and whose token has the scope tagging needs.
-func (s tagSection) tagsAnyone() bool {
-	return s.shown() && s.workspaceErr == nil && s.missingScope() == ""
-}
-
-// interactive reports a section whose rows can be moved through and changed.
-func (s tagSection) interactive() bool {
-	return s.tagsAnyone() && !s.reading
-}
-
-// lines draws the section below the destination.
-func (s tagSection) lines(kit renderKit, width int) []string {
-	switch {
-	case !s.shown():
-		return nil
-	case s.missingScope() != "":
-		return []string{kit.failedGlyph() + " tagging needs the " + s.missingScope() + " scope; this posts untagged"}
-	case s.workspaceErr != nil:
-		return []string{kit.failureBlock(s.workspaceErr, width), "this posts untagged"}
-	case s.reading:
-		return []string{kit.marks.inFlight + " reading whom to tag" + kit.marks.ellipsis}
-	}
-
-	lines := slices.Concat(s.ownerLines(kit.marks), s.groupLines(kit.marks), s.failureLines(kit, width))
-
-	return append(lines, "tags  "+s.summary())
-}
-
 // failureLines say what could not be read or saved, and the scope groups
 // need when the token lacks it.
 func (s tagSection) failureLines(kit renderKit, width int) []string {
@@ -272,7 +257,7 @@ func (s tagSection) failureLines(kit renderKit, width int) []string {
 		lines = append(lines, kit.failedGlyph()+" tagging groups needs the "+scope+" scope")
 	}
 
-	for _, err := range []error{s.readErr, s.members.err(), groupsErr, s.linkErr} {
+	for _, err := range []error{s.readErr, s.members.err(), groupsErr, s.link.Reason()} {
 		if err != nil && !errors.Is(err, messaging.ErrNoUserGroups) {
 			lines = append(lines, kit.failureBlock(err, width))
 		}
@@ -362,7 +347,7 @@ func (s tagSection) summary() string {
 
 // dryRunNote says whom a dry run's post would have tagged.
 func (s tagSection) dryRunNote() string {
-	if !s.shown() {
+	if s.shows() == tagsHidden {
 		return ""
 	}
 
@@ -379,11 +364,12 @@ type postTags struct {
 }
 
 // postTags is whom the post tags: no one but for a ready-for-review
-// announcement, which alone offers tags. A token lacking a scope tags no one,
-// nor does one whose workspace Slack would not name: tagging never holds a
-// post back. The tags are those summary names, as the post sends them.
+// announcement, which alone offers tags, once its proposal is read. A token
+// lacking a scope tags no one, nor does one whose workspace Slack would not
+// name: tagging never holds a post back. The tags are those summary names, as
+// the post sends them.
 func (s tagSection) postTags() postTags {
-	if !s.tagsAnyone() {
+	if !s.interactive() {
 		return postTags{}
 	}
 
@@ -446,14 +432,16 @@ func (s tagSection) toggled() tagSection {
 	return s
 }
 
-// relinked is the section once a link was saved, or with why it was not. A
-// group the link newly offers starts as proposed; the others keep their
-// check. The cursor, which may have moved on while the link was saved, is
-// held to the rows there are now: a group the link no longer offers is a
-// row fewer.
+// relinked is the section once the link out was saved, or with why it was
+// not; with no link out, the answer is late and changes nothing. A group the
+// link newly offers starts as proposed; the others keep their check. The
+// cursor, which may have moved on while the link was saved, is held to the
+// rows there are now: a group the link no longer offers is a row fewer.
 func (s tagSection) relinked(link loop.OwnerLink, err error) tagSection {
-	s.linkErr = err
-	if err != nil {
+	var answer send.Answer
+
+	s.link, answer = s.link.Answered(err)
+	if answer != send.AnswerDone {
 		return s
 	}
 

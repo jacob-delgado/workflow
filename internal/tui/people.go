@@ -372,9 +372,7 @@ func (p peopleOverlay) handlePersonKey(m Model, msg tea.KeyPressMsg) (Model, tea
 
 		return m, nil
 	case key.Matches(msg, m.keys.notOnSlack):
-		linking, save := m.savingLink(decided(selected.owner, selected.team, nil), p.opened)
-
-		return p.saving(linking, save)
+		return p.sendingLink(m, decided(selected.owner, selected.team, nil))
 	case key.Matches(msg, m.keys.forgetOwner):
 		return p.askToForget(m, selected.owner), nil
 	default:
@@ -407,6 +405,13 @@ func (p peopleOverlay) askToForget(m Model, owner string) Model {
 	}
 
 	return m
+}
+
+// sendingLink saves link, a write of its own: no other write goes beside it.
+func (p peopleOverlay) sendingLink(m Model, link loop.OwnerLink) (Model, tea.Cmd) {
+	linking, save := m.savingLink(link, p.opened)
+
+	return p.saving(linking, save)
 }
 
 // saving marks a write in flight and sends it.

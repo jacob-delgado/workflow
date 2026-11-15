@@ -230,7 +230,7 @@ func (p messagingPreview) cycleChannel(m Model, step int) (Model, tea.Cmd) {
 	p.channel = p.channels[around(current, len(p.channels)).by(step)]
 
 	var readMembers tea.Cmd
-	if p.tagging.offered {
+	if p.tagging.stage != tagsNotOffered {
 		p.tagging.members, readMembers = p.tagging.members.cleared().readingMembers(m.session, m.deps, p.channel, p.opened)
 	}
 
@@ -267,7 +267,7 @@ func (p messagingPreview) post(m Model) (Model, tea.Cmd) {
 // sees fixed; one passed already goes at once. Nor can it while whom it tags
 // is still being read, since it would wait tagging no one.
 func (p messagingPreview) waitsForCI() bool {
-	return p.moment == messaging.MomentReady && !p.tagging.reading
+	return p.moment == messaging.MomentReady && p.tagging.stage != tagsReading
 }
 
 // postWhenGreen arms the post to go once CI passes: at once, if a read finds
@@ -312,6 +312,69 @@ func (p messagingPreview) withSend(state send.State) messagingPreview {
 	p.send = state
 
 	return p
+}
+
+// tagView is what the section shows, derived from its stage and what the
+// directory said: nothing, the scope tagging needs, that it posts untagged,
+// that it is reading, or the owners and groups to move through.
+type tagView int
+
+const (
+	// tagsHidden shows nothing: no tags offered, or no credential to read
+	// the directory with, said nowhere, as for a webhook.
+	tagsHidden tagView = iota
+	// tagsNeedScope says the scope the token lacks; the post goes untagged.
+	tagsNeedScope
+	// tagsUntagged says why the workspace could not be read; the post goes
+	// untagged.
+	tagsUntagged
+	// tagsBeingRead says it is reading whom to tag.
+	tagsBeingRead
+	// tagsListed lists the owners and groups, to move through and change.
+	tagsListed
+)
+
+// shows is what the section shows. A directory with no credential to read it
+// with means no tagging, said nowhere; a token lacking the scope tagging
+// needs is said before anything the stage would show.
+func (s tagSection) shows() tagView {
+	noCredential := errors.Is(s.members.err(), messaging.ErrNoCredential) ||
+		errors.Is(s.groups.err(), messaging.ErrNoCredential) || errors.Is(s.workspaceErr, messaging.ErrNoCredential)
+
+	switch {
+	case noCredential:
+		return tagsHidden
+	case s.missingScope() != "":
+		return tagsNeedScope
+	}
+
+	return map[tagStage]tagView{
+		tagsNotOffered: tagsHidden, tagsReading: tagsBeingRead, tagsProposed: tagsListed, tagsNoWorkspace: tagsUntagged,
+	}[s.stage]
+}
+
+// lines draws the section below the destination.
+func (s tagSection) lines(kit renderKit, width int) []string {
+	return map[tagView]func() []string{
+		tagsHidden: func() []string { return nil },
+		tagsNeedScope: func() []string {
+			return []string{kit.failedGlyph() + " tagging needs the " + s.missingScope() + " scope; this posts untagged"}
+		},
+		tagsUntagged: func() []string { return []string{kit.failureBlock(s.workspaceErr, width), "this posts untagged"} },
+		tagsBeingRead: func() []string {
+			return []string{kit.marks.inFlight + " reading whom to tag" + kit.marks.ellipsis}
+		},
+		tagsListed: func() []string {
+			lines := slices.Concat(s.ownerLines(kit.marks), s.groupLines(kit.marks), s.failureLines(kit, width))
+
+			return append(lines, "tags  "+s.summary())
+		},
+	}[s.shows()]()
+}
+
+// interactive reports a section whose rows can be moved through and changed.
+func (s tagSection) interactive() bool {
+	return s.shows() == tagsListed
 }
 
 // handleTagKey answers the tag section's keys in the preview.
@@ -371,5 +434,13 @@ func (p messagingPreview) markNotOnSlack(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m.savingLink(decided(owner.Owner, owner.Team, nil), p.opened)
+	return p.sendingLink(m, decided(owner.Owner, owner.Team, nil))
+}
+
+// sendingLink puts the preview back on top with link out, saving it.
+func (p messagingPreview) sendingLink(m Model, link loop.OwnerLink) (Model, tea.Cmd) {
+	p.tagging.link, _ = p.tagging.link.Sent()
+	m.overlay = p
+
+	return m.savingLink(link, p.opened)
 }
