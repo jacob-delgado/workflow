@@ -162,7 +162,7 @@ func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
 		return m.noticed(m.marks.done + " already announced from another session; not posted again"), reread
 	}
 
-	m.messaging.hold = m.messaging.hold.Superseded(msg.made)
+	m.messaging.held.hold = m.messaging.held.hold.Superseded(msg.made)
 
 	return m.noticedAnnounced(msg.to, msg.err), reread
 }

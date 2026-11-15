@@ -38,14 +38,45 @@ type messagingState struct {
 	// send is a post the service has not answered yet, which is not offered
 	// again until it does, or why the last one failed.
 	send sendState
-	// hold is the announcement armed to go once its pull request's CI passes,
-	// holdTags whom its preview chose to tag, and tick the read of it
-	// scheduled last.
-	hold     armed.Hold
-	holdTags postTags
-	tick     int
-	author   string
-	scroll   int
+	// held is the announcement armed to go once its pull request's CI passes.
+	held   heldPost
+	author string
+	scroll int
+}
+
+// heldPost is the announcement armed to go once its pull request's CI
+// passes: the hold that steps it, whom its preview chose to tag, and the
+// beat of its reads scheduled last, so a read asked for meanwhile, which
+// schedules its own, leaves one beat going.
+type heldPost struct {
+	hold armed.Hold
+	tags postTags
+	beat int
+}
+
+// armed is the post holding hold, just armed, which tags whom tags say. The
+// beat goes on from the one before: a hold retold in place asks for no read,
+// so the read it scheduled is still the one made. A hold armed afresh asks
+// for one at once, and a read the hold it replaced scheduled, due before
+// this one schedules its own, is made for it too, costing only that read,
+// since the hold hears the read asked last.
+func (p heldPost) armed(hold armed.Hold, tags postTags) heldPost {
+	p.hold, p.tags = hold, tags
+
+	return p
+}
+
+// scheduled is the post with a read of it scheduled, and the beat that read
+// is made on.
+func (p heldPost) scheduled() (heldPost, int) {
+	p.beat++
+
+	return p, p.beat
+}
+
+// beatDue reports that beat is the read scheduled last, the one made.
+func (p heldPost) beatDue(beat int) bool {
+	return beat == p.beat
 }
 
 // loadAuthor is the command that asks the forge whose credential it holds:
@@ -107,7 +138,7 @@ func (m Model) announceStanding() string {
 	switch {
 	case m.messaging.onItsWay():
 		return kit.marks.inFlight + " announcing" + kit.marks.ellipsis
-	case m.messaging.hold.Stage().Waiting() && m.onScreen(m.messaging.hold.Pull()):
+	case m.messaging.held.hold.Stage().Waiting() && m.onScreen(m.messaging.held.hold.Pull()):
 		return m.waitingLine()
 	case sent.err != nil:
 		return kit.failureSummary(sent.err)
@@ -138,7 +169,7 @@ func (m Model) unconfirmedLine() string {
 // posted, posted elsewhere or given up on. Any other stands as nothing
 // announced.
 func (m Model) holdLine() string {
-	hold, kit := m.messaging.hold, m.kit()
+	hold, kit := m.messaging.held.hold, m.kit()
 	nothing := func() string { return kit.marks.notStarted + " nothing announced" }
 
 	if hold.Stage().Waiting() {
@@ -167,7 +198,7 @@ func (m Model) holdLine() string {
 // to list it, checks to be reported, a fix for one that failed, or a read or
 // post to try again; nothing more while CI runs.
 func (m Model) waitingLine() string {
-	hold, kit := m.messaging.hold, m.kit()
+	hold, kit := m.messaging.held.hold, m.kit()
 
 	which := ""
 	if !m.onScreen(hold.Pull()) {
@@ -346,7 +377,7 @@ func (m Model) canPost() bool {
 // onItsWay reports a post the service has not answered yet: one asked for
 // now, or the announcement that waited for CI.
 func (s messagingState) onItsWay() bool {
-	return s.send.sending || s.hold.Stage() == armed.StageDue
+	return s.send.sending || s.held.hold.Stage() == armed.StageDue
 }
 
 // messagingKeys offers composing the post, and managing whom posts tag.
@@ -356,7 +387,7 @@ func (s messagingState) onItsWay() bool {
 func (m Model) messagingKeys() []key.Binding {
 	var keys []key.Binding
 
-	hold := m.messaging.hold
+	hold := m.messaging.held.hold
 	waiting := hold.Stage().Waiting()
 	instead := waiting && m.onScreen(hold.Pull())
 

@@ -402,7 +402,7 @@ func (m Model) work() progress.Work {
 		CI:                 m.review.listed().State,
 		ChangesRequested:   m.review.pull().ChangesRequested,
 		Announced:          m.messaging.announced(m.review),
-		AnnouncePending:    m.messaging.hold.Stage().Waiting() || m.messaging.onItsWay(),
+		AnnouncePending:    m.messaging.held.hold.Stage().Waiting() || m.messaging.onItsWay(),
 	}
 }
 

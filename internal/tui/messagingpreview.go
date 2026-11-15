@@ -89,7 +89,7 @@ func (p messagingPreview) outgoing() outgoingAnnouncement {
 // CI is being posted, the forge began merging the pull request, or the moment
 // this one marks was announced while it was open.
 func (p messagingPreview) refusal(m Model) error {
-	if m.messaging.hold.Stage() == armed.StageDue {
+	if m.messaging.held.hold.Stage() == armed.StageDue {
 		return errAnnouncementOnItsWay
 	}
 
