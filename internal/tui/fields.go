@@ -37,6 +37,17 @@ const (
 	pickerFilling
 )
 
+// formStage is where a field form stands: being filled in, or submitted.
+type formStage int
+
+const (
+	// formFilling takes the keys its fields answer. It is the zero stage.
+	formFilling formStage = iota
+	// formSubmitted has passed the check of apply on its last field, and
+	// takes nothing more while its move goes.
+	formSubmitted
+)
+
 // fieldForm fills in the fields a transition needs, one at a time, in a Huh
 // form: a choice from a field's allowed values, several of them for a list,
 // or text typed for a text, user or date field. Each field is a group of its
@@ -45,10 +56,12 @@ type fieldForm struct {
 	transition jira.Transition
 	form       *huh.Form
 	answers    []*fieldAnswer
-	// last is the last field, and submitting is set once apply on it has
-	// passed its check: the form takes nothing more while its move goes.
-	last       huh.Field
-	submitting bool
+	// last is the last field, apply on which submits the form.
+	last  huh.Field
+	stage formStage
+	// asked is the round the form opened in, which its answer carries back,
+	// so it never lands in a form the same picker opens after.
+	asked int
 }
 
 // fieldAnswer is what a field holds as it is filled in, bound to its Huh
@@ -60,10 +73,12 @@ type fieldAnswer struct {
 }
 
 // fieldsFilled is the form's last field filled in, the transition can go; or,
-// asked as prompts, the error that stopped them.
+// asked as prompts, the error that stopped them. It is for the form asked in
+// round asked, of the picker opened in round opened.
 type fieldsFilled struct {
-	form *huh.Form
-	err  error
+	opened int
+	asked  int
+	err    error
 }
 
 var _ applier = fieldsFilled{}
@@ -85,7 +100,7 @@ func newFieldForm(move jira.Transition, kit renderKit, keys keyMap, width, rows 
 
 	form, start := newHuhForm(kit, huhKeys(keys, "apply"), width, rows, groups...)
 
-	return fieldForm{transition: move, form: form, answers: answers, last: last}, start
+	return fieldForm{transition: move, form: form, answers: answers, last: last, stage: formFilling}, start
 }
 
 // huhField is the Huh field that fills in one of a transition's fields into
@@ -148,6 +163,11 @@ func placeholder(kind jira.FieldKind) string {
 	return ""
 }
 
+// submitted reports the form's last field applied, its move to go.
+func (f fieldForm) submitted() bool {
+	return f.stage == formSubmitted
+}
+
 // view draws the field being filled in under what it is for.
 func (f fieldForm) view(kit renderKit) []string {
 	return []string{transitionLabel(kit.marks, f.transition) + " needs:", f.form.View()}
@@ -172,12 +192,20 @@ func (p statusPicker) choosing(problem error) statusPicker {
 	return p
 }
 
+// fillingIn is the picker on to filling in the chosen transition's fields
+// in form, nothing yet keeping the move from going.
+func (p statusPicker) fillingIn(form fieldForm) statusPicker {
+	p.stage, p.form, p.problem = pickerFilling, form, nil
+
+	return p
+}
+
 // handleFormKey answers a key while a transition's fields are being filled in:
 // esc goes back to the transitions rather than closing the picker, and every
 // other key is the form's, until apply on the last field passes its check.
 func (p statusPicker) handleFormKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case p.form.submitting:
+	case p.form.submitted():
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		m.overlay = p.choosing(nil)
@@ -187,7 +215,11 @@ func (p statusPicker) handleFormKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cm
 
 	onLast := p.form.form.GetFocusedField() == p.form.last
 	m, cmd := p.relay(m, msg)
-	p.form.submitting = onLast && key.Matches(msg, m.keys.confirm) && p.form.last.Error() == nil
+
+	if onLast && key.Matches(msg, m.keys.confirm) && p.form.last.Error() == nil {
+		p.form.stage = formSubmitted
+	}
+
 	m.overlay = p
 
 	return m, cmd
@@ -224,7 +256,7 @@ func (p statusPicker) formSize(m Model) (int, int) {
 // pasted types a paste into a transition's text field while one is filled in,
 // and not once its last field has been applied.
 func (p statusPicker) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
-	if p.form.submitting {
+	if p.form.submitted() {
 		return m, nil
 	}
 
@@ -259,10 +291,11 @@ func (p statusPicker) step(m Model, delta int) Model {
 
 // apply sends the transition the form was filled in for, with the values it
 // holds, once its last field is filled, closing the form first so the picker
-// shows the move under way. A form since closed or replaced sends nothing.
+// shows the move under way. A form since closed sends nothing, even when its
+// picker has opened another since, nor does one of a picker since closed.
 func (msg fieldsFilled) apply(m Model) (Model, tea.Cmd) {
-	picker, open := m.overlay.(statusPicker)
-	if !open || picker.form.form != msg.form {
+	picker, open := answerFor[statusPicker](m, msg.opened)
+	if !open || !picker.filling() || picker.form.asked != msg.asked {
 		return m, nil
 	}
 

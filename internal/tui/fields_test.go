@@ -32,6 +32,12 @@ func resolveIssue() jira.Transition {
 // root cause nil token.
 const resolvedNilToken = "transition PROJ-412 5 resolution=2 customfield_10200=nil token"
 
+// resolveChosen is the picker's row for resolveIssue, chosen.
+const resolveChosen = "▸ ● Resolve Issue"
+
+// resolutionAsked is the title of resolveIssue's first field, being asked.
+const resolutionAsked = "Resolution (1 of 2)"
+
 // fieldfulMove is a transition whose screen asks for a user, a date and a
 // list of fix versions — one kind of each the form now fills.
 func fieldfulMove() jira.Transition {
@@ -169,7 +175,7 @@ func TestATransitionNeedingFieldsAsksForEachInTurn(t *testing.T) {
 
 	// Assert: the first field offers its values
 	requireScreen(t, resolution.View().Content,
-		"Resolve Issue → Done needs:", "Resolution (1 of 2)", "▸ Fixed", "Won't Fix")
+		"Resolve Issue → Done needs:", resolutionAsked, "▸ Fixed", "Won't Fix")
 
 	// Act: pick the second value
 	cause := typing(t, resolution, "j", keyEnter)
@@ -235,7 +241,7 @@ func TestWhereTheFieldsLeaveThePicker(t *testing.T) {
 	}{
 		"escape goes back to the transitions": {
 			moves: []jira.Transition{resolveIssue()}, keys: []string{"t", keyEnter, "k", keyEsc},
-			want: []string{"┏━ Change status", "▸ ● Resolve Issue"}, refuse: []string{"Resolution (1 of 2)"},
+			want: []string{"┏━ Change status", resolveChosen}, refuse: []string{resolutionAsked},
 		},
 		"a field only Jira can fill stops the transition here": {
 			moves: []jira.Transition{blocked}, keys: []string{"t", keyEnter},
@@ -245,7 +251,7 @@ func TestWhereTheFieldsLeaveThePicker(t *testing.T) {
 		"a refusal after the fields keeps the picker open": {
 			moves: []jira.Transition{resolveIssue()}, transitionErr: errNotVisible,
 			keys: []string{"t", keyEnter, keyEnter, "x", keyEnter},
-			want: []string{"┏━ Change status", "▸ ● Resolve Issue", "✗ jira rejected the request"},
+			want: []string{"┏━ Change status", resolveChosen, "✗ jira rejected the request"},
 		},
 	}
 
@@ -406,10 +412,10 @@ func TestAFormFollowsTheTerminalWhenItIsResized(t *testing.T) {
 
 	// Assert
 	// The form is still open after the resize, and fits the narrower pane.
-	requireScreen(t, narrow.View().Content, "Resolution (1 of 2)")
+	requireScreen(t, narrow.View().Content, resolutionAsked)
 
 	for line := range strings.SplitSeq(plain(narrow.View().Content), "\n") {
-		if strings.Contains(line, "Resolution (1 of 2)") && strings.Contains(line, "…") {
+		if strings.Contains(line, resolutionAsked) && strings.Contains(line, "…") {
 			t.Errorf("the form is still as wide as the terminal was, cut at the pane's edge:\n%s", line)
 		}
 	}

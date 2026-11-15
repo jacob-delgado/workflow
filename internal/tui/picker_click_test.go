@@ -39,5 +39,5 @@ func TestAClickWhileAMovesFieldsAreFilledChoosesNothing(t *testing.T) {
 	clicked := click(t, filling, detailColumn+10, done)
 
 	// Assert
-	requireScreen(t, press(t, clicked, keyEsc).View().Content, "▸ ● Resolve Issue")
+	requireScreen(t, press(t, clicked, keyEsc).View().Content, resolveChosen)
 }
