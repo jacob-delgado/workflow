@@ -12,6 +12,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/tui/latest"
+	"github.com/jacob-delgado/workflow/internal/tui/send"
 )
 
 // pickerTitle titles the detail pane while the picker is open.
@@ -164,8 +165,10 @@ func firstInProgress(moves []jira.Transition) int {
 	return 0
 }
 
-// transitionApplied reports how applying a transition went.
+// transitionApplied reports how applying a transition went, for the picker
+// opened in round opened.
 type transitionApplied struct {
+	opened   int
 	issueKey jira.Key
 	to       jira.Transition
 	err      error
@@ -173,13 +176,15 @@ type transitionApplied struct {
 
 var _ applier = transitionApplied{}
 
-// apply reports a transition's outcome. A refusal keeps the picker open with
-// Jira's reason, to choose again; a move that worked closes it and refreshes the
-// list, since the issue's status — and perhaps its place in the list — just
-// changed. A move to done offers to complete the issue's task.
+// apply reports a transition's outcome to the picker that sent it. A refusal
+// keeps the picker open with Jira's reason, to choose again; a move that worked
+// closes it and refreshes the list, since the issue's status — and perhaps its
+// place in the list — just changed. A move to done offers to complete the
+// issue's task. An answer for a picker since closed changes nothing.
 func (msg transitionApplied) apply(m Model) (Model, tea.Cmd) {
-	if msg.err != nil {
-		return keepOpenWith[statusPicker](m, msg.err), nil
+	m, _, done := answered[statusPicker](m, msg.opened, msg.err)
+	if !done {
+		return m, nil
 	}
 
 	m = m.closeOverlay().noticed(m.marks.done + " " + shownKey(msg.issueKey) + " is now " + msg.to.ToStatus)
@@ -188,14 +193,6 @@ func (msg transitionApplied) apply(m Model) (Model, tea.Cmd) {
 	m, detail := m.reloadDetail(msg.issueKey)
 
 	return m, tea.Batch(list, detail)
-}
-
-// failed is the picker back on its transitions with the reason, the field form
-// it was filling in closed, to choose again.
-func (p statusPicker) failed(err error) statusPicker {
-	p.send, p.form = p.send.failed(err), fieldForm{}
-
-	return p
 }
 
 // statusPicker is the change-status picker: the transitions Jira offers the issue
@@ -207,26 +204,35 @@ type statusPicker struct {
 	// picker opens; selected is which of them is chosen.
 	listing  latest.Read[[]jira.Transition]
 	selected int
-	send     sendState
+	stage    pickerStage
+	// form is filling in the chosen transition's fields while the picker is
+	// pickerFilling.
+	form fieldForm
+	// send is the move sent to Jira, and problem what keeps the chosen move
+	// from being sent from here: a field only Jira's own screen can fill, or
+	// fields left unanswered.
+	send    send.State
+	problem error
 	// offer pre-selects a transition once the list arrives, for an offer made
 	// after branching or after a pull request; the zero value pre-selects none.
 	offer statusOffer
-	// form is filling in the chosen transition's fields; it is open when it
-	// has any.
-	form fieldForm
-	// opened is the round the picker opened in, which its listing carries
-	// back, so it fills no picker opened after.
+	// opened is the round the picker opened in, which its listing and its
+	// move carry back, so neither lands in a picker opened after.
 	opened int
 }
 
 var (
-	_ failable[statusPicker] = statusPicker{}
-	_ opened                 = statusPicker{}
-	_ clickable              = statusPicker{}
-	_ steppable              = statusPicker{}
-	_ pasteable              = statusPicker{}
-	_ relaying               = statusPicker{}
+	_ sender[statusPicker] = statusPicker{}
+	_ clickable            = statusPicker{}
+	_ steppable            = statusPicker{}
+	_ pasteable            = statusPicker{}
+	_ relaying             = statusPicker{}
 )
+
+// moving reports the chosen move sent and not yet answered.
+func (p statusPicker) moving() bool {
+	return p.send.Stage() == send.StageInFlight
+}
 
 // openStatusPicker opens the picker on the selected issue and starts listing its
 // transitions.
@@ -312,7 +318,7 @@ func (p statusPicker) listed(kit renderKit, space int) []string {
 	switch {
 	case len(moves.items) == 0:
 		return []string{"Jira offers no status change for " + shownKey(p.issue.Key)}
-	case p.form.open():
+	case p.filling():
 		return append(p.form.view(kit), p.outcome(kit)...)
 	default:
 		return append(moves.rows(kit.marks, space-outcomeRows, func(move jira.Transition) string {
@@ -334,27 +340,34 @@ func transitionRow(marks glyphs, move jira.Transition) string {
 	return marks.status(move.ToStatusCategory) + " " + transitionLabel(marks, move) + needs(marks, move)
 }
 
-// outcome says how applying the chosen transition is going, if it was tried.
+// outcome says how applying the chosen transition is going, if it was tried:
+// being sent, refused, or kept from going by a problem found here.
 func (p statusPicker) outcome(kit renderKit) []string {
-	switch {
-	case p.send.sending:
+	if p.moving() {
 		chosen, _ := p.moves().chosen()
 
 		return []string{"", "changing " + shownKey(p.issue.Key) + " to " + chosen.ToStatus + kit.marks.ellipsis}
-	case p.send.err != nil:
-		return []string{"", kit.failureLine(p.send.err)}
-	default:
+	}
+
+	cause := p.problem
+	if cause == nil {
+		cause = p.send.Reason()
+	}
+
+	if cause == nil {
 		return nil
 	}
+
+	return []string{"", kit.failureLine(cause)}
 }
 
 // footer offers what works in the picker now. While a move is being sent,
 // nothing interrupts it, so only quitting is offered.
 func (p statusPicker) footer(keys keyMap) []key.Binding {
 	switch {
-	case p.send.sending:
+	case p.moving():
 		return []key.Binding{keys.interrupt}
-	case p.form.open():
+	case p.filling():
 		return p.form.footer(keys)
 	default:
 		return keys.listKeys()
@@ -364,11 +377,11 @@ func (p statusPicker) footer(keys keyMap) []key.Binding {
 // handleKey answers a key while the picker has the keyboard.
 func (p statusPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case p.send.sending:
+	case p.moving():
 		// Closing now would hide the answer, and a refused change must never go
 		// unseen. The request carries a deadline, so this cannot last.
 		return m, nil
-	case p.form.open():
+	case p.filling():
 		return p.handleFormKey(m, msg)
 	}
 
@@ -389,9 +402,19 @@ func (statusPicker) which() overlayKind { return overlayStatusPicker }
 // openedAs is the round the picker opened in.
 func (p statusPicker) openedAs() int { return p.opened }
 
+// sent is the move sent to Jira.
+func (p statusPicker) sent() send.State { return p.send }
+
+// withSend is the picker with its move as state.
+func (p statusPicker) withSend(state send.State) statusPicker {
+	p.send = state
+
+	return p
+}
+
 // click selects the transition on a clicked line.
 func (p statusPicker) click(m Model, line int) (Model, tea.Cmd) {
-	if p.send.sending || p.form.open() {
+	if p.moving() || p.filling() {
 		return m, nil
 	}
 
@@ -411,9 +434,10 @@ func (p statusPicker) choose(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
+	p.send = p.send.Cleared()
+
 	if blocked, unfillable := chosen.Unfillable(); unfillable {
-		p.send.err = errNeedsJira(chosen, blocked)
-		m.overlay = p
+		m.overlay = p.choosing(errNeedsJira(chosen, blocked))
 
 		return m, nil
 	}
@@ -421,7 +445,7 @@ func (p statusPicker) choose(m Model) (Model, tea.Cmd) {
 	if len(chosen.Fields) > 0 {
 		var start tea.Cmd
 
-		p.send.err = nil
+		p.stage, p.problem = pickerFilling, nil
 		width, rows := p.formSize(m)
 		p.form, start = newFieldForm(chosen, m.kit(), m.keys, width, rows)
 		m.overlay = p
@@ -445,12 +469,15 @@ func (p statusPicker) apply(m Model, chosen jira.Transition, values []jira.Field
 		return m, nil
 	}
 
-	p.send = starting()
+	p.send, _ = p.send.Sent()
+	p.problem = nil
 	m.overlay = p
-	ctx, transition := m.session, m.deps.Jira.Transition
+	ctx, transition, opened := m.session, m.deps.Jira.Transition, p.opened
 
 	return m, func() tea.Msg {
-		return transitionApplied{issueKey: issueKey, to: chosen, err: transition(ctx, issueKey, chosen, values)}
+		err := transition(ctx, issueKey, chosen, values)
+
+		return transitionApplied{opened: opened, issueKey: issueKey, to: chosen, err: err}
 	}
 }
 
@@ -462,18 +489,4 @@ func transitionLabel(marks glyphs, move jira.Transition) string {
 	}
 
 	return move.Name + marks.arrow + move.ToStatus
-}
-
-// needs names the fields a transition asks for, so it is no surprise.
-func needs(marks glyphs, move jira.Transition) string {
-	if len(move.Fields) == 0 {
-		return ""
-	}
-
-	names := make([]string, 0, len(move.Fields))
-	for _, field := range move.Fields {
-		names = append(names, field.Name)
-	}
-
-	return marks.separator + "needs " + strings.Join(names, ", ")
 }
