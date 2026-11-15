@@ -109,6 +109,44 @@ putting back what a later read replaced.
 - **The in-flight mark is `Refreshing()`**: a read out over a value or an
   error held. A first read says it is reading, with no mark.
 
+## Overlays: an answer finds the overlay that asked
+
+An overlay sends a write and reads for itself, and it can close, and
+another of its kind open, before an answer comes back. These rules keep an
+answer from landing in an overlay that did not ask for it.
+
+- **An overlay draws its round as it opens** (`nextRound`, `overlay.go`),
+  from the one counter every overlay and run draws from, and every read and
+  write it starts carries that round back (`openedAs`). A run draws one as
+  it starts; a last look, which reads nothing, as its act is sent
+  (`sendingLook`).
+- **An answer finds its overlay through `answerFor`**: on top, or under the
+  owner picker or a last look floating over it, and only while the round it
+  carries is the one that overlay opened in. `withAnswered` puts it back
+  where it was found. An answer for an overlay since closed finds none, even
+  when another of its kind has opened since; never match the open overlay
+  by its type alone.
+- **The one write an overlay has out is a `send.State`** (`send/`), handed
+  over as `sent` and taken back as `withSend` (`sender[T]`), and its answer
+  goes through `answered[T]`, which pins a refusal (drawn by `pinnedSend`)
+  and reports a success for the applier to follow. What the overlay finds
+  wrong before anything is sent, such as a subject the convention refuses or
+  an editor that would not open, is its `problem`, drawn by `pinnedProblem`,
+  never a refusal in its send.
+- **What it says in the footer goes through `notice.Footer`** (`notice/`):
+  `noticed` for a result, `noticedFailure` for a failure, and
+  `noticedUnrepeated` for what no pane repeats. The footer decides what takes
+  the row and what waits for it, a failure under a search among them; the
+  row is never set by hand.
+- **A late answer changes nothing**: `answered` calls it late and the
+  applier returns. No key reaches one today, since an overlay with a write
+  out takes only interrupt, which quits; the Summary post alone still says
+  in the footer how its post went.
+- **What is left of the old shape** (`sendState`, `keepOpenWith` and
+  `failable`, in `failure.go` and `overlay.go`) holds the overlays not yet
+  moved, matched by type alone. A new overlay does not copy it, and an
+  overlay that moves leaves none of it behind.
+
 ## Keys, drawing and motion
 
 - **Every binding goes through `helpBuilder`** (`keys.go`), so the `?` help
