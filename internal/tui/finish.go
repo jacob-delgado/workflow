@@ -245,12 +245,31 @@ func (p finishPreview) finishAfresh(ctx context.Context, git seams.Git) finished
 		return p.ended(fmt.Errorf("%w: %w", errNoLongerFinishable, refused))
 	}
 
-	return p.ended(git.Finish(ctx, p.finishing))
+	err = git.Finish(ctx, p.finishing)
+	if err != nil {
+		return p.failedAfter(ctx, git, err)
+	}
+
+	return p.ended(nil)
 }
 
 // ended is the preview's finish, ended with err: nil when it went through.
 func (p finishPreview) ended(err error) finished {
-	return finished{opened: p.opened, branch: p.finishing.Branch, err: err}
+	return finished{opened: p.opened, branch: p.finishing.Branch, base: p.finishing.Base, err: err}
+}
+
+// failedAfter is the preview's finish failed with err, the branch read again
+// to tell whether the finish left it, switched to the base, before a later
+// step failed: a pull that could not catch the base up, or the delete. A
+// branch that cannot be read again leaves that unknown, so the finish is
+// taken as one that never left it, and the preview stays, its retry reading
+// the branch again first.
+func (p finishPreview) failedAfter(ctx context.Context, git seams.Git, err error) finished {
+	ended := p.ended(err)
+	again, readErr := git.Branch(ctx)
+	ended.left = readErr == nil && again.Name != p.finishing.Branch
+
+	return ended
 }
 
 // moved is why the finish read again is not the one the preview listed, or
@@ -272,19 +291,44 @@ func (p finishPreview) moved(again gitrepo.Finishing) error {
 type finished struct {
 	opened int
 	branch string
-	err    error
+	// base is the branch the finish switches to, which a finish that left
+	// the branch and then failed stopped on.
+	base string
+	err  error
+	// left is a finish that failed after it switched to the base, so the
+	// branch the preview offered to finish is checked out no more.
+	left bool
 }
 
 var _ applier = finished{}
 
 // apply reports the finish and reloads onto the base branch, or keeps the
 // preview open with why it failed — git's own words, every line of them —
-// pinned under its title until esc.
+// pinned under its title until esc. A finish that failed once it had left the
+// branch closes the preview, which would offer to finish a branch no longer
+// checked out, says in the footer where it stopped and why, and reads the
+// branch again, so the panes show the base it is on.
 func (msg finished) apply(m Model) (Model, tea.Cmd) {
-	m, _, done := answered[finishPreview](m, msg.opened, msg.err)
+	m, _, done := answered[finishPreview](m, msg.opened, msg.refusal())
 	if !done {
 		return m, nil
 	}
 
-	return m.closeOverlay().noticed(m.marks.done + " finished " + msg.branch).readingBranch()
+	m = m.closeOverlay()
+	if msg.err != nil {
+		return m.noticedFailureLedBy("finish stopped on "+msg.base+", branch not deleted: ", msg.err).readingBranch()
+	}
+
+	return m.noticed(m.marks.done + " finished " + msg.branch).readingBranch()
+}
+
+// refusal is what the preview takes as its finish's answer: the failure, or
+// none once the finish has left the branch, since the preview is then done
+// with it as a finish that went through would be.
+func (msg finished) refusal() error {
+	if msg.left {
+		return nil
+	}
+
+	return msg.err
 }

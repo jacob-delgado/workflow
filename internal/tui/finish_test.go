@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
@@ -19,6 +20,12 @@ import (
 // runner folds its standard error into the error.
 var errFinishDiverged = errors.New("git pull --ff-only: git: exit status 128: " +
 	"hint: Diverging branches can't be fast-forwarded.\nfatal: Not possible to fast-forward, aborting")
+
+// errFinishUnswitched is how a finish fails when git will not switch to the
+// base, so the branch is still checked out: the step, then git's own words
+// over more than one line.
+var errFinishUnswitched = errors.New("git -c checkout.defaultRemote=origin switch -- main: git: exit status 1: " +
+	"error: Your local changes to the following files would be overwritten by checkout:\n\tREADME.md\nAborting")
 
 // errBranchUnread is the branch failing to read again when a finish is
 // confirmed.
@@ -191,22 +198,22 @@ func TestRefusedFinishStaysInItsPreview(t *testing.T) {
 
 	// Arrange
 	merged := mergedBranch()
-	merged.finishErr = errFinishDiverged
+	merged.finishErr = errFinishUnswitched
 	preview := typing(t, merged.live(t, 120, 40), "4", "F")
 
-	// Act: finish, and git fails
+	// Act: finish, and git will not leave the branch
 	failed := typing(t, preview, keyEnter)
 
 	// Assert: the preview is still open, git's reason pinned in it whole, ready
 	// to try again
-	requireScreen(t, failed.View().Content, "git branch -D -- "+featureName, "✗ git pull --ff-only",
-		"fatal: Not possible to fast-forward", "enter finish")
+	requireScreen(t, failed.View().Content, "git branch -D -- "+featureName, "✗ git -c checkout.defaultRemote",
+		"would be overwritten by", "README.md", "Aborting", "enter finish")
 
 	// Act: close it
 	closed := typing(t, failed, keyEsc)
 
 	// Assert: the preview is gone, and the failed finish was asked for once
-	refuseScreen(t, closed.View().Content, "git branch -D", "fatal: Not possible to fast-forward")
+	refuseScreen(t, closed.View().Content, "git branch -D", "would be overwritten by")
 
 	if calls := merged.asked("finish"); len(calls) != 1 {
 		t.Errorf("finish calls = %q, want the one that failed", calls)
@@ -218,7 +225,7 @@ func TestAFailedFinishCanBeTriedAgain(t *testing.T) {
 
 	// Arrange
 	merged := mergedBranch()
-	merged.finishErr = errFinishDiverged
+	merged.finishErr = errFinishUnswitched
 	failed := typing(t, merged.live(t, 120, 40), "4", "F", keyEnter)
 	merged.finishErr = nil
 
@@ -473,4 +480,64 @@ func TestAMergedBranchSomethingElseRefusesIsNotLookedPast(t *testing.T) {
 	if calls := merged.asked("made-after"); len(calls) != 0 {
 		t.Errorf("read what was made after the merge of a branch refused already: %q", calls)
 	}
+}
+
+// switchingThenFailing is a finish that switches merged to its base and then
+// fails to pull it, as a base that cannot fast-forward does: the branch the
+// preview offered to finish is no longer checked out.
+func switchingThenFailing(merged *world) func(context.Context, gitrepo.Finishing) error {
+	return func(_ context.Context, finishing gitrepo.Finishing) error {
+		merged.record("finish " + finishing.Branch + " onto " + finishing.Base + " from " + finishing.Remote)
+		merged.branch = gitrepo.Branch{Name: baseName, Base: baseRef}
+
+		return errFinishDiverged
+	}
+}
+
+func TestAFinishThatSwitchedBeforeItsPullFailedReadsTheBranchAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	merged := mergedBranch()
+	deps := merged.deps()
+	deps.Git.Finish = switchingThenFailing(merged)
+	model := sized(t, tui.New(merged.cfg, nil, deps), 120, 40)
+	preview := typing(t, drain(t, model, model.Init()), "4", "F")
+
+	// Act
+	failed := typing(t, preview, keyEnter).View().Content
+
+	// Assert
+	if strings.Contains(footerLine(failed), "finish") {
+		t.Fatalf("preview still offers \"finish\" over %s:\n%s", baseName, failed)
+	}
+
+	requireScreen(t, failed, "✗ finish stopped on "+baseName+", branch not deleted: git pull --ff-only")
+	requireScreen(t, failed, "on no feature branch")
+	refuseScreen(t, failed, "Finish the branch", featureName)
+}
+
+func TestAFinishThatFailedOnABranchThatCannotBeReadAgainStaysInItsPreview(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The finish fails, and the branch can then no longer be read, so whether
+	// it left the branch is unknown: the preview stays, its retry reading the
+	// branch again before anything is run.
+	merged := mergedBranch()
+	deps := merged.deps()
+	deps.Git.Finish = func(_ context.Context, finishing gitrepo.Finishing) error {
+		merged.record("finish " + finishing.Branch)
+		merged.branchErr = errBranchUnread
+
+		return errFinishDiverged
+	}
+	model := sized(t, tui.New(merged.cfg, nil, deps), 120, 40)
+	preview := typing(t, drain(t, model, model.Init()), "4", "F")
+
+	// Act
+	failed := typing(t, preview, keyEnter).View().Content
+
+	// Assert
+	requireScreen(t, failed, "Finish the branch", "✗ git pull --ff-only", "enter finish")
 }
