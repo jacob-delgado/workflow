@@ -10,10 +10,19 @@ import (
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
 
+// creating puts the creator back with its create out, and is the command
+// that creates the branch.
+func (c branchCreator) creating(m Model, name string) (Model, tea.Cmd) {
+	m = m.withAnswered(c)
+
+	return m, c.createCommand(m, name)
+}
+
 // createCommand is the command that creates the branch: in a worktree beside the
-// repository, or in place, switching to it.
+// repository, or in place, switching to it. Its answer carries the round the
+// creator opened in.
 func (c branchCreator) createCommand(m Model, name string) tea.Cmd {
-	base := c.base
+	base, round := c.base, c.opened
 	issue, forIssue := c.issue, c.forIssue
 
 	if c.worktree {
@@ -22,49 +31,52 @@ func (c branchCreator) createCommand(m Model, name string) tea.Cmd {
 		return func() tea.Msg {
 			path, err := add(ctx, name, base)
 
-			return worktreeCreated{name: name, path: path, issue: issue, forIssue: forIssue, err: err}
+			return worktreeCreated{name: name, path: path, issue: issue, forIssue: forIssue, round: round, err: err}
 		}
 	}
 
 	ctx, createBranch := m.session, m.deps.Git.CreateBranch
 
 	return func() tea.Msg {
-		return branchCreated{name: name, issue: issue, forIssue: forIssue, err: createBranch(ctx, name, base)}
+		return branchCreated{
+			name: name, issue: issue, forIssue: forIssue, round: round, err: createBranch(ctx, name, base),
+		}
 	}
 }
 
-// fetched reports how the fetch before branching went.
+// fetched reports how the fetch before branching went, to the creator that
+// sent it in round.
 type fetched struct {
-	name string
-	err  error
+	name  string
+	round int
+	err   error
 }
 
 var _ applier = fetched{}
 
-// apply creates the branch once the fetch succeeds, or keeps the creator open
-// offering to branch from what is already there when the fetch fails.
+// apply creates the branch once the fetch succeeds, or keeps the creator open,
+// refused at its fetch, offering to branch from what is already there when
+// the fetch fails.
+// A late answer, its creator no longer the one open, changes nothing, success
+// or not; none arrives, since the creator takes no key but ctrl+c, which
+// quits, while its write is out.
 func (msg fetched) apply(m Model) (Model, tea.Cmd) {
-	creator, open := m.overlay.(branchCreator)
-	if !open {
+	m, creator, done := answered[branchCreator](m, msg.round, msg.err)
+	if !done {
 		return m, nil
 	}
 
-	if msg.err != nil {
-		creator.send.sending, creator.fetchProblem, creator.plan = false, msg.err, baseAsIs
-		m.overlay = creator
-
-		return m, nil
-	}
-
-	return m, creator.createCommand(m, msg.name)
+	return creator.sentAt(stepCreate).creating(m, msg.name)
 }
 
-// branchCreated reports how creating a branch went, and the issue it was for so
-// its status can be offered once it exists.
+// branchCreated reports how creating a branch went, to the creator that sent
+// it in round, and the issue it was for so its status can be offered once it
+// exists.
 type branchCreated struct {
 	name     string
 	issue    jira.Issue
 	forIssue bool
+	round    int
 	err      error
 }
 
@@ -74,9 +86,13 @@ var _ applier = branchCreated{}
 // git's reason. A branch for an issue not yet started then offers to move it
 // along; a branch for any issue offers to start its task once nothing else is
 // being asked.
+// A late answer, its creator no longer the one open, changes nothing, success
+// or not; none arrives, since the creator takes no key but ctrl+c, which
+// quits, while its write is out.
 func (msg branchCreated) apply(m Model) (Model, tea.Cmd) {
-	if msg.err != nil {
-		return keepOpenWith[branchCreator](m, msg.err), nil
+	m, _, done := answered[branchCreator](m, msg.round, msg.err)
+	if !done {
+		return m, nil
 	}
 
 	m = m.closeOverlay().noticed(m.marks.done + " created and switched to " + msg.name)
@@ -114,6 +130,7 @@ type worktreeCreated struct {
 	name, path string
 	issue      jira.Issue
 	forIssue   bool
+	round      int
 	err        error
 }
 
@@ -126,9 +143,13 @@ var _ applier = worktreeCreated{}
 // its work has as surely begun. Its branch is new, though, so the issues are
 // marked in flight again, and a Repositories pane already read lists the
 // worktree.
+// A late answer, its creator no longer the one open, changes nothing, success
+// or not; none arrives, since the creator takes no key but ctrl+c, which
+// quits, while its write is out.
 func (msg worktreeCreated) apply(m Model) (Model, tea.Cmd) {
-	if msg.err != nil {
-		return keepOpenWith[branchCreator](m, msg.err), nil
+	m, _, done := answered[branchCreator](m, msg.round, msg.err)
+	if !done {
+		return m, nil
 	}
 
 	path := msg.path
@@ -147,12 +168,4 @@ func (msg worktreeCreated) apply(m Model) (Model, tea.Cmd) {
 	m, branches := m.readingIssueBranches()
 
 	return m.offeringInProgress(msg.issue, msg.forIssue, tea.Batch(branches, reread))
-}
-
-// failed is the creator kept open with the reason it could not create what was
-// asked, so it can be corrected and tried again.
-func (c branchCreator) failed(err error) branchCreator {
-	c.send = c.send.failed(err)
-
-	return c
 }
