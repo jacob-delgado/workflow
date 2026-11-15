@@ -202,19 +202,19 @@ func (m Model) offerStopThenTrack(started []taskwarrior.Task, issue jira.Issue) 
 
 			return m, nil
 		case m.tasks.writing:
-			return keepOpenWith[lastLook](m, errTaskWriteInFlight), nil
+			return m.refusedHere(errTaskWriteInFlight), nil
 		}
 
 		m.tasks.writing = true
 
-		return m, func() tea.Msg {
+		return m.sendingLook(func(round int) tea.Msg {
 			acted := taskActed{
 				verb: "stopped " + namesOf(started, taskName), uuid: "", id: 0, said: "",
 				err: stopEach(ctx, stop, started),
 			}
 
-			return offerAnswered{acted: acted, then: track}
-		}
+			return offerAnswered{round: round, acted: acted, then: track}
+		})
 	}
 
 	return opening(look)
@@ -292,8 +292,8 @@ func doneAsked(ctx context.Context, deps Deps, task taskwarrior.Task) lastLook {
 	return asking(lastLook{
 		title: "Mark the task done", verb: "mark done", doing: "marking done",
 		body: "Mark task " + describedTask(task) + " done?",
-	}, "mark task "+taskName(task)+" done", func() tea.Msg {
-		return doneAnswered{answer: offerAnswered{acted: taskActed{
+	}, "mark task "+taskName(task)+" done", func(round int) tea.Msg {
+		return doneAnswered{answer: offerAnswered{round: round, acted: taskActed{
 			verb: "marked", after: " done", uuid: task.UUID, id: shownID(task), said: "", err: done(ctx, task.UUID),
 		}, then: nil}}
 	})
@@ -357,26 +357,28 @@ func offeredOnOpening(offer func(Model) waitingOffer) waitingOffer {
 // offering is a waiting offer that opens a last look at a change of a task, asking
 // as asking does.
 func offering(look lastLook, wouldDo string, change func() taskActed) waitingOffer {
-	return opening(asking(look, wouldDo, func() tea.Msg { return offerAnswered{acted: change(), then: nil} }))
+	return opening(asking(look, wouldDo, func(round int) tea.Msg {
+		return offerAnswered{round: round, acted: change(), then: nil}
+	}))
 }
 
 // asking is look made to send a change of Taskwarrior once it is confirmed:
-// change runs in one command whose answer closes the look or keeps it open
-// with the reason. In a dry run the look closes saying what it would have
-// done, and nothing is sent; while another write is on its way, the look
-// stays open saying so, since one goes at a time.
-func asking(look lastLook, wouldDo string, change tea.Cmd) lastLook {
+// change, for the round it goes in, runs in one command whose answer closes
+// the look or keeps it open with the reason. In a dry run the look closes
+// saying what it would have done, and nothing is sent; while another write is
+// on its way, the look stays open saying so, since one goes at a time.
+func asking(look lastLook, wouldDo string, change func(round int) tea.Msg) lastLook {
 	look.proceed = func(m Model) (Model, tea.Cmd) {
 		switch {
 		case m.dryRun:
 			return m.closeOverlay().noticed("dry run: would " + wouldDo), nil
 		case m.tasks.writing:
-			return keepOpenWith[lastLook](m, errTaskWriteInFlight), nil
+			return m.refusedHere(errTaskWriteInFlight), nil
 		}
 
 		m.tasks.writing = true
 
-		return m, change
+		return m.sendingLook(change)
 	}
 
 	return look
@@ -392,10 +394,11 @@ func opening(look lastLook) waitingOffer {
 	}
 }
 
-// offerAnswered reports how a change an offer's look asked for went: the change,
-// told as any change of a task is; and what opens once the change is made, nil
-// where nothing does.
+// offerAnswered reports how a change an offer's look asked for went, for the
+// look that sent it in round: the change, told as any change of a task is;
+// and what opens once the change is made, nil where nothing does.
 type offerAnswered struct {
+	round int
 	acted taskActed
 	then  waitingOffer
 }
@@ -407,7 +410,7 @@ var _ applier = offerAnswered{}
 // the change. Only a look's own answer reaches it: a change from the Tasks pane,
 // or the one that tracks an issue, is told and leaves any look as it is.
 func (msg offerAnswered) apply(m Model) (Model, tea.Cmd) {
-	m = m.answerLook(msg.acted.err)
+	m = m.answerLook(msg.round, msg.acted.err)
 	if msg.acted.err == nil && msg.then != nil {
 		m.followUp = msg.then
 	}
@@ -415,20 +418,16 @@ func (msg offerAnswered) apply(m Model) (Model, tea.Cmd) {
 	return msg.acted.apply(m)
 }
 
-// answerLook closes the look that asked once its change is made, or keeps it
-// open with why the change was refused. The look open is the one that asked: in
-// flight, it keeps the keys until its answer.
-func (m Model) answerLook(err error) Model {
-	_, open := m.overlay.(lastLook)
-
-	switch {
-	case !open:
-		return m
-	case err != nil:
-		return keepOpenWith[lastLook](m, err)
-	default:
+// answerLook closes the look that sent its change in round once the change
+// is made, or keeps it open with why the change was refused. Any other look,
+// and a look no longer in flight, is left as it is.
+func (m Model) answerLook(round int, err error) Model {
+	m, _, done := answered[lastLook](m, round, err)
+	if done {
 		return m.closeOverlay()
 	}
+
+	return m
 }
 
 // describedTask names a task and quotes what it is: 3 'PROJ-42: Fix it'.

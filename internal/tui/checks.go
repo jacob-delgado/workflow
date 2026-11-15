@@ -232,15 +232,17 @@ func (m Model) rerunChecks(pull forge.PullRequest, head string) (Model, tea.Cmd)
 
 	ctx, rerun := m.session, m.deps.Forge.Rerun
 
-	return m, func() tea.Msg {
+	return m.sendingLook(func(round int) tea.Msg {
 		reran, err := rerun(ctx, pull, head)
 
-		return rerunRequested{reran: reran, err: err}
-	}
+		return rerunRequested{round: round, reran: reran, err: err}
+	})
 }
 
-// rerunRequested is the outcome of asking the forge to re-run the failed checks.
+// rerunRequested is the outcome of asking the forge to re-run the failed
+// checks, for the look that sent it in round.
 type rerunRequested struct {
+	round int
 	reran bool
 	err   error
 }
@@ -252,20 +254,10 @@ var _ applier = rerunRequested{}
 // re-runnable job for, so the pane must not claim one — closing the look either
 // way. A refusal stays pinned in the look, and says why in the notice.
 func (msg rerunRequested) apply(m Model) (Model, tea.Cmd) {
-	// The look that asked is the one open and in flight; nothing else is touched.
-	look, open := m.overlay.(lastLook)
-	asked := open && look.send.sending
-
+	// The look that asked is the one answered; nothing else is touched.
+	m = m.answerLook(msg.round, msg.err)
 	if msg.err != nil {
-		if asked {
-			m = keepOpenWith[lastLook](m, msg.err)
-		}
-
 		return m.noticedFailureLedBy("re-run failed: ", msg.err), nil
-	}
-
-	if asked {
-		m = m.closeOverlay()
 	}
 
 	if !msg.reran {

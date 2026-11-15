@@ -280,16 +280,18 @@ func (m Model) nextRound() (Model, int) {
 // opened is an overlay an answer finds by the round it opened in.
 type opened interface {
 	overlay
-	// openedAs is the round it opened in, which every read and write it
-	// starts carries back.
+	// openedAs is the round every read and write it starts carries back:
+	// the round it opened in, or, for a last look, which reads nothing,
+	// the round its act was sent in.
 	openedAs() int
 }
 
 // answerFor is the open overlay an answer for round is for, when it is the T
-// opened in that round: the one on top, or the one the owner picker or a
-// last look floats over, which an answer must still reach, or esc would
-// return to it as it was before the answer. An answer for an overlay since
-// closed finds none, even when another of its kind has opened since.
+// whose openedAs is that round: the one on top, or the one the owner picker
+// or a last look floats over, which an answer must still reach, or esc
+// would return to it as it was before the answer; or, for a T that is a
+// last look, the look itself. An answer for an overlay since closed finds
+// none, even when another of its kind has opened since.
 //
 // Not every success goes back through withAnswered: the directory look
 // closes its picker, opens over it or puts it back on top, the check log
@@ -304,7 +306,9 @@ func answerFor[T opened](m Model, round int) (T, bool) {
 	case ownerPicker:
 		target = over.back
 	case lastLook:
-		target = over.back
+		if _, asked := any(over).(T); !asked {
+			target = over.back
+		}
 	}
 
 	open, isOpen := target.(T)
@@ -319,7 +323,7 @@ func answerFor[T opened](m Model, round int) (T, bool) {
 
 // withAnswered puts back the overlay answerFor found, changed: under the
 // owner picker floating over it, whose choices it brings up to date, under
-// the last look that goes back to it, or on top.
+// the last look that goes back to it, or on top, a last look among them.
 func (m Model) withAnswered(changed opened) Model {
 	if links, linking := changed.(linksOwners); linking {
 		if picker, picking := m.overlay.(ownerPicker); picking {
@@ -329,7 +333,7 @@ func (m Model) withAnswered(changed opened) Model {
 		}
 	}
 
-	if look, looking := m.overlay.(lastLook); looking {
+	if look, looking := m.overlay.(lastLook); looking && changed.which() != overlayLastLook {
 		look.back = changed
 		m.overlay = look
 
@@ -388,10 +392,10 @@ func keepOpenWith[T failable[T]](m Model, err error) Model {
 
 // lastLook is an outward act held for a last look before it goes — a push, a
 // re-run of CI, a rebase — so an act reachable from a single key is never one
-// key from its request. esc backs out; enter marks the look in flight and calls
-// proceed, which either sends a request of its own — the look then keeps the
-// keys until the answer, and a refusal stays pinned under its title until esc —
-// or closes the look or opens a run in its place.
+// key from its request. esc backs out; enter calls proceed, which either sends
+// a request of its own through sendingLook — the look then keeps the keys
+// until the answer, and a refusal stays pinned under its title until esc — or
+// refuses here, or closes the look or opens a run in its place.
 type lastLook struct {
 	title string
 	body  string
@@ -408,12 +412,16 @@ type lastLook struct {
 	// stayed is said when esc leaves the look, or nothing is.
 	stayed  string
 	proceed func(m Model) (Model, tea.Cmd)
-	send    sendState
+	// asked is the round the act was sent in, which its answer carries back.
+	asked int
+	send  send.State
+	// problem is why proceed refused the act here, before sending anything.
+	problem error
 }
 
 var (
-	_ failable[lastLook] = lastLook{}
-	_ floating           = lastLook{}
+	_ sender[lastLook] = lastLook{}
+	_ floating         = lastLook{}
 )
 
 // A last look would like at least lookWidth columns, room for a sentence of
@@ -435,24 +443,58 @@ func (l lastLook) wants(kit renderKit, most layout.Size) layout.Size {
 	return layout.Size{Width: width, Height: strings.Count(body, "\n") + 1 + dialogFrameRows}
 }
 
-// view names the act and what it acts on, its outcome pinned under the title.
+// view names the act and what it acts on, its outcome pinned under the title:
+// the act in flight, or why it was refused, here or by the service.
 func (l lastLook) view(kit renderKit, width, _ int) (string, string) {
-	lines := kit.pinnedOutcome(l.send, l.doing, width)
+	lines := append(kit.pinnedProblem(l.problem, width), kit.pinnedSend(l.send, l.doing, width)...)
 
 	return l.title, strings.Join(append(lines, wrap(l.body, width)), "\n")
 }
 
-// failed is the look kept open with the reason its act was refused.
-func (l lastLook) failed(err error) lastLook {
-	l.send = l.send.failed(err)
+// openedAs is the round the act was sent in. A look reads nothing, so its
+// act's answer is the only one it waits for, and it draws its round as the
+// act goes rather than as it opens.
+func (l lastLook) openedAs() int { return l.asked }
+
+// sent is the act's write.
+func (l lastLook) sent() send.State { return l.send }
+
+// withSend is the look with its act's write as state.
+func (l lastLook) withSend(state send.State) lastLook {
+	l.send = state
 
 	return l
+}
+
+// sendingLook sends the act of the last look on top, which handleKey puts
+// there before proceed: write makes the request for the round the act goes
+// in, and the look keeps the keys, in flight, until its answer. A problem
+// from an earlier enter goes, as Sent drops an earlier refusal.
+func (m Model) sendingLook(write func(round int) tea.Msg) (Model, tea.Cmd) {
+	look, _ := m.overlay.(lastLook)
+	m, look.asked = m.nextRound()
+	look.send, _ = look.send.Sent()
+	look.problem = nil
+	m.overlay = look
+	round := look.asked
+
+	return m, func() tea.Msg { return write(round) }
+}
+
+// refusedHere keeps the last look on top open with problem, why proceed
+// would not send its act; a refusal the service gave an earlier enter goes.
+func (m Model) refusedHere(problem error) Model {
+	look, _ := m.overlay.(lastLook)
+	look.problem, look.send = problem, look.send.Cleared()
+	m.overlay = look
+
+	return m
 }
 
 // footer offers going ahead or backing out, and nothing while the act is in
 // flight.
 func (l lastLook) footer(keys keyMap) []key.Binding {
-	if l.send.sending {
+	if l.send.Stage() == send.StageInFlight {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -462,7 +504,7 @@ func (l lastLook) footer(keys keyMap) []key.Binding {
 // handleKey answers a key while the act waits for its last look.
 func (l lastLook) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case l.send.sending:
+	case l.send.Stage() == send.StageInFlight:
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		m.overlay = l.back
@@ -472,7 +514,6 @@ func (l lastLook) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 		return m, nil
 	case key.Matches(msg, m.keys.confirm):
-		l.send = starting()
 		m.overlay = l
 
 		return l.proceed(m)

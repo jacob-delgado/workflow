@@ -179,13 +179,16 @@ func (m Model) discardChange(change gitrepo.Change) (Model, tea.Cmd) {
 
 	ctx, discard := m.session, m.deps.Git.Discard
 
-	return m, func() tea.Msg { return discarded{path: change.Path, err: discard(ctx, change)} }
+	return m.sendingLook(func(round int) tea.Msg {
+		return discarded{round: round, path: change.Path, err: discard(ctx, change)}
+	})
 }
 
-// discarded reports how a discard went.
+// discarded reports how a discard went, for the look that sent it in round.
 type discarded struct {
-	path string
-	err  error
+	round int
+	path  string
+	err   error
 }
 
 var _ applier = discarded{}
@@ -193,7 +196,7 @@ var _ applier = discarded{}
 // apply closes the look and says so, or keeps it open with git's refusal, and
 // reads the status again either way.
 func (msg discarded) apply(m Model) (Model, tea.Cmd) {
-	m = m.answerLook(msg.err)
+	m = m.answerLook(msg.round, msg.err)
 
 	if msg.err != nil {
 		m = m.noticedFailure(msg.err)

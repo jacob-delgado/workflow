@@ -164,3 +164,20 @@ func TestARemovalFromAConfigurationThatDoesNotHoldUpWritesNothing(t *testing.T) 
 		t.Errorf("saved %q, want nothing written", saves)
 	}
 }
+
+func TestARemovalsAnswerOnceItsLookHasGoneLeavesTheScreenAlone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := newWorld()
+	repo.saveSettingsErr = errSettingsUnreadable
+	asked, kept := withheldKeys(t, repo.live(t, 120, 40), repo.counting(savedRemovingToken),
+		append(toRow(tokenRow), removeKey, keyEnter)...)
+	closed := typing(t, handedOver(t, asked, kept), keyEsc)
+
+	// Act
+	view := handedOver(t, closed, kept).View().Content
+
+	// Assert
+	refuseScreen(t, view, "Base URL", errSettingsUnreadable.Error())
+}
