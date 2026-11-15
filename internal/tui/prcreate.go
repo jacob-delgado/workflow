@@ -121,9 +121,9 @@ func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
 		return keepOpenWith[prComposer](m, refusal), nil
 	}
 
-	notice := m.marks.done + " opened " + m.vocab.sigil + strconv.Itoa(msg.pull.Number) + " " + msg.pull.URL
+	opened := m.marks.done + " opened " + m.vocab.sigil + strconv.Itoa(msg.pull.Number) + " " + msg.pull.URL
 	if refusal != nil {
-		notice += "; could not add every reviewer, assignee or label: " + briefly(refusal)
+		opened += "; could not add every reviewer, assignee or label: " + briefly(refusal)
 	}
 
 	m = m.beginReview(m.review.find.Told(pullFind{pull: msg.pull, found: true, madeAfter: nil}))
@@ -131,7 +131,7 @@ func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
 	m.prDrafts = m.prDrafts.without(msg.head)
 
 	m, armed, readHold := m.armOnOpen(msg.pull)
-	m = m.noticed(notice + armed)
+	m = m.noticed(opened + armed)
 
 	// The pull request opened is told the review, superseding a find a
 	// Review refresh began before it opened, so only this one's CI read is

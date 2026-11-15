@@ -19,6 +19,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 	"github.com/jacob-delgado/workflow/internal/tui/frame"
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
+	"github.com/jacob-delgado/workflow/internal/tui/notice"
 	"github.com/jacob-delgado/workflow/internal/workdirs"
 )
 
@@ -92,15 +93,15 @@ func (m Model) noticeLine(width int) string {
 		return ansi.Truncate(" "+sanitize.Text("search: "+m.tasks.listing.narrowing.Text), width, m.marks.ellipsis)
 	}
 
-	return m.notice.row(m.kit(), width)
+	return m.noticeRow(width)
 }
 
-// row is the notice on one row, cut with a mark where it does not fit,
+// noticeRow is the notice on one row, cut with a mark where it does not fit,
 // and in the failure style when it reports one, as red means everywhere else.
-func (n notice) row(kit renderKit, width int) string {
-	text := ansi.Truncate(sanitize.Text(n.text), max(0, width-1), kit.marks.ellipsis)
-	if n.failed {
-		text = kit.styles.failure.Render(text)
+func (m Model) noticeRow(width int) string {
+	text := ansi.Truncate(sanitize.Text(m.notice.Text()), max(0, width-1), m.marks.ellipsis)
+	if m.notice.Stage() == notice.StageFailure {
+		text = m.styles.failure.Render(text)
 	}
 
 	return " " + text
