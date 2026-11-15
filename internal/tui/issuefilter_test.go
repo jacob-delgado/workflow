@@ -39,3 +39,20 @@ func TestAKeyThatTypesNothingLeavesTheIssueFilterAsItWas(t *testing.T) {
 	requireScreen(t, after.View().Content, "OPS-1 In Progress Fix issue", "OPS-2 In Progress Fix bug", "search: Fix")
 	refuseScreen(t, after.View().Content, "no issue matches the filters")
 }
+
+func TestSearchingWhileReadingAnIssueShowsTheList(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// In the collapsed layout the list and the issue take turns; the issue
+	// is being read when the search begins.
+	reading := typing(t, newWorld().live(t, 60, 30), keyEnter)
+
+	// Act
+	searched := typing(t, reading, "/", "a", "d").View().Content
+
+	// Assert
+	// The list shows, narrowed by what was typed, and not the issue read.
+	requireScreen(t, searched, secondIssue, "search: ad")
+	refuseScreen(t, searched, "Tokens reach the log.")
+}
