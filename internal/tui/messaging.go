@@ -435,8 +435,9 @@ func messagingBehavior() behavior {
 		refresh: func(m Model) (Model, tea.Cmd) {
 			m, read := m.readingAnnounces()
 			m, branch := m.readingBranch()
+			m, held := m.rereadHold()
 
-			return m, tea.Batch(read, branch, m.rereadHold())
+			return m, tea.Batch(read, branch, held)
 		},
 		loading: func(m Model) bool { return m.messaging.announces.Refreshing() },
 		scroll:  func(m *Model) *int { return &m.messaging.scroll }, readsBranch: true,

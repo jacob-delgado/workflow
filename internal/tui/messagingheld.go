@@ -111,7 +111,7 @@ func (m Model) held(started armed.Armed, tags postTags) (Model, tea.Cmd) {
 func (m Model) afterNext(next armed.Next) (Model, tea.Cmd) {
 	return map[armed.Next]func() (Model, tea.Cmd){
 		armed.NextNothing:   func() (Model, tea.Cmd) { return m, nil },
-		armed.NextRead:      func() (Model, tea.Cmd) { return m, m.readHold() },
+		armed.NextRead:      m.readHold,
 		armed.NextReadLater: m.readHoldLater,
 		armed.NextDeliver:   func() (Model, tea.Cmd) { return m, m.deliverHold() },
 	}[next]()
@@ -141,25 +141,30 @@ func (msg holdTick) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m, m.rereadHold()
+	return m.rereadHold()
 }
 
 // rereadHold is the read of the hold now, while it waits; nothing otherwise.
-func (m Model) rereadHold() tea.Cmd {
+func (m Model) rereadHold() (Model, tea.Cmd) {
 	if !m.messaging.hold.Stage().Waiting() {
-		return nil
+		return m, nil
 	}
 
 	return m.readHold()
 }
 
-// readHold reads the held pull request, found by the branch it was armed on,
-// never the checkout's, and its CI, under the session.
-func (m Model) readHold() tea.Cmd {
-	ctx, seams, hold, now := m.session, m.holdSeams(), m.messaging.hold, m.deps.now
+// readHold asks the hold for a read and makes it: the held pull request,
+// found by the branch it was armed on, never the checkout's, and its CI,
+// under the session. The hold hears only the read asked last, so one out as
+// a refresh asks another, answering late, is not heard.
+func (m Model) readHold() (Model, tea.Cmd) {
+	var ask armed.Ask
 
-	return func() tea.Msg {
-		reading, failure := seams.Read(ctx, hold, now)
+	m.messaging.hold, ask = m.messaging.hold.Asked()
+	ctx, seams, now := m.session, m.holdSeams(), m.deps.now
+
+	return m, func() tea.Msg {
+		reading, failure := seams.Read(ctx, ask, now)
 
 		return holdRead{reading: reading, failure: failure}
 	}

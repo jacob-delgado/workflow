@@ -37,13 +37,21 @@ func Drive(ctx context.Context, seams Seams, armed Armed, clock Clock, told func
 		if next == NextDeliver {
 			hold, next = hold.Delivered(seams.DeliverHeld(ctx, hold, clock.Now))
 		} else {
-			hold, next = hold.Hear(seams.Read(ctx, hold, clock.Now))
+			hold, next = seams.heard(ctx, hold, clock.Now)
 		}
 
 		told(hold)
 	}
 
 	return hold, nil
+}
+
+// heard is hold stepped on a read of it, asked for and made under ctx, at
+// the time now tells once it is done.
+func (s Seams) heard(ctx context.Context, hold Hold, now func() time.Time) (Hold, Next) {
+	asked, ask := hold.Asked()
+
+	return asked.Hear(s.Read(ctx, ask, now))
 }
 
 // before waits what next asks to wait before it is done: an interval before

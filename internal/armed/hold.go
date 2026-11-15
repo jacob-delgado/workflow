@@ -89,12 +89,14 @@ type Arming struct {
 // Hold is one announcement armed to go once its pull request's CI passes: a
 // value each event steps to the next, which every surface keeps and drives
 // by its own clock. The zero Hold is idle. Every event carries the round it
-// was asked in, and one for another round, or that arrives at a stage it
-// does not apply to, leaves the hold as it was and asks for nothing, so a
-// read or a post that answers late is harmless.
+// was asked in, a read the whole Ask it was made as. One of another round, a
+// read asked before the last of its round, or one that arrives at a stage it
+// does not apply to leaves the hold as it was and asks for nothing, so a read
+// or a post that answers late is harmless.
 type Hold struct {
 	stage        Stage
 	round        int
+	asked        int
 	arming       Arming
 	watch        CIWatch
 	unheardSince time.Time
@@ -110,23 +112,34 @@ type Armed struct {
 	Replaced *Hold
 }
 
-// Reading is a read of the held pull request in round: the pull request the
-// branch's find answered, whether it found one, and its CI, read at the
-// pull request's head where it is open and the one held, at At.
+// Ask is a read of a hold asked for, which Hold.Asked answers: the round it
+// was asked in, which read of that round it is, and what it reads, the pull
+// request held, found by the branch it was armed on. The zero Ask is asked
+// in no round, and no hold hears it.
+type Ask struct {
+	round  int
+	read   int
+	pull   int
+	branch string
+}
+
+// Reading is the read asked as Ask of the held pull request: the pull
+// request the branch's find answered, whether it found one, and its CI, read
+// at the pull request's head where it is open and the one held, at At.
 type Reading struct {
-	Round int
+	Ask   Ask
 	Pull  forge.PullRequest
 	Found bool
 	CI    forge.CI
 	At    time.Time
 }
 
-// Failure is a read in round that failed, at At, and why. A Failure with no
-// error is no failure: the read was heard.
+// Failure is the read asked as Ask that failed, at At, and why. A Failure
+// with no error is no failure: the read was heard.
 type Failure struct {
-	Round int
-	Err   error
-	At    time.Time
+	Ask Ask
+	Err error
+	At  time.Time
 }
 
 // Outcome is how a post of the held delivery in round went, at At:

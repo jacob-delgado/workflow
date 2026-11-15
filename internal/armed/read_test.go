@@ -77,9 +77,10 @@ func TestAReadFindsThePullRequestByTheBranchArmed(t *testing.T) {
 	// C37: whatever the checkout has switched to, the read finds the branch
 	// the hold was armed on, and reads CI at the forge's head (P023).
 	scripted := &scriptedForge{finds: []forge.PullRequest{heldPull()}, cis: []forge.CI{{State: forge.CIRunning}}}
+	_, ask := running(t).Asked()
 
 	// Act
-	reading, failure := scripted.seams(nil).Read(t.Context(), running(t), stoppedClock)
+	reading, failure := scripted.seams(nil).Read(t.Context(), ask, stoppedClock)
 
 	// Assert
 	if failure.Err != nil || !reading.Found || reading.CI.State != forge.CIRunning {
@@ -91,8 +92,8 @@ func TestAReadFindsThePullRequestByTheBranchArmed(t *testing.T) {
 		t.Errorf("read %q at %q, want %q at %q", scripted.branches, scripted.heads, branchName, heldHead)
 	}
 
-	if reading.Round != running(t).Round() || !reading.At.Equal(stoppedClock()) {
-		t.Errorf("reading in round %d at %v, want the hold's round, at the clock's time", reading.Round, reading.At)
+	if reading.Ask != ask || !reading.At.Equal(stoppedClock()) {
+		t.Errorf("reading made as %+v at %v, want the read asked, at the clock's time", reading.Ask, reading.At)
 	}
 }
 
@@ -113,9 +114,10 @@ func TestAReadOfAPullRequestNotToWaitOnReadsNoCI(t *testing.T) {
 
 			// Arrange
 			scripted := &scriptedForge{finds: []forge.PullRequest{found}}
+			_, ask := running(t).Asked()
 
 			// Act
-			reading, failure := scripted.seams(nil).Read(t.Context(), running(t), stoppedClock)
+			reading, failure := scripted.seams(nil).Read(t.Context(), ask, stoppedClock)
 
 			// Assert
 			if failure.Err != nil || reading.Pull != found || len(scripted.heads) != 0 {
@@ -150,14 +152,14 @@ func TestAReadThatFailsIsAFailure(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			hold := running(t)
+			_, ask := running(t).Asked()
 
 			// Act
-			_, failure := tt.scripted.seams(nil).Read(t.Context(), hold, stoppedClock)
+			_, failure := tt.scripted.seams(nil).Read(t.Context(), ask, stoppedClock)
 
 			// Assert
-			if !errors.Is(failure.Err, tt.want) || failure.Round != hold.Round() || !failure.At.Equal(stoppedClock()) {
-				t.Errorf("Read failed with %+v, want %v in the hold's round, at the clock's time", failure, tt.want)
+			if !errors.Is(failure.Err, tt.want) || failure.Ask != ask || !failure.At.Equal(stoppedClock()) {
+				t.Errorf("Read failed with %+v, want %v as the read asked, at the clock's time", failure, tt.want)
 			}
 		})
 	}

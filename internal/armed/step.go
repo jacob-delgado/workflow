@@ -50,8 +50,8 @@ func (h Hold) armedAfresh(armedAt time.Time, arming Arming) Hold {
 	}
 
 	return Hold{
-		stage: stage, round: h.round + 1, arming: arming, watch: WatchFrom(armedAt), unheardSince: time.Time{},
-		ci: forge.CI{}, reason: nil,
+		stage: stage, round: h.round + 1, asked: 0, arming: arming, watch: WatchFrom(armedAt),
+		unheardSince: time.Time{}, ci: forge.CI{}, reason: nil,
 	}
 }
 
@@ -64,6 +64,16 @@ func (h Hold) retold(arming Arming) Hold {
 	h.arming.Unasked, h.arming.Automatic = arming.Unasked, arming.Automatic
 
 	return h
+}
+
+// Asked is the hold with a read of it asked for, and that read, which
+// Seams.Read makes. Only the read asked last in a round is heard: one asked
+// before it read the pull request and its CI as they stood earlier, so,
+// answering late, it leaves the hold as it was.
+func (h Hold) Asked() (Hold, Ask) {
+	h.asked++
+
+	return h, Ask{round: h.round, read: h.asked, pull: h.Pull(), branch: h.Branch()}
 }
 
 // Hear steps the hold on a read: Unheard when failure carries an error, else
@@ -81,9 +91,10 @@ func (h Hold) Hear(reading Reading, failure Failure) (Hold, Next) {
 // that is another, none, closed, merged or merging drops it; otherwise its
 // CI says how it waits, or that it is due, its delivery's pull request and
 // head taken from the read, or drops it: no check reported within
-// NoCIPatience, or CI that ran unchanged for RunningPatience.
+// NoCIPatience, or CI that ran unchanged for RunningPatience. A read asked
+// before the last in its round is not heard.
 func (h Hold) Heard(reading Reading) (Hold, Next) {
-	if !h.current(reading.Round) {
+	if !h.hears(reading.Ask) {
 		return h, NextNothing
 	}
 
@@ -154,9 +165,10 @@ func givenUpOn(verdict Verdict) error {
 // Unheard steps a waiting hold on a read that failed: it waits to read
 // again, the time not counted as quiet, until UnheardPatience has passed
 // since the first failure since one was heard, and then drops it with
-// ErrUnheard. Listing, it stays listing.
+// ErrUnheard. Listing, it stays listing. A read asked before the last in its
+// round is not heard failing either.
 func (h Hold) Unheard(failure Failure) (Hold, Next) {
-	if !h.current(failure.Round) {
+	if !h.hears(failure.Ask) {
 		return h, NextNothing
 	}
 
@@ -280,10 +292,10 @@ func (h Hold) Retire() Hold {
 	return h.ended(StageStopped, ErrLost)
 }
 
-// current reports whether an event of round applies: the hold's own round,
-// while it waits.
-func (h Hold) current(round int) bool {
-	return round == h.round && h.stage.Waiting()
+// hears reports whether the read asked as ask applies: the read asked last
+// in the hold's own round, while it waits.
+func (h Hold) hears(ask Ask) bool {
+	return ask.round == h.round && ask.read == h.asked && h.stage.Waiting()
 }
 
 // ended is the hold at stage, done with, for reason.

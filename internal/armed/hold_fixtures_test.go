@@ -70,11 +70,29 @@ func armedWith(t *testing.T, arm armed.Arming) armed.Hold {
 	return got.Hold
 }
 
+// askedAndHeard is hold stepped on reading, made as a read asked of it now:
+// the read asked last.
+func askedAndHeard(hold armed.Hold, reading armed.Reading) (armed.Hold, armed.Next) {
+	asked, ask := hold.Asked()
+	reading.Ask = ask
+
+	return asked.Heard(reading)
+}
+
+// askedAndFailed is hold stepped on failure, made as a read asked of it now:
+// the read asked last.
+func askedAndFailed(hold armed.Hold, failure armed.Failure) (armed.Hold, armed.Next) {
+	asked, ask := hold.Asked()
+	failure.Ask = ask
+
+	return asked.Unheard(failure)
+}
+
 // heardAs is hold stepped on a read, after elapsed, that found pull with its
 // CI at state.
 func heardAs(hold armed.Hold, pull forge.PullRequest, state forge.CIState, elapsed time.Duration) armed.Hold {
-	stepped, _ := hold.Heard(armed.Reading{
-		Round: hold.Round(), Pull: pull, Found: true, CI: forge.CI{State: state}, At: after(elapsed),
+	stepped, _ := askedAndHeard(hold, armed.Reading{
+		Pull: pull, Found: true, CI: forge.CI{State: state}, At: after(elapsed),
 	})
 
 	return stepped
@@ -82,7 +100,7 @@ func heardAs(hold armed.Hold, pull forge.PullRequest, state forge.CIState, elaps
 
 // unheardAt is hold stepped on a read, after elapsed, that failed with errSeam.
 func unheardAt(hold armed.Hold, elapsed time.Duration) armed.Hold {
-	stepped, _ := hold.Unheard(armed.Failure{Round: hold.Round(), Err: errSeam, At: after(elapsed)})
+	stepped, _ := askedAndFailed(hold, armed.Failure{Err: errSeam, At: after(elapsed)})
 
 	return stepped
 }
