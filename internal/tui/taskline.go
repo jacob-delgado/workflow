@@ -13,13 +13,15 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
+	"github.com/jacob-delgado/workflow/internal/tui/send"
 )
 
 // addCommand is what a line that adds a task is typed after.
 const addCommand = "task add"
 
 // taskLine is one line in Taskwarrior's own grammar being typed for a task
-// command — add, annotate or modify — and how sending it is going.
+// command — add, annotate or modify — and how sending it is going: its one
+// write, answered by the round it opened in, and what keeps it from going.
 type taskLine struct {
 	// title is the overlay's: "Add a task", "Track PROJ-42", "Annotate 12".
 	title string
@@ -35,14 +37,16 @@ type taskLine struct {
 	heldBack string
 	// tracks is the issue the line tracks, which counts as tracked from the
 	// add's answer until a read begun after it lands; empty for any other line.
-	tracks  jira.Key
+	tracks jira.Key
+	// opened is the round the line opened in, which its write carries back.
+	opened  int
 	problem error
-	sending sendState
+	send    send.State
 }
 
 var (
-	_ failable[taskLine] = taskLine{}
-	_ pasteable          = taskLine{}
+	_ sender[taskLine] = taskLine{}
+	_ pasteable        = taskLine{}
 )
 
 // openTaskLine opens a line to type for a task command, starting from prefill.
@@ -51,6 +55,7 @@ var (
 func (m Model) openTaskLine(line taskLine, prefill string) (Model, tea.Cmd) {
 	line.input = sizedInput(newInput(""), m.detailWidth())
 	line.input.SetValue(prefill)
+	m, line.opened = m.nextRound()
 	m.overlay = line
 
 	return m, nil
@@ -114,24 +119,28 @@ func (l taskLine) view(kit renderKit, width, _ int) (string, string) {
 	return l.title, strings.Join(lines, "\n")
 }
 
-// outcome says how sending is going, or that the line is still empty. A
+// outcome says how sending is going, or why the line was not sent. A
 // refusal is wrapped rather than cut, so Taskwarrior's own words are all seen.
 func (l taskLine) outcome(kit renderKit, width int) []string {
-	switch {
-	case l.sending.sending:
+	if l.send.Stage() == send.StageInFlight {
 		return []string{"", "sending" + kit.marks.ellipsis}
-	case l.sending.err != nil:
-		return []string{"", wrap(kit.failureLine(l.sending.err), width)}
-	case l.problem != nil:
-		return []string{"", kit.failureLine(l.problem)}
-	default:
-		return nil
 	}
+
+	reason := l.send.Reason()
+	if reason != nil {
+		return []string{"", wrap(kit.failureLine(reason), width)}
+	}
+
+	if l.problem != nil {
+		return []string{"", kit.failureLine(l.problem)}
+	}
+
+	return nil
 }
 
 // footer offers sending or canceling; while sending, only quitting.
 func (l taskLine) footer(keys keyMap) []key.Binding {
-	if l.sending.sending {
+	if l.send.Stage() == send.StageInFlight {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -141,7 +150,7 @@ func (l taskLine) footer(keys keyMap) []key.Binding {
 // handleKey answers a key while the line has the keyboard.
 func (l taskLine) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case l.sending.sending:
+	case l.send.Stage() == send.StageInFlight:
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
@@ -159,9 +168,22 @@ func (l taskLine) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // which names a task form.
 func (taskLine) which() overlayKind { return overlayTaskLine }
 
+// openedAs is the round the line opened in.
+func (l taskLine) openedAs() int { return l.opened }
+
+// sent is the line's write.
+func (l taskLine) sent() send.State { return l.send }
+
+// withSend is the line with state as its write.
+func (l taskLine) withSend(state send.State) taskLine {
+	l.send = state
+
+	return l
+}
+
 // pasted types a paste into the line, as typing it would.
 func (l taskLine) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
-	if l.sending.sending {
+	if l.send.Stage() == send.StageInFlight {
 		return m, nil
 	}
 
@@ -173,13 +195,12 @@ func (l taskLine) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
 }
 
 // confirm sends the typed line, refusing an empty one in place, and holding it
-// back in a dry run.
+// back in a dry run. A line kept from going drops Taskwarrior's earlier
+// refusal, so why it was kept is what shows rather than a stale reason.
 func (l taskLine) confirm(m Model) (Model, tea.Cmd) {
 	line := strings.TrimSpace(l.input.Value())
 	if line == "" {
-		// Clear any earlier send failure, so "needs a value" is what shows rather
-		// than a stale reason from the last attempt.
-		l.sending, l.problem = sendState{}, errNeedsValue
+		l.send, l.problem = l.send.Cleared(), errNeedsValue
 		m.overlay = l
 
 		return m, nil
@@ -191,20 +212,22 @@ func (l taskLine) confirm(m Model) (Model, tea.Cmd) {
 
 	writes, sent := m.tasks.writes.sent()
 	if !sent {
-		l.sending, l.problem = sendState{}, errTaskWriteInFlight
+		l.send, l.problem = l.send.Cleared(), errTaskWriteInFlight
 		m.overlay = l
 
 		return m, nil
 	}
 
-	l.sending = starting()
+	// handleKey takes no key while the line's write is out, so this one goes.
+	l.send, _ = l.send.Sent()
+	l.problem = nil
 	m.overlay = l
 	m.tasks.writes = writes
-	write, after, stub := l.write, l.after, l.stub(line)
+	write, after, stub, round := l.write, l.after, l.stub(line), l.opened
 
 	return m, func() tea.Msg {
 		sent := write(line)
-		sent.after, sent.stub = after, stub
+		sent.after, sent.stub, sent.round = after, stub, round
 
 		return sent
 	}
@@ -223,16 +246,9 @@ func (l taskLine) stub(line string) taskwarrior.Task {
 	return taskwarrior.Task{IssueKey: string(l.tracks), Description: strings.TrimSpace(words), Status: taskwarrior.Pending}
 }
 
-// failed is the line kept open with the reason Taskwarrior refused it.
-func (l taskLine) failed(err error) taskLine {
-	l.sending = l.sending.failed(err)
-
-	return l
-}
-
-// taskLineSent reports how a task line went: what was done, to which task, why
-// it failed, what follows, and the stub of the task it adds for an issue, if it
-// tracks one.
+// taskLineSent reports how a task line went, to the line that sent it in
+// round: what was done, to which task, why it failed, what follows, and the
+// stub of the task it adds for an issue, if it tracks one.
 type taskLineSent struct {
 	verb  string
 	uuid  string
@@ -240,6 +256,7 @@ type taskLineSent struct {
 	err   error
 	after taskFollow
 	stub  taskwarrior.Task
+	round int
 }
 
 var _ applier = taskLineSent{}
@@ -247,12 +264,16 @@ var _ applier = taskLineSent{}
 // apply keeps the line open with Taskwarrior's words when it refused it, or
 // closes it, says what was done, counts the issue it tracks as tracked, and goes
 // on to what follows, a write whose answer lets the next go — or, where nothing
-// follows, reads the tasks again.
+// follows, reads the tasks again. Its write has answered either way, so only
+// what follows a success holds the next one back. A late answer, its line no
+// longer the one open, only releases the next, success or not; none arrives,
+// since the line takes no key but ctrl+c, which quits, while its write is out.
 func (msg taskLineSent) apply(m Model) (Model, tea.Cmd) {
-	if msg.err != nil {
+	m, _, done := answered[taskLine](m, msg.round, msg.err)
+	if !done {
 		m.tasks.writes = m.tasks.writes.answered()
 
-		return keepOpenWith[taskLine](m, msg.err), nil
+		return m, nil
 	}
 
 	m = m.closeOverlay().noticed(m.marks.done + " " + taskNote(msg.verb, msg.id, msg.uuid))
