@@ -73,7 +73,7 @@ func (s tasksState) rail(view tasksView) string {
 	return drawRead(s.read, drawnRead[string]{
 		reading: view.kit.reading,
 		shown: func() string {
-			if s.writing {
+			if s.writes.out() {
 				return view.kit.marks.inFlight + " sending" + view.kit.marks.ellipsis
 			}
 

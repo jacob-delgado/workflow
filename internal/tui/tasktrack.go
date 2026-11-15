@@ -125,7 +125,7 @@ func (m Model) canTrack(issueKey jira.Key) bool {
 
 	_, tracked := m.trackingTask(issueKey)
 
-	return tracked || !m.tasks.writing
+	return tracked || !m.tasks.writes.out()
 }
 
 // trackKey is the track key as the Issues footer offers it: going to the task

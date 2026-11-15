@@ -195,17 +195,19 @@ func (m Model) offerStopThenTrack(started []taskwarrior.Task, issue jira.Issue) 
 		body: "Stop " + stopping + ", then track and start " + shownKey(issue.Key) + "?",
 	}
 	look.proceed = func(m Model) (Model, tea.Cmd) {
+		writes, sent := m.tasks.writes.sent()
+
 		switch {
 		case m.dryRun:
 			m = m.closeOverlay().noticed("dry run: would stop " + eachTask(started, taskName))
 			m.followUp = track
 
 			return m, nil
-		case m.tasks.writing:
+		case !sent:
 			return m.refusedHere(errTaskWriteInFlight), nil
 		}
 
-		m.tasks.writing = true
+		m.tasks.writes = writes
 
 		return m.sendingLook(func(round int) tea.Msg {
 			acted := taskActed{
@@ -369,14 +371,16 @@ func offering(look lastLook, wouldDo string, change func() taskActed) waitingOff
 // on its way, the look stays open saying so, since one goes at a time.
 func asking(look lastLook, wouldDo string, change func(round int) tea.Msg) lastLook {
 	look.proceed = func(m Model) (Model, tea.Cmd) {
+		writes, sent := m.tasks.writes.sent()
+
 		switch {
 		case m.dryRun:
 			return m.closeOverlay().noticed("dry run: would " + wouldDo), nil
-		case m.tasks.writing:
+		case !sent:
 			return m.refusedHere(errTaskWriteInFlight), nil
 		}
 
-		m.tasks.writing = true
+		m.tasks.writes = writes
 
 		return m.sendingLook(change)
 	}
