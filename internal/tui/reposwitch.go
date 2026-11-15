@@ -266,9 +266,22 @@ func (m Model) reopen(dir string, saved reopening) (Model, tea.Cmd) {
 // holds the keyboard while its link saves, and is counted all the same, so
 // every link is counted one way.
 type paneWrites struct {
-	staging int
-	links   int
+	staging inFlight
+	links   inFlight
 }
+
+// inFlight counts the writes of one kind sent and not yet answered, which a
+// switch would leave unknown.
+type inFlight int
+
+// sent counts one more write on its way.
+func (c inFlight) sent() inFlight { return c + 1 }
+
+// answered counts one write fewer, its answer in.
+func (c inFlight) answered() inFlight { return c - 1 }
+
+// out reports whether any write is still on its way.
+func (c inFlight) out() bool { return c > 0 }
 
 // switching is what a directory switch is called while it waits for a write.
 const switching = "switching"
@@ -294,11 +307,11 @@ func (m Model) writeInFlight() string {
 		return "the announcement"
 	case m.tasks.writing:
 		return "the change to a task"
-	case m.paneWrites.staging > 0:
+	case m.paneWrites.staging.out():
 		return "staging"
-	case m.repositories.changing:
+	case m.repositories.changing.out():
 		return "the change to your favorites"
-	case m.paneWrites.links > 0:
+	case m.paneWrites.links.out():
 		return "the link to Slack"
 	default:
 		return ""
