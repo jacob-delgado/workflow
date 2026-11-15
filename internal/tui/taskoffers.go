@@ -361,11 +361,11 @@ func offering(look lastLook, wouldDo string, change func() taskActed) waitingOff
 }
 
 // asking is look made to send a change of Taskwarrior once it is confirmed:
-// send runs in one command whose answer closes the look or keeps it open with
-// the reason. In a dry run the look closes saying what it would have done, and
-// nothing is sent; while another write is on its way, the look stays open
-// saying so, since one goes at a time.
-func asking(look lastLook, wouldDo string, send tea.Cmd) lastLook {
+// change runs in one command whose answer closes the look or keeps it open
+// with the reason. In a dry run the look closes saying what it would have
+// done, and nothing is sent; while another write is on its way, the look
+// stays open saying so, since one goes at a time.
+func asking(look lastLook, wouldDo string, change tea.Cmd) lastLook {
 	look.proceed = func(m Model) (Model, tea.Cmd) {
 		switch {
 		case m.dryRun:
@@ -376,7 +376,7 @@ func asking(look lastLook, wouldDo string, send tea.Cmd) lastLook {
 
 		m.tasks.writing = true
 
-		return m, send
+		return m, change
 	}
 
 	return look

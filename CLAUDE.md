@@ -51,6 +51,7 @@ internal/tui/frame/   a titled, bordered box of an exact size
 internal/tui/latest/  a read whose answer is shown only if no later read has begun
 internal/tui/layout/  where each region of the interface goes, per terminal size
 internal/tui/quietinput/ the Huh field typed text goes through, whose cursor never blinks
+internal/tui/send/    the one write an overlay has out, and the refusal it came back with
 internal/webserver/   the --web REST API and event stream, bound to 127.0.0.1
 internal/webserver/edge/ the request boundary of --web: the guards, the session, the contract check and the app
 internal/webserver/problem/ the RFC 9457 problem details the --web API answers a failure with

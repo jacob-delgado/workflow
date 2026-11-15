@@ -11,13 +11,14 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/tui/latest"
+	"github.com/jacob-delgado/workflow/internal/tui/send"
 )
 
-// sendState is an outbound request: whether it is in flight, and the error it
-// came back with. Every overlay that posts, applies or writes carries one, and
-// so does the Messaging pane's own post, so "in flight, then failed with this"
-// is written and named one way rather than as a sending bool beside an err, an
-// applyErr or a problem.
+// sendState is what is left of the old shape of an outbound request: whether
+// it is in flight, and the error it came back with. The overlays not yet
+// moved to send.State carry one, whose answer finds them by type alone
+// (keepOpenWith), and so does the Messaging pane's own post; a new overlay
+// holds a send.State instead.
 type sendState struct {
 	sending bool
 	err     error
@@ -195,13 +196,29 @@ func (kit renderKit) pinnedProblem(problem error, width int) []string {
 // pinnedOutcome is an overlay's outcome — the in-flight word or the refusal —
 // drawn under the title rather than at the bottom, so a long reason is wrapped
 // and seen instead of clipped below the fold. Empty when nothing has happened.
-func (kit renderKit) pinnedOutcome(send sendState, doing string, width int) []string {
+func (kit renderKit) pinnedOutcome(outcome sendState, doing string, width int) []string {
 	switch {
-	case send.sending:
+	case outcome.sending:
 		return []string{doing + kit.marks.ellipsis, ""}
-	case send.err != nil:
-		return []string{kit.failureBlock(send.err, width), ""}
+	case outcome.err != nil:
+		return []string{kit.failureBlock(outcome.err, width), ""}
 	default:
 		return nil
 	}
+}
+
+// pinnedSend is pinnedOutcome for a write held in a send.State: the
+// in-flight word while it is out, the refusal once refused, and nothing
+// while idle, which has no reason to draw.
+func (kit renderKit) pinnedSend(state send.State, doing string, width int) []string {
+	if state.Stage() == send.StageInFlight {
+		return []string{doing + kit.marks.ellipsis, ""}
+	}
+
+	reason := state.Reason()
+	if reason != nil {
+		return []string{kit.failureBlock(reason, width), ""}
+	}
+
+	return nil
 }

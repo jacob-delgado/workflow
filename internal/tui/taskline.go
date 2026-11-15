@@ -85,11 +85,11 @@ func (m Model) openSelectedTaskLine(
 	}
 
 	ctx, name := m.session, taskName(task)
-	send := func(line string) taskLineSent {
+	sendLine := func(line string) taskLineSent {
 		return taskLineSent{verb: did, uuid: task.UUID, id: task.ID, err: write(ctx, task.UUID, line), after: nil}
 	}
 
-	return m.openTaskLine(taskLine{title: title + " " + name, command: "task " + name + " " + verb, write: send}, "")
+	return m.openTaskLine(taskLine{title: title + " " + name, command: "task " + name + " " + verb, write: sendLine}, "")
 }
 
 // addLine is the write an add line sends under ctx: the line to task add,

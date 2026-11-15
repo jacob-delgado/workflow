@@ -352,7 +352,7 @@ func (msg branchLinked) apply(m Model) (Model, tea.Cmd) {
 
 	ref, _ := convention.RefOf(string(msg.issueKey))
 	if ref.Tracker == convention.TrackerJira && msg.pull.Number != 0 && m.deps.Jira.LinkPullRequest != nil {
-		m.overlay = issueLinker{vocab: m.vocab, issueKey: msg.issueKey, pull: msg.pull}
+		m = m.openIssueLinker(msg.issueKey, msg.pull)
 	}
 
 	return m.readingBranch()
