@@ -244,3 +244,48 @@ func TestALogReadForAChecksListSinceClosedStaysOutOfTheOneOpenedAfter(t *testing
 	requireScreen(t, answered.View().Content, "Open a check's page")
 	refuseScreen(t, answered.View().Content, "--- FAIL: TestRetry")
 }
+
+// withTwoFailedJobs is the world with CI failed on two jobs listed after a
+// passing check: unit-race, whose log the forge keeps, then lint-go, whose
+// log it keeps when logged.
+func withTwoFailedJobs(logged bool) *world {
+	failing := withAFailedJob(true)
+	failing.ci[0].Total, failing.ci[0].Done, failing.ci[0].Failed = 3, 3, 2
+	failing.ci[0].Checks = append(failing.ci[0].Checks, forge.Check{
+		ID: "502", Name: "lint-go", State: forge.CIFailed, URL: "https://ci/502", LogAvailable: logged,
+	})
+
+	return failing
+}
+
+func TestALogAskedForEarlierLeavesTheOneAskedForLastToShow(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	failing := withTwoFailedJobs(true)
+	listed := typing(t, failing.live(t, 120, 40), "4", "c", downAction)
+	asked, reads := withheldKeys(t, listed, failing.counting("job-log"), "l", downAction, "l")
+
+	// Act
+	view := handedOver(t, asked, reads).View().Content
+
+	// Assert
+	requireScreen(t, view, "lint-go", "--- FAIL: TestRetry")
+	refuseScreen(t, view, "unit-race")
+}
+
+func TestALogAskedForBeforeACheckWithNoLogStaysOutOfTheList(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	failing := withTwoFailedJobs(false)
+	listed := typing(t, failing.live(t, 120, 40), "4", "c", downAction)
+	asked, reads := withheldKeys(t, listed, failing.counting("job-log"), "l", downAction, "l")
+
+	// Act
+	view := handedOver(t, asked, reads).View().Content
+
+	// Assert
+	requireScreen(t, view, "lint-go", "keeps no log")
+	refuseScreen(t, view, "--- FAIL: TestRetry")
+}

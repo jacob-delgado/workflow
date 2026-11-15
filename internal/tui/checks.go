@@ -38,6 +38,8 @@ type checkList struct {
 	// opened is the round the list opened in, which a log read and a page
 	// opened from it carry back, so neither lands in a list opened after.
 	opened int
+	// log is the read of the log last asked for, the one whose answer shows.
+	log latest.Read[forge.JobLog]
 }
 
 var (
@@ -342,32 +344,34 @@ func (s reviewState) failedChecks(kit renderKit) []string {
 }
 
 // readLog asks the forge for the selected check's log, or says the forge
-// keeps none for it. It is asked for only here, on the key, never as CI is
-// polled.
+// keeps none for it, on the key alone, never as CI is polled. Either way a
+// log asked for before shows nothing.
 func (c checkList) readLog(m Model) (Model, tea.Cmd) {
 	check, _ := c.checks.chosen()
 	if !check.LogAvailable || m.deps.Forge.JobLog == nil {
-		c.err, c.outcome = forge.ErrNoLog, ""
+		c.err, c.outcome, c.log = forge.ErrNoLog, "", c.log.Cleared()
 		m.overlay = c
 
 		return m, nil
 	}
 
-	c.err, c.outcome = nil, "reading the log"+m.marks.ellipsis
+	reading, round := c.log.Begin()
+	c.log, c.err, c.outcome = reading, nil, "reading the log"+m.marks.ellipsis
 	m.overlay = c
 	ctx, read, opened := m.session, m.deps.Forge.JobLog, c.opened
 
 	return m, func() tea.Msg {
 		log, err := read(ctx, check)
 
-		return logRead{opened: opened, check: check, log: log, err: err}
+		return logRead{opened: opened, round: round, check: check, log: log, err: err}
 	}
 }
 
 // logRead carries a check's log back into the update loop, for the list
-// opened as opened.
+// opened as opened, from the log read it began in round.
 type logRead struct {
 	opened int
+	round  latest.Round
 	check  forge.Check
 	log    forge.JobLog
 	err    error
@@ -377,20 +381,25 @@ var _ applier = logRead{}
 
 // apply shows the log in place of the checks, or the reason it could not be
 // read beneath them; nothing when the checks it was read from have since
-// closed, even when others have opened.
+// closed, even when others have opened, or when a log was asked for since.
 func (msg logRead) apply(m Model) (Model, tea.Cmd) {
 	list, open := answerFor[checkList](m, msg.opened)
 	if !open {
 		return m, nil
 	}
 
+	answered, taken := list.log.Answered(msg.round, msg.log, msg.err)
+	if !taken {
+		return m, nil
+	}
+
 	if msg.err != nil {
-		list.err, list.outcome = msg.err, ""
+		list.err, list.outcome, list.log = msg.err, "", answered
 
 		return m.withAnswered(list), nil
 	}
 
-	list.outcome = ""
+	list.outcome, list.log = "", answered
 	m.overlay = jobLogView{check: msg.check, log: msg.log, back: list}
 
 	return m, nil
