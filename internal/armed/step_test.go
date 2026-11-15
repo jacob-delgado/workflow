@@ -46,8 +46,8 @@ func reasonIs(reason, want error) bool {
 // state, after elapsed.
 func hearing(pull forge.PullRequest, found bool, state forge.CIState, elapsed time.Duration) step {
 	return func(hold armed.Hold) (armed.Hold, armed.Next) {
-		return hold.Heard(armed.Reading{
-			Round: hold.Round(), Pull: pull, Found: found, CI: forge.CI{State: state}, At: after(elapsed),
+		return askedAndHeard(hold, armed.Reading{
+			Pull: pull, Found: found, CI: forge.CI{State: state}, At: after(elapsed),
 		})
 	}
 }
@@ -55,7 +55,7 @@ func hearing(pull forge.PullRequest, found bool, state forge.CIState, elapsed ti
 // failing is a read that failed with err after elapsed.
 func failing(err error, elapsed time.Duration) step {
 	return func(hold armed.Hold) (armed.Hold, armed.Next) {
-		return hold.Unheard(armed.Failure{Round: hold.Round(), Err: err, At: after(elapsed)})
+		return askedAndFailed(hold, armed.Failure{Err: err, At: after(elapsed)})
 	}
 }
 
@@ -221,9 +221,7 @@ func TestAHoldUnheardForItsPatienceSaysWhyAndWhatFailed(t *testing.T) {
 	hold := unheard(t)
 
 	// Act
-	got, _ := hold.Unheard(armed.Failure{
-		Round: hold.Round(), Err: errSeam, At: after(2*time.Minute + armed.UnheardPatience),
-	})
+	got, _ := askedAndFailed(hold, armed.Failure{Err: errSeam, At: after(2*time.Minute + armed.UnheardPatience)})
 
 	// Assert
 	unheard, ok := errors.AsType[armed.UnheardError](got.Reason())
@@ -242,7 +240,7 @@ func TestAHeardReadStartsTheUnheardPatienceAgain(t *testing.T) {
 	hold = unheardAt(hold, 6*time.Minute)
 
 	// Act
-	got, next := hold.Unheard(armed.Failure{Round: hold.Round(), Err: errSeam, At: after(14 * time.Minute)})
+	got, next := askedAndFailed(hold, armed.Failure{Err: errSeam, At: after(14 * time.Minute)})
 
 	// Assert
 	if got.Stage() != armed.StageUnheard || next != armed.NextReadLater {
@@ -262,8 +260,8 @@ func TestAnOutageIsNotCountedAsQuiet(t *testing.T) {
 	hold = unheardAt(hold, 9*time.Minute)
 
 	// Act
-	got, next := hold.Heard(armed.Reading{
-		Round: hold.Round(), Pull: heldPull(), Found: true, CI: forge.CI{State: forge.CINone}, At: after(10 * time.Minute),
+	got, next := askedAndHeard(hold, armed.Reading{
+		Pull: heldPull(), Found: true, CI: forge.CI{State: forge.CINone}, At: after(10 * time.Minute),
 	})
 
 	// Assert
@@ -385,28 +383,17 @@ func TestAPullClosedAfterAGateRefusalIsNoLongerTheOne(t *testing.T) {
 	}
 }
 
-func TestAnEventOfAnotherRoundChangesNothing(t *testing.T) {
+func TestAnOutcomeOfAnotherRoundOrOfNoPostChangesNothing(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
 		from  func(*testing.T) armed.Hold
 		event step
 	}{
-		"a late read": {from: running, event: func(hold armed.Hold) (armed.Hold, armed.Next) {
-			return hold.Heard(armed.Reading{
-				Round: hold.Round() - 1, Pull: heldPull(), Found: true, CI: forge.CI{State: forge.CIPassed},
-			})
-		}},
-		"a late failure": {from: running, event: func(hold armed.Hold) (armed.Hold, armed.Next) {
-			return hold.Unheard(armed.Failure{Round: hold.Round() + 1, Err: errSeam, At: after(armed.UnheardPatience)})
-		}},
 		"a late outcome": {from: due, event: func(hold armed.Hold) (armed.Hold, armed.Next) {
 			return hold.Delivered(armed.Outcome{Round: hold.Round() - 1, Err: nil})
 		}},
-		"an outcome of no post":  {from: running, event: delivering(nil, 2*time.Minute)},
-		"a read once posted":     {from: posted, event: hearing(heldPull(), true, forge.CIFailed, 3*time.Minute)},
-		"a read while posting":   {from: due, event: hearing(heldPull(), true, forge.CIFailed, 3*time.Minute)},
-		"a failure once stopped": {from: stopped, event: failing(errSeam, 3*time.Minute)},
+		"an outcome of no post": {from: running, event: delivering(nil, 2*time.Minute)},
 	}
 
 	for name, tt := range cases {

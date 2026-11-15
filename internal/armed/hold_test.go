@@ -359,7 +359,7 @@ func TestAHoldKeepsTheCIItLastHeard(t *testing.T) {
 	ci := forge.CI{State: forge.CIRunning, Total: 3, Done: 1}
 
 	// Act
-	got, _ := hold.Heard(armed.Reading{Round: hold.Round(), Pull: heldPull(), Found: true, CI: ci, At: after(time.Hour)})
+	got, _ := askedAndHeard(hold, armed.Reading{Pull: heldPull(), Found: true, CI: ci, At: after(time.Hour)})
 
 	// Assert
 	if got.CI().Total != 3 || got.CI().Done != 1 {

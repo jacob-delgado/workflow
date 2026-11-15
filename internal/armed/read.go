@@ -25,28 +25,28 @@ type Seams struct {
 	UnaskedTags func(ctx context.Context, delivery loop.Delivery) messaging.Mentions
 }
 
-// Read reads the held pull request under ctx, as the hold's round, at the
-// time now tells once it is done: the branch's pull request, found by the
-// branch armed, never the checkout's, and, where it is open and the one
+// Read makes the read asked as ask of the held pull request under ctx, at
+// the time now tells once it is done: the branch's pull request, found by
+// the branch armed, never the checkout's, and, where it is open and the one
 // held, its CI at the commit the forge says it is at. A read that failed is
 // the Failure, its Err set; else the Reading. One with no head commit to read
 // CI at failed, with ErrNoHead.
-func (s Seams) Read(ctx context.Context, hold Hold, now func() time.Time) (Reading, Failure) {
-	pull, found, err := s.FindPull(ctx, hold.Branch())
+func (s Seams) Read(ctx context.Context, ask Ask, now func() time.Time) (Reading, Failure) {
+	pull, found, err := s.FindPull(ctx, ask.branch)
 	if err != nil {
-		return Reading{}, Failure{Round: hold.Round(), Err: err, At: now()}
+		return Reading{}, Failure{Ask: ask, Err: err, At: now()}
 	}
 
-	reading := Reading{Round: hold.Round(), Pull: pull, Found: found, CI: forge.CI{}, At: time.Time{}}
+	reading := Reading{Ask: ask, Pull: pull, Found: found, CI: forge.CI{}, At: time.Time{}}
 
-	if found && pull.IsOpen() && pull.Number == hold.Pull() {
+	if found && pull.IsOpen() && pull.Number == ask.pull {
 		if pull.HeadCommit == "" {
-			return Reading{}, Failure{Round: hold.Round(), Err: ErrNoHead, At: now()}
+			return Reading{}, Failure{Ask: ask, Err: ErrNoHead, At: now()}
 		}
 
 		reading.CI, err = s.CheckCI(ctx, pull, pull.HeadCommit)
 		if err != nil {
-			return Reading{}, Failure{Round: hold.Round(), Err: err, At: now()}
+			return Reading{}, Failure{Ask: ask, Err: err, At: now()}
 		}
 	}
 

@@ -199,13 +199,26 @@ func (s *server) deliverSeams() loop.DeliverSeams {
 	return loop.DeliverSeams{Post: s.deps.Messaging.Post, CheckCI: s.deps.Forge.CheckStatus}
 }
 
-// readHeld reads the held pull request and its CI under ctx, and steps the
-// hold on what it heard.
+// readHeld asks the hold for a read, reads the held pull request and its CI
+// under ctx, and steps the hold on what it heard.
 func (s *server) readHeld(ctx context.Context) armed.Next {
-	hold, seams := s.heldNow()
-	reading, failure := seams.Read(ctx, hold, s.now)
+	ask, seams := s.askHeld()
+	reading, failure := seams.Read(ctx, ask, s.now)
 
 	return s.stepHeld(func(held armed.Hold) (armed.Hold, armed.Next) { return held.Hear(reading, failure) })
+}
+
+// askHeld asks the hold for a read, which it hears only if no read is asked
+// after it, and answers that read and the seams it is made through.
+func (s *server) askHeld() (armed.Ask, armed.Seams) {
+	s.held.mu.Lock()
+	defer s.held.mu.Unlock()
+
+	var ask armed.Ask
+
+	s.held.hold, ask = s.held.hold.Asked()
+
+	return ask, s.heldSeams(s.held.memory)
 }
 
 // deliverHeld posts the held announcement under ctx, and steps the hold on
