@@ -13,6 +13,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/tui/latest"
+	"github.com/jacob-delgado/workflow/internal/tui/send"
 )
 
 // hookgenState holds the hooks lefthook does not manage, as the latest look
@@ -86,11 +87,12 @@ func (msg hooksFound) apply(m Model) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// openHookgen opens the lefthook offer, rebuilt from the stored hooks so it
-// reopens after a skip.
+// openHookgen opens the lefthook offer, in a round of its own, rebuilt from
+// the stored hooks so it reopens after a skip.
 func (m Model) openHookgen() (Model, tea.Cmd) {
 	found := m.hookgen.unmanaged()
-	m.overlay = hookgenOffer{hooks: found, generated: hooks.Structured(found)}
+	m, opened := m.nextRound()
+	m.overlay = hookgenOffer{hooks: found, generated: hooks.Structured(found), opened: opened}
 
 	return m, nil
 }
@@ -99,15 +101,17 @@ func (m Model) openHookgen() (Model, tea.Cmd) {
 type hookgenOffer struct {
 	hooks     []hooks.GitHook
 	generated hooks.Generated
-	send      sendState
+	// opened is the round the offer opened in, which its write carries back.
+	opened int
+	send   send.State
 }
 
-var _ failable[hookgenOffer] = hookgenOffer{}
+var _ sender[hookgenOffer] = hookgenOffer{}
 
 // view lists the hooks found and the configuration that would run them, its
 // outcome pinned under the title so a long refusal is seen, not clipped.
 func (o hookgenOffer) view(kit renderKit, width, _ int) (string, string) {
-	lines := kit.pinnedOutcome(o.send, "writing", width)
+	lines := kit.pinnedSend(o.send, "writing", width)
 	lines = append(lines,
 		wrap("Found "+plural(len(o.hooks), "hook")+" in .git/hooks that lefthook does not manage:", width), "",
 	)
@@ -133,7 +137,7 @@ func (o hookgenOffer) view(kit renderKit, width, _ int) (string, string) {
 
 // footer offers writing it, writing every hook as a script, or not.
 func (o hookgenOffer) footer(keys keyMap) []key.Binding {
-	if o.send.sending {
+	if o.send.Stage() == send.StageInFlight {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -143,7 +147,7 @@ func (o hookgenOffer) footer(keys keyMap) []key.Binding {
 // handleKey answers a key while the offer is open.
 func (o hookgenOffer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case o.send.sending:
+	case o.send.Stage() == send.StageInFlight:
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
@@ -159,46 +163,74 @@ func (o hookgenOffer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // which names the lefthook offer.
 func (hookgenOffer) which() overlayKind { return overlayHookgenOffer }
 
-// write writes the configuration and installs lefthook.
+// openedAs is the round the offer opened in, which its write carries back.
+func (o hookgenOffer) openedAs() int { return o.opened }
+
+// sent is the configuration's write.
+func (o hookgenOffer) sent() send.State { return o.send }
+
+// withSend is the offer with its write as state.
+func (o hookgenOffer) withSend(state send.State) hookgenOffer {
+	o.send = state
+
+	return o
+}
+
+// write writes the configuration and installs lefthook. handleKey takes no
+// key while a write is out, so Sent always sends.
 func (o hookgenOffer) write(m Model, generated hooks.Generated) (Model, tea.Cmd) {
 	if m.dryRun {
 		return m.closeOverlay().noticed("dry run: would write lefthook.yml and " +
 			plural(len(generated.Scripts), "script") + ", then install lefthook"), nil
 	}
 
-	o.send = starting()
+	o.send, _ = o.send.Sent()
 	m.overlay = o
-	ctx, write, existing := m.session, m.deps.Hooks.Write, m.deps.Hooks.Existing
+	ctx, write, existing, opened := m.session, m.deps.Hooks.Write, m.deps.Hooks.Existing, o.opened
 
 	return m, func() tea.Msg {
 		err := write(ctx, generated)
 		if err == nil {
-			return hooksWritten{err: nil, configured: true}
+			return hooksWritten{opened: opened, err: nil, configured: true}
 		}
 
 		// lefthook.yml is written before lefthook is installed, so a failed
 		// install leaves a configuration behind.
 		_, configured := existing(ctx)
 
-		return hooksWritten{err: err, configured: configured}
+		return hooksWritten{opened: opened, err: err, configured: configured}
 	}
 }
 
 // hooksWritten reports how writing the configuration went, and whether a
-// configuration exists after it.
+// configuration exists after it, for the offer opened as opened.
 type hooksWritten struct {
+	opened     int
 	err        error
 	configured bool
 }
 
 var _ applier = hooksWritten{}
 
+// refusal is what the offer takes as its write's answer: none once a
+// configuration exists, since the offer is then done with whatever failed
+// after it, or the reason none was written.
+func (msg hooksWritten) refusal() error {
+	if msg.configured {
+		return nil
+	}
+
+	return msg.err
+}
+
 // apply closes the offer once a configuration exists, and makes it no more —
 // saying why when lefthook then failed to install — or, while none does, keeps
-// it open with the reason.
+// it open with the reason. An answer for an offer no longer open changes
+// nothing.
 func (msg hooksWritten) apply(m Model) (Model, tea.Cmd) {
-	if !msg.configured {
-		return keepOpenWith[hookgenOffer](m, msg.err), nil
+	m, _, done := answered[hookgenOffer](m, msg.opened, msg.refusal())
+	if !done {
+		return m, nil
 	}
 
 	m.hookgen.read = m.hookgen.read.Told(nil)
@@ -209,11 +241,4 @@ func (msg hooksWritten) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	return m.noticed(m.marks.done + " wrote lefthook.yml and installed lefthook"), nil
-}
-
-// failed is the offer kept open with the reason the write failed.
-func (o hookgenOffer) failed(err error) hookgenOffer {
-	o.send = o.send.failed(err)
-
-	return o
 }
