@@ -456,22 +456,27 @@ func (l lastLook) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // which names a last look.
 func (lastLook) which() overlayKind { return overlayLastLook }
 
-// pasted types a bracketed paste into whatever is taking text: the open
-// overlay's field, or the Issues filter. Elsewhere a paste does nothing, as an
+// pasted types a bracketed paste into whatever is taking text, by its input
+// route: the open overlay's field, the Issues filter or the Tasks search.
+// Elsewhere, an overlay with no field among them, a paste does nothing, as an
 // unbound key does.
 func (m Model) pasted(paste tea.PasteMsg) (Model, tea.Cmd) {
 	paste.Content = pastedText(paste.Content)
 
-	if into, ok := m.overlay.(pasteable); ok {
-		return into.pasted(m, paste)
+	route := m.inputRoute()
+	if route == routeOverlay {
+		if into, ok := m.overlay.(pasteable); ok {
+			return into.pasted(m, paste)
+		}
+
+		return m, nil
 	}
 
-	switch {
-	case m.overlay != nil:
-		return m, nil
-	case m.filteringIssues():
+	if route == routeIssueFilter {
 		return m.extendFilterBy(oneLine(paste.Content))
-	case m.filteringTasks():
+	}
+
+	if route == routeTaskFilter {
 		m.tasks.listing = m.tasks.listing.extendFilter(oneLine(paste.Content))
 
 		return m.relistTasks(), nil

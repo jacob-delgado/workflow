@@ -61,6 +61,20 @@ func TestAPasteNarrowsTheIssuesFilter(t *testing.T) {
 	refuseScreen(t, view, issueKey+" "+statusInProgress)
 }
 
+func TestAPasteNarrowsTheTasksSearch(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	searching := typing(t, withTasks().live(t, 120, 40), tasksPane, filterTasksKey)
+
+	// Act
+	view := pasting(t, searching, "the\r\ncert").View().Content
+
+	// Assert
+	requireScreen(t, view, "search: the cert", "Renew the cert")
+	refuseScreen(t, view, secondIssue+": Add retries")
+}
+
 func TestAPastedLineBreakSeparatesWordsInAOneLineField(t *testing.T) {
 	t.Parallel()
 
