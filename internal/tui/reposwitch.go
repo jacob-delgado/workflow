@@ -305,7 +305,7 @@ func (m Model) writeInFlight() string {
 	switch {
 	case m.messaging.onItsWay():
 		return "the announcement"
-	case m.tasks.writing:
+	case m.tasks.writes.out():
 		return "the change to a task"
 	case m.paneWrites.staging.out():
 		return "staging"

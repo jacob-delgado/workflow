@@ -189,7 +189,8 @@ func (l taskLine) confirm(m Model) (Model, tea.Cmd) {
 		return m.closeOverlay().noticed("dry run: " + l.command + " " + line + l.heldBack), nil
 	}
 
-	if m.tasks.writing {
+	writes, sent := m.tasks.writes.sent()
+	if !sent {
 		l.sending, l.problem = sendState{}, errTaskWriteInFlight
 		m.overlay = l
 
@@ -198,7 +199,7 @@ func (l taskLine) confirm(m Model) (Model, tea.Cmd) {
 
 	l.sending = starting()
 	m.overlay = l
-	m.tasks.writing = true
+	m.tasks.writes = writes
 	write, after, stub := l.write, l.after, l.stub(line)
 
 	return m, func() tea.Msg {
@@ -249,7 +250,7 @@ var _ applier = taskLineSent{}
 // follows, reads the tasks again.
 func (msg taskLineSent) apply(m Model) (Model, tea.Cmd) {
 	if msg.err != nil {
-		m.tasks = m.tasks.answeredWrite()
+		m.tasks.writes = m.tasks.writes.answered()
 
 		return keepOpenWith[taskLine](m, msg.err), nil
 	}
@@ -263,10 +264,12 @@ func (msg taskLineSent) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	if msg.after != nil {
+		m.tasks.writes = m.tasks.writes.added()
+
 		return m, msg.after(msg.uuid)
 	}
 
-	m.tasks = m.tasks.answeredWrite()
+	m.tasks.writes = m.tasks.writes.answered()
 
 	return m.readingTasks()
 }

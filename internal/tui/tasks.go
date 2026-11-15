@@ -27,10 +27,8 @@ type tasksState struct {
 	// the task.
 	selected string
 	scroll   int
-	// writing is a write sent to Taskwarrior and not answered yet. One goes at a
-	// time: Taskwarrior commits writes in the order they finish, so an undo sent
-	// while a done waits on a hook would revert the change before the done.
-	writing bool
+	// writes is the one write sent to Taskwarrior and not answered yet.
+	writes taskWrites
 	// tracked counts the tracks whose add has answered. stubs are the tasks
 	// those adds made that no read begun since has replaced, each linked from
 	// its add's answer.
@@ -105,13 +103,6 @@ func (s tasksState) install() taskwarrior.Install {
 // context is the context that narrowed the pending tasks held, or empty.
 func (s tasksState) context() string {
 	return s.held().context
-}
-
-// answeredWrite is s once the write out has answered, so the next may go.
-func (s tasksState) answeredWrite() tasksState {
-	s.writing = false
-
-	return s
 }
 
 // markedDone is s with the task a done has just marked.

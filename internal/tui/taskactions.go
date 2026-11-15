@@ -24,6 +24,59 @@ const shortUUID = 8
 // write at a time.
 var errTaskWriteInFlight = errors.New("another Taskwarrior change is still being sent; try again once it answers")
 
+// writeStage is where the Taskwarrior writes stand.
+type writeStage int
+
+const (
+	// writeIdle has no write out: the next may go. It is the zero stage.
+	writeIdle writeStage = iota
+	// writeSent has one write out, whose answer releases the next.
+	writeSent
+	// writeFollowing has had a track's add answered, and has the annotation
+	// and start that follow it out, whose answer releases the next. It is
+	// out as writeSent is; the two differ only in which write is out.
+	writeFollowing
+)
+
+// taskWrites is the one Taskwarrior write out at a time, from the pane or
+// any overlay. Taskwarrior commits writes in the order they finish, so an
+// undo sent while a done waits on a hook would revert the change before the
+// done. It needs no round: only one write is out, and only its own answer
+// releases it.
+type taskWrites struct {
+	stage writeStage
+}
+
+// out reports whether a write is on its way, so no other may go.
+func (w taskWrites) out() bool {
+	return w.stage != writeIdle
+}
+
+// sent puts a write out from idle and reports true; while one is out it
+// changes nothing and reports false, since one goes at a time.
+func (w taskWrites) sent() (taskWrites, bool) {
+	if w.out() {
+		return w, false
+	}
+
+	return taskWrites{stage: writeSent}, true
+}
+
+// added is the writes once a track's add has answered and what follows it
+// is sent in its place. Only the add's own answer calls it, and the add
+// went out through sent, so the writes it is called on are at writeSent;
+// it does not read them.
+func (taskWrites) added() taskWrites {
+	return taskWrites{stage: writeFollowing}
+}
+
+// answered is the writes once the write out has answered, so the next may
+// go. Only the answer of a write sent through sent or added calls it, so
+// the writes it is called on are out; it does not read them.
+func (taskWrites) answered() taskWrites {
+	return taskWrites{stage: writeIdle}
+}
+
 // tasksKeys offers what the Tasks pane answers right now: the verbs on the
 // selected task, adding and undoing, going to its issue and opening its page,
 // reading again, and syncing where the taskrc names a backend. Until a read
@@ -57,7 +110,7 @@ func (m Model) tasksKeys() []key.Binding {
 // a read failed, and neither a start nor a done on a task just marked done.
 func (s tasksState) verbKeys(keys keyMap, task taskwarrior.Task, selected bool) []key.Binding {
 	switch {
-	case s.writing || !s.answered():
+	case s.writes.out() || !s.answered():
 		return nil
 	case !selected:
 		return []key.Binding{keys.addTask, keys.undoTask}
@@ -88,7 +141,7 @@ const verbStart = "start"
 // syncKeys offers syncing, where the taskrc names a backend to sync with, no
 // write is on its way and the latest read did not fail.
 func (s tasksState) syncKeys(keys keyMap) []key.Binding {
-	if !s.answered() || !s.install().SyncConfigured || s.writing {
+	if !s.answered() || !s.install().SyncConfigured || s.writes.out() {
 		return nil
 	}
 
@@ -100,7 +153,7 @@ func (s tasksState) syncKeys(keys keyMap) []key.Binding {
 // selected task's issue, opening and copying the issue's page, and reading
 // again.
 func (m Model) handleTasksKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	if m.tasks.answered() && !m.tasks.writing {
+	if m.tasks.answered() && !m.tasks.writes.out() {
 		if next, cmd, handled := m.handleTaskVerbKey(msg); handled {
 			return next, cmd
 		}
@@ -262,7 +315,8 @@ func (m Model) actOnTask(change taskChange, write func(ctx context.Context, uuid
 	}
 
 	ctx, uuid, number := m.session, task.UUID, task.ID
-	m.tasks.writing = true
+	// handleTasksKey answers a verb only while no write is out, so this one goes.
+	m.tasks.writes, _ = m.tasks.writes.sent()
 
 	return m, func() tea.Msg {
 		return taskActed{verb: change.did, after: "", uuid: uuid, id: number, said: "", err: write(ctx, uuid)}
@@ -302,7 +356,7 @@ var _ applier = nothingToUndo{}
 
 // apply closes the undo's look and says there was nothing to undo.
 func (msg nothingToUndo) apply(m Model) (Model, tea.Cmd) {
-	m.tasks = m.tasks.answeredWrite()
+	m.tasks.writes = m.tasks.writes.answered()
 
 	return m.answerLook(msg.round, nil).noticed("nothing to undo in Taskwarrior"), nil
 }
@@ -343,7 +397,7 @@ var _ applier = taskActed{}
 // apply says what was done, or why it failed, then reads the tasks again, which
 // the change may have moved. The write has answered, so the next may go.
 func (msg taskActed) apply(m Model) (Model, tea.Cmd) {
-	m.tasks = m.tasks.answeredWrite()
+	m.tasks.writes = m.tasks.writes.answered()
 
 	if msg.err != nil {
 		return m.noticedFailure(msg.err).readingTasks()
