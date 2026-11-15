@@ -94,7 +94,7 @@ func (q *Input) Update(msg tea.Msg) (huh.Model, tea.Cmd) {
 	*q.value = q.input.Value()
 
 	if *q.value != before {
-		q.matchSuggestions()
+		q.changed()
 	}
 
 	return q, nil
@@ -256,13 +256,21 @@ func (q *Input) CheckedBy(check func(string) error) *Input {
 	return q
 }
 
-// matchSuggestions matches what the field holds against the suggestions, once
-// a key, a paste or a completion taken has changed it. The input matches only
-// while its suggestions are on, so they are turned on with the first change,
-// and it matches by itself after a key, not a paste, so what the field holds is
-// matched here either way, and with the option it holds whole listed first.
-func (q *Input) matchSuggestions() {
+// changed latches the field's suggestions on at a key or a paste that changed
+// what it holds, and matches what it holds against them. The input matches
+// only while its suggestions are on, and they stay off until the first
+// change, so what the field held before anything was typed is never
+// completed; once on, nothing turns them off again.
+func (q *Input) changed() {
 	q.input.ShowSuggestions = true
+	q.matchSuggestions()
+}
+
+// matchSuggestions matches what the field holds against the suggestions, the
+// option it holds whole listed first. The input matches by itself after a
+// key, not after a paste or a completion taken, so what the field holds is
+// matched here after each.
+func (q *Input) matchSuggestions() {
 	q.input.SetSuggestions(q.ordered())
 }
 
