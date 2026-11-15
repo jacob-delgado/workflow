@@ -4,7 +4,10 @@
 package tui_test
 
 import (
+	"strings"
 	"testing"
+
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/tui"
@@ -204,16 +207,33 @@ func TestALossLandingWhileASearchCoversTheNoticeWaitsForItToClose(t *testing.T) 
 	requireNotice(t, closed.View().Content, issueListNotKept)
 }
 
+func TestALossLandingUnderAKeptFilterShowsAtOnce(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The refresh is sent and its answer kept back, and the issues filtered.
+	repo := newWorld()
+	repo.storeErr = errStoreFull
+	refreshing, refreshed := repo.live(t, 200, 40).Update(keyMsg("r"))
+	filtered := typing(t, concrete(t, refreshing), "/", "a", keyEnter)
+
+	// Act
+	landed := drain(t, filtered, refreshed)
+
+	// Assert
+	requireNotice(t, landed.View().Content, issueListNotKept)
+}
+
 func TestAWaitingNoticeShowsOnceAClickLeavesTheFilteredIssues(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// The refresh is sent and its answer kept back, and the issues filtered;
+	// The refresh is sent and its answer kept back, and an issue filter typed;
 	// the refresh's loss lands while the filter covers the notice row.
 	repo := newWorld()
 	repo.storeErr = errStoreFull
 	refreshing, refreshed := repo.live(t, 120, 40).Update(keyMsg("r"))
-	filtered := drain(t, typing(t, concrete(t, refreshing), "/", "a", keyEnter), refreshed)
+	filtered := drain(t, typing(t, concrete(t, refreshing), "/", "a"), refreshed)
 	commits := screenRow(t, filtered.View().Content, "3 Commits")
 
 	// Act
@@ -226,17 +246,18 @@ func TestAWaitingNoticeShowsOnceAClickLeavesTheFilteredIssues(t *testing.T) {
 // A failure that lands while a search covers the notice row waits for it, as
 // what the store lost does, so the keys typed into the search do not clear it
 // unseen; once the search ends it takes the row first, as it would have had
-// no search covered it.
+// no search covered it. A filter kept once its search closes takes no keys,
+// so it covers nothing, and a failure that lands under it shows at once.
 
 // stopFailedUnderASearch is the Tasks pane's stop sent and its answer kept
-// back, a search typed over the Issues, and the stop's failure landed under
-// it.
-func stopFailedUnderASearch(t *testing.T, search ...string) tui.Model {
+// back, at width by height, a search typed over the Issues, and the stop's
+// failure landed under it.
+func stopFailedUnderASearch(t *testing.T, width, height int, search ...string) tui.Model {
 	t.Helper()
 
 	repo := withTasks()
 	repo.tasks.writeErr = taskwarriorLocked()
-	stopping, stopFailed := typing(t, repo.live(t, 200, 40), tasksPane).Update(keyMsg("s"))
+	stopping, stopFailed := typing(t, repo.live(t, width, height), tasksPane).Update(keyMsg("s"))
 
 	return drain(t, typing(t, concrete(t, stopping), append([]string{"1", "/"}, search...)...), stopFailed)
 }
@@ -245,7 +266,7 @@ func TestAFailureLandingUnderASearchShowsOnceTheSearchCloses(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	searched := typing(t, stopFailedUnderASearch(t, "a"), "b")
+	searched := typing(t, stopFailedUnderASearch(t, 200, 40, "a"), "b")
 
 	// Act
 	closed := typing(t, searched, keyEsc)
@@ -275,17 +296,46 @@ func TestAFailureUnderASearchShowsBeforeALossThatLandedFirst(t *testing.T) {
 	requireFailureNotice(t, closed.View().Content, "taskwarrior refused the command: database is locked")
 }
 
-func TestAFailureUnderAFilterTakesTheRowFromAReportItHid(t *testing.T) {
+func TestAReportOverAKeptFilterTakesTheNoticeRow(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// The issues are filtered, m reports the mouse on under the filter, and
-	// the stop's failure lands under it too.
-	filtered := stopFailedUnderASearch(t, "a", keyEnter, "m")
+	filtered := typing(t, newWorld().live(t, 200, 40), "/", "a", keyEnter)
 
 	// Act
-	left := typing(t, filtered, keyTab)
+	reported := typing(t, filtered, "m")
 
 	// Assert
-	requireFailureNotice(t, left.View().Content, "taskwarrior refused the command: database is locked")
+	requireNotice(t, reported.View().Content, "mouse on: clicks focus panes and pick rows")
+}
+
+func TestAFailureUnderAKeptFilterShowsAtOnce(t *testing.T) {
+	t.Parallel()
+
+	for name, screen := range map[string]struct {
+		width, height int
+		// fromEnd is the row that reports it, counted up from the last: the
+		// notice row, or the footer where that row would leave the focused
+		// pane too few rows.
+		fromEnd int
+	}{
+		"with a notice row":                   {width: 200, height: 40, fromEnd: 2},
+		"in the footer of an 80 by 24 screen": {width: 80, height: 24, fromEnd: 1},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			view := stopFailedUnderASearch(t, screen.width, screen.height, "a", keyEnter).View().Content
+
+			// Assert
+			lines := strings.Split(view, "\n")
+
+			row := lines[len(lines)-screen.fromEnd]
+			if !strings.Contains(ansi.Strip(row), failGlyph+" taskwarrior refused the command: database is locked") ||
+				!strings.Contains(row, redOpen()+failGlyph) {
+				t.Errorf("the failure does not show in red over the kept filter:\n%s", ansi.Strip(view))
+			}
+		})
+	}
 }

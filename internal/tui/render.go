@@ -81,19 +81,19 @@ func (m Model) body(shape layout.Layout) string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, m.rail(shape), body)
 }
 
-// noticeLine is the one-row report above the hints — the issue filter and
-// places while they narrow the list, otherwise what just happened — cut with a mark rather than silently
-// where it does not fit.
+// noticeLine is the one-row report above the hints — a search being typed,
+// the issue filter and places kept while no notice takes the row from them,
+// otherwise what just happened — cut with a mark rather than silently where
+// it does not fit.
 func (m Model) noticeLine(width int) string {
-	if m.showsFilter() {
-		return ansi.Truncate(" "+sanitize.Text(m.issues.narrowingLine(m.marks)), width, m.marks.ellipsis)
-	}
-
-	if m.paneRoute() == routeTaskFilter {
+	switch {
+	case m.paneRoute() == routeTaskFilter:
 		return ansi.Truncate(" "+sanitize.Text("search: "+m.tasks.listing.narrowing.Text), width, m.marks.ellipsis)
+	case m.showsFilter() && (m.noticeCovered() || m.notice.Stage() == notice.StageNone):
+		return ansi.Truncate(" "+sanitize.Text(m.issues.narrowingLine(m.marks)), width, m.marks.ellipsis)
+	default:
+		return m.noticeRow(width)
 	}
-
-	return m.noticeRow(width)
 }
 
 // noticeRow is the notice on one row, cut with a mark where it does not fit,

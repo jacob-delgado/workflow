@@ -134,21 +134,21 @@ focused again:
   every key, and the way out — `q`, or `esc` in an overlay — go last.
 - **A result** — a push sent, an announcement made, a change refused — appears
   on its own row above the keys, where it stays while you look around and
-  clears when the next action starts. A failure, drawn in red, stays until a
-  key clears it: a later failure replaces it, and a plain result that comes
-  meanwhile is not shown, since its pane says it too. One that lands while a
-  search covers the row waits for the search to close, so the keys typed
-  into it do not clear it unseen, and then shows first. An Issues filter or
-  places kept once the search closes go on covering the row, so what waits
-  under them waits until you clear them or leave Issues. What no pane says —
-  what the store could not keep, and an announcement the store did not
-  confirm — is never dropped: it waits behind the failure, behind another
-  such notice not yet read, or for a search covering the row to close, and
-  each shows in turn, oldest first, as keys clear what is before it; one a
-  later result lands on shows again after that result. Where that row would
-  leave the focused pane fewer than four rows, as at 80 by 24, the result
-  takes the bottom row instead, and a search being typed shares it with its
-  keys.
+  clears when the next action starts. A failure, drawn in red, stays until the
+  next action clears it: a later failure replaces it, and a plain result that
+  comes meanwhile is not shown, since its pane says it too. One that lands
+  while a search covers the row waits for the search to close, so the keys
+  typed into it do not clear it unseen, and then shows first. An Issues filter
+  or places kept once the search closes take no keys, so they do not cover the
+  row: what lands while they narrow the list shows at once, in their place
+  until the next action clears it. What no pane says — what the store could
+  not keep, and an announcement the store did not confirm — is never dropped:
+  it waits behind the failure, behind another such notice not yet read, or for
+  a search covering the row to close, and each shows in turn, oldest first, as
+  keys clear what is before it; one a later result lands on shows again after
+  that result. Where that row would leave the focused pane fewer than four
+  rows, as at 80 by 24, the result takes the bottom row instead, and a search
+  being typed shares it with its keys.
 
 Each pane fails on its own. A Jira that cannot be reached puts its reason in
 the Issues pane, and the repository panes carry on.
