@@ -51,12 +51,12 @@ func (m Model) armOnOpen(pull forge.PullRequest) (Model, string, tea.Cmd) {
 		text: m.announcement(messaging.MomentReady), moment: messaging.MomentReady, tags: postTags{}, opened: 0,
 	}
 
-	started, err := m.messaging.hold.Arm(m.deps.now(), armed.Arming{
+	started, err := m.messaging.held.hold.Arm(m.deps.now(), armed.Arming{
 		Delivery: m.deliveryOf(out), Branch: m.branch.checkedOut().Name, Opened: true, Unasked: true, Automatic: true,
 		Seen: 0,
 	})
 	if err != nil {
-		return m, m.marks.separator + m.pullName(m.messaging.hold.Pull()) + " is still waiting, so " +
+		return m, m.marks.separator + m.pullName(m.messaging.held.hold.Pull()) + " is still waiting, so " +
 			m.pullName(pull.Number) + " was not armed", nil
 	}
 
@@ -71,7 +71,7 @@ func (m Model) armOnOpen(pull forge.PullRequest) (Model, string, tea.Cmd) {
 // pull request's waiting announcement replaces it, saying so; one asked for
 // while another is being posted is refused, the preview left open.
 func (m Model) armAsked(out outgoingAnnouncement) (Model, tea.Cmd) {
-	started, err := m.messaging.hold.Arm(m.deps.now(), armed.Arming{
+	started, err := m.messaging.held.hold.Arm(m.deps.now(), armed.Arming{
 		Delivery: m.deliveryOf(out), Branch: m.branch.checkedOut().Name, Opened: false, Unasked: false, Automatic: false,
 		Seen: 0,
 	})
@@ -101,7 +101,7 @@ func (m Model) deliveryOf(out outgoingAnnouncement) loop.Delivery {
 // held is the model holding the announcement just armed, which tags whom tags
 // say, and doing what arming it asks first.
 func (m Model) held(started armed.Armed, tags postTags) (Model, tea.Cmd) {
-	m.messaging.hold, m.messaging.holdTags = started.Hold, tags
+	m.messaging.held = m.messaging.held.armed(started.Hold, tags)
 
 	return m.afterNext(started.Next)
 }
@@ -119,25 +119,26 @@ func (m Model) afterNext(next armed.Next) (Model, tea.Cmd) {
 
 // readHoldLater schedules the next read of the hold once the CI interval has
 // passed, on a beat of its own whatever the Review pane polls at. Only the
-// read last scheduled is made, so a read asked for meanwhile, which
-// schedules its own, leaves one beat going.
+// read last scheduled is made (heldPost.beatDue).
 func (m Model) readHoldLater() (Model, tea.Cmd) {
-	m.messaging.tick++
-	tick := holdTick{tick: m.messaging.tick}
+	var beat int
+
+	m.messaging.held, beat = m.messaging.held.scheduled()
+	tick := holdTick{beat: beat}
 
 	return m, m.deps.after(m.deps.ciInterval(), func(time.Time) tea.Msg { return tick })
 }
 
-// holdTick is time to read the hold again, as the read scheduled tick-th.
+// holdTick is time to read the hold again, as the read scheduled on beat.
 type holdTick struct {
-	tick int
+	beat int
 }
 
 var _ applier = holdTick{}
 
 // apply reads the hold again, unless another read has been scheduled since.
 func (msg holdTick) apply(m Model) (Model, tea.Cmd) {
-	if msg.tick != m.messaging.tick {
+	if !m.messaging.held.beatDue(msg.beat) {
 		return m, nil
 	}
 
@@ -146,7 +147,7 @@ func (msg holdTick) apply(m Model) (Model, tea.Cmd) {
 
 // rereadHold is the read of the hold now, while it waits; nothing otherwise.
 func (m Model) rereadHold() (Model, tea.Cmd) {
-	if !m.messaging.hold.Stage().Waiting() {
+	if !m.messaging.held.hold.Stage().Waiting() {
 		return m, nil
 	}
 
@@ -160,7 +161,7 @@ func (m Model) rereadHold() (Model, tea.Cmd) {
 func (m Model) readHold() (Model, tea.Cmd) {
 	var ask armed.Ask
 
-	m.messaging.hold, ask = m.messaging.hold.Asked()
+	m.messaging.held.hold, ask = m.messaging.held.hold.Asked()
 	ctx, seams, now := m.session, m.holdSeams(), m.deps.now
 
 	return m, func() tea.Msg {
@@ -187,13 +188,13 @@ func (msg holdRead) apply(m Model) (Model, tea.Cmd) {
 		return m.readHoldLater()
 	}
 
-	return m.steppedTo(m.messaging.hold.Hear(msg.reading, msg.failure))
+	return m.steppedTo(m.messaging.held.hold.Hear(msg.reading, msg.failure))
 }
 
 // deliverHold posts the held announcement, its gate, claim and post going on
 // past a quit as every write does, so a claim is never left mid-post.
 func (m Model) deliverHold() tea.Cmd {
-	ctx, seams, hold, now := m.session, m.holdSeams(), m.messaging.hold, m.deps.now
+	ctx, seams, hold, now := m.session, m.holdSeams(), m.messaging.held.hold, m.deps.now
 
 	return func() tea.Msg {
 		return holdDelivered{outcome: seams.DeliverHeld(ctx, hold, now)}
@@ -210,7 +211,7 @@ var _ applier = holdDelivered{}
 // apply steps the hold on the post's outcome, and reads what was announced
 // again, which the post's claim changed.
 func (msg holdDelivered) apply(m Model) (Model, tea.Cmd) {
-	m, next := m.steppedTo(m.messaging.hold.Delivered(msg.outcome))
+	m, next := m.steppedTo(m.messaging.held.hold.Delivered(msg.outcome))
 	m, reread := m.readingAnnounces()
 
 	return m, tea.Batch(next, reread)
@@ -222,15 +223,15 @@ func (msg holdDelivered) apply(m Model) (Model, tea.Cmd) {
 func (m Model) holdSeams() armed.Seams {
 	return armed.Seams{
 		FindPull: m.deps.Forge.FindPullRequest, CheckCI: m.deps.Forge.CheckStatus, Deliver: m.deliverSeams(),
-		Memory: m.announceMemory(m.messaging.holdTags), UnaskedTags: m.unaskedTags(),
+		Memory: m.announceMemory(m.messaging.held.tags), UnaskedTags: m.unaskedTags(),
 	}
 }
 
 // steppedTo is the model holding hold, a step on from the one it held, having
 // said what the step changed, and doing what it asks next.
 func (m Model) steppedTo(hold armed.Hold, next armed.Next) (Model, tea.Cmd) {
-	was := m.messaging.hold
-	m.messaging.hold = hold
+	was := m.messaging.held.hold
+	m.messaging.held.hold = hold
 
 	return m.toldOf(was, hold).afterNext(next)
 }
@@ -415,12 +416,12 @@ func scopedTags(ctx context.Context, deps Deps, channel string, tags loop.Tags) 
 // stopWaiting stops the announcement waiting for CI, unposted, at the user's
 // word; with none waiting, it says why it did nothing.
 func (m Model) stopWaiting() (Model, tea.Cmd) {
-	stopped, err := m.messaging.hold.Stop()
+	stopped, err := m.messaging.held.hold.Stop()
 	if err != nil {
 		return m.noticedGuidance(err), nil
 	}
 
-	m.messaging.hold = stopped
+	m.messaging.held.hold = stopped
 
 	return m.noticed("stopped waiting; nothing was announced"), nil
 }
@@ -428,7 +429,7 @@ func (m Model) stopWaiting() (Model, tea.Cmd) {
 // quitOrGuard quits, unless a post is waiting for CI, in which case it asks
 // first: quitting would lose the post without a word.
 func (m Model) quitOrGuard() (Model, tea.Cmd) {
-	if m.messaging.hold.Stage().Waiting() {
+	if m.messaging.held.hold.Stage().Waiting() {
 		m.overlay = quitGuard{}
 
 		return m, nil
@@ -441,8 +442,8 @@ func (m Model) quitOrGuard() (Model, tea.Cmd) {
 // is, which the Next it ends with names so it is said once the terminal is
 // back.
 func (m Model) quit() (Model, tea.Cmd) {
-	if m.messaging.hold.Stage().Waiting() {
-		m.next.stoppedWaiting = m.pullName(m.messaging.hold.Pull())
+	if m.messaging.held.hold.Stage().Waiting() {
+		m.next.stoppedWaiting = m.pullName(m.messaging.held.hold.Pull())
 	}
 
 	return m, tea.Quit

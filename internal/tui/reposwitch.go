@@ -331,7 +331,7 @@ func (m Model) lostOnLeaving() []string {
 		lost = append(lost, "the "+m.vocab.noun+" you were writing")
 	}
 
-	if m.messaging.hold.Stage().Waiting() {
+	if m.messaging.held.hold.Stage().Waiting() {
 		lost = append(lost, "the announcement waiting for CI")
 	}
 
