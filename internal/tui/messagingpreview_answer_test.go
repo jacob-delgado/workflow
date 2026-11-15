@@ -122,3 +122,22 @@ func TestPostingAgainClearsWhyTheEditorWouldNotOpen(t *testing.T) {
 	requireScreen(t, view, "✗ The messaging service refused the post")
 	refuseScreen(t, view, errEditorFailed.Error())
 }
+
+func TestAnEditThatLandsClearsWhyTheEditorWouldNotOpen(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := newWorld()
+	repo.editErr = errEditorFailed
+	failedEdit := typing(t, repo.live(t, 140, 40), "5", "p", "e")
+	requireScreen(t, failedEdit.View().Content, errEditorFailed.Error())
+
+	repo.editErr, repo.edited = nil, "Shipping the retry fix"
+
+	// Act
+	view := typing(t, failedEdit, "e").View().Content
+
+	// Assert
+	requireScreen(t, view, "┏━ Announce to Slack", "Shipping the retry fix")
+	refuseScreen(t, view, errEditorFailed.Error())
+}
