@@ -17,6 +17,8 @@ const (
 	tuesdayHeading = "# 2026-09-15"
 	tuesdayBold    = "*2026-09-15*"
 	postSummaryKey = "p"
+	// editedSummary is the Summary as the editor hands it back.
+	editedSummary = "# Tuesday\n\n- shipped the fix"
 )
 
 func TestTheSummaryIsPostedOnlyOnceItsPreviewIsConfirmed(t *testing.T) {
@@ -96,7 +98,7 @@ func TestTheSummaryIsPostedAsItWasEdited(t *testing.T) {
 
 	// Arrange
 	busy := summaryWorld()
-	busy.edited = "# Tuesday\n\n- shipped the fix"
+	busy.edited = editedSummary
 
 	// Act
 	edited := typing(t, busy.live(t, 120, 40), summaryKey, postSummaryKey, "e", keyEnter)
@@ -118,7 +120,7 @@ func TestAnEditAnsweringAfterItsSummaryPreviewClosedChangesNothing(t *testing.T)
 
 	// Arrange
 	busy := summaryWorld()
-	busy.edited = "# Tuesday\n\n- shipped the fix"
+	busy.edited = editedSummary
 	// The editor's answer is held back while the preview that asked is
 	// discarded and another opens.
 	editing, edit := pressed(t, typing(t, busy.live(t, 120, 40), summaryKey, postSummaryKey), "e")
@@ -163,6 +165,23 @@ func TestAFailedEditOfTheSummaryKeepsThePreviewWithWhy(t *testing.T) {
 
 	// Assert
 	requireScreen(t, view, "┏━ Post to Slack", "✗ the editor exited with an error")
+}
+
+func TestAnEditOfTheSummaryThatWorksClearsTheEditorsEarlierFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	busy := summaryWorld()
+	busy.editErr = errEditorFailed
+	failed := typing(t, busy.live(t, 120, 40), summaryKey, postSummaryKey, "e")
+	busy.editErr, busy.edited = nil, editedSummary
+
+	// Act
+	view := typing(t, failed, "e").View().Content
+
+	// Assert
+	requireScreen(t, view, "┏━ Post to Slack", "shipped the fix")
+	refuseScreen(t, view, "the editor exited with an error")
 }
 
 func TestAWebhookOnlySummaryPostNamesTheWebhooksChannel(t *testing.T) {

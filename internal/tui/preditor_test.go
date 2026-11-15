@@ -163,6 +163,23 @@ func TestAFailedEditorKeepsTheEditorOpen(t *testing.T) {
 	requireScreen(t, after.View().Content, "the editor exited with an error", "Edit pull request")
 }
 
+func TestAnEditorThatWorksAgainClearsItsEarlierFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	editing := newWorld()
+	editing.editErr = errEditorFailed
+	failed := typing(t, editing.live(t, 120, 40), "4", "e", "ctrl+o")
+	editing.editErr, editing.edited = nil, "Rewritten in the editor."
+
+	// Act
+	view := typing(t, failed, "ctrl+o").View().Content
+
+	// Assert
+	requireScreen(t, view, "Edit pull request", "Rewritten in the editor.")
+	refuseScreen(t, view, "the editor exited with an error")
+}
+
 func TestEditingWithoutAnEditorCannotOpenTheBody(t *testing.T) {
 	t.Parallel()
 
