@@ -94,7 +94,8 @@ type commentComposer struct {
 	// hint is what the empty box says in normal mode: the key that starts
 	// typing, as ui.keys binds it.
 	hint string
-	send sendState
+	// problem is why the editor would not take the draft.
+	problem error
 	// opened is the round the composer opened in, which an edit carries
 	// back, so it lands in no composer opened after.
 	opened int
@@ -174,7 +175,7 @@ func (c commentComposer) view(kit renderKit, width, rows int) (string, string) {
 // layout is the lines above the box, the lines below it, and the box's height
 // in rows rows.
 func (c commentComposer) layout(kit renderKit, width, rows int) ([]string, []string, int) {
-	above := kit.pinnedOutcome(c.send, "", width)
+	above := kit.pinnedProblem(c.problem, width)
 	above = append(above, kit.styles.strong.Render(c.mode.line()),
 		wrap(shownKey(c.issue.Key)+" "+c.issue.Summary, width), "")
 
@@ -285,7 +286,7 @@ func (c commentComposer) typed(msg tea.KeyPressMsg) commentComposer {
 		c.text, _ = c.text.Update(msg)
 	}
 
-	c.send.err = nil
+	c.problem = nil
 
 	return c
 }
@@ -364,11 +365,11 @@ func (c commentComposer) preview(m Model) Model {
 // why the editor failed under the title with the draft untouched.
 func (c commentComposer) applyEdit(m Model, text string, err error) (Model, tea.Cmd) {
 	if err != nil {
-		c.send = c.send.failed(err)
+		c.problem = err
 	} else {
 		c.text.SetValue(text)
 		c.text.MoveToEnd()
-		c.mode, c.send.err = modeNormal, nil
+		c.mode, c.problem = modeNormal, nil
 	}
 
 	return m.withAnswered(c), nil
@@ -386,7 +387,7 @@ func (c commentComposer) lastColumn() int {
 // does.
 func (c commentComposer) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
 	c.text.InsertString(paste.Content)
-	c.send.err = nil
+	c.problem = nil
 	m.overlay = c
 
 	return m, nil

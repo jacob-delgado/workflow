@@ -96,7 +96,9 @@ type commitComposer struct {
 	issueKey jira.Key
 	staged   int
 	breaking bool
-	send     sendState
+	// problem is what the composer finds wrong before committing, or why
+	// the editor would not take the body.
+	problem error
 	// editBodyKey is the key edit-body is bound to, which the offer of a body
 	// names.
 	editBodyKey string
@@ -176,7 +178,7 @@ func (c commitComposer) view(kit renderKit, width, _ int) (string, string) {
 	c.scope.SetWidth(inner)
 	c.subject.SetWidth(inner)
 
-	lines := kit.pinnedOutcome(c.send, "", width)
+	lines := kit.pinnedProblem(c.problem, width)
 	lines = append(
 		lines,
 		c.label(kit, fieldType, "type    ")+c.typeChoice(kit),
@@ -195,9 +197,9 @@ func (c commitComposer) view(kit renderKit, width, _ int) (string, string) {
 		"  "+sanitize.Line(subject.String())+"  "+length,
 	)
 
-	problem := c.conv.Validate(subject)
-	if problem != nil && strings.TrimSpace(c.subject.Value()) != "" {
-		lines = append(lines, "  "+kit.failureLine(problem))
+	invalid := c.conv.Validate(subject)
+	if invalid != nil && strings.TrimSpace(c.subject.Value()) != "" {
+		lines = append(lines, "  "+kit.failureLine(invalid))
 	}
 
 	return "Commit", strings.Join(append(append(lines, ""), c.footnotes()...), "\n")
@@ -315,7 +317,7 @@ func (c commitComposer) cycledType(keys keyMap, msg tea.KeyPressMsg) commitCompo
 		c.kind = types.prev()
 	}
 
-	c.send.err = nil
+	c.problem = nil
 
 	return c
 }
@@ -330,7 +332,7 @@ func (c commitComposer) typed(msg tea.Msg) commitComposer {
 		c.subject, _ = c.subject.Update(msg)
 	}
 
-	c.send.err = nil
+	c.problem = nil
 
 	return c
 }
@@ -405,11 +407,11 @@ func (c commitComposer) editBody(m Model) tea.Cmd {
 	return m.deps.Editor.Edit(c.body, bodyHelp, editedFor(c.opened))
 }
 
-// applyEdit puts the body back in the composer, or records why the editor
-// failed.
+// applyEdit puts the body back in the composer, or keeps why the editor
+// failed as its problem.
 func (c commitComposer) applyEdit(m Model, text string, err error) (Model, tea.Cmd) {
 	if err != nil {
-		c.send = c.send.failed(err)
+		c.problem = err
 	} else {
 		c.body = text
 	}
@@ -422,8 +424,8 @@ func (c commitComposer) applyEdit(m Model, text string, err error) (Model, tea.C
 func (c commitComposer) commit(m Model) (Model, tea.Cmd) {
 	subject := c.assembled()
 
-	c.send.err = c.conv.Validate(subject)
-	if c.send.err != nil {
+	c.problem = c.conv.Validate(subject)
+	if c.problem != nil {
 		m.overlay = c
 
 		return m, nil
