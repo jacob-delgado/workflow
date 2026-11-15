@@ -252,13 +252,14 @@ func (p messagingPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
 	return m.armAsked(p.outgoing())
 }
 
-// applyEdit puts the edited message back in the preview, or keeps why the
-// editor failed as its problem, in place of a refusal an earlier post had.
+// applyEdit puts the edited message back in the preview, clearing why an
+// earlier edit failed, or keeps why the editor failed as its problem, in
+// place of a refusal an earlier post had.
 func (p messagingPreview) applyEdit(m Model, text string, err error) (Model, tea.Cmd) {
 	if err != nil {
 		p.problem, p.send = err, p.send.Cleared()
 	} else {
-		p.text = text
+		p.text, p.problem = text, nil
 	}
 
 	return m.withAnswered(p), nil
