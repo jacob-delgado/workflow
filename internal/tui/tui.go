@@ -486,13 +486,15 @@ func (m Model) showsNotice() bool {
 // hasNotice reports something for the notice row to say: a notice, or a search
 // or filter narrowing the list.
 func (m Model) hasNotice() bool {
-	return m.notice.Stage() != notice.StageNone || m.noticeCovered()
+	return m.notice.Stage() != notice.StageNone || m.showsFilter() || m.paneRoute() == routeTaskFilter
 }
 
-// noticeCovered reports the notice row given over to a search or filter
-// narrowing the list, which hides whatever notice there is.
+// noticeCovered reports the notice row given over to an Issues filter or a
+// Tasks search being typed, whose keys would clear a notice unseen. A filter
+// or places kept once it closes take no keys, so they give the row up to a
+// notice.
 func (m Model) noticeCovered() bool {
-	return m.showsFilter() || m.paneRoute() == routeTaskFilter
+	return m.paneRoute() != routePanes
 }
 
 // showsFilter reports that the Issues pane's filter should be shown on its own
