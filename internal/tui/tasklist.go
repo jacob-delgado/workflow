@@ -7,13 +7,13 @@ import (
 	"slices"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/taskwarrior"
+	"github.com/jacob-delgado/workflow/internal/tui/listsearch"
 )
 
 // taskOrder is how the Tasks pane orders the tasks within each of its groups.
@@ -56,72 +56,84 @@ func (o taskOrder) sorted(tasks []taskwarrior.Task, now time.Time) []taskwarrior
 }
 
 // taskListing is how the user has chosen to see the Tasks list for the
-// session: its order, what narrows it, and whether a filter is being typed.
-// Changing it reads nothing again.
+// session: its order, the values picked to narrow it, and its search, being
+// typed or kept. Changing it reads nothing again.
 type taskListing struct {
-	order     taskOrder
-	narrowing taskwarrior.Narrowing
-	filtering bool
+	order  taskOrder
+	picked []taskwarrior.Facet
+	search listsearch.Typed
+}
+
+// narrowing is what lets a task through the list: the values picked, and the
+// search's text.
+func (l taskListing) narrowing() taskwarrior.Narrowing {
+	return taskwarrior.Narrowing{Picked: l.picked, Text: l.search.Text()}
 }
 
 // titled reports a list that says how it is listed, above its rows: any order
 // but the most urgent first the pane opens on, or a narrowing.
 func (l taskListing) titled() bool {
-	return l.order != taskOrderUrgency || l.narrowing.Narrows() || l.filtering
+	return l.order != taskOrderUrgency || l.narrows()
 }
 
 // heading says how the list is listed: its order, the values it is narrowed
-// to, and the filter, typed or applied.
+// to, and the search, typed or kept.
 func (l taskListing) heading(marks glyphs) string {
 	parts := []string{l.order.title()}
 
-	if len(l.narrowing.Picked) > 0 {
-		labels := make([]string, 0, len(l.narrowing.Picked))
-		for _, picked := range l.narrowing.Picked {
+	if len(l.picked) > 0 {
+		labels := make([]string, 0, len(l.picked))
+		for _, picked := range l.picked {
 			labels = append(labels, picked.Label())
 		}
 
 		parts = append(parts, "filtered to "+strings.Join(labels, ", "))
 	}
 
-	if l.filtering || l.narrowing.Text != "" {
-		parts = append(parts, "search: "+l.narrowing.Text)
+	if l.search.Stage() != listsearch.StageOff {
+		parts = append(parts, "search: "+l.search.Text())
 	}
 
 	return strings.Join(parts, marks.separator)
 }
 
-// narrows reports a listing that leaves tasks out: values picked, or a filter
-// typed or being typed. An order alone leaves none out.
+// narrows reports a listing that leaves tasks out: values picked, or a
+// search typed or being typed. An order alone leaves none out.
 func (l taskListing) narrows() bool {
-	return l.narrowing.Narrows() || l.filtering
+	return len(l.picked) > 0 || l.search.Stage() != listsearch.StageOff
 }
 
-// beginFilter starts typing a filter afresh.
+// beginFilter starts typing a search afresh.
 func (l taskListing) beginFilter() taskListing {
-	l.filtering, l.narrowing.Text = true, ""
+	l.search = l.search.Begun()
 
 	return l
 }
 
-// extendFilter adds text to the filter being typed.
+// extendFilter adds text to the search being typed.
 func (l taskListing) extendFilter(text string) taskListing {
-	l.narrowing.Text += text
+	l.search = l.search.Typed(text)
 
 	return l
 }
 
-// trimFilter takes the last character off the filter being typed.
+// trimFilter takes the last character off the search being typed.
 func (l taskListing) trimFilter() taskListing {
-	_, size := utf8.DecodeLastRuneInString(l.narrowing.Text)
-	l.narrowing.Text = l.narrowing.Text[:len(l.narrowing.Text)-size]
+	l.search = l.search.Trimmed()
 
 	return l
 }
 
-// clearFilter stops typing and drops the filter; picked values stay.
+// keepFilter stops typing the search, which still narrows the list.
+func (l taskListing) keepFilter() taskListing {
+	l.search = l.search.Kept()
+
+	return l
+}
+
+// clearFilter drops the search; picked values stay.
 func (l taskListing) clearFilter() taskListing {
-	l.filtering, l.narrowing.Text = false, ""
+	l.search = l.search.Cleared()
 
 	return l
 }
@@ -146,13 +158,15 @@ func (m Model) taskGroups() taskGroups {
 func (s tasksState) groupsBy(listing taskListing, issues issueList, now time.Time) taskGroups {
 	var groups taskGroups
 
+	narrowing := listing.narrowing()
+
 	for _, task := range s.pending() {
 		_, listed := issues.find(jira.Key(task.IssueKey))
 
 		switch {
-		case !listing.narrowing.Matches(task, now):
+		case !narrowing.Matches(task, now):
 			continue
-		case task.Waiting(now) && !listing.narrowing.ListsWaiting():
+		case task.Waiting(now) && !narrowing.ListsWaiting():
 			groups.waiting++
 		case task.Linked() && listed:
 			groups.forIssues = append(groups.forIssues, task)
@@ -390,7 +404,7 @@ func (m Model) handleTaskFilterKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case tea.KeyEscape:
 		m.tasks.listing = m.tasks.listing.clearFilter()
 	case tea.KeyEnter:
-		m.tasks.listing.filtering = false
+		m.tasks.listing = m.tasks.listing.keepFilter()
 	case tea.KeyDown:
 		return m.moveTaskBy(1), nil
 	case tea.KeyUp:
@@ -404,10 +418,10 @@ func (m Model) handleTaskFilterKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m.relistTasks(), nil
 }
 
-// withoutTaskFilter drops a typed filter when focus leaves the pane, as the
+// withoutTaskFilter drops the search when focus leaves the pane, as the
 // Issues filter is dropped; picked values stay for the session.
 func (m Model) withoutTaskFilter() Model {
-	if !m.tasks.listing.filtering && m.tasks.listing.narrowing.Text == "" {
+	if m.tasks.listing.search.Stage() == listsearch.StageOff {
 		return m
 	}
 
@@ -425,7 +439,7 @@ var (
 // openTaskNarrowing opens the checklist of values the pending tasks hold, with
 // those already picked checked.
 func (m Model) openTaskNarrowing() Model {
-	picked := m.tasks.listing.narrowing.Picked
+	picked := m.tasks.listing.picked
 	choices := taskwarrior.Choices(m.tasks.pending(), picked, m.deps.now())
 	offers := make([]offered[taskwarrior.Facet], 0, len(choices))
 
@@ -438,7 +452,7 @@ func (m Model) openTaskNarrowing() Model {
 		choices: pickList[offered[taskwarrior.Facet]]{items: offers}, chosen: slices.Clone(picked),
 		label: taskwarrior.Facet.Label,
 		apply: func(m Model, chosen []taskwarrior.Facet) (Model, tea.Cmd) {
-			m.tasks.listing.narrowing.Picked = chosen
+			m.tasks.listing.picked = chosen
 
 			return m.relistTasks(), nil
 		},
