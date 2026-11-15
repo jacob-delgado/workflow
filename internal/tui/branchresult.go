@@ -103,7 +103,7 @@ func (m Model) offeringInProgress(issue jira.Issue, forIssue bool, reload tea.Cm
 		return m, reload
 	}
 
-	picker, offer := m.pickStatusFor(issue, statusOffer{inProgress: true})
+	picker, offer := m.pickStatusFor(issue, statusOffer{kind: offerInProgress})
 
 	return picker, tea.Batch(reload, offer)
 }

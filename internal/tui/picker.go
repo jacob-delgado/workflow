@@ -100,32 +100,46 @@ func (msg transitionsListed) apply(m Model) (Model, tea.Cmd) {
 	return m.withAnswered(picker), nil
 }
 
+// offerKind is which transition a picker opened as an offer pre-selects.
+type offerKind int
+
+const (
+	// offerNone pre-selects none: the picker was opened by hand.
+	offerNone offerKind = iota
+	// offerInProgress pre-selects the first in-progress move, after branching.
+	offerInProgress
+	// offerNamed pre-selects the move to a status named by the configuration,
+	// after a pull request.
+	offerNamed
+)
+
 // statusOffer decides which transition the picker pre-selects when it opens as
 // an offer: the one leading to a named status (after a pull request), the first
-// in-progress one (after branching), or none (opened by hand).
+// in-progress one (after branching), or none (opened by hand). The zero value
+// pre-selects none.
 type statusOffer struct {
-	inProgress bool
-	status     string
+	kind offerKind
+	// status is the status an offerNamed offer leads to.
+	status string
 }
 
 // pick is the index of the transition the offer pre-selects, or zero.
 func (o statusOffer) pick(moves []jira.Transition) int {
-	switch {
-	case o.status != "":
-		index, _ := jira.FindTransition(moves, o.status)
+	return map[offerKind]func() int{
+		offerNone:       func() int { return 0 },
+		offerInProgress: func() int { return firstInProgress(moves) },
+		offerNamed: func() int {
+			index, _ := jira.FindTransition(moves, o.status)
 
-		return index
-	case o.inProgress:
-		return firstInProgress(moves)
-	default:
-		return 0
-	}
+			return index
+		},
+	}[o.kind]()
 }
 
 // absent reports a named-status offer whose status is not among the moves, so
 // there is nothing to pre-select and no offer worth opening the picker for.
 func (o statusOffer) absent(moves []jira.Transition) bool {
-	if o.status == "" {
+	if o.kind != offerNamed {
 		return false
 	}
 
@@ -252,7 +266,7 @@ func (m Model) offerReviewStatus(issueKey jira.Key) (Model, tea.Cmd) {
 		issue = jira.Issue{Key: issueKey}
 	}
 
-	return m.pickStatusFor(issue, statusOffer{status: m.cfg.Jira.ReviewStatus})
+	return m.pickStatusFor(issue, statusOffer{kind: offerNamed, status: m.cfg.Jira.ReviewStatus})
 }
 
 // offersReviewStatus reports whether an open pull request is followed by the
