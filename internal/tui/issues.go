@@ -139,9 +139,10 @@ func (l issueList) selectKey(issueKey jira.Key) issueList {
 }
 
 // beginFilter starts a fresh search, capturing keystrokes until it is kept
-// or cleared.
+// or cleared. In the collapsed layout it goes back from an issue being read
+// to the list, so what the search narrows is in sight.
 func (l issueList) beginFilter() issueList {
-	l.search = l.search.Begun()
+	l.search, l.viewing = l.search.Begun(), false
 
 	return l
 }

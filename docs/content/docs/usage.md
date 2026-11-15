@@ -201,7 +201,7 @@ lists, by where it works.
 | | `w` | Log work on it |
 | | `b` | Start work on it: a branch for it, or a branch for no issue when none is selected |
 | | `o` / `y` | Open the issue in the browser, or copy its URL |
-| | `/` | Search the list as you type; `enter` keeps the search, `esc` clears it |
+| | `/` | Search the list as you type; `enter` keeps the search, `esc` clears it. Below 80 columns, a search begun while an issue is read goes back to the list |
 | | `f` | Filter the list by where issues are: a status, in flight, or how their tasks stand |
 | | `v` | Switch which issue list is shown |
 | | `ctrl+n` | Load the next page of the list |
