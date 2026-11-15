@@ -345,8 +345,8 @@ func (c commentComposer) close(m Model) Model {
 	return m.noticed("draft kept for " + shownKey(c.issue.Key) + "; " + m.keys.comment.Help().Key + " picks it up again")
 }
 
-// preview shows the comment for a last look before it is posted, or says there
-// is nothing to post.
+// preview shows the comment for a last look before it is posted, in a round
+// of its own, or says there is nothing to post.
 func (c commentComposer) preview(m Model) Model {
 	if strings.TrimSpace(c.text.Value()) == "" {
 		m.overlay = c
@@ -354,7 +354,8 @@ func (c commentComposer) preview(m Model) Model {
 		return m.noticedGuidance(errEmptyComment)
 	}
 
-	m.overlay = commentPreview{composer: c}
+	m, opened := m.nextRound()
+	m.overlay = commentPreview{composer: c, opened: opened}
 
 	return m
 }
