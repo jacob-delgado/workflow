@@ -43,32 +43,36 @@ func (m Model) startMerge() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.overlay = mergePicker{vocab: m.vocab, pull: m.review.pull(), noCI: m.review.listed().State == forge.CINone}
+	m, opened := m.nextRound()
+	m.overlay = mergePicker{
+		vocab: m.vocab, pull: m.review.pull(), noCI: m.review.listed().State == forge.CINone, opened: opened,
+	}
 	ctx, methods := m.session, m.deps.Forge.MergeMethods
 
 	return m, func() tea.Msg {
 		allowed, err := methods(ctx)
 
-		return mergeMethodsLoaded{methods: allowed, err: err}
+		return mergeMethodsLoaded{opened: opened, methods: allowed, err: err}
 	}
 }
 
-// mergeMethodsLoaded is the merge methods a repository permits, for the preview.
+// mergeMethodsLoaded is the merge methods a repository permits, for the
+// preview opened in round opened.
 type mergeMethodsLoaded struct {
+	opened  int
 	methods []forge.MergeMethod
 	err     error
 }
 
 var _ applier = mergeMethodsLoaded{}
 
-// apply fills the open preview with the permitted methods, or pins why it
-// cannot: a read the token could not make, or a repository that permits none.
-// It does nothing once the preview has closed, or once it has been filled — a
-// preview closed and reopened has two reads out — so a choice being made there
-// is kept.
+// apply fills the preview that asked with the permitted methods, or pins why
+// it cannot: a read the token could not make, or a repository that permits
+// none. It does nothing once that preview has closed, even when another has
+// opened since, whose own read is on its way.
 func (msg mergeMethodsLoaded) apply(m Model) (Model, tea.Cmd) {
-	picker, open := m.overlay.(mergePicker)
-	if !open || picker.settled {
+	picker, open := answerFor[mergePicker](m, msg.opened)
+	if !open {
 		return m, nil
 	}
 
@@ -82,9 +86,8 @@ func (msg mergeMethodsLoaded) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	picker.settled = true
-	m.overlay = picker
 
-	return m, nil
+	return m.withAnswered(picker), nil
 }
 
 // mergeRequested is the outcome of merging a pull request.
@@ -147,10 +150,14 @@ type mergePicker struct {
 	settled  bool
 	selected int
 	send     sendState
+	// opened is the round the preview opened in, which its read carries
+	// back, so it fills no preview opened after.
+	opened int
 }
 
 var (
 	_ failable[mergePicker] = mergePicker{}
+	_ opened                = mergePicker{}
 	_ steppable             = mergePicker{}
 )
 
@@ -220,6 +227,9 @@ func (p mergePicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 // which names the merge picker.
 func (mergePicker) which() overlayKind { return overlayMergePicker }
+
+// openedAs is the round the preview opened in.
+func (p mergePicker) openedAs() int { return p.opened }
 
 // step moves the choice of method by delta, held within the methods, so it
 // stays on the first while they are read; nothing moves while a merge is sent.

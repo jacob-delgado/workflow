@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -472,22 +473,44 @@ func TestAMethodsAnswerLeavesAnOverlayOpenedMeanwhile(t *testing.T) {
 	}
 }
 
-func TestALateMethodsAnswerKeepsTheChoiceBeingMade(t *testing.T) {
+func TestAFailedReadFromAClosedMergePickerLeavesTheReopenedOneReading(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// The picker is closed and reopened, so two reads are out; the first to land
-	// fills it, and a method is chosen before the second lands with other methods.
 	reviewing := mergeable()
-	reviewing.mergeMethods = []forge.MergeMethod{forge.MergeCommit, forge.MergeSquash}
-	first, firstRead := pressed(t, typing(t, reviewing.live(t, 120, 40), "4"), "M")
-	reopened, secondRead := pressed(t, typing(t, first, keyEsc), "M")
-	filled, _ := finish(t, reopened, firstRead)
-	choosing := typing(t, filled, "j")
-	reviewing.mergeMethods = []forge.MergeMethod{forge.MergeRebase}
+	reviewing.mergeMethodsErr = forge.ErrUnreachable
+	onReview := typing(t, reviewing.live(t, 120, 40), "4")
+	closing, closed := withheldKeys(t, onReview, reviewing.counting("merge-methods"), "M")
+	reopened, _ := withheldKeys(t, closing, reviewing.counting("merge-methods"), keyEsc, "M")
 
 	// Act
-	answered, _ := finish(t, choosing, secondRead)
+	answered := handedOver(t, reopened, closed)
+
+	// Assert
+	view := answered.View().Content
+	if strings.Contains(view, "The forge did not answer in time.") {
+		t.Errorf("screen shows the closed picker's failure; want %q:\n%s", readingMethods, view)
+	}
+
+	requireScreen(t, view, readingMethods)
+}
+
+func TestAClosedMergePickersMethodsLeaveTheChoiceBeingMade(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The picker is closed and reopened, so two reads are out. The reopened
+	// one's own lands and a method is chosen before the closed one's lands
+	// with other methods.
+	reviewing := mergeable()
+	reviewing.mergeMethods = []forge.MergeMethod{forge.MergeRebase}
+	onReview := typing(t, reviewing.live(t, 120, 40), "4")
+	closing, closed := withheldKeys(t, onReview, reviewing.counting("merge-methods"), "M")
+	reviewing.mergeMethods = []forge.MergeMethod{forge.MergeCommit, forge.MergeSquash}
+	choosing := typing(t, closing, keyEsc, "M", "j")
+
+	// Act
+	answered := handedOver(t, choosing, closed)
 
 	// Assert
 	requireScreen(t, answered.View().Content, "▸ squash and merge")
