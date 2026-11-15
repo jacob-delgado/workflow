@@ -402,9 +402,7 @@ func (c commitComposer) editBody(m Model) tea.Cmd {
 		return nil
 	}
 
-	return m.deps.Editor.Edit(c.body, bodyHelp, func(text string, err error) tea.Msg {
-		return textEdited{text: text, err: err}
-	})
+	return m.deps.Editor.Edit(c.body, bodyHelp, editedFor(c.opened))
 }
 
 // applyEdit puts the body back in the composer, or records why the editor
@@ -416,9 +414,7 @@ func (c commitComposer) applyEdit(m Model, text string, err error) (Model, tea.C
 		c.body = text
 	}
 
-	m.overlay = c
-
-	return m, nil
+	return m.withAnswered(c), nil
 }
 
 // commit commits the index with the assembled message, through a plain git

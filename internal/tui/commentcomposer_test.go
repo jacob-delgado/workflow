@@ -4,6 +4,7 @@
 package tui_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/tui"
@@ -159,6 +160,29 @@ func TestCtrlOHandsTheDraftToTheEditorAndBack(t *testing.T) {
 
 	// Assert
 	requireScreen(t, view, normalMode, "Rewritten in my editor")
+}
+
+func TestAnEditAnsweringAfterItsComposerClosedChangesNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := newWorld()
+	repo.edited = "edited body"
+	// The editor's answer is held back while the composer that asked closes
+	// and another opens on the next issue.
+	editing, edit := pressed(t, typing(t, repo.live(t, 120, 40), "c"), keyCtrlO)
+	reopened := typing(t, editing, keyEsc, "down", "c")
+
+	// Act
+	answered, _ := finish(t, reopened, edit)
+
+	// Assert
+	view := answered.View().Content
+	if strings.Contains(view, "edited body") {
+		t.Errorf("comment composer shows %q; want %q:\n%s", "edited body", "", view)
+	}
+
+	requireScreen(t, view, "Comment on "+secondIssue, "press i to write")
 }
 
 func TestADraftBelongsToItsIssue(t *testing.T) {

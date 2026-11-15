@@ -405,9 +405,7 @@ func (c prComposer) editBody(m Model) tea.Cmd {
 		return nil
 	}
 
-	return m.deps.Editor.Edit(c.body, prBodyHelp(c.vocab), func(text string, err error) tea.Msg {
-		return textEdited{text: text, err: err}
-	})
+	return m.deps.Editor.Edit(c.body, prBodyHelp(c.vocab), editedFor(c.opened))
 }
 
 // applyEdit puts the body back in the composer, or records why the editor
@@ -416,9 +414,8 @@ func (c prComposer) editBody(m Model) tea.Cmd {
 func (c prComposer) applyEdit(m Model, text string, err error) (Model, tea.Cmd) {
 	if err != nil {
 		c.send = c.send.failed(err)
-		m.overlay = c
 
-		return m, nil
+		return m.withAnswered(c), nil
 	}
 
 	c.body, c.edited = text, true
@@ -426,9 +423,7 @@ func (c prComposer) applyEdit(m Model, text string, err error) (Model, tea.Cmd) 
 		return c.asking(m, prWhere, 0)
 	}
 
-	m.overlay = c
-
-	return m, nil
+	return m.withAnswered(c), nil
 }
 
 // failed is the composer kept open with the reason the pull request did not open.

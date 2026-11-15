@@ -111,6 +111,26 @@ func TestTheSummaryIsPostedAsItWasEdited(t *testing.T) {
 	requireScreen(t, edited.View().Content, "● posted to "+devChannel)
 }
 
+func TestAnEditAnsweringAfterItsSummaryPreviewClosedChangesNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	busy := summaryWorld()
+	busy.edited = "# Tuesday\n\n- shipped the fix"
+	// The editor's answer is held back while the preview that asked is
+	// discarded and another opens.
+	editing, edit := pressed(t, typing(t, busy.live(t, 120, 40), summaryKey, postSummaryKey), "e")
+	reopened := typing(t, editing, keyEsc, postSummaryKey)
+
+	// Act
+	answered, _ := finish(t, reopened, edit)
+
+	// Assert
+	view := answered.View().Content
+	requireScreen(t, view, "┏━ Post to Slack", tuesdayHeading)
+	refuseScreen(t, view, "shipped the fix")
+}
+
 func TestASummaryEditedToNothingIsNotPosted(t *testing.T) {
 	t.Parallel()
 

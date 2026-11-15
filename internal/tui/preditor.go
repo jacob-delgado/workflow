@@ -30,6 +30,9 @@ type prEditor struct {
 	pull  forge.PullRequest
 	vocab reviewVocab
 	send  sendState
+	// opened is the round the editor opened in, which an edit carries back,
+	// so it lands in no editor opened after.
+	opened int
 }
 
 var (
@@ -42,9 +45,10 @@ var (
 // with its current title and description.
 func (m Model) openPullRequestEditor() (Model, tea.Cmd) {
 	pull := m.review.pull()
+	m, opened := m.nextRound()
 
 	editor := prEditor{
-		title: newInput(pull.Title), body: pull.Body, pull: pull, vocab: m.vocab,
+		title: newInput(pull.Title), body: pull.Body, pull: pull, vocab: m.vocab, opened: opened,
 	}
 	editor.title.Focus()
 
@@ -105,6 +109,9 @@ func (p prEditor) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // which names the pull request editor.
 func (prEditor) which() overlayKind { return overlayPREditor }
 
+// openedAs is the round the editor opened in.
+func (p prEditor) openedAs() int { return p.opened }
+
 // pasted types a paste into the title, as typing it would.
 func (p prEditor) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
 	if p.send.sending {
@@ -124,9 +131,7 @@ func (p prEditor) editBody(m Model) tea.Cmd {
 		return nil
 	}
 
-	return m.deps.Editor.Edit(p.body, prBodyHelp(p.vocab), func(text string, err error) tea.Msg {
-		return textEdited{text: text, err: err}
-	})
+	return m.deps.Editor.Edit(p.body, prBodyHelp(p.vocab), editedFor(p.opened))
 }
 
 // applyEdit puts the edited description back, or records why the editor failed.
@@ -137,9 +142,7 @@ func (p prEditor) applyEdit(m Model, text string, err error) (Model, tea.Cmd) {
 		p.body = text
 	}
 
-	m.overlay = p
-
-	return m, nil
+	return m.withAnswered(p), nil
 }
 
 // save asks the forge to update the pull request, or, in a dry run, says what it

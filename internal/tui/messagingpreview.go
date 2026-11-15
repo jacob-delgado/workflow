@@ -170,9 +170,7 @@ func (p messagingPreview) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cm
 	case key.Matches(msg, m.keys.cycleLeft):
 		return p.cycleChannel(m, -1)
 	case key.Matches(msg, m.keys.edit) && m.deps.Editor.Edit != nil:
-		return m, m.deps.Editor.Edit(p.text, messagingHelp, func(text string, err error) tea.Msg {
-			return textEdited{text: text, err: err}
-		})
+		return m, m.deps.Editor.Edit(p.text, messagingHelp, editedFor(p.opened))
 	case key.Matches(msg, m.keys.confirm):
 		return p.post(m)
 	case key.Matches(msg, m.keys.postWhenGreen):
@@ -365,9 +363,7 @@ func (p messagingPreview) applyEdit(m Model, text string, err error) (Model, tea
 		p.text = text
 	}
 
-	m.overlay = p
-
-	return m, nil
+	return m.withAnswered(p), nil
 }
 
 // messagingPosted reports how posting went, the announcement it made — a pull
