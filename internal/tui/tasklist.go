@@ -381,12 +381,6 @@ func (s tasksState) listKeys(keys keyMap) []key.Binding {
 	return []key.Binding{keys.searchTasks, keys.filterTasks, keys.sortTasks}
 }
 
-// filteringTasks reports the Tasks pane capturing keystrokes into its filter,
-// which takes every key, q and the digits included, until it closes.
-func (m Model) filteringTasks() bool {
-	return m.focus == paneTasks && m.tasks.listing.filtering
-}
-
 // handleTaskFilterKey types the Tasks filter as the Issues filter is typed:
 // enter keeps it, esc clears it, the arrows move the cursor, and every other
 // key extends it. It reads enter and esc themselves, so a printable key ui.keys

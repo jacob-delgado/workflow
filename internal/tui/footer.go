@@ -59,14 +59,16 @@ func (m Model) footerRow(room int) string {
 // The keys every pane takes, ? among them, work there only where the overlay
 // answers them, as the help does.
 func (m Model) capturedKeys() ([]key.Binding, bool) {
-	switch {
-	case m.overlay != nil:
+	route := m.inputRoute()
+	if route == routeOverlay {
 		return m.overlayKeys(), true
-	case m.filteringIssues(), m.filteringTasks():
-		return m.filterKeys(), true
-	default:
+	}
+
+	if route == routePanes {
 		return nil, false
 	}
+
+	return m.filterKeys(), true
 }
 
 // footerRank orders the keys a footer too narrow for all of them gives

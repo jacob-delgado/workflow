@@ -325,30 +325,57 @@ func (m Model) handleKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return answered.nextNoticeWaiting(), cmd
 }
 
-// answerKey hands a key press to whatever has the keyboard. ctrl+c always
-// quits. Otherwise an open overlay — the help among them — has the keyboard,
-// including q, which a text field needs to type; then the Issues filter while
-// it is open; then the keys that work on every pane, which fall through to the
-// focused pane's own.
+// answerKey hands a key press to whatever has the keyboard, by its input
+// route; ctrl+c always quits.
 func (m Model) answerKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	switch {
+	switch route := m.inputRoute(); {
 	case key.Matches(msg, m.keys.interrupt):
 		return m.quit()
-	case m.overlay != nil:
+	case route == routeOverlay:
 		return m.overlay.handleKey(m, msg)
-	case m.filteringIssues():
+	case route == routeIssueFilter:
 		return m.handleIssueFilterKey(msg)
-	case m.filteringTasks():
+	case route == routeTaskFilter:
 		return m.handleTaskFilterKey(msg)
 	default:
 		return m.handleGlobalKey(msg)
 	}
 }
 
-// filteringIssues reports that the Issues pane is capturing keystrokes into its
-// filter, which takes every key — q and the digits included — until it closes.
-func (m Model) filteringIssues() bool {
-	return m.focus == paneIssues && m.issues.filtering
+// inputRoute is what takes a key or a paste: an open overlay, the help among
+// them, which takes every key, q included, since a text field needs to type
+// it; else an Issues filter or a Tasks search being typed, which takes every
+// key, q and the digits included, until it closes; else the panes.
+type inputRoute int
+
+const (
+	routePanes inputRoute = iota
+	routeOverlay
+	routeIssueFilter
+	routeTaskFilter
+)
+
+// inputRoute is where the next key or paste goes.
+func (m Model) inputRoute() inputRoute {
+	if m.overlay != nil {
+		return routeOverlay
+	}
+
+	return m.paneRoute()
+}
+
+// paneRoute is where a key goes among the panes, the route an open overlay
+// covers: the focused pane's filter or search while it is typed, else the
+// keys every pane takes.
+func (m Model) paneRoute() inputRoute {
+	switch {
+	case m.focus == paneIssues && m.issues.filtering:
+		return routeIssueFilter
+	case m.focus == paneTasks && m.tasks.listing.filtering:
+		return routeTaskFilter
+	default:
+		return routePanes
+	}
 }
 
 // handleGlobalKey answers the keys that work in every pane, and hands the rest
@@ -467,7 +494,7 @@ func (m Model) hasNotice() bool {
 // noticeCovered reports the notice row given over to a search or filter
 // narrowing the list, which hides whatever notice there is.
 func (m Model) noticeCovered() bool {
-	return m.showsFilter() || m.filteringTasks()
+	return m.showsFilter() || m.paneRoute() == routeTaskFilter
 }
 
 // showsFilter reports that the Issues pane's filter should be shown on its own

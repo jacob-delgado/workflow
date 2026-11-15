@@ -88,7 +88,7 @@ func (m Model) noticeLine(width int) string {
 		return ansi.Truncate(" "+sanitize.Text(m.issues.narrowingLine(m.marks)), width, m.marks.ellipsis)
 	}
 
-	if m.filteringTasks() {
+	if m.paneRoute() == routeTaskFilter {
 		return ansi.Truncate(" "+sanitize.Text("search: "+m.tasks.listing.narrowing.Text), width, m.marks.ellipsis)
 	}
 
