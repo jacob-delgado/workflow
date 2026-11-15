@@ -88,7 +88,7 @@ func (m Model) body(shape layout.Layout) string {
 func (m Model) noticeLine(width int) string {
 	switch {
 	case m.paneRoute() == routeTaskFilter:
-		return ansi.Truncate(" "+sanitize.Text("search: "+m.tasks.listing.narrowing.Text), width, m.marks.ellipsis)
+		return ansi.Truncate(" "+sanitize.Text("search: "+m.tasks.listing.search.Text()), width, m.marks.ellipsis)
 	case m.showsFilter() && (m.noticeCovered() || m.notice.Stage() == notice.StageNone):
 		return ansi.Truncate(" "+sanitize.Text(m.issues.narrowingLine(m.marks)), width, m.marks.ellipsis)
 	default:

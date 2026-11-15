@@ -370,7 +370,7 @@ func (m Model) paneRoute() inputRoute {
 	switch {
 	case m.focus == paneIssues && m.issues.search.Stage() == listsearch.StageTyping:
 		return routeIssueFilter
-	case m.focus == paneTasks && m.tasks.listing.filtering:
+	case m.focus == paneTasks && m.tasks.listing.search.Stage() == listsearch.StageTyping:
 		return routeTaskFilter
 	default:
 		return routePanes
