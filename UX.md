@@ -201,10 +201,10 @@ is the shortest summary of how far the screen keeps them, re-counted at
 | The promise | Where it is made | Kept? |
 | --- | --- | --- |
 | "`?` lists every key" | `docs/content/docs/usage.md:110` | **Yes, by construction, and a test enumerates every placement.** Help is generated from the bindings (`helpBuilder.place`, `internal/tui/keys.go:174`, rendered in two columns split where they balance, `balancedSplit`, `internal/tui/help.go:166`): 104 placements — 94 `builder.bind` and 10 `builder.bindShown` calls — in 15 groups (`groupMoving` to `groupPanesAndOverlays`, `internal/tui/keys.go:108`), on 103 lines, since `cycle-type-right` has no help of its own and rides `cycle-type-left`'s line (`internal/tui/keys.go:271`). `TestHelpListsEveryPlacedBinding` (`internal/tui/help_test.go:309`) reads `?` back and holds it to a table of every placement. |
-| "the one way the interface says something broke" | `wording`, `internal/tui/errorwords.go:28` | **Yes: every site that renders an error's text.** Each is told through `errorSentence` (`internal/tui/errorwords.go:67`) and drawn by one of eleven helpers (re-counted on 2026-11-15) — those that draw a mark choose it, and its style, through `voice` (`internal/tui/failure.go:79`), the footer's two failure notices through `markOf` (`:67`), which asks the same `loop.NotSetUp`: `failureBlock` at 21 sites, `failureBlocks` 1, `pinnedSend` 8, `pinnedOutcome` 8 (the overlays whose write is not yet a `send.State`), `pinnedProblem` 7, `failureLine` 19, `failureSummary` 8, `unreadRow` 3, `noticedFailure` 14, `noticedFailureLedBy` 6 and `noticedGuidance` 8 (plain, since red means something broke). They are also the one way the terminal says something was never set up: as guidance, with `○` and no red, in `loop.SetUpAdvice`'s words (`setUp`, `internal/tui/errorwords.go:135`), as principle 4 asks. |
-| "Nothing outward facing is sent without" a last look | `commentPreview`, `internal/tui/comment.go:53` | **Yes, under principle 2.** Every write that leaves the machine or cannot be taken back waits on a preview or a confirmation, most through `lastLook` (`internal/tui/overlay.go:292`): every write to Jira, the forge and the messaging service, every push, Taskwarrior's sync, mark done and undo, forgetting a person and every directory switch. The reversible local toggles principle 2 names act at once. |
-| "a refused change must never go unseen" | `statusPicker`, `internal/tui/picker.go:328` | **Yes: 19 of 19.** Every overlay that sends a request refuses every key while it is in flight and keeps a refusal where it happened until `esc`: `branchCreator`, `branchLinker`, `branchPicker`, `commentPreview`, `finishPreview` (save a finish that failed once it had switched to the base: the preview closes, the footer says the base it stopped on, that the branch was not deleted and why, and the branch is read again, since the branch it offered to finish is checked out no more), `hookgenOffer`, `issueLinker`, `issueWrite`, `lastLook`, `mergePicker`, `messagingPreview`, `peopleOverlay`, `prComposer`, `prEditor`, `settingsForm` (each refused setting marked under its own row until that setting is edited or a save is sent, and named below a form open over the rows while that form hides them), `setupForm` (`internal/tui/setupform.go:264`, while it writes or checks), `statusPicker` (with its field form), `summaryPost` and `taskLine`. |
-| "Each pane fails on its own" | `docs/content/docs/usage.md:118` | **Yes.** `Init` (`internal/tui/tui.go:242`) batches eight loads, and the Summary and Repositories panes read on first focus (Init reads Repositories too when it starts focused there, `internal/tui/tui.go:252`); each pane holds and renders its own load's error, the Summary per source, and says of a service never set up how to set it up. |
+| "the one way the interface says something broke" | `wording`, `internal/tui/errorwords.go:28` | **Yes: every site that renders an error's text.** Each is told through `errorSentence` (`internal/tui/errorwords.go:67`) and drawn by one of eleven helpers (re-counted on 2026-11-15) — those that draw a mark choose it, and its style, through `voice` (`internal/tui/failure.go:87`), the footer's two failure notices through `markOf` (`:75`), which asks the same `loop.NotSetUp`: `failureBlock` at 21 sites, `failureBlocks` 1, `pinnedSend` 8, `pinnedOutcome` 8 (the overlays whose write is not yet a `send.State`), `pinnedProblem` 7, `failureLine` 19, `failureSummary` 8, `unreadRow` 3, `noticedFailure` 14, `noticedFailureLedBy` 6 and `noticedGuidance` 8 (plain, since red means something broke). They are also the one way the terminal says something was never set up: as guidance, with `○` and no red, in `loop.SetUpAdvice`'s words (`setUp`, `internal/tui/errorwords.go:135`), as principle 4 asks. |
+| "Nothing outward facing is sent without" a last look | `commentPreview`, `internal/tui/comment.go:54` | **Yes, under principle 2.** Every write that leaves the machine or cannot be taken back waits on a preview or a confirmation, most through `lastLook` (`internal/tui/overlay.go:353`): every write to Jira, the forge and the messaging service, every push, Taskwarrior's sync, mark done and undo, forgetting a person and every directory switch. The reversible local toggles principle 2 names act at once. |
+| "a refused change must never go unseen" | `statusPicker`, `internal/tui/picker.go:331` | **Yes: 19 of 19.** Every overlay that sends a request refuses every key while it is in flight and keeps a refusal where it happened until `esc`: `branchCreator`, `branchLinker`, `branchPicker`, `commentPreview`, `finishPreview` (save a finish that failed once it had switched to the base: the preview closes, the footer says the base it stopped on, that the branch was not deleted and why, and the branch is read again, since the branch it offered to finish is checked out no more), `hookgenOffer`, `issueLinker`, `issueWrite`, `lastLook`, `mergePicker`, `messagingPreview`, `peopleOverlay`, `prComposer`, `prEditor`, `settingsForm` (each refused setting marked under its own row until that setting is edited or a save is sent, and named below a form open over the rows while that form hides them), `setupForm` (`internal/tui/setupform.go:264`, while it writes or checks), `statusPicker` (with its field form), `summaryPost` and `taskLine`. |
+| "Each pane fails on its own" | `docs/content/docs/usage.md:118` | **Yes.** `Init` (`internal/tui/tui.go:216`) batches eight loads, and the Summary and Repositories panes read on first focus (Init reads Repositories too when it starts focused there, `internal/tui/tui.go:228`); each pane holds and renders its own load's error, the Summary per source, and says of a service never set up how to set it up. |
 | State is "carried by the SHAPE of a glyph rather than its color" | `internal/tui/glyphs.go:19` | **Yes.** `unicodeGlyphs` and `asciiGlyphs` differ in shape (`internal/tui/glyphs.go:47`, `:63`); `NO_COLOR` keeps bold and faint. Two residues: the progress spine's five system hues are color-only, mitigated by each system's name or initial, and `◐` means both "partly staged" and "announces when CI passes" (see the visual system). |
 
 To re-count rather than trust these numbers: `grep -o '\bfailureBlock('
@@ -237,7 +237,7 @@ Impact: low · Effort: medium
 `internal/tui/options.go:56`); `ui.ascii` swaps glyphs and borders
 (`asciiGlyphs`, `internal/tui/glyphs.go:63`); escapes in server text are
 neutralized. But there is no screen-reader mode; the alternate screen is
-unconditional (`Model.View`, `internal/tui/render.go:38`, `view.AltScreen
+unconditional (`Model.View`, `internal/tui/render.go:39`, `view.AltScreen
 = true`), so nothing the interface prints survives quitting; `ui.color`
 has no `always` for a piped terminal that does support color; and the
 150 ms detail delay (`detailDelay`, `internal/tui/detail.go:20`) is fixed.
@@ -257,8 +257,8 @@ always`, which `Config.validateUI` (`internal/config/ui.go:138`) and the
 Impact: low · Effort: large
 
 **Today.** Drafts survive `esc` (the commit, `commitComposer.handleKey`,
-`internal/tui/composer.go:274`; the pull request, `prComposer.handleKey`,
-`internal/tui/prcomposer.go:294`), a dirty tree blocks a switch instead of
+`internal/tui/composer.go:277`; the pull request, `prComposer.handleKey`,
+`internal/tui/prcomposer.go:303`), a dirty tree blocks a switch instead of
 stashing (`loop.ErrDirtyTree`, `internal/loop/guards.go:18`), and quit is
 guarded while an announcement waits (`quitGuard`,
 `internal/tui/messagingheld.go`). But a posted comment, an applied
@@ -266,9 +266,9 @@ transition, a merge and the `git branch -D` in finish
 (`Finishing.Commands`, `internal/gitrepo/branching.go:168`) have no undo, and
 the interface never says which acts are reversible: the finish preview
 lists the three commands and says nothing of what `-D` costs
-(`finishPreview.view`, `internal/tui/finish.go:113`), and a comment's notice
+(`finishPreview.view`, `internal/tui/finish.go:155`), and a comment's notice
 is "commented on KEY" (`commentPosted.apply`,
-`internal/tui/comment.go:140`).
+`internal/tui/comment.go:159`).
 
 **Instead.** Short of undo: the finish preview says "deletes NAME; the
 commits stay reachable from BASE"; a comment's success notice carries the
@@ -307,7 +307,7 @@ sets (`checkbox`, `internal/tui/glyphs.go`). Three marks are not states
 and take shapes of their own: `★` (`^` in ASCII) for a favorite
 directory, `‹›` (`<>` in ASCII) for the value under a cursor — the
 calendar's and the commit type's (`internal/tui/calendar.go:115`,
-`internal/tui/composer.go:236`), its closing `›` also standing between a
+`internal/tui/composer.go:239`), its closing `›` also standing between a
 section and a setting in it at Settings' foot, as Jira › Project
 (`setting.named`, `internal/tui/settingsrefusals.go`) — and `[]` for the
 value another calendar column stands on (`internal/tui/calendar.go:117`).
@@ -487,10 +487,10 @@ Impact: low · Effort: large
 
 **Today.** UX-64 asks for the alternate screen to be optional; a screen
 reader needs more than that. The interface redraws one full screen of
-boxes each frame (`view.AltScreen = true`, `internal/tui/render.go:38`),
+boxes each frame (`view.AltScreen = true`, `internal/tui/render.go:39`),
 so a reader re-reads the rail, the borders and the footer at every
 change, and the one line that says what just happened — the notice
-(`Model.noticed`, `internal/tui/overlay.go:180`) — sits among them.
+(`Model.noticed`, `internal/tui/overlay.go:183`) — sits among them.
 Forms are the one part already read well: with `ui.accessible` or
 `ACCESSIBLE`, a status change's fields are asked as Huh's plain prompts,
 one question at a time (`promptedForm`, `internal/tui/huhform.go`), but
