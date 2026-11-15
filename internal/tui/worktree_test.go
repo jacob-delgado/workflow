@@ -146,3 +146,19 @@ func TestEscOnTheNewWorktreeOfferStays(t *testing.T) {
 
 	refuseScreen(t, stayed.View().Content, "Switch to the new worktree")
 }
+
+func TestARefusedWorktreeIsNotShownOnceBranchingHereIsChosen(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := newWorld()
+	repo.worktreeErr = errWorktreeExists
+	refused := typing(t, repo.live(t, 120, 40), "2", "b", keyWorktree, keyEnter)
+
+	// Act
+	view := typing(t, refused, keyWorktree).View().Content
+
+	// Assert
+	requireScreen(t, view, "Start work on", "enter create")
+	refuseScreen(t, view, "already exists")
+}
