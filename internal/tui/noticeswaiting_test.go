@@ -203,3 +203,22 @@ func TestALossLandingWhileASearchCoversTheNoticeWaitsForItToClose(t *testing.T) 
 	// Assert
 	requireNotice(t, closed.View().Content, issueListNotKept)
 }
+
+func TestAWaitingNoticeShowsOnceAClickLeavesTheFilteredIssues(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The refresh is sent and its answer kept back, and the issues filtered;
+	// the refresh's loss lands while the filter covers the notice row.
+	repo := newWorld()
+	repo.storeErr = errStoreFull
+	refreshing, refreshed := repo.live(t, 120, 40).Update(keyMsg("r"))
+	filtered := drain(t, typing(t, concrete(t, refreshing), "/", "a", keyEnter), refreshed)
+	commits := screenRow(t, filtered.View().Content, "3 Commits")
+
+	// Act
+	clicked := click(t, filtered, 5, commits+1)
+
+	// Assert
+	requireNotice(t, clicked.View().Content, issueListNotKept)
+}
