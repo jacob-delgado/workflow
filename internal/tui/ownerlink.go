@@ -180,10 +180,12 @@ func (msg userGroupsRead) apply(m Model) (Model, tea.Cmd) {
 }
 
 // linksOwners is an overlay the owner picker opens over, holding the
-// directory the picker chooses from.
+// directory the picker chooses from, which sends the link chosen as its own
+// write.
 type linksOwners interface {
 	opened
 	directoryFor(team bool) directory
+	sendingLink(m Model, link loop.OwnerLink) (Model, tea.Cmd)
 }
 
 // savingLink saves link, counted on its way until it answers, for the
@@ -398,9 +400,8 @@ func (p ownerPicker) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// choose saves the chosen link and goes back: to People and groups marked
-// saving, as its own saves mark it, so no other write of it goes beside this
-// one.
+// choose saves the chosen link and goes back to the overlay it was opened
+// from, the link marked out there as its own write.
 func (p ownerPicker) choose(m Model) (Model, tea.Cmd) {
 	// "Not on Slack" is always a row, so one is always chosen.
 	chosen, _ := p.list.chosen()
@@ -410,13 +411,5 @@ func (p ownerPicker) choose(m Model) (Model, tea.Cmd) {
 		target = &chosen.target
 	}
 
-	linking, save := m.savingLink(decided(p.owner, p.team, target), p.back.openedAs())
-
-	if people, fromPeople := p.back.(peopleOverlay); fromPeople {
-		return people.saving(linking, save)
-	}
-
-	linking.overlay = p.back
-
-	return linking, save
+	return p.back.sendingLink(m, decided(p.owner, p.team, target))
 }
