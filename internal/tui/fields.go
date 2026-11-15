@@ -26,6 +26,17 @@ func errNeedsJira(move jira.Transition, field jira.Field) error {
 	return fmt.Errorf("%s needs %s, %w", move.Name, field.Name, jira.ErrOnlyJira)
 }
 
+// pickerStage is where the status picker stands: choosing a transition, or
+// filling in the fields the chosen one needs.
+type pickerStage int
+
+const (
+	// pickerChoosing has the transitions to choose from. It is the zero stage.
+	pickerChoosing pickerStage = iota
+	// pickerFilling has the chosen transition's fields being filled in.
+	pickerFilling
+)
+
 // fieldForm fills in the fields a transition needs, one at a time, in a Huh
 // form: a choice from a field's allowed values, several of them for a list,
 // or text typed for a text, user or date field. Each field is a group of its
@@ -137,11 +148,6 @@ func placeholder(kind jira.FieldKind) string {
 	return ""
 }
 
-// open reports whether a form is being filled in.
-func (f fieldForm) open() bool {
-	return f.form != nil
-}
-
 // view draws the field being filled in under what it is for.
 func (f fieldForm) view(kit renderKit) []string {
 	return []string{transitionLabel(kit.marks, f.transition) + " needs:", f.form.View()}
@@ -153,6 +159,19 @@ func (f fieldForm) footer(keys keyMap) []key.Binding {
 	return append(formKeys(f.form), relabel(keys.closeOverlay, escBack))
 }
 
+// filling reports the chosen transition's fields being filled in.
+func (p statusPicker) filling() bool {
+	return p.stage == pickerFilling
+}
+
+// choosing is the picker back on its transitions, the field form closed,
+// with what keeps the move from going from here, or nil.
+func (p statusPicker) choosing(problem error) statusPicker {
+	p.stage, p.form, p.problem = pickerChoosing, fieldForm{}, problem
+
+	return p
+}
+
 // handleFormKey answers a key while a transition's fields are being filled in:
 // esc goes back to the transitions rather than closing the picker, and every
 // other key is the form's, until apply on the last field passes its check.
@@ -161,8 +180,7 @@ func (p statusPicker) handleFormKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cm
 	case p.form.submitting:
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
-		p.form = fieldForm{}
-		m.overlay = p
+		m.overlay = p.choosing(nil)
 
 		return m, nil
 	}
@@ -178,7 +196,7 @@ func (p statusPicker) handleFormKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cm
 // relay hands a message to the form while a transition's fields are being
 // filled in.
 func (p statusPicker) relay(m Model, msg tea.Msg) (Model, tea.Cmd) {
-	if !p.form.open() {
+	if !p.filling() {
 		return m, nil
 	}
 
@@ -188,7 +206,7 @@ func (p statusPicker) relay(m Model, msg tea.Msg) (Model, tea.Cmd) {
 // resized fits the form being filled in, if one is, to the picker at the
 // screen's new size.
 func (p statusPicker) resized(m Model) (Model, tea.Cmd) {
-	if !p.form.open() {
+	if !p.filling() {
 		return m, nil
 	}
 
@@ -218,9 +236,9 @@ func (p statusPicker) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
 // otherwise. Nothing moves while a change is being sent.
 func (p statusPicker) step(m Model, delta int) Model {
 	switch {
-	case p.send.sending:
+	case p.moving():
 		return m
-	case p.form.open():
+	case p.filling():
 		toward := m.keys.down
 		if delta < 0 {
 			toward = m.keys.up
@@ -254,15 +272,14 @@ func (msg fieldsFilled) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	if problem != nil {
-		m.overlay = picker.failed(problem)
+		m.overlay = picker.choosing(problem)
 
 		return m, nil
 	}
 
 	move, values := picker.form.transition, picker.form.values()
-	picker.form = fieldForm{}
 
-	return picker.apply(m, move, values)
+	return picker.choosing(nil).apply(m, move, values)
 }
 
 // problem is the first field whose answer cannot be accepted, nil once
@@ -327,4 +344,18 @@ func newInput(text string) textinput.Model {
 	input.Focus()
 
 	return input
+}
+
+// needs names the fields a transition asks for, so it is no surprise.
+func needs(marks glyphs, move jira.Transition) string {
+	if len(move.Fields) == 0 {
+		return ""
+	}
+
+	names := make([]string, 0, len(move.Fields))
+	for _, field := range move.Fields {
+		names = append(names, field.Name)
+	}
+
+	return marks.separator + "needs " + strings.Join(names, ", ")
 }
