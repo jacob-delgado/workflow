@@ -20,6 +20,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
+	"github.com/jacob-delgado/workflow/internal/tui/send"
 )
 
 // errAnnouncementDropped is an announcement that waited for CI and was given
@@ -60,7 +61,7 @@ func (m Model) armOnOpen(pull forge.PullRequest) (Model, string, tea.Cmd) {
 			m.pullName(pull.Number) + " was not armed", nil
 	}
 
-	m.messaging.send.err = nil
+	m.messaging.postNow = m.messaging.postNow.Cleared()
 	m, read := m.held(started, postTags{})
 
 	return m, m.marks.separator + "announces to " + out.to + " once CI passes", read
@@ -84,7 +85,7 @@ func (m Model) armAsked(out outgoingAnnouncement) (Model, tea.Cmd) {
 		armedFor += m.marks.separator + "replaced the announcement waiting for " + m.pullName(replaced.Pull())
 	}
 
-	m.messaging.send.err = nil
+	m.messaging.postNow = m.messaging.postNow.Cleared()
 
 	return m.closeOverlay().noticed(armedFor).held(started, out.tags)
 }
@@ -184,7 +185,7 @@ var _ applier = holdRead{}
 // post too, and the hold reads again on its beat, waiting still should that
 // post fail.
 func (msg holdRead) apply(m Model) (Model, tea.Cmd) {
-	if m.messaging.send.sending {
+	if m.messaging.postNow.Stage() == send.StageInFlight {
 		return m.readHoldLater()
 	}
 
@@ -275,7 +276,7 @@ func (m Model) toldOfPost(now armed.Hold) Model {
 	// leaves a hold at.
 	told := map[armed.Stage]func() Model{
 		armed.StagePosted: func() Model {
-			m.messaging.send.err = nil
+			m.messaging.postNow = m.messaging.postNow.Cleared()
 
 			return m.noticedAnnounced(m.destinationOf(now.Delivery()), now.Reason())
 		},

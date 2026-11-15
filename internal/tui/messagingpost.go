@@ -28,13 +28,44 @@ var errMergeCheckFailed = errors.New("the merge was not announced")
 // place.
 func (m Model) sendToMessaging(out outgoingAnnouncement) (Model, tea.Cmd) {
 	ctx, seams, memory, delivery := m.session, m.deliverSeams(), m.announceMemory(out.tags), m.deliveryOf(out)
-	m.messaging.send = starting()
+	m.messaging.postNow, _ = m.messaging.postNow.Sent()
 
 	return m, func() tea.Msg {
-		err := withFailedChecks(loop.Deliver(ctx, seams, memory, delivery))
+		err := refusedAt(delivery.Moment, withFailedChecks(loop.Deliver(ctx, seams, memory, delivery)))
 
-		return messagingPosted{made: delivery.Made(), to: out.to, opened: out.opened, err: refusedAt(delivery.Moment, err)}
+		return messagingPosted{made: delivery.Made(), to: out.to, opened: out.opened, outcome: outcomeOf(err), err: err}
 	}
+}
+
+// postOutcome is how a post made now went: out, out with the store unable to
+// confirm it, announced first by another session and so not posted, or
+// refused.
+type postOutcome int
+
+const (
+	postWent postOutcome = iota
+	postUnconfirmed
+	postElsewhere
+	postRefused
+)
+
+// outcomeOf is the outcome a post that answered err had. A claim another
+// session holds is told before a confirmation that failed, as only the
+// post's own claim is confirmed.
+func outcomeOf(err error) postOutcome {
+	if err == nil {
+		return postWent
+	}
+
+	if errors.Is(err, loop.ErrAnnouncedAlready) {
+		return postElsewhere
+	}
+
+	if _, unconfirmed := loop.UnconfirmedReason(err); unconfirmed {
+		return postUnconfirmed
+	}
+
+	return postRefused
 }
 
 // deliverSeams are what a post goes through: the service, and the read of CI
@@ -123,12 +154,24 @@ func refusedAt(moment messaging.Moment, err error) error {
 
 // messagingPosted reports how posting went, the announcement it made — a pull
 // request and the moment it marked — where it went, and the round the
-// preview it was written in opened in.
+// preview it was written in opened in: its outcome, and the error behind
+// any but postWent.
 type messagingPosted struct {
-	made   loop.Announced
-	to     string
-	opened int
-	err    error
+	made    loop.Announced
+	to      string
+	opened  int
+	outcome postOutcome
+	err     error
+}
+
+// refusal is the error of a post refused, which keeps its preview open; nil
+// for any other outcome, which closes it.
+func (msg messagingPosted) refusal() error {
+	if msg.outcome == postRefused {
+		return msg.err
+	}
+
+	return nil
 }
 
 var _ applier = messagingPosted{}
@@ -140,31 +183,31 @@ var _ applier = messagingPosted{}
 // one that failed leaves that one waiting. One another session announced
 // first closes the preview as one that went out does, saying so.
 func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
-	preview, open := answerFor[messagingPreview](m, msg.opened)
-	m.messaging.send = sendState{}
-	m, reread := m.readingAnnounces()
+	refusal := msg.refusal()
+	m.messaging.postNow, _ = m.messaging.postNow.Answered(refusal)
 
-	elsewhere := errors.Is(msg.err, loop.ErrAnnouncedAlready)
-	if _, unconfirmed := loop.UnconfirmedReason(msg.err); msg.err != nil && !unconfirmed && !elsewhere {
-		m.messaging.send = m.messaging.send.failed(msg.err)
-		if open {
-			m = m.withAnswered(preview.failed(msg.err))
-		}
-
-		return m.noticedFailure(msg.err), reread
-	}
-
-	if open {
+	m, _, done := answered[messagingPreview](m, msg.opened, refusal)
+	if done {
 		m = m.closeOverlay()
 	}
 
-	if elsewhere {
-		return m.noticed(m.marks.done + " already announced from another session; not posted again"), reread
+	m, reread := m.readingAnnounces()
+	went := func() Model {
+		m.messaging.held.hold = m.messaging.held.hold.Superseded(msg.made)
+
+		return m.noticedAnnounced(msg.to, msg.err)
 	}
 
-	m.messaging.held.hold = m.messaging.held.hold.Superseded(msg.made)
+	// A map, not a switch, so there is no last-case arm gobco can never see.
+	told := map[postOutcome]func() Model{
+		postWent: went, postUnconfirmed: went,
+		postElsewhere: func() Model {
+			return m.noticed(m.marks.done + " already announced from another session; not posted again")
+		},
+		postRefused: func() Model { return m.noticedFailure(msg.err) },
+	}[msg.outcome]()
 
-	return m.noticedAnnounced(msg.to, msg.err), reread
+	return told, reread
 }
 
 // noticedAnnounced says an announcement went out to where it went. One the

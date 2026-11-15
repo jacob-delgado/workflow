@@ -17,8 +17,7 @@ import (
 // sendState is what is left of the old shape of an outbound request: whether
 // it is in flight, and the error it came back with. The overlays not yet
 // moved to send.State carry one, whose answer finds them by type alone
-// (keepOpenWith), and so does the Messaging pane's own post; a new overlay
-// holds a send.State instead.
+// (keepOpenWith); a new overlay holds a send.State instead.
 type sendState struct {
 	sending bool
 	err     error
