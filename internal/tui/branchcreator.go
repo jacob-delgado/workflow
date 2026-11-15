@@ -25,9 +25,7 @@ type branchCreator struct {
 	remote  string
 	baseAge string
 	send    sendState
-	// skipFetch is set once a fetch has failed and the user chose to branch from
-	// what is already there, so the retry does not fetch again.
-	skipFetch bool
+	plan    basePlan
 	// fetchProblem is the reason a fetch failed, shown with the offer to branch
 	// from what is there anyway.
 	fetchProblem error
@@ -45,6 +43,30 @@ var (
 	_ pasteable               = branchCreator{}
 )
 
+// basePlan is what the creator does with the base before it branches.
+type basePlan int
+
+const (
+	// baseFetchFirst fetches the base's remote, then branches from the base.
+	baseFetchFirst basePlan = iota
+	// baseAsIs branches from the base as the repository already has it: the
+	// fetch failed, and the user chose to branch from what is there.
+	baseAsIs
+	// baseNone has no base to start from: no default branch was found, so the
+	// branch starts from the current commit.
+	baseNone
+)
+
+// basePlanFor is how a branch begins from base: fetched first, or, with no
+// base, from the current commit.
+func basePlanFor(base string) basePlan {
+	if base == "" {
+		return baseNone
+	}
+
+	return baseFetchFirst
+}
+
 // openBranchCreator proposes a branch for the selected issue, started from the
 // branch work merges into.
 func (m Model) openBranchCreator() (Model, tea.Cmd) {
@@ -59,6 +81,7 @@ func (m Model) openBranchCreator() (Model, tea.Cmd) {
 		input: newInput(name), issue: issue, forIssue: forIssue,
 		base: m.branch.checkedOut().Base, remote: m.branch.checkedOut().BaseRemote, baseAge: m.branch.baseAge(m.deps.now()),
 		canWorktree: m.deps.Git.CreateWorktree != nil, applyKey: m.keys.confirm.Help().Key,
+		plan: basePlanFor(m.branch.checkedOut().Base),
 	}
 
 	return m, nil
@@ -228,20 +251,15 @@ func (c branchCreator) dryRunNotice(name string) string {
 		made = "create a worktree for " + name + " " + c.start()
 	}
 
-	if c.willFetchBase() {
+	if c.plan == baseFetchFirst {
 		made = "fetch " + c.remote + ", then " + made
 	}
 
 	return "dry run: would " + made
 }
 
-// willFetch reports that create should fetch first: there is a base to refresh,
-// a fetch seam to do it, and the user has not already chosen to skip it.
+// willFetch reports that create should fetch first: the plan is to, and there
+// is a fetch seam to do it.
 func (c branchCreator) willFetch(m Model) bool {
-	return c.willFetchBase() && m.deps.Git.Fetch != nil && !c.skipFetch
-}
-
-// willFetchBase reports that there is a base worth fetching.
-func (c branchCreator) willFetchBase() bool {
-	return c.base != "" && !c.skipFetch
+	return c.plan == baseFetchFirst && m.deps.Git.Fetch != nil
 }

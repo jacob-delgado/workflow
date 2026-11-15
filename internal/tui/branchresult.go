@@ -50,7 +50,7 @@ func (msg fetched) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	if msg.err != nil {
-		creator.send.sending, creator.fetchProblem, creator.skipFetch = false, msg.err, true
+		creator.send.sending, creator.fetchProblem, creator.plan = false, msg.err, baseAsIs
 		m.overlay = creator
 
 		return m, nil
