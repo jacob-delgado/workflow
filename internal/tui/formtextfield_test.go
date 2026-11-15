@@ -77,6 +77,6 @@ func TestPreviousFieldMovedInUIKeysGoesBackFromATextField(t *testing.T) {
 	resolution := typing(t, cause, "f5")
 
 	// Assert
-	requireScreen(t, resolution.View().Content, "Resolution (1 of 2)")
+	requireScreen(t, resolution.View().Content, resolutionAsked)
 	refuseScreen(t, resolution.View().Content, "Root cause (2 of 2)")
 }

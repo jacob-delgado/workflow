@@ -104,7 +104,7 @@ func TestEachPlainPromptIsTitledAsTheFormTitlesItsFields(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]string{
-		"the resolution, chosen": "Resolution (1 of 2)",
+		"the resolution, chosen": resolutionAsked,
 		"the root cause, typed":  "Root cause (2 of 2)",
 	}
 

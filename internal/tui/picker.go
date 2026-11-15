@@ -443,15 +443,15 @@ func (p statusPicker) choose(m Model) (Model, tea.Cmd) {
 	}
 
 	if len(chosen.Fields) > 0 {
-		var start tea.Cmd
-
-		p.stage, p.problem = pickerFilling, nil
 		width, rows := p.formSize(m)
-		p.form, start = newFieldForm(chosen, m.kit(), m.keys, width, rows)
-		m.overlay = p
-		form := p.form.form
+		form, start := newFieldForm(chosen, m.kit(), m.keys, width, rows)
+		m, form.asked = m.nextRound()
+		m.overlay = p.fillingIn(form)
+		opened, asked := p.opened, form.asked
 
-		return m, m.startForm(form, start, func(err error) tea.Msg { return fieldsFilled{form: form, err: err} })
+		return m, m.startForm(form.form, start, func(err error) tea.Msg {
+			return fieldsFilled{opened: opened, asked: asked, err: err}
+		})
 	}
 
 	return p.apply(m, chosen, nil)
