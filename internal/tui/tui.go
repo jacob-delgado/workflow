@@ -255,7 +255,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.motion = m.motion.looked()
 		handled, cmd := m.handleMouse(msg)
 
-		return handled.nextFrame(cmd)
+		// A click can lift the search over the notice row, by focusing
+		// another pane, so a notice waiting for the row takes it then.
+		return handled.nextNoticeWaiting().nextFrame(cmd)
 	case applier:
 		applied, cmd := msg.apply(m)
 
