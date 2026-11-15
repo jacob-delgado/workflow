@@ -1276,8 +1276,10 @@ troubleshooting]({{< relref "/docs/faq" >}}).
   the keychain keeps the new token can lose the token, since Slack retires the
   old one as it answers; `workflow slack login` then sets it up again. An
   announcement waiting for CI is not yet a write: it is not sent if you quit
-  first. `q` asks first while one waits, from the help as anywhere else;
-  `ctrl+c` quits at once, and says on the terminal that it stopped waiting.
+  first. `q` asks first while one waits, from the help as anywhere else, and
+  the question closes by itself once the announcement stops waiting, posted
+  or given up on, leaving workflow open and saying how it went; `ctrl+c`
+  quits at once, and says on the terminal that it stopped waiting.
 - **An announcement waits only for CI that reports.** One waiting for a pull
   request that reports no check gives up after ten minutes of reads that
   heard none, counted from the last read that saw one, a read that failed not
