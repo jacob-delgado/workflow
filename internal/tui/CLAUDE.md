@@ -65,7 +65,7 @@ stays, as the commit scopes offered did for `internal/convention`
   git is never stopped midway with its index locked, is counted in flight by
   name, and ends only when the program's lifetime does, on SIGINT or SIGTERM
   (TRADE-38). A new write seam joins `outlasting`.
-- **What leaves the machine waits on a last look** (`lastLook`, `overlay.go`):
+- **What leaves the machine waits on a last look** (`lastLook`, `lastlook.go`):
   a push, a post, a merge, a Taskwarrior sync and the rest UX.md's principle 2
   names. A reversible local toggle acts at once.
 - **A failure is never drawn as empty or as rest.** It is said in the failure
