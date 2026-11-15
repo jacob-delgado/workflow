@@ -118,11 +118,13 @@ internal/forge 18
 # the next pane, overlay or composer is a bump with its reason written here:
 # 92 is lastlook.go, the last look out of overlay.go, an overlay of its own
 # that the one-file-per-overlay rule asks a file for and that had carried
-# overlay.go to 629 lines. The files that name no Model (dryrun.go,
-# errorwords.go, glyphs.go, issues.go, panekeys.go, settingsedit.go,
-# settingsfields.go, settingsvalues.go, each working on the package's own
-# state) are where a leaf is looked for first when it is.
-internal/tui 92
+# overlay.go to 629 lines; 93 is messagingpost.go, how an announcement is
+# delivered and its answer applied, out of messagingpreview.go, since the
+# post waiting for CI delivers through it too. The files that name no Model
+# (dryrun.go, errorwords.go, glyphs.go, issues.go, panekeys.go,
+# settingsedit.go, settingsfields.go, settingsvalues.go, each working on the
+# package's own state) are where a leaf is looked for first when it is.
+internal/tui 93
 
 # internal/webserver — the loopback REST surface, spelled one file per
 # operation (or per pair of writes that share their checks) beside the shared

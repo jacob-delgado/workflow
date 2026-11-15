@@ -94,6 +94,25 @@ func TestPostingTagsTheLinkedOwnersAndTheCheckedGroups(t *testing.T) {
 	}
 }
 
+func TestAPostTagsItsGroupsWhereNoStoreRemembersTheChoice(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	unrecorded := taggingWorld()
+	deps := unrecorded.deps()
+	deps.Store.RecordGroups = nil
+	model := sized(t, tui.New(unrecorded.cfg, nil, deps), 140, 40)
+	model = drain(t, model, model.Init())
+
+	// Act
+	typing(t, model, "5", "p", keyEnter)
+
+	// Assert
+	if got := postedText(t, unrecorded); !strings.HasSuffix(got, "\ncc "+tagCarla+" "+tagPod) {
+		t.Errorf("posted %q, want it to end tagging Carla and the pod", got)
+	}
+}
+
 func TestSpaceTagsAnotherGroup(t *testing.T) {
 	t.Parallel()
 
