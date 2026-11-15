@@ -228,12 +228,25 @@ func (m Model) holdSeams() armed.Seams {
 }
 
 // steppedTo is the model holding hold, a step on from the one it held, having
-// said what the step changed, and doing what it asks next.
+// said what the step changed, with the quit guard closed once nothing waits,
+// and doing what it asks next.
 func (m Model) steppedTo(hold armed.Hold, next armed.Next) (Model, tea.Cmd) {
 	was := m.messaging.held.hold
 	m.messaging.held.hold = hold
 
-	return m.toldOf(was, hold).afterNext(next)
+	return m.toldOf(was, hold).unguarded().afterNext(next)
+}
+
+// unguarded closes the quit guard once the post it guards stops waiting: a
+// quit loses nothing then, since one being posted goes on past it. The
+// interface stays, as nothing confirmed the quit, and the step's notice says
+// how the post went.
+func (m Model) unguarded() Model {
+	if _, guarding := m.overlay.(quitGuard); guarding && !m.messaging.held.hold.Stage().Waiting() {
+		return m.closeOverlay()
+	}
+
+	return m
 }
 
 // toldOf says what a step from was to now changed that the rail alone would
