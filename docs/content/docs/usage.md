@@ -285,8 +285,8 @@ lists, by where it works.
 | | `D` | In Settings, remove the selected view, prefix or moved key; on a stored credential or header, remove it from the file after a last look |
 | | `j`/`k` or `↓`/`↑` | In the announcement preview, move between the code owners and groups it can tag |
 | | `space` | In the announcement preview, tag the selected group, or untag it |
-| | `a` | In the announcement preview, link the selected code owner to someone on Slack, or a team to a user group |
-| | `x` | In the announcement preview, remember that the selected code owner is not on Slack |
+| | `a` | In the announcement preview, link the selected code owner to someone on Slack, or a team to a user group, once no other link is being saved |
+| | `x` | In the announcement preview, remember that the selected code owner is not on Slack, once no other link is being saved |
 | | `d` | In People and groups, forget what was decided for the selected owner, after a last look, so they are asked again |
 | Writing a comment | `i` / `a` | Type before or after the cursor |
 | | `A` / `o` | Type at the end of the line, or on a new line below it |
@@ -674,7 +674,10 @@ A forge username is not a Slack user, so each owner is asked about once.
 members — for a team, the workspace's user groups — narrowed as you type, with
 a "Not on Slack" row; `x` says the owner is not on Slack. Either is saved at
 once, for every repository on the same forge host, and the row changes to
-show it. People and groups, below, changes it later.
+show it. One is saved at a time: while a link is being saved, the section
+says "saving the link…", the footer offers neither `a` nor `x` until it is
+saved or refused, and either saves and opens nothing, saying in the footer
+to try again once it is. People and groups, below, changes it later.
 
 `space` tags a group or untags it. The groups offered are the repository's
 own, chosen in People and groups, and any a team owning the changes is linked

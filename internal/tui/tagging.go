@@ -245,6 +245,16 @@ func (s tagSection) missingScope() string {
 	return s.members.missingScope()
 }
 
+// savingLine says an owner link is being saved, while one is; a link key
+// waits for it.
+func (s tagSection) savingLine(kit renderKit) []string {
+	if s.link.Stage() != send.StageInFlight {
+		return nil
+	}
+
+	return []string{kit.marks.inFlight + " saving the link" + kit.marks.ellipsis}
+}
+
 // failureLines say what could not be read or saved, and the scope groups
 // need when the token lacks it.
 func (s tagSection) failureLines(kit renderKit, width int) []string {
@@ -378,8 +388,9 @@ func (s tagSection) postTags() postTags {
 	return postTags{mentions: mentions, offersGroups: len(s.tags.Groups) > 0, workspace: s.workspace}
 }
 
-// keys are the tag section's keys where the cursor is: linking an owner, or
-// tagging a group.
+// keys are the tag section's keys where the cursor is: linking an owner,
+// offered only while no other link is being saved, which would refuse it,
+// or tagging a group.
 func (s tagSection) keys(keys keyMap) []key.Binding {
 	if !s.interactive() {
 		return nil
@@ -387,7 +398,7 @@ func (s tagSection) keys(keys keyMap) []key.Binding {
 
 	var bindings []key.Binding
 
-	if _, onOwner := s.selectedOwner(); onOwner && s.canLink {
+	if _, onOwner := s.selectedOwner(); onOwner && s.canLink && s.link.Stage() != send.StageInFlight {
 		bindings = append(bindings, keys.linkToSlack, keys.notOnSlack)
 	}
 
