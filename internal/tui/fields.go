@@ -233,7 +233,7 @@ func (p statusPicker) step(m Model, delta int) Model {
 		return m
 	}
 
-	p.transitions = p.transitions.moved(delta)
+	p.selected = p.moves().moved(delta).selected
 	m.overlay = p
 
 	return m
