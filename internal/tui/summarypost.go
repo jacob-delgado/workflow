@@ -13,6 +13,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
+	"github.com/jacob-delgado/workflow/internal/tui/send"
 )
 
 // summaryPostHelp is what the editor shows below the Summary being edited.
@@ -32,15 +33,18 @@ type summaryPost struct {
 	service  string
 	// kind is the service's, which the length is measured for.
 	kind config.MessagingKind
-	send sendState
-	// opened is the round the preview opened in, which an edit carries back,
-	// so it lands in no preview opened after.
+	send send.State
+	// problem is why the editor would not take the Summary, which no post
+	// was sent to find.
+	problem error
+	// opened is the round the preview opened in, which an edit and the post
+	// carry back, so they land in no preview opened after.
 	opened int
 }
 
 var (
-	_ editable              = summaryPost{}
-	_ failable[summaryPost] = summaryPost{}
+	_ editable            = summaryPost{}
+	_ sender[summaryPost] = summaryPost{}
 )
 
 // canPostSummary reports whether the Summary can be posted now: messaging is
@@ -79,7 +83,7 @@ func (p summaryPost) destination() string {
 // against what the service takes, its outcome pinned under the title so a
 // long refusal is seen, not clipped.
 func (p summaryPost) view(kit renderKit, width, _ int) (string, string) {
-	lines := kit.pinnedOutcome(p.send, "posting", width)
+	lines := append(kit.pinnedSend(p.send, "posting", width), kit.pinnedProblem(p.problem, width)...)
 	lines = append(lines, wrap(p.text, width), "",
 		"to  "+p.destination()+", "+loop.SummaryLength(p.kind, p.text).String())
 
@@ -89,7 +93,7 @@ func (p summaryPost) view(kit renderKit, width, _ int) (string, string) {
 // footer offers posting, changing the channel where there is a choice,
 // editing, or leaving.
 func (p summaryPost) footer(keys keyMap) []key.Binding {
-	if p.send.sending {
+	if p.send.Stage() == send.StageInFlight {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -104,7 +108,7 @@ func (p summaryPost) footer(keys keyMap) []key.Binding {
 // handleKey answers a key while the Summary is previewed.
 func (p summaryPost) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case p.send.sending:
+	case p.send.Stage() == send.StageInFlight:
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
@@ -127,6 +131,16 @@ func (summaryPost) which() overlayKind { return overlaySummaryPost }
 // openedAs is the round the preview opened in.
 func (p summaryPost) openedAs() int { return p.opened }
 
+// sent is the Summary's post.
+func (p summaryPost) sent() send.State { return p.send }
+
+// withSend is the preview with its post as state.
+func (p summaryPost) withSend(state send.State) summaryPost {
+	p.send = state
+
+	return p
+}
+
 // cycleChannel moves the destination to the next configured channel,
 // wrapping.
 func (p summaryPost) cycleChannel(m Model, step int) Model {
@@ -140,7 +154,8 @@ func (p summaryPost) cycleChannel(m Model, step int) Model {
 }
 
 // post posts the Summary now, rendered for the service; a dry run says where
-// it would go instead.
+// it would go instead. handleKey takes no key while a post is out, so Sent
+// always sends, and an editor's failure goes with it.
 func (p summaryPost) post(m Model) (Model, tea.Cmd) {
 	if strings.TrimSpace(p.text) == "" {
 		return m.closeOverlay().noticedGuidance(loop.ErrEmptySummary), nil
@@ -150,22 +165,23 @@ func (p summaryPost) post(m Model) (Model, tea.Cmd) {
 		return m.closeOverlay().noticed("dry run: would post to " + p.destination()), nil
 	}
 
-	p.send = starting()
+	p.send, _ = p.send.Sent()
+	p.problem = nil
 	m.overlay = p
 
 	ctx, post, kind, channel, text := m.session, m.deps.Messaging.Post, m.cfg.Messaging.Kind, p.channel, p.text
-	to := p.destination()
+	to, opened := p.destination(), p.opened
 
 	return m, func() tea.Msg {
-		return summaryPosted{to: to, err: loop.PostSummary(ctx, post, kind, channel, text)}
+		return summaryPosted{opened: opened, to: to, err: loop.PostSummary(ctx, post, kind, channel, text)}
 	}
 }
 
-// applyEdit puts the edited Summary back in the preview, or records why the
-// editor failed.
+// applyEdit puts the edited Summary back in the preview, or keeps why the
+// editor failed as its problem, in place of a refusal an earlier post had.
 func (p summaryPost) applyEdit(m Model, text string, err error) (Model, tea.Cmd) {
 	if err != nil {
-		p.send = p.send.failed(err)
+		p.problem, p.send = err, p.send.Cleared()
 	} else {
 		p.text = text
 	}
@@ -173,29 +189,28 @@ func (p summaryPost) applyEdit(m Model, text string, err error) (Model, tea.Cmd)
 	return m.withAnswered(p), nil
 }
 
-// failed is the preview kept open with the reason the post failed.
-func (p summaryPost) failed(err error) summaryPost {
-	p.send = p.send.failed(err)
-
-	return p
-}
-
-// summaryPosted reports how posting the Summary went, and where it went.
+// summaryPosted reports how posting the Summary went, and where it went, for
+// the preview opened as opened.
 type summaryPosted struct {
-	to  string
-	err error
+	opened int
+	to     string
+	err    error
 }
 
 var _ applier = summaryPosted{}
 
 // apply closes the preview and says where the Summary went, or keeps it open
-// with why it did not.
+// with why it did not, which the footer says too. Either is said even for a
+// preview no longer open, since the post went or failed all the same.
 func (msg summaryPosted) apply(m Model) (Model, tea.Cmd) {
-	if msg.err != nil {
-		return keepOpenWith[summaryPost](m, msg.err).noticedFailure(msg.err), nil
+	m, _, done := answered[summaryPost](m, msg.opened, msg.err)
+	if done {
+		m = m.closeOverlay()
 	}
 
-	// The preview takes no key while the post is on its way, so it is the
-	// overlay open now.
-	return m.closeOverlay().noticed(m.marks.done + " posted to " + msg.to), nil
+	if msg.err != nil {
+		return m.noticedFailure(msg.err), nil
+	}
+
+	return m.noticed(m.marks.done + " posted to " + msg.to), nil
 }

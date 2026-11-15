@@ -40,8 +40,10 @@ func TestTheSummaryIsPostedOnlyOnceItsPreviewIsConfirmed(t *testing.T) {
 	// Act: post it
 	posted := typing(t, preview, keyEnter)
 
-	// Assert: it is posted once, as Slack shows it, and said so
+	// Assert: it is posted once, as Slack shows it, and said so, and its own
+	// answer closes the preview
 	requireScreen(t, posted.View().Content, "● posted to "+devChannel)
+	refuseScreen(t, posted.View().Content, "┏━ Post to Slack")
 
 	calls := busy.asked("post ")
 	if len(calls) != 1 || !strings.HasPrefix(calls[0], "post "+tuesdayBold) || busy.channelPostedTo() != devChannel {
@@ -190,6 +192,8 @@ func TestARefusedSummaryPostKeepsThePreviewWithWhy(t *testing.T) {
 
 	// Assert
 	requireScreen(t, view, "┏━ Post to Slack", "✗ The messaging service refused the post")
+	refuseScreen(t, view, "posting…")
+	requireScreen(t, footerLine(view), "enter post")
 }
 
 func TestADryRunSummaryPostSaysWhereItWouldGoAndPostsNothing(t *testing.T) {
