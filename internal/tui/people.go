@@ -280,7 +280,8 @@ func personRow(kit renderKit, row person) string {
 	return fmt.Sprintf("%-*s ", ownerColumn, row.owner) + state
 }
 
-// footer offers the shown tab's keys, and nothing while a write is out.
+// footer offers the shown tab's keys, nothing while a write is out, and on
+// People, after a read of everyone failed, to try again, not to decide.
 func (p peopleOverlay) footer(keys keyMap) []key.Binding {
 	if p.send.sending {
 		return []key.Binding{keys.interrupt}
@@ -296,10 +297,21 @@ func (p peopleOverlay) footer(keys keyMap) []key.Binding {
 			relabel(keys.refresh, "refresh directory"), relabel(keys.nextField, "people"), keys.closeOverlay)
 	}
 
+	if p.listed.Stage() == latest.StageFailed {
+		return []key.Binding{relabel(keys.refresh, "try again"), relabel(keys.nextField, "groups"), keys.closeOverlay}
+	}
+
 	return []key.Binding{
 		relabel(keys.confirm, "change"), keys.notOnSlack, keys.forgetOwner,
 		relabel(keys.nextField, "groups"), keys.closeOverlay,
 	}
+}
+
+// decidable reports everyone listed as the latest read found them, so a
+// decision about one names an owner as they are now: none after a read
+// failed, since who is listed and what was decided may have changed since.
+func (p peopleOverlay) decidable() bool {
+	return p.listed.Stage() == latest.StageShown
 }
 
 // handleKey answers the keys every tab shares, then the shown tab's own.
@@ -342,12 +354,18 @@ func (p peopleOverlay) step(m Model, delta int) Model {
 	return m
 }
 
-// handlePersonKey changes, marks or forgets the selected owner.
+// handlePersonKey changes, marks or forgets the selected owner, or, after a
+// read of everyone failed, reads them again.
 func (p peopleOverlay) handlePersonKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	selected, ok := p.people.chosen()
 
 	switch {
-	case !ok:
+	case p.listed.Stage() == latest.StageFailed && key.Matches(msg, m.keys.refresh):
+		p, reread := p.readingPeople(m)
+		m.overlay = p
+
+		return m, reread
+	case !ok || !p.decidable():
 		return m, nil
 	case key.Matches(msg, m.keys.confirm):
 		m.overlay = newOwnerPicker(m, selected.owner, selected.team, p)

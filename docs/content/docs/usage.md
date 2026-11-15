@@ -711,7 +711,9 @@ People lists every owner decided on this forge host, then the owners of this
 branch's changes not asked about yet. `enter` changes whom the selected owner
 is, from the same list the preview offers; `x` says they are not on Slack;
 `d` forgets them, after a last look, so the next announcement asks again;
-`esc` on the look goes back to the list.
+`esc` on the look goes back to the list. When reading them again fails, the
+list stays beside the reason, but none of the three acts on it, since who is
+listed may have changed since: `r` tries again.
 
 Groups is a checklist of the workspace's user groups, the ones this
 repository tags checked. `space` checks or unchecks one, and `r` reads

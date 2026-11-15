@@ -105,8 +105,7 @@ putting back what a later read replaced.
   lines, the list taking the rows they leave.
 - **A key that writes from what a read found waits on `StageShown`**: over
   a failure, what is held is moved through, sorted and filtered, not acted
-  on. People's decisions are the exception: they name an owner, whom an
-  earlier read named as surely as a later one.
+  on, and `r` offers to try again.
 - **The in-flight mark is `Refreshing()`**: a read out over a value or an
   error held. A first read says it is reading, with no mark.
 
