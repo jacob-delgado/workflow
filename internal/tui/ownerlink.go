@@ -189,7 +189,7 @@ type linksOwners interface {
 // savingLink saves link, counted on its way until it answers, for the
 // overlay opened as opened.
 func (m Model) savingLink(link loop.OwnerLink, opened int) (Model, tea.Cmd) {
-	m.paneWrites.links++
+	m.paneWrites.links = m.paneWrites.links.sent()
 
 	return m, saveLink(m.session, m.deps, link, opened)
 }
@@ -242,7 +242,7 @@ var _ applier = ownerLinked{}
 // apply shows the link where it was made: in the preview's tags, or in
 // People and groups.
 func (msg ownerLinked) apply(m Model) (Model, tea.Cmd) {
-	m.paneWrites.links--
+	m.paneWrites.links = m.paneWrites.links.answered()
 
 	if preview, open := answerFor[messagingPreview](m, msg.opened); open {
 		preview.tagging = preview.tagging.relinked(msg.link, msg.err)
