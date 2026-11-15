@@ -109,11 +109,50 @@ func (p messagingPreview) changedRefusal(m Model) error {
 		return errBeganMerging
 	}
 
-	if m.messaging.claimed(loop.Announced{Pull: m.review.pull().Number, Moment: p.moment}) {
+	if m.messaging.claimed(p.marked(m)) {
 		return errAlreadyAnnounced
 	}
 
 	return nil
+}
+
+// marked is what this preview's post announces: the pull request on screen,
+// at the moment it marks.
+func (p messagingPreview) marked(m Model) loop.Announced {
+	return loop.Announced{Pull: m.review.pull().Number, Moment: p.moment}
+}
+
+// withoutRefusedPreviewOf closes the announcement's preview open on made
+// whose post made now was refused, now the waiting post has announced made in
+// its place, as a post made now that went closes its own, with the owner
+// picker floating over it. The refusal gives the footer's row up to how the
+// waiting post went, while it still holds it: a failure that took the row
+// since stays. A preview that posted nothing stays, refusing a post as
+// already announced.
+func (m Model) withoutRefusedPreviewOf(made loop.Announced) Model {
+	preview, open := m.previewShown()
+	if !open || preview.send.Stage() != send.StageRefused || preview.marked(m) != made {
+		return m
+	}
+
+	if m.notice.Text() == m.failureRow("", preview.send.Reason()) {
+		m.notice = m.notice.Cleared()
+	}
+
+	return m.closeOverlay()
+}
+
+// previewShown is the announcement's preview, on top or under the owner
+// picker floating over it, and whether one is open.
+func (m Model) previewShown() (messagingPreview, bool) {
+	shown := m.overlay
+	if picker, picking := shown.(ownerPicker); picking {
+		shown = picker.back
+	}
+
+	preview, open := shown.(messagingPreview)
+
+	return preview, open
 }
 
 var (

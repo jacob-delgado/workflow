@@ -266,9 +266,9 @@ func (m Model) toldOf(was, now armed.Hold) Model {
 }
 
 // toldOfPost says how the post of the held announcement went, now the hold
-// after it: posted; claimed by another session first; a check the gate saw
-// fail, which it waits on a fix past; a failure it tries again past; or given
-// up on.
+// after it: posted, closing a refused preview of what it announced; claimed
+// by another session first; a check the gate saw fail, which it waits on a fix
+// past; a failure it tries again past; or given up on.
 func (m Model) toldOfPost(now armed.Hold) Model {
 	stay := func() Model { return m }
 	name := m.pullName(now.Pull())
@@ -277,6 +277,7 @@ func (m Model) toldOfPost(now armed.Hold) Model {
 	told := map[armed.Stage]func() Model{
 		armed.StagePosted: func() Model {
 			m.messaging.postNow = m.messaging.postNow.Cleared()
+			m = m.withoutRefusedPreviewOf(now.Delivery().Made())
 
 			return m.noticedAnnounced(m.destinationOf(now.Delivery()), now.Reason())
 		},
