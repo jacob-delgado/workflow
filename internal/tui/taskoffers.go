@@ -62,7 +62,7 @@ func (m Model) offeredTask(issueKey jira.Key) (taskwarrior.Task, bool) {
 // time, so every task started on anything else is stopped first. Nil when there
 // is nothing to offer: no offer can be made, the issue's own work is started
 // already, or the only tasks that track it are ones no offer may change.
-func (m Model) offerStart(issue jira.Issue) func(Model) (Model, tea.Cmd) {
+func (m Model) offerStart(issue jira.Issue) waitingOffer {
 	if !m.tasks.canOffer(m.deps) || m.tasks.startedOn(issue.Key) || m.tasks.trackedOnlyOutOfReach(issue.Key) {
 		return nil
 	}
@@ -123,7 +123,7 @@ func (l issueList) listedIssue(issueKey jira.Key) jira.Issue {
 }
 
 // offerToStart offers to start the task that tracks an issue, under ctx.
-func offerToStart(ctx context.Context, deps Deps, task taskwarrior.Task) func(Model) (Model, tea.Cmd) {
+func offerToStart(ctx context.Context, deps Deps, task taskwarrior.Task) waitingOffer {
 	start := deps.Tasks.Start
 
 	return offering(lastLook{
@@ -138,7 +138,7 @@ func offerToStart(ctx context.Context, deps Deps, task taskwarrior.Task) func(Mo
 // offerTrackAndStart offers the line that tracks an issue in Taskwarrior,
 // prefilled in its grammar as the track key's is, whose task is started once it
 // is added and annotated.
-func (m Model) offerTrackAndStart(issue jira.Issue) func(Model) (Model, tea.Cmd) {
+func (m Model) offerTrackAndStart(issue jira.Issue) waitingOffer {
 	track := trackIssue{url: browseURL(m.deps, issue.Key), thenStart: true}
 	prefill, err := taskwarrior.TrackLine(taskwarrior.IssueLink{
 		Key: string(issue.Key), Summary: issue.Summary, URL: track.url, Priority: issue.Priority,
@@ -161,7 +161,7 @@ func (m Model) offerTrackAndStart(issue jira.Issue) func(Model) (Model, tea.Cmd)
 // issue work begins on, under ctx.
 func offerSwitch(
 	ctx context.Context, deps Deps, started []taskwarrior.Task, task taskwarrior.Task,
-) func(Model) (Model, tea.Cmd) {
+) waitingOffer {
 	stop, start := deps.Tasks.Stop, deps.Tasks.Start
 
 	return offering(lastLook{
@@ -187,7 +187,7 @@ func offerSwitch(
 // work begins on: only once each has stopped does the line open that tracks the
 // issue and starts the new task. A dry run says it would stop them and opens the
 // line, whose own dry run says what it would add.
-func (m Model) offerStopThenTrack(started []taskwarrior.Task, issue jira.Issue) func(Model) (Model, tea.Cmd) {
+func (m Model) offerStopThenTrack(started []taskwarrior.Task, issue jira.Issue) waitingOffer {
 	ctx, stop, track := m.session, m.deps.Tasks.Stop, m.offerTrackAndStart(issue)
 	stopping := eachTask(started, describedStarted(m.deps.now()))
 	look := lastLook{
@@ -253,7 +253,7 @@ func stopEach(ctx context.Context, stop func(ctx context.Context, uuid string) e
 // offerAnnotate offers, once a pull request is open for an issue, to note it on
 // the task that tracks the issue: its number and URL, as an annotation. Nil when
 // no task tracks the issue.
-func (m Model) offerAnnotate(issueKey jira.Key, pull forge.PullRequest) func(Model) (Model, tea.Cmd) {
+func (m Model) offerAnnotate(issueKey jira.Key, pull forge.PullRequest) waitingOffer {
 	task, tracked := m.offeredTask(issueKey)
 	if !tracked {
 		return nil
@@ -274,7 +274,7 @@ func (m Model) offerAnnotate(issueKey jira.Key, pull forge.PullRequest) func(Mod
 
 // offerMarkDone offers, once an issue's pull request is merged or the issue is
 // done, to complete the task that tracks it. Nil when no task tracks the issue.
-func (m Model) offerMarkDone(issueKey jira.Key) func(Model) (Model, tea.Cmd) {
+func (m Model) offerMarkDone(issueKey jira.Key) waitingOffer {
 	task, tracked := m.offeredTask(issueKey)
 	if !tracked {
 		return nil
@@ -318,11 +318,17 @@ func (msg doneAnswered) apply(m Model) (Model, tea.Cmd) {
 	return msg.answer.apply(m)
 }
 
-// offerForMove is the follow-up once an issue has moved: to complete the task
-// that tracks it, when the move is to done and a task does. A move that offers
-// nothing keeps the offer that waited behind the status picker — the task's
-// start after a branch, the pull request's note — which opens now instead.
-func (m Model) offerForMove(issueKey jira.Key, to jira.Transition) func(Model) (Model, tea.Cmd) {
+// waitingOffer opens an offer made while another overlay had the keyboard —
+// the status picker after a branch, the issue linker after a pull request —
+// once that overlay closes: it waits in Model.followUp, and settled opens it.
+// Nil where nothing waits.
+type waitingOffer func(Model) (Model, tea.Cmd)
+
+// orMarkDone is the offer to wait once an issue has moved: to complete the
+// task that tracks it, when the move is to done and a task does, or else the
+// offer already waiting behind the status picker — the task's start after a
+// branch, the pull request's note — which opens now instead.
+func (m Model) orMarkDone(issueKey jira.Key, to jira.Transition) waitingOffer {
 	if to.ToStatusCategory == jira.CategoryDone {
 		if offer := m.offerMarkDone(issueKey); offer != nil {
 			return offer
@@ -332,12 +338,12 @@ func (m Model) offerForMove(issueKey jira.Key, to jira.Transition) func(Model) (
 	return m.followUp
 }
 
-// offeredOnOpening is a follow-up that asks offer for its offer once it
+// offeredOnOpening is a waiting offer that asks offer for its offer once it
 // opens, from the tasks as they stand then, rather than as they stood when
 // it was queued: it waits behind whatever is asked first, the status picker
 // or the issue linker, while the tasks may be read again. It opens nothing
 // when there is then nothing to offer.
-func offeredOnOpening(offer func(Model) func(Model) (Model, tea.Cmd)) func(Model) (Model, tea.Cmd) {
+func offeredOnOpening(offer func(Model) waitingOffer) waitingOffer {
 	return func(m Model) (Model, tea.Cmd) {
 		open := offer(m)
 		if open == nil {
@@ -348,9 +354,9 @@ func offeredOnOpening(offer func(Model) func(Model) (Model, tea.Cmd)) func(Model
 	}
 }
 
-// offering is a follow-up that opens a last look at a change of a task, asking
+// offering is a waiting offer that opens a last look at a change of a task, asking
 // as asking does.
-func offering(look lastLook, wouldDo string, change func() taskActed) func(Model) (Model, tea.Cmd) {
+func offering(look lastLook, wouldDo string, change func() taskActed) waitingOffer {
 	return opening(asking(look, wouldDo, func() tea.Msg { return offerAnswered{acted: change(), then: nil} }))
 }
 
@@ -376,8 +382,8 @@ func asking(look lastLook, wouldDo string, send tea.Cmd) lastLook {
 	return look
 }
 
-// opening is a follow-up that opens a last look.
-func opening(look lastLook) func(Model) (Model, tea.Cmd) {
+// opening is a waiting offer that opens a last look.
+func opening(look lastLook) waitingOffer {
 	return func(m Model) (Model, tea.Cmd) {
 		look.leave = escSkip
 		m.overlay = look
@@ -391,7 +397,7 @@ func opening(look lastLook) func(Model) (Model, tea.Cmd) {
 // where nothing does.
 type offerAnswered struct {
 	acted taskActed
-	then  func(Model) (Model, tea.Cmd)
+	then  waitingOffer
 }
 
 var _ applier = offerAnswered{}

@@ -146,7 +146,7 @@ func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
 	issueKey, named := m.branch.jiraIssue(m.cfg.Jira.Project)
 	if named {
 		pull := msg.pull
-		m.followUp = offeredOnOpening(func(m Model) func(Model) (Model, tea.Cmd) {
+		m.followUp = offeredOnOpening(func(m Model) waitingOffer {
 			return m.offerAnnotate(issueKey, pull)
 		})
 	}

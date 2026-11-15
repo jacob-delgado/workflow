@@ -166,7 +166,7 @@ func (msg transitionApplied) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	m = m.closeOverlay().noticed(m.marks.done + " " + shownKey(msg.issueKey) + " is now " + msg.to.ToStatus)
-	m.followUp = m.offerForMove(msg.issueKey, msg.to)
+	m.followUp = m.orMarkDone(msg.issueKey, msg.to)
 	m, list := m.readingIssues()
 	m, detail := m.reloadDetail(msg.issueKey)
 
@@ -404,7 +404,7 @@ func (p statusPicker) apply(m Model, chosen jira.Transition, values []jira.Field
 
 	if m.dryRun {
 		m = m.closeOverlay().noticed("dry run: would change " + shownKey(issueKey) + " to " + chosen.ToStatus)
-		m.followUp = m.offerForMove(issueKey, chosen)
+		m.followUp = m.orMarkDone(issueKey, chosen)
 
 		return m, nil
 	}
