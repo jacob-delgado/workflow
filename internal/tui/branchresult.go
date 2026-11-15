@@ -88,7 +88,7 @@ func (msg branchCreated) apply(m Model) (Model, tea.Cmd) {
 	// Set before the status picker opens, so the offer waits behind it.
 	if msg.forIssue {
 		issue := msg.issue
-		m.followUp = offeredOnOpening(func(m Model) func(Model) (Model, tea.Cmd) { return m.offerStart(issue) })
+		m.followUp = offeredOnOpening(func(m Model) waitingOffer { return m.offerStart(issue) })
 	}
 
 	return m.offeringInProgress(msg.issue, msg.forIssue, reload)

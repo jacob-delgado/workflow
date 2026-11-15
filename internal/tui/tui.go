@@ -86,11 +86,8 @@ type Model struct {
 
 	// overlay takes the keyboard while it is open; nil when none is.
 	overlay overlay
-	// followUp is an overlay to open once the one that is open closes: an offer
-	// made at a moment the interface is already asking something else — the
-	// status picker after a branch, the issue linker after a pull request. Nil
-	// when nothing waits.
-	followUp func(Model) (Model, tea.Cmd)
+	// followUp is the offer waiting for the overlay open to close.
+	followUp waitingOffer
 	// notice is the footer's one-line report of something that just happened.
 	// The next key press clears it.
 	notice notice
