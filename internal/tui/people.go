@@ -17,6 +17,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/tui/latest"
+	"github.com/jacob-delgado/workflow/internal/tui/send"
 )
 
 // peopleTitle titles the People and groups overlay.
@@ -50,7 +51,8 @@ type person struct {
 
 // peopleOverlay manages what the announcements tag: whom each forge owner is
 // on Slack, and which user groups this repository tags. Its writes are saved
-// at once, and a refusal stays pinned under its title until the next one.
+// at once, one at a time, and a refusal stays pinned under its title until
+// the next one.
 type peopleOverlay struct {
 	tab peopleTab
 	// listed is everyone the read begun last found, and people what the
@@ -71,16 +73,17 @@ type peopleOverlay struct {
 	repoReading bool
 	repoErr     error
 	choices     pickList[loop.SlackTarget]
-	send        sendState
+	// send is the write out, or the refusal of the last one.
+	send send.State
 	// opened is the round this one opened in, so a read or save started
 	// for it lands in it alone.
 	opened int
 }
 
 var (
-	_ failable[peopleOverlay] = peopleOverlay{}
-	_ linksOwners             = peopleOverlay{}
-	_ steppable               = peopleOverlay{}
+	_ sender[peopleOverlay] = peopleOverlay{}
+	_ linksOwners           = peopleOverlay{}
+	_ steppable             = peopleOverlay{}
 )
 
 // managesPeople reports a store that keeps the associations, and can change
@@ -221,7 +224,7 @@ func (p peopleOverlay) relisted() peopleOverlay {
 
 // view draws the refusal pinned under the title, the tabs, and the tab shown.
 func (p peopleOverlay) view(kit renderKit, width, rows int) (string, string) {
-	lines := kit.pinnedOutcome(p.send, "saving", width)
+	lines := kit.pinnedSend(p.send, "saving", width)
 	lines = append(lines, p.tabs(kit), "")
 
 	body := map[peopleTab]func(renderKit, int, int) []string{tabPeople: p.peopleLines, tabGroups: p.groupLines}[p.tab]
@@ -283,7 +286,7 @@ func personRow(kit renderKit, row person) string {
 // footer offers the shown tab's keys, nothing while a write is out, and on
 // People, after a read of everyone failed, to try again, not to decide.
 func (p peopleOverlay) footer(keys keyMap) []key.Binding {
-	if p.send.sending {
+	if p.send.Stage() == send.StageInFlight {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -316,7 +319,7 @@ func (p peopleOverlay) decidable() bool {
 
 // handleKey answers the keys every tab shares, then the shown tab's own.
 func (p peopleOverlay) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	if p.send.sending {
+	if p.send.Stage() == send.StageInFlight {
 		return m, nil
 	}
 
@@ -414,9 +417,10 @@ func (p peopleOverlay) sendingLink(m Model, link loop.OwnerLink) (Model, tea.Cmd
 	return p.saving(linking, save)
 }
 
-// saving marks a write in flight and sends it.
+// saving marks a write out and sends it. Only a key sends one, and none is
+// taken while one is out, so it is always sent.
 func (p peopleOverlay) saving(m Model, write tea.Cmd) (Model, tea.Cmd) {
-	p.send = starting()
+	p.send, _ = p.send.Sent()
 	m.overlay = p
 
 	return m, write
@@ -432,16 +436,11 @@ var _ applier = peopleSaved{}
 
 // apply pins a refusal, or reads the people again to show what changed.
 func (msg peopleSaved) apply(m Model) (Model, tea.Cmd) {
-	open, isOpen := answerFor[peopleOverlay](m, msg.opened)
-	if !isOpen {
+	m, open, done := answered[peopleOverlay](m, msg.opened, msg.err)
+	if !done {
 		return m, nil
 	}
 
-	if msg.err != nil {
-		return m.withAnswered(open.failed(msg.err)), nil
-	}
-
-	open.send = sendState{}
 	open, reread := open.readingPeople(m)
 
 	return m.withAnswered(open), reread
@@ -452,9 +451,12 @@ func (p peopleOverlay) openedAs() int {
 	return p.opened
 }
 
-// failed is the overlay kept open with the reason a write was refused.
-func (p peopleOverlay) failed(err error) peopleOverlay {
-	p.send = p.send.failed(err)
+// sent is the write out, or the refusal of the last one.
+func (p peopleOverlay) sent() send.State { return p.send }
+
+// withSend is People and groups with state as its write.
+func (p peopleOverlay) withSend(state send.State) peopleOverlay {
+	p.send = state
 
 	return p
 }

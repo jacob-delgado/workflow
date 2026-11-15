@@ -12,6 +12,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/tui/latest"
+	"github.com/jacob-delgado/workflow/internal/tui/send"
 )
 
 // readRepoGroups reads the user groups this repository tags, in the Slack
@@ -156,22 +157,25 @@ var _ applier = repoGroupsSaved{}
 
 // apply says the groups were saved, or pins the refusal and reads them
 // again, so the checklist shows what is kept rather than the change refused.
+// Late, it changes nothing.
 func (msg repoGroupsSaved) apply(m Model) (Model, tea.Cmd) {
-	open, isOpen := answerFor[peopleOverlay](m, msg.opened)
-	if !isOpen {
-		return m, nil
-	}
+	open, _ := answerFor[peopleOverlay](m, msg.opened)
+	state, answer := open.send.Answered(msg.err)
+	open.send = state
 
-	if msg.err != nil {
-		open = open.failed(msg.err)
-		open.repoReading = true
+	// A map, not a switch, so there is no last-case arm gobco can never see:
+	// no key closes People while its write is out, so none answers late.
+	return map[send.Answer]func() (Model, tea.Cmd){
+		send.AnswerDone: func() (Model, tea.Cmd) {
+			return m.withAnswered(open).noticed(m.marks.done + " saved the groups this repository tags"), nil
+		},
+		send.AnswerRefused: func() (Model, tea.Cmd) {
+			open.repoReading = true
 
-		return m.withAnswered(open), readRepoGroups(m.session, m.deps, open.opened)
-	}
-
-	open.send = sendState{}
-
-	return m.withAnswered(open).noticed(m.marks.done + " saved the groups this repository tags"), nil
+			return m.withAnswered(open), readRepoGroups(m.session, m.deps, open.opened)
+		},
+		send.AnswerLate: func() (Model, tea.Cmd) { return m, nil },
+	}[answer]()
 }
 
 // refreshed reads the directory again, superseding every read of it still on
