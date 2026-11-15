@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
 // errFetchFailed is how git reports a fetch it could not complete.
@@ -66,4 +67,45 @@ func TestAFailedFetchOffersToBranchFromWhatIsThere(t *testing.T) {
 	if calls := branching.asked("create"); len(calls) != 1 {
 		t.Errorf("create calls = %q, want one after choosing to branch anyway", calls)
 	}
+}
+
+func TestWithoutAFetchTheBranchIsMadeFromWhatIsThere(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	branching := newWorld()
+	branching.branch = gitrepo.Branch{Name: baseName, Base: baseRef}
+	deps := branching.deps()
+	deps.Git.Fetch = nil
+	model := sized(t, tui.New(branching.cfg, nil, deps), 120, 40)
+	model = drain(t, model, model.Init())
+
+	// Act
+	view := typing(t, model, "b", keyEnter).View().Content
+
+	// Assert
+	requireScreen(t, view, "created and switched")
+
+	if calls := branching.asked("create"); len(calls) != 1 {
+		t.Errorf("create calls = %q, want one with no fetch to make first", calls)
+	}
+}
+
+func TestADryRunWithoutABaseSaysNoFetch(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	dry := newWorld()
+	dry.branch = gitrepo.Branch{Name: baseName}
+	dry.issues = nil
+	model := sized(t, dryInterface(dry), 120, 40)
+	model = drain(t, model, model.Init())
+
+	// Act
+	view := typing(t, model, append([]string{"b"}, append(letters("spike"), keyEnter)...)...).View().Content
+
+	// Assert
+	requireScreen(t, view,
+		"dry run: would create spike from the current commit (no default branch found) and switch to it")
+	refuseScreen(t, view, "would fetch")
 }
