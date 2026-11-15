@@ -70,21 +70,21 @@ func (l pickList[T]) clicked(line, space int) pickList[T] {
 }
 
 // transitionsListed carries Jira's transitions for one issue back into the update
-// loop.
+// loop, for the picker opened in round opened.
 type transitionsListed struct {
-	issueKey jira.Key
-	found    []jira.Transition
-	err      error
+	opened int
+	found  []jira.Transition
+	err    error
 }
 
 var _ applier = transitionsListed{}
 
-// apply records a listing, unless it answers a question the open picker did not
-// ask — another issue's, or its own asked twice by closing and reopening, which
-// would replace a list someone is already choosing from.
+// apply records a listing in the picker that asked for it, and nothing once
+// that picker has closed, even when another has opened since: on another
+// issue, or on the same one, whose own listing is on its way.
 func (msg transitionsListed) apply(m Model) (Model, tea.Cmd) {
-	picker, open := m.overlay.(statusPicker)
-	if !open || picker.settled || msg.issueKey != picker.issue.Key {
+	picker, open := answerFor[statusPicker](m, msg.opened)
+	if !open {
 		return m, nil
 	}
 
@@ -97,9 +97,7 @@ func (msg transitionsListed) apply(m Model) (Model, tea.Cmd) {
 	picker.transitions = pickList[jira.Transition]{items: msg.found, selected: picker.offer.pick(msg.found)}
 	picker.listErr, picker.settled = msg.err, true
 
-	m.overlay = picker
-
-	return m, nil
+	return m.withAnswered(picker), nil
 }
 
 // statusOffer decides which transition the picker pre-selects when it opens as
@@ -198,10 +196,14 @@ type statusPicker struct {
 	// form is filling in the chosen transition's fields; it is open when it
 	// has any.
 	form fieldForm
+	// opened is the round the picker opened in, which its listing carries
+	// back, so it fills no picker opened after.
+	opened int
 }
 
 var (
 	_ failable[statusPicker] = statusPicker{}
+	_ opened                 = statusPicker{}
 	_ clickable              = statusPicker{}
 	_ steppable              = statusPicker{}
 	_ pasteable              = statusPicker{}
@@ -224,13 +226,14 @@ func (m Model) pickStatusFor(issue jira.Issue, offer statusOffer) (Model, tea.Cm
 		return m, nil
 	}
 
-	m.overlay = statusPicker{issue: issue, offer: offer}
+	m, opened := m.nextRound()
+	m.overlay = statusPicker{issue: issue, offer: offer, opened: opened}
 	ctx, list := m.session, m.deps.Jira.Transitions
 
 	return m, func() tea.Msg {
 		found, err := list(ctx, issue.Key)
 
-		return transitionsListed{issueKey: issue.Key, found: found, err: err}
+		return transitionsListed{opened: opened, found: found, err: err}
 	}
 }
 
@@ -346,6 +349,9 @@ func (p statusPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 // which names the status picker.
 func (statusPicker) which() overlayKind { return overlayStatusPicker }
+
+// openedAs is the round the picker opened in.
+func (p statusPicker) openedAs() int { return p.opened }
 
 // click selects the transition on a clicked line.
 func (p statusPicker) click(m Model, line int) (Model, tea.Cmd) {

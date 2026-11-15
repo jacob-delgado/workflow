@@ -334,35 +334,28 @@ func TestALateListingIsNotShownForTheWrongIssue(t *testing.T) {
 	requireScreen(t, listed.View().Content, "▸ ◐ Start Review")
 }
 
-func TestASecondListingDoesNotReplaceTheOneOnScreen(t *testing.T) {
+func TestAReopenedPickerShowsItsOwnListing(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	var calls atomic.Int32
+	moving := newWorld()
 
-	deps := (&fakeJira{}).deps(twoIssues())
-	deps.Jira.Transitions = func(context.Context, jira.Key) ([]jira.Transition, error) {
-		if calls.Add(1) == 1 {
-			return workflowMoves(), nil
-		}
-
-		// Shorter than the first: were it to replace a list the user is
-		// already choosing from, the selection would point past its end.
-		return workflowMoves()[:1], nil
-	}
-
-	// Open, close and reopen on the same issue: two listings are on their way.
-	screen, first := pressed(t, jiraScreen(t, deps), "t")
-	screen = press(t, screen, keyEsc)
-	screen, second := pressed(t, screen, "t")
+	moving.moves = append(workflowMoves(), transition("41", "Park it", "Parked", "indeterminate"))
+	model, closed := withheldKeys(t, moving.live(t, 120, 40), moving.counting("transitions"), "t")
+	moving.moves = workflowMoves()
+	reopened, own := withheldKeys(t, model, moving.counting("transitions"), keyEsc, "t")
 
 	// Act
-	screen, _ = finish(t, screen, first)
-	screen = press(t, screen, "j")
-	screen, _ = finish(t, screen, second)
+	// The closed picker's listing lands first, then the reopened one's.
+	listed := handedOver(t, reopened, append(closed, own...))
 
 	// Assert
-	requireScreen(t, screen.View().Content, "▸ ● Done")
+	view := listed.View().Content
+	if strings.Contains(view, "Park it") {
+		t.Errorf("picker lists the closed picker's 3 moves; want the 2 its own listing found:\n%s", view)
+	}
+
+	requireScreen(t, view, "Start Review", "Done")
 }
 
 func TestALongPickerScrollsToKeepTheSelectionVisible(t *testing.T) {
