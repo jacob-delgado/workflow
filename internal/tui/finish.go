@@ -18,6 +18,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/seams"
+	"github.com/jacob-delgado/workflow/internal/tui/send"
 )
 
 // errNoLongerFinishable refuses a confirmed finish when the branch, read
@@ -120,14 +121,17 @@ func (s reviewState) finishRefusal(branch branchState) error {
 	return s.madeAfter()
 }
 
-// startFinish opens the finish preview: the three git commands that switch to
-// base, catch it up, and delete the merged branch.
+// startFinish opens the finish preview, in a round of its own: the three git
+// commands that switch to base, catch it up, and delete the merged branch.
 func (m Model) startFinish() (Model, tea.Cmd) {
 	if !m.review.canFinish(m.deps, m.branch) {
 		return m, nil
 	}
 
-	m.overlay = finishPreview{vocab: m.vocab, pull: m.review.pull(), finishing: m.branch.checkedOut().Finishing()}
+	m, opened := m.nextRound()
+	m.overlay = finishPreview{
+		vocab: m.vocab, pull: m.review.pull(), finishing: m.branch.checkedOut().Finishing(), opened: opened,
+	}
 
 	return m, nil
 }
@@ -138,15 +142,18 @@ type finishPreview struct {
 	vocab     reviewVocab
 	pull      forge.PullRequest
 	finishing gitrepo.Finishing
-	send      sendState
+	// opened is the round the preview opened in, which its finish carries
+	// back.
+	opened int
+	send   send.State
 }
 
-var _ failable[finishPreview] = finishPreview{}
+var _ sender[finishPreview] = finishPreview{}
 
 // view draws the merged pull request and the commands that finish its branch,
 // the finish's outcome pinned under the title.
 func (p finishPreview) view(kit renderKit, width, _ int) (string, string) {
-	lines := kit.pinnedOutcome(p.send, "finishing", width)
+	lines := kit.pinnedSend(p.send, "finishing", width)
 	lines = append(lines,
 		p.vocab.sigil+strconv.Itoa(p.pull.Number)+" merged; finish "+p.finishing.Branch+" by running:", "")
 
@@ -159,7 +166,7 @@ func (p finishPreview) view(kit renderKit, width, _ int) (string, string) {
 
 // footer offers finishing and leaving.
 func (p finishPreview) footer(keys keyMap) []key.Binding {
-	if p.send.sending {
+	if p.send.Stage() == send.StageInFlight {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -169,7 +176,7 @@ func (p finishPreview) footer(keys keyMap) []key.Binding {
 // handleKey answers a key while the finish is being previewed.
 func (p finishPreview) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case p.send.sending:
+	case p.send.Stage() == send.StageInFlight:
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
@@ -185,14 +192,28 @@ func (p finishPreview) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) 
 // which names the finish preview.
 func (finishPreview) which() overlayKind { return overlayFinishPreview }
 
-// confirm runs the finish, or, in a dry run, says what it would do.
+// openedAs is the round the preview opened in, which its finish carries back.
+func (p finishPreview) openedAs() int { return p.opened }
+
+// sent is the finish.
+func (p finishPreview) sent() send.State { return p.send }
+
+// withSend is the preview with its finish as state.
+func (p finishPreview) withSend(state send.State) finishPreview {
+	p.send = state
+
+	return p
+}
+
+// confirm runs the finish, or, in a dry run, says what it would do. handleKey
+// takes no key while a finish is out, so Sent always sends.
 func (p finishPreview) confirm(m Model) (Model, tea.Cmd) {
 	if m.dryRun {
 		return m.closeOverlay().noticed("dry run: would finish " + p.finishing.Branch +
 			" (switch to " + p.finishing.Base + ", pull it from " + p.finishing.Remote + ", delete it)"), nil
 	}
 
-	p.send = starting()
+	p.send, _ = p.send.Sent()
 	m.overlay = p
 	ctx, git := m.session, m.deps.Git
 
@@ -212,7 +233,7 @@ func (p finishPreview) confirm(m Model) (Model, tea.Cmd) {
 func (p finishPreview) finishAfresh(ctx context.Context, git seams.Git) finished {
 	branch, err := git.Branch(ctx)
 	if err != nil {
-		return finished{branch: p.finishing.Branch, err: err}
+		return p.ended(err)
 	}
 
 	refused := cmp.Or(loop.RefuseFinish(p.pull, true, branch), p.moved(branch.Finishing()))
@@ -221,10 +242,15 @@ func (p finishPreview) finishAfresh(ctx context.Context, git seams.Git) finished
 	}
 
 	if refused != nil {
-		return finished{branch: p.finishing.Branch, err: fmt.Errorf("%w: %w", errNoLongerFinishable, refused)}
+		return p.ended(fmt.Errorf("%w: %w", errNoLongerFinishable, refused))
 	}
 
-	return finished{branch: p.finishing.Branch, err: git.Finish(ctx, p.finishing)}
+	return p.ended(git.Finish(ctx, p.finishing))
+}
+
+// ended is the preview's finish, ended with err: nil when it went through.
+func (p finishPreview) ended(err error) finished {
+	return finished{opened: p.opened, branch: p.finishing.Branch, err: err}
 }
 
 // moved is why the finish read again is not the one the preview listed, or
@@ -241,8 +267,10 @@ func (p finishPreview) moved(again gitrepo.Finishing) error {
 	}
 }
 
-// finished is the outcome of finishing a merged branch.
+// finished is the outcome of finishing a merged branch, for the preview
+// opened as opened.
 type finished struct {
+	opened int
 	branch string
 	err    error
 }
@@ -253,16 +281,10 @@ var _ applier = finished{}
 // preview open with why it failed — git's own words, every line of them —
 // pinned under its title until esc.
 func (msg finished) apply(m Model) (Model, tea.Cmd) {
-	if msg.err != nil {
-		return keepOpenWith[finishPreview](m, msg.err), nil
+	m, _, done := answered[finishPreview](m, msg.opened, msg.err)
+	if !done {
+		return m, nil
 	}
 
 	return m.closeOverlay().noticed(m.marks.done + " finished " + msg.branch).readingBranch()
-}
-
-// failed is the preview kept open with the reason the finish failed.
-func (p finishPreview) failed(err error) finishPreview {
-	p.send = p.send.failed(err)
-
-	return p
 }
