@@ -277,29 +277,34 @@ func (m Model) undoTasks() (Model, tea.Cmd) {
 	m.overlay = asking(lastLook{
 		title: "Undo in Taskwarrior", verb: "undo", doing: "undoing",
 		body: "Undo Taskwarrior's last change?\n\nTaskwarrior has no redo.",
-	}, "undo Taskwarrior's last change", func() tea.Msg {
+	}, "undo Taskwarrior's last change", func(round int) tea.Msg {
 		said, err := undo(ctx)
 		if errors.Is(err, taskwarrior.ErrNothingChanged) {
-			return nothingToUndo{}
+			return nothingToUndo{round: round}
 		}
 
-		return offerAnswered{acted: taskActed{verb: "undone", uuid: "", id: 0, said: said, err: err}, then: nil}
+		acted := taskActed{verb: "undone", uuid: "", id: 0, said: said, err: err}
+
+		return offerAnswered{round: round, acted: acted, then: nil}
 	})
 
 	return m, nil
 }
 
-// nothingToUndo reports an undo Taskwarrior had nothing to revert for: no task
-// was written, so the sentence for a write that changed nothing would mislead.
-type nothingToUndo struct{}
+// nothingToUndo reports an undo Taskwarrior had nothing to revert for, to the
+// look that sent it in round: no task was written, so the sentence for a
+// write that changed nothing would mislead.
+type nothingToUndo struct {
+	round int
+}
 
 var _ applier = nothingToUndo{}
 
 // apply closes the undo's look and says there was nothing to undo.
-func (nothingToUndo) apply(m Model) (Model, tea.Cmd) {
+func (msg nothingToUndo) apply(m Model) (Model, tea.Cmd) {
 	m.tasks = m.tasks.answeredWrite()
 
-	return m.answerLook(nil).noticed("nothing to undo in Taskwarrior"), nil
+	return m.answerLook(msg.round, nil).noticed("nothing to undo in Taskwarrior"), nil
 }
 
 // syncTasks asks, through a last look, to sync Taskwarrior with its server,
@@ -310,10 +315,11 @@ func (m Model) syncTasks() (Model, tea.Cmd) {
 	m.overlay = asking(lastLook{
 		title: "Sync Taskwarrior", verb: "sync", doing: "syncing",
 		body: "Sync Taskwarrior with its server?\n\nYour tasks are sent there, and its changes taken.",
-	}, "sync Taskwarrior", func() tea.Msg {
+	}, "sync Taskwarrior", func(round int) tea.Msg {
 		said, err := sync(ctx)
+		acted := taskActed{verb: "synced", uuid: "", id: 0, said: said, err: err}
 
-		return offerAnswered{acted: taskActed{verb: "synced", uuid: "", id: 0, said: said, err: err}, then: nil}
+		return offerAnswered{round: round, acted: acted, then: nil}
 	})
 
 	return m, nil

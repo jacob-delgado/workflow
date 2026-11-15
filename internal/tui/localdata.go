@@ -205,15 +205,19 @@ func (d localData) askToRemove(m Model, scope store.CleanScope) Model {
 
 		remove := m.deps.Settings.RemoveLocalData
 
-		return m, func() tea.Msg { return localDataRemoved{names: names, err: remove(scope)} }
+		return m.sendingLook(func(round int) tea.Msg {
+			return localDataRemoved{round: round, names: names, err: remove(scope)}
+		})
 	}
 	m.overlay = look
 
 	return m
 }
 
-// localDataRemoved is a removal done, or why it was refused.
+// localDataRemoved is a removal done, or why it was refused, for the look
+// that sent it in round.
 type localDataRemoved struct {
+	round int
 	names string
 	err   error
 }
@@ -224,11 +228,12 @@ var _ applier = localDataRemoved{}
 // was removed, and reads again what was announced, which the store's claims
 // went with, and the favorites, which kept.db's removal takes with it.
 func (msg localDataRemoved) apply(m Model) (Model, tea.Cmd) {
+	m = m.answerLook(msg.round, msg.err)
 	if msg.err != nil {
-		return keepOpenWith[lastLook](m, msg.err), nil
+		return m, nil
 	}
 
-	m, favorites := m.closeOverlay().noticed(m.marks.done + " removed " + msg.names).readingRepositoriesAgain()
+	m, favorites := m.noticed(m.marks.done + " removed " + msg.names).readingRepositoriesAgain()
 	m, announces := m.readingAnnounces()
 
 	return m, tea.Batch(announces, favorites)

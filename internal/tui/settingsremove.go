@@ -13,6 +13,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
+	"github.com/jacob-delgado/workflow/internal/tui/send"
 )
 
 // credentialRemoval is a credential the read holds, which removing takes out
@@ -108,7 +109,7 @@ func (f settingsForm) askToRemove(removal credentialRemoval) lastLook {
 
 		cfg, err := f.readWithout(removal)
 		if err != nil {
-			return keepOpenWith[lastLook](m, err), nil
+			return m.refusedHere(err), nil
 		}
 
 		ctx, write := m.session, m.deps.Settings.Save
@@ -118,11 +119,11 @@ func (f settingsForm) askToRemove(removal credentialRemoval) lastLook {
 			removed = []config.Credential{removal.credential}
 		}
 
-		return m, func() tea.Msg {
+		return m.sendingLook(func(round int) tea.Msg {
 			saved, written, err := write(ctx, cfg, removed, f.over)
 
-			return settingsRemoved{form: f, removal: removal, saved: saved, over: written, err: err}
-		}
+			return settingsRemoved{round: round, removal: removal, saved: saved, over: written, err: err}
+		})
 	}
 
 	return look
@@ -163,9 +164,9 @@ func (f settingsForm) removalFailed(err error) settingsForm {
 }
 
 // settingsRemoved is a credential removed, with what was written, or why it
-// was not.
+// was not, for the look that sent it in round.
 type settingsRemoved struct {
-	form    settingsForm
+	round   int
 	removal credentialRemoval
 	saved   config.Config
 	over    config.Revision
@@ -176,12 +177,19 @@ var _ applier = settingsRemoved{}
 
 // apply goes back to Settings with the refusal, or, once removed, reopens
 // workflow as a save does — unless the form holds other edits, which it then
-// keeps over the file as written, saying what was removed.
+// keeps over the file as written, saying what was removed. The form is the
+// one the look goes back to, as the reads under it left it; with no look
+// whose removal is out for round, the answer is late and nothing changes.
+// Either outcome replaces the look, so its write is not put back.
 func (msg settingsRemoved) apply(m Model) (Model, tea.Cmd) {
-	form := msg.form
+	look, _ := answerFor[lastLook](m, msg.round)
+	form, _ := look.back.(settingsForm)
+	_, answer := look.sent().Answered(msg.err)
 
 	switch {
-	case msg.err != nil:
+	case answer == send.AnswerLate:
+		return m, nil
+	case answer == send.AnswerRefused:
 		m.overlay = form.removalFailed(savedRefusal(msg.err))
 
 		return m, nil
