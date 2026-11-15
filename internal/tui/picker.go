@@ -11,6 +11,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/jira"
+	"github.com/jacob-delgado/workflow/internal/tui/latest"
 )
 
 // pickerTitle titles the detail pane while the picker is open.
@@ -94,8 +95,10 @@ func (msg transitionsListed) apply(m Model) (Model, tea.Cmd) {
 		return m.closeOverlay(), nil
 	}
 
-	picker.transitions = pickList[jira.Transition]{items: msg.found, selected: picker.offer.pick(msg.found)}
-	picker.listErr, picker.settled = msg.err, true
+	// The picker reads its moves once, as it opens, before it could begin a
+	// round: the listing is round 0's.
+	picker.listing, _ = picker.listing.Answered(0, msg.found, msg.err)
+	picker.selected = picker.offer.pick(msg.found)
 
 	return m.withAnswered(picker), nil
 }
@@ -199,11 +202,12 @@ func (p statusPicker) failed(err error) statusPicker {
 // it was opened on, then the fields the chosen one needs, and how applying it is
 // going.
 type statusPicker struct {
-	issue       jira.Issue
-	transitions pickList[jira.Transition]
-	listErr     error
-	send        sendState
-	settled     bool
+	issue jira.Issue
+	// listing is the transitions Jira offers the issue, read once as the
+	// picker opens; selected is which of them is chosen.
+	listing  latest.Read[[]jira.Transition]
+	selected int
+	send     sendState
 	// offer pre-selects a transition once the list arrives, for an offer made
 	// after branching or after a pull request; the zero value pre-selects none.
 	offer statusOffer
@@ -282,28 +286,46 @@ func (p statusPicker) header() []string {
 	return []string{shownKey(p.issue.Key) + " " + p.issue.Summary, "status  " + p.issue.Status, ""}
 }
 
-// view draws the picker in as many rows as fit.
+// view draws the picker in as many rows as fit: reading its transitions,
+// why they could not be read, or them.
 func (p statusPicker) view(kit renderKit, _, rows int) (string, string) {
 	lines := p.header()
+	space := rows - len(lines)
+	failed := func() []string { return []string{kit.failureLine(p.listing.Err())} }
 
-	switch {
-	case !p.settled:
-		lines = append(lines, "reading the statuses"+kit.marks.ellipsis)
-	case p.listErr != nil:
-		lines = append(lines, kit.failureLine(p.listErr))
-	case len(p.transitions.items) == 0:
-		lines = append(lines, "Jira offers no status change for "+shownKey(p.issue.Key))
-	case p.form.open():
-		lines = append(lines, p.form.view(kit)...)
-		lines = append(lines, p.outcome(kit)...)
-	default:
-		lines = append(lines, p.transitions.rows(kit.marks, rows-len(lines)-outcomeRows, func(move jira.Transition) string {
-			return transitionRow(kit.marks, move)
-		})...)
-		lines = append(lines, p.outcome(kit)...)
-	}
+	lines = append(lines, drawRead(p.listing, drawnRead[[]string]{
+		reading:    func() []string { return []string{"reading the statuses" + kit.marks.ellipsis} },
+		shown:      func() []string { return p.listed(kit, space) },
+		failed:     failed,
+		failedOver: failed,
+	})...)
 
 	return pickerTitle, strings.Join(lines, "\n")
+}
+
+// listed draws the transitions read in space rows: that Jira offers none,
+// the fields the chosen one needs, or the transitions to choose from, with
+// how applying the chosen one is going.
+func (p statusPicker) listed(kit renderKit, space int) []string {
+	moves := p.moves()
+
+	switch {
+	case len(moves.items) == 0:
+		return []string{"Jira offers no status change for " + shownKey(p.issue.Key)}
+	case p.form.open():
+		return append(p.form.view(kit), p.outcome(kit)...)
+	default:
+		return append(moves.rows(kit.marks, space-outcomeRows, func(move jira.Transition) string {
+			return transitionRow(kit.marks, move)
+		}), p.outcome(kit)...)
+	}
+}
+
+// moves is the transitions read, none until they are, with the chosen one.
+func (p statusPicker) moves() pickList[jira.Transition] {
+	found, _ := p.listing.Value()
+
+	return pickList[jira.Transition]{items: found, selected: p.selected}
 }
 
 // transitionRow names a transition by where it leads, and says which fields it
@@ -316,7 +338,7 @@ func transitionRow(marks glyphs, move jira.Transition) string {
 func (p statusPicker) outcome(kit renderKit) []string {
 	switch {
 	case p.send.sending:
-		chosen, _ := p.transitions.chosen()
+		chosen, _ := p.moves().chosen()
 
 		return []string{"", "changing " + shownKey(p.issue.Key) + " to " + chosen.ToStatus + kit.marks.ellipsis}
 	case p.send.err != nil:
@@ -374,7 +396,7 @@ func (p statusPicker) click(m Model, line int) (Model, tea.Cmd) {
 	}
 
 	header := len(p.header())
-	p.transitions = p.transitions.clicked(line-header, m.detailRows()-header-outcomeRows)
+	p.selected = p.moves().clicked(line-header, m.detailRows()-header-outcomeRows).selected
 	m.overlay = p
 
 	return m, nil
@@ -384,7 +406,7 @@ func (p statusPicker) click(m Model, line int) (Model, tea.Cmd) {
 // can have filled in here, straight to applying it if it needs none, and nowhere
 // if it needs one only Jira's own screen can fill.
 func (p statusPicker) choose(m Model) (Model, tea.Cmd) {
-	chosen, ok := p.transitions.chosen()
+	chosen, ok := p.moves().chosen()
 	if !ok {
 		return m, nil
 	}
