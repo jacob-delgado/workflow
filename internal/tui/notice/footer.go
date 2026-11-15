@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package notice holds the footer's one-line report of what just happened,
-// and the reports no pane repeats that wait their turn for it: which report
-// takes the row, which is dropped, and which waits until it can be read.
+// and the reports that wait their turn for it, what no pane repeats and a
+// failure a search hid: which report takes the row, which is dropped, and
+// which waits until it can be read.
 package notice
 
 import "slices"
@@ -26,14 +27,21 @@ const (
 	StageUnrepeated
 )
 
-// Footer is the notice row: the report it shows, and the reports no pane
-// repeats waiting for it, oldest first. The zero Footer reports nothing.
-// Every transition returns a new Footer and leaves the one it came from as it
-// was, the waiting reports among them.
+// Footer is the notice row: the report it shows, and the reports waiting for
+// it, oldest first. The zero Footer reports nothing. Every transition returns
+// a new Footer and leaves the one it came from as it was, the waiting reports
+// among them.
 type Footer struct {
 	stage   Stage
 	text    string
-	waiting []string
+	waiting []report
+}
+
+// report is one report waiting for the row: a failure or what no pane
+// repeats.
+type report struct {
+	stage Stage
+	text  string
 }
 
 // Stage is what the row reports.
@@ -46,7 +54,7 @@ func (f Footer) Text() string {
 	return f.text
 }
 
-// Waiting is how many reports no pane repeats wait for the row.
+// Waiting is how many reports wait for the row.
 func (f Footer) Waiting() int {
 	return len(f.waiting)
 }
@@ -64,8 +72,17 @@ func (f Footer) Reported(text string) Footer {
 
 // Failed shows text as a failure, which takes the row from any report, a
 // failure before it among them. A report no pane repeats gives the row up and
-// waits first in line.
-func (f Footer) Failed(text string) Footer {
+// waits first in line. Covered, the row given over to a search whose keys
+// would clear it unseen, the failure waits instead, and Next gives it the row
+// once the search ends, as Failed would have. Either way a failure already
+// waiting is dropped, as it would be replaced on the row.
+func (f Footer) Failed(text string, covered bool) Footer {
+	f.waiting = slices.DeleteFunc(slices.Clone(f.waiting), report.failure)
+
+	if covered {
+		return f.waitingFor(report{stage: StageFailure, text: text})
+	}
+
 	return f.showing(StageFailure, text)
 }
 
@@ -75,11 +92,7 @@ func (f Footer) Failed(text string) Footer {
 // unseen. Then it waits, last in line.
 func (f Footer) Unrepeated(text string, covered bool) Footer {
 	if f.stage == StageFailure || f.stage == StageUnrepeated || len(f.waiting) > 0 || covered {
-		// Clipped, so the append never writes into an array the Footer it
-		// came from still holds.
-		f.waiting = append(slices.Clip(f.waiting), text)
-
-		return f
+		return f.waitingFor(report{stage: StageUnrepeated, text: text})
 	}
 
 	f.stage, f.text = StageUnrepeated, text
@@ -95,15 +108,42 @@ func (f Footer) Cleared() Footer {
 	return f
 }
 
-// Next gives the row, once it reports nothing and is not covered, to the
-// oldest report waiting. A row that reports something, a row covered and a
-// row with nothing waiting are unchanged.
+// Next gives the row, once it is not covered, to a failure waiting for it,
+// which takes the row as Failed does on a row no search covers, ahead of
+// every other report waiting; otherwise, once the row reports nothing, to the
+// oldest report waiting. A row covered, a row with nothing waiting and a row
+// that reports something with no failure waiting are unchanged.
 func (f Footer) Next(covered bool) Footer {
-	if f.stage != StageNone || len(f.waiting) == 0 || covered {
+	if covered || len(f.waiting) == 0 {
 		return f
 	}
 
-	f.stage, f.text, f.waiting = StageUnrepeated, f.waiting[0], f.waiting[1:]
+	if at := slices.IndexFunc(f.waiting, report.failure); at >= 0 {
+		failure := f.waiting[at]
+		f.waiting = slices.Delete(slices.Clone(f.waiting), at, at+1)
+
+		return f.showing(StageFailure, failure.text)
+	}
+
+	if f.stage != StageNone {
+		return f
+	}
+
+	f.stage, f.text, f.waiting = f.waiting[0].stage, f.waiting[0].text, f.waiting[1:]
+
+	return f
+}
+
+// failure reports whether the report waiting is a failure.
+func (waiting report) failure() bool {
+	return waiting.stage == StageFailure
+}
+
+// waitingFor puts waiting last in line.
+func (f Footer) waitingFor(waiting report) Footer {
+	// Clipped, so the append never writes into an array the Footer it came
+	// from still holds.
+	f.waiting = append(slices.Clip(f.waiting), waiting)
 
 	return f
 }
@@ -112,7 +152,7 @@ func (f Footer) Next(covered bool) Footer {
 // held put first in line.
 func (f Footer) showing(stage Stage, text string) Footer {
 	if f.stage == StageUnrepeated {
-		f.waiting = slices.Concat([]string{f.text}, f.waiting)
+		f.waiting = slices.Concat([]report{{stage: StageUnrepeated, text: f.text}}, f.waiting)
 	}
 
 	f.stage, f.text = stage, text

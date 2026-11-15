@@ -196,10 +196,11 @@ func (m Model) noticedUnrepeated(text string) Model {
 	return m
 }
 
-// nextNoticeWaiting gives the notice, once nothing holds it and nothing covers
-// its row, to the oldest notice waiting for it. It runs after a key's own
-// answer, so a notice that answer gives keeps the slot and the waiting one is
-// not lost under it.
+// nextNoticeWaiting gives the notice, once nothing covers its row, to a
+// failure a search hid, or else, once nothing holds it, to the oldest notice
+// waiting for it (notice.Footer's Next). It runs after a key's own answer, so
+// a notice that answer gives keeps the slot from what no pane repeats, which
+// is not lost under it.
 func (m Model) nextNoticeWaiting() Model {
 	m.notice = m.notice.Next(m.noticeCovered())
 

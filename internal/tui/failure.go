@@ -37,6 +37,8 @@ func (s sendState) failed(err error) sendState {
 
 // noticedFailure reports a failure in the footer: the red mark and the error in
 // full, its own words after the sentence, the whole row in the failure style.
+// One that lands while a search covers the row waits for the search to end,
+// since the keys typed into it would clear it unseen.
 func (m Model) noticedFailure(err error) Model {
 	return m.noticedFailureLedBy("", err)
 }
@@ -54,7 +56,7 @@ func (m Model) noticedFailureLedBy(lead string, err error) Model {
 		return m.noticed(strings.Join(words, "\n"))
 	}
 
-	m.notice = m.notice.Failed(m.oneRow(strings.Join(words, "\n")))
+	m.notice = m.notice.Failed(m.oneRow(strings.Join(words, "\n")), m.noticeCovered())
 
 	return m
 }

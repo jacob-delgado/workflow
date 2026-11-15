@@ -18,6 +18,11 @@ const (
 	news      = "pulled"
 	lost      = "lost"
 	lostAfter = "[" + lost + "]"
+
+	// alsoLost is the report no pane repeats that waits behind "not kept",
+	// shown in a view's after as alsoLostAfter.
+	alsoLost      = "also not kept"
+	alsoLostAfter = "[" + alsoLost + "]"
 )
 
 // none is a Footer that reports nothing.
@@ -36,7 +41,12 @@ func plain(t *testing.T) notice.Footer {
 func failure(t *testing.T) notice.Footer {
 	t.Helper()
 
-	return none(t).Failed("push failed")
+	return failed(none(t), "push failed")
+}
+
+// failed is footer reporting text as a failure on a row no search covers.
+func failed(footer notice.Footer, text string) notice.Footer {
+	return footer.Failed(text, uncovered)
 }
 
 // unrepeated is a Footer showing "not kept", which no pane repeats.
@@ -51,7 +61,7 @@ func unrepeated(t *testing.T) notice.Footer {
 func unrepeatedAndWaiting(t *testing.T) notice.Footer {
 	t.Helper()
 
-	return unrepeated(t).Unrepeated("also not kept", uncovered)
+	return unrepeated(t).Unrepeated(alsoLost, uncovered)
 }
 
 // oneWaiting is a Footer reporting nothing, with "also not kept" waiting.
