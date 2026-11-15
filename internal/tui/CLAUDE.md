@@ -40,7 +40,9 @@ leave without carrying `Model` across a package boundary Go does not allow.
 What may leave is a leaf with a reason to change of its own and no `Model` in
 it, as `layout/` and `frame/` did, as `quietinput/` did when `quietinput.go`,
 which changes as `huh.Field` does, left, and as `latest/` was born a leaf: a
-pane's read, whose answer counts only if no later read has begun. Code with no
+pane's read, whose answer counts only if no later read has begun; and
+`send/`, the one write an overlay has out, which an answer changes only
+while it is out. Code with no
 `Model` in it leaves for the package whose concern it is even when its file
 stays, as the commit scopes offered did for `internal/convention`
 (`ScopeSuggestions`) and the outlasting plumbing for `internal/lifetime`

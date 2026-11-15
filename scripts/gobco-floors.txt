@@ -62,6 +62,12 @@ internal/store 90
 # drops the answer a pane waits for and leaves it reading forever.
 internal/tui/latest 98
 
+# internal/tui/send decides whether an answer lands on the overlay that sent
+# its write: an arm it misses pins a refusal on an overlay that sent nothing,
+# lands one write's answer twice, or leaves an overlay in flight forever,
+# taking every key.
+internal/tui/send 98
+
 # internal/webserver/edge is the request boundary of --web: the loopback and
 # same-origin guards, dry-run's refusal of every write, and the session and
 # contract check that stand between any program on this machine and the

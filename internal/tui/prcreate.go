@@ -153,9 +153,7 @@ func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
 
 	switch {
 	case named && m.deps.Jira.LinkPullRequest != nil:
-		m.overlay = issueLinker{vocab: m.vocab, issueKey: issueKey, pull: msg.pull}
-
-		return m, cmds
+		return m.openIssueLinker(issueKey, msg.pull), cmds
 	case named:
 		picker, offer := m.offerReviewStatus(issueKey)
 

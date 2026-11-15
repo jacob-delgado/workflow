@@ -15,6 +15,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
+	"github.com/jacob-delgado/workflow/internal/tui/send"
 )
 
 // overlay is something that takes the keyboard until it is closed: a picker, a
@@ -338,6 +339,33 @@ func (m Model) withAnswered(changed opened) Model {
 	m.overlay = changed
 
 	return m
+}
+
+// sender is an overlay that sends one write at a time, held in a send.State
+// it hands back as sent and takes as withSend, and whose answer finds it by
+// the round it opened in.
+type sender[T any] interface {
+	opened
+	sent() send.State
+	withSend(state send.State) T
+}
+
+// answered takes err as the answer to the write the T opened in round sent,
+// and reports true when the write went through, for the applier to do what
+// follows a success. A refusal is pinned in the T, put back where answerFor
+// found it. Late, the answer changes nothing: no T opened in round is open,
+// or its write is not out, and the T returned is the zero value, idle with
+// nothing sent, or the open one unchanged.
+func answered[T sender[T]](m Model, round int, err error) (Model, T, bool) {
+	open, _ := answerFor[T](m, round)
+	state, answer := open.sent().Answered(err)
+	open = open.withSend(state)
+
+	if answer == send.AnswerRefused {
+		m = m.withAnswered(open)
+	}
+
+	return m, open, answer == send.AnswerDone
 }
 
 // failable is an overlay that stays open when the request it sent fails, and

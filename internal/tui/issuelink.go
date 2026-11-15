@@ -14,6 +14,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
+	"github.com/jacob-delgado/workflow/internal/tui/send"
 )
 
 // issueLinker offers to record a just-opened pull request as a web link on the
@@ -23,10 +24,19 @@ type issueLinker struct {
 	vocab    reviewVocab
 	issueKey jira.Key
 	pull     forge.PullRequest
-	send     sendState
+	opened   int
+	send     send.State
 }
 
-var _ failable[issueLinker] = issueLinker{}
+var _ sender[issueLinker] = issueLinker{}
+
+// openIssueLinker offers to link pull on issueKey, in a round of its own.
+func (m Model) openIssueLinker(issueKey jira.Key, pull forge.PullRequest) Model {
+	m, round := m.nextRound()
+	m.overlay = issueLinker{vocab: m.vocab, issueKey: issueKey, pull: pull, opened: round, send: send.State{}}
+
+	return m
+}
 
 // jiraIssue is the Jira issue the current branch names, and whether it names
 // one: never the bare forge issue number a branch can carry instead, which is
@@ -59,7 +69,7 @@ func (m Model) pullOffers() []string {
 
 // view previews the link the confirmation would add.
 func (l issueLinker) view(kit renderKit, width, _ int) (string, string) {
-	lines := kit.pinnedOutcome(l.send, "linking", width)
+	lines := kit.pinnedSend(l.send, "linking", width)
 	lines = append(lines,
 		"Add this "+l.vocab.noun+"'s link to "+shownKey(l.issueKey)+"?", "",
 		l.vocab.sigil+strconv.Itoa(l.pull.Number)+" "+l.pull.Title, l.pull.URL)
@@ -69,7 +79,7 @@ func (l issueLinker) view(kit renderKit, width, _ int) (string, string) {
 
 // footer offers linking the pull request or skipping it.
 func (l issueLinker) footer(keys keyMap) []key.Binding {
-	if l.send.sending {
+	if l.send.Stage() == send.StageInFlight {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -79,7 +89,7 @@ func (l issueLinker) footer(keys keyMap) []key.Binding {
 // handleKey links the pull request, or skips it, leaving it open in review.
 func (l issueLinker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case l.send.sending:
+	case l.send.Stage() == send.StageInFlight:
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.offerReviewStatus(l.issueKey)
@@ -93,21 +103,37 @@ func (l issueLinker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // which names the Jira link offer.
 func (issueLinker) which() overlayKind { return overlayIssueLinker }
 
-// link adds the pull request's web link to the issue.
+// openedAs is the round the offer opened in, which its link carries back.
+func (l issueLinker) openedAs() int { return l.opened }
+
+// sent is the link's write.
+func (l issueLinker) sent() send.State { return l.send }
+
+// withSend is the offer with its link's write as state.
+func (l issueLinker) withSend(state send.State) issueLinker {
+	l.send = state
+
+	return l
+}
+
+// link adds the pull request's web link to the issue. handleKey takes no
+// key while a link is out, so Sent always sends.
 func (l issueLinker) link(m Model) (Model, tea.Cmd) {
-	l.send = starting()
+	l.send, _ = l.send.Sent()
 	m.overlay = l
 
 	ctx, add := m.session, m.deps.Jira.LinkPullRequest
-	issueKey, pull := l.issueKey, l.pull
+	issueKey, pull, opened := l.issueKey, l.pull, l.opened
 
 	return m, func() tea.Msg {
-		return issueLinked{issueKey: issueKey, pull: pull, err: add(ctx, issueKey, pull.URL, pull.Title)}
+		return issueLinked{opened: opened, issueKey: issueKey, pull: pull, err: add(ctx, issueKey, pull.URL, pull.Title)}
 	}
 }
 
-// issueLinked reports how linking the pull request on the issue went.
+// issueLinked reports how linking the pull request on the issue went, for
+// the offer opened as opened.
 type issueLinked struct {
+	opened   int
 	issueKey jira.Key
 	pull     forge.PullRequest
 	err      error
@@ -117,19 +143,13 @@ var _ applier = issueLinked{}
 
 // apply reports the link, or keeps the confirmation open with Jira's reason.
 func (msg issueLinked) apply(m Model) (Model, tea.Cmd) {
-	if msg.err != nil {
-		return keepOpenWith[issueLinker](m, msg.err), nil
+	m, _, done := answered[issueLinker](m, msg.opened, msg.err)
+	if !done {
+		return m, nil
 	}
 
 	m = m.noticed(m.marks.done + " linked " + m.vocab.sigil +
 		strconv.Itoa(msg.pull.Number) + " on " + shownKey(msg.issueKey))
 
 	return m.offerReviewStatus(msg.issueKey)
-}
-
-// failed is the confirmation kept open with the reason the link failed.
-func (l issueLinker) failed(err error) issueLinker {
-	l.send = l.send.failed(err)
-
-	return l
 }
