@@ -71,19 +71,20 @@ func TestMembersReadWhilePeoplesPickerIsOpenReachBoth(t *testing.T) {
 	refuseScreen(t, again.View().Content, "still reading")
 }
 
-func TestALinkSavedWhileThePickerIsOpenShowsOnceItCloses(t *testing.T) {
+func TestThePickerOpensOnceTheLinkIsSaved(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	// ben is marked not on Slack, and the picker opened before that is saved
+	// ben is marked not on Slack, and the picker asked for before that is
+	// saved opens nothing.
 	marking, save := pressed(t, typing(t, onlyBen().live(t, 140, 40), "5", "p"), "x")
-	picking := typing(t, marking, "a")
+	refused := typing(t, marking, "a")
 
 	// Act
-	back := typing(t, drain(t, picking, save), keyEsc)
+	picking := typing(t, drain(t, refused, save), "a")
 
 	// Assert
-	requireScreen(t, back.View().Content, "Announce to Slack", "· not on Slack")
+	requireScreen(t, picking.View().Content, "Link ben to Slack")
 }
 
 func TestARefreshAnsweredWhilePeoplesPickerIsOpenReachesIt(t *testing.T) {

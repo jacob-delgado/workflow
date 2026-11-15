@@ -33,6 +33,10 @@ var (
 	errBeganMerging         = errors.New("this began merging while the preview was open; announce it once it has merged")
 )
 
+// errLinkBeingSaved refuses a link key while the preview saves another link:
+// one at a time, so the store keeps the answer the screen shows.
+var errLinkBeingSaved = errors.New("a link is being saved; try again once it is")
+
 // messagingPreview is an announcement about to be sent.
 type messagingPreview struct {
 	text string
@@ -365,7 +369,8 @@ func (s tagSection) lines(kit renderKit, width int) []string {
 			return []string{kit.marks.inFlight + " reading whom to tag" + kit.marks.ellipsis}
 		},
 		tagsListed: func() []string {
-			lines := slices.Concat(s.ownerLines(kit.marks), s.groupLines(kit.marks), s.failureLines(kit, width))
+			lines := slices.Concat(
+				s.ownerLines(kit.marks), s.groupLines(kit.marks), s.failureLines(kit, width), s.savingLine(kit))
 
 			return append(lines, "tags  "+s.summary())
 		},
@@ -400,11 +405,16 @@ func (p messagingPreview) handleTagKey(m Model, msg tea.KeyPressMsg) (Model, tea
 }
 
 // pickLink opens the picker on the owner under the cursor: the channel's
-// members for a person, the user groups for a team.
+// members for a person, the user groups for a team. While a link is being
+// saved, it opens nothing, saying why in the footer, as a link key does.
 func (p messagingPreview) pickLink(m Model) (Model, tea.Cmd) {
 	owner, onOwner := p.tagging.selectedOwner()
 	if !onOwner || !p.tagging.canLink {
 		return m, nil
+	}
+
+	if p.tagging.link.Stage() == send.StageInFlight {
+		return m.noticedGuidance(errLinkBeingSaved), nil
 	}
 
 	m.overlay = newOwnerPicker(m, owner.Owner, owner.Team, p)
@@ -437,9 +447,16 @@ func (p messagingPreview) markNotOnSlack(m Model) (Model, tea.Cmd) {
 	return p.sendingLink(m, decided(owner.Owner, owner.Team, nil))
 }
 
-// sendingLink puts the preview back on top with link out, saving it.
+// sendingLink puts the preview back on top with link out, saving it, or,
+// while another link is out, says in the footer why nothing was saved.
 func (p messagingPreview) sendingLink(m Model, link loop.OwnerLink) (Model, tea.Cmd) {
-	p.tagging.link, _ = p.tagging.link.Sent()
+	var sent bool
+
+	p.tagging.link, sent = p.tagging.link.Sent()
+	if !sent {
+		return m.noticedGuidance(errLinkBeingSaved), nil
+	}
+
 	m.overlay = p
 
 	return m.savingLink(link, p.opened)
