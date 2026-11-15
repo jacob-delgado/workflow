@@ -136,7 +136,11 @@ focused again:
   on its own row above the keys, where it stays while you look around and
   clears when the next action starts. A failure, drawn in red, stays until a
   key clears it: a later failure replaces it, and a plain result that comes
-  meanwhile is not shown, since its pane says it too. What no pane says —
+  meanwhile is not shown, since its pane says it too. One that lands while a
+  search covers the row waits for the search to close, so the keys typed
+  into it do not clear it unseen, and then shows first. An Issues filter or
+  places kept once the search closes go on covering the row, so what waits
+  under them waits until you clear them or leave Issues. What no pane says —
   what the store could not keep, and an announcement the store did not
   confirm — is never dropped: it waits behind the failure, behind another
   such notice not yet read, or for a search covering the row to close, and

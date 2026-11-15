@@ -50,7 +50,7 @@ internal/tui/         the Bubble Tea interface; every outside call is a Deps sea
 internal/tui/frame/   a titled, bordered box of an exact size
 internal/tui/latest/  a read whose answer is shown only if no later read has begun
 internal/tui/layout/  where each region of the interface goes, per terminal size
-internal/tui/notice/  the footer's one-line notice, and the notices no pane repeats waiting for it
+internal/tui/notice/  the footer's one-line notice, and what waits for it: what no pane repeats, and a failure a search hid
 internal/tui/quietinput/ the Huh field typed text goes through, whose cursor never blinks
 internal/tui/send/    the one write an overlay has out, and the refusal it came back with
 internal/webserver/   the --web REST API and event stream, bound to 127.0.0.1

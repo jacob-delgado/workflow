@@ -90,8 +90,9 @@ type Model struct {
 	// followUp is the offer waiting for the overlay open to close.
 	followUp waitingOffer
 	// notice is the footer's one-line report of something that just happened,
-	// which the next key press clears, and the notices no pane repeats that
-	// wait for it, each taking it in turn as keys clear it.
+	// which the next key press clears, and what waits for it: the notices no
+	// pane repeats, each taking it in turn as keys clear it, and a failure a
+	// search hid, which takes it first once the search ends.
 	notice notice.Footer
 
 	// views are the Issues pane's lists, and viewIndex the one it shows now.

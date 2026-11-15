@@ -222,3 +222,70 @@ func TestAWaitingNoticeShowsOnceAClickLeavesTheFilteredIssues(t *testing.T) {
 	// Assert
 	requireNotice(t, clicked.View().Content, issueListNotKept)
 }
+
+// A failure that lands while a search covers the notice row waits for it, as
+// what the store lost does, so the keys typed into the search do not clear it
+// unseen; once the search ends it takes the row first, as it would have had
+// no search covered it.
+
+// stopFailedUnderASearch is the Tasks pane's stop sent and its answer kept
+// back, a search typed over the Issues, and the stop's failure landed under
+// it.
+func stopFailedUnderASearch(t *testing.T, search ...string) tui.Model {
+	t.Helper()
+
+	repo := withTasks()
+	repo.tasks.writeErr = taskwarriorLocked()
+	stopping, stopFailed := typing(t, repo.live(t, 200, 40), tasksPane).Update(keyMsg("s"))
+
+	return drain(t, typing(t, concrete(t, stopping), append([]string{"1", "/"}, search...)...), stopFailed)
+}
+
+func TestAFailureLandingUnderASearchShowsOnceTheSearchCloses(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	searched := typing(t, stopFailedUnderASearch(t, "a"), "b")
+
+	// Act
+	closed := typing(t, searched, keyEsc)
+
+	// Assert
+	requireFailureNotice(t, closed.View().Content, "taskwarrior refused the command: database is locked")
+}
+
+func TestAFailureUnderASearchShowsBeforeALossThatLandedFirst(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The refresh and the stop are sent, each answer kept back, and a search
+	// typed over the Issues; the refresh's loss lands under it, then the
+	// stop's failure.
+	repo := withTasks()
+	repo.tasks.writeErr = taskwarriorLocked()
+	repo.storeErr = errStoreFull
+	refreshing, refreshed := repo.live(t, 200, 40).Update(keyMsg("r"))
+	stopping, stopFailed := typing(t, concrete(t, refreshing), tasksPane).Update(keyMsg("s"))
+	searched := drain(t, drain(t, typing(t, concrete(t, stopping), "1", "/", "a"), refreshed), stopFailed)
+
+	// Act
+	closed := typing(t, searched, keyEsc)
+
+	// Assert
+	requireFailureNotice(t, closed.View().Content, "taskwarrior refused the command: database is locked")
+}
+
+func TestAFailureUnderAFilterTakesTheRowFromAReportItHid(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The issues are filtered, m reports the mouse on under the filter, and
+	// the stop's failure lands under it too.
+	filtered := stopFailedUnderASearch(t, "a", keyEnter, "m")
+
+	// Act
+	left := typing(t, filtered, keyTab)
+
+	// Assert
+	requireFailureNotice(t, left.View().Content, "taskwarrior refused the command: database is locked")
+}
