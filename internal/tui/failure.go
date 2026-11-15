@@ -46,18 +46,25 @@ func (m Model) noticedFailure(err error) Model {
 // "re-run failed: " — for a notice no open overlay names: the footer clips a
 // long sentence, and the lead must survive it.
 func (m Model) noticedFailureLedBy(lead string, err error) Model {
+	row := m.failureRow(lead, err)
+	if loop.NotSetUp(err) {
+		return m.noticed(row)
+	}
+
+	m.notice = m.notice.Failed(row, m.noticeCovered())
+
+	return m
+}
+
+// failureRow is the footer's row for a failure led by lead: its mark, the
+// error in full, and its own words after the sentence.
+func (m Model) failureRow(lead string, err error) string {
 	words := []string{markOf(m.marks, err) + " " + lead + inFull(err)}
 	if sentence, known := errorSentence(err); known && !sentence.whole {
 		words = append(words, ownText(err))
 	}
 
-	if loop.NotSetUp(err) {
-		return m.noticed(strings.Join(words, "\n"))
-	}
-
-	m.notice = m.notice.Failed(m.oneRow(strings.Join(words, "\n")), m.noticeCovered())
-
-	return m
+	return m.oneRow(strings.Join(words, "\n"))
 }
 
 // noticedGuidance tells, plainly, why a key did nothing and what would. The

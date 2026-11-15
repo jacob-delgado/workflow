@@ -625,19 +625,21 @@ given up on too, as *CI on #42 has been running for 2h*. `x` on the
 messaging pane stops waiting, and nothing is announced. While one waits, the
 footer offers `p` after `x`, as *announce now instead*: it opens the same
 preview, and once the post made from it has gone, the one that waited goes no
-more, so the channel never reads it twice; one that fails leaves it waiting. One
-armed as `n` opened its pull request waits the same way, and so does
-`workflow announce --when-green` from a shell, in the foreground until CI passes
-or `ctrl+c`. Each reads the pull request of the branch it was armed on, whatever
-is checked out meanwhile — the messaging pane names it while another is on
-screen — and gives up when it hears nothing for ten minutes — CI it can't read,
-a forge that doesn't list a pull request just opened, posts asked to wait —
-saying what failed last. `w` over another pull request's waiting announcement
-replaces it, saying so; one armed as a pull request opens never replaces
-another, and the opened notice says which still waits. A post the messaging
-service may have taken — it did not answer, or answered with an error of its
-own — is never posted again unasked: the messaging pane says *a post began at …
-and was not confirmed; workflow announce posts it again*.
+more, so the channel never reads it twice; one that fails leaves it waiting,
+and when that one goes, the preview still open on the refusal closes, saying
+where it was announced. One armed as `n` opened its pull request waits the
+same way, and so does `workflow announce --when-green` from a shell, in the
+foreground until CI passes or `ctrl+c`. Each reads the pull request of the
+branch it was armed on, whatever is checked out meanwhile — the messaging pane
+names it while another is on screen — and gives up when it hears nothing for ten
+minutes — CI it can't read, a forge that doesn't list a pull request just
+opened, posts asked to wait — saying what failed last. `w` over another pull
+request's waiting announcement replaces it, saying so; one armed as a pull
+request opens never replaces another, and the opened notice says which still
+waits. A post the messaging service may have taken — it did not answer, or
+answered with an error of its own — is never posted again unasked: the messaging
+pane says *a post began at … and was not confirmed; workflow announce posts it
+again*.
 
 Nothing is announced while a check has failed on the pull request. The
 announcement reads its CI again as it goes, whatever the pane last read, and a
