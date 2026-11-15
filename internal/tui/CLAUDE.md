@@ -43,11 +43,13 @@ which changes as `huh.Field` does, left, and as `latest/` was born a leaf: a
 pane's read, whose answer counts only if no later read has begun; and
 `send/`, the one write an overlay has out, which an answer changes only
 while it is out; and `notice/`, the footer's notice row, which decides what
-it reports and what waits for it. Code with no
-`Model` in it leaves for the package whose concern it is even when its file
-stays, as the commit scopes offered did for `internal/convention`
-(`ScopeSuggestions`) and the outlasting plumbing for `internal/lifetime`
-(`lifetime.Outlasting0` and the rest).
+it reports and what waits for it; and `listsearch/`, the search a list is
+narrowed by as it is typed and once it is kept, which takes the same keys
+wherever a list is searched. Code with no `Model` in it leaves for the
+package whose concern it is even when its file stays, as the commit scopes
+offered did for `internal/convention` (`ScopeSuggestions`) and the
+outlasting plumbing for `internal/lifetime` (`lifetime.Outlasting0` and the
+rest).
 
 ## Deps: the world outside the terminal
 
