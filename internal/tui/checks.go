@@ -35,8 +35,8 @@ type checkList struct {
 	err     error
 	// openKey is the key apply is bound to, which opens a check's page.
 	openKey string
-	// opened is the round the list opened in, which a log read from it
-	// carries back, so it opens in no list opened after.
+	// opened is the round the list opened in, which a log read and a page
+	// opened from it carry back, so neither lands in a list opened after.
 	opened int
 }
 
@@ -163,24 +163,26 @@ func (c checkList) open(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	ctx, open := m.session, m.deps.OpenURL
+	ctx, open, opened := m.session, m.deps.OpenURL, c.opened
 	m.overlay = c
 
-	return m, func() tea.Msg { return checkOpened{name: check.Name, err: open(ctx, check.URL)} }
+	return m, func() tea.Msg { return checkOpened{name: check.Name, opened: opened, err: open(ctx, check.URL)} }
 }
 
-// checkOpened reports how opening a check's page went.
+// checkOpened reports how opening a check's page went, from the list opened
+// in round opened.
 type checkOpened struct {
-	name string
-	err  error
+	name   string
+	opened int
+	err    error
 }
 
 var _ applier = checkOpened{}
 
-// apply records the outcome on the open list, or does nothing when it has since
-// closed.
+// apply records the outcome on the list that opened the page, or does nothing
+// when it has since closed, even when another has opened since.
 func (msg checkOpened) apply(m Model) (Model, tea.Cmd) {
-	list, open := m.overlay.(checkList)
+	list, open := answerFor[checkList](m, msg.opened)
 	if !open {
 		return m, nil
 	}
@@ -191,9 +193,7 @@ func (msg checkOpened) apply(m Model) (Model, tea.Cmd) {
 		list.err, list.outcome = nil, m.marks.done+" opened "+msg.name
 	}
 
-	m.overlay = list
-
-	return m, nil
+	return m.withAnswered(list), nil
 }
 
 // canRerun reports a failed pull request whose checks can be re-run. A pull

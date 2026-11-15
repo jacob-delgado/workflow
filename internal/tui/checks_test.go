@@ -164,3 +164,18 @@ func TestACheckWithNoPageSaysSo(t *testing.T) {
 		t.Errorf("browse calls = %v, want none for a check with no page", got)
 	}
 }
+
+func TestAPageOpenedFromAClosedChecksListLeavesTheReopenedOneAlone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := checkedCI()
+	model, kept := withheldKeys(t, repo.live(t, 120, 40), repo.counting("browse"), "4", "c", "j", keyEnter)
+	reopened := typing(t, model, keyEsc, "c")
+
+	// Act
+	late := handedOver(t, reopened, kept)
+
+	// Assert
+	refuseScreen(t, late.View().Content, "opened build")
+}
