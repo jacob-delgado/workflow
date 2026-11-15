@@ -148,13 +148,14 @@ func (p prEditor) editBody(m Model) tea.Cmd {
 	return m.deps.Editor.Edit(p.body, prBodyHelp(p.vocab), editedFor(p.opened))
 }
 
-// applyEdit puts the edited description back, or keeps why the editor failed
-// as its problem, in place of a refusal an earlier save had.
+// applyEdit puts the edited description back, clearing why an earlier edit
+// failed, or keeps why the editor failed as its problem, in place of a
+// refusal an earlier save had.
 func (p prEditor) applyEdit(m Model, text string, err error) (Model, tea.Cmd) {
 	if err != nil {
 		p.problem, p.send = err, p.send.Cleared()
 	} else {
-		p.body = text
+		p.body, p.problem = text, nil
 	}
 
 	return m.withAnswered(p), nil
