@@ -78,6 +78,7 @@ type settingsForm struct {
 
 var (
 	_ failable[settingsForm] = settingsForm{}
+	_ opened                 = settingsForm{}
 	_ pasteable              = settingsForm{}
 	_ relaying               = settingsForm{}
 )
@@ -115,8 +116,8 @@ var _ applier = settingsRead{}
 
 // apply seeds the form that asked, and nothing once it has closed.
 func (msg settingsRead) apply(m Model) (Model, tea.Cmd) {
-	form, open := m.overlay.(settingsForm)
-	if !open || form.opened != msg.opened {
+	form, open := answerFor[settingsForm](m, msg.opened)
+	if !open {
 		return m, nil
 	}
 
@@ -126,9 +127,8 @@ func (msg settingsRead) apply(m Model) (Model, tea.Cmd) {
 	form.values, form.readErr = seed(msg.cfg.Redacted(), msg.err)
 	form = form.laidOut()
 	form.path, form.shownPath, form.over = msg.cfg.Path, shownDir(m.deps, msg.cfg.Path), msg.over
-	m.overlay = form
 
-	return m, nil
+	return m.withAnswered(form), nil
 }
 
 // laidOut is the form with its rows laid out for what it holds, the cursor
@@ -373,6 +373,9 @@ func (f settingsForm) acted(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 // which names Settings.
 func (settingsForm) which() overlayKind { return overlaySettings }
+
+// openedAs is the round the form opened in.
+func (f settingsForm) openedAs() int { return f.opened }
 
 // changeKey moves through the settings, or changes the selected one where
 // a key does so in place: a toggle turned, or a choice moved on.

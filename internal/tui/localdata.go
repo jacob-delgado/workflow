@@ -32,7 +32,7 @@ type localData struct {
 	err   error
 }
 
-var _ overlay = localData{}
+var _ opened = localData{}
 
 // canSeeLocalData reports that the store's files can be listed.
 func canSeeLocalData(deps Deps) bool {
@@ -70,15 +70,14 @@ var _ applier = localDataRead{}
 
 // apply fills in the overlay that asked, and nothing once it has closed.
 func (msg localDataRead) apply(m Model) (Model, tea.Cmd) {
-	open, isOpen := m.overlay.(localData)
-	if !isOpen || open.opened != msg.opened {
+	open, isOpen := answerFor[localData](m, msg.opened)
+	if !isOpen {
 		return m, nil
 	}
 
 	open.reading, open.dir, open.files, open.err = false, shownDir(m.deps, msg.dir), msg.files, msg.err
-	m.overlay = open
 
-	return m, nil
+	return m.withAnswered(open), nil
 }
 
 // view lists where the store is and each file in it, or why it could not.
@@ -169,6 +168,9 @@ func (d localData) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 // which names Local data.
 func (localData) which() overlayKind { return overlayLocalData }
+
+// openedAs is the round Local data opened in.
+func (d localData) openedAs() int { return d.opened }
 
 // cacheNames names the cache's file, or is empty when there is none.
 func (d localData) cacheNames() string {

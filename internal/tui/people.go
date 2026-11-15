@@ -79,6 +79,7 @@ type peopleOverlay struct {
 
 var (
 	_ failable[peopleOverlay] = peopleOverlay{}
+	_ linksOwners             = peopleOverlay{}
 	_ steppable               = peopleOverlay{}
 )
 
@@ -186,7 +187,7 @@ var _ applier = peopleListed{}
 // a save, it would list them as they were before the next. A read that
 // failed keeps everyone listed beside its failure.
 func (msg peopleListed) apply(m Model) (Model, tea.Cmd) {
-	open, isOpen := beneath[peopleOverlay](m, msg.opened)
+	open, isOpen := answerFor[peopleOverlay](m, msg.opened)
 	if !isOpen {
 		return m, nil
 	}
@@ -198,7 +199,7 @@ func (msg peopleListed) apply(m Model) (Model, tea.Cmd) {
 
 	open.listed = listed
 
-	return m.withBeneath(open.relisted()), nil
+	return m.withAnswered(open.relisted()), nil
 }
 
 // relisted lists everyone held, the selection held on the owner it was on,
@@ -376,8 +377,8 @@ func (p peopleOverlay) askToForget(m Model, owner string) Model {
 			// The People the look went back to, as the reads that answered
 			// under it left it. It is always found: handleKey puts this look
 			// on top before proceed, and its back is this People, opened as
-			// opened, which withBeneath keeps current.
-			under, _ := beneath[peopleOverlay](m, opened)
+			// opened, which withAnswered keeps current.
+			under, _ := answerFor[peopleOverlay](m, opened)
 
 			return under.saving(m, func() tea.Msg {
 				err := inWorkspace(ctx, readWorkspace, func(workspace string) error { return forget(ctx, workspace, owner) })
@@ -408,19 +409,19 @@ var _ applier = peopleSaved{}
 
 // apply pins a refusal, or reads the people again to show what changed.
 func (msg peopleSaved) apply(m Model) (Model, tea.Cmd) {
-	open, isOpen := beneath[peopleOverlay](m, msg.opened)
+	open, isOpen := answerFor[peopleOverlay](m, msg.opened)
 	if !isOpen {
 		return m, nil
 	}
 
 	if msg.err != nil {
-		return m.withBeneath(open.failed(msg.err)), nil
+		return m.withAnswered(open.failed(msg.err)), nil
 	}
 
 	open.send = sendState{}
 	open, reread := open.readingPeople(m)
 
-	return m.withBeneath(open), reread
+	return m.withAnswered(open), reread
 }
 
 // openedAs is the round People and groups opened in.

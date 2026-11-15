@@ -293,8 +293,8 @@ var _ applier = dirLooked{}
 // picker it goes back to, says you already work there, or pins why it cannot
 // be gone to, when the picker that asked is still open.
 func (msg dirLooked) apply(m Model) (Model, tea.Cmd) {
-	picker, open := m.overlay.(dirPicker)
-	if !open || picker.opened != msg.opened {
+	picker, open := answerFor[dirPicker](m, msg.opened)
+	if !open {
 		return m, nil
 	}
 
@@ -303,9 +303,8 @@ func (msg dirLooked) apply(m Model) (Model, tea.Cmd) {
 	switch {
 	case msg.err != nil:
 		picker.problem = msg.err
-		m.overlay = picker
 
-		return m, nil
+		return m.withAnswered(picker), nil
 	case msg.here:
 		return m.closeOverlay().noticed("you already work in " + shownDir(m.deps, msg.dir)), nil
 	}

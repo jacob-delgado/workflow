@@ -35,7 +35,7 @@ type hookPicker struct {
 }
 
 var (
-	_ overlay   = hookPicker{}
+	_ opened    = hookPicker{}
 	_ steppable = hookPicker{}
 	_ clickable = hookPicker{}
 )
@@ -66,17 +66,16 @@ var _ applier = hooksListed{}
 // apply fills in the picker that asked, choosing pre-commit when it can run,
 // and nothing once that picker has closed.
 func (msg hooksListed) apply(m Model) (Model, tea.Cmd) {
-	picker, open := m.overlay.(hookPicker)
-	if !open || picker.opened != msg.opened {
+	picker, open := answerFor[hookPicker](m, msg.opened)
+	if !open {
 		return m, nil
 	}
 
 	runnable := msg.configured.Runnable
 	picker.hooks = pickList[string]{items: runnable, selected: max(0, slices.Index(runnable, preCommit))}
 	picker.gitOnly, picker.listErr, picker.settled = msg.configured.GitOnly, msg.err, true
-	m.overlay = picker
 
-	return m, nil
+	return m.withAnswered(picker), nil
 }
 
 // header is the rows above the picker's list: a prompt and a blank. The view
@@ -165,6 +164,9 @@ func (p hookPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 // which names the hook picker.
 func (hookPicker) which() overlayKind { return overlayHookPicker }
+
+// openedAs is the round the picker opened in.
+func (p hookPicker) openedAs() int { return p.opened }
 
 // step moves the choice of hook by delta.
 func (p hookPicker) step(m Model, delta int) Model {

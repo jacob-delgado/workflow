@@ -130,3 +130,19 @@ func TestReviewersTypedStayWhenTheBaseChanges(t *testing.T) {
 	// The owners filled ana, and zed was typed after them.
 	requireScreen(t, view, "> anazed", "> "+releaseOnly)
 }
+
+func TestABaseReadForAClosedComposerLeavesTheReopenedOneAlone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	opening := ontoRelease()
+	model, kept := withheldKeys(t, opening.live(t, 120, 40), opening.counting("branch-onto"),
+		append(baseKeys("release"), keyEnter)...)
+	reopened := typing(t, model, keyEsc, "n")
+
+	// Act
+	late := handedOver(t, reopened, kept)
+
+	// Assert
+	refuseScreen(t, late.View().Content, "> "+releaseOnly)
+}

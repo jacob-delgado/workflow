@@ -57,8 +57,8 @@ var _ applier = pullRequestStartsRead{}
 // one proposed. Nothing changes once the composer they were read for has
 // closed, even if another has opened since.
 func (read pullRequestStartsRead) apply(m Model) (Model, tea.Cmd) {
-	composer, open := m.overlay.(prComposer)
-	if !open || composer.opened != read.opened {
+	composer, open := answerFor[prComposer](m, read.opened)
+	if !open {
 		return m, nil
 	}
 
@@ -115,8 +115,8 @@ var _ applier = titleIssueRead{}
 // one proposed, which a kept draft's may not be. Nothing changes once the
 // composer it was read for has closed.
 func (read titleIssueRead) apply(m Model) (Model, tea.Cmd) {
-	composer, open := m.overlay.(prComposer)
-	if !open || composer.opened != read.opened {
+	composer, open := answerFor[prComposer](m, read.opened)
+	if !open {
 		return m, nil
 	}
 
@@ -160,8 +160,8 @@ var _ applier = reviewersRead{}
 // already says who reviews. Nothing changes once the composer they were read
 // for has closed, even if another has opened since.
 func (read reviewersRead) apply(m Model) (Model, tea.Cmd) {
-	composer, open := m.overlay.(prComposer)
-	if !open || composer.opened != read.opened {
+	composer, open := answerFor[prComposer](m, read.opened)
+	if !open {
 		return m, nil
 	}
 

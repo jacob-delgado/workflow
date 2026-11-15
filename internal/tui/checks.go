@@ -41,7 +41,7 @@ type checkList struct {
 }
 
 var (
-	_ overlay   = checkList{}
+	_ opened    = checkList{}
 	_ steppable = checkList{}
 )
 
@@ -140,6 +140,9 @@ func (c checkList) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 // which names the checks list.
 func (checkList) which() overlayKind { return overlayChecks }
+
+// openedAs is the round the checks list opened in.
+func (c checkList) openedAs() int { return c.opened }
 
 // step moves the choice of check by delta.
 func (c checkList) step(m Model, delta int) Model {
@@ -376,16 +379,15 @@ var _ applier = logRead{}
 // read beneath them; nothing when the checks it was read from have since
 // closed, even when others have opened.
 func (msg logRead) apply(m Model) (Model, tea.Cmd) {
-	list, open := m.overlay.(checkList)
-	if !open || list.opened != msg.opened {
+	list, open := answerFor[checkList](m, msg.opened)
+	if !open {
 		return m, nil
 	}
 
 	if msg.err != nil {
 		list.err, list.outcome = msg.err, ""
-		m.overlay = list
 
-		return m, nil
+		return m.withAnswered(list), nil
 	}
 
 	list.outcome = ""

@@ -169,3 +169,19 @@ func TestTheDirectoryStillCompletesWhenTheHistoryFails(t *testing.T) {
 	// Assert
 	requireScreen(t, view, "scope   > tui")
 }
+
+func TestScopesReadForAClosedComposerLeaveTheReopenedOneAlone(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	world := newWorld()
+	world.learnedScope = "jira"
+	model, kept := withheldKeys(t, world.live(t, 120, 40), world.counting("recent-subjects"), "3", "c")
+	reopened, _ := withheldKeys(t, model, world.counting("recent-subjects"), keyEsc, "c")
+
+	// Act
+	late := handedOver(t, reopened, kept)
+
+	// Assert
+	refuseScreen(t, late.View().Content, "fix(jira):")
+}

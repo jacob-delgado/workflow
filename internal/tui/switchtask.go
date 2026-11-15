@@ -86,16 +86,15 @@ func (msg branchesListed) candidates() []taskBranch {
 // it has since closed, even when another has opened: that one asks for its
 // own, and a choice made from these would be listed over.
 func (msg branchesListed) apply(m Model) (Model, tea.Cmd) {
-	picker, open := m.overlay.(branchPicker)
-	if !open || picker.opened != msg.opened {
+	picker, open := answerFor[branchPicker](m, msg.opened)
+	if !open {
 		return m, nil
 	}
 
 	picker.branches = pickList[taskBranch]{items: m.taskBranches(msg)}
 	picker.listErr, picker.notAsked, picker.settled = msg.err, msg.notAsked, true
-	m.overlay = picker
 
-	return m, nil
+	return m.withAnswered(picker), nil
 }
 
 // taskBranches keeps the branches that name one of your issues, other than the
@@ -138,6 +137,7 @@ type branchPicker struct {
 
 var (
 	_ failable[branchPicker] = branchPicker{}
+	_ opened                 = branchPicker{}
 	_ steppable              = branchPicker{}
 )
 
@@ -359,6 +359,9 @@ func (p branchPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 // which names the branch picker.
 func (branchPicker) which() overlayKind { return overlayBranchPicker }
+
+// openedAs is the round the switcher opened in.
+func (p branchPicker) openedAs() int { return p.opened }
 
 // step moves the choice of branch by delta, unless a switch is being sent.
 func (p branchPicker) step(m Model, delta int) Model {
