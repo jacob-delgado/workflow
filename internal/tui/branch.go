@@ -62,7 +62,7 @@ func (msg branchLoaded) apply(m Model) (Model, tea.Cmd) {
 		// left; on a new branch they are stale, and so is how far the Branch
 		// and messaging details were scrolled into it. An announcement waiting
 		// for CI is bound to the branch it was armed on, and waits on.
-		m.messaging.send.err, m.messaging.author = nil, ""
+		m.messaging.postNow, m.messaging.author = m.messaging.postNow.Cleared(), ""
 		m.branch.scroll, m.messaging.scroll = 0, 0
 	}
 

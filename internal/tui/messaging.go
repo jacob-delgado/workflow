@@ -19,6 +19,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/progress"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 	"github.com/jacob-delgado/workflow/internal/tui/latest"
+	"github.com/jacob-delgado/workflow/internal/tui/send"
 )
 
 // claimedFormat is when a post whose claim was never confirmed began, as the
@@ -35,9 +36,9 @@ type messagingState struct {
 	// read answered, never added to, so what the store forgot is offered
 	// again; a read that failed keeps the claims read before.
 	announces latest.Read[[]loop.AnnounceRecord]
-	// send is a post the service has not answered yet, which is not offered
-	// again until it does, or why the last one failed.
-	send sendState
+	// postNow is the post asked for now, from the preview: out until the
+	// service answers, while no other is offered, or refused, with why.
+	postNow send.State
 	// held is the announcement armed to go once its pull request's CI passes.
 	held   heldPost
 	author string
@@ -133,15 +134,15 @@ func (m Model) messagingRail() string {
 // stands: on its way, failed, announced or begun and never confirmed, by the
 // store's claims; else how the announcement held for CI stands.
 func (m Model) announceStanding() string {
-	kit, sent := m.kit(), m.messaging.send
+	kit, refusal := m.kit(), m.messaging.postNow.Reason()
 
 	switch {
 	case m.messaging.onItsWay():
 		return kit.marks.inFlight + " announcing" + kit.marks.ellipsis
 	case m.messaging.held.hold.Stage().Waiting() && m.onScreen(m.messaging.held.hold.Pull()):
 		return m.waitingLine()
-	case sent.err != nil:
-		return kit.failureSummary(sent.err)
+	case refusal != nil:
+		return kit.failureSummary(refusal)
 	}
 
 	// A map, not a switch, so there is no last-case arm gobco can never see.
@@ -259,11 +260,12 @@ func (m Model) messagingDetail(width int) string {
 
 // withPostFailure is lines, followed by why the last post failed when it did.
 func (m Model) withPostFailure(lines []string, width int) []string {
-	if m.messaging.send.err == nil {
+	refusal := m.messaging.postNow.Reason()
+	if refusal == nil {
 		return lines
 	}
 
-	return append(lines, "", m.kit().failureBlock(m.messaging.send.err, width))
+	return append(lines, "", m.kit().failureBlock(refusal, width))
 }
 
 // announced reports that the pull request on screen was claimed at its
@@ -377,7 +379,7 @@ func (m Model) canPost() bool {
 // onItsWay reports a post the service has not answered yet: one asked for
 // now, or the announcement that waited for CI.
 func (s messagingState) onItsWay() bool {
-	return s.send.sending || s.held.hold.Stage() == armed.StageDue
+	return s.postNow.Stage() == send.StageInFlight || s.held.hold.Stage() == armed.StageDue
 }
 
 // messagingKeys offers composing the post, and managing whom posts tag.

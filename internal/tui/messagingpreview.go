@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/progress"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
+	"github.com/jacob-delgado/workflow/internal/tui/send"
 )
 
 // messagingHelp is what the editor shows below a message being composed. The
@@ -47,7 +48,10 @@ type messagingPreview struct {
 	moment messaging.Moment
 	// service names the messaging service, for the preview title.
 	service string
-	send    sendState
+	// send is the post made now, out or refused; problem is why the editor
+	// would not open, found before anything is sent.
+	send    send.State
+	problem error
 	// tagging is whom a ready-for-review announcement tags; the zero value
 	// tags no one.
 	tagging tagSection
@@ -113,15 +117,15 @@ func (p messagingPreview) changedRefusal(m Model) error {
 }
 
 var (
-	_ editable                   = messagingPreview{}
-	_ failable[messagingPreview] = messagingPreview{}
-	_ linksOwners                = messagingPreview{}
+	_ editable                 = messagingPreview{}
+	_ sender[messagingPreview] = messagingPreview{}
+	_ linksOwners              = messagingPreview{}
 )
 
 // view shows the message as it will be posted, and where, its outcome pinned
 // under the title so a long refusal is seen, not clipped.
 func (p messagingPreview) view(kit renderKit, width, _ int) (string, string) {
-	lines := kit.pinnedOutcome(p.send, "announcing", width)
+	lines := append(kit.pinnedProblem(p.problem, width), kit.pinnedSend(p.send, "announcing", width)...)
 	lines = append(lines, wrap(p.text, width), "", "to  "+p.destination())
 	lines = append(lines, p.tagging.lines(kit, width)...)
 
@@ -132,7 +136,7 @@ func (p messagingPreview) view(kit renderKit, width, _ int) (string, string) {
 // gate reads it again as it posts — or when CI passes, changing the channel
 // where there is a choice, another edit, or leaving.
 func (p messagingPreview) footer(keys keyMap) []key.Binding {
-	if p.send.sending {
+	if p.send.Stage() == send.StageInFlight {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -154,7 +158,7 @@ func (p messagingPreview) footer(keys keyMap) []key.Binding {
 // handleKey answers a key while the message is previewed.
 func (p messagingPreview) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case p.send.sending:
+	case p.send.Stage() == send.StageInFlight:
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
@@ -211,7 +215,8 @@ func (p messagingPreview) post(m Model) (Model, tea.Cmd) {
 		return m.closeOverlay().noticed("dry run: would announce to " + p.destination() + p.tagging.dryRunNote()), nil
 	}
 
-	p.send = starting()
+	p.send, _ = p.send.Sent()
+	p.problem = nil
 	m.overlay = p
 
 	return m.sendToMessaging(p.outgoing())
@@ -247,11 +252,11 @@ func (p messagingPreview) postWhenGreen(m Model) (Model, tea.Cmd) {
 	return m.armAsked(p.outgoing())
 }
 
-// applyEdit puts the edited message back in the preview, or records why the
-// editor failed.
+// applyEdit puts the edited message back in the preview, or keeps why the
+// editor failed as its problem, in place of a refusal an earlier post had.
 func (p messagingPreview) applyEdit(m Model, text string, err error) (Model, tea.Cmd) {
 	if err != nil {
-		p.send = p.send.failed(err)
+		p.problem, p.send = err, p.send.Cleared()
 	} else {
 		p.text = text
 	}
@@ -259,9 +264,12 @@ func (p messagingPreview) applyEdit(m Model, text string, err error) (Model, tea
 	return m.withAnswered(p), nil
 }
 
-// failed is the preview kept open with the reason the post failed.
-func (p messagingPreview) failed(err error) messagingPreview {
-	p.send = p.send.failed(err)
+// sent is the post made now.
+func (p messagingPreview) sent() send.State { return p.send }
+
+// withSend is the preview with the post made now as state.
+func (p messagingPreview) withSend(state send.State) messagingPreview {
+	p.send = state
 
 	return p
 }
