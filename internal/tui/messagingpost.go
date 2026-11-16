@@ -33,42 +33,11 @@ func (m Model) sendToMessaging(out outgoingAnnouncement) (Model, tea.Cmd) {
 	m.messaging.postNow, _ = m.messaging.postNow.Sent()
 
 	return m, func() tea.Msg {
-		_, err := loop.Deliver(ctx, seams, memory, delivery)
-		err = refusedAt(delivery.Moment, withFailedChecks(err))
+		kind, err := loop.Deliver(ctx, seams, memory, delivery)
+		err = refusedAt(delivery.Moment, kind, withFailedChecks(err))
 
-		return messagingPosted{made: delivery.Made(), to: out.to, opened: out.opened, outcome: outcomeOf(err), err: err}
+		return messagingPosted{made: delivery.Made(), to: out.to, opened: out.opened, kind: kind, err: err}
 	}
-}
-
-// postOutcome is how a post made now went: out, out with the store unable to
-// confirm it, announced first by another session and so not posted, or
-// refused.
-type postOutcome int
-
-const (
-	postWent postOutcome = iota
-	postUnconfirmed
-	postElsewhere
-	postRefused
-)
-
-// outcomeOf is the outcome a post that answered err had. A claim another
-// session holds is told before a confirmation that failed, as only the
-// post's own claim is confirmed.
-func outcomeOf(err error) postOutcome {
-	if err == nil {
-		return postWent
-	}
-
-	if errors.Is(err, loop.ErrAnnouncedAlready) {
-		return postElsewhere
-	}
-
-	if _, unconfirmed := loop.UnconfirmedReason(err); unconfirmed {
-		return postUnconfirmed
-	}
-
-	return postRefused
 }
 
 // deliverSeams are what a post goes through: the service, and the read of CI
@@ -144,11 +113,11 @@ func failedCheckNames(ci forge.CI) string {
 	return " (" + strings.Join(names, ", ") + ")"
 }
 
-// refusedAt is err, how an announcement at moment went, with a merge's
-// failed check told apart from a ready one's, since only a ready one can
-// wait for a run that passes.
-func refusedAt(moment messaging.Moment, err error) error {
-	if moment == messaging.MomentMerged && errors.Is(err, loop.ErrCIFailed) {
+// refusedAt is err, why an announcement at moment went as kind, with a
+// merge's failed check told apart from a ready one's, since only a ready one
+// can wait for a run that passes.
+func refusedAt(moment messaging.Moment, kind loop.Delivered, err error) error {
+	if moment == messaging.MomentMerged && kind == loop.DeliveredCIFailed {
 		return fmt.Errorf("%w: %w", errMergeCheckFailed, err)
 	}
 
@@ -157,24 +126,25 @@ func refusedAt(moment messaging.Moment, err error) error {
 
 // messagingPosted reports how posting went, the announcement it made — a pull
 // request and the moment it marked — where it went, and the round the
-// preview it was written in opened in: its outcome, and the error behind
-// any but postWent.
+// preview it was written in opened in: the kind loop.Deliver named, and the
+// error behind any but one posted and confirmed.
 type messagingPosted struct {
-	made    loop.Announced
-	to      string
-	opened  int
-	outcome postOutcome
-	err     error
+	made   loop.Announced
+	to     string
+	opened int
+	kind   loop.Delivered
+	err    error
 }
 
 // refusal is the error of a post refused, which keeps its preview open; nil
-// for any other outcome, which closes it.
+// for one that went out or that another session announced first, which
+// close it.
 func (msg messagingPosted) refusal() error {
-	if msg.outcome == postRefused {
-		return msg.err
+	if msg.kind.Went() || msg.kind == loop.DeliveredElsewhere {
+		return nil
 	}
 
-	return nil
+	return msg.err
 }
 
 var _ applier = messagingPosted{}
@@ -198,34 +168,40 @@ func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
 	went := func() Model {
 		m.messaging.held.hold = m.messaging.held.hold.Superseded(msg.made)
 
-		return m.noticedAnnounced(msg.to, msg.err)
+		return m.noticedAnnounced(msg.to, msg.kind, msg.err)
 	}
 
-	// A map, not a switch, so there is no last-case arm gobco can never see.
-	told := map[postOutcome]func() Model{
-		postWent: went, postUnconfirmed: went,
-		postElsewhere: func() Model {
-			return m.noticed(m.marks.done + " already announced from another session; not posted again")
-		},
-		postRefused: func() Model { return m.noticedFailure(msg.err) },
-	}[msg.outcome]()
+	elsewhere := func() Model {
+		return m.noticed(m.marks.done + " already announced from another session; not posted again")
+	}
+	refused := func() Model { return m.noticedFailure(msg.err) }
+
+	// A map, not a switch, so there is no last-case arm gobco can never see,
+	// and exhaustive names every kind a post can go.
+	told := map[loop.Delivered]func() Model{
+		loop.DeliveredPosted: went, loop.DeliveredUnconfirmed: went, loop.DeliveredElsewhere: elsewhere,
+		loop.DeliveredFailed: refused, loop.DeliveredCIFailed: refused, loop.DeliveredCIUnread: refused,
+		loop.DeliveredNotClaimed: refused, loop.DeliveredRefused: refused, loop.DeliveredDeferred: refused,
+		loop.DeliveredDeferredUnclaimed: refused, loop.DeliveredUncertain: refused,
+	}[msg.kind]()
 
 	return told, reread
 }
 
-// noticedAnnounced says an announcement went out to where it went. One the
-// store could not confirm says so too, in words no pane repeats.
-func (m Model) noticedAnnounced(to string, err error) Model {
-	return m.said(m.announcedReport(to, err))
+// noticedAnnounced says an announcement went out to where it went, as kind
+// says it went. One the store could not confirm says so too, in words no
+// pane repeats.
+func (m Model) noticedAnnounced(to string, kind loop.Delivered, err error) Model {
+	return m.said(m.announcedReport(to, kind, err))
 }
 
 // announcedReport is the footer's report that an announcement went out to
-// where it went: plain, or, one the store could not confirm, in words no
-// pane repeats.
-func (m Model) announcedReport(to string, err error) footerReport {
+// where it went: plain, or, one kind says the store could not confirm, in
+// words no pane repeats, err saying why.
+func (m Model) announcedReport(to string, kind loop.Delivered, err error) footerReport {
 	report := plainReport(m.marks.done + " announced to " + to)
 
-	if note := unconfirmedNote(m.marks, err); note != "" {
+	if note := unconfirmedNote(m.marks, kind, err); note != "" {
 		report.row, report.stage = report.row+note, notice.StageUnrepeated
 	}
 
@@ -238,14 +214,15 @@ func (m Model) destinationOf(delivery loop.Delivery) string {
 	return sanitize.Line(cmp.Or(delivery.Channel, m.cfg.Messaging.Target()))
 }
 
-// unconfirmedNote is what the notice adds of an announcement the store could
-// not confirm, on its one row: the warning every surface says, then why. It
-// adds nothing when the store confirmed it.
-func unconfirmedNote(marks glyphs, err error) string {
-	why, unconfirmed := loop.UnconfirmedReason(err)
-	if !unconfirmed {
+// unconfirmedNote is what the notice adds of an announcement kind says the
+// store could not confirm, on its one row: the warning every surface says,
+// then why, from err. It adds nothing to any other kind.
+func unconfirmedNote(marks glyphs, kind loop.Delivered, err error) string {
+	if kind != loop.DeliveredUnconfirmed {
 		return ""
 	}
+
+	why, _ := loop.UnconfirmedReason(err)
 
 	return marks.separator + loop.UnconfirmedWarning + " " + why
 }

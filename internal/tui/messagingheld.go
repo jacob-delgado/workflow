@@ -299,7 +299,7 @@ func (m Model) toldOfPost(now armed.Hold) (Model, footerReport) {
 			m.messaging.postNow = m.messaging.postNow.Cleared()
 			m = m.withoutRefusedPreviewOf(now.Delivery().Made())
 
-			return m, m.announcedReport(m.destinationOf(now.Delivery()), now.Reason())
+			return m, m.announcedReport(m.destinationOf(now.Delivery()), now.LastPost(), now.Reason())
 		},
 		armed.StageElsewhere: func() (Model, footerReport) {
 			return m, plainReport(m.marks.done + " already announced from another session; not posted again")

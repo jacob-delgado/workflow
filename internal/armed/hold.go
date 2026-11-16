@@ -102,6 +102,7 @@ type Hold struct {
 	unheardSince time.Time
 	ci           forge.CI
 	reason       error
+	lastPost     loop.Delivered
 }
 
 // Armed is a hold just armed, what it asks for first, and the hold it
@@ -195,6 +196,15 @@ func (h Hold) CI() forge.CI {
 // waits on a fix past, or, posted, the store's failure to confirm it.
 func (h Hold) Reason() error {
 	return h.reason
+}
+
+// LastPost is how the hold's last post went, the kind loop.Deliver named:
+// what a surface chooses its words by once the hold ends on a post.
+// DeliveredFailed, the zero, before a post of it went either way, and
+// DeliveredPosted once superseded, whatever its own last post was, so a
+// hold posted has a last post that went.
+func (h Hold) LastPost() loop.Delivered {
+	return h.lastPost
 }
 
 // Holds reports whether the hold is of made: its pull request at its moment.

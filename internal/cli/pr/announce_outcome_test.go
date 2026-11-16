@@ -17,6 +17,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/cli/clitest"
 	"github.com/jacob-delgado/workflow/internal/cli/cmdkit"
+	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 )
 
@@ -184,5 +185,64 @@ func TestAnnounceStillPostsOnceWhatWasAnnouncedCannotBeRead(t *testing.T) {
 	want := "Could not read what was announced"
 	if !strings.Contains(printed.Stderr, want) || !strings.Contains(printed.Stderr, "keeps it from posting twice") {
 		t.Errorf("stderr = %q, want %q, and that the claim still keeps it from posting twice", printed.Stderr, want)
+	}
+}
+
+// storeLostOnPost is a webhook that takes every post, counting each, and
+// first puts a file where the store under home goes, so a claim taken before
+// the post cannot be confirmed after it.
+func storeLostOnPost(t *testing.T, home string, posts *atomic.Int32) string {
+	t.Helper()
+
+	storeDir, err := clitest.StoreDir(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server := httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		_, _ = io.Copy(io.Discard, request.Body)
+
+		posts.Add(1)
+
+		err := os.RemoveAll(storeDir)
+		if err == nil {
+			err = os.WriteFile(storeDir, nil, 0o600)
+		}
+
+		if err != nil {
+			t.Errorf("putting a file where the store goes: %v", err)
+		}
+
+		_, _ = writer.Write([]byte("ok"))
+	}))
+	t.Cleanup(server.Close)
+
+	return server.URL + "/services/x"
+}
+
+func TestAnnounceWarnsOfAPostTheStoreCouldNotConfirm(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The claim is taken, the post goes out, and the store is gone before
+	// the claim can be confirmed.
+	var posts atomic.Int32
+
+	clitest.FakeGh(t, clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: clitest.PassingStatus()})
+	repo := clitest.GithubRepo(t, armedBranch)
+	home := t.TempDir()
+	clitest.WriteFile(t, repo, announcingConfig(storeLostOnPost(t, home, &posts)))
+
+	// Act
+	printed, err := clitest.RunStreamsAt(t, clitest.Place{Dir: repo, Home: home}, clitest.UnusedPrompt(t),
+		"announce", "--yes")
+
+	// Assert
+	if err != nil || posts.Load() != 1 {
+		t.Fatalf("announce --yes = %v, posted %d (%+v); want it announced once", err, posts.Load(), printed)
+	}
+
+	if !strings.Contains(printed.Stderr, "Announced to ") || !strings.Contains(printed.Stderr, loop.UnconfirmedWarning) {
+		t.Errorf("stderr = %q, want it announced, then %q", printed.Stderr, loop.UnconfirmedWarning)
 	}
 }

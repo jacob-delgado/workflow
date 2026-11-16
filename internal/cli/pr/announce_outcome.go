@@ -54,18 +54,25 @@ func failedChecks(ci forge.CI) string {
 	return " (" + strings.Join(names, ", ") + ")"
 }
 
+// postAnswer is how a post went: the kind loop.Deliver named, and the error
+// that says why.
+type postAnswer struct {
+	kind loop.Delivered
+	err  error
+}
+
 // deliverPending delivers pending through seams under ctx: again, from the
 // claim an earlier session took, when it is one to post again.
-func deliverPending(ctx context.Context, seams loop.DeliverSeams, pending pendingAnnouncement) error {
+func deliverPending(ctx context.Context, seams loop.DeliverSeams, pending pendingAnnouncement) postAnswer {
 	if pending.again {
-		_, err := loop.Redeliver(ctx, seams, pending.memory, pending.delivery, pending.seen)
+		kind, err := loop.Redeliver(ctx, seams, pending.memory, pending.delivery, pending.seen)
 
-		return err
+		return postAnswer{kind: kind, err: err}
 	}
 
-	_, err := loop.Deliver(ctx, seams, pending.memory, pending.delivery)
+	kind, err := loop.Deliver(ctx, seams, pending.memory, pending.delivery)
 
-	return err
+	return postAnswer{kind: kind, err: err}
 }
 
 // deliverAnnouncement posts pending, pull's announcement, under ctx — again,
@@ -77,26 +84,28 @@ func deliverAnnouncement(
 	return postOutcome(notes, seams, pull, pending.delivery.Moment, deliverPending(ctx, seams.Deliver, pending))
 }
 
-// postOutcome says how a post of pull's announcement at moment went, err its
-// outcome: where it went, and, for one posted that the store could not
-// confirm, the warning every surface says, then why; or that another session
-// claimed it first, which posts nothing and is no failure. Any other outcome
-// is the failure notAnnounced words.
-func postOutcome(notes console.Notes, seams announceSeams, pull string, moment messaging.Moment, err error) error {
-	if errors.Is(err, loop.ErrAnnouncedAlready) {
+// postOutcome says how a post of pull's announcement at moment went: where
+// it went, and, for one posted that the store could not confirm, the warning
+// every surface says, then why; or that another session claimed it first,
+// which posts nothing and is no failure. Any other outcome is the failure
+// notAnnounced words.
+func postOutcome(
+	notes console.Notes, seams announceSeams, pull string, moment messaging.Moment, answer postAnswer,
+) error {
+	if answer.kind == loop.DeliveredElsewhere {
 		notes.Note("Already announced from another session; not posted again.")
 
 		return nil
 	}
 
-	why, unconfirmed := loop.UnconfirmedReason(err)
-	if err != nil && !unconfirmed {
-		return notAnnounced(err, pull, moment, seams.Messaging.Service())
+	if !answer.kind.Went() {
+		return notAnnounced(answer, pull, moment, seams.Messaging.Service())
 	}
 
 	notes.Note("Announced to " + seams.Messaging.Target() + ".")
 
-	if unconfirmed {
+	if answer.kind == loop.DeliveredUnconfirmed {
+		why, _ := loop.UnconfirmedReason(answer.err)
 		notes.Warn(loop.UnconfirmedWarning + " " + sanitize.Line(why))
 	}
 
@@ -104,22 +113,34 @@ func postOutcome(notes console.Notes, seams announceSeams, pull string, moment m
 }
 
 // notAnnounced words a post of pull's announcement at moment to service that
-// failed with err: a check the gate saw fail, named with the way on; a post
-// the service refused; one that may have gone out, which only announce asked
-// again posts; or any other failure, as it is.
-func notAnnounced(err error, pull string, moment messaging.Moment, service string) error {
-	refusal, refused := errors.AsType[loop.GateRefusalError](err)
-
-	switch {
-	case refused && errors.Is(err, loop.ErrCIFailed):
-		return checkFailed(pull, refusal.CI, moment)
-	case errors.Is(err, loop.ErrNotDelivered):
+// did not go: a check the gate saw fail, named with the way on; a post the
+// service refused, or asked to wait; one that may have gone out, which only
+// announce asked again posts; or any other failure, as it is.
+func notAnnounced(answer postAnswer, pull string, moment messaging.Moment, service string) error {
+	err := answer.err
+	refusal, _ := errors.AsType[loop.GateRefusalError](err)
+	refused := func() error {
 		return forgeWordedError{err, service + " refused the post (" + sanitize.Line(err.Error()) +
 			"), so it was not announced"}
-	case errors.Is(err, loop.ErrPostUncertain):
+	}
+	uncertain := func() error {
 		return forgeWordedError{err, service + " did not say whether it took the post (" + sanitize.Line(err.Error()) +
 			"); workflow announce asks before posting it again"}
-	default:
-		return fmt.Errorf("announcing to %s: %w", service, err)
 	}
+	asItIs := func() error { return fmt.Errorf("announcing to %s: %w", service, err) }
+
+	// A map, not a switch, so exhaustive names every kind a post can go.
+	return map[loop.Delivered]func() error{
+		loop.DeliveredCIFailed:          func() error { return checkFailed(pull, refusal.CI, moment) },
+		loop.DeliveredRefused:           refused,
+		loop.DeliveredDeferred:          refused,
+		loop.DeliveredUncertain:         uncertain,
+		loop.DeliveredFailed:            asItIs,
+		loop.DeliveredCIUnread:          asItIs,
+		loop.DeliveredNotClaimed:        asItIs,
+		loop.DeliveredElsewhere:         asItIs,
+		loop.DeliveredPosted:            asItIs,
+		loop.DeliveredUnconfirmed:       asItIs,
+		loop.DeliveredDeferredUnclaimed: asItIs,
+	}[answer.kind]()
 }

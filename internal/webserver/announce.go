@@ -191,16 +191,17 @@ func (s *server) announceNow(ctx context.Context, post announcePost) api.Announc
 
 	var warning string
 
-	_, err := loop.Deliver(ctx, s.deliverSeams(), post.memory, post.delivery)
-	if _, unconfirmed := loop.UnconfirmedReason(err); unconfirmed {
+	kind, err := loop.Deliver(ctx, s.deliverSeams(), post.memory, post.delivery)
+	if !kind.Went() {
+		return s.notPostedNow(post.delivery, kind, err)
+	}
+
+	if kind == loop.DeliveredUnconfirmed {
 		// Why the store could not goes to the log alone: its error can name
 		// the file.
 		s.unexpected(err)
-		warning, err = loop.UnconfirmedWarning, nil
-	}
 
-	if err != nil {
-		return s.notPostedNow(post.delivery, err)
+		warning = loop.UnconfirmedWarning
 	}
 
 	s.supersede(post.delivery.Made())
@@ -211,22 +212,24 @@ func (s *server) announceNow(ctx context.Context, post announcePost) api.Announc
 	return api.Announce200JSONResponse(posted)
 }
 
-// notPostedNow answers a post of delivery asked for now that err kept from
-// going, or that may have gone: claimed already, a check failed, or a post
-// the service did not say it took, each in words of its own, and any other
-// through fault.
-func (s *server) notPostedNow(delivery loop.Delivery, err error) api.AnnounceResponseObject {
-	if already, claimed := errors.AsType[loop.AnnouncedAlreadyError](err); claimed {
+// notPostedNow answers a post of delivery asked for now that went as kind,
+// err saying why it did not go, or may have: claimed already, a check
+// failed, or a post the service did not say it took, each in words of its
+// own, and any other through fault.
+func (s *server) notPostedNow(delivery loop.Delivery, kind loop.Delivered, err error) api.AnnounceResponseObject {
+	if kind == loop.DeliveredElsewhere {
+		already, _ := errors.AsType[loop.AnnouncedAlreadyError](err)
+
 		return api.Announce409ApplicationProblemPlusJSONResponse(
 			s.claimedBefore(delivery.Pull.Number, already.Claim))
 	}
 
-	if errors.Is(err, loop.ErrCIFailed) {
+	if kind == loop.DeliveredCIFailed {
 		return api.Announce409ApplicationProblemPlusJSONResponse(s.ciFailed(delivery))
 	}
 
 	told := s.fault(err)
-	if errors.Is(err, loop.ErrPostUncertain) {
+	if kind == loop.DeliveredUncertain {
 		told.Detail = postUncertain
 	}
 

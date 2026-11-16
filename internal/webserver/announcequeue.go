@@ -226,21 +226,28 @@ func (s *server) askHeld() (armed.Ask, armed.Seams) {
 func (s *server) deliverHeld(ctx context.Context) armed.Next {
 	hold, seams := s.heldNow()
 	outcome := seams.DeliverHeld(ctx, hold, s.now)
-	s.noteDelivered(outcome.Err)
+	s.noteDelivered(outcome)
 
 	return s.stepHeld(func(held armed.Hold) (armed.Hold, armed.Next) { return held.Delivered(outcome) })
 }
 
 // noteDelivered hands Unexpected what a post's outcome says that its frame
 // leaves out: why the store could not confirm a post that went, which can
-// name its file, and a failure no class tells. The gate's refusal and a claim
-// another took first are the hold's own to say.
-func (s *server) noteDelivered(err error) {
-	_, refused := errors.AsType[loop.GateRefusalError](err)
-	_, told := faultProblem(err)
+// name its file, and a failure no class tells. A post confirmed says nothing
+// more; the gate's refusal and a claim another took first are the hold's own
+// to say.
+func (s *server) noteDelivered(outcome armed.Outcome) {
+	// A map, not a switch, so exhaustive names every kind a post can go.
+	holdSays := map[loop.Delivered]bool{
+		loop.DeliveredPosted: true, loop.DeliveredCIFailed: true, loop.DeliveredCIUnread: true,
+		loop.DeliveredElsewhere: true, loop.DeliveredFailed: false, loop.DeliveredUnconfirmed: false,
+		loop.DeliveredNotClaimed: false, loop.DeliveredRefused: false, loop.DeliveredDeferred: false,
+		loop.DeliveredDeferredUnclaimed: false, loop.DeliveredUncertain: false,
+	}[outcome.Kind]
+	_, told := faultProblem(outcome.Err)
 
-	if err != nil && !refused && !told && !errors.Is(err, loop.ErrAnnouncedAlready) {
-		s.unexpected(err)
+	if !holdSays && !told {
+		s.unexpected(outcome.Err)
 	}
 }
 
@@ -395,11 +402,11 @@ func heardCI(hold armed.Hold) *api.CIState {
 	return new(ciState(hold.CI().State))
 }
 
-// heldWarning is what is said of a hold posted whose post the store did not
-// confirm, or nil: why the store did not goes to the log alone, since its
-// error can name its file.
+// heldWarning is what is said of a hold whose last post went out but the
+// store did not confirm, a kind that leaves it posted, or nil: why the store
+// did not goes to the log alone, since its error can name its file.
 func heldWarning(hold armed.Hold) *string {
-	if hold.Stage() != armed.StagePosted || hold.Reason() == nil {
+	if hold.LastPost() != loop.DeliveredUnconfirmed {
 		return nil
 	}
 
