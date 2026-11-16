@@ -3,7 +3,10 @@
 
 package loop
 
-import "errors"
+import (
+	"context"
+	"errors"
+)
 
 // Delivered is how a delivery went: posted, refused before a claim, held
 // elsewhere, or failed one of the ways a post can. Deliver and Redeliver name
@@ -78,6 +81,9 @@ const (
 	postingGuarded
 	// postingUnguarded posts with no claim kept.
 	postingUnguarded
+	// postingAgain posts nothing yet: the claim met was given up before it
+	// could be read, so it may be claimed once more.
+	postingAgain
 )
 
 // posts reports whether a delivery going on so posts: guarded or not. A
@@ -89,6 +95,7 @@ func (p posting) posts() bool {
 		postingElsewhere: false,
 		postingGuarded:   true,
 		postingUnguarded: true,
+		postingAgain:     false,
 	}[p]
 }
 
@@ -100,7 +107,26 @@ func postingOn(kind ClaimKind) posting {
 		ClaimHeld:     postingElsewhere,
 		ClaimTaken:    postingGuarded,
 		ClaimNotKept:  postingUnguarded,
+		ClaimGone:     postingAgain,
 	}[kind]
+}
+
+// claimingOnceMore is claim, asked once more when it meets a claim another
+// held that was given up before it could be read. A first claim only
+// inserts, so asked again it takes the claim or meets one another holds, and
+// never takes over a claim another holds; a second claim gone is not asked
+// again.
+func claimingOnceMore(
+	claim func(context.Context, Announced) (Claim, error),
+) func(context.Context, Announced) (Claim, error) {
+	return func(ctx context.Context, made Announced) (Claim, error) {
+		taken, err := claim(ctx, made)
+		if err != nil || postingOn(taken.Kind) != postingAgain {
+			return taken, err
+		}
+
+		return claim(ctx, made)
+	}
 }
 
 // notDeliveredError is ErrNotDelivered carrying the service's refusal, which
