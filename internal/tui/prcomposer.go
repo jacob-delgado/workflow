@@ -19,6 +19,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
+	"github.com/jacob-delgado/workflow/internal/tui/send"
 )
 
 // prBodyPreviewLines is how much of a pull request body the composer shows.
@@ -89,16 +90,20 @@ type prComposer struct {
 	// land in it alone.
 	opened int
 	vocab  reviewVocab
-	send   sendState
+	// problem is what stopped the composer before anything was sent: a
+	// title or base missing, the editor or the prompts failing.
+	problem error
+	// send is the pull request's create, whose refusal stays pinned until
+	// a key the form takes, or another create sent.
+	send send.State
 }
 
 var (
-	_ editable             = prComposer{}
-	_ opened               = prComposer{}
-	_ failable[prComposer] = prComposer{}
-	_ pasteable            = prComposer{}
-	_ relaying             = prComposer{}
-	_ waiting              = prComposer{}
+	_ editable           = prComposer{}
+	_ sender[prComposer] = prComposer{}
+	_ pasteable          = prComposer{}
+	_ relaying           = prComposer{}
+	_ waiting            = prComposer{}
 )
 
 // openPullRequestComposer proposes a pull request for the branch, or reopens
@@ -186,7 +191,7 @@ func (c prComposer) settled(m Model) (Model, tea.Cmd) {
 // view shows every part of the pull request as it will be opened: the form
 // asking now, or what is being read, then where it goes and the body.
 func (c prComposer) view(kit renderKit, width, _ int) (string, string) {
-	lines := kit.pinnedOutcome(c.send, "opening", width)
+	lines := append(kit.pinnedProblem(c.problem, width), kit.pinnedSend(c.send, "opening", width)...)
 
 	if c.flow.reading() {
 		lines = append(lines, kit.turned+" reading what the "+c.vocab.noun+" starts from"+kit.marks.ellipsis)
@@ -240,7 +245,7 @@ func (c prComposer) waits() bool {
 // keys, going on or opening, and leaving.
 func (c prComposer) footer(keys keyMap) []key.Binding {
 	switch {
-	case c.send.sending:
+	case c.send.Stage() == send.StageInFlight:
 		return []key.Binding{keys.interrupt}
 	case c.flow.reading():
 		return []key.Binding{relabel(keys.closeOverlay, escClose)}
@@ -278,7 +283,7 @@ func (c prComposer) offersTemplate() bool {
 // is the form's.
 func (c prComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case c.send.sending:
+	case c.send.Stage() == send.StageInFlight:
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		m.prDrafts = m.prDrafts.keeping(c.snapshot())
@@ -299,7 +304,7 @@ func (c prComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // the draft change in place, previous-field on the first of what it says goes
 // back, and every other key is the form's own.
 func (c prComposer) formKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	c.send.err = nil
+	c.problem, c.send = nil, c.send.Cleared()
 
 	switch {
 	case key.Matches(msg, m.keys.confirm):
@@ -368,7 +373,7 @@ func (c prComposer) openedAs() int { return c.opened }
 
 // pasted types a paste into the field with focus, as typing it would.
 func (c prComposer) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
-	if c.send.sending || c.flow.reading() {
+	if c.send.Stage() == send.StageInFlight || c.flow.reading() {
 		return m, nil
 	}
 
@@ -389,7 +394,7 @@ func (c prComposer) editBody(m Model) tea.Cmd {
 // choice of template, which would now overwrite the body.
 func (c prComposer) applyEdit(m Model, text string, err error) (Model, tea.Cmd) {
 	if err != nil {
-		c.send = c.send.failed(err)
+		c.problem, c.send = err, c.send.Cleared()
 
 		return m.withAnswered(c), nil
 	}
@@ -402,9 +407,12 @@ func (c prComposer) applyEdit(m Model, text string, err error) (Model, tea.Cmd) 
 	return m.withAnswered(c), nil
 }
 
-// failed is the composer kept open with the reason the pull request did not open.
-func (c prComposer) failed(err error) prComposer {
-	c.send = c.send.failed(err)
+// sent is the pull request's create.
+func (c prComposer) sent() send.State { return c.send }
+
+// withSend is the composer with its create's write as state.
+func (c prComposer) withSend(state send.State) prComposer {
+	c.send = state
 
 	return c
 }
