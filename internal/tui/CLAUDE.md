@@ -19,6 +19,15 @@ action keeps one name through its flow, and a new word comes from that table.
   layers (`dialog.go`). `Update` gives every key to `m.overlay`, the dialog on
   top, and relays every message no case answers to a Huh form inside it (the
   `relaying` overlays, `tui.go`).
+- **A stage asked a yes-or-no question is compared, not switched on.**
+  Whether the branch creator fetches first is `plan == baseFetchFirst`,
+  `baseAsIs` and `baseNone` both answering no; whether a Taskwarrior write
+  is out is `stage != writeIdle`, `writeSent` and `writeFollowing` both
+  answering yes. An exhaustive `switch` there only repeats an answer, and
+  its last case, reached once every other has failed, is only ever seen
+  true, which the changed-lines coverage gate fails. A reader that does
+  something of its own in each stage keys a map by it, as `drawRead` does,
+  which `exhaustive` checks.
 - **Text typed into a form is a `quietinput.Input`** (`quietinput/`), a Huh
   field of our own whose cursor never blinks (TRADE-46), never `huh.Input`. The
   accessible mode hands the terminal to Huh's prompts (`promptedForm`,
