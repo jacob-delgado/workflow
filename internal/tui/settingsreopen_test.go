@@ -44,9 +44,9 @@ func TestASaveReopensWorkflowWhereYouWork(t *testing.T) {
 	// Assert
 	// The interface ends and says to open again where it was, as a switch
 	// does, so the configuration saved is the one it is wired with.
-	if !quits(cmd) || saved.Destination().Dir != apiCmd {
+	if !quits(cmd) || saved.Destination().Dir() != apiCmd {
 		t.Errorf("a save: quit %v, destination %q; want the program ended for %s",
-			quits(cmd), saved.Destination().Dir, apiCmd)
+			quits(cmd), saved.Destination().Dir(), apiCmd)
 	}
 }
 
@@ -61,8 +61,8 @@ func TestASaveThatWouldLoseACommitMessageAsksBeforeReopening(t *testing.T) {
 	asked, cmd := pressedAndAnswered(t, changed, saveKey)
 
 	// Assert
-	if quits(cmd) || asked.Destination().Dir != "" {
-		t.Fatalf("reopened for %q at once, want to be asked first", asked.Destination().Dir)
+	if quits(cmd) || asked.Destination().Dir() != "" {
+		t.Fatalf("reopened for %q at once, want to be asked first", asked.Destination().Dir())
 	}
 
 	if working.settings.Jira.Project != editedProject {
@@ -83,8 +83,8 @@ func TestAskedBeforeReopeningEnterReopens(t *testing.T) {
 	left, cmd := pressed(t, asked, keyEnter)
 
 	// Assert
-	if !quits(cmd) || left.Destination().Dir != apiCmd {
-		t.Errorf("enter on the question: quit %v, destination %q; want %s", quits(cmd), left.Destination().Dir, apiCmd)
+	if !quits(cmd) || left.Destination().Dir() != apiCmd {
+		t.Errorf("enter on the question: quit %v, destination %q; want %s", quits(cmd), left.Destination().Dir(), apiCmd)
 	}
 }
 
@@ -99,8 +99,8 @@ func TestAskedBeforeReopeningEscStaysAndSaysWhenItApplies(t *testing.T) {
 	stayed, cmd := pressed(t, asked, keyEsc)
 
 	// Assert
-	if quits(cmd) || stayed.Destination().Dir != "" {
-		t.Fatalf("esc on the question reopened for %q", stayed.Destination().Dir)
+	if quits(cmd) || stayed.Destination().Dir() != "" {
+		t.Fatalf("esc on the question reopened for %q", stayed.Destination().Dir())
 	}
 
 	requireScreen(t, stayed.View().Content, "saved "+savedSettingsPath, "applies once workflow reopens")

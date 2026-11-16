@@ -457,9 +457,12 @@ func (m Model) quitOrGuard() (Model, tea.Cmd) {
 // is, which the Next it ends with names so it is said once the terminal is
 // back.
 func (m Model) quit() (Model, tea.Cmd) {
+	stopped := ""
 	if m.messaging.held.hold.Stage().Waiting() {
-		m.next.stoppedWaiting = m.pullName(m.messaging.held.hold.Pull())
+		stopped = m.pullName(m.messaging.held.hold.Pull())
 	}
+
+	m.next = m.next.quit(stopped)
 
 	return m, tea.Quit
 }

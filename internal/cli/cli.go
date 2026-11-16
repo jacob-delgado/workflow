@@ -360,7 +360,7 @@ func runInterfaces(cmd *cobra.Command, run RunInterface, conn cmdkit.Connection,
 
 	for {
 		next, err := openInterface(program, run, input)
-		if err != nil || next.Dir == "" {
+		if err != nil || !next.Leaving().Reopens() {
 			if line, stopped := next.StoppedWaiting(); stopped {
 				cmdkit.NotesOf(cmd).Note(line)
 			}
@@ -368,7 +368,7 @@ func runInterfaces(cmd *cobra.Command, run RunInterface, conn cmdkit.Connection,
 			return errors.Join(err, finishWrites(cmd, writes, cmdkit.RequestTimeout(conn.Config)))
 		}
 
-		moved, err := switchTo(cmd, conn, next.Dir)
+		moved, err := switchTo(cmd, conn, next.Dir())
 		if err != nil {
 			input.arrive = func(model tui.Model) tui.Model { return model.StayedAfter(next, err) }
 

@@ -11,18 +11,52 @@ import (
 	"github.com/jacob-delgado/workflow/internal/activity"
 )
 
-// Next is where the interface was asked to go when it ended, and what of the
-// session goes with it; a zero Dir is an interface that ended by quitting.
-// A save in Settings asks for the directory it works in, so the interface
-// opened next is wired with what was saved.
+// Leaving is how the interface ended, and so what the command line does
+// next: nothing has ended it, it quit, or it asked to be opened again in a
+// directory, for a switch, a save in Settings or a first run's setup.
+type Leaving int
+
+const (
+	// LeavingNone is an interface not ended, or ended by a failure. It is
+	// the zero Leaving.
+	LeavingNone Leaving = iota
+	// LeavingQuit is an interface that quit.
+	LeavingQuit
+	// LeavingSwitch asks for the interface to be opened in another
+	// directory.
+	LeavingSwitch
+	// LeavingReopen asks for it to be opened again where it works, wired
+	// with the configuration a save in Settings wrote.
+	LeavingReopen
+	// LeavingFirstRun asks for it to be opened again where it works, wired
+	// with the configuration a first run's setup wrote.
+	LeavingFirstRun
+)
+
+// Reopens reports whether an interface that ended as l asks to be opened
+// again: a switch, a reopen or a first run's does; one that quit, or that
+// has not ended, does not.
+func (l Leaving) Reopens() bool {
+	return map[Leaving]bool{
+		LeavingNone: false, LeavingQuit: false, LeavingSwitch: true, LeavingReopen: true, LeavingFirstRun: true,
+	}[l]
+}
+
+// Next is how the interface ended, where it was asked to go, and what of the
+// session goes with it. A save in Settings asks for the directory it works
+// in, so the interface opened next is wired with what was saved.
 // The command line opens the next interface there, wired to that directory,
 // and hands this back to Arrived, or to StayedAfter when it could not.
+// The interface ends once: each ending applies only to a Next that has not
+// ended, so a ctrl+c queued behind a switch leaves it a switch.
 //
 // Trade-off TRADE-34: switching ends the program and starts another, so
 // every pane is read again for the new directory, and only what belongs to
 // the session rather than the repository is carried.
 type Next struct {
-	Dir     string
+	leaving Leaving
+	// dir is where a switch or a reopen asks to go.
+	dir     string
 	carried carried
 	// saved is the configuration file a save in Settings or a first run's
 	// setup wrote, when that is why the interface ended.
@@ -33,11 +67,63 @@ type Next struct {
 	stoppedWaiting string
 }
 
+// SwitchTo is the end of an interface asked to switch to dir, carrying none
+// of its session.
+func SwitchTo(dir string) Next {
+	return Next{leaving: LeavingSwitch, dir: dir, carried: carried{}, saved: reopening{}, stoppedWaiting: ""}
+}
+
+// Leaving is how the interface ended.
+func (n Next) Leaving() Leaving {
+	return n.leaving
+}
+
+// Dir is the directory a switch or a reopen asks for the interface to be
+// opened in; empty for an interface that quit or has not ended.
+func (n Next) Dir() string {
+	return n.dir
+}
+
 // StoppedWaiting is what to say, once the terminal is back, of the
 // announcement waiting for CI that quitting the interface stopped, unposted,
 // and whether one was.
 func (n Next) StoppedWaiting() (string, bool) {
 	return "Stopped waiting for CI on " + n.stoppedWaiting + "; nothing was announced.", n.stoppedWaiting != ""
+}
+
+// quit is n ended by a quit that stopped the announcement waiting for CI
+// on stopped, or none when it is empty.
+func (n Next) quit(stopped string) Next {
+	return n.then(Next{leaving: LeavingQuit, dir: "", carried: carried{}, saved: reopening{}, stoppedWaiting: stopped})
+}
+
+// switched is n ended by a switch to dir, carrying session.
+func (n Next) switched(dir string, session carried) Next {
+	next := SwitchTo(dir)
+	next.carried = session
+
+	return n.then(next)
+}
+
+// reopened is n ended to reopen in dir with the configuration saved, after
+// a first run's setup or a save in Settings, carrying session.
+func (n Next) reopened(dir string, session carried, saved reopening) Next {
+	leaving := LeavingReopen
+	if saved.firstRun {
+		leaving = LeavingFirstRun
+	}
+
+	return n.then(Next{leaving: leaving, dir: dir, carried: session, saved: saved, stoppedWaiting: ""})
+}
+
+// then is n ended as end, unless n has ended already, which it leaves
+// unchanged: the interface ends once.
+func (n Next) then(end Next) Next {
+	if n.leaving != LeavingNone {
+		return n
+	}
+
+	return end
 }
 
 // reopening is a configuration file written that workflow reopens with: a
@@ -65,37 +151,40 @@ type carried struct {
 	periodChosen  bool
 }
 
-// Destination is where the interface was asked to go when it ended, or a
-// zero Next when it was not.
+// Destination is how the interface ended and where it was asked to go: a
+// Next of LeavingNone while it has not ended.
 func (m Model) Destination() Next {
 	return m.next
 }
 
 // Arrived is the interface opened after a switch: the session's state
-// carried in, the Repositories pane in focus, and where it is now said.
+// carried in, the Repositories pane in focus, and where it is now said. A
+// first run's reopen arrives on the Issues pane instead, and a reopen says
+// what was saved; any other ending arrives as a switch.
 func (m Model) Arrived(next Next) Model {
 	m = m.carryIn(next.carried)
-	if next.saved.firstRun {
+	if next.leaving == LeavingFirstRun {
 		return m.arrivedSetUp(next.saved)
 	}
 
 	m = m.openedOnRepositories()
-	if next.saved.path != "" {
+	if next.leaving == LeavingReopen {
 		return m.noticed(m.marks.done + " saved " + shownDir(m.deps, next.saved.path) + "; reopened with it")
 	}
 
-	return m.noticed(m.marks.done + " switched to " + shownDir(m.deps, next.Dir))
+	return m.noticed(m.marks.done + " switched to " + shownDir(m.deps, next.dir))
 }
 
 // StayedAfter is the interface reopened where it was after a switch to
-// next.Dir, or a reopen with a save, could not be made, saying why.
+// next.Dir(), or a reopen with a save, could not be made, saying why; any
+// ending but a switch is told as a reopen.
 func (m Model) StayedAfter(next Next, err error) Model {
 	m = m.carryIn(next.carried).openedOnRepositories()
-	if next.saved.path != "" {
-		return m.noticedFailureLedBy("saved "+shownDir(m.deps, next.saved.path)+" but could not reopen with it: ", err)
+	if next.leaving == LeavingSwitch {
+		return m.noticedFailureLedBy("could not switch to "+shownDir(m.deps, next.dir)+": ", err)
 	}
 
-	return m.noticedFailureLedBy("could not switch to "+shownDir(m.deps, next.Dir)+": ", err)
+	return m.noticedFailureLedBy("saved "+shownDir(m.deps, next.saved.path)+" but could not reopen with it: ", err)
 }
 
 // arrivedSetUp is the interface reopened with the file a first run wrote, on
@@ -200,7 +289,7 @@ func leaveQuestion(question, acting string, lost []string) string {
 
 // leave ends the interface for dir.
 func (m Model) leave(dir string) (Model, tea.Cmd) {
-	m.next = Next{Dir: dir, carried: m.carryOut(), saved: reopening{}, stoppedWaiting: ""}
+	m.next = m.next.switched(dir, m.carryOut())
 
 	return m, tea.Quit
 }
@@ -255,7 +344,7 @@ func (m Model) savedForLater(path string) string {
 // reopen ends the interface for dir, the directory it works in, saying the
 // configuration was saved.
 func (m Model) reopen(dir string, saved reopening) (Model, tea.Cmd) {
-	m.next = Next{Dir: dir, carried: m.carryOut(), saved: saved, stoppedWaiting: ""}
+	m.next = m.next.reopened(dir, m.carryOut(), saved)
 
 	return m, tea.Quit
 }

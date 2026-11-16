@@ -442,7 +442,7 @@ func TestAQuitWaitsForTheWritesSentBeforeASwitch(t *testing.T) {
 
 		next, err := interfaces[opened-1](ctx, model, in, out)
 		if opened == 1 {
-			next = tui.Next{Dir: other}
+			next = tui.SwitchTo(other)
 		}
 
 		return next, err

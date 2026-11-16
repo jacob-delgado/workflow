@@ -46,9 +46,9 @@ func TestConfirmingTheSwitchToAFavoriteLeavesForIt(t *testing.T) {
 	// Assert
 	// The interface ends, and says where to start the next one: the command
 	// line opens it there, wired to that directory.
-	if !quits(cmd) || left.Destination().Dir != webRoot {
+	if !quits(cmd) || left.Destination().Dir() != webRoot {
 		t.Errorf("enter on web: quit %v, destination %q; want the program ended for %s",
-			quits(cmd), left.Destination().Dir, webRoot)
+			quits(cmd), left.Destination().Dir(), webRoot)
 	}
 }
 
@@ -62,8 +62,8 @@ func TestTheSwitchKeyWhereYouWorkGoesNowhere(t *testing.T) {
 	stayed, cmd := pressed(t, opened, switchDirKey)
 
 	// Assert
-	if quits(cmd) || stayed.Destination().Dir != "" {
-		t.Errorf("the switch key where you work left for %q", stayed.Destination().Dir)
+	if quits(cmd) || stayed.Destination().Dir() != "" {
+		t.Errorf("the switch key where you work left for %q", stayed.Destination().Dir())
 	}
 
 	requireScreen(t, stayed.View().Content, "you already work in ~/src/api/cmd")
@@ -79,8 +79,8 @@ func TestTheSwitchKeyOnAFavoriteNoLongerThereGoesNowhere(t *testing.T) {
 	stayed, cmd := pressed(t, opened, switchDirKey)
 
 	// Assert
-	if quits(cmd) || stayed.Destination().Dir != "" {
-		t.Errorf("the switch key on a directory not there left for %q", stayed.Destination().Dir)
+	if quits(cmd) || stayed.Destination().Dir() != "" {
+		t.Errorf("the switch key on a directory not there left for %q", stayed.Destination().Dir())
 	}
 
 	requireScreen(t, stayed.View().Content, "~/old is not there")
@@ -119,8 +119,8 @@ func TestAskedFirstEnterLeavesAnyway(t *testing.T) {
 	left, cmd := pressed(t, asked, keyEnter)
 
 	// Assert
-	if !quits(cmd) || left.Destination().Dir != webRoot {
-		t.Errorf("enter on the question: quit %v, destination %q; want %s", quits(cmd), left.Destination().Dir, webRoot)
+	if !quits(cmd) || left.Destination().Dir() != webRoot {
+		t.Errorf("enter on the question: quit %v, destination %q; want %s", quits(cmd), left.Destination().Dir(), webRoot)
 	}
 }
 
@@ -136,8 +136,8 @@ func TestAskedFirstEscStays(t *testing.T) {
 	stayed, cmd := pressed(t, asked, keyEsc)
 
 	// Assert
-	if quits(cmd) || stayed.Destination().Dir != "" {
-		t.Errorf("esc on the question left for %q", stayed.Destination().Dir)
+	if quits(cmd) || stayed.Destination().Dir() != "" {
+		t.Errorf("esc on the question left for %q", stayed.Destination().Dir())
 	}
 }
 
@@ -252,8 +252,8 @@ func TestGoToLeavesForTheDirectoryTyped(t *testing.T) {
 	left, cmd := pressed(t, asked, keyEnter)
 
 	// Assert
-	if !quits(cmd) || left.Destination().Dir != webRoot {
-		t.Errorf("go to ~/src/web: quit %v, destination %q; want %s", quits(cmd), left.Destination().Dir, webRoot)
+	if !quits(cmd) || left.Destination().Dir() != webRoot {
+		t.Errorf("go to ~/src/web: quit %v, destination %q; want %s", quits(cmd), left.Destination().Dir(), webRoot)
 	}
 }
 
@@ -267,8 +267,8 @@ func TestGoToADirectoryNotThereSaysSoAndStaysOpen(t *testing.T) {
 	answered, cmd := pressedAndAnswered(t, typed, keyEnter)
 
 	// Assert
-	if quits(cmd) || answered.Destination().Dir != "" {
-		t.Fatalf("left for %q, want to stay", answered.Destination().Dir)
+	if quits(cmd) || answered.Destination().Dir() != "" {
+		t.Fatalf("left for %q, want to stay", answered.Destination().Dir())
 	}
 
 	requireScreen(t, answered.View().Content, "Go to a directory", "there is no such directory")
@@ -298,8 +298,8 @@ func TestEscLeavesWhileAPathIsBeingLookedAt(t *testing.T) {
 	answered, cmd := finish(t, closed, look)
 
 	// Assert
-	if quits(cmd) || answered.Destination().Dir != "" {
-		t.Errorf("an answer after esc left for %q", answered.Destination().Dir)
+	if quits(cmd) || answered.Destination().Dir() != "" {
+		t.Errorf("an answer after esc left for %q", answered.Destination().Dir())
 	}
 
 	refuseScreen(t, answered.View().Content, "Go to a directory")
@@ -387,8 +387,8 @@ func TestGoToWhereYouWorkGoesNowhere(t *testing.T) {
 	answered, cmd := pressedAndAnswered(t, typed, keyEnter)
 
 	// Assert
-	if quits(cmd) || answered.Destination().Dir != "" {
-		t.Errorf("going where you work left for %q", answered.Destination().Dir)
+	if quits(cmd) || answered.Destination().Dir() != "" {
+		t.Errorf("going where you work left for %q", answered.Destination().Dir())
 	}
 
 	requireScreen(t, answered.View().Content, "you already work in ~/src/api/cmd")
@@ -438,7 +438,7 @@ func TestThePickerGoesIntoTheNameAsItIsOnDisk(t *testing.T) {
 	requireScreen(t, completed.View().Content, "› ~/src/zero�width/")
 	refuseScreen(t, completed.View().Content, string(zeroWidthSpace))
 
-	if !quits(cmd) || left.Destination().Dir != zeroWidthDir {
-		t.Errorf("left for %q (quit %v), want %q", left.Destination().Dir, quits(cmd), zeroWidthDir)
+	if !quits(cmd) || left.Destination().Dir() != zeroWidthDir {
+		t.Errorf("left for %q (quit %v), want %q", left.Destination().Dir(), quits(cmd), zeroWidthDir)
 	}
 }

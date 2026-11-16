@@ -56,7 +56,7 @@ func TestASwitchOpensTheInterfaceAgainWhereItWasAskedToGo(t *testing.T) {
 	start, other := twoDirectories(t)
 
 	// Act
-	ran := runRootSwitching(t, clitest.Place{Dir: start, Home: t.TempDir()}, []tui.Next{{Dir: other}})
+	ran := runRootSwitching(t, clitest.Place{Dir: start, Home: t.TempDir()}, []tui.Next{tui.SwitchTo(other)})
 
 	// Assert
 	if ran.err != nil || ran.interfaces != 2 {
@@ -79,7 +79,7 @@ func TestASwitchMovesTheWorkingDirectory(t *testing.T) {
 	start, other := twoDirectories(t)
 
 	// Act
-	ran := runRootSwitching(t, clitest.Place{Dir: start, Home: t.TempDir()}, []tui.Next{{Dir: other}})
+	ran := runRootSwitching(t, clitest.Place{Dir: start, Home: t.TempDir()}, []tui.Next{tui.SwitchTo(other)})
 
 	// Assert
 	// Whatever the new session runs — an editor, a hook — starts there too.
@@ -127,7 +127,7 @@ func TestASwitchThatCannotBeMadeStaysWhereItWasAndSaysWhy(t *testing.T) {
 			destination := target(t, other)
 
 			// Act
-			ran := runRootSwitching(t, clitest.Place{Dir: start, Home: t.TempDir()}, []tui.Next{{Dir: destination}})
+			ran := runRootSwitching(t, clitest.Place{Dir: start, Home: t.TempDir()}, []tui.Next{tui.SwitchTo(destination)})
 
 			// Assert
 			if ran.err != nil || ran.interfaces != 2 {
@@ -174,7 +174,7 @@ func TestASwitchTheProcessCannotMoveForStaysWhereItWasAndSaysWhy(t *testing.T) {
 	// Act
 	// The directory is there and its configuration loads, but the process
 	// cannot be moved into it.
-	ran := runRootUnmoving(t, clitest.Place{Dir: start, Home: t.TempDir()}, []tui.Next{{Dir: other}})
+	ran := runRootUnmoving(t, clitest.Place{Dir: start, Home: t.TempDir()}, []tui.Next{tui.SwitchTo(other)})
 
 	// Assert
 	if ran.err != nil || ran.interfaces != 2 {
