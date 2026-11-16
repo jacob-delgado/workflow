@@ -1344,7 +1344,8 @@ its Dependabot alert is dismissed as a tolerable risk; the same braces was
 installed, unseen, before the lock. markdownlint reaches katex through
 micromark-extension-math, whose every release asks for katex ^0.16.0, which
 GHSA-238p-pmpm-9mq7 covers and 0.18.2 fixes, so
-`build/markdownlint/package.json` overrides it with 0.18.11. markdownlint
+`build/markdownlint/package.json` overrides it with 0.19.1 (0.18.11, taken
+first, was deprecated as published with breaking changes). markdownlint
 imports katex along with the math syntax it parses but never renders math,
 which the advisory needs, so the override changes no code markdownlint calls.
 

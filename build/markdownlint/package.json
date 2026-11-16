@@ -6,6 +6,6 @@
     "markdownlint-cli2": "0.24.0"
   },
   "overrides": {
-    "katex": "0.18.11"
+    "katex": "0.19.1"
   }
 }
