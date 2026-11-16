@@ -102,3 +102,41 @@ func TestAStoppedHookThatExitsCleanlyIsShownDone(t *testing.T) {
 	requireScreen(t, view, "● done")
 	refuseScreen(t, view, "stopped")
 }
+
+func TestStopIsNotOfferedBeforeTheProgramStarts(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The hook's program is asked to start, and has not answered yet.
+	w := newWorld()
+	w.runBlocks = true
+	picking := typing(t, w.live(t, 100, 40), "3", "h")
+
+	// Act
+	starting, _ := pressed(t, picking, keyEnter)
+
+	// Assert
+	view := starting.View().Content
+	requireScreen(t, view, "running")
+	refuseScreen(t, footerLine(view), "s stop")
+}
+
+func TestStopPressedBeforeTheProgramStartsStopsNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	w := newWorld()
+	w.runBlocks = true
+	starting, start := pressed(t, typing(t, w.live(t, 100, 40), "3", "h"), keyEnter)
+	pressedEarly := typing(t, starting, "s")
+
+	// Act
+	running, _ := finish(t, pressedEarly, start)
+
+	// Assert
+	if w.runStop == nil || *w.runStop {
+		t.Error("a stop pressed before the program started stopped it once it had")
+	}
+
+	requireScreen(t, footerLine(running.View().Content), "s stop")
+}

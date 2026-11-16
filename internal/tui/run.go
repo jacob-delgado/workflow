@@ -311,10 +311,11 @@ func capLines(lines []string) []string {
 	return slices.Clone(lines[len(lines)-maxRunLines:])
 }
 
-// footer offers what works on the run as it stands.
+// footer offers what works on the run as it stands: stop only once its
+// program has started, and until it is stopped.
 func (r commandRun) footer(keys keyMap) []key.Binding {
 	switch {
-	case !r.done && r.stopped:
+	case !r.done && (r.stopped || r.stop == nil):
 		return []key.Binding{keys.interrupt}
 	case !r.done:
 		return []key.Binding{keys.stopRun, keys.interrupt}
