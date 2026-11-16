@@ -13,6 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
+	"github.com/jacob-delgado/workflow/internal/tui/send"
 	"github.com/jacob-delgado/workflow/internal/workdirs"
 )
 
@@ -22,9 +23,9 @@ import (
 type dirPicker struct {
 	base, home string
 	input      textinput.Model
-	// inList is the list having the keys rather than the field; cursor is
-	// the row highlighted in it.
-	inList bool
+	// focus is what has the keys, the field or the list; cursor is the row
+	// highlighted in the list.
+	focus  pickerFocus
 	cursor int
 	// shortcuts are the repository's other worktrees and the favorites,
 	// offered before anything typed narrows to a path.
@@ -36,14 +37,24 @@ type dirPicker struct {
 	// directories stand in for the next one asked of the same directory
 	// while that is out.
 	standIn dirListed
-	// looking is a destination being checked; problem is why it could not
-	// be gone to.
-	looking bool
+	// look is a destination's check, out or refused; problem is why none
+	// can be checked here.
+	look    send.State
 	problem error
 	// opened is the round this one opened in, so an answer arriving after
 	// esc finds no picker, even one opened since.
 	opened int
 }
+
+// pickerFocus is what has the picker's keys.
+type pickerFocus int
+
+const (
+	// pickerField is the field having the keys: a path's letters are typed.
+	pickerField pickerFocus = iota
+	// pickerList is the list having them: they move through its rows.
+	pickerList
+)
 
 // dirRead is a directory's listing, narrowed by a prefix or not, or why it
 // could not be read, listing nothing of its own then; asked while the read is
@@ -63,9 +74,9 @@ const (
 )
 
 var (
-	_ opened    = dirPicker{}
-	_ floating  = dirPicker{}
-	_ pasteable = dirPicker{}
+	_ floating          = dirPicker{}
+	_ pasteable         = dirPicker{}
+	_ sender[dirPicker] = dirPicker{}
 )
 
 // openDirPicker opens the picker, empty, from where you work, offering the
@@ -95,12 +106,28 @@ func (dirPicker) which() overlayKind { return overlayDirPicker }
 // openedAs is the round the picker opened in.
 func (p dirPicker) openedAs() int { return p.opened }
 
+// sent is the destination's check.
+func (p dirPicker) sent() send.State { return p.look }
+
+// withSend is the picker with its destination's check at state.
+func (p dirPicker) withSend(state send.State) dirPicker {
+	p.look = state
+
+	return p
+}
+
+// checking reports a destination's check out, which takes every key but
+// esc.
+func (p dirPicker) checking() bool {
+	return p.look.Stage() == send.StageInFlight
+}
+
 // footer offers what the field or the list answers now.
 func (p dirPicker) footer(keys keyMap) []key.Binding {
 	switch {
-	case p.looking:
+	case p.checking():
 		return []key.Binding{relabel(keys.closeOverlay, escCancel)}
-	case p.inList:
+	case p.focus == pickerList:
 		return []key.Binding{
 			keys.up, keys.down, relabel(keys.cursorLeft, "up a level"), relabel(keys.cursorRight, "into"),
 			relabel(keys.switchDir, "switch"), relabel(keys.nextField, "type"), relabel(keys.closeOverlay, escCancel),
@@ -121,9 +148,9 @@ func (p dirPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		// Even while a destination is looked at: its answer, when it comes,
 		// finds the picker gone, or another opened since, which it leaves be.
 		return m.closeOverlay(), nil
-	case p.looking:
+	case p.checking():
 		return m, nil
-	case p.inList:
+	case p.focus == pickerList:
 		return p.listKey(m, msg)
 	default:
 		return p.fieldKey(m, msg)
@@ -136,7 +163,7 @@ func (p dirPicker) fieldKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.confirm):
 		return p.choose(m)
 	case key.Matches(msg, m.keys.nextField):
-		p.inList = true
+		p.focus = pickerList
 		m.overlay = p
 
 		return m, nil
@@ -171,14 +198,14 @@ func (p dirPicker) listKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.switchDir):
 		return p.switchTo(m)
 	case key.Matches(msg, m.keys.nextField):
-		p.inList = false
+		p.focus = pickerField
 		m.overlay = p
 
 		return m, nil
 	case key.Matches(msg, m.keys.cursorKeys()...):
 		return p.moved(m, m.keys.stepOf(msg)), nil
 	case msg.Text != "":
-		p.inList = false
+		p.focus = pickerField
 
 		return p.typed(m, msg)
 	default:
@@ -188,11 +215,11 @@ func (p dirPicker) listKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 // pasted types a paste into the field, from the list too.
 func (p dirPicker) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
-	if p.looking {
+	if p.checking() {
 		return m, nil
 	}
 
-	p.inList = false
+	p.focus = pickerField
 
 	return p.typed(m, paste)
 }
@@ -212,7 +239,7 @@ func (p dirPicker) typed(m Model, msg tea.Msg) (Model, tea.Cmd) {
 // highlighted, any refusal forgotten, and where it now points read, a
 // listing that failed asked for again.
 func (p dirPicker) retyped(m Model) (Model, tea.Cmd) {
-	p.problem, p.cursor = nil, 0
+	p.problem, p.look, p.cursor = nil, p.look.Cleared(), 0
 	p.reads = maps.Clone(p.reads)
 	maps.DeleteFunc(p.reads, func(_ string, read dirRead) bool { return read.err != nil })
 
@@ -259,11 +286,11 @@ func (p dirPicker) choose(m Model) (Model, tea.Cmd) {
 
 	switch {
 	case !found:
-		return p.look(m, p.typedPath())
+		return p.lookAt(m, p.typedPath())
 	case row.kind == rowChild:
 		return p.descend(m)
 	default:
-		return p.look(m, row.dir)
+		return p.lookAt(m, row.dir)
 	}
 }
 
@@ -275,7 +302,7 @@ func (p dirPicker) switchTo(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return p.look(m, row.dir)
+	return p.lookAt(m, row.dir)
 }
 
 // descend types the highlighted directory's name into the field, and lists
