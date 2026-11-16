@@ -34,12 +34,17 @@ const bodyPreviewLines = 3
 const bodyHelp = "Write the commit body above this line: why the change was made, wrapped at 72.\n" +
 	"The subject and the issue trailer are added for you."
 
-// Composer fields, in the order tab moves through them.
+// commitField is a part of the commit composer, in the order tab moves
+// through them.
+type commitField int
+
 const (
-	fieldType = iota
+	fieldType commitField = iota
 	fieldScope
 	fieldSubject
-	composerFields
+	// composerFields is how many fields there are, the bound tab wraps
+	// at: untyped, so it is no field a switch must name.
+	composerFields = iota
 )
 
 // commitDraft is a commit message being written, kept when the composer closes
@@ -89,7 +94,7 @@ type commitComposer struct {
 	conv     convention.CommitConvention
 	types    []string
 	kind     int
-	focus    int
+	focus    commitField
 	scope    textinput.Model
 	subject  textinput.Model
 	body     string
@@ -206,7 +211,7 @@ func (c commitComposer) view(kit renderKit, width, _ int) (string, string) {
 }
 
 // label marks the field with focus.
-func (c commitComposer) label(kit renderKit, field int, text string) string {
+func (c commitComposer) label(kit renderKit, field commitField, text string) string {
 	return kit.marks.marker(field == c.focus) + text
 }
 
@@ -326,6 +331,7 @@ func (c commitComposer) cycledType(keys keyMap, msg tea.KeyPressMsg) commitCompo
 // focus; the type, which cycles, takes none.
 func (c commitComposer) typed(msg tea.Msg) commitComposer {
 	switch c.focus {
+	case fieldType:
 	case fieldScope:
 		c.scope, _ = c.scope.Update(msg)
 	case fieldSubject:
@@ -374,13 +380,14 @@ func completesOnTab(field textinput.Model) bool {
 }
 
 // focusOn moves focus to a part, and the text cursor with it.
-func (c commitComposer) focusOn(field int) commitComposer {
+func (c commitComposer) focusOn(field commitField) commitComposer {
 	c.focus = field
 
 	c.scope.Blur()
 	c.subject.Blur()
 
 	switch field {
+	case fieldType:
 	case fieldScope:
 		c.scope.Focus()
 	case fieldSubject:

@@ -257,7 +257,7 @@ always`, which `Config.validateUI` (`internal/config/ui.go:138`) and the
 Impact: low · Effort: large
 
 **Today.** Drafts survive `esc` (the commit, `commitComposer.handleKey`,
-`internal/tui/composer.go:277`; the pull request, `prComposer.handleKey`,
+`internal/tui/composer.go:282`; the pull request, `prComposer.handleKey`,
 `internal/tui/prcomposer.go:303`), a dirty tree blocks a switch instead of
 stashing (`loop.ErrDirtyTree`, `internal/loop/guards.go:18`), and quit is
 guarded while an announcement waits (`quitGuard`,
@@ -307,7 +307,7 @@ sets (`checkbox`, `internal/tui/glyphs.go`). Three marks are not states
 and take shapes of their own: `★` (`^` in ASCII) for a favorite
 directory, `‹›` (`<>` in ASCII) for the value under a cursor — the
 calendar's and the commit type's (`internal/tui/calendar.go:115`,
-`internal/tui/composer.go:239`), its closing `›` also standing between a
+`internal/tui/composer.go:244`), its closing `›` also standing between a
 section and a setting in it at Settings' foot, as Jira › Project
 (`setting.named`, `internal/tui/settingsrefusals.go`) — and `[]` for the
 value another calendar column stands on (`internal/tui/calendar.go:117`).
