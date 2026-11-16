@@ -65,15 +65,14 @@ func gather(ctx context.Context, seams statusSeams, branch gitrepo.Branch) statu
 		{name: "The store", err: announcedErr},
 	})
 
+	made := loop.StandingOf(announced, review.pull, review.found) != loop.StandingNone
 	facts.stages = progress.Stages(progress.Work{
+		Issue:              map[bool]progress.IssueWork{true: progress.IssueNamed, false: progress.IssueNone}[named],
 		OnFeatureBranch:    onFeature,
-		IssueNamed:         named,
 		Commits:            len(branch.Commits),
 		UncommittedChanges: len(changes),
-		PullRequest:        review.state,
-		CI:                 review.ci,
-		ChangesRequested:   review.pull.ChangesRequested,
-		Announced:          loop.StandingOf(announced, review.pull, review.found) != loop.StandingNone,
+		Review:             progress.ReviewOf(review.pull, review.found, review.ci),
+		Announce:           map[bool]progress.AnnounceWork{true: progress.AnnounceMade, false: progress.AnnounceNone}[made],
 	}, seams.Service)
 
 	return facts
@@ -139,21 +138,20 @@ func issueSummary(ctx context.Context, seams statusSeams, issueKey string) (stri
 }
 
 // reviewRead is what the forge said of the branch's pull request: the pull,
-// whether there was one, where its review stands, its CI, and why the forge
-// would not say, or nil.
+// whether there was one, its CI, and why the forge would not say, or nil.
 type reviewRead struct {
 	pull  forge.PullRequest
 	found bool
-	state progress.PullState
 	ci    forge.CIState
 	err   error
 }
 
-// gatherReview looks for the branch's pull request, where it stands and its
-// CI, on a feature branch with a forge to ask. A read that fails reads as no
-// pull request, or no CI, with its error beside.
+// gatherReview looks for the branch's pull request and its CI, on a feature
+// branch with a forge to ask; progress.ReviewOf works out where the pull
+// stands. A read that fails reads as no pull request, or no CI, with its
+// error beside.
 func gatherReview(ctx context.Context, seams statusSeams, branch gitrepo.Branch, onFeature bool) reviewRead {
-	none := reviewRead{state: progress.NoPullRequest, ci: forge.CINone}
+	none := reviewRead{ci: forge.CINone}
 	if !onFeature {
 		return none
 	}
@@ -168,13 +166,13 @@ func gatherReview(ctx context.Context, seams statusSeams, branch gitrepo.Branch,
 	if !pull.IsOpen() {
 		// A merged pull request has no live CI to poll: its review is over, as
 		// the interface's spine and rail say too.
-		return reviewRead{pull: pull, found: true, state: progress.PullStateOf(pull.State), ci: forge.CINone}
+		return reviewRead{pull: pull, found: true, ci: forge.CINone}
 	}
 
 	status, err := seams.CheckStatus(ctx, pull, branch.Head)
 	if err != nil {
-		return reviewRead{pull: pull, found: true, state: progress.PullRequestOpen, ci: forge.CINone, err: err}
+		return reviewRead{pull: pull, found: true, ci: forge.CINone, err: err}
 	}
 
-	return reviewRead{pull: pull, found: true, state: progress.PullRequestOpen, ci: status.State}
+	return reviewRead{pull: pull, found: true, ci: status.State}
 }

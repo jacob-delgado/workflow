@@ -389,20 +389,42 @@ func (v spineView) fillOf(each progress.Stage) float64 {
 
 // work is what the panes know, gathered for the shared stage derivation.
 func (m Model) work() progress.Work {
-	_, named := m.branch.issue(m.cfg.Jira.Project)
-	_, selected := m.issues.current()
-
 	return progress.Work{
+		Issue:              m.issueWork(),
 		OnFeatureBranch:    m.branch.onFeatureBranch(),
-		IssueNamed:         named,
-		IssueSelected:      selected,
 		Commits:            len(m.branch.checkedOut().Commits),
 		UncommittedChanges: len(m.changes.files()),
-		PullRequest:        m.review.pullState(),
-		CI:                 m.review.listed().State,
-		ChangesRequested:   m.review.pull().ChangesRequested,
-		Announced:          m.messaging.announced(m.review),
-		AnnouncePending:    m.messaging.held.hold.Stage().Waiting() || m.messaging.onItsWay(),
+		Review:             progress.ReviewOf(m.review.pull(), m.review.found(), m.review.listed().State),
+		Announce:           m.announceWork(),
+	}
+}
+
+// issueWork is how far the issue has got: named by the branch, or picked in
+// Issues but not yet branched for.
+func (m Model) issueWork() progress.IssueWork {
+	_, named := m.branch.issue(m.cfg.Jira.Project)
+	_, picked := m.issues.current()
+
+	switch {
+	case named:
+		return progress.IssueNamed
+	case picked:
+		return progress.IssuePicked
+	default:
+		return progress.IssueNone
+	}
+}
+
+// announceWork is how far the announcement has got: made at the pull
+// request's moment, or held for its CI or on its way.
+func (m Model) announceWork() progress.AnnounceWork {
+	switch {
+	case m.messaging.announced(m.review):
+		return progress.AnnounceMade
+	case m.messaging.held.hold.Stage().Waiting() || m.messaging.onItsWay():
+		return progress.AnnounceUnderWay
+	default:
+		return progress.AnnounceNone
 	}
 }
 

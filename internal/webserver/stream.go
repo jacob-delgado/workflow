@@ -237,7 +237,7 @@ func (s *server) snapshot(ctx context.Context, view string) api.Snapshot {
 		QueuedAnnouncement: s.heldStatus(),
 		Run:                s.RunShown(),
 		HooksUnmanaged:     s.HooksUnmanaged(ctx),
-		UnstartedStages:    s.knownStages(progress.Work{IssueSelected: true}),
+		UnstartedStages:    s.knownStages(progress.Work{Issue: progress.IssuePicked}),
 
 		CommitTypes:    commit.Types(),
 		SubjectLimit:   commit.SubjectLimit(),
@@ -263,15 +263,12 @@ func (s *server) snapshot(ctx context.Context, view string) api.Snapshot {
 func (s *server) frameStages(branch gitrepo.Branch, read forgeRead, frame api.Snapshot) []api.Stage {
 	_, named := loop.IssueOf(branch, s.config().Jira.Project)
 	work := progress.Work{
+		Issue:              map[bool]progress.IssueWork{true: progress.IssueNamed, false: progress.IssueNone}[named],
 		OnFeatureBranch:    loop.OnFeatureBranch(branch),
-		IssueNamed:         named,
 		Commits:            len(branch.Commits),
 		UncommittedChanges: len(frame.Changes.Changes),
-		PullRequest:        read.pullState(),
-		CI:                 read.ciState(),
-		ChangesRequested:   read.found && read.pull.ChangesRequested,
-		Announced:          announcedAtItsMoment(frame.Review.Announced),
-		AnnouncePending:    heldForCI(frame.QueuedAnnouncement),
+		Review:             progress.ReviewOf(read.pull, read.found, read.ciState()),
+		Announce:           announceWork(frame.Review.Announced, frame.QueuedAnnouncement),
 	}
 
 	return s.knownStages(work)
@@ -281,16 +278,6 @@ func (s *server) frameStages(branch gitrepo.Branch, read forgeRead, frame api.Sn
 // service the configuration names.
 func (s *server) knownStages(work progress.Work) []api.Stage {
 	return stagesDTO(progress.Stages(work, s.config().Messaging.Service()))
-}
-
-// pullState is where the read's pull request stands for the loop: none, when
-// the forge found none.
-func (r forgeRead) pullState() progress.PullState {
-	if !r.found {
-		return progress.NoPullRequest
-	}
-
-	return progress.PullStateOf(r.pull.State)
 }
 
 // ciState is how the read's CI stands, a CI not read counting as none, as
@@ -303,18 +290,20 @@ func (r forgeRead) ciState() forge.CIState {
 	return r.ci.State
 }
 
-// announcedAtItsMoment reports that a review's pull request was announced at
-// its moment, its post confirmed or begun, as the announce stage reads it: a
-// store that could not be read says none.
-func announcedAtItsMoment(announced api.ReviewAnnounced) bool {
-	return announced == api.ReviewAnnouncedPosted || announced == api.ReviewAnnouncedUnconfirmed
-}
-
-// heldForCI reports an announcement waiting for its CI, or being posted once
-// it passed: not yet made, nor given up on.
-func heldForCI(held *api.QueuedAnnouncement) bool {
-	return held != nil &&
-		(held.State == api.QueuedAnnouncementStateWaiting || held.State == api.QueuedAnnouncementStateAnnouncing)
+// announceWork is how far the announcement has got, as the announce stage
+// reads it: made, once its post was confirmed or begun at its moment, a store
+// that could not be read saying none; under way, while it waits for its CI or
+// is being posted once it passed, not yet made nor given up on.
+func announceWork(announced api.ReviewAnnounced, held *api.QueuedAnnouncement) progress.AnnounceWork {
+	switch {
+	case announced == api.ReviewAnnouncedPosted || announced == api.ReviewAnnouncedUnconfirmed:
+		return progress.AnnounceMade
+	case held != nil &&
+		(held.State == api.QueuedAnnouncementStateWaiting || held.State == api.QueuedAnnouncementStateAnnouncing):
+		return progress.AnnounceUnderWay
+	default:
+		return progress.AnnounceNone
+	}
 }
 
 // stagesDTO maps the loop's stages onto the wire, each by its step, name and
@@ -421,7 +410,7 @@ func (s *server) snapshotBranches(
 			// A branch not checked out is known only to be named for an issue:
 			// the working tree, the forge and the store are read for the
 			// checked-out branch alone, so nothing after it reads as begun.
-			elsewhere: s.knownStages(progress.Work{OnFeatureBranch: true, IssueNamed: true}),
+			elsewhere: s.knownStages(progress.Work{Issue: progress.IssueNamed, OnFeatureBranch: true}),
 		},
 	}
 
