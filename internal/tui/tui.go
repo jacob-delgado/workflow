@@ -60,12 +60,9 @@ type Model struct {
 	// accessibleForms asks a form's questions as plain prompts instead of
 	// drawing it.
 	accessibleForms bool
-	// reviewsBegun counts the reviews begun: the key of CI's poll chain, so a
-	// poll scheduled in one since replaced ends its chain rather than polling
-	// beside the new one's. CI's round would not do: a read begun while a poll
-	// waits, a refresh's, would drop the poll before it let the chain go on.
-	// It lives here, not in reviewState, where each new review would reset it.
-	reviewsBegun int
+	// polls is CI's poll chain, which each review begins again. It lives
+	// here, not in reviewState, where each new review would reset its count.
+	polls pollChain
 	// refreshed is when each pane last began loading, so switching to one
 	// loaded moments ago does not spend the tracker's or the forge's requests
 	// loading it again.
