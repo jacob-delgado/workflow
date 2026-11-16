@@ -38,15 +38,37 @@ func (t peopleTab) other() peopleTab {
 	return map[peopleTab]peopleTab{tabPeople: tabGroups, tabGroups: tabPeople}[t]
 }
 
-// person is a forge owner as People and groups lists them: decided, with what
-// was decided, or one of this branch's owners not asked about yet; and
-// whether they are a team (org/team, a GitLab group), which links to a user
-// group rather than a person.
+// person is a forge owner as People and groups lists them: whether they are a
+// team (org/team, a GitLab group), which links to a user group rather than a
+// person; and their stage, with what was decided once they are decided. Built
+// only by notAskedYet and decidedAs, so an owner not asked about yet holds no
+// decision.
 type person struct {
-	owner   string
-	team    bool
-	decided bool
-	link    loop.OwnerLink
+	owner string
+	team  bool
+	stage personStage
+	link  loop.OwnerLink
+}
+
+// personStage is how far an owner People lists has got.
+type personStage int
+
+const (
+	// personNotAsked is one of this branch's owners nobody has decided yet,
+	// or a bare name decided as a person that the forge now knows as a team.
+	personNotAsked personStage = iota
+	// personDecided is an owner whose decision is kept.
+	personDecided
+)
+
+// notAskedYet is owner, a team or a person, not asked about yet.
+func notAskedYet(owner string, team bool) person {
+	return person{owner: owner, team: team, stage: personNotAsked, link: loop.OwnerLink{}}
+}
+
+// decidedAs is the owner link decided, as it was decided.
+func decidedAs(link loop.OwnerLink) person {
+	return person{owner: link.Owner(), team: link.Team(), stage: personDecided, link: link}
 }
 
 // peopleOverlay manages what the announcements tag: whom each forge owner is
@@ -155,17 +177,17 @@ func peopleFrom(decided []loop.OwnerLink, owners codeowners.Owners) []person {
 	people := make([]person, 0, len(decided))
 	for _, link := range decided {
 		if link.Team() || !ownerTeam(link.Owner()) {
-			people = append(people, person{owner: link.Owner(), team: link.Team(), decided: true, link: link})
+			people = append(people, decidedAs(link))
 
 			continue
 		}
 
-		people = append(people, person{owner: link.Owner(), team: true, decided: false, link: loop.OwnerLink{}})
+		people = append(people, notAskedYet(link.Owner(), true))
 	}
 
 	for _, owner := range slices.Concat(owners.Users, owners.Teams) {
 		if !slices.ContainsFunc(decided, func(link loop.OwnerLink) bool { return loop.SameOwner(link.Owner(), owner) }) {
-			people = append(people, person{owner: owner, team: ownerTeam(owner), decided: false, link: loop.OwnerLink{}})
+			people = append(people, notAskedYet(owner, ownerTeam(owner)))
 		}
 	}
 
@@ -266,19 +288,24 @@ func (p peopleOverlay) listLines(kit renderKit, rows int) []string {
 	return p.people.rows(kit.marks, rows, func(row person) string { return personRow(kit, row) })
 }
 
-// personRow is an owner and what is known of them on Slack.
+// personRow is an owner and what is known of them on Slack, by their stage.
 func personRow(kit renderKit, row person) string {
-	state := "? not asked yet"
-	target, onSlack := row.link.OnSlack()
-
-	switch {
-	case row.decided && onSlack:
-		state = strings.TrimSpace(kit.marks.arrow) + " " + slackName(target, row.team)
-	case row.decided:
-		state = kit.marks.unknown + " not on Slack"
+	states := map[personStage]func() string{
+		personNotAsked: func() string { return "? not asked yet" },
+		personDecided:  func() string { return decisionWords(kit, row.link) },
 	}
 
-	return fmt.Sprintf("%-*s ", ownerColumn, row.owner) + state
+	return fmt.Sprintf("%-*s ", ownerColumn, row.owner) + states[row.stage]()
+}
+
+// decisionWords is what was decided for an owner: whom they are on Slack, or
+// that they are not on it.
+func decisionWords(kit renderKit, link loop.OwnerLink) string {
+	if target, onSlack := link.OnSlack(); onSlack {
+		return strings.TrimSpace(kit.marks.arrow) + " " + slackName(target, link.Team())
+	}
+
+	return kit.marks.unknown + " not on Slack"
 }
 
 // footer offers the shown tab's keys, nothing while a write is out, and on
