@@ -51,7 +51,7 @@ var (
 // set up, and every source has answered for the period shown, so what is
 // previewed is all there is.
 func (m Model) canPostSummary() bool {
-	return m.deps.Messaging.Post != nil && m.cfg.Messaging.Mode() != config.MessagingNone && m.summary.complete
+	return m.deps.Messaging.Post != nil && m.cfg.Messaging.Mode() != config.MessagingNone && m.summary.complete()
 }
 
 // previewSummaryPost opens the preview of the Summary shown, as Markdown, to

@@ -331,8 +331,10 @@ func (c calendar) show(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m = m.closeOverlay()
-	m.summary.period, m.summary.chosen, m.summary.selected, m.summary.scroll = period, true, 0, 0
+	var read tea.Cmd
 
-	return m.readSummary()
+	m = m.closeOverlay()
+	m.summary, read = m.summary.shownFromTop(m.session, m.deps, period)
+
+	return m, read
 }
