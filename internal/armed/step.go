@@ -50,7 +50,7 @@ func (h Hold) armedAfresh(armedAt time.Time, arming Arming) Hold {
 
 	return Hold{
 		stage: stage, round: h.round + 1, asked: 0, arming: arming, watch: WatchFrom(armedAt),
-		unheardSince: time.Time{}, ci: forge.CI{}, reason: nil,
+		unheardSince: time.Time{}, ci: forge.CI{}, reason: nil, lastPost: loop.DeliveredFailed,
 	}
 }
 
@@ -204,6 +204,8 @@ func (h Hold) Delivered(outcome Outcome) (Hold, Next) {
 		return h, NextNothing
 	}
 
+	h.lastPost = outcome.Kind
+
 	return afterPost(outcome.Kind)(h, outcome)
 }
 
@@ -302,11 +304,14 @@ func (h Hold) Stop() (Hold, error) {
 }
 
 // Superseded is a waiting hold of made posted in its place, by an
-// announcement asked for now that went out; any other hold is unchanged.
+// announcement asked for now that went out, so its last post is that one,
+// posted; any other hold is unchanged.
 func (h Hold) Superseded(made loop.Announced) Hold {
 	if !h.stage.Waiting() || !h.Holds(made) {
 		return h
 	}
+
+	h.lastPost = loop.DeliveredPosted
 
 	return h.ended(StagePosted, nil)
 }

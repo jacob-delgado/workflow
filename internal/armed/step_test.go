@@ -359,6 +359,34 @@ func deliveredRows() map[string]stepCase {
 	}
 }
 
+func TestAHoldKeepsHowItsLastPostWent(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		kind loop.Delivered
+		err  error
+	}{
+		"posted":                 {kind: loop.DeliveredPosted, err: nil},
+		"refused by the service": {kind: loop.DeliveredRefused, err: loop.ErrNotDelivered},
+		"may have gone out":      {kind: loop.DeliveredUncertain, err: loop.ErrPostUncertain},
+		"claimed elsewhere":      {kind: loop.DeliveredElsewhere, err: loop.AnnouncedAlreadyError{}},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			got := deliveredAs(due(t), tt.kind, tt.err, 3*time.Minute)
+
+			// Assert
+			if got.LastPost() != tt.kind {
+				t.Errorf("LastPost = %d, want %d: the kind its post went", got.LastPost(), tt.kind)
+			}
+		})
+	}
+}
+
 func TestAGateRefusalWaitsOnTheChecksItSawFail(t *testing.T) {
 	t.Parallel()
 

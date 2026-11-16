@@ -153,9 +153,10 @@ surface posts an announcement through `loop.Deliver`, which reads the pull
 request's CI as it posts and refuses one a check has failed on, then claims
 it in the store, so one announcement is posted once across sessions and
 processes, posts it, and confirms the claim, naming how it went as a
-`loop.Delivered` beside the error that says why; and every surface that waits
-for CI to pass — the terminal, the web and `--when-green` — keeps one
-`armed.Hold`, in `internal/armed`: a value with an explicit stage, which
+`loop.Delivered` beside the error that says why, which every surface and the
+hold choose what follows by, the error left for the words; and every surface
+that waits for CI to pass — the terminal, the web and `--when-green` — keeps
+one `armed.Hold`, in `internal/armed`: a value with an explicit stage, which
 counts each read asked of it and is stepped by each event (a read heard or
 failed, a post's outcome, a stop) to the effect it asks for next (a read now
 or an interval on, or the post), which each surface carries out by its own
@@ -168,10 +169,11 @@ at the commit the forge says it is at, waits past failures for
 surfaces, which an `armed-below-the-surfaces` rule in `.golangci.yml` holds.
 
 Each surface hands `loop` the seams it holds and words the answer in its own
-terms: a refusal comes back as a `loop.Err…` sentinel, and the command line,
-the terminal and the web server each map it to the sentence they already use
-(`errors.Is` at the surface), so the shared layer never dictates one surface's
-wording to another.
+terms. A post's answer names its `loop.Delivered`, by which the surface
+chooses what follows; any other refusal comes back as a `loop.Err…` sentinel.
+Either way the error says why, and the command line, the terminal and the web
+server each map it to the sentence they already use (`errors.Is` at the
+surface), so the shared layer never dictates one surface's wording to another.
 
 `internal/loop` is a leaf above the domain packages and below the surfaces. It
 imports only the domain packages the `loop-below-the-surfaces` rule in

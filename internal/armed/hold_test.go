@@ -306,6 +306,22 @@ func TestAnAnnouncementPostedNowSupersedesTheHoldOfIt(t *testing.T) {
 	}
 }
 
+func TestAHoldSupersededPastAFailedPostKeepsThePostThatWent(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	waiting := deliveredAs(due(t), loop.DeliveredNotClaimed, loop.ErrNotClaimed, 2*time.Minute)
+
+	// Act
+	got := waiting.Superseded(loop.Announced{Pull: 9, Moment: messaging.MomentReady})
+
+	// Assert
+	if got.Stage() != armed.StagePosted || !got.LastPost().Went() {
+		t.Errorf("Superseded = %s, its last post %d, want posted by a post that went",
+			stageName(got.Stage()), got.LastPost())
+	}
+}
+
 func TestAnAnnouncementPostedNowLeavesAnyOtherHold(t *testing.T) {
 	t.Parallel()
 

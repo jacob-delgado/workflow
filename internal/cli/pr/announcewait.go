@@ -161,7 +161,9 @@ func heldOutcome(notes console.Notes, seams announceSeams, pull string, final ar
 		return gaveUp(final.Reason(), pull, seams.Messaging.Service())
 	}
 
-	return postOutcome(notes, seams, pull, final.Delivery().Moment, final.Reason())
+	answer := postAnswer{kind: final.LastPost(), err: final.Reason()}
+
+	return postOutcome(notes, seams, pull, final.Delivery().Moment, answer)
 }
 
 // gaveUpWaiting reports whether reason, why a hold was dropped, is one the
