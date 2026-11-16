@@ -32,16 +32,18 @@ const (
 // a new Footer and leaves the one it came from as it was, the waiting reports
 // among them.
 type Footer struct {
-	stage   Stage
-	text    string
-	waiting []report
+	stage      Stage
+	text       string
+	postscript string
+	waiting    []report
 }
 
-// report is one report waiting for the row: a failure or what no pane
-// repeats.
+// report is one report for the row: the one shown, or one waiting for it, a
+// failure or what no pane repeats, and what a failure says after it.
 type report struct {
-	stage Stage
-	text  string
+	stage      Stage
+	text       string
+	postscript string
 }
 
 // Stage is what the row reports.
@@ -52,6 +54,13 @@ func (f Footer) Stage() Stage {
 // Text is the report the row shows; empty at StageNone.
 func (f Footer) Text() string {
 	return f.text
+}
+
+// Postscript is what the row shows after its report, in no report's style: a
+// result said along with a failure, which is not one itself. Empty but after
+// a failure given one.
+func (f Footer) Postscript() string {
+	return f.postscript
 }
 
 // Waiting is how many reports wait for the row.
@@ -67,23 +76,25 @@ func (f Footer) Reported(text string) Footer {
 		return f
 	}
 
-	return f.showing(StagePlain, text)
+	return f.showing(report{stage: StagePlain, text: text})
 }
 
-// Failed shows text as a failure, which takes the row from any report, a
-// failure before it among them. A report no pane repeats gives the row up and
-// waits first in line. Covered, the row given over to a search whose keys
-// would clear it unseen, the failure waits instead, and Next gives it the row
-// once the search ends, as Failed would have. Either way a failure already
-// waiting is dropped, as it would be replaced on the row.
-func (f Footer) Failed(text string, covered bool) Footer {
+// Failed shows text as a failure, and postscript after it, which takes the
+// row from any report, a failure before it among them. A report no pane
+// repeats gives the row up and waits first in line. Covered, the row given
+// over to a search whose keys would clear it unseen, the failure waits
+// instead, its postscript with it, and Next gives it the row once the search
+// ends, as Failed would have. Either way a failure already waiting is
+// dropped, as it would be replaced on the row.
+func (f Footer) Failed(text, postscript string, covered bool) Footer {
 	f.waiting = slices.DeleteFunc(slices.Clone(f.waiting), report.failure)
+	failure := report{stage: StageFailure, text: text, postscript: postscript}
 
 	if covered {
-		return f.waitingFor(report{stage: StageFailure, text: text})
+		return f.waitingFor(failure)
 	}
 
-	return f.showing(StageFailure, text)
+	return f.showing(failure)
 }
 
 // Unrepeated shows text, which no pane repeats, unless it cannot be read now:
@@ -95,15 +106,13 @@ func (f Footer) Unrepeated(text string, covered bool) Footer {
 		return f.waitingFor(report{stage: StageUnrepeated, text: text})
 	}
 
-	f.stage, f.text = StageUnrepeated, text
-
-	return f
+	return f.showing(report{stage: StageUnrepeated, text: text})
 }
 
 // Cleared drops the report shown, as a key that starts the next action does;
 // the reports waiting stay in line.
 func (f Footer) Cleared() Footer {
-	f.stage, f.text = StageNone, ""
+	f.stage, f.text, f.postscript = StageNone, "", ""
 
 	return f
 }
@@ -122,14 +131,15 @@ func (f Footer) Next(covered bool) Footer {
 		failure := f.waiting[at]
 		f.waiting = slices.Delete(slices.Clone(f.waiting), at, at+1)
 
-		return f.showing(StageFailure, failure.text)
+		return f.showing(failure)
 	}
 
 	if f.stage != StageNone {
 		return f
 	}
 
-	f.stage, f.text, f.waiting = f.waiting[0].stage, f.waiting[0].text, f.waiting[1:]
+	oldest := f.waiting[0]
+	f.stage, f.text, f.postscript, f.waiting = oldest.stage, oldest.text, oldest.postscript, f.waiting[1:]
 
 	return f
 }
@@ -148,14 +158,15 @@ func (f Footer) waitingFor(waiting report) Footer {
 	return f
 }
 
-// showing is the row reporting text at stage, the report no pane repeats it
-// held put first in line.
-func (f Footer) showing(stage Stage, text string) Footer {
+// showing is the row reporting shown, the report no pane repeats it held put
+// first in line.
+func (f Footer) showing(shown report) Footer {
 	if f.stage == StageUnrepeated {
-		f.waiting = slices.Concat([]report{{stage: StageUnrepeated, text: f.text}}, f.waiting)
+		held := report{stage: StageUnrepeated, text: f.text, postscript: f.postscript}
+		f.waiting = slices.Concat([]report{held}, f.waiting)
 	}
 
-	f.stage, f.text = stage, text
+	f.stage, f.text, f.postscript = shown.stage, shown.text, shown.postscript
 
 	return f
 }

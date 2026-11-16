@@ -253,7 +253,7 @@ func (m Model) leaveFor(dir string) (Model, tea.Cmd) {
 // switch would lose.
 func (m Model) switchLook(dir string) lastLook {
 	return lastLook{
-		title: "Switch directory", verb: verbSwitch, leave: escStay,
+		title: "Switch directory", verb: verbSwitch, leave: escStay, ends: LeavingSwitch,
 		body: leaveQuestion("Switch to "+shownDir(m.deps, dir)+"?\n\nEvery pane is read again there.",
 			"Switching", m.lostOnLeaving()),
 		proceed: func(m Model) (Model, tea.Cmd) {
@@ -320,6 +320,7 @@ func (m Model) reopenLook(dir string, saved reopening) lastLook {
 
 	return lastLook{
 		title: "Reopen with the settings", verb: "reopen", leave: escStay, stayed: m.savedForLater(saved.path),
+		ends: LeavingReopen,
 		body: leaveQuestion(question, "Reopening", m.lostOnLeaving()),
 		proceed: func(m Model) (Model, tea.Cmd) {
 			m = m.closeOverlay()
@@ -401,6 +402,20 @@ func (m Model) writeInFlight() string {
 		return "the link to Slack"
 	default:
 		return ""
+	}
+}
+
+// guardsThePost reports an overlay that asks before an ending that loses
+// the post waiting for CI: the quit guard, and a last look whose act ends
+// the interface. Any other overlay reports false.
+func guardsThePost(open overlay) bool {
+	switch open := open.(type) {
+	case quitGuard:
+		return true
+	case lastLook:
+		return open.ends != LeavingNone
+	default:
+		return false
 	}
 }
 

@@ -20,6 +20,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
+	"github.com/jacob-delgado/workflow/internal/tui/notice"
 )
 
 // errAnnouncementDropped is an announcement that waited for CI and was given
@@ -227,69 +228,89 @@ func (m Model) holdSeams() armed.Seams {
 	}
 }
 
-// steppedTo is the model holding hold, a step on from the one it held, having
-// said what the step changed, with the quit guard closed once nothing waits,
-// and doing what it asks next.
+// steppedTo is the model holding hold, a step on from the one it held, with
+// what guarded the post closed once it stopped waiting, having said what the
+// step changed, and doing what it asks next.
 func (m Model) steppedTo(hold armed.Hold, next armed.Next) (Model, tea.Cmd) {
 	was := m.messaging.held.hold
 	m.messaging.held.hold = hold
+	m, told := m.unguarded(was).toldOf(was, hold)
 
-	return m.toldOf(was, hold).unguarded().afterNext(next)
+	return m.saidWithPostscript(told).afterNext(next)
 }
 
-// unguarded closes the quit guard once the post it guards stops waiting: a
-// quit loses nothing then, since one being posted goes on past it. The
-// interface stays, as nothing confirmed the quit, and the step's notice says
-// how the post went.
-func (m Model) unguarded() Model {
-	if _, guarding := m.overlay.(quitGuard); guarding && !m.messaging.held.hold.Stage().Waiting() {
+// unguarded closes what asks before an ending loses the post waiting for
+// CI, the quit guard or a switch's or a reopen's last look, once a step from
+// was stops it waiting: one being posted goes on past a quit and holds a
+// switch back until it answers. The interface stays, as nothing confirmed
+// the ending, and the step's notice says how the post went, and then what
+// esc on the look would have said, the reopen's save kept for the next open.
+func (m Model) unguarded(was armed.Hold) Model {
+	stopped := was.Stage().Waiting() && !m.messaging.held.hold.Stage().Waiting()
+	if stopped && guardsThePost(m.overlay) {
+		look, _ := m.overlay.(lastLook)
+		m.messaging.held.postscript = look.stayed
+
 		return m.closeOverlay()
 	}
 
 	return m
 }
 
-// toldOf says what a step from was to now changed that the rail alone would
+// saidWithPostscript says told with the held post's postscript after it, on
+// its row, as one notice at told's stage. A step that tells nothing, the post
+// now being posted, keeps the postscript for how that post goes.
+func (m Model) saidWithPostscript(told footerReport) Model {
+	if told.stage == notice.StageNone {
+		return m
+	}
+
+	told.postscript, m.messaging.held.postscript = m.messaging.held.postscript, ""
+
+	return m.said(told)
+}
+
+// toldOf is what a step from was to now changed that the rail alone would
 // not: how a post went, or that a waiting announcement was given up on. A
-// read that leaves it waiting, or one answering for a hold since ended, says
-// nothing.
-func (m Model) toldOf(was, now armed.Hold) Model {
+// read that leaves it waiting, or one answering for a hold since ended,
+// tells nothing.
+func (m Model) toldOf(was, now armed.Hold) (Model, footerReport) {
 	switch {
 	case was.Stage() == armed.StageDue:
 		return m.toldOfPost(now)
 	case was.Stage().Waiting() && now.Stage() == armed.StageDropped:
-		return m.droppedNotice(now)
+		return m, m.droppedReport(now)
 	default:
-		return m
+		return m, footerReport{}
 	}
 }
 
-// toldOfPost says how the post of the held announcement went, now the hold
+// toldOfPost is how the post of the held announcement went, now the hold
 // after it: posted, closing a refused preview of what it announced; claimed
 // by another session first; a check the gate saw fail, which it waits on a fix
 // past; a failure it tries again past; or given up on.
-func (m Model) toldOfPost(now armed.Hold) Model {
-	stay := func() Model { return m }
+func (m Model) toldOfPost(now armed.Hold) (Model, footerReport) {
+	stay := func() (Model, footerReport) { return m, footerReport{} }
 	name := m.pullName(now.Pull())
 	// A map, not a switch, so there is no arm for the stages a post never
 	// leaves a hold at.
-	told := map[armed.Stage]func() Model{
-		armed.StagePosted: func() Model {
+	told := map[armed.Stage]func() (Model, footerReport){
+		armed.StagePosted: func() (Model, footerReport) {
 			m.messaging.postNow = m.messaging.postNow.Cleared()
 			m = m.withoutRefusedPreviewOf(now.Delivery().Made())
 
-			return m.noticedAnnounced(m.destinationOf(now.Delivery()), now.Reason())
+			return m, m.announcedReport(m.destinationOf(now.Delivery()), now.Reason())
 		},
-		armed.StageElsewhere: func() Model {
-			return m.noticed(m.marks.done + " already announced from another session; not posted again")
+		armed.StageElsewhere: func() (Model, footerReport) {
+			return m, plainReport(m.marks.done + " already announced from another session; not posted again")
 		},
-		armed.StageDropped: func() Model { return m.droppedNotice(now) },
-		armed.StageAwaitingFix: func() Model {
-			return m.noticed(m.marks.inFlight + " not announced yet: a check failed on " + name +
+		armed.StageDropped: func() (Model, footerReport) { return m, m.droppedReport(now) },
+		armed.StageAwaitingFix: func() (Model, footerReport) {
+			return m, plainReport(m.marks.inFlight + " not announced yet: a check failed on " + name +
 				failedCheckNames(now.CI()) + " as it was to be posted; it waits for a run that passes")
 		},
-		armed.StageUnheard: func() Model {
-			return m.noticed(m.marks.inFlight + " not announced yet: " + briefly(now.Reason()) + "; trying again")
+		armed.StageUnheard: func() (Model, footerReport) {
+			return m, plainReport(m.marks.inFlight + " not announced yet: " + briefly(now.Reason()) + "; trying again")
 		},
 		armed.StageDue: stay, armed.StageIdle: stay, armed.StageListing: stay, armed.StageAwaitingChecks: stay,
 		armed.StageRunning: stay, armed.StageStopped: stay,
@@ -298,34 +319,18 @@ func (m Model) toldOfPost(now armed.Hold) Model {
 	return told[now.Stage()]()
 }
 
-// destinationOf is where delivery goes, as a notice names it: its channel, or
-// the webhook's own.
-func (m Model) destinationOf(delivery loop.Delivery) string {
-	return sanitize.Line(cmp.Or(delivery.Channel, m.cfg.Messaging.Target()))
-}
-
-// droppedNotice says, as a failure, that the hold was given up on: the
-// service it was for, the pull request it waited for, and why — a reason of
-// its own in its words, and a post's failure in the words every failure of
-// its kind is told in.
-func (m Model) droppedNotice(hold armed.Hold) Model {
+// droppedReport is the failure that the hold was given up on: the service it
+// was for, the pull request it waited for, and why — a reason of its own in
+// its words, and a post's failure in the words every failure of its kind is
+// told in.
+func (m Model) droppedReport(hold armed.Hold) footerReport {
 	if words, waited := m.droppedCause(hold); waited {
-		return m.noticedFailure(fmt.Errorf("%w to %s waiting for %s: %s", errAnnouncementDropped,
+		return m.failureReport("", fmt.Errorf("%w to %s waiting for %s: %s", errAnnouncementDropped,
 			m.cfg.Messaging.Service(), m.pullName(hold.Pull()), words))
 	}
 
-	return m.noticedFailureLedBy(errAnnouncementDropped.Error()+" to "+m.cfg.Messaging.Service()+" waiting for "+
+	return m.failureReport(errAnnouncementDropped.Error()+" to "+m.cfg.Messaging.Service()+" waiting for "+
 		m.pullName(hold.Pull())+": ", hold.Reason())
-}
-
-// droppedWords is why the hold was given up on, in brief.
-func (m Model) droppedWords(hold armed.Hold) string {
-	words, waited := m.droppedCause(hold)
-	if !waited {
-		return briefly(hold.Reason())
-	}
-
-	return words
 }
 
 // droppedCause is why the hold was given up on while it waited, and whether
@@ -367,11 +372,6 @@ func (m Model) droppedCause(hold armed.Hold) (string, bool) {
 	}
 
 	return "", false
-}
-
-// pullName is pull request number as the forge writes it: #42, or !42.
-func (m Model) pullName(number int) string {
-	return m.vocab.sigil + strconv.Itoa(number)
 }
 
 // unaskedTags is whom an announcement armed as its pull request opened tags,

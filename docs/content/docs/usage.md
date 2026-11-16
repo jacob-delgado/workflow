@@ -1021,9 +1021,10 @@ the same Jira, how the Tasks list is sorted and narrowed, and the Summary's
 period. What belongs to the repository left — a
 commit message or a pull request being written, a comment on one of its forge
 issues, an announcement waiting for CI — would be lost, so the switch's last
-look names it too; and while an announcement, a change to a task, staging, a
-change to your favorites or an owner's link to Slack is being sent, the switch
-waits for it.
+look names it too, and closes by itself once a waiting announcement stops
+waiting, posted or given up on, leaving workflow open and saying how it went;
+and while an announcement, a change to a task, staging, a change to your
+favorites or an owner's link to Slack is being sent, the switch waits for it.
 
 ## Working from a fork
 
@@ -1158,9 +1159,13 @@ one does, so what was saved applies at once; the session's Jira comments, Tasks
 view and Summary period go with it. When reopening would lose work — a commit
 message or pull request being written, an announcement waiting for CI, a comment
 on a forge issue — it asks first, naming what, and `esc` stays, keeping the save
-for when workflow next opens. A directory that cannot be reopened with the new
-configuration reopens as it was, saying why. `esc` leaves Settings without
-saving, and under `--dry-run` `ctrl+s` says what it would have saved.
+for when workflow next opens. The question closes by itself, keeping the save,
+once a waiting announcement stops waiting, as a switch's does, and one line
+says how the announcement went, in red if it failed, and then that the save
+applies once workflow reopens; where the terminal is too narrow for both,
+the line is cut at its end. A directory that cannot be reopened with the new configuration
+reopens as it was, saying why. `esc` leaves Settings without saving, and
+under `--dry-run` `ctrl+s` says what it would have saved.
 
 ## Dry run
 

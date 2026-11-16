@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -15,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
+	"github.com/jacob-delgado/workflow/internal/tui/notice"
 )
 
 // errMergeCheckFailed is the gate's refusal of a merge a check failed on,
@@ -213,14 +215,26 @@ func (msg messagingPosted) apply(m Model) (Model, tea.Cmd) {
 // noticedAnnounced says an announcement went out to where it went. One the
 // store could not confirm says so too, in words no pane repeats.
 func (m Model) noticedAnnounced(to string, err error) Model {
-	posted := m.marks.done + " announced to " + to
+	return m.said(m.announcedReport(to, err))
+}
 
-	note := unconfirmedNote(m.marks, err)
-	if note == "" {
-		return m.noticed(posted)
+// announcedReport is the footer's report that an announcement went out to
+// where it went: plain, or, one the store could not confirm, in words no
+// pane repeats.
+func (m Model) announcedReport(to string, err error) footerReport {
+	report := plainReport(m.marks.done + " announced to " + to)
+
+	if note := unconfirmedNote(m.marks, err); note != "" {
+		report.row, report.stage = report.row+note, notice.StageUnrepeated
 	}
 
-	return m.noticedUnrepeated(posted + note)
+	return report
+}
+
+// destinationOf is where delivery goes, as a notice names it: its channel, or
+// the webhook's own.
+func (m Model) destinationOf(delivery loop.Delivery) string {
+	return sanitize.Line(cmp.Or(delivery.Channel, m.cfg.Messaging.Target()))
 }
 
 // unconfirmedNote is what the notice adds of an announcement the store could

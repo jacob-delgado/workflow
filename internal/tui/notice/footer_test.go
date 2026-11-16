@@ -257,7 +257,7 @@ func TestAFailureUnderASearchWaitsFirstInLine(t *testing.T) {
 			footer := tt.from(t)
 
 			// Act
-			waiting := footer.Failed(news, covered)
+			waiting := footer.Failed(news, "", covered)
 
 			// Assert
 			if got := viewOf(waiting); got != tt.want {
@@ -296,7 +296,7 @@ func TestAFailureWaitingTakesTheRowOnceTheSearchEnds(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			footer := tt.from(t).Failed(news, covered)
+			footer := tt.from(t).Failed(news, "", covered)
 
 			// Act
 			next := footer.Next(uncovered)
@@ -329,14 +329,70 @@ func TestALaterFailureDropsTheOneWaiting(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			footer := oneWaiting(t).Failed("push failed", covered)
+			footer := oneWaiting(t).Failed("push failed", "", covered)
 
 			// Act
-			later := footer.Failed("pull failed", tt.covered)
+			later := footer.Failed("pull failed", "", tt.covered)
 
 			// Assert
 			if got := viewOf(later); got != tt.want {
 				t.Errorf("the later failure is %+v; want %+v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAFailureShowsItsPostscriptAfterIt(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	footer := none(t).Failed("dropped", "saved", uncovered)
+
+	// Assert
+	want := [3]any{notice.StageFailure, "dropped", "saved"}
+	if got := [3]any{footer.Stage(), footer.Text(), footer.Postscript()}; got != want {
+		t.Errorf("Failed with a postscript shows %v; want the failure and the postscript apart", got)
+	}
+}
+
+func TestAFailureWaitingKeepsItsPostscript(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	waiting := none(t).Failed("dropped", "saved", covered)
+
+	// Act
+	next := waiting.Next(uncovered)
+
+	// Assert
+	if got := [2]string{next.Text(), next.Postscript()}; got != [2]string{"dropped", "saved"} {
+		t.Errorf("the failure that waited shows %q; want its postscript after it", got)
+	}
+}
+
+func TestThePostscriptGoesWithItsFailure(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]func(notice.Footer) notice.Footer{
+		"cleared":                 notice.Footer.Cleared,
+		"replaced by a failure":   func(footer notice.Footer) notice.Footer { return failed(footer, "pull failed") },
+		"behind what waited":      func(footer notice.Footer) notice.Footer { return footer.Cleared().Next(uncovered) },
+		"shown again once it was": func(footer notice.Footer) notice.Footer { return footer.Cleared().Reported(news) },
+	}
+
+	for name, after := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			footer := oneWaiting(t).Failed("dropped", "saved", uncovered)
+
+			// Act
+			next := after(footer)
+
+			// Assert
+			if got := next.Postscript(); got != "" {
+				t.Errorf("the row shows the postscript %q after %q; want none", got, next.Text())
 			}
 		})
 	}
