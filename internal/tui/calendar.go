@@ -58,9 +58,29 @@ const (
 type calendar struct {
 	cursor activity.Date
 	column calendarColumn
-	mark   activity.Date
-	marked bool
-	err    error
+	// pick is what enter shows: the cursor's column, or the range from mark.
+	pick calendarPick
+	mark activity.Date
+	err  error
+}
+
+// calendarPick is what the calendar picks.
+type calendarPick int
+
+const (
+	// pickColumn picks the year, month or day the cursor's column names.
+	pickColumn calendarPick = iota
+	// pickRange picks the days from the marked one to the cursor's.
+	pickRange
+)
+
+// toggled is the other pick: a range marked, or no range.
+func (p calendarPick) toggled() calendarPick {
+	if p == pickRange {
+		return pickColumn
+	}
+
+	return pickRange
 }
 
 var _ overlay = calendar{}
@@ -82,7 +102,7 @@ func (c calendar) view(kit renderKit, _, _ int) (string, string) {
 			padded(cell(years, row), yearWidth)+padded(cell(months, row), monthWidth)+cell(days, row), " "))
 	}
 
-	if c.marked {
+	if c.pick == pickRange {
 		lines = append(lines, "", "range from "+c.mark.String()+" to the cursor")
 	}
 
@@ -181,7 +201,7 @@ func (c calendar) dayPlace(kit renderKit, month activity.Period, date activity.D
 
 // inRange reports date between the marked day and the cursor's, both in.
 func (c calendar) inRange(date activity.Date) bool {
-	if !c.marked {
+	if c.pick != pickRange {
 		return false
 	}
 
@@ -207,7 +227,7 @@ func twoDigit(number int) string {
 // showing what is chosen.
 func (c calendar) footer(keys keyMap) []key.Binding {
 	mark := relabel(keys.toggleOption, "range from here")
-	if c.marked {
+	if c.pick == pickRange {
 		mark = relabel(keys.toggleOption, "no range")
 	}
 
@@ -246,7 +266,7 @@ func (c calendar) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.prevField):
 		c.column = around(c.column, calendarColumns).prev()
 	case key.Matches(msg, m.keys.toggleOption):
-		c.mark, c.marked = c.cursor, !c.marked
+		c.mark, c.pick = c.cursor, c.pick.toggled()
 	default:
 		c.cursor = c.stepped(m.keys, msg)
 	}
@@ -295,7 +315,7 @@ func (c calendar) moved(step int) activity.Date {
 // chosen is the period picked: the marked range, or what the cursor's column
 // names.
 func (c calendar) chosen() (activity.Period, error) {
-	if c.marked {
+	if c.pick == pickRange {
 		from, to := c.mark, c.cursor
 		if to.Before(from) {
 			from, to = to, from
