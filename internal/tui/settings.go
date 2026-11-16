@@ -15,6 +15,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/seams"
+	"github.com/jacob-delgado/workflow/internal/tui/latest"
 )
 
 // The refusals Settings says in its own words.
@@ -48,12 +49,11 @@ type settingsForm struct {
 	actions []seams.KeyAction
 	fields  []setting
 	opened  int
-	reading bool
-	readErr error
-	// values is the configuration as read, masked, in its JSON form, which a
-	// save sends back with the edits laid over it.
-	values map[string]any
-	path   string
+	// read is the configuration as read, masked, in its JSON form, which a
+	// save sends back with the edits laid over it: read once, as the form
+	// opens, and told again by a removal that keeps the other edits.
+	read latest.Read[map[string]any]
+	path string
 	// shownPath is path as the screen writes it, from your home.
 	shownPath string
 	over      config.Revision
@@ -92,7 +92,7 @@ func canEditSettings(deps Deps) bool {
 func (m Model) openSettings() (Model, tea.Cmd) {
 	m, opened := m.nextRound()
 	m.overlay = settingsForm{
-		noun: m.vocab.noun, opened: opened, reading: true,
+		noun: m.vocab.noun, opened: opened,
 		actions: KeyActions(m.vocab.noun, m.cfg.Messaging.Service(), nil),
 	}.laidOut()
 	read := m.deps.Settings.Read
@@ -121,10 +121,13 @@ func (msg settingsRead) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	form.reading, form.edits = false, map[string]any{}
+	form.edits = map[string]any{}
 	// The form masks what it was handed itself, so it never holds a credential
 	// whatever the seam gave it, and a credential left alone goes back masked.
-	form.values, form.readErr = seed(msg.cfg.Redacted(), msg.err)
+	// It reads once, as it opens, before it could begin a round: the read is
+	// round 0's.
+	values, err := seed(msg.cfg.Redacted(), msg.err)
+	form.read, _ = form.read.Answered(0, values, err)
 	form = form.laidOut()
 	form.path, form.shownPath, form.over = msg.cfg.Path, shownDir(m.deps, msg.cfg.Path), msg.over
 
@@ -146,29 +149,40 @@ func (f settingsForm) value(path string) any {
 		return edited
 	}
 
-	return valueAt(f.values, path)
+	return valueAt(f.values(), path)
 }
 
-// view draws the settings under their sections, the selected one's hint, and
-// how a save is going.
+// values is the configuration as read, in its JSON form; none until it is.
+func (f settingsForm) values() map[string]any {
+	values, _ := f.read.Value()
+
+	return values
+}
+
+// view draws the configuration as its read stands: reading it, why it could
+// not be read, or the settings.
 func (f settingsForm) view(kit renderKit, width, rows int) (string, string) {
-	head := f.head(width)
+	failed := func() string { return kit.failureBlock(f.read.Err(), width) }
 
-	switch {
-	case f.reading:
-		return settingsTitle, "reading the configuration" + kit.marks.ellipsis
-	case f.readErr != nil:
-		return settingsTitle, kit.failureBlock(f.readErr, width)
-	}
+	return settingsTitle, drawRead(f.read, drawnRead[string]{
+		reading:    func() string { return "reading the configuration" + kit.marks.ellipsis },
+		shown:      func() string { return f.drawn(kit, width, rows) },
+		failed:     failed,
+		failedOver: failed,
+	})
+}
 
-	foot := splitLines(f.footLines(kit, width)...)
+// drawn draws the settings under their sections, the selected one's hint, and
+// how a save is going; or the form open over them.
+func (f settingsForm) drawn(kit renderKit, width, rows int) string {
+	head, foot := f.head(width), splitLines(f.footLines(kit, width)...)
 	if f.edit != nil {
-		return settingsTitle, strings.Join(slices.Concat(head, []string{"", f.edit.form.View()}, foot), "\n")
+		return strings.Join(slices.Concat(head, []string{"", f.edit.form.View()}, foot), "\n")
 	}
 
 	list := f.rows(kit, width, rows-len(head)-len(foot))
 
-	return settingsTitle, strings.Join(append(append(head, list...), foot...), "\n")
+	return strings.Join(append(append(head, list...), foot...), "\n")
 }
 
 // head is what Settings says above its rows, or a form open over them: where
@@ -303,20 +317,32 @@ func (f settingsForm) relay(m Model, msg tea.Msg) (Model, tea.Cmd) {
 }
 
 // footer offers what Settings can do now: what the open form's field
-// answers, keeping what it holds, and backing out of it; otherwise move,
-// change the selected setting, save, reload after a refusal, and close.
+// answers, keeping what it holds, and backing out of it; otherwise what the
+// read leaves: close while it is out, try again once it failed, and the
+// rows' keys once it is shown.
 func (f settingsForm) footer(keys keyMap) []key.Binding {
 	switch {
 	case f.send.sending:
 		return []key.Binding{keys.interrupt}
 	case f.edit != nil:
 		return append(formKeys(f.edit.form), relabel(keys.saveSettings, settingsKeep), relabel(keys.closeOverlay, escBack))
-	case f.reading:
-		return []key.Binding{relabel(keys.closeOverlay, escClose)}
-	case f.readErr != nil:
+	}
+
+	failed := func() []key.Binding {
 		return []key.Binding{relabel(keys.refresh, "try again"), relabel(keys.closeOverlay, escClose)}
 	}
 
+	return drawRead(f.read, drawnRead[[]key.Binding]{
+		reading:    func() []key.Binding { return []key.Binding{relabel(keys.closeOverlay, escClose)} },
+		shown:      func() []key.Binding { return f.rowKeys(keys) },
+		failed:     failed,
+		failedOver: failed,
+	})
+}
+
+// rowKeys offers what the rows can do: move, change the selected setting,
+// save, reload after a refusal, and close.
+func (f settingsForm) rowKeys(keys keyMap) []key.Binding {
 	offered := append([]key.Binding{keys.up, keys.down, relabel(keys.confirm, f.current().verb())},
 		f.current().quickKeys(keys)...)
 	if f.removable(f.current()) {
@@ -345,15 +371,21 @@ func (f settingsForm) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return f.editKey(m, msg)
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
-	case key.Matches(msg, m.keys.refresh) && (f.readErr != nil || errors.Is(f.send.err, errSettingsChanged)):
+	case key.Matches(msg, m.keys.refresh) && f.readAgain():
 		return m.openSettings()
-	case f.reading || f.readErr != nil:
+	case f.read.Stage() != latest.StageShown:
 		return m, nil
 	}
 
 	f.problem, f.send, f.said = nil, sendState{}, ""
 
 	return f.acted(m, msg)
+}
+
+// readAgain reports that r reads the configuration again: once its read
+// failed, or a save was refused for a file changed since.
+func (f settingsForm) readAgain() bool {
+	return f.read.Stage() == latest.StageFailed || errors.Is(f.send.err, errSettingsChanged)
 }
 
 // acted answers a key on the rows: save or remove write, enter opens the

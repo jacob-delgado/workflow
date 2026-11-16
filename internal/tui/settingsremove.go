@@ -44,11 +44,11 @@ func (r credentialRemoval) words() string {
 func (f settingsForm) storedRemoval(field setting) (credentialRemoval, bool) {
 	switch {
 	case field.kind == settingSecret:
-		read, _ := valueAt(f.values, field.path).(string)
+		read, _ := valueAt(f.values(), field.path).(string)
 
 		return credentialRemoval{credential: config.Credential(field.path)}, read != ""
 	case field.kind == settingEntry && field.list.secret:
-		read := field.list.entries(valueAt(f.values, field.path))
+		read := field.list.entries(valueAt(f.values(), field.path))
 		stored := slices.ContainsFunc(read, func(each entry) bool { return each.name == field.entry })
 
 		return credentialRemoval{header: field.entry}, stored
@@ -132,7 +132,7 @@ func (f settingsForm) askToRemove(removal credentialRemoval) lastLook {
 // readWithout is the configuration as read, its credentials masked, with a
 // header removed: what a removal writes, the form's edits left out.
 func (f settingsForm) readWithout(removal credentialRemoval) (config.Config, error) {
-	values := maps.Clone(f.values)
+	values := maps.Clone(f.values())
 
 	if removal.header != "" {
 		jira, _ := values["jira"].(map[string]any)
@@ -197,7 +197,11 @@ func (msg settingsRemoved) apply(m Model) (Model, tea.Cmd) {
 		return m.reopenWith(reopening{path: form.path})
 	}
 
-	form.values, form.readErr = seed(msg.saved.Redacted(), nil)
+	// What was written is the configuration as read now, in a round of its
+	// own, as a write's answer tells the read what it wrote.
+	values, err := seed(msg.saved.Redacted(), nil)
+	reread, round := form.read.Begin()
+	form.read, _ = reread.Answered(round, values, err)
 	form.over, form.said = msg.over, m.marks.done+" removed "+msg.removal.words()+"; ctrl+s saves your other edits"
 	m.overlay = form.laidOut()
 
