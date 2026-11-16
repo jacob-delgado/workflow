@@ -324,24 +324,6 @@ func answered[T sender[T]](m Model, round int, err error) (Model, T, bool) {
 	return m, open, answer == send.AnswerDone
 }
 
-// failable is an overlay that stays open when the request it sent fails, and
-// says why. T is the overlay's own type, so a failure lands only in the kind of
-// overlay that sent the request.
-type failable[T any] interface {
-	overlay
-	failed(err error) T
-}
-
-// keepOpenWith pins err in the open overlay when it is a T — the kind that sent
-// the request — and changes nothing when that overlay has since closed.
-func keepOpenWith[T failable[T]](m Model, err error) Model {
-	if open, isOpen := m.overlay.(T); isOpen {
-		m.overlay = open.failed(err)
-	}
-
-	return m
-}
-
 // pasted types a bracketed paste into whatever is taking text, by its input
 // route: the open overlay's field, the Issues filter or the Tasks search.
 // Elsewhere, an overlay with no field among them, a paste does nothing, as an

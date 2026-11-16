@@ -95,7 +95,7 @@ func TestSetUpHandsEachFormToThePromptsWhenAsked(t *testing.T) {
 	// The same answers serve each form handed over: the first place, and
 	// Jira's address left blank. A credential's prompt needs a terminal, so
 	// over a reader it is left blank too.
-	prompts := &answering{typed: "1\n\n"}
+	prompts := &answering{typed: jiraLeftOut}
 	deps := newFirstRun(t, http.StatusOK).deps(t)
 	deps.Forms.Ask = prompts.ask
 	model := sized(t, tui.New(config.Default(), config.ErrNotFound, deps).WithAccessibleForms(), 120, 40)
@@ -268,7 +268,7 @@ func TestAPromptsFailureIsNotShownAsARefusedWrite(t *testing.T) {
 	// Arrange
 	// Jira's prompts answer the first place and leave Jira out; the rest's
 	// stop, and the form they leave is answered in the dialog.
-	prompts := &answering{typed: "1\n\n"}
+	prompts := &answering{typed: jiraLeftOut}
 	deps := newFirstRun(t, http.StatusOK).deps(t)
 	deps.Forms.Ask = func(form *huh.Form, done func(error) tea.Msg) tea.Cmd {
 		if prompts.asked.Load() == 0 {

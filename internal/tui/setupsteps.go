@@ -22,11 +22,14 @@ type setupStage int
 const (
 	// stageJira asks where the file goes, Jira's address and its token.
 	stageJira setupStage = iota
+	// stageChecking asks Jira who the token is, the dialog asking nothing.
 	stageChecking
 	// stageFailed asks what to do about a check that did not pass.
 	stageFailed
 	// stageRest asks where the token is kept and for a webhook.
 	stageRest
+	// stageWrite is the last look before the file is written, from which
+	// the write is sent.
 	stageWrite
 )
 
@@ -183,7 +186,7 @@ func (f setupForm) keychainOffered() bool {
 func (f setupForm) asking(m Model, stage setupStage, at int, groups ...*huh.Group) (Model, tea.Cmd) {
 	form, start := newHuhForm(m.kit(), huhKeys(m.keys, "apply"), m.dialogColumns(setupWidth), m.detailRows(), groups...)
 	f.stage, f.form, f.first = stage, form, form.GetFocusedField()
-	f.send, f.promptsErr = sendState{}, nil
+	f.send, f.promptsErr = f.send.Cleared(), nil
 
 	for range at {
 		start = tea.Batch(start, form.NextGroup())
@@ -191,29 +194,35 @@ func (f setupForm) asking(m Model, stage setupStage, at int, groups ...*huh.Grou
 
 	m.overlay = f
 
-	return m, m.startForm(form, start, func(err error) tea.Msg { return setupAnswered{form: form, err: err} })
+	opened := f.opened
+
+	return m, m.startForm(form, start, func(err error) tea.Msg {
+		return setupAnswered{opened: opened, form: form, err: err}
+	})
 }
 
 // setupAnswered is a form of the first run's answered, or, asked as prompts,
-// the error that stopped them.
+// the error that stopped them, for the dialog opened in round opened.
 type setupAnswered struct {
-	form *huh.Form
-	err  error
+	opened int
+	form   *huh.Form
+	err    error
 }
 
 var _ applier = setupAnswered{}
 
 // apply moves the first run on from the form answered, or says why its
 // prompts stopped, above the form left to be answered in the dialog. A form
-// since closed or replaced moves nothing.
+// whose dialog has closed since, or which another has replaced in it, moves
+// nothing.
 func (msg setupAnswered) apply(m Model) (Model, tea.Cmd) {
-	form, open := m.overlay.(setupForm)
+	form, open := answerFor[setupForm](m, msg.opened)
 	if !open || form.form != msg.form {
 		return m, nil
 	}
 
 	if msg.err != nil {
-		answerInPlace(msg.form, setupAnswered{form: msg.form})
+		answerInPlace(msg.form, setupAnswered{opened: msg.opened, form: msg.form})
 		form.promptsErr = msg.err
 		m.overlay = form
 
