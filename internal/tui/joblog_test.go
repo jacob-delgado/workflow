@@ -289,3 +289,51 @@ func TestALogAskedForBeforeACheckWithNoLogStaysOutOfTheList(t *testing.T) {
 	requireScreen(t, view, "lint-go", "keeps no log")
 	refuseScreen(t, view, "--- FAIL: TestRetry")
 }
+
+func TestOpeningAPageWhileALogIsReadKeepsItMarked(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	failing := withAFailedJob(true)
+	listed := typing(t, failing.live(t, 120, 40), "4", "c", downAction)
+	reading, _ := withheldKeys(t, listed, failing.counting("job-log"), "l")
+
+	// Act
+	view := typing(t, reading, upAction, keyEnter).View().Content
+
+	// Assert
+	requireScreen(t, view, "reading the log", "opened build-docs")
+}
+
+func TestACheckWithNoPageRefusedWhileALogIsReadSaysBoth(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	failing := withAFailedJob(true)
+	failing.ci[0].Checks[0].URL = ""
+	listed := typing(t, failing.live(t, 120, 40), "4", "c", downAction)
+	reading, _ := withheldKeys(t, listed, failing.counting("job-log"), "l")
+
+	// Act
+	view := typing(t, reading, upAction, keyEnter).View().Content
+
+	// Assert
+	requireScreen(t, view, "reading the log", "reports no page to open")
+}
+
+func TestAPageOpenedWhileALogIsReadIsNotToldOnceTheLogIsClosed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	failing := withAFailedJob(true)
+	listed := typing(t, failing.live(t, 120, 40), "4", "c", downAction)
+	reading, reads := withheldKeys(t, listed, failing.counting("job-log"), "l")
+	shown := handedOver(t, typing(t, reading, upAction, keyEnter), reads)
+
+	// Act
+	view := typing(t, shown, keyEsc).View().Content
+
+	// Assert
+	requireScreen(t, view, "Open a check's page")
+	refuseScreen(t, view, "opened build-docs")
+}
