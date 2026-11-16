@@ -199,11 +199,30 @@ func TestTheLastChoiceOfGroupsRoundTripsThroughTheSeams(t *testing.T) {
 		t.Fatalf("RecordGroups returned %v, want nil", err)
 	}
 
-	ids, chosen := deps.Store.LastGroups(t.Context(), workspace)
+	ids, chosen := deps.Store.LastGroups(t.Context(), workspace).Chosen()
 
 	// Assert
 	if !chosen || !slices.Equal(ids, []string{podGroup().ID}) {
 		t.Errorf("LastGroups = %v, %v; want the pod chosen", ids, chosen)
+	}
+}
+
+func TestNoChoiceOfGroupsYetReadsAsNoneThroughTheSeams(t *testing.T) {
+	// Arrange
+	isolatedStoreDir(t)
+	deps := wired(t, config.Default(), onOrigin(t.TempDir(), credentialedRemote), nil)
+
+	err := deps.Store.SetRepoGroups(t.Context(), workspace, []loop.SlackTarget{podGroup()})
+	if err != nil {
+		t.Fatalf("listing the group: %v", err)
+	}
+
+	// Act
+	ids, chosen := deps.Store.LastGroups(t.Context(), workspace).Chosen()
+
+	// Assert
+	if chosen || ids != nil {
+		t.Errorf("LastGroups = %v, %v; want no choice yet, since none was recorded", ids, chosen)
 	}
 }
 

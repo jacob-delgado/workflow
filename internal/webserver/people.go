@@ -101,7 +101,8 @@ func (s *server) people(ctx context.Context) (api.People, error) {
 		return api.People{}, err
 	}
 
-	tags := loop.ProposeTags(peopleOwners(links, s.branchOwners(ctx)), links, nil, nil, false, messaging.MomentReady)
+	tags := loop.ProposeTags(peopleOwners(links, s.branchOwners(ctx)), links, nil, loop.NoChoiceYet(),
+		messaging.MomentReady)
 
 	return api.People{Owners: ownerTagsDTO(tags.Owners)}, nil
 }

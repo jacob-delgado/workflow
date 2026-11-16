@@ -107,6 +107,34 @@ type OwnerTag struct {
 	Slack SlackTarget
 }
 
+// GroupChoice is the user groups last chosen for a repository's
+// announcement in a workspace, by ID, or that none was chosen there yet. It
+// is built only as one of the two, by Chose or NoChoiceYet, and holds its
+// own copy of the IDs.
+type GroupChoice struct {
+	ids []string
+	// made tells a choice, even one of no group, from none yet, as the store
+	// keeps them apart. ProposeTags reads only the IDs, so the two propose
+	// the same tags; Chosen alone reads it back.
+	made bool
+}
+
+// NoChoiceYet is a workspace in which no groups were chosen yet for the
+// repository's announcement, so only the owning teams' groups start checked.
+func NoChoiceYet() GroupChoice {
+	return GroupChoice{ids: nil, made: false}
+}
+
+// Chose is the choice of the groups ids, by ID; a choice of no group is
+// still one.
+func Chose(ids []string) GroupChoice {
+	return GroupChoice{ids: slices.Clone(ids), made: true}
+}
+
+// Chosen is a copy of the groups chosen, by ID, and whether a choice was
+// made at all.
+func (c GroupChoice) Chosen() ([]string, bool) { return slices.Clone(c.ids), c.made }
+
 // GroupTag is a user group an announcement offers: whether it starts checked,
 // and whether it is offered because a team owning the changed paths is
 // linked to it.
@@ -128,7 +156,7 @@ type Tags struct {
 // one. owners are the changed paths' owners, already without the author;
 // links are what was decided for owners on this forge host; repoGroups are
 // the user groups this repository may tag; and last is the groups chosen
-// the last time, when lastChosen says there was a last time.
+// the last time, or that none was chosen yet.
 //
 // A bare name is a team when the forge now knows it as a group or it was
 // decided as one, since a forge that could not be asked leaves it a person
@@ -140,8 +168,7 @@ type Tags struct {
 // groups linked to owning teams start checked, and so does the last choice;
 // with no last choice, only the teams' groups do.
 func ProposeTags(
-	owners codeowners.Owners, links []OwnerLink, repoGroups []SlackTarget, last []string, lastChosen bool,
-	moment messaging.Moment,
+	owners codeowners.Owners, links []OwnerLink, repoGroups []SlackTarget, last GroupChoice, moment messaging.Moment,
 ) Tags {
 	if moment != messaging.MomentReady {
 		return Tags{}
@@ -156,10 +183,6 @@ func ProposeTags(
 
 	for _, team := range classified.Teams {
 		ownerTags = append(ownerTags, ownerTag(team, true, links))
-	}
-
-	if !lastChosen {
-		last = nil
 	}
 
 	return Tags{Owners: ownerTags, Groups: offeredGroups(ownerTags, repoGroups, last)}
@@ -327,7 +350,7 @@ func fitsOwner(slackID string, team bool) bool {
 // offeredGroups is repoGroups then the groups linked teams among owners add,
 // each once and each with a group's ID, checked when a team links it or last
 // chose it.
-func offeredGroups(owners []OwnerTag, repoGroups []SlackTarget, last []string) []GroupTag {
+func offeredGroups(owners []OwnerTag, repoGroups []SlackTarget, last GroupChoice) []GroupTag {
 	var teamGroups []SlackTarget
 
 	for _, owner := range owners {
@@ -345,7 +368,7 @@ func offeredGroups(owners []OwnerTag, repoGroups []SlackTarget, last []string) [
 		}
 
 		fromOwners := slices.ContainsFunc(teamGroups, func(team SlackTarget) bool { return team.ID == group.ID })
-		checked := fromOwners || slices.Contains(last, group.ID)
+		checked := fromOwners || slices.Contains(last.ids, group.ID)
 		groups = append(groups, GroupTag{Slack: group, Checked: checked, FromOwners: fromOwners})
 	}
 

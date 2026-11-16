@@ -61,8 +61,7 @@ func ownerLinkedTo(owner string, target loop.SlackTarget) loop.OwnerLink {
 type fakeKept struct {
 	links      []loop.OwnerLink
 	repoGroups []loop.SlackTarget
-	last       []string
-	chosen     bool
+	last       loop.GroupChoice
 	recorded   [][]string
 	members    []loop.SlackTarget
 	groups     []loop.SlackTarget
@@ -131,7 +130,7 @@ func (f *fakeKept) wire(deps *webserver.Deps) {
 
 		return f.in(workspace)
 	}
-	deps.Store.LastGroups = func(context.Context, string) ([]string, bool) { return f.last, f.chosen }
+	deps.Store.LastGroups = func(context.Context, string) loop.GroupChoice { return f.last }
 	deps.Store.RecordGroups = func(_ context.Context, workspace string, ids []string) error {
 		f.recorded = append(f.recorded, ids)
 

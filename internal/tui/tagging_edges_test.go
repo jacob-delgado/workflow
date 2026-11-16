@@ -121,7 +121,7 @@ func TestAGroupSlackCannotTagIsNotOfferedAndTheRestAreTagged(t *testing.T) {
 	// time: no post could tag it.
 	odd := taggingWorld()
 	odd.slack.repoGroups = append(odd.slack.repoGroups, loop.SlackTarget{ID: "not-a-group", Label: "odd"})
-	odd.slack.last, odd.slack.lastChosen = []string{"not-a-group"}, true
+	odd.slack.last = loop.Chose([]string{"not-a-group"})
 	preview := typing(t, odd.live(t, 140, 40), "5", "p")
 
 	// Act
