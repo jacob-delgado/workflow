@@ -195,7 +195,7 @@ func (f settingsForm) shownEntry(field setting) string {
 // withEntries is the form with a collection's entries replaced, its rows laid
 // out again.
 func (f settingsForm) withEntries(field setting, entries []entry) settingsForm {
-	return f.with(field.path, field.list.value(entries)).laidOut()
+	return f.with(field, field.list.value(entries)).laidOut()
 }
 
 // keptEntry is the form with the value typed for an entry kept: a credential
@@ -338,16 +338,16 @@ func (f settingsForm) toggled(keys keyMap, msg tea.KeyPressMsg, field setting) s
 	on, _ := f.value(field.path).(bool)
 
 	// Laid out again, since a hint can name a setting turned on or off.
-	return f.with(field.path, !on).laidOut()
+	return f.with(field, !on).laidOut()
 }
 
 // chosen moves a choice on in place, on →, or back, on ←.
 func (f settingsForm) chosen(keys keyMap, msg tea.KeyPressMsg, field setting) settingsForm {
 	switch {
 	case key.Matches(msg, keys.cycleRight):
-		return f.with(field.path, field.cycled(f.text(field), 1))
+		return f.with(field, field.cycled(f.text(field), 1))
 	case key.Matches(msg, keys.cycleLeft):
-		return f.with(field.path, field.cycled(f.text(field), -1))
+		return f.with(field, field.cycled(f.text(field), -1))
 	default:
 		return f
 	}
@@ -362,27 +362,36 @@ func (f settingsForm) text(field setting) string {
 
 // with is the form with a setting's value edited, and every refusal of it
 // still standing, a write's or Settings' own check's, taken away. A setting
-// turned or moved back to the value read is no longer an edit.
-func (f settingsForm) with(path string, value any) settingsForm {
+// set back to the value read is no longer an edit.
+func (f settingsForm) with(field setting, value any) settingsForm {
 	f.edits = maps.Clone(f.edits)
-	f.edits[path] = value
-	f.refusals = f.refusals.without(path)
+	f.edits[field.path] = value
+	f.refusals = f.refusals.without(field.path)
 
-	if isReadBack(value, valueAt(f.values, path)) {
-		delete(f.edits, path)
+	if field.holds(value, valueAt(f.values, field.path)) {
+		delete(f.edits, field.path)
 	}
 
 	return f
 }
 
-// isReadBack reports a switch, a choice or a text holding the value read, as
-// one turned on and off again does. Any other value counts as an edit, as
-// before: a collection's entries are told apart by isEdited itself.
-func isReadBack(value, read any) bool {
-	switch value.(type) {
-	case bool, string:
-		return value == read
-	default:
-		return false
-	}
+// holds reports that value is the one read for the setting, as one set back
+// to it holds: a list item by item, a collection entry by entry, and any
+// other setting by its value alone. The map holds every kind, as exhaustive
+// checks.
+func (s setting) holds(value, read any) bool {
+	same := func() bool { return value == read }
+	sameEntries := func() bool { return slices.Equal(s.list.entries(value), s.list.entries(read)) }
+
+	return map[settingKind]func() bool{
+		settingText:   same,
+		settingURL:    same,
+		settingSecret: same,
+		settingCount:  same,
+		settingList:   func() bool { return slices.Equal(listOf(value), listOf(read)) },
+		settingChoice: same,
+		settingToggle: same,
+		settingEntry:  sameEntries,
+		settingAdd:    sameEntries,
+	}[s.kind]()
 }
