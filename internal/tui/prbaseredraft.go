@@ -54,7 +54,7 @@ func (read branchOntoRead) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	composer.awaiting.onto = false
+	composer.flow = composer.flow.answered(prReadOnto)
 
 	var reviewers tea.Cmd
 	if read.err == nil && len(read.branch.Commits) > 0 {
@@ -77,7 +77,7 @@ func (c prComposer) redrafted(m Model, base string, commits []gitrepo.Commit) (p
 
 	c.reviewersSettled = false
 	reviewers := readReviewers(m.session, m.deps, c)
-	c.awaiting.reviewers = reviewers != nil
+	c.flow = c.flow.awaiting(awaited(reviewers, prReadReviewers))
 
 	return c, reviewers
 }

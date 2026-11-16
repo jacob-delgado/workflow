@@ -62,7 +62,7 @@ func (read pullRequestStartsRead) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	composer.awaiting.starts, composer.branches = false, read.branches
+	composer.flow, composer.branches = composer.flow.answered(prReadStarts), read.branches
 
 	if read.templatesRead {
 		composer.templates, composer.templatesRead = read.templates, true
@@ -120,7 +120,7 @@ func (read titleIssueRead) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	composer.awaiting.title = false
+	composer.flow = composer.flow.answered(prReadTitle)
 	if composer.answers.title == read.proposed {
 		composer.answers.title = read.fromIssue
 	}
@@ -165,7 +165,7 @@ func (read reviewersRead) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	composer.awaiting.reviewers = false
+	composer.flow = composer.flow.answered(prReadReviewers)
 	if !composer.reviewersSettled {
 		composer.reviewersProposed = strings.Join(read.proposed, ", ")
 		composer.answers.reviewers, composer.reviewersSettled = composer.reviewersProposed, true
