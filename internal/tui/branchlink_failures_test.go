@@ -101,3 +101,22 @@ func TestPastingAnotherIssueClearsTheRefusedLink(t *testing.T) {
 	// Assert
 	refuseScreen(t, repasted.View().Content, "write the link")
 }
+
+func TestEnterAfterARefusedDescriptionLinksAndRewritesAgain(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := onOffConventionBranch(true)
+	repo.editPullErr = forge.ErrUnreachable
+	refused := typing(t, repo.live(t, 120, 40), "2", "i", keyEnter, keyEnter)
+
+	// Act
+	view := typing(t, refused, keyEnter).View().Content
+
+	// Assert
+	if linked, rewrites := repo.asked("link-issue"), repo.asked("rewrite 42"); len(linked) != 2 || len(rewrites) != 2 {
+		t.Errorf("linked %q and rewrote %q; want both sent again, the link first", linked, rewrites)
+	}
+
+	requireScreen(t, view, "description was not updated")
+}
