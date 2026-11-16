@@ -42,7 +42,10 @@ type setupForm struct {
 	// checkErr is why it did not pass.
 	who      string
 	checkErr error
-	send     sendState
+	// promptsErr is why the prompts asking the form now stopped, said until
+	// another form asks or the last look opens; send is the file's write.
+	promptsErr error
+	send       sendState
 }
 
 var (
@@ -184,10 +187,15 @@ func (f setupForm) asked(kit renderKit) []string {
 	return []string{f.form.View()}
 }
 
-// outcome is how the check or the write is going.
+// outcome is how the check or the write is going, or why the prompts
+// stopped.
 func (f setupForm) outcome(kit renderKit, width int) []string {
 	if f.stage == stageChecking {
 		return []string{"", kit.turned + " checking the token with Jira" + kit.marks.ellipsis}
+	}
+
+	if f.promptsErr != nil {
+		return append([]string{""}, kit.pinnedProblem(f.promptsErr, width)...)
 	}
 
 	if outcome := kit.pinnedOutcome(f.send, "writing", width); outcome != nil {
@@ -223,8 +231,8 @@ func (f setupForm) leave(keys keyMap) key.Binding {
 	return relabel(keys.closeOverlay, escBack)
 }
 
-// failed pins a refused write, or prompts that stopped, in the form, so it
-// is read before anything else.
+// failed pins a refused write in the form, so it is read before anything
+// else.
 func (f setupForm) failed(err error) setupForm {
 	f.send = f.send.failed(err)
 

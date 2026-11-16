@@ -182,7 +182,8 @@ func (f setupForm) keychainOffered() bool {
 // on, handed to the prompts.
 func (f setupForm) asking(m Model, stage setupStage, at int, groups ...*huh.Group) (Model, tea.Cmd) {
 	form, start := newHuhForm(m.kit(), huhKeys(m.keys, "apply"), m.dialogColumns(setupWidth), m.detailRows(), groups...)
-	f.stage, f.form, f.first, f.send = stage, form, form.GetFocusedField(), sendState{}
+	f.stage, f.form, f.first = stage, form, form.GetFocusedField()
+	f.send, f.promptsErr = sendState{}, nil
 
 	for range at {
 		start = tea.Batch(start, form.NextGroup())
@@ -213,7 +214,8 @@ func (msg setupAnswered) apply(m Model) (Model, tea.Cmd) {
 
 	if msg.err != nil {
 		answerInPlace(msg.form, setupAnswered{form: msg.form})
-		m.overlay = form.failed(msg.err)
+		form.promptsErr = msg.err
+		m.overlay = form
 
 		return m, nil
 	}
@@ -239,7 +241,7 @@ func (f setupForm) answered(m Model) (Model, tea.Cmd) {
 		return f.afterFailedCheck(m)
 	}
 
-	f.stage = stageWrite
+	f.stage, f.promptsErr = stageWrite, nil
 	m.overlay = f
 
 	return m, nil
