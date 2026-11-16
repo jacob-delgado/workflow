@@ -23,9 +23,9 @@ var errNoCheckPage = errors.New("this check reports no page to open")
 // checkList lists the pull request's checks, so which one failed is plain, and
 // opens the page of whichever is selected.
 type checkList struct {
-	checks  pickList[forge.Check]
-	outcome string
-	err     error
+	checks pickList[forge.Check]
+	// page is how the page last asked for opened.
+	page pageOutcome
 	// openKey is the key apply is bound to, which opens a check's page.
 	openKey string
 	// opened is the round the list opened in, which a log read and a page
@@ -33,6 +33,13 @@ type checkList struct {
 	opened int
 	// log is the read of the log last asked for, the one whose answer shows.
 	log latest.Read[forge.JobLog]
+}
+
+// pageOutcome is how opening a check's page went: none asked for, opened,
+// or refused, by the opener or for a check with no page.
+type pageOutcome struct {
+	name string
+	err  error
 }
 
 var (
@@ -62,17 +69,20 @@ func (s reviewState) canOpenChecks(deps Deps) bool {
 func (c checkList) view(kit renderKit, _, rows int) (string, string) {
 	lines := make([]string, 0, len(c.checks.items)+headerAndOutcomeRows)
 	lines = append(lines, "Open a check's page with "+c.openKey+".", "")
-	lines = append(lines, c.checks.rows(kit.marks, rows-len(lines)-outcomeRows, func(check forge.Check) string {
+	outcome := c.outcomeLines(kit)
+	space := rows - len(lines) - max(outcomeRows, len(outcome))
+	lines = append(lines, c.checks.rows(kit.marks, space, func(check forge.Check) string {
 		return checkRow(kit, check)
 	})...)
-	lines = append(lines, c.outcomeLines(kit)...)
+	lines = append(lines, outcome...)
 
 	return checksTitle, strings.Join(lines, "\n")
 }
 
 // headerAndOutcomeRows is the two intro lines above the checks and the blank
-// line plus outcome below them, so the slice is sized without a regrow.
-const headerAndOutcomeRows = 4
+// line plus the log's and the page's lines below them, so the slice is sized
+// without a regrow.
+const headerAndOutcomeRows = 5
 
 // checkRow names a check by how it stands and its name.
 func checkRow(kit renderKit, check forge.Check) string {
@@ -95,16 +105,62 @@ func checkGlyph(kit renderKit, state forge.CIState) string {
 	return kit.marks.unknown
 }
 
-// outcomeLines say how the last open went, if one was tried.
+// outcomeLines say how the last opens went, beneath a blank: the log's
+// line, then the page's, each when there is one.
 func (c checkList) outcomeLines(kit renderKit) []string {
-	switch {
-	case c.err != nil:
-		return []string{"", kit.failureLine(c.err)}
-	case c.outcome != "":
-		return []string{"", c.outcome}
-	default:
+	var lines []string
+	if line, told := c.logLine(kit); told {
+		lines = append(lines, line)
+	}
+
+	if line, told := c.page.line(kit); told {
+		lines = append(lines, line)
+	}
+
+	if len(lines) == 0 {
 		return nil
 	}
+
+	return append([]string{""}, lines...)
+}
+
+// logLine is the log's line under the checks: being read, or why it could
+// not be. It switches on the read by hand rather than through drawRead: a
+// log never asked for says nothing, where a pane's read says it is reading,
+// and a log shown is drawn by jobLogView, not here.
+func (c checkList) logLine(kit renderKit) (string, bool) {
+	switch {
+	case c.log.Out():
+		return "reading the log" + kit.marks.ellipsis, true
+	case c.log.Stage() == latest.StageFailed:
+		return kit.failureLine(c.log.Err()), true
+	default:
+		return "", false
+	}
+}
+
+// line is the page's line under the checks: why it was refused, or that it
+// opened; none before a page is asked for.
+func (p pageOutcome) line(kit renderKit) (string, bool) {
+	switch {
+	case p.err != nil:
+		return kit.failureLine(p.err), true
+	case p.name != "":
+		return kit.marks.done + " opened " + p.name, true
+	default:
+		return "", false
+	}
+}
+
+// opening is the list told how a page opened, which takes the place of a
+// log's failure, never of a log still being read.
+func (c checkList) opening(page pageOutcome) checkList {
+	c.page = page
+	if !c.log.Out() {
+		c.log = c.log.Cleared()
+	}
+
+	return c
 }
 
 // footer offers moving through the checks and opening one, and reading the
@@ -152,8 +208,7 @@ func (c checkList) step(m Model, delta int) Model {
 func (c checkList) open(m Model) (Model, tea.Cmd) {
 	check, _ := c.checks.chosen()
 	if check.URL == "" {
-		c.err, c.outcome = errNoCheckPage, ""
-		m.overlay = c
+		m.overlay = c.opening(pageOutcome{name: check.Name, err: errNoCheckPage})
 
 		return m, nil
 	}
@@ -182,13 +237,7 @@ func (msg checkOpened) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if msg.err != nil {
-		list.err, list.outcome = msg.err, ""
-	} else {
-		list.err, list.outcome = nil, m.marks.done+" opened "+msg.name
-	}
-
-	return m.withAnswered(list), nil
+	return m.withAnswered(list.opening(pageOutcome{name: msg.name, err: msg.err})), nil
 }
 
 // failedChecks are the review's failed checks under its CI line: the stage
@@ -219,18 +268,21 @@ func (s reviewState) failedChecks(kit renderKit) []string {
 
 // readLog asks the forge for the selected check's log, or says the forge
 // keeps none for it, on the key alone, never as CI is polled. Either way a
-// log asked for before shows nothing.
+// log asked for before shows nothing, nor does a page opened before. A log
+// the forge keeps none of is a read answered at once with forge.ErrNoLog.
 func (c checkList) readLog(m Model) (Model, tea.Cmd) {
 	check, _ := c.checks.chosen()
+	reading, round := c.log.Begin()
+	c.page = pageOutcome{}
+
 	if !check.LogAvailable || m.deps.Forge.JobLog == nil {
-		c.err, c.outcome, c.log = forge.ErrNoLog, "", c.log.Cleared()
+		c.log, _ = reading.Answered(round, forge.JobLog{}, forge.ErrNoLog)
 		m.overlay = c
 
 		return m, nil
 	}
 
-	reading, round := c.log.Begin()
-	c.log, c.err, c.outcome = reading, nil, "reading the log"+m.marks.ellipsis
+	c.log = reading
 	m.overlay = c
 	ctx, read, opened := m.session, m.deps.Forge.JobLog, c.opened
 
@@ -267,13 +319,14 @@ func (msg logRead) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
+	list.log = answered
 	if msg.err != nil {
-		list.err, list.outcome, list.log = msg.err, "", answered
-
 		return m.withAnswered(list), nil
 	}
 
-	list.outcome, list.log = "", answered
+	// The log takes the list's place, so a page opened while it was read is
+	// not told again once the log is closed.
+	list.page = pageOutcome{}
 	m.overlay = jobLogView{check: msg.check, log: msg.log, back: list}
 
 	return m, nil
