@@ -77,7 +77,7 @@ func (s setting) cycled(value string, step int) string {
 // and hints: the token's hint from the configuration read, and a row for each
 // entry of a collection as the form holds it.
 func (f settingsForm) settings() []setting {
-	return slices.Concat(jiraSettings(f.noun, f.values, f.value), messagingSettings(), forgeSettings(),
+	return slices.Concat(jiraSettings(f.noun, f.values(), f.value), messagingSettings(), forgeSettings(),
 		commitSettings(), branchSettings(f.value), pullRequestSettings(f.noun), storeAndTaskwarriorSettings(),
 		timingSettings(), terminalSettings(), keyboardSettings(f.actions))
 }

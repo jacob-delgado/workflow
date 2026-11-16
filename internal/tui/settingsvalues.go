@@ -55,7 +55,7 @@ func (f settingsForm) editedText(field setting) string {
 // edited is the configuration as read with the edits laid over it, held to
 // the standard a file on disk is.
 func (f settingsForm) edited() (config.Config, error) {
-	values := maps.Clone(f.values)
+	values := maps.Clone(f.values())
 
 	for path, value := range f.edits {
 		section, name, _ := strings.Cut(path, ".")

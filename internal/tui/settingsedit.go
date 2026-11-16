@@ -181,7 +181,7 @@ func (f settingsForm) shownEntry(field setting) string {
 	case field.list.actions != nil && value == "":
 		return field.list.defaultKey(field.entry) + " (default)"
 	case field.list.secret:
-		read := field.list.entries(valueAt(f.values, field.path))
+		read := field.list.entries(valueAt(f.values(), field.path))
 		if slices.Contains(read, entry{name: field.entry, value: value}) {
 			return value
 		}
@@ -300,7 +300,7 @@ func (f settingsForm) isEdited(field setting) bool {
 		return edited
 	}
 
-	return f.entryState(field, f.value(field.path)) != f.entryState(field, valueAt(f.values, field.path))
+	return f.entryState(field, f.value(field.path)) != f.entryState(field, valueAt(f.values(), field.path))
 }
 
 // entryState is an entry as a value of its collection holds it: its value,
@@ -368,7 +368,7 @@ func (f settingsForm) with(field setting, value any) settingsForm {
 	f.edits[field.path] = value
 	f.refusals = f.refusals.without(field.path)
 
-	if field.holds(value, valueAt(f.values, field.path)) {
+	if field.holds(value, valueAt(f.values(), field.path)) {
 		delete(f.edits, field.path)
 	}
 
