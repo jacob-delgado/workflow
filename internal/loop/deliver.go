@@ -27,6 +27,9 @@ var (
 	// claim: unclaimed, a post could go out twice, so none went. It wraps the
 	// store's error.
 	ErrNotClaimed = errors.New("the announcement could not be claimed, so it was not posted")
+	// errClaimGone is a claim met that was given up before it could be
+	// read, which ErrNotClaimed wraps when a delivery does not claim again.
+	errClaimGone = errors.New("the claim it met was given up before it could be read")
 	// ErrAnnouncedAlready refuses to post an announcement another session or
 	// process claimed first: it was posted, or a post of it began.
 	ErrAnnouncedAlready = errors.New("the announcement was already made")
@@ -73,6 +76,9 @@ const (
 	// ClaimNotKept is no claim, from a store that keeps nothing: the post
 	// goes unguarded.
 	ClaimNotKept
+	// ClaimGone is a claim another held that was given up before it could
+	// be read: Deliver claims once more, Redeliver does not.
+	ClaimGone
 )
 
 // Claim is what a claim on an announcement came to, and the claim as it
@@ -294,22 +300,26 @@ func (AnnouncedAlreadyError) Unwrap() error {
 // claim, then the post, then its confirmation. The gate refusing is a
 // GateRefusalError, and nothing is claimed. A claim the store cannot take,
 // or answers as a kind none of these know, is ErrNotClaimed, and one another
-// took is an AnnouncedAlreadyError; neither posts. A post the service surely
-// did not deliver gives up its claim and is ErrNotDelivered; one that may
-// have gone out keeps it and is ErrPostUncertain. Once it has gone out, the
-// groups it tagged are recorded, and the claim confirmed, whether or not ctx
-// has ended since; a claim not confirmed is ErrUnconfirmed, a post made all
-// the same. A store that keeps nothing claims nothing, so the post goes
-// unguarded and a failed one is the service's own error. Beside the error,
-// which says why in words, it names how the delivery went.
+// took is an AnnouncedAlreadyError; neither posts. A claim met that another
+// gave up before it could be read is claimed once more, and met again is
+// ErrNotClaimed. A post the service surely did not deliver gives up its claim
+// and is ErrNotDelivered; one that may have gone out keeps it and is
+// ErrPostUncertain. Once it has gone out, the groups it tagged are recorded,
+// and the claim confirmed, whether or not ctx has ended since; a claim not
+// confirmed is ErrUnconfirmed, a post made all the same. A store that keeps
+// nothing claims nothing, so the post goes unguarded and a failed one is the
+// service's own error. Beside the error, which says why in words, it names
+// how the delivery went.
 func Deliver(ctx context.Context, seams DeliverSeams, memory AnnounceMemory, delivery Delivery) (Delivered, error) {
-	return deliver(ctx, seams, memory, delivery, memory.claim)
+	return deliver(ctx, seams, memory, delivery, claimingOnceMore(memory.claim))
 }
 
 // Redeliver posts the delivery again, as asked, as Deliver does, claiming it
 // again only if its claim is still at generation seen, so of two sessions
 // asking again at once, one posts. A claim another took meanwhile is an
-// AnnouncedAlreadyError.
+// AnnouncedAlreadyError, and one given up before it could be read is
+// ErrNotClaimed: compared by its generation alone, a claim asked for again a
+// second time could take over a fresh one.
 func Redeliver(
 	ctx context.Context, seams DeliverSeams, memory AnnounceMemory, delivery Delivery, seen int,
 ) (Delivered, error) {
@@ -343,6 +353,10 @@ func deliver(
 	how := postingOn(taken.Kind)
 	if how == postingElsewhere {
 		return DeliveredElsewhere, AnnouncedAlreadyError{Held: taken.recordOf(made)}
+	}
+
+	if how == postingAgain {
+		return DeliveredNotClaimed, fmt.Errorf("%w: %w", ErrNotClaimed, errClaimGone)
 	}
 
 	if !how.posts() {

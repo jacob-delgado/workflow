@@ -33,6 +33,11 @@ const (
 	// disabled, read-only, or without a repository to key it by: the post
 	// goes unguarded.
 	ClaimNotKept
+	// ClaimGone is a claim another held, met as this caller asked, and given
+	// up before it could be read, as a post surely not delivered or a
+	// db-clean leaves it: no one holds it now, so a first claim may be asked
+	// for once more.
+	ClaimGone
 )
 
 // Claim is what a claim on an announcement came to, and the claim as it
@@ -63,8 +68,9 @@ func notKept() Claim {
 
 // ClaimAnnounce claims announce in repo before it is posted, so that of every
 // session and process asking at once exactly one takes it: ClaimTaken at
-// generation one, or ClaimHeld with the claim as another left it. A store that
-// keeps nothing answers ClaimNotKept.
+// generation one, or ClaimHeld with the claim as another left it, or
+// ClaimGone where that claim was given up before it could be read. A store
+// that keeps nothing answers ClaimNotKept.
 func (s Store) ClaimAnnounce(ctx context.Context, repo string, announce Announce, now time.Time) (Claim, error) {
 	if s.writesNothing() || repo == "" {
 		return notKept(), nil
@@ -83,7 +89,8 @@ func (s Store) ClaimAnnounce(ctx context.Context, repo string, announce Announce
 // only if its claim is still at generation seen: ClaimTaken at the next
 // generation, its confirmed post, if any, left as it was, or ClaimHeld when
 // another reclaimed it first. A claim gone, as a db-clean leaves it, is
-// claimed afresh. A store that keeps nothing answers ClaimNotKept.
+// claimed afresh, as ClaimAnnounce claims it, ClaimGone included. A store
+// that keeps nothing answers ClaimNotKept.
 func (s Store) ReclaimAnnounce(
 	ctx context.Context, repo string, announce Announce, seen int, now time.Time,
 ) (Claim, error) {
@@ -229,11 +236,11 @@ func claimIn(ctx context.Context, database *sql.DB, repo string, announce Announ
 }
 
 // heldIn is the claim another took on announce, as it stands. One given up
-// since the claim met it reads as held all the same, its generation unknown:
-// erring toward not posting, the caller does not post it this time.
+// since the claim met it is ClaimGone: no one holds it now, and the caller
+// decides whether to ask for it once more.
 func heldIn(ctx context.Context, database *sql.DB, repo string, announce Announce) (Claim, error) {
 	var (
-		held      = Claim{Kind: ClaimHeld, Generation: 0, ClaimedAt: time.Time{}, Posted: false}
+		held      = Claim{Kind: ClaimGone, Generation: 0, ClaimedAt: time.Time{}, Posted: false}
 		claimedAt string
 	)
 
@@ -249,7 +256,7 @@ func heldIn(ctx context.Context, database *sql.DB, repo string, announce Announc
 		return Claim{}, fmt.Errorf("reading the claim held: %w", err)
 	}
 
-	held.ClaimedAt = parsedTime(claimedAt)
+	held.Kind, held.ClaimedAt = ClaimHeld, parsedTime(claimedAt)
 
 	return held, nil
 }

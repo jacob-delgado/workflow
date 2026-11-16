@@ -138,6 +138,7 @@ func claimOf(claim store.Claim) loop.Claim {
 		store.ClaimHeld:    loop.ClaimHeld,
 		store.ClaimTaken:   loop.ClaimTaken,
 		store.ClaimNotKept: loop.ClaimNotKept,
+		store.ClaimGone:    loop.ClaimGone,
 	}
 
 	return loop.Claim{
