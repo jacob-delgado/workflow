@@ -150,12 +150,13 @@ func ciFinishNotice(cfg config.Config, deps Deps, awaited bool, now forge.CIStat
 // as the program runs. An announcement waiting for CI reads it on a beat of
 // its own.
 func (m Model) keepPolling(then tea.Cmd) (Model, tea.Cmd) {
-	if !m.review.ciToCome(m.deps.now()) || m.review.polling {
+	polls, chain, scheduled := m.polls.scheduled()
+	if !m.review.ciToCome(m.deps.now()) || !scheduled {
 		return m, then
 	}
 
-	m.review.polling = true
-	poll := ciPoll{review: m.reviewsBegun}
+	m.polls = polls
+	poll := ciPoll{chain: chain}
 
 	wait := pollInterval(m.cfg.UI, m.deps)
 
@@ -206,10 +207,59 @@ func pollInterval(ui config.UI, deps Deps) time.Duration {
 	return deps.ciInterval()
 }
 
-// ciPoll is time to ask about CI again, for the review it was scheduled in,
-// counted among the reviews begun. A poll from a review since replaced is stale.
+// pollStage is where CI's poll chain stands: no poll waiting, or one
+// scheduled on its timer.
+type pollStage int
+
+const (
+	// pollIdle has no poll waiting: the next read that finds CI still to
+	// come schedules one.
+	pollIdle pollStage = iota
+	// pollScheduled has a poll waiting on its timer, so a read answering
+	// meanwhile, a refresh's, schedules no second one.
+	pollScheduled
+)
+
+// pollChain is CI's poll chain: whether a poll waits, and the chain, which
+// each review begins again, its polls carry back. A poll scheduled for a
+// review since replaced ends its chain rather than polling beside the new
+// one's. CI's round would not do: a read begun while a poll waits, a
+// refresh's, would drop the poll before it let the chain go on.
+type pollChain struct {
+	stage pollStage
+	chain int
+}
+
+// begun is the chain a new review polls on: nothing waiting, and a chain no
+// poll scheduled before carries.
+func (p pollChain) begun() pollChain {
+	return pollChain{stage: pollIdle, chain: p.chain + 1}
+}
+
+// scheduled is the chain with a poll scheduled, the chain that poll
+// carries, and true; while one already waits, it is unchanged and false.
+func (p pollChain) scheduled() (pollChain, int, bool) {
+	if p.stage == pollScheduled {
+		return p, p.chain, false
+	}
+
+	return pollChain{stage: pollScheduled, chain: p.chain}, p.chain, true
+}
+
+// fired is the chain once the poll that carries chain fires: idle, and
+// true. A poll of a chain since begun again changes nothing: false.
+func (p pollChain) fired(chain int) (pollChain, bool) {
+	if chain != p.chain {
+		return p, false
+	}
+
+	return pollChain{stage: pollIdle, chain: p.chain}, true
+}
+
+// ciPoll is time to ask about CI again, on the poll chain it was scheduled
+// in. A poll of a chain a new review has begun again since is stale.
 type ciPoll struct {
-	review int
+	chain int
 }
 
 var _ applier = ciPoll{}
@@ -217,11 +267,12 @@ var _ applier = ciPoll{}
 // apply asks again, unless it belongs to a review that has since been replaced,
 // in which case it does nothing and its chain ends here.
 func (msg ciPoll) apply(m Model) (Model, tea.Cmd) {
-	if msg.review != m.reviewsBegun {
+	polls, fired := m.polls.fired(msg.chain)
+	if !fired {
 		return m, nil
 	}
 
-	m.review.polling = false
+	m.polls = polls
 
 	return m.checkCI()
 }

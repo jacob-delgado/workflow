@@ -28,8 +28,7 @@ type reviewState struct {
 	checkedAt time.Time
 	// quiet is how long the pull request's head has reported no check, as
 	// the reads heard count it: a merge under no CI waits on it.
-	quiet   armed.HeadWatch
-	polling bool
+	quiet armed.HeadWatch
 	// opened is when this session opened the pull request; zero for one it
 	// found.
 	opened time.Time
@@ -51,10 +50,10 @@ type pullFind struct {
 }
 
 // beginReview replaces the review with one of the pull request find holds —
-// another, or none — and counts it begun, so a poll scheduled for the one
-// replaced ends its chain. Every new review goes through here.
+// another, or none — and begins CI's poll chain again, so a poll scheduled
+// for the one replaced ends its chain. Every new review goes through here.
 func (m Model) beginReview(find latest.Read[pullFind]) Model {
-	m.reviewsBegun++
+	m.polls = m.polls.begun()
 	m.review = reviewState{find: find, ci: m.review.ci.Cleared()}
 
 	return m
