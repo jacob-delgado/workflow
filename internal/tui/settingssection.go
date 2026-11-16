@@ -47,7 +47,7 @@ var _ applier = settingsEditDone{}
 // replaced keeps nothing.
 func (msg settingsEditDone) apply(m Model) (Model, tea.Cmd) {
 	form, open := m.overlay.(settingsForm)
-	if !open || form.edit == nil || form.edit.form != msg.form {
+	if !open || form.edit.form != msg.form {
 		return m, nil
 	}
 
@@ -63,7 +63,8 @@ func (f settingsForm) keptEdit(err error) settingsForm {
 		f, err = f.edit.keep(f)
 	}
 
-	f.edit, f.problem = nil, err
+	f = f.onRows()
+	f.problem = err
 
 	return f
 }
@@ -76,7 +77,7 @@ func (f settingsForm) startEditing(m Model) (Model, tea.Cmd) {
 
 	// Its start asks for a size it is already given and for titles drawn
 	// from functions none of its fields has: it has no use for either.
-	f.edit = &settingsEdit{keep: keep}
+	f = f.editing(settingsEdit{keep: keep})
 	width, rows := f.editSize(m)
 	form, _ := newHuhForm(m.kit(), huhKeys(m.keys, settingsKeep), width, rows, groups...)
 
@@ -88,6 +89,33 @@ func (f settingsForm) startEditing(m Model) (Model, tea.Cmd) {
 	m.overlay = f
 
 	return m, m.startForm(form, nil, func(err error) tea.Msg { return settingsEditDone{form: form, err: err} })
+}
+
+// pasted types a paste into the field being edited, as typing it would. On
+// the rows it does nothing, and a save is sent only from the rows, which take
+// no key while it is out, so a paste while saving does nothing too.
+func (f settingsForm) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
+	return f.relay(m, paste)
+}
+
+// resized fits the form open over the rows, while one is, to the pane at the
+// screen's new size.
+func (f settingsForm) resized(m Model) (Model, tea.Cmd) {
+	if f.stage == settingsRows {
+		return m, nil
+	}
+
+	return m, f.fitEdit(m)
+}
+
+// relay hands a message to the form open over the rows, while one is, and
+// fits it again to the rows a refusal it now says leaves it.
+func (f settingsForm) relay(m Model, msg tea.Msg) (Model, tea.Cmd) {
+	if f.stage == settingsRows {
+		return m, nil
+	}
+
+	return m, tea.Batch(relayToForm(f.edit.form, msg), f.fitEdit(m))
 }
 
 // groupsFor are the groups a row's form asks, and how what they are
@@ -281,7 +309,7 @@ func capitalized(word string) string {
 func (f settingsForm) editKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, m.keys.closeOverlay):
-		f.edit, f.problem = nil, nil
+		f, f.problem = f.onRows(), nil
 	case key.Matches(msg, m.keys.saveSettings):
 		kept, err := f.edit.keep(f)
 		if err != nil {
@@ -291,7 +319,7 @@ func (f settingsForm) editKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			return m, f.fitEdit(m)
 		}
 
-		f, f.edit = kept, nil
+		f = kept.onRows()
 	default:
 		f.problem = nil
 		m.overlay = f

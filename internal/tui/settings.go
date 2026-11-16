@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/tui/latest"
+	"github.com/jacob-delgado/workflow/internal/tui/send"
 )
 
 // The refusals Settings says in its own words.
@@ -60,8 +61,10 @@ type settingsForm struct {
 	// edits are the values changed since the read, by setting path.
 	edits    map[string]any
 	selected int
-	// edit is the form open over the rows, nil while none is.
-	edit    *settingsEdit
+	// stage is whether the rows are shown, or a form open over them, edit,
+	// which means something only while it is.
+	stage   settingsStage
+	edit    settingsEdit
 	problem error
 	// refusals are why settings were refused, each said under its row, and
 	// at the foot while a form open over the rows hides them, until that
@@ -71,16 +74,17 @@ type settingsForm struct {
 	// refused removal adds its marks to every mark before, its reason in place
 	// of one already on a setting it names.
 	refusals settingRefusals
-	send     sendState
+	// send is the save's write, and a refused removal's, whose refusal is
+	// said under the rows, all but what is marked on a row of its own.
+	send send.State
 	// said is what the last removal did, until the next key.
 	said string
 }
 
 var (
-	_ failable[settingsForm] = settingsForm{}
-	_ opened                 = settingsForm{}
-	_ pasteable              = settingsForm{}
-	_ relaying               = settingsForm{}
+	_ sender[settingsForm] = settingsForm{}
+	_ pasteable            = settingsForm{}
+	_ relaying             = settingsForm{}
 )
 
 // canEditSettings reports that the configuration files can be read.
@@ -176,7 +180,7 @@ func (f settingsForm) view(kit renderKit, width, rows int) (string, string) {
 // how a save is going; or the form open over them.
 func (f settingsForm) drawn(kit renderKit, width, rows int) string {
 	head, foot := f.head(width), splitLines(f.footLines(kit, width)...)
-	if f.edit != nil {
+	if f.stage == settingsEditing {
 		return strings.Join(slices.Concat(head, []string{"", f.edit.form.View()}, foot), "\n")
 	}
 
@@ -203,11 +207,11 @@ func splitLines(texts ...string) []string {
 func (f settingsForm) footLines(kit renderKit, width int) []string {
 	lines := []string{""}
 
-	if hint := f.current().hint; hint != "" && f.edit == nil {
+	if hint := f.current().hint; hint != "" && f.stage == settingsRows {
 		lines = append(lines, wrap(hint, width))
 	}
 
-	if f.edit != nil {
+	if f.stage == settingsEditing {
 		lines = append(lines, f.standingLines(kit, width)...)
 	}
 
@@ -219,7 +223,7 @@ func (f settingsForm) footLines(kit renderKit, width int) []string {
 		lines = append(lines, "", wrap(f.said, width))
 	}
 
-	return append(lines, kit.pinnedOutcome(f.send, "saving", width)...)
+	return append(lines, kit.pinnedSend(f.send, "saving", width)...)
 }
 
 // rows draws the settings in as many lines as fit, each section headed,
@@ -278,53 +282,15 @@ func (f settingsForm) current() setting {
 	return f.fields[f.selected]
 }
 
-// failed marks each setting a save's refused write names on its row, and pins
-// what is left of the refusal in the form, so it is read before anything else.
-func (f settingsForm) failed(err error) settingsForm {
-	marked, unmarked := f.markedByWrite(err)
-	marked.send = marked.send.failed(unmarked)
-
-	return marked
-}
-
-// pasted types a paste into the field being edited, as typing it would.
-func (f settingsForm) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
-	if f.send.sending {
-		return m, nil
-	}
-
-	return f.relay(m, paste)
-}
-
-// resized fits the form open over the rows, while one is, to the pane at the
-// screen's new size.
-func (f settingsForm) resized(m Model) (Model, tea.Cmd) {
-	if f.edit == nil {
-		return m, nil
-	}
-
-	return m, f.fitEdit(m)
-}
-
-// relay hands a message to the form open over the rows, while one is, and
-// fits it again to the rows a refusal it now says leaves it.
-func (f settingsForm) relay(m Model, msg tea.Msg) (Model, tea.Cmd) {
-	if f.edit == nil {
-		return m, nil
-	}
-
-	return m, tea.Batch(relayToForm(f.edit.form, msg), f.fitEdit(m))
-}
-
 // footer offers what Settings can do now: what the open form's field
 // answers, keeping what it holds, and backing out of it; otherwise what the
 // read leaves: close while it is out, try again once it failed, and the
 // rows' keys once it is shown.
 func (f settingsForm) footer(keys keyMap) []key.Binding {
 	switch {
-	case f.send.sending:
+	case f.send.Stage() == send.StageInFlight:
 		return []key.Binding{keys.interrupt}
-	case f.edit != nil:
+	case f.stage == settingsEditing:
 		return append(formKeys(f.edit.form), relabel(keys.saveSettings, settingsKeep), relabel(keys.closeOverlay, escBack))
 	}
 
@@ -350,7 +316,7 @@ func (f settingsForm) rowKeys(keys keyMap) []key.Binding {
 	}
 
 	offered = append(offered, keys.saveSettings)
-	if errors.Is(f.send.err, errSettingsChanged) {
+	if errors.Is(f.send.Reason(), errSettingsChanged) {
 		offered = append(offered, relabel(keys.refresh, "reload"))
 	}
 
@@ -365,9 +331,9 @@ func (f settingsForm) rowKeys(keys keyMap) []key.Binding {
 // handleKey answers a key while Settings has the keyboard.
 func (f settingsForm) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case f.send.sending:
+	case f.send.Stage() == send.StageInFlight:
 		return m, nil
-	case f.edit != nil:
+	case f.stage == settingsEditing:
 		return f.editKey(m, msg)
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
@@ -377,7 +343,7 @@ func (f settingsForm) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	f.problem, f.send, f.said = nil, sendState{}, ""
+	f.problem, f.send, f.said = nil, f.send.Cleared(), ""
 
 	return f.acted(m, msg)
 }
@@ -385,7 +351,7 @@ func (f settingsForm) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // readAgain reports that r reads the configuration again: once its read
 // failed, or a save was refused for a file changed since.
 func (f settingsForm) readAgain() bool {
-	return f.read.Stage() == latest.StageFailed || errors.Is(f.send.err, errSettingsChanged)
+	return f.read.Stage() == latest.StageFailed || errors.Is(f.send.Reason(), errSettingsChanged)
 }
 
 // acted answers a key on the rows: save or remove write, enter opens the
@@ -450,14 +416,15 @@ func (f settingsForm) save(m Model) (Model, tea.Cmd) {
 		return m.closeOverlay().noticed("dry run: would save " + shownDir(m.deps, f.path)), nil
 	}
 
-	f.problem, f.refusals, f.send = nil, settingRefusals{}, starting()
+	f.problem, f.refusals = nil, settingRefusals{}
+	f.send, _ = f.send.Sent()
 	m.overlay = f
-	ctx, write, over, path := m.session, m.deps.Settings.Save, f.over, f.path
+	ctx, write, over, path, opened := m.session, m.deps.Settings.Save, f.over, f.path, f.opened
 
 	return m, func() tea.Msg {
 		_, _, err := write(ctx, cfg, nil, over)
 
-		return settingsSaved{path: path, err: err}
+		return settingsSaved{opened: opened, path: path, err: err}
 	}
 }
 
@@ -502,19 +469,25 @@ func savedRefusal(err error) error {
 	}
 }
 
-// settingsSaved is the configuration saved, or why it was not.
+// settingsSaved is the configuration saved, or why it was not, for the form
+// opened in round opened.
 type settingsSaved struct {
-	path string
-	err  error
+	opened int
+	path   string
+	err    error
 }
 
 var _ applier = settingsSaved{}
 
-// apply closes Settings and reopens workflow with what it saved, or keeps it
-// open with the refusal: a file changed since the read offers a reload.
+// apply closes Settings and reopens workflow with what it saved, or keeps the
+// form that saved open with the refusal: a file changed since the read offers
+// a reload. A late answer, its form no longer the one open, changes nothing;
+// none arrives, since the form takes no key but ctrl+c, which quits, while
+// its save is out.
 func (msg settingsSaved) apply(m Model) (Model, tea.Cmd) {
-	if msg.err != nil {
-		return keepOpenWith[settingsForm](m, savedRefusal(msg.err)), nil
+	m, _, done := answered[settingsForm](m, msg.opened, savedRefusal(msg.err))
+	if !done {
+		return m, nil
 	}
 
 	return m.reopenWith(reopening{path: msg.path})

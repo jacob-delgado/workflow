@@ -15,6 +15,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 	"github.com/jacob-delgado/workflow/internal/seams"
+	"github.com/jacob-delgado/workflow/internal/tui/send"
 )
 
 // The refusals adding an entry says in its own words.
@@ -31,6 +32,60 @@ const entryName = "name"
 // rebindNotAllowed is the one action ui.keys cannot move: its keys are the pane
 // numbers, which no one key can stand in for, and CheckKeys refuses it.
 const rebindNotAllowed = actionJumpToPane
+
+// settingsStage is what Settings shows once its configuration is read: its
+// rows, or a form open over them.
+type settingsStage int
+
+const (
+	// settingsRows shows the settings, a row each, the cursor on one.
+	settingsRows settingsStage = iota
+	// settingsEditing has a form open over the rows: a section's settings, an
+	// entry's value, or a new entry.
+	settingsEditing
+)
+
+// editing is Settings with edit open over its rows.
+func (f settingsForm) editing(edit settingsEdit) settingsForm {
+	f.stage, f.edit = settingsEditing, edit
+
+	return f
+}
+
+// onRows is Settings back on its rows, with no form open over them.
+func (f settingsForm) onRows() settingsForm {
+	f.stage, f.edit = settingsRows, settingsEdit{}
+
+	return f
+}
+
+// sent is the save's write.
+func (f settingsForm) sent() send.State { return f.send }
+
+// withSend is Settings with its save's write as state. A refused write marks
+// each setting it names on its row, in place of every mark before, and holds
+// what is left to say of the refusal, said under the rows.
+func (f settingsForm) withSend(state send.State) settingsForm {
+	if state.Stage() != send.StageRefused {
+		f.send = state
+
+		return f
+	}
+
+	marked, unmarked := f.markedByWrite(state.Reason())
+	marked.send = refusedFor(unmarked)
+
+	return marked
+}
+
+// refusedFor is a write refused for what is left to say of its refusal once
+// each setting it names is marked on its row: idle when nothing is.
+func refusedFor(unmarked error) send.State {
+	out, _ := send.State{}.Sent()
+	refused, _ := out.Answered(unmarked)
+
+	return refused
+}
 
 // collection is a setting that is a list of named entries: the Jira views, a
 // list of objects; or a map — the headers, the branch prefixes, the keys. Each

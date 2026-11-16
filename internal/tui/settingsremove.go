@@ -158,7 +158,7 @@ func (f settingsForm) readWithout(removal credentialRemoval) (config.Config, err
 // refused save's is.
 func (f settingsForm) removalFailed(err error) settingsForm {
 	marked, unmarked := f.markedByRemoval(err)
-	marked.send = marked.send.failed(unmarked)
+	marked.send = refusedFor(unmarked)
 
 	return marked
 }
