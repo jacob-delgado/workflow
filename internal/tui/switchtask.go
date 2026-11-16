@@ -273,14 +273,14 @@ func (l branchLister) issueKeys(names []string, links map[string]string) []jira.
 
 // view draws the switcher in as many rows as fit: reading the branches, why
 // they could not be listed, or them.
-func (p branchPicker) view(kit renderKit, _, rows int) (string, string) {
+func (p branchPicker) view(kit renderKit, width, rows int) (string, string) {
 	header := []string{"Switch to another task's branch.", ""}
 	space := rows - len(header)
 	failed := func() []string { return []string{kit.failureLine(p.listing.Err())} }
 
 	body := drawRead(p.listing, drawnRead[[]string]{
 		reading:    func() []string { return []string{"reading the branches" + kit.marks.ellipsis} },
-		shown:      func() []string { return p.listed(kit, space) },
+		shown:      func() []string { return p.listed(kit, width, space) },
 		failed:     failed,
 		failedOver: failed,
 	})
@@ -288,11 +288,11 @@ func (p branchPicker) view(kit renderKit, _, rows int) (string, string) {
 	return switchTitle, strings.Join(slices.Concat(header, body), "\n")
 }
 
-// listed draws the branches listed in space rows, under the note saying the
-// tracker could not be asked which are yours when it could not: that there
-// is none to switch to, or them, with how switching to the chosen one is
-// going.
-func (p branchPicker) listed(kit renderKit, space int) []string {
+// listed draws the branches listed in space rows, width columns wide, under
+// the note saying the tracker could not be asked which are yours when it
+// could not: that there is none to switch to, or them, with how switching to
+// the chosen one is going.
+func (p branchPicker) listed(kit renderKit, width, space int) []string {
 	found, _ := p.listing.Value()
 	lines := notAskedNote(kit, found.notAsked)
 	branches := p.branches()
@@ -301,11 +301,11 @@ func (p branchPicker) listed(kit renderKit, space int) []string {
 		return append(lines, "No other task branch to switch to.")
 	}
 
-	lines = append(lines, branches.rows(kit.marks, space-len(lines)-outcomeRows, func(branch taskBranch) string {
-		return branchLabel(kit.marks, branch)
-	})...)
+	outcome := p.outcome(kit, width)
+	lines = append(lines, branches.rows(kit.marks, space-len(lines)-max(outcomeRows, len(outcome)),
+		func(branch taskBranch) string { return branchLabel(kit.marks, branch) })...)
 
-	return append(lines, p.outcome(kit)...)
+	return append(lines, outcome...)
 }
 
 // branches is the branches listed, none until they are, with the chosen one.
@@ -359,18 +359,14 @@ func branchLabel(marks glyphs, branch taskBranch) string {
 }
 
 // outcome says how switching is going, if it was tried, or why the branch
-// chosen cannot be switched to.
-func (p branchPicker) outcome(kit renderKit) []string {
-	switch {
-	case p.send.InFlight():
+// chosen cannot be switched to. A refusal is wrapped rather than cut, as
+// the task line's is, so git's own words are all seen.
+func (p branchPicker) outcome(kit renderKit, width int) []string {
+	if p.send.InFlight() {
 		return []string{"", "switching" + kit.marks.ellipsis}
-	case p.problem != nil:
-		return []string{"", kit.failureLine(p.problem)}
-	case p.send.Reason() != nil:
-		return []string{"", kit.failureLine(p.send.Reason())}
-	default:
-		return nil
 	}
+
+	return kit.refusalOrProblem(p.send.Reason(), p.problem, width)
 }
 
 // footer offers what works in the switcher now. A switch in flight only offers

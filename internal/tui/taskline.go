@@ -126,16 +126,7 @@ func (l taskLine) outcome(kit renderKit, width int) []string {
 		return []string{"", "sending" + kit.marks.ellipsis}
 	}
 
-	reason := l.send.Reason()
-	if reason != nil {
-		return []string{"", wrap(kit.failureLine(reason), width)}
-	}
-
-	if l.problem != nil {
-		return []string{"", kit.failureLine(l.problem)}
-	}
-
-	return nil
+	return kit.refusalOrProblem(l.send.Reason(), l.problem, width)
 }
 
 // footer offers sending or canceling; while sending, only quitting.
