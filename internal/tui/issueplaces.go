@@ -105,24 +105,24 @@ func listIssueBranches(ctx context.Context, cfg config.Config, deps Deps, round 
 	}
 }
 
-// withTaskWords is the model with the list told how each issue's tasks stand,
-// as the tasks held have it once a read has found them, so the places filter
-// by what the rows show.
-func (m Model) withTaskWords() Model {
-	var words map[jira.Key]string
+// withTaskStandings is the model with the list told how each issue's tasks
+// stand, as the tasks held have it once a read has found them, so the places
+// filter by what the rows show.
+func (m Model) withTaskStandings() Model {
+	var standings map[jira.Key]places.TaskStanding
 
 	if m.tasks.holdsList() {
-		words = map[jira.Key]string{}
+		standings = map[jira.Key]places.TaskStanding{}
 		now := m.deps.now()
 
 		for _, task := range m.tasks.linked() {
 			issueKey := jira.Key(task.IssueKey)
-			words[issueKey] = m.tasks.issueWord(m.kit(), issueKey, now)
+			standings[issueKey] = m.tasks.standing(issueKey, now)
 		}
 	}
 
 	m.issues = m.issues.keepingSelection(func(l issueList) issueList {
-		l.taskWords = words
+		l.taskStandings = standings
 
 		return l
 	})
@@ -136,7 +136,7 @@ func (l issueList) marksOf(issueKey jira.Key) []string {
 	keys, _ := l.branchKeys()
 
 	return places.Standing{
-		InFlight: keys[issueKey], Task: l.taskWords[issueKey], Forge: isForgeKey(issueKey),
+		InFlight: keys[issueKey], Task: l.taskStandings[issueKey], Forge: isForgeKey(issueKey),
 	}.Marks()
 }
 

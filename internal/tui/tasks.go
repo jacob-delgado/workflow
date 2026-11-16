@@ -192,7 +192,7 @@ func (msg tasksLoaded) apply(m Model) (Model, tea.Cmd) {
 
 	// Marks that changed can move the selection off an issue the list no longer
 	// admits, onto one whose detail is not read yet.
-	return m.withTaskWords().followDetail()
+	return m.withTaskStandings().followDetail()
 }
 
 // readingTasks begins a read of Taskwarrior, superseding any still out, and
@@ -297,34 +297,28 @@ func (s tasksState) issueMarks(kit renderKit, now time.Time) func(jira.Key) stri
 
 // issueMark is an issue's task state by shape: nothing (·), tracked (○) while a
 // linked task is still to do, active (◐), or every linked task completed (●).
+// A map, so exhaustive keeps it complete.
 func (s tasksState) issueMark(kit renderKit, issueKey jira.Key, now time.Time) string {
-	glyph, _ := s.standing(kit, issueKey, now)
-
-	return glyph
+	return map[places.TaskStanding]string{
+		places.TaskNone: kit.marks.unknown, places.TaskActiveNow: kit.marks.inFlight,
+		places.TaskTracked: kit.marks.notStarted, places.TaskDoneOnly: kit.marks.done,
+	}[s.standing(issueKey, now)]
 }
 
-// issueWord is an issue's task state in the words its place goes by, or empty
-// with no task linked to it.
-func (s tasksState) issueWord(kit renderKit, issueKey jira.Key, now time.Time) string {
-	_, word := s.standing(kit, issueKey, now)
-
-	return word
-}
-
-// standing is how an issue's linked tasks stand at now, by shape and in words:
-// a started task that waits is still to do, as the Tasks list shows it.
-func (s tasksState) standing(kit renderKit, issueKey jira.Key, now time.Time) (string, string) {
+// standing is how an issue's linked tasks stand at now: a started task that
+// waits is still to do, as the Tasks list shows it.
+func (s tasksState) standing(issueKey jira.Key, now time.Time) places.TaskStanding {
 	linked := s.linkedTo(issueKey)
 
 	switch {
 	case slices.ContainsFunc(linked, startedAt(now)):
-		return kit.marks.inFlight, places.TaskActive
+		return places.TaskActiveNow
 	case slices.ContainsFunc(linked, stillToDo):
-		return kit.marks.notStarted, places.Tracked
+		return places.TaskTracked
 	case len(linked) > 0:
-		return kit.marks.done, places.TaskDone
+		return places.TaskDoneOnly
 	default:
-		return kit.marks.unknown, ""
+		return places.TaskNone
 	}
 }
 

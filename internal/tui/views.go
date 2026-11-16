@@ -28,7 +28,7 @@ func (m Model) nextIssueView() (Model, tea.Cmd) {
 
 	previous := m.issues
 	m.issues = issueList{
-		read: previous.read.Cleared(), branches: previous.branches, taskWords: previous.taskWords,
+		read: previous.read.Cleared(), branches: previous.branches, taskStandings: previous.taskStandings,
 	}
 
 	m, search := m.relistingIssues()

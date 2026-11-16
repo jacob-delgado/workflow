@@ -39,11 +39,11 @@ type issueList struct {
 	// text, over what is already loaded, as it is typed and once it is kept.
 	search listsearch.Typed
 	// places narrows the list to the issues in them; branches, which issues
-	// a branch names as the latest listing found them, and taskWords are what
-	// an issue's marks are read from.
-	places    []places.Place
-	branches  latest.Read[map[jira.Key]bool]
-	taskWords map[jira.Key]string
+	// a branch names as the latest listing found them, and taskStandings,
+	// how each issue's tasks stand, are what an issue's marks are read from.
+	places        []places.Place
+	branches      latest.Read[map[jira.Key]bool]
+	taskStandings map[jira.Key]places.TaskStanding
 }
 
 // found is the list held: what the latest search found, or the cache that
