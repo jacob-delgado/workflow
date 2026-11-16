@@ -13,10 +13,12 @@ import (
 
 // asking is the composer asking stage's form, on its field focusing, and the
 // command that starts it: drawn in the composer or, with accessible forms on,
-// handed to the prompts.
+// handed to the prompts. Only prAskingWhere asks where the pull request goes;
+// any other stage gets the form asking what it says, hidden while the stage
+// is a reading one, so a caller passes prAskingWhere or prAskingWhat.
 func (c prComposer) asking(m Model, stage prStage, focusing int) (Model, tea.Cmd) {
 	fields := c.whatFields()
-	if stage == prWhere {
+	if stage == prAskingWhere {
 		fields = c.whereFields()
 	}
 
@@ -29,7 +31,7 @@ func (c prComposer) asking(m Model, stage prStage, focusing int) (Model, tea.Cmd
 		form.NextField()
 	}
 
-	c.stage, c.form, c.fields = stage, form, fields
+	c.flow, c.form, c.fields = c.flow.asking(stage), form, fields
 	m.overlay = c
 
 	return m, m.startForm(form, nil, func(err error) tea.Msg { return prAnswered{form: form, err: err} })
@@ -110,7 +112,7 @@ func (msg prAnswered) apply(m Model) (Model, tea.Cmd) {
 // says, reading the branch again first onto a base chosen; and what it says
 // to opening it.
 func (c prComposer) answered(m Model) (Model, tea.Cmd) {
-	if c.stage == prWhat {
+	if c.flow.stage == prAskingWhat {
 		return c.open(m)
 	}
 
@@ -120,11 +122,118 @@ func (c prComposer) answered(m Model) (Model, tea.Cmd) {
 
 	onto := readBranchOnto(m.session, m.deps, c)
 	if onto == nil {
-		return c.asking(m, prWhat, 0)
+		return c.asking(m, prAskingWhat, 0)
 	}
 
-	c.stage, c.awaiting.onto = prReading, true
+	c.flow = c.flow.readingOnto()
 	m.overlay = c
 
 	return m, onto
+}
+
+// prStage is where the pull request composer is: reading what it starts
+// from, asking where the pull request goes, reading the branch again onto
+// the base chosen there, or asking what it says.
+type prStage int
+
+const (
+	prReadingStarts prStage = iota
+	prAskingWhere
+	prReadingOnto
+	prAskingWhat
+)
+
+// prRead is a read the composer waits on before a form opens, a bit of its
+// own, so the reads pending are a set: the templates and remote branches,
+// the issue's title, the code owners, and the branch read again onto a base
+// chosen.
+type prRead uint8
+
+const (
+	prReadStarts prRead = 1 << iota
+	prReadTitle
+	prReadReviewers
+	prReadOnto
+)
+
+// awaited is read when cmd reads it, and no read when there is no command.
+func awaited(cmd tea.Cmd, read prRead) prRead {
+	if cmd == nil {
+		return 0
+	}
+
+	return read
+}
+
+// prNext is what the composer does once a read answers: wait on the reads
+// still pending, ask where the pull request goes, or ask what it says.
+type prNext int
+
+const (
+	prWaits prNext = iota
+	prAsksWhere
+	prAsksWhat
+)
+
+// prFlow is where the composer is and the reads it waits on there. A form
+// opens only once none is pending, so nothing a read finds changes a field
+// under the cursor.
+type prFlow struct {
+	stage   prStage
+	pending prRead
+}
+
+// readingStarts is the flow of a composer just opened, reading what it
+// starts from: the reads pending.
+func readingStarts(pending prRead) prFlow {
+	return prFlow{stage: prReadingStarts, pending: pending}
+}
+
+// reading reports a stage that reads before a form asks, whose mark turns
+// as it waits.
+func (f prFlow) reading() bool {
+	return map[prStage]bool{
+		prReadingStarts: true, prAskingWhere: false, prReadingOnto: true, prAskingWhat: false,
+	}[f.stage]
+}
+
+// next is what the composer does now: wait while a read is pending, and
+// otherwise ask what its reading stage leads to, where the pull request goes
+// after what it starts from and what it says after the branch onto the base.
+// A form already asking asks nothing anew.
+func (f prFlow) next() prNext {
+	if f.pending != 0 {
+		return prWaits
+	}
+
+	return map[prStage]prNext{
+		prReadingStarts: prAsksWhere, prAskingWhere: prWaits, prReadingOnto: prAsksWhat, prAskingWhat: prWaits,
+	}[f.stage]
+}
+
+// answered is the flow with read no longer pending.
+func (f prFlow) answered(read prRead) prFlow {
+	f.pending &^= read
+
+	return f
+}
+
+// awaiting is the flow waiting on read as well.
+func (f prFlow) awaiting(read prRead) prFlow {
+	f.pending |= read
+
+	return f
+}
+
+// readingOnto is the flow reading the branch again onto the base the form
+// asking where it goes was answered with.
+func (f prFlow) readingOnto() prFlow {
+	return prFlow{stage: prReadingOnto, pending: f.pending | prReadOnto}
+}
+
+// asking is the flow with stage's form open.
+func (f prFlow) asking(stage prStage) prFlow {
+	f.stage = stage
+
+	return f
 }

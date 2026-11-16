@@ -258,7 +258,7 @@ Impact: low · Effort: large
 
 **Today.** Drafts survive `esc` (the commit, `commitComposer.handleKey`,
 `internal/tui/composer.go:282`; the pull request, `prComposer.handleKey`,
-`internal/tui/prcomposer.go:303`), a dirty tree blocks a switch instead of
+`internal/tui/prcomposer.go:279`), a dirty tree blocks a switch instead of
 stashing (`loop.ErrDirtyTree`, `internal/loop/guards.go:18`), and quit is
 guarded while an announcement waits (`quitGuard`,
 `internal/tui/messagingheld.go`). But a posted comment, an applied

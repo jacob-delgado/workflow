@@ -37,16 +37,6 @@ var (
 	errNoBase  = errors.New("a base branch to merge into is required")
 )
 
-// prStage is where the pull request composer is: reading what it starts
-// from, asking where the pull request goes, or asking what it says.
-type prStage int
-
-const (
-	prReading prStage = iota
-	prWhere
-	prWhat
-)
-
 // prAnswers is what the composer's forms are answered with, each bound to its
 // Huh field. Every copy of the composer shares it, as they share the form.
 type prAnswers struct {
@@ -60,27 +50,15 @@ func (a prAnswers) text() [4]string {
 	return [4]string{a.title, a.reviewers, a.assignees, a.labels}
 }
 
-// prAwaiting is the reads the composer waits on before its form opens: the
-// templates and remote branches, the issue's title, the code owners, and the
-// branch read again onto a base chosen.
-type prAwaiting struct {
-	starts, title, reviewers, onto bool
-}
-
-// ready reports every read answered.
-func (a prAwaiting) ready() bool {
-	return !a.starts && !a.title && !a.reviewers && !a.onto
-}
-
 // prComposer is a pull request about to be opened, started from the branch's
 // commits and the repository's template, all of it editable: once what it
 // starts from is read, a Huh form asks where it goes, the base and the
 // template, and then another what it says, the title, whether it is a draft,
 // and who reviews it. The body is handed to the editor.
 type prComposer struct {
-	stage    prStage
-	awaiting prAwaiting
-	form     *huh.Form
+	// flow is where the composer is, and the reads it waits on there.
+	flow prFlow
+	form *huh.Form
 	// fields are the open form's fields, in order: previous-field on the
 	// first of what it says goes back to the form before.
 	fields    []huh.Field
@@ -150,7 +128,8 @@ func (m Model) openPullRequestComposer() (Model, tea.Cmd) {
 	}
 
 	starts := readPullRequestStarts(m.session, m.deps, proposed.opened)
-	proposed.awaiting = prAwaiting{starts: starts != nil, title: title != nil, reviewers: reviewers != nil}
+	proposed.flow = readingStarts(awaited(starts, prReadStarts) | awaited(title, prReadTitle) |
+		awaited(reviewers, prReadReviewers))
 
 	m, opening := proposed.settled(m)
 
@@ -193,18 +172,15 @@ func (c prComposer) withTemplate(index int) prComposer {
 // reading while any is out, and otherwise asking, where it goes on the way
 // in and what it says once a base is chosen.
 func (c prComposer) settled(m Model) (Model, tea.Cmd) {
-	switch {
-	case !c.awaiting.ready():
-		c.stage = prReading
-	case c.stage == prReading && c.form != nil:
-		return c.asking(m, prWhat, 0)
-	case c.stage == prReading:
-		return c.asking(m, prWhere, 0)
-	}
+	return map[prNext]func() (Model, tea.Cmd){
+		prWaits: func() (Model, tea.Cmd) {
+			m.overlay = c
 
-	m.overlay = c
-
-	return m, nil
+			return m, nil
+		},
+		prAsksWhere: func() (Model, tea.Cmd) { return c.asking(m, prAskingWhere, 0) },
+		prAsksWhat:  func() (Model, tea.Cmd) { return c.asking(m, prAskingWhat, 0) },
+	}[c.flow.next()]()
 }
 
 // view shows every part of the pull request as it will be opened: the form
@@ -212,7 +188,7 @@ func (c prComposer) settled(m Model) (Model, tea.Cmd) {
 func (c prComposer) view(kit renderKit, width, _ int) (string, string) {
 	lines := kit.pinnedOutcome(c.send, "opening", width)
 
-	if c.stage == prReading {
+	if c.flow.reading() {
 		lines = append(lines, kit.turned+" reading what the "+c.vocab.noun+" starts from"+kit.marks.ellipsis)
 	} else {
 		lines = append(lines, c.form.View())
@@ -257,7 +233,7 @@ func (c prComposer) templateName(kit renderKit) string {
 // waits reports the composer reading what it starts from, whose mark turns
 // as it waits.
 func (c prComposer) waits() bool {
-	return c.stage == prReading
+	return c.flow.reading()
 }
 
 // footer offers what the field with the keyboard answers, the composer's own
@@ -266,12 +242,12 @@ func (c prComposer) footer(keys keyMap) []key.Binding {
 	switch {
 	case c.send.sending:
 		return []key.Binding{keys.interrupt}
-	case c.stage == prReading:
+	case c.flow.reading():
 		return []key.Binding{relabel(keys.closeOverlay, escClose)}
 	}
 
 	bindings := formKeys(c.form)
-	if c.stage == prWhat && c.focused() == 0 {
+	if c.flow.stage == prAskingWhat && c.focused() == 0 {
 		bindings = append(bindings, relabel(keys.prevField, escBack))
 	}
 
@@ -280,7 +256,7 @@ func (c prComposer) footer(keys keyMap) []key.Binding {
 	}
 
 	onward := "open"
-	if c.stage == prWhere {
+	if c.flow.stage == prAskingWhere {
 		onward = "next"
 	}
 
@@ -308,7 +284,7 @@ func (c prComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		m.prDrafts = m.prDrafts.keeping(c.snapshot())
 
 		return m.closeOverlay().noticedDraftKept(m.keys.newPullRequest), nil
-	case c.stage == prReading:
+	case c.flow.reading():
 		return m, nil
 	case key.Matches(msg, m.keys.editBody):
 		m.overlay = c
@@ -331,13 +307,13 @@ func (c prComposer) formKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.nextTemplate) && c.offersTemplate():
 		c = c.withTemplate(around(c.answers.template, len(c.templates)).next())
 
-		return c.asking(m, c.stage, c.focused())
+		return c.asking(m, c.flow.stage, c.focused())
 	case key.Matches(msg, m.keys.toggleDraft):
 		c.answers.draft = !c.answers.draft
 
-		return c.asking(m, c.stage, c.focused())
-	case c.stage == prWhat && key.Matches(msg, m.keys.prevField) && c.focused() == 0:
-		return c.asking(m, prWhere, 0)
+		return c.asking(m, c.flow.stage, c.focused())
+	case c.flow.stage == prAskingWhat && key.Matches(msg, m.keys.prevField) && c.focused() == 0:
+		return c.asking(m, prAskingWhere, 0)
 	}
 
 	m.overlay = c
@@ -392,7 +368,7 @@ func (c prComposer) openedAs() int { return c.opened }
 
 // pasted types a paste into the field with focus, as typing it would.
 func (c prComposer) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
-	if c.send.sending || c.stage == prReading {
+	if c.send.sending || c.flow.reading() {
 		return m, nil
 	}
 
@@ -419,8 +395,8 @@ func (c prComposer) applyEdit(m Model, text string, err error) (Model, tea.Cmd) 
 	}
 
 	c.body, c.edited = text, true
-	if c.stage == prWhere && c.choosesTemplate() {
-		return c.asking(m, prWhere, 0)
+	if c.flow.stage == prAskingWhere && c.choosesTemplate() {
+		return c.asking(m, prAskingWhere, 0)
 	}
 
 	return m.withAnswered(c), nil
