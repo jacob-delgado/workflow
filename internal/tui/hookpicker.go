@@ -13,6 +13,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/proc"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
+	"github.com/jacob-delgado/workflow/internal/tui/latest"
 )
 
 // hookPickerTitle titles the pane while the hook picker is open.
@@ -27,11 +28,11 @@ const preCommit = "pre-commit"
 // what git hands each. The hooks are read each time it opens, so it always
 // shows the configuration as it is now.
 type hookPicker struct {
-	opened  int
+	opened int
+	// listing is the hooks lefthook configures, read once as the picker
+	// opens; hooks is the choice among those a run by hand can stand in for.
+	listing latest.Read[hooks.Configured]
 	hooks   pickList[string]
-	gitOnly []hooks.GitOnly
-	listErr error
-	settled bool
 }
 
 var (
@@ -73,7 +74,9 @@ func (msg hooksListed) apply(m Model) (Model, tea.Cmd) {
 
 	runnable := msg.configured.Runnable
 	picker.hooks = pickList[string]{items: runnable, selected: max(0, slices.Index(runnable, preCommit))}
-	picker.gitOnly, picker.listErr, picker.settled = msg.configured.GitOnly, msg.err, true
+	// The picker reads its hooks once, as it opens, before it could begin a
+	// round: the listing is round 0's.
+	picker.listing, _ = picker.listing.Answered(0, msg.configured, msg.err)
 
 	return m.withAnswered(picker), nil
 }
@@ -84,26 +87,40 @@ func (p hookPicker) header() []string {
 	return []string{"Run which hook, without committing or pushing?", ""}
 }
 
-// view draws the hooks to choose from in as many rows as fit, then those only
-// git runs, or says why there is nothing to choose.
+// view draws the hooks as the listing stands: reading them, why they could
+// not be read, or them.
 func (p hookPicker) view(kit renderKit, width, rows int) (string, string) {
-	var lines []string
-
-	switch {
-	case !p.settled:
-		lines = []string{"reading lefthook's configuration" + kit.marks.ellipsis}
-	case p.listErr != nil:
-		lines = []string{kit.failureBlock(p.listErr, width)}
-	case len(p.hooks.items) == 0 && len(p.gitOnly) == 0:
-		lines = []string{"lefthook configures no hook here."}
-	case len(p.hooks.items) == 0:
-		lines = append([]string{"None of lefthook's hooks here can be run by hand."}, p.gitOnlyLines(kit, width)...)
-	default:
-		lines = append(p.header(), p.hooks.rows(kit.marks, p.listRows(kit, width, rows), sanitize.Line)...)
-		lines = append(lines, p.gitOnlyLines(kit, width)...)
-	}
+	failed := func() []string { return []string{kit.failureBlock(p.listing.Err(), width)} }
+	lines := drawRead(p.listing, drawnRead[[]string]{
+		reading:    func() []string { return []string{"reading lefthook's configuration" + kit.marks.ellipsis} },
+		shown:      func() []string { return p.listed(kit, width, rows) },
+		failed:     failed,
+		failedOver: failed,
+	})
 
 	return hookPickerTitle, strings.Join(lines, "\n")
+}
+
+// listed draws the hooks to choose from in as many rows as fit, then those
+// only git runs, or says why there is nothing to choose.
+func (p hookPicker) listed(kit renderKit, width, rows int) []string {
+	switch {
+	case len(p.hooks.items) == 0 && len(p.gitOnly()) == 0:
+		return []string{"lefthook configures no hook here."}
+	case len(p.hooks.items) == 0:
+		return append([]string{"None of lefthook's hooks here can be run by hand."}, p.gitOnlyLines(kit, width)...)
+	default:
+		lines := append(p.header(), p.hooks.rows(kit.marks, p.listRows(kit, width, rows), sanitize.Line)...)
+
+		return append(lines, p.gitOnlyLines(kit, width)...)
+	}
+}
+
+// gitOnly is the hooks only git runs, as listed; none until they are.
+func (p hookPicker) gitOnly() []hooks.GitOnly {
+	configured, _ := p.listing.Value()
+
+	return configured.GitOnly
 }
 
 // listRows is how many rows the hooks to choose from have: what the header
@@ -119,13 +136,14 @@ const gitOnlyIndent = "  "
 // gitOnlyLines lists the hooks only git runs, each with what git hands it,
 // under a blank and a heading; nothing when there are none.
 func (p hookPicker) gitOnlyLines(kit renderKit, width int) []string {
-	if len(p.gitOnly) == 0 {
+	gitOnly := p.gitOnly()
+	if len(gitOnly) == 0 {
 		return nil
 	}
 
 	lines := []string{"", "Only git runs these:"}
 
-	for _, hook := range p.gitOnly {
+	for _, hook := range gitOnly {
 		said := wrap(sanitize.Line(hook.Name)+kit.marks.separator+hook.Reason, width-len(gitOnlyIndent))
 		for index, line := range strings.Split(said, "\n") {
 			if index > 0 {
