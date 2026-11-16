@@ -4,6 +4,8 @@
 package tui
 
 import (
+	"errors"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -19,6 +21,9 @@ import (
 
 // ciCheckedFormat stamps the CI line with when it was last read.
 const ciCheckedFormat = "15:04"
+
+// errNothingToRerun reports a failure the forge has no re-runnable job for.
+var errNothingToRerun = errors.New("nothing to re-run: this failure has no job to restart")
 
 // checkCI begins a read of CI, superseding any still out, and is the
 // command that asks how CI stands on the pull request; with no forge to
@@ -340,4 +345,123 @@ func (s reviewState) checkedAtSuffix(kit renderKit) string {
 	}
 
 	return kit.marks.separator + "checked " + s.checkedAt.Format(ciCheckedFormat)
+}
+
+// canRerun reports a failed pull request whose checks can be re-run. A pull
+// request that has merged is left alone even if a stale CI read still reads as
+// failed: there is nothing to re-run once it is in.
+func (s reviewState) canRerun(deps Deps) bool {
+	return s.found() && deps.Forge.Rerun != nil && s.ci.Stage() == latest.StageShown && loop.CanRerun(s.pull(), s.listed())
+}
+
+// previewRerun holds the re-run of the failed checks for a last look, naming the
+// pull request it restarts CI on: a forge write, which goes only once confirmed.
+func (m Model) previewRerun() (Model, tea.Cmd) {
+	if !m.review.canRerun(m.deps) {
+		return m, nil
+	}
+
+	pull, head := m.review.pull(), m.branch.checkedOut().Head
+	m.overlay = lastLook{
+		title: "Re-run checks",
+		body:  "Re-run the failed checks on " + m.vocab.sigil + strconv.Itoa(pull.Number) + " " + pull.Title + "?",
+		verb:  "re-run", doing: "re-running",
+		proceed: func(m Model) (Model, tea.Cmd) { return m.rerunChecks(pull, head) },
+	}
+
+	return m, nil
+}
+
+// rerunChecks asks the forge to re-run the failed CI on the pull request the
+// look named, the look open and in flight until the forge answers.
+func (m Model) rerunChecks(pull forge.PullRequest, head string) (Model, tea.Cmd) {
+	if m.dryRun {
+		return m.closeOverlay().noticed("dry run: would re-run the failed checks"), nil
+	}
+
+	ctx, rerun, chain := m.session, m.deps.Forge.Rerun, m.polls.chain
+
+	return m.sendingLook(func(round int) tea.Msg {
+		reran, err := rerun(ctx, pull, head)
+
+		return rerunRequested{round: round, chain: chain, pull: pull.Number, reran: reran, err: err}
+	})
+}
+
+// rerunRequested is the outcome of asking the forge to re-run the failed
+// checks of the pull request numbered pull, for the look that sent it in
+// round, on the review whose poll chain was chain.
+type rerunRequested struct {
+	round, chain, pull int
+	reran              bool
+	err                error
+}
+
+var _ applier = rerunRequested{}
+
+// apply returns the pane to "running" and restarts the poll once a re-run has
+// started, or says nothing could be re-run — a failure the forge has no
+// re-runnable job for, so the pane must not claim one — closing the look either
+// way. A refusal stays pinned in the look, and says why in the notice. A
+// review since replaced, by another pull request found or none, is left as
+// it is, the re-run being of CI it no longer shows; the notice says which
+// pull request's checks were re-run.
+func (msg rerunRequested) apply(m Model) (Model, tea.Cmd) {
+	// The look that asked is the one answered; nothing else is touched.
+	m = m.answerLook(msg.round, msg.err)
+	if msg.err != nil {
+		return m.noticedFailureLedBy("re-run failed: ", msg.err), nil
+	}
+
+	if !msg.reran {
+		return m.noticedFailure(errNothingToRerun), nil
+	}
+
+	if msg.chain != m.polls.chain {
+		return m.noticed(m.marks.done + " re-ran the failed checks on " + m.vocab.sigil + strconv.Itoa(msg.pull)), nil
+	}
+
+	// Told, not read: a read begun before the re-run would list the failure
+	// re-run, and is dropped.
+	m.review.reran, m.review.reranAt = failedRuns(m.review.listed()), m.deps.now()
+	m.review.ci = m.review.ci.Told(forge.CI{State: forge.CIRunning})
+
+	// The re-run has only just started, so a check now would still read the old
+	// failure; let the poll the set-to-running schedules read it once it moves.
+	return m.keepPolling(nil)
+}
+
+// failedRuns are the ids of CI's failed checks that a re-run re-runs: the
+// forge's own runs and jobs, whose logs it serves. A status reported by
+// something else has no run to re-run, and fails on as it did.
+func failedRuns(ci forge.CI) []string {
+	var ids []string
+
+	for _, check := range ci.Checks {
+		if check.State == forge.CIFailed && check.LogAvailable {
+			ids = append(ids, check.ID)
+		}
+	}
+
+	return ids
+}
+
+// rerunPatience is how long a re-run is waited for while a read still lists a
+// run it was asked for: the forge starts one within seconds, and a failed run
+// it leaves alone — a job of a run still going, or one allowed to fail — would
+// otherwise keep CI running for as long as the head stands.
+const rerunPatience = time.Minute
+
+// awaitingRerun reports a read of CI, made at now within rerunPatience of the
+// re-run, that still lists, failed, a run the re-run was asked for: each run
+// re-run is listed under an id of its own once the forge starts it, so the
+// read is of the failure re-run, not of the re-run.
+func (s reviewState) awaitingRerun(ci forge.CI, now time.Time) bool {
+	if now.Sub(s.reranAt) >= rerunPatience {
+		return false
+	}
+
+	return slices.ContainsFunc(ci.Checks, func(check forge.Check) bool {
+		return check.State == forge.CIFailed && slices.Contains(s.reran, check.ID)
+	})
 }
