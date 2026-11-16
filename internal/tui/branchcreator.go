@@ -195,7 +195,7 @@ func (c branchCreator) start() string {
 // footer offers creating the branch or not, and switching between a branch here
 // and a worktree beside the repository where that is possible.
 func (c branchCreator) footer(keys keyMap) []key.Binding {
-	if c.send.Stage() == send.StageInFlight {
+	if c.send.InFlight() {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -229,7 +229,7 @@ func (c branchCreator) worktreeToggleLabel() string {
 // name, so a name git would refuse says so before enter is pressed.
 func (c branchCreator) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case c.send.Stage() == send.StageInFlight:
+	case c.send.InFlight():
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
@@ -303,7 +303,7 @@ func (c branchCreator) sentAt(step creatorStep) branchCreator {
 
 // pasted types a paste into the branch name, which is checked as typing is.
 func (c branchCreator) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
-	if c.send.Stage() == send.StageInFlight {
+	if c.send.InFlight() {
 		return m, nil
 	}
 

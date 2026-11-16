@@ -192,7 +192,7 @@ func (kit renderKit) pinnedProblem(problem error, width int) []string {
 // instead of clipped below the fold: the in-flight word while it is out, the
 // refusal once refused, and nothing while idle, which has no reason to draw.
 func (kit renderKit) pinnedSend(state send.State, doing string, width int) []string {
-	if state.Stage() == send.StageInFlight {
+	if state.InFlight() {
 		return []string{doing + kit.marks.ellipsis, ""}
 	}
 

@@ -122,7 +122,7 @@ func (l taskLine) view(kit renderKit, width, _ int) (string, string) {
 // outcome says how sending is going, or why the line was not sent. A
 // refusal is wrapped rather than cut, so Taskwarrior's own words are all seen.
 func (l taskLine) outcome(kit renderKit, width int) []string {
-	if l.send.Stage() == send.StageInFlight {
+	if l.send.InFlight() {
 		return []string{"", "sending" + kit.marks.ellipsis}
 	}
 
@@ -140,7 +140,7 @@ func (l taskLine) outcome(kit renderKit, width int) []string {
 
 // footer offers sending or canceling; while sending, only quitting.
 func (l taskLine) footer(keys keyMap) []key.Binding {
-	if l.send.Stage() == send.StageInFlight {
+	if l.send.InFlight() {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -150,7 +150,7 @@ func (l taskLine) footer(keys keyMap) []key.Binding {
 // handleKey answers a key while the line has the keyboard.
 func (l taskLine) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case l.send.Stage() == send.StageInFlight:
+	case l.send.InFlight():
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
@@ -183,7 +183,7 @@ func (l taskLine) withSend(state send.State) taskLine {
 
 // pasted types a paste into the line, as typing it would.
 func (l taskLine) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
-	if l.send.Stage() == send.StageInFlight {
+	if l.send.InFlight() {
 		return m, nil
 	}
 

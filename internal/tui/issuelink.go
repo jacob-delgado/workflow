@@ -79,7 +79,7 @@ func (l issueLinker) view(kit renderKit, width, _ int) (string, string) {
 
 // footer offers linking the pull request or skipping it.
 func (l issueLinker) footer(keys keyMap) []key.Binding {
-	if l.send.Stage() == send.StageInFlight {
+	if l.send.InFlight() {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -89,7 +89,7 @@ func (l issueLinker) footer(keys keyMap) []key.Binding {
 // handleKey links the pull request, or skips it, leaving it open in review.
 func (l issueLinker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case l.send.Stage() == send.StageInFlight:
+	case l.send.InFlight():
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.offerReviewStatus(l.issueKey)

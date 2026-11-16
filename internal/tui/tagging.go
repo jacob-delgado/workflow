@@ -248,7 +248,7 @@ func (s tagSection) missingScope() string {
 // savingLine says an owner link is being saved, while one is; a link key
 // waits for it.
 func (s tagSection) savingLine(kit renderKit) []string {
-	if s.link.Stage() != send.StageInFlight {
+	if !s.link.InFlight() {
 		return nil
 	}
 
@@ -398,7 +398,7 @@ func (s tagSection) keys(keys keyMap) []key.Binding {
 
 	var bindings []key.Binding
 
-	if _, onOwner := s.selectedOwner(); onOwner && s.canLink && s.link.Stage() != send.StageInFlight {
+	if _, onOwner := s.selectedOwner(); onOwner && s.canLink && !s.link.InFlight() {
 		bindings = append(bindings, keys.linkToSlack, keys.notOnSlack)
 	}
 

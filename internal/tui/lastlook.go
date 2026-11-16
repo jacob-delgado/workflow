@@ -119,7 +119,7 @@ func (m Model) refusedHere(problem error) Model {
 // footer offers going ahead or backing out, and nothing while the act is in
 // flight.
 func (l lastLook) footer(keys keyMap) []key.Binding {
-	if l.send.Stage() == send.StageInFlight {
+	if l.send.InFlight() {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -129,7 +129,7 @@ func (l lastLook) footer(keys keyMap) []key.Binding {
 // handleKey answers a key while the act waits for its last look.
 func (l lastLook) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case l.send.Stage() == send.StageInFlight:
+	case l.send.InFlight():
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		m.overlay = l.back

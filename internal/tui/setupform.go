@@ -219,7 +219,7 @@ func (f setupForm) waits() bool {
 // footer offers what the form asking now answers, or the last look's write.
 func (f setupForm) footer(keys keyMap) []key.Binding {
 	switch {
-	case f.send.Stage() == send.StageInFlight || f.stage == stageChecking:
+	case f.send.InFlight() || f.stage == stageChecking:
 		return []key.Binding{keys.interrupt}
 	case f.stage == stageWrite:
 		return []key.Binding{relabel(keys.confirm, "write"), relabel(keys.closeOverlay, escBack)}
@@ -267,7 +267,7 @@ func (f setupForm) resized(m Model) (Model, tea.Cmd) {
 // previous-field goes back to the question before, as esc does.
 func (f setupForm) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case f.stage == stageChecking || f.send.Stage() == send.StageInFlight:
+	case f.stage == stageChecking || f.send.InFlight():
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return f.back(m)

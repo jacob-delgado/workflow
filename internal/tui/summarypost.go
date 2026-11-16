@@ -93,7 +93,7 @@ func (p summaryPost) view(kit renderKit, width, _ int) (string, string) {
 // footer offers posting, changing the channel where there is a choice,
 // editing, or leaving.
 func (p summaryPost) footer(keys keyMap) []key.Binding {
-	if p.send.Stage() == send.StageInFlight {
+	if p.send.InFlight() {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -108,7 +108,7 @@ func (p summaryPost) footer(keys keyMap) []key.Binding {
 // handleKey answers a key while the Summary is previewed.
 func (p summaryPost) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case p.send.Stage() == send.StageInFlight:
+	case p.send.InFlight():
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil

@@ -137,7 +137,7 @@ func (o hookgenOffer) view(kit renderKit, width, _ int) (string, string) {
 
 // footer offers writing it, writing every hook as a script, or not.
 func (o hookgenOffer) footer(keys keyMap) []key.Binding {
-	if o.send.Stage() == send.StageInFlight {
+	if o.send.InFlight() {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -147,7 +147,7 @@ func (o hookgenOffer) footer(keys keyMap) []key.Binding {
 // handleKey answers a key while the offer is open.
 func (o hookgenOffer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case o.send.Stage() == send.StageInFlight:
+	case o.send.InFlight():
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil

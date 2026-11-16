@@ -212,13 +212,12 @@ internal/tui/*.go`, tests excluded, and the same for each helper, less
 what `failure.go` itself holds — each helper's definition, the `Model`
 wrappers and the calls one helper makes into another there
 (`failureBlocks`', `pinnedSend`'s and `pinnedProblem`'s `failureBlock`,
-`noticedFailure`'s `noticedFailureLedBy`); `grep -n
-'send\.Stage() == send\.StageInFlight' internal/tui/*.go` for the
-overlays that guard a send, keeping the types whose key handler returns
-on it (the directory picker's `look` is not named `send`, so the grep
-misses it, as the count means to); and the `builder.bind(` and
-`builder.bindShown(` calls in `internal/tui/keys.go` and
-`internal/tui/panekeys.go` for the help.
+`noticedFailure`'s `noticedFailureLedBy`); `grep -n 'send\.InFlight()'
+internal/tui/*.go` for the overlays that guard a send, keeping the types
+whose key handler returns on it (the directory picker's `look` is not
+named `send`, so the grep misses it, as the count means to); and the
+`builder.bind(` and `builder.bindShown(` calls in `internal/tui/keys.go`
+and `internal/tui/panekeys.go` for the help.
 
 ## The command line
 

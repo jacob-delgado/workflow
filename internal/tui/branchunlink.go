@@ -45,7 +45,7 @@ func (u branchUnlinker) view(kit renderKit, width, _ int) (string, string) {
 // footer offers unlinking or closing, and only quitting while an unlink is
 // out.
 func (u branchUnlinker) footer(keys keyMap) []key.Binding {
-	if u.send.Stage() == send.StageInFlight {
+	if u.send.InFlight() {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -55,7 +55,7 @@ func (u branchUnlinker) footer(keys keyMap) []key.Binding {
 // handleKey unlinks the branch or closes the form, and takes no other key.
 func (u branchUnlinker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case u.send.Stage() == send.StageInFlight:
+	case u.send.InFlight():
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil

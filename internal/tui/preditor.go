@@ -80,7 +80,7 @@ func (p prEditor) view(kit renderKit, width, _ int) (string, string) {
 
 // footer offers editing the body, saving, and leaving.
 func (p prEditor) footer(keys keyMap) []key.Binding {
-	if p.send.Stage() == send.StageInFlight {
+	if p.send.InFlight() {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -90,7 +90,7 @@ func (p prEditor) footer(keys keyMap) []key.Binding {
 // handleKey answers a key while the pull request is edited.
 func (p prEditor) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case p.send.Stage() == send.StageInFlight:
+	case p.send.InFlight():
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
@@ -128,7 +128,7 @@ func (p prEditor) withSend(state send.State) prEditor {
 
 // pasted types a paste into the title, as typing it would.
 func (p prEditor) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
-	if p.send.Stage() == send.StageInFlight {
+	if p.send.InFlight() {
 		return m, nil
 	}
 

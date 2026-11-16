@@ -379,7 +379,7 @@ func (m Model) canPost() bool {
 // onItsWay reports a post the service has not answered yet: one asked for
 // now, or the announcement that waited for CI.
 func (s messagingState) onItsWay() bool {
-	return s.postNow.Stage() == send.StageInFlight || s.held.hold.Stage() == armed.StageDue
+	return s.postNow.InFlight() || s.held.hold.Stage() == armed.StageDue
 }
 
 // messagingKeys offers composing the post, and managing whom posts tag.

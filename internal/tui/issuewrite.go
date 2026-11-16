@@ -126,7 +126,7 @@ func (w issueWrite) view(kit renderKit, width, _ int) (string, string) {
 
 // footer offers sending or canceling; while sending, only quitting.
 func (w issueWrite) footer(keys keyMap) []key.Binding {
-	if w.send.Stage() == send.StageInFlight {
+	if w.send.InFlight() {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -136,7 +136,7 @@ func (w issueWrite) footer(keys keyMap) []key.Binding {
 // handleKey answers a key while the form has the keyboard.
 func (w issueWrite) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case w.send.Stage() == send.StageInFlight:
+	case w.send.InFlight():
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
@@ -169,7 +169,7 @@ func (w issueWrite) withSend(state send.State) issueWrite {
 
 // pasted types a paste into the form's one field, as typing it would.
 func (w issueWrite) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
-	if w.send.Stage() == send.StageInFlight {
+	if w.send.InFlight() {
 		return m, nil
 	}
 

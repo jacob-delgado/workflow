@@ -362,7 +362,7 @@ func branchLabel(marks glyphs, branch taskBranch) string {
 // chosen cannot be switched to.
 func (p branchPicker) outcome(kit renderKit) []string {
 	switch {
-	case p.send.Stage() == send.StageInFlight:
+	case p.send.InFlight():
 		return []string{"", "switching" + kit.marks.ellipsis}
 	case p.problem != nil:
 		return []string{"", kit.failureLine(p.problem)}
@@ -376,7 +376,7 @@ func (p branchPicker) outcome(kit renderKit) []string {
 // footer offers what works in the switcher now. A switch in flight only offers
 // quitting, so nothing interrupts it.
 func (p branchPicker) footer(keys keyMap) []key.Binding {
-	if p.send.Stage() == send.StageInFlight {
+	if p.send.InFlight() {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -385,7 +385,7 @@ func (p branchPicker) footer(keys keyMap) []key.Binding {
 
 // handleKey answers a key while the switcher has the keyboard.
 func (p branchPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	if p.send.Stage() == send.StageInFlight {
+	if p.send.InFlight() {
 		return m, nil
 	}
 
@@ -421,7 +421,7 @@ func (p branchPicker) withSend(state send.State) branchPicker {
 // move past either end of the list keeps the same branch and its problem.
 // git's refusal of a switch sent stays until another is sent.
 func (p branchPicker) step(m Model, delta int) Model {
-	if p.send.Stage() == send.StageInFlight {
+	if p.send.InFlight() {
 		return m
 	}
 

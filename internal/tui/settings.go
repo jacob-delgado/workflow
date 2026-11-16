@@ -288,7 +288,7 @@ func (f settingsForm) current() setting {
 // rows' keys once it is shown.
 func (f settingsForm) footer(keys keyMap) []key.Binding {
 	switch {
-	case f.send.Stage() == send.StageInFlight:
+	case f.send.InFlight():
 		return []key.Binding{keys.interrupt}
 	case f.stage == settingsEditing:
 		return append(formKeys(f.edit.form), relabel(keys.saveSettings, settingsKeep), relabel(keys.closeOverlay, escBack))
@@ -331,7 +331,7 @@ func (f settingsForm) rowKeys(keys keyMap) []key.Binding {
 // handleKey answers a key while Settings has the keyboard.
 func (f settingsForm) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case f.send.Stage() == send.StageInFlight:
+	case f.send.InFlight():
 		return m, nil
 	case f.stage == settingsEditing:
 		return f.editKey(m, msg)
