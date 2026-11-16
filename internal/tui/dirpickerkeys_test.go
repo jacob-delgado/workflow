@@ -253,3 +253,16 @@ func TestEnterAndSOnSwitchHereGoToTheSameDirectory(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckingAnotherDestinationClearsTheEarlierRefusal(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	refused := picking(t, truncatedWorld(), srcTyped, keyTab, "j", "s", "j")
+
+	// Act
+	looking, _ := pressed(t, refused, "s")
+
+	// Assert
+	refuseScreen(t, looking.View().Content, "there is no such directory")
+}
