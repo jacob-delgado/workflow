@@ -417,13 +417,18 @@ func (p branchPicker) withSend(state send.State) branchPicker {
 }
 
 // step moves the choice of branch by delta, unless a switch is being sent.
+// Another branch chosen drops why the one before could not be switched to; a
+// move past either end of the list keeps the same branch and its problem.
+// git's refusal of a switch sent stays until another is sent.
 func (p branchPicker) step(m Model, delta int) Model {
 	if p.send.Stage() == send.StageInFlight {
 		return m
 	}
 
-	p.selected = p.branches().moved(delta).selected
-	m.overlay = p
+	if moved := p.branches().moved(delta).selected; moved != p.selected {
+		p.selected, p.problem = moved, nil
+		m.overlay = p
+	}
 
 	return m
 }
