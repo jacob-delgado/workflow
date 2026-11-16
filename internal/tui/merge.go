@@ -15,6 +15,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/armed"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/tui/latest"
+	"github.com/jacob-delgado/workflow/internal/tui/send"
 )
 
 // errNoMergeMethod reports a repository that permits no way to merge.
@@ -88,20 +89,26 @@ func (msg mergeMethodsLoaded) apply(m Model) (Model, tea.Cmd) {
 	return m.withAnswered(picker), nil
 }
 
-// mergeRequested is the outcome of merging a pull request.
+// mergeRequested is the outcome of merging a pull request, for the preview
+// opened in round opened.
 type mergeRequested struct {
-	pull forge.PullRequest
-	err  error
+	opened int
+	pull   forge.PullRequest
+	err    error
 }
 
 var _ applier = mergeRequested{}
 
 // apply reports a merge and refreshes the pane, or keeps the preview open with
-// why the merge was refused, pinned under its title until esc. A merge for the
-// branch's issue offers to complete its task.
+// why the merge was refused, pinned under its title until esc or another
+// merge sent. A merge for the branch's issue offers to complete its task.
+// A late answer, its preview no longer the one open, changes nothing; none
+// arrives, since the preview takes no key but ctrl+c, which quits, while its
+// merge is out.
 func (msg mergeRequested) apply(m Model) (Model, tea.Cmd) {
-	if msg.err != nil {
-		return keepOpenWith[mergePicker](m, msg.err), nil
+	m, _, done := answered[mergePicker](m, msg.opened, msg.err)
+	if !done {
+		return m, nil
 	}
 
 	merged := m.closeOverlay().noticed(m.marks.done + " merged " + m.vocab.sigil + strconv.Itoa(msg.pull.Number))
@@ -110,13 +117,6 @@ func (msg mergeRequested) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	return merged.findingPull()
-}
-
-// failed is the preview kept open with the reason the merge was refused.
-func (p mergePicker) failed(err error) mergePicker {
-	p.send = p.send.failed(err)
-
-	return p
 }
 
 // mergeMethodLabel names a merge method for the preview.
@@ -148,23 +148,25 @@ type mergePicker struct {
 	// selected is which of them is chosen.
 	listing  latest.Read[[]forge.MergeMethod]
 	selected int
-	send     sendState
-	// opened is the round the preview opened in, which its read carries
-	// back, so it fills no preview opened after.
+	// send is the merge, whose refusal stays pinned across a move to
+	// another method, since a forge refuses the pull request more often
+	// than the method, until another merge is sent.
+	send send.State
+	// opened is the round the preview opened in, which its read and its
+	// merge carry back, so they land in no preview opened after.
 	opened int
 }
 
 var (
-	_ failable[mergePicker] = mergePicker{}
-	_ opened                = mergePicker{}
-	_ steppable             = mergePicker{}
+	_ sender[mergePicker] = mergePicker{}
+	_ steppable           = mergePicker{}
 )
 
 // view draws the pull request, that no CI was reported on it where none was,
 // and the methods it may be merged by: reading them, why they could not be
 // read, or them; the merge's outcome pinned under the title.
 func (p mergePicker) view(kit renderKit, width, _ int) (string, string) {
-	lines := kit.pinnedOutcome(p.send, "merging", width)
+	lines := kit.pinnedSend(p.send, "merging", width)
 	name := p.vocab.sigil + strconv.Itoa(p.pull.Number)
 	lines = append(lines, name+" "+p.pull.Title, "")
 
@@ -209,7 +211,7 @@ func (p mergePicker) footer(keys keyMap) []key.Binding {
 	cancel := relabel(keys.closeOverlay, escCancel)
 
 	switch {
-	case p.send.sending:
+	case p.send.Stage() == send.StageInFlight:
 		return []key.Binding{keys.interrupt}
 	case len(p.methods()) == 0:
 		return []key.Binding{cancel}
@@ -222,7 +224,7 @@ func (p mergePicker) footer(keys keyMap) []key.Binding {
 // choose — still being read, or none permitted — only esc does anything.
 func (p mergePicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case p.send.sending:
+	case p.send.Stage() == send.StageInFlight:
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
@@ -245,10 +247,20 @@ func (mergePicker) which() overlayKind { return overlayMergePicker }
 // openedAs is the round the preview opened in.
 func (p mergePicker) openedAs() int { return p.opened }
 
+// sent is the merge's write.
+func (p mergePicker) sent() send.State { return p.send }
+
+// withSend is the preview with its merge's write as state.
+func (p mergePicker) withSend(state send.State) mergePicker {
+	p.send = state
+
+	return p
+}
+
 // step moves the choice of method by delta, held within the methods, so it
 // stays on the first while they are read; nothing moves while a merge is sent.
 func (p mergePicker) step(m Model, delta int) Model {
-	if p.send.sending {
+	if p.send.Stage() == send.StageInFlight {
 		return m
 	}
 
@@ -267,11 +279,11 @@ func (p mergePicker) confirm(m Model) (Model, tea.Cmd) {
 			strconv.Itoa(p.pull.Number) + " by " + mergeMethodLabel(method)), nil
 	}
 
-	p.send = starting()
+	p.send, _ = p.send.Sent()
 	m.overlay = p
-	ctx, pull, merge := m.session, p.pull, m.deps.Forge.Merge
+	ctx, pull, merge, opened := m.session, p.pull, m.deps.Forge.Merge, p.opened
 
 	return m, func() tea.Msg {
-		return mergeRequested{pull: pull, err: merge(ctx, pull, method)}
+		return mergeRequested{opened: opened, pull: pull, err: merge(ctx, pull, method)}
 	}
 }
