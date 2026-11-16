@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -53,6 +54,9 @@ type heldPost struct {
 	hold armed.Hold
 	tags postTags
 	beat int
+	// postscript is what a last look closed as the post stopped waiting
+	// would have said on esc, said after how the post went.
+	postscript string
 }
 
 // armed is the post holding hold, just armed, which tags whom tags say. The
@@ -476,4 +480,19 @@ func messagingBehavior() behavior {
 		scroll:  func(m *Model) *int { return &m.messaging.scroll }, readsBranch: true,
 		answers: []string{"post", "people-and-groups", "stop-waiting", actionRefresh},
 	}
+}
+
+// droppedWords is why the hold was given up on, in brief.
+func (m Model) droppedWords(hold armed.Hold) string {
+	words, waited := m.droppedCause(hold)
+	if !waited {
+		return briefly(hold.Reason())
+	}
+
+	return words
+}
+
+// pullName is pull request number as the forge writes it: #42, or !42.
+func (m Model) pullName(number int) string {
+	return m.vocab.sigil + strconv.Itoa(number)
 }

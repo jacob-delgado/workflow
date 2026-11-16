@@ -11,6 +11,7 @@ import (
 
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/tui/latest"
+	"github.com/jacob-delgado/workflow/internal/tui/notice"
 	"github.com/jacob-delgado/workflow/internal/tui/send"
 )
 
@@ -26,14 +27,19 @@ func (m Model) noticedFailure(err error) Model {
 // "re-run failed: " — for a notice no open overlay names: the footer clips a
 // long sentence, and the lead must survive it.
 func (m Model) noticedFailureLedBy(lead string, err error) Model {
-	row := m.failureRow(lead, err)
-	if loop.NotSetUp(err) {
-		return m.noticed(row)
+	return m.said(m.failureReport(lead, err))
+}
+
+// failureReport is the footer's report of a failure led by lead, as
+// noticedFailureLedBy says it: a failure, or plain guidance for what was
+// never set up.
+func (m Model) failureReport(lead string, err error) footerReport {
+	report := plainReport(m.failureRow(lead, err))
+	if !loop.NotSetUp(err) {
+		report.stage = notice.StageFailure
 	}
 
-	m.notice = m.notice.Failed(row, m.noticeCovered())
-
-	return m
+	return report
 }
 
 // failureRow is the footer's row for a failure led by lead: its mark, the

@@ -97,14 +97,17 @@ func (m Model) noticeLine(width int) string {
 }
 
 // noticeRow is the notice on one row, cut with a mark where it does not fit,
-// and in the failure style when it reports one, as red means everywhere else.
+// and in the failure style when it reports one, as red means everywhere else:
+// the failure alone, not what is said after it.
 func (m Model) noticeRow(width int) string {
-	text := ansi.Truncate(sanitize.Text(m.notice.Text()), max(0, width-1), m.marks.ellipsis)
+	text := sanitize.Text(m.notice.Text())
 	if m.notice.Stage() == notice.StageFailure {
 		text = m.styles.failure.Render(text)
 	}
 
-	return " " + text
+	row := m.oneRow(text + "\n" + sanitize.Text(m.notice.Postscript()))
+
+	return " " + ansi.Truncate(row, max(0, width-1), m.marks.ellipsis)
 }
 
 // railRuleRows is the one shared-rule row each rail pane's box holds above its

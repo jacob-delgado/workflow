@@ -151,3 +151,36 @@ func (kit renderKit) keyRow() help.Model {
 func relabel(binding key.Binding, help string) key.Binding {
 	return key.NewBinding(key.WithKeys(binding.Keys()...), key.WithHelp(binding.Help().Key, help))
 }
+
+// footerReport is a report for the footer's notice row, held as a value until
+// it is said: its row, the stage it reports at, and a plain postscript said
+// after it on the same row. The zero report says nothing.
+type footerReport struct {
+	row        string
+	stage      notice.Stage
+	postscript string
+}
+
+// plainReport is row as a plain report, a result or guidance.
+func plainReport(row string) footerReport {
+	return footerReport{row: row, stage: notice.StagePlain}
+}
+
+// said gives the notice row report as noticed, noticedFailure and
+// noticedUnrepeated give theirs, its postscript after it: a failure's kept
+// apart, so that only the failure is drawn as one.
+func (m Model) said(report footerReport) Model {
+	whole := report.row + "\n" + report.postscript
+
+	// A map, so exhaustive checks that every stage is said its own way.
+	return map[notice.Stage]func() Model{
+		notice.StageNone:  func() Model { return m },
+		notice.StagePlain: func() Model { return m.noticed(whole) },
+		notice.StageFailure: func() Model {
+			m.notice = m.notice.Failed(report.row, report.postscript, m.noticeCovered())
+
+			return m
+		},
+		notice.StageUnrepeated: func() Model { return m.noticedUnrepeated(whole) },
+	}[report.stage]()
+}

@@ -46,7 +46,7 @@ func failure(t *testing.T) notice.Footer {
 
 // failed is footer reporting text as a failure on a row no search covers.
 func failed(footer notice.Footer, text string) notice.Footer {
-	return footer.Failed(text, uncovered)
+	return footer.Failed(text, "", uncovered)
 }
 
 // unrepeated is a Footer showing "not kept", which no pane repeats.

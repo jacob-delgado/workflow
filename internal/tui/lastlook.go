@@ -35,7 +35,11 @@ type lastLook struct {
 	// back is the overlay esc goes back to, nil where it closes the look.
 	back overlay
 	// stayed is said when esc leaves the look, or nothing is.
-	stayed  string
+	stayed string
+	// ends is the ending the act asks for: a switch or a reopen, which name
+	// what leaving would lose; LeavingNone for an act that leaves the
+	// interface open.
+	ends    Leaving
 	proceed func(m Model) (Model, tea.Cmd)
 	// asked is the round the act was sent in, which its answer carries back.
 	asked int

@@ -145,7 +145,9 @@ answer from landing in an overlay that did not ask for it.
   drawn by `pinnedProblem`, never a refusal in its send.
 - **What it says in the footer goes through `notice.Footer`** (`notice/`):
   `noticed` for a result, `noticedFailure` for a failure, and
-  `noticedUnrepeated` for what no pane repeats. The footer decides what takes
+  `noticedUnrepeated` for what no pane repeats, or `said` for a report built
+  as a value first (`footerReport`, `footer.go`), as a step of the held post
+  builds one to say with a postscript after it. The footer decides what takes
   the row and what waits for it, a failure under a search among them; the
   row is never set by hand.
 - **A late answer changes nothing**: `answered` calls it late and the
