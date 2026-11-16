@@ -123,11 +123,15 @@ internal/forge 18
 # post waiting for CI delivers through it too; 94 is branchunlink.go, the
 # link form on a branch already linked, out of branchlink.go, an overlay of
 # its own with its own keys, view and write that had shared the linker's
-# type by a field set for its whole life. The files that name no Model
-# (dryrun.go, errorwords.go, glyphs.go, issues.go, panekeys.go,
-# settingsedit.go, settingsfields.go, settingsvalues.go, each working on the
-# package's own state) are where a leaf is looked for first when it is.
-internal/tui 94
+# type by a field set for its whole life; 95 is branchlisting.go, the
+# listing of the local and remote branches and of which issues they name
+# are yours, out of switchtask.go, which it had carried to 557 lines, since
+# the Issues list's branch marks list through it too. The files that name
+# no Model (branchlisting.go, dryrun.go, errorwords.go, glyphs.go,
+# issues.go, panekeys.go, settingsedit.go, settingsfields.go,
+# settingsvalues.go, each working on the package's own state) are where a
+# leaf is looked for first when it is.
+internal/tui 95
 
 # internal/webserver — the loopback REST surface, spelled one file per
 # operation (or per pair of writes that share their checks) beside the shared
