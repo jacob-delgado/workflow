@@ -137,9 +137,9 @@ func TestARemovalWithNoOtherEditsReopensAsASaveDoes(t *testing.T) {
 	removed, cmd := pressedAndAnswered(t, asked, keyEnter)
 
 	// Assert
-	if !quits(cmd) || removed.Destination().Dir != apiCmd {
+	if !quits(cmd) || removed.Destination().Dir() != apiCmd {
 		t.Errorf("a removal: quit %v, destination %q; want the program ended for %s",
-			quits(cmd), removed.Destination().Dir, apiCmd)
+			quits(cmd), removed.Destination().Dir(), apiCmd)
 	}
 }
 

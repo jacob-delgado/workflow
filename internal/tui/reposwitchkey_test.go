@@ -24,8 +24,8 @@ func TestEnterOnARowSwitchesNothing(t *testing.T) {
 	stayed, cmd := pressed(t, onRow, keyEnter)
 
 	// Assert
-	if quits(cmd) || stayed.Destination().Dir != "" {
-		t.Errorf("enter on a row left for %q", stayed.Destination().Dir)
+	if quits(cmd) || stayed.Destination().Dir() != "" {
+		t.Errorf("enter on a row left for %q", stayed.Destination().Dir())
 	}
 
 	if context, open := stayed.OverlayKeyContext(); open {
@@ -43,8 +43,8 @@ func TestTheSwitchKeyAsksAndApplySwitches(t *testing.T) {
 	asked, cmd := pressed(t, onRow, switchDirKey)
 
 	// Assert: the switch's last look opens, and nothing is left yet
-	if quits(cmd) || asked.Destination().Dir != "" {
-		t.Fatalf("left for %q at once, want a last look first", asked.Destination().Dir)
+	if quits(cmd) || asked.Destination().Dir() != "" {
+		t.Fatalf("left for %q at once, want a last look first", asked.Destination().Dir())
 	}
 
 	requireScreen(t, asked.View().Content, "Switch to ~/src/web?", "enter switch", "esc stay")
@@ -53,8 +53,8 @@ func TestTheSwitchKeyAsksAndApplySwitches(t *testing.T) {
 	left, cmd := pressed(t, asked, keyEnter)
 
 	// Assert: the interface ends for the web directory
-	if !quits(cmd) || left.Destination().Dir != webRoot {
+	if !quits(cmd) || left.Destination().Dir() != webRoot {
 		t.Errorf("enter on the look: quit %v, destination %q; want the program ended for %s",
-			quits(cmd), left.Destination().Dir, webRoot)
+			quits(cmd), left.Destination().Dir(), webRoot)
 	}
 }

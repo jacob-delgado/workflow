@@ -170,7 +170,7 @@ func TestASignalEndsTheContextAnInterfaceLeftBeforeASwitch(t *testing.T) {
 		if opens == 1 {
 			first <- ctx
 
-			return tui.Next{Dir: other}, nil
+			return tui.SwitchTo(other), nil
 		}
 
 		close(opened)

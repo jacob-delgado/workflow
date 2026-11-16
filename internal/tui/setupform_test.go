@@ -210,8 +210,8 @@ func TestSetUpWritesTheFileWithTheTokenInTheKeychainAndReopens(t *testing.T) {
 	written = drain(t, written, cmd)
 
 	// Assert
-	if written.Destination().Dir != apiCmd {
-		t.Fatalf("the write ended for %q, want workflow reopened in %s", written.Destination().Dir, apiCmd)
+	if written.Destination().Dir() != apiCmd {
+		t.Fatalf("the write ended for %q, want workflow reopened in %s", written.Destination().Dir(), apiCmd)
 	}
 
 	contents, err := os.ReadFile(run.where.Path(setup.Home))
@@ -257,10 +257,10 @@ func TestSetUpInARepositoryKeepsTheTokenInTheKeychainByDefault(t *testing.T) {
 	// Assert
 	cfg, _, err := config.LoadLayersAt(config.Files{Repo: run.where.Path(setup.Repository)})
 	if err != nil || cfg.Jira.Token != "" || !cfg.Jira.Keychain || run.stored != firstRunToken ||
-		written.Destination().Dir != apiCmd {
+		written.Destination().Dir() != apiCmd {
 		t.Errorf("wrote %+v (%v), keychain kept the token %t, reopened in %q; want the repository's file reading "+
 			"the keychain and workflow reopened", cfg.Redacted().Jira, err, run.stored == firstRunToken,
-			written.Destination().Dir)
+			written.Destination().Dir())
 	}
 }
 
@@ -356,8 +356,8 @@ func TestSetUpUnderDryRunWritesNothing(t *testing.T) {
 
 	// Assert
 	_, err := os.Stat(run.where.Path(setup.Repository))
-	if !os.IsNotExist(err) || held.Destination().Dir != "" {
-		t.Errorf("a dry run wrote the file (%v) or reopened (%q)", err, held.Destination().Dir)
+	if !os.IsNotExist(err) || held.Destination().Dir() != "" {
+		t.Errorf("a dry run wrote the file (%v) or reopened (%q)", err, held.Destination().Dir())
 	}
 
 	requireScreen(t, held.View().Content, "dry run: would write")

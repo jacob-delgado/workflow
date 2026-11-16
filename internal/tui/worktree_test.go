@@ -127,9 +127,9 @@ func TestEnterOnTheNewWorktreeOfferLeavesForIt(t *testing.T) {
 	left, cmd := pressed(t, madeWorktree(t), keyEnter)
 
 	// Assert
-	if !quits(cmd) || left.Destination().Dir != "/work-"+featureName {
+	if !quits(cmd) || left.Destination().Dir() != "/work-"+featureName {
 		t.Errorf("enter on the offer: quit %v, destination %q; want the program ended for the worktree",
-			quits(cmd), left.Destination().Dir)
+			quits(cmd), left.Destination().Dir())
 	}
 }
 
@@ -140,8 +140,8 @@ func TestEscOnTheNewWorktreeOfferStays(t *testing.T) {
 	stayed, cmd := pressed(t, madeWorktree(t), keyEsc)
 
 	// Assert
-	if quits(cmd) || stayed.Destination().Dir != "" {
-		t.Errorf("esc on the offer: quit %v, destination %q; want to stay", quits(cmd), stayed.Destination().Dir)
+	if quits(cmd) || stayed.Destination().Dir() != "" {
+		t.Errorf("esc on the offer: quit %v, destination %q; want to stay", quits(cmd), stayed.Destination().Dir())
 	}
 
 	refuseScreen(t, stayed.View().Content, "Switch to the new worktree")

@@ -95,7 +95,7 @@ func TestRunEndsWhenItsInputQuits(t *testing.T) {
 	// Assert: the run ends, going nowhere
 	select {
 	case end := <-ended:
-		if end.err != nil || end.next.Dir != "" {
+		if end.err != nil || end.next.Leaving() != tui.LeavingQuit {
 			t.Errorf("Run reading q = %+v, want the interface to quit cleanly, going nowhere", end)
 		}
 	case <-time.After(quitPatience):
@@ -126,7 +126,7 @@ func TestRunQuitsOnCtrlCTypedAsAKey(t *testing.T) {
 	// Assert
 	select {
 	case end := <-ended:
-		if end.err != nil || end.next.Dir != "" {
+		if end.err != nil || end.next.Leaving() != tui.LeavingQuit {
 			t.Errorf("Run reading ctrl+c = %+v, want the interface to quit cleanly, going nowhere", end)
 		}
 	case <-time.After(quitPatience):

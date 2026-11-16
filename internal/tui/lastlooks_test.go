@@ -130,8 +130,8 @@ func TestTheSwitchKeyOnAFavoriteAsksBeforeSwitching(t *testing.T) {
 	asked, cmd := pressed(t, onWeb(t, reposWorld()), switchDirKey)
 
 	// Assert
-	if quits(cmd) || asked.Destination().Dir != "" {
-		t.Fatalf("left for %q at once, want a last look first", asked.Destination().Dir)
+	if quits(cmd) || asked.Destination().Dir() != "" {
+		t.Fatalf("left for %q at once, want a last look first", asked.Destination().Dir())
 	}
 
 	requireScreen(t, asked.View().Content, "Switch to ~/src/web?", "enter switch", "esc stay")
@@ -147,8 +147,8 @@ func TestEscOnTheSwitchLookStays(t *testing.T) {
 	stayed, cmd := pressed(t, asked, keyEsc)
 
 	// Assert
-	if quits(cmd) || stayed.Destination().Dir != "" {
-		t.Errorf("esc on the look left for %q", stayed.Destination().Dir)
+	if quits(cmd) || stayed.Destination().Dir() != "" {
+		t.Errorf("esc on the look left for %q", stayed.Destination().Dir())
 	}
 
 	refuseScreen(t, stayed.View().Content, "Switch to ~/src/web?")
@@ -164,8 +164,8 @@ func TestGoToAsksBeforeSwitching(t *testing.T) {
 	asked, cmd := pressedAndAnswered(t, typed, keyEnter)
 
 	// Assert
-	if quits(cmd) || asked.Destination().Dir != "" {
-		t.Fatalf("left for %q at once, want a last look first", asked.Destination().Dir)
+	if quits(cmd) || asked.Destination().Dir() != "" {
+		t.Fatalf("left for %q at once, want a last look first", asked.Destination().Dir())
 	}
 
 	requireScreen(t, asked.View().Content, "Switch to ~/src/web?")

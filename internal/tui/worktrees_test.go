@@ -65,9 +65,9 @@ func TestConfirmingTheSwitchToAWorktreeLeavesForIt(t *testing.T) {
 	left, cmd := pressed(t, opened, keyEnter)
 
 	// Assert
-	if !quits(cmd) || left.Destination().Dir != apiFeature {
+	if !quits(cmd) || left.Destination().Dir() != apiFeature {
 		t.Errorf("enter on the feature worktree: quit %v, destination %q; want the program ended for %s",
-			quits(cmd), left.Destination().Dir, apiFeature)
+			quits(cmd), left.Destination().Dir(), apiFeature)
 	}
 }
 
@@ -81,9 +81,9 @@ func TestTheSwitchKeyOnAWorktreeThatIsGoneGoesNowhere(t *testing.T) {
 	stayed, cmd := pressed(t, opened, switchDirKey)
 
 	// Assert
-	if quits(cmd) || stayed.Destination().Dir != "" {
+	if quits(cmd) || stayed.Destination().Dir() != "" {
 		t.Errorf("the switch key on a worktree gone: quit %v, destination %q; want to stay",
-			quits(cmd), stayed.Destination().Dir)
+			quits(cmd), stayed.Destination().Dir())
 	}
 
 	requireScreen(t, stayed.View().Content, "~/src/api-gone is not there")
@@ -163,9 +163,9 @@ func TestSwitchingToABranchAnotherWorktreeHasLeavesForThatWorktree(t *testing.T)
 	left, cmd := pressed(t, opened, keyEnter)
 
 	// Assert
-	if !quits(cmd) || left.Destination().Dir != apiRetries || len(working.asked("checkout")) != 0 {
+	if !quits(cmd) || left.Destination().Dir() != apiRetries || len(working.asked("checkout")) != 0 {
 		t.Errorf("enter: quit %v, destination %q, checkouts %v; want the program ended for %s, nothing checked out",
-			quits(cmd), left.Destination().Dir, working.asked("checkout"), apiRetries)
+			quits(cmd), left.Destination().Dir(), working.asked("checkout"), apiRetries)
 	}
 }
 
