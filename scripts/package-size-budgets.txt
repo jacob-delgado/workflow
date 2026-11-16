@@ -120,11 +120,14 @@ internal/forge 18
 # that the one-file-per-overlay rule asks a file for and that had carried
 # overlay.go to 629 lines; 93 is messagingpost.go, how an announcement is
 # delivered and its answer applied, out of messagingpreview.go, since the
-# post waiting for CI delivers through it too. The files that name no Model
+# post waiting for CI delivers through it too; 94 is branchunlink.go, the
+# link form on a branch already linked, out of branchlink.go, an overlay of
+# its own with its own keys, view and write that had shared the linker's
+# type by a field set for its whole life. The files that name no Model
 # (dryrun.go, errorwords.go, glyphs.go, issues.go, panekeys.go,
 # settingsedit.go, settingsfields.go, settingsvalues.go, each working on the
 # package's own state) are where a leaf is looked for first when it is.
-internal/tui 93
+internal/tui 94
 
 # internal/webserver — the loopback REST surface, spelled one file per
 # operation (or per pair of writes that share their checks) beside the shared

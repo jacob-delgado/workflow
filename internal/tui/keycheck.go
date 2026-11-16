@@ -268,6 +268,7 @@ const (
 	overlayBranchCreator
 	overlayBranchLinker
 	overlayBranchPicker
+	overlayBranchUnlinker
 	overlayCalendar
 	overlayChecklist
 	overlayChecks
@@ -313,8 +314,10 @@ func overlayKeyContexts() map[overlayKind]keyContext {
 	return map[overlayKind]keyContext{
 		overlayAmendPreview:  answering("the amend preview", "apply", "close"),
 		overlayBranchCreator: answering("the branch creator", "worktree", "apply", "close"),
-		overlayBranchLinker:  answering("the link form", "unlink-issue", "apply", "close"),
+		overlayBranchLinker:  answering("the link form", "apply", "close"),
 		overlayBranchPicker:  listAnswering("the branch picker", "apply", "close"),
+		overlayBranchUnlinker: answering("the link form on a branch already linked", "unlink-issue",
+			"close"),
 		overlayCalendar: answering("the calendar", actionUp, actionDown, "cycle-type-left", "cycle-type-right",
 			"next-field", "previous-field", "toggle-option", "apply", "close"),
 		overlayChecklist:  listAnswering("a checklist", "toggle-option", "apply", "close"),
