@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
@@ -133,4 +135,99 @@ func TestAFailedRunTheForgeDoesNotReRunSettlesOnTheFailure(t *testing.T) {
 
 	// Assert
 	requireScreen(t, view, "CI     ✗ failed (2 of 2 finished)", "e2e")
+}
+
+// rerunOutlivingItsPull is repo's Review pane once a slow read of the
+// branch found another pull request, whose CI passed, while a re-run of the
+// failed CI of the one numbered 42, shown before, was out, and the re-run's
+// answer kept back. No poll comes due meanwhile to read CI again.
+func rerunOutlivingItsPull(t *testing.T, repo *world) (tui.Model, []tea.Msg) {
+	t.Helper()
+
+	repo.ci = []forge.CI{failedRun("11")}
+	pane := typing(t, repo.live(t, 120, 40), "4")
+	repo.branch.Name = "feat/" + secondIssue + "-add-retries"
+	repo.pull = forge.PullRequest{Number: 43, URL: pullURL, Title: "Add retries", HeadCommit: headCommit}
+	repo.ci = []forge.CI{{State: forge.CIPassed, Total: 1, Done: 1}}
+	refreshing, branchRead := withheldKeys(t, pane, repo.counting("branch"), "r")
+	rerunning, rerun := withheldKeys(t, refreshing, repo.counting("rerun"), "R", keyEnter)
+
+	return handedOver(t, rerunning, branchRead), rerun
+}
+
+func TestARerunAnsweringAfterAnotherPullIsFoundLeavesItsCI(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	found, rerun := rerunOutlivingItsPull(t, newWorld())
+
+	// Act
+	view := handedOver(t, found, rerun).View().Content
+
+	// Assert
+	requireScreen(t, view, "#43", "CI     ● passed")
+	refuseScreen(t, view, "running")
+}
+
+func TestARerunAnsweringAfterAnotherPullIsFoundSaysItRan(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	found, rerun := rerunOutlivingItsPull(t, newWorld())
+
+	// Act
+	view := handedOver(t, found, rerun).View().Content
+
+	// Assert
+	requireNotice(t, view, "● re-ran the failed checks on #42")
+}
+
+func TestALateRerunNoteMarksAMergeRequestAsGitLabDoes(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := newWorld()
+	repo.forgeKind = forge.KindGitLab
+	found, rerun := rerunOutlivingItsPull(t, repo)
+
+	// Act
+	view := handedOver(t, found, rerun).View().Content
+
+	// Assert
+	requireNotice(t, view, "● re-ran the failed checks on !42")
+}
+
+func TestARerunRefusedAfterAnotherPullIsFoundSaysTheRefusal(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		prepare func(*world)
+		want    string
+	}{
+		"the forge rejects it": {
+			prepare: func(w *world) { w.rerunErr = forge.ErrRejected },
+			want:    "re-run failed: the forge rejected the request",
+		},
+		"the forge has no job to re-run": {
+			prepare: func(w *world) { w.nothingToRerun = true },
+			want:    "nothing to re-run: this failure has no job to restart",
+		},
+	}
+
+	for name, each := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			repo := newWorld()
+			each.prepare(repo)
+			found, rerun := rerunOutlivingItsPull(t, repo)
+
+			// Act
+			view := handedOver(t, found, rerun).View().Content
+
+			// Assert
+			requireFailureNotice(t, view, each.want)
+		})
+	}
 }

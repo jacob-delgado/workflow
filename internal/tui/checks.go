@@ -230,21 +230,22 @@ func (m Model) rerunChecks(pull forge.PullRequest, head string) (Model, tea.Cmd)
 		return m.closeOverlay().noticed("dry run: would re-run the failed checks"), nil
 	}
 
-	ctx, rerun := m.session, m.deps.Forge.Rerun
+	ctx, rerun, chain := m.session, m.deps.Forge.Rerun, m.polls.chain
 
 	return m.sendingLook(func(round int) tea.Msg {
 		reran, err := rerun(ctx, pull, head)
 
-		return rerunRequested{round: round, reran: reran, err: err}
+		return rerunRequested{round: round, chain: chain, pull: pull.Number, reran: reran, err: err}
 	})
 }
 
 // rerunRequested is the outcome of asking the forge to re-run the failed
-// checks, for the look that sent it in round.
+// checks of the pull request numbered pull, for the look that sent it in
+// round, on the review whose poll chain was chain.
 type rerunRequested struct {
-	round int
-	reran bool
-	err   error
+	round, chain, pull int
+	reran              bool
+	err                error
 }
 
 var _ applier = rerunRequested{}
@@ -252,7 +253,10 @@ var _ applier = rerunRequested{}
 // apply returns the pane to "running" and restarts the poll once a re-run has
 // started, or says nothing could be re-run — a failure the forge has no
 // re-runnable job for, so the pane must not claim one — closing the look either
-// way. A refusal stays pinned in the look, and says why in the notice.
+// way. A refusal stays pinned in the look, and says why in the notice. A
+// review since replaced, by another pull request found or none, is left as
+// it is, the re-run being of CI it no longer shows; the notice says which
+// pull request's checks were re-run.
 func (msg rerunRequested) apply(m Model) (Model, tea.Cmd) {
 	// The look that asked is the one answered; nothing else is touched.
 	m = m.answerLook(msg.round, msg.err)
@@ -262,6 +266,10 @@ func (msg rerunRequested) apply(m Model) (Model, tea.Cmd) {
 
 	if !msg.reran {
 		return m.noticedFailure(errNothingToRerun), nil
+	}
+
+	if msg.chain != m.polls.chain {
+		return m.noticed(m.marks.done + " re-ran the failed checks on " + m.vocab.sigil + strconv.Itoa(msg.pull)), nil
 	}
 
 	// Told, not read: a read begun before the re-run would list the failure
