@@ -131,6 +131,33 @@ func chosenFrom(t *testing.T, world []issueCase, keys []string) []issueCase {
 	return chosen
 }
 
+// taskStandings is each TaskStanding by the words the shared cases give it,
+// the web's copy of the rules carrying those words alone.
+func taskStandings() map[string]places.TaskStanding {
+	return map[string]places.TaskStanding{
+		"": places.TaskNone, places.TaskActive: places.TaskActiveNow, places.Tracked: places.TaskTracked,
+		places.TaskDone: places.TaskDoneOnly,
+	}
+}
+
+func TestEachTaskStandingIsMarkedByTheWordsItsPlaceGoesBy(t *testing.T) {
+	t.Parallel()
+
+	for words, standing := range taskStandings() {
+		t.Run(words, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			mark, marked := standing.Mark()
+
+			// Assert
+			if mark != words || marked != (words != "") {
+				t.Errorf("Mark() = %q, %v; want %q, %v", mark, marked, words, words != "")
+			}
+		})
+	}
+}
+
 func TestAStandingIsInTheMarksTheSharedCasesName(t *testing.T) {
 	t.Parallel()
 
@@ -139,7 +166,12 @@ func TestAStandingIsInTheMarksTheSharedCasesName(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			standing := places.Standing{InFlight: tt.Standing.InFlight, Task: tt.Standing.Task, Forge: tt.Standing.Forge}
+			task, named := taskStandings()[tt.Standing.Task]
+			if !named {
+				t.Fatalf("%s names the task standing %q, which no TaskStanding is", casesFile, tt.Standing.Task)
+			}
+
+			standing := places.Standing{InFlight: tt.Standing.InFlight, Task: task, Forge: tt.Standing.Forge}
 
 			// Act
 			got := standing.Marks()

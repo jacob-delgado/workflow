@@ -54,12 +54,36 @@ type Choice struct {
 	Count int
 }
 
+// TaskStanding is how an issue's linked tasks stand.
+type TaskStanding int
+
+const (
+	// TaskNone is no task linked, or none known.
+	TaskNone TaskStanding = iota
+	// TaskActiveNow is a linked task started and not waiting.
+	TaskActiveNow
+	// TaskTracked is a linked task still to do, and none active.
+	TaskTracked
+	// TaskDoneOnly is every linked task completed.
+	TaskDoneOnly
+)
+
+// Mark is the mark an issue so standing is in, and whether it is in one: an
+// issue with no task known is in none. A map, so exhaustive keeps it complete.
+func (t TaskStanding) Mark() (string, bool) {
+	mark := map[TaskStanding]string{
+		TaskNone: "", TaskActiveNow: TaskActive, TaskTracked: Tracked, TaskDoneOnly: TaskDone,
+	}[t]
+
+	return mark, mark != ""
+}
+
 // Standing is what an issue's marks are read from: whether a branch names it,
-// the words for how its linked tasks stand (empty with none, or none known),
-// and whether it is the forge's issue rather than Jira's.
+// how its linked tasks stand, and whether it is the forge's issue rather than
+// Jira's.
 type Standing struct {
 	InFlight bool
-	Task     string
+	Task     TaskStanding
 	Forge    bool
 }
 
@@ -72,8 +96,8 @@ func (s Standing) Marks() []string {
 		marks = append(marks, InFlight)
 	}
 
-	if s.Task != "" {
-		marks = append(marks, s.Task)
+	if mark, marked := s.Task.Mark(); marked {
+		marks = append(marks, mark)
 	}
 
 	if s.Forge {
