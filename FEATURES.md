@@ -284,7 +284,7 @@ Impact: low · Effort: medium
   sprint — the configuration guide's *Sprint board* example
   (`docs/content/docs/configuration.md:277`) — but flat, one row per issue
   with its status as a glyph and by name, in update order
-  (`issueList.listing`, `internal/tui/issues.go:258`). What is missing is
+  (`issueList.listing`, `internal/tui/issues.go:289`). What is missing is
   grouping by status: how much is to do, in progress or in review is read by
   scanning the rows.
 - Touches: `internal/tui/issues.go` (status headings in the list), and

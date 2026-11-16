@@ -128,21 +128,32 @@ answer from landing in an overlay that did not ask for it.
   where it was found. An answer for an overlay since closed finds none, even
   when another of its kind has opened since; never match the open overlay
   by its type alone.
-- **The one write an overlay has out is a `send.State`** (`send/`), handed
-  over as `sent` and taken back as `withSend` (`sender[T]`), and its answer
-  goes through `answered[T]`, which pins a refusal (drawn by `pinnedSend`)
-  and reports a success for the applier to follow. What the overlay finds
-  wrong before anything is sent, such as a subject the convention refuses or
-  an editor that would not open, is its `problem`, drawn by `pinnedProblem`,
-  never a refusal in its send.
+- **The one write an overlay has out is a `send.State`** (`send/`), and
+  so is the directory picker's check of a destination, though it writes
+  nothing. It is handed over as `sent` and taken back as `withSend`
+  (`sender[T]`), and its answer goes through `answered[T]`, which pins a
+  refusal and reports a success for the applier to follow. `pinnedSend`
+  draws the refusal in most overlays. The rest draw it where it reads:
+  the directory picker below its rows; the status picker, the branch
+  switcher and the task line in their outcome line through
+  `failureLine`, which only the task line wraps; the branch creator's
+  refused fetch beside its offer to branch anyway; the tag section among
+  its failure lines; and the settings form at the fields it names. What the
+  overlay finds wrong before anything is sent, such as a subject the
+  convention refuses or an editor that would not open, is its `problem`,
+  drawn by `pinnedProblem`, never a refusal in its send.
 - **What it says in the footer goes through `notice.Footer`** (`notice/`):
   `noticed` for a result, `noticedFailure` for a failure, and
   `noticedUnrepeated` for what no pane repeats. The footer decides what takes
   the row and what waits for it, a failure under a search among them; the
   row is never set by hand.
 - **A late answer changes nothing**: `answered` calls it late and the
-  applier returns. No key reaches one today, since an overlay with a write
-  out takes only interrupt, which quits; the Summary post alone still says
+  applier returns. Two keys reach one. `esc` on the directory picker
+  does, since its check reads a disk that may never answer. `esc` on the
+  messaging preview does while an owner link it sent is being saved: the
+  link's answer finds no overlay and only frees the links' write
+  (`ownerLinked`, `ownerlink.go`). Every other overlay with a write out
+  takes only interrupt, which quits. The Summary post alone still says
   in the footer how its post went.
 
 ## Keys, drawing and motion
