@@ -54,3 +54,30 @@ func TestAGoneWorktreesRefusalTakesThePlaceOfAnEarlierOne(t *testing.T) {
 	requireScreen(t, view, goneRefusal)
 	refuseScreen(t, view, loop.ErrDirtyTree.Error())
 }
+
+func TestMovingOffABranchHeldByAGoneWorktreeClearsItsRefusal(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	refused := typing(t, goneAndFree().live(t, 160, 40), "2", "s", keyEnter)
+
+	// Act
+	view := typing(t, refused, "j").View().Content
+
+	// Assert
+	requireScreen(t, view, "fix/PROJ-501-fix-metrics")
+	refuseScreen(t, view, goneRefusal)
+}
+
+func TestMovingPastTheTopOfTheListKeepsAGoneWorktreesRefusal(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	refused := typing(t, goneAndFree().live(t, 160, 40), "2", "s", keyEnter)
+
+	// Act
+	view := typing(t, refused, "k").View().Content
+
+	// Assert
+	requireScreen(t, view, goneRefusal)
+}
