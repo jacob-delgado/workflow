@@ -426,7 +426,7 @@ func (s *server) heldReason(hold armed.Hold) string {
 		armed.StageElsewhere: func() string {
 			already, _ := errors.AsType[loop.AnnouncedAlreadyError](hold.Reason())
 
-			return s.claimedBefore(hold.Pull(), already.Claim).Detail
+			return s.claimedBefore(hold.Pull(), already.Held).Detail
 		},
 		armed.StageStopped: func() string { return hold.Reason().Error() },
 		armed.StageIdle:    none, armed.StageListing: none, armed.StageAwaitingChecks: none, armed.StageRunning: none,
