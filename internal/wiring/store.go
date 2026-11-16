@@ -132,7 +132,8 @@ func storedAnnounce(made loop.Announced) store.Announce {
 // claimOf is the store's claim as the loop reads it.
 func claimOf(claim store.Claim) loop.Claim {
 	// A map, not a switch, so there is no last-case arm gobco can never see;
-	// a kind the map does not hold reads as held, erring toward not posting.
+	// a kind the map does not hold reads as the loop's zero, a claim of no
+	// kind, which Deliver refuses as not claimed.
 	kinds := map[store.ClaimKind]loop.ClaimKind{
 		store.ClaimHeld:    loop.ClaimHeld,
 		store.ClaimTaken:   loop.ClaimTaken,

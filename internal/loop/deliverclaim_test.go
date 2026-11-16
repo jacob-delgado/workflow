@@ -63,6 +63,61 @@ func TestAHeldClaimPostsNothing(t *testing.T) {
 	}
 }
 
+func TestAClaimOfAKindNotKnownPostsNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A store answering a kind this delivery was not written for fails
+	// closed: a claim that says nothing it knows errs toward not posting.
+	var sent deliveries
+
+	unknown := loop.AnnounceMemory{
+		Claim: func(context.Context, loop.Announced) (loop.Claim, error) {
+			return loop.Claim{Kind: loop.ClaimKind(99), Generation: 1}, nil
+		},
+	}
+
+	// Act
+	err := loop.Deliver(t.Context(), passing(sent.post(nil)), unknown, ready())
+
+	// Assert
+	if len(sent.posted) != 0 {
+		t.Errorf("posted %d times, want 0: a claim of no kind it knows is not one to post under", len(sent.posted))
+	}
+
+	if !errors.Is(err, loop.ErrNotClaimed) {
+		t.Errorf("Deliver = %v, want ErrNotClaimed", err)
+	}
+}
+
+func TestAClaimThatNamesNoKindIsNotClaimed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The zero kind is what a claim naming none reads as, as the wiring
+	// reads a store kind it does not map: not one held elsewhere, which
+	// would be reported as begun at the zero time.
+	var sent deliveries
+
+	unnamed := loop.AnnounceMemory{
+		Claim: func(context.Context, loop.Announced) (loop.Claim, error) {
+			return loop.Claim{Generation: 1}, nil
+		},
+	}
+
+	// Act
+	err := loop.Deliver(t.Context(), passing(sent.post(nil)), unnamed, ready())
+
+	// Assert
+	if len(sent.posted) != 0 {
+		t.Errorf("posted %d times, want 0", len(sent.posted))
+	}
+
+	if !errors.Is(err, loop.ErrNotClaimed) {
+		t.Errorf("Deliver = %v, want ErrNotClaimed: a claim that names no kind is none taken", err)
+	}
+}
+
 func TestAClaimTheStoreCannotTakePostsNothing(t *testing.T) {
 	t.Parallel()
 
@@ -162,6 +217,27 @@ func TestAClaimThatCannotBeGivenUpLeavesThePostUncertain(t *testing.T) {
 	// Assert
 	if !errors.Is(err, loop.ErrPostUncertain) || !errors.Is(err, refused) || !errors.Is(err, errSeam) {
 		t.Errorf("Deliver = %v, want ErrPostUncertain with the refusal and why the claim stayed", err)
+	}
+}
+
+func TestAClaimTakenWithNoWayToConfirmItPostsOnce(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var sent deliveries
+
+	unconfirmable := loop.AnnounceMemory{
+		Claim: func(context.Context, loop.Announced) (loop.Claim, error) {
+			return loop.Claim{Kind: loop.ClaimTaken, Generation: 1}, nil
+		},
+	}
+
+	// Act
+	err := loop.Deliver(t.Context(), passing(sent.post(nil)), unconfirmable, ready())
+
+	// Assert
+	if err != nil || len(sent.posted) != 1 {
+		t.Errorf("Deliver = %v, posted %q; want it posted once: a nil Confirm does nothing", err, sent.posted)
 	}
 }
 

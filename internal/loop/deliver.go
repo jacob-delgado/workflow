@@ -62,15 +62,57 @@ type Announced struct {
 type ClaimKind int
 
 const (
-	// ClaimHeld is a claim another took first. It is the zero kind, so a
-	// claim that says nothing errs toward not posting.
-	ClaimHeld ClaimKind = iota
+	// claimOfNoKind is a claim that names no kind, as one the store answers
+	// in a kind the wiring does not map reads. It is the zero, so such a
+	// claim is refused as none taken, never read as one held elsewhere.
+	claimOfNoKind ClaimKind = iota
+	// ClaimHeld is a claim another took first.
+	ClaimHeld
 	// ClaimTaken is a claim this caller took: it, and no one else, posts.
 	ClaimTaken
 	// ClaimNotKept is no claim, from a store that keeps nothing: the post
 	// goes unguarded.
 	ClaimNotKept
 )
+
+// posting is how a delivery goes on once its claim is answered.
+type posting int
+
+const (
+	// postingRefused posts nothing: the claim is of no kind a delivery
+	// knows. It is the zero, so a kind with no entry fails closed.
+	postingRefused posting = iota
+	// postingElsewhere posts nothing: another holds the claim.
+	postingElsewhere
+	// postingGuarded posts under the claim taken, which is given up if the
+	// post surely did not go and confirmed once it has.
+	postingGuarded
+	// postingUnguarded posts with no claim kept.
+	postingUnguarded
+)
+
+// posts reports whether a delivery going on so posts: guarded or not. A
+// map, not a comparison, so a posting added later is placed here before it
+// can post, and one with no entry refuses.
+func (p posting) posts() bool {
+	return map[posting]bool{
+		postingRefused:   false,
+		postingElsewhere: false,
+		postingGuarded:   true,
+		postingUnguarded: true,
+	}[p]
+}
+
+// postingOn is how a delivery goes on after a claim of kind. A map, not a
+// switch, so every kind is named and one with no entry refuses.
+func postingOn(kind ClaimKind) posting {
+	return map[ClaimKind]posting{
+		claimOfNoKind: postingRefused,
+		ClaimHeld:     postingElsewhere,
+		ClaimTaken:    postingGuarded,
+		ClaimNotKept:  postingUnguarded,
+	}[kind]
+}
 
 // Claim is what a claim on an announcement came to, and the claim as it
 // stands: its generation, when it was taken, and whether its post was
@@ -284,15 +326,15 @@ func (AnnouncedAlreadyError) Unwrap() error {
 // Deliver posts the delivery under ctx, its tags on a line after the text, at
 // most once across every session and process: the gate first, then the
 // claim, then the post, then its confirmation. The gate refusing is a
-// GateRefusalError, and nothing is claimed. A claim the store cannot take is
-// ErrNotClaimed, and one another took is an AnnouncedAlreadyError; neither
-// posts. A post the service surely did not deliver gives up its claim and is
-// ErrNotDelivered; one that may have gone out keeps it and is
-// ErrPostUncertain. Once it has gone out, the groups it tagged are recorded,
-// and the claim confirmed, whether or not ctx has ended since; a claim not
-// confirmed is ErrUnconfirmed, a post made all the same. A store that keeps
-// nothing claims nothing, so the post goes unguarded and a failed one is the
-// service's own error.
+// GateRefusalError, and nothing is claimed. A claim the store cannot take,
+// or answers as a kind none of these know, is ErrNotClaimed, and one another
+// took is an AnnouncedAlreadyError; neither posts. A post the service surely
+// did not deliver gives up its claim and is ErrNotDelivered; one that may
+// have gone out keeps it and is ErrPostUncertain. Once it has gone out, the
+// groups it tagged are recorded, and the claim confirmed, whether or not ctx
+// has ended since; a claim not confirmed is ErrUnconfirmed, a post made all
+// the same. A store that keeps nothing claims nothing, so the post goes
+// unguarded and a failed one is the service's own error.
 func Deliver(ctx context.Context, seams DeliverSeams, memory AnnounceMemory, delivery Delivery) error {
 	return deliver(ctx, seams, memory, delivery, memory.claim)
 }
@@ -329,8 +371,13 @@ func deliver(
 		return fmt.Errorf("%w: %w", ErrNotClaimed, err)
 	}
 
-	if taken.Kind == ClaimHeld {
+	how := postingOn(taken.Kind)
+	if how == postingElsewhere {
 		return AnnouncedAlreadyError{Claim: taken}
+	}
+
+	if !how.posts() {
+		return fmt.Errorf("%w: the store answered a claim of no kind it keeps (%d)", ErrNotClaimed, taken.Kind)
 	}
 
 	err = seams.Post(ctx, delivery.Channel, delivery.textWithTags())
@@ -343,13 +390,13 @@ func deliver(
 	return confirm(ctx, memory, made, taken)
 }
 
-// failedPost is how a post of made that failed with err ends: with no claim
-// taken, the service's error; one surely not delivered gives its claim up,
-// even if its asker has left meanwhile, and is ErrNotDelivered; any other
-// keeps its claim and is ErrPostUncertain, as is one whose claim could not be
-// given up, which now reads as a post begun.
+// failedPost is how a post of made that failed with err ends: unguarded, the
+// service's error; one surely not delivered gives its claim up, even if its
+// asker has left meanwhile, and is ErrNotDelivered; any other keeps its claim
+// and is ErrPostUncertain, as is one whose claim could not be given up, which
+// now reads as a post begun.
 func failedPost(ctx context.Context, memory AnnounceMemory, made Announced, taken Claim, err error) error {
-	if taken.Kind != ClaimTaken {
+	if postingOn(taken.Kind) != postingGuarded {
 		return err
 	}
 
@@ -386,10 +433,10 @@ func (e notDeliveredError) Unwrap() []error {
 	return []error{ErrNotDelivered, e.why}
 }
 
-// confirm confirms the claim taken on made, which has gone out, even if its
-// asker has left meanwhile: one never confirmed reads as a post begun.
+// confirm confirms the claim taken on made, which has gone out guarded, even
+// if its asker has left meanwhile: one never confirmed reads as a post begun.
 func confirm(ctx context.Context, memory AnnounceMemory, made Announced, taken Claim) error {
-	if taken.Kind != ClaimTaken || memory.Confirm == nil {
+	if postingOn(taken.Kind) != postingGuarded || memory.Confirm == nil {
 		return nil
 	}
 
