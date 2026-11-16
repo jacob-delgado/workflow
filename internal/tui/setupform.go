@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/setup"
 	"github.com/jacob-delgado/workflow/internal/tui/layout"
+	"github.com/jacob-delgado/workflow/internal/tui/send"
 )
 
 // setupTitle heads the first run's form.
@@ -30,9 +31,12 @@ const setupWidth = 76
 // did not pass; where the token is kept and a messaging webhook; then a last
 // look, the file written, and workflow reopened with it.
 type setupForm struct {
-	offer setup.Offer
-	shown []string
-	stage setupStage
+	// opened is the round the form opened in, which each form it asks and
+	// its write carry back, so they land in no form opened after.
+	opened int
+	offer  setup.Offer
+	shown  []string
+	stage  setupStage
 	// form is the Huh form asking now, and first its first field, from which
 	// esc leaves the form rather than going back a question in it.
 	form  *huh.Form
@@ -43,17 +47,18 @@ type setupForm struct {
 	who      string
 	checkErr error
 	// promptsErr is why the prompts asking the form now stopped, said until
-	// another form asks or the last look opens; send is the file's write.
+	// another form asks or the last look opens; send is the file's write,
+	// sent from the last look, whose refusal it holds there.
 	promptsErr error
-	send       sendState
+	send       send.State
 }
 
 var (
-	_ failable[setupForm] = setupForm{}
-	_ pasteable           = setupForm{}
-	_ relaying            = setupForm{}
-	_ floating            = setupForm{}
-	_ waiting             = setupForm{}
+	_ sender[setupForm] = setupForm{}
+	_ pasteable         = setupForm{}
+	_ relaying          = setupForm{}
+	_ floating          = setupForm{}
+	_ waiting           = setupForm{}
 )
 
 // offersSetup reports a session with no configuration file that can set one
@@ -78,7 +83,8 @@ func (m Model) openSetup() (Model, tea.Cmd) {
 		shown = append(shown, shownDir(m.deps, place.Path))
 	}
 
-	form := setupForm{offer: offer, shown: shown, bound: &setupAnswers{}}
+	m, opened := m.nextRound()
+	form := setupForm{opened: opened, offer: offer, shown: shown, bound: &setupAnswers{}}
 
 	return form.asking(m, stageJira, 0, form.jiraGroups(m.kit())...)
 }
@@ -198,7 +204,7 @@ func (f setupForm) outcome(kit renderKit, width int) []string {
 		return append([]string{""}, kit.pinnedProblem(f.promptsErr, width)...)
 	}
 
-	if outcome := kit.pinnedOutcome(f.send, "writing", width); outcome != nil {
+	if outcome := kit.pinnedSend(f.send, "writing", width); outcome != nil {
 		return append([]string{""}, outcome...)
 	}
 
@@ -213,7 +219,7 @@ func (f setupForm) waits() bool {
 // footer offers what the form asking now answers, or the last look's write.
 func (f setupForm) footer(keys keyMap) []key.Binding {
 	switch {
-	case f.send.sending || f.stage == stageChecking:
+	case f.send.Stage() == send.StageInFlight || f.stage == stageChecking:
 		return []key.Binding{keys.interrupt}
 	case f.stage == stageWrite:
 		return []key.Binding{relabel(keys.confirm, "write"), relabel(keys.closeOverlay, escBack)}
@@ -231,18 +237,10 @@ func (f setupForm) leave(keys keyMap) key.Binding {
 	return relabel(keys.closeOverlay, escBack)
 }
 
-// failed pins a refused write in the form, so it is read before anything
-// else.
-func (f setupForm) failed(err error) setupForm {
-	f.send = f.send.failed(err)
-
-	return f
-}
-
-// asksNothing reports a dialog with no form asking: the check under way, the
-// last look, or the write.
+// asksNothing reports a dialog with no form asking: the check under way, or
+// the last look, from which the write is sent.
 func (f setupForm) asksNothing() bool {
-	return f.stage == stageChecking || f.stage == stageWrite || f.send.sending
+	return f.stage == stageChecking || f.stage == stageWrite
 }
 
 // pasted types a paste into the field asked for now, as typing it would.
@@ -269,7 +267,7 @@ func (f setupForm) resized(m Model) (Model, tea.Cmd) {
 // previous-field goes back to the question before, as esc does.
 func (f setupForm) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case f.stage == stageChecking || f.send.sending:
+	case f.stage == stageChecking || f.send.Stage() == send.StageInFlight:
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return f.back(m)
@@ -286,6 +284,19 @@ func (f setupForm) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 // which names the setup form.
 func (setupForm) which() overlayKind { return overlaySetupForm }
+
+// openedAs is the round the form opened in.
+func (f setupForm) openedAs() int { return f.opened }
+
+// sent is the file's write.
+func (f setupForm) sent() send.State { return f.send }
+
+// withSend is the form with the file's write as state.
+func (f setupForm) withSend(state send.State) setupForm {
+	f.send = state
+
+	return f
+}
 
 // check asks Jira who the token is, off the update loop, its mark turning as
 // it waits.
@@ -335,9 +346,9 @@ func (f setupForm) write(m Model) (Model, tea.Cmd) {
 		return m.closeOverlay().noticed("dry run: would write " + f.shown[f.bound.place]), nil
 	}
 
-	f.send = starting()
+	f.send, _ = f.send.Sent()
 	m.overlay = f
-	ctx, write := m.session, m.deps.Settings.Setup.Write
+	ctx, write, opened := m.session, m.deps.Settings.Setup.Write, f.opened
 	request := setup.Request{
 		Place:    f.offer.Places[f.bound.place].Place,
 		Answers:  f.bound.answers(),
@@ -347,23 +358,28 @@ func (f setupForm) write(m Model) (Model, tea.Cmd) {
 	return m, func() tea.Msg {
 		written, err := write(ctx, request)
 
-		return setupWritten{written: written, err: err}
+		return setupWritten{opened: opened, written: written, err: err}
 	}
 }
 
-// setupWritten is the file a first run wrote, or why it did not.
+// setupWritten is the file a first run wrote, or why it did not, for the form
+// opened in round opened.
 type setupWritten struct {
+	opened  int
 	written setup.Written
 	err     error
 }
 
 var _ applier = setupWritten{}
 
-// apply reopens workflow with the file written, or keeps the form open with
-// why it was not.
+// apply reopens workflow with the file written, or keeps the form that wrote
+// open with why it was not. A late answer, its form no longer the one open,
+// changes nothing; none arrives, since the form takes no key but ctrl+c,
+// which quits, while its write is out.
 func (msg setupWritten) apply(m Model) (Model, tea.Cmd) {
-	if msg.err != nil {
-		return keepOpenWith[setupForm](m, msg.err), nil
+	m, _, done := answered[setupForm](m, msg.opened, msg.err)
+	if !done {
+		return m, nil
 	}
 
 	return m.reopenWith(reopening{path: msg.written.Path, firstRun: true, notIgnored: msg.written.NotIgnored})

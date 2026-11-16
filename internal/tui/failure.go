@@ -14,26 +14,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/tui/send"
 )
 
-// sendState is what is left of the old shape of an outbound request: whether
-// it is in flight, and the error it came back with. The overlays not yet
-// moved to send.State carry one, whose answer finds them by type alone
-// (keepOpenWith); a new overlay holds a send.State instead.
-type sendState struct {
-	sending bool
-	err     error
-}
-
-// starting marks a request as in flight, clearing any earlier error.
-func starting() sendState {
-	return sendState{sending: true}
-}
-
-// failed records that the request came back with err, and is no longer in
-// flight.
-func (s sendState) failed(err error) sendState {
-	return sendState{sending: false, err: err}
-}
-
 // noticedFailure reports a failure in the footer: the red mark and the error in
 // full, its own words after the sentence, the whole row in the failure style.
 // One that lands while a search covers the row waits for the search to end,
@@ -207,23 +187,10 @@ func (kit renderKit) pinnedProblem(problem error, width int) []string {
 	return []string{kit.failureBlock(problem, width), ""}
 }
 
-// pinnedOutcome is an overlay's outcome — the in-flight word or the refusal —
-// drawn under the title rather than at the bottom, so a long reason is wrapped
-// and seen instead of clipped below the fold. Empty when nothing has happened.
-func (kit renderKit) pinnedOutcome(outcome sendState, doing string, width int) []string {
-	switch {
-	case outcome.sending:
-		return []string{doing + kit.marks.ellipsis, ""}
-	case outcome.err != nil:
-		return []string{kit.failureBlock(outcome.err, width), ""}
-	default:
-		return nil
-	}
-}
-
-// pinnedSend is pinnedOutcome for a write held in a send.State: the
-// in-flight word while it is out, the refusal once refused, and nothing
-// while idle, which has no reason to draw.
+// pinnedSend is an overlay's write, held in a send.State, drawn under the
+// title rather than at the bottom, so a long reason is wrapped and seen
+// instead of clipped below the fold: the in-flight word while it is out, the
+// refusal once refused, and nothing while idle, which has no reason to draw.
 func (kit renderKit) pinnedSend(state send.State, doing string, width int) []string {
 	if state.Stage() == send.StageInFlight {
 		return []string{doing + kit.marks.ellipsis, ""}

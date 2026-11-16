@@ -144,10 +144,6 @@ answer from landing in an overlay that did not ask for it.
   applier returns. No key reaches one today, since an overlay with a write
   out takes only interrupt, which quits; the Summary post alone still says
   in the footer how its post went.
-- **What is left of the old shape** (`sendState`, `keepOpenWith` and
-  `failable`, in `failure.go` and `overlay.go`) holds the overlays not yet
-  moved, matched by type alone. A new overlay does not copy it, and an
-  overlay that moves leaves none of it behind.
 
 ## Keys, drawing and motion
 
