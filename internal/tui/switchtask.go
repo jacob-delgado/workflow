@@ -15,6 +15,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/tui/latest"
 )
 
 // switchTitle titles the detail pane while the task switcher is open.
@@ -91,10 +92,20 @@ func (msg branchesListed) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	picker.branches = pickList[taskBranch]{items: m.taskBranches(msg)}
-	picker.listErr, picker.notAsked, picker.settled = msg.err, msg.notAsked, true
+	// The switcher lists its branches once, as it opens, before it could
+	// begin a round: the listing is round 0's.
+	found := switchable{branches: m.taskBranches(msg), notAsked: msg.notAsked}
+	picker.listing, _ = picker.listing.Answered(0, found, msg.err)
 
 	return m.withAnswered(picker), nil
+}
+
+// switchable is the branches the switcher offers, with why the tracker could
+// not be asked which issues are yours, when it could not, which leaves every
+// issue's branch among them.
+type switchable struct {
+	branches []taskBranch
+	notAsked error
 }
 
 // taskBranches keeps the branches that name one of your issues, other than the
@@ -126,10 +137,10 @@ func (m Model) taskBranches(listed branchesListed) []taskBranch {
 
 // branchPicker lists the issue branches to switch to, and how a switch is going.
 type branchPicker struct {
-	branches pickList[taskBranch]
-	listErr  error
-	notAsked error
-	settled  bool
+	// listing is the branches offered, read once as the switcher opens;
+	// selected is which of them is chosen.
+	listing  latest.Read[switchable]
+	selected int
 	send     sendState
 	// opened is the round it opened in, which its listing carries back.
 	opened int
@@ -254,44 +265,67 @@ func (l branchLister) issueKeys(names []string, links map[string]string) []jira.
 	return keys
 }
 
-// view draws the switcher in as many rows as fit.
+// view draws the switcher in as many rows as fit: reading the branches, why
+// they could not be listed, or them.
 func (p branchPicker) view(kit renderKit, _, rows int) (string, string) {
-	lines := slices.Concat([]string{"Switch to another task's branch.", ""}, p.notAskedNote(kit))
+	header := []string{"Switch to another task's branch.", ""}
+	space := rows - len(header)
+	failed := func() []string { return []string{kit.failureLine(p.listing.Err())} }
 
-	switch {
-	case !p.settled:
-		lines = append(lines, "reading the branches"+kit.marks.ellipsis)
-	case p.listErr != nil:
-		lines = append(lines, kit.failureLine(p.listErr))
-	case len(p.branches.items) == 0:
-		lines = append(lines, "No other task branch to switch to.")
-	default:
-		lines = append(lines, p.branches.rows(kit.marks, rows-len(lines)-outcomeRows, func(branch taskBranch) string {
-			return branchLabel(kit.marks, branch)
-		})...)
-		lines = append(lines, p.outcome(kit)...)
+	body := drawRead(p.listing, drawnRead[[]string]{
+		reading:    func() []string { return []string{"reading the branches" + kit.marks.ellipsis} },
+		shown:      func() []string { return p.listed(kit, space) },
+		failed:     failed,
+		failedOver: failed,
+	})
+
+	return switchTitle, strings.Join(slices.Concat(header, body), "\n")
+}
+
+// listed draws the branches listed in space rows, under the note saying the
+// tracker could not be asked which are yours when it could not: that there
+// is none to switch to, or them, with how switching to the chosen one is
+// going.
+func (p branchPicker) listed(kit renderKit, space int) []string {
+	found, _ := p.listing.Value()
+	lines := notAskedNote(kit, found.notAsked)
+	branches := p.branches()
+
+	if len(branches.items) == 0 {
+		return append(lines, "No other task branch to switch to.")
 	}
 
-	return switchTitle, strings.Join(lines, "\n")
+	lines = append(lines, branches.rows(kit.marks, space-len(lines)-outcomeRows, func(branch taskBranch) string {
+		return branchLabel(kit.marks, branch)
+	})...)
+
+	return append(lines, p.outcome(kit)...)
+}
+
+// branches is the branches listed, none until they are, with the chosen one.
+func (p branchPicker) branches() pickList[taskBranch] {
+	found, _ := p.listing.Value()
+
+	return pickList[taskBranch]{items: found.branches, selected: p.selected}
 }
 
 // notAskedNote is the one line saying the tracker could not be asked which
 // issues are yours, and why, so the list under it holds every issue's branch,
 // set apart from the list by a blank line; nothing when it was asked, or had no
 // need to be.
-func (p branchPicker) notAskedNote(kit renderKit) []string {
-	if p.notAsked == nil {
+func notAskedNote(kit renderKit, notAsked error) []string {
+	if notAsked == nil {
 		return nil
 	}
 
 	// A failure with no sentence of its own already says what was being asked,
 	// and a second lead would push its reason off the row.
-	if _, known := errorSentence(p.notAsked); !known {
-		return []string{kit.failureLine(p.notAsked), ""}
+	if _, known := errorSentence(notAsked); !known {
+		return []string{kit.failureLine(notAsked), ""}
 	}
 
 	return []string{
-		kit.failedGlyph() + " could not ask which issues are yours: " + inFull(p.notAsked), "",
+		kit.failedGlyph() + " could not ask which issues are yours: " + inFull(notAsked), "",
 	}
 }
 
@@ -369,7 +403,7 @@ func (p branchPicker) step(m Model, delta int) Model {
 		return m
 	}
 
-	p.branches = p.branches.moved(delta)
+	p.selected = p.branches().moved(delta).selected
 	m.overlay = p
 
 	return m
@@ -382,7 +416,7 @@ func (p branchPicker) step(m Model, delta int) Model {
 // worktree, which carries nothing across, or refused when that worktree is
 // gone, saying how to free the branch.
 func (p branchPicker) choose(m Model) (Model, tea.Cmd) {
-	branch, ok := p.branches.chosen()
+	branch, ok := p.branches().chosen()
 	if !ok {
 		return m, nil
 	}
