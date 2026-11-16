@@ -1636,12 +1636,13 @@ than that, or a forge reports how long a run has left.
 Summary reads more than one repository — the worktrees and the favorites — and
 one cannot be read, `loop.CommitsRead` (`internal/loop/summary.go`) lists the
 others' commits and marks the whole git source failed, naming each repository
-that failed. A source has one outcome, `activity.Read`'s `Failed` or
-`NotSetUp`, which the API says as `read`, `not_set_up` or `failed`, so a read
-that is partly answered is told as a failure beside the commits it did read,
-and `internal/loop/summary_test.go` pins it. A `partial` outcome would change
-the API's enum, the web's and the terminal's source lines, and what
-`workflow summary`'s exit status says of a source.
+that failed. A source has one outcome, `activity.Read`'s `Outcome` —
+`OutcomeRead`, `OutcomeNotSetUp` or `OutcomeFailed` — which the API says as
+`read`, `not_set_up` or `failed`, so a read that is partly answered is told as
+a failure beside the commits it did read, and `internal/loop/summary_test.go`
+pins it. A `partial` outcome would change the API's enum, the web's and the
+terminal's source lines, and what `workflow summary`'s exit status says of a
+source.
 
 **Cost.** One favorite that cannot be read — moved, deleted, or refused by
 git — makes `workflow summary` exit non-zero, as that failure's family does,

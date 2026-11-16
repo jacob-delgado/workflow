@@ -120,16 +120,58 @@ type Item struct {
 	Repository string
 }
 
+// Outcome is how a source answered a read.
+type Outcome int
+
+const (
+	// OutcomeRead is a source that answered; its items are what it said.
+	OutcomeRead Outcome = iota
+	// OutcomeFailed is a source that is set up and refused.
+	OutcomeFailed
+	// OutcomeNotSetUp is a source with nothing set up to ask, which a summary
+	// leaves out rather than calls unread.
+	OutcomeNotSetUp
+)
+
 // Read is what one source said for a period: its items, whether it had more
-// than it gave, and why it could not be read when it could not — Failed, a
-// source that is set up and refused, or NotSetUp, one with nothing set up to
-// ask, which a summary leaves out rather than calls unread.
+// than it gave, and its outcome, with why it could not be read when it could
+// not. A read starts read; Failing and LeftOut move it on.
 type Read struct {
 	Source    Source
 	Items     []Item
 	Truncated bool
-	Failed    error
-	NotSetUp  error
+	outcome   Outcome
+	why       error
+}
+
+// Outcome is how the source answered.
+func (r Read) Outcome() Outcome { return r.outcome }
+
+// Why is why the source could not be read, or nil when it was.
+func (r Read) Why() error { return r.why }
+
+// Failing is the read refused for err, whatever it was before: a refusal
+// outranks a source not set up. A nil err leaves the read as it was.
+func (r Read) Failing(err error) Read {
+	if err == nil {
+		return r
+	}
+
+	r.outcome, r.why = OutcomeFailed, err
+
+	return r
+}
+
+// LeftOut is the read left out as not set up, for err, unless it already
+// failed, which a failed read stays. A nil err leaves the read as it was.
+func (r Read) LeftOut(err error) Read {
+	if err == nil || r.outcome == OutcomeFailed {
+		return r
+	}
+
+	r.outcome, r.why = OutcomeNotSetUp, err
+
+	return r
 }
 
 // Merge is the items of every list, oldest first, items at the same moment in

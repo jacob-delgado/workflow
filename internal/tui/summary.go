@@ -186,7 +186,7 @@ func (s summaryState) complete() bool {
 // by the next refresh.
 func (s summaryState) readInFull() bool {
 	return s.complete() && !slices.ContainsFunc(s.reads, func(read activity.Read) bool {
-		return read.Failed != nil || read.NotSetUp != nil
+		return read.Outcome() != activity.OutcomeRead
 	})
 }
 
@@ -443,12 +443,12 @@ func (s summaryState) notes(kit renderKit, width int) []string {
 	for _, read := range s.reads {
 		name := read.Source.Title()
 
-		for _, failure := range loop.Failures(read.Failed) {
-			notes = append(notes, kit.failedGlyph()+" "+failedSourceLine(name, failure))
-		}
-
-		if read.NotSetUp != nil {
-			notes = append(notes, notSetUpNote(kit, name, read.NotSetUp, width))
+		if read.Outcome() == activity.OutcomeNotSetUp {
+			notes = append(notes, notSetUpNote(kit, name, read.Why(), width))
+		} else {
+			for _, failure := range loop.Failures(read.Why()) {
+				notes = append(notes, kit.failedGlyph()+" "+failedSourceLine(name, failure))
+			}
 		}
 
 		if read.Truncated {
@@ -467,9 +467,8 @@ func (s summaryState) notes(kit renderKit, width int) []string {
 // to set it up, as guidance — the not-started mark and the muted label — not
 // as a failure: nothing was asked, so nothing refused.
 func notSetUpNote(kit renderKit, name string, why error, width int) string {
-	note := wrap(kit.marks.notStarted+" "+name+" is not set up, so it was left out: "+inFull(why), width)
-
-	return kit.styles.label.Render(note)
+	return kit.styles.label.Render(
+		wrap(kit.marks.notStarted+" "+name+" is not set up, so it was left out: "+inFull(why), width))
 }
 
 // failedSourceLine says a source could not be read and why, naming the
