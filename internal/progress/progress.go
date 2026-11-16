@@ -131,36 +131,76 @@ func PullStateOf(state forge.PullState) PullState {
 	}[state]
 }
 
-// Work is everything the stages are derived from. The two session fields,
-// IssueSelected and AnnouncePending, are knowledge an interface has and a
-// one-shot command does not; a command leaves them false, so neither its Issue
-// stage nor its messaging stage ever reads in-flight.
+// IssueWork is how far the work's issue has got: none yet, one picked but
+// not yet branched for, or one the branch name carries. A picked issue is
+// session knowledge, which a one-shot command does not have.
+type IssueWork int
+
+const (
+	// IssueNone is no issue picked, and none the branch names.
+	IssueNone IssueWork = iota
+	// IssuePicked is an issue picked but not yet branched for.
+	IssuePicked
+	// IssueNamed is an issue the branch name carries.
+	IssueNamed
+)
+
+// AnnounceWork is how far the announcement has got: none, one under way —
+// waiting for CI or on its way, which is session knowledge — or one made at
+// the moment the pull request is at now, in this session or, as the store
+// remembers, an earlier one.
+type AnnounceWork int
+
+const (
+	// AnnounceNone is no announcement made or under way.
+	AnnounceNone AnnounceWork = iota
+	// AnnounceUnderWay is an announcement waiting for CI or on its way.
+	AnnounceUnderWay
+	// AnnounceMade is the pull request announced at its moment.
+	AnnounceMade
+)
+
+// Review is where the branch's pull request stands, how its CI stands and
+// whether a reviewer asked for changes. With no pull request to follow, it
+// holds neither CI nor changes asked for: NoReview.
+type Review struct {
+	pull             PullState
+	ci               forge.CIState
+	changesRequested bool
+}
+
+// NoReview is a branch with no pull request to follow.
+func NoReview() Review {
+	return Review{pull: NoPullRequest, ci: forge.CINone, changesRequested: false}
+}
+
+// ReviewOf is the review of pull, when found, with its CI in ci. One not
+// found, or closed without merging, is NoReview, whatever its CI or its
+// reviewers last said.
+func ReviewOf(pull forge.PullRequest, found bool, ci forge.CIState) Review {
+	if !found || PullStateOf(pull.State) == NoPullRequest {
+		return NoReview()
+	}
+
+	return Review{pull: PullStateOf(pull.State), ci: ci, changesRequested: pull.ChangesRequested}
+}
+
+// Work is everything the stages are derived from. A one-shot command knows
+// no picked issue and no announcement under way, so neither its Issue stage
+// nor its messaging stage ever reads in flight.
 type Work struct {
+	// Issue is how far the work's issue has got.
+	Issue IssueWork
 	// OnFeatureBranch is a named branch other than the base.
 	OnFeatureBranch bool
-	// IssueNamed is that the branch name carries an issue key.
-	IssueNamed bool
-	// IssueSelected is that an issue is picked but not yet branched for. Session
-	// knowledge.
-	IssueSelected bool
 	// Commits is how many commits the branch has that the base does not.
 	Commits int
 	// UncommittedChanges is how many files have uncommitted changes.
 	UncommittedChanges int
-	// PullRequest is where the branch's pull request stands.
-	PullRequest PullState
-	// CI is how the pull request's CI stands.
-	CI forge.CIState
-	// ChangesRequested is that a reviewer asked for changes.
-	ChangesRequested bool
-	// Announced is that the pull request was announced on the messaging
-	// service at the moment it is at now, in this session or, as the store
-	// remembers, an earlier one — as loop's AnnounceMemory.HoldsNow reads it,
-	// so never while there is no pull request to follow.
-	Announced bool
-	// AnnouncePending is that an announcement is waiting for CI or on its
-	// way. Session knowledge.
-	AnnouncePending bool
+	// Review is where the branch's pull request stands.
+	Review Review
+	// Announce is how far the announcement has got.
+	Announce AnnounceWork
 }
 
 // Stages is the loop's five stages, in order, each with its system and how far
@@ -177,16 +217,9 @@ func Stages(work Work, messagingService string) []Stage {
 }
 
 // issueState is done once the branch names an issue, and in flight while one is
-// selected.
+// picked. A map, so exhaustive keeps it complete.
 func issueState(work Work) State {
-	switch {
-	case work.IssueNamed:
-		return Done
-	case work.IssueSelected:
-		return InFlight
-	default:
-		return NotStarted
-	}
+	return map[IssueWork]State{IssueNone: NotStarted, IssuePicked: InFlight, IssueNamed: Done}[work.Issue]
 }
 
 // branchState is done on a feature branch.
@@ -207,7 +240,7 @@ func commitState(work Work) State {
 	switch {
 	case !work.OnFeatureBranch:
 		return NotStarted
-	case work.Commits > 0 || work.PullRequest == PullRequestMerged:
+	case work.Commits > 0 || work.Review.pull == PullRequestMerged:
 		return Done
 	case work.UncommittedChanges > 0:
 		return InFlight
@@ -222,16 +255,18 @@ func commitState(work Work) State {
 // whatever was asked of it before the merge, and one merging is in flight
 // until the merge lands, whatever its CI last read.
 func reviewState(work Work) State {
+	review := work.Review
+
 	switch {
-	case work.PullRequest == PullRequestMerged:
+	case review.pull == PullRequestMerged:
 		return Done
-	case work.PullRequest == NoPullRequest:
+	case review.pull == NoPullRequest:
 		return NotStarted
-	case work.PullRequest == PullRequestMerging:
+	case review.pull == PullRequestMerging:
 		return InFlight
-	case work.CI == forge.CIFailed || work.ChangesRequested:
+	case review.ci == forge.CIFailed || review.changesRequested:
 		return Failed
-	case work.CI == forge.CIPassed:
+	case review.ci == forge.CIPassed:
 		return Done
 	default:
 		return InFlight
@@ -239,14 +274,8 @@ func reviewState(work Work) State {
 }
 
 // announceState is done once the pull request is announced, and in flight while
-// an announcement waits for CI or is on its way.
+// an announcement waits for CI or is on its way. A map, so exhaustive keeps it
+// complete.
 func announceState(work Work) State {
-	switch {
-	case work.Announced:
-		return Done
-	case work.AnnouncePending:
-		return InFlight
-	default:
-		return NotStarted
-	}
+	return map[AnnounceWork]State{AnnounceNone: NotStarted, AnnounceUnderWay: InFlight, AnnounceMade: Done}[work.Announce]
 }
