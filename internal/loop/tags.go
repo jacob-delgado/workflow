@@ -19,15 +19,38 @@ import (
 type SlackTarget = messaging.SlackTarget
 
 // OwnerLink is what was decided for one forge owner: whether they are a team
-// or a person, as the forge told them apart when they were decided; whether
-// they are on Slack; and if so, as whom — a user for a person, a user group
-// for a team.
+// or a person, as the forge told them apart when they were decided, and
+// whether they are on Slack, and if so as whom — a user for a person, a user
+// group for a team. It is built only as a decision it can be, by OnSlackAs or
+// NotOnSlack.
 type OwnerLink struct {
-	Owner   string
-	Team    bool
-	OnSlack bool
-	Slack   SlackTarget
+	owner  string
+	team   bool
+	target SlackTarget
+	// onSlack tells a decision that the owner is on Slack, with target, from
+	// one that they are not, with none.
+	onSlack bool
 }
+
+// OnSlackAs is the decision that owner, a team or a person, is target on
+// Slack.
+func OnSlackAs(owner string, team bool, target SlackTarget) OwnerLink {
+	return OwnerLink{owner: owner, team: team, target: target, onSlack: true}
+}
+
+// NotOnSlack is the decision that owner, a team or a person, is not on Slack.
+func NotOnSlack(owner string, team bool) OwnerLink {
+	return OwnerLink{owner: owner, team: team, target: SlackTarget{}, onSlack: false}
+}
+
+// Owner is the forge owner decided.
+func (l OwnerLink) Owner() string { return l.owner }
+
+// Team reports the owner decided as a team rather than a person.
+func (l OwnerLink) Team() bool { return l.team }
+
+// OnSlack is whom the owner is on Slack, and whether they are on it at all.
+func (l OwnerLink) OnSlack() (SlackTarget, bool) { return l.target, l.onSlack }
 
 // ErrGroupNotOffered refuses to tag a user group the announcement did not
 // offer.
@@ -250,7 +273,7 @@ func withDecidedTeams(owners codeowners.Owners, links []OwnerLink) codeowners.Ow
 	people, teams := []string{}, slices.Clone(owners.Teams)
 
 	for _, user := range owners.Users {
-		if slices.ContainsFunc(links, func(link OwnerLink) bool { return link.Team && SameOwner(link.Owner, user) }) {
+		if slices.ContainsFunc(links, func(link OwnerLink) bool { return link.Team() && SameOwner(link.Owner(), user) }) {
 			teams = append(teams, user)
 		} else {
 			people = append(people, user)
@@ -267,20 +290,21 @@ func withDecidedTeams(owners codeowners.Owners, links []OwnerLink) codeowners.Ow
 func ownerTag(owner string, team bool, links []OwnerLink) OwnerTag {
 	tag := OwnerTag{Owner: owner, Team: team, State: OwnerUnlinked, Slack: SlackTarget{}}
 
-	index := slices.IndexFunc(links, func(link OwnerLink) bool { return SameOwner(link.Owner, owner) })
+	index := slices.IndexFunc(links, func(link OwnerLink) bool { return SameOwner(link.Owner(), owner) })
 	if index < 0 {
 		return tag
 	}
 
 	link := links[index]
+	target, onSlack := link.OnSlack()
 
 	switch {
-	case link.Team != team && !strings.Contains(owner, "/"):
+	case link.Team() != team && !strings.Contains(owner, "/"):
 		return tag
-	case !link.OnSlack:
+	case !onSlack:
 		tag.State = OwnerNotOnSlack
-	case fitsOwner(link.Slack.ID, team):
-		tag.State, tag.Slack = OwnerLinked, link.Slack
+	case fitsOwner(target.ID, team):
+		tag.State, tag.Slack = OwnerLinked, target
 	}
 
 	return tag

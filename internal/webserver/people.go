@@ -125,11 +125,11 @@ func peopleOwners(links []loop.OwnerLink, branchOwners codeowners.Owners) codeow
 	}
 
 	for _, link := range links {
-		add(link.Owner, link.Team || branchTeam(link.Owner))
+		add(link.Owner(), link.Team() || branchTeam(link.Owner()))
 	}
 
 	for _, owner := range slices.Concat(branchOwners.Users, branchOwners.Teams) {
-		if !slices.ContainsFunc(links, func(link loop.OwnerLink) bool { return loop.SameOwner(link.Owner, owner) }) {
+		if !slices.ContainsFunc(links, func(link loop.OwnerLink) bool { return loop.SameOwner(link.Owner(), owner) }) {
 			add(owner, branchTeam(owner))
 		}
 	}
@@ -183,18 +183,28 @@ func (s *server) linkPerson(ctx context.Context, link api.PersonLink) error {
 	}
 
 	return s.inWorkspace(ctx, func(workspace string) error {
-		decision := loop.OwnerLink{Owner: link.Owner, Team: team, OnSlack: false, Slack: loop.SlackTarget{}}
-		if !link.NotOnSlack {
-			target, err := s.slackTarget(ctx, *link.SlackID, team, orZero(link.Channel))
-			if err != nil {
-				return err
-			}
-
-			decision.OnSlack, decision.Slack = true, target
+		decision, err := s.decision(ctx, link, team)
+		if err != nil {
+			return err
 		}
 
 		return s.keptWrite(func() error { return s.deps.Store.LinkOwner(ctx, workspace, decision) })
 	})
+}
+
+// decision is what link decides for its owner, a team or a person: that they
+// are not on Slack, or whom they are there, checked with Slack under ctx.
+func (s *server) decision(ctx context.Context, link api.PersonLink, team bool) (loop.OwnerLink, error) {
+	if link.NotOnSlack {
+		return loop.NotOnSlack(link.Owner, team), nil
+	}
+
+	target, err := s.slackTarget(ctx, *link.SlackID, team, orZero(link.Channel))
+	if err != nil {
+		return loop.OwnerLink{}, err
+	}
+
+	return loop.OnSlackAs(link.Owner, team, target), nil
 }
 
 // isTeam reports whether owner is a team, as People lists them: as it was

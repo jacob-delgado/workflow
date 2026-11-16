@@ -36,7 +36,7 @@ func ana() *loop.SlackTarget {
 
 // anaLinked is the decision that the forge owner ana is the Slack user Ana.
 func anaLinked() loop.OwnerLink {
-	return loop.OwnerLink{Owner: anaOwner, Team: false, OnSlack: true, Slack: *ana()}
+	return loop.OnSlackAs(anaOwner, false, *ana())
 }
 
 // podGroup is a Slack user group a repository may tag.
@@ -96,9 +96,29 @@ func TestAnOwnerLinkIsSharedByEveryRepositoryOnTheHost(t *testing.T) {
 	links, err := second.Store.OwnerLinks(t.Context(), workspace)
 
 	// Assert
-	want := []loop.OwnerLink{{Owner: anaOwner, OnSlack: true, Slack: *ana()}}
+	want := []loop.OwnerLink{loop.OnSlackAs(anaOwner, false, *ana())}
 	if err != nil || !slices.Equal(links, want) {
 		t.Errorf("OwnerLinks in another repository on the host = %+v, %v; want %+v", links, err, want)
+	}
+}
+
+func TestAnOwnerNotOnSlackReadsBackNotOnSlackThroughTheSeams(t *testing.T) {
+	// Arrange
+	isolatedStoreDir(t)
+	deps := wired(t, config.Default(), onOrigin(t.TempDir(), credentialedRemote), nil)
+
+	err := deps.Store.LinkOwner(t.Context(), workspace, loop.NotOnSlack("dan", false))
+	if err != nil {
+		t.Fatalf("deciding dan: %v", err)
+	}
+
+	// Act
+	links, err := deps.Store.OwnerLinks(t.Context(), workspace)
+
+	// Assert
+	want := []loop.OwnerLink{loop.NotOnSlack("dan", false)}
+	if err != nil || !slices.Equal(links, want) {
+		t.Errorf("OwnerLinks = %+v, %v; want dan decided not on Slack", links, err)
 	}
 }
 
@@ -107,7 +127,7 @@ func TestAForgottenOwnerIsUndecidedThroughTheSeams(t *testing.T) {
 	isolatedStoreDir(t)
 	deps := wired(t, config.Default(), onOrigin(t.TempDir(), credentialedRemote), nil)
 
-	notOnSlack := loop.OwnerLink{Owner: "dan", Team: false, OnSlack: false, Slack: loop.SlackTarget{}}
+	notOnSlack := loop.NotOnSlack("dan", false)
 
 	err := deps.Store.LinkOwner(t.Context(), workspace, notOnSlack)
 	if err != nil {
@@ -130,7 +150,7 @@ func TestALinkOfTheWrongShapeIsRefusedThroughTheSeams(t *testing.T) {
 	// Arrange
 	isolatedStoreDir(t)
 	deps := wired(t, config.Default(), onOrigin(t.TempDir(), credentialedRemote), nil)
-	link := loop.OwnerLink{Owner: anaOwner, Team: false, OnSlack: true, Slack: podGroup()}
+	link := loop.OnSlackAs(anaOwner, false, podGroup())
 
 	// Act
 	err := deps.Store.LinkOwner(t.Context(), workspace, link)

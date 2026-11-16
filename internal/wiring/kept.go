@@ -118,18 +118,27 @@ func forgeHostKey(where Workspace) string {
 func fromStoreLinks(links []store.OwnerLink) []loop.OwnerLink {
 	mapped := make([]loop.OwnerLink, 0, len(links))
 	for _, link := range links {
-		mapped = append(mapped, loop.OwnerLink{
-			Owner: link.Owner, Team: link.Team, OnSlack: link.OnSlack, Slack: loop.SlackTarget(link.Slack),
-		})
+		mapped = append(mapped, fromStoreLink(link))
 	}
 
 	return mapped
 }
 
+// fromStoreLink maps one owner link the store kept to the decision it is.
+func fromStoreLink(link store.OwnerLink) loop.OwnerLink {
+	if !link.OnSlack {
+		return loop.NotOnSlack(link.Owner, link.Team)
+	}
+
+	return loop.OnSlackAs(link.Owner, link.Team, loop.SlackTarget(link.Slack))
+}
+
 // toStoreLink maps a decision about an owner to the store's.
 func toStoreLink(decision loop.OwnerLink) store.OwnerLink {
+	target, onSlack := decision.OnSlack()
+
 	return store.OwnerLink{
-		Owner: decision.Owner, Team: decision.Team, OnSlack: decision.OnSlack, Slack: store.SlackTarget(decision.Slack),
+		Owner: decision.Owner(), Team: decision.Team(), OnSlack: onSlack, Slack: store.SlackTarget(target),
 	}
 }
 

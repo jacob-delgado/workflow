@@ -211,12 +211,11 @@ func saveLink(ctx context.Context, deps Deps, link loop.OwnerLink, opened int) t
 // decided is what was decided for owner, a team or a person: whom they are
 // on Slack, or with no target that they are not on it.
 func decided(owner string, team bool, target *loop.SlackTarget) loop.OwnerLink {
-	link := loop.OwnerLink{Owner: owner, Team: team, OnSlack: false, Slack: loop.SlackTarget{}}
-	if target != nil {
-		link.OnSlack, link.Slack = true, *target
+	if target == nil {
+		return loop.NotOnSlack(owner, team)
 	}
 
-	return link
+	return loop.OnSlackAs(owner, team, *target)
 }
 
 // inWorkspace makes write in the Slack workspace the token is for, read under

@@ -154,21 +154,18 @@ func peopleFrom(decided []loop.OwnerLink, owners codeowners.Owners) []person {
 
 	people := make([]person, 0, len(decided))
 	for _, link := range decided {
-		if link.Team || !ownerTeam(link.Owner) {
-			people = append(people, person{owner: link.Owner, team: link.Team, decided: true, link: link})
+		if link.Team() || !ownerTeam(link.Owner()) {
+			people = append(people, person{owner: link.Owner(), team: link.Team(), decided: true, link: link})
 
 			continue
 		}
 
-		asTeam := loop.OwnerLink{Owner: link.Owner, Team: true, OnSlack: false, Slack: loop.SlackTarget{}}
-		people = append(people, person{owner: link.Owner, team: true, decided: false, link: asTeam})
+		people = append(people, person{owner: link.Owner(), team: true, decided: false, link: loop.OwnerLink{}})
 	}
 
 	for _, owner := range slices.Concat(owners.Users, owners.Teams) {
-		if !slices.ContainsFunc(decided, func(link loop.OwnerLink) bool { return loop.SameOwner(link.Owner, owner) }) {
-			team := ownerTeam(owner)
-			link := loop.OwnerLink{Owner: owner, Team: team, OnSlack: false, Slack: loop.SlackTarget{}}
-			people = append(people, person{owner: owner, team: team, decided: false, link: link})
+		if !slices.ContainsFunc(decided, func(link loop.OwnerLink) bool { return loop.SameOwner(link.Owner(), owner) }) {
+			people = append(people, person{owner: owner, team: ownerTeam(owner), decided: false, link: loop.OwnerLink{}})
 		}
 	}
 
@@ -272,10 +269,11 @@ func (p peopleOverlay) listLines(kit renderKit, rows int) []string {
 // personRow is an owner and what is known of them on Slack.
 func personRow(kit renderKit, row person) string {
 	state := "? not asked yet"
+	target, onSlack := row.link.OnSlack()
 
 	switch {
-	case row.decided && row.link.OnSlack:
-		state = strings.TrimSpace(kit.marks.arrow) + " " + slackName(row.link.Slack, row.team)
+	case row.decided && onSlack:
+		state = strings.TrimSpace(kit.marks.arrow) + " " + slackName(target, row.team)
 	case row.decided:
 		state = kit.marks.unknown + " not on Slack"
 	}

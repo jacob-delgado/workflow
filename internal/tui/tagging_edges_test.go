@@ -222,7 +222,7 @@ func TestTagsReadForAnEarlierPreviewLeaveALaterOnesAlone(t *testing.T) {
 	closed := typing(t, opened, keyEsc)
 
 	tagging.mu.Lock()
-	tagging.slack.links[0] = loop.OwnerLink{Owner: ownerCarla, OnSlack: false, Slack: loop.SlackTarget{}}
+	tagging.slack.links[0] = loop.NotOnSlack(ownerCarla, false)
 	tagging.mu.Unlock()
 
 	reopened := typing(t, closed, "p")

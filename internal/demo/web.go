@@ -136,8 +136,8 @@ type people struct {
 func newPeople() *people {
 	return &people{
 		links: []loop.OwnerLink{
-			{Owner: "sam.ortiz", OnSlack: true, Slack: slackSam()},
-			{Owner: "acme/platform", Team: true, OnSlack: true, Slack: groupPlatform()},
+			loop.OnSlackAs("sam.ortiz", false, slackSam()),
+			loop.OnSlackAs("acme/platform", true, groupPlatform()),
 		},
 		groups: []loop.SlackTarget{groupReviewers()},
 	}
@@ -179,9 +179,9 @@ func (p *people) link(decision loop.OwnerLink) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	decision.Owner = strings.ToLower(decision.Owner)
+	decision = lowered(decision)
 
-	index := slices.IndexFunc(p.links, func(link loop.OwnerLink) bool { return link.Owner == decision.Owner })
+	index := slices.IndexFunc(p.links, func(link loop.OwnerLink) bool { return link.Owner() == decision.Owner() })
 	if index < 0 {
 		p.links = append(p.links, decision)
 
@@ -191,12 +191,22 @@ func (p *people) link(decision loop.OwnerLink) {
 	p.links[index] = decision
 }
 
+// lowered is decision with its owner in lower case.
+func lowered(decision loop.OwnerLink) loop.OwnerLink {
+	owner := strings.ToLower(decision.Owner())
+	if target, onSlack := decision.OnSlack(); onSlack {
+		return loop.OnSlackAs(owner, decision.Team(), target)
+	}
+
+	return loop.NotOnSlack(owner, decision.Team())
+}
+
 // forget drops what was decided for owner, whatever its case.
 func (p *people) forget(owner string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	p.links = slices.DeleteFunc(p.links, func(link loop.OwnerLink) bool { return loop.SameOwner(link.Owner, owner) })
+	p.links = slices.DeleteFunc(p.links, func(link loop.OwnerLink) bool { return loop.SameOwner(link.Owner(), owner) })
 }
 
 // setGroups makes groups the ones api's announcements may tag.

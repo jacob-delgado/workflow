@@ -85,7 +85,7 @@ func TestPeopleChangesAnAssociationThroughThePicker(t *testing.T) {
 
 	// Arrange
 	ben := onlyBen()
-	ben.slack.links = []loop.OwnerLink{{Owner: ownerBen, OnSlack: false, Slack: loop.SlackTarget{}}}
+	ben.slack.links = []loop.OwnerLink{loop.NotOnSlack(ownerBen, false)}
 
 	// Act
 	changed := typing(t, openPeople(t, ben), keyEnter, "down", keyEnter)
