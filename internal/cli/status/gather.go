@@ -53,7 +53,7 @@ func gather(ctx context.Context, seams statusSeams, branch gitrepo.Branch) statu
 		facts.summary, issueErr = issueSummary(ctx, seams, issueRef.Key)
 	}
 
-	onFeature := branch.Name != "" && branch.Name != branch.BaseName()
+	onFeature := loop.OnFeatureBranch(branch)
 	review := gatherReview(ctx, seams, branch, onFeature)
 	changes, changesErr := seams.Changes(ctx)
 	announced, announcedErr := seams.Memory.Records(ctx)
