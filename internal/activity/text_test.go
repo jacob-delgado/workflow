@@ -29,7 +29,7 @@ func TestTheCopyableTextNestsTheGroupingAndNamesWhatIsMissing(t *testing.T) {
 			{Source: activity.SourceGit, Items: []activity.Item{
 				{At: at(t, "2026-10-02T09:15:00Z"), Kind: activity.Committed, Ref: "abc1234", Title: "Fix the token leak"},
 			}},
-			{Source: activity.SourceJira, Failed: errUnreachable},
+			activity.Read{Source: activity.SourceJira}.Failing(errUnreachable),
 			{Source: activity.SourceForge, Truncated: true, Items: []activity.Item{
 				{At: at(t, "2026-10-02T15:40:00Z"), Kind: activity.PullOpened, Ref: "#42", Title: "Redact tokens"},
 			}},

@@ -63,19 +63,16 @@ func Date(day activity.Date) openapi_types.Date {
 // as not set up with how to set it up, or failed with why, each worded by
 // describe.
 func sourceDTO(read activity.Read, describe func(error) string) api.ActivitySource {
-	source := api.ActivitySource{
-		Source: sourceName(read.Source), Name: read.Source.Title(), State: api.ActivitySourceStateRead,
-		Truncated: read.Truncated, Detail: "",
+	states := map[activity.Outcome]api.ActivitySourceState{
+		activity.OutcomeRead:     api.ActivitySourceStateRead,
+		activity.OutcomeFailed:   api.ActivitySourceStateFailed,
+		activity.OutcomeNotSetUp: api.ActivitySourceStateNotSetUp,
 	}
 
-	switch {
-	case read.Failed != nil:
-		source.State, source.Detail = api.ActivitySourceStateFailed, failureDetail(read.Failed, describe)
-	case read.NotSetUp != nil:
-		source.State, source.Detail = api.ActivitySourceStateNotSetUp, failureDetail(read.NotSetUp, describe)
+	return api.ActivitySource{
+		Source: sourceName(read.Source), Name: read.Source.Title(), State: states[read.Outcome()],
+		Truncated: read.Truncated, Detail: failureDetail(read.Why(), describe),
 	}
-
-	return source
 }
 
 // yearsDTO is the grouping as the API nests it.

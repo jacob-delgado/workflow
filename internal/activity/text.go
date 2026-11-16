@@ -92,7 +92,7 @@ func (s Summary) notes() []string {
 	for _, read := range s.Reads {
 		name := read.Source.Title()
 
-		if read.Failed != nil {
+		if read.Outcome() == OutcomeFailed {
 			notes = append(notes, name+" could not be read.")
 		}
 

@@ -191,8 +191,8 @@ func unreadSources(reads []activity.Read) error {
 	var unread []error
 
 	for _, read := range reads {
-		if read.Failed != nil {
-			unread = append(unread, fmt.Errorf("%s could not be read: %w", read.Source.Title(), read.Failed))
+		if read.Outcome() == activity.OutcomeFailed {
+			unread = append(unread, fmt.Errorf("%s could not be read: %w", read.Source.Title(), read.Why()))
 		}
 	}
 
@@ -203,9 +203,9 @@ func unreadSources(reads []activity.Read) error {
 // and how to set it up, in the words the web gives it.
 func noteLeftOut(notes console.Notes, reads []activity.Read) {
 	for _, read := range reads {
-		if read.NotSetUp != nil {
+		if read.Outcome() == activity.OutcomeNotSetUp {
 			notes.Note(read.Source.Title() + " is not set up, so it was left out: " +
-				report.FaultDetail(read.NotSetUp))
+				report.FaultDetail(read.Why()))
 		}
 	}
 }

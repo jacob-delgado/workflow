@@ -97,7 +97,7 @@ func TestCommitsInSeveralRepositoriesAreNamedByTheirRepository(t *testing.T) {
 			Repository: webRepository,
 		},
 	}
-	if got.Failed != nil || !slices.Equal(got.Items, want) {
+	if got.Outcome() != activity.OutcomeRead || !slices.Equal(got.Items, want) {
 		t.Errorf("CommitsRead = %+v, want %+v", got, want)
 	}
 }
@@ -153,7 +153,8 @@ func TestARepositoryThatCannotBeReadIsNamedAndTheOthersStillRead(t *testing.T) {
 	got := loop.CommitsRead(t.Context(), read, start, start.Add(24*time.Hour))
 
 	// Assert
-	if !errors.Is(got.Failed, errNotRead) || !strings.Contains(got.Failed.Error(), webRepository) || len(got.Items) != 1 {
+	if got.Outcome() != activity.OutcomeFailed || !errors.Is(got.Why(), errNotRead) ||
+		!strings.Contains(got.Why().Error(), webRepository) || len(got.Items) != 1 {
 		t.Errorf("CommitsRead = %+v, want acme/web named as failed beside acme/api's commit", got)
 	}
 }
@@ -169,7 +170,7 @@ func TestARepositoryWithNoIdentityLeavesGitNotSetUpBesideTheOthersCommits(t *tes
 	got := loop.CommitsRead(t.Context(), read, start, start.Add(24*time.Hour))
 
 	// Assert
-	if got.Failed != nil || !errors.Is(got.NotSetUp, gitrepo.ErrNoIdentity) || len(got.Items) != 1 {
+	if got.Outcome() != activity.OutcomeNotSetUp || !errors.Is(got.Why(), gitrepo.ErrNoIdentity) || len(got.Items) != 1 {
 		t.Errorf("CommitsRead = %+v, want git not set up beside acme/api's commit", got)
 	}
 }
@@ -192,7 +193,7 @@ func TestEachRepositoryThatFailedIsNamedInItsOwnFailure(t *testing.T) {
 	// Assert
 	var named []string
 
-	for _, failure := range loop.Failures(got.Failed) {
+	for _, failure := range loop.Failures(got.Why()) {
 		repository, isNamed := errors.AsType[loop.RepositoryError](failure)
 		if isNamed && errors.Is(repository.Err, errNotRead) {
 			named = append(named, repository.Repository)
@@ -399,7 +400,7 @@ func TestEverySourceThatCannotBeReadIsNamedAsFailed(t *testing.T) {
 			got := read()
 
 			// Assert
-			if !errors.Is(got.Failed, errNotRead) || got.Source != source {
+			if got.Outcome() != activity.OutcomeFailed || !errors.Is(got.Why(), errNotRead) || got.Source != source {
 				t.Errorf("read = %+v, want %s named as failed", got, source.Name())
 			}
 		})

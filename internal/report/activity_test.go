@@ -137,7 +137,7 @@ func TestASourceThatFailedSaysWhyInDescribesWords(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	summary := summaryOf(activity.Read{Source: activity.SourceJira, Failed: errRefused})
+	summary := summaryOf(activity.Read{Source: activity.SourceJira}.Failing(errRefused))
 
 	// Act
 	answer := report.Activity(summary, wednesday(), time.UTC, worded)
@@ -153,7 +153,7 @@ func TestASourceNotSetUpSaysHowInDescribesWords(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	summary := summaryOf(activity.Read{Source: activity.SourceTasks, NotSetUp: errRefused})
+	summary := summaryOf(activity.Read{Source: activity.SourceTasks}.LeftOut(errRefused))
 
 	// Act
 	answer := report.Activity(summary, wednesday(), time.UTC, worded)
@@ -173,7 +173,7 @@ func TestAFailureInOneOfSeveralRepositoriesNamesIt(t *testing.T) {
 		loop.RepositoryError{Repository: "api", Err: errRefused},
 		loop.RepositoryError{Repository: "gone", Err: gitrepo.ErrNotARepository},
 	}
-	summary := summaryOf(activity.Read{Source: activity.SourceGit, Failed: failed})
+	summary := summaryOf(activity.Read{Source: activity.SourceGit}.Failing(failed))
 
 	// Act
 	answer := report.Activity(summary, wednesday(), time.UTC, worded)

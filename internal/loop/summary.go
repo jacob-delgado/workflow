@@ -77,20 +77,14 @@ func CommitsRead(
 	return unanswered(activity.Read{Source: activity.SourceGit, Items: items}, repositoryErrors(failures))
 }
 
-// unanswered is read with why its source did not answer: NotSetUp when every
-// failure says nothing was set up to ask, Failed when any is a refusal.
+// unanswered is read with why its source did not answer: left out when every
+// failure says nothing was set up to ask, failing when any is a refusal.
 func unanswered(read activity.Read, err error) activity.Read {
-	if err == nil {
-		return read
-	}
-
 	if slices.ContainsFunc(Failures(err), func(failure error) bool { return !NotSetUp(failure) }) {
-		read.Failed = err
-	} else {
-		read.NotSetUp = err
+		return read.Failing(err)
 	}
 
-	return read
+	return read.LeftOut(err)
 }
 
 // item is one commit as the Summary lists it, its hash written as GitHub
