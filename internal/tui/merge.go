@@ -76,16 +76,14 @@ func (msg mergeMethodsLoaded) apply(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	switch {
-	case msg.err != nil:
-		picker.listErr = msg.err
-	case len(msg.methods) == 0:
-		picker.listErr = errNoMergeMethod
-	default:
-		picker.methods = msg.methods
+	err := msg.err
+	if err == nil && len(msg.methods) == 0 {
+		err = errNoMergeMethod
 	}
 
-	picker.settled = true
+	// The preview reads its methods once, as it opens, before it could begin
+	// a round: the listing is round 0's.
+	picker.listing, _ = picker.listing.Answered(0, msg.methods, err)
 
 	return m.withAnswered(picker), nil
 }
@@ -142,12 +140,13 @@ func patienceWords() string {
 // to use, sent only once it is confirmed, and whether no CI was reported on
 // it in armed.NoCIPatience.
 type mergePicker struct {
-	vocab    reviewVocab
-	pull     forge.PullRequest
-	noCI     bool
-	methods  []forge.MergeMethod
-	listErr  error
-	settled  bool
+	vocab reviewVocab
+	pull  forge.PullRequest
+	noCI  bool
+	// listing is the merge methods the repository permits, read once as the
+	// preview opens, a repository that permits none read as failed;
+	// selected is which of them is chosen.
+	listing  latest.Read[[]forge.MergeMethod]
 	selected int
 	send     sendState
 	// opened is the round the preview opened in, which its read carries
@@ -162,8 +161,8 @@ var (
 )
 
 // view draws the pull request, that no CI was reported on it where none was,
-// and the methods it may be merged by, the merge's outcome pinned under the
-// title.
+// and the methods it may be merged by: reading them, why they could not be
+// read, or them; the merge's outcome pinned under the title.
 func (p mergePicker) view(kit renderKit, width, _ int) (string, string) {
 	lines := kit.pinnedOutcome(p.send, "merging", width)
 	name := p.vocab.sigil + strconv.Itoa(p.pull.Number)
@@ -174,19 +173,34 @@ func (p mergePicker) view(kit renderKit, width, _ int) (string, string) {
 			"; a forge that requires checks refuses the merge", "")
 	}
 
-	switch {
-	case !p.settled:
-		lines = append(lines, "reading the merge methods"+kit.marks.ellipsis)
-	case p.listErr != nil:
-		lines = append(lines, kit.failureLine(p.listErr))
-	default:
-		lines = append(lines, "Merge by:")
-		for index, method := range p.methods {
-			lines = append(lines, kit.marks.marker(index == p.selected)+mergeMethodLabel(method))
-		}
-	}
+	failed := func() []string { return []string{kit.failureLine(p.listing.Err())} }
+	lines = append(lines, drawRead(p.listing, drawnRead[[]string]{
+		reading:    func() []string { return []string{"reading the merge methods" + kit.marks.ellipsis} },
+		shown:      func() []string { return p.listed(kit) },
+		failed:     failed,
+		failedOver: failed,
+	})...)
 
 	return "Merge " + p.vocab.noun, strings.Join(lines, "\n")
+}
+
+// listed draws the methods read, the chosen one marked.
+func (p mergePicker) listed(kit renderKit) []string {
+	methods := p.methods()
+	lines := append(make([]string, 0, 1+len(methods)), "Merge by:")
+
+	for index, method := range methods {
+		lines = append(lines, kit.marks.marker(index == p.selected)+mergeMethodLabel(method))
+	}
+
+	return lines
+}
+
+// methods is the merge methods read, none until they are.
+func (p mergePicker) methods() []forge.MergeMethod {
+	found, _ := p.listing.Value()
+
+	return found
 }
 
 // footer offers moving between the methods, merging, and leaving; only leaving
@@ -197,7 +211,7 @@ func (p mergePicker) footer(keys keyMap) []key.Binding {
 	switch {
 	case p.send.sending:
 		return []key.Binding{keys.interrupt}
-	case len(p.methods) == 0:
+	case len(p.methods()) == 0:
 		return []key.Binding{cancel}
 	default:
 		return []key.Binding{keys.up, keys.down, relabel(keys.confirm, "merge"), cancel}
@@ -212,7 +226,7 @@ func (p mergePicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
-	case len(p.methods) == 0:
+	case len(p.methods()) == 0:
 		return m, nil
 	case key.Matches(msg, m.keys.confirm):
 		return p.confirm(m)
@@ -238,7 +252,7 @@ func (p mergePicker) step(m Model, delta int) Model {
 		return m
 	}
 
-	p.selected = max(0, min(p.selected+delta, len(p.methods)-1))
+	p.selected = max(0, min(p.selected+delta, len(p.methods())-1))
 	m.overlay = p
 
 	return m
@@ -246,7 +260,7 @@ func (p mergePicker) step(m Model, delta int) Model {
 
 // confirm merges by the chosen method, or, in a dry run, says what it would do.
 func (p mergePicker) confirm(m Model) (Model, tea.Cmd) {
-	method := p.methods[p.selected]
+	method := p.methods()[p.selected]
 
 	if m.dryRun {
 		return m.closeOverlay().noticed("dry run: would merge " + p.vocab.sigil +
