@@ -19,6 +19,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/seams"
+	"github.com/jacob-delgado/workflow/internal/tui/send"
 )
 
 // errNotAnIssue is text typed into the link form that names no issue.
@@ -44,17 +45,37 @@ type branchLinker struct {
 	pull    forge.PullRequest
 	hasPull bool
 	input   textinput.Model
+	stage   linkStage
 	// body is the pull request's description with the issue's line added,
-	// once the issue is chosen and the description needs it; empty before.
-	body    string
-	chosen  jira.Key
-	send    sendState
+	// shown while the stage is linkPreviewing; empty while typing.
+	body   string
+	chosen jira.Key
+	opened int
+	// send is the link and the edit after it, sent as one write: a refused
+	// edit is a refusal carrying errLinkedNotDescribed, and enter sends both
+	// again, the link being one git keeps as often as it is asked.
+	send send.State
+	// problem is why the text typed names no issue, found before anything
+	// is sent.
 	problem error
 }
 
+// linkStage is where the link form stands: typing the issue, or showing the
+// description the issue's line will be added to, which enter confirms. A
+// write is out or refused in either, as send says.
+type linkStage int
+
+const (
+	// linkTyping takes the issue's key, which enter reads.
+	linkTyping linkStage = iota
+	// linkPreviewing shows the pull request's description with the issue's
+	// line added, which enter links and sends.
+	linkPreviewing
+)
+
 var (
-	_ failable[branchLinker] = branchLinker{}
-	_ pasteable              = branchLinker{}
+	_ sender[branchLinker] = branchLinker{}
+	_ pasteable            = branchLinker{}
 )
 
 // canLinkIssue reports a checked-out branch and a repository that can keep a
@@ -88,8 +109,10 @@ func (m Model) openBranchLink() (Model, tea.Cmd) {
 		pull = m.review.pull()
 	}
 
+	m, round := m.nextRound()
 	m.overlay = branchLinker{
 		vocab: m.vocab, branch: checkedOut.Name, pull: pull, hasPull: hasPull, input: newInput(start),
+		stage: linkTyping, opened: round, send: send.State{},
 	}
 
 	return m, nil
@@ -99,13 +122,13 @@ func (m Model) openBranchLink() (Model, tea.Cmd) {
 // to, with how sending is going or why the form cannot send pinned under the
 // title, so a long refusal is wrapped and seen rather than clipped.
 func (l branchLinker) view(kit renderKit, width, _ int) (string, string) {
-	lines := append(kit.pinnedOutcome(l.send, "linking", width),
+	lines := append(kit.pinnedSend(l.send, "linking", width),
 		kit.pinnedProblem(l.problem, width)...)
 
 	l.input.SetWidth(max(1, width-len(l.input.Prompt)-1))
 
 	lines = append(lines, "Link "+l.branch+" to an issue: a Jira key, or a forge number.", "", l.input.View())
-	if l.body != "" {
+	if l.stage == linkPreviewing {
 		lines = append(lines, "", "Its "+l.vocab.noun+"'s description becomes:", "", l.body)
 	}
 
@@ -114,12 +137,12 @@ func (l branchLinker) view(kit renderKit, width, _ int) (string, string) {
 
 // footer offers choosing the issue, then linking it, or canceling.
 func (l branchLinker) footer(keys keyMap) []key.Binding {
-	if l.send.sending {
+	if l.send.Stage() == send.StageInFlight {
 		return []key.Binding{keys.interrupt}
 	}
 
 	confirm := relabel(keys.confirm, "link")
-	if l.body != "" {
+	if l.stage == linkPreviewing {
 		confirm = relabel(keys.confirm, "link and update the description")
 	}
 
@@ -129,24 +152,32 @@ func (l branchLinker) footer(keys keyMap) []key.Binding {
 // handleKey answers a key while the form has the keyboard.
 func (l branchLinker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case l.send.sending:
+	case l.send.Stage() == send.StageInFlight:
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
-	case key.Matches(msg, m.keys.confirm) && l.body != "":
-		return l.link(m)
 	case key.Matches(msg, m.keys.confirm):
-		return l.choose(m)
+		return l.confirmed(m)
 	default:
 		return l.retyped(m, msg), nil
 	}
+}
+
+// confirmed answers enter: linking once the description is shown, and in
+// any other stage reading the issue typed.
+func (l branchLinker) confirmed(m Model) (Model, tea.Cmd) {
+	if l.stage == linkPreviewing {
+		return l.link(m)
+	}
+
+	return l.choose(m)
 }
 
 // retyped is the form once the issue typed changes: what was wrong with the
 // last one, the description it needed and the refusal it met no longer hold.
 func (l branchLinker) retyped(m Model, typed tea.Msg) Model {
 	l.input, _ = l.input.Update(typed)
-	l.send, l.problem, l.body = sendState{}, nil, ""
+	l.stage, l.body, l.send, l.problem = linkTyping, "", l.send.Cleared(), nil
 	m.overlay = l
 
 	return m
@@ -155,9 +186,22 @@ func (l branchLinker) retyped(m Model, typed tea.Msg) Model {
 // which names the link form.
 func (branchLinker) which() overlayKind { return overlayBranchLinker }
 
+// openedAs is the round the form opened in, which its link carries back.
+func (l branchLinker) openedAs() int { return l.opened }
+
+// sent is the link's write.
+func (l branchLinker) sent() send.State { return l.send }
+
+// withSend is the form with its link's write as state.
+func (l branchLinker) withSend(state send.State) branchLinker {
+	l.send = state
+
+	return l
+}
+
 // pasted types a paste into the issue key, as typing it would.
 func (l branchLinker) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
-	if l.send.sending {
+	if l.send.Stage() == send.StageInFlight {
 		return m, nil
 	}
 
@@ -169,7 +213,7 @@ func (l branchLinker) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
 func (l branchLinker) choose(m Model) (Model, tea.Cmd) {
 	ref, known := convention.RefOf(strings.TrimSpace(l.input.Value()))
 	if !known {
-		l.send, l.problem = sendState{}, errNotAnIssue
+		l.send, l.problem = l.send.Cleared(), errNotAnIssue
 		m.overlay = l
 
 		return m, nil
@@ -180,7 +224,7 @@ func (l branchLinker) choose(m Model) (Model, tea.Cmd) {
 	// Only a description the forge can edit is shown as about to change.
 	if l.hasPull && m.deps.Forge.RewriteDescription != nil {
 		if body, changed := convention.WithIssueLine(l.pull.Body, ref.Key, issueBrowseURL(m.deps, l.chosen)); changed {
-			l.body = body
+			l.stage, l.body = linkPreviewing, body
 			m.overlay = l
 
 			return m, nil
@@ -191,13 +235,14 @@ func (l branchLinker) choose(m Model) (Model, tea.Cmd) {
 }
 
 // link keeps the link, then adds the issue's line to the pull request's
-// description when it was shown, holding both back in a dry run.
+// description when it was shown, holding both back in a dry run. handleKey
+// takes no key while a link is out, so Sent always sends.
 func (l branchLinker) link(m Model) (Model, tea.Cmd) {
 	if m.dryRun {
 		return m.closeOverlay().noticed("dry run: would link " + l.branch + " to " + shownKey(l.chosen)), nil
 	}
 
-	l.send = starting()
+	l.send, _ = l.send.Sent()
 	m.overlay = l
 	ctx, git, forgeDeps := m.session, m.deps.Git, m.deps.Forge
 	issueURL := issueBrowseURL(m.deps, l.chosen)
@@ -215,7 +260,7 @@ func (l branchLinker) link(m Model) (Model, tea.Cmd) {
 func (l branchLinker) sendLink(
 	ctx context.Context, git seams.Git, forgeDeps seams.Forge, issueURL string,
 ) branchLinked {
-	sent := branchLinked{branch: l.branch, issueKey: l.chosen, pull: l.pull}
+	sent := branchLinked{opened: l.opened, branch: l.branch, issueKey: l.chosen, pull: l.pull}
 
 	err := git.LinkIssue(ctx, l.branch, string(l.chosen))
 	if err != nil {
@@ -225,7 +270,7 @@ func (l branchLinker) sendLink(
 	}
 
 	sent.linked = true
-	if l.body == "" {
+	if l.stage != linkPreviewing {
 		return sent
 	}
 
@@ -242,18 +287,11 @@ func (l branchLinker) sendLink(
 // notLinked is a refused link, saying the description shown was left as it
 // was when there was one to change.
 func (l branchLinker) notLinked(err error) error {
-	if l.body == "" {
+	if l.stage != linkPreviewing {
 		return err
 	}
 
 	return fmt.Errorf("%w: %w", errNotLinkedNorDescribed, err)
-}
-
-// failed pins a refusal in the form, so it is read before the form closes.
-func (l branchLinker) failed(err error) branchLinker {
-	l.send = l.send.failed(err)
-
-	return l
 }
 
 // issueBrowseURL is the issue's page, for the line naming it, or empty when
@@ -266,8 +304,10 @@ func issueBrowseURL(deps Deps, issueKey jira.Key) string {
 	return deps.Jira.BrowseURL(issueKey)
 }
 
-// branchLinked reports how linking the branch went.
+// branchLinked reports how linking the branch went, for the form opened as
+// opened.
 type branchLinked struct {
+	opened    int
 	branch    string
 	issueKey  jira.Key
 	pull      forge.PullRequest
@@ -281,9 +321,13 @@ var _ applier = branchLinked{}
 // apply keeps the form open with the reason the link failed, or closes it,
 // reads the branch again, and — for a Jira issue with a pull request open —
 // offers to link the pull request on the issue, as opening one would have.
+// A late answer, its form no longer the one open, changes nothing in the
+// form; none arrives, since the form takes no key but ctrl+c, which quits,
+// while its link is out.
 func (msg branchLinked) apply(m Model) (Model, tea.Cmd) {
-	if msg.err != nil {
-		return msg.keptOpen(m)
+	m, _, done := answered[branchLinker](m, msg.opened, msg.err)
+	if !done {
+		return msg.notDone(m)
 	}
 
 	m = m.closeOverlay().noticed(m.marks.done + " " + msg.said(m.vocab.sigil))
@@ -296,11 +340,10 @@ func (msg branchLinked) apply(m Model) (Model, tea.Cmd) {
 	return m.readingBranch()
 }
 
-// keptOpen keeps the form open with the reason the link or the edit failed,
-// so enter tries again, and reads the branch again when it was linked all the
-// same, so the panes name its issue.
-func (msg branchLinked) keptOpen(m Model) (Model, tea.Cmd) {
-	m = keepOpenWith[branchLinker](m, msg.err)
+// notDone follows a link refused, its reason pinned in the form so enter
+// tries again: the branch is read again when it was linked all the same, so
+// the panes name its issue.
+func (msg branchLinked) notDone(m Model) (Model, tea.Cmd) {
 	if !msg.linked {
 		return m, nil
 	}

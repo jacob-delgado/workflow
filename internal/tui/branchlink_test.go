@@ -219,3 +219,21 @@ func TestTheLinkFormOffersOnlyTheLinkUntilADescriptionIsShown(t *testing.T) {
 	requireScreen(t, footerLine(view), "enter link")
 	refuseScreen(t, footerLine(view), "update the description")
 }
+
+func TestTextThatNamesNoIssueIsRefusedBeforeAnythingIsSent(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := onOffConventionBranch(false)
+	form := typing(t, repo.live(t, 120, 40), "2", "i", keyClearLine, "n", "o", "p", "e")
+
+	// Act
+	view := typing(t, form, keyEnter).View().Content
+
+	// Assert
+	if linked := repo.asked("link-issue"); len(linked) != 0 {
+		t.Errorf("linked %q, want nothing sent for text naming no issue", linked)
+	}
+
+	requireScreen(t, view, "name an issue", "> nope")
+}
