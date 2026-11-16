@@ -24,18 +24,54 @@ type starter func() (proc.Output, error)
 // runKind is a run's title, and what it says failed on a bare failure status.
 type runKind struct{ title, refusal string }
 
+// runStage is where a run's program stands: asked to start, running, asked
+// to stop, or ended one of three ways.
+type runStage int
+
+const (
+	// runStarting has its program asked to start, with no way to stop it yet.
+	runStarting runStage = iota
+	// runRunning streams the program's output, and stop can end it.
+	runRunning
+	// runStopping was asked to stop, and waits for the exit that says how.
+	runStopping
+	// runPassed exited cleanly, a run stopped too late among them: it
+	// finished before the stop reached it.
+	runPassed
+	// runFailed exited with a failure, or its program did not start.
+	runFailed
+	// runStopped ended with the failure its stop caused, which is not
+	// reported as one, and what would come next is not run.
+	runStopped
+)
+
+// runNext is what follows a run's end.
+type runNext int
+
+const (
+	// runRests keeps the run on screen as it ended.
+	runRests runNext = iota
+	// runFindsPlaces looks for the places a failed run's tools pointed at.
+	runFindsPlaces
+	// runSucceeds hands a clean exit to what the run was started for.
+	runSucceeds
+)
+
 // commandRun is a program running with its output streamed: a commit, a push,
 // a hook. When it fails, every place a tool pointed at can be opened in the
 // editor at its line.
 type commandRun struct {
-	kind  runKind
+	kind runKind
+	// id is the round the run drew as it started, which its start, each line,
+	// its exit and its places carry back.
 	id    int
 	start starter
 	// succeeded is what happens once the program exits cleanly; nil keeps the
 	// output on screen until it is closed.
 	succeeded func(m Model) (Model, tea.Cmd)
-	// stop kills this run's own process group, set once its program has started;
-	// it is nil until runStarted arrives.
+	stage     runStage
+	// stop kills this run's own process group, kept once its program has
+	// started.
 	stop func()
 
 	lines []string
@@ -46,20 +82,14 @@ type commandRun struct {
 	inSummary bool
 	// placeScan is where the tools pointed, folded in the same way, so a place
 	// printed before the tail the run keeps is still offered.
-	placeScan hooks.FailureScan
-	done      bool
-	// stopped records that the user asked the run to stop: it shows as stopping
-	// until its exit arrives. A failing exit is then shown as stopped rather than
-	// as a failure, and what would come next is not run; a clean one means the
-	// program finished before the kill reached it, and counts as done.
-	stopped    bool
+	placeScan  hooks.FailureScan
 	err        error
 	failures   pickList[hooks.Location]
 	showOutput bool
 }
 
 var (
-	_ overlay   = commandRun{}
+	_ opened    = commandRun{}
 	_ clickable = commandRun{}
 	_ steppable = commandRun{}
 )
@@ -100,9 +130,8 @@ func (msg runStarted) apply(m Model) (Model, tea.Cmd) {
 		return runFinished{id: msg.id, err: msg.err}.apply(m)
 	}
 
-	if run, open := m.overlay.(commandRun); open && run.id == msg.id {
-		run.stop = msg.output.Stop
-		m.overlay = run
+	if run, open := answerFor[commandRun](m, msg.id); open {
+		m = m.withAnswered(run.started(msg.output.Stop))
 	}
 
 	return m, nextLine(msg.id, msg.output)
@@ -132,13 +161,8 @@ var _ applier = runLine{}
 // apply shows the line and waits for the next. The line is neutralized: tools
 // color their output, and a hook runs whatever a repository says to.
 func (msg runLine) apply(m Model) (Model, tea.Cmd) {
-	run, open := m.overlay.(commandRun)
-	if open && run.id == msg.id {
-		line := sanitize.Text(msg.line)
-		run.jobList, run.inSummary = hooks.NextJob(run.jobList, run.inSummary, line)
-		run.placeScan = run.placeScan.Next(line)
-		run.lines = capLines(append(run.lines, line))
-		m.overlay = run
+	if run, open := answerFor[commandRun](m, msg.id); open {
+		m = m.withAnswered(run.read(sanitize.Text(msg.line)))
 	}
 
 	// Reading continues whatever is open, so the program is never left writing
@@ -159,27 +183,23 @@ var _ applier = runFinished{}
 // a tool printed relative to its package can take a walk of the whole
 // checkout, which would freeze the interface on the update loop.
 func (msg runFinished) apply(m Model) (Model, tea.Cmd) {
-	run, open := m.overlay.(commandRun)
-	if !open || run.id != msg.id {
+	run, open := answerFor[commandRun](m, msg.id)
+	if !open {
 		return m, nil
 	}
 
-	run.done, run.err = true, msg.err
-	m.overlay = run
+	run, next := run.ended(msg.err)
+	m = m.withAnswered(run)
 
-	switch {
-	case run.stopped && msg.err != nil:
-		// The stop taking effect, not a failure to report.
-		return m, nil
-	case msg.err != nil:
-		deps, found := m.deps, run.placeScan.Places()
+	return map[runNext]func() (Model, tea.Cmd){
+		runRests: func() (Model, tea.Cmd) { return m, nil },
+		runFindsPlaces: func() (Model, tea.Cmd) {
+			deps, found := m.deps, run.placeScan.Places()
 
-		return m, func() tea.Msg { return placesFound{id: msg.id, places: deps.resolvedFailures(found)} }
-	case run.succeeded != nil:
-		return run.succeeded(m)
-	default:
-		return m, nil
-	}
+			return m, func() tea.Msg { return placesFound{id: msg.id, places: deps.resolvedFailures(found)} }
+		},
+		runSucceeds: func() (Model, tea.Cmd) { return run.succeeded(m) },
+	}[next]()
 }
 
 // placesFound is where a failed run's tools pointed, each place resolved to the
@@ -193,12 +213,77 @@ var _ applier = placesFound{}
 
 // apply offers the places to jump to, while their run is still the one shown.
 func (msg placesFound) apply(m Model) (Model, tea.Cmd) {
-	if run, open := m.overlay.(commandRun); open && run.id == msg.id {
-		run.failures = pickList[hooks.Location]{items: msg.places}
-		m.overlay = run
+	if run, open := answerFor[commandRun](m, msg.id); open {
+		m = m.withAnswered(run.found(msg.places))
 	}
 
 	return m, nil
+}
+
+// started is the run with its program started, which stop now ends through
+// the run's own Stop.
+func (r commandRun) started(stop func()) commandRun {
+	r.stage, r.stop = runRunning, stop
+
+	return r
+}
+
+// stopping is the run asked to stop, waiting for the exit that says how.
+func (r commandRun) stopping() commandRun {
+	r.stage = runStopping
+
+	return r
+}
+
+// found is the failed run offering the places its tools pointed at.
+func (r commandRun) found(places []hooks.Location) commandRun {
+	r.failures = pickList[hooks.Location]{items: places}
+
+	return r
+}
+
+// read is the run with one more line of output, its jobs and places folded
+// in as it arrives.
+func (r commandRun) read(line string) commandRun {
+	r.jobList, r.inSummary = hooks.NextJob(r.jobList, r.inSummary, line)
+	r.placeScan = r.placeScan.Next(line)
+	r.lines = capLines(append(r.lines, line))
+
+	return r
+}
+
+// ended is the run as its exit leaves it, and what follows. A failure
+// after a stop is the stop taking effect, not a failure to report; a clean
+// exit after one means the program finished before the stop reached it.
+func (r commandRun) ended(err error) (commandRun, runNext) {
+	r.err = err
+
+	switch {
+	case err == nil && r.succeeded != nil:
+		r.stage = runPassed
+
+		return r, runSucceeds
+	case err == nil:
+		r.stage = runPassed
+
+		return r, runRests
+	case r.stage == runStopping:
+		r.stage = runStopped
+
+		return r, runRests
+	default:
+		r.stage = runFailed
+
+		return r, runFindsPlaces
+	}
+}
+
+// going reports the run's program not yet ended.
+func (r commandRun) going() bool {
+	return map[runStage]bool{
+		runStarting: true, runRunning: true, runStopping: true,
+		runPassed: false, runFailed: false, runStopped: false,
+	}[r.stage]
 }
 
 // rowsIn is how many display rows a wrapped string takes.
@@ -236,18 +321,16 @@ func (r commandRun) header(kit renderKit, width int) []string {
 // state says whether the run is going, passed, or failed — and, when it failed,
 // what step failed rather than the exit code the step happened to end with.
 func (r commandRun) state(kit renderKit) string {
-	switch {
-	case !r.done && r.stopped:
-		return kit.marks.inFlight + " stopping" + kit.marks.ellipsis
-	case !r.done:
-		return kit.marks.inFlight + " running" + kit.marks.ellipsis
-	case r.stopped && r.err != nil:
-		return kit.marks.notStarted + " stopped"
-	case r.err != nil:
-		return r.failureHeadline(kit)
-	default:
-		return kit.marks.done + " done"
-	}
+	running := func() string { return kit.marks.inFlight + " running" + kit.marks.ellipsis }
+
+	return map[runStage]func() string{
+		runStarting: running,
+		runRunning:  running,
+		runStopping: func() string { return kit.marks.inFlight + " stopping" + kit.marks.ellipsis },
+		runPassed:   func() string { return kit.marks.done + " done" },
+		runFailed:   func() string { return r.failureHeadline(kit) },
+		runStopped:  func() string { return kit.marks.notStarted + " stopped" },
+	}[r.stage]()
 }
 
 // failureHeadline is the run kind's refusal for a bare failure status — git's
@@ -267,7 +350,7 @@ func (r commandRun) failureHeadline(kit renderKit) string {
 // ended: it takes the mark a stopped run does.
 func (r commandRun) jobs(kit renderKit) string {
 	unreported := kit.marks.inFlight
-	if r.done {
+	if !r.going() {
 		unreported = kit.marks.notStarted
 	}
 
@@ -315,10 +398,10 @@ func capLines(lines []string) []string {
 // program has started, and until it is stopped.
 func (r commandRun) footer(keys keyMap) []key.Binding {
 	switch {
-	case !r.done && (r.stopped || r.stop == nil):
-		return []key.Binding{keys.interrupt}
-	case !r.done:
+	case r.stage == runRunning:
 		return []key.Binding{keys.stopRun, keys.interrupt}
+	case r.going():
+		return []key.Binding{keys.interrupt}
 	case len(r.failures.items) > 0 && !r.showOutput:
 		return []key.Binding{
 			keys.up, keys.down, relabel(keys.confirm, "open in editor"),
@@ -335,7 +418,7 @@ func (r commandRun) footer(keys keyMap) []key.Binding {
 // stop, which kills it; once it is done, its outcome decides what happens next.
 func (r commandRun) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case !r.done:
+	case r.going():
 		return r.stopRun(m, msg)
 	case key.Matches(msg, m.keys.closeOverlay):
 		m, status := m.closeOverlay().readingChanges()
@@ -360,6 +443,9 @@ func (r commandRun) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // which names a running command.
 func (commandRun) which() overlayKind { return overlayCommandRun }
 
+// openedAs is the round the run drew as it started.
+func (r commandRun) openedAs() int { return r.id }
+
 // step moves the choice of place by delta. A run still going has no places yet:
 // they are found once it fails.
 func (r commandRun) step(m Model, delta int) Model {
@@ -371,26 +457,23 @@ func (r commandRun) step(m Model, delta int) Model {
 
 // stopRun kills a running program when the stop key is pressed. The run shows
 // as stopping until the exit arrives, which decides how it ended, as a run on
-// the web does. Any other key while it runs is ignored — the run is not
-// abandoned.
+// the web does. Any other key while it goes is ignored — the run is not
+// abandoned — and so is stop before the program has started or once it is
+// asked to stop.
 func (r commandRun) stopRun(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	if !key.Matches(msg, m.keys.stopRun) || r.stop == nil {
+	if !key.Matches(msg, m.keys.stopRun) || r.stage != runRunning {
 		return m, nil
 	}
 
 	r.stop()
-	r.stopped = true
-	m.overlay = r
+	m.overlay = r.stopping()
 
 	return m, nil
 }
 
-// click selects the place on a clicked line.
+// click selects the place on a clicked line. A run still going has no
+// places yet, so a click there selects none.
 func (r commandRun) click(m Model, line int) (Model, tea.Cmd) {
-	if !r.done {
-		return m, nil
-	}
-
 	// The offset is the header the view drew, in display rows — the jobs line
 	// wraps to as many rows as it took, so a click below it skips every one.
 	offset := rowsIn(strings.Join(r.header(m.kit(), m.detailWidth()), "\n"))
