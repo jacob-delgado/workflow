@@ -100,7 +100,8 @@ func (msg prAnswered) apply(m Model) (Model, tea.Cmd) {
 	}
 
 	if msg.err != nil {
-		m.overlay = composer.failed(msg.err)
+		composer.problem, composer.send = msg.err, composer.send.Cleared()
+		m.overlay = composer
 
 		return m, nil
 	}

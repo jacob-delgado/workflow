@@ -49,9 +49,9 @@ func (c prComposer) open(m Model) (Model, tea.Cmd) {
 
 	switch {
 	case request.Title == "":
-		c.send.err = errNoTitle
+		c.problem, c.send = errNoTitle, c.send.Cleared()
 	case request.Base == "":
-		c.send.err = errNoBase
+		c.problem, c.send = errNoBase, c.send.Cleared()
 	case m.dryRun:
 		return m.closeOverlay().noticed(c.dryRunNotice(request, m.branch.checkedOut().Pushed(), m.pullOffers())), nil
 	case m.branch.checkedOut().Pushed():
@@ -89,21 +89,26 @@ func (c prComposer) dryRunNotice(request forge.NewPullRequest, pushed bool, offe
 	return "dry run: would push " + request.Head.Branch + ", then " + open
 }
 
-// create asks the forge to open the pull request.
+// create asks the forge to open the pull request, put back on top as it
+// is sent, after a push among them, so its answer finds it by the round it
+// opened in.
 func (c prComposer) create(m Model) (Model, tea.Cmd) {
-	c.send = starting()
+	c.problem = nil
+	c.send, _ = c.send.Sent()
 	m.overlay = c
-	ctx, create, request := m.session, m.deps.Forge.CreatePullRequest, c.request()
+	ctx, create, request, round := m.session, m.deps.Forge.CreatePullRequest, c.request(), c.opened
 
 	return m, func() tea.Msg {
 		pull, err := create(ctx, request)
 
-		return pullCreated{head: request.Head.Branch, pull: pull, err: err}
+		return pullCreated{opened: round, head: request.Head.Branch, pull: pull, err: err}
 	}
 }
 
-// pullCreated reports how opening a pull request went.
+// pullCreated reports how opening a pull request went, for the composer
+// opened in round opened.
 type pullCreated struct {
+	opened int
 	// head is the branch it was opened from, whose kept draft it drops.
 	head string
 	pull forge.PullRequest
@@ -112,18 +117,31 @@ type pullCreated struct {
 
 var _ applier = pullCreated{}
 
+// refusal is why the pull request did not open: none once it opened, though
+// a reviewer, assignee or label could not be added to it.
+func (msg pullCreated) refusal() error {
+	if msg.pull.Opened() {
+		return nil
+	}
+
+	return msg.err
+}
+
 // apply shows the new pull request and starts on its CI, or keeps the composer
-// open with the forge's reason. A pull that opened but whose reviewers could
-// not be added is shown all the same, with a note, rather than lost.
+// open with the forge's reason, pinned until a key its form takes. A pull that
+// opened but whose reviewers could not be added is shown all the same, with a
+// note, rather than lost. A late answer, its composer no longer the one open,
+// changes nothing; none arrives, since the composer takes no key but ctrl+c,
+// which quits, while its create is out.
 func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
-	refusal := msg.err
-	if refusal != nil && !msg.pull.Opened() {
-		return keepOpenWith[prComposer](m, refusal), nil
+	m, _, done := answered[prComposer](m, msg.opened, msg.refusal())
+	if !done {
+		return m, nil
 	}
 
 	opened := m.marks.done + " opened " + m.vocab.sigil + strconv.Itoa(msg.pull.Number) + " " + msg.pull.URL
-	if refusal != nil {
-		opened += "; could not add every reviewer, assignee or label: " + briefly(refusal)
+	if msg.err != nil {
+		opened += "; could not add every reviewer, assignee or label: " + briefly(msg.err)
 	}
 
 	m = m.beginReview(m.review.find.Told(pullFind{pull: msg.pull, found: true, madeAfter: nil}))
