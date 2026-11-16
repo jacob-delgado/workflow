@@ -261,3 +261,30 @@ func TestSetUpFollowsTheTerminalWhenItIsResized(t *testing.T) {
 		t.Errorf("the address's line is as wide as before the resize: %s", line)
 	}
 }
+
+func TestAPromptsFailureIsNotShownAsARefusedWrite(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Jira's prompts answer the first place and leave Jira out; the rest's
+	// stop, and the form they leave is answered in the dialog.
+	prompts := &answering{typed: "1\n\n"}
+	deps := newFirstRun(t, http.StatusOK).deps(t)
+	deps.Forms.Ask = func(form *huh.Form, done func(error) tea.Msg) tea.Cmd {
+		if prompts.asked.Load() == 0 {
+			return prompts.ask(form, done)
+		}
+
+		return func() tea.Msg { return done(errPromptsStopped) }
+	}
+	model := sized(t, tui.New(config.Default(), config.ErrNotFound, deps).WithAccessibleForms(), 120, 40)
+	stopped := typing(t, drain(t, model, model.Init()), keyEnter)
+
+	// Act
+	looking := typing(t, stopped, keyEnter)
+
+	// Assert
+	view := looking.View().Content
+	requireScreen(t, view, "Write ")
+	refuseScreen(t, view, "the prompts stopped")
+}
