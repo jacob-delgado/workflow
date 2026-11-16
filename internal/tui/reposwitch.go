@@ -7,8 +7,6 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
-
-	"github.com/jacob-delgado/workflow/internal/activity"
 )
 
 // Leaving is how the interface ended, and so what the command line does
@@ -147,8 +145,7 @@ type carried struct {
 	commentDrafts commentDrafts
 	jiraURL       string
 	listing       taskListing
-	period        activity.Period
-	periodChosen  bool
+	summary       summaryState
 }
 
 // Destination is how the interface ended and where it was asked to go: a
@@ -205,7 +202,7 @@ func (m Model) carryIn(session carried) Model {
 	}
 
 	m.tasks.listing = session.listing
-	m.summary.period, m.summary.chosen = session.period, session.periodChosen
+	m.summary = m.summary.carriedIn(session.summary)
 
 	return m
 }
@@ -231,7 +228,7 @@ func (m Model) carryOut() carried {
 
 	return carried{
 		commentDrafts: jiraDrafts, jiraURL: m.cfg.Jira.BaseURL, listing: m.tasks.listing,
-		period: m.summary.period, periodChosen: m.summary.chosen,
+		summary: m.summary.carriedOut(),
 	}
 }
 

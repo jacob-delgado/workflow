@@ -386,3 +386,16 @@ func TestAKeysRestForAPeriodSinceLeftReadsNothing(t *testing.T) {
 		t.Errorf("git read for %q, want the first period and the one the keys rest on, nothing more", reads)
 	}
 }
+
+func TestABracketSaysThePeriodIsReadWhileTheKeysRest(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	opened := typing(t, summaryWorld().live(t, 120, 40), summaryKey)
+
+	// Act
+	resting, _ := pressed(t, opened, "[")
+
+	// Assert
+	requireScreen(t, resting.View().Content, "2026-09-14: ◐ reading…")
+}

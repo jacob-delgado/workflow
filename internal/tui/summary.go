@@ -29,26 +29,43 @@ const summaryIndent = "  "
 // Trade-off TRADE-32: what was done is read back from each source every time
 // the pane shows a period, never kept.
 
-// summaryState is the Summary pane: the period shown, what each source has
-// answered for it and which are still to, and the item the cursor is on.
+// summaryState is the Summary pane: the period shown and how far it is
+// read, what each source has answered for it and which are still to, and
+// the item the cursor is on.
 type summaryState struct {
 	period activity.Period
-	chosen bool
+	stage  summaryStage
 	reads  []activity.Read
 	asking []activity.Source
-	// reading counts the reads begun: an answer to any but the last is for a
-	// period no longer shown, and is dropped.
-	reading int
-	// complete is a period every source has answered for.
-	complete bool
+	// round counts the reads begun and the rests waited for: an answer to
+	// any but the last is for a period no longer shown, and is dropped.
+	round    int
 	selected int
 	scroll   int
 }
 
-// summaryAnswered is one source's answer for the read reading began.
+// summaryStage is how far the Summary's period is chosen and read.
+type summaryStage int
+
+const (
+	// summaryUnchosen shows the previous working day, read when the pane is
+	// opened.
+	summaryUnchosen summaryStage = iota
+	// summaryCarried is a period carried in from a switch, read when the
+	// pane is opened.
+	summaryCarried
+	// summaryResting is a period [ or ] moved to, read once the keys rest.
+	summaryResting
+	// summaryReading is a period some source has still to answer for.
+	summaryReading
+	// summaryRead is a period every source has answered for.
+	summaryRead
+)
+
+// summaryAnswered is one source's answer for the read begun in round.
 type summaryAnswered struct {
-	reading int
-	read    activity.Read
+	round int
+	read  activity.Read
 }
 
 var _ applier = summaryAnswered{}
@@ -56,21 +73,29 @@ var _ applier = summaryAnswered{}
 // apply keeps an answer for the period shown, and drops one for a period
 // since left.
 func (msg summaryAnswered) apply(m Model) (Model, tea.Cmd) {
-	if msg.reading != m.summary.reading {
+	if msg.round != m.summary.round {
 		return m, nil
 	}
 
-	m.summary.reads = append(m.summary.reads, msg.read)
-	m.summary.asking = remove(m.summary.asking, msg.read.Source)
-	m.summary.complete = len(m.summary.asking) == 0
-	m.summary.selected = min(m.summary.selected, max(0, len(m.summary.items(m.deps.now()))-1))
+	m.summary = m.summary.answered(msg.read, m.deps.now())
 
 	return m, nil
 }
 
-// summaryRested is [ or ] at rest on the period of the read reading.
+// answered is the Summary with read kept, its source no longer asked, and
+// the cursor on an item still listed at now.
+func (s summaryState) answered(read activity.Read, now time.Time) summaryState {
+	s.reads = append(s.reads, read)
+	s.asking = remove(s.asking, read.Source)
+	s.stage = stageAsking(s.asking)
+	s.selected = min(s.selected, max(0, len(s.items(now))-1))
+
+	return s
+}
+
+// summaryRested is [ or ] at rest on the period they moved to in round.
 type summaryRested struct {
-	reading int
+	round int
 }
 
 var _ applier = summaryRested{}
@@ -78,7 +103,7 @@ var _ applier = summaryRested{}
 // apply reads the period the keys came to rest on, unless another key moved
 // it on since.
 func (msg summaryRested) apply(m Model) (Model, tea.Cmd) {
-	if msg.reading != m.summary.reading {
+	if msg.round != m.summary.round {
 		return m, nil
 	}
 
@@ -101,56 +126,96 @@ func remove(sources []activity.Source, source activity.Source) []activity.Source
 // today is the day the clock says it is, where it says it.
 func today(deps Deps) activity.Date { return activity.DateOf(deps.now()) }
 
+// stageAsking is the stage of a read with asking still to answer.
+func stageAsking(asking []activity.Source) summaryStage {
+	if len(asking) == 0 {
+		return summaryRead
+	}
+
+	return summaryReading
+}
+
 // shownPeriod is the period the pane shows: the one chosen, or the previous
 // working day until one is.
 func (s summaryState) shownPeriod(now time.Time) activity.Period {
-	if s.chosen {
+	if s.chosen() {
 		return s.period
 	}
 
 	return activity.PreviousWorkingDay(activity.DateOf(now))
 }
 
-// loading reports a read of the period shown that some source has not
-// answered yet. A period carried in from a switch is chosen but not yet read.
-func (s summaryState) loading() bool {
-	return s.begun() && !s.complete
+// chosen reports a period chosen, by a key, the calendar, a read or a
+// switch that carried it in.
+func (s summaryState) chosen() bool {
+	return s.stage != summaryUnchosen
 }
 
-// begun reports a read begun, of this period or one shown before it.
-func (s summaryState) begun() bool {
-	return s.reading > 0
+// carriedOut is what of the Summary a switch carries: its period, to be
+// read when the pane is opened, once one is chosen; the unchosen Summary,
+// which shows the previous working day, before.
+func (s summaryState) carriedOut() summaryState {
+	if !s.chosen() {
+		return summaryState{}
+	}
+
+	return summaryState{period: s.period, stage: summaryCarried}
+}
+
+// carriedIn is the Summary showing what a switch carried out.
+func (s summaryState) carriedIn(carried summaryState) summaryState {
+	s.period, s.stage = carried.period, carried.stage
+
+	return s
+}
+
+// loading reports a period moved to and not read yet, or read and not yet
+// answered for by some source. A period carried in from a switch is chosen
+// but not yet read.
+func (s summaryState) loading() bool {
+	return s.stage == summaryResting || s.stage == summaryReading
+}
+
+// complete reports a period every source has answered for.
+func (s summaryState) complete() bool {
+	return s.stage == summaryRead
 }
 
 // readInFull reports every source answered for the period shown, and
 // none of them with a failure or left out as not set up, which may be set up
 // by the next refresh.
 func (s summaryState) readInFull() bool {
-	return s.complete && !slices.ContainsFunc(s.reads, func(read activity.Read) bool {
+	return s.complete() && !slices.ContainsFunc(s.reads, func(read activity.Read) bool {
 		return read.Failed != nil || read.NotSetUp != nil
 	})
 }
 
-// read asks every source the deps reach for the period shown, each on its
-// own under ctx, so each fills in or fails as it answers.
-func (s summaryState) read(ctx context.Context, deps Deps) (summaryState, tea.Cmd) {
-	s.period, s.chosen = s.shownPeriod(deps.now()), true
-	s.reading++
-	s.reads, s.complete = nil, false
+// shownFromTop is the Summary showing period from its first item, read.
+func (s summaryState) shownFromTop(ctx context.Context, deps Deps, period activity.Period) (summaryState, tea.Cmd) {
+	s.selected, s.scroll = 0, 0
+
+	return s.readOf(ctx, deps, period)
+}
+
+// readOf is the Summary showing period, each source the deps reach asked
+// for it on its own under ctx, so each fills in or fails as it answers.
+func (s summaryState) readOf(ctx context.Context, deps Deps, period activity.Period) (summaryState, tea.Cmd) {
+	s.period, s.reads = period, nil
+	s.round++
 
 	start, end := s.period.Bounds(deps.now().Location())
 	reads := summaryReads(deps, start, end)
-	reading := s.reading
+	round := s.round
 
 	s.asking = make([]activity.Source, 0, len(reads))
 	commands := make([]tea.Cmd, 0, len(reads))
 
 	for _, source := range reads {
 		s.asking = append(s.asking, source.Source)
-		commands = append(commands, func() tea.Msg { return summaryAnswered{reading: reading, read: source.Read(ctx)} })
+		commands = append(commands, func() tea.Msg { return summaryAnswered{round: round, read: source.Read(ctx)} })
 	}
 
-	s.complete = len(reads) == 0
+	s.stage = stageAsking(s.asking)
 
 	return s, tea.Batch(commands...)
 }
@@ -159,7 +224,7 @@ func (s summaryState) read(ctx context.Context, deps Deps) (summaryState, tea.Cm
 func (m Model) readSummary() (Model, tea.Cmd) {
 	var read tea.Cmd
 
-	m.summary, read = m.summary.read(m.session, m.deps)
+	m.summary, read = m.summary.readOf(m.session, m.deps, m.summary.shownPeriod(m.deps.now()))
 
 	return m, read
 }
@@ -206,22 +271,14 @@ func (s summaryState) stepped(deps Deps, steps int) (summaryState, tea.Cmd) {
 		return s, nil
 	}
 
-	s.period, s.chosen = moved, true
-	s.reading++
-	s.reads, s.asking, s.complete = nil, nil, false
+	s.period, s.stage = moved, summaryResting
+	s.round++
+	s.reads, s.asking = nil, nil
 	s.selected, s.scroll = 0, 0
 
-	reading := s.reading
+	round := s.round
 
-	return s, deps.after(summaryRest, func(time.Time) tea.Msg { return summaryRested{reading: reading} })
-}
-
-// onToday shows today, to be read at once.
-func (s summaryState) onToday(deps Deps) summaryState {
-	s.period = activity.Period{From: today(deps), To: today(deps)}
-	s.chosen, s.selected, s.scroll = true, 0, 0
-
-	return s
+	return s, deps.after(summaryRest, func(time.Time) tea.Msg { return summaryRested{round: round} })
 }
 
 // handleSummaryKey answers the Summary pane's keys: those that choose the
@@ -235,7 +292,8 @@ func (m Model) handleSummaryKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.later):
 		m.summary, cmd = m.summary.stepped(m.deps, 1)
 	case key.Matches(msg, m.keys.today):
-		m.summary, cmd = m.summary.onToday(m.deps).read(m.session, m.deps)
+		day := today(m.deps)
+		m.summary, cmd = m.summary.shownFromTop(m.session, m.deps, activity.Period{From: day, To: day})
 	case key.Matches(msg, m.keys.calendar):
 		return m.openCalendar()
 	case key.Matches(msg, m.keys.refresh):
@@ -318,16 +376,16 @@ func (m Model) summaryKeys() []key.Binding {
 // line, which is all a pane given one row shows; or, before the pane is first
 // looked at, that it is read then.
 func (s summaryState) rail(kit renderKit, now time.Time) string {
-	if !s.chosen {
+	if !s.chosen() {
 		return "what you did, read when opened"
 	}
 
 	period := s.shownPeriod(now).String()
 
 	switch items := len(s.items(now)); {
-	case !s.begun():
+	case s.stage == summaryCarried:
 		return period + ": read when opened"
-	case !s.complete && items == 0:
+	case s.loading() && items == 0:
 		return period + ": " + kit.reading()
 	case items == 0:
 		return period + ": nothing done"
@@ -345,7 +403,7 @@ func (s summaryState) detail(kit renderKit, now time.Time, width int) string {
 	lines = append(lines, s.notes(kit, width)...)
 
 	years := activity.Group(s.shown(now).Items(), now.Location())
-	if len(years) == 0 && s.complete {
+	if len(years) == 0 && s.complete() {
 		lines = append(lines, "Nothing was done in this period.")
 	}
 
