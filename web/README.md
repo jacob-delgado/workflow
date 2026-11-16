@@ -134,13 +134,13 @@ image's headless shell, the kind of binary CI runs.
   ever served on 127.0.0.1, to a browser on the machine `workflow --web` runs
   on. `npx browserslist` resolves it to versions (TRADE-33).
 
-- **`resolutions` `js-yaml ^4.3.2`** lifts the js-yaml 4.2.0 that
-  `@hey-api/json-schema-ref-parser` pins to 4.3.2, which fixes three
+- **`resolutions` `js-yaml@npm:4.2.0 ^4.3.2`** lifts the js-yaml 4.2.0
+  that `@hey-api/json-schema-ref-parser` pins to 4.3.2, which fixes three
   high-severity advisories (GHSA-52cp-r559-cp3m, GHSA-5p4m-2wfm-xmqj,
-  GHSA-2883-xcg3-v3hh). It is unscoped, so it rewrites every js-yaml
-  request: remove it once `yarn.lock` records none below 4.3.2, and no later
-  than the openapi-ts bump that brings a ref-parser asking for js-yaml 5,
-  which it would force back to 4.
+  GHSA-2883-xcg3-v3hh). It is keyed by that exact descriptor, so it rewrites
+  no other js-yaml request and matches nothing once no package asks for
+  4.2.0: remove it then, as the openapi-ts bump that brings a ref-parser
+  asking for js-yaml 5 will.
 - **`typescript ~6.0.3`** stays on 6.0: typescript-eslint accepts only
   `<6.1.0`. TypeScript 7 waits on typescript-eslint and on
   `@hey-api/openapi-ts`, which builds the client with the compiler API that
