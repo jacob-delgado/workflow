@@ -84,7 +84,7 @@ func (p commentPreview) view(kit renderKit, width, _ int) (string, string) {
 
 // footer offers posting, or going back to the draft.
 func (p commentPreview) footer(keys keyMap) []key.Binding {
-	if p.send.Stage() == send.StageInFlight {
+	if p.send.InFlight() {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -94,7 +94,7 @@ func (p commentPreview) footer(keys keyMap) []key.Binding {
 // handleKey answers a key while the comment is previewed.
 func (p commentPreview) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case p.send.Stage() == send.StageInFlight:
+	case p.send.InFlight():
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		m.overlay = p.composer

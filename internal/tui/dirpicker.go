@@ -119,7 +119,7 @@ func (p dirPicker) withSend(state send.State) dirPicker {
 // checking reports a destination's check out, which takes every key but
 // esc.
 func (p dirPicker) checking() bool {
-	return p.look.Stage() == send.StageInFlight
+	return p.look.InFlight()
 }
 
 // footer offers what the field or the list answers now.

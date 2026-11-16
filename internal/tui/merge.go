@@ -211,7 +211,7 @@ func (p mergePicker) footer(keys keyMap) []key.Binding {
 	cancel := relabel(keys.closeOverlay, escCancel)
 
 	switch {
-	case p.send.Stage() == send.StageInFlight:
+	case p.send.InFlight():
 		return []key.Binding{keys.interrupt}
 	case len(p.methods()) == 0:
 		return []key.Binding{cancel}
@@ -224,7 +224,7 @@ func (p mergePicker) footer(keys keyMap) []key.Binding {
 // choose — still being read, or none permitted — only esc does anything.
 func (p mergePicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case p.send.Stage() == send.StageInFlight:
+	case p.send.InFlight():
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
@@ -260,7 +260,7 @@ func (p mergePicker) withSend(state send.State) mergePicker {
 // step moves the choice of method by delta, held within the methods, so it
 // stays on the first while they are read; nothing moves while a merge is sent.
 func (p mergePicker) step(m Model, delta int) Model {
-	if p.send.Stage() == send.StageInFlight {
+	if p.send.InFlight() {
 		return m
 	}
 

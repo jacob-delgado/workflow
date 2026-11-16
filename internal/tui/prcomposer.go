@@ -245,7 +245,7 @@ func (c prComposer) waits() bool {
 // keys, going on or opening, and leaving.
 func (c prComposer) footer(keys keyMap) []key.Binding {
 	switch {
-	case c.send.Stage() == send.StageInFlight:
+	case c.send.InFlight():
 		return []key.Binding{keys.interrupt}
 	case c.flow.reading():
 		return []key.Binding{relabel(keys.closeOverlay, escClose)}
@@ -283,7 +283,7 @@ func (c prComposer) offersTemplate() bool {
 // is the form's.
 func (c prComposer) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case c.send.Stage() == send.StageInFlight:
+	case c.send.InFlight():
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		m.prDrafts = m.prDrafts.keeping(c.snapshot())
@@ -373,7 +373,7 @@ func (c prComposer) openedAs() int { return c.opened }
 
 // pasted types a paste into the field with focus, as typing it would.
 func (c prComposer) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
-	if c.send.Stage() == send.StageInFlight || c.flow.reading() {
+	if c.send.InFlight() || c.flow.reading() {
 		return m, nil
 	}
 

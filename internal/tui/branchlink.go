@@ -137,7 +137,7 @@ func (l branchLinker) view(kit renderKit, width, _ int) (string, string) {
 
 // footer offers choosing the issue, then linking it, or canceling.
 func (l branchLinker) footer(keys keyMap) []key.Binding {
-	if l.send.Stage() == send.StageInFlight {
+	if l.send.InFlight() {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -152,7 +152,7 @@ func (l branchLinker) footer(keys keyMap) []key.Binding {
 // handleKey answers a key while the form has the keyboard.
 func (l branchLinker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case l.send.Stage() == send.StageInFlight:
+	case l.send.InFlight():
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
@@ -201,7 +201,7 @@ func (l branchLinker) withSend(state send.State) branchLinker {
 
 // pasted types a paste into the issue key, as typing it would.
 func (l branchLinker) pasted(m Model, paste tea.PasteMsg) (Model, tea.Cmd) {
-	if l.send.Stage() == send.StageInFlight {
+	if l.send.InFlight() {
 		return m, nil
 	}
 

@@ -231,7 +231,7 @@ var (
 
 // moving reports the chosen move sent and not yet answered.
 func (p statusPicker) moving() bool {
-	return p.send.Stage() == send.StageInFlight
+	return p.send.InFlight()
 }
 
 // openStatusPicker opens the picker on the selected issue and starts listing its

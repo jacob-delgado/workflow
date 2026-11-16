@@ -158,3 +158,33 @@ func TestClearingDropsOnlyARefusal(t *testing.T) {
 		})
 	}
 }
+
+func TestOnlyAWriteOutIsInFlight(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		state func(*testing.T) send.State
+		want  bool
+	}{
+		"idle":      {state: idle, want: false},
+		"in flight": {state: inFlight, want: true},
+		"refused":   {state: refused, want: false},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			state := tt.state(t)
+
+			// Act
+			got := state.InFlight()
+
+			// Assert
+			if got != tt.want {
+				t.Errorf("InFlight() = %t; want %t", got, tt.want)
+			}
+		})
+	}
+}

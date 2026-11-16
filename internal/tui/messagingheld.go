@@ -20,7 +20,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
-	"github.com/jacob-delgado/workflow/internal/tui/send"
 )
 
 // errAnnouncementDropped is an announcement that waited for CI and was given
@@ -185,7 +184,7 @@ var _ applier = holdRead{}
 // post too, and the hold reads again on its beat, waiting still should that
 // post fail.
 func (msg holdRead) apply(m Model) (Model, tea.Cmd) {
-	if m.messaging.postNow.Stage() == send.StageInFlight {
+	if m.messaging.postNow.InFlight() {
 		return m.readHoldLater()
 	}
 

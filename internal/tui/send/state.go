@@ -43,6 +43,11 @@ func (s State) Stage() Stage {
 	return s.stage
 }
 
+// InFlight reports whether a write is out, waiting for its answer.
+func (s State) InFlight() bool {
+	return s.stage == StageInFlight
+}
+
 // Reason is why the service refused the last write; nil unless Refused.
 func (s State) Reason() error {
 	return s.reason
@@ -52,7 +57,7 @@ func (s State) Reason() error {
 // reports true. While a write is out it changes nothing and reports false:
 // an overlay keeps one write out at a time.
 func (s State) Sent() (State, bool) {
-	if s.stage == StageInFlight {
+	if s.InFlight() {
 		return s, false
 	}
 
@@ -64,7 +69,7 @@ func (s State) Sent() (State, bool) {
 // Refused have no write out, so either takes no answer: it is unchanged and
 // AnswerLate.
 func (s State) Answered(err error) (State, Answer) {
-	if s.stage != StageInFlight {
+	if !s.InFlight() {
 		return s, AnswerLate
 	}
 

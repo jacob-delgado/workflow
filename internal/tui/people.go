@@ -286,7 +286,7 @@ func personRow(kit renderKit, row person) string {
 // footer offers the shown tab's keys, nothing while a write is out, and on
 // People, after a read of everyone failed, to try again, not to decide.
 func (p peopleOverlay) footer(keys keyMap) []key.Binding {
-	if p.send.Stage() == send.StageInFlight {
+	if p.send.InFlight() {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -319,7 +319,7 @@ func (p peopleOverlay) decidable() bool {
 
 // handleKey answers the keys every tab shares, then the shown tab's own.
 func (p peopleOverlay) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	if p.send.Stage() == send.StageInFlight {
+	if p.send.InFlight() {
 		return m, nil
 	}
 

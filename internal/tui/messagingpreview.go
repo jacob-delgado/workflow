@@ -179,7 +179,7 @@ func (p messagingPreview) view(kit renderKit, width, _ int) (string, string) {
 // gate reads it again as it posts — or when CI passes, changing the channel
 // where there is a choice, another edit, or leaving.
 func (p messagingPreview) footer(keys keyMap) []key.Binding {
-	if p.send.Stage() == send.StageInFlight {
+	if p.send.InFlight() {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -201,7 +201,7 @@ func (p messagingPreview) footer(keys keyMap) []key.Binding {
 // handleKey answers a key while the message is previewed.
 func (p messagingPreview) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	switch {
-	case p.send.Stage() == send.StageInFlight:
+	case p.send.InFlight():
 		return m, nil
 	case key.Matches(msg, m.keys.closeOverlay):
 		return m.closeOverlay(), nil
@@ -413,7 +413,7 @@ func (p messagingPreview) pickLink(m Model) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if p.tagging.link.Stage() == send.StageInFlight {
+	if p.tagging.link.InFlight() {
 		return m.noticedGuidance(errLinkBeingSaved), nil
 	}
 
