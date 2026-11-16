@@ -168,7 +168,7 @@ func (p *people) keep(seam *seams.Store) {
 
 		return nil
 	}
-	seam.LastGroups = func(context.Context, string) ([]string, bool) { return nil, false }
+	seam.LastGroups = func(context.Context, string) loop.GroupChoice { return loop.NoChoiceYet() }
 	seam.RecordGroups = func(context.Context, string, []string) error { return nil }
 }
 

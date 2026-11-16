@@ -299,9 +299,9 @@ type Store struct {
 	// SetRepoGroups replaces the user groups of a workspace this repository
 	// may tag.
 	SetRepoGroups func(ctx context.Context, workspace string, groups []loop.SlackTarget) error
-	// LastGroups is the group IDs of a workspace last chosen for this
-	// repository's announcement, and whether a choice was recorded at all.
-	LastGroups func(ctx context.Context, workspace string) ([]string, bool)
+	// LastGroups is the groups of a workspace last chosen for this
+	// repository's announcement, or that none was chosen there yet.
+	LastGroups func(ctx context.Context, workspace string) loop.GroupChoice
 	// RecordGroups remembers the groups of a workspace just chosen; one not
 	// among RepoGroups, such as a group linked to an owning team, is left out
 	// of the choice.

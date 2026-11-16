@@ -71,8 +71,7 @@ type slackWorld struct {
 	repoGroups []loop.SlackTarget
 	repoErr    error
 	setErr     error
-	last       []string
-	lastChosen bool
+	last       loop.GroupChoice
 }
 
 // newSlackWorld is a channel with Carla and Ben in it, two user groups, and
@@ -156,12 +155,12 @@ func (w *world) withKept(store seams.Store) seams.Store {
 		return slices.Clone(w.slack.repoGroups), nil
 	}
 	store.SetRepoGroups = w.setRepoGroups
-	store.LastGroups = func(_ context.Context, workspace string) ([]string, bool) {
+	store.LastGroups = func(_ context.Context, workspace string) loop.GroupChoice {
 		if w.otherWorkspace(workspace) != nil {
-			return nil, false
+			return loop.NoChoiceYet()
 		}
 
-		return w.slack.last, w.slack.lastChosen
+		return w.slack.last
 	}
 	store.RecordGroups = func(_ context.Context, workspace string, ids []string) error {
 		w.record("record-groups " + strings.Join(ids, ","))

@@ -65,7 +65,7 @@ func TestProposeTagsGivesEachOwnerWhatWasDecidedForThem(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	tags := loop.ProposeTags(codeOwnersOfThePR(), decided(), nil, nil, false, messaging.MomentReady)
+	tags := loop.ProposeTags(codeOwnersOfThePR(), decided(), nil, loop.NoChoiceYet(), messaging.MomentReady)
 
 	// Assert
 	want := []loop.OwnerTag{
@@ -91,7 +91,7 @@ func TestALinkOfTheWrongKindReadsAsUnlinked(t *testing.T) {
 	}
 
 	// Act
-	tags := loop.ProposeTags(owners, links, nil, nil, false, messaging.MomentReady)
+	tags := loop.ProposeTags(owners, links, nil, loop.NoChoiceYet(), messaging.MomentReady)
 
 	// Assert
 	for _, owner := range tags.Owners {
@@ -108,7 +108,7 @@ func TestAnOwnerIsMatchedToTheirLinkWhateverTheCase(t *testing.T) {
 	owners := codeowners.Owners{Users: []string{"Ana"}, Teams: []string{"Acme/Control-Plane"}}
 
 	// Act
-	tags := loop.ProposeTags(owners, decided(), nil, nil, false, messaging.MomentReady)
+	tags := loop.ProposeTags(owners, decided(), nil, loop.NoChoiceYet(), messaging.MomentReady)
 
 	// Assert
 	for _, owner := range tags.Owners {
@@ -123,12 +123,12 @@ func TestProposeTagsPreChecksTheLastChoiceAndTheOwningTeamsGroups(t *testing.T) 
 
 	cases := map[string]struct {
 		repoGroups []loop.SlackTarget
-		last       []string
-		lastChosen bool
+		last       loop.GroupChoice
 		want       []loop.GroupTag
 	}{
 		"with no last choice, only the owning team's group": {
 			repoGroups: []loop.SlackTarget{apiReviewers(), controlPlanePod()},
+			last:       loop.NoChoiceYet(),
 			want: []loop.GroupTag{
 				{Slack: apiReviewers(), Checked: false, FromOwners: false},
 				{Slack: controlPlanePod(), Checked: true, FromOwners: true},
@@ -136,8 +136,7 @@ func TestProposeTagsPreChecksTheLastChoiceAndTheOwningTeamsGroups(t *testing.T) 
 		},
 		"the last choice, with the owning team's group": {
 			repoGroups: []loop.SlackTarget{apiReviewers(), controlPlanePod()},
-			last:       []string{apiReviewers().ID},
-			lastChosen: true,
+			last:       loop.Chose([]string{apiReviewers().ID}),
 			want: []loop.GroupTag{
 				{Slack: apiReviewers(), Checked: true, FromOwners: false},
 				{Slack: controlPlanePod(), Checked: true, FromOwners: true},
@@ -145,7 +144,7 @@ func TestProposeTagsPreChecksTheLastChoiceAndTheOwningTeamsGroups(t *testing.T) 
 		},
 		"a last choice of none still checks the owning team's group": {
 			repoGroups: []loop.SlackTarget{apiReviewers()},
-			lastChosen: true,
+			last:       loop.Chose(nil),
 			want: []loop.GroupTag{
 				{Slack: apiReviewers(), Checked: false, FromOwners: false},
 				{Slack: controlPlanePod(), Checked: true, FromOwners: true},
@@ -153,8 +152,7 @@ func TestProposeTagsPreChecksTheLastChoiceAndTheOwningTeamsGroups(t *testing.T) 
 		},
 		"a group last chosen but no longer the repository's is not offered": {
 			repoGroups: nil,
-			last:       []string{apiReviewers().ID},
-			lastChosen: true,
+			last:       loop.Chose([]string{apiReviewers().ID}),
 			want:       []loop.GroupTag{{Slack: controlPlanePod(), Checked: true, FromOwners: true}},
 		},
 	}
@@ -165,13 +163,69 @@ func TestProposeTagsPreChecksTheLastChoiceAndTheOwningTeamsGroups(t *testing.T) 
 
 			// Act
 			tags := loop.ProposeTags(
-				codeOwnersOfThePR(), decided(), tt.repoGroups, tt.last, tt.lastChosen, messaging.MomentReady)
+				codeOwnersOfThePR(), decided(), tt.repoGroups, tt.last, messaging.MomentReady)
 
 			// Assert
 			if !reflect.DeepEqual(tags.Groups, tt.want) {
 				t.Errorf("Groups = %+v, want %+v", tags.Groups, tt.want)
 			}
 		})
+	}
+}
+
+func TestAChoiceOfNoGroupIsStillAChoice(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	ids, made := loop.Chose(nil).Chosen()
+
+	// Assert
+	if !made || len(ids) != 0 {
+		t.Errorf("Chose(nil).Chosen() = %v, %v; want no group, chosen", ids, made)
+	}
+}
+
+func TestAGroupChoiceKeepsItsIDsWhenTheSliceChosenFromChanges(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	given := []string{apiReviewers().ID}
+	choice := loop.Chose(given)
+
+	// Act
+	given[0] = "S0CHANGED"
+
+	// Assert
+	if ids, _ := choice.Chosen(); !slices.Equal(ids, []string{apiReviewers().ID}) {
+		t.Errorf("Chosen() = %v after the slice it was chosen from changed; want [%s]", ids, apiReviewers().ID)
+	}
+}
+
+func TestAGroupChoiceKeepsItsIDsWhenTheSliceReadBackChanges(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	choice := loop.Chose([]string{apiReviewers().ID})
+	read, _ := choice.Chosen()
+
+	// Act
+	read[0] = "S0CHANGED"
+
+	// Assert
+	if ids, _ := choice.Chosen(); !slices.Equal(ids, []string{apiReviewers().ID}) {
+		t.Errorf("Chosen() = %v after the slice it read back changed; want [%s]", ids, apiReviewers().ID)
+	}
+}
+
+func TestNoChoiceYetIsNoChoice(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	ids, made := loop.NoChoiceYet().Chosen()
+
+	// Assert
+	if made || ids != nil {
+		t.Errorf("NoChoiceYet().Chosen() = %v, %v; want nothing, not chosen", ids, made)
 	}
 }
 
@@ -182,10 +236,10 @@ func TestProposeTagsOffersNoRepositoryGroupWhoseIDIsNotAGroups(t *testing.T) {
 	// A user's ID among the repository's groups, as a store that let one
 	// through would hand it on: no post can tag it as a group.
 	repoGroups := []loop.SlackTarget{apiReviewers(), podAsAUser()}
-	last := []string{podAsAUser().ID}
+	last := loop.Chose([]string{podAsAUser().ID})
 
 	// Act
-	tags := loop.ProposeTags(codeowners.Owners{}, nil, repoGroups, last, true, messaging.MomentReady)
+	tags := loop.ProposeTags(codeowners.Owners{}, nil, repoGroups, last, messaging.MomentReady)
 
 	// Assert
 	want := []loop.GroupTag{{Slack: apiReviewers(), Checked: false, FromOwners: false}}
@@ -205,7 +259,7 @@ func TestOnlyTheReadyForReviewAnnouncementTagsAnyone(t *testing.T) {
 
 			// Act
 			tags := loop.ProposeTags(codeOwnersOfThePR(), decided(), []loop.SlackTarget{apiReviewers()},
-				[]string{apiReviewers().ID}, true, moment)
+				loop.Chose([]string{apiReviewers().ID}), moment)
 
 			// Assert
 			if len(tags.Owners) != 0 || len(tags.Groups) != 0 {
@@ -219,8 +273,8 @@ func TestMentionsTagLinkedPeopleAndTheCheckedGroups(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	tags := loop.ProposeTags(codeOwnersOfThePR(), decided(), []loop.SlackTarget{apiReviewers()}, nil, false,
-		messaging.MomentReady)
+	tags := loop.ProposeTags(codeOwnersOfThePR(), decided(), []loop.SlackTarget{apiReviewers()},
+		loop.NoChoiceYet(), messaging.MomentReady)
 
 	// Act
 	mentions, err := tags.Mentions([]string{controlPlanePod().ID})
@@ -235,8 +289,8 @@ func TestMentionsTagTheCheckedGroupsInTheOrderOffered(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	tags := loop.ProposeTags(codeOwnersOfThePR(), decided(), []loop.SlackTarget{apiReviewers()}, nil, false,
-		messaging.MomentReady)
+	tags := loop.ProposeTags(codeOwnersOfThePR(), decided(), []loop.SlackTarget{apiReviewers()},
+		loop.NoChoiceYet(), messaging.MomentReady)
 
 	// Act
 	mentions, err := tags.Mentions([]string{controlPlanePod().ID, apiReviewers().ID, controlPlanePod().ID})
@@ -259,8 +313,8 @@ func TestMentionsTagOnlyTheOwnersTheCallerPassed(t *testing.T) {
 	// The author is linked, but the caller has already left them out of the owners.
 	author := loop.OnSlackAs("me", false, loop.SlackTarget{ID: "U0ME", Label: "Me"})
 	links := append(decided(), author)
-	tags := loop.ProposeTags(codeowners.Owners{Users: []string{ownerAna}, Teams: nil}, links, nil, nil, false,
-		messaging.MomentReady)
+	tags := loop.ProposeTags(codeowners.Owners{Users: []string{ownerAna}, Teams: nil}, links, nil,
+		loop.NoChoiceYet(), messaging.MomentReady)
 
 	// Act
 	mentions, err := tags.Mentions(nil)
@@ -275,7 +329,7 @@ func TestMentionsRefuseAGroupNotOffered(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	tags := loop.ProposeTags(codeOwnersOfThePR(), decided(), nil, nil, false, messaging.MomentReady)
+	tags := loop.ProposeTags(codeOwnersOfThePR(), decided(), nil, loop.NoChoiceYet(), messaging.MomentReady)
 
 	// Act
 	_, err := tags.Mentions([]string{apiReviewers().ID})
@@ -467,7 +521,7 @@ func TestABareNameDecidedAsAPersonIsAskedAgainOnceTheForgeKnowsItAsAGroup(t *tes
 	links := []loop.OwnerLink{loop.NotOnSlack(bareGroup, false)}
 
 	// Act
-	tags := loop.ProposeTags(owners, links, nil, nil, false, messaging.MomentReady)
+	tags := loop.ProposeTags(owners, links, nil, loop.NoChoiceYet(), messaging.MomentReady)
 
 	// Assert
 	want := []loop.OwnerTag{{Owner: bareGroup, Team: true, State: loop.OwnerUnlinked, Slack: loop.SlackTarget{}}}
@@ -485,7 +539,7 @@ func TestABareNameDecidedAsATeamStaysOneWhenTheForgeCannotSay(t *testing.T) {
 	links := []loop.OwnerLink{loop.OnSlackAs(bareGroup, true, controlPlanePod())}
 
 	// Act
-	tags := loop.ProposeTags(owners, links, nil, nil, false, messaging.MomentReady)
+	tags := loop.ProposeTags(owners, links, nil, loop.NoChoiceYet(), messaging.MomentReady)
 
 	// Assert
 	want := []loop.OwnerTag{{Owner: bareGroup, Team: true, State: loop.OwnerLinked, Slack: controlPlanePod()}}
@@ -506,7 +560,7 @@ func TestAUserIsNotTakenForAnotherOwnerDecidedAsATeam(t *testing.T) {
 	}
 
 	// Act
-	tags := loop.ProposeTags(owners, links, nil, nil, false, messaging.MomentReady)
+	tags := loop.ProposeTags(owners, links, nil, loop.NoChoiceYet(), messaging.MomentReady)
 
 	// Assert
 	want := []loop.OwnerTag{{Owner: ownerAna, Team: false, State: loop.OwnerLinked, Slack: slackAna()}}

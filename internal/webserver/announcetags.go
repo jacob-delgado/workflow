@@ -111,16 +111,12 @@ func (s *server) proposedTags(
 	links, _ := s.deps.Store.OwnerLinks(ctx, workspace)
 	repoGroups, _ := s.deps.Store.RepoGroups(ctx, workspace)
 
-	var (
-		last   []string
-		chosen bool
-	)
-
+	last := loop.NoChoiceYet()
 	if s.deps.Store.LastGroups != nil {
-		last, chosen = s.deps.Store.LastGroups(ctx, workspace)
+		last = s.deps.Store.LastGroups(ctx, workspace)
 	}
 
-	return loop.ProposeTags(owners(ctx), links, repoGroups, last, chosen, moment), true
+	return loop.ProposeTags(owners(ctx), links, repoGroups, last, moment), true
 }
 
 // scopeToLink is a scope the Slack token lacks to read whom an unlinked owner

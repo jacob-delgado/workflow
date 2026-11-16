@@ -21,12 +21,13 @@ import (
 // and the scopes Grant lists the Slack token as granted, which one auth.test
 // answers with the workspace. Workspace and Grant are bound together, with a
 // Slack user token; a nil Workspace — no such token — or OwnerLinks — no
-// store — tags no one.
+// store — tags no one. The store binds RepoGroups and LastGroups wherever it
+// binds OwnerLinks, so they are read without asking.
 type announceTagging struct {
 	Owners       loop.OwnerSeams
 	OwnerLinks   func(ctx context.Context, workspace string) ([]loop.OwnerLink, error)
 	RepoGroups   func(ctx context.Context, workspace string) ([]loop.SlackTarget, error)
-	LastGroups   func(ctx context.Context, workspace string) ([]string, bool)
+	LastGroups   func(ctx context.Context, workspace string) loop.GroupChoice
 	RecordGroups func(ctx context.Context, workspace string, ids []string) error
 	Workspace    func(ctx context.Context) (string, error)
 	Grant        func(ctx context.Context) (messaging.Grant, error)
@@ -128,22 +129,9 @@ func (t announceTagging) propose(
 ) loop.Tags {
 	owners, _ := loop.OwnersOf(ctx, t.Owners, base)
 	links, _ := t.OwnerLinks(ctx, workspace)
+	repoGroups, _ := t.RepoGroups(ctx, workspace)
 
-	var (
-		repoGroups []loop.SlackTarget
-		last       []string
-		chosen     bool
-	)
-
-	if t.RepoGroups != nil {
-		repoGroups, _ = t.RepoGroups(ctx, workspace)
-	}
-
-	if t.LastGroups != nil {
-		last, chosen = t.LastGroups(ctx, workspace)
-	}
-
-	return loop.ProposeTags(owners, links, repoGroups, last, chosen, moment)
+	return loop.ProposeTags(owners, links, repoGroups, t.LastGroups(ctx, workspace), moment)
 }
 
 // missingScope is a scope the Slack token lacks to tag, as auth.test lists

@@ -83,6 +83,53 @@ func TestGetAnnouncementProposesWhomToTag(t *testing.T) {
 	}
 }
 
+func TestGetAnnouncementStartsTheGroupsLastChosenChecked(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	fake := newFakeKept()
+	fake.repoGroups = []loop.SlackTarget{apiReviews(), podGroup()}
+	fake.last = loop.Chose([]string{podGroup().ID})
+	handler := keptServer(t, fake, webserver.Info{Version: webtest.TestVersion})
+
+	// Act
+	recorder := webtest.Get(t, handler, "/api/announcement")
+
+	// Assert
+	want := []api.GroupTag{
+		{Slack: api.SlackTarget(apiReviews()), Checked: false, FromOwners: false},
+		{Slack: api.SlackTarget(podGroup()), Checked: true, FromOwners: false},
+	}
+	if got := webtest.Decode[api.Announcement](t, recorder).Tagging; got == nil || !reflect.DeepEqual(got.Groups, want) {
+		t.Errorf("tagging = %+v, want the group last chosen alone checked: %+v", got, want)
+	}
+}
+
+func TestGetAnnouncementProposesFromNoChoiceWhereTheStoreKeepsNoLastChoice(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	fake := newFakeKept()
+	fake.repoGroups = []loop.SlackTarget{apiReviews(), podGroup()}
+	fake.last = loop.Chose([]string{apiReviews().ID})
+	deps := webtest.FilledDeps()
+	fake.wire(&deps)
+	deps.Store.LastGroups = nil
+	handler := webtest.Serve(t, deps, slackUserConfig())
+
+	// Act
+	recorder := webtest.Get(t, handler, "/api/announcement")
+
+	// Assert
+	want := []api.GroupTag{
+		{Slack: api.SlackTarget(apiReviews()), Checked: false, FromOwners: false},
+		{Slack: api.SlackTarget(podGroup()), Checked: false, FromOwners: false},
+	}
+	if got := webtest.Decode[api.Announcement](t, recorder).Tagging; got == nil || !reflect.DeepEqual(got.Groups, want) {
+		t.Errorf("tagging = %+v, want every group offered and none checked: %+v", got, want)
+	}
+}
+
 func TestGetAnnouncementTagsNoOneWithoutASlackUserToken(t *testing.T) {
 	t.Parallel()
 

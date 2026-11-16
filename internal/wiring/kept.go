@@ -36,10 +36,13 @@ func bindKept(kept store.Store, where Workspace, bound seams.Store) seams.Store 
 	bound.SetRepoGroups = func(ctx context.Context, workspace string, groups []loop.SlackTarget) error {
 		return kept.SetRepoGroups(ctx, repo, workspace, toStoreTargets(groups), time.Now())
 	}
-	bound.LastGroups = func(ctx context.Context, workspace string) ([]string, bool) {
+	bound.LastGroups = func(ctx context.Context, workspace string) loop.GroupChoice {
 		ids, chosen, _ := kept.LastGroups(ctx, repo, workspace)
+		if !chosen {
+			return loop.NoChoiceYet()
+		}
 
-		return ids, chosen
+		return loop.Chose(ids)
 	}
 	bound.RecordGroups = func(ctx context.Context, workspace string, ids []string) error {
 		return kept.RecordGroups(ctx, repo, workspace, ids, time.Now())

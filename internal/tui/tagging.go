@@ -30,13 +30,12 @@ type tagProposal struct {
 	owners     codeowners.Owners
 	links      []loop.OwnerLink
 	repoGroups []loop.SlackTarget
-	last       []string
-	lastChosen bool
+	last       loop.GroupChoice
 }
 
 // tags is who the proposal tags.
 func (p tagProposal) tags() loop.Tags {
-	return loop.ProposeTags(p.owners, p.links, p.repoGroups, p.last, p.lastChosen, messaging.MomentReady)
+	return loop.ProposeTags(p.owners, p.links, p.repoGroups, p.last, messaging.MomentReady)
 }
 
 // relinked is the proposal with link in place of what was decided for its
@@ -153,13 +152,13 @@ func taggedOwnerSeams(deps Deps) loop.OwnerSeams {
 // from: what was decided for owners, the repository's groups, and the last
 // choice, read under ctx.
 func readProposal(ctx context.Context, store seams.Store, workspace string) (tagProposal, error) {
-	var proposal tagProposal
+	proposal := tagProposal{last: loop.NoChoiceYet()}
 
 	links, linksErr := readKept(ctx, store.OwnerLinks, workspace)
 	groups, groupsErr := readKept(ctx, store.RepoGroups, workspace)
 
 	if store.LastGroups != nil {
-		proposal.last, proposal.lastChosen = store.LastGroups(ctx, workspace)
+		proposal.last = store.LastGroups(ctx, workspace)
 	}
 
 	proposal.links, proposal.repoGroups = links, groups
