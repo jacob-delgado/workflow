@@ -147,10 +147,9 @@ func overlayStates() map[string][]overlayState {
 	return statesOf(
 		named("the amend preview", stateAt(unpushedWorld, "3", "amend")),
 		named("the branch creator", stateAt(newWorld, "2", "new-branch")),
-		named("the link form",
-			stateAt(linkedBranch, "2", "link-issue"),
-			stateAt(func() *world { return onOffConventionBranch(true) }, "2", "link-issue")),
+		named("the link form", stateAt(func() *world { return onOffConventionBranch(true) }, "2", "link-issue")),
 		named("the branch picker", stateAt(switchingThreeWays, "2", "switch-branch", downAction)),
+		named("the link form on a branch already linked", stateAt(linkedBranch, "2", "link-issue")),
 		named("the calendar", stateAt(summaryWorld, summaryKey, "calendar")),
 		named("a checklist", stateAt(placesWorld, "1", "filter-issues", downAction)),
 		named("the checks list",
