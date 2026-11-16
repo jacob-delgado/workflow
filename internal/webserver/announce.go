@@ -124,9 +124,9 @@ func (s *server) postFor(ctx context.Context, body api.AnnounceRequest) (announc
 		return announcePost{}, announceUnprocessable(err.Error())
 	}
 
-	if claim, claimed := s.claimOn(ctx, composed.Made()); claimed {
+	if held, claimed := s.claimOn(ctx, composed.Made()); claimed {
 		return announcePost{}, api.Announce409ApplicationProblemPlusJSONResponse(
-			s.claimedBefore(composed.Pull.Number, claim))
+			s.claimedBefore(composed.Pull.Number, held))
 	}
 
 	mentions, memory, refusal := s.postMentions(ctx, body.Mentions, announcement.Moment)
@@ -221,7 +221,7 @@ func (s *server) notPostedNow(delivery loop.Delivery, kind loop.Delivered, err e
 		already, _ := errors.AsType[loop.AnnouncedAlreadyError](err)
 
 		return api.Announce409ApplicationProblemPlusJSONResponse(
-			s.claimedBefore(delivery.Pull.Number, already.Claim))
+			s.claimedBefore(delivery.Pull.Number, already.Held))
 	}
 
 	if kind == loop.DeliveredCIFailed {
@@ -356,22 +356,19 @@ func (s *server) announcedRecords(ctx context.Context) ([]loop.AnnounceRecord, e
 	return s.deps.Store.Announced(shared)
 }
 
-// claimOn is the claim the store holds on made, from any surface, as read
-// under ctx, and whether it holds one. A store that cannot be read says none:
-// the claim the post takes is what keeps it from going twice.
-func (s *server) claimOn(ctx context.Context, made loop.Announced) (loop.Claim, bool) {
+// claimOn is the record of the claim the store holds on made, from any
+// surface, as read under ctx, and whether it holds one. A store that cannot
+// be read says none: the claim the post takes is what keeps it from going
+// twice.
+func (s *server) claimOn(ctx context.Context, made loop.Announced) (loop.AnnounceRecord, bool) {
 	records, err := s.announcedRecords(ctx)
 	if err != nil {
 		s.unexpected(err)
 
-		return loop.Claim{}, false
+		return loop.AnnounceRecord{}, false
 	}
 
-	record, claimed := loop.RecordOf(records, made)
-
-	return loop.Claim{
-		Kind: loop.ClaimHeld, Generation: record.Generation, ClaimedAt: record.ClaimedAt, Posted: record.Posted,
-	}, claimed
+	return loop.RecordOf(records, made)
 }
 
 // reviewAnnounced is how the pull request the forge read stands, announced
@@ -395,18 +392,18 @@ func (s *server) reviewAnnounced(ctx context.Context, read forgeRead) api.Review
 	}[loop.StandingOf(records, read.pull, read.found)]
 }
 
-// claimedBefore refuses to announce pull at a moment claim holds already:
-// announced, or a post of it that began at the claim's time and was never
-// confirmed, which may have gone out, so only workflow announce posts it
-// again, having asked.
-func (s *server) claimedBefore(pull int, claim loop.Claim) api.Problem {
-	if claim.Posted {
+// claimedBefore refuses to announce pull at a moment a claim, held as its
+// record, holds already: announced, or a post of it that began at the claim's
+// time and was never confirmed, which may have gone out, so only workflow
+// announce posts it again, having asked.
+func (s *server) claimedBefore(pull int, held loop.AnnounceRecord) api.Problem {
+	if held.Posted {
 		return problem.New(api.ProblemCodeConflict,
 			s.pullName(pull)+" was already announced at this moment, here or from a terminal")
 	}
 
 	return problem.New(api.ProblemCodeAnnouncedUnconfirmed, "a post of "+s.pullName(pull)+" began at "+
-		claim.ClaimedAt.UTC().Format(claimTime)+" and was not confirmed, so it may have gone out; "+
+		held.ClaimedAt.UTC().Format(claimTime)+" and was not confirmed, so it may have gone out; "+
 		"workflow announce asks before posting it again")
 }
 

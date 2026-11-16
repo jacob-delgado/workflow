@@ -54,8 +54,10 @@ func TestAHeldClaimPostsNothing(t *testing.T) {
 
 	// Assert
 	var already loop.AnnouncedAlreadyError
-	if !errors.As(err, &already) || already.Claim.Posted || !already.Claim.ClaimedAt.Equal(claimedAt()) {
-		t.Errorf("Deliver = %v, want it announced already, unconfirmed since %v", err, claimedAt())
+	if !errors.As(err, &already) || already.Held.Made != ready().Made() || already.Held.Posted ||
+		!already.Held.ClaimedAt.Equal(claimedAt()) {
+		t.Errorf("Deliver = %v (%+v), want it announced already, the record of %+v, unconfirmed since %v",
+			err, already.Held, ready().Made(), claimedAt())
 	}
 
 	if len(sent.posted) != 0 {
@@ -435,17 +437,19 @@ func TestRecordsWithNoWayToReadThemAreNone(t *testing.T) {
 func TestAnnouncedAlreadySaysWhetherThePostWasConfirmed(t *testing.T) {
 	t.Parallel()
 
+	made := ready().Made()
+
 	cases := map[string]struct {
-		claim loop.Claim
-		want  string
+		held loop.AnnounceRecord
+		want string
 	}{
 		"confirmed": {
-			claim: loop.Claim{Kind: loop.ClaimHeld, Generation: 1, ClaimedAt: claimedAt(), Posted: true},
-			want:  "the announcement was already made",
+			held: loop.AnnounceRecord{Made: made, Generation: 1, ClaimedAt: claimedAt(), Posted: true},
+			want: "the announcement was already made",
 		},
 		"begun and never confirmed": {
-			claim: loop.Claim{Kind: loop.ClaimHeld, Generation: 1, ClaimedAt: claimedAt(), Posted: false},
-			want:  "the announcement was already made: a post began at 2026-11-11T09:00:00Z and was not confirmed",
+			held: loop.AnnounceRecord{Made: made, Generation: 1, ClaimedAt: claimedAt(), Posted: false},
+			want: "the announcement was already made: a post began at 2026-11-11T09:00:00Z and was not confirmed",
 		},
 	}
 
@@ -454,7 +458,7 @@ func TestAnnouncedAlreadySaysWhetherThePostWasConfirmed(t *testing.T) {
 			t.Parallel()
 
 			// Act
-			said := loop.AnnouncedAlreadyError{Claim: tt.claim}.Error()
+			said := loop.AnnouncedAlreadyError{Held: tt.held}.Error()
 
 			// Assert
 			if said != tt.want {

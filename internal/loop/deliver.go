@@ -171,6 +171,11 @@ func (m AnnounceMemory) Records(ctx context.Context) ([]AnnounceRecord, error) {
 	return m.Recorded(ctx)
 }
 
+// recordOf is the record of the claim on made as it stands.
+func (c Claim) recordOf(made Announced) AnnounceRecord {
+	return AnnounceRecord{Made: made, Generation: c.Generation, ClaimedAt: c.ClaimedAt, Posted: c.Posted}
+}
+
 // notKept is the claim a memory that keeps nothing answers.
 func notKept() Claim {
 	return Claim{Kind: ClaimNotKept, Generation: 0, ClaimedAt: time.Time{}, Posted: false}
@@ -261,21 +266,21 @@ func (r GateRefusalError) Unwrap() error {
 }
 
 // AnnouncedAlreadyError is a delivery refused because another session or
-// process claimed it first, with the claim as it stands: confirmed, or a post
-// that began at its time and was not seen to finish.
+// process claimed it first, with the record of the claim held as it stands:
+// confirmed, or a post that began at its time and was not seen to finish.
 type AnnouncedAlreadyError struct {
-	Claim Claim
+	Held AnnounceRecord
 }
 
 var _ error = AnnouncedAlreadyError{}
 
 // Error says it was made already, or began and was not confirmed.
 func (e AnnouncedAlreadyError) Error() string {
-	if e.Claim.Posted {
+	if e.Held.Posted {
 		return ErrAnnouncedAlready.Error()
 	}
 
-	return ErrAnnouncedAlready.Error() + ": a post began at " + e.Claim.ClaimedAt.UTC().Format(time.RFC3339) +
+	return ErrAnnouncedAlready.Error() + ": a post began at " + e.Held.ClaimedAt.UTC().Format(time.RFC3339) +
 		" and was not confirmed"
 }
 
@@ -337,7 +342,7 @@ func deliver(
 
 	how := postingOn(taken.Kind)
 	if how == postingElsewhere {
-		return DeliveredElsewhere, AnnouncedAlreadyError{Claim: taken}
+		return DeliveredElsewhere, AnnouncedAlreadyError{Held: taken.recordOf(made)}
 	}
 
 	if !how.posts() {
