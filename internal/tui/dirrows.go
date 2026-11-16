@@ -322,7 +322,8 @@ func (msg dirLooked) apply(m Model) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// look checks a destination off the update loop, since it reads the disk.
+// look checks a destination off the update loop, since it reads the disk,
+// dropping why an earlier one was refused.
 func (p dirPicker) look(m Model, dir string) (Model, tea.Cmd) {
 	ctx, look := m.session, m.deps.Repositories.Look
 	if look == nil {
@@ -333,7 +334,7 @@ func (p dirPicker) look(m Model, dir string) (Model, tea.Cmd) {
 	}
 
 	base, opened := p.base, p.opened
-	p.looking = true
+	p.looking, p.problem = true, nil
 	m.overlay = p
 
 	return m, func() tea.Msg {
