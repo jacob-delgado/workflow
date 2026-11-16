@@ -16,6 +16,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/tui/latest"
+	"github.com/jacob-delgado/workflow/internal/tui/send"
 )
 
 // switchTitle titles the detail pane while the task switcher is open.
@@ -141,15 +142,20 @@ type branchPicker struct {
 	// selected is which of them is chosen.
 	listing  latest.Read[switchable]
 	selected int
-	send     sendState
-	// opened is the round it opened in, which its listing carries back.
+	// send is the switch: the working tree read, then the checkout, one
+	// after the other as one write.
+	send send.State
+	// problem is why the branch chosen cannot be switched to, found before
+	// anything is sent.
+	problem error
+	// opened is the round it opened in, which its listing and its switch
+	// carry back.
 	opened int
 }
 
 var (
-	_ failable[branchPicker] = branchPicker{}
-	_ opened                 = branchPicker{}
-	_ steppable              = branchPicker{}
+	_ sender[branchPicker] = branchPicker{}
+	_ steppable            = branchPicker{}
 )
 
 // openBranchPicker opens the task switcher and starts listing the branches.
@@ -352,13 +358,16 @@ func branchLabel(marks glyphs, branch taskBranch) string {
 	return named
 }
 
-// outcome says how switching is going, if it was tried.
+// outcome says how switching is going, if it was tried, or why the branch
+// chosen cannot be switched to.
 func (p branchPicker) outcome(kit renderKit) []string {
 	switch {
-	case p.send.sending:
+	case p.send.Stage() == send.StageInFlight:
 		return []string{"", "switching" + kit.marks.ellipsis}
-	case p.send.err != nil:
-		return []string{"", kit.failureLine(p.send.err)}
+	case p.problem != nil:
+		return []string{"", kit.failureLine(p.problem)}
+	case p.send.Reason() != nil:
+		return []string{"", kit.failureLine(p.send.Reason())}
 	default:
 		return nil
 	}
@@ -367,7 +376,7 @@ func (p branchPicker) outcome(kit renderKit) []string {
 // footer offers what works in the switcher now. A switch in flight only offers
 // quitting, so nothing interrupts it.
 func (p branchPicker) footer(keys keyMap) []key.Binding {
-	if p.send.sending {
+	if p.send.Stage() == send.StageInFlight {
 		return []key.Binding{keys.interrupt}
 	}
 
@@ -376,7 +385,7 @@ func (p branchPicker) footer(keys keyMap) []key.Binding {
 
 // handleKey answers a key while the switcher has the keyboard.
 func (p branchPicker) handleKey(m Model, msg tea.KeyPressMsg) (Model, tea.Cmd) {
-	if p.send.sending {
+	if p.send.Stage() == send.StageInFlight {
 		return m, nil
 	}
 
@@ -397,9 +406,19 @@ func (branchPicker) which() overlayKind { return overlayBranchPicker }
 // openedAs is the round the switcher opened in.
 func (p branchPicker) openedAs() int { return p.opened }
 
+// sent is the switch's write.
+func (p branchPicker) sent() send.State { return p.send }
+
+// withSend is the switcher with its switch's write as state.
+func (p branchPicker) withSend(state send.State) branchPicker {
+	p.send = state
+
+	return p
+}
+
 // step moves the choice of branch by delta, unless a switch is being sent.
 func (p branchPicker) step(m Model, delta int) Model {
-	if p.send.sending {
+	if p.send.Stage() == send.StageInFlight {
 		return m
 	}
 
@@ -423,28 +442,34 @@ func (p branchPicker) choose(m Model) (Model, tea.Cmd) {
 
 	switch {
 	case branch.worktreeGone:
-		return keepOpenWith[branchPicker](m, errBranchHeldByGone), nil
+		p.send, p.problem = p.send.Cleared(), errBranchHeldByGone
+		m.overlay = p
+
+		return m, nil
 	case branch.worktree != "":
 		return m.closeOverlay().leaveFor(branch.worktree)
 	}
 
-	p.send = starting()
+	p.send, _ = p.send.Sent()
+	p.problem = nil
 	m.overlay = p
-	ctx, read := m.session, m.deps.Git.Changes
+	ctx, read, opened := m.session, m.deps.Git.Changes, p.opened
 
 	return m, func() tea.Msg {
 		if read == nil {
-			return treeChecked{name: branch.name}
+			return treeChecked{opened: opened, name: branch.name}
 		}
 
 		changes, err := read(ctx)
 
-		return treeChecked{name: branch.name, changes: changes, err: err}
+		return treeChecked{opened: opened, name: branch.name, changes: changes, err: err}
 	}
 }
 
-// treeChecked is the working tree as it stood when a switch was chosen.
+// treeChecked is the working tree as it stood when a switch was chosen, for
+// the switcher opened as opened.
 type treeChecked struct {
+	opened  int
 	name    string
 	changes []gitrepo.Change
 	err     error
@@ -452,40 +477,57 @@ type treeChecked struct {
 
 var _ applier = treeChecked{}
 
+// refusal is why the tree keeps the switch from going: it could not be read,
+// or it holds uncommitted work the switch would carry onto the other branch.
+func (msg treeChecked) refusal() error {
+	if msg.err != nil {
+		return msg.err
+	}
+
+	return loop.RefuseDirty(msg.changes)
+}
+
 // apply switches to the chosen branch, or keeps the switcher open with the
-// reason it will not: the tree could not be read, or it holds uncommitted work
-// the switch would carry onto the other branch.
+// reason it will not.
+// A late answer, its switcher no longer the one open, changes nothing; none
+// arrives, since the switcher takes no key but ctrl+c, which quits, while its
+// switch is out.
 func (msg treeChecked) apply(m Model) (Model, tea.Cmd) {
-	if _, open := m.overlay.(branchPicker); !open {
+	m, picker, done := answered[branchPicker](m, msg.opened, msg.refusal())
+	if !done {
 		return m, nil
 	}
 
-	dirty := loop.RefuseDirty(msg.changes)
-
-	switch {
-	case msg.err != nil:
-		return keepOpenWith[branchPicker](m, msg.err), nil
-	case dirty != nil:
-		return keepOpenWith[branchPicker](m, dirty), nil
-	case m.dryRun:
+	if m.dryRun {
 		return m.closeOverlay().noticed("dry run: would switch to " + msg.name), nil
 	}
 
-	ctx, checkout, name, lister := m.session, m.deps.Git.Checkout, msg.name, branchLister{links: m.deps.Git.IssueLinks}
+	return picker.checkingOut(m, msg.name)
+}
+
+// checkingOut puts the switcher back with its switch out again, now as the
+// checkout, and is the command that checks name out. Its answer carries the
+// round the switcher opened in.
+func (p branchPicker) checkingOut(m Model, name string) (Model, tea.Cmd) {
+	p.send, _ = p.send.Sent()
+	m = m.withAnswered(p)
+	ctx, checkout, opened := m.session, m.deps.Git.Checkout, p.opened
+	lister := branchLister{links: m.deps.Git.IssueLinks}
 
 	return m, func() tea.Msg {
 		err := checkout(ctx, name)
 
-		return taskSwitched{name: name, link: lister.linked(ctx)[name], err: err}
+		return taskSwitched{opened: opened, name: name, link: lister.linked(ctx)[name], err: err}
 	}
 }
 
 // taskSwitched reports how switching to a branch went, with the issue it was
-// linked to by hand, if it was.
+// linked to by hand, if it was, for the switcher opened as opened.
 type taskSwitched struct {
-	name string
-	link string
-	err  error
+	opened int
+	name   string
+	link   string
+	err    error
 }
 
 var _ applier = taskSwitched{}
@@ -493,9 +535,13 @@ var _ applier = taskSwitched{}
 // apply reloads the panes for the branch switched to, or keeps the switcher open
 // with git's reason. A branch that names an issue offers to start its task too,
 // as creating the branch would have.
+// A late answer, its switcher no longer the one open, changes nothing; none
+// arrives, since the switcher takes no key but ctrl+c, which quits, while its
+// switch is out.
 func (msg taskSwitched) apply(m Model) (Model, tea.Cmd) {
-	if msg.err != nil {
-		return keepOpenWith[branchPicker](m, msg.err), nil
+	m, _, done := answered[branchPicker](m, msg.opened, msg.err)
+	if !done {
+		return m, nil
 	}
 
 	m = m.closeOverlay().noticed(m.marks.done + " switched to " + msg.name)
@@ -507,11 +553,4 @@ func (msg taskSwitched) apply(m Model) (Model, tea.Cmd) {
 	m, read := m.readingBranch()
 
 	return m, tea.Batch(read, status)
-}
-
-// failed is the switcher kept open with the reason it could not switch.
-func (p branchPicker) failed(err error) branchPicker {
-	p.send = p.send.failed(err)
-
-	return p
 }
