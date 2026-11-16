@@ -214,7 +214,7 @@ func (f settingsForm) keptSection(settings []setting, answers []*settingAnswer) 
 
 		if field.kind == settingToggle {
 			if answer.on != answer.wasOn {
-				f = f.with(field.path, answer.on)
+				f = f.with(field, answer.on)
 			}
 
 			continue
@@ -226,7 +226,7 @@ func (f settingsForm) keptSection(settings []setting, answers []*settingAnswer) 
 		}
 
 		if changes && answer.text != answer.from {
-			f = f.with(field.path, value)
+			f = f.with(field, value)
 		}
 	}
 
