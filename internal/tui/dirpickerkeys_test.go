@@ -266,3 +266,19 @@ func TestCheckingAnotherDestinationClearsTheEarlierRefusal(t *testing.T) {
 	// Assert
 	refuseScreen(t, looking.View().Content, "there is no such directory")
 }
+
+func TestThePickerTakesNoKeyButEscWhileADestinationIsChecked(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	typed := goingTo(t, reposWorld(), webTyped)
+	looking, _ := pressed(t, typed, keyEnter)
+
+	// Act
+	view := typing(t, looking, "x", keyTab, keyBackspace).View().Content
+
+	// Assert
+	if got := pickerField(view); got != webTyped {
+		t.Errorf("the field holds %q while its path was checked, want %q", got, webTyped)
+	}
+}

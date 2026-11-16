@@ -4,6 +4,7 @@
 package tui
 
 import (
+	"cmp"
 	"errors"
 	"path/filepath"
 	"slices"
@@ -290,22 +291,16 @@ type dirLooked struct {
 var _ applier = dirLooked{}
 
 // apply opens the last look at switching to the directory checked, over the
-// picker it goes back to, says you already work there, or pins why it cannot
-// be gone to, when the picker that asked is still open.
+// picker it goes back to, or says you already work there, when the picker
+// that asked is still open; answered pins why it cannot be gone to. Late, it
+// changes nothing: esc closes the picker while its check is out.
 func (msg dirLooked) apply(m Model) (Model, tea.Cmd) {
-	picker, open := answerFor[dirPicker](m, msg.opened)
-	if !open {
+	m, picker, done := answered[dirPicker](m, msg.opened, msg.err)
+	if !done {
 		return m, nil
 	}
 
-	picker.looking = false
-
-	switch {
-	case msg.err != nil:
-		picker.problem = msg.err
-
-		return m.withAnswered(picker), nil
-	case msg.here:
+	if msg.here {
 		return m.closeOverlay().noticed("you already work in " + shownDir(m.deps, msg.dir)), nil
 	}
 
@@ -322,9 +317,9 @@ func (msg dirLooked) apply(m Model) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// look checks a destination off the update loop, since it reads the disk,
+// lookAt checks a destination off the update loop, since it reads the disk,
 // dropping why an earlier one was refused.
-func (p dirPicker) look(m Model, dir string) (Model, tea.Cmd) {
+func (p dirPicker) lookAt(m Model, dir string) (Model, tea.Cmd) {
 	ctx, look := m.session, m.deps.Repositories.Look
 	if look == nil {
 		p.problem = errCannotLook
@@ -334,7 +329,8 @@ func (p dirPicker) look(m Model, dir string) (Model, tea.Cmd) {
 	}
 
 	base, opened := p.base, p.opened
-	p.looking, p.problem = true, nil
+	p.look, _ = p.look.Sent()
+	p.problem = nil
 	m.overlay = p
 
 	return m, func() tea.Msg {
@@ -416,10 +412,11 @@ func (p dirPicker) drawnRows(kit renderKit, width, room int) []string {
 // refused.
 func (p dirPicker) status(kit renderKit, where string) []string {
 	read, found := p.listing()
+	refusal := cmp.Or(p.problem, p.look.Reason())
 
 	switch {
-	case p.problem != nil:
-		return []string{kit.failureLine(p.problem)}
+	case refusal != nil:
+		return []string{kit.failureLine(refusal)}
 	case !found || read.asked:
 		return []string{kit.turned + " reading " + strings.TrimPrefix(where, "in ") + kit.marks.ellipsis}
 	case read.err != nil:
