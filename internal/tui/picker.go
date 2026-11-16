@@ -294,14 +294,14 @@ func (p statusPicker) header() []string {
 
 // view draws the picker in as many rows as fit: reading its transitions,
 // why they could not be read, or them.
-func (p statusPicker) view(kit renderKit, _, rows int) (string, string) {
+func (p statusPicker) view(kit renderKit, width, rows int) (string, string) {
 	lines := p.header()
 	space := rows - len(lines)
 	failed := func() []string { return []string{kit.failureLine(p.listing.Err())} }
 
 	lines = append(lines, drawRead(p.listing, drawnRead[[]string]{
 		reading:    func() []string { return []string{"reading the statuses" + kit.marks.ellipsis} },
-		shown:      func() []string { return p.listed(kit, space) },
+		shown:      func() []string { return p.listed(kit, width, space) },
 		failed:     failed,
 		failedOver: failed,
 	})...)
@@ -309,22 +309,31 @@ func (p statusPicker) view(kit renderKit, _, rows int) (string, string) {
 	return pickerTitle, strings.Join(lines, "\n")
 }
 
-// listed draws the transitions read in space rows: that Jira offers none,
-// the fields the chosen one needs, or the transitions to choose from, with
-// how applying the chosen one is going.
-func (p statusPicker) listed(kit renderKit, space int) []string {
+// listed draws the transitions read in space rows, width columns wide: that
+// Jira offers none, the fields the chosen one needs, or the transitions to
+// choose from, with how applying the chosen one is going.
+func (p statusPicker) listed(kit renderKit, width, space int) []string {
 	moves := p.moves()
+	outcome := p.outcome(kit, width)
 
 	switch {
 	case len(moves.items) == 0:
 		return []string{"Jira offers no status change for " + shownKey(p.issue.Key)}
 	case p.filling():
-		return append(p.form.view(kit), p.outcome(kit)...)
+		return append(p.form.view(kit), outcome...)
 	default:
-		return append(moves.rows(kit.marks, space-outcomeRows, func(move jira.Transition) string {
+		return append(moves.rows(kit.marks, p.listRows(kit, width, space), func(move jira.Transition) string {
 			return transitionRow(kit.marks, move)
-		}), p.outcome(kit)...)
+		}), outcome...)
 	}
+}
+
+// listRows is how many of space rows, width columns wide, the transitions
+// take: the rest is kept for how applying the chosen one is going, which a
+// long refusal, wrapped, takes more of. The view draws it and the click
+// measures it.
+func (p statusPicker) listRows(kit renderKit, width, space int) int {
+	return space - max(outcomeRows, len(p.outcome(kit, width)))
 }
 
 // moves is the transitions read, none until they are, with the chosen one.
@@ -341,24 +350,17 @@ func transitionRow(marks glyphs, move jira.Transition) string {
 }
 
 // outcome says how applying the chosen transition is going, if it was tried:
-// being sent, refused, or kept from going by a problem found here.
-func (p statusPicker) outcome(kit renderKit) []string {
+// being sent, refused, or kept from going by a problem found here. A refusal
+// is wrapped rather than cut, as the task line's is, so Jira's own words are
+// all seen.
+func (p statusPicker) outcome(kit renderKit, width int) []string {
 	if p.moving() {
 		chosen, _ := p.moves().chosen()
 
 		return []string{"", "changing " + shownKey(p.issue.Key) + " to " + chosen.ToStatus + kit.marks.ellipsis}
 	}
 
-	cause := p.problem
-	if cause == nil {
-		cause = p.send.Reason()
-	}
-
-	if cause == nil {
-		return nil
-	}
-
-	return []string{"", kit.failureLine(cause)}
+	return kit.refusalOrProblem(p.send.Reason(), p.problem, width)
 }
 
 // footer offers what works in the picker now. While a move is being sent,
@@ -419,7 +421,7 @@ func (p statusPicker) click(m Model, line int) (Model, tea.Cmd) {
 	}
 
 	header := len(p.header())
-	p.selected = p.moves().clicked(line-header, m.detailRows()-header-outcomeRows).selected
+	p.selected = p.moves().clicked(line-header, p.listRows(m.kit(), m.detailWidth(), m.detailRows()-header)).selected
 	m.overlay = p
 
 	return m, nil

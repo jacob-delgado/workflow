@@ -137,6 +137,22 @@ func (kit renderKit) failureLine(err error) string {
 	return kit.voicedMark(err) + " " + inFull(err)
 }
 
+// refusalOrProblem is an overlay's outcome once nothing is out, below a
+// blank row: the refusal its write met, wrapped to width rather than cut so
+// the service's own words are all seen, or else the problem found before
+// anything was sent, on its one row; nothing when there is neither.
+func (kit renderKit) refusalOrProblem(refusal, problem error, width int) []string {
+	if refusal != nil {
+		return append([]string{""}, strings.Split(wrap(kit.failureLine(refusal), width), "\n")...)
+	}
+
+	if problem != nil {
+		return []string{"", kit.failureLine(problem)}
+	}
+
+	return nil
+}
+
 // failureBlocks says each failure among errs that is not nil, beneath what
 // comes before it, after a blank line; two reads that failed in the same
 // words are said once.

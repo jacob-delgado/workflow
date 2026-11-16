@@ -135,10 +135,11 @@ answer from landing in an overlay that did not ask for it.
   refusal and reports a success for the applier to follow. `pinnedSend`
   draws the refusal in most overlays. The rest draw it where it reads:
   the directory picker below its rows; the status picker, the branch
-  switcher and the task line in their outcome line through
-  `failureLine`, which only the task line wraps; the branch creator's
-  refused fetch beside its offer to branch anyway; the tag section among
-  its failure lines; and the settings form at the fields it names. What the
+  switcher and the task line in their outcome lines through
+  `refusalOrProblem`, which wraps a refusal rather than cut it; the
+  branch creator's refused fetch beside its offer to branch anyway; the
+  tag section among its failure lines; and the settings form at the
+  fields it names. What the
   overlay finds wrong before anything is sent, such as a subject the
   convention refuses or an editor that would not open, is its `problem`,
   drawn by `pinnedProblem`, never a refusal in its send.
