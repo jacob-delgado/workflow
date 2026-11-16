@@ -55,9 +55,9 @@ func codeOwnersOfThePR() codeowners.Owners {
 // are on Slack, and Dan is not. Ben has never been asked.
 func decided() []loop.OwnerLink {
 	return []loop.OwnerLink{
-		{Owner: ownerAna, OnSlack: true, Slack: slackAna()},
-		{Owner: ownerDan, OnSlack: false, Slack: loop.SlackTarget{}},
-		{Owner: controlPlaneTeam, OnSlack: true, Slack: controlPlanePod()},
+		loop.OnSlackAs(ownerAna, false, slackAna()),
+		loop.NotOnSlack(ownerDan, false),
+		loop.OnSlackAs(controlPlaneTeam, false, controlPlanePod()),
 	}
 }
 
@@ -86,8 +86,8 @@ func TestALinkOfTheWrongKindReadsAsUnlinked(t *testing.T) {
 	// Arrange
 	owners := codeowners.Owners{Users: []string{ownerAna}, Teams: []string{controlPlaneTeam}}
 	links := []loop.OwnerLink{
-		{Owner: ownerAna, OnSlack: true, Slack: controlPlanePod()},
-		{Owner: controlPlaneTeam, OnSlack: true, Slack: slackAna()},
+		loop.OnSlackAs(ownerAna, false, controlPlanePod()),
+		loop.OnSlackAs(controlPlaneTeam, false, slackAna()),
 	}
 
 	// Act
@@ -257,7 +257,7 @@ func TestMentionsTagOnlyTheOwnersTheCallerPassed(t *testing.T) {
 
 	// Arrange
 	// The author is linked, but the caller has already left them out of the owners.
-	author := loop.OwnerLink{Owner: "me", OnSlack: true, Slack: loop.SlackTarget{ID: "U0ME", Label: "Me"}}
+	author := loop.OnSlackAs("me", false, loop.SlackTarget{ID: "U0ME", Label: "Me"})
 	links := append(decided(), author)
 	tags := loop.ProposeTags(codeowners.Owners{Users: []string{ownerAna}, Teams: nil}, links, nil, nil, false,
 		messaging.MomentReady)
@@ -464,7 +464,7 @@ func TestABareNameDecidedAsAPersonIsAskedAgainOnceTheForgeKnowsItAsAGroup(t *tes
 	// Before the forge told them apart, every bare name was decided as a
 	// person, here as one not on Slack; GitLab now knows acme as a group.
 	owners := codeowners.Owners{Users: nil, Teams: []string{bareGroup}}
-	links := []loop.OwnerLink{{Owner: bareGroup, Team: false, OnSlack: false, Slack: loop.SlackTarget{}}}
+	links := []loop.OwnerLink{loop.NotOnSlack(bareGroup, false)}
 
 	// Act
 	tags := loop.ProposeTags(owners, links, nil, nil, false, messaging.MomentReady)
@@ -482,7 +482,7 @@ func TestABareNameDecidedAsATeamStaysOneWhenTheForgeCannotSay(t *testing.T) {
 	// Arrange
 	// GitLab could not be asked, so acme reads as a person, as it is spelled.
 	owners := codeowners.Owners{Users: []string{bareGroup}, Teams: nil}
-	links := []loop.OwnerLink{{Owner: bareGroup, Team: true, OnSlack: true, Slack: controlPlanePod()}}
+	links := []loop.OwnerLink{loop.OnSlackAs(bareGroup, true, controlPlanePod())}
 
 	// Act
 	tags := loop.ProposeTags(owners, links, nil, nil, false, messaging.MomentReady)
@@ -491,5 +491,54 @@ func TestABareNameDecidedAsATeamStaysOneWhenTheForgeCannotSay(t *testing.T) {
 	want := []loop.OwnerTag{{Owner: bareGroup, Team: true, State: loop.OwnerLinked, Slack: controlPlanePod()}}
 	if !reflect.DeepEqual(tags.Owners, want) || len(tags.Groups) != 1 || !tags.Groups[0].Checked {
 		t.Errorf("Tags = %+v, want acme the team linked to its group, offered checked", tags)
+	}
+}
+
+func TestAUserIsNotTakenForAnotherOwnerDecidedAsATeam(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// acme was decided as a team; ana, a person the forge cannot ask about,
+	// shares nothing with it but the list of links.
+	owners := codeowners.Owners{Users: []string{ownerAna}, Teams: nil}
+	links := []loop.OwnerLink{
+		loop.OnSlackAs(bareGroup, true, controlPlanePod()), loop.OnSlackAs(ownerAna, false, slackAna()),
+	}
+
+	// Act
+	tags := loop.ProposeTags(owners, links, nil, nil, false, messaging.MomentReady)
+
+	// Assert
+	want := []loop.OwnerTag{{Owner: ownerAna, Team: false, State: loop.OwnerLinked, Slack: slackAna()}}
+	if !reflect.DeepEqual(tags.Owners, want) {
+		t.Errorf("Owners = %+v, want ana a person linked as herself", tags.Owners)
+	}
+}
+
+func TestAnOwnerOnSlackIsDecidedAsWhomTheyAreThere(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	link := loop.OnSlackAs(controlPlaneTeam, true, controlPlanePod())
+
+	// Assert
+	target, onSlack := link.OnSlack()
+	if link.Owner() != controlPlaneTeam || !link.Team() || !onSlack || target != controlPlanePod() {
+		t.Errorf("OnSlackAs = %q, team %v, on Slack %v as %+v; want the team, as its pod",
+			link.Owner(), link.Team(), onSlack, target)
+	}
+}
+
+func TestAnOwnerNotOnSlackIsDecidedWithNobodyToTag(t *testing.T) {
+	t.Parallel()
+
+	// Act
+	link := loop.NotOnSlack(ownerDan, false)
+
+	// Assert
+	target, onSlack := link.OnSlack()
+	if link.Owner() != ownerDan || link.Team() || onSlack || target != (loop.SlackTarget{}) {
+		t.Errorf("NotOnSlack = %q, team %v, on Slack %v as %+v; want Dan, a person, not on Slack",
+			link.Owner(), link.Team(), onSlack, target)
 	}
 }

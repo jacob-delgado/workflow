@@ -31,9 +31,9 @@ func taggingWorld() *world {
 	tagging.codeOwners = []string{ownerBen, ownerCarla, "dan", podTeam}
 	tagging.slack = newSlackWorld()
 	tagging.slack.links = []loop.OwnerLink{
-		{Owner: ownerCarla, OnSlack: true, Slack: loop.SlackTarget{ID: carlaID, Label: carlaName}},
-		{Owner: "dan", OnSlack: false, Slack: loop.SlackTarget{}},
-		{Owner: podTeam, Team: true, OnSlack: true, Slack: loop.SlackTarget{ID: podID, Label: podName}},
+		loop.OnSlackAs(ownerCarla, false, loop.SlackTarget{ID: carlaID, Label: carlaName}),
+		loop.NotOnSlack("dan", false),
+		loop.OnSlackAs(podTeam, true, loop.SlackTarget{ID: podID, Label: podName}),
 	}
 	tagging.slack.repoGroups = []loop.SlackTarget{{ID: apiID, Label: apiName}}
 

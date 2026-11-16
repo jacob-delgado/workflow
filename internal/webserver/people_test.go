@@ -53,7 +53,7 @@ func apiReviews() loop.SlackTarget { return loop.SlackTarget{ID: apiGroupID, Lab
 // ownerLinkedTo is owner linked to target on Slack, a team when the name
 // holds a slash.
 func ownerLinkedTo(owner string, target loop.SlackTarget) loop.OwnerLink {
-	return loop.OwnerLink{Owner: owner, Team: strings.Contains(owner, "/"), OnSlack: true, Slack: target}
+	return loop.OnSlackAs(owner, strings.Contains(owner, "/"), target)
 }
 
 // fakeKept is the kept associations and the Slack directory, as a server
@@ -95,8 +95,8 @@ func (f *fakeKept) in(workspace string) error {
 func newFakeKept() *fakeKept {
 	return &fakeKept{
 		links: []loop.OwnerLink{
-			{Owner: carlaOwner, OnSlack: true, Slack: carla()},
-			{Owner: danOwner, OnSlack: false, Slack: loop.SlackTarget{}},
+			loop.OnSlackAs(carlaOwner, false, carla()),
+			loop.NotOnSlack(danOwner, false),
 		},
 		repoGroups: []loop.SlackTarget{apiReviews()},
 		members:    []loop.SlackTarget{ben(), carla()},
@@ -146,7 +146,7 @@ func (f *fakeKept) wire(deps *webserver.Deps) {
 
 // link records whom owner is, replacing what was decided.
 func (f *fakeKept) link(_ context.Context, workspace string, link loop.OwnerLink) error {
-	f.links = append(f.without(link.Owner), link)
+	f.links = append(f.without(link.Owner()), link)
 
 	return f.in(workspace)
 }
@@ -156,7 +156,7 @@ func (f *fakeKept) without(owner string) []loop.OwnerLink {
 	var kept []loop.OwnerLink
 
 	for _, link := range f.links {
-		if link.Owner != owner {
+		if link.Owner() != owner {
 			kept = append(kept, link)
 		}
 	}
@@ -229,7 +229,7 @@ func TestLinkPersonKeepsTheLabelSlacksDirectoryGives(t *testing.T) {
 		t.Fatalf("status = %d (%s), want 200", recorder.Code, recorder.Body.String())
 	}
 
-	want := loop.OwnerLink{Owner: benOwner, OnSlack: true, Slack: ben()}
+	want := loop.OnSlackAs(benOwner, false, ben())
 	if got := fake.links[len(fake.links)-1]; got != want {
 		t.Errorf("kept %+v, want %+v labeled from the directory", got, want)
 	}
@@ -267,7 +267,7 @@ func TestLinkPersonMarksAnOwnerNotOnSlack(t *testing.T) {
 	recorder := webtest.Send(t, handler, http.MethodPut, peoplePath, `{"owner":"ben","not_on_slack":true}`)
 
 	// Assert
-	want := loop.OwnerLink{Owner: benOwner, OnSlack: false, Slack: loop.SlackTarget{}}
+	want := loop.NotOnSlack(benOwner, false)
 	if got := fake.links[len(fake.links)-1]; recorder.Code != http.StatusOK || got != want {
 		t.Errorf("status %d, kept %+v; want 200 and %+v", recorder.Code, got, want)
 	}

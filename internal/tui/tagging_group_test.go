@@ -83,7 +83,7 @@ func TestPeopleAsksAgainAboutAGroupDecidedAsAPerson(t *testing.T) {
 	// Before the forge told bare names apart, acme was decided as a person
 	// not on Slack; GitLab now knows it as a group.
 	acme := acmeOwned(true)
-	acme.slack.links = []loop.OwnerLink{{Owner: bareGroup, Team: false, OnSlack: false, Slack: loop.SlackTarget{}}}
+	acme.slack.links = []loop.OwnerLink{loop.NotOnSlack(bareGroup, false)}
 
 	// Act
 	picking := typing(t, openPeople(t, acme), keyEnter).View().Content

@@ -62,7 +62,7 @@ func TestLinkPersonLinksAGroupDecidedAsAPersonBeforeTheForgeCouldTell(t *testing
 	// Before the forge told bare names apart, acme was decided as a person
 	// not on Slack.
 	fake := newFakeKept()
-	fake.links = []loop.OwnerLink{{Owner: "acme", Team: false, OnSlack: false, Slack: loop.SlackTarget{}}}
+	fake.links = []loop.OwnerLink{loop.NotOnSlack("acme", false)}
 	handler := acmeOwnedServer(t, fake)
 
 	// Act

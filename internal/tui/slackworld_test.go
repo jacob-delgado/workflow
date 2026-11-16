@@ -198,9 +198,9 @@ func (w *world) ownerLinks(_ context.Context, workspace string) ([]loop.OwnerLin
 // linkOwner records a decision, replacing any earlier one, unless it is
 // refused.
 func (w *world) linkOwner(_ context.Context, workspace string, link loop.OwnerLink) error {
-	owner, call := link.Owner, "link-owner "+link.Owner+" nobody"
-	if link.OnSlack {
-		call = "link-owner " + owner + " " + link.Slack.ID
+	owner, call := link.Owner(), "link-owner "+link.Owner()+" nobody"
+	if target, onSlack := link.OnSlack(); onSlack {
+		call = "link-owner " + owner + " " + target.ID
 	}
 
 	w.record(call)
@@ -213,7 +213,7 @@ func (w *world) linkOwner(_ context.Context, workspace string, link loop.OwnerLi
 		return err
 	}
 
-	w.slack.links = append(slices.DeleteFunc(w.slack.links, func(old loop.OwnerLink) bool { return old.Owner == owner }),
+	w.slack.links = append(slices.DeleteFunc(w.slack.links, func(old loop.OwnerLink) bool { return old.Owner() == owner }),
 		link)
 
 	return nil
@@ -231,7 +231,7 @@ func (w *world) forgetOwner(_ context.Context, workspace, owner string) error {
 		return err
 	}
 
-	w.slack.links = slices.DeleteFunc(w.slack.links, func(old loop.OwnerLink) bool { return old.Owner == owner })
+	w.slack.links = slices.DeleteFunc(w.slack.links, func(old loop.OwnerLink) bool { return old.Owner() == owner })
 
 	return nil
 }
