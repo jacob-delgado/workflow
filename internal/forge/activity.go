@@ -182,10 +182,10 @@ func gitlabActivity(ctx context.Context, client Client, start, end time.Time) (A
 		sortParameter: {"asc"},
 	}
 
-	listed, truncated, err := readPages(func(page int) ([]gitlabEvent, int, error) {
+	listed, truncated, err := readPages(func(page int) ([]gitlabEvent, pageCount, error) {
 		one, err := call[[]gitlabEvent](ctx, client, http.MethodGet, "/events?"+pageQuery(query, page), nil)
 
-		return one, uncounted, err
+		return one, notCounted(), err
 	})
 	if err != nil {
 		return Activity{}, err

@@ -340,10 +340,10 @@ func gitlabIssues(ctx context.Context, client Client, repo Repo) ([]Issue, error
 	query := url.Values{queryState: {stateOpened}, "assignee_username": {viewer.Name()}}
 	path := gitlabProjectPath(repo) + issuesSegment + "?"
 
-	listed, _, err := readPages(func(page int) ([]gitlabIssue, int, error) {
+	listed, _, err := readPages(func(page int) ([]gitlabIssue, pageCount, error) {
 		one, err := repoCall[[]gitlabIssue](ctx, client, repo, http.MethodGet, path+pageQuery(query, page), nil)
 
-		return one, uncounted, err
+		return one, notCounted(), err
 	})
 	if err != nil {
 		return nil, err

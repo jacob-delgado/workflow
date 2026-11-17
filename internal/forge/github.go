@@ -325,12 +325,12 @@ type githubSearchPage[T any] struct {
 func githubSearch[T any](ctx context.Context, client Client, query string) ([]T, bool, error) {
 	found := 0
 
-	items, truncated, err := readPages(func(page int) ([]T, int, error) {
+	items, truncated, err := readPages(func(page int) ([]T, pageCount, error) {
 		answer, err := call[githubSearchPage[T]](ctx, client, http.MethodGet,
 			"/search/issues?"+pageQuery(url.Values{"q": {query}}, page), nil)
 		found = answer.TotalCount
 
-		return answer.Items, min(answer.TotalCount, githubSearchServes), err
+		return answer.Items, countedAs(min(answer.TotalCount, githubSearchServes)), err
 	})
 
 	return items, truncated || found > githubSearchServes, err
@@ -391,10 +391,10 @@ func githubReviewTally(ctx context.Context, client Client, repo Repo, pull *Pull
 // first, to the end of the listing: a reviewer's latest stance is the one past
 // the first page.
 func githubPullReviews(ctx context.Context, client Client, repo Repo, base string) ([]githubReview, error) {
-	reviews, _, err := readPages(func(page int) ([]githubReview, int, error) {
+	reviews, _, err := readPages(func(page int) ([]githubReview, pageCount, error) {
 		one, err := repoCall[[]githubReview](ctx, client, repo, http.MethodGet, base+"/reviews?"+pageQuery(nil, page), nil)
 
-		return one, uncounted, err
+		return one, notCounted(), err
 	})
 
 	return reviews, err
