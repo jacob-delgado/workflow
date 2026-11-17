@@ -110,9 +110,12 @@ makes one that is missing.
   transaction takes the write lock as it begins, which is where its stamp's
   `BEGIN IMMEDIATE` comes from, so two processes opening a fresh file never
   both make it.
-- **A disabled store no-ops every method.** `New(dir, true)` and the zero
-  `Store` are the privacy opt-out, so no caller special-cases it. `ReadOnly()`
-  is the dry run's: it reads what is on disk, makes nothing, writes nothing.
+- **A store's `Mode` says what it does with its files.** `ModeOff`, which a
+  store with no directory and the zero `Store` are too, is the privacy
+  opt-out: it no-ops every method, so no caller special-cases it.
+  `ModeReadOnly`, what `ReadOnly()` turns any other store into, is the dry
+  run's: it reads what is on disk, makes nothing, writes nothing.
+  `ModeWrites` reads and writes.
 - The directory is `0700` and each file `0600` (`dirPerm`, `filePerm`), which
   also covers the `-wal` and `-shm` files beside them.
 - The open detaches from its asker (`context.WithoutCancel` in `open`), so a
@@ -128,9 +131,9 @@ makes one that is missing.
   (`kept.db`), as `version_test.go` and `kept_test.go` do. Watch it fail, then
   write the method or the `CREATE TABLE`.
 - **Black-box, in `package store_test`**, each test on
-  `store.New(t.TempDir(), false)` and `t.Parallel()`, marked `// Arrange`,
-  `// Act`, `// Assert` as the root asks. Stamp every write with `theTime()`
-  (`store_test.go`) rather than the wall clock.
+  `store.New(t.TempDir(), store.ModeWrites)` and `t.Parallel()`, marked
+  `// Arrange`, `// Act`, `// Assert` as the root asks. Stamp every write with
+  `theTime()` (`store_test.go`) rather than the wall clock.
 - **Fixtures to reuse.** `seedDatabase` and `seedDatabaseAt`
   (`failure_test.go`) leave a file as another program would; `openKeptFile`,
   `execKept` and `keptPragma` (`kept_test.go`) read and tamper with `kept.db`

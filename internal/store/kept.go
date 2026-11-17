@@ -74,7 +74,7 @@ func (s Store) readKept(ctx context.Context) (*sql.DB, bool, error) {
 		return nil, false, nil
 	}
 
-	if s.readOnly {
+	if s.mode == ModeReadOnly {
 		return s.readKeptAsItIs(ctx)
 	}
 

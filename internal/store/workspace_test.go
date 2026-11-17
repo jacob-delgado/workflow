@@ -34,7 +34,7 @@ func TestALinkMadeInOneWorkspaceIsNotReadInAnother(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 	linkAna(t, kept)
 
 	// Act
@@ -50,7 +50,7 @@ func TestALinkMadeInAnotherWorkspaceLeavesTheFirstOnesLink(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 	linkAna(t, kept)
 
 	// Act
@@ -78,7 +78,7 @@ func TestForgettingAnOwnerInOneWorkspaceKeepsTheirLinkInAnother(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 	linkAna(t, kept)
 
 	err := kept.LinkOwner(t.Context(), forgeHost, workspaceB, decided(anaOwner, bea()), theTime())
@@ -110,7 +110,7 @@ func TestAnOwnerNotOnSlackInOneWorkspaceKeepsTheirLinkInAnother(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 	linkAna(t, kept)
 
 	// Act
@@ -138,7 +138,7 @@ func TestAnOwnerNotOnSlackInOneWorkspaceIsAskedAboutInAnother(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 
 	// Act
 	err := kept.LinkOwner(t.Context(), forgeHost, workspaceB, decided(anaOwner, nil), theTime())
@@ -158,7 +158,7 @@ func TestTheGroupsOfARepositoryAndItsChoiceAreKeptPerWorkspace(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 	listBoth(t, kept)
 
 	err := kept.RecordGroups(t.Context(), repo, workspaceA, []string{podID}, theTime())
@@ -232,7 +232,7 @@ func TestNothingIsKeptOrReadUnderNoWorkspace(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			kept := store.New(t.TempDir(), false)
+			kept := store.New(t.TempDir(), store.ModeWrites)
 
 			// Act
 			err := call(kept)

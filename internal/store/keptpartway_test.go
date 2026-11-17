@@ -107,7 +107,7 @@ func TestAKeptReadThatFailsPartwayReturnsNothing(t *testing.T) {
 
 			// Arrange
 			dir := t.TempDir()
-			kept := store.New(dir, false)
+			kept := store.New(dir, store.ModeWrites)
 			testCase.before(t, kept)
 			tamperKept(t, dir, testCase.tamper...)
 
@@ -140,7 +140,7 @@ func TestAReadOnlyStoreReportsAKeptFileThatIsNotADatabase(t *testing.T) {
 			}
 
 			// Act
-			readBack, err := call(t.Context(), store.New(dir, false).ReadOnly())
+			readBack, err := call(t.Context(), store.New(dir, store.ModeWrites).ReadOnly())
 
 			// Assert
 			if err == nil || !strings.Contains(err.Error(), "reading the store schema version") || readBack {
@@ -166,7 +166,7 @@ func TestAKeptFileWithATableInTheWayIsReportedAndLeftAlone(t *testing.T) {
 	execKept(t, dir, `CREATE TABLE favorite_dir (other TEXT)`)
 
 	// Act
-	err := store.New(dir, false).Favor(t.Context(), apiDir, theTime())
+	err := store.New(dir, store.ModeWrites).Favor(t.Context(), apiDir, theTime())
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "preparing the kept data") {

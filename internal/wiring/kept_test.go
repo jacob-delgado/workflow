@@ -70,7 +70,7 @@ func TestAnOwnerLinkIsKeyedByTheForgeHostAlone(t *testing.T) {
 		t.Fatalf("LinkOwner returned %v, want nil", err)
 	}
 
-	links, err := store.New(dir, false).OwnerLinks(t.Context(), "github.com", workspace)
+	links, err := store.New(dir, store.ModeWrites).OwnerLinks(t.Context(), "github.com", workspace)
 	if err != nil || len(links) != 1 || links[0].Owner != anaOwner {
 		t.Errorf("the store's links on github.com = %+v, %v; want ana's", links, err)
 	}
@@ -173,7 +173,7 @@ func TestTheGroupsOfARepositoryAreKeyedByTheRepository(t *testing.T) {
 		t.Fatalf("SetRepoGroups returned %v, want nil", err)
 	}
 
-	groups, err := store.New(dir, false).RepoGroups(t.Context(), "github.com/a/b", workspace)
+	groups, err := store.New(dir, store.ModeWrites).RepoGroups(t.Context(), "github.com/a/b", workspace)
 	if err != nil || len(groups) != 1 || groups[0].ID != podGroup().ID {
 		t.Errorf("the store's groups for github.com/a/b = %+v, %v; want the pod's", groups, err)
 	}

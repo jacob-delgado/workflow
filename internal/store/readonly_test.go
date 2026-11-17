@@ -34,7 +34,7 @@ func TestAReadOnlyStoreMakesNothingWhereThereIsNone(t *testing.T) {
 			dir := filepath.Join(t.TempDir(), "workflow")
 
 			// Act
-			readBack, err := call(t.Context(), store.New(dir, false).ReadOnly())
+			readBack, err := call(t.Context(), store.New(dir, store.ModeWrites).ReadOnly())
 
 			// Assert
 			if err != nil || readBack {
@@ -74,13 +74,13 @@ func TestAReadOnlyStoreReadsWhatAnEarlierSessionKept(t *testing.T) {
 			// Arrange
 			dir := t.TempDir()
 
-			_, err := kind.write(t.Context(), store.New(dir, false))
+			_, err := kind.write(t.Context(), store.New(dir, store.ModeWrites))
 			if err != nil {
 				t.Fatalf("keeping %s: %v", name, err)
 			}
 
 			// Act
-			readBack, err := kind.read(t.Context(), store.New(dir, false).ReadOnly())
+			readBack, err := kind.read(t.Context(), store.New(dir, store.ModeWrites).ReadOnly())
 
 			// Assert
 			if err != nil || !readBack {
@@ -102,19 +102,19 @@ func TestAReadOnlyStoreWritesNothing(t *testing.T) {
 			// write below meets a store that is there.
 			dir := t.TempDir()
 
-			_, err := kind.read(t.Context(), store.New(dir, false))
+			_, err := kind.read(t.Context(), store.New(dir, store.ModeWrites))
 			if err != nil {
 				t.Fatalf("making the store: %v", err)
 			}
 
 			// Act
-			_, err = kind.write(t.Context(), store.New(dir, false).ReadOnly())
+			_, err = kind.write(t.Context(), store.New(dir, store.ModeWrites).ReadOnly())
 			// Assert
 			if err != nil {
 				t.Errorf("writing %s to a read-only store = %v, want it held back quietly", name, err)
 			}
 
-			readBack, readErr := kind.read(t.Context(), store.New(dir, false))
+			readBack, readErr := kind.read(t.Context(), store.New(dir, store.ModeWrites))
 			if readErr != nil || readBack {
 				t.Errorf("after a read-only write, reading %s = %v, read back %v; want nothing kept",
 					name, readErr, readBack)
@@ -131,13 +131,13 @@ func TestAReadOnlyStoreReadsADirectoryNamedWithURICharacters(t *testing.T) {
 	// escapes and a hash ends the path, so the name must be escaped to reach it.
 	dir := filepath.Join(t.TempDir(), "50% #1 Support", "workflow")
 
-	_, err := claimAnnounce(t.Context(), store.New(dir, false))
+	_, err := claimAnnounce(t.Context(), store.New(dir, store.ModeWrites))
 	if err != nil {
 		t.Fatalf("keeping an announcement: %v", err)
 	}
 
 	// Act
-	readBack, err := announces(t.Context(), store.New(dir, false).ReadOnly())
+	readBack, err := announces(t.Context(), store.New(dir, store.ModeWrites).ReadOnly())
 
 	// Assert
 	if err != nil || !readBack {
@@ -153,7 +153,7 @@ func TestAReadOnlyStoreLeavesTheDirectoryAsItFoundIt(t *testing.T) {
 	// one changes nothing it finds, so a looser mode set since stays.
 	dir := filepath.Join(t.TempDir(), "workflow")
 
-	_, err := claimAnnounce(t.Context(), store.New(dir, false))
+	_, err := claimAnnounce(t.Context(), store.New(dir, store.ModeWrites))
 	if err != nil {
 		t.Fatalf("keeping an announcement: %v", err)
 	}
@@ -164,7 +164,7 @@ func TestAReadOnlyStoreLeavesTheDirectoryAsItFoundIt(t *testing.T) {
 	}
 
 	// Act
-	readBack, err := announces(t.Context(), store.New(dir, false).ReadOnly())
+	readBack, err := announces(t.Context(), store.New(dir, store.ModeWrites).ReadOnly())
 
 	// Assert
 	if err != nil || !readBack {

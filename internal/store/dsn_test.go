@@ -76,7 +76,7 @@ func TestAStoreDirectoryWithAQuestionMarkKeepsTheCacheInsideWithForeignKeysOn(t 
 	}
 
 	// Act
-	_, err = cacheIssues(t.Context(), store.New(dir, false))
+	_, err = cacheIssues(t.Context(), store.New(dir, store.ModeWrites))
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "caching an issue") {
@@ -91,7 +91,7 @@ func TestAStoreDirectoryWithAQuestionMarkKeepsTheKeptDataInside(t *testing.T) {
 
 	// Arrange
 	parent, dir := questionedDir(t)
-	kept := store.New(dir, false)
+	kept := store.New(dir, store.ModeWrites)
 
 	// Act
 	linkAna(t, kept)

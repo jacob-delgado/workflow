@@ -24,7 +24,7 @@ func ready() store.Announce {
 func claimed(t *testing.T) (store.Store, store.Claim) {
 	t.Helper()
 
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 
 	claim, err := kept.ClaimAnnounce(t.Context(), repo, ready(), theTime())
 	if err != nil || claim.Kind != store.ClaimTaken {
@@ -140,7 +140,7 @@ func TestOnlyOneOfManyClaimsAcrossTwoStoresIsTaken(t *testing.T) {
 	// Two stores on one directory, as two processes would be, each claiming
 	// the same announcement from eight goroutines at once.
 	dir := t.TempDir()
-	first, second := store.New(dir, false), store.New(dir, false)
+	first, second := store.New(dir, store.ModeWrites), store.New(dir, store.ModeWrites)
 
 	err := first.RecordScope(t.Context(), repo, recorded, theTime())
 	if err != nil {
@@ -252,7 +252,7 @@ func TestAReclaimOfAClaimGoneClaimsAfresh(t *testing.T) {
 
 	// Arrange
 	// What was claimed is gone, as a db-clean leaves it.
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 
 	// Act
 	got, err := kept.ReclaimAnnounce(t.Context(), repo, ready(), 1, theTime())
@@ -271,9 +271,9 @@ func TestAStoreThatKeepsNothingTakesNoClaim(t *testing.T) {
 		kept store.Store
 		repo string
 	}{
-		"a disabled store":            {kept: store.New(dir, true), repo: repo},
-		"a read-only store":           {kept: store.New(dir, false).ReadOnly(), repo: repo},
-		"a repository without a name": {kept: store.New(dir, false), repo: ""},
+		"a disabled store":            {kept: store.New(dir, store.ModeOff), repo: repo},
+		"a read-only store":           {kept: store.New(dir, store.ModeWrites).ReadOnly(), repo: repo},
+		"a repository without a name": {kept: store.New(dir, store.ModeWrites), repo: ""},
 	}
 
 	for name, tt := range cases {
@@ -298,7 +298,7 @@ func TestADisabledStoreConfirmsAndReleasesNothing(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	off := store.New(t.TempDir(), true)
+	off := store.New(t.TempDir(), store.ModeOff)
 
 	// Act
 	confirmErr := off.ConfirmAnnounce(t.Context(), repo, ready(), 1, theTime())
@@ -328,7 +328,7 @@ func TestAnAnnouncementKeptByTheFirstSchemaIsForgotten(t *testing.T) {
 	)
 
 	// Act
-	claim, err := store.New(dir, false).ClaimAnnounce(t.Context(), repo, ready(), theTime())
+	claim, err := store.New(dir, store.ModeWrites).ClaimAnnounce(t.Context(), repo, ready(), theTime())
 
 	// Assert
 	if err != nil || claim.Kind != store.ClaimTaken {
@@ -359,7 +359,7 @@ func TestAMalformedClaimIsLeftOut(t *testing.T) {
 	)
 
 	// Act
-	got, err := store.New(dir, false).Announces(t.Context(), repo)
+	got, err := store.New(dir, store.ModeWrites).Announces(t.Context(), repo)
 
 	// Assert
 	if err != nil || len(got) != 0 {

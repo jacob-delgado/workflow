@@ -34,7 +34,11 @@ func (e Environment) ReadOnlyStore(cfg config.Config, where Workspace) seams.Sto
 func (e Environment) onDisk(cfg config.Config) store.Store {
 	dir, _ := e.StateDir()
 
-	return store.New(dir, cfg.Store.Disabled)
+	if cfg.Store.Disabled {
+		return store.New(dir, store.ModeOff)
+	}
+
+	return store.New(dir, store.ModeWrites)
 }
 
 // storeDeps binds the on-disk store to this repository, so the interface can open

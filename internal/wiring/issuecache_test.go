@@ -66,7 +66,8 @@ func TestAForgeRowAlreadyInTheCacheIsNotReadBack(t *testing.T) {
 
 	seeded := []store.CachedIssue{{Key: "#7", Summary: "another repository's issue"}, {Key: "PROJ-2", Summary: "kept"}}
 
-	err = store.New(dir, false).CacheIssues(t.Context(), hex.EncodeToString(sum[:]), "assigned", seeded, time.Now())
+	err = store.New(dir, store.ModeWrites).
+		CacheIssues(t.Context(), hex.EncodeToString(sum[:]), "assigned", seeded, time.Now())
 	if err != nil {
 		t.Fatalf("seeding the store: %v", err)
 	}
@@ -113,7 +114,8 @@ func TestACachedListOfOnlyForgeRowsReadsAsNotCached(t *testing.T) {
 
 	seeded := []store.CachedIssue{{Key: "#7", Summary: "another repository's issue"}}
 
-	err = store.New(dir, false).CacheIssues(t.Context(), hex.EncodeToString(sum[:]), "assigned", seeded, time.Now())
+	err = store.New(dir, store.ModeWrites).
+		CacheIssues(t.Context(), hex.EncodeToString(sum[:]), "assigned", seeded, time.Now())
 	if err != nil {
 		t.Fatalf("seeding the store: %v", err)
 	}

@@ -27,7 +27,7 @@ const cacheName = "workflow.db"
 func keepBoth(t *testing.T, dir string) store.Store {
 	t.Helper()
 
-	kept := store.New(dir, false)
+	kept := store.New(dir, store.ModeWrites)
 	linkAna(t, kept)
 
 	err := kept.RecordScope(t.Context(), repo, recorded, theTime())
@@ -165,7 +165,7 @@ func TestAChoiceOfGroupsIsCountedInWhatTheKeptFileHolds(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	kept := store.New(dir, false)
+	kept := store.New(dir, store.ModeWrites)
 	listBoth(t, kept)
 
 	err := kept.RecordGroups(t.Context(), repo, workspaceA, []string{}, theTime())

@@ -211,7 +211,7 @@ func totalOf(sizes map[string]int64, paths []string) (int64, bool) {
 // database, or a table it lacks, is simply not counted, since a broken file is
 // exactly what a clean is for and its listing must not fail.
 func summarize(ctx context.Context, dir string, each database) []Held {
-	reader := Store{dir: dir, disabled: false, readOnly: true}.openAsItIs(each.name)
+	reader := New(dir, ModeReadOnly).openAsItIs(each.name)
 	defer func() { _ = reader.Close() }()
 
 	var holds []Held

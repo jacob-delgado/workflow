@@ -68,7 +68,7 @@ func TestAStoreAtAnotherSchemaVersionIsStartedFresh(t *testing.T) {
 
 			// Arrange
 			dir := t.TempDir()
-			kept := store.New(dir, false)
+			kept := store.New(dir, store.ModeWrites)
 
 			err := kept.RecordScope(t.Context(), repo, recorded, theTime())
 			if err != nil {
@@ -100,7 +100,7 @@ func TestAFreshStoreIsStampedWithItsSchemaVersion(t *testing.T) {
 	dir := t.TempDir()
 
 	// Act
-	err := store.New(dir, false).RecordScope(t.Context(), repo, recorded, theTime())
+	err := store.New(dir, store.ModeWrites).RecordScope(t.Context(), repo, recorded, theTime())
 	// Assert
 	if err != nil {
 		t.Fatalf("keeping a scope: %v", err)
@@ -122,7 +122,7 @@ func TestAFileAtAnotherVersionWithNoTablesIsKeptAndStamped(t *testing.T) {
 	seedDatabaseAt(t, dir, currentVersion+1, statement{query: fmt.Sprintf("PRAGMA application_id = %d", witness)})
 
 	// Act
-	err := store.New(dir, false).RecordScope(t.Context(), repo, recorded, theTime())
+	err := store.New(dir, store.ModeWrites).RecordScope(t.Context(), repo, recorded, theTime())
 	// Assert
 	if err != nil {
 		t.Fatalf("keeping a scope: %v", err)
@@ -144,7 +144,7 @@ func TestAReadOnlyStoreReadsAStoreAtAnotherSchemaVersionAsItIs(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "workflow.db")
 
-	err := store.New(dir, false).RecordScope(t.Context(), repo, recorded, theTime())
+	err := store.New(dir, store.ModeWrites).RecordScope(t.Context(), repo, recorded, theTime())
 	if err != nil {
 		t.Fatalf("keeping a scope: %v", err)
 	}
@@ -157,7 +157,7 @@ func TestAReadOnlyStoreReadsAStoreAtAnotherSchemaVersionAsItIs(t *testing.T) {
 	}
 
 	// Act
-	scope, found, err := store.New(dir, false).ReadOnly().LastScope(t.Context(), repo)
+	scope, found, err := store.New(dir, store.ModeWrites).ReadOnly().LastScope(t.Context(), repo)
 
 	// Assert
 	if err != nil || !found || scope != recorded {
@@ -182,7 +182,7 @@ func TestAReadOfAStoreAtThisVersionWritesNothing(t *testing.T) {
 	// open, so a read stays a read: it takes no write lock and moves no byte.
 	dir := t.TempDir()
 	path := filepath.Join(dir, "workflow.db")
-	kept := store.New(dir, false)
+	kept := store.New(dir, store.ModeWrites)
 
 	err := kept.RecordScope(t.Context(), repo, recorded, theTime())
 	if err != nil {
@@ -246,7 +246,7 @@ func TestADiscardLeavesAProcessStillOnTheOldFileItsOwn(t *testing.T) {
 	// that program on what it opened, rather than on a log the fresh file then
 	// resets under it.
 	dir := t.TempDir()
-	kept := store.New(dir, false)
+	kept := store.New(dir, store.ModeWrites)
 
 	err := kept.RecordScope(t.Context(), repo, recorded, theTime())
 	if err != nil {
@@ -294,7 +294,7 @@ func TestAStoreOpenedForACallerWhoHasLeftIsStillMadeAndStamped(t *testing.T) {
 			// A live open beside it shows every table a whole file holds.
 			whole := t.TempDir()
 
-			err := store.New(whole, false).RecordScope(t.Context(), repo, recorded, theTime())
+			err := store.New(whole, store.ModeWrites).RecordScope(t.Context(), repo, recorded, theTime())
 			if err != nil {
 				t.Fatalf("keeping a scope: %v", err)
 			}
@@ -308,7 +308,7 @@ func TestAStoreOpenedForACallerWhoHasLeftIsStillMadeAndStamped(t *testing.T) {
 			leave()
 
 			// Act
-			_ = store.New(dir, false).RecordScope(left, repo, recorded, theTime())
+			_ = store.New(dir, store.ModeWrites).RecordScope(left, repo, recorded, theTime())
 
 			// Assert
 			if got := readPragma(t, dir, "user_version"); got != currentVersion {

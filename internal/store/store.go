@@ -18,7 +18,7 @@
 // on the way in and treat what they read back as untrusted, since a file on
 // disk can be tampered.
 //
-// A store is a value, and a disabled one no-ops every method, so a caller need
+// A store is a value, and one that is off no-ops every method, so a caller need
 // not special-case the privacy opt-out. Each operation opens its own short-lived
 // connection, so there is no handle to close and the terminal interface and the
 // web server can share the files; WAL and a busy timeout keep their writes from
@@ -70,27 +70,6 @@ var ErrNoDir = errors.New("could not determine a data directory for the store")
 // hold, so a STRICT table keeps them as TEXT rather than a forbidden DATETIME.
 func timestamp(now time.Time) string {
 	return now.UTC().Format(time.RFC3339)
-}
-
-// Store points at the on-disk store. Its zero value, and any disabled store,
-// no-op every method, so persistence-off behaves exactly as no store at all.
-type Store struct {
-	dir      string
-	disabled bool
-	readOnly bool
-}
-
-// New points a store at dir. Disabled keeps the code path identical for a user
-// who opts out of persistence: every method no-ops.
-func New(dir string, disabled bool) Store {
-	return Store{dir: dir, disabled: disabled}
-}
-
-// ReadOnly is the store for a dry run: it reads what is already on disk, reads
-// nothing where there is no store yet rather than create one, and no-ops every
-// write.
-func (s Store) ReadOnly() Store {
-	return Store{dir: s.dir, disabled: s.disabled, readOnly: true}
 }
 
 // LastScope is the commit scope last recorded for repo, and whether one was. A
@@ -146,55 +125,12 @@ func (s Store) RecordScope(ctx context.Context, repo, scope string, now time.Tim
 	return nil
 }
 
-// Keeps reports a store that keeps anything: neither disabled nor without a
-// directory. A read-only store keeps what is already on disk, so it keeps.
-func (s Store) Keeps() bool {
-	return !s.off()
-}
-
-// Writes reports a store that records what it is told: kept on, somewhere to
-// keep it, and not read-only.
-func (s Store) Writes() bool {
-	return !s.writesNothing()
-}
-
-// off reports a store that should do nothing: disabled, or with nowhere to write.
-func (s Store) off() bool {
-	return s.disabled || s.dir == ""
-}
-
-// writesNothing reports a store whose writes no-op: one that is off, or read-only.
-func (s Store) writesNothing() bool {
-	return s.off() || s.readOnly
-}
-
-// nothingToRead reports a store with nothing it may read from the cache.
-func (s Store) nothingToRead() bool {
-	return s.nothingToReadIn(dbName)
-}
-
-// nothingToReadIn reports a store with nothing it may read from the database
-// named: one that is off, or a read-only one with no such file on disk, which
-// it must not create by opening.
-func (s Store) nothingToReadIn(name string) bool {
-	switch {
-	case s.off():
-		return true
-	case !s.readOnly:
-		return false
-	default:
-		_, err := os.Stat(filepath.Join(s.dir, name))
-
-		return err != nil
-	}
-}
-
 // open makes the store directory, opens the database at this build's schema
 // version — discarding one another build left — creates the tables it is
 // missing, and restricts the directory and file to their owner. A read-only
 // store opens the database as it is instead.
 func (s Store) open(ctx context.Context) (*sql.DB, error) {
-	if s.readOnly {
+	if s.mode == ModeReadOnly {
 		return s.openAsItIs(dbName), nil
 	}
 

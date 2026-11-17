@@ -33,7 +33,7 @@ func TestTheGroupsOfARepositoryRoundTripByLabel(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 	listBoth(t, kept)
 
 	// Act
@@ -50,7 +50,7 @@ func TestSettingTheGroupsOfARepositoryReplacesThem(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 	listBoth(t, kept)
 
 	// Act
@@ -71,7 +71,7 @@ func TestRepositoryGroupsAreKeptPerRepository(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 	listBoth(t, kept)
 
 	// Act
@@ -87,7 +87,7 @@ func TestAUserIsRefusedAsARepositoryGroup(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 
 	// Act
 	err := kept.SetRepoGroups(t.Context(), repo, workspaceA, []store.SlackTarget{*ana()}, theTime())
@@ -102,7 +102,7 @@ func TestNoGroupsAreChosenUntilAChoiceIsRecorded(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 	listBoth(t, kept)
 
 	// Act
@@ -128,7 +128,7 @@ func TestTheLastChoiceOfGroupsRoundTrips(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			kept := store.New(t.TempDir(), false)
+			kept := store.New(t.TempDir(), store.ModeWrites)
 			listBoth(t, kept)
 
 			// Act
@@ -151,7 +151,7 @@ func TestAChosenGroupNotListedIsLeftOutOfTheChoice(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 
 	err := kept.SetRepoGroups(t.Context(), repo, workspaceA, []store.SlackTarget{apiGroup()}, theTime())
 	if err != nil {
@@ -176,7 +176,7 @@ func TestAGroupDroppedFromTheListLeavesTheLastChoice(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 	listBoth(t, kept)
 
 	err := kept.RecordGroups(t.Context(), repo, workspaceA, []string{apiID, podID}, theTime())
@@ -203,7 +203,7 @@ func TestAStoredGroupOfTheWrongShapeIsLeftOut(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	kept := store.New(dir, false)
+	kept := store.New(dir, store.ModeWrites)
 	listBoth(t, kept)
 
 	err := kept.RecordGroups(t.Context(), repo, workspaceA, []string{apiID, podID}, theTime())
@@ -234,7 +234,7 @@ func TestAGroupAnOwnerStillLinksToIsKept(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	kept := store.New(dir, false)
+	kept := store.New(dir, store.ModeWrites)
 
 	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, decided(acmePod, podGroup()), theTime())
 	if err != nil {

@@ -20,7 +20,7 @@ import (
 func madeCache(t *testing.T, dir string) {
 	t.Helper()
 
-	err := store.New(dir, false).RecordScope(t.Context(), "github.com/acme/api", "auth", time.Now())
+	err := store.New(dir, store.ModeWrites).RecordScope(t.Context(), "github.com/acme/api", "auth", time.Now())
 	if err != nil {
 		t.Fatalf("making the cache: %v", err)
 	}

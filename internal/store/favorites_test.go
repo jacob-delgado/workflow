@@ -54,7 +54,7 @@ func TestFavoritesRoundTripByDirectory(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 	favor(t, kept, webDir, apiDir)
 
 	// Act
@@ -71,7 +71,7 @@ func TestMarkingAFavoriteAgainKeepsOneEntry(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 	favor(t, kept, apiDir)
 
 	// Act
@@ -87,7 +87,7 @@ func TestMarkingAFavoriteAgainKeepsWhenItWasFirstMarked(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 	favor(t, kept, apiDir)
 
 	// Act
@@ -106,7 +106,7 @@ func TestUnfavoringRemovesOnlyThatDirectory(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 	favor(t, kept, apiDir, webDir)
 
 	// Act
@@ -126,7 +126,7 @@ func TestOnlyAnAbsoluteCleanDirectoryIsAFavorite(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			kept := store.New(t.TempDir(), false)
+			kept := store.New(t.TempDir(), store.ModeWrites)
 
 			// Act
 			err := kept.Favor(t.Context(), dir, theTime())
@@ -146,7 +146,7 @@ func TestAFavoriteRowOfTheWrongShapeIsNotReadBack(t *testing.T) {
 	// The file is outside this process, so a row is not trusted to be one
 	// Favor wrote.
 	dir := t.TempDir()
-	kept := store.New(dir, false)
+	kept := store.New(dir, store.ModeWrites)
 	favor(t, kept, apiDir)
 	execKept(t, dir, `INSERT INTO favorite_dir (dir, added_at) VALUES ('relative/dir', '2026-10-05T00:00:00Z')`)
 	execKept(t, dir, `INSERT INTO favorite_dir (dir, added_at) VALUES ('/srv/web', 'yesterday')`)
@@ -167,7 +167,7 @@ func TestMarkingAFavoriteOfTheWrongShapeAgainBringsItBack(t *testing.T) {
 	// A row whose time cannot be read is left out, so it reads as never
 	// marked; marking it again must not leave it hidden.
 	dir := t.TempDir()
-	kept := store.New(dir, false)
+	kept := store.New(dir, store.ModeWrites)
 	favor(t, kept, apiDir)
 	execKept(t, dir, `INSERT INTO favorite_dir (dir, added_at) VALUES ('/srv/web', 'yesterday')`)
 
@@ -190,7 +190,7 @@ func TestAKeptFileFromBeforeFavoritesReadsAsEmptyAndRefusesOne(t *testing.T) {
 	// Favorites came in with the kept schema's second version; a file the
 	// first made is left as it is until workflow db-clean --all.
 	dir := t.TempDir()
-	kept := store.New(dir, false)
+	kept := store.New(dir, store.ModeWrites)
 	linkAna(t, kept)
 	execKept(t, dir, "PRAGMA user_version = 1")
 
@@ -207,7 +207,7 @@ func TestADisabledStoreKeepsNoFavorite(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), true)
+	kept := store.New(t.TempDir(), store.ModeOff)
 
 	// Act
 	err := kept.Favor(t.Context(), apiDir, theTime())
@@ -226,10 +226,11 @@ func TestOnlyAStoreThatIsOnAndWritableWrites(t *testing.T) {
 		kept store.Store
 		want bool
 	}{
-		"on":        {kept: store.New(dir, false), want: true},
-		"read-only": {kept: store.New(dir, false).ReadOnly(), want: false},
-		"off":       {kept: store.New(dir, true), want: false},
-		"nowhere":   {kept: store.New("", false), want: false},
+		"on":             {kept: store.New(dir, store.ModeWrites), want: true},
+		"read-only":      {kept: store.New(dir, store.ModeWrites).ReadOnly(), want: false},
+		"made read-only": {kept: store.New(dir, store.ModeReadOnly), want: false},
+		"off":            {kept: store.New(dir, store.ModeOff), want: false},
+		"nowhere":        {kept: store.New("", store.ModeWrites), want: false},
 	}
 
 	for name, which := range cases {
@@ -252,10 +253,12 @@ func TestAStoreThatIsOnKeepsWhetherOrNotItWrites(t *testing.T) {
 		kept store.Store
 		want bool
 	}{
-		"on":        {kept: store.New(dir, false), want: true},
-		"read-only": {kept: store.New(dir, false).ReadOnly(), want: true},
-		"off":       {kept: store.New(dir, true), want: false},
-		"nowhere":   {kept: store.New("", false), want: false},
+		"on":                  {kept: store.New(dir, store.ModeWrites), want: true},
+		"read-only":           {kept: store.New(dir, store.ModeWrites).ReadOnly(), want: true},
+		"made read-only":      {kept: store.New(dir, store.ModeReadOnly), want: true},
+		"off":                 {kept: store.New(dir, store.ModeOff), want: false},
+		"off, then read-only": {kept: store.New(dir, store.ModeOff).ReadOnly(), want: false},
+		"nowhere":             {kept: store.New("", store.ModeWrites), want: false},
 	}
 
 	for name, which := range cases {

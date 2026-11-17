@@ -53,7 +53,7 @@ func TestLinkingASharedIDInAnotherWorkspaceKeepsTheFirstWorkspacesLink(t *testin
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 
 	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, decided(anaOwner, gridUser()), theTime())
 	if err != nil {
@@ -85,7 +85,7 @@ func TestDroppingASharedGroupInAnotherWorkspaceKeepsItListedInTheFirst(t *testin
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 	setGroups(t, kept, workspaceA, orgGroup())
 	setGroups(t, kept, workspaceB, orgGroup())
 
@@ -104,7 +104,7 @@ func TestChoosingNoGroupInAnotherWorkspaceKeepsTheFirstWorkspacesChoice(t *testi
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 	setGroups(t, kept, workspaceA, orgGroup())
 	chooseGroups(t, kept, workspaceA, orgGroup().ID)
 	setGroups(t, kept, workspaceB, orgGroup())
