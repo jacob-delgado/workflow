@@ -79,10 +79,10 @@ func TestOpenPullRequestRequestsTeamsAsTeams(t *testing.T) {
 	var request forge.NewPullRequest
 
 	deps := openableDeps()
-	deps.Forge.CreatePullRequest = func(_ context.Context, newPull forge.NewPullRequest) (forge.PullRequest, error) {
+	deps.Forge.CreatePullRequest = func(_ context.Context, newPull forge.NewPullRequest) (forge.Created, error) {
 		request = newPull
 
-		return forge.PullRequest{Number: 7, URL: webtest.PRURL, Title: newPull.Title}, nil
+		return forge.Created{Pull: forge.PullRequest{Number: 7, URL: webtest.PRURL, Title: newPull.Title}}, nil
 	}
 
 	body := `{"title":"` + webtest.PRTitle + `","base":"` + webtest.PRBase +

@@ -47,12 +47,12 @@ func slowWorld(t *testing.T) (tui.Deps, forge.PullRequest) {
 
 	deps, _ := pushedFeature(t, demo.ReadLatency(latency))
 
-	pull, err := deps.Forge.CreatePullRequest(t.Context(), request())
+	created, err := deps.Forge.CreatePullRequest(t.Context(), request())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	return deps, pull
+	return deps, created.Pull
 }
 
 func TestASlowReadTakesTheWorldsLatency(t *testing.T) {

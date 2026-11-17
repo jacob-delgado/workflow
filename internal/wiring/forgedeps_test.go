@@ -51,7 +51,7 @@ func TestTheForgeSeamsReturnTheForgesAnswerThroughTheCLI(t *testing.T) {
 			act: func(forgeSeams seams.Forge) (string, error) {
 				created, err := forgeSeams.CreatePullRequest(t.Context(), forge.NewPullRequest{Title: "fix: token"})
 
-				return fmt.Sprintf("#%d", created.Number), err
+				return fmt.Sprintf("#%d", created.Pull.Number), err
 			},
 			want: "#43",
 		},

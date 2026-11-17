@@ -65,11 +65,12 @@ func TestOpeningAPullRequestKeepsIt(t *testing.T) {
 	deps, _ := pushedFeature(t)
 
 	// Act
-	pull, err := deps.Forge.CreatePullRequest(t.Context(), request())
+	created, err := deps.Forge.CreatePullRequest(t.Context(), request())
 
 	// Assert
-	if err != nil || !pull.Opened() || pull.Title != request().Title || pull.URL == "" {
-		t.Fatalf("opening the pull request answered %+v, %v", pull, err)
+	pull := created.Pull
+	if err != nil || created.Shortfall != nil || pull.Number == 0 || pull.Title != request().Title || pull.URL == "" {
+		t.Fatalf("opening the pull request answered %+v, %v", created, err)
 	}
 
 	found, open, err := deps.Forge.FindPullRequest(t.Context(), feature)
@@ -112,8 +113,8 @@ func TestASecondPullRequestForOneBranchIsRefused(t *testing.T) {
 		t.Error("a second pull request opened for one branch")
 	}
 
-	if found, _, _ := deps.Forge.FindPullRequest(t.Context(), feature); found.Number != first.Number {
-		t.Errorf("the branch's pull request became #%d, want #%d still", found.Number, first.Number)
+	if found, _, _ := deps.Forge.FindPullRequest(t.Context(), feature); found.Number != first.Pull.Number {
+		t.Errorf("the branch's pull request became #%d, want #%d still", found.Number, first.Pull.Number)
 	}
 }
 
@@ -122,7 +123,8 @@ func TestCIHasOneCheckPassedAsThePullRequestOpens(t *testing.T) {
 
 	// Arrange
 	deps, _ := pushedFeature(t)
-	pull, _ := deps.Forge.CreatePullRequest(t.Context(), request())
+	created, _ := deps.Forge.CreatePullRequest(t.Context(), request())
+	pull := created.Pull
 
 	// Act
 	ci, err := deps.Forge.CheckStatus(t.Context(), pull, pull.HeadCommit)
@@ -138,7 +140,8 @@ func TestCIPassesOneCheckAtATime(t *testing.T) {
 
 	// Arrange
 	deps, clock := pushedFeature(t)
-	pull, _ := deps.Forge.CreatePullRequest(t.Context(), request())
+	created, _ := deps.Forge.CreatePullRequest(t.Context(), request())
+	pull := created.Pull
 	clock.elapsed += 2 * time.Second
 
 	// Act
@@ -155,7 +158,8 @@ func TestCIPassesFourSecondsAfterThePullRequestOpens(t *testing.T) {
 
 	// Arrange
 	deps, clock := pushedFeature(t)
-	pull, _ := deps.Forge.CreatePullRequest(t.Context(), request())
+	created, _ := deps.Forge.CreatePullRequest(t.Context(), request())
+	pull := created.Pull
 	clock.elapsed += 4 * time.Second
 
 	// Act
@@ -187,7 +191,8 @@ func TestTodaysSummaryHoldsThePullRequestOpened(t *testing.T) {
 
 	// Arrange
 	deps, _ := pushedFeature(t)
-	pull, _ := deps.Forge.CreatePullRequest(t.Context(), request())
+	created, _ := deps.Forge.CreatePullRequest(t.Context(), request())
+	pull := created.Pull
 	start := deps.Clock().Truncate(24 * time.Hour)
 
 	// Act

@@ -204,7 +204,9 @@ func TestCreatePullRequestOnGitHub(t *testing.T) {
 	})
 
 	// Assert
-	if err != nil || created.Number != 43 || created.URL != "https://github.com/example/repo/pull/43" {
+	pull := created.Pull
+	if err != nil || created.Shortfall != nil || pull.Number != 43 ||
+		pull.URL != "https://github.com/example/repo/pull/43" {
 		t.Fatalf("CreatePullRequest = %+v, %v", created, err)
 	}
 
@@ -237,7 +239,7 @@ func TestCreateMergeRequestOnGitLab(t *testing.T) {
 	})
 
 	// Assert
-	if err != nil || created.Number != 8 || !created.Draft {
+	if err != nil || created.Shortfall != nil || created.Pull.Number != 8 || !created.Pull.Draft {
 		t.Fatalf("CreatePullRequest = %+v, %v", created, err)
 	}
 

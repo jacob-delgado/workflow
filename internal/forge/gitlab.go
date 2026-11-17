@@ -343,12 +343,12 @@ func gitlabReviews(ctx context.Context, client Client) (ReviewQueue, error) {
 // set at creation as GitLab takes them. Reviewers and assignees are resolved
 // from usernames to ids first, each team reviewer standing for its group's
 // active members. A reviewer or assignee that cannot be resolved, for whatever
-// reason, is left off the merge request opened and returned beside it as
+// reason, is left off the merge request opened and is its shortfall, as
 // ErrSomePeopleNotAdded.
-func gitlabCreate(ctx context.Context, client Client, repo Repo, request NewPullRequest) (PullRequest, error) {
+func gitlabCreate(ctx context.Context, client Client, repo Repo, request NewPullRequest) (Created, error) {
 	source, target, err := gitlabOpenedOn(ctx, client, repo, request.Head)
 	if err != nil {
-		return PullRequest{}, err
+		return Created{}, err
 	}
 
 	reviewers := gitlabResolveReviewers(ctx, client, request)
@@ -363,10 +363,10 @@ func gitlabCreate(ctx context.Context, client Client, repo Repo, request NewPull
 	created, err := repoCall[gitlabMerge](ctx, client, source, http.MethodPost,
 		gitlabProjectPath(source)+"/merge_requests", payload)
 	if err != nil {
-		return PullRequest{}, err
+		return Created{}, err
 	}
 
-	return created.pullRequest(), reviewers.err()
+	return Created{Pull: created.pullRequest(), Shortfall: reviewers.err()}, nil
 }
 
 // gitlabOpenedOn is the project a merge request from head is posted to, and

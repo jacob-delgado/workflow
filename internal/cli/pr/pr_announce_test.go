@@ -214,3 +214,29 @@ func TestPRAnnounceNamesNoNextStep(t *testing.T) {
 			err, posts.Load(), printed.Stderr)
 	}
 }
+
+func TestPRAnnounceDeclinedOpensNothingAndAnnouncesNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var posts atomic.Int32
+
+	sent := filepath.Join(t.TempDir(), "sent.log")
+	responses := openingThenOpen()
+	responses.SentLog = sent
+	clitest.FakeGh(t, responses)
+	repo := clitest.GithubRepo(t, "fix/PROJ-2-thing")
+	clitest.PretendPushed(t, repo)
+	clitest.WriteFile(t, repo, waitingConfig(webhook(t, &posts)))
+
+	// Act
+	printed, err := clitest.RunStreams(t, repo, clitest.Scripted([]string{"n"}, nil), "pr", "--announce")
+
+	// Assert
+	log, _ := os.ReadFile(sent)
+	if err != nil || posts.Load() != 0 || strings.Contains(string(log), "/pulls") ||
+		!strings.Contains(printed.Stderr, "Not opened.") {
+		t.Errorf("pr --announce declined = %v, posted %d, printed %+v, sent:\n%s; want it declined, nothing sent",
+			err, posts.Load(), printed, log)
+	}
+}

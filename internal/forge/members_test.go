@@ -55,9 +55,9 @@ func TestCreateMergeRequestOnGitLabAsksATeamFromEveryPageOfItsMembers(t *testing
 	})
 
 	// Act
-	_, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
+	err := whole(client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
 		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch, TeamReviewers: []string{groupControlPlane},
-	})
+	}))
 
 	// Assert
 	reviewers, _ := requestTo(*seen, gitlabMergesPath).body["reviewer_ids"].([]any)
@@ -85,9 +85,9 @@ func TestCreateMergeRequestOnGitLabLeavesOutTeamMembersWhoCannotApprove(t *testi
 	}))
 
 	// Act
-	_, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
+	err := whole(client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
 		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch, TeamReviewers: []string{groupControlPlane},
-	})
+	}))
 
 	// Assert
 	opened := requestTo(*seen, gitlabMergesPath)
@@ -109,9 +109,9 @@ func TestCreateMergeRequestOnGitLabLeavesOutMembersWhoseMembershipIsNotActive(t 
 	}))
 
 	// Act
-	_, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
+	err := whole(client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
 		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch, TeamReviewers: []string{groupControlPlane},
-	})
+	}))
 
 	// Assert
 	opened := requestTo(*seen, gitlabMergesPath)
@@ -141,7 +141,7 @@ func TestCreateMergeRequestOnGitLabAsksATeamsActiveMembersToReview(t *testing.T)
 	})
 
 	// Assert
-	if err != nil || created.Number != 8 {
+	if err != nil || created.Shortfall != nil || created.Pull.Number != 8 {
 		t.Fatalf("CreatePullRequest = %+v, %v", created, err)
 	}
 
@@ -173,9 +173,9 @@ func TestCreateMergeRequestOnGitLabLeavesTheAuthorOutOfATeam(t *testing.T) {
 	})
 
 	// Act
-	_, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
+	err := whole(client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
 		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch, TeamReviewers: []string{groupControlPlane},
-	})
+	}))
 
 	// Assert
 	opened := requestTo(*seen, gitlabMergesPath)
@@ -195,9 +195,9 @@ func TestCreateMergeRequestOnGitLabExpandsATopLevelGroupNamedAsAUser(t *testing.
 	}))
 
 	// Act
-	_, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
+	err := whole(client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
 		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch, Reviewers: []string{"platform"},
-	})
+	}))
 
 	// Assert
 	opened := requestTo(*seen, gitlabMergesPath)
@@ -220,8 +220,9 @@ func TestCreateMergeRequestOnGitLabOpensWithoutATeamItCannotRead(t *testing.T) {
 	})
 
 	// Assert
-	if created.Number != 8 || !errors.Is(err, forge.ErrSomePeopleNotAdded) ||
-		!strings.Contains(err.Error(), groupControlPlane) {
+	short := created.Shortfall
+	if err != nil || created.Pull.Number != 8 || !errors.Is(short, forge.ErrSomePeopleNotAdded) ||
+		!strings.Contains(short.Error(), groupControlPlane) {
 		t.Fatalf("CreatePullRequest = %+v, %v; want it opened, naming the team left off", created, err)
 	}
 
@@ -247,14 +248,16 @@ func TestCreateMergeRequestOnGitLabKeepsWhyAGroupNamedAsAUserWasNotRead(t *testi
 	})
 
 	// Act
-	_, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
+	created, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
 		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch, Reviewers: []string{"platform"},
 	})
 
 	// Assert
-	if !errors.Is(err, forge.ErrSomePeopleNotAdded) || !errors.Is(err, httpx.ErrRateLimited) ||
-		errors.Is(err, forge.ErrNoUser) {
-		t.Errorf("CreatePullRequest = %v; want platform missed for the rate limit, not as no such user", err)
+	short := created.Shortfall
+	if err != nil || !errors.Is(short, forge.ErrSomePeopleNotAdded) || !errors.Is(short, httpx.ErrRateLimited) ||
+		errors.Is(short, forge.ErrNoUser) {
+		t.Errorf("CreatePullRequest = %+v, %v; want platform missed for the rate limit, not as no such user",
+			created, err)
 	}
 }
 
@@ -280,10 +283,10 @@ func TestCreateMergeRequestOnGitLabAsksWhoTheAuthorIsOnceForEveryTeam(t *testing
 	})
 
 	// Act
-	_, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
+	err := whole(client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
 		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch,
 		TeamReviewers: []string{groupControlPlane, "acme/data"},
-	})
+	}))
 
 	// Assert
 	opened := requestTo(*seen, gitlabMergesPath)

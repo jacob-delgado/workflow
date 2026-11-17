@@ -99,33 +99,24 @@ func (c prComposer) create(m Model) (Model, tea.Cmd) {
 	ctx, create, request, round := m.session, m.deps.Forge.CreatePullRequest, c.request(), c.opened
 
 	return m, func() tea.Msg {
-		pull, err := create(ctx, request)
+		created, err := create(ctx, request)
 
-		return pullCreated{opened: round, head: request.Head.Branch, pull: pull, err: err}
+		return pullCreated{opened: round, head: request.Head.Branch, created: created, err: err}
 	}
 }
 
 // pullCreated reports how opening a pull request went, for the composer
-// opened in round opened.
+// opened in round opened: err is why it did not open, and created the pull
+// request opened, with what fell short of the request once it did.
 type pullCreated struct {
 	opened int
 	// head is the branch it was opened from, whose kept draft it drops.
-	head string
-	pull forge.PullRequest
-	err  error
+	head    string
+	created forge.Created
+	err     error
 }
 
 var _ applier = pullCreated{}
-
-// refusal is why the pull request did not open: none once it opened, though
-// a reviewer, assignee or label could not be added to it.
-func (msg pullCreated) refusal() error {
-	if msg.pull.Opened() {
-		return nil
-	}
-
-	return msg.err
-}
 
 // apply shows the new pull request and starts on its CI, or keeps the composer
 // open with the forge's reason, pinned until a key its form takes. A pull that
@@ -134,21 +125,23 @@ func (msg pullCreated) refusal() error {
 // changes nothing; none arrives, since the composer takes no key but ctrl+c,
 // which quits, while its create is out.
 func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
-	m, _, done := answered[prComposer](m, msg.opened, msg.refusal())
+	m, _, done := answered[prComposer](m, msg.opened, msg.err)
 	if !done {
 		return m, nil
 	}
 
-	opened := m.marks.done + " opened " + m.vocab.sigil + strconv.Itoa(msg.pull.Number) + " " + msg.pull.URL
-	if msg.err != nil {
-		opened += "; could not add every reviewer, assignee or label: " + briefly(msg.err)
+	pull := msg.created.Pull
+
+	opened := m.marks.done + " opened " + m.vocab.sigil + strconv.Itoa(pull.Number) + " " + pull.URL
+	if msg.created.Shortfall != nil {
+		opened += "; could not add every reviewer, assignee or label: " + briefly(msg.created.Shortfall)
 	}
 
-	m = m.beginReview(m.review.find.Told(pullFind{pull: msg.pull, found: true, madeAfter: nil}))
+	m = m.beginReview(m.review.find.Told(pullFind{pull: pull, found: true, madeAfter: nil}))
 	m.review.opened = m.deps.now()
 	m.prDrafts = m.prDrafts.without(msg.head)
 
-	m, armed, readHold := m.armOnOpen(msg.pull)
+	m, armed, readHold := m.armOnOpen(pull)
 	m = m.noticed(opened + armed)
 
 	// The pull request opened is told the review, superseding a find a
@@ -163,7 +156,6 @@ func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
 	// issue's task is offered once those are answered.
 	issueKey, named := m.branch.jiraIssue(m.cfg.Jira.Project)
 	if named {
-		pull := msg.pull
 		m.followUp = offeredOnOpening(func(m Model) waitingOffer {
 			return m.offerAnnotate(issueKey, pull)
 		})
@@ -171,7 +163,7 @@ func (msg pullCreated) apply(m Model) (Model, tea.Cmd) {
 
 	switch {
 	case named && m.deps.Jira.LinkPullRequest != nil:
-		return m.openIssueLinker(issueKey, msg.pull), cmds
+		return m.openIssueLinker(issueKey, pull), cmds
 	case named:
 		picker, offer := m.offerReviewStatus(issueKey)
 

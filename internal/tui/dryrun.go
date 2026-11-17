@@ -230,8 +230,8 @@ func heldBackTasks(deps seams.Tasks) seams.Tasks {
 // lefthook.
 func heldBackServices(deps Deps) Deps {
 	if deps.Forge.CreatePullRequest != nil {
-		deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.PullRequest, error) {
-			return forge.PullRequest{}, errDryRun
+		deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.Created, error) {
+			return forge.Created{}, errDryRun
 		}
 	}
 

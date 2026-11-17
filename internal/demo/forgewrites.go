@@ -50,7 +50,7 @@ func checkSchedule() []scheduledCheck {
 
 // createPullRequest opens a pull request for a branch origin holds, one per
 // branch, as GitHub does.
-func (w *World) createPullRequest(_ context.Context, request forge.NewPullRequest) (forge.PullRequest, error) {
+func (w *World) createPullRequest(_ context.Context, request forge.NewPullRequest) (forge.Created, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -58,11 +58,11 @@ func (w *World) createPullRequest(_ context.Context, request forge.NewPullReques
 
 	local := w.repo.branches[head]
 	if local.upstream == "" {
-		return forge.PullRequest{}, fmt.Errorf("%s: %w: %w", head, forge.ErrRejected, errHeadNotPushed)
+		return forge.Created{}, fmt.Errorf("%s: %w: %w", head, forge.ErrRejected, errHeadNotPushed)
 	}
 
 	if _, open := w.pulls[head]; open {
-		return forge.PullRequest{}, fmt.Errorf("%s: %w: %w", head, forge.ErrRejected, errAlreadyOpen)
+		return forge.Created{}, fmt.Errorf("%s: %w: %w", head, forge.ErrRejected, errAlreadyOpen)
 	}
 
 	number := firstPull + len(w.pulls)
@@ -73,7 +73,7 @@ func (w *World) createPullRequest(_ context.Context, request forge.NewPullReques
 	}
 	w.pulls[head], w.opened[number] = number, openedPull{pull: pull, at: w.now()}
 
-	return pull, nil
+	return forge.Created{Pull: pull}, nil
 }
 
 // checkStatus is how a pull request's CI stands, once the world's read

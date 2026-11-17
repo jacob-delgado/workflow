@@ -160,9 +160,11 @@ type Forge struct {
 	// stands as its open answered until the list includes it.
 	ReadPullRequest func(ctx context.Context, number int) (forge.PullRequest, error)
 	// CreatePullRequest opens the pull request that request describes, from
-	// where its branch's push remote put the branch, and EditPullRequest
-	// changes an open one's title and description. Nil when there is no forge.
-	CreatePullRequest func(ctx context.Context, request forge.NewPullRequest) (forge.PullRequest, error)
+	// where its branch's push remote put the branch, with what of the request
+	// fell short once it opened; an error is a pull request that did not open.
+	// EditPullRequest changes an open one's title and description. Nil when
+	// there is no forge.
+	CreatePullRequest func(ctx context.Context, request forge.NewPullRequest) (forge.Created, error)
 	EditPullRequest   func(
 		ctx context.Context, pull forge.PullRequest, edit forge.PullRequestEdit,
 	) (forge.PullRequest, error)

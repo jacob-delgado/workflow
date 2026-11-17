@@ -138,12 +138,12 @@ func findSeam(
 // from where its push remote put it, into the repository the base remote names.
 func createSeam(
 	setup forgeSetup, connect func(context.Context) (forgeConnection, error),
-) func(context.Context, forge.NewPullRequest) (forge.PullRequest, error) {
-	return func(ctx context.Context, request forge.NewPullRequest) (forge.PullRequest, error) {
-		return ask(ctx, connect, func(connection forgeConnection) (forge.PullRequest, error) {
+) func(context.Context, forge.NewPullRequest) (forge.Created, error) {
+	return func(ctx context.Context, request forge.NewPullRequest) (forge.Created, error) {
+		return ask(ctx, connect, func(connection forgeConnection) (forge.Created, error) {
 			head, err := setup.env.headOf(ctx, setup.where, request.Head.Branch)
 			if err != nil {
-				return forge.PullRequest{}, err
+				return forge.Created{}, err
 			}
 
 			opened := request

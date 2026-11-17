@@ -43,8 +43,10 @@ func openableDeps() webserver.Deps {
 		return forge.PullRequest{}, false, nil
 	}
 	deps.Git.Push = func(context.Context, string) (proc.Output, error) { return fakeOutput(nil, nil), nil }
-	deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.PullRequest, error) {
-		return forge.PullRequest{Number: 7, URL: webtest.PRURL, Title: "opened", Mergeable: forge.MergeClean}, nil
+	deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.Created, error) {
+		return forge.Created{Pull: forge.PullRequest{
+			Number: 7, URL: webtest.PRURL, Title: "opened", Mergeable: forge.MergeClean,
+		}}, nil
 	}
 
 	return deps
@@ -57,10 +59,10 @@ func TestOpenPullRequestForwardsReviewersAssigneesAndLabels(t *testing.T) {
 	var request forge.NewPullRequest
 
 	deps := openableDeps()
-	deps.Forge.CreatePullRequest = func(_ context.Context, newPull forge.NewPullRequest) (forge.PullRequest, error) {
+	deps.Forge.CreatePullRequest = func(_ context.Context, newPull forge.NewPullRequest) (forge.Created, error) {
 		request = newPull
 
-		return forge.PullRequest{Number: 7, URL: webtest.PRURL, Title: newPull.Title}, nil
+		return forge.Created{Pull: forge.PullRequest{Number: 7, URL: webtest.PRURL, Title: newPull.Title}}, nil
 	}
 
 	// A padded reviewer and a blank label are cleaned rather than sent on.
@@ -94,8 +96,11 @@ func TestOpenPullRequestKeepsAPullWhoseReviewersCouldNotBeAdded(t *testing.T) {
 	// Arrange
 	// The pull opens, but the token cannot add its reviewers.
 	deps := openableDeps()
-	deps.Forge.CreatePullRequest = func(_ context.Context, newPull forge.NewPullRequest) (forge.PullRequest, error) {
-		return forge.PullRequest{Number: 7, URL: webtest.PRURL, Title: newPull.Title}, forge.ErrRefused
+	deps.Forge.CreatePullRequest = func(_ context.Context, newPull forge.NewPullRequest) (forge.Created, error) {
+		return forge.Created{
+			Pull:      forge.PullRequest{Number: 7, URL: webtest.PRURL, Title: newPull.Title},
+			Shortfall: forge.ErrRefused,
+		}, nil
 	}
 
 	// Act
@@ -262,10 +267,10 @@ func TestOpenPullRequestOpensWhenTheForgeCannotBeRead(t *testing.T) {
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{}, false, webtest.ErrSeam
 	}
-	deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.PullRequest, error) {
+	deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.Created, error) {
 		opened = true
 
-		return forge.PullRequest{Number: 7, URL: webtest.PRURL, Title: webtest.PRTitle}, nil
+		return forge.Created{Pull: forge.PullRequest{Number: 7, URL: webtest.PRURL, Title: webtest.PRTitle}}, nil
 	}
 
 	// Act
@@ -340,11 +345,13 @@ func TestOpenPullRequestPushesThenOpens(t *testing.T) {
 
 		return fakeOutput(nil, nil), nil
 	}
-	deps.Forge.CreatePullRequest = func(_ context.Context, newPull forge.NewPullRequest) (forge.PullRequest, error) {
+	deps.Forge.CreatePullRequest = func(_ context.Context, newPull forge.NewPullRequest) (forge.Created, error) {
 		calls = append(calls, "open")
 		request = newPull
 
-		return forge.PullRequest{Number: 7, URL: webtest.PRURL, Title: newPull.Title, Mergeable: forge.MergeClean}, nil
+		return forge.Created{Pull: forge.PullRequest{
+			Number: 7, URL: webtest.PRURL, Title: newPull.Title, Mergeable: forge.MergeClean,
+		}}, nil
 	}
 
 	// Act
@@ -378,10 +385,12 @@ func TestOpenPullRequestOpensADraftWhenAsked(t *testing.T) {
 	var request forge.NewPullRequest
 
 	deps := openableDeps()
-	deps.Forge.CreatePullRequest = func(_ context.Context, newPull forge.NewPullRequest) (forge.PullRequest, error) {
+	deps.Forge.CreatePullRequest = func(_ context.Context, newPull forge.NewPullRequest) (forge.Created, error) {
 		request = newPull
 
-		return forge.PullRequest{Number: 7, URL: webtest.PRURL, Title: newPull.Title, Draft: true}, nil
+		return forge.Created{Pull: forge.PullRequest{
+			Number: 7, URL: webtest.PRURL, Title: newPull.Title, Draft: true,
+		}}, nil
 	}
 
 	// Act
@@ -479,10 +488,10 @@ func TestOpenPullRequestReportsAFailedOpen(t *testing.T) {
 
 	deps := openableDeps()
 	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return pushedBranch(), nil }
-	deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.PullRequest, error) {
+	deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.Created, error) {
 		opened = true
 
-		return forge.PullRequest{}, forge.ErrRejected
+		return forge.Created{}, forge.ErrRejected
 	}
 
 	// Act
@@ -506,8 +515,8 @@ func TestOpenPullRequestIsUnreachableAndHidesTheForgeHost(t *testing.T) {
 	// whose detail does not leak that host.
 	deps := openableDeps()
 	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) { return pushedBranch(), nil }
-	deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.PullRequest, error) {
-		return forge.PullRequest{}, fmt.Errorf("%w: https://git.internal.example", forge.ErrUnreachable)
+	deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.Created, error) {
+		return forge.Created{}, fmt.Errorf("%w: https://git.internal.example", forge.ErrUnreachable)
 	}
 
 	// Act
@@ -540,8 +549,8 @@ func TestOpenPullRequestDetailOmitsAnUnknownForgesHost(t *testing.T) {
 	deps.Forge.FindPullRequest = func(context.Context, string) (forge.PullRequest, bool, error) {
 		return forge.PullRequest{}, false, unknown
 	}
-	deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.PullRequest, error) {
-		return forge.PullRequest{}, unknown
+	deps.Forge.CreatePullRequest = func(context.Context, forge.NewPullRequest) (forge.Created, error) {
+		return forge.Created{}, unknown
 	}
 
 	// Act

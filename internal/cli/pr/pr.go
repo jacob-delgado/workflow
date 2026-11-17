@@ -67,7 +67,7 @@ type prSeams struct {
 	Compose    loop.PullSeams
 	Options    loop.PullOptions
 	Push       func(ctx context.Context, branch string) (proc.Output, error)
-	CreatePull func(context.Context, forge.NewPullRequest) (forge.PullRequest, error)
+	CreatePull func(context.Context, forge.NewPullRequest) (forge.Created, error)
 	// LinkPull adds a pull request's link to an issue, offered once it is open.
 	// Nil — a tracker that cannot take a link — makes no offer.
 	LinkPull    func(ctx context.Context, issueKey jira.Key, pullURL, title string) error
@@ -346,22 +346,24 @@ func openPull(
 		return prReport{}, pushFailure(branch.Name, err)
 	}
 
-	pull, err := seams.CreatePull(ctx, request)
-	if err != nil && !pull.Opened() {
+	created, err := seams.CreatePull(ctx, request)
+	if err != nil {
 		return prReport{}, fmt.Errorf("opening the %s: %w", seams.Kind.Noun(), err)
 	}
+
+	pull := created.Pull
 
 	fmt.Fprintln(out.Artifact, "Opened "+seams.Kind.Sigil()+strconv.Itoa(pull.Number)+" "+pull.URL)
 
 	report := openedReport(request, pull)
 	report.branch = branch
 
-	if err != nil {
+	if created.Shortfall != nil {
 		// The pull request is open; whom or what could not be added to it is
 		// a warning, as the interface and the web give it, not a failure to
 		// open.
-		out.Notes.Warn(fmt.Sprintf("Opened, but could not add every reviewer, assignee or label: %v", err))
-		report.Warning = err.Error()
+		out.Notes.Warn(fmt.Sprintf("Opened, but could not add every reviewer, assignee or label: %v", created.Shortfall))
+		report.Warning = created.Shortfall.Error()
 	}
 
 	issueKey, _ := loop.JiraIssue(branch, seams.Options.Project)
