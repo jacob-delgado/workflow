@@ -215,7 +215,9 @@ func readFailure(program string, err error) error {
 
 // outcome reads how a write ended: exit 1 is Taskwarrior declining to change
 // anything — a task not pending, already started, or no such uuid — and
-// anything else non-zero is a refusal.
+// anything else non-zero is a refusal. A hook that refuses a write ends
+// Taskwarrior 3.4 with 4, so it reads as a refusal in the hook's words; that
+// exit status is read from 3.4's source, and no later release is checked.
 func outcome(err error) error {
 	if err == nil {
 		return nil

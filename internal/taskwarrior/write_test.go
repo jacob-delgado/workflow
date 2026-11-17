@@ -237,6 +237,35 @@ func TestAWriteTaskwarriorDeclinesIsNothingChanged(t *testing.T) {
 	}
 }
 
+// Taskwarrior 3.4 ends a write a hook refuses with exit status 4, not the 1 it
+// gives for nothing to change, so the hook's words reach the user.
+func TestAWriteAHookRefusesIsARefusalInTheHooksWords(t *testing.T) {
+	t.Parallel()
+
+	const hookSaid = "Hook Error: Expected feedback from failing hook script: on-modify.policy"
+
+	for verb, write := range writes() {
+		t.Run(verb, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			fake := &fakeTask{replies: map[string]reply{verb: {err: exited(t, 4, hookSaid)}}}
+
+			// Act
+			err := write(t.Context(), fake.client())
+
+			// Assert
+			if !errors.Is(err, taskwarrior.ErrRefused) || errors.Is(err, taskwarrior.ErrNothingChanged) {
+				t.Fatalf("%s returned %v, want ErrRefused and not ErrNothingChanged", verb, err)
+			}
+
+			if !strings.Contains(err.Error(), hookSaid) {
+				t.Errorf("%s returned %q, want the hook's words %q", verb, err, hookSaid)
+			}
+		})
+	}
+}
+
 func TestAnnotatePutsTheTextAfterTheDoubleDash(t *testing.T) {
 	t.Parallel()
 
