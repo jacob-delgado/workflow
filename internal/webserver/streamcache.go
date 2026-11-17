@@ -484,16 +484,53 @@ func (c *assignedCache) drop() {
 // way is served the failure held at once, or, with none held, waits for that
 // ask.
 type authorCache struct {
-	mu    sync.Mutex
-	name  string
-	known bool
-	// failed is why the last ask did not answer, made at readAt, or nil.
-	failed error
-	readAt time.Time
+	mu   sync.Mutex
+	held authorHeld
 	// reading is the ask under way, or nil with none.
 	reading *landing[string]
 	// round counts the drops, so an ask begun before one is not kept.
 	round round
+}
+
+// authorStage is where the author held stands: not asked yet, or not since a
+// drop; known, which it stays until a drop; or failed, which is asked again
+// once the forge's interval has passed.
+type authorStage int
+
+const (
+	authorUnasked authorStage = iota
+	authorKnown
+	authorFailed
+)
+
+// authorHeld is what the author cache holds: the name once known, or why the
+// last ask failed, made at readAt.
+type authorHeld struct {
+	stage  authorStage
+	name   string
+	failed error
+	readAt time.Time
+}
+
+// serves reports whether a frame is served what h holds: the name once known,
+// and a failure while it is fresh or an ask is under way.
+func (h authorHeld) serves(reading bool, now time.Time, interval time.Duration) bool {
+	return h.stage == authorKnown || (h.stage == authorFailed && (reading || now.Sub(h.readAt) < interval))
+}
+
+// landed is h once an ask begun in round began lands at now with name, or
+// with err, while the cache's round is current: h unchanged when a drop came
+// during the ask, since the forge settings it was asked under may be gone.
+func (h authorHeld) landed(began, current round, now time.Time, name string, err error) authorHeld {
+	if began != current {
+		return h
+	}
+
+	if err != nil {
+		return authorHeld{stage: authorFailed, failed: err, readAt: now}
+	}
+
+	return authorHeld{stage: authorKnown, name: name, readAt: now}
 }
 
 // cachedAuthor is who a post would come from: the forge's kept answer once it
@@ -525,12 +562,11 @@ func (c *authorCache) serve(now time.Time, interval time.Duration) turn[string] 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	switch {
-	case c.known:
-		return turn[string]{answered: true, value: c.name}
-	case c.failed != nil && (c.reading != nil || now.Sub(c.readAt) < interval):
-		return turn[string]{answered: true, failed: c.failed}
-	case c.reading != nil:
+	if c.held.serves(c.reading != nil, now, interval) {
+		return turn[string]{answered: true, value: c.held.name, failed: c.held.failed}
+	}
+
+	if c.reading != nil {
 		return turn[string]{landing: c.reading}
 	}
 
@@ -548,10 +584,7 @@ func (c *authorCache) land(now time.Time, began round, name string, err error) (
 
 	c.reading.end()
 	c.reading = nil
-
-	if began == c.round {
-		c.name, c.known, c.failed, c.readAt = name, err == nil, err, now
-	}
+	c.held = c.held.landed(began, c.round, now, name, err)
 
 	return name, err
 }
@@ -562,8 +595,7 @@ func (c *authorCache) drop() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.name, c.known, c.failed = "", false, nil
-	c.round = c.round.next()
+	c.held, c.round = authorHeld{stage: authorUnasked}, c.round.next()
 }
 
 // scopeCache is the store's last commit scope, read the first time a frame
