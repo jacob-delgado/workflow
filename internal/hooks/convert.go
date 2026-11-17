@@ -69,14 +69,12 @@ func plainCommands(script string) ([]string, conversion) {
 
 	var commands []string
 
-	errexit := errexitState{
-		on: errexitSetLine.MatchString(strings.Join(append([]string{"set"}, interpreter[1:]...), " ")),
-	}
+	errexit := shebangErrexit(interpreter[1:])
 
 	for line := range saying(script) {
 		switch {
 		case errexitSetLine.MatchString(line):
-			errexit.turnOn(len(commands))
+			errexit = errexit.turnedOn(len(commands))
 		case jobListSetLine.MatchString(line):
 			// nounset or xtrace alone, which change nothing a job does.
 		case !plainCommand(line):
@@ -86,29 +84,61 @@ func plainCommands(script string) ([]string, conversion) {
 		}
 	}
 
-	switch {
-	case errexit.late:
-		return nil, asScriptForLateErrexit
-	case !errexit.on || len(commands) == 0:
+	if len(commands) == 0 {
 		return nil, asScript
+	}
+
+	converted := errexit.convertsAs()
+	if converted != asJobs {
+		return nil, converted
 	}
 
 	return commands, asJobs
 }
 
-// errexitState is how a script stands with errexit as it is read: whether it is
-// on yet, and whether a line turned it on only after a command had run.
-type errexitState struct {
-	on, late bool
-}
+// errexit is how a script stands with errexit as it is read: off, on before
+// any command ran, or turned on only after one had.
+type errexit int
 
-// turnOn records a line turning errexit on once ran commands have run.
-func (e *errexitState) turnOn(ran int) {
-	if !e.on && ran > 0 {
-		e.late = true
+const (
+	errexitOff errexit = iota
+	errexitOn
+	errexitLate
+)
+
+// shebangErrexit is how errexit stands once the shebang's options, as sh -e
+// takes them, have been read: on when they turn it on, before any command.
+func shebangErrexit(options []string) errexit {
+	if errexitSetLine.MatchString(strings.Join(append([]string{"set"}, options...), " ")) {
+		return errexitOn
 	}
 
-	e.on = true
+	return errexitOff
+}
+
+// turnedOn is errexit once a line turns it on after ran commands have run:
+// late if it was off and a command has run, on if none has, and as it was if
+// it was on already.
+func (e errexit) turnedOn(ran int) errexit {
+	if e != errexitOff {
+		return e
+	}
+
+	if ran > 0 {
+		return errexitLate
+	}
+
+	return errexitOn
+}
+
+// convertsAs is how a script of plain commands converts with errexit standing
+// as e at its end: as jobs only when it was on before any command. A map, not a
+// switch, so there is no last case gobco never sees false, and exhaustive keeps
+// it complete.
+func (e errexit) convertsAs() conversion {
+	return map[errexit]conversion{
+		errexitOff: asScript, errexitOn: asJobs, errexitLate: asScriptForLateErrexit,
+	}[e]
 }
 
 // saying is each line of a script that says something, trimmed: neither blank

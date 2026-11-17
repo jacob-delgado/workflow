@@ -211,6 +211,8 @@ func TestAHookIsOnlyStructuredWhenEveryLineIsAPlainCommand(t *testing.T) {
 		"allexport":              "#!/bin/sh\nset -ea\nmake\n",
 		"no errexit at all": "#!/bin/sh\n# no set -e, so a failure must not stop the rest\n" +
 			"gofmt -l .\ngo vet ./...\n",
+		// errexit with nothing for it to stop: no job to run.
+		"errexit and no command": "#!/bin/sh\nset -e\n",
 	}
 
 	for name, script := range cases {
