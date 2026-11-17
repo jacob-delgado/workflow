@@ -124,18 +124,44 @@ func jiraOnly[T any](issueKey jira.Key, ask func() (T, error)) (T, error) {
 	return ask()
 }
 
-// forgeRows remembers how many forge issues led a list's first page, so a
-// later page asked by its offset asks Jira for its own rows from where its
-// share of the list left off. A page asked after a cursor needs no count, the
-// cursor carrying Jira's own offset (SearchAfter); the terminal's Issues list
-// and the key check's walk (loop.AssignedKeys) still page by offset.
+// forgeRows remembers how many forge issues led the first page asked last,
+// so a later page asked by its offset asks Jira for its own rows from where
+// its share of the list left off. A page asked after a cursor needs no count,
+// the cursor carrying Jira's own offset (SearchAfter); the terminal's Issues
+// list and the key check's walk (loop.AssignedKeys) still page by offset.
 //
-// Trade-off TRADE-24: the count is the last first page's, whoever read it, and
-// zero after a first page whose forge read failed; in the terminal, the first
-// view's first page is read by its list alone, so the count is that list's.
+// Trade-off TRADE-24: the count is that of the first page asked last that
+// answered, whoever asked it, and zero after such a page whose forge read
+// failed; in the terminal, the first view's first page is read by its list
+// alone, so the count is that list's.
 type forgeRows struct {
-	lock  sync.Mutex
-	count int
+	lock sync.Mutex
+	rows rowCount
+}
+
+// rowCount is the forge rows of the first page asked last that answered:
+// asked numbers each first page as it is asked, and heard is the number of
+// the one whose count is held, so a first page answering after one asked
+// later leaves that later page's count.
+type rowCount struct {
+	asked, heard, count int
+}
+
+// ask is c with one more first page asked, and that page's number.
+func (c rowCount) ask() (rowCount, int) {
+	c.asked++
+
+	return c, c.asked
+}
+
+// counted is c holding rows, the forge rows of the first page numbered ask,
+// unless a page asked after it has answered already.
+func (c rowCount) counted(ask, rows int) rowCount {
+	if ask > c.heard {
+		c.heard, c.count = ask, rows
+	}
+
+	return c
 }
 
 // search is one page of a list the forge's issues join, asked under ctx: the
@@ -152,6 +178,8 @@ func (f *forgeRows) search(
 		return f.laterPage(ctx, jiraSearch, jql, startAt)
 	}
 
+	ask := f.numbered()
+
 	page, err := jiraSearch(ctx, jql, 0)
 	if err != nil {
 		return jira.SearchResult{}, err
@@ -163,9 +191,7 @@ func (f *forgeRows) search(
 	}
 
 	if ctx.Err() == nil {
-		f.lock.Lock()
-		f.count = len(forge.Issues)
-		f.lock.Unlock()
+		f.heard(ask, len(forge.Issues))
 	}
 
 	return jira.SearchResult{
@@ -181,7 +207,7 @@ func (f *forgeRows) laterPage(
 	startAt int,
 ) (jira.SearchResult, error) {
 	f.lock.Lock()
-	count := f.count
+	count := f.rows.count
 	f.lock.Unlock()
 
 	page, err := jiraSearch(ctx, jql, max(0, startAt-count))
@@ -192,6 +218,26 @@ func (f *forgeRows) laterPage(
 	page.Total += count
 
 	return page, nil
+}
+
+// numbered is the number of a first page asked now.
+func (f *forgeRows) numbered() int {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+
+	var ask int
+
+	f.rows, ask = f.rows.ask()
+
+	return ask
+}
+
+// heard holds rows, the forge rows the first page numbered ask led with.
+func (f *forgeRows) heard(ask, rows int) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+
+	f.rows = f.rows.counted(ask, rows)
 }
 
 // cacheableRows is the part of a list the issue cache may keep, and whether

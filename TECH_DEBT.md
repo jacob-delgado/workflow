@@ -470,12 +470,13 @@ configuration at each use. Making the tracker's two live would mean always
 building the combined tracker and threading another control through every
 tracker seam, while Jira's client settings would still wait for the next
 wiring. The forge-row count that offsets a later page asked by its offset is
-one per tracker, and only the terminal's Issues pane pages a view by offset;
-in the terminal, the first view's first page is read by that list alone, so
-the count is always its own first page's. The web's **Load more** and
-`GET /api/issues` page by a cursor carrying Jira's own offset, which no forge
-row shifts (TRADE-66, wave-2 lead P085, which settled the skew lead P066
-found). Decided 2026-10-01, in #164.
+one per tracker, kept from the first page asked last that answered, so a
+first page answering late leaves a newer one's count; only the terminal's
+Issues pane pages a view by offset, and in the terminal, the first view's
+first page is read by that list alone, so the count is always its own first
+page's. The web's **Load more** and `GET /api/issues` page by a cursor
+carrying Jira's own offset, which no forge row shifts (TRADE-66, wave-2 lead
+P085, which settled the skew lead P066 found). Decided 2026-10-01, in #164.
 
 **Cost.** A save from the web's Settings that turns `issues.forge` on or
 off waits for `workflow --web` to restart or switch directory, as one that
