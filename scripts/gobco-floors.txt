@@ -48,6 +48,11 @@ internal/httpx 98
 # internal/keychain keeps a token in the OS keychain and reads it back.
 internal/keychain 98
 
+# internal/proc/grace decides when a run stops waiting for its output once
+# the program has exited: an arm it misses ends a hook's run before a slow
+# reader has its lines, or never ends one a process left behind holds open.
+internal/proc/grace 98
+
 # internal/slackauth keeps the Slack user token and its refresh pair, rotates
 # them under a lock across processes, and stores them in a file or the
 # keychain.
