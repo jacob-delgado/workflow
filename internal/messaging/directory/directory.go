@@ -335,19 +335,16 @@ func shared[V any](
 	read func(context.Context) (V, error),
 ) (V, error) {
 	directory.lock.Lock()
-	current, inFlight := held[key]
+	current, heldOrReading := held[key]
+	firstToAsk := !heldOrReading || current.expired(directory.now())
 
-	if inFlight && current.expired(directory.now()) {
-		inFlight = false
-	}
-
-	if !inFlight {
+	if firstToAsk {
 		current = &flight[V]{done: make(chan struct{})}
 		held[key] = current
 	}
 	directory.lock.Unlock()
 
-	if !inFlight {
+	if firstToAsk {
 		// Others may be waiting on this read, so it runs to its end even if
 		// the one who began it leaves; their leaving would fail it for all.
 		current.value, current.err = readDetached(ctx, read)
