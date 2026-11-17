@@ -65,7 +65,7 @@ func TestTransitionsListsWhatJiraOffers(t *testing.T) {
 	// Assert
 	want := []jira.Transition{
 		startProgress(),
-		{ID: "31", Name: "Done", ToStatus: "Done", ToStatusCategory: "done", Fields: nil},
+		{ID: "31", Name: "Done", ToStatus: "Done", ToStatusCategory: jira.CategoryDone, Fields: nil},
 	}
 
 	if len(found) != len(want) {

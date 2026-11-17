@@ -208,7 +208,8 @@ func TestARestForAnIssueNoLongerSelectedReadsNothing(t *testing.T) {
 
 	// Arrange
 	restless := newWorld()
-	restless.issues = append(restless.issues, jira.Issue{Key: "PROJ-500", Summary: "Trim logs", StatusCategory: "new"})
+	restless.issues = append(restless.issues,
+		jira.Issue{Key: "PROJ-500", Summary: "Trim logs", StatusCategory: jira.CategoryNew})
 	screen := restless.live(t, 120, 40)
 	passing, restOnSecond := pressed(t, screen, "j")
 	third, _ := pressed(t, passing, "j")

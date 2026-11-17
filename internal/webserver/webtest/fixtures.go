@@ -67,7 +67,7 @@ func filledPage() jira.SearchResult {
 	return jira.SearchResult{
 		Issues: []jira.Issue{{
 			Key: TestKey, Summary: TestSummary, Status: "In Progress",
-			StatusCategory: "indeterminate", Type: "Bug", Priority: "High",
+			StatusCategory: jira.CategoryIndeterminate, Type: "Bug", Priority: "High",
 		}},
 		Total: 1,
 	}
@@ -88,7 +88,7 @@ func FilledDeps() webserver.Deps {
 				return jira.IssueDetail{
 					Issue: jira.Issue{
 						Key: key, Summary: TestSummary, Status: "In Progress",
-						StatusCategory: "indeterminate", Type: "Bug",
+						StatusCategory: jira.CategoryIndeterminate, Type: "Bug",
 					},
 					Reporter:     TestReporter,
 					Description:  "Tokens reach the log.",

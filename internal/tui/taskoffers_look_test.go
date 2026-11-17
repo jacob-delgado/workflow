@@ -5,6 +5,8 @@ package tui_test
 
 import (
 	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/jira"
 )
 
 func TestConfirmingTheStatusAfterABranchStillOffersToStartTheTask(t *testing.T) {
@@ -60,7 +62,7 @@ func TestMovingToDoneWithNothingToCompleteStillOffersToTrackAndStart(t *testing.
 	repo := withAnUntrackedIssue()
 	stopTheStartedTask(repo)
 	repo.moves = startTransitions()
-	repo.moves = append(repo.moves, transition("31", "Done", "Done", "done"))
+	repo.moves = append(repo.moves, transition("31", "Done", "Done", jira.CategoryDone))
 	branched := typing(t, repo.live(t, 200, 40), append(selectTheUntrackedIssue(), "b", keyEnter)...)
 
 	// Act

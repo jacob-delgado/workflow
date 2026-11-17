@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
+	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/messaging"
 	"github.com/jacob-delgado/workflow/internal/store"
@@ -70,8 +71,9 @@ func TestCachedIssuesReadBackAreSanitized(t *testing.T) {
 		t.Fatalf("resolving the store directory: %v", err)
 	}
 
-	// Every field carries its own escape, so dropping sanitize.Line from any one
-	// of the six on read-back fails this test rather than only the Summary.
+	// Every text field carries its own escape, so dropping sanitize.Line from
+	// any one of the five on read-back fails this test rather than only the
+	// Summary; the category is parsed, so its escape reads as a key unknown.
 	hostile := store.CachedIssue{
 		Key:            "PROJ-1\x1b[2Jkey",
 		Summary:        "clear\x1b[2Jsummary",
@@ -101,18 +103,21 @@ func TestCachedIssuesReadBackAreSanitized(t *testing.T) {
 
 	got := issues[0]
 	fields := map[string]string{
-		"key":             string(got.Key),
-		"summary":         got.Summary,
-		"status":          got.Status,
-		"status category": string(got.StatusCategory),
-		"type":            got.Type,
-		"priority":        got.Priority,
+		"key":      string(got.Key),
+		"summary":  got.Summary,
+		"status":   got.Status,
+		"type":     got.Type,
+		"priority": got.Priority,
 	}
 
 	for name, value := range fields {
 		if strings.ContainsRune(value, '\x1b') {
 			t.Errorf("the %s read back still holds a terminal escape: %q", name, value)
 		}
+	}
+
+	if got.StatusCategory != jira.CategoryUnknown {
+		t.Errorf("the status category read back = %v, want unknown", got.StatusCategory.Word())
 	}
 }
 

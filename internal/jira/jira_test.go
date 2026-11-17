@@ -30,7 +30,7 @@ const myselfBody = `{"self":"https://jira.example.com/rest/api/2/user?username=f
 // category Jira files it under.
 const (
 	inProgress    = "In Progress"
-	indeterminate = "indeterminate"
+	indeterminate = jira.CategoryIndeterminate
 )
 
 // servedUser is who the fixtures say Jira served, and basicUser who a Basic

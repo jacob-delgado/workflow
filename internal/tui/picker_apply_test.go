@@ -111,22 +111,22 @@ func TestTheSelectionFollowsTheMovedIssueThroughARefresh(t *testing.T) {
 	}{
 		"re-sorted to the top": {
 			refreshed: []jira.Issue{
-				issue("OPS-2", "Rotate keys", "indeterminate"), issue("OPS-1", "Fix login", "new"),
-				issue("OPS-3", "Ship it", "new"),
+				issue("OPS-2", "Rotate keys", jira.CategoryIndeterminate), issue("OPS-1", "Fix login", jira.CategoryNew),
+				issue("OPS-3", "Ship it", jira.CategoryNew),
 			},
 			want: "▸ ◐ OPS-2",
 		},
 		"left where it was": {
 			refreshed: []jira.Issue{
-				issue("OPS-1", "Fix login", "new"), issue("OPS-3", "Ship it", "new"),
-				issue("OPS-2", "Rotate keys", "indeterminate"),
+				issue("OPS-1", "Fix login", jira.CategoryNew), issue("OPS-3", "Ship it", jira.CategoryNew),
+				issue("OPS-2", "Rotate keys", jira.CategoryIndeterminate),
 			},
 			want: "▸ ◐ OPS-2",
 		},
 		// Done, it drops out of the list: the row stays put and so lands on its
 		// neighbor, as deleting from any list does.
 		"gone from the list": {
-			refreshed: []jira.Issue{issue("OPS-1", "Fix login", "new"), issue("OPS-3", "Ship it", "new")},
+			refreshed: []jira.Issue{issue("OPS-1", "Fix login", jira.CategoryNew), issue("OPS-3", "Ship it", jira.CategoryNew)},
 			want:      "▸ ○ OPS-3",
 		},
 	}
@@ -141,8 +141,8 @@ func TestTheSelectionFollowsTheMovedIssueThroughARefresh(t *testing.T) {
 			search := func(startAt int) (jira.SearchResult, error) {
 				if calls.Add(1) == 1 {
 					return assigned(
-						issue("OPS-1", "Fix login", "new"), issue("OPS-2", "Rotate keys", "new"),
-						issue("OPS-3", "Ship it", "new"),
+						issue("OPS-1", "Fix login", jira.CategoryNew), issue("OPS-2", "Rotate keys", jira.CategoryNew),
+						issue("OPS-3", "Ship it", jira.CategoryNew),
 					)(startAt)
 				}
 
@@ -238,7 +238,7 @@ func TestAStatusChangeIsSaidInPlainWords(t *testing.T) {
 	// Arrange
 	changing := newWorld()
 	changing.moves = []jira.Transition{
-		{ID: "21", Name: "Start Review", ToStatus: "In Review", ToStatusCategory: "indeterminate"},
+		{ID: "21", Name: "Start Review", ToStatus: "In Review", ToStatusCategory: jira.CategoryIndeterminate},
 	}
 
 	// Act

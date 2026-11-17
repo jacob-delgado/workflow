@@ -181,3 +181,57 @@ func TestAListWhoseWriteFailedDoesNotKeepOneReadBeforeItOut(t *testing.T) {
 		t.Errorf("CachedIssues = %v, %v (%v); want %s, the only list written", cached, found, err, before[0].Key)
 	}
 }
+
+func TestEachStatusCategoryIsCachedAsJirasKeyAndReadBackAsItself(t *testing.T) {
+	cases := map[jira.StatusCategory]string{
+		jira.CategoryNew:           "new",
+		jira.CategoryIndeterminate: "indeterminate",
+		jira.CategoryDone:          "done",
+		jira.CategoryUnknown:       "undefined",
+	}
+
+	for category, key := range cases {
+		t.Run(key, func(t *testing.T) {
+			// Arrange
+			deps := wired(t, cachedJiraConfig(t), wiring.Workspace{Root: t.TempDir()}, nil)
+			listed := []jira.Issue{{Key: "PROJ-7", Summary: "under one category", StatusCategory: category}}
+
+			// Act
+			err := deps.Store.CacheIssues(t.Context(), "assigned", listed, time.Now())
+			// Assert
+			if err != nil {
+				t.Fatalf("caching the issue: %v", err)
+			}
+
+			if written := storedCategory(t); written != key {
+				t.Errorf("the store holds the category as %q, want Jira's key %q", written, key)
+			}
+
+			cached, found := deps.Store.CachedIssues(t.Context(), "assigned")
+			if !found || len(cached) != 1 || cached[0].StatusCategory != category {
+				t.Errorf("CachedIssues = %v, %v; want PROJ-7 back under %q", cached, found, key)
+			}
+		})
+	}
+}
+
+// storedCategory is the category the store holds for the one issue cached
+// under the Jira cachedJiraConfig names, read from the store itself.
+func storedCategory(t *testing.T) string {
+	t.Helper()
+
+	sum := sha256.Sum256([]byte(jiraAddress))
+
+	dir, err := store.DefaultDir()
+	if err != nil {
+		t.Fatalf("resolving the store directory: %v", err)
+	}
+
+	cached, found, err := store.New(dir, store.ModeWrites).
+		CachedIssues(t.Context(), hex.EncodeToString(sum[:]), "assigned")
+	if err != nil || !found || len(cached) != 1 {
+		t.Fatalf("the store's CachedIssues = %v, %v, %v; want the one issue cached", cached, found, err)
+	}
+
+	return cached[0].StatusCategory
+}

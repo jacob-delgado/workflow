@@ -109,7 +109,7 @@ func TestNoReviewOfferWhenJiraDoesNotHaveTheStatus(t *testing.T) {
 	// there is nothing to move to — the picker must not open on an unrelated one.
 	linking := withoutPull()
 	linking.cfg.Jira.ReviewStatus = statusInReview
-	linking.moves = []jira.Transition{transition("31", "Done", "Done", "done")}
+	linking.moves = []jira.Transition{transition("31", "Done", "Done", jira.CategoryDone)}
 	opened := typing(t, linking.live(t, 120, 40), "4", "n", keyEnter, keyEnter)
 
 	// Act

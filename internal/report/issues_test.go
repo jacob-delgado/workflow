@@ -164,14 +164,13 @@ func TestAStatusJiraFilesUnderNoCategoryIsCarriedAsUnknown(t *testing.T) {
 		jira.CategoryIndeterminate: api.StatusCategoryIndeterminate,
 		jira.CategoryDone:          api.StatusCategoryDone,
 		// Jira's No Category, which a status no one sorted into a category is
-		// filed under: not a status not yet started, so not new.
-		"undefined": api.StatusCategoryUnknown,
-		"":          api.StatusCategoryUnknown,
-		"invented":  api.StatusCategoryUnknown,
+		// filed under, and any key it does not know: not a status not yet
+		// started, so not new.
+		jira.CategoryUnknown: api.StatusCategoryUnknown,
 	}
 
 	for category, want := range cases {
-		t.Run(string(category), func(t *testing.T) {
+		t.Run(category.Word(), func(t *testing.T) {
 			t.Parallel()
 
 			// Arrange

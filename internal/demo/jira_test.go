@@ -41,7 +41,7 @@ func TestMovingAnIssueChangesItsStatus(t *testing.T) {
 
 	detail, _ := deps.Jira.Issue(t.Context(), worked)
 	if detail.Issue.Status != moves[0].ToStatus || detail.Issue.StatusCategory != moves[0].ToStatusCategory {
-		t.Errorf("PROJ-412 after the move is %s (%s), want %s", detail.Issue.Status, detail.Issue.StatusCategory,
+		t.Errorf("PROJ-412 after the move is %s (%s), want %s", detail.Issue.Status, detail.Issue.StatusCategory.Word(),
 			moves[0].ToStatus)
 	}
 
@@ -139,7 +139,7 @@ func TestTheWorkedIssueOpensToDo(t *testing.T) {
 	// Assert
 	if err != nil || detail.Issue.Status != toDo || detail.Issue.StatusCategory != jira.CategoryNew {
 		t.Errorf("PROJ-412 opens %s (%s), %v; want To Do, not started", detail.Issue.Status,
-			detail.Issue.StatusCategory, err)
+			detail.Issue.StatusCategory.Word(), err)
 	}
 }
 

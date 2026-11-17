@@ -30,7 +30,7 @@ func TestAClickWhileAMovesFieldsAreFilledChoosesNothing(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	fake := &fakeJira{moves: []jira.Transition{resolveIssue(), transition("31", "Done", "Done", "done")}}
+	fake := &fakeJira{moves: []jira.Transition{resolveIssue(), transition("31", "Done", "Done", jira.CategoryDone)}}
 	opened := openPicker(t, jiraScreen(t, fake.deps(twoIssues())))
 	done := screenRow(t, opened.View().Content, "● Done")
 	filling := press(t, opened, keyEnter)

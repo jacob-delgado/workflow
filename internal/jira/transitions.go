@@ -99,7 +99,7 @@ func (a transitionsAnswer) result() []Transition {
 			ID:               wire.ID,
 			Name:             wire.Name,
 			ToStatus:         wire.To.Name,
-			ToStatusCategory: StatusCategory(wire.To.Category.Key),
+			ToStatusCategory: ParseStatusCategory(wire.To.Category.Key),
 			Fields:           requiredFields(wire.Fields),
 		})
 	}

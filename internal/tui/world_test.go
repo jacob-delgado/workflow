@@ -58,7 +58,7 @@ const (
 
 	statusInProgress      = "In Progress"
 	statusInReview        = "In Review"
-	categoryIndeterminate = "indeterminate"
+	categoryIndeterminate = jira.CategoryIndeterminate
 	fieldAssignee         = "Assignee"
 	idAssignee            = "assignee"
 	featureName           = "fix/PROJ-412-fix-token-redaction"
@@ -311,8 +311,8 @@ func newWorld() *world {
 	return &world{
 		cfg: stillConfig(),
 		issues: []jira.Issue{
-			{Key: issueKey, Summary: issueSummary, Status: "In Progress", StatusCategory: "indeterminate", Type: "Bug"},
-			{Key: secondIssue, Summary: "Add retries", Status: "To Do", StatusCategory: "new", Type: "Story"},
+			{Key: issueKey, Summary: issueSummary, Status: "In Progress", StatusCategory: categoryIndeterminate, Type: "Bug"},
+			{Key: secondIssue, Summary: "Add retries", Status: "To Do", StatusCategory: jira.CategoryNew, Type: "Story"},
 		},
 		pageSize:   50,
 		localFiles: localFiles(),

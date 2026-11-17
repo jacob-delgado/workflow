@@ -79,7 +79,7 @@ func TestAFailedRefreshKeepsTheListedIssues(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	model := issuesScreen(t, listsThenFails(issue(issueKey, issueSummary, "indeterminate")))
+	model := issuesScreen(t, listsThenFails(issue(issueKey, issueSummary, jira.CategoryIndeterminate)))
 
 	// Act
 	refreshed := typing(t, model, "r")
@@ -168,7 +168,7 @@ func TestAFailedRefreshOverAListTheFilterEmptiesStillSaysItFailed(t *testing.T) 
 	t.Parallel()
 
 	// Arrange
-	listed := issuesScreen(t, listsThenFails(issue(issueKey, issueSummary, "indeterminate")))
+	listed := issuesScreen(t, listsThenFails(issue(issueKey, issueSummary, jira.CategoryIndeterminate)))
 	filtered := typing(t, listed, "/", "z", "z", keyEnter)
 
 	// Act

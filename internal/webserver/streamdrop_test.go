@@ -193,7 +193,7 @@ func (m *movingTracker) search(context.Context, string, int) (jira.SearchResult,
 	defer m.mu.Unlock()
 
 	return jira.SearchResult{Issues: []jira.Issue{{
-		Key: webtest.TestKey, Summary: webtest.TestSummary, Status: m.status, StatusCategory: "indeterminate",
+		Key: webtest.TestKey, Summary: webtest.TestSummary, Status: m.status, StatusCategory: jira.CategoryIndeterminate,
 	}}, Total: 1}, nil
 }
 
