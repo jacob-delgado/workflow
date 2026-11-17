@@ -31,7 +31,10 @@ const rubyStrip = "\x00" + rubySpaces
 
 // readGitLab reads a line as GitLab's CodeOwners::File does: stripped, then
 // skipped when blank or a comment, a section header, skipped when it starts
-// like a header GitLab cannot parse, or else an entry.
+// like a header GitLab cannot parse, or else an entry. An optional section's
+// header (^[name]) is entered as a required one's is, so its owners are
+// proposed too: the caret makes only their approval optional, and workflow
+// sets no approval rules.
 func (p *parser) readGitLab(line string) {
 	line = strings.Trim(line, rubyStrip)
 	if strings.TrimFunc(line, unicode.IsSpace) == "" || strings.HasPrefix(line, "#") {
