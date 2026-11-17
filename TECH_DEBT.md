@@ -1862,3 +1862,24 @@ often with nothing else open.
 
 **Reopen when.** A user reports a damaged or unexpected store after a
 `workflow db-clean`, or `internal/filelock` gains a shared lock.
+
+### TRADE-72 A comment page that fails to load reads like the comment cap
+
+**Decided.** 2026-11-15 by the maintainer, approving the clients outline's
+D8 as recommended: `withAllComments` (`internal/jira/detail.go`) pages in an
+issue's comments past the first page Jira folds into the issue, and a page
+that fails to load stops the paging and keeps what arrived, as reaching
+`commentLoadCap` does. Every surface then says how many of the total are
+shown: the terminal's "Comments N of Total" heading, the command line's "N of
+Total comments shown." and the web's count. Telling the two apart would need
+a field saying why the comments end, carried across the API, the terminal and
+the docs: a feature of its own, for a read whose issue and first page of
+comments did arrive.
+
+**Cost.** An issue with more comments than Jira's first page, whose later
+page fails, a timeout or a refusal say, shows the comments that arrived and
+the count of all, with no word that a read failed; it reads as an issue past
+the cap, and reading the issue again is what tries the rest.
+
+**Reopen when.** A user reports an issue whose comments stop short with no
+failure said, or the API gains a reason the comments end for another cause.
