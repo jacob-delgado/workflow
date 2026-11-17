@@ -263,19 +263,30 @@ type FailureScan struct {
 	patterns     []*regexp.Regexp
 	eslintHeader *regexp.Regexp
 	found        []Location
-	// eslintFile is the file ESLint named above the rows now arriving.
-	eslintFile string
-	// held is a line naming a file on its own, which opens an ESLint block only
-	// if the next line is one of its rows, so it waits for that line.
-	held string
+	stage        scanStage
+	// file is the line held while holding, and the file ESLint named above the
+	// rows now arriving while in its block; empty otherwise.
+	file string
 }
+
+// scanStage is where a FailureScan is in an ESLint block: outside one; holding
+// a line that names a file on its own, which opens a block only if the next
+// line is one of its rows, so it waits for that line; or in a block, reading
+// its rows against the file it named.
+type scanStage int
+
+const (
+	scanPlain scanStage = iota
+	scanHolding
+	scanInBlock
+)
 
 // NewFailureScan starts reading a hook's output. goos is the running platform,
 // which decides whether a Windows drive letter is read as part of a path.
 func NewFailureScan(goos string) FailureScan {
 	return FailureScan{
 		patterns: locationPatterns(goos), eslintHeader: eslintHeaderFor(goos),
-		found: nil, eslintFile: "", held: "",
+		found: nil, stage: scanPlain, file: "",
 	}
 }
 
@@ -289,27 +300,21 @@ func (s FailureScan) Next(raw string) FailureScan {
 	line := strings.TrimSpace(raw)
 	row := eslintRow.FindStringSubmatch(line)
 
-	if held := s.held; held != "" {
-		s.held = ""
-
-		if row != nil {
-			s.eslintFile = held
-		} else {
-			s = s.located(held)
-		}
+	if s.stage == scanHolding {
+		s = s.settled(row)
 	}
 
 	switch {
-	case row != nil && s.eslintFile != "":
+	case row != nil && s.stage == scanInBlock:
 		lineNumber, _ := strconv.Atoi(row[1])
 		column, _ := strconv.Atoi(row[2])
 
 		return s.with(Location{
-			File: s.eslintFile, Line: lineNumber, Column: column,
+			File: s.file, Line: lineNumber, Column: column,
 			Message: strings.Join(strings.Fields(row[3]), " "),
 		})
 	case s.eslintHeader.MatchString(line):
-		s.held = line
+		s.stage, s.file = scanHolding, line
 
 		return s
 	default:
@@ -320,17 +325,30 @@ func (s FailureScan) Next(raw string) FailureScan {
 // Places is every place found so far, once each, in the order they appeared. A
 // held line that nothing followed is read as any other line is.
 func (s FailureScan) Places() []Location {
-	if s.held != "" {
-		return s.located(s.held).found
+	if s.stage == scanHolding {
+		return s.located(s.file).found
 	}
 
 	return s.found
 }
 
+// settled is the scan holding a line, once the line after it has come: one of
+// its rows opens the block the held line names, and anything else reads the
+// held line as any other line is.
+func (s FailureScan) settled(row []string) FailureScan {
+	if row != nil {
+		s.stage = scanInBlock
+
+		return s
+	}
+
+	return s.located(s.file)
+}
+
 // located ends any ESLint block, and keeps the place a line names if it names
 // one.
 func (s FailureScan) located(line string) FailureScan {
-	s.eslintFile = ""
+	s.stage, s.file = scanPlain, ""
 
 	location, ok := s.place(line)
 	if !ok {
