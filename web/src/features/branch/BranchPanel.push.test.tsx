@@ -100,6 +100,39 @@ test('a published branch counts how far it is ahead and behind its upstream', ()
   expect(screen.getByText('2 ahead, 1 behind')).toBeTruthy()
 })
 
+// tracksMain is a branch made from origin/main without --no-track: it tracks
+// another branch on its push remote, which does not hold it under its name.
+function tracksMain(ahead: number) {
+  useSnapshotStore.setState({
+    status: 'live',
+    snapshot: makeSnapshot({ branch: makeBranch({ upstream: 'origin/main', ahead, behind: 0 }) }),
+  })
+}
+
+test('a branch tracking another branch on its push remote is not pushed yet, with no counts against it', () => {
+  // Arrange
+  tracksMain(2)
+
+  // Act
+  render(<BranchPanel />)
+
+  // Assert
+  const summary = screen.getByRole('region', { name: 'fix/PROJ-1' })
+  expect(within(summary).getByText('not pushed yet')).toBeTruthy()
+  expect(within(summary).queryByText(/ahead/)).toBeNull()
+})
+
+test('offers a push for a branch level with another branch on its push remote', () => {
+  // Arrange
+  tracksMain(0)
+
+  // Act
+  render(<BranchPanel />)
+
+  // Assert
+  expect(screen.getByRole('button', { name: 'Push branch' })).toBeTruthy()
+})
+
 // uncounted is a branch on its push target whose ahead count git could not
 // give: the zeros are no answer, not a level branch.
 function uncounted() {

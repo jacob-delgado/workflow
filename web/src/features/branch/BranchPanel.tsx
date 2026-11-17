@@ -76,11 +76,12 @@ function BranchSummary({ branch, runner }: { branch: Branch; runner: GitRunner }
   const outcome = useOutcome()
   const heading = branch.name === '' ? `Detached HEAD at ${shortHash(branch.head)}` : branch.name
   // There is something to push on a branch of its own (not a detached HEAD, not
-  // the base) that has no upstream on the remote its push goes to, or one that
-  // upstream is not known to hold: ahead of it, or not counted against it at
-  // all. That is nothingToPush, the other way round. Commit count is not used —
-  // an undiscoverable base can leave it unknowable even for an ahead branch.
-  const published = onPushRemote(branch)
+  // the base) that does not track itself on the remote its push goes to, or
+  // that its upstream there is not known to hold: ahead of it, or not counted
+  // against it at all. That is nothingToPush, the other way round. Commit
+  // count is not used — an undiscoverable base can leave it unknowable even
+  // for an ahead branch.
+  const published = tracksOwnPushTarget(branch)
   const canPush = onFeatureBranch(branch) && (!published || branch.uncounted || branch.ahead > 0)
 
   return (
@@ -120,9 +121,10 @@ function BranchSummary({ branch, runner }: { branch: Branch; runner: GitRunner }
   )
 }
 
-// tracking is how the branch stands against its upstream: not pushed yet with
-// none on its push remote, not counted where git gave no count, and otherwise
-// how far ahead and behind it is.
+// tracking is how the branch stands against its upstream: not pushed yet while
+// it tracks anything but itself on its push remote, however that was counted,
+// not counted where git gave no count, and otherwise how far ahead and behind
+// it is.
 function tracking(branch: Branch, published: boolean): string {
   if (!published) {
     return 'not pushed yet'
@@ -133,10 +135,11 @@ function tracking(branch: Branch, published: boolean): string {
   return `${String(branch.ahead)} ahead, ${String(branch.behind)} behind`
 }
 
-// onPushRemote reports an upstream on the remote the branch's push goes to: the
-// one its ahead and behind are counted against, and the one a push updates.
-function onPushRemote(branch: Branch): boolean {
-  return branch.upstream.startsWith(`${branch.push_remote}/`)
+// tracksOwnPushTarget reports a branch whose upstream is itself on the remote
+// its push goes to, the one a push updates. A branch made from origin/main
+// without --no-track tracks origin/main, on that remote but not itself.
+function tracksOwnPushTarget(branch: Branch): boolean {
+  return branch.upstream === `${branch.push_remote}/${branch.name}`
 }
 
 // Commits are the branch's commits since its base, and the runs that work on
