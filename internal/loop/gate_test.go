@@ -43,7 +43,7 @@ func TestDeliverRefusesAPullRequestACheckFailedOn(t *testing.T) {
 	seams := loop.DeliverSeams{Post: sent.post(nil), CheckCI: ciReading(forge.CI{State: forge.CIFailed}, nil)}
 
 	// Act
-	err := loop.Deliver(t.Context(), seams, sent.memory(), ready())
+	_, err := loop.Deliver(t.Context(), seams, sent.memory(), ready())
 
 	// Assert
 	if !errors.Is(err, loop.ErrCIFailed) || len(sent.posted) != 0 || len(sent.recorded) != 0 {
@@ -73,7 +73,7 @@ func TestDeliverRefusesWhatItCannotConfirm(t *testing.T) {
 			seams := loop.DeliverSeams{Post: sent.post(nil), CheckCI: tt.check}
 
 			// Act
-			err := loop.Deliver(t.Context(), seams, sent.memory(), ready())
+			_, err := loop.Deliver(t.Context(), seams, sent.memory(), ready())
 
 			// Assert
 			if !errors.Is(err, loop.ErrCIUnread) || !errors.Is(err, tt.cause) || len(sent.posted) != 0 {
@@ -94,7 +94,7 @@ func TestDeliverRefusesAPullRequestTheForgeNamedNoHeadFor(t *testing.T) {
 	headless.Head = ""
 
 	// Act
-	err := loop.Deliver(t.Context(), seams, sent.memory(), headless)
+	_, err := loop.Deliver(t.Context(), seams, sent.memory(), headless)
 
 	// Assert
 	if !errors.Is(err, loop.ErrCIUnread) || len(sent.posted) != 0 {
@@ -115,7 +115,7 @@ func TestDeliverPostsWhileNothingHasFailed(t *testing.T) {
 			seams := loop.DeliverSeams{Post: sent.post(nil), CheckCI: ciReading(forge.CI{State: state}, nil)}
 
 			// Act
-			err := loop.Deliver(t.Context(), seams, sent.memory(), ready())
+			_, err := loop.Deliver(t.Context(), seams, sent.memory(), ready())
 
 			// Assert
 			if err != nil || len(sent.posted) != 1 || len(sent.recorded) != 1 {
@@ -145,7 +145,7 @@ func TestDeliverReadsTheCIOfThePullRequestAtTheHeadItAnnounces(t *testing.T) {
 	}}
 
 	// Act
-	err := loop.Deliver(t.Context(), seams, sent.memory(), ready())
+	_, err := loop.Deliver(t.Context(), seams, sent.memory(), ready())
 
 	// Assert
 	if err != nil || askedPull != 9 || askedHead != headCommit {
@@ -162,7 +162,7 @@ func TestDeliverGatesAMergeToo(t *testing.T) {
 	seams := loop.DeliverSeams{Post: sent.post(nil), CheckCI: ciReading(forge.CI{State: forge.CIFailed}, nil)}
 
 	// Act
-	err := loop.Deliver(t.Context(), seams, sent.memory(), merged())
+	_, err := loop.Deliver(t.Context(), seams, sent.memory(), merged())
 
 	// Assert
 	if !errors.Is(err, loop.ErrCIFailed) || len(sent.posted) != 0 {

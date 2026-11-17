@@ -419,3 +419,10 @@ func Undelivered(err error) bool {
 
 	return slices.ContainsFunc(surely, func(sentinel error) bool { return errors.Is(err, sentinel) })
 }
+
+// RateLimited reports whether err, a post's failure, is the service asking
+// the caller to wait: one Undelivered counts as surely not delivered, which a
+// later try may deliver.
+func RateLimited(err error) bool {
+	return errors.Is(err, httpx.ErrRateLimited)
+}

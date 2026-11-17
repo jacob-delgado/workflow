@@ -58,10 +58,14 @@ func failedChecks(ci forge.CI) string {
 // claim an earlier session took, when it is one to post again.
 func deliverPending(ctx context.Context, seams loop.DeliverSeams, pending pendingAnnouncement) error {
 	if pending.again {
-		return loop.Redeliver(ctx, seams, pending.memory, pending.delivery, pending.seen)
+		_, err := loop.Redeliver(ctx, seams, pending.memory, pending.delivery, pending.seen)
+
+		return err
 	}
 
-	return loop.Deliver(ctx, seams, pending.memory, pending.delivery)
+	_, err := loop.Deliver(ctx, seams, pending.memory, pending.delivery)
+
+	return err
 }
 
 // deliverAnnouncement posts pending, pull's announcement, under ctx — again,

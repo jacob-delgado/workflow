@@ -59,10 +59,10 @@ func failing(err error, elapsed time.Duration) step {
 	}
 }
 
-// delivering is a post whose outcome was err, after elapsed.
-func delivering(err error, elapsed time.Duration) step {
+// delivering is a post that went as kind, with err, after elapsed.
+func delivering(kind loop.Delivered, err error, elapsed time.Duration) step {
 	return func(hold armed.Hold) (armed.Hold, armed.Next) {
-		return hold.Delivered(armed.Outcome{Round: hold.Round(), Err: err, At: after(elapsed)})
+		return hold.Delivered(armed.Outcome{Round: hold.Round(), Kind: kind, Err: err, At: after(elapsed)})
 	}
 }
 
@@ -303,47 +303,57 @@ func deliveredRows() map[string]stepCase {
 
 	return map[string]stepCase{
 		"delivered": {
-			from: due, event: delivering(nil, 2*time.Minute), stage: armed.StagePosted, next: armed.NextNothing,
+			from: due, event: delivering(loop.DeliveredPosted, nil, 2*time.Minute),
+			stage: armed.StagePosted, next: armed.NextNothing,
 		},
 		"posted, not confirmed": {
-			from: due, event: delivering(fmt.Errorf("%w: busy", loop.ErrUnconfirmed), 2*time.Minute),
+			from: due, event: delivering(loop.DeliveredUnconfirmed, fmt.Errorf("%w: busy", loop.ErrUnconfirmed), 2*time.Minute),
 			stage: armed.StagePosted, next: armed.NextNothing, reason: loop.ErrUnconfirmed,
 		},
 		"a check failed by the gate's read (C39)": {
-			from: due, event: delivering(refusedFor(failedCheck), 2*time.Minute),
+			from: due, event: delivering(loop.DeliveredCIFailed, refusedFor(failedCheck), 2*time.Minute),
 			stage: armed.StageAwaitingFix, next: armed.NextReadLater, reason: loop.ErrCIFailed,
 		},
 		"the gate could not read CI": {
-			from: due, event: delivering(loop.GateRefusalError{Err: loop.ErrCIUnread}, 2*time.Minute),
+			from: due, event: delivering(loop.DeliveredCIUnread, loop.GateRefusalError{Err: loop.ErrCIUnread}, 2*time.Minute),
 			stage: armed.StageUnheard, next: armed.NextReadLater, reason: loop.ErrCIUnread,
 		},
 		"the store could not claim it": {
-			from: due, event: delivering(fmt.Errorf("%w: busy", loop.ErrNotClaimed), 2*time.Minute),
+			from: due, event: delivering(loop.DeliveredNotClaimed, fmt.Errorf("%w: busy", loop.ErrNotClaimed), 2*time.Minute),
 			stage: armed.StageUnheard, next: armed.NextReadLater, reason: loop.ErrNotClaimed,
 		},
 		"rate limited": {
-			from: due, event: delivering(rateLimited, 2*time.Minute),
+			from: due, event: delivering(loop.DeliveredDeferred, rateLimited, 2*time.Minute),
+			stage: armed.StageUnheard, next: armed.NextReadLater, reason: httpx.ErrRateLimited,
+		},
+		"rate limited, no store keeping claims": {
+			from: due, event: delivering(loop.DeliveredDeferredUnclaimed, httpx.ErrRateLimited, 2*time.Minute),
 			stage: armed.StageUnheard, next: armed.NextReadLater, reason: httpx.ErrRateLimited,
 		},
 		"claimed elsewhere": {
-			from: due, event: delivering(loop.AnnouncedAlreadyError{}, 2*time.Minute),
+			from: due, event: delivering(loop.DeliveredElsewhere, loop.AnnouncedAlreadyError{}, 2*time.Minute),
 			stage: armed.StageElsewhere, next: armed.NextNothing, reason: loop.ErrAnnouncedAlready,
 		},
 		"refused by the service": {
-			from: due, event: delivering(refused, 2*time.Minute),
+			from: due, event: delivering(loop.DeliveredRefused, refused, 2*time.Minute),
 			stage: armed.StageDropped, next: armed.NextNothing, reason: loop.ErrNotDelivered,
 		},
 		"rate limited, its claim kept for want of a release": {
-			from: due, event: delivering(fmt.Errorf("%w: %w; giving up its claim: busy", loop.ErrPostUncertain,
-				httpx.ErrRateLimited), 2*time.Minute),
+			from: due, event: delivering(loop.DeliveredUncertain, fmt.Errorf(
+				"%w: %w; giving up its claim: busy", loop.ErrPostUncertain, httpx.ErrRateLimited), 2*time.Minute),
 			stage: armed.StageDropped, next: armed.NextNothing, reason: loop.ErrPostUncertain,
 		},
 		"may have gone out": {
-			from: due, event: delivering(fmt.Errorf("%w: %w", loop.ErrPostUncertain, messaging.ErrUnreachable), 0),
+			from: due, event: delivering(loop.DeliveredUncertain,
+				fmt.Errorf("%w: %w", loop.ErrPostUncertain, messaging.ErrUnreachable), 0),
 			stage: armed.StageDropped, next: armed.NextNothing, reason: loop.ErrPostUncertain,
 		},
+		"of no kind Deliver names": {
+			from: due, event: delivering(loop.Delivered(99), refused, 2*time.Minute),
+			stage: armed.StageDropped, next: armed.NextNothing, reason: loop.ErrNotDelivered,
+		},
 		"nothing to post with": {
-			from: due, event: delivering(loop.ErrAnnounceUnavailable, 2*time.Minute),
+			from: due, event: delivering(loop.DeliveredFailed, loop.ErrAnnounceUnavailable, 2*time.Minute),
 			stage: armed.StageDropped, next: armed.NextNothing, reason: loop.ErrAnnounceUnavailable,
 		},
 	}
@@ -356,7 +366,7 @@ func TestAGateRefusalWaitsOnTheChecksItSawFail(t *testing.T) {
 	failedCheck := forge.CI{State: forge.CIFailed, Checks: []forge.Check{{Name: lintCheck, State: forge.CIFailed}}}
 
 	// Act
-	got, _ := delivering(refusedFor(failedCheck), 2*time.Minute)(due(t))
+	got, _ := delivering(loop.DeliveredCIFailed, refusedFor(failedCheck), 2*time.Minute)(due(t))
 
 	// Assert
 	// C82: the refusal's own CI, so a surface can name the checks.
@@ -371,7 +381,7 @@ func TestAPullClosedAfterAGateRefusalIsNoLongerTheOne(t *testing.T) {
 	// Arrange
 	// C39: refused by the gate as it was to be posted, then closed, which a
 	// find skips: the pull request listed once is not waited for again.
-	refused := deliveredAs(due(t), refusedFor(forge.CI{State: forge.CIFailed}), 2*time.Minute)
+	refused := deliveredAs(due(t), loop.DeliveredCIFailed, refusedFor(forge.CI{State: forge.CIFailed}), 2*time.Minute)
 
 	// Act
 	got, _ := hearing(forge.PullRequest{}, false, forge.CINone, 3*time.Minute)(refused)
@@ -391,9 +401,9 @@ func TestAnOutcomeOfAnotherRoundOrOfNoPostChangesNothing(t *testing.T) {
 		event step
 	}{
 		"a late outcome": {from: due, event: func(hold armed.Hold) (armed.Hold, armed.Next) {
-			return hold.Delivered(armed.Outcome{Round: hold.Round() - 1, Err: nil})
+			return hold.Delivered(armed.Outcome{Round: hold.Round() - 1, Kind: loop.DeliveredPosted, Err: nil})
 		}},
-		"an outcome of no post": {from: running, event: delivering(nil, 2*time.Minute)},
+		"an outcome of no post": {from: running, event: delivering(loop.DeliveredPosted, nil, 2*time.Minute)},
 	}
 
 	for name, tt := range cases {

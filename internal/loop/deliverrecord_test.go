@@ -49,7 +49,7 @@ func TestAPostThatWentOutIsConfirmedThoughItsAskerLeft(t *testing.T) {
 	}
 
 	// Act
-	err := loop.Deliver(ctx, passing(post), memory, delivery)
+	_, err := loop.Deliver(ctx, passing(post), memory, delivery)
 	// Assert
 	if err != nil {
 		t.Fatalf("Deliver = %v, want the post delivered", err)

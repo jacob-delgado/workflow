@@ -194,9 +194,13 @@ internal/cli 13
 # claim taken before each post would have carried past the 500-line target,
 # and which composes what is said rather than sending it. The watch over an armed
 # announcement's CI left for internal/armed in the same change, so the count
-# stays. One responsibility — say what the loop means, over the seams'
-# answers — spelled concern-per-file.
-internal/loop 16
+# stays. delivered.go is how a delivery went: the kind Deliver names at each
+# return, which every surface and armed choose by, how a claim's kind sets the
+# post going, and the errors that carry an outcome's cause, out of deliver.go,
+# which the kind at each return would have carried past the 500-line target.
+# One responsibility — say what the loop means, over the seams' answers —
+# spelled concern-per-file.
+internal/loop 17
 
 # internal/wiring — connects every surface's seams to the real clients: one
 # file per service it reaches (Jira, the forge and its CLI, Taskwarrior,

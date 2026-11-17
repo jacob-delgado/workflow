@@ -29,7 +29,7 @@ func TestDeliverRecordsADiscordPostAnsweredNoContent(t *testing.T) {
 	var sent deliveries
 
 	// Act
-	err := loop.Deliver(t.Context(), passing(client.Post), sent.memory(), merged())
+	_, err := loop.Deliver(t.Context(), passing(client.Post), sent.memory(), merged())
 
 	// Assert
 	if err != nil || !slices.Equal(sent.recorded, []loop.Announced{merged().Made()}) {

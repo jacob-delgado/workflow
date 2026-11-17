@@ -75,45 +75,6 @@ const (
 	ClaimNotKept
 )
 
-// posting is how a delivery goes on once its claim is answered.
-type posting int
-
-const (
-	// postingRefused posts nothing: the claim is of no kind a delivery
-	// knows. It is the zero, so a kind with no entry fails closed.
-	postingRefused posting = iota
-	// postingElsewhere posts nothing: another holds the claim.
-	postingElsewhere
-	// postingGuarded posts under the claim taken, which is given up if the
-	// post surely did not go and confirmed once it has.
-	postingGuarded
-	// postingUnguarded posts with no claim kept.
-	postingUnguarded
-)
-
-// posts reports whether a delivery going on so posts: guarded or not. A
-// map, not a comparison, so a posting added later is placed here before it
-// can post, and one with no entry refuses.
-func (p posting) posts() bool {
-	return map[posting]bool{
-		postingRefused:   false,
-		postingElsewhere: false,
-		postingGuarded:   true,
-		postingUnguarded: true,
-	}[p]
-}
-
-// postingOn is how a delivery goes on after a claim of kind. A map, not a
-// switch, so every kind is named and one with no entry refuses.
-func postingOn(kind ClaimKind) posting {
-	return map[ClaimKind]posting{
-		claimOfNoKind: postingRefused,
-		ClaimHeld:     postingElsewhere,
-		ClaimTaken:    postingGuarded,
-		ClaimNotKept:  postingUnguarded,
-	}[kind]
-}
-
 // Claim is what a claim on an announcement came to, and the claim as it
 // stands: its generation, when it was taken, and whether its post was
 // confirmed.
@@ -334,8 +295,9 @@ func (AnnouncedAlreadyError) Unwrap() error {
 // groups it tagged are recorded, and the claim confirmed, whether or not ctx
 // has ended since; a claim not confirmed is ErrUnconfirmed, a post made all
 // the same. A store that keeps nothing claims nothing, so the post goes
-// unguarded and a failed one is the service's own error.
-func Deliver(ctx context.Context, seams DeliverSeams, memory AnnounceMemory, delivery Delivery) error {
+// unguarded and a failed one is the service's own error. Beside the error,
+// which says why in words, it names how the delivery went.
+func Deliver(ctx context.Context, seams DeliverSeams, memory AnnounceMemory, delivery Delivery) (Delivered, error) {
 	return deliver(ctx, seams, memory, delivery, memory.claim)
 }
 
@@ -343,7 +305,9 @@ func Deliver(ctx context.Context, seams DeliverSeams, memory AnnounceMemory, del
 // again only if its claim is still at generation seen, so of two sessions
 // asking again at once, one posts. A claim another took meanwhile is an
 // AnnouncedAlreadyError.
-func Redeliver(ctx context.Context, seams DeliverSeams, memory AnnounceMemory, delivery Delivery, seen int) error {
+func Redeliver(
+	ctx context.Context, seams DeliverSeams, memory AnnounceMemory, delivery Delivery, seen int,
+) (Delivered, error) {
 	return deliver(ctx, seams, memory, delivery, memory.reclaimFrom(seen))
 }
 
@@ -351,9 +315,9 @@ func Redeliver(ctx context.Context, seams DeliverSeams, memory AnnounceMemory, d
 func deliver(
 	ctx context.Context, seams DeliverSeams, memory AnnounceMemory, delivery Delivery,
 	claim func(context.Context, Announced) (Claim, error),
-) error {
+) (Delivered, error) {
 	if seams.Post == nil {
-		return ErrAnnounceUnavailable
+		return DeliveredFailed, ErrAnnounceUnavailable
 	}
 
 	// Trade-off TRADE-40: the gate reads the CI again as it posts, whatever a
@@ -361,23 +325,24 @@ func deliver(
 	// check through.
 	reported, err := ClearToAnnounce(ctx, seams.CheckCI, delivery.Pull, delivery.Head)
 	if err != nil {
-		return GateRefusalError{CI: reported, Err: err}
+		return gateRefused(reported, err)
 	}
 
 	made := delivery.Made()
 
 	taken, err := claim(ctx, made)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrNotClaimed, err)
+		return DeliveredNotClaimed, fmt.Errorf("%w: %w", ErrNotClaimed, err)
 	}
 
 	how := postingOn(taken.Kind)
 	if how == postingElsewhere {
-		return AnnouncedAlreadyError{Claim: taken}
+		return DeliveredElsewhere, AnnouncedAlreadyError{Claim: taken}
 	}
 
 	if !how.posts() {
-		return fmt.Errorf("%w: the store answered a claim of no kind it keeps (%d)", ErrNotClaimed, taken.Kind)
+		return DeliveredNotClaimed, fmt.Errorf(
+			"%w: the store answered a claim of no kind it keeps (%d)", ErrNotClaimed, taken.Kind)
 	}
 
 	err = seams.Post(ctx, delivery.Channel, delivery.textWithTags())
@@ -390,18 +355,31 @@ func deliver(
 	return confirm(ctx, memory, made, taken)
 }
 
+// gateRefused is the gate's refusal, err, of a delivery whose CI read
+// reported: a check failed, or the CI could not be read.
+func gateRefused(reported forge.CI, err error) (Delivered, error) {
+	if errors.Is(err, ErrCIFailed) {
+		return DeliveredCIFailed, GateRefusalError{CI: reported, Err: err}
+	}
+
+	return DeliveredCIUnread, GateRefusalError{CI: reported, Err: err}
+}
+
 // failedPost is how a post of made that failed with err ends: unguarded, the
-// service's error; one surely not delivered gives its claim up, even if its
-// asker has left meanwhile, and is ErrNotDelivered; any other keeps its claim
-// and is ErrPostUncertain, as is one whose claim could not be given up, which
-// now reads as a post begun.
-func failedPost(ctx context.Context, memory AnnounceMemory, made Announced, taken Claim, err error) error {
+// service's error, deferred where it asked to wait; one surely not delivered
+// gives its claim up, even if its asker has left meanwhile, and is
+// ErrNotDelivered, refused or deferred; any other keeps its claim and is
+// ErrPostUncertain, as is one whose claim could not be given up, which now
+// reads as a post begun.
+func failedPost(
+	ctx context.Context, memory AnnounceMemory, made Announced, taken Claim, err error,
+) (Delivered, error) {
 	if postingOn(taken.Kind) != postingGuarded {
-		return err
+		return unguardedFailure(err), err
 	}
 
 	if !messaging.Undelivered(err) {
-		return fmt.Errorf("%w: %w", ErrPostUncertain, err)
+		return DeliveredUncertain, fmt.Errorf("%w: %w", ErrPostUncertain, err)
 	}
 
 	if memory.Release != nil {
@@ -409,74 +387,42 @@ func failedPost(ctx context.Context, memory AnnounceMemory, made Announced, take
 		// not go is not left to read as one that may have.
 		releaseErr := memory.Release(context.WithoutCancel(ctx), made, taken.Generation)
 		if releaseErr != nil {
-			return fmt.Errorf("%w: %w; giving up its claim: %w", ErrPostUncertain, err, releaseErr)
+			return DeliveredUncertain, fmt.Errorf("%w: %w; giving up its claim: %w", ErrPostUncertain, err, releaseErr)
 		}
 	}
 
-	return notDeliveredError{why: err}
+	if messaging.RateLimited(err) {
+		return DeliveredDeferred, notDeliveredError{why: err}
+	}
+
+	return DeliveredRefused, notDeliveredError{why: err}
 }
 
-// notDeliveredError is ErrNotDelivered carrying the service's refusal, which
-// says what went wrong in the service's own words: the claim's giving up is
-// for the caller to tell apart, not to say.
-type notDeliveredError struct {
-	why error
-}
+// unguardedFailure is how a post with no claim kept, failing with err, went:
+// deferred where the service asked it to wait, else failed.
+func unguardedFailure(err error) Delivered {
+	if messaging.RateLimited(err) {
+		return DeliveredDeferredUnclaimed
+	}
 
-var _ error = notDeliveredError{}
-
-func (e notDeliveredError) Error() string {
-	return e.why.Error()
-}
-
-func (e notDeliveredError) Unwrap() []error {
-	return []error{ErrNotDelivered, e.why}
+	return DeliveredFailed
 }
 
 // confirm confirms the claim taken on made, which has gone out guarded, even
 // if its asker has left meanwhile: one never confirmed reads as a post begun.
-func confirm(ctx context.Context, memory AnnounceMemory, made Announced, taken Claim) error {
+func confirm(ctx context.Context, memory AnnounceMemory, made Announced, taken Claim) (Delivered, error) {
 	if postingOn(taken.Kind) != postingGuarded || memory.Confirm == nil {
-		return nil
+		return DeliveredPosted, nil
 	}
 
 	// The confirmation outlasts its asker, since the post it confirms went
 	// out.
 	err := memory.Confirm(context.WithoutCancel(ctx), made, taken.Generation)
 	if err != nil {
-		return unconfirmedError{why: err}
+		return DeliveredUnconfirmed, unconfirmedError{why: err}
 	}
 
-	return nil
-}
-
-// unconfirmedError is ErrUnconfirmed carrying why the store could not
-// confirm the post Deliver made.
-type unconfirmedError struct {
-	why error
-}
-
-var _ error = unconfirmedError{}
-
-func (e unconfirmedError) Error() string {
-	return ErrUnconfirmed.Error() + ": " + e.why.Error()
-}
-
-func (e unconfirmedError) Unwrap() []error {
-	return []error{ErrUnconfirmed, e.why}
-}
-
-// UnconfirmedReason reports whether err is Deliver's word that it posted an
-// announcement whose claim the store could not confirm, wrapped or not, and
-// why the store could not: what the terminal and workflow announce say after
-// UnconfirmedWarning.
-func UnconfirmedReason(err error) (string, bool) {
-	var unconfirmed unconfirmedError
-	if !errors.As(err, &unconfirmed) {
-		return "", false
-	}
-
-	return unconfirmed.why.Error(), true
+	return DeliveredPosted, nil
 }
 
 // ClearToAnnounce reads pull's CI at head under ctx and answers it when

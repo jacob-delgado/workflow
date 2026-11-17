@@ -237,8 +237,8 @@ func TestDeliveringAHoldAnswersHowThePostWent(t *testing.T) {
 	outcome := scripted.seams(postsTo(new([]string))).DeliverHeld(t.Context(), due(t), stoppedClock)
 
 	// Assert
-	if !errors.Is(outcome.Err, loop.ErrCIFailed) {
-		t.Errorf("DeliverHeld = %v, want the gate's refusal", outcome.Err)
+	if outcome.Kind != loop.DeliveredCIFailed || !errors.Is(outcome.Err, loop.ErrCIFailed) {
+		t.Errorf("DeliverHeld = %d (%v), want the gate's refusal", outcome.Kind, outcome.Err)
 	}
 }
 
@@ -320,16 +320,20 @@ func TestAHoldAskedForAgainReclaimsNextFromTheClaimItsLastPostTook(t *testing.T)
 	t.Parallel()
 
 	cases := map[string]struct {
+		kind   loop.Delivered
 		failed error
 		want   string
 	}{
-		// The service refused the post the re-claim at 3 let go, which the
-		// re-claim keeps.
-		"after a post refused": {
-			failed: fmt.Errorf("%w: %w", loop.ErrNotDelivered, httpx.ErrRateLimited), want: "[3]",
+		// The service asked the post the re-claim at 3 let go to wait, which
+		// the re-claim keeps.
+		"after a post asked to wait": {
+			kind: loop.DeliveredDeferred, failed: fmt.Errorf("%w: %w", loop.ErrNotDelivered, httpx.ErrRateLimited),
+			want: "[3]",
 		},
 		// The store could not take the re-claim, so it is still at 2.
-		"after a claim not taken": {failed: fmt.Errorf("%w: busy", loop.ErrNotClaimed), want: "[2]"},
+		"after a claim not taken": {
+			kind: loop.DeliveredNotClaimed, failed: fmt.Errorf("%w: busy", loop.ErrNotClaimed), want: "[2]",
+		},
 	}
 
 	for name, tt := range cases {
@@ -341,7 +345,7 @@ func TestAHoldAskedForAgainReclaimsNextFromTheClaimItsLastPostTook(t *testing.T)
 			memory := &reclaims{}
 			seams := scripted.seams(postsTo(new([]string)))
 			seams.Memory = memory.memory()
-			waiting := deliveredAs(dueAgain(t, 2), tt.failed, 2*time.Minute)
+			waiting := deliveredAs(dueAgain(t, 2), tt.kind, tt.failed, 2*time.Minute)
 			hold := heardAs(waiting, heldPull(), forge.CIPassed, 3*time.Minute)
 
 			// Act

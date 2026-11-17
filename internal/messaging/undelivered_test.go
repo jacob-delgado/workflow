@@ -166,3 +166,27 @@ func TestUndeliveredIsFalseForNoError(t *testing.T) {
 		t.Error("Undelivered(nil) = true, want false: nothing failed")
 	}
 }
+
+func TestRateLimitedTellsOnlyAPostAskedToWait(t *testing.T) {
+	t.Parallel()
+
+	for name, tt := range eachAnswer() {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			webhook := messagingWebhook(config.KindSlack, "https://hooks.example.com/hook")
+			client := messaging.New(tt.answer.doer(), messaging.APIBase, webhook)
+			want := tt.answer.status == http.StatusTooManyRequests
+
+			// Act
+			err := client.Post(t.Context(), "", message)
+
+			// Assert
+			if err == nil || messaging.RateLimited(err) != want {
+				t.Errorf("Post = %v, RateLimited = %t; want an error, rate limited %t",
+					err, messaging.RateLimited(err), want)
+			}
+		})
+	}
+}
