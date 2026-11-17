@@ -169,6 +169,9 @@ func settleKept(read func() (fileState, error), makeSchema func() error) error {
 	case keptSchemaVersion:
 		return nil
 	case 0:
+		// Trade-off TRADE-73: a table another program left under one of the
+		// store's names fails this step in SQLite's words, not as
+		// ErrKeptSchemaDiffers, and the file is left as it was.
 		return makeSchema()
 	default:
 		return ErrKeptSchemaDiffers

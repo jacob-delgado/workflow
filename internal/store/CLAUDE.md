@@ -88,7 +88,15 @@ one version, `keptSchemaVersion` in `kept.go`, made and stamped in one
 `BEGIN IMMEDIATE` transaction that re-reads it; a file at another version is
 **never discarded**: it reads as empty and refuses writes with
 `ErrKeptSchemaDiffers`, naming `workflow db-clean --all`, which every surface
-reports as `unprocessable` (`internal/report/classes.go`). Neither file has
+reports as `unprocessable` (`internal/report/classes.go`). A `kept.db` at no
+version that already holds a table under one of the store's names, which only
+another program could leave there, is neither stamped nor written around:
+`settleKept` makes its schema, that step fails in SQLite's words ("preparing
+the kept data") and the file is left as it was
+(`TestAKeptFileWithATableInTheWayIsReportedAndLeftAlone`). Refusing it as
+`ErrKeptSchemaDiffers` instead would move its problem class and exit status, a
+breaking change kept as TRADE-73 in `TECH_DEBT.md`, which says what would
+reopen it. Neither file has
 **migrations**, each for its own reason. `workflow.db` holds only what a
 session can see again, so a migration for it is YAGNI: change the `CREATE
 TABLE`, bump `schemaVersion`, and a file at another version is made anew and

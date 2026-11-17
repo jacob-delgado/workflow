@@ -1883,3 +1883,28 @@ the cap, and reading the issue again is what tries the rest.
 
 **Reopen when.** A user reports an issue whose comments stop short with no
 failure said, or the API gains a reason the comments end for another cause.
+
+### TRADE-73 A kept.db with a table in the way fails in SQLite's words
+
+**Decided.** 2026-11-17 in this pull request, taking the recommended option
+under the maintainer's standing rule to do so: `settleKept`
+(`internal/store/kept.go`) makes the schema in a `kept.db` at no version, and
+when a table another program left there under one of the store's names stops
+that step, every kept operation returns the step's error, "preparing the kept
+data" in SQLite's words, and the file is left as it was, neither stamped nor
+written around (`TestAKeptFileWithATableInTheWayIsReportedAndLeftAlone`).
+Refusing such a file as `ErrKeptSchemaDiffers`, which names
+`workflow db-clean --all`, would have the schema step tell a table in its way
+from any other failure, and would move what the error reports from the
+internal problem to `unprocessable` (`internal/report/classes.go`) and change
+the command line's exit status: a breaking change, for a file no build of
+workflow makes.
+
+**Cost.** A `kept.db` holding such a table fails every favorite, owner link
+and answer the file keeps with an internal problem in SQLite's words, which
+name the table but not `workflow db-clean --all`, the command that sets it
+right; the user has to read the error to see the file is the cause.
+
+**Reopen when.** A user reports a `kept.db` failing with SQLite's error about
+a table, or the kept schema step comes to tell a table in its way apart for
+another reason.
