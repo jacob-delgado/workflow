@@ -42,17 +42,56 @@ var ErrNotACursor = errors.New("not a cursor a page of issues gave, such as PROJ
 
 // StatusCategory is Jira's coarse grouping of a status — where it sits in the
 // to-do / in-progress / done progression — named the same on every instance
-// whatever the status itself is called.
-type StatusCategory string
+// whatever the status itself is called. It is parsed from Jira's key where the
+// key arrives, from the wire or from the store, so no other text is carried.
+type StatusCategory int
 
 const (
+	// CategoryUnknown is a status Jira files under none of the three — its No
+	// Category, keyed "undefined" — or one keyed in a way this build does not
+	// know.
+	CategoryUnknown StatusCategory = iota
 	// CategoryNew is a status not yet started.
-	CategoryNew StatusCategory = "new"
+	CategoryNew
 	// CategoryIndeterminate is a status in progress.
-	CategoryIndeterminate StatusCategory = "indeterminate"
+	CategoryIndeterminate
 	// CategoryDone is a status finished.
-	CategoryDone StatusCategory = "done"
+	CategoryDone
 )
+
+// The keys Jira names each status category by.
+const (
+	categoryUnknownKey       = "undefined"
+	categoryNewKey           = "new"
+	categoryIndeterminateKey = "indeterminate"
+	categoryDoneKey          = "done"
+)
+
+// ParseStatusCategory reads the category Jira's key names, and any key but its
+// three as CategoryUnknown.
+func ParseStatusCategory(key string) StatusCategory {
+	switch key {
+	case categoryNewKey:
+		return CategoryNew
+	case categoryIndeterminateKey:
+		return CategoryIndeterminate
+	case categoryDoneKey:
+		return CategoryDone
+	default:
+		return CategoryUnknown
+	}
+}
+
+// Word is the key Jira names the category by, "undefined" for one it cannot
+// place, which ParseStatusCategory reads back as the same category. A map, not
+// a switch, so there is no last-case arm gobco can never see; exhaustive keeps
+// it complete.
+func (c StatusCategory) Word() string {
+	return map[StatusCategory]string{
+		CategoryUnknown: categoryUnknownKey, CategoryNew: categoryNewKey,
+		CategoryIndeterminate: categoryIndeterminateKey, CategoryDone: categoryDoneKey,
+	}[c]
+}
 
 // Key identifies an issue, such as "PROJ-412". It is a named type rather than a
 // bare string so a key and the text beside it — a comment's body, a pull
@@ -249,7 +288,7 @@ func (w wireIssue) issue() Issue {
 		Key:            Key(w.Key),
 		Summary:        w.Fields.Summary,
 		Status:         w.Fields.Status.Name,
-		StatusCategory: StatusCategory(w.Fields.Status.Category.Key),
+		StatusCategory: ParseStatusCategory(w.Fields.Status.Category.Key),
 		Type:           w.Fields.Type.Name,
 		Priority:       w.Fields.Priority.Name,
 	}

@@ -24,16 +24,16 @@ import (
 const pickerTitle = "┏━ Change status"
 
 // transition builds a fixture transition.
-func transition(id, name, status, category string) jira.Transition {
-	return jira.Transition{ID: id, Name: name, ToStatus: status, ToStatusCategory: jira.StatusCategory(category)}
+func transition(id, name, status string, category jira.StatusCategory) jira.Transition {
+	return jira.Transition{ID: id, Name: name, ToStatus: status, ToStatusCategory: category}
 }
 
 // workflowMoves is what a typical workflow offers an issue in progress: a verb
 // that differs from its status, and one that does not.
 func workflowMoves() []jira.Transition {
 	return []jira.Transition{
-		transition("21", "Start Review", "In Review", "indeterminate"),
-		transition("31", "Done", "Done", "done"),
+		transition("21", "Start Review", "In Review", jira.CategoryIndeterminate),
+		transition("31", "Done", "Done", jira.CategoryDone),
 	}
 }
 
@@ -111,7 +111,8 @@ func finish(t *testing.T, model tui.Model, cmd tea.Cmd) (tui.Model, tea.Cmd) {
 
 // twoIssues is a search that finds OPS-1 and OPS-2.
 func twoIssues() func(startAt int) (jira.SearchResult, error) {
-	return assigned(issue("OPS-1", "Fix login", "indeterminate"), issue("OPS-2", "Rotate keys", "new"))
+	return assigned(
+		issue("OPS-1", "Fix login", jira.CategoryIndeterminate), issue("OPS-2", "Rotate keys", jira.CategoryNew))
 }
 
 // openPicker presses t and delivers the listing.
@@ -340,7 +341,7 @@ func TestAReopenedPickerShowsItsOwnListing(t *testing.T) {
 	// Arrange
 	moving := newWorld()
 
-	moving.moves = append(workflowMoves(), transition("41", "Park it", "Parked", "indeterminate"))
+	moving.moves = append(workflowMoves(), transition("41", "Park it", "Parked", jira.CategoryIndeterminate))
 	model, closed := withheldKeys(t, moving.live(t, 120, 40), moving.counting("transitions"), "t")
 	moving.moves = workflowMoves()
 	reopened, own := withheldKeys(t, model, moving.counting("transitions"), keyEsc, "t")
@@ -364,7 +365,8 @@ func TestALongPickerScrollsToKeepTheSelectionVisible(t *testing.T) {
 	// Arrange
 	moves := make([]jira.Transition, 0, 40)
 	for index := 1; index <= 40; index++ {
-		moves = append(moves, transition(strconv.Itoa(index), fmt.Sprintf("Step %d", index), "Doing", "indeterminate"))
+		moves = append(moves,
+			transition(strconv.Itoa(index), fmt.Sprintf("Step %d", index), "Doing", jira.CategoryIndeterminate))
 	}
 
 	fake := &fakeJira{moves: moves}
@@ -398,7 +400,7 @@ func TestTheFooterDoesNotOfferChangingStatusWhereItDoesNothing(t *testing.T) {
 		issues []jira.Issue
 		keys   []string
 	}{
-		"on the Branch pane": {issues: []jira.Issue{issue("OPS-1", "Fix login", "new")}, keys: []string{"2"}},
+		"on the Branch pane": {issues: []jira.Issue{issue("OPS-1", "Fix login", jira.CategoryNew)}, keys: []string{"2"}},
 		"with an empty list": {issues: nil, keys: nil},
 	}
 

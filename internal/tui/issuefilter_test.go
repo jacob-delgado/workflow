@@ -3,7 +3,11 @@
 
 package tui_test
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/jacob-delgado/workflow/internal/jira"
+)
 
 func TestTheSpaceKeyTypesASpaceIntoTheIssueFilter(t *testing.T) {
 	t.Parallel()
@@ -12,7 +16,7 @@ func TestTheSpaceKeyTypesASpaceIntoTheIssueFilter(t *testing.T) {
 	// A terminal can report the space bar as the space key with no text, and
 	// the filter must still read it as a space.
 	listed := issuesScreen(t, assigned(
-		issue("OPS-1", "Fix issue", "indeterminate"), issue("OPS-2", "Fix bug", "new")))
+		issue("OPS-1", "Fix issue", jira.CategoryIndeterminate), issue("OPS-2", "Fix bug", jira.CategoryNew)))
 
 	// Act
 	filtered := typing(t, listed, "/", "F", "i", "x", keySpace, "b")
@@ -27,7 +31,7 @@ func TestAKeyThatTypesNothingLeavesTheIssueFilterAsItWas(t *testing.T) {
 
 	// Arrange
 	listed := issuesScreen(t, assigned(
-		issue("OPS-1", "Fix issue", "indeterminate"), issue("OPS-2", "Fix bug", "new")))
+		issue("OPS-1", "Fix issue", jira.CategoryIndeterminate), issue("OPS-2", "Fix bug", jira.CategoryNew)))
 	filtering := typing(t, listed, "/", "F", "i", "x")
 
 	// Act

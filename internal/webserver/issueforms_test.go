@@ -43,7 +43,7 @@ const (
 // versions and a due date, beside one that needs nothing.
 func resolveMove() jira.Transition {
 	return jira.Transition{
-		ID: "5", Name: "Resolve Issue", ToStatus: resolved, ToStatusCategory: "done",
+		ID: "5", Name: "Resolve Issue", ToStatus: resolved, ToStatusCategory: jira.CategoryDone,
 		Fields: []jira.Field{
 			{ID: "duedate", Name: "Due date", Kind: jira.FieldDate},
 			{
@@ -79,7 +79,7 @@ func formDeps(writes *issueWrites) webserver.Deps {
 	deps := webtest.FilledDeps()
 	deps.Jira.Transitions = func(context.Context, jira.Key) ([]jira.Transition, error) {
 		return []jira.Transition{
-			{ID: "11", Name: "Block", ToStatus: blocked, ToStatusCategory: "new"},
+			{ID: "11", Name: "Block", ToStatus: blocked, ToStatusCategory: jira.CategoryNew},
 			resolveMove(),
 		}, nil
 	}

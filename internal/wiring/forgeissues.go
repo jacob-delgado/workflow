@@ -15,15 +15,14 @@ import (
 	"github.com/jacob-delgado/workflow/internal/seams"
 )
 
-// The status a forge issue has, mapped onto the two Jira strings the pane reads:
-// a name to show, and a category that chooses the glyph. A listed issue is open,
-// because the listing asks only for open ones; an issue read in full says which
-// it is, so one the loop has closed reads as closed.
+// The status a forge issue has, mapped onto the two Jira fields the pane reads:
+// a name to show, and a category that chooses the glyph, jira.CategoryNew while
+// open and jira.CategoryDone once closed. A listed issue is open, because the
+// listing asks only for open ones; an issue read in full says which it is, so
+// one the loop has closed reads as closed.
 const (
 	forgeOpenStatus   = "Open"
-	forgeOpenCategory = "new"
 	forgeClosedStatus = "Closed"
-	forgeDoneCategory = "done"
 	// closeTransitionID names the one state change a forge issue has.
 	closeTransitionID = "close"
 )
@@ -243,7 +242,7 @@ func forgeIssueRow(issue forge.Issue) jira.Issue {
 		Key:            jira.Key(strconv.Itoa(issue.Number)),
 		Summary:        issue.Title,
 		Status:         forgeOpenStatus,
-		StatusCategory: forgeOpenCategory,
+		StatusCategory: jira.CategoryNew,
 	}
 }
 
@@ -252,7 +251,7 @@ func forgeIssueRow(issue forge.Issue) jira.Issue {
 func forgeDetailRow(detail forge.IssueDetail) jira.Issue {
 	row := forgeIssueRow(detail.Issue)
 	if detail.Closed {
-		row.Status, row.StatusCategory = forgeClosedStatus, forgeDoneCategory
+		row.Status, row.StatusCategory = forgeClosedStatus, jira.CategoryDone
 	}
 
 	return row
@@ -262,6 +261,6 @@ func forgeDetailRow(detail forge.IssueDetail) jira.Issue {
 // carries no fields, so the status picker applies it without a form.
 func forgeIssueTransitions() []jira.Transition {
 	return []jira.Transition{{
-		ID: closeTransitionID, Name: "Close", ToStatus: forgeClosedStatus, ToStatusCategory: forgeDoneCategory,
+		ID: closeTransitionID, Name: "Close", ToStatus: forgeClosedStatus, ToStatusCategory: jira.CategoryDone,
 	}}
 }

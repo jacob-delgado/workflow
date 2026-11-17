@@ -23,18 +23,18 @@ func Issue(issue jira.Issue) api.Issue {
 }
 
 // StatusCategory is a status's category in the API's shape: Jira's three
-// categories as they are, and any other unknown — Jira's No Category, keyed
-// "undefined", which a status no one sorted into a category is filed under,
-// or a row read back from a store someone changed. Such a status is neither
-// not yet started nor in progress, so every surface marks it as one it cannot
-// place, as the terminal does, and ranks it after the three.
+// categories as they are, and the unknown one as unknown — Jira's No Category,
+// keyed "undefined", which a status no one sorted into a category is filed
+// under, or a key read back from a store someone changed. Such a status is
+// neither not yet started nor in progress, so every surface marks it as one it
+// cannot place, as the terminal does, and ranks it after the three. A map, not
+// a switch, so there is no last-case arm gobco can never see; exhaustive keeps
+// it complete.
 func StatusCategory(category jira.StatusCategory) api.StatusCategory {
-	switch category {
-	case jira.CategoryNew, jira.CategoryIndeterminate, jira.CategoryDone:
-		return api.StatusCategory(category)
-	default:
-		return api.StatusCategoryUnknown
-	}
+	return map[jira.StatusCategory]api.StatusCategory{
+		jira.CategoryUnknown: api.StatusCategoryUnknown, jira.CategoryNew: api.StatusCategoryNew,
+		jira.CategoryIndeterminate: api.StatusCategoryIndeterminate, jira.CategoryDone: api.StatusCategoryDone,
+	}[category]
 }
 
 // TrackerOf is where the issue a key names lives, by the key's shape: a

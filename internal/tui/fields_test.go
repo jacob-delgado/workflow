@@ -18,7 +18,7 @@ import (
 // root cause.
 func resolveIssue() jira.Transition {
 	return jira.Transition{
-		ID: "5", Name: "Resolve Issue", ToStatus: "Done", ToStatusCategory: "done",
+		ID: "5", Name: "Resolve Issue", ToStatus: "Done", ToStatusCategory: jira.CategoryDone,
 		Fields: []jira.Field{
 			{ID: "resolution", Name: "Resolution", Kind: jira.FieldOption, Options: []jira.Option{
 				{ID: "1", Name: "Fixed"}, {ID: "2", Name: "Won't Fix"},

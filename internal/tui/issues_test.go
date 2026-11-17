@@ -19,10 +19,8 @@ import (
 
 // issue builds a fixture row. A function rather than package variables, which
 // gochecknoglobals forbids in tests as well.
-func issue(key, summary, category string) jira.Issue {
-	return jira.Issue{
-		Key: jira.Key(key), Summary: summary, Status: "In Progress", StatusCategory: jira.StatusCategory(category),
-	}
+func issue(key, summary string, category jira.StatusCategory) jira.Issue {
+	return jira.Issue{Key: jira.Key(key), Summary: summary, Status: "In Progress", StatusCategory: category}
 }
 
 // assigned is a search that finds exactly these issues.
@@ -101,7 +99,7 @@ func TestIssuesPaneSaysLoadingBeforeTheSearchAnswers(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := searching(assigned(issue("OPS-1", "Fix login", "new")))
+	deps := searching(assigned(issue("OPS-1", "Fix login", jira.CategoryNew)))
 
 	// Act
 	view := sized(t, tui.New(completeConfig(), nil, deps), 120, 40).View().Content
@@ -149,7 +147,8 @@ func TestIssuesPaneListsTheAssignedIssues(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	search := assigned(issue("OPS-1", "Fix login", "indeterminate"), issue("OPS-2", "Rotate keys", "new"))
+	search := assigned(
+		issue("OPS-1", "Fix login", jira.CategoryIndeterminate), issue("OPS-2", "Rotate keys", jira.CategoryNew))
 
 	// Act
 	view := issuesScreen(t, search).View().Content
@@ -164,7 +163,7 @@ func TestSlashFiltersTheIssueListAsYouType(t *testing.T) {
 
 	// Arrange
 	listed := issuesScreen(t, assigned(
-		issue("OPS-1", "Fix login", "indeterminate"), issue("OPS-2", "Rotate keys", "new")))
+		issue("OPS-1", "Fix login", jira.CategoryIndeterminate), issue("OPS-2", "Rotate keys", jira.CategoryNew)))
 
 	// Act: open the filter and narrow to the second issue
 	filtered := typing(t, listed, "/", "R", "o", "t")
@@ -186,7 +185,7 @@ func TestFilteringToNothingSaysSoAndBackspaceWidensIt(t *testing.T) {
 
 	// Arrange
 	listed := issuesScreen(t, assigned(
-		issue("OPS-1", "Fix issue", "indeterminate"), issue("OPS-2", "Fix bug", "new")))
+		issue("OPS-1", "Fix issue", jira.CategoryIndeterminate), issue("OPS-2", "Fix bug", jira.CategoryNew)))
 
 	// Act: narrow past any match
 	empty := typing(t, listed, "/", "F", "i", "x", "z")
@@ -206,7 +205,7 @@ func TestArrowsMoveAndEnterKeepsTheFilter(t *testing.T) {
 
 	// Arrange
 	listed := issuesScreen(t, assigned(
-		issue("OPS-1", "Fix issue", "indeterminate"), issue("OPS-2", "Fix bug", "new")))
+		issue("OPS-1", "Fix issue", jira.CategoryIndeterminate), issue("OPS-2", "Fix bug", jira.CategoryNew)))
 
 	// Act
 	result := typing(t, listed, "/", "F", "i", "x", "down", "enter")
@@ -222,7 +221,7 @@ const firstOpsRow = "▸ ○ OPS-1"
 func manyIssues(count int) []jira.Issue {
 	issues := make([]jira.Issue, 0, count)
 	for index := 1; index <= count; index++ {
-		issues = append(issues, issue(fmt.Sprintf("OPS-%d", index), "work", "new"))
+		issues = append(issues, issue(fmt.Sprintf("OPS-%d", index), "work", jira.CategoryNew))
 	}
 
 	return issues
@@ -372,9 +371,9 @@ func TestJAndKMoveTheSelectionAndStopAtTheEnds(t *testing.T) {
 
 			// Arrange
 			screen := issuesScreen(t, assigned(
-				issue("OPS-1", "First", "new"),
-				issue("OPS-2", "Second", "new"),
-				issue("OPS-3", "Third", "new"),
+				issue("OPS-1", "First", jira.CategoryNew),
+				issue("OPS-2", "Second", jira.CategoryNew),
+				issue("OPS-3", "Third", jira.CategoryNew),
 			))
 
 			// Act
@@ -390,7 +389,8 @@ func TestListKeysDoNothingOffTheIssuesPane(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	screen := issuesScreen(t, assigned(issue("OPS-1", "First", "new"), issue("OPS-2", "Second", "new")))
+	screen := issuesScreen(t,
+		assigned(issue("OPS-1", "First", jira.CategoryNew), issue("OPS-2", "Second", jira.CategoryNew)))
 
 	// Act
 	// Focus Branch, press j, come back.
@@ -408,7 +408,7 @@ func TestTheListScrollsToKeepTheSelectionVisible(t *testing.T) {
 	// More issues than the tallest rail has rows.
 	issues := make([]jira.Issue, 0, 60)
 	for index := 1; index <= 60; index++ {
-		issues = append(issues, issue(fmt.Sprintf("OPS-%d", index), "work", "new"))
+		issues = append(issues, issue(fmt.Sprintf("OPS-%d", index), "work", jira.CategoryNew))
 	}
 
 	screen := issuesScreen(t, assigned(issues...))
@@ -425,7 +425,7 @@ func TestAnUnrecognizedStatusCategoryStillRenders(t *testing.T) {
 	t.Parallel()
 
 	// Act
-	view := issuesScreen(t, assigned(issue("OPS-1", "Custom", "something-new"))).View().Content
+	view := issuesScreen(t, assigned(issue("OPS-1", "Custom", jira.CategoryUnknown))).View().Content
 
 	// Assert
 	requireScreen(t, view, "· OPS-1")
@@ -435,7 +435,8 @@ func TestTheDetailShowsTheSelectedIssue(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	screen := issuesScreen(t, assigned(issue("OPS-1", "Fix login", "new"), issue("OPS-2", "Rotate keys", "new")))
+	screen := issuesScreen(t,
+		assigned(issue("OPS-1", "Fix login", jira.CategoryNew), issue("OPS-2", "Rotate keys", jira.CategoryNew)))
 
 	// Act
 	view := press(t, screen, "j").View().Content
@@ -451,7 +452,7 @@ func TestTheDetailSaysWhenTheListIsCapped(t *testing.T) {
 
 	// Arrange
 	capped := func(int) (jira.SearchResult, error) {
-		return jira.SearchResult{Issues: []jira.Issue{issue("OPS-1", "One", "new")}, Total: 73}, nil
+		return jira.SearchResult{Issues: []jira.Issue{issue("OPS-1", "One", jira.CategoryNew)}, Total: 73}, nil
 	}
 
 	// Act
@@ -465,7 +466,8 @@ func TestANarrowTerminalShowsTheListFullWidth(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	deps := searching(assigned(issue("OPS-1", "Fix login", "new"), issue("OPS-2", "Rotate keys", "new")))
+	deps := searching(
+		assigned(issue("OPS-1", "Fix login", jira.CategoryNew), issue("OPS-2", "Rotate keys", jira.CategoryNew)))
 
 	// Act
 	view := started(t, sized(t, tui.New(completeConfig(), nil, deps), 79, 30)).View().Content
@@ -480,7 +482,7 @@ func TestTheAnswerRendersTheSameWhicheverArrivesFirst(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	search := assigned(issue("OPS-1", "Fix login", "new"))
+	search := assigned(issue("OPS-1", "Fix login", jira.CategoryNew))
 
 	// Act
 	// Bubble Tea gives no ordering guarantee between the size and the answer.

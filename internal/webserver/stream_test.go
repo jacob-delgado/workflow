@@ -369,11 +369,11 @@ func TestStreamFrameMatchesTheClientGolden(t *testing.T) {
 	}
 }
 
-// uncategorized is a status Jira files under No Category, whose key is
+// uncategorized is a status Jira files under No Category, which reads as
 // noCategory: one no one sorted into a category.
 const (
-	uncategorized                     = "Triage"
-	noCategory    jira.StatusCategory = "undefined"
+	uncategorized = "Triage"
+	noCategory    = jira.CategoryUnknown
 )
 
 func TestAFrameCarriesAnIssueWhoseStatusIsUnderNoCategory(t *testing.T) {

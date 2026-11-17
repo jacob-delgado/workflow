@@ -42,7 +42,7 @@ func twoViewConfig() config.Config {
 func twoViewRepo() *world {
 	repo := newWorld()
 	repo.viewIssues = map[string][]jira.Issue{
-		scopedSprintJQL: {issue("OPS-9", "Sprint task", "new")},
+		scopedSprintJQL: {issue("OPS-9", "Sprint task", jira.CategoryNew)},
 	}
 
 	return repo

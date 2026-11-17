@@ -99,7 +99,7 @@ func issuesOf(cases []issueCase) []jira.Issue {
 	issues := make([]jira.Issue, 0, len(cases))
 	for _, issue := range cases {
 		issues = append(issues, jira.Issue{
-			Key: jira.Key(issue.Key), Status: issue.Status, StatusCategory: jira.StatusCategory(issue.Category),
+			Key: jira.Key(issue.Key), Status: issue.Status, StatusCategory: jira.ParseStatusCategory(issue.Category),
 		})
 	}
 

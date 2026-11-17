@@ -266,13 +266,14 @@ func jiraRows(issues []jira.Issue) []jira.Issue {
 }
 
 // toCachedIssues reduces the tracker's issues to the store's shape, neutralizing
-// terminal control in each field so nothing hostile is written to the file.
+// terminal control in each text field so nothing hostile is written to the
+// file; the category is written as Jira's own key.
 func toCachedIssues(issues []jira.Issue) []store.CachedIssue {
 	cached := make([]store.CachedIssue, len(issues))
 	for index, issue := range issues {
 		cached[index] = store.CachedIssue{
 			Key: sanitize.Line(string(issue.Key)), Summary: sanitize.Line(issue.Summary),
-			Status: sanitize.Line(issue.Status), StatusCategory: sanitize.Line(string(issue.StatusCategory)),
+			Status: sanitize.Line(issue.Status), StatusCategory: issue.StatusCategory.Word(),
 			Type: sanitize.Line(issue.Type), Priority: sanitize.Line(issue.Priority),
 		}
 	}
@@ -281,14 +282,15 @@ func toCachedIssues(issues []jira.Issue) []store.CachedIssue {
 }
 
 // fromCachedIssues rebuilds the tracker's issues from the store, sanitizing each
-// field again: the store is a file on disk, so what it reads back is untrusted
-// and must not reach the terminal as a control sequence.
+// text field again: the store is a file on disk, so what it reads back is
+// untrusted and must not reach the terminal as a control sequence. The category
+// is parsed, so a key the file does not hold reads as unknown.
 func fromCachedIssues(cached []store.CachedIssue) []jira.Issue {
 	issues := make([]jira.Issue, len(cached))
 	for index, issue := range cached {
 		issues[index] = jira.Issue{
 			Key: jira.Key(sanitize.Line(issue.Key)), Summary: sanitize.Line(issue.Summary),
-			Status: sanitize.Line(issue.Status), StatusCategory: jira.StatusCategory(sanitize.Line(issue.StatusCategory)),
+			Status: sanitize.Line(issue.Status), StatusCategory: jira.ParseStatusCategory(issue.StatusCategory),
 			Type: sanitize.Line(issue.Type), Priority: sanitize.Line(issue.Priority),
 		}
 	}

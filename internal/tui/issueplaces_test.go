@@ -25,7 +25,7 @@ const (
 	statusInDev      = "In development"
 	searchBranch     = "fix/PROJ-504-speed-up-search"
 	placeKey         = "f"
-	categoryNew      = "new"
+	categoryNew      = jira.CategoryNew
 	placesViewWidth  = 120
 	placesViewHeight = 40
 	// wideFooterWidth leaves the footer room for the list's own keys after the
@@ -313,7 +313,7 @@ func TestAStatusOutsideTheThreeCategoriesIsStillOffered(t *testing.T) {
 	// Arrange
 	repo := placesWorld()
 	repo.issues = append(repo.issues, jira.Issue{
-		Key: "PROJ-506", Summary: "Park the idea", Status: "Parked", StatusCategory: "undefined",
+		Key: "PROJ-506", Summary: "Park the idea", Status: "Parked", StatusCategory: jira.CategoryUnknown,
 	})
 
 	// Act
@@ -329,7 +329,7 @@ func TestAStatusUnderNoCategoryDrawsTheUnknownMark(t *testing.T) {
 	// Arrange
 	repo := placesWorld()
 	repo.issues = append(repo.issues, jira.Issue{
-		Key: "PROJ-506", Summary: "Park the idea", Status: "Parked", StatusCategory: "undefined",
+		Key: "PROJ-506", Summary: "Park the idea", Status: "Parked", StatusCategory: jira.CategoryUnknown,
 	})
 
 	// Act

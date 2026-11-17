@@ -80,7 +80,7 @@ func TestSearchReadsTheIssuesAndTheTotal(t *testing.T) {
 	// Assert
 	want := []jira.Issue{
 		{Key: "OPS-1", Summary: "Fix login", Status: inProgress, StatusCategory: indeterminate},
-		{Key: "OPS-2", Summary: "Rotate keys", Status: "To Do", StatusCategory: "new"},
+		{Key: "OPS-2", Summary: "Rotate keys", Status: "To Do", StatusCategory: jira.CategoryNew},
 	}
 
 	if len(result.Issues) != len(want) {
