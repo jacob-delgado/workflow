@@ -41,12 +41,12 @@ type forgeCache struct {
 	failed error
 	// reading is each read under way, by what it reads for.
 	reading map[forgeKey]*landing[forgeRead]
-	// dropped counts the drops and the seeds, so a read that began before
-	// one does not replace what it held.
-	dropped int
-	// forgot is what dropped counted as the last drop was made: a read that
-	// began at a count below it began before that drop.
-	forgot int
+	// round counts the drops and the seeds, so a read that began before one
+	// does not replace what it held.
+	round round
+	// forgot is the round the last drop began: a read that began in a round
+	// before it began before that drop.
+	forgot round
 	// due marks a held answer a drop came during the read of: it says less
 	// than the forge does now, so no frame is served it, even while the next
 	// read is under way.
@@ -59,15 +59,26 @@ type forgeKey struct {
 	head   string
 }
 
+// round numbers the changes, or the asks, that order the reads of one value:
+// a read takes the round it began in, and its cache, or its watch, compares
+// that with its own to tell a read begun before a change, or one asked before
+// a read already taken in.
+type round int
+
+// next is the round that follows r.
+func (r round) next() round {
+	return r + 1
+}
+
 // turn is what a shared read's cache gives a frame asking of it: the answer
 // held and its failure, a read under way to wait for, or, with neither, the
-// go-ahead to read, with the drops counted as it began.
+// go-ahead to read, with the round it begins in.
 type turn[V any] struct {
 	answered bool
 	value    V
 	failed   error
 	landing  *landing[V]
-	dropped  int
+	began    round
 }
 
 // landing is a shared read under way, which lets go every frame waiting on
@@ -101,11 +112,11 @@ func (l *landing[V]) answer(value V, failed error) {
 // sharedRead is a read every stream shares, made outside its cache's lock:
 // what serve answers, or, when serve hands back a read under way, the answer
 // that read lands with, or, when it lands with none, what serve answers then,
-// or, when serve gives the go-ahead, what read makes of it, given the drops
-// counted as it began. A frame waiting on a read under way stops waiting,
+// or, when serve gives the go-ahead, what read makes of it, given the round
+// it began in. A frame waiting on a read under way stops waiting,
 // with ctx's error, once ctx ends: the read goes on for the others.
 func sharedRead[V any](
-	ctx context.Context, serve func() turn[V], read func(dropped int) (V, error),
+	ctx context.Context, serve func() turn[V], read func(began round) (V, error),
 ) (V, error) {
 	for {
 		next := serve()
@@ -125,7 +136,7 @@ func sharedRead[V any](
 				return none, fmt.Errorf("waiting on a shared read: %w", ctx.Err())
 			}
 		default:
-			return read(next.dropped)
+			return read(next.began)
 		}
 	}
 }
@@ -141,13 +152,13 @@ func (s *server) forgeReview(ctx context.Context, branch gitrepo.Branch) (forgeR
 
 	return sharedRead(ctx,
 		func() turn[forgeRead] { return s.forgeAnswer.serve(key, s.now(), s.forgeInterval()) },
-		func(dropped int) (forgeRead, error) {
+		func(began round) (forgeRead, error) {
 			shared, release := s.worlds.outliving(ctx)
 			defer release()
 
 			read, err := s.readForge(shared, branch)
 
-			return s.forgeAnswer.land(key, dropped, s.now(), read, err)
+			return s.forgeAnswer.land(key, began, s.now(), read, err)
 		},
 	)
 }
@@ -177,15 +188,15 @@ func (c *forgeCache) serve(key forgeKey, now time.Time, interval time.Duration) 
 
 	c.reading[key] = newLanding[forgeRead]()
 
-	return turn[forgeRead]{dropped: c.dropped}
+	return turn[forgeRead]{began: c.round}
 }
 
-// land holds what the read of key began after dropped drops found, and lets
-// go every frame waiting on it, each with what the frame that began it shows,
+// land holds what the read of key begun in round began found, and lets go
+// every frame waiting on it, each with what the frame that began it shows,
 // unless a drop came during the read with no seed since: then each asks
 // again, since the read may say less than the forge does now, while a seed
 // after it says more than the drop forgot. It answers what the frame shows.
-func (c *forgeCache) land(key forgeKey, dropped int, now time.Time, read forgeRead, err error) (forgeRead, error) {
+func (c *forgeCache) land(key forgeKey, began round, now time.Time, read forgeRead, err error) (forgeRead, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -194,8 +205,8 @@ func (c *forgeCache) land(key forgeKey, dropped int, now time.Time, read forgeRe
 
 	// Trade-off TRADE-4: a read begun after a seed, for an older head of its
 	// branch, replaces it, as any later read does.
-	shown, failed := c.hold(key, dropped, now, read, err)
-	if c.forgot > dropped && c.dropped == c.forgot {
+	shown, failed := c.hold(key, began, now, read, err)
+	if c.forgot > began && c.round == c.forgot {
 		underWay.end()
 	} else {
 		underWay.answer(shown, failed)
@@ -204,15 +215,15 @@ func (c *forgeCache) land(key forgeKey, dropped int, now time.Time, read forgeRe
 	return shown, failed
 }
 
-// hold holds what the read of key began after dropped drops found, at now,
-// and answers what its frame shows. A read a drop came during is held
+// hold holds what the read of key begun in round began found, at now, and
+// answers what its frame shows. A read a drop came during is held
 // already due, since it may say less than the forge does now, and one a seed
 // came during is not held at all, whatever key it was read for: the seed
 // says more. A read that failed keeps the answer held for key, and a CI read
 // that failed keeps the CI held for the same pull request. The caller holds
 // the lock.
-func (c *forgeCache) hold(key forgeKey, dropped int, now time.Time, read forgeRead, err error) (forgeRead, error) {
-	if c.held && c.dropped != dropped {
+func (c *forgeCache) hold(key forgeKey, began round, now time.Time, read forgeRead, err error) (forgeRead, error) {
+	if c.held && c.round != began {
 		// A write here has held a newer answer since this read began: for
 		// key, the frame shows it; for another key, this older read is not to
 		// replace it, and its own frame shows what it found.
@@ -225,7 +236,7 @@ func (c *forgeCache) hold(key forgeKey, dropped int, now time.Time, read forgeRe
 
 	held := c.held && c.key == key
 
-	c.readAt, c.failed, c.due = now, err, c.dropped != dropped
+	c.readAt, c.failed, c.due = now, err, c.round != began
 
 	if err != nil && held {
 		return c.read, err
@@ -248,8 +259,8 @@ func (c *forgeCache) drop() {
 	defer c.mu.Unlock()
 
 	c.held = false
-	c.dropped++
-	c.forgot = c.dropped
+	c.round = c.round.next()
+	c.forgot = c.round
 }
 
 // seed holds read as the forge's answer for key, read at now: what a write
@@ -264,7 +275,7 @@ func (c *forgeCache) seed(key forgeKey, now time.Time, read forgeRead) {
 	defer c.mu.Unlock()
 
 	c.held, c.key, c.readAt, c.read, c.failed, c.due = true, key, now, read, nil, false
-	c.dropped++
+	c.round = c.round.next()
 }
 
 // holdsPull reports whether the held answer is about the pull request of this
@@ -299,8 +310,8 @@ type assignedCache struct {
 	answered []jira.Key
 	// reading is the ask under way, or nil with none.
 	reading *landing[map[jira.Key]bool]
-	// dropped counts the drops, so an ask that began before one lands due.
-	dropped int
+	// round counts the drops, so an ask that began before one lands due.
+	round round
 	// due marks a held answer a drop came during the ask of: it says less
 	// than the tracker does now, so no frame is served it, even while the
 	// next ask is under way.
@@ -341,13 +352,13 @@ func (s *server) yourIssues(ctx context.Context, keys []jira.Key) map[jira.Key]b
 
 	yours, _ := sharedRead(ctx,
 		func() turn[map[jira.Key]bool] { return s.assigned.serve(asked, s.now()) },
-		func(dropped int) (map[jira.Key]bool, error) {
+		func(began round) (map[jira.Key]bool, error) {
 			shared, release := s.worlds.outliving(ctx)
 			defer release()
 
 			mine, err := loop.AssignedKeys(shared, s.deps.Jira.SearchLenient, asked)
 
-			return s.assigned.land(asked, dropped, s.now(), assignedAnswer{mine: mine, failed: err}), nil
+			return s.assigned.land(asked, began, s.now(), assignedAnswer{mine: mine, failed: err}), nil
 		},
 	)
 
@@ -374,7 +385,7 @@ func (c *assignedCache) serve(asked []jira.Key, now time.Time) turn[map[jira.Key
 
 	c.reading = newLanding[map[jira.Key]bool]()
 
-	return turn[map[jira.Key]bool]{dropped: c.dropped}
+	return turn[map[jira.Key]bool]{began: c.round}
 }
 
 // assignedAnswer is what an ask of the tracker answered: which of the keys
@@ -384,17 +395,17 @@ type assignedAnswer struct {
 	failed error
 }
 
-// land holds what the ask of asked, begun after dropped drops, answered at
-// now, keeping the last answer when it failed, and lets go every frame
-// waiting on it. An ask a drop came during is held already due, since it may
+// land holds what the ask of asked, begun in round began, answered at now,
+// keeping the last answer when it failed, and lets go every frame waiting on
+// it. An ask a drop came during is held already due, since it may
 // say less than the tracker does now. It answers which of asked are yours.
-func (c *assignedCache) land(asked []jira.Key, dropped int, now time.Time, answer assignedAnswer) map[jira.Key]bool {
+func (c *assignedCache) land(asked []jira.Key, began round, now time.Time, answer assignedAnswer) map[jira.Key]bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	c.reading.end()
 	c.reading = nil
-	c.held, c.keys, c.readAt, c.due = true, asked, now, c.dropped != dropped
+	c.held, c.keys, c.readAt, c.due = true, asked, now, c.round != began
 
 	if answer.failed == nil {
 		c.mine, c.answered = answer.mine, asked
@@ -412,7 +423,7 @@ func (c *assignedCache) drop() {
 	defer c.mu.Unlock()
 
 	c.held = false
-	c.dropped++
+	c.round = c.round.next()
 }
 
 // authorCache is who the forge says a post would come from, kept from its first
@@ -433,8 +444,8 @@ type authorCache struct {
 	readAt time.Time
 	// reading is the ask under way, or nil with none.
 	reading *landing[string]
-	// dropped counts the drops, so an ask begun before one is not kept.
-	dropped int
+	// round counts the drops, so an ask begun before one is not kept.
+	round round
 }
 
 // cachedAuthor is who a post would come from: the forge's kept answer once it
@@ -445,16 +456,16 @@ type authorCache struct {
 func (s *server) cachedAuthor(ctx context.Context) (string, error) {
 	return sharedRead(ctx,
 		func() turn[string] { return s.author.serve(s.now(), s.forgeInterval()) },
-		func(dropped int) (string, error) {
+		func(began round) (string, error) {
 			shared, release := s.worlds.outliving(ctx)
 			defer release()
 
 			name, err := s.deps.Forge.Author(shared)
 			if err != nil {
-				return s.author.land(s.now(), dropped, "", fmt.Errorf("reading the author: %w", err))
+				return s.author.land(s.now(), began, "", fmt.Errorf("reading the author: %w", err))
 			}
 
-			return s.author.land(s.now(), dropped, name, nil)
+			return s.author.land(s.now(), began, name, nil)
 		},
 	)
 }
@@ -477,20 +488,20 @@ func (c *authorCache) serve(now time.Time, interval time.Duration) turn[string] 
 
 	c.reading = newLanding[string]()
 
-	return turn[string]{dropped: c.dropped}
+	return turn[string]{began: c.round}
 }
 
 // land holds what the ask made at now answered, or why it could not, unless a
-// drop came since the drops counted as it began, and lets go every frame
-// waiting on it. It answers what the frame shows.
-func (c *authorCache) land(now time.Time, dropped int, name string, err error) (string, error) {
+// drop came since the round it began in, and lets go every frame waiting on
+// it. It answers what the frame shows.
+func (c *authorCache) land(now time.Time, began round, name string, err error) (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	c.reading.end()
 	c.reading = nil
 
-	if dropped == c.dropped {
+	if began == c.round {
 		c.name, c.known, c.failed, c.readAt = name, err == nil, err, now
 	}
 
@@ -504,7 +515,7 @@ func (c *authorCache) drop() {
 	defer c.mu.Unlock()
 
 	c.name, c.known, c.failed = "", false, nil
-	c.dropped++
+	c.round = c.round.next()
 }
 
 // scopeCache is the store's last commit scope, read the first time a frame

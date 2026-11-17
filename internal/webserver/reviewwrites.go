@@ -204,35 +204,35 @@ type headQuiet struct {
 	watch armed.HeadWatch
 	// asked numbers each read as it begins; took is the ask of the last read
 	// the watch took in.
-	asked, took int
+	asked, took round
 }
 
 // ask numbers a read of CI as it begins, for heard or unheard to name it by.
-func (q *headQuiet) ask() int {
+func (q *headQuiet) ask() round {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	q.asked++
+	q.asked = q.asked.next()
 
 	return q.asked
 }
 
 // heard adds the read asked as ask, of pull's CI heard at readAt, which
 // reported run, and answers the watch it leaves.
-func (q *headQuiet) heard(ask int, pull forge.PullRequest, run forge.CI, readAt time.Time) armed.HeadWatch {
+func (q *headQuiet) heard(ask round, pull forge.PullRequest, run forge.CI, readAt time.Time) armed.HeadWatch {
 	return q.hear(ask, func(watch armed.HeadWatch) armed.HeadWatch { return watch.Read(pull, run, readAt) })
 }
 
 // unheard adds the read asked as ask, which failed and so counts no quiet
 // across it, and answers the watch it leaves.
-func (q *headQuiet) unheard(ask int) armed.HeadWatch {
+func (q *headQuiet) unheard(ask round) armed.HeadWatch {
 	return q.hear(ask, armed.HeadWatch.Unheard)
 }
 
 // hear steps the watch by step when the read asked as ask was asked after the
 // last read the watch took in, and answers the watch as it then stands: an
 // older read changes nothing.
-func (q *headQuiet) hear(ask int, step func(armed.HeadWatch) armed.HeadWatch) armed.HeadWatch {
+func (q *headQuiet) hear(ask round, step func(armed.HeadWatch) armed.HeadWatch) armed.HeadWatch {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
