@@ -50,7 +50,7 @@ func TestTheSameBareNameAsAPersonLinksOnlyToAUser(t *testing.T) {
 
 	// Arrange
 	kept := store.New(t.TempDir(), store.ModeWrites)
-	person := store.OwnerLink{Owner: acme, Team: false, OnSlack: true, Slack: *podGroup()}
+	person := store.OnSlackAs(acme, false, *podGroup())
 
 	// Act
 	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, person, theTime())
@@ -63,7 +63,7 @@ func TestTheSameBareNameAsAPersonLinksOnlyToAUser(t *testing.T) {
 
 // acmeAsThePodsTeam decides acme a team, linked to the pod's user group.
 func acmeAsThePodsTeam() store.OwnerLink {
-	return store.OwnerLink{Owner: acme, Team: true, OnSlack: true, Slack: *podGroup()}
+	return store.OnSlackAs(acme, true, *podGroup())
 }
 
 // linkAcmeAsAnaInA links acme, as a person, to the Slack user Ana in
@@ -71,7 +71,7 @@ func acmeAsThePodsTeam() store.OwnerLink {
 func linkAcmeAsAnaInA(t *testing.T, kept store.Store) {
 	t.Helper()
 
-	person := store.OwnerLink{Owner: acme, Team: false, OnSlack: true, Slack: *ana()}
+	person := store.OnSlackAs(acme, false, *ana())
 
 	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, person, theTime())
 	if err != nil {
@@ -170,7 +170,7 @@ func TestADecisionOfTheSameKindElsewhereKeepsThatTheOwnerIsNotOnSlack(t *testing
 	links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
-	want := []store.OwnerLink{{Owner: acme, Team: false, OnSlack: false, Slack: store.SlackTarget{}}}
+	want := []store.OwnerLink{store.NotOnSlack(acme, false)}
 	if err != nil || !slices.Equal(links, want) {
 		t.Errorf("OwnerLinks in A = %+v, %v; want %+v, acme still not on Slack there", links, err, want)
 	}
@@ -197,7 +197,7 @@ func TestAKindChangeOnOneForgeHostKeepsTheOwnersLinksOnAnother(t *testing.T) {
 	links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
-	want := []store.OwnerLink{{Owner: acme, Team: false, OnSlack: true, Slack: *ana()}}
+	want := []store.OwnerLink{store.OnSlackAs(acme, false, *ana())}
 	if err != nil || !slices.Equal(links, want) {
 		t.Errorf("OwnerLinks on %s in A = %+v, %v; want %+v", forgeHost, links, err, want)
 	}
@@ -228,7 +228,7 @@ func TestAKindChangeOnOneForgeHostKeepsThatTheOwnerIsNotOnSlackOnAnother(t *test
 	links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
-	want := []store.OwnerLink{{Owner: acme, Team: false, OnSlack: false, Slack: store.SlackTarget{}}}
+	want := []store.OwnerLink{store.NotOnSlack(acme, false)}
 	if err != nil || !slices.Equal(links, want) {
 		t.Errorf("OwnerLinks on %s in A = %+v, %v; want %+v", forgeHost, links, err, want)
 	}
@@ -241,7 +241,7 @@ func TestAKindOnAnotherForgeHostKeepsThatTheOwnerIsNotOnSlack(t *testing.T) {
 	kept := store.New(t.TempDir(), store.ModeWrites)
 	linkAcmeAsAnaInA(t, kept)
 
-	teamNotOnSlack := store.OwnerLink{Owner: acme, Team: true, OnSlack: false, Slack: store.SlackTarget{}}
+	teamNotOnSlack := store.NotOnSlack(acme, true)
 
 	err := kept.LinkOwner(t.Context(), otherForgeHost, workspaceA, teamNotOnSlack, theTime())
 	if err != nil {

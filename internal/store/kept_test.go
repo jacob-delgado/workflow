@@ -102,7 +102,7 @@ func TestAnOwnersSlackLinkRoundTrips(t *testing.T) {
 	links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
-	want := []store.OwnerLink{{Owner: anaOwner, OnSlack: true, Slack: *ana()}}
+	want := []store.OwnerLink{store.OnSlackAs(anaOwner, false, *ana())}
 	if err != nil || !slices.Equal(links, want) {
 		t.Errorf("OwnerLinks = %+v, %v; want %+v", links, err, want)
 	}

@@ -32,12 +32,12 @@ func podGroup() *store.SlackTarget {
 // that they are not on Slack, an owner with a slash a team, as CODEOWNERS
 // spells one.
 func decided(owner string, target *store.SlackTarget) store.OwnerLink {
-	link := store.OwnerLink{Owner: owner, Team: strings.Contains(owner, "/"), OnSlack: false, Slack: store.SlackTarget{}}
+	team := strings.Contains(owner, "/")
 	if target != nil {
-		link.OnSlack, link.Slack = true, *target
+		return store.OnSlackAs(owner, team, *target)
 	}
 
-	return link
+	return store.NotOnSlack(owner, team)
 }
 
 // keptEntities counts the Slack users and groups the kept file holds.
@@ -69,7 +69,7 @@ func TestAnOwnerNotOnSlackIsRememberedAsDecided(t *testing.T) {
 	links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
-	want := []store.OwnerLink{{Owner: "dan", OnSlack: false, Slack: store.SlackTarget{}}}
+	want := []store.OwnerLink{store.NotOnSlack("dan", false)}
 	if err != nil || !slices.Equal(links, want) {
 		t.Errorf("OwnerLinks = %+v, %v; want %+v", links, err, want)
 	}
@@ -90,7 +90,7 @@ func TestATeamOwnerLinksToAUserGroup(t *testing.T) {
 	links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
-	want := []store.OwnerLink{{Owner: "acme/control-plane", Team: true, OnSlack: true, Slack: *podGroup()}}
+	want := []store.OwnerLink{store.OnSlackAs("acme/control-plane", true, *podGroup())}
 	if err != nil || !slices.Equal(links, want) {
 		t.Errorf("OwnerLinks = %+v, %v; want %+v", links, err, want)
 	}
@@ -112,7 +112,7 @@ func TestRelinkingAnOwnerReplacesTheDecision(t *testing.T) {
 	links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
-	if err != nil || len(links) != 1 || links[0].OnSlack {
+	if err != nil || len(links) != 1 || links[0] != store.NotOnSlack(anaOwner, false) {
 		t.Errorf("OwnerLinks = %+v, %v; want ana alone, not on Slack", links, err)
 	}
 }
@@ -137,7 +137,7 @@ func TestAnOwnersCaseMakesNoSecondDecision(t *testing.T) {
 	links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
-	want := []store.OwnerLink{{Owner: anaOwner, OnSlack: false, Slack: store.SlackTarget{}}}
+	want := []store.OwnerLink{store.NotOnSlack(anaOwner, false)}
 	if err != nil || !slices.Equal(links, want) {
 		t.Errorf("OwnerLinks = %+v, %v; want %+v", links, err, want)
 	}
@@ -317,7 +317,7 @@ func TestAStoredRowOfTheWrongShapeReadsAsUndecided(t *testing.T) {
 			links, err := kept.OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 			// Assert
-			want := []store.OwnerLink{{Owner: acmePod, Team: true, OnSlack: true, Slack: *podGroup()}}
+			want := []store.OwnerLink{store.OnSlackAs(acmePod, true, *podGroup())}
 			if err != nil || !slices.Equal(links, want) {
 				t.Errorf("OwnerLinks = %+v, %v; want only the untampered team %+v", links, err, want)
 			}
@@ -342,7 +342,9 @@ func TestAStoredLabelIsSanitizedAndCapped(t *testing.T) {
 		t.Fatalf("OwnerLinks = %+v, %v; want ana's link", links, err)
 	}
 
-	label := links[0].Slack.Label
+	target, _ := links[0].OnSlack()
+
+	label := target.Label
 	if strings.ContainsRune(label, '\x1b') || utf8.RuneCountInString(label) > 80 {
 		t.Errorf("the label read back is %q (%d runes), want no escape and at most 80 runes",
 			label, utf8.RuneCountInString(label))

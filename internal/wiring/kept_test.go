@@ -71,7 +71,7 @@ func TestAnOwnerLinkIsKeyedByTheForgeHostAlone(t *testing.T) {
 	}
 
 	links, err := store.New(dir, store.ModeWrites).OwnerLinks(t.Context(), "github.com", workspace)
-	if err != nil || len(links) != 1 || links[0].Owner != anaOwner {
+	if err != nil || len(links) != 1 || links[0].Owner() != anaOwner {
 		t.Errorf("the store's links on github.com = %+v, %v; want ana's", links, err)
 	}
 

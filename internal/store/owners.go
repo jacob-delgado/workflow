@@ -53,13 +53,36 @@ type SlackTarget struct {
 
 // OwnerLink is what was decided for one forge owner: whether they are a team,
 // which links to a Slack user group, or a person, who links to a Slack user;
-// whether they are on Slack; and if so, as whom.
+// whether they are on Slack; and if so, as whom. It is built only as a
+// decision it can be, by OnSlackAs or NotOnSlack, as loop.OwnerLink is.
 type OwnerLink struct {
-	Owner   string
-	Team    bool
-	OnSlack bool
-	Slack   SlackTarget
+	owner  string
+	team   bool
+	target SlackTarget
+	// onSlack tells a decision that the owner is on Slack, with target, from
+	// one that they are not, with none.
+	onSlack bool
 }
+
+// OnSlackAs is the decision that owner, a team or a person, is target on
+// Slack.
+func OnSlackAs(owner string, team bool, target SlackTarget) OwnerLink {
+	return OwnerLink{owner: owner, team: team, target: target, onSlack: true}
+}
+
+// NotOnSlack is the decision that owner, a team or a person, is not on Slack.
+func NotOnSlack(owner string, team bool) OwnerLink {
+	return OwnerLink{owner: owner, team: team, target: SlackTarget{}, onSlack: false}
+}
+
+// Owner is the forge owner decided.
+func (l OwnerLink) Owner() string { return l.owner }
+
+// Team reports the owner decided as a team rather than a person.
+func (l OwnerLink) Team() bool { return l.team }
+
+// OnSlack is whom the owner is on Slack, and whether they are on it at all.
+func (l OwnerLink) OnSlack() (SlackTarget, bool) { return l.target, l.onSlack }
 
 // ownersSchema makes the owner tables. A decision row records that an owner
 // was asked about, and whether they are a person or a team, which the caller
@@ -180,12 +203,11 @@ func ownerLinkFrom(owner, kind string, slackID, label sql.NullString) (OwnerLink
 		return OwnerLink{}, false
 	}
 
-	return OwnerLink{
-		Owner:   strings.ToLower(owner),
-		Team:    team,
-		OnSlack: slackID.Valid,
-		Slack:   SlackTarget{ID: slackID.String, Label: cleanLabel(label.String)},
-	}, true
+	if !slackID.Valid {
+		return NotOnSlack(strings.ToLower(owner), team), true
+	}
+
+	return OnSlackAs(strings.ToLower(owner), team, SlackTarget{ID: slackID.String, Label: cleanLabel(label.String)}), true
 }
 
 // isOwnerOfKind reports an owner of the shape its kind takes: a person's
@@ -220,21 +242,23 @@ type ownerIn struct {
 // The owner is kept in lower case, since both forges read user and team names
 // without regard to case. A disabled or read-only store records nothing.
 func (s Store) LinkOwner(ctx context.Context, forgeHost, workspace string, decision OwnerLink, now time.Time) error {
+	target, onSlack := decision.OnSlack()
+
 	switch {
 	case forgeHost == "":
 		return nil
-	case !isOwnerOfKind(decision.Owner, kindOf(decision.Team)):
+	case !isOwnerOfKind(decision.Owner(), kindOf(decision.Team())):
 		return ErrInvalidOwner
-	case decision.OnSlack && !isSlackIDFor(decision.Team, decision.Slack.ID):
+	case onSlack && !isSlackIDFor(decision.Team(), target.ID):
 		return ErrInvalidSlackID
 	case workspace == "":
 		return ErrNoWorkspace
 	}
 
-	where := ownerIn{forgeHost: forgeHost, workspace: workspace, owner: strings.ToLower(decision.Owner)}
+	where := ownerIn{forgeHost: forgeHost, workspace: workspace, owner: strings.ToLower(decision.Owner())}
 
 	return s.keptWithin(ctx, func(transaction *sql.Tx) error {
-		err := unlinkElsewhereIfKindChanges(ctx, transaction, where, kindOf(decision.Team))
+		err := unlinkElsewhereIfKindChanges(ctx, transaction, where, kindOf(decision.Team()))
 		if err != nil {
 			return err
 		}
@@ -322,7 +346,7 @@ func writeOwnerLink(ctx context.Context, transaction *sql.Tx, where ownerIn, dec
 		`INSERT INTO owner_decision (forge_host, owner, decided_at, owner_kind) VALUES (?, ?, ?, ?)
 			ON CONFLICT(forge_host, owner) DO UPDATE
 				SET decided_at = excluded.decided_at, owner_kind = excluded.owner_kind`,
-		where.forgeHost, where.owner, timestamp(now), kindOf(decision.Team))
+		where.forgeHost, where.owner, timestamp(now), kindOf(decision.Team()))
 	if err != nil {
 		return fmt.Errorf("recording the owner decision: %w", err)
 	}
@@ -332,7 +356,8 @@ func writeOwnerLink(ctx context.Context, transaction *sql.Tx, where ownerIn, dec
 		return err
 	}
 
-	if !decision.OnSlack {
+	target, onSlack := decision.OnSlack()
+	if !onSlack {
 		_, err = transaction.ExecContext(ctx,
 			`INSERT INTO owner_not_on_slack (forge_host, owner, slack_team) VALUES (?, ?, ?)`,
 			where.forgeHost, where.owner, where.workspace)
@@ -340,14 +365,14 @@ func writeOwnerLink(ctx context.Context, transaction *sql.Tx, where ownerIn, dec
 		return wrapIfFailed("recording the owner not on Slack", err)
 	}
 
-	err = keepSlackEntity(ctx, transaction, decision.Slack, now)
+	err = keepSlackEntity(ctx, transaction, target, now)
 	if err != nil {
 		return err
 	}
 
 	_, err = transaction.ExecContext(ctx,
 		`INSERT INTO owner_slack (forge_host, owner, slack_team, slack_id) VALUES (?, ?, ?, ?)`,
-		where.forgeHost, where.owner, where.workspace, decision.Slack.ID)
+		where.forgeHost, where.owner, where.workspace, target.ID)
 
 	return wrapIfFailed("linking the owner to Slack", err)
 }

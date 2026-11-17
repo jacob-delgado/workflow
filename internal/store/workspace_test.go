@@ -63,12 +63,12 @@ func TestALinkMadeInAnotherWorkspaceLeavesTheFirstOnesLink(t *testing.T) {
 	inB, errB := kept.OwnerLinks(t.Context(), forgeHost, workspaceB)
 
 	// Assert
-	wantA := []store.OwnerLink{{Owner: anaOwner, OnSlack: true, Slack: *ana()}}
+	wantA := []store.OwnerLink{store.OnSlackAs(anaOwner, false, *ana())}
 	if errA != nil || !slices.Equal(inA, wantA) {
 		t.Errorf("OwnerLinks back in A = %+v, %v; want %+v", inA, errA, wantA)
 	}
 
-	wantB := []store.OwnerLink{{Owner: anaOwner, OnSlack: true, Slack: *bea()}}
+	wantB := []store.OwnerLink{store.OnSlackAs(anaOwner, false, *bea())}
 	if errB != nil || !slices.Equal(inB, wantB) {
 		t.Errorf("OwnerLinks in B = %+v, %v; want %+v", inB, errB, wantB)
 	}
@@ -96,7 +96,7 @@ func TestForgettingAnOwnerInOneWorkspaceKeepsTheirLinkInAnother(t *testing.T) {
 	inB, errB := kept.OwnerLinks(t.Context(), forgeHost, workspaceB)
 
 	// Assert
-	wantA := []store.OwnerLink{{Owner: anaOwner, OnSlack: true, Slack: *ana()}}
+	wantA := []store.OwnerLink{store.OnSlackAs(anaOwner, false, *ana())}
 	if errA != nil || !slices.Equal(inA, wantA) {
 		t.Errorf("OwnerLinks in A = %+v, %v; want %+v", inA, errA, wantA)
 	}
@@ -123,12 +123,12 @@ func TestAnOwnerNotOnSlackInOneWorkspaceKeepsTheirLinkInAnother(t *testing.T) {
 	inB, errB := kept.OwnerLinks(t.Context(), forgeHost, workspaceB)
 
 	// Assert
-	wantA := []store.OwnerLink{{Owner: anaOwner, OnSlack: true, Slack: *ana()}}
+	wantA := []store.OwnerLink{store.OnSlackAs(anaOwner, false, *ana())}
 	if errA != nil || !slices.Equal(inA, wantA) {
 		t.Errorf("OwnerLinks in A = %+v, %v; want %+v", inA, errA, wantA)
 	}
 
-	wantB := []store.OwnerLink{{Owner: anaOwner, OnSlack: false, Slack: store.SlackTarget{}}}
+	wantB := []store.OwnerLink{store.NotOnSlack(anaOwner, false)}
 	if errB != nil || !slices.Equal(inB, wantB) {
 		t.Errorf("OwnerLinks in B = %+v, %v; want %+v", inB, errB, wantB)
 	}
