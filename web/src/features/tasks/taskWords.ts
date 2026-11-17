@@ -26,11 +26,12 @@ export function isStarted(task: Task): task is WithStart {
   return task.state === 'started' && isActive(task)
 }
 
-// stillToDo reports a task not completed — pending, waiting or recurring — which
+// stillToDo reports a task not yet finished: neither completed nor deleted, as
+// the Go side's Task.StillToDo words it. A pending, waiting or recurring task
 // is what tracks the issue it is linked to, for the issue's mark and its Track
 // alike.
 export function stillToDo(task: Task): boolean {
-  return task.status !== 'completed'
+  return task.status !== 'completed' && task.status !== 'deleted'
 }
 
 // linkedTo is every task linked to an issue.

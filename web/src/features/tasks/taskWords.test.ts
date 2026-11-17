@@ -98,3 +98,16 @@ test('marks an issue whose only started task waits as tracked, not active', () =
   // Assert
   expect(mark).toEqual({ state: 'not-started', words: 'tracked' })
 })
+
+test('marks an issue whose only linked task was deleted as no longer tracked', () => {
+  // Arrange
+  // A deleted task is not still to do, as the Go side's Task.StillToDo reads
+  // it, though no read the server makes today keeps one.
+  const deleted = finished('deleted', standing.deleted)
+
+  // Act
+  const mark = issueTaskMark([deleted])
+
+  // Assert
+  expect(mark).toEqual({ state: 'done', words: 'task done' })
+})
