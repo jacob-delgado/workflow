@@ -94,6 +94,29 @@ oversight; `workflow` picks issues up, it does not open them.
 
 ## Branch
 
+### FEAT-88 Say a rebase or merge is in progress
+
+Impact: low · Effort: medium
+
+- Why: during a stopped rebase `git branch --show-current` prints nothing,
+  so the branch read (`readBranch`, `internal/gitrepo/branch.go`) takes the
+  tree for a detached HEAD (`Branch.Detached`), and both surfaces say so and
+  point at Issues for a branch to work on, when the branch is still there
+  mid-rebase. During a stopped rebase, merge, cherry-pick or revert, `git
+  switch` refuses, so a finish (`Repository.FinishBranch`,
+  `internal/gitrepo/branching.go`) fails at its first step in git's words.
+  Nothing says which operation is in progress, on which branch, or that
+  `git rebase --continue` or `--abort` comes first. Checked with git 2.43.
+- Touches: `internal/gitrepo` (a probe of `rebase-merge`, `rebase-apply`,
+  `MERGE_HEAD`, `CHERRY_PICK_HEAD` and `REVERT_HEAD` through `git rev-parse
+  --git-path`, and the branch a rebase is replaying), `api/openapi.yaml`
+  (a field on `Branch`), `internal/tui/branch.go` (the heading,
+  `branchState.heading`), `web/src/features/branch/BranchPanel.tsx`
+  (`BranchSummary`), and the finish's guard in `internal/loop`.
+- Done when: a branch read during a stopped rebase names the rebase and the
+  branch it replays, on both surfaces, and no finish is offered while a
+  rebase, merge, cherry-pick or revert is in progress.
+
 ## Commits
 
 ### FEAT-26 Add co-authors and a sign-off
