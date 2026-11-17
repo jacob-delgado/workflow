@@ -98,6 +98,37 @@ func TestPushSendsABranchWhoseUpstreamIsOffItsPushRemote(t *testing.T) {
 	}
 }
 
+// A branch made from origin/main without --no-track tracks origin/main: it
+// is level with an upstream on its push remote, but that remote does not hold
+// it under its own name, so it is pushed rather than taken to be published.
+func TestPushSendsABranchTrackingAnotherBranchOnItsPushRemote(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	var pushed string
+
+	deps := webtest.FilledDeps()
+	deps.Git.Branch = func(context.Context) (gitrepo.Branch, error) {
+		return gitrepo.Branch{
+			Name: webtest.TestBranchName, Upstream: webtest.TestBase, PushRemote: gitrepo.DefaultRemote,
+			Ahead: 0, Commits: []gitrepo.Commit{{Hash: webtest.TestCommitHash, Subject: doneSubject}},
+		}, nil
+	}
+	deps.Git.Push = func(_ context.Context, branch string) (proc.Output, error) {
+		pushed = branch
+
+		return fakeOutput(nil, nil), nil
+	}
+
+	// Act
+	recorder := doPush(t, deps)
+
+	// Assert
+	if recorder.Code != http.StatusOK || pushed != webtest.TestBranchName {
+		t.Errorf("status = %d, pushed %q; want 200 with %q pushed", recorder.Code, pushed, webtest.TestBranchName)
+	}
+}
+
 // An ahead count git could not give says nothing of what the upstream holds,
 // so the branch is pushed rather than taken to be level with it.
 func TestPushSendsABranchGitCouldNotCount(t *testing.T) {
