@@ -322,10 +322,10 @@ func gitlabReviews(ctx context.Context, client Client) (ReviewQueue, error) {
 
 	query := url.Values{"scope": {queryAll}, queryState: {stateOpened}, "reviewer_username": {viewer.Name()}}
 
-	merges, truncated, err := readPages(func(page int) ([]gitlabReviewMerge, int, error) {
+	merges, truncated, err := readPages(func(page int) ([]gitlabReviewMerge, pageCount, error) {
 		one, err := call[[]gitlabReviewMerge](ctx, client, http.MethodGet, "/merge_requests?"+pageQuery(query, page), nil)
 
-		return one, uncounted, err
+		return one, notCounted(), err
 	})
 	if err != nil {
 		return ReviewQueue{}, err

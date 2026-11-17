@@ -293,10 +293,10 @@ func pickPull[T stated](pulls []T) (T, bool) {
 // branch's own past the first page. Past readPages' bound only the newest are
 // read, which both forges list first.
 func branchPulls[T any](fetch func(page int) ([]T, error)) ([]T, error) {
-	listed, _, err := readPages(func(page int) ([]T, int, error) {
+	listed, _, err := readPages(func(page int) ([]T, pageCount, error) {
 		items, err := fetch(page)
 
-		return items, uncounted, err
+		return items, notCounted(), err
 	})
 
 	return listed, err

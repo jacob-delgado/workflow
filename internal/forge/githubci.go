@@ -163,10 +163,10 @@ func githubWorkflowRuns(ctx context.Context, client Client, repo Repo, head stri
 	path := githubRepoPath(repo) + "/actions/runs?"
 	query := url.Values{"head_sha": {head}}
 
-	runs, truncated, err := readPages(func(page int) ([]githubRun, int, error) {
+	runs, truncated, err := readPages(func(page int) ([]githubRun, pageCount, error) {
 		list, err := repoCall[githubRunList](ctx, client, repo, http.MethodGet, path+pageQuery(query, page), nil)
 
-		return list.Runs, list.TotalCount, err
+		return list.Runs, countedAs(list.TotalCount), err
 	})
 	if err == nil && truncated {
 		return nil, ErrTooManyRuns
@@ -187,10 +187,10 @@ func runFailed(conclusion string) bool {
 func githubPages[P, T any](
 	ctx context.Context, client Client, repo Repo, path string, items func(P) ([]T, int),
 ) ([]T, bool, error) {
-	return readPages(func(page int) ([]T, int, error) {
+	return readPages(func(page int) ([]T, pageCount, error) {
 		answer, err := repoCall[P](ctx, client, repo, http.MethodGet, path+"?"+pageQuery(nil, page), nil)
 		found, total := items(answer)
 
-		return found, total, err
+		return found, countedAs(total), err
 	})
 }

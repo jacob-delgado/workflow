@@ -69,10 +69,10 @@ func (c Client) IsGroup(ctx context.Context, name string) (bool, error) {
 func gitlabGroupMembers(ctx context.Context, client Client, group string) ([]gitlabMember, error) {
 	path := "/groups/" + url.PathEscape(group) + "/members?"
 
-	members, _, err := readPages(func(page int) ([]gitlabMember, int, error) {
+	members, _, err := readPages(func(page int) ([]gitlabMember, pageCount, error) {
 		one, err := call[[]gitlabMember](ctx, client, http.MethodGet, path+pageQuery(nil, page), nil)
 
-		return one, uncounted, err
+		return one, notCounted(), err
 	})
 	if err != nil {
 		return nil, err

@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"maps"
-	"math"
 	"mime"
 	"net/http"
 	"net/url"
@@ -52,10 +51,28 @@ const (
 	maxPages     = 20
 )
 
-// uncounted is the count of a listing the forge does not count, as GitLab's
-// arrays and GitHub's reviews of a pull request do not: no read reaches it, so
-// only a short page ends the listing.
-const uncounted = math.MaxInt
+// pageCount is how many items a listing holds in all, when the forge counts
+// them; GitLab's arrays and GitHub's reviews of a pull request are not
+// counted, so only a short page ends such a listing.
+type pageCount struct {
+	total   int
+	counted bool
+}
+
+// countedAs is the count of a listing the forge counts at total.
+func countedAs(total int) pageCount {
+	return pageCount{total: total, counted: true}
+}
+
+// notCounted is the count of a listing the forge does not count.
+func notCounted() pageCount {
+	return pageCount{}
+}
+
+// reached reports whether listed items are all a counted listing holds.
+func (c pageCount) reached(listed int) bool {
+	return c.counted && listed >= c.total
+}
 
 // Errors the client returns. Callers distinguish them with errors.Is. A
 // refused redirect and a rate limit come back as httpx's ErrRedirected and
@@ -399,25 +416,25 @@ func pageQuery(query url.Values, page int) string {
 // readPages reads a paged listing to its end: a page short of full, or as many
 // items as the forge counts in all, whichever comes first within maxPages.
 // fetch reads one page and returns its items and the forge's count. It reports
-// whether there was more than it read: maxPages full pages short of the count,
+// whether there was more than it read: maxPages full pages short of the end,
 // or a page short of full before a listing the forge counts reached its count.
-func readPages[T any](fetch func(page int) ([]T, int, error)) ([]T, bool, error) {
+func readPages[T any](fetch func(page int) ([]T, pageCount, error)) ([]T, bool, error) {
 	var listed []T
 
 	for page := 1; page <= maxPages; page++ {
-		items, total, err := fetch(page)
+		items, count, err := fetch(page)
 		if err != nil {
 			return nil, false, err
 		}
 
 		listed = append(listed, items...)
 
-		if len(listed) >= total {
+		if count.reached(len(listed)) {
 			return listed, false, nil
 		}
 
 		if len(items) < perPage {
-			return listed, total != uncounted, nil
+			return listed, count.counted, nil
 		}
 	}
 
