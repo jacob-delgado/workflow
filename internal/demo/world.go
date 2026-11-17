@@ -21,7 +21,6 @@ import (
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
-	"github.com/jacob-delgado/workflow/internal/loop"
 	"github.com/jacob-delgado/workflow/internal/tui"
 )
 
@@ -63,9 +62,11 @@ type World struct {
 	repo     repository
 	// pulls are the numbers of the pull requests opened, by the branch each
 	// is for, and opened is each of them, by its number.
-	pulls     map[string]int
-	opened    map[int]openedPull
-	announced []loop.Announced
+	pulls  map[string]int
+	opened map[int]openedPull
+	// announced is every announcement claimed, in the order each was
+	// claimed, so the records read back alike each time.
+	announced []demoClaim
 	// moves are the issues moved since the demo began, for the Summary.
 	moves []jira.Event
 	// scope is the commit scope last used.
