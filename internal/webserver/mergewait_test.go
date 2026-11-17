@@ -52,9 +52,9 @@ func noCIDeps(clock *stoppedClock) webserver.Deps {
 	return deps
 }
 
-// secondCIReadFails is deps whose second read of CI fails, every other reporting no
+// ciReadFails is deps whose nth read of CI fails, every other reporting no
 // check: no time is counted across a read that failed.
-func secondCIReadFails(deps webserver.Deps) webserver.Deps {
+func ciReadFails(deps webserver.Deps, nth int) webserver.Deps {
 	var (
 		reading sync.Mutex
 		reads   int
@@ -65,7 +65,7 @@ func secondCIReadFails(deps webserver.Deps) webserver.Deps {
 		defer reading.Unlock()
 
 		reads++
-		if reads == 2 {
+		if reads == nth {
 			return forge.CI{}, errCIUnread
 		}
 
@@ -80,7 +80,7 @@ func TestMergeUnderNoCICountsNoQuietAcrossAReadThatFailed(t *testing.T) {
 
 	// Arrange
 	clock := &stoppedClock{now: time.Date(2026, 11, 13, 9, 0, 0, 0, time.UTC)}
-	served := webtest.Serve(t, secondCIReadFails(noCIDeps(clock)), config.Default())
+	served := webtest.Serve(t, ciReadFails(noCIDeps(clock), 2), config.Default())
 	webtest.Get(t, served, mergeAt)
 	clock.advance(time.Minute)
 	webtest.Get(t, served, mergeAt)
@@ -100,7 +100,7 @@ func TestTheReviewCountsNoQuietAcrossAReadThatFailed(t *testing.T) {
 
 	// Arrange
 	clock := &stoppedClock{now: time.Date(2026, 11, 13, 9, 0, 0, 0, time.UTC)}
-	served := webtest.Serve(t, secondCIReadFails(noCIDeps(clock)), config.Default())
+	served := webtest.Serve(t, ciReadFails(noCIDeps(clock), 2), config.Default())
 	webtest.Get(t, served, "/api/review")
 	clock.advance(time.Minute)
 	webtest.Get(t, served, "/api/review")
@@ -182,5 +182,26 @@ func TestTheReviewSaysWhenTheHeadWasQuietForTheWait(t *testing.T) {
 				t.Errorf("review CI = %+v, want no_ci %t", review.Ci, tt.want)
 			}
 		})
+	}
+}
+
+func TestAFrameKeepsTheNoCIMarkOverAFailedCIRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	clock := &stoppedClock{now: time.Date(2026, 11, 13, 9, 0, 0, 0, time.UTC)}
+	served := webtest.Serve(t, ciReadFails(noCIDeps(clock), 3), config.Default())
+	webtest.StreamOnce(t, served, "/api/events")
+	clock.advance(armed.NoCIPatience)
+	webtest.StreamOnce(t, served, "/api/events")
+	clock.advance(config.DefaultCIInterval)
+
+	// Act
+	frame := webtest.FirstSnapshot(t, webtest.StreamOnce(t, served, "/api/events").Body.String())
+
+	// Assert
+	if frame.Review.Ci == nil || !frame.Review.Ci.NoCi {
+		t.Errorf("review CI = %+v, want no_ci true: the head was quiet for ten minutes and "+
+			"the failed read keeps the CI held", frame.Review.Ci)
 	}
 }
