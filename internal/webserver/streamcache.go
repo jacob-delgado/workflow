@@ -32,8 +32,10 @@ import (
 // seed since, so one slow forge holds up no other stream that has an answer
 // to show, and a waiter asks the forge again only for what a drop changed.
 type forgeCache struct {
-	mu     sync.Mutex
-	held   bool
+	mu sync.Mutex
+	// stage is whether an answer is held for key, and whether a frame may be
+	// served it.
+	stage  answerStage
 	key    forgeKey
 	readAt time.Time
 	read   forgeRead
@@ -44,14 +46,25 @@ type forgeCache struct {
 	// round counts the drops and the seeds, so a read that began before one
 	// does not replace what it held.
 	round round
-	// forgot is the round the last drop began: a read that began in a round
-	// before it began before that drop.
-	forgot round
-	// due marks a held answer a drop came during the read of: it says less
-	// than the forge does now, so no frame is served it, even while the next
-	// read is under way.
-	due bool
+	// last is the kind of the change that began round: a read that began
+	// before a drop with no seed since may say less than the forge does now.
+	last changeKind
 }
+
+// newForgeCache is a forge cache holding no answer, with no read under way.
+func newForgeCache() *forgeCache {
+	return &forgeCache{reading: map[forgeKey]*landing[forgeRead]{}, last: changeNone}
+}
+
+// changeKind is what a change to the forge cache did: none yet, a drop, which
+// forgets the answer, or a seed, which holds what a write here made.
+type changeKind int
+
+const (
+	changeNone changeKind = iota
+	changeDrop
+	changeSeed
+)
 
 // forgeKey is what a forge answer was read for: a branch, by name, at a head.
 type forgeKey struct {
@@ -68,6 +81,38 @@ type round int
 // next is the round that follows r.
 func (r round) next() round {
 	return r + 1
+}
+
+// answerStage is where a shared cache's answer stands: none held, held for
+// frames to be served, or held but due, since a change came during the read
+// that answered it, so it says less than the service does now and no frame is
+// served it, even while the next read is under way.
+type answerStage int
+
+const (
+	// answerUnheld holds no answer: none read yet, or one a change forgot.
+	answerUnheld answerStage = iota
+	// answerHeld holds an answer a frame may be served.
+	answerHeld
+	// answerDue holds an answer a change came during the read of.
+	answerDue
+)
+
+// serves reports whether a frame is served the answer at stage s: one held
+// and not due, while it is fresh or while a read of it is under way.
+func (s answerStage) serves(reading, fresh bool) bool {
+	return s == answerHeld && (reading || fresh)
+}
+
+// landedAt is the stage of an answer whose read began in round began, landing
+// when the cache's round is current: held, or due when a change came during
+// the read.
+func landedAt(began, current round) answerStage {
+	if began != current {
+		return answerDue
+	}
+
+	return answerHeld
 }
 
 // turn is what a shared read's cache gives a frame asking of it: the answer
@@ -171,19 +216,14 @@ func (c *forgeCache) serve(key forgeKey, now time.Time, interval time.Duration) 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	held := c.held && c.key == key && !c.due
 	underWay, reading := c.reading[key]
 
-	if held && (reading || now.Sub(c.readAt) < interval) {
+	if c.key == key && c.stage.serves(reading, now.Sub(c.readAt) < interval) {
 		return turn[forgeRead]{answered: true, value: c.read, failed: c.failed}
 	}
 
 	if reading {
 		return turn[forgeRead]{landing: underWay}
-	}
-
-	if c.reading == nil {
-		c.reading = map[forgeKey]*landing[forgeRead]{}
 	}
 
 	c.reading[key] = newLanding[forgeRead]()
@@ -206,7 +246,7 @@ func (c *forgeCache) land(key forgeKey, began round, now time.Time, read forgeRe
 	// Trade-off TRADE-4: a read begun after a seed, for an older head of its
 	// branch, replaces it, as any later read does.
 	shown, failed := c.hold(key, began, now, read, err)
-	if c.forgot > began && c.round == c.forgot {
+	if began != c.round && c.last == changeDrop {
 		underWay.end()
 	} else {
 		underWay.answer(shown, failed)
@@ -223,7 +263,7 @@ func (c *forgeCache) land(key forgeKey, began round, now time.Time, read forgeRe
 // that failed keeps the CI held for the same pull request. The caller holds
 // the lock.
 func (c *forgeCache) hold(key forgeKey, began round, now time.Time, read forgeRead, err error) (forgeRead, error) {
-	if c.held && c.round != began {
+	if c.stage != answerUnheld && c.round != began {
 		// A write here has held a newer answer since this read began: for
 		// key, the frame shows it; for another key, this older read is not to
 		// replace it, and its own frame shows what it found.
@@ -234,9 +274,9 @@ func (c *forgeCache) hold(key forgeKey, began round, now time.Time, read forgeRe
 		return read, err
 	}
 
-	held := c.held && c.key == key
+	held := c.stage != answerUnheld && c.key == key
 
-	c.readAt, c.failed, c.due = now, err, c.round != began
+	c.readAt, c.failed, c.stage = now, err, landedAt(began, c.round)
 
 	if err != nil && held {
 		return c.read, err
@@ -246,7 +286,7 @@ func (c *forgeCache) hold(key forgeKey, began round, now time.Time, read forgeRe
 		read.ci, read.ciRead = c.read.ci, c.read.ciRead
 	}
 
-	c.held, c.key, c.read = true, key, read
+	c.key, c.read = key, read
 
 	return read, err
 }
@@ -258,9 +298,7 @@ func (c *forgeCache) drop() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.held = false
-	c.round = c.round.next()
-	c.forgot = c.round
+	c.stage, c.round, c.last = answerUnheld, c.round.next(), changeDrop
 }
 
 // seed holds read as the forge's answer for key, read at now: what a write
@@ -274,8 +312,8 @@ func (c *forgeCache) seed(key forgeKey, now time.Time, read forgeRead) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.held, c.key, c.readAt, c.read, c.failed, c.due = true, key, now, read, nil, false
-	c.round = c.round.next()
+	c.stage, c.key, c.readAt, c.read, c.failed = answerHeld, key, now, read, nil
+	c.round, c.last = c.round.next(), changeSeed
 }
 
 // holdsPull reports whether the held answer is about the pull request of this

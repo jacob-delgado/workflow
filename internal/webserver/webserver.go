@@ -208,7 +208,7 @@ type server struct {
 
 	// forgeAnswer is the forge's part of the stream's frames, held for an
 	// interval.
-	forgeAnswer forgeCache
+	forgeAnswer *forgeCache
 
 	// quiet is how long the pull request's head has reported no check, as
 	// the server's reads of its CI count it, a frame's or a write's: each
