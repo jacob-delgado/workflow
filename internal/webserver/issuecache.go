@@ -33,22 +33,17 @@ type issuesCache struct {
 	reading map[string]*landing[jira.SearchResult]
 	// round counts the drops, so a search that began before one lands due.
 	round round
-	// unkept is each view's newest page a search answered that the store has
-	// not been asked to keep yet, and keeping each view whose page a frame is
-	// putting in the store now. That frame keeps a page landing meanwhile
-	// after its own, so the store never ends on an older page than a newer
-	// one it was asked to keep. Each page goes with when it was read, so
-	// the store keeps it over a page another process read earlier.
-	unkept  map[string]viewPage
-	keeping map[string]bool
+	// keeps is where each view's write-back to the store stands, by its
+	// JQL: a view with none pending or under way has no entry. It sits
+	// beside pages, not in it, so a drop leaves a write under way standing.
+	keeps map[string]viewKeep
 }
 
 // newIssuesCache is an issues cache holding no view's page, with no search
 // under way.
 func newIssuesCache() *issuesCache {
 	return &issuesCache{
-		pages: map[string]viewPage{}, reading: map[string]*landing[jira.SearchResult]{},
-		unkept: map[string]viewPage{}, keeping: map[string]bool{},
+		pages: map[string]viewPage{}, reading: map[string]*landing[jira.SearchResult]{}, keeps: map[string]viewKeep{},
 	}
 }
 
@@ -61,6 +56,64 @@ type viewPage struct {
 	result jira.SearchResult
 	failed error
 	readAt time.Time
+}
+
+// keepStage is where a view's write-back to the store stands: idle; a page
+// pending, which no frame is writing yet; a page being written; or a page
+// being written with a newer one pending, which the frame writing it writes
+// next. So one frame writes a view's pages at a time, in turn, and the store
+// never ends on an older page than a newer one it was asked to keep.
+type keepStage int
+
+const (
+	keepIdle keepStage = iota
+	keepPending
+	keepWriting
+	keepWritingPending
+)
+
+// viewKeep is a view's write-back to the store: its stage, and the newest page
+// a search answered that the store has not been asked to keep yet, with when
+// it was read, so the store keeps it over a page another process read
+// earlier.
+type viewKeep struct {
+	stage   keepStage
+	pending viewPage
+}
+
+// landed is k once a search answers page: pending, beside any write under
+// way, in place of any page pending before it.
+func (k viewKeep) landed(page viewPage) viewKeep {
+	next := map[keepStage]keepStage{
+		keepIdle:           keepPending,
+		keepPending:        keepPending,
+		keepWriting:        keepWritingPending,
+		keepWritingPending: keepWritingPending,
+	}[k.stage]
+
+	return viewKeep{stage: next, pending: page}
+}
+
+// start hands the caller the page pending for it to write, and k writing it,
+// when k is pending; any other stage, a write under way or none pending, is
+// answered unchanged, with nothing to write.
+func (k viewKeep) start() (viewKeep, viewPage, bool) {
+	if k.stage == keepPending {
+		return viewKeep{stage: keepWriting}, k.pending, true
+	}
+
+	return k, viewPage{}, false
+}
+
+// written is k once the caller's write ends, which only a stage writing
+// reaches: with a page pending since, the caller writes it next; otherwise
+// the view goes idle, with nothing to write.
+func (k viewKeep) written() (viewKeep, viewPage, bool) {
+	if k.stage == keepWritingPending {
+		return viewKeep{stage: keepWriting}, k.pending, true
+	}
+
+	return viewKeep{stage: keepIdle}, viewPage{}, false
 }
 
 // frameIssues is the first page of the issues jql finds, from the issues
@@ -170,7 +223,7 @@ func (c *issuesCache) land(jql string, began round, page viewPage) {
 	c.pages[jql] = page
 
 	if page.failed == nil {
-		c.unkept[jql] = page
+		c.keeps[jql] = c.keeps[jql].landed(page)
 	}
 }
 
@@ -182,11 +235,10 @@ func (c *issuesCache) startKeeping(jql string) (viewPage, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.keeping[jql] {
-		return viewPage{}, false
-	}
+	keep, page, ours := c.keeps[jql].start()
+	c.setKeep(jql, keep)
 
-	return c.takeUnkept(jql)
+	return page, ours
 }
 
 // nextToKeep is the page of jql that landed while the caller kept the one
@@ -196,18 +248,22 @@ func (c *issuesCache) nextToKeep(jql string) (viewPage, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	return c.takeUnkept(jql)
+	keep, page, ours := c.keeps[jql].written()
+	c.setKeep(jql, keep)
+
+	return page, ours
 }
 
-// takeUnkept takes the newest page of jql the store has not been asked to
-// keep, and marks the view as being kept while there is one. It runs under
-// mu.
-func (c *issuesCache) takeUnkept(jql string) (viewPage, bool) {
-	page, waiting := c.unkept[jql]
-	delete(c.unkept, jql)
-	c.keeping[jql] = waiting
+// setKeep holds keep as where jql's write-back stands, leaving no entry for an
+// idle view. It runs under mu.
+func (c *issuesCache) setKeep(jql string, keep viewKeep) {
+	if keep.stage == keepIdle {
+		delete(c.keeps, jql)
 
-	return page, waiting
+		return
+	}
+
+	c.keeps[jql] = keep
 }
 
 // drop forgets every view's page, so the next frame searches again: a change
