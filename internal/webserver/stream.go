@@ -268,7 +268,7 @@ func (s *server) frameStages(branch gitrepo.Branch, read forgeRead, frame api.Sn
 		Commits:            len(branch.Commits),
 		UncommittedChanges: len(frame.Changes.Changes),
 		Review:             progress.ReviewOf(read.pull, read.found, read.ciState()),
-		Announce:           announceWork(frame.Review.Announced, frame.QueuedAnnouncement),
+		Announce:           s.announceWork(read, frame.Review.Announced, frame.QueuedAnnouncement),
 	}
 
 	return s.knownStages(work)
@@ -290,13 +290,22 @@ func (r forgeRead) ciState() forge.CIState {
 	return r.ci.State
 }
 
-// announceWork is how far the announcement has got, as the announce stage
-// reads it: made, once its post was confirmed or begun at its moment, a store
-// that could not be read saying none; under way, while it waits for its CI or
-// is being posted once it passed, not yet made nor given up on.
-func announceWork(announced api.ReviewAnnounced, held *api.QueuedAnnouncement) progress.AnnounceWork {
+// announceWork is how far the announcement of the read's pull request at its
+// moment has got, as the announce stage reads it: made, once its post was
+// confirmed; under way, while this server posts it now, though the claim its
+// post took reads it begun; made, once a post of it began and was never
+// confirmed, a store that could not be read saying none; under way, while it
+// waits for its CI or is being posted once it passed, not yet made nor given
+// up on.
+func (s *server) announceWork(
+	read forgeRead, announced api.ReviewAnnounced, held *api.QueuedAnnouncement,
+) progress.AnnounceWork {
 	switch {
-	case announced == api.ReviewAnnouncedPosted || announced == api.ReviewAnnouncedUnconfirmed:
+	case announced == api.ReviewAnnouncedPosted:
+		return progress.AnnounceMade
+	case s.posts.posting(loop.Announced{Pull: read.pull.Number, Moment: loop.AnnounceMoment(read.pull)}):
+		return progress.AnnounceUnderWay
+	case announced == api.ReviewAnnouncedUnconfirmed:
 		return progress.AnnounceMade
 	case held != nil &&
 		(held.State == api.QueuedAnnouncementStateWaiting || held.State == api.QueuedAnnouncementStateAnnouncing):

@@ -6,8 +6,10 @@ package webserver
 import (
 	"context"
 	"errors"
+	"slices"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/jacob-delgado/workflow/internal/api"
 	"github.com/jacob-delgado/workflow/internal/loop"
@@ -182,7 +184,7 @@ func (s *server) postMentions(
 // channel never reads it twice; a post that fails leaves it waiting. It is a
 // 409 while the held one is being posted, and when the announcement was
 // claimed meanwhile; one posted that the store could not confirm is answered
-// as posted, with the warning.
+// as posted, with the warning. A frame read while it posts reads it under way.
 func (s *server) announceNow(ctx context.Context, post announcePost) api.AnnounceResponseObject {
 	if s.heldBeingPosted() {
 		return api.Announce409ApplicationProblemPlusJSONResponse(
@@ -190,6 +192,9 @@ func (s *server) announceNow(ctx context.Context, post announcePost) api.Announc
 	}
 
 	var warning string
+
+	ended := s.posts.begin(post.delivery.Made())
+	defer ended()
 
 	kind, err := loop.Deliver(ctx, s.deliverSeams(), post.memory, post.delivery)
 	if !kind.Went() {
@@ -210,6 +215,42 @@ func (s *server) announceNow(ctx context.Context, post announcePost) api.Announc
 	posted.Warning = optional(warning)
 
 	return api.Announce200JSONResponse(posted)
+}
+
+// postsNow is each announcement this server is posting now, one entry per
+// post under way, so two posts of one announcement asked for at once never
+// end each other's. A frame reads an announcement posted now as under way,
+// though the store's claim, taken before the post, already reads it begun.
+// Its zero value is ready to use.
+type postsNow struct {
+	mu    sync.Mutex
+	going []loop.Announced
+}
+
+// begin counts made as posted now, and answers what ends that post, called
+// once as it ends: it takes out one entry of made, however many others of
+// made are under way.
+func (p *postsNow) begin(made loop.Announced) func() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.going = append(p.going, made)
+
+	return func() {
+		p.mu.Lock()
+		defer p.mu.Unlock()
+
+		at := slices.Index(p.going, made)
+		p.going = slices.Delete(p.going, at, at+1)
+	}
+}
+
+// posting reports whether made is being posted now.
+func (p *postsNow) posting(made loop.Announced) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	return slices.Contains(p.going, made)
 }
 
 // notPostedNow answers a post of delivery asked for now that went as kind,

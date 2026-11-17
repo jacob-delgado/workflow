@@ -228,6 +228,9 @@ type server struct {
 	// held is the announcement held until its pull request's CI passes.
 	held heldSlot
 
+	// posts is each announcement this server is posting now, held or not.
+	posts postsNow
+
 	// worlds holds this server, and replaces it on a switch, closing retired
 	// so its event streams end and the page reconnects to the next.
 	worlds  *worlds

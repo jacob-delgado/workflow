@@ -5,8 +5,11 @@ package webserver_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"net/http"
 	"slices"
+	"sync/atomic"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/api"
@@ -14,6 +17,7 @@ import (
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
 	"github.com/jacob-delgado/workflow/internal/loop"
+	"github.com/jacob-delgado/workflow/internal/seams"
 	"github.com/jacob-delgado/workflow/internal/webserver"
 	"github.com/jacob-delgado/workflow/internal/webserver/webtest"
 )
@@ -315,6 +319,154 @@ func TestSnapshotReadsTheAnnounceStageInFlightWhileAnAnnouncementWaitsForCI(t *t
 	// Assert
 	if got := stageOf(t, stages, api.StageStepAnnounce).State; got != api.StageStateInFlight {
 		t.Errorf("announce stage = %s while an announcement waits for CI, want in_flight", got)
+	}
+}
+
+// postHeldOn is deps whose posts wait on held until it lets them go, as a post
+// under way does.
+func postHeldOn(deps webserver.Deps, held *webtest.HeldCall) webserver.Deps {
+	deps.Messaging.Post = func(ctx context.Context, _, _ string) error { return held.Wait(ctx) }
+
+	return deps
+}
+
+// postingNow sends body to POST /api/announce on handler from a goroutine of
+// the test and waits until its post is under way; the test's cleanup lets the
+// post go and waits for the answer.
+func postingNow(t *testing.T, handler http.Handler, held *webtest.HeldCall, body string) {
+	t.Helper()
+
+	answered := make(chan struct{})
+
+	go func() {
+		defer close(answered)
+
+		webtest.Send(t, handler, http.MethodPost, announcePath, body)
+	}()
+
+	t.Cleanup(func() {
+		close(held.Release)
+		<-answered
+	})
+
+	<-held.Entered
+}
+
+func TestSnapshotReadsTheAnnounceStageInFlightWhileAnAnnouncementIsPostedNow(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		store seams.Store
+	}{
+		"with the store's claim": {store: (&announceMemory{}).bind(webserver.Deps{}).Store},
+		"with no store":          {store: seams.Store{}},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			held := webtest.NewHeld()
+			deps := postHeldOn(webtest.FilledDeps(), held)
+			deps.Store = tt.store
+			handler := webtest.Serve(t, deps, config.Default())
+			postingNow(t, handler, held, `{"channel":""}`)
+
+			// Act
+			frame := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
+
+			// Assert
+			if got := stageOf(t, frame.Stages, api.StageStepAnnounce).State; got != api.StageStateInFlight {
+				t.Errorf("announce stage = %s while the announcement is posted now, want in_flight", got)
+			}
+		})
+	}
+}
+
+// postingHeldNow serves deps, whose CI has passed, arms an announcement for
+// when CI passes, and waits until the arming request's own read is posting it,
+// held on held; the test's cleanup lets the post go.
+func postingHeldNow(t *testing.T, deps webserver.Deps, held *webtest.HeldCall) http.Handler {
+	t.Helper()
+
+	handler := webtest.Serve(t, postHeldOn((&announceMemory{}).bind(deps), held), config.Default())
+	cancelHeld(t, handler)
+
+	body, err := json.Marshal(map[string]string{
+		channelField: slackChannel, textField: previewAnnouncement(t, handler), whenField: whenCIPasses,
+	})
+	if err != nil {
+		t.Fatalf("encoding the announce request: %v", err)
+	}
+
+	postingNow(t, handler, held, string(body))
+
+	return handler
+}
+
+func TestSnapshotReadsTheAnnounceStageInFlightWhileTheHeldAnnouncementIsPosted(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	handler := postingHeldNow(t, webtest.FilledDeps(), webtest.NewHeld())
+
+	// Act
+	frame := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
+
+	// Assert
+	if got := stageOf(t, frame.Stages, api.StageStepAnnounce).State; got != api.StageStateInFlight {
+		t.Errorf("announce stage = %s while the held announcement is posted, want in_flight", got)
+	}
+}
+
+func TestSnapshotReadsTheAnnounceStageInFlightWhileTheHeldPostOfAnEarlierMomentIsUnderWay(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The pull request merges while its held announcement of the ready moment
+	// is posted: nothing is posted, claimed or confirmed at the merged moment
+	// the frame reads, so only the held announcement's announcing state says
+	// the announcement is under way.
+	var merged atomic.Bool
+
+	deps := webtest.FilledDeps()
+	findOpen := deps.Forge.FindPullRequest
+	deps.Forge.FindPullRequest = func(ctx context.Context, branch string) (forge.PullRequest, bool, error) {
+		pull, found, err := findOpen(ctx, branch)
+		if merged.Load() {
+			pull.State = forge.StateMerged
+		}
+
+		return pull, found, err
+	}
+	handler := postingHeldNow(t, deps, webtest.NewHeld())
+
+	merged.Store(true)
+
+	// Act
+	frame := webtest.FirstSnapshot(t, webtest.StreamOnce(t, handler, "/api/events").Body.String())
+
+	// Assert
+	if got := stageOf(t, frame.Stages, api.StageStepAnnounce).State; got != api.StageStateInFlight {
+		t.Errorf("announce stage = %s while the held post of the ready moment is under way, want in_flight", got)
+	}
+}
+
+func TestSnapshotReadsTheAnnounceStageDoneForAPostBegunAndNeverConfirmed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A post claimed and never confirmed may have gone out, here or from a
+	// terminal: with nothing posting it now, it counts as made.
+	memory := &announceMemory{claimed: []loop.Announced{readyAt42()}}
+
+	// Act
+	stages := framedStages(t, memory.bind(webtest.FilledDeps()))
+
+	// Assert
+	if got := stageOf(t, stages, api.StageStepAnnounce).State; got != api.StageStateDone {
+		t.Errorf("announce stage = %s for a post begun and never confirmed, want done", got)
 	}
 }
 

@@ -222,10 +222,13 @@ func (s *server) askHeld() (armed.Ask, armed.Seams) {
 }
 
 // deliverHeld posts the held announcement under ctx, and steps the hold on
-// how it went.
+// how it went. A frame read while it posts reads it under way.
 func (s *server) deliverHeld(ctx context.Context) armed.Next {
 	hold, seams := s.heldNow()
+	ended := s.posts.begin(hold.Delivery().Made())
 	outcome := seams.DeliverHeld(ctx, hold, s.now)
+
+	ended()
 	s.noteDelivered(outcome)
 
 	return s.stepHeld(func(held armed.Hold) (armed.Hold, armed.Next) { return held.Delivered(outcome) })
