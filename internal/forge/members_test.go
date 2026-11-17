@@ -257,3 +257,41 @@ func TestCreateMergeRequestOnGitLabKeepsWhyAGroupNamedAsAUserWasNotRead(t *testi
 		t.Errorf("CreatePullRequest = %v; want platform missed for the rate limit, not as no such user", err)
 	}
 }
+
+func TestCreateMergeRequestOnGitLabAsksWhoTheAuthorIsOnceForEveryTeam(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The token is ben's, and ben is in both teams he asks to review.
+	const dataMembersPath = "/groups/acme%2Fdata/members"
+
+	knowing := gitlabKnowing(nil, map[string]string{
+		membersPath: `[{"id":9,"username":"ben","state":"active","access_level":30},` +
+			`{"id":7,"username":"ana","state":"active","access_level":30}]`,
+		dataMembersPath: `[{"id":5,"username":"cy","state":"active","access_level":30},` +
+			`{"id":9,"username":"ben","state":"active","access_level":30}]`,
+	})
+	client, seen := recordingForge(t, func(asked recorded) (int, string) {
+		if asked.path == userPath {
+			return http.StatusOK, `{"id":9,"username":"ben"}`
+		}
+
+		return knowing(asked)
+	})
+
+	// Act
+	_, err := client.CreatePullRequest(t.Context(), gitlabRepo(), forge.NewPullRequest{
+		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch,
+		TeamReviewers: []string{groupControlPlane, "acme/data"},
+	})
+
+	// Assert
+	opened := requestTo(*seen, gitlabMergesPath)
+	if err != nil || !reflect.DeepEqual(opened.body["reviewer_ids"], []any{float64(7), float64(5)}) {
+		t.Errorf("reviewer_ids = %v, %v; want ana's and cy's, not the author's own", opened.body["reviewer_ids"], err)
+	}
+
+	if asks := requestsTo(*seen, userPath); asks != 1 {
+		t.Errorf("asked %s %d times, want once for both teams", userPath, asks)
+	}
+}

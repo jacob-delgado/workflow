@@ -82,14 +82,46 @@ func gitlabGroupMembers(ctx context.Context, client Client, group string) ([]git
 }
 
 // gitlabReviewers is a new merge request's reviewers as GitLab sets them, by
-// id, each once, and those that could not be resolved, with why. author is the
-// id a group's members are added without, zero for none, once authorAsked.
+// id, each once, and those that could not be resolved, with why. author is
+// who a group's members are added without.
 type gitlabReviewers struct {
 	missedPeople
 
-	ids         []int64
-	author      int64
-	authorAsked bool
+	ids    []int64
+	author authorLookup
+}
+
+// authorStage is how far the author of a new merge request is known: not yet
+// asked for, asked and known by id, or asked and not told.
+type authorStage int
+
+const (
+	authorUnasked authorStage = iota
+	authorKnown
+	authorUnknown
+)
+
+// authorLookup is who the author of a new merge request is, asked once, when
+// a group's members are first added.
+type authorLookup struct {
+	stage authorStage
+	id    int64
+}
+
+// askedAuthor is the lookup once GitLab has answered who the token is: known
+// by the id it gave, or unknown when it did not say, and the author is then
+// left in a team rather than the merge request held back for it.
+func askedAuthor(id int64, err error) authorLookup {
+	if err != nil {
+		return authorLookup{stage: authorUnknown}
+	}
+
+	return authorLookup{stage: authorKnown, id: id}
+}
+
+// is reports whether id is the author's, which only a known author can be.
+func (a authorLookup) is(id int64) bool {
+	return a.stage == authorKnown && a.id == id
 }
 
 // gitlabResolveReviewers resolves each named reviewer by looking the user up,
@@ -159,27 +191,22 @@ func (r *gitlabReviewers) addTeam(ctx context.Context, client Client, team strin
 
 // addMembers adds each member's id but the author's.
 func (r *gitlabReviewers) addMembers(ctx context.Context, client Client, members []gitlabMember) {
-	if !r.authorAsked {
-		r.author, r.authorAsked = gitlabAuthorID(ctx, client), true
+	if r.author.stage == authorUnasked {
+		r.author = askedAuthor(gitlabAuthorID(ctx, client))
 	}
 
 	for _, member := range members {
-		if member.ID != r.author {
+		if !r.author.is(member.ID) {
 			r.add(member.ID)
 		}
 	}
 }
 
-// gitlabAuthorID is the id of the user the token is, or zero when GitLab does
-// not say: the author is then left in a team rather than the merge request
-// held back for it.
-func gitlabAuthorID(ctx context.Context, client Client) int64 {
+// gitlabAuthorID is the id of the user the token is.
+func gitlabAuthorID(ctx context.Context, client Client) (int64, error) {
 	self, err := call[gitlabUser](ctx, client, http.MethodGet, userPath, nil)
-	if err != nil {
-		return 0
-	}
 
-	return self.ID
+	return self.ID, err
 }
 
 // add adds a reviewer's id, unless it is already there.
