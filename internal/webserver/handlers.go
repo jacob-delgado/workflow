@@ -237,6 +237,8 @@ func (s *server) readForge(ctx context.Context, branch gitrepo.Branch) (forgeRea
 		return forgeRead{}, nil
 	}
 
+	ask := s.quiet.ask()
+
 	pull, found, err := s.findPull(ctx, branch.Name)
 	if err != nil || !found {
 		return forgeRead{}, err
@@ -253,10 +255,10 @@ func (s *server) readForge(ctx context.Context, branch gitrepo.Branch) (forgeRea
 
 	status, ciErr := s.deps.Forge.CheckStatus(ctx, pull, branch.Head)
 	if ciErr != nil {
-		read.noCI = s.quiet.unheard().NoCI(pull)
+		read.noCI = s.quiet.unheard(ask).NoCI(pull)
 	} else {
 		read.ci, read.ciRead = status, true
-		read.noCI = s.quiet.heard(pull, status, s.now()).NoCI(pull)
+		read.noCI = s.quiet.heard(ask, pull, status, s.now()).NoCI(pull)
 	}
 
 	read.ciErr = ciErr
