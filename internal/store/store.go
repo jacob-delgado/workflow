@@ -200,6 +200,9 @@ func openCurrent(ctx context.Context, path string) (*sql.DB, error) {
 		return database, nil
 	}
 
+	// Trade-off TRADE-69: a file at another version is remade, so two builds
+	// at different versions used side by side remake each other's at every
+	// switch, each forgetting what the other kept.
 	if state.holdsTables {
 		_ = database.Close()
 

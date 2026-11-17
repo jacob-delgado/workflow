@@ -1787,3 +1787,26 @@ it is shown.
 
 **Reopen when.** A user reports a slow review of a merged pull request, or a
 remote that refuses the forge's pull request refs.
+
+### TRADE-69 Two builds at once remake each other's workflow.db
+
+**Decided.** 2026-11-15 by the maintainer, approving the clients outline's
+D1 as recommended: `openCurrent` (`internal/store/store.go`) discards a
+`workflow.db` that holds tables at a schema version other than this build's,
+and makes it again. Two builds at different versions used side by side, a
+release and a build from source say, each find the other's file at another
+version, so each remakes it in turn. The alternatives were to have a build
+that meets a newer file store nothing, which leaves the store dead after a
+downgrade with nothing to say so, or to teach `workflow doctor` to report the
+file's version, a check every user would run for a setup few have. Running
+two builds at once is a developer's setup, so the remake is kept.
+
+**Cost.** Each switch between the two builds forgets everything
+`workflow.db` holds: the last scope is asked for again, the issue cache
+refills from Jira, and every announcement's claim is gone, so a pull request
+announced before the switch can be offered, and posted, again by hand, as
+TRADE-60 says of any wipe.
+
+**Reopen when.** A user who runs two builds reports a store that keeps
+forgetting, or `workflow doctor` gains a check of the store's version for
+another reason.
