@@ -3,14 +3,16 @@
 
 package directory_test
 
-// A workspace too large to list has its channel's members labeled one by one,
-// waiting as Slack asks between them, but never past the read's own end.
+// A channel's members are labeled from users.list, or in a workspace too large
+// to list one by one, waiting as Slack asks, a minute in all at most, but never
+// past the read's own end.
 
 import (
 	"context"
 	"errors"
 	"slices"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/httpx"
@@ -54,7 +56,7 @@ func TestAMemberSlackAsksToWaitForIsLabeledOnceTheWaitIsOver(t *testing.T) {
 
 	// Arrange
 	slack, client := startSlack(t, tooLargeToList())
-	slack.limit("/users.info?user=U0BOB", 1, "1")
+	slack.limit("/users.info?user=U0BOB", "1")
 
 	slackDirectory, _ := directoryOver(client)
 
@@ -73,7 +75,7 @@ func TestAWaitTooLongFailsTheReadAndKeepsWhoWasLabeled(t *testing.T) {
 
 	// Arrange
 	slack, client := startSlack(t, tooLargeToList())
-	slack.limit("/users.info?user=U0BOB", 1, "3600")
+	slack.limit("/users.info?user=U0BOB", "3600")
 
 	slackDirectory, _ := directoryOver(client)
 	started := time.Now()
@@ -102,7 +104,7 @@ func TestAWaitForSlackEndsWithTheRead(t *testing.T) {
 
 	// Arrange
 	slack, client := startSlack(t, tooLargeToList())
-	slack.limit("/users.info?user=U0BOB", 1, "30")
+	slack.limit("/users.info?user=U0BOB", "30")
 
 	slackDirectory, _ := directoryOver(client)
 	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
@@ -116,3 +118,90 @@ func TestAWaitForSlackEndsWithTheRead(t *testing.T) {
 		t.Errorf("ChannelMembers = %v, want the read's own deadline rather than the whole wait", err)
 	}
 }
+
+func TestAChannelIsLabeledOnceSlacksWaitOnTheUserListIsOver(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		slack := newFakeSlack(directoryBodies())
+		slack.limit("/users.list", "2")
+
+		slackDirectory, _ := directoryOver(slackClient(inProcess(slack.answer), slackBase))
+		started := time.Now()
+
+		// Act
+		members, err := slackDirectory.ChannelMembers(t.Context(), "#dev")
+
+		// Assert
+		want := channelMembers()
+		if err != nil || !slices.Equal(members, want) {
+			t.Errorf("ChannelMembers = %v, %v; want %v after waiting as Slack asked", members, err, want)
+		}
+
+		if waited := time.Since(started); waited < 2*time.Second {
+			t.Errorf("the read waited %s, want the two seconds Slack asked for", waited)
+		}
+
+		if asked := slack.count("/users.list"); asked != 2 {
+			t.Errorf("users.list was asked %d times, want once more after the wait", asked)
+		}
+	})
+}
+
+func TestAWaitOnTheUserListTooLongFailsTheReadAtOnce(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		slack := newFakeSlack(directoryBodies())
+		slack.limit("/users.list", "3600")
+
+		slackDirectory, _ := directoryOver(slackClient(inProcess(slack.answer), slackBase))
+		started := time.Now()
+
+		// Act
+		_, err := slackDirectory.ChannelMembers(t.Context(), "#dev")
+
+		// Assert
+		if !errors.Is(err, httpx.ErrRateLimited) || time.Since(started) > 0 {
+			t.Errorf("ChannelMembers = %v after %s, want Slack's rate limit at once", err, time.Since(started))
+		}
+
+		if asked := slack.count("/users.list"); asked != 1 {
+			t.Errorf("users.list was asked %d times, want once", asked)
+		}
+	})
+}
+
+func TestTheWaitsOfOneLabelingAddUpToAMinuteAtMost(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// Forty seconds on users.list leaves twenty of the minute, too little
+		// for the thirty users.info then asks.
+		slack := newFakeSlack(tooLargeToList())
+		slack.limit("/users.list", "40")
+		slack.limit("/users.info?user=U0BOB", "30")
+
+		slackDirectory, _ := directoryOver(slackClient(inProcess(slack.answer), slackBase))
+		started := time.Now()
+
+		// Act
+		_, err := slackDirectory.ChannelMembers(t.Context(), "#dev")
+
+		// Assert
+		if !errors.Is(err, httpx.ErrRateLimited) {
+			t.Errorf("ChannelMembers = %v, want Slack's rate limit once the minute is spent", err)
+		}
+
+		if waited := time.Since(started); waited != 40*time.Second {
+			t.Errorf("the read waited %s, want the forty seconds on users.list alone", waited)
+		}
+	})
+}
+
+// slackBase is where an in-process Slack is asked: any address, since no
+// request leaves the process.
+const slackBase = "http://slack.invalid"

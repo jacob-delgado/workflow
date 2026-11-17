@@ -207,37 +207,45 @@ func (d *Slack) identity(ctx context.Context) (messaging.Identity, error) {
 
 // label is members under their Slack names, ordered by them: from users.list
 // read whole, or one by one through users.info in a workspace too large to
-// list.
+// list. Both wait as Slack asks, slackPatience in all. A wait on users.list
+// reads it again from its first page, not from the page Slack refused: the
+// listing stops at messaging.UserListPages, set to users.list's budget of a
+// minute, and should the re-read meet Slack's limit again within that same
+// minute, it waits again, still within slackPatience.
 func (d *Slack) label(
 	ctx context.Context, slack messaging.Client, held *heldReads, members []messaging.SlackUserID,
 ) ([]messaging.SlackTarget, error) {
-	users, err := shared(ctx, d, held.users, wholeDirectory, func(ctx context.Context) (roster, error) {
-		return byID(slack.Users(ctx))
+	patience := &waiting{left: slackPatience}
+
+	users, err := patiently(ctx, patience, func() (roster, error) {
+		return shared(ctx, d, held.users, wholeDirectory, func(ctx context.Context) (roster, error) {
+			return byID(slack.Users(ctx))
+		})
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	if users.tooLarge {
-		return d.oneByOne(ctx, slack, held, members)
+		return d.oneByOne(ctx, slack, held, members, patience)
 	}
 
 	return labeled(members, users.labels), nil
 }
 
-// slackPatience is how long labeling a channel one by one waits, in all, on
-// Slack asking it to slow down: users.info is Tier 4, so a large channel can
-// meet the limit, and Slack names a short wait. A longer one fails the read,
-// keeping every member already labeled, so the next read goes on from there.
+// slackPatience is how long labeling a channel waits, in all, on Slack asking
+// it to slow down: users.list is Tier 2 and users.info Tier 4, so a large
+// workspace or channel can meet the limit, and Slack names a short wait. A
+// longer one fails the read, keeping every member already labeled, so the
+// next read goes on from there.
 const slackPatience = time.Minute
 
 // oneByOne labels each member through users.info, reading each once, and
-// waits when Slack asks, while its patience lasts.
+// waits when Slack asks, while patience lasts.
 func (d *Slack) oneByOne(
-	ctx context.Context, slack messaging.Client, held *heldReads, members []messaging.SlackUserID,
+	ctx context.Context, slack messaging.Client, held *heldReads, members []messaging.SlackUserID, patience *waiting,
 ) ([]messaging.SlackTarget, error) {
 	labels := make(map[string]string, len(members))
-	patience := &waiting{left: slackPatience}
 
 	for _, member := range members {
 		found, err := d.profile(ctx, slack, held, member, patience)
@@ -258,10 +266,19 @@ func (d *Slack) oneByOne(
 func (d *Slack) profile(
 	ctx context.Context, slack messaging.Client, held *heldReads, member messaging.SlackUserID, patience *waiting,
 ) (profile, error) {
-	for {
-		found, err := shared(ctx, d, held.profiles, member.String(), func(ctx context.Context) (profile, error) {
+	return patiently(ctx, patience, func() (profile, error) {
+		return shared(ctx, d, held.profiles, member.String(), func(ctx context.Context) (profile, error) {
 			return profileOf(slack.User(ctx, member))
 		})
+	})
+}
+
+// patiently is what read answers, read again after each wait Slack asks for
+// while patience lasts: a longer wait, any other failure, or the end of ctx
+// during a wait is its answer.
+func patiently[V any](ctx context.Context, patience *waiting, read func() (V, error)) (V, error) {
+	for {
+		found, err := read()
 
 		limit, limited := errors.AsType[*httpx.RateLimitError](err)
 		if !limited || !patience.spend(limit.Wait) {
@@ -270,7 +287,9 @@ func (d *Slack) profile(
 
 		err = pause(ctx, limit.Wait)
 		if err != nil {
-			return profile{}, err
+			var none V
+
+			return none, err
 		}
 	}
 }
