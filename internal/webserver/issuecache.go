@@ -25,8 +25,10 @@ import (
 // changes what the tracker answers drops every view, so the next frame
 // searches again. Its lock is its own, since every open stream reads it.
 type issuesCache struct {
-	mu    sync.Mutex
-	pages map[string]heldPage
+	mu sync.Mutex
+	// pages is each view's first page, by its JQL: a view with none held has
+	// no entry.
+	pages map[string]viewPage
 	// reading is each search under way, by its JQL.
 	reading map[string]*landing[jira.SearchResult]
 	// round counts the drops, so a search that began before one lands due.
@@ -37,19 +39,28 @@ type issuesCache struct {
 	// after its own, so the store never ends on an older page than a newer
 	// one it was asked to keep. Each page goes with when it was read, so
 	// the store keeps it over a page another process read earlier.
-	unkept  map[string]heldPage
+	unkept  map[string]viewPage
 	keeping map[string]bool
 }
 
-// heldPage is a view's first page as a search answered it, or why the search
-// failed, when it was made, and whether a drop came during it: a page that
-// says less than the tracker does now, which no frame is served, even while
-// the next search is under way.
-type heldPage struct {
+// newIssuesCache is an issues cache holding no view's page, with no search
+// under way.
+func newIssuesCache() *issuesCache {
+	return &issuesCache{
+		pages: map[string]viewPage{}, reading: map[string]*landing[jira.SearchResult]{},
+		unkept: map[string]viewPage{}, keeping: map[string]bool{},
+	}
+}
+
+// viewPage is a view's first page as a search answered it, or why the search
+// failed, and when it was made. Its stage is answerDue when a drop came during
+// the search: it says less than the tracker does now, so no frame is served
+// it, even while the next search is under way.
+type viewPage struct {
+	stage  answerStage
 	result jira.SearchResult
 	failed error
 	readAt time.Time
-	due    bool
 }
 
 // frameIssues is the first page of the issues jql finds, from the issues
@@ -67,7 +78,7 @@ func (s *server) frameIssues(ctx context.Context, jql string) (jira.SearchResult
 			defer release()
 
 			result, err := s.deps.Jira.Search(shared, jql, 0)
-			s.issuesHeld.land(jql, began, heldPage{result: result, failed: err, readAt: s.now()})
+			s.issuesHeld.land(jql, began, viewPage{result: result, failed: err, readAt: s.now()})
 
 			if err == nil {
 				s.keepFirstPage(shared, jql)
@@ -130,20 +141,15 @@ func (c *issuesCache) serve(jql string, now time.Time, interval time.Duration) t
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	page, held := c.pages[jql]
+	page := c.pages[jql]
 	underWay, reading := c.reading[jql]
 
-	if held && !page.due && (reading || now.Sub(page.readAt) < interval) {
+	if page.stage.serves(reading, now.Sub(page.readAt) < interval) {
 		return turn[jira.SearchResult]{answered: true, value: page.result, failed: page.failed}
 	}
 
 	if reading {
 		return turn[jira.SearchResult]{landing: underWay}
-	}
-
-	if c.reading == nil {
-		c.reading, c.pages = map[string]*landing[jira.SearchResult]{}, map[string]heldPage{}
-		c.unkept, c.keeping = map[string]heldPage{}, map[string]bool{}
 	}
 
 	c.reading[jql] = newLanding[jira.SearchResult]()
@@ -153,14 +159,14 @@ func (c *issuesCache) serve(jql string, now time.Time, interval time.Duration) t
 
 // land holds the page the search of jql begun in round began found, already
 // due when a drop came during it, and lets go every frame waiting on it.
-func (c *issuesCache) land(jql string, began round, page heldPage) {
+func (c *issuesCache) land(jql string, began round, page viewPage) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	c.reading[jql].end()
 	delete(c.reading, jql)
 
-	page.due = c.round != began
+	page.stage = landedAt(began, c.round)
 	c.pages[jql] = page
 
 	if page.failed == nil {
@@ -172,12 +178,12 @@ func (c *issuesCache) land(jql string, began round, page heldPage) {
 // been asked to keep, with when it was read, for it to keep, unless another
 // frame is keeping the view's page, which then keeps this one after its own:
 // ours is false then, and when there is none to keep.
-func (c *issuesCache) startKeeping(jql string) (heldPage, bool) {
+func (c *issuesCache) startKeeping(jql string) (viewPage, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if c.keeping[jql] {
-		return heldPage{}, false
+		return viewPage{}, false
 	}
 
 	return c.takeUnkept(jql)
@@ -186,7 +192,7 @@ func (c *issuesCache) startKeeping(jql string) (heldPage, bool) {
 // nextToKeep is the page of jql that landed while the caller kept the one
 // before, for it to keep next, or false once none did, when the view is left
 // for the next frame to keep.
-func (c *issuesCache) nextToKeep(jql string) (heldPage, bool) {
+func (c *issuesCache) nextToKeep(jql string) (viewPage, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -196,7 +202,7 @@ func (c *issuesCache) nextToKeep(jql string) (heldPage, bool) {
 // takeUnkept takes the newest page of jql the store has not been asked to
 // keep, and marks the view as being kept while there is one. It runs under
 // mu.
-func (c *issuesCache) takeUnkept(jql string) (heldPage, bool) {
+func (c *issuesCache) takeUnkept(jql string) (viewPage, bool) {
 	page, waiting := c.unkept[jql]
 	delete(c.unkept, jql)
 	c.keeping[jql] = waiting
