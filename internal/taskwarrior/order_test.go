@@ -145,7 +145,9 @@ func TestATaskStateIsWordedAsTheListShowsIt(t *testing.T) {
 		"a started task":      {taskwarrior.Task{Status: taskwarrior.Pending, Start: orderNow()}, "started"},
 		"a pending task":      {taskwarrior.Task{Status: taskwarrior.Pending}, string(taskwarrior.Pending)},
 		"a waiting task":      {taskwarrior.Task{Status: taskwarrior.Waiting}, string(taskwarrior.Waiting)},
+		"a recurring task":    {taskwarrior.Task{Status: taskwarrior.Recurring}, string(taskwarrior.Recurring)},
 		"a completed task":    {taskwarrior.Task{Status: taskwarrior.Completed}, string(taskwarrior.Completed)},
+		"a deleted task":      {taskwarrior.Task{Status: taskwarrior.Deleted}, string(taskwarrior.Deleted)},
 		"a status unheard of": {taskwarrior.Task{Status: "invented"}, "unknown"},
 	}
 
@@ -159,6 +161,55 @@ func TestATaskStateIsWordedAsTheListShowsIt(t *testing.T) {
 			// Assert
 			if got != testCase.want {
 				t.Errorf("State = %q, want %q", got, testCase.want)
+			}
+		})
+	}
+}
+
+func TestAStateOutsideTheListIsWordedAsUnknownIs(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	want := taskwarrior.StateUnknown.String()
+
+	// Act
+	got := (taskwarrior.StateUnknown + 1).String()
+
+	// Assert
+	if got != want {
+		t.Errorf("a state past the last = %q, want %q, as StateUnknown is worded", got, want)
+	}
+}
+
+func TestATaskIsStillToDoAndOfferableByItsStatus(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		status               taskwarrior.Status
+		stillToDo, offerable bool
+	}{
+		"a pending task": {taskwarrior.Pending, true, true},
+		"a waiting task": {taskwarrior.Waiting, true, true},
+		"a recurring template, which no offer changes": {taskwarrior.Recurring, true, false},
+		"a completed task": {taskwarrior.Completed, false, false},
+		"a deleted task":   {taskwarrior.Deleted, false, false},
+		"a status unheard of, still to do as a synced replica may say": {"invented", true, true},
+	}
+
+	for name, testCase := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange
+			task := taskwarrior.Task{Status: testCase.status}
+
+			// Act
+			stillToDo, offerable := task.StillToDo(), task.Offerable()
+
+			// Assert
+			if stillToDo != testCase.stillToDo || offerable != testCase.offerable {
+				t.Errorf("StillToDo, Offerable = %t, %t; want %t, %t",
+					stillToDo, offerable, testCase.stillToDo, testCase.offerable)
 			}
 		})
 	}

@@ -26,14 +26,26 @@ const (
 	StateUnknown
 )
 
-// String is the state as the list words it.
+// String is the state as the list words it; a value outside the list is
+// worded as StateUnknown is.
 func (s State) String() string {
-	words := [...]string{"started", "pending", "waiting", "recurring", "completed", "deleted", "unknown"}
-	if s < 0 || int(s) >= len(words) {
-		return "unknown"
+	switch s {
+	case StateStarted:
+		return "started"
+	case StatePending:
+		return string(Pending)
+	case StateWaiting:
+		return string(Waiting)
+	case StateRecurring:
+		return string(Recurring)
+	case StateCompleted:
+		return string(Completed)
+	case StateDeleted:
+		return string(Deleted)
+	case StateUnknown:
 	}
 
-	return words[s]
+	return "unknown"
 }
 
 // State is where the task stands at now.

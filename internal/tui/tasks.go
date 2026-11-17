@@ -313,20 +313,13 @@ func (s tasksState) standing(issueKey jira.Key, now time.Time) places.TaskStandi
 	switch {
 	case slices.ContainsFunc(linked, startedAt(now)):
 		return places.TaskActiveNow
-	case slices.ContainsFunc(linked, stillToDo):
+	case slices.ContainsFunc(linked, taskwarrior.Task.StillToDo):
 		return places.TaskTracked
 	case len(linked) > 0:
 		return places.TaskDoneOnly
 	default:
 		return places.TaskNone
 	}
-}
-
-// stillToDo reports a task not completed — pending, waiting or recurring — which
-// is what tracks the issue it is linked to, for the issue's mark and its track
-// key alike.
-func stillToDo(task taskwarrior.Task) bool {
-	return task.Status != taskwarrior.Completed
 }
 
 // linkedTo is every task linked to an issue.
@@ -415,7 +408,7 @@ func linkedTaskNote(task taskwarrior.Task, now time.Time) string {
 	switch {
 	case task.Started(now):
 		return "started " + elapsed(task.Start, now) + " ago"
-	case task.Status != taskwarrior.Completed && !task.Due.IsZero():
+	case task.StillToDo() && !task.Due.IsZero():
 		return dueIn(task.Due, now)
 	default:
 		return ""
