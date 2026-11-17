@@ -66,6 +66,21 @@ func (t Task) Waiting(now time.Time) bool {
 	return t.Status == Waiting || (t.Status == Pending && t.Wait.After(now))
 }
 
+// StillToDo reports a task not yet finished: neither completed nor deleted.
+// A pending, waiting or recurring task is still to do, and so is one whose
+// status this version does not know, which a synced replica can carry: it
+// still tracks the issue it is linked to.
+func (t Task) StillToDo() bool {
+	return t.Status != Completed && t.Status != Deleted
+}
+
+// Offerable reports a task still to do that may be started, stopped,
+// annotated or completed: any but a recurring task's template, which its
+// instances are made from and which is never started or done itself.
+func (t Task) Offerable() bool {
+	return t.StillToDo() && t.Status != Recurring
+}
+
 // Linked reports a task that names a Jira issue.
 func (t Task) Linked() bool {
 	return t.IssueKey != ""

@@ -262,7 +262,7 @@ func (s tasksState) following(groups taskGroups, rows int) tasksState {
 // the issue's mark counts it — one the Tasks pane lists where there is one, and
 // whether any task tracks it.
 func (m Model) trackingTask(issueKey jira.Key) (taskwarrior.Task, bool) {
-	return m.trackingAmong(issueKey, stillToDo)
+	return m.trackingAmong(issueKey, taskwarrior.Task.StillToDo)
 }
 
 // trackingAmong is trackingTask among the tasks linked to an issue that
@@ -308,7 +308,7 @@ func (m Model) goToTrackingTask(issueKey jira.Key, task taskwarrior.Task) Model 
 // whenever there is one.
 func (s tasksState) listedTracking(issueKey jira.Key, groups taskGroups) (taskwarrior.Task, bool) {
 	for _, task := range s.linkedTo(issueKey) {
-		if stillToDo(task) && groups.lists(task.UUID) {
+		if task.StillToDo() && groups.lists(task.UUID) {
 			return task, true
 		}
 	}

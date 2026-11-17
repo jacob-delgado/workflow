@@ -34,6 +34,10 @@ const trackHelp = "track in Taskwarrior"
 // issue.
 const untrackedTaskUUID = "5f1c2b3a-7d4e-4f60-8a9b-000000000044"
 
+// stagingKeysTaskUUID is the uuid of task 45, which a test links to the
+// untracked issue beside task 44.
+const stagingKeysTaskUUID = "5f1c2b3a-7d4e-4f60-8a9b-000000000045"
+
 // taskForTheUntrackedIssue is task 44, pending and linked to the untracked
 // issue, for a test to change and place among the world's tasks.
 func taskForTheUntrackedIssue() taskwarrior.Task {
@@ -244,7 +248,7 @@ func TestTrackGoesToTheListedTaskOfTheIssuesTasks(t *testing.T) {
 	waiting := taskForTheUntrackedIssue()
 	waiting.Wait = testNow().Add(72 * time.Hour)
 	listed := taskForTheUntrackedIssue()
-	listed.UUID, listed.ID, listed.Description = "5f1c2b3a-7d4e-4f60-8a9b-000000000045", 45, "Rotate the staging keys"
+	listed.UUID, listed.ID, listed.Description = stagingKeysTaskUUID, 45, "Rotate the staging keys"
 	repo.tasks.pending = append(repo.tasks.pending, waiting, listed)
 	repo.tasks.linked = append(repo.tasks.linked, waiting, listed)
 	model := typing(t, repo.live(t, 200, 40), selectTheUntrackedIssue()...)
@@ -255,6 +259,31 @@ func TestTrackGoesToTheListedTaskOfTheIssuesTasks(t *testing.T) {
 	// Assert
 	requireScreen(t, view, focused(tasksTitle), "▸ ○  45 Rotate the staging keys")
 	refuseScreen(t, view, "is tracked by task")
+}
+
+func TestTrackPassesOverAListedTaskTheLinkedReadSawCompleted(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Task 44 was completed between the pending read, which lists it, and the
+	// linked read, which saw it done; task 45, for the same issue, is still
+	// to do in both.
+	repo := withAnUntrackedIssue()
+	listedThenDone := taskForTheUntrackedIssue()
+	listedThenDone.Urgency = 9
+	completed := listedThenDone
+	completed.Status = taskwarrior.Completed
+	stillToDo := taskForTheUntrackedIssue()
+	stillToDo.UUID, stillToDo.ID, stillToDo.Description = stagingKeysTaskUUID, 45, "Rotate the staging keys"
+	repo.tasks.pending = append(repo.tasks.pending, listedThenDone, stillToDo)
+	repo.tasks.linked = append(repo.tasks.linked, completed, stillToDo)
+	model := typing(t, repo.live(t, 200, 40), selectTheUntrackedIssue()...)
+
+	// Act
+	view := typing(t, model, "T").View().Content
+
+	// Assert
+	requireScreen(t, view, focused(tasksTitle), "▸ ○  45 Rotate the staging keys")
 }
 
 func TestTrackOnAnIssueWhoseTasksAreAllCompletedOpensTheLine(t *testing.T) {

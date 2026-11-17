@@ -25,13 +25,11 @@ func (s tasksState) canOffer(deps Deps) bool {
 	return deps.Tasks.Start != nil && s.answered()
 }
 
-// offerable reports a task an offer may change: still to do, not a recurring
-// task's template, which its instances are made from and which is never
-// started or done itself, and not one a done has just marked, which the list
-// still shows as the read before the done had it, and which the read after it
-// shows done.
+// offerable reports a task an offer may change: one taskwarrior.Task.Offerable
+// admits, and not one a done has just marked, which the list still shows as
+// the read before the done had it, and which the read after it shows done.
 func (s tasksState) offerable(task taskwarrior.Task) bool {
-	return stillToDo(task) && task.Status != taskwarrior.Recurring && !s.justMarkedDone(task.UUID)
+	return task.Offerable() && !s.justMarkedDone(task.UUID)
 }
 
 // trackedOnlyOutOfReach reports that an issue is tracked, as last read, only by
@@ -39,7 +37,7 @@ func (s tasksState) offerable(task taskwarrior.Task) bool {
 // still, or tasks a done has just marked, which the read after the done shows
 // tracking it no more. Nothing is offered for it then, not even a new track.
 func (s tasksState) trackedOnlyOutOfReach(issueKey jira.Key) bool {
-	tracking := slices.DeleteFunc(s.linkedTo(issueKey), func(task taskwarrior.Task) bool { return !stillToDo(task) })
+	tracking := slices.DeleteFunc(s.linkedTo(issueKey), func(task taskwarrior.Task) bool { return !task.StillToDo() })
 
 	return len(tracking) > 0 && !slices.ContainsFunc(tracking, s.offerable)
 }
