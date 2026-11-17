@@ -48,9 +48,7 @@ func keptIn(t *testing.T, home string) store.Store {
 
 // anaLinked is ana linked to her Slack user.
 func anaLinked() store.OwnerLink {
-	return store.OwnerLink{
-		Owner: "ana", Team: false, OnSlack: true, Slack: store.SlackTarget{ID: "U0ANA", Label: "Ana Souza"},
-	}
+	return store.OnSlackAs("ana", false, store.SlackTarget{ID: "U0ANA", Label: "Ana Souza"})
 }
 
 // requireSeeded fails the test at the first seed of the kept store that failed.
@@ -206,10 +204,7 @@ func TestAnnounceTagsALinkedTeamAsItsGroupAlone(t *testing.T) {
 	repo := clitest.OwnedRepo(t)
 	clitest.WriteFile(t, repo, clitest.SlackLoggedInConfig())
 	home := t.TempDir()
-	team := store.OwnerLink{
-		Owner: "acme/control-plane", Team: true, OnSlack: true,
-		Slack: store.SlackTarget{ID: "S0CP", Label: "control-plane"},
-	}
+	team := store.OnSlackAs("acme/control-plane", true, store.SlackTarget{ID: "S0CP", Label: "control-plane"})
 	requireSeeded(t,
 		keptIn(t, home).LinkOwner(t.Context(), "github.com", clitest.SlackWorkspace, team, time.Now()))
 

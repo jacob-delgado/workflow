@@ -70,12 +70,12 @@ func TestLinkingASharedIDInAnotherWorkspaceKeepsTheFirstWorkspacesLink(t *testin
 	inB, errB := kept.OwnerLinks(t.Context(), forgeHost, workspaceB)
 
 	// Assert
-	wantA := []store.OwnerLink{{Owner: anaOwner, OnSlack: true, Slack: *gridUser()}}
+	wantA := []store.OwnerLink{store.OnSlackAs(anaOwner, false, *gridUser())}
 	if errA != nil || !slices.Equal(inA, wantA) {
 		t.Errorf("OwnerLinks in A = %+v, %v; want %+v", inA, errA, wantA)
 	}
 
-	wantB := []store.OwnerLink{{Owner: boOwner, OnSlack: true, Slack: *gridUser()}}
+	wantB := []store.OwnerLink{store.OnSlackAs(boOwner, false, *gridUser())}
 	if errB != nil || !slices.Equal(inB, wantB) {
 		t.Errorf("OwnerLinks in B = %+v, %v; want %+v", inB, errB, wantB)
 	}

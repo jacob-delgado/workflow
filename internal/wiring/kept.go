@@ -129,20 +129,22 @@ func fromStoreLinks(links []store.OwnerLink) []loop.OwnerLink {
 
 // fromStoreLink maps one owner link the store kept to the decision it is.
 func fromStoreLink(link store.OwnerLink) loop.OwnerLink {
-	if !link.OnSlack {
-		return loop.NotOnSlack(link.Owner, link.Team)
+	target, onSlack := link.OnSlack()
+	if !onSlack {
+		return loop.NotOnSlack(link.Owner(), link.Team())
 	}
 
-	return loop.OnSlackAs(link.Owner, link.Team, loop.SlackTarget(link.Slack))
+	return loop.OnSlackAs(link.Owner(), link.Team(), loop.SlackTarget(target))
 }
 
 // toStoreLink maps a decision about an owner to the store's.
 func toStoreLink(decision loop.OwnerLink) store.OwnerLink {
 	target, onSlack := decision.OnSlack()
-
-	return store.OwnerLink{
-		Owner: decision.Owner(), Team: decision.Team(), OnSlack: onSlack, Slack: store.SlackTarget(target),
+	if !onSlack {
+		return store.NotOnSlack(decision.Owner(), decision.Team())
 	}
+
+	return store.OnSlackAs(decision.Owner(), decision.Team(), store.SlackTarget(target))
 }
 
 // fromStoreTargets maps the store's Slack targets to the loop's.
