@@ -273,9 +273,10 @@ type Store struct {
 	// CachedIssues is the issue list last seen for a view, so it can be shown at
 	// once before the tracker answers.
 	CachedIssues func(ctx context.Context, view string) ([]jira.Issue, bool)
-	// CacheIssues remembers the issue list just seen for a view, and says why
-	// it could not.
-	CacheIssues func(ctx context.Context, view string, issues []jira.Issue) error
+	// CacheIssues remembers the issue list for a view as it was read at
+	// readAt, unless a list read later is kept already, and says why it
+	// could not.
+	CacheIssues func(ctx context.Context, view string, issues []jira.Issue, readAt time.Time) error
 	// OwnerLinks is every forge owner decided on this repository's forge host
 	// as a Slack workspace, Messaging.Workspace, sees them: whom each is on
 	// Slack there, or that they are not on Slack there. An owner decided only

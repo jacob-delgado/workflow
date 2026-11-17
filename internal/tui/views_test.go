@@ -7,6 +7,7 @@ import (
 	"context"
 	"slices"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -246,7 +247,7 @@ func TestAViewsIssuesAreCachedUnderTheScopedQuery(t *testing.T) {
 
 	var cachedUnder []string
 
-	deps.Store.CacheIssues = func(_ context.Context, view string, _ []jira.Issue) error {
+	deps.Store.CacheIssues = func(_ context.Context, view string, _ []jira.Issue, _ time.Time) error {
 		cachedUnder = append(cachedUnder, view)
 
 		return nil
@@ -259,5 +260,35 @@ func TestAViewsIssuesAreCachedUnderTheScopedQuery(t *testing.T) {
 	// Assert
 	if want := []string{scopedSprintJQL}; !slices.Equal(cachedUnder, want) {
 		t.Errorf("the issues were cached under %q, want %q", cachedUnder, want)
+	}
+}
+
+func TestAnIssueListIsCachedWithTheTimeItWasTaken(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The store keeps the later of two lists by when each was read, so the
+	// write carries the time the update loop took the page, not the time
+	// the write ran.
+	repo := newWorld()
+	deps := repo.deps()
+	taken := testNow().Add(time.Minute)
+	deps.Clock = func() time.Time { return taken }
+
+	var readAt []time.Time
+
+	deps.Store.CacheIssues = func(_ context.Context, _ string, _ []jira.Issue, read time.Time) error {
+		readAt = append(readAt, read)
+
+		return nil
+	}
+	model := sized(t, tui.New(repo.cfg, nil, deps), 120, 40)
+
+	// Act
+	drain(t, model, model.Init())
+
+	// Assert
+	if want := []time.Time{taken}; !slices.EqualFunc(readAt, want, time.Time.Equal) {
+		t.Errorf("the issue list was cached as read at %v, want %v", readAt, want)
 	}
 }

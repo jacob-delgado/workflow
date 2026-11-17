@@ -1813,3 +1813,31 @@ TRADE-60 says of any wipe.
 **Reopen when.** A user who runs two builds reports a store that keeps
 forgetting, or `workflow doctor` gains a check of the store's version for
 another reason.
+
+### TRADE-70 Two wirings reading one view within one second keep the last list written
+
+**Decided.** 2026-11-15 by the maintainer, approving the clients outline's
+D4 as recommended: the issue cache keeps the list read later, by the time
+each was read. Within one wiring, a session's seams as `internal/wiring`
+binds them, `issueCacheOrder` (`internal/wiring/store.go`) writes each
+view's lists in read order, by the clock's monotonic reading, and drops one
+read before the one last written. Across wirings, whether two processes or a
+surface wired again by a directory switch, the store compares `cached_at`,
+RFC3339 seconds, and replaces a list only with one read no earlier
+(`writeCachedIssues`, `internal/store/cache.go`). The order is not held for
+the whole process: that would put state on `wiring.Environment`, which
+describes the process and is built in `main`, the command line and every
+test. Sub-second text would bump the schema and break the store's one
+timestamp rule, and RFC3339 with fractions does not sort as time does
+(`…:03Z` sorts after `…:03.1Z`).
+
+**Cost.** Two processes, the terminal and the web server say, that read one
+view within the same second keep whichever list was written last, which may
+be the one read first. So do two wirings of one process: a terminal or web
+server switching directory, which wires it again, whose first read of a view
+lands within a second of the last read before the switch, still being
+written. The next read of the view, an interval later at most, replaces it.
+
+**Reopen when.** A user reports a session opening on an older issue list than
+the one another surface just showed, or `workflow.db` changes its timestamp
+format for another reason.

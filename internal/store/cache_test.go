@@ -6,6 +6,7 @@ package store_test
 import (
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/store"
 )
@@ -56,6 +57,30 @@ func TestReCachingReplacesTheList(t *testing.T) {
 	// Assert
 	if !slices.Equal(got, []store.CachedIssue{issue("PROJ-9")}) {
 		t.Errorf("CachedIssues = %v, want only the re-cached list, not appended", got)
+	}
+}
+
+func TestAListReadEarlierDoesNotReplaceOneReadLater(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Two reads of one view land out of order: the newer list, read a
+	// second after the older, is written first.
+	kept := store.New(t.TempDir(), store.ModeWrites)
+	newer := []store.CachedIssue{issue("NEW-1"), issue("NEW-2")}
+
+	err := kept.CacheIssues(t.Context(), instance, "assigned", newer, theTime().Add(time.Second))
+	if err != nil {
+		t.Fatalf("caching the newer list: %v", err)
+	}
+
+	// Act
+	err = kept.CacheIssues(t.Context(), instance, "assigned", []store.CachedIssue{issue("OLD-1")}, theTime())
+
+	// Assert
+	got, _, readErr := kept.CachedIssues(t.Context(), instance, "assigned")
+	if err != nil || readErr != nil || !slices.Equal(got, newer) {
+		t.Errorf("CachedIssues = %v (%v, %v); want the list read later, %v", got, err, readErr, newer)
 	}
 }
 

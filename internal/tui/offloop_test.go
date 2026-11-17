@@ -11,6 +11,7 @@ package tui_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/forge"
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -67,10 +68,10 @@ func heldIssueCache(deps *tui.Deps, held *hold) {
 
 		return read(ctx, jql)
 	}
-	deps.Store.CacheIssues = func(ctx context.Context, jql string, issues []jira.Issue) error {
+	deps.Store.CacheIssues = func(ctx context.Context, jql string, issues []jira.Issue, readAt time.Time) error {
 		held.wait()
 
-		return write(ctx, jql, issues)
+		return write(ctx, jql, issues, readAt)
 	}
 }
 

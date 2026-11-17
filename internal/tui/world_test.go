@@ -455,7 +455,7 @@ func (w *world) storeDeps() seams.Store {
 		CachedIssues: func(_ context.Context, _ string) ([]jira.Issue, bool) {
 			return w.cachedIssues, len(w.cachedIssues) > 0
 		},
-		CacheIssues: func(_ context.Context, _ string, issues []jira.Issue) error {
+		CacheIssues: func(_ context.Context, _ string, issues []jira.Issue, _ time.Time) error {
 			w.record("cache " + strconv.Itoa(len(issues)))
 
 			return w.storeErr

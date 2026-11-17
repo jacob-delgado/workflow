@@ -23,10 +23,12 @@ import (
 )
 
 // keptList is one list the store was asked to keep: the view's JQL, the keys
-// of its issues, and how the context it was kept under stood.
+// of its issues, when it was read, and how the context it was kept under
+// stood.
 type keptList struct {
 	jql    string
 	keys   []jira.Key
+	readAt time.Time
 	ctxErr error
 }
 
@@ -40,7 +42,7 @@ type keptLists struct {
 
 // keep is the store's CacheIssues, recording what it was asked and failing
 // with the record's err.
-func (k *keptLists) keep(ctx context.Context, jql string, issues []jira.Issue) error {
+func (k *keptLists) keep(ctx context.Context, jql string, issues []jira.Issue, readAt time.Time) error {
 	keys := make([]jira.Key, 0, len(issues))
 	for _, issue := range issues {
 		keys = append(keys, issue.Key)
@@ -49,7 +51,7 @@ func (k *keptLists) keep(ctx context.Context, jql string, issues []jira.Issue) e
 	k.mu.Lock()
 	defer k.mu.Unlock()
 
-	k.kept = append(k.kept, keptList{jql: jql, keys: keys, ctxErr: ctx.Err()})
+	k.kept = append(k.kept, keptList{jql: jql, keys: keys, readAt: readAt, ctxErr: ctx.Err()})
 
 	return k.err
 }
@@ -129,6 +131,27 @@ func TestAViewsFirstPageIsKeptOnceASearch(t *testing.T) {
 	// Assert: a keep for each search, not for each frame
 	if got := len(kept.all()); got != 2 {
 		t.Errorf("kept %d after the interval, want 2", got)
+	}
+}
+
+func TestAViewsFirstPageIsKeptWithTheTimeItWasRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The store keeps the later of two lists by when each was read, so the
+	// page goes to it with the time its search landed, by the server's
+	// clock.
+	clock, tracker, kept := newSharedClock(), &countedSearch{}, &keptLists{}
+	deps := tracker.wire(webtest.FilledDeps(), clock)
+	deps.Store.CacheIssues = kept.keep
+
+	// Act
+	webtest.StreamOnce(t, webtest.Serve(t, deps, config.Default()), "/api/events")
+
+	// Assert
+	got := kept.all()
+	if len(got) != 1 || !got[0].readAt.Equal(clock.read()) {
+		t.Errorf("kept %+v, want the first page once, read at %v", got, clock.read())
 	}
 }
 

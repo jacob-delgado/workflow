@@ -12,6 +12,7 @@ import (
 	"sync"
 	"testing"
 	"testing/synctest"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
 	"github.com/jacob-delgado/workflow/internal/jira"
@@ -54,7 +55,7 @@ func TestTheStoreKeepsTheNewerSearchWhenTheOlderOnesKeepEndsLast(t *testing.T) {
 		holdFirst := heldOnCall(1, held)
 		deps := formDeps(&issueWrites{})
 		deps.Jira.Transition, deps.Jira.Search = tracker.transition, tracker.search
-		deps.Store.CacheIssues = func(ctx context.Context, _ string, issues []jira.Issue) error {
+		deps.Store.CacheIssues = func(ctx context.Context, _ string, issues []jira.Issue, _ time.Time) error {
 			err := holdFirst(ctx)
 			if err == nil {
 				kept.keep(issues)

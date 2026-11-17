@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/charmbracelet/x/ansi"
 
@@ -92,7 +93,7 @@ func issueListKept(t *testing.T, dir string) clitest.Place {
 	// own, narrowed to the user's issues.
 	kept := []jira.Issue{{Key: "PROJ-9", Summary: keptSummary}}
 
-	err = deps.Store.CacheIssues(t.Context(), jira.ScopedToMe(keptView), kept)
+	err = deps.Store.CacheIssues(t.Context(), jira.ScopedToMe(keptView), kept, time.Now())
 	if err != nil {
 		t.Fatalf("keeping the issue list: %v", err)
 	}

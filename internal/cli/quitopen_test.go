@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/jacob-delgado/workflow/internal/cli"
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -71,7 +72,7 @@ func interfaceOpening(open func(context.Context, string) error, listed func(), k
 				BrowseURL: func(key jira.Key) string { return "https://jira.example.com/browse/" + string(key) },
 			},
 			Store: seams.Store{
-				CacheIssues: func(context.Context, string, []jira.Issue) error {
+				CacheIssues: func(context.Context, string, []jira.Issue, time.Time) error {
 					listed()
 
 					return nil

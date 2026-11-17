@@ -55,7 +55,9 @@ func sharedReads() map[string]func(deps *webserver.Deps, held func(context.Conte
 			}
 		},
 		"the store's keeping of a view's first page": func(deps *webserver.Deps, held func(context.Context) error) {
-			deps.Store.CacheIssues = func(ctx context.Context, _ string, _ []jira.Issue) error { return held(ctx) }
+			deps.Store.CacheIssues = func(ctx context.Context, _ string, _ []jira.Issue, _ time.Time) error {
+				return held(ctx)
+			}
 		},
 		"the ask of which issues are yours": func(deps *webserver.Deps, held func(context.Context) error) {
 			answer := deps.Jira.SearchLenient
