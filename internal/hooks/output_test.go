@@ -41,16 +41,23 @@ summary: (done in 0.06 seconds)
 🥊 fails (0.01 seconds)`, "\n")
 }
 
+// The jobs lefthookRun runs.
+const (
+	skippedJob = "skipped"
+	passingJob = "passes"
+	failingJob = "fails"
+)
+
 // lefthookRunJobs are the jobs of lefthookRun, as its summary reports them.
 func lefthookRunJobs() []hooks.Job {
 	return []hooks.Job{
-		{Name: "skipped", State: hooks.JobSkipped, Duration: ""},
-		{Name: "passes", State: hooks.JobPassed, Duration: "0.01 seconds"},
-		{Name: "fails", State: hooks.JobFailed, Duration: "0.01 seconds"},
+		{Name: skippedJob, State: hooks.JobSkipped, Duration: ""},
+		{Name: passingJob, State: hooks.JobPassed, Duration: "0.01 seconds"},
+		{Name: failingJob, State: hooks.JobFailed, Duration: "0.01 seconds"},
 	}
 }
 
-func TestNextJobReadsHowEachJobEnded(t *testing.T) {
+func TestAJobTrackReadsHowEachJobEnded(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]struct {
@@ -63,9 +70,9 @@ func TestNextJobReadsHowEachJobEnded(t *testing.T) {
 		"a run before its summary": {
 			lines: lefthookRun()[:8],
 			want: []hooks.Job{
-				{Name: "skipped", State: hooks.JobSkipped, Duration: ""},
-				{Name: "passes", State: hooks.JobRunning, Duration: ""},
-				{Name: "fails", State: hooks.JobRunning, Duration: ""},
+				{Name: skippedJob, State: hooks.JobSkipped, Duration: ""},
+				{Name: passingJob, State: hooks.JobRunning, Duration: ""},
+				{Name: failingJob, State: hooks.JobRunning, Duration: ""},
 			},
 		},
 		// With --colors=off lefthook marks the summary with plain check marks.
@@ -96,31 +103,66 @@ func TestNextJobReadsHowEachJobEnded(t *testing.T) {
 
 			// Act
 			var (
-				got       []hooks.Job
-				inSummary bool
-				altered   []string
+				track   hooks.JobTrack
+				altered []string
 			)
 
 			for _, line := range tt.lines {
-				given := slices.Clone(got)
-				next, nextInSummary := hooks.NextJob(got, inSummary, line)
+				given := track.Jobs()
+				next := track.Next(line)
 
-				if !slices.Equal(got, given) {
+				if !slices.Equal(track.Jobs(), given) {
 					altered = append(altered, line)
 				}
 
-				got, inSummary = next, nextInSummary
+				track = next
 			}
 
 			// Assert
-			if !slices.Equal(got, tt.want) {
-				t.Errorf("NextJob folded to %+v\nwant           %+v", got, tt.want)
+			if got := track.Jobs(); !slices.Equal(got, tt.want) {
+				t.Errorf("JobTrack folded to %+v\nwant            %+v", got, tt.want)
 			}
 
 			if len(altered) > 0 {
-				t.Errorf("NextJob changed the jobs it was given on the lines %q", altered)
+				t.Errorf("Next changed the track it was called on at the lines %q", altered)
 			}
 		})
+	}
+}
+
+// folded is a track with every line folded in.
+func folded(lines []string) hooks.JobTrack {
+	var track hooks.JobTrack
+	for _, line := range lines {
+		track = track.Next(line)
+	}
+
+	return track
+}
+
+// A job lefthook never reported on is going no longer once its run has ended,
+// and nothing said how it ended; one it reported keeps what it said.
+func TestARunsEndLeavesAJobStillRunningUnreported(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	running := folded(lefthookRun()[:8])
+
+	// Act
+	ended := running.Ended()
+
+	// Assert
+	want := []hooks.Job{
+		{Name: skippedJob, State: hooks.JobSkipped, Duration: ""},
+		{Name: passingJob, State: hooks.JobUnreported, Duration: ""},
+		{Name: failingJob, State: hooks.JobUnreported, Duration: ""},
+	}
+	if got := ended.Jobs(); !slices.Equal(got, want) {
+		t.Errorf("Ended = %+v\nwant    %+v", got, want)
+	}
+
+	if got := running.Jobs(); got[1].State != hooks.JobRunning {
+		t.Errorf("Ended changed the track it was called on to %+v", got)
 	}
 }
 
