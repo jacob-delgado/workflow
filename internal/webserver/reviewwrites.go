@@ -205,12 +205,15 @@ func (q *headQuiet) heard(pull forge.PullRequest, run forge.CI, readAt time.Time
 	return q.watch
 }
 
-// unheard adds a read of CI that failed, which counts no quiet across it.
-func (q *headQuiet) unheard() {
+// unheard adds a read of CI that failed, which counts no quiet across it, and
+// answers the watch it leaves.
+func (q *headQuiet) unheard() armed.HeadWatch {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
 	q.watch = q.watch.Unheard()
+
+	return q.watch
 }
 
 // permittedMethods is the merge methods the repository permits, or
