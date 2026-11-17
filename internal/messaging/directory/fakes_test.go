@@ -20,20 +20,14 @@ import (
 
 // fakeSlack is a stand-in Slack Web API answering each directory read from a
 // body keyed by its path, and counting the requests made to each. A path it
-// holds answers only once released.
+// holds answers only once released, and a key it limits answers its next
+// request with a 429 naming the Retry-After limited keeps for it.
 type fakeSlack struct {
 	lock    sync.Mutex
 	bodies  map[string]string
 	asked   map[string]int
 	held    map[string]*gate
-	limited map[string]limit
-}
-
-// limit is a path and user Slack asks to wait on: the next times answers
-// are 429s naming retryAfter.
-type limit struct {
-	times      int
-	retryAfter string
+	limited map[string]string
 }
 
 // gate holds a path's answers: arrived closes on the first request to it, and
@@ -74,7 +68,19 @@ func startSlack(t *testing.T, bodies map[string]string) (*fakeSlack, messaging.C
 
 // newFakeSlack is a stand-in Slack answering from bodies, asked nothing yet.
 func newFakeSlack(bodies map[string]string) *fakeSlack {
-	return &fakeSlack{bodies: bodies, asked: map[string]int{}, held: map[string]*gate{}, limited: map[string]limit{}}
+	return &fakeSlack{bodies: bodies, asked: map[string]int{}, held: map[string]*gate{}, limited: map[string]string{}}
+}
+
+// inProcess answers each request through handler on the asker's own
+// goroutine, with no network between them, so a test in a synctest bubble
+// waits out Slack's asks on the bubble's clock.
+func inProcess(handler http.HandlerFunc) messaging.Doer {
+	return func(request *http.Request) (*http.Response, error) {
+		recorder := httptest.NewRecorder()
+		handler(recorder, request)
+
+		return recorder.Result(), nil
+	}
 }
 
 // slackClient is a client reading with a Slack user token, through do, from
@@ -96,15 +102,13 @@ func (s *fakeSlack) answer(writer http.ResponseWriter, request *http.Request) {
 
 	s.lock.Lock()
 	s.asked[request.URL.Path]++
-	held, body, limited := s.held[request.URL.Path], s.bodies[key], s.limited[key]
-
-	if limited.times > 0 {
-		s.limited[key] = limit{times: limited.times - 1, retryAfter: limited.retryAfter}
-	}
+	held, body := s.held[request.URL.Path], s.bodies[key]
+	retryAfter, limited := s.limited[key]
+	delete(s.limited, key)
 	s.lock.Unlock()
 
-	if limited.times > 0 {
-		writer.Header().Set("Retry-After", limited.retryAfter)
+	if limited {
+		writer.Header().Set("Retry-After", retryAfter)
 		writer.WriteHeader(http.StatusTooManyRequests)
 
 		return
@@ -135,13 +139,13 @@ func (s *fakeSlack) hold(t *testing.T, path string) (<-chan struct{}, func()) {
 	return held.arrived, release
 }
 
-// limit makes the next times answers to key — a path, and ?user= and an ID
-// when it names one — 429s asking to wait retryAfter seconds.
-func (s *fakeSlack) limit(key string, times int, retryAfter string) {
+// limit makes the next answer to key — a path, and ?user= and an ID when it
+// names one — a 429 asking to wait retryAfter seconds.
+func (s *fakeSlack) limit(key, retryAfter string) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	s.limited[key] = limit{times: times, retryAfter: retryAfter}
+	s.limited[key] = retryAfter
 }
 
 // requests is how many requests the fake has answered, over every path.
