@@ -150,3 +150,72 @@ func TestIsGroupWithNoRemoteToReadTakesEveryBareNameForAPersonWithoutAsking(t *t
 		t.Errorf("glab was called as %v, want nothing asked with no remote to name a project", args)
 	}
 }
+
+// notFoundOnceScript is a stand-in glab that knows no user named team, and
+// answers its first ask for team's group with GitLab's 404, as GitLab answers
+// a token that cannot see the group, and every later one with its members.
+func notFoundOnceScript(dir string) string {
+	return "#!/bin/sh\n" + tokenLookup(dir) +
+		"for a in \"$@\"; do url=\"$a\"; done\n" +
+		"case \"$url\" in\n" +
+		"  *\"/members\"*)\n" +
+		"    if [ ! -e \"" + dir + "/hidden\" ]; then : > \"" + dir + "/hidden\"\n" +
+		"      printf 'HTTP/1.1 404 Not Found\\r\\nContent-Type: application/json\\r\\n\\r\\n{}'; exit 0; fi\n" +
+		"    body='[{\"username\":\"dan\",\"state\":\"active\",\"access_level\":30}]' ;;\n" +
+		"  *) body='[]' ;;\n" +
+		"esac\n" +
+		"printf 'HTTP/1.1 200 OK\\r\\nContent-Type: application/json\\r\\n\\r\\n%s' \"$body\"\n"
+}
+
+// gitlabWithToken is the settings that reach GitLab through glab and carry
+// token. glab signs with its own login, so the token only tells two settings
+// apart here; over HTTP, where neither the environment nor glab has one, it
+// is the token GitLab answers by.
+func gitlabWithToken(token config.Secret) config.Forge {
+	return config.Forge{CLI: true, Token: token}
+}
+
+func TestAGroupAnswerIsAskedAgainUnderOtherSettings(t *testing.T) {
+	// Arrange
+	// GitLab could not show team to the first settings' token, and shows it
+	// to the second's.
+	glab := installForgeCLI(t, "glab", forgeReplies{})
+	write(t, filepath.Join(glab.dir, "glab"), notFoundOnceScript(glab.dir), 0o755)
+
+	where := onOrigin(t.TempDir(), remoteGitLab)
+	deps, controls := processEnvironment().Deps(config.Config{Forge: gitlabWithToken("t1")}, where, nil)
+	_, _ = deps.Forge.IsGroup(t.Context(), "team")
+
+	controls.UseForgeSettings(gitlabWithToken("t2"))
+
+	// Act
+	group, err := deps.Forge.IsGroup(t.Context(), "team")
+
+	// Assert
+	if err != nil || !group {
+		t.Errorf("IsGroup(team) = %v, %v, kept from t1; want true, asked again under t2", group, err)
+	}
+}
+
+func TestAGroupAnswerOutlivesASaveOfTheSameSettings(t *testing.T) {
+	// Arrange
+	// The web puts the forge settings in effect on every save, changed or
+	// not, and a lookup failing after one must not turn the group into a
+	// person between the preview and the post.
+	glab := installForgeCLI(t, "glab", forgeReplies{})
+	write(t, filepath.Join(glab.dir, "glab"), onceAGroupScript(glab.dir), 0o755)
+
+	where := onOrigin(t.TempDir(), remoteGitLab)
+	deps, controls := processEnvironment().Deps(config.Config{Forge: gitlabWithToken("t1")}, where, nil)
+	_, _ = deps.Forge.IsGroup(t.Context(), "acme")
+
+	controls.UseForgeSettings(gitlabWithToken("t1"))
+
+	// Act
+	group, err := deps.Forge.IsGroup(t.Context(), "acme")
+
+	// Assert
+	if err != nil || !group {
+		t.Errorf("IsGroup(acme) after an unchanged save = %v, %v; want the group it was already known as", group, err)
+	}
+}

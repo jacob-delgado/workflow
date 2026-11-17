@@ -95,14 +95,15 @@ func forgeDeps(setup forgeSetup, connect func(context.Context) (forgeConnection,
 		},
 		Templates: func() []forge.Template { return templatesFor(setup.settings(), setup.where) },
 		Author:    func(ctx context.Context) (string, error) { return ask(ctx, connect, authorName(ctx)) },
-		IsGroup:   isGroupSeam(setup.onGitLab, connect),
+		IsGroup:   isGroupSeam(setup, connect),
 		Kind:      ForgeKind(setup.settings(), setup.where.Base.URL),
 	}
 }
 
-// onGitLab reports that the settings in effect now put the remote on GitLab.
-func (s forgeSetup) onGitLab() bool {
-	repo, err := s.repo()
+// onGitLab reports that settings put the remote on GitLab, read without a
+// network call.
+func (s forgeSetup) onGitLab(settings config.Forge) bool {
+	repo, err := resolveRepo(settings, s.where.Base.URL)
 
 	return err == nil && repo.Kind == forge.KindGitLab
 }
@@ -179,60 +180,75 @@ func authorName(ctx context.Context) func(forgeConnection) (string, error) {
 // isGroupSeam is the is-this-name-a-group seam. Only GitLab's CODEOWNERS
 // spells a top-level group as it spells a user; on GitHub, whose teams are
 // org/team, and with no forge, every bare name is a person, and nothing is
-// asked. What GitLab answered is kept for the session: the web reads the
-// owners at its preview and again at its post, and a lookup failing only the
-// second time must not turn a group into a person between them. The GitLab
-// asked is always the one the remote is on, whose host the workspace fixes,
-// so an answer is kept by the name alone.
+// asked. What GitLab answered is kept while the settings it was asked under
+// stay in effect: the web reads the owners at its preview and again at its
+// post, and a lookup failing only the second time must not turn a group into
+// a person between them. The web puts the settings in effect again on every
+// save, changed or not, and an unchanged save keeps the answers; a changed
+// token, host or kind may see other groups, so the next ask under it asks
+// GitLab again, and an answer to an ask made under settings replaced since is
+// not kept.
 func isGroupSeam(
-	onGitLab func() bool, connect func(context.Context) (forgeConnection, error),
+	setup forgeSetup, connect func(context.Context) (forgeConnection, error),
 ) func(context.Context, string) (bool, error) {
-	known := groupsKnown{mutex: &sync.Mutex{}, answers: map[string]bool{}}
+	known := &groupsKnown{mutex: sync.Mutex{}, under: config.Forge{}, answers: map[string]bool{}}
 
 	return func(ctx context.Context, name string) (bool, error) {
-		if !onGitLab() {
+		settings := setup.settings()
+		if !setup.onGitLab(settings) {
 			return false, nil
 		}
 
 		asked := strings.ToLower(name)
 
-		group, found := known.answer(asked)
+		group, found := known.answer(settings, asked)
 		if found {
 			return group, nil
 		}
 
 		group, err := ask(ctx, connect, func(on forgeConnection) (bool, error) { return on.client.IsGroup(ctx, name) })
 		if err == nil {
-			known.keep(asked, group)
+			known.keep(settings, asked, group)
 		}
 
 		return group, err
 	}
 }
 
-// groupsKnown is what GitLab answered of each bare name, kept in lower case,
-// since GitLab reads names without regard to case.
+// groupsKnown is what GitLab answered of each bare name under the settings
+// under, kept in lower case, since GitLab reads names without regard to case.
 type groupsKnown struct {
-	mutex   *sync.Mutex
+	mutex   sync.Mutex
+	under   config.Forge
 	answers map[string]bool
 }
 
-// answer is what the forge answered of name, and whether it was asked.
-func (k groupsKnown) answer(name string) (bool, bool) {
+// answer is what the forge answered of name under settings, and whether it
+// was asked under them. Asked under other settings, it drops every answer
+// kept under the ones before, which no ask under these may read.
+func (k *groupsKnown) answer(settings config.Forge, name string) (bool, bool) {
 	k.mutex.Lock()
 	defer k.mutex.Unlock()
+
+	if settings != k.under {
+		k.under, k.answers = settings, map[string]bool{}
+	}
 
 	group, found := k.answers[name]
 
 	return group, found
 }
 
-// keep records what the forge answered of name.
-func (k groupsKnown) keep(name string, group bool) {
+// keep records what the forge answered of name when asked under askedUnder,
+// unless an ask under other settings has come since: that answer is theirs
+// no longer.
+func (k *groupsKnown) keep(askedUnder config.Forge, name string, group bool) {
 	k.mutex.Lock()
 	defer k.mutex.Unlock()
 
-	k.answers[name] = group
+	if askedUnder == k.under {
+		k.answers[name] = group
+	}
 }
 
 // resolveRepo reads the forge repository the remote points at and applies the
