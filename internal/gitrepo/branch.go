@@ -83,49 +83,6 @@ type Branch struct {
 	IssueLink string
 }
 
-// PushTarget is the remote branch a push of this one lands on, "fork/feat" for
-// feat pushed to fork.
-func (b Branch) PushTarget() string {
-	return b.PushRemote + "/" + b.Name
-}
-
-// Pushed reports whether the remote a push goes to holds this branch, under its
-// own name, with every commit. The name matters: a branch created from
-// origin/main without --no-track tracks origin/main, is ahead of it by nothing,
-// and is not on the remote at all.
-func (b Branch) Pushed() bool {
-	return b.Name != "" && b.Upstream == b.PushTarget() && b.levelWithUpstream()
-}
-
-// Unpushed are the commits on this branch that have not reached the upstream,
-// oldest first, so amending or fixing one up rewrites only local history. With
-// no upstream every commit is unpushed; otherwise it is the last Ahead of them.
-//
-// A branch long enough to be truncated returns none: Commits then keeps the
-// oldest, while Ahead is counted against the full range, so the last Ahead of
-// the retained commits are the wrong ones — some already pushed. Rather than
-// risk offering pushed history to rewrite, a truncated branch offers nothing.
-func (b Branch) Unpushed() []Commit {
-	if b.Truncated {
-		return nil
-	}
-
-	if b.Upstream == "" {
-		return b.Commits
-	}
-
-	return b.Commits[max(0, len(b.Commits)-b.Ahead):]
-}
-
-// UpstreamHoldsAll reports an upstream that holds every commit on this branch:
-// it has one and git counted it no commits ahead of it. It is one of the two
-// things that make a force delete safe. With no upstream — never pushed under its own name, or
-// one the forge deleted after a merge and a prune then dropped — nothing is
-// known to hold the commits, so it reports false.
-func (b Branch) UpstreamHoldsAll() bool {
-	return b.Upstream != "" && b.levelWithUpstream()
-}
-
 // Finishing is what finishing the branch acts on: the branch, the base it
 // returns to by its bare name, and the remote that base is pulled from.
 type Finishing struct {
@@ -147,12 +104,6 @@ func (b Branch) BaseName() string {
 	}
 
 	return b.Base
-}
-
-// levelWithUpstream reports a branch git counted no commits ahead of its
-// upstream: a count it could not give is not taken for none.
-func (b Branch) levelWithUpstream() bool {
-	return !b.Uncounted && b.Ahead == 0
 }
 
 // ReadBranch reads where the checked-out branch stands. Only failing to read the

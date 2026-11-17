@@ -151,16 +151,18 @@ func (s branchState) heading(kit renderKit) string {
 	return kit.styles.strong.Render(branch.Name)
 }
 
-// upstream says where the branch stands against the remote it pushes to.
+// upstream says where the branch stands against the remote it pushes to. A
+// branch tracking anything but its own push target is not pushed yet, however
+// it was counted; one tracking it is counted against it, or said not to be.
 func (s branchState) upstream(kit renderKit) string {
 	branch := s.checkedOut()
 
 	switch {
 	case branch.Pushed():
 		return "pushed"
-	case branch.Upstream != branch.PushTarget():
+	case branch.Tracking() != gitrepo.TracksOwn:
 		return "not pushed yet"
-	case branch.Uncounted:
+	case branch.Counted() == gitrepo.CountUnknown:
 		return "not counted against " + branch.Upstream
 	default:
 		return kit.marks.ahead + strconv.Itoa(branch.Ahead) + " " + kit.marks.behind + strconv.Itoa(branch.Behind) +
