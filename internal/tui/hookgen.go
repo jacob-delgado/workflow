@@ -5,6 +5,7 @@ package tui
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"strings"
 
@@ -30,6 +31,19 @@ func (s hookgenState) unmanaged() []hooks.GitHook {
 	return found
 }
 
+// lines are what the Commits pane says of the hooks lefthook does not manage:
+// an offer to set lefthook up for them, pressing key, and why the latest look
+// at the hooks directory failed, beneath what it held.
+func (s hookgenState) lines(kit renderKit, key string, width int) []string {
+	var lines []string
+	if len(s.unmanaged()) > 0 {
+		lines = append(lines, "", kit.styles.label.Render("A hook is not managed by lefthook. Press "+key+
+			" to set up lefthook."))
+	}
+
+	return append(lines, kit.failureBlocks(width, s.read.Err())...)
+}
+
 // lookingForHooks begins a look for hooks lefthook does not manage,
 // superseding any still out, and is the command that looks; with nothing to
 // look or to write with, it begins nothing.
@@ -53,34 +67,30 @@ func findHooks(ctx context.Context, deps Deps, round latest.Round) tea.Cmd {
 	}
 
 	return func() tea.Msg {
-		found, configured := existing(ctx)
+		setup, err := existing(ctx)
 
-		return hooksFound{hooks: found, configured: configured, round: round}
+		return hooksFound{setup: setup, err: err, round: round}
 	}
 }
 
-// hooksFound is what the hooks directory holds, as the look begun in round
-// found it.
+// hooksFound is how the repository stands for setting lefthook up, or why its
+// hooks directory could not be read, as the look begun in round found it.
 type hooksFound struct {
-	hooks      []hooks.GitHook
-	configured bool
-	round      latest.Round
+	setup hooks.Setup
+	err   error
+	round latest.Round
 }
 
 var _ applier = hooksFound{}
 
 // apply stores hooks that predate lefthook, so the Commits pane can offer to
 // generate a configuration for them — rather than seizing the first screen —
-// and forgets them once lefthook is configured, however that came about. A
-// look a later one superseded, or one begun before a configuration was
-// written, read the hooks as they were before, and is dropped.
+// and forgets them once lefthook is configured, however that came about, as
+// the Setup offers none then. A look a later one superseded, or one begun
+// before a configuration was written, read the hooks as they were before, and
+// is dropped.
 func (msg hooksFound) apply(m Model) (Model, tea.Cmd) {
-	found := msg.hooks
-	if msg.configured {
-		found = nil
-	}
-
-	if read, taken := m.hookgen.read.Answered(msg.round, found, nil); taken {
+	if read, taken := m.hookgen.read.Answered(msg.round, msg.setup.Hooks(), msg.err); taken {
 		m.hookgen.read = read
 	}
 
@@ -195,10 +205,13 @@ func (o hookgenOffer) write(m Model, generated hooks.Generated) (Model, tea.Cmd)
 		}
 
 		// lefthook.yml is written before lefthook is installed, so a failed
-		// install leaves a configuration behind.
-		_, configured := existing(ctx)
+		// install leaves a configuration behind. A look that fails can say
+		// none, so its failure is told beside the write's.
+		setup, lookErr := existing(ctx)
 
-		return hooksWritten{opened: opened, err: err, configured: configured}
+		return hooksWritten{
+			opened: opened, err: errors.Join(err, lookErr), configured: setup.Offering() == hooks.OfferingConfigured,
+		}
 	}
 }
 

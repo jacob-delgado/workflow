@@ -48,15 +48,18 @@ func TestTheHookSeamsReadWriteAndRunLefthook(t *testing.T) {
 	seams := wired(t, config.Default(), onOrigin(root, ""), nil).Hooks
 
 	// Act: read the hooks git runs
-	found, configured := seams.Existing(t.Context())
+	setup, err := seams.Existing(t.Context())
 
-	// Assert: the one hook, and no configuration yet
-	if configured || len(found) != 1 || found[0].Name != preCommit {
-		t.Fatalf("Existing = %+v, %v; want the one hook and no configuration", found, configured)
+	// Assert: the one hook offered, with no configuration yet
+	found := setup.Hooks()
+	named := func(hook hooks.GitHook, name string) bool { return hook.Name == name }
+
+	if err != nil || setup.Offering() != hooks.OfferingHooks || !slices.EqualFunc(found, []string{preCommit}, named) {
+		t.Fatalf("Existing = %v offering %+v, %v; want the one hook offered", setup.Offering(), found, err)
 	}
 
 	// Act: write a configuration for it
-	err := seams.Write(t.Context(), hooks.Structured(found))
+	err = seams.Write(t.Context(), hooks.Structured(found))
 	if err != nil {
 		t.Fatalf("Write: %v", err)
 	}
@@ -67,8 +70,10 @@ func TestTheHookSeamsReadWriteAndRunLefthook(t *testing.T) {
 		t.Errorf("lefthook was not installed in the repository's hooks:\n%s", installed)
 	}
 
-	if _, nowConfigured := seams.Existing(t.Context()); !nowConfigured {
-		t.Error("Existing does not see the configuration just written")
+	// A look that fails offers nothing, so it fails here too.
+	now, err := seams.Existing(t.Context())
+	if now.Offering() != hooks.OfferingConfigured {
+		t.Errorf("Existing = %v, %v; want the configuration just written seen", now.Offering(), err)
 	}
 
 	// Act: run pre-commit, with something staged — lefthook skips a pre-commit
@@ -173,7 +178,9 @@ func TestTheHookSeamsListNothingWhereLefthookFindsNoConfiguration(t *testing.T) 
 	}
 }
 
-func TestTheHookSeamsOfferNothingOutsideARepository(t *testing.T) {
+// Outside a repository there is no hooks directory to read, which is said,
+// as the web's 422 says there is no repository whose hooks can be read.
+func TestTheHookSeamsSayThereIsNoHooksDirectoryOutsideARepository(t *testing.T) {
 	// Arrange
 	requireLefthook(t)
 	keepGitUntranslated(t)
@@ -181,11 +188,35 @@ func TestTheHookSeamsOfferNothingOutsideARepository(t *testing.T) {
 	seams := wired(t, config.Default(), onOrigin(t.TempDir(), ""), nil).Hooks
 
 	// Act
-	found, configured := seams.Existing(t.Context())
+	setup, err := seams.Existing(t.Context())
 
 	// Assert
-	if len(found) != 0 || configured {
-		t.Errorf("Existing outside a repository = %+v, %v; want nothing found and not configured", found, configured)
+	if err == nil || setup.Offering() != hooks.OfferingNothing {
+		t.Errorf("Existing outside a repository = %v offering %+v, %v; want the failure and nothing offered",
+			setup.Offering(), setup.Hooks(), err)
+	}
+}
+
+// A hooks directory git could not say is a failure, not a repository with no
+// hooks: the offer to set lefthook up must not vanish in silence.
+func TestTheHookSeamsSayWhenTheHooksDirectoryCannotBeRead(t *testing.T) {
+	// Arrange
+	requireLefthook(t)
+	keepGitUntranslated(t)
+
+	root := repository(t)
+	write(t, filepath.Join(root, ".git", "hooks", preCommit), "#!/bin/sh\necho checked\n", 0o700)
+
+	seams := wired(t, config.Default(), onOrigin(root, ""), nil).Hooks
+	stallingGit(t, "rev-parse --git-path hooks")
+
+	// Act
+	setup, err := seams.Existing(t.Context())
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), "read stalled") || setup.Offering() != hooks.OfferingNothing {
+		t.Errorf("Existing = %v offering %+v, %v; want git's failure and nothing offered",
+			setup.Offering(), setup.Hooks(), err)
 	}
 }
 

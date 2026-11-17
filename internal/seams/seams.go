@@ -400,9 +400,11 @@ type Repositories struct {
 type Hooks struct {
 	// Run runs one hook, streaming its output.
 	Run func(ctx context.Context, hook string) (proc.Output, error)
-	// Existing reports the hooks git would run that lefthook does not manage,
-	// and whether the repository already configures lefthook.
-	Existing func(ctx context.Context) ([]hooks.GitHook, bool)
+	// Existing reports how the repository stands for setting lefthook up: the
+	// hooks git would run that lefthook does not manage, or that it already
+	// configures lefthook. A hooks directory git cannot say, outside a
+	// repository among others, is an error, not a repository with no hooks.
+	Existing func(ctx context.Context) (hooks.Setup, error)
 	// Write creates a generated configuration and installs lefthook's hooks.
 	Write func(ctx context.Context, generated hooks.Generated) error
 	// Configured is the hooks lefthook's merged configuration defines, those

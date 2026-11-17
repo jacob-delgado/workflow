@@ -490,10 +490,12 @@ It offers only when all three are true: `lefthook` is installed and on your
 `PATH`, `.git/hooks` holds a runnable hook that is not lefthook's own, and the
 repository has no lefthook configuration yet (a `lefthook.yml`, `.lefthook.yml`
 or `.config/lefthook.yml`, in any format lefthook reads). The Commits pane then
-says `A hook is not managed by lefthook. Press g to set up lefthook.` In the
-offer, `enter` turns plain-command hooks into lefthook jobs, `v` keeps every
-hook whole as a script under `.lefthook/`, and `esc` skips it. Either choice
-writes `lefthook.yml` and runs `lefthook install`, which keeps the old hooks as
+says `A hook is not managed by lefthook. Press g to set up lefthook.` When git
+cannot say where the hooks directory is, the pane says why, and the
+web's **Set up lefthook** is not shown until it can. In the offer, `enter`
+turns plain-command hooks into lefthook jobs, `v` keeps every hook whole as a
+script under `.lefthook/`, and `esc` skips it. Either choice writes
+`lefthook.yml` and runs `lefthook install`, which keeps the old hooks as
 `.git/hooks/*.old`. An existing `lefthook.yml` is never overwritten. If the
 install fails, fix the cause and run `lefthook install` yourself. See [Using
 workflow: Existing git hooks]({{< relref "/docs/usage#existing-git-hooks" >}}).

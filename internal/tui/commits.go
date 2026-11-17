@@ -187,10 +187,7 @@ func (m Model) commitsListing(width int, failure []string) string {
 		lines = append(lines, m.styles.label.Render(commit.Hash)+" "+commit.Subject)
 	}
 
-	if len(m.hookgen.unmanaged()) > 0 {
-		lines = append(lines, "", m.styles.label.Render("A hook is not managed by lefthook. Press "+
-			m.keys.hookConfig.Help().Key+" to set up lefthook."))
-	}
+	lines = append(lines, m.hookgen.lines(m.kit(), m.keys.hookConfig.Help().Key, width)...)
 
 	if change, selected := m.changes.current(); selected && m.deps.Git.Diff != nil {
 		lines = append(lines, m.diff.section(m.kit(), change, width)...)

@@ -8,8 +8,6 @@ import (
 	"io/fs"
 	"testing"
 	"testing/fstest"
-
-	"github.com/jacob-delgado/workflow/internal/hooks"
 )
 
 // unreadableHooks is a hooks directory that lists one of its files, runnable,
@@ -49,10 +47,10 @@ func TestAHookThatCannotBeReadIsLeftOut(t *testing.T) {
 	}
 
 	// Act
-	found := hooks.ExistingHooks(dir, "linux")
+	found := offeredFrom(dir, "linux")
 
 	// Assert
 	if len(found) != 1 || found[0].Name != prePush {
-		t.Errorf("ExistingHooks = %+v, want only the pre-push hook it could read", found)
+		t.Errorf("offered %+v, want only the pre-push hook it could read", found)
 	}
 }

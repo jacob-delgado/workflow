@@ -5,6 +5,8 @@ package webtest
 
 import (
 	"context"
+	"runtime"
+	"testing/fstest"
 
 	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/webserver"
@@ -32,11 +34,30 @@ func OldHooks() []hooks.GitHook {
 	return []hooks.GitHook{{Name: PreCommitHook, Script: "#!/bin/sh\ngo vet ./...\ngo test ./...\n"}}
 }
 
+// Surveyed is how a repository with found in its hooks directory, and a
+// lefthook.yml beside it when configured, stands for setting lefthook up, as
+// hooks.Survey reads it.
+func Surveyed(found []hooks.GitHook, configured bool) hooks.Setup {
+	hooksDir, repo := fstest.MapFS{}, fstest.MapFS{}
+	for _, hook := range found {
+		hooksDir[hook.Name] = &fstest.MapFile{Data: []byte(hook.Script), Mode: runnableMode}
+	}
+
+	if configured {
+		repo["lefthook.yml"] = &fstest.MapFile{Data: []byte(PreCommitHook + ":\n"), Mode: 0o644}
+	}
+
+	return hooks.Survey(hooksDir, repo, runtime.GOOS)
+}
+
+// runnableMode is a hook git runs.
+const runnableMode = 0o755
+
 // HookDeps is FilledDeps with the hooks directory holding found, configured
 // or not, and the configuration written kept in written.
 func HookDeps(found []hooks.GitHook, configured bool, written *[]hooks.Generated) webserver.Deps {
 	deps := FilledDeps()
-	deps.Hooks.Existing = func(context.Context) ([]hooks.GitHook, bool) { return found, configured }
+	deps.Hooks.Existing = func(context.Context) (hooks.Setup, error) { return Surveyed(found, configured), nil }
 	deps.Hooks.Write = func(_ context.Context, generated hooks.Generated) error {
 		*written = append(*written, generated)
 

@@ -203,6 +203,7 @@ type world struct {
 	postParked  chan struct{}
 	postRelease chan struct{}
 	gitHooks    []hooks.GitHook
+	hooksDirErr error
 	configured  bool
 	writeErr    error
 	// installErr is lefthook failing to install once lefthook.yml is written.

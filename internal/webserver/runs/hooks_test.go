@@ -27,6 +27,22 @@ import (
 var errUnreadableHere = errors.New("reading lefthook's configuration: lefthook: exit status 1: " +
 	"couldn't load config: open " + webtest.RepoPath + "/lefthook.yml: permission denied")
 
+// errHooksDirStalled is git unable to say where the hooks directory is, in
+// words that name the repository.
+var errHooksDirStalled = errors.New("finding the hooks directory of " + webtest.RepoPath +
+	": git: gave up waiting after 30s")
+
+// unreadableHooksDir is webtest.HookDeps over a hooks directory git cannot
+// say, with what the server hears and what it writes.
+func unreadableHooksDir() (webserver.Deps, *[]error, *[]hooks.Generated) {
+	var written []hooks.Generated
+
+	deps, heard := webtest.Hearing(webtest.HookDeps(webtest.OldHooks(), false, &written))
+	deps.Hooks.Existing = func(context.Context) (hooks.Setup, error) { return hooks.Setup{}, errHooksDirStalled }
+
+	return deps, heard, &written
+}
+
 // listedDeps is webtest.FilledDeps with lefthook configuring what list answers.
 func listedDeps(list func(context.Context) (hooks.Configured, error)) webserver.Deps {
 	deps := webtest.FilledDeps()
@@ -293,7 +309,7 @@ func TestSettingUpHooksHoldsTheIndexWhileItReplacesThem(t *testing.T) {
 	)
 
 	given := runs.Seams{Hooks: seams.Hooks{
-		Existing: func(context.Context) ([]hooks.GitHook, bool) { return webtest.OldHooks(), false },
+		Existing: func(context.Context) (hooks.Setup, error) { return webtest.Surveyed(webtest.OldHooks(), false), nil },
 		Write: func(context.Context, hooks.Generated) error {
 			free := indexWrites.TryLock()
 			if free {
@@ -317,5 +333,64 @@ func TestSettingUpHooksHoldsTheIndexWhileItReplacesThem(t *testing.T) {
 	if !slices.Equal(heldWhile, []bool{true}) {
 		t.Errorf("the hooks were written %d times, the index held each time: %v; want once, held",
 			len(heldWhile), heldWhile)
+	}
+}
+
+func TestHookSetupWhoseHooksDirectoryCannotBeReadKeepsGitsWordsOff(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps, heard, _ := unreadableHooksDir()
+
+	// Act
+	recorder := webtest.Get(t, webtest.Serve(t, deps, config.Default()), webtest.HookSetupAt)
+
+	// Assert
+	failure := assertProblem(t, recorder, http.StatusUnprocessableEntity, "hooks directory could not be read")
+	if strings.Contains(failure.Detail, webtest.RepoPath) {
+		t.Errorf("detail = %q, want git's words, which name the repository, kept off the wire", failure.Detail)
+	}
+
+	if len(*heard) != 1 || !errors.Is((*heard)[0], errHooksDirStalled) {
+		t.Errorf("Unexpected heard %v, want git's failure", *heard)
+	}
+}
+
+func TestSettingUpHooksWhoseHooksDirectoryCannotBeReadWritesNothing(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps, heard, written := unreadableHooksDir()
+
+	// Act
+	recorder := webtest.Send(t, webtest.Serve(t, deps, config.Default()), http.MethodPost, webtest.HookSetupAt, `{}`)
+
+	// Assert
+	failure := assertProblem(t, recorder, http.StatusUnprocessableEntity, "hooks directory could not be read")
+	if strings.Contains(failure.Detail, webtest.RepoPath) || len(*written) != 0 {
+		t.Errorf("detail = %q after %d writes; want git's words kept off the wire, and nothing written",
+			failure.Detail, len(*written))
+	}
+
+	if len(*heard) != 1 || !errors.Is((*heard)[0], errHooksDirStalled) {
+		t.Errorf("Unexpected heard %v, want git's failure", *heard)
+	}
+}
+
+// The stream counts nothing to offer, and says nothing of why on each frame:
+// the offer's own read says why, when the page asks it.
+func TestTheStreamCountsNoHooksInAHooksDirectoryThatCannotBeRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	deps, heard, _ := unreadableHooksDir()
+
+	// Act
+	snap := webtest.FirstSnapshot(t,
+		webtest.StreamOnce(t, webtest.Serve(t, deps, config.Default()), "/api/events").Body.String())
+
+	// Assert
+	if snap.HooksUnmanaged != 0 || len(*heard) != 0 {
+		t.Errorf("hooks_unmanaged = %d with %v heard, want 0 and nothing heard", snap.HooksUnmanaged, *heard)
 	}
 }

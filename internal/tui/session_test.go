@@ -93,10 +93,8 @@ func (h *heldRead) git() seams.Git {
 // that can write a configuration, so the interface reads them.
 func (h *heldRead) hooks() seams.Hooks {
 	return seams.Hooks{
-		Existing: func(ctx context.Context) ([]hooks.GitHook, bool) {
-			_ = h.wait(ctx)
-
-			return nil, false
+		Existing: func(ctx context.Context) (hooks.Setup, error) {
+			return hooks.Setup{}, h.wait(ctx)
 		},
 		Write: func(context.Context, hooks.Generated) error { return nil },
 	}

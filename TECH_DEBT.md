@@ -775,7 +775,7 @@ test fails or skips on a developer's Mac. The functions that take the platform
 as an argument (`store.Dir`, `keychain.Storer`, `keychain.Open`,
 `slackauth.Choose`, `taskwarrior.Candidates`, `wiring.BrowserCommand`,
 `Environment.PlaceSlackCredentials` in `internal/wiring`,
-`hooks.NewFailureScan` and `hooks.ExistingHooks`) are not part of the cost:
+`hooks.NewFailureScan` and `hooks.Survey`) are not part of the cost:
 their tests pass `windows` or `darwin` on Linux.
 
 **Reopen when.** A Windows- or macOS-specific bug is reported, code only
