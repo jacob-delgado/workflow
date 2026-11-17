@@ -180,6 +180,9 @@ func TestAnAssignmentDuringAnAskShowsOnEveryStreamsLastFrame(t *testing.T) {
 	})
 }
 
+// inProgress is where a movingTracker's issue stands before a change moves it.
+const inProgress = "In Progress"
+
 // movingTracker is a tracker whose one issue, webtest.TestKey, moves to the
 // status a change names, and whose search finds it where it stands.
 type movingTracker struct {
@@ -215,7 +218,7 @@ func TestAStatusChangeDuringASearchShowsOnEveryStreamsLastFrame(t *testing.T) {
 		// The second search is a frame's under way as the change lands, and
 		// the third the one the change's drop asks for.
 		reads := newHeldReads(2, 3)
-		tracker := &movingTracker{status: "In Progress"}
+		tracker := &movingTracker{status: inProgress}
 		deps := formDeps(&issueWrites{})
 		deps.Jira.Transition = tracker.transition
 		deps.Jira.Search = func(ctx context.Context, jql string, startAt int) (jira.SearchResult, error) {
