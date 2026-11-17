@@ -1841,3 +1841,24 @@ written. The next read of the view, an interval later at most, replaces it.
 **Reopen when.** A user reports a session opening on an older issue list than
 the one another surface just showed, or `workflow.db` changes its timestamp
 format for another reason.
+
+### TRADE-71 A clean can pair a fresh database with an old log
+
+**Decided.** 2026-11-15 by the maintainer, approving the clients outline's
+D3 as recommended: `Clean` (`internal/store/clean.go`) renames each
+database aside, then its `-wal` and `-shm` files, in the order
+`companionsOf` lists them, and removes them once all are aside, holding no
+lock against a process that opens the store meanwhile. Setting the log aside
+first would narrow the window without closing it, and no test can hold a
+process open in it; a store-wide lock needs a shared lock every open would
+take, which `internal/filelock` lacks.
+
+**Cost.** A workflow process that opens the store in the instant between a
+database's rename and its log's makes a fresh database beside the old log,
+which SQLite may then read as that database's own: the new file can read as
+damaged, or hold rows the clean meant to remove, until it is cleaned again
+or discarded for another schema. `workflow db-clean` is run by hand, most
+often with nothing else open.
+
+**Reopen when.** A user reports a damaged or unexpected store after a
+`workflow db-clean`, or `internal/filelock` gains a shared lock.

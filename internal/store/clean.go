@@ -381,5 +381,8 @@ func asideOf(paths []string) []string {
 // companionsOf is a database's path with the write-ahead log and shared-memory
 // files SQLite keeps beside it.
 func companionsOf(path string) []string {
+	// Trade-off TRADE-71: a clean sets the database aside before its log,
+	// holding no lock against a live open, so a process opening the store in
+	// between can pair a fresh database with the old log.
 	return []string{path, path + "-wal", path + "-shm"}
 }
