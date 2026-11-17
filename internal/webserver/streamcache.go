@@ -338,41 +338,55 @@ const assignedInterval = time.Minute
 // and after an assignment here has dropped the answer, so the frame an
 // assignment wakes shows it, as after a drop of the forge's.
 type assignedCache struct {
-	mu     sync.Mutex
-	held   bool
+	mu sync.Mutex
+	// stage is whether the last ask's answer is held, and whether a frame
+	// may be served it; keys is what that ask asked, at readAt.
+	stage  answerStage
 	keys   []jira.Key
 	readAt time.Time
-	// mine is the tracker's last answer, and answered the keys it was asked
-	// about, sorted; mine is nil until the tracker has answered.
-	mine     map[jira.Key]bool
-	answered []jira.Key
+	// heard is the tracker's last answer, which a failed ask leaves standing.
+	heard assignedHeard
 	// reading is the ask under way, or nil with none.
 	reading *landing[map[jira.Key]bool]
 	// round counts the drops, so an ask that began before one lands due.
 	round round
-	// due marks a held answer a drop came during the ask of: it says less
-	// than the tracker does now, so no frame is served it, even while the
-	// next ask is under way.
-	due bool
 }
 
-// yours is which of keys are yours by the last answer: those it said are, and
-// those it never covered; nil, counting every issue, before any answer. The
-// caller holds the lock.
-func (c *assignedCache) yours(keys []jira.Key) map[jira.Key]bool {
-	if c.mine == nil {
+// assignedHeard is the tracker's last answer to which issues are yours: mine,
+// those it said are, among answered, the keys it was asked about, sorted. Its
+// zero value is no answer yet.
+type assignedHeard struct {
+	known    bool
+	mine     map[jira.Key]bool
+	answered []jira.Key
+}
+
+// yours is which of keys are yours by the answer: those it said are, and
+// those it never covered; nil, counting every issue, before any answer.
+func (h assignedHeard) yours(keys []jira.Key) map[jira.Key]bool {
+	if !h.known {
 		return nil
 	}
 
-	yours := maps.Clone(c.mine)
+	yours := maps.Clone(h.mine)
 
 	for _, key := range keys {
-		if _, covered := slices.BinarySearch(c.answered, key); !covered {
+		if _, covered := slices.BinarySearch(h.answered, key); !covered {
 			yours[key] = true
 		}
 	}
 
 	return yours
+}
+
+// after is what is heard once answer to the ask of asked lands: that answer,
+// or, when it failed, h, so the last answer stands in for it.
+func (h assignedHeard) after(answer assignedAnswer, asked []jira.Key) assignedHeard {
+	if answer.failed != nil {
+		return h
+	}
+
+	return assignedHeard{known: true, mine: answer.mine, answered: asked}
 }
 
 // yourIssues is which of keys name your issues, from the assigned cache: nil,
@@ -413,8 +427,8 @@ func (c *assignedCache) serve(asked []jira.Key, now time.Time) turn[map[jira.Key
 	defer c.mu.Unlock()
 
 	fresh := slices.Equal(c.keys, asked) && now.Sub(c.readAt) < assignedInterval
-	if c.held && !c.due && (c.reading != nil || fresh) {
-		return turn[map[jira.Key]bool]{answered: true, value: c.yours(asked)}
+	if c.stage.serves(c.reading != nil, fresh) {
+		return turn[map[jira.Key]bool]{answered: true, value: c.heard.yours(asked)}
 	}
 
 	if c.reading != nil {
@@ -443,13 +457,10 @@ func (c *assignedCache) land(asked []jira.Key, began round, now time.Time, answe
 
 	c.reading.end()
 	c.reading = nil
-	c.held, c.keys, c.readAt, c.due = true, asked, now, c.round != began
+	c.stage, c.keys, c.readAt = landedAt(began, c.round), asked, now
+	c.heard = c.heard.after(answer, asked)
 
-	if answer.failed == nil {
-		c.mine, c.answered = answer.mine, asked
-	}
-
-	return c.yours(asked)
+	return c.heard.yours(asked)
 }
 
 // drop forgets that the answer held is fresh, so the next frame asks the
@@ -460,8 +471,7 @@ func (c *assignedCache) drop() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.held = false
-	c.round = c.round.next()
+	c.stage, c.round = answerUnheld, c.round.next()
 }
 
 // authorCache is who the forge says a post would come from, kept from its first
