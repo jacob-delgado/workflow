@@ -24,7 +24,7 @@ func TestACachedIssueListRoundTripsInOrder(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 	list := []store.CachedIssue{issue("PROJ-1"), issue("PROJ-2"), issue("PROJ-3")}
 
 	// Act
@@ -45,7 +45,7 @@ func TestReCachingReplacesTheList(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 	_ = kept.CacheIssues(t.Context(), instance, "assigned",
 		[]store.CachedIssue{issue("PROJ-1"), issue("PROJ-2")}, theTime())
 
@@ -65,7 +65,7 @@ func TestAViewCachedEmptyIsFoundButEmpty(t *testing.T) {
 	// Arrange
 	// A view that returned no issues is still recorded, so it opens as "no issues"
 	// rather than loading again.
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 	_ = kept.CacheIssues(t.Context(), instance, "assigned", nil, theTime())
 
 	// Act
@@ -90,7 +90,7 @@ func TestTheCacheIsKeptPerInstanceAndView(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			kept := store.New(t.TempDir(), false)
+			kept := store.New(t.TempDir(), store.ModeWrites)
 			cached := []store.CachedIssue{issue("PROJ-1")}
 
 			err := kept.CacheIssues(t.Context(), instance, "assigned", cached, theTime())
@@ -119,7 +119,7 @@ func TestADisabledStoreCachesNoIssues(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	off := store.New(t.TempDir(), true)
+	off := store.New(t.TempDir(), store.ModeOff)
 
 	// Act
 	err := off.CacheIssues(t.Context(), instance, "assigned", []store.CachedIssue{issue("PROJ-1")}, theTime())

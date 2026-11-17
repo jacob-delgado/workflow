@@ -173,7 +173,7 @@ func TestEveryStoreMethodReportsADirectoryItCannotCreate(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			kept := store.New(filepath.Join(parent, "store"), false)
+			kept := store.New(filepath.Join(parent, "store"), store.ModeWrites)
 
 			// Act
 			readBack, err := call(t.Context(), kept)
@@ -201,7 +201,7 @@ func TestAFileThatIsNotADatabaseIsReportedAndLeftAlone(t *testing.T) {
 	}
 
 	// Act
-	err = store.New(dir, false).RecordScope(t.Context(), repo, recorded, theTime())
+	err = store.New(dir, store.ModeWrites).RecordScope(t.Context(), repo, recorded, theTime())
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "reading the store schema version") {
@@ -228,7 +228,7 @@ func TestAnIndexInATablesNameIsReportedAndLeftAlone(t *testing.T) {
 	)
 
 	// Act
-	err := store.New(dir, false).RecordScope(t.Context(), repo, recorded, theTime())
+	err := store.New(dir, store.ModeWrites).RecordScope(t.Context(), repo, recorded, theTime())
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "preparing the store schema") {
@@ -260,7 +260,7 @@ func TestAFileWhoseSchemaCannotBeReadIsReportedAndLeftAlone(t *testing.T) {
 	}
 
 	// Act
-	err = store.New(dir, false).RecordScope(t.Context(), repo, recorded, theTime())
+	err = store.New(dir, store.ModeWrites).RecordScope(t.Context(), repo, recorded, theTime())
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "reading the store schema version") {
@@ -381,7 +381,7 @@ func TestATamperedSchemaIsReportedNotTrusted(t *testing.T) {
 			seedDatabase(t, dir, testCase.schema...)
 
 			// Act
-			readBack, err := testCase.call(t.Context(), store.New(dir, false))
+			readBack, err := testCase.call(t.Context(), store.New(dir, store.ModeWrites))
 
 			// Assert
 			if err == nil || !strings.Contains(err.Error(), testCase.step) || readBack {
@@ -414,7 +414,7 @@ func TestTheStoreEnforcesForeignKeys(t *testing.T) {
 	)
 
 	// Act
-	_, err := cacheIssues(t.Context(), store.New(dir, false))
+	_, err := cacheIssues(t.Context(), store.New(dir, store.ModeWrites))
 
 	// Assert
 	if err == nil || !strings.Contains(err.Error(), "caching an issue") {

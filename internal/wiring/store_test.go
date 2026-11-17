@@ -81,7 +81,8 @@ func TestCachedIssuesReadBackAreSanitized(t *testing.T) {
 		Priority:       "Hi\x1b[2Jgh",
 	}
 
-	err = store.New(dir, false).CacheIssues(t.Context(), instance, "assigned", []store.CachedIssue{hostile}, time.Now())
+	err = store.New(dir, store.ModeWrites).
+		CacheIssues(t.Context(), instance, "assigned", []store.CachedIssue{hostile}, time.Now())
 	if err != nil {
 		t.Fatalf("seeding the store: %v", err)
 	}

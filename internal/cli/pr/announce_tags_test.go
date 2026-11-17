@@ -43,7 +43,7 @@ func keptIn(t *testing.T, home string) store.Store {
 		t.Fatalf("finding the store under %s: %v", home, err)
 	}
 
-	return store.New(dir, false)
+	return store.New(dir, store.ModeWrites)
 }
 
 // anaLinked is ana linked to her Slack user.

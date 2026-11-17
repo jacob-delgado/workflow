@@ -170,7 +170,7 @@ func TestEveryKeptMethodReportsADirectoryItCannotCreate(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			kept := store.New(filepath.Join(parent, "store"), false)
+			kept := store.New(filepath.Join(parent, "store"), store.ModeWrites)
 
 			// Act
 			readBack, err := call(t.Context(), kept)
@@ -386,7 +386,7 @@ func TestATamperedKeptTableIsReportedNotTrusted(t *testing.T) {
 
 			// Arrange
 			dir := t.TempDir()
-			kept := store.New(dir, false)
+			kept := store.New(dir, store.ModeWrites)
 			testCase.before(t, kept)
 			tamperKept(t, dir, testCase.tamper...)
 

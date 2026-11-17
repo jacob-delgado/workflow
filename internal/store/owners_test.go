@@ -58,7 +58,7 @@ func TestAnOwnerNotOnSlackIsRememberedAsDecided(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 
 	// Act
 	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, decided("dan", nil), theTime())
@@ -79,7 +79,7 @@ func TestATeamOwnerLinksToAUserGroup(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 
 	// Act
 	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, decided("acme/control-plane", podGroup()), theTime())
@@ -100,7 +100,7 @@ func TestRelinkingAnOwnerReplacesTheDecision(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 	linkAna(t, kept)
 
 	// Act
@@ -121,7 +121,7 @@ func TestAnOwnersCaseMakesNoSecondDecision(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 
 	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, decided("Ana", ana()), theTime())
 	if err != nil {
@@ -147,7 +147,7 @@ func TestAnOwnerIsForgottenWhateverTheCase(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 	linkAna(t, kept)
 
 	// Act
@@ -168,7 +168,7 @@ func TestOwnerLinksAreKeptPerForgeHost(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 	linkAna(t, kept)
 
 	// Act
@@ -184,7 +184,7 @@ func TestAForgottenOwnerIsUndecided(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 	linkAna(t, kept)
 
 	// Act
@@ -234,7 +234,7 @@ func TestASlackEntityNoOneLinksToIsPruned(t *testing.T) {
 
 			// Arrange
 			dir := t.TempDir()
-			kept := store.New(dir, false)
+			kept := store.New(dir, store.ModeWrites)
 			linkAna(t, kept)
 
 			// Act
@@ -273,7 +273,7 @@ func TestALinkOfTheWrongShapeIsRefused(t *testing.T) {
 			t.Parallel()
 
 			// Arrange
-			kept := store.New(t.TempDir(), false)
+			kept := store.New(t.TempDir(), store.ModeWrites)
 
 			// Act
 			err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, decided(each.owner, each.target), theTime())
@@ -302,7 +302,7 @@ func TestAStoredRowOfTheWrongShapeReadsAsUndecided(t *testing.T) {
 
 			// Arrange
 			dir := t.TempDir()
-			kept := store.New(dir, false)
+			kept := store.New(dir, store.ModeWrites)
 			linkAna(t, kept)
 
 			err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, decided(acmePod, podGroup()), theTime())
@@ -330,7 +330,7 @@ func TestAStoredLabelIsSanitizedAndCapped(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	kept := store.New(dir, false)
+	kept := store.New(dir, store.ModeWrites)
 	linkAna(t, kept)
 	execKept(t, dir, `UPDATE slack_entity SET label = 'Ana'||char(27)||'[2J'||'`+strings.Repeat("x", 300)+`'`)
 

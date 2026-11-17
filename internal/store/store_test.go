@@ -26,7 +26,7 @@ func TestALastScopeRoundTrips(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 
 	// Act
 	err := kept.RecordScope(t.Context(), repo, recorded, theTime())
@@ -46,7 +46,7 @@ func TestNoScopeIsRecordedYet(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	empty := store.New(t.TempDir(), false)
+	empty := store.New(t.TempDir(), store.ModeWrites)
 
 	// Act
 	scope, found, err := empty.LastScope(t.Context(), repo)
@@ -61,7 +61,7 @@ func TestRecordingReplacesTheEarlierScope(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 	_ = kept.RecordScope(t.Context(), repo, recorded, theTime())
 
 	// Act
@@ -78,7 +78,7 @@ func TestScopesAreKeptPerRepository(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 
 	err := kept.RecordScope(t.Context(), repo, recorded, theTime())
 	if err != nil {
@@ -108,7 +108,7 @@ func TestAnEmptyRepositoryKeyIsNoRepository(t *testing.T) {
 	// An on store, but no repository to key by — outside a work tree with no
 	// remote — records and reads nothing rather than keying state under "".
 	dir := t.TempDir()
-	kept := store.New(dir, false)
+	kept := store.New(dir, store.ModeWrites)
 
 	// Act
 	err := kept.RecordScope(t.Context(), "", recorded, theTime())
@@ -125,7 +125,7 @@ func TestADisabledStoreRecordsNothing(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	off := store.New(dir, true)
+	off := store.New(dir, store.ModeOff)
 
 	// Act
 	err := off.RecordScope(t.Context(), repo, recorded, theTime())
@@ -147,7 +147,7 @@ func TestTheStoreIsReadableOnlyByItsOwner(t *testing.T) {
 
 	// Arrange
 	dir := filepath.Join(t.TempDir(), "workflow")
-	kept := store.New(dir, false)
+	kept := store.New(dir, store.ModeWrites)
 
 	// Act
 	_ = kept.RecordScope(t.Context(), repo, recorded, theTime())
@@ -182,7 +182,7 @@ func TestTheStoreNarrowsADirectoryItDidNotCreate(t *testing.T) {
 		t.Fatalf("loosening the store directory: %v", err)
 	}
 
-	kept := store.New(dir, false)
+	kept := store.New(dir, store.ModeWrites)
 
 	// Act
 	err = kept.RecordScope(t.Context(), repo, recorded, theTime())
@@ -208,8 +208,8 @@ func TestTwoStoresShareTheOneFile(t *testing.T) {
 	// Two stores on the same directory stand in for the interface and the web
 	// server: one records, the other reads it back.
 	dir := t.TempDir()
-	writer := store.New(dir, false)
-	reader := store.New(dir, false)
+	writer := store.New(dir, store.ModeWrites)
+	reader := store.New(dir, store.ModeWrites)
 
 	// Act
 	_ = writer.RecordScope(t.Context(), repo, recorded, theTime())

@@ -221,7 +221,7 @@ func RecordAnnounced(ctx context.Context, home string, moment messaging.Moment) 
 		return err
 	}
 
-	kept, announced := store.New(dir, false), store.Announce{Pull: fakePull, Moment: int(moment)}
+	kept, announced := store.New(dir, store.ModeWrites), store.Announce{Pull: fakePull, Moment: int(moment)}
 
 	claim, err := kept.ClaimAnnounce(ctx, fakeRepoKey, announced, time.Now())
 	if err != nil {

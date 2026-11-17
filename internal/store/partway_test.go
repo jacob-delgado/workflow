@@ -69,7 +69,7 @@ func TestAReadThatFailsPartwayReturnsNothing(t *testing.T) {
 			seedDatabase(t, dir, testCase.schema...)
 
 			// Act
-			readBack, err := testCase.call(t.Context(), store.New(dir, false))
+			readBack, err := testCase.call(t.Context(), store.New(dir, store.ModeWrites))
 
 			// Assert
 			if err == nil || !strings.Contains(err.Error(), testCase.step) || readBack {
@@ -101,7 +101,7 @@ func TestACacheItsCommitRefusesIsNotKept(t *testing.T) {
 		) STRICT`),
 	)
 
-	kept := store.New(dir, false)
+	kept := store.New(dir, store.ModeWrites)
 
 	// Act
 	err := kept.CacheIssues(t.Context(), instance, view, []store.CachedIssue{issue("PROJ-1")}, theTime())

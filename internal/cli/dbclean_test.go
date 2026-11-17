@@ -46,7 +46,7 @@ func storedHome(t *testing.T) (clitest.Place, string) {
 
 	home := t.TempDir()
 	dir := storeDirIn(t, home)
-	kept := store.New(dir, false)
+	kept := store.New(dir, store.ModeWrites)
 
 	err := kept.RecordScope(t.Context(), "github.com/owner/repo", "api", time.Now())
 	if err != nil {

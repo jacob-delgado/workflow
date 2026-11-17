@@ -91,7 +91,7 @@ func TestAnOwnersSlackLinkRoundTrips(t *testing.T) {
 	t.Parallel()
 
 	// Arrange
-	kept := store.New(t.TempDir(), false)
+	kept := store.New(t.TempDir(), store.ModeWrites)
 
 	// Act
 	err := kept.LinkOwner(t.Context(), forgeHost, workspaceA, decided(anaOwner, ana()), theTime())
@@ -115,7 +115,7 @@ func TestKeptDataIsAFileOfItsOwnBesideTheCache(t *testing.T) {
 	dir := t.TempDir()
 
 	// Act
-	linkAna(t, store.New(dir, false))
+	linkAna(t, store.New(dir, store.ModeWrites))
 
 	// Assert
 	_, keptErr := os.Stat(keptPath(dir))
@@ -133,7 +133,7 @@ func TestKeptDataSurvivesTheCachesSchemaBump(t *testing.T) {
 	// The cache at another version is discarded on its next open; the kept
 	// file beside it must come through untouched.
 	dir := t.TempDir()
-	kept := store.New(dir, false)
+	kept := store.New(dir, store.ModeWrites)
 	linkAna(t, kept)
 
 	err := kept.RecordScope(t.Context(), repo, recorded, theTime())
@@ -162,7 +162,7 @@ func TestAKeptFileAtAnotherSchemaVersionReadsAsEmpty(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	kept := store.New(dir, false)
+	kept := store.New(dir, store.ModeWrites)
 	linkAna(t, kept)
 	execKept(t, dir, "PRAGMA user_version = 99")
 
@@ -180,7 +180,7 @@ func TestAKeptFileAtAnotherSchemaVersionRefusesWritesAndIsLeftAlone(t *testing.T
 
 	// Arrange
 	dir := t.TempDir()
-	kept := store.New(dir, false)
+	kept := store.New(dir, store.ModeWrites)
 	linkAna(t, kept)
 	execKept(t, dir, "PRAGMA user_version = 99")
 	execKept(t, dir, "PRAGMA application_id = 42")
@@ -229,7 +229,8 @@ func TestAKeptFileThatIsNotADatabaseRefusesWritesAndIsLeftAlone(t *testing.T) {
 	notADatabase := writeNotADatabase(t, dir)
 
 	// Act
-	err := store.New(dir, false).LinkOwner(t.Context(), forgeHost, workspaceA, decided(anaOwner, ana()), theTime())
+	err := store.New(dir, store.ModeWrites).
+		LinkOwner(t.Context(), forgeHost, workspaceA, decided(anaOwner, ana()), theTime())
 
 	// Assert
 	if err == nil {
@@ -251,7 +252,7 @@ func TestAKeptFileThatIsNotADatabaseReadsAsNothingAndSaysWhy(t *testing.T) {
 	writeNotADatabase(t, dir)
 
 	// Act
-	links, err := store.New(dir, false).OwnerLinks(t.Context(), forgeHost, workspaceA)
+	links, err := store.New(dir, store.ModeWrites).OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
 	if len(links) != 0 || err == nil {
@@ -264,7 +265,7 @@ func TestAReadOnlyStoreNeverMakesTheKeptFile(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	readOnly := store.New(dir, false).ReadOnly()
+	readOnly := store.New(dir, store.ModeWrites).ReadOnly()
 
 	// Act
 	linkErr := readOnly.LinkOwner(t.Context(), forgeHost, workspaceA, decided(anaOwner, ana()), theTime())
@@ -286,10 +287,10 @@ func TestAReadOnlyStoreReadsTheKeptLinks(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	linkAna(t, store.New(dir, false))
+	linkAna(t, store.New(dir, store.ModeWrites))
 
 	// Act
-	links, err := store.New(dir, false).ReadOnly().OwnerLinks(t.Context(), forgeHost, workspaceA)
+	links, err := store.New(dir, store.ModeWrites).ReadOnly().OwnerLinks(t.Context(), forgeHost, workspaceA)
 
 	// Assert
 	if err != nil || len(links) != 1 {
@@ -302,7 +303,7 @@ func TestADisabledStoreKeepsNoLink(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	disabled := store.New(dir, true)
+	disabled := store.New(dir, store.ModeOff)
 
 	// Act
 	linkErr := disabled.LinkOwner(t.Context(), forgeHost, workspaceA, decided(anaOwner, ana()), theTime())
@@ -334,7 +335,8 @@ func TestStoresOpeningAFreshKeptFileTogetherAllPrepareIt(t *testing.T) {
 	// Act
 	for index, owner := range owners {
 		group.Go(func() {
-			failures[index] = store.New(dir, false).LinkOwner(t.Context(), forgeHost, workspaceA, decided(owner, nil), theTime())
+			failures[index] = store.New(dir, store.ModeWrites).
+				LinkOwner(t.Context(), forgeHost, workspaceA, decided(owner, nil), theTime())
 		})
 	}
 
@@ -347,7 +349,7 @@ func TestStoresOpeningAFreshKeptFileTogetherAllPrepareIt(t *testing.T) {
 		}
 	}
 
-	links, err := store.New(dir, false).OwnerLinks(t.Context(), forgeHost, workspaceA)
+	links, err := store.New(dir, store.ModeWrites).OwnerLinks(t.Context(), forgeHost, workspaceA)
 	if err != nil || len(links) != len(owners) {
 		t.Errorf("OwnerLinks = %+v, %v; want every owner decided", links, err)
 	}
@@ -358,16 +360,16 @@ func TestAKeptWriteWhoseContextEndedWritesNothing(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	linkAna(t, store.New(dir, false))
+	linkAna(t, store.New(dir, store.ModeWrites))
 
 	ended, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	// Act
-	err := store.New(dir, false).LinkOwner(ended, forgeHost, workspaceA, decided("bo", ana()), theTime())
+	err := store.New(dir, store.ModeWrites).LinkOwner(ended, forgeHost, workspaceA, decided("bo", ana()), theTime())
 
 	// Assert
-	links, readErr := store.New(dir, false).OwnerLinks(t.Context(), forgeHost, workspaceA)
+	links, readErr := store.New(dir, store.ModeWrites).OwnerLinks(t.Context(), forgeHost, workspaceA)
 	if !errors.Is(err, context.Canceled) || readErr != nil || len(links) != 1 {
 		t.Errorf("LinkOwner = %v; links %+v (%v); want the ended context reported and nothing written",
 			err, links, readErr)
@@ -379,7 +381,7 @@ func TestAKeptWriteWhileAnotherWriterHoldsTheFileWritesNothing(t *testing.T) {
 
 	// Arrange
 	dir := t.TempDir()
-	linkAna(t, store.New(dir, false))
+	linkAna(t, store.New(dir, store.ModeWrites))
 
 	writer, err := openKeptFile(t, dir).Conn(t.Context())
 	if err != nil {
@@ -396,10 +398,10 @@ func TestAKeptWriteWhileAnotherWriterHoldsTheFileWritesNothing(t *testing.T) {
 	// Act
 	// The write waits out the store's busy timeout for the lock, and is then
 	// refused as its transaction begins.
-	err = store.New(dir, false).LinkOwner(t.Context(), forgeHost, workspaceA, decided("bo", ana()), theTime())
+	err = store.New(dir, store.ModeWrites).LinkOwner(t.Context(), forgeHost, workspaceA, decided("bo", ana()), theTime())
 
 	// Assert
-	links, readErr := store.New(dir, false).OwnerLinks(t.Context(), forgeHost, workspaceA)
+	links, readErr := store.New(dir, store.ModeWrites).OwnerLinks(t.Context(), forgeHost, workspaceA)
 	if err == nil || !strings.Contains(err.Error(), "writing the kept data") || readErr != nil || len(links) != 1 {
 		t.Errorf("LinkOwner = %v; links %+v (%v); want the write refused as it begins and nothing written",
 			err, links, readErr)

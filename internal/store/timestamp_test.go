@@ -82,7 +82,7 @@ func TestEveryTimestampIsWrittenAsRFC3339InUTC(t *testing.T) {
 			dir := t.TempDir()
 
 			// Act
-			err := testCase.record(t.Context(), store.New(dir, false))
+			err := testCase.record(t.Context(), store.New(dir, store.ModeWrites))
 			// Assert
 			if err != nil {
 				t.Fatalf("recording returned %v, want nil", err)
