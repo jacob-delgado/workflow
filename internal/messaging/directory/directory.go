@@ -118,6 +118,20 @@ func (d *Slack) Refresh() {
 	d.forget()
 }
 
+// Swap runs change, which puts other settings in effect for the client the
+// directory reads with, and drops everything read so far, as one step: a read
+// begins under the old settings and what they read, or under the new ones and
+// nothing read yet, never under the new settings and what the old ones read.
+// A read in flight finishes for those already waiting on it, and is not held.
+// change runs under the directory's lock, so it must not read the directory.
+func (d *Slack) Swap(change func()) {
+	d.lock.Lock()
+	defer d.lock.Unlock()
+
+	change()
+	d.forget()
+}
+
 // ChannelMembers is everyone in channel — a name, with or without its "#", or
 // an ID — who users.list says can be tagged, labeled by their Slack name and
 // ordered by it.

@@ -78,9 +78,8 @@ func (e Environment) Deps(cfg config.Config, where Workspace, log *RequestLog) (
 	controls := Controls{
 		ResolveAhead: resolveAhead, UseForgeSettings: useForgeSettings(settings, where),
 		UseMessagingSettings: func(settings config.Messaging) {
-			messagingSettings.replace(settings)
 			// What was read belongs to the old settings' workspace and token.
-			slack.Refresh()
+			slack.Swap(func() { messagingSettings.replace(settings) })
 		},
 		//nolint:bodyclose // Wrap only relays the response; the refresh reads and closes its body.
 		PlaceSlackCredentials: e.PlaceSlackCredentials(log.Wrap("slack", httpTransport), e.Keychain()),
@@ -124,7 +123,8 @@ type Controls struct {
 	UseForgeSettings func(settings config.Forge) forge.Kind
 	// UseMessagingSettings applies messaging settings saved while workflow runs
 	// — the web's Settings — to every post and Slack directory read after it,
-	// dropping what the directory read under the old ones.
+	// dropping what the directory read under the old ones in the same step, so
+	// no directory read begins under the new settings and the old reads.
 	UseMessagingSettings func(settings config.Messaging)
 	// PlaceSlackCredentials keeps a Slack user token's secrets, typed into the
 	// web's Settings or the terminal's, outside the file: on macOS it
