@@ -105,7 +105,7 @@ func githubStatus(ctx context.Context, client Client, repo Repo, _ PullRequest, 
 	}
 
 	if statusesCut || runsCut {
-		tally.running = true
+		tally.cut()
 	}
 
 	return tally.ci(), nil

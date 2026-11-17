@@ -101,6 +101,12 @@ func (t *ciTally) add(check Check) {
 	}
 }
 
+// cut records that a listing of checks was too long to read in full: one
+// past those read may still be running, so the tally is not a pass.
+func (t *ciTally) cut() {
+	t.running = true
+}
+
 // statusState reads one state from GitHub's statuses API.
 func statusState(state string) CIState {
 	switch state {
