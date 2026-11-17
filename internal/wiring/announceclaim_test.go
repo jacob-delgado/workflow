@@ -46,10 +46,13 @@ func posting(posts *atomic.Int32) loop.DeliverSeams {
 
 			return nil
 		},
-		CheckCI: func(context.Context, forge.PullRequest, string) (forge.CI, error) {
-			return forge.CI{State: forge.CIPassed}, nil
-		},
+		CheckCI: ciPassed,
 	}
+}
+
+// ciPassed is a CI read that finds every check passed.
+func ciPassed(context.Context, forge.PullRequest, string) (forge.CI, error) {
+	return forge.CI{State: forge.CIPassed}, nil
 }
 
 // inAStore is a workspace whose store sits in a home of the test's own.
@@ -125,6 +128,57 @@ func TestTwoProcessesDeliveringOneAnnouncementPostItOnce(t *testing.T) {
 	// Assert
 	if got := posts.Load(); got != 1 {
 		t.Errorf("posted %d times from two processes, want once", got)
+	}
+}
+
+// refusedAfterReading is a delivery's seams whose CI passed and whose post,
+// once the announcement's claim is taken, has the command line read that
+// claim, as `workflow announce` reads one before it asks to post again, into
+// seen, and is then refused for a reason that surely delivered nothing.
+func refusedAfterReading(cli seams.Store, seen *int) loop.DeliverSeams {
+	return loop.DeliverSeams{
+		Post: func(ctx context.Context, _, _ string) error {
+			records, err := claimsOf(cli).Records(ctx)
+			if err == nil && len(records) == 1 {
+				*seen = records[0].Generation
+			}
+
+			return messaging.PostRefusedError{Reason: "is_archived"}
+		},
+		CheckCI: ciPassed,
+	}
+}
+
+func TestAPostAskedForAgainOverAReleasedClaimDoesNotPostTwice(t *testing.T) {
+	// Arrange
+	// A first session's post is refused after the command line saw its
+	// claim, unconfirmed, so its claim is given up; a third session then
+	// posts the announcement and confirms it. The command line, asked to
+	// post again, still holds the generation it saw.
+	where := inAStore(t)
+	first, cli, third := wired(t, config.Default(), where, nil).Store,
+		wired(t, config.Default(), where, nil).Store, wired(t, config.Default(), where, nil).Store
+
+	var (
+		posts atomic.Int32
+		seen  int
+	)
+
+	_, refused := loop.Deliver(t.Context(), refusedAfterReading(cli, &seen), claimsOf(first), readyAt7())
+	_, posted := loop.Deliver(t.Context(), posting(&posts), claimsOf(third), readyAt7())
+
+	if !errors.Is(refused, loop.ErrNotDelivered) || posted != nil || seen == 0 {
+		t.Fatalf("the first delivery = %v having seen generation %d, the third's = %v; "+
+			"want the first refused after the claim was seen and the third posted", refused, seen, posted)
+	}
+
+	// Act
+	_, err := loop.Redeliver(t.Context(), posting(&posts), claimsOf(cli), readyAt7(), seen)
+
+	// Assert
+	if !errors.Is(err, loop.ErrAnnouncedAlready) || posts.Load() != 1 {
+		t.Errorf("Redeliver = %v after %d posts; want ErrAnnouncedAlready and the announcement posted once",
+			err, posts.Load())
 	}
 }
 

@@ -130,6 +130,10 @@ func seedDatabaseAt(t *testing.T, dir string, version int, statements ...stateme
 	}
 }
 
+// insertClaim seeds one claim on an announcement, as a table of an older or
+// tampered schema holds it, leaving every other column to its default.
+const insertClaim = `INSERT INTO announces (repo, pull, moment, claim, claimed_at) VALUES (?, ?, ?, ?, ?)`
+
 // table is a statement that creates a table and binds nothing.
 func table(query string) statement {
 	return statement{query: query, args: nil}
@@ -318,11 +322,11 @@ func TestATamperedSchemaIsReportedNotTrusted(t *testing.T) {
 		"an announcement held whose claim is not a number": {
 			schema: []statement{
 				table(`CREATE TABLE announces (
-					repo TEXT, pull INTEGER, moment INTEGER, claim, claimed_at TEXT, posted_at TEXT,
-					PRIMARY KEY (repo, pull, moment)
+					repo TEXT, pull INTEGER, moment INTEGER, claim, first_claim, claimed_at TEXT, posted_at TEXT,
+					released INTEGER DEFAULT 0, PRIMARY KEY (repo, pull, moment)
 				)`),
 				{
-					query: `INSERT INTO announces (repo, pull, moment, claim, claimed_at) VALUES (?, ?, ?, ?, ?)`,
+					query: insertClaim,
 					args:  []any{repo, 42, 1, "first", storedTime},
 				},
 			},
@@ -331,9 +335,11 @@ func TestATamperedSchemaIsReportedNotTrusted(t *testing.T) {
 		},
 		"an announcement whose pull request is not a number": {
 			schema: []statement{
-				table(`CREATE TABLE announces (repo TEXT, pull, moment, claim, claimed_at TEXT, posted_at TEXT)`),
+				table(`CREATE TABLE announces (
+					repo TEXT, pull, moment, claim, first_claim, claimed_at TEXT, posted_at TEXT, released INTEGER DEFAULT 0
+				)`),
 				{
-					query: `INSERT INTO announces (repo, pull, moment, claim, claimed_at) VALUES (?, ?, ?, ?, ?)`,
+					query: insertClaim,
 					args:  []any{repo, "seven", 1, 1, storedTime},
 				},
 			},

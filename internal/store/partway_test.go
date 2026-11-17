@@ -36,7 +36,8 @@ func TestAReadThatFailsPartwayReturnsNothing(t *testing.T) {
 					args:  []any{repo, repo, smallestInteger},
 				},
 				table(`CREATE VIEW announces AS SELECT repo, abs(pull) AS pull, moment, 1 AS claim,
-					'2026-09-22T12:00:00Z' AS claimed_at, NULL AS posted_at FROM announced`),
+					1 AS first_claim, '2026-09-22T12:00:00Z' AS claimed_at, NULL AS posted_at, 0 AS released
+					FROM announced`),
 			},
 			call: announces,
 			step: "reading the announcements",

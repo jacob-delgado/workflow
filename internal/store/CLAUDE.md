@@ -99,7 +99,9 @@ user runs `workflow db-clean --all` and gives them again) and when that
 decision reopens. A bump of `schemaVersion` never touches `kept.db`. A
 `--dry-run` store's read-only open reads `workflow.db` as it is and a `kept.db`
 at another version as empty, never stamps or changes either file, and never
-makes one that is missing.
+makes one that is missing. So until a live open remakes a `workflow.db`
+another build left, a dry run's read of a table the schema change touched
+fails (TRADE-60).
 
 ## How a file is opened
 

@@ -113,6 +113,36 @@ func TestEachDatabaseIsListedWithItsKindSizeAndContents(t *testing.T) {
 	}
 }
 
+func TestAClaimGivenUpIsNotCountedInWhatTheCacheHolds(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// The ready announcement claimed and given up, its merge claimed and held.
+	dir := t.TempDir()
+	kept := store.New(dir, store.ModeWrites)
+
+	claim, err := kept.ClaimAnnounce(t.Context(), repo, ready(), theTime())
+	if err == nil {
+		err = kept.ReleaseAnnounce(t.Context(), repo, ready(), claim.Generation)
+	}
+
+	if err == nil {
+		_, err = kept.ClaimAnnounce(t.Context(), repo, store.Announce{Pull: 42, Moment: 3}, theTime())
+	}
+
+	if err != nil {
+		t.Fatalf("giving up one claim and holding another: %v", err)
+	}
+
+	// Act
+	files, err := store.Files(t.Context(), dir)
+
+	// Assert
+	if err != nil || len(files) != 1 || heldCount(files[0], "announcements") != 1 {
+		t.Errorf("Files = %+v, %v; want the cache holding 1 announcement, the merge's", files, err)
+	}
+}
+
 func TestEveryTableIsCountedInWhatItsFileHolds(t *testing.T) {
 	t.Parallel()
 

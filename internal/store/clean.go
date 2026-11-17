@@ -108,7 +108,7 @@ func databases() []database {
 	return []database{
 		{name: dbName, kind: DataCache, tables: []heldTable{
 			{"scopes", "scopes", `SELECT COUNT(*) FROM scopes`},
-			{"announces", "announcements", `SELECT COUNT(*) FROM announces`},
+			{"announces", "announcements", `SELECT COUNT(*) FROM announces WHERE released = 0`},
 			{"issue_cache", "cached views", `SELECT COUNT(*) FROM issue_cache`},
 			{"cached_issue", "cached issues", `SELECT COUNT(*) FROM cached_issue`},
 		}},

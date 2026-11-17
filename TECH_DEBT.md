@@ -1577,7 +1577,10 @@ would cost every user a `workflow db-clean --all` and every answer kept in it.
 discards the file whole, forget every claim. A pull request announced before
 the wipe can be offered, and posted, again by hand; an automatic post cannot
 follow from it, since an announcement is armed on its own only as its pull
-request opens.
+request opens. Until the first real run of a build with another
+`schemaVersion` remakes the file, a `--dry-run`, which reads it as it is,
+fails each read of a table the change touched: the announces table's read
+says `no such column: released` on a file made before version 3.
 
 **Reopen when.** A duplicate announcement after a wipe is reported, or
 `kept.db` gains migrations.
