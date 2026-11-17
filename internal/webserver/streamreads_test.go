@@ -5,7 +5,9 @@ package webserver_test
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/config"
@@ -192,4 +194,48 @@ func TestStreamFrameDescribesOneBranch(t *testing.T) {
 				branch.Name, branch.Current, snap.Branch.Name)
 		}
 	}
+}
+
+func TestAStreamOpenedDuringTheFirstAuthorAskShowsWhatItAnswers(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// The first stream's frame makes the first ask, held while the second
+		// stream's frame finds no author held and that ask under way.
+		var asked atomic.Int32
+
+		reads := newHeldReads(1)
+		deps := webtest.FilledDeps()
+		deps.Forge.Author = func(context.Context) (string, error) {
+			asked.Add(1)
+			reads.read()
+
+			return webtest.TestAuthor, nil
+		}
+		handler := webtest.ServeWith(t, deps, config.Default(),
+			webserver.Info{Version: webtest.TestVersion, StreamInterval: streamTick})
+		first := webtest.OpenStream(t, handler, "/api/events")
+
+		synctest.Wait()
+
+		second := webtest.OpenStream(t, handler, "/api/events")
+
+		synctest.Wait()
+
+		// Act
+		reads.landInTurn()
+
+		// Assert
+		if got := asked.Load(); got != 1 {
+			t.Errorf("asked the forge who the author is %d times for two streams' first frames, want once", got)
+		}
+
+		for index, stream := range []*webtest.OpenedStream{first, second} {
+			if frame := webtest.FirstSnapshot(t, stream.Close()); frame.Messaging.Author != webtest.TestAuthor {
+				t.Errorf("stream %d's first frame's author = %q, want %q from the one ask", index, frame.Messaging.Author,
+					webtest.TestAuthor)
+			}
+		}
+	})
 }
