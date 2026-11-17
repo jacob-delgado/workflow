@@ -80,7 +80,7 @@ func TestATableThatCannotBeCountedIsLeftOutOfWhatItsFileHolds(t *testing.T) {
 	// listed, so the file says it holds one, and it fails as it is counted.
 	dir := t.TempDir()
 	seedDatabase(t, dir,
-		table(`CREATE TABLE announces (repo TEXT, pull INTEGER, moment INTEGER, announced_at TEXT)`),
+		table(`CREATE TABLE announces (repo TEXT, pull INTEGER, moment INTEGER, released INTEGER DEFAULT 0)`),
 		statement{query: `INSERT INTO announces (repo, pull, moment) VALUES (?, 42, 1)`, args: []any{repo}},
 		statement{query: `PRAGMA writable_schema = ON`},
 		statement{

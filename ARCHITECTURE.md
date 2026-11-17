@@ -370,8 +370,10 @@ erDiagram
         INTEGER pull PK
         INTEGER moment PK
         INTEGER claim
+        INTEGER first_claim
         TEXT claimed_at
         TEXT posted_at
+        INTEGER released
     }
     issue_cache ||--o{ cached_issue : "FK (instance, view), cascade delete"
     issue_cache {
@@ -397,9 +399,14 @@ erDiagram
 - **`announces`** — one row per `(repo, pull, moment)`, claimed before the post
   goes, so of every session and process asking at once exactly one posts, and a
   previously-announced pull request still shows as posted after a restart.
-  `claim` is the generation (one, then one more for each post asked for again),
-  and `posted_at` stays NULL until the post is confirmed, so a claim whose post
-  began and was never seen to finish reads as unconfirmed rather than posted.
+  `claim` is the generation (one, then one more for each post asked for again
+  or claim taken over one given up), so it never repeats for a key while the
+  file lives, and a session asking again from a generation it saw never takes
+  over a claim made since. `first_claim` is the generation the claim held now
+  began at, the only one that may be given up; `released` is 1 once it was,
+  its post surely not gone, and such a row reads as no claim. `posted_at`
+  stays NULL until the post is confirmed, so a claim whose post began and was
+  never seen to finish reads as unconfirmed rather than posted.
   The claim lives in this discardable file, TRADE-60. No chat is read back; the
   tool records only its own posts.
 - **`issue_cache` + `cached_issue`** — the repeating group done in normal form.

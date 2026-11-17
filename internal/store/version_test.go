@@ -23,7 +23,7 @@ import (
 
 // currentVersion is the schema version this build stamps; it moves with the
 // store's own constant.
-const currentVersion = 2
+const currentVersion = 3
 
 // witness is an application_id the store never writes, so a file that still
 // carries it is the file that was there, not one made in its place.
@@ -320,5 +320,36 @@ func TestAStoreOpenedForACallerWhoHasLeftIsStillMadeAndStamped(t *testing.T) {
 				t.Errorf("the file holds %d tables, want the %d a whole one does", made, want)
 			}
 		})
+	}
+}
+
+func TestAClaimKeptByTheSecondSchemaIsForgotten(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// A file the second schema made, holding a claim on #42 that a session
+	// took and never confirmed.
+	dir := t.TempDir()
+	seedDatabaseAt(t, dir, 2,
+		table(`CREATE TABLE announces (
+			repo TEXT NOT NULL, pull INTEGER NOT NULL, moment INTEGER NOT NULL, claim INTEGER NOT NULL,
+			claimed_at TEXT NOT NULL, posted_at TEXT, PRIMARY KEY (repo, pull, moment)
+		) STRICT`),
+		statement{
+			query: insertClaim,
+			args:  []any{repo, 42, 1, 1, storedTime},
+		},
+	)
+
+	// Act
+	claim, err := store.New(dir, store.ModeWrites).ClaimAnnounce(t.Context(), repo, ready(), theTime())
+
+	// Assert
+	if err != nil || claim.Kind != store.ClaimTaken {
+		t.Errorf("ClaimAnnounce over the second schema's file = %+v, %v; want it taken afresh", claim, err)
+	}
+
+	if got := readPragma(t, dir, "user_version"); got != currentVersion {
+		t.Errorf("the file is at version %d, want %d", got, currentVersion)
 	}
 }

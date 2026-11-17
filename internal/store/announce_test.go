@@ -171,12 +171,14 @@ func TestAReleaseRemovesOnlyItsOwnFirstUnconfirmedClaim(t *testing.T) {
 
 	cases := map[string]struct {
 		confirm    bool
+		reclaim    bool
 		generation int
 		wantKept   bool
 	}{
 		"its own unconfirmed claim":  {confirm: false, generation: 1, wantKept: false},
 		"another generation's claim": {confirm: false, generation: 2, wantKept: true},
 		"a confirmed post":           {confirm: true, generation: 1, wantKept: true},
+		"a claim asked for again":    {reclaim: true, generation: 2, wantKept: true},
 	}
 
 	for name, tt := range cases {
@@ -187,6 +189,12 @@ func TestAReleaseRemovesOnlyItsOwnFirstUnconfirmedClaim(t *testing.T) {
 			kept, claim := claimed(t)
 			if tt.confirm {
 				_ = kept.ConfirmAnnounce(t.Context(), repo, ready(), claim.Generation, theTime())
+			}
+
+			if tt.reclaim {
+				// The first post was never confirmed and may have gone out, so
+				// the generation asked for again is not its run's first.
+				_, _ = kept.ReclaimAnnounce(t.Context(), repo, ready(), claim.Generation, theTime())
 			}
 
 			// Act
@@ -260,6 +268,103 @@ func TestAReclaimOfAClaimGoneClaimsAfresh(t *testing.T) {
 	// Assert
 	if err != nil || got.Kind != store.ClaimTaken || got.Generation != 1 {
 		t.Errorf("ReclaimAnnounce = %+v, %v; want a fresh claim taken at generation 1", got, err)
+	}
+}
+
+func TestAClaimAskedForAgainFromAGenerationGivenUpDoesNotTakeOverAFreshClaim(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Generation 1's post was refused and its claim given up; another
+	// session then claimed the announcement afresh an hour later.
+	kept, claim := claimed(t)
+	fresh := theTime().Add(time.Hour)
+
+	err := kept.ReleaseAnnounce(t.Context(), repo, ready(), claim.Generation)
+	if err != nil {
+		t.Fatalf("ReleaseAnnounce returned %v", err)
+	}
+
+	_, err = kept.ClaimAnnounce(t.Context(), repo, ready(), fresh)
+	if err != nil {
+		t.Fatalf("the fresh ClaimAnnounce returned %v", err)
+	}
+
+	// Act
+	got, err := kept.ReclaimAnnounce(t.Context(), repo, ready(), claim.Generation, fresh.Add(time.Minute))
+
+	// Assert
+	if err != nil || got.Kind != store.ClaimHeld || !got.ClaimedAt.Equal(fresh) {
+		t.Errorf("ReclaimAnnounce from generation %d = %+v, %v; want held by the fresh claim",
+			claim.Generation, got, err)
+	}
+}
+
+func TestTwoClaimsAskedForAgainFromAGenerationGivenUpTakeItOnce(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Generation 1's post was refused and its claim given up; two sessions
+	// that both saw generation 1 then ask to post it again.
+	kept, claim := claimed(t)
+	later := theTime().Add(time.Hour)
+
+	err := kept.ReleaseAnnounce(t.Context(), repo, ready(), claim.Generation)
+	if err != nil {
+		t.Fatalf("ReleaseAnnounce returned %v", err)
+	}
+
+	first, err := kept.ReclaimAnnounce(t.Context(), repo, ready(), claim.Generation, later)
+	if err != nil || first.Kind != store.ClaimTaken || first.Generation != 2 {
+		t.Fatalf("the first ReclaimAnnounce = %+v, %v; want it taken at generation 2", first, err)
+	}
+
+	// Act
+	second, err := kept.ReclaimAnnounce(t.Context(), repo, ready(), claim.Generation, later)
+
+	// Assert
+	want := store.Claim{Kind: store.ClaimHeld, Generation: 2, ClaimedAt: later, Posted: false}
+	if err != nil || second != want {
+		t.Errorf("the second ReclaimAnnounce = %+v, %v; want %+v, held by the first", second, err, want)
+	}
+}
+
+func TestOnlyOneOfManyClaimsOverOneGivenUpIsTaken(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// Generation 1 given up, then two stores on one directory, as two
+	// processes would be, each claiming it from eight goroutines at once.
+	dir := t.TempDir()
+	first, second := store.New(dir, store.ModeWrites), store.New(dir, store.ModeWrites)
+
+	claim, err := first.ClaimAnnounce(t.Context(), repo, ready(), theTime())
+	if err == nil {
+		err = first.ReleaseAnnounce(t.Context(), repo, ready(), claim.Generation)
+	}
+
+	if err != nil {
+		t.Fatalf("claiming and giving up generation 1: %v", err)
+	}
+
+	var wait sync.WaitGroup
+
+	tally := &claimTally{kinds: map[store.ClaimKind]int{}}
+
+	// Act
+	for range 8 {
+		wait.Go(func() { tally.claim(first) })
+		wait.Go(func() { tally.claim(second) })
+	}
+
+	wait.Wait()
+
+	// Assert
+	held := records(t, first)
+	if len(tally.errs) != 0 || tally.kinds[store.ClaimTaken] != 1 || tally.kinds[store.ClaimHeld] != 15 ||
+		len(held) != 1 || held[0].Generation != 2 {
+		t.Errorf("16 claims gave %d taken and %d held, errors %v, Announces %+v; want one taken at generation 2",
+			tally.kinds[store.ClaimTaken], tally.kinds[store.ClaimHeld], tally.errs, held)
 	}
 }
 
@@ -350,11 +455,13 @@ func TestAMalformedClaimIsLeftOut(t *testing.T) {
 	seedDatabase(t, dir,
 		table(`CREATE TABLE announces (
 			repo TEXT NOT NULL, pull INTEGER NOT NULL, moment INTEGER NOT NULL, claim INTEGER NOT NULL,
-			claimed_at TEXT NOT NULL, posted_at TEXT, PRIMARY KEY (repo, pull, moment)
+			first_claim INTEGER NOT NULL, claimed_at TEXT NOT NULL, posted_at TEXT,
+			released INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (repo, pull, moment)
 		) STRICT`),
 		statement{
-			query: `INSERT INTO announces (repo, pull, moment, claim, claimed_at) VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)`,
-			args:  []any{repo, 42, 1, 0, storedTime, repo, 43, 1, 1, "yesterday"},
+			query: `INSERT INTO announces (repo, pull, moment, claim, first_claim, claimed_at)
+				VALUES (?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?)`,
+			args: []any{repo, 42, 1, 0, 0, storedTime, repo, 43, 1, 1, 1, "yesterday"},
 		},
 	)
 

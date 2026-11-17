@@ -42,7 +42,9 @@ const (
 
 // Claim is what a claim on an announcement came to, and the claim as it
 // stands: its generation, one for the first and one more for each post asked
-// for again, when it was taken, and whether its post was confirmed.
+// for again or claim taken over one given up, so one is never handed out
+// twice for an announcement while the file lives; when it was taken; and
+// whether its post was confirmed.
 type Claim struct {
 	Kind       ClaimKind
 	Generation int
@@ -68,9 +70,9 @@ func notKept() Claim {
 
 // ClaimAnnounce claims announce in repo before it is posted, so that of every
 // session and process asking at once exactly one takes it: ClaimTaken at
-// generation one, or ClaimHeld with the claim as another left it, or
-// ClaimGone where that claim was given up before it could be read. A store
-// that keeps nothing answers ClaimNotKept.
+// generation one, or one past a claim given up, or ClaimHeld with the claim
+// as another left it, or ClaimGone where that claim was given up before it
+// could be read. A store that keeps nothing answers ClaimNotKept.
 func (s Store) ClaimAnnounce(ctx context.Context, repo string, announce Announce, now time.Time) (Claim, error) {
 	if s.writesNothing() || repo == "" {
 		return notKept(), nil
@@ -86,11 +88,13 @@ func (s Store) ClaimAnnounce(ctx context.Context, repo string, announce Announce
 }
 
 // ReclaimAnnounce claims announce in repo again, to post it again as asked,
-// only if its claim is still at generation seen: ClaimTaken at the next
+// only if its claim is still held at generation seen: ClaimTaken at the next
 // generation, its confirmed post, if any, left as it was, or ClaimHeld when
-// another reclaimed it first. A claim gone, as a db-clean leaves it, is
-// claimed afresh, as ClaimAnnounce claims it, ClaimGone included. A store
-// that keeps nothing answers ClaimNotKept.
+// another claimed it first. A claim given up, or gone as a db-clean leaves
+// it, is claimed afresh, as ClaimAnnounce claims it, ClaimGone included; a
+// generation never repeats, so one seen before a claim was given up never
+// matches a claim taken since. A store that keeps nothing answers
+// ClaimNotKept.
 func (s Store) ReclaimAnnounce(
 	ctx context.Context, repo string, announce Announce, seen int, now time.Time,
 ) (Claim, error) {
@@ -108,7 +112,7 @@ func (s Store) ReclaimAnnounce(
 
 	err = database.QueryRowContext(ctx,
 		`UPDATE announces SET claim = claim + 1, claimed_at = ?
-			WHERE repo = ? AND pull = ? AND moment = ? AND claim = ? RETURNING claim`,
+			WHERE repo = ? AND pull = ? AND moment = ? AND claim = ? AND released = 0 RETURNING claim`,
 		timestamp(now), repo, announce.Pull, announce.Moment, seen,
 	).Scan(&generation)
 
@@ -138,24 +142,27 @@ func (s Store) ConfirmAnnounce(
 }
 
 // ReleaseAnnounce gives up the claim at generation on announce, whose post
-// did not go out, so it may be offered again: only a first claim, never
-// confirmed, is removed, so a release never forgets a post confirmed before
-// or a claim taken again since. A store that keeps nothing releases nothing.
+// did not go out, so it may be offered again: only the claim that began its
+// run, never confirmed, is given up, so a release never forgets a post
+// confirmed before or a claim taken again since. The row stays, marked
+// released, so the next claim takes the generation after it. A store that
+// keeps nothing releases nothing.
 func (s Store) ReleaseAnnounce(ctx context.Context, repo string, announce Announce, generation int) error {
 	if s.writesNothing() || repo == "" {
 		return nil
 	}
 
 	return s.announceWrite(ctx, "releasing the announcement",
-		`DELETE FROM announces WHERE repo = ? AND pull = ? AND moment = ? AND claim = ? AND claim = 1
-			AND posted_at IS NULL`,
+		`UPDATE announces SET released = 1 WHERE repo = ? AND pull = ? AND moment = ? AND claim = ?
+			AND claim = first_claim AND posted_at IS NULL AND released = 0`,
 		repo, announce.Pull, announce.Moment, generation)
 }
 
 // Announces are every announcement claimed for a repository, posted or not,
 // so a surface knows what has been posted and what began and was not seen to
-// finish. A row no build of the store writes — a generation below one, or a
-// claim time that is not one — is left out. A disabled store reports none.
+// finish. A claim given up is no claim, and is left out, as is a row no build
+// of the store writes — a generation below one, or a claim time that is not
+// one. A disabled store reports none.
 func (s Store) Announces(ctx context.Context, repo string) ([]AnnounceRecord, error) {
 	if s.nothingToRead() || repo == "" {
 		return nil, nil
@@ -168,7 +175,8 @@ func (s Store) Announces(ctx context.Context, repo string) ([]AnnounceRecord, er
 	defer func() { _ = database.Close() }()
 
 	rows, err := database.QueryContext(ctx,
-		`SELECT pull, moment, claim, claimed_at, posted_at IS NOT NULL FROM announces WHERE repo = ?`, repo)
+		`SELECT pull, moment, claim, claimed_at, posted_at IS NOT NULL FROM announces
+			WHERE repo = ? AND released = 0`, repo)
 	if err != nil {
 		return nil, fmt.Errorf("reading the announcements: %w", err)
 	}
@@ -213,15 +221,19 @@ func scanRecord(rows *sql.Rows) (AnnounceRecord, error) {
 	return record, nil
 }
 
-// claimIn takes the first claim on announce in database — one statement, so
-// of every connection asking at once exactly one inserts it — or reads the one
-// another took.
+// claimIn takes the first claim on announce in database, or the one after a
+// claim given up — one statement, so of every connection asking at once
+// exactly one takes it — or reads the one another holds. A claim taken over
+// one given up begins a run of its own, so first_claim moves with it.
 func claimIn(ctx context.Context, database *sql.DB, repo string, announce Announce, now time.Time) (Claim, error) {
 	var generation int
 
 	err := database.QueryRowContext(ctx,
-		`INSERT INTO announces (repo, pull, moment, claim, claimed_at, posted_at) VALUES (?, ?, ?, 1, ?, NULL)
-			ON CONFLICT (repo, pull, moment) DO NOTHING RETURNING claim`,
+		`INSERT INTO announces (repo, pull, moment, claim, first_claim, claimed_at, posted_at, released)
+			VALUES (?, ?, ?, 1, 1, ?, NULL, 0)
+			ON CONFLICT (repo, pull, moment) DO UPDATE SET claim = claim + 1, first_claim = claim + 1,
+				claimed_at = excluded.claimed_at, released = 0
+			WHERE released = 1 RETURNING claim`,
 		repo, announce.Pull, announce.Moment, timestamp(now),
 	).Scan(&generation)
 
@@ -235,7 +247,7 @@ func claimIn(ctx context.Context, database *sql.DB, repo string, announce Announ
 	}
 }
 
-// heldIn is the claim another took on announce, as it stands. One given up
+// heldIn is the claim another holds on announce, as it stands. One given up
 // since the claim met it is ClaimGone: no one holds it now, and the caller
 // decides whether to ask for it once more.
 func heldIn(ctx context.Context, database *sql.DB, repo string, announce Announce) (Claim, error) {
@@ -245,7 +257,8 @@ func heldIn(ctx context.Context, database *sql.DB, repo string, announce Announc
 	)
 
 	err := database.QueryRowContext(ctx,
-		`SELECT claim, claimed_at, posted_at IS NOT NULL FROM announces WHERE repo = ? AND pull = ? AND moment = ?`,
+		`SELECT claim, claimed_at, posted_at IS NOT NULL FROM announces
+			WHERE repo = ? AND pull = ? AND moment = ? AND released = 0`,
 		repo, announce.Pull, announce.Moment,
 	).Scan(&held.Generation, &claimedAt, &held.Posted)
 

@@ -318,8 +318,7 @@ func Deliver(ctx context.Context, seams DeliverSeams, memory AnnounceMemory, del
 // again only if its claim is still at generation seen, so of two sessions
 // asking again at once, one posts. A claim another took meanwhile is an
 // AnnouncedAlreadyError, and one given up before it could be read is
-// ErrNotClaimed: compared by its generation alone, a claim asked for again a
-// second time could take over a fresh one.
+// ErrNotClaimed.
 func Redeliver(
 	ctx context.Context, seams DeliverSeams, memory AnnounceMemory, delivery Delivery, seen int,
 ) (Delivered, error) {
