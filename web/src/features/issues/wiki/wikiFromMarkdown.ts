@@ -1,7 +1,8 @@
 // wikiFromMarkdown rewrites the Markdown a comment is written in as the wiki
 // markup Jira renders, as jira.WikiFromMarkdown does before posting when
 // jira.markdown_comments is on, so the composer's Preview shows what Jira
-// will be sent.
+// will be sent. A code block the comment leaves open is closed at its end, as
+// Markdown ends one with the document.
 //
 // Trade-off TRADE-28: these rules are written again in internal/jira/wiki.go,
 // which converts before posting, and both copies answer to the one case file
@@ -17,11 +18,15 @@ export function wikiFromMarkdown(markdown: string): string {
       out.push(fence === null ? convertLine(line) : bracket(fence))
       opener = fence
     } else if (fence !== null && closes(fence, opener)) {
-      out.push('{code}')
+      out.push(codeClose)
       opener = null
     } else {
       out.push(line)
     }
+  }
+
+  if (opener !== null) {
+    out.push(codeClose)
   }
 
   return out.join('\n')
@@ -34,6 +39,9 @@ interface CodeFence {
   run: string
   info: string
 }
+
+// codeClose is the wiki markup that ends a code block.
+const codeClose = '{code}'
 
 // boldSentinel stands in for wiki-bold's single asterisk while the emphasis
 // rewrites run, so the italic pass does not read a fresh bold as an italic.

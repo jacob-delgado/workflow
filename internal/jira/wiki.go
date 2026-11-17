@@ -56,7 +56,8 @@ var starItalicSpan = regexp.MustCompile(`\*([^\s*](?:[^*]*?[^\s*])?)\*`)
 // markup Jira renders: headings, emphasis, inline and fenced code, links,
 // images, and lists. Text with no Markdown comes back unchanged, so it is safe
 // on plain prose — a bare asterisk between spaces or an underscore inside a word
-// is left alone rather than read as emphasis.
+// is left alone rather than read as emphasis. A code block the comment leaves
+// open is closed at its end, as Markdown ends one with the document.
 //
 // Trade-off TRADE-28: these rules are written again in
 // web/src/features/issues/wiki/wikiFromMarkdown.ts, for the web's Preview, and
@@ -74,8 +75,13 @@ func WikiFromMarkdown(md string) string {
 		out = append(out, converted)
 	}
 
+	out = append(out, block.end()...)
+
 	return strings.Join(out, "\n")
 }
+
+// codeClose is the wiki markup that ends a code block.
+const codeClose = "{code}"
 
 // blockStage is whether a line is read as prose or inside a fenced code block.
 // It has two values, so it is read by comparison.
@@ -103,7 +109,7 @@ func (b wikiBlock) line(text string) (wikiBlock, string) {
 
 	if b.stage == blockCode {
 		if isFence && fence.closes(b.opener) {
-			return wikiBlock{stage: blockProse}, "{code}"
+			return wikiBlock{stage: blockProse}, codeClose
 		}
 
 		return b, text
@@ -114,6 +120,17 @@ func (b wikiBlock) line(text string) (wikiBlock, string) {
 	}
 
 	return b, convertLine(text)
+}
+
+// end is what the block writes once the comment's lines run out: a code block
+// still open gets its {code}, as Markdown ends one with the document, and
+// prose writes nothing.
+func (b wikiBlock) end() []string {
+	if b.stage == blockCode {
+		return []string{codeClose}
+	}
+
+	return nil
 }
 
 // codeFence is a line that opens or closes a fenced code block: the marker

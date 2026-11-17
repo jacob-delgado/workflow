@@ -155,6 +155,16 @@
       "name": "a tilde fence brackets a block that a backtick fence does not close",
       "markdown": "~~~go\nx := ~~notStruck~~\n```\n~~~\nafter ~~struck~~",
       "want": "{code:go}\nx := ~~notStruck~~\n```\n{code}\nafter -struck-"
+    },
+    {
+      "name": "a fence left open at the end is closed there",
+      "markdown": "before\n```go\nx := **notBold**",
+      "want": "before\n{code:go}\nx := **notBold**\n{code}"
+    },
+    {
+      "name": "a fence left open behind a fence that does not close it is closed at the end",
+      "markdown": "~~~\nx\n```",
+      "want": "{code}\nx\n```\n{code}"
     }
   ]
 }
