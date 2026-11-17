@@ -211,7 +211,8 @@ type server struct {
 	forgeAnswer forgeCache
 
 	// quiet is how long the pull request's head has reported no check, as
-	// every read of its CI the server made counts it, a frame's or a write's.
+	// the server's reads of its CI count it, a frame's or a write's: each
+	// read is taken in only when it was asked after the last read taken in.
 	quiet headQuiet
 
 	// opened is each pull request opened here that the forge's list has not

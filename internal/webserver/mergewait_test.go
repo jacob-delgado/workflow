@@ -205,3 +205,112 @@ func TestAFrameKeepsTheNoCIMarkOverAFailedCIRead(t *testing.T) {
 			"the failed read keeps the CI held", frame.Review.Ci)
 	}
 }
+
+// The heads of pull request #42 on either side of a push.
+const (
+	headBeforePush = "before"
+	headAfterPush  = "after"
+)
+
+// pushedAfterTheFirstFind is deps whose pull request #42 is found with the
+// head before a push on the first find, which runs whileFound before it
+// answers, and with the head after it on every later find.
+func pushedAfterTheFirstFind(deps webserver.Deps, whileFound func(context.Context) error) webserver.Deps {
+	var (
+		finding sync.Mutex
+		finds   int
+	)
+
+	found := deps.Forge.FindPullRequest
+	deps.Forge.FindPullRequest = func(ctx context.Context, branch string) (forge.PullRequest, bool, error) {
+		pull, ok, err := found(ctx, branch)
+
+		finding.Lock()
+		finds++
+		first := finds == 1
+		finding.Unlock()
+
+		pull.HeadCommit = headAfterPush
+		if first {
+			pull.HeadCommit = headBeforePush
+			_ = whileFound(ctx)
+		}
+
+		return pull, ok, err
+	}
+
+	return deps
+}
+
+// overtakenByAPush reads the review on served while a read of the head before
+// a push is held on held: one read of the head after it, then another
+// NoCIPatience later, which must say no_ci; then it lets the held read go and
+// waits for its answer.
+func overtakenByAPush(t *testing.T, served http.Handler, clock *stoppedClock, held *webtest.HeldCall) {
+	t.Helper()
+
+	letGo := sync.OnceFunc(func() { close(held.Release) })
+	t.Cleanup(letGo)
+
+	late := webtest.Asking(t.Context(), served, http.MethodGet, "/api/review")
+
+	<-held.Entered
+
+	webtest.Get(t, served, "/api/review")
+	clock.advance(armed.NoCIPatience)
+
+	if review := webtest.Decode[api.Review](t, webtest.Get(t, served, "/api/review")); review.Ci == nil ||
+		!review.Ci.NoCi {
+		t.Fatalf("review CI = %+v before the late read answered, want no_ci true", review.Ci)
+	}
+
+	letGo()
+	<-late
+}
+
+func TestALateCIReadOfTheHeadBeforeAPushLeavesTheNewHeadsQuiet(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	clock := &stoppedClock{now: time.Date(2026, 11, 13, 9, 0, 0, 0, time.UTC)}
+	held := webtest.NewHeld()
+	deps := pushedAfterTheFirstFind(noCIDeps(clock), func(context.Context) error { return nil })
+	deps.Forge.CheckStatus = func(ctx context.Context, pull forge.PullRequest, _ string) (forge.CI, error) {
+		if pull.HeadCommit == headBeforePush {
+			_ = held.Wait(ctx)
+		}
+
+		return forge.CI{State: forge.CINone}, nil
+	}
+
+	served := webtest.Serve(t, deps, config.Default())
+	overtakenByAPush(t, served, clock, held)
+
+	// Act
+	review := webtest.Decode[api.Review](t, webtest.Get(t, served, "/api/review"))
+
+	// Assert
+	if review.Ci == nil || !review.Ci.NoCi {
+		t.Errorf("review CI = %+v, want no_ci true: a read of the head before the push answered late "+
+			"and set the quiet back", review.Ci)
+	}
+}
+
+func TestALateFindOfTheHeadBeforeAPushLeavesTheNewHeadsQuiet(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	clock := &stoppedClock{now: time.Date(2026, 11, 13, 9, 0, 0, 0, time.UTC)}
+	held := webtest.NewHeld()
+	served := webtest.Serve(t, pushedAfterTheFirstFind(noCIDeps(clock), held.Wait), config.Default())
+	overtakenByAPush(t, served, clock, held)
+
+	// Act
+	review := webtest.Decode[api.Review](t, webtest.Get(t, served, "/api/review"))
+
+	// Assert
+	if review.Ci == nil || !review.Ci.NoCi {
+		t.Errorf("review CI = %+v, want no_ci true: a find of the head before the push answered late "+
+			"and set the quiet back", review.Ci)
+	}
+}

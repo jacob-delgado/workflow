@@ -167,9 +167,11 @@ func (s *server) mergeablePull(ctx context.Context) (forge.PullRequest, error) {
 		return forge.PullRequest{}, errReviewWriteUnavailable
 	}
 
+	ask := s.quiet.ask()
+
 	read, err := s.readPull(ctx, true)
 	if err != nil {
-		s.quiet.unheard()
+		s.quiet.unheard(ask)
 
 		return forge.PullRequest{}, err
 	}
@@ -180,38 +182,63 @@ func (s *server) mergeablePull(ctx context.Context) (forge.PullRequest, error) {
 		return forge.PullRequest{}, errNotMergeable
 	}
 
-	if !s.quiet.heard(read.pull, read.ci, s.now()).CanMerge(read.pull, read.ci) {
+	if !s.quiet.heard(ask, read.pull, read.ci, s.now()).CanMerge(read.pull, read.ci) {
 		return forge.PullRequest{}, errNotMergeable
 	}
 
 	return read.pull, nil
 }
 
-// headQuiet is an armed.HeadWatch every read of CI adds to, however many
-// requests read at once.
+// headQuiet is an armed.HeadWatch the server's reads of CI add to, however
+// many requests read at once. Each read takes an ask as it begins, before its
+// pull request is found, since the watch is keyed on the head that find
+// answers; the watch takes in a read only when it was asked after the last
+// read it took in. So a read of the head before a push that answers after a
+// read of the head after it does not set the watch back to the old head, which
+// would start the new head's quiet again from nothing. A read is heard when it
+// is newer than the last heard, not only when it is the last asked, as
+// armed.Hold hears: many requests read at once here, and hearing only the last
+// asked would drop every read another overlapped.
 type headQuiet struct {
 	mu    sync.Mutex
 	watch armed.HeadWatch
+	// asked numbers each read as it begins; took is the ask of the last read
+	// the watch took in.
+	asked, took int
 }
 
-// heard adds a read of pull's CI heard at readAt, which reported run, and
-// answers the watch it leaves.
-func (q *headQuiet) heard(pull forge.PullRequest, run forge.CI, readAt time.Time) armed.HeadWatch {
+// ask numbers a read of CI as it begins, for heard or unheard to name it by.
+func (q *headQuiet) ask() int {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	q.watch = q.watch.Read(pull, run, readAt)
+	q.asked++
 
-	return q.watch
+	return q.asked
 }
 
-// unheard adds a read of CI that failed, which counts no quiet across it, and
-// answers the watch it leaves.
-func (q *headQuiet) unheard() armed.HeadWatch {
+// heard adds the read asked as ask, of pull's CI heard at readAt, which
+// reported run, and answers the watch it leaves.
+func (q *headQuiet) heard(ask int, pull forge.PullRequest, run forge.CI, readAt time.Time) armed.HeadWatch {
+	return q.hear(ask, func(watch armed.HeadWatch) armed.HeadWatch { return watch.Read(pull, run, readAt) })
+}
+
+// unheard adds the read asked as ask, which failed and so counts no quiet
+// across it, and answers the watch it leaves.
+func (q *headQuiet) unheard(ask int) armed.HeadWatch {
+	return q.hear(ask, armed.HeadWatch.Unheard)
+}
+
+// hear steps the watch by step when the read asked as ask was asked after the
+// last read the watch took in, and answers the watch as it then stands: an
+// older read changes nothing.
+func (q *headQuiet) hear(ask int, step func(armed.HeadWatch) armed.HeadWatch) armed.HeadWatch {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
-	q.watch = q.watch.Unheard()
+	if ask > q.took {
+		q.watch, q.took = step(q.watch), ask
+	}
 
 	return q.watch
 }
