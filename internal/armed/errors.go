@@ -70,17 +70,41 @@ func (OtherHeldError) Unwrap() error {
 	return ErrArmedOther
 }
 
-// UnheardError is ErrUnheard with the last failure before it gave up: a read
-// or a post that failed, or ErrNotListedYet.
+// Attempt is what a hold tried last and failed at, as it waits past the
+// failure: a read, or its post.
+type Attempt int
+
+const (
+	// AttemptRead is a read of the pull request or its CI, the gate's own
+	// read as it posts included. It is the zero, so a hold that has failed
+	// at nothing names no post.
+	AttemptRead Attempt = iota
+	// AttemptPost is the post: the store could not take its claim, or the
+	// service asked it to wait.
+	AttemptPost
+)
+
+// UnheardError is ErrUnheard with the last failure before it gave up, a read
+// or a post that failed, or ErrNotListedYet, and which of the two it was:
+// the failure alone cannot say, since a read and a post can each be asked to
+// wait in the same words. A surface words it by Attempt, since a hold given
+// up past its post heard its pull request on every read.
 type UnheardError struct {
-	Last error
+	Last    error
+	Attempt Attempt
 }
 
 var _ error = UnheardError{}
 
-// Error says that nothing was heard for too long, and what failed last.
+// Error says what failed for too long, the pull request's reads or its
+// announcement's post, and how it failed last.
 func (e UnheardError) Error() string {
-	return ErrUnheard.Error() + ": " + e.Last.Error()
+	failed := map[Attempt]string{
+		AttemptRead: ErrUnheard.Error(),
+		AttemptPost: "the announcement could not be posted for too long",
+	}[e.Attempt]
+
+	return failed + ": " + e.Last.Error()
 }
 
 // Unwrap lets errors.Is match ErrUnheard and the last failure.

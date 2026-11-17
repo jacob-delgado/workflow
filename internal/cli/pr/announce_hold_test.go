@@ -145,6 +145,9 @@ type clockedWorld struct {
 	responses clitest.GhResponses
 	hook      string
 	home      string
+	// store is the configuration's "store" member, with its comma, or
+	// none for the store as it is by default.
+	store string
 }
 
 // onAFakeClock runs args on a fake clock, in a synctest bubble, in a pushed
@@ -162,7 +165,7 @@ func onAFakeClock(t *testing.T, world clockedWorld, args ...string) clocked {
 		clitest.FakeGh(t, world.responses)
 		repo := clitest.GithubRepo(t, armedBranch)
 		clitest.PretendPushed(t, repo)
-		clitest.WriteFile(t, repo, `{"forge":{"cli":true,"kind":"github","host":"github.com"},`+
+		clitest.WriteFile(t, repo, `{`+world.store+`"forge":{"cli":true,"kind":"github","host":"github.com"},`+
 			`"messaging":{"webhook_url":"`+world.hook+`"},"timing":{"ci_interval":"1m"}}`)
 
 		home := cmp.Or(world.home, t.TempDir())
@@ -303,6 +306,33 @@ func TestAnnounceWhenGreenGivesUpOnAServiceThatAsksEveryPostToWait(t *testing.T)
 
 	if asked.Load() < 2 || !strings.Contains(run.printed.Stderr, "Could not post to the channel its webhook is bound to") {
 		t.Errorf("posted %d times, said %q; want each post tried again, and that said", asked.Load(), run.printed.Stderr)
+	}
+}
+
+func TestAnnounceWhenGreenSaysAnUnguardedPostAskedToWaitFailed(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// With no store keeping claims, a post asked to wait goes unguarded and
+	// fails with the service's own error, which a read of CI could fail
+	// with too: the hold knows it was the post.
+	var asked atomic.Int32
+
+	world := clockedWorld{
+		responses: clitest.GhResponses{Pulls: clitest.OpenPull("Add login"), Status: clitest.PassingStatus()},
+		hook:      askingToWait(t, &asked), store: `"store":{"disabled":true},`,
+	}
+
+	// Act
+	run := onAFakeClock(t, world, "announce", "--when-green", "--yes")
+
+	// Assert
+	if !strings.Contains(fmt.Sprint(run.err), "could not post to Slack for 10m") {
+		t.Errorf("announce --when-green = %v; want Slack could not be posted to for 10m", run.err)
+	}
+
+	if !strings.Contains(run.printed.Stderr, "Could not post to the channel its webhook is bound to") {
+		t.Errorf("stderr = %q, want each post asked to wait told as a post", run.printed.Stderr)
 	}
 }
 

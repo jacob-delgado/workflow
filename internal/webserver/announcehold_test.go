@@ -330,6 +330,39 @@ func TestAHeldAnnouncementWhoseCICannotBeReadForTenMinutesIsDropped(t *testing.T
 	})
 }
 
+func TestAHeldAnnouncementWhosePostWaitsTenMinutesSaysThePostFailed(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange
+		// With no store keeping claims, #42's CI passes and its post is asked
+		// to wait; CI is heard passing again an hour later.
+		world := newForgeWorld()
+		handler := heldServer(t, world.deps(), config.Default())
+		announceWhenGreen(t, handler, nil)
+		world.turn(func(w *forgeWorld) {
+			w.ci, w.fail = forge.CIPassed, fmt.Errorf("%w: slow down", httpx.ErrRateLimited)
+		})
+		advance(ciTick)
+		world.turn(func(*forgeWorld) {})
+
+		// Act
+		advance(ciTick)
+
+		// Assert
+		reason := "the post of #42 to Slack failed for 10m: the service is limiting requests; wait and try again"
+
+		held := heldAnnouncement(t, handler)
+		if held == nil {
+			t.Fatal("the frame holds no announcement, want #42's dropped")
+		}
+
+		if held.State != api.QueuedAnnouncementStateDropped || orEmpty(held.Reason) != reason {
+			t.Errorf("held announcement %s because %q, want dropped because %q", held.State, orEmpty(held.Reason), reason)
+		}
+	})
+}
+
 func TestAHeldAnnouncementTheServiceRefusesIsDroppedWithItsReason(t *testing.T) {
 	t.Parallel()
 

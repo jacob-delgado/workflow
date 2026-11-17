@@ -220,24 +220,17 @@ func unheardFor(reason error, pull, service string) error {
 		sentinel = unheard.Last
 	}
 
-	switch {
-	case errors.Is(unheard.Last, armed.ErrNotListedYet):
+	if errors.Is(unheard.Last, armed.ErrNotListedYet) {
 		return forgeWordedError{sentinel, "the forge did not list " + pull + " within " + patience +
 			", so it was not announced"}
-	case postFailed(unheard.Last):
-		return forgeWordedError{sentinel, "could not post to " + service + " for " + patience + " (" + last +
-			"), so it was not announced"}
-	default:
-		return forgeWordedError{sentinel, "could not read CI on " + pull + " for " + patience + " (" + last +
-			"), so it was not announced"}
 	}
-}
 
-// postFailed reports whether err is a post's failure that a hold tries again
-// past: the store could not take its claim, or the service refused it for
-// now.
-func postFailed(err error) bool {
-	return errors.Is(err, loop.ErrNotClaimed) || errors.Is(err, loop.ErrNotDelivered)
+	failed := map[armed.Attempt]string{
+		armed.AttemptRead: "could not read CI on " + pull,
+		armed.AttemptPost: "could not post to " + service,
+	}[unheard.Attempt]
+
+	return forgeWordedError{sentinel, failed + " for " + patience + " (" + last + "), so it was not announced"}
 }
 
 // waitLines tells what a wait for the CI of pull to pass waits on: in its
@@ -270,7 +263,7 @@ func (w *waitLines) tell(hold armed.Hold) {
 // being posted, or ended, which the wait's end says.
 func (w *waitLines) line(hold armed.Hold) string {
 	heard, reason := hold.CI(), hold.Reason()
-	failed := w.failedLine(reason)
+	failed := w.failedLine(hold.Failed(), reason)
 
 	listing := "Waiting for the forge to list " + w.pull + "…"
 	if reason != nil && !errors.Is(reason, armed.ErrNotListedYet) {
@@ -300,15 +293,15 @@ func (w *waitLines) line(hold armed.Hold) string {
 	}[hold.Stage()]
 }
 
-// failedLine says that a read, or a post, failed with reason, and is tried
-// again.
-func (w *waitLines) failedLine(reason error) string {
-	why := sanitize.Line(fmt.Sprint(reason))
-	if postFailed(reason) {
-		return "Could not post to " + w.target + " (" + why + "); trying again."
-	}
+// failedLine says that attempt, a read or a post, failed with reason, and
+// is tried again.
+func (w *waitLines) failedLine(attempt armed.Attempt, reason error) string {
+	failed := map[armed.Attempt]string{
+		armed.AttemptRead: "Could not read CI on " + w.pull,
+		armed.AttemptPost: "Could not post to " + w.target,
+	}[attempt]
 
-	return "Could not read CI on " + w.pull + " (" + why + "); trying again."
+	return failed + " (" + sanitize.Line(fmt.Sprint(reason)) + "); trying again."
 }
 
 // finished is how many of ci's checks finished, in brackets after a space, or
