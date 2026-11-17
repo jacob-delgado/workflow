@@ -121,6 +121,9 @@ const commentLoadCap = 1000
 func (c Client) withAllComments(ctx context.Context, issueKey Key, detail IssueDetail) IssueDetail {
 	for len(detail.Comments) < detail.CommentTotal && len(detail.Comments) < commentLoadCap {
 		page, err := c.commentPage(ctx, issueKey, len(detail.Comments))
+		// Trade-off TRADE-72: a page that fails ends the paging as the cap
+		// does, and nothing tells the two apart, so a failed page reads as
+		// comments not loaded rather than as a failure.
 		if err != nil || len(page) == 0 {
 			break
 		}
