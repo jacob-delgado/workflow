@@ -16,7 +16,9 @@ import (
 // request already opened. GitHub names each list by the same key it reads it
 // back under, and takes reviewers on the pull while assignees and labels go on
 // its issue side. Reviewers it would not add are reported only once the
-// assignees and labels are in, so a mistyped name costs nothing else.
+// assignees and labels are in, so a mistyped name costs nothing else, and
+// joined with the failure of either when one fails, never dropped for it; a
+// failure alone is returned as it is.
 func githubAddPeople(ctx context.Context, client Client, repo Repo, number int, request NewPullRequest) error {
 	pull := githubPullPath(repo, number)
 	issue := githubRepoPath(repo) + issuesSegment + "/" + strconv.Itoa(number)
@@ -27,16 +29,19 @@ func githubAddPeople(ctx context.Context, client Client, repo Repo, number int, 
 	}
 
 	err := githubPostList(ctx, client, repo, issue+"/assignees", "assignees", request.Assignees)
-	if err != nil {
+	if err == nil {
+		err = githubPostList(ctx, client, repo, issue+"/labels", "labels", request.Labels)
+	}
+
+	if err == nil {
+		return reviewersErr
+	}
+
+	if reviewersErr == nil {
 		return err
 	}
 
-	err = githubPostList(ctx, client, repo, issue+"/labels", "labels", request.Labels)
-	if err != nil {
-		return err
-	}
-
-	return reviewersErr
+	return errors.Join(err, reviewersErr)
 }
 
 // githubReviewersBody is the body that requests reviewers: users by login and

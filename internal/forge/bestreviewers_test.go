@@ -220,3 +220,31 @@ func TestCreateMergeRequestOnGitLabOpensWithThePeopleItKnows(t *testing.T) {
 		})
 	}
 }
+
+func TestCreatePullRequestOnGitHubKeepsARefusedReviewerWhenAssigningFails(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	// GitHub turns ghost down as a reviewer, then fails outright when the
+	// assignees are added after it.
+	client, _ := recordingForge(t, func(asked recorded) (int, string) {
+		if asked.path == githubPRIssuePath+"/assignees" {
+			return http.StatusInternalServerError, `{"message":"Server Error"}`
+		}
+
+		return githubRefusingStrangers(asked)
+	})
+
+	// Act
+	created, err := client.CreatePullRequest(t.Context(), githubRepo(), forge.NewPullRequest{
+		Title: prTitle, Head: forge.Head{Branch: featureBranch}, Base: baseBranch,
+		Reviewers: []string{userAna, userGhost}, Assignees: []string{userCass},
+	})
+
+	// Assert
+	if created.Number != 43 || !errors.Is(err, forge.ErrSomePeopleNotAdded) ||
+		!errors.Is(err, forge.ErrUnexpectedStatus) || !strings.Contains(err.Error(), userGhost) {
+		t.Errorf("CreatePullRequest = %+v, %v; want pull 43, ghost named as not added, and the assignees' failure",
+			created, err)
+	}
+}

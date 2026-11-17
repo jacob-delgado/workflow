@@ -182,6 +182,12 @@ func TestCreatePullRequestOnGitHubStopsAtAssigneesTheForgeRefuses(t *testing.T) 
 	if got := requestTo(*seen, githubPRIssuePath+"/labels"); got.method != "" {
 		t.Errorf("labeled the pull after its assignees were refused: %+v", got)
 	}
+
+	// With no reviewer missed, the refusal is returned as it is: the terminal
+	// reads a bare refusal as saying nothing more than its advice.
+	if _, bare := err.(*forge.RefusalError); !bare { //nolint:errorlint // the bare refusal itself is the contract
+		t.Errorf("CreatePullRequest error = %#v, want the assignees' refusal itself", err)
+	}
 }
 
 func TestCreatePullRequestOnGitHubReportsLabelsTheForgeRefuses(t *testing.T) {
