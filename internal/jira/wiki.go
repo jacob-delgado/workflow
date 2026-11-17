@@ -65,26 +65,55 @@ var starItalicSpan = regexp.MustCompile(`\*([^\s*](?:[^*]*?[^\s*])?)\*`)
 func WikiFromMarkdown(md string) string {
 	lines := strings.Split(md, "\n")
 	out := make([]string, 0, len(lines))
-	opener, inFence := codeFence{}, false
+	block := wikiBlock{}
 
-	for _, line := range lines {
-		fence, isFence := readFence(line)
+	for _, text := range lines {
+		var converted string
 
-		switch {
-		case inFence && isFence && fence.closes(opener):
-			out = append(out, "{code}")
-			inFence = false
-		case inFence:
-			out = append(out, line)
-		case isFence:
-			out = append(out, fence.bracket())
-			opener, inFence = fence, true
-		default:
-			out = append(out, convertLine(line))
-		}
+		block, converted = block.line(text)
+		out = append(out, converted)
 	}
 
 	return strings.Join(out, "\n")
+}
+
+// blockStage is whether a line is read as prose or inside a fenced code block.
+// It has two values, so it is read by comparison.
+type blockStage int
+
+const (
+	// blockProse is a line outside any code block, converted.
+	blockProse blockStage = iota
+	// blockCode is a line inside a fenced code block, kept as written.
+	blockCode
+)
+
+// wikiBlock is where a comment's conversion stands as it reaches a line: in
+// prose, or inside the code block its opener began.
+type wikiBlock struct {
+	stage  blockStage
+	opener codeFence
+}
+
+// line converts one line read in the block, and answers the block the next
+// line is read in: a fence in prose opens a code block, and inside one only a
+// fence that closes its opener ends it.
+func (b wikiBlock) line(text string) (wikiBlock, string) {
+	fence, isFence := readFence(text)
+
+	if b.stage == blockCode {
+		if isFence && fence.closes(b.opener) {
+			return wikiBlock{stage: blockProse}, "{code}"
+		}
+
+		return b, text
+	}
+
+	if isFence {
+		return wikiBlock{stage: blockCode, opener: fence}, fence.bracket()
+	}
+
+	return b, convertLine(text)
 }
 
 // codeFence is a line that opens or closes a fenced code block: the marker
