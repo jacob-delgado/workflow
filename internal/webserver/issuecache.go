@@ -29,8 +29,8 @@ type issuesCache struct {
 	pages map[string]heldPage
 	// reading is each search under way, by its JQL.
 	reading map[string]*landing[jira.SearchResult]
-	// dropped counts the drops, so a search that began before one lands due.
-	dropped int
+	// round counts the drops, so a search that began before one lands due.
+	round round
 	// unkept is each view's newest page a search answered that the store has
 	// not been asked to keep yet, and keeping each view whose page a frame is
 	// putting in the store now. That frame keeps a page landing meanwhile
@@ -62,12 +62,12 @@ type heldPage struct {
 func (s *server) frameIssues(ctx context.Context, jql string) (jira.SearchResult, error) {
 	return sharedRead(ctx,
 		func() turn[jira.SearchResult] { return s.issuesHeld.serve(jql, s.now(), s.forgeInterval()) },
-		func(dropped int) (jira.SearchResult, error) {
+		func(began round) (jira.SearchResult, error) {
 			shared, release := s.worlds.outliving(ctx)
 			defer release()
 
 			result, err := s.deps.Jira.Search(shared, jql, 0)
-			s.issuesHeld.land(jql, dropped, heldPage{result: result, failed: err, readAt: s.now()})
+			s.issuesHeld.land(jql, began, heldPage{result: result, failed: err, readAt: s.now()})
 
 			if err == nil {
 				s.keepFirstPage(shared, jql)
@@ -148,20 +148,19 @@ func (c *issuesCache) serve(jql string, now time.Time, interval time.Duration) t
 
 	c.reading[jql] = newLanding[jira.SearchResult]()
 
-	return turn[jira.SearchResult]{dropped: c.dropped}
+	return turn[jira.SearchResult]{began: c.round}
 }
 
-// land holds the page the search of jql began after dropped drops found,
-// already due when a drop came during it, and lets go every frame waiting on
-// it.
-func (c *issuesCache) land(jql string, dropped int, page heldPage) {
+// land holds the page the search of jql begun in round began found, already
+// due when a drop came during it, and lets go every frame waiting on it.
+func (c *issuesCache) land(jql string, began round, page heldPage) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	c.reading[jql].end()
 	delete(c.reading, jql)
 
-	page.due = c.dropped != dropped
+	page.due = c.round != began
 	c.pages[jql] = page
 
 	if page.failed == nil {
@@ -213,5 +212,5 @@ func (c *issuesCache) drop() {
 	defer c.mu.Unlock()
 
 	clear(c.pages)
-	c.dropped++
+	c.round = c.round.next()
 }

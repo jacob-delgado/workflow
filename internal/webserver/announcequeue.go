@@ -277,18 +277,19 @@ func (s *server) readHeldLater() armed.Next {
 	defer s.held.mu.Unlock()
 
 	if !s.held.retired {
-		round := s.held.hold.Round()
-		s.held.timer = time.AfterFunc(interval, func() { s.readHeldIn(round) })
+		heldIn := s.held.hold.Round()
+		s.held.timer = time.AfterFunc(interval, func() { s.readHeldIn(heldIn) })
 	}
 
 	return armed.NextNothing
 }
 
-// readHeldIn reads the hold, set to in round, while it still waits in that
-// round: one stopped, replaced or posted meanwhile is read no more.
-func (s *server) readHeldIn(round int) {
+// readHeldIn reads the hold the timer was set for in the hold's round heldIn,
+// while it still waits in that round: one stopped, replaced or posted
+// meanwhile is read no more.
+func (s *server) readHeldIn(heldIn int) {
 	hold, _ := s.heldNow()
-	if hold.Round() == round && hold.Stage().Waiting() {
+	if hold.Round() == heldIn && hold.Stage().Waiting() {
 		s.advance(s.worlds.lifetime, armed.NextRead)
 	}
 }
