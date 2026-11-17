@@ -4,12 +4,15 @@
 package gitrepo_test
 
 import (
+	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/jacob-delgado/workflow/internal/codeowners"
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
 // upstreamName is the remote a fork's clone names for the repository it was
@@ -53,6 +56,11 @@ func TestPushRemoteReadsTheBranchKeyBeforeTheDefault(t *testing.T) {
 		"a local branch it tracks": {
 			own: none, pushDefault: none, tracked: reply{out: []byte(".\n")}, want: gitrepo.DefaultRemote,
 		},
+		// git config --get answers a key set to nothing with an empty line.
+		"a push remote set to nothing": {
+			own: reply{out: []byte("\n")}, pushDefault: none, tracked: reply{out: []byte(forkRemote + "\n")},
+			want: forkRemote,
+		},
 	}
 
 	for name, tt := range cases {
@@ -67,11 +75,11 @@ func TestPushRemoteReadsTheBranchKeyBeforeTheDefault(t *testing.T) {
 			}), workDir)
 
 			// Act
-			got := repo.PushRemote(t.Context(), pushedBranch)
+			got, err := repo.PushRemote(t.Context(), pushedBranch)
 
 			// Assert
-			if got != tt.want {
-				t.Errorf("PushRemote = %q, want %q", got, tt.want)
+			if err != nil || got != tt.want {
+				t.Errorf("PushRemote = %q, %v; want %q", got, err, tt.want)
 			}
 		})
 	}
@@ -86,11 +94,11 @@ func TestADetachedHeadAsksOnlyForThePushDefault(t *testing.T) {
 	repo := gitrepo.At(fakeRunner(t, map[string]reply{readPushDefault: {out: []byte(forkRemote + "\n")}}), workDir)
 
 	// Act
-	got := repo.PushRemote(t.Context(), "")
+	got, err := repo.PushRemote(t.Context(), "")
 
 	// Assert
-	if got != forkRemote {
-		t.Errorf("PushRemote of a detached HEAD = %q, want %q", got, forkRemote)
+	if err != nil || got != forkRemote {
+		t.Errorf("PushRemote of a detached HEAD = %q, %v; want %q", got, err, forkRemote)
 	}
 }
 
@@ -287,5 +295,45 @@ func TestDescribeReadsTheBaseRemoteOfAForksClone(t *testing.T) {
 	want := gitrepo.Remote{Name: upstreamName, URL: "git@github.com:owner/repo.git"}
 	if err != nil || repo.Base != want || repo.Origin != originURL {
 		t.Errorf("Describe = %+v, %v; want origin kept and the base %+v", repo, err, want)
+	}
+}
+
+// errConfigStalled is a config read the quick-read bound gave up on, the way
+// git on a dead network mount ends.
+var errConfigStalled = fmt.Errorf("git: %w after 30s", proc.ErrTimedOut)
+
+// A push remote git could not read is not guessed: a guess decides whether the
+// branch reads as pushed, and so whether the loop pushes it, and where to.
+func TestABranchWhosePushRemoteCannotBeReadIsNotRead(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	replies := with(featureBranch(), map[string]reply{featurePushRemote: {err: errConfigStalled}})
+
+	// Act
+	branch, err := gitrepo.At(fakeRunner(t, replies), workDir).ReadBranch(t.Context())
+
+	// Assert
+	if !errors.Is(err, proc.ErrTimedOut) {
+		t.Errorf("ReadBranch = %+v, %v; want the stalled push remote read as the failure", branch, err)
+	}
+}
+
+// errConfigUnparsable is git refusing a configuration it cannot parse, which
+// it exits 3 for, not the 1 that says a key is unset.
+var errConfigUnparsable = &proc.ExitError{Program: gitProgram, Code: 3, Stderr: "fatal: bad config line 4"}
+
+func TestAPushRemoteGitCouldNotReadIsAnError(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	repo := gitrepo.At(fakeRunner(t, map[string]reply{readBranchPushRemote: {err: errConfigUnparsable}}), workDir)
+
+	// Act
+	got, err := repo.PushRemote(t.Context(), pushedBranch)
+
+	// Assert
+	if !errors.Is(err, errConfigUnparsable) || got != "" {
+		t.Errorf("PushRemote = %q, %v; want git's failure and no remote guessed", got, err)
 	}
 }

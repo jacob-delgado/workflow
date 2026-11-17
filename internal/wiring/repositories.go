@@ -61,11 +61,16 @@ func (e Environment) Locate(ctx context.Context, dir string) Workspace {
 // it is pushed to the base remote, else the branch on the fork its push remote
 // names. Only the fork's path is read from that remote: the forge is the
 // base's, so a host alias the remote's URL uses for SSH still finds it. A push
-// remote whose URL names no repository is refused, naming the remote.
+// remote whose URL names no repository is refused, naming the remote, and so
+// is one git could not read.
 func (e Environment) headOf(ctx context.Context, where Workspace, branch string) (forge.Head, error) {
 	repo := gitrepo.At(e.git, where.Root)
 
-	pushRemote := repo.PushRemote(ctx, branch)
+	pushRemote, err := repo.PushRemote(ctx, branch)
+	if err != nil {
+		return forge.Head{}, err
+	}
+
 	if pushRemote == where.Base.Name {
 		return forge.Head{Branch: branch, Fork: ""}, nil
 	}

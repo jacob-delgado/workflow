@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jacob-delgado/workflow/internal/gitrepo"
+	"github.com/jacob-delgado/workflow/internal/proc"
 )
 
 // errNoUpstream is what git says for a branch that was never pushed.
@@ -19,7 +20,7 @@ var errNoUpstream = errors.New("fatal: no upstream configured for branch")
 
 // errNoRef is what git exits with when rev-parse --verify --quiet, symbolic-ref
 // --quiet or config --get finds nothing.
-var errNoRef = errors.New("exit status 1")
+var errNoRef = &proc.ExitError{Program: gitProgram, Code: 1, Stderr: ""}
 
 // featureBranch is a feature branch pushed to origin, which sets no push
 // default, and two commits ahead of its upstream.

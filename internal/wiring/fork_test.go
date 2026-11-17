@@ -4,6 +4,8 @@
 package wiring_test
 
 import (
+	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -296,5 +298,52 @@ func TestTheGitSeamsFinishAForkCloneWithNoLocalBase(t *testing.T) {
 
 	if got := git(t, root, "rev-parse", mainBranch); got != upstreamMain {
 		t.Errorf("main is at %s after the finish, want upstream's %s", got, upstreamMain)
+	}
+}
+
+// stallingGit puts a git first on PATH that fails reading key as a stalled
+// config read does, writes each push it is asked for to the file it returns,
+// and runs the real git for everything else.
+func stallingGit(t *testing.T, key string) string {
+	t.Helper()
+
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatalf("these tests need git: %v", err)
+	}
+
+	bin, pushes := t.TempDir(), filepath.Join(t.TempDir(), "pushes")
+	write(t, filepath.Join(bin, "git"), "#!/bin/sh\n"+
+		"case \"$*\" in *\"config --get "+key+"\") echo 'fatal: config read stalled' >&2; exit 128;; esac\n"+
+		"case \" $* \" in *\" push \"*) echo \"$*\" >> '"+pushes+"';; esac\n"+
+		"exec '"+gitPath+"' \"$@\"\n", 0o700)
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	return pushes
+}
+
+func TestAPushWhoseRemoteCannotBeReadStartsNoGit(t *testing.T) {
+	// Arrange
+	repo, root, _ := gitSeams(t)
+	bareRemote(t, root, "origin")
+
+	err := repo.CreateBranch(t.Context(), featureBranch, "main")
+	if err != nil {
+		t.Fatalf("CreateBranch: %v", err)
+	}
+
+	pushes := stallingGit(t, "branch."+featureBranch+".pushRemote")
+
+	// Act
+	push, err := repo.Push(t.Context(), featureBranch)
+
+	// Assert
+	if err == nil {
+		lines, ended := drained(push)
+		t.Errorf("Push started and ended %v saying %q; want it refused before git runs", ended, lines)
+	}
+
+	if ran, _ := os.ReadFile(pushes); len(ran) != 0 {
+		t.Errorf("git pushed %q; want no push while the push remote is unknown", ran)
 	}
 }

@@ -215,3 +215,23 @@ func TestAPullRequestFromAPushRemoteNamingNoForgeIsNotOpened(t *testing.T) {
 		t.Errorf("CreatePullRequest = %v having sent %q; want %v and nothing sent", err, fake.stdin(), forge.ErrNotARemote)
 	}
 }
+
+// A push remote git could not read leaves the head unknown, so the request is
+// refused for that read, not opened from a guess or failed as another remote.
+func TestAPullRequestWhosePushRemoteCannotBeReadIsNotOpened(t *testing.T) {
+	// Arrange
+	fake, where := forkForge(t)
+	key := "branch." + forkBranch + ".pushRemote"
+	stallingGit(t, key)
+
+	request := forkRequest()
+
+	// Act
+	_, err := wired(t, githubCLI(), where, nil).Forge.CreatePullRequest(t.Context(), request)
+
+	// Assert
+	if err == nil || !strings.Contains(err.Error(), key) || fake.stdin() != "" {
+		t.Errorf("CreatePullRequest = %v having sent %q; want the unread %s as the failure and nothing sent",
+			err, fake.stdin(), key)
+	}
+}
