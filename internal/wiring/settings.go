@@ -66,15 +66,18 @@ type configEditor struct {
 }
 
 // read reads the files as they are now, keeping what was read for the save
-// made over it, and answers it masked.
+// made over it, and answers it masked. It reads under the lock a save holds,
+// so a read begun before a save cannot keep its older revision after the
+// save's, which would refuse the next save as changed on disk; a read made
+// meanwhile waits for the save, its Slack refresh included.
 func (e *configEditor) read() (config.Config, config.Revision, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
 	cfg, over, err := config.LoadLayersAt(e.files)
 	if err != nil {
 		return config.Config{}, config.Revision{}, fmt.Errorf("reading %s: %w", e.files, err)
 	}
-
-	e.mu.Lock()
-	defer e.mu.Unlock()
 
 	e.last, e.over = cfg, over
 
