@@ -25,6 +25,9 @@ const (
 	JobFailed
 	// JobSkipped did not run: no files matched it, or its skip rule applied.
 	JobSkipped
+	// JobUnreported was running when its run ended — stopped, or ended before
+	// lefthook's summary — so nothing said how it ended.
+	JobUnreported
 )
 
 // Job is one job in a hook run.
@@ -49,27 +52,64 @@ type Location struct {
 // gets one.
 var hookBanner = regexp.MustCompile(`^│.*\blefthook\b.*\bhook:\s*\S`)
 
-// NextJob folds one more output line into the jobs seen so far, returning the
-// updated jobs and whether a summary has begun: a job is running from its
-// header until the summary reports it, and the next hook's banner ends that
-// summary, its jobs starting as the first hook's did. It does not modify the
-// jobs it is given, so a caller streaming output can keep the running set on
-// its own value and never re-read the whole output — a chatty hook would
-// otherwise cost a full re-parse on every line, and again on every redraw.
-func NextJob(jobs []Job, inSummary bool, raw string) ([]Job, bool) {
+// trackStage is where a JobTrack is in a hook's output: among its jobs, or in
+// the summary that reports how each ended.
+type trackStage int
+
+const (
+	trackJobs trackStage = iota
+	trackSummary
+)
+
+// JobTrack is the jobs a streamed lefthook run has shown so far, folded in a
+// line at a time: a job is running from its header until the summary reports
+// it, and the next hook's banner ends that summary, its jobs starting as the
+// first hook's did. A caller keeps the track on its own value and never
+// re-reads the whole output — a chatty hook would otherwise cost a full
+// re-parse on every line, and again on every redraw. Its zero value has seen
+// nothing.
+type JobTrack struct {
+	stage trackStage
+	jobs  []Job
+}
+
+// Next is the track with one more output line folded in. It leaves the track
+// it is called on as it was.
+func (t JobTrack) Next(raw string) JobTrack {
 	line := strings.TrimSpace(raw)
-	next := slices.Clone(jobs)
+	next := JobTrack{stage: t.stage, jobs: slices.Clone(t.jobs)}
 
 	switch {
 	case strings.HasPrefix(line, "summary:"):
-		return next, true
+		next.stage = trackSummary
 	case hookBanner.MatchString(line):
-		return next, false
-	case inSummary:
-		return reported(next, line), true
+		next.stage = trackJobs
+	case t.stage == trackSummary:
+		next.jobs = reported(next.jobs, line)
 	default:
-		return started(next, line), inSummary
+		next.jobs = started(next.jobs, line)
 	}
+
+	return next
+}
+
+// Ended is the track as its run's end leaves it: a job still running then is
+// one lefthook never reported on.
+func (t JobTrack) Ended() JobTrack {
+	ended := JobTrack{stage: t.stage, jobs: slices.Clone(t.jobs)}
+
+	for index, job := range ended.jobs {
+		if job.State == JobRunning {
+			ended.jobs[index].State = JobUnreported
+		}
+	}
+
+	return ended
+}
+
+// Jobs are the jobs seen so far, in the order they first appeared.
+func (t JobTrack) Jobs() []Job {
+	return slices.Clone(t.jobs)
 }
 
 // started records a job's header, or a job lefthook skipped.
@@ -216,7 +256,7 @@ func eslintHeaderFor(goos string) *regexp.Regexp {
 const MaxPlaces = 1000
 
 // FailureScan reads where a hook's tools pointed one output line at a time, as
-// NextJob reads its jobs, so a run can keep the places as its output streams
+// a JobTrack reads its jobs, so a run can keep the places as its output streams
 // in: by the time a long run ends, its first lines are gone. Start one with
 // NewFailureScan.
 type FailureScan struct {

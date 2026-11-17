@@ -10,6 +10,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/jacob-delgado/workflow/internal/api"
+	"github.com/jacob-delgado/workflow/internal/hooks"
 	"github.com/jacob-delgado/workflow/internal/jira"
 	"github.com/jacob-delgado/workflow/internal/progress"
 	"github.com/jacob-delgado/workflow/internal/report"
@@ -86,6 +87,17 @@ func (g glyphs) status(category jira.StatusCategory) string {
 	}
 
 	return marks[report.StatusCategory(category)]
+}
+
+// jobGlyph is the mark of a lefthook job as it stands. One lefthook never
+// reported on once its run is over, stopped or ended before the summary, is
+// going no longer, and nothing said how it ended: it takes the mark a stopped
+// run does.
+func (kit renderKit) jobGlyph(state hooks.JobState) string {
+	return map[hooks.JobState]string{
+		hooks.JobRunning: kit.marks.inFlight, hooks.JobPassed: kit.marks.done, hooks.JobFailed: kit.failedGlyph(),
+		hooks.JobSkipped: kit.marks.notStarted, hooks.JobUnreported: kit.marks.notStarted,
+	}[state]
 }
 
 // marker is what starts a row in a list: a pointer at the selected one.

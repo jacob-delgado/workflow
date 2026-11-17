@@ -75,11 +75,9 @@ type commandRun struct {
 	stop func()
 
 	lines []string
-	// jobList is the parsed run state, folded in as each line arrives rather than
-	// re-read from every line on every frame; inSummary carries the scan across
-	// lines. See hooks.NextJob.
-	jobList   []hooks.Job
-	inSummary bool
+	// jobTrack is lefthook's jobs, folded in as each line arrives rather than
+	// re-read from every line on every frame.
+	jobTrack hooks.JobTrack
 	// placeScan is where the tools pointed, folded in the same way, so a place
 	// printed before the tail the run keeps is still offered.
 	placeScan  hooks.FailureScan
@@ -245,7 +243,7 @@ func (r commandRun) found(places []hooks.Location) commandRun {
 // read is the run with one more line of output, its jobs and places folded
 // in as it arrives.
 func (r commandRun) read(line string) commandRun {
-	r.jobList, r.inSummary = hooks.NextJob(r.jobList, r.inSummary, line)
+	r.jobTrack = r.jobTrack.Next(line)
 	r.placeScan = r.placeScan.Next(line)
 	r.lines = capLines(append(r.lines, line))
 
@@ -256,7 +254,7 @@ func (r commandRun) read(line string) commandRun {
 // after a stop is the stop taking effect, not a failure to report; a clean
 // exit after one means the program finished before the stop reached it.
 func (r commandRun) ended(err error) (commandRun, runNext) {
-	r.err = err
+	r.err, r.jobTrack = err, r.jobTrack.Ended()
 
 	switch {
 	case err == nil && r.succeeded != nil:
@@ -345,23 +343,12 @@ func (r commandRun) failureHeadline(kit renderKit) string {
 }
 
 // jobs is lefthook's jobs, each with its glyph, when the output is lefthook's.
-// A job lefthook never reported on once the run is over — stopped, or ended
-// before lefthook's summary — is going no longer, and nothing said how it
-// ended: it takes the mark a stopped run does.
 func (r commandRun) jobs(kit renderKit) string {
-	unreported := kit.marks.inFlight
-	if !r.going() {
-		unreported = kit.marks.notStarted
-	}
+	jobs := r.jobTrack.Jobs()
+	parts := make([]string, 0, len(jobs))
 
-	glyphs := map[hooks.JobState]string{
-		hooks.JobRunning: unreported, hooks.JobPassed: kit.marks.done,
-		hooks.JobFailed: kit.failedGlyph(), hooks.JobSkipped: kit.marks.notStarted,
-	}
-	parts := make([]string, 0, len(r.jobList))
-
-	for _, job := range r.jobList {
-		parts = append(parts, glyphs[job.State]+" "+job.Name)
+	for _, job := range jobs {
+		parts = append(parts, kit.jobGlyph(job.State)+" "+job.Name)
 	}
 
 	return strings.Join(parts, kit.marks.separator)
