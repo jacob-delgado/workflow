@@ -211,6 +211,14 @@ func (s *switchable) current() (messaging.Client, error) {
 	return s.client, nil
 }
 
+// use makes client the one read with, as other settings saved would.
+func (s *switchable) use(client messaging.Client) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	s.client = client
+}
+
 // set makes the client available or not.
 func (s *switchable) set(available bool) {
 	s.lock.Lock()
