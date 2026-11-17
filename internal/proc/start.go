@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jacob-delgado/workflow/internal/proc/grace"
 	"github.com/jacob-delgado/workflow/internal/proc/pgroup"
 	"github.com/jacob-delgado/workflow/internal/sanitize"
 )
@@ -230,59 +231,46 @@ func (s stream) waiting(onPipe chan<- bool) func(bool) {
 // run ends even where a read in progress cannot be ended; follow then closes
 // the pipe, which ends that read on Unix.
 func (s stream) watch(reaped <-chan struct{}, onPipe <-chan bool, scanned <-chan error) error {
-	var reading bool
-
-	grace := pipeGrace{left: outputGrace, started: time.Time{}, timer: nil}
+	watch := grace.Start(outputGrace)
 	exit := reaped
 
+	var expiry <-chan time.Time
+
 	for {
+		var move func(grace.Watch, time.Time) grace.Watch
+
 		select {
-		case reading = <-onPipe:
-			grace.run(exit == nil && reading)
+		case reading := <-onPipe:
+			move = grace.Watch.OffPipe
+			if reading {
+				move = grace.Watch.OnPipe
+			}
 		case <-exit:
 			exit = nil
-
-			grace.run(reading)
+			move = grace.Watch.Reaped
 		case scanErr := <-scanned:
 			return scanErr
-		case <-grace.expired():
+		case <-expiry:
 			s.sender.abandon()
 
 			return nil
 		}
+
+		now := time.Now()
+		watch = move(watch, now)
+		expiry = countdown(watch, now)
 	}
 }
 
-// pipeGrace counts a duration down only while it runs, so the time a reader
-// spends waiting on someone else is not counted against it.
-type pipeGrace struct {
-	left    time.Duration
-	started time.Time
-	timer   *time.Timer
-}
-
-// run starts the count, or pauses it if it runs. watch never starts a count
-// already running: deliver says it waits on the pipe and that it no longer
-// does by turns, and the exit comes once.
-func (g *pipeGrace) run(running bool) {
-	switch {
-	case running:
-		g.started = time.Now()
-		g.timer = time.NewTimer(g.left)
-	case g.timer != nil:
-		// The timer dropped is never read again, so it needs no Stop.
-		g.left -= time.Since(g.started)
-		g.timer = nil
-	}
-}
-
-// expired delivers once the count reaches zero, and never while it is paused.
-func (g *pipeGrace) expired() <-chan time.Time {
-	if g.timer == nil {
+// countdown delivers once what is left of the grace has passed, and never
+// while the watch is not counting. Each move makes a fresh one, and the one
+// it replaces is never read again, so it needs no Stop.
+func countdown(watch grace.Watch, now time.Time) <-chan time.Time {
+	if watch.Stage() != grace.StageCounting {
 		return nil
 	}
 
-	return g.timer.C
+	return time.After(watch.Left(now))
 }
 
 // lineSender hands lines to Lines until the run abandons its output, and drops

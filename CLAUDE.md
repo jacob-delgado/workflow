@@ -82,6 +82,7 @@ internal/convention/  branch names, Conventional Commits, pull request text
 internal/editor/      handing text and files to $EDITOR
 internal/proc/        running programs; the one place exec lives
 internal/proc/pgroup/ canceling a streamed child's whole process group (Unix)
+internal/proc/grace/  how long a streamed run's output may hold it once the program exits
 internal/lifetime/    work that outlasts its asker: the end it still ends with, and what a quit waits for
 internal/rlimit/      lowering a resource limit around one test call (tests only)
 internal/ptytest/     a pseudo-terminal for a test to type at (tests only)
