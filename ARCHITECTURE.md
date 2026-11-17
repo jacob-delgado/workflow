@@ -164,7 +164,8 @@ clock and `armed.Drive` carries out for the command line. It hears only the
 read asked last in its round, so a slow read never steps it back past a later
 one. The hold finds its pull request by the branch it was armed on, reads CI
 at the commit the forge says it is at, waits past failures for
-`armed.UnheardPatience` (TRADE-59) and counts no-check patience by
+`armed.UnheardPatience` (TRADE-59), naming what it last failed at, a read or
+its post, as an `armed.Attempt`, and counts no-check patience by
 `armed.CIWatch`. `internal/armed` sits above `internal/loop` and below the
 surfaces, which an `armed-below-the-surfaces` rule in `.golangci.yml` holds.
 
@@ -174,6 +175,11 @@ chooses what follows; any other refusal comes back as a `loop.Err…` sentinel.
 Either way the error says why, and the command line, the terminal and the web
 server each map it to the sentence they already use (`errors.Is` at the
 surface), so the shared layer never dictates one surface's wording to another.
+A hold waiting past a failure, or given up past its patience, is the one
+place the error cannot say which failed: a read and a post can each be asked
+to wait in the same words. So `--when-green` words it by the `armed.Attempt`
+the hold names (`Hold.Failed`, or its `UnheardError`'s), the web a hold given
+up by the same, and the terminal in words that fit either.
 
 `internal/loop` is a leaf above the domain packages and below the surfaces. It
 imports only the domain packages the `loop-below-the-surfaces` rule in

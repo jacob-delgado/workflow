@@ -334,10 +334,10 @@ func (m Model) droppedReport(hold armed.Hold) footerReport {
 }
 
 // droppedCause is why the hold was given up on while it waited, and whether
-// it was: the forge never listed its pull request, nothing was heard of it
-// for too long, no check was reported, CI ran unchanged for too long, or it
-// merged, or began merging, first, or is no longer its branch's. Any other
-// reason is a post's failure.
+// it was: the forge never listed its pull request, its reads or its post
+// failed for too long, no check was reported, CI ran unchanged for too long,
+// or it merged, or began merging, first, or is no longer its branch's. Any
+// other reason is a post's failure.
 func (m Model) droppedCause(hold armed.Hold) (string, bool) {
 	name, reason := m.pullName(hold.Pull()), hold.Reason()
 	patience := strconv.Itoa(int(armed.UnheardPatience.Minutes())) + "m"

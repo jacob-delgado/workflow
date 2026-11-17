@@ -435,9 +435,9 @@ func (s *server) heldReason(hold armed.Hold) string {
 }
 
 // droppedWords is why hold was dropped: the forge never listed its pull
-// request, or nothing was heard of it, for too long; no check was reported;
-// it merged, or began merging, first or is no longer its branch's; or how its
-// post failed.
+// request within its patience, or nothing was heard of it, or its post
+// failed, for that long; no check was reported; it merged, or began merging,
+// first or is no longer its branch's; or how its post failed.
 func (s *server) droppedWords(hold armed.Hold) string {
 	name, reason := s.pullName(hold.Pull()), hold.Reason()
 	patience := minutes(armed.UnheardPatience)
@@ -451,8 +451,12 @@ func (s *server) droppedWords(hold armed.Hold) string {
 		{armed.ErrNotListedYet, func() string { return "the forge did not list " + name + " within " + patience }},
 		{armed.ErrUnheard, func() string {
 			unheard, _ := errors.AsType[armed.UnheardError](reason)
+			failed := map[armed.Attempt]string{
+				armed.AttemptRead: "nothing could be heard of " + name,
+				armed.AttemptPost: "the post of " + name + " to " + s.config().Messaging.Service() + " failed",
+			}[unheard.Attempt]
 
-			return "nothing could be heard of " + name + " for " + patience + ": " + briefly(unheard.Last)
+			return failed + " for " + patience + ": " + briefly(unheard.Last)
 		}},
 		{armed.ErrNoCI, func() string {
 			return "no checks reported on " + name + " within " + minutes(armed.NoCIPatience) + "; announce it by hand"

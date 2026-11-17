@@ -3882,8 +3882,9 @@ components:
           type: string
           description: >-
             Why it stands where it does: why a dropped announcement was not
-            posted — the forge did not list the pull request, or nothing could
-            be heard of it, for ten minutes; no check was reported on it
+            posted — the forge did not list the pull request, nothing could
+            be heard of it, or its post failed, for ten minutes, naming the
+            last failure; no check was reported on it
             across ten minutes of reads heard; the branch's pull request is
             another one, or merged, or began merging, before its CI passed;
             the service refused the post; or the post may have gone out, which

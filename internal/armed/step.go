@@ -50,7 +50,7 @@ func (h Hold) armedAfresh(armedAt time.Time, arming Arming) Hold {
 
 	return Hold{
 		stage: stage, round: h.round + 1, asked: 0, arming: arming, watch: WatchFrom(armedAt),
-		unheardSince: time.Time{}, ci: forge.CI{}, reason: nil, lastPost: loop.DeliveredFailed,
+		unheardSince: time.Time{}, ci: forge.CI{}, reason: nil, failed: AttemptRead, lastPost: loop.DeliveredFailed,
 	}
 }
 
@@ -98,7 +98,7 @@ func (h Hold) Heard(reading Reading) (Hold, Next) {
 	}
 
 	if h.stage == StageListing && !reading.Found {
-		return h.unheard(ErrNotListedYet, reading.At)
+		return h.unheard(AttemptRead, ErrNotListedYet, reading.At)
 	}
 
 	err := StillArmed(h.Pull(), reading.Pull, reading.Found)
@@ -115,7 +115,7 @@ func (h Hold) Heard(reading Reading) (Hold, Next) {
 // given up on once the patience has passed since the first failure.
 func (h Hold) readCI(reading Reading) (Hold, Next) {
 	watch, verdict := h.watch.Read(reading.CI, reading.At)
-	h.watch, h.ci, h.reason = watch, reading.CI, nil
+	h.watch, h.ci, h.reason, h.failed = watch, reading.CI, nil, AttemptRead
 
 	givenUp := givenUpOn(verdict)
 	if givenUp != nil {
@@ -171,21 +171,21 @@ func (h Hold) Unheard(failure Failure) (Hold, Next) {
 		return h, NextNothing
 	}
 
-	return h.unheard(failure.Err, failure.At)
+	return h.unheard(AttemptRead, failure.Err, failure.At)
 }
 
-// unheard is the hold after err at at, a failure to hear: waiting to try
-// again, or out of patience.
-func (h Hold) unheard(err error, at time.Time) (Hold, Next) {
+// unheard is the hold after attempt failed with err at at, a failure to
+// hear: waiting to try again, or out of patience.
+func (h Hold) unheard(attempt Attempt, err error, at time.Time) (Hold, Next) {
 	if h.unheardSince.IsZero() {
 		h.unheardSince = at
 	}
 
 	if at.Sub(h.unheardSince) >= UnheardPatience {
-		return h.ended(StageDropped, UnheardError{Last: err}), NextNothing
+		return h.ended(StageDropped, UnheardError{Last: err, Attempt: attempt}), NextNothing
 	}
 
-	h.watch, h.reason = h.watch.Unheard(), err
+	h.watch, h.reason, h.failed = h.watch.Unheard(), err, attempt
 	if h.stage != StageListing {
 		h.stage = StageUnheard
 	}
@@ -222,12 +222,12 @@ func afterPost(kind loop.Delivered) func(Hold, Outcome) (Hold, Next) {
 		loop.DeliveredPosted:            Hold.postedOn,
 		loop.DeliveredUnconfirmed:       Hold.postedOn,
 		loop.DeliveredCIFailed:          Hold.awaitingFixOn,
-		loop.DeliveredCIUnread:          Hold.triedAgainOn,
-		loop.DeliveredNotClaimed:        Hold.triedAgainOn,
+		loop.DeliveredCIUnread:          Hold.readTriedAgainOn,
+		loop.DeliveredNotClaimed:        Hold.postTriedAgainOn,
 		loop.DeliveredElsewhere:         Hold.elsewhereOn,
 		loop.DeliveredRefused:           Hold.droppedOn,
-		loop.DeliveredDeferred:          Hold.triedAgainOn,
-		loop.DeliveredDeferredUnclaimed: Hold.triedAgainOn,
+		loop.DeliveredDeferred:          Hold.postTriedAgainOn,
+		loop.DeliveredDeferredUnclaimed: Hold.postTriedAgainOn,
 		loop.DeliveredUncertain:         Hold.droppedOn,
 	}[kind]
 	if !placed {
@@ -251,10 +251,16 @@ func (h Hold) awaitingFixOn(outcome Outcome) (Hold, Next) {
 	return h.refusedByGate(refusal, outcome.At), NextReadLater
 }
 
-// triedAgainOn is the hold waiting past outcome's failure, which a wait can
-// change, within UnheardPatience.
-func (h Hold) triedAgainOn(outcome Outcome) (Hold, Next) {
-	return h.reclaimedFrom(outcome.Kind).unheard(outcome.Err, outcome.At)
+// readTriedAgainOn is the hold waiting, within UnheardPatience, past the
+// gate's read of CI that failed as it posted.
+func (h Hold) readTriedAgainOn(outcome Outcome) (Hold, Next) {
+	return h.unheard(AttemptRead, outcome.Err, outcome.At)
+}
+
+// postTriedAgainOn is the hold waiting, within UnheardPatience, past its post
+// that failed in a way a wait can change.
+func (h Hold) postTriedAgainOn(outcome Outcome) (Hold, Next) {
+	return h.reclaimedFrom(outcome.Kind).unheard(AttemptPost, outcome.Err, outcome.At)
 }
 
 // elsewhereOn is the hold whose announcement outcome found claimed

@@ -102,6 +102,7 @@ type Hold struct {
 	unheardSince time.Time
 	ci           forge.CI
 	reason       error
+	failed       Attempt
 	lastPost     loop.Delivered
 }
 
@@ -196,6 +197,13 @@ func (h Hold) CI() forge.CI {
 // waits on a fix past, or, posted, the store's failure to confirm it.
 func (h Hold) Reason() error {
 	return h.reason
+}
+
+// Failed is what the hold tried last and failed at, a read or its post,
+// while it waits past that failure, which Reason is; AttemptRead before
+// anything failed, and again once a read is heard.
+func (h Hold) Failed() Attempt {
+	return h.failed
 }
 
 // LastPost is how the hold's last post went, the kind loop.Deliver named:

@@ -230,6 +230,113 @@ func TestAHoldUnheardForItsPatienceSaysWhyAndWhatFailed(t *testing.T) {
 	}
 }
 
+// postFailed is a hold waiting past a post the store could not claim.
+func postFailed(t *testing.T) armed.Hold {
+	t.Helper()
+
+	return deliveredAs(due(t), loop.DeliveredNotClaimed, loop.ErrNotClaimed, 2*time.Minute)
+}
+
+// dueAfterAFailedPost is postFailed due again, its CI heard passing.
+func dueAfterAFailedPost(t *testing.T) armed.Hold {
+	t.Helper()
+
+	return heardAs(postFailed(t), heldPull(), forge.CIPassed, 3*time.Minute)
+}
+
+func TestAHoldNamesWhatItFailedAtAsItWaits(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]struct {
+		from  func(*testing.T) armed.Hold
+		event step
+		want  armed.Attempt
+	}{
+		"a read": {
+			from: postFailed, event: failing(errSeam, 3*time.Minute), want: armed.AttemptRead,
+		},
+		"the gate's read as it posted": {
+			from: dueAfterAFailedPost, want: armed.AttemptRead,
+			event: delivering(loop.DeliveredCIUnread, loop.GateRefusalError{Err: loop.ErrCIUnread}, 4*time.Minute),
+		},
+		"a claim the store could not take": {
+			from: due, want: armed.AttemptPost,
+			event: delivering(loop.DeliveredNotClaimed, loop.ErrNotClaimed, 2*time.Minute),
+		},
+		"a post asked to wait, no store keeping claims": {
+			from: due, want: armed.AttemptPost,
+			event: delivering(loop.DeliveredDeferredUnclaimed, httpx.ErrRateLimited, 2*time.Minute),
+		},
+	}
+
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Act
+			got, _ := tt.event(tt.from(t))
+
+			// Assert
+			if got.Stage() != armed.StageUnheard || got.Failed() != tt.want {
+				t.Errorf("stepped to %s, failed at %d; want unheard, failed at %d",
+					stageName(got.Stage()), got.Failed(), tt.want)
+			}
+		})
+	}
+}
+
+func TestAHoldHeardAgainPastAFailedPostNamesNoFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	hold := postFailed(t)
+
+	// Act
+	got := heardAs(hold, heldPull(), forge.CIPassed, 3*time.Minute)
+
+	// Assert
+	if got.Reason() != nil || got.Failed() != armed.AttemptRead {
+		t.Errorf("reason = %v, failed at %d; want no reason, failed at %d, the zero",
+			got.Reason(), got.Failed(), armed.AttemptRead)
+	}
+}
+
+func TestAHoldGivenUpPastItsPostSaysThePostFailedLast(t *testing.T) {
+	t.Parallel()
+
+	// Arrange
+	hold := dueAfterAFailedPost(t)
+
+	// Act
+	got, _ := delivering(loop.DeliveredDeferredUnclaimed, httpx.ErrRateLimited, 2*time.Minute+armed.UnheardPatience)(hold)
+
+	// Assert
+	unheard, ok := errors.AsType[armed.UnheardError](got.Reason())
+	if !ok || unheard.Attempt != armed.AttemptPost || !errors.Is(unheard.Last, httpx.ErrRateLimited) {
+		t.Errorf("reason = %v (%+v), want an UnheardError naming the post that failed last", got.Reason(), unheard)
+	}
+}
+
+func TestAnUnheardErrorSaysWhatFailedForTooLong(t *testing.T) {
+	t.Parallel()
+
+	cases := map[armed.Attempt]string{
+		armed.AttemptRead: "nothing could be heard of the pull request for too long: the seam failed",
+		armed.AttemptPost: "the announcement could not be posted for too long: the seam failed",
+	}
+
+	for attempt, want := range cases {
+		t.Run(want, func(t *testing.T) {
+			t.Parallel()
+
+			// Act & Assert
+			if got := (armed.UnheardError{Last: errSeam, Attempt: attempt}).Error(); got != want {
+				t.Errorf("Error() = %q, want %q", got, want)
+			}
+		})
+	}
+}
+
 func TestAHeardReadStartsTheUnheardPatienceAgain(t *testing.T) {
 	t.Parallel()
 

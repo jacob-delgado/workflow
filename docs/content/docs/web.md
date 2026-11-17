@@ -478,8 +478,9 @@ once the forge reports the CI passed, and the section then says it was
 announced. A failed run does not drop it: the section says a check failed and it
 waits on a fix, and it goes once a later run passes; nor does a read of the
 forge, or a post, that failed — the section says what failed and that it tries
-again — until nothing has been heard for ten minutes, when it is dropped
-saying what failed last. A post the service refused drops it with the
+again — until the reads, or the post, have failed for ten minutes, when it
+is dropped saying which, and how it failed last. A post the service refused
+drops it with the
 service's reason; one it did not say it took drops it too, since it may have
 gone out, and only `workflow announce` posts that one again, after asking. While no check is reported
 the section says it waits for checks; after ten minutes of reads that heard
